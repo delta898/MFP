@@ -123,9 +123,11 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 
 ## Summary-to-detail and settings density
 
-- 한 local panel의 readiness summary가 하위 설정 card와 1:1 대응할 때, summary 전체는 해당 card로 이동하는
+- 한 local panel의 summary가 하위 설정 card와 1:1 대응할 때, summary 전체는 해당 card로 이동하는
   button이 될 수 있다. 이동 뒤에는 관련 설정의 첫 action 또는 form에 keyboard focus를 두고, hover와
-  `focus-visible`로 clickability를 표현한다. 단순 정보 summary에는 이 interaction을 추가하지 않는다.
+  `focus-visible`로 clickability를 표현한다. 연결·검증 상태는 `.ui-settings-readiness-card`와 상태 dot을 사용하고,
+  현재 설정값의 요약은 `.ui-settings-summary-card`를 사용해 상태 색이나 성공 dot을 붙이지 않는다. 단순 정보
+  summary에는 이 interaction을 추가하지 않는다.
 - 설정 card의 높이는 content-driven이다. 고정 높이, 화면 높이에 맞춘 stretch, footer를 card 하단으로 밀어내는
   spacer를 사용하지 않는다. `header → body → reserved feedback → footer`가 바로 이어지며, footer는 feedback
   바로 다음의 고정 action anchor를 유지한다.
@@ -134,16 +136,21 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
   줄이기 위해 label, hint 또는 상태 정보를 생략하지 않는다.
 - 구현은 공통 `settings-card` pattern을 단일 출처로 사용한다. `.ui-settings-card`,
   `.ui-settings-card-heading`, `.ui-settings-card-detail`, `.ui-settings-card-feedback`,
-  `.ui-settings-card-footer`, `.ui-settings-readiness-card`, `.ui-settings-field`, `.ui-settings-field-grid`가
+  `.ui-settings-card-footer`, `.ui-settings-summary-card`, `.ui-settings-readiness-card`, `.ui-settings-field`, `.ui-settings-field-grid`가
   anatomy·density와 field의 `label → control → hint` typography를 소유한다. 화면별 stylesheet에는 provider 고유
   상태·action layout만 둔다.
-- readiness의 detail 이동과 feedback text/tone 갱신은 공통 settings-card controller가 소유한다. 화면 controller는
+- summary/readiness의 detail 이동과 feedback text/tone 갱신은 공통 settings-card controller가 소유한다. 화면 controller는
   target id와 feedback id만 지정하며, 같은 scroll·focus·feedback DOM 조작을 복사하지 않는다. 단, OAuth·로그인·외부
   연결 확인처럼 provider에 의존하는 workflow와 domain validation은 해당 feature에 남긴다.
 - Settings top menu 아래 local sub-menu는 독립된 목적이 둘 이상일 때만 사용한다. 단일 목적 panel에는 tab을
   장식으로 추가하지 않고 panel heading, readiness summary와 shared card hierarchy를 사용한다.
-- readiness summary는 desktop에서 1~3개면 한 row의 같은 너비 column으로, 4개면 2×2 grid로 배치한다. 더 좁은
+- summary/readiness card는 desktop에서 1~3개면 한 row의 같은 너비 column으로, 4개면 2×2 grid로 배치한다. 더 좁은
   viewport에서는 한 column으로 축소한다. card 수가 바뀌었다고 빈 column을 남기거나 한 card만 다음 row에 남기지 않는다.
+- 저장되는 설정 영역의 summary와 설정을 만들거나 검증하는 보조 작업은 같은 row에 섞지 않는다. 보조 작업을 상단에서
+  빠르게 접근할 필요가 있으면 공통 `.ui-settings-shortcut-card`를 별도 group에 배치하고 detail card 이동 동작은 동일한
+  `data-settings-card-target` controller를 재사용한다.
+- 의미와 위계가 같은 독립 field가 desktop에서 3개이면 1×3으로 배치한다. 중간 폭에서는 2+1, mobile에서는 한 column으로
+  축소하며 full-width field는 모든 column을 span한다. 의미상 두 쌍인 4개 field는 2×2 구조를 유지한다.
 - model configuration처럼 공급자 선택과 직접 입력이 공존하는 card는 field 수가 아니라 사용자의 선택에 따라 동일한
   grid slot을 교체한다. preset은 `공급자·모델 / Base URL·API Key`, direct는 `공급자·모델 이름 / Base URL·API Key`의
   2×2 구조를 사용한다. preset 모델의 이름을 별도 field로 반복하지 않는다.

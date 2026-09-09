@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted on 2026-08-26.
+Accepted on 2026-08-26. Revised on 2026-09-09 for the Settings Beta single-default model.
 
 ## Context
 
@@ -12,11 +12,11 @@ Allowing users to edit a system prompt or passing one unrestricted profile into 
 
 ## Decision
 
-BlogGenius uses one selected global profile with a versioned product default and one full custom snapshot. They remain separate profile identities.
+BlogGenius exposes one global `글쓰기 기본값`, not a choice between product and custom profile identities. The user edits one complete snapshot for voice, common instructions, blog length, structure, image plan and analyzed references. The versioned product default is the initial seed and the target of `추천 설정으로 되돌리기`; it is not a second selectable profile in Settings Beta.
 
-The default profile permits only three persisted user overrides: writing strategy, expression mode and speech level. Its tone, instructions, references, length, structure and image plan always come from the current product default. The custom profile owns a complete snapshot and exposes the broader editing surface. This keeps the default understandable while preserving a clean path to multiple named custom profiles later.
+The existing profile document and its `default`/`custom` identities remain an internal compatibility boundary while the legacy Settings surface coexists. Settings Beta persists its single writing default as the complete custom snapshot and does not create a second source of truth or parallel schema. Named multi-profile creation remains deferred until repeated switching between reusable bundles is a verified user need.
 
-Search/discovery writing strategy is part of that profile at `common.writing_strategy`, not a separate global setting. Reference analysis does not infer this purpose; the user chooses it explicitly. Per-post strategy overrides remain temporary and do not mutate the selected profile.
+Search/discovery writing strategy describes the intent of the current writing task, so Settings Beta does not expose or mutate it as a writing-default property. The current schema field at `common.writing_strategy` is preserved for compatibility until Blog Beta adopts the explicit per-writing choice. Reference analysis does not infer or overwrite this purpose.
 
 The stored profile is projected through a content-kind allowlist:
 
@@ -36,13 +36,12 @@ The writing profile is persisted separately from the general settings document s
 ## Consequences
 
 - Blog and shopping can share voice without sharing incompatible structure or evidence.
-- Blog and shopping inherit one profile strategy while blog posts may still override it individually.
+- Blog and shopping inherit the shared voice while each writing task owns its strategy selection.
 - The primary UI exposes one global additional writing principle; channel-specific global fields stay internal for compatibility.
 - Narrator, author context, information density and heading density no longer require user decisions in the primary UI.
-- Default updates do not silently alter an existing custom snapshot.
-- Default updates continue to improve its hidden system-owned values while retaining the user's three explicit default overrides.
-- A user can return to the default without losing custom data.
+- Product-default updates do not silently alter the saved user snapshot.
+- A user can explicitly return editable writing values to the current product recommendation without choosing between two profile identities.
 - Reference URL outages do not block generation from an already saved final profile.
 - Prompt composition and precedence can be tested at explicit boundaries.
 - New content kinds must define their own projection and adapter rather than consuming raw profile state.
-- Multi-profile selection, memory-based variation and the three-state image policy remain separate future decisions.
+- Multi-profile selection, task-level strategy UI, memory-based variation and the three-state image policy remain separate decisions. The task-level strategy contract is completed with Blog Beta in the following stage.

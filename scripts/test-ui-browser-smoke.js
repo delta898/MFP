@@ -8,6 +8,7 @@ const { chromium } = require('playwright');
 const { createHtmlCompositionRuntime } = require('../src/ui-runtime/html-composition-runtime');
 const { createCssCompositionRuntime } = require('../src/ui-runtime/css-composition-runtime');
 const { createJsCompositionRuntime } = require('../src/ui-runtime/js-composition-runtime');
+const { getDefaultContentWritingProfile, DEFAULT_CONTENT_WRITING_PROFILE_METADATA } = require('../src/content/writing-profile');
 
 const repoRoot = path.resolve(__dirname, '..');
 const uiRoot = path.join(repoRoot, 'ui');
@@ -54,6 +55,26 @@ function createAccountOverviewFixture() {
                 requestsRemaining: null
             }]
         }
+    };
+}
+
+function createWritingProfileFixture(profile = getDefaultContentWritingProfile()) {
+    return {
+        schema_version: 1,
+        active_profile: 'custom',
+        default_profile_overrides: {
+            writing_strategy: profile.common.writing_strategy,
+            writing_mode: profile.common.voice.writing_mode,
+            speech_level: profile.common.voice.speech_level
+        },
+        custom_profile: {
+            based_on_default_version: DEFAULT_CONTENT_WRITING_PROFILE_METADATA.profile_version,
+            ...profile
+        },
+        effective_profile: profile,
+        default_profile: getDefaultContentWritingProfile(),
+        default_profile_metadata: DEFAULT_CONTENT_WRITING_PROFILE_METADATA,
+        source: 'custom', warnings: [], updated_at: null
     };
 }
 
@@ -345,6 +366,28 @@ function getApiFixture(pathname) {
         };
     }
     if (pathname === '/api/v1/settings/ai-roles/test') return { display_name: 'fixture model', latency_ms: 8 };
+    if (pathname === '/api/v1/settings/writing-profile') {
+        return createWritingProfileFixture();
+    }
+    if (pathname === '/api/v1/settings/writing-profile/references/analyze') {
+        return {
+            sample_text: { value: 'fixture reference', status: 'analyzed' }, blog_urls: [],
+            fingerprint: {
+                surface: { writing_mode: 'written', speech_level: 'polite', tone: 'calm', information_density: 'balanced' },
+                settings: { length_preset: 'standard', opening: 'contextual', development: 'explanatory', ending: 'summary', heading_density: 'balanced' },
+                summary: '차분한 설명형 문체'
+            },
+            fingerprint_input_hash: 'fixture', analyzed_at: '2026-09-09T00:00:00.000Z', analyzer_version: 'fixture',
+            analyzer_model: { provider: 'fixture', code: 'fixture', name: 'fixture' }
+        };
+    }
+    if (pathname === '/api/v1/settings/writing-profile/preview') {
+        return {
+            kind: 'blog', topic: 'fixture topic', strategy: 'search', sample_length: 24,
+            outline: { opening: '문제 제시', sections: [{ heading: '핵심', role: '설명' }], ending: '요약' },
+            sample: '현재 기본값을 적용한 미리보기입니다.'
+        };
+    }
     if (pathname === '/api/v1/google-oauth/status') return { state: 'connected', connectedEmail: 'fixture@example.com' };
     if (pathname === '/api/v1/google-oauth/test') {
         return { ok: true, spreadsheetId: 'fixture-sheet-id', spreadsheetTitle: 'UI smoke spreadsheet' };
@@ -771,6 +814,20 @@ function startFixtureServer(requests) {
                 requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
                 res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
                 res.end(JSON.stringify({ success: true, data: { logged: true } }));
+            });
+            return;
+        }
+
+        if (url.pathname === '/api/v1/settings/writing-profile' && req.method === 'PUT') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                const payload = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                requestRecord.body = payload;
+                const { based_on_default_version: _version, ...profile } = payload.custom_profile || {};
+                const body = JSON.stringify({ success: true, data: createWritingProfileFixture(profile) });
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(body);
             });
             return;
         }
@@ -1318,13 +1375,45 @@ async function run() {
         await page.evaluate(() => settingsNextClearScopeDirty('ai-chat'));
         assert.equal(await page.locator('[data-settings-next-ai-fields="chat"]').isHidden(), false);
         assert.equal(
-            await page.locator('.ui-settings-choice-group legend').evaluate((element) => getComputedStyle(element).fontSize),
+            await page.locator('#settings-next-ai-chat-form .ui-settings-choice-group legend').evaluate((element) => getComputedStyle(element).fontSize),
             await page.locator('#settings-next-naver-id').evaluate((element) => getComputedStyle(element.closest('.ui-settings-field')).fontSize)
         );
         assert.equal(
-            await page.locator('.ui-settings-choice-group label').first().evaluate((element) => getComputedStyle(element).fontSize),
+            await page.locator('#settings-next-ai-chat-form .ui-settings-choice-group label').first().evaluate((element) => getComputedStyle(element).fontSize),
             await page.locator('#settings-next-naver-id').evaluate((element) => getComputedStyle(element.closest('.ui-settings-field')).fontSize)
         );
+        await page.locator('[data-settings-next-tab="writing"]').click();
+        await page.waitForFunction(() => document.getElementById('settings-next-writing-voice-summary')?.textContent !== '불러오는 중');
+        assert.equal(await page.locator('input[name="settings-writing-profile-kind"]').count(), 2);
+        assert.equal(await page.locator('#settings-next-panel-writing [name*="writing-strategy"]').count(), 0);
+        const writingStrategyBefore = await page.evaluate(() => settingsNextWritingDraft.common.writing_strategy);
+        await page.locator('#settings-next-writing-mode').selectOption('written');
+        await page.locator('#settings-next-writing-length').selectOption('long');
+        assert.equal((await page.locator('#settings-next-writing-voice-summary').textContent())?.includes('문어체'), true);
+        assert.equal((await page.locator('#settings-next-writing-structure-summary').textContent())?.includes('길게'), true);
+        assert.equal(await page.locator('#settings-next-writing-apply').isEnabled(), true);
+        const writingDiscardPrompt = await page.evaluate(async () => {
+            const originalConfirm = showUiConfirm;
+            let message = '';
+            showUiConfirm = async (nextMessage) => { message = nextMessage; return false; };
+            try {
+                await navigateTo('dashboard');
+                return message;
+            } finally {
+                showUiConfirm = originalConfirm;
+            }
+        });
+        assert.equal(writingDiscardPrompt.includes('글쓰기 기본값'), true);
+        assert.equal(await page.locator('#view-settings-next').evaluate((element) => element.classList.contains('active')), true);
+        await page.locator('#settings-next-writing-apply').click();
+        await page.waitForFunction(() => !settingsNextDirtyScopes.has('writing'));
+        const writingApplyRequest = requests.filter((request) => (
+            request.pathname === '/api/v1/settings/writing-profile' && request.method === 'PUT'
+        )).at(-1);
+        assert.equal(writingApplyRequest.body.active_profile, 'custom');
+        assert.equal(writingApplyRequest.body.custom_profile.common.writing_strategy, writingStrategyBefore);
+        assert.equal(writingApplyRequest.body.custom_profile.common.voice.writing_mode, 'written');
+        assert.equal(writingApplyRequest.body.custom_profile.channels.blog.length.preset, 'long');
         await page.locator('[data-settings-next-tab="ai"]').press('Home');
         assert.equal(await settingsTopTab.getAttribute('aria-selected'), 'true');
         const settingsLocalTab = page.locator('[data-settings-next-core-tab="content"]');
@@ -2349,6 +2438,7 @@ async function run() {
             { method: 'POST', pathname: '/api/v1/recommendations/interaction' },
             { method: 'POST', pathname: '/api/v1/recommendations/discover' },
             { method: 'POST', pathname: '/api/v1/google-oauth/test' },
+            { method: 'PUT', pathname: '/api/v1/settings/writing-profile' },
             { method: 'POST', pathname: '/api/v1/trend-posting/topics' },
             { method: 'POST', pathname: '/api/v1/keywords/analyze' },
             { method: 'POST', pathname: '/api/v1/keywords/suggest-titles' },

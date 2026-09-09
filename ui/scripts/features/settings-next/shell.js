@@ -463,7 +463,8 @@ async function loadSettingsNext({ force = false } = {}) {
     const [core, ai] = await Promise.all([
       fetchJson('/api/v1/settings/core-connections'),
       fetchJson('/api/v1/settings/ai-roles'),
-      settingsNextLoadStatuses({ force })
+      settingsNextLoadStatuses({ force }),
+      settingsNextLoadWritingDefaults()
     ]);
     settingsNextApplyMajorFields(core);
     loadSettingsNextAi(ai);
@@ -697,7 +698,8 @@ async function confirmDiscardUnsavedSettingsNext() {
     wordpress: '워드프레스',
     'ai-text': '글쓰기 모델',
     'ai-image': '이미지 모델',
-    'ai-chat': '보조 대화 모델'
+    'ai-chat': '보조 대화 모델',
+    writing: '글쓰기 기본값'
   };
   const changed = [...settingsNextDirtyScopes].map((scope) => labels[scope] || scope).join(', ');
   const discard = await showUiConfirm(`아직 반영하지 않은 변경사항이 있습니다: ${changed}\n이 화면을 떠나면 변경사항이 사라집니다.`, {
@@ -739,6 +741,7 @@ function initSettingsNext() {
     });
     initUiSettingsCardPattern();
     initSettingsNextAi();
+    initSettingsNextWriting();
     const scopedInputs = {
       content: ['settings-next-google-sheet-url'],
       naver: ['settings-next-naver-id'],

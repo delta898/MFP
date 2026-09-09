@@ -211,11 +211,87 @@
           </form>
         </div>
         <div class="card form-card settings-next-panel" id="settings-next-panel-writing" role="tabpanel" aria-labelledby="settings-next-tab-writing" hidden>
-          <div class="settings-next-placeholder">
-            <h2>글쓰기</h2>
-            <p>공통 글쓰기 프로필은 다음 단계에서 이곳으로 옮깁니다.</p>
-            <button class="secondary" type="button" data-settings-next-legacy-tab="writing">기존 글쓰기 설정 열기</button>
+          <div class="settings-next-panel-lead settings-next-panel-intro">
+            <div>
+              <h2>글쓰기 기본값</h2>
+              <p>새 글에 적용할 문체와 구성을 정합니다. 글 작성 전략은 실제 글을 쓸 때 선택합니다.</p>
+            </div>
           </div>
+          <p id="settings-next-writing-load-feedback" class="ui-settings-card-feedback settings-next-load-feedback" role="status" aria-live="polite"></p>
+          <div class="settings-next-readiness settings-next-readiness--three" aria-label="글쓰기 기본값 요약">
+            <button class="ui-settings-summary-card" type="button" data-settings-card-target="settings-next-writing-voice-card">
+              <span><strong>문체</strong><small id="settings-next-writing-voice-summary">불러오는 중</small></span>
+            </button>
+            <button class="ui-settings-summary-card" type="button" data-settings-card-target="settings-next-writing-structure-card">
+              <span><strong>글 구성</strong><small id="settings-next-writing-structure-summary">불러오는 중</small></span>
+            </button>
+            <button class="ui-settings-summary-card" type="button" data-settings-card-target="settings-next-writing-image-card">
+              <span><strong>이미지 구성</strong><small id="settings-next-writing-image-summary">불러오는 중</small></span>
+            </button>
+          </div>
+          <div class="settings-next-writing-shortcuts" aria-label="글쓰기 기본값 보조 작업">
+            <button class="ui-settings-shortcut-card" type="button" data-settings-card-target="settings-next-writing-reference-card">
+              <span><strong>참고 글로 기본값 만들기</strong><small>기존 글의 문체와 구성을 분석해 반영합니다.</small></span>
+            </button>
+            <button class="ui-settings-shortcut-card" type="button" data-settings-card-target="settings-next-writing-preview-card">
+              <span><strong>AI 적용 미리보기</strong><small>현재 기본값이 적용된 결과를 미리 확인합니다.</small></span>
+            </button>
+          </div>
+
+          <form id="settings-next-writing-form" class="settings-next-writing-stack" aria-busy="false">
+            <section class="ui-settings-card" id="settings-next-writing-voice-card" tabindex="-1">
+              <div class="ui-settings-card-heading">
+                <div><h3>문체</h3><p>글 전반에서 유지할 표현과 말투를 정합니다.</p></div>
+              </div>
+              <div class="ui-settings-field-grid settings-next-writing-field-grid--three">
+                <label class="ui-settings-field" for="settings-next-writing-mode"><span>표현 방식</span><span class="ui-select-shell"><select id="settings-next-writing-mode" data-settings-next-writing-field><option value="conversational">구어체</option><option value="written">문어체</option></select></span><small>문장을 대화하듯 쓰거나 정돈된 글말로 씁니다.</small></label>
+                <label class="ui-settings-field" for="settings-next-writing-speech"><span>높임 방식</span><span class="ui-select-shell"><select id="settings-next-writing-speech" data-settings-next-writing-field><option value="polite">존댓말</option><option value="plain">평어</option></select></span><small>독자에게 사용하는 기본 높임 수준입니다.</small></label>
+                <label class="ui-settings-field" for="settings-next-writing-tone"><span>어조</span><span class="ui-select-shell"><select id="settings-next-writing-tone" data-settings-next-writing-field><option value="calm">차분하게</option><option value="balanced">균형 있게</option><option value="vivid">생동감 있게</option></select></span><small>내용을 전달할 때 유지할 전체적인 분위기입니다.</small></label>
+                <label class="ui-settings-field ui-settings-field-wide" for="settings-next-writing-instruction"><span>추가 작성 원칙</span><textarea id="settings-next-writing-instruction" rows="3" maxlength="500" data-settings-next-writing-field placeholder="예: 전문용어는 쉬운 말로 풀어 주세요."></textarea><small><span id="settings-next-writing-instruction-count">500자 남음</span> · 모든 글에 공통으로 적용할 원칙만 입력하세요.</small></label>
+              </div>
+            </section>
+
+            <section class="ui-settings-card" id="settings-next-writing-structure-card" tabindex="-1">
+              <div class="ui-settings-card-heading"><div><h3>글 구성</h3><p>블로그 본문의 길이와 흐름을 정합니다.</p></div></div>
+              <div class="ui-settings-field-grid">
+                <label class="ui-settings-field" for="settings-next-writing-length"><span>본문 길이</span><span class="ui-select-shell"><select id="settings-next-writing-length" data-settings-next-writing-field><option value="short">짧게 · 900~1,200자</option><option value="standard">보통 · 1,500~1,800자</option><option value="long">길게 · 2,200~2,800자</option></select></span><small>주제와 자료에 따라 실제 길이는 달라질 수 있습니다.</small></label>
+                <label class="ui-settings-field" for="settings-next-writing-opening"><span>도입 방식</span><span class="ui-select-shell"><select id="settings-next-writing-opening" data-settings-next-writing-field><option value="direct">핵심부터</option><option value="contextual">공감 상황부터</option><option value="scene">장면·이야기부터</option></select></span><small>독자가 글을 처음 만나는 방식을 정합니다.</small></label>
+                <label class="ui-settings-field" for="settings-next-writing-development"><span>전개 방식</span><span class="ui-select-shell"><select id="settings-next-writing-development" data-settings-next-writing-field><option value="explanatory">설명형</option><option value="problem_solution">문제 해결형</option><option value="experience_review">경험·리뷰형</option><option value="comparison">비교·선택형</option></select></span><small>본문의 주요 내용을 풀어가는 방식입니다.</small></label>
+                <label class="ui-settings-field" for="settings-next-writing-ending"><span>마무리 방식</span><span class="ui-select-shell"><select id="settings-next-writing-ending" data-settings-next-writing-field><option value="summary">핵심 요약</option><option value="judgment">개인적 판단</option><option value="next_step">다음 행동 제안</option></select></span><small>독자에게 남길 마지막 인상을 정합니다.</small></label>
+              </div>
+            </section>
+
+            <section class="ui-settings-card" id="settings-next-writing-image-card" tabindex="-1">
+              <div class="ui-settings-card-heading"><div><h3>이미지 구성</h3><p>원고에 포함할 이미지 영역의 기본 개수를 정합니다.</p></div></div>
+              <div class="ui-settings-field-grid">
+                <label class="ui-settings-field" for="settings-next-writing-image-mode"><span>이미지 영역</span><span class="ui-select-shell"><select id="settings-next-writing-image-mode" data-settings-next-writing-field><option value="auto">글 길이에 맞게 자동</option><option value="fixed">직접 지정</option></select></span><small>이미지 생성 여부와 별개로 원고의 이미지 영역은 유지됩니다.</small></label>
+                <label class="ui-settings-field" id="settings-next-writing-image-count-field" for="settings-next-writing-image-count"><span>고정 이미지 영역</span><span class="ui-select-shell"><select id="settings-next-writing-image-count" data-settings-next-writing-field><option value="1">1개</option><option value="2">2개</option><option value="3">3개</option><option value="4">4개</option><option value="5">5개</option><option value="6">6개</option></select></span><small>직접 지정할 때만 적용됩니다.</small></label>
+              </div>
+            </section>
+
+            <section class="ui-settings-card" id="settings-next-writing-reference-card" tabindex="-1">
+              <div class="ui-settings-card-heading"><div><h3>참고 글로 기본값 만들기</h3><p>글이나 공개 블로그 URL을 분석해 위 문체와 구성을 채웁니다.</p></div></div>
+              <fieldset class="ui-settings-choice-group"><legend>참고 글 입력 방식</legend><label><input type="radio" name="settings-next-writing-reference-method" value="text" checked> 글 붙여넣기</label><label><input type="radio" name="settings-next-writing-reference-method" value="url"> 블로그 URL</label></fieldset>
+              <label class="ui-settings-field" id="settings-next-writing-reference-text-field" for="settings-next-writing-reference-text"><span>참고 글</span><textarea id="settings-next-writing-reference-text" rows="5" maxlength="12000" data-settings-next-writing-reference placeholder="참고할 문장, 문단 또는 글 전체를 붙여 넣어 주세요."></textarea><small id="settings-next-writing-reference-count">12,000자 남음</small></label>
+              <label class="ui-settings-field" id="settings-next-writing-reference-url-field" for="settings-next-writing-reference-url" hidden><span>블로그 URL</span><input id="settings-next-writing-reference-url" type="url" data-settings-next-writing-reference placeholder="https://"><small>공개적으로 접근할 수 있는 글 하나를 입력하세요.</small></label>
+              <p id="settings-next-writing-reference-feedback" class="ui-settings-card-feedback" role="status" aria-live="polite"></p>
+              <div class="ui-settings-card-footer"><div></div><div class="settings-next-action-group"><button id="settings-next-writing-reference-clear" class="ghost ui-danger-action" type="button">참고 글 지우기</button><button id="settings-next-writing-reference-analyze" class="secondary" type="button">참고 글 분석</button></div></div>
+            </section>
+
+            <section class="ui-settings-card" id="settings-next-writing-preview-card" tabindex="-1">
+              <div class="ui-settings-card-heading"><div><h3>AI 적용 미리보기</h3><p>현재 화면의 기본값으로 개요와 짧은 샘플을 확인합니다.</p></div></div>
+              <div class="ui-settings-field-grid settings-next-writing-preview-controls">
+                <label class="ui-settings-field" for="settings-next-writing-preview-kind"><span>미리보기 종류</span><span class="ui-select-shell"><select id="settings-next-writing-preview-kind"><option value="blog">일반 블로그</option><option value="shopping">쇼핑</option></select></span><small>콘텐츠 종류에 맞는 설정만 적용합니다.</small></label>
+                <label class="ui-settings-field" id="settings-next-writing-preview-topic-field" for="settings-next-writing-preview-topic"><span>주제</span><input id="settings-next-writing-preview-topic" type="text" maxlength="120" value="일상에서 디지털 메모 습관을 만드는 방법"><small>미리보기에만 사용되며 기본값에 포함되지 않습니다.</small></label>
+              </div>
+              <div id="settings-next-writing-preview-result" class="settings-next-writing-preview-result" hidden><div><strong>도입 역할</strong><p id="settings-next-writing-preview-opening"></p></div><div><strong>예상 구성</strong><ol id="settings-next-writing-preview-sections"></ol></div><div><strong>마무리 역할</strong><p id="settings-next-writing-preview-ending"></p></div><div><strong>샘플 본문</strong><p id="settings-next-writing-preview-sample"></p></div></div>
+              <p id="settings-next-writing-preview-feedback" class="ui-settings-card-feedback" role="status" aria-live="polite"></p>
+              <div class="ui-settings-card-footer"><div></div><button id="settings-next-writing-preview-generate" class="secondary" type="button">미리보기 생성</button></div>
+            </section>
+
+            <p id="settings-next-writing-feedback" class="ui-settings-card-feedback" role="status" aria-live="polite"></p>
+            <div class="settings-next-writing-page-actions"><button id="settings-next-writing-reset" class="secondary" type="button">추천 설정으로 되돌리기</button><button id="settings-next-writing-apply" class="primary" type="submit" disabled>기본값 적용</button></div>
+          </form>
         </div>
         <div class="card form-card settings-next-panel" id="settings-next-panel-publishing" role="tabpanel" aria-labelledby="settings-next-tab-publishing" hidden>
           <div class="settings-next-placeholder">

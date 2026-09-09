@@ -69,18 +69,29 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     assert.match(html, /aria-label="블로그 발행 채널 준비 상태"/);
     assert.match(html, /settings-next-naver-readiness/);
     assert.match(html, /settings-next-wordpress-readiness/);
-    assert.equal((html.match(/data-settings-card-target=/g) || []).length, 7);
+    assert.equal((html.match(/data-settings-card-target=/g) || []).length, 12);
     assert.match(html, /data-settings-card-target="settings-next-naver-form"/);
     assert.match(html, /data-settings-card-target="settings-next-wordpress-form"/);
     assert.doesNotMatch(html, /settings-next-ai-local-tab/);
     assert.match(html, /settings-next-ai-text-form/);
     assert.match(html, /settings-next-ai-image-form/);
     assert.match(html, /settings-next-ai-chat-form/);
+    assert.doesNotMatch(html, /settings-next-writing-local-tab/);
+    assert.match(html, /id="settings-next-writing-form"/);
+    assert.match(html, /data-settings-card-target="settings-next-writing-voice-card"/);
+    assert.match(html, /data-settings-card-target="settings-next-writing-structure-card"/);
+    assert.match(html, /data-settings-card-target="settings-next-writing-image-card"/);
+    assert.match(html, /class="ui-settings-shortcut-card"[^>]*data-settings-card-target="settings-next-writing-reference-card"/);
+    assert.match(html, /class="ui-settings-shortcut-card"[^>]*data-settings-card-target="settings-next-writing-preview-card"/);
+    assert.match(html, /class="ui-settings-field-grid settings-next-writing-field-grid--three"/);
+    assert.doesNotMatch(html, /settings-writing-profile-kind|settings-next-writing-strategy/);
+    assert.match(html, /글 작성 전략은 실제 글을 쓸 때 선택합니다/);
 });
 
 test('Settings Beta controller applies scoped changes seamlessly and protects pending local changes', () => {
     const script = read('ui/scripts/features/settings-next/shell.js');
     const aiScript = read('ui/scripts/features/settings-next/ai-model-roles.js');
+    const writingScript = read('ui/scripts/features/settings-next/writing-defaults.js');
     const tabNavigation = read('ui/scripts/foundation/tab-navigation.js');
     const navigation = read('ui/scripts/foundation/navigation.js');
     const lifecycle = read('ui/scripts/foundation/lifecycle.js');
@@ -131,6 +142,14 @@ test('Settings Beta controller applies scoped changes seamlessly and protects pe
     assert.match(aiScript, /settingsNextAiSetFeedback\(role\)/);
     assert.match(aiScript, /root\.addEventListener\('input', invalidate\)/);
     assert.match(aiScript, /event\.target\.matches\('\[data-ai-field="provider"\]'\)/);
+    assert.match(writingScript, /fetchJson\('\/api\/v1\/settings\/writing-profile'\)/);
+    assert.match(writingScript, /putJson\('\/api\/v1\/settings\/writing-profile'/);
+    assert.match(writingScript, /active_profile: 'custom'/);
+    assert.match(writingScript, /const strategy = settingsNextWritingDraft\?\.common\?\.writing_strategy/);
+    assert.doesNotMatch(writingScript, /writing_strategy\s*=\s*settingsNextWritingValue/);
+    assert.match(writingScript, /settingsNextMarkScopeDirty\('writing'\)/);
+    assert.match(writingScript, /settingsNextClearScopeDirty\('writing'\)/);
+    assert.match(script, /writing: '글쓰기 기본값'/);
 });
 
 test('Settings Beta styling consumes semantic design tokens only', () => {
@@ -223,11 +242,16 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
     assert.doesNotMatch(featureStyles, /settings-next-save-status/);
     assert.doesNotMatch(html, />[^<]*저장하고[^<]*<\/button>/);
     assert.doesNotMatch(html, /저장됨/);
-    assert.equal((html.match(/class="ui-settings-card(?:\s|")/g) || []).length, 7);
+    assert.equal((html.match(/class="ui-settings-card(?:\s|")/g) || []).length, 12);
     assert.equal((html.match(/class="ui-settings-readiness-card"/g) || []).length, 7);
+    assert.equal((html.match(/class="ui-settings-summary-card"/g) || []).length, 3);
     assert.match(cardStyles, /\.ui-settings-card\s*\{/);
     assert.match(cardStyles, /\.ui-settings-card-footer\s*\{/);
     assert.match(cardStyles, /\.ui-settings-readiness-card\s*\{/);
+    assert.match(cardStyles, /\.ui-settings-summary-card/);
+    assert.match(cardStyles, /\.ui-settings-shortcut-card/);
+    assert.match(featureStyles, /\.settings-next-writing-shortcuts\s*\{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+    assert.match(featureStyles, /\.settings-next-writing-field-grid--three\s*\{[\s\S]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
     assert.match(cardStyles, /\.ui-settings-field\s*\{[\s\S]*font-size: var\(--ui-type-label-size\)/);
     assert.match(cardStyles, /\.ui-settings-field small\s*\{/);
     assert.match(cardStyles, /\.ui-settings-field-grid\s*\{/);
@@ -245,7 +269,7 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
     assert.equal((html.match(/data-settings-next-refresh/g) || []).length, 2);
     assert.equal((html.match(/>새로고침<\/button>/g) || []).length, 2);
     assert.doesNotMatch(html, />상태 새로고침<\/button>/);
-    assert.equal((html.match(/aria-busy="false"/g) || []).length, 8);
+    assert.equal((html.match(/aria-busy="false"/g) || []).length, 9);
     assert.match(html, /id="settings-next-load-feedback"[^>]*role="status"[^>]*aria-live="polite"/);
 });
 

@@ -1,3 +1,5 @@
+.ui-settings-summary-card,
+.ui-settings-shortcut-card,
 .ui-settings-readiness-card {
   display: flex;
   align-items: center;
@@ -14,6 +16,10 @@
   transition: var(--ui-transition-interactive);
 }
 
+.ui-settings-summary-card:hover,
+.ui-settings-summary-card:focus-visible,
+.ui-settings-shortcut-card:hover,
+.ui-settings-shortcut-card:focus-visible,
 .ui-settings-readiness-card:hover,
 .ui-settings-readiness-card:focus-visible {
   border-color: var(--ui-border-focus);
@@ -21,6 +27,8 @@
   box-shadow: var(--ui-focus-ring);
 }
 
+.ui-settings-summary-card span:last-child,
+.ui-settings-shortcut-card span:last-child,
 .ui-settings-readiness-card span:last-child {
   display: flex;
   min-width: 0;
@@ -28,12 +36,18 @@
   gap: var(--ui-space-1);
 }
 
+.ui-settings-summary-card small,
+.ui-settings-shortcut-card small,
 .ui-settings-readiness-card small,
 .ui-settings-card-detail,
 .ui-settings-card-feedback {
   color: var(--ui-text-secondary);
   font-size: var(--ui-type-caption-size);
   line-height: var(--ui-line-height-body);
+}
+
+.ui-settings-shortcut-card {
+  background: var(--ui-surface);
 }
 
 .ui-settings-card {
@@ -106,7 +120,7 @@
   font-weight: var(--ui-weight-semibold);
 }
 
-.ui-settings-field :is(input, select) {
+.ui-settings-field :is(input, select, textarea) {
   box-sizing: border-box;
   width: 100%;
   min-height: 42px;
@@ -120,7 +134,13 @@
   transition: var(--ui-transition-interactive);
 }
 
-.ui-settings-field :is(input, select):focus-visible {
+.ui-settings-field textarea {
+  min-height: 96px;
+  resize: vertical;
+  line-height: var(--ui-line-height-body);
+}
+
+.ui-settings-field :is(input, select, textarea):focus-visible {
   outline: none;
   border-color: var(--ui-border-focus);
   box-shadow: var(--ui-focus-ring);
@@ -184,7 +204,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ui-settings-field :is(input, select) {
+  .ui-settings-field :is(input, select, textarea) {
     transition: none;
   }
 }
