@@ -85,6 +85,7 @@
 - 2026-09-08: Settings Beta 첫 stage에서 Blog Beta의 top/local navigation과 Timer를 복제하지 않고 공통 pattern/widget으로 재사용하도록 경계를 고도화했다.
 - 2026-09-09: AI sub-feature를 역할 중심 단일 화면으로 통합했다. 글쓰기·이미지·보조 대화 모델은 shared Settings card/field/choice/select pattern과 provider별 profile 보존 계약을 사용한다. 상세 기록은 `docs/plans/archive/2026-09-09-design-system-settings-02-ai-model-roles-development.md`를 따른다.
 - 2026-09-09: 글쓰기 stage는 Settings Beta의 단일 `글쓰기 기본값` 관리부터 진행하고 Blog Beta의 상속·작업별 override는 사용자 UI 확인 뒤 별도 단계로 나누기로 했다. 검색·발견 전략은 글쓰기 기본값에서 제외한다.
+- 2026-09-09: Settings Beta 글쓰기 기본값 stage를 parent에 통합하고, Blog Beta 바로 생성의 기본값 상속·글별 부분 override·실행 중 최근 선택을 별도 `04-blog-writing-overrides` stage로 시작했다.
 
 ## 검증 계획
 
