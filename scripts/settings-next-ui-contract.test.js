@@ -41,7 +41,6 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
         ['core', '기본 연결'],
         ['ai', 'AI'],
         ['writing', '글쓰기'],
-        ['publishing', '발행'],
         ['extras', '부가 서비스'],
         ['app', '앱']
     ]);
@@ -49,12 +48,27 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
         ['content', '콘텐츠 공간'],
         ['publishing', '블로그 발행 채널']
     ]);
-    assert.equal((html.match(/role="tab"/g) || []).length, 11);
-    assert.equal((html.match(/aria-controls="settings-next-/g) || []).length, 11);
+    const appTabs = Array.from(
+        html.matchAll(/data-settings-next-app-tab="([^"]+)"[^>]*>([^<]+)<\/button>/g),
+        (match) => [match[1], match[2]]
+    );
+    assert.deepEqual(appTabs, [
+        ['external', '외부 연결'],
+        ['environment', '발행 환경'],
+        ['general', '일반']
+    ]);
+    assert.equal((html.match(/role="tab"/g) || []).length, 13);
+    assert.equal((html.match(/aria-controls="settings-next-/g) || []).length, 13);
     assert.match(html, /class="settings-next-tabs ui-top-tabs"/);
-    assert.equal((html.match(/settings-next-tab ui-top-tab/g) || []).length, 6);
+    assert.equal((html.match(/settings-next-tab ui-top-tab/g) || []).length, 5);
     assert.match(html, /class="settings-next-local-nav ui-segmented-tabs"/);
-    assert.equal((html.match(/settings-next-local-tab ui-segmented-tab/g) || []).length, 5);
+    assert.equal((html.match(/settings-next-local-tab ui-segmented-tab/g) || []).length, 8);
+    assert.doesNotMatch(html, /settings-next-tab-publishing|settings-next-panel-publishing/);
+    assert.match(html, /id="settings-next-panel-app"[\s\S]*?aria-label="앱 설정"/);
+    assert.doesNotMatch(html, /settings-next-app-panel-notifications|settings-next-app-notification-form/);
+    assert.match(html, /<h2>앱 운영 설정<\/h2>/);
+    assert.match(html, /id="settings-next-telegram-delivery-enabled"[^>]*data-settings-next-delivery-toggle="telegram"/);
+    assert.match(html, /id="settings-next-slack-delivery-enabled"[^>]*data-settings-next-delivery-toggle="slack"/);
     assert.match(html, /class="page-clock-widget"[\s\S]*?data-clock-display/);
     assert.match(
         html,
@@ -117,6 +131,7 @@ test('Settings Beta controller applies scoped changes seamlessly and protects pe
     const script = read('ui/scripts/features/settings-next/shell.js');
     const aiScript = read('ui/scripts/features/settings-next/ai-model-roles.js');
     const writingScript = read('ui/scripts/features/settings-next/writing-defaults.js');
+    const optionalServices = read('ui/scripts/features/settings-next/optional-services.js');
     const tabNavigation = read('ui/scripts/foundation/tab-navigation.js');
     const navigation = read('ui/scripts/foundation/navigation.js');
     const lifecycle = read('ui/scripts/foundation/lifecycle.js');
@@ -126,6 +141,10 @@ test('Settings Beta controller applies scoped changes seamlessly and protects pe
     assert.doesNotMatch(script, /postJson\('\/api\/v1\/settings\/major'/);
     assert.match(tabNavigation, /ArrowLeft.*ArrowRight.*Home.*End/s);
     assert.match(script, /handleUiTabNavigationKeydown/);
+    assert.match(script, /const SETTINGS_NEXT_APP_TABS = Object\.freeze\(\['external', 'environment', 'general'\]\)/);
+    assert.match(script, /function settingsNextActivateAppTab\(tabName\)/);
+    assert.match(script, /selector: '\[data-settings-next-app-tab\]'/);
+    assert.match(optionalServices, /function settingsNextOptionalToggleDelivery\(scope, input\)/);
     assert.doesNotMatch(script, /function settingsNextHandleTabKeydown/);
     assert.match(script, /settingsNextHasValidSheetUrl/);
     assert.match(script, /settingsNextBusyScopes\.has\('naver'\)/);

@@ -19,8 +19,6 @@
             aria-selected="false" aria-controls="settings-next-panel-ai" tabindex="-1" data-settings-next-tab="ai">AI</button>
           <button class="settings-next-tab ui-top-tab" id="settings-next-tab-writing" type="button" role="tab"
             aria-selected="false" aria-controls="settings-next-panel-writing" tabindex="-1" data-settings-next-tab="writing">글쓰기</button>
-          <button class="settings-next-tab ui-top-tab" id="settings-next-tab-publishing" type="button" role="tab"
-            aria-selected="false" aria-controls="settings-next-panel-publishing" tabindex="-1" data-settings-next-tab="publishing">발행</button>
           <button class="settings-next-tab ui-top-tab" id="settings-next-tab-extras" type="button" role="tab"
             aria-selected="false" aria-controls="settings-next-panel-extras" tabindex="-1" data-settings-next-tab="extras">부가 서비스</button>
           <button class="settings-next-tab ui-top-tab" id="settings-next-tab-app" type="button" role="tab"
@@ -294,13 +292,6 @@
             <div class="settings-next-writing-page-actions"><button id="settings-next-writing-reset" class="secondary" type="button">추천 설정으로 되돌리기</button><button id="settings-next-writing-apply" class="primary" type="submit" disabled>기본값 적용</button></div>
           </form>
         </div>
-        <div class="card form-card settings-next-panel" id="settings-next-panel-publishing" role="tabpanel" aria-labelledby="settings-next-tab-publishing" hidden>
-          <div class="settings-next-placeholder">
-            <h2>발행</h2>
-            <p>여러 메뉴가 함께 사용하는 발행 기본값과 local override 기준을 이곳에 적용할 예정입니다.</p>
-            <button class="secondary" type="button" data-settings-next-legacy-tab="naver-blog">기존 블로그 설정 열기</button>
-          </div>
-        </div>
         <div class="card form-card settings-next-panel" id="settings-next-panel-extras" role="tabpanel" aria-labelledby="settings-next-tab-extras" hidden>
           <div class="settings-next-panel-lead settings-next-panel-intro">
             <div><h2>함께 쓰는 부가 서비스</h2><p>여러 기능에서 공통으로 사용하는 선택 연결을 목적별로 관리합니다.</p></div>
@@ -329,7 +320,7 @@
               <button class="ui-settings-readiness-card" type="button" data-settings-card-target="settings-next-slack-form"><span class="settings-next-status-dot" id="settings-next-slack-readiness-dot" data-tone="neutral" aria-hidden="true"></span><span><strong>Slack</strong><small id="settings-next-slack-readiness">설정 확인 중</small></span></button>
             </div>
             <form class="ui-settings-card" id="settings-next-telegram-form" data-settings-next-optional-scope="telegram" aria-busy="false" tabindex="-1">
-              <div class="ui-settings-card-heading"><div><h3>Telegram</h3><p>알림과 Telegram 명령 수신에 사용할 연결을 관리합니다.</p></div><span id="settings-next-telegram-status" class="settings-next-status" data-tone="neutral">미설정</span></div>
+              <div class="ui-settings-card-heading"><div><div class="ui-settings-card-title-row"><label class="ui-settings-card-title-toggle"><input id="settings-next-telegram-delivery-enabled" type="checkbox" data-settings-next-delivery-toggle="telegram" aria-label="Telegram 알림 사용" disabled></label><h3>Telegram</h3></div><p>알림과 Telegram 명령 수신에 사용할 연결을 관리합니다.</p></div><span id="settings-next-telegram-status" class="settings-next-status" data-tone="neutral">미설정</span></div>
               <div class="ui-settings-field-grid">
                 <label class="ui-settings-field">Bot Token<div class="settings-next-secret-input"><input id="settings-next-telegram-token" type="password" autocomplete="new-password" placeholder="새 Bot Token 입력"><button class="settings-next-icon-button" type="button" data-settings-next-secret-toggle="settings-next-telegram-token" aria-label="새 Bot Token 표시" title="Bot Token 표시"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg></button></div><small id="settings-next-telegram-secret-help">등록된 값은 표시하지 않습니다.</small></label>
                 <label class="ui-settings-field">Chat ID<input id="settings-next-telegram-chat-id" type="text" autocomplete="off"><small>연결 확인과 명령 수신을 허용할 채팅의 ID입니다.</small></label>
@@ -338,7 +329,7 @@
               <div class="ui-settings-card-footer"><p id="settings-next-telegram-footer-detail" class="ui-settings-card-footer-detail" hidden></p><div class="ui-settings-card-footer-actions"><button class="primary" type="submit">연결 확인</button></div></div>
             </form>
             <form class="ui-settings-card" id="settings-next-slack-form" data-settings-next-optional-scope="slack" aria-busy="false" tabindex="-1">
-              <div class="ui-settings-card-heading"><div><h3>Slack</h3><p>알림에 사용할 Slack 연결을 관리합니다.</p></div><span id="settings-next-slack-status" class="settings-next-status" data-tone="neutral">미설정</span></div>
+              <div class="ui-settings-card-heading"><div><div class="ui-settings-card-title-row"><label class="ui-settings-card-title-toggle"><input id="settings-next-slack-delivery-enabled" type="checkbox" data-settings-next-delivery-toggle="slack" aria-label="Slack 알림 사용" disabled></label><h3>Slack</h3></div><p>알림에 사용할 Slack 연결을 관리합니다.</p></div><span id="settings-next-slack-status" class="settings-next-status" data-tone="neutral">미설정</span></div>
               <label class="ui-settings-field">Webhook URL<div class="settings-next-secret-input"><input id="settings-next-slack-webhook" type="password" autocomplete="new-password" placeholder="새 Webhook URL 입력"><button class="settings-next-icon-button" type="button" data-settings-next-secret-toggle="settings-next-slack-webhook" aria-label="새 Webhook URL 표시" title="Webhook URL 표시"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg></button></div><small id="settings-next-slack-secret-help">등록된 값은 표시하지 않습니다.</small></label>
               <p id="settings-next-slack-feedback" class="ui-settings-card-feedback" role="status" aria-live="polite"></p>
               <div class="ui-settings-card-footer"><p id="settings-next-slack-footer-detail" class="ui-settings-card-footer-detail" hidden></p><div class="ui-settings-card-footer-actions"><button class="primary" type="submit">연결 확인</button></div></div>
@@ -355,10 +346,24 @@
           </section>
         </div>
         <div class="card form-card settings-next-panel" id="settings-next-panel-app" role="tabpanel" aria-labelledby="settings-next-tab-app" hidden>
-          <div class="settings-next-placeholder">
-            <h2>앱</h2>
-            <p>화면 스타일, 업데이트와 고급 연결 설정은 다음 단계에서 이곳으로 옮깁니다.</p>
-            <button class="secondary" type="button" data-settings-next-legacy-tab="general">기존 일반 설정 열기</button>
+          <div class="settings-next-panel-lead settings-next-panel-intro">
+            <div><h2>앱 운영 설정</h2><p>앱 전체에 적용되는 알림, 외부 연결과 실행 환경을 관리합니다.</p></div>
           </div>
+          <div class="settings-next-local-nav-row">
+            <div class="settings-next-local-nav ui-segmented-tabs" role="tablist" aria-label="앱 설정">
+              <button class="settings-next-local-tab ui-segmented-tab active" id="settings-next-app-tab-external" type="button" role="tab" aria-selected="true" aria-controls="settings-next-app-panel-external" tabindex="0" data-settings-next-app-tab="external">외부 연결</button>
+              <button class="settings-next-local-tab ui-segmented-tab" id="settings-next-app-tab-environment" type="button" role="tab" aria-selected="false" aria-controls="settings-next-app-panel-environment" tabindex="-1" data-settings-next-app-tab="environment">발행 환경</button>
+              <button class="settings-next-local-tab ui-segmented-tab" id="settings-next-app-tab-general" type="button" role="tab" aria-selected="false" aria-controls="settings-next-app-panel-general" tabindex="-1" data-settings-next-app-tab="general">일반</button>
+            </div>
+          </div>
+          <section class="settings-next-app-panel active" id="settings-next-app-panel-external" role="tabpanel" aria-labelledby="settings-next-app-tab-external">
+            <div class="settings-next-placeholder"><h3>외부 연결</h3><p>외부에서 앱으로 들어오는 연결을 이곳에서 관리합니다.</p></div>
+          </section>
+          <section class="settings-next-app-panel" id="settings-next-app-panel-environment" role="tabpanel" aria-labelledby="settings-next-app-tab-environment" hidden>
+            <div class="settings-next-placeholder"><h3>발행 환경</h3><p>앱의 기본 발행 환경을 이곳에서 관리합니다.</p></div>
+          </section>
+          <section class="settings-next-app-panel" id="settings-next-app-panel-general" role="tabpanel" aria-labelledby="settings-next-app-tab-general" hidden>
+            <div class="settings-next-placeholder"><h3>일반</h3><p>앱 전반의 기본 동작을 이곳에서 관리합니다.</p></div>
+          </section>
         </div>
       </section>

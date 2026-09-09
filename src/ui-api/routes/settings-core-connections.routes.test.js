@@ -64,6 +64,7 @@ test('optional services route exposes safe reads and scoped connection actions',
     assert.deepEqual(harness.calls, [body]);
 });
 
+
 test('AI roles route accepts scoped POST requests', async () => {
     const harness = createHarness();
     const requestBody = { scope: 'text', values: { provider: 'direct', name: 'model', baseUrl: 'https://example.com/v1' } };

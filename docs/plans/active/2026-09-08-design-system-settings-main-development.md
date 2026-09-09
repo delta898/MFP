@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-settings-main`
 - Base/parent branch: `codex/feature/design-system-main`
 - Start date: 2026-09-08
-- Status: 진행 중 — 기본 연결 및 AI sub-feature 통합 완료, 다음 top menu 단계 대기
+- Status: 진행 중 — 부가 서비스 통합 완료, 앱 layout stage 진행 중
 
 ## 사용자 필요와 목표
 
@@ -14,7 +14,7 @@
 ## 범위
 
 1. 기존 설정과 독립된 `설정 Beta` surface 및 navigation
-2. 합의된 top menu: `기본 연결`, `AI`, `글쓰기`, `발행`, `부가 서비스`, `앱`
+2. 합의된 top menu: `기본 연결`, `AI`, `글쓰기`, `부가 서비스`, `앱`
 3. 첫 적용 대상인 `기본 연결`과 local sub-menu `콘텐츠 공간`, `블로그 발행 채널`
 4. 탭·panel 시작 구조, 상태, action과 저장 흐름의 공통 계약
 5. 기존 설정 API와 데이터의 안전한 재사용 및 단계별 migration
@@ -45,7 +45,6 @@
 │  └─ 블로그 발행 채널
 ├─ AI
 ├─ 글쓰기
-├─ 발행
 ├─ 부가 서비스
 └─ 앱
 ```
@@ -57,10 +56,9 @@
 1. 설정 Beta shell과 기본 연결
 2. AI
 3. 글쓰기
-4. 발행 공통값
-5. 부가 서비스
-6. 앱 및 고급 설정
-7. 기존 설정 대체 준비와 compatibility 정리
+4. 부가 서비스
+5. 앱 및 고급 설정
+6. 기존 설정 대체 준비와 compatibility 정리
 
 각 단계는 독립 sub-feature branch와 개발 기록을 갖고, focused contract 및 관련 browser smoke 후 사용자 UI 검토를 거쳐 이 branch에 통합한다.
 
@@ -68,7 +66,7 @@
 
 - 기존 `설정`을 변경하지 않고 `설정 Beta`를 별도 구축한다.
 - 최종 검증과 승인 후 기존 설정을 대체한다.
-- top menu는 `기본 연결`, `AI`, `글쓰기`, `발행`, `부가 서비스`, `앱`으로 시작한다.
+- top menu는 `기본 연결`, `AI`, `글쓰기`, `부가 서비스`, `앱`으로 구성한다. 독립 `발행` top menu는 두지 않는다.
 - `기본 연결`의 local sub-menu는 `콘텐츠 공간`, `블로그 발행 채널`로 구성한다.
 - `Google 작업공간` 대신 provider-neutral하고 BlogGenius의 언어에 맞는 `콘텐츠 공간`을 사용한다.
 - 설정은 여러 메뉴가 공유하는 연결과 기본값을 관리하고, 로컬 화면은 이를 선택하거나 필요한 경우 override한다.
@@ -87,6 +85,8 @@
 - 2026-09-09: 글쓰기 stage는 Settings Beta의 단일 `글쓰기 기본값` 관리부터 진행하고 Blog Beta의 상속·작업별 override는 사용자 UI 확인 뒤 별도 단계로 나누기로 했다. 검색·발견 전략은 글쓰기 기본값에서 제외한다.
 - 2026-09-09: Settings Beta 글쓰기 기본값 stage를 parent에 통합하고, Blog Beta 바로 생성의 기본값 상속·글별 부분 override·기기 최근 선택을 별도 `04-blog-writing-overrides` stage로 완료했다. 새 글 성공 시 localStorage 최근값을 갱신하고 기존 글감 수정은 그 값을 오염시키지 않으며, 최종 prompt와 image plan까지 같은 override 계약을 사용한다.
 - 2026-09-09: 부가 서비스의 목적 기반 IA를 `SNS 배포 / 메시지·알림 / 링크 단축`으로 확정했다. Buffer, Telegram, Slack, Bitly는 기존 저장 schema를 유지하는 scoped Settings Beta 계약과 공통 card·secret pattern을 사용한다.
+- 2026-09-09: 독립 `발행` top menu를 제거하고, `앱`에 `알림 / 외부 연결 / 발행 환경 / 일반` local sub-menu shell을 추가했다. 이 단계는 공통 navigation layout만 제공하며 상세 설정은 아직 추가하지 않는다.
+- 2026-09-09: `앱 > 알림` local menu는 만들지 않는다. Telegram·Slack connection card title 앞 checkbox가 발송 channel 사용 여부를 seamless하게 반영하며, credential과 Telegram inbound daemon 활성화는 계속 분리한다.
 
 ## 검증 계획
 

@@ -34,10 +34,12 @@ function settingsNextOptionalValues(scope) {
   if (scope === 'buffer') return { BUFFER_API_KEY: String(document.getElementById('settings-next-buffer-api-key')?.value || '').trim() };
   if (scope === 'telegram') return {
     NOTIFY_TELEGRAM_BOT_TOKEN: String(document.getElementById('settings-next-telegram-token')?.value || '').trim(),
-    NOTIFY_TELEGRAM_CHAT_ID: String(document.getElementById('settings-next-telegram-chat-id')?.value || '').trim()
+    NOTIFY_TELEGRAM_CHAT_ID: String(document.getElementById('settings-next-telegram-chat-id')?.value || '').trim(),
+    NOTIFY_TELEGRAM_DELIVERY_ENABLED: document.getElementById('settings-next-telegram-delivery-enabled')?.checked === true
   };
   if (scope === 'slack') return {
-    NOTIFY_SLACK_WEBHOOK_URL: String(document.getElementById('settings-next-slack-webhook')?.value || '').trim()
+    NOTIFY_SLACK_WEBHOOK_URL: String(document.getElementById('settings-next-slack-webhook')?.value || '').trim(),
+    NOTIFY_SLACK_DELIVERY_ENABLED: document.getElementById('settings-next-slack-delivery-enabled')?.checked === true
   };
   return { NOTIFY_BITLY_TOKEN: String(document.getElementById('settings-next-bitly-token')?.value || '').trim() };
 }
@@ -81,6 +83,18 @@ function settingsNextOptionalApply(data = {}) {
   setUiSettingsCardFooterDetail('settings-next-slack-footer-detail', '');
   setUiSettingsCardFooterDetail('settings-next-bitly-footer-detail', '');
   document.getElementById('settings-next-telegram-chat-id').value = fields.NOTIFY_TELEGRAM_CHAT_ID || '';
+  [
+    ['telegram', 'NOTIFY_TELEGRAM_DELIVERY_ENABLED'],
+    ['slack', 'NOTIFY_SLACK_DELIVERY_ENABLED']
+  ].forEach(([scope, field]) => {
+    const input = document.getElementById(`settings-next-${scope}-delivery-enabled`);
+    if (!input) return;
+    const configured = scope === 'telegram'
+      ? settingsNextOptionalSecretConfigured(scope) && Boolean(String(fields.NOTIFY_TELEGRAM_CHAT_ID || '').trim())
+      : settingsNextOptionalSecretConfigured(scope);
+    input.checked = fields[field] === true;
+    input.disabled = !configured;
+  });
   ['buffer-api-key', 'telegram-token', 'slack-webhook', 'bitly-token'].forEach((suffix) => {
     const input = document.getElementById(`settings-next-${suffix}`);
     if (input) { input.value = ''; input.type = 'password'; }
@@ -181,6 +195,27 @@ async function settingsNextOptionalSubmit(event) {
   }
 }
 
+async function settingsNextOptionalToggleDelivery(scope, input) {
+  if (settingsNextOptionalState.busy.has(scope)) return;
+  const field = scope === 'telegram' ? 'NOTIFY_TELEGRAM_DELIVERY_ENABLED' : 'NOTIFY_SLACK_DELIVERY_ENABLED';
+  const previous = settingsNextOptionalState.fields[field] === true;
+  settingsNextOptionalState.busy.add(scope);
+  input.disabled = true;
+  settingsNextSetFeedback(`settings-next-${scope}-feedback`, '');
+  try {
+    const saved = await postJson('/api/v1/settings/optional-services', settingsNextOptionalPayload(scope));
+    settingsNextOptionalState.fields = { ...(saved.fields || {}) };
+    settingsNextClearScopeDirty(`optional-${scope}`);
+    settingsNextOptionalRenderStatuses();
+  } catch (error) {
+    input.checked = previous;
+    settingsNextSetFeedback(`settings-next-${scope}-feedback`, error.message || '알림 사용 여부를 반영하지 못했습니다.', 'danger');
+  } finally {
+    settingsNextOptionalState.busy.delete(scope);
+    input.disabled = false;
+  }
+}
+
 function initSettingsNextOptionalServices() {
   if (settingsNextOptionalState.bound) return;
   document.querySelectorAll('[data-settings-next-extras-tab]').forEach((button) => {
@@ -190,19 +225,24 @@ function initSettingsNextOptionalServices() {
   document.querySelectorAll('[data-settings-next-optional-scope]').forEach((form) => {
     const scope = form.dataset.settingsNextOptionalScope;
     form.addEventListener('submit', settingsNextOptionalSubmit);
-    form.addEventListener('input', () => {
+    form.addEventListener('input', (event) => {
+      if (event.target.matches('[data-settings-next-delivery-toggle]')) return;
       settingsNextMarkScopeDirty(`optional-${scope}`);
       settingsNextOptionalState.verified[scope] = null;
       if (['buffer', 'telegram', 'slack', 'bitly'].includes(scope)) setUiSettingsCardFooterDetail(`settings-next-${scope}-footer-detail`, '');
       settingsNextSetFeedback(`settings-next-${scope}-feedback`, '');
       settingsNextOptionalRenderStatuses();
     });
-    form.addEventListener('change', () => {
+    form.addEventListener('change', (event) => {
+      if (event.target.matches('[data-settings-next-delivery-toggle]')) return;
       settingsNextMarkScopeDirty(`optional-${scope}`);
       settingsNextOptionalState.verified[scope] = null;
       if (['buffer', 'telegram', 'slack', 'bitly'].includes(scope)) setUiSettingsCardFooterDetail(`settings-next-${scope}-footer-detail`, '');
       settingsNextOptionalRenderStatuses();
     });
+  });
+  document.querySelectorAll('[data-settings-next-delivery-toggle]').forEach((input) => {
+    input.addEventListener('change', () => void settingsNextOptionalToggleDelivery(input.dataset.settingsNextDeliveryToggle, input));
   });
   initOpaqueSettingsSecretToggles(document.getElementById('settings-next-panel-extras'));
   settingsNextActivateExtrasTab('social');

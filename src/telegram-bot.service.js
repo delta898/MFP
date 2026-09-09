@@ -154,7 +154,7 @@ class TelegramBotService {
         }
 
 
-        const enabled = CONFIG.NOTIFY_TELEGRAM_ENABLED;
+        const enabled = CONFIG.NOTIFY_TELEGRAM_INBOUND_ENABLED;
         const botToken = CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN;
         const chatId = String(CONFIG.NOTIFY_TELEGRAM_CHAT_ID || '').trim();
 
@@ -1204,7 +1204,7 @@ class TelegramBotService {
     }
 
     static getStatus() {
-        const enabled = CONFIG.NOTIFY_TELEGRAM_ENABLED === true;
+        const enabled = CONFIG.NOTIFY_TELEGRAM_INBOUND_ENABLED === true;
         const botToken = String(CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim();
         const chatId = String(CONFIG.NOTIFY_TELEGRAM_CHAT_ID || '').trim();
         return {

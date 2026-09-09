@@ -17,7 +17,8 @@
 
 .settings-next-panel,
 .settings-next-core-panel,
-.settings-next-extras-panel {
+.settings-next-extras-panel,
+.settings-next-app-panel {
   display: none;
   flex-direction: column;
   gap: var(--ui-space-5);
@@ -25,7 +26,8 @@
 
 .settings-next-panel.active,
 .settings-next-core-panel.active,
-.settings-next-extras-panel.active {
+.settings-next-extras-panel.active,
+.settings-next-app-panel.active {
   display: flex;
 }
 

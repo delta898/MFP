@@ -387,6 +387,9 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 - 연결 credential의 유효성과 기능의 실행 허가는 분리한다. 연결 card는 token·endpoint·허용 대상과 연결 확인만
   관리하며, background daemon·수신 adapter·알림 발송의 사용 여부를 함께 켜거나 끄지 않는다. 연결값 변경으로 이미
   활성화된 runtime에 새 credential을 재적용해야 할 때만 runtime을 안전하게 재시작할 수 있다.
+- 연결 card 자체가 알림 channel을 나타낼 때는 title 앞에 label 없는 checkbox를 둘 수 있다. 이 checkbox는 해당
+  channel의 발송 허용만 제어하며, 연결 상태 badge·credential·inbound adapter와 역할을 섞지 않는다. 연결이
+  불완전하면 checkbox는 비활성화한다. 같은 선택을 별도 화면이나 badge에 반복하지 않는다.
 - 공통 외부 서비스의 책임은 `연결 → 목적지 → 이벤트 → 입력 채널`로 구분한다. `부가 서비스`는 credential과 검증,
   `앱 > 알림`은 발송 채널, 각 기능은 알림을 만들 이벤트, `앱 > 외부 연결`은 Telegram 수신·원격 MCP 같은 inbound
   adapter의 활성화와 실행 상태를 소유한다.

@@ -73,7 +73,6 @@
 │     ├─ 이미지 구성
 │     ├─ 참고 글 분석
 │     └─ AI 적용 미리보기
-├─ 발행
 ├─ 부가 서비스
 │  ├─ SNS 배포
 │  │  └─ Buffer
@@ -83,6 +82,9 @@
 │  └─ 링크 단축
 │     └─ Bitly
 └─ 앱
+   ├─ 외부 연결
+   ├─ 발행 환경
+   └─ 일반
 ```
 
 `AI`는 현 단계에서 하나의 `모델 역할` 목적만 가지므로 local sub-menu를 두지 않는다. 글쓰기·이미지·보조
@@ -97,9 +99,15 @@ Buffer는 SNS와 카드뉴스가 공유하고, Telegram과 Slack은 메시지·�
 수신 daemon 같은 실행 설정은 소유하지 않는다. Buffer Organization·발행 채널처럼
 실행 대상을 고르는 값과 자동 발행 여부·주기 같은 실행 설정은 각 기능이 소유한다. 하나의 목적에 provider가 둘 이상 있을 때만 readiness summary를 제공하므로
 `메시지·알림`은 Telegram과 Slack summary를 함께 보여주고 단일 provider 목적은 상세 card로 바로 시작한다.
-`앱 > 알림`은 공통 발송 채널을, 각 기능은 알림을 발생시키는 이벤트를 소유한다. `앱 > 외부 연결`은 Telegram 명령
+Telegram과 Slack 카드 제목 앞 체크박스는 공통 발송 channel 사용 여부를 소유하고, 각 기능은 알림을 발생시키는 이벤트를 소유한다. `앱 > 외부 연결`은 Telegram 명령
 수신과 원격 MCP처럼 외부에서 앱으로 들어오는 adapter의 활성화와 실행 상태를 소유한다. MCP는 Telegram과 독립적인
-transport이며, Telegram은 선택 가능한 별도 inbound channel이다. `발행`, `앱`의 나머지 상세 IA도 해당 단계에서 같은 배치 기준으로 검토한다.
+transport이며, Telegram은 선택 가능한 별도 inbound channel이다. 독립 `발행` top menu는 두지 않는다. 앱 전체의
+발행 환경은 `앱 > 발행 환경`에서 다루며, 실제 발행 대상과 이벤트별 동작은 각 기능 화면이 소유한다. `앱`의 local sub-menu는
+공통 segmented-tab layout만 먼저 제공하고, 상세 설정은 각 소유권이 확정되는 단계에서 추가한다.
+
+credential과 허용 대상은 `부가 서비스 > 메시지·알림`에서 먼저 연결해야 하며, 연결되지 않은 channel의 title checkbox는 비활성화한다. Telegram의
+`delivery_enabled`와 `inbound_enabled`는 분리한다. 기존 `enabled` 값만 있는 설정은 두 값의 fallback으로 읽어
+기존 동작을 유지하며, 이후 앱 알림 변경은 delivery 값만 바꾸므로 수신 daemon을 시작·중지하지 않는다.
 
 Blog Beta의 글 작성 화면은 본문 길이·도입·전개·마무리만 글별 override로 제공한다. 새 글이 성공적으로 보관되거나
 대기열에 추가된 뒤에는 반복 작성 편의를 위해 그 선택을 browser localStorage의 기기 최근값으로 갱신한다. 이 최근값은

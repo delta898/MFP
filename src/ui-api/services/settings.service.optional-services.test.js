@@ -15,6 +15,7 @@ function createHarness(initial = {}, overrides = {}) {
         BUFFER_ORGANIZATION_ID: initial.integrations?.buffer?.organization_id || '',
         BUFFER_CHANNELS: initial.integrations?.buffer?.channels || [],
         NOTIFY_TELEGRAM_ENABLED: initial.notification?.telegram?.enabled === true,
+        NOTIFY_TELEGRAM_INBOUND_ENABLED: initial.notification?.telegram?.enabled === true,
         NOTIFY_TELEGRAM_BOT_TOKEN: initial.notification?.telegram?.bot_token || '',
         NOTIFY_TELEGRAM_CHAT_ID: initial.notification?.telegram?.chat_id || '',
         NOTIFY_BITLY_TOKEN: initial.notification?.telegram?.bitly_token || '',
@@ -37,10 +38,10 @@ test('optional service normalization is scoped and connection cards do not own r
     assert.deepEqual(normalized.fields, { BUFFER_API_KEY: 'key' });
     assert.deepEqual(normalizeOptionalServiceSettings({ scope: 'telegram', values: {
         NOTIFY_TELEGRAM_ENABLED: false, NOTIFY_TELEGRAM_BOT_TOKEN: 'token', NOTIFY_TELEGRAM_CHAT_ID: 'chat'
-    } }).fields, { NOTIFY_TELEGRAM_BOT_TOKEN: 'token', NOTIFY_TELEGRAM_CHAT_ID: 'chat' });
+    } }).fields, { NOTIFY_TELEGRAM_BOT_TOKEN: 'token', NOTIFY_TELEGRAM_CHAT_ID: 'chat', NOTIFY_TELEGRAM_DELIVERY_ENABLED: null });
     assert.deepEqual(normalizeOptionalServiceSettings({ scope: 'slack', values: {
         NOTIFY_SLACK_ENABLED: false, NOTIFY_SLACK_WEBHOOK_URL: 'webhook'
-    } }).fields, { NOTIFY_SLACK_WEBHOOK_URL: 'webhook' });
+    } }).fields, { NOTIFY_SLACK_WEBHOOK_URL: 'webhook', NOTIFY_SLACK_DELIVERY_ENABLED: null });
     assert.throws(() => normalizeOptionalServiceSettings({ scope: 'email' }), (error) => error.apiCode === 'OPTIONAL_SERVICE_SCOPE_INVALID');
 });
 
@@ -58,6 +59,31 @@ test('optional service reads expose registration state without returning secrets
     assert.equal(result.fields.NOTIFY_SLACK_WEBHOOK_URL_CONFIGURED, true);
     assert.equal(result.fields.NOTIFY_BITLY_TOKEN_CONFIGURED, true);
     assert.doesNotMatch(JSON.stringify(result), /buffer-secret|telegram-secret|slack-secret|bitly-secret/);
+});
+
+test('optional service delivery selection is separate from credential connection and inbound activation', async () => {
+    const initial = {
+        notification: {
+            telegram: { enabled: true, bot_token: 'telegram-secret', chat_id: 'chat-1' },
+            slack: { enabled: false, webhook_url: 'slack-secret' }
+        }
+    };
+    const { CONFIG, configPath, service } = createHarness(initial);
+    await service.saveOptionalServiceSettings({ scope: 'telegram', values: {
+        NOTIFY_TELEGRAM_DELIVERY_ENABLED: false,
+        NOTIFY_TELEGRAM_BOT_TOKEN: '',
+        NOTIFY_TELEGRAM_CHAT_ID: 'chat-1'
+    } });
+    await service.saveOptionalServiceSettings({ scope: 'slack', values: {
+        NOTIFY_SLACK_DELIVERY_ENABLED: true,
+        NOTIFY_SLACK_WEBHOOK_URL: ''
+    } });
+    const saved = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    assert.equal(saved.notification.telegram.enabled, true);
+    assert.equal(saved.notification.telegram.delivery_enabled, false);
+    assert.equal(saved.notification.slack.delivery_enabled, true);
+    assert.equal(CONFIG.NOTIFY_TELEGRAM_ENABLED, false);
+    assert.equal(CONFIG.NOTIFY_SLACK_ENABLED, true);
 });
 
 test('scoped optional saves preserve blank secrets and unrelated settings', async () => {

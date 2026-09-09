@@ -179,12 +179,16 @@ function normalizeOptionalServiceSettings(requestBody = {}) {
     if (scope === 'telegram') {
         return { scope, fields: {
             NOTIFY_TELEGRAM_BOT_TOKEN: String(values.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim(),
-            NOTIFY_TELEGRAM_CHAT_ID: String(values.NOTIFY_TELEGRAM_CHAT_ID || '').trim()
+            NOTIFY_TELEGRAM_CHAT_ID: String(values.NOTIFY_TELEGRAM_CHAT_ID || '').trim(),
+            NOTIFY_TELEGRAM_DELIVERY_ENABLED: typeof values.NOTIFY_TELEGRAM_DELIVERY_ENABLED === 'boolean'
+                ? values.NOTIFY_TELEGRAM_DELIVERY_ENABLED : null
         } };
     }
     if (scope === 'slack') {
         return { scope, fields: {
-            NOTIFY_SLACK_WEBHOOK_URL: String(values.NOTIFY_SLACK_WEBHOOK_URL || '').trim()
+            NOTIFY_SLACK_WEBHOOK_URL: String(values.NOTIFY_SLACK_WEBHOOK_URL || '').trim(),
+            NOTIFY_SLACK_DELIVERY_ENABLED: typeof values.NOTIFY_SLACK_DELIVERY_ENABLED === 'boolean'
+                ? values.NOTIFY_SLACK_DELIVERY_ENABLED : null
         } };
     }
     return { scope, fields: { NOTIFY_BITLY_TOKEN: String(values.NOTIFY_BITLY_TOKEN || '').trim() } };
@@ -466,7 +470,9 @@ function createSettingsService(deps = {}) {
                 BUFFER_API_KEY_CONFIGURED: Boolean(String(CONFIG.BUFFER_API_KEY || '').trim()),
                 NOTIFY_TELEGRAM_BOT_TOKEN_CONFIGURED: Boolean(String(CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim()),
                 NOTIFY_TELEGRAM_CHAT_ID: String(CONFIG.NOTIFY_TELEGRAM_CHAT_ID || '').trim(),
+                NOTIFY_TELEGRAM_DELIVERY_ENABLED: CONFIG.NOTIFY_TELEGRAM_ENABLED === true,
                 NOTIFY_SLACK_WEBHOOK_URL_CONFIGURED: Boolean(String(CONFIG.NOTIFY_SLACK_WEBHOOK_URL || '').trim()),
+                NOTIFY_SLACK_DELIVERY_ENABLED: CONFIG.NOTIFY_SLACK_ENABLED === true,
                 NOTIFY_BITLY_TOKEN_CONFIGURED: Boolean(String(CONFIG.NOTIFY_BITLY_TOKEN || '').trim())
             } };
         },
@@ -494,26 +500,35 @@ function createSettingsService(deps = {}) {
                 const current = structuredConfig.notification.telegram || {};
                 const botToken = fields.NOTIFY_TELEGRAM_BOT_TOKEN || current.bot_token || CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN || '';
                 if (!botToken || !fields.NOTIFY_TELEGRAM_CHAT_ID) throw createApiError(400, 'TELEGRAM_CONNECTION_REQUIRED', 'Bot Token과 Chat ID를 모두 입력해 주세요.');
+                const deliveryEnabled = fields.NOTIFY_TELEGRAM_DELIVERY_ENABLED === null
+                    ? (current.delivery_enabled ?? current.enabled ?? (CONFIG.NOTIFY_TELEGRAM_ENABLED === true))
+                    : fields.NOTIFY_TELEGRAM_DELIVERY_ENABLED;
                 telegramRuntimeChanged = String(current.bot_token || '') !== String(botToken)
                     || String(current.chat_id || '') !== String(fields.NOTIFY_TELEGRAM_CHAT_ID);
                 structuredConfig.notification.telegram = {
                     ...current,
                     enabled: current.enabled === true || (current.enabled === undefined && CONFIG.NOTIFY_TELEGRAM_ENABLED === true),
+                    delivery_enabled: deliveryEnabled,
                     bot_token: botToken,
                     chat_id: fields.NOTIFY_TELEGRAM_CHAT_ID
                 };
-                Object.assign(CONFIG, { NOTIFY_TELEGRAM_BOT_TOKEN: botToken, NOTIFY_TELEGRAM_CHAT_ID: fields.NOTIFY_TELEGRAM_CHAT_ID });
+                Object.assign(CONFIG, { NOTIFY_TELEGRAM_BOT_TOKEN: botToken, NOTIFY_TELEGRAM_CHAT_ID: fields.NOTIFY_TELEGRAM_CHAT_ID, NOTIFY_TELEGRAM_ENABLED: deliveryEnabled });
             }
             if (normalized.scope === 'slack') {
                 const current = structuredConfig.notification.slack || {};
                 const webhookUrl = fields.NOTIFY_SLACK_WEBHOOK_URL || current.webhook_url || CONFIG.NOTIFY_SLACK_WEBHOOK_URL || '';
                 if (!webhookUrl) throw createApiError(400, 'SLACK_WEBHOOK_REQUIRED', 'Slack Webhook URL을 입력해 주세요.');
+                const deliveryEnabled = fields.NOTIFY_SLACK_DELIVERY_ENABLED === null
+                    ? (current.delivery_enabled ?? current.enabled ?? (CONFIG.NOTIFY_SLACK_ENABLED === true))
+                    : fields.NOTIFY_SLACK_DELIVERY_ENABLED;
                 structuredConfig.notification.slack = {
                     ...current,
                     enabled: current.enabled === true || (current.enabled === undefined && CONFIG.NOTIFY_SLACK_ENABLED === true),
+                    delivery_enabled: deliveryEnabled,
                     webhook_url: webhookUrl
                 };
                 CONFIG.NOTIFY_SLACK_WEBHOOK_URL = webhookUrl;
+                CONFIG.NOTIFY_SLACK_ENABLED = deliveryEnabled;
             }
             if (normalized.scope === 'bitly') {
                 const current = structuredConfig.notification.telegram || {};
@@ -530,7 +545,7 @@ function createSettingsService(deps = {}) {
             if (telegramRuntimeChanged && TelegramBotService) {
                 try {
                     if (typeof TelegramBotService.stop === 'function') await TelegramBotService.stop();
-                    if (CONFIG.NOTIFY_TELEGRAM_ENABLED && typeof TelegramBotService.init === 'function') TelegramBotService.init();
+                    if (CONFIG.NOTIFY_TELEGRAM_INBOUND_ENABLED && typeof TelegramBotService.init === 'function') TelegramBotService.init();
                 } catch (error) {
                     console.error('Failed to apply Telegram runtime settings:', error);
                 }

@@ -1,8 +1,10 @@
-const SETTINGS_NEXT_TABS = Object.freeze(['core', 'ai', 'writing', 'publishing', 'extras', 'app']);
+const SETTINGS_NEXT_TABS = Object.freeze(['core', 'ai', 'writing', 'extras', 'app']);
 const SETTINGS_NEXT_CORE_TABS = Object.freeze(['content', 'publishing']);
+const SETTINGS_NEXT_APP_TABS = Object.freeze(['external', 'environment', 'general']);
 
 let settingsNextActiveTab = 'core';
 let settingsNextActiveCoreTab = 'content';
+let settingsNextActiveAppTab = 'external';
 let settingsNextMajorFields = {};
 let settingsNextAccountOverview = null;
 let settingsNextGoogleStatus = null;
@@ -113,6 +115,24 @@ function settingsNextActivateCoreTab(tabName) {
   });
   document.querySelectorAll('[data-settings-next-core-action]').forEach((action) => {
     action.hidden = action.dataset.settingsNextCoreAction !== target;
+  });
+}
+
+function settingsNextActivateAppTab(tabName) {
+  const target = SETTINGS_NEXT_APP_TABS.includes(String(tabName || '').trim())
+    ? String(tabName).trim()
+    : 'external';
+  settingsNextActiveAppTab = target;
+  document.querySelectorAll('[data-settings-next-app-tab]').forEach((button) => {
+    const active = button.dataset.settingsNextAppTab === target;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', active ? 'true' : 'false');
+    button.tabIndex = active ? 0 : -1;
+  });
+  document.querySelectorAll('.settings-next-app-panel').forEach((panel) => {
+    const active = panel.id === `settings-next-app-panel-${target}`;
+    panel.classList.toggle('active', active);
+    panel.hidden = !active;
   });
 }
 
@@ -725,6 +745,14 @@ function initSettingsNext() {
         activate: settingsNextActivateCoreTab
       }));
     });
+    document.querySelectorAll('[data-settings-next-app-tab]').forEach((button) => {
+      button.addEventListener('click', () => settingsNextActivateAppTab(button.dataset.settingsNextAppTab));
+      button.addEventListener('keydown', (event) => void handleUiTabNavigationKeydown(event, {
+        selector: '[data-settings-next-app-tab]',
+        dataKey: 'settingsNextAppTab',
+        activate: settingsNextActivateAppTab
+      }));
+    });
     document.querySelectorAll('[data-settings-next-legacy-tab]').forEach((button) => {
       button.addEventListener('click', () => void navigateTo('settings', button.dataset.settingsNextLegacyTab));
     });
@@ -764,4 +792,5 @@ function initSettingsNext() {
   }
   settingsNextActivateTab(settingsNextActiveTab);
   settingsNextActivateCoreTab(settingsNextActiveCoreTab);
+  settingsNextActivateAppTab(settingsNextActiveAppTab);
 }

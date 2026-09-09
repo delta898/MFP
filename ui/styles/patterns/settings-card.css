@@ -76,6 +76,17 @@
   justify-content: space-between;
 }
 
+.ui-settings-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+}
+
+.ui-settings-card-title-toggle {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
 .ui-settings-card-heading {
   gap: var(--ui-space-6);
 }
