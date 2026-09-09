@@ -95,7 +95,7 @@
 
 - `plans/active/2026-09-06-design-system-main-development.md`
 - `plans/active/2026-09-08-design-system-settings-main-development.md`
-- `plans/active/2026-09-08-design-system-settings-01-shell-core-connections-development.md`
+- `plans/archive/2026-09-08-design-system-settings-01-shell-core-connections-development.md`
 - `plans/active/2026-09-06-v0.4.3-backlog-current-state-development.md`
 - `plans/active/runtime-credential-security-main-plan.md`
 - `plans/active/serpapi-collection-main-plan.md`
