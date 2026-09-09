@@ -40,6 +40,7 @@ test('Blog Beta top-level tabs and panels expose a complete accessibility relati
 test('Blog Beta panels share one intro slot and keep distinct local roles', () => {
     const view = readBlogNextView();
     const styles = read('ui/styles/features/blog-next-panel-anatomy.css');
+    const tabs = read('ui/styles/patterns/tab-navigation.css');
 
     assert.equal((view.match(/blog-next-panel-lead blog-next-panel-intro/g) || []).length, 4);
     assert.match(view, /원하는 방식으로 글 준비/);
@@ -51,10 +52,9 @@ test('Blog Beta panels share one intro slot and keep distinct local roles', () =
     assert.match(view, /data-blog-next-management-tab="automation">연속 발행 설정/);
     assert.match(view, /data-blog-next-management-panel="automation"[\s\S]{0,120}aria-labelledby="blog-next-management-tab-automation"/);
     assert.match(styles, /\.blog-next-panel-lead\s*\{[^}]*min-height:\s*64px;/s);
-    assert.match(styles, /\.blog-next-segmented-nav\s*\{/);
-    assert.match(styles, /\.blog-next-segmented-nav \.blog-next-mode-btn\.active,[\s\S]{0,100}\.blog-next-segmented-nav \.blog-next-management-tab\.active/);
-    assert.match(styles, /\.active\s*\{[^}]*background:\s*var\(--ui-action-primary-soft\);[^}]*box-shadow:\s*var\(--ui-segmented-active-shadow\)/s);
-    assert.match(styles, /:hover:not\(\.active\)\s*\{/);
+    assert.match(tabs, /\.ui-segmented-tabs\s*\{/);
+    assert.match(tabs, /\.ui-segmented-tab\.active\s*\{[^}]*box-shadow:\s*var\(--ui-segmented-active-shadow\)/s);
+    assert.match(tabs, /:hover:not\(\.active\)\s*\{/);
     assert.match(styles, /\.blog-next-management-tab\.active strong\s*\{[^}]*background:\s*var\(--ui-surface\)/s);
 });
 
@@ -62,16 +62,17 @@ test('Blog Beta typography hierarchy uses shared semantic roles', () => {
     const shellStyles = read('ui/styles/features/continuous-publishing.css');
     const anatomyStyles = read('ui/styles/features/blog-next-panel-anatomy.css');
     const usabilityStyles = read('ui/styles/features/continuous-publishing-usability.css');
+    const tabStyles = read('ui/styles/patterns/tab-navigation.css');
     const styleEntry = read('ui/styles.css');
 
     assert.match(
-        shellStyles,
-        /\.blog-next-tab-btn\s*\{[^}]*font-size:\s*var\(--ui-type-body-size\);[^}]*font-weight:\s*var\(--ui-weight-semibold\);[^}]*line-height:\s*var\(--ui-line-height-tight\);/s
+        tabStyles,
+        /\.ui-top-tab\s*\{[^}]*font-size:\s*var\(--ui-type-body-size\);/s
     );
-    assert.match(shellStyles, /\.blog-next-tab-btn,\s*\.blog-next-mode-btn\s*\{[^}]*font-family:\s*inherit;/s);
+    assert.match(tabStyles, /\.ui-top-tab,\s*\.ui-segmented-tab\s*\{[^}]*font-family:\s*inherit;[^}]*font-weight:\s*var\(--ui-weight-semibold\);/s);
     assert.match(
-        anatomyStyles,
-        /\.blog-next-segmented-nav :where\([^)]*\)\s*\{[^}]*font-family:\s*inherit;[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-semibold\);/s
+        tabStyles,
+        /\.ui-segmented-tab\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);/s
     );
     assert.match(
         anatomyStyles,
@@ -98,13 +99,16 @@ test('Blog Beta quick modes share the same content start inset', () => {
 test('Blog Beta tab interaction separates selection and keyboard focus', () => {
     const shell = read('ui/scripts/features/blog-next/shell.js');
     const styles = read('ui/styles/features/blog-next-panel-anatomy.css');
+    const tabs = read('ui/styles/patterns/tab-navigation.css');
+    const tabNavigation = read('ui/scripts/foundation/tab-navigation.js');
     const chrome = read('ui/styles/components/app-chrome.css');
 
     assert.match(shell, /button\.tabIndex = active \? 0 : -1/);
-    assert.match(shell, /\['ArrowLeft', 'ArrowRight', 'Home', 'End'\]/);
-    assert.match(shell, /targetButton\.focus\(\)/);
-    assert.match(styles, /\.blog-next-tab-btn:focus-visible[\s\S]{0,260}outline:/);
-    assert.match(styles, /\.blog-next-tab-btn:focus,[\s\S]{0,180}outline:\s*none/);
+    assert.match(shell, /handleUiTabNavigationKeydown/);
+    assert.match(tabNavigation, /ArrowLeft.*ArrowRight.*Home.*End/s);
+    assert.match(tabNavigation, /targetButton\.focus\(\)/);
+    assert.match(tabs, /\.ui-top-tab:focus-visible[\s\S]{0,260}box-shadow:/);
+    assert.match(tabs, /\.ui-top-tab:focus,[\s\S]{0,180}outline:\s*none/);
     assert.match(styles, /\.blog-next-view \.category-option-btn:focus-visible,[\s\S]{0,180}box-shadow:\s*var\(--ui-focus-ring\)/);
     assert.match(styles, /\.blog-next-view input\[type="checkbox"\]:focus-visible/);
     assert.doesNotMatch(styles, /:focus-visible::\-webkit-calendar-picker-indicator/);

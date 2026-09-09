@@ -36,6 +36,8 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
         'styles/components/app-chrome.css',
         'styles/patterns/actions.css',
         'styles/patterns/selection-controls.css',
+        'styles/patterns/tab-navigation.css',
+        'styles/patterns/settings-card.css',
         'styles/features/social.css',
         'styles/features/publishing.css',
         'styles/features/automation-settings.css',
@@ -62,6 +64,7 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
         'styles/components/feedback.css',
         'styles/layout/responsive.css',
         'styles/features/settings-detail.css',
+        'styles/features/settings-next.css',
         'styles/features/card-news-settings.css',
         'styles/features/writing-settings.css',
         'styles/components/form-widgets.css',
@@ -125,8 +128,13 @@ test('Blog Beta management typography follows shared navigation roles and distin
         path.join(uiRoot, 'styles', 'features', 'continuous-publishing-usability.css'),
         'utf8'
     );
+    const tabCss = fs.readFileSync(
+        path.join(uiRoot, 'styles', 'patterns', 'tab-navigation.css'),
+        'utf8'
+    );
 
-    assert.match(usabilityCss, /\.blog-next-management-tab\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-semibold\);[^}]*line-height:\s*var\(--ui-line-height-tight\);/s);
+    assert.match(tabCss, /\.ui-top-tab,\s*\.ui-segmented-tab\s*\{[^}]*font-weight:\s*var\(--ui-weight-semibold\);[^}]*line-height:\s*var\(--ui-line-height-tight\);/s);
+    assert.match(tabCss, /\.ui-segmented-tab\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);/s);
     assert.match(usabilityCss, /\.blog-next-management-tab strong\s*\{[^}]*font-size:\s*var\(--ui-type-caption-size\);[^}]*font-weight:\s*inherit;/s);
     assert.match(coreCss, /\.blog-next-queue-copy strong\s*\{[^}]*font-size:\s*var\(--ui-type-body-size\);[^}]*font-weight:\s*var\(--ui-weight-semibold\);/s);
     assert.match(coreCss, /\.blog-next-queue-copy span\s*\{[^}]*font-size:\s*13px;[^}]*font-weight:\s*var\(--ui-weight-regular\);/s);

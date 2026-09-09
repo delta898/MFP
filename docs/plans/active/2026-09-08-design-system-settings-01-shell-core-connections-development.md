@@ -115,8 +115,9 @@ top menu
 - 공용 settings-card pattern/controller focused contracts: 30 passed.
 - browser UI smoke: passed, latest shared-card run 228 fixture requests. Settings Beta의 summary-to-detail focus 이동을 포함했다.
 - browser UI smoke: passed, latest summary-jump/compact-density run 236 fixture requests (summary click → form focus 포함).
+- browser UI smoke: passed, latest Spreadsheet verification run 240 fixture requests (접근 확인 → card badge·readiness summary `접근 가능` 포함).
 - JavaScript syntax 및 Git whitespace check: passed
-- full unit suite: parent 통합 후보 승인 전에 사용자 승인 후 실행 예정
+- Full TC: 1,540 passed, 0 failed, 1 skipped.
 - 사용자 hands-on UI 확인: 대기
 
 ## 남은 위험과 확인 사항

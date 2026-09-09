@@ -773,11 +773,7 @@ function initBlogNextQuickQueue() {
   document.getElementById('blog-next-queue-refresh')?.addEventListener('click', refreshBlogNextQueue);
   document.querySelectorAll('[data-blog-next-management-tab]').forEach((button) => {
     button.addEventListener('click', () => { void requestActivateBlogNextManagementTab(button.dataset.blogNextManagementTab); });
-    button.addEventListener('keydown', (event) => void handleUiTabNavigationKeydown(event, {
-      selector: '[data-blog-next-management-tab]',
-      dataKey: 'blogNextManagementTab',
-      activate: requestActivateBlogNextManagementTab
-    }));
+    button.addEventListener('keydown', (event) => void handleUiTabNavigationKeydown(event, { selector: '[data-blog-next-management-tab]', dataKey: 'blogNextManagementTab', activate: requestActivateBlogNextManagementTab }));
   });
   document.getElementById('blog-next-editor-close')?.addEventListener('click', () => closeBlogNextEditor());
   document.getElementById('blog-next-editor-modal')?.addEventListener('click', (event) => {

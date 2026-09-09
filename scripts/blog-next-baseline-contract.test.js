@@ -110,15 +110,16 @@ test('manuscript drafts keep idle results quiet and summarize repeated image war
 test('quick writing modes expose complete tabs and keyboard navigation', () => {
   const html = readBlogNextView();
   const script = read('ui/scripts/features/blog-next/shell.js');
+  const tabNavigation = read('ui/scripts/foundation/tab-navigation.js');
 
   for (const type of ['ai', 'folder', 'paste']) {
     assert.match(html, new RegExp(`id="blog-next-mode-tab-${type}"[\\s\\S]*?role="tab"[\\s\\S]*?aria-controls="blog-next-mode-panel-${type}"`));
     assert.match(html, new RegExp(`id="blog-next-mode-panel-${type}" role="tabpanel"[\\s\\S]*?aria-labelledby="blog-next-mode-tab-${type}"`));
   }
   assert.match(script, /button\.tabIndex = active \? 0 : -1/);
-  assert.match(script, /function handleBlogNextInputModeKeydown\(event\)/);
-  assert.match(script, /\['ArrowLeft', 'ArrowRight', 'Home', 'End'\]/);
-  assert.match(script, /targetButton\.focus\(\)/);
+  assert.match(script, /handleUiTabNavigationKeydown/);
+  assert.match(tabNavigation, /function handleUiTabNavigationKeydown/);
+  assert.match(tabNavigation, /ArrowLeft.*ArrowRight.*Home.*End/s);
 });
 
 test('manuscript settings preserve dependent values while matching provider and schedule state', () => {
@@ -250,6 +251,7 @@ test('queue management exposes complete local tabs and list-owned async states',
   const html = readBlogNextView();
   const uiScript = read('ui/scripts/features/blog-next/queue-ui.js');
   const queueScript = readBlogNextQueueScripts();
+  const tabNavigation = read('ui/scripts/foundation/tab-navigation.js');
 
   for (const type of ['ready', 'saved', 'automation']) {
     assert.match(html, new RegExp(`id="blog-next-management-tab-${type}"[\\s\\S]*?aria-controls="blog-next-management-panel-${type}"`));
@@ -260,8 +262,8 @@ test('queue management exposes complete local tabs and list-owned async states',
   assert.match(html, /data-blog-next-management-tab="automation">연속 발행 설정/);
   assert.doesNotMatch(html, /data-blog-next-tab="automation"/);
   assert.doesNotMatch(html, /발행 대기열을 확인하고 있습니다|보관한 글감을 확인하고 있습니다/);
-  assert.match(uiScript, /function handleBlogNextManagementTabKeydown\(event\)/);
-  assert.match(uiScript, /button\.tabIndex = active \? 0 : -1/);
+  assert.match(queueScript, /handleUiTabNavigationKeydown/);
+  assert.match(tabNavigation, /function handleUiTabNavigationKeydown/);
   assert.match(uiScript, /function setBlogNextManagementStatus\(state, message = ''\)/);
   assert.match(uiScript, /if \(blogNextQueueHasLoaded\) return/);
   assert.match(queueScript, /blogNextQueueHasLoaded = true/);
