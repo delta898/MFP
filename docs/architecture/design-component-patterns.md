@@ -116,10 +116,14 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 
 - 저장된 password, token, API key와 credential은 화면과 read API에 원문·부분값·길이를 반환하거나 표시하지 않는다.
   화면은 `등록됨` 여부만 사용하며, 값 변경을 위한 input은 항상 빈 상태에서 시작한다.
+- Settings Beta의 secret input은 공통 registration presentation을 사용한다. 등록된 값은 `{대상} 등록됨` placeholder와
+  `변경할 때만 새 값을 입력하세요` hint로만 알리고, 미등록 상태는 해당 값의 입력 목적을 placeholder·hint에 표현한다.
 - 사용자가 이번 입력에서 직접 작성한 secret에 한해 input 끝의 accessible show/hide control을 제공할 수 있다. 이 control은
   현재 입력값만 전환하며 저장된 원문을 다시 채우거나 표시하지 않는다.
 - secret이 이미 등록된 상태에서 빈 input을 제출하면 기존 secret을 유지한다. 삭제는 별도의 명시적·확인 가능한 action으로만
   제공하며, 빈값 submit을 삭제로 해석하지 않는다.
+- Settings Beta의 secret show/hide는 공통 controller와 `data-settings-next-secret-toggle` 계약을 사용한다. provider별
+  controller는 동일한 visibility event와 accessible label 갱신을 다시 구현하지 않는다.
 
 ## Summary-to-detail and settings density
 
@@ -139,6 +143,9 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
   `.ui-settings-card-footer`, `.ui-settings-summary-card`, `.ui-settings-readiness-card`, `.ui-settings-field`, `.ui-settings-field-grid`가
   anatomy·density와 field의 `label → control → hint` typography를 소유한다. 화면별 stylesheet에는 provider 고유
   상태·action layout만 둔다.
+- Settings card의 heading과 첫 body 요소 사이에는 공통 heading-to-body gap을 둔다. body 안의 field·hint·feedback·footer는
+  compact gap을 유지한다. 특정 화면이 heading 간격을 별도로 키우거나 줄이지 않으며, 별도 density가 필요한 card family는
+  공통 custom property로 그 예외 범위를 명시한다.
 - summary/readiness의 detail 이동과 feedback text/tone 갱신은 공통 settings-card controller가 소유한다. 화면 controller는
   target id와 feedback id만 지정하며, 같은 scroll·focus·feedback DOM 조작을 복사하지 않는다. 단, OAuth·로그인·외부
   연결 확인처럼 provider에 의존하는 workflow와 domain validation은 해당 feature에 남긴다.
@@ -375,11 +382,23 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 
 - Settings의 account, document, channel connection card는 `header → body → feedback → footer` 순서를 공통 문법으로
   사용한다. header 왼쪽에는 title과 한 줄 description, 오른쪽에는 현재의 지속 상태 badge 하나만 둔다.
+- connection card는 credential과 연결 검증만 소유한다. Organization·발행 채널처럼 이번 자동 발행·카드뉴스 실행의
+  대상을 고르는 값은 해당 실행 화면이 소유하며, 연결 화면에는 선택 control로 중복하지 않는다.
+- 연결 credential의 유효성과 기능의 실행 허가는 분리한다. 연결 card는 token·endpoint·허용 대상과 연결 확인만
+  관리하며, background daemon·수신 adapter·알림 발송의 사용 여부를 함께 켜거나 끄지 않는다. 연결값 변경으로 이미
+  활성화된 runtime에 새 credential을 재적용해야 할 때만 runtime을 안전하게 재시작할 수 있다.
+- 공통 외부 서비스의 책임은 `연결 → 목적지 → 이벤트 → 입력 채널`로 구분한다. `부가 서비스`는 credential과 검증,
+  `앱 > 알림`은 발송 채널, 각 기능은 알림을 만들 이벤트, `앱 > 외부 연결`은 Telegram 수신·원격 MCP 같은 inbound
+  adapter의 활성화와 실행 상태를 소유한다.
 - body에는 field, field별 hint와 계정·세션 같은 지속 정보만 둔다. 같은 연결 상태를 body나 footer에 다시 label로
   반복하지 않는다.
-- feedback은 body 다음, footer 직전의 전용 surface 한 곳에서 예외 실패 또는 사용자 대응 안내만 보여준다. 정상
-  성공은 persistent badge가 이미 표현하므로 같은 사실을 feedback으로 반복하지 않는다. 새 입력으로 결과의 전제가
-  바뀌면 오래된 feedback을 지운다.
+- footer는 왼쪽의 선택적 `footer detail slot`과 오른쪽 action group으로 구성한다. footer detail slot은 현재 설정,
+  선택 또는 사용자가 방금 실행한 연결 확인의 한 줄 결과를 표시한다. 연결 확인 성공·실패는 모두 이 slot을 사용하고,
+  실패는 danger tone과 사용자가 다음에 확인할 값을 함께 쓴다. 정보가 없으면 slot과 여백을 예약하지 않는다. action은
+  항상 공통 footer action group으로 감싸 오른쪽 anchor를 유지하며, 좁은 화면에서는 detail 뒤에 자연스럽게 줄바꿈한다.
+- feedback은 body 다음, footer 직전의 전용 surface 한 곳에서 field-level validation이나 여러 단계 workflow의
+  사용자 대응 안내만 보여준다. 정상 성공은 persistent badge가 이미 표현하므로 같은 사실을 feedback으로 반복하지 않는다.
+  새 입력으로 결과의 전제가 바뀌면 오래된 feedback을 지운다.
 - footer에는 action만 두고 inline-end에 한 group으로 정렬한다. 같은 connection의 `연결 해제`·`로그아웃`과
   확인 action을 함께 둘 때는 danger outline과 확인 dialog로 의미를 구분한다.
 - feedback surface는 한 줄 높이를 항상 예약하고, 긴 문구는 한 줄 안에서 줄임 처리하되 assistive technology와 title로

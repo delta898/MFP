@@ -43,7 +43,18 @@ class TelegramService {
         } catch (error) {
             const errorMsg = error.response ? JSON.stringify(error.response.data) : error.message;
             Logger.error(`❌ [Telegram] API 호출 에러: ${errorMsg}`);
-            return { success: false, message: `통신 에러: ${error.message}` };
+            const status = Number(error?.response?.status || 0);
+            const description = String(error?.response?.data?.description || '').toLowerCase();
+            if (status === 400 && description.includes('chat not found')) {
+                return { success: false, message: 'Chat ID를 확인해 주세요.' };
+            }
+            if (status === 401) {
+                return { success: false, message: 'Bot Token을 확인해 주세요.' };
+            }
+            if (status === 429) {
+                return { success: false, message: 'Telegram 요청이 잠시 제한되었습니다. 잠시 후 다시 시도해 주세요.' };
+            }
+            return { success: false, message: 'Telegram과 통신하지 못했습니다. 잠시 후 다시 시도해 주세요.' };
         }
     }
 

@@ -167,6 +167,7 @@
                   <span class="settings-next-secret-input">
                     <input id="settings-next-wordpress-app-password" type="password" autocomplete="new-password" placeholder="애플리케이션 비밀번호">
                     <button id="settings-next-wordpress-password-visibility" class="settings-next-icon-button" type="button"
+                      data-settings-next-secret-toggle="settings-next-wordpress-app-password"
                       aria-label="새 애플리케이션 비밀번호 표시" aria-pressed="false" title="비밀번호 표시">
                       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" /><circle cx="12" cy="12" r="2.5" /></svg>
                     </button>
@@ -301,11 +302,57 @@
           </div>
         </div>
         <div class="card form-card settings-next-panel" id="settings-next-panel-extras" role="tabpanel" aria-labelledby="settings-next-tab-extras" hidden>
-          <div class="settings-next-placeholder">
-            <h2>부가 서비스</h2>
-            <p>Buffer, Bitly, 텔레그램과 Slack 같은 선택 연결을 이곳에서 관리할 예정입니다.</p>
-            <button class="secondary" type="button" data-settings-next-legacy-tab="notification">기존 알림 설정 열기</button>
+          <div class="settings-next-panel-lead settings-next-panel-intro">
+            <div><h2>함께 쓰는 부가 서비스</h2><p>여러 기능에서 공통으로 사용하는 선택 연결을 목적별로 관리합니다.</p></div>
           </div>
+          <div class="settings-next-local-nav-row">
+            <div class="settings-next-local-nav ui-segmented-tabs" role="tablist" aria-label="부가 서비스 설정">
+              <button class="settings-next-local-tab ui-segmented-tab active" id="settings-next-extras-tab-social" type="button" role="tab" aria-selected="true" aria-controls="settings-next-extras-panel-social" tabindex="0" data-settings-next-extras-tab="social">SNS 배포</button>
+              <button class="settings-next-local-tab ui-segmented-tab" id="settings-next-extras-tab-messaging" type="button" role="tab" aria-selected="false" aria-controls="settings-next-extras-panel-messaging" tabindex="-1" data-settings-next-extras-tab="messaging">메시지·알림</button>
+              <button class="settings-next-local-tab ui-segmented-tab" id="settings-next-extras-tab-links" type="button" role="tab" aria-selected="false" aria-controls="settings-next-extras-panel-links" tabindex="-1" data-settings-next-extras-tab="links">링크 단축</button>
+            </div>
+          </div>
+          <p id="settings-next-extras-load-feedback" class="ui-settings-card-feedback settings-next-load-feedback" role="status" aria-live="polite"></p>
+
+          <section class="settings-next-extras-panel active" id="settings-next-extras-panel-social" role="tabpanel" aria-labelledby="settings-next-extras-tab-social">
+            <form class="ui-settings-card" id="settings-next-buffer-form" data-settings-next-optional-scope="buffer" aria-busy="false">
+              <div class="ui-settings-card-heading"><div><h3>Buffer</h3><p>SNS와 카드뉴스에 사용할 Buffer 연결을 관리합니다.</p></div><span id="settings-next-buffer-status" class="settings-next-status" data-tone="neutral">미설정</span></div>
+              <label class="ui-settings-field">API Key<div class="settings-next-secret-input"><input id="settings-next-buffer-api-key" type="password" autocomplete="new-password" placeholder="새 API Key 입력"><button class="settings-next-icon-button" type="button" data-settings-next-secret-toggle="settings-next-buffer-api-key" aria-label="새 API Key 표시" title="API Key 표시"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg></button></div><small id="settings-next-buffer-secret-help">등록된 값은 표시하지 않습니다. 발행 대상은 SNS 자동 발행과 카드뉴스에서 선택합니다.</small></label>
+              <p id="settings-next-buffer-feedback" class="ui-settings-card-feedback" role="status" aria-live="polite"></p>
+              <div class="ui-settings-card-footer"><p id="settings-next-buffer-footer-detail" class="ui-settings-card-footer-detail" hidden></p><div class="ui-settings-card-footer-actions"><button class="primary" type="submit">연결 확인</button></div></div>
+            </form>
+          </section>
+
+          <section class="settings-next-extras-panel" id="settings-next-extras-panel-messaging" role="tabpanel" aria-labelledby="settings-next-extras-tab-messaging" hidden>
+            <div class="settings-next-readiness" aria-label="메시지·알림 준비 상태">
+              <button class="ui-settings-readiness-card" type="button" data-settings-card-target="settings-next-telegram-form"><span class="settings-next-status-dot" id="settings-next-telegram-readiness-dot" data-tone="neutral" aria-hidden="true"></span><span><strong>Telegram</strong><small id="settings-next-telegram-readiness">설정 확인 중</small></span></button>
+              <button class="ui-settings-readiness-card" type="button" data-settings-card-target="settings-next-slack-form"><span class="settings-next-status-dot" id="settings-next-slack-readiness-dot" data-tone="neutral" aria-hidden="true"></span><span><strong>Slack</strong><small id="settings-next-slack-readiness">설정 확인 중</small></span></button>
+            </div>
+            <form class="ui-settings-card" id="settings-next-telegram-form" data-settings-next-optional-scope="telegram" aria-busy="false" tabindex="-1">
+              <div class="ui-settings-card-heading"><div><h3>Telegram</h3><p>알림과 Telegram 명령 수신에 사용할 연결을 관리합니다.</p></div><span id="settings-next-telegram-status" class="settings-next-status" data-tone="neutral">미설정</span></div>
+              <div class="ui-settings-field-grid">
+                <label class="ui-settings-field">Bot Token<div class="settings-next-secret-input"><input id="settings-next-telegram-token" type="password" autocomplete="new-password" placeholder="새 Bot Token 입력"><button class="settings-next-icon-button" type="button" data-settings-next-secret-toggle="settings-next-telegram-token" aria-label="새 Bot Token 표시" title="Bot Token 표시"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg></button></div><small id="settings-next-telegram-secret-help">등록된 값은 표시하지 않습니다.</small></label>
+                <label class="ui-settings-field">Chat ID<input id="settings-next-telegram-chat-id" type="text" autocomplete="off"><small>연결 확인과 명령 수신을 허용할 채팅의 ID입니다.</small></label>
+              </div>
+              <p id="settings-next-telegram-feedback" class="ui-settings-card-feedback" role="status" aria-live="polite"></p>
+              <div class="ui-settings-card-footer"><p id="settings-next-telegram-footer-detail" class="ui-settings-card-footer-detail" hidden></p><div class="ui-settings-card-footer-actions"><button class="primary" type="submit">연결 확인</button></div></div>
+            </form>
+            <form class="ui-settings-card" id="settings-next-slack-form" data-settings-next-optional-scope="slack" aria-busy="false" tabindex="-1">
+              <div class="ui-settings-card-heading"><div><h3>Slack</h3><p>알림에 사용할 Slack 연결을 관리합니다.</p></div><span id="settings-next-slack-status" class="settings-next-status" data-tone="neutral">미설정</span></div>
+              <label class="ui-settings-field">Webhook URL<div class="settings-next-secret-input"><input id="settings-next-slack-webhook" type="password" autocomplete="new-password" placeholder="새 Webhook URL 입력"><button class="settings-next-icon-button" type="button" data-settings-next-secret-toggle="settings-next-slack-webhook" aria-label="새 Webhook URL 표시" title="Webhook URL 표시"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg></button></div><small id="settings-next-slack-secret-help">등록된 값은 표시하지 않습니다.</small></label>
+              <p id="settings-next-slack-feedback" class="ui-settings-card-feedback" role="status" aria-live="polite"></p>
+              <div class="ui-settings-card-footer"><p id="settings-next-slack-footer-detail" class="ui-settings-card-footer-detail" hidden></p><div class="ui-settings-card-footer-actions"><button class="primary" type="submit">연결 확인</button></div></div>
+            </form>
+          </section>
+
+          <section class="settings-next-extras-panel" id="settings-next-extras-panel-links" role="tabpanel" aria-labelledby="settings-next-extras-tab-links" hidden>
+            <form class="ui-settings-card" id="settings-next-bitly-form" data-settings-next-optional-scope="bitly" aria-busy="false">
+              <div class="ui-settings-card-heading"><div><h3>Bitly</h3><p>알림·SNS·카드뉴스에서 공유하는 URL을 짧게 만듭니다.</p></div><span id="settings-next-bitly-status" class="settings-next-status" data-tone="neutral">미설정</span></div>
+              <label class="ui-settings-field">Access Token<div class="settings-next-secret-input"><input id="settings-next-bitly-token" type="password" autocomplete="new-password" placeholder="새 Access Token 입력"><button class="settings-next-icon-button" type="button" data-settings-next-secret-toggle="settings-next-bitly-token" aria-label="새 Access Token 표시" title="Access Token 표시"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg></button></div><small id="settings-next-bitly-secret-help">등록된 값은 표시하지 않습니다. 연결되지 않으면 원본 URL을 사용합니다.</small></label>
+              <p id="settings-next-bitly-feedback" class="ui-settings-card-feedback" role="status" aria-live="polite"></p>
+              <div class="ui-settings-card-footer"><p id="settings-next-bitly-footer-detail" class="ui-settings-card-footer-detail" hidden></p><div class="ui-settings-card-footer-actions"><button class="primary" type="submit">연결 확인</button></div></div>
+            </form>
+          </section>
         </div>
         <div class="card form-card settings-next-panel" id="settings-next-panel-app" role="tabpanel" aria-labelledby="settings-next-tab-app" hidden>
           <div class="settings-next-placeholder">

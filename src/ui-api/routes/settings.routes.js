@@ -49,6 +49,16 @@ function createSettingsRouteHandler(deps = {}) {
             return true;
         }
 
+        if (pathname === '/api/v1/settings/optional-services') {
+            await controller.handleOptionalServices(ctx);
+            return true;
+        }
+
+        if (pathname === '/api/v1/settings/optional-services/test') {
+            await controller.handleOptionalServiceTest(ctx);
+            return true;
+        }
+
         if (pathname === '/api/v1/settings/advanced') {
             await controller.handleAdvanced(ctx);
             return true;

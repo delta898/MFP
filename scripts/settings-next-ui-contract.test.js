@@ -49,12 +49,12 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
         ['content', '콘텐츠 공간'],
         ['publishing', '블로그 발행 채널']
     ]);
-    assert.equal((html.match(/role="tab"/g) || []).length, 8);
-    assert.equal((html.match(/aria-controls="settings-next-/g) || []).length, 8);
+    assert.equal((html.match(/role="tab"/g) || []).length, 11);
+    assert.equal((html.match(/aria-controls="settings-next-/g) || []).length, 11);
     assert.match(html, /class="settings-next-tabs ui-top-tabs"/);
     assert.equal((html.match(/settings-next-tab ui-top-tab/g) || []).length, 6);
     assert.match(html, /class="settings-next-local-nav ui-segmented-tabs"/);
-    assert.equal((html.match(/settings-next-local-tab ui-segmented-tab/g) || []).length, 2);
+    assert.equal((html.match(/settings-next-local-tab ui-segmented-tab/g) || []).length, 5);
     assert.match(html, /class="page-clock-widget"[\s\S]*?data-clock-display/);
     assert.match(
         html,
@@ -69,7 +69,7 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     assert.match(html, /aria-label="블로그 발행 채널 준비 상태"/);
     assert.match(html, /settings-next-naver-readiness/);
     assert.match(html, /settings-next-wordpress-readiness/);
-    assert.equal((html.match(/data-settings-card-target=/g) || []).length, 12);
+    assert.equal((html.match(/data-settings-card-target=/g) || []).length, 14);
     assert.match(html, /data-settings-card-target="settings-next-naver-form"/);
     assert.match(html, /data-settings-card-target="settings-next-wordpress-form"/);
     assert.doesNotMatch(html, /settings-next-ai-local-tab/);
@@ -86,6 +86,31 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     assert.match(html, /class="ui-settings-field-grid settings-next-writing-field-grid--three"/);
     assert.doesNotMatch(html, /settings-writing-profile-kind|settings-next-writing-strategy/);
     assert.match(html, /글 작성 전략은 실제 글을 쓸 때 선택합니다/);
+    assert.match(html, /data-settings-next-extras-tab="social">SNS 배포/);
+    assert.match(html, /data-settings-next-extras-tab="messaging">메시지·알림/);
+    assert.match(html, /data-settings-next-extras-tab="links">링크 단축/);
+    assert.match(html, /data-settings-next-optional-scope="buffer"/);
+    assert.match(html, /data-settings-next-optional-scope="telegram"/);
+    assert.match(html, /data-settings-next-optional-scope="slack"/);
+    assert.match(html, /data-settings-next-optional-scope="bitly"/);
+    assert.doesNotMatch(html, /settings-next-buffer-organization|settings-next-buffer-channels/);
+    assert.doesNotMatch(html, /settings-next-telegram-enabled|settings-next-slack-enabled/);
+    const secrets = read('ui/scripts/foundation/settings-secrets.js');
+    const optionalServices = read('ui/scripts/features/settings-next/optional-services.js');
+    const settingsCardStyles = read('ui/styles/patterns/settings-card.css');
+    const settingsNextStyles = read('ui/styles/features/settings-next.css');
+    assert.match(secrets, /function syncSettingsNextSecretRegistration/);
+    assert.match(optionalServices, /syncSettingsNextSecretRegistration/);
+    assert.match(read('ui/scripts/foundation/settings-card.js'), /function setUiSettingsCardFooterDetail/);
+    assert.match(read('ui/scripts/foundation/settings-card.js'), /element\.dataset\.tone = tone/);
+    assert.match(html, /id="settings-next-buffer-footer-detail" class="ui-settings-card-footer-detail" hidden[\s\S]*?class="ui-settings-card-footer-actions"/);
+    assert.match(html, /id="settings-next-telegram-footer-detail" class="ui-settings-card-footer-detail" hidden[\s\S]*?class="ui-settings-card-footer-actions"/);
+    assert.match(html, /id="settings-next-slack-footer-detail" class="ui-settings-card-footer-detail" hidden[\s\S]*?class="ui-settings-card-footer-actions"/);
+    assert.match(html, /id="settings-next-bitly-footer-detail" class="ui-settings-card-footer-detail" hidden[\s\S]*?class="ui-settings-card-footer-actions"/);
+    assert.match(settingsCardStyles, /\.ui-settings-card > \.ui-settings-card-heading \+ \*/);
+    assert.match(settingsCardStyles, /\.ui-settings-card-footer-detail\[data-tone="danger"\]/);
+    assert.match(settingsCardStyles, /--ui-settings-card-heading-body-gap/);
+    assert.doesNotMatch(settingsNextStyles, /\.settings-next-ai-card\s*\{\s*gap:/);
 });
 
 test('Settings Beta controller applies scoped changes seamlessly and protects pending local changes', () => {
@@ -242,8 +267,8 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
     assert.doesNotMatch(featureStyles, /settings-next-save-status/);
     assert.doesNotMatch(html, />[^<]*저장하고[^<]*<\/button>/);
     assert.doesNotMatch(html, /저장됨/);
-    assert.equal((html.match(/class="ui-settings-card(?:\s|")/g) || []).length, 12);
-    assert.equal((html.match(/class="ui-settings-readiness-card"/g) || []).length, 7);
+    assert.equal((html.match(/class="ui-settings-card(?:\s|")/g) || []).length, 16);
+    assert.equal((html.match(/class="ui-settings-readiness-card"/g) || []).length, 9);
     assert.equal((html.match(/class="ui-settings-summary-card"/g) || []).length, 3);
     assert.match(cardStyles, /\.ui-settings-card\s*\{/);
     assert.match(cardStyles, /\.ui-settings-card-footer\s*\{/);
@@ -269,7 +294,7 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
     assert.equal((html.match(/data-settings-next-refresh/g) || []).length, 2);
     assert.equal((html.match(/>새로고침<\/button>/g) || []).length, 2);
     assert.doesNotMatch(html, />상태 새로고침<\/button>/);
-    assert.equal((html.match(/aria-busy="false"/g) || []).length, 9);
+    assert.equal((html.match(/aria-busy="false"/g) || []).length, 13);
     assert.match(html, /id="settings-next-load-feedback"[^>]*role="status"[^>]*aria-live="polite"/);
 });
 
@@ -286,8 +311,9 @@ test('Settings Beta shows operation loading only on the initiating action', () =
     assert.doesNotMatch(script, /SetFeedback\('settings-next-wordpress-feedback',\s*'[^']*확인하고 있습니다/);
     assert.doesNotMatch(script, /연결을 확인했습니다\.|로그인했습니다\.|로그아웃했습니다\.|연동 성공/);
     assert.match(styles, /\.ui-settings-card-feedback\s*\{[\s\S]*min-block-size[\s\S]*white-space: nowrap/);
-    assert.match(script, /function settingsNextToggleWordpressPasswordVisibility/);
+    assert.match(read('ui/scripts/foundation/settings-secrets.js'), /function initOpaqueSettingsSecretToggles/);
     assert.match(app, /@include scripts\/foundation\/settings-card\.js/);
+    assert.match(app, /@include scripts\/features\/settings-next\/optional-services\.js/);
     assert.match(shared, /function initUiSettingsCardPattern/);
     assert.match(shared, /data-settings-card-target/);
     assert.match(shared, /scrollIntoView\(\{ behavior: 'smooth', block: 'start' \}\)/);

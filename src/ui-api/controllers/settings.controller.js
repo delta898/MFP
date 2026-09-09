@@ -142,6 +142,22 @@ function createSettingsController(deps = {}) {
             return sendMethodNotAllowed(sendError, res, requestId);
         },
 
+        async handleOptionalServices({ requestId, method, requestBody, res }) {
+            try {
+                if (method === 'GET') return sendSuccess(res, requestId, await service.getOptionalServiceSettings());
+                if (method === 'POST') return sendSuccess(res, requestId, await service.saveOptionalServiceSettings(requestBody || {}));
+                return sendMethodNotAllowed(sendError, res, requestId);
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'OPTIONAL_SERVICE_SETTINGS_FAILED', '부가 서비스 설정을 처리하지 못했습니다.', e);
+            }
+        },
+
+        async handleOptionalServiceTest({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try { return sendSuccess(res, requestId, await service.testOptionalServiceConnection(requestBody || {})); }
+            catch (e) { return toErrorResponse(res, requestId, 'OPTIONAL_SERVICE_CONNECTION_FAILED', '부가 서비스 연결을 확인하지 못했습니다.', e); }
+        },
+
         async handleTestAiRole({ requestId, method, requestBody, res }) {
             if (method === 'POST') {
                 try {

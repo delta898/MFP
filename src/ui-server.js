@@ -992,6 +992,7 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     cheerio,
     RuntimeConfig,
     TelegramService,
+    TelegramBotService,
     SlackService,
     snsAiService,
     cardNewsLedgerStore,

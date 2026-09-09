@@ -75,6 +75,13 @@
 │     └─ AI 적용 미리보기
 ├─ 발행
 ├─ 부가 서비스
+│  ├─ SNS 배포
+│  │  └─ Buffer
+│  ├─ 메시지·알림
+│  │  ├─ Telegram
+│  │  └─ Slack
+│  └─ 링크 단축
+│     └─ Bitly
 └─ 앱
 ```
 
@@ -84,7 +91,15 @@
 후속 `앱 > 고급 연결` 단계에서 다룬다. `글쓰기`는 하나의 `글쓰기 기본값` 목적만 가지므로 local sub-menu를 두지
 않는다. 사용자는 문체·구성·이미지 영역의 한 세트를 관리하며 제품 추천값은 초기값과 명시적 되돌리기의 기준으로만
 사용한다. 검색 중심·발견 중심 전략은 현재 작업의 목적이므로 이 기본값에서 제외하고 실제 글 작성 화면이 소유한다.
-`발행`, `부가 서비스`, `앱`의 나머지 상세 IA도 해당 단계에서 같은 배치 기준으로 검토한다.
+`부가 서비스`는 provider 수가 아니라 사용 목적에 따라 `SNS 배포 / 메시지·알림 / 링크 단축`으로 나눈다.
+Buffer는 SNS와 카드뉴스가 공유하고, Telegram과 Slack은 메시지·알림 channel이며, Bitly는 Telegram에 종속되지
+않는 공통 URL 단축 연결이다. 이 화면은 연결 credential과 검증만 소유하고, Telegram/Slack 사용 여부나 Telegram
+수신 daemon 같은 실행 설정은 소유하지 않는다. Buffer Organization·발행 채널처럼
+실행 대상을 고르는 값과 자동 발행 여부·주기 같은 실행 설정은 각 기능이 소유한다. 하나의 목적에 provider가 둘 이상 있을 때만 readiness summary를 제공하므로
+`메시지·알림`은 Telegram과 Slack summary를 함께 보여주고 단일 provider 목적은 상세 card로 바로 시작한다.
+`앱 > 알림`은 공통 발송 채널을, 각 기능은 알림을 발생시키는 이벤트를 소유한다. `앱 > 외부 연결`은 Telegram 명령
+수신과 원격 MCP처럼 외부에서 앱으로 들어오는 adapter의 활성화와 실행 상태를 소유한다. MCP는 Telegram과 독립적인
+transport이며, Telegram은 선택 가능한 별도 inbound channel이다. `발행`, `앱`의 나머지 상세 IA도 해당 단계에서 같은 배치 기준으로 검토한다.
 
 Blog Beta의 글 작성 화면은 본문 길이·도입·전개·마무리만 글별 override로 제공한다. 새 글이 성공적으로 보관되거나
 대기열에 추가된 뒤에는 반복 작성 편의를 위해 그 선택을 browser localStorage의 기기 최근값으로 갱신한다. 이 최근값은
@@ -137,6 +152,9 @@ Blog Beta의 글 작성 화면은 본문 길이·도입·전개·마무리만 �
 - AI API Key도 같은 secret 계약을 따른다. Settings Beta의 AI read API는 `*_MODEL_API_KEY_CONFIGURED`만 전달하며,
   기존 key의 일부·마스킹값·원문을 browser에 내리지 않는다. 보기/숨기기는 새로 입력한 값에만 제공한다. `연결 확인`은
   새 입력값을 반영한 뒤 서버에 저장된 해당 모델 역할 설정으로 수행한다.
+- Buffer API Key, Telegram Bot Token, Slack Webhook URL과 Bitly Access Token도 같은 secret 계약을 사용한다.
+  Settings Beta의 부가 서비스 API는 등록 여부만 반환하고 기존 `config.json` schema와 runtime consumer는 유지한다.
+  `연결 확인`은 해당 card scope만 반영한다. Buffer Organization·발행 채널은 SNS 자동 발행과 카드뉴스의 실행 설정에서 선택한다.
 
 ## 화면 계약
 

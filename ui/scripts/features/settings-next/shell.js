@@ -55,17 +55,6 @@ function settingsNextSetScopeFeedback(scope, message = '', tone = 'neutral') {
   if (id) settingsNextSetFeedback(id, message, tone);
 }
 
-function settingsNextToggleWordpressPasswordVisibility() {
-  const input = document.getElementById('settings-next-wordpress-app-password');
-  const button = document.getElementById('settings-next-wordpress-password-visibility');
-  if (!input || !button) return;
-  const visible = input.type === 'password';
-  input.type = visible ? 'text' : 'password';
-  button.setAttribute('aria-pressed', visible ? 'true' : 'false');
-  button.setAttribute('aria-label', visible ? '새 애플리케이션 비밀번호 숨기기' : '새 애플리케이션 비밀번호 표시');
-  button.title = visible ? '비밀번호 숨기기' : '비밀번호 표시';
-}
-
 function settingsNextSetStatus(id, label, tone = 'neutral') {
   const element = document.getElementById(id);
   if (!element) return;
@@ -464,7 +453,8 @@ async function loadSettingsNext({ force = false } = {}) {
       fetchJson('/api/v1/settings/core-connections'),
       fetchJson('/api/v1/settings/ai-roles'),
       settingsNextLoadStatuses({ force }),
-      settingsNextLoadWritingDefaults()
+      settingsNextLoadWritingDefaults(),
+      loadSettingsNextOptionalServices()
     ]);
     settingsNextApplyMajorFields(core);
     loadSettingsNextAi(ai);
@@ -699,7 +689,11 @@ async function confirmDiscardUnsavedSettingsNext() {
     'ai-text': '글쓰기 모델',
     'ai-image': '이미지 모델',
     'ai-chat': '보조 대화 모델',
-    writing: '글쓰기 기본값'
+    writing: '글쓰기 기본값',
+    'optional-buffer': 'Buffer',
+    'optional-telegram': 'Telegram',
+    'optional-slack': 'Slack',
+    'optional-bitly': 'Bitly'
   };
   const changed = [...settingsNextDirtyScopes].map((scope) => labels[scope] || scope).join(', ');
   const discard = await showUiConfirm(`아직 반영하지 않은 변경사항이 있습니다: ${changed}\n이 화면을 떠나면 변경사항이 사라집니다.`, {
@@ -742,6 +736,7 @@ function initSettingsNext() {
     initUiSettingsCardPattern();
     initSettingsNextAi();
     initSettingsNextWriting();
+    initSettingsNextOptionalServices();
     const scopedInputs = {
       content: ['settings-next-google-sheet-url'],
       naver: ['settings-next-naver-id'],
@@ -760,7 +755,7 @@ function initSettingsNext() {
     document.getElementById('settings-next-google-test')?.addEventListener('click', () => void settingsNextTestGoogle());
     document.getElementById('settings-next-google-disconnect')?.addEventListener('click', () => void settingsNextDisconnectGoogle());
     document.getElementById('settings-next-naver-logout')?.addEventListener('click', () => void settingsNextLogoutNaver());
-    document.getElementById('settings-next-wordpress-password-visibility')?.addEventListener('click', settingsNextToggleWordpressPasswordVisibility);
+    initOpaqueSettingsSecretToggles(document.getElementById('view-settings-next'));
     document.getElementById('settings-next-open-google-sheet')?.addEventListener('click', () => {
       const raw = document.getElementById('settings-next-google-sheet-url')?.value || '';
       window.open(buildGoogleSheetOpenUrl(raw), '_blank', 'noopener,noreferrer');

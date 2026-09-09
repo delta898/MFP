@@ -366,6 +366,15 @@ function getApiFixture(pathname) {
         };
     }
     if (pathname === '/api/v1/settings/ai-roles/test') return { display_name: 'fixture model', latency_ms: 8 };
+    if (pathname === '/api/v1/settings/optional-services') {
+        return { fields: {
+            BUFFER_API_KEY_CONFIGURED: true,
+            NOTIFY_TELEGRAM_BOT_TOKEN_CONFIGURED: true,
+            NOTIFY_TELEGRAM_CHAT_ID: 'fixture-chat',
+            NOTIFY_SLACK_WEBHOOK_URL_CONFIGURED: true,
+            NOTIFY_BITLY_TOKEN_CONFIGURED: true
+        } };
+    }
     if (pathname === '/api/v1/settings/writing-profile') {
         return createWritingProfileFixture();
     }
@@ -1414,6 +1423,29 @@ async function run() {
         assert.equal(writingApplyRequest.body.custom_profile.common.writing_strategy, writingStrategyBefore);
         assert.equal(writingApplyRequest.body.custom_profile.common.voice.writing_mode, 'written');
         assert.equal(writingApplyRequest.body.custom_profile.channels.blog.length.preset, 'long');
+        await page.locator('[data-settings-next-tab="extras"]').click();
+        assert.deepEqual(
+            await page.locator('[data-settings-next-extras-tab]').allTextContents(),
+            ['SNS 배포', '메시지·알림', '링크 단축']
+        );
+        assert.equal(await page.locator('#settings-next-buffer-api-key').inputValue(), '');
+        assert.equal((await page.locator('#settings-next-buffer-secret-help').textContent()).includes('등록되어 있습니다'), true);
+        await page.locator('[data-settings-next-extras-tab="messaging"]').click();
+        assert.equal(await page.locator('#settings-next-telegram-status').textContent(), '확인 필요');
+        await page.locator('[data-settings-card-target="settings-next-slack-form"]').click();
+        await page.waitForFunction(() => document.activeElement?.id === 'settings-next-slack-form');
+        await page.locator('#settings-next-slack-webhook').fill('new-secret');
+        await page.locator('[data-settings-next-secret-toggle="settings-next-slack-webhook"]').click();
+        assert.equal(await page.locator('#settings-next-slack-webhook').getAttribute('type'), 'text');
+        await page.evaluate(() => settingsNextClearScopeDirty('optional-slack'));
+        await page.locator('[data-settings-next-extras-tab="links"]').click();
+        await page.locator('#settings-next-bitly-form button[type="submit"]').click();
+        await page.waitForFunction(() => document.getElementById('settings-next-bitly-status')?.textContent === '연결됨');
+        const bitlyRequests = requests.filter((request) => request.pathname.startsWith('/api/v1/settings/optional-services')).slice(-2);
+        assert.deepEqual(bitlyRequests.map(({ method, pathname }) => ({ method, pathname })), [
+            { method: 'POST', pathname: '/api/v1/settings/optional-services' },
+            { method: 'POST', pathname: '/api/v1/settings/optional-services/test' }
+        ]);
         await page.locator('[data-settings-next-tab="ai"]').press('Home');
         assert.equal(await settingsTopTab.getAttribute('aria-selected'), 'true');
         const settingsLocalTab = page.locator('[data-settings-next-core-tab="content"]');
@@ -2439,6 +2471,8 @@ async function run() {
             { method: 'POST', pathname: '/api/v1/recommendations/discover' },
             { method: 'POST', pathname: '/api/v1/google-oauth/test' },
             { method: 'PUT', pathname: '/api/v1/settings/writing-profile' },
+            { method: 'POST', pathname: '/api/v1/settings/optional-services' },
+            { method: 'POST', pathname: '/api/v1/settings/optional-services/test' },
             { method: 'POST', pathname: '/api/v1/trend-posting/topics' },
             { method: 'POST', pathname: '/api/v1/keywords/analyze' },
             { method: 'POST', pathname: '/api/v1/keywords/suggest-titles' },

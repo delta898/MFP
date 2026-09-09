@@ -111,6 +111,16 @@
    - preview 요청에는 원본 binary를 반복 전송하지 않고 식별·검증 metadata만 사용하며, 실제 실행 시 필요한
      asset만 전달한다. image object URL 해제, mode 전환 중 상태 보존과 실패 시 마지막 유효 preview 보존을 검증한다.
 
+11. 원격 발행 누락 관측과 결과 확정
+   - 관찰 중인 known issue: AI 본문·이미지 생성은 성공했지만 WordPress 임시 저장 또는 네이버 포스팅의
+     원격 발행 요청이 실행되지 않은 것으로 보이는 사례가 있다.
+   - 재현 자료를 모은 뒤 `생성 전용`, 실제 원격 발행, idempotency 재사용을 실행 모드·대상 플랫폼·작업 ID로
+     구분해 기록한다. WordPress에는 post ID/URL, 네이버에는 post URL을 결과 증거로 남긴다.
+   - 완료 UI와 Sheet 상태는 플랫폼별 원격 저장 성공 결과가 있을 때만 `임시 저장 완료`·`발행 완료`로 전환한다.
+     생성만 마친 경우와 이전 성공 결과를 재사용한 경우는 각각 별도 상태와 안내로 표현한다.
+   - 네이버와 WordPress 모두에서 실패·재시도·부분 성공과 중복 방지의 결과를 확인할 수 있는 focused regression을
+     추가한다.
+
 ## P2 — 제품 확장과 유지보수
 
 1. BlogAnywhere companion

@@ -86,6 +86,7 @@
 - 2026-09-09: AI sub-feature를 역할 중심 단일 화면으로 통합했다. 글쓰기·이미지·보조 대화 모델은 shared Settings card/field/choice/select pattern과 provider별 profile 보존 계약을 사용한다. 상세 기록은 `docs/plans/archive/2026-09-09-design-system-settings-02-ai-model-roles-development.md`를 따른다.
 - 2026-09-09: 글쓰기 stage는 Settings Beta의 단일 `글쓰기 기본값` 관리부터 진행하고 Blog Beta의 상속·작업별 override는 사용자 UI 확인 뒤 별도 단계로 나누기로 했다. 검색·발견 전략은 글쓰기 기본값에서 제외한다.
 - 2026-09-09: Settings Beta 글쓰기 기본값 stage를 parent에 통합하고, Blog Beta 바로 생성의 기본값 상속·글별 부분 override·기기 최근 선택을 별도 `04-blog-writing-overrides` stage로 완료했다. 새 글 성공 시 localStorage 최근값을 갱신하고 기존 글감 수정은 그 값을 오염시키지 않으며, 최종 prompt와 image plan까지 같은 override 계약을 사용한다.
+- 2026-09-09: 부가 서비스의 목적 기반 IA를 `SNS 배포 / 메시지·알림 / 링크 단축`으로 확정했다. Buffer, Telegram, Slack, Bitly는 기존 저장 schema를 유지하는 scoped Settings Beta 계약과 공통 card·secret pattern을 사용한다.
 
 ## 검증 계획
 

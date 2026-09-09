@@ -169,6 +169,27 @@ function normalizeAiRoleSettings(requestBody = {}) {
     return { scope, source, fields };
 }
 
+function normalizeOptionalServiceSettings(requestBody = {}) {
+    const scope = String(requestBody.scope || '').trim().toLowerCase();
+    const values = requestBody.values && typeof requestBody.values === 'object' ? requestBody.values : {};
+    if (!['buffer', 'telegram', 'slack', 'bitly'].includes(scope)) {
+        throw createApiError(400, 'OPTIONAL_SERVICE_SCOPE_INVALID', '설정할 부가 서비스를 확인해 주세요.');
+    }
+    if (scope === 'buffer') return { scope, fields: { BUFFER_API_KEY: String(values.BUFFER_API_KEY || '').trim() } };
+    if (scope === 'telegram') {
+        return { scope, fields: {
+            NOTIFY_TELEGRAM_BOT_TOKEN: String(values.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim(),
+            NOTIFY_TELEGRAM_CHAT_ID: String(values.NOTIFY_TELEGRAM_CHAT_ID || '').trim()
+        } };
+    }
+    if (scope === 'slack') {
+        return { scope, fields: {
+            NOTIFY_SLACK_WEBHOOK_URL: String(values.NOTIFY_SLACK_WEBHOOK_URL || '').trim()
+        } };
+    }
+    return { scope, fields: { NOTIFY_BITLY_TOKEN: String(values.NOTIFY_BITLY_TOKEN || '').trim() } };
+}
+
 function applyCoreConnectionSettings(structuredConfig = {}, normalized = {}) {
     const { scope, fields = {} } = normalized;
     if (scope === 'content') {
@@ -224,6 +245,7 @@ function createSettingsService(deps = {}) {
         createConfigRevision,
         parseConfigValue,
         TelegramService,
+        TelegramBotService,
         BufferClient,
         Utils,
         axios,
@@ -437,6 +459,100 @@ function createSettingsService(deps = {}) {
                 aiPresets: getAiModelCatalog(),
                 aiProviderProfiles: redactAiProviderProfiles(CONFIG.AI_MODEL_PROFILES)
             };
+        },
+
+        async getOptionalServiceSettings() {
+            return { fields: {
+                BUFFER_API_KEY_CONFIGURED: Boolean(String(CONFIG.BUFFER_API_KEY || '').trim()),
+                NOTIFY_TELEGRAM_BOT_TOKEN_CONFIGURED: Boolean(String(CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim()),
+                NOTIFY_TELEGRAM_CHAT_ID: String(CONFIG.NOTIFY_TELEGRAM_CHAT_ID || '').trim(),
+                NOTIFY_SLACK_WEBHOOK_URL_CONFIGURED: Boolean(String(CONFIG.NOTIFY_SLACK_WEBHOOK_URL || '').trim()),
+                NOTIFY_BITLY_TOKEN_CONFIGURED: Boolean(String(CONFIG.NOTIFY_BITLY_TOKEN || '').trim())
+            } };
+        },
+
+        async saveOptionalServiceSettings(requestBody = {}) {
+            const normalized = normalizeOptionalServiceSettings(requestBody);
+            const writablePath = resolveWritableConfigPath();
+            let structuredConfig = {};
+            if (fs.existsSync(writablePath)) {
+                try { structuredConfig = JSON.parse(fs.readFileSync(writablePath, 'utf8')); }
+                catch (_error) { throw createApiError(409, 'CONFIG_JSON_INVALID', '현재 설정 파일을 읽을 수 없어 안전하게 반영하지 못했습니다.'); }
+            }
+            structuredConfig.integrations = structuredConfig.integrations && typeof structuredConfig.integrations === 'object' ? structuredConfig.integrations : {};
+            structuredConfig.notification = structuredConfig.notification && typeof structuredConfig.notification === 'object' ? structuredConfig.notification : {};
+            const fields = normalized.fields;
+            if (normalized.scope === 'buffer') {
+                const current = structuredConfig.integrations.buffer || {};
+                const apiKey = fields.BUFFER_API_KEY || current.api_key || CONFIG.BUFFER_API_KEY || '';
+                if (!apiKey) throw createApiError(400, 'BUFFER_API_KEY_REQUIRED', 'Buffer API Key를 입력해 주세요.');
+                structuredConfig.integrations.buffer = { ...current, api_key: apiKey };
+                CONFIG.BUFFER_API_KEY = apiKey;
+            }
+            let telegramRuntimeChanged = false;
+            if (normalized.scope === 'telegram') {
+                const current = structuredConfig.notification.telegram || {};
+                const botToken = fields.NOTIFY_TELEGRAM_BOT_TOKEN || current.bot_token || CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN || '';
+                if (!botToken || !fields.NOTIFY_TELEGRAM_CHAT_ID) throw createApiError(400, 'TELEGRAM_CONNECTION_REQUIRED', 'Bot Token과 Chat ID를 모두 입력해 주세요.');
+                telegramRuntimeChanged = String(current.bot_token || '') !== String(botToken)
+                    || String(current.chat_id || '') !== String(fields.NOTIFY_TELEGRAM_CHAT_ID);
+                structuredConfig.notification.telegram = {
+                    ...current,
+                    enabled: current.enabled === true || (current.enabled === undefined && CONFIG.NOTIFY_TELEGRAM_ENABLED === true),
+                    bot_token: botToken,
+                    chat_id: fields.NOTIFY_TELEGRAM_CHAT_ID
+                };
+                Object.assign(CONFIG, { NOTIFY_TELEGRAM_BOT_TOKEN: botToken, NOTIFY_TELEGRAM_CHAT_ID: fields.NOTIFY_TELEGRAM_CHAT_ID });
+            }
+            if (normalized.scope === 'slack') {
+                const current = structuredConfig.notification.slack || {};
+                const webhookUrl = fields.NOTIFY_SLACK_WEBHOOK_URL || current.webhook_url || CONFIG.NOTIFY_SLACK_WEBHOOK_URL || '';
+                if (!webhookUrl) throw createApiError(400, 'SLACK_WEBHOOK_REQUIRED', 'Slack Webhook URL을 입력해 주세요.');
+                structuredConfig.notification.slack = {
+                    ...current,
+                    enabled: current.enabled === true || (current.enabled === undefined && CONFIG.NOTIFY_SLACK_ENABLED === true),
+                    webhook_url: webhookUrl
+                };
+                CONFIG.NOTIFY_SLACK_WEBHOOK_URL = webhookUrl;
+            }
+            if (normalized.scope === 'bitly') {
+                const current = structuredConfig.notification.telegram || {};
+                const token = fields.NOTIFY_BITLY_TOKEN || current.bitly_token || CONFIG.NOTIFY_BITLY_TOKEN || '';
+                if (!token) throw createApiError(400, 'BITLY_TOKEN_REQUIRED', 'Bitly Access Token을 입력해 주세요.');
+                structuredConfig.notification.telegram = { ...current, bitly_token: token };
+                CONFIG.NOTIFY_BITLY_TOKEN = token;
+            }
+            fs.mkdirSync(path.dirname(writablePath), { recursive: true });
+            fs.writeFileSync(writablePath, JSON.stringify(structuredConfig, null, 2), 'utf8');
+            CONFIG.CONFIG_READY = true;
+            CONFIG.CONFIG_SOURCE_TYPE = 'json';
+            CONFIG.CONFIG_SOURCE_PATH = writablePath;
+            if (telegramRuntimeChanged && TelegramBotService) {
+                try {
+                    if (typeof TelegramBotService.stop === 'function') await TelegramBotService.stop();
+                    if (CONFIG.NOTIFY_TELEGRAM_ENABLED && typeof TelegramBotService.init === 'function') TelegramBotService.init();
+                } catch (error) {
+                    console.error('Failed to apply Telegram runtime settings:', error);
+                }
+            }
+            dashboardActivityRecorder({ category: 'settings', type: 'optional_service_saved', title: '부가 서비스 설정 반영 완료', detail: normalized.scope });
+            return { scope: normalized.scope, ...(await this.getOptionalServiceSettings()) };
+        },
+
+        async testOptionalServiceConnection(requestBody = {}) {
+            const normalized = normalizeOptionalServiceSettings(requestBody);
+            const fields = normalized.fields;
+            if (normalized.scope === 'buffer') return this.inspectBufferConnection({ apiKey: fields.BUFFER_API_KEY || CONFIG.BUFFER_API_KEY });
+            if (normalized.scope === 'telegram') return this.testTelegramConnection({ botToken: fields.NOTIFY_TELEGRAM_BOT_TOKEN || CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN, chatId: fields.NOTIFY_TELEGRAM_CHAT_ID || CONFIG.NOTIFY_TELEGRAM_CHAT_ID });
+            if (normalized.scope === 'slack') return this.testSlackConnection({ webhookUrl: fields.NOTIFY_SLACK_WEBHOOK_URL || CONFIG.NOTIFY_SLACK_WEBHOOK_URL });
+            const token = fields.NOTIFY_BITLY_TOKEN || CONFIG.NOTIFY_BITLY_TOKEN;
+            if (!token) throw createApiError(400, 'BITLY_TOKEN_REQUIRED', 'Bitly Access Token을 입력해 주세요.');
+            try {
+                await axios.get('https://api-ssl.bitly.com/v4/user', { headers: { Authorization: `Bearer ${token}` }, timeout: 5000 });
+                return { message: 'Bitly 연결을 확인했습니다.' };
+            } catch (error) {
+                throw createApiError(error?.response?.status === 401 ? 401 : 400, 'BITLY_CONNECTION_FAILED', 'Bitly 연결을 확인하지 못했습니다. Access Token을 확인해 주세요.');
+            }
         },
 
         async saveCoreConnectionSettings(requestBody = {}) {
@@ -1230,6 +1346,7 @@ module.exports = {
     removeManagedKeywordCredentials,
     normalizeCoreConnectionSettings,
     normalizeAiRoleSettings,
+    normalizeOptionalServiceSettings,
     redactMajorSecretFields,
     redactAiRoleSecretFields,
     redactAiProviderProfiles,

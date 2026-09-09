@@ -22,6 +22,17 @@ function createHarness() {
             },
             async getAiRoleSettings() {
                 return { fields: {} };
+            },
+            async getOptionalServiceSettings() {
+                return { fields: { NOTIFY_BITLY_TOKEN_CONFIGURED: true } };
+            },
+            async saveOptionalServiceSettings(body) {
+                calls.push(body);
+                return { scope: body.scope };
+            },
+            async testOptionalServiceConnection(body) {
+                calls.push(body);
+                return { message: 'ok' };
             }
         },
         sendSuccess: (_res, requestId, data) => responses.push({ ok: true, requestId, data }),
@@ -42,6 +53,15 @@ test('core connections route accepts scoped POST requests', async () => {
     }), true);
     assert.deepEqual(harness.calls, [requestBody]);
     assert.deepEqual(harness.responses[0].data, { scope: 'naver' });
+});
+
+test('optional services route exposes safe reads and scoped connection actions', async () => {
+    const harness = createHarness();
+    await harness.handler({ pathname: '/api/v1/settings/optional-services', method: 'GET', requestId: 'optional-get' });
+    assert.equal(harness.responses[0].data.fields.NOTIFY_BITLY_TOKEN_CONFIGURED, true);
+    const body = { scope: 'bitly', values: { NOTIFY_BITLY_TOKEN: '' } };
+    await harness.handler({ pathname: '/api/v1/settings/optional-services/test', method: 'POST', requestId: 'optional-test', requestBody: body });
+    assert.deepEqual(harness.calls, [body]);
 });
 
 test('AI roles route accepts scoped POST requests', async () => {

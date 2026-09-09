@@ -87,6 +87,38 @@ function getSettingsInputValue(id) {
     : String(el.value || '');
 }
 
+function initOpaqueSettingsSecretToggles(root = document) {
+  if (!root) return;
+  root.querySelectorAll('[data-settings-next-secret-toggle]').forEach((button) => {
+    if (button.dataset.secretToggleBound === 'true') return;
+    button.dataset.secretLabel = String(button.getAttribute('aria-label') || button.title || '비밀정보')
+      .replace(/^새\s*/, '')
+      .replace(/\s+(표시|숨기기)$/, '');
+    button.addEventListener('click', () => {
+      const input = document.getElementById(button.dataset.settingsNextSecretToggle);
+      if (!input) return;
+      const visible = input.type === 'password';
+      input.type = visible ? 'text' : 'password';
+      button.setAttribute('aria-pressed', visible ? 'true' : 'false');
+      const subject = button.dataset.secretLabel || '비밀정보';
+      button.title = `${subject} ${visible ? '숨기기' : '표시'}`;
+      button.setAttribute('aria-label', `새 ${subject} ${visible ? '숨기기' : '표시'}`);
+    });
+    button.dataset.secretToggleBound = 'true';
+  });
+}
+
+function syncSettingsNextSecretRegistration({ input, hint, configured, label, emptyPlaceholder, emptyHint, configuredHint, suffix = '' } = {}) {
+  if (!input) return;
+  const subject = String(label || '비밀정보').trim();
+  const configuredState = configured === true;
+  input.placeholder = configuredState ? `${subject} 등록됨` : String(emptyPlaceholder || `${subject} 입력`);
+  if (!hint) return;
+  hint.textContent = configuredState
+    ? `${String(configuredHint || `${subject}이 등록되어 있습니다. 변경할 때만 새 값을 입력하세요.`)}${suffix}`
+    : `${String(emptyHint || `${subject}을 입력한 뒤 연결을 확인하세요.`)}${suffix}`;
+}
+
 function parsePositiveInt(value, fallback = 0) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;

@@ -93,10 +93,15 @@ function settingsNextAiSetApiKeyPresentation(role, provider) {
   if (!apiKey || !hint) return;
   const label = settingsNextAiProviderLabel(role, provider);
   const configured = settingsNextAiHasConfiguredKey(role, provider);
-  apiKey.placeholder = configured ? `${label} API Key 등록됨` : `${label} API Key 입력`;
-  hint.textContent = configured
-    ? `${label} API Key가 등록되어 있습니다. 변경할 때만 새 값을 입력하세요.`
-    : `${label} API Key를 입력한 뒤 연결을 확인하세요.`;
+  syncSettingsNextSecretRegistration({
+    input: apiKey,
+    hint,
+    configured,
+    label: `${label} API Key`,
+    emptyPlaceholder: `${label} API Key 입력`,
+    emptyHint: `${label} API Key를 입력한 뒤 연결을 확인하세요.`,
+    configuredHint: `${label} API Key가 등록되어 있습니다. 변경할 때만 새 값을 입력하세요.`
+  });
 }
 
 function settingsNextAiFieldMarkup(role) {
@@ -104,7 +109,7 @@ function settingsNextAiFieldMarkup(role) {
     <label class="ui-settings-field" data-ai-preset-wrap>모델<span class="ui-select-shell"><select data-ai-field="presetCode"></select></span><small aria-hidden="true">&nbsp;</small></label>
     <label class="ui-settings-field" data-ai-name-wrap hidden>모델 이름<input data-ai-field="name" type="text" placeholder="예: gpt-4.1-mini"><small>직접 입력 모델의 이름 또는 코드를 입력하세요.</small></label>
     <label class="ui-settings-field" data-ai-base-wrap>Base URL<input data-ai-field="baseUrl" type="url" placeholder="https://api.example.com/v1"><small data-ai-summary></small></label>
-    <label class="ui-settings-field">API Key<span class="settings-next-secret-input"><input id="settings-next-ai-${role}-api-key" data-ai-field="apiKey" type="password" autocomplete="new-password" placeholder="선택한 AI 모델의 API Key"><button class="settings-next-icon-button" type="button" data-ai-secret-toggle aria-label="새 API Key 표시" aria-pressed="false" title="API Key 표시"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.5"></circle></svg></button></span><small data-ai-key-hint></small></label>`;
+    <label class="ui-settings-field">API Key<span class="settings-next-secret-input"><input id="settings-next-ai-${role}-api-key" data-ai-field="apiKey" type="password" autocomplete="new-password" placeholder="선택한 AI 모델의 API Key"><button class="settings-next-icon-button" type="button" data-settings-next-secret-toggle="settings-next-ai-${role}-api-key" aria-label="새 API Key 표시" aria-pressed="false" title="API Key 표시"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.5"></circle></svg></button></span><small data-ai-key-hint></small></label>`;
 }
 
 function settingsNextAiGetField(role, name) {
@@ -115,6 +120,7 @@ function settingsNextAiRenderRoleFields(role, options = {}) {
   const root = document.querySelector(`[data-settings-next-ai-fields="${role}"]`);
   if (!root) return;
   if (!root.innerHTML) root.innerHTML = settingsNextAiFieldMarkup(role);
+  initOpaqueSettingsSecretToggles(root);
   const provider = settingsNextAiGetField(role, 'provider');
   const preset = settingsNextAiGetField(role, 'presetCode');
   const providerValue = options.provider || provider?.value || settingsNextAiValue(role, 'PROVIDER') || 'google';
@@ -269,17 +275,6 @@ function initSettingsNextAi() {
     };
     root.addEventListener('input', invalidate);
     root.addEventListener('change', invalidate);
-  });
-  document.addEventListener('click', (event) => {
-    const button = event.target.closest('[data-ai-secret-toggle]');
-    if (!button) return;
-    const input = button.closest('.settings-next-secret-input')?.querySelector('[data-ai-field="apiKey"]');
-    if (!input) return;
-    const visible = input.type === 'password';
-    input.type = visible ? 'text' : 'password';
-    button.setAttribute('aria-pressed', visible ? 'true' : 'false');
-    button.setAttribute('aria-label', visible ? '새 API Key 숨기기' : '새 API Key 표시');
-    button.title = visible ? 'API Key 숨기기' : 'API Key 표시';
   });
   document.querySelectorAll('input[name="settings-next-ai-chat-source"]').forEach((input) => input.addEventListener('change', () => {
     settingsNextMarkScopeDirty('ai-chat');

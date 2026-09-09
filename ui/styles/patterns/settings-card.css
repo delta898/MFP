@@ -51,6 +51,7 @@
 }
 
 .ui-settings-card {
+  --ui-settings-card-heading-body-gap: var(--ui-space-2);
   display: flex;
   flex: 0 0 auto;
   flex-direction: column;
@@ -62,6 +63,10 @@
   border: 1px solid var(--ui-border-default);
   border-radius: var(--ui-radius-md);
   background: var(--ui-surface);
+}
+
+.ui-settings-card > .ui-settings-card-heading + * {
+  margin-block-start: var(--ui-settings-card-heading-body-gap);
 }
 
 .ui-settings-card-heading,
@@ -191,6 +196,29 @@
   margin-block-start: calc(var(--ui-space-1) * -1);
 }
 
+.ui-settings-card-footer-detail {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-type-caption-size);
+  font-weight: var(--ui-weight-regular);
+  line-height: var(--ui-line-height-body);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-settings-card-footer-detail[data-tone="danger"] {
+  color: var(--ui-status-danger);
+}
+
+.ui-settings-card-footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-action-group-gap);
+  margin-inline-start: auto;
+}
+
 @media (max-width: 760px) {
   .ui-settings-card-heading,
   .ui-settings-card-footer {
@@ -200,6 +228,21 @@
 
   .ui-settings-field-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ui-settings-card-footer-detail {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .ui-settings-card-footer-actions {
+    align-self: stretch;
+    margin-inline-start: 0;
+  }
+
+  .ui-settings-card-footer-actions > button {
+    width: 100%;
   }
 }
 

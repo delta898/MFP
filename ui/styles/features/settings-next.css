@@ -16,15 +16,21 @@
 }
 
 .settings-next-panel,
-.settings-next-core-panel {
+.settings-next-core-panel,
+.settings-next-extras-panel {
   display: none;
   flex-direction: column;
   gap: var(--ui-space-5);
 }
 
 .settings-next-panel.active,
-.settings-next-core-panel.active {
+.settings-next-core-panel.active,
+.settings-next-extras-panel.active {
   display: flex;
+}
+
+.settings-next-extras-panel {
+  gap: var(--ui-space-5);
 }
 
 .settings-next-panel {
@@ -103,10 +109,6 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.settings-next-ai-card {
-  gap: var(--ui-space-3);
-}
-
 .settings-next-ai-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -136,6 +138,7 @@
 }
 
 .settings-next-writing-stack .ui-settings-card {
+  --ui-settings-card-heading-body-gap: 0;
   gap: var(--ui-space-4);
 }
 
