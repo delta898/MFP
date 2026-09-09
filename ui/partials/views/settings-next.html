@@ -360,7 +360,20 @@
             <form class="ui-settings-card" id="settings-next-mcp-remote-form" data-settings-next-external-scope="mcp" aria-busy="false"><div class="ui-settings-card-heading"><div><div class="ui-settings-card-title-row"><label class="ui-settings-card-title-toggle"><input id="settings-next-mcp-remote-enabled" type="checkbox" aria-label="원격 MCP 사용"></label><h3>원격 MCP</h3></div><p>외부 MCP client가 이 앱의 기능에 연결할 endpoint를 관리합니다.</p></div><span id="settings-next-mcp-remote-status" class="settings-next-status" data-tone="neutral">확인 중</span></div><div class="ui-settings-field-grid"><label class="ui-settings-field">Host<span class="ui-select-shell"><select id="settings-next-mcp-remote-host"><option value="127.0.0.1">127.0.0.1 (로컬 전용)</option><option value="0.0.0.0">0.0.0.0 (동일 네트워크/프록시)</option></select></span></label><label class="ui-settings-field">Port<input id="settings-next-mcp-remote-port" type="number" min="1" max="65535"></label><label class="ui-settings-field">Path<input id="settings-next-mcp-remote-path" type="text"></label><label class="ui-settings-field">Bearer Token<input id="settings-next-mcp-remote-token" type="password" autocomplete="new-password" placeholder="변경할 때만 새 값 입력"><small>등록된 값은 표시하지 않습니다.</small></label></div><p id="settings-next-mcp-remote-feedback" class="ui-settings-card-feedback" role="status" aria-live="polite"></p><div class="ui-settings-card-footer"><p id="settings-next-mcp-remote-footer-detail" class="ui-settings-card-footer-detail" hidden></p><div class="ui-settings-card-footer-actions"><button class="primary" type="submit">적용</button></div></div></form>
           </section>
           <section class="settings-next-app-panel" id="settings-next-app-panel-general" role="tabpanel" aria-labelledby="settings-next-app-tab-general" hidden>
-            <div class="settings-next-placeholder"><h3>일반</h3><p>앱 전반의 기본 동작을 이곳에서 관리합니다.</p></div>
+            <form class="ui-settings-card" id="settings-next-app-general-form" aria-busy="false">
+              <div class="ui-settings-card-heading"><div><h3>앱 접속 주소</h3><p>이 기기에서 BlogGenius 화면을 열 수 있는 주소와 포트를 정합니다.</p></div><span id="settings-next-app-general-status" class="settings-next-status" data-tone="neutral">확인 중</span></div>
+              <div class="ui-settings-field-grid">
+                <label class="ui-settings-field">접속 주소<span class="ui-select-shell"><select id="settings-next-listen-host"><option value="127.0.0.1">127.0.0.1 (로컬 전용)</option><option value="0.0.0.0">0.0.0.0 (동일 네트워크 허용)</option></select></span><small>동일 네트워크에서 열려면 공유기와 방화벽 설정도 확인하세요.</small></label>
+                <label class="ui-settings-field">포트<input id="settings-next-listen-port" type="number" min="1" max="65535" inputmode="numeric"><small>변경하면 앱 서버가 새 주소로 다시 시작됩니다.</small></label>
+              </div>
+              <p id="settings-next-app-general-feedback" class="ui-settings-card-feedback" role="status" aria-live="polite"></p>
+              <div class="ui-settings-card-footer"><p id="settings-next-app-general-footer-detail" class="ui-settings-card-footer-detail" hidden></p><div class="ui-settings-card-footer-actions"><button class="primary" type="submit">적용</button></div></div>
+            </form>
+            <section class="ui-settings-card" id="settings-next-app-update-card" aria-busy="false">
+              <div class="ui-settings-card-heading"><div><h3>앱 업데이트</h3><p>새 버전을 확인하고 안전하게 내려받아 설치합니다.</p></div><span id="settings-next-app-update-status" class="settings-next-status" data-tone="neutral">자동 확인</span></div>
+              <p class="ui-settings-card-detail">일반 확인은 새 버전이 있을 때만 설치를 제안합니다. 강제 설치는 버전 비교와 캐시를 건너뛰고 선택된 최신 버전을 다시 내려받습니다.</p>
+              <div class="ui-settings-card-footer"><p class="ui-settings-card-footer-detail" hidden></p><div class="ui-settings-card-footer-actions"><button class="secondary" type="button" data-settings-next-update-action="check">최신 버전 확인</button><button class="secondary" type="button" data-settings-next-update-action="force">최신 버전 강제 설치</button></div></div>
+            </section>
           </section>
         </div>
       </section>

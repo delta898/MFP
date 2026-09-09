@@ -37,6 +37,13 @@ function createHarness() {
                 calls.push(body);
                 return { scope: body.scope };
             },
+            async getAppGeneralSettings() {
+                return { fields: { LISTEN_HOST: '127.0.0.1', LISTEN_PORT: 4577 } };
+            },
+            async saveAppGeneralSettings(body) {
+                calls.push(body);
+                return { fields: body.values };
+            },
             async testOptionalServiceConnection(body) {
                 calls.push(body);
                 return { message: 'ok' };
@@ -79,6 +86,16 @@ test('external connections route exposes safe reads and scoped saves', async () 
     await harness.handler({ pathname: '/api/v1/settings/external-connections', method: 'POST', requestId: 'external-save', requestBody: body });
     assert.deepEqual(harness.calls, [body]);
     assert.deepEqual(harness.responses[1].data, { scope: 'mcp' });
+});
+
+test('app general route exposes the UI server address and applies scoped values', async () => {
+    const harness = createHarness();
+    await harness.handler({ pathname: '/api/v1/settings/app-general', method: 'GET', requestId: 'app-general-get' });
+    assert.equal(harness.responses[0].data.fields.LISTEN_PORT, 4577);
+    const body = { values: { LISTEN_HOST: '0.0.0.0', LISTEN_PORT: '4588' } };
+    await harness.handler({ pathname: '/api/v1/settings/app-general', method: 'POST', requestId: 'app-general-save', requestBody: body });
+    assert.deepEqual(harness.calls, [body]);
+    assert.deepEqual(harness.responses[1].data, { fields: body.values });
 });
 
 

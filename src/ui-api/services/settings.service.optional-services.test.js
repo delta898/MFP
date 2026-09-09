@@ -7,7 +7,8 @@ const path = require('node:path');
 const {
     createSettingsService,
     normalizeOptionalServiceSettings,
-    normalizeExternalConnectionSettings
+    normalizeExternalConnectionSettings,
+    normalizeAppGeneralSettings
 } = require('./settings.service');
 
 function createHarness(initial = {}, overrides = {}) {
@@ -223,4 +224,23 @@ test('external MCP activation requires a token when no stored token exists', asy
         } }),
         (error) => error.apiCode === 'MCP_TOKEN_REQUIRED'
     );
+});
+
+test('app general settings validate the UI server address and schedule a restart only after a real change', async () => {
+    const restarts = [];
+    const { CONFIG, configPath, service } = createHarness({ general: { listen_host: '127.0.0.1', listen_port: 4577 } }, {
+        DEFAULT_HOST: '127.0.0.1',
+        DEFAULT_PORT: 4577,
+        normalizeListenHost: (value, fallback) => ['127.0.0.1', '0.0.0.0'].includes(value) ? value : fallback,
+        normalizeListenPort: (value, fallback) => Number(value) || fallback,
+        scheduleUiReload: (host, port) => restarts.push({ host, port })
+    });
+    const normalized = normalizeAppGeneralSettings({ values: { LISTEN_HOST: '0.0.0.0', LISTEN_PORT: '4588' } });
+    assert.deepEqual(normalized.fields, { LISTEN_HOST: '0.0.0.0', LISTEN_PORT: 4588 });
+    await service.saveAppGeneralSettings({ values: { LISTEN_HOST: '0.0.0.0', LISTEN_PORT: '4588' } });
+    const saved = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    assert.deepEqual(saved.general, { listen_host: '0.0.0.0', listen_port: 4588 });
+    assert.deepEqual(restarts, [{ host: '0.0.0.0', port: 4588 }]);
+    assert.equal(CONFIG.LISTEN_PORT, 4588);
+    assert.throws(() => normalizeAppGeneralSettings({ values: { LISTEN_HOST: 'example.com', LISTEN_PORT: '80' } }), (error) => error.apiCode === 'LISTEN_HOST_INVALID');
 });

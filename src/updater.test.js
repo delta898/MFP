@@ -74,6 +74,26 @@ test('updater invalidates a recent result when update source settings change', a
     }
 });
 
+test('forced update selects the newest release in the current channel instead of reinstalling the current version', async () => {
+    const original = snapshotUpdateConfig();
+    try {
+        CONFIG.UPDATE_CHANNEL = 'stable';
+        CONFIG.USER_ROLE = 'User';
+        const updater = new Updater({ platform: 'darwin', arch: 'arm64' });
+        updater.currentVersion = '0.4.3';
+        updater.getLatestRelease = async () => ({
+            tag_name: 'v0.4.4',
+            prerelease: false,
+            assets: [{ name: 'BlogGenius-mac-arm64.zip', browser_download_url: 'https://example.com/latest.zip' }]
+        });
+        const result = await updater.checkForUpdate({ force: true });
+        assert.equal(result.latestVersion, '0.4.4');
+        assert.equal(result.hasUpdate, true);
+    } finally {
+        restoreUpdateConfig(original);
+    }
+});
+
 test('updater supports only macOS Apple Silicon and Windows x64 release assets', () => {
     const assets = [
         { name: 'BlogGenius-mac-arm64.zip' },

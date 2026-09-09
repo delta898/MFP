@@ -245,22 +245,9 @@ class Updater {
             Logger.info('🔄 [Updater] 강제 업데이트 체크 모드 활성화');
         }
 
-        let latest = null;
-        if (force) {
-            const releases = await this.fetchReleases();
-            const currentTag = `v${this.currentVersion}`;
-            const exactCurrentRaw = releases.find((release) => String(release?.tag_name || '').trim() === currentTag) || null;
-            const exactCurrent = await this.enrichReleaseWithManifest(exactCurrentRaw);
-            const exactCurrentAsset = exactCurrent ? this.getPlatformAsset(exactCurrent.assets) : null;
-            if (exactCurrentAsset) {
-                latest = exactCurrent;
-            } else {
-                const selected = this.selectReleaseForChannel(releases, CONFIG.USER_ROLE);
-                latest = await this.enrichReleaseWithManifest(selected);
-            }
-        } else {
-            latest = await this.getLatestRelease(CONFIG.USER_ROLE);
-        }
+        // 강제 업데이트도 현재 설치본이 아니라 선택된 채널의 최신 릴리즈를 대상으로 한다.
+        // force는 버전 비교와 최근 조회 cache를 무시하는 의미다.
+        const latest = await this.getLatestRelease(CONFIG.USER_ROLE);
 
         if (!latest) return null;
 

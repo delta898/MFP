@@ -70,6 +70,11 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     assert.match(html, /id="settings-next-telegram-inbound-enabled"/);
     assert.match(html, /data-settings-next-external-scope="mcp"/);
     assert.match(html, /id="settings-next-mcp-remote-token"[^>]*type="password"/);
+    assert.match(html, /id="settings-next-app-general-form"/);
+    assert.match(html, /id="settings-next-listen-host"/);
+    assert.match(html, /id="settings-next-listen-port"/);
+    assert.match(html, /data-settings-next-update-action="check"/);
+    assert.match(html, /data-settings-next-update-action="force"/);
     assert.match(html, /id="settings-next-telegram-delivery-enabled"[^>]*data-settings-next-delivery-toggle="telegram"/);
     assert.match(html, /id="settings-next-slack-delivery-enabled"[^>]*data-settings-next-delivery-toggle="slack"/);
     assert.match(html, /class="page-clock-widget"[\s\S]*?data-clock-display/);
@@ -115,6 +120,7 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     const secrets = read('ui/scripts/foundation/settings-secrets.js');
     const optionalServices = read('ui/scripts/features/settings-next/optional-services.js');
     const externalConnections = read('ui/scripts/features/settings-next/external-connections.js');
+    const appGeneral = read('ui/scripts/features/settings-next/app-general.js');
     const settingsCardStyles = read('ui/styles/patterns/settings-card.css');
     const settingsNextStyles = read('ui/styles/features/settings-next.css');
     assert.match(secrets, /function syncSettingsNextSecretRegistration/);
@@ -123,6 +129,9 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     assert.match(externalConnections, /TELEGRAM_INBOUND_ENABLED/);
     assert.match(externalConnections, /MCP_REMOTE_AUTH_TOKEN/);
     assert.match(externalConnections, /settingsNextExternalState\.loaded/);
+    assert.match(appGeneral, /postJson\('\/api\/v1\/settings\/app-general'/);
+    assert.match(appGeneral, /setUiSettingsCardFooterDetail\('settings-next-app-general-footer-detail'/);
+    assert.match(appGeneral, /checkUpdate\(true, force\)/);
     assert.match(read('ui/scripts/foundation/settings-card.js'), /function setUiSettingsCardFooterDetail/);
     assert.match(read('ui/scripts/foundation/settings-card.js'), /element\.dataset\.tone = tone/);
     assert.match(html, /id="settings-next-buffer-footer-detail" class="ui-settings-card-footer-detail" hidden[\s\S]*?class="ui-settings-card-footer-actions"/);
@@ -294,7 +303,7 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
     assert.doesNotMatch(featureStyles, /settings-next-save-status/);
     assert.doesNotMatch(html, />[^<]*저장하고[^<]*<\/button>/);
     assert.doesNotMatch(html, /저장됨/);
-    assert.equal((html.match(/class="ui-settings-card(?:\s|")/g) || []).length, 18);
+    assert.equal((html.match(/class="ui-settings-card(?:\s|")/g) || []).length, 20);
     assert.equal((html.match(/class="ui-settings-readiness-card"/g) || []).length, 9);
     assert.equal((html.match(/class="ui-settings-summary-card"/g) || []).length, 3);
     assert.match(cardStyles, /\.ui-settings-card\s*\{/);
@@ -321,7 +330,7 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
     assert.equal((html.match(/data-settings-next-refresh/g) || []).length, 2);
     assert.equal((html.match(/>새로고침<\/button>/g) || []).length, 2);
     assert.doesNotMatch(html, />상태 새로고침<\/button>/);
-    assert.equal((html.match(/aria-busy="false"/g) || []).length, 15);
+    assert.equal((html.match(/aria-busy="false"/g) || []).length, 17);
     assert.match(html, /id="settings-next-load-feedback"[^>]*role="status"[^>]*aria-live="polite"/);
 });
 

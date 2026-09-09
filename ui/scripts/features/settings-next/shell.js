@@ -766,6 +766,7 @@ function initSettingsNext() {
     initSettingsNextWriting();
     initSettingsNextOptionalServices();
     initSettingsNextExternalConnections();
+    initSettingsNextAppGeneral();
     const scopedInputs = {
       content: ['settings-next-google-sheet-url'],
       naver: ['settings-next-naver-id'],
@@ -795,4 +796,5 @@ function initSettingsNext() {
   settingsNextActivateCoreTab(settingsNextActiveCoreTab);
   settingsNextActivateAppTab(settingsNextActiveAppTab);
   void loadSettingsNextExternalConnections();
+  void loadSettingsNextAppGeneral();
 }

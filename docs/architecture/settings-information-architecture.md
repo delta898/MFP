@@ -103,6 +103,8 @@ Telegram과 Slack 카드 제목 앞 체크박스는 공통 발송 channel 사용
 transport이며, Telegram은 선택 가능한 별도 inbound channel이다. 외부 연결의 credential은 필요 위치에서만 수정하며,
 상태 read API는 secret 자체 대신 등록 여부만 돌려준다. 독립 `발행` top menu와 별도 `발행 환경` submenu는 두지 않는다.
 실제 발행 대상과 이벤트별 동작은 각 기능 화면이 소유한다. `앱`의 local sub-menu는 공통 segmented-tab layout을 사용한다.
+`앱 > 일반`은 UI server의 접속 주소와 port를 소유하며, 이 변경만 기존 server reload 경계를 호출한다.
+앱 업데이트는 `앱 > 일반`에서 확인·설치 action만 제공한다. 강제 설치도 선택된 update channel의 최신 릴리즈를 대상으로 하며, update source·mirror·custom URL은 운영 구성으로 분리한다.
 
 credential과 허용 대상은 `부가 서비스 > 메시지·알림`에서 먼저 연결해야 하며, 연결되지 않은 channel의 title checkbox는 비활성화한다. Telegram의
 `delivery_enabled`와 `inbound_enabled`는 분리한다. 기존 `enabled` 값만 있는 설정은 두 값의 fallback으로 읽어

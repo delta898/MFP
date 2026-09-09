@@ -208,6 +208,19 @@ function normalizeExternalConnectionSettings(requestBody = {}) {
     throw createApiError(400, 'EXTERNAL_CONNECTION_SCOPE_INVALID', '외부 연결 항목을 확인해 주세요.');
 }
 
+function normalizeAppGeneralSettings(requestBody = {}) {
+    const values = requestBody.values && typeof requestBody.values === 'object' ? requestBody.values : {};
+    const LISTEN_HOST = String(values.LISTEN_HOST || '').trim();
+    const LISTEN_PORT = Number(values.LISTEN_PORT);
+    if (!['127.0.0.1', '0.0.0.0'].includes(LISTEN_HOST)) {
+        throw createApiError(400, 'LISTEN_HOST_INVALID', '접속 주소를 확인해 주세요.');
+    }
+    if (!Number.isInteger(LISTEN_PORT) || LISTEN_PORT < 1 || LISTEN_PORT > 65535) {
+        throw createApiError(400, 'LISTEN_PORT_INVALID', '1~65535 사이의 포트 번호를 입력해 주세요.');
+    }
+    return { fields: { LISTEN_HOST, LISTEN_PORT } };
+}
+
 function applyCoreConnectionSettings(structuredConfig = {}, normalized = {}) {
     const { scope, fields = {} } = normalized;
     if (scope === 'content') {
@@ -507,6 +520,52 @@ function createSettingsService(deps = {}) {
                 MCP_REMOTE_PATH: CONFIG.MCP_REMOTE_PATH || '/mcp',
                 MCP_REMOTE_AUTH_TOKEN_CONFIGURED: Boolean(String(CONFIG.MCP_REMOTE_AUTH_TOKEN || '').trim())
             } };
+        },
+
+        async getAppGeneralSettings() {
+            return { fields: {
+                LISTEN_HOST: normalizeListenHost(CONFIG.LISTEN_HOST, DEFAULT_HOST),
+                LISTEN_PORT: normalizeListenPort(CONFIG.LISTEN_PORT, DEFAULT_PORT)
+            } };
+        },
+
+        async saveAppGeneralSettings(requestBody = {}) {
+            const { fields } = normalizeAppGeneralSettings(requestBody);
+            const writablePath = resolveWritableConfigPath();
+            let structuredConfig = {};
+            if (fs.existsSync(writablePath)) {
+                try { structuredConfig = JSON.parse(fs.readFileSync(writablePath, 'utf8')); }
+                catch (_error) { throw createApiError(409, 'CONFIG_JSON_INVALID', '현재 설정 파일을 읽을 수 없어 안전하게 반영하지 못했습니다.'); }
+            }
+            const previousHost = normalizeListenHost(CONFIG.LISTEN_HOST, DEFAULT_HOST);
+            const previousPort = normalizeListenPort(CONFIG.LISTEN_PORT, DEFAULT_PORT);
+            structuredConfig.general = structuredConfig.general && typeof structuredConfig.general === 'object'
+                ? structuredConfig.general
+                : {};
+            structuredConfig.general.listen_host = fields.LISTEN_HOST;
+            structuredConfig.general.listen_port = fields.LISTEN_PORT;
+            fs.mkdirSync(path.dirname(writablePath), { recursive: true });
+            fs.writeFileSync(writablePath, JSON.stringify(structuredConfig, null, 2), 'utf8');
+            CONFIG.LISTEN_HOST = fields.LISTEN_HOST;
+            CONFIG.LISTEN_PORT = fields.LISTEN_PORT;
+            if (!CONFIG.general || typeof CONFIG.general !== 'object') CONFIG.general = {};
+            CONFIG.general.listen_host = fields.LISTEN_HOST;
+            CONFIG.general.listen_port = fields.LISTEN_PORT;
+            const requiresRestart = fields.LISTEN_HOST !== previousHost || fields.LISTEN_PORT !== previousPort;
+            if (requiresRestart) scheduleUiReload(fields.LISTEN_HOST, fields.LISTEN_PORT);
+            dashboardActivityRecorder({
+                category: 'settings',
+                type: 'app_general_saved',
+                title: '앱 접속 설정 적용',
+                detail: `${fields.LISTEN_HOST}:${fields.LISTEN_PORT}`
+            });
+            return {
+                fields,
+                requiresRestart,
+                message: requiresRestart
+                    ? '접속 설정을 적용했습니다. 앱 서버를 새 주소로 다시 시작합니다.'
+                    : '접속 설정이 이미 적용되어 있습니다.'
+            };
         },
         async saveExternalConnectionSettings(requestBody = {}) {
             const normalized = normalizeExternalConnectionSettings(requestBody);
@@ -1444,6 +1503,7 @@ module.exports = {
     normalizeAiRoleSettings,
     normalizeOptionalServiceSettings,
     normalizeExternalConnectionSettings,
+    normalizeAppGeneralSettings,
     redactMajorSecretFields,
     redactAiRoleSecretFields,
     redactAiProviderProfiles,

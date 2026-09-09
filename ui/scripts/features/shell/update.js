@@ -103,7 +103,7 @@ async function checkUpdate(isManual = false, isForce = false) {
     const url = isForce ? '/api/v1/system/update/check?force=true' : '/api/v1/system/update/check';
     const info = await fetchJson(url);
     if (info && info.hasUpdate) {
-      uiUpdateInfo = info;
+      uiUpdateInfo = { ...info, forced: isForce };
       const banner = document.getElementById('update-banner');
       const bannerText = document.getElementById('update-banner-text');
       if (banner && bannerText) {
@@ -133,7 +133,10 @@ async function checkUpdate(isManual = false, isForce = false) {
 async function applyUpdate() {
   if (!uiUpdateInfo) return;
 
-  const confirmed = await showUiConfirm(`BlogGenius v${uiUpdateInfo.latestVersion} 업데이트를 시작할까요?\n\n업데이트 완료 후 앱이 자동으로 재시작됩니다.`);
+  const forceNotice = uiUpdateInfo.forced
+    ? '현재 설치 버전과 관계없이 선택된 최신 버전을 다시 내려받아 설치합니다.\n\n'
+    : '';
+  const confirmed = await showUiConfirm(`${forceNotice}BlogGenius v${uiUpdateInfo.latestVersion} 업데이트를 시작할까요?\n\n업데이트 완료 후 앱이 자동으로 재시작됩니다.`);
   if (!confirmed) return;
 
   const banner = document.getElementById('update-banner');
