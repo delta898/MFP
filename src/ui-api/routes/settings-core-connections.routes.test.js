@@ -30,6 +30,13 @@ function createHarness() {
                 calls.push(body);
                 return { scope: body.scope };
             },
+            async getExternalConnectionSettings() {
+                return { fields: { MCP_REMOTE_AUTH_TOKEN_CONFIGURED: true } };
+            },
+            async saveExternalConnectionSettings(body) {
+                calls.push(body);
+                return { scope: body.scope };
+            },
             async testOptionalServiceConnection(body) {
                 calls.push(body);
                 return { message: 'ok' };
@@ -62,6 +69,16 @@ test('optional services route exposes safe reads and scoped connection actions',
     const body = { scope: 'bitly', values: { NOTIFY_BITLY_TOKEN: '' } };
     await harness.handler({ pathname: '/api/v1/settings/optional-services/test', method: 'POST', requestId: 'optional-test', requestBody: body });
     assert.deepEqual(harness.calls, [body]);
+});
+
+test('external connections route exposes safe reads and scoped saves', async () => {
+    const harness = createHarness();
+    await harness.handler({ pathname: '/api/v1/settings/external-connections', method: 'GET', requestId: 'external-get' });
+    assert.equal(harness.responses[0].data.fields.MCP_REMOTE_AUTH_TOKEN_CONFIGURED, true);
+    const body = { scope: 'mcp', values: { MCP_REMOTE_ENABLED: true } };
+    await harness.handler({ pathname: '/api/v1/settings/external-connections', method: 'POST', requestId: 'external-save', requestBody: body });
+    assert.deepEqual(harness.calls, [body]);
+    assert.deepEqual(harness.responses[1].data, { scope: 'mcp' });
 });
 
 

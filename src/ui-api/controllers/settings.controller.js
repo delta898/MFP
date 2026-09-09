@@ -157,6 +157,7 @@ function createSettingsController(deps = {}) {
             try { return sendSuccess(res, requestId, await service.testOptionalServiceConnection(requestBody || {})); }
             catch (e) { return toErrorResponse(res, requestId, 'OPTIONAL_SERVICE_CONNECTION_FAILED', '부가 서비스 연결을 확인하지 못했습니다.', e); }
         },
+        async handleExternalConnections({ requestId, method, requestBody, res }) { try { if (method === 'GET') return sendSuccess(res, requestId, await service.getExternalConnectionSettings()); if (method === 'POST') return sendSuccess(res, requestId, await service.saveExternalConnectionSettings(requestBody || {})); return sendMethodNotAllowed(sendError, res, requestId); } catch (e) { return toErrorResponse(res, requestId, 'EXTERNAL_CONNECTION_FAILED', '외부 연결을 처리하지 못했습니다.', e); } },
 
         async handleTestAiRole({ requestId, method, requestBody, res }) {
             if (method === 'POST') {

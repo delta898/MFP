@@ -1,6 +1,6 @@
 const SETTINGS_NEXT_TABS = Object.freeze(['core', 'ai', 'writing', 'extras', 'app']);
 const SETTINGS_NEXT_CORE_TABS = Object.freeze(['content', 'publishing']);
-const SETTINGS_NEXT_APP_TABS = Object.freeze(['external', 'environment', 'general']);
+const SETTINGS_NEXT_APP_TABS = Object.freeze(['external', 'general']);
 
 let settingsNextActiveTab = 'core';
 let settingsNextActiveCoreTab = 'content';
@@ -765,6 +765,7 @@ function initSettingsNext() {
     initSettingsNextAi();
     initSettingsNextWriting();
     initSettingsNextOptionalServices();
+    initSettingsNextExternalConnections();
     const scopedInputs = {
       content: ['settings-next-google-sheet-url'],
       naver: ['settings-next-naver-id'],
@@ -793,4 +794,5 @@ function initSettingsNext() {
   settingsNextActivateTab(settingsNextActiveTab);
   settingsNextActivateCoreTab(settingsNextActiveCoreTab);
   settingsNextActivateAppTab(settingsNextActiveAppTab);
+  void loadSettingsNextExternalConnections();
 }

@@ -16,6 +16,7 @@
 // @include scripts/features/settings-next/ai-model-roles.js
 // @include scripts/features/settings-next/writing-defaults.js
 // @include scripts/features/settings-next/optional-services.js
+// @include scripts/features/settings-next/external-connections.js
 // @include scripts/features/content/table-state.js
 // @include scripts/shared/runtime-state.js
 // @include scripts/features/shell/update-state.js

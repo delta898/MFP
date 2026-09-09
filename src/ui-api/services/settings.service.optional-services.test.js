@@ -4,7 +4,11 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { createSettingsService, normalizeOptionalServiceSettings } = require('./settings.service');
+const {
+    createSettingsService,
+    normalizeOptionalServiceSettings,
+    normalizeExternalConnectionSettings
+} = require('./settings.service');
 
 function createHarness(initial = {}, overrides = {}) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'settings-optional-services-'));
@@ -20,7 +24,12 @@ function createHarness(initial = {}, overrides = {}) {
         NOTIFY_TELEGRAM_CHAT_ID: initial.notification?.telegram?.chat_id || '',
         NOTIFY_BITLY_TOKEN: initial.notification?.telegram?.bitly_token || '',
         NOTIFY_SLACK_ENABLED: initial.notification?.slack?.enabled === true,
-        NOTIFY_SLACK_WEBHOOK_URL: initial.notification?.slack?.webhook_url || ''
+        NOTIFY_SLACK_WEBHOOK_URL: initial.notification?.slack?.webhook_url || '',
+        MCP_REMOTE_ENABLED: initial.mcp?.remote?.enabled === true,
+        MCP_REMOTE_HOST: initial.mcp?.remote?.host || '127.0.0.1',
+        MCP_REMOTE_PORT: initial.mcp?.remote?.port || 4578,
+        MCP_REMOTE_PATH: initial.mcp?.remote?.path || '/mcp',
+        MCP_REMOTE_AUTH_TOKEN: initial.mcp?.remote?.auth?.bearer_token || ''
     };
     const service = createSettingsService({
         fs, path, CONFIG,
@@ -143,4 +152,75 @@ test('optional connection tests reuse stored secrets when the new input is blank
     const { service } = createHarness({ integrations: { buffer: { api_key: 'stored-key', organization_id: 'stored-org' } } }, { BufferClient });
     await service.testOptionalServiceConnection({ scope: 'buffer', values: { BUFFER_API_KEY: '' } });
     assert.deepEqual(calls, [{ apiKey: 'stored-key', organizationId: '' }]);
+});
+
+test('external connection settings separate inbound Telegram activation from delivery and never read back MCP tokens', async () => {
+    const calls = [];
+    const initial = {
+        notification: {
+            telegram: {
+                bot_token: 'telegram-secret',
+                chat_id: 'chat-1',
+                delivery_enabled: false
+            }
+        },
+        mcp: {
+            remote: {
+                enabled: false,
+                host: '127.0.0.1',
+                port: 4578,
+                path: '/mcp',
+                auth: { bearer_token: 'mcp-secret' }
+            }
+        }
+    };
+    const { CONFIG, configPath, service } = createHarness(initial, {
+        TelegramBotService: {
+            async stop() { calls.push('telegram-stop'); },
+            init() { calls.push('telegram-init'); },
+            getStatus() { return { running: true }; }
+        },
+        restartRemoteMcpService: async (settings) => calls.push({ mcp: settings }),
+        getRemoteServiceStatus: () => ({ running: true })
+    });
+
+    const before = await service.getExternalConnectionSettings();
+    assert.equal(before.fields.TELEGRAM_INBOUND_CONFIGURED, true);
+    assert.equal(before.fields.TELEGRAM_INBOUND_RUNNING, true);
+    assert.equal(before.fields.MCP_REMOTE_AUTH_TOKEN_CONFIGURED, true);
+    assert.doesNotMatch(JSON.stringify(before), /telegram-secret|mcp-secret/);
+    assert.deepEqual(normalizeExternalConnectionSettings({ scope: 'telegram', values: { TELEGRAM_INBOUND_ENABLED: true } }).fields, {
+        TELEGRAM_INBOUND_ENABLED: true
+    });
+
+    await service.saveExternalConnectionSettings({ scope: 'telegram', values: { TELEGRAM_INBOUND_ENABLED: true } });
+    await service.saveExternalConnectionSettings({ scope: 'mcp', values: {
+        MCP_REMOTE_ENABLED: true,
+        MCP_REMOTE_HOST: '0.0.0.0',
+        MCP_REMOTE_PORT: '4580',
+        MCP_REMOTE_PATH: '/remote',
+        MCP_REMOTE_AUTH_TOKEN: ''
+    } });
+    const saved = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    assert.equal(saved.notification.telegram.inbound_enabled, true);
+    assert.equal(saved.notification.telegram.delivery_enabled, false);
+    assert.equal(saved.mcp.remote.enabled, true);
+    assert.equal(saved.mcp.remote.auth.bearer_token, 'mcp-secret');
+    assert.equal(CONFIG.MCP_REMOTE_PORT, 4580);
+    assert.deepEqual(calls.slice(0, 2), ['telegram-stop', 'telegram-init']);
+    assert.equal(calls[2].mcp.path, '/remote');
+});
+
+test('external MCP activation requires a token when no stored token exists', async () => {
+    const { service } = createHarness({ mcp: { remote: { auth: {} } } });
+    await assert.rejects(
+        () => service.saveExternalConnectionSettings({ scope: 'mcp', values: {
+            MCP_REMOTE_ENABLED: true,
+            MCP_REMOTE_HOST: '127.0.0.1',
+            MCP_REMOTE_PORT: '4578',
+            MCP_REMOTE_PATH: '/mcp',
+            MCP_REMOTE_AUTH_TOKEN: ''
+        } }),
+        (error) => error.apiCode === 'MCP_TOKEN_REQUIRED'
+    );
 });

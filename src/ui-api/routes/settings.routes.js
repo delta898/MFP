@@ -58,6 +58,7 @@ function createSettingsRouteHandler(deps = {}) {
             await controller.handleOptionalServiceTest(ctx);
             return true;
         }
+        if (pathname === '/api/v1/settings/external-connections') { await controller.handleExternalConnections(ctx); return true; }
 
         if (pathname === '/api/v1/settings/advanced') {
             await controller.handleAdvanced(ctx);

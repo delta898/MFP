@@ -83,7 +83,6 @@
 │     └─ Bitly
 └─ 앱
    ├─ 외부 연결
-   ├─ 발행 환경
    └─ 일반
 ```
 
@@ -101,9 +100,9 @@ Buffer는 SNS와 카드뉴스가 공유하고, Telegram과 Slack은 메시지·�
 `메시지·알림`은 Telegram과 Slack summary를 함께 보여주고 단일 provider 목적은 상세 card로 바로 시작한다.
 Telegram과 Slack 카드 제목 앞 체크박스는 공통 발송 channel 사용 여부를 소유하고, 각 기능은 알림을 발생시키는 이벤트를 소유한다. `앱 > 외부 연결`은 Telegram 명령
 수신과 원격 MCP처럼 외부에서 앱으로 들어오는 adapter의 활성화와 실행 상태를 소유한다. MCP는 Telegram과 독립적인
-transport이며, Telegram은 선택 가능한 별도 inbound channel이다. 독립 `발행` top menu는 두지 않는다. 앱 전체의
-발행 환경은 `앱 > 발행 환경`에서 다루며, 실제 발행 대상과 이벤트별 동작은 각 기능 화면이 소유한다. `앱`의 local sub-menu는
-공통 segmented-tab layout만 먼저 제공하고, 상세 설정은 각 소유권이 확정되는 단계에서 추가한다.
+transport이며, Telegram은 선택 가능한 별도 inbound channel이다. 외부 연결의 credential은 필요 위치에서만 수정하며,
+상태 read API는 secret 자체 대신 등록 여부만 돌려준다. 독립 `발행` top menu와 별도 `발행 환경` submenu는 두지 않는다.
+실제 발행 대상과 이벤트별 동작은 각 기능 화면이 소유한다. `앱`의 local sub-menu는 공통 segmented-tab layout을 사용한다.
 
 credential과 허용 대상은 `부가 서비스 > 메시지·알림`에서 먼저 연결해야 하며, 연결되지 않은 channel의 title checkbox는 비활성화한다. Telegram의
 `delivery_enabled`와 `inbound_enabled`는 분리한다. 기존 `enabled` 값만 있는 설정은 두 값의 fallback으로 읽어

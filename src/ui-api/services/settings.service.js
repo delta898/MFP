@@ -194,6 +194,20 @@ function normalizeOptionalServiceSettings(requestBody = {}) {
     return { scope, fields: { NOTIFY_BITLY_TOKEN: String(values.NOTIFY_BITLY_TOKEN || '').trim() } };
 }
 
+function normalizeExternalConnectionSettings(requestBody = {}) {
+    const scope = String(requestBody.scope || '').trim();
+    const values = requestBody.values || {};
+    if (scope === 'telegram') return { scope, fields: { TELEGRAM_INBOUND_ENABLED: values.TELEGRAM_INBOUND_ENABLED === true } };
+    if (scope === 'mcp') return { scope, fields: {
+        MCP_REMOTE_ENABLED: values.MCP_REMOTE_ENABLED === true,
+        MCP_REMOTE_HOST: String(values.MCP_REMOTE_HOST || '').trim(),
+        MCP_REMOTE_PORT: String(values.MCP_REMOTE_PORT || '').trim(),
+        MCP_REMOTE_PATH: String(values.MCP_REMOTE_PATH || '').trim(),
+        MCP_REMOTE_AUTH_TOKEN: String(values.MCP_REMOTE_AUTH_TOKEN || '').trim()
+    } };
+    throw createApiError(400, 'EXTERNAL_CONNECTION_SCOPE_INVALID', '외부 연결 항목을 확인해 주세요.');
+}
+
 function applyCoreConnectionSettings(structuredConfig = {}, normalized = {}) {
     const { scope, fields = {} } = normalized;
     if (scope === 'content') {
@@ -475,6 +489,73 @@ function createSettingsService(deps = {}) {
                 NOTIFY_SLACK_DELIVERY_ENABLED: CONFIG.NOTIFY_SLACK_ENABLED === true,
                 NOTIFY_BITLY_TOKEN_CONFIGURED: Boolean(String(CONFIG.NOTIFY_BITLY_TOKEN || '').trim())
             } };
+        },
+
+        async getExternalConnectionSettings() {
+            const mcpStatus = typeof getRemoteServiceStatus === 'function' ? getRemoteServiceStatus() : {};
+            const telegramStatus = typeof TelegramBotService?.getStatus === 'function'
+                ? TelegramBotService.getStatus()
+                : {};
+            return { fields: {
+                TELEGRAM_INBOUND_CONFIGURED: Boolean(String(CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim() && String(CONFIG.NOTIFY_TELEGRAM_CHAT_ID || '').trim()),
+                TELEGRAM_INBOUND_ENABLED: CONFIG.NOTIFY_TELEGRAM_INBOUND_ENABLED === true,
+                TELEGRAM_INBOUND_RUNNING: telegramStatus.running === true,
+                MCP_REMOTE_ENABLED: CONFIG.MCP_REMOTE_ENABLED === true,
+                MCP_REMOTE_RUNNING: mcpStatus.running === true,
+                MCP_REMOTE_HOST: CONFIG.MCP_REMOTE_HOST || '127.0.0.1',
+                MCP_REMOTE_PORT: CONFIG.MCP_REMOTE_PORT || 4578,
+                MCP_REMOTE_PATH: CONFIG.MCP_REMOTE_PATH || '/mcp',
+                MCP_REMOTE_AUTH_TOKEN_CONFIGURED: Boolean(String(CONFIG.MCP_REMOTE_AUTH_TOKEN || '').trim())
+            } };
+        },
+        async saveExternalConnectionSettings(requestBody = {}) {
+            const normalized = normalizeExternalConnectionSettings(requestBody);
+            const writablePath = resolveWritableConfigPath();
+            let config = {};
+            if (fs.existsSync(writablePath)) {
+                try { config = JSON.parse(fs.readFileSync(writablePath, 'utf8')); }
+                catch (_error) { throw createApiError(409, 'CONFIG_JSON_INVALID', '현재 설정 파일을 읽을 수 없어 안전하게 반영하지 못했습니다.'); }
+            }
+            config.notification = config.notification || {};
+            config.notification.telegram = config.notification.telegram || {};
+            config.mcp = config.mcp || {};
+            config.mcp.remote = config.mcp.remote || {};
+            config.mcp.remote.auth = config.mcp.remote.auth || {};
+            if (normalized.scope === 'telegram') {
+                if (normalized.fields.TELEGRAM_INBOUND_ENABLED && !(CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN && CONFIG.NOTIFY_TELEGRAM_CHAT_ID)) {
+                    throw createApiError(400, 'TELEGRAM_CONNECTION_REQUIRED', '부가 서비스에서 Telegram 연결을 먼저 완료해 주세요.');
+                }
+                config.notification.telegram.inbound_enabled = normalized.fields.TELEGRAM_INBOUND_ENABLED;
+                CONFIG.NOTIFY_TELEGRAM_INBOUND_ENABLED = normalized.fields.TELEGRAM_INBOUND_ENABLED;
+                if (TelegramBotService) {
+                    await TelegramBotService.stop?.();
+                    if (CONFIG.NOTIFY_TELEGRAM_INBOUND_ENABLED) TelegramBotService.init?.();
+                }
+            } else {
+                const currentToken = config.mcp.remote.auth.bearer_token || CONFIG.MCP_REMOTE_AUTH_TOKEN || '';
+                const token = normalized.fields.MCP_REMOTE_AUTH_TOKEN || currentToken;
+                if (normalized.fields.MCP_REMOTE_ENABLED && !token) {
+                    throw createApiError(400, 'MCP_TOKEN_REQUIRED', '원격 MCP를 사용하려면 Bearer Token을 입력해 주세요.');
+                }
+                const resolved = ensureRuntimeRemoteMcpConfig(CONFIG, {
+                    enabled: normalized.fields.MCP_REMOTE_ENABLED,
+                    host: normalized.fields.MCP_REMOTE_HOST,
+                    port: normalized.fields.MCP_REMOTE_PORT,
+                    path: normalized.fields.MCP_REMOTE_PATH,
+                    authToken: token
+                });
+                config.mcp.remote = {
+                    ...config.mcp.remote,
+                    enabled: resolved.enabled,
+                    host: resolved.host,
+                    port: resolved.port,
+                    path: resolved.path,
+                    auth: { ...config.mcp.remote.auth, bearer_token: resolved.authToken }
+                };
+                await restartRemoteMcpService?.(resolved);
+            }
+            fs.writeFileSync(writablePath, JSON.stringify(config, null, 2), 'utf8');
+            return this.getExternalConnectionSettings();
         },
 
         async saveOptionalServiceSettings(requestBody = {}) {
@@ -1362,6 +1443,7 @@ module.exports = {
     normalizeCoreConnectionSettings,
     normalizeAiRoleSettings,
     normalizeOptionalServiceSettings,
+    normalizeExternalConnectionSettings,
     redactMajorSecretFields,
     redactAiRoleSecretFields,
     redactAiProviderProfiles,
