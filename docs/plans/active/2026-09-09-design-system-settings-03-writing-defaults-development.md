@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-settings-03-writing-defaults`
 - Base/parent branch: `codex/feature/design-system-settings-main`
 - Start date: 2026-09-09
-- Status: 진행 중
+- Status: 구현 및 사용자 UI 확인 완료, parent merge 준비
 
 ## 사용자 필요와 목표
 
@@ -60,6 +60,7 @@ Settings Beta의 `글쓰기` top menu를 여러 profile을 고르는 화면이 �
 - 2026-09-09: 연결 준비 상태가 아닌 설정값 summary에는 성공 dot을 사용하지 않는 `.ui-settings-summary-card` 기준을 공통 component guide에 추가했다.
 - 2026-09-09: 상단을 설정값 summary 1×3과 보조 작업 shortcut 1×2로 분리하고, 문체의 동급 field 세 개를 desktop 1×3·중간 폭 2+1·mobile 1열로 정렬했다. shortcut과 반응형 field 기준을 공통 component guide에 반영했다.
 - 2026-09-09: 사용자가 설정값 summary와 보조 작업 shortcut의 surface 구분, 상단 정보 위계와 문체 field 배치를 확인하고 현재 UI를 승인했다.
+- 2026-09-09: parent merge gate로 전체 unit suite를 실행해 1,547개 중 1,546개 통과, 실패 0, 환경 의존 테스트 1개 skip을 확인했다.
 - 2026-09-09: 상단·문체 레이아웃 보완 뒤 focused UI structure/style test 14개와 browser smoke(242 fixture requests)를 다시 통과했다.
 - 2026-09-09: focused structure/API test 26개와 fixture 기반 browser smoke(242 requests)를 통과했다. browser smoke는 기본값 load, summary 즉시 갱신, 변경 이탈 확인, custom snapshot 반영과 전략 보존을 검증한다.
 
@@ -69,3 +70,4 @@ Settings Beta의 `글쓰기` top menu를 여러 profile을 고르는 화면이 �
 - `기본값 적용`은 저장 구현을 노출하지 않고 다음 글에 사용할 문체·구성을 반영한다.
 - Blog Beta 상속·글별 override는 이 stage에 포함하지 않았으며 사용자 UI 확인 뒤 별도 stage에서 진행한다.
 - 사용자 확인: desktop/narrow 화면의 정보 밀도, 세 summary 문구, 참고 글 분석과 미리보기 결과의 가독성, 추천 설정 되돌리기 흐름.
+- 최종 자동 검증: focused structure/API 26개, focused UI/style 14개, fixture 기반 browser smoke 242 requests, 전체 unit 1,547개(통과 1,546·실패 0·skip 1).
