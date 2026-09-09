@@ -241,6 +241,10 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
   status tone을 다시 구현하지 않는다.
 - `.ui-settings-card`는 저장·검증하는 form anatomy, `.ui-overview-card`는 읽기·판단하는 summary anatomy에 사용한다.
   둘은 같은 style token을 소비하지만 footer와 field 구조를 억지로 공유하지 않는다.
+- source 선택, preview, 편집과 결과처럼 하나의 작업을 단계적으로 진행하는 surface는 `.ui-workflow-card`와
+  `.ui-workflow-heading`을 사용한다. 이 pattern은 공통 card와 typography token을 소유하고 feature stylesheet는
+  단계별 grid, preview 비율과 결과 item 배치처럼 업무 고유 layout만 정의한다. 저장 form 또는 현황 summary의
+  anatomy를 작업 화면에 억지로 복사하지 않는다.
 - 수치, 개수, 기간과 category는 성공·정보 상태가 아니다. 상태 의미가 없는 통계 card는 같은 neutral surface를 사용하고,
   단순 개수는 `.ui-count-badge`로 표시한다. 성공·경고·실패 색상은 실제 domain 상태가 있을 때만 사용한다.
 - 추천·가이드처럼 Dashboard의 보조 콘텐츠도 공통 overview/supporting surface를 사용한다. 카드 전체에 장식 목적의 특정

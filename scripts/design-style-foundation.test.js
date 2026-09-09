@@ -82,7 +82,7 @@ test('non-target views opt into compatibility containment explicitly', () => {
   const viewTags = Array.from(html.matchAll(/<section class="[^"]*\bview\b[^"]*"[^>]*id="(view-[^"]+)"[^>]*>/g));
   assert.equal(viewTags.length > 1, true);
   viewTags.forEach(([tag, viewId]) => {
-    if (['view-blog-next', 'view-settings-next', 'view-dashboard-beta'].includes(viewId)) {
+    if (['view-blog-next', 'view-settings-next', 'view-dashboard-beta', 'view-card-news'].includes(viewId)) {
       assert.doesNotMatch(tag, /data-style-scope=/);
       return;
     }
@@ -143,7 +143,7 @@ test('overview cards share style-driven surfaces, headings, status badges, and r
   const dashboardResponsiveStyle = read('ui/styles/features/dashboard-beta-responsive.css');
   const recommendationCenterStyle = read('ui/styles/features/recommendation-center.css');
 
-  assert.match(overview, /\.ui-overview-card\s*\{[^}]*var\(--ui-card-border\)[^}]*var\(--ui-card-radius\)[^}]*var\(--ui-card-background\)[^}]*var\(--ui-card-shadow\)/s);
+  assert.match(overview, /\.ui-overview-card,\s*\.ui-workflow-card\s*\{[^}]*var\(--ui-card-border\)[^}]*var\(--ui-card-radius\)[^}]*var\(--ui-card-background\)[^}]*var\(--ui-card-shadow\)/s);
   assert.match(overview, /\.ui-overview-heading h2\s*\{[^}]*var\(--ui-type-heading-size\)[^}]*var\(--ui-weight-semibold\)/s);
   assert.match(overview, /\.ui-overview-subheading\s*\{[^}]*var\(--ui-space-3\)[^}]*var\(--ui-type-body-size\)[^}]*var\(--ui-weight-semibold\)/s);
   assert.match(overview, /\.ui-status-badge\s*\{[^}]*var\(--ui-surface-muted\)[^}]*var\(--ui-type-caption-size\)/s);
@@ -166,6 +166,19 @@ test('overview cards share style-driven surfaces, headings, status badges, and r
     assert.doesNotMatch(css, /font-size:\s*[0-9.]+(?:px|rem)\b/);
     assert.doesNotMatch(css, /font-weight:\s*[0-9]{3}\b/);
   });
+});
+
+test('workflow cards share style-driven surfaces and task headings', () => {
+  const overview = read('ui/styles/patterns/overview-card.css');
+  const cardNews = read('ui/partials/views/card-news.html');
+
+  assert.match(overview, /\.ui-overview-card,\s*\.ui-workflow-card\s*\{[^}]*var\(--ui-card-border\)[^}]*var\(--ui-card-radius\)[^}]*var\(--ui-card-background\)[^}]*var\(--ui-card-shadow\)/s);
+  assert.match(overview, /\.ui-workflow-heading h2\s*\{[^}]*var\(--ui-type-heading-size\)[^}]*var\(--ui-weight-semibold\)/s);
+  assert.match(overview, /\.ui-workflow-heading p\s*\{[^}]*var\(--ui-type-body-size\)[^}]*var\(--ui-line-height-body\)/s);
+  assert.match(cardNews, /class="card-news-source-card ui-workflow-card"/);
+  assert.match(cardNews, /class="card-news-generation-panel ui-workflow-card"/);
+  assert.match(cardNews, /class="card-news-managed-workspace ui-workflow-card"/);
+  assert.doesNotMatch(cardNews, /id="view-card-news"[^>]*data-style-scope|card-news-stage-badge/);
 });
 
 test('warm editorial avoids the compatibility blue and dark filled secondary palette', () => {

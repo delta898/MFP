@@ -18,18 +18,23 @@ test('Card News is a top-level source-preview workflow', () => {
 
     assert.match(html, /data-view="card-news"[\s\S]*?<span class="nav-label">카드뉴스<sup class="nav-new-badge"/);
     assert.match(html, /id="view-card-news"/);
+    assert.doesNotMatch(html, /id="view-card-news"[^>]*data-style-scope/);
+    assert.doesNotMatch(html, /card-news-stage-badge|준비 단계/);
+    assert.match(html, /class="card-news-workspace-tabs ui-segmented-tabs"/);
+    assert.match(html, /class="ui-segmented-tab active"[^>]*id="card-news-workspace-tab-create"[^>]*aria-controls="card-news-create-workspace"[^>]*tabindex="0"/);
+    assert.match(html, /id="card-news-workspace-tab-managed"[^>]*aria-controls="card-news-managed-workspace"[^>]*tabindex="-1"/);
     assert.match(html, /data-card-news-source-kind="feed_item"[^>]*>피드에서 선택/);
     assert.match(html, /data-card-news-source-kind="url"[^>]*>URL 직접 입력/);
     assert.match(html, /data-card-news-source-kind="manuscript"[^>]*>내용 직접 입력/);
     assert.match(html, /id="card-news-source-actions"[^>]*hidden/);
     assert.match(html, /id="card-news-preview-button"[^>]*>내용 확인</);
-    assert.match(html, /class="card-news-preview-card" aria-label="선택한 내용"/);
+    assert.match(html, /class="card-news-preview-card ui-workflow-card" aria-label="선택한 내용"/);
     assert.match(html, /class="card-news-preview-surface">[\s\S]*id="card-news-preview-badge"[\s\S]*id="card-news-preview-content"/);
     assert.match(html, /class="card-news-preview-meta">[\s\S]*id="card-news-preview-link"[\s\S]*id="card-news-preview-time"/);
     assert.doesNotMatch(html, /<span class="card-news-eyebrow">확인<\/span>/);
     assert.doesNotMatch(html, /플랫폼을 선택해 공개된 글을 확인하세요/);
     assert.match(html, /id="card-news-platform-tabs"[^>]*hidden/);
-    assert.match(html, /id="card-news-source-refresh"[^>]*aria-label="피드 새로고침"/);
+    assert.match(html, /id="card-news-source-refresh" class="ui-refresh-action-icon"[^>]*aria-label="피드 새로고침"/);
     assert.match(html, /data-card-news-workspace="create">새 카드뉴스/);
     assert.match(html, /data-card-news-workspace="managed">만든 카드뉴스/);
     assert.doesNotMatch(html, /card-news-include-published|card-news-published-toggle/);
@@ -107,6 +112,8 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.doesNotMatch(script, /sameVariation/);
     assert.match(script, /const sources = cardNewsViewState\.configuredSources;[\s\S]*sources\.length < 2/);
     assert.match(script, /CARD_NEWS_PLATFORM_STORAGE_KEY/);
+    assert.match(script, /selector: '\[data-card-news-workspace\]'[\s\S]*handleUiTabNavigationKeydown|handleUiTabNavigationKeydown[\s\S]*selector: '\[data-card-news-workspace\]'/);
+    assert.match(script, /selector: '\[data-card-news-managed-filter\]'[\s\S]*handleUiTabNavigationKeydown|handleUiTabNavigationKeydown[\s\S]*selector: '\[data-card-news-managed-filter\]'/);
     assert.match(script, /void previewCardNewsSource\(cardNewsViewState\.articles\[cardNewsViewState\.selectedArticleIndex\]\)/);
     assert.match(script, /previewCache: new Map\(\)/);
     assert.match(script, /requestId !== cardNewsViewState\.previewRequestId/);

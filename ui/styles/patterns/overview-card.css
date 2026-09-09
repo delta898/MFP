@@ -1,9 +1,42 @@
-.ui-overview-card {
+.ui-overview-card,
+.ui-workflow-card {
   min-width: 0;
   border: 1px solid var(--ui-card-border);
   border-radius: var(--ui-card-radius);
   background: var(--ui-card-background);
   box-shadow: var(--ui-card-shadow);
+}
+
+.ui-workflow-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ui-space-4);
+}
+
+.ui-workflow-heading h2 {
+  margin: var(--ui-space-1) 0 0;
+  color: var(--ui-text-primary);
+  font-size: var(--ui-type-heading-size);
+  font-weight: var(--ui-weight-semibold);
+  line-height: var(--ui-line-height-tight);
+  letter-spacing: -0.02em;
+}
+
+.ui-workflow-heading p {
+  margin: var(--ui-space-2) 0 0;
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-type-body-size);
+  font-weight: var(--ui-weight-regular);
+  line-height: var(--ui-line-height-body);
+}
+
+.ui-workflow-eyebrow {
+  color: var(--ui-text-muted);
+  font-size: var(--ui-type-caption-size);
+  font-weight: var(--ui-weight-semibold);
+  line-height: var(--ui-line-height-tight);
+  letter-spacing: 0.06em;
 }
 
 .ui-overview-heading {
