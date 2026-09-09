@@ -42,4 +42,4 @@ Settings Beta에서 확립한 공통 navigation, card, status, typography, spaci
 
 각 slice는 별도 sub-branch에서 구현·focused 검증한다. 사용자 UI 확인과 승인 뒤 parent에 merge하고 sub-branch를 삭제한다.
 
-- [Slice 1: 공통 Dashboard foundation과 화면 shell](./2026-09-09-design-system-dashboard-09-01-foundation-development.md)
+- [Slice 1: 공통 Dashboard foundation과 화면 shell](../archive/2026-09-09-design-system-dashboard-09-01-foundation-development.md)

@@ -83,7 +83,11 @@ test('Dashboard Beta distinguishes processed and public results across today and
     assert.match(betaView, /id="dashboard-beta-trend-bars"/);
     assert.match(betaScript, /Array\.isArray\(items\) \? items\.slice\(0, 5\)/);
     assert.match(betaScript, /period\?\.recent_results/);
-    assert.match(betaScript, /period\?\.daily_series/);
+    assert.match(betaScript, /period\?\.trend_series/);
+    assert.match(betaScript, /period\?\.trend_unit/);
+    assert.match(betaScript, /today: '오늘 시간대별 추이'/);
+    assert.match(betaScript, /function dashboardBetaTrendAxisLabel/);
+    assert.match(betaScript, /index === 0 \|\| index === length - 1 \|\| \(index % 7 === 0 && index < length - 2\)/);
     assert.doesNotMatch(betaScript, /dashboard-beta-recent-results-title/);
     assert.match(betaScript, /navigation_kind === 'result' \? '글 보기' : '블로그 열기'/);
 });

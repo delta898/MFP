@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-dashboard-09-01-foundation`
 - Base/parent branch: `codex/feature/design-system-dashboard-09`
 - Start date: 2026-09-09
-- Status: 사용자 UI 확인 대기
+- Status: 완료 · parent merge 대기
 
 ## 사용자 필요와 목표
 
@@ -55,16 +55,22 @@ Dashboard를 Settings Beta의 form card로 복제하지 않으면서 같은 디�
   기능상 불변인 geometry는 style hard-coding과 구분해 feature/component 책임으로 유지했다.
 - 발행 흐름 본문의 원형 상태 indicator는 header의 공통 status badge와 같은 상태를 중복하므로 DOM, controller와
   전용 CSS/animation에서 모두 제거했다.
+- 발행 성과의 세 기간이 같은 trend renderer를 사용하도록 결과 통계 계약을 `trend_unit + trend_series`로 일반화했다.
+  오늘은 KST 자정부터 현재 시간대까지 시간별, 이번 주와 최근 30일은 일별 bucket을 제공한다. 아직 오지 않은 오늘의
+  시간은 0건으로 만들지 않으며, UI는 오늘 시간 label을 3시간 간격으로 간추려 표시한다. label 유무 때문에 0건 막대의
+  baseline이 달라지지 않도록 모든 bucket에 같은 axis label slot을 예약하고, 30일은 첫날·7일 간격·마지막 날의
+  일자만 표시한다. 전체 월·일은 hover·접근성 label에 유지한다.
 
 ## 검증
 
-- Dashboard shell, design style foundation, CSS composition/structure focused tests: 37개 통과
+- Dashboard result read model/service와 shell/design/CSS focused tests: 78개 통과
 - 고정 색상·style 분기·legacy alias 재유입 방지 계약: 통과
 - 고정 typography와 중복 flow indicator 재유입 방지 계약: 통과
-- Browser UI smoke: 통과 (최종 fixture request 250건)
+- Browser UI smoke: 통과 (최종 fixture request 261건, 오늘 11개 시간 bucket ↔ 주간 7개 일 bucket 전환,
+  모든 시간 bucket의 동일 baseline과 30일 날짜 label 5개 확인 포함)
 - Browser에서 `warm-editorial`과 `quiet-sage-studio`를 전환해 card radius·shadow와 neutral count 표현이
   각 style token에 따라 달라지는 것을 확인
-- 사용자 시각 확인: 대기 중
+- 사용자 시각 확인: 완료
 - Dashboard Beta product surface 전수 점검: 완료. 숨겨진 legacy Dashboard의 compatibility CSS는 현재 제품
   surface와 분리된 폐기 대상이므로 이번 style 계약에 포함하지 않았다.
 
@@ -72,4 +78,4 @@ Dashboard를 Settings Beta의 form card로 복제하지 않으면서 같은 디�
 
 - readiness 정보 구조와 navigation은 다음 slice에서 정리한다.
 - 발행 흐름, 결과, 대기열·추천 content는 각각 후속 slice에서 공통 pattern 위에 재배치한다.
-- 현재 slice는 사용자 UI 승인 전이며 아직 commit 또는 parent merge하지 않았다.
+- 현재 slice 결과는 commit되었으며 필수 full unit gate 통과 후 parent merge한다.

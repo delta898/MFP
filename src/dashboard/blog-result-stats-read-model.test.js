@@ -52,16 +52,22 @@ test('dashboard stats separates processed and public results for today and week'
     assert.deepEqual(stats.periods.week.processed_count, 3);
     assert.deepEqual(stats.periods.week.published_count, 1);
     assert.deepEqual(stats.periods.month.processed_count, 4);
-    assert.equal(stats.schema_version, 2);
+    assert.equal(stats.schema_version, 3);
     assert.equal(stats.periods.today.recent_results.length, 2);
     assert.equal(stats.periods.week.recent_results.length, 3);
     assert.equal(stats.periods.month.recent_results.length, 4);
     assert.equal(stats.periods.today.recent_results[0].id, 'publish-today');
-    assert.equal(stats.periods.today.daily_series.length, 0);
-    assert.equal(stats.periods.week.daily_series.length, 7);
-    assert.equal(stats.periods.month.daily_series.length, 30);
-    assert.deepEqual(stats.periods.month.daily_series.at(-1), {
-        date: '2026-09-03', processed_count: 2, published_count: 1
+    assert.equal(stats.periods.today.trend_unit, 'hour');
+    assert.equal(stats.periods.today.trend_series.length, 7);
+    assert.deepEqual(stats.periods.today.trend_series.slice(1, 3), [
+        { bucket_start: '2026-09-02T16:00:00.000Z', processed_count: 1, published_count: 0 },
+        { bucket_start: '2026-09-02T17:00:00.000Z', processed_count: 1, published_count: 1 }
+    ]);
+    assert.equal(stats.periods.week.trend_unit, 'day');
+    assert.equal(stats.periods.week.trend_series.length, 7);
+    assert.equal(stats.periods.month.trend_series.length, 30);
+    assert.deepEqual(stats.periods.month.trend_series.at(-1), {
+        bucket_start: '2026-09-02T15:00:00.000Z', processed_count: 2, published_count: 1
     });
 });
 

@@ -132,14 +132,18 @@ function getApiFixture(pathname) {
     }
     if (pathname === '/api/v1/continuous-publishing/dashboard-result-stats') {
         return {
-            schema_version: 1,
+            schema_version: 3,
             generated_at: '2026-09-02T01:00:00.000Z',
             timezone: 'Asia/Seoul',
             available: true,
             periods: {
                 today: {
                     from: '2026-09-01T15:00:00.000Z', to: '2026-09-02T15:00:00.000Z', processed_count: 3, published_count: 1,
-                    daily_series: [],
+                    trend_unit: 'hour',
+                    trend_series: Array.from({ length: 11 }, (_unused, index) => ({
+                        bucket_start: new Date(Date.UTC(2026, 8, 1, 15 + index)).toISOString(),
+                        processed_count: index % 4 === 1 ? 1 : 0, published_count: index === 9 ? 1 : 0
+                    })),
                     recent_results: [{
                         id: 'dashboard-result-today', occurred_at: '2026-09-02T00:50:00.000Z',
                         subject: '오늘 발행 결과', platform: 'wordpress', post_status: 'publish',
@@ -149,8 +153,9 @@ function getApiFixture(pathname) {
                 },
                 week: {
                     from: '2026-08-30T15:00:00.000Z', to: '2026-09-06T15:00:00.000Z', processed_count: 8, published_count: 4,
-                    daily_series: Array.from({ length: 7 }, (_unused, index) => ({
-                        date: new Date(Date.UTC(2026, 7, 31 + index)).toISOString().slice(0, 10),
+                    trend_unit: 'day',
+                    trend_series: Array.from({ length: 7 }, (_unused, index) => ({
+                        bucket_start: new Date(Date.UTC(2026, 7, 30 + index, 15)).toISOString(),
                         processed_count: index % 3, published_count: index % 2
                     })),
                     recent_results: [{
@@ -161,8 +166,9 @@ function getApiFixture(pathname) {
                 },
                 month: {
                     from: '2026-08-03T15:00:00.000Z', to: '2026-09-02T15:00:00.000Z', processed_count: 19, published_count: 9,
-                    daily_series: Array.from({ length: 30 }, (_unused, index) => ({
-                        date: new Date(Date.UTC(2026, 7, 4 + index)).toISOString().slice(0, 10),
+                    trend_unit: 'day',
+                    trend_series: Array.from({ length: 30 }, (_unused, index) => ({
+                        bucket_start: new Date(Date.UTC(2026, 7, 3 + index, 15)).toISOString(),
                         processed_count: index % 4, published_count: index % 3 === 0 ? 1 : 0
                     })),
                     recent_results: [{
@@ -1097,6 +1103,9 @@ async function run() {
         assert.equal((await page.locator('#dashboard-beta-recent-results-list').textContent()).includes('30일 발행 결과'), true);
         assert.equal(await page.locator('#dashboard-beta-trend').evaluate(element => element.hidden), false);
         assert.equal(await page.locator('#dashboard-beta-trend-bars .dashboard-beta-trend-day').count(), 30);
+        const monthAxisLabels = (await page.locator('#dashboard-beta-trend-bars small').allTextContents()).filter(Boolean);
+        assert.equal(monthAxisLabels.length, 5);
+        assert.equal(monthAxisLabels.every(label => /^\d+일$/.test(label)), true);
         assert.equal(await page.locator('#dashboard-beta-tips-section').evaluate(element => element.hidden), false);
         assert.equal((await page.locator('#dashboard-beta-tips-region').textContent()).includes('BlogGenius로 꾸준한 글쓰기 흐름 만들기'), true);
         assert.equal(await page.locator('#dashboard-beta-tips-region a').getAttribute('href'), 'https://example.com/bloggenius-tip');
@@ -1186,6 +1195,25 @@ async function run() {
         await page.evaluate(() => activateBlogNextTab('quick'));
         await page.evaluate(() => navigateTo('dashboard-beta'));
         await page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active'));
+        assert.equal(await page.locator('#dashboard-beta-queue-list').textContent().then(text => text.includes('Dashboard Beta 다음 글감')), true);
+        await page.locator('[data-dashboard-beta-period="today"]').click();
+        await page.waitForFunction(() => document.getElementById('dashboard-beta-trend-title')?.textContent === '오늘 시간대별 추이');
+        assert.equal(await page.locator('#dashboard-beta-trend').evaluate(element => element.hidden), false);
+        assert.equal(await page.locator('#dashboard-beta-trend-bars .dashboard-beta-trend-day').count(), 11);
+        assert.deepEqual(
+            (await page.locator('#dashboard-beta-trend-bars small').allTextContents()).filter(Boolean),
+            ['0시', '3시', '6시', '9시']
+        );
+        assert.equal(await page.locator('#dashboard-beta-trend-bars small').evaluateAll((labels) => (
+            new Set(labels.map(label => label.getBoundingClientRect().height)).size
+        )), 1);
+        assert.equal(await page.locator('#dashboard-beta-trend-bars .dashboard-beta-trend-bar-pair').evaluateAll((bars) => (
+            new Set(bars.map(bar => Math.round(bar.getBoundingClientRect().bottom))).size
+        )), 1);
+        await page.locator('[data-dashboard-beta-period="week"]').click();
+        assert.equal(await page.locator('#dashboard-beta-trend-title').textContent(), '이번 주 일별 추이');
+        assert.equal(await page.locator('#dashboard-beta-trend-bars .dashboard-beta-trend-day').count(), 7);
+        await page.locator('[data-dashboard-beta-period="today"]').click();
         await page.locator('#dashboard-beta-tips-section [data-dashboard-beta-nav="help"]').click();
         assert.equal(await page.locator('#view-help').evaluate(element => element.classList.contains('active')), true);
         assert.equal(await page.locator('#view-help [data-clock-display]').count(), 1);
@@ -1196,7 +1224,6 @@ async function run() {
         assert.equal(await page.locator('#help-supporting-section').evaluate(element => element.hidden), false);
         assert.equal((await page.locator('#help-supporting-region').textContent()).includes('개발자 응원하기'), true);
         assert.equal(await page.locator('#view-help .help-contact-action').getAttribute('href'), 'https://open.kakao.com/o/gZWL25Zh');
-        assert.equal(await page.locator('#dashboard-beta-queue-list').textContent().then(text => text.includes('Dashboard Beta 다음 글감')), true);
         assert.equal(await page.locator('#view-dashboard').evaluate(element => element.classList.contains('active')), false);
         assert.equal(requests.some(request => request.pathname === '/api/v1/continuous-publishing/dashboard-overview'), true);
         assert.equal(requests.some(request => request.pathname === '/api/v1/continuous-publishing/dashboard-result-stats'), true);

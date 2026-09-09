@@ -1,6 +1,7 @@
 const { classifyBlogPublishResultEvent } = require('../memory/blog-publish-result');
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function toIso(value) {
@@ -56,17 +57,18 @@ function selectPeriodResults(results, period) {
     });
 }
 
-function buildDailySeries(results, period, dayCount) {
+function buildTrendSeries(results, period, unit, bucketCount) {
     const fromMs = Date.parse(period.from);
-    return Array.from({ length: dayCount }, (_unused, index) => {
-        const startMs = fromMs + (index * DAY_MS);
-        const endMs = startMs + DAY_MS;
+    const bucketMs = unit === 'hour' ? HOUR_MS : DAY_MS;
+    return Array.from({ length: bucketCount }, (_unused, index) => {
+        const startMs = fromMs + (index * bucketMs);
+        const endMs = startMs + bucketMs;
         const selected = results.filter((result) => {
             const timestamp = Date.parse(result.timestamp || '');
             return Number.isFinite(timestamp) && timestamp >= startMs && timestamp < endMs;
         });
         return {
-            date: new Date(startMs + KST_OFFSET_MS).toISOString().slice(0, 10),
+            bucket_start: new Date(startMs).toISOString(),
             processed_count: selected.length,
             published_count: selected.filter((result) => result.publicly_published).length
         };
@@ -104,9 +106,8 @@ function buildPeriodResult(results, period, options = {}) {
     const selected = selectPeriodResults(results, period);
     return {
         ...countPeriod(results, period),
-        daily_series: options.dayCount
-            ? buildDailySeries(selected, period, options.dayCount)
-            : [],
+        trend_unit: options.trendUnit,
+        trend_series: buildTrendSeries(selected, period, options.trendUnit, options.bucketCount),
         recent_results: selected.slice(0, 5).map((result) => toResultItem(result, options.platformHomeUrls))
     };
 }
@@ -116,6 +117,10 @@ function buildDashboardBlogResultStats(input = {}) {
     if (!generatedAt) throw new Error('유효한 생성 시간이 필요합니다.');
     const available = input.available !== false;
     const periods = buildKoreanPeriodBoundaries(generatedAt);
+    const todayHourCount = Math.min(24, Math.max(
+        1,
+        Math.floor((Date.parse(generatedAt) - Date.parse(periods.today.from)) / HOUR_MS) + 1
+    ));
     const seen = new Set();
     const results = (Array.isArray(input.events) ? input.events : [])
         .map(classifyBlogPublishResultEvent)
@@ -129,20 +134,24 @@ function buildDashboardBlogResultStats(input = {}) {
         .sort((left, right) => Date.parse(right.timestamp || 0) - Date.parse(left.timestamp || 0));
 
     return {
-        schema_version: 2,
+        schema_version: 3,
         generated_at: generatedAt,
         timezone: 'Asia/Seoul',
         available,
         periods: {
             today: buildPeriodResult(results, periods.today, {
+                trendUnit: 'hour',
+                bucketCount: todayHourCount,
                 platformHomeUrls: input.platformHomeUrls
             }),
             week: buildPeriodResult(results, periods.week, {
-                dayCount: 7,
+                trendUnit: 'day',
+                bucketCount: 7,
                 platformHomeUrls: input.platformHomeUrls
             }),
             month: buildPeriodResult(results, periods.month, {
-                dayCount: 30,
+                trendUnit: 'day',
+                bucketCount: 30,
                 platformHomeUrls: input.platformHomeUrls
             })
         }
@@ -151,6 +160,6 @@ function buildDashboardBlogResultStats(input = {}) {
 
 module.exports = {
     buildKoreanPeriodBoundaries,
-    buildDailySeries,
+    buildTrendSeries,
     buildDashboardBlogResultStats
 };

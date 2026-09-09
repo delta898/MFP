@@ -389,26 +389,53 @@ function renderDashboardBetaStatsPeriod() {
   setText('dashboard-beta-published-count', stats?.available === false ? '-' : `${Number(period?.published_count) || 0}건`);
   renderDashboardBetaRecentResults(stats?.available === false ? [] : period?.recent_results, dashboardBetaSelectedPeriod);
   const trend = document.getElementById('dashboard-beta-trend');
-  if (trend) trend.hidden = dashboardBetaSelectedPeriod === 'today' || stats?.available === false;
-  setText('dashboard-beta-trend-title', dashboardBetaSelectedPeriod === 'week' ? '이번 주 일별 추이' : '최근 30일 일별 추이');
-  renderDashboardBetaTrend(period?.daily_series, dashboardBetaSelectedPeriod);
+  if (trend) trend.hidden = stats?.available === false;
+  const trendTitles = { today: '오늘 시간대별 추이', week: '이번 주 일별 추이', month: '최근 30일 일별 추이' };
+  setText('dashboard-beta-trend-title', trendTitles[dashboardBetaSelectedPeriod] || '발행 추이');
+  renderDashboardBetaTrend(period?.trend_series, period?.trend_unit, dashboardBetaSelectedPeriod);
 }
 
-function renderDashboardBetaTrend(items, periodKey = 'month') {
+function dashboardBetaTrendBucketLabel(item, unit, short = false) {
+  const bucket = new Date(item?.bucket_start || '');
+  if (Number.isNaN(bucket.getTime())) return '';
+  if (unit === 'hour') {
+    const hour = Number(bucket.toLocaleString('en-GB', { timeZone: 'Asia/Seoul', hour: '2-digit', hourCycle: 'h23' }));
+    return short ? (hour % 3 === 0 ? `${hour}시` : '') : `${hour}시`;
+  }
+  return short
+    ? bucket.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', weekday: 'short' }).replace('요일', '')
+    : bucket.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', month: 'short', day: 'numeric' });
+}
+
+function dashboardBetaTrendAxisLabel(item, unit, periodKey, index, length) {
+  if (unit === 'hour') return dashboardBetaTrendBucketLabel(item, unit, true);
+  if (periodKey === 'week') return dashboardBetaTrendBucketLabel(item, unit, true);
+  if (periodKey === 'month' && (index === 0 || index === length - 1 || (index % 7 === 0 && index < length - 2))) {
+    const bucket = new Date(item?.bucket_start || '');
+    return Number.isNaN(bucket.getTime())
+      ? ''
+      : bucket.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', day: 'numeric' });
+  }
+  return '';
+}
+
+function renderDashboardBetaTrend(items, unit = 'day', periodKey = 'month') {
   const container = document.getElementById('dashboard-beta-trend-bars');
   if (!container) return;
   container.innerHTML = '';
   container.dataset.period = periodKey;
-  container.setAttribute('aria-label', periodKey === 'week' ? '이번 주 일별 발행 활동 추이' : '최근 30일 발행 활동 추이');
+  container.dataset.unit = unit;
+  const ariaLabels = { today: '오늘 시간대별 발행 활동 추이', week: '이번 주 일별 발행 활동 추이', month: '최근 30일 일별 발행 활동 추이' };
+  container.setAttribute('aria-label', ariaLabels[periodKey] || '발행 활동 추이');
   const series = Array.isArray(items) ? items : [];
   container.style.setProperty('--dashboard-beta-trend-columns', String(Math.max(1, series.length)));
   const maxCount = Math.max(1, ...series.map(item => Number(item?.processed_count) || 0));
-  series.forEach((item) => {
+  series.forEach((item, index) => {
     const group = document.createElement('span');
     group.className = 'dashboard-beta-trend-day';
     const processed = Math.max(0, Number(item?.processed_count) || 0);
     const published = Math.max(0, Number(item?.published_count) || 0);
-    group.title = `${item?.date || ''} · 처리 완료 ${processed}건 · 공개 발행 ${published}건`;
+    group.title = `${dashboardBetaTrendBucketLabel(item, unit)} · 처리 완료 ${processed}건 · 공개 발행 ${published}건`;
     group.setAttribute('aria-label', group.title);
     const processedBar = document.createElement('i');
     processedBar.dataset.series = 'processed';
@@ -420,10 +447,7 @@ function renderDashboardBetaTrend(items, periodKey = 'month') {
     bars.className = 'dashboard-beta-trend-bar-pair';
     bars.append(processedBar, publishedBar);
     const dayLabel = document.createElement('small');
-    const date = new Date(`${item?.date || ''}T00:00:00+09:00`);
-    dayLabel.textContent = Number.isNaN(date.getTime())
-      ? ''
-      : date.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', weekday: 'short' }).replace('요일', '');
+    dayLabel.textContent = dashboardBetaTrendAxisLabel(item, unit, periodKey, index, series.length);
     group.append(bars, dayLabel);
     container.appendChild(group);
   });

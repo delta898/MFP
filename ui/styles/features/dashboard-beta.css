@@ -400,7 +400,7 @@
 }
 
 .dashboard-beta-trend-bar-pair {
-  height: 100%;
+  flex: 1 1 auto;
   min-height: 2px;
   display: flex;
   align-items: end;
@@ -409,17 +409,15 @@
 }
 
 .dashboard-beta-trend-day small {
-  display: none;
+  display: block;
+  min-block-size: calc(var(--ui-type-caption-size) * var(--ui-line-height-tight));
   color: var(--ui-text-muted);
   font-size: var(--ui-type-caption-size);
+  line-height: var(--ui-line-height-tight);
   text-align: center;
 }
 
-.dashboard-beta-trend-bars[data-period="week"] .dashboard-beta-trend-day small {
-  display: block;
-}
-
-.dashboard-beta-trend-bars[data-period="week"] .dashboard-beta-trend-day i {
+.dashboard-beta-trend-bars:is([data-period="week"], [data-unit="hour"]) .dashboard-beta-trend-day i {
   width: min(12px, 42%);
 }
 
