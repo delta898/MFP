@@ -99,6 +99,37 @@
   gap: var(--ui-space-3);
 }
 
+.settings-next-readiness--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.settings-next-ai-card {
+  gap: var(--ui-space-3);
+}
+
+.settings-next-ai-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ui-space-3);
+}
+
+.settings-next-ai-fields[hidden] {
+  display: none;
+}
+
+.settings-next-ai-fields label[hidden] { display: none; }
+
+.settings-next-ai-fields small {
+  min-block-size: calc(var(--ui-type-caption-size) * var(--ui-line-height-body));
+}
+
+@media (max-width: 760px) {
+  .settings-next-ai-fields {
+    grid-template-columns: 1fr;
+  }
+
+}
+
 .settings-next-status-dot {
   width: 10px;
   height: 10px;
@@ -144,26 +175,6 @@
   color: var(--ui-status-danger);
 }
 
-.settings-next-field-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--ui-space-4);
-}
-
-.settings-next-field,
-.settings-next-field > span:first-child {
-  display: flex;
-}
-
-.settings-next-field {
-  min-width: 0;
-  flex-direction: column;
-  gap: var(--ui-space-2);
-  color: var(--ui-text-primary);
-  font-size: var(--ui-type-label-size);
-  font-weight: var(--ui-weight-semibold);
-}
-
 .settings-next-secret-input {
   display: flex;
   align-items: stretch;
@@ -202,39 +213,6 @@
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 1.8;
-}
-
-.settings-next-field-wide {
-  grid-column: 1 / -1;
-}
-
-.settings-next-field input {
-  width: 100%;
-  min-height: 42px;
-  padding: var(--ui-space-3) var(--ui-space-4);
-  border: 1px solid var(--ui-border-default);
-  border-radius: var(--ui-radius-sm);
-  background: var(--ui-surface);
-  color: var(--ui-text-primary);
-  font: inherit;
-  font-weight: var(--ui-weight-regular);
-  transition: var(--ui-transition-interactive);
-}
-
-.settings-next-field input:focus {
-  outline: none;
-}
-
-.settings-next-field input:focus-visible {
-  border-color: var(--ui-border-focus);
-  box-shadow: var(--ui-focus-ring);
-}
-
-.settings-next-field small {
-  color: var(--ui-text-secondary);
-  font-size: var(--ui-type-caption-size);
-  font-weight: var(--ui-weight-regular);
-  line-height: var(--ui-line-height-body);
 }
 
 .settings-next-input-action {
@@ -289,7 +267,6 @@
   }
 
   .settings-next-readiness,
-  .settings-next-field-grid,
   .settings-next-input-action {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -318,11 +295,5 @@
 
   .settings-next-panel-lead {
     min-height: 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .settings-next-field input {
-    transition: none;
   }
 }

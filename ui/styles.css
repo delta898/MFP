@@ -1,5 +1,4 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
-
 /* @include styles/styles/compatibility.css */
 /* @include styles/styles/warm-editorial.css */
 /* @include styles/styles/quiet-sage-studio.css */
@@ -11,6 +10,7 @@
 /* @include styles/components/app-chrome.css */
 /* @include styles/patterns/actions.css */
 /* @include styles/patterns/selection-controls.css */
+/* @include styles/patterns/select-shell.css */
 /* @include styles/patterns/tab-navigation.css */
 /* @include styles/patterns/settings-card.css */
 

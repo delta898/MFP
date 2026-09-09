@@ -134,14 +134,40 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
   줄이기 위해 label, hint 또는 상태 정보를 생략하지 않는다.
 - 구현은 공통 `settings-card` pattern을 단일 출처로 사용한다. `.ui-settings-card`,
   `.ui-settings-card-heading`, `.ui-settings-card-detail`, `.ui-settings-card-feedback`,
-  `.ui-settings-card-footer`, `.ui-settings-readiness-card`가 anatomy와 density를 소유한다. 화면별 stylesheet에는
-  provider 고유 field·상태·action layout만 둔다.
+  `.ui-settings-card-footer`, `.ui-settings-readiness-card`, `.ui-settings-field`, `.ui-settings-field-grid`가
+  anatomy·density와 field의 `label → control → hint` typography를 소유한다. 화면별 stylesheet에는 provider 고유
+  상태·action layout만 둔다.
 - readiness의 detail 이동과 feedback text/tone 갱신은 공통 settings-card controller가 소유한다. 화면 controller는
   target id와 feedback id만 지정하며, 같은 scroll·focus·feedback DOM 조작을 복사하지 않는다. 단, OAuth·로그인·외부
   연결 확인처럼 provider에 의존하는 workflow와 domain validation은 해당 feature에 남긴다.
+- Settings top menu 아래 local sub-menu는 독립된 목적이 둘 이상일 때만 사용한다. 단일 목적 panel에는 tab을
+  장식으로 추가하지 않고 panel heading, readiness summary와 shared card hierarchy를 사용한다.
+- readiness summary는 desktop에서 1~3개면 한 row의 같은 너비 column으로, 4개면 2×2 grid로 배치한다. 더 좁은
+  viewport에서는 한 column으로 축소한다. card 수가 바뀌었다고 빈 column을 남기거나 한 card만 다음 row에 남기지 않는다.
+- model configuration처럼 공급자 선택과 직접 입력이 공존하는 card는 field 수가 아니라 사용자의 선택에 따라 동일한
+  grid slot을 교체한다. preset은 `공급자·모델 / Base URL·API Key`, direct는 `공급자·모델 이름 / Base URL·API Key`의
+  2×2 구조를 사용한다. preset 모델의 이름을 별도 field로 반복하지 않는다.
+- 선택에 따라 같은 2×2 model grid의 field 설명이 바뀌더라도 각 field는 `label → control → 한 줄 도움말 slot`을
+  항상 확보한다. 설명이 없으면 빈 slot을 유지해 다음 row·footer의 위치가 움직이지 않게 한다. transport가 고정된
+  provider의 Base URL은 example placeholder가 아닌 실제 endpoint를 read-only로 표시한다.
+- AI 공급자·모델·Base URL·credential 또는 상속 source가 바뀌면 이전 연결 확인 결과는 즉시 무효화한다. 이전
+  성공·실패 feedback은 제거하고 readiness는 새 입력의 중립 `설정 필요` 또는 `연결 확인 필요` 상태로 돌아간다.
+  새 공급자에 저장된 편집값이 있더라도 과거의 연결 결과를 복원하지 않으며, 현재 조합으로 다시 확인한 결과만 표시한다.
+- AI model role은 역할별·공급자별 profile을 유지한다. 공급자를 전환하면 그 provider의 model·Base URL·credential
+  등록 여부를 복원하고, 빈 key input은 해당 provider에 저장된 key를 유지한다. 화면과 read API는 원문 대신
+  `OpenAI API Key 등록됨`처럼 provider를 명시한 등록 상태만 표시한다.
+- 다른 role을 상속하는 설정의 안내문·readiness는 source role의 provider·model 변경과 같은 event에서 즉시 다시
+  계산한다. 이전 model 이름을 유지한 채 status만 갱신하지 않으며, 상속을 끄거나 별도 model을 선택한 경우에만
+  독립 상태를 유지한다.
+- `연결 확인`처럼 검증과 함께 설정을 확정하는 action을 가진 card에서 provider·model·endpoint·credential·상속 source를
+  변경하면 즉시 Settings Beta 공통 dirty scope에 등록한다. 이탈 시 변경한 card 이름을 포함한 discard 확인을 보이고,
+  해당 action의 성공 뒤에만 dirty를 해제한다. 실패 시 입력값과 dirty 상태를 유지한다.
 
 ## Selection controls
 
+- native select의 공통 arrow shell은 `styles/patterns/select-shell.css`의 `.ui-select-shell`을 사용한다. 두 개 이상의
+  surface에서 쓰이는 control wrapper에는 feature 이름을 붙이지 않으며, feature stylesheet가 같은 arrow·padding 규칙을
+  복제하지 않는다.
 - checkbox와 radio는 운영체제의 native control과 keyboard 동작을 유지한다.
 - 선택 강조색은 browser 기본값에 맡기지 않고 현재 style의 primary action 색을 사용한다.
 - checked, unchecked와 disabled를 색상만으로 구분하지 않으며 label과 native 상태를 함께 유지한다.
@@ -261,6 +287,8 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 - label, 입력값, hint와 validation의 typography 역할을 구분한다.
 - 같은 form density의 checkbox·radio label은 공통 label size와 weight를 사용한다. 개발·진단 전용 여부는 노출
   조건으로 구분하며 typography 예외의 근거로 삼지 않고, 보조 설명만 caption·secondary text로 낮춘다.
+- Settings card 안의 radio·checkbox 선택 묶음은 `.ui-settings-choice-group`을 사용한다. legend는 공통 field label의
+  size·semibold, option label은 같은 size의 regular weight를 사용하며, 화면별 stylesheet가 이를 다시 정의하지 않는다.
 - field border와 focus ring은 canvas와 surface 모두에서 보여야 한다.
 - error와 success는 색상 외에 문구 또는 상태 표시를 함께 사용한다.
 - 입력 중이거나 실패한 요청 때문에 기존 사용자 값을 임의로 지우지 않는다.

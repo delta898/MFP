@@ -74,8 +74,7 @@ function bindManagedSettingsSecretField(el) {
 }
 
 function initManagedSettingsSecretFields() {
-  SETTINGS_SECRET_FIELD_IDS
-    .map((id) => document.getElementById(id))
+  [...SETTINGS_SECRET_FIELD_IDS.map((id) => document.getElementById(id)), ...document.querySelectorAll('[data-managed-settings-secret]')]
     .filter(Boolean)
     .forEach(bindManagedSettingsSecretField);
 }
@@ -130,4 +129,3 @@ function parseBoolLike(value) {
   const raw = String(value ?? '').trim().toLowerCase();
   return raw === 'true' || raw === '1' || raw === 'yes' || raw === 'y' || raw === 'on';
 }
-

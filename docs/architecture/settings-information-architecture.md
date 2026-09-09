@@ -63,14 +63,27 @@
 │     ├─ 네이버 블로그
 │     └─ 워드프레스
 ├─ AI
+│  ├─ 글쓰기 모델
+│  ├─ 이미지 모델
+│  └─ 보조 대화 모델
 ├─ 글쓰기
 ├─ 발행
 ├─ 부가 서비스
 └─ 앱
 ```
 
-`AI`, `글쓰기`, `발행`, `부가 서비스`, `앱`의 상세 IA는 해당 단계에서 같은 배치 기준으로 검토하고, 기존
-설정을 그대로 복제해 채우지 않는다.
+`AI`는 현 단계에서 하나의 `모델 역할` 목적만 가지므로 local sub-menu를 두지 않는다. 글쓰기·이미지·보조
+대화 모델은 readiness summary와 1:1 detail card로 구성하며, 보조 대화 모델은 기본으로 글쓰기 모델을 상속하고
+필요할 때만 별도 모델을 사용한다. 기존 AI 화면의 MCP Remote Server는 모델 역할이 아닌 앱 연결·확장 설정이므로
+후속 `앱 > 고급 연결` 단계에서 다룬다. `글쓰기`, `발행`, `부가 서비스`, `앱`의 나머지 상세 IA도 해당 단계에서
+같은 배치 기준으로 검토하고, 기존 설정을 그대로 복제해 채우지 않는다.
+
+## Local sub-menu 기준
+
+- top menu 안에 독립적으로 이동하거나 비교할 목적이 둘 이상 있을 때만 local sub-menu를 둔다.
+- 단일 목적의 화면에는 탭 모양을 맞추기 위해 local sub-menu를 추가하지 않는다. panel 제목과 summary·detail
+  hierarchy로 충분하면 그 구조를 우선한다.
+- local sub-menu의 label은 provider, storage 또는 구현 방식이 아니라 사용자의 목적과 영향 범위를 표현한다.
 
 ## 저장과 호환성 계약
 
@@ -109,6 +122,9 @@
 - WordPress application password 같은 secret은 `WORDPRESS_APP_PASSWORD_CONFIGURED`처럼 등록 여부만 Settings Beta에
   전달한다. 새 입력값만 일시적으로 보기/숨기기를 지원하고, 빈 입력으로 connection을 확인하거나 값을 반영할 때는
   저장된 secret을 유지한다.
+- AI API Key도 같은 secret 계약을 따른다. Settings Beta의 AI read API는 `*_MODEL_API_KEY_CONFIGURED`만 전달하며,
+  기존 key의 일부·마스킹값·원문을 browser에 내리지 않는다. 보기/숨기기는 새로 입력한 값에만 제공한다. `연결 확인`은
+  새 입력값을 반영한 뒤 서버에 저장된 해당 모델 역할 설정으로 수행한다.
 
 ## 화면 계약
 

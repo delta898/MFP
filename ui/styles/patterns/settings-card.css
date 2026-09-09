@@ -96,6 +96,76 @@
 .ui-settings-card-feedback[data-tone="warning"] { color: var(--ui-status-warning); }
 .ui-settings-card-feedback[data-tone="danger"] { color: var(--ui-status-danger); }
 
+.ui-settings-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--ui-space-2);
+  color: var(--ui-text-primary);
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-semibold);
+}
+
+.ui-settings-field :is(input, select) {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 42px;
+  padding: var(--ui-space-3) var(--ui-space-4);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface);
+  color: var(--ui-text-primary);
+  font: inherit;
+  font-weight: var(--ui-weight-regular);
+  transition: var(--ui-transition-interactive);
+}
+
+.ui-settings-field :is(input, select):focus-visible {
+  outline: none;
+  border-color: var(--ui-border-focus);
+  box-shadow: var(--ui-focus-ring);
+}
+
+.ui-settings-field small {
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-type-caption-size);
+  font-weight: var(--ui-weight-regular);
+  line-height: var(--ui-line-height-body);
+}
+
+.ui-settings-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ui-space-4);
+}
+
+.ui-settings-field-wide {
+  grid-column: 1 / -1;
+}
+
+.ui-settings-choice-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-space-3);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.ui-settings-choice-group legend {
+  width: 100%;
+  margin-bottom: var(--ui-space-1);
+  color: var(--ui-text-primary);
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-semibold);
+}
+
+.ui-settings-choice-group label {
+  color: var(--ui-text-primary);
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-regular);
+}
+
 .ui-settings-card-footer {
   min-height: 42px;
   margin-block-start: calc(var(--ui-space-1) * -1);
@@ -106,5 +176,15 @@
   .ui-settings-card-footer {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .ui-settings-field-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-settings-field :is(input, select) {
+    transition: none;
   }
 }

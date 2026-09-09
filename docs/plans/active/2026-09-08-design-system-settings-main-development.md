@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-settings-main`
 - Base/parent branch: `codex/feature/design-system-main`
 - Start date: 2026-09-08
-- Status: 진행 중 — 첫 sub-feature 자동 검증 완료 및 사용자 UI 검토 대기
+- Status: 진행 중 — 기본 연결 및 AI sub-feature 통합 완료, 다음 top menu 단계 대기
 
 ## 사용자 필요와 목표
 
@@ -83,6 +83,7 @@
 - 2026-09-08: 기존 `config.json`과 내부 schema를 유지하되 선택한 연결 범위만 저장하는 전용 API 계약을 확정했다.
 - 2026-09-08: 공통값은 설정이 정의하고 기능은 선택·상속하며 필요한 작업만 local override한다는 소유권 기준을 `docs/architecture/settings-information-architecture.md`에 현행화했다.
 - 2026-09-08: Settings Beta 첫 stage에서 Blog Beta의 top/local navigation과 Timer를 복제하지 않고 공통 pattern/widget으로 재사용하도록 경계를 고도화했다.
+- 2026-09-09: AI sub-feature를 역할 중심 단일 화면으로 통합했다. 글쓰기·이미지·보조 대화 모델은 shared Settings card/field/choice/select pattern과 provider별 profile 보존 계약을 사용한다. 상세 기록은 `docs/plans/archive/2026-09-09-design-system-settings-02-ai-model-roles-development.md`를 따른다.
 
 ## 검증 계획
 

@@ -73,16 +73,17 @@ test('quick flow summaries update from existing controls and clear remains undoa
 test('quick flow width and disclosure layout adapt without style-specific selectors', () => {
   const html = readBlogNextView();
   const css = read('ui/styles/features/blog-next-quick-flow.css');
+  const selectShellCss = read('ui/styles/patterns/select-shell.css');
 
   assert.match(css, /#blog-next-topic-form-home \.blog-next-topic-form\s*\{[^}]*width:\s*min\(100%, 1180px\)/s);
   assert.match(css, /\.blog-next-disclosure > summary\s*\{/);
   const topicForm = html.match(/<form id="blog-next-topic-form"[\s\S]*?<\/form>/)?.[0] || '';
-  assert.equal((topicForm.match(/<span class="blog-next-select-shell">/g) || []).length, 3);
-  assert.match(topicForm, /<span class="blog-next-select-shell">\s*<select id="blog-next-writing-strategy">/);
-  assert.match(topicForm, /<span class="blog-next-select-shell">\s*<select id="blog-next-image-mode">/);
-  assert.match(topicForm, /<span class="blog-next-select-shell"><select id="blog-next-post-status">/);
-  assert.match(css, /\.blog-next-select-shell::after\s*\{[^}]*inset-inline-end:\s*var\(--ui-space-4\)/s);
-  assert.match(css, /\.blog-next-select-shell > select\s*\{[^}]*appearance:\s*none/s);
+  assert.equal((topicForm.match(/<span class="ui-select-shell">/g) || []).length, 3);
+  assert.match(topicForm, /<span class="ui-select-shell">\s*<select id="blog-next-writing-strategy">/);
+  assert.match(topicForm, /<span class="ui-select-shell">\s*<select id="blog-next-image-mode">/);
+  assert.match(topicForm, /<span class="ui-select-shell"><select id="blog-next-post-status">/);
+  assert.match(selectShellCss, /\.ui-select-shell::after\s*\{[^}]*inset-inline-end:\s*var\(--ui-space-4\)/s);
+  assert.match(selectShellCss, /\.ui-select-shell > select\s*\{[^}]*appearance:\s*none/s);
   assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.blog-next-disclosure > summary/s);
   assert.doesNotMatch(css, /\[data-style=/);
 });

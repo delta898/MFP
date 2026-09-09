@@ -312,13 +312,39 @@ function getApiFixture(pathname) {
     if (pathname === '/api/v1/settings/major') {
         return {
             configPath: 'fixture/config.json',
-            fields: { GOOGLE_SHEET_URL: 'https://docs.google.com/spreadsheets/d/fixture-sheet-id/edit' },
+            fields: {
+                GOOGLE_SHEET_URL: 'https://docs.google.com/spreadsheets/d/fixture-sheet-id/edit',
+                TEXT_MODEL_PROVIDER: 'direct', TEXT_MODEL_NAME: 'fixture-text', TEXT_MODEL_BASE_URL: 'https://ai.fixture.example/v1', TEXT_MODEL_API_KEY: 'fixture-text-key',
+                IMAGE_MODEL_PROVIDER: 'direct', IMAGE_MODEL_NAME: 'fixture-image', IMAGE_MODEL_BASE_URL: 'https://image.fixture.example/v1', IMAGE_MODEL_API_KEY: 'fixture-image-key',
+                CHAT_MODEL_SOURCE: 'writing', CHAT_MODEL_PROVIDER: 'direct', CHAT_MODEL_NAME: 'fixture-text', CHAT_MODEL_BASE_URL: 'https://ai.fixture.example/v1', CHAT_MODEL_API_KEY: 'fixture-text-key'
+            },
             aiPresets: { text: [], image: [], chat: [] },
             aiProviderProfiles: { text: {}, image: {}, chat: {} },
             shoppingImageDefaults: {},
             shoppingImageSlots: {}
         };
     }
+    if (pathname === '/api/v1/settings/core-connections') {
+        return { fields: { GOOGLE_SHEET_URL: 'https://docs.google.com/spreadsheets/d/fixture-sheet-id/edit' } };
+    }
+    if (pathname === '/api/v1/settings/ai-roles') {
+        return {
+            fields: {
+                TEXT_MODEL_PROVIDER: 'direct', TEXT_MODEL_NAME: 'fixture-text', TEXT_MODEL_BASE_URL: 'https://ai.fixture.example/v1', TEXT_MODEL_API_KEY_CONFIGURED: true,
+                IMAGE_MODEL_PROVIDER: 'direct', IMAGE_MODEL_NAME: 'fixture-image', IMAGE_MODEL_BASE_URL: 'https://image.fixture.example/v1', IMAGE_MODEL_API_KEY_CONFIGURED: true,
+                CHAT_MODEL_SOURCE: 'writing', CHAT_MODEL_PROVIDER: 'direct', CHAT_MODEL_NAME: 'fixture-text', CHAT_MODEL_BASE_URL: 'https://ai.fixture.example/v1', CHAT_MODEL_API_KEY_CONFIGURED: true
+            },
+            aiPresets: {
+                text: [{ provider: 'openai', code: 'gpt-5.6-sol', name: 'GPT-5.6 Sol', base_url: 'https://api.openai.com/v1' }],
+                image: [], chat: [], providers: { text: [{ id: 'google', name: 'Google' }, { id: 'openai', name: 'OpenAI' }], image: [], chat: [] }
+            },
+            aiProviderProfiles: {
+                text: { openai: { provider: 'openai', code: 'gpt-5.6-sol', name: '', base_url: '', api_key_configured: true } },
+                image: {}, chat: {}
+            }
+        };
+    }
+    if (pathname === '/api/v1/settings/ai-roles/test') return { display_name: 'fixture model', latency_ms: 8 };
     if (pathname === '/api/v1/google-oauth/status') return { state: 'connected', connectedEmail: 'fixture@example.com' };
     if (pathname === '/api/v1/google-oauth/test') {
         return { ok: true, spreadsheetId: 'fixture-sheet-id', spreadsheetTitle: 'UI smoke spreadsheet' };
@@ -1249,6 +1275,56 @@ async function run() {
         await settingsTopTab.focus();
         await settingsTopTab.press('ArrowRight');
         assert.equal(await page.locator('[data-settings-next-tab="ai"]').getAttribute('aria-selected'), 'true');
+        await page.waitForFunction(() => document.querySelector('#settings-next-ai-text-form [data-ai-field="provider"]')?.value === 'direct');
+        assert.equal(await page.locator('#settings-next-ai-chat-status').textContent(), '글쓰기 모델 사용');
+        assert.equal(await page.locator('#settings-next-ai-text-form [data-ai-field="apiKey"]').inputValue(), '');
+        assert.equal(await page.locator('#settings-next-ai-text-form [data-ai-field="apiKey"]').getAttribute('placeholder'), '직접 입력 API Key 등록됨');
+        assert.equal(
+            await page.locator('#settings-next-ai-text-form [data-ai-field="provider"]').evaluate((element) => getComputedStyle(element.closest('.ui-settings-field')).fontSize),
+            await page.locator('#settings-next-naver-id').evaluate((element) => getComputedStyle(element.closest('.ui-settings-field')).fontSize)
+        );
+        await page.locator('#settings-next-ai-text-feedback').evaluate((element) => {
+            element.textContent = '이전 연결 확인 결과';
+            element.dataset.tone = 'danger';
+        });
+        await page.locator('#settings-next-ai-text-form [data-ai-field="provider"]').selectOption('google');
+        assert.equal((await page.locator('#settings-next-ai-text-feedback').textContent())?.trim(), '');
+        assert.equal(await page.locator('#settings-next-ai-text-form [data-ai-field="baseUrl"]').inputValue(), 'https://generativelanguage.googleapis.com/v1beta');
+        await page.locator('#settings-next-ai-text-form [data-ai-field="provider"]').selectOption('openai');
+        assert.equal(await page.locator('#settings-next-ai-text-form [data-ai-field="presetCode"]').inputValue(), 'gpt-5.6-sol');
+        assert.equal(await page.locator('#settings-next-ai-text-form [data-ai-field="apiKey"]').getAttribute('placeholder'), 'OpenAI API Key 등록됨');
+        assert.equal((await page.locator('#settings-next-ai-text-form [data-ai-key-hint]').textContent())?.trim(), 'OpenAI API Key가 등록되어 있습니다. 변경할 때만 새 값을 입력하세요.');
+        await page.locator('#settings-next-ai-text-form [data-ai-field="provider"]').selectOption('direct');
+        assert.equal(await page.locator('#settings-next-ai-text-form [data-ai-field="baseUrl"]').inputValue(), 'https://ai.fixture.example/v1');
+        assert.equal(await page.locator('[data-settings-next-ai-fields="chat"]').isHidden(), true);
+        assert.equal((await page.locator('#settings-next-ai-chat-inherited').textContent())?.includes('fixture-text'), true);
+        await page.locator('#settings-next-ai-text-form [data-ai-field="name"]').fill('fixture-text-b');
+        assert.equal((await page.locator('#settings-next-ai-chat-inherited').textContent())?.includes('fixture-text-b'), true);
+        const settingsNextDiscardPrompt = await page.evaluate(async () => {
+            const originalConfirm = showUiConfirm;
+            let message = '';
+            showUiConfirm = async (nextMessage) => { message = nextMessage; return false; };
+            try {
+                await navigateTo('dashboard');
+                return message;
+            } finally {
+                showUiConfirm = originalConfirm;
+            }
+        });
+        assert.equal(settingsNextDiscardPrompt.includes('글쓰기 모델'), true);
+        assert.equal(await page.locator('#view-settings-next').evaluate((element) => element.classList.contains('active')), true);
+        await page.evaluate(() => settingsNextClearScopeDirty('ai-text'));
+        await page.locator('input[name="settings-next-ai-chat-source"][value="dedicated"]').check();
+        await page.evaluate(() => settingsNextClearScopeDirty('ai-chat'));
+        assert.equal(await page.locator('[data-settings-next-ai-fields="chat"]').isHidden(), false);
+        assert.equal(
+            await page.locator('.ui-settings-choice-group legend').evaluate((element) => getComputedStyle(element).fontSize),
+            await page.locator('#settings-next-naver-id').evaluate((element) => getComputedStyle(element.closest('.ui-settings-field')).fontSize)
+        );
+        assert.equal(
+            await page.locator('.ui-settings-choice-group label').first().evaluate((element) => getComputedStyle(element).fontSize),
+            await page.locator('#settings-next-naver-id').evaluate((element) => getComputedStyle(element.closest('.ui-settings-field')).fontSize)
+        );
         await page.locator('[data-settings-next-tab="ai"]').press('Home');
         assert.equal(await settingsTopTab.getAttribute('aria-selected'), 'true');
         const settingsLocalTab = page.locator('[data-settings-next-core-tab="content"]');
@@ -1261,10 +1337,15 @@ async function run() {
         await page.locator('[data-settings-card-target="settings-next-naver-form"]').click();
         await page.waitForFunction(() => document.activeElement?.id === 'settings-next-naver-form');
 
+        await page.evaluate(() => {
+            window.__settingsNextSmokeConfirm = showUiConfirm;
+            showUiConfirm = async () => true;
+        });
         for (const viewName of ['account', 'social', 'settings', 'logs', 'shopping', 'dashboard-beta', 'blog-next']) {
             await page.locator(`.nav-btn[data-view="${viewName}"]`).click();
             await page.waitForFunction((name) => document.getElementById(`view-${name}`)?.classList.contains('active'), viewName);
         }
+        await page.evaluate(() => { showUiConfirm = window.__settingsNextSmokeConfirm; });
 
         assert.equal(
             await page.locator('.nav-btn[data-view="blog-next"] .nav-label').evaluate((element) => element.childNodes[0]?.textContent?.trim()),

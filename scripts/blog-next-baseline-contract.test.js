@@ -189,8 +189,8 @@ test('trend posting exposes explicit idle, loading, empty, error and result stat
   assert.match(html, /id="blog-next-trend-results-workspace"[^>]*hidden/);
   assert.match(html, /id="blog-next-trend-filters"[^>]*aria-disabled="true"[^>]*hidden/);
   assert.match(html, /id="blog-next-trend-filter-keyword"[^>]*disabled/);
-  assert.match(html, /class="blog-next-select-shell trend-posting-filter-view-shell">\s*<select id="blog-next-trend-filter-view"/);
-  assert.match(html, /class="blog-next-select-shell trend-posting-period-select-shell">\s*<select id="blog-next-trend-period" disabled/);
+  assert.match(html, /class="ui-select-shell trend-posting-filter-view-shell">\s*<select id="blog-next-trend-filter-view"/);
+  assert.match(html, /class="ui-select-shell trend-posting-period-select-shell">\s*<select id="blog-next-trend-period" disabled/);
   assert.match(html, /id="blog-next-trend-categories"[^>]*aria-busy="true"/);
   assert.match(html, /class="table-wrap trend-posting-table-wrap" aria-busy="false"/);
   assert.match(html, /id="blog-next-trend-results" data-state="idle"><\/tbody>/);

@@ -93,7 +93,7 @@
                 </div>
                 <span id="settings-next-content-status" class="settings-next-status" data-tone="neutral" role="status">확인 필요</span>
               </div>
-              <label class="settings-next-field" for="settings-next-google-sheet-url">
+              <label class="ui-settings-field" for="settings-next-google-sheet-url">
                 <span>Spreadsheet 주소</span>
                 <span class="settings-next-input-action">
                   <input id="settings-next-google-sheet-url" type="url" placeholder="https://docs.google.com/spreadsheets/d/...">
@@ -131,7 +131,7 @@
                 </div>
                 <span id="settings-next-naver-status" class="settings-next-status" data-tone="neutral" role="status">확인 중</span>
               </div>
-              <label class="settings-next-field" for="settings-next-naver-id">
+              <label class="ui-settings-field" for="settings-next-naver-id">
                 <span>네이버 아이디</span>
                 <input id="settings-next-naver-id" type="text" autocomplete="username" placeholder="네이버 아이디">
               </label>
@@ -153,16 +153,16 @@
                 </div>
                 <span id="settings-next-wordpress-status" class="settings-next-status" data-tone="neutral" role="status">확인 전</span>
               </div>
-              <div class="settings-next-field-grid">
-                <label class="settings-next-field settings-next-field-wide" for="settings-next-wordpress-url">
+              <div class="ui-settings-field-grid">
+                <label class="ui-settings-field ui-settings-field-wide" for="settings-next-wordpress-url">
                   <span>사이트 주소</span>
                   <input id="settings-next-wordpress-url" type="url" placeholder="https://your-wordpress-site.com">
                 </label>
-                <label class="settings-next-field" for="settings-next-wordpress-user-id">
+                <label class="ui-settings-field" for="settings-next-wordpress-user-id">
                   <span>사용자 ID</span>
                   <input id="settings-next-wordpress-user-id" type="text" autocomplete="username" placeholder="WordPress 사용자 ID">
                 </label>
-                <label class="settings-next-field" for="settings-next-wordpress-app-password">
+                <label class="ui-settings-field" for="settings-next-wordpress-app-password">
                   <span>애플리케이션 비밀번호</span>
                   <span class="settings-next-secret-input">
                     <input id="settings-next-wordpress-app-password" type="password" autocomplete="new-password" placeholder="애플리케이션 비밀번호">
@@ -185,11 +185,30 @@
         </div>
 
         <div class="card form-card settings-next-panel" id="settings-next-panel-ai" role="tabpanel" aria-labelledby="settings-next-tab-ai" hidden>
-          <div class="settings-next-placeholder">
-            <h2>AI</h2>
-            <p>텍스트, 이미지와 보조 작업 모델은 다음 단계에서 이곳으로 옮깁니다.</p>
-            <button class="secondary" type="button" data-settings-next-legacy-tab="ai">기존 AI 설정 열기</button>
+          <div class="settings-next-panel-lead settings-next-panel-intro">
+            <div>
+              <h2>AI 모델 역할</h2>
+              <p>글쓰기, 이미지 생성과 보조 작업에 사용할 AI 모델을 관리합니다.</p>
+            </div>
           </div>
+          <div class="settings-next-readiness settings-next-readiness--three" aria-label="AI 모델 준비 상태">
+            <button class="ui-settings-readiness-card" type="button" data-settings-card-target="settings-next-ai-text-form"><span class="settings-next-status-dot" id="settings-next-ai-text-readiness-dot" data-tone="neutral" aria-hidden="true"></span><span><strong>글쓰기 모델</strong><small id="settings-next-ai-text-readiness">설정 확인 중</small></span></button>
+            <button class="ui-settings-readiness-card" type="button" data-settings-card-target="settings-next-ai-image-form"><span class="settings-next-status-dot" id="settings-next-ai-image-readiness-dot" data-tone="neutral" aria-hidden="true"></span><span><strong>이미지 모델</strong><small id="settings-next-ai-image-readiness">설정 확인 중</small></span></button>
+            <button class="ui-settings-readiness-card" type="button" data-settings-card-target="settings-next-ai-chat-form"><span class="settings-next-status-dot" id="settings-next-ai-chat-readiness-dot" data-tone="neutral" aria-hidden="true"></span><span><strong>보조 대화 모델</strong><small id="settings-next-ai-chat-readiness">설정 확인 중</small></span></button>
+          </div>
+          <form class="ui-settings-card settings-next-ai-card" id="settings-next-ai-text-form" data-settings-next-ai-role="text" aria-busy="false" tabindex="-1">
+            <div class="ui-settings-card-heading"><div><h3>글쓰기 모델</h3><p>블로그 글 작성에 사용할 기본 모델입니다.</p></div><span id="settings-next-ai-text-status" class="settings-next-status" data-tone="neutral" role="status">확인 필요</span></div>
+            <div class="settings-next-ai-fields" data-settings-next-ai-fields="text"></div><p id="settings-next-ai-text-feedback" class="ui-settings-card-feedback" role="status" aria-live="polite"></p><div class="ui-settings-card-footer"><div></div><button class="primary" type="submit" data-settings-next-ai-action="text">연결 확인</button></div>
+          </form>
+          <form class="ui-settings-card settings-next-ai-card" id="settings-next-ai-image-form" data-settings-next-ai-role="image" aria-busy="false" tabindex="-1">
+            <div class="ui-settings-card-heading"><div><h3>이미지 모델</h3><p>콘텐츠에 사용할 이미지를 생성하는 모델입니다.</p></div><span id="settings-next-ai-image-status" class="settings-next-status" data-tone="neutral" role="status">확인 필요</span></div>
+            <div class="settings-next-ai-fields" data-settings-next-ai-fields="image"></div><p id="settings-next-ai-image-feedback" class="ui-settings-card-feedback" role="status" aria-live="polite"></p><div class="ui-settings-card-footer"><div></div><button class="primary" type="submit" data-settings-next-ai-action="image">연결 확인</button></div>
+          </form>
+          <form class="ui-settings-card settings-next-ai-card" id="settings-next-ai-chat-form" data-settings-next-ai-role="chat" aria-busy="false" tabindex="-1">
+            <div class="ui-settings-card-heading"><div><h3>보조 대화 모델</h3><p>보조 작업에 공통으로 사용할 가벼운 대화 모델입니다.</p></div><span id="settings-next-ai-chat-status" class="settings-next-status" data-tone="neutral" role="status">글쓰기 모델 사용</span></div>
+            <fieldset class="ui-settings-choice-group"><legend>모델 선택</legend><label><input type="radio" name="settings-next-ai-chat-source" value="writing" checked> 글쓰기 모델 사용</label><label><input type="radio" name="settings-next-ai-chat-source" value="dedicated"> 별도 모델 사용</label></fieldset><p id="settings-next-ai-chat-inherited" class="ui-settings-card-detail"></p>
+            <div class="settings-next-ai-fields" data-settings-next-ai-fields="chat" hidden></div><p id="settings-next-ai-chat-feedback" class="ui-settings-card-feedback" role="status" aria-live="polite"></p><div class="ui-settings-card-footer"><div></div><button class="primary" type="submit" data-settings-next-ai-action="chat">연결 확인</button></div>
+          </form>
         </div>
         <div class="card form-card settings-next-panel" id="settings-next-panel-writing" role="tabpanel" aria-labelledby="settings-next-tab-writing" hidden>
           <div class="settings-next-placeholder">

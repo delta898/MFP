@@ -69,13 +69,18 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     assert.match(html, /aria-label="블로그 발행 채널 준비 상태"/);
     assert.match(html, /settings-next-naver-readiness/);
     assert.match(html, /settings-next-wordpress-readiness/);
-    assert.equal((html.match(/data-settings-card-target=/g) || []).length, 4);
+    assert.equal((html.match(/data-settings-card-target=/g) || []).length, 7);
     assert.match(html, /data-settings-card-target="settings-next-naver-form"/);
     assert.match(html, /data-settings-card-target="settings-next-wordpress-form"/);
+    assert.doesNotMatch(html, /settings-next-ai-local-tab/);
+    assert.match(html, /settings-next-ai-text-form/);
+    assert.match(html, /settings-next-ai-image-form/);
+    assert.match(html, /settings-next-ai-chat-form/);
 });
 
 test('Settings Beta controller applies scoped changes seamlessly and protects pending local changes', () => {
     const script = read('ui/scripts/features/settings-next/shell.js');
+    const aiScript = read('ui/scripts/features/settings-next/ai-model-roles.js');
     const tabNavigation = read('ui/scripts/foundation/tab-navigation.js');
     const navigation = read('ui/scripts/foundation/navigation.js');
     const lifecycle = read('ui/scripts/foundation/lifecycle.js');
@@ -109,6 +114,23 @@ test('Settings Beta controller applies scoped changes seamlessly and protects pe
     assert.match(navigation, /confirmDiscardUnsavedSettingsNext/);
     assert.match(lifecycle, /hasPendingSettingsNextChanges/);
     assert.equal((composed.match(/function initSettingsNext\s*\(/g) || []).length, 1);
+    assert.match(aiScript, /postJson\('\/api\/v1\/settings\/ai-roles', \{ scope: role, values \}\)/);
+    assert.match(aiScript, /postJson\('\/api\/v1\/settings\/ai-roles\/test', \{ scope: role \}\)/);
+    assert.doesNotMatch(aiScript, /postJson\('\/api\/v1\/settings\/test-ai-model/);
+    assert.match(aiScript, /settings-next-ai-chat-source/);
+    assert.doesNotMatch(aiScript, /settings-next-ai-local-tab/);
+    assert.match(aiScript, /function settingsNextAiInvalidateVerification\(role\)/);
+    assert.match(aiScript, /function settingsNextAiProfile\(role, provider\)/);
+    assert.match(aiScript, /function settingsNextAiSetApiKeyPresentation\(role, provider\)/);
+    assert.match(aiScript, /settingsNextAiCaptureDraft\(role, event\.target\.dataset\.activeProvider\)/);
+    assert.match(aiScript, /role === 'text'[\s\S]*settingsNextAiSyncChatSource\(\)/);
+    assert.match(aiScript, /settingsNextMarkScopeDirty\(`ai-\$\{role\}`\)/);
+    assert.match(aiScript, /settingsNextClearScopeDirty\(`ai-\$\{role\}`\)/);
+    assert.match(script, /'ai-text': '글쓰기 모델'/);
+    assert.match(aiScript, /api_key_configured/);
+    assert.match(aiScript, /settingsNextAiSetFeedback\(role\)/);
+    assert.match(aiScript, /root\.addEventListener\('input', invalidate\)/);
+    assert.match(aiScript, /event\.target\.matches\('\[data-ai-field="provider"\]'\)/);
 });
 
 test('Settings Beta styling consumes semantic design tokens only', () => {
@@ -201,11 +223,21 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
     assert.doesNotMatch(featureStyles, /settings-next-save-status/);
     assert.doesNotMatch(html, />[^<]*저장하고[^<]*<\/button>/);
     assert.doesNotMatch(html, /저장됨/);
-    assert.equal((html.match(/class="ui-settings-card"/g) || []).length, 4);
-    assert.equal((html.match(/class="ui-settings-readiness-card"/g) || []).length, 4);
+    assert.equal((html.match(/class="ui-settings-card(?:\s|")/g) || []).length, 7);
+    assert.equal((html.match(/class="ui-settings-readiness-card"/g) || []).length, 7);
     assert.match(cardStyles, /\.ui-settings-card\s*\{/);
     assert.match(cardStyles, /\.ui-settings-card-footer\s*\{/);
     assert.match(cardStyles, /\.ui-settings-readiness-card\s*\{/);
+    assert.match(cardStyles, /\.ui-settings-field\s*\{[\s\S]*font-size: var\(--ui-type-label-size\)/);
+    assert.match(cardStyles, /\.ui-settings-field small\s*\{/);
+    assert.match(cardStyles, /\.ui-settings-field-grid\s*\{/);
+    assert.match(cardStyles, /\.ui-settings-choice-group legend\s*\{[\s\S]*font-size: var\(--ui-type-label-size\)/);
+    assert.match(cardStyles, /\.ui-settings-choice-group label\s*\{[\s\S]*font-size: var\(--ui-type-label-size\)/);
+    assert.match(html, /class="ui-settings-choice-group"><legend>모델 선택<\/legend>/);
+    assert.doesNotMatch(featureStyles, /settings-next-ai-source/);
+    assert.match(html, /class="ui-settings-field-grid"/);
+    assert.doesNotMatch(html, /settings-next-field(?:-grid|-wide)?/);
+    assert.doesNotMatch(featureStyles, /\.settings-next-field(?:-grid|-wide)?\b/);
     assert.match(cardStyles, /\.ui-settings-card\s*\{[\s\S]*gap: var\(--ui-space-1\)/);
     assert.match(cardStyles, /\.ui-settings-card-footer\s*\{[\s\S]*margin-block-start: calc\(var\(--ui-space-1\) \* -1\)/);
     assert.doesNotMatch(featureStyles, /\.settings-next-section\s*\{/);
@@ -213,7 +245,7 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
     assert.equal((html.match(/data-settings-next-refresh/g) || []).length, 2);
     assert.equal((html.match(/>새로고침<\/button>/g) || []).length, 2);
     assert.doesNotMatch(html, />상태 새로고침<\/button>/);
-    assert.equal((html.match(/aria-busy="false"/g) || []).length, 5);
+    assert.equal((html.match(/aria-busy="false"/g) || []).length, 8);
     assert.match(html, /id="settings-next-load-feedback"[^>]*role="status"[^>]*aria-live="polite"/);
 });
 

@@ -14,6 +14,8 @@ const {
     buildModelSelectionFromFields,
     toStoredModelSelection,
     toStoredChatModelSettings,
+    mergeActiveSelectionsIntoProfiles,
+    normalizeStoredModelProfiles,
     normalizeChatModelSource
 } = require('../../ai-model-config');
 const { recordDashboardActivity } = require('../../activity/dashboard-activity-store');
@@ -69,6 +71,30 @@ function redactMajorSecretFields(settings = {}) {
     return { ...settings, fields };
 }
 
+function redactAiRoleSecretFields(settings = {}) {
+    const fields = { ...(settings?.fields || settings || {}) };
+    ['TEXT', 'IMAGE', 'CHAT'].forEach((prefix) => {
+        const key = `${prefix}_MODEL_API_KEY`;
+        fields[`${key}_CONFIGURED`] = Boolean(String(fields[key] || '').trim());
+        delete fields[key];
+    });
+    return { ...(settings?.fields ? settings : {}), fields };
+}
+
+function redactAiProviderProfiles(rawProfiles = {}) {
+    const profiles = normalizeStoredModelProfiles(rawProfiles, getAiModelCatalog());
+    return Object.fromEntries(Object.entries(profiles).map(([role, roleProfiles]) => [
+        role,
+        Object.fromEntries(Object.entries(roleProfiles).map(([provider, profile]) => [provider, {
+            provider: String(profile?.provider || provider),
+            code: String(profile?.code || ''),
+            name: String(profile?.name || ''),
+            base_url: String(profile?.base_url || ''),
+            api_key_configured: Boolean(String(profile?.api_key || '').trim())
+        }]))
+    ]));
+}
+
 function normalizeCoreConnectionSettings(requestBody = {}) {
     const scope = String(requestBody.scope || '').trim().toLowerCase();
     const values = requestBody.values && typeof requestBody.values === 'object'
@@ -122,6 +148,25 @@ function normalizeCoreConnectionSettings(requestBody = {}) {
         scope,
         fields: { WORDPRESS_URL, WORDPRESS_USER_ID, WORDPRESS_APP_PASSWORD }
     };
+}
+
+function normalizeAiRoleSettings(requestBody = {}) {
+    const scope = String(requestBody.scope || '').trim().toLowerCase();
+    const values = requestBody.values && typeof requestBody.values === 'object' ? requestBody.values : {};
+    if (!['text', 'image', 'chat'].includes(scope)) {
+        throw createApiError(400, 'AI_ROLE_SCOPE_INVALID', '설정할 AI 역할을 확인해 주세요.');
+    }
+    const source = scope === 'chat' ? normalizeChatModelSource(values.CHAT_MODEL_SOURCE) : '';
+    const prefix = scope === 'text' ? 'TEXT' : (scope === 'image' ? 'IMAGE' : 'CHAT');
+    const fields = {
+        [`${prefix}_MODEL_PROVIDER`]: String(values.provider || '').trim(),
+        [`${prefix}_MODEL_PRESET_CODE`]: String(values.presetCode || '').trim(),
+        [`${prefix}_MODEL_NAME`]: String(values.name || '').trim(),
+        [`${prefix}_MODEL_BASE_URL`]: String(values.baseUrl || '').trim(),
+        [`${prefix}_MODEL_API_KEY`]: String(values.apiKey || '').trim()
+    };
+    if (scope === 'chat') fields.CHAT_MODEL_SOURCE = source;
+    return { scope, source, fields };
 }
 
 function applyCoreConnectionSettings(structuredConfig = {}, normalized = {}) {
@@ -365,6 +410,35 @@ function createSettingsService(deps = {}) {
             };
         },
 
+        async getCoreConnectionSettings() {
+            const major = redactMajorSecretFields(buildMajorSettings(null, {
+                path: CONFIG.CONFIG_SOURCE_PATH || resolveWritableConfigPath(),
+                sourceType: CONFIG.CONFIG_SOURCE_TYPE
+            }));
+            const source = major.fields || {};
+            return {
+                fields: {
+                    GOOGLE_SHEET_URL: source.GOOGLE_SHEET_URL || '',
+                    NAVER_ID: source.NAVER_ID || '',
+                    WORDPRESS_URL: source.WORDPRESS_URL || '',
+                    WORDPRESS_USER_ID: source.WORDPRESS_USER_ID || '',
+                    WORDPRESS_APP_PASSWORD_CONFIGURED: source.WORDPRESS_APP_PASSWORD_CONFIGURED === true
+                }
+            };
+        },
+
+        async getAiRoleSettings() {
+            const settings = redactAiRoleSecretFields(buildMajorSettings(null, {
+                path: CONFIG.CONFIG_SOURCE_PATH || resolveWritableConfigPath(),
+                sourceType: CONFIG.CONFIG_SOURCE_TYPE
+            }));
+            return {
+                fields: settings.fields,
+                aiPresets: getAiModelCatalog(),
+                aiProviderProfiles: redactAiProviderProfiles(CONFIG.AI_MODEL_PROFILES)
+            };
+        },
+
         async saveCoreConnectionSettings(requestBody = {}) {
             const normalized = normalizeCoreConnectionSettings(requestBody);
             const writablePath = resolveWritableConfigPath();
@@ -434,6 +508,96 @@ function createSettingsService(deps = {}) {
                 message: '기본 연결 설정을 저장했습니다.',
                 fields: redactMajorSecretFields(buildMajorSettings(null, { path: writablePath, sourceType: 'json' })).fields
             };
+        },
+
+        async saveAiRoleSettings(requestBody = {}) {
+            const normalized = normalizeAiRoleSettings(requestBody);
+            const writablePath = resolveWritableConfigPath();
+            let structuredConfig = {};
+            if (fs.existsSync(writablePath)) {
+                try {
+                    structuredConfig = JSON.parse(fs.readFileSync(writablePath, 'utf8'));
+                } catch (_error) {
+                    throw createApiError(409, 'CONFIG_JSON_INVALID', '현재 설정 파일을 읽을 수 없어 안전하게 반영하지 못했습니다.');
+                }
+            }
+            const current = buildMajorSettings(null, { path: writablePath, sourceType: 'json' }).fields || {};
+            const fields = { ...current, ...normalized.fields };
+            const selectedPrefix = normalized.scope === 'text' ? 'TEXT' : (normalized.scope === 'image' ? 'IMAGE' : 'CHAT');
+            const selectedApiKey = `${selectedPrefix}_MODEL_API_KEY`;
+            const catalog = getAiModelCatalog();
+            const storedProfiles = normalizeStoredModelProfiles(
+                structuredConfig?.ai_settings?.MODEL_PROFILES || CONFIG.AI_MODEL_PROFILES || {},
+                catalog
+            );
+            const selectedKind = normalized.scope === 'image' ? 'image' : (normalized.scope === 'chat' ? 'chat' : 'text');
+            const candidate = buildModelSelectionFromFields(selectedKind, {
+                ...fields,
+                [selectedApiKey]: ''
+            }, catalog);
+            if (!String(normalized.fields[selectedApiKey] || '').trim()) {
+                const activeCandidate = buildModelSelectionFromFields(selectedKind, current, catalog);
+                fields[selectedApiKey] = String(
+                    storedProfiles?.[normalized.scope]?.[candidate.provider]?.api_key
+                    || (activeCandidate.provider === candidate.provider ? current[selectedApiKey] : '')
+                    || ''
+                ).trim();
+            }
+            const text = buildModelSelectionFromFields('text', fields, catalog);
+            const image = buildModelSelectionFromFields('image', fields, catalog);
+            const chatSelection = buildModelSelectionFromFields('chat', fields, catalog);
+            const chatSource = normalizeChatModelSource(fields.CHAT_MODEL_SOURCE);
+            const requiresKey = (selection) => selection.provider !== 'direct' && !String(selection.api_key || '').trim();
+            const selected = normalized.scope === 'text' ? text : (normalized.scope === 'image' ? image : chatSelection);
+            if (normalized.scope !== 'chat' || chatSource === 'dedicated') {
+                if (!String(selected.code || '').trim()) throw createApiError(400, 'AI_MODEL_REQUIRED', '사용할 AI 모델을 선택해 주세요.');
+                if (requiresKey(selected)) throw createApiError(400, 'AI_MODEL_API_KEY_REQUIRED', '선택한 모델의 API Key를 입력해 주세요.');
+                if (selected.provider === 'direct' && (!String(selected.name || '').trim() || !String(selected.base_url || '').trim())) {
+                    throw createApiError(400, 'AI_MODEL_DIRECT_CONFIG_REQUIRED', '직접 입력 모델은 모델 이름과 Base URL이 필요합니다.');
+                }
+            }
+            if (!structuredConfig.ai_settings || typeof structuredConfig.ai_settings !== 'object') structuredConfig.ai_settings = {};
+            structuredConfig.ai_settings.TEXT_MODEL = toStoredModelSelection(text, catalog);
+            structuredConfig.ai_settings.IMAGE_MODEL = toStoredModelSelection(image, catalog);
+            structuredConfig.ai_settings.CHAT_MODEL = toStoredChatModelSettings(chatSource, chatSelection, catalog);
+            structuredConfig.ai_settings.MODEL_PROFILES = mergeActiveSelectionsIntoProfiles(
+                storedProfiles,
+                { text, image, chat: chatSelection },
+                catalog
+            );
+            fs.mkdirSync(path.dirname(writablePath), { recursive: true });
+            fs.writeFileSync(writablePath, JSON.stringify(structuredConfig, null, 2), 'utf8');
+            CONFIG.TEXT_MODEL_CONFIG = text;
+            CONFIG.IMAGE_MODEL_CONFIG = image;
+            CONFIG.TEXT_MODEL_API_KEY = text.api_key;
+            CONFIG.IMAGE_MODEL_API_KEY = image.api_key;
+            CONFIG.CHAT_MODEL_SOURCE = chatSource;
+            CONFIG.CHAT_MODEL_SELECTION_CONFIG = chatSelection;
+            CONFIG.CHAT_MODEL_CONFIG = chatSource === 'writing' ? text : chatSelection;
+            CONFIG.AI_MODEL_PROFILES = structuredConfig.ai_settings.MODEL_PROFILES;
+            CONFIG.CONFIG_READY = true;
+            CONFIG.CONFIG_SOURCE_TYPE = 'json';
+            CONFIG.CONFIG_SOURCE_PATH = writablePath;
+            CONFIG.CONFIG_ERROR_MESSAGE = '';
+            dashboardActivityRecorder({ category: 'settings', type: 'ai_model_role_saved', title: 'AI 모델 역할 반영', detail: normalized.scope });
+            return { scope: normalized.scope, ...(await this.getAiRoleSettings()) };
+        },
+
+        async testAiRoleConnection(requestBody = {}) {
+            const scope = String(requestBody.scope || '').trim().toLowerCase();
+            if (!['text', 'image', 'chat'].includes(scope)) {
+                throw createApiError(400, 'AI_ROLE_SCOPE_INVALID', '확인할 AI 역할을 선택해 주세요.');
+            }
+            const kind = scope === 'image' ? 'image' : 'text';
+            const modelConfig = scope === 'image'
+                ? CONFIG.IMAGE_MODEL_CONFIG
+                : (scope === 'chat' ? CONFIG.CHAT_MODEL_CONFIG : CONFIG.TEXT_MODEL_CONFIG);
+            try {
+                const result = await ModelConnectionTester.testModelConnection({ kind, modelConfig });
+                return { ...result, display_name: modelConfig?.name || modelConfig?.code || 'AI 모델' };
+            } catch (error) {
+                throw createApiError(400, 'AI_MODEL_CONNECTION_CHECK_FAILED', 'AI 모델 연결을 확인하지 못했습니다. API Key와 모델 설정을 확인해 주세요.');
+            }
         },
 
         async saveMajorSettings(requestBody = {}) {
@@ -1065,6 +1229,9 @@ module.exports = {
     createApiError,
     removeManagedKeywordCredentials,
     normalizeCoreConnectionSettings,
+    normalizeAiRoleSettings,
     redactMajorSecretFields,
+    redactAiRoleSecretFields,
+    redactAiProviderProfiles,
     applyCoreConnectionSettings
 };

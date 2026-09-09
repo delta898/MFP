@@ -98,6 +98,13 @@ function createSettingsController(deps = {}) {
         },
 
         async handleCoreConnections({ requestId, method, requestBody, res }) {
+            if (method === 'GET') {
+                try {
+                    return sendSuccess(res, requestId, await service.getCoreConnectionSettings());
+                } catch (e) {
+                    return toErrorResponse(res, requestId, 'SETTINGS_READ_FAILED', '기본 연결 설정을 불러오지 못했습니다.', e);
+                }
+            }
             if (method === 'POST') {
                 try {
                     const data = await service.saveCoreConnectionSettings(requestBody || {});
@@ -113,6 +120,36 @@ function createSettingsController(deps = {}) {
                 }
             }
 
+            return sendMethodNotAllowed(sendError, res, requestId);
+        },
+
+        async handleAiRoles({ requestId, method, requestBody, res }) {
+            if (method === 'GET') {
+                try {
+                    return sendSuccess(res, requestId, await service.getAiRoleSettings());
+                } catch (e) {
+                    return toErrorResponse(res, requestId, 'SETTINGS_READ_FAILED', 'AI 모델 설정을 불러오지 못했습니다.', e);
+                }
+            }
+            if (method === 'POST') {
+                try {
+                    const data = await service.saveAiRoleSettings(requestBody || {});
+                    return sendSuccess(res, requestId, data);
+                } catch (e) {
+                    return toErrorResponse(res, requestId, 'SETTINGS_AI_ROLE_SAVE_FAILED', 'AI 모델 설정을 반영하지 못했습니다.', e);
+                }
+            }
+            return sendMethodNotAllowed(sendError, res, requestId);
+        },
+
+        async handleTestAiRole({ requestId, method, requestBody, res }) {
+            if (method === 'POST') {
+                try {
+                    return sendSuccess(res, requestId, await service.testAiRoleConnection(requestBody || {}));
+                } catch (e) {
+                    return toErrorResponse(res, requestId, 'AI_MODEL_CONNECTION_CHECK_FAILED', 'AI 모델 연결을 확인하지 못했습니다.', e);
+                }
+            }
             return sendMethodNotAllowed(sendError, res, requestId);
         },
 

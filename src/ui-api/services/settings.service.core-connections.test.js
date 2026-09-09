@@ -6,7 +6,10 @@ const path = require('node:path');
 
 const {
     createSettingsService,
-    normalizeCoreConnectionSettings
+    normalizeCoreConnectionSettings,
+    normalizeAiRoleSettings,
+    redactAiRoleSecretFields,
+    redactAiProviderProfiles
 } = require('./settings.service');
 
 function createHarness(initialConfig = {}) {
@@ -63,6 +66,103 @@ test('core connection normalization validates each independently saved scope', (
         () => normalizeCoreConnectionSettings({ scope: 'wordpress', values: { WORDPRESS_URL: 'ftp://example.com' } }),
         (error) => error.apiCode === 'WORDPRESS_CONNECTION_REQUIRED'
     );
+});
+
+test('AI role normalization accepts only the three role scopes', () => {
+    assert.deepEqual(
+        normalizeAiRoleSettings({ scope: 'chat', values: { CHAT_MODEL_SOURCE: 'writing', provider: 'google' } }),
+        {
+            scope: 'chat',
+            source: 'writing',
+            fields: {
+                CHAT_MODEL_PROVIDER: 'google', CHAT_MODEL_PRESET_CODE: '', CHAT_MODEL_NAME: '',
+                CHAT_MODEL_BASE_URL: '', CHAT_MODEL_API_KEY: '', CHAT_MODEL_SOURCE: 'writing'
+            }
+        }
+    );
+    assert.throws(
+        () => normalizeAiRoleSettings({ scope: 'provider', values: {} }),
+        (error) => error.apiCode === 'AI_ROLE_SCOPE_INVALID'
+    );
+});
+
+test('AI role reads expose API Key registration only, never the stored secret', () => {
+    const result = redactAiRoleSecretFields({ fields: {
+        TEXT_MODEL_API_KEY: 'text-secret', IMAGE_MODEL_API_KEY: '', CHAT_MODEL_API_KEY: 'chat-secret'
+    } });
+    assert.equal(result.fields.TEXT_MODEL_API_KEY_CONFIGURED, true);
+    assert.equal(result.fields.IMAGE_MODEL_API_KEY_CONFIGURED, false);
+    assert.equal(result.fields.CHAT_MODEL_API_KEY_CONFIGURED, true);
+    assert.equal(Object.hasOwn(result.fields, 'TEXT_MODEL_API_KEY'), false);
+    assert.equal(Object.hasOwn(result.fields, 'CHAT_MODEL_API_KEY'), false);
+});
+
+test('AI role provider profiles expose their configuration state without API Key values', () => {
+    const profiles = redactAiProviderProfiles({
+        text: {
+            openai: { provider: 'openai', code: 'gpt-5.6-sol', api_key: 'openai-secret' }
+        }
+    });
+    assert.equal(profiles.text.openai.api_key_configured, true);
+    assert.equal(Object.hasOwn(profiles.text.openai, 'api_key'), false);
+    assert.equal(JSON.stringify(profiles).includes('openai-secret'), false);
+});
+
+test('AI role scope preserves unrelated configuration while updating the selected model', async () => {
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'settings-ai-role-'));
+    const configPath = path.join(configDir, 'config.json');
+    const initial = {
+        ai_settings: { TEXT_MODEL: { provider: 'direct', name: 'old', base_url: 'https://old.example/v1', api_key: 'old-key' } },
+        platforms: { naver: { user_id: 'keep-naver' } }
+    };
+    fs.writeFileSync(configPath, JSON.stringify(initial, null, 2));
+    const CONFIG = {};
+    const service = createSettingsService({
+        fs, path, CONFIG, resolveWritableConfigPath: () => configPath,
+        buildMajorSettings: () => ({ fields: {
+            TEXT_MODEL_PROVIDER: 'direct', TEXT_MODEL_NAME: 'old', TEXT_MODEL_BASE_URL: 'https://old.example/v1', TEXT_MODEL_API_KEY: 'old-key',
+            IMAGE_MODEL_PROVIDER: 'direct', IMAGE_MODEL_NAME: 'image', IMAGE_MODEL_BASE_URL: 'https://image.example/v1', IMAGE_MODEL_API_KEY: 'image-key',
+            CHAT_MODEL_SOURCE: 'writing', CHAT_MODEL_PROVIDER: 'direct', CHAT_MODEL_NAME: 'old', CHAT_MODEL_BASE_URL: 'https://old.example/v1', CHAT_MODEL_API_KEY: 'old-key'
+        } }),
+        dashboardActivityRecorder: () => {}
+    });
+    await service.saveAiRoleSettings({ scope: 'text', values: {
+        provider: 'direct', name: 'new-text', baseUrl: 'https://new.example/v1', apiKey: 'new-key'
+    } });
+    const saved = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    assert.equal(saved.ai_settings.TEXT_MODEL.name, 'new-text');
+    assert.equal(saved.ai_settings.TEXT_MODEL.base_url, 'https://new.example/v1');
+    assert.deepEqual(saved.platforms, initial.platforms);
+});
+
+test('AI role scope reuses the selected provider profile key when the user leaves the key input blank', async () => {
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'settings-ai-provider-profile-'));
+    const configPath = path.join(configDir, 'config.json');
+    const initial = {
+        ai_settings: {
+            MODEL_PROFILES: {
+                text: { openai: { provider: 'openai', code: 'gpt-5.6-sol', api_key: 'openai-secret' } }
+            }
+        }
+    };
+    fs.writeFileSync(configPath, JSON.stringify(initial, null, 2));
+    const CONFIG = {};
+    const service = createSettingsService({
+        fs, path, CONFIG, resolveWritableConfigPath: () => configPath,
+        buildMajorSettings: () => ({ fields: {
+            TEXT_MODEL_PROVIDER: 'google', TEXT_MODEL_PRESET_CODE: 'gemini-3.1-flash-lite', TEXT_MODEL_API_KEY: 'google-secret',
+            IMAGE_MODEL_PROVIDER: 'direct', IMAGE_MODEL_NAME: 'image', IMAGE_MODEL_BASE_URL: 'https://image.example/v1', IMAGE_MODEL_API_KEY: 'image-key',
+            CHAT_MODEL_SOURCE: 'writing', CHAT_MODEL_PROVIDER: 'google', CHAT_MODEL_PRESET_CODE: 'gemini-3.1-flash-lite', CHAT_MODEL_API_KEY: 'google-secret'
+        } }),
+        dashboardActivityRecorder: () => {}
+    });
+    await service.saveAiRoleSettings({ scope: 'text', values: {
+        provider: 'openai', presetCode: 'gpt-5.6-sol', apiKey: ''
+    } });
+    const saved = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    assert.equal(saved.ai_settings.TEXT_MODEL.provider, 'openai');
+    assert.equal(saved.ai_settings.TEXT_MODEL.api_key, 'openai-secret');
+    assert.equal(saved.ai_settings.MODEL_PROFILES.text.openai.api_key, 'openai-secret');
 });
 
 test('content scope preserves unrelated settings and updates runtime sheet aliases', async () => {

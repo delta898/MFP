@@ -13,6 +13,7 @@
 // @include scripts/features/discovery/state.js
 // @include scripts/features/settings/state.js
 // @include scripts/features/settings-next/shell.js
+// @include scripts/features/settings-next/ai-model-roles.js
 // @include scripts/features/content/table-state.js
 // @include scripts/shared/runtime-state.js
 // @include scripts/features/shell/update-state.js

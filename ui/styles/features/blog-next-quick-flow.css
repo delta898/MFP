@@ -112,32 +112,6 @@
   background: var(--ui-surface-muted);
 }
 
-.blog-next-select-shell {
-  position: relative;
-  display: block;
-}
-
-.blog-next-select-shell > select {
-  appearance: none;
-  -webkit-appearance: none;
-  padding-inline-end: calc(var(--ui-space-4) + 18px);
-}
-
-.blog-next-select-shell::after {
-  position: absolute;
-  width: 8px;
-  height: 8px;
-  inset-inline-end: var(--ui-space-4);
-  top: 50%;
-  box-sizing: border-box;
-  color: var(--ui-text-secondary);
-  content: '';
-  border-inline-end: 2px solid currentColor;
-  border-block-end: 2px solid currentColor;
-  pointer-events: none;
-  transform: translateY(-65%) rotate(45deg);
-}
-
 .blog-next-disclosure-grid {
   padding: var(--ui-space-5);
 }

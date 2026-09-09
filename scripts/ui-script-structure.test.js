@@ -42,6 +42,7 @@ test('JavaScript manifest preserves one explicit classic-script execution order'
         'scripts/features/discovery/state.js',
         'scripts/features/settings/state.js',
         'scripts/features/settings-next/shell.js',
+        'scripts/features/settings-next/ai-model-roles.js',
         'scripts/features/content/table-state.js',
         'scripts/shared/runtime-state.js',
         'scripts/features/shell/update-state.js',

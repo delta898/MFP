@@ -27,6 +27,14 @@ function hasPendingSettingsNextChanges() {
   return settingsNextDirtyScopes.size > 0;
 }
 
+function settingsNextMarkScopeDirty(scope) {
+  settingsNextDirtyScopes.add(scope);
+}
+
+function settingsNextClearScopeDirty(scope) {
+  settingsNextDirtyScopes.delete(scope);
+}
+
 function settingsNextSetText(id, value) {
   const element = document.getElementById(id);
   if (element) element.textContent = String(value || '');
@@ -452,8 +460,13 @@ async function loadSettingsNext({ force = false } = {}) {
   settingsNextSetRefreshBusy(true);
   document.getElementById('view-settings-next')?.setAttribute('aria-busy', 'true');
   try {
-    const [major] = await Promise.all([fetchJson('/api/v1/settings/major'), settingsNextLoadStatuses({ force })]);
-    settingsNextApplyMajorFields(major);
+    const [core, ai] = await Promise.all([
+      fetchJson('/api/v1/settings/core-connections'),
+      fetchJson('/api/v1/settings/ai-roles'),
+      settingsNextLoadStatuses({ force })
+    ]);
+    settingsNextApplyMajorFields(core);
+    loadSettingsNextAi(ai);
     settingsNextLoaded = true;
   } catch (error) {
     settingsNextSetFeedback('settings-next-load-feedback', error.message || '기본 연결 설정을 불러오지 못했습니다. 새로고침으로 다시 시도해 주세요.', 'danger');
@@ -499,7 +512,7 @@ async function settingsNextSaveScope(scope) {
   settingsNextSetScopeFeedback(scope, '');
   try {
     const data = await postJson('/api/v1/settings/core-connections', { scope, values });
-    settingsNextDirtyScopes.delete(scope);
+    settingsNextClearScopeDirty(scope);
     settingsNextMajorFields = { ...(data?.fields || {}) };
     settingsNextApplyMajorFields(data);
     uiSheetsReady = false;
@@ -678,7 +691,14 @@ async function settingsNextSubmitWordpress(event) {
 
 async function confirmDiscardUnsavedSettingsNext() {
   if (!hasPendingSettingsNextChanges()) return true;
-  const labels = { content: '콘텐츠 공간', naver: '네이버 블로그', wordpress: '워드프레스' };
+  const labels = {
+    content: '콘텐츠 공간',
+    naver: '네이버 블로그',
+    wordpress: '워드프레스',
+    'ai-text': '글쓰기 모델',
+    'ai-image': '이미지 모델',
+    'ai-chat': '보조 대화 모델'
+  };
   const changed = [...settingsNextDirtyScopes].map((scope) => labels[scope] || scope).join(', ');
   const discard = await showUiConfirm(`아직 반영하지 않은 변경사항이 있습니다: ${changed}\n이 화면을 떠나면 변경사항이 사라집니다.`, {
     title: '설정 Beta 변경사항',
@@ -718,6 +738,7 @@ function initSettingsNext() {
       });
     });
     initUiSettingsCardPattern();
+    initSettingsNextAi();
     const scopedInputs = {
       content: ['settings-next-google-sheet-url'],
       naver: ['settings-next-naver-id'],

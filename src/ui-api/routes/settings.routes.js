@@ -39,6 +39,16 @@ function createSettingsRouteHandler(deps = {}) {
             return true;
         }
 
+        if (pathname === '/api/v1/settings/ai-roles') {
+            await controller.handleAiRoles(ctx);
+            return true;
+        }
+
+        if (pathname === '/api/v1/settings/ai-roles/test') {
+            await controller.handleTestAiRole(ctx);
+            return true;
+        }
+
         if (pathname === '/api/v1/settings/advanced') {
             await controller.handleAdvanced(ctx);
             return true;
