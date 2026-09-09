@@ -55,6 +55,12 @@ test('ready row keeps the topic-owned delivery plan in sheet options', () => {
         naverCategory: '여행',
         wordpressCategory: 'Daily',
         writingStrategy: 'discovery',
+        writingOverrides: {
+            length: 'long',
+            opening: 'direct',
+            development: 'comparison',
+            ending: 'summary'
+        },
         imageMode: 'none',
         externalReference: false,
         postStatus: 'schedule',
@@ -68,10 +74,29 @@ test('ready row keeps the topic-owned delivery plan in sheet options', () => {
     assert.equal(row.options.title, '아침 산책에서 뜻밖에 마주친 것');
     assert.equal(row.options.wordpress_category, 'Daily');
     assert.equal(row.options.writing_strategy, 'discovery');
+    assert.deepEqual(row.options.writing_overrides, {
+        length: 'long',
+        opening: 'direct',
+        development: 'comparison',
+        ending: 'summary'
+    });
     assert.equal(row.options.image_mode, 'none');
     assert.equal(row.options.external_reference, false);
     assert.equal(row.options.post_status, 'schedule');
     assert.equal(row.options.schedule_date, '2026-09-01T10:30');
+});
+
+test('topic capture rejects unsupported writing overrides', () => {
+    const result = validateTopicCapture({
+        subject: '제주 산책',
+        writingOverrides: { tone: 'warm', length: 'endless' }
+    });
+
+    assert.equal(result.valid, false);
+    assert.deepEqual(result.errors.map((item) => item.code), [
+        'WRITING_OVERRIDE_FIELD_UNSUPPORTED',
+        'WRITING_OVERRIDE_VALUE_INVALID'
+    ]);
 });
 
 test('normalization ignores unknown platforms and uses safe defaults', () => {

@@ -70,14 +70,17 @@ test('image plan prompt requests the resolved exact count and keeps regions when
     assert.match(prompt, /실제 AI 이미지 파일 생성 여부와 무관하게/);
 });
 
-test('image block validation accepts the actual sequential count and rejects duplicate or skipped indexes', () => {
-    for (const count of [0, 2, 3, 5, 6]) {
-        assert.deepEqual(validateBlogImageBlocks(imageBlocks(count), { count: 3 }), {
-            count,
-            indexes: Array.from({ length: count }, (_unused, index) => index)
-        });
-    }
-    for (const content of [imageBlocks(3, [0, 1, 1]), imageBlocks(3, [0, 2, 3])]) {
+test('image block validation requires the exact sequential count', () => {
+    assert.deepEqual(validateBlogImageBlocks(imageBlocks(3), { count: 3 }), {
+        count: 3,
+        indexes: [0, 1, 2]
+    });
+    for (const content of [
+        imageBlocks(2),
+        imageBlocks(5),
+        imageBlocks(3, [0, 1, 1]),
+        imageBlocks(3, [0, 2, 3])
+    ]) {
         assert.throws(
             () => validateBlogImageBlocks(content, { count: 3 }),
             (error) => error.code === 'BLOG_IMAGE_PLAN_MISMATCH'

@@ -630,6 +630,7 @@ function createContinuousPublishingService(deps = {}) {
                 imageGeneration: row.image_options.generate,
                 externalReference: row.use_external_ref,
                 writingStrategy: row.writing_strategy,
+                writingOverrides: row.content_guide.writing_overrides,
                 platforms: row.targets
             });
             Utils.clearSheetCache('topics');

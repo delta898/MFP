@@ -1,5 +1,6 @@
 const { normalizeWritingStrategyOverride } = require('./writing-strategy');
 const { normalizeBlogImageMode } = require('./blog-image-mode');
+const { normalizeBlogWritingOverrides } = require('./blog-writing-overrides');
 
 const SHEET_IMAGE_MODE_LABELS = Object.freeze({
     generate: '이미지 생성',
@@ -171,7 +172,8 @@ function resolveTopicSheetState(input = {}) {
         externalReference: typeof parsedOptions.external_reference === 'boolean'
             ? parsedOptions.external_reference
             : input.externalReference !== false,
-        writingStrategy: normalizeWritingStrategyOverride(parsedOptions.writing_strategy)
+        writingStrategy: normalizeWritingStrategyOverride(parsedOptions.writing_strategy),
+        writingOverrides: normalizeBlogWritingOverrides(parsedOptions.writing_overrides)
     };
 }
 
@@ -220,6 +222,11 @@ function mergeTopicSheetOptions(existingOptions = {}, fields = {}) {
     if (fields.scheduleDate !== undefined) applyStringOption(next, 'schedule_date', fields.scheduleDate);
     if (fields.writingStrategy !== undefined) {
         applyStringOption(next, 'writing_strategy', normalizeWritingStrategyOverride(fields.writingStrategy));
+    }
+    if (fields.writingOverrides !== undefined) {
+        const writingOverrides = normalizeBlogWritingOverrides(fields.writingOverrides);
+        if (Object.keys(writingOverrides).length > 0) next.writing_overrides = writingOverrides;
+        else delete next.writing_overrides;
     }
 
     if (fields.imageMode !== undefined || fields.imageGeneration !== undefined) {

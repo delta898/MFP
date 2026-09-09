@@ -98,10 +98,12 @@ function validateBlogImageBlocks(content, plan = {}) {
         return { count: 0, indexes: [] };
     }
     const actualIndexes = collectCompleteImageBlockIndexes(content);
+    const expectedCount = parseImageCount(plan.count, 'image_plan.count') || FALLBACK_BLOG_IMAGE_COUNT;
     const valid = actualIndexes.every((value, index) => value === index);
-    if (!valid) {
-        const error = new Error('블로그 이미지 영역 번호는 IMAGE_0부터 중복이나 누락 없이 순서대로 작성되어야 합니다.');
+    if (!valid || actualIndexes.length !== expectedCount) {
+        const error = new Error(`블로그 이미지 영역은 IMAGE_0부터 순서대로 정확히 ${expectedCount}개여야 합니다.`);
         error.code = 'BLOG_IMAGE_PLAN_MISMATCH';
+        error.expected_count = expectedCount;
         error.actual_count = actualIndexes.length;
         error.actual_indexes = actualIndexes;
         throw error;

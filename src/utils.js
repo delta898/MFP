@@ -1660,7 +1660,8 @@ const Utils = {
                         keywordsRaw: resolvedState.keywords.join(', ') || kwStr || '',
                         content_guide: {
                             additional_instructions: resolvedState.instruction || '',
-                            reference_urls: resolvedState.referenceUrls
+                            reference_urls: resolvedState.referenceUrls,
+                            writing_overrides: resolvedState.writingOverrides
                         },
                         status: status || '',
                         image_mode: resolvedState.imageMode,
@@ -1673,6 +1674,7 @@ const Utils = {
                         image_count: imgCountStr ? Number(imgCountStr) : resolvedState.imageCount,
                         external_reference: resolvedState.externalReference,
                         writing_strategy: resolvedState.writingStrategy,
+                        writing_overrides: resolvedState.writingOverrides,
                         options: resolvedState.options,
                         log: logStr || '',
                         published_at: publishedAt || '',
@@ -2678,6 +2680,7 @@ const Utils = {
                     imageCount: topic.image_options?.count ?? topic.image_count ?? topic.options?.image_count,
                     externalReference,
                     writingStrategy: topic.writing_strategy || topic.writingStrategy || topic.options?.writing_strategy,
+                    writingOverrides: topic.content_guide?.writing_overrides || topic.writing_overrides || topic.options?.writing_overrides,
                     platforms: topic.platforms || topic.targets || topic.options?.platforms
                 });
 
@@ -3713,6 +3716,7 @@ const Utils = {
             imageGeneration: imageMode === 'generate',
             externalReference: toYesNo(Boolean(fields.externalReference)),
             writingStrategy: String(fields.writingStrategy || '').trim(),
+            writingOverrides: fields.writingOverrides,
             platforms: Array.isArray(fields.platforms)
                 ? fields.platforms.map(value => String(value || '').trim().toLowerCase()).filter(Boolean)
                 : String(fields.platforms || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean)
@@ -3800,6 +3804,7 @@ const Utils = {
                 imageGeneration: normalized.imageGeneration,
                 externalReference: normalized.externalReference === 'Yes',
                 writingStrategy: normalized.writingStrategy,
+                writingOverrides: normalized.writingOverrides,
                 platforms: normalized.platforms
             });
             dataToUpdate.push({

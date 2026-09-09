@@ -36,7 +36,8 @@ test('topic sheet state keeps options publish settings as effective source of tr
             image_mode: 'none',
             image_count: 5,
             external_reference: false,
-            writing_strategy: 'discovery'
+            writing_strategy: 'discovery',
+            writing_overrides: { length: 'long', opening: 'direct' }
         })
     });
 
@@ -53,6 +54,7 @@ test('topic sheet state keeps options publish settings as effective source of tr
     assert.equal(resolved.imageCount, 5);
     assert.equal(resolved.externalReference, false);
     assert.equal(resolved.writingStrategy, 'discovery');
+    assert.deepEqual(resolved.writingOverrides, { length: 'long', opening: 'direct' });
 });
 
 test('topic option merge syncs inline edits while preserving unrelated option keys', () => {
@@ -74,7 +76,8 @@ test('topic option merge syncs inline edits while preserving unrelated option ke
         imageMode: 'prompt_only',
         imageCount: 3,
         externalReference: true,
-        writingStrategy: 'search'
+        writingStrategy: 'search',
+        writingOverrides: { development: 'comparison', ending: 'summary' }
     });
 
     assert.equal(merged.custom_flag, 'keep-me');
@@ -93,6 +96,7 @@ test('topic option merge syncs inline edits while preserving unrelated option ke
     assert.equal(merged.image_count, 3);
     assert.equal(merged.external_reference, true);
     assert.equal(merged.writing_strategy, 'search');
+    assert.deepEqual(merged.writing_overrides, { development: 'comparison', ending: 'summary' });
 });
 
 test('sheet image mode accepts canonical labels and legacy Yes No values', () => {

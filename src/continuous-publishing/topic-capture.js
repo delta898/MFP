@@ -1,4 +1,5 @@
 const { TOPIC_STATUS } = require('./contract');
+const { validateBlogWritingOverrides } = require('../content/blog-writing-overrides');
 
 const READY_POST_STATUSES = Object.freeze(['publish', 'draft', 'schedule']);
 const READY_PLATFORMS = Object.freeze(['naver', 'wordpress']);
@@ -45,6 +46,7 @@ function normalizeTopicCaptureInput(input = {}) {
     const imageMode = normalizeEnum(input.imageMode, IMAGE_MODES, 'prompt_only');
 
     const source = normalizeText(input.source) === 'naver_trend' ? 'naver_trend' : 'blog_next';
+    const writingOverrides = validateBlogWritingOverrides(input.writingOverrides || input.writing_overrides).value;
     return {
         subject: normalizeText(input.subject),
         title: normalizeText(input.title),
@@ -55,6 +57,7 @@ function normalizeTopicCaptureInput(input = {}) {
         naverCategory: normalizeText(input.naverCategory),
         wordpressCategory: normalizeText(input.wordpressCategory),
         writingStrategy: normalizeEnum(input.writingStrategy, WRITING_STRATEGIES, 'search'),
+        writingOverrides,
         imageMode,
         externalReference: input.externalReference !== false,
         postStatus,
@@ -68,6 +71,7 @@ function validateTopicCapture(input = {}, options = {}) {
     const topic = normalizeTopicCaptureInput(input);
     const ready = options.ready === true;
     const errors = [];
+    errors.push(...validateBlogWritingOverrides(input.writingOverrides || input.writing_overrides).errors);
 
     if (!hasIdeaSeed(topic)) {
         errors.push({ field: 'idea', code: 'IDEA_REQUIRED', message: '주제, 키워드, 지시사항 또는 참고 URL 중 하나를 입력해 주세요.' });
@@ -114,7 +118,8 @@ function buildTopicSheetRow(input = {}, options = {}) {
         keywords: topic.keywords,
         content_guide: {
             additional_instructions: topic.instruction,
-            reference_urls: topic.referenceUrls
+            reference_urls: topic.referenceUrls,
+            writing_overrides: topic.writingOverrides
         },
         use_external_ref: topic.externalReference,
         image_options: {
@@ -139,6 +144,7 @@ function buildTopicSheetRow(input = {}, options = {}) {
             post_status: topic.postStatus,
             schedule_date: topic.postStatus === 'schedule' ? topic.scheduleDate : '',
             writing_strategy: topic.writingStrategy,
+            writing_overrides: topic.writingOverrides,
             image_mode: topic.imageMode,
             image_gen: topic.imageMode === 'generate',
             external_reference: topic.externalReference

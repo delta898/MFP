@@ -1932,7 +1932,10 @@ ${scrapedContext}`;
 				image_mode: jobData.image_options?.mode,
 				image_generate: jobData.image_options?.generate,
 				image_count: jobData.image_options?.count,
-				reference_context: referenceSection
+				reference_context: referenceSection,
+				writing_overrides: jobData.content_guide?.writing_overrides
+					|| jobData.writing_overrides
+					|| jobData.options?.writing_overrides
 			}
 		});
 

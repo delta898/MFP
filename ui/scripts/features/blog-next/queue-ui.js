@@ -1,5 +1,33 @@
 let blogNextQueueHasLoaded = false;
 
+function getBlogNextQueueRunActionCopy(item = {}) {
+  if (item.postStatus === 'draft') {
+    return {
+      label: '지금 임시 저장',
+      busyLabel: '임시 저장 중...',
+      confirmTitle: '지금 임시 저장',
+      confirmText: '임시 저장',
+      question: '이 글감을 지금 임시 저장할까요?'
+    };
+  }
+  if (item.postStatus === 'schedule') {
+    return {
+      label: '지금 예약 등록',
+      busyLabel: '예약 등록 중...',
+      confirmTitle: '지금 예약 등록',
+      confirmText: '예약 등록',
+      question: '이 글감의 예약 발행을 지금 등록할까요?'
+    };
+  }
+  return {
+    label: '지금 발행',
+    busyLabel: '발행 중...',
+    confirmTitle: '지금 발행',
+    confirmText: '발행',
+    question: '이 글감을 지금 발행할까요?'
+  };
+}
+
 function formatBlogNextPostStatus(item = {}) {
   const postStatus = item.postStatus || item.options?.post_status;
   return postStatus === 'draft' ? '임시 저장' : postStatus === 'schedule' ? '예약 발행' : '즉시 발행';

@@ -25,6 +25,8 @@ The stored profile is projected through a content-kind allowlist:
 
 System output, factuality, safety and image contracts remain code-owned and stronger than all profile values. Per-post instructions are stronger than profile preferences for that post.
 
+Blog Beta may override only length, opening, development and ending for one post. Unselected fields inherit the latest global writing default at generation time. Successful new-topic submission keeps those visible choices as device-local recent selections for the next post; editing an existing topic does not change that recent state. The UI does not add a separate default-versus-recent source label because the effective selections themselves remain visible.
+
 A custom profile always exposes one editable set of final fields. An optional reference tool accepts one pasted text or one public blog URL, analyzes it and fills those same fields. The user can then edit the analyzed voice, length and composition. There is no direct/reference mode or runtime precedence between two sources.
 
 Reference text or one public blog URL is analyzed into allowlisted profile recommendations and supplementary traits. Ordinary generation receives the final edited profile and only current supplementary traits, never the raw source. Preview accepts an unsaved draft and reuses the same normalization, projection and prompt components without persisting the draft or its synthetic fixture.
@@ -44,4 +46,4 @@ The writing profile is persisted separately from the general settings document s
 - Reference URL outages do not block generation from an already saved final profile.
 - Prompt composition and precedence can be tested at explicit boundaries.
 - New content kinds must define their own projection and adapter rather than consuming raw profile state.
-- Multi-profile selection, task-level strategy UI, memory-based variation and the three-state image policy remain separate decisions. The task-level strategy contract is completed with Blog Beta in the following stage.
+- Multi-profile selection and memory-based variation remain separate decisions. Blog Beta owns task-level strategy and the bounded per-post composition overrides without creating another global profile.

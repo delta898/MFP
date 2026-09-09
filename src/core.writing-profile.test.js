@@ -41,7 +41,8 @@ test('Core.generateContent uses the selected blog profile composer for the share
             writing_strategy: 'discovery',
             content_guide: {
                 additional_instructions: '이번 글에서는 도입을 한 문장으로 작성하세요.',
-                reference_urls: []
+                reference_urls: [],
+                writing_overrides: { length: 'long', opening: 'direct' }
             },
             use_external_ref: false,
             image_options: { generate: false, count: 2 }
@@ -53,7 +54,8 @@ test('Core.generateContent uses the selected blog profile composer for the share
         assert.equal(result.finalSubject, '프로필 연결 테스트');
         assert.equal(fs.existsSync(path.join(targetDir, 'contents.md')), true);
         assert.match(capturedPrompt, /전략: 발견 중심 \(피드\)/);
-        assert.match(capturedPrompt, /약 900~1,200자/);
+        assert.match(capturedPrompt, /약 2,200~2,800자/);
+        assert.match(capturedPrompt, /도입은 핵심 답변이나 결론부터/);
         assert.match(capturedPrompt, /핵심 용어는 첫 등장에 쉽게 풀이/);
         assert.match(capturedPrompt, /결론에 두 항목 체크리스트/);
         assert.match(capturedPrompt, /이번 글에서는 도입을 한 문장/);

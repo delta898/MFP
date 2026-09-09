@@ -99,6 +99,28 @@ test('blog generation composer keeps contract, strategy, profile and post input 
     assert.ok(postIndex < referenceIndex);
 });
 
+test('blog generation composer applies only explicit per-post composition overrides', () => {
+    const profile = createCustomProfile();
+    const result = buildBlogGenerationPrompt({
+        profile,
+        strategy: 'search',
+        config: promptConfig,
+        constants: Constants,
+        post: {
+            subject: '이번 글 구성 테스트',
+            writing_overrides: { length: 'short', opening: 'direct' }
+        }
+    });
+
+    assert.deepEqual(result.writing_overrides, { length: 'short', opening: 'direct' });
+    assert.equal(result.projection.channel.length.preset, 'short');
+    assert.equal(result.projection.channel.structure.opening, 'direct');
+    assert.equal(result.projection.channel.structure.development, profile.channels.blog.structure.development);
+    assert.match(result.profile_prompt, /약 900~1,200자/);
+    assert.match(result.profile_prompt, /핵심 답변이나 결론부터/);
+    assert.equal(profile.channels.blog.length.preset, 'long');
+});
+
 test('blog composer excludes shopping fields and raw style-reference sources', () => {
     const result = buildBlogGenerationPrompt({
         profile: createCustomProfile(),

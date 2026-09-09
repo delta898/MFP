@@ -54,6 +54,7 @@
 // @include scripts/features/blog-next/publish-preflight.js
 // @include scripts/features/blog-next/quick-flow-ui.js
 // @include scripts/features/blog-next/queue-ui.js
+// @include scripts/features/blog-next/writing-overrides.js
 // @include scripts/features/blog-next/quick-queue.js
 // @include scripts/features/blog-next/trend-posting.js
 // @include scripts/features/blog-next/draft-inputs.js

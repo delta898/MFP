@@ -40,7 +40,7 @@ The effective order is:
 3. selected profile strategy, composition, length and global writing principle;
 4. allowlisted supplementary rhythm and vocabulary traits from the analyzed reference, when present.
 
-A per-post instruction can change the selected strategy, writing direction or image-area count for that post, but it cannot mutate the global profile or override system safety contracts. Reference analysis first fills the final voice, length and composition fields; the user may then edit them. Generation reads those final fields directly and never resolves a conflict between source text and visible settings.
+A per-post instruction can change the selected strategy, writing direction or image-area count for that post, but it cannot mutate the global profile or override system safety contracts. Blog Beta additionally exposes four structured per-post overrides: length, opening, development and ending. Omitted fields inherit the latest global profile at generation time. Reference analysis first fills the final voice, length and composition fields; the user may then edit them. Generation reads those final fields directly and never resolves a conflict between source text and visible settings.
 
 ## Blog Generation
 
@@ -56,7 +56,7 @@ Length presets are:
 
 The character target means reader-visible, space-inclusive content: opening, visible H2 text, section prose and ending. Markdown markers and the complete `[[IMAGE_N ...]]` block—including its title and generation prompt—do not count. Opening targets approximately 150–250 characters. Opening and ending do not count as H2 sections, and every H2 must contain explanation plus interpretation or practical information rather than a thin one- or two-sentence filler section.
 
-The image resolver selects an explicit per-post or Sheet count first, then a fixed profile count, then the length mapping. The resolved count is sent to the model as an exact writing instruction. In accordance with the current product decision, runtime does not measure length, retry, correct or enforce the resolved H2/image count after generation; it only requires complete image blocks to start at `IMAGE_0` and remain sequential. `none` still requires no image blocks.
+The image resolver selects an explicit per-post or Sheet count first, then a fixed profile count, then the length mapping. The resolved count is sent to the model as an exact writing instruction. Runtime verifies that complete image blocks start at `IMAGE_0`, remain sequential and match the resolved count exactly. It does not measure or automatically rewrite body length or H2 count. `none` requires no image blocks.
 
 Search-oriented generation chooses one core keyword from the provided keywords. When the model owns title creation it places that keyword naturally near the front; an explicit requested title remains unchanged. The core keyword appears in the opening's first two or three sentences and is distributed approximately four or five times across reader-visible content and ending. One or two H2 headings use the core keyword or a closely related sub-keyword. Two to four useful related/sub-keywords are placed once or twice in the most relevant explanations, comparisons or cautions rather than crowded into the opening or every heading. Natural prose, descriptive structure, search-intent completeness and people-first usefulness take precedence over mechanical repetition or keyword stuffing; these counts are product composition guidance, not a ranking guarantee.
 
@@ -69,6 +69,8 @@ Individual blog writing screens expose one `image_options.mode` choice:
 The legacy `image_options.generate` boolean remains an input compatibility boundary and is derived from the mode internally. The setting is per post and is not stored in the writing profile. Quick writing, the Topics table/editor, batch and automatic publishing all use the same mode. The Google Sheet displays `이미지 생성`, `프롬프트 포함` or `미포함`, while its `options.image_mode` value stores the canonical contract. Existing `Yes` and `No` values remain readable as `generate` and `prompt_only`.
 
 Automatic publishing does not overwrite the mode of an existing topic. Its `새 글감 이미지 처리` setting supplies the initial mode only when trend or RSS collection creates a new Topics row; batch and automatic consumers then follow the stored row mode.
+
+Blog Beta keeps the most recent successful new-topic choices in browser localStorage to support consecutive and series writing across app restarts. This device-local convenience state is not a writing profile and never mutates Settings Beta. Editing an existing topic restores that topic's own `options.writing_overrides` and does not replace the recent choices for the next new topic.
 
 ## Shopping Generation
 

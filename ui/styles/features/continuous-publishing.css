@@ -208,6 +208,21 @@
   grid-column: 1 / -1;
 }
 
+.blog-next-writing-overrides {
+  gap: var(--ui-space-3);
+}
+
+.blog-next-writing-overrides-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-3);
+}
+
+.blog-next-writing-overrides-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .blog-next-field small {
   color: var(--ui-text-secondary);
   font-size: 13px;

@@ -3,6 +3,7 @@ const { projectWritingProfile } = require('./writing-profile-projection');
 const { buildBlogWritingProfilePromptFromProjection } = require('./writing-profile-prompt');
 const { resolveWritingStrategy } = require('./writing-strategy');
 const { resolveImagePlan, buildBlogImagePlanPrompt } = require('./blog-image-plan');
+const { applyBlogWritingOverridesToProjection } = require('./blog-writing-overrides');
 
 function normalizeText(value) {
     return String(value || '').trim();
@@ -40,7 +41,11 @@ function buildBlogPostInputPrompt(input = {}) {
 }
 
 function buildBlogGenerationPrompt(options = {}) {
-    const projection = projectWritingProfile(options.profile, { kind: 'blog' });
+    const baseProjection = projectWritingProfile(options.profile, { kind: 'blog' });
+    const { projection, overrides: writingOverrides } = applyBlogWritingOverridesToProjection(
+        baseProjection,
+        options.post?.writing_overrides || options.post?.writingOverrides
+    );
     const strategy = resolveWritingStrategy({
         override: options.strategy,
         global: projection.common.writing_strategy || options.globalStrategy
@@ -70,6 +75,7 @@ function buildBlogGenerationPrompt(options = {}) {
     return {
         strategy,
         projection,
+        writing_overrides: writingOverrides,
         contract_and_strategy_prompt: contractAndStrategyPrompt,
         strategy_prompt: strategyPrompt,
         profile_prompt: profilePrompt,
