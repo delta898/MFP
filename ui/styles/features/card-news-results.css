@@ -5,7 +5,7 @@
 }
 
 .card-news-publishing-panel[hidden] {
-  display: none !important;
+  display: none;
 }
 
 .card-news-publishing-form {
@@ -78,7 +78,7 @@
 }
 
 .card-news-publishing-result[hidden] {
-  display: none !important;
+  display: none;
 }
 
 .card-news-publishing-result-item {
@@ -263,7 +263,7 @@
 }
 
 .card-news-image-working[hidden] {
-  display: none !important;
+  display: none;
 }
 
 .card-news-image-working-spinner {
@@ -384,7 +384,7 @@
 
   .card-news-preview-surface {
     min-height: 460px;
-    padding: 18px;
+    padding: var(--ui-space-5);
   }
 
   .card-news-source-tabs {

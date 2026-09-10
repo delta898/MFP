@@ -27,6 +27,7 @@ Card News turns a public article or user-provided manuscript into an ordered set
 - While the desktop app is running, enabled feeds are collected conservatively and only unseen RSS items are appended. Existing management state is never overwritten by a later feed read.
 - Source and managed lists share one derived user-facing state: `작업 중`, `발행 대기`, `발행 완료`, or `확인 필요`. The state is derived from workflow, publishing, and error facts rather than recalculated per screen.
 - Status presentation follows meaning rather than legacy palette: work in progress is neutral, ready-to-publish uses the shared action accent, published uses success, and attention uses warning. Screens consume shared status tokens and do not own fixed colors.
+- Card News source, preview, generation, result, publishing, management, and ZIP-import surfaces consume the shared semantic and component tokens. Feature markup and behavior do not branch on a concrete style; fixed geometry is limited to workflow constraints such as media aspect ratios, list viewport/row height, and responsive breakpoints.
 - Selecting a source always refreshes that source's preview first, regardless of its management state. A newly saved generation is reopened inside `만든 카드뉴스`, where its stored project snapshot appears in the same right-hand preview position used by `새 카드뉴스`, followed by the shared generation result below. Results created before the project reference contract still open, but the preview surface remains blank.
 
 ## Publishing

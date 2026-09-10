@@ -321,6 +321,9 @@ test('design-system feature styles do not bypass the style contract', () => {
     'ui/styles/features/dashboard-beta-responsive.css',
     'ui/styles/features/recommendation-center.css',
     'ui/styles/features/recommendations.css',
+    'ui/styles/features/card-news.css',
+    'ui/styles/features/card-news-management.css',
+    'ui/styles/features/card-news-results.css',
     'ui/styles/patterns/actions.css',
     'ui/styles/patterns/selection-controls.css',
     'ui/styles/patterns/overview-card.css',
@@ -343,4 +346,29 @@ test('design-system feature styles do not bypass the style contract', () => {
       );
     });
   });
+});
+
+test('Card News keeps feature styling independent from concrete design styles', () => {
+  const styleFiles = [
+    'ui/styles/features/card-news.css',
+    'ui/styles/features/card-news-management.css',
+    'ui/styles/features/card-news-results.css'
+  ];
+  const markup = read('ui/partials/views/card-news.html');
+  const scripts = [
+    'ui/scripts/features/card-news/management.js',
+    'ui/scripts/features/card-news/publishing.js',
+    'ui/scripts/features/card-news/source-manager.js',
+    'ui/scripts/features/card-news/source-preview.js'
+  ].map(read).join('\n');
+  const legacyTokenPattern = /var\(--(?:line|text-main|text-muted|text-light|brand-primary|brand-hover|brand-light|success|warning|danger|radius-sm|radius-md|radius-lg|radius-full|transition)\)/;
+
+  styleFiles.forEach((file) => {
+    const css = read(file);
+    assert.doesNotMatch(css, legacyTokenPattern, file);
+    assert.doesNotMatch(css, /font-size:\s*[0-9.]+(?:px|rem)\b/, `${file} owns a fixed type size`);
+    assert.doesNotMatch(css, /font-weight:\s*[0-9]{3}\b/, `${file} owns a fixed font weight`);
+  });
+  assert.doesNotMatch(markup, /\sstyle=/, 'Card News markup must not own inline presentation');
+  assert.doesNotMatch(scripts, /(?:dataset\.style|data-style|\.style\.|setProperty\()/, 'Card News behavior must not branch into presentation');
 });

@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-card-news-10`
 - Base/parent branch: `codex/feature/design-system-main`
 - Start date: 2026-09-10
-- Status: slice 6-2 프로젝트 snapshot·독립 재진입 완료
+- Status: slice 6-3 style hard-coding 전수 검사 완료
 
 ## 사용자 필요와 목표
 
@@ -51,3 +51,4 @@ Card News의 기존 기능과 작업 상태를 보존하면서 Settings Beta와 
 - [Slice 5: SNS 발행](../archive/2026-09-10-design-system-card-news-10-05-publishing-development.md)
 - [Slice 6-1: 상태 체계·만든 카드뉴스 목록](../archive/2026-09-10-design-system-card-news-10-06-01-managed-status-development.md)
 - [Slice 6-2: 프로젝트 snapshot·재진입](../archive/2026-09-10-design-system-card-news-10-06-02-project-snapshot-development.md)
+- [Slice 6-3: style hard-coding 전수 검사](../archive/2026-09-10-design-system-card-news-10-06-03-style-audit-development.md)

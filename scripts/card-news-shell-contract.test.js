@@ -317,7 +317,8 @@ test('Card News view claims its parent width on the first layout pass', () => {
 
 test('Card News empty and confirmed source states are mutually exclusive', () => {
     const css = fs.readFileSync(path.join(uiRoot, 'styles/features/card-news.css'), 'utf8');
-    assert.match(css, /\.card-news-preview-empty\[hidden\],[\s\S]*?\.card-news-preview-content\[hidden\]\s*\{[^}]*display:\s*none\s*!important;/);
+    assert.match(css, /\.card-news-preview-empty\[hidden\],[\s\S]*?\.card-news-preview-content\[hidden\]\s*\{[^}]*display:\s*none;/);
+    assert.doesNotMatch(css, /!important\b/);
 });
 
 test('Card News preserves the last valid preview when a later request fails', () => {
