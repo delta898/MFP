@@ -91,6 +91,11 @@
   color: var(--ui-status-info);
 }
 
+.ui-status-badge:is([data-state="pending"], [data-state="action"]) {
+  background: var(--ui-action-primary-soft);
+  color: var(--ui-action-primary-hover);
+}
+
 .ui-status-badge:is([data-state="attention"], [data-state="stale"]) {
   background: color-mix(in srgb, var(--ui-status-warning) 12%, var(--ui-surface));
   color: var(--ui-status-warning);

@@ -6,7 +6,7 @@ const { createCardNewsGenerationService } = require('../../card-news/generation-
 const { createCardNewsPublishingService } = require('../../card-news/publishing-service');
 const { createCardNewsLedgerSyncService } = require('../../card-news/ledger-sync-service');
 const { createCardNewsFeedFetcher } = require('../../card-news/feed-fetcher');
-const { normalizeImageMode } = require('../../card-news/generation');
+const { normalizeImageMode, validateSourceSnapshot } = require('../../card-news/generation');
 const { createStyleReferenceFetcher } = require('../../content/style-reference-fetcher');
 const { deriveCardNewsManagementState, toCardNewsManagementFields } = require('../../card-news/management-status');
 
@@ -251,7 +251,9 @@ function createCardNewsService(deps = {}) {
             throw createApiError('CARD_NEWS_GENERATION_UNAVAILABLE', '카드뉴스 결과 조회 기능이 준비되지 않았습니다.', 500);
         }
         try {
-            return { generation: generationService.getGeneration(generationId) };
+            const generation = generationService.getGeneration(generationId);
+            const project = generation.project_id ? repository.get(generation.project_id) : null;
+            return { generation, source_snapshot: project?.source_snapshot || null };
         } catch (error) {
             throw toCardNewsError(error, 'CARD_NEWS_GENERATION_NOT_FOUND', '카드뉴스 결과를 찾지 못했습니다.');
         }
@@ -307,8 +309,29 @@ function createCardNewsService(deps = {}) {
             throw createApiError('CARD_NEWS_IMAGE_MODEL_REQUIRED', '설정에서 이미지 AI를 먼저 연결해 주세요.');
         }
         try {
-            const generation = await generationService.generate(input);
-            await ledgerSync.recordGeneration(input.source_snapshot, generation);
+            let project;
+            const projectId = String(input.project_id || '').trim();
+            if (projectId) {
+                project = repository.get(projectId);
+                if (!project?.source_snapshot) {
+                    throw createApiError('CARD_NEWS_PROJECT_NOT_FOUND', '이어 만들 카드뉴스의 원문을 찾지 못했습니다.', 404);
+                }
+            } else {
+                const sourceSnapshot = validateSourceSnapshot(input.source_snapshot);
+                project = repository.save(createCardNewsProject({
+                    source_snapshot: sourceSnapshot
+                }, { createId, now }));
+            }
+            const generated = await generationService.generate({
+                ...input,
+                project_id: project.id,
+                source_snapshot: project.source_snapshot
+            });
+            const generation = {
+                ...generated,
+                project_id: generated.project_id || project.id
+            };
+            await ledgerSync.recordGeneration(project.source_snapshot, generation);
             return { generation };
         } catch (error) {
             throw toCardNewsError(error, 'CARD_NEWS_GENERATION_FAILED', '카드뉴스를 만들지 못했습니다. 설정한 AI 모델을 확인한 뒤 다시 시도해 주세요.');

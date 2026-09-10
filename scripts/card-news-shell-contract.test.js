@@ -51,11 +51,19 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(script, /image_mode === 'imported'/);
     assert.match(script, /\/api\/v1\/card-news\/managed/);
     assert.match(script, /\/api\/v1\/card-news\/generations\/\$\{encodeURIComponent\(generationId\)\}/);
+    assert.match(script, /showManagedCardNewsGeneration\(result\)/);
+    assert.match(script, /function moveCardNewsSharedWorkflow\(workspace\)/);
+    assert.match(script, /cardNewsViewState\.createWorkflowContext = captureCardNewsWorkflowContext\(\)/);
+    assert.match(script, /cardNewsViewState\.managedWorkflowContext = captureCardNewsWorkflowContext\(\)/);
+    assert.doesNotMatch(script, /restoreCardNewsSourceSnapshot/);
     assert.doesNotMatch(script, /구성 있음/);
     assert.match(script, /const article = cardNewsViewState\.articles\[cardNewsViewState\.selectedArticleIndex\][\s\S]*void previewCardNewsSource\(article\)/);
-    assert.match(script, /card-news-source-status ui-status-badge/);
+    assert.match(script, /card-news-entry-status[^\n]*ui-status-badge/);
     assert.match(script, /card-news-managed-status ui-status-badge/);
     assert.match(script, /로컬 결과 없음/);
+    assert.match(script, /class="card-news-managed-item card-news-entry-item[^"]*"[\s\S]*role="button"[\s\S]*aria-pressed=/);
+    assert.match(script, /item\.addEventListener\('click',[\s\S]*openManagedCardNewsGeneration/);
+    assert.doesNotMatch(script, /card-news-managed-actions|cardNewsManagedActionLabel/);
     assert.doesNotMatch(html, /id="card-news-create-project"/);
     assert.doesNotMatch(html, /id="card-news-project-list"/);
     assert.match(navigation, /viewName === 'card-news'[\s\S]*initCardNewsView\(\)/);
@@ -82,8 +90,19 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(script, /설정이 변경되었습니다\. 다시 만들면 새 설정이 적용됩니다\./);
     assert.match(script, /card-news-additional-request'\)\?\.addEventListener\('input', handleCardNewsGenerationSettingChange\)/);
     assert.match(html, /id="card-news-result-panel"[^>]*hidden/);
+    assert.match(html, /class="card-news-eyebrow ui-workflow-eyebrow">카드 작업</);
+    assert.match(html, /class="card-news-result-heading ui-workflow-heading">[\s\S]*?<\/div>\s*<div class="card-news-result-actions">/);
     assert.match(script, /\/api\/v1\/card-news\/generations/);
     assert.match(script, /image_mode: imageMode/);
+    assert.match(script, /project_id: cardNewsViewState\.projectId \|\| ''/);
+    assert.match(html, /id="card-news-create-workflow-slot"[\s\S]*id="card-news-shared-workflow"/);
+    assert.match(html, /id="card-news-managed-source" class="card-news-preview-card ui-workflow-card"[\s\S]*id="card-news-managed-workflow-slot"/);
+    assert.match(html, /id="card-news-managed-source-links" class="card-news-managed-source-links"/);
+    assert.doesNotMatch(script, /class="card-news-managed-links"/);
+    assert.match(html, /id="card-news-feed-list" class="card-news-feed-list card-news-entry-list"/);
+    assert.match(html, /id="card-news-managed-list" class="card-news-managed-list card-news-entry-list"/);
+    assert.equal((html.match(/card-news-panel-toolbar card-news-entry-toolbar/g) || []).length, 2);
+    assert.match(html, /id="card-news-managed-workspace"[\s\S]*class="card-news-layout"[\s\S]*class="card-news-managed-list-card card-news-source-card ui-workflow-card"/);
     assert.match(script, /data-card-news-prompt-copy/);
     assert.match(script, /navigator\.clipboard\.writeText\(prompt\)/);
     assert.match(script, /card-news-result-image-empty/);
@@ -193,7 +212,20 @@ test('Card News source and preview cards stretch together without fixed legacy h
     assert.doesNotMatch(css, /min-height:\s*(?:532|560)px/);
     assert.match(css, /\.card-news-preview-surface\s*\{[^}]*flex:\s*1[^}]*min-height:\s*100%/);
     assert.match(css, /\.card-news-preview-meta\s*\{[^}]*margin-top:\s*auto/);
+    assert.match(css, /\.card-news-entry-item\s*\{[^}]*height:\s*76px[^}]*grid-template-columns:\s*minmax\(0, 1fr\)[^}]*grid-template-areas:[^}]*"title status date"[^}]*"summary summary summary"/s);
+    assert.match(css, /\.card-news-entry-item\s*\{[^}]*font:\s*inherit/);
+    assert.match(css, /\.card-news-entry-status\s*\{[^}]*grid-area:\s*status/);
+    assert.match(css, /\.card-news-entry-title strong\s*\{[^}]*var\(--ui-type-body-size\)[^}]*var\(--ui-weight-bold\)[^}]*var\(--ui-line-height-tight\)/s);
+    assert.match(css, /\.card-news-entry-date\s*\{[^}]*var\(--ui-type-caption-size\)[^}]*var\(--ui-weight-regular\)/s);
     assert.doesNotMatch(sourcePreviewCss, /#[0-9a-f]{3,8}\b|rgba?\(/i);
+});
+
+test('Card News states use shared semantic badge tokens', () => {
+    const css = fs.readFileSync(path.join(uiRoot, 'styles/patterns/overview-card.css'), 'utf8');
+    const status = fs.readFileSync(path.join(repoRoot, 'src/card-news/management-status.js'), 'utf8');
+    assert.match(css, /\.ui-status-badge:is\(\[data-state="pending"\], \[data-state="action"\]\)[^}]*var\(--ui-action-primary-soft\)[^}]*var\(--ui-action-primary-hover\)/s);
+    assert.match(status, /label: '작업 중', tone: 'neutral'/);
+    assert.match(status, /label: '발행 대기', tone: 'pending'/);
 });
 
 test('Card News generation uses shared field, choice, role and feedback patterns without fixed palette values', () => {

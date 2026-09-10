@@ -1,10 +1,15 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const CARD_NEWS_PROJECT_STORE_SCHEMA_VERSION = 1;
+const CARD_NEWS_PROJECT_STORE_SCHEMA_VERSION = 2;
 
 function clone(value) {
     return JSON.parse(JSON.stringify(value));
+}
+
+function safeProjectId(value) {
+    const normalized = String(value || '').trim();
+    return /^[a-zA-Z0-9_-]{1,100}$/.test(normalized) ? normalized : '';
 }
 
 function createCardNewsProjectRepository(options = {}) {
@@ -12,18 +17,32 @@ function createCardNewsProjectRepository(options = {}) {
     const pathApi = options.path || path;
     const workspaceDir = String(options.workspaceDir || '').trim();
     if (!workspaceDir) throw new Error('카드뉴스 프로젝트 workspace 경로가 필요합니다.');
-    const filePath = options.filePath || pathApi.join(workspaceDir, 'card-news', 'projects.json');
+    const projectsRoot = options.projectsRoot || pathApi.join(workspaceDir, 'card-news', 'projects');
+    const legacyFilePath = pathApi.join(workspaceDir, 'card-news', 'projects.json');
 
-    function readDocument() {
+    try {
+        if (fileSystem.existsSync(legacyFilePath)) fileSystem.unlinkSync(legacyFilePath);
+    } catch (error) {
+        const wrapped = new Error('이전 카드뉴스 프로젝트 저장소를 정리하지 못했습니다.');
+        wrapped.code = 'CARD_NEWS_LEGACY_PROJECT_STORE_DELETE_FAILED';
+        wrapped.cause = error;
+        throw wrapped;
+    }
+
+    function projectFilePath(id) {
+        const safeId = safeProjectId(id);
+        if (!safeId) {
+            const error = new Error('카드뉴스 프로젝트 ID가 올바르지 않습니다.');
+            error.code = 'CARD_NEWS_PROJECT_ID_INVALID';
+            throw error;
+        }
+        return pathApi.join(projectsRoot, safeId, 'project.json');
+    }
+
+    function readProjectFile(filePath) {
         try {
-            if (!fileSystem.existsSync(filePath)) {
-                return { schema_version: CARD_NEWS_PROJECT_STORE_SCHEMA_VERSION, projects: [] };
-            }
             const parsed = JSON.parse(String(fileSystem.readFileSync(filePath, 'utf8') || ''));
-            return {
-                schema_version: CARD_NEWS_PROJECT_STORE_SCHEMA_VERSION,
-                projects: Array.isArray(parsed?.projects) ? parsed.projects.filter((item) => item?.id) : []
-            };
+            return parsed?.id && safeProjectId(parsed.id) ? parsed : null;
         } catch (error) {
             const wrapped = new Error('카드뉴스 프로젝트 저장소를 읽지 못했습니다.');
             wrapped.code = 'CARD_NEWS_PROJECT_STORE_READ_FAILED';
@@ -32,11 +51,39 @@ function createCardNewsProjectRepository(options = {}) {
         }
     }
 
-    function atomicWrite(document) {
-        fileSystem.mkdirSync(pathApi.dirname(filePath), { recursive: true });
-        const tempPath = pathApi.join(pathApi.dirname(filePath), `.${pathApi.basename(filePath)}.${process.pid}.${Date.now()}.tmp`);
+    function list() {
+        if (!fileSystem.existsSync(projectsRoot)) return [];
+        return fileSystem.readdirSync(projectsRoot, { withFileTypes: true })
+            .filter((entry) => entry.isDirectory() && safeProjectId(entry.name))
+            .map((entry) => {
+                const filePath = projectFilePath(entry.name);
+                return fileSystem.existsSync(filePath) ? readProjectFile(filePath) : null;
+            })
+            .filter(Boolean)
+            .map(clone)
+            .sort((left, right) => String(right.updated_at || '').localeCompare(String(left.updated_at || '')));
+    }
+
+    function get(id) {
+        const filePath = projectFilePath(id);
+        if (!fileSystem.existsSync(filePath)) return null;
+        const project = readProjectFile(filePath);
+        return project ? clone(project) : null;
+    }
+
+    function save(project) {
+        const id = safeProjectId(project?.id);
+        if (!id) throw new Error('저장할 카드뉴스 프로젝트 ID가 필요합니다.');
+        const filePath = projectFilePath(id);
+        const directory = pathApi.dirname(filePath);
+        const nextProject = {
+            ...clone(project),
+            id
+        };
+        fileSystem.mkdirSync(directory, { recursive: true });
+        const tempPath = pathApi.join(directory, `.project.json.${process.pid}.${Date.now()}.tmp`);
         try {
-            fileSystem.writeFileSync(tempPath, `${JSON.stringify(document, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+            fileSystem.writeFileSync(tempPath, `${JSON.stringify(nextProject, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
             fileSystem.renameSync(tempPath, filePath);
         } catch (error) {
             try {
@@ -44,33 +91,14 @@ function createCardNewsProjectRepository(options = {}) {
             } catch (_cleanupError) { }
             throw error;
         }
-    }
-
-    function list() {
-        return clone(readDocument().projects).sort((left, right) => String(right.updated_at || '').localeCompare(String(left.updated_at || '')));
-    }
-
-    function get(id) {
-        const normalizedId = String(id || '').trim();
-        const project = readDocument().projects.find((item) => item.id === normalizedId);
-        return project ? clone(project) : null;
-    }
-
-    function save(project) {
-        if (!project?.id) throw new Error('저장할 카드뉴스 프로젝트 ID가 필요합니다.');
-        const document = readDocument();
-        const index = document.projects.findIndex((item) => item.id === project.id);
-        const nextProject = clone(project);
-        if (index >= 0) document.projects[index] = nextProject;
-        else document.projects.push(nextProject);
-        atomicWrite(document);
         return clone(nextProject);
     }
 
-    return { filePath, list, get, save };
+    return { projectsRoot, legacyFilePath, projectFilePath, list, get, save };
 }
 
 module.exports = {
     CARD_NEWS_PROJECT_STORE_SCHEMA_VERSION,
+    safeProjectId,
     createCardNewsProjectRepository
 };

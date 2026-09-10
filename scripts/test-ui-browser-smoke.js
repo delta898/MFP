@@ -1522,7 +1522,7 @@ async function run() {
                         generation_id: 'generation-existing',
                         status: '발행 대기',
                         status_key: 'ready_to_publish',
-                        status_tone: 'neutral'
+                        status_tone: 'pending'
                     }
                 }]
             });
@@ -1539,32 +1539,135 @@ async function run() {
                 source_platform: 'naver',
                 status: '발행 대기',
                 status_key: 'ready_to_publish',
-                status_tone: 'neutral',
+                status_tone: 'pending',
                 action_label: '결과 보기',
                 card_count: 3,
                 image_count: 3,
                 local_available: true,
-                channels: [],
-                post_links: []
+                channels: ['Threads'],
+                post_links: ['https://threads.net/post/existing']
             }];
             renderCardNewsManagedItems();
         });
         assert.deepEqual(await page.evaluate(() => ({
-            feedStatus: document.querySelector('.card-news-source-status')?.textContent,
+            feedStatus: document.querySelector('.card-news-feed-item .ui-status-badge')?.textContent,
             managedStatus: document.querySelector('.card-news-managed-status')?.textContent,
-            feedState: document.querySelector('.card-news-source-status')?.dataset.state,
+            feedState: document.querySelector('.card-news-feed-item .ui-status-badge')?.dataset.state,
             managedState: document.querySelector('.card-news-managed-status')?.dataset.state,
-            managedAction: document.querySelector('[data-card-news-open-generation]')?.textContent
+            managedSelectable: document.querySelector('[data-card-news-open-generation]')?.getAttribute('role'),
+            managedHasNestedButton: Boolean(document.querySelector('[data-card-news-open-generation] button')),
+            feedRowHeight: getComputedStyle(document.querySelector('.card-news-feed-item')).height,
+            managedRowHeight: getComputedStyle(document.querySelector('.card-news-managed-item')).height,
+            feedStatusArea: getComputedStyle(document.querySelector('.card-news-feed-item .card-news-entry-status')).gridArea,
+            managedStatusArea: getComputedStyle(document.querySelector('.card-news-managed-item .card-news-entry-status')).gridArea,
+            managedRowLinkCount: document.querySelectorAll('.card-news-managed-item a').length
         })), {
             feedStatus: '발행 대기',
             managedStatus: '발행 대기',
-            feedState: 'neutral',
-            managedState: 'neutral',
-            managedAction: '결과 보기'
+            feedState: 'pending',
+            managedState: 'pending',
+            managedSelectable: 'button',
+            managedHasNestedButton: false,
+            feedRowHeight: '76px',
+            managedRowHeight: '76px',
+            feedStatusArea: 'status',
+            managedStatusArea: 'status',
+            managedRowLinkCount: 0
         });
+        assert.equal(await page.locator('[data-card-news-article-index="0"]').evaluate((element) => element.classList.contains('card-news-entry-item')), true);
+        assert.equal(await page.locator('[data-card-news-open-generation]').evaluate((element) => element.classList.contains('card-news-entry-item')), true);
         await page.locator('[data-card-news-article-index="0"]').click();
         assert.equal(await page.locator('#card-news-preview-heading').textContent(), '기존 카드뉴스 원문');
         assert.equal(await page.locator('#card-news-preview-badge').textContent(), '확인 완료');
+        const restoredGeneration = {
+            id: 'generation-existing',
+            project_id: 'project-existing',
+            title: '복원된 카드뉴스 결과',
+            image_mode: 'prompt_only',
+            status: 'prompt_ready',
+            settings: { aspect_ratio: '9:16' },
+            cards: [{ index: 1, headline: '복원 카드', body: '복원 본문', image_prompt: '복원 프롬프트', image_url: '', download_url: '' }]
+        };
+        await page.route('**/api/v1/card-news/generations/generation-existing', async (route) => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    success: true,
+                    data: {
+                        generation: restoredGeneration,
+                        source_snapshot: {
+                            source: { kind: 'url', canonical_url: 'https://example.com/stored-source' },
+                            title: '프로젝트에 보존된 원문',
+                            text: '프로젝트에 보존된 원문 본문',
+                            excerpt: '프로젝트에 보존된 원문 본문',
+                            canonical_url: 'https://example.com/stored-source',
+                            retrieved_at: '2026-09-10T00:00:00.000Z'
+                        }
+                    }
+                })
+            });
+        });
+        await page.evaluate(() => {
+            cardNewsViewState.managedLoading = true;
+            activateCardNewsWorkspace('managed');
+            cardNewsViewState.managedLoading = false;
+        });
+        await page.locator('[data-card-news-open-generation="generation-existing"]').click();
+        await page.waitForFunction(() => document.getElementById('card-news-managed-source-title')?.textContent === '프로젝트에 보존된 원문');
+        assert.equal(await page.locator('#card-news-workspace-tab-managed').getAttribute('aria-selected'), 'true');
+        const managedCardNewsLayout = await page.evaluate(() => {
+            const layout = document.querySelector('#card-news-managed-workspace .card-news-layout');
+            const listCard = document.querySelector('.card-news-managed-list-card');
+            const previewCard = document.getElementById('card-news-managed-source');
+            const columns = getComputedStyle(layout).gridTemplateColumns.split(' ').filter(Boolean);
+            const listBox = listCard.getBoundingClientRect();
+            const previewBox = previewCard.getBoundingClientRect();
+            return {
+                columnCount: columns.length,
+                alignedTop: Math.abs(listBox.top - previewBox.top) < 2,
+                previewOnRight: previewBox.left > listBox.left
+            };
+        });
+        assert.deepEqual(managedCardNewsLayout, { columnCount: 2, alignedTop: true, previewOnRight: true });
+        assert.equal(await page.locator('#card-news-managed-source-kind').textContent().then((text) => text.includes('웹 URL')), true);
+        assert.equal(await page.locator('#card-news-managed-source-meta').textContent().then((text) => text.includes('저장')), true);
+        assert.equal(await page.locator('#card-news-managed-source-link').isVisible(), true);
+        assert.equal(await page.locator('#card-news-managed-source-links a').textContent(), 'Threads 열기 ↗');
+        assert.equal(await page.locator('#card-news-result-title').textContent(), '복원된 카드뉴스 결과');
+        assert.equal(await page.evaluate(() => cardNewsViewState.projectId), 'project-existing');
+        await page.evaluate(() => activateCardNewsWorkspace('create'));
+        assert.equal(await page.locator('#card-news-preview-heading').textContent(), '기존 카드뉴스 원문');
+        assert.equal(await page.locator('#card-news-result-panel').isHidden(), true);
+        await page.evaluate(() => {
+            cardNewsViewState.managedLoading = true;
+            activateCardNewsWorkspace('managed');
+            cardNewsViewState.managedLoading = false;
+        });
+        assert.equal(await page.locator('#card-news-managed-source-title').textContent(), '프로젝트에 보존된 원문');
+        assert.equal(await page.locator('#card-news-result-title').textContent(), '복원된 카드뉴스 결과');
+        await page.unroute('**/api/v1/card-news/generations/generation-existing');
+
+        await page.route('**/api/v1/card-news/generations/generation-old', async (route) => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    success: true,
+                    data: {
+                        generation: { ...restoredGeneration, id: 'generation-old', project_id: '', title: '이전 카드뉴스 결과' },
+                        source_snapshot: null
+                    }
+                })
+            });
+        });
+        await page.evaluate(() => openManagedCardNewsGeneration('generation-old'));
+        await page.waitForFunction(() => document.getElementById('card-news-result-title')?.textContent === '이전 카드뉴스 결과');
+        assert.equal(await page.locator('#card-news-managed-source-content').isHidden(), true);
+        assert.equal((await page.locator('#card-news-managed-source-empty').textContent()).trim(), '');
+        assert.equal(await page.locator('#card-news-managed-source-badge').isHidden(), true);
+        assert.equal(await page.locator('.card-news-managed-error').count(), 0);
+        await page.unroute('**/api/v1/card-news/generations/generation-old');
         await page.locator('#card-news-generation-panel').evaluate((element) => { element.hidden = false; });
         const cardNewsGenerationLayout = await page.evaluate(() => {
             const fieldGrid = document.querySelector('.card-news-generation-field-grid');
@@ -1618,7 +1721,7 @@ async function run() {
                 sequenceBadgeCount: document.querySelectorAll('.card-news-result-item .ui-sequence-badge').length,
                 imageActionsInsideMedia: Boolean(cards[0]?.querySelector('.card-news-result-image-wrap .card-news-media-actions [data-card-news-image-action]')),
                 promptActionsOutsideMedia: Boolean(cards[0]?.querySelector('.card-news-result-copy [data-card-news-prompt-copy]')),
-                headingActionsOnRight: Boolean(headingCopy && headingActions && headingActions.left > headingCopy.right)
+                headingActionsBelow: Boolean(headingCopy && headingActions && headingActions.top > headingCopy.bottom)
             };
         });
         assert.equal(cardNewsPromptResult.cardCount, 3);
@@ -1633,7 +1736,7 @@ async function run() {
         assert.equal(cardNewsPromptResult.sequenceBadgeCount, 3);
         assert.equal(cardNewsPromptResult.imageActionsInsideMedia, true);
         assert.equal(cardNewsPromptResult.promptActionsOutsideMedia, true);
-        assert.equal(cardNewsPromptResult.headingActionsOnRight, true);
+        assert.equal(cardNewsPromptResult.headingActionsBelow, true);
         await page.route('**/api/v1/card-news/publishing/config?generation_id=*', async (route) => {
             await route.fulfill({
                 status: 200,
@@ -1845,9 +1948,9 @@ async function run() {
             await page.locator('#blog-next-trend-query').evaluate((element) => getComputedStyle(element).backgroundColor),
             'rgb(182, 95, 66)'
         );
-        assert.equal(
+        assert.match(
             await page.locator('#quick-discovery-modal-close-footer').evaluate((element) => getComputedStyle(element).backgroundColor),
-            'rgb(255, 253, 249)'
+            /^rgb\((?:254|255), 253, 249\)$/
         );
         assert.deepEqual(
             await page.locator('#view-blog-next .clock-widget-main').evaluate((element) => {

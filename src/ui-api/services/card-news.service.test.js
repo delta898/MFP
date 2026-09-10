@@ -6,7 +6,8 @@ function createHarness(overrides = {}) {
     const saved = [];
     const repository = {
         save(project) { saved.push(project); return project; },
-        list() { return [...saved].reverse(); }
+        list() { return [...saved].reverse(); },
+        get(id) { return saved.find((project) => project.id === id) || null; }
     };
     const sourceService = {
         async discoverConfiguredArticles() {
@@ -43,14 +44,21 @@ function createHarness(overrides = {}) {
         }
     };
     const generationService = overrides.generationService || {
-        async generate(input) { return { id: 'generation-1', status: 'completed', input }; },
+        async generate(input) { return { id: 'generation-1', project_id: input.project_id, status: 'completed', input }; },
         async generateImages(input) { return { id: 'generation-1', status: 'completed', input }; },
         importLocalImage(input) { return { id: 'generation-1', status: 'completed', input }; },
         previewZip(input) { return { card_count: 2, input }; },
         importZip(input) { return { id: 'generation-zip', title: input.title, status: 'completed', cards: [{}, {}] }; },
         getGeneration(id) {
             if (id === 'missing-generation') throw new Error('missing');
-            return { id, title: '저장된 카드뉴스', status: 'completed', completed_at: '2026-09-05T01:00:00.000Z', cards: [{ image_url: '/image.png' }] };
+            return {
+                id,
+                project_id: id === 'generation-1' ? 'project-1' : '',
+                title: '저장된 카드뉴스',
+                status: 'completed',
+                completed_at: '2026-09-05T01:00:00.000Z',
+                cards: [{ image_url: '/image.png' }]
+            };
         },
         resolveAsset(generationId, fileName) { return { generationId, fileName }; },
         createExportBundle(generationId) { return { generationId, file_name: 'cards.zip' }; }
@@ -177,7 +185,7 @@ test('lists local card news when the managed ledger does not settle in time', as
         source_url: 'https://example.com/local',
         status: '작업 중',
         status_key: 'in_progress',
-        status_tone: 'running',
+        status_tone: 'neutral',
         action_label: '계속 만들기',
         workflow_status: '제작 중',
         publishing_status: '미발행',
@@ -240,13 +248,60 @@ test('creates and lists durable source projects', async () => {
 });
 
 test('delegates generation and local asset lookup through the card-news boundary', async () => {
-    const { service } = createHarness();
+    const { service, saved } = createHarness();
     const generated = await service.generate({ source_snapshot: { title: '제목', text: '본문' } });
     assert.equal(generated.generation.id, 'generation-1');
+    assert.equal(generated.generation.project_id, 'project-1');
+    assert.equal(saved[0].source_snapshot.text, '본문');
+    assert.equal(generated.generation.input.source_snapshot, saved[0].source_snapshot);
     assert.deepEqual(service.resolveAsset('generation-1', 'card-01.png'), {
         generationId: 'generation-1',
         fileName: 'card-01.png'
     });
+});
+
+test('stores RSS, URL, and manuscript sources through the same project snapshot contract', async () => {
+    const snapshots = [
+        { source: { kind: 'feed_item', item_key: 'feed-1' }, title: 'RSS', text: 'RSS 본문' },
+        { source: { kind: 'url', canonical_url: 'https://example.com/post' }, title: 'URL', text: 'URL 본문', canonical_url: 'https://example.com/post' },
+        { source: { kind: 'manuscript', title: '직접 입력', text: '직접 입력 본문' }, title: '직접 입력', text: '직접 입력 본문' }
+    ];
+
+    for (const snapshot of snapshots) {
+        const { service, saved } = createHarness();
+        await service.generate({ source_snapshot: snapshot, image_mode: 'prompt_only' });
+        assert.equal(saved[0].source_snapshot.source.kind, snapshot.source.kind);
+        assert.equal(saved[0].source_snapshot.text, snapshot.text);
+    }
+});
+
+test('continues a project from its stored source snapshot instead of changed client content', async () => {
+    const calls = [];
+    const generationService = {
+        async generate(input) {
+            calls.push(input);
+            return { id: 'generation-2', status: 'completed' };
+        }
+    };
+    const { service, saved } = createHarness({ generationService });
+    saved.push({ id: 'project-existing', source_snapshot: { title: '보존 제목', text: '보존 본문' } });
+
+    const result = await service.generate({
+        project_id: 'project-existing',
+        source_snapshot: { title: '변조 제목', text: '변조 본문' },
+        image_mode: 'prompt_only'
+    });
+
+    assert.equal(result.generation.project_id, 'project-existing');
+    assert.equal(calls[0].source_snapshot.text, '보존 본문');
+});
+
+test('returns a linked project snapshot and silently omits it for older generations', () => {
+    const { service, saved } = createHarness();
+    saved.push({ id: 'project-1', source_snapshot: { title: '보존 제목', text: '보존 본문' } });
+
+    assert.equal(service.getGeneration('generation-1').source_snapshot.text, '보존 본문');
+    assert.equal(service.getGeneration('generation-old').source_snapshot, null);
 });
 
 test('delegates AI image work and local image import through the card-news boundary', async () => {

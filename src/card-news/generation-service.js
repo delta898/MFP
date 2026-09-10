@@ -100,6 +100,7 @@ function toPublicGenerationResult(generation) {
     return {
         schema_version: generation.schema_version,
         id: generation.id,
+        project_id: String(generation.project_id || ''),
         title: generation.title,
         source_url: String(generation.source?.canonical_url || ''),
         source_platform: String(generation.source?.source_platform || ''),
@@ -255,6 +256,7 @@ function createCardNewsGenerationService(options = {}) {
         const generation = {
             schema_version: CARD_NEWS_GENERATION_SCHEMA_VERSION,
             id,
+            project_id: String(input.project_id || ''),
             title: snapshot.title,
             status: 'generating',
             image_mode: imageMode,
@@ -472,6 +474,7 @@ function createCardNewsGenerationService(options = {}) {
         const generation = {
             schema_version: CARD_NEWS_GENERATION_SCHEMA_VERSION,
             id,
+            project_id: String(input.project_id || ''),
             title,
             status: 'completed',
             image_mode: 'imported',

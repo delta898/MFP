@@ -43,10 +43,12 @@ test('generates a coherent set, persists assets, and exposes safe local URLs', a
             }
         });
         const result = await service.generate({
+            project_id: 'project-123',
             source_snapshot: { source: { kind: 'url' }, title: '제주', text: '제주 여행 본문' },
             settings: { slide_count: 3, aspect_ratio: '4:5', style: 'emotional' }
         });
         assert.equal(result.status, 'completed');
+        assert.equal(result.project_id, 'project-123');
         assert.equal(result.cards.length, 3);
         assert.equal(result.image_mode, 'generate');
         assert.deepEqual(result.publishing_copy, {
@@ -62,7 +64,9 @@ test('generates a coherent set, persists assets, and exposes safe local URLs', a
         assert.equal(service.getGeneration('generation-123').title, '제주 세트');
         assert.deepEqual(service.listGenerations().map((generation) => generation.id), ['generation-123']);
         assert.equal(service.resolveAsset('generation-123', 'card-01.png').mime_type, 'image/png');
-        assert.equal(JSON.parse(fs.readFileSync(path.join(workspaceDir, 'card-news', 'exports', 'generation-123', 'manifest.json'))).status, 'completed');
+        const manifest = JSON.parse(fs.readFileSync(path.join(workspaceDir, 'card-news', 'exports', 'generation-123', 'manifest.json')));
+        assert.equal(manifest.status, 'completed');
+        assert.equal(manifest.project_id, 'project-123');
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }

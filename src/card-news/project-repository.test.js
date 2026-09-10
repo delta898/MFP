@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { createCardNewsProjectRepository } = require('./project-repository');
 
-test('project repository atomically persists and updates projects in workspace', () => {
+test('project repository atomically persists and updates one file per project', () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-projects-'));
     try {
         const repository = createCardNewsProjectRepository({ workspaceDir });
@@ -15,8 +15,36 @@ test('project repository atomically persists and updates projects in workspace',
 
         assert.equal(repository.get('one').title, '수정한 프로젝트');
         assert.deepEqual(repository.list().map((item) => item.id), ['one', 'two']);
-        assert.equal(fs.existsSync(repository.filePath), true);
-        assert.equal(fs.readdirSync(path.dirname(repository.filePath)).some((name) => name.endsWith('.tmp')), false);
+        assert.equal(fs.existsSync(repository.projectFilePath('one')), true);
+        assert.equal(fs.existsSync(repository.projectFilePath('two')), true);
+        assert.equal(fs.readdirSync(path.dirname(repository.projectFilePath('one'))).some((name) => name.endsWith('.tmp')), false);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('project repository removes the unsupported legacy aggregate without migrating it', () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-projects-'));
+    try {
+        const legacyPath = path.join(workspaceDir, 'card-news', 'projects.json');
+        fs.mkdirSync(path.dirname(legacyPath), { recursive: true });
+        fs.writeFileSync(legacyPath, JSON.stringify({ projects: [{ id: 'legacy' }] }));
+
+        const repository = createCardNewsProjectRepository({ workspaceDir });
+
+        assert.equal(fs.existsSync(legacyPath), false);
+        assert.deepEqual(repository.list(), []);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('project repository rejects unsafe project ids', () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-projects-'));
+    try {
+        const repository = createCardNewsProjectRepository({ workspaceDir });
+        assert.throws(() => repository.get('../outside'), { code: 'CARD_NEWS_PROJECT_ID_INVALID' });
+        assert.throws(() => repository.save({ id: '../outside' }));
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }

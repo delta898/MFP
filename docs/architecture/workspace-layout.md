@@ -54,6 +54,23 @@ wordpress/
 - `apps/` and `wordpress/` must not be bundled into `BlogGenius.app` or release ZIPs.
 - `shared/` is reusable code, so individual shared modules may be bundled transitively when the desktop app imports them.
 
+## Local Card News Data
+
+```text
+workspace/card-news/
+  projects/
+    {project_id}/
+      project.json          # confirmed source snapshot and project identity
+  exports/
+    {generation_id}/
+      manifest.json         # generated cards and project_id reference
+      card-*.png
+```
+
+- Project data is split by ID so adding projects does not grow one aggregate JSON file without bound.
+- A generation references its owning project instead of duplicating the full source snapshot.
+- The unsupported aggregate `workspace/card-news/projects.json` format is deleted when the project repository starts; it is not migrated.
+
 ## Deployment Rule
 - Desktop app release continues through the root release pipeline.
 - Trends collector and API are deployed separately from the desktop app.

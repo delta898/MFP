@@ -18,7 +18,8 @@ test('exposes presentation metadata without requiring screen-specific status rul
     assert.deepEqual(toCardNewsManagementFields({ workflow_status: '제작 중' }), {
         status: '작업 중',
         status_key: 'in_progress',
-        status_tone: 'running',
+        status_tone: 'neutral',
         action_label: '계속 만들기'
     });
+    assert.equal(toCardNewsManagementFields({ workflow_status: '제작 완료' }).status_tone, 'pending');
 });

@@ -1,6 +1,6 @@
 const CARD_NEWS_MANAGEMENT_STATES = Object.freeze({
-    IN_PROGRESS: Object.freeze({ key: 'in_progress', label: '작업 중', tone: 'running', actionLabel: '계속 만들기' }),
-    READY_TO_PUBLISH: Object.freeze({ key: 'ready_to_publish', label: '발행 대기', tone: 'neutral', actionLabel: '결과 보기' }),
+    IN_PROGRESS: Object.freeze({ key: 'in_progress', label: '작업 중', tone: 'neutral', actionLabel: '계속 만들기' }),
+    READY_TO_PUBLISH: Object.freeze({ key: 'ready_to_publish', label: '발행 대기', tone: 'pending', actionLabel: '결과 보기' }),
     PUBLISHED: Object.freeze({ key: 'published', label: '발행 완료', tone: 'complete', actionLabel: '결과 보기' }),
     NEEDS_ATTENTION: Object.freeze({ key: 'needs_attention', label: '확인 필요', tone: 'attention', actionLabel: '결과 확인' })
 });

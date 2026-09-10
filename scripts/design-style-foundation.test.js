@@ -180,7 +180,8 @@ test('workflow cards share style-driven surfaces and task headings', () => {
   assert.match(overview, /\.ui-workflow-feedback\[data-state="warning"\]\s*\{[^}]*var\(--ui-status-warning\)/s);
   assert.match(cardNews, /class="card-news-source-card ui-workflow-card"/);
   assert.match(cardNews, /class="card-news-generation-panel ui-workflow-card"/);
-  assert.match(cardNews, /class="card-news-managed-workspace ui-workflow-card"/);
+  assert.match(cardNews, /class="card-news-managed-list-card card-news-source-card ui-workflow-card"/);
+  assert.match(cardNews, /id="card-news-managed-source" class="card-news-preview-card ui-workflow-card"/);
   assert.doesNotMatch(cardNews, /id="view-card-news"[^>]*data-style-scope|card-news-stage-badge/);
 });
 

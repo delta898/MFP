@@ -20,7 +20,11 @@ const cardNewsViewState = {
   publishingConfig: null,
   publishingOutcome: '',
   publishedChannelIds: new Set(),
+  projectId: '',
   generation: null,
+  createWorkflowContext: null,
+  managedWorkflowContext: null,
+  managedDetailOpen: false,
   workspace: 'create',
   managedItems: [],
   managedFilter: '전체',
@@ -97,11 +101,46 @@ function setCardNewsSourceLoading(loading) {
 }
 
 function cardNewsPreviewMatchesCurrentSource() {
+  if (cardNewsViewState.workspace === 'managed' && cardNewsViewState.managedDetailOpen) {
+    return Boolean(cardNewsViewState.preview && cardNewsViewState.projectId);
+  }
   try {
     return cardNewsViewState.previewSourceKey === cardNewsSourceKey(readCardNewsSource());
   } catch (_) {
     return false;
   }
+}
+
+function captureCardNewsWorkflowContext() {
+  return {
+    preview: cardNewsViewState.preview,
+    previewSourceKey: cardNewsViewState.previewSourceKey,
+    projectId: cardNewsViewState.projectId,
+    generation: cardNewsViewState.generation,
+    publishingConfig: cardNewsViewState.publishingConfig,
+    publishingOutcome: cardNewsViewState.publishingOutcome,
+    publishedChannelIds: new Set(cardNewsViewState.publishedChannelIds)
+  };
+}
+
+function restoreCardNewsWorkflowContext(context = {}) {
+  context = context || {};
+  cardNewsViewState.preview = context.preview || null;
+  cardNewsViewState.previewSourceKey = context.previewSourceKey || '';
+  cardNewsViewState.projectId = context.projectId || '';
+  cardNewsViewState.publishingConfig = context.publishingConfig || null;
+  cardNewsViewState.publishingOutcome = context.publishingOutcome || '';
+  cardNewsViewState.publishedChannelIds = new Set(context.publishedChannelIds || []);
+  if (context.generation) {
+    renderCardNewsGeneration(context.generation, { scroll: false });
+  } else {
+    cardNewsViewState.generation = null;
+    const resultPanel = document.getElementById('card-news-result-panel');
+    if (resultPanel) resultPanel.hidden = true;
+    const publishingPanel = document.getElementById('card-news-publishing-panel');
+    if (publishingPanel) publishingPanel.hidden = true;
+  }
+  updateCardNewsGenerationAvailability();
 }
 
 function markCardNewsPreviewStale() {
@@ -208,6 +247,7 @@ function handleCardNewsGenerationSettingChange() {
 function renderCardNewsGeneration(generation, options = {}) {
   const previousGenerationId = cardNewsViewState.generation?.id || '';
   cardNewsViewState.generation = generation;
+  cardNewsViewState.projectId = generation?.project_id || '';
   if (previousGenerationId && previousGenerationId !== generation?.id) {
     const publishingPanel = document.getElementById('card-news-publishing-panel');
     if (publishingPanel) publishingPanel.hidden = true;
@@ -238,7 +278,12 @@ function renderCardNewsGeneration(generation, options = {}) {
   const importedGeneration = generation.image_mode === 'imported';
   const bulkImageAction = document.getElementById('card-news-bulk-image-action');
   const regenerate = document.getElementById('card-news-regenerate');
-  if (regenerate) regenerate.hidden = importedGeneration || options.allowCompositionRegeneration === false;
+  if (regenerate) {
+    regenerate.hidden = importedGeneration
+      || options.allowCompositionRegeneration === false
+      || !cardNewsViewState.preview
+      || !cardNewsViewState.projectId;
+  }
   if (bulkImageAction) {
     bulkImageAction.hidden = importedGeneration;
     bulkImageAction.textContent = imageCount === 0
@@ -447,6 +492,7 @@ async function generateCardNews(options = {}) {
   );
   try {
     const payload = {
+      project_id: cardNewsViewState.projectId || '',
       source_snapshot: cardNewsViewState.preview,
       image_mode: imageMode,
       settings: readCardNewsGenerationSettings()
@@ -506,6 +552,27 @@ function renderCardNewsPreview(snapshot) {
   updateCardNewsGenerationAvailability();
 }
 
+function clearCardNewsDownstreamContext() {
+  cardNewsViewState.projectId = '';
+  cardNewsViewState.generation = null;
+  cardNewsViewState.publishingConfig = null;
+  cardNewsViewState.publishingOutcome = '';
+  cardNewsViewState.publishedChannelIds.clear();
+  const resultPanel = document.getElementById('card-news-result-panel');
+  const publishingPanel = document.getElementById('card-news-publishing-panel');
+  if (resultPanel) resultPanel.hidden = true;
+  if (publishingPanel) publishingPanel.hidden = true;
+}
+
+function commitCardNewsPreview(sourceKey, snapshot) {
+  if (cardNewsViewState.generation && cardNewsViewState.previewSourceKey !== sourceKey) {
+    clearCardNewsDownstreamContext();
+  }
+  cardNewsViewState.previewSourceKey = sourceKey;
+  cardNewsViewState.previewCache.set(sourceKey, snapshot);
+  renderCardNewsPreview(snapshot);
+}
+
 async function previewCardNewsSource(sourceOverride = null) {
   if (cardNewsViewState.busy && !sourceOverride) return;
   let source;
@@ -519,8 +586,7 @@ async function previewCardNewsSource(sourceOverride = null) {
   const requestId = ++cardNewsViewState.previewRequestId;
   const cachedSnapshot = cardNewsViewState.previewCache.get(sourceKey);
   if (cachedSnapshot) {
-    cardNewsViewState.previewSourceKey = sourceKey;
-    renderCardNewsPreview(cachedSnapshot);
+    commitCardNewsPreview(sourceKey, cachedSnapshot);
     setCardNewsStatus('', '');
     setCardNewsBusy(false);
     return;
@@ -535,9 +601,7 @@ async function previewCardNewsSource(sourceOverride = null) {
   try {
     const result = await postJson('/api/v1/card-news/source-preview', { source });
     if (requestId !== cardNewsViewState.previewRequestId) return;
-    cardNewsViewState.previewSourceKey = sourceKey;
-    cardNewsViewState.previewCache.set(sourceKey, result.source_snapshot);
-    renderCardNewsPreview(result.source_snapshot);
+    commitCardNewsPreview(sourceKey, result.source_snapshot);
     setCardNewsStatus('', '');
   } catch (error) {
     if (requestId !== cardNewsViewState.previewRequestId) return;

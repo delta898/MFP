@@ -39,7 +39,7 @@
             </div>
 
             <div class="card-news-source-panel" id="card-news-source-panel-feed" role="tabpanel" aria-labelledby="card-news-source-tab-feed" data-card-news-source-panel="feed_item">
-              <div class="card-news-panel-toolbar">
+              <div class="card-news-panel-toolbar card-news-entry-toolbar">
                 <div id="card-news-platform-tabs" class="card-news-platform-tabs ui-segmented-tabs" data-density="compact" role="tablist" aria-label="피드 소스" hidden></div>
                 <div class="card-news-panel-actions">
                   <button id="card-news-source-manage" class="secondary compact" type="button">소스 관리</button>
@@ -51,7 +51,7 @@
                   </button>
                 </div>
               </div>
-              <div id="card-news-feed-list" class="card-news-feed-list" aria-live="polite">
+              <div id="card-news-feed-list" class="card-news-feed-list card-news-entry-list" aria-live="polite">
                 <div class="card-news-empty-state">공개 글 목록을 불러오는 중입니다.</div>
               </div>
               <p id="card-news-feed-note" class="card-news-inline-note" hidden></p>
@@ -134,6 +134,8 @@
           </form>
         </dialog>
 
+        <div id="card-news-create-workflow-slot">
+        <div id="card-news-shared-workflow">
         <section id="card-news-generation-panel" class="card-news-generation-panel ui-workflow-card" aria-labelledby="card-news-generation-title" hidden>
           <div class="card-news-generation-heading ui-workflow-heading">
             <div>
@@ -197,16 +199,16 @@
         <section id="card-news-result-panel" class="card-news-result-panel ui-workflow-card" aria-labelledby="card-news-result-title" hidden>
           <div class="card-news-result-heading ui-workflow-heading">
             <div>
-              <span class="card-news-eyebrow ui-workflow-eyebrow">완성</span>
+              <span class="card-news-eyebrow ui-workflow-eyebrow">카드 작업</span>
               <h2 id="card-news-result-title">만든 카드뉴스</h2>
               <p id="card-news-result-summary"></p>
             </div>
-            <div class="card-news-result-actions">
-              <button id="card-news-regenerate" class="secondary" type="button">구성 다시 만들기</button>
-              <button id="card-news-bulk-image-action" class="primary" type="button">이미지 모두 만들기</button>
-              <a id="card-news-export-all" class="card-news-export-all ui-button-link secondary" href="#" download hidden>전체 이미지 받기</a>
-              <button id="card-news-publish-open" class="primary" type="button" hidden>SNS 발행</button>
-            </div>
+          </div>
+          <div class="card-news-result-actions">
+            <button id="card-news-regenerate" class="secondary" type="button">구성 다시 만들기</button>
+            <button id="card-news-bulk-image-action" class="primary" type="button">이미지 모두 만들기</button>
+            <a id="card-news-export-all" class="card-news-export-all ui-button-link secondary" href="#" download hidden>전체 이미지 받기</a>
+            <button id="card-news-publish-open" class="primary" type="button" hidden>SNS 발행</button>
           </div>
           <p id="card-news-publishing-readiness" class="card-news-publishing-readiness ui-workflow-feedback" role="status" aria-live="polite" hidden></p>
           <div id="card-news-result-grid" class="card-news-result-grid"></div>
@@ -239,53 +241,85 @@
           </form>
         </section>
         </div>
+        </div>
+        </div>
 
-        <section id="card-news-managed-workspace" class="card-news-managed-workspace ui-workflow-card" role="tabpanel"
+        <div id="card-news-managed-workspace" class="card-news-managed-workspace" role="tabpanel"
           aria-labelledby="card-news-workspace-tab-managed" data-card-news-workspace-panel="managed" hidden>
-          <div class="card-news-managed-heading ui-workflow-heading">
-            <div>
-              <span class="card-news-eyebrow ui-workflow-eyebrow">관리</span>
-              <h2>만든 카드뉴스</h2>
-              <p>카드 구성을 만든 항목만 모아 이어서 작업하거나 발행 결과를 확인합니다.</p>
-            </div>
-            <div class="card-news-managed-heading-actions">
-              <button id="card-news-zip-select" class="secondary" type="button">ZIP 가져오기</button>
-              <input id="card-news-zip-file" type="file" accept=".zip,application/zip,application/x-zip-compressed" hidden>
-              <button id="card-news-managed-refresh" class="ui-refresh-action-icon" type="button" aria-label="만든 카드뉴스 새로고침" title="만든 카드뉴스 새로고침">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5" />
-                  <path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 20v-5h-5" />
-                </svg>
-              </button>
-            </div>
-          </div>
-          <section id="card-news-zip-panel" class="card-news-zip-panel" aria-labelledby="card-news-zip-title" hidden>
-            <div class="card-news-zip-panel-heading">
-              <div>
-                <h3 id="card-news-zip-title">ZIP 카드뉴스 가져오기</h3>
-                <p id="card-news-zip-status" aria-live="polite">이미지 순서를 확인한 뒤 가져오세요.</p>
+          <div class="card-news-layout">
+            <section class="card-news-managed-list-card card-news-source-card ui-workflow-card" aria-labelledby="card-news-managed-title">
+              <div class="card-news-managed-heading card-news-section-heading ui-workflow-heading">
+                <div>
+                  <span class="card-news-eyebrow ui-workflow-eyebrow">관리</span>
+                  <h2 id="card-news-managed-title">만든 카드뉴스</h2>
+                  <p>항목을 선택해 원문과 카드 작업을 이어서 확인합니다.</p>
+                </div>
               </div>
-              <button id="card-news-zip-close" class="text-btn" type="button">닫기</button>
-            </div>
-            <div id="card-news-zip-preview" class="card-news-zip-preview"></div>
-            <div class="card-news-zip-fields">
-              <label for="card-news-zip-name"><span>카드뉴스 제목</span><input id="card-news-zip-name" type="text" maxlength="300"></label>
-              <label for="card-news-zip-source-url"><span>원문 URL <em>선택</em></span><input id="card-news-zip-source-url" type="url" inputmode="url" placeholder="https://example.com/article"><small id="card-news-zip-source-match">같은 원문 URL이 있으면 기존 관리 항목에 연결합니다.</small></label>
-            </div>
-            <div class="card-news-zip-actions">
-              <button id="card-news-zip-cancel" class="secondary" type="button">취소</button>
-              <button id="card-news-zip-import" class="primary" type="button" disabled>가져오기</button>
-            </div>
-          </section>
-          <div class="card-news-managed-filters ui-segmented-tabs" role="tablist" aria-label="만든 카드뉴스 상태">
-            <button class="ui-segmented-tab active" type="button" role="tab" aria-selected="true" aria-controls="card-news-managed-list" tabindex="0" data-card-news-managed-filter="전체">전체</button>
-            <button class="ui-segmented-tab" type="button" role="tab" aria-selected="false" aria-controls="card-news-managed-list" tabindex="-1" data-card-news-managed-filter="작업 중">작업 중</button>
-            <button class="ui-segmented-tab" type="button" role="tab" aria-selected="false" aria-controls="card-news-managed-list" tabindex="-1" data-card-news-managed-filter="발행 대기">발행 대기</button>
-            <button class="ui-segmented-tab" type="button" role="tab" aria-selected="false" aria-controls="card-news-managed-list" tabindex="-1" data-card-news-managed-filter="발행 완료">발행 완료</button>
-            <button class="ui-segmented-tab" type="button" role="tab" aria-selected="false" aria-controls="card-news-managed-list" tabindex="-1" data-card-news-managed-filter="확인 필요">확인 필요</button>
+              <section id="card-news-zip-panel" class="card-news-zip-panel" aria-labelledby="card-news-zip-title" hidden>
+                <div class="card-news-zip-panel-heading">
+                  <div>
+                    <h3 id="card-news-zip-title">ZIP 카드뉴스 가져오기</h3>
+                    <p id="card-news-zip-status" aria-live="polite">이미지 순서를 확인한 뒤 가져오세요.</p>
+                  </div>
+                  <button id="card-news-zip-close" class="text-btn" type="button">닫기</button>
+                </div>
+                <div id="card-news-zip-preview" class="card-news-zip-preview"></div>
+                <div class="card-news-zip-fields">
+                  <label for="card-news-zip-name"><span>카드뉴스 제목</span><input id="card-news-zip-name" type="text" maxlength="300"></label>
+                  <label for="card-news-zip-source-url"><span>원문 URL <em>선택</em></span><input id="card-news-zip-source-url" type="url" inputmode="url" placeholder="https://example.com/article"><small id="card-news-zip-source-match">같은 원문 URL이 있으면 기존 관리 항목에 연결합니다.</small></label>
+                </div>
+                <div class="card-news-zip-actions">
+                  <button id="card-news-zip-cancel" class="secondary" type="button">취소</button>
+                  <button id="card-news-zip-import" class="primary" type="button" disabled>가져오기</button>
+                </div>
+              </section>
+              <div class="card-news-panel-toolbar card-news-entry-toolbar">
+                <div class="card-news-managed-filters ui-segmented-tabs" data-density="compact" role="tablist" aria-label="만든 카드뉴스 상태">
+                  <button class="ui-segmented-tab active" type="button" role="tab" aria-selected="true" aria-controls="card-news-managed-list" tabindex="0" data-card-news-managed-filter="전체">전체</button>
+                  <button class="ui-segmented-tab" type="button" role="tab" aria-selected="false" aria-controls="card-news-managed-list" tabindex="-1" data-card-news-managed-filter="작업 중">작업 중</button>
+                  <button class="ui-segmented-tab" type="button" role="tab" aria-selected="false" aria-controls="card-news-managed-list" tabindex="-1" data-card-news-managed-filter="발행 대기">발행 대기</button>
+                  <button class="ui-segmented-tab" type="button" role="tab" aria-selected="false" aria-controls="card-news-managed-list" tabindex="-1" data-card-news-managed-filter="발행 완료">발행 완료</button>
+                  <button class="ui-segmented-tab" type="button" role="tab" aria-selected="false" aria-controls="card-news-managed-list" tabindex="-1" data-card-news-managed-filter="확인 필요">확인 필요</button>
+                </div>
+                <div class="card-news-panel-actions">
+                  <button id="card-news-zip-select" class="secondary compact" type="button">ZIP 가져오기</button>
+                  <input id="card-news-zip-file" type="file" accept=".zip,application/zip,application/x-zip-compressed" hidden>
+                  <button id="card-news-managed-refresh" class="ui-refresh-action-icon" type="button" aria-label="만든 카드뉴스 새로고침" title="만든 카드뉴스 새로고침">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5" />
+                      <path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 20v-5h-5" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div id="card-news-managed-list" class="card-news-managed-list card-news-entry-list" role="tabpanel" aria-live="polite">
+                <div class="card-news-empty-state">만든 카드뉴스를 불러오는 중입니다.</div>
+              </div>
+            </section>
+
+            <section id="card-news-managed-source" class="card-news-preview-card ui-workflow-card" aria-label="선택한 카드뉴스 원문">
+              <div class="card-news-preview-surface">
+                <span id="card-news-managed-source-badge" class="card-news-preview-badge ui-status-badge" data-state="idle">선택 전</span>
+                <div id="card-news-managed-source-empty" class="card-news-preview-empty ui-workflow-empty">
+                  <span aria-hidden="true">▤</span>
+                  <strong>확인할 카드뉴스를 선택해 주세요.</strong>
+                  <p>선택한 카드뉴스의 기준 원문을 확인할 수 있습니다.</p>
+                </div>
+                <article id="card-news-managed-source-content" class="card-news-preview-content" hidden>
+                  <span id="card-news-managed-source-kind" class="card-news-preview-kind"></span>
+                  <h3 id="card-news-managed-source-title"></h3>
+                  <p id="card-news-managed-source-excerpt"></p>
+                  <div class="card-news-preview-meta">
+                    <a id="card-news-managed-source-link" href="#" target="_blank" rel="noopener noreferrer" hidden>원문 열기 ↗</a>
+                    <span id="card-news-managed-source-links" class="card-news-managed-source-links"></span>
+                    <small id="card-news-managed-source-meta"></small>
+                  </div>
+                </article>
+              </div>
+            </section>
           </div>
-          <div id="card-news-managed-list" class="card-news-managed-list" role="tabpanel" aria-live="polite">
-            <div class="card-news-empty-state">만든 카드뉴스를 불러오는 중입니다.</div>
+          <div id="card-news-managed-detail" class="card-news-managed-detail" hidden>
+            <div id="card-news-managed-workflow-slot"></div>
           </div>
-        </section>
+        </div>
       </section>
