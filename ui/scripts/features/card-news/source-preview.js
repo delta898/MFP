@@ -165,6 +165,9 @@ function setCardNewsGenerating(generating, imageMode = 'generate') {
   const regenerate = document.getElementById('card-news-regenerate');
   const bulkImage = document.getElementById('card-news-bulk-image-action');
   [compose, primary, regenerate, bulkImage].forEach((button) => { if (button) button.disabled = generating; });
+  document.querySelectorAll('#card-news-generation-panel select, #card-news-generation-panel textarea, #card-news-generation-panel input').forEach((control) => {
+    control.disabled = generating;
+  });
   compose?.classList.toggle('is-loading', generating && imageMode === 'prompt_only');
   primary?.classList.toggle('is-loading', generating && imageMode === 'generate');
   compose?.setAttribute('aria-busy', String(generating && imageMode === 'prompt_only'));
@@ -186,7 +189,16 @@ function setCardNewsGenerationStatus(message = '', state = '') {
   if (!status) return;
   status.textContent = message;
   status.dataset.state = state;
+  status.hidden = !message;
+  status.title = message;
   status.setAttribute('aria-busy', String(state === 'loading'));
+}
+
+function handleCardNewsGenerationSettingChange() {
+  saveCardNewsGenerationSettings();
+  if (cardNewsViewState.generation && !cardNewsViewState.generating) {
+    setCardNewsGenerationStatus('설정이 변경되었습니다. 다시 만들면 새 설정이 적용됩니다.', 'warning');
+  }
 }
 
 function renderCardNewsGeneration(generation, options = {}) {
@@ -724,9 +736,10 @@ function bindCardNewsView() {
     document.getElementById('card-news-publishing-panel').hidden = true;
   });
   document.getElementById('card-news-publish-button')?.addEventListener('click', () => void publishCardNews());
-  ['card-news-slide-count', 'card-news-aspect-ratio', 'card-news-style', 'card-news-include-korean-text', 'card-news-additional-request'].forEach((id) => {
-    document.getElementById(id)?.addEventListener('change', saveCardNewsGenerationSettings);
+  ['card-news-slide-count', 'card-news-aspect-ratio', 'card-news-style', 'card-news-include-korean-text'].forEach((id) => {
+    document.getElementById(id)?.addEventListener('change', handleCardNewsGenerationSettingChange);
   });
+  document.getElementById('card-news-additional-request')?.addEventListener('input', handleCardNewsGenerationSettingChange);
   ['card-news-url', 'card-news-manuscript-title', 'card-news-manuscript-text'].forEach((id) => {
     document.getElementById(id)?.addEventListener('input', () => {
       cardNewsViewState.previewRequestId += 1;

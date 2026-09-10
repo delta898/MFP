@@ -63,11 +63,19 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(html, /id="card-news-style"/);
     assert.match(html, /id="card-news-include-korean-text"/);
     assert.match(html, /id="card-news-additional-request"[^>]*maxlength="500"/);
+    assert.match(html, /class="card-news-generation-field-grid ui-workflow-field-grid"[\s\S]*id="card-news-slide-count"[\s\S]*id="card-news-aspect-ratio"[\s\S]*id="card-news-style"/);
+    assert.match(html, /class="card-news-generation-detail-grid ui-workflow-detail-grid"[\s\S]*id="card-news-additional-request"[\s\S]*class="card-news-text-option ui-inline-choice"[\s\S]*id="card-news-include-korean-text"/);
+    assert.match(html, /필요한 것만 고르세요\. 글쓰기 AI가 카드 구성을 만들고 이미지 AI가 각 카드를 제작합니다\./);
+    assert.doesNotMatch(html, /card-news-model-role-note|ui-workflow-role-note|aria-label="사용 AI 역할"/);
+    assert.match(html, /id="card-news-generation-status" class="ui-workflow-feedback" role="status" aria-live="polite" hidden/);
     assert.match(script, /additional_request: document\.getElementById\('card-news-additional-request'\)/);
     assert.match(html, /id="card-news-compose-button"[^>]*>카드 구성만 만들기</);
     assert.match(html, /id="card-news-generate-button"[^>]*>이미지까지 만들기</);
     assert.match(script, /compose\?\.classList\.toggle\('is-loading', generating && imageMode === 'prompt_only'\)/);
     assert.match(script, /status\.setAttribute\('aria-busy', String\(state === 'loading'\)\)/);
+    assert.match(script, /#card-news-generation-panel select, #card-news-generation-panel textarea, #card-news-generation-panel input/);
+    assert.match(script, /설정이 변경되었습니다\. 다시 만들면 새 설정이 적용됩니다\./);
+    assert.match(script, /card-news-additional-request'\)\?\.addEventListener\('input', handleCardNewsGenerationSettingChange\)/);
     assert.match(html, /id="card-news-result-panel"[^>]*hidden/);
     assert.match(script, /\/api\/v1\/card-news\/generations/);
     assert.match(script, /image_mode: imageMode/);
@@ -164,6 +172,26 @@ test('Card News source and preview cards stretch together without fixed legacy h
     assert.match(css, /\.card-news-preview-surface\s*\{[^}]*flex:\s*1[^}]*min-height:\s*100%/);
     assert.match(css, /\.card-news-preview-meta\s*\{[^}]*margin-top:\s*auto/);
     assert.doesNotMatch(sourcePreviewCss, /#[0-9a-f]{3,8}\b|rgba?\(/i);
+});
+
+test('Card News generation uses shared field, choice, role and feedback patterns without fixed palette values', () => {
+    const patternCss = fs.readFileSync(path.join(uiRoot, 'styles/patterns/overview-card.css'), 'utf8');
+    const cardNewsCss = fs.readFileSync(path.join(uiRoot, 'styles/features/card-news.css'), 'utf8');
+    const responsiveCss = fs.readFileSync(path.join(uiRoot, 'styles/features/card-news-results.css'), 'utf8');
+    const generationCss = cardNewsCss.slice(
+        cardNewsCss.indexOf('.card-news-generation-controls'),
+        cardNewsCss.indexOf('.card-news-result-actions')
+    );
+    const generationActionsCss = generationCss.match(/\.card-news-generation-actions\s*\{([^}]*)\}/)?.[1] || '';
+
+    assert.match(patternCss, /\.ui-workflow-field-grid\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);
+    assert.match(patternCss, /\.ui-workflow-detail-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0, 2fr\) minmax\(0, 1fr\)[^}]*align-items:\s*end/);
+    assert.match(patternCss, /\.ui-inline-choice\s*\{[^}]*var\(--ui-border-default\)[^}]*var\(--ui-surface-muted\)/s);
+    assert.match(patternCss, /\.ui-workflow-feedback\[data-state="error"\]\s*\{\s*color:\s*var\(--ui-status-danger\)/);
+    assert.match(responsiveCss, /@media \(max-width: 1100px\)[\s\S]*\.card-news-generation-field-grid,[\s\S]*repeat\(2, minmax\(0, 1fr\)\)/);
+    assert.match(patternCss, /@media \(max-width: 720px\)[\s\S]*\.ui-workflow-field-grid,[\s\S]*\.ui-workflow-detail-grid\s*\{[^}]*grid-template-columns:\s*1fr/);
+    assert.doesNotMatch(generationActionsCss, /border-top|padding-top/);
+    assert.doesNotMatch(generationCss, /#[0-9a-f]{3,8}\b|rgba?\(/i);
 });
 
 test('Card News source manager is viewport-centered with bounded overflow', () => {

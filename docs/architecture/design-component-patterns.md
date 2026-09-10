@@ -262,6 +262,17 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
   anatomy를 작업 화면에 억지로 복사하지 않는다.
 - 작업 surface의 반복 field와 초기 안내는 `.ui-workflow-field`, `.ui-workflow-empty`를 사용한다. 확인 상태는
   `.ui-status-badge`의 `loading`, `ready`, `stale` 같은 semantic state로 표현하며 feature가 상태 색을 다시 정의하지 않는다.
+- 동급 field 3개는 `.ui-workflow-field-grid`로 desktop 1×3, 중간 폭 2+1, mobile 1열로 축소한다. 긴 서술 field와
+  연관된 단일 boolean을 같은 줄에 둘 때는 `.ui-workflow-detail-grid`의 2:1 비율을 사용하고 mobile에서는 1열로 내린다.
+  단일 boolean은 별도 card를 만들지 않고 `.ui-inline-choice`의 `label → 짧은 설명` 구조로 표현한다.
+- 결과 생성 workflow는 사용하는 model role과 담당 결과를 실행 전에 알 수 있어야 한다. 별도 안내 행이 새로운 정보를
+  주지 않는다면 workflow heading 설명에 자연스럽게 통합한다. 일시적인 진행·경고·실패는 action과 같은 footer row의
+  `.ui-workflow-feedback` 한 곳에 표시하고 feature가 상태 색을 복제하지 않는다. 실행 중에는 같은 요청뿐 아니라 요청
+  payload를 바꿀 수 있는 field도 잠근다. 완료 후 field가 바뀌면 기존 결과는 보존하되 현재 결과와 새 입력이 다름을
+  feedback으로 알리고, 다음 실행 때 새 설정을 적용한다.
+- 일반 settings card와 짧은 workflow의 body/action 경계는 divider 없이 공통 spacing으로 구분한다. horizontal divider는
+  스크롤 본문과 분리되는 modal·sticky footer, 긴 form의 명확한 최종 action, 위험하거나 독립적인 실행 영역처럼 실제
+  경계 의미가 있을 때만 사용한다. 단순히 button을 강조하거나 빈 공간을 채우기 위해 추가하지 않는다.
 - source registry처럼 주 작업에는 필요하지만 자주 바꾸지 않는 값은 toolbar의 보조 action에서 modal surface로 연다.
   해당 기능 화면이 값을 단독 소유하고, 설정 화면에 같은 editor를 복제하지 않는다. 명시적 적용에 성공한 뒤에만
   source 목록을 무효화·재조회하며 이전 정상 preview나 후속 결과를 임의로 지우지 않는다.

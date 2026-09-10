@@ -1509,6 +1509,28 @@ async function run() {
             { background: 'rgb(182, 95, 66)', color: 'rgb(255, 253, 249)', fontSize: '10px' }
         );
         await page.locator('.nav-btn[data-view="card-news"]').click();
+        await page.locator('#card-news-generation-panel').evaluate((element) => { element.hidden = false; });
+        const cardNewsGenerationLayout = await page.evaluate(() => {
+            const fieldGrid = document.querySelector('.card-news-generation-field-grid');
+            const request = document.getElementById('card-news-additional-request');
+            const choice = document.querySelector('.card-news-text-option');
+            const fieldColumns = getComputedStyle(fieldGrid).gridTemplateColumns.split(' ').filter(Boolean);
+            const requestBox = request.getBoundingClientRect();
+            const choiceBox = choice.getBoundingClientRect();
+            return {
+                fieldColumnCount: fieldColumns.length,
+                requestToChoiceRatio: requestBox.width / choiceBox.width,
+                sameRow: Math.abs(requestBox.bottom - choiceBox.bottom) < 2
+            };
+        });
+        assert.equal(cardNewsGenerationLayout.fieldColumnCount, 3);
+        assert.ok(cardNewsGenerationLayout.requestToChoiceRatio > 1.8 && cardNewsGenerationLayout.requestToChoiceRatio < 2.2);
+        assert.equal(cardNewsGenerationLayout.sameRow, true);
+        await page.locator('#card-news-additional-request').fill('차분한 편집 디자인으로 구성해 주세요.');
+        assert.equal(
+            await page.evaluate(() => JSON.parse(localStorage.getItem('bloggenius.cardNews.generationSettings') || '{}').additional_request),
+            '차분한 편집 디자인으로 구성해 주세요.'
+        );
         assert.deepEqual(
             await page.locator('.nav-btn[data-view="card-news"] .nav-new-badge').evaluate((element) => {
                 const style = getComputedStyle(element);

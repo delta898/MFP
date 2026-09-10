@@ -121,6 +121,19 @@
   gap: var(--ui-space-2);
 }
 
+.ui-workflow-field-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--ui-space-4);
+}
+
+.ui-workflow-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  align-items: end;
+  gap: var(--ui-space-4);
+}
+
 .ui-workflow-field > span,
 .ui-workflow-field > strong {
   color: var(--ui-text-primary);
@@ -150,6 +163,56 @@
   font-size: var(--ui-type-caption-size);
   line-height: var(--ui-line-height-body);
 }
+
+.ui-inline-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ui-space-3);
+  padding: var(--ui-space-3) var(--ui-space-4);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface-muted);
+  color: var(--ui-text-primary);
+  cursor: pointer;
+}
+
+.ui-inline-choice > input {
+  flex: 0 0 auto;
+  margin-block-start: 0.15em;
+}
+
+.ui-inline-choice > span {
+  display: grid;
+  gap: var(--ui-space-1);
+}
+
+.ui-inline-choice strong {
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-semibold);
+  line-height: var(--ui-line-height-tight);
+}
+
+.ui-inline-choice small {
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-type-caption-size);
+  line-height: var(--ui-line-height-body);
+}
+
+.ui-workflow-feedback {
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-type-caption-size);
+  line-height: var(--ui-line-height-body);
+}
+
+.ui-workflow-feedback[hidden],
+.ui-workflow-feedback:empty {
+  display: none;
+}
+
+.ui-workflow-feedback[data-state="loading"] { color: var(--ui-status-info); }
+.ui-workflow-feedback[data-state="ready"] { color: var(--ui-status-success); }
+.ui-workflow-feedback[data-state="warning"] { color: var(--ui-status-warning); }
+.ui-workflow-feedback[data-state="error"] { color: var(--ui-status-danger); }
 
 .ui-workflow-empty {
   color: var(--ui-text-secondary);
@@ -250,6 +313,11 @@
 }
 
 @media (max-width: 720px) {
+  .ui-workflow-field-grid,
+  .ui-workflow-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
   .ui-overview-heading {
     align-items: flex-start;
   }

@@ -139,48 +139,54 @@
             <div>
               <span class="card-news-eyebrow ui-workflow-eyebrow">2단계</span>
               <h2 id="card-news-generation-title">카드 설정</h2>
-              <p>필요한 것만 고르고 바로 만드세요. AI 추천은 내용에 맞춰 매번 새로운 시각 방향을 제안합니다.</p>
+              <p>필요한 것만 고르세요. 글쓰기 AI가 카드 구성을 만들고 이미지 AI가 각 카드를 제작합니다.</p>
             </div>
           </div>
           <div class="card-news-generation-controls">
-            <label class="card-news-compact-field" for="card-news-slide-count">
-              <span>카드 수</span>
-              <select id="card-news-slide-count">
-                <option value="3">3장</option>
-                <option value="5" selected>5장</option>
-                <option value="7">7장</option>
-              </select>
-            </label>
-            <label class="card-news-compact-field" for="card-news-aspect-ratio">
-              <span>화면 비율</span>
-              <select id="card-news-aspect-ratio">
-                <option value="1:1">1:1 · 정사각형</option>
-                <option value="4:5" selected>4:5 · 피드</option>
-                <option value="9:16">9:16 · 스토리</option>
-              </select>
-            </label>
-            <label class="card-news-compact-field" for="card-news-style">
-              <span>스타일</span>
-              <select id="card-news-style">
-                <option value="ai_recommended" selected>AI 추천</option>
-                <option value="informative">정보형</option>
-                <option value="magazine">매거진형</option>
-                <option value="emotional">감성형</option>
-                <option value="impact">임팩트형</option>
-              </select>
-            </label>
-            <label class="card-news-text-option">
-              <input id="card-news-include-korean-text" type="checkbox" checked>
-              <span>이미지에 한글 문구 포함</span>
-            </label>
-            <label class="card-news-request-field" for="card-news-additional-request">
-              <span>추가 요청사항 <em>선택</em></span>
-              <textarea id="card-news-additional-request" rows="2" maxlength="500" placeholder="예: 따뜻한 여행 잡지 느낌으로 만들고 첫 카드의 제목을 강조해 주세요."></textarea>
-            </label>
+            <div class="card-news-generation-field-grid ui-workflow-field-grid">
+              <label class="ui-workflow-field" for="card-news-slide-count">
+                <span>카드 수</span>
+                <select id="card-news-slide-count">
+                  <option value="3">3장</option>
+                  <option value="5" selected>5장</option>
+                  <option value="7">7장</option>
+                </select>
+              </label>
+              <label class="ui-workflow-field" for="card-news-aspect-ratio">
+                <span>화면 비율</span>
+                <select id="card-news-aspect-ratio">
+                  <option value="1:1">1:1 · 정사각형</option>
+                  <option value="4:5" selected>4:5 · 피드</option>
+                  <option value="9:16">9:16 · 스토리</option>
+                </select>
+              </label>
+              <label class="ui-workflow-field" for="card-news-style">
+                <span>스타일</span>
+                <select id="card-news-style">
+                  <option value="ai_recommended" selected>AI 추천</option>
+                  <option value="informative">정보형</option>
+                  <option value="magazine">매거진형</option>
+                  <option value="emotional">감성형</option>
+                  <option value="impact">임팩트형</option>
+                </select>
+              </label>
+            </div>
+            <div class="card-news-generation-detail-grid ui-workflow-detail-grid">
+              <label class="card-news-request-field ui-workflow-field" for="card-news-additional-request">
+                <span>추가 요청사항 <em>선택</em></span>
+                <textarea id="card-news-additional-request" rows="2" maxlength="500" placeholder="예: 따뜻한 여행 잡지 느낌으로 만들고 첫 카드의 제목을 강조해 주세요."></textarea>
+              </label>
+              <label class="card-news-text-option ui-inline-choice">
+                <input id="card-news-include-korean-text" type="checkbox" checked>
+                <span>
+                  <strong>이미지에 한글 문구 포함</strong>
+                  <small>카드 이미지 안에 핵심 문구를 함께 표현합니다.</small>
+                </span>
+              </label>
+            </div>
           </div>
-          <p class="card-news-model-role-note">글쓰기 AI가 구성을 만들고, 이미지 AI가 각 카드를 제작합니다.</p>
           <div class="card-news-generation-actions">
-            <span id="card-news-generation-status" aria-live="polite"></span>
+            <span id="card-news-generation-status" class="ui-workflow-feedback" role="status" aria-live="polite" hidden></span>
             <div class="card-news-generation-buttons">
               <button id="card-news-compose-button" class="secondary" type="button">카드 구성만 만들기</button>
               <button id="card-news-generate-button" class="primary" type="button">이미지까지 만들기</button>

@@ -518,99 +518,40 @@
 
 .card-news-generation-controls {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(210px, 0.9fr);
-  align-items: end;
-  gap: 14px;
+  gap: var(--ui-space-4);
 }
 
-.card-news-compact-field {
-  display: grid;
-  gap: 8px;
-}
-
-.card-news-compact-field > span {
-  color: var(--text-main);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.card-news-compact-field select {
-  width: 100%;
+.card-news-generation-field-grid select {
   min-height: 46px;
   padding: 0 38px 0 13px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #fff;
-  color: var(--text-main);
-  font: inherit;
-  font-size: 13px;
 }
 
 .card-news-text-option {
-  min-height: 46px;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 0 14px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #f8fafc;
-  color: var(--text-main);
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
+  min-height: 68px;
 }
 
 .card-news-text-option input {
   width: 17px;
   height: 17px;
-  accent-color: var(--brand-primary);
 }
 
 .card-news-request-field {
-  grid-column: 1 / -1;
-  display: grid;
-  gap: 8px;
-}
-
-.card-news-request-field > span {
-  color: var(--text-main);
-  font-size: 13px;
-  font-weight: 700;
+  width: 100%;
 }
 
 .card-news-request-field em {
-  margin-left: 4px;
-  color: var(--text-light);
-  font-size: 11px;
+  margin-inline-start: var(--ui-space-1);
+  color: var(--ui-text-muted);
+  font-size: var(--ui-type-caption-size);
   font-style: normal;
-  font-weight: 600;
+  font-weight: var(--ui-weight-regular);
 }
 
 .card-news-request-field textarea {
-  width: 100%;
   min-height: 68px;
   resize: vertical;
   padding: 12px 13px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #fff;
-  color: var(--text-main);
-  font: inherit;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.card-news-request-field textarea:focus {
-  border-color: var(--brand-primary);
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
-}
-
-.card-news-model-role-note {
-  margin: 12px 0 0;
-  color: var(--text-light);
-  font-size: 11px;
+  line-height: var(--ui-line-height-body);
 }
 
 .card-news-generation-actions {
@@ -618,22 +559,18 @@
   align-items: center;
   justify-content: flex-end;
   gap: 16px;
-  margin-top: 20px;
-  padding-top: 18px;
-  border-top: 1px solid var(--line);
+  margin-top: var(--ui-space-5);
 }
 
 .card-news-generation-actions > span {
   margin-right: auto;
-  color: var(--text-muted);
-  font-size: 12px;
 }
 
 .card-news-generation-actions > span[data-state="loading"] {
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  color: var(--brand-hover);
+  color: var(--ui-status-info);
 }
 
 .card-news-generation-actions > span[data-state="loading"]::before,
@@ -641,7 +578,7 @@
   width: 14px;
   height: 14px;
   flex: 0 0 14px;
-  border: 2px solid rgba(14, 165, 233, 0.24);
+  border: 2px solid color-mix(in srgb, currentColor 24%, transparent);
   border-top-color: currentColor;
   border-radius: var(--radius-full);
   content: '';
@@ -656,20 +593,8 @@
 }
 
 .card-news-generation-buttons button.primary.is-loading::before {
-  border-color: rgba(255, 255, 255, 0.34);
-  border-top-color: #fff;
-}
-
-.card-news-generation-actions > span[data-state="ready"] {
-  color: #047857;
-}
-
-.card-news-generation-actions > span[data-state="error"] {
-  color: #dc2626;
-}
-
-.card-news-generation-actions > span[data-state="warning"] {
-  color: #b45309;
+  border-color: color-mix(in srgb, currentColor 34%, transparent);
+  border-top-color: currentColor;
 }
 
 .card-news-generation-buttons {
