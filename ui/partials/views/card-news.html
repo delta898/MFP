@@ -255,24 +255,27 @@
                   <p>항목을 선택해 원문과 카드 작업을 이어서 확인합니다.</p>
                 </div>
               </div>
-              <section id="card-news-zip-panel" class="card-news-zip-panel" aria-labelledby="card-news-zip-title" hidden>
-                <div class="card-news-zip-panel-heading">
-                  <div>
-                    <h3 id="card-news-zip-title">ZIP 카드뉴스 가져오기</h3>
-                    <p id="card-news-zip-status" aria-live="polite">이미지 순서를 확인한 뒤 가져오세요.</p>
+              <dialog id="card-news-zip-dialog" class="card-news-zip-dialog ui-transaction-dialog" aria-labelledby="card-news-zip-title">
+                <form id="card-news-zip-form" class="card-news-zip-form ui-transaction-dialog-form" method="dialog">
+                  <div class="card-news-zip-panel-heading ui-transaction-dialog-header">
+                    <div>
+                      <h2 id="card-news-zip-title">ZIP 카드뉴스 가져오기</h2>
+                      <p id="card-news-zip-status" aria-live="polite">이미지 순서를 확인한 뒤 가져오세요.</p>
+                    </div>
                   </div>
-                  <button id="card-news-zip-close" class="text-btn" type="button">닫기</button>
-                </div>
-                <div id="card-news-zip-preview" class="card-news-zip-preview"></div>
-                <div class="card-news-zip-fields">
-                  <label for="card-news-zip-name"><span>카드뉴스 제목</span><input id="card-news-zip-name" type="text" maxlength="300"></label>
-                  <label for="card-news-zip-source-url"><span>원문 URL <em>선택</em></span><input id="card-news-zip-source-url" type="url" inputmode="url" placeholder="https://example.com/article"><small id="card-news-zip-source-match">같은 원문 URL이 있으면 기존 관리 항목에 연결합니다.</small></label>
-                </div>
-                <div class="card-news-zip-actions">
-                  <button id="card-news-zip-cancel" class="secondary" type="button">취소</button>
-                  <button id="card-news-zip-import" class="primary" type="button" disabled>가져오기</button>
-                </div>
-              </section>
+                  <div id="card-news-zip-preview" class="card-news-zip-preview"></div>
+                  <div class="card-news-zip-fields">
+                    <label for="card-news-zip-name"><span>카드뉴스 제목</span><input id="card-news-zip-name" type="text" maxlength="300"></label>
+                    <label for="card-news-zip-source-url"><span>원문 URL <em>선택</em></span><input id="card-news-zip-source-url" type="url" inputmode="url" placeholder="https://example.com/article"><small id="card-news-zip-source-match">같은 원문 URL이 있으면 기존 관리 항목에 연결합니다.</small></label>
+                  </div>
+                  <div class="card-news-zip-actions ui-transaction-dialog-footer">
+                    <div class="ui-transaction-dialog-footer-actions">
+                      <button id="card-news-zip-cancel" class="secondary" type="button">취소</button>
+                      <button id="card-news-zip-import" class="primary" type="button" disabled>가져오기</button>
+                    </div>
+                  </div>
+                </form>
+              </dialog>
               <div class="card-news-panel-toolbar card-news-entry-toolbar">
                 <div class="card-news-managed-filters ui-segmented-tabs" data-density="compact" role="tablist" aria-label="만든 카드뉴스 상태">
                   <button class="ui-segmented-tab active" type="button" role="tab" aria-selected="true" aria-controls="card-news-managed-list" tabindex="0" data-card-news-managed-filter="전체">전체</button>

@@ -1630,6 +1630,48 @@ async function run() {
             };
         });
         assert.deepEqual(managedCardNewsLayout, { columnCount: 2, alignedTop: true, previewOnRight: true });
+        await page.route('**/api/v1/card-news/zip/preview', async (route) => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    success: true,
+                    data: {
+                        title: '가져올 카드뉴스',
+                        source_url: 'https://example.com/import-source',
+                        card_count: 1,
+                        images: [{ index: 1, file_name: '01.png', data_url: 'data:image/png;base64,iVBORw0KGgo=' }]
+                    }
+                })
+            });
+        });
+        await page.locator('#card-news-zip-file').setInputFiles({
+            name: 'import.zip',
+            mimeType: 'application/zip',
+            buffer: Buffer.from('browser-smoke-zip')
+        });
+        await page.waitForFunction(() => document.getElementById('card-news-zip-dialog')?.open === true);
+        assert.deepEqual(await page.evaluate(() => ({
+            title: document.getElementById('card-news-zip-name')?.value,
+            status: document.getElementById('card-news-zip-status')?.textContent,
+            previewCount: document.querySelectorAll('.card-news-zip-preview-item').length,
+            hasDuplicateClose: Boolean(document.getElementById('card-news-zip-close')),
+            modalShell: document.getElementById('card-news-zip-dialog')?.classList.contains('ui-transaction-dialog')
+        })), {
+            title: '가져올 카드뉴스',
+            status: '1장의 이미지를 파일명 순서대로 가져옵니다.',
+            previewCount: 1,
+            hasDuplicateClose: false,
+            modalShell: true
+        });
+        await page.keyboard.press('Escape');
+        await page.waitForFunction(() => document.getElementById('card-news-zip-dialog')?.open === false);
+        assert.deepEqual(await page.evaluate(() => ({
+            pending: cardNewsViewState.zipImport,
+            fileValue: document.getElementById('card-news-zip-file')?.value,
+            previewCount: document.querySelectorAll('.card-news-zip-preview-item').length
+        })), { pending: null, fileValue: '', previewCount: 0 });
+        await page.unroute('**/api/v1/card-news/zip/preview');
         assert.equal(await page.locator('#card-news-managed-source-kind').textContent().then((text) => text.includes('웹 URL')), true);
         assert.equal(await page.locator('#card-news-managed-source-meta').textContent().then((text) => text.includes('저장')), true);
         assert.equal(await page.locator('#card-news-managed-source-link').isVisible(), true);

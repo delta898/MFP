@@ -197,17 +197,27 @@ function setCardNewsManagedLoading(loading) {
 function resetCardNewsZipImport() {
   cardNewsViewState.zipImport = null;
   cardNewsViewState.zipImporting = false;
-  const panel = document.getElementById('card-news-zip-panel');
+  const dialog = document.getElementById('card-news-zip-dialog');
   const input = document.getElementById('card-news-zip-file');
   const preview = document.getElementById('card-news-zip-preview');
   const title = document.getElementById('card-news-zip-name');
   const sourceUrl = document.getElementById('card-news-zip-source-url');
+  const sourceMatch = document.getElementById('card-news-zip-source-match');
+  const status = document.getElementById('card-news-zip-status');
   const importButton = document.getElementById('card-news-zip-import');
-  if (panel) panel.hidden = true;
+  if (dialog?.open) dialog.close();
   if (input) input.value = '';
   if (preview) preview.innerHTML = '';
   if (title) title.value = '';
   if (sourceUrl) sourceUrl.value = '';
+  if (sourceMatch) {
+    sourceMatch.textContent = '같은 원문 URL이 있으면 기존 관리 항목에 연결합니다.';
+    sourceMatch.dataset.state = '';
+  }
+  if (status) {
+    status.textContent = '이미지 순서를 확인한 뒤 가져오세요.';
+    status.dataset.state = '';
+  }
   if (importButton) {
     importButton.disabled = true;
     importButton.textContent = '가져오기';
@@ -227,7 +237,7 @@ function updateCardNewsZipSourceMatch() {
 
 function setCardNewsZipImporting(importing) {
   cardNewsViewState.zipImporting = importing;
-  ['card-news-zip-select', 'card-news-zip-file', 'card-news-zip-name', 'card-news-zip-source-url', 'card-news-zip-close', 'card-news-zip-cancel'].forEach((id) => {
+  ['card-news-zip-select', 'card-news-zip-file', 'card-news-zip-name', 'card-news-zip-source-url', 'card-news-zip-cancel'].forEach((id) => {
     const control = document.getElementById(id);
     if (control) control.disabled = importing;
   });
@@ -236,15 +246,18 @@ function setCardNewsZipImporting(importing) {
     button.disabled = importing || !cardNewsViewState.zipImport;
     button.textContent = importing ? '가져오는 중…' : '가져오기';
   }
+  const selectButton = document.getElementById('card-news-zip-select');
+  const previewing = importing && !document.getElementById('card-news-zip-dialog')?.open;
+  selectButton?.classList.toggle('is-loading', previewing);
+  selectButton?.setAttribute('aria-busy', String(previewing));
 }
 
 async function previewCardNewsZip(file) {
   if (!file || cardNewsViewState.zipImporting) return;
-  const panel = document.getElementById('card-news-zip-panel');
+  const dialog = document.getElementById('card-news-zip-dialog');
   const status = document.getElementById('card-news-zip-status');
   const preview = document.getElementById('card-news-zip-preview');
   const title = document.getElementById('card-news-zip-name');
-  if (panel) panel.hidden = false;
   cardNewsViewState.zipImport = null;
   setCardNewsZipImporting(true);
   if (status) {
@@ -271,11 +284,16 @@ async function previewCardNewsZip(file) {
       status.dataset.state = 'ready';
     }
     updateCardNewsZipSourceMatch();
+    if (dialog && !dialog.open) {
+      if (typeof dialog.showModal === 'function') dialog.showModal();
+      else dialog.setAttribute('open', '');
+    }
+    title?.focus();
   } catch (error) {
-    if (preview) preview.innerHTML = '';
-    if (status) {
-      status.textContent = error.message || 'ZIP 파일을 확인하지 못했습니다.';
-      status.dataset.state = 'error';
+    const message = error.message || 'ZIP 파일을 확인하지 못했습니다.';
+    resetCardNewsZipImport();
+    if (typeof showUiToast === 'function') {
+      showUiToast({ level: 'error', title: 'ZIP 확인 실패', message, dedupeKey: 'card-news-zip-preview-error' });
     }
   } finally {
     setCardNewsZipImporting(false);
@@ -481,8 +499,16 @@ function bindCardNewsManagementView() {
   document.getElementById('card-news-managed-refresh')?.addEventListener('click', () => void loadCardNewsManagedItems());
   document.getElementById('card-news-zip-select')?.addEventListener('click', () => document.getElementById('card-news-zip-file')?.click());
   document.getElementById('card-news-zip-file')?.addEventListener('change', (event) => void previewCardNewsZip(event.currentTarget.files?.[0]));
-  document.getElementById('card-news-zip-close')?.addEventListener('click', resetCardNewsZipImport);
   document.getElementById('card-news-zip-cancel')?.addEventListener('click', resetCardNewsZipImport);
+  document.getElementById('card-news-zip-form')?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    void importCardNewsZip();
+  });
+  document.getElementById('card-news-zip-dialog')?.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    if (cardNewsViewState.zipImporting) return;
+    resetCardNewsZipImport();
+  });
   document.getElementById('card-news-zip-import')?.addEventListener('click', () => void importCardNewsZip());
   document.getElementById('card-news-zip-source-url')?.addEventListener('input', updateCardNewsZipSourceMatch);
 }
