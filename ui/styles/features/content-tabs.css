@@ -1,5 +1,4 @@
-.blog-tab-btn,
-.shopping-tab-btn {
+.blog-tab-btn {
   border: 1px solid var(--line);
   border-radius: var(--radius-full);
   background: var(--surface-solid);
@@ -10,14 +9,12 @@
   transition: var(--transition);
 }
 
-.blog-tab-btn:hover,
-.shopping-tab-btn:hover {
+.blog-tab-btn:hover {
   background: var(--bg-gradient);
   color: var(--text-main);
 }
 
-.blog-tab-btn.active,
-.shopping-tab-btn.active {
+.blog-tab-btn.active {
   border-color: var(--brand-primary);
   background: var(--brand-light);
   color: var(--brand-hover);

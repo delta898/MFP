@@ -1609,6 +1609,11 @@ function bindActions() {
       const tabName = String(btn.dataset.shoppingTab || '');
       activateShoppingTab(tabName, { forceReload: true });
     });
+    btn.addEventListener('keydown', (event) => void handleUiTabNavigationKeydown(event, {
+      selector: '[data-shopping-tab]',
+      dataKey: 'shoppingTab',
+      activate: (tabName) => activateShoppingTab(tabName, { forceReload: true })
+    }));
   });
 
   if (blogTrendsCollectBtn) {

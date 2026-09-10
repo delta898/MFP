@@ -5,8 +5,17 @@ function activateShoppingTab(tabName, options = {}) {
 
   const tabButtons = Array.from(document.querySelectorAll('.shopping-tab-btn'));
   const tabPanels = Array.from(document.querySelectorAll('.shopping-tab-panel'));
-  tabButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.shoppingTab === target));
-  tabPanels.forEach(panel => panel.classList.toggle('active', panel.id === `shopping-tab-${target}`));
+  tabButtons.forEach((btn) => {
+    const active = btn.dataset.shoppingTab === target;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+    btn.tabIndex = active ? 0 : -1;
+  });
+  tabPanels.forEach((panel) => {
+    const active = panel.id === `shopping-tab-${target}`;
+    panel.classList.toggle('active', active);
+    panel.hidden = !active;
+  });
   syncScopedMajorSaveActions();
 
   const forceReload = options.forceReload !== false;

@@ -449,16 +449,14 @@
     justify-content: flex-start;
   }
 
-  .blog-tabs,
-  .shopping-tabs {
+  .blog-tabs {
     flex-wrap: nowrap;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     padding-bottom: 4px;
   }
 
-  .blog-tab-btn,
-  .shopping-tab-btn {
+  .blog-tab-btn {
     white-space: nowrap;
   }
 

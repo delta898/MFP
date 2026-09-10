@@ -2,8 +2,7 @@
   grid-template-columns: 220px 1fr;
 }
 
-.blog-tabs,
-.shopping-tabs {
+.blog-tabs {
   display: flex;
   align-items: center;
   flex-wrap: wrap;

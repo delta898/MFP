@@ -1,22 +1,23 @@
-      <section class="view" id="view-shopping" data-style-scope="compatibility">
+      <section class="view shopping-view" id="view-shopping">
         <div class="view-title-block">
           <div class="view-title-row">
             <div class="view-title-copy">
               <div class="view-title-heading"><h1>쇼핑커넥트</h1></div>
               <p>쇼핑 상품 정보를 분석해 콘텐츠를 만들고 발행합니다.</p>
             </div>
-            <div class="page-clock-widget">
-              <div class="clock-display" data-clock-display title="클릭하여 시계 스타일 변경"></div>
-            </div>
+            <!-- @include shared/page-clock-widget.html -->
           </div>
         </div>
 
-        <div class="shopping-tabs">
-          <button class="shopping-tab-btn active" data-shopping-tab="quick">빠른 포스팅</button>
-          <button class="shopping-tab-btn" data-shopping-tab="batch">일괄 포스팅</button>
+        <div class="shopping-tabs ui-top-tabs" role="tablist" aria-label="쇼핑커넥트 메뉴">
+          <button class="shopping-tab-btn ui-top-tab active" id="shopping-tab-button-quick" type="button" role="tab"
+            aria-selected="true" aria-controls="shopping-tab-quick" tabindex="0" data-shopping-tab="quick">빠른 글 작성</button>
+          <button class="shopping-tab-btn ui-top-tab" id="shopping-tab-button-batch" type="button" role="tab"
+            aria-selected="false" aria-controls="shopping-tab-batch" tabindex="-1" data-shopping-tab="batch">글감 관리</button>
         </div>
 
-        <div class="card form-card shopping-tab-panel active blog-quick-panel" id="shopping-tab-quick">
+        <div class="card form-card shopping-tab-panel active blog-quick-panel" id="shopping-tab-quick" role="tabpanel"
+          aria-labelledby="shopping-tab-button-quick">
           <div class="blog-quick-head">
             <h3>빠른 상품 등록</h3>
             <p>쇼핑 단축 URL만 입력하면 상품 정보를 분석하여 발행을 진행합니다.</p>
@@ -85,7 +86,8 @@
           <pre id="shopping-quick-result" class="scrollable-log"></pre>
         </div>
 
-        <div class="card form-card shopping-tab-panel" id="shopping-tab-batch">
+        <div class="card form-card shopping-tab-panel" id="shopping-tab-batch" role="tabpanel"
+          aria-labelledby="shopping-tab-button-batch" hidden>
           <div class="form-grid blog-filter-grid">
             <label>상태
               <select id="shopping-status-filter">
