@@ -19,6 +19,7 @@ function createUiApiRouteRuntime(deps = {}) {
         snsAiService,
         cardNewsLedgerStore,
         cardNewsMediaTransport,
+        urlShorteningService,
         recordActivityLifecycle,
         DEFAULT_HOST,
         DEFAULT_PORT,
@@ -263,7 +264,8 @@ function createUiApiRouteRuntime(deps = {}) {
                 Utils,
                 ledgerStore: cardNewsLedgerStore,
                 bufferClient: new BufferClient({ axios }),
-                mediaTransport: cardNewsMediaTransport
+                mediaTransport: cardNewsMediaTransport,
+                urlService: urlShorteningService
             });
             const controller = createCardNewsController({ service, sendSuccess, sendError, fs });
             cardNewsRouteHandler = createCardNewsRouteHandler({ controller });

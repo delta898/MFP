@@ -7,7 +7,7 @@ function createAutoCycleRuntime(deps = {}) {
         Logger,
         License,
         Utils,
-        UrlService,
+        urlShorteningService,
         TelegramService,
         SlackService,
         ensureSheetsReadyForUi,
@@ -912,8 +912,8 @@ function createAutoCycleRuntime(deps = {}) {
 
                         if (results.wordpress?.success && results.wordpress?.postUrl) {
                             let shortUrl = results.wordpress.postUrl;
-                            if (CONFIG.NOTIFY_BITLY_TOKEN) {
-                                shortUrl = await UrlService.shorten(results.wordpress.postUrl, CONFIG.NOTIFY_BITLY_TOKEN);
+                            if (urlShorteningService?.isConfigured?.()) {
+                                shortUrl = await urlShorteningService.shorten(results.wordpress.postUrl);
                             }
                             itemLine += ` (${shortUrl})`;
                         }

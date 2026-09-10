@@ -103,9 +103,9 @@
           </section>
         </div>
 
-        <dialog id="card-news-source-manager" class="card-news-source-manager" aria-labelledby="card-news-source-manager-title">
-          <form id="card-news-source-manager-form" class="card-news-source-manager-form" method="dialog">
-            <div class="card-news-source-manager-heading">
+        <dialog id="card-news-source-manager" class="card-news-source-manager ui-transaction-dialog" aria-labelledby="card-news-source-manager-title">
+          <form id="card-news-source-manager-form" class="card-news-source-manager-form ui-transaction-dialog-form" method="dialog">
+            <div class="card-news-source-manager-heading ui-transaction-dialog-header">
               <div>
                 <h2 id="card-news-source-manager-title">피드 소스 관리</h2>
                 <p>카드뉴스에서 고를 블로그와 RSS 피드를 정합니다.</p>
@@ -127,7 +127,7 @@
               <div id="card-news-source-manager-list" class="card-news-source-manager-list"></div>
             </div>
             <p id="card-news-source-manager-status" class="card-news-inline-status" aria-live="polite"></p>
-            <div class="card-news-source-manager-footer">
+            <div class="card-news-source-manager-footer ui-transaction-dialog-footer">
               <button id="card-news-source-manager-cancel" class="secondary" type="button">취소</button>
               <button id="card-news-source-manager-save" class="primary" type="submit">적용</button>
             </div>
@@ -208,31 +208,35 @@
               <button id="card-news-publish-open" class="primary" type="button" hidden>SNS 발행</button>
             </div>
           </div>
-          <section id="card-news-publishing-panel" class="card-news-publishing-panel" aria-labelledby="card-news-publishing-title" hidden>
-            <div class="card-news-publishing-heading">
+          <p id="card-news-publishing-readiness" class="card-news-publishing-readiness ui-workflow-feedback" role="status" aria-live="polite" hidden></p>
+          <div id="card-news-result-grid" class="card-news-result-grid"></div>
+        </section>
+
+        <section id="card-news-publishing-panel" class="card-news-publishing-panel ui-workflow-card" aria-labelledby="card-news-publishing-title" hidden>
+          <form id="card-news-publishing-form" class="card-news-publishing-form">
+            <div class="card-news-publishing-heading ui-workflow-heading">
               <div>
-                <h3 id="card-news-publishing-title">SNS 발행</h3>
+                <span class="card-news-eyebrow ui-workflow-eyebrow">3단계 · 선택</span>
+                <h2 id="card-news-publishing-title">SNS에 발행</h2>
                 <p>완성된 카드를 순서대로 선택한 채널에 바로 발행합니다.</p>
               </div>
-              <div class="card-news-publishing-heading-actions">
-                <button class="context-help-link" type="button" data-help-guide-url="https://m.blog.naver.com/amadejjs/223940980574">Buffer 도움말</button>
-                <button id="card-news-publishing-close" class="text-btn" type="button" aria-label="발행 설정 닫기">닫기</button>
-              </div>
+              <a class="ui-text-action compact" href="https://m.blog.naver.com/amadejjs/223940980574" target="_blank" rel="noopener noreferrer">Buffer 도움말 ↗</a>
             </div>
-            <p class="card-news-drive-notice">카드 이미지는 연결된 Google Drive에 공개 링크가 있는 임시 파일로 올라갑니다. 발행 완료 확인 후 자동 삭제되며, 상태를 확인할 수 없으면 파일이 남을 수 있습니다.</p>
-            <div id="card-news-publishing-notice" class="card-news-publishing-notice" aria-live="polite"></div>
-            <div id="card-news-publishing-channels" class="card-news-publishing-channels"></div>
-            <label class="card-news-publishing-text" for="card-news-publishing-text">
+            <fieldset class="card-news-publishing-channel-group ui-selectable-card-group">
+              <legend>발행 채널 <small id="card-news-publishing-channel-limit"></small></legend>
+              <div id="card-news-publishing-channels" class="card-news-publishing-channels ui-selectable-card-grid"></div>
+            </fieldset>
+            <label class="card-news-publishing-text ui-workflow-field" for="card-news-publishing-text">
               <span>발행 문구</span>
               <textarea id="card-news-publishing-text" rows="4" maxlength="5000"></textarea>
             </label>
-            <div class="card-news-publishing-actions">
-              <span id="card-news-publishing-status" aria-live="polite"></span>
-              <button id="card-news-publish-button" class="primary" type="button">지금 발행</button>
+            <p id="card-news-drive-notice" class="card-news-drive-notice">카드 이미지는 Google Drive를 통해 임시 전달되며, 발행 완료 확인 후 자동 삭제됩니다.</p>
+            <div id="card-news-publishing-result" class="card-news-publishing-result" aria-live="polite" hidden></div>
+            <div class="card-news-publishing-actions ui-action-row">
+              <span id="card-news-publishing-status" class="ui-workflow-feedback" role="status" aria-live="polite"></span>
+              <button id="card-news-publish-button" class="primary" type="submit">지금 발행</button>
             </div>
-            <div id="card-news-publishing-result" class="card-news-publishing-result" hidden></div>
-          </section>
-          <div id="card-news-result-grid" class="card-news-result-grid"></div>
+          </form>
         </section>
         </div>
 

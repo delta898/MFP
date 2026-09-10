@@ -326,7 +326,7 @@ test('delegates publishing config and execution through the card-news boundary',
             async publish(input) { calls.push(['publish', input]); return { success: true }; }
         }
     });
-    assert.equal(service.getPublishingConfig('generation-1').generation_id, 'generation-1');
+    assert.equal((await service.getPublishingConfig('generation-1')).generation_id, 'generation-1');
     assert.equal((await service.publish({ generation_id: 'generation-1' })).success, true);
     assert.equal(calls.length, 2);
 });

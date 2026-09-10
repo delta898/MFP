@@ -326,9 +326,9 @@ function createSnsDistributionRunner(options = {}) {
         const firstRow = publishable[0];
         let publishUrl = String(firstRow.originalUrl || '').trim();
         try {
-            publishUrl = await urlService.shorten(publishUrl, CONFIG.NOTIFY_BITLY_TOKEN) || publishUrl;
+            publishUrl = await urlService.shorten(publishUrl) || publishUrl;
         } catch (error) {
-            Logger?.warn?.(`⚠️ [SNS] Bitly URL 단축 실패, 원문 URL을 사용합니다: ${error.message}`);
+            Logger?.warn?.(`⚠️ [SNS] URL 단축 실패, 원문 URL을 사용합니다: ${error.message}`);
         }
 
         let hashtags = normalizeHashtagTokens(

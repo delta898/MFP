@@ -58,12 +58,41 @@ function buildDefaultPublishText(generation = {}) {
     return [caption, sourceUrl, hashtags].filter(Boolean).join('\n\n');
 }
 
+function replaceExactSourceUrl(text, sourceUrl, replacementUrl) {
+    const input = String(text || '');
+    const source = String(sourceUrl || '').trim();
+    if (!source) return { text: input, replaced: false };
+    let cursor = 0;
+    let output = '';
+    let replaced = false;
+    while (cursor < input.length) {
+        const index = input.indexOf(source, cursor);
+        if (index < 0) break;
+        const before = index > 0 ? input[index - 1] : '';
+        const afterIndex = index + source.length;
+        const after = afterIndex < input.length ? input[afterIndex] : '';
+        const startsAtBoundary = !before || /[\s([{"'<:]/u.test(before);
+        const endsAtBoundary = !after || /[\s)\]}"'>,.;!?]/u.test(after);
+        output += input.slice(cursor, index);
+        if (startsAtBoundary && endsAtBoundary) {
+            output += replacementUrl;
+            replaced = true;
+        } else {
+            output += source;
+        }
+        cursor = afterIndex;
+    }
+    output += input.slice(cursor);
+    return { text: output, replaced };
+}
+
 function createCardNewsPublishingService(options = {}) {
     const {
         CONFIG = {},
         generationService,
         bufferClient,
         mediaTransport,
+        urlService,
         fileSystem = fs,
         pathApi = path,
         logger,
@@ -89,7 +118,7 @@ function createCardNewsPublishingService(options = {}) {
         );
     }
 
-    function getConfig(generationId) {
+    async function getConfig(generationId) {
         const { generation, assets } = generationService.resolveCompleteAssets(generationId);
         const cardCount = assets.length;
         const unsupportedAsset = assets.find((asset) => !['image/png', 'image/jpeg', 'image/webp'].includes(asset.mime_type));
@@ -112,16 +141,51 @@ function createCardNewsPublishingService(options = {}) {
                             ? 'Instagram 다중 이미지 피드는 9:16 비율을 지원하지 않습니다.'
                             : (channel.is_disconnected || channel.is_locked ? 'Buffer에서 현재 사용할 수 없는 채널입니다.' : ''))))
         }));
-        return {
+        const config = {
             generation_id: generation.id,
             title: generation.title,
             source_url: String(generation.source?.canonical_url || ''),
             default_text: buildDefaultPublishText(generation),
             card_count: cardCount,
+            max_channels: MAX_CHANNELS,
             buffer_configured: Boolean(String(CONFIG.BUFFER_API_KEY || '').trim() && channels.length > 0),
             media_transport: mediaTransportAvailable() ? String(mediaTransport.transport || 'public_media') : '',
+            url_shortening_configured: urlService?.isConfigured?.() === true,
             channels
         };
+        const ready = config.buffer_configured
+            && Boolean(config.media_transport)
+            && channels.some((channel) => channel.compatible);
+        if (ready && config.default_text) {
+            const prepared = await resolvePublishText(config.default_text, config.source_url);
+            config.default_text = prepared.text;
+            config.url_shortening = prepared.url_shortening;
+        }
+        return config;
+    }
+
+    async function resolvePublishText(text, sourceUrl) {
+        const originalText = String(text || '').trim();
+        const originalUrl = String(sourceUrl || '').trim();
+        const match = replaceExactSourceUrl(originalText, originalUrl, originalUrl);
+        if (!urlService?.isConfigured?.() || !match.replaced || typeof urlService?.shorten !== 'function') {
+            return { text: originalText, source_url: originalUrl, url_shortening: 'not_applied' };
+        }
+        try {
+            const shortenedUrl = String(await urlService.shorten(originalUrl) || '').trim();
+            const parsed = new URL(shortenedUrl);
+            if (!['http:', 'https:'].includes(parsed.protocol) || shortenedUrl === originalUrl) {
+                return { text: originalText, source_url: originalUrl, url_shortening: 'fallback' };
+            }
+            return {
+                text: replaceExactSourceUrl(originalText, originalUrl, shortenedUrl).text,
+                source_url: shortenedUrl,
+                url_shortening: 'shortened'
+            };
+        } catch (error) {
+            logger?.warn?.(`⚠️ [CardNews] URL 단축 실패, 원문 URL을 사용합니다: ${error.message}`);
+            return { text: originalText, source_url: originalUrl, url_shortening: 'fallback' };
+        }
     }
 
     function selectChannels(ids, cardCount) {
@@ -189,11 +253,13 @@ function createCardNewsPublishingService(options = {}) {
         if (String(generation.settings?.aspect_ratio || '') === '9:16' && channels.some((channel) => channel.service === 'instagram')) {
             throw createPublishingError(400, 'CARD_NEWS_INSTAGRAM_ASPECT_UNSUPPORTED', 'Instagram 다중 이미지 피드에는 1:1 또는 4:5 비율을 사용해 주세요.');
         }
-        const text = String(input.text || '').trim() || buildDefaultPublishText(generation);
-        if (!text) throw createPublishingError(400, 'CARD_NEWS_PUBLISH_TEXT_REQUIRED', '발행 문구를 입력해 주세요.');
+        const requestedText = String(input.text || '').trim() || buildDefaultPublishText(generation);
+        if (!requestedText) throw createPublishingError(400, 'CARD_NEWS_PUBLISH_TEXT_REQUIRED', '발행 문구를 입력해 주세요.');
         const sourceUrl = String(generation.source?.canonical_url || '').trim();
+        const resolvedText = await resolvePublishText(requestedText, sourceUrl);
+        const text = resolvedText.text;
         for (const channel of channels) {
-            const length = measurePost(text, channel.service, sourceUrl);
+            const length = measurePost(text, channel.service, resolvedText.source_url);
             const limit = Number(SNS_SERVICE_POLICIES[channel.service]?.limit) || 0;
             if (limit > 0 && length > limit) throw createPublishingError(400, 'CARD_NEWS_PUBLISH_TEXT_TOO_LONG', `${channel.name || channel.service} 채널의 글자 수 제한을 초과했습니다. (${length}/${limit}자)`);
         }
@@ -260,6 +326,7 @@ function createCardNewsPublishingService(options = {}) {
             success_count: successCount,
             failure_count: normalizedResults.length - successCount,
             media_cleanup: { attempted: terminal.all_terminal, retained: !terminal.all_terminal || !cleanupSucceeded },
+            url_shortening: resolvedText.url_shortening,
             results: normalizedResults
         };
     }
@@ -274,5 +341,6 @@ module.exports = {
     normalizeChannel,
     normalizePublicImageUrl,
     buildDefaultPublishText,
+    replaceExactSourceUrl,
     createCardNewsPublishingService
 };

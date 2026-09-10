@@ -12,6 +12,7 @@ test('Card News is a top-level source-preview workflow', () => {
     const navigation = fs.readFileSync(path.join(uiRoot, 'scripts/foundation/navigation.js'), 'utf8');
     const script = [
         'scripts/features/card-news/source-preview.js',
+        'scripts/features/card-news/publishing.js',
         'scripts/features/card-news/management.js',
         'scripts/features/card-news/source-manager.js'
     ].map((file) => fs.readFileSync(path.join(uiRoot, file), 'utf8')).join('\n');
@@ -98,13 +99,26 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(html, /id="card-news-export-all"[^>]*>전체 이미지 받기</);
     assert.match(script, /\/api\/v1\/card-news\/exports\/\$\{encodeURIComponent\(generation\.id\)\}\.zip/);
     assert.match(html, /id="card-news-publish-open"[^>]*hidden>SNS 발행</);
-    assert.match(html, /id="card-news-publishing-title">SNS 발행</);
-    assert.match(html, /id="card-news-publishing-panel"[^>]*hidden/);
+    assert.match(html, /id="card-news-publishing-readiness"[^>]*role="status"[^>]*hidden/);
+    assert.match(html, /id="card-news-publishing-panel" class="card-news-publishing-panel ui-workflow-card"[^>]*aria-labelledby="card-news-publishing-title"[^>]*hidden/);
+    assert.match(html, /id="card-news-publishing-form" class="card-news-publishing-form"/);
+    assert.match(html, />3단계 · 선택</);
+    assert.match(html, /id="card-news-publishing-title">SNS에 발행</);
+    assert.match(html, /href="https:\/\/m\.blog\.naver\.com\/amadejjs\/223940980574"[^>]*target="_blank"[^>]*rel="noopener noreferrer"/);
+    assert.match(html, /class="card-news-publishing-channel-group ui-selectable-card-group"[\s\S]*id="card-news-publishing-channels" class="card-news-publishing-channels ui-selectable-card-grid"/);
+    assert.match(html, /class="card-news-publishing-actions ui-action-row"/);
+    assert.doesNotMatch(html, /id="card-news-publishing-close"|id="card-news-buffer-settings"|id="card-news-google-settings"/);
     assert.match(script, /\/api\/v1\/card-news\/publishing\/config\?generation_id=/);
     assert.match(script, /\/api\/v1\/card-news\/publishing\/publish/);
-    assert.match(script, /카드 이미지를 Buffer에 전달하려면 설정에서 Google 계정을 연결/);
+    assert.match(script, /설정 Beta > 기본 연결 > 콘텐츠 공간에서 Google 계정을 먼저 연결/);
+    assert.match(script, /설정 Beta > 부가 서비스 > SNS 배포에서 Buffer 연결을 먼저 완료/);
     assert.doesNotMatch(script, /카드 이미지를 Buffer에 전달하려면[^\n]*WordPress/);
-    assert.match(html, /class="card-news-drive-notice"[^>]*>[^<]*Google Drive[^<]*공개 링크[^<]*자동 삭제/);
+    assert.match(html, /class="card-news-drive-notice"[^>]*>[^<]*Google Drive[^<]*자동 삭제/);
+    assert.doesNotMatch(html + script, /Bitly로 단축|원문 링크는 발행할 때/);
+    assert.match(script, /publishingConfig\?\.max_channels/);
+    assert.match(script, /void openCardNewsPublishing\(\{ scroll: false \}\)/);
+    assert.match(script, /panel\.hidden = false/);
+    assert.doesNotMatch(script, /panel\.showModal\(\)|openCardNewsPublishingSetting|closeCardNewsPublishing/);
     assert.match(script, /완성된 카드 \$\{generation\.cards\?\.length \|\| 0\}장을 선택한/);
     assert.match(script, /config\.default_text/);
     assert.match(script, /outcome === 'completed'[\s\S]*?'발행 완료'/);
@@ -237,11 +251,28 @@ test('Card News results use shared sequence and action hierarchy without a fixed
     assert.doesNotMatch(resultSurfaceCss, /#[0-9a-f]{3,8}\b|rgba?\(|linear-gradient/i);
 });
 
-test('Card News source manager is viewport-centered with bounded overflow', () => {
-    const css = fs.readFileSync(path.join(uiRoot, 'styles/features/card-news.css'), 'utf8');
-    assert.match(css, /\.card-news-source-manager\s*\{[^}]*position:\s*fixed[^}]*inset:\s*0[^}]*margin:\s*auto/);
-    assert.match(css, /\.card-news-source-manager\s*\{[^}]*max-height:\s*calc\(100vh/);
-    assert.match(css, /\.card-news-source-manager\s*\{[^}]*overflow:\s*auto/);
+test('Card News source manager uses a transaction dialog while publishing stays inline', () => {
+    const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot }).html;
+    const css = fs.readFileSync(path.join(uiRoot, 'styles/patterns/transaction-dialog.css'), 'utf8');
+    assert.match(html, /id="card-news-source-manager" class="card-news-source-manager ui-transaction-dialog"/);
+    assert.match(html, /id="card-news-publishing-panel" class="card-news-publishing-panel ui-workflow-card"/);
+    assert.doesNotMatch(html, /id="card-news-publishing-panel" class="[^"]*ui-transaction-dialog/);
+    assert.match(css, /\.ui-transaction-dialog\s*\{[^}]*position:\s*fixed[^}]*inset:\s*0[^}]*margin:\s*auto/s);
+    assert.match(css, /\.ui-transaction-dialog\s*\{[^}]*max-height:\s*calc\(100vh[^}]*overflow:\s*auto/s);
+    assert.match(css, /\.ui-transaction-dialog-footer\s*\{[^}]*border-top:\s*1px solid var\(--ui-border-default\)/s);
+    assert.doesNotMatch(css, /#[0-9a-f]{3,8}\b|rgba?\(/i);
+});
+
+test('Card News publishing keeps provider state and palette out of feature styling', () => {
+    const css = fs.readFileSync(path.join(uiRoot, 'styles/features/card-news-results.css'), 'utf8');
+    const selectionCss = fs.readFileSync(path.join(uiRoot, 'styles/patterns/selection-controls.css'), 'utf8');
+    const publishingCss = css.slice(0, css.indexOf('.card-news-result-grid'));
+    assert.match(publishingCss, /\.card-news-publishing-panel\s*\{[^}]*margin-top:\s*var\(--ui-space-5\)[^}]*padding:\s*var\(--ui-space-6\)/s);
+    assert.match(publishingCss, /\.card-news-publishing-form\s*\{[^}]*gap:\s*var\(--ui-space-5\)/s);
+    assert.match(publishingCss, /\.card-news-publishing-result-item\s*\{[^}]*var\(--ui-border-default\)[^}]*var\(--ui-surface-muted\)/s);
+    assert.match(selectionCss, /\.ui-selectable-card-group > legend\s*\{[^}]*margin:\s*0 0 var\(--ui-space-3\)/s);
+    assert.doesNotMatch(publishingCss, /card-news-publishing-channel-group (?:legend|> legend)/);
+    assert.doesNotMatch(publishingCss, /#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(|\[data-style/i);
 });
 
 test('Card News view claims its parent width on the first layout pass', () => {

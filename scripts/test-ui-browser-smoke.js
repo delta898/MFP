@@ -1578,6 +1578,31 @@ async function run() {
         assert.equal(cardNewsPromptResult.imageActionsInsideMedia, true);
         assert.equal(cardNewsPromptResult.promptActionsOutsideMedia, true);
         assert.equal(cardNewsPromptResult.headingActionsOnRight, true);
+        await page.route('**/api/v1/card-news/publishing/config?generation_id=*', async (route) => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json; charset=utf-8',
+                body: JSON.stringify({
+                    success: true,
+                    data: {
+                        generation_id: 'ui-smoke-complete-result',
+                        title: '완성된 UI smoke 카드뉴스',
+                        source_url: 'https://example.com/card-news',
+                        default_text: '완성된 UI smoke 카드뉴스\n\nhttps://short.example/card-news',
+                        card_count: 3,
+                        max_channels: 3,
+                        buffer_configured: true,
+                        media_transport: 'google_drive',
+                        url_shortening_configured: true,
+                        channels: [
+                            { id: 'instagram-1', name: 'Instagram', service: 'instagram', max_assets: 10, compatible: true },
+                            { id: 'bluesky-1', name: 'Bluesky', service: 'bluesky', max_assets: 4, compatible: true },
+                            { id: 'pinterest-1', name: 'Pinterest', service: 'pinterest', max_assets: 1, compatible: false, reason: '이미지를 최대 1장까지 지원합니다.' }
+                        ]
+                    }
+                })
+            });
+        });
         await page.evaluate(() => {
             const imageUrl = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
             renderCardNewsGeneration({
@@ -1598,6 +1623,7 @@ async function run() {
                 }))
             }, { scroll: false });
         });
+        await page.waitForFunction(() => document.getElementById('card-news-publishing-panel')?.hidden === false);
         assert.deepEqual(await page.evaluate(() => ({
             bulkSecondary: document.getElementById('card-news-bulk-image-action')?.classList.contains('secondary'),
             publishPrimary: document.getElementById('card-news-publish-open')?.classList.contains('primary'),
@@ -1625,6 +1651,84 @@ async function run() {
             downloadInsideMedia: true,
             completedActionOpacity: '0'
         });
+        await page.waitForFunction(() => document.querySelectorAll('[data-card-news-publish-channel]').length === 3);
+        assert.deepEqual(await page.evaluate(() => {
+            const panel = document.getElementById('card-news-publishing-panel');
+            const resultPanel = document.getElementById('card-news-result-panel');
+            const help = panel.querySelector('a[target="_blank"]');
+            const heading = panel.querySelector('.card-news-publishing-heading');
+            const channelLegend = panel.querySelector('.card-news-publishing-channel-group legend');
+            const channelGrid = document.getElementById('card-news-publishing-channels');
+            const publishButton = document.getElementById('card-news-publish-button');
+            const panelBox = panel.getBoundingClientRect();
+            const headingBox = heading.getBoundingClientRect();
+            const buttonBox = publishButton.getBoundingClientRect();
+            return {
+                inlineAfterResult: panel.getBoundingClientRect().top >= resultPanel.getBoundingClientRect().bottom,
+                contentIsPadded: headingBox.left - panelBox.left >= 20 && headingBox.top - panelBox.top >= 20,
+                actionIsPadded: panelBox.right - buttonBox.right >= 20 && panelBox.bottom - buttonBox.bottom >= 20,
+                channelLabelGapIsClear: channelGrid.getBoundingClientRect().top - channelLegend.getBoundingClientRect().bottom >= 10,
+                stepLabel: panel.querySelector('.ui-workflow-eyebrow')?.textContent.trim(),
+                channelCount: document.querySelectorAll('.card-news-publishing-channel.ui-selectable-card').length,
+                limit: document.getElementById('card-news-publishing-channel-limit')?.textContent,
+                preparedText: document.getElementById('card-news-publishing-text')?.value,
+                providerNamed: document.getElementById('card-news-drive-notice')?.textContent.includes('Bitly'),
+                externalHelp: help?.target === '_blank' && help?.rel.includes('noopener'),
+                settingsControls: Boolean(document.querySelector('#card-news-buffer-settings, #card-news-google-settings')),
+                primaryDisabled: document.getElementById('card-news-publish-button')?.disabled
+            };
+        }), {
+            inlineAfterResult: true,
+            contentIsPadded: true,
+            actionIsPadded: true,
+            channelLabelGapIsClear: true,
+            stepLabel: '3단계 · 선택',
+            channelCount: 3,
+            limit: '최대 3개 · 0개 선택',
+            preparedText: '완성된 UI smoke 카드뉴스\n\nhttps://short.example/card-news',
+            providerNamed: false,
+            externalHelp: true,
+            settingsControls: false,
+            primaryDisabled: true
+        });
+        await page.locator('#card-news-publish-open').click();
+        assert.equal(await page.locator('#card-news-publishing-panel').isVisible(), true);
+        await page.locator('[data-card-news-publish-channel][value="instagram-1"]').check();
+        assert.equal(await page.locator('#card-news-publish-button').isEnabled(), true);
+        assert.equal(await page.locator('#card-news-publishing-channel-limit').textContent(), '최대 3개 · 1개 선택');
+        await page.unroute('**/api/v1/card-news/publishing/config?generation_id=*');
+        await page.route('**/api/v1/card-news/publishing/config?generation_id=*', async (route) => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json; charset=utf-8',
+                body: JSON.stringify({
+                    success: true,
+                    data: {
+                        generation_id: 'ui-smoke-not-ready',
+                        buffer_configured: false,
+                        media_transport: '',
+                        channels: []
+                    }
+                })
+            });
+        });
+        await page.evaluate(async () => {
+            cardNewsViewState.generation = { ...cardNewsViewState.generation, id: 'ui-smoke-not-ready' };
+            cardNewsViewState.publishingConfig = null;
+            await openCardNewsPublishing({ scroll: false });
+        });
+        assert.deepEqual(await page.evaluate(() => ({
+            panelHidden: document.getElementById('card-news-publishing-panel')?.hidden,
+            publishButtonHidden: document.getElementById('card-news-publish-open')?.hidden,
+            readinessState: document.getElementById('card-news-publishing-readiness')?.dataset.state,
+            readinessText: document.getElementById('card-news-publishing-readiness')?.textContent
+        })), {
+            panelHidden: true,
+            publishButtonHidden: true,
+            readinessState: 'warning',
+            readinessText: '설정 Beta > 부가 서비스 > SNS 배포에서 Buffer 연결을 먼저 완료해 주세요. 설정 Beta > 기본 연결 > 콘텐츠 공간에서 Google 계정을 먼저 연결해 주세요.'
+        });
+        await page.unroute('**/api/v1/card-news/publishing/config?generation_id=*');
         await page.locator('.card-news-result-image-wrap').first().hover();
         await page.waitForFunction(() => getComputedStyle(document.querySelector('.card-news-result-image-wrap .card-news-media-actions')).opacity === '1');
         assert.deepEqual(await page.evaluate(() => {

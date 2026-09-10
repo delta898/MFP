@@ -268,9 +268,8 @@ test('distribution runner shortens URL once, generates hashtags once, and saves 
             }
         },
         urlService: {
-            async shorten(url, token) {
+            async shorten(url) {
                 shortenCalls += 1;
-                assert.equal(token, 'bitly-token');
                 assert.equal(url, 'https://blog.example/long');
                 return 'https://bit.ly/short';
             }

@@ -95,6 +95,7 @@ test('JavaScript manifest preserves one explicit classic-script execution order'
         'scripts/features/blog-next/automation-settings.js',
         'scripts/features/blog-next/runner.js',
         'scripts/features/card-news/source-preview.js',
+        'scripts/features/card-news/publishing.js',
         'scripts/features/card-news/management.js',
         'scripts/features/card-news/source-manager.js',
         'scripts/foundation/navigation.js',

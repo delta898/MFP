@@ -16,6 +16,7 @@ const cardNewsViewState = {
   sourcesStale: true,
   generating: false,
   publishing: false,
+  publishingRequestId: 0,
   publishingConfig: null,
   publishingOutcome: '',
   publishedChannelIds: new Set(),
@@ -210,8 +211,19 @@ function renderCardNewsGeneration(generation, options = {}) {
   if (previousGenerationId && previousGenerationId !== generation?.id) {
     const publishingPanel = document.getElementById('card-news-publishing-panel');
     if (publishingPanel) publishingPanel.hidden = true;
+    cardNewsViewState.publishingRequestId += 1;
     const publishingText = document.getElementById('card-news-publishing-text');
     if (publishingText) publishingText.value = '';
+    const publishingStatus = document.getElementById('card-news-publishing-status');
+    if (publishingStatus) {
+      publishingStatus.textContent = '';
+      publishingStatus.dataset.state = '';
+    }
+    const publishingResult = document.getElementById('card-news-publishing-result');
+    if (publishingResult) {
+      publishingResult.hidden = true;
+      publishingResult.innerHTML = '';
+    }
     cardNewsViewState.publishingConfig = null;
     cardNewsViewState.publishingOutcome = '';
     cardNewsViewState.publishedChannelIds.clear();
@@ -244,7 +256,7 @@ function renderCardNewsGeneration(generation, options = {}) {
       ? `/api/v1/card-news/exports/${encodeURIComponent(generation.id)}.zip`
       : '#';
   }
-  if (publishOpen) publishOpen.hidden = !(imageCount > 0 && imageCount === (generation.cards?.length || 0));
+  if (publishOpen) publishOpen.hidden = true;
   document.getElementById('card-news-result-summary').textContent = imageCount > 0
     ? `${generation.cards?.length || 0}장의 구성과 ${imageCount}장의 이미지가 준비되었습니다.`
     : `${generation.cards?.length || 0}장의 구성과 이미지 프롬프트가 준비되었습니다.`;
@@ -295,161 +307,16 @@ function renderCardNewsGeneration(generation, options = {}) {
       grid.querySelector(`[data-card-news-local-image="${button.dataset.cardNewsLocalPicker}"]`)?.click();
     });
   });
+  const complete = imageCount > 0 && imageCount === (generation.cards?.length || 0);
+  if (complete) {
+    void openCardNewsPublishing({ scroll: false });
+  } else {
+    const publishingPanel = document.getElementById('card-news-publishing-panel');
+    const readiness = document.getElementById('card-news-publishing-readiness');
+    if (publishingPanel) publishingPanel.hidden = true;
+    if (readiness) readiness.hidden = true;
+  }
   if (options.scroll !== false) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-function selectedCardNewsPublishingChannels() {
-  return [...document.querySelectorAll('[data-card-news-publish-channel]:checked')]
-    .map((input) => input.value)
-    .filter(Boolean);
-}
-
-function syncCardNewsPublishButton() {
-  const button = document.getElementById('card-news-publish-button');
-  if (!button) return;
-  const outcome = cardNewsViewState.publishingOutcome;
-  button.textContent = cardNewsViewState.publishing
-    ? '발행 중…'
-    : (outcome === 'completed'
-      ? '발행 완료'
-      : (outcome === 'accepted' ? '발행 요청 완료' : (outcome === 'partial' ? '실패 채널 다시 시도' : (outcome === 'failed' ? '다시 시도' : '지금 발행'))));
-  button.disabled = cardNewsViewState.publishing
-    || outcome === 'completed'
-    || outcome === 'accepted'
-    || selectedCardNewsPublishingChannels().length === 0;
-}
-
-function renderCardNewsPublishingConfig(config = {}) {
-  cardNewsViewState.publishingConfig = config;
-  const notice = document.getElementById('card-news-publishing-notice');
-  const channels = document.getElementById('card-news-publishing-channels');
-  const text = document.getElementById('card-news-publishing-text');
-  if (!notice || !channels || !text) return;
-  const issues = [];
-  if (!config.buffer_configured) issues.push('설정 > SNS에서 Buffer 연결과 채널을 먼저 설정해 주세요.');
-  if (!config.media_transport) issues.push('카드 이미지를 Buffer에 전달하려면 설정에서 Google 계정을 연결해 주세요.');
-  notice.textContent = issues.join(' ');
-  notice.dataset.state = issues.length ? 'warning' : 'ready';
-  channels.innerHTML = (config.channels || []).map((channel) => {
-    const completed = cardNewsViewState.publishedChannelIds.has(String(channel.id || ''));
-    const compatible = channel.compatible && !issues.length;
-    return `
-    <label class="card-news-publishing-channel${compatible && !completed ? '' : ' is-disabled'}" title="${escapeHtml(channel.reason || '')}">
-      <input type="checkbox" value="${escapeHtml(channel.id)}" data-card-news-publish-channel data-card-news-publish-compatible="${compatible ? 'true' : 'false'}" data-card-news-publish-completed="${completed ? 'true' : 'false'}" ${compatible && !completed ? '' : 'disabled'}>
-      <span><strong>${escapeHtml(channel.name || channel.service)}</strong><small>${escapeHtml(completed ? '발행 완료' : (channel.compatible ? `${channel.max_assets}장까지` : channel.reason))}</small></span>
-    </label>`;
-  }).join('') || '<p>설정된 Buffer 채널이 없습니다.</p>';
-  if (!text.value.trim()) text.value = String(config.default_text || [config.title, config.source_url].filter(Boolean).join('\n\n'));
-  channels.querySelectorAll('[data-card-news-publish-channel]').forEach((input) => {
-    input.addEventListener('change', syncCardNewsPublishButton);
-  });
-  syncCardNewsPublishButton();
-}
-
-async function openCardNewsPublishing() {
-  const generation = cardNewsViewState.generation;
-  const panel = document.getElementById('card-news-publishing-panel');
-  if (!generation || !panel || cardNewsViewState.generating) return;
-  panel.hidden = false;
-  const notice = document.getElementById('card-news-publishing-notice');
-  if (notice) {
-    notice.textContent = '발행 가능한 채널을 확인하고 있습니다.';
-    notice.dataset.state = 'loading';
-  }
-  try {
-    const config = await fetchJson(`/api/v1/card-news/publishing/config?generation_id=${encodeURIComponent(generation.id)}`);
-    renderCardNewsPublishingConfig(config);
-  } catch (error) {
-    if (notice) {
-      notice.textContent = error.message || 'SNS 발행 설정을 확인하지 못했습니다.';
-      notice.dataset.state = 'error';
-    }
-  }
-  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
-
-function setCardNewsPublishing(publishing) {
-  cardNewsViewState.publishing = publishing;
-  cardNewsViewState.generating = publishing;
-  const button = document.getElementById('card-news-publish-button');
-  const status = document.getElementById('card-news-publishing-status');
-  document.querySelectorAll('#card-news-regenerate, #card-news-bulk-image-action, #card-news-export-all, [data-card-news-image-action], [data-card-news-local-image], #card-news-publishing-close').forEach((control) => {
-    if ('disabled' in control) control.disabled = publishing;
-    control.classList?.toggle('is-disabled', publishing);
-  });
-  document.querySelectorAll('[data-card-news-publish-channel]').forEach((control) => {
-    control.disabled = publishing
-      || control.dataset.cardNewsPublishCompatible !== 'true'
-      || control.dataset.cardNewsPublishCompleted === 'true';
-  });
-  if (status && publishing) {
-    status.textContent = '이미지를 준비하고 SNS에 발행하고 있습니다.';
-    status.dataset.state = 'loading';
-  }
-  button?.classList.toggle('is-loading', publishing);
-  button?.setAttribute('aria-busy', String(publishing));
-  syncCardNewsPublishButton();
-}
-
-async function publishCardNews() {
-  const generation = cardNewsViewState.generation;
-  const channelIds = selectedCardNewsPublishingChannels();
-  const text = document.getElementById('card-news-publishing-text')?.value?.trim() || '';
-  if (!generation || !channelIds.length || cardNewsViewState.publishing) return;
-  const confirmed = await showUiConfirm(
-    `완성된 카드 ${generation.cards?.length || 0}장을 선택한 ${channelIds.length}개 채널에 지금 발행할까요?`,
-    { title: '카드뉴스 발행', confirmText: '지금 발행', cancelText: '취소' }
-  );
-  if (confirmed === false) return;
-  setCardNewsPublishing(true);
-  const status = document.getElementById('card-news-publishing-status');
-  const resultElement = document.getElementById('card-news-publishing-result');
-  if (resultElement) {
-    resultElement.hidden = true;
-    resultElement.innerHTML = '';
-  }
-  try {
-    const result = await postJson('/api/v1/card-news/publishing/publish', {
-      generation_id: generation.id,
-      channel_ids: channelIds,
-      text
-    });
-    if (status) {
-      status.textContent = result.success
-        ? (result.confirmed ? `${result.success_count}개 채널에 발행했습니다.` : `${result.success_count}개 채널에 발행 요청을 전달했습니다.`)
-        : `성공 ${result.success_count}개, 실패 ${result.failure_count}개입니다.`;
-      status.dataset.state = result.success ? 'ready' : 'warning';
-    }
-    cardNewsViewState.publishingOutcome = result.success
-      ? (result.confirmed ? 'completed' : 'accepted')
-      : (Number(result.success_count || 0) > 0 ? 'partial' : 'failed');
-    const successfulChannelIds = new Set((result.results || [])
-      .filter((item) => item.success)
-      .map((item) => String(item.channel_id || '')));
-    successfulChannelIds.forEach((channelId) => cardNewsViewState.publishedChannelIds.add(channelId));
-    document.querySelectorAll('[data-card-news-publish-channel]').forEach((input) => {
-      if (!successfulChannelIds.has(input.value)) return;
-      input.checked = false;
-      input.dataset.cardNewsPublishCompleted = 'true';
-    });
-    if (resultElement) {
-      resultElement.hidden = false;
-      resultElement.innerHTML = (result.results || []).map((item) => `
-        <div class="card-news-publishing-result-item" data-state="${item.success ? 'ready' : 'error'}">
-          <strong>${escapeHtml(item.channel_name || item.service)}</strong>
-          <span>${escapeHtml(item.success ? (item.status === 'sent' ? '발행 완료' : '발행 요청 완료') : (item.message || '발행 실패'))}</span>
-          ${item.external_link ? `<a href="${escapeHtml(item.external_link)}" target="_blank" rel="noopener noreferrer">게시물 열기 ↗</a>` : ''}
-        </div>`).join('');
-    }
-  } catch (error) {
-    cardNewsViewState.publishingOutcome = 'failed';
-    if (status) {
-      status.textContent = error.message || '카드뉴스를 발행하지 못했습니다.';
-      status.dataset.state = 'error';
-    }
-  } finally {
-    setCardNewsPublishing(false);
-  }
 }
 
 function setCardNewsImageWorking(working, message = '', options = {}) {
@@ -729,11 +596,11 @@ function bindCardNewsView() {
     const mode = imageCount === cards.length && cards.length > 0 ? 'all' : 'missing';
     void runCardNewsImageGeneration({ mode });
   });
-  document.getElementById('card-news-publish-open')?.addEventListener('click', () => void openCardNewsPublishing());
-  document.getElementById('card-news-publishing-close')?.addEventListener('click', () => {
-    document.getElementById('card-news-publishing-panel').hidden = true;
+  document.getElementById('card-news-publish-open')?.addEventListener('click', () => void openCardNewsPublishing({ scroll: true }));
+  document.getElementById('card-news-publishing-form')?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    void publishCardNews();
   });
-  document.getElementById('card-news-publish-button')?.addEventListener('click', () => void publishCardNews());
   ['card-news-slide-count', 'card-news-aspect-ratio', 'card-news-style', 'card-news-include-korean-text'].forEach((id) => {
     document.getElementById(id)?.addEventListener('change', handleCardNewsGenerationSettingChange);
   });

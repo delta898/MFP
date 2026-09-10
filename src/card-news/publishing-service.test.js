@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createCardNewsPublishingService, normalizeChannel, buildDefaultPublishText } = require('./publishing-service');
+const { createCardNewsPublishingService, normalizeChannel, buildDefaultPublishText, replaceExactSourceUrl } = require('./publishing-service');
 
 function fixture() {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-publishing-'));
@@ -24,14 +24,15 @@ function fixture() {
     return { root, assets, generation };
 }
 
-function config() {
+function config(overrides = {}) {
     return {
         BUFFER_API_KEY: 'buffer-key',
         BUFFER_CHANNELS: [
             { id: 'instagram-1', name: 'Instagram', service: 'instagram' },
             { id: 'bluesky-1', name: 'Bluesky', service: 'bluesky' },
             { id: 'pinterest-1', name: 'Pinterest', service: 'pinterest' }
-        ]
+        ],
+        ...overrides
     };
 }
 
@@ -45,7 +46,7 @@ function transport(overrides = {}) {
     };
 }
 
-test('publishing config reports channel-specific carousel compatibility', () => {
+test('publishing config reports channel-specific carousel compatibility', async () => {
     const data = fixture();
     try {
         const service = createCardNewsPublishingService({
@@ -54,8 +55,10 @@ test('publishing config reports channel-specific carousel compatibility', () => 
             bufferClient: { shareNowMany: async () => [] },
             mediaTransport: transport()
         });
-        const result = service.getConfig('generation-123');
+        const result = await service.getConfig('generation-123');
         assert.equal(result.card_count, 3);
+        assert.equal(result.max_channels, 3);
+        assert.equal(result.url_shortening_configured, false);
         assert.equal(result.media_transport, 'google_drive');
         assert.equal(result.default_text, '제주의 새로운 모습을 카드로 만나보세요.\n\nhttps://blog.example/jeju\n\n#제주여행 #카드뉴스');
         assert.equal(result.channels.find((item) => item.service === 'instagram').compatible, true);
@@ -75,7 +78,7 @@ test('publishing config and execution require Google public media without WordPr
             bufferClient: { shareNowMany: async () => [] },
             mediaTransport: transport({ isAvailable: () => false })
         });
-        assert.equal(service.getConfig('generation-123').media_transport, '');
+        assert.equal((await service.getConfig('generation-123')).media_transport, '');
         await assert.rejects(
             () => service.publish({ generation_id: 'generation-123', channel_ids: ['instagram-1'], text: '카드뉴스' }),
             (error) => error.code === 'CARD_NEWS_GOOGLE_DRIVE_REQUIRED' && /Google 계정/.test(error.message)
@@ -97,6 +100,20 @@ test('default publishing copy keeps the verified source URL deterministic and su
         '제주의 새로운 모습을 카드로 만나보세요.\n\n#제주여행 #카드뉴스'
     );
     fs.rmSync(data.root, { recursive: true, force: true });
+});
+
+test('canonical source replacement does not rewrite a longer user-entered URL with the same prefix', () => {
+    assert.deepEqual(
+        replaceExactSourceUrl(
+            '원문: https://blog.example/jeju\n참고 https://blog.example/jeju-more',
+            'https://blog.example/jeju',
+            'https://short.example/jeju'
+        ),
+        {
+            text: '원문: https://short.example/jeju\n참고 https://blog.example/jeju-more',
+            replaced: true
+        }
+    );
 });
 
 test('publish uploads images to public media in order, sends an ordered Buffer asset list, and cleans up after terminal success', async () => {
@@ -262,12 +279,124 @@ test('ambiguous Buffer timeout retains temporary media to avoid breaking a deliv
     }
 });
 
+test('configured Bitly shortens the canonical source once and reuses it for every selected channel', async () => {
+    const data = fixture();
+    const deliveries = [];
+    const shorteningCalls = [];
+    try {
+        const service = createCardNewsPublishingService({
+            CONFIG: config({ NOTIFY_BITLY_TOKEN: 'bitly-token' }),
+            generationService: { resolveCompleteAssets: () => data },
+            bufferClient: {
+                async shareNowMany(_key, input) {
+                    deliveries.push(...input);
+                    return input.map((item) => ({ success: true, channelId: item.channelId }));
+                }
+            },
+            mediaTransport: transport(),
+            urlService: {
+                isConfigured: () => true,
+                async shorten(url) {
+                    shorteningCalls.push(url);
+                    return 'https://bit.ly/jeju-card';
+                }
+            }
+        });
+
+        const publishingConfig = await service.getConfig('generation-123');
+        assert.equal(publishingConfig.url_shortening_configured, true);
+        assert.match(publishingConfig.default_text, /https:\/\/bit\.ly\/jeju-card/);
+        const result = await service.publish({
+            generation_id: 'generation-123',
+            channel_ids: ['instagram-1', 'bluesky-1'],
+            text: `${publishingConfig.default_text}\n\n참고 https://other.example/guide`
+        });
+
+        assert.deepEqual(shorteningCalls, ['https://blog.example/jeju']);
+        assert.equal(deliveries.length, 2);
+        assert.equal(
+            deliveries[0].text,
+            '제주의 새로운 모습을 카드로 만나보세요.\n\nhttps://bit.ly/jeju-card\n\n#제주여행 #카드뉴스\n\n참고 https://other.example/guide'
+        );
+        assert.equal(deliveries[1].text, deliveries[0].text);
+        assert.equal(result.url_shortening, 'not_applied');
+    } finally {
+        fs.rmSync(data.root, { recursive: true, force: true });
+    }
+});
+
+test('Bitly is skipped when the canonical source is absent and leaves user-entered URLs unchanged', async () => {
+    const data = fixture();
+    let shorteningCalls = 0;
+    let deliveredText = '';
+    try {
+        const service = createCardNewsPublishingService({
+            CONFIG: config({ NOTIFY_BITLY_TOKEN: 'bitly-token' }),
+            generationService: { resolveCompleteAssets: () => data },
+            bufferClient: {
+                async shareNowMany(_key, input) {
+                    deliveredText = input[0].text;
+                    return [{ success: true, channelId: input[0].channelId }];
+                }
+            },
+            mediaTransport: transport(),
+            urlService: { isConfigured: () => true, async shorten() { shorteningCalls += 1; } }
+        });
+        const text = '참고 링크 https://other.example/guide';
+        const result = await service.publish({
+            generation_id: 'generation-123',
+            channel_ids: ['instagram-1'],
+            text
+        });
+
+        assert.equal(shorteningCalls, 0);
+        assert.equal(deliveredText, text);
+        assert.equal(result.url_shortening, 'not_applied');
+    } finally {
+        fs.rmSync(data.root, { recursive: true, force: true });
+    }
+});
+
+test('Bitly failure falls back to the original source URL without blocking publication', async () => {
+    const data = fixture();
+    let deliveredText = '';
+    const warnings = [];
+    try {
+        const service = createCardNewsPublishingService({
+            CONFIG: config({ NOTIFY_BITLY_TOKEN: 'bitly-token' }),
+            generationService: { resolveCompleteAssets: () => data },
+            bufferClient: {
+                async shareNowMany(_key, input) {
+                    deliveredText = input[0].text;
+                    return [{ success: true, channelId: input[0].channelId }];
+                }
+            },
+            mediaTransport: transport(),
+            urlService: { isConfigured: () => true, async shorten() { throw new Error('temporary outage'); } },
+            logger: { warn(message) { warnings.push(message); } }
+        });
+        const text = '원문 https://blog.example/jeju';
+        const result = await service.publish({
+            generation_id: 'generation-123',
+            channel_ids: ['instagram-1'],
+            text
+        });
+
+        assert.equal(deliveredText, text);
+        assert.equal(result.success, true);
+        assert.equal(result.url_shortening, 'fallback');
+        assert.match(warnings[0], /URL 단축 실패/);
+    } finally {
+        fs.rmSync(data.root, { recursive: true, force: true });
+    }
+});
+
 test('channel normalization keeps provider limits outside the UI', () => {
     assert.equal(normalizeChannel({ service: 'X/Twitter' }).max_assets, 4);
     assert.equal(normalizeChannel({ service: 'YouTube' }).supported, false);
 });
 
-test('publishing config rejects unsupported remote formats and Instagram story ratios before upload', () => {
+test('publishing config rejects unsupported remote formats and Instagram story ratios before upload', async () => {
     const data = fixture();
     data.assets[0].mime_type = 'image/avif';
     data.generation.settings = { aspect_ratio: '9:16' };
@@ -278,7 +407,7 @@ test('publishing config rejects unsupported remote formats and Instagram story r
             bufferClient: { shareNowMany: async () => [] },
             mediaTransport: transport()
         });
-        const result = service.getConfig('generation-123');
+        const result = await service.getConfig('generation-123');
         assert.equal(result.channels.find((item) => item.service === 'instagram').compatible, false);
         assert.match(result.channels.find((item) => item.service === 'instagram').reason, /PNG, JPG 또는 WebP/);
     } finally {

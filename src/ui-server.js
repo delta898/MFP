@@ -9,10 +9,11 @@ const License = require('./license');
 const TelegramService = require('./telegram-service');
 const SlackService = require('./slack-service');
 const UrlService = require('./url-service');
-const Constants = require('./constants');
-const { APP_VERSION } = Constants;
+const { createDefaultUrlShorteningService } = require('./url-shortening-service');
+const { APP_VERSION } = require('./constants');
 const CONFIG = require('./config-loader');
 const Logger = require('./logger');
+const urlShorteningService = createDefaultUrlShorteningService({ CONFIG, urlService: UrlService, logger: Logger });
 const GoogleOAuth = require('./google-oauth');
 Logger.debug(`Application version: ${APP_VERSION}`);
 const { recordDashboardActivity } = require('./activity/dashboard-activity-store');
@@ -365,7 +366,7 @@ const snsDistributionRunner = createSnsDistributionRunner({
     store: snsSheetStore,
     bufferClient: new BufferClient({ axios }),
     aiService: snsAiService,
-    urlService: UrlService,
+    urlService: urlShorteningService,
     notificationService: TelegramService,
     getEnableSnsDistribution,
     Logger,
@@ -908,7 +909,7 @@ const autoCycleRuntime = createAutoCycleRuntime({
     Logger,
     License,
     Utils,
-    UrlService,
+    urlShorteningService,
     TelegramService,
     SlackService,
     ensureSheetsReadyForUi,
@@ -997,6 +998,7 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     snsAiService,
     cardNewsLedgerStore,
     cardNewsMediaTransport,
+    urlShorteningService,
     recordActivityLifecycle,
     DEFAULT_HOST,
     DEFAULT_PORT,

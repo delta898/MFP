@@ -1,3 +1,109 @@
 :where(input[type="checkbox"], input[type="radio"]) {
   accent-color: var(--ui-action-primary);
 }
+
+.ui-selectable-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--ui-space-3);
+}
+
+.ui-selectable-card-group {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.ui-selectable-card-group > legend {
+  margin: 0 0 var(--ui-space-3);
+  padding: 0;
+  color: var(--ui-text-primary);
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-semibold);
+  line-height: var(--ui-line-height-tight);
+}
+
+.ui-selectable-card-group > legend small {
+  margin-left: var(--ui-space-2);
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-type-caption-size);
+  font-weight: var(--ui-weight-regular);
+}
+
+.ui-selectable-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ui-space-3);
+  min-width: 0;
+  padding: var(--ui-space-3) var(--ui-space-4);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface);
+  color: var(--ui-text-primary);
+  cursor: pointer;
+  transition: var(--ui-transition-interactive);
+}
+
+.ui-selectable-card:hover,
+.ui-selectable-card:focus-within {
+  border-color: var(--ui-border-focus);
+  background: var(--ui-surface-hover);
+}
+
+.ui-selectable-card:focus-within {
+  box-shadow: var(--ui-focus-ring);
+}
+
+.ui-selectable-card:has(input:checked) {
+  border-color: var(--ui-action-primary);
+  background: var(--ui-action-primary-soft);
+}
+
+.ui-selectable-card.is-disabled {
+  opacity: var(--ui-button-disabled-opacity);
+  cursor: not-allowed;
+}
+
+.ui-selectable-card > input {
+  flex: 0 0 auto;
+  margin-block-start: 0.2em;
+}
+
+.ui-selectable-card-copy {
+  display: grid;
+  min-width: 0;
+  gap: var(--ui-space-1);
+}
+
+.ui-selectable-card-copy strong,
+.ui-selectable-card-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ui-selectable-card-copy strong {
+  color: var(--ui-text-primary);
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-semibold);
+  line-height: var(--ui-line-height-tight);
+  white-space: nowrap;
+}
+
+.ui-selectable-card-copy small {
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-type-caption-size);
+  line-height: var(--ui-line-height-body);
+}
+
+@media (max-width: 1100px) {
+  .ui-selectable-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .ui-selectable-card-grid {
+    grid-template-columns: 1fr;
+  }
+}

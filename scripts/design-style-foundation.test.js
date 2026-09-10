@@ -196,6 +196,7 @@ test('quiet sage varies palette, density, radius and elevation without style-spe
   const shared = [
     read('ui/styles/patterns/actions.css'),
     read('ui/styles/patterns/selection-controls.css'),
+    read('ui/styles/patterns/transaction-dialog.css'),
     read('ui/styles/patterns/overview-card.css'),
     read('ui/styles/features/dashboard-beta.css'),
     read('ui/styles/features/recommendation-center.css'),
@@ -320,8 +321,10 @@ test('design-system feature styles do not bypass the style contract', () => {
     'ui/styles/features/recommendation-center.css',
     'ui/styles/features/recommendations.css',
     'ui/styles/patterns/actions.css',
+    'ui/styles/patterns/selection-controls.css',
     'ui/styles/patterns/overview-card.css',
-    'ui/styles/patterns/tab-navigation.css'
+    'ui/styles/patterns/tab-navigation.css',
+    'ui/styles/patterns/transaction-dialog.css'
   ];
 
   featureFiles.forEach((file) => {

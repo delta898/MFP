@@ -83,6 +83,10 @@
 - 상태 문구와 action이 함께 있을 때 상태를 가리거나 action 위치를 흔들지 않는다.
 - 닫힌 dialog는 opacity나 pointer 차단에만 의존하지 않고 layout·렌더링 및 접근성 트리에서 제외한다. 열 때만
   명시적으로 노출해 초기 화면이나 view 전환 중 dialog surface가 순간적으로 보이지 않게 한다.
+- 공통 native dialog는 `.ui-transaction-dialog`와 `.ui-transaction-dialog-form`을 사용하고,
+  `header → body → feedback/result → footer` 순서를 유지한다. footer는 `.ui-transaction-dialog-footer`, action 묶음은
+  `.ui-transaction-dialog-footer-actions`가 소유한다. feature stylesheet는 dialog 최대 폭처럼 업무에 필요한 geometry만
+  조정하고 중앙 배치, backdrop, surface, footer 경계와 responsive stack을 복제하지 않는다.
 
 Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.html),
 [IBM Carbon modal](https://carbondesignsystem.com/components/modal/usage/),
@@ -223,6 +227,9 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 - surface fill은 장식이 아니라 hierarchy, grouping, persistent state 또는 temporary interaction 중 무엇을 전달하는지 설명할 수 있어야 한다.
 - 기본 container는 border와 spacing만으로 충분하면 채우지 않는다. hover의 `surface-hover`는 일시적 반응이고, 펼쳐진 disclosure header의 `surface-muted`는 지속 상태이므로 서로 구분한다.
 - 단독 checkbox나 radio row는 native checked state만으로 의미가 충분하면 상시 채우지 않는다. option card pattern을 쓸 때만 선택된 항목에 state-dependent soft surface를 적용한다.
+- 짧은 설명이 필요한 복수 선택 항목은 `.ui-selectable-card-grid` 안에 `.ui-selectable-card`와
+  `.ui-selectable-card-copy`를 사용한다. checked, disabled, hover와 focus 표현은 공통 pattern이 소유하고 feature는
+  선택 가능 여부·최대 개수·업무별 이유만 계산한다.
 - 여러 control을 하나의 의미 단위로 묶을 때는 먼저 fieldset, border와 spacing을 사용한다. nested surface가 실제 hierarchy를 더 명확하게 만들 때만 muted fill을 추가한다.
 - 여러 chip을 고르는 selection group은 group border와 spacing으로 범위를 표현하고, 선택된 chip에만 지속적인
   selected fill을 적용한다. 선택된 child가 있다는 이유만으로 group 전체나 그 상위 form section을 채우지 않는다.
@@ -260,8 +267,18 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
   `.ui-workflow-heading`을 사용한다. 이 pattern은 공통 card와 typography token을 소유하고 feature stylesheet는
   단계별 grid, preview 비율과 결과 item 배치처럼 업무 고유 layout만 정의한다. 저장 form 또는 현황 summary의
   anatomy를 작업 화면에 억지로 복사하지 않는다.
+- 앞 단계의 결과를 보면서 이어서 수행해야 하는 선택·실행은 modal로 문맥을 덮지 않고 다음 `.ui-workflow-card`로
+  아래에 연다. 다음 단계는 필요한 연결, 자산과 호환 대상이 준비된 뒤에만 표시하고, 미충족 사유는 앞 단계 결과의
+  가까운 feedback slot에서 정확한 설정 위치와 함께 설명한다. 이 feedback은 현재 작업 화면 안에서 설정 화면으로
+  이동시키지 않는다. 도움말처럼 작업 맥락 밖의 참고 자료는 명시적인 외부 link로 별도 page에서 연다.
+- 다음 단계에서 사용할 변환값은 단계가 열리기 전에 준비해 실제 제출 field에 반영한다. URL 단축처럼 선택적인
+  provider 기능은 provider 이름을 UI에 노출하지 않고, 미설정·실패 시 원본값으로 fallback한다. 사용자가 제출 전
+  보는 값과 실제 전송값이 달라지는 숨은 후처리는 피한다.
 - 작업 surface의 반복 field와 초기 안내는 `.ui-workflow-field`, `.ui-workflow-empty`를 사용한다. 확인 상태는
   `.ui-status-badge`의 `loading`, `ready`, `stale` 같은 semantic state로 표현하며 feature가 상태 색을 다시 정의하지 않는다.
+- selectable card 묶음은 `.ui-selectable-card-group` fieldset 안에 legend와 `.ui-selectable-card-grid`를 둔다.
+  native fieldset에서 grid gap이 legend 아래에 일관되게 적용되지 않으므로 group pattern이 공통 field 간격 token으로
+  `legend → card grid` 여백을 명시하며 feature stylesheet에서 임의 간격을 다시 만들지 않는다.
 - 동급 field 3개는 `.ui-workflow-field-grid`로 desktop 1×3, 중간 폭 2+1, mobile 1열로 축소한다. 긴 서술 field와
   연관된 단일 boolean을 같은 줄에 둘 때는 `.ui-workflow-detail-grid`의 2:1 비율을 사용하고 mobile에서는 1열로 내린다.
   단일 boolean은 별도 card를 만들지 않고 `.ui-inline-choice`의 `label → 짧은 설명` 구조로 표현한다.
@@ -570,6 +587,7 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 - 공통 dialog와 전역 상태 action
 - `블로그 Beta` top-level tab과 panel: 역할 기반 시작 slot / keyboard tab navigation / scroll 안정성
 - `설정 Beta` 기본 연결: 공용 top/local navigation / header Timer utility / 연결 상태 구분 / scoped 저장 및 갱신
+- `카드뉴스` SNS 발행: 사전 조건을 통과한 inline 3단계 / selectable channel card / channel별 결과 및 부분 실패 재시도
 - 공통 footer 외부 링크와 Blog Beta native time field: style별 field focus ring / native picker UI 예외
 
 ## 후속 검증 필요

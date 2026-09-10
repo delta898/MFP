@@ -109,6 +109,11 @@ transport이며, Telegram은 선택 가능한 별도 inbound channel이다. 외�
 `앱 > 일반`은 UI server의 접속 주소와 port를 소유하며, 이 변경만 기존 server reload 경계를 호출한다.
 앱 업데이트는 `앱 > 일반`에서 확인·설치 action만 제공한다. 강제 설치도 선택된 update channel의 최신 릴리즈를 대상으로 하며, update source·mirror·custom URL은 운영 구성으로 분리한다.
 
+URL 단축 사용처는 공급자 API나 credential을 직접 알지 않는다. 공통 URL 단축 capability가 현재 provider 설정을
+해석하고 provider adapter를 선택하며, 카드뉴스·SNS 배포·알림은 원본 URL만 전달한다. 현재 연결 UI와 adapter는
+Bitly를 제공하지만, 다른 단축 provider로 교체하거나 추가할 때 각 발행 기능을 수정하지 않는다. 단축 실패는 원문
+URL을 보존하고 본래 발행을 막지 않는다.
+
 credential과 허용 대상은 `부가 서비스 > 메시지·알림`에서 먼저 연결해야 하며, 연결되지 않은 channel의 title checkbox는 비활성화한다. Telegram의
 `delivery_enabled`와 `inbound_enabled`는 분리한다. 기존 `enabled` 값만 있는 설정은 두 값의 fallback으로 읽어
 기존 동작을 유지하며, 이후 앱 알림 변경은 delivery 값만 바꾸므로 수신 daemon을 시작·중지하지 않는다.

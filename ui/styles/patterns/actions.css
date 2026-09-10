@@ -129,6 +129,9 @@ button.ui-danger-action:hover:not(:disabled) {
 }
 
 .ui-text-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: var(--ui-space-2) var(--ui-space-3);
   border: 1px solid transparent;
   border-radius: var(--ui-button-radius);
@@ -138,8 +141,13 @@ button.ui-danger-action:hover:not(:disabled) {
   font-size: var(--ui-type-label-size);
   font-weight: var(--ui-weight-semibold);
   line-height: var(--ui-line-height-tight);
+  text-decoration: none;
   cursor: pointer;
   transition: var(--ui-transition-interactive);
+}
+
+.ui-text-action[hidden] {
+  display: none;
 }
 
 .ui-text-action:hover:not(:disabled) {
