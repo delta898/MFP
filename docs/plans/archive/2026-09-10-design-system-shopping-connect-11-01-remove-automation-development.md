@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-shopping-connect-11-01-remove-automation`
 - Base/parent branch: `codex/feature/design-system-shopping-connect-11`
 - Start date: 2026-09-10
-- Status: 구현 완료 · 사용자 검토 및 browser 회귀 승인 대기
+- Status: 완료 · browser 회귀 통과 및 parent 반영 승인
 
 ## 사용자 필요와 목표
 
@@ -52,5 +52,5 @@
 - 전용 제거 계약 테스트를 추가했고, 구조/UI 조립/runtime/HTTP server 관련 focused test 19건이 통과했다.
 - browser UI smoke test가 252개 fixture request 기준으로 통과했다.
 - `git diff --check`와 변경 JavaScript syntax 검사를 통과했다.
-- browser/full regression은 사용자 승인 전에는 실행하지 않는다.
+- 전체 단위 테스트는 parent feature의 최종 merge gate에서 실행한다.
 - 다음 수동 확인: 쇼핑커넥트에 두 개의 기존 수동 탭만 보이는지, 빠른/선택 포스팅 진입이 유지되는지 확인한다.

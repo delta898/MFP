@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-shopping-connect-11`
 - Base/parent branch: `codex/feature/design-system-main`
 - Start date: 2026-09-10
-- Status: 진행 중 · slice 1 구현 완료, 검토 대기
+- Status: 진행 중 · slice 1 완료 및 parent 반영 준비
 
 ## 사용자 필요와 목표
 
@@ -37,7 +37,7 @@
 
 ## 구현 단계
 
-1. 자동 포스팅 안전 제거
+1. 자동 포스팅 안전 제거 — 완료 ([개발 기록](../archive/2026-09-10-design-system-shopping-connect-11-01-remove-automation-development.md))
 2. shell·두 탭·용어 통일
 3. 빠른 글 작성 패널 개편
 4. 글감 관리 목록 개편
@@ -56,5 +56,6 @@
 - slice 1 focused test 19건 통과(구조, UI 조립, runtime, HTTP server, 설정/이미지 경로).
 - slice 1 browser UI smoke test 통과(252 fixture requests). 제거 과정에서 발견한 블로그 수동발행 함수의 잘못된
   모듈 소유권도 블로그 자동화 모듈로 교정했다.
+- 사용자 승인에 따라 slice 1을 parent 브랜치에 반영한다.
 - browser 회귀와 전체 단위 테스트는 reviewable milestone에서 사용자 승인을 받은 뒤 실행한다.
 - 최종 시각·탐색 확인은 사용자가 수행한다.
