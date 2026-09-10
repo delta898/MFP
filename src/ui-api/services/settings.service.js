@@ -33,6 +33,10 @@ const {
 const { createStyleReferenceFetcher } = require('../../content/style-reference-fetcher');
 const { createStyleReferenceAnalyzer } = require('../../content/style-reference-analyzer');
 const { createWritingProfilePreviewService } = require('../../content/writing-profile-preview');
+const {
+    normalizeCardNewsBuiltinSources,
+    normalizeCardNewsRssSources
+} = require('../../card-news/feed-sources');
 
 function removeManagedKeywordCredentials(structuredConfig = {}) {
     for (const key of [
@@ -540,6 +544,62 @@ function createSettingsService(deps = {}) {
 
         async getAppInputSettings() {
             return { fields: { TYPING_SPEED: String(CONFIG.TYPING_SPEED || 'NORMAL').trim().toUpperCase() } };
+        },
+
+        async getCardNewsSourceSettings() {
+            return { fields: {
+                CARD_NEWS_BUILTIN_SOURCES: normalizeCardNewsBuiltinSources(CONFIG.CARD_NEWS_BUILTIN_SOURCES),
+                CARD_NEWS_RSS_SOURCES: normalizeCardNewsRssSources(CONFIG.CARD_NEWS_RSS_SOURCES)
+            } };
+        },
+
+        async saveCardNewsSourceSettings(requestBody = {}) {
+            const values = requestBody.values && typeof requestBody.values === 'object'
+                ? requestBody.values
+                : {};
+            let builtinSources;
+            let rssSources;
+            try {
+                builtinSources = normalizeCardNewsBuiltinSources(values.CARD_NEWS_BUILTIN_SOURCES);
+                rssSources = normalizeCardNewsRssSources(values.CARD_NEWS_RSS_SOURCES, { strict: true });
+            } catch (error) {
+                throw createApiError(400, 'CARD_NEWS_SOURCE_INVALID', error.message);
+            }
+
+            const writablePath = resolveWritableConfigPath();
+            let structuredConfig = {};
+            if (fs.existsSync(writablePath)) {
+                try { structuredConfig = JSON.parse(fs.readFileSync(writablePath, 'utf8')); }
+                catch (_error) { throw createApiError(409, 'CONFIG_JSON_INVALID', '현재 설정 파일을 읽을 수 없어 안전하게 반영하지 못했습니다.'); }
+            }
+            if (!structuredConfig.content || typeof structuredConfig.content !== 'object') structuredConfig.content = {};
+            if (!structuredConfig.content.card_news || typeof structuredConfig.content.card_news !== 'object') {
+                structuredConfig.content.card_news = {};
+            }
+            structuredConfig.content.card_news.builtin_sources = builtinSources;
+            structuredConfig.content.card_news.rss_sources = rssSources;
+            fs.mkdirSync(path.dirname(writablePath), { recursive: true });
+            fs.writeFileSync(writablePath, JSON.stringify(structuredConfig, null, 2), 'utf8');
+
+            CONFIG.CARD_NEWS_BUILTIN_SOURCES = builtinSources;
+            CONFIG.CARD_NEWS_RSS_SOURCES = rssSources;
+            if (!CONFIG.content || typeof CONFIG.content !== 'object') CONFIG.content = {};
+            if (!CONFIG.content.card_news || typeof CONFIG.content.card_news !== 'object') CONFIG.content.card_news = {};
+            CONFIG.content.card_news.builtin_sources = builtinSources;
+            CONFIG.content.card_news.rss_sources = rssSources;
+            dashboardActivityRecorder({
+                category: 'settings',
+                type: 'card_news_sources_saved',
+                title: '카드뉴스 소스 적용',
+                detail: `기본 ${builtinSources.length}개 · RSS ${rssSources.length}개`
+            });
+            return {
+                fields: {
+                    CARD_NEWS_BUILTIN_SOURCES: builtinSources,
+                    CARD_NEWS_RSS_SOURCES: rssSources
+                },
+                message: '카드뉴스 소스를 적용했습니다.'
+            };
         },
 
         async saveAppInputSettings(requestBody = {}) {

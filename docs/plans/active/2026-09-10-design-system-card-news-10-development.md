@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-card-news-10`
 - Base/parent branch: `codex/feature/design-system-main`
 - Start date: 2026-09-10
-- Status: slice 1 완료, slice 2 시작 준비
+- Status: slice 2 진행 중
 
 ## 사용자 필요와 목표
 
@@ -43,3 +43,4 @@ Card News의 기존 기능과 작업 상태를 보존하면서 Settings Beta와 
 5. 만든 카드뉴스·ZIP 복원·최종 전수 점검
 
 - [Slice 1: 공통 foundation과 화면 shell](../archive/2026-09-10-design-system-card-news-10-01-foundation-development.md)
+- [Slice 2: 원문 선택·미리보기·source 관리](../archive/2026-09-10-design-system-card-news-10-02-source-preview-development.md)

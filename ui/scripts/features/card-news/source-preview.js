@@ -685,6 +685,7 @@ function activateCardNewsSourceKind(kind) {
     const active = button.dataset.cardNewsSourceKind === kind;
     button.classList.toggle('active', active);
     button.setAttribute('aria-selected', active ? 'true' : 'false');
+    button.setAttribute('tabindex', active ? '0' : '-1');
   });
   document.querySelectorAll('[data-card-news-source-panel]').forEach((panel) => {
     panel.hidden = panel.dataset.cardNewsSourcePanel !== kind;
@@ -693,12 +694,19 @@ function activateCardNewsSourceKind(kind) {
   if (actions) actions.hidden = kind === 'feed_item';
   setCardNewsStatus('', '');
   markCardNewsPreviewStale();
+  return true;
 }
 
 function bindCardNewsView() {
   bindCardNewsManagementView();
+  bindCardNewsSourceManager();
   document.querySelectorAll('[data-card-news-source-kind]').forEach((button) => {
     button.addEventListener('click', () => activateCardNewsSourceKind(button.dataset.cardNewsSourceKind));
+    button.addEventListener('keydown', (event) => void handleUiTabNavigationKeydown(event, {
+      selector: '[data-card-news-source-kind]',
+      dataKey: 'cardNewsSourceKind',
+      activate: activateCardNewsSourceKind
+    }));
   });
   document.getElementById('card-news-source-refresh')?.addEventListener('click', () => void loadCardNewsSources());
   document.getElementById('card-news-preview-button')?.addEventListener('click', () => void previewCardNewsSource());

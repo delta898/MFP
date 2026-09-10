@@ -60,33 +60,47 @@ button.ui-danger-action:hover:not(:disabled) {
   color: var(--ui-button-danger-text);
 }
 
+.ui-icon-action,
 .ui-refresh-action-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
   padding: 0;
   border: 1px solid var(--ui-border-default);
-  border-radius: 50%;
   background: var(--ui-surface);
   color: var(--ui-text-secondary);
-  font-size: 18px;
   line-height: 1;
   cursor: pointer;
+  transition: var(--ui-transition-interactive);
 }
 
+.ui-icon-action {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--ui-radius-sm);
+}
+
+.ui-refresh-action-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 18px;
+}
+
+.ui-icon-action:hover:not(:disabled),
 .ui-refresh-action-icon:hover:not(:disabled) {
   border-color: var(--ui-action-primary);
   background: var(--ui-action-primary-soft);
   color: var(--ui-action-primary-hover);
 }
 
+.ui-icon-action:focus-visible,
 .ui-refresh-action-icon:focus-visible {
   outline: none;
   box-shadow: var(--ui-focus-ring);
 }
 
+.ui-icon-action:disabled,
 .ui-refresh-action-icon:disabled {
   cursor: wait;
   opacity: var(--ui-button-disabled-opacity);
@@ -96,6 +110,7 @@ button.ui-danger-action:hover:not(:disabled) {
   animation: ui-refresh-action-spin 0.8s linear infinite;
 }
 
+.ui-icon-action svg,
 .ui-refresh-action-icon svg {
   width: 18px;
   height: 18px;
@@ -104,6 +119,13 @@ button.ui-danger-action:hover:not(:disabled) {
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.ui-danger-icon-action:hover:not(:disabled),
+.ui-danger-icon-action:focus-visible {
+  border-color: var(--ui-action-danger);
+  background: var(--ui-button-danger-hover);
+  color: var(--ui-button-danger-text);
 }
 
 .ui-text-action {

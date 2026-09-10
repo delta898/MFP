@@ -12,7 +12,8 @@ test('Card News is a top-level source-preview workflow', () => {
     const navigation = fs.readFileSync(path.join(uiRoot, 'scripts/foundation/navigation.js'), 'utf8');
     const script = [
         'scripts/features/card-news/source-preview.js',
-        'scripts/features/card-news/management.js'
+        'scripts/features/card-news/management.js',
+        'scripts/features/card-news/source-manager.js'
     ].map((file) => fs.readFileSync(path.join(uiRoot, file), 'utf8')).join('\n');
     const httpServerRuntime = fs.readFileSync(path.join(repoRoot, 'src/ui-runtime/http-server-runtime.js'), 'utf8');
 
@@ -114,40 +115,37 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(script, /CARD_NEWS_PLATFORM_STORAGE_KEY/);
     assert.match(script, /selector: '\[data-card-news-workspace\]'[\s\S]*handleUiTabNavigationKeydown|handleUiTabNavigationKeydown[\s\S]*selector: '\[data-card-news-workspace\]'/);
     assert.match(script, /selector: '\[data-card-news-managed-filter\]'[\s\S]*handleUiTabNavigationKeydown|handleUiTabNavigationKeydown[\s\S]*selector: '\[data-card-news-managed-filter\]'/);
+    assert.match(script, /selector: '\[data-card-news-source-kind\]'[\s\S]*handleUiTabNavigationKeydown|handleUiTabNavigationKeydown[\s\S]*selector: '\[data-card-news-source-kind\]'/);
     assert.match(script, /void previewCardNewsSource\(cardNewsViewState\.articles\[cardNewsViewState\.selectedArticleIndex\]\)/);
     assert.match(script, /previewCache: new Map\(\)/);
     assert.match(script, /requestId !== cardNewsViewState\.previewRequestId/);
     assert.doesNotMatch(script, /setCardNewsStatus\('내용을 확인했습니다\.'/);
 });
 
-test('Card News settings provide a minimal custom RSS registry', () => {
+test('Card News owns a focused source manager without coupling source changes to generation', () => {
     const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot }).html;
+    const cardNewsHtml = fs.readFileSync(path.join(uiRoot, 'partials/views/card-news.html'), 'utf8');
     const app = fs.readFileSync(path.join(uiRoot, 'app.js'), 'utf8');
-    const settingsScript = fs.readFileSync(path.join(uiRoot, 'scripts/features/settings/card-news-rss.js'), 'utf8');
     const cardNewsScript = fs.readFileSync(path.join(uiRoot, 'scripts/features/card-news/source-preview.js'), 'utf8');
-    const settingsSaveScript = fs.readFileSync(path.join(uiRoot, 'scripts/features/settings/shopping-images.js'), 'utf8');
-    const majorForm = fs.readFileSync(path.join(uiRoot, 'scripts/features/settings/major-form.js'), 'utf8');
+    const sourceManager = fs.readFileSync(path.join(uiRoot, 'scripts/features/card-news/source-manager.js'), 'utf8');
 
-    assert.match(html, /data-settings-tab="card-news"[^>]*>카드뉴스/);
-    assert.match(html, /id="settings-tab-card-news"/);
-    assert.match(html, /id="settings-card-news-rss-add"/);
-    assert.match(html, /id="settings-card-news-rss-list"/);
-    assert.match(html, /id="settings-card-news-source-naver"/);
-    assert.match(html, /id="settings-card-news-source-wordpress"/);
-    assert.match(app, /settings\/card-news-rss\.js/);
-    assert.match(majorForm, /CARD_NEWS_RSS_SOURCES/);
-    assert.match(settingsScript, /data-card-news-rss-field="enabled"/);
-    assert.match(settingsScript, /aria-label="이 RSS 사용"/);
-    assert.doesNotMatch(settingsScript, /<span>사용<\/span>/);
-    assert.match(settingsScript, /class="card-news-rss-remove"/);
-    assert.match(html, /공개 HTTPS RSS를 3개까지 추가/);
-    assert.match(settingsScript, /SETTINGS_CARD_NEWS_RSS_SOURCE_LIMIT = 3/);
-    assert.match(settingsScript, /settingsCardNewsRssSources\.length >= SETTINGS_CARD_NEWS_RSS_SOURCE_LIMIT/);
+    assert.match(html, /id="card-news-source-manage"[^>]*>소스 관리</);
+    assert.match(html, /id="card-news-source-manager"[^>]*aria-labelledby="card-news-source-manager-title"/);
+    assert.doesNotMatch(cardNewsHtml, /id="card-news-source-manager-close"/);
+    assert.match(html, /id="card-news-source-manager-cancel"[^>]*>취소<\/button>/);
+    assert.match(html, /data-card-news-builtin-source[^>]*> 네이버/);
+    assert.match(html, /data-card-news-builtin-source[^>]*> WordPress/);
+    assert.match(html, /id="card-news-source-add"[^>]*>RSS 추가</);
+    assert.match(html, /HTTPS RSS를 최대 3개까지 추가/);
+    assert.match(app, /card-news\/source-manager\.js/);
+    assert.match(sourceManager, /CARD_NEWS_CUSTOM_SOURCE_LIMIT = 3/);
+    assert.match(sourceManager, /\/api\/v1\/settings\/card-news-sources/);
+    assert.match(sourceManager, /markCardNewsSourcesStale\(\)[\s\S]*loadCardNewsSources\(\)/);
+    assert.match(sourceManager, /class="ui-icon-action ui-danger-icon-action"[^>]*data-card-news-source-remove[^>]*aria-label="RSS 삭제"[^>]*title="RSS 삭제"/);
+    assert.doesNotMatch(sourceManager, /card-news\/(?:generations|publishing)|generateCardNews|publishCardNews/);
     assert.match(cardNewsScript, /sourcesStale:\s*true/);
     assert.match(cardNewsScript, /function markCardNewsSourcesStale/);
     assert.match(cardNewsScript, /cardNewsViewState\.sourcesStale[\s\S]*loadCardNewsSources/);
-    assert.match(settingsSaveScript, /Save successful[\s\S]*markCardNewsSourcesStale/);
-    assert.doesNotMatch(html, /카드뉴스[^\n]*(예약|주기 발행)/);
 });
 
 test('Card News preview uses fetched page text for a fuller, non-RSS preview', () => {
@@ -157,13 +155,22 @@ test('Card News preview uses fetched page text for a fuller, non-RSS preview', (
     assert.match(sourceService, /(?:더 읽기\|read more)/);
 });
 
-test('Card News source and preview cards keep equal desktop height', () => {
+test('Card News source and preview cards stretch together without fixed legacy heights', () => {
     const css = fs.readFileSync(path.join(uiRoot, 'styles/features/card-news.css'), 'utf8');
+    const sourcePreviewCss = css.split('.card-news-generation-panel')[0];
     assert.match(css, /\.card-news-layout\s*\{[^}]*align-items:\s*stretch/);
     assert.doesNotMatch(css, /\.card-news-source-panel\s*\{[^}]*min-height/);
-    assert.match(css, /\.card-news-source-card,[\s\S]*?\.card-news-preview-card\s*\{[^}]*min-height:\s*560px/);
-    assert.match(css, /\.card-news-preview-surface\s*\{[^}]*flex:\s*1[^}]*min-height:\s*532px/);
+    assert.doesNotMatch(css, /min-height:\s*(?:532|560)px/);
+    assert.match(css, /\.card-news-preview-surface\s*\{[^}]*flex:\s*1[^}]*min-height:\s*100%/);
     assert.match(css, /\.card-news-preview-meta\s*\{[^}]*margin-top:\s*auto/);
+    assert.doesNotMatch(sourcePreviewCss, /#[0-9a-f]{3,8}\b|rgba?\(/i);
+});
+
+test('Card News source manager is viewport-centered with bounded overflow', () => {
+    const css = fs.readFileSync(path.join(uiRoot, 'styles/features/card-news.css'), 'utf8');
+    assert.match(css, /\.card-news-source-manager\s*\{[^}]*position:\s*fixed[^}]*inset:\s*0[^}]*margin:\s*auto/);
+    assert.match(css, /\.card-news-source-manager\s*\{[^}]*max-height:\s*calc\(100vh/);
+    assert.match(css, /\.card-news-source-manager\s*\{[^}]*overflow:\s*auto/);
 });
 
 test('Card News view claims its parent width on the first layout pass', () => {

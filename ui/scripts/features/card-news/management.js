@@ -29,7 +29,7 @@ function renderCardNewsPlatformTabs() {
   container.innerHTML = sources.map((platform) => {
     const count = visibleCardNewsArticlesForPlatform(platform).length;
     const selected = platform === cardNewsViewState.activePlatform;
-    return `<button type="button" role="tab" class="card-news-platform-tab${selected ? ' active' : ''}" data-card-news-platform="${escapeHtml(platform)}" aria-selected="${selected ? 'true' : 'false'}">${escapeHtml(getCardNewsPlatformLabel(platform))}<span>${count}</span></button>`;
+    return `<button type="button" role="tab" class="card-news-platform-tab ui-segmented-tab${selected ? ' active' : ''}" data-card-news-platform="${escapeHtml(platform)}" aria-selected="${selected ? 'true' : 'false'}">${escapeHtml(getCardNewsPlatformLabel(platform))}<span class="ui-count-badge">${count}</span></button>`;
   }).join('');
   container.querySelectorAll('[data-card-news-platform]').forEach((button) => {
     button.addEventListener('click', () => {

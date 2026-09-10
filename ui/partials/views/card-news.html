@@ -32,21 +32,24 @@
               </div>
             </div>
 
-            <div class="card-news-source-tabs" role="tablist" aria-label="내용 입력 방식">
-              <button class="card-news-source-tab active" type="button" role="tab" aria-selected="true" data-card-news-source-kind="feed_item">피드에서 선택</button>
-              <button class="card-news-source-tab" type="button" role="tab" aria-selected="false" data-card-news-source-kind="url">URL 직접 입력</button>
-              <button class="card-news-source-tab" type="button" role="tab" aria-selected="false" data-card-news-source-kind="manuscript">내용 직접 입력</button>
+            <div class="card-news-source-tabs ui-segmented-tabs" role="tablist" aria-label="내용 입력 방식">
+              <button class="card-news-source-tab ui-segmented-tab active" id="card-news-source-tab-feed" type="button" role="tab" aria-selected="true" aria-controls="card-news-source-panel-feed" tabindex="0" data-card-news-source-kind="feed_item">피드에서 선택</button>
+              <button class="card-news-source-tab ui-segmented-tab" id="card-news-source-tab-url" type="button" role="tab" aria-selected="false" aria-controls="card-news-source-panel-url" tabindex="-1" data-card-news-source-kind="url">URL 직접 입력</button>
+              <button class="card-news-source-tab ui-segmented-tab" id="card-news-source-tab-manuscript" type="button" role="tab" aria-selected="false" aria-controls="card-news-source-panel-manuscript" tabindex="-1" data-card-news-source-kind="manuscript">내용 직접 입력</button>
             </div>
 
-            <div class="card-news-source-panel" data-card-news-source-panel="feed_item">
+            <div class="card-news-source-panel" id="card-news-source-panel-feed" role="tabpanel" aria-labelledby="card-news-source-tab-feed" data-card-news-source-panel="feed_item">
               <div class="card-news-panel-toolbar">
-                <div id="card-news-platform-tabs" class="card-news-platform-tabs" role="tablist" aria-label="RSS 소스" hidden></div>
-                <button id="card-news-source-refresh" class="ui-refresh-action-icon" type="button" aria-label="피드 새로고침" title="피드 새로고침">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5" />
-                    <path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 20v-5h-5" />
-                  </svg>
-                </button>
+                <div id="card-news-platform-tabs" class="card-news-platform-tabs ui-segmented-tabs" data-density="compact" role="tablist" aria-label="피드 소스" hidden></div>
+                <div class="card-news-panel-actions">
+                  <button id="card-news-source-manage" class="secondary compact" type="button">소스 관리</button>
+                  <button id="card-news-source-refresh" class="ui-refresh-action-icon" type="button" aria-label="피드 새로고침" title="피드 새로고침">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5" />
+                      <path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 20v-5h-5" />
+                    </svg>
+                  </button>
+                </div>
               </div>
               <div id="card-news-feed-list" class="card-news-feed-list" aria-live="polite">
                 <div class="card-news-empty-state">공개 글 목록을 불러오는 중입니다.</div>
@@ -54,20 +57,20 @@
               <p id="card-news-feed-note" class="card-news-inline-note" hidden></p>
             </div>
 
-            <div class="card-news-source-panel" data-card-news-source-panel="url" hidden>
-              <label class="card-news-field" for="card-news-url">
+            <div class="card-news-source-panel" id="card-news-source-panel-url" role="tabpanel" aria-labelledby="card-news-source-tab-url" data-card-news-source-panel="url" hidden>
+              <label class="card-news-field ui-workflow-field" for="card-news-url">
                 <span>공개 글 주소</span>
                 <input id="card-news-url" type="url" inputmode="url" placeholder="https://example.com/article">
                 <small>로그인이나 접근 권한이 필요 없는 HTTPS 페이지를 지원합니다.</small>
               </label>
             </div>
 
-            <div class="card-news-source-panel" data-card-news-source-panel="manuscript" hidden>
-              <label class="card-news-field" for="card-news-manuscript-title">
+            <div class="card-news-source-panel" id="card-news-source-panel-manuscript" role="tabpanel" aria-labelledby="card-news-source-tab-manuscript" data-card-news-source-panel="manuscript" hidden>
+              <label class="card-news-field ui-workflow-field" for="card-news-manuscript-title">
                 <span>제목 <em>선택</em></span>
                 <input id="card-news-manuscript-title" type="text" maxlength="300" placeholder="카드뉴스 제목">
               </label>
-              <label class="card-news-field" for="card-news-manuscript-text">
+              <label class="card-news-field ui-workflow-field" for="card-news-manuscript-text">
                 <span>내용</span>
                 <textarea id="card-news-manuscript-text" rows="10" placeholder="카드뉴스로 만들 내용을 붙여 넣으세요."></textarea>
               </label>
@@ -81,8 +84,8 @@
 
           <section class="card-news-preview-card ui-workflow-card" aria-label="선택한 내용">
             <div class="card-news-preview-surface">
-              <span id="card-news-preview-badge" class="card-news-preview-badge" data-state="idle">선택 전</span>
-              <div id="card-news-preview-empty" class="card-news-preview-empty">
+              <span id="card-news-preview-badge" class="card-news-preview-badge ui-status-badge" data-state="idle">선택 전</span>
+              <div id="card-news-preview-empty" class="card-news-preview-empty ui-workflow-empty">
                 <span aria-hidden="true">▤</span>
                 <strong>카드뉴스로 만들 내용을 선택해 주세요.</strong>
                 <p>블로그 글을 고르거나 원하는 내용을 직접 입력할 수 있습니다.</p>
@@ -99,6 +102,37 @@
             </div>
           </section>
         </div>
+
+        <dialog id="card-news-source-manager" class="card-news-source-manager" aria-labelledby="card-news-source-manager-title">
+          <form id="card-news-source-manager-form" class="card-news-source-manager-form" method="dialog">
+            <div class="card-news-source-manager-heading">
+              <div>
+                <h2 id="card-news-source-manager-title">피드 소스 관리</h2>
+                <p>카드뉴스에서 고를 블로그와 RSS 피드를 정합니다.</p>
+              </div>
+            </div>
+            <fieldset class="card-news-source-manager-group">
+              <legend>연결한 블로그</legend>
+              <label><input type="checkbox" value="naver" data-card-news-builtin-source> 네이버</label>
+              <label><input type="checkbox" value="wordpress" data-card-news-builtin-source> WordPress</label>
+            </fieldset>
+            <div class="card-news-source-manager-group">
+              <div class="card-news-source-manager-group-heading">
+                <div>
+                  <strong>추가 RSS</strong>
+                  <small>HTTPS RSS를 최대 3개까지 추가할 수 있습니다.</small>
+                </div>
+                <button id="card-news-source-add" class="secondary compact" type="button">RSS 추가</button>
+              </div>
+              <div id="card-news-source-manager-list" class="card-news-source-manager-list"></div>
+            </div>
+            <p id="card-news-source-manager-status" class="card-news-inline-status" aria-live="polite"></p>
+            <div class="card-news-source-manager-footer">
+              <button id="card-news-source-manager-cancel" class="secondary" type="button">취소</button>
+              <button id="card-news-source-manager-save" class="primary" type="submit">적용</button>
+            </div>
+          </form>
+        </dialog>
 
         <section id="card-news-generation-panel" class="card-news-generation-panel ui-workflow-card" aria-labelledby="card-news-generation-title" hidden>
           <div class="card-news-generation-heading ui-workflow-heading">

@@ -70,6 +70,16 @@
   box-shadow: var(--ui-segmented-active-shadow);
 }
 
+.ui-segmented-tabs[data-density="compact"] {
+  gap: var(--ui-space-1);
+}
+
+.ui-segmented-tabs[data-density="compact"] .ui-segmented-tab {
+  min-height: 32px;
+  padding: var(--ui-space-1) var(--ui-space-3);
+  font-size: var(--ui-type-caption-size);
+}
+
 @media (max-width: 760px) {
   .ui-top-tabs {
     align-items: stretch;

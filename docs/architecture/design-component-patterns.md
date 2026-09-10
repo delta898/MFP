@@ -121,6 +121,21 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 - icon-only action은 앱에서 같은 icon을 사용하고 접근 가능한 이름과 tooltip을 모두 제공한다. 갱신 대상이 모호하면 text action을 사용한다.
 - 실행 중에는 진행 상태를 보여주고 `aria-busy`와 disabled 상태로 중복 실행을 막는다.
 
+## Icon and text actions
+
+- icon-only action은 새로고침, 보기, 닫기, 삭제처럼 제품 전반에서 같은 symbol로 반복되고 의미가 익숙한 경우에만 사용한다.
+  목록의 반복 행이나 좁은 toolbar처럼 label이 content를 밀어내는 위치에서는 icon-only가 우선할 수 있다.
+- icon-only action은 공통 `.ui-icon-action`을 사용하고 `aria-label`과 `title`을 모두 제공한다. icon 모양, hit area,
+  hover, focus와 disabled 상태를 feature stylesheet에서 다시 정의하지 않는다.
+- 삭제 icon은 평상시에 중립적으로 보이고 hover·focus에서만 danger tone을 사용한다. 저장 전 임시 행 제거처럼 취소로
+  되돌릴 수 있는 작업은 별도 확인을 요구하지 않지만, 저장된 자료 삭제나 복구 불가능한 작업은 icon 하나에 맡기지 않고
+  명시적인 text action과 확인 절차를 사용한다.
+- `적용`, `취소`, `내용 확인`처럼 결과·범위·다음 상태를 읽어야 하는 action과 제품 고유 동사는 text label을 사용한다.
+  사용자가 icon 의미를 추측해야 하거나 action 결과가 중요한 경우 공간이 좁더라도 text를 생략하지 않는다.
+- 짧은 modal에서 footer의 `취소`가 항상 보이면 header에 같은 의미의 `닫기`를 중복 배치하지 않는다. 내용이 길어 footer가
+  화면 밖으로 밀리거나 footer가 없는 확인용 modal일 때만 header close를 제공하며, 이때는 공통 close icon을 사용한다.
+  `ESC`는 native modal의 보조 종료 수단으로 유지하되 명시적 종료 action을 대신하지 않는다.
+
 ## Sensitive credential fields
 
 - 저장된 password, token, API key와 credential은 화면과 read API에 원문·부분값·길이를 반환하거나 표시하지 않는다.
@@ -245,6 +260,11 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
   `.ui-workflow-heading`을 사용한다. 이 pattern은 공통 card와 typography token을 소유하고 feature stylesheet는
   단계별 grid, preview 비율과 결과 item 배치처럼 업무 고유 layout만 정의한다. 저장 form 또는 현황 summary의
   anatomy를 작업 화면에 억지로 복사하지 않는다.
+- 작업 surface의 반복 field와 초기 안내는 `.ui-workflow-field`, `.ui-workflow-empty`를 사용한다. 확인 상태는
+  `.ui-status-badge`의 `loading`, `ready`, `stale` 같은 semantic state로 표현하며 feature가 상태 색을 다시 정의하지 않는다.
+- source registry처럼 주 작업에는 필요하지만 자주 바꾸지 않는 값은 toolbar의 보조 action에서 modal surface로 연다.
+  해당 기능 화면이 값을 단독 소유하고, 설정 화면에 같은 editor를 복제하지 않는다. 명시적 적용에 성공한 뒤에만
+  source 목록을 무효화·재조회하며 이전 정상 preview나 후속 결과를 임의로 지우지 않는다.
 - 수치, 개수, 기간과 category는 성공·정보 상태가 아니다. 상태 의미가 없는 통계 card는 같은 neutral surface를 사용하고,
   단순 개수는 `.ui-count-badge`로 표시한다. 성공·경고·실패 색상은 실제 domain 상태가 있을 때만 사용한다.
 - 추천·가이드처럼 Dashboard의 보조 콘텐츠도 공통 overview/supporting surface를 사용한다. 카드 전체에 장식 목적의 특정

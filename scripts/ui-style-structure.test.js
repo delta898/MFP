@@ -67,7 +67,6 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
         'styles/layout/responsive.css',
         'styles/features/settings-detail.css',
         'styles/features/settings-next.css',
-        'styles/features/card-news-settings.css',
         'styles/features/writing-settings.css',
         'styles/components/form-widgets.css',
         'styles/features/recommendations.css',

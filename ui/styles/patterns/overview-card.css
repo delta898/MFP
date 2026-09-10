@@ -86,12 +86,12 @@
   line-height: var(--ui-line-height-tight);
 }
 
-.ui-status-badge:is([data-state="running"], [data-state="on"]) {
+.ui-status-badge:is([data-state="running"], [data-state="on"], [data-state="loading"]) {
   background: color-mix(in srgb, var(--ui-status-info) 12%, var(--ui-surface));
   color: var(--ui-status-info);
 }
 
-.ui-status-badge[data-state="attention"] {
+.ui-status-badge:is([data-state="attention"], [data-state="stale"]) {
   background: color-mix(in srgb, var(--ui-status-warning) 12%, var(--ui-surface));
   color: var(--ui-status-warning);
 }
@@ -114,6 +114,46 @@
   font-size: var(--ui-type-caption-size);
   font-weight: var(--ui-weight-semibold);
   line-height: 1;
+}
+
+.ui-workflow-field {
+  display: grid;
+  gap: var(--ui-space-2);
+}
+
+.ui-workflow-field > span,
+.ui-workflow-field > strong {
+  color: var(--ui-text-primary);
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-semibold);
+  line-height: var(--ui-line-height-tight);
+}
+
+.ui-workflow-field :is(input, textarea, select) {
+  width: 100%;
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface);
+  color: var(--ui-text-primary);
+  font: inherit;
+  transition: var(--ui-transition-interactive);
+}
+
+.ui-workflow-field :is(input, textarea, select):focus {
+  border-color: var(--ui-border-focus);
+  box-shadow: var(--ui-focus-ring);
+  outline: none;
+}
+
+.ui-workflow-field small {
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-type-caption-size);
+  line-height: var(--ui-line-height-body);
+}
+
+.ui-workflow-empty {
+  color: var(--ui-text-secondary);
+  text-align: center;
 }
 
 .surface-supporting-card {

@@ -176,6 +176,15 @@ function createSettingsController(deps = {}) {
                 return toErrorResponse(res, requestId, 'APP_INPUT_SETTINGS_FAILED', '입력 환경 설정을 처리하지 못했습니다.', e);
             }
         },
+        async handleCardNewsSources({ requestId, method, requestBody, res }) {
+            try {
+                if (method === 'GET') return sendSuccess(res, requestId, await service.getCardNewsSourceSettings());
+                if (method === 'POST') return sendSuccess(res, requestId, await service.saveCardNewsSourceSettings(requestBody || {}));
+                return sendMethodNotAllowed(sendError, res, requestId);
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'CARD_NEWS_SOURCE_SETTINGS_FAILED', '카드뉴스 소스를 처리하지 못했습니다.', e);
+            }
+        },
         async handleExternalConnections({ requestId, method, requestBody, res }) { try { if (method === 'GET') return sendSuccess(res, requestId, await service.getExternalConnectionSettings()); if (method === 'POST') return sendSuccess(res, requestId, await service.saveExternalConnectionSettings(requestBody || {})); return sendMethodNotAllowed(sendError, res, requestId); } catch (e) { return toErrorResponse(res, requestId, 'EXTERNAL_CONNECTION_FAILED', '외부 연결을 처리하지 못했습니다.', e); } },
 
         async handleTestAiRole({ requestId, method, requestBody, res }) {

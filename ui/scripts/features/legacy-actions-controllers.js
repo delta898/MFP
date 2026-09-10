@@ -2114,7 +2114,6 @@ function bindActions() {
   const settingsTypingPreviewInputEl = document.getElementById('settings-typing-preview-input');
   const settingsTypingPreviewReplayBtn = document.getElementById('settings-typing-preview-replay');
   const settingsTabButtons = Array.from(document.querySelectorAll('.settings-tab-btn[data-settings-tab]'));
-  document.getElementById('settings-card-news-rss-add')?.addEventListener('click', addSettingsCardNewsRssSource);
   const settingsMajorAutoSaveInputs = [
     document.getElementById('settings-listen-port'),
     document.getElementById('settings-mcp-remote-port'),

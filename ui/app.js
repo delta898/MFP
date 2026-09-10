@@ -67,6 +67,7 @@
 // @include scripts/features/blog-next/runner.js
 // @include scripts/features/card-news/source-preview.js
 // @include scripts/features/card-news/management.js
+// @include scripts/features/card-news/source-manager.js
 // @include scripts/foundation/navigation.js
 // @include scripts/features/content/blog-topics.js
 // @include scripts/features/content/shopping-items.js
@@ -75,7 +76,6 @@
 // @include scripts/features/settings/writing-profile-settings.js
 // @include scripts/features/settings/buffer.js
 // @include scripts/features/settings/sns-runtime.js
-// @include scripts/features/settings/card-news-rss.js
 // @include scripts/features/settings/major-form.js
 // @include scripts/features/settings/ai-models.js
 // @include scripts/features/settings/save-lifecycle.js

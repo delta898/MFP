@@ -51,6 +51,13 @@ function createHarness() {
                 calls.push(body);
                 return { fields: body.values };
             },
+            async getCardNewsSourceSettings() {
+                return { fields: { CARD_NEWS_BUILTIN_SOURCES: ['naver'], CARD_NEWS_RSS_SOURCES: [] } };
+            },
+            async saveCardNewsSourceSettings(body) {
+                calls.push(body);
+                return { fields: body.values };
+            },
             async testOptionalServiceConnection(body) {
                 calls.push(body);
                 return { message: 'ok' };
@@ -111,6 +118,16 @@ test('app input route exposes and applies the Naver typing speed', async () => {
     assert.equal(harness.responses[0].data.fields.TYPING_SPEED, 'NORMAL');
     const body = { values: { TYPING_SPEED: 'HUMAN' } };
     await harness.handler({ pathname: '/api/v1/settings/app-input', method: 'POST', requestId: 'app-input-save', requestBody: body });
+    assert.deepEqual(harness.calls, [body]);
+    assert.deepEqual(harness.responses[1].data, { fields: body.values });
+});
+
+test('card news source route exposes and applies only its source registry', async () => {
+    const harness = createHarness();
+    await harness.handler({ pathname: '/api/v1/settings/card-news-sources', method: 'GET', requestId: 'sources-get' });
+    assert.deepEqual(harness.responses[0].data.fields.CARD_NEWS_BUILTIN_SOURCES, ['naver']);
+    const body = { values: { CARD_NEWS_BUILTIN_SOURCES: ['wordpress'], CARD_NEWS_RSS_SOURCES: [] } };
+    await harness.handler({ pathname: '/api/v1/settings/card-news-sources', method: 'POST', requestId: 'sources-save', requestBody: body });
     assert.deepEqual(harness.calls, [body]);
     assert.deepEqual(harness.responses[1].data, { fields: body.values });
 });

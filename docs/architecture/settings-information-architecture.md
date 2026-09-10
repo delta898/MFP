@@ -137,7 +137,7 @@ legacy 화면은 migration surface가 교체되기 전까지 같은 canonical �
 | 블로그·쇼핑·SNS 자동 발행의 대상, 시간, 주기, 상태 | 각 기능의 `자동화` 화면 | 후속 이관 대상. Settings Beta에는 연결 credential만 남긴다. |
 | Buffer Organization·발행 채널 | SNS 배포·카드뉴스의 실제 발행 화면 | 후속 이관 대상. Buffer 연결 화면에는 표시·선택하지 않는다. |
 | Trends·RSS 수집 주기와 필터 | 발견/글감 관리의 자동 수집 화면 | 후속 이관 대상 |
-| 카드뉴스 source 목록·RSS source | 카드뉴스 화면 | 후속 이관 대상 |
+| 카드뉴스 source 목록·RSS source | 카드뉴스 화면의 `소스 관리` | 이관 완료. legacy 설정의 중복 편집 UI는 제거했다. |
 | 쇼핑 FTC·CTA 이미지와 쇼핑 자동 발행 | 쇼핑커넥트 화면 | 후속 이관 대상 |
 | update channel/source/mirror/custom URL | 운영 구성 | 일반 사용자 설정으로 노출하지 않는다. |
 

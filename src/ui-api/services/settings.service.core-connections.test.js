@@ -283,3 +283,39 @@ test('app input owns only Naver typing speed and preserves unrelated config', as
     assert.deepEqual(saved.publish, initial.publish);
     assert.equal(CONFIG.TYPING_SPEED, 'HUMAN');
 });
+
+test('card news source settings preserve unrelated config and update runtime aliases', async () => {
+    const initial = {
+        content: { card_news: { builtin_sources: ['naver'], rss_sources: [] }, writing: { tone: 'keep' } },
+        general: { listen_port: 4577 }
+    };
+    const { CONFIG, configPath, service } = createHarness(initial);
+    CONFIG.CARD_NEWS_BUILTIN_SOURCES = ['naver'];
+    CONFIG.CARD_NEWS_RSS_SOURCES = [];
+    const rss = [{ name: '뉴스', url: 'https://example.com/feed.xml', enabled: true }];
+
+    const result = await service.saveCardNewsSourceSettings({
+        values: { CARD_NEWS_BUILTIN_SOURCES: ['wordpress'], CARD_NEWS_RSS_SOURCES: rss }
+    });
+    const saved = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+
+    assert.deepEqual(result.fields.CARD_NEWS_BUILTIN_SOURCES, ['wordpress']);
+    assert.equal(result.fields.CARD_NEWS_RSS_SOURCES[0].name, '뉴스');
+    assert.deepEqual(saved.content.writing, initial.content.writing);
+    assert.deepEqual(saved.general, initial.general);
+    assert.deepEqual(CONFIG.CARD_NEWS_BUILTIN_SOURCES, ['wordpress']);
+    assert.equal(CONFIG.CARD_NEWS_RSS_SOURCES[0].url, 'https://example.com/feed.xml');
+});
+
+test('card news source settings reject invalid RSS without overwriting the config', async () => {
+    const { configPath, service } = createHarness({ content: { card_news: { rss_sources: [] } } });
+    const before = fs.readFileSync(configPath, 'utf8');
+    await assert.rejects(
+        service.saveCardNewsSourceSettings({ values: {
+            CARD_NEWS_BUILTIN_SOURCES: [],
+            CARD_NEWS_RSS_SOURCES: [{ url: 'http://example.com/feed.xml' }]
+        } }),
+        (error) => error.apiCode === 'CARD_NEWS_SOURCE_INVALID'
+    );
+    assert.equal(fs.readFileSync(configPath, 'utf8'), before);
+});
