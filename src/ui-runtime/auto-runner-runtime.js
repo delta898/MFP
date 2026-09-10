@@ -8,11 +8,8 @@ function createAutoRunnerRuntime(deps = {}) {
         normalizeNonNegativeInt,
         normalizeTimeHHmm,
         computeNextWindowedRunAt,
-        normalizeShoppingAutoSettings,
         getBlogAutoSettingsSnapshot,
-        getShoppingAutoSettingsSnapshot,
-        publishAutoDefaults,
-        shoppingAutoDefaults
+        publishAutoDefaults
     } = deps;
 
     const autoRuntimeState = {
@@ -50,29 +47,13 @@ function createAutoRunnerRuntime(deps = {}) {
         lastResult: null
     };
     const publishRuntimeState = { enabled: false, running: false, status: 'stopped', nextRunAt: null, timer: null, lastInterval: null, lastStartTime: null, lastEndTime: null };
-    const shoppingAutoRuntimeState = {
-        enabled: false,
-        running: false,
-        status: 'stopped',
-        message: '쇼핑 자동 모드 비활성화',
-        startedAt: null,
-        lastRunAt: null,
-        nextRunAt: null,
-        lastSummary: null,
-        cycleCount: 0,
-        timer: null,
-        dayKey: '',
-        shoppingPublishedToday: 0
-    };
-
     const handlers = {
         runTrendCollectCycle: null,
         runRssCollectCycle: null,
         runSnsDiscoveryCycle: null,
         runSnsDistributionCycle: null,
         runSnsAutomationCycle: null,
-        runAutoPublishCycle: null,
-        executeShoppingAutoCycle: null
+        runAutoPublishCycle: null
     };
     let snsStartupDiscoveryRequested = false;
 
@@ -88,24 +69,8 @@ function createAutoRunnerRuntime(deps = {}) {
         Object.assign(handlers, nextHandlers);
     }
 
-    function getDateKeyLocal(date = new Date()) {
-        const y = date.getFullYear();
-        const m = String(date.getMonth() + 1).padStart(2, '0');
-        const d = String(date.getDate()).padStart(2, '0');
-        return `${y}-${m}-${d}`;
-    }
-
-    function resetShoppingDailyCountersIfNeeded() {
-        const today = getDateKeyLocal();
-        if (shoppingAutoRuntimeState.dayKey !== today) {
-            shoppingAutoRuntimeState.dayKey = today;
-            shoppingAutoRuntimeState.shoppingPublishedToday = 0;
-        }
-    }
-
     function getAutoStatusPayload() {
         const blogSettings = getBlogAutoSettingsSnapshot();
-        const shoppingSettings = getShoppingAutoSettingsSnapshot();
         return {
             blog: {
                 enabled: publishRuntimeState.enabled,
@@ -119,20 +84,6 @@ function createAutoRunnerRuntime(deps = {}) {
                 lastSummary: publishRuntimeState.lastSummary || autoRuntimeState.lastSummary,
                 settings: blogSettings
             },
-            shopping: {
-                enabled: shoppingAutoRuntimeState.enabled,
-                running: shoppingAutoRuntimeState.running,
-                status: shoppingAutoRuntimeState.status,
-                message: shoppingAutoRuntimeState.message,
-                startedAt: shoppingAutoRuntimeState.startedAt,
-                lastRunAt: shoppingAutoRuntimeState.lastRunAt,
-                nextRunAt: shoppingAutoRuntimeState.nextRunAt,
-                cycleCount: shoppingAutoRuntimeState.cycleCount,
-                lastSummary: shoppingAutoRuntimeState.lastSummary,
-                dayKey: shoppingAutoRuntimeState.dayKey,
-                shoppingPublishedToday: shoppingAutoRuntimeState.shoppingPublishedToday,
-                settings: shoppingSettings
-            },
             sns: {
                 enabled: snsRuntimeState.enabled,
                 running: snsRuntimeState.running,
@@ -141,12 +92,10 @@ function createAutoRunnerRuntime(deps = {}) {
                 nextRunAt: snsRuntimeState.nextRunAt,
                 lastResult: snsRuntimeState.lastResult
             },
-            enabled: autoRuntimeState.enabled || shoppingAutoRuntimeState.enabled,
-            running: autoRuntimeState.running || shoppingAutoRuntimeState.running,
-            status: (autoRuntimeState.running || shoppingAutoRuntimeState.running) ? 'running'
-                : (autoRuntimeState.status === 'waiting' || shoppingAutoRuntimeState.status === 'waiting' ? 'waiting' : 'stopped'),
-            message: [autoRuntimeState.message, shoppingAutoRuntimeState.message].filter(Boolean).join(' / '),
-            shoppingPublishedToday: shoppingAutoRuntimeState.shoppingPublishedToday
+            enabled: autoRuntimeState.enabled,
+            running: autoRuntimeState.running,
+            status: autoRuntimeState.status,
+            message: autoRuntimeState.message
         };
     }
 
@@ -543,105 +492,13 @@ function createAutoRunnerRuntime(deps = {}) {
         refreshLegacyAutoRuntimeState();
     }
 
-    function clearShoppingAutoTimer() {
-        if (shoppingAutoRuntimeState.timer) {
-            clearTimeout(shoppingAutoRuntimeState.timer);
-            shoppingAutoRuntimeState.timer = null;
-        }
-    }
-
-    function scheduleNextShoppingAutoCycle(delayMs = null, options = {}) {
-        clearShoppingAutoTimer();
-        if (!shoppingAutoRuntimeState.enabled) {
-            shoppingAutoRuntimeState.nextRunAt = null;
-            return;
-        }
-        const settings = normalizeShoppingAutoSettings(CONFIG);
-        let waitMs = 0;
-
-        if (delayMs !== null && delayMs !== undefined && delayMs !== '') {
-            const parsed = parseInt(delayMs, 10);
-            waitMs = Math.max(500, isNaN(parsed) ? 500 : parsed);
-        } else {
-            const intervalMin = Math.max(1, parseInt(settings.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN || 60, 10));
-            waitMs = intervalMin * 60 * 1000;
-            waitMs = Math.max(60 * 1000, waitMs);
-        }
-        const nextSchedule = computeNextWindowedRunAt({
-            delayMs: waitMs,
-            intervalMs: waitMs,
-            startTime: settings.SHOPPING_PUBLISH_AUTO_START_TIME,
-            endTime: settings.SHOPPING_PUBLISH_AUTO_END_TIME,
-            preferWindowStartIfBaseOutside: options.preferWindowStartIfBaseOutside === true
-        });
-        const delayUntilRun = Math.max(500, nextSchedule.runAt.getTime() - Date.now());
-
-        shoppingAutoRuntimeState.nextRunAt = nextSchedule.runAt.toISOString();
-        shoppingAutoRuntimeState.status = shoppingAutoRuntimeState.running ? 'running' : 'waiting';
-        shoppingAutoRuntimeState.message = nextSchedule.adjustedByWindow
-            ? `허용 시간대에 맞춰 다음 실행을 조정했습니다. (${settings.SHOPPING_PUBLISH_AUTO_START_TIME} ~ ${settings.SHOPPING_PUBLISH_AUTO_END_TIME})`
-            : '다음 쇼핑 자동발행을 대기 중입니다.';
-
-        if (nextSchedule.adjustedByWindow) {
-            Logger.info(
-                `ℹ️ [AUTO][쇼핑] 다음 쇼핑 자동발행 예약이 허용 시간대에 맞춰 조정되었습니다: `
-                + `${nextSchedule.runAt.toLocaleString()} `
-                + `(원래 후보: ${nextSchedule.candidateAt.toLocaleString()}, 허용시간: ${settings.SHOPPING_PUBLISH_AUTO_START_TIME}~${settings.SHOPPING_PUBLISH_AUTO_END_TIME})`
-            );
-        } else {
-            const waitMinutes = Math.max(1, Math.round(delayUntilRun / (60 * 1000)));
-            Logger.info(`ℹ️ [AUTO][쇼핑] 다음 쇼핑 자동발행 예약 완료: ${nextSchedule.runAt.toLocaleString()} (약 ${waitMinutes}분 후 실행)`);
-        }
-
-        shoppingAutoRuntimeState.timer = setTimeout(() => {
-            shoppingAutoRuntimeState.timer = null;
-            if (!shoppingAutoRuntimeState.enabled || shoppingAutoRuntimeState.running) return;
-
-            requireHandler('executeShoppingAutoCycle')('timer').catch((e) => {
-                Logger.error(`❌ [AUTO][쇼핑] 사이클 실행 실패: ${e.message}`);
-            });
-        }, delayUntilRun);
-    }
-
-    function stopShoppingAutoRunner(reason = '쇼핑 자동 모드 중지') {
-        clearShoppingAutoTimer();
-        shoppingAutoRuntimeState.enabled = false;
-        shoppingAutoRuntimeState.status = 'stopped';
-        shoppingAutoRuntimeState.message = reason;
-        shoppingAutoRuntimeState.nextRunAt = null;
-    }
-
-    function startShoppingAutoRunner(reason = '쇼핑 자동 모드 시작') {
-        shoppingAutoRuntimeState.enabled = true;
-        if (!shoppingAutoRuntimeState.startedAt) shoppingAutoRuntimeState.startedAt = new Date().toISOString();
-        shoppingAutoRuntimeState.status = shoppingAutoRuntimeState.running ? 'running' : 'waiting';
-        shoppingAutoRuntimeState.message = reason;
-        scheduleNextShoppingAutoCycle(null, { preferWindowStartIfBaseOutside: true });
-    }
-
-    function syncShoppingAutoRunnerWithConfig() {
-        const settings = normalizeShoppingAutoSettings(CONFIG);
-        if (!isLivePublishAllowed(CONFIG)) {
-            stopShoppingAutoRunner('현재 실행 환경에서는 실제 발행이 차단되어 있습니다.');
-            return;
-        }
-        if (settings.SHOPPING_PUBLISH_AUTO_ENABLED) {
-            startShoppingAutoRunner(`쇼핑 자동 실행 활성화 (주기: ${settings.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN}분)`);
-        } else {
-            stopShoppingAutoRunner('SHOPPING_PUBLISH_AUTO_ENABLED가 비활성화되어 있습니다.');
-        }
-    }
-
     return {
         autoRuntimeState,
         trendsRuntimeState,
         rssRuntimeState,
         snsRuntimeState,
         publishRuntimeState,
-        shoppingAutoRuntimeState,
         setHandlers,
-        getDateKeyLocal,
-        resetShoppingDailyCountersIfNeeded,
         getAutoStatusPayload,
         refreshLegacyAutoRuntimeState,
         syncTrendsRunner,
@@ -656,12 +513,7 @@ function createAutoRunnerRuntime(deps = {}) {
         triggerSnsAutomationCycle,
         scheduleNextSnsCycle,
         syncSnsRunner,
-        syncAutoRunnerWithConfig,
-        clearShoppingAutoTimer,
-        scheduleNextShoppingAutoCycle,
-        stopShoppingAutoRunner,
-        startShoppingAutoRunner,
-        syncShoppingAutoRunnerWithConfig
+        syncAutoRunnerWithConfig
     };
 }
 

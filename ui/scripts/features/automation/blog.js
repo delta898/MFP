@@ -203,6 +203,57 @@ async function saveBlogAutoSettings() {
   }
 }
 
+async function runBlogPublishAutoManual() {
+  if (!guardUiConfigReady('자동발행 수동 실행')) return;
+  if (blogAutoManualRunInFlight) return;
+
+  const batchEl = document.getElementById('blog-publish-auto-batch');
+  const postStatusEl = document.getElementById('blog-publish-auto-post-status');
+  const headlessEl = document.getElementById('blog-publish-auto-headless');
+  const resultEl = document.getElementById('blog-publish-auto-result');
+  const batchSize = parseInt((batchEl?.value || '1').trim(), 10) || 1;
+  const postStatus = postStatusEl?.value === 'draft' ? 'draft' : 'publish';
+  const targets = Array.from(document.querySelectorAll('[data-publish-target]:checked')).map(el => el.getAttribute('data-publish-target')).join(',');
+  const headless = Boolean(headlessEl?.checked);
+
+  try {
+    const quota = await getPublishQuotaPreflight(batchSize);
+    if (quota.executable === 0) {
+      if (resultEl) resultEl.textContent = quota.message;
+      return;
+    }
+    if (await showUiConfirm(quota.message, { title: '발행 사용량 확인', confirmText: '실행', cancelText: '취소' }) === false) return;
+  } catch (error) {
+    if (resultEl) resultEl.textContent = `사용량 확인 실패: ${error.message}`;
+    return;
+  }
+
+  blogAutoManualRunInFlight = true;
+
+  try {
+    await runWithLiveProgress({
+      targetEl: resultEl,
+      requestLabel: '수동 발행 실행',
+      requestFn: () => postJson('/api/v1/auto/publish/run', {
+        settingsOverrides: {
+          PUBLISH_AUTO_BATCH_SIZE: batchSize,
+          PUBLISH_AUTO_POST_STATUS: postStatus,
+          PUBLISH_AUTO_TARGET_CHANNELS: targets,
+          PUBLISH_AUTO_HEADLESS: headless
+        }
+      })
+    });
+    await Promise.all([
+      loadDashboard(),
+      loadBlogTopics({ silent: true })
+    ]);
+  } catch (e) {
+    // runWithLiveProgress already shows error in the log area
+  } finally {
+    blogAutoManualRunInFlight = false;
+  }
+}
+
 async function runBlogCollectTrendsManual() {
   if (!guardUiConfigReady('트렌드 수동 실행')) return;
   const resultEl = document.getElementById('blog-collect-trends-result');

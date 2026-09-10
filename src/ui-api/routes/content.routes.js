@@ -25,7 +25,6 @@ function createContentRouteHandler(deps = {}) {
         if (pathname === '/api/v1/shopping/items') return controller.shoppingItems(ctx);
         if (pathname === '/api/v1/blog/action') return controller.blogAction(ctx);
         if (pathname === '/api/v1/shopping/action') return controller.shoppingAction(ctx);
-        if (pathname === '/api/v1/shopping/auto/run-manual') return controller.shoppingAutoRunManual(ctx);
         if (pathname === '/api/v1/shopping/row/update') return controller.shoppingRowUpdate(ctx);
         if (pathname === '/api/v1/shopping/topics/delete') return controller.shoppingTopicsDelete(ctx);
         if (pathname === '/api/v1/blog/topic/update') return controller.blogTopicUpdate(ctx);

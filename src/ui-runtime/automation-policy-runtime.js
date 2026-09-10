@@ -9,8 +9,7 @@ function createAutomationPolicyRuntime(deps = {}) {
         normalizeNonNegativeInt,
         normalizePositiveInt,
         collectTrendsDefaults,
-        publishAutoDefaults,
-        shoppingAutoDefaults
+        publishAutoDefaults
     } = deps;
 
     function normalizeTimeHHmm(input, fallback = '07:30') {
@@ -326,66 +325,6 @@ function createAutomationPolicyRuntime(deps = {}) {
         };
     }
 
-    function normalizeShoppingAutoSettings(input = {}) {
-        const enabled = toBoolLike(
-            input.SHOPPING_PUBLISH_AUTO_ENABLED ?? input.SHOPPING_AUTO_MODE,
-            toBoolLike(CONFIG.SHOPPING_PUBLISH_AUTO_ENABLED ?? CONFIG.SHOPPING_AUTO_MODE, shoppingAutoDefaults.mode)
-        );
-        const interval = normalizeNonNegativeInt(
-            input.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN ?? CONFIG.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN,
-            publishAutoDefaults.intervalMin
-        );
-        const batchSize = normalizePositiveInt(
-            input.SHOPPING_PUBLISH_AUTO_BATCH_SIZE
-            ?? input.SHOPPING_AUTO_DAILY_POSTS
-            ?? CONFIG.SHOPPING_PUBLISH_AUTO_BATCH_SIZE
-            ?? CONFIG.SHOPPING_AUTO_DAILY_POSTS,
-            publishAutoDefaults.batchSize
-        );
-        const headless = toBoolLike(
-            input.SHOPPING_PUBLISH_AUTO_HEADLESS ?? input.SHOPPING_AUTO_HEADLESS,
-            toBoolLike(CONFIG.SHOPPING_PUBLISH_AUTO_HEADLESS ?? CONFIG.SHOPPING_AUTO_HEADLESS ?? CONFIG.HEADLESS, publishAutoDefaults.headless)
-        );
-        const targets = input.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS
-            ?? CONFIG.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS
-            ?? publishAutoDefaults.targetChannels;
-        const targetsArray = Array.isArray(targets)
-            ? targets
-            : String(targets).split(',').map((value) => value.trim()).filter(Boolean);
-        const notifyEnabled = toBoolLike(
-            input.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED ?? input.SHOPPING_AUTO_NOTIFY_ENABLED,
-            toBoolLike(CONFIG.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED ?? CONFIG.SHOPPING_AUTO_NOTIFY_ENABLED, shoppingAutoDefaults.notifyEnabled)
-        );
-        const startTime = normalizeTimeHHmm(
-            input.SHOPPING_PUBLISH_AUTO_START_TIME ?? CONFIG.SHOPPING_PUBLISH_AUTO_START_TIME,
-            publishAutoDefaults.startTime
-        );
-        const endTime = normalizeTimeHHmm(
-            input.SHOPPING_PUBLISH_AUTO_END_TIME ?? CONFIG.SHOPPING_PUBLISH_AUTO_END_TIME,
-            publishAutoDefaults.endTime
-        );
-        const legacyTime = normalizeTimeHHmm(
-            input.SHOPPING_AUTO_TIME ?? CONFIG.SHOPPING_AUTO_TIME,
-            shoppingAutoDefaults.time
-        );
-
-        return {
-            SHOPPING_PUBLISH_AUTO_ENABLED: enabled,
-            SHOPPING_PUBLISH_AUTO_INTERVAL_MIN: interval,
-            SHOPPING_PUBLISH_AUTO_BATCH_SIZE: batchSize,
-            SHOPPING_PUBLISH_AUTO_HEADLESS: headless,
-            SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: targetsArray,
-            SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: notifyEnabled,
-            SHOPPING_PUBLISH_AUTO_START_TIME: startTime,
-            SHOPPING_PUBLISH_AUTO_END_TIME: endTime,
-            SHOPPING_AUTO_MODE: enabled,
-            SHOPPING_AUTO_DAILY_POSTS: batchSize,
-            SHOPPING_AUTO_HEADLESS: headless,
-            SHOPPING_AUTO_NOTIFY_ENABLED: notifyEnabled,
-            SHOPPING_AUTO_TIME: legacyTime
-        };
-    }
-
     return {
         normalizeTimeHHmm,
         parseTimeToMinutes,
@@ -403,8 +342,7 @@ function createAutomationPolicyRuntime(deps = {}) {
         matchesAnyToken,
         normalizeCollectTrendsSettings,
         normalizePublishAutoSettings,
-        normalizeBlogAutoSettings,
-        normalizeShoppingAutoSettings
+        normalizeBlogAutoSettings
     };
 }
 

@@ -2,7 +2,6 @@ let runtimeHooks = {
     resolveWritableConfigPath: null,
     buildDefaultConfigTemplate: null,
     syncAutoRunnerWithConfig: null,
-    syncShoppingAutoRunnerWithConfig: null,
     resolveNaverAutoCategoryCatalog: null
 };
 

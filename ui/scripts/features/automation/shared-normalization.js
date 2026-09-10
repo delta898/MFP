@@ -1,38 +1,3 @@
-function setShoppingAutoResultText(message) {
-  const resultEl = document.getElementById('shopping-auto-result');
-  if (resultEl) resultEl.textContent = String(message || '');
-}
-
-function normalizeShoppingAutoDailyPostsValue(rawValue) {
-  let value = parseInt(String(rawValue || '').trim(), 10);
-  if (!Number.isInteger(value) || value < 0) value = 0;
-  return value;
-}
-
-function clampShoppingAutoDailyPostsInputValue(options = {}) {
-  const force = options?.force === true;
-  const inputEl = document.getElementById('shopping-auto-daily-posts');
-  if (!inputEl) return;
-
-  const raw = String(inputEl.value || '').trim();
-  if (!raw) {
-    if (force) inputEl.value = '0';
-    return;
-  }
-
-  const parsed = parseInt(raw, 10);
-  if (!Number.isInteger(parsed) || parsed < 0) {
-    if (force) inputEl.value = '0';
-    return;
-  }
-
-  const normalized = normalizeShoppingAutoDailyPostsValue(parsed);
-  if (normalized !== parsed) {
-    inputEl.value = String(normalized);
-  }
-}
-
-
 function normalizeBlogAutoVariationNumberValue(rawValue, fallback = 50) {
   const raw = String(rawValue ?? '').trim();
   if (!raw) return fallback;

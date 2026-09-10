@@ -268,22 +268,6 @@ function createContentController(deps = {}) {
             }
         },
 
-        async shoppingAutoRunManual({ requestId, method, requestBody, res }) {
-            if (method !== 'POST') {
-                return sendMethodNotAllowed(sendError, res, requestId);
-            }
-            try {
-                logger.info('🚀 [UI][SHOPPING_AUTO] 수동 실행 요청 수신');
-                const data = await service.runShoppingAutoManual(requestBody || {});
-                const summary = data?.summary || {};
-                logger.info(`✅ [UI][SHOPPING_AUTO] 수동 실행 완료 (shopping: ${Number(summary?.shoppingSuccess || 0)}/${Number(summary?.shoppingAttempted || 0)})`);
-                return sendSuccess(res, requestId, data);
-            } catch (e) {
-                logger.warn(`⚠️ [UI][SHOPPING_AUTO] 수동 실행 실패: ${e?.message || e?.apiCode || 'unknown'}`);
-                return toErrorResponse(res, requestId, 'SHOPPING_AUTO_MANUAL_FAILED', '쇼핑 자동발행 수동 실행에 실패했습니다.', e);
-            }
-        },
-
         async shoppingRowUpdate({ requestId, method, requestBody, res }) {
             if (method !== 'POST') {
                 return sendMethodNotAllowed(sendError, res, requestId);

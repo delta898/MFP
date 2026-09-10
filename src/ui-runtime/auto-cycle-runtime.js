@@ -19,7 +19,6 @@ function createAutoCycleRuntime(deps = {}) {
         normalizeNonNegativeInt,
         parseConfigBool,
         normalizeBlogAutoSettings,
-        normalizeShoppingAutoSettings,
         getBlogAutoSettingsSnapshot,
         toFeatureMap,
         isCommandEnabled,
@@ -28,17 +27,12 @@ function createAutoCycleRuntime(deps = {}) {
         blogAutoDefaults,
         autoRuntimeState,
         publishRuntimeState,
-        shoppingAutoRuntimeState,
         refreshLegacyAutoRuntimeState,
-        resetShoppingDailyCountersIfNeeded,
         syncAutoRunnerWithConfig,
-        stopShoppingAutoRunner,
-        scheduleNextShoppingAutoCycle,
         executeTrendCollectWithRetry,
         processAndAppendTrendsToTopics,
         filterAutoTopicCandidates,
         executeBlogBatchRowsAction,
-        executeShoppingBatchRowsAction,
         snsRssDiscovery,
         snsDistributionRunner
     } = deps;
@@ -77,145 +71,6 @@ function createAutoCycleRuntime(deps = {}) {
             ...settings,
             BLOG_AUTO_TARGET_TREND_DATE: effectiveTrendDate
         });
-    }
-
-    async function executeShoppingAutoCycle(trigger = 'manual', options = {}) {
-        const forceRun = options?.forceRun === true;
-        if (!forceRun && !shoppingAutoRuntimeState.enabled) {
-            return { success: false, code: 'SHOPPING_AUTO_DISABLED', message: '쇼핑 자동 실행이 비활성화되어 있습니다.' };
-        }
-        if (shoppingAutoRuntimeState.running) {
-            return { success: false, code: 'SHOPPING_AUTO_ALREADY_RUNNING', message: '다른 쇼핑 자동 사이클이 실행 중입니다.' };
-        }
-
-        shoppingAutoRuntimeState.running = true;
-        shoppingAutoRuntimeState.status = 'running';
-        shoppingAutoRuntimeState.message = `쇼핑 자동 사이클 실행 중 (${trigger})`;
-        shoppingAutoRuntimeState.lastRunAt = new Date().toISOString();
-        shoppingAutoRuntimeState.nextRunAt = null;
-        resetShoppingDailyCountersIfNeeded();
-
-        Logger.info(`🚀 [AUTO][쇼핑] 쇼핑 자동발행 파이프라인 시작! (Trigger: ${trigger})`);
-
-        const summary = {
-            trigger,
-            shoppingAttempted: 0,
-            shoppingSuccess: 0,
-            skipped: []
-        };
-
-        try {
-            const settings = normalizeShoppingAutoSettings({ ...CONFIG, ...(options?.settingsOverrides || {}) });
-            if (!settings.SHOPPING_PUBLISH_AUTO_ENABLED && !forceRun) {
-                stopShoppingAutoRunner('설정에 따라 쇼핑 자동 모드 비활성화');
-                return { success: false, code: 'SHOPPING_AUTO_DISABLED_BY_CONFIG', message: '쇼핑 자동 모드가 비활성화되어 있습니다.' };
-            }
-
-            const precheck = await License.checkLicenseStatus({ quiet: true });
-            if (!precheck.success) {
-                shoppingAutoRuntimeState.status = 'error';
-                shoppingAutoRuntimeState.message = `라이선스 확인 실패: ${precheck.message}`;
-                shoppingAutoRuntimeState.lastSummary = summary;
-                return { success: false, code: 'LICENSE_STATUS_FAILED', message: precheck.message, data: { trigger, summary } };
-            }
-            const features = toFeatureMap(precheck.features);
-            const session = await checkAuthSessionValid();
-            if (!session.ok) {
-                shoppingAutoRuntimeState.status = 'waiting';
-                shoppingAutoRuntimeState.message = '네이버 로그인 세션이 유효하지 않아 쇼핑 자동 사이클을 대기합니다.';
-                shoppingAutoRuntimeState.lastSummary = summary;
-                return { success: false, code: 'NAVER_SESSION_INVALID', message: '네이버 로그인 세션이 유효하지 않습니다.', data: { trigger, summary } };
-            }
-
-            if (!isCommandEnabled(features, 'shopping')) {
-                summary.skipped.push('현재 플랜에서 쇼핑 기능이 비활성화되어 건너뜁니다.');
-            } else {
-                const cycleCap = settings.SHOPPING_PUBLISH_AUTO_BATCH_SIZE;
-                const effectiveCycleCap = cycleCap > 0 ? cycleCap : Number.MAX_SAFE_INTEGER;
-                const remaining = cycleCap > 0
-                    ? Math.max(0, cycleCap - shoppingAutoRuntimeState.shoppingPublishedToday)
-                    : Number.MAX_SAFE_INTEGER;
-                const targetLimit = Math.max(0, Math.min(effectiveCycleCap, remaining));
-
-                if (targetLimit > 0) {
-                    await ensureSheetsReadyForUi();
-                    const shoppingRes = await Utils.readGoogleSheetShoppingAll({
-                        status: '발행 준비 완료',
-                        q: '',
-                        limit: 100000,
-                        offset: 0,
-                        sortBy: 'rowNumber',
-                        sortDir: 'asc'
-                    });
-                    const shoppingItems = Array.isArray(shoppingRes.items) ? shoppingRes.items : [];
-                    const rowIndices = shoppingItems
-                        .sort((a, b) => Number(a.rowNumber || 0) - Number(b.rowNumber || 0))
-                        .slice(0, targetLimit)
-                        .map((item) => item.rowIndex)
-                        .filter((value) => Number.isInteger(value) && value >= 0);
-                    summary.shoppingAttempted = rowIndices.length;
-                    if (rowIndices.length > 0) {
-                        const batchResult = await executeShoppingBatchRowsAction({
-                            action: 'batch',
-                            rowIndices,
-                            isAutoCycle: true
-                        });
-                        const successCount = Number(batchResult?.data?.successCount || 0);
-                        summary.shoppingSuccess = successCount;
-                        if (successCount > 0) {
-                            shoppingAutoRuntimeState.shoppingPublishedToday += successCount;
-                        }
-                        const failCount = Number(batchResult?.data?.failCount || 0);
-                        if (failCount > 0) summary.skipped.push(`쇼핑 발행 실패 ${failCount}건`);
-                    } else {
-                        summary.skipped.push('상태가 "발행 준비 완료"인 쇼핑 후보가 없어 건너뜁니다.');
-                    }
-                } else {
-                    summary.skipped.push(
-                        `쇼핑 발행 한도가 0건이라 건너뜁니다. `
-                        + `(설정=${cycleCap}, 잔여=${Number.isFinite(remaining) ? remaining : '무제한'})`
-                    );
-                }
-            }
-
-            shoppingAutoRuntimeState.cycleCount += 1;
-            shoppingAutoRuntimeState.status = 'waiting';
-            shoppingAutoRuntimeState.message = '쇼핑 자동 사이클 완료';
-            shoppingAutoRuntimeState.lastSummary = summary;
-
-            Logger.info(`✅ [AUTO][쇼핑] 파이프라인 완료! - 쇼핑 발행 시도/성공: ${summary.shoppingAttempted}/${summary.shoppingSuccess}`);
-            if (summary.skipped && summary.skipped.length > 0) {
-                Logger.info(`   👉 건너뛴 사유 내역:\n      - ${summary.skipped.join('\n      - ')}`);
-            }
-
-            if (settings.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED) {
-                const msg = `<b>[쇼핑 자동 발행 완료]</b>\n- 시도: <b>${summary.shoppingAttempted}</b>건\n- 성공: <b>${summary.shoppingSuccess}</b>건\n- 시각: ${new Date().toLocaleString()}`;
-                if (CONFIG.NOTIFY_TELEGRAM_ENABLED) {
-                    TelegramService.sendNotification(msg, {
-                        botToken: CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN,
-                        chatId: CONFIG.NOTIFY_TELEGRAM_CHAT_ID,
-                        enabled: CONFIG.NOTIFY_TELEGRAM_ENABLED
-                    }).catch((error) => Logger.error(`텔레그램 알림 전송 에러: ${error.message}`));
-                }
-                if (CONFIG.NOTIFY_SLACK_ENABLED) {
-                    SlackService.sendNotification(msg, {
-                        webhookUrl: CONFIG.NOTIFY_SLACK_WEBHOOK_URL,
-                        enabled: CONFIG.NOTIFY_SLACK_ENABLED
-                    }).catch((error) => Logger.error(`Slack 알림 전송 에러: ${error.message}`));
-                }
-            }
-
-            return { success: true, data: { trigger, summary } };
-        } catch (error) {
-            shoppingAutoRuntimeState.status = 'error';
-            shoppingAutoRuntimeState.message = `쇼핑 자동 사이클 오류: ${error.message}`;
-            shoppingAutoRuntimeState.lastSummary = summary;
-            Logger.error(`❌ [AUTO][쇼핑] 사이클 오류: ${error.message}`);
-            return { success: false, code: 'SHOPPING_AUTO_CYCLE_FAILED', message: error.message, data: { trigger, summary } };
-        } finally {
-            shoppingAutoRuntimeState.running = false;
-            if (shoppingAutoRuntimeState.enabled) scheduleNextShoppingAutoCycle();
-        }
     }
 
     async function runAutoCycle(trigger = 'manual', options = {}) {
@@ -1036,7 +891,6 @@ function createAutoCycleRuntime(deps = {}) {
     }
 
     return {
-        executeShoppingAutoCycle,
         runAutoCycle,
         runTrendCollectCycle,
         runRssCollectCycle,

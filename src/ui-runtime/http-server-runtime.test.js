@@ -58,7 +58,6 @@ function createWindowsServerHarness() {
         stopCardNewsRssIntake() { lifecycle.cardNewsStops += 1; },
         startRecommendationDelivery: null,
         stopRecommendationDelivery() {},
-        syncShoppingAutoRunnerWithConfig() {},
         recordUiActivity() {},
         handleGoogleOAuthCallback: async () => false,
         initTelegramBotService: async () => {},

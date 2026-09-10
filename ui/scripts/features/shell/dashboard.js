@@ -188,21 +188,13 @@ async function loadDashboard(options = {}) {
 
   // Auto status cards
   const blogAutoEnabled = Boolean(auto?.blog?.enabled);
-  const shopAutoEnabled = Boolean(auto?.shopping?.enabled);
   dashboardAutoScheduleState.blog.enabled = blogAutoEnabled;
   dashboardAutoScheduleState.blog.nextRunAt = String(auto?.blog?.nextRunAt || '').trim();
   dashboardAutoScheduleState.blog.status = auto?.blog?.status;
   dashboardAutoScheduleState.blog.startTime = auto?.blog?.settings?.PUBLISH_AUTO_START_TIME;
   dashboardAutoScheduleState.blog.endTime = auto?.blog?.settings?.PUBLISH_AUTO_END_TIME;
 
-  dashboardAutoScheduleState.shopping.enabled = shopAutoEnabled;
-  dashboardAutoScheduleState.shopping.nextRunAt = String(auto?.shopping?.nextRunAt || '').trim();
-  dashboardAutoScheduleState.shopping.status = auto?.shopping?.status;
-  dashboardAutoScheduleState.shopping.startTime = auto?.shopping?.settings?.SHOPPING_PUBLISH_AUTO_START_TIME;
-  dashboardAutoScheduleState.shopping.endTime = auto?.shopping?.settings?.SHOPPING_PUBLISH_AUTO_END_TIME;
-
   setText('dash-auto-blog-enabled', blogAutoEnabled ? 'ON' : 'OFF');
-  setText('dash-auto-shopping-enabled', shopAutoEnabled ? 'ON' : 'OFF');
   renderDashboardAutoSchedule();
 
   const blogCard = document.getElementById('dash-auto-blog-card');
@@ -219,21 +211,6 @@ async function loadDashboard(options = {}) {
     blogCard._navBound = true;
     blogCard.addEventListener('click', () => void navigateTo('blog', 'auto'));
   }
-  const shoppingCard = document.getElementById('dash-auto-shopping-card');
-  const shoppingStateChip = document.getElementById('dash-auto-shopping-enabled');
-  if (shoppingStateChip) {
-    shoppingStateChip.classList.toggle('on', shopAutoEnabled);
-    shoppingStateChip.classList.toggle('off', !shopAutoEnabled);
-  }
-  if (shoppingCard) {
-    shoppingCard.classList.toggle('is-on', shopAutoEnabled);
-    shoppingCard.classList.toggle('is-off', !shopAutoEnabled);
-  }
-  if (shoppingCard && !shoppingCard._navBound) {
-    shoppingCard._navBound = true;
-    shoppingCard.addEventListener('click', () => void navigateTo('shopping', 'auto'));
-  }
-
   // 📊 compact meta info: 주기, 연속건수, 대상 채널
   function renderAutoMetaRow(prefix, settings, enabledFlag) {
     const metaEl = document.getElementById(`dash-auto-${prefix}-meta`);
@@ -242,10 +219,9 @@ async function loadDashboard(options = {}) {
       metaEl.innerHTML = '';
       return;
     }
-    // 블로그: PUBLISH_AUTO_*, 쇼핑: SHOPPING_PUBLISH_AUTO_*
-    const interval = settings.PUBLISH_AUTO_INTERVAL_MIN ?? settings.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN ?? '-';
-    const batch = settings.PUBLISH_AUTO_BATCH_SIZE ?? settings.SHOPPING_PUBLISH_AUTO_BATCH_SIZE ?? '-';
-    const channelStr = settings.PUBLISH_AUTO_TARGET_CHANNELS ?? settings.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS ?? 'naver';
+    const interval = settings.PUBLISH_AUTO_INTERVAL_MIN ?? '-';
+    const batch = settings.PUBLISH_AUTO_BATCH_SIZE ?? '-';
+    const channelStr = settings.PUBLISH_AUTO_TARGET_CHANNELS ?? 'naver';
     const channels = String(channelStr).split(',').map(v => v.trim()).filter(Boolean);
     const channelLabel = channels.map(c => c === 'wordpress' ? 'WP' : c === 'naver' ? '네이버' : c).join(' · ');
     metaEl.innerHTML = [
@@ -256,7 +232,6 @@ async function loadDashboard(options = {}) {
   }
 
   renderAutoMetaRow('blog', auto?.blog?.settings, blogAutoEnabled);
-  renderAutoMetaRow('shopping', auto?.shopping?.settings, shopAutoEnabled);
 
   // Top header status bar
   setText('top-plan', `플랜: ${license?.planName || license?.planCode || '-'}`);

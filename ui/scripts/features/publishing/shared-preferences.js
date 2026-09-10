@@ -2,19 +2,19 @@ function initGlobalPublishSettingsSync() {
   const syncGroups = [
     {
       key: 'pub_pref_headless',
-      ids: ['quick-headless', 'quick-manuscript-headless', 'quick-pasted-headless', 'blog-trends-headless', 'blog-batch-headless', 'shopping-quick-headless', 'shopping-batch-headless', 'shopping-publish-auto-headless', 'blog-publish-auto-headless', 'blog-next-runner-headless', 'blog-next-folder-headless', 'blog-next-paste-headless'],
+      ids: ['quick-headless', 'quick-manuscript-headless', 'quick-pasted-headless', 'blog-trends-headless', 'blog-batch-headless', 'shopping-quick-headless', 'shopping-batch-headless', 'blog-publish-auto-headless', 'blog-next-runner-headless', 'blog-next-folder-headless', 'blog-next-paste-headless'],
       type: 'checkbox',
       default: true
     },
     {
       key: 'pub_pref_target_naver',
-      ids: ['quick-target-naver', 'quick-manuscript-target-naver', 'quick-pasted-target-naver', 'blog-batch-target-naver', 'shopping-quick-target-naver', 'shopping-batch-target-naver', 'blog-publish-auto-target-naver', 'shopping-publish-auto-target-naver'],
+      ids: ['quick-target-naver', 'quick-manuscript-target-naver', 'quick-pasted-target-naver', 'blog-batch-target-naver', 'shopping-quick-target-naver', 'shopping-batch-target-naver', 'blog-publish-auto-target-naver'],
       type: 'checkbox',
       default: true
     },
     {
       key: 'pub_pref_target_wordpress',
-      ids: ['quick-target-wordpress', 'quick-manuscript-target-wordpress', 'quick-pasted-target-wordpress', 'blog-batch-target-wordpress', 'shopping-quick-target-wordpress', 'shopping-batch-target-wordpress', 'blog-publish-auto-target-wordpress', 'shopping-publish-auto-target-wordpress'],
+      ids: ['quick-target-wordpress', 'quick-manuscript-target-wordpress', 'quick-pasted-target-wordpress', 'blog-batch-target-wordpress', 'shopping-quick-target-wordpress', 'shopping-batch-target-wordpress', 'blog-publish-auto-target-wordpress'],
       type: 'checkbox',
       default: false
     },

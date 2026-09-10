@@ -51,11 +51,6 @@ function applySettingsMajorToForm(data, options = {}) {
   const blogPublishAutoIntervalEl = document.getElementById('blog-publish-auto-interval');
   const blogPublishAutoPostStatusEl = document.getElementById('blog-publish-auto-post-status');
   const blogPublishAutoHeadlessEl = document.getElementById('blog-publish-auto-headless');
-  const shoppingPublishAutoEnabledEl = document.getElementById('shopping-publish-auto-enabled');
-  const shoppingPublishAutoBatchEl = document.getElementById('shopping-publish-auto-batch');
-  const shoppingPublishAutoIntervalEl = document.getElementById('shopping-publish-auto-interval');
-  const shoppingPublishAutoHeadlessEl = document.getElementById('shopping-publish-auto-headless');
-  const shoppingPublishAutoNotifyEnabledEl = document.getElementById('shopping-publish-auto-notify-enabled');
   const blogPublishAutoNotifyEnabledEl = document.getElementById('blog-publish-auto-notify-enabled');
 
   const telegramEnabledEl = document.getElementById('settings-notify-telegram-enabled');
@@ -211,27 +206,6 @@ function applySettingsMajorToForm(data, options = {}) {
     el.checked = targetChannels.includes(el.getAttribute('data-publish-target'));
   });
 
-  sc(shoppingPublishAutoEnabledEl, fields.SHOPPING_PUBLISH_AUTO_ENABLED);
-
-  const shoppingStartTimeEl = document.getElementById('shopping-publish-auto-start-time');
-  const shoppingEndTimeEl = document.getElementById('shopping-publish-auto-end-time');
-  sv(shoppingStartTimeEl, fields.SHOPPING_PUBLISH_AUTO_START_TIME || '00:00');
-  sv(shoppingEndTimeEl, fields.SHOPPING_PUBLISH_AUTO_END_TIME || '23:59');
-  sv(shoppingPublishAutoBatchEl, fields.SHOPPING_PUBLISH_AUTO_BATCH_SIZE || 1);
-  sv(shoppingPublishAutoIntervalEl, fields.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN || 60);
-
-  const shoppingTargetChannels = Array.isArray(fields.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS)
-    ? fields.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS
-    : String(fields.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS || 'naver').split(',').map(v => v.trim()).filter(Boolean);
-  // 쇼핑 자동 발행 전용 타겟 체크박스만 갱신
-  ['shopping-publish-auto-target-naver', 'shopping-publish-auto-target-wordpress'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el || (skipFocused && document.activeElement === el)) return;
-    el.checked = shoppingTargetChannels.includes(el.getAttribute('data-shopping-publish-target'));
-  });
-
-  sc(shoppingPublishAutoHeadlessEl, fields.SHOPPING_PUBLISH_AUTO_HEADLESS ?? true);
-  sc(shoppingPublishAutoNotifyEnabledEl, fields.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED);
 
   sc(telegramEnabledEl, fields.NOTIFY_TELEGRAM_ENABLED);
   sv(telegramBotTokenEl, fields.NOTIFY_TELEGRAM_BOT_TOKEN || '');
@@ -376,16 +350,6 @@ function getSettingsMajorBasicValuesFromDom() {
     PUBLISH_AUTO_NOTIFY_ENABLED: Boolean(document.getElementById('blog-publish-auto-notify-enabled')?.checked),
     PUBLISH_AUTO_START_TIME: (document.getElementById('blog-publish-auto-start-time')?.value || '00:00').trim(),
     PUBLISH_AUTO_END_TIME: (document.getElementById('blog-publish-auto-end-time')?.value || '23:59').trim(),
-
-    // Shopping Auto Refined
-    SHOPPING_PUBLISH_AUTO_ENABLED: Boolean(document.getElementById('shopping-publish-auto-enabled')?.checked),
-    SHOPPING_PUBLISH_AUTO_INTERVAL_MIN: parseInt(document.getElementById('shopping-publish-auto-interval')?.value || '60', 10),
-    SHOPPING_PUBLISH_AUTO_BATCH_SIZE: parseInt(document.getElementById('shopping-publish-auto-batch')?.value || '1', 10),
-    SHOPPING_PUBLISH_AUTO_START_TIME: (document.getElementById('shopping-publish-auto-start-time')?.value || '00:00').trim(),
-    SHOPPING_PUBLISH_AUTO_END_TIME: (document.getElementById('shopping-publish-auto-end-time')?.value || '23:59').trim(),
-    SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: Array.from(document.querySelectorAll('[data-shopping-publish-target]:checked')).map(el => el.getAttribute('data-shopping-publish-target')),
-    SHOPPING_PUBLISH_AUTO_HEADLESS: Boolean(document.getElementById('shopping-publish-auto-headless')?.checked),
-    SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: Boolean(document.getElementById('shopping-publish-auto-notify-enabled')?.checked),
 
     // Notification (Telegram)
     NOTIFY_TELEGRAM_ENABLED: Boolean(document.getElementById('settings-notify-telegram-enabled')?.checked),

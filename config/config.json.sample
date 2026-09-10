@@ -174,17 +174,6 @@
         "start_time": "00:00",
         "end_time": "23:59"
       },
-      "shopping": {
-        "enabled": false,
-        "interval_min": 60,
-        "batch_size": 1,
-        "target_channels": [
-        ],
-        "headless": true,
-        "notify_enabled": false,
-        "start_time": "00:00",
-        "end_time": "23:59"
-      },
       "social": {
         "enabled": false,
         "interval_min": 10,

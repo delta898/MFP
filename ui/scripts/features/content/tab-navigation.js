@@ -1,5 +1,5 @@
 function activateShoppingTab(tabName, options = {}) {
-  const allowed = ['quick', 'batch', 'auto'];
+  const allowed = ['quick', 'batch'];
   const target = allowed.includes(String(tabName)) ? String(tabName) : 'quick';
   shoppingActiveTab = target;
 
@@ -15,9 +15,6 @@ function activateShoppingTab(tabName, options = {}) {
   if (target === 'batch') {
     loadBlogShopping();
     return;
-  }
-  if (target === 'auto') {
-    loadShoppingAutoSettings();
   }
 }
 

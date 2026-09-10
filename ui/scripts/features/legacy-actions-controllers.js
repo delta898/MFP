@@ -2107,10 +2107,6 @@ function bindActions() {
   const blogAutoVariationNumberInputEl = document.getElementById('blog-collect-trends-filter-min');
   const blogAutoVariationTypeEl = document.getElementById('blog-collect-trends-filter-type');
   const blogAutoRunBtn = document.getElementById('blog-publish-auto-run-btn');
-  const shoppingAutoRefreshBtn = document.getElementById('shopping-auto-refresh-btn');
-  const shoppingAutoSaveBtn = document.getElementById('shopping-auto-save-btn');
-  const shoppingAutoRunBtn = document.getElementById('shopping-publish-auto-run-btn');
-  const shoppingAutoDailyPostsInputEl = document.getElementById('shopping-auto-daily-posts');
   const settingsTypingPreviewInputEl = document.getElementById('settings-typing-preview-input');
   const settingsTypingPreviewReplayBtn = document.getElementById('settings-typing-preview-replay');
   const settingsTabButtons = Array.from(document.querySelectorAll('.settings-tab-btn[data-settings-tab]'));
@@ -2145,10 +2141,6 @@ function bindActions() {
     document.getElementById('blog-publish-auto-batch'),
     document.getElementById('blog-publish-auto-start-time'),
     document.getElementById('blog-publish-auto-end-time'),
-    document.getElementById('shopping-publish-auto-interval'),
-    document.getElementById('shopping-publish-auto-batch'),
-    document.getElementById('shopping-publish-auto-start-time'),
-    document.getElementById('shopping-publish-auto-end-time'),
     document.getElementById('settings-notify-telegram-bot-token'),
     document.getElementById('settings-notify-telegram-chat-id'),
     document.getElementById('settings-notify-bitly-token'),
@@ -2181,10 +2173,7 @@ function bindActions() {
     document.getElementById('blog-collect-trends-filter-number-enabled'),
     document.getElementById('blog-publish-auto-enabled'),
     document.getElementById('blog-publish-auto-headless'),
-    document.getElementById('shopping-publish-auto-enabled'),
-    document.getElementById('shopping-publish-auto-headless'),
     document.getElementById('blog-publish-auto-notify-enabled'),
-    document.getElementById('shopping-publish-auto-notify-enabled'),
     document.getElementById('settings-notify-telegram-enabled'),
     document.getElementById('settings-notify-slack-enabled'),
     document.getElementById('settings-sns-publish-enabled'),
@@ -2193,8 +2182,7 @@ function bindActions() {
     document.getElementById('settings-card-news-source-naver'),
     document.getElementById('settings-card-news-source-wordpress'),
     ...Array.from(document.querySelectorAll('input[name="settings-chat-model-source"]')),
-    ...Array.from(document.querySelectorAll('[data-publish-target]')),
-    ...Array.from(document.querySelectorAll('[data-shopping-publish-target]'))
+    ...Array.from(document.querySelectorAll('[data-publish-target]'))
   ].filter(Boolean);
 
   settingsMajorRefreshBtns.forEach(btn => btn.addEventListener('click', () => loadSettingsMajor({ force: true })));
@@ -2322,9 +2310,6 @@ function bindActions() {
   if (blogAutoVariationTypeEl) {
     blogAutoVariationTypeEl.addEventListener('change', syncBlogAutoVariationTypeUi);
   }
-  if (shoppingAutoRefreshBtn) shoppingAutoRefreshBtn.addEventListener('click', () => loadShoppingAutoSettings({ force: true }));
-  if (shoppingAutoSaveBtn) shoppingAutoSaveBtn.addEventListener('click', saveShoppingAutoSettings);
-  if (shoppingAutoRunBtn) shoppingAutoRunBtn.addEventListener('click', runShoppingAutoManual);
   blogAutoCategoryOptionsEls.forEach((containerEl) => {
     containerEl.addEventListener('click', (e) => {
       const btn = e.target?.closest('button[data-blog-collect-trends-category-toggle]');
@@ -2346,14 +2331,6 @@ function bindActions() {
   if (blogAutoVariationNumberEnabledEl) {
     blogAutoVariationNumberEnabledEl.addEventListener('change', () => {
       syncBlogAutoVariationNumberUi();
-    });
-  }
-  if (shoppingAutoDailyPostsInputEl) {
-    shoppingAutoDailyPostsInputEl.addEventListener('input', () => {
-      clampShoppingAutoDailyPostsInputValue({ force: false });
-    });
-    shoppingAutoDailyPostsInputEl.addEventListener('blur', () => {
-      clampShoppingAutoDailyPostsInputValue({ force: true });
     });
   }
   const settingsNotifyTelegramTestBtn = document.getElementById('settings-notify-telegram-test-btn');

@@ -131,8 +131,7 @@
 }
 
 #blog-tab-collect .settings-checkbox-label .auto-mode-title,
-#blog-tab-auto .settings-checkbox-label .auto-mode-title,
-#shopping-tab-auto .settings-checkbox-label .auto-mode-title {
+#blog-tab-auto .settings-checkbox-label .auto-mode-title {
   font-size: 1.1rem;
   font-weight: 600;
   line-height: 1.2;
@@ -160,11 +159,6 @@
   font-weight: 600;
 }
 
-#shopping-tab-auto .field-label-text {
-  font-size: 13px;
-  font-weight: 600;
-}
-
 .settings-checkbox-inline {
   display: inline-flex !important;
   width: auto !important;
@@ -173,12 +167,6 @@
 }
 
 .blog-tab-gap {
-  display: inline-block;
-  width: 16px;
-  flex: 0 0 16px;
-}
-
-.shopping-tab-gap {
   display: inline-block;
   width: 16px;
   flex: 0 0 16px;

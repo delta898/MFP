@@ -206,7 +206,6 @@ class TelegramBotService {
             || (() => CONFIG.CONFIG_SOURCE_PATH || CONFIG.PATHS?.configFile || path.join(process.cwd(), 'config', 'config.json'));
         const buildDefaultConfigTemplate = hooks.buildDefaultConfigTemplate || (() => '{}');
         const syncAutoRunnerWithConfig = hooks.syncAutoRunnerWithConfig || (() => { });
-        const syncShoppingAutoRunnerWithConfig = hooks.syncShoppingAutoRunnerWithConfig || (() => { });
         const resolveNaverAutoCategoryCatalog = hooks.resolveNaverAutoCategoryCatalog || null;
 
         const capabilityRegistry = createCapabilityRegistry({
@@ -220,7 +219,6 @@ class TelegramBotService {
             resolveWritableConfigPath,
             buildDefaultConfigTemplate,
             syncAutoRunnerWithConfig,
-            syncShoppingAutoRunnerWithConfig,
             resolveNaverAutoCategoryCatalog
         });
 

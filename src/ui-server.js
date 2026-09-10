@@ -163,12 +163,6 @@ const PUBLISH_AUTO_DEFAULTS = {
     startTime: '00:00',
     endTime: '23:59'
 };
-const SHOPPING_AUTO_DEFAULTS = {
-    mode: false,
-    dailyPosts: 10,
-    time: '07:50',
-    notifyEnabled: false
-};
 const BLOG_AUTO_CATEGORY_MASTER_KEYS = ['NAVER_AUTO_CATEGORIES_MASTER', 'BLOG_AUTO_CATEGORIES_MASTER', 'blog_auto_categories_master', 'naver_auto_categories_master'];
 const SHOPPING_IMAGE_SLOT_MAP = {
     ftc: { key: 'FTC_DISCLOSURE_IMAGE_URL', fileBase: 'ftc_disclosure', label: '공정위 이미지', required: true },
@@ -380,8 +374,7 @@ const automationPolicyRuntime = createAutomationPolicyRuntime({
     normalizeNonNegativeInt,
     normalizePositiveInt,
     collectTrendsDefaults: COLLECT_TRENDS_DEFAULTS,
-    publishAutoDefaults: PUBLISH_AUTO_DEFAULTS,
-    shoppingAutoDefaults: SHOPPING_AUTO_DEFAULTS
+    publishAutoDefaults: PUBLISH_AUTO_DEFAULTS
 });
 const {
     normalizeTimeHHmm,
@@ -394,8 +387,7 @@ const {
     matchesAnyToken,
     normalizeCollectTrendsSettings,
     normalizePublishAutoSettings,
-    normalizeBlogAutoSettings,
-    normalizeShoppingAutoSettings
+    normalizeBlogAutoSettings
 } = automationPolicyRuntime;
 const autoRunnerRuntime = createAutoRunnerRuntime({
     CONFIG,
@@ -404,27 +396,19 @@ const autoRunnerRuntime = createAutoRunnerRuntime({
     normalizeNonNegativeInt,
     normalizeTimeHHmm,
     computeNextWindowedRunAt,
-    normalizeShoppingAutoSettings,
     getBlogAutoSettingsSnapshot: () => getBlogAutoSettingsSnapshot(),
-    getShoppingAutoSettingsSnapshot: () => getShoppingAutoSettingsSnapshot(),
-    publishAutoDefaults: PUBLISH_AUTO_DEFAULTS,
-    shoppingAutoDefaults: SHOPPING_AUTO_DEFAULTS
+    publishAutoDefaults: PUBLISH_AUTO_DEFAULTS
 });
 const {
     autoRuntimeState,
     publishRuntimeState,
-    shoppingAutoRuntimeState,
     setHandlers: setAutoRunnerHandlers,
-    resetShoppingDailyCountersIfNeeded,
     getAutoStatusPayload,
     refreshLegacyAutoRuntimeState,
     syncAutoRunnerWithConfig,
     triggerSnsDiscoveryCycle,
     triggerSnsStartupDiscovery,
-    triggerSnsDistributionCycle,
-    scheduleNextShoppingAutoCycle,
-    stopShoppingAutoRunner,
-    syncShoppingAutoRunnerWithConfig
+    triggerSnsDistributionCycle
 } = autoRunnerRuntime;
 
 function setBlogRuntimeLog(rowIndex, message) {
@@ -753,7 +737,6 @@ const uiSettingsFieldsRuntime = createUiSettingsFieldsRuntime({
     buildModelSelectionFromFields,
     normalizeChatModelSource,
     normalizeBlogAutoSettings,
-    normalizeShoppingAutoSettings,
     normalizeBool,
     mergeActiveSelectionsIntoProfiles,
     normalizeIntegerOrBlank,
@@ -848,9 +831,6 @@ const contentActionsRuntime = createContentActionsRuntime({
     isCommandEnabled,
     getBlogAutoSettingsSnapshot: () => getBlogAutoSettingsSnapshot(),
     processMultiPlatformPublish,
-    normalizeShoppingAutoSettings,
-    normalizeNonNegativeInt,
-    publishAutoDefaults: PUBLISH_AUTO_DEFAULTS,
     clearAllBlogRuntimeLogs,
     setBlogRuntimeLog,
     clearAllShoppingRuntimeLogs,
@@ -862,7 +842,6 @@ const {
     executeBlogRowAction,
     executeBlogTopicUpdate,
     executeBlogTopicsDelete,
-    executeShoppingAutoManualAction,
     executeShoppingBatchRowsAction,
     executeShoppingRowAction,
     executeShoppingRowUpdate,
@@ -921,7 +900,6 @@ const autoCycleRuntime = createAutoCycleRuntime({
     normalizeNonNegativeInt,
     parseConfigBool,
     normalizeBlogAutoSettings,
-    normalizeShoppingAutoSettings,
     getBlogAutoSettingsSnapshot: () => getBlogAutoSettingsSnapshot(),
     toFeatureMap,
     isCommandEnabled,
@@ -930,22 +908,16 @@ const autoCycleRuntime = createAutoCycleRuntime({
     blogAutoDefaults: PUBLISH_AUTO_DEFAULTS,
     autoRuntimeState,
     publishRuntimeState,
-    shoppingAutoRuntimeState,
     refreshLegacyAutoRuntimeState,
-    resetShoppingDailyCountersIfNeeded,
     syncAutoRunnerWithConfig,
-    stopShoppingAutoRunner,
-    scheduleNextShoppingAutoCycle,
     executeTrendCollectWithRetry,
     processAndAppendTrendsToTopics,
     filterAutoTopicCandidates,
     executeBlogBatchRowsAction,
-    executeShoppingBatchRowsAction,
     snsRssDiscovery,
     snsDistributionRunner
 });
 const {
-    executeShoppingAutoCycle,
     runAutoCycle,
     runTrendCollectCycle,
     runRssCollectCycle,
@@ -960,15 +932,10 @@ function getBlogAutoSettingsSnapshot() {
     return normalizeBlogAutoSettings({});
 }
 
-function getShoppingAutoSettingsSnapshot() {
-    return normalizeShoppingAutoSettings({});
-}
-
 registerRuntimeHooks({
     resolveWritableConfigPath,
     buildDefaultConfigTemplate,
     syncAutoRunnerWithConfig,
-    syncShoppingAutoRunnerWithConfig,
     resolveNaverAutoCategoryCatalog
 });
 
@@ -1023,7 +990,6 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     applyRuntimeConfigFromMajor,
     parseMajorFieldsFromRequest,
     syncAutoRunnerWithConfig,
-    syncShoppingAutoRunnerWithConfig,
     resolveLocalImagePathFromSource,
     getContentType,
     resolveRuntimePath,
@@ -1042,7 +1008,6 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     executeBlogBatchRowsAction,
     executeBlogRowAction,
     executeShoppingBatchRowsAction,
-    executeShoppingAutoManualAction,
     executeShoppingRowUpdate,
     executeBlogTopicUpdate,
     executeBlogTopicsDelete,
@@ -1120,8 +1085,7 @@ setAutoRunnerHandlers({
     runSnsDiscoveryCycle,
     runSnsDistributionCycle,
     runSnsAutomationCycle,
-    runAutoPublishCycle,
-    executeShoppingAutoCycle
+    runAutoPublishCycle
 });
 
 async function handleGoogleOAuthCallback({ url, res }) {
@@ -1172,7 +1136,6 @@ const uiHttpServerRuntime = createUiHttpServerRuntime({
     stopCardNewsRssIntake: () => cardNewsRssIntakeScheduler.stop(),
     startRecommendationDelivery: () => recommendationDeliveryScheduler.start(),
     stopRecommendationDelivery: () => recommendationDeliveryScheduler.stop(),
-    syncShoppingAutoRunnerWithConfig,
     recordUiActivity,
     handleGoogleOAuthCallback,
     initTelegramBotService: async () => {

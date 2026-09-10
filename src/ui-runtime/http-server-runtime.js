@@ -26,7 +26,6 @@ function createUiHttpServerRuntime(deps = {}) {
         stopCardNewsRssIntake,
         startRecommendationDelivery,
         stopRecommendationDelivery,
-        syncShoppingAutoRunnerWithConfig,
         recordUiActivity,
         handleGoogleOAuthCallback,
         initTelegramBotService,
@@ -138,7 +137,6 @@ function createUiHttpServerRuntime(deps = {}) {
 
         Logger.debug('[UI] Syncing auto-runners...');
         syncAutoRunnerWithConfig();
-        syncShoppingAutoRunnerWithConfig();
 
         Logger.debug('[UI] Initializing TelegramBotService (UI)...');
         await initTelegramBotService();

@@ -33,9 +33,6 @@ function createContentActionsRuntime(deps = {}) {
         isCommandEnabled,
         getBlogAutoSettingsSnapshot,
         processMultiPlatformPublish,
-        normalizeShoppingAutoSettings,
-        normalizeNonNegativeInt,
-        publishAutoDefaults,
         clearAllBlogRuntimeLogs,
         setBlogRuntimeLog,
         clearAllShoppingRuntimeLogs,
@@ -910,81 +907,6 @@ function createContentActionsRuntime(deps = {}) {
         };
     }
 
-    async function executeShoppingAutoManualAction(requestBody = {}) {
-        if (!isLivePublishAllowed(CONFIG)) {
-            return {
-                success: false,
-                code: LIVE_PUBLISH_BLOCKED_CODE,
-                message: LIVE_PUBLISH_BLOCKED_MESSAGE
-            };
-        }
-        try {
-            await ensureSheetsReadyForUi();
-        } catch (error) {
-            return { success: false, code: 'SHEETS_NOT_READY', message: `필수 시트 준비 실패: ${error.message}` };
-        }
-
-        const settingsOverrides = (requestBody?.settingsOverrides && typeof requestBody.settingsOverrides === 'object')
-            ? requestBody.settingsOverrides
-            : {};
-        const settings = normalizeShoppingAutoSettings({
-            ...CONFIG,
-            ...settingsOverrides
-        });
-
-        const summary = {
-            shoppingAttempted: 0,
-            shoppingSuccess: 0,
-            skipped: []
-        };
-
-        const targetLimit = normalizeNonNegativeInt(
-            settings.SHOPPING_PUBLISH_AUTO_BATCH_SIZE,
-            publishAutoDefaults.batchSize
-        );
-        if (targetLimit <= 0) {
-            summary.skipped.push('1회 최대 발행수가 0건으로 설정되어 실행을 건너뜁니다.');
-            return { success: true, data: { summary } };
-        }
-
-        const shoppingRes = await Utils.readGoogleSheetShoppingAll({
-            status: '발행 준비 완료',
-            q: '',
-            limit: 100000,
-            offset: 0,
-            sortBy: 'rowNumber',
-            sortDir: 'asc'
-        });
-        const shoppingItems = Array.isArray(shoppingRes.items) ? shoppingRes.items : [];
-        const rowIndices = shoppingItems
-            .sort((a, b) => Number(a.rowNumber || 0) - Number(b.rowNumber || 0))
-            .slice(0, targetLimit)
-            .map((item) => item.rowIndex)
-            .filter((value) => Number.isInteger(value) && value >= 0);
-
-        summary.shoppingAttempted = rowIndices.length;
-        if (rowIndices.length === 0) {
-            summary.skipped.push('상태가 "발행 준비 완료"인 쇼핑 후보가 없어 실행을 건너뜁니다.');
-            return { success: true, data: { summary } };
-        }
-
-        const batchResult = await executeShoppingBatchRowsAction({ action: 'batch', rowIndices, source: 'shopping-auto' });
-        if (!batchResult.success) {
-            return batchResult;
-        }
-        summary.shoppingSuccess = Number(batchResult?.data?.successCount || 0);
-        const failCount = Number(batchResult?.data?.failCount || 0);
-        if (failCount > 0) summary.skipped.push(`쇼핑 발행 실패 ${failCount}건`);
-
-        return {
-            success: true,
-            data: {
-                summary,
-                batch: batchResult.data
-            }
-        };
-    }
-
     async function executeShoppingRowUpdate(requestBody = {}) {
         const rowIndex = parseIntSafe(requestBody?.rowIndex, null, 0);
         if (rowIndex === null) {
@@ -1136,7 +1058,6 @@ function createContentActionsRuntime(deps = {}) {
         executeBlogRowAction,
         executeBlogTopicUpdate,
         executeBlogTopicsDelete,
-        executeShoppingAutoManualAction,
         executeShoppingBatchRowsAction,
         executeShoppingRowAction,
         executeShoppingRowUpdate,

@@ -39,7 +39,6 @@ function createContentService(deps = {}) {
         applyRuntimeConfigFromMajor,
         parseMajorFieldsFromRequest,
         syncAutoRunnerWithConfig,
-        syncShoppingAutoRunnerWithConfig,
         resolveLocalImagePathFromSource,
         getContentType,
         resolveRuntimePath,
@@ -59,7 +58,6 @@ function createContentService(deps = {}) {
         executeBlogBatchRowsAction,
         executeBlogRowAction,
         executeShoppingBatchRowsAction,
-        executeShoppingAutoManualAction,
         executeShoppingRowUpdate,
         executeBlogTopicUpdate,
         executeBlogTopicsDelete,
@@ -353,7 +351,6 @@ function createContentService(deps = {}) {
             mergedFields[slotInfo.key] = configValue;
             applyRuntimeConfigFromMajor(parseMajorFieldsFromRequest(mergedFields));
             syncAutoRunnerWithConfig();
-            syncShoppingAutoRunnerWithConfig();
             CONFIG.CONFIG_READY = true;
             CONFIG.CONFIG_SOURCE_TYPE = 'config';
             CONFIG.CONFIG_SOURCE_PATH = writablePath;
@@ -919,14 +916,6 @@ function createContentService(deps = {}) {
             const result = await executeShoppingTopicsDelete(requestBody || {});
             if (!result.success) {
                 throw createApiError(400, result.code || 'SHOPPING_DELETE_FAILED', result.message || '쇼핑 데이터 삭제에 실패했습니다.');
-            }
-            return result.data;
-        },
-
-        async runShoppingAutoManual(requestBody = {}) {
-            const result = await executeShoppingAutoManualAction(requestBody || {});
-            if (!result.success) {
-                throw createApiError(400, result.code || 'SHOPPING_AUTO_MANUAL_FAILED', result.message || '쇼핑 자동발행 수동 실행에 실패했습니다.');
             }
             return result.data;
         },

@@ -40,13 +40,6 @@ function syncScopedMajorSaveActions() {
     blogSaveActionsEl.hidden = !shouldShow;
     blogSaveActionsEl.style.display = shouldShow ? 'inline-flex' : 'none';
   }
-
-  const shoppingSaveActionsEl = document.getElementById('shopping-major-save-actions');
-  if (shoppingSaveActionsEl) {
-    const shouldShow = String(shoppingActiveTab || '') === 'auto';
-    shoppingSaveActionsEl.hidden = !shouldShow;
-    shoppingSaveActionsEl.style.display = shouldShow ? 'inline-flex' : 'none';
-  }
 }
 
 function setSettingsMajorResultText(message) {

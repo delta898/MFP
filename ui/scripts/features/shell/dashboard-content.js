@@ -1,6 +1,5 @@
 function renderDashboardAutoSchedule() {
   const blog = dashboardAutoScheduleState.blog;
-  const shopping = dashboardAutoScheduleState.shopping;
 
   const setAutoScheduleUI = (prefix, data) => {
     const dateEl = document.getElementById(`dash-auto-${prefix}-next-date`);
@@ -36,7 +35,6 @@ function renderDashboardAutoSchedule() {
   };
 
   setAutoScheduleUI('blog', blog);
-  setAutoScheduleUI('shopping', shopping);
 }
 
 function formatDashboardFeedDate(value) {
@@ -228,4 +226,3 @@ async function loadDashboardExternalContent(options = {}) {
     // renderDashboardShortsList('dash-feed-list-instagram-reels', fallback);
   }
 }
-

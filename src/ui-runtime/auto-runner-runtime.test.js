@@ -20,24 +20,18 @@ function createRuntime(CONFIG) {
             candidateAt: new Date(Date.now() + 60000),
             adjustedByWindow: false
         }),
-        normalizeShoppingAutoSettings: () => ({
-            SHOPPING_PUBLISH_AUTO_ENABLED: false
-        }),
         getBlogAutoSettingsSnapshot: () => ({}),
-        getShoppingAutoSettingsSnapshot: () => ({}),
         publishAutoDefaults: {
             intervalMin: 60,
             startTime: '00:00',
             endTime: '23:59'
-        },
-        shoppingAutoDefaults: {}
+        }
     });
 }
 
-test('auto status payload keeps blog, shopping, and SNS schedules independent', () => {
+test('auto status payload keeps blog and SNS schedules independent', () => {
     const runtime = createRuntime({});
     const snsNextRunAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-    const shoppingNextRunAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
     const blogNextRunAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
     runtime.snsRuntimeState.enabled = true;
@@ -49,19 +43,8 @@ test('auto status payload keeps blog, shopping, and SNS schedules independent', 
     assert.equal(status.blog.enabled, false);
     assert.equal(status.blog.status, 'stopped');
     assert.equal(status.blog.nextRunAt, null);
-    assert.equal(status.shopping.enabled, false);
-    assert.equal(status.shopping.nextRunAt, null);
+    assert.equal(Object.hasOwn(status, 'shopping'), false);
     assert.equal(status.sns.enabled, true);
-    assert.equal(status.sns.nextRunAt, snsNextRunAt);
-
-    runtime.shoppingAutoRuntimeState.enabled = true;
-    runtime.shoppingAutoRuntimeState.status = 'waiting';
-    runtime.shoppingAutoRuntimeState.nextRunAt = shoppingNextRunAt;
-
-    status = runtime.getAutoStatusPayload();
-    assert.equal(status.blog.enabled, false);
-    assert.equal(status.shopping.enabled, true);
-    assert.equal(status.shopping.nextRunAt, shoppingNextRunAt);
     assert.equal(status.sns.nextRunAt, snsNextRunAt);
 
     runtime.publishRuntimeState.enabled = true;
@@ -72,7 +55,6 @@ test('auto status payload keeps blog, shopping, and SNS schedules independent', 
     status = runtime.getAutoStatusPayload();
     assert.equal(status.blog.enabled, true);
     assert.equal(status.blog.nextRunAt, blogNextRunAt);
-    assert.equal(status.shopping.nextRunAt, shoppingNextRunAt);
     assert.equal(status.sns.nextRunAt, snsNextRunAt);
 });
 
@@ -239,22 +221,15 @@ test('development environment keeps every live publishing scheduler stopped', ()
             candidateAt: new Date(Date.now() + 60000),
             adjustedByWindow: false
         }),
-        normalizeShoppingAutoSettings: () => ({ SHOPPING_PUBLISH_AUTO_ENABLED: true }),
         getBlogAutoSettingsSnapshot: () => ({}),
-        getShoppingAutoSettingsSnapshot: () => ({}),
-        publishAutoDefaults: { intervalMin: 60, startTime: '00:00', endTime: '23:59' },
-        shoppingAutoDefaults: {}
+        publishAutoDefaults: { intervalMin: 60, startTime: '00:00', endTime: '23:59' }
     });
 
     runtime.syncPublishRunner();
     runtime.syncSnsRunner();
-    runtime.syncShoppingAutoRunnerWithConfig();
 
     assert.equal(runtime.publishRuntimeState.enabled, false);
     assert.equal(runtime.publishRuntimeState.nextRunAt, null);
     assert.equal(runtime.snsRuntimeState.enabled, false);
     assert.equal(runtime.snsRuntimeState.nextRunAt, null);
-    assert.equal(runtime.shoppingAutoRuntimeState.enabled, false);
-    assert.equal(runtime.shoppingAutoRuntimeState.nextRunAt, null);
-    assert.match(runtime.shoppingAutoRuntimeState.message, /실제 발행이 차단/);
 });

@@ -14,7 +14,6 @@ let naverCommentDraftItems = [];
 let naverCommentDraftStatusText = '설정을 확인한 뒤 실행해 주세요.';
 let blogTrendsCollectInFlight = false;
 let blogAutoManualRunInFlight = false;
-let shoppingAutoManualRunInFlight = false;
 const SETTINGS_SHOPPING_SLOT_ORDER = ['ftc', 'cta1', 'cta2', 'cta3'];
 const SETTINGS_SHOPPING_SLOT_META = {
   ftc: { key: 'FTC_DISCLOSURE_IMAGE_URL', label: '공정위 이미지', required: true },

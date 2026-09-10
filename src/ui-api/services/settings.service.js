@@ -282,7 +282,6 @@ function createSettingsService(deps = {}) {
         applyConfigUpdates,
         applyRuntimeConfigFromMajor,
         syncAutoRunnerWithConfig,
-        syncShoppingAutoRunnerWithConfig,
         scheduleUiReload,
         restartRemoteMcpService,
         getRemoteServiceStatus,
@@ -1219,17 +1218,6 @@ function createSettingsService(deps = {}) {
             structuredConfig.automation.publish.blog.end_time = fields.PUBLISH_AUTO_END_TIME || "23:59";
             structuredConfig.automation.publish.blog.image_mode = fields.PUBLISH_AUTO_IMAGE_MODE || 'generate';
 
-            if (!structuredConfig.automation.publish.shopping) structuredConfig.automation.publish.shopping = {};
-            structuredConfig.automation.publish.shopping.enabled = fields.SHOPPING_PUBLISH_AUTO_ENABLED;
-            structuredConfig.automation.publish.shopping.interval_min = Number(fields.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN);
-            structuredConfig.automation.publish.shopping.batch_size = Number(fields.SHOPPING_PUBLISH_AUTO_BATCH_SIZE);
-            structuredConfig.automation.publish.shopping.notify_enabled = fields.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED;
-            structuredConfig.automation.publish.shopping.target_channels = fields.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS || ['naver'];
-            structuredConfig.automation.publish.shopping.headless = fields.SHOPPING_PUBLISH_AUTO_HEADLESS;
-            structuredConfig.automation.publish.shopping.start_time = fields.SHOPPING_PUBLISH_AUTO_START_TIME;
-            structuredConfig.automation.publish.shopping.end_time = fields.SHOPPING_PUBLISH_AUTO_END_TIME;
-            structuredConfig.automation.publish.shopping.time = fields.SHOPPING_AUTO_TIME;
-
             if (!structuredConfig.automation.publish.social) structuredConfig.automation.publish.social = {};
             structuredConfig.automation.publish.social.enabled = fields.SNS_PUBLISH_ENABLED;
             structuredConfig.automation.publish.social.interval_min = Number(fields.SNS_PUBLISH_INTERVAL_MIN);
@@ -1286,7 +1274,6 @@ function createSettingsService(deps = {}) {
             Object.assign(CONFIG, structuredConfig);
 
             syncAutoRunnerWithConfig();
-            syncShoppingAutoRunnerWithConfig();
 
             const requiresRestart =
                 fields.LISTEN_HOST !== prevListenHost ||
@@ -1469,13 +1456,6 @@ function createSettingsService(deps = {}) {
                 BLOG_AUTO_VARIATION_TOP_N: parseConfigValue(content, 'BLOG_AUTO_VARIATION_TOP_N'),
                 BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS: parseConfigValue(content, 'BLOG_AUTO_KEYWORD_REUSE_GAP_DAYS'),
                 BLOG_AUTO_HEADLESS: parseConfigValue(content, 'BLOG_AUTO_HEADLESS'),
-                SHOPPING_PUBLISH_AUTO_ENABLED: parseConfigValue(content, 'SHOPPING_PUBLISH_AUTO_ENABLED'),
-                SHOPPING_PUBLISH_AUTO_INTERVAL_MIN: parseConfigValue(content, 'SHOPPING_PUBLISH_AUTO_INTERVAL_MIN'),
-                SHOPPING_PUBLISH_AUTO_BATCH_SIZE: parseConfigValue(content, 'SHOPPING_PUBLISH_AUTO_BATCH_SIZE'),
-                SHOPPING_PUBLISH_AUTO_HEADLESS: parseConfigValue(content, 'SHOPPING_PUBLISH_AUTO_HEADLESS'),
-                SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: parseConfigValue(content, 'SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS'),
-                SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: parseConfigValue(content, 'SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED'),
-                SHOPPING_AUTO_TIME: parseConfigValue(content, 'SHOPPING_AUTO_TIME'),
                 FTC_DISCLOSURE_IMAGE_URL: parseConfigValue(content, 'FTC_DISCLOSURE_IMAGE_URL') || CONFIG.FTC_DISCLOSURE_IMAGE_URL,
                 SHOPPING_CTA_IMAGE_URL1: parseConfigValue(content, 'SHOPPING_CTA_IMAGE_URL1') || CONFIG.SHOPPING_CTA_IMAGE_URL1,
                 SHOPPING_CTA_IMAGE_URL2: parseConfigValue(content, 'SHOPPING_CTA_IMAGE_URL2') || CONFIG.SHOPPING_CTA_IMAGE_URL2,
@@ -1500,7 +1480,6 @@ function createSettingsService(deps = {}) {
             });
             applyRuntimeConfigFromMajor(fields);
             syncAutoRunnerWithConfig();
-            syncShoppingAutoRunnerWithConfig();
             CONFIG.CONFIG_READY = true;
             CONFIG.CONFIG_SOURCE_TYPE = 'config';
             CONFIG.CONFIG_SOURCE_PATH = writablePath;

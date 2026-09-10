@@ -11,8 +11,7 @@ const contracts = {
   'features/settings/save-lifecycle.js': ['loadSettingsMajor'],
   'features/settings/google-auth.js': ['startGoogleOauth'],
   'features/settings/platform-auth.js': ['loadNaverSessionStatus'],
-  'features/automation/blog.js': ['loadBlogAutoSettings'],
-  'features/automation/shopping.js': ['loadShoppingAutoSettings']
+  'features/automation/blog.js': ['loadBlogAutoSettings']
 };
 
 test('settings and automation controllers have explicit owners', () => {

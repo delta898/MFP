@@ -88,7 +88,6 @@
 // @include scripts/features/automation/blog-collect-ui.js
 // @include scripts/features/automation/shared-normalization.js
 // @include scripts/features/automation/blog.js
-// @include scripts/features/automation/shopping.js
 // @include scripts/features/legacy-actions-controllers.js
 // @include scripts/foundation/lifecycle.js
 // @include scripts/features/publishing/wordpress-controls.js

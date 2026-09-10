@@ -117,7 +117,6 @@ test('JavaScript manifest preserves one explicit classic-script execution order'
         'scripts/features/automation/blog-collect-ui.js',
         'scripts/features/automation/shared-normalization.js',
         'scripts/features/automation/blog.js',
-        'scripts/features/automation/shopping.js',
         'scripts/features/legacy-actions-controllers.js',
         'scripts/foundation/lifecycle.js',
         'scripts/features/publishing/wordpress-controls.js',

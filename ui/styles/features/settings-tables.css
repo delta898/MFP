@@ -84,8 +84,7 @@
   transform: none;
 }
 
-#blog-major-save-actions .settings-major-save-btn,
-#shopping-major-save-actions .settings-major-save-btn {
+#blog-major-save-actions .settings-major-save-btn {
   min-height: 38px;
   padding: 9px 16px;
 }

@@ -23,7 +23,6 @@ function createUiSettingsFieldsRuntime(deps = {}) {
         buildModelSelectionFromFields,
         normalizeChatModelSource,
         normalizeBlogAutoSettings,
-        normalizeShoppingAutoSettings,
         normalizeBool,
         mergeActiveSelectionsIntoProfiles,
         normalizeIntegerOrBlank,
@@ -179,15 +178,6 @@ function createUiSettingsFieldsRuntime(deps = {}) {
             PUBLISH_AUTO_IMAGE_MODE: CONFIG.PUBLISH_AUTO_IMAGE_MODE || 'generate',
 
             // Automation - Shopping
-            SHOPPING_PUBLISH_AUTO_ENABLED: CONFIG.SHOPPING_PUBLISH_AUTO_ENABLED,
-            SHOPPING_PUBLISH_AUTO_INTERVAL_MIN: CONFIG.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN,
-            SHOPPING_PUBLISH_AUTO_BATCH_SIZE: CONFIG.SHOPPING_PUBLISH_AUTO_BATCH_SIZE,
-            SHOPPING_PUBLISH_AUTO_HEADLESS: CONFIG.SHOPPING_PUBLISH_AUTO_HEADLESS,
-            SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS: CONFIG.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS,
-            SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED: CONFIG.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED,
-            SHOPPING_PUBLISH_AUTO_START_TIME: CONFIG.SHOPPING_PUBLISH_AUTO_START_TIME,
-            SHOPPING_PUBLISH_AUTO_END_TIME: CONFIG.SHOPPING_PUBLISH_AUTO_END_TIME,
-            SHOPPING_AUTO_TIME: CONFIG.SHOPPING_AUTO_TIME,
 
             // Telegram Notification
             NOTIFY_TELEGRAM_ENABLED: CONFIG.NOTIFY_TELEGRAM_ENABLED,
@@ -258,7 +248,6 @@ function createUiSettingsFieldsRuntime(deps = {}) {
         const chatModelSource = normalizeChatModelSource(fields.CHAT_MODEL_SOURCE);
         const chatModelConfig = chatModelSource === 'writing' ? textModelConfig : chatModelSelection;
         const autoSettings = normalizeBlogAutoSettings(fields);
-        const shoppingAutoSettings = normalizeShoppingAutoSettings(fields);
         const remoteMcp = ensureRuntimeRemoteMcpConfig(CONFIG, {
             enabled: fields.MCP_REMOTE_ENABLED,
             host: fields.MCP_REMOTE_HOST,
@@ -367,20 +356,6 @@ function createUiSettingsFieldsRuntime(deps = {}) {
         CONFIG.PUBLISH_AUTO_INTERVAL_MIN = normalizeNonNegativeInt(fields.PUBLISH_AUTO_INTERVAL_MIN, 60);
         CONFIG.PUBLISH_AUTO_BATCH_SIZE = normalizeNonNegativeInt(fields.PUBLISH_AUTO_BATCH_SIZE, 1);
 
-        CONFIG.SHOPPING_PUBLISH_AUTO_ENABLED = shoppingAutoSettings.SHOPPING_PUBLISH_AUTO_ENABLED;
-        CONFIG.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN = shoppingAutoSettings.SHOPPING_PUBLISH_AUTO_INTERVAL_MIN;
-        CONFIG.SHOPPING_PUBLISH_AUTO_BATCH_SIZE = shoppingAutoSettings.SHOPPING_PUBLISH_AUTO_BATCH_SIZE;
-        CONFIG.SHOPPING_PUBLISH_AUTO_HEADLESS = shoppingAutoSettings.SHOPPING_PUBLISH_AUTO_HEADLESS;
-        CONFIG.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS = shoppingAutoSettings.SHOPPING_PUBLISH_AUTO_TARGET_CHANNELS;
-        CONFIG.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED = normalizeBool(fields.SHOPPING_PUBLISH_AUTO_NOTIFY_ENABLED, false);
-        CONFIG.SHOPPING_PUBLISH_AUTO_START_TIME = shoppingAutoSettings.SHOPPING_PUBLISH_AUTO_START_TIME;
-        CONFIG.SHOPPING_PUBLISH_AUTO_END_TIME = shoppingAutoSettings.SHOPPING_PUBLISH_AUTO_END_TIME;
-        CONFIG.SHOPPING_AUTO_MODE = shoppingAutoSettings.SHOPPING_AUTO_MODE;
-        CONFIG.SHOPPING_AUTO_DAILY_POSTS = shoppingAutoSettings.SHOPPING_AUTO_DAILY_POSTS;
-        CONFIG.SHOPPING_AUTO_HEADLESS = shoppingAutoSettings.SHOPPING_AUTO_HEADLESS;
-        CONFIG.SHOPPING_AUTO_NOTIFY_ENABLED = shoppingAutoSettings.SHOPPING_AUTO_NOTIFY_ENABLED;
-        CONFIG.SHOPPING_AUTO_TIME = shoppingAutoSettings.SHOPPING_AUTO_TIME;
-
         // Telegram Notify
         CONFIG.NOTIFY_TELEGRAM_ENABLED = normalizeBool(fields.NOTIFY_TELEGRAM_ENABLED, false);
         CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN = String(fields.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim();
@@ -401,7 +376,6 @@ function createUiSettingsFieldsRuntime(deps = {}) {
         CONFIG.MCP_REMOTE_AUTH_TOKEN = remoteMcp.authToken;
 
         Object.assign(CONFIG, autoSettings);
-        Object.assign(CONFIG, shoppingAutoSettings);
     }
 
     function parseMajorFieldsFromRequest(requestBody = {}) {
@@ -480,7 +454,6 @@ function createUiSettingsFieldsRuntime(deps = {}) {
         );
 
         const publishAutoSettings = normalizePublishAutoSettings(requestBody);
-        const shoppingAutoSettings = normalizeShoppingAutoSettings(requestBody);
         const bufferChannels = normalizeBufferChannels(requestBody.BUFFER_CHANNELS);
         const snsSourceBlogs = normalizeSnsSourceBlogs(requestBody.SNS_SOURCE_BLOGS);
 
@@ -533,7 +506,6 @@ function createUiSettingsFieldsRuntime(deps = {}) {
             SNS_SOURCE_BLOGS: snsSourceBlogs,
 
             ...publishAutoSettings,
-            ...shoppingAutoSettings,
 
             NOTIFY_TELEGRAM_ENABLED: normalizeBool(requestBody.NOTIFY_TELEGRAM_ENABLED, false),
             NOTIFY_TELEGRAM_BOT_TOKEN: String(requestBody.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim(),

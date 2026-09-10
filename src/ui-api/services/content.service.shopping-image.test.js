@@ -52,7 +52,6 @@ test('shopping image upload persists structured config and updates runtime state
             parseMajorFieldsFromRequest: (fields) => fields,
             applyRuntimeConfigFromMajor: (fields) => { appliedFields = fields; },
             syncAutoRunnerWithConfig() {},
-            syncShoppingAutoRunnerWithConfig() {}
         });
 
         const result = await service.saveShoppingImage({ slot: 'cta2' });

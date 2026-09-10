@@ -55,11 +55,6 @@ function createRuntime(CONFIG = {}) {
             imageGeneration: true,
             startTime: '00:00',
             endTime: '23:59'
-        },
-        shoppingAutoDefaults: {
-            mode: false,
-            time: '07:50',
-            notifyEnabled: false
         }
     });
 }

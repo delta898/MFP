@@ -5,8 +5,7 @@ function createConfigStateManager(deps = {}) {
         CONFIG,
         resolveWritableConfigPath,
         buildDefaultConfigTemplate,
-        syncAutoRunnerWithConfig,
-        syncShoppingAutoRunnerWithConfig
+        syncAutoRunnerWithConfig
     } = deps;
 
     function ensureStructuredConfig(config = {}) {
@@ -65,9 +64,6 @@ function createConfigStateManager(deps = {}) {
 
         if (options.syncAuto === true && typeof syncAutoRunnerWithConfig === 'function') {
             syncAutoRunnerWithConfig();
-        }
-        if (options.syncShopping === true && typeof syncShoppingAutoRunnerWithConfig === 'function') {
-            syncShoppingAutoRunnerWithConfig();
         }
     }
 
