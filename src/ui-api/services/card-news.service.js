@@ -8,6 +8,7 @@ const { createCardNewsLedgerSyncService } = require('../../card-news/ledger-sync
 const { createCardNewsFeedFetcher } = require('../../card-news/feed-fetcher');
 const { normalizeImageMode } = require('../../card-news/generation');
 const { createStyleReferenceFetcher } = require('../../content/style-reference-fetcher');
+const { deriveCardNewsManagementState, toCardNewsManagementFields } = require('../../card-news/management-status');
 
 const CARD_NEWS_SOURCE_LIMIT = 30;
 const CARD_NEWS_LEDGER_REGISTRATION_TIMEOUT_MS = 3000;
@@ -84,11 +85,7 @@ function isConfiguredAiModel(model = {}) {
 }
 
 function cardNewsManagementStatus(row = {}) {
-    const publishing = String(row.publishingStatus || '미발행');
-    if (publishing === '실패' || publishing === '일부 완료' || String(row.lastError || '').trim()) return '확인 필요';
-    if (publishing === '발행 완료') return '발행 완료';
-    if (String(row.workflowStatus || '') === '제작 완료') return '발행 대기';
-    return '작업 중';
+    return deriveCardNewsManagementState(row).label;
 }
 
 function splitLedgerValues(value = '') {
@@ -97,12 +94,13 @@ function splitLedgerValues(value = '') {
 
 function summarizeManagedCardNews(row = {}, generation = null) {
     const cards = Array.isArray(generation?.cards) ? generation.cards : [];
+    const management = toCardNewsManagementFields(row);
     return {
         generation_id: String(row.generationId || ''),
         title: String(row.title || generation?.title || '제목 없는 카드뉴스'),
         source_platform: String(row.sourcePlatform || ''),
         source_url: String(row.originalUrl || generation?.source_url || ''),
-        status: cardNewsManagementStatus(row),
+        ...management,
         workflow_status: String(row.workflowStatus || ''),
         publishing_status: String(row.publishingStatus || ''),
         card_count: Number(row.cardCount || cards.length || 0),

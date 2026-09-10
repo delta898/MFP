@@ -8,7 +8,8 @@ function getCardNewsPlatformLabel(platform) {
 }
 
 function isCardNewsSourcePublished(article = {}) {
-  return article.management?.publishing_status === '발행 완료';
+  return article.management?.status_key === 'published'
+    || article.management?.publishing_status === '발행 완료';
 }
 
 function visibleCardNewsArticlesForPlatform(platform = '') {
@@ -73,12 +74,11 @@ function renderCardNewsVisibleArticles() {
     list.innerHTML = `<div class="card-news-empty-state"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(message)}</span></div>`;
   } else {
     list.innerHTML = visibleArticles.map(({ article, index }) => {
-      const status = article.management?.publishing_status === '발행 완료'
-        ? '발행 완료'
-        : (article.management?.generation_id ? '구성 있음' : '');
+      const status = article.management?.generation_id ? article.management?.status : '';
+      const statusTone = article.management?.status_tone || 'neutral';
       return `
       <button class="card-news-feed-item" type="button" data-card-news-article-index="${index}" aria-pressed="false">
-        <strong>${escapeHtml(article.title || '제목 없는 글')}${status ? `<em>${escapeHtml(status)}</em>` : ''}</strong>
+        <strong>${escapeHtml(article.title || '제목 없는 글')}${status ? `<span class="card-news-source-status ui-status-badge" data-state="${escapeHtml(statusTone)}">${escapeHtml(status)}</span>` : ''}</strong>
         <small>${escapeHtml(article.published_at ? formatCardNewsDate(article.published_at) : '발행일 정보 없음')}</small>
         <span>${escapeHtml(article.preview_text || '글을 열어 내용을 확인합니다.')}</span>
       </button>`;
@@ -89,12 +89,13 @@ function renderCardNewsVisibleArticles() {
   list.querySelectorAll('[data-card-news-article-index]').forEach((button) => {
     button.addEventListener('click', () => {
       cardNewsViewState.selectedArticleIndex = Number(button.dataset.cardNewsArticleIndex);
+      const article = cardNewsViewState.articles[cardNewsViewState.selectedArticleIndex];
       list.querySelectorAll('[data-card-news-article-index]').forEach((item) => {
         const selected = item === button;
         item.classList.toggle('is-selected', selected);
         item.setAttribute('aria-pressed', selected ? 'true' : 'false');
       });
-      void previewCardNewsSource(cardNewsViewState.articles[cardNewsViewState.selectedArticleIndex]);
+      void previewCardNewsSource(article);
     });
   });
 }
@@ -144,7 +145,7 @@ function safeCardNewsExternalUrl(value = '') {
 }
 
 function cardNewsManagedActionLabel(item = {}) {
-  return Number(item.image_count || 0) < Number(item.card_count || 0) ? '계속 만들기' : '결과 보기';
+  return item.action_label || '결과 보기';
 }
 
 function renderCardNewsManagedItems() {
@@ -170,7 +171,7 @@ function renderCardNewsManagedItems() {
         <div class="card-news-managed-copy">
           <div class="card-news-managed-title-row">
             <strong>${escapeHtml(item.title || '제목 없는 카드뉴스')}</strong>
-            <span class="card-news-managed-status">${escapeHtml(item.status)}</span>
+            <span class="card-news-managed-status ui-status-badge" data-state="${escapeHtml(item.status_tone || 'neutral')}">${escapeHtml(item.status)}</span>
           </div>
           <p>${escapeHtml(getCardNewsPlatformLabel(item.source_platform))} · 카드 ${Number(item.card_count || 0)}장 · 이미지 ${Number(item.image_count || 0)}장</p>
           ${item.last_error ? `<small>${escapeHtml(item.last_error)}</small>` : ''}

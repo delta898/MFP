@@ -1,4 +1,5 @@
 const { buildEntryKey, normalizeOriginalUrl } = require('./ledger-sheet-store');
+const { toCardNewsManagementFields } = require('./management-status');
 
 function compact(value, maxLength = 4000) {
     return String(value || '').trim().slice(0, maxLength);
@@ -112,7 +113,8 @@ function createCardNewsLedgerSyncService(options = {}) {
                 management: {
                     workflow_status: compact(row.workflowStatus, 100),
                     publishing_status: compact(row.publishingStatus, 100),
-                    generation_id: compact(row.generationId, 500)
+                    generation_id: compact(row.generationId, 500),
+                    ...toCardNewsManagementFields(row)
                 }
             };
         });

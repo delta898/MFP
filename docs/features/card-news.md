@@ -20,6 +20,8 @@ Card News turns a public article or user-provided manuscript into an ordered set
 - The Google Spreadsheet `cardnews` tab is a management ledger: it records source identity, workflow/publishing status, generation identity, channel summaries, and external post links.
 - Generated images, prompts, and detailed manifests stay in the local Card News workspace; the Sheet does not store asset data or absolute paths.
 - While the desktop app is running, enabled feeds are collected conservatively and only unseen RSS items are appended. Existing management state is never overwritten by a later feed read.
+- Source and managed lists share one derived user-facing state: `작업 중`, `발행 대기`, `발행 완료`, or `확인 필요`. The state is derived from workflow, publishing, and error facts rather than recalculated per screen.
+- Selecting a source always refreshes that source's preview first, regardless of its management state. Saved generations are reopened from `만든 카드뉴스`; restoring their full source context belongs to the durable project workflow.
 
 ## Publishing
 
@@ -34,4 +36,4 @@ Card News turns a public article or user-provided manuscript into an ordered set
 - Card News has no automatic creation or scheduled publication in the current feature scope.
 - Authenticated, blocked, or anti-bot source pages are not supported.
 - The configured image model renders visible card text in the initial implementation. Exact Korean text quality and visual continuity can vary by model; card-level regeneration and local replacement are available recovery paths.
-- Bitly URL shortening, deterministic text rendering, and further accessibility/visual polish are future enhancements.
+- URL shortening is provider-neutral and falls back to the original URL when unavailable. Deterministic text rendering and further accessibility/visual polish remain future enhancements.

@@ -111,6 +111,8 @@ test('annotates source articles and lists only ledger rows with a generation', a
     const managed = await service.listManagedItems();
     assert.equal(sources.articles[0].management.publishing_status, '발행 완료');
     assert.equal(managed.items[0].status, '발행 완료');
+    assert.equal(managed.items[0].status_key, 'published');
+    assert.equal(managed.items[0].action_label, '결과 보기');
     assert.equal(managed.items[0].local_available, true);
     assert.equal(managed.items[1].status, '작업 중');
     assert.equal(managed.items[1].local_available, false);
@@ -174,6 +176,9 @@ test('lists local card news when the managed ledger does not settle in time', as
         source_platform: 'naver',
         source_url: 'https://example.com/local',
         status: '작업 중',
+        status_key: 'in_progress',
+        status_tone: 'running',
+        action_label: '계속 만들기',
         workflow_status: '제작 중',
         publishing_status: '미발행',
         card_count: 2,

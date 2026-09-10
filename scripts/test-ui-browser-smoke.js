@@ -1509,6 +1509,62 @@ async function run() {
             { background: 'rgb(182, 95, 66)', color: 'rgb(255, 253, 249)', fontSize: '10px' }
         );
         await page.locator('.nav-btn[data-view="card-news"]').click();
+        await page.evaluate(() => {
+            renderCardNewsArticles({
+                configured_sources: ['naver'],
+                feed_sources: [{ source_platform: 'naver', label: '네이버' }],
+                articles: [{
+                    kind: 'feed_item',
+                    item_key: 'existing-source',
+                    title: '기존 카드뉴스 원문',
+                    source_platform: 'naver',
+                    management: {
+                        generation_id: 'generation-existing',
+                        status: '발행 대기',
+                        status_key: 'ready_to_publish',
+                        status_tone: 'neutral'
+                    }
+                }]
+            });
+            cardNewsViewState.previewCache.set('feed:existing-source', {
+                source: { kind: 'feed_item', item_key: 'existing-source', source_platform: 'naver' },
+                title: '기존 카드뉴스 원문',
+                text: '기존 카드뉴스 원문의 미리보기 본문',
+                excerpt: '기존 카드뉴스 원문의 미리보기 본문',
+                retrieved_at: '2026-09-10T00:00:00.000Z'
+            });
+            cardNewsViewState.managedItems = [{
+                generation_id: 'generation-existing',
+                title: '기존 카드뉴스 원문',
+                source_platform: 'naver',
+                status: '발행 대기',
+                status_key: 'ready_to_publish',
+                status_tone: 'neutral',
+                action_label: '결과 보기',
+                card_count: 3,
+                image_count: 3,
+                local_available: true,
+                channels: [],
+                post_links: []
+            }];
+            renderCardNewsManagedItems();
+        });
+        assert.deepEqual(await page.evaluate(() => ({
+            feedStatus: document.querySelector('.card-news-source-status')?.textContent,
+            managedStatus: document.querySelector('.card-news-managed-status')?.textContent,
+            feedState: document.querySelector('.card-news-source-status')?.dataset.state,
+            managedState: document.querySelector('.card-news-managed-status')?.dataset.state,
+            managedAction: document.querySelector('[data-card-news-open-generation]')?.textContent
+        })), {
+            feedStatus: '발행 대기',
+            managedStatus: '발행 대기',
+            feedState: 'neutral',
+            managedState: 'neutral',
+            managedAction: '결과 보기'
+        });
+        await page.locator('[data-card-news-article-index="0"]').click();
+        assert.equal(await page.locator('#card-news-preview-heading').textContent(), '기존 카드뉴스 원문');
+        assert.equal(await page.locator('#card-news-preview-badge').textContent(), '확인 완료');
         await page.locator('#card-news-generation-panel').evaluate((element) => { element.hidden = false; });
         const cardNewsGenerationLayout = await page.evaluate(() => {
             const fieldGrid = document.querySelector('.card-news-generation-field-grid');

@@ -145,5 +145,7 @@ test('cached RSS annotations follow generation and publishing updates in the sam
     const annotated = service.annotateSources([source], await service.registerSources([source]));
     assert.equal(registered.results[0].item.publishingStatus, '미발행');
     assert.equal(annotated[0].management.publishing_status, '발행 완료');
+    assert.equal(annotated[0].management.status, '발행 완료');
+    assert.equal(annotated[0].management.status_key, 'published');
     assert.equal((await service.listManagedRows()).length, 1);
 });
