@@ -18,22 +18,69 @@
 
         <div class="card form-card shopping-tab-panel active blog-quick-panel" id="shopping-tab-quick" role="tabpanel"
           aria-labelledby="shopping-tab-button-quick">
-          <div class="blog-quick-head">
-            <h3>빠른 상품 등록</h3>
-            <p>쇼핑 단축 URL만 입력하면 상품 정보를 분석하여 발행을 진행합니다.</p>
+          <div class="blog-quick-head shopping-quick-panel-intro">
+            <h2>상품 정보부터 확인</h2>
+            <p>상품 페이지를 확인한 뒤 이 상품에 맞는 쇼핑 글을 준비합니다.</p>
           </div>
 
-          <div class="blog-quick-grid">
-            <label class="blog-quick-field blog-quick-field-half">
-              <span class="blog-quick-label">URL (필수)</span>
-              <input id="shopping-quick-url" type="text" placeholder="https://naver.me/...">
+          <div class="shopping-quick-source">
+            <label class="blog-quick-field shopping-quick-url-field">
+              <span class="blog-quick-label">상품 URL <small>(필수)</small></span>
+              <span class="shopping-quick-url-action-row">
+                <input id="shopping-quick-url" type="url" inputmode="url" autocomplete="url"
+                  aria-describedby="shopping-quick-url-hint" placeholder="https://naver.me/...">
+                <button id="shopping-quick-preview-btn" class="secondary" type="button" aria-busy="false">상품 정보 확인</button>
+              </span>
+              <small id="shopping-quick-url-hint">네이버 쇼핑의 상품 페이지 또는 단축 URL을 입력하세요.</small>
             </label>
 
-            <label class="blog-quick-field blog-quick-field-half">
-              <span class="blog-quick-label">상품명 (옵션)</span>
-              <input id="shopping-quick-product" type="text" placeholder="예: 에어메이드 가열식 가습기 2.0">
-            </label>
+            <section class="shopping-quick-preview" id="shopping-quick-preview" data-state="empty"
+              aria-labelledby="shopping-quick-preview-heading" aria-live="polite">
+              <div class="shopping-quick-preview-empty" id="shopping-quick-preview-empty">
+                <span class="shopping-quick-preview-icon" aria-hidden="true">▧</span>
+                <div>
+                  <h3 id="shopping-quick-preview-heading">확인할 상품을 기다리고 있습니다</h3>
+                  <p>URL을 입력하고 상품 정보를 확인해 주세요.</p>
+                </div>
+              </div>
+              <div class="shopping-quick-preview-loading" id="shopping-quick-preview-loading" hidden>
+                <span class="shopping-quick-preview-spinner" aria-hidden="true"></span>
+                <div>
+                  <h3>상품 정보를 확인하는 중입니다</h3>
+                  <p>상품 페이지와 대표 정보를 불러오고 있습니다.</p>
+                </div>
+              </div>
+              <div class="shopping-quick-preview-error" id="shopping-quick-preview-error" role="alert" hidden>
+                <strong>상품 정보를 자동으로 확인하지 못했습니다.</strong>
+                <span id="shopping-quick-preview-error-message">URL을 확인하거나 상품명을 직접 입력해 주세요.</span>
+              </div>
+              <article class="shopping-quick-preview-card" id="shopping-quick-preview-card" hidden>
+                <div class="shopping-quick-preview-media" id="shopping-quick-preview-media">
+                  <img id="shopping-quick-preview-image" alt="" referrerpolicy="no-referrer" hidden>
+                  <span id="shopping-quick-preview-image-empty" aria-hidden="true">이미지 없음</span>
+                </div>
+                <div class="shopping-quick-preview-copy">
+                  <span class="shopping-quick-preview-kicker">확인된 상품</span>
+                  <h3 id="shopping-quick-preview-title">상품명 확인 중</h3>
+                  <dl class="shopping-quick-preview-facts">
+                    <div><dt>판매가</dt><dd id="shopping-quick-preview-price">-</dd></div>
+                    <div><dt>할인</dt><dd id="shopping-quick-preview-discount">-</dd></div>
+                    <div><dt>이미지</dt><dd id="shopping-quick-preview-image-count">-</dd></div>
+                  </dl>
+                  <a id="shopping-quick-preview-link" href="#" target="_blank" rel="noopener noreferrer">상품 페이지 열기 ↗</a>
+                </div>
+              </article>
+            </section>
 
+            <label class="blog-quick-field shopping-quick-product-field" id="shopping-quick-product-field" hidden>
+              <span class="blog-quick-label" id="shopping-quick-product-label">확인된 상품명</span>
+              <input id="shopping-quick-product" type="text" maxlength="200"
+                aria-describedby="shopping-quick-product-hint" placeholder="예: 에어메이드 가열식 가습기 2.0">
+              <small id="shopping-quick-product-hint">상품명이 다르면 실제 상품에 맞게 수정할 수 있습니다.</small>
+            </label>
+          </div>
+
+          <div class="blog-quick-grid shopping-quick-writing-fields">
             <label class="blog-quick-field blog-quick-field-full">
               <span class="blog-quick-label">참고/지시사항 (옵션)</span>
               <textarea id="shopping-quick-instruction" rows="3" maxlength="1000"

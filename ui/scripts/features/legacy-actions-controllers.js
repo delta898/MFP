@@ -1409,6 +1409,8 @@ function bindActions() {
 
   window.toggleQuickPastedScheduleDate = quickPastedController.toggleScheduleDate;
 
+  if (typeof initShoppingQuickPreview === 'function') initShoppingQuickPreview();
+
   const shoppingQuickSaveBtn = document.getElementById('shopping-quick-save-btn');
   const shoppingQuickPublishBtn = document.getElementById('shopping-quick-publish-btn');
   const shoppingQuickResultEl = document.getElementById('shopping-quick-result');

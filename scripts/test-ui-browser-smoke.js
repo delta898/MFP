@@ -413,6 +413,24 @@ function getApiFixture(pathname) {
     if (pathname === '/api/v1/trends/items') return { items: [], total: 0, limit: 50, offset: 0 };
     if (pathname === '/api/v1/blog/topics') return { items: [], total: 0, limit: 50, offset: 0 };
     if (pathname === '/api/v1/shopping/items') return { items: [], total: 0, limit: 50, offset: 0 };
+    if (pathname === '/api/v1/shopping/preview') {
+        return {
+            shortUrl: 'https://naver.me/fixture',
+            finalUrl: 'https://smartstore.naver.com/fixture/products/1234567890',
+            title: 'UI 회귀 테스트 상품',
+            productNameSuggestion: 'UI 회귀 테스트 상품',
+            thumbnailUrl: '',
+            resolvedSource: 'short_url',
+            imageCount: 4,
+            commerce: {
+                salePrice: 19900,
+                originalPrice: 29900,
+                discountRate: 33,
+                salePriceText: '19,900원',
+                originalPriceText: '29,900원'
+            }
+        };
+    }
     if (pathname === '/api/v1/blog/auto/categories') return { categories: [] };
     if (pathname === '/api/v1/trend-posting/meta') {
         return { categories: ['여행'], dateRange: { min: '2026-08-20', max: '2026-08-30' } };
@@ -2868,6 +2886,21 @@ async function run() {
         assert.equal((await page.locator('#blog-collect-trends-result').textContent())?.trim(), '수집 설정 테스트');
 
         await page.locator('.nav-btn[data-view="shopping"]').click();
+        assert.equal((await page.locator('#shopping-tab-button-quick').textContent())?.trim(), '빠른 글 작성');
+        await page.locator('#shopping-quick-url').fill('https://naver.me/fixture');
+        await page.locator('#shopping-quick-preview-btn').click();
+        await page.waitForFunction(() => document.getElementById('shopping-quick-preview')?.dataset.state === 'success');
+        assert.equal((await page.locator('#shopping-quick-preview-title').textContent())?.trim(), 'UI 회귀 테스트 상품');
+        assert.equal((await page.locator('#shopping-quick-preview-price').textContent())?.trim(), '19,900원 · 정가 29,900원');
+        assert.equal((await page.locator('#shopping-quick-preview-discount').textContent())?.trim(), '33%');
+        assert.equal((await page.locator('#shopping-quick-preview-image-count').textContent())?.trim(), '4장');
+        assert.equal(await page.locator('#shopping-quick-product-field').evaluate((element) => element.hidden), false);
+        assert.equal(await page.locator('#shopping-quick-product').inputValue(), 'UI 회귀 테스트 상품');
+        assert.equal(await page.locator('#shopping-quick-preview-link').getAttribute('href'), 'https://smartstore.naver.com/fixture/products/1234567890');
+        await page.locator('#shopping-quick-url').fill('https://naver.me/changed');
+        assert.equal(await page.locator('#shopping-quick-preview').getAttribute('data-state'), 'empty');
+        assert.equal(await page.locator('#shopping-quick-product-field').evaluate((element) => element.hidden), true);
+        assert.equal(await page.locator('#shopping-quick-product').inputValue(), '');
         await page.locator('.shopping-tab-btn[data-shopping-tab="batch"]').click();
         await page.waitForFunction(() => document.getElementById('shopping-tab-batch')?.classList.contains('active'));
         assert.equal(await page.locator('#shopping-table').count(), 1);

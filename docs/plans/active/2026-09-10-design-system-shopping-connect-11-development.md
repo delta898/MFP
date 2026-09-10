@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-shopping-connect-11`
 - Base/parent branch: `codex/feature/design-system-main`
 - Start date: 2026-09-10
-- Status: 진행 중 · slice 1~2 완료
+- Status: 진행 중 · slice 1~2 및 3A 완료
 
 ## 사용자 필요와 목표
 
@@ -40,6 +40,9 @@
 1. 자동 포스팅 안전 제거 — 완료 ([개발 기록](../archive/2026-09-10-design-system-shopping-connect-11-01-remove-automation-development.md))
 2. shell·두 탭·용어 통일 — 완료 ([개발 기록](../archive/2026-09-11-design-system-shopping-connect-11-02-navigation-shell-development.md))
 3. 빠른 글 작성 패널 개편
+   - 3A. 상품 URL 입력·상품 정보 확인·미리보기 — 완료 ([개발 기록](../archive/2026-09-11-design-system-shopping-connect-11-03a-product-preview-development.md))
+   - 3B. 글 방향·글쓰기 및 발행 설정
+   - 3C. 글감 보관·발행 대기열·바로 포스팅 action
 4. 글감 관리 목록 개편
 5. hard-coding 검사와 browser 회귀
 
@@ -52,6 +55,8 @@
 - 과거 설정 파일을 파괴적으로 수정하지 않는다. 다만 앱은 쇼핑 자동 포스팅 설정을 읽거나 실행 경로에 연결하지 않는다.
 - slice 2에서 쇼핑커넥트의 compatibility containment와 구형 tab presentation을 제거하고 공통 page shell,
   `ui-top-tabs`, tab 접근성 상태를 적용했다. 상위 명칭은 `빠른 글 작성`, `글감 관리`로 통일했다.
+- slice 3A에서 상품 URL 확인을 빠른 글 작성의 첫 단계로 만들고, 확인된 상품 정보 preview와 상품명 수정,
+  실패 복구 및 URL 변경 시 stale preview 초기화를 추가했다.
 
 ## 검증과 남은 위험
 
@@ -59,5 +64,6 @@
 - slice 1 browser UI smoke test 통과(252 fixture requests). 제거 과정에서 발견한 블로그 수동발행 함수의 잘못된
   모듈 소유권도 블로그 자동화 모듈로 교정했다.
 - slice 2 focused contract 36건과 browser UI smoke(249 fixture requests)를 통과했다.
+- slice 3A focused test 35건과 상품 확인 흐름을 포함한 browser UI smoke(261 fixture requests)를 통과했다.
 - 후속 slice의 browser 회귀와 parent 전체 단위 테스트는 각 reviewable milestone에서 사용자 승인을 받은 뒤 실행한다.
 - 최종 시각·탐색 확인은 사용자가 수행한다.
