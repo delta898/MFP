@@ -273,6 +273,24 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 - 일반 settings card와 짧은 workflow의 body/action 경계는 divider 없이 공통 spacing으로 구분한다. horizontal divider는
   스크롤 본문과 분리되는 modal·sticky footer, 긴 form의 명확한 최종 action, 위험하거나 독립적인 실행 영역처럼 실제
   경계 의미가 있을 때만 사용한다. 단순히 button을 강조하거나 빈 공간을 채우기 위해 추가하지 않는다.
+- 순서가 있는 media 결과는 `.ui-sequence-badge`로 번호를 표시하고, 상태 색을 순번 장식에 사용하지 않는다. 기본 결과 수가
+  명확한 workflow는 그 수에 맞는 desktop column을 우선하고 중간 폭과 mobile에서 단계적으로 줄인다. 빈 media는 실제
+  결과로 오해할 기본 이미지를 넣지 않고, semantic token으로 만든 낮은 대비의 placeholder pattern을 공통 muted surface에
+  사용해 비어 있음과 조작 가능성을 함께 알린다.
+- 결과 item은 현재 필요한 다음 행동 하나만 primary로 둔다. media가 없을 때 `만들기`는 primary이지만 이미 완성된 media의
+  `다시 만들기`, 로컬 파일 교체, prompt 확인·복사와 다운로드는 secondary 또는 tertiary이다. 완성 세트에서는 결과를
+  사용하는 다음 단계가 primary가 되며 재생성은 secondary로 내려간다. 다운로드 anchor처럼 button과 같은 위계가 필요한
+  control은 `.ui-button-link`를 사용한다.
+- 긴 보조 원문을 접어 두는 결과 item은 divider 아래 하나의 detail tool row를 사용한다. 왼쪽 disclosure는 내용을
+  `보기/접기`, 오른쪽 `.ui-text-action`은 같은 원문을 `복사`하는 독립 action으로 두며, 복사를 별도 bordered button이나
+  media action으로 올리지 않는다. 펼친 원문은 같은 row 아래 전체 너비의 muted detail surface에 표시한다.
+- media를 생성하거나 직접 선택하는 행동은 media 영역 안의 한 control group에 둔다. 빈 상태에서는 두 경로를 중앙에
+  명시적으로 표시한다. 완성 뒤에는 결과 감상을 우선해 같은 위치의 한 줄 작업 bar를 pointer hover 또는 keyboard
+  focus-within에만 반투명 overlay로 표시하고 다시 생성·교체·받기를 제공한다. hover가 없는 coarse-pointer 환경에서는
+  발견 가능성을 위해 같은 한 줄 bar를 항상 표시한다. 설명 영역에는 prompt처럼 media 제작을 보조하는 확인·복사
+  action만 남긴다.
+- 반복 media card는 같은 grid row에서 전체 card와 설명 영역을 stretch하고, 하단 detail tool row를 `margin-top: auto`로
+  정렬한다. 제목·본문 길이가 달라도 하단 action 위치가 흔들리지 않게 하되 고정 px 높이나 내용 잘림으로 맞추지 않는다.
 - source registry처럼 주 작업에는 필요하지만 자주 바꾸지 않는 값은 toolbar의 보조 action에서 modal surface로 연다.
   해당 기능 화면이 값을 단독 소유하고, 설정 화면에 같은 editor를 복제하지 않는다. 명시적 적용에 성공한 뒤에만
   source 목록을 무효화·재조회하며 이전 정상 preview나 후속 결과를 임의로 지우지 않는다.

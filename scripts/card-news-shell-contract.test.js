@@ -89,6 +89,9 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(script, /빈 이미지 모두 만들기/);
     assert.match(script, /이미지 모두 다시 만들기/);
     assert.match(script, /data-card-news-image-action/);
+    assert.match(script, /data-card-news-local-picker/);
+    assert.match(script, /이미지 교체/);
+    assert.doesNotMatch(script, /card-news-local-image-trigger/);
     assert.match(script, /\/api\/v1\/card-news\/images\/generate/);
     assert.match(script, /data-card-news-local-image/);
     assert.match(script, /\/api\/v1\/card-news\/images\/import/);
@@ -110,7 +113,9 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(script, /button\?\.setAttribute\('aria-busy', String\(publishing\)\)/);
     assert.match(script, /data-card-news-image-working/);
     assert.match(script, /새 이미지 만드는 중…/);
-    assert.match(script, /#card-news-regenerate, #card-news-bulk-image-action, \[data-card-news-image-action\], \[data-card-news-local-image\]/);
+    assert.match(script, /function setCardNewsResultControlsDisabled\(disabled\)/);
+    assert.match(script, /#card-news-regenerate, #card-news-bulk-image-action, #card-news-publish-open, \[data-card-news-image-action\], \[data-card-news-local-picker\], \[data-card-news-local-image\]/);
+    assert.match(script, /exportAll\?\.classList\.toggle\('is-disabled', disabled\)/);
     assert.match(script, /card-news-result-panel'\)\?\.setAttribute\('aria-busy', String\(working\)\)/);
     assert.match(script, /rememberCardNewsScrollPosition/);
     assert.match(navigation, /currentViewName === 'card-news'[\s\S]*rememberCardNewsScrollPosition/);
@@ -188,10 +193,48 @@ test('Card News generation uses shared field, choice, role and feedback patterns
     assert.match(patternCss, /\.ui-workflow-detail-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0, 2fr\) minmax\(0, 1fr\)[^}]*align-items:\s*end/);
     assert.match(patternCss, /\.ui-inline-choice\s*\{[^}]*var\(--ui-border-default\)[^}]*var\(--ui-surface-muted\)/s);
     assert.match(patternCss, /\.ui-workflow-feedback\[data-state="error"\]\s*\{\s*color:\s*var\(--ui-status-danger\)/);
-    assert.match(responsiveCss, /@media \(max-width: 1100px\)[\s\S]*\.card-news-generation-field-grid,[\s\S]*repeat\(2, minmax\(0, 1fr\)\)/);
+    assert.match(responsiveCss, /@media \(max-width: 1100px\)[\s\S]*\.card-news-generation-field-grid,\s*\.card-news-result-grid\s*\{[^}]*repeat\(2, minmax\(0, 1fr\)\)/);
     assert.match(patternCss, /@media \(max-width: 720px\)[\s\S]*\.ui-workflow-field-grid,[\s\S]*\.ui-workflow-detail-grid\s*\{[^}]*grid-template-columns:\s*1fr/);
     assert.doesNotMatch(generationActionsCss, /border-top|padding-top/);
     assert.doesNotMatch(generationCss, /#[0-9a-f]{3,8}\b|rgba?\(/i);
+});
+
+test('Card News results use shared sequence and action hierarchy without a fixed palette', () => {
+    const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot }).html;
+    const script = fs.readFileSync(path.join(uiRoot, 'scripts/features/card-news/source-preview.js'), 'utf8');
+    const patternCss = [
+        fs.readFileSync(path.join(uiRoot, 'styles/patterns/actions.css'), 'utf8'),
+        fs.readFileSync(path.join(uiRoot, 'styles/patterns/overview-card.css'), 'utf8')
+    ].join('\n');
+    const resultCss = fs.readFileSync(path.join(uiRoot, 'styles/features/card-news-results.css'), 'utf8');
+    const resultSurfaceCss = resultCss.slice(resultCss.indexOf('.card-news-result-grid'));
+
+    assert.match(html, /id="card-news-export-all" class="card-news-export-all ui-button-link secondary"/);
+    assert.match(patternCss, /\.ui-button-link\.secondary\s*\{[^}]*var\(--ui-button-secondary-border\)[^}]*var\(--ui-button-secondary-background\)/s);
+    assert.match(patternCss, /\.ui-sequence-badge\s*\{[^}]*var\(--ui-surface-emphasis\)[^}]*var\(--ui-text-inverse\)/s);
+    assert.match(script, /<span class="ui-sequence-badge">\$\{card\.index\}<\/span>/);
+    assert.match(script, /class="\$\{card\.image_url \? 'secondary' : 'primary'\} compact"[^>]*>\$\{card\.image_url \? 'AI 재생성' : 'AI 이미지 만들기'\}/);
+    assert.match(script, /class="secondary compact"[^>]*data-card-news-local-picker[^>]*>\$\{card\.image_url \? '이미지 교체' : '＋ 내 이미지 선택'\}/);
+    assert.match(script, /class="ui-button-link secondary compact"[^>]*download>받기<\/a>/);
+    assert.match(script, /class="ui-text-action compact card-news-prompt-copy"[^>]*data-card-news-prompt-copy[^>]*>복사<\/button>/);
+    assert.match(script, /<details class="card-news-prompt-details">\s*<summary>프롬프트 보기<\/summary>/);
+    assert.match(patternCss, /\.ui-text-action\.compact\s*\{[^}]*var\(--ui-space-1\)[^}]*var\(--ui-type-caption-size\)/s);
+    assert.match(resultSurfaceCss, /\.card-news-prompt-section\s*\{[^}]*border-top:\s*1px solid var\(--ui-border-default\)/s);
+    assert.match(script, /bulkImageAction\.classList\.toggle\('primary', imageCount </);
+    assert.match(script, /bulkImageAction\.classList\.toggle\('secondary', imageCount ===/);
+    assert.match(resultSurfaceCss, /grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);
+    assert.match(resultSurfaceCss, /\.card-news-result-grid\s*\{[^}]*align-items:\s*stretch/s);
+    assert.match(resultSurfaceCss, /\.card-news-result-item\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column/s);
+    assert.match(resultSurfaceCss, /\.card-news-result-copy\s*\{[^}]*flex:\s*1[^}]*display:\s*flex[^}]*flex-direction:\s*column/s);
+    assert.match(resultSurfaceCss, /\.card-news-prompt-section\s*\{[^}]*margin-top:\s*auto/s);
+    assert.match(resultSurfaceCss, /\.card-news-result-image-empty\s*\{[^}]*radial-gradient\([^}]*var\(--ui-text-muted\)/s);
+    assert.match(resultSurfaceCss, /\.card-news-media-actions\s*\{[^}]*position:\s*absolute[^}]*display:\s*flex[^}]*flex-wrap:\s*nowrap[^}]*background:\s*color-mix\(in srgb, var\(--ui-surface\) 74%, transparent\)[^}]*opacity:\s*0/s);
+    assert.match(resultSurfaceCss, /\.card-news-media-actions:not\(\.is-empty\) > button,[\s\S]*> a\s*\{[^}]*flex:\s*1 1 0/s);
+    assert.match(resultSurfaceCss, /\.card-news-result-image-wrap:not\(\.is-empty\):hover \.card-news-media-actions,[\s\S]*:focus-within \.card-news-media-actions\s*\{[^}]*opacity:\s*1[^}]*pointer-events:\s*auto/s);
+    assert.match(resultSurfaceCss, /\.card-news-media-actions\.is-empty\s*\{[^}]*flex-wrap:\s*wrap[^}]*opacity:\s*1[^}]*pointer-events:\s*auto/s);
+    assert.match(resultSurfaceCss, /@media \(hover: none\), \(pointer: coarse\)[\s\S]*\.card-news-media-actions:not\(\.is-empty\)\s*\{[^}]*opacity:\s*1/s);
+    assert.match(resultSurfaceCss, /@media \(max-width: 1100px\)[\s\S]*\.card-news-result-grid\s*\{[^}]*repeat\(2, minmax\(0, 1fr\)\)/);
+    assert.doesNotMatch(resultSurfaceCss, /#[0-9a-f]{3,8}\b|rgba?\(|linear-gradient/i);
 });
 
 test('Card News source manager is viewport-centered with bounded overflow', () => {

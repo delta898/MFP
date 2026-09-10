@@ -606,7 +606,7 @@
 
 .card-news-result-actions {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-self: start;
   justify-content: flex-end;
   gap: 8px;
@@ -628,23 +628,6 @@
 
 .card-news-export-all {
   min-height: 42px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 18px;
-  border-radius: 12px;
-  background: var(--brand-primary);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 800;
-  text-decoration: none;
-  transition: background 0.18s ease, transform 0.18s ease;
-}
-
-.card-news-export-all:hover,
-.card-news-export-all:focus-visible {
-  background: var(--brand-hover);
-  transform: translateY(-1px);
 }
 
 .card-news-export-all[hidden] {

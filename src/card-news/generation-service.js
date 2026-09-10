@@ -102,6 +102,7 @@ function toPublicGenerationResult(generation) {
         id: generation.id,
         title: generation.title,
         source_url: String(generation.source?.canonical_url || ''),
+        source_platform: String(generation.source?.source_platform || ''),
         status: generation.status,
         image_mode: generation.image_mode,
         settings: generation.settings,
@@ -181,6 +182,22 @@ function createCardNewsGenerationService(options = {}) {
         return toPublicGenerationResult(resolveGeneration(generationId).generation);
     }
 
+    function listGenerations() {
+        if (!fileSystem.existsSync(exportRoot)) return [];
+        return fileSystem.readdirSync(exportRoot, { withFileTypes: true })
+            .filter((entry) => entry.isDirectory() && safeGenerationId(entry.name))
+            .map((entry) => {
+                try {
+                    return getGeneration(entry.name);
+                } catch (error) {
+                    logger?.warn?.(`⚠️ [CardNews] 로컬 결과 목록에서 제외 (${entry.name}): ${error.message}`);
+                    return null;
+                }
+            })
+            .filter((generation) => generation && generation.cards.length > 0)
+            .sort((left, right) => String(right.completed_at || right.created_at).localeCompare(String(left.completed_at || left.created_at)));
+    }
+
     function getGenerationCard(generation, cardIndex) {
         const index = safeCardIndex(cardIndex);
         const card = generation.cards.find((item) => Number(item.index) === index);
@@ -245,6 +262,7 @@ function createCardNewsGenerationService(options = {}) {
             variation,
             source: {
                 kind: String(snapshot.source?.kind || ''),
+                source_platform: String(snapshot.source?.source_platform || ''),
                 title: snapshot.title,
                 canonical_url: String(snapshot.canonical_url || '')
             },
@@ -581,7 +599,7 @@ function createCardNewsGenerationService(options = {}) {
         };
     }
 
-    return { generate, generateImages, importLocalImage, previewZip, importZip, getGeneration, resolveAsset, resolveCompleteAssets, createExportBundle, exportRoot };
+    return { generate, generateImages, importLocalImage, previewZip, importZip, getGeneration, listGenerations, resolveAsset, resolveCompleteAssets, createExportBundle, exportRoot };
 }
 
 module.exports = {

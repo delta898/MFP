@@ -10,6 +10,24 @@ const { normalizeImageMode } = require('../../card-news/generation');
 const { createStyleReferenceFetcher } = require('../../content/style-reference-fetcher');
 
 const CARD_NEWS_SOURCE_LIMIT = 30;
+const CARD_NEWS_LEDGER_REGISTRATION_TIMEOUT_MS = 3000;
+
+function settleWithin(promise, timeoutMs) {
+    const boundedTimeoutMs = Math.max(1, Number(timeoutMs || 0));
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => resolve({ timedOut: true, value: null }), boundedTimeoutMs);
+        Promise.resolve(promise).then(
+            (value) => {
+                clearTimeout(timer);
+                resolve({ timedOut: false, value });
+            },
+            (error) => {
+                clearTimeout(timer);
+                reject(error);
+            }
+        );
+    });
+}
 
 function limitArticlesPerPlatform(articles = [], limit = CARD_NEWS_SOURCE_LIMIT) {
     const counts = new Map();
@@ -97,6 +115,19 @@ function summarizeManagedCardNews(row = {}, generation = null) {
     };
 }
 
+function summarizeLocalCardNews(generation = {}) {
+    return summarizeManagedCardNews({
+        generationId: generation.id,
+        title: generation.title,
+        sourcePlatform: generation.source_platform || 'local',
+        originalUrl: generation.source_url,
+        workflowStatus: generation.status === 'completed' ? '제작 완료' : '제작 중',
+        publishingStatus: '미발행',
+        cardCount: Array.isArray(generation.cards) ? generation.cards.length : 0,
+        collectedAt: generation.completed_at || generation.created_at
+    }, generation);
+}
+
 function createCardNewsService(deps = {}) {
     const {
         CONFIG = {},
@@ -159,14 +190,25 @@ function createCardNewsService(deps = {}) {
         logger,
         now
     });
+    const ledgerRegistrationTimeoutMs = Number(
+        deps.ledgerRegistrationTimeoutMs || CARD_NEWS_LEDGER_REGISTRATION_TIMEOUT_MS
+    );
 
     async function listSources() {
         try {
             const result = await sourceService.discoverConfiguredArticles(CONFIG);
-            const registration = await ledgerSync.registerSources(result.articles);
+            const registrationOutcome = await settleWithin(
+                ledgerSync.registerSources(result.articles),
+                ledgerRegistrationTimeoutMs
+            );
+            if (registrationOutcome.timedOut) {
+                logger?.warn?.(`⚠️ [CardNews] 관리대장 RSS 동기화가 ${ledgerRegistrationTimeoutMs}ms 안에 끝나지 않아 원문 목록을 먼저 반환합니다.`);
+            }
             return {
                 ...result,
-                articles: limitArticlesPerPlatform(ledgerSync.annotateSources?.(result.articles, registration) || result.articles)
+                articles: limitArticlesPerPlatform(
+                    ledgerSync.annotateSources?.(result.articles, registrationOutcome.value) || result.articles
+                )
             };
         } catch (error) {
             logger?.warn?.(`⚠️ [CardNews] 소스 목록 조회 실패: ${error.message}`);
@@ -175,15 +217,34 @@ function createCardNewsService(deps = {}) {
     }
 
     async function listManagedItems() {
-        const rows = await ledgerSync.listManagedRows?.() || [];
+        let rows = [];
+        try {
+            const rowsOutcome = await settleWithin(
+                ledgerSync.listManagedRows?.() || [],
+                ledgerRegistrationTimeoutMs
+            );
+            rows = Array.isArray(rowsOutcome.value) ? rowsOutcome.value : [];
+            if (rowsOutcome.timedOut) {
+                logger?.warn?.(`⚠️ [CardNews] 관리대장 목록 조회가 ${ledgerRegistrationTimeoutMs}ms 안에 끝나지 않아 로컬 결과를 먼저 반환합니다.`);
+            }
+        } catch (error) {
+            logger?.warn?.(`⚠️ [CardNews] 관리대장 목록 조회 실패, 로컬 결과로 전환: ${error.message}`);
+        }
         const items = rows.map((row) => {
             let generation = null;
             try { generation = generationService?.getGeneration?.(row.generationId) || null; } catch (error) {
                 logger?.warn?.(`⚠️ [CardNews] 로컬 결과 확인 실패 (${row.generationId}): ${error.message}`);
             }
             return summarizeManagedCardNews(row, generation);
-        }).sort((left, right) => String(right.updated_at).localeCompare(String(left.updated_at)));
-        return { items };
+        });
+        const knownGenerationIds = new Set(items.map((item) => item.generation_id).filter(Boolean));
+        const localItems = (generationService?.listGenerations?.() || [])
+            .filter((generation) => !knownGenerationIds.has(String(generation.id || '')))
+            .map(summarizeLocalCardNews);
+        return {
+            items: [...items, ...localItems]
+                .sort((left, right) => String(right.updated_at).localeCompare(String(left.updated_at)))
+        };
     }
 
     function getGeneration(generationId) {
@@ -379,11 +440,13 @@ function createCardNewsService(deps = {}) {
 }
 
 module.exports = {
+    CARD_NEWS_LEDGER_REGISTRATION_TIMEOUT_MS,
     CARD_NEWS_SOURCE_LIMIT,
     createCardNewsService,
     limitArticlesPerPlatform,
     summarizeProject,
     isConfiguredAiModel,
     cardNewsManagementStatus,
-    summarizeManagedCardNews
+    summarizeManagedCardNews,
+    summarizeLocalCardNews
 };

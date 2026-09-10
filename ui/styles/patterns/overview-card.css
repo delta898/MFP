@@ -116,6 +116,20 @@
   line-height: 1;
 }
 
+.ui-sequence-badge {
+  min-width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--ui-radius-full);
+  background: color-mix(in srgb, var(--ui-surface-emphasis) 84%, transparent);
+  color: var(--ui-text-inverse);
+  font-size: var(--ui-type-caption-size);
+  font-weight: var(--ui-weight-semibold);
+  line-height: 1;
+}
+
 .ui-workflow-field {
   display: grid;
   gap: var(--ui-space-2);

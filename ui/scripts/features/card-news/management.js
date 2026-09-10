@@ -3,6 +3,7 @@ function getCardNewsPlatformLabel(platform) {
   if (feedSource?.label) return feedSource.label;
   if (platform === 'wordpress') return 'WordPress';
   if (platform === 'naver') return '네이버';
+  if (platform === 'local') return '로컬 작업';
   return platform || '직접 입력';
 }
 

@@ -158,13 +158,21 @@ function updateCardNewsGenerationAvailability() {
   });
 }
 
+function setCardNewsResultControlsDisabled(disabled) {
+  document.querySelectorAll('#card-news-regenerate, #card-news-bulk-image-action, #card-news-publish-open, [data-card-news-image-action], [data-card-news-local-picker], [data-card-news-local-image]').forEach((control) => {
+    control.disabled = disabled;
+  });
+  const exportAll = document.getElementById('card-news-export-all');
+  exportAll?.classList.toggle('is-disabled', disabled);
+  exportAll?.setAttribute('aria-disabled', String(disabled));
+  if (exportAll) exportAll.tabIndex = disabled ? -1 : 0;
+}
+
 function setCardNewsGenerating(generating, imageMode = 'generate') {
   cardNewsViewState.generating = generating;
   const compose = document.getElementById('card-news-compose-button');
   const primary = document.getElementById('card-news-generate-button');
-  const regenerate = document.getElementById('card-news-regenerate');
-  const bulkImage = document.getElementById('card-news-bulk-image-action');
-  [compose, primary, regenerate, bulkImage].forEach((button) => { if (button) button.disabled = generating; });
+  [compose, primary].forEach((button) => { if (button) button.disabled = generating; });
   document.querySelectorAll('#card-news-generation-panel select, #card-news-generation-panel textarea, #card-news-generation-panel input').forEach((control) => {
     control.disabled = generating;
   });
@@ -172,12 +180,7 @@ function setCardNewsGenerating(generating, imageMode = 'generate') {
   primary?.classList.toggle('is-loading', generating && imageMode === 'generate');
   compose?.setAttribute('aria-busy', String(generating && imageMode === 'prompt_only'));
   primary?.setAttribute('aria-busy', String(generating && imageMode === 'generate'));
-  document.querySelectorAll('[data-card-news-image-action], [data-card-news-local-image]').forEach((control) => {
-    control.disabled = generating;
-    const localTrigger = control.closest('.card-news-local-image-trigger');
-    localTrigger?.classList.toggle('is-disabled', generating);
-    localTrigger?.setAttribute('aria-disabled', String(generating));
-  });
+  setCardNewsResultControlsDisabled(generating);
   document.getElementById('card-news-result-panel')?.setAttribute('aria-busy', String(generating));
   if (compose) compose.textContent = generating && imageMode === 'prompt_only' ? '카드 구성 만드는 중…' : '카드 구성만 만들기';
   if (primary) primary.textContent = generating && imageMode === 'generate' ? '이미지까지 만드는 중…' : '이미지까지 만들기';
@@ -229,6 +232,8 @@ function renderCardNewsGeneration(generation, options = {}) {
     bulkImageAction.textContent = imageCount === 0
       ? '이미지 모두 만들기'
       : (imageCount < (generation.cards?.length || 0) ? '빈 이미지 모두 만들기' : '이미지 모두 다시 만들기');
+    bulkImageAction.classList.toggle('primary', imageCount < (generation.cards?.length || 0));
+    bulkImageAction.classList.toggle('secondary', imageCount === (generation.cards?.length || 0));
   }
   const exportAll = document.getElementById('card-news-export-all');
   const publishOpen = document.getElementById('card-news-publish-open');
@@ -249,11 +254,13 @@ function renderCardNewsGeneration(generation, options = {}) {
         ${card.image_url
           ? `<img src="${escapeHtml(card.image_url)}" alt="${escapeHtml(`${card.index}번째 카드: ${card.headline}`)}">`
           : '<div class="card-news-result-image-empty"><span>이미지 미지정</span><small>AI로 만들거나 내 이미지로 채울 수 있습니다.</small></div>'}
-        <span>${card.index}</span>
-        <label class="card-news-local-image-trigger" tabindex="0" data-card-news-local-trigger="${card.index}" aria-label="${card.image_url ? '내 이미지로 교체' : '내 이미지 선택'}" title="${card.image_url ? '내 이미지로 교체' : '내 이미지 선택'}">
+        <div class="card-news-media-actions${card.image_url ? '' : ' is-empty'}">
+          ${importedGeneration ? '' : `<button class="${card.image_url ? 'secondary' : 'primary'} compact" type="button" data-card-news-image-action="${card.index}">${card.image_url ? 'AI 재생성' : 'AI 이미지 만들기'}</button>`}
+          <button class="secondary compact" type="button" data-card-news-local-picker="${card.index}">${card.image_url ? '이미지 교체' : '＋ 내 이미지 선택'}</button>
           <input type="file" accept="image/png,image/jpeg,image/webp,image/avif" data-card-news-local-image="${card.index}" hidden>
-          <span aria-hidden="true">＋</span>
-        </label>
+          ${card.download_url ? `<a class="ui-button-link secondary compact" href="${escapeHtml(card.download_url)}" download>받기</a>` : ''}
+        </div>
+        <span class="ui-sequence-badge">${card.index}</span>
         <div class="card-news-image-working" data-card-news-image-working hidden>
           <span class="card-news-image-working-spinner" aria-hidden="true"></span>
           <strong>이미지 만드는 중…</strong>
@@ -262,15 +269,13 @@ function renderCardNewsGeneration(generation, options = {}) {
       <div class="card-news-result-copy">
         <strong>${escapeHtml(card.headline)}</strong>
         <p>${escapeHtml(card.body || '')}</p>
-        <div class="card-news-result-card-actions">
-          ${card.image_prompt ? `<button class="secondary compact" type="button" data-card-news-prompt-copy="${card.index}">프롬프트 복사</button>` : ''}
-          ${importedGeneration ? '' : `<button class="primary compact" type="button" data-card-news-image-action="${card.index}">${card.image_url ? '이미지 다시 만들기' : '이미지 만들기'}</button>`}
-          ${card.download_url ? `<a href="${escapeHtml(card.download_url)}" download>이미지 받기</a>` : ''}
-        </div>
-        ${card.image_prompt ? `<details class="card-news-prompt-details">
-          <summary>프롬프트 보기</summary>
-          <p>${escapeHtml(card.image_prompt || '')}</p>
-        </details>` : ''}
+        ${card.image_prompt ? `<div class="card-news-prompt-section">
+          <details class="card-news-prompt-details">
+            <summary>프롬프트 보기</summary>
+            <p>${escapeHtml(card.image_prompt || '')}</p>
+          </details>
+          <button class="ui-text-action compact card-news-prompt-copy" type="button" data-card-news-prompt-copy="${card.index}">복사</button>
+        </div>` : ''}
       </div>
     </article>`).join('');
   grid.querySelectorAll('[data-card-news-prompt-copy]').forEach((button) => {
@@ -285,11 +290,9 @@ function renderCardNewsGeneration(generation, options = {}) {
   grid.querySelectorAll('[data-card-news-local-image]').forEach((input) => {
     input.addEventListener('change', () => void importCardNewsLocalImage(Number(input.dataset.cardNewsLocalImage), input));
   });
-  grid.querySelectorAll('[data-card-news-local-trigger]').forEach((trigger) => {
-    trigger.addEventListener('keydown', (event) => {
-      if (event.key !== 'Enter' && event.key !== ' ') return;
-      event.preventDefault();
-      trigger.querySelector('[data-card-news-local-image]')?.click();
+  grid.querySelectorAll('[data-card-news-local-picker]').forEach((button) => {
+    button.addEventListener('click', () => {
+      grid.querySelector(`[data-card-news-local-image="${button.dataset.cardNewsLocalPicker}"]`)?.click();
     });
   });
   if (options.scroll !== false) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -451,12 +454,7 @@ async function publishCardNews() {
 
 function setCardNewsImageWorking(working, message = '', options = {}) {
   cardNewsViewState.generating = working;
-  document.querySelectorAll('#card-news-regenerate, #card-news-bulk-image-action, [data-card-news-image-action], [data-card-news-local-image]').forEach((control) => {
-    control.disabled = working;
-    const localTrigger = control.closest('.card-news-local-image-trigger');
-    localTrigger?.classList.toggle('is-disabled', working);
-    localTrigger?.setAttribute('aria-disabled', String(working));
-  });
+  setCardNewsResultControlsDisabled(working);
   document.getElementById('card-news-result-panel')?.setAttribute('aria-busy', String(working));
   const targetIndexes = new Set((options.cardIndexes || []).map(Number));
   document.querySelectorAll('[data-card-news-result-index]').forEach((cardElement) => {

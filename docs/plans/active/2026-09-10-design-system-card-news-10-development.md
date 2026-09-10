@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-card-news-10`
 - Base/parent branch: `codex/feature/design-system-main`
 - Start date: 2026-09-10
-- Status: slice 3 완료 · slice 4 준비
+- Status: slice 4 완료, slice 5 시작 대기
 
 ## 사용자 필요와 목표
 
@@ -17,8 +17,9 @@ Card News의 기존 기능과 작업 상태를 보존하면서 Settings Beta와 
 1. Card News 화면 shell과 공통 component foundation 이관
 2. 원문 선택·미리보기와 RSS source 관리의 정보 구조 정리
 3. 카드 설정·AI 생성 action과 상태 표현 정리
-4. 결과·이미지 작업·Buffer 발행 흐름 정리
-5. 만든 카드뉴스·ZIP 복원과 responsive/accessibility 정리
+4. 결과·개별 이미지 작업 흐름 정리
+5. Buffer SNS 발행 흐름 정리
+6. 만든 카드뉴스·ZIP 복원과 responsive/accessibility 및 상태 정합성 점검
 
 ## 명시적 비범위
 
@@ -39,9 +40,11 @@ Card News의 기존 기능과 작업 상태를 보존하면서 Settings Beta와 
 1. 공통 foundation과 화면 shell
 2. 원문 선택·미리보기·source 관리
 3. 카드 설정·AI 생성
-4. 결과·이미지 작업·SNS 발행
-5. 만든 카드뉴스·ZIP 복원·최종 전수 점검
+4. 결과·개별 이미지 작업
+5. SNS 발행
+6. 만든 카드뉴스·ZIP 복원·최종 전수 점검
 
 - [Slice 1: 공통 foundation과 화면 shell](../archive/2026-09-10-design-system-card-news-10-01-foundation-development.md)
 - [Slice 2: 원문 선택·미리보기·source 관리](../archive/2026-09-10-design-system-card-news-10-02-source-preview-development.md)
 - [Slice 3: 카드 설정·AI 생성](../archive/2026-09-10-design-system-card-news-10-03-generation-development.md)
+- [Slice 4: 결과·개별 이미지 작업](../archive/2026-09-10-design-system-card-news-10-04-results-development.md)

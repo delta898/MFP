@@ -1526,6 +1526,119 @@ async function run() {
         assert.equal(cardNewsGenerationLayout.fieldColumnCount, 3);
         assert.ok(cardNewsGenerationLayout.requestToChoiceRatio > 1.8 && cardNewsGenerationLayout.requestToChoiceRatio < 2.2);
         assert.equal(cardNewsGenerationLayout.sameRow, true);
+        await page.evaluate(() => {
+            renderCardNewsGeneration({
+                id: 'ui-smoke-prompt-result',
+                title: 'UI smoke 카드뉴스',
+                image_mode: 'prompt_only',
+                status: 'prompt_ready',
+                settings: { aspect_ratio: '9:16' },
+                cards: [1, 2, 3].map((index) => ({
+                    index,
+                    headline: `${index}번째 카드`,
+                    body: '결과 카드의 정보 위계와 동작을 확인합니다.',
+                    image_prompt: `card ${index} prompt`
+                }))
+            }, { scroll: false });
+        });
+        const cardNewsPromptResult = await page.evaluate(() => {
+            const cards = [...document.querySelectorAll('.card-news-result-item')];
+            const firstAction = cards[0]?.querySelector('[data-card-news-image-action]');
+            const localPicker = cards[0]?.querySelector('[data-card-news-local-picker]');
+            const promptCopy = cards[0]?.querySelector('[data-card-news-prompt-copy]');
+            const bulkAction = document.getElementById('card-news-bulk-image-action');
+            const headingCopy = document.querySelector('.card-news-result-heading > div:first-child')?.getBoundingClientRect();
+            const headingActions = document.querySelector('.card-news-result-actions')?.getBoundingClientRect();
+            return {
+                cardCount: cards.length,
+                columnCount: getComputedStyle(document.getElementById('card-news-result-grid')).gridTemplateColumns.split(' ').filter(Boolean).length,
+                firstActionPrimary: firstAction?.classList.contains('primary'),
+                localPickerText: localPicker?.textContent.trim(),
+                localPickerSecondary: localPicker?.classList.contains('secondary'),
+                promptCopyTextAction: promptCopy?.classList.contains('ui-text-action'),
+                promptCopyLabel: promptCopy?.textContent.trim(),
+                promptDisclosureLabel: cards[0]?.querySelector('.card-news-prompt-details summary')?.textContent.trim(),
+                bulkPrimary: bulkAction?.classList.contains('primary'),
+                sequenceBadgeCount: document.querySelectorAll('.card-news-result-item .ui-sequence-badge').length,
+                imageActionsInsideMedia: Boolean(cards[0]?.querySelector('.card-news-result-image-wrap .card-news-media-actions [data-card-news-image-action]')),
+                promptActionsOutsideMedia: Boolean(cards[0]?.querySelector('.card-news-result-copy [data-card-news-prompt-copy]')),
+                headingActionsOnRight: Boolean(headingCopy && headingActions && headingActions.left > headingCopy.right)
+            };
+        });
+        assert.equal(cardNewsPromptResult.cardCount, 3);
+        assert.equal(cardNewsPromptResult.columnCount, 3);
+        assert.equal(cardNewsPromptResult.firstActionPrimary, true);
+        assert.equal(cardNewsPromptResult.localPickerText, '＋ 내 이미지 선택');
+        assert.equal(cardNewsPromptResult.localPickerSecondary, true);
+        assert.equal(cardNewsPromptResult.promptCopyTextAction, true);
+        assert.equal(cardNewsPromptResult.promptCopyLabel, '복사');
+        assert.equal(cardNewsPromptResult.promptDisclosureLabel, '프롬프트 보기');
+        assert.equal(cardNewsPromptResult.bulkPrimary, true);
+        assert.equal(cardNewsPromptResult.sequenceBadgeCount, 3);
+        assert.equal(cardNewsPromptResult.imageActionsInsideMedia, true);
+        assert.equal(cardNewsPromptResult.promptActionsOutsideMedia, true);
+        assert.equal(cardNewsPromptResult.headingActionsOnRight, true);
+        await page.evaluate(() => {
+            const imageUrl = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+            renderCardNewsGeneration({
+                id: 'ui-smoke-complete-result',
+                title: '완성된 UI smoke 카드뉴스',
+                image_mode: 'generate',
+                status: 'completed',
+                settings: { aspect_ratio: '1:1' },
+                cards: [1, 2, 3].map((index) => ({
+                    index,
+                    headline: index === 1 ? '두 줄까지 이어지는 첫 번째 완성 카드 제목을 확인합니다' : `${index}번째 완성 카드`,
+                    body: index === 3
+                        ? '완성 후 행동 위계를 확인합니다. 내용 길이가 달라도 프롬프트 도구가 같은 하단 위치에 정렬되어야 합니다.'
+                        : '완성 후 행동 위계를 확인합니다.',
+                    image_prompt: `complete card ${index} prompt`,
+                    image_url: imageUrl,
+                    download_url: imageUrl
+                }))
+            }, { scroll: false });
+        });
+        assert.deepEqual(await page.evaluate(() => ({
+            bulkSecondary: document.getElementById('card-news-bulk-image-action')?.classList.contains('secondary'),
+            publishPrimary: document.getElementById('card-news-publish-open')?.classList.contains('primary'),
+            publishVisible: !document.getElementById('card-news-publish-open')?.hidden,
+            exportSecondary: document.getElementById('card-news-export-all')?.classList.contains('secondary'),
+            exportVisible: !document.getElementById('card-news-export-all')?.hidden,
+            regenerateSecondary: document.querySelector('[data-card-news-image-action]')?.classList.contains('secondary'),
+            regenerateText: document.querySelector('[data-card-news-image-action]')?.textContent.trim(),
+            replaceText: document.querySelector('[data-card-news-local-picker]')?.textContent.trim(),
+            downloadText: document.querySelector('.card-news-media-actions [download]')?.textContent.trim(),
+            completedActionsInsideMedia: Boolean(document.querySelector('.card-news-result-image-wrap .card-news-media-actions [data-card-news-local-picker]')),
+            downloadInsideMedia: Boolean(document.querySelector('.card-news-result-image-wrap .card-news-media-actions [download]')),
+            completedActionOpacity: getComputedStyle(document.querySelector('.card-news-result-image-wrap .card-news-media-actions')).opacity
+        })), {
+            bulkSecondary: true,
+            publishPrimary: true,
+            publishVisible: true,
+            exportSecondary: true,
+            exportVisible: true,
+            regenerateSecondary: true,
+            regenerateText: 'AI 재생성',
+            replaceText: '이미지 교체',
+            downloadText: '받기',
+            completedActionsInsideMedia: true,
+            downloadInsideMedia: true,
+            completedActionOpacity: '0'
+        });
+        await page.locator('.card-news-result-image-wrap').first().hover();
+        await page.waitForFunction(() => getComputedStyle(document.querySelector('.card-news-result-image-wrap .card-news-media-actions')).opacity === '1');
+        assert.deepEqual(await page.evaluate(() => {
+            const actionBar = document.querySelector('.card-news-result-image-wrap .card-news-media-actions');
+            const actions = [...actionBar.querySelectorAll(':scope > button, :scope > a')];
+            const cards = [...document.querySelectorAll('.card-news-result-item')];
+            return {
+                opacity: getComputedStyle(actionBar).opacity,
+                flexWrap: getComputedStyle(actionBar).flexWrap,
+                rowCount: new Set(actions.map((action) => Math.round(action.getBoundingClientRect().top))).size,
+                cardHeightCount: new Set(cards.map((card) => Math.round(card.getBoundingClientRect().height))).size,
+                promptBottomCount: new Set(cards.map((card) => Math.round(card.querySelector('.card-news-prompt-section').getBoundingClientRect().bottom))).size
+            };
+        }), { opacity: '1', flexWrap: 'nowrap', rowCount: 1, cardHeightCount: 1, promptBottomCount: 1 });
         await page.locator('#card-news-additional-request').fill('차분한 편집 디자인으로 구성해 주세요.');
         assert.equal(
             await page.evaluate(() => JSON.parse(localStorage.getItem('bloggenius.cardNews.generationSettings') || '{}').additional_request),

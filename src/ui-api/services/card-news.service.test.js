@@ -117,6 +117,98 @@ test('annotates source articles and lists only ledger rows with a generation', a
     assert.equal(service.getGeneration('generation-1').generation.id, 'generation-1');
 });
 
+test('returns source articles when ledger registration does not settle in time', async () => {
+    const warnings = [];
+    const ledgerSync = {
+        registerSources() { return new Promise(() => {}); },
+        annotateSources(items, registration) {
+            assert.equal(registration, null);
+            return items;
+        }
+    };
+    const { service } = createHarness({
+        ledgerSync,
+        ledgerRegistrationTimeoutMs: 5,
+        logger: { warn(message) { warnings.push(message); } }
+    });
+
+    const result = await service.listSources();
+
+    assert.equal(result.articles.length, CARD_NEWS_SOURCE_LIMIT + 10);
+    assert.match(warnings[0], /원문 목록을 먼저 반환/);
+});
+
+test('lists local card news when the managed ledger does not settle in time', async () => {
+    const warnings = [];
+    const generationService = {
+        listGenerations() {
+            return [{
+                id: 'generation-local',
+                title: '로컬 카드뉴스',
+                source_url: 'https://example.com/local',
+                source_platform: 'naver',
+                status: 'prompt_ready',
+                created_at: '2026-09-06T01:00:00.000Z',
+                completed_at: '',
+                cards: [{ image_url: '' }, { image_url: '/card-2.png' }]
+            }];
+        },
+        getGeneration() { return null; }
+    };
+    const ledgerSync = {
+        listManagedRows() { return new Promise(() => {}); }
+    };
+    const { service } = createHarness({
+        generationService,
+        ledgerSync,
+        ledgerRegistrationTimeoutMs: 5,
+        logger: { warn(message) { warnings.push(message); } }
+    });
+
+    const result = await service.listManagedItems();
+
+    assert.equal(result.items.length, 1);
+    assert.deepEqual(result.items[0], {
+        generation_id: 'generation-local',
+        title: '로컬 카드뉴스',
+        source_platform: 'naver',
+        source_url: 'https://example.com/local',
+        status: '작업 중',
+        workflow_status: '제작 중',
+        publishing_status: '미발행',
+        card_count: 2,
+        image_count: 1,
+        local_available: true,
+        channels: [],
+        post_links: [],
+        updated_at: '2026-09-06T01:00:00.000Z',
+        last_error: ''
+    });
+    assert.match(warnings[0], /로컬 결과를 먼저 반환/);
+});
+
+test('merges managed rows and local generations without duplicate generation ids', async () => {
+    const localGenerations = [
+        { id: 'generation-1', title: '관리대장에도 있음', status: 'completed', cards: [{}], created_at: '2026-09-05T00:00:00.000Z' },
+        { id: 'generation-2', title: '로컬에만 있음', status: 'prompt_ready', cards: [{}, {}], created_at: '2026-09-06T00:00:00.000Z' }
+    ];
+    const generationService = {
+        listGenerations() { return localGenerations; },
+        getGeneration(id) { return localGenerations.find((generation) => generation.id === id); }
+    };
+    const ledgerSync = {
+        async listManagedRows() {
+            return [{ generationId: 'generation-1', title: '관리 항목', workflowStatus: '제작 완료', publishingStatus: '미발행' }];
+        }
+    };
+    const { service } = createHarness({ generationService, ledgerSync });
+
+    const result = await service.listManagedItems();
+
+    assert.deepEqual(result.items.map((item) => item.generation_id), ['generation-2', 'generation-1']);
+    assert.equal(new Set(result.items.map((item) => item.generation_id)).size, 2);
+});
+
 test('previews a source and requires explicit source input', async () => {
     const { service } = createHarness();
     await assert.rejects(() => service.previewSource({}), { code: 'CARD_NEWS_SOURCE_REQUIRED' });
