@@ -1509,6 +1509,23 @@ async function run() {
             { background: 'rgb(182, 95, 66)', color: 'rgb(255, 253, 249)', fontSize: '10px' }
         );
         await page.locator('.nav-btn[data-view="card-news"]').click();
+        assert.deepEqual(await page.evaluate(() => {
+            const view = document.getElementById('view-card-news').getBoundingClientRect();
+            const topMenu = document.querySelector('.card-news-workspace-tabs').getBoundingClientRect();
+            const sourceCard = document.querySelector('.card-news-source-card').getBoundingClientRect();
+            const sourceMenu = document.querySelector('.card-news-source-tabs').getBoundingClientRect();
+            return {
+                topUsesSharedPattern: document.querySelector('.card-news-workspace-tabs').classList.contains('ui-top-tabs'),
+                topFillsView: Math.abs(view.width - topMenu.width) < 2,
+                sourceUsesSharedPattern: document.querySelector('.card-news-source-tabs').classList.contains('ui-segmented-tabs'),
+                sourceFitsContent: sourceMenu.width < sourceCard.width
+            };
+        }), {
+            topUsesSharedPattern: true,
+            topFillsView: true,
+            sourceUsesSharedPattern: true,
+            sourceFitsContent: true
+        });
         await page.evaluate(() => {
             renderCardNewsArticles({
                 configured_sources: ['naver'],
@@ -1626,10 +1643,11 @@ async function run() {
             return {
                 columnCount: columns.length,
                 alignedTop: Math.abs(listBox.top - previewBox.top) < 2,
-                previewOnRight: previewBox.left > listBox.left
+                previewOnRight: previewBox.left > listBox.left,
+                filterFitsContent: document.querySelector('.card-news-managed-filters').getBoundingClientRect().width < listBox.width
             };
         });
-        assert.deepEqual(managedCardNewsLayout, { columnCount: 2, alignedTop: true, previewOnRight: true });
+        assert.deepEqual(managedCardNewsLayout, { columnCount: 2, alignedTop: true, previewOnRight: true, filterFitsContent: true });
         await page.route('**/api/v1/card-news/zip/preview', async (route) => {
             await route.fulfill({
                 status: 200,
@@ -1936,14 +1954,15 @@ async function run() {
             const actionBar = document.querySelector('.card-news-result-image-wrap .card-news-media-actions');
             const actions = [...actionBar.querySelectorAll(':scope > button, :scope > a')];
             const cards = [...document.querySelectorAll('.card-news-result-item')];
+            const actionTops = actions.map((action) => action.getBoundingClientRect().top);
             return {
                 opacity: getComputedStyle(actionBar).opacity,
                 flexWrap: getComputedStyle(actionBar).flexWrap,
-                rowCount: new Set(actions.map((action) => Math.round(action.getBoundingClientRect().top))).size,
+                singleRow: Math.max(...actionTops) - Math.min(...actionTops) < 1,
                 cardHeightCount: new Set(cards.map((card) => Math.round(card.getBoundingClientRect().height))).size,
                 promptBottomCount: new Set(cards.map((card) => Math.round(card.querySelector('.card-news-prompt-section').getBoundingClientRect().bottom))).size
             };
-        }), { opacity: '1', flexWrap: 'nowrap', rowCount: 1, cardHeightCount: 1, promptBottomCount: 1 });
+        }), { opacity: '1', flexWrap: 'nowrap', singleRow: true, cardHeightCount: 1, promptBottomCount: 1 });
         await page.locator('#card-news-additional-request').fill('차분한 편집 디자인으로 구성해 주세요.');
         assert.equal(
             await page.evaluate(() => JSON.parse(localStorage.getItem('bloggenius.cardNews.generationSettings') || '{}').additional_request),

@@ -31,16 +31,6 @@
   margin-bottom: var(--ui-space-5);
 }
 
-.card-news-source-tabs {
-  display: grid;
-  width: 100%;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.card-news-source-tab {
-  width: 100%;
-}
-
 .card-news-source-panel {
   padding-top: var(--ui-space-5);
 }
@@ -495,10 +485,6 @@
 
   .card-news-entry-date {
     justify-self: end;
-  }
-
-  .card-news-source-tabs.ui-segmented-tabs {
-    display: grid;
   }
 
   .card-news-panel-toolbar {

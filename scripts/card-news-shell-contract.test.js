@@ -22,9 +22,13 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(html, /id="view-card-news"/);
     assert.doesNotMatch(html, /id="view-card-news"[^>]*data-style-scope/);
     assert.doesNotMatch(html, /card-news-stage-badge|준비 단계/);
-    assert.match(html, /class="card-news-workspace-tabs ui-segmented-tabs"/);
-    assert.match(html, /class="ui-segmented-tab active"[^>]*id="card-news-workspace-tab-create"[^>]*aria-controls="card-news-create-workspace"[^>]*tabindex="0"/);
+    assert.match(html, /class="card-news-workspace-tabs ui-top-tabs"/);
+    assert.match(html, /class="ui-top-tab active"[^>]*id="card-news-workspace-tab-create"[^>]*aria-controls="card-news-create-workspace"[^>]*tabindex="0"/);
     assert.match(html, /id="card-news-workspace-tab-managed"[^>]*aria-controls="card-news-managed-workspace"[^>]*tabindex="-1"/);
+    assert.equal((html.match(/class="ui-top-tab[^>]*data-card-news-workspace=/g) || []).length, 2);
+    assert.match(html, /class="card-news-source-tabs ui-segmented-tabs"/);
+    assert.match(html, /class="card-news-source-tab ui-segmented-tab active"/);
+    assert.match(html, /class="card-news-managed-filters ui-segmented-tabs"/);
     assert.match(html, /data-card-news-source-kind="feed_item"[^>]*>피드에서 선택/);
     assert.match(html, /data-card-news-source-kind="url"[^>]*>URL 직접 입력/);
     assert.match(html, /data-card-news-source-kind="manuscript"[^>]*>내용 직접 입력/);
@@ -227,6 +231,25 @@ test('Card News source and preview cards stretch together without fixed legacy h
     assert.match(css, /\.card-news-entry-title strong\s*\{[^}]*var\(--ui-type-body-size\)[^}]*var\(--ui-weight-bold\)[^}]*var\(--ui-line-height-tight\)/s);
     assert.match(css, /\.card-news-entry-date\s*\{[^}]*var\(--ui-type-caption-size\)[^}]*var\(--ui-weight-regular\)/s);
     assert.doesNotMatch(sourcePreviewCss, /#[0-9a-f]{3,8}\b|rgba?\(/i);
+});
+
+test('Card News uses the shared top and local navigation hierarchy', () => {
+    const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot }).html;
+    const cardNewsCss = fs.readFileSync(path.join(uiRoot, 'styles/features/card-news.css'), 'utf8');
+    const managementCss = fs.readFileSync(path.join(uiRoot, 'styles/features/card-news-management.css'), 'utf8');
+    const responsiveCss = fs.readFileSync(path.join(uiRoot, 'styles/features/card-news-results.css'), 'utf8');
+
+    assert.match(html, /class="card-news-workspace-tabs ui-top-tabs"/);
+    assert.equal((html.match(/class="ui-top-tab[^>]*data-card-news-workspace=/g) || []).length, 2);
+    assert.match(html, /class="card-news-source-tabs ui-segmented-tabs"/);
+    assert.match(html, /class="card-news-managed-filters ui-segmented-tabs"/);
+    assert.doesNotMatch(html, /card-news-managed-filters[^>]*data-density="compact"/);
+    assert.match(html, /id="card-news-platform-tabs"[^>]*data-density="compact"/);
+    assert.doesNotMatch(cardNewsCss, /\.card-news-source-tabs\s*\{[^}]*\bwidth:\s*100%/s);
+    assert.doesNotMatch(cardNewsCss, /\.card-news-source-tab\s*\{[^}]*\bwidth:\s*100%/s);
+    assert.doesNotMatch(managementCss, /\.card-news-workspace-tabs\s*\{/);
+    assert.doesNotMatch(managementCss, /\.card-news-managed-filters\s*\{[^}]*flex:\s*1\s+1\s+auto/s);
+    assert.doesNotMatch(responsiveCss, /\.card-news-source-tabs\s*\{[^}]*grid-template-columns/s);
 });
 
 test('Card News states use shared semantic badge tokens', () => {

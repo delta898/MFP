@@ -387,10 +387,6 @@
     padding: var(--ui-space-5);
   }
 
-  .card-news-source-tabs {
-    grid-template-columns: 1fr;
-  }
-
   .card-news-source-actions {
     align-items: stretch;
     flex-direction: column;
