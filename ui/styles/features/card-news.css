@@ -12,11 +12,6 @@
   gap: var(--ui-space-5);
 }
 
-.card-news-source-card,
-.card-news-preview-card {
-  padding: var(--ui-space-6);
-}
-
 .card-news-preview-card {
   display: flex;
   flex-direction: column;

@@ -7,6 +7,10 @@
   box-shadow: var(--ui-card-shadow);
 }
 
+.ui-workflow-panel {
+  padding: var(--ui-space-5);
+}
+
 .ui-workflow-heading {
   display: flex;
   align-items: flex-start;
@@ -15,12 +19,26 @@
 }
 
 .ui-workflow-heading h2 {
-  margin: var(--ui-space-1) 0 0;
+  margin: 0;
   color: var(--ui-text-primary);
   font-size: var(--ui-type-heading-size);
-  font-weight: var(--ui-weight-semibold);
+  font-weight: var(--ui-weight-bold);
   line-height: var(--ui-line-height-tight);
   letter-spacing: -0.02em;
+}
+
+.ui-workflow-title-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--ui-space-2);
+}
+
+.ui-workflow-stage {
+  color: var(--ui-text-muted);
+  font-size: var(--ui-type-caption-size);
+  font-weight: var(--ui-weight-semibold);
+  line-height: var(--ui-line-height-tight);
 }
 
 .ui-workflow-heading p {

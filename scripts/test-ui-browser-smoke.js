@@ -1509,22 +1509,38 @@ async function run() {
             { background: 'rgb(182, 95, 66)', color: 'rgb(255, 253, 249)', fontSize: '10px' }
         );
         await page.locator('.nav-btn[data-view="card-news"]').click();
-        assert.deepEqual(await page.evaluate(() => {
+        const cardNewsCreateHeaderLayout = await page.evaluate(() => {
             const view = document.getElementById('view-card-news').getBoundingClientRect();
             const topMenu = document.querySelector('.card-news-workspace-tabs').getBoundingClientRect();
             const sourceCard = document.querySelector('.card-news-source-card').getBoundingClientRect();
             const sourceMenu = document.querySelector('.card-news-source-tabs').getBoundingClientRect();
+            const sourceHeadingElement = document.querySelector('.card-news-source-card .card-news-section-heading');
+            const sourceHeading = sourceHeadingElement.getBoundingClientRect();
+            const sourceTitle = sourceHeadingElement.querySelector('h2');
+            const sourceCardStyle = getComputedStyle(document.querySelector('.card-news-source-card'));
+            const rootStyle = getComputedStyle(document.documentElement);
             return {
                 topUsesSharedPattern: document.querySelector('.card-news-workspace-tabs').classList.contains('ui-top-tabs'),
                 topFillsView: Math.abs(view.width - topMenu.width) < 2,
                 sourceUsesSharedPattern: document.querySelector('.card-news-source-tabs').classList.contains('ui-segmented-tabs'),
-                sourceFitsContent: sourceMenu.width < sourceCard.width
+                sourceFitsContent: sourceMenu.width < sourceCard.width,
+                stageUsesInlineRow: getComputedStyle(document.querySelector('.card-news-source-card .ui-workflow-title-row')).alignItems === 'baseline',
+                legacyEyebrowCount: document.querySelectorAll('#view-card-news .card-news-eyebrow').length,
+                panelUsesSharedInset: sourceCardStyle.paddingTop === rootStyle.getPropertyValue('--ui-space-5').trim(),
+                titleStartsOnPanelBaseline: getComputedStyle(sourceTitle).marginTop === '0px',
+                headingToMenuGap: sourceMenu.top - sourceHeading.bottom
             };
-        }), {
+        });
+        assert.deepEqual(cardNewsCreateHeaderLayout, {
             topUsesSharedPattern: true,
             topFillsView: true,
             sourceUsesSharedPattern: true,
-            sourceFitsContent: true
+            sourceFitsContent: true,
+            stageUsesInlineRow: true,
+            legacyEyebrowCount: 0,
+            panelUsesSharedInset: true,
+            titleStartsOnPanelBaseline: true,
+            headingToMenuGap: 20
         });
         await page.evaluate(() => {
             renderCardNewsArticles({
@@ -1633,10 +1649,12 @@ async function run() {
         await page.locator('[data-card-news-open-generation="generation-existing"]').click();
         await page.waitForFunction(() => document.getElementById('card-news-managed-source-title')?.textContent === '프로젝트에 보존된 원문');
         assert.equal(await page.locator('#card-news-workspace-tab-managed').getAttribute('aria-selected'), 'true');
-        const managedCardNewsLayout = await page.evaluate(() => {
+        const managedCardNewsLayout = await page.evaluate((createHeadingToMenuGap) => {
             const layout = document.querySelector('#card-news-managed-workspace .card-news-layout');
             const listCard = document.querySelector('.card-news-managed-list-card');
             const previewCard = document.getElementById('card-news-managed-source');
+            const heading = listCard.querySelector('.card-news-section-heading').getBoundingClientRect();
+            const filters = listCard.querySelector('.card-news-managed-filters').getBoundingClientRect();
             const columns = getComputedStyle(layout).gridTemplateColumns.split(' ').filter(Boolean);
             const listBox = listCard.getBoundingClientRect();
             const previewBox = previewCard.getBoundingClientRect();
@@ -1644,10 +1662,17 @@ async function run() {
                 columnCount: columns.length,
                 alignedTop: Math.abs(listBox.top - previewBox.top) < 2,
                 previewOnRight: previewBox.left > listBox.left,
-                filterFitsContent: document.querySelector('.card-news-managed-filters').getBoundingClientRect().width < listBox.width
+                filterFitsContent: filters.width < listBox.width,
+                headingGapMatchesCreate: Math.abs((filters.top - heading.bottom) - createHeadingToMenuGap) < 2
             };
+        }, cardNewsCreateHeaderLayout.headingToMenuGap);
+        assert.deepEqual(managedCardNewsLayout, {
+            columnCount: 2,
+            alignedTop: true,
+            previewOnRight: true,
+            filterFitsContent: true,
+            headingGapMatchesCreate: true
         });
-        assert.deepEqual(managedCardNewsLayout, { columnCount: 2, alignedTop: true, previewOnRight: true, filterFitsContent: true });
         await page.route('**/api/v1/card-news/zip/preview', async (route) => {
             await route.fulfill({
                 status: 200,
@@ -1887,7 +1912,7 @@ async function run() {
                 contentIsPadded: headingBox.left - panelBox.left >= 20 && headingBox.top - panelBox.top >= 20,
                 actionIsPadded: panelBox.right - buttonBox.right >= 20 && panelBox.bottom - buttonBox.bottom >= 20,
                 channelLabelGapIsClear: channelGrid.getBoundingClientRect().top - channelLegend.getBoundingClientRect().bottom >= 10,
-                stepLabel: panel.querySelector('.ui-workflow-eyebrow')?.textContent.trim(),
+                stepLabel: panel.querySelector('.ui-workflow-stage')?.textContent.trim(),
                 channelCount: document.querySelectorAll('.card-news-publishing-channel.ui-selectable-card').length,
                 limit: document.getElementById('card-news-publishing-channel-limit')?.textContent,
                 preparedText: document.getElementById('card-news-publishing-text')?.value,
@@ -1901,7 +1926,7 @@ async function run() {
             contentIsPadded: true,
             actionIsPadded: true,
             channelLabelGapIsClear: true,
-            stepLabel: '3단계 · 선택',
+            stepLabel: '3단계',
             channelCount: 3,
             limit: '최대 3개 · 0개 선택',
             preparedText: '완성된 UI smoke 카드뉴스\n\nhttps://short.example/card-news',

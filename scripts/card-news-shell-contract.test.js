@@ -17,6 +17,8 @@ test('Card News is a top-level source-preview workflow', () => {
         'scripts/features/card-news/source-manager.js'
     ].map((file) => fs.readFileSync(path.join(uiRoot, file), 'utf8')).join('\n');
     const httpServerRuntime = fs.readFileSync(path.join(repoRoot, 'src/ui-runtime/http-server-runtime.js'), 'utf8');
+    const workflowStyles = fs.readFileSync(path.join(uiRoot, 'styles/patterns/overview-card.css'), 'utf8');
+    const cardNewsStyles = fs.readFileSync(path.join(uiRoot, 'styles/features/card-news.css'), 'utf8');
 
     assert.match(html, /data-view="card-news"[\s\S]*?<span class="nav-label">카드뉴스<sup class="nav-new-badge"/);
     assert.match(html, /id="view-card-news"/);
@@ -103,7 +105,9 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(script, /설정이 변경되었습니다\. 다시 만들면 새 설정이 적용됩니다\./);
     assert.match(script, /card-news-additional-request'\)\?\.addEventListener\('input', handleCardNewsGenerationSettingChange\)/);
     assert.match(html, /id="card-news-result-panel"[^>]*hidden/);
-    assert.match(html, /class="card-news-eyebrow ui-workflow-eyebrow">카드 작업</);
+    assert.doesNotMatch(html, /card-news-eyebrow|ui-workflow-eyebrow[^>]*>(?:1단계|2단계|3단계|관리|카드 작업)/);
+    assert.match(html, /class="ui-workflow-title-row">\s*<h2 id="card-news-source-title">내용 선택<\/h2>\s*<span class="ui-workflow-stage">1단계<\/span>/);
+    assert.match(html, /class="ui-workflow-title-row">\s*<h2 id="card-news-generation-title">카드 설정<\/h2>\s*<span class="ui-workflow-stage">2단계<\/span>/);
     assert.match(html, /class="card-news-result-heading ui-workflow-heading">[\s\S]*?<\/div>\s*<div class="card-news-result-actions">/);
     assert.match(script, /\/api\/v1\/card-news\/generations/);
     assert.match(script, /image_mode: imageMode/);
@@ -115,7 +119,11 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(html, /id="card-news-feed-list" class="card-news-feed-list card-news-entry-list"/);
     assert.match(html, /id="card-news-managed-list" class="card-news-managed-list card-news-entry-list"/);
     assert.equal((html.match(/card-news-panel-toolbar card-news-entry-toolbar/g) || []).length, 2);
-    assert.match(html, /id="card-news-managed-workspace"[\s\S]*class="card-news-layout"[\s\S]*class="card-news-managed-list-card card-news-source-card ui-workflow-card"/);
+    assert.match(html, /class="card-news-source-card ui-workflow-card ui-workflow-panel"/);
+    assert.match(html, /id="card-news-managed-workspace"[\s\S]*class="card-news-layout"[\s\S]*class="card-news-managed-list-card card-news-source-card ui-workflow-card ui-workflow-panel"/);
+    assert.match(workflowStyles, /\.ui-workflow-panel\s*\{[^}]*padding:\s*var\(--ui-space-5\);/s);
+    assert.match(workflowStyles, /\.ui-workflow-heading h2\s*\{[^}]*margin:\s*0;[^}]*font-weight:\s*var\(--ui-weight-bold\);/s);
+    assert.doesNotMatch(cardNewsStyles, /\.card-news-source-card[\s\S]{0,100}padding:/);
     assert.match(script, /data-card-news-prompt-copy/);
     assert.match(script, /navigator\.clipboard\.writeText\(prompt\)/);
     assert.match(script, /card-news-result-image-empty/);
@@ -138,8 +146,7 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(html, /id="card-news-publishing-readiness"[^>]*role="status"[^>]*hidden/);
     assert.match(html, /id="card-news-publishing-panel" class="card-news-publishing-panel ui-workflow-card"[^>]*aria-labelledby="card-news-publishing-title"[^>]*hidden/);
     assert.match(html, /id="card-news-publishing-form" class="card-news-publishing-form"/);
-    assert.match(html, />3단계 · 선택</);
-    assert.match(html, /id="card-news-publishing-title">SNS에 발행</);
+    assert.match(html, /class="ui-workflow-title-row">\s*<h2 id="card-news-publishing-title">SNS에 발행<\/h2>\s*<span class="ui-workflow-stage">3단계<\/span>/);
     assert.match(html, /href="https:\/\/m\.blog\.naver\.com\/amadejjs\/223940980574"[^>]*target="_blank"[^>]*rel="noopener noreferrer"/);
     assert.match(html, /class="card-news-publishing-channel-group ui-selectable-card-group"[\s\S]*id="card-news-publishing-channels" class="card-news-publishing-channels ui-selectable-card-grid"/);
     assert.match(html, /class="card-news-publishing-actions ui-action-row"/);
@@ -250,6 +257,22 @@ test('Card News uses the shared top and local navigation hierarchy', () => {
     assert.doesNotMatch(managementCss, /\.card-news-workspace-tabs\s*\{/);
     assert.doesNotMatch(managementCss, /\.card-news-managed-filters\s*\{[^}]*flex:\s*1\s+1\s+auto/s);
     assert.doesNotMatch(responsiveCss, /\.card-news-source-tabs\s*\{[^}]*grid-template-columns/s);
+});
+
+test('Card News keeps workflow stages inline with shared panel headings', () => {
+    const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot }).html;
+    const patternCss = fs.readFileSync(path.join(uiRoot, 'styles/patterns/overview-card.css'), 'utf8');
+    const featureCss = [
+        'styles/features/card-news.css',
+        'styles/features/card-news-results.css',
+        'styles/features/card-news-management.css'
+    ].map((file) => fs.readFileSync(path.join(uiRoot, file), 'utf8')).join('\n');
+
+    assert.equal((html.match(/class="ui-workflow-stage">[123]단계<\/span>/g) || []).length, 3);
+    assert.doesNotMatch(html, /card-news-eyebrow|>관리<\/span>|>카드 작업<\/span>|3단계 · 선택/);
+    assert.match(patternCss, /\.ui-workflow-title-row\s*\{[^}]*display:\s*flex[^}]*align-items:\s*baseline[^}]*flex-wrap:\s*wrap/s);
+    assert.match(patternCss, /\.ui-workflow-stage\s*\{[^}]*var\(--ui-text-muted\)[^}]*var\(--ui-type-caption-size\)[^}]*var\(--ui-weight-semibold\)/s);
+    assert.doesNotMatch(featureCss, /\.ui-workflow-(?:title-row|stage)\s*\{/);
 });
 
 test('Card News states use shared semantic badge tokens', () => {

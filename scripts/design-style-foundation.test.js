@@ -173,14 +173,15 @@ test('workflow cards share style-driven surfaces and task headings', () => {
   const cardNews = read('ui/partials/views/card-news.html');
 
   assert.match(overview, /\.ui-overview-card,\s*\.ui-workflow-card\s*\{[^}]*var\(--ui-card-border\)[^}]*var\(--ui-card-radius\)[^}]*var\(--ui-card-background\)[^}]*var\(--ui-card-shadow\)/s);
-  assert.match(overview, /\.ui-workflow-heading h2\s*\{[^}]*var\(--ui-type-heading-size\)[^}]*var\(--ui-weight-semibold\)/s);
+  assert.match(overview, /\.ui-workflow-panel\s*\{[^}]*padding:\s*var\(--ui-space-5\)/s);
+  assert.match(overview, /\.ui-workflow-heading h2\s*\{[^}]*var\(--ui-type-heading-size\)[^}]*var\(--ui-weight-bold\)/s);
   assert.match(overview, /\.ui-workflow-heading p\s*\{[^}]*var\(--ui-type-body-size\)[^}]*var\(--ui-line-height-body\)/s);
   assert.match(overview, /\.ui-workflow-field-grid\s*\{[^}]*repeat\(3, minmax\(0, 1fr\)\)[^}]*var\(--ui-space-4\)/s);
   assert.match(overview, /\.ui-workflow-detail-grid\s*\{[^}]*minmax\(0, 2fr\) minmax\(0, 1fr\)[^}]*var\(--ui-space-4\)/s);
   assert.match(overview, /\.ui-workflow-feedback\[data-state="warning"\]\s*\{[^}]*var\(--ui-status-warning\)/s);
-  assert.match(cardNews, /class="card-news-source-card ui-workflow-card"/);
+  assert.match(cardNews, /class="card-news-source-card ui-workflow-card ui-workflow-panel"/);
   assert.match(cardNews, /class="card-news-generation-panel ui-workflow-card"/);
-  assert.match(cardNews, /class="card-news-managed-list-card card-news-source-card ui-workflow-card"/);
+  assert.match(cardNews, /class="card-news-managed-list-card card-news-source-card ui-workflow-card ui-workflow-panel"/);
   assert.match(cardNews, /id="card-news-managed-source" class="card-news-preview-card ui-workflow-card"/);
   assert.doesNotMatch(cardNews, /id="view-card-news"[^>]*data-style-scope|card-news-stage-badge/);
 });

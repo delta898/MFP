@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-card-news-10`
 - Base/parent branch: `codex/feature/design-system-main`
 - Start date: 2026-09-10
-- Status: slice 6-5 top/sub menu 계층 통일 완료
+- Status: slice 6-6 단계 라벨·패널 헤더 통일 완료
 
 ## 사용자 필요와 목표
 
@@ -54,3 +54,4 @@ Card News의 기존 기능과 작업 상태를 보존하면서 Settings Beta와 
 - [Slice 6-3: style hard-coding 전수 검사](../archive/2026-09-10-design-system-card-news-10-06-03-style-audit-development.md)
 - [Slice 6-4: ZIP 가져오기 dialog 전환](../archive/2026-09-10-design-system-card-news-10-06-04-zip-dialog-development.md)
 - [Slice 6-5: top/sub menu 계층 통일](../archive/2026-09-10-design-system-card-news-10-06-05-navigation-hierarchy-development.md)
+- [Slice 6-6: 단계 라벨·패널 헤더 통일](../archive/2026-09-10-design-system-card-news-10-06-06-stage-headings-development.md)
