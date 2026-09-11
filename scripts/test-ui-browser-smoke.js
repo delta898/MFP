@@ -1175,8 +1175,8 @@ async function run() {
         assert.equal(panelAnatomy.every((item) => Math.abs(item.panelLeft - panelAnatomy[0].panelLeft) < 1), true);
         assert.equal(panelAnatomy.every((item) => Math.abs(item.leadLeft - panelAnatomy[0].leadLeft) < 1), true);
         assert.equal(panelAnatomy.every((item) => item.leadHeight >= 64), true);
-        assert.equal(await page.locator('.blog-next-panel > .blog-next-panel-intro').count(), 4);
-        assert.equal(await page.locator('.blog-next-segmented-nav').count(), 2);
+        assert.equal(await page.locator('#view-blog-next .blog-next-panel > .blog-next-panel-intro').count(), 4);
+        assert.equal(await page.locator('#view-blog-next .blog-next-segmented-nav').count(), 2);
         const segmentedSelectionStyles = await page.evaluate(() => {
             const quick = getComputedStyle(document.querySelector('.blog-next-mode-btn.active'));
             const queue = getComputedStyle(document.querySelector('.blog-next-management-tab.active'));
@@ -1560,6 +1560,7 @@ async function run() {
             titleStartsOnPanelBaseline: true,
             headingToMenuGap: 20
         });
+        await page.waitForFunction(() => !cardNewsViewState.loadingSources);
         await page.evaluate(() => {
             renderCardNewsArticles({
                 configured_sources: ['naver'],
@@ -2259,11 +2260,11 @@ async function run() {
             { background: 'rgba(0, 0, 0, 0)', display: 'flex', direction: 'row', justify: 'flex-start', border: 'solid' }
         );
         assert.deepEqual(
-            await page.locator('.blog-next-form-actions button:not([hidden])').evaluateAll((buttons) => buttons.map((button) => button.textContent.trim())),
+            await page.locator('#view-blog-next .blog-next-form-actions button:not([hidden])').evaluateAll((buttons) => buttons.map((button) => button.textContent.trim())),
             ['내용 지우기', '글감 보관', '발행 대기열에 추가', '바로 포스팅']
         );
         assert.deepEqual(
-            await page.locator('.blog-next-form-actions').evaluate((element) => {
+            await page.locator('#view-blog-next .blog-next-form-actions').evaluate((element) => {
                 const primary = getComputedStyle(element.querySelector('.primary'));
                 const secondary = getComputedStyle(element.querySelector('.secondary'));
                 return {

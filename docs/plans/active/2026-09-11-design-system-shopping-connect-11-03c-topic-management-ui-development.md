@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-shopping-connect-11-03c-topic-management-ui`
 - Base/parent branch: `codex/feature/design-system-shopping-connect-11`
 - Start date: 2026-09-11
-- Status: 구현 완료 · 사용자 UI 확인 완료 · browser 회귀 대기
+- Status: 구현·사용자 UI 확인·병합 게이트 검증 완료
 
 ## 사용자 필요와 목표
 
@@ -61,6 +61,10 @@
 - 글감 관리 4건, UI controller 구조 8건, 빠른 글 작성 4건, 상품 preview 4건,
   쇼핑 navigation shell 3건, 전체 UI 조립 구조 7건과 변경 JavaScript syntax check를 통과했다.
 - `git diff --check`를 통과했다.
-- browser 회귀와 전체 unit suite는 사용자 승인 전 실행하지 않는다.
+- 사용자 승인 후 browser UI smoke를 실행해 260개 fixture 요청을 포함한 회귀를 통과했다.
+- 전체 unit suite 1,625건은 1,624건 통과, 1건 skip, 실패 0건으로 완료했다.
+- 검증 중 공통 클래스를 전역 selector로 세던 browser 계약을 Blog Beta view 범위로 한정했고,
+  비동기 Card News fixture가 로드 중인 데이터에 덮어쓰이던 테스트 경합을 대기 조건으로 안정화했다.
+- 쇼핑커넥트 CSS module을 manifest에 추가한 후 누락됐던 명시적 cascade-order 계약도 현재 manifest와 일치시켰다.
 - 사용자가 Blog Beta와 쇼핑커넥트 글감 관리를 비교하고 UI 구조를 확인했다.
 - 기존 저장·목록 갱신·발행 action의 실제 동작 검증과 보정은 3D 후속 단계에서 수행한다.

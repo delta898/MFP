@@ -42,7 +42,7 @@
 3. 빠른 글 작성 패널 개편
    - 3A. 상품 URL 입력·상품 정보 확인·미리보기 — 완료 ([개발 기록](../archive/2026-09-11-design-system-shopping-connect-11-03a-product-preview-development.md))
    - 3B. 글 방향·글쓰기 및 발행 설정 — 완료 ([개발 기록](../archive/2026-09-11-design-system-shopping-connect-11-03b-writing-options-development.md))
-   - 3C. Blog Beta 글쓰기 흐름을 기준으로 글감 관리 탭 UI 개편 — 구현 완료·검증 대기 ([개발 기록](./2026-09-11-design-system-shopping-connect-11-03c-topic-management-ui-development.md))
+   - 3C. Blog Beta 글쓰기 흐름을 기준으로 글감 관리 탭 UI 개편 — 검증 완료 ([개발 기록](./2026-09-11-design-system-shopping-connect-11-03c-topic-management-ui-development.md))
 4. 글감 보관·발행 대기열·바로 포스팅 생명주기 검증 및 보정
 5. hard-coding 검사와 browser 회귀
 
@@ -71,5 +71,6 @@
 - slice 2 focused contract 36건과 browser UI smoke(249 fixture requests)를 통과했다.
 - slice 3A focused test 35건과 상품 확인 흐름을 포함한 browser UI smoke(261 fixture requests)를 통과했다.
 - slice 3B focused test 68건을 통과했고 사용자가 빠른 글 작성 UI를 확인했다.
+- slice 3C browser UI smoke 260 fixture 요청과 전체 unit suite 1,625건(1,624 pass, 1 skip)을 통과했다.
 - 후속 slice의 browser 회귀와 parent 전체 단위 테스트는 각 reviewable milestone에서 사용자 승인을 받은 뒤 실행한다.
 - 최종 시각·탐색 확인은 사용자가 수행한다.
