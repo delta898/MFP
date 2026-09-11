@@ -16,7 +16,7 @@ function createConfig(overrides = {}) {
     };
 }
 
-test('composer config exposes channels but never the Buffer key or automation state', () => {
+test('composer config exposes Buffer readiness but not persisted channel targets or secrets', () => {
     const service = createManualSnsService({
         CONFIG: createConfig(),
         bufferClient: { async shareNowMany() { return []; } }
@@ -24,11 +24,7 @@ test('composer config exposes channels but never the Buffer key or automation st
     const result = service.getComposerConfig();
 
     assert.equal(result.configured, true);
-    assert.equal(result.channels.length, 3);
-    assert.equal(result.channels[0].limit, 500);
-    assert.equal(result.channels[0].max_assets, 10);
-    assert.equal(result.channels[2].max_assets, 4);
-    assert.equal(result.channels[1].image_required, true);
+    assert.equal(result.channels.length, 0);
     assert.equal(result.ai.available, false);
     assert.equal(result.local_media_available, false);
     assert.equal(JSON.stringify(result).includes('buffer-secret'), false);
@@ -44,6 +40,28 @@ test('composer config enables local media when Google public media is ready', ()
     });
 
     assert.equal(service.getComposerConfig().local_media_available, true);
+});
+
+test('manual SNS loads workspace channels from Buffer without reading auto-share targets', async () => {
+    const calls = [];
+    const service = createManualSnsService({
+        CONFIG: createConfig({ BUFFER_CHANNELS: [] }),
+        bufferClient: {
+            async shareNowMany() { return []; },
+            async inspectConnection(apiKey, organizationId) {
+                calls.push({ apiKey, organizationId });
+                return {
+                    organizations: [{ id: 'org-2', name: 'Brand two' }],
+                    organization_id: 'org-2',
+                    channels: [{ id: 'threads-2', displayName: '@brandtwo', service: 'threads' }]
+                };
+            }
+        }
+    });
+    const result = await service.loadWorkspaceOptions({ organizationId: 'org-2' });
+    assert.deepEqual(calls, [{ apiKey: 'buffer-secret', organizationId: 'org-2' }]);
+    assert.equal(result.organization_id, 'org-2');
+    assert.deepEqual(result.channels.map((channel) => channel.id), ['threads-2']);
 });
 
 test('composer config exposes only public Chat Model availability', () => {

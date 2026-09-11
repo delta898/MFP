@@ -11,6 +11,8 @@ function initManualSnsComposer() {
   const optimizeBtn = document.getElementById('manual-sns-ai-optimize-btn');
   const undoBtn = document.getElementById('manual-sns-ai-undo-btn');
   const settingsLink = document.getElementById('manual-sns-settings-link');
+  const workspaceLoad = document.getElementById('manual-sns-workspaces-load');
+  const organization = document.getElementById('manual-sns-organization');
   textEl?.addEventListener('input', syncManualSnsComposerState);
   imageUrlEl?.addEventListener('input', () => {
     syncManualSnsImagePreview();
@@ -64,6 +66,8 @@ function initManualSnsComposer() {
     persistManualSnsSelectedChannels();
     syncManualSnsComposerState();
   });
+  workspaceLoad?.addEventListener('click', () => void loadManualSnsWorkspaces());
+  organization?.addEventListener('change', () => void loadManualSnsWorkspaces());
   publishBtn?.addEventListener('click', () => void publishManualSns());
   optimizeBtn?.addEventListener('click', () => void optimizeManualSnsText());
   undoBtn?.addEventListener('click', undoManualSnsOptimization);

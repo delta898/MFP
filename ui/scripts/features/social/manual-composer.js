@@ -11,6 +11,16 @@ function loadManualSnsSelectedChannelIds() {
   }
 }
 
+function loadManualSnsOrganizationId() {
+  try { return String(localStorage.getItem(MANUAL_SNS_ORGANIZATION_STORAGE_KEY) || '').trim(); }
+  catch (_error) { return ''; }
+}
+
+function persistManualSnsOrganizationId() {
+  try { localStorage.setItem(MANUAL_SNS_ORGANIZATION_STORAGE_KEY, String(manualSnsConfig.organizationId || '')); }
+  catch (_error) { /* recent selection is optional */ }
+}
+
 function persistManualSnsSelectedChannels() {
   const selectedIds = Array.from(document.querySelectorAll('[data-manual-sns-channel]:checked'))
     .map((input) => String(input.value || '').trim())
@@ -44,7 +54,7 @@ function getManualSnsPublishSignature() {
         lastModified: Number(file.lastModified || 0)
       }))
     : String(image.url || '').trim();
-  return JSON.stringify({ text, channelIds, imageMode: image.mode, imageIdentity });
+  return JSON.stringify({ organizationId: manualSnsConfig.organizationId, text, channelIds, imageMode: image.mode, imageIdentity });
 }
 
 function getManualSnsImageValidation() {
@@ -350,16 +360,25 @@ function renderManualSnsChannels() {
     const emptyEl = document.createElement('div');
     emptyEl.className = 'social-channel-empty';
     const messageEl = document.createElement('span');
-    messageEl.textContent = 'Buffer 연결 또는 발행 채널 설정이 필요합니다.';
+    messageEl.textContent = !manualSnsConfig.configured
+      ? '설정 Beta에서 Buffer 연결을 먼저 완료해 주세요.'
+      : (!manualSnsConfig.workspacesLoaded
+        ? '작업 공간 불러오기를 눌러 SNS 채널을 확인해 주세요.'
+        : (!manualSnsConfig.organizationId ? '작업 공간을 선택하면 SNS 채널이 표시됩니다.' : '선택한 작업 공간에 사용할 수 있는 SNS 채널이 없습니다.'));
     const linksEl = document.createElement('div');
     linksEl.className = 'buffer-resource-links social-channel-help-links';
     linksEl.setAttribute('aria-label', 'Buffer 관련 링크');
-    const joinLinkEl = document.createElement('a');
-    joinLinkEl.href = 'https://join.buffer.com/delta898-gmail-com';
-    joinLinkEl.target = '_blank';
-    joinLinkEl.rel = 'noopener noreferrer';
-    joinLinkEl.textContent = 'Buffer 가입';
-    linksEl.append(joinLinkEl);
+    if (!manualSnsConfig.configured) {
+      const settingsButton = document.createElement('button');
+      settingsButton.type = 'button';
+      settingsButton.className = 'text-btn social-inline-nav-link';
+      settingsButton.textContent = '설정 Beta > SNS 배포';
+      settingsButton.addEventListener('click', async () => {
+        await navigateTo('settings-next', 'extras');
+        settingsNextActivateExtrasTab?.('social');
+      });
+      linksEl.append(settingsButton);
+    }
     emptyEl.append(messageEl, linksEl);
     listEl.appendChild(emptyEl);
     if (selectAllEl) selectAllEl.disabled = true;
@@ -400,14 +419,59 @@ function renderManualSnsChannels() {
   syncManualSnsComposerState();
 }
 
+function renderManualSnsWorkspaceControl() {
+  const button = document.getElementById('manual-sns-workspaces-load');
+  const select = document.getElementById('manual-sns-organization');
+  if (!button || !select) return;
+  const organizations = Array.isArray(manualSnsConfig.organizations) ? manualSnsConfig.organizations : [];
+  select.replaceChildren(new Option(manualSnsConfig.configured ? '작업 공간을 선택해 주세요.' : 'Buffer 연결 후 선택할 수 있습니다.', ''));
+  (manualSnsConfig.workspacesLoaded ? organizations : []).forEach((organization) => {
+    const option = new Option(String(organization.name || organization.id || 'Buffer 작업 공간'), String(organization.id || ''));
+    option.selected = option.value === manualSnsConfig.organizationId;
+    select.append(option);
+  });
+  button.disabled = !manualSnsConfig.configured || manualSnsConfigLoading;
+  button.textContent = manualSnsConfigLoading ? '불러오는 중...' : (manualSnsConfig.workspacesLoaded ? '다시 불러오기' : '작업 공간 불러오기');
+  select.disabled = !manualSnsConfig.configured || !manualSnsConfig.workspacesLoaded || manualSnsConfigLoading;
+}
+
+async function loadManualSnsWorkspaces() {
+  if (!manualSnsConfig.configured || manualSnsConfigLoading) return;
+  const select = document.getElementById('manual-sns-organization');
+  const organizationId = String(select?.value || manualSnsConfig.organizationId || loadManualSnsOrganizationId()).trim();
+  manualSnsConfigLoading = true;
+  renderManualSnsWorkspaceControl();
+  try {
+    const data = await postJson('/api/v1/social/manual/workspaces', { organizationId });
+    const resolvedOrganizationId = String(data?.organization_id || organizationId).trim();
+    manualSnsConfig = {
+      ...manualSnsConfig,
+      organizations: Array.isArray(data?.organizations) ? data.organizations : [],
+      organizationId: resolvedOrganizationId,
+      channels: Array.isArray(data?.channels) ? data.channels : [],
+      workspacesLoaded: true
+    };
+    persistManualSnsOrganizationId();
+  } catch (error) {
+    manualSnsConfig = { ...manualSnsConfig, channels: [], workspacesLoaded: false };
+    const list = document.getElementById('manual-sns-channel-list');
+    if (list) list.textContent = error.message || 'Buffer 작업 공간을 불러오지 못했습니다.';
+  } finally {
+    manualSnsConfigLoading = false;
+    renderManualSnsWorkspaceControl();
+    renderManualSnsChannels();
+  }
+}
+
 async function loadManualSnsComposer({ force = false } = {}) {
   if (manualSnsConfigLoading) return;
-  if (!force && Array.isArray(manualSnsConfig.channels) && manualSnsConfig.channels.length > 0) {
+  if (!force && manualSnsConfig.configured) {
+    renderManualSnsWorkspaceControl();
     renderManualSnsChannels();
     return;
   }
   const listEl = document.getElementById('manual-sns-channel-list');
-  if (listEl) {
+  if (listEl && !manualSnsConfig.configured) {
     listEl.replaceChildren();
     const loadingEl = document.createElement('p');
     loadingEl.className = 'muted';
@@ -417,19 +481,26 @@ async function loadManualSnsComposer({ force = false } = {}) {
   manualSnsConfigLoading = true;
   try {
     const data = await fetchJson('/api/v1/social/manual/config');
-    manualSnsConfig = {
-      configured: data?.configured === true,
+    const configured = data?.configured === true;
+    const connectionState = {
+      configured,
       local_media_available: data?.local_media_available === true,
-      channels: Array.isArray(data?.channels) ? data.channels : [],
       ai: data?.ai && typeof data.ai === 'object'
         ? { available: data.ai.available === true, model_name: String(data.ai.model_name || '') }
         : { available: false, model_name: '' }
     };
+    manualSnsConfig = configured
+      ? { ...manualSnsConfig, ...connectionState }
+      : { ...connectionState, channels: [], organizationId: '', organizations: [], workspacesLoaded: false };
+    renderManualSnsWorkspaceControl();
     renderManualSnsChannels();
   } catch (error) {
-    manualSnsConfig = { configured: false, local_media_available: false, channels: [], ai: { available: false, model_name: '' } };
+    manualSnsConfig = { configured: false, local_media_available: false, channels: [], organizationId: '', organizations: [], workspacesLoaded: false, ai: { available: false, model_name: '' } };
+    renderManualSnsWorkspaceControl();
     renderManualSnsChannels();
   } finally {
     manualSnsConfigLoading = false;
+    renderManualSnsWorkspaceControl();
+    renderManualSnsChannels();
   }
 }

@@ -17,6 +17,7 @@ async function optimizeManualSnsText() {
   syncManualSnsComposerState();
   try {
     const data = await postJson('/api/v1/social/manual/optimize', {
+      organizationId: manualSnsConfig.organizationId,
       channelIds: selectedChannels.map((channel) => channel.id),
       text: originalValue.trim()
     });
@@ -77,4 +78,3 @@ function renderManualSnsPublishResult(data = {}) {
     resultEl.appendChild(cleanupRow);
   }
 }
-

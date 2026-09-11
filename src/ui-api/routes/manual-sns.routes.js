@@ -6,6 +6,10 @@ function createManualSnsRouteHandler(deps = {}) {
             await controller.handleConfig(ctx);
             return true;
         }
+        if (ctx.pathname === '/api/v1/social/manual/workspaces') {
+            await controller.handleWorkspaces(ctx);
+            return true;
+        }
         if (ctx.pathname === '/api/v1/social/manual/optimize') {
             await controller.handleOptimize(ctx);
             return true;

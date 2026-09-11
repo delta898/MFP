@@ -305,12 +305,6 @@
   stroke-width: 1.8;
 }
 
-.settings-next-input-action {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--ui-space-2);
-}
-
 .settings-next-action-row {
   gap: var(--ui-space-4);
   min-height: 42px;
@@ -348,6 +342,45 @@
   line-height: var(--ui-line-height-tight);
 }
 
+.settings-next-sns-distribution-fields {
+  display: grid;
+  gap: var(--ui-space-5);
+}
+
+.settings-next-sns-distribution-fields[aria-disabled="true"] {
+  opacity: 0.62;
+}
+
+.settings-next-sns-source-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-space-3);
+}
+
+.settings-next-sns-channel-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--ui-space-3);
+}
+
+.settings-next-sns-channel-list .muted {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.settings-next-sns-channel-option {
+  min-inline-size: 0;
+}
+
+.settings-next-sns-channel-option input {
+  flex: 0 0 auto;
+}
+
+.settings-next-sns-channel-option small {
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-type-caption-size);
+}
+
 @media (max-width: 760px) {
   .settings-next-panel-intro,
   .settings-next-local-nav-row,
@@ -357,7 +390,7 @@
   }
 
   .settings-next-readiness,
-  .settings-next-input-action {
+  .settings-next-sns-channel-list {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -378,7 +411,6 @@
 
   .settings-next-action-group > button,
   .settings-next-completion-group > button,
-  .settings-next-input-action > button,
   .settings-next-refresh {
     width: 100%;
   }

@@ -99,7 +99,8 @@
 Buffer는 SNS와 카드뉴스가 공유하고, Telegram과 Slack은 메시지·알림 channel이며, Bitly는 Telegram에 종속되지
 않는 공통 URL 단축 연결이다. 이 화면은 연결 credential과 검증만 소유하고, Telegram/Slack 사용 여부나 Telegram
 수신 daemon 같은 실행 설정은 소유하지 않는다. Buffer Organization·발행 채널처럼
-실행 대상을 고르는 값과 자동 발행 여부·주기 같은 실행 설정은 각 기능이 소유한다. 하나의 목적에 provider가 둘 이상 있을 때만 readiness summary를 제공하므로
+실행 대상을 고르는 값과 자동 발행 여부·주기 같은 실행 설정은 각 기능이 소유한다. SNS 메뉴의 작업 공간·채널 선택은
+수동 발행의 local 선택이며, RSS 자동 공유의 작업 공간·채널은 자동 공유 정책이 별도로 소유한다. 하나의 목적에 provider가 둘 이상 있을 때만 readiness summary를 제공하므로
 `메시지·알림`은 Telegram과 Slack summary를 함께 보여주고 단일 provider 목적은 상세 card로 바로 시작한다.
 Telegram과 Slack 카드 제목 앞 체크박스는 공통 발송 channel 사용 여부를 소유하고, 각 기능은 알림을 발생시키는 이벤트를 소유한다. `앱 > 외부 연결`은 Telegram 명령
 수신과 원격 MCP처럼 외부에서 앱으로 들어오는 adapter의 활성화와 실행 상태를 소유한다. MCP는 Telegram과 독립적인
@@ -190,6 +191,9 @@ legacy 화면은 migration surface가 교체되기 전까지 같은 canonical �
   대응이 필요한 예외만 한 줄 예약 영역에 표시하며, 그 변화가 action footer의 위치를 움직이지 않게 한다.
 - loading은 사용자가 누른 button에서만 표현한다. 직접 operation이 완료된 뒤의 전체 readiness 재조회는 background로
   이어가며 action loading을 연장하거나 같은 `확인 중` 문구를 feedback에 반복하지 않는다.
+- button label은 card 안의 맥락으로 행동의 대상을 이미 알 수 있으면 `저장`처럼 짧게 쓴다. 외부 검증은
+  `연결 확인`, 외부 후보 조회는 `작업 공간 불러오기`처럼 결과가 다른 행동에만 대상을 덧붙인다. 동일한
+  provider 후보 조회는 설정과 기능 화면에서 같은 label·loading·재조회 문구를 사용한다.
 - 기본 연결의 `새로고침`은 panel의 설정값과 외부 연결 상태를 다시 읽는 secondary recovery action이다. 외부에서
   권한·공유·세션·credential이 바뀌었거나 최신 확인이 실패한 경우에만 필요하며, 정상 연결 action 뒤에는
   background reconciliation으로 대신한다.

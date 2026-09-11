@@ -917,3 +917,7 @@
 .social-view .social-publish-result {
   margin: 0 var(--ui-space-6) var(--ui-space-5);
 }
+
+.social-view .social-workspace-select {
+  margin: 0 var(--ui-space-6) var(--ui-space-4);
+}

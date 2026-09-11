@@ -18,12 +18,16 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.doesNotMatch(view, /SNS에 바로 공유|채널을 고르고, 메시지와 이미지를 준비해 바로 발행하세요/);
   assert.match(view, /id="manual-sns-channel-list" class="social-channel-grid ui-selectable-card-grid"/);
   assert.match(view, /발행 채널 <small>최대 3개<\/small>/);
-  assert.match(view, /id="manual-sns-settings-link"[^>]*>설정 Beta &gt; SNS 배포/);
+  assert.match(view, /id="manual-sns-workspaces-load"[^>]*>작업 공간 불러오기/);
+  assert.match(view, /<span>Buffer 작업 공간<\/span>\s*<span class="ui-field-action"><span class="ui-select-shell"><select id="manual-sns-organization"/);
+  assert.doesNotMatch(view, /manual-sns-organization-field|manual-sns-workspace-summary|social-workspace-control/);
   assert.match(view, /id="manual-sns-text" class="social-editor" rows="6"/);
   assert.match(lifecycle, /navigateTo\('settings-next', 'extras'\)/);
   assert.match(lifecycle, /settingsNextActivateExtrasTab\?\.\('social'\)/);
   assert.match(composer, /social-channel-option ui-selectable-card/);
   assert.match(composer, /social-channel-copy ui-selectable-card-copy/);
+  assert.match(composer, /if \(listEl && !manualSnsConfig\.configured\)/);
+  assert.match(composer, /configured\s*\? \{ \.\.\.manualSnsConfig, \.\.\.connectionState \}/);
   assert.match(styles, /\.social-view \.social-composer-card[\s\S]*?var\(--ui-border-default\)/);
   assert.match(styles, /\.social-view \.social-channel-option[\s\S]*?var\(--ui-action-primary-soft\)/);
   assert.match(styles, /\.social-view \.social-composer-actions[\s\S]*?var\(--ui-border-default\)/);

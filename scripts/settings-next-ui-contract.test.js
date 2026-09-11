@@ -120,7 +120,18 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     assert.match(html, /data-settings-next-optional-scope="telegram"/);
     assert.match(html, /data-settings-next-optional-scope="slack"/);
     assert.match(html, /data-settings-next-optional-scope="bitly"/);
-    assert.doesNotMatch(html, /settings-next-buffer-organization|settings-next-buffer-channels/);
+    assert.match(html, /data-settings-next-optional-scope="sns-distribution"/);
+    assert.match(html, /<h3>Buffer 연결<\/h3>/);
+    assert.match(html, /<h3>블로그 자동 공유<\/h3>/);
+    assert.match(html, /id="settings-next-buffer-organization"/);
+    assert.match(html, /id="settings-next-buffer-workspaces-load"[^>]*>작업 공간 불러오기/);
+    assert.match(html, /<span>Buffer 작업 공간<\/span><span class="ui-field-action"><span class="ui-select-shell">/);
+    assert.doesNotMatch(html, /settings-next-buffer-workspace-summary|settings-next-buffer-organization-field|settings-next-sns-workspace-control/);
+    assert.match(html, /id="settings-next-buffer-channel-list"/);
+    assert.match(html, /id="settings-next-sns-distribution-enabled"/);
+    assert.match(html, /id="settings-next-sns-distribution-save"[^>]*>저장/);
+    assert.match(html, /id="settings-next-sns-source-naver"/);
+    assert.match(html, /id="settings-next-sns-source-wordpress"/);
     assert.doesNotMatch(html, /settings-next-telegram-enabled|settings-next-slack-enabled/);
     const secrets = read('ui/scripts/foundation/settings-secrets.js');
     const optionalServices = read('ui/scripts/features/settings-next/optional-services.js');
@@ -131,6 +142,10 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     const settingsNextStyles = read('ui/styles/features/settings-next.css');
     assert.match(secrets, /function syncSettingsNextSecretRegistration/);
     assert.match(optionalServices, /syncSettingsNextSecretRegistration/);
+    assert.match(optionalServices, /scope === 'sns-distribution'/);
+    assert.match(optionalServices, /function settingsNextLoadBufferWorkspaces/);
+    assert.match(optionalServices, /workspacesLoaded/);
+    assert.match(optionalServices, /const actionLabel = scope === 'sns-distribution' \? '저장' : '연결 확인'/);
     assert.match(externalConnections, /postJson\('\/api\/v1\/settings\/external-connections'/);
     assert.match(externalConnections, /TELEGRAM_INBOUND_ENABLED/);
     assert.match(externalConnections, /MCP_REMOTE_AUTH_TOKEN/);
@@ -314,7 +329,7 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
     assert.doesNotMatch(featureStyles, /settings-next-save-status/);
     assert.doesNotMatch(html, />[^<]*저장하고[^<]*<\/button>/);
     assert.doesNotMatch(html, /저장됨/);
-    assert.equal((html.match(/class="ui-settings-card(?:\s|")/g) || []).length, 21);
+    assert.equal((html.match(/class="ui-settings-card(?:\s|")/g) || []).length, 22);
     assert.equal((html.match(/class="ui-settings-readiness-card"/g) || []).length, 9);
     assert.equal((html.match(/class="ui-settings-summary-card"/g) || []).length, 3);
     assert.match(cardStyles, /\.ui-settings-card\s*\{/);
@@ -341,7 +356,7 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
     assert.equal((html.match(/data-settings-next-refresh/g) || []).length, 2);
     assert.equal((html.match(/>새로고침<\/button>/g) || []).length, 2);
     assert.doesNotMatch(html, />상태 새로고침<\/button>/);
-    assert.equal((html.match(/aria-busy="false"/g) || []).length, 18);
+    assert.equal((html.match(/aria-busy="false"/g) || []).length, 19);
     assert.match(html, /id="settings-next-load-feedback"[^>]*role="status"[^>]*aria-live="polite"/);
 });
 

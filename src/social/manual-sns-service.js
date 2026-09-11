@@ -126,22 +126,43 @@ function createManualSnsService(deps = {}) {
     }
 
     function getComposerConfig() {
-        const channels = getChannels();
         const ai = typeof aiService?.getManualOptimizationAvailability === 'function'
             ? aiService.getManualOptimizationAvailability()
             : { available: false, model_name: '' };
         return {
-            configured: Boolean(String(CONFIG.BUFFER_API_KEY || '').trim() && channels.length > 0),
+            configured: Boolean(String(CONFIG.BUFFER_API_KEY || '').trim()),
             local_media_available: isPublicMediaAvailable(),
-            channels,
+            channels: [],
             ai
         };
     }
 
-    function resolveSelectedChannels(input = {}) {
-        const configuredChannels = getChannels();
+    async function loadWorkspaceOptions(input = {}) {
+        const apiKey = String(CONFIG.BUFFER_API_KEY || '').trim();
+        if (!apiKey) throw createManualSnsError(400, 'BUFFER_API_KEY_REQUIRED', '설정 Beta에서 Buffer 연결을 먼저 완료해 주세요.');
+        if (typeof bufferClient.inspectConnection !== 'function') {
+            throw createManualSnsError(500, 'BUFFER_WORKSPACE_UNAVAILABLE', 'Buffer 작업 공간을 불러올 수 없습니다.');
+        }
+        const result = await bufferClient.inspectConnection(apiKey, String(input.organizationId || input.organization_id || '').trim());
+        return {
+            organizations: Array.isArray(result?.organizations) ? result.organizations : [],
+            organization_id: String(result?.organization_id || '').trim(),
+            channels: normalizeConfiguredChannels(result?.channels)
+        };
+    }
+
+    async function resolveSelectedChannels(input = {}) {
+        const organizationId = String(
+            input.organizationId || input.organization_id
+            || (typeof bufferClient.inspectConnection !== 'function' ? CONFIG.BUFFER_ORGANIZATION_ID : '')
+        ).trim();
+        if (!organizationId) throw createManualSnsError(400, 'MANUAL_SNS_ORGANIZATION_REQUIRED', 'Buffer 작업 공간을 선택해 주세요.');
+        const discovered = typeof bufferClient.inspectConnection === 'function'
+            ? await loadWorkspaceOptions({ organizationId })
+            : { organization_id: organizationId, channels: getChannels() };
+        const configuredChannels = discovered.channels;
         if (configuredChannels.length === 0) {
-            throw createManualSnsError(400, 'BUFFER_CHANNEL_REQUIRED', '설정 > SNS에서 Buffer 채널을 먼저 선택해 주세요.');
+            throw createManualSnsError(400, 'BUFFER_CHANNEL_REQUIRED', '선택한 작업 공간에서 사용할 수 있는 SNS 채널이 없습니다.');
         }
 
         const channelIds = normalizeSelectedChannelIds(input.channelIds || input.channel_ids);
@@ -185,7 +206,7 @@ function createManualSnsService(deps = {}) {
             throw createManualSnsError(400, 'MANUAL_SNS_TEXT_TOO_LARGE', `AI 최적화 원문은 최대 ${MAX_TEXT_LENGTH.toLocaleString('ko-KR')}자까지 입력할 수 있습니다.`);
         }
 
-        const selectedChannels = resolveSelectedChannels(input);
+        const selectedChannels = await resolveSelectedChannels(input);
         const maxLength = Math.min(...selectedChannels
             .map((channel) => Number(channel.limit || 0))
             .filter((limit) => limit > 0));
@@ -295,8 +316,7 @@ function createManualSnsService(deps = {}) {
         };
     }
 
-    async function recoverTimedOutPublish(apiKey, selectedChannels, text, startedAt) {
-        const organizationId = String(CONFIG.BUFFER_ORGANIZATION_ID || '').trim();
+    async function recoverTimedOutPublish(apiKey, organizationId, selectedChannels, text, startedAt) {
         if (!organizationId || typeof bufferClient.listRecentPosts !== 'function') return null;
 
         const startedAtMs = Date.parse(String(startedAt || ''));
@@ -364,7 +384,8 @@ function createManualSnsService(deps = {}) {
         if (localImages.length > 0 && !isPublicMediaAvailable()) {
             throw createManualSnsError(400, 'MANUAL_SNS_GOOGLE_DRIVE_REQUIRED', '로컬 이미지를 사용하려면 Google 계정을 먼저 연결해 주세요.');
         }
-        const selectedChannels = resolveSelectedChannels(input);
+        const organizationId = String(input.organizationId || input.organization_id || CONFIG.BUFFER_ORGANIZATION_ID || '').trim();
+        const selectedChannels = await resolveSelectedChannels(input);
         const operationId = String(input.requestId || input.request_id || '').trim() || `manual-sns-${now()}`;
 
         for (const channel of selectedChannels) {
@@ -468,7 +489,7 @@ function createManualSnsService(deps = {}) {
         } catch (error) {
             const requestTimedOut = String(error?.code || '').trim() === 'BUFFER_REQUEST_TIMEOUT';
             if (requestTimedOut) {
-                publishResults = await recoverTimedOutPublish(apiKey, selectedChannels, text, publishStartedAt);
+                publishResults = await recoverTimedOutPublish(apiKey, organizationId, selectedChannels, text, publishStartedAt);
             }
             if (publishResults) {
                 Logger?.info?.('✅ [MANUAL_SNS] Buffer 응답 유실 게시물을 최근 게시물 조회로 복구했습니다.');
@@ -550,6 +571,7 @@ function createManualSnsService(deps = {}) {
 
     return {
         getComposerConfig,
+        loadWorkspaceOptions,
         optimize,
         publish
     };

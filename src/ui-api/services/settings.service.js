@@ -176,10 +176,36 @@ function normalizeAiRoleSettings(requestBody = {}) {
 function normalizeOptionalServiceSettings(requestBody = {}) {
     const scope = String(requestBody.scope || '').trim().toLowerCase();
     const values = requestBody.values && typeof requestBody.values === 'object' ? requestBody.values : {};
-    if (!['buffer', 'telegram', 'slack', 'bitly'].includes(scope)) {
+    if (!['buffer', 'sns-distribution', 'telegram', 'slack', 'bitly'].includes(scope)) {
         throw createApiError(400, 'OPTIONAL_SERVICE_SCOPE_INVALID', '설정할 부가 서비스를 확인해 주세요.');
     }
-    if (scope === 'buffer') return { scope, fields: { BUFFER_API_KEY: String(values.BUFFER_API_KEY || '').trim() } };
+    if (scope === 'buffer') return { scope, fields: {
+        BUFFER_API_KEY: String(values.BUFFER_API_KEY || '').trim(),
+        BUFFER_ORGANIZATION_ID: String(values.BUFFER_ORGANIZATION_ID || '').trim()
+    } };
+    if (scope === 'sns-distribution') {
+        const sourceBlogs = Array.isArray(values.SNS_SOURCE_BLOGS)
+            ? values.SNS_SOURCE_BLOGS.map((value) => String(value || '').trim().toLowerCase()).filter((value) => ['naver', 'wordpress'].includes(value))
+            : [];
+        const channels = Array.isArray(values.BUFFER_CHANNELS)
+            ? values.BUFFER_CHANNELS.map((channel) => ({
+                id: String(channel?.id || channel?.channelId || '').trim(),
+                name: String(channel?.name || channel?.displayName || channel?.display_name || '').trim(),
+                displayName: String(channel?.displayName || channel?.display_name || channel?.name || '').trim(),
+                service: String(channel?.service || '').trim().toLowerCase()
+            })).filter((channel) => channel.id)
+            : [];
+        const uniqueChannels = Array.from(new Map(channels.map((channel) => [channel.id, channel])).values());
+        if (uniqueChannels.length > 3) {
+            throw createApiError(400, 'BUFFER_CHANNEL_LIMIT_EXCEEDED', 'Buffer 채널은 최대 3개까지 선택할 수 있습니다.');
+        }
+        return { scope, fields: {
+            SNS_PUBLISH_ENABLED: values.SNS_PUBLISH_ENABLED === true,
+            SNS_SOURCE_BLOGS: Array.from(new Set(sourceBlogs)),
+            BUFFER_ORGANIZATION_ID: String(values.BUFFER_ORGANIZATION_ID || '').trim(),
+            BUFFER_CHANNELS: uniqueChannels
+        } };
+    }
     if (scope === 'telegram') {
         return { scope, fields: {
             NOTIFY_TELEGRAM_BOT_TOKEN: String(values.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim(),
@@ -507,6 +533,10 @@ function createSettingsService(deps = {}) {
         async getOptionalServiceSettings() {
             return { fields: {
                 BUFFER_API_KEY_CONFIGURED: Boolean(String(CONFIG.BUFFER_API_KEY || '').trim()),
+                BUFFER_ORGANIZATION_ID: String(CONFIG.BUFFER_ORGANIZATION_ID || '').trim(),
+                BUFFER_CHANNELS: Array.isArray(CONFIG.BUFFER_CHANNELS) ? CONFIG.BUFFER_CHANNELS : [],
+                SNS_PUBLISH_ENABLED: CONFIG.SNS_PUBLISH_ENABLED === true,
+                SNS_SOURCE_BLOGS: Array.isArray(CONFIG.SNS_SOURCE_BLOGS) ? CONFIG.SNS_SOURCE_BLOGS : [],
                 NOTIFY_TELEGRAM_BOT_TOKEN_CONFIGURED: Boolean(String(CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim()),
                 NOTIFY_TELEGRAM_CHAT_ID: String(CONFIG.NOTIFY_TELEGRAM_CHAT_ID || '').trim(),
                 NOTIFY_TELEGRAM_DELIVERY_ENABLED: CONFIG.NOTIFY_TELEGRAM_ENABLED === true,
@@ -733,6 +763,46 @@ function createSettingsService(deps = {}) {
                 structuredConfig.integrations.buffer = { ...current, api_key: apiKey };
                 CONFIG.BUFFER_API_KEY = apiKey;
             }
+            if (normalized.scope === 'sns-distribution') {
+                const current = structuredConfig.integrations.buffer || {};
+                const apiKey = current.api_key || CONFIG.BUFFER_API_KEY || '';
+                const enabled = fields.SNS_PUBLISH_ENABLED === true;
+                if (enabled && !apiKey) {
+                    throw createApiError(400, 'BUFFER_CONNECTION_REQUIRED', 'Buffer 연결을 먼저 완료해 주세요.');
+                }
+                if (enabled && !fields.BUFFER_ORGANIZATION_ID) {
+                    throw createApiError(400, 'BUFFER_ORGANIZATION_REQUIRED', 'Buffer 작업 공간을 선택해 주세요.');
+                }
+                if (enabled && fields.BUFFER_CHANNELS.length === 0) {
+                    throw createApiError(400, 'BUFFER_CHANNEL_REQUIRED', '공유할 SNS 채널을 1개 이상 선택해 주세요.');
+                }
+                if (enabled && fields.SNS_SOURCE_BLOGS.length === 0) {
+                    throw createApiError(400, 'SNS_SOURCE_BLOG_REQUIRED', '공유할 블로그를 1개 이상 선택해 주세요.');
+                }
+                structuredConfig.integrations.buffer = {
+                    ...current,
+                    organization_id: fields.BUFFER_ORGANIZATION_ID,
+                    channels: fields.BUFFER_CHANNELS
+                };
+                structuredConfig.automation = structuredConfig.automation && typeof structuredConfig.automation === 'object'
+                    ? structuredConfig.automation
+                    : {};
+                structuredConfig.automation.publish = structuredConfig.automation.publish && typeof structuredConfig.automation.publish === 'object'
+                    ? structuredConfig.automation.publish
+                    : {};
+                const currentSocial = structuredConfig.automation.publish.social && typeof structuredConfig.automation.publish.social === 'object'
+                    ? structuredConfig.automation.publish.social
+                    : {};
+                structuredConfig.automation.publish.social = {
+                    ...currentSocial,
+                    enabled,
+                    source_blogs: fields.SNS_SOURCE_BLOGS
+                };
+                CONFIG.BUFFER_ORGANIZATION_ID = fields.BUFFER_ORGANIZATION_ID;
+                CONFIG.BUFFER_CHANNELS = fields.BUFFER_CHANNELS;
+                CONFIG.SNS_PUBLISH_ENABLED = enabled;
+                CONFIG.SNS_SOURCE_BLOGS = fields.SNS_SOURCE_BLOGS;
+            }
             let telegramRuntimeChanged = false;
             if (normalized.scope === 'telegram') {
                 const current = structuredConfig.notification.telegram || {};
@@ -780,6 +850,9 @@ function createSettingsService(deps = {}) {
             CONFIG.CONFIG_READY = true;
             CONFIG.CONFIG_SOURCE_TYPE = 'json';
             CONFIG.CONFIG_SOURCE_PATH = writablePath;
+            if (normalized.scope === 'sns-distribution') {
+                await syncAutoRunnerWithConfig?.();
+            }
             if (telegramRuntimeChanged && TelegramBotService) {
                 try {
                     if (typeof TelegramBotService.stop === 'function') await TelegramBotService.stop();
@@ -795,7 +868,10 @@ function createSettingsService(deps = {}) {
         async testOptionalServiceConnection(requestBody = {}) {
             const normalized = normalizeOptionalServiceSettings(requestBody);
             const fields = normalized.fields;
-            if (normalized.scope === 'buffer') return this.inspectBufferConnection({ apiKey: fields.BUFFER_API_KEY || CONFIG.BUFFER_API_KEY });
+            if (normalized.scope === 'buffer') return this.inspectBufferConnection({
+                apiKey: fields.BUFFER_API_KEY || CONFIG.BUFFER_API_KEY,
+                organizationId: fields.BUFFER_ORGANIZATION_ID || CONFIG.BUFFER_ORGANIZATION_ID
+            });
             if (normalized.scope === 'telegram') return this.testTelegramConnection({ botToken: fields.NOTIFY_TELEGRAM_BOT_TOKEN || CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN, chatId: fields.NOTIFY_TELEGRAM_CHAT_ID || CONFIG.NOTIFY_TELEGRAM_CHAT_ID });
             if (normalized.scope === 'slack') return this.testSlackConnection({ webhookUrl: fields.NOTIFY_SLACK_WEBHOOK_URL || CONFIG.NOTIFY_SLACK_WEBHOOK_URL });
             const token = fields.NOTIFY_BITLY_TOKEN || CONFIG.NOTIFY_BITLY_TOKEN;

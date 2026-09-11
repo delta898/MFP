@@ -14,6 +14,15 @@ function createManualSnsController(deps = {}) {
             }
         },
 
+        async handleWorkspaces({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.loadWorkspaceOptions(requestBody || {}));
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'MANUAL_SNS_WORKSPACE_FAILED', 'Buffer 작업 공간을 불러오지 못했습니다.', error);
+            }
+        },
+
         async handleOptimize({ requestId, method, requestBody, res }) {
             if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
             try {

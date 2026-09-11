@@ -19,6 +19,8 @@ function createHarness(initial = {}, overrides = {}) {
         BUFFER_API_KEY: initial.integrations?.buffer?.api_key || '',
         BUFFER_ORGANIZATION_ID: initial.integrations?.buffer?.organization_id || '',
         BUFFER_CHANNELS: initial.integrations?.buffer?.channels || [],
+        SNS_PUBLISH_ENABLED: initial.automation?.publish?.social?.enabled === true,
+        SNS_SOURCE_BLOGS: initial.automation?.publish?.social?.source_blogs || [],
         NOTIFY_TELEGRAM_ENABLED: initial.notification?.telegram?.enabled === true,
         NOTIFY_TELEGRAM_INBOUND_ENABLED: initial.notification?.telegram?.enabled === true,
         NOTIFY_TELEGRAM_BOT_TOKEN: initial.notification?.telegram?.bot_token || '',
@@ -45,7 +47,18 @@ test('optional service normalization is scoped and connection cards do not own r
     const normalized = normalizeOptionalServiceSettings({ scope: 'buffer', values: {
         BUFFER_API_KEY: 'key', BUFFER_CHANNELS: [1, 2, 3, 4].map((id) => ({ id: String(id), name: `channel-${id}` }))
     } });
-    assert.deepEqual(normalized.fields, { BUFFER_API_KEY: 'key' });
+    assert.deepEqual(normalized.fields, { BUFFER_API_KEY: 'key', BUFFER_ORGANIZATION_ID: '' });
+    assert.deepEqual(normalizeOptionalServiceSettings({ scope: 'sns-distribution', values: {
+        SNS_PUBLISH_ENABLED: true,
+        SNS_SOURCE_BLOGS: ['naver', 'wordpress', 'other'],
+        BUFFER_ORGANIZATION_ID: 'org-1',
+        BUFFER_CHANNELS: [{ id: 'channel-1', name: 'Threads', service: 'threads' }]
+    } }).fields, {
+        SNS_PUBLISH_ENABLED: true,
+        SNS_SOURCE_BLOGS: ['naver', 'wordpress'],
+        BUFFER_ORGANIZATION_ID: 'org-1',
+        BUFFER_CHANNELS: [{ id: 'channel-1', name: 'Threads', displayName: 'Threads', service: 'threads' }]
+    });
     assert.deepEqual(normalizeOptionalServiceSettings({ scope: 'telegram', values: {
         NOTIFY_TELEGRAM_ENABLED: false, NOTIFY_TELEGRAM_BOT_TOKEN: 'token', NOTIFY_TELEGRAM_CHAT_ID: 'chat'
     } }).fields, { NOTIFY_TELEGRAM_BOT_TOKEN: 'token', NOTIFY_TELEGRAM_CHAT_ID: 'chat', NOTIFY_TELEGRAM_DELIVERY_ENABLED: null });
@@ -152,7 +165,52 @@ test('optional connection tests reuse stored secrets when the new input is blank
     }
     const { service } = createHarness({ integrations: { buffer: { api_key: 'stored-key', organization_id: 'stored-org' } } }, { BufferClient });
     await service.testOptionalServiceConnection({ scope: 'buffer', values: { BUFFER_API_KEY: '' } });
-    assert.deepEqual(calls, [{ apiKey: 'stored-key', organizationId: '' }]);
+    assert.deepEqual(calls, [{ apiKey: 'stored-key', organizationId: 'stored-org' }]);
+});
+
+test('SNS distribution saves RSS source and Buffer delivery policy without broad major settings', async () => {
+    const initial = {
+        integrations: { buffer: { api_key: 'buffer-secret', organization_id: 'old-org', channels: [{ id: 'old-channel' }] } },
+        automation: { publish: { social: { enabled: false, interval_min: 10, ai_mode: 'none', source_blogs: ['naver'] } } },
+        platforms: { naver: { user_id: 'keep-user' } }
+    };
+    const calls = [];
+    const { CONFIG, configPath, service } = createHarness(initial, { syncAutoRunnerWithConfig: () => calls.push('sync') });
+    const result = await service.saveOptionalServiceSettings({ scope: 'sns-distribution', values: {
+        SNS_PUBLISH_ENABLED: true,
+        SNS_SOURCE_BLOGS: ['wordpress'],
+        BUFFER_ORGANIZATION_ID: 'org-2',
+        BUFFER_CHANNELS: [{ id: 'channel-2', displayName: '@bloggenius', service: 'threads' }]
+    } });
+    const saved = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    assert.equal(saved.integrations.buffer.organization_id, 'org-2');
+    assert.deepEqual(saved.integrations.buffer.channels, [{ id: 'channel-2', name: '@bloggenius', displayName: '@bloggenius', service: 'threads' }]);
+    assert.equal(saved.automation.publish.social.enabled, true);
+    assert.deepEqual(saved.automation.publish.social.source_blogs, ['wordpress']);
+    assert.equal(saved.automation.publish.social.interval_min, 10);
+    assert.equal(CONFIG.SNS_PUBLISH_ENABLED, true);
+    assert.deepEqual(CONFIG.SNS_SOURCE_BLOGS, ['wordpress']);
+    assert.deepEqual(calls, ['sync']);
+    assert.equal(result.fields.SNS_PUBLISH_ENABLED, true);
+    assert.doesNotMatch(JSON.stringify(result), /buffer-secret/);
+});
+
+test('SNS distribution saves manual composer channels even when RSS auto sharing is disabled', async () => {
+    const initial = {
+        integrations: { buffer: { api_key: 'buffer-secret', organization_id: 'old-org', channels: [] } },
+        automation: { publish: { social: { enabled: false, source_blogs: [] } } }
+    };
+    const { CONFIG, configPath, service } = createHarness(initial);
+    await service.saveOptionalServiceSettings({ scope: 'sns-distribution', values: {
+        SNS_PUBLISH_ENABLED: false,
+        SNS_SOURCE_BLOGS: [],
+        BUFFER_ORGANIZATION_ID: 'org-2',
+        BUFFER_CHANNELS: [{ id: 'channel-2', displayName: '@bloggenius', service: 'threads' }]
+    } });
+    const saved = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    assert.equal(saved.automation.publish.social.enabled, false);
+    assert.deepEqual(saved.integrations.buffer.channels, [{ id: 'channel-2', name: '@bloggenius', displayName: '@bloggenius', service: 'threads' }]);
+    assert.deepEqual(CONFIG.BUFFER_CHANNELS, [{ id: 'channel-2', name: '@bloggenius', displayName: '@bloggenius', service: 'threads' }]);
 });
 
 test('external connection settings separate inbound Telegram activation from delivery and never read back MCP tokens', async () => {

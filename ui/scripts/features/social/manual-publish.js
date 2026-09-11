@@ -42,6 +42,7 @@ async function publishManualSns() {
         })))
       : [];
     const data = await postJson('/api/v1/social/manual/publish', {
+      organizationId: manualSnsConfig.organizationId,
       channelIds: selectedChannels.map((channel) => channel.id),
       text,
       imageUrl: image.url,

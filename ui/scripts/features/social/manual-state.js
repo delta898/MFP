@@ -1,4 +1,4 @@
-let manualSnsConfig = { configured: false, local_media_available: null, channels: [], ai: { available: false, model_name: '' } };
+let manualSnsConfig = { configured: false, local_media_available: null, channels: [], organizationId: '', organizations: [], workspacesLoaded: false, ai: { available: false, model_name: '' } };
 let manualSnsConfigLoading = false;
 let manualSnsOptimizationSnapshot = null;
 let manualSnsOptimizationInFlight = false;
@@ -6,5 +6,6 @@ let manualSnsPublishingInFlight = false;
 let manualSnsLastPublishedSignature = '';
 let manualSnsLocalImages = [];
 let manualSnsDraggedImageIndex = null;
-const MANUAL_SNS_SELECTED_CHANNELS_STORAGE_KEY = 'manual_sns_selected_channel_ids_v1';
+const MANUAL_SNS_SELECTED_CHANNELS_STORAGE_KEY = 'manual_sns_selected_channel_ids_v2';
+const MANUAL_SNS_ORGANIZATION_STORAGE_KEY = 'manual_sns_organization_id_v1';
 const DEFAULT_BUFFER_HELP_URL = 'https://m.blog.naver.com/amadejjs/223940980574';

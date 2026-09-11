@@ -3,7 +3,7 @@
           <div class="view-title-row">
             <div class="view-title-copy">
               <div class="view-title-heading"><h1>SNS</h1></div>
-              <p>짧은 생각과 기록을 설정된 Buffer 채널에 바로 발행합니다.</p>
+              <p>짧은 생각과 기록을 선택한 Buffer 채널에 바로 발행합니다.</p>
             </div>
             <div class="page-clock-widget">
               <div class="clock-display" data-clock-display title="클릭하여 시계 스타일 변경"></div>
@@ -19,10 +19,15 @@
                   <input id="manual-sns-select-all" type="checkbox" disabled>
                   <label id="manual-sns-channels-title" for="manual-sns-select-all">발행 채널 <small>최대 3개</small></label>
                 </div>
-                <p><button id="manual-sns-settings-link" class="text-btn social-inline-nav-link" type="button">설정 Beta &gt; SNS 배포</button>에서 저장한 채널 중 발행할 채널을 선택하세요.</p>
+                <p>작업 공간을 불러온 뒤 이번 발행에 사용할 채널을 선택하세요.</p>
               </div>
               <button class="context-help-link" type="button" data-help-guide-url="https://m.blog.naver.com/amadejjs/223940980574">Buffer 도움말</button>
             </div>
+            <label class="ui-settings-field social-workspace-select" for="manual-sns-organization">
+              <span>Buffer 작업 공간</span>
+              <span class="ui-field-action"><span class="ui-select-shell"><select id="manual-sns-organization" disabled><option value="">작업 공간을 불러와 선택해 주세요.</option></select></span><button id="manual-sns-workspaces-load" class="secondary" type="button" disabled>작업 공간 불러오기</button></span>
+              <small>선택한 작업 공간의 SNS 채널을 불러옵니다.</small>
+            </label>
             <div id="manual-sns-channel-list" class="social-channel-grid ui-selectable-card-grid" aria-live="polite"></div>
           </section>
 
