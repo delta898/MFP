@@ -44,17 +44,6 @@ function renderTopicsPagination() {
   if (nextBtn) nextBtn.disabled = currentPage >= pageCount;
 }
 
-function renderShoppingPagination() {
-  const infoEl = document.getElementById('shopping-page-info');
-  const prevBtn = document.getElementById('shopping-page-prev');
-  const nextBtn = document.getElementById('shopping-page-next');
-  const pageInfo = getPageInfo('shopping');
-  const { pageCount, currentPage } = getPageSummary(pageInfo.total, pageInfo.limit, pageInfo.offset);
-  if (infoEl) infoEl.textContent = `페이지 ${currentPage} / ${pageCount} (총 ${pageInfo.total || 0}건)`;
-  if (prevBtn) prevBtn.disabled = currentPage <= 1;
-  if (nextBtn) nextBtn.disabled = currentPage >= pageCount;
-}
-
 function updateTrendsSelectionUi() {
   const countEl = document.getElementById('blog-trends-selected-count');
   if (countEl) countEl.textContent = `${blogTrendsSelectedRowIndices.size}건 선택`;
@@ -71,16 +60,8 @@ function findShoppingByRowIndex(rowIndex) {
   return (blogShoppingCache || []).find(item => item.rowIndex === rowIndex) || null;
 }
 
-function updateShoppingSelectionUi() {
-  const countEl = document.getElementById('shopping-selected-count');
-  if (countEl) countEl.textContent = `${blogShoppingSelectedRowIndices.size}건 선택`;
-}
-
 function clearShoppingSelections() {
   blogShoppingSelectedRowIndices.clear();
-  const selectors = Array.from(document.querySelectorAll('input.shopping-row-selector'));
-  selectors.forEach(el => { el.checked = false; });
-  updateShoppingSelectionUi();
 }
 
 function getSortState(tableName) {
@@ -127,11 +108,6 @@ function toggleTableSort(tableName, key) {
   if (tableName === 'topics') {
     setPageInfo('topics', { offset: 0 });
     loadBlogTopics();
-    return;
-  }
-  if (tableName === 'shopping') {
-    setPageInfo('shopping', { offset: 0 });
-    loadBlogShopping();
     return;
   }
   if (tableName === 'trendPosting') {
@@ -211,4 +187,3 @@ async function loadBlogTrends(options = {}) {
     if (resultBox && !silent) resultBox.textContent = `오류: ${e.message}`;
   }
 }
-

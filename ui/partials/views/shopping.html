@@ -176,89 +176,50 @@
           </div>
         </div>
 
-        <div class="card form-card shopping-tab-panel" id="shopping-tab-batch" role="tabpanel"
+        <div class="card form-card shopping-tab-panel blog-next-panel shopping-management-panel" id="shopping-tab-batch" role="tabpanel"
           aria-labelledby="shopping-tab-button-batch" hidden>
-          <div class="form-grid blog-filter-grid">
-            <label>상태
-              <select id="shopping-status-filter">
-                <option value="">전체</option>
-                <option value="준비">준비</option>
-                <option value="발행 준비 완료">발행 준비 완료</option>
-                <option value="발행 중">발행 중</option>
-                <option value="발행 완료">발행 완료</option>
-                <option value="임시 저장 완료">임시 저장 완료</option>
-                <option value="예약 포스팅 등록 완료">예약 포스팅 등록 완료</option>
-                <option value="실패">실패</option>
-              </select>
-            </label>
-            <label>검색
-              <div class="input-inline-clear">
-                <input id="shopping-q-filter" type="text" placeholder="상품 / URL / 상태 / 발행 시간">
-                <button id="shopping-q-clear-btn" class="inline-clear-btn" type="button"
-                  aria-label="쇼핑 검색어 지우기">×</button>
-              </div>
-            </label>
-          </div>
-          <div class="form-actions shopping-batch-actions">
-            <div class="form-actions-left">
-              <button id="shopping-refresh-btn" class="secondary">새로고침</button>
-              <span class="action-separator" aria-hidden="true"></span>
-              <label class="blog-quick-check" title="발행 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 실행합니다.">
-                <input id="shopping-batch-headless" type="checkbox" checked> 보이지 않게 실행
-              </label>
-              <div class="target-platforms"
-                style="display: inline-flex; align-items: center; gap: 12px; margin-right: 16px;">
-                <span class="field-label-text" style="font-size: 13px; color: var(--text-secondary);">발행 대상:</span>
-                <label class="blog-quick-check" style="font-size: 13px;"><input id="shopping-batch-target-naver"
-                    type="checkbox"> 네이버</label>
-                <label class="blog-quick-check" style="font-size: 13px;"><input id="shopping-batch-target-wordpress"
-                    type="checkbox"> 워드프레스</label>
-              </div>
-              <button id="shopping-batch-btn">선택 글감 포스팅</button>
-              <button id="shopping-delete-batch-btn" class="secondary danger">선택 글감 삭제</button>
-            </div>
-            <div class="form-actions-right">
-              <span class="tab-selected-count" id="shopping-selected-count">0건 선택</span>
+          <div class="blog-next-panel-lead blog-next-panel-intro shopping-management-intro">
+            <div class="blog-next-panel-intro-copy">
+              <h2>준비한 글을 한곳에서 관리</h2>
+              <p>준비한 글을 보관하고, 발행 대기열을 관리합니다.</p>
             </div>
           </div>
 
-          <div class="table-responsive">
-            <div class="table-wrap">
-              <table class="data-table" id="shopping-table">
-                <thead>
-                  <tr>
-                    <th style="width:56px;"><input type="checkbox" id="shopping-table-select-all"
-                        class="header-checkbox"></th>
-                    <th class="sortable" data-sort-table="shopping" data-sort-key="rowNumber" style="width:70px;">Row
-                    </th>
-                    <th class="sortable" data-sort-table="shopping" data-sort-key="postStatus" style="width:110px;">
-                      포스팅 옵션</th>
-                    <th class="sortable" data-sort-table="shopping" data-sort-key="product" style="width:200px;">상품</th>
-                    <th class="sortable" data-sort-table="shopping" data-sort-key="shortUrl" style="width:280px;">URL
-                    </th>
-                    <th class="sortable" data-sort-table="shopping" data-sort-key="runtimeLog" style="width:220px;">진행
-                      로그</th>
-                    <th class="sortable" data-sort-table="shopping" data-sort-key="status" style="width:140px;">상태</th>
-                    <th class="sortable" data-sort-table="shopping" data-sort-key="publishedAt" style="width:170px;">발행
-                      시간</th>
-                  </tr>
-                </thead>
-                <tbody id="shopping-table-body">
-                  <tr>
-                    <td colspan="7">로딩 중...</td>
-                  </tr>
-                </tbody>
-              </table>
+          <div class="blog-next-management-tabs blog-next-panel-local-nav shopping-management-tabs">
+            <div class="blog-next-management-tab-list blog-next-segmented-nav ui-segmented-tabs" role="tablist"
+              aria-label="쇼핑 글감 관리 보기">
+              <button class="shopping-management-tab blog-next-management-tab ui-segmented-tab active"
+                id="shopping-management-tab-ready" type="button" role="tab" aria-selected="true"
+                aria-controls="shopping-management-panel-ready" tabindex="0"
+                data-shopping-management-tab="ready">발행 대기열 <strong id="shopping-management-ready-count">확인 중</strong></button>
+              <button class="shopping-management-tab blog-next-management-tab ui-segmented-tab"
+                id="shopping-management-tab-saved" type="button" role="tab" aria-selected="false"
+                aria-controls="shopping-management-panel-saved" tabindex="-1"
+                data-shopping-management-tab="saved">보관한 글감 <strong id="shopping-management-saved-count">확인 중</strong></button>
+            </div>
+            <div class="blog-next-management-actions">
+              <button id="shopping-refresh-btn"
+                class="secondary compact ui-refresh-action ui-refresh-action-text blog-next-management-refresh"
+                type="button" aria-busy="false">새로고침</button>
             </div>
           </div>
-          <div class="pagination-row">
-            <button id="shopping-page-prev" class="secondary">이전</button>
-            <span id="shopping-page-info">페이지 - / -</span>
-            <button id="shopping-page-next" class="secondary">다음</button>
-          </div>
 
-          <pre id="shopping-action-result" class="scrollable-log">대기 중...</pre>
-          <pre id="shopping-batch-result"></pre>
+          <p class="blog-next-management-status" id="shopping-management-status" data-state="idle"
+            role="status" aria-live="polite" hidden></p>
+          <div class="blog-next-management-panels shopping-management-panels">
+            <section class="blog-next-management-panel active" id="shopping-management-panel-ready"
+              data-shopping-management-panel="ready" role="tabpanel" aria-labelledby="shopping-management-tab-ready">
+              <div id="shopping-management-ready-list" class="blog-next-queue-list shopping-management-list"
+                data-state="loading" aria-live="polite" aria-busy="true"></div>
+            </section>
+            <section class="blog-next-management-panel" id="shopping-management-panel-saved"
+              data-shopping-management-panel="saved" role="tabpanel" aria-labelledby="shopping-management-tab-saved" hidden>
+              <div id="shopping-management-saved-list" class="blog-next-queue-list shopping-management-list"
+                data-state="loading" aria-live="polite" aria-busy="true"></div>
+            </section>
+          </div>
+          <pre id="shopping-action-result" class="blog-next-draft-result shopping-management-result"
+            role="status" aria-live="polite"></pre>
         </div>
 
       </section>

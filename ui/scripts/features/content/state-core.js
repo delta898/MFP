@@ -10,7 +10,6 @@ const blogShoppingSelectedRowIndices = new Set();
 let blogLastBatchResult = null;
 const blogRecentBatchRows = new Map();
 let blogInlineEditState = null;
-let shoppingInlineEditState = null;
 
 // [Restored] 워드프레스 카테고리 드롭다운 채우기 헬퍼
 function populateFilterWpCategoryDropdown(selectId, categories) {

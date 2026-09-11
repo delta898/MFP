@@ -185,6 +185,20 @@
   text-decoration: underline;
 }
 
+.shopping-management-result:empty {
+  display: none;
+}
+
+.shopping-management-item .blog-next-queue-running {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shopping-management-panel .shopping-management-item:not(.blog-next-saved-item) .blog-next-queue-actions {
+  grid-template-columns: 120px 120px;
+}
+
 @keyframes shopping-quick-preview-spin {
   to { transform: rotate(360deg); }
 }

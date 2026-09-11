@@ -1,100 +1,292 @@
-function renderBlogShoppingTable(items) {
-  const tbody = document.getElementById('shopping-table-body');
-  if (!tbody) return;
+let shoppingManagementActiveTab = 'ready';
+let shoppingManagementHasLoaded = false;
 
-  const sourceItems = Array.isArray(items) ? items : [];
-  if (sourceItems.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7">조회 결과가 없습니다.</td></tr>';
-    updateShoppingSelectionUi();
-    updateSortableHeadersUi();
-    return;
+function setShoppingManagementStatus(message = '', state = 'idle') {
+  const element = document.getElementById('shopping-management-status');
+  if (!element) return;
+  element.textContent = String(message || '').trim();
+  element.dataset.state = state;
+  element.hidden = !element.textContent;
+}
+
+function activateShoppingManagementTab(tabName) {
+  const nextTab = tabName === 'saved' ? 'saved' : 'ready';
+  shoppingManagementActiveTab = nextTab;
+  document.querySelectorAll('[data-shopping-management-tab]').forEach((button) => {
+    const active = button.dataset.shoppingManagementTab === nextTab;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', active ? 'true' : 'false');
+    button.tabIndex = active ? 0 : -1;
+  });
+  document.querySelectorAll('[data-shopping-management-panel]').forEach((panel) => {
+    const active = panel.dataset.shoppingManagementPanel === nextTab;
+    panel.classList.toggle('active', active);
+    panel.hidden = !active;
+  });
+}
+
+function renderShoppingManagementEmptyState(list, titleText, descriptionText, state = 'empty') {
+  const empty = document.createElement('div');
+  empty.className = `blog-next-empty-state${state === 'error' ? ' has-error' : ''}`;
+  const title = document.createElement('strong');
+  title.textContent = titleText;
+  const description = document.createElement('p');
+  description.textContent = descriptionText;
+  empty.append(title, description);
+  list.replaceChildren(empty);
+}
+
+function formatShoppingManagementHost(rawUrl) {
+  try {
+    return new URL(String(rawUrl || '')).hostname.replace(/^www\./, '');
+  } catch (_error) {
+    return '상품 링크';
+  }
+}
+
+async function moveShoppingManagementItem(item, status, button) {
+  if (!item || !Number.isInteger(Number(item.rowIndex))) return;
+  const previousStatus = item.status;
+  const defaultLabel = button?.textContent || '';
+  if (button) {
+    button.disabled = true;
+    button.textContent = '이동 중...';
+  }
+  setShoppingManagementStatus('', 'idle');
+  try {
+    await saveShoppingRowPatch(Number(item.rowIndex), { status }, { silent: true });
+    showUiToast(status === '준비'
+      ? { level: 'success', title: '보관으로 이동 완료', message: '글감을 보관한 글감으로 옮겼습니다.' }
+      : { level: 'success', title: '대기열로 이동 완료', message: '글감을 발행 대기열로 옮겼습니다.' });
+  } catch (error) {
+    item.status = previousStatus;
+    renderBlogShoppingTable(blogShoppingCache);
+    showUiToast({ level: 'error', title: '대기열 변경 실패', message: error.message || '잠시 후 다시 시도해 주세요.' });
+  } finally {
+    if (button?.isConnected) {
+      button.disabled = false;
+      button.textContent = defaultLabel;
+    }
+  }
+}
+
+async function deleteShoppingManagementItem(item, button) {
+  if (!item || !Number.isInteger(Number(item.rowIndex))) return;
+  const confirmed = await showUiConfirm('보관한 글감을 삭제할까요? 삭제한 글감은 복구할 수 없습니다.', {
+    title: '보관한 글감 삭제',
+    confirmText: '삭제',
+    cancelText: '취소'
+  });
+  if (!confirmed) return;
+  if (button) {
+    button.disabled = true;
+    button.textContent = '삭제 중...';
+  }
+  setShoppingManagementStatus('', 'idle');
+  try {
+    await postJson('/api/v1/shopping/topics/delete', { rowIndices: [Number(item.rowIndex)] });
+    await loadBlogShopping({ silent: true });
+    showUiToast({ level: 'success', title: '글감 삭제 완료', message: '보관한 글감을 삭제했습니다.' });
+  } catch (error) {
+    showUiToast({ level: 'error', title: '글감 삭제 실패', message: error.message || '잠시 후 다시 시도해 주세요.' });
+  } finally {
+    if (button?.isConnected) {
+      button.disabled = false;
+      button.textContent = '삭제';
+    }
+  }
+}
+
+async function runShoppingManagementItem(item, button) {
+  if (!item || !Number.isInteger(Number(item.rowIndex))) return;
+  blogShoppingSelectedRowIndices.clear();
+  blogShoppingSelectedRowIndices.add(Number(item.rowIndex));
+  if (button) button.disabled = true;
+  try {
+    await runShoppingBatchAction();
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+function createShoppingManagementItem(item, position, saved) {
+  const runningState = String(item.status || '').trim() === '발행 중' || Boolean(String(item.runtimeLog || '').trim());
+  const article = document.createElement('article');
+  article.className = `blog-next-queue-item shopping-management-item${saved ? ' blog-next-saved-item' : ''}${runningState ? ' is-running' : ''}`;
+  article.dataset.shoppingManagementRowIndex = String(Number(item.rowIndex));
+
+  const order = document.createElement('span');
+  order.className = 'blog-next-queue-order';
+  order.textContent = String(position + 1);
+
+  const copy = document.createElement('button');
+  copy.type = 'button';
+  copy.className = 'blog-next-queue-copy';
+  copy.setAttribute('aria-label', `${item.product || '제목 없는 쇼핑 글감'} 수정`);
+  copy.addEventListener('click', () => openShoppingEditor(Number(item.rowIndex)));
+  const title = document.createElement('strong');
+  title.textContent = item.product || '제목 없는 쇼핑 글감';
+  const meta = document.createElement('span');
+  meta.className = 'blog-next-queue-meta';
+  meta.textContent = [
+    formatShoppingManagementHost(item.shortUrl),
+    getPostStatusLabel(item.postStatus || 'publish'),
+    item.scheduleDate || ''
+  ].filter(Boolean).join(' · ');
+  const running = document.createElement('span');
+  running.className = 'blog-next-queue-running';
+  running.hidden = !runningState;
+  running.textContent = String(item.runtimeLog || '').trim() || '포스팅을 진행하고 있습니다.';
+  copy.append(title, meta, running);
+
+  const actions = document.createElement('div');
+  actions.className = 'blog-next-queue-actions';
+  if (saved) {
+    const enqueue = document.createElement('button');
+    enqueue.type = 'button';
+    enqueue.className = 'primary';
+    enqueue.textContent = '대기열로 이동';
+    enqueue.addEventListener('click', () => moveShoppingManagementItem(item, '발행 준비 완료', enqueue));
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'ghost';
+    remove.textContent = '삭제';
+    remove.addEventListener('click', () => deleteShoppingManagementItem(item, remove));
+    actions.append(enqueue, remove);
+  } else {
+    const archive = document.createElement('button');
+    archive.type = 'button';
+    archive.className = 'ghost';
+    archive.textContent = '보관으로 이동';
+    archive.disabled = runningState;
+    archive.addEventListener('click', () => moveShoppingManagementItem(item, '준비', archive));
+    const run = document.createElement('button');
+    run.type = 'button';
+    run.className = 'primary';
+    run.textContent = runningState ? '진행 중' : '지금 포스팅';
+    run.disabled = runningState;
+    run.addEventListener('click', () => runShoppingManagementItem(item, run));
+    actions.append(archive, run);
   }
 
-  tbody.innerHTML = sourceItems.map(item => {
-    const checked = blogShoppingSelectedRowIndices.has(item.rowIndex) ? 'checked' : '';
-    const product = escapeHtml(item.product || '');
-    const shortUrl = escapeHtml(item.shortUrl || '');
-    const runtimeLog = escapeHtml(item.runtimeLog || '');
-    const status = escapeHtml(item.status || '');
-    const publishedAt = escapeHtml(item.publishedAt || '');
-    const postStatusRaw = item.postStatus || 'publish';
-    const postStatus = escapeHtml(getPostStatusLabel(postStatusRaw));
-    const runningClass = runtimeLog ? 'running-row' : '';
-    return `
-      <tr class="${runningClass} clickable-row" data-row-index="${item.rowIndex}" title="더블클릭으로 편집" style="cursor:pointer;">
-        <td><input type="checkbox" class="shopping-row-selector" value="${item.rowIndex}" ${checked}></td>
-        <td>${item.rowNumber}</td>
-        <td>${postStatus || '-'}</td>
-        <td>${product || '-'}</td>
-        <td>${shortUrl || '-'}</td>
-        <td class="runtime-log-cell">${runtimeLog || ''}</td>
-        <td>${status || '-'}</td>
-        <td>${publishedAt || '-'}</td>
-      </tr>
-    `;
-  }).join('');
-  const shoppingSelectAll = document.getElementById('shopping-table-select-all');
-  if (shoppingSelectAll) shoppingSelectAll.checked = false;
-  updateShoppingSelectionUi();
-  updateSortableHeadersUi();
+  article.append(order, copy, actions);
+  return article;
+}
+
+function renderShoppingManagementList(list, items, saved) {
+  if (!list) return;
+  const sourceItems = Array.isArray(items) ? items : [];
+  list.dataset.state = sourceItems.length > 0 ? 'results' : 'empty';
+  list.setAttribute('aria-busy', 'false');
+  if (sourceItems.length === 0) {
+    renderShoppingManagementEmptyState(
+      list,
+      saved ? '보관한 글감이 없습니다.' : '아직 준비된 글감이 없습니다.',
+      saved ? '빠른 글 작성에서 떠오른 아이디어를 먼저 보관해 보세요.' : '발행 계획을 완성해 대기열에 추가해 보세요.'
+    );
+    return;
+  }
+  list.replaceChildren(...sourceItems.map((item, position) => createShoppingManagementItem(item, position, saved)));
+}
+
+function renderBlogShoppingTable(items) {
+  const sourceItems = Array.isArray(items) ? items : [];
+  const readyItems = sourceItems.filter((item) => ['발행 준비 완료', '발행 중'].includes(String(item.status || '').trim()));
+  const savedItems = sourceItems.filter((item) => String(item.status || '').trim() === '준비');
+  renderShoppingManagementList(
+    document.getElementById('shopping-management-ready-list'),
+    readyItems,
+    false
+  );
+  renderShoppingManagementList(
+    document.getElementById('shopping-management-saved-list'),
+    savedItems,
+    true
+  );
+  const readyCount = document.getElementById('shopping-management-ready-count');
+  const savedCount = document.getElementById('shopping-management-saved-count');
+  if (readyCount) readyCount.textContent = `${readyItems.length}건`;
+  if (savedCount) savedCount.textContent = `${savedItems.length}건`;
+}
+
+async function fetchShoppingManagementItems() {
+  const params = new URLSearchParams({
+    limit: '10000',
+    offset: '0',
+    sortBy: 'rowNumber',
+    sortDir: 'desc'
+  });
+  return fetchJson(`/api/v1/shopping/items?${params.toString()}`);
 }
 
 async function loadBlogShopping(options = {}) {
-  if (!guardUiConfigReady('쇼핑 목록 조회')) return;
+  if (!guardUiConfigReady('쇼핑 글감 조회')) return;
   const silent = Boolean(options.silent);
-  const pageInfo = getPageInfo('shopping');
-  const status = (document.getElementById('shopping-status-filter')?.value || '').trim();
-  const q = (document.getElementById('shopping-q-filter')?.value || '').trim();
-  const params = new URLSearchParams();
-  const sortState = getSortState('shopping');
-  if (status) params.set('status', status);
-  if (q) params.set('q', q);
-  params.set('limit', String(pageInfo.limit));
-  params.set('offset', String(pageInfo.offset));
-  params.set('sortBy', String(sortState.key || 'rowNumber'));
-  params.set('sortDir', String(sortState.direction || 'desc'));
-
-  const resultBox = document.getElementById('shopping-batch-result');
-  if (resultBox && !silent) resultBox.textContent = '쇼핑 목록 조회 중...';
+  const refresh = document.getElementById('shopping-refresh-btn');
+  const readyList = document.getElementById('shopping-management-ready-list');
+  const savedList = document.getElementById('shopping-management-saved-list');
+  if (refresh) {
+    refresh.disabled = true;
+    refresh.textContent = '불러오는 중...';
+    refresh.setAttribute('aria-busy', 'true');
+  }
+  if (!silent) setShoppingManagementStatus('', 'idle');
+  [readyList, savedList].forEach((list) => {
+    if (!list) return;
+    list.dataset.state = 'loading';
+    list.setAttribute('aria-busy', 'true');
+  });
 
   try {
-    const data = await fetchJson(`/api/v1/shopping/items?${params.toString()}`);
-    blogShoppingCache = Array.isArray(data.items) ? data.items : [];
-    setPageInfo('shopping', {
-      total: Number(data.total || 0),
-      limit: Number(data.limit || pageInfo.limit || 50),
-      offset: Number(data.offset || 0)
-    });
+    const data = await fetchShoppingManagementItems();
+    const items = Array.isArray(data.items) ? data.items : [];
+    const readyItems = items
+      .filter((item) => ['발행 준비 완료', '발행 중'].includes(String(item.status || '').trim()))
+      .sort((left, right) => Number(left.rowNumber || 0) - Number(right.rowNumber || 0));
+    const savedItems = items.filter((item) => String(item.status || '').trim() === '준비');
+    blogShoppingCache = [...readyItems, ...savedItems];
+    shoppingManagementHasLoaded = true;
     renderBlogShoppingTable(blogShoppingCache);
-    renderShoppingPagination();
-    if (resultBox && !silent) {
-      resultBox.textContent = `조회 완료: ${data.total ?? blogShoppingCache.length}건`;
+    if (!silent) setShoppingManagementStatus('', 'idle');
+  } catch (error) {
+    const message = error.message || '글감 목록을 불러오지 못했습니다.';
+    if (shoppingManagementHasLoaded) {
+      setShoppingManagementStatus(`${message} 기존 목록은 그대로 유지했습니다.`, 'error');
+    } else {
+      [readyList, savedList].forEach((list) => {
+        if (!list) return;
+        list.dataset.state = 'error';
+        list.setAttribute('aria-busy', 'false');
+        renderShoppingManagementEmptyState(list, '글감 목록을 불러오지 못했습니다.', '새로고침으로 다시 시도해 주세요.', 'error');
+      });
+      setShoppingManagementStatus('', 'idle');
     }
-  } catch (e) {
-    blogShoppingCache = [];
-    renderBlogShoppingTable([]);
-    renderShoppingPagination();
-    if (resultBox && !silent) resultBox.textContent = `오류: ${e.message}`;
+  } finally {
+    if (refresh) {
+      refresh.disabled = false;
+      refresh.textContent = '새로고침';
+      refresh.setAttribute('aria-busy', 'false');
+    }
   }
 }
 
 async function runShoppingBatchAction() {
-  if (!guardUiConfigReady('선택 글감 포스팅')) return;
+  if (!guardUiConfigReady('쇼핑 글 포스팅')) return;
   const resultBox = document.getElementById('shopping-action-result');
   if (!resultBox) return;
 
   const rowIndices = Array.from(blogShoppingSelectedRowIndices.values()).filter(v => Number.isInteger(v));
   if (rowIndices.length === 0) {
-    resultBox.textContent = '먼저 발행할 행을 1개 이상 선택하세요.';
+    resultBox.textContent = '포스팅할 글감을 선택해 주세요.';
     return;
   }
 
   const selectedSnapshot = [...rowIndices];
 
-  const headless = Boolean(document.getElementById('shopping-batch-headless')?.checked);
+  const headless = Boolean(document.getElementById('shopping-quick-headless')?.checked);
   const targets = [];
-  if (document.getElementById('shopping-batch-target-naver')?.checked) targets.push('naver');
-  if (document.getElementById('shopping-batch-target-wordpress')?.checked) targets.push('wordpress');
+  if (document.getElementById('shopping-quick-target-naver')?.checked) targets.push('naver');
+  if (document.getElementById('shopping-quick-target-wordpress')?.checked) targets.push('wordpress');
 
   const preCheck = checkPublishPrerequisites(targets);
   if (!preCheck.ok) {
@@ -123,7 +315,7 @@ async function runShoppingBatchAction() {
   try {
     await runWithLiveProgress({
       targetEl: resultBox,
-      requestLabel: `쇼핑 일괄 발행 (${selectedSnapshot.length}건)`,
+      requestLabel: '쇼핑 글 포스팅',
       requestFn: async () => {
         await loadBlogShopping({ silent: true });
         const data = await postJson('/api/v1/shopping/action', { action: 'batch', rowIndices: selectedSnapshot, headless, targets });
@@ -139,31 +331,9 @@ async function runShoppingBatchAction() {
   }
 }
 
-function getShoppingEditableFieldValue(item, field) {
-  if (!item) return '';
-  if (field === 'product') return String(item.product || '');
-  if (field === 'shortUrl') return String(item.shortUrl || '');
-  if (field === 'status') return String(item.status || '');
-  if (field === 'category') return String(item.category || '');
-  if (field === 'postStatus') return String(item.postStatus || 'publish');
-  if (field === 'scheduleDate') return String(item.scheduleDate || '');
-  return '';
-}
-
-function isShoppingRuntimeRunning(item) {
-  return Boolean(String(item?.runtimeLog || '').trim());
-}
-
-async function cancelShoppingInlineEdit() {
-  if (!shoppingInlineEditState) return;
-  const { cell, originalHtml } = shoppingInlineEditState;
-  if (cell) cell.innerHTML = originalHtml;
-  shoppingInlineEditState = null;
-}
-
 async function saveShoppingRowPatch(rowIndex, patch = {}, options = {}) {
   const silent = Boolean(options.silent);
-  const resultBox = document.getElementById('shopping-batch-result');
+  const resultBox = document.getElementById('shopping-action-result');
   const item = findShoppingByRowIndex(rowIndex);
   if (!item) throw new Error(`rowIndex(${rowIndex})를 찾지 못했습니다.`);
 
@@ -205,173 +375,3 @@ async function saveShoppingRowPatch(rowIndex, patch = {}, options = {}) {
   }
   setTimeout(() => loadBlogShopping({ silent: true }), 6500);
 }
-
-async function commitShoppingInlineEdit() {
-  if (!shoppingInlineEditState) return;
-
-  const resultBox = document.getElementById('shopping-batch-result');
-  const {
-    rowIndex,
-    field,
-    editorEl,
-    cell,
-    originalHtml
-  } = shoppingInlineEditState;
-
-  let normalizedValue = String(editorEl?.value ?? '').trim();
-  if (field === 'scheduleDate' && normalizedValue) {
-    normalizedValue = normalizedValue.replace('T', ' ');
-    if (normalizedValue.length === 16) normalizedValue += ':00';
-  }
-  const item = findShoppingByRowIndex(rowIndex);
-  if (!item) {
-    shoppingInlineEditState = null;
-    await loadBlogShopping({ silent: true });
-    return;
-  }
-
-  const beforeValue = getShoppingEditableFieldValue(item, field);
-  if (normalizedValue === beforeValue) {
-    cell.innerHTML = originalHtml;
-    shoppingInlineEditState = null;
-    return;
-  }
-
-  const patch = {};
-  patch[field] = normalizedValue;
-
-  try {
-    if (resultBox) resultBox.textContent = `row ${rowIndex + 2} inline 수정 중...`;
-    await saveShoppingRowPatch(rowIndex, patch, { silent: true });
-    shoppingInlineEditState = null;
-    if (resultBox) resultBox.textContent = `row ${rowIndex + 2} inline 수정 완료`;
-  } catch (e) {
-    cell.innerHTML = originalHtml;
-    shoppingInlineEditState = null;
-    if (resultBox) resultBox.textContent = `오류: ${e.message}`;
-  }
-}
-
-async function startShoppingInlineEdit(cell) {
-  if (!cell) return;
-  const row = cell.closest('tr[data-row-index]');
-  if (!row) return;
-  const rowIndex = Number(row.dataset.rowIndex);
-  const field = String(cell.dataset.field || '');
-  if (!Number.isInteger(rowIndex)) return;
-  if (!['product', 'shortUrl', 'status', 'category', 'postStatus', 'scheduleDate'].includes(field)) return;
-
-  const item = findShoppingByRowIndex(rowIndex);
-  if (!item) return;
-  if (isShoppingRuntimeRunning(item)) {
-    const resultBox = document.getElementById('shopping-batch-result');
-    if (resultBox) resultBox.textContent = `row ${rowIndex + 2}는 진행 중이라 수정할 수 없습니다.`;
-    return;
-  }
-
-  if (shoppingInlineEditState) {
-    if (shoppingInlineEditState.cell === cell) return;
-    await cancelShoppingInlineEdit();
-  }
-
-  const originalHtml = cell.innerHTML;
-  const initialValue = getShoppingEditableFieldValue(item, field);
-  const multiline = false; // 쇼핑 테이블은 아직 멀티라인 필드 없음
-  const useSelect = ['status', 'postStatus', 'category'].includes(field);
-  const isDateTime = field === 'scheduleDate';
-  let editorEl;
-
-  if (useSelect) {
-    editorEl = document.createElement('select');
-    editorEl.className = 'inline-editor';
-    let options = [];
-    if (field === 'status') {
-      options = ['', '준비', '발행 준비 완료', '발행 중', '발행 완료', '임시 저장 완료', '예약 포스팅 등록 완료', '실패'];
-    } else if (field === 'postStatus') {
-      options = ['publish', 'draft', 'schedule'];
-    } else if (field === 'category') {
-      options = [''];
-      if (categoryCache) {
-        options = ['', ...categoryCache.map(c => c.name)];
-      } else {
-        fetchWpCategories().then(() => {
-          if (shoppingInlineEditState && shoppingInlineEditState.cell === cell && shoppingInlineEditState.field === 'category') {
-            const currentVal = editorEl.value;
-            editorEl.innerHTML = '';
-            const newOpts = ['', ...categoryCache.map(c => c.name)];
-            if (currentVal && !newOpts.includes(currentVal)) newOpts.push(currentVal);
-            newOpts.forEach(optVal => {
-              const opt = document.createElement('option');
-              opt.value = optVal;
-              opt.textContent = optVal || '(기본)';
-              if (optVal === currentVal) opt.selected = true;
-              editorEl.appendChild(opt);
-            });
-          }
-        });
-      }
-      if (initialValue && !options.includes(initialValue)) {
-        options.push(initialValue);
-      }
-    }
-
-    for (const optionValue of options) {
-      const opt = document.createElement('option');
-      opt.value = optionValue;
-      opt.textContent = optionValue || (field === 'category' ? '(기본)' : '(비움)');
-      if (optionValue === initialValue) opt.selected = true;
-      editorEl.appendChild(opt);
-    }
-  } else {
-    editorEl = document.createElement('input');
-    if (isDateTime) {
-      editorEl.type = 'datetime-local';
-    } else {
-      editorEl.type = 'text';
-    }
-    editorEl.className = `inline-editor ${isDateTime ? 'datetime' : ''}`.trim();
-
-    // scheduleDate 포맷 변환 (YYYY-MM-DD HH:mm:ss -> YYYY-MM-DDTHH:mm)
-    let val = initialValue;
-    if (isDateTime && val) {
-      val = val.replace(' ', 'T').substring(0, 16);
-    }
-    editorEl.value = val;
-  }
-
-  cell.innerHTML = '';
-  cell.appendChild(editorEl);
-  editorEl.focus();
-  if (!useSelect) editorEl.select?.();
-
-  shoppingInlineEditState = {
-    rowIndex,
-    field,
-    cell,
-    editorEl,
-    originalHtml,
-    committing: false
-  };
-
-  editorEl.addEventListener('keydown', async (e) => {
-    if (!shoppingInlineEditState) return;
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      await cancelShoppingInlineEdit();
-      return;
-    }
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      shoppingInlineEditState.committing = true;
-      await commitShoppingInlineEdit();
-    }
-  });
-
-  editorEl.addEventListener('blur', async () => {
-    if (!shoppingInlineEditState) return;
-    if (shoppingInlineEditState.committing) return;
-    shoppingInlineEditState.committing = true;
-    await commitShoppingInlineEdit();
-  });
-}
-

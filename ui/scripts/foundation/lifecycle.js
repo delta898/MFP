@@ -690,12 +690,10 @@ try { initKeywordResearchModal(); } catch (e) { console.warn('initKeywordResearc
   renderBlogLastBatchResult(blogLastBatchResult);
   updateBlogSelectionUi();
   updateTrendsSelectionUi();
-  updateShoppingSelectionUi();
   updateSortableHeadersUi();
   initTrendPostingStickyStack();
   renderTrendsPagination();
   renderTopicsPagination();
-  renderShoppingPagination();
   setInterval(() => {
     if (isDashboardPollingPaused()) return;
     if (document.getElementById('view-dashboard-beta')?.classList.contains('active')) {

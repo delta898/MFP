@@ -42,7 +42,7 @@
 3. 빠른 글 작성 패널 개편
    - 3A. 상품 URL 입력·상품 정보 확인·미리보기 — 완료 ([개발 기록](../archive/2026-09-11-design-system-shopping-connect-11-03a-product-preview-development.md))
    - 3B. 글 방향·글쓰기 및 발행 설정 — 완료 ([개발 기록](../archive/2026-09-11-design-system-shopping-connect-11-03b-writing-options-development.md))
-   - 3C. Blog Beta 글쓰기 흐름을 기준으로 글감 관리 탭 UI 개편
+   - 3C. Blog Beta 글쓰기 흐름을 기준으로 글감 관리 탭 UI 개편 — 구현 완료·검증 대기 ([개발 기록](./2026-09-11-design-system-shopping-connect-11-03c-topic-management-ui-development.md))
 4. 글감 보관·발행 대기열·바로 포스팅 생명주기 검증 및 보정
 5. hard-coding 검사와 browser 회귀
 
@@ -60,6 +60,8 @@
 - slice 3B에서 경험·방향, 공통 글쓰기 전략, 쇼핑 전용 글의 초점과 상세 발행 설정을 Blog Beta와 같은
   progressive disclosure 및 action 문법으로 정리했다. 다음 단계에서는 동작을 먼저 바꾸지 않고 Blog Beta의
   글감 관리 UI를 기준으로 쇼핑 글감 관리 탭을 통일한 뒤, 저장부터 발행까지의 생명주기를 검증한다.
+- slice 3C에서 기존 테이블·필터·일괄 선택을 제거하고 Blog Beta와 같은 `발행 대기열` / `보관한 글감`,
+  queue card와 항목별 action 구조로 재구성했다. 연속 발행 설정은 이 범위에서 제외했다.
 
 ## 검증과 남은 위험
 

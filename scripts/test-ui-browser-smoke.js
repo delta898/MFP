@@ -2903,7 +2903,10 @@ async function run() {
         assert.equal(await page.locator('#shopping-quick-product').inputValue(), '');
         await page.locator('.shopping-tab-btn[data-shopping-tab="batch"]').click();
         await page.waitForFunction(() => document.getElementById('shopping-tab-batch')?.classList.contains('active'));
-        assert.equal(await page.locator('#shopping-table').count(), 1);
+        assert.equal(await page.locator('#shopping-management-ready-list').count(), 1);
+        assert.equal(await page.locator('#shopping-management-saved-list').count(), 1);
+        assert.equal((await page.locator('#shopping-management-tab-ready').textContent())?.includes('발행 대기열'), true);
+        assert.equal((await page.locator('#shopping-management-tab-saved').textContent())?.includes('보관한 글감'), true);
 
         await page.evaluate(() => navigateTo('blog', 'quick'));
         await page.locator('.blog-tab-btn[data-blog-tab="quick"]').click();

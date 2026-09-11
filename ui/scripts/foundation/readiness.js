@@ -51,7 +51,6 @@ function syncPlatformUiState(platform, isReady) {
       'local-markdown-target-naver',
       'blog-batch-target-naver',
       'shopping-quick-target-naver',
-      'shopping-batch-target-naver',
       'blog-publish-auto-target-naver',
       'blog-next-target-naver'
     ],
@@ -60,7 +59,6 @@ function syncPlatformUiState(platform, isReady) {
       'local-markdown-target-wordpress',
       'blog-batch-target-wordpress',
       'shopping-quick-target-wordpress',
-      'shopping-batch-target-wordpress',
       'blog-publish-auto-target-wordpress',
       'blog-next-target-wordpress'
     ]

@@ -15,7 +15,7 @@ const controllerContracts = Object.freeze({
     'features/discovery/naver-comment-draft.js': ['runNaverCommentDraft', 'redraftNaverCommentDraft'],
     'features/content/tab-navigation.js': ['activateShoppingTab'],
     'features/content/blog-topics.js': ['renderBlogTable', 'loadBlogTopics'],
-    'features/content/shopping-items.js': ['renderBlogShoppingTable', 'loadBlogShopping', 'startShoppingInlineEdit'],
+    'features/content/shopping-items.js': ['renderBlogShoppingTable', 'loadBlogShopping', 'createShoppingManagementItem'],
     'features/content/blog-batch.js': ['runBlogBatchAction']
 });
 

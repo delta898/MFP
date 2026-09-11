@@ -1524,6 +1524,7 @@ function bindActions() {
 
   const blogTabButtons = Array.from(document.querySelectorAll('.blog-tab-btn'));
   const shoppingTabButtons = Array.from(document.querySelectorAll('.shopping-tab-btn'));
+  const shoppingManagementTabButtons = Array.from(document.querySelectorAll('[data-shopping-management-tab]'));
   const blogTrendsDateInput = document.getElementById('blog-trends-date');
   const naverCommentDraftSaveBtn = document.getElementById('naver-comment-draft-save-btn');
   const naverCommentDraftRunBtn = document.getElementById('naver-comment-draft-run-btn');
@@ -1542,12 +1543,6 @@ function bindActions() {
   const blogTopicsNextBtn = document.getElementById('blog-topics-page-next');
   const blogTopicsQClearBtn = document.getElementById('blog-topics-q-clear-btn');
   const shoppingRefreshBtn = document.getElementById('shopping-refresh-btn');
-  const shoppingQClearBtn = document.getElementById('shopping-q-clear-btn');
-  const shoppingBatchBtn = document.getElementById('shopping-batch-btn');
-  const shoppingStatusFilter = document.getElementById('shopping-status-filter');
-  const shoppingQFilter = document.getElementById('shopping-q-filter');
-  const shoppingPrevBtn = document.getElementById('shopping-page-prev');
-  const shoppingNextBtn = document.getElementById('shopping-page-next');
   const blogStatusFilter = document.getElementById('blog-status-filter');
   const blogQFilter = document.getElementById('blog-q-filter');
   const blogTrendsTableBody = document.getElementById('blog-trends-table-body');
@@ -1559,7 +1554,6 @@ function bindActions() {
   const trendPostingExcludeRecent = document.getElementById('trend-posting-filter-exclude-recent');
   const trendPostingTableBody = document.getElementById('trend-posting-table-body');
   const blogTopicsTableBody = document.getElementById('blog-table-body');
-  const shoppingTableBody = document.getElementById('shopping-table-body');
   const sortableHeaders = Array.from(document.querySelectorAll('.data-table th.sortable'));
 
   blogTabButtons.forEach(btn => {
@@ -1567,6 +1561,14 @@ function bindActions() {
       const tabName = String(btn.dataset.blogTab || '');
       activateBlogTab(tabName, { forceReload: true });
     });
+  });
+  shoppingManagementTabButtons.forEach((button) => {
+    button.addEventListener('click', () => activateShoppingManagementTab(button.dataset.shoppingManagementTab));
+    button.addEventListener('keydown', (event) => void handleUiTabNavigationKeydown(event, {
+      selector: '[data-shopping-management-tab]',
+      dataKey: 'shoppingManagementTab',
+      activate: activateShoppingManagementTab
+    }));
   });
   trendPostingPeriod?.addEventListener('change', syncTrendPostingPeriodUi);
   trendPostingCategories?.addEventListener('click', (event) => {
@@ -1741,69 +1743,6 @@ function bindActions() {
     });
   }
   if (shoppingRefreshBtn) shoppingRefreshBtn.addEventListener('click', loadBlogShopping);
-  if (shoppingQClearBtn) {
-    shoppingQClearBtn.addEventListener('click', () => {
-      if (shoppingQFilter) shoppingQFilter.value = '';
-      setPageInfo('shopping', { offset: 0 });
-      loadBlogShopping();
-      shoppingQFilter?.focus();
-    });
-  }
-  if (shoppingBatchBtn) shoppingBatchBtn.addEventListener('click', runShoppingBatchAction);
-  const shoppingDeleteBatchBtn = document.getElementById('shopping-delete-batch-btn');
-  if (shoppingDeleteBatchBtn) {
-    shoppingDeleteBatchBtn.addEventListener('click', async () => {
-      const rowIndices = Array.from(blogShoppingSelectedRowIndices);
-      if (rowIndices.length === 0) {
-        showUiPopup('삭제할 상품을 선택해 주세요.');
-        return;
-      }
-      if (!confirm(`선택한 ${rowIndices.length}개의 상품을 삭제하시겠습니까?\n구글 시트에서도 행이 영구 삭제됩니다.`)) {
-        return;
-      }
-      const shoppingResultBox = document.getElementById('shopping-action-result');
-      if (shoppingResultBox) shoppingResultBox.textContent = '상품 삭제 중...';
-      try {
-        await postJson('/api/v1/shopping/topics/delete', { rowIndices });
-        blogShoppingSelectedRowIndices.clear();
-        updateShoppingSelectionUi();
-        await loadBlogShopping();
-        if (shoppingResultBox) shoppingResultBox.textContent = `성공: ${rowIndices.length}개의 상품을 삭제했습니다.`;
-      } catch (err) {
-        if (shoppingResultBox) shoppingResultBox.textContent = `삭제 실패: ${err.message}`;
-        showUiPopup(`삭제 실패: ${err.message}`);
-      }
-    });
-  }
-  if (shoppingStatusFilter) {
-    shoppingStatusFilter.addEventListener('change', () => {
-      setPageInfo('shopping', { offset: 0 });
-      loadBlogShopping();
-    });
-  }
-  if (shoppingQFilter) {
-    shoppingQFilter.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        setPageInfo('shopping', { offset: 0 });
-        loadBlogShopping();
-      }
-    });
-  }
-  if (shoppingPrevBtn) {
-    shoppingPrevBtn.addEventListener('click', () => {
-      const pageInfo = getPageInfo('shopping');
-      setPageInfo('shopping', { offset: Math.max(0, pageInfo.offset - pageInfo.limit) });
-      loadBlogShopping();
-    });
-  }
-  if (shoppingNextBtn) {
-    shoppingNextBtn.addEventListener('click', () => {
-      const pageInfo = getPageInfo('shopping');
-      setPageInfo('shopping', { offset: Math.max(0, pageInfo.offset + pageInfo.limit) });
-      loadBlogShopping();
-    });
-  }
   if (blogStatusFilter) {
     blogStatusFilter.addEventListener('change', () => {
       setPageInfo('topics', { offset: 0 });
@@ -1932,21 +1871,6 @@ function bindActions() {
     });
   }
 
-  const shoppingSelectAll = document.getElementById('shopping-table-select-all');
-  if (shoppingSelectAll) {
-    shoppingSelectAll.addEventListener('change', () => {
-      const checked = shoppingSelectAll.checked;
-      const selectors = Array.from(document.querySelectorAll('input.shopping-row-selector'));
-      selectors.forEach(s => {
-        s.checked = checked;
-        const rowIndex = Number(s.value);
-        if (checked) blogShoppingSelectedRowIndices.add(rowIndex);
-        else blogShoppingSelectedRowIndices.delete(rowIndex);
-      });
-      updateShoppingSelectionUi();
-    });
-  }
-
   if (blogTrendsTableBody) {
     blogTrendsTableBody.addEventListener('change', (e) => {
       const selector = e.target?.closest('input.trend-row-selector');
@@ -2013,29 +1937,6 @@ function bindActions() {
       const cell = e.target?.closest('td.editable-cell');
       if (!cell) return;
       startBlogInlineEdit(cell);
-    });
-  }
-
-  if (shoppingTableBody) {
-    shoppingTableBody.addEventListener('change', (e) => {
-      const selector = e.target?.closest('input.shopping-row-selector');
-      if (!selector) return;
-      const rowIndex = Number(selector.value);
-      if (!Number.isInteger(rowIndex) || !findShoppingByRowIndex(rowIndex)) return;
-      if (selector.checked) {
-        blogShoppingSelectedRowIndices.add(rowIndex);
-      } else {
-        blogShoppingSelectedRowIndices.delete(rowIndex);
-      }
-      updateShoppingSelectionUi();
-    });
-
-    shoppingTableBody.addEventListener('dblclick', (e) => {
-      if (e.target?.closest('input[type="checkbox"]')) return;
-      const tr = e.target?.closest('tr[data-row-index]');
-      if (!tr) return;
-      const rowIndex = Number(tr.dataset.rowIndex);
-      if (Number.isInteger(rowIndex)) openShoppingEditor(rowIndex);
     });
   }
 
