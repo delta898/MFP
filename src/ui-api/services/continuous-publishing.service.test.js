@@ -34,6 +34,11 @@ function createService(state = {}) {
                 state.appendOptions = options;
                 return { success: true, rowNumbers: [12], rowIndices: [10] };
             },
+            async appendGoogleSheetShopping(rows, options) {
+                state.appendedShoppingRows = rows;
+                state.appendShoppingOptions = options;
+                return state.shoppingAppendResult || { success: true, rowNumbers: [10], rowIndices: [8] };
+            },
             async readGoogleSheetTopicsAll(options) {
                 state.readCalls = (state.readCalls || 0) + 1;
                 state.readOptions = options;
@@ -75,6 +80,41 @@ function createService(state = {}) {
         }
     });
 }
+
+test('shopping topic capture uses the same lifecycle service boundary and always saves first', async () => {
+    const state = {};
+    const service = createService(state);
+
+    const result = await service.captureShoppingTopic({
+        shortUrl: 'https://smartstore.naver.com/example/products/1',
+        product: '테스트 상품',
+        publishMode: 'append_and_publish',
+        instruction: '가격보다 내 사용 환경을 중심으로 씁니다.',
+        writingStrategy: 'discovery',
+        contentFocus: 'usage'
+    });
+
+    assert.equal(state.appendedShoppingRows.length, 1);
+    assert.equal(state.appendedShoppingRows[0].product, '테스트 상품');
+    assert.equal(state.appendedShoppingRows[0].status, '준비');
+    assert.equal(state.appendedShoppingRows[0].writingStrategy, 'discovery');
+    assert.equal(state.appendShoppingOptions.defaultStatus, '준비');
+    assert.deepEqual(result, {
+        action: 'save', rowIndex: 8, rowNumber: 10, status: '준비'
+    });
+});
+
+test('shopping topic capture reports a persistence failure through the lifecycle boundary', async () => {
+    const state = {
+        shoppingAppendResult: { success: false, code: 'SHOPPING_APPEND_FAILED', message: 'sheet unavailable' }
+    };
+    const service = createService(state);
+
+    await assert.rejects(
+        () => service.captureShoppingTopic({ shortUrl: 'https://smartstore.naver.com/example/products/1' }),
+        (error) => error?.apiCode === 'SHOPPING_APPEND_FAILED'
+    );
+});
 
 test('automation settings remain device-local and do not activate the timer in development', () => {
     let savedDocument = null;

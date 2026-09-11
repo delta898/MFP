@@ -1444,6 +1444,38 @@ function bindActions() {
 
     return payload;
   };
+  const setShoppingQuickSaveBusy = (busy) => {
+    shoppingQuickPublishInFlight = busy;
+    if (shoppingQuickSaveBtn) {
+      shoppingQuickSaveBtn.disabled = busy;
+      shoppingQuickSaveBtn.textContent = busy ? '보관 중...' : '글감 보관';
+    }
+    if (shoppingQuickPublishBtn) shoppingQuickPublishBtn.disabled = busy;
+  };
+  const saveShoppingQuickTopic = async () => {
+    if (shoppingQuickPublishInFlight) return;
+    setShoppingQuickSaveBusy(true);
+    shoppingQuickResultEl.textContent = '';
+    shoppingQuickResultEl.dataset.level = '';
+    try {
+      const data = await postJson(
+        '/api/v1/continuous-publishing/shopping/topics',
+        buildShoppingQuickPayload('append_only')
+      );
+      const message = '글감을 보관했습니다. 언제든 계속 작성할 수 있습니다.';
+      shoppingQuickResultEl.textContent = message;
+      shoppingQuickResultEl.dataset.level = 'success';
+      showUiToast({ level: 'success', title: '글감 보관 완료', message });
+      await loadBlogShopping({ silent: true });
+      return data;
+    } catch (error) {
+      shoppingQuickResultEl.textContent = error.message || '글감을 저장하지 못했습니다.';
+      shoppingQuickResultEl.dataset.level = 'error';
+      return null;
+    } finally {
+      setShoppingQuickSaveBusy(false);
+    }
+  };
   const runShoppingQuickPublish = async (mode) => {
     if (!shoppingQuickResultEl) return;
     if (!guardUiConfigReady('쇼핑커넥트 빠른발행')) return;
@@ -1454,6 +1486,10 @@ function bindActions() {
     shoppingQuickPublishInFlight = true;
     if (shoppingQuickSaveBtn) shoppingQuickSaveBtn.disabled = true;
     if (shoppingQuickPublishBtn) shoppingQuickPublishBtn.disabled = true;
+    const saveButtonLabel = shoppingQuickSaveBtn?.textContent || '글감 보관';
+    if (mode === 'append_only' && shoppingQuickSaveBtn) {
+      shoppingQuickSaveBtn.textContent = '보관 중...';
+    }
 
     const dummyPayload = buildShoppingQuickPayload(mode);
     if (mode === 'append_and_publish') dummyPayload.operationId = crypto.randomUUID();
@@ -1461,7 +1497,10 @@ function bindActions() {
     if (!preCheck.ok) {
       shoppingQuickResultEl.textContent = preCheck.message;
       shoppingQuickPublishInFlight = false;
-      if (shoppingQuickSaveBtn) shoppingQuickSaveBtn.disabled = false;
+      if (shoppingQuickSaveBtn) {
+        shoppingQuickSaveBtn.disabled = false;
+        shoppingQuickSaveBtn.textContent = saveButtonLabel;
+      }
       if (shoppingQuickPublishBtn) shoppingQuickPublishBtn.disabled = false;
       return;
     }
@@ -1470,7 +1509,10 @@ function bindActions() {
       shoppingQuickResultEl.textContent = '⚠️ 예약 발행을 위해서는 예약 일시를 선택해야 합니다.';
       showUiPopup('예약 발행을 위해서는 예약 일시를 입력해야 합니다.');
       shoppingQuickPublishInFlight = false;
-      if (shoppingQuickSaveBtn) shoppingQuickSaveBtn.disabled = false;
+      if (shoppingQuickSaveBtn) {
+        shoppingQuickSaveBtn.disabled = false;
+        shoppingQuickSaveBtn.textContent = saveButtonLabel;
+      }
       if (shoppingQuickPublishBtn) shoppingQuickPublishBtn.disabled = false;
       return;
     }
@@ -1481,14 +1523,20 @@ function bindActions() {
         if (quota.executable === 0 || await showUiConfirm(quota.message, { title: '발행 사용량 확인', confirmText: '실행', cancelText: '취소' }) === false) {
           shoppingQuickResultEl.textContent = quota.executable === 0 ? quota.message : '발행이 취소되었습니다.';
           shoppingQuickPublishInFlight = false;
-          if (shoppingQuickSaveBtn) shoppingQuickSaveBtn.disabled = false;
+          if (shoppingQuickSaveBtn) {
+            shoppingQuickSaveBtn.disabled = false;
+            shoppingQuickSaveBtn.textContent = saveButtonLabel;
+          }
           if (shoppingQuickPublishBtn) shoppingQuickPublishBtn.disabled = false;
           return;
         }
       } catch (error) {
         shoppingQuickResultEl.textContent = `사용량 확인 실패: ${error.message}`;
         shoppingQuickPublishInFlight = false;
-        if (shoppingQuickSaveBtn) shoppingQuickSaveBtn.disabled = false;
+        if (shoppingQuickSaveBtn) {
+          shoppingQuickSaveBtn.disabled = false;
+          shoppingQuickSaveBtn.textContent = saveButtonLabel;
+        }
         if (shoppingQuickPublishBtn) shoppingQuickPublishBtn.disabled = false;
         return;
       }
@@ -1505,18 +1553,29 @@ function bindActions() {
         requestLabel: actionText,
         requestFn: () => postJson('/api/v1/shopping/quick-publish', dummyPayload)
       });
-      await Promise.all([loadDashboard(), loadBlogShopping({ silent: true })]);
+      if (mode === 'append_only') {
+        showUiToast({
+          level: 'success',
+          title: '글감 보관 완료',
+          message: '글감을 보관했습니다. 언제든 계속 작성할 수 있습니다.'
+        });
+      }
+      // Sheet 저장 성공을 먼저 확정해 알리고, 목록 갱신 실패는 저장 성공을 뒤집지 않는다.
+      await Promise.all([loadDashboard(), loadBlogShopping({ silent: true })]).catch(() => {});
     } catch (e) {
       // runWithLiveProgress에서 상세 로그/오류를 이미 표기함
     } finally {
-      if (shoppingQuickSaveBtn) shoppingQuickSaveBtn.disabled = false;
+      if (shoppingQuickSaveBtn) {
+        shoppingQuickSaveBtn.disabled = false;
+        shoppingQuickSaveBtn.textContent = saveButtonLabel;
+      }
       if (shoppingQuickPublishBtn) shoppingQuickPublishBtn.disabled = false;
       shoppingQuickPublishInFlight = false;
     }
   };
 
   if (shoppingQuickSaveBtn) {
-    shoppingQuickSaveBtn.addEventListener('click', () => runShoppingQuickPublish('append_only'));
+    shoppingQuickSaveBtn.addEventListener('click', () => void saveShoppingQuickTopic());
   }
   if (shoppingQuickPublishBtn) {
     shoppingQuickPublishBtn.addEventListener('click', () => runShoppingQuickPublish('append_and_publish'));

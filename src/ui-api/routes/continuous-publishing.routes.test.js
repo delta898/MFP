@@ -15,6 +15,10 @@ function createHarness() {
         async getDashboardResultStats() {
             calls.push('stats');
             return { schema_version: 1, periods: { today: { processed_count: 2 } } };
+        },
+        async captureShoppingTopic(body) {
+            calls.push({ shoppingTopic: body });
+            return { action: 'save', rowIndex: 3, status: '준비' };
         }
     };
     const controller = createContinuousPublishingController({
@@ -76,4 +80,20 @@ test('dashboard overview route rejects mutation methods', async () => {
     assert.deepEqual(harness.calls, []);
     assert.equal(harness.responses[0].status, 405);
     assert.equal(harness.responses[0].code, 'METHOD_NOT_ALLOWED');
+});
+
+test('shopping topic capture is served by the continuous publishing route', async () => {
+    const harness = createHarness();
+    const handled = await harness.handler({
+        pathname: '/api/v1/continuous-publishing/shopping/topics',
+        method: 'POST',
+        requestId: 'shopping-topic-1',
+        requestBody: { shortUrl: 'https://smartstore.naver.com/example/products/1' }
+    });
+
+    assert.equal(handled, true);
+    assert.deepEqual(harness.calls, [{
+        shoppingTopic: { shortUrl: 'https://smartstore.naver.com/example/products/1' }
+    }]);
+    assert.equal(harness.responses[0].data.status, '준비');
 });

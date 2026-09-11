@@ -1914,7 +1914,9 @@ const Utils = {
 
             await this.sleep(200);
             this.clearSheetCache('topics_all');
-            this.clearSheetCache('shopping_all');
+            // 목록 화면은 상태·정렬·검색 조건마다 별도 캐시 키를 사용한다.
+            // 새 글감이 즉시 어느 탭에도 보이도록 shopping 전체를 무효화한다.
+            this.clearSheetCache('shopping');
 
             // [Universal Memory] Kuzu DB에 쇼핑 아이템 기록
             for (const item of newItems) {
@@ -2221,6 +2223,7 @@ const Utils = {
                 headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
             }));
 
+            this.clearSheetCache('shopping');
             await this.sleep(500);
         } catch (e) {
             Logger.error(`❌ 쇼핑 상태 업데이트 실패 (Row ${rowIndex}): ${e.message}`);
@@ -2349,6 +2352,7 @@ const Utils = {
                 headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
             }));
 
+            this.clearSheetCache('shopping');
             await this.sleep(300);
         } catch (e) {
             Logger.error(`❌ 쇼핑 editable 필드 업데이트 실패 (Row ${rowIndex}): ${e.message}`);

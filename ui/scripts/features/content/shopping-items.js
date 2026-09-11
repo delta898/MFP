@@ -336,6 +336,16 @@ async function saveShoppingRowPatch(rowIndex, patch = {}, options = {}) {
   const resultBox = document.getElementById('shopping-action-result');
   const item = findShoppingByRowIndex(rowIndex);
   if (!item) throw new Error(`rowIndex(${rowIndex})를 찾지 못했습니다.`);
+  const previous = {
+    product: item.product,
+    shortUrl: item.shortUrl,
+    instruction: item.instruction,
+    status: item.status,
+    category: item.category,
+    postStatus: item.postStatus,
+    scheduleDate: item.scheduleDate,
+    options: { ...(item.options || {}) }
+  };
 
   // 1. 캐시를 즉시 업데이트 (race condition 방지)
   if (patch.product !== undefined) item.product = patch.product;
@@ -366,12 +376,15 @@ async function saveShoppingRowPatch(rowIndex, patch = {}, options = {}) {
   };
 
   if (!silent && resultBox) resultBox.textContent = `row ${rowIndex + 2} 수정 중...`;
-  const data = await postJson('/api/v1/shopping/row/update', payload);
-  if (!silent && resultBox) resultBox.textContent = JSON.stringify(data, null, 2);
-
-  // 3. write-lock: Google Sheets 전파 시간(~5s) 동안 loadBlogShopping가 재렌더링하지 않도록 막음
-  if (typeof blogShoppingWriteLockUntil !== 'undefined') {
-    blogShoppingWriteLockUntil = Date.now() + 6000;
+  try {
+    const data = await postJson('/api/v1/shopping/row/update', payload);
+    if (!silent && resultBox) resultBox.textContent = JSON.stringify(data, null, 2);
+    // 서버가 모든 shopping 목록 캐시를 무효화한다. 전파 확인은 조용히 한 번만 한다.
+    setTimeout(() => loadBlogShopping({ silent: true }), 750);
+    return data;
+  } catch (error) {
+    Object.assign(item, previous);
+    renderBlogShoppingTable(blogShoppingCache);
+    throw error;
   }
-  setTimeout(() => loadBlogShopping({ silent: true }), 6500);
 }

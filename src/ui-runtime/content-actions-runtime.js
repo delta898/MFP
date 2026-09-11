@@ -420,6 +420,7 @@ function createContentActionsRuntime(deps = {}) {
             await ensureSheetsReadyForUi();
             const result = await deleteSheetRows(rowIndices, CONFIG.GOOGLE_SHOPPING_SHEET || 'shopping');
             if (!result.success) return result;
+            Utils.clearSheetCache?.('shopping');
             return {
                 success: true,
                 data: {

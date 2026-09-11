@@ -37,6 +37,15 @@ function createContinuousPublishingController(deps = {}) {
             }
         },
 
+        async shoppingTopics({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.captureShoppingTopic(requestBody || {}));
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'SHOPPING_TOPIC_CAPTURE_FAILED', '쇼핑 글감 저장에 실패했습니다.', error);
+            }
+        },
+
         async queue({ requestId, method, searchParams, res }) {
             if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
             try {

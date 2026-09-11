@@ -58,3 +58,24 @@ test('shopping quick writing copy describes user actions instead of internal con
   assert.doesNotMatch(view.slice(0, view.indexOf('id="shopping-tab-batch"')), /id="shopping-quick-result"[^>]*scrollable-log/);
   assert.doesNotMatch(previewController, /확인된 상품명|상품 정보 확인/);
 });
+
+test('shopping quick save mirrors Blog Beta busy feedback and completion toast', () => {
+  const controller = read('ui/scripts/features/legacy-actions-controllers.js');
+  const blogQueue = read('ui/scripts/features/blog-next/quick-queue.js');
+  const saveStart = controller.indexOf('const saveShoppingQuickTopic');
+  const publishStart = controller.indexOf('const runShoppingQuickPublish');
+  const saveHandler = controller.slice(saveStart, publishStart);
+
+  assert.match(blogQueue, /'보관 중\.\.\.'/);
+  assert.match(saveHandler, /\/api\/v1\/continuous-publishing\/shopping\/topics/);
+  assert.doesNotMatch(saveHandler, /runWithLiveProgress|checkPublishPrerequisites|shopping\/quick-publish/);
+  assert.match(controller, /shoppingQuickSaveBtn\.textContent = busy \? '보관 중\.\.\.'/);
+  assert.match(saveHandler, /title: '글감 보관 완료'/);
+  assert.match(saveHandler, /const message = '글감을 보관했습니다\. 언제든 계속 작성할 수 있습니다\.'/);
+  assert.match(saveHandler, /setShoppingQuickSaveBusy\(false\)/);
+  assert.ok(
+    saveHandler.indexOf("title: '글감 보관 완료'")
+      < saveHandler.indexOf('await loadBlogShopping({ silent: true })'),
+    'Sheet 저장 성공 toast는 후속 목록 갱신보다 먼저 표시해야 한다'
+  );
+});

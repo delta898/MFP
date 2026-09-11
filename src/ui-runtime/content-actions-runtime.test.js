@@ -131,6 +131,28 @@ test('shopping row update rejects an overlong instruction before sheet mutation'
     assert.equal(updated, false);
 });
 
+test('shopping topic deletion invalidates every cached shopping list variant', async () => {
+    const cleared = [];
+    const runtime = createContentActionsRuntime({
+        CONFIG: { GOOGLE_SHOPPING_SHEET: 'shopping', GOOGLE_SHEET_ID: 'sheet-id' },
+        async ensureSheetsReadyForUi() { },
+        parseIntSafe: (value, fallback, min) => {
+            const parsed = Number.parseInt(value, 10);
+            return Number.isInteger(parsed) && parsed >= min ? parsed : fallback;
+        },
+        Utils: {
+            async getSheetIdByName() { return 1; },
+            async googleSheetPost() { return { spreadsheetId: 'sheet-id' }; },
+            clearSheetCache(prefix) { cleared.push(prefix); }
+        }
+    });
+
+    const result = await runtime.executeShoppingTopicsDelete({ rowIndices: [0] });
+
+    assert.equal(result.success, true);
+    assert.deepEqual(cleared, ['shopping']);
+});
+
 test('shopping row generation forwards the stored writing strategy to the content builder', async () => {
     const buildOptions = [];
     const runtime = createContentActionsRuntime({

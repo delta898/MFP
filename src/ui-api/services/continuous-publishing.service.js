@@ -1,6 +1,7 @@
 const { createApiError } = require('../errors');
 const { TOPIC_STATUS } = require('../../continuous-publishing/contract');
 const { buildTopicSheetRow } = require('../../continuous-publishing/topic-capture');
+const { buildShoppingTopicSheetRow } = require('../../continuous-publishing/shopping-topic-capture');
 const {
     createAutomationSettingsRepository,
     resolveAutomationSettingsPath,
@@ -510,6 +511,28 @@ function createContinuousPublishingService(deps = {}) {
 
             return {
                 action,
+                status: row.status,
+                rowNumber: Array.isArray(result.rowNumbers) ? result.rowNumbers[0] ?? null : null,
+                rowIndex: Array.isArray(result.rowIndices) ? result.rowIndices[0] ?? null : null
+            };
+        },
+
+        async captureShoppingTopic(requestBody = {}) {
+            let row;
+            try {
+                row = buildShoppingTopicSheetRow(requestBody);
+            } catch (error) {
+                throw createApiError(400, error.code || 'SHOPPING_TOPIC_CAPTURE_INVALID', error.message);
+            }
+            await ensureSheetsReadyForUi();
+            const result = await Utils.appendGoogleSheetShopping([row], {
+                defaultStatus: row.status
+            });
+            if (!result?.success) {
+                throw createApiError(400, result?.code || 'SHOPPING_TOPIC_CAPTURE_FAILED', result?.message || '쇼핑 글감을 저장하지 못했습니다.');
+            }
+            return {
+                action: 'save',
                 status: row.status,
                 rowNumber: Array.isArray(result.rowNumbers) ? result.rowNumbers[0] ?? null : null,
                 rowIndex: Array.isArray(result.rowIndices) ? result.rowIndices[0] ?? null : null

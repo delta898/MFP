@@ -43,7 +43,8 @@
    - 3A. 상품 URL 입력·상품 정보 확인·미리보기 — 완료 ([개발 기록](../archive/2026-09-11-design-system-shopping-connect-11-03a-product-preview-development.md))
    - 3B. 글 방향·글쓰기 및 발행 설정 — 완료 ([개발 기록](../archive/2026-09-11-design-system-shopping-connect-11-03b-writing-options-development.md))
    - 3C. Blog Beta 글쓰기 흐름을 기준으로 글감 관리 탭 UI 개편 — 완료 ([개발 기록](../archive/2026-09-11-design-system-shopping-connect-11-03c-topic-management-ui-development.md))
-4. 글감 보관·발행 대기열·바로 포스팅 생명주기 검증 및 보정
+4. 3D. 글감 보관·발행 대기열·바로 포스팅 생명주기 검증 및 보정 — 진행 중
+   ([개발 기록](./2026-09-11-design-system-shopping-connect-11-03d-lifecycle-integration-development.md))
 5. hard-coding 검사와 browser 회귀
 
 ## 진행 기록
@@ -62,6 +63,8 @@
   글감 관리 UI를 기준으로 쇼핑 글감 관리 탭을 통일한 뒤, 저장부터 발행까지의 생명주기를 검증한다.
 - slice 3C에서 기존 테이블·필터·일괄 선택을 제거하고 Blog Beta와 같은 `발행 대기열` / `보관한 글감`,
   queue card와 항목별 action 구조로 재구성했다. 연속 발행 설정은 이 범위에서 제외했다.
+- slice 3D에서는 보관·대기열·수정·삭제·발행이 같은 shopping 행을 유지하게 하고, 모든 상태 변경 뒤
+  목록 캐시를 무효화해 저장 직후 이전 목록이 다시 보이는 경합을 제거했다.
 
 ## 검증과 남은 위험
 
