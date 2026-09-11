@@ -246,6 +246,31 @@ function closeBlogTopicEditor() {
 // ── 쇼핑 팝업 편집 ──────────────────────────────────────────
 let currentShoppingEditRowIndex = null;
 
+function updateShoppingEditorSettings() {
+  const focusLabels = { auto: '자동 구성', product_intro: '상품 소개', comparison: '비교·선택 가이드', usage: '사용 상황 제안' };
+  const writingSummary = document.getElementById('shopping-edit-writing-summary');
+  const strategy = document.getElementById('shopping-edit-writing-strategy')?.value || 'search';
+  const focus = document.getElementById('shopping-edit-content-focus')?.value || 'auto';
+  if (writingSummary) writingSummary.textContent = `${strategy === 'discovery' ? '발견 중심' : '검색 중심'} · ${focusLabels[focus] || focusLabels.auto}`;
+
+  const postStatus = document.getElementById('shopping-edit-post-status')?.value || 'publish';
+  const scheduleDate = document.getElementById('shopping-edit-schedule-date');
+  const scheduleRequired = document.getElementById('shopping-edit-schedule-required');
+  if (scheduleDate) {
+    scheduleDate.disabled = postStatus !== 'schedule';
+    scheduleDate.required = postStatus === 'schedule';
+  }
+  if (scheduleRequired) scheduleRequired.hidden = postStatus !== 'schedule';
+
+  const targets = [
+    document.getElementById('shopping-edit-target-naver')?.checked ? '네이버' : '',
+    document.getElementById('shopping-edit-target-wordpress')?.checked ? '워드프레스' : ''
+  ].filter(Boolean);
+  const statusLabels = { publish: '즉시 발행', draft: '임시 저장', schedule: '예약 발행' };
+  const publishSummary = document.getElementById('shopping-edit-publish-summary');
+  if (publishSummary) publishSummary.textContent = `${targets.length ? targets.join('·') : '발행 대상 선택'} · ${statusLabels[postStatus] || '즉시 발행'}`;
+}
+
 function openShoppingEditor(rowIndex) {
   const item = findShoppingByRowIndex(rowIndex);
   if (!item) return;
@@ -256,6 +281,8 @@ function openShoppingEditor(rowIndex) {
   document.getElementById('shopping-edit-url').value = item.shortUrl || '';
   document.getElementById('shopping-edit-instruction').value = item.instruction || item.options?.instruction || '';
   document.getElementById('shopping-edit-schedule-date').value = (item.scheduleDate || '').replace(' ', 'T').substring(0, 16);
+  document.getElementById('shopping-edit-writing-strategy').value = item.writingStrategy || item.options?.writing_strategy || 'search';
+  document.getElementById('shopping-edit-content-focus').value = item.contentFocus || item.options?.content_focus || 'auto';
   const targets = Array.isArray(item.targets)
     ? item.targets
     : (Array.isArray(item.options?.platforms) ? item.options.platforms : []);
@@ -278,15 +305,9 @@ function openShoppingEditor(rowIndex) {
   document.getElementById('shopping-edit-naver-category').value = naverCategory;
   document.getElementById('shopping-edit-wordpress-category').value = wordpressCategory;
 
-  const postStatusMap = { 'publish': '즉시 발행', 'draft': '임시 저장', 'schedule': '예약 발행' };
-  const postStatusValue = item.postStatus || 'publish';
-  const postStatusText = document.getElementById('modal-shopping-post-status-text');
-  postStatusText.textContent = postStatusMap[postStatusValue] || postStatusValue;
-  postStatusText.dataset.value = postStatusValue;
-
-  const statusText = document.getElementById('modal-shopping-status-text');
-  statusText.textContent = item.status || '준비';
-  statusText.dataset.value = item.status || '준비';
+  document.getElementById('shopping-edit-post-status').value = item.postStatus || item.options?.post_status || 'publish';
+  document.getElementById('shopping-edit-status').value = item.status || '준비';
+  updateShoppingEditorSettings();
 
   document.getElementById('shopping-edit-result').textContent = '';
   document.getElementById('shopping-edit-modal-backdrop').classList.remove('hidden');
@@ -308,8 +329,10 @@ async function saveShoppingModifications() {
   const naverCategory = document.getElementById('shopping-edit-naver-category').value.trim();
   const wordpressCategory = document.getElementById('shopping-edit-wordpress-category').value.trim();
   const scheduleDate = document.getElementById('shopping-edit-schedule-date').value.replace('T', ' ');
-  const postStatus = document.getElementById('modal-shopping-post-status-text').dataset.value || 'publish';
-  const status = document.getElementById('modal-shopping-status-text').dataset.value || '준비';
+  const postStatus = document.getElementById('shopping-edit-post-status').value || 'publish';
+  const status = document.getElementById('shopping-edit-status').value || '준비';
+  const writingStrategy = document.getElementById('shopping-edit-writing-strategy').value || 'search';
+  const contentFocus = document.getElementById('shopping-edit-content-focus').value || 'auto';
   const targets = [
     document.getElementById('shopping-edit-target-naver').checked ? 'naver' : '',
     document.getElementById('shopping-edit-target-wordpress').checked ? 'wordpress' : ''
@@ -319,13 +342,17 @@ async function saveShoppingModifications() {
     resultBox.textContent = '발행 대기열로 옮기려면 포스팅 대상을 하나 이상 선택해 주세요.';
     return;
   }
+  if (postStatus === 'schedule' && !scheduleDate) {
+    resultBox.textContent = '예약 발행을 선택했다면 예약 일시를 입력해 주세요.';
+    return;
+  }
 
   const category = (naverCategory || wordpressCategory)
     ? `N:${naverCategory}, W:${wordpressCategory}`
     : '';
 
   const patch = {
-    product, shortUrl, instruction, category, postStatus, status, targets,
+    product, shortUrl, instruction, category, postStatus, status, targets, writingStrategy, contentFocus,
     scheduleDate: scheduleDate ? (scheduleDate.length === 16 ? scheduleDate + ':00' : scheduleDate) : ''
   };
 

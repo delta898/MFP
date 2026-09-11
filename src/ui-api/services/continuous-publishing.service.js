@@ -18,6 +18,7 @@ const { presentPublishingProgress, buildCompletionLinks } = require('../../conti
 const {
     CONTENT_LIFECYCLE_KIND,
     createContentLifecycleAdapterRegistry,
+    normalizeTargets,
     resolveDeliveryPlan
 } = require('../../continuous-publishing/content-lifecycle-adapter');
 
@@ -602,6 +603,14 @@ function createContinuousPublishingService(deps = {}) {
             } catch (error) {
                 throw createApiError(400, error.code || 'SHOPPING_TOPIC_CAPTURE_INVALID', error.message);
             }
+            const action = String(requestBody.action || 'save').trim().toLowerCase();
+            if (!['save', 'enqueue'].includes(action)) {
+                throw createApiError(400, 'SHOPPING_TOPIC_CAPTURE_ACTION_INVALID', '지원하지 않는 쇼핑 글감 동작입니다.');
+            }
+            if (action === 'enqueue' && normalizeTargets(requestBody.targets).length === 0) {
+                throw createApiError(400, 'SHOPPING_DELIVERY_TARGET_REQUIRED', '발행 대기열에 추가하려면 포스팅 대상을 하나 이상 선택해 주세요.');
+            }
+            if (action === 'enqueue') row.status = '발행 준비 완료';
             await ensureSheetsReadyForUi();
             const result = await Utils.appendGoogleSheetShopping([row], {
                 defaultStatus: row.status
@@ -610,7 +619,7 @@ function createContinuousPublishingService(deps = {}) {
                 throw createApiError(400, result?.code || 'SHOPPING_TOPIC_CAPTURE_FAILED', result?.message || '쇼핑 글감을 저장하지 못했습니다.');
             }
             return {
-                action: 'save',
+                action,
                 status: row.status,
                 rowNumber: Array.isArray(result.rowNumbers) ? result.rowNumbers[0] ?? null : null,
                 rowIndex: Array.isArray(result.rowIndices) ? result.rowIndices[0] ?? null : null

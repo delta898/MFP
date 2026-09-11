@@ -124,6 +124,21 @@
   align-items: flex-start;
 }
 
+.shopping-topic-editor-modal .modal-header,
+.shopping-topic-editor-modal .modal-footer {
+  border-color: var(--ui-border-default);
+  background: var(--ui-surface);
+}
+
+.shopping-topic-editor-modal .modal-footer {
+  box-shadow: var(--ui-sticky-footer-shadow);
+}
+
+.shopping-topic-editor-modal .modal-footer button.primary,
+.shopping-topic-editor-modal .modal-footer button.secondary {
+  min-height: calc(var(--ui-space-6) + var(--ui-space-6));
+}
+
 .blog-next-editor-modal-body {
   padding-bottom: 24px;
 }

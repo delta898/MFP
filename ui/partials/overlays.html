@@ -105,81 +105,55 @@
   </div>
 
   <!-- Shopping Edit Modal -->
-  <div id="shopping-edit-modal-backdrop" class="modal-backdrop hidden" data-style-scope="compatibility">
-    <div class="modal-container blog-edit-modal">
+  <div id="shopping-edit-modal-backdrop" class="modal-backdrop hidden">
+    <div class="modal-container blog-next-editor-modal-container shopping-topic-editor-modal" role="dialog" aria-modal="true" aria-labelledby="shopping-edit-title">
       <div class="modal-header">
-        <h3>상품 정보 수정</h3>
-        <button id="shopping-edit-close-btn" class="close-btn">&times;</button>
+        <h3 id="shopping-edit-title">쇼핑 글감 수정</h3>
+        <button id="shopping-edit-close-btn" class="close-btn" type="button" aria-label="닫기">&times;</button>
       </div>
-      <div class="modal-body">
-        <div class="modal-grid">
-          <div class="field-item full">
-            <label>상품명</label>
-            <input type="text" id="shopping-edit-product" placeholder="예: 에어메이드 가열식 가습기 2.0">
+      <div class="modal-body blog-next-editor-modal-body">
+        <div class="blog-next-topic-form shopping-topic-editor-form">
+          <div class="blog-next-form-grid blog-next-core-fields">
+            <label class="blog-next-field blog-next-field-wide">
+              <span>상품명</span>
+              <input type="text" id="shopping-edit-product" placeholder="예: 에어메이드 가열식 가습기 2.0">
+            </label>
+            <label class="blog-next-field blog-next-field-wide">
+              <span>상품 URL</span>
+              <input type="url" id="shopping-edit-url" placeholder="https://naver.me/...">
+            </label>
+            <label class="blog-next-field blog-next-field-wide">
+              <span>담고 싶은 경험·방향 <small>(선택)</small></span>
+              <textarea id="shopping-edit-instruction" rows="3" maxlength="1000" placeholder="직접 사용한 경험, 중요하게 본 선택 기준이나 꼭 담을 내용을 적어주세요"></textarea>
+            </label>
           </div>
-          <div class="field-item full">
-            <label>URL</label>
-            <input type="text" id="shopping-edit-url" placeholder="https://naver.me/...">
-          </div>
-          <div class="field-item full">
-            <label>참고/지시사항 (옵션)</label>
-            <textarea id="shopping-edit-instruction" rows="3" maxlength="1000"
-              placeholder="사용자가 제공한 경험이나 원하는 관점·문체를 입력하세요."></textarea>
-          </div>
-          <div class="field-item">
-            <label>네이버 카테고리</label>
-            <input type="text" id="shopping-edit-naver-category" placeholder="예: 일상/생각">
-          </div>
-          <div class="field-item">
-            <label>워드프레스 카테고리</label>
-            <input type="text" id="shopping-edit-wordpress-category" placeholder="예: Daily">
-          </div>
-          <div class="field-item">
-            <label>포스팅 옵션</label>
-            <div id="modal-shopping-post-status-container" class="custom-select-container">
-              <div id="modal-shopping-post-status-trigger" class="custom-select-trigger">
-                <span id="modal-shopping-post-status-text">즉시 발행</span>
-                <i class="chevron-down-icon"></i>
+          <div class="blog-next-disclosures">
+            <details class="blog-next-disclosure" id="shopping-edit-writing-settings">
+              <summary><strong>글 구성</strong><span id="shopping-edit-writing-summary">검색 중심 · 자동 구성</span></summary>
+              <div class="blog-next-disclosure-grid blog-next-form-grid">
+                <label class="blog-next-field"><span>글쓰기 전략</span><span class="ui-select-shell"><select id="shopping-edit-writing-strategy"><option value="search">검색 중심</option><option value="discovery">발견 중심 (피드)</option></select></span></label>
+                <label class="blog-next-field"><span>글의 초점</span><span class="ui-select-shell"><select id="shopping-edit-content-focus"><option value="auto">자동 구성</option><option value="product_intro">상품 소개</option><option value="comparison">비교·선택 가이드</option><option value="usage">사용 상황 제안</option></select></span></label>
               </div>
-              <div class="custom-select-menu">
-                <div class="custom-select-options">
-                  <div class="custom-select-option" data-value="publish">즉시 발행</div>
-                  <div class="custom-select-option" data-value="draft">임시 저장</div>
-                  <div class="custom-select-option" data-value="schedule">예약 발행</div>
-                </div>
+            </details>
+            <details class="blog-next-disclosure" id="shopping-edit-publish-settings">
+              <summary><strong>발행 설정</strong><span id="shopping-edit-publish-summary">발행 대상 선택 · 즉시 발행</span></summary>
+              <div class="blog-next-disclosure-grid blog-next-form-grid">
+                <fieldset class="blog-next-field blog-next-field-wide blog-next-targets">
+                  <legend>포스팅 대상</legend>
+                  <label><input id="shopping-edit-target-naver" type="checkbox"> 네이버 블로그</label>
+                  <label><input id="shopping-edit-target-wordpress" type="checkbox"> 워드프레스</label>
+                </fieldset>
+                <label class="blog-next-field"><span>네이버 카테고리 <small>(선택)</small></span><input type="text" id="shopping-edit-naver-category" placeholder="예: 일상/생각"></label>
+                <label class="blog-next-field"><span>워드프레스 카테고리 <small>(선택)</small></span><input type="text" id="shopping-edit-wordpress-category" placeholder="예: Daily"></label>
+                <label class="blog-next-field"><span>포스팅 옵션</span><span class="ui-select-shell"><select id="shopping-edit-post-status"><option value="publish">즉시 발행</option><option value="draft">임시 저장</option><option value="schedule">예약 발행</option></select></span></label>
+                <label class="blog-next-field"><span>예약 일시 <small id="shopping-edit-schedule-required" hidden>(필수)</small></span><input type="datetime-local" id="shopping-edit-schedule-date" disabled></label>
+                <label class="blog-next-field blog-next-field-wide"><span>글감 상태</span><span class="ui-select-shell"><select id="shopping-edit-status"><option value="준비">보관한 글감</option><option value="발행 준비 완료">발행 대기열</option><option value="발행 완료">발행 완료</option><option value="임시 저장 완료">임시 저장 완료</option><option value="예약 포스팅 등록 완료">예약 등록 완료</option></select></span></label>
               </div>
-            </div>
-          </div>
-          <div class="field-item">
-            <label>예약 일시</label>
-            <input type="datetime-local" id="shopping-edit-schedule-date" class="premium-input">
-          </div>
-          <fieldset class="field-item full">
-            <legend>포스팅 대상</legend>
-            <label><input id="shopping-edit-target-naver" type="checkbox"> 네이버 블로그</label>
-            <label><input id="shopping-edit-target-wordpress" type="checkbox"> 워드프레스</label>
-          </fieldset>
-          <div class="field-item full">
-            <label>상태</label>
-            <div id="modal-shopping-status-container" class="custom-select-container drop-up">
-              <div id="modal-shopping-status-trigger" class="custom-select-trigger">
-                <span id="modal-shopping-status-text">준비</span>
-                <i class="chevron-down-icon"></i>
-              </div>
-              <div class="custom-select-menu">
-                <div class="custom-select-options">
-                  <div class="custom-select-option" data-value="준비">준비</div>
-                  <div class="custom-select-option" data-value="발행 준비 완료">발행 준비 완료</div>
-                  <div class="custom-select-option" data-value="발행 완료">발행 완료</div>
-                  <div class="custom-select-option" data-value="임시 저장 완료">임시 저장 완료</div>
-                  <div class="custom-select-option" data-value="예약 포스팅 등록 완료">예약 포스팅 등록 완료</div>
-                </div>
-              </div>
-            </div>
+            </details>
           </div>
         </div>
       </div>
-      <div class="modal-footer">
+      <div class="modal-footer blog-next-editor-modal-actions">
         <div id="shopping-edit-result" class="action-result"></div>
         <div class="actions">
           <button id="shopping-edit-cancel-btn" class="secondary">취소</button>

@@ -941,6 +941,8 @@ function createContentActionsRuntime(deps = {}) {
         const category = requestBody?.category !== undefined ? String(requestBody.category || '').trim() : undefined;
         const postStatus = requestBody?.postStatus !== undefined ? String(requestBody.postStatus || '').trim() : undefined;
         const scheduleDate = requestBody?.scheduleDate !== undefined ? String(requestBody.scheduleDate || '').trim() : undefined;
+        const writingStrategy = requestBody?.writingStrategy !== undefined ? String(requestBody.writingStrategy || '').trim() : undefined;
+        const contentFocus = requestBody?.contentFocus !== undefined ? String(requestBody.contentFocus || '').trim() : undefined;
         const targets = requestBody?.targets !== undefined
             ? Array.from(new Set((Array.isArray(requestBody.targets) ? requestBody.targets : String(requestBody.targets || '').split(','))
                 .map((target) => String(target || '').trim().toLowerCase())
@@ -971,6 +973,8 @@ function createContentActionsRuntime(deps = {}) {
                 category,
                 postStatus,
                 scheduleDate,
+                writingStrategy,
+                contentFocus,
                 targets
             });
             return {

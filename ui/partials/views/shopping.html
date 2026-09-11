@@ -39,7 +39,13 @@
             <section class="shopping-quick-preview" id="shopping-quick-preview" data-state="empty"
               aria-labelledby="shopping-quick-preview-heading" aria-live="polite">
               <div class="shopping-quick-preview-empty" id="shopping-quick-preview-empty">
-                <span class="shopping-quick-preview-icon" aria-hidden="true">▧</span>
+                <span class="shopping-quick-preview-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" focusable="false">
+                    <path d="M6.5 8.5h11l-.7 10H7.2l-.7-10Z" />
+                    <path d="M9 9V6.8a3 3 0 0 1 6 0V9" />
+                    <path d="M10 13h4" />
+                  </svg>
+                </span>
                 <div>
                   <h3 id="shopping-quick-preview-heading">상품 URL을 입력해 주세요</h3>
                   <p>불러온 상품 정보를 바탕으로 쇼핑 글을 만들 수 있습니다.</p>
@@ -172,6 +178,7 @@
           </div>
           <div class="blog-next-form-actions shopping-quick-actions">
             <button id="shopping-quick-save-btn" class="secondary" type="button">글감 보관</button>
+            <button id="shopping-quick-enqueue-btn" class="secondary" type="button">발행 대기열에 추가</button>
             <button id="shopping-quick-publish-btn" class="primary" type="button">바로 포스팅</button>
           </div>
         </div>

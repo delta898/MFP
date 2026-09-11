@@ -215,11 +215,15 @@ test('shopping row update forwards normalized posting targets to the sheet optio
 
     const result = await runtime.executeShoppingRowUpdate({
         rowIndex: 0,
-        targets: [' wordpress ', 'naver', 'unsupported', 'naver']
+        targets: [' wordpress ', 'naver', 'unsupported', 'naver'],
+        writingStrategy: 'discovery',
+        contentFocus: 'comparison'
     });
 
     assert.equal(result.success, true);
     assert.deepEqual(received.targets, ['wordpress', 'naver']);
+    assert.equal(received.writingStrategy, 'discovery');
+    assert.equal(received.contentFocus, 'comparison');
 });
 
 test('shopping topic deletion invalidates every cached shopping list variant', async () => {

@@ -237,7 +237,8 @@ button.ghost:disabled {
 }
 
 .blog-next-form-actions button:disabled {
-  cursor: wait;
+  /* Disabled because input is incomplete, not because an action is running. */
+  cursor: not-allowed;
   opacity: var(--ui-button-disabled-opacity);
 }
 

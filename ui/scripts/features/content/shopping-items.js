@@ -395,6 +395,8 @@ async function saveShoppingRowPatch(rowIndex, patch = {}, options = {}) {
     category: item.category,
     postStatus: item.postStatus,
     scheduleDate: item.scheduleDate,
+    writingStrategy: item.writingStrategy,
+    contentFocus: item.contentFocus,
     targets: [...getShoppingManagementTargets(item)],
     options: { ...(item.options || {}) }
   };
@@ -419,6 +421,8 @@ async function saveShoppingRowPatch(rowIndex, patch = {}, options = {}) {
   if (patch.category !== undefined) item.category = patch.category;
   if (patch.postStatus !== undefined) item.postStatus = patch.postStatus;
   if (patch.scheduleDate !== undefined) item.scheduleDate = patch.scheduleDate;
+  if (patch.writingStrategy !== undefined) item.writingStrategy = patch.writingStrategy;
+  if (patch.contentFocus !== undefined) item.contentFocus = patch.contentFocus;
   if (patch.targets !== undefined) {
     item.targets = [...getShoppingManagementTargets({ targets: patch.targets })];
     item.options = { ...(item.options || {}), platforms: [...item.targets] };
@@ -436,6 +440,8 @@ async function saveShoppingRowPatch(rowIndex, patch = {}, options = {}) {
     category: patch.category !== undefined ? String(patch.category || '').trim() : item.category,
     postStatus: patch.postStatus !== undefined ? String(patch.postStatus || '').trim() : item.postStatus,
     scheduleDate: patch.scheduleDate !== undefined ? String(patch.scheduleDate || '').trim() : item.scheduleDate,
+    writingStrategy: patch.writingStrategy !== undefined ? String(patch.writingStrategy || '').trim() : item.writingStrategy,
+    contentFocus: patch.contentFocus !== undefined ? String(patch.contentFocus || '').trim() : item.contentFocus,
     targets: nextTargets
   };
 

@@ -94,7 +94,7 @@ test('non-target views opt into compatibility containment explicitly', () => {
   assert.match(compatibility, /\[data-style-scope="compatibility"\]/);
   assert.match(aliases, /\[data-style-scope="compatibility"\]/);
   assert.match(html, /id="blog-edit-modal-backdrop"[^>]*data-style-scope="compatibility"/);
-  assert.match(html, /id="shopping-edit-modal-backdrop"[^>]*data-style-scope="compatibility"/);
+  assert.doesNotMatch(html, /id="shopping-edit-modal-backdrop"[^>]*data-style-scope="compatibility"/);
 });
 
 test('shared action pattern keeps one filled primary and lower-emphasis alternatives', () => {

@@ -42,6 +42,7 @@ function setShoppingQuickPreviewState(state, options = {}) {
   if (errorMessage && state === 'error') {
     errorMessage.textContent = String(options.message || 'URL을 확인하거나 상품명을 직접 입력해 주세요.');
   }
+  if (typeof window.updateShoppingQuickActionAvailability === 'function') window.updateShoppingQuickActionAvailability();
 }
 
 function resetShoppingQuickPreview() {
@@ -146,6 +147,10 @@ function initShoppingQuickPreview() {
 
   button.addEventListener('click', () => void requestShoppingQuickPreview());
   urlInput.addEventListener('input', resetShoppingQuickPreview);
+  document.getElementById('shopping-quick-product')?.addEventListener('input', () => {
+    if (typeof window.updateShoppingQuickActionAvailability === 'function') window.updateShoppingQuickActionAvailability();
+  });
+  if (typeof window.updateShoppingQuickActionAvailability === 'function') window.updateShoppingQuickActionAvailability();
   urlInput.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter') return;
     event.preventDefault();

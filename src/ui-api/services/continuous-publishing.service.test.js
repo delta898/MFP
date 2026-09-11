@@ -137,6 +137,35 @@ test('shopping topic capture reports a persistence failure through the lifecycle
     );
 });
 
+test('shopping enqueue saves a ready topic with its persisted delivery plan', async () => {
+    const state = {};
+    const service = createService(state);
+
+    const result = await service.captureShoppingTopic({
+        action: 'enqueue',
+        shortUrl: 'https://smartstore.naver.com/example/products/1',
+        product: '대기열 상품',
+        targets: ['naver'],
+        postStatus: 'draft'
+    });
+
+    assert.equal(result.action, 'enqueue');
+    assert.equal(result.status, '발행 준비 완료');
+    assert.equal(state.appendedShoppingRows[0].status, '발행 준비 완료');
+    assert.deepEqual(state.appendedShoppingRows[0].targets, ['naver']);
+});
+
+test('shopping enqueue refuses a topic without a delivery target', async () => {
+    const state = {};
+    const service = createService(state);
+
+    await assert.rejects(
+        () => service.captureShoppingTopic({ action: 'enqueue', shortUrl: 'https://smartstore.naver.com/example/products/1' }),
+        (error) => error?.apiCode === 'SHOPPING_DELIVERY_TARGET_REQUIRED'
+    );
+    assert.equal(state.appendedShoppingRows, undefined);
+});
+
 test('Shopping lifecycle runner executes one ready row with its persisted delivery plan', async () => {
     const state = {
         shoppingItems: [{

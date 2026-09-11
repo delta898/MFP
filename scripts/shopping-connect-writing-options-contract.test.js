@@ -42,7 +42,9 @@ test('shopping quick writing styles use semantic tokens for the new controls', (
   assert.match(view, /class="blog-next-disclosures shopping-quick-disclosures"/);
   assert.match(view, /class="blog-next-disclosure" id="shopping-quick-writing-settings"/);
   assert.match(view, /class="blog-next-form-actions shopping-quick-actions"/);
+  assert.match(view, /class="shopping-quick-preview-icon"[\s\S]*?<svg viewBox="0 0 24 24"/);
   assert.match(css, /var\(--ui-border-default\)/);
+  assert.match(css, /\.shopping-quick-preview-icon svg[\s\S]*?stroke:\s*currentColor/);
   assert.doesNotMatch(css, /--ui-control-height-lg|--ui-border-subtle/);
 });
 
@@ -77,5 +79,32 @@ test('shopping quick save mirrors Blog Beta busy feedback and completion toast',
     saveHandler.indexOf("title: '글감 보관 완료'")
       < saveHandler.indexOf('await loadBlogShopping({ silent: true })'),
     'Sheet 저장 성공 toast는 후속 목록 갱신보다 먼저 표시해야 한다'
+  );
+});
+
+test('shopping quick writing provides the same save enqueue publish action set as Blog Beta', () => {
+  const html = read('ui/partials/views/shopping.html');
+  const source = read('ui/scripts/features/legacy-actions-controllers.js');
+
+  assert.match(html, /id="shopping-quick-save-btn"[^>]*>글감 보관/);
+  assert.match(html, /id="shopping-quick-enqueue-btn"[^>]*>발행 대기열에 추가/);
+  assert.match(html, /id="shopping-quick-publish-btn"[^>]*>바로 포스팅/);
+  assert.match(source, /const enqueueShoppingQuickTopic = async/);
+  assert.match(source, /action: 'enqueue'/);
+});
+
+test('shopping quick actions stay disabled until their saved input plan is actionable', () => {
+  const source = read('ui/scripts/features/legacy-actions-controllers.js');
+  const preview = read('ui/scripts/features/content/shopping-quick-preview.js');
+  const actionStyles = read('ui/styles/patterns/actions.css');
+
+  assert.match(source, /window\.updateShoppingQuickActionAvailability/);
+  assert.match(source, /shoppingQuickSaveBtn\.disabled = busy \|\| !baseReady/);
+  assert.match(source, /shoppingQuickEnqueueBtn\.disabled = busy \|\| !baseReady \|\| !hasTarget \|\| !hasSchedule/);
+  assert.match(source, /shoppingQuickPublishBtn\.disabled = busy \|\| !baseReady \|\| !hasTarget \|\| !hasSchedule/);
+  assert.match(preview, /updateShoppingQuickActionAvailability\(\)/);
+  assert.match(
+    actionStyles,
+    /\.blog-next-form-actions button:disabled\s*\{[\s\S]*?cursor:\s*not-allowed;/
   );
 });

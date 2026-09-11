@@ -55,6 +55,7 @@ function updateShoppingQuickSettingsSummaries() {
   const status = document.getElementById('shopping-quick-wp-post-status')?.value || 'publish';
   const statusLabel = status === 'draft' ? '임시 저장' : (status === 'schedule' ? '예약 발행' : '즉시 발행');
   publishSummary.textContent = `${targets.length > 0 ? targets.join('·') : '발행 대상 선택'} · ${statusLabel}`;
+  if (typeof updateShoppingQuickActionAvailability === 'function') updateShoppingQuickActionAvailability();
 }
 
 // Shopping quick publish - localStorage 지속

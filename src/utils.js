@@ -2336,6 +2336,8 @@ const Utils = {
                     category: fields.category,
                     postStatus: fields.postStatus,
                     scheduleDate: fields.scheduleDate,
+                    writingStrategy: fields.writingStrategy,
+                    contentFocus: fields.contentFocus,
                     targets: fields.targets
                 });
                 dataToUpdate.push({

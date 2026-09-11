@@ -76,7 +76,13 @@ test('shopping editor saves the posting targets used by the management queue', (
 
   assert.match(overlays, /id="shopping-edit-target-naver"/);
   assert.match(overlays, /id="shopping-edit-target-wordpress"/);
+  assert.match(overlays, /blog-next-disclosure" id="shopping-edit-writing-settings"/);
+  assert.match(overlays, /blog-next-disclosure" id="shopping-edit-publish-settings"/);
+  assert.match(overlays, /id="shopping-edit-writing-strategy"/);
+  assert.match(overlays, /id="shopping-edit-content-focus"/);
+  assert.match(overlays, /id="shopping-edit-post-status"/);
   assert.match(editor, /const targets = \[/);
   assert.match(editor, /status === '발행 준비 완료' && targets\.length === 0/);
   assert.match(editor, /product, shortUrl, instruction, category, postStatus, status, targets/);
+  assert.match(editor, /writingStrategy, contentFocus/);
 });

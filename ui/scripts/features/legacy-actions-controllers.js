@@ -1412,10 +1412,25 @@ function bindActions() {
   if (typeof initShoppingQuickPreview === 'function') initShoppingQuickPreview();
 
   const shoppingQuickSaveBtn = document.getElementById('shopping-quick-save-btn');
+  const shoppingQuickEnqueueBtn = document.getElementById('shopping-quick-enqueue-btn');
   const shoppingQuickPublishBtn = document.getElementById('shopping-quick-publish-btn');
   const shoppingQuickResultEl = document.getElementById('shopping-quick-result');
   const shoppingQuickUrlInput = document.getElementById('shopping-quick-url');
   const shoppingQuickProductInput = document.getElementById('shopping-quick-product');
+  window.updateShoppingQuickActionAvailability = () => {
+    const previewState = document.getElementById('shopping-quick-preview')?.dataset.state || 'empty';
+    const hasUrl = /^https?:\/\//i.test((shoppingQuickUrlInput?.value || '').trim());
+    const hasProduct = previewState === 'success' || Boolean((shoppingQuickProductInput?.value || '').trim());
+    const baseReady = hasUrl && hasProduct;
+    const hasTarget = Boolean(document.getElementById('shopping-quick-target-naver')?.checked)
+      || Boolean(document.getElementById('shopping-quick-target-wordpress')?.checked);
+    const postStatus = document.getElementById('shopping-quick-wp-post-status')?.value || 'publish';
+    const hasSchedule = postStatus !== 'schedule' || Boolean(document.getElementById('shopping-quick-wp-schedule-date')?.value);
+    const busy = shoppingQuickPublishInFlight;
+    if (shoppingQuickSaveBtn) shoppingQuickSaveBtn.disabled = busy || !baseReady;
+    if (shoppingQuickEnqueueBtn) shoppingQuickEnqueueBtn.disabled = busy || !baseReady || !hasTarget || !hasSchedule;
+    if (shoppingQuickPublishBtn) shoppingQuickPublishBtn.disabled = busy || !baseReady || !hasTarget || !hasSchedule;
+  };
   const buildShoppingQuickPayload = (mode) => {
     const targets = [];
     if (document.getElementById('shopping-quick-target-naver')?.checked) targets.push('naver');
@@ -1451,6 +1466,11 @@ function bindActions() {
       shoppingQuickSaveBtn.textContent = busy ? '보관 중...' : '글감 보관';
     }
     if (shoppingQuickPublishBtn) shoppingQuickPublishBtn.disabled = busy;
+    if (shoppingQuickEnqueueBtn) {
+      shoppingQuickEnqueueBtn.disabled = busy;
+      shoppingQuickEnqueueBtn.textContent = busy ? '추가 중...' : '발행 대기열에 추가';
+    }
+    if (!busy) updateShoppingQuickActionAvailability();
   };
   const saveShoppingQuickTopic = async () => {
     if (shoppingQuickPublishInFlight) return;
@@ -1485,6 +1505,7 @@ function bindActions() {
     }
     shoppingQuickPublishInFlight = true;
     if (shoppingQuickSaveBtn) shoppingQuickSaveBtn.disabled = true;
+    if (shoppingQuickEnqueueBtn) shoppingQuickEnqueueBtn.disabled = true;
     if (shoppingQuickPublishBtn) shoppingQuickPublishBtn.disabled = true;
     const saveButtonLabel = shoppingQuickSaveBtn?.textContent || '글감 보관';
     if (mode === 'append_only' && shoppingQuickSaveBtn) {
@@ -1501,7 +1522,7 @@ function bindActions() {
         shoppingQuickSaveBtn.disabled = false;
         shoppingQuickSaveBtn.textContent = saveButtonLabel;
       }
-      if (shoppingQuickPublishBtn) shoppingQuickPublishBtn.disabled = false;
+      updateShoppingQuickActionAvailability();
       return;
     }
 
@@ -1513,7 +1534,7 @@ function bindActions() {
         shoppingQuickSaveBtn.disabled = false;
         shoppingQuickSaveBtn.textContent = saveButtonLabel;
       }
-      if (shoppingQuickPublishBtn) shoppingQuickPublishBtn.disabled = false;
+      updateShoppingQuickActionAvailability();
       return;
     }
 
@@ -1527,7 +1548,7 @@ function bindActions() {
             shoppingQuickSaveBtn.disabled = false;
             shoppingQuickSaveBtn.textContent = saveButtonLabel;
           }
-          if (shoppingQuickPublishBtn) shoppingQuickPublishBtn.disabled = false;
+          updateShoppingQuickActionAvailability();
           return;
         }
       } catch (error) {
@@ -1537,7 +1558,7 @@ function bindActions() {
           shoppingQuickSaveBtn.disabled = false;
           shoppingQuickSaveBtn.textContent = saveButtonLabel;
         }
-        if (shoppingQuickPublishBtn) shoppingQuickPublishBtn.disabled = false;
+        updateShoppingQuickActionAvailability();
         return;
       }
     }
@@ -1569,17 +1590,46 @@ function bindActions() {
         shoppingQuickSaveBtn.disabled = false;
         shoppingQuickSaveBtn.textContent = saveButtonLabel;
       }
-      if (shoppingQuickPublishBtn) shoppingQuickPublishBtn.disabled = false;
+      updateShoppingQuickActionAvailability();
       shoppingQuickPublishInFlight = false;
+    }
+  };
+
+  const enqueueShoppingQuickTopic = async () => {
+    if (shoppingQuickPublishInFlight) return;
+    setShoppingQuickSaveBusy(true);
+    shoppingQuickResultEl.textContent = '';
+    shoppingQuickResultEl.dataset.level = '';
+    try {
+      const data = await postJson('/api/v1/continuous-publishing/shopping/topics', {
+        ...buildShoppingQuickPayload('enqueue'),
+        action: 'enqueue'
+      });
+      const message = '글감을 발행 대기열에 추가했습니다. 대기열에서 순서를 확인할 수 있습니다.';
+      shoppingQuickResultEl.textContent = message;
+      shoppingQuickResultEl.dataset.level = 'success';
+      showUiToast({ level: 'success', title: '발행 대기열 추가 완료', message });
+      await loadBlogShopping({ silent: true });
+      return data;
+    } catch (error) {
+      shoppingQuickResultEl.textContent = error.message || '발행 대기열에 추가하지 못했습니다.';
+      shoppingQuickResultEl.dataset.level = 'error';
+      return null;
+    } finally {
+      setShoppingQuickSaveBusy(false);
     }
   };
 
   if (shoppingQuickSaveBtn) {
     shoppingQuickSaveBtn.addEventListener('click', () => void saveShoppingQuickTopic());
   }
+  if (shoppingQuickEnqueueBtn) {
+    shoppingQuickEnqueueBtn.addEventListener('click', () => void enqueueShoppingQuickTopic());
+  }
   if (shoppingQuickPublishBtn) {
     shoppingQuickPublishBtn.addEventListener('click', () => runShoppingQuickPublish('append_and_publish'));
   }
+  updateShoppingQuickActionAvailability();
 
   const blogTabButtons = Array.from(document.querySelectorAll('.blog-tab-btn'));
   const shoppingTabButtons = Array.from(document.querySelectorAll('.shopping-tab-btn'));
@@ -2014,31 +2064,8 @@ function bindActions() {
     });
   }
 
-  // Custom Select Triggers within Shopping Modal
-  ['modal-shopping-post-status', 'modal-shopping-status'].forEach(id => {
-    const trigger = document.getElementById(`${id}-trigger`);
-    const container = document.getElementById(`${id}-container`);
-    if (trigger && container) {
-      trigger.onclick = (e) => {
-        e.stopPropagation();
-        document.querySelectorAll('.custom-select-container.open').forEach(el => {
-          if (el !== container) el.classList.remove('open');
-        });
-        container.classList.toggle('open');
-      };
-      const options = container.querySelectorAll('.custom-select-option');
-      options.forEach(opt => {
-        opt.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const val = opt.dataset.value;
-          const text = opt.textContent;
-          const textEl = document.getElementById(`${id}-text`);
-          if (textEl) { textEl.textContent = text; textEl.dataset.value = val; }
-          container.classList.remove('open');
-        });
-      });
-    }
-  });
+  ['shopping-edit-writing-strategy', 'shopping-edit-content-focus', 'shopping-edit-post-status', 'shopping-edit-target-naver', 'shopping-edit-target-wordpress']
+    .forEach(id => document.getElementById(id)?.addEventListener('change', updateShoppingEditorSettings));
 
   sortableHeaders.forEach((th) => {
     const onSort = () => {

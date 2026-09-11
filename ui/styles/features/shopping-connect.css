@@ -77,8 +77,24 @@
 }
 
 .shopping-quick-preview-icon {
-  color: var(--ui-text-muted);
-  font-size: 28px;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--ui-action-primary) 22%, var(--ui-border-default));
+  border-radius: var(--ui-radius-full);
+  background: color-mix(in srgb, var(--ui-action-primary-soft) 74%, var(--ui-surface));
+  color: var(--ui-action-primary);
+}
+
+.shopping-quick-preview-icon svg {
+  width: 25px;
+  height: 25px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
 }
 
 .shopping-quick-preview-spinner {
