@@ -15,6 +15,20 @@ function hasShoppingValue(value) {
     return String(value).trim().length > 0;
 }
 
+const SHOPPING_CONTENT_FOCUS_LABELS = Object.freeze({
+    auto: '자동 구성',
+    product_intro: '상품 소개',
+    comparison: '비교·선택 가이드',
+    usage: '사용 상황 제안'
+});
+
+function normalizeShoppingContentFocus(value) {
+    const normalized = String(value || '').trim().toLowerCase();
+    return Object.prototype.hasOwnProperty.call(SHOPPING_CONTENT_FOCUS_LABELS, normalized)
+        ? normalized
+        : 'auto';
+}
+
 function selectShoppingEditorialPlan(product = {}) {
     const commerceData = product.commerceData || {};
     const reviewData = product.reviewData || {};
@@ -46,7 +60,12 @@ function selectShoppingEditorialPlan(product = {}) {
 }
 
 function buildShoppingEditorialPlanPrompt(product = {}, options = {}) {
-    const selectedPlan = selectShoppingEditorialPlan(product);
+    const contentFocus = normalizeShoppingContentFocus(options.contentFocus || options.content_focus);
+    const selectedPlan = {
+        product_intro: 'balanced_guide',
+        comparison: 'decision_checklist',
+        usage: 'situation_first'
+    }[contentFocus] || selectShoppingEditorialPlan(product);
     const hasInstruction = Boolean(String(options.instruction || '').trim());
     const plans = {
         conditions_first: {
@@ -79,6 +98,7 @@ function buildShoppingEditorialPlanPrompt(product = {}, options = {}) {
 
     return [
         '[이번 글의 편집 구성]',
+        `- 글의 초점: ${SHOPPING_CONTENT_FOCUS_LABELS[contentFocus]}`,
         `- 선택 구성: ${plan.label}`,
         `- 도입 방향: ${plan.intro}`,
         `- 권장 흐름: ${plan.flow}`,
@@ -92,6 +112,7 @@ function buildShoppingEditorialPlanPrompt(product = {}, options = {}) {
 }
 
 module.exports = {
+    normalizeShoppingContentFocus,
     selectShoppingEditorialPlan,
     buildShoppingEditorialPlanPrompt
 };

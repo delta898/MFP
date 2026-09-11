@@ -1488,6 +1488,15 @@ function createPublishActionsRuntime(deps = {}) {
         const shortUrl = String(requestBody?.shortUrl || requestBody?.url || '').trim();
         const product = String(requestBody?.product || '').trim();
         const instruction = String(requestBody?.instruction || '').trim();
+        const rawWritingStrategy = String(requestBody?.writingStrategy || '').trim().toLowerCase();
+        if (rawWritingStrategy && !['search', 'discovery'].includes(rawWritingStrategy)) {
+            return { success: false, code: 'INVALID_WRITING_STRATEGY', message: '글쓰기 전략 값이 올바르지 않습니다.' };
+        }
+        const writingStrategy = normalizeWritingStrategyOverride(rawWritingStrategy);
+        const contentFocus = String(requestBody?.contentFocus || 'auto').trim().toLowerCase();
+        if (!['auto', 'product_intro', 'comparison', 'usage'].includes(contentFocus)) {
+            return { success: false, code: 'INVALID_SHOPPING_CONTENT_FOCUS', message: '글의 초점 값이 올바르지 않습니다.' };
+        }
         const publishMode = normalizePublishMode(requestBody?.publishMode);
         const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : Boolean(CONFIG.HEADLESS);
         const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
@@ -1536,7 +1545,9 @@ function createPublishActionsRuntime(deps = {}) {
             status: appendStatus,
             category: categoryField,
             postStatus,
-            scheduleDate
+            scheduleDate,
+            writingStrategy,
+            contentFocus
         }], {
             defaultStatus: appendStatus
         });

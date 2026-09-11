@@ -16,20 +16,22 @@
             aria-selected="false" aria-controls="shopping-tab-batch" tabindex="-1" data-shopping-tab="batch">글감 관리</button>
         </div>
 
-        <div class="card form-card shopping-tab-panel active blog-quick-panel" id="shopping-tab-quick" role="tabpanel"
+        <div class="card form-card shopping-tab-panel blog-next-panel active" id="shopping-tab-quick" role="tabpanel"
           aria-labelledby="shopping-tab-button-quick">
-          <div class="blog-quick-head shopping-quick-panel-intro">
-            <h2>상품 정보부터 확인</h2>
-            <p>상품 페이지를 확인한 뒤 이 상품에 맞는 쇼핑 글을 준비합니다.</p>
+          <div class="blog-next-panel-lead blog-next-panel-intro shopping-quick-panel-intro">
+            <div class="blog-next-panel-intro-copy">
+              <h2>상품으로 글 만들기</h2>
+              <p>상품 URL을 불러와 원하는 방향의 쇼핑 글을 준비하세요.</p>
+            </div>
           </div>
 
           <div class="shopping-quick-source">
-            <label class="blog-quick-field shopping-quick-url-field">
-              <span class="blog-quick-label">상품 URL <small>(필수)</small></span>
+            <label class="blog-next-field shopping-quick-url-field">
+              <span>상품 URL <small>(필수)</small></span>
               <span class="shopping-quick-url-action-row">
                 <input id="shopping-quick-url" type="url" inputmode="url" autocomplete="url"
                   aria-describedby="shopping-quick-url-hint" placeholder="https://naver.me/...">
-                <button id="shopping-quick-preview-btn" class="secondary" type="button" aria-busy="false">상품 정보 확인</button>
+                <button id="shopping-quick-preview-btn" class="secondary" type="button" aria-busy="false">상품 불러오기</button>
               </span>
               <small id="shopping-quick-url-hint">네이버 쇼핑의 상품 페이지 또는 단축 URL을 입력하세요.</small>
             </label>
@@ -39,19 +41,19 @@
               <div class="shopping-quick-preview-empty" id="shopping-quick-preview-empty">
                 <span class="shopping-quick-preview-icon" aria-hidden="true">▧</span>
                 <div>
-                  <h3 id="shopping-quick-preview-heading">확인할 상품을 기다리고 있습니다</h3>
-                  <p>URL을 입력하고 상품 정보를 확인해 주세요.</p>
+                  <h3 id="shopping-quick-preview-heading">상품 URL을 입력해 주세요</h3>
+                  <p>불러온 상품 정보를 바탕으로 쇼핑 글을 만들 수 있습니다.</p>
                 </div>
               </div>
               <div class="shopping-quick-preview-loading" id="shopping-quick-preview-loading" hidden>
                 <span class="shopping-quick-preview-spinner" aria-hidden="true"></span>
                 <div>
-                  <h3>상품 정보를 확인하는 중입니다</h3>
-                  <p>상품 페이지와 대표 정보를 불러오고 있습니다.</p>
+                  <h3>상품을 불러오는 중입니다</h3>
+                  <p>글에 사용할 상품 정보를 준비하고 있습니다.</p>
                 </div>
               </div>
               <div class="shopping-quick-preview-error" id="shopping-quick-preview-error" role="alert" hidden>
-                <strong>상품 정보를 자동으로 확인하지 못했습니다.</strong>
+                <strong>상품을 불러오지 못했습니다.</strong>
                 <span id="shopping-quick-preview-error-message">URL을 확인하거나 상품명을 직접 입력해 주세요.</span>
               </div>
               <article class="shopping-quick-preview-card" id="shopping-quick-preview-card" hidden>
@@ -60,8 +62,8 @@
                   <span id="shopping-quick-preview-image-empty" aria-hidden="true">이미지 없음</span>
                 </div>
                 <div class="shopping-quick-preview-copy">
-                  <span class="shopping-quick-preview-kicker">확인된 상품</span>
-                  <h3 id="shopping-quick-preview-title">상품명 확인 중</h3>
+                  <span class="shopping-quick-preview-kicker">선택한 상품</span>
+                  <h3 id="shopping-quick-preview-title">상품명</h3>
                   <dl class="shopping-quick-preview-facts">
                     <div><dt>판매가</dt><dd id="shopping-quick-preview-price">-</dd></div>
                     <div><dt>할인</dt><dd id="shopping-quick-preview-discount">-</dd></div>
@@ -72,65 +74,106 @@
               </article>
             </section>
 
-            <label class="blog-quick-field shopping-quick-product-field" id="shopping-quick-product-field" hidden>
-              <span class="blog-quick-label" id="shopping-quick-product-label">확인된 상품명</span>
+            <label class="blog-next-field shopping-quick-product-field" id="shopping-quick-product-field" hidden>
+              <span id="shopping-quick-product-label">상품명</span>
               <input id="shopping-quick-product" type="text" maxlength="200"
                 aria-describedby="shopping-quick-product-hint" placeholder="예: 에어메이드 가열식 가습기 2.0">
-              <small id="shopping-quick-product-hint">상품명이 다르면 실제 상품에 맞게 수정할 수 있습니다.</small>
+              <small id="shopping-quick-product-hint">필요하면 글에 사용할 상품명을 수정하세요.</small>
             </label>
           </div>
 
-          <div class="blog-quick-grid shopping-quick-writing-fields">
-            <label class="blog-quick-field blog-quick-field-full">
-              <span class="blog-quick-label">참고/지시사항 (옵션)</span>
-              <textarea id="shopping-quick-instruction" rows="3" maxlength="1000"
-                placeholder="예: 초보자 관점에서 설명하고, 가격보다 휴대성과 편의성을 중심으로 작성"></textarea>
-            </label>
+          <label class="blog-next-field shopping-quick-direction-field">
+            <span>담고 싶은 경험·방향 <small>(선택)</small></span>
+            <textarea id="shopping-quick-instruction" rows="3" maxlength="1000"
+              placeholder="직접 사용한 경험, 중요하게 본 선택 기준이나 꼭 담을 내용을 적어주세요"></textarea>
+          </label>
 
-            <label class="blog-quick-field blog-quick-field-half">
-              <span class="blog-quick-label">네이버 카테고리</span>
-              <input type="text" id="shopping-quick-naver-category" placeholder="예: 일상/생각">
-            </label>
+          <div class="blog-next-disclosures shopping-quick-disclosures">
+            <details class="blog-next-disclosure" id="shopping-quick-writing-settings">
+              <summary>
+                <strong>글 구성</strong>
+                <span id="shopping-quick-writing-summary">검색 중심 · 자동 구성</span>
+              </summary>
+              <div class="blog-next-disclosure-grid blog-next-form-grid">
+                <label class="blog-next-field">
+                  <span>글쓰기 전략</span>
+                  <span class="ui-select-shell">
+                    <select id="shopping-quick-writing-strategy">
+                      <option value="search">검색 중심</option>
+                      <option value="discovery">발견 중심 (피드)</option>
+                    </select>
+                  </span>
+                  <small>검색 정보 전달 또는 피드에서의 발견 흐름을 이 글에 적용합니다.</small>
+                </label>
 
-            <label class="blog-quick-field blog-quick-field-half">
-              <span class="blog-quick-label">워드프레스 카테고리</span>
-              <input type="text" id="shopping-quick-wp-category" placeholder="예: Daily">
-            </label>
-
-            <div class="blog-quick-field blog-quick-field-half">
-              <span class="blog-quick-label">포스팅 옵션</span>
-              <select id="shopping-quick-wp-post-status" onchange="toggleShoppingQuickWpScheduleDate()"
-                style="height: 48px; width: 100%; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0 12px; background: white; font-size: 15px; color: var(--text-main);">
-                <option value="publish" selected>즉시 발행</option>
-                <option value="draft">임시 저장</option>
-                <option value="schedule">예약 발행</option>
-              </select>
-            </div>
-
-            <label id="shopping-quick-wp-schedule-date-field" class="blog-quick-field blog-quick-field-half">
-              <span class="blog-quick-label">예약 일시</span>
-              <input id="shopping-quick-wp-schedule-date" type="datetime-local" disabled style="height: 48px;">
-            </label>
-          </div>
-
-          <div class="blog-quick-options">
-            <div class="blog-quick-options-header" style="justify-content: flex-start; gap: 24px;">
-              <div class="target-platforms">
-                <span class="blog-quick-label">발행 대상:</span>
-                <label class="blog-quick-check"><input id="shopping-quick-target-naver" type="checkbox"> 네이버 블로그</label>
-                <label class="blog-quick-check"><input id="shopping-quick-target-wordpress" type="checkbox">
-                  워드프레스</label>
+                <label class="blog-next-field">
+                  <span>글의 초점</span>
+                  <span class="ui-select-shell">
+                    <select id="shopping-quick-content-focus">
+                      <option value="auto">자동 구성</option>
+                      <option value="product_intro">상품 소개</option>
+                      <option value="comparison">비교·선택 가이드</option>
+                      <option value="usage">사용 상황 제안</option>
+                    </select>
+                  </span>
+                  <small>상품 정보와 작성 목적에 맞춰 글의 중심 흐름을 정합니다.</small>
+                </label>
               </div>
-              <label class="blog-quick-check" title="발행 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 실행합니다.">
-                <input id="shopping-quick-headless" type="checkbox" checked> 보이지 않게 실행
-              </label>
-            </div>
+            </details>
+
+            <details class="blog-next-disclosure" id="shopping-quick-publish-settings">
+              <summary>
+                <strong>발행 설정</strong>
+                <span id="shopping-quick-publish-summary">발행 대상 선택 · 즉시 발행</span>
+              </summary>
+              <div class="blog-next-disclosure-grid blog-next-form-grid">
+                <label class="blog-next-field">
+                  <span>네이버 카테고리 <small>(선택)</small></span>
+                  <input type="text" id="shopping-quick-naver-category" placeholder="예: 일상/생각">
+                </label>
+
+                <label class="blog-next-field">
+                  <span>워드프레스 카테고리 <small>(선택)</small></span>
+                  <input type="text" id="shopping-quick-wp-category" placeholder="예: Daily">
+                </label>
+
+                <label class="blog-next-field">
+                  <span>포스팅 옵션</span>
+                  <span class="ui-select-shell">
+                    <select id="shopping-quick-wp-post-status">
+                      <option value="publish" selected>즉시 발행</option>
+                      <option value="draft">임시 저장</option>
+                      <option value="schedule">예약 발행</option>
+                    </select>
+                  </span>
+                </label>
+
+                <label id="shopping-quick-wp-schedule-date-field" class="blog-next-field">
+                  <span>예약 일시 <small id="shopping-quick-schedule-required" hidden>(필수)</small></span>
+                  <input id="shopping-quick-wp-schedule-date" type="datetime-local" disabled>
+                </label>
+
+                <fieldset class="blog-next-field blog-next-field-wide blog-next-targets">
+                  <legend>포스팅 대상</legend>
+                  <label><input id="shopping-quick-target-naver" type="checkbox"> 네이버 블로그</label>
+                  <label><input id="shopping-quick-target-wordpress" type="checkbox"> 워드프레스</label>
+                </fieldset>
+
+                <div class="blog-next-field blog-next-field-wide blog-next-execution-options">
+                  <label class="blog-next-check-label" title="발행 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 실행합니다.">
+                    <input id="shopping-quick-headless" type="checkbox" checked> 보이지 않게 실행
+                  </label>
+                </div>
+              </div>
+            </details>
           </div>
-          <div class="blog-quick-actions">
-            <button id="shopping-quick-save-btn" class="secondary" type="button">글감 저장</button>
-            <button id="shopping-quick-publish-btn" class="primary" type="button">글감 저장 &amp; 포스팅</button>
+          <div class="blog-next-form-result-row">
+            <p id="shopping-quick-result" class="blog-next-form-result" role="status" aria-live="polite"></p>
           </div>
-          <pre id="shopping-quick-result" class="scrollable-log"></pre>
+          <div class="blog-next-form-actions shopping-quick-actions">
+            <button id="shopping-quick-save-btn" class="secondary" type="button">글감 보관</button>
+            <button id="shopping-quick-publish-btn" class="primary" type="button">바로 포스팅</button>
+          </div>
         </div>
 
         <div class="card form-card shopping-tab-panel" id="shopping-tab-batch" role="tabpanel"

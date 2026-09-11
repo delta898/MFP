@@ -131,6 +131,55 @@ test('shopping row update rejects an overlong instruction before sheet mutation'
     assert.equal(updated, false);
 });
 
+test('shopping row generation forwards the stored writing strategy to the content builder', async () => {
+    const buildOptions = [];
+    const runtime = createContentActionsRuntime({
+        CONFIG: {},
+        parseIntSafe: (value, fallback, min) => {
+            const parsed = Number.parseInt(value, 10);
+            return Number.isInteger(parsed) && parsed >= min ? parsed : fallback;
+        },
+        Utils: {
+            async readGoogleSheetShoppingAll() {
+                return {
+                    items: [{
+                        rowIndex: 0,
+                        shortUrl: 'https://naver.me/example',
+                        product: '확인된 상품',
+                        writingStrategy: 'discovery',
+                        contentFocus: 'usage',
+                        postStatus: 'publish'
+                    }]
+                };
+            },
+            async updateGoogleSheetShoppingStatus() { }
+        },
+        ShoppingManager: {
+            async scrapeShoppingProduct() { return { productData: {}, finalUrl: 'https://example.com/product' }; },
+            async buildPostFromShortUrl(_shortUrl, options) {
+                buildOptions.push(options);
+                return { targetDir: '/tmp/shopping-preview' };
+            }
+        },
+        License: {
+            async checkLicenseStatus() { return { success: true, features: { cmd_shopping: true } }; },
+            async reservePublishQuota() { return { success: false, code: 'FIXTURE_STOP', message: 'fixture stop' }; }
+        },
+        toFeatureMap: (features) => features,
+        isCommandEnabled: () => true,
+        getFeatureBool: () => false,
+        getBlogAutoSettingsSnapshot: () => ({ BLOG_AUTO_HEADLESS: true })
+    });
+
+    const result = await runtime.executeShoppingRowAction({ rowIndex: 0, targets: ['naver'] });
+
+    assert.equal(result.success, false);
+    assert.equal(result.code, 'FIXTURE_STOP');
+    assert.equal(buildOptions.length, 1);
+    assert.equal(buildOptions[0].writingStrategy, 'discovery');
+    assert.equal(buildOptions[0].contentFocus, 'usage');
+});
+
 test('blog batch preflight executes only rows covered by remaining quota', async () => {
     const processedRows = [];
     const processedPostStatuses = [];

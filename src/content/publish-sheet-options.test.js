@@ -136,7 +136,9 @@ test('shopping sheet state also applies options override for visible publish fie
             naver_category: '옵션네이버',
             wordpress_category: '옵션워드',
             post_status: 'publish',
-            schedule_date: '2026-04-02 07:00:00'
+            schedule_date: '2026-04-02 07:00:00',
+            writing_strategy: 'discovery',
+            content_focus: 'comparison'
         })
     });
 
@@ -144,6 +146,8 @@ test('shopping sheet state also applies options override for visible publish fie
     assert.equal(resolved.category, 'N:옵션네이버, W:옵션워드');
     assert.equal(resolved.postStatus, 'publish');
     assert.equal(resolved.scheduleDate, '2026-04-02 07:00:00');
+    assert.equal(resolved.writingStrategy, 'discovery');
+    assert.equal(resolved.contentFocus, 'comparison');
 });
 
 test('shopping option merge keeps options column in sync with inline publish edits', () => {
@@ -154,7 +158,9 @@ test('shopping option merge keeps options column in sync with inline publish edi
         instruction: '초보자 관점으로 작성',
         category: 'N:쇼핑네이버, W:쇼핑워드',
         postStatus: 'draft',
-        scheduleDate: '2026-03-31 11:00:00'
+        scheduleDate: '2026-03-31 11:00:00',
+        writingStrategy: 'search',
+        contentFocus: 'usage'
     });
 
     assert.equal(merged.custom_flag, 'keep-me');
@@ -164,4 +170,6 @@ test('shopping option merge keeps options column in sync with inline publish edi
     assert.equal(merged.wordpress_category, '쇼핑워드');
     assert.equal(merged.post_status, 'draft');
     assert.equal(merged.schedule_date, '2026-03-31 11:00:00');
+    assert.equal(merged.writing_strategy, 'search');
+    assert.equal(merged.content_focus, 'usage');
 });

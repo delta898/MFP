@@ -41,9 +41,9 @@
 2. shell·두 탭·용어 통일 — 완료 ([개발 기록](../archive/2026-09-11-design-system-shopping-connect-11-02-navigation-shell-development.md))
 3. 빠른 글 작성 패널 개편
    - 3A. 상품 URL 입력·상품 정보 확인·미리보기 — 완료 ([개발 기록](../archive/2026-09-11-design-system-shopping-connect-11-03a-product-preview-development.md))
-   - 3B. 글 방향·글쓰기 및 발행 설정
-   - 3C. 글감 보관·발행 대기열·바로 포스팅 action
-4. 글감 관리 목록 개편
+   - 3B. 글 방향·글쓰기 및 발행 설정 — 완료 ([개발 기록](../archive/2026-09-11-design-system-shopping-connect-11-03b-writing-options-development.md))
+   - 3C. Blog Beta 글쓰기 흐름을 기준으로 글감 관리 탭 UI 개편
+4. 글감 보관·발행 대기열·바로 포스팅 생명주기 검증 및 보정
 5. hard-coding 검사와 browser 회귀
 
 ## 진행 기록
@@ -57,6 +57,9 @@
   `ui-top-tabs`, tab 접근성 상태를 적용했다. 상위 명칭은 `빠른 글 작성`, `글감 관리`로 통일했다.
 - slice 3A에서 상품 URL 확인을 빠른 글 작성의 첫 단계로 만들고, 확인된 상품 정보 preview와 상품명 수정,
   실패 복구 및 URL 변경 시 stale preview 초기화를 추가했다.
+- slice 3B에서 경험·방향, 공통 글쓰기 전략, 쇼핑 전용 글의 초점과 상세 발행 설정을 Blog Beta와 같은
+  progressive disclosure 및 action 문법으로 정리했다. 다음 단계에서는 동작을 먼저 바꾸지 않고 Blog Beta의
+  글감 관리 UI를 기준으로 쇼핑 글감 관리 탭을 통일한 뒤, 저장부터 발행까지의 생명주기를 검증한다.
 
 ## 검증과 남은 위험
 
@@ -65,5 +68,6 @@
   모듈 소유권도 블로그 자동화 모듈로 교정했다.
 - slice 2 focused contract 36건과 browser UI smoke(249 fixture requests)를 통과했다.
 - slice 3A focused test 35건과 상품 확인 흐름을 포함한 browser UI smoke(261 fixture requests)를 통과했다.
+- slice 3B focused test 68건을 통과했고 사용자가 빠른 글 작성 UI를 확인했다.
 - 후속 slice의 browser 회귀와 parent 전체 단위 테스트는 각 reviewable milestone에서 사용자 승인을 받은 뒤 실행한다.
 - 최종 시각·탐색 확인은 사용자가 수행한다.

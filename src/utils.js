@@ -1869,7 +1869,9 @@ const Utils = {
                     instruction,
                     category,
                     postStatus,
-                    scheduleDate
+                    scheduleDate,
+                    writingStrategy: item?.writingStrategy || item?.writing_strategy,
+                    contentFocus: item?.contentFocus || item?.content_focus
                 });
 
                 row[map.category] = category;
@@ -2020,6 +2022,8 @@ const Utils = {
                                 category: resolvedState.category || '',
                                 postStatus: resolvedState.postStatus || 'publish',
                                 scheduleDate: resolvedState.scheduleDate || '',
+                                writingStrategy: resolvedState.writingStrategy || '',
+                                contentFocus: resolvedState.contentFocus || 'auto',
                                 options: resolvedState.options
                             };
                         })(),
@@ -2097,6 +2101,8 @@ const Utils = {
                         category: resolvedState.category || '',
                         postStatus: resolvedState.postStatus || 'publish',
                         scheduleDate: resolvedState.scheduleDate || '',
+                        writingStrategy: resolvedState.writingStrategy || '',
+                        contentFocus: resolvedState.contentFocus || 'auto',
                         options: resolvedState.options
                     };
                 });

@@ -17,6 +17,7 @@ const { normalizeWritingStrategy, buildShoppingWritingStrategyPrompt } = require
 const { projectWritingProfile } = require('./content/writing-profile-projection');
 const { buildShoppingWritingProfilePromptFromProjection } = require('./content/shopping-writing-profile-prompt');
 const {
+    normalizeShoppingContentFocus,
     selectShoppingEditorialPlan,
     buildShoppingEditorialPlanPrompt
 } = require('./content/shopping-editorial-plan-prompt');
@@ -2573,7 +2574,8 @@ function resolveShoppingWritingPreferences(input = {}) {
     return {
         strategy: normalizeWritingStrategy(
             input.writing_strategy || input.writingStrategy || CONFIG.CONTENT_WRITING_STRATEGY || CONFIG.BLOG_WRITING_STRATEGY
-        )
+        ),
+        contentFocus: normalizeShoppingContentFocus(input.content_focus || input.contentFocus)
     };
 }
 
@@ -2610,7 +2612,10 @@ function buildAiPrompt(product, platform = 'naver', writingPreferences = {}) {
     const writingProfileProjection = projectWritingProfile(CONFIG.CONTENT_WRITING_PROFILE, { kind: 'shopping' });
     const writingProfileRules = buildShoppingWritingProfilePromptFromProjection(writingProfileProjection);
     const writingStrategyRules = buildShoppingWritingStrategyPrompt(resolvedWritingPreferences.strategy);
-    const editorialPlanRules = buildShoppingEditorialPlanPrompt(product, writingPreferences);
+    const editorialPlanRules = buildShoppingEditorialPlanPrompt(product, {
+        ...writingPreferences,
+        contentFocus: resolvedWritingPreferences.contentFocus
+    });
     const userInstructionRules = buildShoppingInstructionPrompt(
         writingPreferences.instruction || writingPreferences.userInstruction
     );
@@ -4348,6 +4353,8 @@ const ShoppingManager = {
             reviewData: productData.reviewData
         }, platform, {
             ...(runtimeOptions.writingPreferences || {}),
+            writingStrategy: runtimeOptions.writingStrategy,
+            contentFocus: runtimeOptions.contentFocus,
             instruction: runtimeOptions.instruction
         });
         Logger.info(`📝 [Shopping/${platform}] AI에게 글 작성을 요청합니다...`);

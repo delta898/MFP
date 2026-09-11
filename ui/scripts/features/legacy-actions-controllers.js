@@ -1428,6 +1428,8 @@ function bindActions() {
       shortUrl: (shoppingQuickUrlInput?.value || '').trim(),
       product: (shoppingQuickProductInput?.value || '').trim(),
       instruction: (document.getElementById('shopping-quick-instruction')?.value || '').trim(),
+      writingStrategy: (document.getElementById('shopping-quick-writing-strategy')?.value || 'search').trim(),
+      contentFocus: (document.getElementById('shopping-quick-content-focus')?.value || 'auto').trim(),
       headless: Boolean(document.getElementById('shopping-quick-headless')?.checked),
       publishMode: mode,
       targets,

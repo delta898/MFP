@@ -605,6 +605,8 @@ function createContentActionsRuntime(deps = {}) {
             const shortUrl = String(target.shortUrl || '').trim();
             const productName = String(target.product || '').trim();
             const instruction = String(target.instruction || target.options?.instruction || '').trim();
+            const writingStrategy = String(target.writingStrategy || target.options?.writing_strategy || '').trim();
+            const contentFocus = String(target.contentFocus || target.options?.content_focus || 'auto').trim();
             if (!shortUrl) {
                 return { success: false, code: 'INVALID_SHOPPING_URL', message: '쇼핑 URL이 비어 있습니다.' };
             }
@@ -648,6 +650,8 @@ function createContentActionsRuntime(deps = {}) {
                     headless: publishHeadless,
                     productName,
                     instruction,
+                    writingStrategy,
+                    contentFocus,
                     preScrapedData
                 });
                 results.naver.targetDir = naverBuildResult.targetDir;
@@ -661,6 +665,8 @@ function createContentActionsRuntime(deps = {}) {
                     headless: publishHeadless,
                     productName,
                     instruction,
+                    writingStrategy,
+                    contentFocus,
                     preScrapedData
                 });
                 results.wordpress.targetDir = wpBuildResult.targetDir;

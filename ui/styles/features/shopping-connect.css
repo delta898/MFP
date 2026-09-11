@@ -185,10 +185,6 @@
   text-decoration: underline;
 }
 
-.shopping-quick-writing-fields {
-  padding-top: var(--ui-space-2);
-}
-
 @keyframes shopping-quick-preview-spin {
   to { transform: rotate(360deg); }
 }
@@ -206,6 +202,7 @@
   .shopping-quick-preview-media {
     min-height: 180px;
   }
+
 }
 
 @media (prefers-reduced-motion: reduce) {

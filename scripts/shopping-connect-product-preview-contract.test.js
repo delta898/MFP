@@ -22,7 +22,7 @@ test('shopping quick writing starts with URL analysis and reveals product correc
   const instructionIndex = view.indexOf('id="shopping-quick-instruction"');
 
   assert.ok(urlIndex >= 0 && previewIndex > urlIndex && productIndex > previewIndex && instructionIndex > productIndex);
-  assert.match(view, /id="shopping-quick-preview-btn"[^>]*aria-busy="false"[^>]*>상품 정보 확인<\/button>/);
+  assert.match(view, /id="shopping-quick-preview-btn"[^>]*aria-busy="false"[^>]*>상품 불러오기<\/button>/);
   assert.match(view, /id="shopping-quick-product-field" hidden/);
   assert.match(view, /data-state="empty"[\s\S]*id="shopping-quick-preview-loading" hidden[\s\S]*id="shopping-quick-preview-error"[^>]*hidden[\s\S]*id="shopping-quick-preview-card" hidden/);
 });

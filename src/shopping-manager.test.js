@@ -180,6 +180,16 @@ test('shopping editorial prompt yields to explicit user instructions', () => {
     assert.match(prompt, /전체 5~6개 블록 계약은 유지하세요/);
 });
 
+test('shopping editorial prompt applies an explicit content focus', () => {
+    const comparison = buildShoppingEditorialPlanPrompt(createPromptProduct(), { contentFocus: 'comparison' });
+    const usage = buildShoppingEditorialPlanPrompt(createPromptProduct(), { contentFocus: 'usage' });
+
+    assert.match(comparison, /글의 초점: 비교·선택 가이드/);
+    assert.match(comparison, /선택 구성: 비교 체크리스트 구성/);
+    assert.match(usage, /글의 초점: 사용 상황 제안/);
+    assert.match(usage, /선택 구성: 사용 상황에서 시작하는 구성|선택 구성: 사용 상황에서 출발하는 구성/);
+});
+
 test('shopping prompt applies selected common profile voice and per-post strategy', () => {
     const writtenProfile = getDefaultContentWritingProfile();
     writtenProfile.common.voice.writing_mode = 'written';

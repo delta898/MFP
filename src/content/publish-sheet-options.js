@@ -1,6 +1,7 @@
 const { normalizeWritingStrategyOverride } = require('./writing-strategy');
 const { normalizeBlogImageMode } = require('./blog-image-mode');
 const { normalizeBlogWritingOverrides } = require('./blog-writing-overrides');
+const { normalizeShoppingContentFocus } = require('./shopping-editorial-plan-prompt');
 
 const SHEET_IMAGE_MODE_LABELS = Object.freeze({
     generate: '이미지 생성',
@@ -194,7 +195,9 @@ function resolveShoppingSheetState(input = {}) {
         naverCategory: optionNaverCategory || parsedCategory.naverCategory,
         wordpressCategory: optionWordpressCategory || parsedCategory.wordpressCategory,
         postStatus: normalizeString(parsedOptions.post_status) || normalizeString(input.postStatus) || 'publish',
-        scheduleDate: normalizeString(parsedOptions.schedule_date) || normalizeString(input.scheduleDate)
+        scheduleDate: normalizeString(parsedOptions.schedule_date) || normalizeString(input.scheduleDate),
+        writingStrategy: normalizeWritingStrategyOverride(parsedOptions.writing_strategy || input.writingStrategy),
+        contentFocus: normalizeShoppingContentFocus(parsedOptions.content_focus || input.contentFocus)
     };
 }
 
@@ -287,6 +290,12 @@ function mergeShoppingSheetOptions(existingOptions = {}, fields = {}) {
     if (fields.instruction !== undefined) applyStringOption(next, 'instruction', fields.instruction);
     if (fields.postStatus !== undefined) applyStringOption(next, 'post_status', fields.postStatus);
     if (fields.scheduleDate !== undefined) applyStringOption(next, 'schedule_date', fields.scheduleDate);
+    if (fields.writingStrategy !== undefined) {
+        applyStringOption(next, 'writing_strategy', normalizeWritingStrategyOverride(fields.writingStrategy));
+    }
+    if (fields.contentFocus !== undefined) {
+        applyStringOption(next, 'content_focus', normalizeShoppingContentFocus(fields.contentFocus));
+    }
 
     if (
         fields.category !== undefined

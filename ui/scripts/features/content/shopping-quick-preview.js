@@ -57,11 +57,9 @@ function showShoppingQuickProductField(mode) {
   const label = document.getElementById('shopping-quick-product-label');
   const hint = document.getElementById('shopping-quick-product-hint');
   if (field) field.hidden = false;
-  if (label) label.textContent = mode === 'recovery' ? '상품명 직접 입력 (선택)' : '확인된 상품명';
+  if (label) label.textContent = mode === 'recovery' ? '상품명 (선택)' : '상품명';
   if (hint) {
-    hint.textContent = mode === 'recovery'
-      ? '상품명을 입력하면 실제 상품을 다시 찾을 때 참고합니다.'
-      : '상품명이 다르면 실제 상품에 맞게 수정할 수 있습니다.';
+    hint.textContent = '글에 사용할 상품명을 입력하거나 수정하세요.';
   }
 }
 
@@ -118,7 +116,7 @@ async function requestShoppingQuickPreview() {
   if (button) {
     button.disabled = true;
     button.setAttribute('aria-busy', 'true');
-    button.textContent = '확인 중...';
+    button.textContent = '불러오는 중...';
   }
   setShoppingQuickPreviewState('loading');
 
@@ -135,7 +133,7 @@ async function requestShoppingQuickPreview() {
     if (button) {
       button.disabled = false;
       button.setAttribute('aria-busy', 'false');
-      button.textContent = '상품 정보 확인';
+      button.textContent = '상품 불러오기';
     }
   }
 }
