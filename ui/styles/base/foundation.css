@@ -20,6 +20,11 @@ body {
   border: 0 !important;
 }
 
+/* Shared state utility. Feature views may safely use classList.toggle('hidden'). */
+.hidden {
+  display: none !important;
+}
+
 body {
   font-family: var(--ui-font-sans);
   color: var(--ui-text-primary);

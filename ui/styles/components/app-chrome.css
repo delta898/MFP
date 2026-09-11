@@ -345,6 +345,18 @@ h1 {
   color: var(--ui-text-primary);
 }
 
+/* App scroll container: shared shell layout, kept outside feature styles. */
+.main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  height: 100vh;
+  padding: 32px 40px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .view-title-block {
   margin-bottom: 20px;
 }

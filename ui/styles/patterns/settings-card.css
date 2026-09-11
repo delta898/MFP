@@ -105,6 +105,11 @@
   line-height: var(--ui-line-height-tight);
 }
 
+.settings-navigation-target {
+  outline: 3px solid color-mix(in srgb, var(--ui-action-primary) 28%, transparent);
+  outline-offset: 3px;
+}
+
 .ui-settings-card-heading p {
   margin-top: var(--ui-space-2);
   color: var(--ui-text-secondary);

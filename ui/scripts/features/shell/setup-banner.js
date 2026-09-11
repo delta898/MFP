@@ -36,10 +36,24 @@ async function navigateToSettingsTarget(tabName, targetId) {
   });
 }
 
+async function navigateToSettingsNextTarget(tabName, targetId) {
+  await navigateTo('settings-next', tabName);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const target = document.getElementById(String(targetId || '').trim());
+      if (!target) return;
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.classList.remove('settings-navigation-target');
+      void target.offsetWidth;
+      target.classList.add('settings-navigation-target');
+      setTimeout(() => target.classList.remove('settings-navigation-target'), 1800);
+    });
+  });
+}
+
 function dismissSetupBanner() {
   const banner = document.getElementById('setup-guide-banner');
   if (banner) banner.style.display = 'none';
   localStorage.setItem(SETUP_BANNER_DISMISS_KEY, 'true');
 }
 // ─────────────────────────────────────────────────────────────────
-

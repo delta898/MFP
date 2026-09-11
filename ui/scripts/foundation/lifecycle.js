@@ -15,7 +15,6 @@ window.addEventListener('DOMContentLoaded', () => {
   try { initManualSnsComposer(); } catch (e) { console.warn('initManualSnsComposer error:', e); }
   checkSetupBanner();
   void initSidebarDynamicContent();
-  void initAccountDynamicContent();
   const settingsCheckUpdateBtn = document.getElementById('settings-check-update-btn');
   if (settingsCheckUpdateBtn) {
     settingsCheckUpdateBtn.addEventListener('click', () => {
@@ -50,7 +49,6 @@ window.addEventListener('DOMContentLoaded', () => {
       if (document.getElementById('view-help')?.classList.contains('active')) {
         void refreshHelpCatalog();
       }
-      void refreshAccountDynamicContent();
     }
   });
   window.addEventListener('focus', () => {
@@ -66,20 +64,13 @@ window.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('view-help')?.classList.contains('active')) {
       void refreshHelpCatalog();
     }
-    void refreshAccountDynamicContent();
   });
   setInterval(() => {
     void ensureUpdateCheckFresh({ silent: true });
   }, UPDATE_AUTO_CHECK_POLL_MS);
 
-  const accountRefreshBtn = document.getElementById('account-refresh-btn');
-  accountRefreshBtn?.addEventListener('click', () => {
-    void refreshAccountDynamicContent();
-    loadAccountOverview({ force: true }).catch((error) => console.warn('[Account Overview Refresh]', error.message));
-  });
   const accountRetryBtn = document.getElementById('account-retry-btn');
   accountRetryBtn?.addEventListener('click', () => {
-    void refreshAccountDynamicContent();
     loadAccountOverview({ force: true }).catch((error) => console.warn('[Account Overview Retry]', error.message));
   });
   bindAccountUpgradeFreeClick();
@@ -90,6 +81,14 @@ window.addEventListener('DOMContentLoaded', () => {
       void navigateToSettingsTarget(
         button.getAttribute('data-account-settings-tab') || 'general',
         button.getAttribute('data-account-settings-target') || ''
+      );
+    });
+  });
+  document.querySelectorAll('[data-account-settings-next-tab]').forEach((button) => {
+    button.addEventListener('click', () => {
+      void navigateToSettingsNextTarget(
+        button.getAttribute('data-account-settings-next-tab') || 'core',
+        button.getAttribute('data-account-settings-next-target') || ''
       );
     });
   });

@@ -12,7 +12,7 @@ const viewHeaders = [
   ['ui/partials/views/blog-next.html', '블로그', '글감을 빠르게 쌓아두고, 준비된 글을 한 건씩 이어서 발행하는 새로운 흐름입니다.'],
   ['ui/partials/views/shopping.html', '쇼핑커넥트', '쇼핑 상품 정보를 분석해 콘텐츠를 만들고 발행합니다.'],
   ['ui/partials/views/social.html', 'SNS', '짧은 생각과 기록을 설정된 Buffer 채널에 바로 발행합니다.'],
-  ['ui/partials/views/account.html', '계정 및 구독', '이 기기의 라이선스, 사용량과 서비스 연결 상태를 확인합니다.'],
+  ['ui/partials/views/account.html', '내 정보', '사용 중인 플랜, 이용 현황과 서비스 연결 상태를 확인합니다.'],
   ['ui/partials/views/settings.html', '설정', '서비스 연결, AI 모델, 글쓰기와 알림 설정을 관리합니다.'],
   ['ui/partials/views/logs.html', '로그 및 이력', '최근 활동 이력과 시스템 로그를 확인합니다.'],
   ['ui/partials/views/help.html', '도움말', '처음 설정하는 방법부터 글쓰기와 자동화 활용법까지 한곳에서 찾아보세요.']
@@ -47,7 +47,7 @@ test('status and refresh controls remain outside title copy while app controls s
   assert.doesNotMatch(dashboard, /<div class="dashboard-status-row">[\s\S]*id="server-control"/);
   assert.match(clock, /display\.closest\('\.dash-clock-widget'\)\?\.querySelector\('#server-control'\)/);
   assert.match(clock, /menu\.appendChild\(serverControl\);\s*serverControl\.hidden = false;/);
-  assert.match(account, /<\/div>\s*<div class="account-view-actions">\s*<button id="account-refresh-btn"/);
+  assert.doesNotMatch(account, /id="account-refresh-btn"/);
 });
 
 test('dashboard readiness prioritizes publishing channels and usable quota over healthy and duplicate version badges', () => {

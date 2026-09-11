@@ -321,10 +321,6 @@
     justify-content: flex-start;
   }
 
-  .account-view-actions {
-    margin-top: -4px;
-  }
-
   .clock-display {
     min-width: 120px;
   }

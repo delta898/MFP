@@ -69,7 +69,8 @@ function renderAccountConnection(elementId, connection) {
   const status = String(connection?.status || 'unknown');
   const connected = status === 'connected' || status === 'configured';
   element.textContent = connected ? '연결됨' : (status === 'not_configured' ? '미설정' : '로그인 필요');
-  element.className = connected ? 'state-ok' : (status === 'not_configured' ? 'state-muted' : 'state-warning');
+  element.className = 'ui-status-badge';
+  element.dataset.state = connected ? 'ready' : (status === 'not_configured' ? 'idle' : 'attention');
 }
 
 function renderAccountOverview(overview, options = {}) {
@@ -89,13 +90,14 @@ function renderAccountOverview(overview, options = {}) {
     quota_exhausted: '사용량 소진',
     unavailable: '확인 필요'
   };
-  const statusClass = status === 'active' ? 'active' : (status === 'quota_exhausted' ? 'warning' : 'error');
+  const statusTone = status === 'active' ? 'ready' : (status === 'quota_exhausted' ? 'attention' : 'stale');
 
   setText('account-plan-name', planName);
   const statusEl = document.getElementById('account-plan-status');
   if (statusEl) {
     statusEl.textContent = statusLabels[status] || status;
-    statusEl.className = `account-status-badge ${statusClass}`;
+    statusEl.className = 'account-status-badge ui-status-badge';
+    statusEl.dataset.state = statusTone;
   }
 
   const unlimited = usage.mode === 'unlimited' || Number(usage.limit) < 0 || Number(usage.remaining) < 0;
@@ -104,8 +106,8 @@ function renderAccountOverview(overview, options = {}) {
   const remaining = Number.isFinite(Number(usage.remaining)) ? Number(usage.remaining) : null;
   const quotaCycle = String(usage.cycle || '').trim().toLowerCase();
   const usageLabel = quotaCycle === 'monthly'
-    ? '이번 달 사용량'
-    : (quotaCycle === 'none' && normalizedPlanCode === 'test' ? '체험 사용량' : '사용량');
+    ? '이번 달 발행 사용량'
+    : (quotaCycle === 'none' && normalizedPlanCode === 'test' ? '체험 발행 사용량' : '글 발행 사용량');
   const planCycleHelpEl = document.getElementById('account-plan-cycle-help');
   if (planCycleHelpEl) {
     const showCycleHelp = quotaCycle === 'monthly';
@@ -114,6 +116,7 @@ function renderAccountOverview(overview, options = {}) {
       ? 'Free Plan은 매월 1일 갱신됩니다.'
       : '월 기본 제공량은 매월 1일 갱신됩니다.';
     planCycleHelpEl.dataset.tooltip = cycleHelpText;
+    planCycleHelpEl.title = cycleHelpText;
     planCycleHelpEl.setAttribute('aria-label', cycleHelpText);
   }
   setText('account-usage-used-label', usageLabel);
@@ -129,15 +132,8 @@ function renderAccountOverview(overview, options = {}) {
   setText('account-total-breakdown', unlimited
     ? '현재 플랜에서 발행 횟수 제한 없이 사용할 수 있습니다.'
     : `기본 제공량 ${basicAvailableLabel} + 크레딧 ${creditAvailableLabel}`);
-  const creditHelpEl = document.getElementById('account-credit-help');
-  if (creditHelpEl) {
-    const creditHelpText = quotaCycle === 'monthly'
-      ? '기본 제공량 소진 후 충전 크레딧이 사용됩니다.'
-      : '충전 크레딧은 현재 플랜 권한 안에서 사용할 수 있는 추가 발행 횟수입니다.';
-    creditHelpEl.dataset.tooltip = creditHelpText;
-    creditHelpEl.setAttribute('aria-label', creditHelpText);
-  }
-
+  const totalAvailableCard = document.getElementById('account-total-available-card');
+  if (totalAvailableCard) totalAvailableCard.classList.toggle('hidden', unlimited || creditBalance <= 0);
   setText('account-license-created', `라이선스 생성일: ${formatAccountDate(subscription.created_at)}`);
   if (quotaCycle === 'monthly') {
     setAccountMetaText('account-period-start', '', false);
@@ -224,7 +220,8 @@ function renderAccountOverview(overview, options = {}) {
         label.textContent = item.label || item.id;
         const value = document.createElement('strong');
         value.textContent = item.enabled ? '사용 가능' : '제한됨';
-        value.className = item.enabled ? 'state-ok' : 'state-muted';
+        value.className = 'ui-status-badge';
+        value.dataset.state = item.enabled ? 'ready' : 'idle';
         row.append(label, value);
         featureList.appendChild(row);
       });
@@ -247,7 +244,7 @@ function renderAccountOverview(overview, options = {}) {
     if (smartUsageItems.length === 0) {
       const empty = document.createElement('span');
       empty.className = 'muted';
-      empty.textContent = '사용량 정보를 불러오는 중입니다.';
+      empty.textContent = '이번 달 사용량 정보가 없습니다.';
       smartUsageList.append(empty);
     }
   }
@@ -315,19 +312,19 @@ async function loadAccountOverview({ force = false } = {}) {
   const contentEl = document.getElementById('account-overview-content');
 
   if (isAccountOverviewLoading) return lastAccountOverview;
-  if (!force && lastAccountOverview) {
+  const hasCachedOverview = Boolean(lastAccountOverview);
+  if (!force && hasCachedOverview) {
     renderAccountOverview(lastAccountOverview);
     loadingEl?.classList.add('hidden');
     errorEl?.classList.add('hidden');
     contentEl?.classList.remove('hidden');
-    return lastAccountOverview;
   }
 
   isAccountOverviewLoading = true;
   const smartUsageRevisionAtRequest = smartUsageRevision;
-  loadingEl?.classList.remove('hidden');
+  loadingEl?.classList.toggle('hidden', hasCachedOverview);
   errorEl?.classList.add('hidden');
-  contentEl?.classList.add('hidden');
+  contentEl?.classList.toggle('hidden', !hasCachedOverview);
 
   try {
     const overview = await fetchJson(`/api/v1/account/overview?quiet=1${force ? '&force=1' : ''}`);
@@ -337,7 +334,7 @@ async function loadAccountOverview({ force = false } = {}) {
     return overview;
   } catch (error) {
     loadingEl?.classList.add('hidden');
-    errorEl?.classList.remove('hidden');
+    errorEl?.classList.toggle('hidden', hasCachedOverview);
     setText('account-overview-error-message', error.message || '잠시 후 다시 시도해 주세요.');
     throw error;
   } finally {
@@ -436,6 +433,11 @@ async function registerOrChangeAccountEmail() {
 }
 
 function showAccountPlanInfo() {
+  const dialog = document.getElementById('account-plan-info-dialog');
+  if (dialog?.showModal) {
+    if (!dialog.open) dialog.showModal();
+    return Promise.resolve(true);
+  }
   return showUiDialog({
     title: '플랜 안내',
     message: [

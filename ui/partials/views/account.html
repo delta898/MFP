@@ -1,169 +1,31 @@
-      <section class="view" id="view-account" data-style-scope="compatibility">
-        <div class="view-title-block account-view-header">
-          <div class="view-title-row">
-            <div class="view-title-copy">
-              <div class="view-title-heading"><h1>계정 및 구독</h1></div>
-              <p>이 기기의 라이선스, 사용량과 서비스 연결 상태를 확인합니다.</p>
-            </div>
-            <div class="page-clock-widget">
-              <div class="clock-display" data-clock-display title="클릭하여 시계 스타일 변경"></div>
-            </div>
-          </div>
-        </div>
-        <div class="account-view-actions">
-          <button id="account-refresh-btn" class="secondary compact" type="button">새로고침</button>
-        </div>
-
-        <div id="account-overview-loading" class="account-loading-card card">
-          계정 및 구독 정보를 불러오는 중입니다.
-        </div>
-        <div id="account-overview-error" class="account-error-card card hidden" role="alert">
-          <strong>정보를 불러오지 못했습니다.</strong>
-          <span id="account-overview-error-message">잠시 후 다시 시도해 주세요.</span>
-          <button id="account-retry-btn" class="secondary compact" type="button">다시 시도</button>
-        </div>
-
-        <div id="account-overview-content" class="account-overview hidden">
-          <article class="account-subscription-card card">
-            <div class="account-quota-grid">
-              <section class="account-quota-panel account-plan-panel">
-                <div class="account-quota-heading">
-                  <div class="account-quota-title">
-                    <strong id="account-plan-name">-</strong>
-                    <button id="account-plan-cycle-help" class="account-help-dot hidden" type="button"
-                      data-tooltip="매월 1일 갱신" aria-label="현재 플랜의 기본 제공량은 매월 1일 갱신됩니다.">?</button>
-                    <span id="account-plan-status" class="account-status-badge">확인 중</span>
-                  </div>
-                  <button id="account-plan-info-btn" class="secondary compact" type="button">플랜 안내</button>
-                </div>
-                <div class="account-usage-summary account-quota-metrics">
-                  <div>
-                    <span id="account-usage-used-label" class="account-usage-label">사용량</span>
-                    <strong id="account-usage-used">-</strong>
-                  </div>
-                  <div class="account-usage-remaining-wrap">
-                    <span class="account-usage-label">남은 기본 횟수</span>
-                    <strong id="account-usage-remaining">-</strong>
-                  </div>
-                </div>
-                <div class="account-subscription-meta">
-                  <span id="account-license-created">라이선스 생성일: -</span>
-                  <span id="account-period-start" class="hidden">현재 주기 시작일 -</span>
-                  <span id="account-next-reset" class="hidden">다음 갱신일 -</span>
-                </div>
-              </section>
-
-              <section class="account-quota-panel account-credit-panel">
-                <div class="account-quota-heading">
-                  <div class="account-quota-title">
-                    <strong>크레딧</strong>
-                    <button id="account-credit-help" class="account-help-dot" type="button"
-                      data-tooltip="기본 제공량 소진 후 충전 크레딧이 사용됩니다."
-                      aria-label="기본 제공량 소진 후 충전 크레딧이 사용됩니다.">?</button>
-                  </div>
-                </div>
-                <div class="account-credit-metrics account-quota-metrics">
-                  <div>
-                    <span class="account-usage-label">사용 가능 크레딧</span>
-                    <strong id="account-credit-balance">-</strong>
-                  </div>
-                </div>
-              </section>
-            </div>
-
-            <div class="account-total-summary">
-              <div class="account-total-copy">
-                <div class="account-quota-heading">
-                  <div class="account-quota-title">
-                    <strong>총 사용 가능 횟수</strong>
-                  </div>
-                </div>
-                <div class="account-total-metrics account-quota-metrics">
-                  <div>
-                    <span class="account-usage-label">가용 횟수</span>
-                    <strong id="account-total-available">-</strong>
-                    <p id="account-total-breakdown" class="account-total-breakdown">기본 제공량 - + 크레딧 -</p>
-                  </div>
-                </div>
-              </div>
-              <div class="account-plan-actions">
-                <button id="account-change-plan-btn" class="secondary compact" type="button" disabled>구독 / 플랜 변경</button>
-                <button id="account-purchase-credits-btn" class="secondary compact" type="button" disabled>크레딧 충전</button>
-              </div>
-            </div>
-            <div id="account-plan-guidance" class="account-plan-guidance hidden">
-              <div>
-                <strong id="account-plan-guidance-title">다음 단계</strong>
-                <p id="account-plan-guidance-message">플랜 전환 안내를 확인합니다.</p>
-              </div>
-              <button id="account-upgrade-free-btn" class="secondary compact" type="button">Free Plan으로 전환</button>
-            </div>
-          </article>
-
-          <article class="account-smart-usage-card card">
-            <div class="account-quota-heading">
-              <div class="account-quota-title">
-                <strong>스마트 기능</strong>
-                <span class="muted">이번 달</span>
-              </div>
-            </div>
-            <div id="account-smart-usage-list" class="account-smart-usage-list" aria-live="polite"></div>
-          </article>
-
-          <section id="account-supporting-region" class="account-supporting-region" aria-label="추천 자료" hidden></section>
-
-          <div class="account-card-grid">
-            <article class="account-info-card card">
-              <div class="account-info-card-title">
-                <span class="account-info-icon" aria-hidden="true">ID</span>
-                <h2>계정</h2>
-              </div>
-              <strong id="account-identity-label">기기 라이선스로 사용 중</strong>
-              <p id="account-identity-detail" class="muted">로그인 없이 현재 기기에 연결된 라이선스를 사용합니다.</p>
-              <button id="account-register-email-btn" class="secondary compact" type="button" disabled>계정 연결 준비 중</button>
-            </article>
-
-            <article class="account-info-card card">
-              <div class="account-info-card-title">
-                <span class="account-info-icon" aria-hidden="true">HW</span>
-                <h2>기기</h2>
-              </div>
-              <dl class="account-detail-list">
-                <div><dt>운영체제</dt><dd id="account-device-platform">-</dd></div>
-                <div><dt>아키텍처</dt><dd id="account-device-arch">-</dd></div>
-                <div><dt>HW ID</dt><dd id="account-device-hw-id">-</dd></div>
-                <div><dt>앱 버전</dt><dd id="account-device-app-version">-</dd></div>
-              </dl>
-            </article>
-
-            <article class="account-info-card card">
-              <div class="account-info-card-title">
-                <span class="account-info-icon" aria-hidden="true">✓</span>
-                <h2>포함 기능</h2>
-              </div>
-              <div id="account-feature-list" class="account-state-list"></div>
-            </article>
-
-            <article class="account-info-card card">
-              <div class="account-info-card-title">
-                <span class="account-info-icon" aria-hidden="true">↗</span>
-                <h2>연결 상태</h2>
-              </div>
-              <div class="account-state-list">
-                <button class="account-state-row" type="button" data-account-settings-tab="naver-blog"
-                  data-account-settings-target="settings-naver-id">
-                  <span>네이버</span><strong id="account-connection-naver">-</strong>
-                </button>
-                <button class="account-state-row" type="button" data-account-settings-tab="general"
-                  data-account-settings-target="settings-google-sheet-url">
-                  <span>Google Sheets</span><strong id="account-connection-google">-</strong>
-                </button>
-                <button class="account-state-row" type="button" data-account-settings-tab="naver-blog"
-                  data-account-settings-target="settings-wordpress-url">
-                  <span>WordPress</span><strong id="account-connection-wordpress">-</strong>
-                </button>
-              </div>
-            </article>
-          </div>
-        </div>
-      </section>
+<section class="view account-view" id="view-account">
+  <div class="view-title-block account-view-header">
+    <div class="view-title-row">
+      <div class="view-title-copy">
+        <div class="view-title-heading"><h1>내 정보</h1></div>
+        <p>사용 중인 플랜, 이용 현황과 서비스 연결 상태를 확인합니다.</p>
+      </div>
+      <div class="page-clock-widget"><div class="clock-display" data-clock-display title="클릭하여 시계 스타일 변경"></div></div>
+    </div>
+  </div>
+  <div id="account-overview-loading" class="account-state-card ui-overview-card">내 정보를 불러오는 중입니다.</div>
+  <div id="account-overview-error" class="account-state-card ui-overview-card hidden" role="alert"><strong>정보를 불러오지 못했습니다.</strong><span id="account-overview-error-message">잠시 후 다시 시도해 주세요.</span><button id="account-retry-btn" class="secondary compact" type="button">다시 시도</button></div>
+  <div id="account-overview-content" class="account-overview hidden">
+    <article class="account-usage-card ui-overview-card">
+      <div class="account-section-heading ui-overview-heading"><div><p class="ui-overview-eyebrow">이용 현황</p><h2><span id="account-plan-name">-</span> <span id="account-plan-status" class="account-status-badge ui-status-badge">확인 중</span></h2><p id="account-license-created">라이선스 생성일: -</p></div><div class="account-heading-actions"><button id="account-plan-cycle-help" class="account-help-button hidden" type="button" aria-label="플랜 갱신 주기 안내">?</button><button id="account-plan-info-btn" class="secondary compact" type="button">플랜 안내</button></div></div>
+      <div class="account-metric-grid">
+        <div class="account-metric"><span id="account-usage-used-label">글 발행 사용량</span><strong id="account-usage-used">-</strong></div><div class="account-metric"><span>남은 기본 횟수</span><strong id="account-usage-remaining">-</strong></div><div class="account-metric"><span>사용 가능 크레딧</span><strong id="account-credit-balance">-</strong></div><div id="account-total-available-card" class="account-metric account-metric-emphasis hidden"><span>총 사용 가능 횟수</span><strong id="account-total-available">-</strong><p id="account-total-breakdown">기본 제공량 - + 크레딧 -</p></div>
+      </div>
+      <div class="account-subscription-meta"><span id="account-period-start" class="hidden">현재 주기 시작일 -</span><span id="account-next-reset" class="hidden">다음 갱신일 -</span></div>
+      <div id="account-plan-guidance" class="account-plan-guidance hidden"><div><strong id="account-plan-guidance-title">다음 단계</strong><p id="account-plan-guidance-message">플랜 전환 안내를 확인합니다.</p></div><button id="account-upgrade-free-btn" class="secondary compact" type="button">Free Plan으로 전환</button></div>
+    </article>
+    <article class="account-smart-usage-card ui-overview-card"><div class="account-section-heading ui-overview-heading"><div><p class="ui-overview-eyebrow">이번 달</p><h2>스마트 기능</h2></div></div><div id="account-smart-usage-list" class="account-smart-usage-list" aria-live="polite"></div></article>
+    <div class="account-card-grid">
+      <article class="account-info-card ui-overview-card"><div class="account-section-heading ui-overview-heading"><div><p class="ui-overview-eyebrow">계정</p><h2>라이선스 정보</h2></div></div><strong id="account-identity-label">기기 라이선스로 사용 중</strong><p id="account-identity-detail" class="account-card-description">로그인 없이 현재 기기에 연결된 라이선스를 사용합니다.</p><div class="account-card-footer"><div class="account-card-footer-actions"><button id="account-register-email-btn" class="secondary compact" type="button" disabled>계정 연결 준비 중</button></div></div></article>
+      <article class="account-info-card ui-overview-card"><div class="account-section-heading ui-overview-heading"><div><p class="ui-overview-eyebrow">기기</p><h2>사용 환경</h2></div></div><dl class="account-detail-list"><div><dt>운영체제</dt><dd id="account-device-platform">-</dd></div><div><dt>아키텍처</dt><dd id="account-device-arch">-</dd></div><div><dt>HW ID</dt><dd id="account-device-hw-id">-</dd></div><div><dt>앱 버전</dt><dd id="account-device-app-version">-</dd></div></dl></article>
+      <article class="account-info-card ui-overview-card"><div class="account-section-heading ui-overview-heading"><div><p class="ui-overview-eyebrow">플랜</p><h2>포함 기능</h2></div></div><div id="account-feature-list" class="account-state-list"></div></article>
+      <article class="account-info-card ui-overview-card"><div class="account-section-heading ui-overview-heading"><div><p class="ui-overview-eyebrow">연결</p><h2>서비스 상태</h2></div></div><div class="account-state-list"><button class="account-state-row" type="button" data-account-settings-next-tab="core" data-account-settings-next-target="settings-next-naver-form"><span>네이버</span><strong id="account-connection-naver">-</strong></button><button class="account-state-row" type="button" data-account-settings-next-tab="core" data-account-settings-next-target="settings-next-content-form"><span>Google Sheets</span><strong id="account-connection-google">-</strong></button><button class="account-state-row" type="button" data-account-settings-next-tab="core" data-account-settings-next-target="settings-next-wordpress-form"><span>WordPress</span><strong id="account-connection-wordpress">-</strong></button></div></article>
+    </div>
+  </div>
+  <dialog id="account-plan-info-dialog" class="account-plan-info-dialog ui-transaction-dialog" aria-labelledby="account-plan-info-title"><form method="dialog" class="ui-transaction-dialog-form"><div class="ui-transaction-dialog-header"><div><p class="ui-overview-eyebrow">이용 안내</p><h2 id="account-plan-info-title">플랜 안내</h2><p>스마트 기능은 항목별로 각각 제공되며 매월 1일 갱신됩니다.</p></div></div><div class="account-plan-guide-grid"><section><h3>Tester</h3><p>스마트 기능 40 / 40 / 40회</p></section><section><h3>Free</h3><p>스마트 기능 20 / 20 / 20회<br>기본 블로그 발행</p></section><section><h3>Pro</h3><p>스마트 기능 80 / 80 / 80회<br>트렌드·쇼핑 등 고급 기능</p></section><section><h3>Ultra</h3><p>스마트 기능 200 / 200 / 200회<br>상위 기능</p></section></div><div class="account-plan-guide-note"><strong>크레딧</strong><p>현재 플랜 권한 안에서 사용하는 추가 발행 횟수입니다. 만료나 환불은 제공되지 않습니다.</p></div><div class="ui-transaction-dialog-footer"><div class="ui-transaction-dialog-footer-actions"><button class="primary" type="submit">확인</button></div></div></form></dialog>
+</section>

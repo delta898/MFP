@@ -9,7 +9,7 @@ const scriptsRoot = path.join(repoRoot, 'ui', 'scripts');
 const shellContracts = Object.freeze({
     'features/shell/setup-banner.js': ['checkSetupBanner', 'dismissSetupBanner'],
     'features/shell/sidebar.js': ['refreshSidebarDynamicContent', 'initSidebarDynamicContent'],
-    'features/shell/supporting-surfaces.js': ['initDashboardDynamicContent', 'refreshAccountDynamicContent'],
+    'features/shell/supporting-surfaces.js': ['initDashboardDynamicContent'],
     'features/shell/update.js': ['checkUpdate', 'applyUpdate'],
     'features/shell/dashboard-content.js': ['renderDashboardAutoSchedule', 'loadDashboardExternalContent'],
     'features/shell/account-overview.js': ['renderAccountOverview', 'loadAccountOverview'],

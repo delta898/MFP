@@ -259,15 +259,3 @@ function scheduleDashboardBetaSurfaceRotation() {
     scheduleDashboardBetaSurfaceRotation();
   }, delayMs);
 }
-
-function refreshAccountDynamicContent() {
-  return refreshSupportingSurfaceContent('account', [{
-    region: 'supporting',
-    elementId: 'account-supporting-region',
-    selection: 'daily_rotate'
-  }]);
-}
-
-function initAccountDynamicContent() {
-  void refreshAccountDynamicContent();
-}
