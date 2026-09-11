@@ -152,6 +152,15 @@ legacy 화면은 migration surface가 교체되기 전까지 같은 canonical �
 입력 환경처럼 명시적 `적용` action을 가진 설정은 선택값이 마지막 적용값과 달라지는 즉시 header badge를 `변경됨`으로
 표시하고 저장 전 변경으로 추적한다. `적용` 성공 뒤에만 `적용됨`으로 돌아간다.
 
+## Page header와 작업 카드 hierarchy
+
+- page header는 해당 메뉴가 해결하는 사용자 목적을 한 번만 설명한다. 단일 목적 화면의 첫 작업 카드는
+  같은 목적을 제목·부제목으로 반복하지 않고, 사용자가 바로 시작할 첫 action 또는 section 제목으로 시작한다.
+- panel lead는 top/local menu가 있어 사용자가 다른 목적의 panel로 이동했을 때, 현재 panel의 역할을 구분해야 할
+  경우에만 사용한다. Blog Beta, 쇼핑커넥트, Settings Beta처럼 sibling panel이 있는 화면에는 적합하다.
+- 단일 workflow의 순서는 tab으로 표현하지 않는다. 채널 선택, 내용 작성, 선택 입력, 발행처럼 이어지는 단계는
+  card 안의 section hierarchy와 action placement로 보여준다.
+
 ## Local sub-menu 기준
 
 - top menu 안에 독립적으로 이동하거나 비교할 목적이 둘 이상 있을 때만 local sub-menu를 둔다.

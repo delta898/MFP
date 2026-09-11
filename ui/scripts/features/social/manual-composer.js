@@ -372,7 +372,7 @@ function renderManualSnsChannels() {
   channels.forEach((channel) => {
     const unavailable = !channel.supported || channel.disabled || channel.is_disconnected || channel.is_locked;
     const label = document.createElement('label');
-    label.className = `social-channel-option${unavailable ? ' is-disabled' : ''}`;
+    label.className = `social-channel-option ui-selectable-card${unavailable ? ' is-disabled' : ''}`;
     const input = document.createElement('input');
     input.type = 'checkbox';
     input.value = channel.id;
@@ -385,7 +385,7 @@ function renderManualSnsChannels() {
       syncManualSnsComposerState();
     });
     const copy = document.createElement('span');
-    copy.className = 'social-channel-copy';
+    copy.className = 'social-channel-copy ui-selectable-card-copy';
     const name = document.createElement('strong');
     name.textContent = channel.name || channel.service || 'Buffer 채널';
     const detail = document.createElement('span');

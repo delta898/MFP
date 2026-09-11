@@ -1,4 +1,4 @@
-      <section class="view" id="view-social" data-style-scope="compatibility">
+      <section class="view social-view" id="view-social">
         <div class="view-title-block">
           <div class="view-title-row">
             <div class="view-title-copy">
@@ -17,13 +17,13 @@
               <div class="social-channel-heading-copy">
                 <div class="social-channel-title-row">
                   <input id="manual-sns-select-all" type="checkbox" disabled>
-                  <label id="manual-sns-channels-title" for="manual-sns-select-all">발행 채널</label>
+                  <label id="manual-sns-channels-title" for="manual-sns-select-all">발행 채널 <small>최대 3개</small></label>
                 </div>
-                <p><button class="text-btn social-inline-nav-link" type="button" onclick="navigateTo('settings', 'sns')">설정 &gt; SNS</button>에서 저장한 채널 중 발행할 채널을 선택하세요.</p>
+                <p><button id="manual-sns-settings-link" class="text-btn social-inline-nav-link" type="button">설정 Beta &gt; SNS 배포</button>에서 저장한 채널 중 발행할 채널을 선택하세요.</p>
               </div>
               <button class="context-help-link" type="button" data-help-guide-url="https://m.blog.naver.com/amadejjs/223940980574">Buffer 도움말</button>
             </div>
-            <div id="manual-sns-channel-list" class="social-channel-grid" aria-live="polite"></div>
+            <div id="manual-sns-channel-list" class="social-channel-grid ui-selectable-card-grid" aria-live="polite"></div>
           </section>
 
           <section class="social-composer-section" aria-labelledby="manual-sns-text-title">
@@ -41,7 +41,7 @@
               </div>
             </div>
             <div class="social-editor-shell">
-              <textarea id="manual-sns-text" class="social-editor" rows="9"
+              <textarea id="manual-sns-text" class="social-editor" rows="6"
                 placeholder="오늘의 생각이나 기록을 자유롭게 작성해 보세요."></textarea>
               <span id="manual-sns-character-count" class="social-character-count">0자</span>
             </div>

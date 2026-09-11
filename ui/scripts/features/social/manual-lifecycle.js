@@ -10,6 +10,7 @@ function initManualSnsComposer() {
   const publishBtn = document.getElementById('manual-sns-publish-btn');
   const optimizeBtn = document.getElementById('manual-sns-ai-optimize-btn');
   const undoBtn = document.getElementById('manual-sns-ai-undo-btn');
+  const settingsLink = document.getElementById('manual-sns-settings-link');
   textEl?.addEventListener('input', syncManualSnsComposerState);
   imageUrlEl?.addEventListener('input', () => {
     syncManualSnsImagePreview();
@@ -66,6 +67,10 @@ function initManualSnsComposer() {
   publishBtn?.addEventListener('click', () => void publishManualSns());
   optimizeBtn?.addEventListener('click', () => void optimizeManualSnsText());
   undoBtn?.addEventListener('click', undoManualSnsOptimization);
+  settingsLink?.addEventListener('click', async () => {
+    await navigateTo('settings-next', 'extras');
+    settingsNextActivateExtrasTab?.('social');
+  });
   syncManualSnsImageSourceUi();
   syncManualSnsComposerState();
 }

@@ -82,7 +82,7 @@ test('non-target views opt into compatibility containment explicitly', () => {
   const viewTags = Array.from(html.matchAll(/<section class="[^"]*\bview\b[^"]*"[^>]*id="(view-[^"]+)"[^>]*>/g));
   assert.equal(viewTags.length > 1, true);
   viewTags.forEach(([tag, viewId]) => {
-    if (['view-blog-next', 'view-settings-next', 'view-dashboard-beta', 'view-card-news', 'view-shopping'].includes(viewId)) {
+    if (['view-blog-next', 'view-settings-next', 'view-dashboard-beta', 'view-card-news', 'view-shopping', 'view-social'].includes(viewId)) {
       assert.doesNotMatch(tag, /data-style-scope=/);
       return;
     }
