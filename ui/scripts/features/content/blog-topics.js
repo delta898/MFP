@@ -256,6 +256,11 @@ function openShoppingEditor(rowIndex) {
   document.getElementById('shopping-edit-url').value = item.shortUrl || '';
   document.getElementById('shopping-edit-instruction').value = item.instruction || item.options?.instruction || '';
   document.getElementById('shopping-edit-schedule-date').value = (item.scheduleDate || '').replace(' ', 'T').substring(0, 16);
+  const targets = Array.isArray(item.targets)
+    ? item.targets
+    : (Array.isArray(item.options?.platforms) ? item.options.platforms : []);
+  document.getElementById('shopping-edit-target-naver').checked = targets.includes('naver');
+  document.getElementById('shopping-edit-target-wordpress').checked = targets.includes('wordpress');
 
   // 카테고리 파싱 (N:..., W:...)
   let naverCategory = '';
@@ -305,13 +310,22 @@ async function saveShoppingModifications() {
   const scheduleDate = document.getElementById('shopping-edit-schedule-date').value.replace('T', ' ');
   const postStatus = document.getElementById('modal-shopping-post-status-text').dataset.value || 'publish';
   const status = document.getElementById('modal-shopping-status-text').dataset.value || '준비';
+  const targets = [
+    document.getElementById('shopping-edit-target-naver').checked ? 'naver' : '',
+    document.getElementById('shopping-edit-target-wordpress').checked ? 'wordpress' : ''
+  ].filter(Boolean);
+
+  if (status === '발행 준비 완료' && targets.length === 0) {
+    resultBox.textContent = '발행 대기열로 옮기려면 포스팅 대상을 하나 이상 선택해 주세요.';
+    return;
+  }
 
   const category = (naverCategory || wordpressCategory)
     ? `N:${naverCategory}, W:${wordpressCategory}`
     : '';
 
   const patch = {
-    product, shortUrl, instruction, category, postStatus, status,
+    product, shortUrl, instruction, category, postStatus, status, targets,
     scheduleDate: scheduleDate ? (scheduleDate.length === 16 ? scheduleDate + ':00' : scheduleDate) : ''
   };
 

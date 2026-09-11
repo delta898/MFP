@@ -57,9 +57,26 @@ test('shopping management uses item actions matching the Blog Beta lifecycle', (
   assert.match(source, /대기열로 이동/);
   assert.match(source, /보관으로 이동/);
   assert.match(source, /지금 포스팅/);
+  assert.match(source, /발행 대상 없음/);
+  assert.match(source, /발행 대상 선택/);
+  assert.match(source, /발행 대기열로 옮기려면 포스팅 대상을 하나 이상 선택/);
+  assert.match(source, /\/api\/v1\/continuous-publishing\/shopping\/runner\/start/);
+  assert.doesNotMatch(source.slice(source.indexOf('async function runShoppingManagementItem'), source.indexOf('function createShoppingManagementItem')),
+    /runShoppingBatchAction|shopping-quick-target-(?:naver|wordpress)|checkPublishPrerequisites/);
   assert.match(source, /data-shopping-management-tab/);
   assert.match(source, /readyItems\.length}\uAC74/);
   assert.match(source, /savedItems\.length}\uAC74/);
   assert.doesNotMatch(source, /startShoppingInlineEdit|shoppingInlineEditState/);
   assert.doesNotMatch(read('ui/scripts/features/content/trend-table.js'), /renderShoppingPagination|updateShoppingSelectionUi|shopping-row-selector/);
+});
+
+test('shopping editor saves the posting targets used by the management queue', () => {
+  const overlays = read('ui/partials/overlays.html');
+  const editor = read('ui/scripts/features/content/blog-topics.js');
+
+  assert.match(overlays, /id="shopping-edit-target-naver"/);
+  assert.match(overlays, /id="shopping-edit-target-wordpress"/);
+  assert.match(editor, /const targets = \[/);
+  assert.match(editor, /status === '발행 준비 완료' && targets\.length === 0/);
+  assert.match(editor, /product, shortUrl, instruction, category, postStatus, status, targets/);
 });

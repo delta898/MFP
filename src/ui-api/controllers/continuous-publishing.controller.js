@@ -46,6 +46,15 @@ function createContinuousPublishingController(deps = {}) {
             }
         },
 
+        async startShoppingRunner({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.startShoppingReadyTopic(requestBody || {}));
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'SHOPPING_LIFECYCLE_RUNNER_START_FAILED', '쇼핑 글감 포스팅을 시작하지 못했습니다.', error);
+            }
+        },
+
         async queue({ requestId, method, searchParams, res }) {
             if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
             try {

@@ -1871,7 +1871,8 @@ const Utils = {
                     postStatus,
                     scheduleDate,
                     writingStrategy: item?.writingStrategy || item?.writing_strategy,
-                    contentFocus: item?.contentFocus || item?.content_focus
+                    contentFocus: item?.contentFocus || item?.content_focus,
+                    targets: item?.targets || item?.platforms
                 });
 
                 row[map.category] = category;
@@ -2026,6 +2027,7 @@ const Utils = {
                                 scheduleDate: resolvedState.scheduleDate || '',
                                 writingStrategy: resolvedState.writingStrategy || '',
                                 contentFocus: resolvedState.contentFocus || 'auto',
+                                targets: resolvedState.targets || [],
                                 options: resolvedState.options
                             };
                         })(),
@@ -2105,6 +2107,7 @@ const Utils = {
                         scheduleDate: resolvedState.scheduleDate || '',
                         writingStrategy: resolvedState.writingStrategy || '',
                         contentFocus: resolvedState.contentFocus || 'auto',
+                        targets: resolvedState.targets || [],
                         options: resolvedState.options
                     };
                 });
@@ -2332,7 +2335,8 @@ const Utils = {
                     instruction: fields.instruction,
                     category: fields.category,
                     postStatus: fields.postStatus,
-                    scheduleDate: fields.scheduleDate
+                    scheduleDate: fields.scheduleDate,
+                    targets: fields.targets
                 });
                 dataToUpdate.push({
                     range: `${sheetName}!${toA1(optionsColIndex)}${targetRow}`,

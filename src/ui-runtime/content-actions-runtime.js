@@ -603,6 +603,9 @@ function createContentActionsRuntime(deps = {}) {
             if (!target) {
                 return { success: false, code: 'SHOPPING_ROW_NOT_FOUND', message: `shopping row(${rowIndex + 2})를 찾지 못했습니다.` };
             }
+            if (requestBody?.requireReadyStatus === true && String(target.status || '').trim() !== '발행 준비 완료') {
+                return { success: false, code: 'SHOPPING_ROW_NOT_READY', message: '이 글감은 더 이상 발행 준비 상태가 아닙니다.' };
+            }
             const shortUrl = String(target.shortUrl || '').trim();
             const productName = String(target.product || '').trim();
             const instruction = String(target.instruction || target.options?.instruction || '').trim();
@@ -775,11 +778,13 @@ function createContentActionsRuntime(deps = {}) {
     }
 
     async function executeShoppingBatchRowsAction(requestBody = {}) {
-        if (!isLivePublishAllowed(CONFIG)) {
+        const manualTrigger = requestBody?.manualTrigger === true;
+        const batchAllowed = manualTrigger ? isManualPublishAllowed(CONFIG) : isLivePublishAllowed(CONFIG);
+        if (!batchAllowed) {
             return {
                 success: false,
-                code: LIVE_PUBLISH_BLOCKED_CODE,
-                message: LIVE_PUBLISH_BLOCKED_MESSAGE
+                code: manualTrigger ? MANUAL_PUBLISH_BLOCKED_CODE : LIVE_PUBLISH_BLOCKED_CODE,
+                message: manualTrigger ? MANUAL_PUBLISH_BLOCKED_MESSAGE : LIVE_PUBLISH_BLOCKED_MESSAGE
             };
         }
         try {
@@ -820,16 +825,19 @@ function createContentActionsRuntime(deps = {}) {
             return { success: false, code: 'FEATURE_DISABLED', message: '현재 플랜에서 일괄·자동 발행 기능을 사용할 수 없습니다.' };
         }
 
-        const initialSession = await checkAuthSessionValid();
-        if (!initialSession.ok) {
-            rowIndices.forEach((rowIndex) => {
-                setShoppingRuntimeLog(rowIndex, '중단: 네이버 로그인 세션이 유효하지 않습니다.');
-            });
-            return {
-                success: false,
-                code: 'NAVER_SESSION_INVALID',
-                message: '네이버 로그인 세션이 유효하지 않습니다. 먼저 login을 다시 실행해 주세요.'
-            };
+        const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
+        if (targets.includes('naver')) {
+            const initialSession = await checkAuthSessionValid();
+            if (!initialSession.ok) {
+                rowIndices.forEach((rowIndex) => {
+                    setShoppingRuntimeLog(rowIndex, '중단: 네이버 로그인 세션이 유효하지 않습니다.');
+                });
+                return {
+                    success: false,
+                    code: 'NAVER_SESSION_INVALID',
+                    message: '네이버 로그인 세션이 유효하지 않습니다. 먼저 login을 다시 실행해 주세요.'
+                };
+            }
         }
 
         const quotaPreflight = buildPublishQuotaPreflight(rowIndices.length, precheck);
@@ -840,7 +848,6 @@ function createContentActionsRuntime(deps = {}) {
         }
         const enableRelatedPostsAutoLink = getFeatureBool(features, 'enable_related_posts_auto_link', false);
         const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : null;
-        const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
 
         targetRowIndices.forEach((rowIndex, index) => {
             setShoppingRuntimeLog(rowIndex, `대기열 등록 (${index + 1}/${targetRowIndices.length})`);
@@ -859,7 +866,14 @@ function createContentActionsRuntime(deps = {}) {
             const rowIndex = targetRowIndices[index];
             setShoppingRuntimeLog(rowIndex, `처리 시작 (${index + 1}/${targetRowIndices.length})`);
             const result = await executeShoppingRowAction(
-                { rowIndex, targets, headless, isLast: index === targetRowIndices.length - 1, operationId: `${batchOperationId}:row-${rowIndex}` },
+                {
+                    rowIndex,
+                    targets,
+                    headless,
+                    requireReadyStatus: requestBody?.requireReadyStatus === true,
+                    isLast: index === targetRowIndices.length - 1,
+                    operationId: `${batchOperationId}:row-${rowIndex}`
+                },
                 {
                     features,
                     enableRelatedPostsAutoLink,
@@ -927,6 +941,11 @@ function createContentActionsRuntime(deps = {}) {
         const category = requestBody?.category !== undefined ? String(requestBody.category || '').trim() : undefined;
         const postStatus = requestBody?.postStatus !== undefined ? String(requestBody.postStatus || '').trim() : undefined;
         const scheduleDate = requestBody?.scheduleDate !== undefined ? String(requestBody.scheduleDate || '').trim() : undefined;
+        const targets = requestBody?.targets !== undefined
+            ? Array.from(new Set((Array.isArray(requestBody.targets) ? requestBody.targets : String(requestBody.targets || '').split(','))
+                .map((target) => String(target || '').trim().toLowerCase())
+                .filter((target) => ['naver', 'wordpress'].includes(target))))
+            : undefined;
 
         const allowedStatus = new Set(['준비', '발행 준비 완료', '발행 중', '발행 완료', '임시 저장 완료', '예약 포스팅 등록 완료', '실패']);
 
@@ -951,7 +970,8 @@ function createContentActionsRuntime(deps = {}) {
                 status,
                 category,
                 postStatus,
-                scheduleDate
+                scheduleDate,
+                targets
             });
             return {
                 success: true,

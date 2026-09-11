@@ -28,6 +28,41 @@ test('development blocks shopping batch before sheet or license access', async (
     assert.equal(externalAccess, 0);
 });
 
+test('development permits a manually started shopping queue item through the manual publishing policy', async () => {
+    let sheetReadyCalls = 0;
+    let licenseCalls = 0;
+    const runtime = createContentActionsRuntime({
+        CONFIG: DEVELOPMENT_CONFIG,
+        async ensureSheetsReadyForUi() { sheetReadyCalls += 1; },
+        License: {
+            async checkLicenseStatus() {
+                licenseCalls += 1;
+                return { success: true, features: { cmd_batch: true, cmd_shopping: true } };
+            }
+        },
+        checkAuthSessionValid: async () => ({ ok: false }),
+        parseIntSafe: (value, fallback, min) => {
+            const parsed = Number.parseInt(value, 10);
+            return Number.isInteger(parsed) && parsed >= min ? parsed : fallback;
+        },
+        toFeatureMap,
+        isCommandEnabled,
+        getFeatureBool: () => false,
+        clearAllShoppingRuntimeLogs() { },
+        setShoppingRuntimeLog() { }
+    });
+
+    const result = await runtime.executeShoppingBatchRowsAction({
+        rowIndices: [0],
+        targets: ['naver'],
+        manualTrigger: true
+    });
+
+    assert.equal(result.code, 'NAVER_SESSION_INVALID');
+    assert.equal(sheetReadyCalls, 1);
+    assert.equal(licenseCalls, 1);
+});
+
 test('development blocks blog batch before sheet access', async () => {
     let sheetRead = 0;
     const runtime = createContentActionsRuntime({
@@ -109,6 +144,41 @@ test('shopping batch requires both shopping and batch capabilities', async () =>
     assert.match(result.message, /일괄·자동 발행/);
 });
 
+test('WordPress-only shopping lifecycle execution does not require a Naver session', async () => {
+    let naverSessionChecks = 0;
+    const runtime = createContentActionsRuntime({
+        CONFIG: {},
+        async ensureSheetsReadyForUi() { },
+        License: {
+            async checkLicenseStatus() {
+                return {
+                    success: true,
+                    remaining: 0,
+                    features: { cmd_batch: true, cmd_shopping: true }
+                };
+            }
+        },
+        checkAuthSessionValid: async () => {
+            naverSessionChecks += 1;
+            return { ok: false };
+        },
+        parseIntSafe: (value, fallback, min) => {
+            const parsed = Number.parseInt(value, 10);
+            return Number.isInteger(parsed) && parsed >= min ? parsed : fallback;
+        },
+        toFeatureMap,
+        isCommandEnabled,
+        getFeatureBool: () => false,
+        clearAllShoppingRuntimeLogs() { },
+        setShoppingRuntimeLog() { }
+    });
+
+    const result = await runtime.executeShoppingBatchRowsAction({ rowIndices: [0], targets: ['wordpress'] });
+
+    assert.equal(result.code, 'QUOTA_EXHAUSTED');
+    assert.equal(naverSessionChecks, 0);
+});
+
 test('shopping row update rejects an overlong instruction before sheet mutation', async () => {
     let updated = false;
     const runtime = createContentActionsRuntime({
@@ -129,6 +199,27 @@ test('shopping row update rejects an overlong instruction before sheet mutation'
     assert.equal(result.success, false);
     assert.equal(result.code, 'INVALID_SHOPPING_INSTRUCTION');
     assert.equal(updated, false);
+});
+
+test('shopping row update forwards normalized posting targets to the sheet option updater', async () => {
+    let received = null;
+    const runtime = createContentActionsRuntime({
+        parseIntSafe: (value, fallback, min) => {
+            const parsed = Number.parseInt(value, 10);
+            return Number.isInteger(parsed) && parsed >= min ? parsed : fallback;
+        },
+        Utils: {
+            async updateGoogleSheetShoppingEditableFields(_rowIndex, fields) { received = fields; }
+        }
+    });
+
+    const result = await runtime.executeShoppingRowUpdate({
+        rowIndex: 0,
+        targets: [' wordpress ', 'naver', 'unsupported', 'naver']
+    });
+
+    assert.equal(result.success, true);
+    assert.deepEqual(received.targets, ['wordpress', 'naver']);
 });
 
 test('shopping topic deletion invalidates every cached shopping list variant', async () => {

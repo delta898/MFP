@@ -1,21 +1,19 @@
 const { normalizeWritingStrategyOverride } = require('../content/writing-strategy');
 const { normalizeShoppingContentFocus } = require('../content/shopping-editorial-plan-prompt');
+const {
+    LIFECYCLE_POST_STATUSES,
+    LIFECYCLE_TARGETS,
+    normalizeTargets
+} = require('./content-lifecycle-adapter');
 
 const SHOPPING_TOPIC_STATUS = Object.freeze({
     SAVED: '준비'
 });
-const POST_STATUSES = Object.freeze(['publish', 'draft', 'schedule']);
-const PLATFORMS = Object.freeze(['naver', 'wordpress']);
+const POST_STATUSES = LIFECYCLE_POST_STATUSES;
+const PLATFORMS = LIFECYCLE_TARGETS;
 
 function text(value) {
     return String(value || '').trim();
-}
-
-function normalizePlatforms(value) {
-    const values = Array.isArray(value) ? value : text(value).split(',');
-    return Array.from(new Set(values
-        .map(item => text(item).toLowerCase())
-        .filter(item => PLATFORMS.includes(item))));
 }
 
 function buildShoppingTopicSheetRow(input = {}) {
@@ -62,7 +60,7 @@ function buildShoppingTopicSheetRow(input = {}) {
         scheduleDate: postStatus === 'schedule' ? scheduleDate : '',
         writingStrategy,
         contentFocus,
-        targets: normalizePlatforms(input.targets)
+        targets: normalizeTargets(input.targets)
     };
 }
 

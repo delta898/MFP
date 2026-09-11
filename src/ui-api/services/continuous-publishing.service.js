@@ -15,9 +15,18 @@ const { createBlogNextExecutionCoordinator } = require('../../blog-next/executio
 const { buildDashboardBlogOperationsOverview } = require('../../dashboard/blog-operations-read-model');
 const { buildDashboardBlogResultStats } = require('../../dashboard/blog-result-stats-read-model');
 const { presentPublishingProgress, buildCompletionLinks } = require('../../continuous-publishing/presentation');
+const {
+    CONTENT_LIFECYCLE_KIND,
+    createContentLifecycleAdapterRegistry,
+    resolveDeliveryPlan
+} = require('../../continuous-publishing/content-lifecycle-adapter');
 
 function createContinuousPublishingService(deps = {}) {
-    const { Utils, ensureSheetsReadyForUi, executeBlogRowAction, executeBlogTopicsDelete, CONFIG = {}, fs, path, now, eventStore } = deps;
+    const { Utils, ensureSheetsReadyForUi, executeBlogRowAction, executeShoppingBatchRowsAction, executeBlogTopicsDelete, CONFIG = {}, fs, path, now, eventStore } = deps;
+    const lifecycleAdapters = deps.lifecycleAdapters || createContentLifecycleAdapterRegistry({
+        executeBlogRowAction,
+        executeShoppingBatchRowsAction
+    });
     const pathImpl = path || require('node:path');
     let automationSettingsRepository = deps.automationSettingsRepository || null;
     let automationScheduler = deps.automationScheduler || null;
@@ -193,9 +202,77 @@ function createContinuousPublishingService(deps = {}) {
         return requireTopicInStatus(rowIndex, TOPIC_STATUS.READY);
     }
 
+    async function requireShoppingTopicInStatus(rowIndex, expectedStatus) {
+        await ensureSheetsReadyForUi();
+        Utils.clearSheetCache('shopping');
+        const result = await Utils.readGoogleSheetShoppingAll({
+            limit: 100000,
+            offset: 0,
+            sortBy: 'rowNumber',
+            sortDir: 'asc'
+        });
+        const item = (Array.isArray(result?.items) ? result.items : [])
+            .find((candidate) => Number(candidate?.rowIndex) === rowIndex
+                && String(candidate?.status || '').trim() === expectedStatus);
+        if (!item) {
+            throw createApiError(409, 'SHOPPING_QUEUE_ITEM_NOT_READY', '이 쇼핑 글감은 더 이상 발행 준비 상태가 아닙니다. 대기열을 새로고침해 주세요.');
+        }
+        return item;
+    }
+
     function requireRunnerIdle() {
         if (blogNextExecutionCoordinator.getStatus().busy) {
             throw createApiError(409, 'CONTINUOUS_RUNNER_BUSY', '다른 글감을 처리하는 동안에는 발행 대기열을 변경하거나 추가 실행할 수 없습니다.');
+        }
+    }
+
+    async function startShoppingReadyTopic(requestBody = {}) {
+        const rowIndex = parseRowIndex(requestBody.rowIndex);
+        const shoppingLifecycleAdapter = lifecycleAdapters.get(CONTENT_LIFECYCLE_KIND.SHOPPING);
+        if (!shoppingLifecycleAdapter) {
+            throw createApiError(500, 'SHOPPING_LIFECYCLE_RUNNER_UNAVAILABLE', '쇼핑 글감 실행기를 준비하지 못했습니다.');
+        }
+        const executionLease = blogNextExecutionCoordinator.acquire({
+            source: 'shopping_continuous_runner',
+            subject: '쇼핑 글감 발행',
+            message: '선택한 쇼핑 글감을 포스팅하고 있습니다.'
+        });
+        if (!executionLease) {
+            throw createApiError(409, 'CONTINUOUS_RUNNER_BUSY', '다른 글감을 처리하는 동안에는 포스팅을 시작할 수 없습니다. 현재 실행이 끝난 뒤 다시 시도해 주세요.');
+        }
+
+        try {
+            const topic = await requireShoppingTopicInStatus(rowIndex, '발행 준비 완료');
+            const plan = resolveDeliveryPlan(topic);
+            if (plan.targets.length === 0) {
+                throw createApiError(400, 'SHOPPING_DELIVERY_TARGET_REQUIRED', '저장된 발행 대상이 없습니다. 글감을 수정해 발행 대상을 선택해 주세요.');
+            }
+            if (plan.postStatus === 'schedule' && !plan.scheduleDate) {
+                throw createApiError(400, 'SHOPPING_SCHEDULE_REQUIRED', '예약 발행 일시를 확인해 주세요.');
+            }
+
+            const result = await shoppingLifecycleAdapter.execute({
+                rowIndex,
+                plan,
+                execution: {
+                    manual: true,
+                    headless: requestBody.headless !== false,
+                    operationId: `continuous-publishing:shopping-row-${rowIndex}`
+                }
+            });
+            Utils.clearSheetCache('shopping');
+            if (!result?.success) {
+                throw createApiError(400, result?.code || 'SHOPPING_LIFECYCLE_EXECUTION_FAILED', result?.message || '쇼핑 글감 실행에 실패했습니다.');
+            }
+            return {
+                ...result.data,
+                rowIndex,
+                rowNumber: Number(result?.data?.rowNumber || topic.rowNumber || rowIndex + 2),
+                postStatus: plan.postStatus,
+                targets: plan.targets
+            };
+        } finally {
+            executionLease.release();
         }
     }
 
@@ -203,7 +280,8 @@ function createContinuousPublishingService(deps = {}) {
         if (runnerPromise) {
             throw createApiError(409, 'CONTINUOUS_RUNNER_BUSY', '이미 다음 글감을 처리하고 있습니다.');
         }
-        if (typeof executeBlogRowAction !== 'function' && execution.simulation !== true) {
+        const blogLifecycleAdapter = lifecycleAdapters.get(CONTENT_LIFECYCLE_KIND.BLOG);
+        if (!blogLifecycleAdapter && execution.simulation !== true) {
             throw createApiError(500, 'CONTINUOUS_RUNNER_UNAVAILABLE', '연속 발행 실행기를 준비하지 못했습니다.');
         }
 
@@ -290,20 +368,20 @@ function createContinuousPublishingService(deps = {}) {
                     return;
                 }
 
-                const result = await executeBlogRowAction(
-                    { action: 'batch', rowIndex, headless, requireReadyStatus: true },
-                    {
-                        manualTrigger: execution.manual === true,
-                        continuousAutomation: execution.automatic === true,
-                        isAutoCycle: execution.automatic === true,
-                        isLast: true,
+                const result = await blogLifecycleAdapter.execute({
+                    rowIndex,
+                    plan: topic,
+                    execution: {
+                        manual: execution.manual === true,
+                        automatic: execution.automatic === true,
+                        headless,
                         operationId: `continuous-publishing:row-${rowIndex}`,
                         onProgress: (message) => {
                             const progress = presentPublishingProgress(message, { postStatus });
                             updateRunnerState({ progressStage: progress.stage, message: progress.message });
                         }
                     }
-                );
+                });
                 Utils.clearSheetCache('topics');
                 if (!result?.success) {
                     updateRunnerState({
@@ -742,6 +820,10 @@ function createContinuousPublishingService(deps = {}) {
 
         startNextReadyTopic(requestBody = {}) {
             return startRunner(requestBody, { manual: true });
+        },
+
+        startShoppingReadyTopic(requestBody = {}) {
+            return startShoppingReadyTopic(requestBody);
         },
 
         getRunnerStatus() {

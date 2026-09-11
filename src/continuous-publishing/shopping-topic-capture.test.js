@@ -23,6 +23,7 @@ test('shopping capture builds a saved Sheet row without publishing dependencies'
     assert.equal(row.category, 'N:생활, W:');
     assert.equal(row.writingStrategy, 'discovery');
     assert.equal(row.contentFocus, 'usage');
+    assert.deepEqual(row.targets, ['naver']);
 });
 
 test('shopping capture rejects a malformed URL before any Sheet work', () => {

@@ -44,8 +44,28 @@ function formatShoppingManagementHost(rawUrl) {
   }
 }
 
+function getShoppingManagementTargets(item = {}) {
+  const candidates = Array.isArray(item.targets)
+    ? item.targets
+    : (Array.isArray(item.options?.platforms) ? item.options.platforms : []);
+  return Array.from(new Set(candidates
+    .map((target) => String(target || '').trim().toLowerCase())
+    .filter((target) => ['naver', 'wordpress'].includes(target))));
+}
+
+function formatShoppingManagementTargets(item = {}) {
+  const labels = { naver: '네이버 블로그', wordpress: '워드프레스' };
+  const targets = getShoppingManagementTargets(item);
+  return targets.length > 0 ? targets.map((target) => labels[target]).join(' · ') : '발행 대상 없음';
+}
+
 async function moveShoppingManagementItem(item, status, button) {
   if (!item || !Number.isInteger(Number(item.rowIndex))) return;
+  if (status === '발행 준비 완료' && getShoppingManagementTargets(item).length === 0) {
+    openShoppingEditor(Number(item.rowIndex));
+    showUiToast({ level: 'info', title: '발행 대상 선택', message: '발행 대상을 선택해 저장한 뒤 대기열로 옮겨 주세요.' });
+    return;
+  }
   const previousStatus = item.status;
   const defaultLabel = button?.textContent || '';
   if (button) {
@@ -99,12 +119,34 @@ async function deleteShoppingManagementItem(item, button) {
 
 async function runShoppingManagementItem(item, button) {
   if (!item || !Number.isInteger(Number(item.rowIndex))) return;
-  blogShoppingSelectedRowIndices.clear();
-  blogShoppingSelectedRowIndices.add(Number(item.rowIndex));
+  const resultBox = document.getElementById('shopping-action-result');
+  if (!resultBox) return;
   if (button) button.disabled = true;
+  pauseDashboardPolling();
   try {
-    await runShoppingBatchAction();
+    const result = await runWithLiveProgress({
+      targetEl: resultBox,
+      requestLabel: '쇼핑 글 포스팅',
+      requestFn: () => postJson('/api/v1/continuous-publishing/shopping/runner/start', {
+        rowIndex: Number(item.rowIndex),
+        headless: Boolean(document.getElementById('shopping-quick-headless')?.checked)
+      }),
+      onTick: () => loadBlogShopping({ silent: true })
+    });
+    showUiToast({
+      level: 'success',
+      title: '쇼핑 글 포스팅 완료',
+      message: result?.postStatus === 'draft'
+        ? '쇼핑 글을 임시 저장했습니다.'
+        : result?.postStatus === 'schedule'
+          ? '쇼핑 글 예약 발행을 등록했습니다.'
+          : '쇼핑 글을 발행했습니다.'
+    });
+    await Promise.all([loadBlogShopping({ silent: true }), loadDashboard()]);
+  } catch (_error) {
+    // runWithLiveProgress가 상세 오류를 결과 영역에 표시한다.
   } finally {
+    resumeDashboardPolling();
     if (button) button.disabled = false;
   }
 }
@@ -130,6 +172,7 @@ function createShoppingManagementItem(item, position, saved) {
   meta.className = 'blog-next-queue-meta';
   meta.textContent = [
     formatShoppingManagementHost(item.shortUrl),
+    formatShoppingManagementTargets(item),
     getPostStatusLabel(item.postStatus || 'publish'),
     item.scheduleDate || ''
   ].filter(Boolean).join(' · ');
@@ -145,7 +188,7 @@ function createShoppingManagementItem(item, position, saved) {
     const enqueue = document.createElement('button');
     enqueue.type = 'button';
     enqueue.className = 'primary';
-    enqueue.textContent = '대기열로 이동';
+    enqueue.textContent = getShoppingManagementTargets(item).length > 0 ? '대기열로 이동' : '발행 대상 선택';
     enqueue.addEventListener('click', () => moveShoppingManagementItem(item, '발행 준비 완료', enqueue));
     const remove = document.createElement('button');
     remove.type = 'button';
@@ -163,9 +206,17 @@ function createShoppingManagementItem(item, position, saved) {
     const run = document.createElement('button');
     run.type = 'button';
     run.className = 'primary';
-    run.textContent = runningState ? '진행 중' : '지금 포스팅';
+    const hasDeliveryTargets = getShoppingManagementTargets(item).length > 0;
+    run.textContent = runningState ? '진행 중' : (hasDeliveryTargets ? '지금 포스팅' : '발행 대상 선택');
     run.disabled = runningState;
-    run.addEventListener('click', () => runShoppingManagementItem(item, run));
+    run.addEventListener('click', () => {
+      if (!hasDeliveryTargets) {
+        openShoppingEditor(Number(item.rowIndex));
+        showUiToast({ level: 'info', title: '발행 대상 선택', message: '발행 대상을 선택해 저장한 뒤 포스팅해 주세요.' });
+        return;
+      }
+      void runShoppingManagementItem(item, run);
+    });
     actions.append(archive, run);
   }
 
@@ -344,8 +395,16 @@ async function saveShoppingRowPatch(rowIndex, patch = {}, options = {}) {
     category: item.category,
     postStatus: item.postStatus,
     scheduleDate: item.scheduleDate,
+    targets: [...getShoppingManagementTargets(item)],
     options: { ...(item.options || {}) }
   };
+
+  const nextTargets = patch.targets !== undefined
+    ? getShoppingManagementTargets({ targets: patch.targets })
+    : getShoppingManagementTargets(item);
+  if (patch.status === '발행 준비 완료' && nextTargets.length === 0) {
+    throw new Error('발행 대기열로 옮기려면 포스팅 대상을 하나 이상 선택해 주세요.');
+  }
 
   // 1. 캐시를 즉시 업데이트 (race condition 방지)
   if (patch.product !== undefined) item.product = patch.product;
@@ -360,6 +419,10 @@ async function saveShoppingRowPatch(rowIndex, patch = {}, options = {}) {
   if (patch.category !== undefined) item.category = patch.category;
   if (patch.postStatus !== undefined) item.postStatus = patch.postStatus;
   if (patch.scheduleDate !== undefined) item.scheduleDate = patch.scheduleDate;
+  if (patch.targets !== undefined) {
+    item.targets = [...getShoppingManagementTargets({ targets: patch.targets })];
+    item.options = { ...(item.options || {}), platforms: [...item.targets] };
+  }
 
   // 2. 즉시 재렌더링 (낙관적 업데이트)
   renderBlogShoppingTable(blogShoppingCache);
@@ -372,7 +435,8 @@ async function saveShoppingRowPatch(rowIndex, patch = {}, options = {}) {
     status: patch.status !== undefined ? String(patch.status || '').trim() : item.status,
     category: patch.category !== undefined ? String(patch.category || '').trim() : item.category,
     postStatus: patch.postStatus !== undefined ? String(patch.postStatus || '').trim() : item.postStatus,
-    scheduleDate: patch.scheduleDate !== undefined ? String(patch.scheduleDate || '').trim() : item.scheduleDate
+    scheduleDate: patch.scheduleDate !== undefined ? String(patch.scheduleDate || '').trim() : item.scheduleDate,
+    targets: nextTargets
   };
 
   if (!silent && resultBox) resultBox.textContent = `row ${rowIndex + 2} 수정 중...`;

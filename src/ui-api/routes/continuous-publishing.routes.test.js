@@ -19,6 +19,10 @@ function createHarness() {
         async captureShoppingTopic(body) {
             calls.push({ shoppingTopic: body });
             return { action: 'save', rowIndex: 3, status: '준비' };
+        },
+        async startShoppingReadyTopic(body) {
+            calls.push({ shoppingRunner: body });
+            return { rowIndex: 3, status: '발행 완료', targets: ['naver'] };
         }
     };
     const controller = createContinuousPublishingController({
@@ -96,4 +100,18 @@ test('shopping topic capture is served by the continuous publishing route', asyn
         shoppingTopic: { shortUrl: 'https://smartstore.naver.com/example/products/1' }
     }]);
     assert.equal(harness.responses[0].data.status, '준비');
+});
+
+test('shopping lifecycle runner is served by the continuous publishing route', async () => {
+    const harness = createHarness();
+    const handled = await harness.handler({
+        pathname: '/api/v1/continuous-publishing/shopping/runner/start',
+        method: 'POST',
+        requestId: 'shopping-runner-1',
+        requestBody: { rowIndex: 3, headless: false }
+    });
+
+    assert.equal(handled, true);
+    assert.deepEqual(harness.calls, [{ shoppingRunner: { rowIndex: 3, headless: false } }]);
+    assert.equal(harness.responses[0].data.status, '발행 완료');
 });

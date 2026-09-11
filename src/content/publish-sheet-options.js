@@ -196,6 +196,9 @@ function resolveShoppingSheetState(input = {}) {
         wordpressCategory: optionWordpressCategory || parsedCategory.wordpressCategory,
         postStatus: normalizeString(parsedOptions.post_status) || normalizeString(input.postStatus) || 'publish',
         scheduleDate: normalizeString(parsedOptions.schedule_date) || normalizeString(input.scheduleDate),
+        targets: Array.isArray(parsedOptions.platforms)
+            ? normalizeStringArray(parsedOptions.platforms).map((item) => item.toLowerCase())
+            : normalizeStringArray(input.targets || parsedOptions.targets).map((item) => item.toLowerCase()),
         writingStrategy: normalizeWritingStrategyOverride(parsedOptions.writing_strategy || input.writingStrategy),
         contentFocus: normalizeShoppingContentFocus(parsedOptions.content_focus || input.contentFocus)
     };
@@ -295,6 +298,12 @@ function mergeShoppingSheetOptions(existingOptions = {}, fields = {}) {
     }
     if (fields.contentFocus !== undefined) {
         applyStringOption(next, 'content_focus', normalizeShoppingContentFocus(fields.contentFocus));
+    }
+    if (fields.targets !== undefined || fields.platforms !== undefined) {
+        const source = fields.targets !== undefined ? fields.targets : fields.platforms;
+        const targets = normalizeStringArray(source).map((item) => item.toLowerCase());
+        if (targets.length > 0) next.platforms = Array.from(new Set(targets));
+        else delete next.platforms;
     }
 
     if (

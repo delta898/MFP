@@ -52,6 +52,11 @@ function createService(state = {}) {
                     offset: 0
                 };
             },
+            async readGoogleSheetShoppingAll(options) {
+                state.shoppingReadOptions = options;
+                const items = Array.isArray(state.shoppingItems) ? state.shoppingItems : [];
+                return { items, total: items.length, limit: options.limit, offset: 0 };
+            },
             async updateGoogleSheetTopicEditableFields(rowIndex, fields) {
                 state.updatedRowIndex = rowIndex;
                 state.updatedFields = fields;
@@ -77,6 +82,20 @@ function createService(state = {}) {
         async executeBlogTopicsDelete(requestBody) {
             state.deleteRequest = requestBody;
             return state.deleteResult || { success: true, data: { deletedCount: 1 } };
+        },
+        async executeShoppingBatchRowsAction(requestBody) {
+            state.shoppingRunnerRequest = requestBody;
+            if (typeof state.executeShoppingRunner === 'function') return state.executeShoppingRunner(requestBody);
+            return {
+                success: true,
+                data: {
+                    results: [{
+                        rowIndex: Number(requestBody.rowIndices?.[0]),
+                        success: true,
+                        data: { status: '발행 완료', rowNumber: Number(requestBody.rowIndices?.[0]) + 2 }
+                    }]
+                }
+            };
         }
     });
 }
@@ -91,13 +110,15 @@ test('shopping topic capture uses the same lifecycle service boundary and always
         publishMode: 'append_and_publish',
         instruction: '가격보다 내 사용 환경을 중심으로 씁니다.',
         writingStrategy: 'discovery',
-        contentFocus: 'usage'
+        contentFocus: 'usage',
+        targets: ['wordpress']
     });
 
     assert.equal(state.appendedShoppingRows.length, 1);
     assert.equal(state.appendedShoppingRows[0].product, '테스트 상품');
     assert.equal(state.appendedShoppingRows[0].status, '준비');
     assert.equal(state.appendedShoppingRows[0].writingStrategy, 'discovery');
+    assert.deepEqual(state.appendedShoppingRows[0].targets, ['wordpress']);
     assert.equal(state.appendShoppingOptions.defaultStatus, '준비');
     assert.deepEqual(result, {
         action: 'save', rowIndex: 8, rowNumber: 10, status: '준비'
@@ -114,6 +135,49 @@ test('shopping topic capture reports a persistence failure through the lifecycle
         () => service.captureShoppingTopic({ shortUrl: 'https://smartstore.naver.com/example/products/1' }),
         (error) => error?.apiCode === 'SHOPPING_APPEND_FAILED'
     );
+});
+
+test('Shopping lifecycle runner executes one ready row with its persisted delivery plan', async () => {
+    const state = {
+        shoppingItems: [{
+            rowIndex: 8,
+            rowNumber: 10,
+            status: '발행 준비 완료',
+            product: '테스트 상품',
+            postStatus: 'draft',
+            options: { platforms: ['wordpress'], post_status: 'draft' }
+        }]
+    };
+    const service = createService(state);
+
+    const result = await service.startShoppingReadyTopic({ rowIndex: 8, headless: false });
+
+    assert.deepEqual(state.shoppingRunnerRequest, {
+        action: 'batch',
+        rowIndices: [8],
+        targets: ['wordpress'],
+        headless: false,
+        manualTrigger: true,
+        requireReadyStatus: true,
+        source: 'continuous-publishing',
+        operationId: 'continuous-publishing:shopping-row-8'
+    });
+    assert.equal(result.status, '발행 완료');
+    assert.equal(result.postStatus, 'draft');
+    assert.deepEqual(result.targets, ['wordpress']);
+});
+
+test('Shopping lifecycle runner refuses a ready row without a persisted delivery target', async () => {
+    const state = {
+        shoppingItems: [{ rowIndex: 8, rowNumber: 10, status: '발행 준비 완료', product: '대상 없는 상품' }]
+    };
+    const service = createService(state);
+
+    await assert.rejects(
+        () => service.startShoppingReadyTopic({ rowIndex: 8 }),
+        (error) => error.status === 400 && error.apiCode === 'SHOPPING_DELIVERY_TARGET_REQUIRED'
+    );
+    assert.equal(state.shoppingRunnerRequest, undefined);
 });
 
 test('automation settings remain device-local and do not activate the timer in development', () => {
