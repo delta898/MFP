@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-shopping-connect-11-03c-topic-management-ui`
 - Base/parent branch: `codex/feature/design-system-shopping-connect-11`
 - Start date: 2026-09-11
-- Status: 구현·사용자 UI 확인·병합 게이트 검증 완료
+- Status: 완료
 
 ## 사용자 필요와 목표
 
