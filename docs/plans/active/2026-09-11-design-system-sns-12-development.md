@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-sns-12`
 - Base/parent branch: `codex/feature/design-system-main`
 - Start date: 2026-09-11
-- Status: 진행 중
+- Status: 병합 준비 완료
 
 ## 사용자 필요와 목표
 
@@ -97,6 +97,10 @@ SNS 즉시 발행은 짧은 글을 채널에 공유하는 단순한 작업이지
   dropdown과 `작업 공간 불러오기`/`다시 불러오기`만을 같은 한 줄 control로 제공한다.
 - SNS 메뉴 재진입은 Buffer 연결 상태만 갱신한다. 같은 앱 세션에서 사용자가 이미 불러온 작업 공간과
   채널 목록은 유지하고, 연결이 해제된 경우 또는 사용자가 `다시 불러오기`를 실행한 경우에만 목록을 비운다.
+- 전체 회귀에서 SNS style module의 900줄 경계를 확인했다. 책임을 바꾸지 않고 interaction/surface
+  마감 규칙을 `social-surfaces.css`로 분리해 module 경계를 회복했다.
+- 전체 단위 회귀 1,649개가 통과했고 1개는 플랫폼 전용으로 skip됐다. SNS 화면의 browser fixture
+  회귀도 통과했다. 실제 Buffer 연결·RSS 자동 공유·외부 SNS 발행은 사용자 수동 검증 범위로 남긴다.
 - SNS 전용 structure/style contract, Settings Beta contract, scoped API unit test, 디자인 시스템 contract,
   JavaScript syntax, diff 검증과 브라우저 fixture 회귀를 통과했다. 현재 focused 검증은 63개다. 실제 Buffer
   연결과 RSS 자동 공유는 외부 상태를 변경하므로 사용자 수동 확인이 남아 있다.

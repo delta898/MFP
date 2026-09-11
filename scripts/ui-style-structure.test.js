@@ -42,6 +42,7 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
         'styles/patterns/settings-card.css',
         'styles/patterns/transaction-dialog.css',
         'styles/features/social.css',
+        'styles/features/social-surfaces.css',
         'styles/features/publishing.css',
         'styles/features/automation-settings.css',
         'styles/features/dashboard.css',
