@@ -14,11 +14,40 @@ const {
     dedupeShoppingTitleSubject,
     buildEngagingShoppingTitle,
     resolveShoppingProductTitle,
+    isAuthenticationLikeLanding,
     selectPrimaryPricePair,
     mergeProductData,
     choosePreferredProductTitle,
     resolveViaShoppingSearchGateway
 } = ShoppingManager.__test;
+
+test('shopping preview rejects Naver authentication pages as product landings', () => {
+    const authenticationPage = {
+        title: '키보드 왼쪽 대문자 고정(Caps Lock)이 켜져 있어요. 비밀번호를 확인하세요.',
+        body: '네이버 로그인 아이디 비밀번호를 입력해 주세요.',
+        imageUrls: [],
+        commerceData: {}
+    };
+
+    assert.equal(
+        isAuthenticationLikeLanding(
+            authenticationPage,
+            'https://nid.naver.com/nidlogin.login?url=https%3A%2F%2Fsmartstore.naver.com%2Fmain%2Fproducts%2F13170591899'
+        ),
+        true
+    );
+    assert.equal(isAuthenticationLikeLanding(authenticationPage, 'https://example.com/products/1'), true);
+    assert.deepEqual(resolveShoppingProductTitle('', authenticationPage.title), {
+        title: '',
+        source: 'missing'
+    });
+    assert.equal(isAuthenticationLikeLanding({
+        title: '정상 상품명',
+        body: '회원은 로그인 후 추가 혜택을 받을 수 있습니다.',
+        imageUrls: ['https://example.com/product.jpg'],
+        commerceData: { salePrice: 32000 }
+    }, 'https://smartstore.naver.com/example/products/123456'), false);
+});
 
 function createPromptProduct() {
     return {

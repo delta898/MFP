@@ -389,7 +389,7 @@ function isStorefrontLikeTitle(title = '') {
 function isUiNoiseTitle(title = '') {
     const clean = normalizeWhitespace(String(title || ''));
     if (!clean) return false;
-    return /(?:^안녕하세요[.!]?\s*|관심고객수|검색어를\s*입력해?주세요|도움말|로그아웃|프로필\s*사진|알림\s*읽은|내\s*페이포인트|네이버ID|판매자\s*개인정보|상세정보\s*확인|인기\/신규서비스|즐겨찾기\s*설정)/i.test(clean);
+    return /(?:^안녕하세요[.!]?\s*|관심고객수|검색어를\s*입력해?주세요|도움말|로그아웃|프로필\s*사진|알림\s*읽은|내\s*페이포인트|네이버ID|판매자\s*개인정보|상세정보\s*확인|인기\/신규서비스|즐겨찾기\s*설정|caps\s*lock|대문자\s*고정|비밀번호를?\s*확인)/i.test(clean);
 }
 
 function normalizeShoppingProductNameHint(value = '') {
@@ -2673,6 +2673,37 @@ function isErrorLikePageTitle(title) {
     return /에러페이지|시스템오류|오류페이지|서비스오류|errorpage|systemerror|serviceerror|internalservererror|forbidden|accessdenied/.test(normalized);
 }
 
+function isAuthenticationLikeLanding(productData = {}, finalUrl = '') {
+    const normalizedTitle = normalizeWhitespace(productData.title || '').toLowerCase().replace(/\s+/g, '');
+    const bodyHead = String(productData.body || '').slice(0, 1500).toLowerCase().replace(/\s+/g, '');
+    const imageCount = Array.isArray(productData.imageUrls) ? productData.imageUrls.length : 0;
+    const commerceData = productData.commerceData || {};
+    const hasCommerceEvidence = [
+        commerceData.salePrice,
+        commerceData.originalPrice,
+        commerceData.discountRate,
+        commerceData.deliveryFee
+    ].some(value => value !== null && value !== undefined && value !== '');
+
+    let isAuthenticationUrl = false;
+    try {
+        const parsed = new URL(finalUrl);
+        const host = parsed.hostname.toLowerCase();
+        const path = parsed.pathname.toLowerCase();
+        isAuthenticationUrl = host === 'nid.naver.com'
+            || (host.endsWith('.naver.com') && /(?:^|\/)(?:nidlogin|login|oauth|auth)(?:[./]|$)/.test(path));
+    } catch (e) {
+        isAuthenticationUrl = false;
+    }
+
+    if (isAuthenticationUrl) return true;
+    if (/capslock|대문자고정|비밀번호를?확인/.test(normalizedTitle)) return true;
+
+    const hasStrongAuthenticationCopy = /capslock|대문자고정|비밀번호를?확인/.test(bodyHead)
+        || (/로그인/.test(bodyHead) && /비밀번호|아이디|계정/.test(bodyHead));
+    return hasStrongAuthenticationCopy && imageCount === 0 && !hasCommerceEvidence;
+}
+
 function extractChannelProductNo(url) {
     if (!url) return '';
     try {
@@ -2998,6 +3029,7 @@ function isLikelyInvalidLanding(productData, finalUrl) {
     const host = getHostLabel(finalUrl).toLowerCase();
 
     if (!title && bodyLen < 120 && imageCount === 0) return true;
+    if (isAuthenticationLikeLanding(productData, finalUrl)) return true;
     if (isErrorLikePageTitle(rawTitle)) return true;
     if (isStorefrontLikeTitle(rawTitle)) return true;
     if (/에러페이지|시스템오류|오류가발생|잠시후다시|요청하신페이지를찾을수없/.test(bodyHead) && imageCount === 0) return true;
@@ -3011,6 +3043,7 @@ function isLikelyInvalidLanding(productData, finalUrl) {
 function canApplyProductNameHint(productData = {}) {
     const rawTitle = productData.title || '';
     if (isErrorLikePageTitle(rawTitle)) return false;
+    if (isAuthenticationLikeLanding(productData)) return false;
     const bodyHead = String(productData.body || '').slice(0, 700).toLowerCase().replace(/\s+/g, '');
     if (/에러페이지|시스템오류|오류가발생|잠시후다시|요청하신페이지를찾을수없/.test(bodyHead)) return false;
 
@@ -3022,7 +3055,7 @@ function canApplyProductNameHint(productData = {}) {
         commerceData.originalPrice,
         commerceData.discountRate,
         commerceData.deliveryFee
-    ].some(hasShoppingValue);
+    ].some(value => value !== null && value !== undefined && value !== '');
     return imageCount > 0 || bodyLen >= 250 || hasCommerceEvidence;
 }
 
@@ -3125,7 +3158,7 @@ async function resolveCandidateUrl(url) {
     }
 }
 
-async function resolveCandidateUrlWithBrowser(url, headless = true) {
+async function resolveCandidateUrlWithBrowser(url, headless = true, options = {}) {
     let browser;
     try {
         browser = await BrowserLauncher.launchBrowser({ headless });
@@ -3138,17 +3171,19 @@ async function resolveCandidateUrlWithBrowser(url, headless = true) {
         const context = await browser.newContext(contextOptions);
         const page = await context.newPage();
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        await page.waitForTimeout(2500);
+        await page.waitForTimeout(options.waitMs || 2500);
 
         const finalUrl = page.url() || url;
         const html = await page.content();
 
         // 🚀 [최적화] 같은 세션에서 리뷰 탭도 클릭해 추가 데이터 수집 (2번째 브라우저 방문 불필요)
         let reviewHtml = null;
-        try {
-            await clickReviewTab(page);
-            reviewHtml = await page.content();
-        } catch (ignore) { }
+        if (options.includeReview !== false) {
+            try {
+                await clickReviewTab(page);
+                reviewHtml = await page.content();
+            } catch (ignore) { }
+        }
 
         if (contextOptions.storageState) {
             await persistAuthSessionState(context, { authPath: contextOptions.storageState });
@@ -3953,7 +3988,27 @@ const ShoppingManager = {
         let resolvedSource = 'short_url';
         let channelProductNo = extractChannelProductNo(finalUrl);
 
-        // 미리보기는 UI 응답성과 안정성을 위해 "브라우저 fallback 없이" 가볍게 처리한다.
+        // 정적 응답만으로 상품을 확인할 수 없는 동적 페이지와 브랜드 커넥트 링크는
+        // 공개 페이지를 브라우저로 해석한다. 미리보기에서는 리뷰 탭 수집을 생략한다.
+        if (isLikelyInvalidLanding(productData, finalUrl)) {
+            const browserResolved = await resolveCandidateUrlWithBrowser(shortUrl, true, {
+                includeReview: false,
+                waitMs: 3500
+            });
+            if (browserResolved) {
+                const browserData = extractProductData(browserResolved.finalUrl, browserResolved.html);
+                if (!isLikelyInvalidLanding(browserData, browserResolved.finalUrl)) {
+                    sourceHtml = browserResolved.html || sourceHtml;
+                    finalUrl = browserResolved.finalUrl;
+                    productData = browserData;
+                    resolvedSource = 'short_url_browser';
+                }
+                if (!channelProductNo) {
+                    channelProductNo = extractChannelProductNo(browserResolved.finalUrl);
+                }
+            }
+        }
+
         if (isLikelyInvalidLanding(productData, finalUrl)) {
             const deepLinks = extractDeepProductLinksFromHtml(sourceHtml, channelProductNo).slice(0, 2);
             for (const link of deepLinks) {
@@ -3990,6 +4045,8 @@ const ShoppingManager = {
         const salePrice = productData.commerceData?.salePrice || null;
         const originalPrice = productData.commerceData?.originalPrice || null;
         const discountRate = productData.commerceData?.discountRate || null;
+
+        Logger.info(`🔗 [Shopping Preview] 상품 페이지 URL (${resolvedSource}): ${finalUrl}`);
 
         return {
             shortUrl,
@@ -4424,6 +4481,7 @@ ShoppingManager.__test = {
     dedupeShoppingTitleSubject,
     buildEngagingShoppingTitle,
     resolveShoppingProductTitle,
+    isAuthenticationLikeLanding,
     isStorefrontLikeTitle,
     pickBestStructuredProduct,
     selectPrimaryPricePair,
