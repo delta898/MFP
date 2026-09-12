@@ -3,7 +3,7 @@
 - branch: `codex/feature/shopping-image-management`
 - base/parent: `codex/feature/design-system-main` (`0f4e0ec`)
 - started: 2026-09-12
-- status: in_progress
+- status: complete (2026-09-12, merged to parent)
 
 ## 사용자 필요·목표
 
