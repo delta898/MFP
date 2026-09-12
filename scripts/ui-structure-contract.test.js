@@ -74,13 +74,11 @@ test('productized Dashboard and Blog navigation expose compact accessible new ba
     );
     assert.match(
         html,
-        /data-view="dashboard-beta"[\s\S]*?<span class="nav-label">대시보드<sup class="nav-new-badge" aria-label="새 메뉴">new<\/sup><\/span>/
+        /data-view="dashboard-beta"[\s\S]*?<span class="nav-label">대시보드<\/span>/
     );
     assert.match(html, /data-view="blog" hidden aria-hidden="true" tabindex="-1"/);
-    assert.match(navigationCss, /\.nav-new-badge\s*\{[^}]*background:\s*var\(--ui-action-primary\);/s);
-    assert.match(navigationCss, /\.nav-new-badge\s*\{[^}]*color:\s*var\(--ui-text-inverse\);/s);
-    assert.match(navigationCss, /\.nav-new-badge\s*\{[^}]*font-size:\s*10px;/s);
-    assert.match(navigationCss, /\.nav-btn\.active \.nav-new-badge\s*\{[^}]*background:\s*var\(--ui-text-inverse\);/s);
+    assert.doesNotMatch(html, /nav-new-badge/);
+    assert.doesNotMatch(navigationCss, /\.nav-new-badge/);
     assert.match(html, /id="blog-next-global-nav-status"[^>]*hidden[^>]*aria-hidden="true"/);
     assert.doesNotMatch(html, /id="recommendation-nav-badge"/);
 });

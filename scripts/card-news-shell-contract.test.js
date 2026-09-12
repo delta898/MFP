@@ -20,7 +20,7 @@ test('Card News is a top-level source-preview workflow', () => {
     const workflowStyles = fs.readFileSync(path.join(uiRoot, 'styles/patterns/overview-card.css'), 'utf8');
     const cardNewsStyles = fs.readFileSync(path.join(uiRoot, 'styles/features/card-news.css'), 'utf8');
 
-    assert.match(html, /data-view="card-news"[\s\S]*?<span class="nav-label">카드뉴스<sup class="nav-new-badge"/);
+    assert.match(html, /data-view="card-news"[\s\S]*?<span class="nav-label">카드뉴스<\/span>/);
     assert.match(html, /id="view-card-news"/);
     assert.doesNotMatch(html, /id="view-card-news"[^>]*data-style-scope/);
     assert.doesNotMatch(html, /card-news-stage-badge|준비 단계/);
@@ -153,8 +153,8 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.doesNotMatch(html, /id="card-news-publishing-close"|id="card-news-buffer-settings"|id="card-news-google-settings"/);
     assert.match(script, /\/api\/v1\/card-news\/publishing\/config\?generation_id=/);
     assert.match(script, /\/api\/v1\/card-news\/publishing\/publish/);
-    assert.match(script, /설정 Beta > 기본 연결 > 콘텐츠 공간에서 Google 계정을 먼저 연결/);
-    assert.match(script, /설정 Beta > 부가 서비스 > SNS 배포에서 Buffer 연결을 먼저 완료/);
+    assert.match(script, /설정 > 기본 연결 > 콘텐츠 공간에서 Google 계정을 먼저 연결/);
+    assert.match(script, /설정 > 부가 서비스 > SNS 배포에서 Buffer 연결을 먼저 완료/);
     assert.doesNotMatch(script, /카드 이미지를 Buffer에 전달하려면[^\n]*WordPress/);
     assert.match(html, /class="card-news-drive-notice"[^>]*>[^<]*Google Drive[^<]*자동 삭제/);
     assert.doesNotMatch(html + script, /Bitly로 단축|원문 링크는 발행할 때/);

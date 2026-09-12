@@ -17,7 +17,7 @@ test('the productized Dashboard uses the current style while the legacy Dashboar
 
     assert.match(index, /data-view="dashboard" hidden aria-hidden="true" tabindex="-1"/);
     assert.match(index, /class="nav-btn active" data-view="dashboard-beta"/);
-    assert.match(index, /data-view="dashboard-beta"[\s\S]*?<span class="nav-label">대시보드<sup class="nav-new-badge" aria-label="새 메뉴">new<\/sup><\/span>/);
+    assert.match(index, /data-view="dashboard-beta"[\s\S]*?<span class="nav-label">대시보드<\/span>/);
     assert.doesNotMatch(index, /대시보드 Beta/);
     assert.match(legacyView, /class="view" id="view-dashboard"/);
     assert.match(betaView, /class="view active" id="view-dashboard-beta"/);

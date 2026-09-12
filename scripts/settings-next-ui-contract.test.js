@@ -13,14 +13,15 @@ function read(relativePath) {
     return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 }
 
-test('legacy Settings and independent Settings Beta coexist in navigation and views', () => {
+test('Settings owns navigation while legacy Settings stays hidden', () => {
     const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot }).html;
 
-    assert.match(html, /class="nav-btn" data-view="settings"/);
+    assert.match(html, /class="nav-btn" data-view="settings" hidden/);
     assert.match(html, /class="nav-btn" data-view="settings-next"/);
     assert.match(html, /id="view-settings"/);
     assert.match(html, /id="view-settings-next"/);
-    assert.match(html, /설정 Beta<sup class="nav-new-badge"/);
+    assert.match(html, /data-view="settings-next"[\s\S]*?<span class="nav-label">설정<\/span>/);
+    assert.doesNotMatch(html, /설정 Beta/);
 });
 
 test('Settings Beta exposes the agreed top IA and core connection submenus as accessible tabs', () => {

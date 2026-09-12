@@ -139,7 +139,7 @@ function createManualSnsService(deps = {}) {
 
     async function loadWorkspaceOptions(input = {}) {
         const apiKey = String(CONFIG.BUFFER_API_KEY || '').trim();
-        if (!apiKey) throw createManualSnsError(400, 'BUFFER_API_KEY_REQUIRED', '설정 Beta에서 Buffer 연결을 먼저 완료해 주세요.');
+        if (!apiKey) throw createManualSnsError(400, 'BUFFER_API_KEY_REQUIRED', '설정에서 Buffer 연결을 먼저 완료해 주세요.');
         if (typeof bufferClient.inspectConnection !== 'function') {
             throw createManualSnsError(500, 'BUFFER_WORKSPACE_UNAVAILABLE', 'Buffer 작업 공간을 불러올 수 없습니다.');
         }

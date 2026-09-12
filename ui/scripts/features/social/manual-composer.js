@@ -361,7 +361,7 @@ function renderManualSnsChannels() {
     emptyEl.className = 'social-channel-empty';
     const messageEl = document.createElement('span');
     messageEl.textContent = !manualSnsConfig.configured
-      ? '설정 Beta에서 Buffer 연결을 먼저 완료해 주세요.'
+      ? '설정에서 Buffer 연결을 먼저 완료해 주세요.'
       : (!manualSnsConfig.workspacesLoaded
         ? '작업 공간 불러오기를 눌러 SNS 채널을 확인해 주세요.'
         : (!manualSnsConfig.organizationId ? '작업 공간을 선택하면 SNS 채널이 표시됩니다.' : '선택한 작업 공간에 사용할 수 있는 SNS 채널이 없습니다.'));
@@ -372,7 +372,7 @@ function renderManualSnsChannels() {
       const settingsButton = document.createElement('button');
       settingsButton.type = 'button';
       settingsButton.className = 'text-btn social-inline-nav-link';
-      settingsButton.textContent = '설정 Beta > SNS 배포';
+      settingsButton.textContent = '설정 > SNS 배포';
       settingsButton.addEventListener('click', async () => {
         await navigateTo('settings-next', 'extras');
         settingsNextActivateExtrasTab?.('social');

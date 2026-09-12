@@ -81,10 +81,10 @@ async function openCardNewsPublishing(options = {}) {
     if (requestId !== cardNewsViewState.publishingRequestId || generation.id !== cardNewsViewState.generation?.id) return;
     const issues = [];
     if (!config.buffer_configured) {
-      issues.push('설정 Beta > 부가 서비스 > SNS 배포에서 Buffer 연결을 먼저 완료해 주세요.');
+      issues.push('설정 > 부가 서비스 > SNS 배포에서 Buffer 연결을 먼저 완료해 주세요.');
     }
     if (!config.media_transport) {
-      issues.push('설정 Beta > 기본 연결 > 콘텐츠 공간에서 Google 계정을 먼저 연결해 주세요.');
+      issues.push('설정 > 기본 연결 > 콘텐츠 공간에서 Google 계정을 먼저 연결해 주세요.');
     }
     if (config.buffer_configured && config.media_transport && !(config.channels || []).some((channel) => channel.compatible)) {
       issues.push('현재 카드 구성을 발행할 수 있는 Buffer 채널이 없습니다.');

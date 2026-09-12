@@ -1150,7 +1150,7 @@ async function run() {
             await page.locator('.nav-btn[data-view="dashboard-beta"] .nav-label').evaluate((element) => element.childNodes[0]?.textContent?.trim()),
             '대시보드'
         );
-        assert.equal(await page.locator('.nav-btn[data-view="dashboard-beta"] .nav-new-badge').textContent(), 'new');
+        assert.equal(await page.locator('.nav-btn[data-view="dashboard-beta"] .nav-new-badge').count(), 0);
         assert.equal(await page.locator('.nav-btn[data-view="blog"]').isHidden(), true);
         assert.equal((await page.locator('.nav-btn[data-view="help"] .nav-label').textContent()).trim(), '도움말');
         await page.evaluate(() => navigateToBlogQuickCreate());
@@ -1373,7 +1373,8 @@ async function run() {
         await page.locator('#recommendation-center-refresh').click();
         await page.waitForFunction(() => document.querySelector('#recommendation-center-list .recommendation-card h3')?.textContent.includes('로컬 여행'));
 
-        await page.locator('.nav-btn[data-view="settings"]').click();
+        await page.evaluate(() => navigateTo('settings'));
+        await page.waitForFunction(() => document.getElementById('view-settings')?.classList.contains('active'));
         await page.locator('.settings-tab-btn[data-settings-tab="ai"]').click();
         await page.locator('#settings-tab-ai [data-help-guide-url]').click();
         await page.waitForFunction(() => document.getElementById('view-help')?.classList.contains('active'));
@@ -1515,7 +1516,11 @@ async function run() {
             showUiConfirm = async () => true;
         });
         for (const viewName of ['account', 'social', 'settings', 'logs', 'shopping', 'dashboard-beta', 'blog-next']) {
-            await page.locator(`.nav-btn[data-view="${viewName}"]`).click();
+            if (await page.locator(`.nav-btn[data-view="${viewName}"]`).isVisible()) {
+                await page.locator(`.nav-btn[data-view="${viewName}"]`).click();
+            } else {
+                await page.evaluate((name) => navigateTo(name), viewName);
+            }
             await page.waitForFunction((name) => document.getElementById(`view-${name}`)?.classList.contains('active'), viewName);
         }
         await page.evaluate(() => { showUiConfirm = window.__settingsNextSmokeConfirm; });
@@ -1525,14 +1530,7 @@ async function run() {
             '블로그'
         );
         assert.equal(await page.locator('.nav-btn[data-view="blog-next"] .nav-new-badge').count(), 0);
-        assert.equal(await page.locator('.nav-btn[data-view="card-news"] .nav-new-badge').textContent(), 'new');
-        assert.deepEqual(
-            await page.locator('.nav-btn[data-view="card-news"] .nav-new-badge').evaluate((element) => {
-                const style = getComputedStyle(element);
-                return { background: style.backgroundColor, color: style.color, fontSize: style.fontSize };
-            }),
-            { background: 'rgb(182, 95, 66)', color: 'rgb(255, 253, 249)', fontSize: '10px' }
-        );
+        assert.equal(await page.locator('.nav-btn[data-view="card-news"] .nav-new-badge').count(), 0);
         await page.locator('.nav-btn[data-view="card-news"]').click();
         const cardNewsCreateHeaderLayout = await page.evaluate(() => {
             const view = document.getElementById('view-card-news').getBoundingClientRect();
@@ -1996,7 +1994,7 @@ async function run() {
             panelHidden: true,
             publishButtonHidden: true,
             readinessState: 'warning',
-            readinessText: '설정 Beta > 부가 서비스 > SNS 배포에서 Buffer 연결을 먼저 완료해 주세요. 설정 Beta > 기본 연결 > 콘텐츠 공간에서 Google 계정을 먼저 연결해 주세요.'
+            readinessText: '설정 > 부가 서비스 > SNS 배포에서 Buffer 연결을 먼저 완료해 주세요. 설정 > 기본 연결 > 콘텐츠 공간에서 Google 계정을 먼저 연결해 주세요.'
         });
         await page.unroute('**/api/v1/card-news/publishing/config?generation_id=*');
         await page.locator('.card-news-result-image-wrap').first().hover();
@@ -2019,13 +2017,7 @@ async function run() {
             await page.evaluate(() => JSON.parse(localStorage.getItem('bloggenius.cardNews.generationSettings') || '{}').additional_request),
             '차분한 편집 디자인으로 구성해 주세요.'
         );
-        assert.deepEqual(
-            await page.locator('.nav-btn[data-view="card-news"] .nav-new-badge').evaluate((element) => {
-                const style = getComputedStyle(element);
-                return { background: style.backgroundColor, color: style.color };
-            }),
-            { background: 'rgb(255, 253, 249)', color: 'rgb(159, 78, 53)' }
-        );
+        assert.equal(await page.locator('.nav-btn[data-view="card-news"] .nav-new-badge').count(), 0);
         await page.locator('.nav-btn[data-view="blog-next"]').click();
         await page.waitForFunction(() => document.getElementById('view-blog-next')?.classList.contains('active'));
         assert.equal(await page.locator('#blog-next-panel-quick').evaluate((element) => element.hidden), false);

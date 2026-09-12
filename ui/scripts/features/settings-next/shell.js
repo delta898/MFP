@@ -717,7 +717,7 @@ async function confirmDiscardUnsavedSettingsNext() {
   };
   const changed = [...settingsNextDirtyScopes].map((scope) => labels[scope] || scope).join(', ');
   const discard = await showUiConfirm(`아직 반영하지 않은 변경사항이 있습니다: ${changed}\n이 화면을 떠나면 변경사항이 사라집니다.`, {
-    title: '설정 Beta 변경사항',
+    title: '설정 변경사항',
     confirmText: '변경사항 버리고 이동',
     cancelText: '계속 편집'
   });
