@@ -1,0 +1,15 @@
+.shopping-image-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-space-3); }
+.shopping-image-slot { display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: var(--ui-space-3); height: 12rem; padding: var(--ui-space-3); border: 1px solid var(--ui-border-default); border-radius: var(--ui-radius-md); background: var(--ui-surface-muted); }
+.shopping-image-top { display: grid; grid-template-columns: 3fr 2fr; gap: var(--ui-space-3); min-height: 0; }
+.shopping-image-preview { width: 100%; height: 100%; min-height: 0; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--ui-border-default); border-radius: var(--ui-radius-md); background: var(--ui-surface); color: var(--ui-text-secondary); font-size: var(--ui-type-caption-size); }
+.shopping-image-preview img { display: none; width: 100%; height: 100%; object-fit: contain; }
+.shopping-image-preview.has-image img { display: block; }
+.shopping-image-preview.has-image span { display: none; }
+.shopping-image-copy { display: grid; gap: var(--ui-space-2); align-content: start; min-width: 0; }
+.shopping-image-copy strong { color: var(--ui-text-primary); font-size: var(--ui-type-body-size); font-weight: var(--ui-weight-semibold); line-height: var(--ui-line-height-tight); }
+.shopping-image-copy strong small { color: var(--ui-text-secondary); font-weight: var(--ui-weight-regular); white-space: nowrap; }
+.shopping-image-copy span[data-shopping-image-meta] { color: var(--ui-text-secondary); font-size: var(--ui-type-caption-size); line-height: var(--ui-line-height-body); overflow-wrap: anywhere; }
+.shopping-image-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--ui-space-2); }
+.shopping-image-footer { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-3); margin-top: var(--ui-space-5); }
+.shopping-image-feedback { flex: 1 1 auto; min-width: 0; margin: 0; color: var(--ui-text-secondary); font-size: var(--ui-type-caption-size); line-height: var(--ui-line-height-body); }
+@media (max-width: 640px) { .shopping-image-grid { grid-template-columns: 1fr; } }

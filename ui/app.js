@@ -73,6 +73,7 @@
 // @include scripts/features/content/blog-topics.js
 // @include scripts/features/content/shopping-quick-preview.js
 // @include scripts/features/content/shopping-items.js
+// @include scripts/features/content/shopping-image-settings.js
 // @include scripts/features/content/blog-batch.js
 // @include scripts/features/settings/writing-preferences.js
 // @include scripts/features/settings/writing-profile-settings.js
