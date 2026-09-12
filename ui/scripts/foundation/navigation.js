@@ -50,6 +50,10 @@ async function navigateTo(viewName, subTab) {
     return;
   }
   if (viewName === 'logs') {
+    if (document.querySelector('.nav-btn[data-view="logs"]')?.hidden !== false) {
+      await navigateTo('dashboard-beta');
+      return;
+    }
     const activeTab = document.querySelector('.logs-tab-btn.active');
     if (activeTab && activeTab.getAttribute('data-logs-tab') === 'system') {
       loadLogFiles();

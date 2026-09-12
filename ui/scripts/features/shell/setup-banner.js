@@ -1,8 +1,19 @@
 
+const LOGS_NAV_VISIBLE_ENVIRONMENTS = ['local', 'development'];
+
+function syncLogsNavVisibility(status) {
+  const button = document.querySelector('.nav-btn[data-view="logs"]');
+  if (!button) return;
+  const environment = String(status?.runtimeEnvironment?.environment || '').trim().toLowerCase();
+  button.hidden = !LOGS_NAV_VISIBLE_ENVIRONMENTS.includes(environment);
+}
+
 async function checkSetupBanner() {
-  if (localStorage.getItem(SETUP_BANNER_DISMISS_KEY) === 'true') return;
+  const dismissed = localStorage.getItem(SETUP_BANNER_DISMISS_KEY) === 'true';
   try {
     const status = await fetchJson('/api/v1/config/status');
+    syncLogsNavVisibility(status);
+    if (dismissed) return;
     const banner = document.getElementById('setup-guide-banner');
     if (!banner) return;
     if (status && status.isEssentialSet === false) {

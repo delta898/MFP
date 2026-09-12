@@ -88,6 +88,13 @@ function getApiFixture(pathname) {
             isEssentialSet: true,
             isNaverSet: true,
             isWpSet: true,
+            runtimeEnvironment: {
+                environment: 'development',
+                status: 'active',
+                configured: true,
+                endpointHost: 'fixture.supabase.co',
+                selectionSource: 'fixture'
+            },
             setup: {
                 ready: true,
                 ai: { configured: true },
