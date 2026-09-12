@@ -3,7 +3,7 @@
 - branch: `codex/feature/nav-menu-cleanup`
 - base/parent: `codex/feature/design-system-main`
 - started: 2026-09-12
-- status: in_progress
+- status: complete (2026-09-12, merged to parent)
 
 ## 변경
 
