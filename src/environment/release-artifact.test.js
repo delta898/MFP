@@ -35,7 +35,7 @@ test('release artifact deterministically fingerprints canonical migrations and f
 
     assert.equal(first.fingerprint, second.fingerprint);
     assert.equal(first.sourceRevision, REVISION);
-    assert.equal(first.payload.migrations.length, 24);
+    assert.equal(first.payload.migrations.length, 25);
     assert.equal(
         first.payload.migrations.some((item) => item.version === '202608290000'),
         true
@@ -50,6 +50,10 @@ test('release artifact deterministically fingerprints canonical migrations and f
     );
     assert.equal(
         first.payload.migrations.some((item) => item.version === '202609030000'),
+        true
+    );
+    assert.equal(
+        first.payload.migrations.some((item) => item.version === '202609110001'),
         true
     );
     assert.equal(first.payload.edgeFunctions.length, 5);

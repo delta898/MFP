@@ -181,6 +181,10 @@
       "classification": "canonical_migration"
     },
     {
+      "path": "supabase/migrations/202609110001_fix_smart_usage_status_capability_scope.sql",
+      "classification": "canonical_migration"
+    },
+    {
       "path": "supabase/operations/content/supabase_surface_content_account_seed.sql",
       "classification": "content_operator_action"
     },

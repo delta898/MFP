@@ -3,7 +3,7 @@
 - branch: `codex/feature/design-system-help`
 - base/parent: `codex/feature/design-system-main` (`b55b4a7`)
 - started: 2026-09-12
-- status: in_progress
+- status: complete (2026-09-12, merged to parent)
 
 ## 사용자 필요·목표
 
