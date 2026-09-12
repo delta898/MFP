@@ -381,6 +381,16 @@
   font-size: var(--ui-type-caption-size);
 }
 
+.settings-next-input-action {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--ui-space-3);
+}
+
+.settings-next-input-action button {
+  min-width: 132px;
+}
+
 @media (max-width: 760px) {
   .settings-next-panel-intro,
   .settings-next-local-nav-row,
@@ -412,6 +422,14 @@
   .settings-next-action-group > button,
   .settings-next-completion-group > button,
   .settings-next-refresh {
+    width: 100%;
+  }
+
+  .settings-next-input-action {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-next-input-action button {
     width: 100%;
   }
 
