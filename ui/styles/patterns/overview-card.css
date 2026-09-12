@@ -81,6 +81,14 @@
   letter-spacing: 0.06em;
 }
 
+.ui-overview-heading p {
+  margin: var(--ui-space-2) 0 0;
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-type-body-size);
+  font-weight: var(--ui-weight-regular);
+  line-height: var(--ui-line-height-body);
+}
+
 .ui-overview-subheading {
   margin: 0 0 var(--ui-space-3);
   color: var(--ui-text-primary);

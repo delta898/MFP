@@ -16,7 +16,7 @@ async function navigateToHelpGuide(targetUrl) {
   const guide = Array.from(document.querySelectorAll('#view-help a[href]'))
     .find((element) => normalizeHelpGuideUrl(element.getAttribute('href')) === url);
   if (!guide) return false;
-  guide.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  guide.scrollIntoView({ behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 'auto' : 'smooth', block: 'center' });
   guide.classList.remove('help-guide-navigation-target');
   void guide.offsetWidth;
   guide.classList.add('help-guide-navigation-target');
@@ -81,7 +81,7 @@ function renderHelpGuideRegion(element, blocks, options = {}) {
     const link = createHelpCatalogLink(block);
     if (options.numbered) {
       const number = document.createElement('span');
-      number.className = 'help-step-number';
+      number.className = 'ui-sequence-badge';
       number.textContent = String(index + 1);
       link.insertBefore(number, link.firstChild);
       const item = document.createElement('li');

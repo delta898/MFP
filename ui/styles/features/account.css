@@ -1,4 +1,4 @@
-.account-view { display: grid; gap: var(--ui-space-5); }
+#view-account.active { display: grid; gap: var(--ui-space-5); }
 .account-state-card { display: grid; gap: var(--ui-space-3); padding: var(--ui-space-5); color: var(--ui-text-secondary); }
 .account-error-card { color: var(--ui-status-danger); }
 .account-overview { display: grid; gap: var(--ui-space-5); }

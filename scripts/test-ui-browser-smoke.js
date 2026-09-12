@@ -1241,7 +1241,7 @@ async function run() {
         assert.equal(await page.locator('#view-help .help-topic-card').count(), 2);
         assert.equal(await page.locator('#help-supporting-section').evaluate(element => element.hidden), false);
         assert.equal((await page.locator('#help-supporting-region').textContent()).includes('개발자 응원하기'), true);
-        assert.equal(await page.locator('#view-help .help-contact-action').getAttribute('href'), 'https://open.kakao.com/o/gZWL25Zh');
+        assert.equal(await page.locator('#view-help .help-contact-card .ui-button-link').getAttribute('href'), 'https://open.kakao.com/o/gZWL25Zh');
         assert.equal(await page.locator('#view-dashboard').evaluate(element => element.classList.contains('active')), false);
         assert.equal(requests.some(request => request.pathname === '/api/v1/continuous-publishing/dashboard-overview'), true);
         assert.equal(requests.some(request => request.pathname === '/api/v1/continuous-publishing/dashboard-result-stats'), true);

@@ -14,7 +14,7 @@ test('sidebar Help opens the internal guide view and preserves external contact 
   assert.doesNotMatch(shell, /nav-help-link[^>]*href=/);
   assert.match(view, /id="view-help"/);
   assert.match(view, /class="page-clock-widget">\s*<div class="clock-display" data-clock-display/);
-  assert.match(view, /class="help-contact-action"[^>]*href="https:\/\/open\.kakao\.com\/o\/gZWL25Zh"/);
+  assert.match(view, /class="ui-button-link secondary"[^>]*href="https:\/\/open\.kakao\.com\/o\/gZWL25Zh"/);
 });
 
 test('Help foundation exposes the agreed guide groups and safe official links', () => {
@@ -26,7 +26,8 @@ test('Help foundation exposes the agreed guide groups and safe official links', 
   assert.match(view, /자동화·관리/);
   assert.match(view, /data-help-nav="blog-next" data-help-tab="quick"/);
   assert.match(view, /data-help-nav="blog-next" data-help-tab="automation"/);
-  assert.match(view, /data-help-nav="settings"/);
+  assert.match(view, /data-help-nav="settings-next" data-help-tab="core"/);
+  assert.doesNotMatch(view, /data-help-nav="settings"/);
   assert.match(view, /Buffer로 SNS 발행 준비/);
   assert.match(view, /href="https:\/\/m\.blog\.naver\.com\/amadejjs\/223940980574"/);
   assert.equal(externalLinks.length, 10);

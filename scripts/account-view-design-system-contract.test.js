@@ -20,6 +20,8 @@ test('account view uses the shared design system and provides a structured plan 
   assert.match(css, /var\(--ui-text-primary\)/);
   assert.match(css, /\.account-usage-card,[\s\S]*?padding:\s*var\(--ui-space-5\);/);
   assert.doesNotMatch(css, /(?:--brand|--text-|--surface-|#[0-9a-f]{3,8}|rgba\()/i);
+  assert.doesNotMatch(css, /\.account-view\s*\{[^}]*display/);
+  assert.match(css, /#view-account\.active/);
   assert.doesNotMatch(html, /account-supporting-region|account-refresh-btn/);
 });
 
