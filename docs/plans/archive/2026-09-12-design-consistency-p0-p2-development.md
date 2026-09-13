@@ -3,7 +3,7 @@
 - branch: `codex/feature/design-consistency-p0-p2`
 - base/parent: `codex/feature/design-system-main`
 - started: 2026-09-12
-- status: in_progress
+- status: complete (2026-09-14)
 
 ## 결정
 
@@ -28,4 +28,5 @@
 - 잔여 마무리(2026-09-12): Ultra 300 표기 정합, 레거시 설정 handoff 전면 Beta 전환(데드 헬퍼·핸들러 삭제), docs 설정 용어 정리, premium-input 실체 정의, 키워드 모달 문구·footer 정렬. 스모크 통과(278). 중간 2144 실패 1회는 격리 재현 정상·단독 재실행 통과로 부하성 플레이크 판정.
 - 계약 마무리(2026-09-14): 제품 style 대상 view와 stylesheet 계약을 `scripts/design-system-targets.js` 한 곳으로 통합했다. strict 검사에서 제외되는 파일은 compatibility·접근성·시계 identity 등 이유를 manifest에 명시하며, 신규 대상이 조용히 검사에서 빠지지 않게 했다.
 - 기존 `type, weight, motion` 테스트가 motion을 검사하지 않던 오류를 바로잡았다. typography와 motion 검사를 분리하고, 현행 surface의 transition이 `--ui-motion-*` 또는 `--ui-transition-*` token을 사용하며 raw duration을 소유하지 않는지 검증한다.
-- 구현은 동작·DOM·레이아웃·시각 값을 변경하지 않는 계약/기록 범위로 한정했다. focused design/style 계약 63건이 통과했으며, parent 병합 전 full unit suite gate가 남아 있다.
+- 구현은 동작·DOM·레이아웃·시각 값을 변경하지 않는 계약/기록 범위로 한정했다. focused design/style 계약 63건이 통과했다.
+- 최종 병합 게이트(2026-09-14): `npm run test:unit` 전체 1,680건 중 1,679건 통과, 1건 skip, 0건 실패. 사용자 승인 후 parent 병합 대상으로 확정했다.
