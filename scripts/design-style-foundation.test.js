@@ -258,6 +258,25 @@ test('autumn night library supplies a distinct dark surface without feature-spec
   assert.doesNotMatch(shared, /autumn-night-library/);
 });
 
+test('hanji dancheong supplies a distinct Korean palette and rectilinear rhythm without feature-specific branches', () => {
+  const css = read('ui/styles/styles/hanji-dancheong.css');
+  const shared = getDesignSystemStylePaths(CONTRACTS.STRICT_STYLE).map(read).join('\n');
+
+  assert.match(css, /--ui-canvas:\s*linear-gradient\([^;]*#dbe5e1[^;]*#eee5d4[^;]*#dbe1e8/);
+  assert.match(css, /--ui-surface:\s*#fffaf0;/);
+  assert.match(css, /--ui-surface-muted:\s*#e5eee8;/);
+  assert.match(css, /--ui-text-primary:\s*#1f2928;/);
+  assert.match(css, /--ui-action-primary:\s*#235b73;/);
+  assert.match(css, /--ui-action-secondary:\s*#40544f;/);
+  assert.match(css, /--ui-action-danger:\s*#a13d35;/);
+  assert.match(css, /--ui-status-info:\s*#294c73;/);
+  assert.match(css, /--ui-status-success:\s*#506b4b;/);
+  assert.match(css, /--ui-radius-md:\s*3px;/);
+  assert.match(css, /--ui-space-4:\s*17px;/);
+  assert.match(css, /--ui-card-shadow:\s*none;/);
+  assert.doesNotMatch(shared, /hanji-dancheong/);
+});
+
 test('shared patterns and Blog Beta anchored surfaces consume shared elevation recipes', () => {
   const panel = read('ui/styles/features/blog-next-panel-anatomy.css');
   const tabs = read('ui/styles/patterns/tab-navigation.css');

@@ -103,5 +103,6 @@ test('dashboard cards expose only the latest recommendation evidence', () => {
     assert.match(centerSource, /\.slice\(0, 1\)/);
     assert.match(centerSource, /recommendationCenterLatestEvidence\(item\)\.forEach/);
     assert.match(centerSource, /recommendationButton\('추천 근거', 'evidence'/);
+    assert.match(centerSource, /recommendationButton\('관심 없음', 'dismiss', 'secondary ui-danger-action recommendation-dismiss'\)/);
     assert.doesNotMatch(centerSource, /`추천 근거 \$\{evidence\.children\.length\}개`/);
 });

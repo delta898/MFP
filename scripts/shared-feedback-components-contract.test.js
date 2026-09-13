@@ -12,7 +12,7 @@ test('status and release badges have separate shared semantic contracts', () => 
   const settingsStyle = read('ui/styles/features/settings-next.css');
   const settingsRuntime = `${read('ui/scripts/features/settings-next/shell.js')}\n${read('ui/scripts/features/settings-next/ai-model-roles.js')}`;
 
-  assert.match(settings, /class="ui-release-badge">Beta<\/span>/);
+  assert.doesNotMatch(settings, /class="ui-release-badge">Beta<\/span>/);
   assert.doesNotMatch(settings, /settings-next-beta-badge|class="settings-next-status"/);
   assert.match(settings, /class="ui-status-badge" data-state="neutral"/);
   assert.doesNotMatch(settingsStyle, /\.settings-next-(?:beta-badge|status)(?:\s|\[|\{)/);

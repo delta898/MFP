@@ -269,7 +269,7 @@ function createRecommendationCard(item) {
     const label = recommendationActionLabel(item);
     actions.appendChild(recommendationButton(item.status === 'action_failed' ? `${label} 다시 시도` : label, 'open', 'primary'));
   }
-  actions.append(recommendationButton('관심 없음', 'dismiss', 'secondary recommendation-dismiss'));
+  actions.append(recommendationButton('관심 없음', 'dismiss', 'secondary ui-danger-action recommendation-dismiss'));
   card.appendChild(actions);
   return card;
 }

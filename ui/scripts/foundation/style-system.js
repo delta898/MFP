@@ -130,6 +130,13 @@ const DESIGN_STYLE_REGISTRY = Object.freeze({
     blurb: '짙은 월넛과 구리빛으로 집중감을 높인 어두운 스타일입니다.',
     contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
     selectable: true
+  }),
+  'hanji-dancheong': Object.freeze({
+    id: 'hanji-dancheong',
+    label: '한지 위의 단청',
+    blurb: '한지의 여백에 먹색과 절제된 단청색을 더한 반듯한 스타일입니다.',
+    contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
+    selectable: true
   })
 });
 

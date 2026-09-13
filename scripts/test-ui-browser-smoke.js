@@ -1343,7 +1343,7 @@ async function run() {
             const element = document.querySelector('[data-recommendation-action="dismiss"]');
             if (!element?.matches(':hover')) return false;
             const style = getComputedStyle(element);
-            return style.backgroundColor === 'rgb(248, 250, 252)' && style.color === 'rgb(100, 116, 139)';
+            return style.backgroundColor === 'rgb(255, 241, 242)' && style.color === 'rgb(185, 28, 28)';
         });
         const recommendationDismissHover = await recommendationDismiss.evaluate((element) => {
             const style = getComputedStyle(element);
@@ -1355,8 +1355,8 @@ async function run() {
             };
         });
         assert.equal(recommendationDismissHover.hovered, true);
-        assert.equal(recommendationDismissHover.background, 'rgb(248, 250, 252)');
-        assert.equal(recommendationDismissHover.color, 'rgb(100, 116, 139)');
+        assert.equal(recommendationDismissHover.background, 'rgb(255, 241, 242)');
+        assert.equal(recommendationDismissHover.color, 'rgb(185, 28, 28)');
         assert.equal(recommendationDismissHover.transform, 'none');
         assert.equal(
             await page.locator('#recommendation-center-list').evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length),
@@ -2066,6 +2066,42 @@ async function run() {
         assert.equal(
             await page.locator('#quick-discovery-modal .modal-footer').evaluate((element) => getComputedStyle(element).backgroundColor),
             'rgb(53, 43, 36)'
+        );
+        await page.locator('html').evaluate((element) => { element.dataset.style = 'hanji-dancheong'; });
+        assert.deepEqual(
+            await page.locator('#view-dashboard-beta .ui-overview-card').first().evaluate((element) => {
+                const style = getComputedStyle(element);
+                const root = getComputedStyle(document.documentElement);
+                return {
+                    background: style.backgroundColor,
+                    text: style.color,
+                    borderRadius: style.borderRadius,
+                    surfaceToken: root.getPropertyValue('--ui-surface').trim(),
+                    primaryToken: root.getPropertyValue('--ui-action-primary').trim()
+                };
+            }),
+            {
+                background: 'rgb(255, 250, 240)',
+                text: 'rgb(31, 41, 40)',
+                borderRadius: '6px',
+                surfaceToken: '#fffaf0',
+                primaryToken: '#235b73'
+            }
+        );
+        assert.equal(
+            await page.evaluate(() => getSelectableDesignStyles().filter((style) => style.selectable).length),
+            4
+        );
+        assert.deepEqual(
+            await page.locator('#dashboard-beta-discovery-refresh').evaluate((element) => {
+                const style = getComputedStyle(element);
+                return { color: style.color, borderColor: style.borderColor };
+            }),
+            { color: 'rgb(64, 84, 79)', borderColor: 'rgb(174, 191, 182)' }
+        );
+        assert.equal(
+            await page.locator('#view-dashboard-beta .recommendation-dismiss').first().evaluate((element) => getComputedStyle(element).color),
+            'rgb(150, 57, 41)'
         );
         await page.locator('html').evaluate((element) => { element.dataset.style = 'warm-editorial'; });
         assert.equal(

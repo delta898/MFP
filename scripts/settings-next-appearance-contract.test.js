@@ -24,6 +24,7 @@ test('appearance tab renders registry-driven live previews without compatibility
   assert.doesNotMatch(appearance, /warm-editorial/);
   assert.doesNotMatch(appearance, /quiet-sage-studio/);
   assert.doesNotMatch(appearance, /autumn-night-library/);
+  assert.doesNotMatch(appearance, /hanji-dancheong/);
   assert.match(appearance, /entry\.blurb/);
   assert.match(appearance, /getSelectableDesignStyles\(\)\[0\]/);
   assert.match(system, /DESIGN_STYLE_STORAGE_KEY = 'bloggenius\.ui\.style'/);
@@ -48,6 +49,7 @@ test('appearance styles use shared tokens only', () => {
 
   assert.match(manifest, /\/\* @include styles\/features\/settings-next-appearance\.css \*\//);
   assert.match(css, /\.settings-next-appearance-grid/);
+  assert.match(css, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
   assert.match(css, /\.appearance-style-card\[aria-pressed="true"\]/);
   assert.doesNotMatch(css, /#[0-9a-f]{3,8}/i);
   assert.doesNotMatch(css, /rgba?\(/i);

@@ -213,9 +213,9 @@
 }
 
 .recommendation-card-actions button.recommendation-dismiss:hover:not(:disabled) {
-  border-color: var(--ui-border-strong);
-  background: var(--ui-surface-muted);
-  color: var(--ui-text-secondary);
+  border-color: var(--ui-action-danger);
+  background: var(--ui-button-danger-hover);
+  color: var(--ui-button-danger-text);
   box-shadow: none;
   transform: none;
 }

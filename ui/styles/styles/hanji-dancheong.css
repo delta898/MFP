@@ -1,0 +1,119 @@
+[data-style="hanji-dancheong"] {
+  /* Canvas and surfaces: hanji, celadon, and the cool air around porcelain. */
+  --ui-canvas: linear-gradient(135deg, #dbe5e1 0%, #eee5d4 52%, #dbe1e8 100%);
+  --ui-surface: #fffaf0;
+  --ui-surface-translucent: rgba(255, 250, 240, 0.94);
+  --ui-surface-muted: #e5eee8;
+  --ui-surface-hover: #d7e6df;
+  --ui-surface-emphasis: #183849;
+  --ui-overlay: rgba(24, 56, 73, 0.58);
+
+  /* Text and borders: ink, bamboo fiber, and restrained ruled lines. */
+  --ui-text-primary: #1f2928;
+  --ui-text-secondary: #4f605b;
+  --ui-text-muted: #69776f;
+  --ui-text-inverse: #fffaf0;
+  --ui-border-default: #aebfb6;
+  --ui-border-strong: #738f86;
+  --ui-border-focus: #235b73;
+
+  /* Actions and status: indigo leads; dancheong red remains the counterpoint. */
+  --ui-action-primary: #235b73;
+  --ui-action-primary-hover: #17465c;
+  --ui-action-primary-soft: #dceaf0;
+  --ui-action-secondary: #40544f;
+  --ui-action-secondary-hover: #2f433e;
+  --ui-action-danger: #a13d35;
+  --ui-status-info: #294c73;
+  --ui-status-success: #506b4b;
+  --ui-status-warning: #956126;
+  --ui-status-danger: #a13d35;
+  --ui-focus-ring: 0 0 0 3px rgba(35, 91, 115, 0.2);
+
+  /* Typography */
+  --ui-font-sans: 'Noto Sans KR', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --ui-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --ui-type-display-size: 28px;
+  --ui-type-heading-size: 20px;
+  --ui-type-body-size: 15px;
+  --ui-type-label-size: 14px;
+  --ui-type-caption-size: 12px;
+  --ui-line-height-tight: 1.25;
+  --ui-line-height-body: 1.6;
+  --ui-weight-regular: 400;
+  --ui-weight-medium: 500;
+  --ui-weight-semibold: 600;
+  --ui-weight-bold: 700;
+
+  /* Generous whitespace with straighter architectural geometry. */
+  --ui-space-1: 4px;
+  --ui-space-2: 8px;
+  --ui-space-3: 12px;
+  --ui-space-4: 17px;
+  --ui-space-5: 22px;
+  --ui-space-6: 28px;
+  --ui-space-8: 36px;
+  --ui-space-10: 44px;
+  --ui-space-12: 54px;
+  --ui-radius-sm: 2px;
+  --ui-radius-md: 3px;
+  --ui-radius-lg: 6px;
+  --ui-radius-full: 9999px;
+
+  /* Role-based density */
+  --ui-density-page-gap: var(--ui-space-5);
+  --ui-density-section-padding: var(--ui-space-5) var(--ui-space-6);
+  --ui-density-action-padding: var(--ui-space-4) var(--ui-space-6);
+  --ui-density-field-gap: var(--ui-space-3);
+  --ui-density-control-min-height: 42px;
+  --ui-density-compact-control-min-height: 34px;
+  --ui-density-control-padding-inline: var(--ui-space-4);
+  --ui-density-control-radius: var(--ui-radius-sm);
+
+  /* Low, warm elevation lets line and whitespace carry the hierarchy. */
+  --ui-shadow-sm: 0 1px 1px rgb(24 56 73 / 0.04);
+  --ui-shadow-md: 0 3px 10px rgb(24 56 73 / 0.07);
+  --ui-shadow-lg: 0 10px 26px rgb(24 56 73 / 0.1);
+  --ui-shadow-soft: 0 4px 16px rgba(24, 56, 73, 0.06);
+  --ui-shadow-glass: 0 6px 22px rgba(24, 56, 73, 0.07);
+  --ui-motion-fast: 110ms;
+  --ui-motion-standard: 170ms;
+  --ui-motion-slow: 260ms;
+  --ui-ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --ui-transition-interactive: all var(--ui-motion-standard) var(--ui-ease-standard);
+
+  /* Shared action component */
+  --ui-button-radius: 3px;
+  --ui-button-primary-background: #235b73;
+  --ui-button-primary-hover: #17465c;
+  --ui-button-primary-text: #fffaf0;
+  --ui-button-primary-border: #235b73;
+  --ui-button-secondary-background: #fffaf0;
+  --ui-button-secondary-hover: #e5eee8;
+  --ui-button-secondary-text: #40544f;
+  --ui-button-secondary-border: #aebfb6;
+  --ui-button-secondary-hover-border: #738f86;
+  --ui-button-tertiary-background: transparent;
+  --ui-button-tertiary-hover: #d7e6df;
+  --ui-button-tertiary-text: #4f605b;
+  --ui-button-tertiary-border: #aebfb6;
+  --ui-button-danger-text: #963929;
+  --ui-button-danger-hover: #f4dfda;
+  --ui-button-disabled-opacity: 0.56;
+  --ui-action-group-gap: 10px;
+
+  /* Shared card component */
+  --ui-card-background: var(--ui-surface);
+  --ui-card-border: #9fb5ac;
+  --ui-card-radius: var(--ui-radius-lg);
+  --ui-card-shadow: none;
+  --ui-card-hover-shadow: var(--ui-shadow-md);
+  --ui-card-hover-transform: none;
+
+  /* Shared state and anchored-surface elevation */
+  --ui-segmented-active-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-action-primary) 28%, transparent), var(--ui-shadow-sm);
+  --ui-segmented-badge-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-action-primary) 16%, transparent);
+  --ui-row-running-shadow: 0 0 0 1px color-mix(in srgb, var(--ui-action-primary) 12%, transparent);
+  --ui-table-header-divider-shadow: 0 2px 0 var(--ui-border-default);
+  --ui-sticky-footer-shadow: 0 -6px 16px rgba(24, 56, 73, 0.06);
+}
