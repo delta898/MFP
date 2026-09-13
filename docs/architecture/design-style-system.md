@@ -179,6 +179,16 @@ style registry는 최소한 다음 정보를 제공해야 한다.
 - 선택 가능 여부 또는 실험 상태
 - fallback style
 
+Registry의 style ID와 CSS module은 일대일 naming contract를 따른다. `future-style` ID의 token module은 반드시 `ui/styles/styles/future-style.css`이며, style directory의 CSS도 빠짐없이 registry에 등록한다. 테스트는 runtime registry에서 파일 경로를 파생해 파일 존재, selector, 필수 token, density token과 composition manifest 등록을 자동 확인한다. 따라서 새 style을 추가할 때 기존 테스트의 style 목록이나 파일 map을 수정하지 않는다.
+
+새 style 추가 시 변경 지점은 다음 세 곳으로 제한한다.
+
+1. `ui/styles/styles/<style-id>.css`에 필수 token을 정의한다.
+2. `DESIGN_STYLE_REGISTRY`에 같은 ID와 사용자 표시 metadata를 등록한다.
+3. `ui/styles.css`의 `bloggenius.tokens` layer에 해당 module을 명시적으로 include한다.
+
+CSS manifest는 cascade 순서의 source of truth이므로 자동 directory scan으로 대체하지 않는다. 설정 Beta의 style 선택 UI는 registry의 selectable entry를 자동 렌더링한다.
+
 알 수 없는 저장값, 제거된 style, 불완전한 style pack이 앱을 깨뜨리면 안 된다. registry validation에 실패하면 기본 style을 적용하고 기능은 계속 사용할 수 있어야 한다.
 
 ## Migration Rules

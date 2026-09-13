@@ -5,6 +5,7 @@ const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
+const { loadDesignStyleContract } = require('./design-style-registry-test-utils');
 
 test('appearance tab renders registry-driven live previews without compatibility', () => {
   const html = read('ui/partials/views/settings-next.html');
@@ -29,17 +30,15 @@ test('appearance tab renders registry-driven live previews without compatibility
 });
 
 test('only product styles are selectable', () => {
-  const system = read('ui/scripts/foundation/style-system.js');
-
-  const selectable = Array.from(
-    system.matchAll(/['"]?([a-z-]+)['"]?: Object\.freeze\(\{\s*id: '\1',\s*label: '[^']*',\s*(?:blurb: '[^']*',\s*)?contractVersion:[^,]+,\s*selectable: (true|false)/g),
-    (match) => [match[1], match[2]]
-  );
-  assert.deepEqual(selectable, [
-    ['compatibility', 'false'],
-    ['warm-editorial', 'true'],
-    ['quiet-sage-studio', 'true']
-  ]);
+  const { contract } = loadDesignStyleContract({ repoRoot: root });
+  assert.equal(contract.registry.compatibility.selectable, false);
+  assert.equal(contract.selectableStyles.length > 0, true);
+  assert.equal(contract.selectableStyles.some((style) => style.id === 'compatibility'), false);
+  contract.selectableStyles.forEach((style) => {
+    assert.equal(contract.registry[style.id], style);
+    assert.equal(typeof style.label === 'string' && style.label.trim().length > 0, true, style.id);
+    assert.equal(typeof style.blurb === 'string' && style.blurb.trim().length > 0, true, style.id);
+  });
 });
 
 test('appearance styles use shared tokens only', () => {

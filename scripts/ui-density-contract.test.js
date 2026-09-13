@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const vm = require('node:vm');
+const { getRegisteredStyleIds, getStyleRepoPath, loadDesignStyleContract } = require('./design-style-registry-test-utils');
 
 const repoRoot = path.resolve(__dirname, '..');
 const read = (relativePath) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
@@ -19,15 +19,10 @@ const densityTokens = [
 ];
 
 test('every design style implements the role-based density contract', () => {
-  const context = vm.createContext({ document: { documentElement: { dataset: {} } }, console: { warn() {} } });
-  vm.runInContext(`${read('ui/scripts/foundation/style-system.js')}\n;globalThis.requiredTokens = DESIGN_STYLE_REQUIRED_TOKENS;`, context);
+  const { contract } = loadDesignStyleContract({ repoRoot });
 
-  densityTokens.forEach((token) => assert.equal(context.requiredTokens.includes(token), true, token));
-  [
-    'ui/styles/styles/compatibility.css',
-    'ui/styles/styles/warm-editorial.css',
-    'ui/styles/styles/quiet-sage-studio.css'
-  ].forEach((stylePath) => {
+  densityTokens.forEach((token) => assert.equal(contract.requiredTokens.includes(token), true, token));
+  getRegisteredStyleIds({ repoRoot }).map(getStyleRepoPath).forEach((stylePath) => {
     const css = read(stylePath);
     densityTokens.forEach((token) => assert.match(css, new RegExp(`${token.replaceAll('-', '\\-')}\\s*:`), `${stylePath}: ${token}`));
   });

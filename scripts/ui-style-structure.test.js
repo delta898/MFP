@@ -5,6 +5,7 @@ const path = require('node:path');
 
 const { createCssCompositionRuntime } = require('../src/ui-runtime/css-composition-runtime');
 const { CONTRACTS, getDesignSystemStylePaths } = require('./design-system-targets');
+const { getRegisteredStyleIds, getStyleModulePath } = require('./design-style-registry-test-utils');
 
 const repoRoot = path.resolve(__dirname, '..');
 const uiRoot = path.join(repoRoot, 'ui');
@@ -36,10 +37,9 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
     );
 
     assert.equal(manifest.split('\n').length - 1 <= 120, true);
+    const styleModules = getRegisteredStyleIds({ repoRoot }).map(getStyleModulePath);
     assert.deepEqual(includePaths, [
-        'styles/styles/compatibility.css',
-        'styles/styles/warm-editorial.css',
-        'styles/styles/quiet-sage-studio.css',
+        ...styleModules,
         'styles/tokens/legacy-aliases.css',
         'styles/base/foundation.css',
         'styles/layout/shell-navigation.css',
@@ -159,9 +159,7 @@ test('CSS manifest declares one cascade contract and keeps every module inside a
     assert.equal(activeLayer, '');
     assert.equal(assignedModules.length > 0, true);
     const tokenModules = new Set([
-        'styles/styles/compatibility.css',
-        'styles/styles/warm-editorial.css',
-        'styles/styles/quiet-sage-studio.css',
+        ...getRegisteredStyleIds({ repoRoot }).map(getStyleModulePath),
         'styles/tokens/legacy-aliases.css'
     ]);
     const baseModules = new Set(['styles/base/foundation.css', 'styles/layout/shell-navigation.css']);

@@ -2,9 +2,13 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const vm = require('node:vm');
 
 const { createCssCompositionRuntime } = require('../src/ui-runtime/css-composition-runtime');
+const {
+  getRegisteredStyleIds,
+  getStyleRepoPath,
+  loadDesignStyleContract
+} = require('./design-style-registry-test-utils');
 const {
   CONTRACTS,
   DESIGN_SYSTEM_VIEW_IDS,
@@ -20,36 +24,26 @@ function read(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 }
 
-function loadStyleSystem(initialStyle = '') {
-  const root = { dataset: { style: initialStyle } };
-  const context = vm.createContext({
-    document: { documentElement: root },
-    console: { warn() {} }
-  });
-  const source = `${read('ui/scripts/foundation/style-system.js')}\n;globalThis.__styleContract = {\n    defaultId: DESIGN_STYLE_DEFAULT_ID,\n    registry: DESIGN_STYLE_REGISTRY,\n    requiredTokens: DESIGN_STYLE_REQUIRED_TOKENS,\n    resolveDesignStyleId,\n    applyDesignStyle\n  };`;
-  vm.runInContext(source, context);
-  return { root, contract: context.__styleContract };
-}
-
 test('UI root selects warm editorial as the main style while compatibility remains the safe fallback', () => {
   const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot }).html;
   assert.match(html, /<html lang="ko" data-style="warm-editorial">/);
   assert.doesNotMatch(html, /data-theme=/);
 
-  const { root, contract } = loadStyleSystem('warm-editorial');
+  const { root, contract } = loadDesignStyleContract({ repoRoot, initialStyle: 'warm-editorial' });
   assert.equal(contract.defaultId, 'compatibility');
-  assert.deepEqual(Object.keys(contract.registry), ['compatibility', 'warm-editorial', 'quiet-sage-studio']);
-  assert.equal(contract.registry.compatibility.contractVersion, '1.0');
-  assert.equal(contract.registry['warm-editorial'].contractVersion, '1.0');
-  assert.equal(contract.registry['quiet-sage-studio'].contractVersion, '1.0');
+  Object.entries(contract.registry).forEach(([styleId, entry]) => {
+    assert.match(styleId, /^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+    assert.equal(entry.id, styleId);
+    assert.equal(entry.contractVersion, '1.0');
+    assert.equal(typeof entry.selectable, 'boolean');
+  });
   assert.equal(contract.registry.compatibility.selectable, false);
   assert.equal(contract.registry['warm-editorial'].selectable, true);
-  assert.equal(contract.registry['quiet-sage-studio'].selectable, true);
   assert.equal(root.dataset.style, 'warm-editorial');
 });
 
 test('unknown or empty style ids fail safely to compatibility', () => {
-  const { root, contract } = loadStyleSystem('future-unknown-style');
+  const { root, contract } = loadDesignStyleContract({ repoRoot, initialStyle: 'future-unknown-style' });
   assert.equal(root.dataset.style, 'compatibility');
   assert.equal(contract.resolveDesignStyleId(''), 'compatibility');
   assert.equal(contract.resolveDesignStyleId(' Editorial '), 'compatibility');
@@ -61,16 +55,20 @@ test('unknown or empty style ids fail safely to compatibility', () => {
 });
 
 test('every registered style supplies every required semantic and component token', () => {
-  const { contract } = loadStyleSystem('compatibility');
-  const styleFiles = {
-    compatibility: 'ui/styles/styles/compatibility.css',
-    'warm-editorial': 'ui/styles/styles/warm-editorial.css',
-    'quiet-sage-studio': 'ui/styles/styles/quiet-sage-studio.css'
-  };
+  const { contract } = loadDesignStyleContract({ repoRoot, initialStyle: 'compatibility' });
+  const registeredStyleIds = getRegisteredStyleIds({ repoRoot });
+  const styleDirectory = path.join(uiRoot, 'styles', 'styles');
+  const styleFileIds = fs.readdirSync(styleDirectory)
+    .filter((fileName) => fileName.endsWith('.css'))
+    .map((fileName) => path.basename(fileName, '.css'))
+    .sort();
 
   assert.equal(contract.requiredTokens.length, new Set(contract.requiredTokens).size);
-  Object.keys(contract.registry).forEach((styleId) => {
-    const css = read(styleFiles[styleId]);
+  assert.deepEqual(styleFileIds, [...registeredStyleIds].sort());
+  registeredStyleIds.forEach((styleId) => {
+    const stylePath = getStyleRepoPath(styleId);
+    assert.equal(fs.existsSync(path.join(repoRoot, stylePath)), true, stylePath);
+    const css = read(stylePath);
     const definitions = new Set(
       Array.from(css.matchAll(/(^|[;{])\s*(--ui-[a-z0-9-]+)\s*:/gm), (match) => match[2])
     );
