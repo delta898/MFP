@@ -726,8 +726,12 @@
   box-shadow: var(--ui-shadow-sm);
 }
 
+.social-view .view-title-block {
+  margin-bottom: var(--ui-density-page-gap);
+}
+
 .social-view .social-composer-section {
-  padding: var(--ui-space-5) var(--ui-space-6);
+  padding: var(--ui-density-section-padding);
   border-color: var(--ui-border-default);
 }
 
@@ -756,8 +760,8 @@
 }
 
 .social-view .social-section-heading {
-  gap: var(--ui-space-4);
-  margin-bottom: var(--ui-space-3);
+  gap: var(--ui-density-field-gap);
+  margin-bottom: var(--ui-density-field-gap);
 }
 
 .social-view .social-section-heading h2,
@@ -791,11 +795,11 @@
 }
 
 .social-view .social-channel-grid {
-  gap: var(--ui-space-3);
+  gap: var(--ui-density-field-gap);
 }
 
 .social-view .social-channel-option {
-  padding: var(--ui-space-3) var(--ui-space-4);
+  padding: var(--ui-density-field-gap) var(--ui-density-control-padding-inline);
   border-color: var(--ui-border-default);
   border-radius: var(--ui-radius-md);
   background: var(--ui-surface);
@@ -809,8 +813,23 @@
 
 .social-view .social-editor,
 .social-view .social-image-row input {
+  min-height: var(--ui-density-control-min-height);
   border-color: var(--ui-border-default);
-  border-radius: var(--ui-radius-md);
+  border-radius: var(--ui-density-control-radius);
   background: var(--ui-surface);
   color: var(--ui-text-primary);
+}
+
+.social-view .ui-settings-field :is(input, select, textarea) {
+  min-height: var(--ui-density-control-min-height);
+  padding-inline: var(--ui-density-control-padding-inline);
+  border-radius: var(--ui-density-control-radius);
+}
+
+.social-view :is(button.primary, button.secondary) {
+  min-height: var(--ui-density-control-min-height);
+}
+
+.social-view :is(button.primary, button.secondary).compact {
+  min-height: var(--ui-density-compact-control-min-height);
 }

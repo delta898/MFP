@@ -61,6 +61,16 @@
   --ui-radius-lg: 16px;
   --ui-radius-full: 9999px;
 
+  /* Role-based density */
+  --ui-density-page-gap: var(--ui-space-5);
+  --ui-density-section-padding: var(--ui-space-5) var(--ui-space-6);
+  --ui-density-action-padding: var(--ui-space-4) var(--ui-space-6);
+  --ui-density-field-gap: var(--ui-space-3);
+  --ui-density-control-min-height: 42px;
+  --ui-density-compact-control-min-height: 34px;
+  --ui-density-control-padding-inline: var(--ui-space-4);
+  --ui-density-control-radius: var(--ui-radius-sm);
+
   /* Elevation and motion */
   --ui-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --ui-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);

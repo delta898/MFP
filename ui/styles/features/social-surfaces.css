@@ -12,8 +12,10 @@
 }
 
 .social-view .social-local-image-picker {
+  gap: var(--ui-density-field-gap);
+  padding: var(--ui-density-control-padding-inline);
   border-color: var(--ui-border-strong);
-  border-radius: var(--ui-radius-md);
+  border-radius: var(--ui-density-control-radius);
   background: var(--ui-surface-muted);
 }
 
@@ -54,10 +56,11 @@
 .social-view .social-limit-status.is-error { color: var(--ui-status-danger); }
 
 .social-view .social-composer-actions {
-  padding: var(--ui-space-4) var(--ui-space-6);
+  gap: var(--ui-density-field-gap);
+  padding: var(--ui-density-action-padding);
   border-top: 1px solid var(--ui-border-default);
   background: var(--ui-surface);
 }
 
 .social-view .social-publish-result { margin: 0 var(--ui-space-6) var(--ui-space-5); }
-.social-view .social-workspace-select { margin: 0 var(--ui-space-6) var(--ui-space-4); }
+.social-view .social-workspace-select { margin: 0 0 var(--ui-space-4); }

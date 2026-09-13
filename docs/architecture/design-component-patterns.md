@@ -256,6 +256,13 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 
 ## Cards and surfaces
 
+- 공통 primitive 간격 숫자를 feature에 직접 복사하지 않는다. page 제목과 첫 content 사이에는 `--ui-density-page-gap`,
+  정보 section에는 `--ui-density-section-padding`, action bar에는 `--ui-density-action-padding`, field와 동급 item 사이에는
+  `--ui-density-field-gap`을 사용한다. 입력과 button은 `--ui-density-control-*` 계약을 사용해 style 전환 시 밀도와 radius가
+  함께 바뀌게 한다. preview 비율, media 크기, icon hit area처럼 업무·조작 의미가 있는 geometry는 feature가 유지한다.
+- 밀도는 화면 전체를 일률적으로 축소하는 설정이 아니다. 같은 역할은 같은 token을 사용하되, 읽기 중심 surface와
+  반복 선택·목록, 긴 편집 영역은 서로 다른 역할을 유지한다. mobile breakpoint도 새 고정값을 만들기보다 동일 token과
+  기존 responsive layout을 조합한다.
 - card는 실제 정보 그룹을 표현할 때만 사용한다.
 - Dashboard처럼 현재 상태를 읽고 다음 행동을 판단하는 surface는 공통 `.ui-overview-card`를 사용한다. 제목 영역은
   `.ui-overview-heading`, 짧은 분류는 `.ui-overview-eyebrow`, 상태는 `.ui-status-badge`가 소유한다. feature stylesheet는
