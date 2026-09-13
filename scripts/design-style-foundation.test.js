@@ -37,8 +37,8 @@ test('UI root selects warm editorial as the main style while compatibility remai
   assert.equal(contract.registry['warm-editorial'].contractVersion, '1.0');
   assert.equal(contract.registry['quiet-sage-studio'].contractVersion, '1.0');
   assert.equal(contract.registry.compatibility.selectable, false);
-  assert.equal(contract.registry['warm-editorial'].selectable, false);
-  assert.equal(contract.registry['quiet-sage-studio'].selectable, false);
+  assert.equal(contract.registry['warm-editorial'].selectable, true);
+  assert.equal(contract.registry['quiet-sage-studio'].selectable, true);
   assert.equal(root.dataset.style, 'warm-editorial');
 });
 
