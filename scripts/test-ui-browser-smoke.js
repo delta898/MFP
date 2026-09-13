@@ -2040,6 +2040,33 @@ async function run() {
         assert.notEqual(quietDashboardStyle.borderRadius, warmDashboardStyle.borderRadius);
         assert.notEqual(quietDashboardStyle.boxShadow, warmDashboardStyle.boxShadow);
         assert.notDeepEqual(quietDashboardCount, warmDashboardCount);
+        await page.locator('html').evaluate((element) => { element.dataset.style = 'autumn-night-library'; });
+        assert.deepEqual(
+            await page.locator('#view-dashboard-beta .ui-overview-card').first().evaluate((element) => {
+                const style = getComputedStyle(element);
+                const root = getComputedStyle(document.documentElement);
+                return {
+                    background: style.backgroundColor,
+                    text: style.color,
+                    surfaceToken: root.getPropertyValue('--ui-surface').trim(),
+                    primaryToken: root.getPropertyValue('--ui-action-primary').trim()
+                };
+            }),
+            {
+                background: 'rgb(43, 35, 30)',
+                text: 'rgb(241, 230, 213)',
+                surfaceToken: '#2b231e',
+                primaryToken: '#c97845'
+            }
+        );
+        assert.equal(
+            await page.evaluate(() => getSelectableDesignStyles().some((style) => style.id === 'autumn-night-library')),
+            true
+        );
+        assert.equal(
+            await page.locator('#quick-discovery-modal .modal-footer').evaluate((element) => getComputedStyle(element).backgroundColor),
+            'rgb(53, 43, 36)'
+        );
         await page.locator('html').evaluate((element) => { element.dataset.style = 'warm-editorial'; });
         assert.equal(
             await page.locator('#blog-next-target-naver').evaluate((element) => getComputedStyle(element).accentColor),

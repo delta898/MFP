@@ -123,6 +123,13 @@ const DESIGN_STYLE_REGISTRY = Object.freeze({
     blurb: '차분한 세이지 색감의 조용한 밀도입니다.',
     contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
     selectable: true
+  }),
+  'autumn-night-library': Object.freeze({
+    id: 'autumn-night-library',
+    label: '가을밤 서재',
+    blurb: '짙은 월넛과 구리빛으로 집중감을 높인 어두운 스타일입니다.',
+    contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
+    selectable: true
   })
 });
 

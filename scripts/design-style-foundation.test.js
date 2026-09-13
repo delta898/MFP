@@ -241,6 +241,23 @@ test('quiet sage varies palette, density, radius and elevation without style-spe
   assert.doesNotMatch(shared, /quiet-sage-studio/);
 });
 
+test('autumn night library supplies a distinct dark surface without feature-specific branches', () => {
+  const css = read('ui/styles/styles/autumn-night-library.css');
+  const modals = read('ui/styles/components/modals-batch.css');
+  const shared = getDesignSystemStylePaths(CONTRACTS.STRICT_STYLE).map(read).join('\n');
+
+  assert.match(css, /--ui-canvas:\s*linear-gradient\([^;]*#211a16[^;]*#171311/);
+  assert.match(css, /--ui-surface:\s*#2b231e;/);
+  assert.match(css, /--ui-text-primary:\s*#f1e6d5;/);
+  assert.match(css, /--ui-action-primary:\s*#c97845;/);
+  assert.match(css, /--ui-status-success:\s*#8fa273;/);
+  assert.match(css, /--ui-radius-md:\s*8px;/);
+  assert.match(css, /--ui-space-4:\s*14px;/);
+  assert.match(modals, /\.modal-footer\s*\{[^}]*background:\s*var\(--ui-surface-muted\)/s);
+  assert.doesNotMatch(modals.match(/\.modal-footer\s*\{([^}]*)\}/)?.[1] || '', /#[0-9a-f]{3,8}|rgba?\(/i);
+  assert.doesNotMatch(shared, /autumn-night-library/);
+});
+
 test('shared patterns and Blog Beta anchored surfaces consume shared elevation recipes', () => {
   const panel = read('ui/styles/features/blog-next-panel-anatomy.css');
   const tabs = read('ui/styles/patterns/tab-navigation.css');

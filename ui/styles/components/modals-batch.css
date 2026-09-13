@@ -121,7 +121,7 @@
 .modal-footer {
   padding: 16px 24px;
   border-top: 1px solid var(--line);
-  background: #f8fafc;
+  background: var(--ui-surface-muted);
   display: flex;
   align-items: center;
   justify-content: space-between;

@@ -23,6 +23,7 @@ test('appearance tab renders registry-driven live previews without compatibility
   assert.doesNotMatch(appearance, /compatibility/);
   assert.doesNotMatch(appearance, /warm-editorial/);
   assert.doesNotMatch(appearance, /quiet-sage-studio/);
+  assert.doesNotMatch(appearance, /autumn-night-library/);
   assert.match(appearance, /entry\.blurb/);
   assert.match(appearance, /getSelectableDesignStyles\(\)\[0\]/);
   assert.match(system, /DESIGN_STYLE_STORAGE_KEY = 'bloggenius\.ui\.style'/);
