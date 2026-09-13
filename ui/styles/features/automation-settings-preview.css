@@ -1,0 +1,141 @@
+.settings-typing-preview {
+  grid-column: 1 / -1;
+  border: 1px solid #d8e2f1;
+  border-radius: 12px;
+  background: #fbfdff;
+  padding: 16px;
+}
+
+.settings-typing-preview-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.settings-typing-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.settings-typing-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Shared column header — keeps both column tops aligned */
+.typing-col-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 32px;
+  margin-bottom: 8px;
+}
+
+.typing-col-label {
+  font-size: 13px;
+  color: #334155;
+}
+
+#settings-typing-preview-input {
+  width: 100%;
+  resize: vertical;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-main);
+}
+
+.settings-typing-preview-meta {
+  margin: 0;
+  font-size: 13px;
+  color: #334155;
+}
+
+.playback-area {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  min-height: 130px;
+  display: flex;
+  align-items: flex-start;
+}
+
+#settings-typing-preview-text {
+  margin: 0;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-main);
+  white-space: pre-wrap;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.status-badge.success {
+  background: #dcfce7;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+.status-badge.error {
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.settings-google-auth-details {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.settings-google-auth-section .muted {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.form-grid input,
+.form-grid textarea,
+.form-grid select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font: inherit;
+  background: var(--surface-solid);
+  transition: var(--transition);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.form-grid input:focus,
+.form-grid textarea:focus,
+.form-grid select:focus {
+  outline: none;
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px var(--brand-light);
+}

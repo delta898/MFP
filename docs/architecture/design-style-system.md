@@ -162,6 +162,14 @@ reset → tokens → base → components → features → utilities → override
 
 새 CSS module은 디렉터리 소유 경계와 같은 layer에 등록한다. 우선순위 문제를 해결하기 위해 selector를 키우거나 `overrides`·`legacy`에 먼저 넣지 말고, component 기본값과 feature variant의 소유 관계를 확인한다.
 
+하나의 화면이나 component가 커지면 manifest 순서는 유지한 채 책임별 companion module로 나눈다. 기본 shell은 원래 이름을 유지하고, media·actions·queue·automation·responsive처럼 독립적으로 설명할 수 있는 하위 책임은 `소유자-책임.css` 이름을 사용한다. 분할된 module은 다음 계약을 지킨다.
+
+- selector와 선언을 중복하지 않고 한 module만 소유한다.
+- 같은 layer 안에서 분할 전 상대 순서를 유지한다.
+- feature 전용 responsive 규칙은 해당 feature module에 두고, 여러 화면을 횡단하는 shell·form·footer 규칙만 `layout/responsive-*.css`가 소유한다.
+- 새 module은 `ui/styles.css` manifest, 디자인 시스템 대상 manifest와 관련 contract test에 함께 등록한다.
+- 파일 크기만 줄이기 위한 임의 분할보다 DOM·interaction 책임이 분명한 경계를 우선한다.
+
 ## Registry와 Fallback
 
 style registry는 최소한 다음 정보를 제공해야 한다.

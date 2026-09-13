@@ -1,0 +1,117 @@
+/* SNS composer — consumes the same surface, form, selection, and action tokens as Blog Beta. */
+.social-view .social-composer-card {
+  gap: 0;
+  padding: 0;
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-sm);
+}
+
+.social-view .view-title-block {
+  margin-bottom: var(--ui-density-page-gap);
+}
+
+.social-view .social-composer-section {
+  padding: var(--ui-density-section-padding);
+  border-color: var(--ui-border-default);
+}
+
+.social-view .social-composer-section:has(.social-editor) {
+  padding-bottom: var(--ui-space-3);
+}
+
+.social-view .context-help-link {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ui-action-primary);
+  font-size: var(--ui-type-caption-size);
+  font-weight: var(--ui-weight-semibold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  box-shadow: none;
+}
+
+.social-view .context-help-link:hover,
+.social-view .context-help-link:focus-visible {
+  color: var(--ui-action-primary-hover);
+  background: transparent;
+  box-shadow: none;
+}
+
+.social-view .social-section-heading {
+  gap: var(--ui-density-field-gap);
+  margin-bottom: var(--ui-density-field-gap);
+}
+
+.social-view .social-section-heading h2,
+.social-view .social-channel-title-row label {
+  color: var(--ui-text-primary);
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-semibold);
+  line-height: var(--ui-line-height-tight);
+}
+
+.social-view .social-channel-title-row label small {
+  margin-left: var(--ui-space-2);
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-type-caption-size);
+  font-weight: var(--ui-weight-regular);
+}
+
+.social-view .social-section-heading p,
+.social-view .social-publish-summary,
+.social-view .social-character-count,
+.social-view .social-ai-status,
+.social-view .social-limit-status,
+.social-view .social-optional-label {
+  color: var(--ui-text-secondary);
+}
+
+.social-view .social-inline-nav-link,
+.social-view .social-inline-nav-link:hover,
+.social-view .social-inline-nav-link:focus-visible {
+  color: var(--ui-action-primary);
+}
+
+.social-view .social-channel-grid {
+  gap: var(--ui-density-field-gap);
+}
+
+.social-view .social-channel-option {
+  padding: var(--ui-density-field-gap) var(--ui-density-control-padding-inline);
+  border-color: var(--ui-border-default);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface);
+}
+
+.social-view .social-channel-option:hover,
+.social-view .social-channel-option.is-selected {
+  border-color: var(--ui-action-primary);
+  background: var(--ui-action-primary-soft);
+}
+
+.social-view .social-editor,
+.social-view .social-image-row input {
+  min-height: var(--ui-density-control-min-height);
+  border-color: var(--ui-border-default);
+  border-radius: var(--ui-density-control-radius);
+  background: var(--ui-surface);
+  color: var(--ui-text-primary);
+}
+
+.social-view .ui-settings-field :is(input, select, textarea) {
+  min-height: var(--ui-density-control-min-height);
+  padding-inline: var(--ui-density-control-padding-inline);
+  border-radius: var(--ui-density-control-radius);
+}
+
+.social-view :is(button.primary, button.secondary) {
+  min-height: var(--ui-density-control-min-height);
+}
+
+.social-view :is(button.primary, button.secondary).compact {
+  min-height: var(--ui-density-compact-control-min-height);
+}

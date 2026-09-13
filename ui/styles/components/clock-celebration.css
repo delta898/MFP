@@ -1,0 +1,77 @@
+.app-celebration {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.app-celebration > i {
+  position: absolute;
+  top: -9vh;
+  left: 0;
+  width: 10px;
+  height: 18px;
+  border-radius: 3px;
+  background: var(--confetti-color);
+  opacity: 0;
+  transform: translate3d(var(--confetti-x), -10vh, 0) rotate(0deg);
+  animation: pomodoroConfettiFall var(--confetti-duration) cubic-bezier(0.18, 0.72, 0.28, 1) var(--confetti-delay) forwards;
+}
+
+.app-celebration > i:nth-child(3n) {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.app-celebration > i:nth-child(4n) {
+  width: 14px;
+  height: 7px;
+}
+
+.app-celebration-message {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  min-width: min(320px, calc(100vw - 40px));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 18px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.84);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24), 0 0 0 8px rgba(56, 189, 248, 0.1);
+  color: var(--ui-text-primary);
+  text-align: center;
+  backdrop-filter: blur(14px);
+  transform: translate(-50%, -50%);
+  animation: pomodoroCelebrationMessage 3.25s ease forwards;
+}
+
+.app-celebration-message strong {
+  font-size: 23px;
+  font-weight: 900;
+}
+
+.app-celebration-message span {
+  color: var(--ui-text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+@keyframes pomodoroConfettiFall {
+  8% { opacity: 1; }
+  100% {
+    opacity: 0.94;
+    transform: translate3d(calc(var(--confetti-x) + var(--confetti-drift)), 118vh, 0) rotate(var(--confetti-rotation));
+  }
+}
+
+@keyframes pomodoroCelebrationMessage {
+  0% { opacity: 0; transform: translate(-50%, -44%) scale(0.88); }
+  12%, 78% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -55%) scale(0.96); }
+}

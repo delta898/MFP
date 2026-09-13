@@ -153,7 +153,7 @@ test('individual blog writing screens expose one shared three-state image mode',
     assert.match(preferences, /key: 'pub_pref_blog_image_mode'/);
     assert.match(preferences, /default: 'prompt_only'/);
     const publishingStyles = read('ui/styles/features/publishing.css');
-    const responsiveStyles = read('ui/styles/layout/responsive.css');
+    const responsiveStyles = read('ui/styles/layout/responsive-blog-quick.css');
     assert.match(publishingStyles, /\.blog-quick-image-mode select \{[\s\S]*border: 1px solid var\(--line\);[\s\S]*font-size: 13px;/);
     assert.match(publishingStyles, /\.blog-quick-image-mode select:focus \{[\s\S]*box-shadow: 0 0 0 3px var\(--brand-light\);/);
     assert.match(responsiveStyles, /body\.mobile-quick-mode \.blog-quick-image-mode \{[\s\S]*grid-column: 1 \/ -1;/);

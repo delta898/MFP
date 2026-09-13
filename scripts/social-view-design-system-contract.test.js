@@ -10,7 +10,13 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   const view = read('ui/partials/views/social.html');
   const composer = read('ui/scripts/features/social/manual-composer.js');
   const lifecycle = read('ui/scripts/features/social/manual-lifecycle.js');
-  const styles = `${read('ui/styles/features/social.css')}\n${read('ui/styles/features/social-surfaces.css')}`;
+  const styles = [
+    'ui/styles/features/social.css',
+    'ui/styles/features/social-media.css',
+    'ui/styles/features/social-actions.css',
+    'ui/styles/features/social-density.css',
+    'ui/styles/features/social-surfaces.css'
+  ].map(read).join('\n');
 
   assert.match(view, /class="card social-composer-card"/);
   assert.doesNotMatch(view, /class="[^"]*blog-next-panel[^"]*social-composer-card/);

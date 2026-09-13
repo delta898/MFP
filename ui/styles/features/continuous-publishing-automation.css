@@ -1,0 +1,107 @@
+.blog-next-automation-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-density-page-gap);
+  padding: var(--ui-density-section-padding);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface);
+}
+
+.blog-next-automation-toggle label,
+.blog-next-automation-notify {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.blog-next-automation-toggle input,
+.blog-next-automation-notify input {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  margin: 0;
+}
+
+.blog-next-automation-toggle,
+.blog-next-automation-notify,
+.blog-next-automation-fields .blog-next-field {
+  color: var(--ui-text-primary);
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-semibold);
+}
+
+.blog-next-automation-toggle strong {
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-semibold);
+}
+
+.blog-next-automation-fields .blog-next-field {
+  gap: 6px;
+}
+
+.blog-next-automation-fields .blog-next-field > span:first-child {
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-semibold);
+}
+
+.blog-next-automation-fields .blog-next-field input {
+  min-height: var(--ui-density-control-min-height);
+  padding: 9px 12px;
+  border-color: var(--ui-border-default);
+  font-size: var(--ui-type-label-size);
+}
+
+.blog-next-automation-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ui-density-field-gap);
+  align-items: end;
+}
+
+.blog-next-number-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.blog-next-number-field input {
+  flex: 0 0 160px;
+  width: 160px;
+  max-width: 160px;
+  min-width: 0;
+}
+
+.blog-next-number-field em {
+  color: var(--ui-text-secondary);
+  font-style: normal;
+  font-weight: var(--ui-weight-bold);
+}
+
+.blog-next-automation-notify {
+  align-self: end;
+  min-height: var(--ui-density-control-min-height);
+  padding-bottom: 0;
+}
+
+.blog-next-automation-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--ui-action-group-gap);
+  margin-top: 10px;
+}
+
+.blog-next-automation-actions button {
+  padding: 9px 14px;
+  border-radius: var(--ui-button-radius);
+  font-weight: var(--ui-weight-bold);
+}
+
+.blog-next-automation-summary {
+  margin: 0;
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-type-label-size);
+  line-height: 1.5;
+}

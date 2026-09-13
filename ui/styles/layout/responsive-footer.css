@@ -1,0 +1,22 @@
+@media (max-width: 960px) {
+  .app-footer {
+    margin-top: 22px;
+    padding: 16px 0 4px;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    text-align: center;
+  }
+
+  .app-footer-brand,
+  .app-footer-links {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .app-footer-meta {
+    order: 3;
+    width: 100%;
+    font-size: var(--ui-type-caption-size);
+  }
+}

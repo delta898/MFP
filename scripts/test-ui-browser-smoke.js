@@ -2070,6 +2070,7 @@ async function run() {
         await page.locator('.app-footer-link').nth(1).focus();
         await page.keyboard.press('Tab');
         await page.waitForFunction(() => document.activeElement?.matches('.app-footer-link:last-child'));
+        await page.waitForTimeout(250);
         const warmFooterFocus = await page.locator('.app-footer-link').last().evaluate((element) => getComputedStyle(element).boxShadow);
         assert.notEqual(warmFooterFocus, 'none');
         await page.evaluate(() => {
@@ -2119,6 +2120,7 @@ async function run() {
         await page.locator('.app-footer-link').nth(1).focus();
         await page.keyboard.press('Tab');
         await page.waitForFunction(() => document.activeElement?.matches('.app-footer-link:last-child'));
+        await page.waitForTimeout(250);
         const quietFooterFocus = await page.locator('.app-footer-link').last().evaluate((element) => getComputedStyle(element).boxShadow);
         await page.evaluate(() => {
             activateBlogNextTab('queue');

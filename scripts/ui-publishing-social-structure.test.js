@@ -56,7 +56,15 @@ test('manual SNS publishing owns a busy state that locks duplicate actions', () 
     const stateSource = readScript('features/social/manual-state.js');
     const composerSource = readScript('features/social/manual-composer.js');
     const publishSource = readScript('features/social/manual-publish.js');
-    const styles = fs.readFileSync(path.join(repoRoot, 'ui', 'styles', 'features', 'social.css'), 'utf8');
+    const styles = [
+        'social.css',
+        'social-media.css',
+        'social-actions.css',
+        'social-density.css'
+    ].map((fileName) => fs.readFileSync(
+        path.join(repoRoot, 'ui', 'styles', 'features', fileName),
+        'utf8'
+    )).join('\n');
     const feedbackStyles = fs.readFileSync(path.join(repoRoot, 'ui', 'styles', 'components', 'feedback.css'), 'utf8');
     const socialView = fs.readFileSync(path.join(repoRoot, 'ui', 'partials', 'views', 'social.html'), 'utf8');
 

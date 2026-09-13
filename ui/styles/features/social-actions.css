@@ -1,0 +1,79 @@
+.social-composer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+}
+
+.social-publish-summary {
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-type-label-size);
+}
+
+.social-publish-result {
+  display: none;
+  margin: 0 20px 20px;
+  padding: 12px 14px;
+  border: 1px solid var(--ui-border-default);
+  border-radius: 10px;
+  background: var(--ui-surface-muted);
+  font-size: var(--ui-type-label-size);
+  line-height: 1.65;
+}
+
+.social-publish-result.is-visible {
+  display: block;
+}
+
+.social-result-row.is-success {
+  color: var(--ui-status-success);
+}
+
+.social-result-row.is-error {
+  color: var(--ui-status-danger);
+}
+
+@media (max-width: 960px) {
+  .social-channel-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .social-section-heading,
+  .social-composer-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .social-editor-tools {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .social-composer-actions button {
+    width: 100%;
+  }
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+
+.form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--ui-type-label-size);
+  color: var(--ui-text-primary);
+}
+
+.form-grid .form-field-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--ui-type-label-size);
+  color: var(--ui-text-primary);
+}

@@ -1,0 +1,88 @@
+@media (max-width: 768px) {
+  .keyword-research-modal-container {
+    width: calc(100vw - 20px);
+    max-height: calc(100vh - 20px);
+  }
+
+  .quick-discovery-modal-container {
+    width: calc(100vw - 20px);
+    max-height: calc(100vh - 20px);
+  }
+
+  .quick-discovery-modal-body {
+    padding: var(--ui-space-4);
+  }
+
+  .quick-discovery-action-row {
+    align-items: stretch;
+    flex-direction: column;
+    gap: var(--ui-density-field-gap);
+  }
+
+  .quick-discovery-action-row .primary {
+    align-self: flex-start;
+  }
+
+  .quick-discovery-query-row {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-discovery-query-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .quick-keyword-discovery-selection-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .quick-keyword-discovery-selection-bar .primary {
+    align-self: flex-start;
+  }
+
+  .keyword-research-modal-body {
+    padding: var(--ui-space-4);
+  }
+
+  .keyword-modal-search-row {
+    grid-template-columns: 1fr;
+    padding: 10px;
+  }
+
+  .keyword-modal-search-row .primary {
+    width: 100%;
+  }
+
+  .keyword-title-action-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .keyword-title-action-row .primary {
+    width: 100%;
+  }
+
+  .keyword-title-generation-status {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .keyword-title-generation-status .ui-progress-indeterminate {
+    width: 100%;
+    flex-basis: auto;
+  }
+
+  .keyword-metrics-table {
+    min-width: 860px;
+  }
+
+  .title-card-header {
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .title-apply-btn {
+    flex: 0 0 auto;
+  }
+}

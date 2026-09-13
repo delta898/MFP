@@ -1,0 +1,243 @@
+.category-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.category-picker-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.category-picker-toolbar input {
+  flex: 1;
+}
+
+.category-picker-toolbar-compact {
+  justify-content: flex-start;
+}
+
+.input-inline-clear {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.input-inline-clear input {
+  width: 100%;
+  padding-right: 34px;
+}
+
+.inline-clear-btn {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 999px;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.inline-clear-btn:hover {
+  background: #cbd5e1;
+}
+
+.inline-clear-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.category-options {
+  border: 1px solid #d8e2f1;
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 8px;
+  max-height: 280px;
+  overflow: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.category-options-compact {
+  max-height: 120px;
+}
+
+.category-option-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  background: var(--surface-solid);
+  color: var(--text-muted);
+  border-radius: var(--radius-full);
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: var(--transition);
+  font-weight: 500;
+}
+
+.category-option-btn:hover {
+  border-color: var(--brand-primary);
+  background: var(--brand-light);
+  color: var(--brand-hover);
+}
+
+.category-option-btn.active {
+  border-color: var(--brand-primary);
+  background: var(--brand-primary);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+.category-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.category-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #e8f4ff;
+  border: 1px solid #c7defb;
+  font-size: 12px;
+  color: #1e3a8a;
+}
+
+.category-chip button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  color: #1e3a8a;
+  padding: 0;
+  line-height: 1;
+}
+
+.category-hint {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.category-meta {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.auto-variation-filter {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  /* 전체 항목 간 간격 약간 복구 */
+  flex-wrap: wrap;
+}
+
+.auto-variation-filter .settings-checkbox-label.compact {
+  min-height: 36px;
+  margin: 0;
+  gap: 2px !important;
+  /* 체크박스와 텍스트 사이 밀착 유지 */
+}
+
+.auto-variation-number-input input {
+  width: 100%;
+}
+
+#blog-tab-auto .input-disabled {
+  background: #f1f5f9;
+  color: #64748b;
+  border-color: #d1d9e8;
+}
+
+.auto-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 40px;
+  flex-wrap: wrap;
+}
+
+.auto-manual-group {
+  display: none;
+}
+
+.auto-manual-group h3 {
+  margin: 0;
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.auto-manual-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-start;
+}
+
+.auto-manual-inline {
+  min-width: 300px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #334155;
+}
+
+.auto-manual-inline input {
+  width: 220px;
+  max-width: 100%;
+}
+
+.auto-manual-skip {
+  margin: 0;
+  min-height: 36px;
+  align-self: center;
+  width: auto !important;
+  flex-direction: row !important;
+  flex: 0 0 auto;
+}
+
+.auto-manual-row button {
+  border-radius: var(--ui-button-radius);
+  padding: 9px 14px;
+  font-weight: 700;
+  cursor: pointer;
+  align-self: center;
+  margin-left: 0;
+}
+
+[data-style-scope="compatibility"] .auto-manual-row button {
+  border: none;
+  background: #475569;
+  color: #fff;
+}
+
+.auto-actions {
+  margin-top: 2px;
+}
+
+.auto-log-section pre {
+  min-height: 56px;
+}

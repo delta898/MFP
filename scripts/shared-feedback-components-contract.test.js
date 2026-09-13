@@ -33,6 +33,9 @@ test('active surfaces use shared loading action and standalone spinner primitive
   const cardNewsRuntime = read('ui/scripts/features/card-news/source-preview.js');
   const featureStyles = [
     'ui/styles/features/social.css',
+    'ui/styles/features/social-media.css',
+    'ui/styles/features/social-actions.css',
+    'ui/styles/features/social-density.css',
     'ui/styles/features/shopping-connect.css',
     'ui/styles/features/card-news.css',
     'ui/styles/features/card-news-results.css',
@@ -61,7 +64,12 @@ test('full empty states share one anatomy while transient placeholders stay cont
   const socialRuntime = read('ui/scripts/features/social/manual-composer.js');
   const blogStyle = read('ui/styles/features/continuous-publishing.css');
   const cardStyle = read('ui/styles/features/card-news.css');
-  const socialStyle = read('ui/styles/features/social.css');
+  const socialStyle = [
+    'ui/styles/features/social.css',
+    'ui/styles/features/social-media.css',
+    'ui/styles/features/social-actions.css',
+    'ui/styles/features/social-density.css'
+  ].map(read).join('\n');
 
   assert.match(feedback, /\.ui-empty-state\s*\{[^}]*var\(--ui-border-default\)[^}]*var\(--ui-surface-muted\)/s);
   assert.match(feedback, /\.ui-empty-state\[data-state="error"\]/);

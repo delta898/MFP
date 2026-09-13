@@ -1,0 +1,172 @@
+@media (max-width: 960px) {
+  .app {
+    flex-direction: column;
+  }
+
+  /* Hamburger Top Nav */
+  .mobile-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: var(--ui-surface);
+    border-bottom: 1px solid var(--ui-border-default);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    box-shadow: var(--ui-shadow-sm);
+  }
+
+  .mobile-topbar-title {
+    font-size: var(--ui-type-heading-size);
+    font-weight: var(--ui-weight-bold);
+    letter-spacing: -0.5px;
+    color: var(--ui-text-primary);
+  }
+
+  .hamburger-btn {
+    background: transparent;
+    border: none;
+    font-size: 24px;
+    color: var(--ui-text-primary);
+    cursor: pointer;
+    line-height: 1;
+    padding: 4px;
+  }
+
+  /* Offcanvas Sidebar */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    border-right: none;
+    box-shadow: var(--ui-shadow-lg);
+    transform: translateX(-100%);
+    z-index: 10;
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .logo {
+    display: none;
+    /* Hide desktop logo on mobile to save space */
+  }
+
+  .sidebar nav {
+    margin-top: 32px;
+  }
+
+  .main {
+    padding: 24px 20px;
+    overflow-x: hidden;
+  }
+
+  .view-title-row {
+    align-items: flex-start;
+  }
+
+  .settings-tabs {
+    align-items: stretch;
+  }
+
+  .settings-save-actions {
+    width: 100%;
+    margin-left: 0;
+    margin-top: 8px;
+    justify-content: flex-start;
+  }
+
+  .clock-display {
+    min-width: 120px;
+  }
+
+  .clock-widget-main {
+    width: min(100%, calc(100vw - 40px));
+    min-width: 286px;
+    min-height: 108px;
+    padding: 10px 10px 8px 13px;
+  }
+
+  .clock-widget-main .clock-display {
+    min-height: 88px;
+  }
+
+  .pomodoro-face-shell {
+    min-width: 238px;
+  }
+
+  .pomodoro-face-tomato,
+  .pomodoro-face-soft,
+  .pomodoro-face-flip {
+    width: 238px;
+  }
+
+  .clock-ambient-message {
+    display: none;
+  }
+
+  .clock-style-menu {
+    max-width: calc(100vw - 32px);
+  }
+
+  #logs-tab-system .terminal-container {
+    height: 56vh !important;
+    min-height: 420px !important;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dash-content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dash-auto-actions-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .shortcut-buttons.quick-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    height: auto;
+  }
+
+  .dash-quick-card {
+    min-height: 0;
+  }
+
+  .quick-action-btn {
+    min-height: 96px;
+    font-size: var(--ui-type-heading-size);
+  }
+
+  .dash-bottom-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .dash-shorts-list {
+    min-height: 340px;
+    max-height: 420px;
+  }
+
+  .dash-section-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dash-summary-columns {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .dash-summary-column .dash-summary-stats.grid {
+    grid-template-columns: 1fr;
+  }
+
+}

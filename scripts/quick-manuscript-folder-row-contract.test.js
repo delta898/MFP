@@ -28,8 +28,8 @@ test('quick manuscript clear action follows folder selection state', () => {
 });
 
 test('quick manuscript folder row has desktop and mobile layout rules', () => {
-  const publishingCss = read('ui/styles/features/publishing.css');
-  const responsiveCss = read('ui/styles/layout/responsive.css');
+  const publishingCss = read('ui/styles/features/publishing-manuscript.css');
+  const responsiveCss = read('ui/styles/layout/responsive-blog-quick.css');
 
   assert.match(publishingCss, /\.quick-manuscript-folder-row\s*{[\s\S]*?display: flex;/);
   assert.match(publishingCss, /\.quick-manuscript-folder-path\s*{[\s\S]*?position: relative;/);

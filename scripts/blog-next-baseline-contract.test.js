@@ -25,21 +25,23 @@ function readBlogNextQueueScripts() {
 function readBlogNextQueueStyles() {
   return [
     read('ui/styles/features/continuous-publishing.css'),
+    read('ui/styles/features/continuous-publishing-queue.css'),
     read('ui/styles/features/continuous-publishing-usability.css')
   ].join('\n');
 }
 
 test('shared Blog Beta form and queue typography uses semantic roles', () => {
   const publishing = read('ui/styles/features/continuous-publishing.css');
+  const queue = read('ui/styles/features/continuous-publishing-queue.css');
   const interactions = read('ui/styles/features/continuous-publishing-interactions.css');
   const baseline = read('ui/styles/features/blog-next-baseline.css');
 
   assert.match(publishing, /\.blog-next-field\s*\{[^}]*font-size:\s*var\(--ui-type-body-size\);[^}]*font-weight:\s*var\(--ui-weight-regular\);/s);
   assert.match(publishing, /\.blog-next-field > span:first-child,[\s\S]*?font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-bold\);/s);
   assert.match(publishing, /\.blog-next-field input\[type="text"\],[\s\S]*?font-size:\s*var\(--ui-type-body-size\);[^}]*font-weight:\s*var\(--ui-weight-regular\);/s);
-  assert.match(publishing, /\.blog-next-queue-order\s*\{[^}]*font-size:\s*var\(--ui-type-caption-size\);[^}]*font-weight:\s*var\(--ui-weight-bold\);/s);
-  assert.match(publishing, /\.blog-next-queue-copy strong\s*\{[^}]*font-size:\s*var\(--ui-type-body-size\);[^}]*font-weight:\s*var\(--ui-weight-semibold\);/s);
-  assert.match(publishing, /\.blog-next-queue-actions \.primary\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-bold\);/s);
+  assert.match(queue, /\.blog-next-queue-order\s*\{[^}]*font-size:\s*var\(--ui-type-caption-size\);[^}]*font-weight:\s*var\(--ui-weight-bold\);/s);
+  assert.match(queue, /\.blog-next-queue-copy strong\s*\{[^}]*font-size:\s*var\(--ui-type-body-size\);[^}]*font-weight:\s*var\(--ui-weight-semibold\);/s);
+  assert.match(queue, /\.blog-next-queue-actions \.primary\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-bold\);/s);
   assert.match(interactions, /\.blog-next-folder-label > span\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-bold\);/s);
   assert.match(baseline, /\.blog-next-paste-field-head label\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-bold\);/s);
 });
@@ -93,7 +95,7 @@ test('folder and paste previews share one reading surface and defer image diagno
 test('manuscript drafts keep idle results quiet and summarize repeated image warnings', () => {
   const html = readBlogNextView();
   const script = read('ui/scripts/features/blog-next/draft-inputs.js');
-  const sharedCss = read('ui/styles/features/continuous-publishing.css');
+  const sharedCss = read('ui/styles/features/continuous-publishing-drafts.css');
 
   for (const type of ['folder', 'paste']) {
     assert.match(html, new RegExp(`data-blog-next-draft-validation="${type}"[^>]*aria-live="polite" hidden><\\/div>`));

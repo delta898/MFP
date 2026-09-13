@@ -1,0 +1,222 @@
+.pomodoro-face {
+  position: relative;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.pomodoro-face-shell {
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.pomodoro-face-label {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  opacity: 0.74;
+}
+
+.pomodoro-face-time {
+  display: block;
+  font-family: monospace;
+  font-size: 40px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.04em;
+}
+
+.pomodoro-progress-track {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  left: 12px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.22);
+}
+
+.pomodoro-progress-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: currentColor;
+  transition: width 500ms linear;
+}
+
+.pomodoro-face-tomato,
+.pomodoro-face-soft {
+  width: 240px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 14px 17px;
+  border-radius: 18px;
+}
+
+.pomodoro-face-tomato {
+  background: linear-gradient(135deg, var(--pomodoro-soft), #ffffff);
+  color: var(--pomodoro-accent);
+  box-shadow: inset 0 0 0 1px rgba(251, 113, 133, 0.22);
+}
+
+.pomodoro-tomato-icon,
+.pomodoro-soft-orb {
+  font-size: 40px;
+  filter: drop-shadow(0 5px 8px rgba(225, 29, 72, 0.18));
+}
+
+.pomodoro-face-ring {
+  width: 124px;
+  height: 124px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: conic-gradient(var(--clock-season) var(--pomodoro-progress), rgba(148, 163, 184, 0.2) 0);
+  box-shadow: 0 12px 28px var(--clock-season-glow);
+}
+
+.pomodoro-ring-center {
+  width: 102px;
+  height: 102px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--ui-text-primary);
+}
+
+.pomodoro-ring-center .pomodoro-face-time {
+  font-size: 31px;
+}
+
+.pomodoro-face-flip {
+  width: 232px;
+  padding: 9px 11px 17px;
+  color: #f8fafc;
+  text-align: center;
+}
+
+.pomodoro-face-flip > .pomodoro-face-label {
+  color: var(--ui-text-secondary);
+}
+
+.pomodoro-flip-values {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.pomodoro-flip-values span {
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: #1e293b;
+  font-family: monospace;
+  font-size: 35px;
+  font-weight: 900;
+  box-shadow: 0 7px 14px rgba(15, 23, 42, 0.2);
+}
+
+.pomodoro-flip-values b {
+  color: #64748b;
+  font-size: 24px;
+}
+
+.pomodoro-face-soft {
+  background: linear-gradient(135deg, #fdf2f8, #eef2ff);
+  color: #6366f1;
+  box-shadow: inset 0 0 0 1px rgba(167, 139, 250, 0.24);
+}
+
+.pomodoro-soft-orb {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 8px 18px rgba(99, 102, 241, 0.14);
+}
+
+.clock-widget-unit.pomodoro-complete .clock-widget-main {
+  animation: pomodoroCompletePulse 700ms ease-in-out 2;
+}
+
+.clock-widget-unit.pomodoro-break-complete .clock-widget-main {
+  animation: pomodoroBreakGlow 800ms ease-in-out 2;
+}
+
+.pomodoro-inline-actions {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.clock-widget-unit[data-clock-display-mode="timer"] .pomodoro-inline-actions {
+  display: flex;
+}
+
+.pomodoro-inline-actions button {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #475569;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: var(--ui-shadow-sm);
+  transition: var(--ui-transition-interactive);
+}
+
+.pomodoro-inline-actions button:hover,
+.pomodoro-inline-actions button:focus-visible {
+  border-color: color-mix(in srgb, var(--pomodoro-accent) 38%, transparent);
+  background: var(--pomodoro-soft);
+  color: var(--pomodoro-accent);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.pomodoro-inline-actions .pomodoro-inline-start,
+.pomodoro-inline-actions .pomodoro-inline-next {
+  min-width: 32px;
+  border-color: color-mix(in srgb, var(--pomodoro-accent) 28%, transparent);
+  color: var(--pomodoro-accent);
+}
+
+.clock-widget-unit[data-clock-display-mode="clock"] .clock-display > :first-child {
+  transform: scale(1.1);
+  transform-origin: center;
+}
+
+@keyframes pomodoroCompletePulse {
+  50% {
+    transform: translateY(-2px) scale(1.025);
+    box-shadow: 0 0 0 7px rgba(16, 185, 129, 0.12), 0 14px 30px rgba(16, 185, 129, 0.18);
+  }
+}
+
+@keyframes pomodoroBreakGlow {
+  50% {
+    border-color: rgba(13, 148, 136, 0.58);
+    box-shadow: 0 0 0 8px rgba(20, 184, 166, 0.11), 0 16px 34px rgba(13, 148, 136, 0.22);
+  }
+}

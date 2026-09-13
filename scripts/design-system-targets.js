@@ -40,8 +40,32 @@ const DESIGN_SYSTEM_STYLE_TARGETS = Object.freeze([
   target('ui/styles/layout/responsive.css', [CONTRACTS.LEGACY_TOKEN_FREE], {
     strictStyleExclusion: 'This module still contains frozen compatibility-only mobile rules.'
   }),
+  target('ui/styles/layout/responsive-shell.css', [CONTRACTS.LEGACY_TOKEN_FREE], {
+    strictStyleExclusion: 'This module still contains frozen compatibility-only shell rules.'
+  }),
+  target('ui/styles/layout/responsive-forms.css', [CONTRACTS.LEGACY_TOKEN_FREE], {
+    strictStyleExclusion: 'This module still contains frozen compatibility-only form rules.'
+  }),
+  target('ui/styles/layout/responsive-blog-quick.css', [CONTRACTS.LEGACY_TOKEN_FREE], {
+    strictStyleExclusion: 'This module still contains frozen compatibility-only Blog quick mode rules.'
+  }),
+  target('ui/styles/layout/responsive-footer.css', [CONTRACTS.LEGACY_TOKEN_FREE], {
+    strictStyleExclusion: 'This module still contains frozen compatibility-only footer rules.'
+  }),
   target('ui/styles/components/clock.css', [CONTRACTS.LEGACY_TOKEN_FREE], {
     strictStyleExclusion: 'Seasonal, Pomodoro, and clock identity colors are intentional local accents.'
+  }),
+  target('ui/styles/components/clock-pomodoro-controls.css', [CONTRACTS.LEGACY_TOKEN_FREE], {
+    strictStyleExclusion: 'Pomodoro controls retain intentional local identity colors.'
+  }),
+  target('ui/styles/components/clock-pomodoro-faces.css', [CONTRACTS.LEGACY_TOKEN_FREE], {
+    strictStyleExclusion: 'Pomodoro faces retain intentional local identity colors and shadow recipes.'
+  }),
+  target('ui/styles/components/clock-celebration.css', [CONTRACTS.LEGACY_TOKEN_FREE], {
+    strictStyleExclusion: 'Celebration feedback retains intentional transient accent colors.'
+  }),
+  target('ui/styles/components/clock-status.css', [CONTRACTS.LEGACY_TOKEN_FREE], {
+    strictStyleExclusion: 'Clock status and split displays retain intentional local identity styling.'
   }),
   target('ui/styles/components/app-chrome.css', [CONTRACTS.LEGACY_TOKEN_FREE, CONTRACTS.TYPOGRAPHY, CONTRACTS.MOTION], {
     strictStyleExclusion: 'The global update banner still owns one legacy shadow and visibility override.'
@@ -59,8 +83,13 @@ const DESIGN_SYSTEM_STYLE_TARGETS = Object.freeze([
   target('ui/styles/patterns/transaction-dialog.css', PRODUCT_CONTRACTS),
   target('ui/styles/features/account.css', PRODUCT_CONTRACTS),
   target('ui/styles/features/social.css', [CONTRACTS.TYPOGRAPHY, CONTRACTS.MOTION], {
-    strictStyleExclusion: 'Legacy composer declarations retain bounded inverse media controls until the SNS CSS consolidation slice.'
+    strictStyleExclusion: 'The editor focus ring retains its existing bounded raw recipe until the shared focus contract migration.'
   }),
+  target('ui/styles/features/social-media.css', [CONTRACTS.TYPOGRAPHY, CONTRACTS.MOTION], {
+    strictStyleExclusion: 'Inverse image controls and the visually hidden file input retain bounded compatibility declarations.'
+  }),
+  target('ui/styles/features/social-actions.css', PRODUCT_CONTRACTS),
+  target('ui/styles/features/social-density.css', PRODUCT_CONTRACTS),
   target('ui/styles/features/social-surfaces.css', PRODUCT_CONTRACTS),
   target('ui/styles/features/dashboard-beta.css', PRODUCT_CONTRACTS),
   target('ui/styles/features/dashboard-beta-responsive.css', PRODUCT_CONTRACTS),
@@ -70,6 +99,10 @@ const DESIGN_SYSTEM_STYLE_TARGETS = Object.freeze([
   }),
   target('ui/styles/features/shopping-image-settings.css', PRODUCT_CONTRACTS),
   target('ui/styles/features/continuous-publishing.css', [...PRODUCT_CONTRACTS, CONTRACTS.LEGACY_TOKEN_FREE]),
+  target('ui/styles/features/continuous-publishing-queue.css', [...PRODUCT_CONTRACTS, CONTRACTS.LEGACY_TOKEN_FREE]),
+  target('ui/styles/features/continuous-publishing-automation.css', [...PRODUCT_CONTRACTS, CONTRACTS.LEGACY_TOKEN_FREE]),
+  target('ui/styles/features/continuous-publishing-drafts.css', [...PRODUCT_CONTRACTS, CONTRACTS.LEGACY_TOKEN_FREE]),
+  target('ui/styles/features/continuous-publishing-responsive.css', [...PRODUCT_CONTRACTS, CONTRACTS.LEGACY_TOKEN_FREE]),
   target('ui/styles/features/continuous-publishing-interactions.css', [...PRODUCT_CONTRACTS, CONTRACTS.LEGACY_TOKEN_FREE]),
   target('ui/styles/features/continuous-publishing-usability.css', [...PRODUCT_CONTRACTS, CONTRACTS.LEGACY_TOKEN_FREE]),
   target('ui/styles/features/blog-next-baseline.css', PRODUCT_CONTRACTS),
@@ -83,7 +116,10 @@ const DESIGN_SYSTEM_STYLE_TARGETS = Object.freeze([
   target('ui/styles/features/settings-next-appearance.css', PRODUCT_CONTRACTS),
   target('ui/styles/features/recommendations.css', PRODUCT_CONTRACTS),
   target('ui/styles/features/recommendation-center.css', PRODUCT_CONTRACTS),
-  target('ui/styles/features/discovery-modal.css', PRODUCT_CONTRACTS)
+  target('ui/styles/features/discovery-modal.css', PRODUCT_CONTRACTS),
+  target('ui/styles/features/discovery-keyword-research.css', PRODUCT_CONTRACTS),
+  target('ui/styles/features/discovery-responsive.css', PRODUCT_CONTRACTS),
+  target('ui/styles/features/discovery-writing-assists.css', PRODUCT_CONTRACTS)
 ]);
 
 function getDesignSystemStylePaths(contract) {

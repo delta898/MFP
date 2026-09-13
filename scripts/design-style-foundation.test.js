@@ -126,7 +126,10 @@ test('shared action pattern keeps one filled primary and lower-emphasis alternat
     uiRoot,
     entryFile: 'partials/views/blog-next.html'
   }).html;
-  const automationSettings = read('ui/styles/features/automation-settings.css');
+  const automationSettings = [
+    'ui/styles/features/automation-settings.css',
+    'ui/styles/features/automation-settings-categories.css'
+  ].map(read).join('\n');
   const modalBatch = read('ui/styles/components/modals-batch.css');
   const selectionControls = read('ui/styles/patterns/selection-controls.css');
   const actionGroup = blogNext.match(/<div class="blog-next-form-actions">([\s\S]*?)<\/div>/)?.[1] || '';

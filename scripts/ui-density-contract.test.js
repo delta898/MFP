@@ -34,7 +34,12 @@ test('every design style implements the role-based density contract', () => {
 });
 
 test('SNS consumes density roles without changing its content or interaction geometry', () => {
-  const social = read('ui/styles/features/social.css');
+  const social = [
+    'ui/styles/features/social.css',
+    'ui/styles/features/social-media.css',
+    'ui/styles/features/social-actions.css',
+    'ui/styles/features/social-density.css'
+  ].map(read).join('\n');
   const surfaces = read('ui/styles/features/social-surfaces.css');
   const combined = `${social}\n${surfaces}`;
 
@@ -47,7 +52,12 @@ test('SNS consumes density roles without changing its content or interaction geo
 test('Discovery consumes density roles while preserving result geometry', () => {
   const center = read('ui/styles/features/recommendation-center.css');
   const recommendations = read('ui/styles/features/recommendations.css');
-  const modal = read('ui/styles/features/discovery-modal.css');
+  const modal = [
+    'ui/styles/features/discovery-modal.css',
+    'ui/styles/features/discovery-keyword-research.css',
+    'ui/styles/features/discovery-responsive.css',
+    'ui/styles/features/discovery-writing-assists.css'
+  ].map(read).join('\n');
   const combined = `${center}\n${recommendations}\n${modal}`;
 
   [
@@ -71,6 +81,10 @@ test('Blog Beta consumes every density role while preserving workflow geometry',
     'ui/styles/features/blog-next-quick-flow.css',
     'ui/styles/features/blog-next-smart-comment.css',
     'ui/styles/features/continuous-publishing.css',
+    'ui/styles/features/continuous-publishing-queue.css',
+    'ui/styles/features/continuous-publishing-automation.css',
+    'ui/styles/features/continuous-publishing-drafts.css',
+    'ui/styles/features/continuous-publishing-responsive.css',
     'ui/styles/features/continuous-publishing-interactions.css',
     'ui/styles/features/continuous-publishing-usability.css'
   ];

@@ -35,7 +35,7 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
         (match) => match[1]
     );
 
-    assert.equal(manifest.split('\n').length - 1 <= 80, true);
+    assert.equal(manifest.split('\n').length - 1 <= 120, true);
     assert.deepEqual(includePaths, [
         'styles/styles/compatibility.css',
         'styles/styles/warm-editorial.css',
@@ -52,15 +52,29 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
         'styles/patterns/settings-card.css',
         'styles/patterns/transaction-dialog.css',
         'styles/components/clock.css',
+        'styles/components/clock-pomodoro-controls.css',
+        'styles/components/clock-pomodoro-faces.css',
+        'styles/components/clock-celebration.css',
+        'styles/components/clock-status.css',
         'styles/components/global-publishing-status.css',
         'styles/components/modals-batch.css',
         'styles/components/feedback.css',
         'styles/components/form-widgets.css',
         'styles/features/account.css',
         'styles/features/social.css',
+        'styles/features/social-media.css',
+        'styles/features/social-actions.css',
+        'styles/features/social-density.css',
         'styles/features/social-surfaces.css',
         'styles/features/publishing.css',
+        'styles/features/publishing-comment-drafts.css',
+        'styles/features/publishing-manuscript.css',
+        'styles/features/publishing-support.css',
         'styles/features/automation-settings.css',
+        'styles/features/automation-settings-preview.css',
+        'styles/features/automation-settings-categories.css',
+        'styles/features/automation-settings-help.css',
+        'styles/features/automation-settings-images.css',
         'styles/features/dashboard.css',
         'styles/features/dashboard-beta.css',
         'styles/features/dashboard-beta-responsive.css',
@@ -70,6 +84,10 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
         'styles/features/shopping-connect.css',
         'styles/features/shopping-image-settings.css',
         'styles/features/continuous-publishing.css',
+        'styles/features/continuous-publishing-queue.css',
+        'styles/features/continuous-publishing-automation.css',
+        'styles/features/continuous-publishing-drafts.css',
+        'styles/features/continuous-publishing-responsive.css',
         'styles/features/blog-next-smart-comment.css',
         'styles/features/card-news.css',
         'styles/features/card-news-results.css',
@@ -87,7 +105,14 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
         'styles/features/recommendations.css',
         'styles/features/recommendation-center.css',
         'styles/features/discovery-modal.css',
-        'styles/layout/responsive.css'
+        'styles/features/discovery-keyword-research.css',
+        'styles/features/discovery-responsive.css',
+        'styles/features/discovery-writing-assists.css',
+        'styles/layout/responsive.css',
+        'styles/layout/responsive-shell.css',
+        'styles/layout/responsive-forms.css',
+        'styles/layout/responsive-blog-quick.css',
+        'styles/layout/responsive-footer.css'
     ]);
 });
 
@@ -145,7 +170,7 @@ test('CSS manifest declares one cascade contract and keeps every module inside a
             ? 'tokens'
             : baseModules.has(modulePath)
                 ? 'base'
-                : modulePath === 'styles/layout/responsive.css'
+                : modulePath.startsWith('styles/layout/responsive')
                     ? 'utilities'
                     : modulePath.startsWith('styles/features/')
                         ? 'features'
@@ -194,20 +219,24 @@ test('segmented control radios remain visually hidden inside their own label', (
 });
 
 test('Blog Beta form typography separates labels, edit values, and compact automation fields', () => {
-    const css = fs.readFileSync(
+    const coreCss = fs.readFileSync(
         path.join(uiRoot, 'styles', 'features', 'continuous-publishing.css'),
         'utf8'
     );
+    const automationCss = fs.readFileSync(
+        path.join(uiRoot, 'styles', 'features', 'continuous-publishing-automation.css'),
+        'utf8'
+    );
 
-    assert.match(css, /\.blog-next-field\s*\{[^}]*font-size:\s*var\(--ui-type-body-size\);[^}]*font-weight:\s*var\(--ui-weight-regular\);/s);
-    assert.match(css, /\.blog-next-field\s*>\s*span:first-child,[\s\S]*?font-size:\s*var\(--ui-type-label-size\);[\s\S]*?font-weight:\s*var\(--ui-weight-bold\);/);
-    assert.match(css, /\.blog-next-field input\[type="text"\],[\s\S]*?font-size:\s*var\(--ui-type-body-size\);[\s\S]*?font-weight:\s*var\(--ui-weight-regular\);/);
-    assert.match(css, /\.blog-next-automation-fields \.blog-next-field\s*>\s*span:first-child\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-semibold\);/s);
+    assert.match(coreCss, /\.blog-next-field\s*\{[^}]*font-size:\s*var\(--ui-type-body-size\);[^}]*font-weight:\s*var\(--ui-weight-regular\);/s);
+    assert.match(coreCss, /\.blog-next-field\s*>\s*span:first-child,[\s\S]*?font-size:\s*var\(--ui-type-label-size\);[\s\S]*?font-weight:\s*var\(--ui-weight-bold\);/);
+    assert.match(coreCss, /\.blog-next-field input\[type="text"\],[\s\S]*?font-size:\s*var\(--ui-type-body-size\);[\s\S]*?font-weight:\s*var\(--ui-weight-regular\);/);
+    assert.match(automationCss, /\.blog-next-automation-fields \.blog-next-field\s*>\s*span:first-child\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-semibold\);/s);
 });
 
 test('Blog Beta management typography follows shared navigation roles and distinguishes item content and actions', () => {
-    const coreCss = fs.readFileSync(
-        path.join(uiRoot, 'styles', 'features', 'continuous-publishing.css'),
+    const queueCss = fs.readFileSync(
+        path.join(uiRoot, 'styles', 'features', 'continuous-publishing-queue.css'),
         'utf8'
     );
     const usabilityCss = fs.readFileSync(
@@ -222,10 +251,10 @@ test('Blog Beta management typography follows shared navigation roles and distin
     assert.match(tabCss, /\.ui-top-tab,\s*\.ui-segmented-tab\s*\{[^}]*font-weight:\s*var\(--ui-weight-semibold\);[^}]*line-height:\s*var\(--ui-line-height-tight\);/s);
     assert.match(tabCss, /\.ui-segmented-tab\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);/s);
     assert.match(usabilityCss, /\.blog-next-management-tab strong\s*\{[^}]*font-size:\s*var\(--ui-type-caption-size\);[^}]*font-weight:\s*inherit;/s);
-    assert.match(coreCss, /\.blog-next-queue-copy strong\s*\{[^}]*font-size:\s*var\(--ui-type-body-size\);[^}]*font-weight:\s*var\(--ui-weight-semibold\);/s);
-    assert.match(coreCss, /\.blog-next-queue-copy span\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-regular\);/s);
-    assert.match(coreCss, /\.blog-next-queue-actions \.ghost\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-semibold\);/s);
-    assert.match(coreCss, /\.blog-next-queue-actions \.primary\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-bold\);/s);
+    assert.match(queueCss, /\.blog-next-queue-copy strong\s*\{[^}]*font-size:\s*var\(--ui-type-body-size\);[^}]*font-weight:\s*var\(--ui-weight-semibold\);/s);
+    assert.match(queueCss, /\.blog-next-queue-copy span\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-regular\);/s);
+    assert.match(queueCss, /\.blog-next-queue-actions \.ghost\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-semibold\);/s);
+    assert.match(queueCss, /\.blog-next-queue-actions \.primary\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-bold\);/s);
 });
 
 test('loading spinners share one keyframes definition', () => {
@@ -255,7 +284,13 @@ test('indeterminate progress bars share one pattern', () => {
 
     assert.match(feedback, /\.ui-progress-indeterminate\s*\{/);
     assert.match(feedback, /@keyframes ui-progress-slide/);
-    for (const file of ['styles/features/discovery-modal.css', 'styles/features/recommendations.css']) {
+    for (const file of [
+        'styles/features/discovery-modal.css',
+        'styles/features/discovery-keyword-research.css',
+        'styles/features/discovery-responsive.css',
+        'styles/features/discovery-writing-assists.css',
+        'styles/features/recommendations.css'
+    ]) {
         const css = readUi(file);
         assert.doesNotMatch(css, /keyword-modal-progress/);
         assert.doesNotMatch(css, /quick-topic-recommendations-progress/);
