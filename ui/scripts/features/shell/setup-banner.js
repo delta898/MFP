@@ -28,23 +28,8 @@ async function checkSetupBanner() {
 }
 
 function goToSettings() {
-  const settingsBtn = document.querySelector('[data-view="settings"]');
+  const settingsBtn = document.querySelector('[data-view="settings-next"]');
   if (settingsBtn) settingsBtn.click();
-}
-
-async function navigateToSettingsTarget(tabName, targetId) {
-  await navigateTo('settings', tabName);
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      const target = document.getElementById(String(targetId || '').trim());
-      if (!target) return;
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      target.classList.remove('settings-navigation-target');
-      void target.offsetWidth;
-      target.classList.add('settings-navigation-target');
-      setTimeout(() => target.classList.remove('settings-navigation-target'), 1800);
-    });
-  });
 }
 
 async function navigateToSettingsNextTarget(tabName, targetId) {

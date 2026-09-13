@@ -95,7 +95,7 @@ function syncPlatformUiState(platform, isReady) {
           e.preventDefault();
           e.stopPropagation();
           if (typeof navigateTo === 'function') {
-            navigateTo('settings', 'naver-blog');
+            navigateTo('settings-next', 'core');
           }
         };
 

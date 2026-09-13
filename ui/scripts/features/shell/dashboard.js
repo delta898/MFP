@@ -128,10 +128,10 @@ async function loadDashboard(options = {}) {
     element._navBound = true;
     element.addEventListener('click', () => void navigateTo(view, tab));
   };
-  bindReadinessNavigation('dashboard-naver-status', 'settings', 'naver-blog');
-  bindReadinessNavigation('dashboard-wordpress-status', 'settings', 'naver-blog');
+  bindReadinessNavigation('dashboard-naver-status', 'settings-next', 'core');
+  bindReadinessNavigation('dashboard-wordpress-status', 'settings-next', 'core');
   bindReadinessNavigation('dashboard-usage-status', 'account');
-  bindReadinessNavigation('dashboard-google-status', 'settings', 'general');
+  bindReadinessNavigation('dashboard-google-status', 'settings-next', 'core');
   bindReadinessNavigation('dashboard-health-status', 'logs');
 
   if (sessionOk && session && naverStatus !== 'unverified') {

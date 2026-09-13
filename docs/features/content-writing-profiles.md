@@ -70,7 +70,7 @@ The legacy `image_options.generate` boolean remains an input compatibility bound
 
 Automatic publishing does not overwrite the mode of an existing topic. Its `새 글감 이미지 처리` setting supplies the initial mode only when trend or RSS collection creates a new Topics row; batch and automatic consumers then follow the stored row mode.
 
-Blog Beta keeps the most recent successful new-topic choices in browser localStorage to support consecutive and series writing across app restarts. This device-local convenience state is not a writing profile and never mutates Settings Beta. Editing an existing topic restores that topic's own `options.writing_overrides` and does not replace the recent choices for the next new topic.
+Blog Beta keeps the most recent successful new-topic choices in browser localStorage to support consecutive and series writing across app restarts. This device-local convenience state is not a writing profile and never mutates 설정. Editing an existing topic restores that topic's own `options.writing_overrides` and does not replace the recent choices for the next new topic.
 
 ## Shopping Generation
 

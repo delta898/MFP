@@ -395,11 +395,11 @@ async function openRecommendationPresentation(action = {}) {
     'blog.trend_posting': ['blog', 'trend-posting'],
     'shopping.items': ['shopping', 'quick'],
     'shopping.batch': ['shopping', 'batch'],
-    'settings.general': ['settings', 'general'],
-    'settings.blog': ['settings', 'naver-blog'],
-    'settings.wordpress': ['settings', 'naver-blog'],
-    'settings.shopping_connect': ['settings', 'shopping-connect'],
-    'settings.ai': ['settings', 'ai'],
+    'settings.general': ['settings-next', 'core'],
+    'settings.blog': ['settings-next', 'core'],
+    'settings.wordpress': ['settings-next', 'core'],
+    'settings.shopping_connect': ['shopping', 'quick'],
+    'settings.ai': ['settings-next', 'ai'],
     'logs.system': ['logs', 'system']
   };
   const target = targets[surface];

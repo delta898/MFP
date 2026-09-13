@@ -2,7 +2,7 @@
 
 ## 문서 상태
 
-- Status: `설정 Beta`에서 적용 중인 canonical contract
+- Status: `설정`에서 적용 중인 canonical contract
 - 적용 대상: 공통 설정, 각 기능의 local 설정과 override 설계
 - 목적: 같은 값을 여러 화면에 복제하지 않고 사용자가 설정의 위치와 영향 범위를 예측할 수 있게 한다.
 
@@ -52,10 +52,10 @@
 - 네이버 블로그와 워드프레스는 현재 제품 안에서 동급 발행 채널이다. 실제 사용 빈도를 근거로 워드프레스를
   optional 또는 낮은 시각 위계로 내리지 않으며, 준비도 summary와 설정 card에서 동일한 구조를 사용한다.
 
-## 현재 Settings Beta IA
+## 현재 설정 IA
 
 ```text
-설정 Beta
+설정
 ├─ 기본 연결
 │  ├─ 콘텐츠 공간
 │  │  ├─ Google 계정
@@ -125,29 +125,29 @@ Blog Beta의 글 작성 화면은 본문 길이·도입·전개·마무리만 �
 
 ## Legacy 설정 이관 소유권 표
 
-기존 `설정`에 있던 control은 Settings Beta로 보이게 복제하지 않는다. 아래 표의 소유 화면만 편집을 제공하며,
+기존 `설정`에 있던 control은 설정로 보이게 복제하지 않는다. 아래 표의 소유 화면만 편집을 제공하며,
 legacy 화면은 migration surface가 교체되기 전까지 같은 canonical 값을 읽는 호환 화면으로만 유지한다.
 
 | 기존 값의 목적 | 단일 소유 화면 | 현재 상태 / 다음 조치 |
 | --- | --- | --- |
-| Google·Spreadsheet·네이버·WordPress 연결 | `설정 Beta > 기본 연결` | 이관 완료 |
-| 글쓰기·이미지·보조 대화 AI 역할과 API Key | `설정 Beta > AI` | 이관 완료 |
-| 문체·글 구성·이미지 구성의 공통 기본값 | `설정 Beta > 글쓰기` | 이관 완료. 저장된 effective profile은 생성 prompt에 직접 전달된다. |
-| Buffer·Telegram·Slack·Bitly credential | `설정 Beta > 부가 서비스` | 이관 완료. 실행 대상 선택은 소유하지 않는다. |
-| Telegram/Slack을 앱 공통 알림 channel로 사용할지 | `설정 Beta > 부가 서비스 > 메시지·알림` | 이관 완료. 이벤트 발생 여부는 각 기능이 소유한다. |
-| Telegram inbound·Remote MCP | `설정 Beta > 앱 > 외부 연결` | 이관 완료 |
-| UI server host/port·앱 업데이트 action | `설정 Beta > 앱 > 일반` | 이관 완료 |
-| 네이버 입력 속도 | `설정 Beta > 앱 > 입력 환경` | 이관 완료. 선택값을 바꾸면 긴 문장 3회 입력 미리보기를 즉시 재생한다. |
+| Google·Spreadsheet·네이버·WordPress 연결 | `설정 > 기본 연결` | 이관 완료 |
+| 글쓰기·이미지·보조 대화 AI 역할과 API Key | `설정 > AI` | 이관 완료 |
+| 문체·글 구성·이미지 구성의 공통 기본값 | `설정 > 글쓰기` | 이관 완료. 저장된 effective profile은 생성 prompt에 직접 전달된다. |
+| Buffer·Telegram·Slack·Bitly credential | `설정 > 부가 서비스` | 이관 완료. 실행 대상 선택은 소유하지 않는다. |
+| Telegram/Slack을 앱 공통 알림 channel로 사용할지 | `설정 > 부가 서비스 > 메시지·알림` | 이관 완료. 이벤트 발생 여부는 각 기능이 소유한다. |
+| Telegram inbound·Remote MCP | `설정 > 앱 > 외부 연결` | 이관 완료 |
+| UI server host/port·앱 업데이트 action | `설정 > 앱 > 일반` | 이관 완료 |
+| 네이버 입력 속도 | `설정 > 앱 > 입력 환경` | 이관 완료. 선택값을 바꾸면 긴 문장 3회 입력 미리보기를 즉시 재생한다. |
 | 새 글 발행 시 브라우저 표시 방식 | `블로그 Beta`의 글별 실행 설정 | 글마다 선택하는 설정으로 유지한다. |
 | 이미지 최적화 | 발행 runtime | 기본 최적화 후 실패하면 원본으로 fallback한다. 사용자 editable 설정을 제공하지 않는다. |
-| 블로그·쇼핑·SNS 자동 발행의 대상, 시간, 주기, 상태 | 각 기능의 `자동화` 화면 | 후속 이관 대상. Settings Beta에는 연결 credential만 남긴다. |
+| 블로그·쇼핑·SNS 자동 발행의 대상, 시간, 주기, 상태 | 각 기능의 `자동화` 화면 | 후속 이관 대상. 설정에는 연결 credential만 남긴다. |
 | Buffer Organization·발행 채널 | SNS 배포·카드뉴스의 실제 발행 화면 | 후속 이관 대상. Buffer 연결 화면에는 표시·선택하지 않는다. |
 | Trends·RSS 수집 주기와 필터 | 발견/글감 관리의 자동 수집 화면 | 후속 이관 대상 |
 | 카드뉴스 source 목록·RSS source | 카드뉴스 화면의 `소스 관리` | 이관 완료. legacy 설정의 중복 편집 UI는 제거했다. |
 | 쇼핑 FTC·CTA 이미지와 쇼핑 자동 발행 | 쇼핑커넥트 화면 | 후속 이관 대상 |
 | update channel/source/mirror/custom URL | 운영 구성 | 일반 사용자 설정으로 노출하지 않는다. |
 
-이 표의 `후속 이관 대상`은 기능 UI가 준비될 때만 이동한다. 임시로 Settings Beta에 복사하거나 두 화면에서
+이 표의 `후속 이관 대상`은 기능 UI가 준비될 때만 이동한다. 임시로 설정에 복사하거나 두 화면에서
 동시에 저장하지 않는다.
 
 입력 환경처럼 명시적 `적용` action을 가진 설정은 선택값이 마지막 적용값과 달라지는 즉시 header badge를 `변경됨`으로
@@ -158,7 +158,7 @@ legacy 화면은 migration surface가 교체되기 전까지 같은 canonical �
 - page header는 해당 메뉴가 해결하는 사용자 목적을 한 번만 설명한다. 단일 목적 화면의 첫 작업 카드는
   같은 목적을 제목·부제목으로 반복하지 않고, 사용자가 바로 시작할 첫 action 또는 section 제목으로 시작한다.
 - panel lead는 top/local menu가 있어 사용자가 다른 목적의 panel로 이동했을 때, 현재 panel의 역할을 구분해야 할
-  경우에만 사용한다. Blog Beta, 쇼핑커넥트, Settings Beta처럼 sibling panel이 있는 화면에는 적합하다.
+  경우에만 사용한다. Blog Beta, 쇼핑커넥트, 설정처럼 sibling panel이 있는 화면에는 적합하다.
 - 단일 workflow의 순서는 tab으로 표현하지 않는다. 채널 선택, 내용 작성, 선택 입력, 발행처럼 이어지는 단계는
   card 안의 section hierarchy와 action placement로 보여준다.
 
@@ -171,7 +171,7 @@ legacy 화면은 migration surface가 교체되기 전까지 같은 canonical �
 
 ## 저장과 호환성 계약
 
-- canonical 저장소는 기존 `config.json` 하나다. Settings Beta 전용 복사본이나 별도 truth를 만들지 않는다.
+- canonical 저장소는 기존 `config.json` 하나다. 설정 전용 복사본이나 별도 truth를 만들지 않는다.
 - 현재 내부 JSON schema를 유지해 기존 runtime과 기존 설정 화면이 같은 값을 사용한다.
 - 화면의 save payload는 panel scope로 제한한다. server는 허용된 field만 갱신하고 같은 파일의 다른 설정을 보존한다.
 - 읽을 수 없는 설정 파일을 빈 기본값으로 덮어쓰지 않는다. 오류를 보여주고 복구 또는 재시도를 먼저 제공한다.
@@ -206,19 +206,19 @@ legacy 화면은 migration surface가 교체되기 전까지 같은 canonical �
 - header badge와 readiness card의 `연결됨`은 local persistence가 아니라 외부 검증 성공만 뜻한다.
 - Google Spreadsheet의 `접근 가능` badge와 readiness summary도 주소 저장 여부가 아니라 해당 주소를 Google 계정으로
   실제 조회한 마지막 성공 결과만 뜻한다. 주소를 편집하면 이 검증 결과는 즉시 `접근 확인 필요`로 돌아간다.
-- WordPress application password 같은 secret은 `WORDPRESS_APP_PASSWORD_CONFIGURED`처럼 등록 여부만 Settings Beta에
+- WordPress application password 같은 secret은 `WORDPRESS_APP_PASSWORD_CONFIGURED`처럼 등록 여부만 설정에
   전달한다. 새 입력값만 일시적으로 보기/숨기기를 지원하고, 빈 입력으로 connection을 확인하거나 값을 반영할 때는
   저장된 secret을 유지한다.
-- AI API Key도 같은 secret 계약을 따른다. Settings Beta의 AI read API는 `*_MODEL_API_KEY_CONFIGURED`만 전달하며,
+- AI API Key도 같은 secret 계약을 따른다. 설정의 AI read API는 `*_MODEL_API_KEY_CONFIGURED`만 전달하며,
   기존 key의 일부·마스킹값·원문을 browser에 내리지 않는다. 보기/숨기기는 새로 입력한 값에만 제공한다. `연결 확인`은
   새 입력값을 반영한 뒤 서버에 저장된 해당 모델 역할 설정으로 수행한다.
 - Buffer API Key, Telegram Bot Token, Slack Webhook URL과 Bitly Access Token도 같은 secret 계약을 사용한다.
-  Settings Beta의 부가 서비스 API는 등록 여부만 반환하고 기존 `config.json` schema와 runtime consumer는 유지한다.
+  설정의 부가 서비스 API는 등록 여부만 반환하고 기존 `config.json` schema와 runtime consumer는 유지한다.
   `연결 확인`은 해당 card scope만 반영한다. Buffer Organization·발행 채널은 SNS 자동 발행과 카드뉴스의 실행 설정에서 선택한다.
 
 ## 화면 계약
 
-- Settings Beta는 기존 `설정`과 독립된 migration surface다. 교체 승인 전까지 기존 화면과 데이터를 제거하지 않는다.
+- 설정은 연결·AI·글쓰기 기본값의 단일 소유 화면이다. 레거시 설정 화면은 내비게이션에서 숨김 상태이며 삭제 예정으로, 그때까지 같은 canonical 값을 읽는 호환 화면으로만 유지한다.
 - 공통 navigation, action, status와 widget은 design system pattern을 재사용하고 feature CSS는 고유 layout만 소유한다.
 - local persistence는 정상 경로에서 조용히 처리하고, `연결됨`은 외부 상태 검증 결과로만 표시한다.
 - 갱신 실패는 마지막 정상 상태를 지우지 않으며, 진행 중에는 충돌하는 sibling action만 잠근다.

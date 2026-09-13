@@ -4,7 +4,7 @@
 
 - Status: Blog Beta 검증 기반의 운영 중인 living contract
 - Initial source stage: `codex/feature/design-system-03-first-style`
-- 적용 대상: 공통 shell, `블로그 Beta`, `설정 Beta`에서 검증된 반복 UI
+- 적용 대상: 공통 shell, `블로그 Beta`, `설정`에서 검증된 반복 UI
 
 이 문서는 style의 색상 취향이 아니라 component의 의미, 상태와 배치 계약을 정의한다. 구체적인 색상·radius·shadow 값은 각 style pack이 component token으로 공급한다.
 
@@ -144,13 +144,13 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 
 - 저장된 password, token, API key와 credential은 화면과 read API에 원문·부분값·길이를 반환하거나 표시하지 않는다.
   화면은 `등록됨` 여부만 사용하며, 값 변경을 위한 input은 항상 빈 상태에서 시작한다.
-- Settings Beta의 secret input은 공통 registration presentation을 사용한다. 등록된 값은 `{대상} 등록됨` placeholder와
+- 설정의 secret input은 공통 registration presentation을 사용한다. 등록된 값은 `{대상} 등록됨` placeholder와
   `변경할 때만 새 값을 입력하세요` hint로만 알리고, 미등록 상태는 해당 값의 입력 목적을 placeholder·hint에 표현한다.
 - 사용자가 이번 입력에서 직접 작성한 secret에 한해 input 끝의 accessible show/hide control을 제공할 수 있다. 이 control은
   현재 입력값만 전환하며 저장된 원문을 다시 채우거나 표시하지 않는다.
 - secret이 이미 등록된 상태에서 빈 input을 제출하면 기존 secret을 유지한다. 삭제는 별도의 명시적·확인 가능한 action으로만
   제공하며, 빈값 submit을 삭제로 해석하지 않는다.
-- Settings Beta의 secret show/hide는 공통 controller와 `data-settings-next-secret-toggle` 계약을 사용한다. provider별
+- 설정의 secret show/hide는 공통 controller와 `data-settings-next-secret-toggle` 계약을 사용한다. provider별
   controller는 동일한 visibility event와 accessible label 갱신을 다시 구현하지 않는다.
 
 ## Summary-to-detail and settings density
@@ -202,7 +202,7 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
   계산한다. 이전 model 이름을 유지한 채 status만 갱신하지 않으며, 상속을 끄거나 별도 model을 선택한 경우에만
   독립 상태를 유지한다.
 - `연결 확인`처럼 검증과 함께 설정을 확정하는 action을 가진 card에서 provider·model·endpoint·credential·상속 source를
-  변경하면 즉시 Settings Beta 공통 dirty scope에 등록한다. 이탈 시 변경한 card 이름을 포함한 discard 확인을 보이고,
+  변경하면 즉시 설정 공통 dirty scope에 등록한다. 이탈 시 변경한 card 이름을 포함한 discard 확인을 보이고,
   해당 action의 성공 뒤에만 dirty를 해제한다. 실패 시 입력값과 dirty 상태를 유지한다.
 
 ## Overview data sections
@@ -586,7 +586,7 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 - 원고 폴더 및 붙여넣기: 발행 대상 / 포스팅 실행
 - 공통 dialog와 전역 상태 action
 - `블로그 Beta` top-level tab과 panel: 역할 기반 시작 slot / keyboard tab navigation / scroll 안정성
-- `설정 Beta` 기본 연결: 공용 top/local navigation / header Timer utility / 연결 상태 구분 / scoped 저장 및 갱신
+- `설정` 기본 연결: 공용 top/local navigation / header Timer utility / 연결 상태 구분 / scoped 저장 및 갱신
 - `카드뉴스` SNS 발행: 사전 조건을 통과한 inline 3단계 / selectable channel card / channel별 결과 및 부분 실패 재시도
 - 공통 footer 외부 링크와 Blog Beta native time field: style별 field focus ring / native picker UI 예외
 

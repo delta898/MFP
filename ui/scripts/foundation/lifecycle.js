@@ -78,14 +78,6 @@ window.addEventListener('DOMContentLoaded', () => {
   bindAccountUpgradeFreeClick();
   bindAccountEmailClick();
   bindAccountPlanInfoClick();
-  document.querySelectorAll('[data-account-settings-tab]').forEach((button) => {
-    button.addEventListener('click', () => {
-      void navigateToSettingsTarget(
-        button.getAttribute('data-account-settings-tab') || 'general',
-        button.getAttribute('data-account-settings-target') || ''
-      );
-    });
-  });
   document.querySelectorAll('[data-account-settings-next-tab]').forEach((button) => {
     button.addEventListener('click', () => {
       void navigateToSettingsNextTarget(

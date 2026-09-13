@@ -1107,9 +1107,9 @@ async function run() {
             if (consoleErrors[index].includes('/api/v1/account/overview?quiet=1')) consoleErrors.splice(index, 1);
         }
         await page.locator('#dashboard-beta-onboarding-action').click();
-        await page.waitForFunction(() => document.getElementById('view-settings')?.classList.contains('active'));
-        assert.equal(await page.locator('.settings-tab-btn[data-settings-tab="general"]').evaluate(element => element.classList.contains('active')), true);
-        await page.waitForFunction(() => document.getElementById('settings-google-auth-section')?.classList.contains('settings-navigation-target'));
+        await page.waitForFunction(() => document.getElementById('view-settings-next')?.classList.contains('active'));
+        assert.equal(await page.locator('#settings-next-tab-core').getAttribute('aria-selected'), 'true');
+        await page.waitForFunction(() => document.getElementById('settings-next-content-form')?.classList.contains('settings-navigation-target'));
         await page.unroute('**/api/v1/account/overview?quiet=1', accountFailureRoute);
         await page.unroute('**/api/v1/config/status', setupRequiredRoute);
         await page.evaluate(() => navigateTo('dashboard-beta'));
@@ -1296,8 +1296,8 @@ async function run() {
         assert.equal(await page.locator('#dashboard-readiness-bar').evaluate((element) => getComputedStyle(element).display), 'flex');
         await page.locator('#dashboard-wordpress-status').click();
         await page.waitForFunction(() => (
-            document.getElementById('view-settings')?.classList.contains('active')
-            && document.querySelector('.settings-tab-btn[data-settings-tab="naver-blog"]')?.classList.contains('active')
+            document.getElementById('view-settings-next')?.classList.contains('active')
+            && document.getElementById('settings-next-tab-core')?.getAttribute('aria-selected') === 'true'
         ));
         await page.evaluate(() => navigateTo('dashboard'));
         await page.waitForFunction(() => document.getElementById('view-dashboard')?.classList.contains('active'));
@@ -1364,10 +1364,10 @@ async function run() {
         );
         assert.equal((await page.locator('#recommendation-center-title').textContent())?.trim(), '뜻밖의 발견');
         await page.locator('.recommendation-card-actions .primary').click();
-        await page.waitForFunction(() => document.getElementById('view-settings')?.classList.contains('active'));
+        await page.waitForFunction(() => document.getElementById('view-settings-next')?.classList.contains('active'));
         assert.equal(
-            await page.locator('.settings-tab-btn[data-settings-tab="naver-blog"]').evaluate((element) => element.classList.contains('active')),
-            true
+            await page.locator('#settings-next-tab-core').getAttribute('aria-selected'),
+            'true'
         );
         await page.evaluate(() => navigateTo('dashboard'));
         await page.locator('#recommendation-center-refresh').click();

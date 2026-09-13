@@ -134,7 +134,7 @@ function showUiToast(options = {}) {
 
 function navigateToNaverLoginSettings() {
   if (typeof navigateTo === 'function') {
-    return navigateTo('settings', 'naver-blog');
+    return navigateTo('settings-next', 'core');
   }
   goToSettings();
   return Promise.resolve();

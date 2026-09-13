@@ -64,21 +64,21 @@ const DASHBOARD_BETA_SETUP_STEPS = Object.freeze([
     id: 'ai',
     label: 'AI 글쓰기 모델',
     tab: 'ai',
-    targetId: 'settings-text-model-api-key-wrap',
+    targetId: 'settings-next-ai-text-form',
     actionLabel: 'AI 설정하기'
   },
   {
     id: 'google',
     label: 'Google Spreadsheet',
-    tab: 'general',
-    targetId: 'settings-google-auth-section',
+    tab: 'core',
+    targetId: 'settings-next-content-form',
     actionLabel: 'Google 연결하기'
   },
   {
     id: 'channel',
     label: '발행 채널',
-    tab: 'naver-blog',
-    targetId: 'settings-naver-id',
+    tab: 'core',
+    targetId: 'settings-next-naver-form',
     actionLabel: '블로그 연결하기'
   }
 ]);
@@ -151,8 +151,8 @@ function renderDashboardBetaReadiness(overview) {
   }
 
   container.append(
-    createDashboardBetaReadinessButton({ ...naver, view: 'settings', tab: 'naver-blog' }),
-    createDashboardBetaReadinessButton({ ...wordpress, view: 'settings', tab: 'naver-blog' }),
+    createDashboardBetaReadinessButton({ ...naver, view: 'settings-next', tab: 'core' }),
+    createDashboardBetaReadinessButton({ ...wordpress, view: 'settings-next', tab: 'core' }),
     createDashboardBetaReadinessButton({
       label: usageLabel,
       state: Number.isFinite(remaining) || unlimited ? (remaining === 0 ? 'attention' : 'ready') : 'attention',
@@ -489,7 +489,7 @@ function bindDashboardBetaActions() {
     }
     const settingsTarget = event.target.closest('[data-settings-tab][data-settings-target]');
     if (settingsTarget) {
-      void navigateToSettingsTarget(settingsTarget.dataset.settingsTab, settingsTarget.dataset.settingsTarget);
+      void navigateToSettingsNextTarget(settingsTarget.dataset.settingsTab, settingsTarget.dataset.settingsTarget);
       return;
     }
     const target = event.target.closest('[data-dashboard-beta-nav]');
