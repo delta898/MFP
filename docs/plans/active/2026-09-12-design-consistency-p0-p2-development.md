@@ -21,4 +21,5 @@
 - 후속 P1(2026-09-12): danger-outline 2종 → `ui-danger-action` (레거시 설정 2버튼), discovery hex 뱃지 → `ui-status-badge` + 신규 `danger` 상태. 레거시 구역(content-tabs/automation/writing 뱃지)은 P4로 제외. 풀 suite 1671 pass / 0 fail. 스모크는 상호작용 불변이라 생략.
 - 후속 P3(2026-09-12): 스핀 키프레임 6종 → `ui-refresh-action-spin` 통일, indeterminante 프로그래스 2종 → `.ui-progress-indeterminate` 신설(feedback.css), 툴팁 토큰화+키보드 parity. 엠티 10종은 구조가 제각각이라 공용 3줄 유틸로 못 묶고 보류. 풀 suite 1673 pass / 0 fail.
 - 후속 P6(2026-09-12, audit 1번 영역): 현행 구역 색상 하드코딩 토큰화 — responsive 셸/모바일, social(스피너 흰색·다크칩 제외), clock 중립부. 제외: 레거시 전용 파일, 폰트 px, 모션 시간, 계절·뽀모도로·플립 identity 색, discovery-modal 벌크(별도 규모). 풀 suite 1673 pass / 0 fail.
+- 후속(2026-09-12): discovery-modal 75건 토큰 매핑 완료. 색상 하드코딩·레거시 var 0건, 전부 --ui-*. 폰트 px·모션은 제외. 풀 suite 1673 pass / 0 fail.
 - 미커밋.
