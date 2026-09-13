@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-main`
 - Base/parent branch: `dev`
 - Start date: 2026-09-06
-- Status: 구현 완료 — 최종 문서·검증 정리 후 `dev` 통합 대기
+- Status: 완료 — `dev`에 fast-forward 통합
 
 ## 사용자 필요와 목표
 
@@ -165,7 +165,7 @@ BlogGenius를 단계적으로 더 아름답고 편리하며 안정적인 제품�
 - 기존 Dashboard, Blog, 설정, 로그와 legacy Blog 수정 dialog는 의도적으로 compatibility containment에 남아 있다. 사용자가 legacy를 제거할 때 별도 retirement 범위로 다루며 새 style로 중복 이관하지 않는다.
 - native date/time picker 내부 focus와 clock의 계절 색상처럼 browser 또는 component identity가 소유하는 예외는 문서화된 경계 안에서 유지한다.
 - 새 style과 product surface는 registry·semantic token·공통 component 계약을 사용하며 feature별 style selector나 raw palette를 추가하지 않는다.
-- parent의 `dev` 통합, release, tag, push와 배포는 별도 사용자 승인 대상이다.
+- `dev` 통합은 완료했다. release, tag, push와 배포는 별도 사용자 승인 대상이다.
 
 ## 최종 결과 및 검증
 
@@ -177,4 +177,4 @@ BlogGenius를 단계적으로 더 아름답고 편리하며 안정적인 제품�
 - 마지막 style 단계 browser UI smoke 통과: 307 fixture requests
 - 최종 full unit suite: 1,694개 중 1,693개 통과, 실패 0, 플랫폼 의존 1개 skip
 - 사용자 시각 확인 및 Gate 1·2·3와 후속 두 style 검토 완료
-- 전체 디자인 개편 구현 완료, `dev` 통합 대기
+- 전체 디자인 개편 구현 및 `dev` 통합 완료
