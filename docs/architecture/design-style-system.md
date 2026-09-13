@@ -142,6 +142,26 @@ ui/styles/
 
 2단계 foundation은 기존 CSS composition 구조를 보존하면서 `--ui-*` namespace를 semantic contract로 사용한다. `ui/styles/styles/compatibility.css`가 현재 style 값을 공급하고, `ui/styles/tokens/legacy-aliases.css`가 아직 이전되지 않은 surface를 연결한다.
 
+## Cascade Layer 계약
+
+`ui/styles.css`는 CSS module의 단일 composition manifest이자 cascade 우선순위의 source of truth다. 모든 product rule은 다음 순서의 `bloggenius.*` layer 안에서 합성한다.
+
+```text
+reset → tokens → base → components → features → utilities → overrides → legacy
+```
+
+- `tokens`: style pack과 compatibility alias가 값을 공급한다.
+- `base`: document foundation과 application shell을 소유한다.
+- `components`: 여러 화면이 공유하는 component와 interaction pattern을 소유한다.
+- `features`: 한 feature에만 필요한 layout과 상태 표현을 소유한다.
+- `utilities`: responsive처럼 feature 전반을 횡단하는 제한된 규칙을 소유한다.
+- `overrides`: 제거 계획과 이유가 있는 일시적 예외에만 사용한다.
+- `legacy`: 아직 분류할 수 없는 frozen module의 격리용이며, 현재 module을 배정하지 않는다.
+
+일반 선언은 뒤 layer가 앞 layer보다 우선하므로 feature가 component 기본값을 낮은 selector specificity로 조정할 수 있다. `!important` 선언은 layer 우선순위가 반대로 적용되므로 접근성·가시성처럼 이미 계약으로 허용한 예외 외에는 추가하지 않는다. Layer 밖의 author rule은 모든 layered normal rule보다 강하므로 Google Fonts `@import`를 제외한 product rule을 unlayered 상태로 추가하지 않는다.
+
+새 CSS module은 디렉터리 소유 경계와 같은 layer에 등록한다. 우선순위 문제를 해결하기 위해 selector를 키우거나 `overrides`·`legacy`에 먼저 넣지 말고, component 기본값과 feature variant의 소유 관계를 확인한다.
+
 ## Registry와 Fallback
 
 style registry는 최소한 다음 정보를 제공해야 한다.

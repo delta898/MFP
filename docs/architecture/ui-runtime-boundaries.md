@@ -110,9 +110,11 @@ background triggers remain outside this surface.
   `ui/partials/views/`. Large views such as blog and settings use nested tab
   partials, and every HTML partial is guarded at 500 lines or fewer.
   Composition must finish before browser script execution.
-- Keep `ui/styles.css` as the ordered CSS manifest. Add styles to the matching
-  `ui/styles/{base,layout,components,features}/` module without reordering existing
-  includes; every CSS module is guarded at 900 lines or fewer.
+- Keep `ui/styles.css` as the ordered CSS manifest and cascade-layer source of truth.
+  Add styles to the matching `tokens`, `base`, `components`, `features`, or
+  `utilities` layer; do not add unlayered product rules or use the reserved
+  `overrides` and `legacy` layers without a documented exception. Preserve order
+  within the owning layer, and keep every CSS module at 900 lines or fewer.
 - Keep `ui/app.js` as the ordered classic-script manifest. Place shared bootstrap
   and utilities in `ui/scripts/foundation/`, navigation and view orchestration in
   `ui/scripts/shell/`, and product behavior in `ui/scripts/features/`.

@@ -9,6 +9,16 @@ const { CONTRACTS, getDesignSystemStylePaths } = require('./design-system-target
 const repoRoot = path.resolve(__dirname, '..');
 const uiRoot = path.join(repoRoot, 'ui');
 const manifestPath = path.join(uiRoot, 'styles.css');
+const CASCADE_LAYER_ORDER = Object.freeze([
+    'reset',
+    'tokens',
+    'base',
+    'components',
+    'features',
+    'utilities',
+    'overrides',
+    'legacy'
+]);
 
 function collectCssFiles(rootDir) {
     return fs.readdirSync(rootDir, { withFileTypes: true }).flatMap((entry) => {
@@ -25,7 +35,7 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
         (match) => match[1]
     );
 
-    assert.equal(manifest.split('\n').length - 1 <= 64, true);
+    assert.equal(manifest.split('\n').length - 1 <= 80, true);
     assert.deepEqual(includePaths, [
         'styles/styles/compatibility.css',
         'styles/styles/warm-editorial.css',
@@ -33,7 +43,6 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
         'styles/tokens/legacy-aliases.css',
         'styles/base/foundation.css',
         'styles/layout/shell-navigation.css',
-        'styles/features/account.css',
         'styles/components/app-chrome.css',
         'styles/patterns/actions.css',
         'styles/patterns/selection-controls.css',
@@ -42,6 +51,12 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
         'styles/patterns/overview-card.css',
         'styles/patterns/settings-card.css',
         'styles/patterns/transaction-dialog.css',
+        'styles/components/clock.css',
+        'styles/components/global-publishing-status.css',
+        'styles/components/modals-batch.css',
+        'styles/components/feedback.css',
+        'styles/components/form-widgets.css',
+        'styles/features/account.css',
         'styles/features/social.css',
         'styles/features/social-surfaces.css',
         'styles/features/publishing.css',
@@ -50,8 +65,6 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
         'styles/features/dashboard-beta.css',
         'styles/features/dashboard-beta-responsive.css',
         'styles/features/help.css',
-        'styles/components/clock.css',
-        'styles/components/global-publishing-status.css',
         'styles/features/dashboard-feeds.css',
         'styles/features/content-tabs.css',
         'styles/features/shopping-connect.css',
@@ -67,18 +80,84 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
         'styles/features/blog-next-baseline.css',
         'styles/features/continuous-publishing-usability.css',
         'styles/features/settings-tables.css',
-        'styles/components/modals-batch.css',
-        'styles/components/feedback.css',
-        'styles/layout/responsive.css',
         'styles/features/settings-detail.css',
         'styles/features/settings-next.css',
         'styles/features/settings-next-appearance.css',
         'styles/features/writing-settings.css',
-        'styles/components/form-widgets.css',
         'styles/features/recommendations.css',
         'styles/features/recommendation-center.css',
-        'styles/features/discovery-modal.css'
+        'styles/features/discovery-modal.css',
+        'styles/layout/responsive.css'
     ]);
+});
+
+test('CSS manifest declares one cascade contract and keeps every module inside a named layer', () => {
+    const manifest = fs.readFileSync(manifestPath, 'utf8');
+    const declaredOrder = manifest.match(/@layer\s+([^;]+);/)?.[1]
+        .split(',')
+        .map((name) => name.trim().replace(/^bloggenius\./, ''));
+    assert.deepEqual(declaredOrder, CASCADE_LAYER_ORDER);
+
+    let activeLayer = '';
+    const assignedModules = [];
+    manifest.split('\n').forEach((line, index) => {
+        const trimmed = line.trim();
+        if (
+            trimmed
+            && !trimmed.startsWith('/*')
+            && !trimmed.startsWith('@import ')
+            && !/^@layer\s+[^;]+;$/.test(trimmed)
+            && !/^@layer\s+bloggenius\.[a-z-]+\s*\{$/.test(trimmed)
+            && trimmed !== '}'
+        ) {
+            assert.fail(`raw CSS is not allowed in the composition manifest at line ${index + 1}`);
+        }
+        const layerStart = trimmed.match(/^@layer\s+bloggenius\.([a-z-]+)\s*\{$/);
+        if (layerStart) {
+            assert.equal(activeLayer, '', `nested manifest layer at line ${index + 1}`);
+            assert.equal(CASCADE_LAYER_ORDER.includes(layerStart[1]), true, layerStart[1]);
+            activeLayer = layerStart[1];
+            return;
+        }
+        if (trimmed === '}') {
+            assert.notEqual(activeLayer, '', `unmatched layer close at line ${index + 1}`);
+            activeLayer = '';
+            return;
+        }
+        const include = trimmed.match(/^\/\*\s*@include\s+([^\s]+)\s*\*\/$/);
+        if (include) {
+            assert.notEqual(activeLayer, '', `${include[1]} is outside a named layer`);
+            assignedModules.push({ path: include[1], layer: activeLayer });
+        }
+    });
+
+    assert.equal(activeLayer, '');
+    assert.equal(assignedModules.length > 0, true);
+    const tokenModules = new Set([
+        'styles/styles/compatibility.css',
+        'styles/styles/warm-editorial.css',
+        'styles/styles/quiet-sage-studio.css',
+        'styles/tokens/legacy-aliases.css'
+    ]);
+    const baseModules = new Set(['styles/base/foundation.css', 'styles/layout/shell-navigation.css']);
+    assignedModules.forEach(({ path: modulePath, layer }) => {
+        const expectedLayer = tokenModules.has(modulePath)
+            ? 'tokens'
+            : baseModules.has(modulePath)
+                ? 'base'
+                : modulePath === 'styles/layout/responsive.css'
+                    ? 'utilities'
+                    : modulePath.startsWith('styles/features/')
+                        ? 'features'
+                        : 'components';
+        assert.equal(layer, expectedLayer, modulePath);
+    });
+    assert.equal(assignedModules.some(({ layer }) => layer === 'legacy'), false);
+    assert.equal(assignedModules.length, new Set(assignedModules.map(({ path: modulePath }) => modulePath)).size);
+
+    const composed = createCssCompositionRuntime({ fs, path }).composeCssFile({ uiRoot }).css;
+    assert.match(composed, /^@import[^\n]+\n@layer bloggenius\.reset,/);
+    assert.doesNotMatch(composed, /@layer bloggenius\.legacy\s*\{/);
 });
 
 test('every CSS module is reachable, unique, and remains below the module boundary', () => {
