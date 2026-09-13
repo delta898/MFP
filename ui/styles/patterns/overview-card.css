@@ -98,45 +98,6 @@
   letter-spacing: -0.01em;
 }
 
-.ui-status-badge {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  min-height: 28px;
-  padding: var(--ui-space-1) var(--ui-space-3);
-  border-radius: var(--ui-radius-full);
-  background: var(--ui-surface-muted);
-  color: var(--ui-text-secondary);
-  font-size: var(--ui-type-caption-size);
-  font-weight: var(--ui-weight-semibold);
-  line-height: var(--ui-line-height-tight);
-}
-
-.ui-status-badge:is([data-state="running"], [data-state="on"], [data-state="loading"]) {
-  background: color-mix(in srgb, var(--ui-status-info) 12%, var(--ui-surface));
-  color: var(--ui-status-info);
-}
-
-.ui-status-badge:is([data-state="pending"], [data-state="action"]) {
-  background: var(--ui-action-primary-soft);
-  color: var(--ui-action-primary-hover);
-}
-
-.ui-status-badge:is([data-state="attention"], [data-state="stale"]) {
-  background: color-mix(in srgb, var(--ui-status-warning) 12%, var(--ui-surface));
-  color: var(--ui-status-warning);
-}
-
-.ui-status-badge:is([data-state="complete"], [data-state="ready"]) {
-  background: color-mix(in srgb, var(--ui-status-success) 12%, var(--ui-surface));
-  color: var(--ui-status-success);
-}
-
-.ui-status-badge:is([data-state="danger"]) {
-  background: color-mix(in srgb, var(--ui-status-danger) 12%, var(--ui-surface));
-  color: var(--ui-status-danger);
-}
-
 .ui-count-badge {
   display: inline-flex;
   align-items: center;

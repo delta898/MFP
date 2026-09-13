@@ -358,7 +358,7 @@ function renderManualSnsChannels() {
   const channels = Array.isArray(manualSnsConfig.channels) ? manualSnsConfig.channels : [];
   if (!manualSnsConfig.configured || channels.length === 0) {
     const emptyEl = document.createElement('div');
-    emptyEl.className = 'social-channel-empty';
+    emptyEl.className = 'social-channel-empty ui-empty-state';
     const messageEl = document.createElement('span');
     messageEl.textContent = !manualSnsConfig.configured
       ? '설정에서 Buffer 연결을 먼저 완료해 주세요.'

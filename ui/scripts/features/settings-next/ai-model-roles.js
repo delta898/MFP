@@ -26,7 +26,7 @@ function settingsNextAiSetStatus(role, label, tone) {
   const el = document.getElementById(`settings-next-ai-${role}-status`);
   if (!el) return;
   el.textContent = label;
-  el.dataset.tone = tone;
+  el.dataset.state = tone;
 }
 
 function settingsNextAiSetFeedback(role, message = '', tone = 'neutral') {

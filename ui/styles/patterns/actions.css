@@ -263,10 +263,6 @@ button.ghost:disabled {
   align-items: center;
 }
 
-@keyframes ui-refresh-action-spin {
-  to { transform: rotate(360deg); }
-}
-
 @media (prefers-reduced-motion: reduce) {
   button.primary,
   button.secondary,

@@ -24,7 +24,7 @@ test('Blog Beta exposes Smart Comment as an isolated tab and panel', () => {
     assert.match(view, /id="blog-next-smart-comment-list"[^>]*aria-live="polite"/);
     assert.doesNotMatch(view, /id="blog-next-smart-comment-headless"/);
     assert.match(view, /id="blog-next-smart-comment-diagnostic" hidden/);
-    assert.match(view, /class="blog-next-empty-state blog-next-smart-comment-empty"/);
+    assert.match(view, /class="blog-next-empty-state blog-next-smart-comment-empty ui-empty-state"/);
     assert.doesNotMatch(view, /id="blog-next-smart-comment-model-role"/);
     assert.match(view, /aria-describedby="blog-next-smart-comment-settings-summary"/);
     assert.match(view, /설정 저장[\s\S]*댓글 초안 만들기/);

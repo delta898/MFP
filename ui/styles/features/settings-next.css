@@ -2,19 +2,6 @@
   gap: var(--ui-space-5);
 }
 
-.settings-next-beta-badge {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  padding: var(--ui-space-1) var(--ui-space-3);
-  border-radius: var(--ui-radius-full);
-  background: var(--ui-action-primary-soft);
-  color: var(--ui-action-primary-hover);
-  font-size: var(--ui-type-caption-size);
-  font-weight: var(--ui-weight-semibold);
-  line-height: var(--ui-line-height-tight);
-}
-
 .settings-next-panel,
 .settings-next-core-panel,
 .settings-next-extras-panel,
@@ -238,31 +225,6 @@
 
 .settings-next-status-dot[data-tone="danger"] {
   background: var(--ui-status-danger);
-}
-
-.settings-next-status {
-  display: inline-flex;
-  align-items: center;
-  min-height: 30px;
-  flex: 0 0 auto;
-  padding: var(--ui-space-1) var(--ui-space-3);
-  border-radius: var(--ui-radius-full);
-  background: var(--ui-surface-muted);
-  color: var(--ui-text-secondary);
-  font-size: var(--ui-type-caption-size);
-  font-weight: var(--ui-weight-semibold);
-}
-
-.settings-next-status[data-tone="success"] {
-  color: var(--ui-status-success);
-}
-
-.settings-next-status[data-tone="warning"] {
-  color: var(--ui-status-warning);
-}
-
-.settings-next-status[data-tone="danger"] {
-  color: var(--ui-status-danger);
 }
 
 .settings-next-secret-input {

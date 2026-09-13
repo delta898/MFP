@@ -56,6 +56,8 @@ test('manual SNS publishing owns a busy state that locks duplicate actions', () 
     const composerSource = readScript('features/social/manual-composer.js');
     const publishSource = readScript('features/social/manual-publish.js');
     const styles = fs.readFileSync(path.join(repoRoot, 'ui', 'styles', 'features', 'social.css'), 'utf8');
+    const feedbackStyles = fs.readFileSync(path.join(repoRoot, 'ui', 'styles', 'components', 'feedback.css'), 'utf8');
+    const socialView = fs.readFileSync(path.join(repoRoot, 'ui', 'partials', 'views', 'social.html'), 'utf8');
 
     assert.match(stateSource, /manualSnsPublishingInFlight/);
     assert.match(stateSource, /manualSnsLastPublishedSignature/);
@@ -68,8 +70,9 @@ test('manual SNS publishing owns a busy state that locks duplicate actions', () 
     assert.match(composerSource, /imageFileEl\.disabled\s*=\s*manualSnsPublishingInFlight/);
     assert.match(composerSource, /input\.dataset\.manualSnsUnavailable/);
     assert.match(composerSource, /manualSnsDraggedImageIndex/);
-    assert.match(styles, /#manual-sns-publish-btn\.is-loading::before/);
-    assert.match(styles, /animation: ui-refresh-action-spin/);
+    assert.match(socialView, /id="manual-sns-publish-btn" class="primary ui-loading-action"/);
+    assert.match(feedbackStyles, /button\.ui-loading-action\.is-loading::before/);
+    assert.match(feedbackStyles, /animation: ui-refresh-action-spin/);
     assert.doesNotMatch(styles, /@keyframes manual-sns-publish-spin/);
     assert.match(styles, /#manual-sns-publish-btn:disabled/);
 });

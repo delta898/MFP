@@ -54,7 +54,7 @@
                 </div>
               </div>
               <div id="card-news-feed-list" class="card-news-feed-list card-news-entry-list" aria-live="polite">
-                <div class="card-news-empty-state">공개 글 목록을 불러오는 중입니다.</div>
+                <div class="card-news-empty-state ui-empty-state">공개 글 목록을 불러오는 중입니다.</div>
               </div>
               <p id="card-news-feed-note" class="card-news-inline-note" hidden></p>
             </div>
@@ -192,10 +192,10 @@
             </div>
           </div>
           <div class="card-news-generation-actions">
-            <span id="card-news-generation-status" class="ui-workflow-feedback" role="status" aria-live="polite" hidden></span>
+            <span id="card-news-generation-status" class="ui-workflow-feedback ui-loading-indicator" role="status" aria-live="polite" hidden></span>
             <div class="card-news-generation-buttons">
-              <button id="card-news-compose-button" class="secondary" type="button">카드 구성만 만들기</button>
-              <button id="card-news-generate-button" class="primary" type="button">이미지까지 만들기</button>
+              <button id="card-news-compose-button" class="secondary ui-loading-action" type="button">카드 구성만 만들기</button>
+              <button id="card-news-generate-button" class="primary ui-loading-action" type="button">이미지까지 만들기</button>
             </div>
           </div>
         </section>
@@ -241,7 +241,7 @@
             <div id="card-news-publishing-result" class="card-news-publishing-result" aria-live="polite" hidden></div>
             <div class="card-news-publishing-actions ui-action-row">
               <span id="card-news-publishing-status" class="ui-workflow-feedback" role="status" aria-live="polite"></span>
-              <button id="card-news-publish-button" class="primary" type="submit">지금 발행</button>
+              <button id="card-news-publish-button" class="primary ui-loading-action" type="submit">지금 발행</button>
             </div>
           </form>
         </section>
@@ -300,7 +300,7 @@
                 </div>
               </div>
               <div id="card-news-managed-list" class="card-news-managed-list card-news-entry-list" role="tabpanel" aria-live="polite">
-                <div class="card-news-empty-state">만든 카드뉴스를 불러오는 중입니다.</div>
+                <div class="card-news-empty-state ui-empty-state">만든 카드뉴스를 불러오는 중입니다.</div>
               </div>
             </section>
 

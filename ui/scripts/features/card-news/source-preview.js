@@ -319,7 +319,7 @@ function renderCardNewsGeneration(generation, options = {}) {
         </div>
         <span class="ui-sequence-badge">${card.index}</span>
         <div class="card-news-image-working" data-card-news-image-working hidden>
-          <span class="card-news-image-working-spinner" aria-hidden="true"></span>
+          <span class="ui-spinner ui-spinner-lg ui-spinner-accent" aria-hidden="true"></span>
           <strong>이미지 만드는 중…</strong>
         </div>
       </div>

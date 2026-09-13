@@ -3,7 +3,7 @@
 - branch: `codex/feature/design-system-14-shell-shared-components`
 - base/parent: `codex/feature/design-system-main`
 - started: 2026-09-14
-- status: in_progress
+- status: ready_for_review
 
 ## 사용자 필요와 목표
 
@@ -37,7 +37,20 @@
 - 2026-09-14: 사용자가 에이전트가 적정 범위와 단계, 확인 시점을 결정해 진행하도록 승인했다.
 - 2026-09-14: 이번 branch는 로드맵 1번 `전역 셸 정리`와 2번 `공통 컴포넌트 수렴`까지만 담당하고, 밀도·CSS 분할·cascade layer는 후속 독립 단계로 유지한다.
 - 2026-09-14: 업데이트 배너의 모든 inline style과 `update.js`의 직접 style mutation을 제거했다. `data-update-state`가 available/downloading/applying/error를 표현하고 CSS가 section·action 가시성을 소유한다. 진행률은 native `progress`의 value 계약으로 변경해 JS가 폭을 직접 그리지 않는다.
+- 2026-09-14: status badge와 제품 단계 badge를 각각 `.ui-status-badge`, `.ui-release-badge`로 분리했다. Settings Beta의 상태 pill과 Beta 표기를 이 계약으로 옮기고 runtime은 색상 이름이 아니라 semantic `data-state`만 갱신한다.
+- 2026-09-14: button 진행, 문장형 진행, 독립 spinner를 shared feedback primitive로 수렴했다. SNS, 쇼핑커넥트, 카드뉴스와 Dashboard Beta가 공통 표현을 사용하며 legacy 글쓰기 spinner는 이번 범위에서 제외했다.
+- 2026-09-14: Blog Beta queue·스마트 댓글, 카드뉴스 목록, SNS 채널 부재처럼 완결된 빈 surface를 `.ui-empty-state`로 수렴했다. preview 안내와 입력 전 prompt 등 작업 문맥 내부 placeholder는 정보 구조가 다르므로 contextual pattern으로 유지했다.
 
 ## 검증 및 결과
 
 - 업데이트 배너 presentation contract와 관련 style/shell contract 38건 통과.
+- 공통 badge, loading, empty-state focused contract를 포함한 관련 UI contract 95건 통과.
+- SNS 발행 busy-state와 shared feedback 추가 contract 6건 통과.
+- browser UI smoke 280 fixture requests 통과. 최초 실행에서 style 전환 뒤 `focus-visible` shadow 비교가 한 차례 실패했으나, 관련 코드 변경 없이 재실행해 통과했다.
+
+## 현재 결과와 남은 확인
+
+- 전역 업데이트 배너와 현행 디자인 시스템 surface의 공통 feedback presentation 소유권을 feature JavaScript/CSS에서 shared component로 옮겼다.
+- API, 데이터 흐름과 정보 구조는 변경하지 않았다.
+- Settings Beta, SNS, 쇼핑커넥트, 카드뉴스, Dashboard Beta, Blog Beta에서 badge·loading·empty-state의 최종 시각 확인이 남아 있다.
+- 사용자 확인 뒤 parent 병합 후보로 전환하며, 병합 전 full unit suite는 별도 승인을 받아 실행한다.

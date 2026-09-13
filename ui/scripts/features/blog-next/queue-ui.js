@@ -82,7 +82,8 @@ async function requestActivateBlogNextManagementTab(tabName) {
 
 function renderBlogNextEmptyState(list, title, message, state = 'empty') {
   const empty = document.createElement('div');
-  empty.className = `blog-next-empty-state${state === 'error' ? ' has-error' : ''}`;
+  empty.className = 'blog-next-empty-state ui-empty-state';
+  empty.dataset.state = state;
   const strong = document.createElement('strong');
   strong.textContent = title;
   empty.appendChild(strong);

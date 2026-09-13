@@ -160,6 +160,7 @@ test('shared action pattern keeps one filled primary and lower-emphasis alternat
 
 test('overview cards share style-driven surfaces, headings, status badges, and refresh actions', () => {
   const overview = read('ui/styles/patterns/overview-card.css');
+  const feedback = read('ui/styles/components/feedback.css');
   const actions = read('ui/styles/patterns/actions.css');
   const dashboard = read('ui/partials/views/dashboard-beta.html');
   const dashboardStyle = read('ui/styles/features/dashboard-beta.css');
@@ -169,7 +170,8 @@ test('overview cards share style-driven surfaces, headings, status badges, and r
   assert.match(overview, /\.ui-overview-card,\s*\.ui-workflow-card\s*\{[^}]*var\(--ui-card-border\)[^}]*var\(--ui-card-radius\)[^}]*var\(--ui-card-background\)[^}]*var\(--ui-card-shadow\)/s);
   assert.match(overview, /\.ui-overview-heading h2\s*\{[^}]*var\(--ui-type-heading-size\)[^}]*var\(--ui-weight-semibold\)/s);
   assert.match(overview, /\.ui-overview-subheading\s*\{[^}]*var\(--ui-space-3\)[^}]*var\(--ui-type-body-size\)[^}]*var\(--ui-weight-semibold\)/s);
-  assert.match(overview, /\.ui-status-badge\s*\{[^}]*var\(--ui-surface-muted\)[^}]*var\(--ui-type-caption-size\)/s);
+  assert.match(feedback, /\.ui-status-badge\s*\{[^}]*var\(--ui-surface-muted\)[^}]*var\(--ui-text-secondary\)/s);
+  assert.match(feedback, /\.ui-status-badge,\s*\.ui-release-badge\s*\{[^}]*var\(--ui-type-caption-size\)/s);
   assert.match(overview, /\.ui-count-badge\s*\{[^}]*var\(--ui-surface-muted\)[^}]*var\(--ui-text-secondary\)/s);
   assert.match(actions, /\.ui-refresh-action-icon svg\s*\{[^}]*stroke:\s*currentColor/s);
   assert.match(actions, /\.ui-text-action\s*\{[^}]*background:\s*transparent[^}]*var\(--ui-action-primary\)/s);

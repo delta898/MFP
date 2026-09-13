@@ -267,7 +267,7 @@ function renderBlogNextSmartCommentItems(items = [], summary = null) {
   }
   if (blogNextSmartCommentItems.length === 0) {
     list.innerHTML = `
-      <div class="blog-next-empty-state blog-next-smart-comment-empty">
+      <div class="blog-next-empty-state blog-next-smart-comment-empty ui-empty-state">
         <strong>조건에 맞는 이웃 글을 찾지 못했습니다.</strong>
         <p>잠시 후 다시 실행하거나 후보 수를 조정해 보세요.</p>
       </div>`;

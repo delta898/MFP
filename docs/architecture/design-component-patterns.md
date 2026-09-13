@@ -263,6 +263,15 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
   status tone을 다시 구현하지 않는다.
 - `.ui-settings-card`는 저장·검증하는 form anatomy, `.ui-overview-card`는 읽기·판단하는 summary anatomy에 사용한다.
   둘은 같은 style token을 소비하지만 footer와 field 구조를 억지로 공유하지 않는다.
+- 실행 상태와 domain 상태는 `.ui-status-badge`와 semantic `data-state`로 표현한다. `loading`, `warning`, `success`,
+  `error`처럼 의미가 있는 상태만 status 색을 사용한다. `Beta`처럼 제품 단계나 release 구분은 상태가 아니므로
+  `.ui-release-badge`를 사용하며 feature별 badge 외형을 다시 만들지 않는다.
+- 반복되는 loading 표현은 공통 feedback primitive를 사용한다. button 내부 진행은 `.ui-loading-action.is-loading`,
+  문장형 진행 표시는 `.ui-loading-indicator[data-state="loading"]`, 독립 표시기는 `.ui-spinner`와 크기 modifier를 사용한다.
+  feature는 spinner border, animation과 간격을 다시 정의하지 않고 실행 중 disabled와 accessible label만 소유한다.
+- 데이터가 없어서 사용자가 다음 행동을 선택해야 하는 완결된 빈 surface는 `.ui-empty-state`를 사용한다. 오류 빈 상태는
+  semantic `data-state="error"`로 구분한다. preview 내부 안내, 입력 전 prompt, 일시적 loading처럼 기존 작업 문맥 안의
+  placeholder는 `.ui-workflow-empty` 또는 feature의 contextual pattern을 유지하며 모든 빈 문구를 같은 card로 만들지 않는다.
 - source 선택, preview, 편집과 결과처럼 하나의 작업을 단계적으로 진행하는 surface는 `.ui-workflow-card`와
   `.ui-workflow-heading`을 사용한다. 이 pattern은 공통 card와 typography token을 소유하고 feature stylesheet는
   단계별 grid, preview 비율과 결과 item 배치처럼 업무 고유 layout만 정의한다. 저장 form 또는 현황 summary의

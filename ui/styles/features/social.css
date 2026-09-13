@@ -102,6 +102,7 @@
 
 .social-channel-help-links {
   margin-top: 6px;
+  justify-content: center;
   flex-wrap: wrap;
   white-space: normal;
 }
@@ -114,12 +115,6 @@
 
 .social-channel-empty {
   grid-column: 1 / -1;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  color: var(--ui-text-secondary);
-  font-size: var(--ui-type-label-size);
 }
 
 .social-channel-option {
@@ -437,23 +432,6 @@
 .social-local-image-picker.is-disabled {
   cursor: wait;
   opacity: 0.72;
-}
-
-#manual-sns-publish-btn.is-loading {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-#manual-sns-publish-btn.is-loading::before {
-  content: '';
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.45);
-  border-top-color: #fff;
-  border-radius: 999px;
-  animation: ui-refresh-action-spin 0.8s linear infinite;
 }
 
 #manual-sns-publish-btn:disabled,

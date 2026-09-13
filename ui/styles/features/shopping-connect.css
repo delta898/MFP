@@ -97,15 +97,6 @@
   stroke-width: 1.7;
 }
 
-.shopping-quick-preview-spinner {
-  width: 24px;
-  height: 24px;
-  border: 2px solid var(--ui-border-strong);
-  border-top-color: var(--ui-action-primary);
-  border-radius: var(--ui-radius-full);
-  animation: ui-refresh-action-spin 800ms linear infinite;
-}
-
 .shopping-quick-preview-error {
   align-items: flex-start;
   flex-direction: column;
@@ -229,10 +220,4 @@
     min-height: 180px;
   }
 
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .shopping-quick-preview-spinner {
-    animation: none;
-  }
 }

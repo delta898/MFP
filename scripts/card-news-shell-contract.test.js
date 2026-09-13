@@ -95,7 +95,7 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(html, /class="card-news-generation-detail-grid ui-workflow-detail-grid"[\s\S]*id="card-news-additional-request"[\s\S]*class="card-news-text-option ui-inline-choice"[\s\S]*id="card-news-include-korean-text"/);
     assert.match(html, /필요한 것만 고르세요\. 글쓰기 AI가 카드 구성을 만들고 이미지 AI가 각 카드를 제작합니다\./);
     assert.doesNotMatch(html, /card-news-model-role-note|ui-workflow-role-note|aria-label="사용 AI 역할"/);
-    assert.match(html, /id="card-news-generation-status" class="ui-workflow-feedback" role="status" aria-live="polite" hidden/);
+    assert.match(html, /id="card-news-generation-status" class="ui-workflow-feedback ui-loading-indicator" role="status" aria-live="polite" hidden/);
     assert.match(script, /additional_request: document\.getElementById\('card-news-additional-request'\)/);
     assert.match(html, /id="card-news-compose-button"[^>]*>카드 구성만 만들기</);
     assert.match(html, /id="card-news-generate-button"[^>]*>이미지까지 만들기</);
@@ -276,7 +276,7 @@ test('Card News keeps workflow stages inline with shared panel headings', () => 
 });
 
 test('Card News states use shared semantic badge tokens', () => {
-    const css = fs.readFileSync(path.join(uiRoot, 'styles/patterns/overview-card.css'), 'utf8');
+    const css = fs.readFileSync(path.join(uiRoot, 'styles/components/feedback.css'), 'utf8');
     const status = fs.readFileSync(path.join(repoRoot, 'src/card-news/management-status.js'), 'utf8');
     assert.match(css, /\.ui-status-badge:is\(\[data-state="pending"\], \[data-state="action"\]\)[^}]*var\(--ui-action-primary-soft\)[^}]*var\(--ui-action-primary-hover\)/s);
     assert.match(status, /label: '작업 중', tone: 'neutral'/);

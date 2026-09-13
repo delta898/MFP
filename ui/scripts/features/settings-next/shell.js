@@ -61,7 +61,7 @@ function settingsNextSetStatus(id, label, tone = 'neutral') {
   const element = document.getElementById(id);
   if (!element) return;
   element.textContent = String(label || '');
-  element.dataset.tone = tone;
+  element.dataset.state = tone;
 }
 
 function settingsNextSetDot(element, tone = 'neutral') {

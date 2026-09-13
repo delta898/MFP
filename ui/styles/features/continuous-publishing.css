@@ -523,19 +523,6 @@
   font-weight: var(--ui-weight-bold);
 }
 
-.blog-next-empty-state {
-  padding: 26px;
-  border: 1px dashed var(--ui-border-default);
-  border-radius: var(--ui-radius-md);
-  text-align: center;
-}
-
-.blog-next-empty-state strong {
-  display: block;
-  margin-bottom: 7px;
-  color: var(--ui-text-primary);
-}
-
 .blog-next-automation-form {
   display: flex;
   flex-direction: column;

@@ -71,7 +71,7 @@ function renderCardNewsVisibleArticles() {
       : (onlyPublished
         ? '발행한 카드뉴스는 만든 카드뉴스에서 확인할 수 있습니다.'
         : (hasConfiguredSource ? 'RSS 주소를 확인한 뒤 새로고침해 주세요.' : '설정에서 블로그를 연결하거나 RSS를 추가해 주세요.'));
-    list.innerHTML = `<div class="card-news-empty-state"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(message)}</span></div>`;
+    list.innerHTML = `<div class="card-news-empty-state ui-empty-state"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(message)}</span></div>`;
   } else {
     list.innerHTML = visibleArticles.map(({ article, index }) => {
       const status = article.management?.generation_id ? article.management?.status : '';
@@ -124,13 +124,13 @@ function renderCardNewsArticles(result = {}) {
 async function loadCardNewsSources() {
   if (cardNewsViewState.loadingSources) return;
   const list = document.getElementById('card-news-feed-list');
-  if (list) list.innerHTML = '<div class="card-news-empty-state">공개 글 목록을 불러오는 중입니다.</div>';
+  if (list) list.innerHTML = '<div class="card-news-empty-state ui-empty-state">공개 글 목록을 불러오는 중입니다.</div>';
   setCardNewsSourceLoading(true);
   try {
     renderCardNewsArticles(await fetchJson('/api/v1/card-news/sources'));
     cardNewsViewState.sourcesStale = false;
   } catch (error) {
-    if (list) list.innerHTML = `<div class="card-news-empty-state"><strong>글 목록을 불러오지 못했습니다.</strong><span>${escapeHtml(error.message || '잠시 후 다시 시도해 주세요.')}</span></div>`;
+    if (list) list.innerHTML = `<div class="card-news-empty-state ui-empty-state" data-state="error"><strong>글 목록을 불러오지 못했습니다.</strong><span>${escapeHtml(error.message || '잠시 후 다시 시도해 주세요.')}</span></div>`;
   } finally {
     setCardNewsSourceLoading(false);
   }
@@ -152,7 +152,7 @@ function renderCardNewsManagedItems() {
     cardNewsViewState.managedFilter === '전체' || item.status === cardNewsViewState.managedFilter
   ));
   if (!items.length) {
-    list.innerHTML = '<div class="card-news-empty-state"><strong>해당하는 카드뉴스가 없습니다.</strong><span>카드 구성을 만들면 이곳에 자동으로 표시됩니다.</span></div>';
+    list.innerHTML = '<div class="card-news-empty-state ui-empty-state"><strong>해당하는 카드뉴스가 없습니다.</strong><span>카드 구성을 만들면 이곳에 자동으로 표시됩니다.</span></div>';
     return;
   }
   list.innerHTML = items.map((item) => {
@@ -264,7 +264,7 @@ async function previewCardNewsZip(file) {
     status.textContent = 'ZIP 안의 카드 이미지를 확인하고 있습니다.';
     status.dataset.state = 'loading';
   }
-  if (preview) preview.innerHTML = '<div class="card-news-empty-state">이미지 순서를 확인하는 중입니다.</div>';
+  if (preview) preview.innerHTML = '<div class="card-news-empty-state ui-empty-state">이미지 순서를 확인하는 중입니다.</div>';
   if (title) title.value = file.name.replace(/\.zip$/i, '').trim() || '가져온 카드뉴스';
   try {
     if (file.size > 40 * 1024 * 1024) throw new Error('ZIP 파일은 최대 40MB까지 가져올 수 있습니다.');
@@ -335,14 +335,14 @@ async function importCardNewsZip() {
 async function loadCardNewsManagedItems() {
   if (cardNewsViewState.managedLoading) return;
   const list = document.getElementById('card-news-managed-list');
-  if (list) list.innerHTML = '<div class="card-news-empty-state">만든 카드뉴스를 불러오는 중입니다.</div>';
+  if (list) list.innerHTML = '<div class="card-news-empty-state ui-empty-state">만든 카드뉴스를 불러오는 중입니다.</div>';
   setCardNewsManagedLoading(true);
   try {
     const result = await fetchJson('/api/v1/card-news/managed');
     cardNewsViewState.managedItems = Array.isArray(result.items) ? result.items : [];
     renderCardNewsManagedItems();
   } catch (error) {
-    if (list) list.innerHTML = `<div class="card-news-empty-state"><strong>목록을 불러오지 못했습니다.</strong><span>${escapeHtml(error.message || '잠시 후 다시 시도해 주세요.')}</span></div>`;
+    if (list) list.innerHTML = `<div class="card-news-empty-state ui-empty-state" data-state="error"><strong>목록을 불러오지 못했습니다.</strong><span>${escapeHtml(error.message || '잠시 후 다시 시도해 주세요.')}</span></div>`;
   } finally {
     setCardNewsManagedLoading(false);
   }

@@ -382,7 +382,7 @@ test('smart comment identifies its model role and preserves results through asyn
   assert.match(html, /id="blog-next-smart-comment-settings-summary">글쓰기 모델 사용/);
   assert.doesNotMatch(html, /id="blog-next-smart-comment-model-role"/);
   assert.match(html, /id="blog-next-smart-comment-run"[^>]*aria-describedby="blog-next-smart-comment-settings-summary"[^>]*disabled/);
-  assert.match(html, /class="blog-next-empty-state blog-next-smart-comment-empty"/);
+  assert.match(html, /class="blog-next-empty-state blog-next-smart-comment-empty ui-empty-state"/);
   assert.match(html, /class="blog-next-smart-comment-results-head" hidden/);
   assert.match(html, /id="blog-next-smart-comment-list"[^>]*data-state="idle"[^>]*aria-busy="false"/);
   assert.match(script, /function syncBlogNextSmartCommentModelRole\(\)/);

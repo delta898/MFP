@@ -114,7 +114,7 @@ test('Dashboard Beta exposes direct paths to queue and automation without legacy
     assert.match(betaView, /data-dashboard-beta-tab="automation">연속 발행 설정/);
     assert.match(betaView, /id="dashboard-beta-automation-action" class="secondary"/);
     assert.match(betaView, /class="ui-text-action"[^>]*data-dashboard-beta-tab="queue">전체 대기열 보기/);
-    assert.match(betaView, /id="dashboard-beta-discovery-refresh" class="secondary compact"/);
+    assert.match(betaView, /id="dashboard-beta-discovery-refresh" class="secondary compact ui-loading-action"/);
     assert.match(betaView, /class="ui-text-action"[^>]*data-dashboard-beta-nav="help">전체 가이드 보기/);
     assert.equal((betaView.match(/data-dashboard-beta-tab="automation"/g) || []).length, 1);
     assert.match(betaView, /id="dashboard-beta-automation-action"/);

@@ -10,9 +10,9 @@ test('discovery surfaces use the shared status badge instead of hex palettes', (
   const quickDiscovery = read('ui/scripts/features/discovery/quick-discovery.js');
   const lifecycle = read('ui/scripts/foundation/lifecycle.js');
   const modalCss = read('ui/styles/features/discovery-modal.css');
-  const overview = read('ui/styles/patterns/overview-card.css');
+  const feedback = read('ui/styles/components/feedback.css');
 
-  assert.match(overview, /\.ui-status-badge:is\(\[data-state="danger"\]\)/);
+  assert.match(feedback, /\.ui-status-badge:is\(\[data-state="danger"\], \[data-state="error"\]\)/);
   assert.match(quickDiscovery, /competitionBadgeAttributes\(competition\.state\)/);
   assert.match(quickDiscovery, /class="ui-status-badge">시작</);
   assert.match(lifecycle, /class="ui-status-badge"\$\{compState/);
