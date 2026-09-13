@@ -5,6 +5,12 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const { createCssCompositionRuntime } = require('../src/ui-runtime/css-composition-runtime');
+const {
+  CONTRACTS,
+  DESIGN_SYSTEM_VIEW_IDS,
+  DESIGN_SYSTEM_STYLE_TARGETS,
+  getDesignSystemStylePaths
+} = require('./design-system-targets');
 const { createHtmlCompositionRuntime } = require('../src/ui-runtime/html-composition-runtime');
 
 const repoRoot = path.resolve(__dirname, '..');
@@ -82,7 +88,7 @@ test('non-target views opt into compatibility containment explicitly', () => {
   const viewTags = Array.from(html.matchAll(/<section class="[^"]*\bview\b[^"]*"[^>]*id="(view-[^"]+)"[^>]*>/g));
   assert.equal(viewTags.length > 1, true);
   viewTags.forEach(([tag, viewId]) => {
-    if (['view-blog-next', 'view-settings-next', 'view-dashboard-beta', 'view-card-news', 'view-shopping', 'view-social', 'view-account', 'view-help'].includes(viewId)) {
+    if (DESIGN_SYSTEM_VIEW_IDS.includes(viewId)) {
       assert.doesNotMatch(tag, /data-style-scope=/);
       return;
     }
@@ -95,6 +101,23 @@ test('non-target views opt into compatibility containment explicitly', () => {
   assert.match(aliases, /\[data-style-scope="compatibility"\]/);
   assert.match(html, /id="blog-edit-modal-backdrop"[^>]*data-style-scope="compatibility"/);
   assert.doesNotMatch(html, /id="shopping-edit-modal-backdrop"[^>]*data-style-scope="compatibility"/);
+});
+
+test('design-system target manifest is unique and references composed style modules', () => {
+  const manifest = read('ui/styles.css');
+  const paths = DESIGN_SYSTEM_STYLE_TARGETS.map((entry) => entry.path);
+
+  assert.equal(DESIGN_SYSTEM_VIEW_IDS.length, new Set(DESIGN_SYSTEM_VIEW_IDS).size);
+  assert.equal(paths.length, new Set(paths).size);
+  DESIGN_SYSTEM_STYLE_TARGETS.forEach((entry) => {
+    assert.equal(fs.existsSync(path.join(repoRoot, entry.path)), true, entry.path);
+    assert.match(
+      manifest,
+      new RegExp(`/\\* @include ${entry.path.replace(/^ui\//, '').replaceAll('.', '\\.')} \\*/`),
+      entry.path
+    );
+    assert.equal(entry.contracts.length > 0, true, `${entry.path} must own at least one design contract`);
+  });
 });
 
 test('shared action pattern keeps one filled primary and lower-emphasis alternatives', () => {
@@ -287,20 +310,7 @@ test('composed CSS has no fallback-free unresolved custom property references', 
 });
 
 test('migrated shell and Blog Beta styles consume semantic tokens instead of legacy globals', () => {
-  const migratedFiles = [
-    'ui/styles/base/foundation.css',
-    'ui/styles/layout/shell-navigation.css',
-    'ui/styles/layout/responsive.css',
-    'ui/styles/components/app-chrome.css',
-    'ui/styles/components/clock.css',
-    'ui/styles/components/feedback.css',
-    'ui/styles/components/global-publishing-status.css',
-    'ui/styles/features/continuous-publishing.css',
-    'ui/styles/features/continuous-publishing-interactions.css',
-    'ui/styles/features/continuous-publishing-usability.css',
-    'ui/styles/features/blog-next-smart-comment.css',
-    'ui/styles/patterns/tab-navigation.css'
-  ];
+  const migratedFiles = getDesignSystemStylePaths(CONTRACTS.LEGACY_TOKEN_FREE);
   const legacyTokenPattern = /var\(--(?:bg-gradient|surface|surface-solid|line|text-main|text-muted|text-light|brand-primary|brand-hover|brand-light|success|warning|danger|shadow-sm|shadow-md|shadow-lg|glass-shadow|radius-sm|radius-md|radius-lg|radius-full|transition|text-secondary|border-color|brand|shadow-soft)\)/;
 
   migratedFiles.forEach((file) => {
@@ -309,28 +319,7 @@ test('migrated shell and Blog Beta styles consume semantic tokens instead of leg
 });
 
 test('design-system feature styles do not bypass the style contract', () => {
-  const featureFiles = [
-    'ui/styles/features/continuous-publishing.css',
-    'ui/styles/features/continuous-publishing-interactions.css',
-    'ui/styles/features/continuous-publishing-usability.css',
-    'ui/styles/features/blog-next-baseline.css',
-    'ui/styles/features/blog-next-panel-anatomy.css',
-    'ui/styles/features/blog-next-quick-flow.css',
-    'ui/styles/features/blog-next-smart-comment.css',
-    'ui/styles/features/settings-next.css',
-    'ui/styles/features/dashboard-beta.css',
-    'ui/styles/features/dashboard-beta-responsive.css',
-    'ui/styles/features/recommendation-center.css',
-    'ui/styles/features/recommendations.css',
-    'ui/styles/features/card-news.css',
-    'ui/styles/features/card-news-management.css',
-    'ui/styles/features/card-news-results.css',
-    'ui/styles/patterns/actions.css',
-    'ui/styles/patterns/selection-controls.css',
-    'ui/styles/patterns/overview-card.css',
-    'ui/styles/patterns/tab-navigation.css',
-    'ui/styles/patterns/transaction-dialog.css'
-  ];
+  const featureFiles = getDesignSystemStylePaths(CONTRACTS.STRICT_STYLE);
 
   featureFiles.forEach((file) => {
     const css = read(file);
@@ -342,10 +331,24 @@ test('design-system feature styles do not bypass the style contract', () => {
     shadowValues.forEach((value) => {
       assert.match(
         value,
-        /^(?:none|(?:inset\s+)?var\(--ui-[a-z0-9-]+\))$/,
+        /^(?:none|(?:inset\s+)?var\(--ui-[a-z0-9-]+\)(?:\s*,\s*(?:inset\s+)?var\(--ui-[a-z0-9-]+\))*)$/,
         `${file} owns a raw shadow recipe: ${value}`
       );
     });
+  });
+});
+
+test('every design-system style target has strict coverage or a documented exclusion', () => {
+  DESIGN_SYSTEM_STYLE_TARGETS.forEach((entry) => {
+    if (entry.contracts.includes(CONTRACTS.STRICT_STYLE)) {
+      assert.equal(entry.strictStyleExclusion, undefined, entry.path);
+      return;
+    }
+    assert.equal(
+      typeof entry.strictStyleExclusion === 'string' && entry.strictStyleExclusion.trim().length > 0,
+      true,
+      `${entry.path} must document why strict style validation does not apply`
+    );
   });
 });
 

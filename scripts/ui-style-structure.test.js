@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { createCssCompositionRuntime } = require('../src/ui-runtime/css-composition-runtime');
+const { CONTRACTS, getDesignSystemStylePaths } = require('./design-system-targets');
 
 const repoRoot = path.resolve(__dirname, '..');
 const uiRoot = path.join(repoRoot, 'ui');
@@ -213,36 +214,34 @@ test('responsive breakpoints use the canonical set', () => {
     assert.deepEqual([...minWidths].sort((a, b) => a - b), ['769', '961']);
 });
 
-test('active surfaces use type, weight, and motion tokens', () => {
-    const activeFiles = [
-        'styles/features/discovery-modal.css',
-        'styles/features/social.css',
-        'styles/features/shopping-connect.css',
-        'styles/features/card-news.css',
-        'styles/features/card-news-results.css',
-        'styles/features/card-news-management.css',
-        'styles/features/dashboard-beta.css',
-        'styles/features/blog-next-quick-flow.css',
-        'styles/features/blog-next-panel-anatomy.css',
-        'styles/features/blog-next-baseline.css',
-        'styles/features/blog-next-smart-comment.css',
-        'styles/features/recommendations.css',
-        'styles/features/recommendation-center.css',
-        'styles/features/continuous-publishing.css',
-        'styles/features/continuous-publishing-interactions.css',
-        'styles/features/continuous-publishing-usability.css',
-        'styles/features/settings-next.css',
-        'styles/patterns/actions.css',
-        'styles/patterns/overview-card.css',
-        'styles/components/app-chrome.css',
-        'styles/components/feedback.css',
-        'styles/components/global-publishing-status.css'
-    ];
+test('active surfaces use type and weight tokens', () => {
+    const activeFiles = getDesignSystemStylePaths(CONTRACTS.TYPOGRAPHY);
     for (const file of activeFiles) {
-        const css = fs.readFileSync(path.join(uiRoot, file), 'utf8');
+        const css = fs.readFileSync(path.join(repoRoot, file), 'utf8');
         const lines = css.split('\n').filter((line) => !/type-geometry-exception/.test(line));
         const scoped = lines.join('\n');
         assert.doesNotMatch(scoped, /font-size:\s*[0-9.]+(?:px|r?em)/, file);
         assert.doesNotMatch(scoped, /font-weight:\s*[0-9]+/, file);
+    }
+});
+
+test('active surface transitions use motion tokens', () => {
+    const activeFiles = getDesignSystemStylePaths(CONTRACTS.MOTION);
+    for (const file of activeFiles) {
+        const css = fs.readFileSync(path.join(repoRoot, file), 'utf8');
+        const declarations = Array.from(css.matchAll(/transition:\s*([^;]+);/g), (match) => match[1].trim());
+        declarations.forEach((value) => {
+            if (value === 'none') return;
+            assert.match(
+                value,
+                /var\(--ui-(?:motion|transition)-[a-z0-9-]+\)/,
+                `${file} owns an untokenized transition: ${value}`
+            );
+            assert.doesNotMatch(
+                value,
+                /(?:^|\s|,)\d*\.?\d+(?:ms|s)\b/,
+                `${file} owns a raw transition duration: ${value}`
+            );
+        });
     }
 });

@@ -26,4 +26,6 @@
 - 후속(2026-09-12): 폰트 px·웨이트 180건 토큰 매핑(현행 구역. 시계 숫자·모바일 스케일·아이콘 글리프·레거시 제외). 모션은 트랜지션 선언만 토큰으로(루프·등장 연출 유지). 영향 테스트 3건 갱신. 블로그 스크린샷目视. 풀 suite 1676 pass / 0 fail.
 - 결정(2026-09-12): 시계 identity 색(계절·뽀모도로·플립)은 유지(A). 카드 배경·텍스트는 토큰 추종, 악센트층은 계절 정체성 보존.
 - 잔여 마무리(2026-09-12): Ultra 300 표기 정합, 레거시 설정 handoff 전면 Beta 전환(데드 헬퍼·핸들러 삭제), docs 설정 용어 정리, premium-input 실체 정의, 키워드 모달 문구·footer 정렬. 스모크 통과(278). 중간 2144 실패 1회는 격리 재현 정상·단독 재실행 통과로 부하성 플레이크 판정.
-- 미커밋.
+- 계약 마무리(2026-09-14): 제품 style 대상 view와 stylesheet 계약을 `scripts/design-system-targets.js` 한 곳으로 통합했다. strict 검사에서 제외되는 파일은 compatibility·접근성·시계 identity 등 이유를 manifest에 명시하며, 신규 대상이 조용히 검사에서 빠지지 않게 했다.
+- 기존 `type, weight, motion` 테스트가 motion을 검사하지 않던 오류를 바로잡았다. typography와 motion 검사를 분리하고, 현행 surface의 transition이 `--ui-motion-*` 또는 `--ui-transition-*` token을 사용하며 raw duration을 소유하지 않는지 검증한다.
+- 구현은 동작·DOM·레이아웃·시각 값을 변경하지 않는 계약/기록 범위로 한정했다. focused design/style 계약 63건이 통과했으며, parent 병합 전 full unit suite gate가 남아 있다.
