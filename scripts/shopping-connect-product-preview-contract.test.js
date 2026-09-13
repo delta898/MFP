@@ -64,9 +64,10 @@ test('shopping preview normalization accepts only HTTP resources and bounded dis
 
 test('shopping preview styling stays inside the semantic design token contract', () => {
   const css = read('ui/styles/features/shopping-connect.css');
+  const feedback = read('ui/styles/components/feedback.css');
 
   assert.doesNotMatch(css, /#[0-9a-f]{3,8}\b|rgba?\(/i);
   assert.match(css, /var\(--ui-surface-muted\)/);
   assert.match(css, /var\(--ui-action-primary\)/);
-  assert.match(css, /prefers-reduced-motion/);
+  assert.match(feedback, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.ui-spinner[\s\S]*animation: none/);
 });

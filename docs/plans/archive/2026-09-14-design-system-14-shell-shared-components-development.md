@@ -3,7 +3,7 @@
 - branch: `codex/feature/design-system-14-shell-shared-components`
 - base/parent: `codex/feature/design-system-main`
 - started: 2026-09-14
-- status: ready_for_review
+- status: completed
 
 ## 사용자 필요와 목표
 
@@ -47,10 +47,13 @@
 - 공통 badge, loading, empty-state focused contract를 포함한 관련 UI contract 95건 통과.
 - SNS 발행 busy-state와 shared feedback 추가 contract 6건 통과.
 - browser UI smoke 280 fixture requests 통과. 최초 실행에서 style 전환 뒤 `focus-visible` shadow 비교가 한 차례 실패했으나, 관련 코드 변경 없이 재실행해 통과했다.
+- 최초 full unit gate는 1,684건 중 shopping preview의 기존 reduced-motion 소유권 assertion 1건이 실패했다. spinner 접근성 처리가 feature CSS에서 shared feedback CSS로 이동한 결과이므로 기능 코드를 되돌리지 않고 계약이 공통 소유권을 확인하도록 수정했다.
+- 수정한 focused contract 7건 통과.
+- 최종 full unit gate는 권한이 필요한 local Trends API socket test를 포함해 1,683건 통과, 실패 0건, 플랫폼 종속 1건 skip으로 완료했다.
 
 ## 현재 결과와 남은 확인
 
 - 전역 업데이트 배너와 현행 디자인 시스템 surface의 공통 feedback presentation 소유권을 feature JavaScript/CSS에서 shared component로 옮겼다.
 - API, 데이터 흐름과 정보 구조는 변경하지 않았다.
-- Settings Beta, SNS, 쇼핑커넥트, 카드뉴스, Dashboard Beta, Blog Beta에서 badge·loading·empty-state의 최종 시각 확인이 남아 있다.
-- 사용자 확인 뒤 parent 병합 후보로 전환하며, 병합 전 full unit suite는 별도 승인을 받아 실행한다.
+- Settings Beta, SNS, 쇼핑커넥트, 카드뉴스, Dashboard Beta, Blog Beta의 badge·loading·empty-state를 사용자가 확인했다.
+- 사용자 승인과 자동 병합 gate를 모두 충족해 parent 병합 준비를 완료했다.
