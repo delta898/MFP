@@ -468,7 +468,7 @@
   border-top: 1px solid var(--ui-border-default);
 }
 
-@media (max-width: 760px) {
+@media (max-width: 768px) {
   .card-news-entry-item {
     height: 92px;
     grid-template-columns: minmax(0, 1fr) auto;

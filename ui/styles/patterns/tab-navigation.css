@@ -80,7 +80,7 @@
   font-size: var(--ui-type-caption-size);
 }
 
-@media (max-width: 760px) {
+@media (max-width: 768px) {
   .ui-top-tabs {
     align-items: stretch;
     flex-direction: column;

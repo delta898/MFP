@@ -84,7 +84,7 @@ test('quick flow width and disclosure layout adapt without style-specific select
   assert.match(topicForm, /<span class="ui-select-shell"><select id="blog-next-post-status">/);
   assert.match(selectShellCss, /\.ui-select-shell::after\s*\{[^}]*inset-inline-end:\s*var\(--ui-space-4\)/s);
   assert.match(selectShellCss, /\.ui-select-shell > select\s*\{[^}]*appearance:\s*none/s);
-  assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.blog-next-disclosure > summary/s);
+  assert.match(css, /@media \(max-width: 768px\)[\s\S]*\.blog-next-disclosure > summary/s);
   assert.doesNotMatch(css, /\[data-style=/);
 });
 

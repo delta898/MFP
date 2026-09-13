@@ -60,7 +60,7 @@
   box-shadow: var(--ui-focus-ring);
 }
 
-@media (max-width: 760px) {
+@media (max-width: 768px) {
   .blog-next-panel-lead {
     min-height: 0;
   }

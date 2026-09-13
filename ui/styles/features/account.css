@@ -42,5 +42,5 @@ button.account-state-row:hover { border-color: var(--ui-action-primary); backgro
 .account-plan-guide-grid h3, .account-plan-guide-note strong { color: var(--ui-text-primary); font-size: var(--ui-type-body-size); font-weight: var(--ui-weight-semibold); }
 .account-plan-guide-grid p, .account-plan-guide-note p { margin-top: var(--ui-space-2); color: var(--ui-text-secondary); font-size: var(--ui-type-caption-size); line-height: var(--ui-line-height-body); }
 .account-plan-guide-note { margin: 0 var(--ui-space-5) var(--ui-space-5); }
-@media (max-width: 900px) { .account-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .account-card-grid { grid-template-columns: 1fr; } }
+@media (max-width: 960px) { .account-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .account-card-grid { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .account-section-heading, .account-plan-guidance { align-items: stretch; flex-direction: column; } .account-heading-actions { justify-content: space-between; } .account-metric-grid, .account-detail-list, .account-plan-guide-grid { grid-template-columns: 1fr; } .account-plan-guide-grid { padding: var(--ui-space-4); } .account-plan-guide-note { margin: 0 var(--ui-space-4) var(--ui-space-4); } }

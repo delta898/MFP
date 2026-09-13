@@ -298,7 +298,7 @@ test('Card News generation uses shared field, choice, role and feedback patterns
     assert.match(patternCss, /\.ui-inline-choice\s*\{[^}]*var\(--ui-border-default\)[^}]*var\(--ui-surface-muted\)/s);
     assert.match(patternCss, /\.ui-workflow-feedback\[data-state="error"\]\s*\{\s*color:\s*var\(--ui-status-danger\)/);
     assert.match(responsiveCss, /@media \(max-width: 1100px\)[\s\S]*\.card-news-generation-field-grid,\s*\.card-news-result-grid\s*\{[^}]*repeat\(2, minmax\(0, 1fr\)\)/);
-    assert.match(patternCss, /@media \(max-width: 720px\)[\s\S]*\.ui-workflow-field-grid,[\s\S]*\.ui-workflow-detail-grid\s*\{[^}]*grid-template-columns:\s*1fr/);
+    assert.match(patternCss, /@media \(max-width: 768px\)[\s\S]*\.ui-workflow-field-grid,[\s\S]*\.ui-workflow-detail-grid\s*\{[^}]*grid-template-columns:\s*1fr/);
     assert.doesNotMatch(generationActionsCss, /border-top|padding-top/);
     assert.doesNotMatch(generationCss, /#[0-9a-f]{3,8}\b|rgba?\(/i);
 });

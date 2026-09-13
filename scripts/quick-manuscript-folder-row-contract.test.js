@@ -63,5 +63,5 @@ test('Blog Beta manuscript folder selection uses the same compact interaction', 
   assert.match(css, /\.blog-next-folder-selection > span\s*{[\s\S]*?text-overflow: ellipsis;/);
   assert.match(css, /\.blog-next-folder-clear\s*{[\s\S]*?inset-block: 0;[\s\S]*?margin-block: auto;/);
   assert.match(css, /\.blog-next-folder-clear svg\s*{[\s\S]*?stroke: currentColor;/);
-  assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.blog-next-folder-row\s*{[\s\S]*?grid-template-columns: 1fr;/);
+  assert.match(css, /@media \(max-width: 768px\)[\s\S]*?\.blog-next-folder-row\s*{[\s\S]*?grid-template-columns: 1fr;/);
 });

@@ -23,7 +23,7 @@
 
 .quick-topic-recommendation-main strong {
   color: var(--ui-text-primary);
-  font-size: 15px;
+  font-size: var(--ui-type-body-size);
 }
 
 .quick-topic-recommendation-source {
@@ -49,7 +49,7 @@
 
 .quick-topic-recommendation-reason-toggle {
   padding: 0;
-  font-size: 12px;
+  font-size: var(--ui-type-caption-size);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -74,21 +74,21 @@
   min-height: 36px;
   padding: 7px 12px;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: var(--ui-type-label-size);
 }
 
 .quick-topic-recommendation-dismiss {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  font-size: 18px;
+  font-size: var(--ui-type-heading-size);
 }
 
 .quick-topic-recommendation-dismiss:hover {
   background: var(--ui-surface-hover);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 960px) {
   .quick-topic-recommendation-row {
     grid-template-columns: 1fr;
     gap: 10px;

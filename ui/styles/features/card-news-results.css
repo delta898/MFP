@@ -368,7 +368,7 @@
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 768px) {
   .card-news-source-card,
   .card-news-preview-card,
   .card-news-generation-panel,

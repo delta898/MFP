@@ -4,8 +4,8 @@ button.ghost {
   border: 1px solid;
   border-radius: var(--ui-button-radius);
   padding: 9px 14px;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-bold);
   cursor: pointer;
   transition: var(--ui-transition-interactive);
   line-height: 1.2;
@@ -84,7 +84,7 @@ button.ui-danger-action:hover:not(:disabled) {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  font-size: 18px;
+  font-size: var(--ui-type-heading-size);
 }
 
 .ui-icon-action:hover:not(:disabled),
@@ -232,7 +232,7 @@ button.ghost:disabled {
 .blog-next-form-actions button {
   padding: 11px 16px;
   border-radius: var(--ui-radius-sm);
-  font-weight: 700;
+  font-weight: var(--ui-weight-bold);
   cursor: pointer;
 }
 
@@ -280,7 +280,7 @@ button.ghost:disabled {
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 768px) {
   .blog-next-form-actions {
     align-items: stretch;
     flex-direction: column;

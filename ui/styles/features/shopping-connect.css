@@ -215,7 +215,7 @@
   grid-template-columns: 120px 120px;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 768px) {
   .shopping-quick-url-action-row,
   .shopping-quick-preview-card {
     grid-template-columns: 1fr;

@@ -46,6 +46,6 @@
 .help-supporting-icon img { width: 2.375rem; height: 2.375rem; border-radius: var(--ui-radius-md); object-fit: cover; }
 .help-supporting-card > .help-link-arrow { align-self: center; }
 .help-contact-card .ui-overview-heading > a { flex: 0 0 auto; }
-@media (max-width: 900px) { .help-topic-grid { grid-template-columns: 1fr; } .help-supporting-grid { grid-template-columns: 1fr; } }
+@media (max-width: 960px) { .help-topic-grid { grid-template-columns: 1fr; } .help-supporting-grid { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .help-start-card, .help-topic-card, .help-supporting-section, .help-contact-card { padding: var(--ui-space-4); } }
 @media (prefers-reduced-motion: reduce) { .help-start-list a, .help-resource-list a, .help-resource-list button, .help-supporting-card { transition: none; } }

@@ -362,7 +362,7 @@
   white-space: nowrap;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 768px) {
   .ui-workflow-field-grid,
   .ui-workflow-detail-grid {
     grid-template-columns: 1fr;

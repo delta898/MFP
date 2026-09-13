@@ -122,7 +122,7 @@ test('Blog Beta form typography separates labels, edit values, and compact autom
     assert.match(css, /\.blog-next-field\s*\{[^}]*font-size:\s*var\(--ui-type-body-size\);[^}]*font-weight:\s*var\(--ui-weight-regular\);/s);
     assert.match(css, /\.blog-next-field\s*>\s*span:first-child,[\s\S]*?font-size:\s*var\(--ui-type-label-size\);[\s\S]*?font-weight:\s*var\(--ui-weight-bold\);/);
     assert.match(css, /\.blog-next-field input\[type="text"\],[\s\S]*?font-size:\s*var\(--ui-type-body-size\);[\s\S]*?font-weight:\s*var\(--ui-weight-regular\);/);
-    assert.match(css, /\.blog-next-automation-fields \.blog-next-field\s*>\s*span:first-child\s*\{[^}]*font-size:\s*13px;[^}]*font-weight:\s*600;/s);
+    assert.match(css, /\.blog-next-automation-fields \.blog-next-field\s*>\s*span:first-child\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-semibold\);/s);
 });
 
 test('Blog Beta management typography follows shared navigation roles and distinguishes item content and actions', () => {
@@ -143,8 +143,8 @@ test('Blog Beta management typography follows shared navigation roles and distin
     assert.match(tabCss, /\.ui-segmented-tab\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);/s);
     assert.match(usabilityCss, /\.blog-next-management-tab strong\s*\{[^}]*font-size:\s*var\(--ui-type-caption-size\);[^}]*font-weight:\s*inherit;/s);
     assert.match(coreCss, /\.blog-next-queue-copy strong\s*\{[^}]*font-size:\s*var\(--ui-type-body-size\);[^}]*font-weight:\s*var\(--ui-weight-semibold\);/s);
-    assert.match(coreCss, /\.blog-next-queue-copy span\s*\{[^}]*font-size:\s*13px;[^}]*font-weight:\s*var\(--ui-weight-regular\);/s);
-    assert.match(coreCss, /\.blog-next-queue-actions \.ghost\s*\{[^}]*font-size:\s*13px;[^}]*font-weight:\s*var\(--ui-weight-semibold\);/s);
+    assert.match(coreCss, /\.blog-next-queue-copy span\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-regular\);/s);
+    assert.match(coreCss, /\.blog-next-queue-actions \.ghost\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-semibold\);/s);
     assert.match(coreCss, /\.blog-next-queue-actions \.primary\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-bold\);/s);
 });
 
@@ -182,4 +182,67 @@ test('indeterminate progress bars share one pattern', () => {
         assert.doesNotMatch(css, /quick-topic-progress/);
     }
     assert.match(overlays, /class="ui-progress-indeterminate"/);
+});
+
+test('responsive breakpoints use the canonical set', () => {
+    const cssFiles = [];
+    const collect = (dir) => {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+            const full = path.join(dir, entry.name);
+            if (entry.isDirectory()) collect(full);
+            else if (entry.isFile() && entry.name.endsWith('.css')) cssFiles.push(full);
+        }
+    };
+    collect(path.join(uiRoot, 'styles'));
+    const maxWidths = new Set();
+    const minWidths = new Set();
+    for (const file of cssFiles) {
+        const css = fs.readFileSync(file, 'utf8');
+        for (const match of css.matchAll(/@media\s*\(\s*max-width:\s*([0-9]+)px\s*\)/g)) {
+            maxWidths.add(match[1]);
+        }
+        for (const match of css.matchAll(/@media\s*\(\s*min-width:\s*([0-9]+)px\s*\)/g)) {
+            minWidths.add(match[1]);
+        }
+        for (const match of css.matchAll(/\(\s*min-width:\s*([0-9]+)px\s*\)\s*and\s*\(\s*max-width:/g)) {
+            minWidths.add(match[1]);
+        }
+    }
+    // 1240px stays frozen in the hidden legacy dashboard view.
+    assert.deepEqual([...maxWidths].sort((a, b) => a - b), ['640', '768', '960', '1100', '1240']);
+    assert.deepEqual([...minWidths].sort((a, b) => a - b), ['769', '961']);
+});
+
+test('active surfaces use type, weight, and motion tokens', () => {
+    const activeFiles = [
+        'styles/features/discovery-modal.css',
+        'styles/features/social.css',
+        'styles/features/shopping-connect.css',
+        'styles/features/card-news.css',
+        'styles/features/card-news-results.css',
+        'styles/features/card-news-management.css',
+        'styles/features/dashboard-beta.css',
+        'styles/features/blog-next-quick-flow.css',
+        'styles/features/blog-next-panel-anatomy.css',
+        'styles/features/blog-next-baseline.css',
+        'styles/features/blog-next-smart-comment.css',
+        'styles/features/recommendations.css',
+        'styles/features/recommendation-center.css',
+        'styles/features/continuous-publishing.css',
+        'styles/features/continuous-publishing-interactions.css',
+        'styles/features/continuous-publishing-usability.css',
+        'styles/features/settings-next.css',
+        'styles/patterns/actions.css',
+        'styles/patterns/overview-card.css',
+        'styles/components/app-chrome.css',
+        'styles/components/feedback.css',
+        'styles/components/global-publishing-status.css'
+    ];
+    for (const file of activeFiles) {
+        const css = fs.readFileSync(path.join(uiRoot, file), 'utf8');
+        const lines = css.split('\n').filter((line) => !/type-geometry-exception/.test(line));
+        const scoped = lines.join('\n');
+        assert.doesNotMatch(scoped, /font-size:\s*[0-9.]+(?:px|r?em)/, file);
+        assert.doesNotMatch(scoped, /font-weight:\s*[0-9]+/, file);
+    }
 });

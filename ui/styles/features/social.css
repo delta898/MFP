@@ -4,8 +4,8 @@
   align-items: center;
   gap: 6px;
   color: var(--ui-text-secondary);
-  font-size: 12px;
-  font-weight: 500;
+  font-size: var(--ui-type-caption-size);
+  font-weight: var(--ui-weight-medium);
   line-height: 1.4;
   white-space: nowrap;
 }
@@ -49,7 +49,7 @@
 
 .social-section-heading h2 {
   margin: 0;
-  font-size: 17px;
+  font-size: var(--ui-type-body-size);
 }
 
 .social-channel-heading-copy {
@@ -76,15 +76,15 @@
 
 .social-channel-title-row label {
   color: var(--ui-text-primary);
-  font-size: 17px;
-  font-weight: 700;
+  font-size: var(--ui-type-body-size);
+  font-weight: var(--ui-weight-bold);
   cursor: pointer;
 }
 
 .social-section-heading p {
   margin: 4px 0 0;
   color: var(--ui-text-secondary);
-  font-size: 13px;
+  font-size: var(--ui-type-label-size);
   line-height: 1.45;
 }
 
@@ -119,7 +119,7 @@
   align-items: flex-start;
   gap: 6px;
   color: var(--ui-text-secondary);
-  font-size: 13px;
+  font-size: var(--ui-type-label-size);
 }
 
 .social-channel-option {
@@ -177,12 +177,12 @@
 
 .social-channel-copy strong {
   color: var(--ui-text-primary);
-  font-size: 14px;
+  font-size: var(--ui-type-label-size);
 }
 
 .social-channel-copy span {
   color: var(--ui-text-secondary);
-  font-size: 12px;
+  font-size: var(--ui-type-caption-size);
 }
 
 .social-editor {
@@ -221,7 +221,7 @@
 .social-character-count {
   flex: 0 0 auto;
   color: var(--ui-text-secondary);
-  font-size: 13px;
+  font-size: var(--ui-type-label-size);
   font-variant-numeric: tabular-nums;
 }
 
@@ -259,14 +259,14 @@
   box-shadow: var(--ui-shadow-md);
   color: var(--ui-text-inverse);
   font-size: var(--ui-type-caption-size);
-  font-weight: 500;
+  font-weight: var(--ui-weight-medium);
   line-height: 1.5;
   text-align: center;
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
   transform: none;
-  transition: opacity 0.2s, transform 0.2s;
+  transition: opacity var(--ui-motion-standard), transform var(--ui-motion-standard);
 }
 
 .social-ai-action:hover .social-ai-tooltip,
@@ -291,7 +291,7 @@
   min-height: 20px;
   margin-top: 7px;
   color: var(--ui-text-secondary);
-  font-size: 12px;
+  font-size: var(--ui-type-caption-size);
 }
 
 .social-ai-status.is-error {
@@ -307,7 +307,7 @@
   min-height: 20px;
   margin-top: 7px;
   color: var(--ui-text-secondary);
-  font-size: 12px;
+  font-size: var(--ui-type-caption-size);
 }
 
 .social-limit-status:empty {
@@ -316,8 +316,8 @@
 
 .social-optional-label {
   color: var(--ui-text-secondary);
-  font-size: 12px;
-  font-weight: 500;
+  font-size: var(--ui-type-caption-size);
+  font-weight: var(--ui-weight-medium);
 }
 
 .social-image-row {
@@ -341,7 +341,7 @@
   align-items: center;
   gap: 7px;
   color: var(--ui-text-primary);
-  font-size: 14px;
+  font-size: var(--ui-type-label-size);
   cursor: pointer;
 }
 
@@ -389,7 +389,7 @@
   padding: 4px;
   border: 2px solid transparent;
   border-radius: 14px;
-  transition: border-color 0.16s ease, background 0.16s ease;
+  transition: border-color var(--ui-motion-standard) ease, background var(--ui-motion-standard) ease;
 }
 
 .social-local-image-panel.is-file-drag-over {
@@ -415,7 +415,7 @@
   border-radius: var(--ui-radius-sm);
   background: var(--ui-surface-muted);
   cursor: pointer;
-  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+  transition: border-color var(--ui-motion-standard) ease, background var(--ui-motion-standard) ease, box-shadow var(--ui-motion-standard) ease;
 }
 
 .social-local-image-picker:hover {
@@ -490,7 +490,7 @@
   border-radius: 12px;
   background: #fff;
   cursor: grab;
-  transition: border-color 0.16s ease, opacity 0.16s ease, transform 0.16s ease;
+  transition: border-color var(--ui-motion-standard) ease, opacity var(--ui-motion-standard) ease, transform var(--ui-motion-standard) ease;
 }
 
 .social-local-image-tile.is-dragging {
@@ -543,7 +543,7 @@
   overflow: hidden;
   padding: 8px 10px;
   color: var(--ui-text-secondary);
-  font-size: 11px;
+  font-size: var(--ui-type-caption-size);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -559,8 +559,8 @@
   height: 28px;
   border-radius: 50%;
   color: var(--ui-text-inverse);
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--ui-type-caption-size);
+  font-weight: var(--ui-weight-bold);
 }
 
 .social-local-image-order {
@@ -574,7 +574,7 @@
   border: 0;
   background: rgba(24, 39, 64, 0.82);
   cursor: pointer;
-  font-size: 20px;
+  font-size: var(--ui-type-heading-size);
   line-height: 1;
 }
 
@@ -598,8 +598,8 @@
   border-radius: 10px;
   background: var(--ui-action-primary-soft);
   color: var(--ui-action-primary);
-  font-size: 23px;
-  font-weight: 500;
+  font-size: 23px; /* type-geometry-exception: icon glyph */
+  font-weight: var(--ui-weight-medium);
 }
 
 .social-local-image-copy {
@@ -614,15 +614,15 @@
 .social-local-image-copy strong {
   overflow: hidden;
   color: var(--ui-text-primary);
-  font-size: 14px;
-  font-weight: 650;
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-semibold);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .social-local-image-copy small {
   color: var(--ui-text-secondary);
-  font-size: 11px;
+  font-size: var(--ui-type-caption-size);
 }
 
 .social-local-image-action {
@@ -632,8 +632,8 @@
   border-radius: 8px;
   background: var(--ui-surface);
   color: var(--ui-text-primary);
-  font-size: 12px;
-  font-weight: 650;
+  font-size: var(--ui-type-caption-size);
+  font-weight: var(--ui-weight-semibold);
 }
 
 .social-image-preview {
@@ -642,7 +642,7 @@
   gap: 12px;
   margin-top: 12px;
   color: var(--ui-text-secondary);
-  font-size: 12px;
+  font-size: var(--ui-type-caption-size);
 }
 
 .social-image-preview[hidden] {
@@ -668,7 +668,7 @@
 
 .social-publish-summary {
   color: var(--ui-text-secondary);
-  font-size: 13px;
+  font-size: var(--ui-type-label-size);
 }
 
 .social-publish-result {
@@ -678,7 +678,7 @@
   border: 1px solid var(--ui-border-default);
   border-radius: 10px;
   background: var(--ui-surface-muted);
-  font-size: 13px;
+  font-size: var(--ui-type-label-size);
   line-height: 1.65;
 }
 
@@ -694,7 +694,7 @@
   color: var(--ui-status-danger);
 }
 
-@media (max-width: 860px) {
+@media (max-width: 960px) {
   .social-channel-grid {
     grid-template-columns: 1fr;
   }
@@ -726,7 +726,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 13px;
+  font-size: var(--ui-type-label-size);
   color: var(--ui-text-primary);
 }
 
@@ -734,7 +734,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 13px;
+  font-size: var(--ui-type-label-size);
   color: var(--ui-text-primary);
 }
 

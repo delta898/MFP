@@ -26,7 +26,7 @@
   align-items: center;
   justify-content: center;
   color: var(--ui-action-primary);
-  font-size: 16px;
+  font-size: var(--ui-type-body-size);
   font-weight: var(--ui-weight-bold);
   line-height: 1;
 }
@@ -230,7 +230,7 @@
   border-radius: var(--ui-radius-sm);
 }
 
-@media (max-width: 760px) {
+@media (max-width: 768px) {
   .blog-next-disclosure > summary {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 4px var(--ui-space-3);

@@ -331,7 +331,7 @@
   opacity: 0.6;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 768px) {
   .writing-settings-heading,
   .writing-settings-section-title {
     align-items: flex-start;

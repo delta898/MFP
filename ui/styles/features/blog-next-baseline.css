@@ -246,7 +246,7 @@
   color: var(--ui-text-secondary);
 }
 
-@media (max-width: 760px) {
+@media (max-width: 768px) {
   .blog-next-manuscript-preview .local-markdown-body-preview,
   .blog-next-manuscript-preview.is-expanded .local-markdown-body-preview,
   .blog-next-manuscript-preview.is-compact .local-markdown-body-preview {
@@ -525,7 +525,7 @@
   color: var(--ui-status-danger);
 }
 
-@media (max-width: 760px) {
+@media (max-width: 768px) {
   .blog-next-draft-section-head {
     flex-direction: column;
     align-items: stretch;

@@ -241,7 +241,7 @@
   margin-inline-start: auto;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 768px) {
   .ui-settings-card-heading,
   .ui-settings-card-footer {
     align-items: stretch;

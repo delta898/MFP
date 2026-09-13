@@ -16,8 +16,8 @@
 
 .blog-next-beta-badge {
   border-radius: var(--ui-radius-full);
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--ui-type-caption-size);
+  font-weight: var(--ui-weight-bold);
   white-space: nowrap;
 }
 
@@ -123,8 +123,8 @@
   border: 1px solid var(--ui-button-secondary-border);
   background: var(--ui-button-secondary-background);
   color: var(--ui-button-secondary-text);
-  font-size: 14px;
-  font-weight: 700;
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-bold);
   line-height: 1.2;
   text-decoration: none;
   white-space: nowrap;
@@ -141,7 +141,7 @@
 .blog-next-publish-status-dismiss {
   min-width: 38px;
   padding-inline: 10px;
-  font-size: 22px;
+  font-size: var(--ui-type-heading-size);
   line-height: 1;
 }
 
@@ -221,7 +221,7 @@
 
 .blog-next-field small {
   color: var(--ui-text-secondary);
-  font-size: 13px;
+  font-size: var(--ui-type-label-size);
   font-weight: var(--ui-weight-medium);
 }
 
@@ -318,7 +318,7 @@
   background: transparent;
   color: var(--ui-action-primary-hover);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--ui-type-label-size);
   font-weight: var(--ui-weight-semibold);
   line-height: 1.5;
   cursor: pointer;
@@ -440,7 +440,7 @@
 
 .blog-next-queue-copy span {
   color: var(--ui-text-secondary);
-  font-size: 13px;
+  font-size: var(--ui-type-label-size);
   font-weight: var(--ui-weight-regular);
   line-height: 1.4;
 }
@@ -481,7 +481,7 @@
   border: 1px solid var(--ui-border-default);
   background: transparent;
   color: var(--ui-text-secondary);
-  font-size: 13px;
+  font-size: var(--ui-type-label-size);
   font-weight: var(--ui-weight-semibold);
 }
 
@@ -519,8 +519,8 @@
   border-radius: var(--ui-radius-full);
   background: var(--ui-canvas);
   color: var(--ui-text-secondary);
-  font-size: 13px;
-  font-weight: 700;
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-bold);
 }
 
 .blog-next-empty-state {
@@ -566,13 +566,13 @@
 .blog-next-automation-notify,
 .blog-next-automation-fields .blog-next-field {
   color: var(--ui-text-primary);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-semibold);
 }
 
 .blog-next-automation-toggle strong {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-semibold);
 }
 
 .blog-next-automation-fields .blog-next-field {
@@ -580,15 +580,15 @@
 }
 
 .blog-next-automation-fields .blog-next-field > span:first-child {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-semibold);
 }
 
 .blog-next-automation-fields .blog-next-field input {
   min-height: 40px;
   padding: 9px 12px;
   border-color: var(--ui-border-default);
-  font-size: 14px;
+  font-size: var(--ui-type-label-size);
 }
 
 .blog-next-automation-fields {
@@ -614,7 +614,7 @@
 .blog-next-number-field em {
   color: var(--ui-text-secondary);
   font-style: normal;
-  font-weight: 700;
+  font-weight: var(--ui-weight-bold);
 }
 
 .blog-next-automation-notify {
@@ -634,13 +634,13 @@
 .blog-next-automation-actions button {
   padding: 9px 14px;
   border-radius: var(--ui-button-radius);
-  font-weight: 700;
+  font-weight: var(--ui-weight-bold);
 }
 
 .blog-next-automation-summary {
   margin: 0;
   color: var(--ui-text-secondary);
-  font-size: 14px;
+  font-size: var(--ui-type-label-size);
   line-height: 1.5;
 }
 
@@ -659,7 +659,7 @@
 .blog-next-draft-toolbar button {
   padding: 10px 14px;
   border-radius: var(--ui-radius-sm);
-  font-weight: 700;
+  font-weight: var(--ui-weight-bold);
   cursor: pointer;
 }
 
@@ -701,7 +701,7 @@
   align-items: center;
   gap: 7px;
   color: var(--ui-text-secondary);
-  font-weight: 700;
+  font-weight: var(--ui-weight-bold);
 }
 
 .blog-next-draft-targets .blog-next-draft-headless {
@@ -720,7 +720,7 @@
   flex-shrink: 0;
   padding: 11px 16px;
   border-radius: var(--ui-radius-sm);
-  font-weight: 700;
+  font-weight: var(--ui-weight-bold);
   cursor: pointer;
 }
 
@@ -771,7 +771,7 @@
 }
 
 .blog-next-draft-preview .local-markdown-preview-head h4 {
-  font-size: 22px;
+  font-size: var(--ui-type-heading-size);
 }
 
 .blog-next-draft-result {
@@ -799,7 +799,7 @@
   color: var(--ui-text-inverse);
 }
 
-@media (max-width: 760px) {
+@media (max-width: 768px) {
   .blog-next-title-heading,
   .blog-next-draft-actions {
     align-items: flex-start;

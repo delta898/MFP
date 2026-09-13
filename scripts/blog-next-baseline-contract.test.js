@@ -87,7 +87,7 @@ test('folder and paste previews share one reading surface and defer image diagno
   assert.match(css, /\.blog-next-manuscript-preview \.local-markdown-body-preview[\s\S]*?border: 0;[\s\S]*?background: transparent;/);
   assert.match(css, /\.blog-next-manuscript-preview \.local-markdown-body-preview figure\s*{[\s\S]*?border: 0;/);
   assert.match(css, /\.blog-next-manuscript-preview \.local-markdown-body-preview figure img\s*{[\s\S]*?max-height: min\(42vh, 460px\);[\s\S]*?object-fit: contain;/);
-  assert.match(css, /@media \(max-width: 760px\)[\s\S]*?figure img\s*{[\s\S]*?max-height: min\(38vh, 360px\);/);
+  assert.match(css, /@media \(max-width: 768px\)[\s\S]*?figure img\s*{[\s\S]*?max-height: min\(38vh, 360px\);/);
 });
 
 test('manuscript drafts keep idle results quiet and summarize repeated image warnings', () => {
@@ -174,7 +174,7 @@ test('manuscript baseline styles use semantic tokens and collapse predictably', 
   assert.match(css, /\.blog-next-draft-mode\s*\{[^}]*width:\s*min\(100%, 1180px\)/s);
   assert.match(css, /\.blog-next-draft-options\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/s);
   assert.match(css, /data-dependency-active="false"[\s\S]*color:\s*var\(--ui-text-muted\)/);
-  assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.blog-next-draft-options\s*\{[^}]*grid-template-columns:\s*1fr/s);
+  assert.match(css, /@media \(max-width: 768px\)[\s\S]*\.blog-next-draft-options\s*\{[^}]*grid-template-columns:\s*1fr/s);
   assert.match(actionCss, /button\.primary,\s*button\.secondary,\s*button\.ghost\s*\{[^}]*border:\s*1px solid/s);
   assert.doesNotMatch(interactionCss, /\.blog-next-folder-field\s*\{[^}]*margin-bottom/);
   assert.doesNotMatch(css, /#[0-9a-f]{3,8}\b/i);

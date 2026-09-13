@@ -130,6 +130,7 @@
 .modal-footer .actions {
   display: flex;
   gap: 12px;
+  margin-left: auto;
 }
 
 .modal-footer button {

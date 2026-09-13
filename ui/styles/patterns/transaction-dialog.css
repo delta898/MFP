@@ -64,7 +64,7 @@
   margin-left: auto;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 768px) {
   .ui-transaction-dialog {
     width: min(100% - (var(--ui-space-3) * 2), 760px);
     max-height: calc(100vh - (var(--ui-space-3) * 2));

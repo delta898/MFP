@@ -36,7 +36,7 @@
 
 .blog-next-smart-comment-heading h2 {
   color: var(--ui-text-primary);
-  font-size: 20px;
+  font-size: var(--ui-type-heading-size);
   line-height: 1.35;
 }
 
@@ -45,7 +45,7 @@
   border-radius: var(--ui-radius-full);
   background: var(--ui-action-primary-soft);
   color: var(--ui-action-primary-hover);
-  font-size: 11px;
+  font-size: var(--ui-type-caption-size);
   font-weight: var(--ui-weight-bold);
 }
 
@@ -78,7 +78,7 @@
 
 .blog-next-smart-comment-guidance {
   margin: 12px 0 0;
-  font-size: 13px;
+  font-size: var(--ui-type-label-size);
   line-height: 1.55;
 }
 
@@ -91,7 +91,7 @@
 .blog-next-smart-comment-details summary {
   width: fit-content;
   color: var(--ui-text-secondary);
-  font-size: 13px;
+  font-size: var(--ui-type-label-size);
   font-weight: var(--ui-weight-bold);
   cursor: pointer;
 }
@@ -206,7 +206,7 @@
   height: 100%;
   border-radius: inherit;
   background: var(--ui-action-primary);
-  transition: width 0.25s ease;
+  transition: width var(--ui-motion-slow) ease;
 }
 
 .blog-next-smart-comment-results-head {
@@ -227,12 +227,12 @@
 
 .blog-next-smart-comment-results-head h3 {
   color: var(--ui-text-primary);
-  font-size: 17px;
+  font-size: var(--ui-type-body-size);
 }
 
 .blog-next-smart-comment-results-head p {
   margin-top: 3px;
-  font-size: 13px;
+  font-size: var(--ui-type-label-size);
 }
 
 .blog-next-smart-comment-list,
@@ -266,7 +266,7 @@
 .blog-next-smart-comment-card h4 {
   margin-top: 3px;
   color: var(--ui-text-primary);
-  font-size: 16px;
+  font-size: var(--ui-type-body-size);
   line-height: 1.45;
 }
 
@@ -294,7 +294,7 @@
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  font-size: 13px;
+  font-size: var(--ui-type-label-size);
   line-height: 1.55;
 }
 
@@ -338,7 +338,7 @@
   border-radius: var(--ui-radius-sm);
   background: var(--ui-action-primary);
   color: var(--ui-text-inverse);
-  font-size: 13px;
+  font-size: var(--ui-type-label-size);
   font-weight: var(--ui-weight-bold);
   line-height: 1.25;
   text-decoration: none;
@@ -365,7 +365,7 @@
   border-radius: var(--ui-radius-full);
   background: var(--ui-action-primary-soft);
   color: var(--ui-action-primary-hover);
-  font-size: 11px;
+  font-size: var(--ui-type-caption-size);
   font-weight: var(--ui-weight-bold);
 }
 
@@ -378,7 +378,7 @@
   align-items: center;
   justify-content: space-between;
   color: var(--ui-text-secondary);
-  font-size: 13px;
+  font-size: var(--ui-type-label-size);
 }
 
 .blog-next-smart-comment-card-actions {
@@ -393,7 +393,7 @@
   color: var(--ui-text-secondary);
 }
 
-@media (max-width: 760px) {
+@media (max-width: 768px) {
   .blog-next-smart-comment-intro,
   .blog-next-smart-comment-card-head,
   .blog-next-smart-comment-failure {

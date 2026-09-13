@@ -14,7 +14,7 @@
   background: var(--ui-overlay);
   z-index: 5;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity var(--ui-motion-slow) ease;
 }
 
 .sidebar-overlay.active {
@@ -51,8 +51,8 @@
   }
 
   body.mobile-quick-mode .mobile-topbar-title {
-    font-size: 22px;
-    font-weight: 800;
+    font-size: var(--ui-type-heading-size);
+    font-weight: var(--ui-weight-bold);
     letter-spacing: -0.04em;
   }
 
@@ -64,7 +64,7 @@
     background: var(--ui-surface);
     color: var(--ui-text-primary);
     box-shadow: var(--ui-shadow-sm);
-    font-size: 21px;
+    font-size: var(--ui-type-heading-size);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -85,7 +85,7 @@
 
   body.mobile-quick-mode .logo {
     display: flex;
-    font-size: 22px;
+    font-size: var(--ui-type-heading-size);
   }
 
   body.mobile-quick-mode .sidebar nav {
@@ -98,8 +98,8 @@
     height: 54px;
     padding: 0 16px;
     border-radius: 18px;
-    font-size: 16px;
-    font-weight: 700;
+    font-size: var(--ui-type-body-size);
+    font-weight: var(--ui-weight-bold);
   }
 
   body.mobile-quick-mode .nav-btn.active {
@@ -129,8 +129,8 @@
   }
 
   body.mobile-quick-mode .dash-feed-header h4 {
-    font-size: 17px;
-    font-weight: 800;
+    font-size: var(--ui-type-body-size);
+    font-weight: var(--ui-weight-bold);
   }
 
   body.mobile-quick-mode .dash-feed-item {
@@ -147,12 +147,12 @@
   }
 
   body.mobile-quick-mode .dash-feed-title {
-    font-size: 14px;
+    font-size: var(--ui-type-label-size);
     line-height: 1.35;
   }
 
   body.mobile-quick-mode .dash-feed-summary {
-    font-size: 12px;
+    font-size: var(--ui-type-caption-size);
     line-height: 1.45;
   }
 
@@ -227,8 +227,8 @@
   }
 
   body.mobile-quick-mode .dash-section-head h3 {
-    font-size: 18px !important;
-    font-weight: 800;
+    font-size: var(--ui-type-heading-size) !important;
+    font-weight: var(--ui-weight-bold);
     letter-spacing: -0.02em;
   }
 
@@ -236,7 +236,7 @@
     min-height: 42px;
     border-radius: 14px;
     padding: 0 14px;
-    font-weight: 700;
+    font-weight: var(--ui-weight-bold);
   }
 
   .app {
@@ -258,8 +258,8 @@
   }
 
   .mobile-topbar-title {
-    font-size: 18px;
-    font-weight: 800;
+    font-size: var(--ui-type-heading-size);
+    font-weight: var(--ui-weight-bold);
     letter-spacing: -0.5px;
     color: var(--ui-text-primary);
   }
@@ -382,7 +382,7 @@
 
   .quick-action-btn {
     min-height: 96px;
-    font-size: 18px;
+    font-size: var(--ui-type-heading-size);
   }
 
   .dash-bottom-grid {
@@ -493,7 +493,7 @@
 
   body.mobile-quick-mode .blog-quick-head p,
   body.mobile-quick-mode .blog-quick-subhead p {
-    font-size: 13px;
+    font-size: var(--ui-type-label-size);
     line-height: 1.55;
   }
 
@@ -514,8 +514,8 @@
     min-height: 50px;
     width: 100%;
     padding: 0 14px;
-    font-size: 14px;
-    font-weight: 700;
+    font-size: var(--ui-type-label-size);
+    font-weight: var(--ui-weight-bold);
     border-radius: 14px;
     justify-content: center;
   }
@@ -529,7 +529,7 @@
   }
 
   body.mobile-quick-mode .blog-quick-label {
-    font-size: 13px;
+    font-size: var(--ui-type-label-size);
     letter-spacing: 0;
   }
 
@@ -539,7 +539,7 @@
     min-height: 52px;
     padding: 14px 15px;
     border-radius: 16px;
-    font-size: 15px;
+    font-size: var(--ui-type-body-size);
     background: #fbfdff;
   }
 
@@ -668,7 +668,7 @@
   }
 
   body.mobile-quick-mode .local-markdown-preview-head h4 {
-    font-size: 22px;
+    font-size: var(--ui-type-heading-size);
     line-height: 1.2;
   }
 
@@ -723,6 +723,6 @@
   .app-footer-meta {
     order: 3;
     width: 100%;
-    font-size: 12px;
+    font-size: var(--ui-type-caption-size);
   }
 }
