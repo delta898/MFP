@@ -1,5 +1,6 @@
 const DESIGN_STYLE_CONTRACT_VERSION = '1.0';
 const DESIGN_STYLE_DEFAULT_ID = 'compatibility';
+const DESIGN_STYLE_STORAGE_KEY = 'bloggenius.ui.style';
 
 const DESIGN_STYLE_REQUIRED_TOKENS = Object.freeze([
   '--ui-canvas',
@@ -105,13 +106,13 @@ const DESIGN_STYLE_REGISTRY = Object.freeze({
     id: 'warm-editorial',
     label: '따뜻한 에디토리얼',
     contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
-    selectable: false
+    selectable: true
   }),
   'quiet-sage-studio': Object.freeze({
     id: 'quiet-sage-studio',
     label: '고요한 세이지 스튜디오',
     contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
-    selectable: false
+    selectable: true
   })
 });
 
@@ -122,6 +123,30 @@ function resolveDesignStyleId(candidate) {
     : DESIGN_STYLE_DEFAULT_ID;
 }
 
+function getSelectableDesignStyles() {
+  return Object.values(DESIGN_STYLE_REGISTRY).filter((style) => style.selectable === true);
+}
+
+function readStoredDesignStyleId() {
+  try {
+    const stored = String(window.localStorage?.getItem(DESIGN_STYLE_STORAGE_KEY) || '').trim().toLowerCase();
+    if (!stored) return '';
+    const entry = DESIGN_STYLE_REGISTRY[stored];
+    return entry && entry.selectable === true ? stored : '';
+  } catch (error) {
+    return '';
+  }
+}
+
+function persistDesignStyleId(styleId) {
+  try {
+    window.localStorage?.setItem(DESIGN_STYLE_STORAGE_KEY, styleId);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
 function applyDesignStyle(candidate, root = document.documentElement) {
   const styleId = resolveDesignStyleId(candidate);
   if (root?.dataset) root.dataset.style = styleId;
@@ -129,6 +154,8 @@ function applyDesignStyle(candidate, root = document.documentElement) {
 }
 
 function initDesignStyleSystem(root = document.documentElement) {
+  const stored = readStoredDesignStyleId();
+  if (stored) return applyDesignStyle(stored, root);
   return applyDesignStyle(root?.dataset?.style, root);
 }
 

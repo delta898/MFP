@@ -56,14 +56,15 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     assert.deepEqual(appTabs, [
         ['external', '외부 연결'],
         ['input', '입력 환경'],
-        ['general', '일반']
+        ['general', '일반'],
+        ['appearance', '외모']
     ]);
-    assert.equal((html.match(/role="tab"/g) || []).length, 13);
-    assert.equal((html.match(/aria-controls="settings-next-/g) || []).length, 13);
+    assert.equal((html.match(/role="tab"/g) || []).length, 14);
+    assert.equal((html.match(/aria-controls="settings-next-/g) || []).length, 14);
     assert.match(html, /class="settings-next-tabs ui-top-tabs"/);
     assert.equal((html.match(/settings-next-tab ui-top-tab/g) || []).length, 5);
     assert.match(html, /class="settings-next-local-nav ui-segmented-tabs"/);
-    assert.equal((html.match(/settings-next-local-tab ui-segmented-tab/g) || []).length, 8);
+    assert.equal((html.match(/settings-next-local-tab ui-segmented-tab/g) || []).length, 9);
     assert.doesNotMatch(html, /settings-next-tab-publishing|settings-next-panel-publishing/);
     assert.match(html, /id="settings-next-panel-app"[\s\S]*?aria-label="앱 설정"/);
     assert.doesNotMatch(html, /settings-next-app-panel-notifications|settings-next-app-notification-form/);
@@ -185,7 +186,7 @@ test('Settings Beta controller applies scoped changes seamlessly and protects pe
     assert.doesNotMatch(script, /postJson\('\/api\/v1\/settings\/major'/);
     assert.match(tabNavigation, /ArrowLeft.*ArrowRight.*Home.*End/s);
     assert.match(script, /handleUiTabNavigationKeydown/);
-    assert.match(script, /const SETTINGS_NEXT_APP_TABS = Object\.freeze\(\['external', 'input', 'general'\]\)/);
+    assert.match(script, /const SETTINGS_NEXT_APP_TABS = Object\.freeze\(\['external', 'input', 'general', 'appearance'\]\)/);
     assert.match(script, /function settingsNextActivateAppTab\(tabName\)/);
     assert.match(script, /selector: '\[data-settings-next-app-tab\]'/);
     assert.match(optionalServices, /function settingsNextOptionalToggleDelivery\(scope, input\)/);
@@ -330,7 +331,7 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
     assert.doesNotMatch(featureStyles, /settings-next-save-status/);
     assert.doesNotMatch(html, />[^<]*저장하고[^<]*<\/button>/);
     assert.doesNotMatch(html, /저장됨/);
-    assert.equal((html.match(/class="ui-settings-card(?:\s|")/g) || []).length, 22);
+    assert.equal((html.match(/class="ui-settings-card(?:\s|")/g) || []).length, 23);
     assert.equal((html.match(/class="ui-settings-readiness-card"/g) || []).length, 9);
     assert.equal((html.match(/class="ui-settings-summary-card"/g) || []).length, 3);
     assert.match(cardStyles, /\.ui-settings-card\s*\{/);
@@ -357,7 +358,7 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
     assert.equal((html.match(/data-settings-next-refresh/g) || []).length, 2);
     assert.equal((html.match(/>새로고침<\/button>/g) || []).length, 2);
     assert.doesNotMatch(html, />상태 새로고침<\/button>/);
-    assert.equal((html.match(/aria-busy="false"/g) || []).length, 19);
+    assert.equal((html.match(/aria-busy="false"/g) || []).length, 20);
     assert.match(html, /id="settings-next-load-feedback"[^>]*role="status"[^>]*aria-live="polite"/);
 });
 

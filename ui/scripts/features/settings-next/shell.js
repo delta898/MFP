@@ -1,6 +1,6 @@
 const SETTINGS_NEXT_TABS = Object.freeze(['core', 'ai', 'writing', 'extras', 'app']);
 const SETTINGS_NEXT_CORE_TABS = Object.freeze(['content', 'publishing']);
-const SETTINGS_NEXT_APP_TABS = Object.freeze(['external', 'input', 'general']);
+const SETTINGS_NEXT_APP_TABS = Object.freeze(['external', 'input', 'general', 'appearance']);
 
 let settingsNextActiveTab = 'core';
 let settingsNextActiveCoreTab = 'content';

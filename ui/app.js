@@ -19,6 +19,7 @@
 // @include scripts/features/settings-next/external-connections.js
 // @include scripts/features/settings-next/app-input.js
 // @include scripts/features/settings-next/app-general.js
+// @include scripts/features/settings-next/appearance.js
 // @include scripts/features/content/table-state.js
 // @include scripts/shared/runtime-state.js
 // @include scripts/features/shell/update-state.js

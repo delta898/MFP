@@ -364,6 +364,7 @@
               <button class="settings-next-local-tab ui-segmented-tab active" id="settings-next-app-tab-external" type="button" role="tab" aria-selected="true" aria-controls="settings-next-app-panel-external" tabindex="0" data-settings-next-app-tab="external">외부 연결</button>
               <button class="settings-next-local-tab ui-segmented-tab" id="settings-next-app-tab-input" type="button" role="tab" aria-selected="false" aria-controls="settings-next-app-panel-input" tabindex="-1" data-settings-next-app-tab="input">입력 환경</button>
               <button class="settings-next-local-tab ui-segmented-tab" id="settings-next-app-tab-general" type="button" role="tab" aria-selected="false" aria-controls="settings-next-app-panel-general" tabindex="-1" data-settings-next-app-tab="general">일반</button>
+              <button class="settings-next-local-tab ui-segmented-tab" id="settings-next-app-tab-appearance" type="button" role="tab" aria-selected="false" aria-controls="settings-next-app-panel-appearance" tabindex="-1" data-settings-next-app-tab="appearance">외모</button>
             </div>
           </div>
           <section class="settings-next-app-panel active" id="settings-next-app-panel-external" role="tabpanel" aria-labelledby="settings-next-app-tab-external">
@@ -393,6 +394,13 @@
               <div class="ui-settings-card-heading"><div><h3>앱 업데이트</h3><p>새 버전을 확인하고 안전하게 내려받아 설치합니다.</p></div><span id="settings-next-app-update-status" class="settings-next-status" data-tone="neutral">자동 확인</span></div>
               <p class="ui-settings-card-detail">일반 확인은 새 버전이 있을 때만 설치를 제안합니다. 강제 설치는 버전 비교와 캐시를 건너뛰고 선택된 최신 버전을 다시 내려받습니다.</p>
               <div class="ui-settings-card-footer"><p class="ui-settings-card-footer-detail" hidden></p><div class="ui-settings-card-footer-actions"><button class="secondary" type="button" data-settings-next-update-action="check">최신 버전 확인</button><button class="secondary" type="button" data-settings-next-update-action="force">최신 버전 강제 설치</button></div></div>
+            </section>
+          </section>
+          <section class="settings-next-app-panel" id="settings-next-app-panel-appearance" role="tabpanel" aria-labelledby="settings-next-app-tab-appearance" hidden>
+            <section class="ui-settings-card" aria-busy="false">
+              <div class="ui-settings-card-heading"><div><h3>화면 외모</h3><p>앱 전체에 적용할 시각 스타일을 고릅니다. 바꾸는 즉시 반영되며 진행 중인 작업은 그대로 둡니다.</p></div></div>
+              <div id="settings-next-appearance-grid" class="settings-next-appearance-grid"></div>
+              <p id="settings-next-appearance-feedback" class="ui-settings-card-feedback" role="status" aria-live="polite"></p>
             </section>
           </section>
         </div>

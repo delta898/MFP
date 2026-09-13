@@ -14,6 +14,7 @@ window.addEventListener('DOMContentLoaded', () => {
   try { initSettingsNext(); } catch (e) { console.warn('initSettingsNext error:', e); }
   try { initManualSnsComposer(); } catch (e) { console.warn('initManualSnsComposer error:', e); }
   try { if (typeof initShoppingImageSettings === 'function') initShoppingImageSettings(); } catch (e) { console.warn('initShoppingImageSettings error:', e); }
+  try { if (typeof initSettingsNextAppearance === 'function') initSettingsNextAppearance(); } catch (e) { console.warn('initSettingsNextAppearance error:', e); }
   checkSetupBanner();
   void initSidebarDynamicContent();
   const settingsCheckUpdateBtn = document.getElementById('settings-check-update-btn');

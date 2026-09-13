@@ -1,0 +1,14 @@
+.settings-next-appearance-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-space-3); }
+.appearance-style-card { display: grid; gap: var(--ui-space-3); align-content: start; padding: var(--ui-space-4); border: 1px solid var(--ui-border-default); border-radius: var(--ui-card-radius); background: var(--ui-surface); color: inherit; font: inherit; text-align: left; cursor: pointer; transition: border-color var(--ui-motion-fast), box-shadow var(--ui-motion-fast); }
+.appearance-style-card:hover { border-color: var(--ui-action-primary); }
+.appearance-style-card[aria-pressed="true"] { border-color: var(--ui-action-primary); box-shadow: var(--ui-focus-ring); }
+.appearance-style-preview { display: block; overflow: hidden; border: 1px solid var(--ui-border-default); border-radius: var(--ui-radius-md); padding: var(--ui-space-3); background: var(--ui-surface); }
+.appearance-preview-card { display: grid; gap: var(--ui-space-2); }
+.appearance-preview-card strong { color: var(--ui-text-primary); font-size: var(--ui-type-body-size); font-weight: var(--ui-weight-semibold); line-height: var(--ui-line-height-tight); }
+.appearance-preview-card > span { color: var(--ui-text-secondary); font-size: var(--ui-type-caption-size); line-height: var(--ui-line-height-body); }
+.appearance-preview-row { display: flex; align-items: center; gap: var(--ui-space-2); }
+.appearance-preview-primary { display: inline-flex; align-items: center; padding: var(--ui-space-1) var(--ui-space-3); border-radius: var(--ui-button-radius); background: var(--ui-action-primary); color: var(--ui-text-inverse); font-size: var(--ui-type-caption-size); font-weight: var(--ui-weight-semibold); }
+.appearance-style-copy { display: grid; gap: var(--ui-space-1); }
+.appearance-style-copy strong { color: var(--ui-text-primary); font-size: var(--ui-type-body-size); font-weight: var(--ui-weight-semibold); line-height: var(--ui-line-height-tight); }
+.appearance-style-copy small { color: var(--ui-text-secondary); font-size: var(--ui-type-caption-size); line-height: var(--ui-line-height-body); }
+@media (max-width: 640px) { .settings-next-appearance-grid { grid-template-columns: 1fr; } }
