@@ -61,20 +61,19 @@ function scrollToUpdateBanner({ emphasize = false } = {}) {
   if (emphasize) highlightUpdateBanner();
 }
 
+function setUpdateBannerState(state = 'available') {
+  const banner = document.getElementById('update-banner');
+  if (!banner) return;
+  banner.dataset.updateState = state;
+}
+
 function clearUpdateBannerState() {
   uiUpdateInfo = null;
   const banner = document.getElementById('update-banner');
-  const normalSection = document.getElementById('update-banner-normal');
-  const progressSection = document.getElementById('update-banner-progress');
-  const updateNowBtn = document.getElementById('update-now-btn');
-  const updateCloseBtn = document.getElementById('update-close-btn');
   const updateCancelBtn = document.getElementById('update-cancel-btn');
   if (banner) banner.classList.add('hidden');
-  if (normalSection) normalSection.style.display = '';
-  if (progressSection) progressSection.style.display = 'none';
-  if (updateNowBtn) updateNowBtn.style.display = '';
-  if (updateCloseBtn) updateCloseBtn.style.display = '';
-  if (updateCancelBtn) updateCancelBtn.style.display = 'none';
+  setUpdateBannerState('available');
+  if (updateCancelBtn) updateCancelBtn.disabled = false;
 }
 
 function shouldRefreshUpdateCheck() {
@@ -111,6 +110,7 @@ async function checkUpdate(isManual = false, isForce = false) {
           ? `강제 업데이트 준비 완료 (대상 버전: v${info.latestVersion})`
           : `새로운 버전(v${info.latestVersion})이 출시되었습니다!`;
         banner.classList.remove('hidden');
+        setUpdateBannerState('available');
       }
       if (isManual) {
         const msg = isForce
@@ -140,22 +140,15 @@ async function applyUpdate() {
   if (!confirmed) return;
 
   const banner = document.getElementById('update-banner');
-  const normalSection = document.getElementById('update-banner-normal');
-  const progressSection = document.getElementById('update-banner-progress');
   const progressMessage = document.getElementById('update-progress-message');
   const progressPercent = document.getElementById('update-progress-percent');
   const progressBar = document.getElementById('update-progress-bar');
   const progressIcon = document.getElementById('update-progress-icon');
-  const updateNowBtn = document.getElementById('update-now-btn');
-  const updateCloseBtn = document.getElementById('update-close-btn');
   const updateCancelBtn = document.getElementById('update-cancel-btn');
 
   // Show progress UI
-  if (normalSection) normalSection.style.display = 'none';
-  if (progressSection) progressSection.style.display = 'flex';
   if (banner) banner.classList.remove('hidden');
-  if (updateNowBtn) updateNowBtn.style.display = 'none';
-  if (updateCloseBtn) updateCloseBtn.style.display = 'none';
+  setUpdateBannerState('applying');
 
   const stageIcons = { downloading: '⬇️', verifying: '🔐', extracting: '📦', syncing: '🔄', done: '✅', error: '❌', idle: '⏳' };
 
@@ -177,12 +170,12 @@ async function applyUpdate() {
     if (stage === 'downloading') {
       const pct = typeof percent === 'number' ? percent : 0;
       if (progressPercent) progressPercent.textContent = pct > 0 ? `${pct}%` : '';
-      if (progressBar) progressBar.style.width = `${pct}%`;
-      if (updateCancelBtn) updateCancelBtn.style.display = ''; // 취소 가능
+      if (progressBar) progressBar.value = pct;
+      setUpdateBannerState('downloading');
     } else {
       if (progressPercent) progressPercent.textContent = '';
-      if (progressBar) progressBar.style.width = '100%';
-      if (updateCancelBtn) updateCancelBtn.style.display = 'none'; // 취소 불가
+      if (progressBar) progressBar.value = stage === 'error' ? 0 : 100;
+      setUpdateBannerState(stage === 'error' ? 'error' : 'applying');
     }
   }
 
@@ -195,14 +188,12 @@ async function applyUpdate() {
       clearTimeout(pollTimer);
       if (updateCancelBtn) updateCancelBtn.disabled = true;
       if (progressMessage) progressMessage.textContent = '취소 중...';
+      setUpdateBannerState('applying');
       try { await postJson('/api/v1/system/update/cancel'); } catch (_) { }
       // Restore normal state
       setTimeout(() => {
-        if (normalSection) normalSection.style.display = '';
-        if (progressSection) progressSection.style.display = 'none';
-        if (updateNowBtn) updateNowBtn.style.display = '';
-        if (updateCloseBtn) updateCloseBtn.style.display = '';
-        if (updateCancelBtn) { updateCancelBtn.style.display = 'none'; updateCancelBtn.disabled = false; }
+        setUpdateBannerState('available');
+        if (updateCancelBtn) updateCancelBtn.disabled = false;
       }, 1000);
     };
   }
@@ -234,21 +225,14 @@ async function applyUpdate() {
           message: `업데이트 재시작 실패: ${e.message}`,
           percent: 0
         });
-        if (updateNowBtn) updateNowBtn.style.display = '';
-        if (updateCloseBtn) updateCloseBtn.style.display = '';
-        if (updateCancelBtn) updateCancelBtn.style.display = 'none';
       }
     }, 1500);
   } catch (e) {
     if (cancelled) return;
     clearTimeout(pollTimer);
     setProgressUi({ stage: 'error', message: `업데이트 실패: ${e.message}`, percent: 0 });
-    if (updateNowBtn) updateNowBtn.style.display = '';
-    if (updateCloseBtn) updateCloseBtn.style.display = '';
-    if (updateCancelBtn) updateCancelBtn.style.display = 'none';
     setTimeout(() => {
-      if (normalSection) normalSection.style.display = '';
-      if (progressSection) progressSection.style.display = 'none';
+      setUpdateBannerState('available');
     }, 4000);
   }
 }

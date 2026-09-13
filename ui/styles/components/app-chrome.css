@@ -104,6 +104,92 @@
   gap: 12px;
 }
 
+.update-banner-progress {
+  display: none;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  padding: 6px 16px;
+}
+
+.update-progress-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.update-progress-icon {
+  font-size: var(--ui-type-label-size);
+}
+
+.update-progress-message {
+  flex: 1;
+  color: var(--ui-text-inverse);
+  font-size: var(--ui-type-caption-size);
+  font-weight: var(--ui-weight-medium);
+}
+
+.update-progress-percent {
+  color: color-mix(in srgb, var(--ui-text-inverse) 62%, transparent);
+  font-size: var(--ui-type-caption-size);
+  white-space: nowrap;
+}
+
+.update-progress-bar {
+  display: block;
+  width: 100%;
+  height: 5px;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--ui-radius-full);
+  appearance: none;
+}
+
+.update-progress-bar::-webkit-progress-bar {
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--ui-text-inverse) 15%, transparent);
+}
+
+.update-progress-bar::-webkit-progress-value {
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--ui-action-primary-soft), var(--ui-action-primary));
+  transition: inline-size var(--ui-motion-slow) ease;
+}
+
+.update-progress-bar::-moz-progress-bar {
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--ui-action-primary-soft), var(--ui-action-primary));
+  transition: inline-size var(--ui-motion-slow) ease;
+}
+
+.update-banner[data-update-state="downloading"] .update-banner-content,
+.update-banner[data-update-state="applying"] .update-banner-content,
+.update-banner[data-update-state="error"] .update-banner-content {
+  display: none;
+}
+
+.update-banner[data-update-state="downloading"] .update-banner-progress,
+.update-banner[data-update-state="applying"] .update-banner-progress,
+.update-banner[data-update-state="error"] .update-banner-progress {
+  display: flex;
+}
+
+#update-cancel-btn {
+  display: none;
+}
+
+.update-banner[data-update-state="downloading"] #update-now-btn,
+.update-banner[data-update-state="downloading"] #update-close-btn,
+.update-banner[data-update-state="applying"] #update-now-btn,
+.update-banner[data-update-state="applying"] #update-close-btn {
+  display: none;
+}
+
+.update-banner[data-update-state="downloading"] #update-cancel-btn {
+  display: inline-flex;
+}
+
 .update-icon {
   font-size: var(--ui-type-heading-size);
 }
