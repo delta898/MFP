@@ -188,6 +188,12 @@ async function settingsNextLoadBufferWorkspaces() {
       channels: Array.isArray(result.channels) ? result.channels : [],
       workspacesLoaded: true
     };
+    if (typeof persistManualSnsWorkspaceCache === 'function') {
+      persistManualSnsWorkspaceCache(settingsNextOptionalState.bufferConnection);
+    }
+    if (typeof invalidateManualSnsWorkspaceState === 'function') {
+      invalidateManualSnsWorkspaceState({ preserveCache: true });
+    }
     settingsNextSetFeedback('settings-next-sns-distribution-feedback', '');
     settingsNextRenderSnsDistribution();
   } catch (error) {
@@ -336,6 +342,10 @@ async function settingsNextOptionalSubmit(event) {
     const saved = await postJson('/api/v1/settings/optional-services', payload);
     persisted = true;
     settingsNextOptionalApply(saved);
+    if (scope === 'buffer') {
+      if (typeof clearManualSnsWorkspaceCache === 'function') clearManualSnsWorkspaceCache();
+      if (typeof invalidateManualSnsWorkspaceState === 'function') invalidateManualSnsWorkspaceState();
+    }
     const tested = scope === 'sns-distribution'
       ? null
       : await postJson('/api/v1/settings/optional-services/test', settingsNextOptionalPayload(scope));
@@ -346,6 +356,12 @@ async function settingsNextOptionalSubmit(event) {
         channels: Array.isArray(tested.channels) ? tested.channels : [],
         workspacesLoaded: true
       };
+      if (typeof persistManualSnsWorkspaceCache === 'function') {
+        persistManualSnsWorkspaceCache(settingsNextOptionalState.bufferConnection);
+      }
+      if (typeof invalidateManualSnsWorkspaceState === 'function') {
+        invalidateManualSnsWorkspaceState({ preserveCache: true });
+      }
       const organizations = Array.isArray(tested.organizations) ? tested.organizations.length : 0;
       const channels = Array.isArray(tested.channels) ? tested.channels.length : 0;
       setUiSettingsCardFooterDetail(

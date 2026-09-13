@@ -2831,7 +2831,54 @@ async function run() {
         assert.equal(pastedPublishRequest?.body?.markdownText.startsWith('# 붙여넣은 원고'), true);
         assert.deepEqual(pastedPublishRequest?.body?.targets, ['naver']);
 
+        let manualSnsWorkspaceRequestCount = 0;
+        await page.route('**/api/v1/social/manual/config', async (route) => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json; charset=utf-8',
+                body: JSON.stringify({
+                    success: true,
+                    data: {
+                        configured: true,
+                        local_media_available: true,
+                        channels: [],
+                        ai: { available: false, model_name: '' }
+                    }
+                })
+            });
+        });
+        await page.route('**/api/v1/social/manual/workspaces', async (route) => {
+            manualSnsWorkspaceRequestCount += 1;
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json; charset=utf-8',
+                body: JSON.stringify({
+                    success: true,
+                    data: {
+                        organizations: [{ id: 'org-fixture', name: 'Fixture workspace' }],
+                        organization_id: 'org-fixture',
+                        channels: [{
+                            id: 'channel-fixture',
+                            name: 'fixture.threads',
+                            display_name: 'fixture.threads',
+                            service: 'threads',
+                            limit: 500,
+                            max_assets: 10,
+                            image_required: false,
+                            supported: true
+                        }]
+                    }
+                })
+            });
+        });
+
         await page.locator('.nav-btn[data-view="social"]').click();
+        await page.waitForFunction(() => document.getElementById('manual-sns-workspaces-load')?.disabled === false);
+        await page.locator('#manual-sns-workspaces-load').click();
+        await page.waitForFunction(() => document.querySelectorAll('[data-manual-sns-channel]').length === 1);
+        assert.equal(manualSnsWorkspaceRequestCount, 1);
+        assert.equal((await page.locator('#manual-sns-organization').inputValue()), 'org-fixture');
+        assert.equal((await page.locator('[data-manual-sns-channel]').first().getAttribute('value')), 'channel-fixture');
         assert.equal(await page.locator('#manual-sns-image-source-local').isChecked(), true);
         assert.equal(await page.locator('#manual-sns-image-file').getAttribute('multiple'), '');
         assert.equal(await page.locator('#manual-sns-image-local-panel').isVisible(), true);
@@ -2851,6 +2898,11 @@ async function run() {
         await page.waitForFunction(() => document.getElementById('manual-sns-character-count')?.textContent === '6자');
         assert.equal(await page.locator('#manual-sns-publish-btn').isDisabled(), true);
         await page.locator('#manual-sns-text').fill('');
+
+        await page.locator('.nav-btn[data-view="account"]').click();
+        await page.locator('.nav-btn[data-view="social"]').click();
+        await page.waitForFunction(() => document.querySelectorAll('[data-manual-sns-channel]').length === 1);
+        assert.equal(manualSnsWorkspaceRequestCount, 1);
 
         await page.locator('.nav-btn[data-view="account"]').click();
         await page.waitForFunction(() => !document.getElementById('account-overview-content')?.classList.contains('hidden'));
@@ -3062,6 +3114,14 @@ async function run() {
         ]);
         assert.equal(requests.some((request) => request.pathname === '/app.js'), true);
         assert.equal(requests.some((request) => request.pathname === '/styles.css'), true);
+
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await page.waitForFunction(() => typeof window.navigateTo === 'function');
+        await page.evaluate(() => navigateTo('social'));
+        await page.waitForFunction(() => document.querySelectorAll('[data-manual-sns-channel]').length === 1);
+        assert.equal(manualSnsWorkspaceRequestCount, 1);
+        assert.equal((await page.locator('#manual-sns-organization').inputValue()), 'org-fixture');
+
         assert.deepEqual(failedResponses, []);
         assert.deepEqual(pageErrors, []);
         assert.deepEqual(consoleErrors, []);

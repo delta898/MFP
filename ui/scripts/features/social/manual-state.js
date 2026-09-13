@@ -1,5 +1,6 @@
-let manualSnsConfig = { configured: false, local_media_available: null, channels: [], organizationId: '', organizations: [], workspacesLoaded: false, ai: { available: false, model_name: '' } };
+let manualSnsConfig = { configured: false, local_media_available: null, channels: [], organizationId: '', organizations: [], workspacesLoaded: false, workspaceFetchedAt: 0, ai: { available: false, model_name: '' } };
 let manualSnsConfigLoading = false;
+let manualSnsWorkspaceLoading = false;
 let manualSnsOptimizationSnapshot = null;
 let manualSnsOptimizationInFlight = false;
 let manualSnsPublishingInFlight = false;

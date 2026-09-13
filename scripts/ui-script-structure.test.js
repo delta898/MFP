@@ -80,6 +80,7 @@ test('JavaScript manifest preserves one explicit classic-script execution order'
         'scripts/features/shell/clock.js',
         'scripts/features/shell/global-publishing-status.js',
         'scripts/features/social/manual-state.js',
+        'scripts/features/social/manual-workspace-cache.js',
         'scripts/features/social/manual-composer.js',
         'scripts/features/social/manual-optimization.js',
         'scripts/features/social/manual-publish.js',

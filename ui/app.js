@@ -51,6 +51,7 @@
 // @include scripts/features/shell/clock.js
 // @include scripts/features/shell/global-publishing-status.js
 // @include scripts/features/social/manual-state.js
+// @include scripts/features/social/manual-workspace-cache.js
 // @include scripts/features/social/manual-composer.js
 // @include scripts/features/social/manual-optimization.js
 // @include scripts/features/social/manual-publish.js

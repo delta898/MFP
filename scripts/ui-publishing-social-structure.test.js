@@ -11,6 +11,7 @@ const controllerContracts = Object.freeze({
     'features/publishing/wordpress-controls.js': ['initWpCategorySelector'],
     'features/publishing/shared-preferences.js': ['initGlobalPublishSettingsSync'],
     'features/publishing/shopping-controls.js': ['initShoppingQuickCategoryPersistence'],
+    'features/social/manual-workspace-cache.js': ['readManualSnsWorkspaceCache', 'persistManualSnsWorkspaceCache', 'clearManualSnsWorkspaceCache'],
     'features/social/manual-composer.js': ['syncManualSnsComposerState', 'loadManualSnsComposer'],
     'features/social/manual-optimization.js': ['optimizeManualSnsText', 'undoManualSnsOptimization'],
     'features/social/manual-publish.js': ['publishManualSns'],

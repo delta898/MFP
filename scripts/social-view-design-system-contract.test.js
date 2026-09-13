@@ -27,7 +27,8 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.match(composer, /social-channel-option ui-selectable-card/);
   assert.match(composer, /social-channel-copy ui-selectable-card-copy/);
   assert.match(composer, /if \(listEl && !manualSnsConfig\.configured\)/);
-  assert.match(composer, /configured\s*\? \{ \.\.\.manualSnsConfig, \.\.\.connectionState \}/);
+  assert.match(composer, /const snapshot = readManualSnsWorkspaceCache\(\)/);
+  assert.match(composer, /refreshStaleSnapshot = !snapshot\.isFresh/);
   assert.match(styles, /\.social-view \.social-composer-card[\s\S]*?var\(--ui-border-default\)/);
   assert.match(styles, /\.social-view \.social-channel-option[\s\S]*?var\(--ui-action-primary-soft\)/);
   assert.match(styles, /\.social-view \.social-composer-actions[\s\S]*?var\(--ui-border-default\)/);
