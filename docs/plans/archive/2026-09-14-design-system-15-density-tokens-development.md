@@ -3,7 +3,7 @@
 - branch: `codex/feature/design-system-15-density-tokens`
 - base/parent: `codex/feature/design-system-main`
 - started: 2026-09-14
-- status: ready_for_review
+- status: complete
 
 ## 사용자 필요와 목표
 
@@ -53,9 +53,10 @@
 - Discovery review slice browser UI smoke 285 fixture requests 통과.
 - Blog Beta focused contract 89건 통과.
 - Blog Beta review slice browser UI smoke 279 fixture requests 통과.
+- parent 병합 전 full unit suite 1,688건 중 1,687건 통과, Windows 전용 1건 정상 skip.
 
 ## 수동 확인 및 남은 위험
 
 - Discovery 추천 센터와 글감 추천/키워드 탐색 모달의 최종 시각 밀도 확인이 남아 있다.
 - Blog Beta의 빠른 글 작성, 글감 관리, 원고 입력, 스마트 댓글에서 warm editorial 기준 최종 시각 확인이 남아 있다.
-- parent 병합 전 full unit suite는 사용자 승인 후 실행해야 한다.
+- 기능·레이아웃 변경 없이 역할 기반 밀도 계약 적용을 완료했다. 후속 SNS cache와 CSS 구조 변경은 별도 branch에서 진행한다.
