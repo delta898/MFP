@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-main`
 - Base/parent branch: `dev`
 - Start date: 2026-09-06
-- Status: 진행 중 — 디자인 기반 단계 완료, 제품 전반 개편 진행
+- Status: 구현 완료 — 최종 문서·검증 정리 후 `dev` 통합 대기
 
 ## 사용자 필요와 목표
 
@@ -90,7 +90,7 @@ BlogGenius를 단계적으로 더 아름답고 편리하며 안정적인 제품�
 
 ### 9. style 선택 경험과 향후 확장
 
-- 정식 제공 style인 Warm Editorial과 Quiet Sage Studio 사이의 사용자 선택과 저장 경험을 제공한다.
+- 정식 제공 style 네 가지를 registry 기반으로 선택하고 localStorage에 저장하는 경험을 제공한다.
 - 세 번째 이후 style은 같은 contract와 검증 절차를 따라 필요할 때 확장한다.
 - 전체 디자인 개편의 합의된 범위와 검증을 마친 뒤에만 parent를 `dev`에 통합한다.
 
@@ -146,9 +146,11 @@ BlogGenius를 단계적으로 더 아름답고 편리하며 안정적인 제품�
 - 2026-09-08: `codex/feature/design-system-11-continuous-publishing-navigation`에서 연속 발행 설정을 글감 관리 local navigation으로 이동하고 Full TC를 통과했다. 세부 기록은 [연속 발행 설정 정보구조 개발 기록](../archive/2026-09-08-design-system-11-continuous-publishing-navigation-development.md)을 따른다.
 - 2026-09-08: 디자인 원칙·가이드·구현의 전체 정합성 검토에서 파괴적 action 확인 범위, 완료된 Gate 서술, 기능 문서와 현재 구현의 차이를 확인했다. `codex/feature/design-system-12-contract-documentation`에서 문서 계약 정리와 사용자 승인을 완료했으며, 동작·접근성과 style token 정리는 후속 독립 단계로 진행한다. 세부 기록은 [문서 계약 정리 개발 기록](../archive/2026-09-08-design-system-12-contract-documentation-development.md)을 따른다.
 - 2026-09-08: `codex/feature/design-system-13-style-contract-hardening`에서 Blog Beta feature CSS의 raw typography·shadow·cascade override를 작은 slice로 분류·교정했다. 시각적 계산값을 유지하면서 semantic typography, 역할별 elevation, cascade 경계와 재유입 방지 guard를 확립했고 Full TC 1,524 passed, 0 failed, 1 skipped로 완료했다. 세부 기록은 [Style Contract 마무리 개발 기록](../archive/2026-09-08-design-system-13-style-contract-hardening-development.md)을 따른다.
-- 2026-09-08: 다른 surface 확산의 첫 대상으로 설정 개편을 시작했다. `codex/feature/design-system-settings-main` 아래 첫 sub-feature에서 기존 설정을 보존한 `설정 Beta`, provider-neutral한 `콘텐츠 공간`과 `블로그 발행 채널`, 기존 `config.json` schema를 유지하는 scoped save 경계를 구현하고 focused contract와 browser smoke를 통과했다. 세부 기록은 [설정 Beta parent 기록](2026-09-08-design-system-settings-main-development.md)과 [첫 sub-feature 기록](2026-09-08-design-system-settings-01-shell-core-connections-development.md)을 따른다.
+- 2026-09-08: 다른 surface 확산의 첫 대상으로 설정 개편을 시작했다. `codex/feature/design-system-settings-main` 아래 첫 sub-feature에서 기존 설정을 보존한 `설정 Beta`, provider-neutral한 `콘텐츠 공간`과 `블로그 발행 채널`, 기존 `config.json` schema를 유지하는 scoped save 경계를 구현하고 focused contract와 browser smoke를 통과했다. 세부 기록은 [설정 Beta parent 기록](../archive/2026-09-08-design-system-settings-main-development.md)과 [첫 sub-feature 기록](../archive/2026-09-08-design-system-settings-01-shell-core-connections-development.md)을 따른다.
 - 2026-09-12: `내 정보` surface의 legacy compatibility containment를 제거하고, 사용량·기기·연결 정보를 공통 overview card와 semantic token으로 재구성했다. 기존 계정 overview API와 이메일/Free 전환 action의 DOM 계약은 유지하며, 플랜 안내는 구조화된 native dialog로 교체했다. 서비스 연결 shortcut은 기존 설정 대신 설정 Beta의 해당 core section으로 이동하도록 분리된 navigation helper를 추가했다.
 - 2026-09-12: 내 정보의 상시 새로고침과 추천 자료 surface는 화면 목적을 흐리고 같은 정보를 중복한다는 사용자 검토를 반영해 제거했다. 계정 데이터는 진입 시 마지막 정상 값을 먼저 유지한 채 백그라운드에서 재검증하고, 최초 실패 때만 `다시 시도`를 제공한다. 플랜·연결·기능 상태는 feature palette가 아니라 공통 `ui-status-badge` semantic state로 통일했으며, 크레딧이 없는 경우 중복되는 총 사용 가능 횟수는 숨긴다.
+- 2026-09-14: 전역 shell presentation, status/release badge·spinner·empty state를 공통 계약으로 수렴하고 SNS→Discovery→Blog Beta 순서로 density token을 적용했다. CSS composition에 cascade layer를 도입하고 대형 feature CSS를 책임별 module로 분리했으며 style registry와 파일명·manifest 검증을 자동화했다.
+- 2026-09-14: `가을밤 서재`와 `한지 위의 단청`을 추가해 dark surface와 한국적 밝은 style까지 확장성을 검증했다. 설정의 registry 기반 2×2 선택 UI, style 저장, 공통 modal·button·status의 계산 style을 browser regression으로 확인하고 사용자 시각 승인을 받았다.
 
 ## Design Principles 필수 검토 일정
 
@@ -158,22 +160,21 @@ BlogGenius를 단계적으로 더 아름답고 편리하며 안정적인 제품�
 
 세 Gate는 모두 사용자 합의로 완료됐다. 상세 검토 결과와 이후 변경 규칙은 [Design Principles v1.0](../../architecture/design-principles.md)을 따른다.
 
-## 현재 위험과 확인할 결정
+## 현재 위험과 후속 경계
 
-- 사용자용 style 선택 UI와 설정 저장은 둘 이상의 정식 제공 style 범위를 결정한 뒤 별도 제품 단계로 진행한다.
-- 공통 shell과 `블로그 Beta` 이후 surface는 Compatibility containment를 한 번에 제거하지 않고 단계별로 migration한다.
-- 다음 제품 작업은 Blog Beta panel anatomy, 빠른 글 작성 대표 흐름, Blog Beta 기준면 완성, 다른 surface migration 순서로 별도 branch와 사용자 합의를 거친다.
-- Stage 7 이후 세부 stage와 surface 우선순위는 앞 단계에서 얻은 근거를 바탕으로 사용자와 확정한다.
+- 기존 Dashboard, Blog, 설정, 로그와 legacy Blog 수정 dialog는 의도적으로 compatibility containment에 남아 있다. 사용자가 legacy를 제거할 때 별도 retirement 범위로 다루며 새 style로 중복 이관하지 않는다.
+- native date/time picker 내부 focus와 clock의 계절 색상처럼 browser 또는 component identity가 소유하는 예외는 문서화된 경계 안에서 유지한다.
+- 새 style과 product surface는 registry·semantic token·공통 component 계약을 사용하며 feature별 style selector나 raw palette를 추가하지 않는다.
+- parent의 `dev` 통합, release, tag, push와 배포는 별도 사용자 승인 대상이다.
 
-## 기반 milestone 결과 및 검증
+## 최종 결과 및 검증
 
 - Design Principles와 다중 Style Contract `v1.0` 확정
-- Compatibility, Warm Editorial과 Quiet Sage Studio registry 및 token contract 구현
-- 공통 shell과 `블로그 Beta` style 적용, 비대상 surface containment 완료
-- action, refresh, selection, feedback, embedded widget과 discovery badge component/pattern guide 보강
-- focused style/shell/Blog Beta contracts: 42 passed, 0 failed
-- browser UI smoke: passed, 206 fixture requests
-- full unit suite: 1,485 passed, 0 failed, 1 skipped
-- 사용자 시각 확인 및 Gate 1·2·3 합의 완료
-- 전체 디자인 개편: 진행 중
-- parent의 `dev` merge, release, tag, push, 배포: 전체 완료 전에는 수행하지 않음
+- Compatibility와 `따뜻한 에디토리얼`, `고요한 세이지 스튜디오`, `가을밤 서재`, `한지 위의 단청` registry·token contract 구현
+- 공통 shell, Blog Beta, Dashboard, Settings, Card News, Shopping Connect, SNS, Account와 Help의 design-system migration 완료
+- action, refresh, selection, feedback, dialog, loading, empty state, density, elevation과 navigation pattern 보강
+- ordered CSS manifest, cascade layer, 책임별 CSS module과 registry 기반 style 검증 구축
+- 마지막 style 단계 browser UI smoke 통과: 307 fixture requests
+- 최종 full unit suite: 1,694개 중 1,693개 통과, 실패 0, 플랫폼 의존 1개 skip
+- 사용자 시각 확인 및 Gate 1·2·3와 후속 두 style 검토 완료
+- 전체 디자인 개편 구현 완료, `dev` 통합 대기

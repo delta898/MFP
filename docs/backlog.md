@@ -1,6 +1,6 @@
 # BlogGenius Backlog
 
-> 현행 기준: 2026-09-07 · 최신 릴리스: `v0.4.3` · 다음 버전: 미정
+> 현행 기준: 2026-09-14 · 최신 릴리스: `v0.4.3` · 다음 버전: 미정
 
 이 문서는 현재 실행 가능한 일감만 관리한다. 완료된 구현 과정은 `docs/plans/archive/`, 안정된 현재
 계약은 `docs/architecture/`, `docs/features/`, `docs/decisions/`를 따른다.
@@ -147,6 +147,21 @@
    - 만든 카드뉴스 삭제 기능을 추가한다. 프로젝트 자료, 생성 이미지와 발행 이력의 삭제 범위를 분리하고 삭제 전
      확인, 실패 시 보존, 목록 갱신을 검증한다.
 
+15. 디자인 시스템 Must do — Compatibility containment 퇴장
+   - 기존 `대시보드`, 기존 `블로그`, 기존 `설정`, `로그/이력`, 기존 블로그 수정 modal은 정식 style 적용 대상이
+     아니라 legacy 교체 전의 호환 surface로 명시적으로 격리되어 있다.
+   - 각 화면은 별도 제품 교체 또는 제거 slice에서만 다룬다. 새 기능을 legacy surface에 추가하지 않고, 교체가
+     끝난 화면부터 containment와 compatibility alias를 제거한다.
+   - 마지막 legacy surface 제거 전에는 네 정식 style에서 shell·navigation·dialog·form·상태 표현이 동일한
+     semantic/component contract만 소비하는지 확인하고, 더 이상 사용되지 않는 legacy CSS를 삭제한다.
+
+16. 디자인 시스템 Must do — 정식 style 시각·접근성 회귀 관문
+   - 현재 registry/token/CSS composition 계약 테스트를 유지하고, 대표 사용자 flow의 네 style 시각 검토 기준을
+     고정한다. 현재 정식 대상의 최소 범위는 블로그 Beta, 쇼핑커넥트, SNS, 설정, 내 정보와 Dialog다.
+   - 좁은 화면, keyboard focus, disabled/loading/error, reduced-motion과 명도 대비를 style별로 확인한다.
+   - 기능 release 전 전체 screenshot 차단 관문으로 확대하지 않는다. style token·공통 component·shell을 바꾼
+     변경에만 focused visual regression 또는 명시적 hands-on 검토를 요구한다.
+
 ## P2 — 제품 확장과 유지보수
 
 1. BlogAnywhere companion
@@ -199,6 +214,16 @@
    - 완성된 카드뉴스를 지정한 채널과 주기로 발행하는 기능을 검토한다.
    - 우선순위는 낮게 유지하며, 예약 충돌·채널별 장수 제한·실패 재시도와 중복 발행 방지 계약을 먼저 정의한다.
 
+11. 디자인 시스템 Nice to do — 사용자별 외관 동기화
+   - 현재 style 선택은 로컬 저장으로 충분하다. 로그인·다기기 사용이 실제 제품 범위가 될 때만 계정 설정 동기화,
+     충돌 우선순위와 offline fallback을 설계한다.
+   - 동기화가 없다면 app 시작 시 저장값을 조기에 적용하는 현재 flicker 방지 경로를 유지한다.
+
+12. 디자인 시스템 Nice to do — style 검토 경험 고도화
+   - 설정의 2×2 선택 UI는 registry 기반으로 유지하고, style 수가 늘어날 때만 검색·분류·미리보기 확대를 검토한다.
+   - 고대비, 시스템 밝음/어두움 같은 별도 theme 축은 새 style pack 추가와 다르므로, 실제 사용자 요구와 조합별
+     접근성 비용이 확인되기 전에는 도입하지 않는다. 해당 탐색은 P3 `Theme system`과 같은 일감으로 관리한다.
+
 ## P3 — 후순위 탐색
 
 1. 동일 네트워크 접근 안전성
@@ -223,3 +248,5 @@
 - 검색·발견 중심 제목 호기심 전략
 - Dashboard 네이버·WordPress 연결 상태 안정화
 - 브라우저 세션 발행을 대체하는 네이버 OAuth2 제안은 결정에 따라 종료
+- 네 정식 style, registry·CSS manifest·cascade layer·공통 component 계약과 Settings Beta의 registry 기반
+  style 선택 UI

@@ -2,7 +2,7 @@
 
 ## 문서 상태
 
-- Status: 두 정식 style 확장성 검증 및 사용자 승인 완료
+- Status: 네 정식 style, registry 기반 확장과 주요 product surface 적용 검증 완료
 - Source stage: `codex/feature/design-system-01-principles`
 - 목적: 여러 style이 같은 기능·component 위에서 안전하게 동작하기 위한 최소 계약을 정의한다.
 
@@ -219,13 +219,16 @@ CSS manifest는 cascade 순서의 source of truth이므로 자동 directory scan
 
 각 style 단계의 Definition of Done을 충족한 뒤에는 [Design Principles v1.0](./design-principles.md)에 정의한 검토 기준을 적용한다. 새 style 구현 완료만으로 제품 제공이나 전체 surface 확산이 자동 승인되지는 않는다.
 
-## v1.0 검증 결과
+## 현재 검증 결과
 
-- Compatibility, Warm Editorial과 Quiet Sage Studio가 동일 registry 및 필수 token contract를 사용한다.
-- Warm Editorial과 Quiet Sage Studio는 색온도, spacing/density, radius와 elevation을 달리하면서 동일 DOM·기능·상태·ARIA·keyboard 순서를 유지한다.
+- Compatibility와 네 정식 style `따뜻한 에디토리얼`, `고요한 세이지 스튜디오`, `가을밤 서재`, `한지 위의 단청`이 동일 registry 및 필수 token contract를 사용한다.
+- 정식 style은 따뜻한 밝은 화면, 차분한 세이지, 어두운 월넛, 한지·청자·쪽빛 계열로 palette뿐 아니라 spacing/density, radius와 elevation을 달리하면서 동일 DOM·기능·상태·ARIA·keyboard 순서를 유지한다.
+- style ID와 CSS 파일명은 일대일 규칙을 사용하고, 설정의 2×2 선택 UI는 selectable registry entry를 자동 렌더링한다. 새 style 추가는 token module, registry metadata와 ordered CSS manifest 등록 세 곳으로 제한한다.
+- `가을밤 서재`는 dark surface의 modal footer와 공통 feedback을 semantic surface token으로 교정했고, `한지 위의 단청`은 일반 secondary와 명시적 negative/danger action의 의미를 style 색상과 분리해 검증했다.
+- CSS composition은 `tokens → base → components → features → utilities → overrides → legacy` cascade layer를 따르며, 큰 feature CSS는 manifest 순서를 유지한 책임별 companion module로 분할한다.
 - runtime style 전환 중 동일 input DOM과 입력값이 보존된다.
 - 공통 component, pattern, layout과 feature CSS는 정식 style ID를 직접 판별하지 않는다.
-- 두 번째 style 적용으로 발견한 feedback, trend surface와 embedded clock 외곽의 raw palette·형태 결합을 semantic/component 규칙으로 교정했다.
+- 후속 style 적용으로 발견한 feedback, trend surface, modal footer와 embedded clock 외곽의 raw palette·형태 결합을 semantic/component 규칙으로 교정했다.
 - 미이전 surface는 명시적인 Compatibility containment를 유지한다.
 
 필수 token의 제거·의미 변경, style 소유 범위 변경과 별도 theme 축 추가는 contract version 변경 대상으로 본다. 하위 호환 token 추가와 새 style pack 연결은 검증을 거쳐 `v1.x` 범위에서 확장할 수 있다.

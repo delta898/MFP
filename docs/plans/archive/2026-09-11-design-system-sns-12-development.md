@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-sns-12`
 - Base/parent branch: `codex/feature/design-system-main`
 - Start date: 2026-09-11
-- Status: 병합 준비 완료
+- Status: 완료 — 디자인 시스템 parent에 통합
 
 ## 사용자 필요와 목표
 
@@ -104,3 +104,5 @@ SNS 즉시 발행은 짧은 글을 채널에 공유하는 단순한 작업이지
 - SNS 전용 structure/style contract, Settings Beta contract, scoped API unit test, 디자인 시스템 contract,
   JavaScript syntax, diff 검증과 브라우저 fixture 회귀를 통과했다. 현재 focused 검증은 63개다. 실제 Buffer
   연결과 RSS 자동 공유는 외부 상태를 변경하므로 사용자 수동 확인이 남아 있다.
+- 사용자가 Settings Beta의 Buffer 설정, SNS 작업 공간 불러오기·선택 유지와 화면 밀도를 확인했다. 이후 session cache를 추가해 메뉴 재진입 시 같은 작업 공간과 채널 후보를 재사용하고 명시적 다시 불러오기에서만 갱신하도록 했다.
+- SNS density token 적용과 CSS surface module 분할, parent 전체 단위 회귀까지 완료했다. 실제 외부 발행과 RSS 자동 공유 점검은 기능 운영 범위로 유지한다.

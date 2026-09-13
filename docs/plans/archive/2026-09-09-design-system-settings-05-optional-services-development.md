@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-settings-05-optional-services`
 - Base/parent branch: `codex/feature/design-system-settings-main`
 - Start date: 2026-09-09
-- Status: 구현 및 자동 검증 완료 · 사용자 UI 확인 대기
+- Status: 완료 — Settings Beta parent에 통합
 
 ## 사용자 필요와 목표
 
@@ -85,3 +85,5 @@
   checkbox focus-ring assertion에서 실패했으며, 이번 stage와 별개로 남아 있다.
 - 남은 수동 확인: 실제 Buffer/Telegram/Slack/Bitly credential로 각 연결 확인, 실패 시 badge·footer detail의
   다음 행동 안내, 좁은 화면에서 local tab과 card density 확인.
+- 이후 SNS 배포 단계에서 Buffer 연결과 작업 공간·채널 소유권을 다시 검증하고, 설정은 credential 연결만, 자동 공유와 수동 발행은 각 실행 화면이 대상 선택을 소유하도록 최종 확정했다.
+- 당시 선행 assertion에서 중단됐던 browser 회귀는 후속 design-system browser smoke와 parent 전체 단위 회귀에서 통과했다. 외부 credential별 실서비스 연결 확인은 기능 운영 점검이며 이 디자인 stage의 완료를 막지 않는다.

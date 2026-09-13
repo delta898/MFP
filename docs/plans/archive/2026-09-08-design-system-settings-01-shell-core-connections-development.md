@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-settings-01-shell-core-connections`
 - Base/parent branch: `codex/feature/design-system-settings-main`
 - Start date: 2026-09-08
-- Status: 공용 settings-card pattern/controller 추출 및 focused/browser 검증 완료 — 사용자 UI 검토 대기
+- Status: 완료 — Settings Beta parent 및 디자인 시스템 parent에 통합
 
 ## 사용자 필요와 목표
 

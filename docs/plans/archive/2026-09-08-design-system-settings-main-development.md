@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-settings-main`
 - Base/parent branch: `codex/feature/design-system-main`
 - Start date: 2026-09-08
-- Status: 진행 중 — 부가 서비스 통합 완료, 앱 layout stage 진행 중
+- Status: 완료 — 모든 stage를 디자인 시스템 parent에 통합
 
 ## 사용자 필요와 목표
 
@@ -97,9 +97,11 @@
 - 사용자 hands-on UI 확인
 - parent 통합 전 full unit suite는 별도 사용자 승인 후 실행
 
-## 현재 위험과 후속 결정
+## 최종 결과와 후속 경계
 
-- 기존 major settings API의 전체 payload 저장은 Beta에서 사용하지 않고, 첫 stage에 scoped save 경계를 추가했다. 이후 top menu도 같은 원칙으로 독립 저장 범위를 가져야 한다.
-- 기존 dashboard와 feature deep link는 설정 Beta 완성 전까지 기존 설정을 계속 가리킨다.
-- top menu별 실제 설정 위치는 소유권 분류 결과에 따라 사용자와 단계별로 확정한다.
-- 화면 style 선택 UI와 local override의 구체 범위는 별도 합의가 필요하다.
+- `기본 연결 / AI / 글쓰기 / 부가 서비스 / 앱`의 목적 기반 IA와 scope별 저장 API를 완료하고 parent에 통합했다.
+- Dashboard, Account, SNS 등 새 surface의 설정 shortcut은 기존 설정이 아니라 Settings Beta의 소유 section으로 이동한다.
+- 글쓰기 기본값은 Blog Beta의 글별 override와 연결하고, Buffer·Telegram·Slack·Bitly 및 앱 입력·외부 연결 설정은 각 scoped owner를 유지한다.
+- registry 기반 화면 style 선택과 localStorage 저장을 `앱 > 외모`에 추가했으며 네 정식 style을 자동 렌더링한다.
+- 기존 설정은 제거 전까지 compatibility surface로만 유지한다. 같은 값을 수정하는 새 writable owner를 추가하지 않는다.
+- 각 stage의 focused/browser 검증과 사용자 UI 확인을 완료했고, 디자인 시스템 parent 최종 full unit suite 1,694개 중 1,693개가 통과했으며 1개는 플랫폼 의존으로 skip됐다.

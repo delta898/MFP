@@ -30,20 +30,22 @@
 - primary를 보조하거나 다른 안전한 결과를 만드는 행동에 사용한다.
 - primary와 같은 filled 강도로 경쟁하지 않는다.
 - 기본 표현은 outline 또는 낮은 강조 surface다.
-- `관심 없음`, 건너뛰기처럼 낮은 위험의 선호·dismiss feedback은 부정적인 문구만으로 danger로 분류하지 않고 neutral secondary 또는 tertiary로 표현한다.
+- 건너뛰기·닫기처럼 결과를 남기지 않는 낮은 위험의 dismiss action은 neutral secondary 또는 tertiary로 표현한다.
+- `관심 없음`처럼 추천을 명시적으로 제외하고 향후 선호에 반영하는 negative feedback은 낮은 강조의 danger outline을 사용할 수 있다. 삭제처럼 복구 불가능한 행동으로 과장하지 않으며 filled danger나 별도 확인 dialog는 사용하지 않는다.
 
 ### Tertiary / Ghost
 
 - 닫기, 가벼운 이동, 낮은 빈도의 보조 행동에 사용한다.
 - 투명 배경을 기본으로 하며 hover와 focus에서만 surface를 드러낼 수 있다.
 
-### Danger
+### Danger / Negative feedback
 
-- 삭제, 초기화와 되돌리기 어려운 행동에 사용한다.
+- 삭제, 초기화와 되돌리기 어려운 행동 또는 사용자가 대상을 명시적으로 제외하는 negative feedback에 사용한다.
 - 평상시 primary보다 강하게 보일 필요는 없지만 위험 의미를 숨기지 않는다.
 - 대상과 영향을 확인해야 하는 행동은 실행 전 확인 흐름을 유지한다.
 - 구현은 공통 `.ui-danger-action` variant를 사용한다. feature stylesheet가 같은 danger border, text와 hover
   표현을 복제하지 않으며, primary·secondary·ghost 중 배치 위계는 유지한 채 위험 의미만 더한다.
+- negative feedback은 낮은 강조 outline을 유지하고 확인 dialog를 요구하지 않는다. 복구가 어렵거나 자료를 삭제하는 danger action만 영향과 확인 흐름을 추가한다.
 
 ### Action wording
 

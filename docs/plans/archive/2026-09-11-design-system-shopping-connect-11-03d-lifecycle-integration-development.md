@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-shopping-connect-11-03d-lifecycle-integration`
 - Base/parent branch: `codex/feature/design-system-shopping-connect-11`
 - Start date: 2026-09-11
-- Status: 구현·자동 검증 완료
+- Status: 완료·후속 계약으로 승격 — 디자인 시스템 parent에 통합
 
 ## 사용자 필요와 목표
 
@@ -62,3 +62,4 @@
 - `바로 포스팅`과 대기열의 `지금 포스팅`은 기존 shopping batch runtime 경로를 사용한다. 저장 시점의
   대상 채널을 행별 발행 계획으로 보존하고 Blog Beta runner와 같은 lifecycle 경계로 실행하는 작업은
   다음 slice로 분리한다.
+- 후속 [공통 lifecycle 계약 단계](../archive/2026-09-11-design-system-shopping-connect-11-04a-lifecycle-contract-development.md)에서 저장된 발행 계획, Shopping runner, 수정 UI와 수동 실행 정책을 완료했다. 이 기록의 capture·cache·상태 복구 결과는 해당 최종 계약의 선행 단계로 보존한다.

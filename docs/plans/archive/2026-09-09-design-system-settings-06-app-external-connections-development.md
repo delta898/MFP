@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-settings-06-app-external-connections`
 - Base/parent branch: `codex/feature/design-system-settings-main`
 - Start date: 2026-09-09
-- Status: 완료 — parent merge 및 사용자 hands-on 확인 대기
+- Status: 완료 — Settings Beta parent 및 디자인 시스템 parent에 통합
 
 ## 사용자 필요와 목표
 

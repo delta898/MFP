@@ -5,7 +5,7 @@
 - Branch: `codex/feature/design-system-settings-03-writing-defaults`
 - Base/parent branch: `codex/feature/design-system-settings-main`
 - Start date: 2026-09-09
-- Status: 구현 및 사용자 UI 확인 완료, parent merge 준비
+- Status: 완료 — Settings Beta parent에 통합
 
 ## 사용자 필요와 목표
 
@@ -71,3 +71,4 @@ Settings Beta의 `글쓰기` top menu를 여러 profile을 고르는 화면이 �
 - Blog Beta 상속·글별 override는 이 stage에 포함하지 않았으며 사용자 UI 확인 뒤 별도 stage에서 진행한다.
 - 사용자 확인: desktop/narrow 화면의 정보 밀도, 세 summary 문구, 참고 글 분석과 미리보기 결과의 가독성, 추천 설정 되돌리기 흐름.
 - 최종 자동 검증: focused structure/API 26개, focused UI/style 14개, fixture 기반 browser smoke 242 requests, 전체 unit 1,547개(통과 1,546·실패 0·skip 1).
+- 이 stage는 Settings Beta parent와 디자인 시스템 parent에 통합됐으며 후속 Blog Beta override 단계도 별도 기록으로 완료됐다.
