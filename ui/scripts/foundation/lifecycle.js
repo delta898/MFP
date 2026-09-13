@@ -380,7 +380,7 @@ function initKeywordResearchModal() {
       html += `
         <div class="keyword-title-generation-status" role="status">
           <span>선택한 글감과 키워드로 제목을 준비하고 있습니다.</span>
-          <div class="keyword-modal-progress" role="progressbar" aria-label="AI 제목 추천 진행 중"><span></span></div>
+          <div class="ui-progress-indeterminate" role="progressbar" aria-label="AI 제목 추천 진행 중"><span></span></div>
         </div>
       `;
     }
@@ -422,12 +422,12 @@ function initKeywordResearchModal() {
           ? `${Number(weeklyDocuments.count).toLocaleString()}${weeklyDocuments.capped ? '+' : ''}건`
           : '-';
         let compLevel = item.competition_strength?.level || '측정 불가';
-        let compClass = compLevel === '낮음' ? 'low' : (compLevel === '높음' ? 'high' : 'medium');
+        let compState = compLevel === '낮음' ? 'ready' : (compLevel === '높음' ? 'danger' : 'attention');
         if (weeklyDocuments.capped) {
           compLevel = '300+ 제외';
-          compClass = 'capped';
+          compState = 'attention';
         } else if (!item.competition_strength?.level) {
-          compClass = 'incomplete';
+          compState = '';
         }
         const oppScore = formatKeywordOpportunityMetric(item);
 
@@ -437,11 +437,11 @@ function initKeywordResearchModal() {
         section += `
           <tr>
             <td class="keyword-selection-column"><input class="keyword-selection-checkbox" type="checkbox" data-keyword-index="${keywordIndex}" ${isChecked ? 'checked' : ''} aria-label="${escapeHtml(item.keyword)} 선택"></td>
-            <td>${escapeHtml(item.keyword)} ${item.is_input_keyword ? '<span class="keyword-input-badge">입력</span>' : ''}</td>
+            <td>${escapeHtml(item.keyword)} ${item.is_input_keyword ? '<span class="ui-status-badge">입력</span>' : ''}</td>
             <td><strong>${totalVol}</strong> (${mobVol} / ${pcVol})</td>
             <td>${weeklySearch}</td>
             <td>${docCount}</td>
-            <td><span class="comp-badge ${compClass}">${compLevel}</span></td>
+            <td><span class="ui-status-badge"${compState ? ` data-state="${compState}"` : ''}>${compLevel}</span></td>
             <td>${oppScore}</td>
           </tr>
         `;
@@ -471,12 +471,11 @@ function initKeywordResearchModal() {
 
       titles.forEach((t) => {
         const role = t.role || '추천 제목';
-        const roleClass = role.includes('의도') ? 'intent' : (role.includes('공감') ? 'empathy' : 'scope');
 
         html += `
           <div class="title-card">
             <div class="title-card-header">
-              <span class="title-role-badge ${roleClass}">${escapeHtml(role)}</span>
+              <span class="ui-status-badge">${escapeHtml(role)}</span>
               <button class="title-apply-btn" type="button" data-title="${escapeHtml(t.title)}">이 제목과 선택 키워드 적용</button>
             </div>
             <div class="title-text">${escapeHtml(t.title)}</div>

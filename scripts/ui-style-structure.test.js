@@ -147,3 +147,39 @@ test('Blog Beta management typography follows shared navigation roles and distin
     assert.match(coreCss, /\.blog-next-queue-actions \.ghost\s*\{[^}]*font-size:\s*13px;[^}]*font-weight:\s*var\(--ui-weight-semibold\);/s);
     assert.match(coreCss, /\.blog-next-queue-actions \.primary\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-bold\);/s);
 });
+
+test('loading spinners share one keyframes definition', () => {
+    const cssFiles = [];
+    const collect = (dir) => {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+            const full = path.join(dir, entry.name);
+            if (entry.isDirectory()) collect(full);
+            else if (entry.isFile() && entry.name.endsWith('.css')) cssFiles.push(full);
+        }
+    };
+    collect(path.join(uiRoot, 'styles'));
+    const keyframes = new Set();
+    for (const file of cssFiles) {
+        const css = fs.readFileSync(file, 'utf8');
+        for (const match of css.matchAll(/@keyframes\s+([a-zA-Z0-9_-]+)/g)) {
+            if (/spin/i.test(match[1])) keyframes.add(match[1]);
+        }
+    }
+    assert.deepEqual([...keyframes].sort(), ['ui-refresh-action-spin']);
+});
+
+test('indeterminate progress bars share one pattern', () => {
+    const readUi = (file) => fs.readFileSync(path.join(uiRoot, file), 'utf8');
+    const feedback = readUi('styles/components/feedback.css');
+    const overlays = readUi('partials/overlays.html');
+
+    assert.match(feedback, /\.ui-progress-indeterminate\s*\{/);
+    assert.match(feedback, /@keyframes ui-progress-slide/);
+    for (const file of ['styles/features/discovery-modal.css', 'styles/features/recommendations.css']) {
+        const css = readUi(file);
+        assert.doesNotMatch(css, /keyword-modal-progress/);
+        assert.doesNotMatch(css, /quick-topic-recommendations-progress/);
+        assert.doesNotMatch(css, /quick-topic-progress/);
+    }
+    assert.match(overlays, /class="ui-progress-indeterminate"/);
+});

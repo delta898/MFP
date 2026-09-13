@@ -103,7 +103,7 @@
   border: 2px solid var(--ui-border-strong);
   border-top-color: var(--ui-action-primary);
   border-radius: var(--ui-radius-full);
-  animation: shopping-quick-preview-spin 800ms linear infinite;
+  animation: ui-refresh-action-spin 800ms linear infinite;
 }
 
 .shopping-quick-preview-error {
@@ -213,10 +213,6 @@
 
 .shopping-management-panel .shopping-management-item:not(.blog-next-saved-item) .blog-next-queue-actions {
   grid-template-columns: 120px 120px;
-}
-
-@keyframes shopping-quick-preview-spin {
-  to { transform: rotate(360deg); }
 }
 
 @media (max-width: 760px) {

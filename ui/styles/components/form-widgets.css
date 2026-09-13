@@ -349,11 +349,11 @@
 .tooltip-text {
   visibility: hidden;
   width: 220px;
-  background-color: #334155;
-  color: #fff;
+  background-color: var(--ui-surface-emphasis);
+  color: var(--ui-text-inverse);
   text-align: center;
-  border-radius: 6px;
-  padding: 8px 10px;
+  border-radius: var(--ui-radius-sm);
+  padding: var(--ui-space-2) var(--ui-space-3);
   position: absolute;
   z-index: 100;
   bottom: 140%;
@@ -361,10 +361,10 @@
   transform: translateX(-50%);
   opacity: 0;
   transition: opacity 0.2s, transform 0.2s;
-  font-size: 12px;
+  font-size: var(--ui-type-caption-size);
   line-height: 1.5;
   pointer-events: none;
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  box-shadow: var(--ui-shadow-md);
   font-weight: 500;
 }
 
@@ -382,7 +382,7 @@
   margin-left: -5px;
   border-width: 5px;
   border-style: solid;
-  border-color: #334155 transparent transparent transparent;
+  border-color: var(--ui-surface-emphasis) transparent transparent transparent;
 }
 
 /* Premium Checkbox Styling */

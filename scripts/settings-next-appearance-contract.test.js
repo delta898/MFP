@@ -20,6 +20,10 @@ test('appearance tab renders registry-driven live previews without compatibility
   assert.match(appearance, /persistDesignStyleId/);
   assert.match(appearance, /initSettingsNextAppearance/);
   assert.doesNotMatch(appearance, /compatibility/);
+  assert.doesNotMatch(appearance, /warm-editorial/);
+  assert.doesNotMatch(appearance, /quiet-sage-studio/);
+  assert.match(appearance, /entry\.blurb/);
+  assert.match(appearance, /getSelectableDesignStyles\(\)\[0\]/);
   assert.match(system, /DESIGN_STYLE_STORAGE_KEY = 'bloggenius\.ui\.style'/);
   assert.match(system, /readStoredDesignStyleId/);
 });
@@ -28,7 +32,7 @@ test('only product styles are selectable', () => {
   const system = read('ui/scripts/foundation/style-system.js');
 
   const selectable = Array.from(
-    system.matchAll(/['"]?([a-z-]+)['"]?: Object\.freeze\(\{\s*id: '\1',\s*label: '[^']*',\s*contractVersion:[^,]+,\s*selectable: (true|false)/g),
+    system.matchAll(/['"]?([a-z-]+)['"]?: Object\.freeze\(\{\s*id: '\1',\s*label: '[^']*',\s*(?:blurb: '[^']*',\s*)?contractVersion:[^,]+,\s*selectable: (true|false)/g),
     (match) => [match[1], match[2]]
   );
   assert.deepEqual(selectable, [

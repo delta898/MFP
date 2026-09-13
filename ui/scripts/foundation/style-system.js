@@ -105,12 +105,14 @@ const DESIGN_STYLE_REGISTRY = Object.freeze({
   'warm-editorial': Object.freeze({
     id: 'warm-editorial',
     label: '따뜻한 에디토리얼',
+    blurb: '기본 화면. 종이 질감의 따뜻함과 여유로운 밀도입니다.',
     contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
     selectable: true
   }),
   'quiet-sage-studio': Object.freeze({
     id: 'quiet-sage-studio',
     label: '고요한 세이지 스튜디오',
+    blurb: '차분한 세이지 색감의 조용한 밀도입니다.',
     contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
     selectable: true
   })

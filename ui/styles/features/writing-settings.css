@@ -231,12 +231,6 @@
   align-self: center;
 }
 
-.writing-reference-actions .danger-outline {
-  border: 1px solid #fecaca;
-  background: #fff;
-  color: #dc2626;
-}
-
 .writing-reference-status-list {
   display: grid;
   min-width: 0;
@@ -289,11 +283,7 @@
   content: '';
   display: inline-block;
   vertical-align: -2px;
-  animation: writing-preview-spin 0.8s linear infinite;
-}
-
-@keyframes writing-preview-spin {
-  to { transform: rotate(360deg); }
+  animation: ui-refresh-action-spin 0.8s linear infinite;
 }
 
 .writing-preview-result {

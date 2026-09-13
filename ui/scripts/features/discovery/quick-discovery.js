@@ -367,13 +367,17 @@ function getQuickKeywordSelectionKey(item = {}) {
 
 function getQuickKeywordCompetition(item = {}) {
   const documents = item.weekly_new_blog_documents || {};
-  if (documents.capped) return { label: '300+ 제외', className: 'capped' };
+  if (documents.capped) return { label: '300+ 제외', state: 'attention' };
   const level = item.competition_strength?.level;
-  if (!level) return { label: '측정 불가', className: 'incomplete' };
+  if (!level) return { label: '측정 불가', state: '' };
   return {
     label: level,
-    className: level === '낮음' ? 'low' : (level === '높음' ? 'high' : 'medium')
+    state: level === '낮음' ? 'ready' : (level === '높음' ? 'danger' : 'attention')
   };
+}
+
+function competitionBadgeAttributes(state) {
+  return state ? ` class="ui-status-badge" data-state="${state}"` : ' class="ui-status-badge"';
 }
 
 function renderQuickKeywordDiscovery() {
@@ -439,12 +443,12 @@ function renderQuickKeywordDiscovery() {
               return `
                 <tr data-quick-discovery-keyword-index="${index}">
                   <td class="quick-keyword-discovery-select-column"><input class="quick-keyword-discovery-checkbox" type="checkbox" data-quick-discovery-keyword-index="${index}" ${selectedKeys.has(selectionKey) ? 'checked' : ''} aria-label="${escapeHtml(item.keyword || '')} 선택"></td>
-                  <td><strong>${escapeHtml(item.keyword || '')}</strong>${item.is_input_keyword ? ' <span class="keyword-input-badge">시작</span>' : ''}</td>
+                  <td><strong>${escapeHtml(item.keyword || '')}</strong>${item.is_input_keyword ? ' <span class="ui-status-badge">시작</span>' : ''}</td>
                   <td><span class="quick-keyword-discovery-source">${item.is_input_keyword ? '직접' : '연관'}</span></td>
                   <td><strong>${formatQuickKeywordMetric(volume.total)}</strong> (${formatQuickKeywordMetric(volume.mobile)} / ${formatQuickKeywordMetric(volume.pc)})</td>
                   <td>${formatQuickKeywordRoundedMetric(item.estimated_weekly_search_volume)}</td>
                   <td>${documents.count !== null && documents.count !== undefined ? `${formatQuickKeywordMetric(documents.count)}${documents.capped ? '+' : ''}건` : '-'}</td>
-                  <td><span class="comp-badge ${competition.className}">${escapeHtml(competition.label)}</span></td>
+                  <td><span${competitionBadgeAttributes(competition.state)}>${escapeHtml(competition.label)}</span></td>
                   <td>${formatKeywordOpportunityMetric(item)}</td>
                   <td class="quick-keyword-discovery-action-column">
                     <div class="quick-keyword-discovery-actions">

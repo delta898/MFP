@@ -4,29 +4,6 @@
   font-size: var(--ui-type-label-size);
 }
 
-.quick-topic-recommendations-progress {
-  position: relative;
-  height: 6px;
-  margin: 18px 4px 22px;
-  overflow: hidden;
-  border-radius: var(--ui-radius-full);
-  background: var(--ui-action-primary-soft);
-}
-
-.quick-topic-recommendations-progress span {
-  position: absolute;
-  inset: 0 auto 0 -35%;
-  width: 35%;
-  border-radius: inherit;
-  background: var(--ui-action-primary);
-  animation: quick-topic-progress 1.35s ease-in-out infinite;
-}
-
-@keyframes quick-topic-progress {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(385%); }
-}
-
 .quick-topic-recommendation-row {
   display: grid;
   grid-template-columns: minmax(0, 4fr) minmax(160px, 1fr);

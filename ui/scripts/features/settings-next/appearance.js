@@ -1,26 +1,21 @@
-const SETTINGS_NEXT_APPEARANCE_COPY = Object.freeze({
-  'warm-editorial': Object.freeze({
-    description: '기본 화면. 종이 질감의 따뜻함과 여유로운 밀도입니다.'
-  }),
-  'quiet-sage-studio': Object.freeze({
-    description: '차분한 세이지 색감의 조용한 밀도입니다.'
-  })
-});
-
 let settingsNextAppearanceBound = false;
 
 function getSettingsNextAppearanceCopy(styleId) {
-  const preset = SETTINGS_NEXT_APPEARANCE_COPY[styleId];
-  if (preset) return preset.description;
   const entry = typeof DESIGN_STYLE_REGISTRY !== 'undefined' ? DESIGN_STYLE_REGISTRY[styleId] : null;
-  return entry ? `${entry.label} 스타일로 화면을 바꿉니다.` : '';
+  if (!entry) return '';
+  if (entry.blurb) return entry.blurb;
+  return `${entry.label} 스타일로 화면을 바꿉니다.`;
 }
 
 function getSettingsNextAppearanceCurrentId() {
   const rootId = String(document.documentElement?.dataset?.style || '').trim().toLowerCase();
   if (typeof DESIGN_STYLE_REGISTRY !== 'undefined'
     && DESIGN_STYLE_REGISTRY[rootId]?.selectable === true) return rootId;
-  return 'warm-editorial';
+  const firstSelectable = typeof getSelectableDesignStyles === 'function'
+    ? getSelectableDesignStyles()[0]
+    : null;
+  if (firstSelectable?.id) return firstSelectable.id;
+  return typeof resolveDesignStyleId === 'function' ? resolveDesignStyleId() : '';
 }
 
 function createSettingsNextAppearancePreview(styleId) {

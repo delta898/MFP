@@ -69,6 +69,7 @@ test('manual SNS publishing owns a busy state that locks duplicate actions', () 
     assert.match(composerSource, /input\.dataset\.manualSnsUnavailable/);
     assert.match(composerSource, /manualSnsDraggedImageIndex/);
     assert.match(styles, /#manual-sns-publish-btn\.is-loading::before/);
-    assert.match(styles, /@keyframes manual-sns-publish-spin/);
+    assert.match(styles, /animation: ui-refresh-action-spin/);
+    assert.doesNotMatch(styles, /@keyframes manual-sns-publish-spin/);
     assert.match(styles, /#manual-sns-publish-btn:disabled/);
 });

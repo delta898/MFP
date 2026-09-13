@@ -120,16 +120,6 @@
   white-space: nowrap;
 }
 
-.input-with-action button.danger-outline {
-  border: 1px solid #fecaca;
-  background: #fff;
-  color: #dc2626;
-}
-
-.input-with-action button.danger-outline:hover:not(:disabled) {
-  background: #fef2f2;
-}
-
 .settings-naver-auth-field {
   grid-column: 1 / -1;
 }

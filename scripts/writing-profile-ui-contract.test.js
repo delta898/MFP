@@ -127,7 +127,8 @@ test('writing profile UI uses the dedicated API and joins the global settings sa
     assert.match(styles, /\.writing-settings-grid > label,[\s\S]*font-size: 13px;[\s\S]*font-weight: 400;/);
     assert.match(styles, /\.writing-settings-section textarea,[\s\S]*font-size: 13px;[\s\S]*font-weight: 400;/);
     assert.match(styles, /button\.is-loading::before/);
-    assert.match(styles, /@keyframes writing-preview-spin/);
+    assert.match(styles, /animation: ui-refresh-action-spin/);
+    assert.doesNotMatch(styles, /@keyframes writing-preview-spin/);
     assert.match(styles, /\.writing-operation-status\s*\{[\s\S]*?font-size:\s*13px;[\s\S]*?overflow-wrap:\s*anywhere;/);
     assert.match(styles, /#settings-writing-reference-status\s*\{[\s\S]*?align-self:\s*center;/);
     assert.match(styles, /\.writing-reference-status-list > div\s*\{[\s\S]*?text-overflow:\s*ellipsis;[\s\S]*?white-space:\s*nowrap;/);

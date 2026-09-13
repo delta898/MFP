@@ -132,6 +132,11 @@
   color: var(--ui-status-success);
 }
 
+.ui-status-badge:is([data-state="danger"]) {
+  background: color-mix(in srgb, var(--ui-status-danger) 12%, var(--ui-surface));
+  color: var(--ui-status-danger);
+}
+
 .ui-count-badge {
   display: inline-flex;
   align-items: center;

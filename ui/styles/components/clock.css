@@ -169,25 +169,25 @@
   margin: 2px 0 2px 7px;
   padding: 3px 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.72);
-  color: #475569;
+  background: var(--ui-surface-translucent);
+  color: var(--ui-text-secondary);
   font-variant-numeric: tabular-nums;
-  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.18);
+  box-shadow: 0 0 0 1px var(--ui-border-default);
 }
 
 .clock-sub-timer.running {
-  background: #fff1f2;
-  color: #e11d48;
+  background: color-mix(in srgb, var(--ui-status-danger) 12%, var(--ui-surface));
+  color: var(--ui-status-danger);
 }
 
 .clock-sub-timer.paused {
-  background: #fff7ed;
-  color: #c2410c;
+  background: color-mix(in srgb, var(--ui-status-warning) 12%, var(--ui-surface));
+  color: var(--ui-status-warning);
 }
 
 .clock-sub-timer.completed {
-  background: #ecfdf5;
-  color: #047857;
+  background: color-mix(in srgb, var(--ui-status-success) 12%, var(--ui-surface));
+  color: var(--ui-status-success);
 }
 
 .clock-style-menu {
@@ -202,8 +202,8 @@
   padding: 10px;
   border: 1px solid var(--ui-border-default);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.97);
-  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.18);
+  background: var(--ui-surface-translucent);
+  box-shadow: var(--ui-shadow-lg);
   backdrop-filter: blur(16px);
 }
 
@@ -426,7 +426,7 @@
 
 .pomodoro-sound-toggle.active [data-pomodoro-sound-state] {
   background: var(--clock-season);
-  color: #ffffff;
+  color: var(--ui-text-inverse);
 }
 
 .pomodoro-face {

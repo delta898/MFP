@@ -11,7 +11,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(15, 23, 42, 0.4);
+  background: var(--ui-overlay);
   z-index: 5;
   opacity: 0;
   transition: opacity 0.3s ease;
@@ -40,15 +40,13 @@
 
   body.mobile-quick-mode .main {
     padding: 18px 14px 28px;
-    background:
-      radial-gradient(circle at top, rgba(14, 165, 233, 0.08), transparent 42%),
-      linear-gradient(180deg, #eef4fb 0%, #e8eff8 100%);
+    background: var(--ui-canvas);
   }
 
   body.mobile-quick-mode .mobile-topbar {
     padding: 14px 16px;
-    background: rgba(255, 255, 255, 0.95);
-    border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+    background: var(--ui-surface-translucent);
+    border-bottom: 1px solid var(--ui-border-default);
     backdrop-filter: blur(12px);
   }
 
@@ -58,13 +56,13 @@
     letter-spacing: -0.04em;
   }
 
-  body.mobile-quick-mode .hamburger-btn {
+  .mobile-quick-mode .hamburger-btn {
     width: 42px;
     height: 42px;
-    border: 1px solid #bfdbfe;
+    border: 1px solid var(--ui-border-focus);
     border-radius: 12px;
-    background: #ffffff;
-    color: #0f172a;
+    background: var(--ui-surface);
+    color: var(--ui-text-primary);
     box-shadow: var(--ui-shadow-sm);
     font-size: 21px;
     display: inline-flex;
@@ -75,7 +73,7 @@
   body.mobile-quick-mode .sidebar {
     width: min(82vw, 320px);
     padding: 22px 14px;
-    border-right: 1px solid rgba(226, 232, 240, 0.85);
+    border-right: 1px solid var(--ui-border-default);
     border-top-right-radius: 24px;
     border-bottom-right-radius: 24px;
   }
@@ -105,7 +103,7 @@
   }
 
   body.mobile-quick-mode .nav-btn.active {
-    box-shadow: 0 12px 24px rgba(14, 165, 233, 0.22);
+    box-shadow: var(--ui-shadow-md);
   }
 
   body.mobile-quick-mode .update-banner {

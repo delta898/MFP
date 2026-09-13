@@ -595,7 +595,7 @@
   border-top-color: currentColor;
   border-radius: var(--ui-radius-full);
   content: '';
-  animation: cardNewsSpin 0.8s linear infinite;
+  animation: ui-refresh-action-spin 0.8s linear infinite;
 }
 
 .card-news-generation-buttons button.is-loading {
