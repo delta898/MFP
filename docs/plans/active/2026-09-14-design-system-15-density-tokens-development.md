@@ -40,9 +40,12 @@
 - 2026-09-14: 사용자가 SNS 적용 후 시각 확인을 요청했다. 따라서 역할 토큰과 SNS 적용까지만 첫 review slice로 묶고, 승인 전에는 Discovery와 Blog Beta를 변경하지 않는다.
 - 2026-09-14: page gap, section/action padding, field gap, 일반/compact control 높이, control inline padding과 radius를 style contract로 추가했다. 미디어 크기, textarea 높이와 grid column은 기능 의미가 있는 geometry로 유지한다.
 - 2026-09-14: SNS가 새 밀도 계약을 소비하도록 전환했다. 중첩 section 안에서 작업 공간 field에 다시 적용되던 좌우 margin은 제거해 heading, field와 channel grid의 content edge를 맞췄다.
+- 2026-09-14: SNS 시각 승인 후 Discovery의 추천 센터, 글감 추천, 키워드 탐색 모달로 같은 역할 계약을 확장했다. 결과 열 수, 모달 폭, 표 폭, 추천 사유 들여쓰기와 모바일 전용 padding은 기능·반응형 geometry로 유지했다.
 
 ## 검증 및 결과
 
 - 역할 기반 밀도와 SNS focused contract 38건 통과.
 - SNS review slice browser UI smoke 277 fixture requests 통과.
 - 사용자가 SNS의 변경된 밀도와 정렬을 시각 확인하고 다음 단계 진행을 승인했다.
+- Discovery focused contract 42건 통과.
+- Discovery review slice browser UI smoke 285 fixture requests 통과.

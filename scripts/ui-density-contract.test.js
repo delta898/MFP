@@ -43,3 +43,23 @@ test('SNS consumes density roles without changing its content or interaction geo
   assert.match(social, /\.social-channel-grid\s*\{[^}]*repeat\(3, minmax\(0, 1fr\)\)/s);
   assert.match(surfaces, /\.social-view \.social-workspace-select\s*\{\s*margin:\s*0 0 var\(--ui-space-4\);\s*\}/);
 });
+
+test('Discovery consumes density roles while preserving result geometry', () => {
+  const center = read('ui/styles/features/recommendation-center.css');
+  const recommendations = read('ui/styles/features/recommendations.css');
+  const modal = read('ui/styles/features/discovery-modal.css');
+  const combined = `${center}\n${recommendations}\n${modal}`;
+
+  [
+    '--ui-density-section-padding',
+    '--ui-density-field-gap',
+    '--ui-density-control-min-height',
+    '--ui-density-compact-control-min-height',
+    '--ui-density-control-padding-inline',
+    '--ui-density-control-radius'
+  ].forEach((token) => assert.match(combined, new RegExp(`var\\(${token.replaceAll('-', '\\-')}\\)`), token));
+  assert.match(center, /\.recommendation-center-list\s*\{[^}]*repeat\(3, minmax\(0, 1fr\)\)[^}]*gap:\s*var\(--ui-density-field-gap\)/s);
+  assert.match(recommendations, /\.quick-topic-recommendation-row\s*\{[^}]*minmax\(160px, 1fr\)/s);
+  assert.match(modal, /\.quick-discovery-modal-container\s*\{[^}]*width:\s*min\(1040px, calc\(100vw - 32px\)\)/s);
+  assert.match(modal, /\.keyword-metrics-table\s*\{[^}]*width:\s*100%/s);
+});

@@ -1,6 +1,6 @@
 .recommendation-center {
   margin: var(--ui-space-5) 0 var(--ui-space-6);
-  padding: var(--ui-space-5);
+  padding: var(--ui-density-section-padding);
 }
 
 .recommendation-center-head,
@@ -15,7 +15,7 @@
 
 .recommendation-center-head {
   justify-content: space-between;
-  gap: var(--ui-space-5);
+  gap: var(--ui-density-field-gap);
   margin-bottom: var(--ui-space-4);
 }
 
@@ -62,7 +62,7 @@
 .recommendation-center-list {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--ui-space-3);
+  gap: var(--ui-density-field-gap);
   align-items: stretch;
 }
 
@@ -207,7 +207,7 @@
 }
 
 .recommendation-card-actions button {
-  min-height: 32px;
+  min-height: var(--ui-density-compact-control-min-height);
   padding: var(--ui-space-2) var(--ui-space-3);
   font-size: var(--ui-type-caption-size);
 }

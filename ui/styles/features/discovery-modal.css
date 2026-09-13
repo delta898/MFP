@@ -3,7 +3,7 @@
    ========================================================================== */
 .keyword-research-modal-container {
   background: var(--ui-surface);
-  border-radius: 8px;
+  border-radius: var(--ui-density-control-radius);
   box-shadow: var(--ui-shadow-lg);
   width: min(960px, calc(100vw - 32px));
   max-width: none;
@@ -18,7 +18,7 @@
 
 .quick-discovery-modal-body {
   min-height: 0;
-  padding: 20px 24px;
+  padding: var(--ui-density-section-padding);
 }
 
 .quick-discovery-tabs {
@@ -27,15 +27,15 @@
   margin: -4px 0 18px;
   padding: 4px;
   border: 1px solid var(--ui-border-default);
-  border-radius: 8px;
+  border-radius: var(--ui-density-control-radius);
   background: var(--ui-surface-muted);
 }
 
 .quick-discovery-tab {
-  min-height: 38px;
-  padding: 8px 16px;
+  min-height: var(--ui-density-compact-control-min-height);
+  padding: var(--ui-space-2) var(--ui-density-control-padding-inline);
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--ui-density-control-radius);
   background: transparent;
   color: var(--ui-text-secondary);
   font-size: var(--ui-type-label-size);
@@ -53,7 +53,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: var(--ui-density-field-gap);
   padding: 4px 0 12px;
 }
 
@@ -72,22 +72,22 @@
 
 .quick-discovery-action-row .primary {
   min-width: 118px;
-  min-height: 42px;
-  padding: 9px 16px;
+  min-height: var(--ui-density-control-min-height);
+  padding: var(--ui-space-2) var(--ui-density-control-padding-inline);
   white-space: nowrap;
 }
 
 .quick-discovery-query-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
+  gap: var(--ui-density-field-gap);
   align-items: end;
   margin: 2px 0 10px;
 }
 
 .quick-discovery-query-field {
   display: grid;
-  gap: 5px;
+  gap: var(--ui-space-1);
   color: var(--ui-text-secondary);
   font-size: var(--ui-type-label-size);
   font-weight: var(--ui-weight-bold);
@@ -108,7 +108,7 @@
 
 .quick-discovery-query-field input {
   width: 100%;
-  min-height: 40px;
+  min-height: var(--ui-density-control-min-height);
   box-sizing: border-box;
   padding: 9px 42px 9px 12px;
 }
@@ -165,7 +165,7 @@
 .quick-discovery-query-actions .primary {
   width: 148px;
   min-width: 148px;
-  min-height: 40px;
+  min-height: var(--ui-density-control-min-height);
   box-sizing: border-box;
   padding: 8px 14px;
   white-space: nowrap;
@@ -201,11 +201,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--ui-density-field-gap);
   margin: 0 0 12px;
   padding: 12px 14px;
   border: 1px solid var(--ui-border-default);
-  border-radius: 8px;
+  border-radius: var(--ui-density-control-radius);
   background: var(--ui-surface-muted);
 }
 
@@ -257,7 +257,7 @@
 }
 
 .quick-keyword-discovery-research {
-  min-height: 34px;
+  min-height: var(--ui-density-compact-control-min-height);
   padding: 7px 10px;
   font-size: var(--ui-type-caption-size);
   white-space: nowrap;
@@ -265,7 +265,7 @@
 
 .quick-keyword-discovery-research {
   border: 1px solid var(--ui-border-default);
-  border-radius: 6px;
+  border-radius: var(--ui-density-control-radius);
   background: var(--ui-surface);
   color: var(--ui-text-secondary);
   cursor: pointer;
@@ -287,24 +287,24 @@
 .keyword-research-modal-body {
   min-height: 0;
   max-height: none;
-  padding: 20px 24px;
+  padding: var(--ui-density-section-padding);
 }
 
 .keyword-modal-search-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
+  gap: var(--ui-density-field-gap);
   align-items: end;
   margin-bottom: 14px;
   padding: 12px;
   border: 1px solid var(--ui-border-default);
-  border-radius: 8px;
+  border-radius: var(--ui-density-control-radius);
   background: var(--ui-surface-muted);
 }
 
 .keyword-modal-subject-field {
   display: grid;
-  gap: 5px;
+  gap: var(--ui-space-1);
   color: var(--ui-text-primary);
   font-size: var(--ui-type-label-size);
   font-weight: var(--ui-weight-bold);
@@ -312,17 +312,17 @@
 
 .keyword-modal-subject-field input {
   width: 100%;
-  min-height: 42px;
+  min-height: var(--ui-density-control-min-height);
   border: 1px solid var(--ui-border-default);
-  border-radius: 6px;
+  border-radius: var(--ui-density-control-radius);
   background: var(--ui-surface);
-  padding: 0 12px;
+  padding: 0 var(--ui-density-control-padding-inline);
 }
 
 .keyword-modal-search-row .primary {
   min-width: 124px;
-  min-height: 42px;
-  padding: 0 16px;
+  min-height: var(--ui-density-control-min-height);
+  padding: 0 var(--ui-density-control-padding-inline);
   white-space: nowrap;
 }
 
@@ -332,7 +332,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--ui-space-2);
   text-align: center;
   border-top: 1px solid var(--ui-border-default);
 }
@@ -453,11 +453,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--ui-density-field-gap);
   margin: 18px 0 20px;
   padding: 14px 16px;
   border: 1px solid var(--ui-border-default);
-  border-radius: 8px;
+  border-radius: var(--ui-density-control-radius);
   background: var(--ui-surface-muted);
 }
 
@@ -478,15 +478,15 @@
 }
 
 .keyword-title-action-row .primary {
-  min-height: 42px;
-  padding: 10px 16px;
+  min-height: var(--ui-density-control-min-height);
+  padding: var(--ui-space-2) var(--ui-density-control-padding-inline);
 }
 
 .keyword-title-generation-status {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--ui-density-field-gap);
   margin: 0 0 12px;
   padding: 10px 12px;
   border-left: 3px solid var(--ui-action-primary);
@@ -504,7 +504,7 @@
 .title-suggestions-grid {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--ui-density-field-gap);
   margin-bottom: 16px;
 }
 
@@ -530,9 +530,9 @@
 }
 
 .title-apply-btn {
-  min-height: 38px;
+  min-height: var(--ui-density-compact-control-min-height);
   border: 1px solid var(--ui-action-primary);
-  border-radius: 8px;
+  border-radius: var(--ui-density-control-radius);
   padding: 8px 12px;
   background: var(--ui-action-primary);
   color: var(--ui-text-inverse);
@@ -580,13 +580,13 @@
   }
 
   .quick-discovery-modal-body {
-    padding: 16px;
+    padding: var(--ui-space-4);
   }
 
   .quick-discovery-action-row {
     align-items: stretch;
     flex-direction: column;
-    gap: 12px;
+    gap: var(--ui-density-field-gap);
   }
 
   .quick-discovery-action-row .primary {
@@ -612,7 +612,7 @@
   }
 
   .keyword-research-modal-body {
-    padding: 16px;
+    padding: var(--ui-space-4);
   }
 
   .keyword-modal-search-row {

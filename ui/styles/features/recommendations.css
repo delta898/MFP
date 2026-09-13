@@ -1,5 +1,5 @@
 .quick-topic-recommendations-status {
-  padding: 10px 4px 18px;
+  padding: var(--ui-density-field-gap) var(--ui-space-1) var(--ui-space-5);
   color: var(--ui-text-secondary);
   font-size: var(--ui-type-label-size);
 }
@@ -8,8 +8,8 @@
   display: grid;
   grid-template-columns: minmax(0, 4fr) minmax(160px, 1fr);
   align-items: center;
-  gap: 18px;
-  padding: 13px 4px;
+  gap: var(--ui-density-field-gap);
+  padding: var(--ui-density-field-gap) var(--ui-space-1);
   border-top: 1px solid var(--ui-border-default);
 }
 
@@ -17,7 +17,7 @@
   display: flex;
   align-items: baseline;
   min-width: 0;
-  gap: 10px;
+  gap: var(--ui-density-field-gap);
   flex-wrap: wrap;
 }
 
@@ -67,11 +67,11 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 5px;
+  gap: var(--ui-space-1);
 }
 
 .quick-topic-recommendation-actions button.primary {
-  min-height: 36px;
+  min-height: var(--ui-density-compact-control-min-height);
   padding: 7px 12px;
   white-space: nowrap;
   font-size: var(--ui-type-label-size);
@@ -91,7 +91,7 @@
 @media (max-width: 960px) {
   .quick-topic-recommendation-row {
     grid-template-columns: 1fr;
-    gap: 10px;
+    gap: var(--ui-density-field-gap);
   }
 
   .quick-topic-recommendation-actions {
