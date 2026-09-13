@@ -343,7 +343,7 @@ test('queue item titles avoid redundant edit labels and queue actions keep stabl
   assert.match(queueCss, /@media[\s\S]*\.blog-next-queue-actions,[\s\S]*\.blog-next-queue-item:not\(\.blog-next-saved-item\) \.blog-next-queue-actions,[\s\S]*\.blog-next-saved-item \.blog-next-queue-actions\s*\{[^}]*display:\s*flex;/s);
   assert.match(queueCss, /@media[\s\S]*\.blog-next-queue-actions\s*\{[^}]*flex-wrap:\s*wrap;[^}]*width:\s*100%;/s);
   assert.match(queueCss, /@media[\s\S]*\.blog-next-queue-copy strong\s*\{[^}]*white-space:\s*normal;[^}]*-webkit-line-clamp:\s*2;/s);
-  assert.match(queueCss, /@media[\s\S]*\.blog-next-queue-actions button\s*\{[^}]*min-height:\s*40px;/s);
+  assert.match(queueCss, /@media[\s\S]*\.blog-next-queue-actions button\s*\{[^}]*min-height:\s*var\(--ui-density-control-min-height\)/s);
 });
 
 test('queue rows share one transient hover and keyboard focus surface', () => {

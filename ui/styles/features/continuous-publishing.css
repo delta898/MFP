@@ -1,5 +1,5 @@
 .blog-next-view {
-  gap: 18px;
+  gap: var(--ui-density-page-gap);
 }
 
 .blog-next-mode-panel h3,
@@ -31,7 +31,7 @@
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
+  gap: var(--ui-density-field-gap);
   padding: 14px 16px;
   border: 1px solid var(--ui-border-default);
   border-radius: var(--ui-radius-md);
@@ -147,7 +147,7 @@
 
 .blog-next-panel {
   display: none;
-  gap: 20px;
+  gap: var(--ui-density-page-gap);
 }
 
 .blog-next-panel.active {
@@ -157,7 +157,7 @@
 .blog-next-mode-panel {
   display: none;
   min-height: 150px;
-  padding: 22px;
+  padding: var(--ui-density-section-padding);
   border: 1px solid var(--ui-border-default);
   border-radius: var(--ui-radius-md);
   background: var(--ui-surface);
@@ -166,19 +166,19 @@
 .blog-next-mode-panel.active {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--ui-density-field-gap);
 }
 
 .blog-next-topic-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--ui-density-page-gap);
 }
 
 .blog-next-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: var(--ui-density-field-gap);
 }
 
 .blog-next-field {
@@ -234,15 +234,20 @@
 .blog-next-field select {
   width: 100%;
   box-sizing: border-box;
-  padding: 12px 14px;
+  padding: var(--ui-space-2) var(--ui-density-control-padding-inline);
   border: 1px solid var(--ui-border-default);
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-density-control-radius);
   background: var(--ui-surface);
   color: var(--ui-text-primary);
   font: inherit;
   font-size: var(--ui-type-body-size);
   font-weight: var(--ui-weight-regular);
   line-height: 1.4;
+}
+
+.blog-next-field input:not([type="checkbox"]):not([type="radio"]),
+.blog-next-field select {
+  min-height: var(--ui-density-control-min-height);
 }
 
 .blog-next-field textarea {
@@ -262,7 +267,7 @@
   flex-wrap: wrap;
   padding: 12px 14px;
   border: 1px solid var(--ui-border-default);
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-density-control-radius);
 }
 
 .blog-next-targets legend {
@@ -373,14 +378,14 @@
 .blog-next-queue-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--ui-density-field-gap);
 }
 
 .blog-next-queue-item {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
+  gap: var(--ui-density-field-gap);
   padding: 10px 12px;
   border: 1px solid var(--ui-border-default);
   border-radius: var(--ui-radius-sm);
@@ -470,8 +475,9 @@
 }
 
 .blog-next-queue-actions button {
+  min-height: var(--ui-density-compact-control-min-height);
   padding: 7px 10px;
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-density-control-radius);
   font-family: inherit;
   white-space: nowrap;
   cursor: pointer;
@@ -526,8 +532,8 @@
 .blog-next-automation-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 16px;
+  gap: var(--ui-density-page-gap);
+  padding: var(--ui-density-section-padding);
   border: 1px solid var(--ui-border-default);
   border-radius: var(--ui-radius-md);
   background: var(--ui-surface);
@@ -572,7 +578,7 @@
 }
 
 .blog-next-automation-fields .blog-next-field input {
-  min-height: 40px;
+  min-height: var(--ui-density-control-min-height);
   padding: 9px 12px;
   border-color: var(--ui-border-default);
   font-size: var(--ui-type-label-size);
@@ -581,7 +587,7 @@
 .blog-next-automation-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: var(--ui-density-field-gap);
   align-items: end;
 }
 
@@ -606,7 +612,7 @@
 
 .blog-next-automation-notify {
   align-self: end;
-  min-height: 40px;
+  min-height: var(--ui-density-control-min-height);
   padding-bottom: 0;
 }
 
@@ -640,12 +646,13 @@
 
 .blog-next-draft-toolbar {
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--ui-density-field-gap);
 }
 
 .blog-next-draft-toolbar button {
+  min-height: var(--ui-density-compact-control-min-height);
   padding: 10px 14px;
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-density-control-radius);
   font-weight: var(--ui-weight-bold);
   cursor: pointer;
 }
@@ -659,7 +666,7 @@
 .blog-next-draft-options {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: var(--ui-density-field-gap);
 }
 
 .blog-next-markdown-input {
@@ -671,8 +678,8 @@
 
 .blog-next-draft-actions {
   justify-content: space-between;
-  gap: 18px;
-  padding: 15px 16px;
+  gap: var(--ui-density-field-gap);
+  padding: var(--ui-density-action-padding);
   border: 1px solid var(--ui-border-default);
   border-radius: var(--ui-radius-md);
   background: var(--ui-surface);
@@ -705,8 +712,9 @@
 
 .blog-next-draft-actions button {
   flex-shrink: 0;
+  min-height: var(--ui-density-control-min-height);
   padding: 11px 16px;
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-density-control-radius);
   font-weight: var(--ui-weight-bold);
   cursor: pointer;
 }
@@ -750,8 +758,8 @@
 .blog-next-draft-preview {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 18px;
+  gap: var(--ui-density-page-gap);
+  padding: var(--ui-density-section-padding);
   border: 1px solid var(--ui-border-default);
   border-radius: var(--ui-radius-md);
   background: var(--ui-surface);

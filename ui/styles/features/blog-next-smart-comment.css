@@ -1,5 +1,5 @@
 .blog-next-smart-comment {
-  gap: 18px;
+  gap: var(--ui-density-page-gap);
 }
 
 .blog-next-smart-comment-intro,
@@ -14,7 +14,7 @@
 
 .blog-next-smart-comment-intro {
   justify-content: space-between;
-  gap: 24px;
+  gap: var(--ui-density-field-gap);
 }
 
 .blog-next-smart-comment-heading {
@@ -64,7 +64,7 @@
 
 .blog-next-smart-comment-form,
 .blog-next-smart-comment-results {
-  padding: 18px;
+  padding: var(--ui-density-section-padding);
   border: 1px solid var(--ui-border-default);
   border-radius: var(--ui-radius-md);
   background: var(--ui-surface);
@@ -73,7 +73,7 @@
 .blog-next-smart-comment-settings {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: var(--ui-density-field-gap);
 }
 
 .blog-next-smart-comment-guidance {
@@ -100,7 +100,7 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: end;
-  gap: 14px;
+  gap: var(--ui-density-field-gap);
   margin-top: 14px;
 }
 
@@ -127,7 +127,7 @@
 
 .blog-next-smart-comment-form-actions {
   justify-content: flex-end;
-  gap: 10px;
+  gap: var(--ui-density-field-gap);
   margin-top: 14px;
 }
 
@@ -135,7 +135,7 @@
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
+  gap: var(--ui-density-field-gap);
   padding: 14px 16px;
   border: 1px solid var(--ui-border-default);
   border-radius: var(--ui-radius-md);
@@ -211,7 +211,7 @@
 
 .blog-next-smart-comment-results-head {
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--ui-density-field-gap);
   margin-bottom: 14px;
 }
 
@@ -238,7 +238,7 @@
 .blog-next-smart-comment-list,
 .blog-next-smart-comment-drafts {
   display: grid;
-  gap: 12px;
+  gap: var(--ui-density-field-gap);
 }
 
 .blog-next-smart-comment-card {
@@ -251,7 +251,7 @@
 .blog-next-smart-comment-card-head {
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--ui-density-field-gap);
 }
 
 .blog-next-smart-comment-card-copy {
@@ -333,9 +333,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 34px;
+  min-height: var(--ui-density-compact-control-min-height);
   padding: 7px 11px;
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-density-control-radius);
   background: var(--ui-action-primary);
   color: var(--ui-text-inverse);
   font-size: var(--ui-type-label-size);

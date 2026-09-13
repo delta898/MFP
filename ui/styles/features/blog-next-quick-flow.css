@@ -8,7 +8,7 @@
 }
 
 .blog-next-core-fields {
-  gap: var(--ui-space-4);
+  gap: var(--ui-density-page-gap);
 }
 
 .blog-next-ai-assist {
@@ -39,7 +39,7 @@
 
 .blog-next-disclosures {
   display: grid;
-  gap: var(--ui-space-3);
+  gap: var(--ui-density-field-gap);
 }
 
 .blog-next-disclosure {
@@ -113,7 +113,7 @@
 }
 
 .blog-next-disclosure-grid {
-  padding: var(--ui-space-5);
+  padding: var(--ui-density-section-padding);
 }
 
 .blog-next-disclosure .blog-next-execution-options {

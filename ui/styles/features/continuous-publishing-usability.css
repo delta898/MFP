@@ -1,7 +1,7 @@
 .blog-next-input-action-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
+  gap: var(--ui-density-field-gap);
 }
 
 @media (max-width: 768px) {
@@ -40,7 +40,7 @@
   }
 
   .blog-next-queue-actions button {
-    min-height: 40px;
+    min-height: var(--ui-density-control-min-height);
   }
 
   .blog-next-queue-item:not(.blog-next-saved-item) .blog-next-queue-actions button,
@@ -64,7 +64,7 @@
 .blog-next-management-tabs {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--ui-density-field-gap);
   margin-bottom: 16px;
 }
 
@@ -80,6 +80,7 @@
 }
 
 .blog-next-management-refresh {
+  min-height: var(--ui-density-compact-control-min-height);
   margin-left: auto;
   padding: 8px 14px;
   white-space: nowrap;

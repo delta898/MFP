@@ -3,7 +3,7 @@
 - branch: `codex/feature/design-system-15-density-tokens`
 - base/parent: `codex/feature/design-system-main`
 - started: 2026-09-14
-- status: in_progress
+- status: ready_for_review
 
 ## 사용자 필요와 목표
 
@@ -41,6 +41,8 @@
 - 2026-09-14: page gap, section/action padding, field gap, 일반/compact control 높이, control inline padding과 radius를 style contract로 추가했다. 미디어 크기, textarea 높이와 grid column은 기능 의미가 있는 geometry로 유지한다.
 - 2026-09-14: SNS가 새 밀도 계약을 소비하도록 전환했다. 중첩 section 안에서 작업 공간 field에 다시 적용되던 좌우 margin은 제거해 heading, field와 channel grid의 content edge를 맞췄다.
 - 2026-09-14: SNS 시각 승인 후 Discovery의 추천 센터, 글감 추천, 키워드 탐색 모달로 같은 역할 계약을 확장했다. 결과 열 수, 모달 폭, 표 폭, 추천 사유 들여쓰기와 모바일 전용 padding은 기능·반응형 geometry로 유지했다.
+- 2026-09-14: Blog Beta의 빠른 글 작성, 글감 관리, 원고 입력과 스마트 댓글 surface가 동일한 page/section/field/control 역할을 소비하도록 전환했다. textarea·원고 preview 높이, queue action 열과 이미지 preview 비율은 workflow geometry로 유지했다.
+- 2026-09-14: SNS 작업 공간을 매번 불러오지 않도록 하는 캐시는 밀도 변경과 분리한다. 후속 slice에서는 비밀값이 아닌 작업 공간·채널 snapshot을 즉시 복원하고 백그라운드 갱신하며, 인증 만료 시에만 무효화하고 일시 오류에는 마지막 정상 상태를 보존하는 방식을 검토한다.
 
 ## 검증 및 결과
 
@@ -49,3 +51,11 @@
 - 사용자가 SNS의 변경된 밀도와 정렬을 시각 확인하고 다음 단계 진행을 승인했다.
 - Discovery focused contract 42건 통과.
 - Discovery review slice browser UI smoke 285 fixture requests 통과.
+- Blog Beta focused contract 89건 통과.
+- Blog Beta review slice browser UI smoke 279 fixture requests 통과.
+
+## 수동 확인 및 남은 위험
+
+- Discovery 추천 센터와 글감 추천/키워드 탐색 모달의 최종 시각 밀도 확인이 남아 있다.
+- Blog Beta의 빠른 글 작성, 글감 관리, 원고 입력, 스마트 댓글에서 warm editorial 기준 최종 시각 확인이 남아 있다.
+- parent 병합 전 full unit suite는 사용자 승인 후 실행해야 한다.

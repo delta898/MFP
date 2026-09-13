@@ -93,7 +93,7 @@ test('Blog Beta quick modes share the same content start inset', () => {
     const styles = read('ui/styles/features/continuous-publishing.css');
 
     assert.doesNotMatch(styles, /\.blog-next-topic-form\s*\{[^}]*margin-top:/s);
-    assert.match(styles, /\.blog-next-mode-panel\s*\{[^}]*padding:\s*22px/s);
+    assert.match(styles, /\.blog-next-mode-panel\s*\{[^}]*padding:\s*var\(--ui-density-section-padding\)/s);
 });
 
 test('Blog Beta tab interaction separates selection and keyboard focus', () => {

@@ -5,7 +5,7 @@
 
 .blog-next-draft-source,
 .blog-next-draft-mode {
-  gap: var(--ui-space-4);
+  gap: var(--ui-density-page-gap);
 }
 
 .blog-next-draft-source {
@@ -58,7 +58,7 @@
 .blog-next-draft-options {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--ui-space-4);
+  gap: var(--ui-density-field-gap);
 }
 
 .blog-next-draft-options .blog-next-targets {
@@ -125,7 +125,7 @@
 
 .blog-next-manuscript-preview {
   gap: var(--ui-space-5);
-  padding: var(--ui-space-6);
+  padding: var(--ui-density-section-padding);
 }
 
 .blog-next-manuscript-preview .local-markdown-preview-head {

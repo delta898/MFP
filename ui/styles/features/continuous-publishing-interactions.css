@@ -15,7 +15,7 @@
 .blog-next-folder-row {
   display: flex;
   align-items: stretch;
-  gap: 10px;
+  gap: var(--ui-density-field-gap);
 }
 
 .blog-next-folder-selection {
@@ -24,11 +24,11 @@
   align-items: center;
   flex: 1 1 auto;
   min-width: 0;
-  min-height: 47px;
+  min-height: var(--ui-density-control-min-height);
   box-sizing: border-box;
   padding: 12px 48px 12px 14px;
   border: 1px solid var(--ui-border-default);
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-density-control-radius);
   background: var(--ui-surface-muted);
   color: var(--ui-text-primary);
 }
