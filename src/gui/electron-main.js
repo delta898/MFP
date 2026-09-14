@@ -97,6 +97,7 @@ process.env.BLOG_GENIUS_USER_DATA = app.getPath('userData');
 
 let CONFIG;
 let startUiServer;
+let closeAgentMemory;
 let startRemoteMcpService;
 let stopRemoteMcpService;
 let Logger;
@@ -105,6 +106,7 @@ if (safeMode) {
     CONFIG = { LISTEN_HOST: '127.0.0.1', LISTEN_PORT: 0, ROOT_DIR: startup.rootDir };
     const { startSafeModeServer } = require('./safe-mode-server');
     startUiServer = () => startSafeModeServer({ diagnosticRoot: startup.rootDir });
+    closeAgentMemory = () => {};
     startRemoteMcpService = async () => ({ enabled: false, running: false });
     stopRemoteMcpService = async () => false;
     Logger = {
@@ -121,7 +123,7 @@ if (safeMode) {
     // Portable 설정 및 전체 애플리케이션 그래프는 정상 모드에서만 로드합니다.
     CONFIG = require('../config-loader');
     startup.write('CONFIG_LOADED', { rootDir: CONFIG.ROOT_DIR || '' });
-    ({ startUiServer } = require('../ui-server'));
+    ({ closeAgentMemory, startUiServer } = require('../ui-server'));
     ({ startRemoteMcpService, stopRemoteMcpService } = require('../mcp/remote-service'));
     Logger = require('../logger');
     const { logRuntimeEnvironmentStatus } = require('../environment/runtime-profile');
@@ -451,6 +453,7 @@ app.on('before-quit', () => {
     if (uiServer && uiServer.server) {
         uiServer.server.close();
     }
+    closeAgentMemory?.();
     if (typeof stopRemoteMcpService === 'function') {
         stopRemoteMcpService().catch((error) => {
             Logger?.error?.(`GUI: Failed to stop MCP remote service: ${error.message}`);

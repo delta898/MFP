@@ -28,3 +28,9 @@ test('renderer readiness is persisted and the CI probe exits cleanly', () => {
     assert.match(source, /STARTUP_PROBE_COMPLETE/);
     assert.match(source, /setImmediate\(\(\) => app[.]quit\(\)\)/);
 });
+
+test('normal shutdown closes SQLite memory while safe mode keeps a no-op boundary', () => {
+    assert.match(source, /closeAgentMemory = \(\) => \{\}/);
+    assert.match(source, /\(\{ closeAgentMemory, startUiServer \} = require\('\.\.\/ui-server'\)\)/);
+    assert.match(source, /app[.]on\('before-quit',[\s\S]{0,700}closeAgentMemory[?][.]\(\)/);
+});

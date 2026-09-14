@@ -5,10 +5,10 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 
-test('generic Agent suggestion results no longer materialize SuggestionNode', () => {
-    const source = fs.readFileSync(path.join(ROOT, 'src/memory/event-store.js'), 'utf8');
-    assert.doesNotMatch(source, /action\.domain[^\n]+agent\.suggestions[\s\S]{0,1200}_upsertSuggestionNode/);
-    assert.match(source, /agent\.confirmation\.requested[\s\S]{0,900}_upsertSuggestionNode/);
+test('generic Agent suggestion results do not materialize suggestion rows', () => {
+    const source = fs.readFileSync(path.join(ROOT, 'src/memory/sqlite-event-store.js'), 'utf8');
+    assert.doesNotMatch(source, /action\.domain[^\n]+agent\.suggestions[\s\S]{0,1200}_upsertSuggestion/);
+    assert.match(source, /agent\.confirmation\.requested[\s\S]{0,1200}_upsertSuggestion/);
 });
 
 test('legacy suggestions provider remains a thin compatibility facade', () => {

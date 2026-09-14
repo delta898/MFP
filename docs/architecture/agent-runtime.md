@@ -12,7 +12,7 @@ The agent runtime turns channel input into validated actions, manages confirmati
 6. If confirmation is needed, runtime creates a pending confirmation.
 7. If confirmed or non-interactive, runtime executes the capability.
 8. Result is rendered by the channel renderer.
-9. Events are recorded into Kuzu.
+9. Events are recorded into the SQLite V2 memory store.
 
 ## Current Boundaries
 - Runtime may parse and validate.

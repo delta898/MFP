@@ -38,7 +38,7 @@ SQLite is the physical store while graph semantics remain in the memory contract
 The feature is split into two reviewable stages:
 
 1. [SQLite V2 Store](../archive/2026-09-14-agent-memory-sqlite-v2-store-development.md): storage adapter, schema, contract parity, recommendation integration, insight projection, and retention. Completed and integrated into the parent.
-2. Kuzu Retirement: activate V2 by default, apply the health gate and fallback, remove the Kuzu runtime, and clean V1 files after V2 succeeds.
+2. [Kuzu Retirement](../archive/2026-09-15-agent-memory-sqlite-v2-retirement-development.md): activate V2 by default, apply the health gate and fallback, remove the Kuzu runtime, and clean V1 files after V2 succeeds. Completed; awaiting parent integration.
 
 ## Decisions and Tradeoffs
 
@@ -52,6 +52,8 @@ The feature is split into two reviewable stages:
 - Confirmed Electron 44.2.0 can load `node:sqlite` and provides SQLite JSON, FTS5, and recursive CTE support.
 - Diagnosed the current 2,139 MB Kuzu file: about 71% free pages and a 512 MB recommendation JSON allocation for roughly 5.7 MB of current JSON.
 - Verified a lossless Kuzu export/import rebuild reduces the same logical data to about 43 MB, confirming physical amplification rather than legitimate content volume.
+- Completed and integrated the bounded SQLite V2 store stage into this parent at `c7c8e5b`.
+- The cutover stage now selects SQLite exclusively, health-gates legacy deletion, quarantines/reseeds damaged V2 files, schedules retention, and removes the Kuzu runtime and packaging dependency.
 
 ## Verification Plan
 

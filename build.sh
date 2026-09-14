@@ -223,7 +223,7 @@ build_platform() {
     npx electron-packager . "${APP_NAME}" \
         --platform=${e_plat} --arch=${arch} \
         --out=dist/gui-temp --overwrite \
-        --asar.unpack="**/{node_modules/sharp,node_modules/@img,node_modules/kuzu}/**/*" \
+        --asar.unpack="**/{node_modules/sharp,node_modules/@img}/**/*" \
         --extra-resource="config/config.json.sample" \
         --extra-resource="config/images" \
         $ICON_OPT \

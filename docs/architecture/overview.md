@@ -15,7 +15,7 @@ The system is evolving from a Telegram-triggered automation app into a conversat
 - `src/capabilities/`
   - The only layer allowed to read or mutate operational state.
 - `src/memory/`
-  - Kuzu-backed event-first memory, retrieval, preferences, domain knowledge.
+  - SQLite-backed event-first memory, retrieval, preferences, and domain knowledge.
 - `src/knowledge/`
   - External/internal knowledge provider framework.
 - `src/suggestions/`

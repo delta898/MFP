@@ -1,39 +1,37 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { KuzuEventStore } = require('./event-store');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { SQLiteEventStore } = require('./sqlite-event-store');
 const { createMemoryRetrievalService } = require('./retrieval-service');
 
-function resultRows(rows) {
-    let index = 0;
-    return {
-        hasNext() { return index < rows.length; },
-        async getNext() { return rows[index++]; }
-    };
-}
-
-test('owner JobRun query follows owned events and never returns result_json', async () => {
-    const store = new KuzuEventStore({ Logger: { warn() {} } });
-    store.initialize = async () => true;
-    let captured = null;
-    store._runQuery = async (query, params) => {
-        captured = { query, params };
-        return resultRows([{
-            id: 'job-1', job_name: 'jobs.trends.run_collect', status: 'failed',
-            started_at: '2026-08-24T00:00:00.000Z', finished_at: '2026-08-24T00:01:00.000Z',
-            result_json: '{"api_key":"must-not-escape"}'
-        }]);
-    };
-
-    const jobs = await store.listOwnerJobRuns('owner-local', { limit: 10 });
-    assert.match(captured.query, /OwnerOWNS_EVENT/);
-    assert.match(captured.query, /ActionTRIGGERED_JOB/);
-    assert.doesNotMatch(captured.query, /result_json/);
-    assert.deepEqual(captured.params, { owner_id: 'owner-local', limit: 10 });
-    assert.deepEqual(jobs, [{
-        id: 'job-1', job_name: 'jobs.trends.run_collect', status: 'failed',
-        started_at: '2026-08-24T00:00:00.000Z', finished_at: '2026-08-24T00:01:00.000Z'
-    }]);
-    assert.doesNotMatch(JSON.stringify(jobs), /must-not-escape/);
+test('owner JobRun query follows owned event relations and never returns result_json', async () => {
+    const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bloggenius-owner-jobs-'));
+    const store = new SQLiteEventStore({ baseDir, Logger: { warn() {} } });
+    try {
+        await store.initialize();
+        const owner = store.getLocalOwnerIdentity().owner_user_id;
+        await store.appendEvent({
+            event_type: 'capability.completed',
+            owner_user_id: owner,
+            actor_type: 'system',
+            actor_id: 'SYSTEM',
+            timestamp: '2026-08-24T00:00:00.000Z',
+            payload: {
+                action: { id: 'action:job-1', type: 'job.run', domain: 'jobs.trends', name: 'run_collect' },
+                result: { success: false, data: { api_key: 'must-not-escape' } }
+            }
+        });
+        const jobs = await store.listOwnerJobRuns(owner, { limit: 10 });
+        assert.equal(jobs.length, 1);
+        assert.equal(jobs[0].job_name, 'jobs.trends.run_collect');
+        assert.equal(jobs[0].status, 'failed');
+        assert.doesNotMatch(JSON.stringify(jobs), /must-not-escape|result_json/);
+    } finally {
+        store.close();
+        fs.rmSync(baseDir, { recursive: true, force: true });
+    }
 });
 
 test('memory context prefers owner-scoped JobRuns over conversation fallback', async () => {

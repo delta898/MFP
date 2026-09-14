@@ -90,9 +90,12 @@
 - `decisions/2026-08-27-development-environment-boundaries.md`
 - `decisions/2026-08-28-runtime-credential-ownership.md`
 - `decisions/2026-09-06-naver-oauth-publishing-boundary.md`
+- `decisions/2026-09-15-sqlite-v2-agent-memory.md`
 
 ## Active Work
 
+- `plans/active/2026-09-14-agent-memory-sqlite-v2-development.md`
+- `plans/active/2026-09-15-agent-memory-sqlite-v2-retirement-development.md`
 - `plans/active/2026-09-06-v0.4.3-backlog-current-state-development.md`
 - `plans/active/runtime-credential-security-main-plan.md`
 - `plans/active/serpapi-collection-main-plan.md`

@@ -76,7 +76,7 @@ echo    📦 GUI 빌드 중...
 call npx electron-packager . "%APP_NAME%" ^
     --platform=win32 --arch=x64 ^
     --out=dist\gui-temp --overwrite ^
-    --asar.unpack="**/{node_modules/sharp,node_modules/@img,node_modules/kuzu}/**/*" ^
+    --asar.unpack="**/{node_modules/sharp,node_modules/@img}/**/*" ^
     --extra-resource="config/config.json.sample" ^
     --extra-resource="config/images" ^
     --icon=assets/icons/icon ^

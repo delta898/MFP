@@ -24,19 +24,19 @@ different evidence. A weaker stage must never be silently promoted to a stronger
 one. This boundary keeps future policies replaceable without migrating the
 underlying user history.
 
-## Current Node Types
-- `MessageNode`
-- `ActionNode`
-- `SettingChangeNode`
-- `JobRunNode`
-- `ArtifactNode`
-- `SuggestionNode`
-- `RecommendationNode`
-- `PreferenceNode`
-- `DomainKnowledgeNode`
-- `OwnerNode`
-- `MemoryMigrationNode`
-- `TopicFacetNode`
+## Current Logical Entities
+
+SQLite V2 stores the graph-shaped domain in typed relational tables. Foreign keys
+represent ownership and one-to-many evidence, while join tables represent true
+many-to-many relations. This keeps graph semantics explicit without coupling the
+application contract to a graph database engine.
+
+- `owners`, `users`, `conversations`, `events`, and `messages`
+- `actions`, `setting_changes`, and `job_runs`
+- `artifacts`, `topic_facets`, and `artifact_topic_facets`
+- `suggestions` and `suggestion_actions`
+- `recommendations` and immutable `recommendation_events`
+- `preferences`, `domain_knowledge`, and `owner_topic_affinity`
 
 ## Current Roles
 - Working memory: recent messages, actions, pending confirmations, recent artifacts.
@@ -96,17 +96,24 @@ Historic feedback without context continues to use subject matching.
 
 ## Current Collection Boundary
 
-Kuzu persists local application memory under `data/agent_memory_db`.
-The store is proactively initialized when the UI server starts so schema and
-persistent migrations do not depend on a Telegram session or the first memory
-write. Later reads and writes reuse that process-local store. If the native Kuzu
-module cannot be loaded or startup initialization fails, memory is disabled or
-warned about while the main application continues to operate.
+SQLite V2 persists local application memory in `data/agent_memory_v2.sqlite3`.
+The UI server initializes it proactively so schema preparation does not depend on
+a Telegram session or the first memory write. The health gate checks the storage
+generation, runs an actual transactional write/read/delete probe, and finishes
+with SQLite `quick_check` before atomically writing
+`data/agent_memory_v2.health.json`.
 
-Recommendation lifecycle is the bounded exception to the disabled no-op behavior. If Kuzu is
-unavailable from initialization, it uses a process-local volatile repository so Recommendation
-producers do not block existing workflows. Volatile records are diagnostic, disappear at restart,
-and are never merged automatically. Persistent-mode failures never trigger a silent fallback.
+If V2 is corrupt or incompatible, the closed database family is moved into the
+bounded `data/agent_memory_quarantine/` directory and a fresh store is attempted
+once. If that attempt also fails, a process-local volatile recommendation store
+keeps existing workflows available while other memory operations become safe
+no-ops for that run. The stable facade returned to services does not change when
+its backend is replaced.
+
+The retired Kuzu V1 store is never opened or imported. Its exact legacy file
+family is deleted only after the current V2 instance passes the health gate and
+the marker is durable. Windows lock failures are non-fatal and are retried at the
+next application start.
 
 Current write paths are:
 
@@ -142,8 +149,8 @@ It does not currently backfill existing Sheets rows or track later row edits.
 Blog, Shopping, and SNS lifecycle integrations record new events only and do not
 infer historic draft or publication state from Sheet status text.
 
-Every local event and materialized artifact is now related to a durable
-installation-local `OwnerNode`. Telegram, UI, and automation actors remain
+Every local event and materialized artifact is related to a durable
+installation-local owner row. Telegram, UI, and automation actors remain
 separate: callers that do not supply a channel identity may still appear as the
 `SYSTEM` actor, but their data ownership is no longer lost. Future account support
 should map the local owner to an account instead of rewriting historic ownership.
@@ -249,38 +256,33 @@ existing suggestion/artifact preference projections.
 Topic registration preserves subject, category, platform, keywords, instruction,
 and source in compact event/artifact payloads. Migration `003_topic_semantics`
 materializes deterministic keyword/category/platform values as facets while
-leaving the original payload unchanged. SNS discovery, drafting, and publishing
-are not yet recorded in GraphDB.
+leaving the original payload unchanged. SNS selection and confirmed publishing
+are recorded through the same owner-scoped lifecycle contract.
 
-Topic semantics use a generic `TopicFacetNode` with `kind`, `scope`, and a
-normalized/display value pair. `ArtifactHAS_TOPIC_FACET` retains provenance from
-each saved topic. Owner-level frequency and recency are derived through
-`OwnerNode -> ArtifactNode(topic) -> TopicFacetNode`; no duplicate direct
-Owner-to-facet edge is stored. Subject remains the artifact title and instruction
-remains raw payload until a confidence-bearing derived-insight phase is added.
+Topic semantics use `topic_facets` with `kind`, `scope`, and a normalized/display
+value pair. `artifact_topic_facets` retains provenance from each saved topic.
+The bounded `owner_topic_affinity` projection keeps frequency and recency insight
+after raw artifact expiry. Subject remains the artifact title and instruction
+remains compact artifact payload.
 
 ## Recommendation Lifecycle Projection
 
-Canonical proactive guidance uses immutable `recommendation.*` EventNodes as facts and a
-`RecommendationNode` as its rebuildable current-state projection. The projection retains indexed
-owner, identity, status, dedupe, availability and expiry fields plus the validated canonical JSON.
-Candidate and Policy snapshots are not promoted to independent graph truth.
+Canonical proactive guidance uses immutable `recommendation_events` as facts and
+`recommendations` as its rebuildable current-state projection. Candidate and
+policy JSON are written once at creation; lifecycle transitions update only
+bounded scalar state such as status, snooze, and last-event time.
 
-`OwnerOWNS_RECOMMENDATION` and `EventHAS_RECOMMENDATION` preserve ownership and event provenance.
+Foreign keys preserve recommendation ownership and event provenance.
 Reads are owner-scoped and ordinary list/get operations never change lifecycle state. A bounded
 reconciliation command records explicit `recommendation.reactivated` and `recommendation.expired`
-events; periodic scheduling is not yet connected.
+events. Each command requires an operation identity and commits its event and
+projection in one SQLite transaction.
 
-Each Recommendation command requires an operation identity and commits its EventNode, projection,
-owner relation and event relation in one Recommendation-specific transaction. Transaction access
-is serialized for the shared Kuzu connection. Existing memory writes retain their current behavior.
-Migration `004_recommendation_lifecycle` creates only the new schema and does not scan, copy or
-backfill historic `SuggestionNode` records.
-
-Legacy Agent and topic paths now enter this lifecycle through adapters. New generic
-`agent.suggestions` results are not materialized as SuggestionNode; that node remains only for Agent
-confirmation and historic feedback compatibility. Existing `suggestion_feedback.*` preferences can
-temporarily suppress adapted legacy signals but are never copied into RecommendationNode.
+Legacy Agent and topic paths enter this lifecycle through adapters. New generic
+`agent.suggestions` results are not materialized as suggestion rows; the bounded
+suggestion projection remains only for Agent confirmation and historic feedback
+compatibility. Existing `suggestion_feedback.*` preferences can temporarily
+suppress adapted legacy signals but are never copied into recommendation rows.
 
 Canonical recommendation feedback is an observational `recommendation.feedback_recorded` fact with
 the strict values `helpful` and `not_helpful`. Negative feedback is followed by an explicit dismiss
@@ -323,7 +325,7 @@ daily materialization cap을 적용하지만, 사용자가 직접 누른 `새로
 
 Candidate identity는 근거 있는 소재의 안정된 정체성이고 Recommendation identity는 그 소재를
 사용자에게 전달한 개별 occurrence다. Policy evaluation은 delivery key를 materializer에 전달하므로
-terminal Recommendation과 같은 Candidate가 다시 자격을 얻으면 새 RecommendationNode로 전달된다.
+terminal Recommendation과 같은 Candidate가 다시 자격을 얻으면 새 recommendation occurrence로 전달된다.
 동일 평가 retry와 현재 active dedupe key는 계속 멱등 처리되어 중복 카드를 만들지 않는다.
 
 Serendipity discovery는 세 source lane을 독립적으로 취급한다. `trends`는 현재 Naver Trends,
@@ -350,15 +352,13 @@ Producer의 대체 후보 탐색도 active recommendation과 policy cooldown 안
 
 ## Owner-Scoped Operational Reads
 
-Operational recovery candidates read JobRun facts through the existing graph path:
+Operational recovery candidates read job facts through the equivalent relational path:
 
 ```text
-OwnerNode -> OwnerOWNS_EVENT -> EventNode
-          -> EventHAS_ACTION -> ActionNode
-          -> ActionTRIGGERED_JOB -> JobRunNode
+owners -> events -> actions -> job_runs
 ```
 
-This path provides owner isolation without adding a duplicate Owner-to-Job relation or migrating
+This join path provides owner isolation without adding a duplicate owner-to-job relation or migrating
 historic rows. The operational read model returns only job identity, name, status and timestamps;
 `result_json` remains inside Memory and cannot become Recommendation evidence, metadata or public
 presentation payload. Memory context prefers this owner-scoped read and keeps the older
@@ -405,25 +405,29 @@ lifecycle identity, transaction and volatile fallback behavior remain centralize
 - Preference scoring is still simple accumulation.
 - Promotion rules need stronger recency/confidence handling.
 - Planner-aware memory retrieval is not yet implemented.
-- Recommendation delivery scheduling persists only timing/backoff state outside Kuzu. Recommendation facts,
+- Recommendation delivery scheduling persists only timing/backoff state outside memory. Recommendation facts,
   dedupe, cooldown and automatic-delivery materialization caps remain in the canonical lifecycle and policy layers.
 - Full event replay repair for a manually damaged Recommendation projection is deferred to memory hardening.
 
 ## Persistence Boundary
-- `runtimeContext.memory` is transient and must not be persisted into `EventNode.payload_json`.
+- `runtimeContext.memory` is transient and must not be persisted into `events.payload_json`.
 - `recent_events`, `recent_messages`, `recent_actions`, `recent_setting_changes`, `recent_job_runs`, `recent_artifacts`, `preferences`, and `pending_confirmations` are retrieval-only context and must not be stored as nested payload snapshots.
 - Persisted events should contain only:
   - the event's own minimal payload
   - compact summaries
   - ids / references to related nodes when needed
 
-## Preservation and Migration Policy
-- `data/agent_memory_db*` is persistent user data and must not be reset automatically during startup or update.
-- Schema changes use additive, idempotent migrations recorded in `MemoryMigrationNode`.
-- A migration is marked complete only after its nodes and relationships are fully materialized. Interrupted migrations must be safe to run again.
-- Legacy `/Users/delta898/Project/NaverAutoBlog/src/kuzu-service.js` remains a thin compatibility wrapper over the shared agent event store, so new writes do not target `data/memory_db*`.
-- The manual reset helper remains a developer/recovery tool and requires explicit confirmation:
-  - `/Users/delta898/Project/NaverAutoBlog/scripts/reset_agent_memory_db.sh`
+## Preservation, Retention, and Recovery Policy
+
+- Local owner identity remains independent in `data/identity/owner.json` and survives memory reseeding.
+- Messages expire after 30 days and are capped at 500 per conversation.
+- Raw events expire after 90 days and are capped at 10,000 per owner.
+- Artifacts and suggestions expire after 180 days and are capped per owner.
+- Terminal recommendations expire after 30 days and are capped at 500 per owner; lifecycle events are capped at 2,000 per owner.
+- Topic affinity is compact, decayed over time, and removed only after becoming both old and insignificant.
+- Maintenance is bounded, starts outside the critical UI startup path, and repeats every six hours while the app runs.
+- 128MB emits an operational warning, 256MB triggers stronger checkpoint/vacuum work, and 512MB causes disposable V2 reseeding at the next controlled start.
+- A failed store is quarantined rather than repaired in place. Kuzu V1 content is intentionally not migrated.
 
 ## Insight Generation
 - `InsightEngine` is retained as a lightweight long-term memory summary path.

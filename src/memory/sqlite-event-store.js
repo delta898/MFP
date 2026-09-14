@@ -77,8 +77,7 @@ class SQLiteEventStore extends MemoryPayloadCodec {
     _initializeSchema() {
         this.database.exec(`
             CREATE TABLE IF NOT EXISTS memory_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT;
-            INSERT INTO memory_meta(key, value) VALUES ('storage_generation', '${SQLITE_MEMORY_GENERATION}')
-                ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+            INSERT OR IGNORE INTO memory_meta(key, value) VALUES ('storage_generation', '${SQLITE_MEMORY_GENERATION}');
             CREATE TABLE IF NOT EXISTS owners (
                 id TEXT PRIMARY KEY, identity_kind TEXT NOT NULL, created_at TEXT NOT NULL
             ) STRICT;

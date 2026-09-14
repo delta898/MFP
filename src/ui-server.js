@@ -77,7 +77,7 @@ const { createUiHttpServerRuntime } = require('./ui-runtime/http-server-runtime'
 const { createHtmlCompositionRuntime } = require('./ui-runtime/html-composition-runtime');
 const { createCssCompositionRuntime } = require('./ui-runtime/css-composition-runtime');
 const { createJsCompositionRuntime } = require('./ui-runtime/js-composition-runtime');
-const { getAgentEventStore, initializeAgentMemory } = require('./memory/store');
+const { closeAgentMemory, getAgentEventStore, initializeAgentMemory } = require('./memory/store');
 const { createActivityLifecycleRecorder } = require('./memory/activity-lifecycle');
 const { createCapabilityRegistry } = require('./capabilities');
 const { createAgentRuntime } = require('./agent/runtime');
@@ -1159,6 +1159,7 @@ async function startUiServer(options = {}) {
 }
 
 module.exports = {
+    closeAgentMemory,
     startUiServer,
     reloadUiServer,
     __testing: {

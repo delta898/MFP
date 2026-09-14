@@ -1919,10 +1919,10 @@ const Utils = {
             // 새 글감이 즉시 어느 탭에도 보이도록 shopping 전체를 무효화한다.
             this.clearSheetCache('shopping');
 
-            // [Universal Memory] Kuzu DB에 쇼핑 아이템 기록
+            // [Universal Memory] 쇼핑 아이템 기록
             for (const item of newItems) {
                 try {
-                    const kuzuData = {
+                    const memoryData = {
                         name: item.product || item.name || '',
                         price: item.price || '',
                         mall: item.mall || '',
@@ -1930,11 +1930,11 @@ const Utils = {
                     };
                     await getAgentEventStore().recordShoppingItem(
                         item.chatId || options.chatId || null,
-                        kuzuData,
+                        memoryData,
                         item.memory_provenance || options.memoryProvenance || {}
                     );
-                } catch (kuzuErr) {
-                    Logger.error(`⚠️ [Utils] Kuzu 쇼핑 기록 실패: ${kuzuErr.message}`);
+                } catch (memoryError) {
+                    Logger.error(`⚠️ [Utils] 쇼핑 메모리 기록 실패: ${memoryError.message}`);
                 }
             }
 
@@ -2759,7 +2759,7 @@ const Utils = {
             }
             this.clearSheetCache('topics');
 
-            // [Universal Memory] Kuzu DB에 토픽 기록
+            // [Universal Memory] 토픽 기록
             for (const topic of newTopics) {
                 try {
                     const instructionValue = String(
@@ -2769,7 +2769,7 @@ const Utils = {
                         topic.additional_instructions ||
                         ''
                     ).trim();
-                    const kuzuData = {
+                    const memoryData = {
                         subject: topic.subject || '',
                         platform: Array.isArray(topic.platforms) ? topic.platforms.join(', ') : (topic.options?.platforms ? topic.options.platforms.join(', ') : 'naver'),
                         category: topic.category || topic.options?.category || '',
@@ -2779,11 +2779,11 @@ const Utils = {
                     };
                     await getAgentEventStore().recordTopic(
                         topic.chatId || options.chatId || null,
-                        kuzuData,
+                        memoryData,
                         topic.memory_provenance || options.memoryProvenance || {}
                     );
-                } catch (kuzuErr) {
-                    Logger.error(`⚠️ [Utils] Kuzu 토픽 기록 실패: ${kuzuErr.message}`);
+                } catch (memoryError) {
+                    Logger.error(`⚠️ [Utils] 토픽 메모리 기록 실패: ${memoryError.message}`);
                 }
             }
 

@@ -8,7 +8,7 @@ const {
 } = require('./topic-recommendation-learning');
 const { resolveArtifactFeedbackTarget } = require('../memory/feedback-target');
 const { collectFeedback } = require('../memory/owner-profile');
-const { KuzuEventStore } = require('../memory/event-store');
+const { MemoryPayloadCodec } = require('../memory/payload-codec');
 
 const recommendation = buildRecommendationContext({
     run_id: 'run-1',
@@ -123,7 +123,7 @@ test('carries recommendation provenance from artifact feedback into owner feedba
 });
 
 test('keeps compact recommendation provenance in a generated artifact payload', () => {
-    const store = new KuzuEventStore({ baseDir: process.cwd() });
+    const store = new MemoryPayloadCodec();
     const payload = store._summarizeArtifactPayload({
         title: '무료 홈서버 실전 가이드',
         recommendation

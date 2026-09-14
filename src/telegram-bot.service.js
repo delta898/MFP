@@ -7,7 +7,6 @@ const axios = require('axios');
 const { createAgentRuntime } = require('./agent/runtime');
 const { createPlanner } = require('./agent/planner');
 const { createCapabilityRegistry } = require('./capabilities');
-const { KuzuEventStore } = require('./memory/event-store');
 const { createMemoryRetrievalService } = require('./memory/retrieval-service');
 const { parseTelegramAgentEnvelope, tryParseDeterministicEnvelope } = require('./agent/telegram-parser');
 const {
@@ -676,10 +675,10 @@ class TelegramBotService {
                     }
                 }
 
-                // AI 파싱 (Kuzu 영구 메모리 맥락 정보 포함)
+                // AI 파싱 (지능형 메모리 맥락 정보 포함)
                 const Core = require('./core');
 
-                // 1. Kuzu에서 과거 인사이트 및 최근 대화 히스토리 로드
+                // 1. 과거 인사이트 및 최근 대화 히스토리 로드
                 const userInsight = await this.agentEventStore.getUserInsight(chatId);
                 const chatHistory = await this.agentEventStore.getHistory(chatId, 5); // 최근 5개 대화
 
@@ -1098,7 +1097,7 @@ class TelegramBotService {
         const axios = require('axios');
         const CONFIG = require('./config-loader');
         const port = CONFIG.UI_SERVER_PORT || 4577;
-        // Kuzu Service를 사용하여 데이터 조회
+        // 공통 지능형 메모리 및 서비스 상태 조회
 
         try {
             if (queryType === 'status' || queryType === 'system') {
@@ -1142,7 +1141,7 @@ class TelegramBotService {
                     `• 총 대화량: ${s.messages}건\n` +
                     `• 등록된 토픽: ${s.topics}건\n` +
                     `• 쇼핑 아이템: ${s.shopping}건\n\n` +
-                    `_모든 데이터는 Kuzu Graph DB에 안전하게 기록되고 있습니다._`;
+                    `_지능형 메모리는 이 기기에 안전하게 기록되고 있습니다._`;
                 await this.bot.sendMessage(chatId, msg, { parse_mode: 'Markdown' });
 
             } else if (queryType === 'insight') {
