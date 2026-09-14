@@ -65,7 +65,7 @@ test('folder and paste modes share one manuscript publishing grammar', () => {
   }
 });
 
-test('folder and paste previews share one reading surface and defer image diagnostics', () => {
+test('folder and paste previews share one reading surface while folder exposes image workspace actions', () => {
   const html = readBlogNextView();
   const script = read('ui/scripts/features/blog-next/draft-inputs.js');
   const css = read('ui/styles/features/blog-next-baseline.css');
@@ -81,11 +81,13 @@ test('folder and paste previews share one reading surface and defer image diagno
     assert.match(panel, /data-draft-preview-image-details/);
     assert.match(panel, /<summary><strong>이미지 확인<\/strong><span data-draft-preview-image-summary>/);
   }
-  assert.match(script, /imageDetails\.hidden = Number\(stats\.imageMissingCount \|\| 0\) === 0/);
-  assert.match(script, /imageSummary\.textContent = `누락 \$\{stats\.imageMissingCount \|\| 0\}개`/);
-  assert.match(script, /imageItems\.filter\(image => !image\.exists\)/);
-  assert.match(script, /local-markdown-image-card is-missing/);
-  assert.match(script, /local-markdown-image-card-status missing">파일 없음/);
+  assert.match(script, /type === 'folder' && preview\.draftId/);
+  assert.match(script, /`준비 \$\{stats\.imageResolvedCount \|\| 0\}\/\$\{stats\.imageBlockCount \|\| 0\}`/);
+  assert.match(script, /type === 'folder' && preview\.draftId \? imageItems : imageItems\.filter\(image => !image\.exists\)/);
+  assert.match(script, /data-manuscript-image-action="generate"/);
+  assert.match(script, /data-manuscript-image-picker/);
+  assert.match(script, /data-manuscript-image-action="exclude"/);
+  assert.match(script, /data-manuscript-image-action="restore"/);
   assert.match(css, /\.blog-next-manuscript-preview \.local-markdown-body-preview[\s\S]*?border: 0;[\s\S]*?background: transparent;/);
   assert.match(css, /\.blog-next-manuscript-preview \.local-markdown-body-preview figure\s*{[\s\S]*?border: 0;/);
   assert.match(css, /\.blog-next-manuscript-preview \.local-markdown-body-preview figure img\s*{[\s\S]*?max-height: min\(42vh, 460px\);[\s\S]*?object-fit: contain;/);

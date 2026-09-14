@@ -130,6 +130,10 @@ read-only다.
 각 stage는 부모에서 하위 feature branch를 만들고 독립 개발 기록, focused verification과 사용자 확인을 거친다.
 완료된 stage는 사용자의 merge 요청 후 부모로 fast-forward merge하고 하위 branch를 정리한다.
 
+### Stage records
+
+- [Stage 01: Draft/Image Asset contract and folder workflow](./2026-09-15-manuscript-workspace-01-contract-folder-development.md)
+
 ## Decisions and Tradeoffs
 
 - 세 화면에 비슷한 버튼을 복제하는 대신 source adapter와 공통 workspace를 분리한다.
@@ -162,10 +166,14 @@ read-only다.
 - 2026-09-15: parent branch created from `dev` after committing the unrelated AI provider backlog update separately.
 - 2026-09-15: user identified Shopping Connect as the next planned consumer. Its integration is deferred, while the shared
   contracts must remain content-kind and publishing-provider neutral.
+- 2026-09-15: Stage 01 branch and development record were created for the common contract and folder workflow.
+- 2026-09-15: Stage 01 implemented the first reusable Draft/Image Asset vertical slice and folder image workspace. Focused
+  tests and the full browser fixture flow pass; full unit and user acceptance gates remain before parent integration.
 
 ## Current Result
 
-Parent feature boundary and staged implementation plan are established. No application behavior has changed yet.
+The parent plan is established and Stage 01 is implemented on its sub-feature branch. It has not yet been merged into the
+parent; later paste, AI, text-editing and integration stages remain pending.
 
 ## Remaining Risks
 

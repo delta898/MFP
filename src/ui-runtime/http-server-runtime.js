@@ -106,6 +106,7 @@ function createUiHttpServerRuntime(deps = {}) {
                         if (
                             pathname === '/api/v1/settings/shopping-image'
                             || pathname === '/api/v1/card-news/images/import'
+                            || /\/api\/v1\/blog\/manuscript-drafts\/[^/]+\/image-slots\/[^/]+\/import$/.test(pathname)
                         ) {
                             limitBytes = 15 * 1024 * 1024;
                         } else if (pathname === '/api/v1/social/manual/publish') {
@@ -117,6 +118,8 @@ function createUiHttpServerRuntime(deps = {}) {
                             limitBytes = 55 * 1024 * 1024;
                         } else if (pathname === '/api/v1/blog/local-markdown/publish') {
                             limitBytes = 40 * 1024 * 1024;
+                        } else if (pathname === '/api/v1/blog/manuscript-drafts/folder') {
+                            limitBytes = 55 * 1024 * 1024;
                         }
                         requestBody = await readJsonBody(req, limitBytes);
                     }

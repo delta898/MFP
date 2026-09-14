@@ -246,6 +246,24 @@
   color: var(--ui-text-secondary);
 }
 
+.blog-next-manuscript-image-details .local-markdown-image-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-space-2);
+  align-items: center;
+}
+
+.blog-next-manuscript-image-details .local-markdown-image-bulk-actions {
+  display: flex;
+  justify-content: flex-end;
+  grid-column: 1 / -1;
+}
+
+.blog-next-manuscript-image-details .local-markdown-image-list[aria-busy="true"] {
+  opacity: 0.68;
+  pointer-events: none;
+}
+
 @media (max-width: 768px) {
   .blog-next-manuscript-preview .local-markdown-body-preview,
   .blog-next-manuscript-preview.is-expanded .local-markdown-body-preview,

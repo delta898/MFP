@@ -191,6 +191,53 @@ function createContentController(deps = {}) {
             }
         },
 
+        async manuscriptDraftCreateFolder({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.createFolderManuscriptDraft(requestBody || {}));
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'MANUSCRIPT_DRAFT_CREATE_FAILED', '원고 작업공간을 만들지 못했습니다.', e);
+            }
+        },
+
+        async manuscriptDraftGet({ requestId, method, draftId, res }) {
+            if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.getManuscriptDraft({ draftId }));
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'MANUSCRIPT_DRAFT_READ_FAILED', '원고 작업공간을 불러오지 못했습니다.', e);
+            }
+        },
+
+        async manuscriptDraftMutation({ requestId, method, draftId, slotId, action, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            const input = { ...(requestBody || {}), draftId, slotId };
+            try {
+                if (action === 'settings') return sendSuccess(res, requestId, await service.updateManuscriptDraftSettings(input));
+                if (action === 'import') return sendSuccess(res, requestId, await service.importManuscriptDraftImage(input));
+                if (action === 'generate') return sendSuccess(res, requestId, await service.generateManuscriptDraftImage(input));
+                if (action === 'generate-missing') return sendSuccess(res, requestId, await service.generateMissingManuscriptDraftImages(input));
+                if (action === 'exclude') return sendSuccess(res, requestId, await service.excludeManuscriptDraftImage(input));
+                if (action === 'restore') return sendSuccess(res, requestId, await service.restoreManuscriptDraftImage(input));
+                if (action === 'publish') return sendSuccess(res, requestId, await service.publishManuscriptDraft(input));
+                return toErrorResponse(res, requestId, 'MANUSCRIPT_DRAFT_ACTION_INVALID', '지원하지 않는 원고 작업입니다.', new Error(action));
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'MANUSCRIPT_DRAFT_UPDATE_FAILED', '원고 작업을 적용하지 못했습니다.', e);
+            }
+        },
+
+        async manuscriptDraftImage({ requestId, method, draftId, slotId, searchParams, res }) {
+            if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                const data = await service.getManuscriptDraftImage({ draftId, slotId, revision: searchParams?.get('revision') || '' });
+                res.writeHead(200, { 'Content-Type': data.contentType, 'Cache-Control': 'no-store' });
+                res.end(data.body);
+                return true;
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'MANUSCRIPT_IMAGE_READ_FAILED', '원고 이미지를 불러오지 못했습니다.', e);
+            }
+        },
+
         async localMarkdownPublish({ requestId, method, requestBody, res }) {
             if (method !== 'POST') {
                 return sendMethodNotAllowed(sendError, res, requestId);

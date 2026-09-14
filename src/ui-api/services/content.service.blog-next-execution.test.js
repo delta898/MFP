@@ -4,11 +4,12 @@ const assert = require('node:assert/strict');
 const { createContentService } = require('./content.service');
 const { createBlogNextExecutionCoordinator } = require('../../blog-next/execution-coordinator');
 
-function createService(coordinator, executeLocalMarkdownPublish, CONFIG = {}) {
+function createService(coordinator, executeLocalMarkdownPublish, CONFIG = {}, extras = {}) {
     return createContentService({
         CONFIG,
         blogNextExecutionCoordinator: coordinator,
-        executeLocalMarkdownPublish
+        executeLocalMarkdownPublish,
+        ...extras
     });
 }
 
@@ -34,6 +35,30 @@ test('local manuscript publishing owns the shared Blog Beta lock until it settle
     finish({ success: true, data: { status: '임시 저장 완료' } });
     assert.deepEqual(await first, { status: '임시 저장 완료', completionLinks: [] });
     assert.deepEqual(coordinator.getStatus(), { busy: false });
+});
+
+test('manuscript draft publishing resolves one exact snapshot before using the existing publisher', async () => {
+    const coordinator = createBlogNextExecutionCoordinator();
+    const published = [];
+    const manuscriptDraftService = {
+        buildPublishPayload(input) {
+            assert.deepEqual(input, { draftId: 'draft-1', revision: 4 });
+            return {
+                folderName: '원고',
+                selectedFiles: [{ name: 'contents.md', textContent: '# 원고' }],
+                settings: { targets: ['naver'], postStatus: 'draft', imageMode: 'prompt_only', headless: true }
+            };
+        }
+    };
+    const service = createService(coordinator, async (input) => {
+        published.push(input);
+        return { success: true, data: { status: '임시 저장 완료', postStatus: 'draft' } };
+    }, {}, { manuscriptDraftService });
+
+    const result = await service.publishManuscriptDraft({ draftId: 'draft-1', revision: 4 });
+    assert.equal(result.status, '임시 저장 완료');
+    assert.deepEqual(published[0].targets, ['naver']);
+    assert.equal(published[0].selectedFiles[0].textContent, '# 원고');
 });
 
 test('local manuscript publishing returns the successful channel completion destination', async () => {

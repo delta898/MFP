@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const http = require('node:http');
+const os = require('node:os');
 const path = require('node:path');
 const { chromium } = require('playwright');
 const { createHtmlCompositionRuntime } = require('../src/ui-runtime/html-composition-runtime');
@@ -12,6 +13,7 @@ const { getDefaultContentWritingProfile, DEFAULT_CONTENT_WRITING_PROFILE_METADAT
 
 const repoRoot = path.resolve(__dirname, '..');
 const uiRoot = path.join(repoRoot, 'ui');
+const MANUSCRIPT_DRAFT_ID = '11111111-1111-4111-8111-111111111111';
 
 function getContentType(filePath) {
     const extension = path.extname(filePath).toLowerCase();
@@ -488,6 +490,41 @@ function startFixtureServer(requests) {
     };
     let continuousRunnerPollsRemaining = 0;
     let localMarkdownPublishing = false;
+    let manuscriptDraftRevision = 0;
+    let manuscriptDraftImages = [
+        { index: 1, slotId: 'image-1', title: '첫 이미지', prompt: '푸른 하늘', exists: true, assetOrigin: 'folder', canRestore: false },
+        { index: 2, slotId: 'image-2', title: '둘째 이미지', prompt: '초록 숲', exists: false, assetOrigin: '', canRestore: false }
+    ];
+    const buildManuscriptDraftFixture = () => {
+        const images = manuscriptDraftImages.map((image) => ({
+            ...image,
+            imageUrl: image.exists ? `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/images/${image.slotId}?revision=${manuscriptDraftRevision}` : '',
+            imagePath: '',
+            fileName: image.exists ? `${String(image.index).padStart(2, '0')}_fixture.png` : ''
+        }));
+        return {
+            draftId: MANUSCRIPT_DRAFT_ID,
+            revision: manuscriptDraftRevision,
+            sourceKind: 'folder',
+            source: { type: 'local_markdown', folderName: 'browser-manuscript' },
+            title: '폴더 원고',
+            rawMarkdown: '# 폴더 원고',
+            bodyPreview: '폴더 본문',
+            contentItems: [
+                { type: 'header-h2', text: '폴더 미리보기' },
+                { type: 'paragraph', text: '원고 폴더 본문입니다.' },
+                ...images.map((image) => ({ type: 'image', index: image.index, slotId: image.slotId, text: image.title, prompt: image.prompt, exists: image.exists, imageUrl: image.imageUrl }))
+            ],
+            images,
+            stats: {
+                contentCount: 4,
+                imageBlockCount: images.length,
+                imageResolvedCount: images.filter((image) => image.exists).length,
+                imageMissingCount: images.filter((image) => !image.exists).length
+            },
+            validation: { ok: true, errors: [], warnings: [] }
+        };
+    };
     const buildContinuousQueueResponse = () => {
         const firstRunAt = '2026-08-31T01:00:00.000Z';
         const intervalMs = continuousAutomationSettings.interval_minutes * 60 * 1000;
@@ -790,6 +827,82 @@ function startFixtureServer(requests) {
             return;
         }
 
+        if (url.pathname === '/api/v1/blog/manuscript-drafts/folder' && req.method === 'POST') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                manuscriptDraftRevision = 1;
+                manuscriptDraftImages = manuscriptDraftImages.map((image) => ({ ...image }));
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(JSON.stringify({ success: true, data: buildManuscriptDraftFixture() }));
+            });
+            return;
+        }
+
+        const manuscriptImageMatch = url.pathname.match(/^\/api\/v1\/blog\/manuscript-drafts\/([^/]+)\/images\/(image-[0-9]+)$/);
+        if (manuscriptImageMatch && req.method === 'GET') {
+            const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
+            res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'no-store', 'Content-Length': png.length });
+            res.end(png);
+            return;
+        }
+
+        const manuscriptSlotMatch = url.pathname.match(/^\/api\/v1\/blog\/manuscript-drafts\/([^/]+)\/image-slots\/(image-[0-9]+)\/(import|generate|exclude|restore)$/);
+        if (manuscriptSlotMatch && req.method === 'POST') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                const slot = manuscriptDraftImages.find((image) => image.slotId === manuscriptSlotMatch[2]);
+                const action = manuscriptSlotMatch[3];
+                if (action === 'exclude') {
+                    slot.exists = false;
+                    slot.assetOrigin = '';
+                    slot.canRestore = slot.index === 1;
+                } else if (action === 'restore') {
+                    slot.exists = true;
+                    slot.assetOrigin = 'folder';
+                    slot.canRestore = false;
+                } else {
+                    slot.exists = true;
+                    slot.assetOrigin = action === 'import' ? 'user' : 'generated';
+                    slot.canRestore = slot.index === 1;
+                }
+                manuscriptDraftRevision += 1;
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(JSON.stringify({ success: true, data: buildManuscriptDraftFixture() }));
+            });
+            return;
+        }
+
+        if (url.pathname === `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/settings` && req.method === 'POST') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                manuscriptDraftRevision += 1;
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(JSON.stringify({ success: true, data: buildManuscriptDraftFixture() }));
+            });
+            return;
+        }
+
+        if (url.pathname === `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/publish` && req.method === 'POST') {
+            localMarkdownPublishing = true;
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                setTimeout(() => {
+                    localMarkdownPublishing = false;
+                    res.end(JSON.stringify({ success: true, data: { status: '발행 완료', postStatus: 'publish', completionLinks: [] } }));
+                }, 100);
+            });
+            return;
+        }
+
         if (url.pathname === '/api/v1/blog/local-markdown/preview' && req.method === 'POST') {
             const chunks = [];
             req.on('data', (chunk) => chunks.push(chunk));
@@ -1041,6 +1154,10 @@ async function run() {
     const consoleErrors = [];
     const pageErrors = [];
     const failedResponses = [];
+    const manuscriptFixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'blog-next-manuscript-browser-'));
+    const manuscriptFixtureImage = path.join(manuscriptFixtureDir, '01_existing.png');
+    fs.writeFileSync(path.join(manuscriptFixtureDir, 'contents.md'), '# 폴더 원고\n\n[[IMAGE_1\ntitle: 첫 이미지\nprompt: 푸른 하늘\n]]\n\n본문\n\n[[IMAGE_2\ntitle: 둘째 이미지\nprompt: 초록 숲\n]]');
+    fs.writeFileSync(manuscriptFixtureImage, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'));
     const { server, baseUrl } = await startFixtureServer(requests);
     let browser;
 
@@ -2856,6 +2973,37 @@ async function run() {
         ));
 
         await page.locator('[data-blog-next-tab="quick"]').click();
+        await page.locator('[data-blog-next-input-mode="folder"]').click();
+        await page.locator('#blog-next-folder-input').setInputFiles(manuscriptFixtureDir);
+        await page.waitForFunction(() => (
+            document.querySelector('[data-blog-next-draft-preview="folder"]')?.hidden === false
+            && document.querySelectorAll('[data-blog-next-draft-preview="folder"] [data-manuscript-image-slot]').length === 2
+        ));
+        assert.equal((await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]').textContent())?.trim(), '준비 1/2');
+        assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-body] img').count(), 1);
+        await page.locator('[data-blog-next-draft-preview="folder"] summary').click();
+        await page.locator('[data-manuscript-image-file][data-slot-id="image-2"]').setInputFiles(manuscriptFixtureImage);
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]')?.textContent?.includes('2/2'));
+        assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-body] img').count(), 2);
+        await page.locator('[data-manuscript-image-action="exclude"][data-slot-id="image-1"]').click();
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]')?.textContent?.includes('1/2'));
+        assert.equal(await page.locator('[data-manuscript-image-action="restore"][data-slot-id="image-1"]').isVisible(), true);
+        await page.locator('[data-manuscript-image-action="restore"][data-slot-id="image-1"]').click();
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]')?.textContent?.includes('2/2'));
+        await page.locator('[data-manuscript-image-action="generate"][data-slot-id="image-2"]').click();
+        await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
+        await page.locator('#ui-dialog-confirm').click();
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-manuscript-image-slot="image-2"] .local-markdown-image-card-status')?.textContent === '이미지 준비됨');
+        assert.equal(await page.locator('[data-blog-next-draft-publish="folder"]').isDisabled(), false);
+        await page.locator('[data-blog-next-draft-publish="folder"]').click();
+        await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
+        await page.locator('#ui-dialog-confirm').click();
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-result="folder"]')?.textContent.includes('요청 처리 완료'));
+        const folderPublishRequest = requests.find((request) => request.pathname.endsWith('/publish') && request.pathname.includes('/manuscript-drafts/'));
+        assert.equal(folderPublishRequest?.body?.draftId, MANUSCRIPT_DRAFT_ID);
+        assert.equal(folderPublishRequest?.body?.revision, 6);
+        await page.evaluate(() => document.querySelectorAll('.app-celebration').forEach((element) => element.remove()));
+
         await page.locator('[data-blog-next-input-mode="paste"]').click();
         await page.locator('#blog-next-paste-markdown').fill('# 붙여넣은 원고\n\nQueue를 거치지 않고 바로 실행합니다.');
         await page.waitForFunction(() => (
@@ -3173,6 +3321,13 @@ async function run() {
             { method: 'POST', pathname: '/api/v1/continuous-publishing/runner/start' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/automation/settings' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' },
+            { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/folder' },
+            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/image-slots/image-2/import` },
+            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/image-slots/image-1/exclude` },
+            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/image-slots/image-1/restore` },
+            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/image-slots/image-2/generate` },
+            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/settings` },
+            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/publish` },
             { method: 'POST', pathname: '/api/v1/blog/local-markdown/preview' },
             { method: 'POST', pathname: '/api/v1/blog/local-markdown/preview' },
             { method: 'POST', pathname: '/api/v1/blog/local-markdown/publish' }
@@ -3196,6 +3351,7 @@ async function run() {
     } finally {
         if (browser) await browser.close();
         await closeServer(server);
+        fs.rmSync(manuscriptFixtureDir, { recursive: true, force: true });
     }
 }
 

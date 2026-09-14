@@ -14,6 +14,7 @@ const {
 } = require('../../naver/smart-comment-draft-generator');
 const { createBlogNextExecutionCoordinator } = require('../../blog-next/execution-coordinator');
 const { buildCompletionLinks } = require('../../continuous-publishing/presentation');
+const { createManuscriptDraftService } = require('../../content/manuscript-draft-service');
 
 function createContentService(deps = {}) {
     const {
@@ -65,6 +66,20 @@ function createContentService(deps = {}) {
     } = deps;
     const blogNextExecutionCoordinator = deps.blogNextExecutionCoordinator
         || createBlogNextExecutionCoordinator();
+    let manuscriptDraftService = deps.manuscriptDraftService || null;
+    function getManuscriptDraftService() {
+        if (!manuscriptDraftService) {
+            manuscriptDraftService = createManuscriptDraftService({
+                fs,
+                path,
+                Utils,
+                Logger,
+                workspaceDir: CONFIG?.WORKSPACE_DIR,
+                callWritingImage: typeof Utils?.callWritingImage === 'function' ? Utils.callWritingImage.bind(Utils) : null
+            });
+        }
+        return manuscriptDraftService;
+    }
 
     async function runBlogNextExecution(input, task) {
         const lease = blogNextExecutionCoordinator.acquire(input);
@@ -808,6 +823,51 @@ function createContentService(deps = {}) {
                 });
                 throw error;
             }
+        },
+
+        async createFolderManuscriptDraft(requestBody = {}) {
+            return getManuscriptDraftService().createFolderDraft(requestBody);
+        },
+
+        async getManuscriptDraft({ draftId } = {}) {
+            return getManuscriptDraftService().getDraft(draftId);
+        },
+
+        async updateManuscriptDraftSettings(requestBody = {}) {
+            return getManuscriptDraftService().updateSettings(requestBody);
+        },
+
+        async importManuscriptDraftImage(requestBody = {}) {
+            return getManuscriptDraftService().importLocalImage(requestBody);
+        },
+
+        async generateManuscriptDraftImage(requestBody = {}) {
+            return getManuscriptDraftService().generateImage(requestBody);
+        },
+
+        async generateMissingManuscriptDraftImages(requestBody = {}) {
+            return getManuscriptDraftService().generateMissingImages(requestBody);
+        },
+
+        async excludeManuscriptDraftImage(requestBody = {}) {
+            return getManuscriptDraftService().excludeImage(requestBody);
+        },
+
+        async restoreManuscriptDraftImage(requestBody = {}) {
+            return getManuscriptDraftService().restoreImage(requestBody);
+        },
+
+        async getManuscriptDraftImage(request = {}) {
+            return getManuscriptDraftService().getImage(request);
+        },
+
+        async publishManuscriptDraft(requestBody = {}) {
+            const snapshot = getManuscriptDraftService().buildPublishPayload(requestBody);
+            return this.localMarkdownPublish({
+                ...snapshot.settings,
+                ...snapshot,
+                operationId: requestBody.operationId
+            });
         },
 
         async localMarkdownPublish(requestBody = {}) {

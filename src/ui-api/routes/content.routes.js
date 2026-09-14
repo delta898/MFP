@@ -4,6 +4,31 @@ function createContentRouteHandler(deps = {}) {
     return async function tryHandleContentRoute(ctx = {}) {
         const { pathname } = ctx;
 
+        if (pathname === '/api/v1/blog/manuscript-drafts/folder') return controller.manuscriptDraftCreateFolder(ctx);
+        const manuscriptBulkImageMatch = pathname.match(/^\/api\/v1\/blog\/manuscript-drafts\/([^/]+)\/images\/(generate-missing)$/);
+        if (manuscriptBulkImageMatch) {
+            return controller.manuscriptDraftMutation({ ...ctx, draftId: decodeURIComponent(manuscriptBulkImageMatch[1]), action: manuscriptBulkImageMatch[2] });
+        }
+        const manuscriptImageMatch = pathname.match(/^\/api\/v1\/blog\/manuscript-drafts\/([^/]+)\/images\/([^/]+)$/);
+        if (manuscriptImageMatch) {
+            return controller.manuscriptDraftImage({ ...ctx, draftId: decodeURIComponent(manuscriptImageMatch[1]), slotId: decodeURIComponent(manuscriptImageMatch[2]) });
+        }
+        const manuscriptSlotActionMatch = pathname.match(/^\/api\/v1\/blog\/manuscript-drafts\/([^/]+)\/image-slots\/([^/]+)\/(import|generate|exclude|restore)$/);
+        if (manuscriptSlotActionMatch) {
+            return controller.manuscriptDraftMutation({
+                ...ctx,
+                draftId: decodeURIComponent(manuscriptSlotActionMatch[1]),
+                slotId: decodeURIComponent(manuscriptSlotActionMatch[2]),
+                action: manuscriptSlotActionMatch[3]
+            });
+        }
+        const manuscriptActionMatch = pathname.match(/^\/api\/v1\/blog\/manuscript-drafts\/([^/]+)\/(settings|publish)$/);
+        if (manuscriptActionMatch) {
+            return controller.manuscriptDraftMutation({ ...ctx, draftId: decodeURIComponent(manuscriptActionMatch[1]), action: manuscriptActionMatch[2] });
+        }
+        const manuscriptDraftMatch = pathname.match(/^\/api\/v1\/blog\/manuscript-drafts\/([^/]+)$/);
+        if (manuscriptDraftMatch) return controller.manuscriptDraftGet({ ...ctx, draftId: decodeURIComponent(manuscriptDraftMatch[1]) });
+
         if (pathname === '/api/v1/settings/shopping-image') return controller.shoppingImageSave(ctx);
         if (pathname === '/api/v1/settings/shopping-image/preview') return controller.shoppingImagePreview(ctx);
         if (pathname === '/api/v1/google-oauth/status') return controller.googleOauthStatus(ctx);
