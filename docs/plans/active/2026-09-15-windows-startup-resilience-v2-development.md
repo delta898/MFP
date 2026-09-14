@@ -68,7 +68,8 @@ Completed verification on the implementation branch:
 
 The explicitly approved full unit suite completed across 332 test files: 1,745
 tests passed, zero failed, and one Windows-only integration test was skipped on
-macOS. The remaining platform gate is the Windows release workflow's
-authoritative C# compilation plus packaged normal/safe probe.
-No commit, branch merge, push, tag, package publication, or release has been
-performed.
+macOS. Stage 01 was committed as `4bf951e`, fast-forwarded into this parent, and
+its short-lived branch was deleted. The remaining platform gate is the Windows
+release workflow's authoritative C# compilation plus packaged normal/safe
+probe. No parent-to-`dev` merge, push, tag, package publication, or release has
+been performed.
