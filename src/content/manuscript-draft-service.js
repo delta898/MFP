@@ -66,7 +66,7 @@ function safeDraftId(value) {
 
 function safeSlotId(value) {
     const id = String(value || '').trim();
-    return /^image-[1-9][0-9]*$/.test(id) ? id : '';
+    return /^image-(?:0|[1-9][0-9]*)$/.test(id) ? id : '';
 }
 
 function createManuscriptDraftService(options = {}) {

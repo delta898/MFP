@@ -222,7 +222,7 @@ function renderBlogNextDraftBodyHtml(type, preview = {}) {
       const image = imageMap.get(Number(item.index));
       const previewUrl = image?.exists ? (image.imageUrl || getBlogNextDraftImageUrl(type, image.imagePath)) : '';
       const imageBody = previewUrl
-        ? `<img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(image?.title || item.text || '')}" loading="lazy">`
+        ? `<img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(image?.title || item.text || '')}" loading="lazy" data-manuscript-preview-image>`
         : '<div class="local-markdown-inline-image-missing">이미지 파일 없음</div>';
       fragments.push(`<figure>${imageBody}<figcaption>
         <div class="image-caption-title">${escapeHtml(image?.title || item.text || `IMAGE_${item.index}`)}</div>
@@ -253,14 +253,18 @@ function renderBlogNextDraftImages(type, preview = {}) {
         <div class="local-markdown-image-card-title">IMAGE_${escapeHtml(String(image.index))} ${escapeHtml(image.title || '')}</div>
         <span class="local-markdown-image-card-status ${exists ? 'ok' : 'missing'}">${exists ? '이미지 준비됨' : '파일 없음'}</span>
       </div>
-      ${imageUrl ? `<div class="local-markdown-image-card-preview"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(image.title || `IMAGE_${image.index}`)}"></div>` : ''}
+      <div class="local-markdown-image-card-preview">
+        ${imageUrl
+          ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(image.title || `IMAGE_${image.index}`)}" data-manuscript-card-image>`
+          : '<div class="local-markdown-image-card-placeholder"><strong>이미지 없음</strong><span>AI로 만들거나 내 이미지를 선택할 수 있습니다.</span></div>'}
+      </div>
       ${image.prompt ? `<p class="local-markdown-image-card-prompt">${escapeHtml(image.prompt)}</p>` : ''}
       ${type === 'folder' && preview.draftId ? `<div class="local-markdown-image-card-actions">
         <button class="${exists ? 'secondary' : 'primary'} compact" type="button" data-manuscript-image-action="generate" data-slot-id="${escapeHtml(image.slotId)}">${exists ? 'AI 다시 만들기' : 'AI 이미지 만들기'}</button>
         <button class="secondary compact" type="button" data-manuscript-image-picker data-slot-id="${escapeHtml(image.slotId)}">${exists ? '이미지 교체' : '내 이미지 선택'}</button>
         <input type="file" accept="image/png,image/jpeg,image/webp,image/avif" data-manuscript-image-file data-slot-id="${escapeHtml(image.slotId)}" hidden>
-        ${exists ? `<button class="ghost compact" type="button" data-manuscript-image-action="exclude" data-slot-id="${escapeHtml(image.slotId)}">이미지 제외</button>` : ''}
-        ${image.canRestore ? `<button class="ghost compact" type="button" data-manuscript-image-action="restore" data-slot-id="${escapeHtml(image.slotId)}">원래 이미지 복원</button>` : ''}
+        ${exists ? `<button class="secondary compact" type="button" data-manuscript-image-action="exclude" data-slot-id="${escapeHtml(image.slotId)}" title="원본 파일은 삭제하지 않고 현재 원고에서만 이미지를 제거합니다.">원고에서 제거</button>` : ''}
+        ${image.canRestore ? `<button class="secondary compact" type="button" data-manuscript-image-action="restore" data-slot-id="${escapeHtml(image.slotId)}">원래 이미지 복원</button>` : ''}
       </div>` : ''}
     </article>`;
   }).join('');
@@ -278,6 +282,30 @@ function bindBlogNextManuscriptImageActions(type, container) {
     button.addEventListener('click', () => void runBlogNextManuscriptImageAction(button.dataset.manuscriptImageAction, button.dataset.slotId));
   });
   container.querySelector('[data-manuscript-generate-missing]')?.addEventListener('click', () => void generateMissingBlogNextManuscriptImages());
+  container.querySelectorAll('[data-manuscript-card-image]').forEach((image) => {
+    image.addEventListener('error', () => {
+      const card = image.closest('[data-manuscript-image-slot]');
+      const frame = image.closest('.local-markdown-image-card-preview');
+      if (frame) frame.innerHTML = '<div class="local-markdown-image-card-placeholder is-error"><strong>이미지를 불러오지 못했습니다.</strong><span>이미지를 다시 만들거나 다른 파일로 교체해 주세요.</span></div>';
+      const status = card?.querySelector('.local-markdown-image-card-status');
+      if (status) {
+        status.classList.remove('ok');
+        status.classList.add('missing');
+        status.textContent = '불러오기 실패';
+      }
+    }, { once: true });
+  });
+}
+
+function bindBlogNextManuscriptBodyImageFallback(body) {
+  body?.querySelectorAll('[data-manuscript-preview-image]').forEach((image) => {
+    image.addEventListener('error', () => {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'local-markdown-inline-image-missing';
+      placeholder.textContent = '이미지를 불러오지 못했습니다.';
+      image.replaceWith(placeholder);
+    }, { once: true });
+  });
 }
 
 async function generateMissingBlogNextManuscriptImages() {
@@ -363,6 +391,7 @@ function renderBlogNextDraftPreview(type, preview = null) {
   if (title) title.textContent = preview.title || '제목 없음';
   const stats = preview.stats || {};
   if (body) body.innerHTML = renderBlogNextDraftBodyHtml(type, preview);
+  if (body) bindBlogNextManuscriptBodyImageFallback(body);
   if (images) images.innerHTML = renderBlogNextDraftImages(type, preview);
   if (images) bindBlogNextManuscriptImageActions(type, images);
   if (imageDetails) imageDetails.hidden = type === 'folder' && preview.draftId

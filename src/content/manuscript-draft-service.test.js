@@ -48,6 +48,32 @@ test('creates a folder draft with stable slots and private image URLs', () => {
     }
 });
 
+test('supports IMAGE_0 for preview and replacement', () => {
+    const { workspaceDir, service } = fixture();
+    try {
+        const created = service.createFolderDraft({
+            folderName: 'zero-index',
+            targets: ['naver'],
+            selectedFiles: [
+                { relativePath: 'zero-index/contents.md', name: 'contents.md', textContent: '# 제목\n\n[[IMAGE_0\ntitle: 첫 이미지\nprompt: 첫 프롬프트\n]]' },
+                { relativePath: 'zero-index/00_existing.png', name: '00_existing.png', base64Data: PNG.toString('base64') }
+            ]
+        });
+        assert.equal(created.images[0].slotId, 'image-0');
+        assert.equal(service.getImage({ draftId: created.draftId, slotId: 'image-0', revision: 1 }).contentType, 'image/png');
+        const replaced = service.importLocalImage({
+            draftId: created.draftId,
+            revision: 1,
+            slotId: 'image-0',
+            base64Data: PNG.toString('base64')
+        });
+        assert.equal(replaced.revision, 2);
+        assert.equal(replaced.images[0].assetOrigin, 'user');
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('imports, excludes, and restores an image with revision checks', () => {
     const { workspaceDir, service, input } = fixture();
     try {

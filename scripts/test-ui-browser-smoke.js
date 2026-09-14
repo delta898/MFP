@@ -492,8 +492,8 @@ function startFixtureServer(requests) {
     let localMarkdownPublishing = false;
     let manuscriptDraftRevision = 0;
     let manuscriptDraftImages = [
-        { index: 1, slotId: 'image-1', title: '첫 이미지', prompt: '푸른 하늘', exists: true, assetOrigin: 'folder', canRestore: false },
-        { index: 2, slotId: 'image-2', title: '둘째 이미지', prompt: '초록 숲', exists: false, assetOrigin: '', canRestore: false }
+        { index: 0, slotId: 'image-0', title: '첫 이미지', prompt: '푸른 하늘', exists: true, assetOrigin: 'folder', canRestore: false },
+        { index: 1, slotId: 'image-1', title: '둘째 이미지', prompt: '초록 숲', exists: false, assetOrigin: '', canRestore: false }
     ];
     const buildManuscriptDraftFixture = () => {
         const images = manuscriptDraftImages.map((image) => ({
@@ -859,7 +859,7 @@ function startFixtureServer(requests) {
                 if (action === 'exclude') {
                     slot.exists = false;
                     slot.assetOrigin = '';
-                    slot.canRestore = slot.index === 1;
+                    slot.canRestore = slot.index === 0;
                 } else if (action === 'restore') {
                     slot.exists = true;
                     slot.assetOrigin = 'folder';
@@ -867,7 +867,7 @@ function startFixtureServer(requests) {
                 } else {
                     slot.exists = true;
                     slot.assetOrigin = action === 'import' ? 'user' : 'generated';
-                    slot.canRestore = slot.index === 1;
+                    slot.canRestore = slot.index === 0;
                 }
                 manuscriptDraftRevision += 1;
                 res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -1155,8 +1155,8 @@ async function run() {
     const pageErrors = [];
     const failedResponses = [];
     const manuscriptFixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'blog-next-manuscript-browser-'));
-    const manuscriptFixtureImage = path.join(manuscriptFixtureDir, '01_existing.png');
-    fs.writeFileSync(path.join(manuscriptFixtureDir, 'contents.md'), '# 폴더 원고\n\n[[IMAGE_1\ntitle: 첫 이미지\nprompt: 푸른 하늘\n]]\n\n본문\n\n[[IMAGE_2\ntitle: 둘째 이미지\nprompt: 초록 숲\n]]');
+    const manuscriptFixtureImage = path.join(manuscriptFixtureDir, '00_existing.png');
+    fs.writeFileSync(path.join(manuscriptFixtureDir, 'contents.md'), '# 폴더 원고\n\n[[IMAGE_0\ntitle: 첫 이미지\nprompt: 푸른 하늘\n]]\n\n본문\n\n[[IMAGE_1\ntitle: 둘째 이미지\nprompt: 초록 숲\n]]');
     fs.writeFileSync(manuscriptFixtureImage, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'));
     const { server, baseUrl } = await startFixtureServer(requests);
     let browser;
@@ -2982,18 +2982,18 @@ async function run() {
         assert.equal((await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]').textContent())?.trim(), '준비 1/2');
         assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-body] img').count(), 1);
         await page.locator('[data-blog-next-draft-preview="folder"] summary').click();
-        await page.locator('[data-manuscript-image-file][data-slot-id="image-2"]').setInputFiles(manuscriptFixtureImage);
+        await page.locator('[data-manuscript-image-file][data-slot-id="image-1"]').setInputFiles(manuscriptFixtureImage);
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]')?.textContent?.includes('2/2'));
         assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-body] img').count(), 2);
-        await page.locator('[data-manuscript-image-action="exclude"][data-slot-id="image-1"]').click();
+        await page.locator('[data-manuscript-image-action="exclude"][data-slot-id="image-0"]').click();
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]')?.textContent?.includes('1/2'));
-        assert.equal(await page.locator('[data-manuscript-image-action="restore"][data-slot-id="image-1"]').isVisible(), true);
-        await page.locator('[data-manuscript-image-action="restore"][data-slot-id="image-1"]').click();
+        assert.equal(await page.locator('[data-manuscript-image-action="restore"][data-slot-id="image-0"]').isVisible(), true);
+        await page.locator('[data-manuscript-image-action="restore"][data-slot-id="image-0"]').click();
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]')?.textContent?.includes('2/2'));
-        await page.locator('[data-manuscript-image-action="generate"][data-slot-id="image-2"]').click();
+        await page.locator('[data-manuscript-image-action="generate"][data-slot-id="image-1"]').click();
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
         await page.locator('#ui-dialog-confirm').click();
-        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-manuscript-image-slot="image-2"] .local-markdown-image-card-status')?.textContent === '이미지 준비됨');
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-manuscript-image-slot="image-1"] .local-markdown-image-card-status')?.textContent === '이미지 준비됨');
         assert.equal(await page.locator('[data-blog-next-draft-publish="folder"]').isDisabled(), false);
         await page.locator('[data-blog-next-draft-publish="folder"]').click();
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
@@ -3322,10 +3322,10 @@ async function run() {
             { method: 'POST', pathname: '/api/v1/continuous-publishing/automation/settings' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' },
             { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/folder' },
-            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/image-slots/image-2/import` },
-            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/image-slots/image-1/exclude` },
-            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/image-slots/image-1/restore` },
-            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/image-slots/image-2/generate` },
+            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/image-slots/image-1/import` },
+            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/image-slots/image-0/exclude` },
+            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/image-slots/image-0/restore` },
+            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/image-slots/image-1/generate` },
             { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/settings` },
             { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/publish` },
             { method: 'POST', pathname: '/api/v1/blog/local-markdown/preview' },

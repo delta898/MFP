@@ -82,14 +82,21 @@
   revision, and image work disables competing publication.
 - 2026-09-15: the first browser run found that `aria-busy` remained on the image list after a mutation and kept intercepting
   later pointer actions. The finalizer now removes the state before re-rendering; the complete browser flow passed afterward.
+- 2026-09-15: hands-on review exposed a broken first image and ineffective replacement for real manuscripts that number
+  slots from `IMAGE_0`. The slot validator incorrectly accepted only positive indexes while the established Markdown contract
+  is zero-based. It now accepts zero, and domain/browser regressions use `IMAGE_0` explicitly.
+- 2026-09-15: aligned present and missing image cards around the same fixed media frame, prompt and centered action area.
+  Failed browser image loads now become an actionable placeholder instead of a broken-image glyph.
+- 2026-09-15: renamed the ambiguous `이미지 제외` action to `원고에서 제거` and explains that the source file is retained.
 
 ## Automated Verification
 
-- 74 focused domain, legacy parser/workspace, API controller/route/service, Blog Beta UI and continuous-publishing contract
-  tests passed.
+- 75 focused domain, legacy parser/workspace, API controller/route/service, Blog Beta UI and continuous-publishing contract
+  tests passed, including zero-index image lookup and replacement.
 - JavaScript syntax checks and `git diff --check` passed.
-- `npm run test:ui-browser` passed with 338 fixture requests. The exercised folder flow covered import, two-slot preview,
-  local replacement, exclude, restore, AI replacement confirmation and exact revision publication without external calls.
+- `npm run test:ui-browser` passed after the review correction with 337 fixture requests. The exercised zero-based folder flow
+  covered import, two-slot preview, local replacement, remove, restore, AI replacement confirmation and exact revision
+  publication without external calls.
 - Full unit suite remains pending explicit user approval before parent merge.
 
 ## Manual Checks Still Required
