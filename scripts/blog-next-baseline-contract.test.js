@@ -104,9 +104,16 @@ test('folder and paste previews share one reading surface while folder exposes i
   assert.match(script, /AI로 만들기/);
   assert.match(script, /내 이미지 선택/);
   assert.match(script, /사용 안 함/);
-  assert.match(script, /임시 저장으로 실행/);
+  assert.match(script, /function syncBlogNextDraftImageSafety\(type, preview = null\)/);
+  assert.match(script, /option\.value === 'publish' \|\| option\.value === 'schedule'/);
+  assert.match(script, /if \(changedToDraft\) select\.value = 'draft'/);
+  assert.match(script, /미완성 이미지 \$\{missingCount\}개로 임시 저장만 가능합니다/);
+  assert.match(script, /selectedStatus === 'draft' \? '임시 저장'/);
+  assert.match(script, /selectedStatus === 'schedule' \? '예약 발행' : '즉시 발행'/);
   assert.match(script, /publishResult\?\.postStatus \|\| settings\.postStatus/);
   assert.match(script, /showPostingCompletionCelebration\(actualPostStatus\)/);
+  assert.match(html, /data-draft-image-safety-hint/);
+  assert.match(html, /발행할 이미지가 준비되지 않으면 안전을 위해 임시 저장으로 자동 변경됩니다/);
   assert.match(css, /\.local-markdown-image-media-actions\.is-empty\s*\{[\s\S]*?justify-content:\s*center/);
   assert.match(css, /\.local-markdown-image-media-actions\.is-empty\s*\{[\s\S]*?flex-wrap:\s*nowrap/);
   assert.match(css, /\.local-markdown-image-card-preview\.is-load-error \.local-markdown-image-media-actions/);

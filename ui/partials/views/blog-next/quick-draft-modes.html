@@ -48,7 +48,16 @@
                 <label class="blog-next-field blog-next-dependent-field" data-draft-provider-field="wordpress" data-dependency-active="false">
                   <span>워드프레스 카테고리 <small>(선택)</small></span><input data-draft-field="wordpress-category" type="text" placeholder="예: Daily" disabled>
                 </label>
-                <label class="blog-next-field"><span>포스팅 옵션</span><span class="ui-select-shell"><select data-draft-field="post-status"><option value="publish">즉시 발행</option><option value="draft">임시 저장</option><option value="schedule">예약 발행</option></select></span></label>
+                <label class="blog-next-field">
+                  <span class="blog-next-field-label-with-help">포스팅 옵션
+                    <span class="tooltip-container blog-next-help-trigger" tabindex="0" aria-label="이미지 안전 저장 도움말" aria-describedby="blog-next-folder-publish-safety-help">
+                      <span class="tooltip-icon">?</span>
+                      <span class="tooltip-text" id="blog-next-folder-publish-safety-help" role="tooltip">발행할 이미지가 준비되지 않으면 안전을 위해 임시 저장으로 자동 변경됩니다. 이미지를 추가하거나 ‘사용 안 함’으로 제외하면 즉시 발행과 예약 발행을 다시 선택할 수 있습니다.</span>
+                    </span>
+                  </span>
+                  <span class="ui-select-shell"><select data-draft-field="post-status" aria-describedby="blog-next-folder-publish-safety-hint"><option value="publish">즉시 발행</option><option value="draft">임시 저장</option><option value="schedule">예약 발행</option></select></span>
+                  <small class="blog-next-image-safety-hint" id="blog-next-folder-publish-safety-hint" data-draft-image-safety-hint hidden></small>
+                </label>
                 <label class="blog-next-field blog-next-dependent-field" data-draft-schedule-field data-dependency-active="false">
                   <span>예약 일시 <small data-draft-schedule-required hidden>(필수)</small></span><span class="visually-hidden" id="blog-next-folder-schedule-hint">예약 발행을 선택하면 활성화됩니다.</span>
                   <input data-draft-field="schedule-date" type="datetime-local" aria-describedby="blog-next-folder-schedule-hint" disabled>
@@ -105,7 +114,16 @@
                 <label class="blog-next-field blog-next-dependent-field" data-draft-provider-field="wordpress" data-dependency-active="false">
                   <span>워드프레스 카테고리 <small>(선택)</small></span><input data-draft-field="wordpress-category" type="text" placeholder="예: Daily" disabled>
                 </label>
-                <label class="blog-next-field"><span>포스팅 옵션</span><span class="ui-select-shell"><select data-draft-field="post-status"><option value="publish">즉시 발행</option><option value="draft">임시 저장</option><option value="schedule">예약 발행</option></select></span></label>
+                <label class="blog-next-field">
+                  <span class="blog-next-field-label-with-help">포스팅 옵션
+                    <span class="tooltip-container blog-next-help-trigger" tabindex="0" aria-label="이미지 안전 저장 도움말" aria-describedby="blog-next-paste-publish-safety-help">
+                      <span class="tooltip-icon">?</span>
+                      <span class="tooltip-text" id="blog-next-paste-publish-safety-help" role="tooltip">발행할 이미지가 준비되지 않으면 안전을 위해 임시 저장으로 자동 변경됩니다. 이미지를 추가하거나 ‘사용 안 함’으로 제외하면 즉시 발행과 예약 발행을 다시 선택할 수 있습니다.</span>
+                    </span>
+                  </span>
+                  <span class="ui-select-shell"><select data-draft-field="post-status" aria-describedby="blog-next-paste-publish-safety-hint"><option value="publish">즉시 발행</option><option value="draft">임시 저장</option><option value="schedule">예약 발행</option></select></span>
+                  <small class="blog-next-image-safety-hint" id="blog-next-paste-publish-safety-hint" data-draft-image-safety-hint hidden></small>
+                </label>
                 <label class="blog-next-field blog-next-dependent-field" data-draft-schedule-field data-dependency-active="false">
                   <span>예약 일시 <small data-draft-schedule-required hidden>(필수)</small></span><span class="visually-hidden" id="blog-next-paste-schedule-hint">예약 발행을 선택하면 활성화됩니다.</span>
                   <input data-draft-field="schedule-date" type="datetime-local" aria-describedby="blog-next-paste-schedule-hint" disabled>

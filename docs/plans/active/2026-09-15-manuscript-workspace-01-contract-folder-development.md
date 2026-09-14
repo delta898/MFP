@@ -112,6 +112,10 @@
 - 2026-09-15: an unresolved manuscript now names the consequence before execution, changes the primary action to
   `임시 저장으로 실행`, and repeats the exact missing count in confirmation. Empty-card actions use the compact one-row labels
   `AI로 만들기` and `내 이미지 선택`; `사용 안 함` explicitly converts a missing slot into an intentional exclusion.
+- 2026-09-15: removed the remaining settings/action mismatch. When a targeted slot is missing, the posting option itself now
+  changes to `임시 저장`, disables immediate/scheduled choices, shows the exact missing count, and keeps the action button in
+  sync as `임시 저장`. A hover- and keyboard-accessible help bubble explains how completing or excluding slots unlocks the
+  choices. Unlocking does not silently restore the prior mode; the user must explicitly choose immediate or scheduled publish.
 
 ## Automated Verification
 
@@ -123,6 +127,9 @@
 - `npm run test:ui-browser` passed after the policy correction with 336 fixture requests. The exercised zero-based folder flow
   covered import, two-slot preview, local replacement, remove, restore, AI replacement confirmation and exact revision
   publication without external calls.
+- The posting-option synchronization recheck passed 34 focused tests, followed by `npm run test:ui-browser` with 338 fixture
+  requests covering automatic Draft selection, option locking/unlocking, persistent safe selection, contextual action copy,
+  and keyboard-visible help.
 - Full unit suite remains pending explicit user approval before parent merge.
 
 ## Manual Checks Still Required

@@ -491,6 +491,7 @@ function startFixtureServer(requests) {
     let continuousRunnerPollsRemaining = 0;
     let localMarkdownPublishing = false;
     let manuscriptDraftRevision = 0;
+    let manuscriptDraftPostStatus = 'publish';
     let manuscriptDraftImages = [
         { index: 0, slotId: 'image-0', title: '첫 이미지', prompt: '푸른 하늘', exists: true, excluded: false, assetOrigin: 'folder', canRestore: false },
         { index: 1, slotId: 'image-1', title: '둘째 이미지', prompt: '초록 숲', exists: false, excluded: false, assetOrigin: '', canRestore: false }
@@ -835,6 +836,7 @@ function startFixtureServer(requests) {
             req.on('end', () => {
                 requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
                 manuscriptDraftRevision = 1;
+                manuscriptDraftPostStatus = requestRecord.body.postStatus || 'publish';
                 manuscriptDraftImages = manuscriptDraftImages.map((image) => ({ ...image }));
                 res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
                 res.end(JSON.stringify({ success: true, data: buildManuscriptDraftFixture() }));
@@ -887,6 +889,7 @@ function startFixtureServer(requests) {
             req.on('data', (chunk) => chunks.push(chunk));
             req.on('end', () => {
                 requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                manuscriptDraftPostStatus = requestRecord.body.postStatus || manuscriptDraftPostStatus;
                 manuscriptDraftRevision += 1;
                 res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
                 res.end(JSON.stringify({ success: true, data: buildManuscriptDraftFixture() }));
@@ -903,7 +906,11 @@ function startFixtureServer(requests) {
                 res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
                 setTimeout(() => {
                     localMarkdownPublishing = false;
-                    res.end(JSON.stringify({ success: true, data: { status: '발행 완료', postStatus: 'publish', completionLinks: [] } }));
+                    res.end(JSON.stringify({ success: true, data: {
+                        status: manuscriptDraftPostStatus === 'draft' ? '임시 저장 완료' : '발행 완료',
+                        postStatus: manuscriptDraftPostStatus,
+                        completionLinks: []
+                    } }));
                 }, 100);
             });
             return;
@@ -2986,11 +2993,20 @@ async function run() {
             && document.querySelectorAll('[data-blog-next-draft-preview="folder"] [data-manuscript-image-slot]').length === 2
         ));
         assert.equal((await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]').textContent())?.trim(), '준비 1/2');
-        assert.equal((await page.locator('[data-blog-next-draft-publish="folder"]').textContent())?.trim(), '임시 저장으로 실행');
+        assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"]').inputValue(), 'draft');
+        assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"] option[value="publish"]').evaluate((option) => option.disabled), true);
+        assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"] option[value="schedule"]').evaluate((option) => option.disabled), true);
+        assert.match((await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-image-safety-hint]').textContent()) || '', /미완성 이미지 1개/);
+        await page.locator('[data-blog-next-mode-panel="folder"] [aria-describedby="blog-next-folder-publish-safety-help"]').focus();
+        assert.equal(await page.locator('#blog-next-folder-publish-safety-help').isVisible(), true);
+        assert.equal((await page.locator('[data-blog-next-draft-publish="folder"]').textContent())?.trim(), '임시 저장');
         assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-body] img').count(), 1);
         await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-details] > summary').click();
         await page.locator('[data-manuscript-image-file][data-slot-id="image-1"]').setInputFiles(manuscriptFixtureImage);
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]')?.textContent?.includes('2/2'));
+        assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"] option[value="publish"]').evaluate((option) => option.disabled), false);
+        assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"]').inputValue(), 'draft');
+        assert.equal((await page.locator('[data-blog-next-draft-publish="folder"]').textContent())?.trim(), '임시 저장');
         assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-body] img').count(), 2);
         await page.locator('[data-manuscript-image-slot="image-0"] .local-markdown-image-card-preview').hover();
         await page.locator('[data-manuscript-image-action="exclude"][data-slot-id="image-0"]').click();

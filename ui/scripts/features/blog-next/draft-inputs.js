@@ -2,8 +2,8 @@ const BLOG_NEXT_DRAFT_TYPES = Object.freeze(['folder', 'paste']);
 const BLOG_NEXT_DRAFT_PREVIEW_DELAY_MS = 350;
 
 const blogNextDraftState = {
-  folder: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, imageObjectUrls: {}, draftId: '', revision: 0, imageWorking: false },
-  paste: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, clearSnapshot: null }
+  folder: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, imageObjectUrls: {}, draftId: '', revision: 0, imageWorking: false, imageSafetyLocked: false },
+  paste: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, clearSnapshot: null, imageSafetyLocked: false }
 };
 
 function blogNextDraftContainer(type) {
@@ -90,6 +90,31 @@ function syncBlogNextDraftProviderFields(type) {
       control.disabled = !active;
     });
   });
+  syncBlogNextDraftSettingsSummary(type);
+}
+
+function syncBlogNextDraftImageSafety(type, preview = null) {
+  const state = blogNextDraftState[type];
+  const select = blogNextDraftField(type, 'post-status');
+  const hint = blogNextDraftContainer(type)?.querySelector('[data-draft-image-safety-hint]');
+  if (!state || !select) return;
+  const missingCount = Number(preview?.stats?.imageMissingCount || 0);
+  const locked = missingCount > 0;
+  const changedToDraft = locked && select.value !== 'draft';
+
+  Array.from(select.options).forEach((option) => {
+    if (option.value === 'publish' || option.value === 'schedule') option.disabled = locked;
+  });
+  if (changedToDraft) select.value = 'draft';
+  if (hint) {
+    hint.textContent = locked ? `미완성 이미지 ${missingCount}개로 임시 저장만 가능합니다.` : '';
+    hint.hidden = !locked;
+  }
+  if (changedToDraft && !state.imageSafetyLocked && typeof showUiToast === 'function') {
+    showUiToast({ level: 'info', title: '임시 저장으로 변경', message: `발행할 이미지 ${missingCount}개가 미완성입니다.` });
+  }
+  state.imageSafetyLocked = locked;
+  syncBlogNextDraftSchedule(type);
   syncBlogNextDraftSettingsSummary(type);
 }
 
@@ -410,6 +435,7 @@ function renderBlogNextDraftPreview(type, preview = null) {
   const container = document.querySelector(`[data-blog-next-draft-preview="${type}"]`);
   const imageDetailsWasOpen = container?.querySelector('[data-draft-preview-image-details]')?.open === true;
   blogNextDraftState[type].preview = preview;
+  syncBlogNextDraftImageSafety(type, preview);
   syncBlogNextDraftExecutionState();
   if (!container || !preview) {
     if (container) container.hidden = true;
@@ -503,13 +529,13 @@ function syncBlogNextDraftExecutionState(runnerActive) {
     if (!button) return;
     button.disabled = executionActive || !state.preview?.validation?.ok;
     button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
-    const missingCount = Number(state.preview?.stats?.imageMissingCount || 0);
     const selectedStatus = readBlogNextDraftSettings(type).postStatus;
     button.textContent = state.publishing
       ? '포스팅 진행 중...'
       : state.imageWorking ? '이미지 작업 중...'
       : executionActive ? '다른 작업 실행 중...'
-      : missingCount > 0 && selectedStatus !== 'draft' ? '임시 저장으로 실행' : '포스팅 실행';
+      : selectedStatus === 'draft' ? '임시 저장'
+      : selectedStatus === 'schedule' ? '예약 발행' : '즉시 발행';
   });
 }
 
@@ -691,6 +717,7 @@ function bindBlogNextDraftOptions(type) {
         syncBlogNextDraftProviderFields(type);
       }
       syncBlogNextDraftSettingsSummary(type);
+      syncBlogNextDraftExecutionState();
       scheduleBlogNextDraftPreview(type);
     });
   });

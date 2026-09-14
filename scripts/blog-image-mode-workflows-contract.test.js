@@ -49,7 +49,8 @@ test('WYSIWYG manuscript publishing owns images in slots and drafts only for act
     assert.doesNotMatch(manuscriptView, /data-draft-field="image-mode"/);
     assert.match(manuscriptScript, /imageMode: 'prompt_only'/);
     assert.match(manuscriptScript, /missingCount > 0 && settings\.postStatus !== 'draft'/);
-    assert.match(manuscriptScript, /임시 저장으로 실행/);
+    assert.match(manuscriptScript, /if \(changedToDraft\) select\.value = 'draft'/);
+    assert.match(manuscriptScript, /selectedStatus === 'draft' \? '임시 저장'/);
     assert.doesNotMatch(core, /if \(options\.imageGeneration === false\) \{\s*hasImageWarnings = true;/);
     assert.doesNotMatch(core, /이미지 미생성 옵션으로 인해 Draft로 강제 전환/);
     assert.match(core, /발행 대상으로 남은 이미지의 누락\/업로드 실패 시 Draft 강제/);

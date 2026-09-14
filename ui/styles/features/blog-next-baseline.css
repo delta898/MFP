@@ -250,6 +250,18 @@
   grid-column: 1 / -1;
 }
 
+.blog-next-draft-options .blog-next-help-trigger:focus .tooltip-text,
+.blog-next-draft-options .blog-next-help-trigger:focus-visible .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+  transform: translateX(-50%) translateY(-5px);
+}
+
+.blog-next-draft-options .blog-next-image-safety-hint {
+  color: var(--ui-status-warning);
+  font-weight: var(--ui-weight-semibold);
+}
+
 .blog-next-manuscript-image-details .local-markdown-image-list[aria-busy="true"] {
   opacity: 0.68;
   pointer-events: none;
