@@ -1,6 +1,6 @@
 # BlogGenius Backlog
 
-> 현행 기준: 2026-09-14 · 최신 릴리스: `v0.4.3` · 다음 버전: 미정
+> 현행 기준: 2026-09-15 · 최신 릴리스: `v0.4.3` · 다음 버전: 미정
 
 이 문서는 현재 실행 가능한 일감만 관리한다. 완료된 구현 과정은 `docs/plans/archive/`, 안정된 현재
 계약은 `docs/architecture/`, `docs/features/`, `docs/decisions/`를 따른다.
@@ -76,10 +76,92 @@
    - fallback 제목, 근거 시점·출처 설명과 동음이의어 topic semantics를 개선한다.
    - 추천 funnel, provider 비용, cache, 중복과 고아 recommendation 진단을 제공한다.
 
-6. AI runtime capability 자동 탐지와 자기복구
-   - 모델, 생성 방식, thinking 지원과 token 한도는 provider metadata를 우선한다.
-   - metadata에 없는 값만 trusted catalog로 보완하고 구조화된 capability 불일치에 한해 한 번 재시도한다.
-   - 인증·quota·일반 오류와 capability 불일치를 엄격히 구분한다.
+6. AI provider transport 현대화와 지원 모델 discovery
+   - 목표는 공식 SDK로 일괄 교체하는 것이 아니라, 공급자 API 변화에 안전하게 대응하면서 검증된 모델만
+     BlogGenius에 빠르게 제공하는 것이다. 현재 `kind + provider + transport + config` 경계와 Supabase
+     `ai_model_catalog_versions`를 유지한다.
+   - Supabase 지원 카탈로그는 계속 제품 정책의 source of truth로 둔다. 공급자 Models API가 반환한 목록은
+     `발견된 모델`일 뿐 `BlogGenius 지원 모델`로 간주하지 않으며, 새 항목을 자동으로 사용자 UI에 공개하지 않는다.
+   - 실행 transport와 model metadata의 수명을 분리한다. 새 모델이 기존 allowlisted transport와 검증된 capability
+     계약을 그대로 사용할 때는 원격 카탈로그만 갱신하고, endpoint·인증·request/response schema·streaming 방식이
+     바뀌면 앱 release를 통해 새 transport adapter를 추가한다.
+
+   **SDK 선택 정책**
+
+   - 단순한 metadata 조회와 현재의 단일 응답 REST 호출은 직접 HTTP adapter를 유지할 수 있다. 요청 구조가 작고
+     재시도·timeout·redaction·패키징을 BlogGenius가 더 명확하게 통제할 수 있기 때문이다.
+   - streaming, 파일 수명주기, server-side conversation, tool/function calling, background operation, pagination처럼
+     공급자 protocol 변화가 잦고 상태가 복잡한 기능은 공식 SDK를 우선 평가한다.
+   - SDK 채택은 provider 전체가 아니라 transport 단위로 결정한다. Google, OpenAI, Anthropic SDK object나 오류를
+     business layer에 노출하지 않고 공통 request/result/error/usage 계약으로 변환한다.
+   - SDK version은 lockfile에 고정하고 major upgrade를 자동 허용하지 않는다. bundle 크기, transitive dependency,
+     Node/Electron/pkg 호환성, 기본 retry·timeout, proxy와 IPv4/IPv6 동작을 release 전 검증한다.
+   - SDK의 암묵적 retry와 BlogGenius retry가 중첩되지 않도록 단일 책임자를 정하고, 사용자에게 비용이 발생한 요청의
+     attempt·provider request ID·usage를 중복 없이 기록한다.
+
+   **공급자별 discovery와 transport 방향**
+
+   - Google은 `models.list/get`의 model ID, 표시 이름, token 한도, `supportedGenerationMethods`, thinking과
+     temperature metadata를 정기 수집한다. 현 `gemini_generate_content` REST transport는 안정 fallback으로
+     유지하고, 신규 agent·stateful 기능은 `gemini_interactions` transport를 별도로 검증한다. Interactions 사용 시
+     원격 대화 저장을 제품이 명시적으로 채택하기 전까지 `store:false`를 강제한다.
+   - OpenAI는 `/v1/models`로 API Key에 보이는 모델 ID와 기본 lifecycle 정보를 수집하되, 이 응답만으로 Responses,
+     Chat Completions, Images, structured output, reasoning과 입력 modality 지원을 추론하지 않는다. 공식 model 문서와
+     검증된 trusted capability metadata를 결합하고, 신규 기능은 `openai_responses` 같은 명시적 transport로 분리한다.
+   - Anthropic은 `/v1/models`의 model ID, 표시 이름, token 한도와 제공되는 capability metadata를 수집한다.
+     Messages의 streaming·tool·thinking 기능에 SDK 이점이 확인되면 native Anthropic transport 내부에서만 SDK를
+     사용하며 OpenAI compatibility를 canonical 계약으로 삼지 않는다.
+   - OpenAI-compatible direct provider는 `/models`가 있더라도 신뢰 가능한 capability 정보가 없을 수 있으므로
+     사용자 입력 model ID의 존재 확인에만 사용한다. KIE.ai처럼 안정적인 per-model 목록 API가 없는 provider는
+     account 연결 확인과 제품 검증 카탈로그를 분리한다.
+   - 공식 참고 기준은 Google [Models API](https://ai.google.dev/api/models), OpenAI
+     [Models API](https://platform.openai.com/docs/api-reference/models/object?lang=curl), Anthropic
+     [List Models API](https://platform.claude.com/docs/en/api/models/list)로 둔다.
+
+   **카탈로그 동기화와 승인 흐름**
+
+   - server-side discovery job이 공급자별 전용 credential과 최소 read 권한으로 목록을 수집한다. Desktop 사용자의
+     API Key를 Supabase로 전송하거나 중앙 discovery에 재사용하지 않는다.
+   - 수집 결과는 provider 원문 snapshot, 수집 시각, model ID, provider lifecycle 정보와 fingerprint를 secret 없이
+     보관하고 이전 snapshot과 비교해 `신규`, `metadata 변경`, `목록에서 사라짐`, `종료 예고`를 산출한다.
+   - 새 모델은 `candidate` 검토 대기 상태로 만들고, kind, transport, capability, 표시 이름, 정렬, 비용/품질 역할,
+     minimum app version과 fallback을 확인한 뒤에만 `active` 또는 `preview` snapshot에 승격한다.
+   - 공급자 목록에서 일시적으로 사라졌다는 이유만으로 즉시 삭제하지 않는다. 반복 관찰, 공식 deprecation 자료와
+     실제 metadata check를 결합해 `deprecated → hidden → unavailable` lifecycle을 적용한다.
+   - 검토·승격·숨김은 actor, 시각, 근거 snapshot과 변경 전후 값을 감사 가능하게 남기고, 잘못된 catalog publish를
+     이전 version으로 즉시 rollback할 수 있게 한다.
+   - 앱은 `bundled fallback → 마지막 정상 cache → 검증된 Supabase snapshot` 순서의 현재 복구 계약을 유지한다.
+     discovery 또는 Supabase 장애가 앱 시작, 설정 열기, 마지막 정상 모델 사용을 막지 않게 한다.
+
+   **사용자 계정 가용성 확인**
+
+   - 중앙 카탈로그의 `지원됨`과 사용자 API Key의 `접근 가능`을 분리한다. 설정 연결 확인 시 사용자의 기기에서
+     provider `models.get/list` 또는 동등한 무료 metadata endpoint를 호출해 선택 모델 접근 여부를 확인한다.
+   - 사용자 선택 목록은 기본적으로 검증된 Supabase catalog를 보여주고, 계정 확인 결과로 `사용 가능`, `권한 없음`,
+     `지역/계정에서 보이지 않음`, `확인할 수 없음`을 표시한다. discovery 실패만으로 저장된 선택을 지우지 않는다.
+   - model 목록에 존재한다는 사실은 생성 quota, billing, 모든 parameter 지원이나 실제 생성 성공을 보장하지 않는다고
+     명시한다. 유료 generation smoke는 사용자가 명시적으로 실행할 때만 최소 요청으로 수행한다.
+
+   **Runtime capability와 자기복구**
+
+   - 모델, generation 방식, thinking/effort, structured output, 입력 modality와 token 한도는 신뢰 가능한 provider
+     metadata를 우선하고, 제공되지 않는 값만 reviewed catalog로 보완한다.
+   - request option은 catalog capability와 실제 provider metadata의 교집합으로 제한한다. 구조화된 capability 불일치가
+     확인된 경우에만 안전한 parameter 제거 또는 fallback transport/model로 한 번 재시도한다.
+   - 인증, 권한, quota/rate limit, model missing/deprecated, capability mismatch, schema incompatibility, 일시적 network
+     오류를 구분하고 각각 다른 사용자 안내·retry·catalog health 신호를 사용한다.
+   - 신규 transport는 텍스트, 구조화 JSON, 이미지, thinking, token usage, finish reason, safety block, timeout,
+     rate limit과 malformed response fixture를 통과해야 한다. 기존 transport와 결과 품질·비용·latency를 비교하고
+     staged rollout 후 기본값을 전환한다.
+
+   **완료 기준과 비범위**
+
+   - 공급자별 discovery adapter, normalized snapshot schema, diff/approval/publish/rollback 흐름, per-user availability
+     check와 cache fallback이 자동 테스트로 검증되어야 한다.
+   - 지원되지 않은 새 provider model이 자동 노출되지 않고, 구버전 앱이 이해하지 못하는 transport/capability를
+     원격 catalog가 활성화할 수 없어야 한다.
+   - 1차 완료 범위는 model discovery와 카탈로그 운영 안정화다. SDK 전면 교체, 모든 대화를 provider에 저장,
+     provider 목록 전체 노출, 자동 비용 기반 model 선택은 포함하지 않는다.
 
 7. Internal API 통합
    - canonical content request bundle과 validator를 공용 internal API 계약으로 승격한다.
