@@ -248,24 +248,34 @@ function renderBlogNextDraftImages(type, preview = {}) {
   return bulkAction + visibleItems.map((image) => {
     const exists = Boolean(image.exists);
     const imageUrl = exists ? (image.imageUrl || getBlogNextDraftImageUrl(type, image.imagePath)) : '';
+    const displayOrder = imageItems.indexOf(image) + 1;
     return `<article class="local-markdown-image-card${exists ? '' : ' is-missing'}" data-manuscript-image-slot="${escapeHtml(image.slotId || '')}">
-      <div class="local-markdown-image-card-header">
-        <div class="local-markdown-image-card-title">IMAGE_${escapeHtml(String(image.index))} ${escapeHtml(image.title || '')}</div>
-        <span class="local-markdown-image-card-status ${exists ? 'ok' : 'missing'}">${exists ? '이미지 준비됨' : '파일 없음'}</span>
-      </div>
-      <div class="local-markdown-image-card-preview">
+      <div class="local-markdown-image-card-preview${exists ? '' : ' is-empty'}">
         ${imageUrl
           ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(image.title || `IMAGE_${image.index}`)}" data-manuscript-card-image>`
-          : '<div class="local-markdown-image-card-placeholder"><strong>이미지 없음</strong><span>AI로 만들거나 내 이미지를 선택할 수 있습니다.</span></div>'}
+          : '<div class="local-markdown-image-card-placeholder"><strong>이미지 미지정</strong><span>AI로 만들거나 내 이미지로 채울 수 있습니다.</span></div>'}
+        ${type === 'folder' && preview.draftId ? `<div class="local-markdown-image-media-actions${exists ? '' : ' is-empty'}">
+          <button class="${exists ? 'secondary' : 'primary'} compact" type="button" data-manuscript-image-action="generate" data-slot-id="${escapeHtml(image.slotId)}">${exists ? 'AI 재생성' : 'AI 이미지 만들기'}</button>
+          <button class="secondary compact" type="button" data-manuscript-image-picker data-slot-id="${escapeHtml(image.slotId)}">${exists ? '이미지 교체' : '＋ 내 이미지 선택'}</button>
+          ${exists ? `<button class="secondary compact" type="button" data-manuscript-image-action="exclude" data-slot-id="${escapeHtml(image.slotId)}" title="원본 파일은 삭제하지 않고 현재 원고에서만 이미지를 제거합니다.">원고에서 제거</button>` : ''}
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/avif" data-manuscript-image-file data-slot-id="${escapeHtml(image.slotId)}" hidden>
+        </div>` : ''}
+        <span class="ui-sequence-badge" aria-hidden="true">${displayOrder}</span>
+        <span class="local-markdown-image-card-status ${exists ? 'ok' : 'missing'} visually-hidden">${exists ? '이미지 준비됨' : '파일 없음'}</span>
       </div>
-      ${image.prompt ? `<p class="local-markdown-image-card-prompt">${escapeHtml(image.prompt)}</p>` : ''}
-      ${type === 'folder' && preview.draftId ? `<div class="local-markdown-image-card-actions">
-        <button class="${exists ? 'secondary' : 'primary'} compact" type="button" data-manuscript-image-action="generate" data-slot-id="${escapeHtml(image.slotId)}">${exists ? 'AI 다시 만들기' : 'AI 이미지 만들기'}</button>
-        <button class="secondary compact" type="button" data-manuscript-image-picker data-slot-id="${escapeHtml(image.slotId)}">${exists ? '이미지 교체' : '내 이미지 선택'}</button>
-        <input type="file" accept="image/png,image/jpeg,image/webp,image/avif" data-manuscript-image-file data-slot-id="${escapeHtml(image.slotId)}" hidden>
-        ${exists ? `<button class="secondary compact" type="button" data-manuscript-image-action="exclude" data-slot-id="${escapeHtml(image.slotId)}" title="원본 파일은 삭제하지 않고 현재 원고에서만 이미지를 제거합니다.">원고에서 제거</button>` : ''}
-        ${image.canRestore ? `<button class="secondary compact" type="button" data-manuscript-image-action="restore" data-slot-id="${escapeHtml(image.slotId)}">원래 이미지 복원</button>` : ''}
-      </div>` : ''}
+      <div class="local-markdown-image-card-copy">
+        <strong class="local-markdown-image-card-title">${escapeHtml(image.title || `${displayOrder}번째 이미지`)}</strong>
+        ${type === 'folder' && preview.draftId && image.canRestore ? `<div class="local-markdown-image-card-utility-actions">
+          ${image.canRestore ? `<button class="ui-text-action compact" type="button" data-manuscript-image-action="restore" data-slot-id="${escapeHtml(image.slotId)}">원래 이미지 복원</button>` : ''}
+        </div>` : ''}
+        ${image.prompt ? `<div class="local-markdown-image-prompt-section">
+          <details class="local-markdown-image-prompt-details">
+            <summary>프롬프트 보기</summary>
+            <p>${escapeHtml(image.prompt)}</p>
+          </details>
+          <button class="ui-text-action compact local-markdown-image-prompt-copy" type="button" data-manuscript-prompt-copy data-manuscript-type="${escapeHtml(type)}" data-slot-id="${escapeHtml(image.slotId || '')}">복사</button>
+        </div>` : ''}
+      </div>
     </article>`;
   }).join('');
 }
@@ -282,19 +292,42 @@ function bindBlogNextManuscriptImageActions(type, container) {
     button.addEventListener('click', () => void runBlogNextManuscriptImageAction(button.dataset.manuscriptImageAction, button.dataset.slotId));
   });
   container.querySelector('[data-manuscript-generate-missing]')?.addEventListener('click', () => void generateMissingBlogNextManuscriptImages());
+  container.querySelectorAll('[data-manuscript-prompt-copy]').forEach((button) => {
+    button.addEventListener('click', () => void copyBlogNextManuscriptPrompt(button.dataset.manuscriptType, button.dataset.slotId, button));
+  });
   container.querySelectorAll('[data-manuscript-card-image]').forEach((image) => {
     image.addEventListener('error', () => {
       const card = image.closest('[data-manuscript-image-slot]');
       const frame = image.closest('.local-markdown-image-card-preview');
-      if (frame) frame.innerHTML = '<div class="local-markdown-image-card-placeholder is-error"><strong>이미지를 불러오지 못했습니다.</strong><span>이미지를 다시 만들거나 다른 파일로 교체해 주세요.</span></div>';
+      if (frame) {
+        const placeholder = document.createElement('div');
+        placeholder.className = 'local-markdown-image-card-placeholder is-error';
+        placeholder.innerHTML = '<strong>이미지를 불러오지 못했습니다.</strong><span>이미지를 다시 만들거나 다른 파일로 교체해 주세요.</span>';
+        image.replaceWith(placeholder);
+        frame.classList.add('is-load-error');
+      }
       const status = card?.querySelector('.local-markdown-image-card-status');
       if (status) {
+        status.classList.remove('visually-hidden');
         status.classList.remove('ok');
         status.classList.add('missing');
         status.textContent = '불러오기 실패';
       }
     }, { once: true });
   });
+}
+
+async function copyBlogNextManuscriptPrompt(type, slotId, button) {
+  const prompt = String(blogNextDraftState[type]?.preview?.images?.find((image) => image.slotId === slotId)?.prompt || '').trim();
+  if (!prompt) return;
+  try {
+    await navigator.clipboard.writeText(prompt);
+    const original = button.textContent;
+    button.textContent = '복사됨';
+    window.setTimeout(() => { button.textContent = original; }, 1200);
+  } catch (_error) {
+    showUiToast({ level: 'error', title: '프롬프트 복사 실패', message: '프롬프트를 열어 직접 복사해 주세요.' });
+  }
 }
 
 function bindBlogNextManuscriptBodyImageFallback(body) {

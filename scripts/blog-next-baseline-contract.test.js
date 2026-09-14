@@ -92,7 +92,16 @@ test('folder and paste previews share one reading surface while folder exposes i
   assert.match(script, /local-markdown-image-card-placeholder/);
   assert.match(script, /data-manuscript-card-image/);
   assert.match(script, /이미지를 불러오지 못했습니다/);
-  assert.match(css, /\.local-markdown-image-card-actions\s*\{[\s\S]*?justify-content:\s*center/);
+  assert.match(script, /class="ui-sequence-badge"/);
+  assert.match(script, /data-manuscript-prompt-copy/);
+  assert.match(script, /<summary>프롬프트 보기<\/summary>/);
+  assert.match(script, /navigator\.clipboard\.writeText\(prompt\)/);
+  assert.match(script, /image\.replaceWith\(placeholder\)/);
+  assert.match(script, /frame\.classList\.add\('is-load-error'\)/);
+  assert.match(script, /원고에서 제거/);
+  assert.match(css, /\.local-markdown-image-media-actions\.is-empty\s*\{[\s\S]*?justify-content:\s*center/);
+  assert.match(css, /\.local-markdown-image-card-preview\.is-load-error \.local-markdown-image-media-actions/);
+  assert.match(css, /\.local-markdown-image-prompt-section\s*\{[\s\S]*?margin-top:\s*auto/);
   assert.match(css, /\.blog-next-manuscript-preview \.local-markdown-body-preview[\s\S]*?border: 0;[\s\S]*?background: transparent;/);
   assert.match(css, /\.blog-next-manuscript-preview \.local-markdown-body-preview figure\s*{[\s\S]*?border: 0;/);
   assert.match(css, /\.blog-next-manuscript-preview \.local-markdown-body-preview figure img\s*{[\s\S]*?max-height: min\(42vh, 460px\);[\s\S]*?object-fit: contain;/);

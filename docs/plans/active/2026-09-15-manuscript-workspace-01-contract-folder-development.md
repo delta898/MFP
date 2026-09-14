@@ -49,7 +49,8 @@
 ## Decisions and Tradeoffs
 
 - 원본 folder와 source files는 read-only이며 Draft workspace가 편집용 복사본을 소유한다.
-- `이미지 제외`는 block을 없애지 않고 현재 asset만 detach한다.
+- `원고에서 제거`는 원본 파일이나 block을 없애지 않고 현재 asset만 detach한다. 파일 삭제로 오해할 수 있는
+  `삭제`와 동작 범위가 모호한 `이미지 제외`는 사용자-facing 명칭으로 쓰지 않는다.
 - `원래 이미지 복원`은 import 당시 folder asset로 되돌린다. 원본이 없는 slot에는 노출하지 않는다.
 - AI 생성은 configured writing-image capability를 사용하고 prompt가 없는 slot은 생성 전에 actionable validation을
   반환한다.
@@ -88,12 +89,20 @@
 - 2026-09-15: aligned present and missing image cards around the same fixed media frame, prompt and centered action area.
   Failed browser image loads now become an actionable placeholder instead of a broken-image glyph.
 - 2026-09-15: renamed the ambiguous `이미지 제외` action to `원고에서 제거` and explains that the source file is retained.
+- 2026-09-15: hands-on Card News comparison established the shared visual grammar: numbered media surface, centered actions
+  for an empty slot, hover/focus actions over an existing image, title below the media, and a collapsible prompt with copy.
+  Existing-image actions are `AI 재생성`, `이미지 교체`, and `원고에서 제거`; restore remains a secondary empty-state action.
+- 2026-09-15: hardened the browser image-error path so it replaces only the failed `<img>` with a placeholder. The card's
+  sequence, prompt, and recovery controls remain mounted and become immediately available after a load failure.
+- 2026-09-15: prompt copy now resolves the owning manuscript input type instead of assuming folder input, preserving reuse
+  when paste and direct-generation adapters adopt the same card renderer in later stages.
 
 ## Automated Verification
 
 - 75 focused domain, legacy parser/workspace, API controller/route/service, Blog Beta UI and continuous-publishing contract
   tests passed, including zero-index image lookup and replacement.
 - JavaScript syntax checks and `git diff --check` passed.
+- A post-review focused recheck passed all 30 selected Draft domain and Blog Beta UI contract tests.
 - `npm run test:ui-browser` passed after the review correction with 337 fixture requests. The exercised zero-based folder flow
   covered import, two-slot preview, local replacement, remove, restore, AI replacement confirmation and exact revision
   publication without external calls.

@@ -2981,15 +2981,17 @@ async function run() {
         ));
         assert.equal((await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]').textContent())?.trim(), '준비 1/2');
         assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-body] img').count(), 1);
-        await page.locator('[data-blog-next-draft-preview="folder"] summary').click();
+        await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-details] > summary').click();
         await page.locator('[data-manuscript-image-file][data-slot-id="image-1"]').setInputFiles(manuscriptFixtureImage);
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]')?.textContent?.includes('2/2'));
         assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-body] img').count(), 2);
+        await page.locator('[data-manuscript-image-slot="image-0"] .local-markdown-image-card-preview').hover();
         await page.locator('[data-manuscript-image-action="exclude"][data-slot-id="image-0"]').click();
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]')?.textContent?.includes('1/2'));
         assert.equal(await page.locator('[data-manuscript-image-action="restore"][data-slot-id="image-0"]').isVisible(), true);
         await page.locator('[data-manuscript-image-action="restore"][data-slot-id="image-0"]').click();
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]')?.textContent?.includes('2/2'));
+        await page.locator('[data-manuscript-image-slot="image-1"] .local-markdown-image-card-preview').hover();
         await page.locator('[data-manuscript-image-action="generate"][data-slot-id="image-1"]').click();
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
         await page.locator('#ui-dialog-confirm').click();
