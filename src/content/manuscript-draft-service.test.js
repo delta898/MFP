@@ -115,9 +115,16 @@ test('publishes an exact revision snapshot and omits excluded images', () => {
     try {
         const created = service.createFolderDraft(input);
         const excluded = service.excludeImage({ draftId: created.draftId, revision: 1, slotId: 'image-1' });
+        assert.equal(excluded.images[0].excluded, true);
+        assert.equal(excluded.stats.imageExcludedCount, 1);
+        assert.equal(excluded.stats.imageMissingCount, 1);
+        assert.equal(excluded.contentItems.some((item) => item.type === 'image' && item.index === 1), false);
         const payload = service.buildPublishPayload({ draftId: created.draftId, revision: excluded.revision });
         assert.ok(payload.selectedFiles.some((entry) => entry.name === 'contents.md'));
         assert.ok(!payload.selectedFiles.some((entry) => /^01_/.test(entry.name)));
+        assert.ok(!payload.selectedFiles.find((entry) => entry.name === 'contents.md').textContent.includes('IMAGE_1'));
+        assert.equal(payload.publishPolicy.forcedDraft, true);
+        assert.equal(payload.publishPolicy.unresolvedImageCount, 1);
         assert.throws(
             () => service.buildPublishPayload({ draftId: created.draftId, revision: 1 }),
             (error) => error.code === 'MANUSCRIPT_DRAFT_REVISION_CONFLICT'
@@ -127,7 +134,7 @@ test('publishes an exact revision snapshot and omits excluded images', () => {
     }
 });
 
-test('updates settings as a revision and hides image blocks when images are disabled', () => {
+test('keeps image handling WYSIWYG-owned and excludes intentional omissions from the draft safety rule', () => {
     const { workspaceDir, service, input } = fixture();
     try {
         const created = service.createFolderDraft(input);
@@ -135,16 +142,23 @@ test('updates settings as a revision and hides image blocks when images are disa
             draftId: created.draftId,
             revision: created.revision,
             targets: ['naver'],
-            postStatus: 'draft',
-            imageMode: 'none',
+            postStatus: 'publish',
+            imageMode: 'generate',
             headless: true
         });
         assert.equal(updated.revision, 2);
-        assert.equal(updated.images.length, 0);
-        assert.equal(updated.contentItems.some((item) => item.type === 'image'), false);
-        const payload = service.buildPublishPayload({ draftId: created.draftId, revision: 2 });
-        assert.equal(payload.settings.postStatus, 'draft');
-        assert.equal(payload.settings.imageMode, 'none');
+        assert.equal(updated.images.length, 2);
+        assert.equal(updated.contentItems.some((item) => item.type === 'image'), true);
+        const safetyPayload = service.buildPublishPayload({ draftId: created.draftId, revision: 2 });
+        assert.equal(safetyPayload.settings.postStatus, 'draft');
+        assert.equal(safetyPayload.settings.imageMode, 'prompt_only');
+        assert.equal(safetyPayload.publishPolicy.forcedDraft, true);
+        const excluded = service.excludeImage({ draftId: created.draftId, revision: 2, slotId: 'image-2' });
+        assert.equal(excluded.images[1].excluded, true);
+        assert.equal(excluded.stats.imageMissingCount, 0);
+        const payload = service.buildPublishPayload({ draftId: created.draftId, revision: 3 });
+        assert.equal(payload.settings.postStatus, 'publish');
+        assert.equal(payload.publishPolicy.forcedDraft, false);
         assert.ok(payload.selectedFiles.every((entry) => entry.relativePath.startsWith(`draft-${created.draftId}/`)));
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });

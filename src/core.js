@@ -2208,9 +2208,6 @@ ${scrapedContext}`;
 			let representativeAttemptCount = 0;
 			const representativeMaxAttempts = 3;
 			let hasImageWarnings = false;
-			if (options.imageGeneration === false) {
-				hasImageWarnings = true;
-			}
 
 			for (const item of contents) {
 				if (item.type !== 'image') {
@@ -2695,7 +2692,7 @@ ${scrapedContext}`;
 							await saveBtn.click();
 							await Utils.sleep(3000);
 							Logger.info("   ✅ 임시저장 완료 (카테고리 설정 포함)");
-							return { success: true, message: isDraftMode ? 'Saved as draft' : 'Saved as draft due to category failure' };
+							return { success: true, message: isDraftMode ? 'Saved as draft' : 'Saved as draft due to category failure', status: 'draft' };
 						}
 					} catch (e) {
 						Logger.warn(`   ⚠️ 최종 저장 시도 중 오류: ${e.message}`);
@@ -2709,16 +2706,16 @@ ${scrapedContext}`;
 						const postUrl = page.url();
 						Logger.info(`   📝 [Naver] 발행 완료 확인 (본문 URL): ${postUrl}`);
 						await Utils.sleep(2000);
-						return { success: true, message: 'Published to Naver Blog', postUrl };
+						return { success: true, message: 'Published to Naver Blog', postUrl, status: options.postStatus || 'publish' };
 					} catch (e) {
 						const fallbackUrl = page.url();
 						Logger.warn(`   ⚠️ 발행 완료 후 본문 URL 캡처 실패 (PostList 가능성): ${fallbackUrl}`);
-						return { success: true, message: 'Published to Naver Blog (URL capture fallback)', postUrl: fallbackUrl };
+						return { success: true, message: 'Published to Naver Blog (URL capture fallback)', postUrl: fallbackUrl, status: options.postStatus || 'publish' };
 					}
 				} else {
 					Logger.info("   ✅ [Naver] 최종 발행 버튼을 찾지 못했습니다. 설정창만 열린 상태에서 중단합니다.");
 					await Utils.sleep(3000);
-					return { success: true, message: 'Naver settings window opened' };
+					return { success: true, message: 'Naver settings window opened', status: options.postStatus || 'publish' };
 				}
 			}
 
@@ -2918,15 +2915,9 @@ ${scrapedContext}`;
 			}
 		}
 
-		// 2. 상태 결정 (이미지 생성 실패 시 Draft 강제)
+		// 2. 상태 결정 (발행 대상으로 남은 이미지의 누락/업로드 실패 시 Draft 강제)
 		let finalStatus = options.postStatus || 'draft';
-		if (options.imageGeneration === false) {
-			if (finalStatus !== 'draft') {
-				Logger.info("ℹ️ [WordPress] 이미지 미생성 옵션으로 인해 Draft로 강제 전환합니다.");
-				finalStatus = 'draft';
-				warnings.push("이미지 미생성으로 Draft 저장됨");
-			}
-		} else if (warnings.length > 0) {
+		if (warnings.length > 0) {
 			if (finalStatus !== 'draft') {
 				Logger.info(`ℹ️ [WordPress] 이미지 누락/실패(${warnings.length}건)로 인해 Draft로 강제 전환합니다.`);
 				finalStatus = 'draft';

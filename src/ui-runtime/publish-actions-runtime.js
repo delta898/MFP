@@ -1365,11 +1365,12 @@ function createPublishActionsRuntime(deps = {}) {
                 results.naver = {
                     success: Boolean(naverRes.success),
                     message: naverRes.message || '',
-                    postUrl: naverRes.postUrl || ''
+                    postUrl: naverRes.postUrl || '',
+                    status: naverRes.status || postStatus
                 };
                 if (naverRes.success && CONFIG.NOTIFY_TELEGRAM_ENABLED) {
                     const urlMsg = naverRes.postUrl ? `\n\n🔗 [글 보기](${naverRes.postUrl})` : '';
-                    await TelegramBotService.sendNotification(`✅ *네이버 블로그 ${actionLabel} 완료!*${urlMsg}`);
+                    await TelegramBotService.sendNotification(`✅ *네이버 블로그 ${getPostActionLabel(naverRes.status || postStatus)} 완료!*${urlMsg}`);
                 }
             }
 
@@ -1383,11 +1384,12 @@ function createPublishActionsRuntime(deps = {}) {
                 results.wordpress = {
                     success: Boolean(wpRes.success),
                     message: wpRes.message || '',
-                    postUrl: wpRes.postUrl || ''
+                    postUrl: wpRes.postUrl || '',
+                    status: wpRes.status || postStatus
                 };
                 if (wpRes.success && CONFIG.NOTIFY_TELEGRAM_ENABLED) {
                     const urlMsg = wpRes.postUrl ? `\n\n🔗 [글 보기](${wpRes.postUrl})` : '';
-                    await TelegramBotService.sendNotification(`✅ *워드프레스 ${actionLabel} 완료!*${urlMsg}`);
+                    await TelegramBotService.sendNotification(`✅ *워드프레스 ${getPostActionLabel(wpRes.status || postStatus)} 완료!*${urlMsg}`);
                 }
             }
 
@@ -1432,6 +1434,15 @@ function createPublishActionsRuntime(deps = {}) {
                 };
             }
 
+            const successfulStatuses = Object.values(results)
+                .filter((result) => result?.success)
+                .map((result) => result.status === 'future' ? 'schedule' : String(result.status || postStatus));
+            const actualPostStatus = successfulStatuses.includes('draft')
+                ? 'draft'
+                : (successfulStatuses.length > 0 && successfulStatuses.every((status) => status === 'schedule') ? 'schedule' : postStatus);
+            const safetyAdjustedTargets = Object.entries(results)
+                .filter(([, result]) => result?.success && result.status === 'draft' && postStatus !== 'draft')
+                .map(([target]) => target);
             recordUiActivity({
                 category: 'publish',
                 type: 'local_markdown_publish_completed',
@@ -1446,8 +1457,10 @@ function createPublishActionsRuntime(deps = {}) {
             return {
                 success: true,
                 data: {
-                    status: getCompletionStatusLabel(postStatus),
-                    postStatus,
+                    status: getCompletionStatusLabel(actualPostStatus),
+                    postStatus: actualPostStatus,
+                    requestedPostStatus: postStatus,
+                    safetyAdjustedTargets,
                     results,
                     operationId,
                     quotaSettlement,

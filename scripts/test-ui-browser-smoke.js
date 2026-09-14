@@ -492,8 +492,8 @@ function startFixtureServer(requests) {
     let localMarkdownPublishing = false;
     let manuscriptDraftRevision = 0;
     let manuscriptDraftImages = [
-        { index: 0, slotId: 'image-0', title: '첫 이미지', prompt: '푸른 하늘', exists: true, assetOrigin: 'folder', canRestore: false },
-        { index: 1, slotId: 'image-1', title: '둘째 이미지', prompt: '초록 숲', exists: false, assetOrigin: '', canRestore: false }
+        { index: 0, slotId: 'image-0', title: '첫 이미지', prompt: '푸른 하늘', exists: true, excluded: false, assetOrigin: 'folder', canRestore: false },
+        { index: 1, slotId: 'image-1', title: '둘째 이미지', prompt: '초록 숲', exists: false, excluded: false, assetOrigin: '', canRestore: false }
     ];
     const buildManuscriptDraftFixture = () => {
         const images = manuscriptDraftImages.map((image) => ({
@@ -513,14 +513,16 @@ function startFixtureServer(requests) {
             contentItems: [
                 { type: 'header-h2', text: '폴더 미리보기' },
                 { type: 'paragraph', text: '원고 폴더 본문입니다.' },
-                ...images.map((image) => ({ type: 'image', index: image.index, slotId: image.slotId, text: image.title, prompt: image.prompt, exists: image.exists, imageUrl: image.imageUrl }))
+                ...images.filter((image) => !image.excluded).map((image) => ({ type: 'image', index: image.index, slotId: image.slotId, text: image.title, prompt: image.prompt, exists: image.exists, imageUrl: image.imageUrl }))
             ],
             images,
             stats: {
                 contentCount: 4,
                 imageBlockCount: images.length,
                 imageResolvedCount: images.filter((image) => image.exists).length,
-                imageMissingCount: images.filter((image) => !image.exists).length
+                imageExcludedCount: images.filter((image) => image.excluded).length,
+                imageTargetCount: images.filter((image) => !image.excluded).length,
+                imageMissingCount: images.filter((image) => !image.excluded && !image.exists).length
             },
             validation: { ok: true, errors: [], warnings: [] }
         };
@@ -858,14 +860,18 @@ function startFixtureServer(requests) {
                 const action = manuscriptSlotMatch[3];
                 if (action === 'exclude') {
                     slot.exists = false;
+                    slot.excluded = true;
                     slot.assetOrigin = '';
                     slot.canRestore = slot.index === 0;
+                    slot.restoreLabel = '다시 포함';
                 } else if (action === 'restore') {
                     slot.exists = true;
+                    slot.excluded = false;
                     slot.assetOrigin = 'folder';
                     slot.canRestore = false;
                 } else {
                     slot.exists = true;
+                    slot.excluded = false;
                     slot.assetOrigin = action === 'import' ? 'user' : 'generated';
                     slot.canRestore = slot.index === 0;
                 }
@@ -2980,6 +2986,7 @@ async function run() {
             && document.querySelectorAll('[data-blog-next-draft-preview="folder"] [data-manuscript-image-slot]').length === 2
         ));
         assert.equal((await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]').textContent())?.trim(), '준비 1/2');
+        assert.equal((await page.locator('[data-blog-next-draft-publish="folder"]').textContent())?.trim(), '임시 저장으로 실행');
         assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-body] img').count(), 1);
         await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-details] > summary').click();
         await page.locator('[data-manuscript-image-file][data-slot-id="image-1"]').setInputFiles(manuscriptFixtureImage);
@@ -2987,7 +2994,7 @@ async function run() {
         assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-body] img').count(), 2);
         await page.locator('[data-manuscript-image-slot="image-0"] .local-markdown-image-card-preview').hover();
         await page.locator('[data-manuscript-image-action="exclude"][data-slot-id="image-0"]').click();
-        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]')?.textContent?.includes('1/2'));
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]')?.textContent?.includes('1/1 · 제외 1'));
         assert.equal(await page.locator('[data-manuscript-image-action="restore"][data-slot-id="image-0"]').isVisible(), true);
         await page.locator('[data-manuscript-image-action="restore"][data-slot-id="image-0"]').click();
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]')?.textContent?.includes('2/2'));

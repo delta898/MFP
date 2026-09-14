@@ -40,3 +40,17 @@ test('sheet adapter keeps canonical mode and legacy boolean compatibility', () =
     assert.match(options, /image_mode/);
     assert.match(options, /legacyGenerate/);
 });
+
+test('WYSIWYG manuscript publishing owns images in slots and drafts only for actual unresolved targets', () => {
+    const manuscriptView = read('ui/partials/views/blog-next/quick-draft-modes.html');
+    const manuscriptScript = read('ui/scripts/features/blog-next/draft-inputs.js');
+    const core = read('src/core.js');
+
+    assert.doesNotMatch(manuscriptView, /data-draft-field="image-mode"/);
+    assert.match(manuscriptScript, /imageMode: 'prompt_only'/);
+    assert.match(manuscriptScript, /missingCount > 0 && settings\.postStatus !== 'draft'/);
+    assert.match(manuscriptScript, /임시 저장으로 실행/);
+    assert.doesNotMatch(core, /if \(options\.imageGeneration === false\) \{\s*hasImageWarnings = true;/);
+    assert.doesNotMatch(core, /이미지 미생성 옵션으로 인해 Draft로 강제 전환/);
+    assert.match(core, /발행 대상으로 남은 이미지의 누락\/업로드 실패 시 Draft 강제/);
+});

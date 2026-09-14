@@ -55,6 +55,10 @@
 - AI 생성은 configured writing-image capability를 사용하고 prompt가 없는 slot은 생성 전에 actionable validation을
   반환한다.
 - 공통 domain은 Blog destination이나 Shopping Connect 상품 규칙을 알지 않는다.
+- WYSIWYG 이미지 작업공간이 발행 이미지의 단일 기준이다. 별도의 `이미지 처리` 선택은 노출하지 않으며 발행 중
+  암묵적으로 이미지를 생성하지 않는다.
+- Draft 안전 전환은 prompt 존재나 이미지 생성 비활성화가 아니라, `발행 대상으로 남은 슬롯에 사용할 이미지가
+  없음`을 기준으로 한다. 사용자가 제외한 슬롯은 대상·경고·Draft 전환 조건에서 모두 빠진다.
 
 ## Verification Plan
 
@@ -78,7 +82,7 @@
   replacement, no-store revision-specific preview URLs and failure preservation.
 - 2026-09-15: connected create/read/settings/image/publish API routes and increased only the bounded folder-ingestion and
   per-image request limits needed for binary payloads.
-- 2026-09-15: Blog Beta folder preview now shows every image slot and provides `AI 이미지 만들기/다시 만들기`, local
+- 2026-09-15: Blog Beta folder preview now shows every image slot and provides `AI로 만들기/AI 재생성`, local
   selection/replacement, exclude, restore and fill-missing controls. The preview and publish button update from the same
   revision, and image work disables competing publication.
 - 2026-09-15: the first browser run found that `aria-busy` remained on the image list after a mutation and kept intercepting
@@ -98,6 +102,16 @@
   when paste and direct-generation adapters adopt the same card renderer in later stages.
 - 2026-09-15: aligned the existing-image label exactly with Card News as `AI 재생성`. Added card-width-aware compact action
   spacing and type so all three labels remain readable when a responsive grid makes an individual card narrow.
+- 2026-09-15: removed the redundant manuscript `이미지 처리` setting. Image generation/replacement/removal now happens only
+  in the WYSIWYG image workspace; the internal compatibility value remains `prompt_only` at the publishing boundary.
+- 2026-09-15: added explicit `ready`, `missing`, and `excluded` slot state. Excluded blocks disappear from preview and the exact
+  publish snapshot, remain reversible, and no longer count as missing or force a Draft.
+- 2026-09-15: narrowed the safety policy in both Naver and WordPress publishers. Disabling generation alone no longer forces a
+  Draft; only an unresolved targeted image or a real upload failure does. Completion UI and Telegram reporting now use the
+  provider's actual status so an automatic Draft cannot be mislabeled as published.
+- 2026-09-15: an unresolved manuscript now names the consequence before execution, changes the primary action to
+  `임시 저장으로 실행`, and repeats the exact missing count in confirmation. Empty-card actions use the compact one-row labels
+  `AI로 만들기` and `내 이미지 선택`; `사용 안 함` explicitly converts a missing slot into an intentional exclusion.
 
 ## Automated Verification
 
@@ -105,7 +119,8 @@
   tests passed, including zero-index image lookup and replacement.
 - JavaScript syntax checks and `git diff --check` passed.
 - A post-review focused recheck passed all 30 selected Draft domain and Blog Beta UI contract tests.
-- `npm run test:ui-browser` passed after the review correction with 337 fixture requests. The exercised zero-based folder flow
+- The WYSIWYG image policy recheck passed 51 focused Draft domain, API, publishing-runtime and Blog Beta UI contract tests.
+- `npm run test:ui-browser` passed after the policy correction with 336 fixture requests. The exercised zero-based folder flow
   covered import, two-slot preview, local replacement, remove, restore, AI replacement confirmation and exact revision
   publication without external calls.
 - Full unit suite remains pending explicit user approval before parent merge.

@@ -82,7 +82,8 @@ test('folder and paste previews share one reading surface while folder exposes i
     assert.match(panel, /<summary><strong>이미지 확인<\/strong><span data-draft-preview-image-summary>/);
   }
   assert.match(script, /type === 'folder' && preview\.draftId/);
-  assert.match(script, /`준비 \$\{stats\.imageResolvedCount \|\| 0\}\/\$\{stats\.imageBlockCount \|\| 0\}`/);
+  assert.match(script, /stats\.imageTargetCount \?\? stats\.imageBlockCount/);
+  assert.match(script, /` · 제외 \$\{stats\.imageExcludedCount\}`/);
   assert.match(script, /type === 'folder' && preview\.draftId \? imageItems : imageItems\.filter\(image => !image\.exists\)/);
   assert.match(script, /data-manuscript-image-action="generate"/);
   assert.match(script, /data-manuscript-image-picker/);
@@ -100,7 +101,14 @@ test('folder and paste previews share one reading surface while folder exposes i
   assert.match(script, /frame\.classList\.add\('is-load-error'\)/);
   assert.match(script, /원고에서 제거/);
   assert.match(script, /AI 재생성/);
+  assert.match(script, /AI로 만들기/);
+  assert.match(script, /내 이미지 선택/);
+  assert.match(script, /사용 안 함/);
+  assert.match(script, /임시 저장으로 실행/);
+  assert.match(script, /publishResult\?\.postStatus \|\| settings\.postStatus/);
+  assert.match(script, /showPostingCompletionCelebration\(actualPostStatus\)/);
   assert.match(css, /\.local-markdown-image-media-actions\.is-empty\s*\{[\s\S]*?justify-content:\s*center/);
+  assert.match(css, /\.local-markdown-image-media-actions\.is-empty\s*\{[\s\S]*?flex-wrap:\s*nowrap/);
   assert.match(css, /\.local-markdown-image-card-preview\.is-load-error \.local-markdown-image-media-actions/);
   assert.match(css, /@container \(max-width: 360px\)[\s\S]*?font-size:\s*11px/);
   assert.match(css, /\.local-markdown-image-prompt-section\s*\{[\s\S]*?margin-top:\s*auto/);
@@ -120,7 +128,7 @@ test('manuscript drafts keep idle results quiet and summarize repeated image war
   }
   assert.match(script, /function summarizeBlogNextDraftWarnings\(type, validation = null, preview = null\)/);
   assert.match(script, /!BLOG_NEXT_DRAFT_TYPES\.includes\(type\) \|\| missingCount === 0/);
-  assert.match(script, /`이미지 \$\{missingCount\}개를 확인해 주세요\.`/);
+  assert.match(script, /`발행할 이미지 \$\{missingCount\}개가 미완성입니다\./);
   assert.doesNotMatch(script, /검증을 통과했습니다/);
   assert.match(script, /setBlogNextDraftValidation\('folder'\);/);
   assert.doesNotMatch(script, /setBlogNextDraftValidation\('folder', null, '원고 폴더를 선택해 주세요\.'\)/);
@@ -163,7 +171,8 @@ test('manuscript summaries expose consequential values without opening settings'
   assert.match(script, /function syncBlogNextDraftSettingsSummary\(type\)/);
   assert.match(script, /formatBlogPlatformList\(settings\.targets, ' \+ '\) \|\| '발행 대상 없음'/);
   assert.match(script, /settings\.postStatus === 'draft' \? '임시 저장'/);
-  assert.match(script, /settings\.imageMode === 'generate' \? '이미지 생성'/);
+  assert.doesNotMatch(script, /settings\.imageMode === 'generate' \? '이미지 생성'/);
+  assert.doesNotMatch(readBlogNextView(), /data-draft-field="image-mode"/);
   assert.match(script, /if \(settings\.targets\.includes\('naver'\)\)/);
 });
 

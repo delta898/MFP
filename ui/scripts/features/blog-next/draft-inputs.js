@@ -47,7 +47,7 @@ function readBlogNextDraftSettings(type) {
     postStatus: blogNextDraftField(type, 'post-status')?.value || 'publish',
     scheduleDate: blogNextDraftField(type, 'schedule-date')?.value || '',
     headless: targets.includes('naver') && blogNextDraftField(type, 'headless')?.checked !== false,
-    imageMode: blogNextDraftField(type, 'image-mode')?.value || 'prompt_only'
+    imageMode: 'prompt_only'
   };
 }
 
@@ -57,9 +57,7 @@ function syncBlogNextDraftSettingsSummary(type) {
   const settings = readBlogNextDraftSettings(type);
   const statusLabel = settings.postStatus === 'draft' ? '임시 저장'
     : settings.postStatus === 'schedule' ? '예약 발행' : '즉시 발행';
-  const imageLabel = settings.imageMode === 'generate' ? '이미지 생성'
-    : settings.imageMode === 'none' ? '이미지 없음' : '이미지 프롬프트';
-  const parts = [formatBlogPlatformList(settings.targets, ' + ') || '발행 대상 없음', statusLabel, imageLabel];
+  const parts = [formatBlogPlatformList(settings.targets, ' + ') || '발행 대상 없음', statusLabel];
   if (settings.targets.includes('naver')) {
     parts.push(settings.headless ? '보이지 않게 실행' : '브라우저 표시');
   }
@@ -139,7 +137,7 @@ function summarizeBlogNextDraftWarnings(type, validation = null, preview = null)
   if (imageWarnings.length === 0) return warnings;
 
   return [
-    `이미지 ${missingCount}개를 확인해 주세요.`,
+    `발행할 이미지 ${missingCount}개가 미완성입니다. 즉시·예약 발행을 실행하면 안전을 위해 임시 저장됩니다.`,
     ...warnings.filter(message => !imageWarningPattern.test(String(message || '')))
   ];
 }
@@ -242,21 +240,22 @@ function renderBlogNextDraftImages(type, preview = {}) {
   const imageItems = Array.isArray(preview.images) ? preview.images : [];
   if (imageItems.length === 0) return '<div class="local-markdown-empty">이미지 블록이 없습니다.</div>';
   const visibleItems = type === 'folder' && preview.draftId ? imageItems : imageItems.filter(image => !image.exists);
-  const bulkAction = type === 'folder' && preview.draftId && imageItems.some((image) => !image.exists && image.prompt)
+  const bulkAction = type === 'folder' && preview.draftId && imageItems.some((image) => !image.excluded && !image.exists && image.prompt)
     ? '<div class="local-markdown-image-bulk-actions"><button class="primary compact" type="button" data-manuscript-generate-missing>빈 이미지 모두 만들기</button></div>'
     : '';
   return bulkAction + visibleItems.map((image) => {
     const exists = Boolean(image.exists);
+    const excluded = image.excluded === true;
     const imageUrl = exists ? (image.imageUrl || getBlogNextDraftImageUrl(type, image.imagePath)) : '';
     const displayOrder = imageItems.indexOf(image) + 1;
-    return `<article class="local-markdown-image-card${exists ? '' : ' is-missing'}" data-manuscript-image-slot="${escapeHtml(image.slotId || '')}">
+    return `<article class="local-markdown-image-card${exists ? '' : ' is-missing'}${excluded ? ' is-excluded' : ''}" data-manuscript-image-slot="${escapeHtml(image.slotId || '')}">
       <div class="local-markdown-image-card-preview${exists ? '' : ' is-empty'}">
         ${imageUrl
           ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(image.title || `IMAGE_${image.index}`)}" data-manuscript-card-image>`
-          : '<div class="local-markdown-image-card-placeholder"><strong>이미지 미지정</strong><span>AI로 만들거나 내 이미지로 채울 수 있습니다.</span></div>'}
-        ${type === 'folder' && preview.draftId ? `<div class="local-markdown-image-media-actions${exists ? '' : ' is-empty'}">
-          <button class="${exists ? 'secondary' : 'primary'} compact" type="button" data-manuscript-image-action="generate" data-slot-id="${escapeHtml(image.slotId)}">${exists ? 'AI 재생성' : 'AI 이미지 만들기'}</button>
-          <button class="secondary compact" type="button" data-manuscript-image-picker data-slot-id="${escapeHtml(image.slotId)}">${exists ? '이미지 교체' : '＋ 내 이미지 선택'}</button>
+          : `<div class="local-markdown-image-card-placeholder"><strong>${excluded ? '원고에서 제외됨' : '이미지 미지정'}</strong><span>${excluded ? '발행 대상에 포함되지 않습니다.' : 'AI로 만들거나 내 이미지로 채울 수 있습니다.'}</span></div>`}
+        ${type === 'folder' && preview.draftId && !excluded ? `<div class="local-markdown-image-media-actions${exists ? '' : ' is-empty'}">
+          <button class="${exists ? 'secondary' : 'primary'} compact" type="button" data-manuscript-image-action="generate" data-slot-id="${escapeHtml(image.slotId)}">${exists ? 'AI 재생성' : 'AI로 만들기'}</button>
+          <button class="secondary compact" type="button" data-manuscript-image-picker data-slot-id="${escapeHtml(image.slotId)}">${exists ? '이미지 교체' : '내 이미지 선택'}</button>
           ${exists ? `<button class="secondary compact" type="button" data-manuscript-image-action="exclude" data-slot-id="${escapeHtml(image.slotId)}" title="원본 파일은 삭제하지 않고 현재 원고에서만 이미지를 제거합니다.">원고에서 제거</button>` : ''}
           <input type="file" accept="image/png,image/jpeg,image/webp,image/avif" data-manuscript-image-file data-slot-id="${escapeHtml(image.slotId)}" hidden>
         </div>` : ''}
@@ -265,8 +264,9 @@ function renderBlogNextDraftImages(type, preview = {}) {
       </div>
       <div class="local-markdown-image-card-copy">
         <strong class="local-markdown-image-card-title">${escapeHtml(image.title || `${displayOrder}번째 이미지`)}</strong>
-        ${type === 'folder' && preview.draftId && image.canRestore ? `<div class="local-markdown-image-card-utility-actions">
-          ${image.canRestore ? `<button class="ui-text-action compact" type="button" data-manuscript-image-action="restore" data-slot-id="${escapeHtml(image.slotId)}">원래 이미지 복원</button>` : ''}
+        ${type === 'folder' && preview.draftId && (!exists || image.canRestore) ? `<div class="local-markdown-image-card-utility-actions">
+          ${!exists && !excluded ? `<button class="ui-text-action compact" type="button" data-manuscript-image-action="exclude" data-slot-id="${escapeHtml(image.slotId)}">사용 안 함</button>` : ''}
+          ${image.canRestore ? `<button class="ui-text-action compact" type="button" data-manuscript-image-action="restore" data-slot-id="${escapeHtml(image.slotId)}">${escapeHtml(image.restoreLabel || '원래 이미지 복원')}</button>` : ''}
         </div>` : ''}
         ${image.prompt ? `<div class="local-markdown-image-prompt-section">
           <details class="local-markdown-image-prompt-details">
@@ -433,7 +433,7 @@ function renderBlogNextDraftPreview(type, preview = null) {
   if (imageDetails && imageDetailsWasOpen && !imageDetails.hidden) imageDetails.open = true;
   if (imageSummary) {
     imageSummary.textContent = type === 'folder' && preview.draftId
-      ? `준비 ${stats.imageResolvedCount || 0}/${stats.imageBlockCount || 0}`
+      ? `준비 ${stats.imageResolvedCount || 0}/${stats.imageTargetCount ?? stats.imageBlockCount ?? 0}${Number(stats.imageExcludedCount || 0) > 0 ? ` · 제외 ${stats.imageExcludedCount}` : ''}`
       : `누락 ${stats.imageMissingCount || 0}개`;
   }
   setLocalMarkdownPreviewDensity(container, body, images, stats);
@@ -503,10 +503,13 @@ function syncBlogNextDraftExecutionState(runnerActive) {
     if (!button) return;
     button.disabled = executionActive || !state.preview?.validation?.ok;
     button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
+    const missingCount = Number(state.preview?.stats?.imageMissingCount || 0);
+    const selectedStatus = readBlogNextDraftSettings(type).postStatus;
     button.textContent = state.publishing
       ? '포스팅 진행 중...'
       : state.imageWorking ? '이미지 작업 중...'
-      : executionActive ? '다른 작업 실행 중...' : '포스팅 실행';
+      : executionActive ? '다른 작업 실행 중...'
+      : missingCount > 0 && selectedStatus !== 'draft' ? '임시 저장으로 실행' : '포스팅 실행';
   });
 }
 
@@ -514,14 +517,27 @@ async function publishBlogNextDraft(type) {
   const state = blogNextDraftState[type];
   if (state.publishing || !state.preview?.validation?.ok) return;
   if (typeof guardUiConfigReady === 'function' && !guardUiConfigReady('원고 포스팅')) return;
-  const settings = readBlogNextDraftSettings(type);
-  const action = settings.postStatus === 'draft' ? '임시 저장'
+  let settings = readBlogNextDraftSettings(type);
+  const missingCount = Number(state.preview?.stats?.imageMissingCount || 0);
+  const forcedDraft = missingCount > 0 && settings.postStatus !== 'draft';
+  const action = forcedDraft || settings.postStatus === 'draft' ? '임시 저장'
     : settings.postStatus === 'schedule' ? '예약 포스팅 등록' : '즉시 발행';
+  const safetyNotice = forcedDraft
+    ? `\n\n발행 대상으로 남은 이미지 ${missingCount}개가 미완성이라 안전을 위해 임시 저장으로 실행합니다.`
+    : '';
   const confirmed = await showUiConfirm(
-    `현재 원고를 ${action}할까요?\nQueue에 추가하지 않고 바로 실행합니다.`,
+    `현재 원고를 ${action}할까요?${safetyNotice}\nQueue에 추가하지 않고 바로 실행합니다.`,
     { title: '원고 포스팅', confirmText: '실행', cancelText: '취소' }
   );
   if (!confirmed) return;
+
+  if (forcedDraft) {
+    const postStatusField = blogNextDraftField(type, 'post-status');
+    if (postStatusField) postStatusField.value = 'draft';
+    syncBlogNextDraftSchedule(type);
+    syncBlogNextDraftSettingsSummary(type);
+    settings = readBlogNextDraftSettings(type);
+  }
 
   const result = document.querySelector(`[data-blog-next-draft-result="${type}"]`);
   setBlogNextDraftPublishing(type, true);
@@ -547,21 +563,30 @@ async function publishBlogNextDraft(type) {
         ? `/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/publish`
         : '/api/v1/blog/local-markdown/publish', payload)
     });
+    const actualPostStatus = publishResult?.postStatus || settings.postStatus;
+    const actualAction = actualPostStatus === 'draft' ? '임시 저장'
+      : actualPostStatus === 'schedule' ? '예약 포스팅 등록' : '즉시 발행';
     if (typeof renderBlogNextRunnerStatus === 'function') {
       renderBlogNextRunnerStatus({
         state: 'completed',
         busy: false,
         subject: type === 'paste' ? '원고 붙여넣기' : '원고 폴더',
-        message: `원고 ${action}을 완료했습니다.`,
-        resultStatus: settings.postStatus === 'draft' ? '임시 저장 완료'
-          : settings.postStatus === 'schedule' ? '예약 발행 완료' : '발행 완료',
+        message: `원고 ${actualAction}을 완료했습니다.`,
+        resultStatus: actualPostStatus === 'draft' ? '임시 저장 완료'
+          : actualPostStatus === 'schedule' ? '예약 발행 완료' : '발행 완료',
         completionLinks: Array.isArray(publishResult?.completionLinks) ? publishResult.completionLinks : [],
         finishedAt: new Date().toISOString()
       });
     }
-    showUiToast({ level: 'success', title: `원고 ${action} 완료`, message: 'Queue를 거치지 않고 원고를 처리했습니다.' });
+    showUiToast({
+      level: 'success',
+      title: `원고 ${actualAction} 완료`,
+      message: actualPostStatus === 'draft' && settings.postStatus !== 'draft'
+        ? '발행 안전 조건에 따라 임시 저장했습니다.'
+        : forcedDraft ? '미완성 이미지가 있어 안전하게 임시 저장했습니다.' : 'Queue를 거치지 않고 원고를 처리했습니다.'
+    });
     if (typeof showPostingCompletionCelebration === 'function') {
-      showPostingCompletionCelebration(settings.postStatus);
+      showPostingCompletionCelebration(actualPostStatus);
     }
   } catch (error) {
     // runWithLiveProgress renders the detailed failure.

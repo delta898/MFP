@@ -69,6 +69,15 @@ function safeSlotId(value) {
     return /^image-(?:0|[1-9][0-9]*)$/.test(id) ? id : '';
 }
 
+function stripImageBlocksByIndex(content, indexes = []) {
+    const excluded = indexes instanceof Set ? indexes : new Set(indexes);
+    return String(content || '')
+        .replace(/\[\[IMAGE_(\d+)\s*\n[\s\S]*?\n\]\]/g, (block, index) => excluded.has(Number(index)) ? '' : block)
+        .replace(/\[\[IMAGE_(\d+)\s*:[^\]]*\]\]/g, (block, index) => excluded.has(Number(index)) ? '' : block)
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
 function createManuscriptDraftService(options = {}) {
     const fsImpl = options.fs || fs;
     const pathImpl = options.path || path;
@@ -117,20 +126,25 @@ function createManuscriptDraftService(options = {}) {
             targets: manifest.settings.targets,
             postStatus: manifest.settings.postStatus,
             scheduleDate: manifest.settings.scheduleDate,
-            imageGeneration: manifest.settings.imageMode === 'generate'
+            imageGeneration: false
         }, { fs: fsImpl, path: pathImpl, Utils });
         const slotByIndex = new Map(manifest.image_slots.map((slot) => [Number(slot.index), slot]));
         preview.images = preview.images.map((image) => {
             const slot = slotByIndex.get(Number(image.index));
-            const exists = Boolean(slot?.current_file && fsImpl.existsSync(currentFileForSlot(locations, slot)));
+            const slotState = String(slot?.state || (slot?.current_file ? 'ready' : 'missing'));
+            const excluded = slotState === 'excluded';
+            const exists = Boolean(!excluded && slot?.current_file && fsImpl.existsSync(currentFileForSlot(locations, slot)));
             return {
                 ...image,
                 slotId: slot?.id || `image-${image.index}`,
                 exists,
+                excluded,
+                state: excluded ? 'excluded' : (exists ? 'ready' : 'missing'),
                 imagePath: '',
                 fileName: exists ? slot.current_file : '',
                 assetOrigin: exists ? slot.current_origin : '',
-                canRestore: Boolean(slot?.original_file && slot.original_file !== slot.current_file),
+                canRestore: Boolean(excluded || (slot?.original_file && slot.original_file !== slot.current_file)),
+                restoreLabel: excluded ? '다시 포함' : '원래 이미지 복원',
                 imageUrl: exists
                     ? `/api/v1/blog/manuscript-drafts/${encodeURIComponent(manifest.id)}/images/${encodeURIComponent(slot.id)}?revision=${manifest.revision}`
                     : ''
@@ -140,22 +154,17 @@ function createManuscriptDraftService(options = {}) {
             if (item.type !== 'image') return item;
             const image = preview.images.find((entry) => Number(entry.index) === Number(item.index));
             return { ...item, exists: Boolean(image?.exists), imageUrl: image?.imageUrl || '', slotId: image?.slotId || '' };
-        });
+        }).filter((item) => item.type !== 'image' || !preview.images.find((image) => Number(image.index) === Number(item.index))?.excluded);
         preview.stats.imageResolvedCount = preview.images.filter((image) => image.exists).length;
-        preview.stats.imageMissingCount = preview.images.length - preview.stats.imageResolvedCount;
+        preview.stats.imageExcludedCount = preview.images.filter((image) => image.excluded).length;
+        preview.stats.imageTargetCount = preview.images.length - preview.stats.imageExcludedCount;
+        preview.stats.imageMissingCount = preview.images.filter((image) => !image.excluded && !image.exists).length;
         preview.validation.warnings = preview.validation.warnings.filter((warning) => {
             const match = String(warning).match(/^(\d+)_image/);
             if (!match) return true;
-            return !preview.images.find((image) => Number(image.index) === Number(match[1]))?.exists;
+            const image = preview.images.find((entry) => Number(entry.index) === Number(match[1]));
+            return !image?.exists && !image?.excluded;
         });
-        if (manifest.settings.imageMode === 'none') {
-            preview.contentItems = preview.contentItems.filter((item) => item.type !== 'image');
-            preview.images = [];
-            preview.stats.imageBlockCount = 0;
-            preview.stats.imageResolvedCount = 0;
-            preview.stats.imageMissingCount = 0;
-            preview.validation.warnings = preview.validation.warnings.filter((warning) => !/^\d+_image/.test(String(warning)));
-        }
         return {
             draftId: manifest.id,
             revision: manifest.revision,
@@ -202,7 +211,7 @@ function createManuscriptDraftService(options = {}) {
                 targets: Array.isArray(input.targets) ? input.targets : ['naver'],
                 postStatus: String(input.postStatus || 'publish'),
                 scheduleDate: String(input.scheduleDate || ''),
-                imageMode: String(input.imageMode || 'prompt_only'),
+                imageMode: 'prompt_only',
                 naverCategory: String(input.naverCategory || ''),
                 wordpressCategory: String(input.wordpressCategory || ''),
                 headless: input.headless !== false
@@ -224,7 +233,8 @@ function createManuscriptDraftService(options = {}) {
                     prompt: image.prompt,
                     original_file: image.exists ? image.fileName : '',
                     current_file: image.exists ? image.fileName : '',
-                    current_origin: image.exists ? 'folder' : ''
+                    current_origin: image.exists ? 'folder' : '',
+                    state: image.exists ? 'ready' : 'missing'
                 }))
             };
             atomicWriteJson(fsImpl, locations.manifest, manifest);
@@ -258,6 +268,7 @@ function createManuscriptDraftService(options = {}) {
         const previous = slot.current_file;
         slot.current_file = nextName;
         slot.current_origin = origin;
+        slot.state = 'ready';
         if (previous && previous !== slot.original_file && previous !== nextName) {
             try { fsImpl.rmSync(pathImpl.join(locations.source, pathImpl.basename(previous)), { force: true }); } catch (_) { }
         }
@@ -273,21 +284,19 @@ function createManuscriptDraftService(options = {}) {
     }
 
     function excludeImage(input = {}) {
-        return updateSlot(input.draftId, input.revision, input.slotId, ({ locations, slot }) => {
-            const previous = slot.current_file;
-            slot.current_file = '';
-            slot.current_origin = '';
-            if (previous && previous !== slot.original_file) {
-                try { fsImpl.rmSync(pathImpl.join(locations.source, pathImpl.basename(previous)), { force: true }); } catch (_) { }
-            } else if (previous) {
-                try { fsImpl.rmSync(pathImpl.join(locations.source, pathImpl.basename(previous)), { force: true }); } catch (_) { }
-            }
+        return updateSlot(input.draftId, input.revision, input.slotId, ({ slot }) => {
+            slot.state = 'excluded';
             Logger?.info?.(`ℹ️ [ManuscriptDraft] ${slot.id} 이미지 제외 (draft=${input.draftId})`);
         });
     }
 
     function restoreImage(input = {}) {
         return updateSlot(input.draftId, input.revision, input.slotId, ({ locations, slot }) => {
+            if (slot.state === 'excluded') {
+                slot.state = slot.current_file && fsImpl.existsSync(currentFileForSlot(locations, slot)) ? 'ready' : 'missing';
+                Logger?.info?.(`✅ [ManuscriptDraft] ${slot.id} 이미지 다시 포함 완료 (draft=${input.draftId})`);
+                return;
+            }
             if (!slot.original_file) throw manuscriptError(409, 'MANUSCRIPT_IMAGE_ORIGINAL_UNAVAILABLE', '복원할 원래 이미지가 없습니다.');
             const originalPath = pathImpl.join(locations.originals, pathImpl.basename(slot.original_file));
             if (!fsImpl.existsSync(originalPath)) throw manuscriptError(410, 'MANUSCRIPT_IMAGE_ORIGINAL_MISSING', '원래 이미지 파일을 찾지 못했습니다.');
@@ -295,6 +304,7 @@ function createManuscriptDraftService(options = {}) {
             fsImpl.copyFileSync(originalPath, pathImpl.join(locations.source, pathImpl.basename(slot.original_file)));
             slot.current_file = pathImpl.basename(slot.original_file);
             slot.current_origin = 'folder';
+            slot.state = 'ready';
             if (previous && previous !== slot.original_file) {
                 try { fsImpl.rmSync(pathImpl.join(locations.source, pathImpl.basename(previous)), { force: true }); } catch (_) { }
             }
@@ -312,7 +322,7 @@ function createManuscriptDraftService(options = {}) {
                 targets,
                 postStatus: String(input.postStatus || 'publish'),
                 scheduleDate: String(input.scheduleDate || ''),
-                imageMode: String(input.imageMode || 'prompt_only'),
+                imageMode: 'prompt_only',
                 naverCategory: String(input.naverCategory || ''),
                 wordpressCategory: String(input.wordpressCategory || ''),
                 headless: input.headless !== false
@@ -357,7 +367,7 @@ function createManuscriptDraftService(options = {}) {
     async function generateMissingImages(input = {}) {
         let current = getDraft(input.draftId);
         if (Number(input.revision) !== Number(current.revision)) assertRevision({ revision: current.revision }, input.revision);
-        const targets = current.images.filter((image) => !image.exists && String(image.prompt || '').trim());
+        const targets = current.images.filter((image) => !image.excluded && !image.exists && String(image.prompt || '').trim());
         for (const image of targets) {
             try {
                 current = await generateImage({ draftId: input.draftId, revision: current.revision, slotId: image.slotId });
@@ -373,11 +383,24 @@ function createManuscriptDraftService(options = {}) {
     function buildPublishPayload(input = {}) {
         const { locations, manifest } = readManifest(input.draftId);
         assertRevision(manifest, input.revision);
-        const names = fsImpl.readdirSync(locations.source).filter((name) => fsImpl.statSync(pathImpl.join(locations.source, name)).isFile());
+        const excludedIndexes = new Set(manifest.image_slots
+            .filter((slot) => slot.state === 'excluded')
+            .map((slot) => Number(slot.index)));
+        const includedImageNames = new Set(manifest.image_slots
+            .filter((slot) => slot.state !== 'excluded' && slot.current_file)
+            .map((slot) => pathImpl.basename(slot.current_file)));
+        const names = fsImpl.readdirSync(locations.source).filter((name) => (
+            fsImpl.statSync(pathImpl.join(locations.source, name)).isFile()
+            && (/\.(md|markdown)$/i.test(name) || includedImageNames.has(name))
+        ));
         const selectedFiles = names.map((name) => {
             const filePath = pathImpl.join(locations.source, name);
             if (/\.(md|markdown)$/i.test(name)) {
-                return { relativePath: `${manifest.source_label || '원고'}/${name}`, name, textContent: fsImpl.readFileSync(filePath, 'utf8') };
+                return {
+                    relativePath: `${manifest.source_label || '원고'}/${name}`,
+                    name,
+                    textContent: stripImageBlocksByIndex(fsImpl.readFileSync(filePath, 'utf8'), excludedIndexes)
+                };
             }
             const buffer = fsImpl.readFileSync(filePath);
             const detected = validateImageBuffer(buffer);
@@ -389,14 +412,25 @@ function createManuscriptDraftService(options = {}) {
                 base64Data: buffer.toString('base64')
             };
         });
-        return { folderName: manifest.source_label, selectedFiles: selectedFiles.map((entry) => ({ ...entry, relativePath: `draft-${manifest.id}/${entry.name}` })), settings: { ...manifest.settings } };
+        const unresolvedCount = manifest.image_slots.filter((slot) => (
+            slot.state !== 'excluded'
+            && (!slot.current_file || !fsImpl.existsSync(currentFileForSlot(locations, slot)))
+        )).length;
+        const requestedPostStatus = String(manifest.settings.postStatus || 'publish');
+        const forcedDraft = unresolvedCount > 0 && requestedPostStatus !== 'draft';
+        return {
+            folderName: manifest.source_label,
+            selectedFiles: selectedFiles.map((entry) => ({ ...entry, relativePath: `draft-${manifest.id}/${entry.name}` })),
+            settings: { ...manifest.settings, imageMode: 'prompt_only', postStatus: forcedDraft ? 'draft' : requestedPostStatus },
+            publishPolicy: { requestedPostStatus, effectivePostStatus: forcedDraft ? 'draft' : requestedPostStatus, unresolvedImageCount: unresolvedCount, forcedDraft }
+        };
     }
 
     function getImage(input = {}) {
         const { locations, manifest } = readManifest(input.draftId);
         if (input.revision !== undefined && input.revision !== '') assertRevision(manifest, input.revision);
         const slot = manifest.image_slots.find((item) => item.id === safeSlotId(input.slotId));
-        if (!slot?.current_file) throw manuscriptError(404, 'MANUSCRIPT_IMAGE_NOT_FOUND', '이미지를 찾지 못했습니다.');
+        if (!slot?.current_file || slot.state === 'excluded') throw manuscriptError(404, 'MANUSCRIPT_IMAGE_NOT_FOUND', '이미지를 찾지 못했습니다.');
         const filePath = currentFileForSlot(locations, slot);
         if (!fsImpl.existsSync(filePath)) throw manuscriptError(404, 'MANUSCRIPT_IMAGE_NOT_FOUND', '이미지를 찾지 못했습니다.');
         const buffer = fsImpl.readFileSync(filePath);
