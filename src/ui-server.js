@@ -1150,7 +1150,11 @@ const uiHttpServerRuntime = createUiHttpServerRuntime({
 const { startUiServer: startUiServerRuntime, reloadUiServer } = uiHttpServerRuntime;
 
 async function startUiServer(options = {}) {
-    await initializeAgentMemory();
+    if (options.safeMode !== true) {
+        await initializeAgentMemory();
+    } else {
+        Logger.warn('⚠️ [AgentMemory] 안전 모드에서 지능형 메모리 초기화를 건너뜁니다.');
+    }
     return startUiServerRuntime(options);
 }
 

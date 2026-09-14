@@ -1,32 +1,133 @@
-const { app, BrowserWindow, Menu, dialog } = require('electron');
+const { app, BrowserWindow, Menu, dialog, crashReporter } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { createStartupBootstrap } = require('./startup-bootstrap');
+const { buildSafeModeArgs, isSafeMode, isStartupProbe } = require('./startup-policy');
+
+const startup = createStartupBootstrap();
+const safeMode = isSafeMode(process.argv.slice(1));
+const startupProbe = isStartupProbe(process.argv.slice(1));
+const externallySupervised = Boolean(String(process.env.BLOGGENIUS_LAUNCHER_PATH || '').trim());
+let startupReady = false;
+let recoveryStarted = false;
+
+process.env.BLOG_GENIUS_SAFE_MODE = safeMode ? 'true' : 'false';
+process.env.BLOG_GENIUS_LOG_DIR = startup.logDir;
+
+startup.write('JS_ENTRY', {
+    safeMode,
+    startupProbe,
+    platform: process.platform,
+    arch: process.arch,
+    electron: process.versions.electron,
+    chrome: process.versions.chrome,
+    node: process.versions.node
+});
+
+try {
+    app.setAppLogsPath(startup.logDir);
+    app.setPath('crashDumps', startup.crashDir);
+} catch (error) {
+    startup.write('DIAGNOSTIC_PATH_FAILED', { message: error.message });
+}
+
+if (safeMode) {
+    app.disableHardwareAcceleration();
+    startup.write('SAFE_MODE_ENABLED');
+} else {
+    try {
+        crashReporter.start({
+            uploadToServer: false,
+            productName: 'BlogGenius',
+            globalExtra: {
+                startup_mode: 'normal'
+            }
+        });
+        startup.write('CRASH_REPORTER_READY');
+    } catch (error) {
+        startup.write('CRASH_REPORTER_FAILED', { message: error.message });
+    }
+}
+
+function formatError(error) {
+    return {
+        message: String(error?.message || error || 'unknown error'),
+        stack: String(error?.stack || '')
+    };
+}
+
+function relaunchInSafeMode(reason, details = {}) {
+    if (safeMode || startupReady || recoveryStarted) return false;
+    if (externallySupervised) return false;
+    recoveryStarted = true;
+    const args = buildSafeModeArgs(process.argv.slice(1));
+    startup.write('SAFE_MODE_RELAUNCH_REQUESTED', { reason, ...details });
+    const launcherPath = String(process.env.BLOGGENIUS_LAUNCHER_PATH || '').trim();
+    app.relaunch({
+        args,
+        ...(launcherPath ? { executablePath: launcherPath } : {})
+    });
+    app.exit(1);
+    return true;
+}
+
+function handleFatalError(phase, error) {
+    const details = formatError(error);
+    startup.write(phase, details);
+    if (!startupReady && !externallySupervised && relaunchInSafeMode(phase, { message: details.message })) return;
+    if (externallySupervised && !startupReady) {
+        app.exit(1);
+        return;
+    }
+    try {
+        dialog.showErrorBox(
+            'BlogGenius 시작 오류',
+            `프로그램을 시작하지 못했습니다.\n\n진단 로그: ${startup.rootDir}\n\n${details.message}`
+        );
+    } catch (_ignore) { }
+    app.exit(1);
+}
+
+process.on('uncaughtException', (error) => handleFatalError('UNCAUGHT_EXCEPTION', error));
+process.on('unhandledRejection', (error) => handleFatalError('UNHANDLED_REJECTION', error));
 
 // 🚀 [Environment Setup] GUI 전용 실행 환경 설정 (Require 이전에 수행)
 process.env.BLOG_GENIUS_GUI_MODE = 'true';
 process.env.BLOG_GENIUS_USER_DATA = app.getPath('userData');
 
-// 💡 [Portable First] 하위 모듈 설정 로드
-const CONFIG = require('../config-loader');
+let CONFIG;
+let startUiServer;
+let startRemoteMcpService;
+let stopRemoteMcpService;
+let Logger;
 
-// 로그 디렉토리를 미리 생성해 둡니다. (logger.js 가 로드될 때 오류 방지)
-// config-loader 가 결정한 ROOT_DIR 을 따릅니다.
-const logDir = path.join(CONFIG.ROOT_DIR || process.cwd(), 'logs');
-if (!fs.existsSync(logDir)) {
-    try {
-        fs.mkdirSync(logDir, { recursive: true });
-    } catch (e) {
-        console.error('GUI: Failed to create log dir', e.message);
-    }
+if (safeMode) {
+    CONFIG = { LISTEN_HOST: '127.0.0.1', LISTEN_PORT: 0, ROOT_DIR: startup.rootDir };
+    const { startSafeModeServer } = require('./safe-mode-server');
+    startUiServer = () => startSafeModeServer({ diagnosticRoot: startup.rootDir });
+    startRemoteMcpService = async () => ({ enabled: false, running: false });
+    stopRemoteMcpService = async () => false;
+    Logger = {
+        debug: (message) => startup.write('SAFE_MODE_DEBUG', { message }),
+        info: (message) => startup.write('SAFE_MODE_INFO', { message }),
+        warn: (message) => startup.write('SAFE_MODE_WARN', { message }),
+        error: (message, error) => startup.write('SAFE_MODE_ERROR', {
+            ...formatError(error),
+            message: String(message || error?.message || error || 'unknown error')
+        })
+    };
+    startup.write('MINIMAL_SAFE_MODE_MODULES_LOADED');
+} else {
+    // Portable 설정 및 전체 애플리케이션 그래프는 정상 모드에서만 로드합니다.
+    CONFIG = require('../config-loader');
+    startup.write('CONFIG_LOADED', { rootDir: CONFIG.ROOT_DIR || '' });
+    ({ startUiServer } = require('../ui-server'));
+    ({ startRemoteMcpService, stopRemoteMcpService } = require('../mcp/remote-service'));
+    Logger = require('../logger');
+    const { logRuntimeEnvironmentStatus } = require('../environment/runtime-profile');
+    logRuntimeEnvironmentStatus(Logger, CONFIG.RUNTIME_ENVIRONMENT_PROFILE);
+    startup.write('APPLICATION_MODULES_LOADED');
 }
-
-// ⚠️ 환경 설정 완료 후 하위 모듈 로드
-const { startUiServer } = require('../ui-server');
-const { startRemoteMcpService, stopRemoteMcpService } = require('../mcp/remote-service');
-const Logger = require('../logger');
-const { logRuntimeEnvironmentStatus } = require('../environment/runtime-profile');
-
-logRuntimeEnvironmentStatus(Logger, CONFIG.RUNTIME_ENVIRONMENT_PROFILE);
 
 let win = null;
 let uiServer = null;
@@ -42,10 +143,14 @@ function reloadWindowToRoot(ignoreCache = false) {
     if (!rootUrl) return;
     if (ignoreCache) {
         win.webContents.reloadIgnoringCache();
-        win.loadURL(rootUrl);
+        void win.loadURL(rootUrl).catch((error) => {
+            startup.write('RENDERER_RELOAD_FAILED', formatError(error));
+        });
         return;
     }
-    win.loadURL(rootUrl);
+    void win.loadURL(rootUrl).catch((error) => {
+        startup.write('RENDERER_RELOAD_FAILED', formatError(error));
+    });
 }
 
 async function recoverWindowFromBrokenRoute() {
@@ -189,8 +294,18 @@ async function createWindow() {
         try {
             const host = CONFIG.LISTEN_HOST || '127.0.0.1';
             const port = CONFIG.LISTEN_PORT || 4577;
-            uiServer = await startUiServer({ host, port });
-            await startRemoteMcpService();
+            uiServer = await startUiServer({ host, port, safeMode });
+            startup.write('UI_SERVER_READY', { host: uiServer.openHost, port: uiServer.port, safeMode });
+            if (!safeMode) {
+                try {
+                    await startRemoteMcpService();
+                } catch (mcpError) {
+                    Logger.error(`GUI: Optional MCP service failed to start: ${mcpError.message}`, mcpError);
+                    startup.write('OPTIONAL_MCP_FAILED', formatError(mcpError));
+                }
+            } else {
+                Logger.warn('GUI: 안전 모드에서 원격 MCP 서비스를 시작하지 않습니다.');
+            }
             Logger.info(`GUI: UI Server started at http://${uiServer.openHost}:${uiServer.port}`);
         } catch (err) {
             Logger.error(`GUI: Failed to start UI Server: ${err.message}`);
@@ -201,9 +316,8 @@ async function createWindow() {
                 displayMsg = `포트 ${port}번이 이미 사용 중입니다.\n\n다른 BlogGenius 프로그램이 실행 중이거나, 다른 앱이 이 포트를 사용하고 있습니다.`;
             }
 
-            dialog.showErrorBox('BlogGenius 시작 오류', displayMsg);
-            app.quit();
-            return;
+            err.message = displayMsg;
+            throw err;
         }
     }
 
@@ -215,6 +329,7 @@ async function createWindow() {
         height: 900,
         minWidth: 1024,
         minHeight: 768,
+        backgroundColor: '#f6f4ef',
         title: '',
         icon: fs.existsSync(iconPath) ? iconPath : undefined,
         webPreferences: {
@@ -223,9 +338,55 @@ async function createWindow() {
             devTools: true // 필요 시 true
         }
     });
+    startup.write('WINDOW_CREATED', { safeMode });
+
+    win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+        startup.write('RENDERER_LOAD_FAILED', {
+            errorCode,
+            errorDescription,
+            validatedURL,
+            isMainFrame
+        });
+        if (isMainFrame && !relaunchInSafeMode('renderer-load-failed', { errorCode, errorDescription })) {
+            handleFatalError('RENDERER_LOAD_FATAL', new Error(`${errorDescription} (${errorCode})`));
+        }
+    });
+
+    win.webContents.on('render-process-gone', (_event, details) => {
+        startup.write('RENDER_PROCESS_GONE', details);
+        if (details.reason !== 'clean-exit') {
+            const recovered = relaunchInSafeMode('renderer-process-gone', {
+                reason: details.reason,
+                exitCode: details.exitCode
+            });
+            if (!recovered) {
+                handleFatalError(
+                    'RENDER_PROCESS_FATAL',
+                    new Error(`renderer ${details.reason} (${details.exitCode})`)
+                );
+            }
+        }
+    });
+
+    win.on('unresponsive', () => {
+        startup.write('WINDOW_UNRESPONSIVE');
+    });
+
+    win.webContents.on('did-finish-load', () => {
+        if (!startupReady) {
+            startupReady = true;
+            startup.markReady({ safeMode, url: win.webContents.getURL() });
+            startup.write('RENDERER_READY', { safeMode });
+            if (startupProbe) {
+                startup.write('STARTUP_PROBE_COMPLETE', { safeMode });
+                setImmediate(() => app.quit());
+            }
+        }
+        void recoverWindowFromBrokenRoute();
+    });
 
     // 3. 내장 서버 주소 로드
-    reloadWindowToRoot(false);
+    await win.loadURL(getUiRootUrl());
 
     win.on('closed', () => {
         win = null;
@@ -245,21 +406,35 @@ async function createWindow() {
         reloadWindowToRoot(Boolean(input.shift));
     });
 
-    win.webContents.on('did-finish-load', () => {
-        void recoverWindowFromBrokenRoute();
-    });
 }
 
 // 앱 준비 완료 시 실행
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+    startup.write('APP_READY', { safeMode });
     createMenu();
-    createWindow();
+    await createWindow();
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
-            createWindow();
+            void createWindow().catch((error) => handleFatalError('ACTIVATE_WINDOW_FAILED', error));
         }
     });
+}).catch((error) => handleFatalError('APP_START_FAILED', error));
+
+app.on('child-process-gone', (_event, details) => {
+    startup.write('CHILD_PROCESS_GONE', details);
+    if (!startupReady && details.type === 'GPU' && details.reason !== 'clean-exit') {
+        const recovered = relaunchInSafeMode('gpu-process-gone', {
+            reason: details.reason,
+            exitCode: details.exitCode
+        });
+        if (!recovered) {
+            handleFatalError(
+                'GPU_PROCESS_FATAL',
+                new Error(`GPU ${details.reason} (${details.exitCode})`)
+            );
+        }
+    }
 });
 
 // 모든 창이 닫히면 종료
@@ -271,11 +446,14 @@ app.on('window-all-closed', () => {
 
 // 종료 직전 서버 자원 정리
 app.on('before-quit', () => {
-    Logger.info('GUI: Shutting down...');
+    startup.write('APP_BEFORE_QUIT', { safeMode, startupReady });
+    Logger?.info?.('GUI: Shutting down...');
     if (uiServer && uiServer.server) {
         uiServer.server.close();
     }
-    stopRemoteMcpService().catch((error) => {
-        Logger.error(`GUI: Failed to stop MCP remote service: ${error.message}`);
-    });
+    if (typeof stopRemoteMcpService === 'function') {
+        stopRemoteMcpService().catch((error) => {
+            Logger?.error?.(`GUI: Failed to stop MCP remote service: ${error.message}`);
+        });
+    }
 });

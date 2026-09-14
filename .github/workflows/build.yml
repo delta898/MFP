@@ -176,6 +176,11 @@ jobs:
 
           echo "PACKAGED_APP_DIR=${PACKAGED_APP_DIR}" >> "$GITHUB_ENV"
 
+      - name: Install Windows Startup Launcher
+        if: matrix.suffix == 'win-x64'
+        shell: pwsh
+        run: ./scripts/windows/install-startup-launcher.ps1 -PackageDir $env:PACKAGED_APP_DIR -IconPath ./assets/icons/icon.ico
+
       - name: Bundle and Verify Windows VC++ Runtime
         if: matrix.suffix == 'win-x64'
         shell: pwsh
@@ -188,6 +193,50 @@ jobs:
             if (!(Test-Path -LiteralPath $runtimePath -PathType Leaf)) {
               throw "Required app-local VC runtime is missing: $runtimePath"
             }
+          }
+
+      - name: Verify Packaged Windows Startup
+        if: matrix.suffix == 'win-x64'
+        shell: pwsh
+        run: |
+          $packageDir = (Resolve-Path $env:PACKAGED_APP_DIR).Path
+          $launcher = Join-Path $packageDir 'BlogGenius.exe'
+          $runtime = Join-Path $packageDir 'BlogGenius-runtime.exe'
+          if (!(Test-Path -LiteralPath $launcher -PathType Leaf) -or !(Test-Path -LiteralPath $runtime -PathType Leaf)) {
+            throw 'The Windows launcher/runtime pair is incomplete.'
+          }
+
+          $versionProbe = Start-Process -FilePath $launcher -ArgumentList '--version' -Wait -PassThru
+          if ($versionProbe.ExitCode -ne 0) { throw "Packaged --version probe failed: $($versionProbe.ExitCode)" }
+
+          $diagnosticRoot = Join-Path $env:LOCALAPPDATA 'BlogGenius'
+          if (Test-Path -LiteralPath $diagnosticRoot) {
+            Remove-Item -LiteralPath $diagnosticRoot -Recurse -Force
+          }
+          $supervisor = Start-Process -FilePath $launcher -ArgumentList @('--bloggenius-safe-mode', '--bloggenius-startup-probe') -PassThru
+          $bootstrapLog = Join-Path $diagnosticRoot 'logs\bootstrap.log'
+          $ready = $false
+          for ($attempt = 0; $attempt -lt 120; $attempt++) {
+            Start-Sleep -Milliseconds 250
+            if ((Test-Path -LiteralPath $bootstrapLog) -and (Select-String -LiteralPath $bootstrapLog -Pattern '"phase":"RENDERER_READY"' -Quiet)) {
+              $ready = $true
+              break
+            }
+          }
+          if (!$supervisor.HasExited) { $supervisor.WaitForExit(15000) | Out-Null }
+          if (!$ready) {
+            if (Test-Path -LiteralPath $bootstrapLog) { Get-Content -LiteralPath $bootstrapLog -Tail 80 }
+            throw 'Packaged safe-mode UI did not reach the renderer-ready checkpoint.'
+          }
+          if (!$supervisor.HasExited -or $supervisor.ExitCode -ne 0) {
+            throw 'Packaged safe-mode startup probe did not shut down cleanly.'
+          }
+          for ($attempt = 0; $attempt -lt 40; $attempt++) {
+            if (!(Get-Process -Name 'BlogGenius-runtime' -ErrorAction SilentlyContinue)) { break }
+            Start-Sleep -Milliseconds 250
+          }
+          if (Get-Process -Name 'BlogGenius-runtime' -ErrorAction SilentlyContinue) {
+            throw 'Packaged safe-mode startup probe left the Electron runtime running.'
           }
 
       - name: Code Sign (macOS)

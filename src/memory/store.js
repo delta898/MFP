@@ -120,6 +120,11 @@ function buildDisabledEventStore(reason) {
 function getAgentEventStore() {
     if (store) return store;
 
+    if (String(process.env.BLOG_GENIUS_SAFE_MODE || '').toLowerCase() === 'true') {
+        store = buildDisabledEventStore(new Error('safe mode'));
+        return store;
+    }
+
     try {
         loadKuzu();
     } catch (error) {

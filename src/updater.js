@@ -20,7 +20,9 @@ class Updater {
         this.arch = options.arch || process.arch;
         this.spawnProcess = options.spawnProcess || spawn;
         this.exitProcess = options.exitProcess || ((code) => process.exit(code));
-        this.executablePath = options.executablePath || process.execPath;
+        this.executablePath = options.executablePath
+            || String((options.env || process.env).BLOGGENIUS_LAUNCHER_PATH || '').trim()
+            || process.execPath;
         this.fs = options.fs || fs;
         this.env = options.env || process.env;
         this.userDataDir = options.userDataDir
@@ -1207,8 +1209,10 @@ throw 'Timed out waiting for the apply helper readiness marker.'
             return true;
         }
 
-        const bin = process.execPath;
-        const args = process.argv.slice(1).filter(arg => arg !== 'ui'); // UI 모드면 UI로 다시 뜨게 하거나, CMD면 CMD로
+        const bin = this.executablePath;
+        const args = bin === process.execPath
+            ? process.argv.slice(1).filter(arg => arg !== 'ui')
+            : [];
 
         Logger.info('🔄 [Updater] 프로세스 재시작 중...');
 

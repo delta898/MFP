@@ -17,8 +17,10 @@ const currentLevel = LEVELS[currentLevelName] || 1;
 
 // 로그 저장 폴더 결정
 // 🚀 [Portable Mode Support]
-// config-loader 에서 결정한 ROOT_DIR 내의 logs 폴더를 최우선으로 사용합니다.
-logDir = path.join(CONFIG.ROOT_DIR || process.cwd(), 'logs');
+// Electron bootstrap이 지정한 쓰기 가능한 공용 로그 폴더를 최우선으로 사용합니다.
+// CLI 및 이전 배포 경로는 기존 ROOT_DIR 규칙을 유지합니다.
+const explicitLogDir = String(process.env.BLOG_GENIUS_LOG_DIR || '').trim();
+const logDir = explicitLogDir || path.join(CONFIG.ROOT_DIR || process.cwd(), 'logs');
 
 // 폴더 생성 (이미 있으면 통과)
 try {

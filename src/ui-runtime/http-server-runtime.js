@@ -35,6 +35,7 @@ function createUiHttpServerRuntime(deps = {}) {
     let activeUiServer = null;
 
     async function startUiServer(options = {}) {
+        const safeMode = options.safeMode === true;
         const host = normalizeListenHost(options.host, normalizeListenHost(CONFIG.LISTEN_HOST, defaultHost));
         const port = Number.isFinite(Number(options.port))
             ? normalizeListenPort(options.port, defaultPort)
@@ -135,11 +136,15 @@ function createUiHttpServerRuntime(deps = {}) {
         });
         Logger.debug(`[UI] Listening on ${host}:${port}`);
 
-        Logger.debug('[UI] Syncing auto-runners...');
-        syncAutoRunnerWithConfig();
+        if (!safeMode) {
+            Logger.debug('[UI] Syncing auto-runners...');
+            syncAutoRunnerWithConfig();
 
-        Logger.debug('[UI] Initializing TelegramBotService (UI)...');
-        await initTelegramBotService();
+            Logger.debug('[UI] Initializing TelegramBotService (UI)...');
+            await initTelegramBotService();
+        } else {
+            Logger.warn('[UI] 안전 모드: 자동 실행기와 Telegram 시작을 건너뜁니다.');
+        }
 
         const openHost = host === '0.0.0.0' ? '127.0.0.1' : host;
         Logger.info(`✅ UI 서버가 성공적으로 시작되었습니다: http://${openHost}:${port}`);
@@ -149,17 +154,17 @@ function createUiHttpServerRuntime(deps = {}) {
             title: 'UI 서버 시작',
             detail: `http://${openHost}:${port}`
         });
-        if (typeof triggerSnsStartupDiscovery === 'function') {
+        if (!safeMode && typeof triggerSnsStartupDiscovery === 'function') {
             triggerSnsStartupDiscovery().catch((error) => {
                 Logger.error(`❌ [SNS] 앱 시작 시 RSS 확인 요청 실패: ${error.message}`);
             });
         }
-        if (typeof startCardNewsRssIntake === 'function') {
+        if (!safeMode && typeof startCardNewsRssIntake === 'function') {
             await Promise.resolve(startCardNewsRssIntake()).catch((error) => {
                 Logger.error(`❌ [CardNews RSS] 시작 실패: ${error.message}`);
             });
         }
-        if (typeof startRecommendationDelivery === 'function') {
+        if (!safeMode && typeof startRecommendationDelivery === 'function') {
             await Promise.resolve(startRecommendationDelivery()).catch((error) => {
                 Logger.error(`❌ [RecommendationDelivery] 시작 실패: ${error.message}`);
             });

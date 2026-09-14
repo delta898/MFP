@@ -114,6 +114,31 @@ test('updater supports only macOS Apple Silicon and Windows x64 release assets',
     assert.equal(new Updater({ platform: 'linux', arch: 'x64' }).getPlatformAsset(assets), null);
 });
 
+test('packaged Windows restarts go through the external startup supervisor', async () => {
+    const calls = [];
+    const exits = [];
+    const child = { unrefCalled: false, unref() { this.unrefCalled = true; } };
+    const updater = new Updater({
+        appRootDir: 'C:\\Program Files\\BlogGenius',
+        env: {
+            BLOGGENIUS_LAUNCHER_PATH: 'C:\\Program Files\\BlogGenius\\BlogGenius.exe'
+        },
+        spawnProcess(command, args, options) {
+            calls.push({ command, args, options });
+            return child;
+        },
+        exitProcess(code) { exits.push(code); }
+    });
+
+    await updater.restart();
+
+    assert.equal(updater.executablePath, 'C:\\Program Files\\BlogGenius\\BlogGenius.exe');
+    assert.deepEqual(calls[0].args, []);
+    assert.equal(calls[0].command, updater.executablePath);
+    assert.equal(child.unrefCalled, true);
+    assert.deepEqual(exits, [0]);
+});
+
 function createFakeChild(pid = 4321) {
     const child = new EventEmitter();
     child.pid = pid;

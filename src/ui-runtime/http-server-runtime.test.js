@@ -12,7 +12,7 @@ function createWindowsServerHarness() {
         statSync() { return { isFile: () => true, isDirectory: () => true }; },
         readFileSync(filePath) { return `raw:${filePath}`; }
     };
-    const Logger = { debug() {}, info() {}, error() {} };
+    const Logger = { debug() {}, info() {}, warn() {}, error() {} };
     const httpUtils = createUiHttpUtils({
         fs,
         path: path.win32,
@@ -30,7 +30,7 @@ function createWindowsServerHarness() {
             };
         }
     };
-    const lifecycle = { cardNewsStarts: 0, cardNewsStops: 0 };
+    const lifecycle = { autoSyncs: 0, telegramStarts: 0, cardNewsStarts: 0, cardNewsStops: 0 };
     const runtime = createUiHttpServerRuntime({
         http,
         fs,
@@ -52,7 +52,7 @@ function createWindowsServerHarness() {
         shouldServeUiShell: httpUtils.shouldServeUiShell,
         sendError: () => false,
         getContentType: httpUtils.getContentType,
-        syncAutoRunnerWithConfig() {},
+        syncAutoRunnerWithConfig() { lifecycle.autoSyncs += 1; },
         triggerSnsStartupDiscovery: null,
         startCardNewsRssIntake() { lifecycle.cardNewsStarts += 1; },
         stopCardNewsRssIntake() { lifecycle.cardNewsStops += 1; },
@@ -60,14 +60,14 @@ function createWindowsServerHarness() {
         stopRecommendationDelivery() {},
         recordUiActivity() {},
         handleGoogleOAuthCallback: async () => false,
-        initTelegramBotService: async () => {},
+        initTelegramBotService: async () => { lifecycle.telegramStarts += 1; },
         stopTelegramBotService: async () => {}
     });
 
     return {
         lifecycle,
-        async start() {
-            await runtime.startUiServer();
+        async start(options = {}) {
+            await runtime.startUiServer(options);
         },
         async reload() {
             await runtime.reloadUiServer('127.0.0.1', 4577);
@@ -116,4 +116,17 @@ test('UI server restart replaces the Card News RSS scheduler instead of duplicat
 
     assert.equal(harness.lifecycle.cardNewsStops, 1);
     assert.equal(harness.lifecycle.cardNewsStarts, 2);
+});
+
+test('safe mode serves the local UI without starting optional background services', async () => {
+    const harness = createWindowsServerHarness();
+    await harness.start({ safeMode: true });
+
+    assert.equal(harness.lifecycle.autoSyncs, 0);
+    assert.equal(harness.lifecycle.telegramStarts, 0);
+    assert.equal(harness.lifecycle.cardNewsStarts, 0);
+
+    const shell = await harness.request('/');
+    assert.equal(shell.statusCode, 200);
+    assert.equal(shell.body, '<html>composed</html>');
 });

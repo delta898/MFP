@@ -38,7 +38,30 @@ test('local Windows packaging unpacks Kuzu and invokes the shared runtime bundle
 
     assert.match(buildBat, /node_modules[/\\]kuzu/);
     assert.match(buildBat, /copy-vc-runtime[.]ps1/);
+    assert.match(buildBat, /install-startup-launcher[.]ps1/);
     assert.match(buildBat, /PackageDir\s+"%ROOT_OUT%"/);
     assert.match(installer, /DefaultDirName=\{localappdata\}\\Programs\\\{#MyAppName\}/);
     assert.match(installer, /PrivilegesRequired=lowest/);
+});
+
+test('Windows packages install an external startup supervisor before runtime verification', () => {
+    const workflow = read('.github/workflows/build.yml');
+    const installer = read('scripts/windows/install-startup-launcher.ps1');
+    const launcher = read('scripts/windows/startup-launcher/BlogGeniusLauncher.cs');
+
+    assert.match(workflow, /Install Windows Startup Launcher/);
+    assert.match(workflow, /install-startup-launcher[.]ps1 -PackageDir/);
+    assert.match(workflow, /-IconPath\s+[.]\/assets\/icons\/icon[.]ico/);
+    assert.match(installer, /BlogGenius-runtime[.]exe/);
+    assert.match(launcher, /BLOGGENIUS_STARTUP_READY_FILE/);
+    assert.match(launcher, /--bloggenius-safe-mode/);
+    assert.match(launcher, /--disable-gpu/);
+    assert.match(launcher, /--no-stdio-init/);
+    assert.doesNotMatch(launcher, /--no-sandbox/);
+    assert.match(launcher, /normal mode failed before readiness; retrying safe mode/);
+    assert.match(launcher, /return new LaunchResult\(true, 0\)/);
+    assert.match(launcher, /CreateDiagnosticBundle/);
+    assert.match(workflow, /--bloggenius-startup-probe/);
+    assert.match(workflow, /Start-Process -FilePath \$launcher -ArgumentList '--version' -Wait -PassThru/);
+    assert.doesNotMatch(workflow, /Stop-Process -Force/);
 });

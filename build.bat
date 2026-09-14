@@ -92,6 +92,13 @@ if exist "dist\gui-temp\%APP_NAME%-win32-x64" (
 )
 if exist "dist\gui-temp" rmdir /s /q "dist\gui-temp"
 
+echo    🛟 Windows 시작 복구 런처 설치 중...
+powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\windows\install-startup-launcher.ps1" -PackageDir "%ROOT_OUT%" -IconPath "assets\icons\icon.ico"
+if errorlevel 1 (
+    echo    ❌ [Error] Windows 시작 복구 런처 설치 실패
+    exit /b 1
+)
+
 echo    📦 Microsoft Visual C++ x64 runtime 포함 중...
 powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\windows\copy-vc-runtime.ps1" -PackageDir "%ROOT_OUT%"
 if errorlevel 1 (
