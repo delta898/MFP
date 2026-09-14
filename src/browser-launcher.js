@@ -1,5 +1,4 @@
 // src/browser-launcher.js
-const { chromium } = require('playwright');
 // 💡 config-loader를 통해 config/config.json 값을 로딩합니다.
 const CONFIG = require('./config-loader');
 
@@ -37,6 +36,9 @@ function buildBrowserLaunchOptions(overrides = {}) {
 }
 
 async function launchBrowser(overrides = {}) {
+    // Browser automation is not needed to render the application shell. Keep the
+    // large optional dependency outside the initial UI-server module graph.
+    const { chromium } = require('playwright');
     // 사용자가 설정한 값 가져오기 (없으면 기본값 'chrome')
     const channel = overrides.channel || CONFIG.BROWSER_CHANNEL || 'chrome';
 

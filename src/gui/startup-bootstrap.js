@@ -35,17 +35,22 @@ function createStartupBootstrap(options = {}) {
         platform: options.platform || process.platform,
         tmpDir: options.tmpDir
     });
-    const rootDir = ensureDirectory(fsImpl, preferredRoot) ? preferredRoot : fallbackRoot;
+    const preferredReady = ensureDirectory(fsImpl, preferredRoot);
+    const fallbackReady = preferredReady ? '' : ensureDirectory(fsImpl, fallbackRoot);
+    const rootDir = preferredReady || fallbackReady || fallbackRoot;
     const logDir = ensureDirectory(fsImpl, pathImpl.join(rootDir, 'logs')) || rootDir;
     const crashDir = ensureDirectory(fsImpl, pathImpl.join(rootDir, 'crashes')) || rootDir;
     const diagnosticsDir = ensureDirectory(fsImpl, pathImpl.join(rootDir, 'diagnostics')) || rootDir;
     const logPath = pathImpl.join(logDir, 'bootstrap.log');
+    const runId = `${Date.now().toString(36)}-${process.pid}`;
+    let writeFailureReported = false;
 
     function write(phase, details = {}) {
         const payload = {
             timestamp: new Date().toISOString(),
             phase: String(phase || 'UNKNOWN'),
             pid: process.pid,
+            runId,
             ...details
         };
         try {
@@ -56,7 +61,11 @@ function createStartupBootstrap(options = {}) {
             }
             fsImpl.appendFileSync(logPath, `${JSON.stringify(payload)}\n`, 'utf8');
             return true;
-        } catch (_error) {
+        } catch (error) {
+            if (!writeFailureReported) {
+                writeFailureReported = true;
+                try { console.error(`[BlogGenius bootstrap] log write failed: ${error.message}`); } catch (_ignore) { }
+            }
             return false;
         }
     }
@@ -84,6 +93,7 @@ function createStartupBootstrap(options = {}) {
         crashDir,
         diagnosticsDir,
         logPath,
+        runId,
         markReady,
         write
     });

@@ -1150,12 +1150,35 @@ const uiHttpServerRuntime = createUiHttpServerRuntime({
 const { startUiServer: startUiServerRuntime, reloadUiServer } = uiHttpServerRuntime;
 
 async function startUiServer(options = {}) {
-    if (options.safeMode !== true) {
+    const deferred = options.safeMode !== true && options.deferOptionalStartup === true;
+    if (options.safeMode !== true && !deferred) {
         await initializeAgentMemory();
     } else {
-        Logger.warn('⚠️ [AgentMemory] 안전 모드에서 지능형 메모리 초기화를 건너뜁니다.');
+        Logger.warn(options.safeMode === true
+            ? '⚠️ [AgentMemory] 안전 모드에서 지능형 메모리 초기화를 건너뜁니다.'
+            : 'ℹ️ [AgentMemory] 첫 화면 이후 지능형 메모리를 초기화합니다.');
     }
-    return startUiServerRuntime(options);
+    const started = await startUiServerRuntime(options);
+    if (!deferred) return started;
+    return {
+        ...started,
+        startDeferredServices: async () => {
+            const memory = Promise.resolve()
+                .then(() => initializeAgentMemory())
+                .catch((error) => {
+                    Logger.error(`❌ [AgentMemory] 지연 초기화 실패: ${error.message}`, error);
+                    return false;
+                });
+            const optional = Promise.resolve()
+                .then(() => started.startOptionalServices())
+                .catch((error) => {
+                    Logger.error(`❌ [UI] 지연 백그라운드 기능 시작 실패: ${error.message}`, error);
+                    return [];
+                });
+            const [memoryReady, optionalResults] = await Promise.all([memory, optional]);
+            return { memoryReady, optionalResults };
+        }
+    };
 }
 
 module.exports = {

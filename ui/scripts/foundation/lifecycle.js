@@ -1,4 +1,7 @@
 window.addEventListener('DOMContentLoaded', () => {
+  let criticalNavigationBound = false;
+  let startupLifecycleError = null;
+  try {
   window.addEventListener('beforeunload', (event) => {
     if (!settingsMajorHasPendingBasicChanges
       && !settingsWritingProfileDirty
@@ -633,7 +636,10 @@ try { initKeywordResearchModal(); } catch (e) { console.warn('initKeywordResearc
     }
   } catch (e) { console.warn('Dash content refresh init error:', e); }
 
-  try { bindNavigation(); } catch (e) { console.warn('bindNavigation error:', e); }
+  try {
+    bindNavigation();
+    criticalNavigationBound = true;
+  } catch (e) { console.warn('bindNavigation error:', e); }
   try { initRecommendationCenter(); } catch (e) { console.warn('initRecommendationCenter error:', e); }
   try { bindActions(); } catch (e) { console.warn('bindActions error:', e); }
   try { syncScopedMajorSaveActions(); } catch (e) { console.warn('syncScopedMajorSaveActions error:', e); }
@@ -712,4 +718,23 @@ try { initKeywordResearchModal(); } catch (e) { console.warn('initKeywordResearc
   setInterval(() => {
     renderDashboardAutoSchedule();
   }, 60000);
+
+  } catch (error) {
+    startupLifecycleError = error;
+    console.error('[BLOGGENIUS_UI_BOOTSTRAP_ERROR]', error);
+  } finally {
+    const surface = document.querySelector('.view.active')?.id || '';
+    if (criticalNavigationBound && surface) {
+      window.__BLOGGENIUS_STARTUP__?.markReady({
+        surface,
+        navigationBound: true,
+        degraded: Boolean(startupLifecycleError)
+      });
+    } else {
+      console.error('[BLOGGENIUS_UI_BOOTSTRAP_INCOMPLETE]', JSON.stringify({
+        navigationBound: criticalNavigationBound,
+        surface: surface || 'missing'
+      }));
+    }
+  }
 });

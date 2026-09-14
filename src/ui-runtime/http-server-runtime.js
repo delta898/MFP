@@ -33,12 +33,49 @@ function createUiHttpServerRuntime(deps = {}) {
     } = deps;
 
     let activeUiServer = null;
+    let optionalStartupPromise = null;
+
+    async function runOptionalStartupStep(name, operation) {
+        try {
+            await Promise.resolve().then(operation);
+            Logger.debug(`[UI] Optional startup complete: ${name}`);
+            return { name, ok: true };
+        } catch (error) {
+            Logger.error(`❌ [UI] 선택 백그라운드 기능 시작 실패 (${name}): ${error.message}`, error);
+            return { name, ok: false, error: error.message };
+        }
+    }
+
+    function startOptionalServices(options = {}) {
+        const safeMode = options.safeMode === true;
+        if (safeMode) return Promise.resolve([]);
+        if (optionalStartupPromise) return optionalStartupPromise;
+        optionalStartupPromise = (() => {
+            const steps = [
+                runOptionalStartupStep('auto-runners', () => syncAutoRunnerWithConfig()),
+                runOptionalStartupStep('telegram', () => initTelegramBotService())
+            ];
+            if (typeof triggerSnsStartupDiscovery === 'function') {
+                steps.push(runOptionalStartupStep('sns-discovery', () => triggerSnsStartupDiscovery()));
+            }
+            if (typeof startCardNewsRssIntake === 'function') {
+                steps.push(runOptionalStartupStep('card-news-rss', () => startCardNewsRssIntake()));
+            }
+            if (typeof startRecommendationDelivery === 'function') {
+                steps.push(runOptionalStartupStep('recommendation-delivery', () => startRecommendationDelivery()));
+            }
+            return Promise.all(steps);
+        })();
+        return optionalStartupPromise;
+    }
 
     async function startUiServer(options = {}) {
         const safeMode = options.safeMode === true;
         const host = normalizeListenHost(options.host, normalizeListenHost(CONFIG.LISTEN_HOST, defaultHost));
-        const port = Number.isFinite(Number(options.port))
-            ? normalizeListenPort(options.port, defaultPort)
+        const port = options.allowEphemeralPort === true && Number(options.port) === 0
+            ? 0
+            : Number.isFinite(Number(options.port))
+                ? normalizeListenPort(options.port, defaultPort)
             : normalizeListenPort(CONFIG.LISTEN_PORT, defaultPort);
         const uiRoot = resolveUiRoot();
         if (!uiRoot) {
@@ -136,40 +173,29 @@ function createUiHttpServerRuntime(deps = {}) {
         });
         Logger.debug(`[UI] Listening on ${host}:${port}`);
 
-        if (!safeMode) {
-            Logger.debug('[UI] Syncing auto-runners...');
-            syncAutoRunnerWithConfig();
+        const boundAddress = typeof server.address === 'function' ? server.address() : null;
+        const boundPort = Number(boundAddress?.port || port);
 
-            Logger.debug('[UI] Initializing TelegramBotService (UI)...');
-            await initTelegramBotService();
-        } else {
+        if (safeMode) {
             Logger.warn('[UI] 안전 모드: 자동 실행기와 Telegram 시작을 건너뜁니다.');
         }
 
         const openHost = host === '0.0.0.0' ? '127.0.0.1' : host;
-        Logger.info(`✅ UI 서버가 성공적으로 시작되었습니다: http://${openHost}:${port}`);
-        recordUiActivity({
-            category: 'system',
-            type: 'ui_server_started',
-            title: 'UI 서버 시작',
-            detail: `http://${openHost}:${port}`
-        });
-        if (!safeMode && typeof triggerSnsStartupDiscovery === 'function') {
-            triggerSnsStartupDiscovery().catch((error) => {
-                Logger.error(`❌ [SNS] 앱 시작 시 RSS 확인 요청 실패: ${error.message}`);
+        Logger.info(`✅ UI 서버가 성공적으로 시작되었습니다: http://${openHost}:${boundPort}`);
+        try {
+            recordUiActivity({
+                category: 'system',
+                type: 'ui_server_started',
+                title: 'UI 서버 시작',
+                detail: `http://${openHost}:${boundPort}`
             });
+        } catch (error) {
+            Logger.warn(`⚠️ [UI] 시작 활동 기록을 건너뜁니다: ${error.message}`);
         }
-        if (!safeMode && typeof startCardNewsRssIntake === 'function') {
-            await Promise.resolve(startCardNewsRssIntake()).catch((error) => {
-                Logger.error(`❌ [CardNews RSS] 시작 실패: ${error.message}`);
-            });
-        }
-        if (!safeMode && typeof startRecommendationDelivery === 'function') {
-            await Promise.resolve(startRecommendationDelivery()).catch((error) => {
-                Logger.error(`❌ [RecommendationDelivery] 시작 실패: ${error.message}`);
-            });
-        }
-        return { server, host, port, openHost };
+
+        const startOptional = () => startOptionalServices({ safeMode });
+        if (options.deferOptionalStartup !== true) await startOptional();
+        return { server, host, port: boundPort, openHost, startOptionalServices: startOptional };
     }
 
     async function reloadUiServer(newHost, newPort) {
@@ -181,6 +207,7 @@ function createUiHttpServerRuntime(deps = {}) {
             await new Promise((resolve) => {
                 activeUiServer.close(() => {
                     activeUiServer = null;
+                    optionalStartupPromise = null;
                     resolve();
                 });
             });
@@ -199,6 +226,7 @@ function createUiHttpServerRuntime(deps = {}) {
 
     return {
         reloadUiServer,
+        startOptionalServices,
         startUiServer
     };
 }

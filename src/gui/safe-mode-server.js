@@ -26,7 +26,7 @@ h1{margin:0 0 16px;font-size:28px}p{line-height:1.75}.path{padding:14px;backgrou
 .note{color:#6c6255;font-size:14px}
 </style>
 </head>
-<body><main>
+<body><main data-bloggenius-safe-mode-ready="true">
 <h1>BlogGenius 안전 모드</h1>
 <p>정상 시작 중 문제가 감지되어 그래픽 가속과 선택 백그라운드 기능을 끈 최소 화면으로 시작했습니다.</p>
 <p>프로그램을 닫은 뒤 다시 실행하면 정상 모드로 다시 시도합니다. 문제가 반복되면 아래 폴더의 진단 자료를 개발자에게 전달해 주세요.</p>

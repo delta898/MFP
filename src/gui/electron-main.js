@@ -10,6 +10,13 @@ const startupProbe = isStartupProbe(process.argv.slice(1));
 const externallySupervised = Boolean(String(process.env.BLOGGENIUS_LAUNCHER_PATH || '').trim());
 let startupReady = false;
 let recoveryStarted = false;
+let startupWatchdog = null;
+
+const STARTUP_TIMEOUT_MS = 35000;
+const RENDERER_READY_TIMEOUT_MS = 15000;
+const RENDERER_READY_POLL_MS = 200;
+const UNRESPONSIVE_RECOVERY_MS = 5000;
+const POST_READY_SERVICE_TIMEOUT_MS = 15000;
 
 process.env.BLOG_GENIUS_SAFE_MODE = safeMode ? 'true' : 'false';
 process.env.BLOG_GENIUS_LOG_DIR = startup.logDir;
@@ -63,12 +70,21 @@ function relaunchInSafeMode(reason, details = {}) {
     const args = buildSafeModeArgs(process.argv.slice(1));
     startup.write('SAFE_MODE_RELAUNCH_REQUESTED', { reason, ...details });
     const launcherPath = String(process.env.BLOGGENIUS_LAUNCHER_PATH || '').trim();
-    app.relaunch({
-        args,
-        ...(launcherPath ? { executablePath: launcherPath } : {})
-    });
-    app.exit(1);
-    return true;
+    try {
+        app.relaunch({
+            args,
+            ...(launcherPath ? { executablePath: launcherPath } : {})
+        });
+        app.exit(1);
+        return true;
+    } catch (error) {
+        startup.write('SAFE_MODE_RELAUNCH_FAILED', {
+            reason,
+            ...formatError(error)
+        });
+        recoveryStarted = false;
+        return false;
+    }
 }
 
 function handleFatalError(phase, error) {
@@ -91,9 +107,30 @@ function handleFatalError(phase, error) {
 process.on('uncaughtException', (error) => handleFatalError('UNCAUGHT_EXCEPTION', error));
 process.on('unhandledRejection', (error) => handleFatalError('UNHANDLED_REJECTION', error));
 
+startupWatchdog = setTimeout(() => {
+    if (!startupReady) handleFatalError('STARTUP_TIMEOUT', new Error(`startup exceeded ${STARTUP_TIMEOUT_MS}ms`));
+}, STARTUP_TIMEOUT_MS);
+startupWatchdog.unref?.();
+
 // 🚀 [Environment Setup] GUI 전용 실행 환경 설정 (Require 이전에 수행)
 process.env.BLOG_GENIUS_GUI_MODE = 'true';
-process.env.BLOG_GENIUS_USER_DATA = app.getPath('userData');
+try {
+    process.env.BLOG_GENIUS_USER_DATA = app.getPath('userData');
+    startup.write('USER_DATA_READY', { path: process.env.BLOG_GENIUS_USER_DATA });
+} catch (error) {
+    process.env.BLOG_GENIUS_USER_DATA = startup.rootDir;
+    startup.write('USER_DATA_FALLBACK', { path: startup.rootDir, ...formatError(error) });
+}
+
+const primaryInstance = app.requestSingleInstanceLock();
+startup.write(primaryInstance ? 'PRIMARY_INSTANCE_LOCKED' : 'SECOND_INSTANCE_EXIT');
+if (!primaryInstance) {
+    startupReady = true;
+    if (startupWatchdog) clearTimeout(startupWatchdog);
+    startupWatchdog = null;
+    startup.markReady({ safeMode, secondaryInstance: true });
+    setImmediate(() => app.quit());
+}
 
 let CONFIG;
 let startUiServer;
@@ -102,9 +139,28 @@ let startRemoteMcpService;
 let stopRemoteMcpService;
 let Logger;
 
-if (safeMode) {
+function loadStartupModule(name, loader) {
+    const startedAt = Date.now();
+    startup.write('MODULE_LOADING', { name });
+    try {
+        const loaded = loader();
+        startup.write('MODULE_LOADED', { name, durationMs: Date.now() - startedAt });
+        return loaded;
+    } catch (error) {
+        startup.write('MODULE_LOAD_FAILED', { name, durationMs: Date.now() - startedAt, ...formatError(error) });
+        throw error;
+    }
+}
+
+if (!primaryInstance) {
     CONFIG = { LISTEN_HOST: '127.0.0.1', LISTEN_PORT: 0, ROOT_DIR: startup.rootDir };
-    const { startSafeModeServer } = require('./safe-mode-server');
+    closeAgentMemory = () => {};
+    startRemoteMcpService = async () => ({ enabled: false, running: false });
+    stopRemoteMcpService = async () => false;
+    Logger = { debug() {}, info() {}, warn() {}, error() {} };
+} else if (safeMode) {
+    CONFIG = { LISTEN_HOST: '127.0.0.1', LISTEN_PORT: 0, ROOT_DIR: startup.rootDir };
+    const { startSafeModeServer } = loadStartupModule('safe-mode-server', () => require('./safe-mode-server'));
     startUiServer = () => startSafeModeServer({ diagnosticRoot: startup.rootDir });
     closeAgentMemory = () => {};
     startRemoteMcpService = async () => ({ enabled: false, running: false });
@@ -121,18 +177,111 @@ if (safeMode) {
     startup.write('MINIMAL_SAFE_MODE_MODULES_LOADED');
 } else {
     // Portable 설정 및 전체 애플리케이션 그래프는 정상 모드에서만 로드합니다.
-    CONFIG = require('../config-loader');
+    const moduleLoadStartedAt = Date.now();
+    startup.write('APPLICATION_MODULES_LOADING');
+    CONFIG = loadStartupModule('config-loader', () => require('../config-loader'));
     startup.write('CONFIG_LOADED', { rootDir: CONFIG.ROOT_DIR || '' });
-    ({ closeAgentMemory, startUiServer } = require('../ui-server'));
-    ({ startRemoteMcpService, stopRemoteMcpService } = require('../mcp/remote-service'));
-    Logger = require('../logger');
-    const { logRuntimeEnvironmentStatus } = require('../environment/runtime-profile');
+    ({ closeAgentMemory, startUiServer } = loadStartupModule('ui-server', () => require('../ui-server')));
+    ({ startRemoteMcpService, stopRemoteMcpService } = loadStartupModule('remote-mcp-service', () => require('../mcp/remote-service')));
+    Logger = loadStartupModule('logger', () => require('../logger'));
+    const { logRuntimeEnvironmentStatus } = loadStartupModule('runtime-profile', () => require('../environment/runtime-profile'));
     logRuntimeEnvironmentStatus(Logger, CONFIG.RUNTIME_ENVIRONMENT_PROFILE);
-    startup.write('APPLICATION_MODULES_LOADED');
+    startup.write('APPLICATION_MODULES_LOADED', { durationMs: Date.now() - moduleLoadStartedAt });
 }
 
 let win = null;
 let uiServer = null;
+
+function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function readRendererStartupState(targetWindow) {
+    if (!targetWindow || targetWindow.isDestroyed()) return { ready: false, destroyed: true };
+    return targetWindow.webContents.executeJavaScript(safeMode
+        ? `(() => ({ ready: Boolean(document.querySelector('[data-bloggenius-safe-mode-ready="true"]')) }))()`
+        : `(() => {
+            const state = window.__BLOGGENIUS_STARTUP__;
+            return {
+                ready: state?.ready === true,
+                readyAt: String(state?.readyAt || ''),
+                details: state?.details || {},
+                errorCount: Array.isArray(state?.errors) ? state.errors.length : 0
+            };
+        })()`, true);
+}
+
+async function waitForRendererReady(targetWindow) {
+    const startedAt = Date.now();
+    let lastProbeError = null;
+    while (Date.now() - startedAt < RENDERER_READY_TIMEOUT_MS) {
+        try {
+            const state = await readRendererStartupState(targetWindow);
+            if (state.ready) return { ...state, durationMs: Date.now() - startedAt };
+            if (state.destroyed) throw new Error('renderer window was destroyed before readiness');
+        } catch (error) {
+            lastProbeError = error;
+        }
+        await delay(RENDERER_READY_POLL_MS);
+    }
+    const error = new Error(`renderer bootstrap did not complete within ${RENDERER_READY_TIMEOUT_MS}ms`);
+    if (lastProbeError) error.cause = lastProbeError;
+    throw error;
+}
+
+function markStartupReady(targetWindow, details = {}) {
+    if (startupReady) return;
+    startupReady = true;
+    if (startupWatchdog) clearTimeout(startupWatchdog);
+    startupWatchdog = null;
+    startup.markReady({ safeMode, url: targetWindow.webContents.getURL(), ...details });
+    startup.write('RENDERER_READY', { safeMode, ...details });
+    const postReadyServices = safeMode
+        ? Promise.resolve()
+        : startPostReadyServices().catch((error) => {
+            startup.write('POST_READY_SERVICES_FAILED', formatError(error));
+        });
+    if (startupProbe) {
+        void postReadyServices.finally(() => {
+            startup.write('STARTUP_PROBE_COMPLETE', { safeMode });
+            setImmediate(() => app.quit());
+        });
+    } else {
+        void postReadyServices;
+    }
+}
+
+async function runPostReadyService(name, operation) {
+    const startedAt = Date.now();
+    let timeout;
+    try {
+        const operationPromise = Promise.resolve().then(operation);
+        const timeoutPromise = new Promise((_, reject) => {
+            timeout = setTimeout(() => reject(new Error(`${name} exceeded ${POST_READY_SERVICE_TIMEOUT_MS}ms`)), POST_READY_SERVICE_TIMEOUT_MS);
+            timeout.unref?.();
+        });
+        await Promise.race([operationPromise, timeoutPromise]);
+        startup.write('POST_READY_SERVICE_COMPLETE', { name, durationMs: Date.now() - startedAt });
+    } catch (error) {
+        startup.write('POST_READY_SERVICE_FAILED', { name, durationMs: Date.now() - startedAt, ...formatError(error) });
+        Logger?.error?.(`GUI: Post-ready service failed (${name}): ${error.message}`, error);
+    } finally {
+        if (timeout) clearTimeout(timeout);
+    }
+}
+
+async function startPostReadyServices() {
+    startup.write('POST_READY_SERVICES_STARTING');
+    await Promise.all([
+        typeof uiServer?.startDeferredServices === 'function'
+            ? runPostReadyService('application-background', () => uiServer.startDeferredServices())
+            : Promise.resolve(),
+        typeof startRemoteMcpService === 'function'
+            ? runPostReadyService('remote-mcp', () => startRemoteMcpService())
+            : Promise.resolve()
+    ]);
+    startup.write('POST_READY_SERVICES_SETTLED');
+}
 
 function getUiRootUrl() {
     if (!uiServer) return null;
@@ -291,21 +440,27 @@ function createMenu() {
 }
 
 async function createWindow() {
+    const windowStartAt = Date.now();
     // 1. UI 서버 시작 (백그라운드 - 최초 1회만)
     if (!uiServer) {
         try {
             const host = CONFIG.LISTEN_HOST || '127.0.0.1';
             const port = CONFIG.LISTEN_PORT || 4577;
-            uiServer = await startUiServer({ host, port, safeMode });
+            const serverOptions = { host, port, safeMode, deferOptionalStartup: !safeMode };
+            try {
+                uiServer = await startUiServer(serverOptions);
+            } catch (error) {
+                if (error.code !== 'EADDRINUSE' || safeMode) throw error;
+                startup.write('UI_PORT_CONFLICT_FALLBACK', { host, port });
+                Logger.warn(`GUI: 포트 ${port}가 사용 중이어서 임시 로컬 포트로 시작합니다.`);
+                uiServer = await startUiServer({
+                    ...serverOptions,
+                    port: 0,
+                    allowEphemeralPort: true
+                });
+            }
             startup.write('UI_SERVER_READY', { host: uiServer.openHost, port: uiServer.port, safeMode });
-            if (!safeMode) {
-                try {
-                    await startRemoteMcpService();
-                } catch (mcpError) {
-                    Logger.error(`GUI: Optional MCP service failed to start: ${mcpError.message}`, mcpError);
-                    startup.write('OPTIONAL_MCP_FAILED', formatError(mcpError));
-                }
-            } else {
+            if (safeMode) {
                 Logger.warn('GUI: 안전 모드에서 원격 MCP 서비스를 시작하지 않습니다.');
             }
             Logger.info(`GUI: UI Server started at http://${uiServer.openHost}:${uiServer.port}`);
@@ -326,6 +481,7 @@ async function createWindow() {
     const iconPath = path.join(__dirname, '../../assets/icons/icon.png');
 
     // 2. 브라우저 창 생성
+    startup.write('WINDOW_CREATING', { safeMode });
     win = new BrowserWindow({
         width: 1400,
         height: 900,
@@ -340,7 +496,27 @@ async function createWindow() {
             devTools: true // 필요 시 true
         }
     });
-    startup.write('WINDOW_CREATED', { safeMode });
+    startup.write('WINDOW_CREATED', { safeMode, durationMs: Date.now() - windowStartAt });
+
+    let rendererReadinessStarted = false;
+    let unresponsiveTimer = null;
+    let rendererConsoleEvidenceCount = 0;
+
+    win.webContents.on('console-message', (details) => {
+        const level = String(details?.level || '');
+        const message = String(details?.message || '');
+        const isStartupSignal = message.startsWith('[BLOGGENIUS_RENDERER_');
+        if (level !== 'error' && !isStartupSignal) return;
+        if (startupReady && !isStartupSignal) return;
+        if (rendererConsoleEvidenceCount >= 25) return;
+        rendererConsoleEvidenceCount += 1;
+        startup.write('RENDERER_CONSOLE', {
+            level,
+            message: message.slice(0, 4000),
+            lineNumber: Number(details?.lineNumber || 0),
+            sourceId: String(details?.sourceId || '').slice(0, 1000)
+        });
+    });
 
     win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
         startup.write('RENDERER_LOAD_FAILED', {
@@ -372,17 +548,27 @@ async function createWindow() {
 
     win.on('unresponsive', () => {
         startup.write('WINDOW_UNRESPONSIVE');
+        if (startupReady || unresponsiveTimer) return;
+        unresponsiveTimer = setTimeout(() => {
+            unresponsiveTimer = null;
+            if (!startupReady) handleFatalError('WINDOW_UNRESPONSIVE_TIMEOUT', new Error('window remained unresponsive during startup'));
+        }, UNRESPONSIVE_RECOVERY_MS);
+        unresponsiveTimer.unref?.();
+    });
+
+    win.on('responsive', () => {
+        startup.write('WINDOW_RESPONSIVE');
+        if (unresponsiveTimer) clearTimeout(unresponsiveTimer);
+        unresponsiveTimer = null;
     });
 
     win.webContents.on('did-finish-load', () => {
-        if (!startupReady) {
-            startupReady = true;
-            startup.markReady({ safeMode, url: win.webContents.getURL() });
-            startup.write('RENDERER_READY', { safeMode });
-            if (startupProbe) {
-                startup.write('STARTUP_PROBE_COMPLETE', { safeMode });
-                setImmediate(() => app.quit());
-            }
+        startup.write('RENDERER_NAVIGATION_COMPLETE', { safeMode });
+        if (!startupReady && !rendererReadinessStarted) {
+            rendererReadinessStarted = true;
+            void waitForRendererReady(win)
+                .then((details) => markStartupReady(win, details))
+                .catch((error) => handleFatalError('RENDERER_BOOTSTRAP_FAILED', error));
         }
         void recoverWindowFromBrokenRoute();
     });
@@ -391,6 +577,8 @@ async function createWindow() {
     await win.loadURL(getUiRootUrl());
 
     win.on('closed', () => {
+        if (unresponsiveTimer) clearTimeout(unresponsiveTimer);
+        unresponsiveTimer = null;
         win = null;
     });
 
@@ -411,9 +599,14 @@ async function createWindow() {
 }
 
 // 앱 준비 완료 시 실행
-app.whenReady().then(async () => {
+if (primaryInstance) app.whenReady().then(async () => {
     startup.write('APP_READY', { safeMode });
-    createMenu();
+    try {
+        createMenu();
+        startup.write('MENU_READY');
+    } catch (error) {
+        startup.write('MENU_FAILED', formatError(error));
+    }
     await createWindow();
 
     app.on('activate', () => {
@@ -422,6 +615,14 @@ app.whenReady().then(async () => {
         }
     });
 }).catch((error) => handleFatalError('APP_START_FAILED', error));
+
+if (primaryInstance) app.on('second-instance', () => {
+    startup.write('SECOND_INSTANCE_FOCUSED');
+    if (!win || win.isDestroyed()) return;
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+});
 
 app.on('child-process-gone', (_event, details) => {
     startup.write('CHILD_PROCESS_GONE', details);
@@ -448,6 +649,8 @@ app.on('window-all-closed', () => {
 
 // 종료 직전 서버 자원 정리
 app.on('before-quit', () => {
+    if (startupWatchdog) clearTimeout(startupWatchdog);
+    startupWatchdog = null;
     startup.write('APP_BEFORE_QUIT', { safeMode, startupReady });
     Logger?.info?.('GUI: Shutting down...');
     if (uiServer && uiServer.server) {

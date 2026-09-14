@@ -6,11 +6,14 @@ using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
+using Microsoft.Win32;
 
 internal static class BlogGeniusLauncher
 {
     private const string RuntimeName = "BlogGenius-runtime.exe";
     private const string SafeModeSwitch = "--bloggenius-safe-mode";
+    private static readonly TimeSpan StartupTimeout = TimeSpan.FromSeconds(45);
+    private static readonly TimeSpan ReadyStabilityWindow = TimeSpan.FromSeconds(5);
 
     [STAThread]
     private static int Main(string[] args)
@@ -28,8 +31,21 @@ internal static class BlogGeniusLauncher
             root = Path.Combine(Path.GetTempPath(), "BlogGenius");
             logDir = Path.Combine(root, "logs");
             diagnosticsDir = Path.Combine(root, "diagnostics");
-            Directory.CreateDirectory(logDir);
-            Directory.CreateDirectory(diagnosticsDir);
+            try
+            {
+                Directory.CreateDirectory(logDir);
+                Directory.CreateDirectory(diagnosticsDir);
+            }
+            catch (Exception error)
+            {
+                MessageBox.Show(
+                    "BlogGenius 진단 폴더를 만들 수 없어 시작을 중단했습니다.\n\n" + error.Message,
+                    "BlogGenius 시작 오류",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error
+                );
+                return -1;
+            }
         }
         string launcherLog = Path.Combine(logDir, "launcher.log");
         string runtimePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, RuntimeName);
@@ -39,7 +55,10 @@ internal static class BlogGeniusLauncher
             os = Environment.OSVersion.VersionString,
             is64BitOperatingSystem = Environment.Is64BitOperatingSystem,
             is64BitProcess = Environment.Is64BitProcess,
+            windowsBuild = GetWindowsBuild(),
+            processArchitecture = Environment.GetEnvironmentVariable("PROCESSOR_ARCHITECTURE") ?? String.Empty,
             runtimePath = runtimePath,
+            runtimeVersion = TryGetFileVersion(runtimePath),
             switches = args.Where(arg => arg.StartsWith("-", StringComparison.Ordinal)).ToArray()
         });
 
@@ -49,8 +68,18 @@ internal static class BlogGeniusLauncher
         }
 
         bool shortLived = IsShortLived(args);
-        LaunchResult normal = Launch(runtimePath, args, root, launcherLog, "normal");
-        if (shortLived || normal.ExitCode == 0 || normal.Ready)
+        string[] normalArgs = AddMissing(args, "--no-stdio-init");
+        LaunchResult normal = Launch(runtimePath, normalArgs, root, launcherLog, "normal");
+        if (shortLived)
+        {
+            if (normal.ExitCode != 0)
+            {
+                WriteLog(launcherLog, "short-lived command failed", new { exitCode = normal.ExitCode, exitCodeHex = ToHex(normal.ExitCode) });
+                CreateDiagnosticBundle(diagnosticsDir, root);
+            }
+            return normal.ExitCode;
+        }
+        if (normal.Ready)
         {
             return normal.ExitCode;
         }
@@ -61,10 +90,12 @@ internal static class BlogGeniusLauncher
         }
 
         WriteLog(launcherLog, "normal mode failed before readiness; retrying safe mode", new { exitCode = normal.ExitCode });
-        string[] safeArgs = AddMissing(args, SafeModeSwitch, "--disable-gpu", "--no-stdio-init");
+        string[] safeArgs = AddMissing(normalArgs, SafeModeSwitch, "--disable-gpu");
         LaunchResult safe = Launch(runtimePath, safeArgs, root, launcherLog, "safe");
-        if (safe.ExitCode == 0)
+        if (safe.Ready)
         {
+            string recoveredBundle = CreateDiagnosticBundle(diagnosticsDir, root);
+            WriteLog(launcherLog, "safe mode recovered startup", new { diagnosticBundle = recoveredBundle });
             return safe.ExitCode;
         }
 
@@ -79,10 +110,13 @@ internal static class BlogGeniusLauncher
 
     private static LaunchResult Launch(string runtimePath, string[] args, string root, string launcherLog, string mode)
     {
+        bool startupProbe = Contains(args, "--bloggenius-startup-probe");
         string attemptDir = Path.Combine(root, "startup");
         Directory.CreateDirectory(attemptDir);
         string readyPath = Path.Combine(attemptDir, "ready-" + Process.GetCurrentProcess().Id + "-" + mode + ".json");
         TryDelete(readyPath);
+        string chromiumLog = Path.Combine(root, "logs", "chromium-" + mode + ".log");
+        RotateLog(chromiumLog);
 
         ProcessStartInfo info = new ProcessStartInfo {
             FileName = runtimePath,
@@ -93,6 +127,8 @@ internal static class BlogGeniusLauncher
         info.EnvironmentVariables["BLOGGENIUS_STARTUP_READY_FILE"] = readyPath;
         info.EnvironmentVariables["BLOGGENIUS_LAUNCHER_PATH"] = Application.ExecutablePath;
         info.EnvironmentVariables["BLOGGENIUS_DIAGNOSTIC_ROOT"] = root;
+        info.EnvironmentVariables["ELECTRON_ENABLE_LOGGING"] = "file";
+        info.EnvironmentVariables["ELECTRON_LOG_FILE"] = chromiumLog;
 
         try
         {
@@ -104,30 +140,36 @@ internal static class BlogGeniusLauncher
                     switches = args.Where(arg => arg.StartsWith("-", StringComparison.Ordinal)).ToArray()
                 });
                 bool ready = false;
+                DateTime readyObservedAt = DateTime.MinValue;
                 Stopwatch startupTimer = Stopwatch.StartNew();
                 while (!child.WaitForExit(200))
                 {
                     if (!ready && File.Exists(readyPath))
                     {
                         ready = true;
-                        WriteLog(launcherLog, mode + " mode ready", new { pid = child.Id, readyPath = readyPath });
+                        readyObservedAt = DateTime.UtcNow;
+                        WriteLog(launcherLog, mode + " mode renderer ready checkpoint", new { pid = child.Id, readyPath = readyPath });
                         TryDelete(readyPath);
+                    }
+                    if (ready && !startupProbe && DateTime.UtcNow - readyObservedAt >= ReadyStabilityWindow)
+                    {
+                        WriteLog(launcherLog, mode + " mode startup stable", new { pid = child.Id, stabilitySeconds = ReadyStabilityWindow.TotalSeconds });
                         return new LaunchResult(true, 0);
                     }
-                    if (!ready && startupTimer.Elapsed > TimeSpan.FromSeconds(45))
+                    if ((!ready || startupProbe) && startupTimer.Elapsed > StartupTimeout)
                     {
-                        WriteLog(launcherLog, mode + " mode readiness timeout", new { pid = child.Id });
+                        WriteLog(launcherLog, mode + " mode startup timeout", new { pid = child.Id, ready = ready, startupProbe = startupProbe });
                         try { child.Kill(); } catch { }
                         try { child.WaitForExit(5000); } catch { }
                         TryDelete(readyPath);
                         return new LaunchResult(false, -2);
                     }
                 }
-                if (!ready && File.Exists(readyPath)) ready = true;
+                bool checkpointAtExit = ready || File.Exists(readyPath);
                 int exitCode = child.ExitCode;
-                WriteLog(launcherLog, mode + " mode exited", new { pid = child.Id, ready = ready, exitCode = exitCode, exitCodeHex = ToHex(exitCode) });
+                WriteLog(launcherLog, mode + " mode exited", new { pid = child.Id, ready = false, checkpointAtExit = checkpointAtExit, exitCode = exitCode, exitCodeHex = ToHex(exitCode) });
                 TryDelete(readyPath);
-                return new LaunchResult(ready, exitCode);
+                return new LaunchResult(checkpointAtExit && exitCode == 0, exitCode);
             }
         }
         catch (Exception error)
@@ -156,7 +198,7 @@ internal static class BlogGeniusLauncher
     private static string CreateDiagnosticBundle(string diagnosticsDir, string root)
     {
         if (String.IsNullOrEmpty(root) || !Directory.Exists(root)) return String.Empty;
-        string bundle = Path.Combine(diagnosticsDir, "BlogGenius-diagnostics-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".zip");
+        string bundle = Path.Combine(diagnosticsDir, "BlogGenius-diagnostics-" + DateTime.Now.ToString("yyyyMMdd-HHmmss-fff") + ".zip");
         try
         {
             using (FileStream stream = new FileStream(bundle, FileMode.CreateNew))
@@ -164,24 +206,39 @@ internal static class BlogGeniusLauncher
             {
                 AddFile(archive, Path.Combine(root, "logs", "launcher.log"), "logs/launcher.log");
                 AddFile(archive, Path.Combine(root, "logs", "bootstrap.log"), "logs/bootstrap.log");
-                AddDirectory(archive, Path.Combine(root, "crashes"), "crashes");
+                AddFile(archive, Path.Combine(root, "logs", "chromium-normal.log"), "logs/chromium-normal.log");
+                AddFile(archive, Path.Combine(root, "logs", "chromium-safe.log"), "logs/chromium-safe.log");
+                AddRecentFiles(archive, Path.Combine(root, "logs"), "*.log", "logs", 8, 10 * 1024 * 1024);
+                AddRecentFiles(archive, Path.Combine(root, "crashes"), "*", "crashes", 12, 25 * 1024 * 1024);
                 AddText(archive, "system.txt",
                     "created=" + DateTime.UtcNow.ToString("o") + Environment.NewLine +
                     "os=" + Environment.OSVersion.VersionString + Environment.NewLine +
+                    "windows_build=" + GetWindowsBuild() + Environment.NewLine +
                     "64bit_os=" + Environment.Is64BitOperatingSystem + Environment.NewLine +
-                    "64bit_process=" + Environment.Is64BitProcess + Environment.NewLine);
+                    "64bit_process=" + Environment.Is64BitProcess + Environment.NewLine +
+                    "process_architecture=" + (Environment.GetEnvironmentVariable("PROCESSOR_ARCHITECTURE") ?? String.Empty) + Environment.NewLine);
             }
             return bundle;
         }
         catch { return String.Empty; }
     }
 
-    private static void AddDirectory(ZipArchive archive, string directory, string prefix)
+    private static void AddRecentFiles(ZipArchive archive, string directory, string pattern, string prefix, int maxFiles, long maxFileBytes)
     {
         if (!Directory.Exists(directory)) return;
-        foreach (string file in Directory.GetFiles(directory))
+        foreach (string file in Directory.GetFiles(directory, pattern)
+            .OrderByDescending(candidate => File.GetLastWriteTimeUtc(candidate))
+            .Take(maxFiles))
         {
-            try { archive.CreateEntryFromFile(file, prefix + "/" + Path.GetFileName(file), CompressionLevel.Optimal); } catch { }
+            try
+            {
+                FileInfo info = new FileInfo(file);
+                if (info.Length <= maxFileBytes && archive.GetEntry(prefix + "/" + info.Name) == null)
+                {
+                    archive.CreateEntryFromFile(file, prefix + "/" + info.Name, CompressionLevel.Optimal);
+                }
+            }
+            catch { }
         }
     }
 
@@ -202,6 +259,29 @@ internal static class BlogGeniusLauncher
         string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         if (String.IsNullOrEmpty(local)) local = Path.GetTempPath();
         return Path.Combine(local, "BlogGenius");
+    }
+
+    private static string GetWindowsBuild()
+    {
+        try
+        {
+            using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion"))
+            {
+                if (key == null) return Environment.OSVersion.VersionString;
+                string product = Convert.ToString(key.GetValue("ProductName")) ?? String.Empty;
+                string display = Convert.ToString(key.GetValue("DisplayVersion")) ?? String.Empty;
+                string build = Convert.ToString(key.GetValue("CurrentBuildNumber")) ?? String.Empty;
+                string ubr = Convert.ToString(key.GetValue("UBR")) ?? String.Empty;
+                return String.Join(" ", new[] { product, display, build + (String.IsNullOrEmpty(ubr) ? "" : "." + ubr) }.Where(value => !String.IsNullOrWhiteSpace(value)));
+            }
+        }
+        catch { return Environment.OSVersion.VersionString; }
+    }
+
+    private static string TryGetFileVersion(string path)
+    {
+        try { return FileVersionInfo.GetVersionInfo(path).FileVersion ?? String.Empty; }
+        catch { return String.Empty; }
     }
 
     private static bool IsShortLived(string[] args)
@@ -254,6 +334,18 @@ internal static class BlogGeniusLauncher
                 File.Move(path, previous);
             }
             File.AppendAllText(path, DateTime.UtcNow.ToString("o") + " " + message + " " + FormatDetails(details) + Environment.NewLine, Encoding.UTF8);
+        }
+        catch { }
+    }
+
+    private static void RotateLog(string path)
+    {
+        try
+        {
+            if (!File.Exists(path)) return;
+            string previous = path + ".previous";
+            TryDelete(previous);
+            File.Move(path, previous);
         }
         catch { }
     }

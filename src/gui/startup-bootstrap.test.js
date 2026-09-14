@@ -43,5 +43,22 @@ test('bootstrap writes phase evidence and an absolute readiness marker', () => {
     assert.equal(bootstrap.write('JS_ENTRY', { safeMode: false }), true);
     assert.equal(bootstrap.markReady({ safeMode: false }), true);
     assert.match(fs.readFileSync(bootstrap.logPath, 'utf8'), /"phase":"JS_ENTRY"/);
+    assert.match(fs.readFileSync(bootstrap.logPath, 'utf8'), /"runId":"[^"]+"/);
     assert.match(fs.readFileSync(readyPath, 'utf8'), /"safeMode":false/);
+});
+
+test('bootstrap creates and uses its temporary fallback when the preferred root is blocked', () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bloggenius-bootstrap-fallback-'));
+    const blockedParent = path.join(tempRoot, 'blocked');
+    fs.writeFileSync(blockedParent, 'not a directory');
+
+    const bootstrap = createStartupBootstrap({
+        platform: 'win32',
+        env: { LOCALAPPDATA: blockedParent },
+        tmpDir: tempRoot
+    });
+
+    assert.equal(bootstrap.rootDir, path.join(tempRoot, 'BlogGenius'));
+    assert.equal(bootstrap.write('FALLBACK_READY'), true);
+    assert.equal(fs.existsSync(bootstrap.logPath), true);
 });

@@ -13,7 +13,8 @@ const LEVELS = {
 
 // 현재 설정된 레벨 가져오기 (설정 없으면 info가 기본값)
 const currentLevelName = (CONFIG.LOG_LEVEL || 'info').toLowerCase();
-const currentLevel = LEVELS[currentLevelName] || 1;
+const currentLevel = LEVELS[currentLevelName] ?? LEVELS.info;
+const MAX_DAILY_LOG_BYTES = 10 * 1024 * 1024;
 
 // 로그 저장 폴더 결정
 // 🚀 [Portable Mode Support]
@@ -35,6 +36,7 @@ try {
 class Logger {
     static _recentLogs = [];
     static _maxRecentLogs = 200;
+    static _fileWriteFailureReported = false;
 
     static _write(level, message) {
         // 1. 레벨 체크: 설정된 레벨보다 낮은 중요도의 로그는 무시
@@ -63,10 +65,19 @@ class Logger {
         // 3. 파일 저장 (오늘 날짜 파일에 이어쓰기)
         try {
             const logFile = path.join(logDir, `${dateStr}.log`);
+            if (fs.existsSync(logFile) && fs.statSync(logFile).size > MAX_DAILY_LOG_BYTES) {
+                const previous = path.join(logDir, `${dateStr}.previous.log`);
+                try { fs.rmSync(previous, { force: true }); } catch (_ignore) { }
+                fs.renameSync(logFile, previous);
+            }
             fs.appendFileSync(logFile, logMessage + '\n');
         } catch (fileErr) {
             // 파일 쓰기 실패 시 콘솔에만 남김 (앱 중단 방지)
             // 무한 루프 방지를 위해 Logger.error 대신 console.error 사용
+            if (!this._fileWriteFailureReported) {
+                this._fileWriteFailureReported = true;
+                try { console.error(`⚠️ 로그 파일 쓰기 실패 (${logDir}): ${fileErr.message}`); } catch (_ignore) { }
+            }
         }
     }
 
@@ -76,9 +87,8 @@ class Logger {
     // 🔧 [Fixed] error 메서드에 스택 트레이스 자동 로깅 추가
     static error(message, error = null) {
         this._write('error', message);
-        // DEBUG 모드일 때 스택 트레이스 자동 출력
-        if (process.env.DEBUG && error && error.stack) {
-            this._write('debug', `Stack trace: ${error.stack}`);
+        if (error && error.stack) {
+            this._write('error', `Stack trace: ${String(error.stack).slice(0, 12000)}`);
         }
     }
 

@@ -46,6 +46,7 @@
 - `architecture/development-environment-inventory.md`
 - `architecture/runtime-environment-profiles.md`
 - `architecture/deployment-safety-gates.md`
+- `architecture/startup-resilience.md`
 - `architecture/production-schema-audit-2026-08-27.md`
 - `architecture/local-supabase-development.md`
 - `architecture/hosted-development-environment.md`
@@ -94,6 +95,7 @@
 
 ## Active Work
 
+- `plans/active/2026-09-15-windows-startup-resilience-v2-development.md`
 - `plans/active/2026-09-06-v0.4.3-backlog-current-state-development.md`
 - `plans/active/runtime-credential-security-main-plan.md`
 - `plans/active/serpapi-collection-main-plan.md`

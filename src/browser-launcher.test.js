@@ -6,6 +6,10 @@ const {
     buildBrowserLaunchOptions
 } = require('./browser-launcher');
 
+test('Playwright stays outside the initial application module graph', () => {
+    assert.equal(require.cache[require.resolve('playwright')], undefined);
+});
+
 test('browser launch options keep default sandbox args when no overrides are provided', () => {
     const options = buildBrowserLaunchOptions({ headless: true });
 

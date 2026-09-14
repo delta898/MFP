@@ -10,6 +10,7 @@ test('safe-mode shell explains reduced behavior without loading the application 
     assert.match(html, /BlogGenius 안전 모드/);
     assert.match(html, /자동 전송되지 않습니다/);
     assert.match(html, /작성·발행·자동화 기능이 실행되지 않습니다/);
+    assert.match(html, /data-bloggenius-safe-mode-ready="true"/);
     assert.doesNotMatch(html, /<script/i);
 });
 
