@@ -96,6 +96,8 @@
   sequence, prompt, and recovery controls remain mounted and become immediately available after a load failure.
 - 2026-09-15: prompt copy now resolves the owning manuscript input type instead of assuming folder input, preserving reuse
   when paste and direct-generation adapters adopt the same card renderer in later stages.
+- 2026-09-15: aligned the existing-image label exactly with Card News as `AI 재생성`. Added card-width-aware compact action
+  spacing and type so all three labels remain readable when a responsive grid makes an individual card narrow.
 
 ## Automated Verification
 

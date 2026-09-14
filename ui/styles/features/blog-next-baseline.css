@@ -270,6 +270,7 @@
   aspect-ratio: 4 / 3;
   overflow: hidden;
   background: var(--ui-surface);
+  container-type: inline-size;
 }
 
 .blog-next-manuscript-image-details .local-markdown-image-card-preview > img {
@@ -341,10 +342,23 @@
 
 .blog-next-manuscript-image-details .local-markdown-image-media-actions:not(.is-empty) > button {
   flex: 1 1 0;
+  width: 100%;
   min-width: 0;
   padding-inline: var(--ui-space-2);
   background: color-mix(in srgb, var(--ui-surface) 78%, transparent);
   font-size: var(--ui-type-caption-size);
+}
+
+@container (max-width: 360px) {
+  .blog-next-manuscript-image-details .local-markdown-image-media-actions:not(.is-empty) {
+    gap: var(--ui-space-1);
+    padding: var(--ui-space-1);
+  }
+
+  .blog-next-manuscript-image-details .local-markdown-image-media-actions:not(.is-empty) > button {
+    padding-inline: var(--ui-space-1);
+    font-size: 11px;
+  }
 }
 
 .blog-next-manuscript-image-details .local-markdown-image-media-actions.is-empty {
