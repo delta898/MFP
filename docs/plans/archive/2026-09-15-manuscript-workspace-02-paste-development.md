@@ -5,7 +5,7 @@
 - Branch: `codex/feat/manuscript-workspace-02-paste`
 - Base/parent branch: `codex/feat/manuscript-workspace`
 - Start date: 2026-09-15
-- Status: implementation complete; focused and browser verification passed; user acceptance and full unit gate pending
+- Status: complete; all automated gates passed and approved for parent integration
 
 ## User Need
 
@@ -96,6 +96,9 @@
 - 2026-09-15: hands-on review found that different image-title lengths shifted the `사용 안 함` action vertically. The
   shared card now reserves a consistent two-line title area, clamps longer titles to two lines, and exposes the full title on
   hover so utility actions align across a row without losing access to the original text.
+- 2026-09-15: user confirmed the flow works and approved the full regression gate, commit, parent merge, and sub-feature
+  branch cleanup. Draft workspace retention remains intentionally deferred to parent Stage 05.
+- 2026-09-15: the full unit suite passed with 1,788 tests (1,787 passed, 1 intentionally skipped, 0 failed).
 
 ## Automated Verification
 
@@ -104,16 +107,16 @@
 - `npm run test:ui-browser` passed with 343 fixture requests. The exercised paste flow covers Draft creation, recoverable
   clear/undo, missing-image Draft safety, local image import, exclusion, restore, preview synchronization, exact revision
   publication, and the existing folder flow without external AI or publishing calls.
-- Full unit suite remains pending explicit user approval before parent merge.
+- `npm run test:unit` passed: 1,788 tests total, 1,787 passed, 1 intentionally skipped, 0 failed.
 
 ## Current Result
 
-Stage 02 is implemented on its sub-feature branch. Pasted Markdown now enters the same Draft/Image Slot workspace as folder
-input and uses the same image controls, safety policy, and exact-revision publication path.
+Stage 02 is complete and ready for parent integration. Pasted Markdown now enters the same Draft/Image Slot workspace as
+folder input and uses the same image controls, safety policy, and exact-revision publication path.
 
 ## Remaining Risks
 
 - Slot identity is index-based in this stage. Reordering image blocks can therefore intentionally associate the retained asset
   with the new block at that index; structural block editing remains deferred to Stage 04.
 - Real image-provider generation still needs the user's hands-on check; automated verification uses fixtures only.
-- Draft retention and orphan cleanup remain assigned to the parent integration stage.
+- Draft retention and orphan cleanup remain assigned to parent Stage 05 and were deliberately not expanded in this stage.

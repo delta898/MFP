@@ -5,7 +5,7 @@
 - Branch: `codex/feat/manuscript-workspace`
 - Base/parent branch: `dev`
 - Start date: 2026-09-15
-- Status: active; Stage 01 complete and approved for parent integration; Stages 02-05 pending
+- Status: active; Stages 01-02 complete; Stages 03-05 pending
 
 ## User Need
 
@@ -133,7 +133,7 @@ read-only다.
 ### Stage records
 
 - [Stage 01: Draft/Image Asset contract and folder workflow](../archive/2026-09-15-manuscript-workspace-01-contract-folder-development.md) — complete
-- [Stage 02: Paste adapter](./2026-09-15-manuscript-workspace-02-paste-development.md) — active
+- [Stage 02: Paste adapter](../archive/2026-09-15-manuscript-workspace-02-paste-development.md) — complete
 
 ## Decisions and Tradeoffs
 
@@ -176,16 +176,18 @@ read-only다.
   The finalized stage record was archived for parent integration.
 - 2026-09-15: Stage 02 began on a dedicated sub-feature branch to connect pasted Markdown to the common Draft/Image Slot
   workspace before direct AI generation is migrated.
+- 2026-09-15: Stage 02 connected pasted Markdown to the common Draft/Image Slot workspace, including revision-safe updates,
+  shared image actions, missing-image Draft safety, exact-revision publishing, and aligned card actions.
+- 2026-09-15: Stage 02 passed focused tests, the browser fixture flow, and its full unit gate with 1,788 tests, 1,787 passed,
+  1 intentionally skipped, and 0 failed. The user approved parent integration and deferred Draft cleanup to Stage 05.
 
 ## Current Result
 
-The parent plan is established and Stage 01 is complete for parent integration. Later paste, AI, text-editing and
-integration stages remain pending.
+The parent now contains complete folder and paste adapters using the common Draft/Image Slot workspace. Direct AI generation
+is the next adapter stage; text editing and lifecycle integration remain pending.
 
 ## Remaining Risks
 
-- Current folder/paste publication reparses the source at publish time; Stage 01 must replace this without breaking existing
-  destination settings and missing-image fallback behavior.
 - Current AI quick generation stores target-specific directories. Stage 03 must preserve existing generation and Sheet
   semantics while introducing a canonical editable Draft.
 - Local image decoding must reject disguised or corrupt input based on content, not only filename or browser MIME.
