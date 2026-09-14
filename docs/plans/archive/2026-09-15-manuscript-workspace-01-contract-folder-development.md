@@ -5,7 +5,7 @@
 - Branch: `codex/feat/manuscript-workspace-01-contract-folder`
 - Base/parent branch: `codex/feat/manuscript-workspace`
 - Start date: 2026-09-15
-- Status: implementation complete; focused and browser verification passed; full unit gate and user acceptance pending
+- Status: complete; focused, browser, and full unit verification passed; parent integration approved
 
 ## User Need
 
@@ -130,7 +130,10 @@
 - The posting-option synchronization recheck passed 34 focused tests, followed by `npm run test:ui-browser` with 338 fixture
   requests covering automatic Draft selection, option locking/unlocking, persistent safe selection, contextual action copy,
   and keyboard-visible help.
-- Full unit suite remains pending explicit user approval before parent merge.
+- `npm run test:unit` passed the parent-merge gate: 1,784 tests, 1,783 passed, 1 intentionally skipped, 0 failed.
+- The full run exposed and corrected three stale UI contracts: fixed responsive type sizing now uses the shared caption token,
+  publish celebration asserts the provider's actual result status, and the Card News upload-limit check tolerates adjacent
+  manuscript route declarations. The affected 86 focused contract tests passed before the final full run.
 
 ## Manual Checks Still Required
 
@@ -141,8 +144,9 @@
 
 ## Current Result
 
-Stage 01 is implemented on its sub-feature branch. The folder path now uses the shared Draft/Image Asset boundary and
-provides the agreed image workspace while preserving the existing publishing engine behind an exact revision snapshot.
+Stage 01 is complete and ready for integration into the manuscript-workspace parent branch. The folder path now uses the
+shared Draft/Image Asset boundary and provides the agreed image workspace while preserving the existing publishing engine
+behind an exact revision snapshot.
 
 ## Remaining Risks
 

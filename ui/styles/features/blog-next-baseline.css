@@ -369,7 +369,7 @@
 
   .blog-next-manuscript-image-details .local-markdown-image-media-actions:not(.is-empty) > button {
     padding-inline: var(--ui-space-1);
-    font-size: 11px;
+    font-size: var(--ui-type-caption-size);
   }
 
   .blog-next-manuscript-image-details .local-markdown-image-media-actions.is-empty {
@@ -380,7 +380,7 @@
 
   .blog-next-manuscript-image-details .local-markdown-image-media-actions.is-empty > button {
     padding-inline: var(--ui-space-2);
-    font-size: 11px;
+    font-size: var(--ui-type-caption-size);
   }
 }
 

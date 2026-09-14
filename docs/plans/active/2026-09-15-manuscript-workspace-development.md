@@ -5,7 +5,7 @@
 - Branch: `codex/feat/manuscript-workspace`
 - Base/parent branch: `dev`
 - Start date: 2026-09-15
-- Status: active; parent branch established, staged implementation pending
+- Status: active; Stage 01 complete and approved for parent integration; Stages 02-05 pending
 
 ## User Need
 
@@ -132,7 +132,7 @@ read-only다.
 
 ### Stage records
 
-- [Stage 01: Draft/Image Asset contract and folder workflow](./2026-09-15-manuscript-workspace-01-contract-folder-development.md)
+- [Stage 01: Draft/Image Asset contract and folder workflow](../archive/2026-09-15-manuscript-workspace-01-contract-folder-development.md) — complete
 
 ## Decisions and Tradeoffs
 
@@ -168,12 +168,16 @@ read-only다.
   contracts must remain content-kind and publishing-provider neutral.
 - 2026-09-15: Stage 01 branch and development record were created for the common contract and folder workflow.
 - 2026-09-15: Stage 01 implemented the first reusable Draft/Image Asset vertical slice and folder image workspace. Focused
-  tests and the full browser fixture flow pass; full unit and user acceptance gates remain before parent integration.
+  tests and the full browser fixture flow passed.
+- 2026-09-15: user accepted the Stage 01 behavior and deferred title/body editing until folder, paste, and direct-generation
+  adapters are complete. The parent plan retains text editing as Stage 04.
+- 2026-09-15: Stage 01 passed its full unit gate with 1,784 tests, 1,783 passed, 1 intentionally skipped, and 0 failed.
+  The finalized stage record was archived for parent integration.
 
 ## Current Result
 
-The parent plan is established and Stage 01 is implemented on its sub-feature branch. It has not yet been merged into the
-parent; later paste, AI, text-editing and integration stages remain pending.
+The parent plan is established and Stage 01 is complete for parent integration. Later paste, AI, text-editing and
+integration stages remain pending.
 
 ## Remaining Risks
 

@@ -117,7 +117,8 @@ test('folder and paste previews share one reading surface while folder exposes i
   assert.match(css, /\.local-markdown-image-media-actions\.is-empty\s*\{[\s\S]*?justify-content:\s*center/);
   assert.match(css, /\.local-markdown-image-media-actions\.is-empty\s*\{[\s\S]*?flex-wrap:\s*nowrap/);
   assert.match(css, /\.local-markdown-image-card-preview\.is-load-error \.local-markdown-image-media-actions/);
-  assert.match(css, /@container \(max-width: 360px\)[\s\S]*?font-size:\s*11px/);
+  assert.match(css, /@container \(max-width: 360px\)[\s\S]*?font-size:\s*var\(--ui-type-caption-size\)/);
+  assert.doesNotMatch(css, /font-size:\s*[0-9.]+(?:px|r?em)/);
   assert.match(css, /\.local-markdown-image-prompt-section\s*\{[\s\S]*?margin-top:\s*auto/);
   assert.match(css, /\.blog-next-manuscript-preview \.local-markdown-body-preview[\s\S]*?border: 0;[\s\S]*?background: transparent;/);
   assert.match(css, /\.blog-next-manuscript-preview \.local-markdown-body-preview figure\s*{[\s\S]*?border: 0;/);

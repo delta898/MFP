@@ -341,7 +341,8 @@ test('Blog Beta celebrates each newly observed successful publish or draft compl
     assert.match(celebrationScript, /isQuickPostingCelebrationStatus\(postStatus\)/);
     assert.match(globalStatusScript, /last_completion_at/);
     assert.match(globalStatusScript, /showPostingCompletionCelebration\(inferGlobalPublishingCompletionPostStatus\(summary\)\)/);
-    assert.match(draftScript, /showPostingCompletionCelebration\(settings\.postStatus\)/);
+    assert.match(draftScript, /const actualPostStatus = publishResult\?\.postStatus \|\| settings\.postStatus/);
+    assert.match(draftScript, /showPostingCompletionCelebration\(actualPostStatus\)/);
     assert.doesNotMatch(runnerScript, /showPostingCompletionCelebration|completionEffectToken|ManualCompletionEffects/);
     assert.match(celebrationScript, /options\.windowFocused === true/);
     assert.match(lifecycleScript, /flushPendingQuickPostingCelebration\(\{ windowFocused: true \}\)/);

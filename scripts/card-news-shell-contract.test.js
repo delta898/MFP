@@ -177,7 +177,7 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(script, /rememberCardNewsScrollPosition/);
     assert.match(navigation, /currentViewName === 'card-news'[\s\S]*rememberCardNewsScrollPosition/);
     assert.match(navigation, /viewName === 'card-news'[\s\S]*restoreCardNewsScrollPosition/);
-    assert.match(httpServerRuntime, /pathname === '\/api\/v1\/card-news\/images\/import'[\s\S]{0,180}15 \* 1024 \* 1024/);
+    assert.match(httpServerRuntime, /pathname === '\/api\/v1\/card-news\/images\/import'[\s\S]{0,360}limitBytes = 15 \* 1024 \* 1024/);
     assert.match(httpServerRuntime, /pathname === '\/api\/v1\/card-news\/zip\/preview'[\s\S]{0,180}55 \* 1024 \* 1024/);
     assert.doesNotMatch(script, /이미지 생성 기능은 다음 단계에서 연결할 예정입니다/);
     assert.doesNotMatch(script, /sameVariation/);
