@@ -3,7 +3,7 @@
 - Branch: `codex/windows-startup-resilience-v2`
 - Base branch: `dev`
 - Start date: 2026-09-15
-- Status: local implementation and regression complete; Windows packaged CI pending
+- Status: complete; approved for `dev` integration with Windows acceptance deferred
 
 ## User need and goal
 
@@ -71,5 +71,10 @@ tests passed, zero failed, and one Windows-only integration test was skipped on
 macOS. Stage 01 was committed as `4bf951e`, fast-forwarded into this parent, and
 its short-lived branch was deleted. The remaining platform gate is the Windows
 release workflow's authoritative C# compilation plus packaged normal/safe
-probe. No parent-to-`dev` merge, push, tag, package publication, or release has
-been performed.
+probe. At record finalization, no parent-to-`dev` merge, push, tag, package
+publication, or release had yet been performed.
+
+The user approved integrating the complete startup-resilience scope into `dev`
+before running the remaining Windows packaged and affected-machine acceptance
+checks. Those checks remain required before release, but are not a blocker for
+this development integration.
