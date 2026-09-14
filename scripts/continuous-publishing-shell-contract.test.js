@@ -111,8 +111,9 @@ test('completed manuscripts publish directly without entering the continuous que
     assert.match(betaView, /data-blog-next-input-mode="folder" title="Markdown 원고와 같은 폴더의 이미지를 함께 불러옵니다."/);
     assert.match(betaView, /data-blog-next-input-mode="paste" title="완성된 Markdown 원고를 붙여넣어 바로 포스팅합니다."/);
     assert.doesNotMatch(betaView, /blog-next-draft-heading|blog-next-stage-badge/);
-    assert.match(draftInputs, /\/api\/v1\/blog\/local-markdown\/preview/);
-    assert.match(draftInputs, /\/api\/v1\/blog\/local-markdown\/publish/);
+    assert.match(draftInputs, /\/api\/v1\/blog\/manuscript-drafts\/paste/);
+    assert.match(draftInputs, /\/api\/v1\/blog\/manuscript-drafts\/\$\{encodeURIComponent\(state\.draftId\)\}\/publish/);
+    assert.doesNotMatch(draftInputs, /\/api\/v1\/blog\/local-markdown\/(?:preview|publish)/);
     assert.match(betaView, /data-draft-preview-body[^>]*><\/div>/);
     assert.match(betaView, /class="local-markdown-image-list" data-draft-preview-images/);
     assert.match(draftInputs, /renderBlogNextDraftBodyHtml/);

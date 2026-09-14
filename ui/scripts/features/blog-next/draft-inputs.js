@@ -2,8 +2,8 @@ const BLOG_NEXT_DRAFT_TYPES = Object.freeze(['folder', 'paste']);
 const BLOG_NEXT_DRAFT_PREVIEW_DELAY_MS = 350;
 
 const blogNextDraftState = {
-  folder: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, imageObjectUrls: {}, draftId: '', revision: 0, imageWorking: false, imageSafetyLocked: false },
-  paste: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, clearSnapshot: null, imageSafetyLocked: false }
+  folder: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, imageObjectUrls: {}, draftId: '', revision: 0, imageWorking: false, imageSafetyLocked: false, previewSyncFailed: false },
+  paste: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, clearSnapshot: null, draftId: '', revision: 0, imageWorking: false, imageSafetyLocked: false, previewSyncFailed: false }
 };
 
 function blogNextDraftContainer(type) {
@@ -264,8 +264,9 @@ function renderBlogNextDraftBodyHtml(type, preview = {}) {
 function renderBlogNextDraftImages(type, preview = {}) {
   const imageItems = Array.isArray(preview.images) ? preview.images : [];
   if (imageItems.length === 0) return '<div class="local-markdown-empty">이미지 블록이 없습니다.</div>';
-  const visibleItems = type === 'folder' && preview.draftId ? imageItems : imageItems.filter(image => !image.exists);
-  const bulkAction = type === 'folder' && preview.draftId && imageItems.some((image) => !image.excluded && !image.exists && image.prompt)
+  const ownsDraft = Boolean(preview.draftId);
+  const visibleItems = ownsDraft ? imageItems : imageItems.filter(image => !image.exists);
+  const bulkAction = ownsDraft && imageItems.some((image) => !image.excluded && !image.exists && image.prompt)
     ? '<div class="local-markdown-image-bulk-actions"><button class="primary compact" type="button" data-manuscript-generate-missing>빈 이미지 모두 만들기</button></div>'
     : '';
   return bulkAction + visibleItems.map((image) => {
@@ -278,7 +279,7 @@ function renderBlogNextDraftImages(type, preview = {}) {
         ${imageUrl
           ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(image.title || `IMAGE_${image.index}`)}" data-manuscript-card-image>`
           : `<div class="local-markdown-image-card-placeholder"><strong>${excluded ? '원고에서 제외됨' : '이미지 미지정'}</strong><span>${excluded ? '발행 대상에 포함되지 않습니다.' : 'AI로 만들거나 내 이미지로 채울 수 있습니다.'}</span></div>`}
-        ${type === 'folder' && preview.draftId && !excluded ? `<div class="local-markdown-image-media-actions${exists ? '' : ' is-empty'}">
+        ${ownsDraft && !excluded ? `<div class="local-markdown-image-media-actions${exists ? '' : ' is-empty'}">
           <button class="${exists ? 'secondary' : 'primary'} compact" type="button" data-manuscript-image-action="generate" data-slot-id="${escapeHtml(image.slotId)}">${exists ? 'AI 재생성' : 'AI로 만들기'}</button>
           <button class="secondary compact" type="button" data-manuscript-image-picker data-slot-id="${escapeHtml(image.slotId)}">${exists ? '이미지 교체' : '내 이미지 선택'}</button>
           ${exists ? `<button class="secondary compact" type="button" data-manuscript-image-action="exclude" data-slot-id="${escapeHtml(image.slotId)}" title="원본 파일은 삭제하지 않고 현재 원고에서만 이미지를 제거합니다.">원고에서 제거</button>` : ''}
@@ -289,7 +290,7 @@ function renderBlogNextDraftImages(type, preview = {}) {
       </div>
       <div class="local-markdown-image-card-copy">
         <strong class="local-markdown-image-card-title">${escapeHtml(image.title || `${displayOrder}번째 이미지`)}</strong>
-        ${type === 'folder' && preview.draftId && (!exists || image.canRestore) ? `<div class="local-markdown-image-card-utility-actions">
+        ${ownsDraft && (!exists || image.canRestore) ? `<div class="local-markdown-image-card-utility-actions">
           ${!exists && !excluded ? `<button class="ui-text-action compact" type="button" data-manuscript-image-action="exclude" data-slot-id="${escapeHtml(image.slotId)}">사용 안 함</button>` : ''}
           ${image.canRestore ? `<button class="ui-text-action compact" type="button" data-manuscript-image-action="restore" data-slot-id="${escapeHtml(image.slotId)}">${escapeHtml(image.restoreLabel || '원래 이미지 복원')}</button>` : ''}
         </div>` : ''}
@@ -306,17 +307,17 @@ function renderBlogNextDraftImages(type, preview = {}) {
 }
 
 function bindBlogNextManuscriptImageActions(type, container) {
-  if (type !== 'folder' || !container) return;
+  if (!container) return;
   container.querySelectorAll('[data-manuscript-image-picker]').forEach((button) => {
     button.addEventListener('click', () => container.querySelector(`[data-manuscript-image-file][data-slot-id="${button.dataset.slotId}"]`)?.click());
   });
   container.querySelectorAll('[data-manuscript-image-file]').forEach((input) => {
-    input.addEventListener('change', () => void importBlogNextManuscriptImage(input.dataset.slotId, input));
+    input.addEventListener('change', () => void importBlogNextManuscriptImage(type, input.dataset.slotId, input));
   });
   container.querySelectorAll('[data-manuscript-image-action]').forEach((button) => {
-    button.addEventListener('click', () => void runBlogNextManuscriptImageAction(button.dataset.manuscriptImageAction, button.dataset.slotId));
+    button.addEventListener('click', () => void runBlogNextManuscriptImageAction(type, button.dataset.manuscriptImageAction, button.dataset.slotId));
   });
-  container.querySelector('[data-manuscript-generate-missing]')?.addEventListener('click', () => void generateMissingBlogNextManuscriptImages());
+  container.querySelector('[data-manuscript-generate-missing]')?.addEventListener('click', () => void generateMissingBlogNextManuscriptImages(type));
   container.querySelectorAll('[data-manuscript-prompt-copy]').forEach((button) => {
     button.addEventListener('click', () => void copyBlogNextManuscriptPrompt(button.dataset.manuscriptType, button.dataset.slotId, button));
   });
@@ -366,18 +367,18 @@ function bindBlogNextManuscriptBodyImageFallback(body) {
   });
 }
 
-async function generateMissingBlogNextManuscriptImages() {
-  const state = blogNextDraftState.folder;
+async function generateMissingBlogNextManuscriptImages(type) {
+  const state = blogNextDraftState[type];
   if (!state.draftId || state.imageWorking) return;
-  await applyBlogNextManuscriptMutation('generate-missing', '');
+  await applyBlogNextManuscriptMutation(type, 'generate-missing', '');
 }
 
-async function applyBlogNextManuscriptMutation(action, slotId, payload = {}) {
-  const state = blogNextDraftState.folder;
+async function applyBlogNextManuscriptMutation(type, action, slotId, payload = {}) {
+  const state = blogNextDraftState[type];
   if (!state.draftId || state.imageWorking) return null;
   state.imageWorking = true;
   syncBlogNextDraftExecutionState();
-  const imageList = document.querySelector('[data-blog-next-mode-panel="folder"] [data-draft-preview-images]');
+  const imageList = document.querySelector(`[data-blog-next-mode-panel="${type}"] [data-draft-preview-images]`);
   imageList?.setAttribute('aria-busy', 'true');
   imageList?.querySelectorAll('button, input').forEach((control) => { control.disabled = true; });
   const targetStatus = slotId ? imageList?.querySelector(`[data-manuscript-image-slot="${slotId}"] .local-markdown-image-card-status`) : null;
@@ -400,34 +401,34 @@ async function applyBlogNextManuscriptMutation(action, slotId, payload = {}) {
   } finally {
     state.imageWorking = false;
     imageList?.removeAttribute('aria-busy');
-    renderBlogNextDraftPreview('folder', state.preview);
+    renderBlogNextDraftPreview(type, state.preview);
     syncBlogNextDraftExecutionState();
-    if (failureMessage) setBlogNextDraftValidation('folder', { errors: [failureMessage] }, '', state.preview);
-    else if (state.preview?.imageOperationWarning) setBlogNextDraftValidation('folder', { warnings: [state.preview.imageOperationWarning] }, '', state.preview);
+    if (failureMessage) setBlogNextDraftValidation(type, { errors: [failureMessage] }, '', state.preview);
+    else if (state.preview?.imageOperationWarning) setBlogNextDraftValidation(type, { warnings: [state.preview.imageOperationWarning] }, '', state.preview);
   }
 }
 
-async function runBlogNextManuscriptImageAction(action, slotId) {
-  const image = blogNextDraftState.folder.preview?.images?.find((item) => item.slotId === slotId);
+async function runBlogNextManuscriptImageAction(type, action, slotId) {
+  const image = blogNextDraftState[type].preview?.images?.find((item) => item.slotId === slotId);
   if (action === 'generate' && image?.exists) {
     const confirmed = await showUiConfirm('현재 이미지를 AI가 새로 만든 이미지로 교체할까요? 기존 이미지는 새 이미지가 완성된 후 교체됩니다.', {
       title: 'AI 이미지 다시 만들기', confirmText: '다시 만들기', cancelText: '취소'
     });
     if (!confirmed) return;
   }
-  await applyBlogNextManuscriptMutation(action, slotId);
+  await applyBlogNextManuscriptMutation(type, action, slotId);
 }
 
-async function importBlogNextManuscriptImage(slotId, input) {
+async function importBlogNextManuscriptImage(type, slotId, input) {
   const file = input?.files?.[0];
   if (!file) return;
   if (file.size > 10 * 1024 * 1024) {
-    setBlogNextDraftValidation('folder', { errors: ['이미지는 최대 10MB까지 선택할 수 있습니다.'] }, '', blogNextDraftState.folder.preview);
+    setBlogNextDraftValidation(type, { errors: ['이미지는 최대 10MB까지 선택할 수 있습니다.'] }, '', blogNextDraftState[type].preview);
     input.value = '';
     return;
   }
   const base64Data = await readBlogNextFileAsDataUrl(file);
-  await applyBlogNextManuscriptMutation('import', slotId, { fileName: file.name, mimeType: file.type || '', base64Data });
+  await applyBlogNextManuscriptMutation(type, 'import', slotId, { fileName: file.name, mimeType: file.type || '', base64Data });
   input.value = '';
 }
 
@@ -453,12 +454,12 @@ function renderBlogNextDraftPreview(type, preview = null) {
   if (body) bindBlogNextManuscriptBodyImageFallback(body);
   if (images) images.innerHTML = renderBlogNextDraftImages(type, preview);
   if (images) bindBlogNextManuscriptImageActions(type, images);
-  if (imageDetails) imageDetails.hidden = type === 'folder' && preview.draftId
+  if (imageDetails) imageDetails.hidden = preview.draftId
     ? Number(stats.imageBlockCount || 0) === 0
     : Number(stats.imageMissingCount || 0) === 0;
   if (imageDetails && imageDetailsWasOpen && !imageDetails.hidden) imageDetails.open = true;
   if (imageSummary) {
-    imageSummary.textContent = type === 'folder' && preview.draftId
+    imageSummary.textContent = preview.draftId
       ? `준비 ${stats.imageResolvedCount || 0}/${stats.imageTargetCount ?? stats.imageBlockCount ?? 0}${Number(stats.imageExcludedCount || 0) > 0 ? ` · 제외 ${stats.imageExcludedCount}` : ''}`
       : `누락 ${stats.imageMissingCount || 0}개`;
   }
@@ -468,6 +469,7 @@ function renderBlogNextDraftPreview(type, preview = null) {
 
 async function loadBlogNextDraftPreview(type) {
   const state = blogNextDraftState[type];
+  clearTimeout(state.previewTimer);
   const requestId = ++state.requestId;
   const hasSource = type === 'paste'
     ? Boolean(document.getElementById('blog-next-paste-markdown')?.value?.trim())
@@ -487,18 +489,23 @@ async function loadBlogNextDraftPreview(type) {
       preview = state.draftId
         ? await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/settings`, { ...payload, selectedFiles: undefined, revision: state.revision })
         : await postJson('/api/v1/blog/manuscript-drafts/folder', payload);
-      state.draftId = preview.draftId;
-      state.revision = preview.revision;
     } else {
-      preview = await postJson('/api/v1/blog/local-markdown/preview', payload);
+      preview = state.draftId
+        ? await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/markdown`, { ...payload, revision: state.revision })
+        : await postJson('/api/v1/blog/manuscript-drafts/paste', payload);
     }
     if (requestId !== state.requestId) return null;
+    state.draftId = preview.draftId;
+    state.revision = preview.revision;
+    state.previewSyncFailed = false;
     renderBlogNextDraftPreview(type, preview);
     return preview;
   } catch (error) {
     if (requestId !== state.requestId) return null;
-    renderBlogNextDraftPreview(type, null);
-    setBlogNextDraftValidation(type, { errors: [error.message || '원고를 확인하지 못했습니다.'] });
+    state.previewSyncFailed = true;
+    renderBlogNextDraftPreview(type, state.preview);
+    setBlogNextDraftValidation(type, { errors: [error.message || '원고를 확인하지 못했습니다.'] }, '', state.preview);
+    syncBlogNextDraftExecutionState();
     return null;
   }
 }
@@ -527,7 +534,7 @@ function syncBlogNextDraftExecutionState(runnerActive) {
     const state = blogNextDraftState[type];
     const button = document.querySelector(`[data-blog-next-draft-publish="${type}"]`);
     if (!button) return;
-    button.disabled = executionActive || !state.preview?.validation?.ok;
+    button.disabled = executionActive || state.previewSyncFailed || !state.preview?.validation?.ok;
     button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
     const selectedStatus = readBlogNextDraftSettings(type).postStatus;
     button.textContent = state.publishing
@@ -578,16 +585,15 @@ async function publishBlogNextDraft(type) {
     });
   }
   try {
-    if (type === 'folder') await loadBlogNextDraftPreview('folder');
-    const payload = type === 'folder'
-      ? { draftId: state.draftId, revision: state.revision }
-      : await buildBlogNextDraftPayload(type, { includeImages: true });
+    const syncedPreview = await loadBlogNextDraftPreview(type);
+    if (!syncedPreview || state.previewSyncFailed || !state.draftId || !state.preview?.validation?.ok) {
+      throw new Error('최신 원고 미리보기를 준비하지 못했습니다.');
+    }
+    const payload = { draftId: state.draftId, revision: state.revision };
     const publishResult = await runWithLiveProgress({
       targetEl: result,
       requestLabel: `원고 ${action}`,
-      requestFn: () => postJson(type === 'folder'
-        ? `/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/publish`
-        : '/api/v1/blog/local-markdown/publish', payload)
+      requestFn: () => postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/publish`, payload)
     });
     const actualPostStatus = publishResult?.postStatus || settings.postStatus;
     const actualAction = actualPostStatus === 'draft' ? '임시 저장'
@@ -686,6 +692,14 @@ function discardBlogNextPastedClearSnapshot() {
   if (undo) undo.hidden = true;
 }
 
+function resetBlogNextPasteDraftConnection() {
+  const state = blogNextDraftState.paste;
+  state.draftId = '';
+  state.revision = 0;
+  state.preview = null;
+  state.previewSyncFailed = false;
+}
+
 function syncBlogNextPastedDraftActions() {
   const input = document.getElementById('blog-next-paste-markdown');
   const clear = document.getElementById('blog-next-paste-clear');
@@ -754,7 +768,11 @@ function initBlogNextDraftInputs() {
     pastedInput.value = localStorage.getItem('blog_next_pasted_markdown_draft') || '';
     syncBlogNextPastedDraftActions();
     pastedInput.addEventListener('input', () => {
-      if (blogNextDraftState.paste.clearSnapshot !== null) discardBlogNextPastedClearSnapshot();
+      if (blogNextDraftState.paste.clearSnapshot !== null) {
+        resetBlogNextPasteDraftConnection();
+        discardBlogNextPastedClearSnapshot();
+      }
+      if (!pastedInput.value.trim()) resetBlogNextPasteDraftConnection();
       syncBlogNextPastedDraftActions();
       try {
         localStorage.setItem('blog_next_pasted_markdown_draft', pastedInput.value);

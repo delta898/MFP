@@ -48,6 +48,83 @@ test('creates a folder draft with stable slots and private image URLs', () => {
     }
 });
 
+test('creates and publishes pasted Markdown through the canonical draft', () => {
+    const { workspaceDir, service } = fixture();
+    try {
+        const created = service.createPasteDraft({
+            markdownText: '# 붙여넣은 원고\n\n[[IMAGE_0\ntitle: 첫 이미지\nprompt: 푸른 하늘\n]]\n\n본문',
+            targets: ['naver'],
+            postStatus: 'publish'
+        });
+        assert.equal(created.sourceKind, 'paste');
+        assert.equal(created.source.type, 'pasted_markdown');
+        assert.equal(created.revision, 1);
+        assert.equal(created.images[0].slotId, 'image-0');
+        assert.equal(created.images[0].exists, false);
+        assert.equal(created.stats.imageMissingCount, 1);
+        const payload = service.buildPublishPayload({ draftId: created.draftId, revision: 1 });
+        assert.equal(payload.settings.postStatus, 'draft');
+        assert.equal(payload.publishPolicy.forcedDraft, true);
+        assert.match(payload.selectedFiles.find((entry) => entry.name === 'contents.md').textContent, /붙여넣은 원고/);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('updates pasted Markdown while preserving matching image slot state', () => {
+    const { workspaceDir, service } = fixture();
+    try {
+        const created = service.createPasteDraft({
+            markdownText: '# 초안\n\n[[IMAGE_0\ntitle: 이미지\nprompt: 첫 프롬프트\n]]\n\n본문',
+            targets: ['naver']
+        });
+        const imported = service.importLocalImage({
+            draftId: created.draftId,
+            revision: created.revision,
+            slotId: 'image-0',
+            base64Data: PNG.toString('base64')
+        });
+        const updated = service.updateMarkdown({
+            draftId: created.draftId,
+            revision: imported.revision,
+            markdownText: '# 수정된 원고\n\n본문 변경\n\n[[IMAGE_0\ntitle: 이미지 변경\nprompt: 새 프롬프트\n]]',
+            targets: ['naver'],
+            postStatus: 'publish'
+        });
+        assert.equal(updated.title, '수정된 원고');
+        assert.equal(updated.images[0].exists, true);
+        assert.equal(updated.images[0].assetOrigin, 'user');
+        assert.equal(updated.images[0].prompt, '새 프롬프트');
+        assert.equal(updated.stats.imageMissingCount, 0);
+        assert.equal(service.getImage({ draftId: created.draftId, slotId: 'image-0', revision: updated.revision }).contentType, 'image/png');
+
+        const excluded = service.excludeImage({ draftId: created.draftId, revision: updated.revision, slotId: 'image-0' });
+        const retained = service.updateMarkdown({
+            draftId: created.draftId,
+            revision: excluded.revision,
+            markdownText: '# 다시 수정\n\n[[IMAGE_0\ntitle: 이미지\nprompt: 또 다른 프롬프트\n]]'
+        });
+        assert.equal(retained.images[0].excluded, true);
+        assert.equal(retained.stats.imageMissingCount, 0);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('rejects Markdown mutation for a folder source without changing its revision', () => {
+    const { workspaceDir, service, input } = fixture();
+    try {
+        const created = service.createFolderDraft(input);
+        assert.throws(
+            () => service.updateMarkdown({ draftId: created.draftId, revision: 1, markdownText: '# 변경' }),
+            (error) => error.code === 'MANUSCRIPT_DRAFT_SOURCE_READ_ONLY'
+        );
+        assert.equal(service.getDraft(created.draftId).revision, 1);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('supports IMAGE_0 for preview and replacement', () => {
     const { workspaceDir, service } = fixture();
     try {

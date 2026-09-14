@@ -829,12 +829,20 @@ function createContentService(deps = {}) {
             return getManuscriptDraftService().createFolderDraft(requestBody);
         },
 
+        async createPasteManuscriptDraft(requestBody = {}) {
+            return getManuscriptDraftService().createPasteDraft(requestBody);
+        },
+
         async getManuscriptDraft({ draftId } = {}) {
             return getManuscriptDraftService().getDraft(draftId);
         },
 
         async updateManuscriptDraftSettings(requestBody = {}) {
             return getManuscriptDraftService().updateSettings(requestBody);
+        },
+
+        async updateManuscriptDraftMarkdown(requestBody = {}) {
+            return getManuscriptDraftService().updateMarkdown(requestBody);
         },
 
         async importManuscriptDraftImage(requestBody = {}) {

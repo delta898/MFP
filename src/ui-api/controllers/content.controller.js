@@ -200,6 +200,15 @@ function createContentController(deps = {}) {
             }
         },
 
+        async manuscriptDraftCreatePaste({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.createPasteManuscriptDraft(requestBody || {}));
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'MANUSCRIPT_DRAFT_CREATE_FAILED', '붙여넣기 작업공간을 만들지 못했습니다.', e);
+            }
+        },
+
         async manuscriptDraftGet({ requestId, method, draftId, res }) {
             if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
             try {
@@ -214,6 +223,7 @@ function createContentController(deps = {}) {
             const input = { ...(requestBody || {}), draftId, slotId };
             try {
                 if (action === 'settings') return sendSuccess(res, requestId, await service.updateManuscriptDraftSettings(input));
+                if (action === 'markdown') return sendSuccess(res, requestId, await service.updateManuscriptDraftMarkdown(input));
                 if (action === 'import') return sendSuccess(res, requestId, await service.importManuscriptDraftImage(input));
                 if (action === 'generate') return sendSuccess(res, requestId, await service.generateManuscriptDraftImage(input));
                 if (action === 'generate-missing') return sendSuccess(res, requestId, await service.generateMissingManuscriptDraftImages(input));

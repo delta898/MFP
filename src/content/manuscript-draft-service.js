@@ -78,6 +78,22 @@ function stripImageBlocksByIndex(content, indexes = []) {
         .trim();
 }
 
+function normalizeDraftSettings(input = {}, previous = {}) {
+    const targets = Array.isArray(input.targets)
+        ? Array.from(new Set(input.targets.map((item) => String(item || '').toLowerCase()).filter((item) => ['naver', 'wordpress'].includes(item))))
+        : (Array.isArray(previous.targets) ? previous.targets : ['naver']);
+    return {
+        ...previous,
+        targets,
+        postStatus: String(input.postStatus || previous.postStatus || 'publish'),
+        scheduleDate: String(input.scheduleDate ?? previous.scheduleDate ?? ''),
+        imageMode: 'prompt_only',
+        naverCategory: String(input.naverCategory ?? previous.naverCategory ?? ''),
+        wordpressCategory: String(input.wordpressCategory ?? previous.wordpressCategory ?? ''),
+        headless: input.headless === undefined ? previous.headless !== false : input.headless !== false
+    };
+}
+
 function createManuscriptDraftService(options = {}) {
     const fsImpl = options.fs || fs;
     const pathImpl = options.path || path;
@@ -128,6 +144,9 @@ function createManuscriptDraftService(options = {}) {
             scheduleDate: manifest.settings.scheduleDate,
             imageGeneration: false
         }, { fs: fsImpl, path: pathImpl, Utils });
+        if (manifest.source_kind === 'paste') {
+            preview.source = { ...preview.source, type: 'pasted_markdown', folderName: manifest.source_label };
+        }
         const slotByIndex = new Map(manifest.image_slots.map((slot) => [Number(slot.index), slot]));
         preview.images = preview.images.map((image) => {
             const slot = slotByIndex.get(Number(image.index));
@@ -180,16 +199,57 @@ function createManuscriptDraftService(options = {}) {
         return buildPublicDraft(manifest, locations);
     }
 
-    function createFolderDraft(input = {}) {
-        const selectedFiles = Array.isArray(input.selectedFiles) ? input.selectedFiles : [];
-        const { preferredEntry } = resolveMarkdownEntryFromSelectedFiles(selectedFiles);
-        const entries = normalizeSelectedFiles(selectedFiles);
-        const sources = new Map(selectedFiles.map((entry) => [String(entry.relativePath || entry.webkitRelativePath || entry.name || '').replace(/\\/g, '/').replace(/^\/+/, ''), entry]));
+    function createWorkspace() {
         const id = cryptoImpl.randomUUID();
         const locations = pathsFor(id);
         fsImpl.mkdirSync(locations.source, { recursive: true, mode: 0o700 });
         fsImpl.mkdirSync(locations.originals, { recursive: true, mode: 0o700 });
         fsImpl.mkdirSync(locations.assets, { recursive: true, mode: 0o700 });
+        return { id, locations };
+    }
+
+    function createPasteDraft(input = {}) {
+        const markdownText = String(input.markdownText || '');
+        const { id, locations } = createWorkspace();
+        try {
+            const settings = normalizeDraftSettings(input);
+            const preview = buildLocalMarkdownPreview({ markdownText, folderName: '붙여넣기', ...settings }, { fs: fsImpl, path: pathImpl, Utils });
+            fsImpl.writeFileSync(pathImpl.join(locations.source, 'contents.md'), markdownText, { mode: 0o600 });
+            const now = new Date().toISOString();
+            const manifest = {
+                schema_version: 1,
+                id,
+                revision: 1,
+                source_kind: 'paste',
+                source_label: '붙여넣기',
+                created_at: now,
+                updated_at: now,
+                settings,
+                image_slots: preview.images.map((image) => ({
+                    id: `image-${image.index}`,
+                    index: image.index,
+                    prompt: image.prompt,
+                    original_file: '',
+                    current_file: '',
+                    current_origin: '',
+                    state: 'missing'
+                }))
+            };
+            atomicWriteJson(fsImpl, locations.manifest, manifest);
+            Logger?.info?.(`✅ [ManuscriptDraft] 붙여넣기 작업공간 준비 완료 (draft=${id}, images=${preview.stats.imageBlockCount})`);
+            return buildPublicDraft(manifest, locations);
+        } catch (error) {
+            try { fsImpl.rmSync(locations.root, { recursive: true, force: true }); } catch (_) { }
+            throw error;
+        }
+    }
+
+    function createFolderDraft(input = {}) {
+        const selectedFiles = Array.isArray(input.selectedFiles) ? input.selectedFiles : [];
+        const { preferredEntry } = resolveMarkdownEntryFromSelectedFiles(selectedFiles);
+        const entries = normalizeSelectedFiles(selectedFiles);
+        const sources = new Map(selectedFiles.map((entry) => [String(entry.relativePath || entry.webkitRelativePath || entry.name || '').replace(/\\/g, '/').replace(/^\/+/, ''), entry]));
+        const { id, locations } = createWorkspace();
         try {
             const markdownSource = sources.get(preferredEntry.relativePath) || {};
             fsImpl.writeFileSync(pathImpl.join(locations.source, 'contents.md'), String(markdownSource.textContent || preferredEntry.textContent || ''), { mode: 0o600 });
@@ -207,15 +267,7 @@ function createManuscriptDraftService(options = {}) {
                 fsImpl.writeFileSync(pathImpl.join(locations.source, safeName), buffer, { mode: 0o600 });
                 fsImpl.writeFileSync(pathImpl.join(locations.originals, safeName), buffer, { mode: 0o600 });
             }
-            const settings = {
-                targets: Array.isArray(input.targets) ? input.targets : ['naver'],
-                postStatus: String(input.postStatus || 'publish'),
-                scheduleDate: String(input.scheduleDate || ''),
-                imageMode: 'prompt_only',
-                naverCategory: String(input.naverCategory || ''),
-                wordpressCategory: String(input.wordpressCategory || ''),
-                headless: input.headless !== false
-            };
+            const settings = normalizeDraftSettings(input);
             const preview = buildLocalMarkdownPreview({ directoryPath: locations.source, ...settings, imageGeneration: settings.imageMode === 'generate' }, { fs: fsImpl, path: pathImpl, Utils });
             const now = new Date().toISOString();
             const manifest = {
@@ -314,19 +366,38 @@ function createManuscriptDraftService(options = {}) {
 
     function updateSettings(input = {}) {
         return updateSlotless(input.draftId, input.revision, ({ manifest }) => {
-            const targets = Array.isArray(input.targets)
-                ? Array.from(new Set(input.targets.map((item) => String(item || '').toLowerCase()).filter((item) => ['naver', 'wordpress'].includes(item))))
-                : manifest.settings.targets;
-            manifest.settings = {
-                ...manifest.settings,
-                targets,
-                postStatus: String(input.postStatus || 'publish'),
-                scheduleDate: String(input.scheduleDate || ''),
-                imageMode: 'prompt_only',
-                naverCategory: String(input.naverCategory || ''),
-                wordpressCategory: String(input.wordpressCategory || ''),
-                headless: input.headless !== false
-            };
+            manifest.settings = normalizeDraftSettings(input, manifest.settings);
+        });
+    }
+
+    function updateMarkdown(input = {}) {
+        return updateSlotless(input.draftId, input.revision, ({ locations, manifest }) => {
+            if (manifest.source_kind !== 'paste') {
+                throw manuscriptError(409, 'MANUSCRIPT_DRAFT_SOURCE_READ_ONLY', '이 원고의 본문은 현재 입력 방식에서 변경할 수 없습니다.');
+            }
+            const markdownText = String(input.markdownText || '');
+            const settings = normalizeDraftSettings(input, manifest.settings);
+            const preview = buildLocalMarkdownPreview({ markdownText, folderName: manifest.source_label, ...settings }, { fs: fsImpl, path: pathImpl, Utils });
+            const previousByIndex = new Map(manifest.image_slots.map((slot) => [Number(slot.index), slot]));
+            manifest.settings = settings;
+            manifest.image_slots = preview.images.map((image) => {
+                const previous = previousByIndex.get(Number(image.index));
+                const currentExists = Boolean(previous?.current_file && fsImpl.existsSync(currentFileForSlot(locations, previous)));
+                return {
+                    id: `image-${image.index}`,
+                    index: image.index,
+                    prompt: image.prompt,
+                    original_file: previous?.original_file || '',
+                    current_file: currentExists ? previous.current_file : '',
+                    current_origin: currentExists ? previous.current_origin : '',
+                    state: previous?.state === 'excluded' ? 'excluded' : (currentExists ? 'ready' : 'missing')
+                };
+            });
+            const markdownPath = pathImpl.join(locations.source, 'contents.md');
+            const pendingPath = `${markdownPath}.${process.pid}.${Date.now()}.tmp`;
+            fsImpl.writeFileSync(pendingPath, markdownText, { mode: 0o600 });
+            fsImpl.renameSync(pendingPath, markdownPath);
+            Logger?.info?.(`✅ [ManuscriptDraft] 붙여넣기 원고 갱신 완료 (draft=${input.draftId}, images=${preview.stats.imageBlockCount})`);
         });
     }
 
@@ -438,7 +509,7 @@ function createManuscriptDraftService(options = {}) {
         return { binary: true, body: buffer, contentType: detected.mimeType };
     }
 
-    return { createFolderDraft, getDraft, updateSettings, importLocalImage, excludeImage, restoreImage, generateImage, generateMissingImages, buildPublishPayload, getImage };
+    return { createFolderDraft, createPasteDraft, getDraft, updateSettings, updateMarkdown, importLocalImage, excludeImage, restoreImage, generateImage, generateMissingImages, buildPublishPayload, getImage };
 }
 
 module.exports = { createManuscriptDraftService, detectImageType, validateImageBuffer };

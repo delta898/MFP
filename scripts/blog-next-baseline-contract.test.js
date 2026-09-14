@@ -65,7 +65,7 @@ test('folder and paste modes share one manuscript publishing grammar', () => {
   }
 });
 
-test('folder and paste previews share one reading surface while folder exposes image workspace actions', () => {
+test('folder and paste previews share one reading surface and image workspace', () => {
   const html = readBlogNextView();
   const script = read('ui/scripts/features/blog-next/draft-inputs.js');
   const css = read('ui/styles/features/blog-next-baseline.css');
@@ -81,10 +81,16 @@ test('folder and paste previews share one reading surface while folder exposes i
     assert.match(panel, /data-draft-preview-image-details/);
     assert.match(panel, /<summary><strong>이미지 확인<\/strong><span data-draft-preview-image-summary>/);
   }
-  assert.match(script, /type === 'folder' && preview\.draftId/);
+  assert.match(script, /const ownsDraft = Boolean\(preview\.draftId\)/);
   assert.match(script, /stats\.imageTargetCount \?\? stats\.imageBlockCount/);
   assert.match(script, /` · 제외 \$\{stats\.imageExcludedCount\}`/);
-  assert.match(script, /type === 'folder' && preview\.draftId \? imageItems : imageItems\.filter\(image => !image\.exists\)/);
+  assert.match(script, /const visibleItems = ownsDraft \? imageItems : imageItems\.filter\(image => !image\.exists\)/);
+  assert.match(script, /manuscript-drafts\/paste/);
+  assert.match(script, /manuscript-drafts\/\$\{encodeURIComponent\(state\.draftId\)\}\/markdown/);
+  assert.match(script, /state\.previewSyncFailed \|\| !state\.preview\?\.validation\?\.ok/);
+  assert.match(script, /if \(!syncedPreview \|\| state\.previewSyncFailed/);
+  assert.match(script, /renderBlogNextDraftPreview\(type, state\.preview\)/);
+  assert.match(script, /if \(!pastedInput\.value\.trim\(\)\) resetBlogNextPasteDraftConnection\(\)/);
   assert.match(script, /data-manuscript-image-action="generate"/);
   assert.match(script, /data-manuscript-image-picker/);
   assert.match(script, /data-manuscript-image-action="exclude"/);

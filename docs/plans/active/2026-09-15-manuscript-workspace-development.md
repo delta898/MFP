@@ -133,6 +133,7 @@ read-only다.
 ### Stage records
 
 - [Stage 01: Draft/Image Asset contract and folder workflow](../archive/2026-09-15-manuscript-workspace-01-contract-folder-development.md) — complete
+- [Stage 02: Paste adapter](./2026-09-15-manuscript-workspace-02-paste-development.md) — active
 
 ## Decisions and Tradeoffs
 
@@ -173,6 +174,8 @@ read-only다.
   adapters are complete. The parent plan retains text editing as Stage 04.
 - 2026-09-15: Stage 01 passed its full unit gate with 1,784 tests, 1,783 passed, 1 intentionally skipped, and 0 failed.
   The finalized stage record was archived for parent integration.
+- 2026-09-15: Stage 02 began on a dedicated sub-feature branch to connect pasted Markdown to the common Draft/Image Slot
+  workspace before direct AI generation is migrated.
 
 ## Current Result
 

@@ -14,6 +14,7 @@ const { getDefaultContentWritingProfile, DEFAULT_CONTENT_WRITING_PROFILE_METADAT
 const repoRoot = path.resolve(__dirname, '..');
 const uiRoot = path.join(repoRoot, 'ui');
 const MANUSCRIPT_DRAFT_ID = '11111111-1111-4111-8111-111111111111';
+const PASTE_MANUSCRIPT_DRAFT_ID = '22222222-2222-4222-8222-222222222222';
 
 function getContentType(filePath) {
     const extension = path.extname(filePath).toLowerCase();
@@ -496,6 +497,12 @@ function startFixtureServer(requests) {
         { index: 0, slotId: 'image-0', title: '첫 이미지', prompt: '푸른 하늘', exists: true, excluded: false, assetOrigin: 'folder', canRestore: false },
         { index: 1, slotId: 'image-1', title: '둘째 이미지', prompt: '초록 숲', exists: false, excluded: false, assetOrigin: '', canRestore: false }
     ];
+    let pasteManuscriptDraftRevision = 0;
+    let pasteManuscriptDraftPostStatus = 'publish';
+    let pasteManuscriptMarkdown = '';
+    let pasteManuscriptDraftImages = [
+        { index: 0, slotId: 'image-0', title: '붙여넣기 이미지', prompt: '따뜻한 분위기의 이미지', exists: false, excluded: false, assetOrigin: '', canRestore: false }
+    ];
     const buildManuscriptDraftFixture = () => {
         const images = manuscriptDraftImages.map((image) => ({
             ...image,
@@ -519,6 +526,38 @@ function startFixtureServer(requests) {
             images,
             stats: {
                 contentCount: 4,
+                imageBlockCount: images.length,
+                imageResolvedCount: images.filter((image) => image.exists).length,
+                imageExcludedCount: images.filter((image) => image.excluded).length,
+                imageTargetCount: images.filter((image) => !image.excluded).length,
+                imageMissingCount: images.filter((image) => !image.excluded && !image.exists).length
+            },
+            validation: { ok: true, errors: [], warnings: [] }
+        };
+    };
+    const buildPasteManuscriptDraftFixture = () => {
+        const images = pasteManuscriptDraftImages.map((image) => ({
+            ...image,
+            imageUrl: image.exists ? `/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/images/${image.slotId}?revision=${pasteManuscriptDraftRevision}` : '',
+            imagePath: '',
+            fileName: image.exists ? `${String(image.index).padStart(2, '0')}_paste.png` : ''
+        }));
+        return {
+            draftId: PASTE_MANUSCRIPT_DRAFT_ID,
+            revision: pasteManuscriptDraftRevision,
+            sourceKind: 'paste',
+            source: { type: 'pasted_markdown', folderName: '붙여넣기' },
+            title: pasteManuscriptMarkdown.match(/^#\s+(.+)$/m)?.[1] || '제목 없음',
+            rawMarkdown: pasteManuscriptMarkdown,
+            bodyPreview: pasteManuscriptMarkdown,
+            contentItems: [
+                { type: 'header-h2', text: '미리보기 소제목' },
+                { type: 'paragraph', text: 'Markdown 본문입니다.', boldRanges: [{ start: 0, end: 8 }] },
+                ...images.filter((image) => !image.excluded).map((image) => ({ type: 'image', index: image.index, slotId: image.slotId, text: image.title, prompt: image.prompt, exists: image.exists, imageUrl: image.imageUrl }))
+            ],
+            images,
+            stats: {
+                contentCount: 3,
                 imageBlockCount: images.length,
                 imageResolvedCount: images.filter((image) => image.exists).length,
                 imageExcludedCount: images.filter((image) => image.excluded).length,
@@ -844,6 +883,21 @@ function startFixtureServer(requests) {
             return;
         }
 
+        if (url.pathname === '/api/v1/blog/manuscript-drafts/paste' && req.method === 'POST') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                pasteManuscriptDraftRevision = 1;
+                pasteManuscriptDraftPostStatus = requestRecord.body.postStatus || 'publish';
+                pasteManuscriptMarkdown = String(requestRecord.body.markdownText || '');
+                pasteManuscriptDraftImages = pasteManuscriptDraftImages.map((image) => ({ ...image, exists: false, excluded: false, assetOrigin: '', canRestore: false }));
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(JSON.stringify({ success: true, data: buildPasteManuscriptDraftFixture() }));
+            });
+            return;
+        }
+
         const manuscriptImageMatch = url.pathname.match(/^\/api\/v1\/blog\/manuscript-drafts\/([^/]+)\/images\/(image-[0-9]+)$/);
         if (manuscriptImageMatch && req.method === 'GET') {
             const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
@@ -858,18 +912,20 @@ function startFixtureServer(requests) {
             req.on('data', (chunk) => chunks.push(chunk));
             req.on('end', () => {
                 requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
-                const slot = manuscriptDraftImages.find((image) => image.slotId === manuscriptSlotMatch[2]);
+                const pasteDraft = manuscriptSlotMatch[1] === PASTE_MANUSCRIPT_DRAFT_ID;
+                const images = pasteDraft ? pasteManuscriptDraftImages : manuscriptDraftImages;
+                const slot = images.find((image) => image.slotId === manuscriptSlotMatch[2]);
                 const action = manuscriptSlotMatch[3];
                 if (action === 'exclude') {
                     slot.exists = false;
                     slot.excluded = true;
                     slot.assetOrigin = '';
-                    slot.canRestore = slot.index === 0;
+                    slot.canRestore = slot.exists || slot.index === 0;
                     slot.restoreLabel = '다시 포함';
                 } else if (action === 'restore') {
                     slot.exists = true;
                     slot.excluded = false;
-                    slot.assetOrigin = 'folder';
+                    slot.assetOrigin = pasteDraft ? 'user' : 'folder';
                     slot.canRestore = false;
                 } else {
                     slot.exists = true;
@@ -877,9 +933,10 @@ function startFixtureServer(requests) {
                     slot.assetOrigin = action === 'import' ? 'user' : 'generated';
                     slot.canRestore = slot.index === 0;
                 }
-                manuscriptDraftRevision += 1;
+                if (pasteDraft) pasteManuscriptDraftRevision += 1;
+                else manuscriptDraftRevision += 1;
                 res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-                res.end(JSON.stringify({ success: true, data: buildManuscriptDraftFixture() }));
+                res.end(JSON.stringify({ success: true, data: pasteDraft ? buildPasteManuscriptDraftFixture() : buildManuscriptDraftFixture() }));
             });
             return;
         }
@@ -897,6 +954,20 @@ function startFixtureServer(requests) {
             return;
         }
 
+        if (url.pathname === `/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/markdown` && req.method === 'POST') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                pasteManuscriptMarkdown = String(requestRecord.body.markdownText || pasteManuscriptMarkdown);
+                pasteManuscriptDraftPostStatus = requestRecord.body.postStatus || pasteManuscriptDraftPostStatus;
+                pasteManuscriptDraftRevision += 1;
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(JSON.stringify({ success: true, data: buildPasteManuscriptDraftFixture() }));
+            });
+            return;
+        }
+
         if (url.pathname === `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/publish` && req.method === 'POST') {
             localMarkdownPublishing = true;
             const chunks = [];
@@ -909,6 +980,25 @@ function startFixtureServer(requests) {
                     res.end(JSON.stringify({ success: true, data: {
                         status: manuscriptDraftPostStatus === 'draft' ? '임시 저장 완료' : '발행 완료',
                         postStatus: manuscriptDraftPostStatus,
+                        completionLinks: []
+                    } }));
+                }, 100);
+            });
+            return;
+        }
+
+        if (url.pathname === `/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/publish` && req.method === 'POST') {
+            localMarkdownPublishing = true;
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                setTimeout(() => {
+                    localMarkdownPublishing = false;
+                    res.end(JSON.stringify({ success: true, data: {
+                        status: pasteManuscriptDraftPostStatus === 'draft' ? '임시 저장 완료' : '발행 완료',
+                        postStatus: pasteManuscriptDraftPostStatus,
                         completionLinks: []
                     } }));
                 }, 100);
@@ -3030,7 +3120,7 @@ async function run() {
         await page.evaluate(() => document.querySelectorAll('.app-celebration').forEach((element) => element.remove()));
 
         await page.locator('[data-blog-next-input-mode="paste"]').click();
-        await page.locator('#blog-next-paste-markdown').fill('# 붙여넣은 원고\n\nQueue를 거치지 않고 바로 실행합니다.');
+        await page.locator('#blog-next-paste-markdown').fill('# 붙여넣은 원고\n\nQueue를 거치지 않고 바로 실행합니다.\n\n[[IMAGE_0\ntitle: 붙여넣기 이미지\nprompt: 따뜻한 분위기의 이미지\n]]');
         await page.waitForFunction(() => (
             document.querySelector('[data-blog-next-draft-preview="paste"]')?.hidden === false
             && document.querySelector('[data-blog-next-draft-publish="paste"]')?.disabled === false
@@ -3051,8 +3141,17 @@ async function run() {
         assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] .local-markdown-image-card').count(), 1);
         assert.equal((await page.locator('[data-blog-next-draft-preview="paste"] .local-markdown-image-card-status').textContent())?.trim(), '파일 없음');
         assert.equal(await page.locator('[data-blog-next-draft-publish="paste"]').isDisabled(), false);
-        await page.waitForTimeout(600);
-        assert.equal(await page.locator('[data-blog-next-draft-publish="paste"]').isDisabled(), false);
+        assert.equal(await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-field="post-status"]').inputValue(), 'draft');
+        await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-details] > summary').click();
+        assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] [data-manuscript-image-picker][data-slot-id="image-0"]').isVisible(), true);
+        await page.locator('[data-blog-next-draft-preview="paste"] [data-manuscript-image-file][data-slot-id="image-0"]').setInputFiles(manuscriptFixtureImage);
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-summary]')?.textContent?.includes('1/1'));
+        assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-body] img').count(), 1);
+        await page.locator('[data-blog-next-draft-preview="paste"] [data-manuscript-image-slot="image-0"] .local-markdown-image-card-preview').hover();
+        await page.locator('[data-blog-next-draft-preview="paste"] [data-manuscript-image-action="exclude"][data-slot-id="image-0"]').click();
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-summary]')?.textContent?.includes('0/0 · 제외 1'));
+        await page.locator('[data-blog-next-draft-preview="paste"] [data-manuscript-image-action="restore"][data-slot-id="image-0"]').click();
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-summary]')?.textContent?.includes('1/1'));
         await page.evaluate(() => document.querySelectorAll('.app-celebration').forEach((element) => element.remove()));
         await page.locator('[data-blog-next-draft-publish="paste"]').click();
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
@@ -3065,9 +3164,10 @@ async function run() {
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-result="paste"]')?.textContent.includes('요청 처리 완료'));
         assert.equal(await page.locator('[data-blog-next-run-now]').isDisabled(), false);
         await page.waitForFunction(() => document.querySelector('.app-celebration-message')?.textContent.includes('글쓰기 완료'));
-        const pastedPublishRequest = requests.find((request) => request.pathname === '/api/v1/blog/local-markdown/publish');
-        assert.equal(pastedPublishRequest?.body?.markdownText.startsWith('# 붙여넣은 원고'), true);
-        assert.deepEqual(pastedPublishRequest?.body?.targets, ['naver']);
+        const pastedPublishRequest = requests.find((request) => request.pathname === `/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/publish`);
+        assert.equal(pastedPublishRequest?.body?.draftId, PASTE_MANUSCRIPT_DRAFT_ID);
+        assert.equal(pastedPublishRequest?.body?.revision, 6);
+        await page.evaluate(() => document.getElementById('ui-toast-container')?.replaceChildren());
 
         let manualSnsWorkspaceRequestCount = 0;
         await page.route('**/api/v1/social/manual/config', async (route) => {
@@ -3353,9 +3453,13 @@ async function run() {
             { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/image-slots/image-1/generate` },
             { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/settings` },
             { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/publish` },
-            { method: 'POST', pathname: '/api/v1/blog/local-markdown/preview' },
-            { method: 'POST', pathname: '/api/v1/blog/local-markdown/preview' },
-            { method: 'POST', pathname: '/api/v1/blog/local-markdown/publish' }
+            { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/paste' },
+            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/markdown` },
+            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/image-slots/image-0/import` },
+            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/image-slots/image-0/exclude` },
+            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/image-slots/image-0/restore` },
+            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/markdown` },
+            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/publish` }
         ]);
         assert.equal(requests.some((request) => request.pathname === '/app.js'), true);
         assert.equal(requests.some((request) => request.pathname === '/styles.css'), true);

@@ -7,8 +7,10 @@ function harness(overrides = {}) {
     const calls = [];
     const service = {
         createFolderManuscriptDraft: async (input) => (calls.push(['create', input]), { draftId: 'draft-1' }),
+        createPasteManuscriptDraft: async (input) => (calls.push(['create-paste', input]), { draftId: 'draft-2' }),
         getManuscriptDraft: async (input) => (calls.push(['get', input]), { draftId: input.draftId }),
         updateManuscriptDraftSettings: async (input) => (calls.push(['settings', input]), input),
+        updateManuscriptDraftMarkdown: async (input) => (calls.push(['markdown', input]), input),
         importManuscriptDraftImage: async (input) => (calls.push(['import', input]), input),
         generateManuscriptDraftImage: async (input) => (calls.push(['generate', input]), input),
         generateMissingManuscriptDraftImages: async (input) => (calls.push(['generate-missing', input]), input),
@@ -29,11 +31,17 @@ function harness(overrides = {}) {
 test('delegates manuscript draft mutations without losing route identifiers', async () => {
     const { controller, calls } = harness();
     const base = { requestId: 'req', method: 'POST', draftId: 'draft-1', slotId: 'image-2', requestBody: { revision: 3 }, res: {} };
-    for (const action of ['settings', 'import', 'generate', 'generate-missing', 'exclude', 'restore', 'publish']) {
+    for (const action of ['settings', 'markdown', 'import', 'generate', 'generate-missing', 'exclude', 'restore', 'publish']) {
         await controller.manuscriptDraftMutation({ ...base, action });
     }
-    assert.deepEqual(calls.map((entry) => entry[0]), ['settings', 'import', 'generate', 'generate-missing', 'exclude', 'restore', 'publish']);
+    assert.deepEqual(calls.map((entry) => entry[0]), ['settings', 'markdown', 'import', 'generate', 'generate-missing', 'exclude', 'restore', 'publish']);
     assert.ok(calls.every((entry) => entry[1].draftId === 'draft-1' && entry[1].slotId === 'image-2' && entry[1].revision === 3));
+});
+
+test('creates a pasted manuscript draft through its dedicated adapter', async () => {
+    const { controller, calls } = harness();
+    await controller.manuscriptDraftCreatePaste({ requestId: 'req', method: 'POST', requestBody: { markdownText: '# 원고' }, res: {} });
+    assert.deepEqual(calls[0], ['create-paste', { markdownText: '# 원고' }]);
 });
 
 test('streams a manuscript image with no-store caching', async () => {
