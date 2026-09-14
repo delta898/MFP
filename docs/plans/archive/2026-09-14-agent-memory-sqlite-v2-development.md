@@ -5,7 +5,7 @@
 - Branch: `codex/feature/agent-memory-sqlite-v2`
 - Base branch: `dev`
 - Start date: 2026-09-14
-- Status: active
+- Status: complete; ready for `dev` integration
 
 ## User Need
 
@@ -38,7 +38,7 @@ SQLite is the physical store while graph semantics remain in the memory contract
 The feature is split into two reviewable stages:
 
 1. [SQLite V2 Store](../archive/2026-09-14-agent-memory-sqlite-v2-store-development.md): storage adapter, schema, contract parity, recommendation integration, insight projection, and retention. Completed and integrated into the parent.
-2. [Kuzu Retirement](../archive/2026-09-15-agent-memory-sqlite-v2-retirement-development.md): activate V2 by default, apply the health gate and fallback, remove the Kuzu runtime, and clean V1 files after V2 succeeds. Completed; awaiting parent integration.
+2. [Kuzu Retirement](../archive/2026-09-15-agent-memory-sqlite-v2-retirement-development.md): activate V2 by default, apply the health gate and fallback, remove the Kuzu runtime, and clean V1 files after V2 succeeds. Completed and integrated into the parent.
 
 ## Decisions and Tradeoffs
 
@@ -62,6 +62,17 @@ The feature is split into two reviewable stages:
 - Existing recommendation, memory, API, and browser integration tests.
 - Windows packaged `--version`, startup, V1-upgrade, cleanup-retry, and safe-mode checks.
 - Full unit suite before each completed stage merge, subject to explicit approval.
+
+## Verification Result
+
+- SQLite store stage full unit suite: 1,725 passing, 0 failing, 1 Windows-only test skipped on macOS.
+- Final cutover full unit suite: 1,734 passing, 0 failing, 1 Windows-only test skipped on macOS.
+- Focused memory, recommendation, content-topic, package, and Windows packaging contracts: 266 passing, 0 failing.
+- Real-file tests cover growth, corrupt V2 quarantine/reseed, future-generation rejection, durable health marker, and health-gated V1 deletion.
+
+## Final Result
+
+Agent Memory now uses bounded SQLite V2 exclusively while retaining its logical graph and public consumer contracts. Kuzu is absent from runtime imports, npm manifests, build unpack rules, and recovery tooling. Existing V1 memory is never opened and is removed only after V2 proves durable health. Remaining Windows checks are release acceptance rather than unfinished implementation.
 
 ## Manual Checks Still Required
 
