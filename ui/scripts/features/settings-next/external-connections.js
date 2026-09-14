@@ -25,6 +25,13 @@ function settingsNextExternalApply(data = {}) {
     configured: fields.TELEGRAM_INBOUND_CONFIGURED === true,
     running: fields.TELEGRAM_INBOUND_RUNNING === true
   });
+  settingsNextSetFeedback(
+    'settings-next-telegram-inbound-feedback',
+    fields.TELEGRAM_INBOUND_ENABLED === true && fields.TELEGRAM_INBOUND_RUNNING !== true
+      ? String(fields.TELEGRAM_INBOUND_LAST_ERROR_MESSAGE || '')
+      : '',
+    'danger'
+  );
   settingsNextExternalStatus('settings-next-mcp-remote-status', {
     enabled: fields.MCP_REMOTE_ENABLED === true,
     configured: fields.MCP_REMOTE_AUTH_TOKEN_CONFIGURED === true,

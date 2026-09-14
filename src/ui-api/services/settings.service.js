@@ -555,6 +555,9 @@ function createSettingsService(deps = {}) {
                 TELEGRAM_INBOUND_CONFIGURED: Boolean(String(CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim() && String(CONFIG.NOTIFY_TELEGRAM_CHAT_ID || '').trim()),
                 TELEGRAM_INBOUND_ENABLED: CONFIG.NOTIFY_TELEGRAM_INBOUND_ENABLED === true,
                 TELEGRAM_INBOUND_RUNNING: telegramStatus.running === true,
+                TELEGRAM_INBOUND_LAST_ERROR_CATEGORY: String(telegramStatus.lastErrorCategory || ''),
+                TELEGRAM_INBOUND_LAST_ERROR_MESSAGE: String(telegramStatus.lastErrorMessage || ''),
+                TELEGRAM_INBOUND_LAST_ERROR_AT: String(telegramStatus.lastErrorAt || ''),
                 MCP_REMOTE_ENABLED: CONFIG.MCP_REMOTE_ENABLED === true,
                 MCP_REMOTE_RUNNING: mcpStatus.running === true,
                 MCP_REMOTE_HOST: CONFIG.MCP_REMOTE_HOST || '127.0.0.1',
@@ -1586,10 +1589,23 @@ function createSettingsService(deps = {}) {
 
             const result = await TelegramService.testConnection(botToken, chatId);
             if (!result.success) {
-                throw createApiError(400, 'TEST_FAILED', result.message || '텔레그램 메시지 전송에 실패했습니다.');
+                const statusByCategory = {
+                    token_invalid: 401,
+                    chat_forbidden: 403,
+                    polling_conflict: 409,
+                    rate_limited: 429,
+                    network: 503,
+                    tls: 503
+                };
+                const category = String(result.category || 'connection_failed').toUpperCase();
+                throw createApiError(
+                    statusByCategory[result.category] || 400,
+                    `TELEGRAM_${category}`,
+                    result.message || '텔레그램 메시지 전송에 실패했습니다.'
+                );
             }
 
-            return { message: '테스트 메시지가 성공적으로 전송되었습니다.' };
+            return { message: result.message || '연결됨 · 테스트 메시지를 전송했습니다.' };
         },
 
         async testAiModelConnection(requestBody = {}) {

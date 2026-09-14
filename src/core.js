@@ -1763,7 +1763,7 @@ ${(() => {
 - 현재 시간: ${new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} (KST)
 - 사용자의 모든 특수 요청(예: "이번만 카테고리 없이 저장만")은 PUBLISH 인텐트의 options.instruction에 상세히 담으세요.
 - 멀티 플랫폼 카테고리 예시: "네이버는 '기술', 워드프레스는 'Tech'로 해줘" -> options: { naver_category: "기술", wordpress_category: "Tech" }
-- 의도가 불분명할 경우 가장 근접한 인텐트를 선택하고, 파라미터가 없으면 빈 객체 {}를 반환하세요.
+- 인사, 잡담 또는 지원 범위 밖의 요청을 가장 가까운 액션으로 추측하지 마세요. 실행할 액션이 명확하지 않으면 actions는 빈 배열 []로 반환하세요.
 
 [사용자 메시지]
 ${messageText}

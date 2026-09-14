@@ -1,10 +1,53 @@
 const axios = require('axios');
 const Logger = require('./logger');
+const {
+    createTelegramIpv4Agent,
+    describeTelegramError,
+    formatTelegramDiagnostic,
+    shouldRetryTelegramWithIpv4
+} = require('./telegram-network-policy');
 
 /**
  * 텔레그램 알림 서비스
  */
 class TelegramService {
+    static async callBotApi(method, payload, options = {}) {
+        const botToken = String(options.botToken || '').trim();
+        const timeout = Number(options.timeout || 8000);
+        const url = `https://api.telegram.org/bot${botToken}/${method}`;
+        try {
+            return await axios.post(url, payload || {}, { timeout });
+        } catch (error) {
+            const initial = describeTelegramError(error, { botToken });
+            if (!shouldRetryTelegramWithIpv4(error)) throw error;
+            Logger.warn(`⚠️ [Telegram] 기본 연결 실패, IPv4 호환 재시도: ${formatTelegramDiagnostic(initial)}`);
+            const httpsAgent = createTelegramIpv4Agent();
+            try {
+                const response = await axios.post(url, payload || {}, { timeout, httpsAgent });
+                Logger.info(`✅ [Telegram] IPv4 호환 재시도 성공 (method=${method})`);
+                return response;
+            } catch (retryError) {
+                retryError.telegramInitialAttempt = initial;
+                throw retryError;
+            } finally {
+                httpsAgent.destroy();
+            }
+        }
+    }
+
+    static failureResult(error, options = {}) {
+        const details = describeTelegramError(error, { botToken: options.botToken });
+        Logger.error(`❌ [Telegram] API 호출 실패 (stage=${options.stage || 'send'}): ${formatTelegramDiagnostic(details)}`);
+        return {
+            success: false,
+            stage: options.stage || 'send',
+            category: details.category,
+            message: options.stage === 'message' && ['unknown', 'telegram_api'].includes(details.category)
+                ? '봇과 채팅은 확인됐지만 테스트 메시지를 전송하지 못했습니다. 채팅 권한을 확인해 주세요.'
+                : details.userMessage
+        };
+    }
+
     /**
      * 알림 메시지 전송
      * @param {string} message 전송할 메시지
@@ -23,15 +66,12 @@ class TelegramService {
         }
 
         try {
-            const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
-            const response = await axios.post(url, {
+            const response = await this.callBotApi('sendMessage', {
                 chat_id: chatId,
                 text: message,
                 parse_mode: 'HTML',
                 disable_web_page_preview: false
-            }, {
-                timeout: 5000
-            });
+            }, { botToken });
 
             if (response.data && response.data.ok) {
                 Logger.info('✅ [Telegram] 알림 메시지 전송 성공');
@@ -41,20 +81,7 @@ class TelegramService {
                 return { success: false, message: '전송 실패 (API 응답 오류)' };
             }
         } catch (error) {
-            const errorMsg = error.response ? JSON.stringify(error.response.data) : error.message;
-            Logger.error(`❌ [Telegram] API 호출 에러: ${errorMsg}`);
-            const status = Number(error?.response?.status || 0);
-            const description = String(error?.response?.data?.description || '').toLowerCase();
-            if (status === 400 && description.includes('chat not found')) {
-                return { success: false, message: 'Chat ID를 확인해 주세요.' };
-            }
-            if (status === 401) {
-                return { success: false, message: 'Bot Token을 확인해 주세요.' };
-            }
-            if (status === 429) {
-                return { success: false, message: 'Telegram 요청이 잠시 제한되었습니다. 잠시 후 다시 시도해 주세요.' };
-            }
-            return { success: false, message: 'Telegram과 통신하지 못했습니다. 잠시 후 다시 시도해 주세요.' };
+            return this.failureResult(error, { botToken, stage: options.stage || 'send' });
         }
     }
 
@@ -68,8 +95,28 @@ class TelegramService {
             return { success: false, message: '봇 토큰과 챗 ID를 모두 입력해주세요.' };
         }
 
-        const testMsg = `<b>🔔 BlogGenius 연결 테스트</b>\n\n텔레그램 알림 설정이 올바르게 완료되었습니다!\n현재 시작 시각: ${new Date().toLocaleString()}`;
-        return this.sendNotification(testMsg, { botToken, chatId, enabled: true });
+        let stage = 'token';
+        try {
+            await this.callBotApi('getMe', {}, { botToken });
+            stage = 'chat';
+            await this.callBotApi('getChat', { chat_id: chatId }, { botToken });
+            stage = 'message';
+            const testMsg = `<b>🔔 BlogGenius 연결 테스트</b>\n\n텔레그램 알림 설정이 올바르게 완료되었습니다!\n현재 시작 시각: ${new Date().toLocaleString()}`;
+            await this.callBotApi('sendMessage', {
+                chat_id: chatId,
+                text: testMsg,
+                parse_mode: 'HTML',
+                disable_web_page_preview: false
+            }, { botToken });
+            Logger.info('✅ [Telegram] Bot Token, 채팅 접근, 테스트 메시지 전송 확인 완료');
+            return {
+                success: true,
+                stage: 'complete',
+                message: '연결됨 · 테스트 메시지를 전송했습니다.'
+            };
+        } catch (error) {
+            return this.failureResult(error, { botToken, stage });
+        }
     }
 }
 

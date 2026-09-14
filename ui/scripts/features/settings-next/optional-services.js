@@ -334,7 +334,12 @@ async function settingsNextOptionalSubmit(event) {
   settingsNextOptionalState.busy.add(scope);
   form.setAttribute('aria-busy', 'true');
   const actionLabel = scope === 'sns-distribution' ? '저장' : '연결 확인';
-  if (button) { button.disabled = true; button.textContent = scope === 'sns-distribution' ? '저장 중...' : '연결 확인 중...'; }
+  const busyLabel = scope === 'sns-distribution'
+    ? '저장 중...'
+    : scope === 'telegram'
+      ? 'Bot·채팅·메시지 확인 중...'
+      : '연결 확인 중...';
+  if (button) { button.disabled = true; button.textContent = busyLabel; }
   settingsNextSetFeedback(`settings-next-${scope}-feedback`, '');
     if (['buffer', 'sns-distribution', 'telegram', 'slack', 'bitly'].includes(scope)) setUiSettingsCardFooterDetail(`settings-next-${scope}-footer-detail`, '');
   let persisted = false;
@@ -370,7 +375,7 @@ async function settingsNextOptionalSubmit(event) {
       );
     }
     if (scope === 'sns-distribution') setUiSettingsCardFooterDetail('settings-next-sns-distribution-footer-detail', '저장했습니다.');
-    if (scope === 'telegram') setUiSettingsCardFooterDetail('settings-next-telegram-footer-detail', '테스트 메시지를 전송했습니다.');
+    if (scope === 'telegram') setUiSettingsCardFooterDetail('settings-next-telegram-footer-detail', tested?.message || '연결됨 · 테스트 메시지를 전송했습니다.');
     if (scope === 'slack') setUiSettingsCardFooterDetail('settings-next-slack-footer-detail', '테스트 메시지를 전송했습니다.');
     if (scope === 'bitly') setUiSettingsCardFooterDetail('settings-next-bitly-footer-detail', 'Bitly 연결을 확인했습니다.');
     settingsNextOptionalState.verified[scope] = true;

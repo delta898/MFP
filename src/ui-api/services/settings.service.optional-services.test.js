@@ -168,6 +168,32 @@ test('optional connection tests reuse stored secrets when the new input is blank
     assert.deepEqual(calls, [{ apiKey: 'stored-key', organizationId: 'stored-org' }]);
 });
 
+test('Telegram optional connection test preserves staged corrective guidance', async () => {
+    const TelegramService = {
+        async testConnection(botToken, chatId) {
+            assert.equal(botToken, 'stored-token');
+            assert.equal(chatId, 'stored-chat');
+            return {
+                success: false,
+                stage: 'chat',
+                category: 'chat_not_found',
+                message: '채팅을 찾을 수 없습니다. /start를 보낸 뒤 다시 시도해 주세요.'
+            };
+        }
+    };
+    const { service } = createHarness({
+        notification: { telegram: { bot_token: 'stored-token', chat_id: 'stored-chat' } }
+    }, { TelegramService });
+
+    await assert.rejects(
+        () => service.testOptionalServiceConnection({
+            scope: 'telegram',
+            values: { NOTIFY_TELEGRAM_BOT_TOKEN: '', NOTIFY_TELEGRAM_CHAT_ID: 'stored-chat' }
+        }),
+        (error) => error.apiCode === 'TELEGRAM_CHAT_NOT_FOUND' && /\/start/.test(error.message)
+    );
+});
+
 test('SNS distribution saves RSS source and Buffer delivery policy without broad major settings', async () => {
     const initial = {
         integrations: { buffer: { api_key: 'buffer-secret', organization_id: 'old-org', channels: [{ id: 'old-channel' }] } },
@@ -237,7 +263,7 @@ test('external connection settings separate inbound Telegram activation from del
         TelegramBotService: {
             async stop() { calls.push('telegram-stop'); },
             init() { calls.push('telegram-init'); },
-            getStatus() { return { running: true }; }
+            getStatus() { return { running: true, lastErrorCategory: '', lastErrorMessage: '', lastErrorAt: '' }; }
         },
         restartRemoteMcpService: async (settings) => calls.push({ mcp: settings }),
         getRemoteServiceStatus: () => ({ running: true })
@@ -246,6 +272,7 @@ test('external connection settings separate inbound Telegram activation from del
     const before = await service.getExternalConnectionSettings();
     assert.equal(before.fields.TELEGRAM_INBOUND_CONFIGURED, true);
     assert.equal(before.fields.TELEGRAM_INBOUND_RUNNING, true);
+    assert.equal(before.fields.TELEGRAM_INBOUND_LAST_ERROR_MESSAGE, '');
     assert.equal(before.fields.MCP_REMOTE_AUTH_TOKEN_CONFIGURED, true);
     assert.doesNotMatch(JSON.stringify(before), /telegram-secret|mcp-secret/);
     assert.deepEqual(normalizeExternalConnectionSettings({ scope: 'telegram', values: { TELEGRAM_INBOUND_ENABLED: true } }).fields, {

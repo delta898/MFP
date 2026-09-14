@@ -1,3 +1,5 @@
+const { getInternalUiOrigin } = require('../../ui-runtime/internal-ui-origin');
+
 function createTrendJobCapabilities(deps = {}) {
     const { axios, CONFIG } = deps;
 
@@ -30,9 +32,9 @@ function createTrendJobCapabilities(deps = {}) {
                     throw new Error('axios dependency is required');
                 }
 
-                const port = CONFIG.UI_SERVER_PORT || 4577;
+                const internalUiOrigin = getInternalUiOrigin(CONFIG);
                 try {
-                    const response = await axios.post(`http://127.0.0.1:${port}/api/v1/auto/collect/trends/run`, {
+                    const response = await axios.post(`${internalUiOrigin}/api/v1/auto/collect/trends/run`, {
                         force: params.force === true
                     });
                     const payload = response?.data?.data || {};

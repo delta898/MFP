@@ -2346,14 +2346,14 @@ function bindActions() {
 
       settingsNotifyTelegramTestBtn.disabled = true;
       if (resultEl) {
-        resultEl.textContent = '⏳ 테스트 중...';
+        resultEl.textContent = '⏳ Bot Token·채팅·메시지 확인 중...';
         resultEl.style.color = 'var(--text-muted)';
       }
 
       try {
         const res = await postJson('/api/v1/settings/test-telegram', { botToken, chatId });
         if (resultEl) {
-          resultEl.textContent = '✅ 성공! 텔레그램 메시지를 확인하세요.';
+          resultEl.textContent = `✅ ${res?.message || '연결됨 · 테스트 메시지를 전송했습니다.'}`;
           resultEl.style.color = 'var(--success)';
         }
       } catch (e) {

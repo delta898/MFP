@@ -35,7 +35,7 @@ test('publish execute starts background publish via async endpoint', async () =>
             }
         },
         CONFIG: {
-            UI_SERVER_PORT: 4577
+            LISTEN_PORT: 4578
         }
     });
 
@@ -45,7 +45,7 @@ test('publish execute starts background publish via async endpoint', async () =>
     });
 
     assert.equal(requests.length, 1);
-    assert.equal(requests[0].url, 'http://127.0.0.1:4577/api/v1/auto/publish/start');
+    assert.equal(requests[0].url, 'http://127.0.0.1:4578/api/v1/auto/publish/start');
     assert.deepEqual(requests[0].data.targetRowIndices, [0]);
     assert.equal(result.success, true);
     assert.equal(result.data.startedAt, '2026-03-14T10:00:00.000Z');
@@ -63,7 +63,7 @@ test('publish execute reports running state when another publish is already acti
             }
         },
         CONFIG: {
-            UI_SERVER_PORT: 4577
+            LISTEN_PORT: 4578
         }
     });
 

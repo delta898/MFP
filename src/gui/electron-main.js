@@ -1,10 +1,12 @@
 const { app, BrowserWindow, Menu, dialog, crashReporter } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { applyRuntimeNetworkPolicy } = require('../network/runtime-network-policy');
 const { createStartupBootstrap } = require('./startup-bootstrap');
 const { buildSafeModeArgs, isSafeMode, isStartupProbe } = require('./startup-policy');
 
 const startup = createStartupBootstrap();
+const runtimeNetworkPolicy = applyRuntimeNetworkPolicy();
 const safeMode = isSafeMode(process.argv.slice(1));
 const startupProbe = isStartupProbe(process.argv.slice(1));
 const externallySupervised = Boolean(String(process.env.BLOGGENIUS_LAUNCHER_PATH || '').trim());
@@ -30,6 +32,7 @@ startup.write('JS_ENTRY', {
     chrome: process.versions.chrome,
     node: process.versions.node
 });
+startup.write('NETWORK_POLICY_READY', runtimeNetworkPolicy);
 
 try {
     app.setAppLogsPath(startup.logDir);

@@ -26,6 +26,26 @@ even when the normal application logger never loads.
 The Electron process also watches for startup timeout, failed navigation,
 renderer loss, GPU-process loss, and a persistently unresponsive window.
 
+## Node outbound network policy
+
+The application keeps IPv4 and IPv6 available. At process entry, Node's network
+family-selection attempt window is widened from its short default to 1500ms.
+This accommodates public endpoints whose IPv4 TCP handshake is slower while an
+advertised IPv6 route is unavailable, without breaking IPv6-only or NAT64
+networks. The policy applies to the Electron main/application server process;
+Chromium and launched browser processes retain their own network stacks.
+
+Provider-specific compatibility remains explicit. Telegram retries a failed
+dual-stack connection over IPv4 only for network-family errors. Telegram inbound
+long polling uses IPv4 directly because a failed family race otherwise produces
+rapid repeated requests. Authentication, permission, conflict, and rate-limit
+responses never trigger an IPv4 retry.
+
+Local capabilities and channel adapters call the running UI API through the
+loopback origin derived from the canonical `LISTEN_PORT`. `LISTEN_HOST` controls
+server binding only; `0.0.0.0` is never used as a client destination. There is no
+separate `UI_SERVER_PORT` setting.
+
 ## Windows supervisor and safe mode
 
 The distributed `BlogGenius.exe` is a small external supervisor. The Electron

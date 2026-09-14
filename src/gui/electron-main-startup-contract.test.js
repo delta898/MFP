@@ -21,6 +21,14 @@ test('bootstrap and fatal handlers are installed before the application graph lo
     assert.ok(configIndex > handlerIndex);
 });
 
+test('runtime network family policy is applied before the application graph loads', () => {
+    const policyIndex = source.indexOf('applyRuntimeNetworkPolicy()');
+    const configIndex = source.indexOf("require('../config-loader')");
+    assert.ok(policyIndex >= 0);
+    assert.ok(configIndex > policyIndex);
+    assert.match(source, /NETWORK_POLICY_READY/);
+});
+
 test('safe mode uses the minimal server and does not automatically disable the sandbox', () => {
     assert.match(source, /require\('\.\/safe-mode-server'\)/);
     assert.match(source, /app[.]disableHardwareAcceleration\(\)/);

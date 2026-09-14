@@ -16,11 +16,18 @@ const {
     isPublishExecutionEnabled
 } = require('./agent/content-request-mapper');
 const TelegramAgentRenderer = require('./channels/telegram/renderer');
+const { getSimpleConversationReply } = require('./channels/telegram/conversation-routing');
+const { getInternalUiOrigin } = require('./ui-runtime/internal-ui-origin');
 const { getRuntimeHooks } = require('./runtime-hooks');
 const { getAgentEventStore } = require('./memory/store');
 const { recordDashboardActivity } = require('./activity/dashboard-activity-store');
 const License = require('./license');
 const { recordRecommendationFeedback } = require('./recommendations/adapters/recommendation-feedback-adapter');
+const {
+    calculateTelegramPollingBackoffMs,
+    describeTelegramError,
+    formatTelegramDiagnostic
+} = require('./telegram-network-policy');
 
 class TelegramBotService {
     static bot = null;
@@ -34,8 +41,31 @@ class TelegramBotService {
     static agentCapabilityRegistry = null;
     static _pollingErrorCount = 0;
     static _pollingErrorWindowStart = 0;
-    static POLLING_ERROR_THRESHOLD = 5; // 연속 에러 N회 초과 시 자동 중지
-    static POLLING_ERROR_WINDOW_MS = 60000; // 에러 카운트 리셋 윈도우 (60초)
+    static POLLING_ERROR_THRESHOLD = 8;
+    static POLLING_BASE_BACKOFF_MS = 1000;
+    static POLLING_MAX_BACKOFF_MS = 30000;
+    static _lastPollingError = null;
+    static _stoppedReason = '';
+
+    static calculatePollingBackoffMs(errorCount) {
+        return calculateTelegramPollingBackoffMs(errorCount, {
+            baseMs: this.POLLING_BASE_BACKOFF_MS,
+            maxMs: this.POLLING_MAX_BACKOFF_MS
+        });
+    }
+
+    static recordPollingSuccess() {
+        if (this._pollingErrorCount > 0) {
+            Logger.info(`✅ [TelegramBot] Polling 연결 복구 (이전 연속 오류=${this._pollingErrorCount})`);
+        }
+        this._pollingErrorCount = 0;
+        this._pollingErrorWindowStart = 0;
+        this._lastPollingError = null;
+        this._stoppedReason = '';
+        if (this.bot?._polling?.options) {
+            this.bot._polling.options.interval = this.POLLING_BASE_BACKOFF_MS;
+        }
+    }
 
     static async sleep(ms) {
         await new Promise((resolve) => setTimeout(resolve, ms));
@@ -72,7 +102,8 @@ class TelegramBotService {
                     continue;
                 }
                 if (!silent) {
-                    Logger.warn(`⚠️ [TelegramBot] ${methodName} failed: ${error.message}`);
+                    const details = describeTelegramError(error, { botToken: CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN });
+                    Logger.warn(`⚠️ [TelegramBot] ${methodName} 실패: ${formatTelegramDiagnostic(details)}`);
                 }
                 break;
             }
@@ -163,6 +194,10 @@ class TelegramBotService {
         }
 
         try {
+            this._pollingErrorCount = 0;
+            this._pollingErrorWindowStart = 0;
+            this._lastPollingError = null;
+            this._stoppedReason = '';
             this.ensureAgentRuntime();
 
             if (this.agentEventStore && typeof this.agentEventStore.initialize === 'function') {
@@ -171,20 +206,38 @@ class TelegramBotService {
                 });
             }
 
-            // Polling 방식으로 봇 인스턴스 생성
-            this.bot = new TelegramBot(botToken, { polling: true });
+            // Telegram은 느린 IPv4와 사용할 수 없는 IPv6 조합에서 Node의
+            // family 자동 선택이 실패할 수 있으므로 수신 polling을 IPv4로 고정합니다.
+            this.bot = new TelegramBot(botToken, {
+                polling: {
+                    autoStart: false,
+                    interval: this.POLLING_BASE_BACKOFF_MS,
+                    params: { timeout: 10 }
+                },
+                request: { family: 4 }
+            });
+            const getUpdates = this.bot.getUpdates.bind(this.bot);
+            this.bot.getUpdates = async (...args) => {
+                const updates = await getUpdates(...args);
+                this.recordPollingSuccess();
+                return updates;
+            };
             this.isInitialized = true;
-            Logger.info('✅ [TelegramBot] 텔레그램 수신 봇 데몬이 성공적으로 시작되었습니다. (Long Polling)');
+            this.setupListeners(chatId);
+            void this.bot.startPolling().catch((error) => {
+                const details = describeTelegramError(error, { botToken });
+                Logger.error(`❌ [TelegramBot] Polling 시작 실패: ${formatTelegramDiagnostic(details)}`);
+            });
+            Logger.info('✅ [TelegramBot] 텔레그램 수신 봇 데몬이 성공적으로 시작되었습니다. (Long Polling, IPv4 호환)');
             recordDashboardActivity({
                 category: 'system',
                 type: 'telegram_bot_started',
                 title: '텔레그램 봇 시작',
                 detail: 'Long Polling 수신 봇이 활성화되었습니다.'
             });
-
-            this.setupListeners(chatId);
         } catch (error) {
-            Logger.error(`❌ [TelegramBot] 텔레그램 수신 봇 시작 실패: ${error.message}`);
+            const details = describeTelegramError(error, { botToken });
+            Logger.error(`❌ [TelegramBot] 텔레그램 수신 봇 시작 실패: ${formatTelegramDiagnostic(details)}`);
             recordDashboardActivity({
                 category: 'system',
                 type: 'telegram_bot_start_failed',
@@ -602,20 +655,31 @@ class TelegramBotService {
         // 에러 핸들링 (연속 에러 시 자동 중지)
         this.bot.on('polling_error', (error) => {
             const now = Date.now();
-            // 윈도우 리셋: 마지막 에러로부터 충분한 시간이 지났으면 카운터 초기화
-            if (now - TelegramBotService._pollingErrorWindowStart > TelegramBotService.POLLING_ERROR_WINDOW_MS) {
-                TelegramBotService._pollingErrorCount = 0;
-                TelegramBotService._pollingErrorWindowStart = now;
-            }
+            if (!TelegramBotService._pollingErrorWindowStart) TelegramBotService._pollingErrorWindowStart = now;
             TelegramBotService._pollingErrorCount++;
+            const details = describeTelegramError(error, { botToken: CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN });
+            const retryDelayMs = TelegramBotService.calculatePollingBackoffMs(TelegramBotService._pollingErrorCount);
+            TelegramBotService._lastPollingError = {
+                category: details.category,
+                code: details.code,
+                message: details.userMessage,
+                occurredAt: new Date(now).toISOString()
+            };
+            if (TelegramBotService.bot?._polling?.options) {
+                TelegramBotService.bot._polling.options.interval = retryDelayMs;
+            }
 
             if (TelegramBotService._pollingErrorCount <= TelegramBotService.POLLING_ERROR_THRESHOLD) {
-                Logger.error(`❌ [TelegramBot] Polling Error (${TelegramBotService._pollingErrorCount}/${TelegramBotService.POLLING_ERROR_THRESHOLD}): ${error.message}`);
+                Logger.error(
+                    `❌ [TelegramBot] Polling 오류 (${TelegramBotService._pollingErrorCount}/${TelegramBotService.POLLING_ERROR_THRESHOLD}, `
+                    + `다음 재시도=${Math.round(retryDelayMs / 1000)}초): ${formatTelegramDiagnostic(details)}`
+                );
             }
 
             if (TelegramBotService._pollingErrorCount === TelegramBotService.POLLING_ERROR_THRESHOLD) {
-                Logger.error(`🛑 [TelegramBot] Polling 에러가 ${TelegramBotService.POLLING_ERROR_THRESHOLD}회 연속 발생하여 봇을 자동 중지합니다. 봇 토큰과 설정을 확인해 주세요.`);
-                TelegramBotService.stop().catch(() => { });
+                TelegramBotService._stoppedReason = details.userMessage;
+                Logger.error(`🛑 [TelegramBot] 지속적인 Polling 오류로 수신을 자동 중지합니다: ${details.userMessage}`);
+                TelegramBotService.stop({ reason: details.userMessage }).catch(() => { });
             }
         });
 
@@ -631,7 +695,7 @@ class TelegramBotService {
 
             Logger.info(`💬 [TelegramBot] 메시지 수신: ${text}`);
             // 메시지 수신 성공 시 에러 카운터 리셋
-            TelegramBotService._pollingErrorCount = 0;
+            TelegramBotService.recordPollingSuccess();
 
             const incomingContext = this.buildAgentContext(chatId, msg);
             if (this.agentEventStore && typeof this.agentEventStore.recordInteractionMessage === 'function') {
@@ -646,6 +710,13 @@ class TelegramBotService {
             // 2. 명령어 처리 (/help 등)
             if (text.startsWith('/')) {
                 await this.handleCommand(chatId, text);
+                return;
+            }
+
+            const simpleReply = getSimpleConversationReply(text);
+            if (simpleReply) {
+                Logger.info('💬 [TelegramBot] 단순 대화 응답 (intent=greeting)');
+                await this.bot.sendMessage(chatId, simpleReply);
                 return;
             }
 
@@ -702,6 +773,10 @@ class TelegramBotService {
                 const hasConfig = actions.some(a => a.action === 'update_config');
                 const hasJob = actions.some(a => a.action === 'run_job');
                 const hasQuery = actions.some(a => a.action === 'query_data');
+                Logger.info(
+                    `🧭 [TelegramBot] Legacy intent 분류: actions=${actions.map((action) => String(action?.action || 'unknown')).join(',')}`
+                    + `${hasQuery ? ` query_type=${String(actions.find((action) => action.action === 'query_data')?.params?.query_type || 'missing')}` : ''}`
+                );
 
                 // 인텐트별 분기 처리 (Dispatcher)
                 if (hasRegister || hasPublish) {
@@ -781,7 +856,7 @@ class TelegramBotService {
 	            } catch (err) {
 	                Logger.error(`❌ [TelegramBot] 메시지 분석 실패: ${err.message}`);
 	                await this.stopLoadingIndicator(chatId, loadingMsg);
-	                await this.callTelegramApi('sendMessage', [chatId, `😥 요청 분석에 실패했습니다.\n\n사유: ${err.message}`], { retries: 1, silent: true });
+	                await this.callTelegramApi('sendMessage', [chatId, '😥 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'], { retries: 1, silent: true });
 	            }
 	        };
 
@@ -966,7 +1041,7 @@ class TelegramBotService {
                             } else if (publishResult?.success) {
                                 await this.bot.sendMessage(chatId, this.getRandomMessage('publishing_start'));
                             } else {
-                                const port = CONFIG.UI_SERVER_PORT || 4577;
+                                const internalUiOrigin = getInternalUiOrigin(CONFIG);
                                 await this.bot.sendMessage(chatId, this.getRandomMessage('publishing_start'));
                                 const postData = {
                                     settingsOverrides: {
@@ -979,8 +1054,8 @@ class TelegramBotService {
                                 } else if (Array.isArray(publishPayload.targetRowIndices) && publishPayload.targetRowIndices.length > 0) {
                                     postData.targetRowIndices = publishPayload.targetRowIndices;
                                 }
-                                axios.post(`http://127.0.0.1:${port}/api/v1/auto/publish/run`, postData).catch(e => {
-                                    Logger.error(`❌ [TelegramBot] 발행 트리거 API 호출 실패: ${e.message}`);
+                                axios.post(`${internalUiOrigin}/api/v1/auto/publish/run`, postData).catch(e => {
+                                    Logger.error(`❌ [TelegramBot] 발행 트리거 API 호출 실패 (code=${e.code || 'UNKNOWN'}): ${e.message}`);
                                 });
                             }
                         } catch (apiErr) {
@@ -997,13 +1072,13 @@ class TelegramBotService {
 
                     const axios = require('axios');
                     const CONFIG = require('./config-loader');
-                    const port = CONFIG.UI_SERVER_PORT || 4577;
+                    const internalUiOrigin = getInternalUiOrigin(CONFIG);
 
                     try {
                         // Settings API 호출 (Major 설정을 통해 JSON 구조 업데이트)
                         // 주의: AI가 보낸 키-값 쌍을 API 스펙에 맞춰 전달해야 함.
                         // 여기서는 단순화를 위해 /api/v1/settings/major 에 직접 필드를 보냄.
-                        await axios.post(`http://127.0.0.1:${port}/api/v1/settings/major`, parsedData.data.config_updates);
+                        await axios.post(`${internalUiOrigin}/api/v1/settings/major`, parsedData.data.config_updates);
 
                         this.pendingRequests.delete(requestKey);
                         await this.bot.editMessageText('✅ 시스템 설정이 성공적으로 변경되었습니다. (즉시 반영됨)', {
@@ -1012,7 +1087,7 @@ class TelegramBotService {
                         });
                     } catch (err) {
                         Logger.error(`❌ [TelegramBot] 설정 변경 요청 실패: ${err.message}`);
-                        await this.bot.sendMessage(chatId, `❌ 설정 변경 중 오류가 발생했습니다: ${err.message}`);
+                        await this.bot.sendMessage(chatId, '❌ 설정을 변경하지 못했습니다. 앱 상태를 확인한 뒤 다시 시도해 주세요.');
                     }
 
                 } else if (data === 'job_confirm') {
@@ -1024,7 +1099,7 @@ class TelegramBotService {
 
                     const axios = require('axios');
                     const CONFIG = require('./config-loader');
-                    const port = CONFIG.UI_SERVER_PORT || 4577;
+                    const internalUiOrigin = getInternalUiOrigin(CONFIG);
                     const jobName = parsedData.data.job_name.toLowerCase();
 
                     let endpoint = '';
@@ -1038,7 +1113,7 @@ class TelegramBotService {
                     }
 
                     try {
-                        await axios.post(`http://127.0.0.1:${port}${endpoint}`, parsedData.data.job_params || {});
+                        await axios.post(`${internalUiOrigin}${endpoint}`, parsedData.data.job_params || {});
                         this.pendingRequests.delete(requestKey);
                         await this.bot.editMessageText(`🚀 \`${jobName}\` 작업이 시작되었습니다. 결과는 알림으로 보고드릴게요!`, {
                             chat_id: chatId,
@@ -1046,7 +1121,7 @@ class TelegramBotService {
                         });
                     } catch (err) {
                         Logger.error(`❌ [TelegramBot] 작업 실행 요청 실패: ${err.message}`);
-                        await this.bot.sendMessage(chatId, `❌ 작업 실행 중 오류가 발생했습니다: ${err.message}`);
+                        await this.bot.sendMessage(chatId, '❌ 작업을 실행하지 못했습니다. 앱 상태를 확인한 뒤 다시 시도해 주세요.');
                     }
                 }
 
@@ -1092,16 +1167,25 @@ class TelegramBotService {
      * [Universal Agent] 데이터 조회 처리
      */
     static async handleQueryIntent(chatId, data) {
-        const queryType = data.query_type || 'status';
+        const queryType = String(data.query_type || '').trim().toLowerCase();
         const params = data.query_params || {};
         const axios = require('axios');
         const CONFIG = require('./config-loader');
-        const port = CONFIG.UI_SERVER_PORT || 4577;
+        const internalUiOrigin = getInternalUiOrigin(CONFIG);
         // 공통 지능형 메모리 및 서비스 상태 조회
+
+        const supportedQueryTypes = new Set(['status', 'system', 'topics', 'shopping', 'stats', 'insight']);
+        if (!queryType || !supportedQueryTypes.has(queryType)) {
+            Logger.warn(`⚠️ [TelegramBot] 데이터 조회 intent 거부 (query_type=${queryType || 'missing'})`);
+            await this.bot.sendMessage(chatId, '어떤 정보를 조회할까요? 예: “현재 상태 알려줘”, “최근 글감 보여줘”');
+            return;
+        }
+
+        Logger.info(`🧭 [TelegramBot] 데이터 조회 실행 (query_type=${queryType})`);
 
         try {
             if (queryType === 'status' || queryType === 'system') {
-                const res = await axios.get(`http://127.0.0.1:${port}/api/v1/auto/status`);
+                const res = await axios.get(`${internalUiOrigin}/api/v1/auto/status`);
                 const s = res.data?.data;
                 const statusMsg = `📊 *자동발행 예약 현황*\n\n` +
                     `• *상태:* ${s.status === 'running' ? '🟢 실행 중' : (s.status === 'waiting' ? '🟡 대기 중' : '⚪️ 정지')}\n` +
@@ -1157,8 +1241,8 @@ class TelegramBotService {
                 await this.bot.sendMessage(chatId, `ℹ️ 요청하신 \`${queryType}\` 조회 기능은 현재 준비 중입니다. 곧 만나보실 수 있어요!`);
             }
         } catch (err) {
-            Logger.error(`❌ [TelegramBot] 쿼리 요청 실패: ${err.message}`);
-            await this.bot.sendMessage(chatId, `❌ 데이터 조회 중 오류가 발생했습니다: ${err.message}`);
+            Logger.error(`❌ [TelegramBot] 쿼리 요청 실패 (query_type=${queryType}, code=${err.code || 'UNKNOWN'}): ${err.message}`);
+            await this.bot.sendMessage(chatId, '❌ 데이터를 조회하지 못했습니다. 앱 상태를 확인한 뒤 다시 시도해 주세요.');
         }
     }
 
@@ -1195,7 +1279,8 @@ class TelegramBotService {
             });
             return true;
         } catch (err) {
-            Logger.error(`❌ [TelegramBot] 알림 전송 실패: ${err.message}`);
+            const details = describeTelegramError(err, { botToken: CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN });
+            Logger.error(`❌ [TelegramBot] 알림 전송 실패: ${formatTelegramDiagnostic(details)}`);
             return false;
         }
     }
@@ -1209,11 +1294,15 @@ class TelegramBotService {
             configured: Boolean(botToken && chatId),
             running: Boolean(this.isInitialized && this.bot),
             hasBotToken: Boolean(botToken),
-            hasChatId: Boolean(chatId)
+            hasChatId: Boolean(chatId),
+            lastErrorCategory: String(this._lastPollingError?.category || ''),
+            lastErrorMessage: String(this._lastPollingError?.message || this._stoppedReason || ''),
+            lastErrorAt: String(this._lastPollingError?.occurredAt || '')
         };
     }
 
-    static async stop() {
+    static async stop(options = {}) {
+        if (options.reason) this._stoppedReason = String(options.reason);
         if (this.bot) {
             try {
                 await this.bot.stopPolling();

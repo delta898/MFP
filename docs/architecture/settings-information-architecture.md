@@ -119,6 +119,8 @@ credential과 허용 대상은 `부가 서비스 > 메시지·알림`에서 먼�
 `delivery_enabled`와 `inbound_enabled`는 분리한다. 기존 `enabled` 값만 있는 설정은 두 값의 fallback으로 읽어
 기존 동작을 유지하며, 이후 앱 알림 변경은 delivery 값만 바꾸므로 수신 daemon을 시작·중지하지 않는다.
 
+Telegram 연결 확인은 Bot Token, Chat ID 접근, 테스트 메시지 전송을 순서대로 검증하고 실패 단계에 맞는 조치 문구를 보여준다. 네트워크 family, 주소, 내부 오류 구조는 UI나 Telegram 응답에 노출하지 않고 안전하게 정리된 상세 로그에만 기록한다. Telegram 수신이 지속적인 polling 오류로 중지되면 `앱 > 외부 연결`에서 마지막 안전한 중지 사유를 보여준다.
+
 Blog Beta의 글 작성 화면은 본문 길이·도입·전개·마무리만 글별 override로 제공한다. 새 글이 성공적으로 보관되거나
 대기열에 추가된 뒤에는 반복 작성 편의를 위해 그 선택을 browser localStorage의 기기 최근값으로 갱신한다. 이 최근값은
 공통 설정을 변경하지 않으며, 이미 저장된 글감은 자신의 override를 복원하고 수정만으로 다음 새 글의 최근값을 바꾸지 않는다.

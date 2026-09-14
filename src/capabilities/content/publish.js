@@ -2,6 +2,7 @@ const {
     LIVE_PUBLISH_BLOCKED_MESSAGE,
     isLivePublishAllowed
 } = require('../../environment/runtime-effects');
+const { getInternalUiOrigin } = require('../../ui-runtime/internal-ui-origin');
 
 function normalizeArray(value) {
     if (!Array.isArray(value)) return [];
@@ -124,7 +125,7 @@ function createPublishCapabilities(deps = {}) {
                         sideEffects: []
                     };
                 }
-                const port = CONFIG.UI_SERVER_PORT || 4577;
+                const internalUiOrigin = getInternalUiOrigin(CONFIG);
 
                 const postData = {
                     settingsOverrides: normalizedParams.settingsOverrides
@@ -135,7 +136,7 @@ function createPublishCapabilities(deps = {}) {
 
                 let startResponse = null;
                 try {
-                    startResponse = await axios.post(`http://127.0.0.1:${port}/api/v1/auto/publish/start`, postData);
+                    startResponse = await axios.post(`${internalUiOrigin}/api/v1/auto/publish/start`, postData);
                 } catch (error) {
                     if (error?.response?.status === 409) {
                         return {
