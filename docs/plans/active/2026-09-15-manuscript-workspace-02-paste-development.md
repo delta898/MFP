@@ -93,6 +93,9 @@
 - 2026-09-15: the first browser run exposed an ambiguous shared-card locator after paste gained the same controls as folder;
   the fixture was scoped to the paste panel. A later run exposed transient toasts intercepting a much later unrelated fixture
   action, so the completed paste slice now clears its own test notifications before continuing.
+- 2026-09-15: hands-on review found that different image-title lengths shifted the `사용 안 함` action vertically. The
+  shared card now reserves a consistent two-line title area, clamps longer titles to two lines, and exposes the full title on
+  hover so utility actions align across a row without losing access to the original text.
 
 ## Automated Verification
 

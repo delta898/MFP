@@ -289,7 +289,7 @@ function renderBlogNextDraftImages(type, preview = {}) {
         <span class="local-markdown-image-card-status ${exists ? 'ok' : 'missing'} visually-hidden">${exists ? '이미지 준비됨' : '파일 없음'}</span>
       </div>
       <div class="local-markdown-image-card-copy">
-        <strong class="local-markdown-image-card-title">${escapeHtml(image.title || `${displayOrder}번째 이미지`)}</strong>
+        <strong class="local-markdown-image-card-title" title="${escapeHtml(image.title || `${displayOrder}번째 이미지`)}">${escapeHtml(image.title || `${displayOrder}번째 이미지`)}</strong>
         ${ownsDraft && (!exists || image.canRestore) ? `<div class="local-markdown-image-card-utility-actions">
           ${!exists && !excluded ? `<button class="ui-text-action compact" type="button" data-manuscript-image-action="exclude" data-slot-id="${escapeHtml(image.slotId)}">사용 안 함</button>` : ''}
           ${image.canRestore ? `<button class="ui-text-action compact" type="button" data-manuscript-image-action="restore" data-slot-id="${escapeHtml(image.slotId)}">${escapeHtml(image.restoreLabel || '원래 이미지 복원')}</button>` : ''}

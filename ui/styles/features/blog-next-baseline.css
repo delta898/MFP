@@ -233,7 +233,13 @@
 }
 
 .blog-next-manuscript-image-details .local-markdown-image-card-title {
+  display: -webkit-box;
+  min-block-size: calc(var(--ui-type-label-size) * 2.5);
+  overflow: hidden;
   color: var(--ui-text-primary);
+  line-height: var(--ui-line-height-tight);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .blog-next-manuscript-image-details .local-markdown-image-card-status.missing {

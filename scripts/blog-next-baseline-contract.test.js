@@ -100,6 +100,7 @@ test('folder and paste previews share one reading surface and image workspace', 
   assert.match(script, /data-manuscript-card-image/);
   assert.match(script, /이미지를 불러오지 못했습니다/);
   assert.match(script, /class="ui-sequence-badge"/);
+  assert.match(script, /class="local-markdown-image-card-title" title=/);
   assert.match(script, /data-manuscript-prompt-copy/);
   assert.match(script, /<summary>프롬프트 보기<\/summary>/);
   assert.match(script, /navigator\.clipboard\.writeText\(prompt\)/);
@@ -126,6 +127,8 @@ test('folder and paste previews share one reading surface and image workspace', 
   assert.match(css, /@container \(max-width: 360px\)[\s\S]*?font-size:\s*var\(--ui-type-caption-size\)/);
   assert.doesNotMatch(css, /font-size:\s*[0-9.]+(?:px|r?em)/);
   assert.match(css, /\.local-markdown-image-prompt-section\s*\{[\s\S]*?margin-top:\s*auto/);
+  assert.match(css, /\.local-markdown-image-card-title\s*\{[\s\S]*?min-block-size:\s*calc\(var\(--ui-type-label-size\) \* 2\.5\)/);
+  assert.match(css, /\.local-markdown-image-card-title\s*\{[\s\S]*?-webkit-line-clamp:\s*2/);
   assert.match(css, /\.blog-next-manuscript-preview \.local-markdown-body-preview[\s\S]*?border: 0;[\s\S]*?background: transparent;/);
   assert.match(css, /\.blog-next-manuscript-preview \.local-markdown-body-preview figure\s*{[\s\S]*?border: 0;/);
   assert.match(css, /\.blog-next-manuscript-preview \.local-markdown-body-preview figure img\s*{[\s\S]*?max-height: min\(42vh, 460px\);[\s\S]*?object-fit: contain;/);
