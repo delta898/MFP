@@ -7,6 +7,7 @@ test('routes manuscript draft lifecycle and slot actions with decoded identifier
     const controller = {
         manuscriptDraftCreateFolder: async (ctx) => calls.push(['create', ctx.pathname]),
         manuscriptDraftCreatePaste: async (ctx) => calls.push(['create-paste', ctx.pathname]),
+        manuscriptDraftCreateAi: async (ctx) => calls.push(['create-ai', ctx.pathname]),
         manuscriptDraftGet: async (ctx) => calls.push(['get', ctx.draftId]),
         manuscriptDraftImage: async (ctx) => calls.push(['image', ctx.draftId, ctx.slotId]),
         manuscriptDraftMutation: async (ctx) => calls.push(['mutation', ctx.action, ctx.draftId, ctx.slotId || ''])
@@ -15,6 +16,7 @@ test('routes manuscript draft lifecycle and slot actions with decoded identifier
 
     await handler({ pathname: '/api/v1/blog/manuscript-drafts/folder', method: 'POST' });
     await handler({ pathname: '/api/v1/blog/manuscript-drafts/paste', method: 'POST' });
+    await handler({ pathname: '/api/v1/blog/manuscript-drafts/ai', method: 'POST' });
     await handler({ pathname: '/api/v1/blog/manuscript-drafts/draft%201', method: 'GET' });
     await handler({ pathname: '/api/v1/blog/manuscript-drafts/draft%201/images/image-1', method: 'GET' });
     for (const action of ['import', 'generate', 'exclude', 'restore']) {
@@ -28,6 +30,7 @@ test('routes manuscript draft lifecycle and slot actions with decoded identifier
     assert.deepEqual(calls, [
         ['create', '/api/v1/blog/manuscript-drafts/folder'],
         ['create-paste', '/api/v1/blog/manuscript-drafts/paste'],
+        ['create-ai', '/api/v1/blog/manuscript-drafts/ai'],
         ['get', 'draft 1'],
         ['image', 'draft 1', 'image-1'],
         ['mutation', 'import', 'draft 1', 'image-1'],

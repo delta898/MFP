@@ -1,5 +1,6 @@
 const { normalizeWritingStrategyOverride } = require('../content/writing-strategy');
 const { normalizeShoppingContentFocus } = require('../content/shopping-editorial-plan-prompt');
+const { requireSinglePublishTarget } = require('../content/single-publish-target');
 const {
     LIFECYCLE_POST_STATUSES,
     LIFECYCLE_TARGETS,
@@ -60,7 +61,7 @@ function buildShoppingTopicSheetRow(input = {}) {
         scheduleDate: postStatus === 'schedule' ? scheduleDate : '',
         writingStrategy,
         contentFocus,
-        targets: normalizeTargets(input.targets)
+        targets: requireSinglePublishTarget(normalizeTargets(input.targets), { required: false })
     };
 }
 

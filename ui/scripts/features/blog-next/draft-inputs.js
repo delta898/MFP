@@ -1,7 +1,8 @@
-const BLOG_NEXT_DRAFT_TYPES = Object.freeze(['folder', 'paste']);
+const BLOG_NEXT_DRAFT_TYPES = Object.freeze(['ai', 'folder', 'paste']);
 const BLOG_NEXT_DRAFT_PREVIEW_DELAY_MS = 350;
 
 const blogNextDraftState = {
+  ai: { preview: null, requestId: 0, publishing: false, generating: false, draftId: '', revision: 0, imageWorking: false, imageSafetyLocked: false, previewSyncFailed: false },
   folder: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, imageObjectUrls: {}, draftId: '', revision: 0, imageWorking: false, imageSafetyLocked: false, previewSyncFailed: false },
   paste: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, clearSnapshot: null, draftId: '', revision: 0, imageWorking: false, imageSafetyLocked: false, previewSyncFailed: false }
 };
@@ -11,6 +12,18 @@ function blogNextDraftContainer(type) {
 }
 
 function blogNextDraftField(type, name) {
+  if (type === 'ai') {
+    const fieldIds = {
+      'target-naver': 'blog-next-target-naver',
+      'target-wordpress': 'blog-next-target-wordpress',
+      'naver-category': 'blog-next-naver-category',
+      'wordpress-category': 'blog-next-wordpress-category',
+      'post-status': 'blog-next-post-status',
+      'schedule-date': 'blog-next-schedule-date',
+      headless: 'blog-next-runner-headless'
+    };
+    return document.getElementById(fieldIds[name] || '') || null;
+  }
   return blogNextDraftContainer(type)?.querySelector(`[data-draft-field="${name}"]`) || null;
 }
 
@@ -138,6 +151,10 @@ async function serializeBlogNextFolderFiles(files = [], options = {}) {
 
 async function buildBlogNextDraftPayload(type, options = {}) {
   const settings = readBlogNextDraftSettings(type);
+  if (type === 'ai') {
+    const input = readBlogNextTopicPayload('generate-draft');
+    return { ...input, ...settings, targets: settings.targets, platforms: undefined };
+  }
   if (type === 'paste') {
     return {
       ...settings,
@@ -471,7 +488,9 @@ async function loadBlogNextDraftPreview(type) {
   const state = blogNextDraftState[type];
   clearTimeout(state.previewTimer);
   const requestId = ++state.requestId;
-  const hasSource = type === 'paste'
+  const hasSource = type === 'ai'
+    ? Boolean(state.draftId)
+    : type === 'paste'
     ? Boolean(document.getElementById('blog-next-paste-markdown')?.value?.trim())
     : state.files.length > 0;
   if (!hasSource) {
@@ -485,7 +504,9 @@ async function loadBlogNextDraftPreview(type) {
     }
     const payload = await buildBlogNextDraftPayload(type, { includeImages: type === 'folder' && !state.draftId });
     let preview;
-    if (type === 'folder') {
+    if (type === 'ai') {
+      preview = await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/settings`, { ...payload, revision: state.revision });
+    } else if (type === 'folder') {
       preview = state.draftId
         ? await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/settings`, { ...payload, selectedFiles: undefined, revision: state.revision })
         : await postJson('/api/v1/blog/manuscript-drafts/folder', payload);
@@ -523,29 +544,6 @@ function setBlogNextDraftPublishing(type, publishing) {
   syncBlogNextDraftExecutionState();
 }
 
-function syncBlogNextDraftExecutionState(runnerActive) {
-  const anotherRunnerActive = typeof runnerActive === 'boolean'
-    ? runnerActive
-    : ((typeof blogNextRunnerActive !== 'undefined' && blogNextRunnerActive)
-      || (typeof blogNextRunnerRequesting !== 'undefined' && blogNextRunnerRequesting));
-  const manuscriptActive = BLOG_NEXT_DRAFT_TYPES.some(type => blogNextDraftState[type].publishing || blogNextDraftState[type].imageWorking);
-  const executionActive = anotherRunnerActive || manuscriptActive;
-  BLOG_NEXT_DRAFT_TYPES.forEach((type) => {
-    const state = blogNextDraftState[type];
-    const button = document.querySelector(`[data-blog-next-draft-publish="${type}"]`);
-    if (!button) return;
-    button.disabled = executionActive || state.previewSyncFailed || !state.preview?.validation?.ok;
-    button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
-    const selectedStatus = readBlogNextDraftSettings(type).postStatus;
-    button.textContent = state.publishing
-      ? '포스팅 진행 중...'
-      : state.imageWorking ? '이미지 작업 중...'
-      : executionActive ? '다른 작업 실행 중...'
-      : selectedStatus === 'draft' ? '임시 저장'
-      : selectedStatus === 'schedule' ? '예약 발행' : '즉시 발행';
-  });
-}
-
 async function publishBlogNextDraft(type) {
   const state = blogNextDraftState[type];
   if (state.publishing || !state.preview?.validation?.ok) return;
@@ -579,7 +577,7 @@ async function publishBlogNextDraft(type) {
       state: 'running',
       busy: true,
       source: 'local_markdown',
-      subject: type === 'paste' ? '원고 붙여넣기' : '원고 폴더',
+      subject: type === 'ai' ? '바로 생성 원고' : (type === 'paste' ? '원고 붙여넣기' : '원고 폴더'),
       message: `원고 ${action}을 처리하고 있습니다.`,
       startedAt: new Date().toISOString()
     });
@@ -602,7 +600,7 @@ async function publishBlogNextDraft(type) {
       renderBlogNextRunnerStatus({
         state: 'completed',
         busy: false,
-        subject: type === 'paste' ? '원고 붙여넣기' : '원고 폴더',
+        subject: type === 'ai' ? '바로 생성 원고' : (type === 'paste' ? '원고 붙여넣기' : '원고 폴더'),
         message: `원고 ${actualAction}을 완료했습니다.`,
         resultStatus: actualPostStatus === 'draft' ? '임시 저장 완료'
           : actualPostStatus === 'schedule' ? '예약 발행 완료' : '발행 완료',
@@ -626,7 +624,7 @@ async function publishBlogNextDraft(type) {
       renderBlogNextRunnerStatus({
         state: 'failed',
         busy: false,
-        subject: type === 'paste' ? '원고 붙여넣기' : '원고 폴더',
+        subject: type === 'ai' ? '바로 생성 원고' : (type === 'paste' ? '원고 붙여넣기' : '원고 폴더'),
         message: error.message || `원고 ${action}에 실패했습니다.`,
         finishedAt: new Date().toISOString()
       });
@@ -785,5 +783,6 @@ function initBlogNextDraftInputs() {
   }
   document.getElementById('blog-next-paste-clear')?.addEventListener('click', clearBlogNextPastedDraft);
   document.getElementById('blog-next-paste-clear-undo')?.addEventListener('click', restoreBlogNextPastedDraft);
-  BLOG_NEXT_DRAFT_TYPES.forEach(bindBlogNextDraftOptions);
+  ['folder', 'paste'].forEach(bindBlogNextDraftOptions);
+  document.querySelector('[data-blog-next-draft-publish="ai"]')?.addEventListener('click', () => publishBlogNextDraft('ai'));
 }

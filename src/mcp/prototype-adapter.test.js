@@ -219,7 +219,7 @@ test('mcp prototype adapter accepts simplified top-level fields for core registe
             topic: '단순 입력 주제',
             keywords: ['키워드1', '키워드2'],
             instruction: '초보자 친화적으로 작성',
-            platforms: ['naver', 'wordpress'],
+            platforms: ['wordpress'],
             naver_category: '기술',
             wordpress_category: 'Tech'
         }
@@ -229,7 +229,7 @@ test('mcp prototype adapter accepts simplified top-level fields for core registe
     assert.equal(result.status, 'confirmation_required');
     assert.equal(result.bundle.register_request.payload.theme, '단순 입력 주제');
     assert.deepEqual(result.bundle.register_request.payload.keywords, ['키워드1', '키워드2']);
-    assert.deepEqual(result.bundle.register_request.payload.platforms, ['naver', 'wordpress']);
+    assert.deepEqual(result.bundle.register_request.payload.platforms, ['wordpress']);
     assert.equal(result.bundle.register_request.payload.options.instruction, '초보자 친화적으로 작성');
     assert.equal(result.bundle.register_request.payload.options.naver_category, '기술');
     assert.equal(result.bundle.register_request.payload.options.wordpress_category, 'Tech');

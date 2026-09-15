@@ -1,5 +1,6 @@
 const { TOPIC_STATUS } = require('./contract');
 const { validateBlogWritingOverrides } = require('../content/blog-writing-overrides');
+const { requireSinglePublishTarget } = require('../content/single-publish-target');
 
 const READY_POST_STATUSES = Object.freeze(['publish', 'draft', 'schedule']);
 const READY_PLATFORMS = Object.freeze(['naver', 'wordpress']);
@@ -87,7 +88,9 @@ function validateTopicCapture(input = {}, options = {}) {
     }
 
     if (ready && topic.platforms.length === 0) {
-        errors.push({ field: 'platforms', code: 'PLATFORM_REQUIRED', message: '발행 대상을 하나 이상 선택해 주세요.' });
+        errors.push({ field: 'platforms', code: 'PLATFORM_REQUIRED', message: '발행 대상을 하나 선택해 주세요.' });
+    } else if (topic.platforms.length > 1) {
+        errors.push({ field: 'platforms', code: 'MULTIPLE_PUBLISH_TARGETS', message: '하나의 글감에는 발행 대상을 하나만 선택할 수 있습니다.' });
     }
 
     if (ready && topic.postStatus === 'schedule') {
@@ -111,6 +114,7 @@ function buildTopicSheetRow(input = {}, options = {}) {
     }
 
     const topic = validation.topic;
+    if (ready) requireSinglePublishTarget(topic.platforms);
     const status = ready ? TOPIC_STATUS.READY : TOPIC_STATUS.WAITING;
 
     return {

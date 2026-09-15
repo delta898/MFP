@@ -6,6 +6,7 @@ const {
 } = require('../publish-quota');
 const { parseImageCount } = require('../content/blog-image-plan');
 const { parseBlogImageMode, generatesBlogImages } = require('../content/blog-image-mode');
+const { normalizePublishTargets } = require('../content/single-publish-target');
 const {
     LIVE_PUBLISH_BLOCKED_CODE,
     LIVE_PUBLISH_BLOCKED_MESSAGE,
@@ -204,7 +205,14 @@ function createContentActionsRuntime(deps = {}) {
             return fallback;
         };
 
-        const effectiveTargets = getVal('platforms', Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver']);
+        const effectiveTargets = normalizePublishTargets(getVal('platforms', Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver']));
+        if (effectiveTargets.length !== 1) {
+            return {
+                success: false,
+                code: 'MULTIPLE_PUBLISH_TARGETS',
+                message: '이 글감에는 여러 발행 대상이 저장되어 있습니다. 글감을 편집해 하나만 선택해 주세요.'
+            };
+        }
         const effectiveTitle = getVal('title', '');
         const effectiveSubject = getVal('subject', topicData.subject);
         const effectiveKeywords = getVal('keywords', topicData.keywords || []);
@@ -485,7 +493,7 @@ function createContentActionsRuntime(deps = {}) {
             return { success: false, code: 'QUOTA_EXHAUSTED', message: quotaPreflight.message, data: { quotaPreflight } };
         }
         const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : null;
-        const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
+        const targets = normalizePublishTargets(Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver']);
         const requestedPostStatus = String(requestBody?.postStatus || '').trim().toLowerCase();
         if (requestedPostStatus && !['publish', 'draft', 'schedule'].includes(requestedPostStatus)) {
             return { success: false, code: 'INVALID_POST_STATUS', message: `postStatus 값이 올바르지 않습니다: ${requestedPostStatus}` };
@@ -567,6 +575,9 @@ function createContentActionsRuntime(deps = {}) {
         const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
         if (rowIndex === null) {
             return { success: false, code: 'INVALID_ROW_INDEX', message: 'rowIndex는 0 이상의 정수여야 합니다.' };
+        }
+        if (targets.length !== 1) {
+            return { success: false, code: 'MULTIPLE_PUBLISH_TARGETS', message: '하나의 쇼핑 원고에는 발행 대상을 하나만 선택해 주세요.' };
         }
 
         let features = options.features ? toFeatureMap(options.features) : null;

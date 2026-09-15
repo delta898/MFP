@@ -54,6 +54,7 @@ function buildMcpToolDefinitions() {
                     },
                     platforms: {
                         type: 'array',
+                        maxItems: 1,
                         items: {
                             type: 'string',
                             enum: ['naver', 'wordpress']
@@ -96,6 +97,7 @@ function buildMcpToolDefinitions() {
                                     },
                                     platforms: {
                                         type: 'array',
+                                        maxItems: 1,
                                         items: {
                                             type: 'string',
                                             enum: ['naver', 'wordpress']
@@ -137,6 +139,7 @@ function buildMcpToolDefinitions() {
                                     },
                                     platforms: {
                                         type: 'array',
+                                        maxItems: 1,
                                         items: {
                                             type: 'string',
                                             enum: ['naver', 'wordpress']

@@ -1,4 +1,4 @@
-const ALLOWED_SOURCES = new Set(['continuous_runner', 'shopping_continuous_runner', 'local_markdown']);
+const ALLOWED_SOURCES = new Set(['continuous_runner', 'shopping_continuous_runner', 'local_markdown', 'manuscript_generation']);
 
 function normalizeText(value, maxLength = 120) {
     return String(value || '').trim().slice(0, maxLength);

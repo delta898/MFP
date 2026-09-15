@@ -43,7 +43,7 @@ test('sheet adapter keeps canonical mode and legacy boolean compatibility', () =
 
 test('WYSIWYG manuscript publishing owns images in slots and drafts only for actual unresolved targets', () => {
     const manuscriptView = read('ui/partials/views/blog-next/quick-draft-modes.html');
-    const manuscriptScript = read('ui/scripts/features/blog-next/draft-inputs.js');
+    const manuscriptScript = `${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-execution.js')}`;
     const core = read('src/core.js');
 
     assert.doesNotMatch(manuscriptView, /data-draft-field="image-mode"/);

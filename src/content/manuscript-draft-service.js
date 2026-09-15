@@ -3,6 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const { buildLocalMarkdownPreview, normalizeSelectedFiles, resolveMarkdownEntryFromSelectedFiles } = require('./local-markdown-preview');
+const { requireSinglePublishTarget } = require('./single-publish-target');
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_DRAFT_IMAGE_BYTES = 35 * 1024 * 1024;
@@ -79,9 +80,9 @@ function stripImageBlocksByIndex(content, indexes = []) {
 }
 
 function normalizeDraftSettings(input = {}, previous = {}) {
-    const targets = Array.isArray(input.targets)
-        ? Array.from(new Set(input.targets.map((item) => String(item || '').toLowerCase()).filter((item) => ['naver', 'wordpress'].includes(item))))
-        : (Array.isArray(previous.targets) ? previous.targets : ['naver']);
+    const targets = input.targets !== undefined
+        ? requireSinglePublishTarget(input.targets)
+        : requireSinglePublishTarget(previous.targets || ['naver']);
     return {
         ...previous,
         targets,
@@ -146,6 +147,8 @@ function createManuscriptDraftService(options = {}) {
         }, { fs: fsImpl, path: pathImpl, Utils });
         if (manifest.source_kind === 'paste') {
             preview.source = { ...preview.source, type: 'pasted_markdown', folderName: manifest.source_label };
+        } else if (manifest.source_kind === 'ai') {
+            preview.source = { ...preview.source, type: 'generated_quick_post', folderName: manifest.source_label };
         }
         const slotByIndex = new Map(manifest.image_slots.map((slot) => [Number(slot.index), slot]));
         preview.images = preview.images.map((image) => {
@@ -230,6 +233,7 @@ function createManuscriptDraftService(options = {}) {
                     index: image.index,
                     prompt: image.prompt,
                     original_file: '',
+                    original_origin: '',
                     current_file: '',
                     current_origin: '',
                     state: 'missing'
@@ -237,6 +241,64 @@ function createManuscriptDraftService(options = {}) {
             };
             atomicWriteJson(fsImpl, locations.manifest, manifest);
             Logger?.info?.(`✅ [ManuscriptDraft] 붙여넣기 작업공간 준비 완료 (draft=${id}, images=${preview.stats.imageBlockCount})`);
+            return buildPublicDraft(manifest, locations);
+        } catch (error) {
+            try { fsImpl.rmSync(locations.root, { recursive: true, force: true }); } catch (_) { }
+            throw error;
+        }
+    }
+
+    function createAiDraft(input = {}) {
+        const markdownText = String(input.markdownText || '');
+        const generatedImages = Array.isArray(input.images) ? input.images : [];
+        const { id, locations } = createWorkspace();
+        try {
+            fsImpl.writeFileSync(pathImpl.join(locations.source, 'contents.md'), markdownText, { mode: 0o600 });
+            const imageByIndex = new Map();
+            let totalImageBytes = 0;
+            for (const image of generatedImages) {
+                const index = Number(image?.index);
+                const buffer = Buffer.isBuffer(image?.buffer) ? image.buffer : null;
+                if (!Number.isInteger(index) || index < 0 || !buffer) continue;
+                const detected = validateImageBuffer(buffer);
+                totalImageBytes += buffer.length;
+                if (totalImageBytes > MAX_DRAFT_IMAGE_BYTES) {
+                    throw manuscriptError(413, 'MANUSCRIPT_DRAFT_IMAGES_TOO_LARGE', '원고 이미지 전체 크기는 최대 35MB까지 가져올 수 있습니다.');
+                }
+                const fileName = `${String(index).padStart(2, '0')}_generated${detected.extension}`;
+                fsImpl.writeFileSync(pathImpl.join(locations.source, fileName), buffer, { mode: 0o600 });
+                fsImpl.writeFileSync(pathImpl.join(locations.originals, fileName), buffer, { mode: 0o600 });
+                imageByIndex.set(index, fileName);
+            }
+            const settings = normalizeDraftSettings(input);
+            const preview = buildLocalMarkdownPreview({ directoryPath: locations.source, ...settings, imageGeneration: false }, { fs: fsImpl, path: pathImpl, Utils });
+            const now = new Date().toISOString();
+            const manifest = {
+                schema_version: 1,
+                id,
+                revision: 1,
+                source_kind: 'ai',
+                source_label: String(input.sourceLabel || preview.title || '바로 생성 원고').slice(0, 300),
+                source_metadata: input.sourceMetadata && typeof input.sourceMetadata === 'object' ? input.sourceMetadata : {},
+                created_at: now,
+                updated_at: now,
+                settings,
+                image_slots: preview.images.map((image) => {
+                    const fileName = imageByIndex.get(Number(image.index)) || '';
+                    return {
+                        id: `image-${image.index}`,
+                        index: image.index,
+                        prompt: image.prompt,
+                        original_file: fileName,
+                        original_origin: fileName ? 'generated' : '',
+                        current_file: fileName,
+                        current_origin: fileName ? 'generated' : '',
+                        state: fileName ? 'ready' : 'missing'
+                    };
+                })
+            };
+            atomicWriteJson(fsImpl, locations.manifest, manifest);
+            Logger?.info?.(`✅ [ManuscriptDraft] 바로 생성 작업공간 준비 완료 (draft=${id}, images=${preview.stats.imageResolvedCount}/${preview.stats.imageBlockCount})`);
             return buildPublicDraft(manifest, locations);
         } catch (error) {
             try { fsImpl.rmSync(locations.root, { recursive: true, force: true }); } catch (_) { }
@@ -284,6 +346,7 @@ function createManuscriptDraftService(options = {}) {
                     index: image.index,
                     prompt: image.prompt,
                     original_file: image.exists ? image.fileName : '',
+                    original_origin: image.exists ? 'folder' : '',
                     current_file: image.exists ? image.fileName : '',
                     current_origin: image.exists ? 'folder' : '',
                     state: image.exists ? 'ready' : 'missing'
@@ -355,7 +418,7 @@ function createManuscriptDraftService(options = {}) {
             const previous = slot.current_file;
             fsImpl.copyFileSync(originalPath, pathImpl.join(locations.source, pathImpl.basename(slot.original_file)));
             slot.current_file = pathImpl.basename(slot.original_file);
-            slot.current_origin = 'folder';
+            slot.current_origin = slot.original_origin || 'folder';
             slot.state = 'ready';
             if (previous && previous !== slot.original_file) {
                 try { fsImpl.rmSync(pathImpl.join(locations.source, pathImpl.basename(previous)), { force: true }); } catch (_) { }
@@ -388,6 +451,7 @@ function createManuscriptDraftService(options = {}) {
                     index: image.index,
                     prompt: image.prompt,
                     original_file: previous?.original_file || '',
+                    original_origin: previous?.original_origin || '',
                     current_file: currentExists ? previous.current_file : '',
                     current_origin: currentExists ? previous.current_origin : '',
                     state: previous?.state === 'excluded' ? 'excluded' : (currentExists ? 'ready' : 'missing')
@@ -490,6 +554,7 @@ function createManuscriptDraftService(options = {}) {
         const requestedPostStatus = String(manifest.settings.postStatus || 'publish');
         const forcedDraft = unresolvedCount > 0 && requestedPostStatus !== 'draft';
         return {
+            sourceKind: manifest.source_kind,
             folderName: manifest.source_label,
             selectedFiles: selectedFiles.map((entry) => ({ ...entry, relativePath: `draft-${manifest.id}/${entry.name}` })),
             settings: { ...manifest.settings, imageMode: 'prompt_only', postStatus: forcedDraft ? 'draft' : requestedPostStatus },
@@ -509,7 +574,7 @@ function createManuscriptDraftService(options = {}) {
         return { binary: true, body: buffer, contentType: detected.mimeType };
     }
 
-    return { createFolderDraft, createPasteDraft, getDraft, updateSettings, updateMarkdown, importLocalImage, excludeImage, restoreImage, generateImage, generateMissingImages, buildPublishPayload, getImage };
+    return { createFolderDraft, createPasteDraft, createAiDraft, getDraft, updateSettings, updateMarkdown, importLocalImage, excludeImage, restoreImage, generateImage, generateMissingImages, buildPublishPayload, getImage };
 }
 
 module.exports = { createManuscriptDraftService, detectImageType, validateImageBuffer };

@@ -148,6 +148,9 @@ function validateContentRequestBundle(input = {}) {
         if (bundle.register_request.intent !== 'content.register_topic') {
             errors.push('register_request.intent는 content.register_topic이어야 합니다.');
         }
+        if (Array.isArray(bundle.register_request.payload?.platforms) && bundle.register_request.payload.platforms.length > 1) {
+            errors.push('register_request.payload.platforms에는 발행 대상을 하나만 지정할 수 있습니다.');
+        }
     }
 
     if (bundle.publish_request) {
@@ -157,6 +160,9 @@ function validateContentRequestBundle(input = {}) {
         }
         if (bundle.publish_request.intent !== 'content.publish') {
             errors.push('publish_request.intent는 content.publish여야 합니다.');
+        }
+        if (!Array.isArray(bundle.publish_request.payload?.platforms) || bundle.publish_request.payload.platforms.length !== 1) {
+            errors.push('publish_request.payload.platforms에는 발행 대상을 정확히 하나 지정해야 합니다.');
         }
     }
 

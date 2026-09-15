@@ -12,6 +12,7 @@ const {
 } = require('../content/blog-image-mode');
 const { createTopicRecommendationLearningService } = require('../recommendations/topic-recommendation-learning');
 const { buildBlogPublishResultEvidence } = require('../memory/blog-publish-result');
+const { normalizePublishTargets } = require('../content/single-publish-target');
 const {
     MANUAL_PUBLISH_BLOCKED_CODE,
     assertDirectPublishAllowed
@@ -482,8 +483,12 @@ function createPublishActionsRuntime(deps = {}) {
         const selectedTargets = Array.isArray(requestBody?.targets)
             ? requestBody.targets.map((item) => String(item || '').trim().toLowerCase()).filter(Boolean)
             : generatedTargets.slice();
-        if (selectedTargets.length === 0) {
-            return { success: false, code: 'INVALID_TARGETS', message: '포스팅 대상을 하나 이상 선택해야 합니다.' };
+        if (selectedTargets.length !== 1) {
+            return {
+                success: false,
+                code: selectedTargets.length === 0 ? 'PUBLISH_TARGET_REQUIRED' : 'MULTIPLE_PUBLISH_TARGETS',
+                message: '하나의 원고에는 발행 대상을 하나만 선택해 주세요.'
+            };
         }
         const missingPreviewTargets = selectedTargets.filter((target) => !generatedTargets.includes(target) || !session.targetDirs?.[target]);
         if (missingPreviewTargets.length > 0) {
@@ -684,7 +689,8 @@ function createPublishActionsRuntime(deps = {}) {
         };
     }
 
-    async function executeQuickPublish(requestBody) {
+    async function executeQuickPublish(requestBody, executionOptions = {}) {
+        const workspaceDraft = executionOptions.workspaceDraft === true;
         const subject = String(requestBody?.subject || '').trim();
         const title = String(requestBody?.title || '').trim();
         const keywords = normalizeKeywords(requestBody?.keywords);
@@ -729,7 +735,14 @@ function createPublishActionsRuntime(deps = {}) {
             referenceUrl = Utils.convertToMobileNaverBlogUrl(referenceUrl);
         }
         const publishMode = normalizePublishMode(requestBody?.publishMode);
-        const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
+        const targets = normalizePublishTargets(Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver']);
+        if (targets.length !== 1) {
+            return {
+                success: false,
+                code: targets.length === 0 ? 'PUBLISH_TARGET_REQUIRED' : 'MULTIPLE_PUBLISH_TARGETS',
+                message: '하나의 원고에는 발행 대상을 하나만 선택해 주세요.'
+            };
+        }
         if (publishMode !== 'append_only' && publishMode !== 'append_and_generate' && publishMode !== 'publish') {
             return {
                 success: false,
@@ -785,14 +798,16 @@ function createPublishActionsRuntime(deps = {}) {
         });
         const existingEntry = getQuickPublishRecentEntry(dedupeKey) || null;
 
-        await Utils.ensureAllSheetsExist();
+        if (!workspaceDraft) await Utils.ensureAllSheetsExist();
 
         let appendStatus = (publishMode === 'append_and_generate' || publishMode === 'publish') ? '발행 준비 완료' : '대기';
         let rowNumber = null;
         let rowIndex = null;
         let deduplicated = false;
 
-        if (existingEntry && Number.isInteger(existingEntry.rowIndex)) {
+        if (workspaceDraft) {
+            // Draft workspace generation is intentionally local until the user confirms publication.
+        } else if (existingEntry && Number.isInteger(existingEntry.rowIndex)) {
             deduplicated = true;
             rowNumber = existingEntry.rowNumber ?? null;
             rowIndex = existingEntry.rowIndex;
@@ -928,13 +943,15 @@ function createPublishActionsRuntime(deps = {}) {
             enableRelatedPostsAutoLink
         };
 
-        await recordTopicRecommendationOutcome({
-            requestBody,
-            stage: 'saved',
-            subject: finalSubject,
-            entityRef: Number.isInteger(rowIndex) ? `topics-row-${rowIndex}` : dedupeKey,
-            resultRef: String(rowNumber || rowIndex || dedupeKey)
-        });
+        if (!workspaceDraft) {
+            await recordTopicRecommendationOutcome({
+                requestBody,
+                stage: 'saved',
+                subject: finalSubject,
+                entityRef: Number.isInteger(rowIndex) ? `topics-row-${rowIndex}` : dedupeKey,
+                resultRef: String(rowNumber || rowIndex || dedupeKey)
+            });
+        }
 
         if (publishMode === 'append_and_generate') {
             const generated = await buildMultiPlatformGeneratedContent(publishParams);
@@ -949,14 +966,16 @@ function createPublishActionsRuntime(deps = {}) {
                     title: '빠른 포스팅 미리보기 생성 실패',
                     detail: generated.message || finalSubject
                 });
-                setQuickPublishRecentEntry(dedupeKey, {
-                    rowNumber,
-                    rowIndex,
-                    status: '발행 준비 완료',
-                    published: false,
-                    targetDir: null,
-                    updatedAtMs: Date.now()
-                });
+                if (!workspaceDraft) {
+                    setQuickPublishRecentEntry(dedupeKey, {
+                        rowNumber,
+                        rowIndex,
+                        status: '발행 준비 완료',
+                        published: false,
+                        targetDir: null,
+                        updatedAtMs: Date.now()
+                    });
+                }
                 return { success: false, code: 'GENERATE_FAILED', message: generated.message || '저장 및 생성에 실패했습니다.' };
             }
 
@@ -1026,16 +1045,18 @@ function createPublishActionsRuntime(deps = {}) {
                 recommendation: requestBody?.recommendation || null
             });
 
-            setQuickPublishRecentEntry(dedupeKey, {
-                rowNumber,
-                rowIndex,
-                status: '발행 준비 완료',
-                published: false,
-                targetDir: primaryTargetDir,
-                updatedAtMs: Date.now()
-            });
+            if (!workspaceDraft) {
+                setQuickPublishRecentEntry(dedupeKey, {
+                    rowNumber,
+                    rowIndex,
+                    status: '발행 준비 완료',
+                    published: false,
+                    targetDir: primaryTargetDir,
+                    updatedAtMs: Date.now()
+                });
+            }
 
-            if (Number.isInteger(rowIndex)) {
+            if (!workspaceDraft && Number.isInteger(rowIndex)) {
                 await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', `생성 완료 (${primaryTarget}): ${path.basename(primaryTargetDir)}`);
             }
 
@@ -1189,7 +1210,7 @@ function createPublishActionsRuntime(deps = {}) {
         const selectedFiles = Array.isArray(requestBody?.selectedFiles) ? requestBody.selectedFiles : [];
         const hasPastedMarkdown = Object.prototype.hasOwnProperty.call(requestBody, 'markdownText');
         const markdownText = hasPastedMarkdown ? String(requestBody.markdownText || '') : '';
-        const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
+        const targets = normalizePublishTargets(Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver']);
         const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : Boolean(CONFIG.HEADLESS);
         const postStatus = String(requestBody?.postStatus || 'publish').trim() || 'publish';
         const scheduleDate = String(requestBody?.scheduleDate || '').trim();
@@ -1216,8 +1237,12 @@ function createPublishActionsRuntime(deps = {}) {
         if (selectedFiles.length === 0 && !markdownText.trim()) {
             return { success: false, code: 'INVALID_LOCAL_MARKDOWN_SOURCE', message: '선택하거나 붙여넣은 원고가 없습니다.' };
         }
-        if (!Array.isArray(targets) || targets.length === 0) {
-            return { success: false, code: 'INVALID_TARGETS', message: '포스팅 대상을 1개 이상 선택해야 합니다.' };
+        if (targets.length !== 1) {
+            return {
+                success: false,
+                code: targets.length === 0 ? 'PUBLISH_TARGET_REQUIRED' : 'MULTIPLE_PUBLISH_TARGETS',
+                message: '하나의 원고에는 발행 대상을 하나만 선택해 주세요.'
+            };
         }
         if (postStatus === 'schedule' && !scheduleDate) {
             return { success: false, code: 'INVALID_SCHEDULE_DATE', message: '예약 발행을 위해서는 예약 일시가 필요합니다.' };
@@ -1512,9 +1537,17 @@ function createPublishActionsRuntime(deps = {}) {
         }
         const publishMode = normalizePublishMode(requestBody?.publishMode);
         const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : Boolean(CONFIG.HEADLESS);
-        const targets = Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver'];
+        const targets = normalizePublishTargets(Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver']);
         const postStatus = String(requestBody?.postStatus || 'publish').trim() || 'publish';
         const scheduleDate = String(requestBody?.scheduleDate || '').trim();
+
+        if (targets.length !== 1) {
+            return {
+                success: false,
+                code: targets.length === 0 ? 'PUBLISH_TARGET_REQUIRED' : 'MULTIPLE_PUBLISH_TARGETS',
+                message: '하나의 쇼핑 원고에는 발행 대상을 하나만 선택해 주세요.'
+            };
+        }
 
         if (!shortUrl) {
             return { success: false, code: 'INVALID_SHOPPING_URL', message: '쇼핑 URL은 필수입니다.' };

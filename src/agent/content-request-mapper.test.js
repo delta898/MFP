@@ -26,7 +26,7 @@ test('maps legacy register and publish actions into canonical content bundle', a
                     data: {
                         theme: '정규화된 주제',
                         keywords: ['alpha', 'beta'],
-                        platforms: ['naver', 'wordpress'],
+                        platforms: ['wordpress'],
                         options: {
                             image_gen: false,
                             external_reference: true,
@@ -41,8 +41,8 @@ test('maps legacy register and publish actions into canonical content bundle', a
                 return {
                     success: true,
                     data: {
-                        target: 'all',
-                        platforms: ['naver', 'wordpress'],
+                        target: 'wordpress',
+                        platforms: ['wordpress'],
                         auto_trigger: true,
                         settingsOverrides: {
                             PUBLISH_AUTO_HEADLESS: true
@@ -86,7 +86,7 @@ test('maps legacy register and publish actions into canonical content bundle', a
     assert.deepEqual(bundle.register_request.payload, {
         theme: '정규화된 주제',
         keywords: ['alpha', 'beta'],
-        platforms: ['naver', 'wordpress'],
+        platforms: ['wordpress'],
         options: {
             image_gen: false,
             external_reference: true,
@@ -97,7 +97,7 @@ test('maps legacy register and publish actions into canonical content bundle', a
         },
         source: 'telegram'
     });
-    assert.deepEqual(bundle.publish_request.payload.platforms, ['naver', 'wordpress']);
+    assert.deepEqual(bundle.publish_request.payload.platforms, ['wordpress']);
     assert.equal(bundle.publish_request.payload.options.post_status, 'draft');
     assert.equal(bundle.ui.show_publish_options, true);
     assert.equal(isPublishExecutionEnabled(bundle), true);
@@ -140,18 +140,17 @@ test('toggle operations mutate canonical bundle without falling back to legacy a
     assert.equal(isPublishExecutionEnabled(afterAutoTriggerToggle), false);
 });
 
-test('publish-only bundle keeps platforms empty when target is all', async () => {
-    const bundle = await mapLegacyTelegramContentRequest({
-        actions: [
-            {
-                action: 'publish_article',
-                params: { target: 'all' }
-            }
-        ],
-        meta: {}
-    }, buildContext(), {});
-
-    assert.equal(bundle.register_request, null);
-    assert.deepEqual(bundle.publish_request.payload.platforms, []);
-    assert.equal(bundle.publish_request.payload.auto_trigger, true);
+test('publish-only bundle rejects the ambiguous all target', async () => {
+    await assert.rejects(
+        mapLegacyTelegramContentRequest({
+            actions: [
+                {
+                    action: 'publish_article',
+                    params: { target: 'all' }
+                }
+            ],
+            meta: {}
+        }, buildContext(), {}),
+        /발행 대상을 정확히 하나 지정/
+    );
 });

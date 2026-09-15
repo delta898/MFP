@@ -40,12 +40,14 @@
 }
 
 .blog-next-view .category-option-btn:focus,
-.blog-next-view input[type="checkbox"]:focus {
+.blog-next-view input[type="checkbox"]:focus,
+.blog-next-view input[type="radio"]:focus {
   outline: none;
 }
 
 .blog-next-view .category-option-btn:focus-visible,
-.blog-next-view input[type="checkbox"]:focus-visible {
+.blog-next-view input[type="checkbox"]:focus-visible,
+.blog-next-view input[type="radio"]:focus-visible {
   outline: none;
   box-shadow: var(--ui-focus-ring);
 }

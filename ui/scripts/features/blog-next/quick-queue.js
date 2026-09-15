@@ -45,7 +45,7 @@ function normalizeBlogNextTopicDefaults(value = {}) {
     ? value.platforms.filter(platform => ['naver', 'wordpress'].includes(platform))
     : BLOG_NEXT_BUILTIN_DEFAULTS.platforms;
   return {
-    platforms: platforms.length > 0 ? [...new Set(platforms)] : ['naver'],
+    platforms: platforms.length === 1 ? [...new Set(platforms)] : ['naver'],
     naverCategory: String(value.naverCategory || ''),
     wordpressCategory: String(value.wordpressCategory || ''),
     writingStrategy: ['search', 'discovery'].includes(value.writingStrategy) ? value.writingStrategy : 'search',
@@ -131,8 +131,8 @@ function setBlogNextTopicBusy(busy, action = '') {
   }
   if (publishButton) {
     publishButton.textContent = runnerActive ? '포스팅 진행 중...'
-      : busy && action === 'publish-now' ? '준비 중...'
-        : '바로 포스팅';
+      : busy && action === 'publish-now' ? '원고 만드는 중...'
+        : '원고 만들기';
   }
   syncBlogNextTopicActionAvailability();
 }
@@ -342,13 +342,14 @@ function populateBlogNextTopicForm(item = {}, sourceStatus) {
   blogNextEditingSourceStatus = sourceStatus;
   const categories = parseBlogNextQueueCategory(item);
   const platforms = Array.isArray(item.options?.platforms) ? item.options.platforms : [];
+  const singlePlatform = platforms.length === 1 ? platforms[0] : '';
   document.getElementById('blog-next-subject').value = item.subject || '';
   document.getElementById('blog-next-title').value = item.title || item.options?.title || '';
   document.getElementById('blog-next-keywords').value = Array.isArray(item.keywords) ? item.keywords.join(', ') : item.keywordsRaw || '';
   document.getElementById('blog-next-instruction').value = item.content_guide?.additional_instructions || '';
   document.getElementById('blog-next-reference-url').value = Array.isArray(item.content_guide?.reference_urls) ? item.content_guide.reference_urls.join(', ') : '';
-  document.getElementById('blog-next-target-naver').checked = platforms.includes('naver');
-  document.getElementById('blog-next-target-wordpress').checked = platforms.includes('wordpress');
+  document.getElementById('blog-next-target-naver').checked = singlePlatform === 'naver';
+  document.getElementById('blog-next-target-wordpress').checked = singlePlatform === 'wordpress';
   document.getElementById('blog-next-naver-category').value = categories.naver;
   document.getElementById('blog-next-wordpress-category').value = categories.wordpress;
   document.getElementById('blog-next-writing-strategy').value = item.writing_strategy || item.options?.writing_strategy || 'search';
@@ -393,7 +394,9 @@ function populateBlogNextTopicForm(item = {}, sourceStatus) {
   moveBlogNextTopicFormToQueueEditor();
   blogNextEditingInitialSnapshot = snapshotBlogNextEditingPayload();
   syncBlogNextTopicActionAvailability();
-  setBlogNextTopicResult('');
+  setBlogNextTopicResult(platforms.length > 1
+    ? '기존 글감에 발행 대상이 여러 개 저장되어 있습니다. 하나를 선택한 뒤 저장해 주세요.'
+    : '', platforms.length > 1 ? 'error' : '');
   document.getElementById('blog-next-subject')?.focus();
 }
 
@@ -714,10 +717,7 @@ function initBlogNextQuickQueue() {
   form.addEventListener('submit', (event) => { event.preventDefault(); submitBlogNextTopic('enqueue'); });
   document.getElementById('blog-next-save-topic')?.addEventListener('click', () => submitBlogNextTopic('save'));
   document.getElementById('blog-next-publish-now')?.addEventListener('click', async () => {
-    const confirmed = await showUiConfirm('현재 발행 계획으로 이 글을 바로 처리할까요?', {
-      title: '바로 포스팅', confirmText: '실행', cancelText: '취소'
-    });
-    if (confirmed) submitBlogNextTopic('publish-now');
+    await generateBlogNextAiDraft();
   });
   document.getElementById('blog-next-clear-topic')?.addEventListener('click', async () => {
     const snapshot = captureBlogNextClearableContent();
@@ -741,6 +741,7 @@ function initBlogNextQuickQueue() {
     }
     syncBlogNextQuickFlowSummaries();
     syncBlogNextTopicActionAvailability();
+    markBlogNextAiDraftSourceChanged(event.target?.id || '');
   });
   form.addEventListener('input', (event) => {
     syncBlogNextQuickFlowSummaries();
@@ -748,6 +749,7 @@ function initBlogNextQuickQueue() {
       setBlogNextClearUndoAvailable(false);
     }
     syncBlogNextTopicClearAction();
+    markBlogNextAiDraftSourceChanged(event.target?.id || '');
   });
   syncBlogNextQuickFlowSummaries();
   syncBlogNextTopicClearAction();

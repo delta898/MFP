@@ -286,8 +286,9 @@ function openShoppingEditor(rowIndex) {
   const targets = Array.isArray(item.targets)
     ? item.targets
     : (Array.isArray(item.options?.platforms) ? item.options.platforms : []);
-  document.getElementById('shopping-edit-target-naver').checked = targets.includes('naver');
-  document.getElementById('shopping-edit-target-wordpress').checked = targets.includes('wordpress');
+  const singleTarget = targets.length === 1 ? targets[0] : '';
+  document.getElementById('shopping-edit-target-naver').checked = singleTarget === 'naver';
+  document.getElementById('shopping-edit-target-wordpress').checked = singleTarget === 'wordpress';
 
   // 카테고리 파싱 (N:..., W:...)
   let naverCategory = '';
@@ -309,7 +310,9 @@ function openShoppingEditor(rowIndex) {
   document.getElementById('shopping-edit-status').value = item.status || '준비';
   updateShoppingEditorSettings();
 
-  document.getElementById('shopping-edit-result').textContent = '';
+  document.getElementById('shopping-edit-result').textContent = targets.length > 1
+    ? '기존 글감에 발행 대상이 여러 개 저장되어 있습니다. 하나를 선택한 뒤 저장해 주세요.'
+    : '';
   document.getElementById('shopping-edit-modal-backdrop').classList.remove('hidden');
 }
 
@@ -338,8 +341,8 @@ async function saveShoppingModifications() {
     document.getElementById('shopping-edit-target-wordpress').checked ? 'wordpress' : ''
   ].filter(Boolean);
 
-  if (status === '발행 준비 완료' && targets.length === 0) {
-    resultBox.textContent = '발행 대기열로 옮기려면 포스팅 대상을 하나 이상 선택해 주세요.';
+  if (status === '발행 준비 완료' && targets.length !== 1) {
+    resultBox.textContent = '발행 대기열로 옮기려면 포스팅 대상을 하나 선택해 주세요.';
     return;
   }
   if (postStatus === 'schedule' && !scheduleDate) {

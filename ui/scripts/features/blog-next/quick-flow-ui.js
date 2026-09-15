@@ -82,7 +82,8 @@ function readBlogNextTopicActionValidity() {
 
 function syncBlogNextTopicActionAvailability() {
   const { ideaValid, readyValid } = readBlogNextTopicActionValidity();
-  const busy = typeof blogNextTopicSubmitting !== 'undefined' && blogNextTopicSubmitting;
+  const aiDraftGenerating = typeof blogNextDraftState !== 'undefined' && blogNextDraftState.ai?.generating === true;
+  const busy = (typeof blogNextTopicSubmitting !== 'undefined' && blogNextTopicSubmitting) || aiDraftGenerating;
   const editing = typeof blogNextEditingRowIndex !== 'undefined' && blogNextEditingRowIndex !== null;
   const editingReady = typeof blogNextEditingSourceStatus !== 'undefined'
     && blogNextEditingSourceStatus === '발행 준비 완료';

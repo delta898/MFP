@@ -51,7 +51,7 @@ test('ready row keeps the topic-owned delivery plan in sheet options', () => {
         keywords: '제주, 아침 산책, 제주',
         instruction: '경험 중심으로 작성',
         referenceUrl: 'https://example.com/reference',
-        platforms: ['naver', 'wordpress'],
+        platforms: ['wordpress'],
         naverCategory: '여행',
         wordpressCategory: 'Daily',
         writingStrategy: 'discovery',
@@ -69,7 +69,7 @@ test('ready row keeps the topic-owned delivery plan in sheet options', () => {
 
     assert.equal(row.status, TOPIC_STATUS.READY);
     assert.deepEqual(row.keywords, ['제주', '아침 산책']);
-    assert.deepEqual(row.targets, ['naver', 'wordpress']);
+    assert.deepEqual(row.targets, ['wordpress']);
     assert.equal(row.options.naver_category, '여행');
     assert.equal(row.options.title, '아침 산책에서 뜻밖에 마주친 것');
     assert.equal(row.options.wordpress_category, 'Daily');
@@ -84,6 +84,12 @@ test('ready row keeps the topic-owned delivery plan in sheet options', () => {
     assert.equal(row.options.external_reference, false);
     assert.equal(row.options.post_status, 'schedule');
     assert.equal(row.options.schedule_date, '2026-09-01T10:30');
+});
+
+test('topic capture requires legacy multi-target rows to be resolved explicitly', () => {
+    const result = validateTopicCapture({ subject: '기존 글감', platforms: ['naver', 'wordpress'] }, { ready: true });
+    assert.equal(result.valid, false);
+    assert.equal(result.errors[0].code, 'MULTIPLE_PUBLISH_TARGETS');
 });
 
 test('topic capture rejects unsupported writing overrides', () => {

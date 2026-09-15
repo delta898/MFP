@@ -95,3 +95,44 @@ test('local manuscript publishing releases the shared lock after failure', async
     assert.deepEqual(coordinator.getStatus(), { busy: false });
     assert.deepEqual(await service.localMarkdownPublish({ folderName: '원고 폴더' }), { status: '완료', completionLinks: [] });
 });
+
+test('direct AI manuscript generation stays local until the user publishes and imports one platform result', async () => {
+    const coordinator = createBlogNextExecutionCoordinator();
+    const calls = [];
+    const manuscriptDraftService = {
+        createAiDraft(input) {
+            calls.push(['draft', input]);
+            return { draftId: 'draft-ai', revision: 1 };
+        }
+    };
+    const service = createService(coordinator, async () => ({ success: true, data: {} }), {}, {
+        manuscriptDraftService,
+        executeQuickPublish: async (input, options) => {
+            calls.push(['generate', input, options]);
+            return {
+                success: true,
+                data: {
+                    previewId: 'preview-1',
+                    primaryTarget: 'wordpress',
+                    targets: ['wordpress'],
+                    previews: {
+                        wordpress: {
+                            title: 'AI 원고',
+                            rawMarkdown: '# AI 원고\n\n[[IMAGE_0\ntitle: 이미지\nprompt: prompt\n]]',
+                            images: [{ index: 0, exists: true }]
+                        }
+                    }
+                }
+            };
+        },
+        getQuickPreviewImagePayload: () => ({ binary: true, body: Buffer.from('image') })
+    });
+
+    const result = await service.createAiManuscriptDraft({ subject: '주제', platforms: ['wordpress'] });
+    assert.deepEqual(result, { draftId: 'draft-ai', revision: 1 });
+    assert.equal(calls[0][1].publishMode, 'append_and_generate');
+    assert.deepEqual(calls[0][2], { workspaceDraft: true });
+    assert.deepEqual(calls[1][1].targets, ['wordpress']);
+    assert.equal(calls[1][1].images.length, 1);
+    assert.deepEqual(coordinator.getStatus(), { busy: false });
+});

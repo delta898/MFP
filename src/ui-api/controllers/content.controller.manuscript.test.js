@@ -8,6 +8,7 @@ function harness(overrides = {}) {
     const service = {
         createFolderManuscriptDraft: async (input) => (calls.push(['create', input]), { draftId: 'draft-1' }),
         createPasteManuscriptDraft: async (input) => (calls.push(['create-paste', input]), { draftId: 'draft-2' }),
+        createAiManuscriptDraft: async (input) => (calls.push(['create-ai', input]), { draftId: 'draft-3' }),
         getManuscriptDraft: async (input) => (calls.push(['get', input]), { draftId: input.draftId }),
         updateManuscriptDraftSettings: async (input) => (calls.push(['settings', input]), input),
         updateManuscriptDraftMarkdown: async (input) => (calls.push(['markdown', input]), input),
@@ -42,6 +43,12 @@ test('creates a pasted manuscript draft through its dedicated adapter', async ()
     const { controller, calls } = harness();
     await controller.manuscriptDraftCreatePaste({ requestId: 'req', method: 'POST', requestBody: { markdownText: '# 원고' }, res: {} });
     assert.deepEqual(calls[0], ['create-paste', { markdownText: '# 원고' }]);
+});
+
+test('creates a direct AI manuscript draft through its dedicated adapter', async () => {
+    const { controller, calls } = harness();
+    await controller.manuscriptDraftCreateAi({ requestId: 'req', method: 'POST', requestBody: { subject: '주제' }, res: {} });
+    assert.deepEqual(calls[0], ['create-ai', { subject: '주제' }]);
 });
 
 test('streams a manuscript image with no-store caching', async () => {

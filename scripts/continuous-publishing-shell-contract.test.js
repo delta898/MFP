@@ -79,7 +79,7 @@ test('Blog Beta shell does not call data, AI, or publishing APIs during Stage 1'
     assert.doesNotMatch(betaScript, /fetchJson|postJson|fetch\s*\(|publish|appendGoogleSheet|generate/i);
 });
 
-test('Blog Beta Stage 2 exposes AI-free topic capture and the Topics-backed queue', () => {
+test('Blog Beta quick writing keeps topic capture and adds the canonical AI manuscript action', () => {
     const betaView = readBlogNextView();
     const quickQueueScript = read('ui/scripts/features/blog-next/quick-queue.js');
     const publishIndex = betaView.indexOf('id="blog-next-publish-now"');
@@ -89,7 +89,7 @@ test('Blog Beta Stage 2 exposes AI-free topic capture and the Topics-backed queu
 
     assert.match(betaView, /id="blog-next-save-topic"[^>]*>글감 보관/);
     assert.match(betaView, /id="blog-next-enqueue-topic"[^>]*>발행 대기열에 추가/);
-    assert.match(betaView, /class="primary" id="blog-next-publish-now"[^>]*>바로 포스팅/);
+    assert.match(betaView, /class="primary" id="blog-next-publish-now"[^>]*>원고 만들기/);
     assert.match(betaView, /class="ghost blog-next-clear-action" id="blog-next-clear-topic"[^>]*hidden>내용 지우기/);
     assert.match(betaView, /class="ghost blog-next-cancel-action" id="blog-next-cancel-edit"[^>]*hidden>취소/);
     assert.equal(clearIndex < saveIndex && saveIndex < enqueueIndex && enqueueIndex < publishIndex, true);
@@ -98,6 +98,7 @@ test('Blog Beta Stage 2 exposes AI-free topic capture and the Topics-backed queu
     assert.match(quickQueueScript, /\/api\/v1\/continuous-publishing\/topics/);
     assert.match(quickQueueScript, /\/api\/v1\/continuous-publishing\/queue/);
     assert.match(quickQueueScript, /getElementById\('blog-next-cancel-edit'\).*closeBlogNextEditor/);
+    assert.match(quickQueueScript, /generateBlogNextAiDraft\(\)/);
     assert.doesNotMatch(quickQueueScript, /quick-publish|quick-preview|generateContent|publishBlog|reserveQuota/i);
 });
 
@@ -263,7 +264,7 @@ test('Stage 10 keeps trend discovery manual and hands one selection to quick wri
     assert.match(trendScript, /data-blog-next-trend-select/);
     assert.match(trendScript, /data-blog-next-trend-save/);
     assert.match(trendScript, /\/api\/v1\/trend-posting\/topics/);
-    assert.match(betaView, /id="blog-next-publish-now"[^>]*>바로 포스팅/);
+    assert.match(betaView, /id="blog-next-publish-now"[^>]*>원고 만들기/);
     assert.match(trendScript, /\/api\/v1\/trend-posting\/meta/);
     assert.match(trendScript, /\/api\/v1\/trend-posting\/keywords/);
     assert.match(trendScript, /activateBlogNextTab\('quick'\)/);

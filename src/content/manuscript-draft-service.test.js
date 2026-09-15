@@ -71,6 +71,48 @@ test('creates and publishes pasted Markdown through the canonical draft', () => 
     }
 });
 
+test('creates one AI draft from generated Markdown and preserves generated originals', () => {
+    const { workspaceDir, service } = fixture();
+    try {
+        const created = service.createAiDraft({
+            markdownText: '# AI 원고\n\n[[IMAGE_0\ntitle: 생성 이미지\nprompt: 햇살 드는 작업실\n]]\n\n본문',
+            images: [{ index: 0, buffer: PNG }],
+            targets: ['wordpress'],
+            sourceLabel: 'AI 원고'
+        });
+        assert.equal(created.sourceKind, 'ai');
+        assert.equal(created.source.type, 'generated_quick_post');
+        assert.equal(created.images[0].assetOrigin, 'generated');
+        const replaced = service.importLocalImage({
+            draftId: created.draftId,
+            revision: created.revision,
+            slotId: 'image-0',
+            base64Data: PNG.toString('base64')
+        });
+        const restored = service.restoreImage({ draftId: created.draftId, revision: replaced.revision, slotId: 'image-0' });
+        assert.equal(restored.images[0].assetOrigin, 'generated');
+        assert.equal(service.buildPublishPayload({ draftId: created.draftId, revision: restored.revision }).sourceKind, 'ai');
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('rejects multiple publish targets for every canonical manuscript source', () => {
+    const { workspaceDir, service, input } = fixture();
+    try {
+        assert.throws(
+            () => service.createFolderDraft({ ...input, targets: ['naver', 'wordpress'] }),
+            (error) => error.code === 'MULTIPLE_PUBLISH_TARGETS'
+        );
+        assert.throws(
+            () => service.createPasteDraft({ markdownText: '# 원고', targets: ['naver', 'wordpress'] }),
+            (error) => error.code === 'MULTIPLE_PUBLISH_TARGETS'
+        );
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('updates pasted Markdown while preserving matching image slot state', () => {
     const { workspaceDir, service } = fixture();
     try {

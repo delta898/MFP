@@ -702,7 +702,7 @@ test('ready topic save validates content and preserves row identity and queue lo
         subject: '수정한 글감',
         title: '수정한 최종 제목',
         keywords: '제주, 산책',
-        platforms: ['naver', 'wordpress'],
+        platforms: ['wordpress'],
         postStatus: 'draft',
         writingStrategy: 'discovery',
         imageMode: 'none'
@@ -712,7 +712,7 @@ test('ready topic save validates content and preserves row identity and queue lo
     assert.equal(result.action, 'save');
     assert.equal(result.status, '발행 준비 완료');
     assert.equal(state.updatedRowIndex, 2);
-    assert.deepEqual(state.updatedFields.platforms, ['naver', 'wordpress']);
+    assert.deepEqual(state.updatedFields.platforms, ['wordpress']);
     assert.equal(state.updatedFields.status, '발행 준비 완료');
     assert.equal(state.updatedFields.postStatus, 'draft');
     assert.equal(state.updatedFields.title, '수정한 최종 제목');

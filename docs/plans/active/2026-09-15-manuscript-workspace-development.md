@@ -134,6 +134,7 @@ read-only다.
 
 - [Stage 01: Draft/Image Asset contract and folder workflow](../archive/2026-09-15-manuscript-workspace-01-contract-folder-development.md) — complete
 - [Stage 02: Paste adapter](../archive/2026-09-15-manuscript-workspace-02-paste-development.md) — complete
+- [Stage 03: Direct AI adapter](../archive/2026-09-15-manuscript-workspace-03-ai-development.md) — complete
 
 ## Decisions and Tradeoffs
 
@@ -146,6 +147,8 @@ read-only다.
   preview마다 재전송하지 않는 계약을 우선한다.
 - 쇼핑커넥트 확장을 위해 공통 Draft에는 provider별 상품 literal이나 발행 규칙을 넣지 않는다. 기능별 필수
   validation과 projection은 adapter/capability 경계에 남기고, 공통 workspace는 원고·asset·revision만 소유한다.
+- 하나의 원고는 하나의 플랫폼에만 발행한다. UI는 radio로 통일하고 저장 배열은 호환성을 유지하되 정확히 한
+  원소만 허용한다. 기존 다중 대상 데이터는 묵시적으로 축소하지 않고 사용자가 편집해 선택하도록 한다.
 
 ## Verification Strategy
 
@@ -180,15 +183,22 @@ read-only다.
   shared image actions, missing-image Draft safety, exact-revision publishing, and aligned card actions.
 - 2026-09-15: Stage 02 passed focused tests, the browser fixture flow, and its full unit gate with 1,788 tests, 1,787 passed,
   1 intentionally skipped, and 0 failed. The user approved parent integration and deferred Draft cleanup to Stage 05.
+- 2026-09-15: Stage 03 began on a dedicated sub-feature branch to converge direct AI generation results into the common
+  Draft/Image Slot workspace.
+- 2026-09-15: Stage 03 implemented single-platform direct AI generation, canonical Draft import, shared image workspace,
+  exact-revision publishing and single-target enforcement across writing surfaces. Focused backend/UI contracts and the
+  browser fixture smoke passed.
+- 2026-09-15: Stage 03 passed its full unit merge gate with 1,798 tests, 1,797 passed, 1 intentionally skipped, and
+  0 failed. The browser fixture smoke also passed after the final UI module split.
 
 ## Current Result
 
-The parent now contains complete folder and paste adapters using the common Draft/Image Slot workspace. Direct AI generation
-is the next adapter stage; text editing and lifecycle integration remain pending.
+The parent is ready to receive the completed direct AI adapter and single-platform publishing rule. Text editing and
+lifecycle integration remain pending.
 
 ## Remaining Risks
 
-- Current AI quick generation stores target-specific directories. Stage 03 must preserve existing generation and Sheet
-  semantics while introducing a canonical editable Draft.
+- The direct AI adapter still uses a transient generated preview directory before importing the canonical Draft; Stage 05
+  must clean that intermediate workspace safely.
 - Local image decoding must reject disguised or corrupt input based on content, not only filename or browser MIME.
 - Draft cleanup must not remove assets still referenced by an active or retryable publication.

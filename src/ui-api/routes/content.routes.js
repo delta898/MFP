@@ -6,6 +6,7 @@ function createContentRouteHandler(deps = {}) {
 
         if (pathname === '/api/v1/blog/manuscript-drafts/folder') return controller.manuscriptDraftCreateFolder(ctx);
         if (pathname === '/api/v1/blog/manuscript-drafts/paste') return controller.manuscriptDraftCreatePaste(ctx);
+        if (pathname === '/api/v1/blog/manuscript-drafts/ai') return controller.manuscriptDraftCreateAi(ctx);
         const manuscriptBulkImageMatch = pathname.match(/^\/api\/v1\/blog\/manuscript-drafts\/([^/]+)\/images\/(generate-missing)$/);
         if (manuscriptBulkImageMatch) {
             return controller.manuscriptDraftMutation({ ...ctx, draftId: decodeURIComponent(manuscriptBulkImageMatch[1]), action: manuscriptBulkImageMatch[2] });

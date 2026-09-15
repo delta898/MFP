@@ -67,7 +67,7 @@ test('folder and paste modes share one manuscript publishing grammar', () => {
 
 test('folder and paste previews share one reading surface and image workspace', () => {
   const html = readBlogNextView();
-  const script = read('ui/scripts/features/blog-next/draft-inputs.js');
+  const script = `${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-execution.js')}`;
   const css = read('ui/styles/features/blog-next-baseline.css');
 
   for (const type of ['folder', 'paste']) {

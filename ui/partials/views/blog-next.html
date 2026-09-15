@@ -159,8 +159,8 @@
                           <span class="tooltip-text" id="blog-next-help-publish-targets" role="tooltip">이 글감을 실제로 올릴 블로그를 선택합니다. 선택한 대상과 카테고리는 이 글감에 저장됩니다.</span>
                         </span>
                       </legend>
-                      <label><input id="blog-next-target-naver" type="checkbox" value="naver" checked> 네이버 블로그</label>
-                      <label><input id="blog-next-target-wordpress" type="checkbox" value="wordpress"> 워드프레스</label>
+                      <label><input id="blog-next-target-naver" name="blog-next-publish-target" type="radio" value="naver" checked> 네이버 블로그</label>
+                      <label><input id="blog-next-target-wordpress" name="blog-next-publish-target" type="radio" value="wordpress"> 워드프레스</label>
                     </fieldset>
                     <label class="blog-next-field blog-next-dependent-field" id="blog-next-naver-category-field" data-dependency-active="true">
                       <span>네이버 카테고리 <small>(선택)</small></span>
@@ -178,11 +178,12 @@
                           <span class="tooltip-text" id="blog-next-help-post-status" role="tooltip">즉시 발행은 처리되는 즉시 공개하고, 임시 저장은 블로그에 초안으로 보관합니다. 예약 발행은 처리 시점에 원고와 공개 일시를 등록합니다.</span>
                         </span>
                       </span>
-                      <span class="ui-select-shell"><select id="blog-next-post-status">
+                      <span class="ui-select-shell"><select id="blog-next-post-status" aria-describedby="blog-next-ai-publish-safety-hint">
                         <option value="publish">즉시 발행</option>
                         <option value="draft">임시 저장</option>
                         <option value="schedule">예약 발행</option>
                       </select></span>
+                      <small id="blog-next-ai-publish-safety-hint" data-draft-image-safety-hint hidden></small>
                     </label>
                     <label class="blog-next-field blog-next-dependent-field" id="blog-next-schedule-field" data-dependency-active="false">
                       <span>예약 일시 <small id="blog-next-schedule-required" hidden>(필수)</small></span><span class="visually-hidden" id="blog-next-schedule-hint">예약 발행을 선택하면 활성화됩니다.</span>
@@ -213,10 +214,27 @@
                 <button class="ghost blog-next-cancel-action" id="blog-next-cancel-edit" type="button" hidden>취소</button>
                 <button class="secondary" id="blog-next-save-topic" type="button" disabled>글감 보관</button>
                 <button class="secondary" id="blog-next-enqueue-topic" type="submit" form="blog-next-topic-form" disabled>발행 대기열에 추가</button>
-                <button class="primary" id="blog-next-publish-now" type="button" disabled>바로 포스팅</button>
+                <button class="primary" id="blog-next-publish-now" type="button" disabled>원고 만들기</button>
               </div>
             </form>
             </div>
+            <div class="blog-next-draft-validation" data-blog-next-draft-validation="ai" role="status"
+              aria-live="polite" hidden></div>
+            <div class="blog-next-draft-preview blog-next-manuscript-preview local-markdown-preview-panel"
+              data-blog-next-draft-preview="ai" hidden>
+              <div class="local-markdown-preview-head">
+                <h4 data-draft-preview-title>제목 없음</h4>
+              </div>
+              <div class="local-markdown-body-preview" data-draft-preview-body aria-label="본문 미리보기"></div>
+              <details class="blog-next-manuscript-image-details" data-draft-preview-image-details>
+                <summary><strong>이미지 확인</strong><span data-draft-preview-image-summary>-</span></summary>
+                <div class="local-markdown-image-list" data-draft-preview-images></div>
+              </details>
+            </div>
+            <div class="blog-next-draft-actions" data-blog-next-draft-actions="ai" hidden>
+              <button class="primary" data-blog-next-draft-publish="ai" type="button" disabled>포스팅 실행</button>
+            </div>
+            <pre class="blog-next-draft-result" data-blog-next-draft-result="ai"></pre>
           </div>
           <!-- @include blog-next/quick-draft-modes.html -->
         </section>

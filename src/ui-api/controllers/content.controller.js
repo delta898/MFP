@@ -209,6 +209,15 @@ function createContentController(deps = {}) {
             }
         },
 
+        async manuscriptDraftCreateAi({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.createAiManuscriptDraft(requestBody || {}));
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'MANUSCRIPT_AI_GENERATE_FAILED', 'AI 원고를 만들지 못했습니다.', e);
+            }
+        },
+
         async manuscriptDraftGet({ requestId, method, draftId, res }) {
             if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
             try {

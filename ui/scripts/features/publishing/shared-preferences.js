@@ -7,18 +7,6 @@ function initGlobalPublishSettingsSync() {
       default: true
     },
     {
-      key: 'pub_pref_target_naver',
-      ids: ['quick-target-naver', 'quick-manuscript-target-naver', 'quick-pasted-target-naver', 'blog-batch-target-naver', 'shopping-quick-target-naver', 'blog-publish-auto-target-naver'],
-      type: 'checkbox',
-      default: true
-    },
-    {
-      key: 'pub_pref_target_wordpress',
-      ids: ['quick-target-wordpress', 'quick-manuscript-target-wordpress', 'quick-pasted-target-wordpress', 'blog-batch-target-wordpress', 'shopping-quick-target-wordpress', 'blog-publish-auto-target-wordpress'],
-      type: 'checkbox',
-      default: false
-    },
-    {
       key: 'pub_pref_blog_image_mode',
       ids: ['quick-image-mode', 'quick-manuscript-image-mode', 'quick-pasted-image-mode'],
       type: 'input',
@@ -44,6 +32,21 @@ function initGlobalPublishSettingsSync() {
     }
   ].filter(Boolean);
 
+  const publishTargetIds = {
+    naver: ['quick-target-naver', 'quick-manuscript-target-naver', 'quick-pasted-target-naver', 'blog-batch-target-naver', 'shopping-quick-target-naver', 'blog-publish-auto-target-naver'],
+    wordpress: ['quick-target-wordpress', 'quick-manuscript-target-wordpress', 'quick-pasted-target-wordpress', 'blog-batch-target-wordpress', 'shopping-quick-target-wordpress', 'blog-publish-auto-target-wordpress']
+  };
+
+  const applySharedPublishTarget = (target) => {
+    const selected = target === 'wordpress' ? 'wordpress' : 'naver';
+    Object.entries(publishTargetIds).forEach(([platform, ids]) => ids.forEach((id) => {
+      const element = document.getElementById(id);
+      if (element) element.checked = platform === selected;
+    }));
+    if (typeof toggleQuickWpOptions === 'function') toggleQuickWpOptions();
+    if (typeof toggleShoppingQuickWpOptions === 'function') toggleShoppingQuickWpOptions();
+  };
+
   // Helper to update all elements in a group
   const updateGroupUi = (group, value) => {
     group.ids.forEach(id => {
@@ -55,11 +58,6 @@ function initGlobalPublishSettingsSync() {
         el.value = value;
       }
     });
-    // Special Trigger: If WP target changed, sync WP options visibility
-    if (group.key === 'pub_pref_target_wordpress') {
-      if (typeof toggleQuickWpOptions === 'function') toggleQuickWpOptions();
-      if (typeof toggleShoppingQuickWpOptions === 'function') toggleShoppingQuickWpOptions();
-    }
   };
 
   // 1. Initial Load & Apply
@@ -71,6 +69,19 @@ function initGlobalPublishSettingsSync() {
     }
     updateGroupUi(group, saved);
   });
+
+  const legacyWordpressPreferred = localStorage.getItem('pub_pref_target_wordpress') === 'true'
+    && localStorage.getItem('pub_pref_target_naver') !== 'true';
+  const savedPublishTarget = localStorage.getItem('pub_pref_target') || (legacyWordpressPreferred ? 'wordpress' : 'naver');
+  localStorage.setItem('pub_pref_target', savedPublishTarget);
+  applySharedPublishTarget(savedPublishTarget);
+  Object.entries(publishTargetIds).forEach(([platform, ids]) => ids.forEach((id) => {
+    document.getElementById(id)?.addEventListener('change', (event) => {
+      if (!event.target.checked) return;
+      localStorage.setItem('pub_pref_target', platform);
+      applySharedPublishTarget(platform);
+    });
+  }));
 
   // 2. Event Listeners for Syncing
   syncGroups.forEach(group => {
