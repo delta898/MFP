@@ -19,6 +19,12 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   ].map(read).join('\n');
 
   assert.match(view, /class="card social-composer-card"/);
+  assert.match(view, /class="social-tabs ui-top-tabs"[^>]*role="tablist"/);
+  assert.match(view, /id="social-tab-button-compose"[^>]*aria-controls="social-tab-compose"[^>]*>직접 작성<\/button>/);
+  assert.match(view, /id="social-tab-compose" role="tabpanel"[^>]*aria-labelledby="social-tab-button-compose"/);
+  assert.match(view, /class="social-composer-intro blog-next-panel-lead blog-next-panel-intro"/);
+  assert.match(view, /<h2>SNS 게시물 작성<\/h2>/);
+  assert.match(view, /발행 채널을 고르고 메시지와 이미지를 준비해 발행하세요\./);
   assert.doesNotMatch(view, /class="[^"]*blog-next-panel[^"]*social-composer-card/);
   assert.doesNotMatch(view, /id="view-social"[^>]*data-style-scope=/);
   assert.doesNotMatch(view, /SNS에 바로 공유|채널을 고르고, 메시지와 이미지를 준비해 바로 발행하세요/);
@@ -36,6 +42,7 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.match(composer, /const snapshot = readManualSnsWorkspaceCache\(\)/);
   assert.match(composer, /refreshStaleSnapshot = !snapshot\.isFresh/);
   assert.match(styles, /\.social-view \.social-composer-card[\s\S]*?var\(--ui-border-default\)/);
+  assert.doesNotMatch(styles, /\.social-view \.view-title-block\s*\{/);
   assert.match(styles, /\.social-view \.social-channel-option[\s\S]*?var\(--ui-action-primary-soft\)/);
   assert.match(styles, /\.social-view \.social-composer-actions[\s\S]*?var\(--ui-border-default\)/);
   assert.doesNotMatch(styles, /var\(--(?:brand|text-|line|radius|shadow|transition|danger)\b/);

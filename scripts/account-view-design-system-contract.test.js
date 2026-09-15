@@ -11,8 +11,16 @@ test('account view uses the shared design system and provides a structured plan 
   const css = read('ui/styles/features/account.css');
 
   assert.match(html, /<section class="view account-view" id="view-account">/);
+  assert.match(html, /class="account-tabs ui-top-tabs"[^>]*role="tablist"/);
+  assert.match(html, /id="account-tab-button-overview"[^>]*aria-controls="account-tab-overview"[^>]*>이용 현황<\/button>/);
+  assert.match(html, /id="account-tab-overview" class="account-overview-panel" role="tabpanel"[^>]*aria-labelledby="account-tab-button-overview"/);
+  assert.match(html, /class="card account-overview-summary-panel"/);
+  assert.match(html, /class="account-overview-intro blog-next-panel-lead blog-next-panel-intro"/);
+  assert.match(html, /<h2>이용 현황<\/h2>/);
+  assert.match(html, /현재 플랜과 사용량, 서비스 연결 상태를 확인하세요\./);
+  assert.match(html, /class="ui-overview-eyebrow">현재 플랜<\/p>/);
   assert.doesNotMatch(html, /data-style-scope="compatibility"/);
-  assert.match(html, /class="account-usage-card ui-overview-card"/);
+  assert.match(html, /class="account-usage-card"/);
   assert.match(html, /id="account-plan-info-dialog" class="account-plan-info-dialog ui-transaction-dialog"/);
   assert.match(html, /<h3>Tester<\/h3>/);
   assert.match(html, /<h3>Ultra<\/h3>/);
@@ -21,7 +29,9 @@ test('account view uses the shared design system and provides a structured plan 
   assert.match(css, /\.account-usage-card,[\s\S]*?padding:\s*var\(--ui-space-5\);/);
   assert.doesNotMatch(css, /(?:--brand|--text-|--surface-|#[0-9a-f]{3,8}|rgba\()/i);
   assert.doesNotMatch(css, /\.account-view\s*\{[^}]*display/);
-  assert.match(css, /#view-account\.active/);
+  assert.match(css, /#view-account\.active\s*\{\s*display:\s*block;/);
+  assert.match(css, /\.account-overview-panel\s*\{\s*display:\s*grid;\s*gap:\s*var\(--ui-space-5\);/);
+  assert.match(css, /\.account-overview-summary-panel\s+\.account-overview-intro\s*\{\s*padding:\s*var\(--ui-density-section-padding\);/);
   assert.doesNotMatch(html, /account-supporting-region|account-refresh-btn/);
 });
 

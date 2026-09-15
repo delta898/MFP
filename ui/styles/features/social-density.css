@@ -8,8 +8,8 @@
   box-shadow: var(--ui-shadow-sm);
 }
 
-.social-view .view-title-block {
-  margin-bottom: var(--ui-density-page-gap);
+.social-view .social-composer-intro {
+  padding: var(--ui-density-section-padding);
 }
 
 .social-view .social-composer-section {

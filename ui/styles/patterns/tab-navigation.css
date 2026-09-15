@@ -1,3 +1,7 @@
+.view-title-block:has(+ .ui-top-tabs) {
+  margin-bottom: var(--ui-density-page-gap);
+}
+
 .ui-top-tabs {
   display: flex;
   align-items: center;

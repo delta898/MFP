@@ -11,7 +11,19 @@
           </div>
         </div>
 
-        <div class="card social-composer-card">
+        <div class="social-tabs ui-top-tabs" role="tablist" aria-label="SNS 메뉴">
+          <button class="social-tab-btn ui-top-tab active" id="social-tab-button-compose" type="button" role="tab"
+            aria-selected="true" aria-controls="social-tab-compose" tabindex="0">직접 작성</button>
+        </div>
+
+        <div class="card social-composer-card" id="social-tab-compose" role="tabpanel"
+          aria-labelledby="social-tab-button-compose">
+          <div class="social-composer-intro blog-next-panel-lead blog-next-panel-intro">
+            <div class="blog-next-panel-intro-copy">
+              <h2>SNS 게시물 작성</h2>
+              <p>발행 채널을 고르고 메시지와 이미지를 준비해 발행하세요.</p>
+            </div>
+          </div>
           <section class="social-composer-section" aria-labelledby="manual-sns-channels-title">
             <div class="social-section-heading">
               <div class="social-channel-heading-copy">

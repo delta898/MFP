@@ -33,7 +33,8 @@ test('SNS consumes density roles without changing its content or interaction geo
     'ui/styles/features/social.css',
     'ui/styles/features/social-media.css',
     'ui/styles/features/social-actions.css',
-    'ui/styles/features/social-density.css'
+    'ui/styles/features/social-density.css',
+    'ui/styles/patterns/tab-navigation.css'
   ].map(read).join('\n');
   const surfaces = read('ui/styles/features/social-surfaces.css');
   const combined = `${social}\n${surfaces}`;

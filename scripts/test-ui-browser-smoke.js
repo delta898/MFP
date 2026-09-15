@@ -3397,6 +3397,22 @@ async function run() {
         });
 
         await page.locator('.nav-btn[data-view="social"]').click();
+        assert.equal((await page.locator('#social-tab-button-compose').textContent())?.trim(), '직접 작성');
+        assert.equal(await page.locator('#social-tab-button-compose').getAttribute('aria-controls'), 'social-tab-compose');
+        const socialTopMenuGeometry = await page.evaluate(() => {
+            const view = document.getElementById('view-social').getBoundingClientRect();
+            const tabs = document.querySelector('.social-tabs').getBoundingClientRect();
+            const panel = document.getElementById('social-tab-compose').getBoundingClientRect();
+            const intro = document.querySelector('.social-composer-intro').getBoundingClientRect();
+            return {
+                tabsTop: Math.round(tabs.top - view.top),
+                panelTop: Math.round(panel.top - view.top),
+                introTop: Math.round(intro.top - view.top),
+                leftAligned: Math.round(tabs.left) === Math.round(panel.left)
+            };
+        });
+        assert.equal(socialTopMenuGeometry.leftAligned, true);
+        assert.equal((await page.locator('.social-composer-intro h2').textContent())?.trim(), 'SNS 게시물 작성');
         await page.waitForFunction(() => document.getElementById('manual-sns-workspaces-load')?.disabled === false);
         await page.locator('#manual-sns-workspaces-load').click();
         await page.waitForFunction(() => document.querySelectorAll('[data-manual-sns-channel]').length === 1);
@@ -3430,6 +3446,25 @@ async function run() {
 
         await page.locator('.nav-btn[data-view="account"]').click();
         await page.waitForFunction(() => !document.getElementById('account-overview-content')?.classList.contains('hidden'));
+        assert.equal((await page.locator('#account-tab-button-overview').textContent())?.trim(), '이용 현황');
+        assert.equal(await page.locator('#account-tab-button-overview').getAttribute('aria-controls'), 'account-tab-overview');
+        const accountTopMenuGeometry = await page.evaluate(() => {
+            const view = document.getElementById('view-account').getBoundingClientRect();
+            const tabs = document.querySelector('.account-tabs').getBoundingClientRect();
+            const card = document.querySelector('#account-overview-content .account-overview-summary-panel').getBoundingClientRect();
+            const intro = document.querySelector('.account-overview-intro').getBoundingClientRect();
+            return {
+                tabsTop: Math.round(tabs.top - view.top),
+                panelTop: Math.round(card.top - view.top),
+                introTop: Math.round(intro.top - view.top),
+                leftAligned: Math.round(tabs.left) === Math.round(card.left)
+            };
+        });
+        assert.equal(accountTopMenuGeometry.leftAligned, true);
+        assert.equal(accountTopMenuGeometry.tabsTop, socialTopMenuGeometry.tabsTop);
+        assert.equal(accountTopMenuGeometry.panelTop, socialTopMenuGeometry.panelTop);
+        assert.ok(Math.abs(accountTopMenuGeometry.introTop - socialTopMenuGeometry.introTop) <= 1);
+        assert.equal((await page.locator('.account-overview-intro h2').textContent())?.trim(), '이용 현황');
         assert.equal((await page.locator('#account-plan-name').textContent())?.trim(), 'Free');
         assert.equal(
             await page.locator('#view-account [data-clock-display]').evaluate((element) => element.children.length > 0),
