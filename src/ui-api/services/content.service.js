@@ -48,6 +48,7 @@ function createContentService(deps = {}) {
         executeQuickPublish,
         executeQuickPreviewPublish,
         getQuickPreviewImagePayload,
+        deleteQuickPublishPreviewSession,
         executeLocalMarkdownPublish,
         executeShoppingQuickPublish,
         sortTopicItems,
@@ -335,6 +336,10 @@ function createContentService(deps = {}) {
             total: Math.max(Number(result.total || 0), items.length),
             items
         };
+    }
+
+    if (!manuscriptDraftService && fs && path && Utils?.parseMarkdown && Utils?.findImageByPrefix) {
+        getManuscriptDraftService();
     }
 
     return {
@@ -889,7 +894,7 @@ function createContentService(deps = {}) {
                         images.push({ index: image.index, buffer: payload.body });
                     }
                 }
-                return getManuscriptDraftService().createAiDraft({
+                const draft = getManuscriptDraftService().createAiDraft({
                     ...requestBody,
                     targets,
                     markdownText: preview.rawMarkdown,
@@ -897,6 +902,10 @@ function createContentService(deps = {}) {
                     sourceLabel: preview.title || requestBody.title || requestBody.subject || '바로 생성 원고',
                     sourceMetadata: { generationProjection: primaryTarget }
                 });
+                if (typeof deleteQuickPublishPreviewSession === 'function') {
+                    deleteQuickPublishPreviewSession(data.previewId);
+                }
+                return draft;
             });
         },
 
@@ -948,11 +957,18 @@ function createContentService(deps = {}) {
                     ...snapshot,
                     operationId: requestBody.operationId
                 });
+                const draftService = getManuscriptDraftService();
+                const manuscriptPreview = typeof draftService.markPublished === 'function'
+                    ? draftService.markPublished({
+                        draftId: requestBody.draftId,
+                        revision: snapshot.publishPolicy.draftRevision
+                    })
+                    : draftService.getDraft(requestBody.draftId);
                 return {
                     ...result,
                     revision: snapshot.publishPolicy.draftRevision,
                     publishPolicy: snapshot.publishPolicy,
-                    manuscriptPreview: getManuscriptDraftService().getDraft(requestBody.draftId)
+                    manuscriptPreview
                 };
             });
         },

@@ -165,7 +165,8 @@ test('direct AI manuscript generation stays local until the user publishes and i
                 }
             };
         },
-        getQuickPreviewImagePayload: () => ({ binary: true, body: Buffer.from('image') })
+        getQuickPreviewImagePayload: () => ({ binary: true, body: Buffer.from('image') }),
+        deleteQuickPublishPreviewSession: (previewId) => calls.push(['dispose-preview', previewId])
     });
 
     const result = await service.createAiManuscriptDraft({ subject: '주제', platforms: ['wordpress'] });
@@ -177,5 +178,6 @@ test('direct AI manuscript generation stays local until the user publishes and i
     assert.deepEqual(calls[1][1].targets, ['wordpress']);
     assert.deepEqual(calls[1][1].sourceMetadata, { generationProjection: 'wordpress' });
     assert.equal(calls[1][1].images.length, 1);
+    assert.deepEqual(calls[2], ['dispose-preview', 'preview-1']);
     assert.deepEqual(coordinator.getStatus(), { busy: false });
 });

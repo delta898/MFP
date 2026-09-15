@@ -5,7 +5,7 @@
 - Branch: `codex/feat/manuscript-workspace`
 - Base/parent branch: `dev`
 - Start date: 2026-09-15
-- Status: active; Stages 01-04 complete; Stage 05 image auto-resolution active
+- Status: active; Stages 01-05 and 07 complete; Stage 06 deferred
 
 ## User Need
 
@@ -144,7 +144,8 @@ read-only다.
 - [Stage 02: Paste adapter](../archive/2026-09-15-manuscript-workspace-02-paste-development.md) — complete
 - [Stage 03: Direct AI adapter](../archive/2026-09-15-manuscript-workspace-03-ai-development.md) — complete
 - [Stage 04: Publish flow](../archive/2026-09-15-manuscript-workspace-04-publish-flow-development.md) — complete
-- [Stage 05: Image auto resolution](./2026-09-15-manuscript-workspace-05-image-auto-resolution-development.md) — active
+- [Stage 05: Image auto resolution](../archive/2026-09-15-manuscript-workspace-05-image-auto-resolution-development.md) — complete
+- [Stage 07: Integration and lifecycle](../archive/2026-09-15-manuscript-workspace-07-integration-development.md) — complete
 
 ## Decisions and Tradeoffs
 
@@ -204,14 +205,22 @@ read-only다.
   generation-time idea saving and completed-manuscript queueing remain distinct actions.
 - 2026-09-15: Stage 04 passed its full unit merge gate with 1,799 tests, 1,798 passed, 1 intentionally skipped, and
   0 failed. The final browser fixture smoke passed with 335 requests.
+- 2026-09-15: Stage 05 completed automatic image resolution across folder, paste, and direct AI modes, unified their
+  publishing settings component, and passed its merge gate with 1,803 tests, 1,802 passed, 1 intentionally skipped,
+  and 0 failed.
+- 2026-09-15: Stage 07 began on a dedicated sub-feature branch. Text editing remains deferred; this stage focuses on
+  workspace lifecycle, cleanup, recovery diagnostics, and integrated regression before v0.5.0 preparation.
+- 2026-09-15: Stage 07 completed lifecycle ownership, safe Draft and transient-preview cleanup, and canonical architecture
+  documentation. Focused gates and browser smoke passed, followed by the full unit merge gate with 1,809 tests,
+  1,808 passed, 1 intentionally skipped, and 0 failed.
 
 ## Current Result
 
-Stages 01-04 are complete. Deferred text editing and lifecycle integration remain pending.
+Stages 01-05 and 07 are complete. Text editing remains explicitly deferred; the unified manuscript workspace is ready for
+integrated hands-on acceptance and parent validation before merging to `dev`.
 
 ## Remaining Risks
 
-- The direct AI adapter still uses a transient generated preview directory before importing the canonical Draft; Stage 05
-  must clean that intermediate workspace safely.
-- Local image decoding must reject disguised or corrupt input based on content, not only filename or browser MIME.
-- Draft cleanup must not remove assets still referenced by an active or retryable publication.
+- Windows file locks may defer cleanup until a later startup, but cleanup failure does not block the app or publishing.
+- The current UI does not list recent Drafts after restart; the seven-day active retention is a safety and diagnostic grace
+  period rather than a user-facing recovery feature.

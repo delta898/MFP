@@ -129,6 +129,7 @@ function createLegacyApiRouteHandler(deps = {}) {
         executeQuickPublish: deps.executeQuickPublish,
         executeQuickPreviewPublish: deps.executeQuickPreviewPublish,
         getQuickPreviewImagePayload: deps.getQuickPreviewImagePayload,
+        deleteQuickPublishPreviewSession: deps.deleteQuickPublishPreviewSession,
         executeLocalMarkdownPublish: deps.executeLocalMarkdownPublish,
         executeShoppingQuickPublish: deps.executeShoppingQuickPublish,
         sortTopicItems: deps.sortTopicItems,

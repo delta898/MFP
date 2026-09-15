@@ -1,12 +1,20 @@
 const crypto = require('crypto');
+const { createTransientPreviewWorkspaceManager } = require('../content/transient-preview-workspace');
 
 function createQuickPublishRuntime(options = {}) {
+    const workspaceManager = options.fs && options.path && options.workspaceDir
+        ? createTransientPreviewWorkspaceManager(options)
+        : null;
+    workspaceManager?.cleanupExpired();
     const dedupeTtlMs = Number.isFinite(Number(options.dedupeTtlMs))
         ? Math.max(1000, parseInt(options.dedupeTtlMs, 10))
         : 90 * 1000;
     const previewTtlMs = Number.isFinite(Number(options.previewTtlMs))
         ? Math.max(1000, parseInt(options.previewTtlMs, 10))
         : 6 * 60 * 60 * 1000;
+    const disposePreviewSession = typeof options.disposePreviewSession === 'function'
+        ? options.disposePreviewSession
+        : (session) => workspaceManager?.dispose(session?.targetDirs);
 
     const recentMap = new Map();
     const previewMap = new Map();
@@ -56,6 +64,7 @@ function createQuickPublishRuntime(options = {}) {
         for (const [previewId, entry] of previewMap.entries()) {
             if (!entry || !Number.isFinite(entry.expiresAtMs) || entry.expiresAtMs <= nowMs) {
                 previewMap.delete(previewId);
+                try { disposePreviewSession(entry); } catch (_) { }
             }
         }
     }
@@ -83,7 +92,13 @@ function createQuickPublishRuntime(options = {}) {
     }
 
     function deletePreviewSession(previewId) {
-        return previewMap.delete(String(previewId || '').trim());
+        const normalizedId = String(previewId || '').trim();
+        const entry = previewMap.get(normalizedId) || null;
+        const deleted = previewMap.delete(normalizedId);
+        if (deleted) {
+            try { disposePreviewSession(entry); } catch (_) { }
+        }
+        return deleted;
     }
 
     function buildPreviewResponse(session = {}) {
@@ -165,11 +180,13 @@ function createQuickPublishRuntime(options = {}) {
     return {
         buildQuickPublishDedupeKey,
         cleanupRecentEntries,
+        cleanupPreviewSessions,
         getRecentEntry,
         hasRecentEntry,
         setRecentEntry,
         getPreviewSession,
         deletePreviewSession,
+        trackPreviewDirs: (targetDirs, previewId) => workspaceManager?.track(targetDirs, previewId),
         registerPreviewSession,
         selectPreviewTarget
     };

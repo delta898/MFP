@@ -40,6 +40,7 @@
 - `architecture/trends-backend-deployment.md`
 - `architecture/keyword-research-backend.md`
 - `architecture/workspace-layout.md`
+- `architecture/manuscript-workspace.md`
 - `architecture/ui-runtime-boundaries.md`
 - `architecture/ai-model-management.md`
 - `architecture/chat-model-role.md`

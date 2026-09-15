@@ -7,6 +7,8 @@ const { requireSinglePublishTarget } = require('./single-publish-target');
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_DRAFT_IMAGE_BYTES = 35 * 1024 * 1024;
+const DEFAULT_ACTIVE_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+const DEFAULT_COMPLETED_RETENTION_MS = 24 * 60 * 60 * 1000;
 const IMAGE_TYPES = Object.freeze({
     png: 'image/png',
     jpg: 'image/jpeg',
@@ -102,6 +104,13 @@ function createManuscriptDraftService(options = {}) {
     const Utils = options.Utils;
     const Logger = options.Logger;
     const callWritingImage = options.callWritingImage;
+    const now = typeof options.now === 'function' ? options.now : () => Date.now();
+    const activeRetentionMs = Number.isFinite(Number(options.activeRetentionMs))
+        ? Math.max(60 * 60 * 1000, Number(options.activeRetentionMs))
+        : DEFAULT_ACTIVE_RETENTION_MS;
+    const completedRetentionMs = Number.isFinite(Number(options.completedRetentionMs))
+        ? Math.max(60 * 60 * 1000, Number(options.completedRetentionMs))
+        : DEFAULT_COMPLETED_RETENTION_MS;
     const workspaceRoot = pathImpl.resolve(String(options.workspaceDir || pathImpl.join(process.cwd(), 'workspace')), 'manuscript-drafts');
     if (!Utils?.parseMarkdown || !Utils?.findImageByPrefix) throw new Error('Manuscript Draft requires markdown utilities.');
 
@@ -124,6 +133,70 @@ function createManuscriptDraftService(options = {}) {
             throw manuscriptError(404, 'MANUSCRIPT_DRAFT_NOT_FOUND', '원고 작업공간을 찾지 못했습니다. 다시 불러와 주세요.');
         }
         return { locations, manifest: JSON.parse(fsImpl.readFileSync(locations.manifest, 'utf8')) };
+    }
+
+    function parseTime(value, fallback = 0) {
+        const parsed = Date.parse(String(value || ''));
+        return Number.isFinite(parsed) ? parsed : fallback;
+    }
+
+    function cleanupExpiredDrafts(input = {}) {
+        const nowMs = Number.isFinite(Number(input.nowMs)) ? Number(input.nowMs) : now();
+        const summary = { scanned: 0, removed: 0, preserved: 0, orphanRemoved: 0, failed: 0 };
+        if (!fsImpl.existsSync(workspaceRoot)) return summary;
+        let entries = [];
+        try {
+            entries = fsImpl.readdirSync(workspaceRoot, { withFileTypes: true });
+        } catch (error) {
+            summary.failed += 1;
+            Logger?.warn?.(`⚠️ [ManuscriptDraft] 작업공간 정리 목록 조회 실패: ${error.message}`);
+            return summary;
+        }
+        for (const entry of entries) {
+            if (!entry?.isDirectory?.() || !safeDraftId(entry.name)) continue;
+            summary.scanned += 1;
+            const locations = pathsFor(entry.name);
+            try {
+                const stats = fsImpl.statSync(locations.root);
+                let manifest = null;
+                try {
+                    manifest = JSON.parse(fsImpl.readFileSync(locations.manifest, 'utf8'));
+                } catch (_) { }
+                const lifecycle = String(manifest?.lifecycle_status || 'active');
+                const referenceMs = lifecycle === 'completed'
+                    ? parseTime(manifest?.completed_at, parseTime(manifest?.updated_at, stats.mtimeMs))
+                    : parseTime(manifest?.updated_at, stats.mtimeMs);
+                const retentionMs = lifecycle === 'completed' ? completedRetentionMs : activeRetentionMs;
+                if ((nowMs - referenceMs) < retentionMs) {
+                    if (manifest) {
+                        const referenced = new Set((manifest.image_slots || []).flatMap((slot) => [slot.current_file, slot.original_file]).filter(Boolean));
+                        for (const directory of [locations.assets, locations.source]) {
+                            if (!fsImpl.existsSync(directory)) continue;
+                            for (const file of fsImpl.readdirSync(directory, { withFileTypes: true })) {
+                                if (!file.isFile()) continue;
+                                const managedOrphan = directory === locations.assets
+                                    || file.name.endsWith('.tmp')
+                                    || (/^\d{2}_draft-[a-f0-9-]+\.(?:png|jpe?g|webp|avif)$/i.test(file.name) && !referenced.has(file.name));
+                                if (!managedOrphan) continue;
+                                fsImpl.rmSync(pathImpl.join(directory, file.name), { force: true });
+                                summary.orphanRemoved += 1;
+                            }
+                        }
+                    }
+                    summary.preserved += 1;
+                    continue;
+                }
+                fsImpl.rmSync(locations.root, { recursive: true, force: true });
+                summary.removed += 1;
+            } catch (error) {
+                summary.failed += 1;
+                Logger?.warn?.(`⚠️ [ManuscriptDraft] 만료 작업공간 정리 실패 (draft=${entry.name}): ${error.message}`);
+            }
+        }
+        if (summary.removed > 0 || summary.orphanRemoved > 0 || summary.failed > 0) {
+            Logger?.info?.(`🧹 [ManuscriptDraft] 작업공간 정리 완료 (scanned=${summary.scanned}, removed=${summary.removed}, orphan=${summary.orphanRemoved}, preserved=${summary.preserved}, failed=${summary.failed})`);
+        }
+        return summary;
     }
 
     function assertRevision(manifest, expected) {
@@ -218,15 +291,16 @@ function createManuscriptDraftService(options = {}) {
             const settings = normalizeDraftSettings(input);
             const preview = buildLocalMarkdownPreview({ markdownText, folderName: '붙여넣기', ...settings }, { fs: fsImpl, path: pathImpl, Utils });
             fsImpl.writeFileSync(pathImpl.join(locations.source, 'contents.md'), markdownText, { mode: 0o600 });
-            const now = new Date().toISOString();
+            const createdAt = new Date(now()).toISOString();
             const manifest = {
                 schema_version: 1,
                 id,
                 revision: 1,
                 source_kind: 'paste',
                 source_label: '붙여넣기',
-                created_at: now,
-                updated_at: now,
+                created_at: createdAt,
+                updated_at: createdAt,
+                lifecycle_status: 'active',
                 settings,
                 image_slots: preview.images.map((image) => ({
                     id: `image-${image.index}`,
@@ -272,7 +346,7 @@ function createManuscriptDraftService(options = {}) {
             }
             const settings = normalizeDraftSettings(input);
             const preview = buildLocalMarkdownPreview({ directoryPath: locations.source, ...settings, imageGeneration: false }, { fs: fsImpl, path: pathImpl, Utils });
-            const now = new Date().toISOString();
+            const createdAt = new Date(now()).toISOString();
             const manifest = {
                 schema_version: 1,
                 id,
@@ -280,8 +354,9 @@ function createManuscriptDraftService(options = {}) {
                 source_kind: 'ai',
                 source_label: String(input.sourceLabel || preview.title || '바로 생성 원고').slice(0, 300),
                 source_metadata: input.sourceMetadata && typeof input.sourceMetadata === 'object' ? input.sourceMetadata : {},
-                created_at: now,
-                updated_at: now,
+                created_at: createdAt,
+                updated_at: createdAt,
+                lifecycle_status: 'active',
                 settings,
                 image_slots: preview.images.map((image) => {
                     const fileName = imageByIndex.get(Number(image.index)) || '';
@@ -331,15 +406,16 @@ function createManuscriptDraftService(options = {}) {
             }
             const settings = normalizeDraftSettings(input);
             const preview = buildLocalMarkdownPreview({ directoryPath: locations.source, ...settings, imageGeneration: settings.imageMode === 'generate' }, { fs: fsImpl, path: pathImpl, Utils });
-            const now = new Date().toISOString();
+            const createdAt = new Date(now()).toISOString();
             const manifest = {
                 schema_version: 1,
                 id,
                 revision: 1,
                 source_kind: 'folder',
                 source_label: String(input.folderName || preview.source.folderName || '원고 폴더').slice(0, 300),
-                created_at: now,
-                updated_at: now,
+                created_at: createdAt,
+                updated_at: createdAt,
+                lifecycle_status: 'active',
                 settings,
                 image_slots: preview.images.map((image) => ({
                     id: `image-${image.index}`,
@@ -369,7 +445,9 @@ function createManuscriptDraftService(options = {}) {
         if (!slot) throw manuscriptError(404, 'MANUSCRIPT_IMAGE_SLOT_NOT_FOUND', '이미지 영역을 찾지 못했습니다.');
         mutate({ locations, manifest, slot });
         manifest.revision += 1;
-        manifest.updated_at = new Date().toISOString();
+        manifest.updated_at = new Date(now()).toISOString();
+        manifest.lifecycle_status = 'active';
+        delete manifest.completed_at;
         atomicWriteJson(fsImpl, locations.manifest, manifest);
         return buildPublicDraft(manifest, locations);
     }
@@ -470,7 +548,9 @@ function createManuscriptDraftService(options = {}) {
         assertRevision(manifest, expectedRevision);
         mutate({ locations, manifest });
         manifest.revision += 1;
-        manifest.updated_at = new Date().toISOString();
+        manifest.updated_at = new Date(now()).toISOString();
+        manifest.lifecycle_status = 'active';
+        delete manifest.completed_at;
         atomicWriteJson(fsImpl, locations.manifest, manifest);
         return buildPublicDraft(manifest, locations);
     }
@@ -601,6 +681,16 @@ function createManuscriptDraftService(options = {}) {
         };
     }
 
+    function markPublished(input = {}) {
+        const { locations, manifest } = readManifest(input.draftId);
+        assertRevision(manifest, input.revision);
+        manifest.lifecycle_status = 'completed';
+        manifest.completed_at = new Date(now()).toISOString();
+        atomicWriteJson(fsImpl, locations.manifest, manifest);
+        Logger?.info?.(`✅ [ManuscriptDraft] 원고 작업 완료 기록 (draft=${manifest.id}, revision=${manifest.revision})`);
+        return buildPublicDraft(manifest, locations);
+    }
+
     function getImage(input = {}) {
         const { locations, manifest } = readManifest(input.draftId);
         if (input.revision !== undefined && input.revision !== '') assertRevision(manifest, input.revision);
@@ -613,7 +703,12 @@ function createManuscriptDraftService(options = {}) {
         return { binary: true, body: buffer, contentType: detected.mimeType };
     }
 
-    return { createFolderDraft, createPasteDraft, createAiDraft, getDraft, updateSettings, updateMarkdown, importLocalImage, excludeImage, restoreImage, generateImage, generateMissingImages, preparePublishPayload, buildPublishPayload, getImage };
+    const startupCleanup = cleanupExpiredDrafts();
+    if (startupCleanup.removed > 0) {
+        Logger?.info?.(`ℹ️ [ManuscriptDraft] 만료 원고 ${startupCleanup.removed}개를 시작 시 정리했습니다.`);
+    }
+
+    return { createFolderDraft, createPasteDraft, createAiDraft, getDraft, updateSettings, updateMarkdown, importLocalImage, excludeImage, restoreImage, generateImage, generateMissingImages, preparePublishPayload, buildPublishPayload, markPublished, cleanupExpiredDrafts, getImage };
 }
 
 module.exports = { createManuscriptDraftService, detectImageType, validateImageBuffer };

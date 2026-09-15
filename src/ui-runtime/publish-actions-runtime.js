@@ -52,6 +52,7 @@ function createPublishActionsRuntime(deps = {}) {
         deleteQuickPublishPreviewSession,
         registerQuickPublishPreviewSession,
         selectQuickPublishPreviewTarget,
+        trackQuickPublishPreviewDirs,
         getExecuteShoppingRowAction,
         recordActivityLifecycle = async () => null
     } = deps;
@@ -992,6 +993,9 @@ function createPublishActionsRuntime(deps = {}) {
             }
 
             const previewId = crypto.randomUUID();
+            if (typeof trackQuickPublishPreviewDirs === 'function') {
+                trackQuickPublishPreviewDirs(targetDirs, previewId);
+            }
             const previewsByTarget = {};
             if (targetDirs.naver) {
                 const previewData = buildQuickPreviewDataFromDirectory({

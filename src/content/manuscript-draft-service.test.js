@@ -442,3 +442,52 @@ test('bulk image generation returns the successful partial revision after a late
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }
 });
+
+test('marks a handled draft complete without changing its publish revision', () => {
+    const { workspaceDir, service, input } = fixture();
+    try {
+        const created = service.createFolderDraft(input);
+        const completed = service.markPublished({ draftId: created.draftId, revision: created.revision });
+        assert.equal(completed.revision, created.revision);
+        const manifestPath = path.join(workspaceDir, 'manuscript-drafts', created.draftId, 'draft.json');
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        assert.equal(manifest.lifecycle_status, 'completed');
+        assert.ok(Date.parse(manifest.completed_at) > 0);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('startup cleanup removes expired drafts while preserving recent work', () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-lifecycle-'));
+    const clock = { value: Date.parse('2026-09-15T12:00:00.000Z') };
+    const options = {
+        fs,
+        path,
+        Utils,
+        workspaceDir,
+        now: () => clock.value,
+        activeRetentionMs: 60 * 60 * 1000,
+        completedRetentionMs: 60 * 60 * 1000
+    };
+    try {
+        const first = createManuscriptDraftService(options);
+        const expiredActive = first.createPasteDraft({ markdownText: '# 오래된 원고', targets: ['naver'] });
+        const expiredCompleted = first.createPasteDraft({ markdownText: '# 완료 원고', targets: ['naver'] });
+        first.markPublished({ draftId: expiredCompleted.draftId, revision: expiredCompleted.revision });
+        clock.value += 2 * 60 * 60 * 1000;
+        const recent = first.createPasteDraft({ markdownText: '# 최근 원고', targets: ['naver'] });
+        const recentRoot = path.join(workspaceDir, 'manuscript-drafts', recent.draftId);
+        fs.writeFileSync(path.join(recentRoot, 'assets', 'abandoned-staging.png'), PNG);
+        fs.writeFileSync(path.join(recentRoot, 'source', '00_draft-deadbeef.png'), PNG);
+
+        const restarted = createManuscriptDraftService(options);
+        assert.throws(() => restarted.getDraft(expiredActive.draftId), (error) => error.code === 'MANUSCRIPT_DRAFT_NOT_FOUND');
+        assert.throws(() => restarted.getDraft(expiredCompleted.draftId), (error) => error.code === 'MANUSCRIPT_DRAFT_NOT_FOUND');
+        assert.equal(restarted.getDraft(recent.draftId).title, '최근 원고');
+        assert.equal(fs.existsSync(path.join(recentRoot, 'assets', 'abandoned-staging.png')), false);
+        assert.equal(fs.existsSync(path.join(recentRoot, 'source', '00_draft-deadbeef.png')), false);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});

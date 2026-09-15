@@ -253,7 +253,8 @@ const {
 } = uiConfigFileRuntime;
 const quickPublishRuntime = createQuickPublishRuntime({
     dedupeTtlMs: 90 * 1000,
-    previewTtlMs: 6 * 60 * 60 * 1000
+    previewTtlMs: 6 * 60 * 60 * 1000,
+    fs, path, Logger, workspaceDir: CONFIG.WORKSPACE_DIR
 });
 const {
     buildQuickPublishDedupeKey,
@@ -264,7 +265,8 @@ const {
     getPreviewSession: getQuickPublishPreviewSession,
     deletePreviewSession: deleteQuickPublishPreviewSession,
     registerPreviewSession: registerQuickPublishPreviewSession,
-    selectPreviewTarget: selectQuickPublishPreviewTarget
+    selectPreviewTarget: selectQuickPublishPreviewTarget,
+    trackPreviewDirs: trackQuickPublishPreviewDirs
 } = quickPublishRuntime;
 const snsSheetGateway = createGoogleSheetsSnsGateway({
     Utils,
@@ -803,6 +805,7 @@ const publishActionsRuntime = createPublishActionsRuntime({
     deleteQuickPublishPreviewSession,
     registerQuickPublishPreviewSession,
     selectQuickPublishPreviewTarget,
+    trackQuickPublishPreviewDirs,
     recordActivityLifecycle,
     getExecuteShoppingRowAction: () => executeShoppingRowAction
 });
@@ -997,6 +1000,7 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     executeQuickPublish,
     executeQuickPreviewPublish,
     getQuickPreviewImagePayload,
+    deleteQuickPublishPreviewSession,
     executeLocalMarkdownPublish,
     executeShoppingQuickPublish,
     sortTopicItems,
