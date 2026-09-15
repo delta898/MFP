@@ -1,5 +1,6 @@
 function activateShoppingTab(tabName, options = {}) {
-  const allowed = ['quick', 'batch'];
+  // 글감 관리는 원고 미리보기 workspace와 함께 다시 제공할 때까지 진입을 막는다.
+  const allowed = ['quick'];
   const target = allowed.includes(String(tabName)) ? String(tabName) : 'quick';
   shoppingActiveTab = target;
 

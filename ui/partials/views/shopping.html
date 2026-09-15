@@ -13,7 +13,7 @@
           <button class="shopping-tab-btn ui-top-tab active" id="shopping-tab-button-quick" type="button" role="tab"
             aria-selected="true" aria-controls="shopping-tab-quick" tabindex="0" data-shopping-tab="quick">빠른 글 작성</button>
           <button class="shopping-tab-btn ui-top-tab" id="shopping-tab-button-batch" type="button" role="tab"
-            aria-selected="false" aria-controls="shopping-tab-batch" tabindex="-1" data-shopping-tab="batch">글감 관리</button>
+            aria-selected="false" aria-controls="shopping-tab-batch" tabindex="-1" data-shopping-tab="batch" hidden>글감 관리</button>
         </div>
 
         <div class="card form-card shopping-tab-panel blog-next-panel active" id="shopping-tab-quick" role="tabpanel"
@@ -260,14 +260,10 @@
             <p id="shopping-quick-result" class="blog-next-form-result" role="status" aria-live="polite"></p>
           </div>
           <div class="shopping-quick-action-groups">
-            <div class="shopping-quick-action-row">
+            <div class="shopping-quick-action-row" id="shopping-quick-deferred-actions" hidden>
               <span class="shopping-quick-action-copy">
                 <strong>나중에 활용</strong>
                 <small>상품 글감을 보관하거나 발행 대기열에 추가합니다.</small>
-                <span id="shopping-sheet-readiness" class="blog-next-action-readiness" role="status" hidden>
-                  Google Spreadsheet 연결이 필요합니다.
-                  <button class="ui-text-action" type="button" data-shopping-capability-settings="content.sheet">Spreadsheet 설정하기</button>
-                </span>
               </span>
               <span class="shopping-quick-action-buttons">
                 <button id="shopping-quick-save-btn" class="secondary" type="button">글감 보관</button>
@@ -278,6 +274,10 @@
               <span class="shopping-quick-action-copy">
                 <strong>지금 포스팅</strong>
                 <small>현재 상품 정보와 설정으로 원고를 만들고 포스팅합니다.</small>
+                <span id="shopping-sheet-readiness" class="blog-next-action-readiness" role="status" hidden>
+                  Google Spreadsheet 연결이 필요합니다.
+                  <button class="ui-text-action" type="button" data-shopping-capability-settings="content.sheet">Spreadsheet 설정하기</button>
+                </span>
                 <span id="shopping-ai-readiness" class="blog-next-action-readiness" role="status" hidden>
                   AI 글쓰기 모델 설정이 필요합니다.
                   <button class="ui-text-action" type="button" data-shopping-capability-settings="ai.text">AI 설정하기</button>

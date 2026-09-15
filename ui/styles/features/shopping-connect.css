@@ -21,6 +21,10 @@
   padding-top: var(--ui-space-3);
 }
 
+.shopping-quick-action-row[hidden] {
+  display: none;
+}
+
 .shopping-quick-action-copy {
   min-width: 0;
   display: grid;

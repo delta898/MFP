@@ -3477,12 +3477,10 @@ async function run() {
         assert.equal(await page.locator('#shopping-quick-preview').getAttribute('data-state'), 'empty');
         assert.equal(await page.locator('#shopping-quick-product-field').evaluate((element) => element.hidden), true);
         assert.equal(await page.locator('#shopping-quick-product').inputValue(), '');
-        await page.locator('.shopping-tab-btn[data-shopping-tab="batch"]').click();
-        await page.waitForFunction(() => document.getElementById('shopping-tab-batch')?.classList.contains('active'));
-        assert.equal(await page.locator('#shopping-management-ready-list').count(), 1);
-        assert.equal(await page.locator('#shopping-management-saved-list').count(), 1);
-        assert.equal((await page.locator('#shopping-management-tab-ready').textContent())?.includes('발행 대기열'), true);
-        assert.equal((await page.locator('#shopping-management-tab-saved').textContent())?.includes('보관한 글감'), true);
+        assert.equal(await page.locator('#shopping-tab-button-batch').isHidden(), true);
+        await page.evaluate(() => activateShoppingTab('batch'));
+        assert.equal(await page.locator('#shopping-tab-quick').evaluate((element) => element.classList.contains('active')), true);
+        assert.equal(await page.locator('#shopping-tab-batch').isHidden(), true);
 
         const missingShoppingSetupRoute = async (route) => route.fulfill({
             status: 200,
@@ -3507,11 +3505,12 @@ async function run() {
         await page.evaluate(() => navigateTo('dashboard-beta'));
         await page.evaluate(() => navigateTo('shopping', 'quick'));
         await page.waitForFunction(() => document.getElementById('view-shopping')?.classList.contains('active'));
+        assert.equal(await page.locator('#shopping-quick-deferred-actions').isHidden(), true);
         assert.equal(await page.locator('#shopping-sheet-readiness').isVisible(), true);
         assert.equal(await page.locator('#shopping-ai-readiness').isVisible(), true);
         assert.equal(await page.locator('#shopping-publish-readiness').isVisible(), true);
         assert.equal(await page.locator('#shopping-quick-preview-btn').isEnabled(), true);
-        assert.equal(await page.locator('#shopping-quick-save-btn').isDisabled(), true);
+        assert.equal(await page.locator('#shopping-quick-save-btn').isHidden(), true);
         assert.equal(await page.locator('#ui-dialog-backdrop').evaluate((element) => element.classList.contains('hidden')), true);
         await page.unroute('**/api/v1/config/status', missingShoppingSetupRoute);
 

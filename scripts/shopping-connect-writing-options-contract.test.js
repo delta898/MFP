@@ -83,10 +83,13 @@ test('shopping quick save mirrors Blog Beta busy feedback and completion toast',
   );
 });
 
-test('shopping quick writing provides the same save enqueue publish action set as Blog Beta', () => {
+test('shopping quick writing hides deferred storage actions until management returns', () => {
   const html = read('ui/partials/views/shopping.html');
   const source = read('ui/scripts/features/legacy-actions-controllers.js');
 
+  assert.match(html, /id="shopping-quick-deferred-actions" hidden>[\s\S]*id="shopping-quick-save-btn"[\s\S]*id="shopping-quick-enqueue-btn"/);
+  assert.doesNotMatch(html.match(/id="shopping-quick-deferred-actions"[\s\S]*?<\/div>/)?.[0] || '', /shopping-sheet-readiness/);
+  assert.match(html, />지금 포스팅<[\s\S]*id="shopping-sheet-readiness"/);
   assert.match(html, /id="shopping-quick-save-btn"[^>]*>글감 보관/);
   assert.match(html, /id="shopping-quick-enqueue-btn"[^>]*>발행 대기열에 추가/);
   assert.match(html, /id="shopping-quick-publish-btn"[^>]*>바로 포스팅/);

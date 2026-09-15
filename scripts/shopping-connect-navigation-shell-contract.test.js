@@ -13,7 +13,7 @@ test('shopping connect uses the shared product navigation shell', () => {
   assert.doesNotMatch(view, /id="view-shopping"[^>]*data-style-scope="compatibility"/);
   assert.match(view, /class="shopping-tabs ui-top-tabs"[^>]*role="tablist"/);
   assert.match(view, /class="shopping-tab-btn ui-top-tab active"[^>]*role="tab"[^>]*aria-selected="true"[^>]*>빠른 글 작성<\/button>/);
-  assert.match(view, /class="shopping-tab-btn ui-top-tab"[^>]*role="tab"[^>]*aria-selected="false"[^>]*>글감 관리<\/button>/);
+  assert.match(view, /id="shopping-tab-button-batch"[^>]*data-shopping-tab="batch" hidden>글감 관리<\/button>/);
   assert.doesNotMatch(view, />빠른 포스팅<\/button>|>일괄 포스팅<\/button>/);
 });
 
@@ -26,6 +26,7 @@ test('shopping tabs expose linked panels and synchronize accessible state', () =
   assert.match(view, /id="shopping-tab-quick" role="tabpanel"[\s\S]*aria-labelledby="shopping-tab-button-quick"/);
   assert.match(view, /id="shopping-tab-button-batch"[\s\S]*aria-controls="shopping-tab-batch"/);
   assert.match(view, /id="shopping-tab-batch" role="tabpanel"[\s\S]*aria-labelledby="shopping-tab-button-batch" hidden/);
+  assert.match(navigation, /const allowed = \['quick'\]/);
   assert.match(navigation, /setAttribute\('aria-selected', active \? 'true' : 'false'\)/);
   assert.match(navigation, /panel\.hidden = !active/);
   assert.match(controllers, /handleUiTabNavigationKeydown\(event,[\s\S]*dataKey: 'shoppingTab'/);
