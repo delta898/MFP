@@ -79,6 +79,7 @@ const DASHBOARD_BETA_SETUP_STEPS = Object.freeze([
     label: '발행 채널',
     tab: 'core',
     targetId: 'settings-next-naver-form',
+    localTab: 'publishing',
     actionLabel: '블로그 연결하기'
   }
 ]);
@@ -112,6 +113,8 @@ function renderDashboardBetaOnboarding(setup = {}) {
   action.textContent = nextStep.actionLabel;
   action.dataset.settingsTab = nextStep.tab;
   action.dataset.settingsTarget = nextStep.targetId;
+  if (nextStep.localTab) action.dataset.settingsLocalTab = nextStep.localTab;
+  else delete action.dataset.settingsLocalTab;
 }
 
 function renderDashboardBetaReadiness(overview) {
@@ -489,6 +492,10 @@ function bindDashboardBetaActions() {
     }
     const settingsTarget = event.target.closest('[data-settings-tab][data-settings-target]');
     if (settingsTarget) {
+      const localTab = settingsTarget.dataset.settingsLocalTab || '';
+      if (settingsTarget.dataset.settingsTab === 'core' && localTab && typeof settingsNextActivateCoreTab === 'function') {
+        settingsNextActivateCoreTab(localTab);
+      }
       void navigateToSettingsNextTarget(settingsTarget.dataset.settingsTab, settingsTarget.dataset.settingsTarget);
       return;
     }

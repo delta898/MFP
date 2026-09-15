@@ -91,6 +91,13 @@
   gap: var(--ui-space-6);
 }
 
+.ui-settings-card-heading-side {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+  flex: 0 0 auto;
+}
+
 .ui-settings-card-heading h3,
 .ui-settings-card-heading p,
 .ui-settings-card-detail,

@@ -383,3 +383,41 @@ test('Settings Beta shows operation loading only on the initiating action', () =
     assert.match(shared, /scrollIntoView\(\{ behavior: 'smooth', block: 'start' \}\)/);
     assert.doesNotMatch(script, /function settingsNextJumpToConfiguration/);
 });
+
+test('settings card headings reserve a right-side slot for help links', () => {
+    const pattern = read('ui/styles/patterns/settings-card.css');
+
+    assert.match(pattern, /\.ui-settings-card-heading-side\s*\{[^}]*display:\s*flex;/s);
+    assert.match(pattern, /\.ui-settings-card-heading-side\s*\{[^}]*gap:\s*var\(--ui-space-2\);/s);
+});
+
+test('writing model card links to its setup guide inside Help', () => {
+    const view = read('ui/partials/views/settings-next.html');
+    const help = read('ui/partials/views/help.html');
+    const guideUrl = 'https://m.blog.naver.com/amadejjs/224368506082';
+
+    assert.match(view, /id="settings-next-ai-text-form"[\s\S]*?class="ui-settings-card-heading-side"[\s\S]*?data-help-guide-url="https:\/\/m\.blog\.naver\.com\/amadejjs\/224368506082"/);
+    assert.match(help, new RegExp(`href="${guideUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
+});
+
+test('spreadsheet card links to its setup guide inside Help', () => {
+    const view = read('ui/partials/views/settings-next.html');
+    const help = read('ui/partials/views/help.html');
+    const guideUrl = 'https://m.blog.naver.com/amadejjs/224367369056';
+
+    assert.match(view, /id="settings-next-content-form"[\s\S]*?class="ui-settings-card-heading-side"[\s\S]*?data-help-guide-url="https:\/\/m\.blog\.naver\.com\/amadejjs\/224367369056"/);
+    assert.match(help, new RegExp(`href="${guideUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
+});
+
+test('publishing channel cards link to their setup guides inside Help', () => {
+    const view = read('ui/partials/views/settings-next.html');
+    const help = read('ui/partials/views/help.html');
+
+    for (const guideUrl of [
+        'https://m.blog.naver.com/amadejjs/224364560786',
+        'https://m.blog.naver.com/amadejjs/224364876173'
+    ]) {
+        assert.match(view, new RegExp(`data-help-guide-url="${guideUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
+        assert.match(help, new RegExp(`href="${guideUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
+    }
+});

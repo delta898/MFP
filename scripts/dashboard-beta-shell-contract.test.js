@@ -57,9 +57,10 @@ test('Dashboard guides incomplete setup inline and routes the next action to the
     assert.match(betaScript, /section\.hidden = complete/);
     assert.match(betaScript, /setup\?\.publishing_channel\?\.configured === true/);
     assert.match(betaScript, /navigateToSettingsNextTarget\(settingsTarget\.dataset\.settingsTab, settingsTarget\.dataset\.settingsTarget\)/);
+    assert.match(betaScript, /settingsNextActivateCoreTab\(localTab\)/);
     assert.match(betaView, /data-dashboard-beta-setup-step="ai"[^>]*data-settings-tab="ai"[^>]*data-settings-target="settings-next-ai-text-form"/);
     assert.match(betaView, /data-dashboard-beta-setup-step="google"[^>]*data-settings-tab="core"[^>]*data-settings-target="settings-next-content-form"/);
-    assert.match(betaView, /data-dashboard-beta-setup-step="channel"[^>]*data-settings-tab="core"[^>]*data-settings-target="settings-next-naver-form"/);
+    assert.match(betaView, /data-dashboard-beta-setup-step="channel"[^>]*data-settings-tab="core"[^>]*data-settings-target="settings-next-naver-form"[^>]*data-settings-local-tab="publishing"/);
     assert.match(generalSettings, /id="settings-google-auth-section"/);
     assert.match(betaStyle, /\.dashboard-beta-onboarding\[hidden\]\s*\{\s*display:\s*none/);
     assert.match(betaStyle, /\.dashboard-beta-onboarding-steps\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);

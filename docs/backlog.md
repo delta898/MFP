@@ -1,6 +1,6 @@
 # BlogGenius Backlog
 
-> 현행 기준: 2026-09-15 · 최신 릴리스: `v0.4.3` · 다음 버전: 미정
+> 현행 기준: 2026-09-15 · 최신 릴리스: `v0.4.3` · 다음 버전: `v0.5.0` 준비 중
 
 이 문서는 현재 실행 가능한 일감만 관리한다. 완료된 구현 과정은 `docs/plans/archive/`, 안정된 현재
 계약은 `docs/architecture/`, `docs/features/`, `docs/decisions/`를 따른다.
