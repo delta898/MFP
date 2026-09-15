@@ -5,7 +5,7 @@
 - Branch: `codex/feat/manuscript-workspace-04-publish-flow`
 - Base/parent branch: `codex/feat/manuscript-workspace`
 - Start date: 2026-09-15
-- Status: implementation complete; ready for user UI review
+- Status: complete; verified and ready for parent integration
 
 ## User Need
 
@@ -84,6 +84,9 @@ Blog Beta의 빠른 글 작성이 설정과 실행 버튼을 한 화면에 섞�
   generation places the same settings after preview as direct-publish settings.
 - 2026-09-15: focused backend/UI contracts passed (61/61). The final Blog Beta browser fixture smoke passed with 326
   requests after covering contextual queue settings, AI generation status, preview transition, and folder/paste publishing.
+- 2026-09-15: the full merge-gate unit suite passed with 1,799 tests: 1,798 passed, 1 intentionally skipped, and 0 failed.
+  The final browser fixture smoke passed again with 335 requests after the detached publish-settings binding was moved
+  into the manuscript workflow module to satisfy the 800-line UI module boundary.
 
 ## Current Result
 
@@ -92,7 +95,7 @@ Blog Beta의 빠른 글 작성이 설정과 실행 버튼을 한 화면에 섞�
 - 생성 성공 후: 글감 작업 버튼은 숨기고 미리보기/이미지 작업공간, 발행 설정, 현재 원고 실행 순으로 보여 준다.
 - `원고 폴더`와 `원고 붙여넣기`: 같은 `원고 준비 → 미리보기 → 발행` 단계와 상단 진행 상태를 사용한다.
 - 원고 화면에는 저수준 요청 로그를 노출하지 않고, 실패 원인은 사용자 메시지와 애플리케이션 로그로 남긴다.
-- Full unit suite has not been rerun because this review slice is awaiting hands-on UI acceptance.
+- Automated merge gates are complete. Final visual and exploratory acceptance remains with the user in the parent feature.
 
 ## Remaining Risks
 

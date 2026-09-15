@@ -153,3 +153,14 @@ function markBlogNextAiDraftSourceChanged(fieldId = '') {
   }, '', state.preview);
   syncBlogNextDraftExecutionState();
 }
+
+function bindBlogNextDetachedPublishSettings(form) {
+  const publishSettings = document.getElementById('blog-next-publish-settings');
+  publishSettings?.addEventListener('change', (event) => {
+    if (form.contains(event.target)) return;
+    if (['blog-next-target-naver', 'blog-next-target-wordpress'].includes(event.target?.id)) syncBlogNextProviderDependentFields();
+    if (event.target?.id === 'blog-next-post-status') syncBlogNextScheduleField();
+    syncBlogNextQuickFlowSummaries();
+    syncBlogNextTopicActionAvailability();
+  });
+}

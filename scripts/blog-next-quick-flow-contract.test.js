@@ -87,11 +87,14 @@ test('quick writing distinguishes queued ideas from the generated manuscript flo
   assert.match(execution, /publishSettings\.hidden = !editing && !hasDraft/);
   assert.match(queue, /발행 계획을 확인한 뒤 글감 대기열에 추가해 주세요/);
   assert.match(queue, /publishSettings\.hidden = false;[\s\S]*publishSettings\.open = true/);
+  assert.match(queue, /bindBlogNextDetachedPublishSettings\(form\)/);
+  assert.match(execution, /function bindBlogNextDetachedPublishSettings\(form\)/);
   assert.doesNotMatch(html, /data-blog-next-draft-result=/);
   assert.doesNotMatch(execution, /runWithLiveProgress/);
   assert.doesNotMatch(inputs, /runWithLiveProgress/);
   assert.match(execution, /source: 'manuscript_generation'/);
-  assert.doesNotMatch(execution, /'blog-next-target-naver', 'blog-next-target-wordpress'\s*\]/);
+  const sourceFields = execution.match(/const sourceFields = new Set\(\[([\s\S]*?)\]\);/)?.[1] || '';
+  assert.doesNotMatch(sourceFields, /blog-next-target-(?:naver|wordpress)/);
 });
 
 test('quick flow width and disclosure layout adapt without style-specific selectors', () => {

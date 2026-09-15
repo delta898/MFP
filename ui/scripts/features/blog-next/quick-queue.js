@@ -766,16 +766,7 @@ function initBlogNextQuickQueue() {
     syncBlogNextTopicClearAction();
     markBlogNextAiDraftSourceChanged(event.target?.id || '');
   });
-  const publishSettings = document.getElementById('blog-next-publish-settings');
-  publishSettings?.addEventListener('change', (event) => {
-    if (form.contains(event.target)) return;
-    if (['blog-next-target-naver', 'blog-next-target-wordpress'].includes(event.target?.id)) {
-      syncBlogNextProviderDependentFields();
-    }
-    if (event.target?.id === 'blog-next-post-status') syncBlogNextScheduleField();
-    syncBlogNextQuickFlowSummaries();
-    syncBlogNextTopicActionAvailability();
-  });
+  bindBlogNextDetachedPublishSettings(form);
   syncBlogNextQuickFlowSummaries();
   syncBlogNextTopicClearAction();
   document.getElementById('blog-next-queue-refresh')?.addEventListener('click', refreshBlogNextQueue);
