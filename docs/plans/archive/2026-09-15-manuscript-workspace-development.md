@@ -5,7 +5,7 @@
 - Branch: `codex/feat/manuscript-workspace`
 - Base/parent branch: `dev`
 - Start date: 2026-09-15
-- Status: active; Stages 01-05 and 07 complete; Stage 06 deferred
+- Status: complete; verified and approved for integration into `dev`; Stage 06 deferred
 
 ## User Need
 
@@ -213,11 +213,13 @@ read-only다.
 - 2026-09-15: Stage 07 completed lifecycle ownership, safe Draft and transient-preview cleanup, and canonical architecture
   documentation. Focused gates and browser smoke passed, followed by the full unit merge gate with 1,809 tests,
   1,808 passed, 1 intentionally skipped, and 0 failed.
+- 2026-09-15: user approved final parent integration into `dev`. The parent record was finalized and archived; text editing,
+  restart recovery UI, and Shopping Connect adoption remain explicit follow-up work rather than release blockers.
 
 ## Current Result
 
-Stages 01-05 and 07 are complete. Text editing remains explicitly deferred; the unified manuscript workspace is ready for
-integrated hands-on acceptance and parent validation before merging to `dev`.
+Stages 01-05 and 07 are complete. The unified manuscript workspace passed its focused, browser, and full-unit gates and is
+approved for integration into `dev`. Text editing remains explicitly deferred.
 
 ## Remaining Risks
 

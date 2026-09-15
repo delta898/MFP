@@ -96,7 +96,6 @@
 
 ## Active Work
 
-- `plans/active/2026-09-15-manuscript-workspace-development.md`
 - `plans/archive/2026-09-15-telegram-network-resilience-development.md`
 - `plans/active/2026-09-06-v0.4.3-backlog-current-state-development.md`
 - `plans/active/runtime-credential-security-main-plan.md`
