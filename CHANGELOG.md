@@ -1,6 +1,11 @@
 # Changelog
 All notable changes to the Naver Auto Blog publishing tool will be documented in this file.
 
+## [0.5.0-dev2] - 2026-09-15
+
+### Fixed
+- **Windows 패키지 시작 검증 강화**: `--version` 확인에 시간 제한을 두고 실패 시 진단 로그를 남기며, 버전·도움말 요청은 창을 열지 않고 즉시 종료됩니다.
+
 ## [Unreleased]
 
 ### Added

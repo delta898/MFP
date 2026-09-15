@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { applyRuntimeNetworkPolicy } = require('../network/runtime-network-policy');
 const { createStartupBootstrap } = require('./startup-bootstrap');
-const { buildSafeModeArgs, isSafeMode, isStartupProbe } = require('./startup-policy');
+const { buildSafeModeArgs, isSafeMode, isStartupProbe, isShortLivedCommand } = require('./startup-policy');
 
 const startup = createStartupBootstrap();
 const runtimeNetworkPolicy = applyRuntimeNetworkPolicy();
@@ -13,6 +13,16 @@ const externallySupervised = Boolean(String(process.env.BLOGGENIUS_LAUNCHER_PATH
 let startupReady = false;
 let recoveryStarted = false;
 let startupWatchdog = null;
+
+const shortLivedArgs = process.argv.slice(1).map((arg) => String(arg || '').toLowerCase());
+if (isShortLivedCommand(process.argv.slice(1))) {
+    if (shortLivedArgs.includes('--help') || shortLivedArgs.includes('-h')) {
+        fs.writeSync(1, 'Usage: BlogGenius [options]\n\nOptions:\n  --version, -v    Print the application version and exit\n  --help, -h       Show this help and exit\n');
+    } else {
+        fs.writeSync(1, `${app.getVersion()}\n`);
+    }
+    app.exit(0);
+}
 
 const STARTUP_TIMEOUT_MS = 35000;
 const RENDERER_READY_TIMEOUT_MS = 15000;

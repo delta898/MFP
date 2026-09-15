@@ -79,3 +79,12 @@ test('normal shutdown closes SQLite memory while safe mode keeps a no-op boundar
     assert.match(source, /loadStartupModule\('ui-server', \(\) => require\('\.\.\/ui-server'\)\)/);
     assert.match(source, /app[.]on\('before-quit',[\s\S]{0,700}closeAgentMemory[?][.]\(\)/);
 });
+
+test('short-lived commands exit before window creation without Electron internals', () => {
+    assert.match(source, /isShortLivedCommand\(process\.argv\.slice\(1\)\)/);
+    assert.match(source, /fs\.writeSync\(1, [`'"]\$\{app\.getVersion\(\)\}/);
+    assert.match(source, /Usage: BlogGenius/);
+    const shortLivedIndex = source.indexOf('isShortLivedCommand(process.argv.slice(1))');
+    const watchdogIndex = source.indexOf('startupWatchdog = setTimeout');
+    assert.ok(shortLivedIndex >= 0 && shortLivedIndex < watchdogIndex);
+});
