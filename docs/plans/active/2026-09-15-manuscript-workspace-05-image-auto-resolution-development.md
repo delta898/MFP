@@ -89,12 +89,20 @@
 - 2026-09-15: moved direct manuscript publishing from the input module to the execution module after the UI structure
   guard detected an 814-line boundary violation. Focused backend/UI/structure tests passed (60/60), and the final browser
   fixture smoke passed with 336 requests.
+- 2026-09-15: committed the shared policy, folder review slice, and cross-mode publish action terminology as `0aef445`.
+- 2026-09-15: completed the paste review slice by routing its missing prompt images through the same automatic pre-publish
+  resolution policy while keeping direct AI on the prior safety lock until its own review stage. Paste now preserves
+  immediate or scheduled publishing, explains the automatic work in the hint and confirmation, and refreshes the preview
+  with the generated image result.
+- 2026-09-15: paste-slice focused UI/contract tests passed (46/46), the browser fixture smoke passed with 345 requests,
+  and `git diff --check` passed. Full unit validation remains deferred to the completed sub-feature merge gate.
 
 ## Current Result
 
 - The common server policy is ready for every canonical manuscript source.
 - `원고 폴더` exposes the new optional-correction UX and automatically fills untouched prompt images on posting.
-- `원고 붙여넣기` and `바로 생성` intentionally retain their current UI safety lock until their review stages.
+- `원고 붙여넣기` now exposes the same automatic completion policy as `원고 폴더`.
+- `바로 생성` intentionally retains its current UI safety lock until its review stage.
 - Full unit suite has not been run; it remains the parent merge gate after all three UI slices are complete.
 
 ## Remaining Risks

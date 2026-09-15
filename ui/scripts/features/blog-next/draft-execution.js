@@ -206,13 +206,14 @@ async function publishBlogNextDraft(type) {
   const autoGenerationCount = Array.isArray(state.preview?.images)
     ? state.preview.images.filter((image) => !image.excluded && !image.exists && String(image.prompt || '').trim()).length
     : 0;
-  const forcedDraft = type !== 'folder' && missingCount > 0 && settings.postStatus !== 'draft';
+  const automaticImages = supportsBlogNextDraftAutomaticImages(type);
+  const forcedDraft = !automaticImages && missingCount > 0 && settings.postStatus !== 'draft';
   const requestedPostStatus = forcedDraft ? 'draft' : settings.postStatus;
   const publishCopy = getBlogNextDraftPublishCopy(requestedPostStatus);
   const targetLabel = formatBlogPlatformList(settings.targets, ' + ') || '선택한 블로그';
   const safetyNotice = forcedDraft
     ? `\n\n발행 대상으로 남은 이미지 ${missingCount}개가 미완성이라 안전을 위해 임시 저장으로 실행합니다.`
-    : type === 'folder' && autoGenerationCount > 0
+    : automaticImages && autoGenerationCount > 0
       ? `\n\n빈 이미지 ${autoGenerationCount}개는 먼저 AI로 만듭니다. 만들지 못한 이미지가 있으면 안전하게 임시 저장합니다.`
       : '';
   const confirmed = await showUiConfirm(
@@ -236,7 +237,7 @@ async function publishBlogNextDraft(type) {
       busy: true,
       source: 'local_markdown',
       subject: type === 'ai' ? '바로 생성 원고' : (type === 'paste' ? '원고 붙여넣기' : '원고 폴더'),
-      message: type === 'folder' && autoGenerationCount > 0
+      message: automaticImages && autoGenerationCount > 0
         ? `빈 이미지 ${autoGenerationCount}개를 준비한 뒤 ${publishCopy.actionLabel}합니다.`
         : `원고를 ${publishCopy.actionLabel}하고 있습니다.`,
       startedAt: new Date().toISOString()

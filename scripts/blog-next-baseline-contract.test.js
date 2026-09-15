@@ -128,8 +128,8 @@ test('folder and paste previews share one reading surface and image workspace', 
   assert.match(script, /showPostingCompletionCelebration\(actualPostStatus\)/);
   assert.match(html, /data-draft-image-safety-hint/);
   assert.match(html, /id="blog-next-folder-publish-safety-help"[^>]*>없는 이미지는 포스팅 전에 자동으로 만듭니다/);
-  assert.match(script, /type === 'folder'[\s\S]*빈 이미지 \$\{autoGenerationCount\}개는 포스팅할 때 자동으로 만듭니다/);
-  assert.match(html, /발행할 이미지가 준비되지 않으면 안전을 위해 임시 저장으로 자동 변경됩니다/);
+  assert.match(script, /supportsBlogNextDraftAutomaticImages\(type\)[\s\S]*빈 이미지 \$\{autoGenerationCount\}개는 포스팅할 때 자동으로 만듭니다/);
+  assert.match(html, /id="blog-next-paste-publish-safety-help"[^>]*>없는 이미지는 포스팅 전에 자동으로 만듭니다/);
   assert.match(css, /\.local-markdown-image-media-actions\.is-empty\s*\{[\s\S]*?justify-content:\s*center/);
   assert.match(css, /\.local-markdown-image-media-actions\.is-empty\s*\{[\s\S]*?flex-wrap:\s*nowrap/);
   assert.match(css, /\.local-markdown-image-card-preview\.is-load-error \.local-markdown-image-media-actions/);

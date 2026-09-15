@@ -1,6 +1,10 @@
 const BLOG_NEXT_DRAFT_TYPES = Object.freeze(['ai', 'folder', 'paste']);
 const BLOG_NEXT_DRAFT_PREVIEW_DELAY_MS = 350;
 
+function supportsBlogNextDraftAutomaticImages(type) {
+  return type === 'folder' || type === 'paste';
+}
+
 const blogNextDraftState = {
   ai: { preview: null, requestId: 0, publishing: false, generating: false, draftId: '', revision: 0, imageWorking: false, imageSafetyLocked: false, previewSyncFailed: false },
   folder: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, imageObjectUrls: {}, draftId: '', revision: 0, imageWorking: false, imageSafetyLocked: false, previewSyncFailed: false },
@@ -115,7 +119,7 @@ function syncBlogNextDraftImageSafety(type, preview = null) {
   const autoGenerationCount = Array.isArray(preview?.images)
     ? preview.images.filter((image) => !image.excluded && !image.exists && String(image.prompt || '').trim()).length
     : 0;
-  if (type === 'folder') {
+  if (supportsBlogNextDraftAutomaticImages(type)) {
     Array.from(select.options).forEach((option) => {
       if (option.value === 'publish' || option.value === 'schedule') option.disabled = false;
     });
@@ -195,7 +199,7 @@ function summarizeBlogNextDraftWarnings(type, validation = null, preview = null)
   const imageWarningPattern = /^\d+_image 규칙의 이미지 파일을 찾지 못했습니다\./;
   const imageWarnings = warnings.filter(message => imageWarningPattern.test(String(message || '')));
   if (imageWarnings.length === 0) return warnings;
-  if (type === 'folder') {
+  if (supportsBlogNextDraftAutomaticImages(type)) {
     return warnings.filter(message => !imageWarningPattern.test(String(message || '')));
   }
 
