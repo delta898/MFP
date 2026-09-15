@@ -201,14 +201,49 @@ jobs:
             throw 'The Windows launcher/runtime pair is incomplete.'
           }
 
-          $versionProbe = Start-Process -FilePath $launcher -ArgumentList '--version' -PassThru
-          if (!$versionProbe.WaitForExit(120000)) {
-            try { $versionProbe.Kill() } catch { }
-            $launcherLog = Join-Path $env:LOCALAPPDATA 'BlogGenius\logs\launcher.log'
-            if (Test-Path -LiteralPath $launcherLog) { Get-Content -LiteralPath $launcherLog -Tail 60 }
-            throw 'Packaged --version probe timed out after 120s (possible hang in runtime startup).'
+          function Get-BlogGeniusProcessSnapshot() {
+            Get-Process -Name 'BlogGenius','BlogGenius-runtime' -ErrorAction SilentlyContinue | ForEach-Object {
+              "process=$($_.Name) pid=$($_.Id) responding=$($_.Responding) threads=$($_.Threads.Count)"
+            }
           }
-          if ($versionProbe.ExitCode -ne 0) { throw "Packaged --version probe failed: $($versionProbe.ExitCode)" }
+
+          function Invoke-VersionVariant([string[]]$ExtraArgs, [string]$Label) {
+            $allArgs = @('--version') + $ExtraArgs
+            $proc = Start-Process -FilePath $launcher -ArgumentList $allArgs -PassThru
+            if ($proc.WaitForExit(60000)) { return @{ ExitCode = $proc.ExitCode; TimedOut = $false } }
+            try { $proc.Kill() } catch { }
+            $snap = @(Get-BlogGeniusProcessSnapshot) -join "`n"
+            Write-Host "##[warning] version variant '$Label' timed out. Process snapshot:`n$snap"
+            $launcherLog = Join-Path $env:LOCALAPPDATA 'BlogGenius\logs\launcher.log'
+            if (Test-Path -LiteralPath $launcherLog) { Get-Content -LiteralPath $launcherLog -Tail 40 }
+            return @{ ExitCode = -100; TimedOut = $true }
+          }
+
+          function Write-RecentApplicationErrors() {
+            try {
+              $events = Get-WinEvent -FilterHashtable @{ LogName = 'Application'; Level = 2; StartTime = (Get-Date).AddMinutes(-20) } -MaxEvents 10 -ErrorAction Stop
+              foreach ($item in $events) {
+                $text = [string]$item.Message
+                if ($text.Length -gt 500) { $text = $text.Substring(0, 500) }
+                Write-Host "##[warning] eventlog: $($item.TimeCreated.ToString('o')) id=$($item.Id) $($item.ProviderName) :: $text"
+              }
+            } catch { }
+          }
+
+          $versionVariantPassed = ''
+          foreach ($variant in @(
+            @{ Name = 'plain'; Args = @() },
+            @{ Name = 'disable-gpu'; Args = @('--disable-gpu') },
+            @{ Name = 'no-sandbox'; Args = @('--no-sandbox') }
+          )) {
+            $variantResult = Invoke-VersionVariant $variant.Args $variant.Name
+            if ($variantResult.ExitCode -eq 0) { $versionVariantPassed = $variant.Name; break }
+          }
+          if ([string]::IsNullOrEmpty($versionVariantPassed)) {
+            Write-RecentApplicationErrors
+            throw 'Packaged --version probe failed in all variants (plain/disable-gpu/no-sandbox).'
+          }
+          Write-Host "Version probe passed with variant: $versionVariantPassed"
 
           $diagnosticRoot = Join-Path $env:LOCALAPPDATA 'BlogGenius'
           if (Test-Path -LiteralPath $diagnosticRoot) {

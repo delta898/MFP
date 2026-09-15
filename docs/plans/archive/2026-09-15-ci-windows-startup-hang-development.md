@@ -24,3 +24,9 @@ full GUI (no explicit handling in our code), so it never exits on headless CI.
 
 - Contract tests for the new handling + existing unit suite.
 - Real CI run on next tag (user-triggered).
+- Follow-up (dev3 run): artifact was empty due to a `-LiteralPath` wildcard bug
+  in collection (fixed). `-2` = launcher-side 45s kill: runtime never exited and
+  never wrote bootstrap Mats.
+- Follow-up 2: version probe now tries plain/disable-gpu/no-sandbox (60s each),
+  dumps process snapshot + launcher log on timeout, and prints recent Application
+  errors. The passing variant identifies the cause class directly.

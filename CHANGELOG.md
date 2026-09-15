@@ -1,6 +1,11 @@
 # Changelog
 All notable changes to the Naver Auto Blog publishing tool will be documented in this file.
 
+## [0.5.0-dev4] - 2026-09-15
+
+### Fixed
+- **Windows 시작 검증 진단 강화**: 버전 확인을 일반·GPU 비활성화·샌드박스 비활성화 순으로 시도하고 통과한 방식을 보고하며, 실패 시 프로세스 상태와 시스템 오류 로그를 남깁니다.
+
 ## [0.5.0-dev3] - 2026-09-15
 
 ### Fixed

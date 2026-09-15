@@ -67,8 +67,13 @@ test('Windows packages install an external startup supervisor before runtime ver
     assert.match(launcher, /safe mode recovered startup/);
     assert.match(launcher, /CreateDiagnosticBundle/);
     assert.match(workflow, /--bloggenius-startup-probe/);
-    assert.match(workflow, /Start-Process -FilePath \$launcher -ArgumentList '--version' -PassThru/);
-  assert.match(workflow, /WaitForExit\(120000\)/);
+    assert.match(workflow, /function Invoke-VersionVariant/);
+    assert.match(workflow, /Name = 'disable-gpu'/);
+    assert.match(workflow, /Name = 'no-sandbox'/);
+    assert.match(workflow, /WaitForExit\(60000\)/);
+    assert.match(workflow, /Get-BlogGeniusProcessSnapshot/);
+    assert.match(workflow, /Write-RecentApplicationErrors/);
+    assert.match(workflow, /Version probe passed with variant/);
     assert.match(workflow, /startup completion checkpoint/);
     assert.match(workflow, /"phase":"STARTUP_PROBE_COMPLETE"/);
     assert.match(workflow, /"safeMode":false/);
