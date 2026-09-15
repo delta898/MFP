@@ -2,7 +2,7 @@ const BLOG_NEXT_DRAFT_TYPES = Object.freeze(['ai', 'folder', 'paste']);
 const BLOG_NEXT_DRAFT_PREVIEW_DELAY_MS = 350;
 
 function supportsBlogNextDraftAutomaticImages(type) {
-  return type === 'folder' || type === 'paste';
+  return BLOG_NEXT_DRAFT_TYPES.includes(type);
 }
 
 const blogNextDraftState = {
@@ -16,19 +16,16 @@ function blogNextDraftContainer(type) {
 }
 
 function blogNextDraftField(type, name) {
-  if (type === 'ai') {
-    const fieldIds = {
-      'target-naver': 'blog-next-target-naver',
-      'target-wordpress': 'blog-next-target-wordpress',
-      'naver-category': 'blog-next-naver-category',
-      'wordpress-category': 'blog-next-wordpress-category',
-      'post-status': 'blog-next-post-status',
-      'schedule-date': 'blog-next-schedule-date',
-      headless: 'blog-next-runner-headless'
-    };
-    return document.getElementById(fieldIds[name] || '') || null;
-  }
-  return blogNextDraftContainer(type)?.querySelector(`[data-draft-field="${name}"]`) || null;
+  const fieldIds = {
+    'target-naver': 'blog-next-target-naver',
+    'target-wordpress': 'blog-next-target-wordpress',
+    'naver-category': 'blog-next-naver-category',
+    'wordpress-category': 'blog-next-wordpress-category',
+    'post-status': 'blog-next-post-status',
+    'schedule-date': 'blog-next-schedule-date',
+    headless: 'blog-next-runner-headless'
+  };
+  return document.getElementById(fieldIds[name] || '') || null;
 }
 
 function normalizeBlogNextDraftPath(value) {
@@ -69,7 +66,7 @@ function readBlogNextDraftSettings(type) {
 }
 
 function syncBlogNextDraftSettingsSummary(type) {
-  const summary = document.querySelector(`[data-blog-next-draft-settings-summary="${type}"]`);
+  const summary = document.getElementById('blog-next-publish-settings-summary');
   if (!summary) return;
   const settings = readBlogNextDraftSettings(type);
   const statusLabel = settings.postStatus === 'draft' ? '임시 저장'
@@ -82,10 +79,9 @@ function syncBlogNextDraftSettingsSummary(type) {
 }
 
 function syncBlogNextDraftSchedule(type) {
-  const container = blogNextDraftContainer(type);
-  const field = container?.querySelector('[data-draft-schedule-field]');
+  const field = document.getElementById('blog-next-schedule-field');
   const input = blogNextDraftField(type, 'schedule-date');
-  const requiredIndicator = container?.querySelector('[data-draft-schedule-required]');
+  const requiredIndicator = document.getElementById('blog-next-schedule-required');
   const scheduled = blogNextDraftField(type, 'post-status')?.value === 'schedule';
   if (field) field.dataset.dependencyActive = String(scheduled);
   if (input) {
@@ -96,11 +92,11 @@ function syncBlogNextDraftSchedule(type) {
 }
 
 function syncBlogNextDraftProviderFields(type) {
-  const container = blogNextDraftContainer(type);
-  if (!container) return;
+  const settings = document.getElementById('blog-next-publish-settings');
+  if (!settings) return;
   const naverSelected = blogNextDraftField(type, 'target-naver')?.checked === true;
   const wordpressSelected = blogNextDraftField(type, 'target-wordpress')?.checked === true;
-  container.querySelectorAll('[data-draft-provider-field]').forEach((field) => {
+  settings.querySelectorAll('[data-draft-provider-field]').forEach((field) => {
     const active = field.dataset.draftProviderField === 'naver' ? naverSelected : wordpressSelected;
     field.dataset.dependencyActive = String(active);
     field.querySelectorAll('input, select, textarea').forEach((control) => {
@@ -113,42 +109,21 @@ function syncBlogNextDraftProviderFields(type) {
 function syncBlogNextDraftImageSafety(type, preview = null) {
   const state = blogNextDraftState[type];
   const select = blogNextDraftField(type, 'post-status');
-  const hint = blogNextDraftContainer(type)?.querySelector('[data-draft-image-safety-hint]');
+  const hint = document.getElementById('blog-next-publish-safety-hint');
   if (!state || !select) return;
-  const missingCount = Number(preview?.stats?.imageMissingCount || 0);
   const autoGenerationCount = Array.isArray(preview?.images)
     ? preview.images.filter((image) => !image.excluded && !image.exists && String(image.prompt || '').trim()).length
     : 0;
-  if (supportsBlogNextDraftAutomaticImages(type)) {
-    Array.from(select.options).forEach((option) => {
-      if (option.value === 'publish' || option.value === 'schedule') option.disabled = false;
-    });
-    if (hint) {
-      hint.textContent = autoGenerationCount > 0
-        ? `빈 이미지 ${autoGenerationCount}개는 포스팅할 때 자동으로 만듭니다.`
-        : '';
-      hint.hidden = autoGenerationCount === 0;
-    }
-    state.imageSafetyLocked = false;
-    syncBlogNextDraftSchedule(type);
-    syncBlogNextDraftSettingsSummary(type);
-    return;
-  }
-  const locked = missingCount > 0;
-  const changedToDraft = locked && select.value !== 'draft';
-
   Array.from(select.options).forEach((option) => {
-    if (option.value === 'publish' || option.value === 'schedule') option.disabled = locked;
+    if (option.value === 'publish' || option.value === 'schedule') option.disabled = false;
   });
-  if (changedToDraft) select.value = 'draft';
   if (hint) {
-    hint.textContent = locked ? `미완성 이미지 ${missingCount}개로 임시 저장만 가능합니다.` : '';
-    hint.hidden = !locked;
+    hint.textContent = autoGenerationCount > 0
+      ? `빈 이미지 ${autoGenerationCount}개는 포스팅할 때 자동으로 만듭니다.`
+      : '';
+    hint.hidden = autoGenerationCount === 0;
   }
-  if (changedToDraft && !state.imageSafetyLocked && typeof showUiToast === 'function') {
-    showUiToast({ level: 'info', title: '임시 저장으로 변경', message: `발행할 이미지 ${missingCount}개가 미완성입니다.` });
-  }
-  state.imageSafetyLocked = locked;
+  state.imageSafetyLocked = false;
   syncBlogNextDraftSchedule(type);
   syncBlogNextDraftSettingsSummary(type);
 }
@@ -199,14 +174,7 @@ function summarizeBlogNextDraftWarnings(type, validation = null, preview = null)
   const imageWarningPattern = /^\d+_image 규칙의 이미지 파일을 찾지 못했습니다\./;
   const imageWarnings = warnings.filter(message => imageWarningPattern.test(String(message || '')));
   if (imageWarnings.length === 0) return warnings;
-  if (supportsBlogNextDraftAutomaticImages(type)) {
-    return warnings.filter(message => !imageWarningPattern.test(String(message || '')));
-  }
-
-  return [
-    `발행할 이미지 ${missingCount}개가 미완성입니다. 즉시·예약 발행을 실행하면 안전을 위해 임시 저장됩니다.`,
-    ...warnings.filter(message => !imageWarningPattern.test(String(message || '')))
-  ];
+  return warnings.filter(message => !imageWarningPattern.test(String(message || '')));
 }
 
 function setBlogNextDraftValidation(type, validation = null, fallback = '', preview = null) {
@@ -650,18 +618,6 @@ function restoreBlogNextPastedDraft() {
 }
 
 function bindBlogNextDraftOptions(type) {
-  const container = blogNextDraftContainer(type);
-  container?.querySelectorAll('[data-draft-field]').forEach((field) => {
-    field.addEventListener('change', () => {
-      if (field.dataset.draftField === 'post-status') syncBlogNextDraftSchedule(type);
-      if (field.dataset.draftField === 'target-naver' || field.dataset.draftField === 'target-wordpress') {
-        syncBlogNextDraftProviderFields(type);
-      }
-      syncBlogNextDraftSettingsSummary(type);
-      syncBlogNextDraftExecutionState();
-      scheduleBlogNextDraftPreview(type);
-    });
-  });
   document.querySelector(`[data-blog-next-draft-publish="${type}"]`)
     ?.addEventListener('click', () => publishBlogNextDraft(type));
   syncBlogNextDraftSchedule(type);

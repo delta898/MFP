@@ -49,7 +49,7 @@
             <div id="blog-next-topic-form-home">
             <form id="blog-next-topic-form" class="blog-next-topic-form">
               <div class="blog-next-workflow-step-head" data-blog-next-ai-step="prepare">
-                <span>1</span><div><strong>글 준비</strong><small>글감을 보관하거나, 대기열에 넣거나, 지금 원고를 만드세요.</small></div>
+                <span>1</span><div><strong>원고 준비</strong><small>주제와 글의 방향을 정한 뒤 지금 원고를 만들거나 글감만 남겨두세요.</small></div>
               </div>
               <div class="blog-next-form-grid blog-next-core-fields">
                 <label class="blog-next-field blog-next-field-wide">
@@ -93,7 +93,7 @@
                       <span>참고 URL</span>
                       <input id="blog-next-reference-url" type="url" placeholder="https://...">
                     </label>
-                    <div class="blog-next-field blog-next-field-wide blog-next-execution-options blog-next-dependent-field" id="blog-next-headless-field" data-dependency-active="true">
+                    <div class="blog-next-field blog-next-field-wide blog-next-execution-options blog-next-dependent-field" id="blog-next-external-reference-field" data-dependency-active="true">
                       <label class="blog-next-check-label">
                         <input id="blog-next-external-reference" type="checkbox" checked> 외부 참고 사용
                         <span class="tooltip-container blog-next-help-trigger" tabindex="0" aria-label="외부 참고 사용 도움말" aria-describedby="blog-next-help-external-reference">
@@ -148,79 +148,40 @@
                   </div>
                 </details>
 
-                <details class="blog-next-disclosure" id="blog-next-publish-settings">
-                  <summary>
-                    <strong id="blog-next-publish-settings-title">글감 대기열 설정</strong>
-                    <span id="blog-next-publish-settings-summary">네이버 블로그 · 즉시 발행 · 보이지 않게 실행</span>
-                  </summary>
-                  <div class="blog-next-disclosure-grid blog-next-form-grid">
-                    <fieldset class="blog-next-field blog-next-field-wide blog-next-targets">
-                      <legend>
-                        포스팅 대상
-                        <span class="tooltip-container blog-next-help-trigger" tabindex="0" aria-label="포스팅 대상 도움말" aria-describedby="blog-next-help-publish-targets">
-                          <span class="tooltip-icon">?</span>
-                          <span class="tooltip-text" id="blog-next-help-publish-targets" role="tooltip">이 글감을 실제로 올릴 블로그를 선택합니다. 선택한 대상과 카테고리는 이 글감에 저장됩니다.</span>
-                        </span>
-                      </legend>
-                      <label><input id="blog-next-target-naver" name="blog-next-publish-target" type="radio" value="naver" checked> 네이버 블로그</label>
-                      <label><input id="blog-next-target-wordpress" name="blog-next-publish-target" type="radio" value="wordpress"> 워드프레스</label>
-                    </fieldset>
-                    <label class="blog-next-field blog-next-dependent-field" id="blog-next-naver-category-field" data-dependency-active="true">
-                      <span>네이버 카테고리 <small>(선택)</small></span>
-                      <input id="blog-next-naver-category" type="text" placeholder="비우면 기본 카테고리">
-                    </label>
-                    <label class="blog-next-field blog-next-dependent-field" id="blog-next-wordpress-category-field" data-dependency-active="false">
-                      <span>워드프레스 카테고리 <small>(선택)</small></span>
-                      <input id="blog-next-wordpress-category" type="text" placeholder="예: Daily" disabled>
-                    </label>
-                    <label class="blog-next-field">
-                      <span class="blog-next-field-label-with-help">
-                        포스팅 옵션
-                        <span class="tooltip-container blog-next-help-trigger" tabindex="0" aria-label="포스팅 옵션 도움말" aria-describedby="blog-next-help-post-status">
-                          <span class="tooltip-icon">?</span>
-                          <span class="tooltip-text" id="blog-next-help-post-status" role="tooltip">즉시 발행은 처리되는 즉시 공개하고, 임시 저장은 블로그에 초안으로 보관합니다. 예약 발행은 처리 시점에 원고와 공개 일시를 등록합니다.</span>
-                        </span>
-                      </span>
-                      <span class="ui-select-shell"><select id="blog-next-post-status" aria-describedby="blog-next-ai-publish-safety-hint">
-                        <option value="publish">즉시 발행</option>
-                        <option value="draft">임시 저장</option>
-                        <option value="schedule">예약 발행</option>
-                      </select></span>
-                      <small id="blog-next-ai-publish-safety-hint" data-draft-image-safety-hint hidden></small>
-                    </label>
-                    <label class="blog-next-field blog-next-dependent-field" id="blog-next-schedule-field" data-dependency-active="false">
-                      <span>예약 일시 <small id="blog-next-schedule-required" hidden>(필수)</small></span><span class="visually-hidden" id="blog-next-schedule-hint">예약 발행을 선택하면 활성화됩니다.</span>
-                      <input id="blog-next-schedule-date" type="datetime-local" aria-describedby="blog-next-schedule-hint" disabled>
-                    </label>
-                    <div class="blog-next-field blog-next-field-wide blog-next-execution-options">
-                      <label class="blog-next-check-label blog-next-headless-option">
-                        <input id="blog-next-runner-headless" type="checkbox" checked> 보이지 않게 실행
-                        <span class="tooltip-container blog-next-help-trigger" tabindex="0" aria-label="보이지 않게 실행 도움말" aria-describedby="blog-next-help-headless">
-                          <span class="tooltip-icon">?</span>
-                          <span class="tooltip-text" id="blog-next-help-headless" role="tooltip">네이버 포스팅 브라우저를 화면에 띄우지 않고 실행합니다.</span>
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-                </details>
+                <div data-blog-next-publish-settings-slot="ai-queue">
+                  <!-- @include blog-next/publish-settings.html -->
+                </div>
               </div>
               <div class="blog-next-form-result-row">
                 <p class="blog-next-form-result" id="blog-next-topic-result" role="status" aria-live="polite"></p>
                 <button class="blog-next-runner-status-jump" data-blog-next-runner-status-jump
                   type="button" hidden>상태 보기</button>
               </div>
-              <div class="blog-next-form-actions">
+              <div class="blog-next-form-actions blog-next-ai-prepare-actions">
                 <span class="blog-next-recoverable-action-slot">
                   <button class="ghost blog-next-clear-action" id="blog-next-clear-topic" type="button" hidden>내용 지우기</button>
                   <button class="blog-next-undo-action" id="blog-next-clear-undo" type="button" hidden>되돌리기</button>
                 </span>
                 <button class="ghost blog-next-cancel-action" id="blog-next-cancel-edit" type="button" hidden>취소</button>
-                <button class="secondary" id="blog-next-save-topic" type="button" disabled>글감 보관</button>
-                <button class="secondary" id="blog-next-enqueue-topic" type="submit" form="blog-next-topic-form"
-                  aria-describedby="blog-next-queue-action-hint" disabled>글감 대기열에 추가</button>
-                <button class="primary" id="blog-next-publish-now" type="button" disabled>원고 만들기</button>
+                <div class="blog-next-ai-action-row blog-next-ai-idea-actions" data-blog-next-ai-idea-actions>
+                  <span class="blog-next-ai-action-copy">
+                    <strong>나중에 활용</strong>
+                    <small id="blog-next-queue-action-hint">대기열의 글감은 실행할 때 원고를 새로 만듭니다.</small>
+                  </span>
+                  <span class="blog-next-ai-action-buttons">
+                    <button class="secondary" id="blog-next-save-topic" type="button" disabled>글감 보관</button>
+                    <button class="secondary" id="blog-next-enqueue-topic" type="submit" form="blog-next-topic-form"
+                      aria-describedby="blog-next-queue-action-hint" disabled>발행 대기열에 추가</button>
+                  </span>
+                </div>
+                <div class="blog-next-ai-action-row blog-next-ai-generate-action" data-blog-next-ai-generate-action>
+                  <span class="blog-next-ai-action-copy">
+                    <strong>지금 작성</strong>
+                    <small>입력한 내용으로 원고와 미리보기를 만듭니다.</small>
+                  </span>
+                  <button class="primary" id="blog-next-publish-now" type="button" disabled>원고 만들기</button>
+                </div>
               </div>
-              <small class="blog-next-queue-action-hint" id="blog-next-queue-action-hint">대기열의 글감은 실행할 때 원고를 새로 만듭니다.</small>
             </form>
             </div>
             <div class="blog-next-workflow-step-head" data-blog-next-ai-step="preview" hidden>
@@ -239,9 +200,13 @@
                 <div class="local-markdown-image-list" data-draft-preview-images></div>
               </details>
             </div>
+            <div class="blog-next-draft-actions blog-next-ai-preview-actions" data-blog-next-ai-preview-actions hidden>
+              <button class="secondary" id="blog-next-regenerate-draft" type="button">원고 다시 만들기</button>
+            </div>
             <div class="blog-next-workflow-step-head" data-blog-next-ai-step="publish" hidden>
               <span>3</span><div><strong>발행</strong><small>현재 미리보기 원고를 올릴 곳과 방식을 정하세요.</small></div>
             </div>
+            <div data-blog-next-publish-settings-slot="ai-publish"></div>
             <div class="blog-next-draft-actions" data-blog-next-draft-actions="ai" hidden>
               <button class="primary" data-blog-next-draft-publish="ai" type="button" disabled>즉시 발행</button>
             </div>

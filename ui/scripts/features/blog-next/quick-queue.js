@@ -116,6 +116,7 @@ function setBlogNextTopicBusy(busy, action = '') {
   blogNextTopicSubmitting = busy;
   const editingReady = blogNextEditingSourceStatus === '발행 준비 완료';
   const runnerActive = typeof blogNextRunnerActive !== 'undefined' && blogNextRunnerActive;
+  const aiDraftGenerating = typeof blogNextDraftState !== 'undefined' && blogNextDraftState.ai?.generating === true;
   const saveButton = document.getElementById('blog-next-save-topic');
   const enqueueButton = document.getElementById('blog-next-enqueue-topic');
   const publishButton = document.getElementById('blog-next-publish-now');
@@ -127,16 +128,16 @@ function setBlogNextTopicBusy(busy, action = '') {
   if (enqueueButton) {
     enqueueButton.textContent = busy && action === 'enqueue'
       ? (editingReady ? '저장 중...' : '추가 중...')
-      : (editingReady ? '저장' : '글감 대기열에 추가');
+      : (editingReady ? '저장' : '발행 대기열에 추가');
   }
   if (publishButton) {
-    publishButton.textContent = runnerActive ? '포스팅 진행 중...'
+    publishButton.textContent = aiDraftGenerating ? '원고 만드는 중...'
+      : runnerActive ? '포스팅 진행 중...'
       : busy && action === 'publish-now' ? '원고 만드는 중...'
         : '원고 만들기';
   }
   syncBlogNextTopicActionAvailability();
 }
-
 function setBlogNextTopicResult(message, level = '') {
   const result = document.getElementById('blog-next-topic-result');
   if (!result) return;
@@ -724,15 +725,15 @@ function initBlogNextQuickQueue() {
       publishSettings.hidden = false;
       publishSettings.open = true;
       document.getElementById('blog-next-enqueue-topic')?.setAttribute('aria-expanded', 'true');
-      setBlogNextTopicResult('발행 계획을 확인한 뒤 글감 대기열에 추가해 주세요.', 'editing');
+      setBlogNextTopicResult('발행 계획을 확인한 뒤 발행 대기열에 추가해 주세요.', 'editing');
       publishSettings.querySelector('summary')?.focus();
       return;
     }
     submitBlogNextTopic('enqueue');
   });
   document.getElementById('blog-next-save-topic')?.addEventListener('click', () => submitBlogNextTopic('save'));
-  document.getElementById('blog-next-publish-now')?.addEventListener('click', async () => {
-    await generateBlogNextAiDraft();
+  ['blog-next-publish-now', 'blog-next-regenerate-draft'].forEach((id) => {
+    document.getElementById(id)?.addEventListener('click', () => generateBlogNextAiDraft());
   });
   document.getElementById('blog-next-clear-topic')?.addEventListener('click', async () => {
     const snapshot = captureBlogNextClearableContent();

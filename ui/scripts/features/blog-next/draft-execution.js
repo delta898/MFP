@@ -50,13 +50,14 @@ function syncBlogNextDraftExecutionState(runnerActive) {
 function setBlogNextAiGenerating(generating) {
   const state = blogNextDraftState.ai;
   state.generating = generating;
-  const button = document.getElementById('blog-next-publish-now');
-  if (button) {
+  const createButton = document.getElementById('blog-next-publish-now');
+  const regenerateButton = document.getElementById('blog-next-regenerate-draft');
+  [createButton, regenerateButton].filter(Boolean).forEach((button) => {
     button.disabled = generating;
     button.setAttribute('aria-busy', generating ? 'true' : 'false');
-    button.textContent = generating ? '원고 만드는 중...'
-      : blogNextDraftState.ai.draftId ? '원고 다시 만들기' : '원고 만들기';
-  }
+  });
+  if (createButton) createButton.textContent = generating ? '원고 만드는 중...' : '원고 만들기';
+  if (regenerateButton) regenerateButton.textContent = generating ? '다시 만드는 중...' : '원고 다시 만들기';
   if (typeof syncBlogNextTopicActionAvailability === 'function') syncBlogNextTopicActionAvailability();
   syncBlogNextDraftExecutionState();
 }
@@ -70,21 +71,32 @@ function arrangeBlogNextAiWorkflow(options = {}) {
   const publishStep = document.querySelector('[data-blog-next-ai-step="publish"]');
   const save = document.getElementById('blog-next-save-topic');
   const enqueue = document.getElementById('blog-next-enqueue-topic');
+  const prepareActions = document.querySelector('.blog-next-ai-prepare-actions');
+  const ideaActions = document.querySelector('[data-blog-next-ai-idea-actions]');
+  const previewActions = document.querySelector('[data-blog-next-ai-preview-actions]');
   const hint = document.getElementById('blog-next-queue-action-hint');
   const hasDraft = Boolean(blogNextDraftState.ai.draftId) && options.sourceDirty !== true;
   const editing = options.editing === true;
 
   if (editing || !hasDraft) {
-    if (disclosures && publishSettings) disclosures.appendChild(publishSettings);
-    if (publishTitle) publishTitle.textContent = editing ? '발행 계획' : '글감 대기열 설정';
-  } else if (publishStep && publishSettings) {
-    publishStep.after(publishSettings);
-    if (publishTitle) publishTitle.textContent = '발행 설정';
+    const queueSlot = document.querySelector('[data-blog-next-publish-settings-slot="ai-queue"]');
+    if (queueSlot && publishSettings) queueSlot.appendChild(publishSettings);
+    if (typeof setBlogNextPublishSettingsContext === 'function') {
+      setBlogNextPublishSettingsContext('ai', editing ? '발행 계획' : '발행 대기열 설정');
+    } else if (publishTitle) publishTitle.textContent = editing ? '발행 계획' : '발행 대기열 설정';
+  } else if (publishSettings) {
+    const publishSlot = document.querySelector('[data-blog-next-publish-settings-slot="ai-publish"]');
+    if (publishSlot) publishSlot.appendChild(publishSettings);
+    if (typeof setBlogNextPublishSettingsContext === 'function') setBlogNextPublishSettingsContext('ai');
+    else if (publishTitle) publishTitle.textContent = '발행 설정';
   }
 
   if (previewStep) previewStep.hidden = editing || !hasDraft;
   if (publishStep) publishStep.hidden = editing || !hasDraft;
   if (publishSettings) publishSettings.hidden = !editing && !hasDraft;
+  if (prepareActions) prepareActions.hidden = !editing && hasDraft;
+  if (ideaActions) ideaActions.hidden = !editing && hasDraft;
+  if (previewActions) previewActions.hidden = editing || !hasDraft;
   if (!editing) {
     if (save) save.hidden = hasDraft;
     if (enqueue) {
@@ -183,11 +195,15 @@ function bindBlogNextDetachedPublishSettings(form) {
   const publishSettings = document.getElementById('blog-next-publish-settings');
   publishSettings?.addEventListener('change', (event) => {
     if (form.contains(event.target)) return;
-    if (['blog-next-target-naver', 'blog-next-target-wordpress'].includes(event.target?.id)) syncBlogNextProviderDependentFields();
-    if (event.target?.id === 'blog-next-post-status') syncBlogNextScheduleField();
-    syncBlogNextQuickFlowSummaries();
+    const type = BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai';
+    if (['blog-next-target-naver', 'blog-next-target-wordpress'].includes(event.target?.id)) {
+      syncBlogNextDraftProviderFields(type);
+    }
+    if (event.target?.id === 'blog-next-post-status') syncBlogNextDraftSchedule(type);
+    syncBlogNextDraftSettingsSummary(type);
     syncBlogNextTopicActionAvailability();
     syncBlogNextDraftExecutionState();
+    if (type !== 'ai') scheduleBlogNextDraftPreview(type);
   });
 }
 
@@ -202,18 +218,13 @@ async function publishBlogNextDraft(type) {
   if (state.publishing || !state.preview?.validation?.ok) return;
   if (typeof guardUiConfigReady === 'function' && !guardUiConfigReady('원고 포스팅')) return;
   let settings = readBlogNextDraftSettings(type);
-  const missingCount = Number(state.preview?.stats?.imageMissingCount || 0);
   const autoGenerationCount = Array.isArray(state.preview?.images)
     ? state.preview.images.filter((image) => !image.excluded && !image.exists && String(image.prompt || '').trim()).length
     : 0;
   const automaticImages = supportsBlogNextDraftAutomaticImages(type);
-  const forcedDraft = !automaticImages && missingCount > 0 && settings.postStatus !== 'draft';
-  const requestedPostStatus = forcedDraft ? 'draft' : settings.postStatus;
-  const publishCopy = getBlogNextDraftPublishCopy(requestedPostStatus);
+  const publishCopy = getBlogNextDraftPublishCopy(settings.postStatus);
   const targetLabel = formatBlogPlatformList(settings.targets, ' + ') || '선택한 블로그';
-  const safetyNotice = forcedDraft
-    ? `\n\n발행 대상으로 남은 이미지 ${missingCount}개가 미완성이라 안전을 위해 임시 저장으로 실행합니다.`
-    : automaticImages && autoGenerationCount > 0
+  const safetyNotice = automaticImages && autoGenerationCount > 0
       ? `\n\n빈 이미지 ${autoGenerationCount}개는 먼저 AI로 만듭니다. 만들지 못한 이미지가 있으면 안전하게 임시 저장합니다.`
       : '';
   const confirmed = await showUiConfirm(
@@ -221,14 +232,6 @@ async function publishBlogNextDraft(type) {
     { title: publishCopy.buttonLabel, confirmText: publishCopy.buttonLabel, cancelText: '취소' }
   );
   if (!confirmed) return;
-
-  if (forcedDraft) {
-    const postStatusField = blogNextDraftField(type, 'post-status');
-    if (postStatusField) postStatusField.value = 'draft';
-    syncBlogNextDraftSchedule(type);
-    syncBlogNextDraftSettingsSummary(type);
-    settings = readBlogNextDraftSettings(type);
-  }
 
   setBlogNextDraftPublishing(type, true);
   if (typeof renderBlogNextRunnerStatus === 'function') {
@@ -271,8 +274,7 @@ async function publishBlogNextDraft(type) {
       title: actualPublishCopy.buttonLabel,
       message: actualPostStatus === 'draft' && settings.postStatus !== 'draft'
         ? `이미지를 모두 만들지 못해 ${targetLabel}에 안전하게 임시 저장했습니다.`
-        : forcedDraft ? `미완성 이미지가 있어 ${targetLabel}에 안전하게 임시 저장했습니다.`
-          : `${targetLabel}에 ${actualPublishCopy.completionLabel}`
+        : `${targetLabel}에 ${actualPublishCopy.completionLabel}`
     });
     if (typeof showPostingCompletionCelebration === 'function') showPostingCompletionCelebration(actualPostStatus);
   } catch (error) {

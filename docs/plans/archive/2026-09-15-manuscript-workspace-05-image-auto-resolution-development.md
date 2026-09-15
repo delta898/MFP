@@ -5,7 +5,7 @@
 - Branch: `codex/feat/manuscript-workspace-05-image-auto-resolution`
 - Base/parent branch: `codex/feat/manuscript-workspace`
 - Start date: 2026-09-15
-- Status: active; shared policy and folder UI slice complete, awaiting user review
+- Status: complete; verified and ready for parent integration
 
 ## User Need
 
@@ -56,6 +56,11 @@
 - 세 입력 방식의 실행 버튼은 선택한 포스팅 옵션과 같은 `블로그에 임시 저장` / `즉시 발행` / `예약 발행`
   문구를 사용한다. 확인과 완료 안내에는 실제 대상 블로그와 실행 결과를 다시 명시한다.
 - 이미지 생성 실패로 결과만 임시 저장으로 전환된 경우, 사용자가 보완 후 재시도할 수 있도록 원래 즉시/예약 선택은 유지한다.
+- 바로 생성의 `글감 보관`은 발행 설정 없이 아이디어만 남기고, `발행 대기열에 추가`를 선택할 때만 발행 계획을
+  점진적으로 공개한다. 원고가 만들어진 뒤에는 준비 단계의 저장·생성 작업을 숨기고 미리보기 아래에 보조
+  `원고 다시 만들기`만 제공하며, 실제 발행 CTA는 3단계에만 둔다.
+- 빠른 글 작성의 세 입력 방식은 별도 발행 설정 사본을 두지 않는다. 하나의 공통 발행 설정 컴포넌트를 현재
+  활성 모드의 슬롯으로 이동하고 설정값도 공유해, 스타일·도움말·의존 필드·기본값 동작이 어긋나지 않게 한다.
 
 ## Implementation Stages
 
@@ -96,14 +101,45 @@
   with the generated image result.
 - 2026-09-15: paste-slice focused UI/contract tests passed (46/46), the browser fixture smoke passed with 345 requests,
   and `git diff --check` passed. Full unit validation remains deferred to the completed sub-feature merge gate.
+- 2026-09-15: began the direct AI review slice. Its preparation actions are separated into `나중에 활용` and `지금 작성`
+  rows under a consistent `원고 준비` step, while preview and publishing remain steps 2 and 3. Direct AI now uses the same
+  automatic missing-image resolution policy as folder and paste without exposing another option.
+- 2026-09-15: completed the direct AI review slice. Removed the now-unreachable client-side forced-draft branch so the
+  shared server preflight is the only authority for image-failure fallback. Focused UI/design contracts passed (77/77),
+  UI script/style structure checks passed (17/17), the browser fixture smoke passed with 346 requests, and
+  `git diff --check` passed.
+- 2026-09-15: refined the direct AI action hierarchy after user review. Renamed the queued path to `발행 대기열에 추가`,
+  kept its settings hidden until chosen, hid the entire preparation action area after draft creation, and moved
+  `원고 다시 만들기` beside the preview as a secondary action. The updated browser fixture smoke passed with 352 requests;
+  focused contracts and module-boundary checks also passed.
+- 2026-09-15: corrected a visual regression found in hands-on review: later shared action styles had overridden the
+  preparation area's grid layout and the native `hidden` state on the pre-generation publish action. An initial browser
+  width assertion then exposed an implicit second grid column retained by the legacy action slot; the final rule declares
+  one explicit full-width column. Preparation rows now occupy the full form width and hidden draft actions remain hidden.
+  Focused style/UI contracts passed (63/63), the browser fixture smoke passed with 345 requests, and `git diff --check`
+  passed.
+- 2026-09-15: prevented the shared publishing-runner state from overwriting the direct AI generation CTA with
+  `포스팅 진행 중...`; manuscript generation now keeps the stage-specific `원고 만드는 중...` label. The browser
+  fixture now holds generation briefly and asserts the in-progress copy; focused contracts, the script boundary check,
+  and browser smoke passed.
+- 2026-09-15: extracted the complete Blog Beta publish settings card into one HTML partial and replaced the three mode
+  copies with four placement slots (AI queue/publish, folder, paste). Mode activation reparents the same controls, updates
+  contextual titles and summaries, and preserves one setting state. This also removed the visual mismatch around
+  `보이지 않게 실행` and corrected a duplicate headless-field id on the unrelated external-reference control. Focused
+  UI/structure contracts passed (90/90), browser smoke passed with 347 requests, and `git diff --check` passed.
+- 2026-09-15: completed the merge gate. The full unit suite passed with 1,802 tests and one platform-specific skip across
+  345 test files. The latest focused UI/structure contracts (90/90), browser smoke (347 fixture requests), and
+  `git diff --check` also passed.
 
 ## Current Result
 
 - The common server policy is ready for every canonical manuscript source.
 - `원고 폴더` exposes the new optional-correction UX and automatically fills untouched prompt images on posting.
 - `원고 붙여넣기` now exposes the same automatic completion policy as `원고 폴더`.
-- `바로 생성` intentionally retains its current UI safety lock until its review stage.
-- Full unit suite has not been run; it remains the parent merge gate after all three UI slices are complete.
+- `바로 생성` now uses the common automatic image policy and the same three-step manuscript flow as the other modes.
+- All three modes use one shared publishing-settings component and preserve a single settings state while switching modes.
+- Automated merge gates are complete. Final visual and exploratory acceptance remains with the user in the integrated
+  parent feature.
 
 ## Remaining Risks
 

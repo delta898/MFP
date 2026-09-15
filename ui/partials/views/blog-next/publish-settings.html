@@ -1,0 +1,56 @@
+<details class="blog-next-disclosure blog-next-draft-settings" id="blog-next-publish-settings" data-blog-next-publish-settings data-blog-next-draft-settings="ai">
+  <summary>
+    <strong id="blog-next-publish-settings-title">발행 설정</strong>
+    <span id="blog-next-publish-settings-summary" data-blog-next-draft-settings-summary="ai">네이버 블로그 · 즉시 발행 · 보이지 않게 실행</span>
+  </summary>
+  <div class="blog-next-disclosure-grid blog-next-form-grid blog-next-draft-options" data-blog-next-draft-options="ai">
+    <fieldset class="blog-next-field blog-next-field-wide blog-next-targets blog-next-draft-targets">
+      <legend>
+        포스팅 대상
+        <span class="tooltip-container blog-next-help-trigger" tabindex="0" aria-label="포스팅 대상 도움말" aria-describedby="blog-next-help-publish-targets">
+          <span class="tooltip-icon">?</span>
+          <span class="tooltip-text" id="blog-next-help-publish-targets" role="tooltip">현재 원고를 올릴 블로그를 선택합니다.</span>
+        </span>
+      </legend>
+      <label><input id="blog-next-target-naver" name="blog-next-publish-target" data-draft-field="target-naver" type="radio" value="naver" checked> 네이버 블로그</label>
+      <label><input id="blog-next-target-wordpress" name="blog-next-publish-target" data-draft-field="target-wordpress" type="radio" value="wordpress"> 워드프레스</label>
+    </fieldset>
+    <label class="blog-next-field blog-next-dependent-field" id="blog-next-naver-category-field" data-draft-provider-field="naver" data-dependency-active="true">
+      <span>네이버 카테고리 <small>(선택)</small></span>
+      <input id="blog-next-naver-category" data-draft-field="naver-category" type="text" placeholder="비우면 기본 카테고리">
+    </label>
+    <label class="blog-next-field blog-next-dependent-field" id="blog-next-wordpress-category-field" data-draft-provider-field="wordpress" data-dependency-active="false">
+      <span>워드프레스 카테고리 <small>(선택)</small></span>
+      <input id="blog-next-wordpress-category" data-draft-field="wordpress-category" type="text" placeholder="예: Daily" disabled>
+    </label>
+    <label class="blog-next-field">
+      <span class="blog-next-field-label-with-help">
+        포스팅 옵션
+        <span class="tooltip-container blog-next-help-trigger" tabindex="0" aria-label="포스팅 옵션 도움말" aria-describedby="blog-next-help-post-status">
+          <span class="tooltip-icon">?</span>
+          <span class="tooltip-text" id="blog-next-help-post-status" role="tooltip">즉시 발행은 바로 공개하고, 임시 저장은 블로그에 초안으로 보관합니다. 예약 발행은 지정한 공개 일시를 등록합니다. 없는 이미지는 포스팅 전에 자동으로 만들며, 만들지 못한 이미지 프롬프트가 남으면 안전하게 임시 저장합니다.</span>
+        </span>
+      </span>
+      <span class="ui-select-shell"><select id="blog-next-post-status" data-draft-field="post-status" aria-describedby="blog-next-publish-safety-hint">
+        <option value="publish">즉시 발행</option>
+        <option value="draft">임시 저장</option>
+        <option value="schedule">예약 발행</option>
+      </select></span>
+      <small class="blog-next-image-safety-hint" id="blog-next-publish-safety-hint" data-draft-image-safety-hint hidden></small>
+    </label>
+    <label class="blog-next-field blog-next-dependent-field" id="blog-next-schedule-field" data-draft-schedule-field data-dependency-active="false">
+      <span>예약 일시 <small id="blog-next-schedule-required" data-draft-schedule-required hidden>(필수)</small></span>
+      <span class="visually-hidden" id="blog-next-schedule-hint">예약 발행을 선택하면 활성화됩니다.</span>
+      <input id="blog-next-schedule-date" data-draft-field="schedule-date" type="datetime-local" aria-describedby="blog-next-schedule-hint" disabled>
+    </label>
+    <div class="blog-next-field blog-next-field-wide blog-next-dependent-field blog-next-draft-headless" id="blog-next-headless-field" data-draft-provider-field="naver" data-dependency-active="true">
+      <label class="blog-next-check-label blog-next-headless-option">
+        <input id="blog-next-runner-headless" data-draft-field="headless" type="checkbox" checked> 보이지 않게 실행
+        <span class="tooltip-container blog-next-help-trigger" tabindex="0" aria-label="보이지 않게 실행 도움말" aria-describedby="blog-next-help-headless">
+          <span class="tooltip-icon">?</span>
+          <span class="tooltip-text" id="blog-next-help-headless" role="tooltip">네이버 포스팅 브라우저를 화면에 표시하지 않고 실행합니다. 워드프레스에는 적용되지 않습니다.</span>
+        </span>
+      </label>
+    </div>
+  </div>
+</details>

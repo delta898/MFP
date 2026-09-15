@@ -84,6 +84,7 @@ function activateBlogNextInputMode(modeName) {
     panel.classList.toggle('active', active);
     panel.hidden = !active;
   });
+  if (typeof mountBlogNextPublishSettings === 'function') mountBlogNextPublishSettings(target);
 }
 
 function initBlogNextShell() {

@@ -49,16 +49,71 @@
 }
 
 .blog-next-workflow-step-head small,
-.blog-next-queue-action-hint {
+.blog-next-queue-action-hint,
+.blog-next-ai-action-copy small {
   color: var(--ui-text-secondary);
   font-size: var(--ui-type-caption-size);
   line-height: 1.5;
 }
 
-.blog-next-queue-action-hint {
-  display: block;
-  margin-top: calc(var(--ui-space-2) * -1);
-  text-align: end;
+#blog-next-topic-form-home .blog-next-ai-prepare-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  gap: 0;
+  margin-top: var(--ui-space-4);
+}
+
+#blog-next-topic-form-home .blog-next-ai-prepare-actions[hidden],
+.blog-next-ai-preview-actions[hidden] {
+  display: none;
+}
+
+[data-blog-next-draft-actions][hidden] {
+  display: none;
+}
+
+.blog-next-ai-action-row {
+  display: flex;
+  grid-column: 1 / -1;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-5);
+  padding: var(--ui-space-4) 0;
+  border-top: 1px solid var(--ui-border-default);
+}
+
+.blog-next-ai-action-row[hidden] {
+  display: none;
+}
+
+.blog-next-ai-action-copy {
+  display: grid;
+  flex: 1;
+  gap: var(--ui-space-1);
+  min-width: 0;
+}
+
+.blog-next-ai-action-copy strong {
+  color: var(--ui-text-primary);
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-bold);
+}
+
+.blog-next-ai-action-buttons {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--ui-action-group-gap);
+}
+
+.blog-next-ai-generate-action .primary {
+  min-width: 160px;
+}
+
+.blog-next-ai-preview-actions {
+  margin-top: var(--ui-space-3);
 }
 
 .blog-next-core-fields {
@@ -94,6 +149,10 @@
 .blog-next-disclosures {
   display: grid;
   gap: var(--ui-density-field-gap);
+}
+
+[data-blog-next-publish-settings-slot] {
+  display: contents;
 }
 
 .blog-next-disclosure {
@@ -187,6 +246,37 @@
 
 .blog-next-topic-form .blog-next-help-trigger:focus {
   outline: none;
+}
+
+.blog-next-editor-modal-actions .blog-next-ai-prepare-actions {
+  display: flex;
+}
+
+.blog-next-editor-modal-actions .blog-next-ai-action-row,
+.blog-next-editor-modal-actions .blog-next-ai-action-buttons {
+  display: contents;
+}
+
+.blog-next-editor-modal-actions .blog-next-ai-action-copy {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .blog-next-ai-action-row {
+    align-items: stretch;
+    flex-direction: column;
+    gap: var(--ui-space-3);
+  }
+
+  .blog-next-ai-action-buttons {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .blog-next-ai-action-buttons button,
+  .blog-next-ai-generate-action .primary {
+    width: 100%;
+  }
 }
 
 .blog-next-topic-form .blog-next-help-trigger .tooltip-icon {

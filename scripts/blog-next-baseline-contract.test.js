@@ -54,15 +54,15 @@ test('folder and paste modes share one manuscript publishing grammar', () => {
     assert.match(panel, /class="blog-next-draft-source"/);
     assert.match(panel, new RegExp(`data-blog-next-draft-validation="${type}"[^>]*role="status"[^>]*aria-live="polite"`));
     assert.match(panel, new RegExp(`data-blog-next-draft-preview="${type}"`));
-    assert.match(panel, new RegExp(`data-blog-next-draft-settings="${type}"`));
-    assert.match(panel, new RegExp(`data-blog-next-draft-settings-summary="${type}"`));
-    assert.match(panel, /<fieldset class="blog-next-field blog-next-field-wide blog-next-targets blog-next-draft-targets">/);
-    assert.match(panel, /data-draft-schedule-field data-dependency-active="false"/);
-    assert.match(panel, /data-draft-field="schedule-date"[^>]*disabled/);
+    assert.match(panel, new RegExp(`data-blog-next-publish-settings-slot="${type}"`));
     assert.match(panel, new RegExp(`data-blog-next-draft-publish="${type}"`));
-    assert.ok(panel.indexOf(`data-blog-next-draft-preview="${type}"`) < panel.indexOf(`data-blog-next-draft-settings="${type}"`));
-    assert.ok(panel.indexOf(`data-blog-next-draft-settings="${type}"`) < panel.indexOf(`data-blog-next-draft-publish="${type}"`));
+    assert.ok(panel.indexOf(`data-blog-next-draft-preview="${type}"`) < panel.indexOf(`data-blog-next-publish-settings-slot="${type}"`));
+    assert.ok(panel.indexOf(`data-blog-next-publish-settings-slot="${type}"`) < panel.indexOf(`data-blog-next-draft-publish="${type}"`));
   }
+  assert.equal((html.match(/data-blog-next-publish-settings(?:>|\s)/g) || []).length, 1);
+  assert.match(html, /<fieldset class="blog-next-field blog-next-field-wide blog-next-targets blog-next-draft-targets">/);
+  assert.match(html, /data-draft-schedule-field data-dependency-active="false"/);
+  assert.match(html, /data-draft-field="schedule-date"[^>]*disabled/);
 });
 
 test('folder and paste previews share one reading surface and image workspace', () => {
@@ -113,8 +113,8 @@ test('folder and paste previews share one reading surface and image workspace', 
   assert.match(script, /사용 안 함/);
   assert.match(script, /function syncBlogNextDraftImageSafety\(type, preview = null\)/);
   assert.match(script, /option\.value === 'publish' \|\| option\.value === 'schedule'/);
-  assert.match(script, /if \(changedToDraft\) select\.value = 'draft'/);
-  assert.match(script, /미완성 이미지 \$\{missingCount\}개로 임시 저장만 가능합니다/);
+  assert.doesNotMatch(script, /changedToDraft|forcedDraft/);
+  assert.match(script, /option\.value === 'publish' \|\| option\.value === 'schedule'\) option\.disabled = false/);
   assert.match(script, /function getBlogNextDraftPublishCopy\(postStatus = 'publish'\)/);
   assert.match(script, /buttonLabel: '블로그에 임시 저장'/);
   assert.match(script, /buttonLabel: '예약 발행'/);
@@ -127,9 +127,8 @@ test('folder and paste previews share one reading surface and image workspace', 
   assert.match(script, /actualPublishCopy\.completionLabel/);
   assert.match(script, /showPostingCompletionCelebration\(actualPostStatus\)/);
   assert.match(html, /data-draft-image-safety-hint/);
-  assert.match(html, /id="blog-next-folder-publish-safety-help"[^>]*>없는 이미지는 포스팅 전에 자동으로 만듭니다/);
+  assert.match(html, /id="blog-next-help-post-status"[^>]*>[\s\S]*없는 이미지는 포스팅 전에 자동으로 만들/);
   assert.match(script, /supportsBlogNextDraftAutomaticImages\(type\)[\s\S]*빈 이미지 \$\{autoGenerationCount\}개는 포스팅할 때 자동으로 만듭니다/);
-  assert.match(html, /id="blog-next-paste-publish-safety-help"[^>]*>없는 이미지는 포스팅 전에 자동으로 만듭니다/);
   assert.match(css, /\.local-markdown-image-media-actions\.is-empty\s*\{[\s\S]*?justify-content:\s*center/);
   assert.match(css, /\.local-markdown-image-media-actions\.is-empty\s*\{[\s\S]*?flex-wrap:\s*nowrap/);
   assert.match(css, /\.local-markdown-image-card-preview\.is-load-error \.local-markdown-image-media-actions/);
@@ -154,7 +153,7 @@ test('manuscript drafts keep idle results quiet and summarize repeated image war
   }
   assert.match(script, /function summarizeBlogNextDraftWarnings\(type, validation = null, preview = null\)/);
   assert.match(script, /!BLOG_NEXT_DRAFT_TYPES\.includes\(type\) \|\| missingCount === 0/);
-  assert.match(script, /`발행할 이미지 \$\{missingCount\}개가 미완성입니다\./);
+  assert.match(script, /return warnings\.filter\(message => !imageWarningPattern\.test/);
   assert.doesNotMatch(script, /검증을 통과했습니다/);
   assert.match(script, /setBlogNextDraftValidation\('folder'\);/);
   assert.doesNotMatch(script, /setBlogNextDraftValidation\('folder', null, '원고 폴더를 선택해 주세요\.'\)/);
@@ -362,7 +361,7 @@ test('queue row actions describe their actual outcomes consistently', () => {
 });
 
 test('queue metadata presents platform identifiers in user language', () => {
-  const html = read('ui/partials/views/blog-next.html');
+  const html = readBlogNextView();
   const queueScript = readBlogNextQueueScripts();
   const flowScript = read('ui/scripts/features/blog-next/quick-flow-ui.js');
   const draftScript = read('ui/scripts/features/blog-next/draft-inputs.js');
@@ -373,7 +372,7 @@ test('queue metadata presents platform identifiers in user language', () => {
   assert.match(queueScript, /formatBlogPlatformList\(item\.options\?\.platforms\)/);
   assert.match(flowScript, /formatBlogPlatformList\(platforms, ' \+ '\)/);
   assert.match(draftScript, /formatBlogPlatformList\(settings\.targets, ' \+ '\)/);
-  assert.match(html, /id="blog-next-publish-settings-summary">네이버 블로그 · 즉시 발행/);
+  assert.match(html, /id="blog-next-publish-settings-summary"[^>]*>네이버 블로그 · 즉시 발행/);
   assert.doesNotMatch(queueScript, /item\.options\?\.platforms\) \? item\.options\.platforms\.join\(' · '\)/);
 });
 

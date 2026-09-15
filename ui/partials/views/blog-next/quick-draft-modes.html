@@ -37,40 +37,7 @@
               </details>
             </div>
             <div class="blog-next-workflow-step-head"><span>3</span><div><strong>발행</strong><small>현재 미리보기 원고를 올릴 곳과 방식을 정하세요.</small></div></div>
-            <details class="blog-next-disclosure blog-next-draft-settings" data-blog-next-draft-settings="folder">
-              <summary><strong>발행 설정</strong><span data-blog-next-draft-settings-summary="folder">네이버 · 즉시 발행 · 보이지 않게 실행</span></summary>
-              <div class="blog-next-disclosure-grid blog-next-form-grid blog-next-draft-options" data-blog-next-draft-options="folder">
-                <fieldset class="blog-next-field blog-next-field-wide blog-next-targets blog-next-draft-targets">
-                  <legend>포스팅 대상</legend>
-                  <label><input data-draft-field="target-naver" name="blog-next-folder-target" type="radio" checked> 네이버 블로그</label>
-                  <label><input data-draft-field="target-wordpress" name="blog-next-folder-target" type="radio"> 워드프레스</label>
-                </fieldset>
-                <label class="blog-next-field blog-next-dependent-field" data-draft-provider-field="naver" data-dependency-active="true">
-                  <span>네이버 카테고리 <small>(선택)</small></span><input data-draft-field="naver-category" type="text" placeholder="비우면 기본 카테고리">
-                </label>
-                <label class="blog-next-field blog-next-dependent-field" data-draft-provider-field="wordpress" data-dependency-active="false">
-                  <span>워드프레스 카테고리 <small>(선택)</small></span><input data-draft-field="wordpress-category" type="text" placeholder="예: Daily" disabled>
-                </label>
-                <label class="blog-next-field">
-                  <span class="blog-next-field-label-with-help">포스팅 옵션
-                    <span class="tooltip-container blog-next-help-trigger" tabindex="0" aria-label="이미지 자동 생성 도움말" aria-describedby="blog-next-folder-publish-safety-help">
-                      <span class="tooltip-icon">?</span>
-                      <span class="tooltip-text" id="blog-next-folder-publish-safety-help" role="tooltip">없는 이미지는 포스팅 전에 자동으로 만듭니다. 만들지 못한 이미지 프롬프트가 남으면 안전하게 임시 저장합니다.</span>
-                    </span>
-                  </span>
-                  <span class="ui-select-shell"><select data-draft-field="post-status" aria-describedby="blog-next-folder-publish-safety-hint"><option value="publish">즉시 발행</option><option value="draft">임시 저장</option><option value="schedule">예약 발행</option></select></span>
-                  <small class="blog-next-image-safety-hint" id="blog-next-folder-publish-safety-hint" data-draft-image-safety-hint hidden></small>
-                </label>
-                <label class="blog-next-field blog-next-dependent-field" data-draft-schedule-field data-dependency-active="false">
-                  <span>예약 일시 <small data-draft-schedule-required hidden>(필수)</small></span><span class="visually-hidden" id="blog-next-folder-schedule-hint">예약 발행을 선택하면 활성화됩니다.</span>
-                  <input data-draft-field="schedule-date" type="datetime-local" aria-describedby="blog-next-folder-schedule-hint" disabled>
-                </label>
-                <div class="blog-next-field blog-next-field-wide blog-next-dependent-field blog-next-draft-headless" data-draft-provider-field="naver" data-dependency-active="true">
-                  <label class="blog-next-check-label"><input id="blog-next-folder-headless" data-draft-field="headless" type="checkbox" checked> 보이지 않게 실행</label>
-                  <span class="visually-hidden">네이버 포스팅에만 적용됩니다.</span>
-                </div>
-              </div>
-            </details>
+            <div data-blog-next-publish-settings-slot="folder"></div>
             <div class="blog-next-draft-actions" data-blog-next-draft-actions="folder">
               <button class="primary" data-blog-next-draft-publish="folder" type="button" disabled>즉시 발행</button>
             </div>
@@ -105,40 +72,7 @@
               </details>
             </div>
             <div class="blog-next-workflow-step-head"><span>3</span><div><strong>발행</strong><small>현재 미리보기 원고를 올릴 곳과 방식을 정하세요.</small></div></div>
-            <details class="blog-next-disclosure blog-next-draft-settings" data-blog-next-draft-settings="paste">
-              <summary><strong>발행 설정</strong><span data-blog-next-draft-settings-summary="paste">네이버 · 즉시 발행 · 보이지 않게 실행</span></summary>
-              <div class="blog-next-disclosure-grid blog-next-form-grid blog-next-draft-options" data-blog-next-draft-options="paste">
-                <fieldset class="blog-next-field blog-next-field-wide blog-next-targets blog-next-draft-targets">
-                  <legend>포스팅 대상</legend>
-                  <label><input data-draft-field="target-naver" name="blog-next-paste-target" type="radio" checked> 네이버 블로그</label>
-                  <label><input data-draft-field="target-wordpress" name="blog-next-paste-target" type="radio"> 워드프레스</label>
-                </fieldset>
-                <label class="blog-next-field blog-next-dependent-field" data-draft-provider-field="naver" data-dependency-active="true">
-                  <span>네이버 카테고리 <small>(선택)</small></span><input data-draft-field="naver-category" type="text" placeholder="비우면 기본 카테고리">
-                </label>
-                <label class="blog-next-field blog-next-dependent-field" data-draft-provider-field="wordpress" data-dependency-active="false">
-                  <span>워드프레스 카테고리 <small>(선택)</small></span><input data-draft-field="wordpress-category" type="text" placeholder="예: Daily" disabled>
-                </label>
-                <label class="blog-next-field">
-                  <span class="blog-next-field-label-with-help">포스팅 옵션
-                    <span class="tooltip-container blog-next-help-trigger" tabindex="0" aria-label="이미지 자동 생성 도움말" aria-describedby="blog-next-paste-publish-safety-help">
-                      <span class="tooltip-icon">?</span>
-                      <span class="tooltip-text" id="blog-next-paste-publish-safety-help" role="tooltip">없는 이미지는 포스팅 전에 자동으로 만듭니다. 만들지 못한 이미지 프롬프트가 남으면 안전하게 임시 저장합니다.</span>
-                    </span>
-                  </span>
-                  <span class="ui-select-shell"><select data-draft-field="post-status" aria-describedby="blog-next-paste-publish-safety-hint"><option value="publish">즉시 발행</option><option value="draft">임시 저장</option><option value="schedule">예약 발행</option></select></span>
-                  <small class="blog-next-image-safety-hint" id="blog-next-paste-publish-safety-hint" data-draft-image-safety-hint hidden></small>
-                </label>
-                <label class="blog-next-field blog-next-dependent-field" data-draft-schedule-field data-dependency-active="false">
-                  <span>예약 일시 <small data-draft-schedule-required hidden>(필수)</small></span><span class="visually-hidden" id="blog-next-paste-schedule-hint">예약 발행을 선택하면 활성화됩니다.</span>
-                  <input data-draft-field="schedule-date" type="datetime-local" aria-describedby="blog-next-paste-schedule-hint" disabled>
-                </label>
-                <div class="blog-next-field blog-next-field-wide blog-next-dependent-field blog-next-draft-headless" data-draft-provider-field="naver" data-dependency-active="true">
-                  <label class="blog-next-check-label"><input id="blog-next-paste-headless" data-draft-field="headless" type="checkbox" checked> 보이지 않게 실행</label>
-                  <span class="visually-hidden">네이버 포스팅에만 적용됩니다.</span>
-                </div>
-              </div>
-            </details>
+            <div data-blog-next-publish-settings-slot="paste"></div>
             <div class="blog-next-draft-actions" data-blog-next-draft-actions="paste">
               <span class="blog-next-recoverable-action-slot">
                 <button class="ghost blog-next-clear-action" id="blog-next-paste-clear" type="button" hidden>내용 지우기</button>

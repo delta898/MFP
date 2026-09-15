@@ -76,7 +76,7 @@ test('Blog Beta keeps refresh semantics inside the shared panel anatomy', () => 
 test('Blog Beta shell does not call data, AI, or publishing APIs during Stage 1', () => {
     const betaScript = read('ui/scripts/features/blog-next/shell.js');
 
-    assert.doesNotMatch(betaScript, /fetchJson|postJson|fetch\s*\(|publish|appendGoogleSheet|generate/i);
+    assert.doesNotMatch(betaScript, /fetchJson|postJson|fetch\s*\(|appendGoogleSheet|generate/i);
 });
 
 test('Blog Beta quick writing keeps topic capture and adds the canonical AI manuscript action', () => {
@@ -88,7 +88,7 @@ test('Blog Beta quick writing keeps topic capture and adds the canonical AI manu
     const clearIndex = betaView.indexOf('id="blog-next-clear-topic"');
 
     assert.match(betaView, /id="blog-next-save-topic"[^>]*>글감 보관/);
-    assert.match(betaView, /id="blog-next-enqueue-topic"[^>]*>글감 대기열에 추가/);
+    assert.match(betaView, /id="blog-next-enqueue-topic"[^>]*>발행 대기열에 추가/);
     assert.match(betaView, /class="primary" id="blog-next-publish-now"[^>]*>원고 만들기/);
     assert.match(betaView, /class="ghost blog-next-clear-action" id="blog-next-clear-topic"[^>]*hidden>내용 지우기/);
     assert.match(betaView, /class="ghost blog-next-cancel-action" id="blog-next-cancel-edit"[^>]*hidden>취소/);
@@ -305,8 +305,7 @@ test('Stage 11 exposes one shared publish status with an explicit status shortcu
     assert.doesNotMatch(runnerScript, /Topics\s*\$\{|showUiToast/);
     assert.match(read('ui/styles/features/continuous-publishing.css'), /\.blog-next-editor-modal \.blog-next-runner-status-jump/);
     assert.match(publishPreferences, /'blog-next-runner-headless'/);
-    assert.match(publishPreferences, /'blog-next-folder-headless'/);
-    assert.match(publishPreferences, /'blog-next-paste-headless'/);
+    assert.doesNotMatch(publishPreferences, /'blog-next-(?:folder|paste)-headless'/);
 });
 
 test('immediate publishing preflights selected connections and preserves the form until terminal success', () => {

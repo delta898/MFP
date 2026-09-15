@@ -130,7 +130,11 @@ test('shared action pattern keeps one filled primary and lower-emphasis alternat
   ].map(read).join('\n');
   const modalBatch = read('ui/styles/components/modals-batch.css');
   const selectionControls = read('ui/styles/patterns/selection-controls.css');
-  const actionGroup = blogNext.match(/<div class="blog-next-form-actions">([\s\S]*?)<\/div>/)?.[1] || '';
+  const actionGroupStart = blogNext.indexOf('<div class="blog-next-form-actions blog-next-ai-prepare-actions">');
+  const actionGroupEnd = blogNext.indexOf('</form>', actionGroupStart);
+  const actionGroup = actionGroupStart >= 0 && actionGroupEnd > actionGroupStart
+    ? blogNext.slice(actionGroupStart, actionGroupEnd)
+    : '';
   const autoManualRule = automationSettings.match(/\.auto-manual-row button\s*\{([^}]*)\}/)?.[1] || '';
 
   assert.match(actions, /button\.primary\s*\{[^}]*--ui-button-primary-background/s);

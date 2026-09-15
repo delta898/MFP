@@ -901,8 +901,10 @@ function startFixtureServer(requests) {
                 manuscriptDraftPostStatus = requestRecord.body.postStatus || 'publish';
                 manuscriptDraftSourceKind = 'ai';
                 manuscriptDraftTitle = String(requestRecord.body.title || requestRecord.body.subject || 'AI 원고');
-                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-                res.end(JSON.stringify({ success: true, data: buildManuscriptDraftFixture() }));
+                setTimeout(() => {
+                    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                    res.end(JSON.stringify({ success: true, data: buildManuscriptDraftFixture() }));
+                }, 100);
             });
             return;
         }
@@ -2592,40 +2594,53 @@ async function run() {
         assert.equal(await page.locator('#blog-next-schedule-required').evaluate((element) => element.hidden), true);
         assert.equal(await page.locator('#blog-next-schedule-date').inputValue(), '2026-09-08T09:30');
         assert.deepEqual(
-            await page.locator('#blog-next-publish-settings .blog-next-execution-options').evaluate((element) => {
-                const style = getComputedStyle(element);
-                return {
-                    background: style.backgroundColor,
-                    display: style.display,
-                    direction: style.flexDirection,
-                    justify: style.justifyContent,
-                    border: style.borderTopStyle
-                };
-            }),
-            { background: 'rgba(0, 0, 0, 0)', display: 'flex', direction: 'row', justify: 'flex-start', border: 'solid' }
+            await page.locator('#blog-next-publish-settings .blog-next-draft-headless').evaluate((element) => ({
+                background: getComputedStyle(element).backgroundColor,
+                border: getComputedStyle(element).borderTopStyle,
+                labelBorder: getComputedStyle(element.querySelector('.blog-next-headless-option')).borderLeftStyle
+            })),
+            { background: 'rgba(0, 0, 0, 0)', border: 'none', labelBorder: 'none' }
         );
         assert.deepEqual(
             await page.locator('#view-blog-next .blog-next-form-actions button:not([hidden])').evaluateAll((buttons) => buttons.map((button) => button.textContent.trim())),
-            ['내용 지우기', '글감 보관', '글감 대기열에 추가', '원고 만들기']
+            ['내용 지우기', '글감 보관', '발행 대기열에 추가', '원고 만들기']
         );
         assert.deepEqual(
             await page.locator('#view-blog-next .blog-next-form-actions').evaluate((element) => {
                 const primary = getComputedStyle(element.querySelector('.primary'));
                 const secondary = getComputedStyle(element.querySelector('.secondary'));
+                const ideaRow = getComputedStyle(element.querySelector('[data-blog-next-ai-idea-actions]'));
+                const generateRow = getComputedStyle(element.querySelector('[data-blog-next-ai-generate-action]'));
                 return {
-                    justify: getComputedStyle(element).justifyContent,
+                    display: getComputedStyle(element).display,
+                    ideaDisplay: ideaRow.display,
+                    ideaJustify: ideaRow.justifyContent,
+                    generateDisplay: generateRow.display,
+                    generateJustify: generateRow.justifyContent,
                     primaryBackground: primary.backgroundColor,
                     secondaryBackground: secondary.backgroundColor,
                     secondaryBorder: secondary.borderTopStyle
                 };
             }),
             {
-                justify: 'flex-end',
+                display: 'grid',
+                ideaDisplay: 'flex',
+                ideaJustify: 'space-between',
+                generateDisplay: 'flex',
+                generateJustify: 'space-between',
                 primaryBackground: 'rgb(73, 103, 90)',
                 secondaryBackground: 'rgb(250, 252, 250)',
                 secondaryBorder: 'solid'
             }
         );
+        const aiPreparationWidths = await page.locator('#view-blog-next .blog-next-ai-prepare-actions').evaluate((element) => ({
+            container: element.getBoundingClientRect().width,
+            idea: element.querySelector('[data-blog-next-ai-idea-actions]').getBoundingClientRect().width,
+            generate: element.querySelector('[data-blog-next-ai-generate-action]').getBoundingClientRect().width
+        }));
+        assert.ok(aiPreparationWidths.idea >= aiPreparationWidths.container * 0.98);
+        assert.ok(aiPreparationWidths.generate >= aiPreparationWidths.container * 0.98);
+        assert.equal(await page.locator('[data-blog-next-draft-actions="ai"]').isHidden(), true);
         assert.equal(await page.locator('#blog-next-publish-now').evaluate((element) => element.classList.contains('primary')), true);
         assert.equal(await page.locator('#blog-next-clear-topic').evaluate((element) => element.classList.contains('blog-next-clear-action')), true);
         await page.locator('#blog-next-clear-topic').click();
@@ -2794,7 +2809,11 @@ async function run() {
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"]').evaluate((element) => element.hidden), false);
         assert.equal(await page.locator('[data-blog-next-input-mode="folder"]').getAttribute('tabindex'), '0');
         assert.equal(await page.locator('[data-blog-next-input-mode="folder"]').evaluate((element) => element === document.activeElement), true);
-        await page.locator('[data-blog-next-draft-settings="folder"] summary').click();
+        assert.equal(await page.locator('#blog-next-publish-settings').count(), 1);
+        assert.equal(await page.locator('#blog-next-publish-settings').evaluate((element) => element.closest('[data-blog-next-mode-panel]')?.dataset.blogNextModePanel), 'folder');
+        if (!await page.locator('[data-blog-next-draft-settings="folder"]').evaluate((element) => element.open)) {
+            await page.locator('[data-blog-next-draft-settings="folder"] summary').click();
+        }
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="schedule-date"]').isDisabled(), true);
         await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"]').selectOption('schedule');
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="schedule-date"]').isEnabled(), true);
@@ -2802,19 +2821,21 @@ async function run() {
         await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"]').selectOption('publish');
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="schedule-date"]').isDisabled(), true);
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="schedule-date"]').inputValue(), '2026-09-20T11:30');
-        assert.equal(await page.locator('#blog-next-folder-headless').isChecked(), true);
-        await page.locator('#blog-next-folder-headless').uncheck();
+        assert.equal(await page.locator('#blog-next-runner-headless').isChecked(), true);
+        await page.locator('#blog-next-runner-headless').uncheck();
         await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="target-wordpress"]').check();
-        assert.equal(await page.locator('#blog-next-folder-headless').isDisabled(), true);
+        assert.equal(await page.locator('#blog-next-runner-headless').isDisabled(), true);
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="naver-category"]').isDisabled(), true);
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="wordpress-category"]').isEnabled(), true);
         await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="target-naver"]').check();
         await page.locator('[data-blog-next-input-mode="folder"]').focus();
         await page.keyboard.press('ArrowRight');
-        assert.equal(await page.locator('#blog-next-paste-headless').isChecked(), false);
+        assert.equal(await page.locator('#blog-next-runner-headless').isChecked(), false);
+        assert.equal(await page.locator('#blog-next-publish-settings').evaluate((element) => element.closest('[data-blog-next-mode-panel]')?.dataset.blogNextModePanel), 'paste');
         await page.locator('[data-blog-next-input-mode="paste"]').focus();
         await page.keyboard.press('Home');
         assert.equal(await page.locator('#blog-next-runner-headless').isChecked(), false);
+        assert.equal(await page.locator('#blog-next-publish-settings').evaluate((element) => element.closest('[data-blog-next-mode-panel]')?.dataset.blogNextModePanel), 'ai');
         await page.locator('[data-blog-next-tab="queue"]').click();
         assert.equal(await page.locator('#blog-next-panel-queue').evaluate((element) => element.hidden), false);
         await page.waitForFunction(() => document.querySelectorAll('#blog-next-queue-list .blog-next-queue-item').length === 1);
@@ -2889,15 +2910,25 @@ async function run() {
         await page.locator('#blog-next-subject').fill('미리 확인할 AI 원고');
         await page.locator('#blog-next-keywords').fill('단일 플랫폼, 원고 미리보기');
         await page.locator('#blog-next-publish-now').click();
+        await page.waitForFunction(() => document.getElementById('blog-next-publish-now')?.textContent?.trim() === '원고 만드는 중...');
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="ai"]')?.hidden === false);
         await page.waitForFunction(() => document.getElementById('blog-next-publish-status')?.dataset.state === 'completed');
         assert.equal((await page.locator('#blog-next-publish-status-title').textContent())?.trim(), '원고 준비 완료');
         assert.equal(await page.locator('#blog-next-publish-settings').isVisible(), true);
         await page.locator('#blog-next-target-naver').check();
-        await page.locator('#blog-next-post-status').selectOption('draft');
+        await page.locator('#blog-next-post-status').selectOption('publish');
         assert.equal((await page.locator('[data-blog-next-draft-preview="ai"] [data-draft-preview-title]').textContent())?.trim(), '미리 확인할 AI 원고');
         assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot]').count(), 2);
-        assert.equal((await page.locator('[data-blog-next-draft-publish="ai"]').textContent())?.trim(), '블로그에 임시 저장');
+        assert.equal(await page.locator('#blog-next-post-status').inputValue(), 'publish');
+        assert.equal(await page.locator('#blog-next-post-status option[value="publish"]').evaluate((option) => option.disabled), false);
+        assert.equal(await page.locator('#blog-next-post-status option[value="schedule"]').evaluate((option) => option.disabled), false);
+        assert.match((await page.locator('#blog-next-publish-safety-hint').textContent()) || '', /빈 이미지 1개는 포스팅할 때 자동으로 만듭니다/);
+        assert.equal((await page.locator('[data-blog-next-draft-publish="ai"]').textContent())?.trim(), '즉시 발행');
+        assert.equal(await page.locator('.blog-next-ai-prepare-actions').isHidden(), true);
+        assert.equal(await page.locator('[data-blog-next-ai-idea-actions]').isHidden(), true);
+        assert.equal(await page.locator('[data-blog-next-ai-generate-action]').isHidden(), true);
+        assert.equal(await page.locator('[data-blog-next-ai-preview-actions]').isVisible(), true);
+        assert.equal(await page.locator('#blog-next-regenerate-draft').isVisible(), true);
         const aiDraftRequest = requests.find((request) => request.pathname === '/api/v1/blog/manuscript-drafts/ai');
         assert.deepEqual(aiDraftRequest?.body?.targets, ['naver']);
         assert.equal(aiDraftRequest?.body?.subject, '미리 확인할 AI 원고');
@@ -2907,13 +2938,16 @@ async function run() {
         ));
         await page.locator('[data-blog-next-draft-publish="ai"]').click();
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
-        assert.match((await page.locator('#ui-dialog-message').textContent()) || '', /네이버 블로그에 임시 저장할까요/);
-        assert.equal((await page.locator('#ui-dialog-confirm').textContent())?.trim(), '블로그에 임시 저장');
+        assert.match((await page.locator('#ui-dialog-message').textContent()) || '', /네이버 블로그에 즉시 발행할까요/);
+        assert.match((await page.locator('#ui-dialog-message').textContent()) || '', /빈 이미지 1개는 먼저 AI로 만듭니다/);
+        assert.equal((await page.locator('#ui-dialog-confirm').textContent())?.trim(), '즉시 발행');
         await page.locator('#ui-dialog-confirm').click();
         await aiPublishResponse;
         const aiPublishRequest = requests.find((request) => request.pathname === `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/publish`);
         assert.equal(aiPublishRequest?.body?.draftId, MANUSCRIPT_DRAFT_ID);
-        assert.equal(aiPublishRequest?.body?.revision >= 1, true);
+        assert.equal(aiPublishRequest?.body?.revision, 2);
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="ai"] [data-draft-preview-image-summary]')?.textContent?.includes('2/2'));
+        assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-draft-preview-body] img').count(), 2);
 
         await page.locator('[data-blog-next-tab="quick"]').click();
         await page.locator('#blog-next-runner-headless').check();
@@ -3091,6 +3125,8 @@ async function run() {
 
         await page.locator('[data-blog-next-tab="quick"]').click();
         await page.locator('[data-blog-next-input-mode="folder"]').click();
+        assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"]').inputValue(), 'draft');
+        await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"]').selectOption('publish');
         await page.locator('#blog-next-folder-input').setInputFiles(manuscriptFixtureDir);
         await page.waitForFunction(() => (
             document.querySelector('[data-blog-next-draft-preview="folder"]')?.hidden === false
@@ -3101,8 +3137,8 @@ async function run() {
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"] option[value="publish"]').evaluate((option) => option.disabled), false);
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"] option[value="schedule"]').evaluate((option) => option.disabled), false);
         assert.match((await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-image-safety-hint]').textContent()) || '', /빈 이미지 1개는 포스팅할 때 자동으로 만듭니다/);
-        await page.locator('[data-blog-next-mode-panel="folder"] [aria-describedby="blog-next-folder-publish-safety-help"]').focus();
-        assert.equal(await page.locator('#blog-next-folder-publish-safety-help').isVisible(), true);
+        await page.locator('[data-blog-next-mode-panel="folder"] [aria-describedby="blog-next-help-post-status"]').focus();
+        assert.equal(await page.locator('#blog-next-help-post-status').isVisible(), true);
         assert.equal((await page.locator('[data-blog-next-draft-publish="folder"]').textContent())?.trim(), '즉시 발행');
         await page.evaluate(() => {
             document.querySelector('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"]').value = 'draft';
@@ -3186,9 +3222,11 @@ async function run() {
         assert.equal(await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-field="post-status"] option[value="publish"]').evaluate((option) => option.disabled), false);
         assert.equal(await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-field="post-status"] option[value="schedule"]').evaluate((option) => option.disabled), false);
         assert.match((await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-image-safety-hint]').textContent()) || '', /빈 이미지 1개는 포스팅할 때 자동으로 만듭니다/);
-        await page.locator('[data-blog-next-draft-settings="paste"] > summary').click();
-        await page.locator('[data-blog-next-mode-panel="paste"] [aria-describedby="blog-next-paste-publish-safety-help"]').focus();
-        assert.equal(await page.locator('#blog-next-paste-publish-safety-help').isVisible(), true);
+        if (!await page.locator('[data-blog-next-draft-settings="paste"]').evaluate((element) => element.open)) {
+            await page.locator('[data-blog-next-draft-settings="paste"] > summary').click();
+        }
+        await page.locator('[data-blog-next-mode-panel="paste"] [aria-describedby="blog-next-help-post-status"]').focus();
+        assert.equal(await page.locator('#blog-next-help-post-status').isVisible(), true);
         assert.equal((await page.locator('[data-blog-next-draft-publish="paste"]').textContent())?.trim(), '즉시 발행');
         await page.locator('[data-blog-next-draft-publish="paste"]').click();
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));

@@ -3,6 +3,41 @@ function readBlogNextSelectedText(id, fallback = '') {
   return String(select?.selectedOptions?.[0]?.textContent || fallback).trim();
 }
 
+function setBlogNextPublishSettingsContext(type, titleText = '발행 설정') {
+  const settings = document.getElementById('blog-next-publish-settings');
+  const summary = document.getElementById('blog-next-publish-settings-summary');
+  const options = settings?.querySelector('.blog-next-draft-options');
+  const title = document.getElementById('blog-next-publish-settings-title');
+  if (settings) settings.dataset.blogNextDraftSettings = type;
+  if (summary) summary.dataset.blogNextDraftSettingsSummary = type;
+  if (options) options.dataset.blogNextDraftOptions = type;
+  if (title) title.textContent = titleText;
+}
+
+function mountBlogNextPublishSettings(type = 'ai') {
+  const target = BLOG_NEXT_INPUT_MODES.includes(type) ? type : 'ai';
+  if (target === 'ai') {
+    const editing = typeof blogNextEditingRowIndex !== 'undefined' && blogNextEditingRowIndex !== null;
+    if (typeof arrangeBlogNextAiWorkflow === 'function') arrangeBlogNextAiWorkflow({ editing });
+    if (typeof syncBlogNextDraftImageSafety === 'function') {
+      syncBlogNextDraftImageSafety(target, blogNextDraftState?.[target]?.preview || null);
+    }
+    syncBlogNextProviderDependentFields();
+    syncBlogNextScheduleField();
+    return;
+  }
+  const settings = document.getElementById('blog-next-publish-settings');
+  const slot = document.querySelector(`[data-blog-next-publish-settings-slot="${target}"]`);
+  if (slot && settings) slot.appendChild(settings);
+  if (settings) settings.hidden = false;
+  setBlogNextPublishSettingsContext(target);
+  if (typeof syncBlogNextDraftImageSafety === 'function') {
+    syncBlogNextDraftImageSafety(target, blogNextDraftState?.[target]?.preview || null);
+  }
+  syncBlogNextProviderDependentFields();
+  syncBlogNextScheduleField();
+}
+
 function syncBlogNextQuickFlowSummaries() {
   const contentSummary = document.getElementById('blog-next-content-settings-summary');
   const publishSummary = document.getElementById('blog-next-publish-settings-summary');
@@ -98,9 +133,11 @@ function syncBlogNextTopicActionAvailability() {
   const save = document.getElementById('blog-next-save-topic');
   const enqueue = document.getElementById('blog-next-enqueue-topic');
   const publish = document.getElementById('blog-next-publish-now');
+  const regenerate = document.getElementById('blog-next-regenerate-draft');
   if (save) save.disabled = busy || !editingChanged || (editingReady ? !readyValid : !ideaValid);
   if (enqueue) enqueue.disabled = busy || !readyValid;
   if (publish) publish.disabled = busy || runnerActive || (editing && !editingReady) || !ideaValid;
+  if (regenerate) regenerate.disabled = busy || runnerActive || !ideaValid;
 }
 
 function syncBlogNextHelpPlacement(trigger) {
