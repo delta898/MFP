@@ -230,12 +230,18 @@ function initKeywordResearchModal() {
   const keywordModalLoading = document.getElementById('keyword-modal-loading');
   const keywordModalLoadingText = document.getElementById('keyword-modal-loading-text');
   const keywordModalContent = document.getElementById('keyword-modal-content');
+  const keywordAiReadiness = document.getElementById('keyword-ai-readiness');
+  const keywordAiSettingsBtn = document.getElementById('keyword-ai-settings-btn');
   const keywordModalState = {
     analysis: null,
+    analysisError: '',
     selectedKeywords: [],
     titles: [],
+    isAnalyzing: false,
     isGeneratingTitles: false,
     titleRequestId: 0,
+    aiReadinessRequestId: 0,
+    aiConfigured: uiAiTextReady,
     smartUsageSessionId: ''
   };
 
@@ -250,6 +256,39 @@ function initKeywordResearchModal() {
     ? (document.getElementById('blog-next-writing-strategy')?.value || currentBlogWritingStrategy)
     : getSelectedSettingsRadioValue('quick-writing-strategy', currentBlogWritingStrategy);
 
+  const syncKeywordAnalysisAction = () => {
+    const hasSubject = Boolean(String(keywordModalInput?.value || '').trim());
+    if (keywordModalSearchBtn) {
+      keywordModalSearchBtn.disabled = keywordModalState.isAnalyzing || !hasSubject;
+      keywordModalSearchBtn.textContent = keywordModalState.isAnalyzing ? '분석 중…' : '키워드 분석';
+      keywordModalSearchBtn.setAttribute('aria-busy', String(keywordModalState.isAnalyzing));
+    }
+    if (keywordModalInput) keywordModalInput.disabled = keywordModalState.isAnalyzing;
+  };
+
+  const syncKeywordAiReadiness = () => {
+    if (keywordAiReadiness) {
+      keywordAiReadiness.classList.toggle('hidden', keywordModalState.aiConfigured !== false);
+    }
+  };
+
+  const refreshKeywordAiReadiness = async () => {
+    const requestId = keywordModalState.aiReadinessRequestId + 1;
+    keywordModalState.aiReadinessRequestId = requestId;
+    try {
+      const status = await fetchJson('/api/v1/config/status');
+      if (keywordModalState.aiReadinessRequestId !== requestId) return;
+      uiAiTextReady = status?.setup?.ai?.configured === true;
+      keywordModalState.aiConfigured = uiAiTextReady;
+      syncKeywordAiReadiness();
+      if (keywordModalState.analysis) renderKeywordAnalysisResult();
+    } catch (_error) {
+      if (keywordModalState.aiReadinessRequestId !== requestId) return;
+      keywordModalState.aiConfigured = uiAiTextReady;
+      syncKeywordAiReadiness();
+    }
+  };
+
   const collectAnalysisKeywords = (analysis) => {
     const seen = new Set();
     return [...(analysis?.input_keywords || []), ...(analysis?.related_candidates || [])]
@@ -263,10 +302,11 @@ function initKeywordResearchModal() {
   };
 
   const setKeywordModalLoading = (isLoading, message = '') => {
+    keywordModalState.isAnalyzing = isLoading;
     if (keywordModalLoading) keywordModalLoading.classList.toggle('hidden', !isLoading);
     if (keywordModalLoadingText && message) keywordModalLoadingText.textContent = message;
-    if (keywordModalSearchBtn) keywordModalSearchBtn.disabled = isLoading;
-    if (isLoading && keywordModalContent) keywordModalContent.innerHTML = '';
+    if (keywordModalContent) keywordModalContent.setAttribute('aria-busy', String(isLoading));
+    syncKeywordAnalysisAction();
   };
 
   const focusKeywordTitleResults = () => {
@@ -285,14 +325,20 @@ function initKeywordResearchModal() {
     const currentTitle = readQuickDiscoveryInput('title');
     const initialQuery = currentSubject || currentKeywords || currentTitle;
     keywordModalState.analysis = null;
+    keywordModalState.analysisError = '';
     keywordModalState.selectedKeywords = [];
     keywordModalState.titles = [];
+    keywordModalState.isAnalyzing = false;
     keywordModalState.isGeneratingTitles = false;
     keywordModalState.titleRequestId += 1;
+    keywordModalState.aiConfigured = uiAiTextReady;
     keywordModalState.smartUsageSessionId = createSmartUsageSessionId();
     if (keywordModalInput) keywordModalInput.value = initialQuery;
+    syncKeywordAnalysisAction();
+    syncKeywordAiReadiness();
     keywordModal.classList.remove('hidden');
     keywordModal.setAttribute('aria-hidden', 'false');
+    void refreshKeywordAiReadiness();
     if (initialQuery) {
       void runKeywordAnalysis(initialQuery);
     }
@@ -304,6 +350,7 @@ function initKeywordResearchModal() {
   };
 
   const runKeywordAnalysis = async (query) => {
+    if (keywordModalState.isAnalyzing) return;
     const q = String(query || keywordModalInput?.value || '').trim();
     if (!q) {
       showUiPopup('분석할 글감(주제)을 입력해 주세요.');
@@ -315,11 +362,8 @@ function initKeywordResearchModal() {
     const seedKeywords = (enteredKeywords.length > 0 ? enteredKeywords : [q])
       .filter((keyword, index, values) => values.findIndex((item) => normalizeKeywordKey(item) === normalizeKeywordKey(keyword)) === index)
       .slice(0, 3);
-    keywordModalState.analysis = null;
-    keywordModalState.selectedKeywords = [];
-    keywordModalState.titles = [];
-    keywordModalState.isGeneratingTitles = false;
-    keywordModalState.titleRequestId += 1;
+    const previousAnalysis = keywordModalState.analysis;
+    keywordModalState.analysisError = '';
     setKeywordModalLoading(true, '키워드 검색량과 경쟁도를 분석하는 중입니다...');
 
     try {
@@ -334,13 +378,24 @@ function initKeywordResearchModal() {
       }
 
       keywordModalState.analysis = analysis;
+      keywordModalState.analysisError = '';
+      keywordModalState.selectedKeywords = [];
+      keywordModalState.titles = [];
+      keywordModalState.isGeneratingTitles = false;
+      keywordModalState.titleRequestId += 1;
       renderKeywordAnalysisResult();
     } catch (err) {
-      keywordModalState.analysis = {
-        analysis_note: String(err?.message || '검색 지표를 불러오지 못했습니다.'),
-        input_keywords: seedKeywords.map((keyword) => ({ keyword })),
-        related_candidates: []
-      };
+      const message = String(err?.message || '검색 지표를 불러오지 못했습니다.');
+      if (previousAnalysis) {
+        keywordModalState.analysis = previousAnalysis;
+        keywordModalState.analysisError = `새 분석 결과를 불러오지 못해 이전 결과를 유지합니다. ${message}`;
+      } else {
+        keywordModalState.analysis = {
+          analysis_note: message,
+          input_keywords: seedKeywords.map((keyword) => ({ keyword })),
+          related_candidates: []
+        };
+      }
       renderKeywordAnalysisResult();
     } finally {
       setKeywordModalLoading(false);
@@ -357,15 +412,25 @@ function initKeywordResearchModal() {
     let html = '';
 
     const selectedKeywordText = keywordModalState.selectedKeywords.join(' · ');
+    const titleActionDisabled = keywordModalState.isGeneratingTitles
+      || keywordModalState.selectedKeywords.length === 0
+      || keywordModalState.aiConfigured === false;
+    const titleActionHint = keywordModalState.aiConfigured === false
+      ? 'AI 글쓰기 모델 설정이 필요합니다.'
+      : (keywordModalState.selectedKeywords.length === 0 ? '키워드를 1개 이상 선택해 주세요.' : '');
     html += `
       <div class="keyword-title-action-row keyword-title-action-row-top">
         <div>
           <strong>AI 제목 추천</strong>
           <p>${selectedKeywordText ? escapeHtml(selectedKeywordText) : '표에서 키워드를 1~3개 선택해 제목 추천에 사용합니다.'} <span class="smart-usage-hint">${escapeHtml(formatSmartUsageHint('title_recommendation'))}</span></p>
         </div>
-        <button id="keyword-generate-titles-btn" class="primary" type="button" ${keywordModalState.isGeneratingTitles ? 'disabled' : ''}>선택 키워드로 제목 추천</button>
+        <button id="keyword-generate-titles-btn" class="primary" type="button" ${titleActionDisabled ? 'disabled' : ''}${titleActionHint ? ` title="${escapeHtml(titleActionHint)}"` : ''}>선택 키워드로 제목 추천</button>
       </div>
     `;
+
+    if (keywordModalState.analysisError) {
+      html += `<div class="keyword-analysis-note" data-state="attention" role="status">${escapeHtml(keywordModalState.analysisError)}</div>`;
+    }
 
     if (analysis.analysis_note) {
       html += `<div class="keyword-analysis-note" role="status">${escapeHtml(analysis.analysis_note)}</div>`;
@@ -537,6 +602,10 @@ function initKeywordResearchModal() {
       showUiPopup('제목 추천에 사용할 글감(주제)을 입력해 주세요.');
       return;
     }
+    if (keywordModalState.aiConfigured === false) {
+      showUiPopup('AI 제목 추천을 사용하려면 AI 설정에서 글쓰기 모델을 먼저 설정해 주세요.');
+      return;
+    }
     if (keywords.length === 0) {
       showUiPopup('제목 추천에 사용할 키워드를 1개 이상 선택해 주세요.');
       return;
@@ -564,7 +633,15 @@ function initKeywordResearchModal() {
       }
     } catch (err) {
       if (keywordModalState.titleRequestId === requestId) {
-        showUiPopup(`제목 추천에 실패했습니다: ${err.message}`);
+        const message = String(err?.message || '알 수 없는 오류');
+        if (/api\s*key|credential|인증 정보|키 누락/i.test(message)) {
+          keywordModalState.aiConfigured = false;
+          uiAiTextReady = false;
+          syncKeywordAiReadiness();
+          showUiPopup('AI 제목 추천을 사용하려면 AI 설정에서 글쓰기 모델을 확인해 주세요.');
+        } else {
+          showUiPopup(`제목 추천에 실패했습니다: ${message}`);
+        }
       }
     } finally {
       if (keywordModalState.titleRequestId === requestId) {
@@ -586,10 +663,16 @@ function initKeywordResearchModal() {
   if (keywordModalCloseBtn) keywordModalCloseBtn.addEventListener('click', closeKeywordModal);
   if (keywordModalCloseFooter) keywordModalCloseFooter.addEventListener('click', closeKeywordModal);
   if (keywordModalSearchBtn) keywordModalSearchBtn.addEventListener('click', () => void runKeywordAnalysis());
+  if (keywordAiSettingsBtn) keywordAiSettingsBtn.addEventListener('click', () => {
+    closeKeywordModal();
+    void navigateToSettingsNextTarget('ai', 'settings-next-ai-text-form');
+  });
   if (keywordModalInput) {
+    keywordModalInput.addEventListener('input', syncKeywordAnalysisAction);
     keywordModalInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
+        if (keywordModalSearchBtn?.disabled) return;
         void runKeywordAnalysis();
       }
     });

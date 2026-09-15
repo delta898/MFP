@@ -1,4 +1,5 @@
 let uiConfigReady = true;
+let uiAiTextReady = null;
 let uiNaverReady = true;
 let uiWpReady = true;
 let uiConfigPopupShown = false;

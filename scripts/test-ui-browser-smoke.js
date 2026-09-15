@@ -664,8 +664,10 @@ function startFixtureServer(requests) {
                         related_candidates: []
                     }
                 });
-                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-                res.end(body);
+                setTimeout(() => {
+                    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                    res.end(body);
+                }, 80);
             });
             return;
         }
@@ -2793,6 +2795,10 @@ async function run() {
 
         await page.locator('#blog-next-title-recommend').click();
         await page.waitForFunction(() => !document.getElementById('keyword-research-modal')?.classList.contains('hidden'));
+        await page.waitForFunction(() => !document.getElementById('keyword-modal-loading')?.classList.contains('hidden'));
+        assert.equal((await page.locator('#keyword-modal-search-btn').textContent())?.trim(), '분석 중…');
+        assert.equal(await page.locator('#keyword-modal-search-btn').getAttribute('aria-busy'), 'true');
+        assert.equal(await page.locator('#keyword-modal-loading .ui-progress-indeterminate').isVisible(), true);
         await page.waitForFunction(() => document.querySelectorAll('.keyword-selection-checkbox').length === 1);
         await page.locator('.keyword-selection-checkbox').check();
         await page.locator('#keyword-generate-titles-btn').click();
@@ -2801,6 +2807,43 @@ async function run() {
         assert.equal(await page.locator('#blog-next-title').inputValue(), '제주 아침 산책에서 뜻밖에 마주친 것');
         assert.equal(await page.locator('#blog-next-keywords').inputValue(), '테스트');
         await page.locator('#blog-next-clear-topic').click();
+
+        const missingAiConfigRoute = async (route) => route.fulfill({
+            status: 200,
+            contentType: 'application/json; charset=utf-8',
+            body: JSON.stringify({
+                success: true,
+                data: {
+                    ready: false,
+                    isEssentialSet: false,
+                    isNaverSet: true,
+                    isWpSet: true,
+                    setup: {
+                        ready: false,
+                        ai: { configured: false },
+                        google: { configured: true, account_connected: true, spreadsheet_configured: true },
+                        publishing_channel: { configured: true, naver_configured: true, wordpress_configured: true }
+                    }
+                }
+            })
+        });
+        await page.route('**/api/v1/config/status', missingAiConfigRoute);
+        await page.locator('#blog-next-title-recommend').click();
+        await page.waitForFunction(() => !document.getElementById('keyword-research-modal')?.classList.contains('hidden'));
+        assert.equal(await page.locator('#keyword-modal-search-btn').isDisabled(), true);
+        await page.waitForFunction(() => !document.getElementById('keyword-ai-readiness')?.classList.contains('hidden'));
+        assert.equal((await page.locator('#keyword-ai-readiness').textContent())?.includes('키워드 분석은 AI 설정 없이도'), true);
+        await page.locator('#keyword-modal-input').fill('AI 없는 키워드 분석');
+        assert.equal(await page.locator('#keyword-modal-search-btn').isEnabled(), true);
+        await page.locator('#keyword-ai-settings-btn').click();
+        await page.waitForFunction(() => document.getElementById('view-settings-next')?.classList.contains('active'));
+        assert.equal(await page.locator('[data-settings-next-tab="ai"]').getAttribute('aria-selected'), 'true');
+        await page.unroute('**/api/v1/config/status', missingAiConfigRoute);
+        await page.evaluate(() => {
+            uiAiTextReady = true;
+            return navigateTo('blog-next', 'quick');
+        });
+        await page.waitForFunction(() => document.getElementById('view-blog-next')?.classList.contains('active'));
 
         await page.locator('#blog-next-subject').fill('나중에 다듬을 제주 글감');
         await page.locator('#blog-next-save-topic').click();

@@ -3,6 +3,7 @@ async function loadConfigStatus() {
     const status = await fetchJson('/api/v1/config/status');
     console.log('[Config Status] Received:', status);
     uiConfigReady = status?.ready === true;
+    uiAiTextReady = status?.setup?.ai?.configured === true;
     uiNaverReady = status?.isNaverSet === true;
     uiWpReady = status?.isWpSet === true;
     uiConfigStatusMessage = String(status?.message || '').trim();
@@ -31,6 +32,7 @@ async function loadConfigStatus() {
     return status;
   } catch (e) {
     uiConfigReady = false;
+    uiAiTextReady = null;
     uiNaverReady = false;
     uiWpReady = false;
     uiConfigStatusMessage = String(e.message || '');

@@ -115,6 +115,9 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 - 일반 secondary보다 발견 가능하도록 primary soft surface와 sparkle 또는 짧은 `AI` mark를 사용할 수 있지만, form의 최종 primary action과 같은 filled 강도를 사용하지 않는다. 가까운 영역에 같은 action이 반복되면 텍스트 badge보다 가벼운 공통 symbol을 우선한다.
 - label은 `AI`만 표시하지 않고 사용자가 받을 결과를 함께 설명한다.
 - 실행 시 사용하는 model role, 진행 상태와 중복 실행 방지는 해당 AI workflow 안에서 명확히 제공한다.
+- AI가 필요한 action과 필요하지 않은 action이 한 workflow에 함께 있으면 화면 전체를 막지 않는다. 준비되지 않은
+  model role에 의존하는 action만 비활성화하고, 같은 문맥 안에 설정 필요 이유와 해당 role 설정으로 가는 복구
+  action을 제공한다. credential 누락 같은 내부 오류를 실행 마지막에 그대로 노출하지 않는다.
 
 ## Refresh actions
 
@@ -594,6 +597,7 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 
 - `블로그 Beta` 빠른 글 작성: 내용 지우기 / 글감 보관 / 대기열 추가 / 바로 포스팅
 - `블로그 Beta` 빠른 글 작성 보조: AI Assist / 설정 summary disclosure / 내용 지우기 되돌리기
+- `블로그 Beta` 키워드 분석·AI 제목 추천: 빈 입력·분석 loading / 글쓰기 모델 readiness와 설정 복구
 - `블로그 Beta` 원고 폴더·붙여넣기: 공유 발행 설정 / 예약·provider 종속 field / 붙여넣기 되돌리기
 - `블로그 Beta` 트렌드 포스팅: 조회 전·loading·empty·filtered empty·error·결과 상태
 - `블로그 Beta` 글감 관리: 목록 loading·empty·error / 갱신 실패 시 마지막 정상 목록 보존

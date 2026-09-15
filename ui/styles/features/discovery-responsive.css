@@ -54,6 +54,15 @@
     width: 100%;
   }
 
+  .keyword-ai-readiness {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .keyword-ai-readiness .secondary {
+    width: 100%;
+  }
+
   .keyword-title-action-row {
     align-items: stretch;
     flex-direction: column;
