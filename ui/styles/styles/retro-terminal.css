@@ -1,0 +1,119 @@
+[data-style="retro-terminal"] {
+  /* Canvas and surfaces: a powered-on phosphor display without decorative flicker. */
+  --ui-canvas: linear-gradient(145deg, #07100b 0%, #030806 100%);
+  --ui-surface: #0b1510;
+  --ui-surface-translucent: rgba(11, 21, 16, 0.96);
+  --ui-surface-muted: #112219;
+  --ui-surface-hover: #183124;
+  --ui-surface-emphasis: #c2f2ce;
+  --ui-overlay: rgba(1, 5, 3, 0.82);
+
+  /* Text and borders: soft phosphor text with explicit terminal-cell edges. */
+  --ui-text-primary: #d8f5df;
+  --ui-text-secondary: #a2c9ac;
+  --ui-text-muted: #789582;
+  --ui-text-inverse: #07100b;
+  --ui-border-default: #294936;
+  --ui-border-strong: #477457;
+  --ui-border-focus: #e0b35f;
+
+  /* Actions and status: amber commands, green success, distinct cool information. */
+  --ui-action-primary: #d7a84f;
+  --ui-action-primary-hover: #efc36e;
+  --ui-action-primary-soft: #302817;
+  --ui-action-secondary: #a2c9ac;
+  --ui-action-secondary-hover: #d8f5df;
+  --ui-action-danger: #ef8585;
+  --ui-status-info: #79bad6;
+  --ui-status-success: #78d99a;
+  --ui-status-warning: #e0b35f;
+  --ui-status-danger: #ef8585;
+  --ui-focus-ring: 0 0 0 2px rgba(224, 179, 95, 0.34);
+
+  /* Latin glyphs and numerals use a terminal stack; Korean keeps a readable fallback. */
+  --ui-font-sans: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Noto Sans KR', "Liberation Mono", monospace;
+  --ui-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --ui-type-display-size: 27px;
+  --ui-type-heading-size: 19px;
+  --ui-type-body-size: 15px;
+  --ui-type-label-size: 14px;
+  --ui-type-caption-size: 12px;
+  --ui-line-height-tight: 1.28;
+  --ui-line-height-body: 1.58;
+  --ui-weight-regular: 400;
+  --ui-weight-medium: 500;
+  --ui-weight-semibold: 600;
+  --ui-weight-bold: 700;
+
+  /* Compact, rectilinear rhythm inspired by terminal cells. */
+  --ui-space-1: 3px;
+  --ui-space-2: 6px;
+  --ui-space-3: 10px;
+  --ui-space-4: 14px;
+  --ui-space-5: 18px;
+  --ui-space-6: 22px;
+  --ui-space-8: 28px;
+  --ui-space-10: 36px;
+  --ui-space-12: 44px;
+  --ui-radius-sm: 2px;
+  --ui-radius-md: 3px;
+  --ui-radius-lg: 4px;
+  --ui-radius-full: 9999px;
+
+  /* Role-based density */
+  --ui-density-page-gap: var(--ui-space-5);
+  --ui-density-section-padding: var(--ui-space-5) var(--ui-space-6);
+  --ui-density-action-padding: var(--ui-space-4) var(--ui-space-6);
+  --ui-density-field-gap: var(--ui-space-3);
+  --ui-density-control-min-height: 40px;
+  --ui-density-compact-control-min-height: 32px;
+  --ui-density-control-padding-inline: var(--ui-space-4);
+  --ui-density-control-radius: var(--ui-radius-sm);
+
+  /* Borders carry hierarchy; glow stays subtle and static. */
+  --ui-shadow-sm: 0 0 0 1px rgb(120 217 154 / 0.07);
+  --ui-shadow-md: 0 5px 16px rgb(0 0 0 / 0.36);
+  --ui-shadow-lg: 0 14px 34px rgb(0 0 0 / 0.48);
+  --ui-shadow-soft: 0 7px 22px rgba(0, 0, 0, 0.34);
+  --ui-shadow-glass: 0 10px 30px rgba(0, 0, 0, 0.42);
+  --ui-motion-fast: 80ms;
+  --ui-motion-standard: 130ms;
+  --ui-motion-slow: 200ms;
+  --ui-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ui-transition-interactive: all var(--ui-motion-standard) var(--ui-ease-standard);
+
+  /* Shared action component */
+  --ui-button-radius: 2px;
+  --ui-button-primary-background: #d7a84f;
+  --ui-button-primary-hover: #efc36e;
+  --ui-button-primary-text: #07100b;
+  --ui-button-primary-border: #d7a84f;
+  --ui-button-secondary-background: #112219;
+  --ui-button-secondary-hover: #183124;
+  --ui-button-secondary-text: #d8f5df;
+  --ui-button-secondary-border: #477457;
+  --ui-button-secondary-hover-border: #78d99a;
+  --ui-button-tertiary-background: transparent;
+  --ui-button-tertiary-hover: #183124;
+  --ui-button-tertiary-text: #a2c9ac;
+  --ui-button-tertiary-border: #294936;
+  --ui-button-danger-text: #f3a0a0;
+  --ui-button-danger-hover: #351d20;
+  --ui-button-disabled-opacity: 0.46;
+  --ui-action-group-gap: 8px;
+
+  /* Shared card component */
+  --ui-card-background: var(--ui-surface);
+  --ui-card-border: var(--ui-border-strong);
+  --ui-card-radius: var(--ui-radius-lg);
+  --ui-card-shadow: inset 0 0 0 1px rgb(120 217 154 / 0.03);
+  --ui-card-hover-shadow: 0 0 0 1px rgb(120 217 154 / 0.18);
+  --ui-card-hover-transform: none;
+
+  /* Shared state and anchored-surface elevation */
+  --ui-segmented-active-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-action-primary) 42%, transparent);
+  --ui-segmented-badge-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-action-primary) 28%, transparent);
+  --ui-row-running-shadow: 0 0 0 1px color-mix(in srgb, var(--ui-status-success) 28%, transparent);
+  --ui-table-header-divider-shadow: 0 2px 0 var(--ui-border-default);
+  --ui-sticky-footer-shadow: 0 -8px 18px rgba(0, 0, 0, 0.34);
+}

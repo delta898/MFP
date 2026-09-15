@@ -2,7 +2,7 @@
 
 ## 문서 상태
 
-- Status: 네 정식 style, registry 기반 확장과 주요 product surface 적용 검증 완료
+- Status: 다섯 정식 style, registry 기반 확장과 주요 product surface 적용 검증 완료
 - Source stage: `codex/feature/design-system-01-principles`
 - 목적: 여러 style이 같은 기능·component 위에서 안전하게 동작하기 위한 최소 계약을 정의한다.
 
@@ -221,9 +221,9 @@ CSS manifest는 cascade 순서의 source of truth이므로 자동 directory scan
 
 ## 현재 검증 결과
 
-- Compatibility와 네 정식 style `따뜻한 에디토리얼`, `고요한 세이지 스튜디오`, `가을밤 서재`, `한지 위의 단청`이 동일 registry 및 필수 token contract를 사용한다.
-- 정식 style은 따뜻한 밝은 화면, 차분한 세이지, 어두운 월넛, 한지·청자·쪽빛 계열로 palette뿐 아니라 spacing/density, radius와 elevation을 달리하면서 동일 DOM·기능·상태·ARIA·keyboard 순서를 유지한다.
-- style ID와 CSS 파일명은 일대일 규칙을 사용하고, 설정의 2×2 선택 UI는 selectable registry entry를 자동 렌더링한다. 새 style 추가는 token module, registry metadata와 ordered CSS manifest 등록 세 곳으로 제한한다.
+- Compatibility와 다섯 정식 style `따뜻한 에디토리얼`, `고요한 세이지 스튜디오`, `가을밤 서재`, `한지 위의 단청`, `레트로 터미널`이 동일 registry 및 필수 token contract를 사용한다.
+- 정식 style은 따뜻한 밝은 화면, 차분한 세이지, 어두운 월넛, 한지·청자·쪽빛, 저광량 phosphor 계열로 palette뿐 아니라 spacing/density, radius와 elevation을 달리하면서 동일 DOM·기능·상태·ARIA·keyboard 순서를 유지한다.
+- style ID와 CSS 파일명은 일대일 규칙을 사용하고, 설정의 2열 선택 UI는 selectable registry entry를 자동 렌더링한다. 새 style 추가는 token module, registry metadata와 ordered CSS manifest 등록 세 곳으로 제한한다.
 - `가을밤 서재`는 dark surface의 modal footer와 공통 feedback을 semantic surface token으로 교정했고, `한지 위의 단청`은 일반 secondary와 명시적 negative/danger action의 의미를 style 색상과 분리해 검증했다.
 - CSS composition은 `tokens → base → components → features → utilities → overrides → legacy` cascade layer를 따르며, 큰 feature CSS는 manifest 순서를 유지한 책임별 companion module로 분할한다.
 - runtime style 전환 중 동일 input DOM과 입력값이 보존된다.

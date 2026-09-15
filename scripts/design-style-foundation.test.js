@@ -281,6 +281,23 @@ test('hanji dancheong supplies a distinct Korean palette and rectilinear rhythm 
   assert.doesNotMatch(shared, /hanji-dancheong/);
 });
 
+test('retro terminal supplies a restrained phosphor surface without feature-specific branches', () => {
+  const css = read('ui/styles/styles/retro-terminal.css');
+  const shared = getDesignSystemStylePaths(CONTRACTS.STRICT_STYLE).map(read).join('\n');
+
+  assert.match(css, /--ui-canvas:\s*linear-gradient\([^;]*#07100b[^;]*#030806/);
+  assert.match(css, /--ui-surface:\s*#0b1510;/);
+  assert.match(css, /--ui-text-primary:\s*#d8f5df;/);
+  assert.match(css, /--ui-action-primary:\s*#d7a84f;/);
+  assert.match(css, /--ui-status-success:\s*#78d99a;/);
+  assert.match(css, /--ui-font-sans:\s*ui-monospace[^;]*'Noto Sans KR'/);
+  assert.match(css, /--ui-radius-md:\s*3px;/);
+  assert.match(css, /--ui-space-4:\s*14px;/);
+  assert.match(css, /--ui-card-hover-transform:\s*none;/);
+  assert.doesNotMatch(css, /animation|filter\s*:/i);
+  assert.doesNotMatch(shared, /retro-terminal/);
+});
+
 test('shared patterns and Blog Beta anchored surfaces consume shared elevation recipes', () => {
   const panel = read('ui/styles/features/blog-next-panel-anatomy.css');
   const tabs = read('ui/styles/patterns/tab-navigation.css');

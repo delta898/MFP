@@ -57,6 +57,7 @@
 - `architecture/design-style-system.md`
 - `architecture/design-style-warm-editorial.md`
 - `architecture/design-style-quiet-sage-studio.md`
+- `architecture/design-style-retro-terminal.md`
 - `architecture/design-component-patterns.md`
 - `architecture/settings-information-architecture.md`
 - `development-environment-guide.md`

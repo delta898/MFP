@@ -137,6 +137,13 @@ const DESIGN_STYLE_REGISTRY = Object.freeze({
     blurb: '한지의 여백에 먹색과 절제된 단청색을 더한 반듯한 스타일입니다.',
     contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
     selectable: true
+  }),
+  'retro-terminal': Object.freeze({
+    id: 'retro-terminal',
+    label: '레트로 터미널',
+    blurb: '인광빛과 선명한 경계로 자동화 작업의 리듬을 살린 어두운 스타일입니다.',
+    contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
+    selectable: true
   })
 });
 

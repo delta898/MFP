@@ -2372,7 +2372,7 @@ async function run() {
         );
         assert.equal(
             await page.evaluate(() => getSelectableDesignStyles().filter((style) => style.selectable).length),
-            4
+            5
         );
         assert.deepEqual(
             await page.locator('#dashboard-beta-discovery-refresh').evaluate((element) => {
@@ -2384,6 +2384,31 @@ async function run() {
         assert.equal(
             await page.locator('#view-dashboard-beta .recommendation-dismiss').first().evaluate((element) => getComputedStyle(element).color),
             'rgb(150, 57, 41)'
+        );
+        await page.locator('html').evaluate((element) => { element.dataset.style = 'retro-terminal'; });
+        assert.deepEqual(
+            await page.locator('#view-dashboard-beta .ui-overview-card').first().evaluate((element) => {
+                const style = getComputedStyle(element);
+                const root = getComputedStyle(document.documentElement);
+                return {
+                    background: style.backgroundColor,
+                    text: style.color,
+                    borderRadius: style.borderRadius,
+                    surfaceToken: root.getPropertyValue('--ui-surface').trim(),
+                    primaryToken: root.getPropertyValue('--ui-action-primary').trim()
+                };
+            }),
+            {
+                background: 'rgb(11, 21, 16)',
+                text: 'rgb(216, 245, 223)',
+                borderRadius: '4px',
+                surfaceToken: '#0b1510',
+                primaryToken: '#d7a84f'
+            }
+        );
+        assert.equal(
+            await page.evaluate(() => getSelectableDesignStyles().some((style) => style.id === 'retro-terminal')),
+            true
         );
         await page.locator('html').evaluate((element) => { element.dataset.style = 'warm-editorial'; });
         assert.equal(
