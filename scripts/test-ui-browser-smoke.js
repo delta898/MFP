@@ -1345,6 +1345,38 @@ async function run() {
         await page.waitForFunction(() => typeof window.navigateTo === 'function');
         await page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active'));
         await page.waitForFunction(() => document.getElementById('dashboard-beta-flow-subject')?.textContent === '현재 실행 중인 글이 없습니다.');
+        const blogNavItem = page.locator('.nav-btn[data-view="blog-next"]');
+        assert.equal(await page.locator('#sidebar').evaluate((element) => Math.round(element.getBoundingClientRect().width)), 224);
+        const longestSidebarLabelFits = await page.evaluate(() => {
+            const region = document.getElementById('sidebar-utility-region');
+            const item = createSidebarDynamicBlock({
+                id: 'developer-support-width-check',
+                kind: 'support',
+                title: '개발자 응원하기',
+                icon: 'heart',
+                media: null,
+                targetUrl: 'https://example.com/support',
+                disclosure: '',
+                sortOrder: 999
+            });
+            region.appendChild(item);
+            syncCollapsedSidebarTooltips();
+            const label = item.querySelector('.nav-label');
+            const fits = label.scrollWidth <= label.clientWidth;
+            item.remove();
+            return fits;
+        });
+        assert.equal(longestSidebarLabelFits, true);
+        assert.notEqual(await blogNavItem.getAttribute('title'), '블로그');
+        assert.equal(await blogNavItem.getAttribute('aria-label'), '블로그');
+        await page.locator('#sidebar-toggle-btn').click();
+        await page.waitForFunction(() => document.getElementById('sidebar')?.classList.contains('collapsed'));
+        await blogNavItem.hover();
+        await page.waitForFunction(() => !document.getElementById('sidebar-menu-tooltip')?.hidden);
+        assert.equal((await page.locator('#sidebar-menu-tooltip').textContent())?.trim(), '블로그');
+        await page.locator('#sidebar-toggle-btn').click();
+        await page.waitForFunction(() => !document.getElementById('sidebar')?.classList.contains('collapsed'));
+        assert.equal(await page.locator('#sidebar-menu-tooltip').evaluate((element) => element.hidden), true);
         assert.equal(await page.locator('#dashboard-beta-ready-count').textContent(), '2건');
         await page.waitForFunction(() => document.getElementById('dashboard-beta-processed-count')?.textContent === '3건');
         assert.equal(await page.locator('#dashboard-beta-published-count').textContent(), '1건');
@@ -3629,6 +3661,7 @@ async function run() {
 
         await page.setViewportSize({ width: 390, height: 844 });
         await page.waitForFunction(() => document.body.classList.contains('mobile-quick-mode'));
+        assert.equal(await page.locator('#sidebar-menu-tooltip').evaluate((element) => element.hidden), true);
         await page.waitForFunction(() => document.getElementById('view-blog-next')?.classList.contains('active'));
         const blogNextNarrowLayout = await page.evaluate(() => {
             const panelNames = ['quick', 'trend-posting', 'queue', 'smart-comment'];

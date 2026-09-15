@@ -100,12 +100,14 @@ window.addEventListener('DOMContentLoaded', () => {
     if (isCollapsed && sidebar) {
       sidebar.classList.add('collapsed');
     }
+    syncCollapsedSidebarTooltips();
 
     if (sidebarToggleBtn && sidebar) {
       sidebarToggleBtn.addEventListener('click', () => {
         sidebar.classList.toggle('collapsed');
         const nowCollapsed = sidebar.classList.contains('collapsed');
         localStorage.setItem('sidebar-collapsed', nowCollapsed);
+        syncCollapsedSidebarTooltips();
 
         // Trigger a window resize event to let other components (like tables) adjust if needed
         window.dispatchEvent(new Event('resize'));

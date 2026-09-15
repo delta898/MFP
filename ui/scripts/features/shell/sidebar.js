@@ -25,6 +25,77 @@ let sidebarDynamicContentSignature = null;
 let sidebarDynamicRefreshPromise = null;
 const supportingSurfaceStates = new Map();
 const SURFACE_ROTATION_SEED_KEY = 'blog_genius_surface_rotation_seed_v1';
+const SIDEBAR_TOOLTIP_ID = 'sidebar-menu-tooltip';
+let sidebarTooltipTarget = null;
+
+function isCollapsedSidebarTooltipEnabled() {
+  return window.innerWidth > 960 && document.getElementById('sidebar')?.classList.contains('collapsed');
+}
+
+function getSidebarTooltip() {
+  let tooltip = document.getElementById(SIDEBAR_TOOLTIP_ID);
+  if (tooltip) return tooltip;
+
+  tooltip = document.createElement('div');
+  tooltip.id = SIDEBAR_TOOLTIP_ID;
+  tooltip.className = 'sidebar-menu-tooltip';
+  tooltip.setAttribute('role', 'tooltip');
+  tooltip.hidden = true;
+  document.body.appendChild(tooltip);
+  return tooltip;
+}
+
+function hideCollapsedSidebarTooltip() {
+  const tooltip = document.getElementById(SIDEBAR_TOOLTIP_ID);
+  if (sidebarTooltipTarget) sidebarTooltipTarget.removeAttribute('aria-describedby');
+  sidebarTooltipTarget = null;
+  if (tooltip) tooltip.hidden = true;
+}
+
+function showCollapsedSidebarTooltip(item) {
+  if (!isCollapsedSidebarTooltipEnabled()) return;
+  const label = item.querySelector('.nav-label')?.textContent?.trim();
+  if (!label) return;
+
+  const tooltip = getSidebarTooltip();
+  tooltip.textContent = label;
+  tooltip.hidden = false;
+  const itemRect = item.getBoundingClientRect();
+  const tooltipRect = tooltip.getBoundingClientRect();
+  const left = Math.min(itemRect.right + 10, window.innerWidth - tooltipRect.width - 12);
+  const top = Math.max(12, Math.min(
+    itemRect.top + ((itemRect.height - tooltipRect.height) / 2),
+    window.innerHeight - tooltipRect.height - 12
+  ));
+  tooltip.style.left = `${Math.round(left)}px`;
+  tooltip.style.top = `${Math.round(top)}px`;
+  sidebarTooltipTarget = item;
+  item.setAttribute('aria-describedby', SIDEBAR_TOOLTIP_ID);
+}
+
+function bindCollapsedSidebarTooltip(item) {
+  if (item.dataset.sidebarTooltipBound === 'true') return;
+  item.dataset.sidebarTooltipBound = 'true';
+  item.addEventListener('pointerenter', () => showCollapsedSidebarTooltip(item));
+  item.addEventListener('pointerleave', hideCollapsedSidebarTooltip);
+  item.addEventListener('focus', () => showCollapsedSidebarTooltip(item));
+  item.addEventListener('blur', hideCollapsedSidebarTooltip);
+}
+
+function syncCollapsedSidebarTooltips() {
+  const sidebar = document.getElementById('sidebar');
+  if (!sidebar) return;
+
+  hideCollapsedSidebarTooltip();
+  sidebar.querySelectorAll('.nav-btn, .nav-link-btn').forEach((item) => {
+    const label = item.querySelector('.nav-label')?.textContent?.trim();
+    if (!label) return;
+
+    item.setAttribute('aria-label', label);
+    item.removeAttribute('title');
+    bindCollapsedSidebarTooltip(item);
+  });
+}
 
 function createSidebarDynamicIcon(iconKey) {
   const namespace = 'http://www.w3.org/2000/svg';
@@ -57,7 +128,6 @@ function createSidebarDynamicBlock(block) {
   link.rel = 'noopener noreferrer';
   link.dataset.dynamicBlock = block.id;
   link.dataset.sortOrder = String(block.sortOrder);
-  link.title = block.disclosure ? `${block.title} · ${block.disclosure}` : block.title;
 
   const iconWrap = document.createElement('span');
   iconWrap.className = 'nav-dynamic-icon-wrap';
@@ -130,6 +200,7 @@ async function refreshSidebarDynamicContent() {
       });
       nodes.forEach((node) => region.appendChild(node));
       sidebarDynamicContentSignature = nextSignature;
+      syncCollapsedSidebarTooltips();
     } catch (error) {
       console.debug('[SurfaceContent] Dynamic sidebar content unavailable:', error.message);
     }
@@ -143,6 +214,7 @@ async function refreshSidebarDynamicContent() {
 }
 
 function initSidebarDynamicContent() {
+  syncCollapsedSidebarTooltips();
+  window.addEventListener('resize', syncCollapsedSidebarTooltips);
   void refreshSidebarDynamicContent();
 }
-
