@@ -210,7 +210,7 @@ test('pasted manuscript clearing is recoverable until new input replaces the sna
   assert.match(html, /data-blog-next-draft-validation="paste"[^>]*aria-live="polite" hidden><\/div>/);
   assert.match(html, /id="blog-next-paste-clear"[^>]*hidden>내용 지우기/);
   assert.match(html, /id="blog-next-paste-clear-undo"[^>]*hidden>되돌리기/);
-  assert.match(html, /data-blog-next-draft-actions="paste">\s*<span class="blog-next-recoverable-action-slot">[\s\S]*?id="blog-next-paste-clear"[\s\S]*?id="blog-next-paste-clear-undo"/);
+  assert.match(html, /data-blog-next-draft-actions="paste">[\s\S]*?<span class="blog-next-recoverable-action-slot">[\s\S]*?id="blog-next-paste-clear"[\s\S]*?id="blog-next-paste-clear-undo"/);
   assert.match(script, /function syncBlogNextPastedDraftActions\(\)/);
   assert.match(script, /if \(clear\) clear\.hidden = !input\?\.value/);
   assert.doesNotMatch(script, /setBlogNextDraftValidation\('paste', null, 'Markdown 원고를 붙여넣어 주세요\.'\)/);
@@ -420,7 +420,7 @@ test('queue editor changes content without owning collection transitions or exec
   assert.match(queueScript, /if \(enqueueButton\) \{\s*enqueueButton\.hidden = true;/);
   assert.match(queueScript, /if \(publishButton\) \{\s*publishButton\.hidden = true;/);
   assert.match(flowScript, /const editingChanged = !editing \|\| \([\s\S]*snapshotBlogNextEditingPayload\(\) !== blogNextEditingInitialSnapshot/);
-  assert.match(flowScript, /if \(save\) save\.disabled = busy \|\| !editingChanged \|\| \(editingReady \? !readyValid : !ideaValid\)/);
+  assert.match(flowScript, /if \(save\) save\.disabled = busy \|\| sheetBlocked \|\| !editingChanged \|\| \(editingReady \? !readyValid : !ideaValid\)/);
   assert.match(queueScript, /blogNextEditingInitialSnapshot = snapshotBlogNextEditingPayload\(\);\s*syncBlogNextTopicActionAvailability\(\);/);
   assert.match(service, /const ready = sourceStatus === TOPIC_STATUS\.READY \|\| action === 'enqueue'/);
   assert.match(service, /updateReadyTopic\(requestBody = \{\}\) \{\s*return this\.updateTopic\(\{ \.\.\.requestBody, action: 'save', sourceStatus: TOPIC_STATUS\.READY \}\)/);

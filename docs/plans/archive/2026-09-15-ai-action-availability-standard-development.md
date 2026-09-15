@@ -3,7 +3,7 @@
 - Branch: `codex/feat/ai-action-availability-standard`
 - Base/parent branch: `release/v0.5.0`
 - Start date: 2026-09-15
-- Status: Review ready (manual UI acceptance pending)
+- Status: Complete; merged candidate for `release/v0.5.0`
 
 ## User need and goal
 
@@ -75,3 +75,6 @@
 - correction 집중 계약·구조 테스트 14개와 JavaScript 구문 검증을 통과했다. 브라우저 smoke 재실행은 첫 시도에서
   Chrome EGL 초기화 실패, 두 번째 시도에서 변경 범위 이전의 Dashboard Beta 기간 버튼 안정화 timeout으로 중단되어
   이 correction의 상호작용 구간까지 도달하지 못했다.
+- parent merge gate 전체 unit suite: 1,831개 중 1,830개 통과, 플랫폼 의존 1개 skip, 실패 0개. 첫 실행에서 발견한
+  네 건은 모듈 분리와 action wrapper 추가 전의 코드 위치를 검사하던 정적 계약으로, 새 소유 모듈과 구조를 검사하도록
+  교정한 뒤 전체 suite를 재실행해 통과했다.

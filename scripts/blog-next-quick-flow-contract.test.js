@@ -66,8 +66,8 @@ test('quick flow summaries update from existing controls and clear remains undoa
   assert.match(uiScript, /function syncBlogNextTopicActionAvailability\(\)/);
   assert.match(uiScript, /ideaValid: hasIdea && referencesValid/);
   assert.match(uiScript, /readyValid: hasIdea && referencesValid && hasTarget && scheduleValid/);
-  assert.match(uiScript, /save\.disabled = busy \|\| !editingChanged \|\| \(editingReady \? !readyValid : !ideaValid\)/);
-  assert.match(uiScript, /enqueue\.disabled = busy \|\| !readyValid/);
+  assert.match(uiScript, /save\.disabled = busy \|\| sheetBlocked \|\| !editingChanged \|\| \(editingReady \? !readyValid : !ideaValid\)/);
+  assert.match(uiScript, /enqueue\.disabled = busy \|\| sheetBlocked \|\| !readyValid/);
   assert.match(uiScript, /publish\.disabled = busy \|\| runnerActive [^;]* \|\| !ideaValid/);
   assert.match(script, /document\.getElementById\('blog-next-clear-undo'\)\?\.addEventListener\('click', restoreBlogNextClearedTopicContent\)/);
 });

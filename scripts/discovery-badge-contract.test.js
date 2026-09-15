@@ -8,7 +8,7 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
 test('discovery surfaces use the shared status badge instead of hex palettes', () => {
   const quickDiscovery = read('ui/scripts/features/discovery/quick-discovery.js');
-  const lifecycle = read('ui/scripts/foundation/lifecycle.js');
+  const keywordModal = read('ui/scripts/features/discovery/keyword-modal.js');
   const modalCss = [
     'ui/styles/features/discovery-modal.css',
     'ui/styles/features/discovery-keyword-research.css',
@@ -20,9 +20,9 @@ test('discovery surfaces use the shared status badge instead of hex palettes', (
   assert.match(feedback, /\.ui-status-badge:is\(\[data-state="danger"\], \[data-state="error"\]\)/);
   assert.match(quickDiscovery, /competitionBadgeAttributes\(competition\.state\)/);
   assert.match(quickDiscovery, /class="ui-status-badge">시작</);
-  assert.match(lifecycle, /class="ui-status-badge"\$\{compState/);
-  assert.match(lifecycle, /<span class="ui-status-badge">\$\{escapeHtml\(role\)\}<\/span>/);
-  for (const source of [quickDiscovery, lifecycle, modalCss]) {
+  assert.match(keywordModal, /class="ui-status-badge"\$\{compState/);
+  assert.match(keywordModal, /<span class="ui-status-badge">\$\{escapeHtml\(role\)\}<\/span>/);
+  for (const source of [quickDiscovery, keywordModal, modalCss]) {
     assert.doesNotMatch(source, /comp-badge/);
     assert.doesNotMatch(source, /title-role-badge/);
     assert.doesNotMatch(source, /keyword-input-badge/);
