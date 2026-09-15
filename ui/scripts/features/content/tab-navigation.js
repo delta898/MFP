@@ -22,6 +22,15 @@ function activateShoppingTab(tabName, options = {}) {
   if (!forceReload) return;
 
   if (target === 'batch') {
+    if (typeof isUiCapabilityUnavailable === 'function' && isUiCapabilityUnavailable('content.sheet')) {
+      const status = document.getElementById('shopping-management-status');
+      if (status) {
+        status.hidden = false;
+        status.dataset.state = 'empty';
+        status.textContent = '글감 관리를 사용하려면 Google Spreadsheet를 먼저 연결해 주세요.';
+      }
+      return;
+    }
     loadBlogShopping();
     return;
   }

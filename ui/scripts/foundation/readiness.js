@@ -3,7 +3,8 @@ async function loadConfigStatus() {
     const status = await fetchJson('/api/v1/config/status');
     console.log('[Config Status] Received:', status);
     uiConfigReady = status?.ready === true;
-    uiAiTextReady = status?.setup?.ai?.configured === true;
+    if (typeof applyUiCapabilityStatus === 'function') applyUiCapabilityStatus(status);
+    else uiAiTextReady = typeof status?.setup?.ai?.configured === 'boolean' ? status.setup.ai.configured : null;
     uiNaverReady = status?.isNaverSet === true;
     uiWpReady = status?.isWpSet === true;
     uiConfigStatusMessage = String(status?.message || '').trim();
@@ -18,26 +19,10 @@ async function loadConfigStatus() {
       console.log('[UI] Version displays updated to:', status.version);
     }
 
-    if (!uiConfigReady && !uiConfigPopupShown) {
-      uiConfigPopupShown = true;
-      const popupText = [
-        '설정 파일이 준비되지 않았습니다.',
-        '',
-        '설정 메뉴에서 주요 항목을 입력 후 저장하세요.',
-        '',
-        uiConfigStatusMessage || '- config/config.json 또는 config/config.json.sample 확인 필요'
-      ].join('\n');
-      showUiPopup(popupText);
-    }
     return status;
   } catch (e) {
-    uiConfigReady = false;
     uiAiTextReady = null;
-    uiNaverReady = false;
-    uiWpReady = false;
     uiConfigStatusMessage = String(e.message || '');
-    syncPlatformUiState('naver', false);
-    syncPlatformUiState('wordpress', false);
     if (!uiConfigPopupShown) {
       uiConfigPopupShown = true;
       showUiPopup(`설정 상태 확인 중 오류가 발생했습니다.\n${uiConfigStatusMessage}`);
@@ -167,4 +152,30 @@ async function ensureSheetsPreflightUi(options = {}) {
   } catch (_e) {
     return false;
   }
+}
+
+function isAiTextBlocked() {
+  return typeof isUiCapabilityUnavailable === 'function'
+    ? isUiCapabilityUnavailable('ai.text')
+    : uiAiTextReady === false;
+}
+
+function isAiTextConfigured() {
+  return uiAiTextReady === true;
+}
+
+async function refreshAiTextReadiness() {
+  if (typeof refreshUiCapabilityReadiness === 'function') await refreshUiCapabilityReadiness();
+  return uiAiTextReady;
+}
+
+function goToAiWritingModelSettings() {
+  if (typeof goToUiCapabilitySettings === 'function') return goToUiCapabilitySettings('ai.text');
+  if (typeof navigateToSettingsNextTarget === 'function') {
+    return navigateToSettingsNextTarget('ai', 'settings-next-ai-text-form');
+  }
+  if (typeof navigateTo === 'function') {
+    return navigateTo('settings-next', 'ai');
+  }
+  return Promise.resolve();
 }

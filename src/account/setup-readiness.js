@@ -20,6 +20,14 @@ function buildSetupReadiness({ CONFIG = {}, googleOauth = {}, naverConnected = f
         ? hasUsableConfigValue(textModelIdentity)
             && hasUsableConfigValue(CONFIG.TEXT_MODEL_BASE_URL || CONFIG.TEXT_MODEL_CONFIG?.base_url)
         : hasUsableConfigValue(textModelIdentity) && hasUsableConfigValue(CONFIG.TEXT_MODEL_API_KEY);
+    const imageModel = CONFIG.IMAGE_MODEL_CONFIG || {};
+    const imageModelProvider = String(CONFIG.IMAGE_MODEL_PROVIDER || imageModel.provider || '').trim().toLowerCase();
+    const imageModelIdentity = CONFIG.IMAGE_MODEL || CONFIG.IMAGE_MODEL_NAME || imageModel.code;
+    const imageModelConfigured = imageModelProvider === 'direct'
+        ? hasUsableConfigValue(imageModelIdentity)
+            && hasUsableConfigValue(CONFIG.IMAGE_MODEL_BASE_URL || imageModel.base_url)
+        : hasUsableConfigValue(imageModelIdentity)
+            && hasUsableConfigValue(CONFIG.IMAGE_MODEL_API_KEY || imageModel.api_key);
     const wordpressFieldsConfigured = hasUsableConfigValue(CONFIG.WORDPRESS_URL)
         && hasUsableConfigValue(CONFIG.WORDPRESS_USER_ID)
         && hasUsableConfigValue(CONFIG.WORDPRESS_APP_PASSWORD);
@@ -34,7 +42,11 @@ function buildSetupReadiness({ CONFIG = {}, googleOauth = {}, naverConnected = f
             && googleAccountConnected
             && googleConfigured
             && publishingChannelConfigured,
-        ai: { configured: textModelConfigured },
+        ai: {
+            configured: textModelConfigured,
+            text_configured: textModelConfigured,
+            image_configured: imageModelConfigured
+        },
         google: {
             configured: googleAccountConnected && googleConfigured,
             account_connected: googleAccountConnected,

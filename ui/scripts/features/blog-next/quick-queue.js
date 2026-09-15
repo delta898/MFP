@@ -259,7 +259,7 @@ async function closeBlogNextEditor(options = {}) {
 }
 
 async function submitBlogNextTopic(action) {
-  if (blogNextTopicSubmitting) return;
+  if (blogNextTopicSubmitting || !await ensureBlogNextTopicStorageReady()) return;
   setBlogNextTopicBusy(true, action);
   setBlogNextTopicResult('');
   try {

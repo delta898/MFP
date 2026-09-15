@@ -15,6 +15,7 @@ const {
 const { createBlogNextExecutionCoordinator } = require('../../blog-next/execution-coordinator');
 const { buildCompletionLinks } = require('../../continuous-publishing/presentation');
 const { createManuscriptDraftService } = require('../../content/manuscript-draft-service');
+const { buildSetupReadiness } = require('../../account/setup-readiness');
 
 function createContentService(deps = {}) {
     const {
@@ -854,6 +855,14 @@ function createContentService(deps = {}) {
         },
 
         async createAiManuscriptDraft(requestBody = {}) {
+            const aiReadiness = buildSetupReadiness({ CONFIG }).ai;
+            if (aiReadiness.configured !== true) {
+                throw createApiError(400, 'AI_TEXT_MODEL_REQUIRED', 'AI 설정에서 글쓰기 모델을 먼저 설정해 주세요.');
+            }
+            if (String(requestBody.imageMode || requestBody.image_mode || '') === 'generate'
+                && aiReadiness.image_configured !== true) {
+                throw createApiError(400, 'AI_IMAGE_MODEL_REQUIRED', 'AI 설정에서 이미지 모델을 먼저 설정해 주세요.');
+            }
             return runBlogNextExecution({
                 source: 'manuscript_generation',
                 subject: String(requestBody.subject || requestBody.title || '바로 생성 원고').trim(),
@@ -926,10 +935,16 @@ function createContentService(deps = {}) {
         },
 
         async generateManuscriptDraftImage(requestBody = {}) {
+            if (buildSetupReadiness({ CONFIG }).ai.image_configured !== true) {
+                throw createApiError(400, 'AI_IMAGE_MODEL_REQUIRED', 'AI 설정에서 이미지 모델을 먼저 설정해 주세요.');
+            }
             return getManuscriptDraftService().generateImage(requestBody);
         },
 
         async generateMissingManuscriptDraftImages(requestBody = {}) {
+            if (buildSetupReadiness({ CONFIG }).ai.image_configured !== true) {
+                throw createApiError(400, 'AI_IMAGE_MODEL_REQUIRED', 'AI 설정에서 이미지 모델을 먼저 설정해 주세요.');
+            }
             return getManuscriptDraftService().generateMissingImages(requestBody);
         },
 

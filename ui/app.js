@@ -30,10 +30,12 @@
 // @include scripts/foundation/progress-state.js
 // @include scripts/foundation/dialogs.js
 // @include scripts/foundation/readiness.js
+// @include scripts/shared/capability-readiness.js
 // @include scripts/features/content/trend-table.js
 // @include scripts/features/discovery/trend-collection.js
 // @include scripts/features/content/blog-tabs.js
 // @include scripts/features/discovery/quick-discovery.js
+// @include scripts/features/discovery/keyword-modal.js
 // @include scripts/features/discovery/trend-posting.js
 // @include scripts/features/discovery/naver-comment-draft.js
 // @include scripts/features/content/tab-navigation.js

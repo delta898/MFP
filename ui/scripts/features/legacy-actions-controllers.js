@@ -1417,6 +1417,37 @@ function bindActions() {
   const shoppingQuickResultEl = document.getElementById('shopping-quick-result');
   const shoppingQuickUrlInput = document.getElementById('shopping-quick-url');
   const shoppingQuickProductInput = document.getElementById('shopping-quick-product');
+  const syncShoppingCapabilityReadiness = () => {
+    const sheetBlocked = typeof isUiCapabilityUnavailable === 'function'
+      && isUiCapabilityUnavailable('content.sheet');
+    const aiBlocked = typeof isUiCapabilityUnavailable === 'function'
+      && isUiCapabilityUnavailable('ai.text');
+    const targets = [];
+    if (document.getElementById('shopping-quick-target-naver')?.checked) targets.push('naver');
+    if (document.getElementById('shopping-quick-target-wordpress')?.checked) targets.push('wordpress');
+    const publishCapability = typeof getUiPublishCapability === 'function'
+      ? getUiPublishCapability(targets)
+      : 'publish.any';
+    const publishBlocked = typeof isUiCapabilityUnavailable === 'function'
+      && isUiCapabilityUnavailable(publishCapability);
+    const states = [
+      ['shopping-sheet-readiness', sheetBlocked],
+      ['shopping-ai-readiness', aiBlocked],
+      ['shopping-publish-readiness', publishBlocked],
+      ['shopping-management-readiness', sheetBlocked]
+    ];
+    states.forEach(([id, blocked]) => {
+      const element = document.getElementById(id);
+      if (element) element.hidden = !blocked;
+    });
+    const message = document.getElementById('shopping-publish-readiness-message');
+    if (message && typeof getUiCapabilityMessage === 'function') {
+      message.textContent = getUiCapabilityMessage(publishCapability);
+    }
+    const publishSettings = document.querySelector('[data-shopping-capability-settings^="publish."]');
+    if (publishSettings) publishSettings.dataset.shoppingCapabilitySettings = publishCapability;
+    return { sheetBlocked, aiBlocked, publishBlocked };
+  };
   window.updateShoppingQuickActionAvailability = () => {
     const previewState = document.getElementById('shopping-quick-preview')?.dataset.state || 'empty';
     const hasUrl = /^https?:\/\//i.test((shoppingQuickUrlInput?.value || '').trim());
@@ -1427,9 +1458,11 @@ function bindActions() {
     const postStatus = document.getElementById('shopping-quick-wp-post-status')?.value || 'publish';
     const hasSchedule = postStatus !== 'schedule' || Boolean(document.getElementById('shopping-quick-wp-schedule-date')?.value);
     const busy = shoppingQuickPublishInFlight;
-    if (shoppingQuickSaveBtn) shoppingQuickSaveBtn.disabled = busy || !baseReady;
-    if (shoppingQuickEnqueueBtn) shoppingQuickEnqueueBtn.disabled = busy || !baseReady || !hasTarget || !hasSchedule;
-    if (shoppingQuickPublishBtn) shoppingQuickPublishBtn.disabled = busy || !baseReady || !hasTarget || !hasSchedule;
+    const readiness = syncShoppingCapabilityReadiness();
+    if (shoppingQuickSaveBtn) shoppingQuickSaveBtn.disabled = busy || readiness.sheetBlocked || !baseReady;
+    if (shoppingQuickEnqueueBtn) shoppingQuickEnqueueBtn.disabled = busy || readiness.sheetBlocked || !baseReady || !hasTarget || !hasSchedule;
+    if (shoppingQuickPublishBtn) shoppingQuickPublishBtn.disabled = busy || readiness.sheetBlocked || readiness.aiBlocked
+      || readiness.publishBlocked || !baseReady || !hasTarget || !hasSchedule;
   };
   const buildShoppingQuickPayload = (mode) => {
     const targets = [];
@@ -1474,6 +1507,13 @@ function bindActions() {
   };
   const saveShoppingQuickTopic = async () => {
     if (shoppingQuickPublishInFlight) return;
+    if (typeof ensureUiCapabilityReady === 'function'
+      && !await ensureUiCapabilityReady('content.sheet')) {
+      updateShoppingQuickActionAvailability();
+      shoppingQuickResultEl.textContent = '글감을 보관하려면 Google Spreadsheet를 먼저 연결해 주세요.';
+      shoppingQuickResultEl.dataset.level = 'error';
+      return;
+    }
     setShoppingQuickSaveBusy(true);
     shoppingQuickResultEl.textContent = '';
     shoppingQuickResultEl.dataset.level = '';
@@ -1498,7 +1538,18 @@ function bindActions() {
   };
   const runShoppingQuickPublish = async (mode) => {
     if (!shoppingQuickResultEl) return;
-    if (!guardUiConfigReady('쇼핑커넥트 빠른발행')) return;
+    if (typeof ensureUiCapabilityReady === 'function') {
+      const payload = buildShoppingQuickPayload(mode);
+      const capabilities = ['content.sheet', 'ai.text', getUiPublishCapability(payload.targets)];
+      for (const capability of capabilities) {
+        if (!await ensureUiCapabilityReady(capability)) {
+          updateShoppingQuickActionAvailability();
+          shoppingQuickResultEl.textContent = getUiCapabilityMessage(capability);
+          shoppingQuickResultEl.dataset.level = 'error';
+          return;
+        }
+      }
+    } else if (!guardUiConfigReady('쇼핑커넥트 빠른발행')) return;
     if (shoppingQuickPublishInFlight) {
       shoppingQuickResultEl.textContent = '이미 요청이 진행 중입니다. 잠시만 기다려주세요.';
       return;
@@ -1597,6 +1648,13 @@ function bindActions() {
 
   const enqueueShoppingQuickTopic = async () => {
     if (shoppingQuickPublishInFlight) return;
+    if (typeof ensureUiCapabilityReady === 'function'
+      && !await ensureUiCapabilityReady('content.sheet')) {
+      updateShoppingQuickActionAvailability();
+      shoppingQuickResultEl.textContent = '발행 대기열을 사용하려면 Google Spreadsheet를 먼저 연결해 주세요.';
+      shoppingQuickResultEl.dataset.level = 'error';
+      return;
+    }
     setShoppingQuickSaveBusy(true);
     shoppingQuickResultEl.textContent = '';
     shoppingQuickResultEl.dataset.level = '';
@@ -1629,6 +1687,13 @@ function bindActions() {
   if (shoppingQuickPublishBtn) {
     shoppingQuickPublishBtn.addEventListener('click', () => runShoppingQuickPublish('append_and_publish'));
   }
+  document.querySelectorAll('[data-shopping-capability-settings]').forEach((button) => {
+    button.addEventListener('click', () => {
+      if (typeof goToUiCapabilitySettings === 'function') {
+        void goToUiCapabilitySettings(button.dataset.shoppingCapabilitySettings || 'content.sheet');
+      }
+    });
+  });
   updateShoppingQuickActionAvailability();
 
   const blogTabButtons = Array.from(document.querySelectorAll('.blog-tab-btn'));

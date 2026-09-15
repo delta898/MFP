@@ -503,6 +503,21 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 
 ### Connection and readiness states
 
+#### Feature action readiness
+
+- 대시보드는 AI 글쓰기, 콘텐츠 저장 공간, 발행 채널처럼 제품 전체의 시작 준비 상태를 요약한다. 기능 화면은 이 요약을
+  큰 진입 차단 popup으로 반복하지 않고, 현재 action에 실제로 필요한 항목만 버튼 가까이 안내한다.
+- 메뉴와 화면 진입 자체는 허용한다. 설정 없이도 가능한 탐색·미리보기·입력은 유지하고, 저장·AI 생성·발행처럼 해당
+  capability가 반드시 필요한 action만 비활성화한다.
+- 비활성 action에는 이유와 정확한 설정 card로 이동하는 text action을 같은 문맥에 둔다. 설정 키 이름, credential 누락
+  원문이나 내부 provider 표현을 사용자에게 노출하지 않는다.
+- client는 안전한 readiness endpoint의 `ready / unavailable / unknown` 상태를 사용한다. 명시적인 `unavailable`만
+  선제 차단하고, 최초 조회 실패 같은 `unknown`은 실행 요청을 허용한 뒤 server validation이 최종 판단한다.
+- UI 비활성화는 편의와 조기 안내이며 보안·정합성 경계가 아니다. 비용 발생, 원격 저장 및 발행을 시작하는 server
+  action은 같은 capability를 다시 검증하고 안정적인 error code와 사용자가 취할 다음 행동을 반환한다.
+- 하나의 workflow에서도 `글감 보관`, `AI 원고 생성`, `발행`은 서로 다른 조건을 가질 수 있다. 전체 설정 하나로 묶어
+  가능한 action까지 함께 차단하지 않는다.
+
 #### Settings connection card anatomy
 
 - Settings의 account, document, channel connection card는 `header → body → feedback → footer` 순서를 공통 문법으로

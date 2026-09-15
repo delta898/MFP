@@ -41,7 +41,7 @@ function createAccountOverviewFixture() {
         },
         setup: {
             ready: true,
-            ai: { configured: true },
+            ai: { configured: true, text_configured: true, image_configured: true },
             google: { configured: true, account_connected: true, spreadsheet_configured: true },
             publishing_channel: { configured: true, naver_configured: true, wordpress_configured: false }
         },
@@ -100,7 +100,7 @@ function getApiFixture(pathname) {
             },
             setup: {
                 ready: true,
-                ai: { configured: true },
+                ai: { configured: true, text_configured: true, image_configured: true },
                 google: { configured: true, account_connected: true, spreadsheet_configured: true },
                 publishing_channel: { configured: true, naver_configured: true, wordpress_configured: false }
             },
@@ -1369,7 +1369,7 @@ async function run() {
                     isEssentialSet: false,
                     setup: {
                         ready: false,
-                        ai: { configured: true },
+                        ai: { configured: true, text_configured: true, image_configured: true },
                         google: { configured: false, account_connected: false, spreadsheet_configured: false },
                         publishing_channel: { configured: false, naver_configured: false, wordpress_configured: false }
                     }
@@ -2629,7 +2629,7 @@ async function run() {
             { background: 'rgba(0, 0, 0, 0)', border: 'none', labelBorder: 'none' }
         );
         assert.deepEqual(
-            await page.locator('#view-blog-next .blog-next-form-actions button:not([hidden])').evaluateAll((buttons) => buttons.map((button) => button.textContent.trim())),
+            await page.locator('#view-blog-next .blog-next-form-actions button:visible').evaluateAll((buttons) => buttons.map((button) => button.textContent.trim())),
             ['내용 지우기', '글감 보관', '발행 대기열에 추가', '원고 만들기']
         );
         assert.deepEqual(
@@ -2820,7 +2820,7 @@ async function run() {
                     isWpSet: true,
                     setup: {
                         ready: false,
-                        ai: { configured: false },
+                        ai: { configured: false, text_configured: false, image_configured: true },
                         google: { configured: true, account_connected: true, spreadsheet_configured: true },
                         publishing_channel: { configured: true, naver_configured: true, wordpress_configured: true }
                     }
@@ -2835,6 +2835,13 @@ async function run() {
         assert.equal((await page.locator('#keyword-ai-readiness').textContent())?.includes('키워드 분석은 AI 설정 없이도'), true);
         await page.locator('#keyword-modal-input').fill('AI 없는 키워드 분석');
         assert.equal(await page.locator('#keyword-modal-search-btn').isEnabled(), true);
+        await page.evaluate(() => {
+            const input = document.getElementById('blog-next-subject');
+            input.value = 'AI 설정이 필요한 원고';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        await page.waitForFunction(() => document.getElementById('blog-next-publish-now')?.disabled === true);
+        assert.equal(await page.locator('#blog-next-ai-readiness').isVisible(), true);
         await page.locator('#keyword-ai-settings-btn').click();
         await page.waitForFunction(() => document.getElementById('view-settings-next')?.classList.contains('active'));
         assert.equal(await page.locator('[data-settings-next-tab="ai"]').getAttribute('aria-selected'), 'true');
@@ -2946,7 +2953,7 @@ async function run() {
         assert.equal(await page.locator('#blog-next-enqueue-topic').evaluate((element) => element.hidden), true);
         assert.equal(await page.locator('#blog-next-publish-now').evaluate((element) => element.hidden), true);
         assert.deepEqual(
-            await page.locator('#blog-next-editor-actions-slot .blog-next-form-actions button:not([hidden])')
+            await page.locator('#blog-next-editor-actions-slot .blog-next-form-actions button:visible')
                 .evaluateAll((buttons) => buttons
                     .map((button) => ({ text: button.textContent.trim(), order: Number(getComputedStyle(button).order) }))
                     .sort((left, right) => left.order - right.order)
@@ -3205,6 +3212,21 @@ async function run() {
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"] option[value="publish"]').evaluate((option) => option.disabled), false);
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"] option[value="schedule"]').evaluate((option) => option.disabled), false);
         assert.match((await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-image-safety-hint]').textContent()) || '', /빈 이미지 1개는 포스팅할 때 자동으로 만듭니다/);
+        await page.evaluate(() => applyUiCapabilityStatus({ setup: {
+            ai: { configured: true, image_configured: false },
+            google: { configured: true },
+            publishing_channel: { configured: true, naver_configured: true, wordpress_configured: true }
+        } }));
+        assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-action="generate"]').first().isDisabled(), true);
+        assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-picker]').first().isEnabled(), true);
+        assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-ai-readiness]').evaluate((element) => element.hidden), false);
+        assert.equal(await page.locator('[data-blog-next-draft-publish="folder"]').isEnabled(), true);
+        assert.match((await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-image-safety-hint]').textContent()) || '', /안전하게 임시 저장될 수 있습니다/);
+        await page.evaluate(() => applyUiCapabilityStatus({ setup: {
+            ai: { configured: true, image_configured: true },
+            google: { configured: true },
+            publishing_channel: { configured: true, naver_configured: true, wordpress_configured: true }
+        } }));
         await page.locator('[data-blog-next-mode-panel="folder"] [aria-describedby="blog-next-help-post-status"]').focus();
         assert.equal(await page.locator('#blog-next-help-post-status').isVisible(), true);
         assert.equal((await page.locator('[data-blog-next-draft-publish="folder"]').textContent())?.trim(), '즉시 발행');
@@ -3461,6 +3483,37 @@ async function run() {
         assert.equal(await page.locator('#shopping-management-saved-list').count(), 1);
         assert.equal((await page.locator('#shopping-management-tab-ready').textContent())?.includes('발행 대기열'), true);
         assert.equal((await page.locator('#shopping-management-tab-saved').textContent())?.includes('보관한 글감'), true);
+
+        const missingShoppingSetupRoute = async (route) => route.fulfill({
+            status: 200,
+            contentType: 'application/json; charset=utf-8',
+            body: JSON.stringify({
+                success: true,
+                data: {
+                    ready: false,
+                    isEssentialSet: false,
+                    isNaverSet: false,
+                    isWpSet: false,
+                    setup: {
+                        ready: false,
+                        ai: { configured: false, text_configured: false, image_configured: false },
+                        google: { configured: false, account_connected: false, spreadsheet_configured: false },
+                        publishing_channel: { configured: false, naver_configured: false, wordpress_configured: false }
+                    }
+                }
+            })
+        });
+        await page.route('**/api/v1/config/status', missingShoppingSetupRoute);
+        await page.evaluate(() => navigateTo('dashboard-beta'));
+        await page.evaluate(() => navigateTo('shopping', 'quick'));
+        await page.waitForFunction(() => document.getElementById('view-shopping')?.classList.contains('active'));
+        assert.equal(await page.locator('#shopping-sheet-readiness').isVisible(), true);
+        assert.equal(await page.locator('#shopping-ai-readiness').isVisible(), true);
+        assert.equal(await page.locator('#shopping-publish-readiness').isVisible(), true);
+        assert.equal(await page.locator('#shopping-quick-preview-btn').isEnabled(), true);
+        assert.equal(await page.locator('#shopping-quick-save-btn').isDisabled(), true);
+        assert.equal(await page.locator('#ui-dialog-backdrop').evaluate((element) => element.classList.contains('hidden')), true);
+        await page.unroute('**/api/v1/config/status', missingShoppingSetupRoute);
 
         await page.evaluate(() => navigateTo('blog', 'quick'));
         await page.locator('.blog-tab-btn[data-blog-tab="quick"]').click();

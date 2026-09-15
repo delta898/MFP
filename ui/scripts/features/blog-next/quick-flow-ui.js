@@ -134,10 +134,80 @@ function syncBlogNextTopicActionAvailability() {
   const enqueue = document.getElementById('blog-next-enqueue-topic');
   const publish = document.getElementById('blog-next-publish-now');
   const regenerate = document.getElementById('blog-next-regenerate-draft');
-  if (save) save.disabled = busy || !editingChanged || (editingReady ? !readyValid : !ideaValid);
-  if (enqueue) enqueue.disabled = busy || !readyValid;
-  if (publish) publish.disabled = busy || runnerActive || (editing && !editingReady) || !ideaValid;
-  if (regenerate) regenerate.disabled = busy || runnerActive || !ideaValid;
+  const aiBlocked = typeof isAiTextBlocked === 'function' && isAiTextBlocked();
+  const imageAiBlocked = document.getElementById('blog-next-image-mode')?.value === 'generate'
+    && typeof isUiCapabilityUnavailable === 'function'
+    && isUiCapabilityUnavailable('ai.image');
+  const sheetBlocked = typeof isUiCapabilityUnavailable === 'function'
+    && isUiCapabilityUnavailable('content.sheet');
+  if (save) save.disabled = busy || sheetBlocked || !editingChanged || (editingReady ? !readyValid : !ideaValid);
+  if (enqueue) enqueue.disabled = busy || sheetBlocked || !readyValid;
+  if (publish) {
+    publish.disabled = busy || runnerActive || (editing && !editingReady) || !ideaValid || aiBlocked || imageAiBlocked;
+    if (aiBlocked || imageAiBlocked) publish.title = aiBlocked
+      ? 'AI 글쓰기 모델 설정이 필요합니다.' : 'AI 이미지 모델 설정이 필요합니다.';
+    else publish.removeAttribute('title');
+  }
+  if (regenerate) regenerate.disabled = busy || runnerActive || !ideaValid || aiBlocked || imageAiBlocked;
+  syncBlogNextAiReadinessNotice();
+  syncBlogNextAiImageReadinessNotice();
+  syncBlogNextSheetReadinessNotice();
+}
+
+function syncBlogNextAiImageReadinessNotice() {
+  const notice = document.getElementById('blog-next-ai-image-readiness');
+  if (!notice) return;
+  const blocked = document.getElementById('blog-next-image-mode')?.value === 'generate'
+    && typeof isUiCapabilityUnavailable === 'function'
+    && isUiCapabilityUnavailable('ai.image');
+  notice.hidden = !blocked;
+  const settingsBtn = document.getElementById('blog-next-ai-image-settings-btn');
+  if (settingsBtn && !settingsBtn.dataset.bound) {
+    settingsBtn.dataset.bound = 'true';
+    settingsBtn.addEventListener('click', () => {
+      if (typeof goToUiCapabilitySettings === 'function') void goToUiCapabilitySettings('ai.image');
+    });
+  }
+}
+
+function syncBlogNextAiReadinessNotice() {
+  const notice = document.getElementById('blog-next-ai-readiness');
+  if (!notice) return;
+  const blocked = typeof isUiCapabilityUnavailable === 'function'
+    ? isUiCapabilityUnavailable('ai.text')
+    : (typeof isAiTextBlocked === 'function' && isAiTextBlocked());
+  notice.hidden = !blocked;
+  const settingsBtn = document.getElementById('blog-next-ai-settings-btn');
+  if (settingsBtn && !settingsBtn.dataset.bound) {
+    settingsBtn.dataset.bound = 'true';
+    settingsBtn.addEventListener('click', () => {
+      if (typeof goToAiWritingModelSettings === 'function') void goToAiWritingModelSettings();
+    });
+  }
+}
+
+function syncBlogNextSheetReadinessNotice() {
+  const notice = document.getElementById('blog-next-sheet-readiness');
+  if (!notice) return;
+  const blocked = typeof isUiCapabilityUnavailable === 'function'
+    && isUiCapabilityUnavailable('content.sheet');
+  notice.hidden = !blocked;
+  const settingsBtn = document.getElementById('blog-next-sheet-settings-btn');
+  if (settingsBtn && !settingsBtn.dataset.bound) {
+    settingsBtn.dataset.bound = 'true';
+    settingsBtn.addEventListener('click', () => {
+      if (typeof goToUiCapabilitySettings === 'function') void goToUiCapabilitySettings('content.sheet');
+    });
+  }
+}
+
+async function ensureBlogNextTopicStorageReady() {
+  if (typeof ensureUiCapabilityReady !== 'function'
+    || await ensureUiCapabilityReady('content.sheet')) return true;
+  syncBlogNextTopicActionAvailability();
+  setBlogNextTopicResult('글감을 보관하거나 대기열에 추가하려면 Google Spreadsheet를 먼저 연결해 주세요.', 'error');
+  document.getElementById('blog-next-sheet-settings-btn')?.focus();
+  return false;
 }
 
 function syncBlogNextHelpPlacement(trigger) {

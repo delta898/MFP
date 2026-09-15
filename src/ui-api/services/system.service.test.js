@@ -62,7 +62,7 @@ test('config status exposes setup guidance without requiring a license lookup', 
     assert.equal(status.isEssentialSet, false);
     assert.deepEqual(status.setup, {
         ready: false,
-        ai: { configured: true },
+        ai: { configured: true, text_configured: true, image_configured: false },
         google: {
             configured: false,
             account_connected: false,

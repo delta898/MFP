@@ -167,19 +167,33 @@
                   <span class="blog-next-ai-action-copy">
                     <strong>나중에 활용</strong>
                     <small id="blog-next-queue-action-hint">대기열의 글감은 실행할 때 원고를 새로 만듭니다.</small>
+                    <span id="blog-next-sheet-readiness" class="blog-next-action-readiness" role="status" hidden>
+                      Google Spreadsheet 연결이 필요합니다.
+                      <button id="blog-next-sheet-settings-btn" class="ui-text-action" type="button">Spreadsheet 설정하기</button>
+                    </span>
                   </span>
                   <span class="blog-next-ai-action-buttons">
-                    <button class="secondary" id="blog-next-save-topic" type="button" disabled>글감 보관</button>
+                    <button class="secondary" id="blog-next-save-topic" type="button"
+                      aria-describedby="blog-next-queue-action-hint blog-next-sheet-readiness" disabled>글감 보관</button>
                     <button class="secondary" id="blog-next-enqueue-topic" type="submit" form="blog-next-topic-form"
-                      aria-describedby="blog-next-queue-action-hint" disabled>발행 대기열에 추가</button>
+                      aria-describedby="blog-next-queue-action-hint blog-next-sheet-readiness" disabled>발행 대기열에 추가</button>
                   </span>
                 </div>
                 <div class="blog-next-ai-action-row blog-next-ai-generate-action" data-blog-next-ai-generate-action>
                   <span class="blog-next-ai-action-copy">
                     <strong>지금 작성</strong>
-                    <small>입력한 내용으로 원고와 미리보기를 만듭니다.</small>
+                    <small id="blog-next-ai-generate-hint">입력한 내용으로 원고와 미리보기를 만듭니다.</small>
+                    <span id="blog-next-ai-readiness" class="blog-next-action-readiness" role="status" hidden>
+                      AI 글쓰기 모델 설정이 필요합니다.
+                      <button id="blog-next-ai-settings-btn" class="ui-text-action" type="button">AI 설정하기</button>
+                    </span>
+                    <span id="blog-next-ai-image-readiness" class="blog-next-action-readiness" role="status" hidden>
+                      이미지 생성에는 AI 이미지 모델 설정이 필요합니다.
+                      <button id="blog-next-ai-image-settings-btn" class="ui-text-action" type="button">이미지 AI 설정하기</button>
+                    </span>
                   </span>
-                  <button class="primary" id="blog-next-publish-now" type="button" disabled>원고 만들기</button>
+                  <button class="primary" id="blog-next-publish-now" type="button"
+                    aria-describedby="blog-next-ai-generate-hint blog-next-ai-readiness blog-next-ai-image-readiness" disabled>원고 만들기</button>
                 </div>
               </div>
             </form>
@@ -208,6 +222,12 @@
             </div>
             <div data-blog-next-publish-settings-slot="ai-publish"></div>
             <div class="blog-next-draft-actions" data-blog-next-draft-actions="ai" hidden>
+              <span class="blog-next-draft-action-copy">
+                <span class="blog-next-action-readiness" data-blog-next-publish-readiness="ai" role="status" hidden>
+                  <span data-blog-next-publish-readiness-message>발행 채널 설정이 필요합니다.</span>
+                  <button class="ui-text-action" data-blog-next-publish-settings-btn="ai" type="button">발행 채널 설정하기</button>
+                </span>
+              </span>
               <button class="primary" data-blog-next-draft-publish="ai" type="button" disabled>즉시 발행</button>
             </div>
           </div>

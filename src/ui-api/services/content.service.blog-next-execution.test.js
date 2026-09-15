@@ -145,7 +145,10 @@ test('direct AI manuscript generation stays local until the user publishes and i
             return { draftId: 'draft-ai', revision: 1 };
         }
     };
-    const service = createService(coordinator, async () => ({ success: true, data: {} }), {}, {
+    const service = createService(coordinator, async () => ({ success: true, data: {} }), {
+        TEXT_MODEL: 'fixture-model',
+        TEXT_MODEL_API_KEY: 'fixture-key'
+    }, {
         manuscriptDraftService,
         executeQuickPublish: async (input, options) => {
             calls.push(['generate', input, options]);
@@ -180,4 +183,57 @@ test('direct AI manuscript generation stays local until the user publishes and i
     assert.equal(calls[1][1].images.length, 1);
     assert.deepEqual(calls[2], ['dispose-preview', 'preview-1']);
     assert.deepEqual(coordinator.getStatus(), { busy: false });
+});
+
+test('direct AI manuscript generation rejects missing model setup before execution', async () => {
+    const coordinator = createBlogNextExecutionCoordinator();
+    let executed = false;
+    const service = createService(coordinator, async () => ({ success: true }), {}, {
+        executeQuickPublish: async () => { executed = true; }
+    });
+
+    await assert.rejects(
+        () => service.createAiManuscriptDraft({ subject: '주제', platforms: ['wordpress'] }),
+        (error) => error.status === 400 && error.apiCode === 'AI_TEXT_MODEL_REQUIRED'
+    );
+    assert.equal(executed, false);
+    assert.deepEqual(coordinator.getStatus(), { busy: false });
+});
+
+test('manual AI image actions reject missing image model before draft mutation', async () => {
+    const coordinator = createBlogNextExecutionCoordinator();
+    let generated = false;
+    const service = createService(coordinator, async () => ({ success: true }), {}, {
+        manuscriptDraftService: {
+            generateImage: async () => { generated = true; },
+            generateMissingImages: async () => { generated = true; }
+        }
+    });
+
+    await assert.rejects(
+        () => service.generateManuscriptDraftImage({ draftId: 'draft-1', revision: 1, slotId: 'image-0' }),
+        (error) => error.status === 400 && error.apiCode === 'AI_IMAGE_MODEL_REQUIRED'
+    );
+    await assert.rejects(
+        () => service.generateMissingManuscriptDraftImages({ draftId: 'draft-1', revision: 1 }),
+        (error) => error.status === 400 && error.apiCode === 'AI_IMAGE_MODEL_REQUIRED'
+    );
+    assert.equal(generated, false);
+});
+
+test('direct AI manuscript generation requires an image model only for image generation mode', async () => {
+    const coordinator = createBlogNextExecutionCoordinator();
+    let executed = false;
+    const service = createService(coordinator, async () => ({ success: true }), {
+        TEXT_MODEL: 'fixture-model',
+        TEXT_MODEL_API_KEY: 'fixture-key'
+    }, {
+        executeQuickPublish: async () => { executed = true; }
+    });
+
+    await assert.rejects(
+        () => service.createAiManuscriptDraft({ subject: '주제', imageMode: 'generate', platforms: ['wordpress'] }),
+        (error) => error.status === 400 && error.apiCode === 'AI_IMAGE_MODEL_REQUIRED'
+    );
+    assert.equal(executed, false);
 });

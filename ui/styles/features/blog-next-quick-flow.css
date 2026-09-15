@@ -394,3 +394,28 @@
     padding: var(--ui-space-4);
   }
 }
+
+.blog-next-action-readiness {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ui-space-1);
+  color: var(--ui-status-warning);
+  font-size: var(--ui-type-caption-size);
+  font-weight: var(--ui-weight-semibold);
+}
+
+.blog-next-action-readiness[hidden] {
+  display: none;
+}
+
+.blog-next-draft-action-copy {
+  display: grid;
+  flex: 1;
+  gap: var(--ui-space-2);
+  min-width: 0;
+}
+
+.blog-next-draft-action-copy .blog-next-recoverable-action-slot {
+  margin-inline-end: 0;
+}

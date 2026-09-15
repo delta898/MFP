@@ -40,7 +40,7 @@ test('UI lifecycle has one bootstrap and one binding registration path', () => {
 });
 
 test('successful keyword title recommendations focus and reveal the result section', () => {
-    const source = fs.readFileSync(path.join(uiRoot, 'scripts/foundation/lifecycle.js'), 'utf8');
+    const source = fs.readFileSync(path.join(uiRoot, 'scripts/features/discovery/keyword-modal.js'), 'utf8');
     const styles = fs.readFileSync(path.join(uiRoot, 'styles/features/discovery-keyword-research.css'), 'utf8');
 
     assert.match(source, /id="keyword-title-results" class="keyword-title-results" tabindex="-1" aria-labelledby="keyword-title-results-heading"/);
@@ -53,7 +53,7 @@ test('successful keyword title recommendations focus and reveal the result secti
 });
 
 test('quick title recommendations use the selected writing strategy', () => {
-    const source = fs.readFileSync(path.join(uiRoot, 'scripts/foundation/lifecycle.js'), 'utf8');
+    const source = fs.readFileSync(path.join(uiRoot, 'scripts/features/discovery/keyword-modal.js'), 'utf8');
 
     assert.match(source, /const getQuickTitleMode = \(\) => quickDiscoveryInputTarget === 'blogNext'/);
     assert.match(source, /blog-next-writing-strategy/);

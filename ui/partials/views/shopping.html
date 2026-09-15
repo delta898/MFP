@@ -259,10 +259,36 @@
           <div class="blog-next-form-result-row">
             <p id="shopping-quick-result" class="blog-next-form-result" role="status" aria-live="polite"></p>
           </div>
-          <div class="blog-next-form-actions shopping-quick-actions">
-            <button id="shopping-quick-save-btn" class="secondary" type="button">글감 보관</button>
-            <button id="shopping-quick-enqueue-btn" class="secondary" type="button">발행 대기열에 추가</button>
-            <button id="shopping-quick-publish-btn" class="primary" type="button">바로 포스팅</button>
+          <div class="shopping-quick-action-groups">
+            <div class="shopping-quick-action-row">
+              <span class="shopping-quick-action-copy">
+                <strong>나중에 활용</strong>
+                <small>상품 글감을 보관하거나 발행 대기열에 추가합니다.</small>
+                <span id="shopping-sheet-readiness" class="blog-next-action-readiness" role="status" hidden>
+                  Google Spreadsheet 연결이 필요합니다.
+                  <button class="ui-text-action" type="button" data-shopping-capability-settings="content.sheet">Spreadsheet 설정하기</button>
+                </span>
+              </span>
+              <span class="shopping-quick-action-buttons">
+                <button id="shopping-quick-save-btn" class="secondary" type="button">글감 보관</button>
+                <button id="shopping-quick-enqueue-btn" class="secondary" type="button">발행 대기열에 추가</button>
+              </span>
+            </div>
+            <div class="shopping-quick-action-row">
+              <span class="shopping-quick-action-copy">
+                <strong>지금 포스팅</strong>
+                <small>현재 상품 정보와 설정으로 원고를 만들고 포스팅합니다.</small>
+                <span id="shopping-ai-readiness" class="blog-next-action-readiness" role="status" hidden>
+                  AI 글쓰기 모델 설정이 필요합니다.
+                  <button class="ui-text-action" type="button" data-shopping-capability-settings="ai.text">AI 설정하기</button>
+                </span>
+                <span id="shopping-publish-readiness" class="blog-next-action-readiness" role="status" hidden>
+                  <span id="shopping-publish-readiness-message">발행 채널 설정이 필요합니다.</span>
+                  <button class="ui-text-action" type="button" data-shopping-capability-settings="publish.any">발행 채널 설정하기</button>
+                </span>
+              </span>
+              <button id="shopping-quick-publish-btn" class="primary" type="button">바로 포스팅</button>
+            </div>
           </div>
         </div>
 
@@ -273,6 +299,11 @@
               <h2>준비한 글을 한곳에서 관리</h2>
               <p>준비한 글을 보관하고, 발행 대기열을 관리합니다.</p>
             </div>
+          </div>
+
+          <div id="shopping-management-readiness" class="shopping-management-readiness" role="status" hidden>
+            <span>글감 관리를 사용하려면 Google Spreadsheet 연결이 필요합니다.</span>
+            <button class="ui-text-action" type="button" data-shopping-capability-settings="content.sheet">Spreadsheet 설정하기</button>
           </div>
 
           <div class="blog-next-management-tabs blog-next-panel-local-nav shopping-management-tabs">

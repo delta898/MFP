@@ -41,7 +41,8 @@ test('shopping quick writing styles use semantic tokens for the new controls', (
 
   assert.match(view, /class="blog-next-disclosures shopping-quick-disclosures"/);
   assert.match(view, /class="blog-next-disclosure" id="shopping-quick-writing-settings"/);
-  assert.match(view, /class="blog-next-form-actions shopping-quick-actions"/);
+  assert.match(view, /class="shopping-quick-action-groups"/);
+  assert.equal((view.match(/class="shopping-quick-action-row"/g) || []).length, 2);
   assert.match(view, /class="shopping-quick-preview-icon"[\s\S]*?<svg viewBox="0 0 24 24"/);
   assert.match(css, /var\(--ui-border-default\)/);
   assert.match(css, /\.shopping-quick-preview-icon svg[\s\S]*?stroke:\s*currentColor/);
@@ -99,9 +100,10 @@ test('shopping quick actions stay disabled until their saved input plan is actio
   const actionStyles = read('ui/styles/patterns/actions.css');
 
   assert.match(source, /window\.updateShoppingQuickActionAvailability/);
-  assert.match(source, /shoppingQuickSaveBtn\.disabled = busy \|\| !baseReady/);
-  assert.match(source, /shoppingQuickEnqueueBtn\.disabled = busy \|\| !baseReady \|\| !hasTarget \|\| !hasSchedule/);
-  assert.match(source, /shoppingQuickPublishBtn\.disabled = busy \|\| !baseReady \|\| !hasTarget \|\| !hasSchedule/);
+  assert.match(source, /shoppingQuickSaveBtn\.disabled = busy \|\| readiness\.sheetBlocked \|\| !baseReady/);
+  assert.match(source, /shoppingQuickEnqueueBtn\.disabled = busy \|\| readiness\.sheetBlocked \|\| !baseReady \|\| !hasTarget \|\| !hasSchedule/);
+  assert.match(source, /shoppingQuickPublishBtn\.disabled = busy \|\| readiness\.sheetBlocked \|\| readiness\.aiBlocked/);
+  assert.match(source, /readiness\.publishBlocked \|\| !baseReady \|\| !hasTarget \|\| !hasSchedule/);
   assert.match(preview, /updateShoppingQuickActionAvailability\(\)/);
   assert.match(
     actionStyles,

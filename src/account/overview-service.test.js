@@ -89,7 +89,7 @@ test('account overview exposes subscription, usage, device, and connection read 
     assert.equal(overview.connections.wordpress.status, 'not_configured');
     assert.deepEqual(overview.setup, {
         ready: true,
-        ai: { configured: true },
+        ai: { configured: true, text_configured: true, image_configured: false },
         google: {
             configured: true,
             account_connected: true,
@@ -135,7 +135,7 @@ test('account overview identifies the next setup gaps without active Google netw
 
     assert.equal(googlePeekCount, 1);
     assert.equal(overview.setup.ready, false);
-    assert.deepEqual(overview.setup.ai, { configured: false });
+    assert.deepEqual(overview.setup.ai, { configured: false, text_configured: false, image_configured: false });
     assert.deepEqual(overview.setup.google, {
         configured: false,
         account_connected: false,

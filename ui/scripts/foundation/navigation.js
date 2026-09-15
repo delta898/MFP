@@ -89,6 +89,11 @@ async function navigateTo(viewName, subTab) {
     initBlogNextDraftInputs();
     initBlogNextAutomationSettings();
     initBlogNextRunner();
+    if (typeof refreshUiCapabilityReadiness === 'function') {
+      await refreshUiCapabilityReadiness();
+      if (typeof syncBlogNextTopicActionAvailability === 'function') syncBlogNextTopicActionAvailability();
+      if (typeof syncBlogNextDraftExecutionState === 'function') syncBlogNextDraftExecutionState();
+    }
     if (requestedSubTab === 'automation') {
       const activated = await requestActivateBlogNextTab('queue');
       if (activated) await requestActivateBlogNextManagementTab('automation');
@@ -103,12 +108,14 @@ async function navigateTo(viewName, subTab) {
     return;
   }
   if (viewName === 'shopping') {
-    const ready = await ensureSheetsPreflightUi();
-    if (!ready) return;
+    if (typeof refreshUiCapabilityReadiness === 'function') {
+      await refreshUiCapabilityReadiness();
+    }
     if (subTab) {
       shoppingActiveTab = String(subTab).trim() || shoppingActiveTab;
     }
     activateShoppingTab(shoppingActiveTab, { forceReload: true });
+    if (typeof updateShoppingQuickActionAvailability === 'function') updateShoppingQuickActionAvailability();
     return;
   }
   if (viewName === 'settings') {

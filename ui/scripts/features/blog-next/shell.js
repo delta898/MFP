@@ -85,6 +85,7 @@ function activateBlogNextInputMode(modeName) {
     panel.hidden = !active;
   });
   if (typeof mountBlogNextPublishSettings === 'function') mountBlogNextPublishSettings(target);
+  if (typeof syncBlogNextDraftExecutionState === 'function') syncBlogNextDraftExecutionState();
 }
 
 function initBlogNextShell() {

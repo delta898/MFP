@@ -31,11 +31,18 @@ function syncBlogNextDraftExecutionState(runnerActive) {
   const manuscriptActive = BLOG_NEXT_DRAFT_TYPES.some(type => blogNextDraftState[type].publishing
     || blogNextDraftState[type].imageWorking || blogNextDraftState[type].generating);
   const executionActive = anotherRunnerActive || manuscriptActive;
+  const activeType = BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai';
+  const activeSettings = readBlogNextDraftSettings(activeType);
+  const publishCapability = typeof getUiPublishCapability === 'function'
+    ? getUiPublishCapability(activeSettings.targets)
+    : 'publish.any';
+  const publishBlocked = typeof isUiCapabilityUnavailable === 'function'
+    && isUiCapabilityUnavailable(publishCapability);
   BLOG_NEXT_DRAFT_TYPES.forEach((type) => {
     const state = blogNextDraftState[type];
     const button = document.querySelector(`[data-blog-next-draft-publish="${type}"]`);
     if (!button) return;
-    button.disabled = executionActive || state.previewSyncFailed || !state.preview?.validation?.ok;
+    button.disabled = executionActive || publishBlocked || state.previewSyncFailed || !state.preview?.validation?.ok;
     button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
     const selectedStatus = readBlogNextDraftSettings(type).postStatus;
     const publishCopy = getBlogNextDraftPublishCopy(selectedStatus);
@@ -44,6 +51,33 @@ function syncBlogNextDraftExecutionState(runnerActive) {
       : state.imageWorking ? '이미지 작업 중...'
       : executionActive ? '다른 작업 실행 중...'
       : publishCopy.buttonLabel;
+  });
+  syncBlogNextPublishReadinessNotice(publishCapability);
+}
+
+function syncBlogNextPublishReadinessNotice(capability) {
+  const activeType = BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai';
+  const blocked = typeof isUiCapabilityUnavailable === 'function'
+    && isUiCapabilityUnavailable(capability);
+  document.querySelectorAll('[data-blog-next-publish-readiness]').forEach((notice) => {
+    const type = notice.dataset.blogNextPublishReadiness;
+    notice.hidden = !blocked || type !== activeType;
+    const message = notice.querySelector('[data-blog-next-publish-readiness-message]');
+    if (message && typeof getUiCapabilityMessage === 'function') {
+      message.textContent = getUiCapabilityMessage(capability);
+    }
+    const settingsBtn = notice.querySelector('[data-blog-next-publish-settings-btn]');
+    if (settingsBtn) {
+      settingsBtn.dataset.capability = capability;
+      if (!settingsBtn.dataset.bound) {
+        settingsBtn.dataset.bound = 'true';
+        settingsBtn.addEventListener('click', () => {
+          if (typeof goToUiCapabilitySettings === 'function') {
+            void goToUiCapabilitySettings(settingsBtn.dataset.capability || 'publish.any');
+          }
+        });
+      }
+    }
   });
 }
 
@@ -126,7 +160,22 @@ async function generateBlogNextAiDraft() {
   if (state.generating || state.publishing || state.imageWorking) return;
   const validity = readBlogNextTopicActionValidity();
   if (!validity.ideaValid) return;
-  if (typeof guardUiConfigReady === 'function' && !guardUiConfigReady('AI 원고 생성')) return;
+  if (typeof ensureUiCapabilityReady === 'function') {
+    const aiReady = await ensureUiCapabilityReady('ai.text');
+    if (!aiReady) {
+      if (typeof syncBlogNextTopicActionAvailability === 'function') syncBlogNextTopicActionAvailability();
+      setBlogNextTopicResult('원고를 만들려면 AI 글쓰기 모델을 먼저 설정해 주세요.', 'error');
+      document.getElementById('blog-next-ai-settings-btn')?.focus();
+      return;
+    }
+    if (document.getElementById('blog-next-image-mode')?.value === 'generate'
+      && !await ensureUiCapabilityReady('ai.image')) {
+      if (typeof syncBlogNextTopicActionAvailability === 'function') syncBlogNextTopicActionAvailability();
+      setBlogNextTopicResult('이미지를 생성하려면 AI 이미지 모델을 먼저 설정해 주세요.', 'error');
+      document.getElementById('blog-next-ai-image-settings-btn')?.focus();
+      return;
+    }
+  } else if (typeof guardUiConfigReady === 'function' && !guardUiConfigReady('AI 원고 생성')) return;
   setBlogNextAiGenerating(true);
   setBlogNextTopicResult('');
   if (typeof renderBlogNextRunnerStatus === 'function') {
@@ -216,8 +265,18 @@ function setBlogNextDraftPublishing(type, publishing) {
 async function publishBlogNextDraft(type) {
   const state = blogNextDraftState[type];
   if (state.publishing || !state.preview?.validation?.ok) return;
-  if (typeof guardUiConfigReady === 'function' && !guardUiConfigReady('원고 포스팅')) return;
   let settings = readBlogNextDraftSettings(type);
+  if (typeof ensureUiCapabilityReady === 'function') {
+    const capability = typeof getUiPublishCapability === 'function'
+      ? getUiPublishCapability(settings.targets)
+      : 'publish.any';
+    if (!await ensureUiCapabilityReady(capability)) {
+      syncBlogNextDraftExecutionState();
+      setBlogNextDraftValidation(type, { errors: [getUiCapabilityMessage(capability)] }, '', state.preview);
+      document.querySelector(`[data-blog-next-publish-settings-btn="${type}"]`)?.focus();
+      return;
+    }
+  } else if (typeof guardUiConfigReady === 'function' && !guardUiConfigReady('원고 포스팅')) return;
   const autoGenerationCount = Array.isArray(state.preview?.images)
     ? state.preview.images.filter((image) => !image.excluded && !image.exists && String(image.prompt || '').trim()).length
     : 0;
