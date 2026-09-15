@@ -1,6 +1,11 @@
 # Changelog
 All notable changes to the Naver Auto Blog publishing tool will be documented in this file.
 
+## [0.5.0-dev3] - 2026-09-15
+
+### Fixed
+- **Windows 시작 진단 수집 수정**: 실패 시 진단 로그가 실제로 업로드되도록 수집 경로의 와일드카드를 바로잡았습니다.
+
 ## [0.5.0-dev2] - 2026-09-15
 
 ### Fixed

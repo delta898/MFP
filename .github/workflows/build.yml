@@ -252,7 +252,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path './startup-diagnostics' | Out-Null
           $logDir = Join-Path $env:LOCALAPPDATA 'BlogGenius\logs'
           if (Test-Path -LiteralPath $logDir) {
-            Copy-Item -LiteralPath (Join-Path $logDir '*') -Destination './startup-diagnostics/' -Recurse -Force -ErrorAction SilentlyContinue
+            Copy-Item -Path (Join-Path $logDir '*') -Destination './startup-diagnostics/' -Recurse -Force -ErrorAction SilentlyContinue
           }
 
       - name: Upload Windows Startup Diagnostics
