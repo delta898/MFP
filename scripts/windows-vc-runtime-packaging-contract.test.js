@@ -67,7 +67,8 @@ test('Windows packages install an external startup supervisor before runtime ver
     assert.match(launcher, /safe mode recovered startup/);
     assert.match(launcher, /CreateDiagnosticBundle/);
     assert.match(workflow, /--bloggenius-startup-probe/);
-    assert.match(workflow, /Start-Process -FilePath \$launcher -ArgumentList '--version' -Wait -PassThru/);
+    assert.match(workflow, /Start-Process -FilePath \$launcher -ArgumentList '--version' -PassThru/);
+  assert.match(workflow, /WaitForExit\(120000\)/);
     assert.match(workflow, /startup completion checkpoint/);
     assert.match(workflow, /"phase":"STARTUP_PROBE_COMPLETE"/);
     assert.match(workflow, /"safeMode":false/);
