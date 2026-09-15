@@ -6,13 +6,13 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8');
 
-test('shopping connect exposes only manual quick and batch workflows', () => {
+test('shopping connect exposes only the available manual quick workflow', () => {
   const view = read('ui/partials/views/shopping.html');
   const navigation = read('ui/scripts/features/content/tab-navigation.js');
   const app = read('ui/app.js');
 
   assert.doesNotMatch(view, /data-shopping-tab="auto"|shopping-tab-auto|shopping-publish-auto/);
-  assert.match(navigation, /const allowed = \['quick', 'batch'\]/);
+  assert.match(navigation, /const allowed = \['quick'\]/);
   assert.doesNotMatch(navigation, /loadShoppingAutoSettings|target === 'auto'/);
   assert.doesNotMatch(app, /automation\/shopping\.js/);
 });

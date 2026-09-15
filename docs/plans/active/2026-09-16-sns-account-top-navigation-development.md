@@ -3,7 +3,7 @@
 - Branch: `codex/fix/sns-account-top-navigation`
 - Base/parent branch: `release/v0.5.0`
 - Start date: 2026-09-16
-- Status: Review ready (manual visual acceptance pending)
+- Status: Ready to merge (manual visual acceptance pending)
 
 ## User need and goal
 
@@ -62,6 +62,10 @@ SNS와 내 정보 화면이 다른 정식 화면과 달리 Top Menu가 없어 �
 - panel intro의 browser 좌표는 글꼴 반올림으로 1px 차이가 날 수 있어, visual alignment assertion은 1px 이내로
   검증한다. focused contract 45개와 browser smoke를 재실행해 통과했다.
 - summary surface 보정 후 관련 focused contract 14개와 browser smoke를 다시 통과했다.
+- 병합 게이트의 전체 단위 테스트에서 기존 쇼핑커넥트 계약 하나가 실패했다. `release/v0.5.0`의 글감 관리 숨김 구현은
+  `quick`만 허용하지만, 오래된 계약은 `quick + batch`를 요구하고 있었다. 제품 동작 변경 없이 계약 기대값을 현재
+  단일 workflow 정책으로 정정한 뒤 전체 테스트를 재실행한다.
+- 정정 후 전체 단위 테스트 1,831개 중 1,830개가 통과했고, Windows bootstrap 환경 전용 1개는 기존 skip으로 유지됐다.
 
 ## Manual checks still required
 
