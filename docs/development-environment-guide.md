@@ -483,3 +483,37 @@ Production credential은 Stage 6 workflow에 등록하지 않는다. 실제 Prod
 
 환경이 불명확하거나 필수 연결값이 빠진 경우 BlogGenius는 Production으로 fallback하지 않는다.
 Supabase 기반 기능과 실제 발행을 비활성화하는 fail-closed 상태로 시작한다.
+
+## 9. 최초 설치 상태 재현
+
+Development 앱의 설정과 최초 bootstrap을 다시 검증할 때는 루트의 `clear_dev.sh`를 사용한다.
+대화형 터미널에서는 전체 초기화와 Development 사용자 초기화 여부를 묻고 삭제 예정 목록을 보여준
+뒤 실제 삭제 여부를 `[y/N]`으로 확인한다. 각 질문에서 Enter를 누르면
+`--no-full --local-only --dry-run`과 같은 결과가 된다. 비대화형 실행에서는
+`--full`/`--no-full`, `--reset-development-user`/`--local-only`, `--apply`/`--dry-run`을 모두 명시해야
+하며, 선택이 빠지면 기본값을 조용히 적용하지 않고 중단한다.
+
+```bash
+./clear_dev.sh
+./clear_dev.sh --apply
+./clear_dev.sh --full
+./clear_dev.sh --full --apply
+```
+
+`--full`은 앱이 만든 사용자 설정, memory와 추천 상태, workspace의 앱 관리 하위 경로, 일반 로그,
+Electron userData와 환경별 로컬 라이선스를 초기화한다. 사용자가 따로 만든 `config.json.bak*`,
+custom workspace의 임의 원고·파일, 소스, sample, `.env.*`, 개발 secret 및 OS 진단 영역의 crash와
+diagnostics 자료는 보존한다. 앱을 종료한 상태에서만 실제 삭제할 수 있다.
+
+신규 Development 사용자의 라이선스 발급 과정까지 다시 검증해야 할 때만 다음 옵션을 추가한다.
+
+```bash
+./clear_dev.sh --full --reset-development-user
+./clear_dev.sh --full --reset-development-user --apply
+```
+
+이 옵션은 현재 기기의 Development 라이선스, 연결된 사용량, HWID 시험 사용 상태, 인증 코드와
+사용자별 rate-limit만 대상으로 한다. project ref와 URL/DB URL이 서로 일치하고 Production과 다른
+경우에만 실행되며, `--yes`를 지정해도 원격 삭제 확인 문구는 생략되지 않는다. 공유 모델·정책·캐시,
+다른 사용자 및 Production 데이터는 변경하지 않는다. 전체 옵션과 예시는 `./clear_dev.sh --help`로
+확인한다.
