@@ -88,7 +88,7 @@ test('Blog Beta quick writing keeps topic capture and adds the canonical AI manu
     const clearIndex = betaView.indexOf('id="blog-next-clear-topic"');
 
     assert.match(betaView, /id="blog-next-save-topic"[^>]*>글감 보관/);
-    assert.match(betaView, /id="blog-next-enqueue-topic"[^>]*>발행 대기열에 추가/);
+    assert.match(betaView, /id="blog-next-enqueue-topic"[^>]*>글감 대기열에 추가/);
     assert.match(betaView, /class="primary" id="blog-next-publish-now"[^>]*>원고 만들기/);
     assert.match(betaView, /class="ghost blog-next-clear-action" id="blog-next-clear-topic"[^>]*hidden>내용 지우기/);
     assert.match(betaView, /class="ghost blog-next-cancel-action" id="blog-next-cancel-edit"[^>]*hidden>취소/);

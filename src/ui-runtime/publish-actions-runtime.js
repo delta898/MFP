@@ -777,7 +777,9 @@ function createPublishActionsRuntime(deps = {}) {
         }
 
         const features = toFeatureMap(precheck.features);
-        const enableRelatedPostsAutoLink = getFeatureBool(features, 'enable_related_posts_auto_link', false);
+        const enableRelatedPostsAutoLink = workspaceDraft
+            ? false
+            : getFeatureBool(features, 'enable_related_posts_auto_link', false);
         const imageGenerationFinal = generatesBlogImages(imageMode);
 
         const nowMs = Date.now();

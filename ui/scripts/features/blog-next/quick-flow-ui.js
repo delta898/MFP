@@ -100,7 +100,7 @@ function syncBlogNextTopicActionAvailability() {
   const publish = document.getElementById('blog-next-publish-now');
   if (save) save.disabled = busy || !editingChanged || (editingReady ? !readyValid : !ideaValid);
   if (enqueue) enqueue.disabled = busy || !readyValid;
-  if (publish) publish.disabled = busy || runnerActive || (editing && !editingReady) || !readyValid;
+  if (publish) publish.disabled = busy || runnerActive || (editing && !editingReady) || !ideaValid;
 }
 
 function syncBlogNextHelpPlacement(trigger) {

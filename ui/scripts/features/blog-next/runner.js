@@ -17,8 +17,12 @@ function getBlogNextRunnerStatusKey(status = {}) {
 
 function presentBlogNextRunnerStatus(status = {}) {
   const state = String(status.state || 'idle');
+  const manuscriptGeneration = String(status.source || '') === 'manuscript_generation';
   const resultStatus = String(status.resultStatus || '').trim();
   if (state === 'selecting') return { title: '준비 중', tone: 'progress' };
+  if (manuscriptGeneration && state === 'running') return { title: '원고 생성 중', tone: 'progress' };
+  if (manuscriptGeneration && state === 'completed') return { title: '원고 준비 완료', tone: 'success' };
+  if (manuscriptGeneration && state === 'failed') return { title: '원고 생성 실패', tone: 'error' };
   if (state === 'running') {
     const progressTitles = {
       preparing: '준비 중', writing: '글 작성 중', images: '이미지 준비 중',

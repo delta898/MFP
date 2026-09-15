@@ -839,19 +839,25 @@ function createContentService(deps = {}) {
                 subject: String(requestBody.subject || requestBody.title || '바로 생성 원고').trim(),
                 message: 'AI로 원고를 만들고 있습니다.'
             }, async () => {
-                const targets = Array.isArray(requestBody.targets)
+                const requestedTargets = Array.isArray(requestBody.targets)
                     ? requestBody.targets
                     : (Array.isArray(requestBody.platforms) ? requestBody.platforms : []);
+                const targets = requestedTargets.length === 1 ? requestedTargets : ['naver'];
+                // The canonical manuscript is platform-neutral. Use the non-browser generation
+                // projection only as a transient workspace and apply the user's platform later.
+                const generationTargets = ['wordpress'];
                 const generated = await executeQuickPublish({
                     ...requestBody,
-                    targets,
+                    targets: generationTargets,
+                    postStatus: 'draft',
+                    scheduleDate: '',
                     publishMode: 'append_and_generate'
                 }, { workspaceDraft: true });
                 if (!generated?.success) {
                     throw createApiError(400, generated?.code || 'MANUSCRIPT_AI_GENERATE_FAILED', generated?.message || 'AI 원고를 만들지 못했습니다.');
                 }
                 const data = generated.data || {};
-                const primaryTarget = String(data.primaryTarget || targets[0] || '').trim();
+                const primaryTarget = String(data.primaryTarget || generationTargets[0] || '').trim();
                 const preview = data.previews?.[primaryTarget];
                 if (!preview?.rawMarkdown) {
                     throw createApiError(500, 'MANUSCRIPT_AI_PREVIEW_MISSING', '생성된 원고를 작업공간으로 가져오지 못했습니다.');
@@ -874,7 +880,7 @@ function createContentService(deps = {}) {
                     markdownText: preview.rawMarkdown,
                     images,
                     sourceLabel: preview.title || requestBody.title || requestBody.subject || '바로 생성 원고',
-                    sourceMetadata: { primaryTarget, generatedTargets: Array.isArray(data.targets) ? data.targets : targets }
+                    sourceMetadata: { generationProjection: primaryTarget }
                 });
             });
         },

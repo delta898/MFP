@@ -5,7 +5,7 @@
 - Branch: `codex/feat/manuscript-workspace`
 - Base/parent branch: `dev`
 - Start date: 2026-09-15
-- Status: active; Stages 01-02 complete; Stages 03-05 pending
+- Status: active; Stages 01-03 complete; Stage 04 publish-flow work active
 
 ## User Need
 
@@ -120,10 +120,14 @@ read-only다.
 3. `03-ai`
    - 바로 생성 preview session을 공통 Draft 계약으로 수렴
    - canonical manuscript에서 Naver/WordPress publish projection 생성
-4. `04-text-editing`
+4. `04-publish-flow`
+   - 세 입력 방식의 `준비 → 미리보기 → 발행 설정` UI 통일
+   - 생성 전 글감 보관과 완성 원고 발행/대기열 의미 분리
+   - 플랫폼 선택을 발행 projection 단계로 이동
+5. `05-text-editing`
    - canonical Markdown 편집
    - 이미지 영역 추가·이동·완전 삭제와 derived preview 재계산
-5. `05-integration`
+6. `06-integration`
    - session cleanup, recovery, logs, accessibility와 전체 회귀 안정화
    - v0.5.0 release 준비 전 최종 검증 자료 정리
 
@@ -135,6 +139,7 @@ read-only다.
 - [Stage 01: Draft/Image Asset contract and folder workflow](../archive/2026-09-15-manuscript-workspace-01-contract-folder-development.md) — complete
 - [Stage 02: Paste adapter](../archive/2026-09-15-manuscript-workspace-02-paste-development.md) — complete
 - [Stage 03: Direct AI adapter](../archive/2026-09-15-manuscript-workspace-03-ai-development.md) — complete
+- [Stage 04: Publish flow](./2026-09-15-manuscript-workspace-04-publish-flow-development.md) — active
 
 ## Decisions and Tradeoffs
 
@@ -190,11 +195,13 @@ read-only다.
   browser fixture smoke passed.
 - 2026-09-15: Stage 03 passed its full unit merge gate with 1,798 tests, 1,797 passed, 1 intentionally skipped, and
   0 failed. The browser fixture smoke also passed after the final UI module split.
+- 2026-09-15: user approved a simpler `prepare → preview → publish` flow. User-facing autosave/recovery was deferred;
+  generation-time idea saving and completed-manuscript queueing remain distinct actions.
 
 ## Current Result
 
-The parent is ready to receive the completed direct AI adapter and single-platform publishing rule. Text editing and
-lifecycle integration remain pending.
+Stage 03 is integrated. Stage 04 is reorganizing the common publish flow before deferred text editing and lifecycle
+integration.
 
 ## Remaining Risks
 

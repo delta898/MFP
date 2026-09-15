@@ -131,8 +131,11 @@ test('direct AI manuscript generation stays local until the user publishes and i
     const result = await service.createAiManuscriptDraft({ subject: '주제', platforms: ['wordpress'] });
     assert.deepEqual(result, { draftId: 'draft-ai', revision: 1 });
     assert.equal(calls[0][1].publishMode, 'append_and_generate');
+    assert.deepEqual(calls[0][1].targets, ['wordpress']);
+    assert.equal(calls[0][1].postStatus, 'draft');
     assert.deepEqual(calls[0][2], { workspaceDraft: true });
     assert.deepEqual(calls[1][1].targets, ['wordpress']);
+    assert.deepEqual(calls[1][1].sourceMetadata, { generationProjection: 'wordpress' });
     assert.equal(calls[1][1].images.length, 1);
     assert.deepEqual(coordinator.getStatus(), { busy: false });
 });

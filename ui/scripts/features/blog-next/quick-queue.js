@@ -127,7 +127,7 @@ function setBlogNextTopicBusy(busy, action = '') {
   if (enqueueButton) {
     enqueueButton.textContent = busy && action === 'enqueue'
       ? (editingReady ? '저장 중...' : '추가 중...')
-      : (editingReady ? '저장' : '발행 대기열에 추가');
+      : (editingReady ? '저장' : '글감 대기열에 추가');
   }
   if (publishButton) {
     publishButton.textContent = runnerActive ? '포스팅 진행 중...'
@@ -156,6 +156,7 @@ function restoreBlogNextTopicFormHome() {
     modal.setAttribute('aria-hidden', 'true');
     modal.hidden = true;
   }
+  if (typeof arrangeBlogNextAiWorkflow === 'function') arrangeBlogNextAiWorkflow();
 }
 
 function finishBlogNextTopicEditing() {
@@ -194,6 +195,7 @@ function moveBlogNextTopicFormToQueueEditor() {
   const actionsSlot = document.getElementById('blog-next-editor-actions-slot');
   const form = document.getElementById('blog-next-topic-form');
   if (!modal || !slot || !actionsSlot || !form) return;
+  if (typeof arrangeBlogNextAiWorkflow === 'function') arrangeBlogNextAiWorkflow({ editing: true });
   modal.hidden = false;
   slot.appendChild(form);
   const actions = form.querySelector('.blog-next-form-actions');
@@ -279,6 +281,7 @@ async function submitBlogNextTopic(action) {
       : (queued ? '발행 계획을 확인해 대기열에 추가했습니다.' : '글감을 보관했습니다. 언제든 계속 작성할 수 있습니다.');
     if (!editing) rememberBlogNextTopicDefaults();
     if (action !== 'publish-now') {
+      if (typeof resetBlogNextAiDraftUi === 'function') resetBlogNextAiDraftUi();
       clearBlogNextTopicContent();
       finishBlogNextTopicEditing();
     }
@@ -714,7 +717,19 @@ function initBlogNextQuickQueue() {
     syncPlatformUiState('wordpress', typeof uiWpReady === 'undefined' || uiWpReady === true);
   }
   activateBlogNextManagementTab(blogNextActiveManagementTab);
-  form.addEventListener('submit', (event) => { event.preventDefault(); submitBlogNextTopic('enqueue'); });
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const publishSettings = document.getElementById('blog-next-publish-settings');
+    if (blogNextEditingRowIndex === null && publishSettings?.hidden) {
+      publishSettings.hidden = false;
+      publishSettings.open = true;
+      document.getElementById('blog-next-enqueue-topic')?.setAttribute('aria-expanded', 'true');
+      setBlogNextTopicResult('발행 계획을 확인한 뒤 글감 대기열에 추가해 주세요.', 'editing');
+      publishSettings.querySelector('summary')?.focus();
+      return;
+    }
+    submitBlogNextTopic('enqueue');
+  });
   document.getElementById('blog-next-save-topic')?.addEventListener('click', () => submitBlogNextTopic('save'));
   document.getElementById('blog-next-publish-now')?.addEventListener('click', async () => {
     await generateBlogNextAiDraft();
@@ -751,6 +766,16 @@ function initBlogNextQuickQueue() {
     syncBlogNextTopicClearAction();
     markBlogNextAiDraftSourceChanged(event.target?.id || '');
   });
+  const publishSettings = document.getElementById('blog-next-publish-settings');
+  publishSettings?.addEventListener('change', (event) => {
+    if (form.contains(event.target)) return;
+    if (['blog-next-target-naver', 'blog-next-target-wordpress'].includes(event.target?.id)) {
+      syncBlogNextProviderDependentFields();
+    }
+    if (event.target?.id === 'blog-next-post-status') syncBlogNextScheduleField();
+    syncBlogNextQuickFlowSummaries();
+    syncBlogNextTopicActionAvailability();
+  });
   syncBlogNextQuickFlowSummaries();
   syncBlogNextTopicClearAction();
   document.getElementById('blog-next-queue-refresh')?.addEventListener('click', refreshBlogNextQueue);
@@ -779,4 +804,5 @@ function initBlogNextQuickQueue() {
     syncQuickKeywordDiscoveryControls(); setQuickDiscoveryTab('keyword'); setQuickDiscoveryModalOpen(true);
   });
   syncBlogNextScheduleField();
+  if (typeof arrangeBlogNextAiWorkflow === 'function') arrangeBlogNextAiWorkflow();
 }

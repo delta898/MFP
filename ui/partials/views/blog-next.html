@@ -48,6 +48,9 @@
             aria-labelledby="blog-next-mode-tab-ai" data-blog-next-mode-panel="ai">
             <div id="blog-next-topic-form-home">
             <form id="blog-next-topic-form" class="blog-next-topic-form">
+              <div class="blog-next-workflow-step-head" data-blog-next-ai-step="prepare">
+                <span>1</span><div><strong>글 준비</strong><small>글감을 보관하거나, 대기열에 넣거나, 지금 원고를 만드세요.</small></div>
+              </div>
               <div class="blog-next-form-grid blog-next-core-fields">
                 <label class="blog-next-field blog-next-field-wide">
                   <span>주제</span>
@@ -147,7 +150,7 @@
 
                 <details class="blog-next-disclosure" id="blog-next-publish-settings">
                   <summary>
-                    <strong>발행 설정</strong>
+                    <strong id="blog-next-publish-settings-title">글감 대기열 설정</strong>
                     <span id="blog-next-publish-settings-summary">네이버 블로그 · 즉시 발행 · 보이지 않게 실행</span>
                   </summary>
                   <div class="blog-next-disclosure-grid blog-next-form-grid">
@@ -213,10 +216,15 @@
                 </span>
                 <button class="ghost blog-next-cancel-action" id="blog-next-cancel-edit" type="button" hidden>취소</button>
                 <button class="secondary" id="blog-next-save-topic" type="button" disabled>글감 보관</button>
-                <button class="secondary" id="blog-next-enqueue-topic" type="submit" form="blog-next-topic-form" disabled>발행 대기열에 추가</button>
+                <button class="secondary" id="blog-next-enqueue-topic" type="submit" form="blog-next-topic-form"
+                  aria-describedby="blog-next-queue-action-hint" disabled>글감 대기열에 추가</button>
                 <button class="primary" id="blog-next-publish-now" type="button" disabled>원고 만들기</button>
               </div>
+              <small class="blog-next-queue-action-hint" id="blog-next-queue-action-hint">대기열의 글감은 실행할 때 원고를 새로 만듭니다.</small>
             </form>
+            </div>
+            <div class="blog-next-workflow-step-head" data-blog-next-ai-step="preview" hidden>
+              <span>2</span><div><strong>미리보기</strong><small>본문과 이미지를 확인하고 필요한 부분을 보완하세요.</small></div>
             </div>
             <div class="blog-next-draft-validation" data-blog-next-draft-validation="ai" role="status"
               aria-live="polite" hidden></div>
@@ -231,10 +239,12 @@
                 <div class="local-markdown-image-list" data-draft-preview-images></div>
               </details>
             </div>
+            <div class="blog-next-workflow-step-head" data-blog-next-ai-step="publish" hidden>
+              <span>3</span><div><strong>발행</strong><small>현재 미리보기 원고를 올릴 곳과 방식을 정하세요.</small></div>
+            </div>
             <div class="blog-next-draft-actions" data-blog-next-draft-actions="ai" hidden>
               <button class="primary" data-blog-next-draft-publish="ai" type="button" disabled>포스팅 실행</button>
             </div>
-            <pre class="blog-next-draft-result" data-blog-next-draft-result="ai"></pre>
           </div>
           <!-- @include blog-next/quick-draft-modes.html -->
         </section>

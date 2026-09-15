@@ -66,8 +66,32 @@ test('quick flow summaries update from existing controls and clear remains undoa
   assert.match(uiScript, /readyValid: hasIdea && referencesValid && hasTarget && scheduleValid/);
   assert.match(uiScript, /save\.disabled = busy \|\| !editingChanged \|\| \(editingReady \? !readyValid : !ideaValid\)/);
   assert.match(uiScript, /enqueue\.disabled = busy \|\| !readyValid/);
-  assert.match(uiScript, /publish\.disabled = busy \|\| runnerActive [^;]* \|\| !readyValid/);
+  assert.match(uiScript, /publish\.disabled = busy \|\| runnerActive [^;]* \|\| !ideaValid/);
   assert.match(script, /document\.getElementById\('blog-next-clear-undo'\)\?\.addEventListener\('click', restoreBlogNextClearedTopicContent\)/);
+});
+
+test('quick writing distinguishes queued ideas from the generated manuscript flow', () => {
+  const html = readBlogNextView();
+  const execution = read('ui/scripts/features/blog-next/draft-execution.js');
+  const queue = read('ui/scripts/features/blog-next/quick-queue.js');
+  const inputs = read('ui/scripts/features/blog-next/draft-inputs.js');
+
+  assert.match(html, /data-blog-next-ai-step="prepare"[\s\S]*>글 준비<[\s\S]*id="blog-next-save-topic"[\s\S]*>글감 보관</);
+  assert.match(html, /id="blog-next-enqueue-topic"[\s\S]*>글감 대기열에 추가<\/button>/);
+  assert.match(html, /id="blog-next-queue-action-hint">대기열의 글감은 실행할 때 원고를 새로 만듭니다/);
+  assert.match(html, /data-blog-next-ai-step="preview" hidden>[\s\S]*>미리보기</);
+  assert.match(html, /data-blog-next-ai-step="publish" hidden>[\s\S]*>발행</);
+  assert.match(execution, /publishStep\.after\(publishSettings\)/);
+  assert.match(execution, /if \(save\) save\.hidden = hasDraft/);
+  assert.match(execution, /enqueue\.hidden = hasDraft/);
+  assert.match(execution, /publishSettings\.hidden = !editing && !hasDraft/);
+  assert.match(queue, /발행 계획을 확인한 뒤 글감 대기열에 추가해 주세요/);
+  assert.match(queue, /publishSettings\.hidden = false;[\s\S]*publishSettings\.open = true/);
+  assert.doesNotMatch(html, /data-blog-next-draft-result=/);
+  assert.doesNotMatch(execution, /runWithLiveProgress/);
+  assert.doesNotMatch(inputs, /runWithLiveProgress/);
+  assert.match(execution, /source: 'manuscript_generation'/);
+  assert.doesNotMatch(execution, /'blog-next-target-naver', 'blog-next-target-wordpress'\s*\]/);
 });
 
 test('quick flow width and disclosure layout adapt without style-specific selectors', () => {

@@ -570,7 +570,6 @@ async function publishBlogNextDraft(type) {
     settings = readBlogNextDraftSettings(type);
   }
 
-  const result = document.querySelector(`[data-blog-next-draft-result="${type}"]`);
   setBlogNextDraftPublishing(type, true);
   if (typeof renderBlogNextRunnerStatus === 'function') {
     renderBlogNextRunnerStatus({
@@ -588,11 +587,7 @@ async function publishBlogNextDraft(type) {
       throw new Error('최신 원고 미리보기를 준비하지 못했습니다.');
     }
     const payload = { draftId: state.draftId, revision: state.revision };
-    const publishResult = await runWithLiveProgress({
-      targetEl: result,
-      requestLabel: `원고 ${action}`,
-      requestFn: () => postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/publish`, payload)
-    });
+    const publishResult = await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/publish`, payload);
     const actualPostStatus = publishResult?.postStatus || settings.postStatus;
     const actualAction = actualPostStatus === 'draft' ? '임시 저장'
       : actualPostStatus === 'schedule' ? '예약 포스팅 등록' : '즉시 발행';
@@ -619,7 +614,8 @@ async function publishBlogNextDraft(type) {
       showPostingCompletionCelebration(actualPostStatus);
     }
   } catch (error) {
-    // runWithLiveProgress renders the detailed failure.
+    setBlogNextDraftValidation(type, { errors: [error.message || `원고 ${action}에 실패했습니다.`] }, '', state.preview);
+    showUiToast({ level: 'error', title: `원고 ${action} 실패`, message: error.message || '잠시 후 다시 시도해 주세요.' });
     if (typeof renderBlogNextRunnerStatus === 'function') {
       renderBlogNextRunnerStatus({
         state: 'failed',
