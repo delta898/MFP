@@ -5,7 +5,7 @@
 - Branch: `codex/feat/manuscript-workspace`
 - Base/parent branch: `dev`
 - Start date: 2026-09-15
-- Status: active; Stages 01-04 complete; Stages 05-06 pending
+- Status: active; Stages 01-04 complete; Stage 05 image auto-resolution active
 
 ## User Need
 
@@ -124,10 +124,14 @@ read-only다.
    - 세 입력 방식의 `준비 → 미리보기 → 발행 설정` UI 통일
    - 생성 전 글감 보관과 완성 원고 발행/대기열 의미 분리
    - 플랫폼 선택을 발행 projection 단계로 이동
-5. `05-text-editing`
+5. `05-image-auto-resolution`
+   - 빈 프롬프트 이미지를 포스팅 직전에 자동 생성
+   - 생성 실패 시에만 공개·예약 요청을 임시 저장으로 안전 전환
+   - 원고 폴더 → 원고 붙여넣기 → 바로 생성 순으로 UI 검토
+6. `06-text-editing`
    - canonical Markdown 편집
    - 이미지 영역 추가·이동·완전 삭제와 derived preview 재계산
-6. `06-integration`
+7. `07-integration`
    - session cleanup, recovery, logs, accessibility와 전체 회귀 안정화
    - v0.5.0 release 준비 전 최종 검증 자료 정리
 
@@ -140,6 +144,7 @@ read-only다.
 - [Stage 02: Paste adapter](../archive/2026-09-15-manuscript-workspace-02-paste-development.md) — complete
 - [Stage 03: Direct AI adapter](../archive/2026-09-15-manuscript-workspace-03-ai-development.md) — complete
 - [Stage 04: Publish flow](../archive/2026-09-15-manuscript-workspace-04-publish-flow-development.md) — complete
+- [Stage 05: Image auto resolution](./2026-09-15-manuscript-workspace-05-image-auto-resolution-development.md) — active
 
 ## Decisions and Tradeoffs
 

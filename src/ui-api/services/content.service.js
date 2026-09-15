@@ -93,6 +93,21 @@ function createContentService(deps = {}) {
         }
     }
 
+    async function executeCompletedLocalMarkdownPublish(requestBody = {}) {
+        const result = await executeLocalMarkdownPublish(requestBody);
+        if (!result.success) {
+            throw createApiError(400, result.code || 'LOCAL_MARKDOWN_PUBLISH_FAILED', result.message || '원고 포스팅에 실패했습니다.');
+        }
+        return {
+            ...result.data,
+            completionLinks: buildCompletionLinks({
+                postStatus: result.data?.postStatus || requestBody?.postStatus,
+                results: result.data?.results,
+                config: CONFIG
+            })
+        };
+    }
+
     async function requireShoppingExecution() {
         const status = await License.checkLicenseStatus({ quiet: true });
         if (!status.success) {
@@ -922,11 +937,23 @@ function createContentService(deps = {}) {
         },
 
         async publishManuscriptDraft(requestBody = {}) {
-            const snapshot = getManuscriptDraftService().buildPublishPayload(requestBody);
-            return this.localMarkdownPublish({
-                ...snapshot.settings,
-                ...snapshot,
-                operationId: requestBody.operationId
+            return runBlogNextExecution({
+                source: 'local_markdown',
+                subject: '원고 포스팅',
+                message: '빈 이미지를 준비한 뒤 원고를 포스팅합니다.'
+            }, async () => {
+                const snapshot = await getManuscriptDraftService().preparePublishPayload(requestBody);
+                const result = await executeCompletedLocalMarkdownPublish({
+                    ...snapshot.settings,
+                    ...snapshot,
+                    operationId: requestBody.operationId
+                });
+                return {
+                    ...result,
+                    revision: snapshot.publishPolicy.draftRevision,
+                    publishPolicy: snapshot.publishPolicy,
+                    manuscriptPreview: getManuscriptDraftService().getDraft(requestBody.draftId)
+                };
             });
         },
 
@@ -938,18 +965,7 @@ function createContentService(deps = {}) {
                 subject: generated ? '바로 생성 원고' : (pasted ? '원고 붙여넣기' : '원고 폴더'),
                 message: '원고 포스팅을 처리하고 있습니다.'
             }, async () => {
-                const result = await executeLocalMarkdownPublish(requestBody || {});
-                if (!result.success) {
-                    throw createApiError(400, result.code || 'LOCAL_MARKDOWN_PUBLISH_FAILED', result.message || '원고 포스팅에 실패했습니다.');
-                }
-                return {
-                    ...result.data,
-                    completionLinks: buildCompletionLinks({
-                        postStatus: result.data?.postStatus || requestBody?.postStatus,
-                        results: result.data?.results,
-                        config: CONFIG
-                    })
-                };
+                return executeCompletedLocalMarkdownPublish(requestBody || {});
             });
         },
 

@@ -104,7 +104,7 @@ test('Blog Beta quick writing keeps topic capture and adds the canonical AI manu
 
 test('completed manuscripts publish directly without entering the continuous queue', () => {
     const betaView = readBlogNextView();
-    const draftInputs = read('ui/scripts/features/blog-next/draft-inputs.js');
+    const draftInputs = `${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-execution.js')}`;
 
     assert.match(betaView, /data-blog-next-draft-publish="folder"/);
     assert.match(betaView, /data-blog-next-draft-publish="paste"/);
@@ -332,7 +332,7 @@ test('immediate publishing preflights selected connections and preserves the for
 test('Blog Beta celebrates each newly observed successful publish or draft completion', () => {
     const runnerScript = read('ui/scripts/features/blog-next/runner.js');
     const globalStatusScript = read('ui/scripts/features/shell/global-publishing-status.js');
-    const draftScript = read('ui/scripts/features/blog-next/draft-inputs.js');
+    const draftScript = `${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-execution.js')}`;
     const celebrationScript = read('ui/scripts/features/shell/celebration.js');
     const lifecycleScript = read('ui/scripts/foundation/lifecycle.js');
     const systemRoute = read('src/ui-api/routes/system.routes.js');

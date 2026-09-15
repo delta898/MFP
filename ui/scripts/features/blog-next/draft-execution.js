@@ -1,3 +1,28 @@
+function getBlogNextDraftPublishCopy(postStatus = 'publish') {
+  if (postStatus === 'draft') {
+    return {
+      buttonLabel: '블로그에 임시 저장',
+      actionLabel: '임시 저장',
+      busyLabel: '임시 저장 중...',
+      completionLabel: '임시 저장했습니다.'
+    };
+  }
+  if (postStatus === 'schedule') {
+    return {
+      buttonLabel: '예약 발행',
+      actionLabel: '예약 발행',
+      busyLabel: '예약 등록 중...',
+      completionLabel: '예약 발행을 등록했습니다.'
+    };
+  }
+  return {
+    buttonLabel: '즉시 발행',
+    actionLabel: '즉시 발행',
+    busyLabel: '발행 중...',
+    completionLabel: '발행했습니다.'
+  };
+}
+
 function syncBlogNextDraftExecutionState(runnerActive) {
   const anotherRunnerActive = typeof runnerActive === 'boolean'
     ? runnerActive
@@ -13,12 +38,12 @@ function syncBlogNextDraftExecutionState(runnerActive) {
     button.disabled = executionActive || state.previewSyncFailed || !state.preview?.validation?.ok;
     button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
     const selectedStatus = readBlogNextDraftSettings(type).postStatus;
+    const publishCopy = getBlogNextDraftPublishCopy(selectedStatus);
     button.textContent = state.publishing
-      ? '포스팅 진행 중...'
+      ? publishCopy.busyLabel
       : state.imageWorking ? '이미지 작업 중...'
       : executionActive ? '다른 작업 실행 중...'
-      : selectedStatus === 'draft' ? '임시 저장'
-      : selectedStatus === 'schedule' ? '예약 발행' : '즉시 발행';
+      : publishCopy.buttonLabel;
   });
 }
 
@@ -162,5 +187,106 @@ function bindBlogNextDetachedPublishSettings(form) {
     if (event.target?.id === 'blog-next-post-status') syncBlogNextScheduleField();
     syncBlogNextQuickFlowSummaries();
     syncBlogNextTopicActionAvailability();
+    syncBlogNextDraftExecutionState();
   });
+}
+
+function setBlogNextDraftPublishing(type, publishing) {
+  const state = blogNextDraftState[type];
+  state.publishing = publishing;
+  syncBlogNextDraftExecutionState();
+}
+
+async function publishBlogNextDraft(type) {
+  const state = blogNextDraftState[type];
+  if (state.publishing || !state.preview?.validation?.ok) return;
+  if (typeof guardUiConfigReady === 'function' && !guardUiConfigReady('원고 포스팅')) return;
+  let settings = readBlogNextDraftSettings(type);
+  const missingCount = Number(state.preview?.stats?.imageMissingCount || 0);
+  const autoGenerationCount = Array.isArray(state.preview?.images)
+    ? state.preview.images.filter((image) => !image.excluded && !image.exists && String(image.prompt || '').trim()).length
+    : 0;
+  const forcedDraft = type !== 'folder' && missingCount > 0 && settings.postStatus !== 'draft';
+  const requestedPostStatus = forcedDraft ? 'draft' : settings.postStatus;
+  const publishCopy = getBlogNextDraftPublishCopy(requestedPostStatus);
+  const targetLabel = formatBlogPlatformList(settings.targets, ' + ') || '선택한 블로그';
+  const safetyNotice = forcedDraft
+    ? `\n\n발행 대상으로 남은 이미지 ${missingCount}개가 미완성이라 안전을 위해 임시 저장으로 실행합니다.`
+    : type === 'folder' && autoGenerationCount > 0
+      ? `\n\n빈 이미지 ${autoGenerationCount}개는 먼저 AI로 만듭니다. 만들지 못한 이미지가 있으면 안전하게 임시 저장합니다.`
+      : '';
+  const confirmed = await showUiConfirm(
+    `현재 원고를 ${targetLabel}에 ${publishCopy.actionLabel}할까요?${safetyNotice}\nQueue에 추가하지 않고 바로 실행합니다.`,
+    { title: publishCopy.buttonLabel, confirmText: publishCopy.buttonLabel, cancelText: '취소' }
+  );
+  if (!confirmed) return;
+
+  if (forcedDraft) {
+    const postStatusField = blogNextDraftField(type, 'post-status');
+    if (postStatusField) postStatusField.value = 'draft';
+    syncBlogNextDraftSchedule(type);
+    syncBlogNextDraftSettingsSummary(type);
+    settings = readBlogNextDraftSettings(type);
+  }
+
+  setBlogNextDraftPublishing(type, true);
+  if (typeof renderBlogNextRunnerStatus === 'function') {
+    renderBlogNextRunnerStatus({
+      state: 'running',
+      busy: true,
+      source: 'local_markdown',
+      subject: type === 'ai' ? '바로 생성 원고' : (type === 'paste' ? '원고 붙여넣기' : '원고 폴더'),
+      message: type === 'folder' && autoGenerationCount > 0
+        ? `빈 이미지 ${autoGenerationCount}개를 준비한 뒤 ${publishCopy.actionLabel}합니다.`
+        : `원고를 ${publishCopy.actionLabel}하고 있습니다.`,
+      startedAt: new Date().toISOString()
+    });
+  }
+  try {
+    const syncedPreview = await loadBlogNextDraftPreview(type);
+    if (!syncedPreview || state.previewSyncFailed || !state.draftId || !state.preview?.validation?.ok) {
+      throw new Error('최신 원고 미리보기를 준비하지 못했습니다.');
+    }
+    const payload = { draftId: state.draftId, revision: state.revision };
+    const publishResult = await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/publish`, payload);
+    if (Number.isInteger(Number(publishResult?.revision))) state.revision = Number(publishResult.revision);
+    if (publishResult?.manuscriptPreview) renderBlogNextDraftPreview(type, publishResult.manuscriptPreview);
+    const actualPostStatus = publishResult?.postStatus || settings.postStatus;
+    const actualPublishCopy = getBlogNextDraftPublishCopy(actualPostStatus);
+    if (typeof renderBlogNextRunnerStatus === 'function') {
+      renderBlogNextRunnerStatus({
+        state: 'completed',
+        busy: false,
+        subject: type === 'ai' ? '바로 생성 원고' : (type === 'paste' ? '원고 붙여넣기' : '원고 폴더'),
+        message: `${targetLabel}에 ${actualPublishCopy.completionLabel}`,
+        resultStatus: actualPostStatus === 'draft' ? '임시 저장 완료'
+          : actualPostStatus === 'schedule' ? '예약 발행 완료' : '발행 완료',
+        completionLinks: Array.isArray(publishResult?.completionLinks) ? publishResult.completionLinks : [],
+        finishedAt: new Date().toISOString()
+      });
+    }
+    showUiToast({
+      level: 'success',
+      title: actualPublishCopy.buttonLabel,
+      message: actualPostStatus === 'draft' && settings.postStatus !== 'draft'
+        ? `이미지를 모두 만들지 못해 ${targetLabel}에 안전하게 임시 저장했습니다.`
+        : forcedDraft ? `미완성 이미지가 있어 ${targetLabel}에 안전하게 임시 저장했습니다.`
+          : `${targetLabel}에 ${actualPublishCopy.completionLabel}`
+    });
+    if (typeof showPostingCompletionCelebration === 'function') showPostingCompletionCelebration(actualPostStatus);
+  } catch (error) {
+    setBlogNextDraftValidation(type, { errors: [error.message || `${publishCopy.actionLabel}에 실패했습니다.`] }, '', state.preview);
+    showUiToast({ level: 'error', title: `${publishCopy.buttonLabel} 실패`, message: error.message || '잠시 후 다시 시도해 주세요.' });
+    if (typeof renderBlogNextRunnerStatus === 'function') {
+      renderBlogNextRunnerStatus({
+        state: 'failed',
+        busy: false,
+        subject: type === 'ai' ? '바로 생성 원고' : (type === 'paste' ? '원고 붙여넣기' : '원고 폴더'),
+        message: error.message || `${publishCopy.actionLabel}에 실패했습니다.`,
+        finishedAt: new Date().toISOString()
+      });
+    }
+  } finally {
+    setBlogNextDraftPublishing(type, false);
+  }
 }

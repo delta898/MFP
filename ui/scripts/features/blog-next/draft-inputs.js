@@ -112,6 +112,24 @@ function syncBlogNextDraftImageSafety(type, preview = null) {
   const hint = blogNextDraftContainer(type)?.querySelector('[data-draft-image-safety-hint]');
   if (!state || !select) return;
   const missingCount = Number(preview?.stats?.imageMissingCount || 0);
+  const autoGenerationCount = Array.isArray(preview?.images)
+    ? preview.images.filter((image) => !image.excluded && !image.exists && String(image.prompt || '').trim()).length
+    : 0;
+  if (type === 'folder') {
+    Array.from(select.options).forEach((option) => {
+      if (option.value === 'publish' || option.value === 'schedule') option.disabled = false;
+    });
+    if (hint) {
+      hint.textContent = autoGenerationCount > 0
+        ? `빈 이미지 ${autoGenerationCount}개는 포스팅할 때 자동으로 만듭니다.`
+        : '';
+      hint.hidden = autoGenerationCount === 0;
+    }
+    state.imageSafetyLocked = false;
+    syncBlogNextDraftSchedule(type);
+    syncBlogNextDraftSettingsSummary(type);
+    return;
+  }
   const locked = missingCount > 0;
   const changedToDraft = locked && select.value !== 'draft';
 
@@ -177,6 +195,9 @@ function summarizeBlogNextDraftWarnings(type, validation = null, preview = null)
   const imageWarningPattern = /^\d+_image 규칙의 이미지 파일을 찾지 못했습니다\./;
   const imageWarnings = warnings.filter(message => imageWarningPattern.test(String(message || '')));
   if (imageWarnings.length === 0) return warnings;
+  if (type === 'folder') {
+    return warnings.filter(message => !imageWarningPattern.test(String(message || '')));
+  }
 
   return [
     `발행할 이미지 ${missingCount}개가 미완성입니다. 즉시·예약 발행을 실행하면 안전을 위해 임시 저장됩니다.`,
@@ -536,98 +557,6 @@ function scheduleBlogNextDraftPreview(type) {
   state.requestId += 1;
   clearTimeout(state.previewTimer);
   state.previewTimer = setTimeout(() => loadBlogNextDraftPreview(type), BLOG_NEXT_DRAFT_PREVIEW_DELAY_MS);
-}
-
-function setBlogNextDraftPublishing(type, publishing) {
-  const state = blogNextDraftState[type];
-  state.publishing = publishing;
-  syncBlogNextDraftExecutionState();
-}
-
-async function publishBlogNextDraft(type) {
-  const state = blogNextDraftState[type];
-  if (state.publishing || !state.preview?.validation?.ok) return;
-  if (typeof guardUiConfigReady === 'function' && !guardUiConfigReady('원고 포스팅')) return;
-  let settings = readBlogNextDraftSettings(type);
-  const missingCount = Number(state.preview?.stats?.imageMissingCount || 0);
-  const forcedDraft = missingCount > 0 && settings.postStatus !== 'draft';
-  const action = forcedDraft || settings.postStatus === 'draft' ? '임시 저장'
-    : settings.postStatus === 'schedule' ? '예약 포스팅 등록' : '즉시 발행';
-  const safetyNotice = forcedDraft
-    ? `\n\n발행 대상으로 남은 이미지 ${missingCount}개가 미완성이라 안전을 위해 임시 저장으로 실행합니다.`
-    : '';
-  const confirmed = await showUiConfirm(
-    `현재 원고를 ${action}할까요?${safetyNotice}\nQueue에 추가하지 않고 바로 실행합니다.`,
-    { title: '원고 포스팅', confirmText: '실행', cancelText: '취소' }
-  );
-  if (!confirmed) return;
-
-  if (forcedDraft) {
-    const postStatusField = blogNextDraftField(type, 'post-status');
-    if (postStatusField) postStatusField.value = 'draft';
-    syncBlogNextDraftSchedule(type);
-    syncBlogNextDraftSettingsSummary(type);
-    settings = readBlogNextDraftSettings(type);
-  }
-
-  setBlogNextDraftPublishing(type, true);
-  if (typeof renderBlogNextRunnerStatus === 'function') {
-    renderBlogNextRunnerStatus({
-      state: 'running',
-      busy: true,
-      source: 'local_markdown',
-      subject: type === 'ai' ? '바로 생성 원고' : (type === 'paste' ? '원고 붙여넣기' : '원고 폴더'),
-      message: `원고 ${action}을 처리하고 있습니다.`,
-      startedAt: new Date().toISOString()
-    });
-  }
-  try {
-    const syncedPreview = await loadBlogNextDraftPreview(type);
-    if (!syncedPreview || state.previewSyncFailed || !state.draftId || !state.preview?.validation?.ok) {
-      throw new Error('최신 원고 미리보기를 준비하지 못했습니다.');
-    }
-    const payload = { draftId: state.draftId, revision: state.revision };
-    const publishResult = await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/publish`, payload);
-    const actualPostStatus = publishResult?.postStatus || settings.postStatus;
-    const actualAction = actualPostStatus === 'draft' ? '임시 저장'
-      : actualPostStatus === 'schedule' ? '예약 포스팅 등록' : '즉시 발행';
-    if (typeof renderBlogNextRunnerStatus === 'function') {
-      renderBlogNextRunnerStatus({
-        state: 'completed',
-        busy: false,
-        subject: type === 'ai' ? '바로 생성 원고' : (type === 'paste' ? '원고 붙여넣기' : '원고 폴더'),
-        message: `원고 ${actualAction}을 완료했습니다.`,
-        resultStatus: actualPostStatus === 'draft' ? '임시 저장 완료'
-          : actualPostStatus === 'schedule' ? '예약 발행 완료' : '발행 완료',
-        completionLinks: Array.isArray(publishResult?.completionLinks) ? publishResult.completionLinks : [],
-        finishedAt: new Date().toISOString()
-      });
-    }
-    showUiToast({
-      level: 'success',
-      title: `원고 ${actualAction} 완료`,
-      message: actualPostStatus === 'draft' && settings.postStatus !== 'draft'
-        ? '발행 안전 조건에 따라 임시 저장했습니다.'
-        : forcedDraft ? '미완성 이미지가 있어 안전하게 임시 저장했습니다.' : 'Queue를 거치지 않고 원고를 처리했습니다.'
-    });
-    if (typeof showPostingCompletionCelebration === 'function') {
-      showPostingCompletionCelebration(actualPostStatus);
-    }
-  } catch (error) {
-    setBlogNextDraftValidation(type, { errors: [error.message || `원고 ${action}에 실패했습니다.`] }, '', state.preview);
-    showUiToast({ level: 'error', title: `원고 ${action} 실패`, message: error.message || '잠시 후 다시 시도해 주세요.' });
-    if (typeof renderBlogNextRunnerStatus === 'function') {
-      renderBlogNextRunnerStatus({
-        state: 'failed',
-        busy: false,
-        subject: type === 'ai' ? '바로 생성 원고' : (type === 'paste' ? '원고 붙여넣기' : '원고 폴더'),
-        message: error.message || `원고 ${action}에 실패했습니다.`,
-        finishedAt: new Date().toISOString()
-      });
-    }
-  } finally {
-    setBlogNextDraftPublishing(type, false);
-  }
 }
 
 function clearBlogNextFolderDraft() {
