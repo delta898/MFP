@@ -74,6 +74,9 @@ test('Windows packages install an external startup supervisor before runtime ver
     assert.match(workflow, /Get-BlogGeniusProcessSnapshot/);
     assert.match(workflow, /Write-RecentApplicationErrors/);
     assert.match(workflow, /Version probe passed with variant/);
+    assert.match(workflow, /Zone\.Identifier/);
+    assert.match(workflow, /Unblock-File/);
+    assert.match(workflow, /Direct runtime --version/);
     assert.match(workflow, /startup completion checkpoint/);
     assert.match(workflow, /"phase":"STARTUP_PROBE_COMPLETE"/);
     assert.match(workflow, /"safeMode":false/);

@@ -1,6 +1,11 @@
 # Changelog
 All notable changes to the Naver Auto Blog publishing tool will be documented in this file.
 
+## [0.5.0-dev5] - 2026-09-15
+
+### Fixed
+- **Windows 시작 원인 확정용 진단 추가**: 버전 확인 실패 시 실행 차단 표시 확인, 직접 실행 대조, 시스템 오류 기록을 남깁니다.
+
 ## [0.5.0-dev4] - 2026-09-15
 
 ### Fixed

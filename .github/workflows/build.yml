@@ -201,6 +201,15 @@ jobs:
             throw 'The Windows launcher/runtime pair is incomplete.'
           }
 
+          foreach ($binary in @($launcher, $runtime)) {
+            $zone = Get-Item -LiteralPath $binary -Stream 'Zone.Identifier' -ErrorAction SilentlyContinue
+            Write-Host "MOTW check: $(Split-Path $binary -Leaf) zone=$($zone -ne $null)"
+          }
+          Unblock-File -LiteralPath $launcher -ErrorAction SilentlyContinue
+          Unblock-File -LiteralPath $runtime -ErrorAction SilentlyContinue
+          $smartScreen = Get-Process -Name '*smart*' -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }
+          Write-Host "SmartScreen-related processes: $(if ($smartScreen) { $smartScreen -join ',' } else { 'none' })"
+
           function Get-BlogGeniusProcessSnapshot() {
             Get-Process -Name 'BlogGenius','BlogGenius-runtime' -ErrorAction SilentlyContinue | ForEach-Object {
               "process=$($_.Name) pid=$($_.Id) responding=$($_.Responding) threads=$($_.Threads.Count)"
@@ -241,6 +250,13 @@ jobs:
           }
           if ([string]::IsNullOrEmpty($versionVariantPassed)) {
             Write-RecentApplicationErrors
+            $directProbe = Start-Process -FilePath $runtime -ArgumentList '--version' -PassThru
+            if ($directProbe.WaitForExit(30000)) {
+              Write-Host "Direct runtime --version exit: $($directProbe.ExitCode)"
+            } else {
+              try { $directProbe.Kill() } catch { }
+              Write-Host '##[warning] Direct runtime --version also hung: launcher exonerated, OS-level block likely.'
+            }
             throw 'Packaged --version probe failed in all variants (plain/disable-gpu/no-sandbox).'
           }
           Write-Host "Version probe passed with variant: $versionVariantPassed"
