@@ -18,11 +18,10 @@ test('documentation and convenience launchers do not trigger environment validat
     assert.equal(ignoredLaunchers.length, 2);
 });
 
-test('environment CI rebuilds local Supabase before unit validation', () => {
-    assert.match(workflow, /npm run env:local:start/);
-    assert.match(workflow, /npm run env:local:reset/);
-    assert.match(workflow, /npm run env:local:verify/);
-    assert.match(workflow, /npm run test:unit/);
+test('environment CI relies on hosted development rather than rebuilding local Supabase', () => {
+    assert.doesNotMatch(workflow, /local-validation/);
+    assert.doesNotMatch(workflow, /npm run env:local:/);
+    assert.doesNotMatch(workflow, /supabase stop --no-backup/);
 });
 
 test('development drift reads hosted state and emits sanitized promotion evidence', () => {
@@ -50,6 +49,6 @@ test('environment validation uses Node 24 based artifact and Supabase actions', 
     assert.doesNotMatch(workflow, /version:\s*latest/);
     assert.match(workflow, /actions\/upload-artifact@v6/);
     assert.match(workflow, /actions\/download-artifact@v7/);
-    assert.equal((workflow.match(/supabase\/setup-cli@v3/g) || []).length, 2);
-    assert.equal((workflow.match(/version:\s*2\.114\.0/g) || []).length, 2);
+    assert.equal((workflow.match(/supabase\/setup-cli@v3/g) || []).length, 1);
+    assert.equal((workflow.match(/version:\s*2\.114\.0/g) || []).length, 1);
 });

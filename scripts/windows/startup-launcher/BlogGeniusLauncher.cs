@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
 using Microsoft.Win32;
@@ -12,6 +13,7 @@ internal static class BlogGeniusLauncher
 {
     private const string RuntimeName = "BlogGenius-runtime.exe";
     private const string SafeModeSwitch = "--bloggenius-safe-mode";
+    private const uint AttachParentProcess = 0xFFFFFFFF;
     private static readonly TimeSpan StartupTimeout = TimeSpan.FromSeconds(45);
     private static readonly TimeSpan ReadyStabilityWindow = TimeSpan.FromSeconds(5);
 
@@ -67,18 +69,14 @@ internal static class BlogGeniusLauncher
             return Fail(launcherLog, diagnosticsDir, "Electron 실행 파일을 찾을 수 없습니다: " + runtimePath, root);
         }
 
-        bool shortLived = IsShortLived(args);
+        int shortLivedExitCode;
+        if (TryHandleShortLived(args, runtimePath, launcherLog, out shortLivedExitCode))
+        {
+            return shortLivedExitCode;
+        }
+
         string[] normalArgs = AddMissing(args, "--no-stdio-init");
         LaunchResult normal = Launch(runtimePath, normalArgs, root, launcherLog, "normal");
-        if (shortLived)
-        {
-            if (normal.ExitCode != 0)
-            {
-                WriteLog(launcherLog, "short-lived command failed", new { exitCode = normal.ExitCode, exitCodeHex = ToHex(normal.ExitCode) });
-                CreateDiagnosticBundle(diagnosticsDir, root);
-            }
-            return normal.ExitCode;
-        }
         if (normal.Ready)
         {
             return normal.ExitCode;
@@ -283,6 +281,57 @@ internal static class BlogGeniusLauncher
         try { return FileVersionInfo.GetVersionInfo(path).FileVersion ?? String.Empty; }
         catch { return String.Empty; }
     }
+
+    private static bool TryHandleShortLived(string[] args, string runtimePath, string launcherLog, out int exitCode)
+    {
+        exitCode = 0;
+        if (!IsShortLived(args)) return false;
+
+        bool help = args.Any(arg => String.Equals(arg, "--help", StringComparison.OrdinalIgnoreCase) || String.Equals(arg, "-h", StringComparison.OrdinalIgnoreCase));
+        string output = help
+            ? "Usage: BlogGenius [options]" + Environment.NewLine + Environment.NewLine +
+              "Options:" + Environment.NewLine +
+              "  --version, -v    Print the application version and exit" + Environment.NewLine +
+              "  --help, -h       Show this help and exit"
+            : TryGetFileVersion(runtimePath);
+
+        if (String.IsNullOrWhiteSpace(output))
+        {
+            WriteLog(launcherLog, "short-lived command failed", new { reason = "runtime version unavailable" });
+            exitCode = -1;
+            return true;
+        }
+
+        TryWriteParentConsole(output);
+        WriteLog(launcherLog, "short-lived command handled by launcher", new { command = help ? "help" : "version", exitCode = 0 });
+        return true;
+    }
+
+    private static void TryWriteParentConsole(string output)
+    {
+        bool attached = false;
+        try
+        {
+            attached = AttachConsole(AttachParentProcess);
+            using (Stream stream = Console.OpenStandardOutput())
+            using (StreamWriter writer = new StreamWriter(stream, new UTF8Encoding(false)))
+            {
+                writer.AutoFlush = true;
+                writer.WriteLine(output);
+            }
+        }
+        catch { }
+        finally
+        {
+            if (attached) try { FreeConsole(); } catch { }
+        }
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool AttachConsole(uint processId);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool FreeConsole();
 
     private static bool IsShortLived(string[] args)
     {

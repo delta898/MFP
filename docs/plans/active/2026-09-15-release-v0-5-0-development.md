@@ -59,11 +59,16 @@
 - 2026-09-15: kept `Beta` terminology out of the release copy and ordered the first five changelog items so generated update highlights include the unified workspace, styles, settings, Windows startup recovery, and Telegram reliability.
 - 2026-09-15: added a dry-run-first Development reset utility for repeatable bootstrap testing. Its default mode clears settings locally, while `--full` covers local user state and the guarded `--reset-development-user` path can reset only the current machine's Development license lifecycle. Crash diagnostics, source defaults, secrets, shared server data, and Production are excluded.
 - 2026-09-15: narrowed deletion ownership after review: user-created `config.json.bak*`, arbitrary files and custom-workspace manuscripts are preserved; only known app-owned workspace subtrees and runtime state are eligible for deletion.
+- 2026-09-16: traced the hosted Windows build delay to the packaged `--version` probe. Electron could consume that switch before the app entrypoint, causing the external launcher to wait for a readiness signal that a version command should never require. The launcher now handles version/help commands before starting Electron, while CI no longer treats `--version` as application startup evidence.
+- 2026-09-16: strengthened Windows release verification around real execution: the portable package must reach renderer readiness in normal and safe modes, and the generated installer must silently install into a clean runner path where the installed launcher must reach the same normal-mode checkpoint. Authenticode status is reported explicitly, but CI does not claim to verify SmartScreen reputation for the currently unsigned artifacts.
+- 2026-09-16: advanced the prerelease checkpoint from `0.5.0-dev5` to `0.5.0-dev6` for this Windows verification correction.
+- 2026-09-16: removed the redundant Local Supabase rebuild job from environment validation. Hosted Development drift remains the pre-production environment check, while local validation commands remain available for intentional developer use.
 
 ## Corrections
 
 - The first focused run correctly failed because `scripts/version-contract.test.js` still asserted `0.4.3`; package and lockfile were already consistent. The release-owned expectation was updated to `0.5.0-dev1` before rerunning the checks.
 - The first live Development reset preview was rejected before execution because the current Supabase CLI accepts one prepared statement per query file. The generated `BEGIN; DO; ROLLBACK/COMMIT` batch was replaced with one atomic `DO` statement; preview remains read-only and apply keeps statement-level transaction atomicity.
+- Repeated GPU/sandbox variants did not address the Windows failure because the delay occurred in a command-classification boundary, not graphics initialization or SmartScreen. Those diagnostic retries were removed instead of increasing timeouts again.
 
 ## Verification Plan
 
@@ -82,6 +87,7 @@
 - `node --test scripts/clear-dev-state.test.js` — 8 passed
 - `./clear_dev.sh --help` and local partial/full dry-runs — passed without deleting data
 - `./clear_dev.sh --full --reset-development-user --dry-run` — passed against the Development Supabase target with a single read-only `DO` statement; no local or remote data was deleted
+- focused Windows packaging, Electron startup, and environment workflow contracts — passed after replacing version-only execution with real portable and installed-application startup verification and removing Local Supabase CI reconstruction
 
 ## Remaining Risks
 
@@ -90,3 +96,4 @@
 - 실제 Windows packaged startup은 플랫폼별 hands-on 검증이 별도로 필요하다.
 - Development Supabase preview and CLI integration were verified read-only; the destructive apply path remains intentionally unexecuted until a real disposable-user reset is confirmed.
 - Windows support requires the planned PowerShell wrapper after the shell workflow is accepted.
+- Windows CI verifies technical startup on a hosted runner, not SmartScreen reputation or trusted-publisher UX. Until Windows artifacts are Authenticode-signed, a clean end-user Windows installation remains a required manual release check.

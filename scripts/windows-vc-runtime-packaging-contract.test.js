@@ -48,6 +48,7 @@ test('Windows packages install an external startup supervisor before runtime ver
     const workflow = read('.github/workflows/build.yml');
     const installer = read('scripts/windows/install-startup-launcher.ps1');
     const launcher = read('scripts/windows/startup-launcher/BlogGeniusLauncher.cs');
+    const startupVerifier = read('scripts/windows/verify-packaged-startup.ps1');
 
     assert.match(workflow, /Install Windows Startup Launcher/);
     assert.match(workflow, /install-startup-launcher[.]ps1 -PackageDir/);
@@ -66,20 +67,27 @@ test('Windows packages install an external startup supervisor before runtime ver
     assert.match(launcher, /chromium-normal[.]log/);
     assert.match(launcher, /safe mode recovered startup/);
     assert.match(launcher, /CreateDiagnosticBundle/);
-    assert.match(workflow, /--bloggenius-startup-probe/);
-    assert.match(workflow, /function Invoke-VersionVariant/);
-    assert.match(workflow, /Name = 'disable-gpu'/);
-    assert.match(workflow, /Name = 'no-sandbox'/);
-    assert.match(workflow, /WaitForExit\(60000\)/);
-    assert.match(workflow, /Get-BlogGeniusProcessSnapshot/);
-    assert.match(workflow, /Write-RecentApplicationErrors/);
-    assert.match(workflow, /Version probe passed with variant/);
-    assert.match(workflow, /Zone\.Identifier/);
-    assert.match(workflow, /Unblock-File/);
-    assert.match(workflow, /Direct runtime --version/);
-    assert.match(workflow, /startup completion checkpoint/);
-    assert.match(workflow, /"phase":"STARTUP_PROBE_COMPLETE"/);
-    assert.match(workflow, /"safeMode":false/);
-    assert.match(workflow, /"safeMode":true/);
+    assert.match(launcher, /TryHandleShortLived\(args, runtimePath, launcherLog/);
+    assert.ok(
+        launcher.indexOf('TryHandleShortLived(args, runtimePath, launcherLog') <
+        launcher.indexOf('Launch(runtimePath, normalArgs')
+    );
+    assert.match(launcher, /short-lived command handled by launcher/);
+    assert.match(workflow, /verify-packaged-startup[.]ps1 -PackageDir \$env:PACKAGED_APP_DIR/);
+    assert.match(workflow, /Install and Verify Windows Installer Startup/);
+    assert.match(workflow, /\/VERYSILENT/);
+    assert.match(workflow, /verify-packaged-startup[.]ps1 `\s*-PackageDir \$installDir/);
+    assert.doesNotMatch(workflow, /Invoke-VersionVariant/);
+    assert.doesNotMatch(workflow, /Name = 'disable-gpu'/);
+    assert.doesNotMatch(workflow, /Name = 'no-sandbox'/);
+    assert.doesNotMatch(workflow, /Direct runtime --version/);
+    assert.doesNotMatch(workflow, /ArgumentList '--version'/);
+    assert.match(startupVerifier, /--bloggenius-startup-probe/);
+    assert.match(startupVerifier, /renderer startup completion checkpoint/);
+    assert.match(startupVerifier, /"phase":"STARTUP_PROBE_COMPLETE"/);
+    assert.match(startupVerifier, /"safeMode":false/);
+    assert.match(startupVerifier, /"safeMode":true/);
+    assert.match(startupVerifier, /Get-AuthenticodeSignature/);
+    assert.match(startupVerifier, /does not prove SmartScreen reputation/);
     assert.doesNotMatch(workflow, /Stop-Process -Force/);
 });

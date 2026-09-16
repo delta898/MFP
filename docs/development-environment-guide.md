@@ -353,13 +353,15 @@ Feature 단계에서는 hosted development나 production을 변경하지 않는�
 `dev` push 후 Environment Validation CI는 다음을 수행한다.
 
 ```text
-Local Supabase 시작
-  -> DB reset
-  -> canonical migration + seed 적용
-  -> schema contract 검사
-  -> 전체 unit test
-  -> immutable Supabase release artifact 생성
+Immutable Supabase release artifact 생성
+  -> Development migration / Function 상태 읽기
+  -> 현재 artifact와 exact match 검사
+  -> 공개 HTTP smoke
+  -> sanitized development evidence 저장
 ```
+
+Local Supabase reset과 schema contract 검사는 기능 개발 중 필요할 때 개발자가 명시적으로 실행한다.
+CI 승격 검증은 hosted Development 상태를 기준으로 하며 Local Supabase를 매번 재구축하지 않는다.
 
 Release artifact는 다음을 하나의 fingerprint로 묶는다.
 
@@ -373,14 +375,6 @@ Supabase 변경이 포함된 경우, 환경 운영자가 공식 Supabase CLI로 
 현재 CI는 Development를 자동 배포하지 않는다.
 
 적용 후 `dev` 브랜치에서 `development-drift` workflow를 실행한다.
-
-```text
-Development migration 이력 읽기
-  -> Function ACTIVE/JWT 정책 읽기
-  -> 현재 artifact와 exact match 검사
-  -> 공개 HTTP smoke
-  -> sanitized development evidence 저장
-```
 
 첫 `dev` push 시 원격 Development가 아직 갱신되지 않았다면 drift job 실패가 정상이다. Development
 적용을 마친 후 같은 commit에서 workflow를 다시 실행한다.

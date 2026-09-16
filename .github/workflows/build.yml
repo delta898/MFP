@@ -190,129 +190,10 @@ jobs:
             }
           }
 
-      - name: Verify Packaged Windows Startup
+      - name: Verify Portable Windows Application Startup
         if: matrix.suffix == 'win-x64'
         shell: pwsh
-        run: |
-          $packageDir = (Resolve-Path $env:PACKAGED_APP_DIR).Path
-          $launcher = Join-Path $packageDir 'BlogGenius.exe'
-          $runtime = Join-Path $packageDir 'BlogGenius-runtime.exe'
-          if (!(Test-Path -LiteralPath $launcher -PathType Leaf) -or !(Test-Path -LiteralPath $runtime -PathType Leaf)) {
-            throw 'The Windows launcher/runtime pair is incomplete.'
-          }
-
-          foreach ($binary in @($launcher, $runtime)) {
-            $zone = Get-Item -LiteralPath $binary -Stream 'Zone.Identifier' -ErrorAction SilentlyContinue
-            Write-Host "MOTW check: $(Split-Path $binary -Leaf) zone=$($zone -ne $null)"
-          }
-          Unblock-File -LiteralPath $launcher -ErrorAction SilentlyContinue
-          Unblock-File -LiteralPath $runtime -ErrorAction SilentlyContinue
-          $smartScreen = Get-Process -Name '*smart*' -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }
-          Write-Host "SmartScreen-related processes: $(if ($smartScreen) { $smartScreen -join ',' } else { 'none' })"
-
-          function Get-BlogGeniusProcessSnapshot() {
-            Get-Process -Name 'BlogGenius','BlogGenius-runtime' -ErrorAction SilentlyContinue | ForEach-Object {
-              "process=$($_.Name) pid=$($_.Id) responding=$($_.Responding) threads=$($_.Threads.Count)"
-            }
-          }
-
-          function Invoke-VersionVariant([string[]]$ExtraArgs, [string]$Label) {
-            $allArgs = @('--version') + $ExtraArgs
-            $proc = Start-Process -FilePath $launcher -ArgumentList $allArgs -PassThru
-            if ($proc.WaitForExit(60000)) { return @{ ExitCode = $proc.ExitCode; TimedOut = $false } }
-            try { $proc.Kill() } catch { }
-            $snap = @(Get-BlogGeniusProcessSnapshot) -join "`n"
-            Write-Host "##[warning] version variant '$Label' timed out. Process snapshot:`n$snap"
-            $launcherLog = Join-Path $env:LOCALAPPDATA 'BlogGenius\logs\launcher.log'
-            if (Test-Path -LiteralPath $launcherLog) { Get-Content -LiteralPath $launcherLog -Tail 40 }
-            return @{ ExitCode = -100; TimedOut = $true }
-          }
-
-          function Write-RecentApplicationErrors() {
-            try {
-              $events = Get-WinEvent -FilterHashtable @{ LogName = 'Application'; Level = 2; StartTime = (Get-Date).AddMinutes(-20) } -MaxEvents 10 -ErrorAction Stop
-              foreach ($item in $events) {
-                $text = [string]$item.Message
-                if ($text.Length -gt 500) { $text = $text.Substring(0, 500) }
-                Write-Host "##[warning] eventlog: $($item.TimeCreated.ToString('o')) id=$($item.Id) $($item.ProviderName) :: $text"
-              }
-            } catch { }
-          }
-
-          $versionVariantPassed = ''
-          foreach ($variant in @(
-            @{ Name = 'plain'; Args = @() },
-            @{ Name = 'disable-gpu'; Args = @('--disable-gpu') },
-            @{ Name = 'no-sandbox'; Args = @('--no-sandbox') }
-          )) {
-            $variantResult = Invoke-VersionVariant $variant.Args $variant.Name
-            if ($variantResult.ExitCode -eq 0) { $versionVariantPassed = $variant.Name; break }
-          }
-          if ([string]::IsNullOrEmpty($versionVariantPassed)) {
-            Write-RecentApplicationErrors
-            $directProbe = Start-Process -FilePath $runtime -ArgumentList '--version' -PassThru
-            if ($directProbe.WaitForExit(30000)) {
-              Write-Host "Direct runtime --version exit: $($directProbe.ExitCode)"
-            } else {
-              try { $directProbe.Kill() } catch { }
-              Write-Host '##[warning] Direct runtime --version also hung: launcher exonerated, OS-level block likely.'
-            }
-            throw 'Packaged --version probe failed in all variants (plain/disable-gpu/no-sandbox).'
-          }
-          Write-Host "Version probe passed with variant: $versionVariantPassed"
-
-          $diagnosticRoot = Join-Path $env:LOCALAPPDATA 'BlogGenius'
-          if (Test-Path -LiteralPath $diagnosticRoot) {
-            Remove-Item -LiteralPath $diagnosticRoot -Recurse -Force
-          }
-          $bootstrapLog = Join-Path $diagnosticRoot 'logs\bootstrap.log'
-          function Invoke-StartupProbe([string[]]$Arguments, [string]$CompletionPattern, [string]$Label) {
-            $supervisor = Start-Process -FilePath $launcher -ArgumentList $Arguments -PassThru
-            $ready = $false
-            for ($attempt = 0; $attempt -lt 180; $attempt++) {
-              Start-Sleep -Milliseconds 250
-              if ((Test-Path -LiteralPath $bootstrapLog) -and (Select-String -LiteralPath $bootstrapLog -Pattern $CompletionPattern -Quiet)) {
-                $ready = $true
-                break
-              }
-            }
-            if (!$supervisor.HasExited) { $supervisor.WaitForExit(30000) | Out-Null }
-            if (!$ready) {
-              if (Test-Path -LiteralPath $bootstrapLog) { Get-Content -LiteralPath $bootstrapLog -Tail 120 }
-              throw "Packaged $Label UI did not reach the startup completion checkpoint."
-            }
-            if (!$supervisor.HasExited -or $supervisor.ExitCode -ne 0) {
-              throw "Packaged $Label startup probe did not shut down cleanly."
-            }
-            for ($attempt = 0; $attempt -lt 40; $attempt++) {
-              if (!(Get-Process -Name 'BlogGenius-runtime' -ErrorAction SilentlyContinue)) { break }
-              Start-Sleep -Milliseconds 250
-            }
-            if (Get-Process -Name 'BlogGenius-runtime' -ErrorAction SilentlyContinue) {
-              throw "Packaged $Label startup probe left the Electron runtime running."
-            }
-          }
-
-          Invoke-StartupProbe -Arguments @('--bloggenius-startup-probe') -CompletionPattern '"phase":"STARTUP_PROBE_COMPLETE".*"safeMode":false' -Label 'normal-mode'
-          Invoke-StartupProbe -Arguments @('--bloggenius-safe-mode', '--bloggenius-startup-probe') -CompletionPattern '"phase":"STARTUP_PROBE_COMPLETE".*"safeMode":true' -Label 'safe-mode'
-
-      - name: Collect Windows Startup Diagnostics
-        if: failure() && matrix.suffix == 'win-x64'
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path './startup-diagnostics' | Out-Null
-          $logDir = Join-Path $env:LOCALAPPDATA 'BlogGenius\logs'
-          if (Test-Path -LiteralPath $logDir) {
-            Copy-Item -Path (Join-Path $logDir '*') -Destination './startup-diagnostics/' -Recurse -Force -ErrorAction SilentlyContinue
-          }
-
-      - name: Upload Windows Startup Diagnostics
-        if: failure() && matrix.suffix == 'win-x64'
-        uses: actions/upload-artifact@v6
-        with:
-          name: windows-startup-diagnostics
-          path: startup-diagnostics/
-          if-no-files-found: warn
+        run: ./scripts/windows/verify-packaged-startup.ps1 -PackageDir $env:PACKAGED_APP_DIR -ExpectedVersion $env:APP_VERSION -IncludeSafeMode
 
       - name: Code Sign (macOS)
         if: startsWith(matrix.os, 'macos')
@@ -391,6 +272,59 @@ jobs:
             throw "Inno Setup build failed with exit code $LASTEXITCODE"
           }
           "SETUP_EXE_NAME=${setupName}.exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Install and Verify Windows Installer Startup
+        if: matrix.suffix == 'win-x64'
+        shell: pwsh
+        run: |
+          $setupPath = (Resolve-Path -LiteralPath $env:SETUP_EXE_NAME).Path
+          $installDir = Join-Path $env:RUNNER_TEMP 'BlogGenius-installed-smoke'
+          if (Test-Path -LiteralPath $installDir) {
+            Remove-Item -LiteralPath $installDir -Recurse -Force
+          }
+
+          $installer = Start-Process -FilePath $setupPath `
+            -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/NOICONS', "/DIR=$installDir") `
+            -PassThru
+          if (!$installer.WaitForExit(60000)) {
+            try { $installer.Kill() } catch { }
+            throw 'Windows installer did not exit within 60 seconds.'
+          }
+          if ($installer.ExitCode -ne 0) {
+            throw "Windows installer failed with exit code $($installer.ExitCode)."
+          }
+
+          try {
+            ./scripts/windows/verify-packaged-startup.ps1 `
+              -PackageDir $installDir `
+              -ExpectedVersion $env:APP_VERSION
+          } finally {
+            $uninstaller = Join-Path $installDir 'unins000.exe'
+            if (Test-Path -LiteralPath $uninstaller -PathType Leaf) {
+              $uninstall = Start-Process -FilePath $uninstaller `
+                -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') `
+                -PassThru
+              $uninstall.WaitForExit(30000) | Out-Null
+            }
+          }
+
+      - name: Collect Windows Startup Diagnostics
+        if: failure() && matrix.suffix == 'win-x64'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path './startup-diagnostics' | Out-Null
+          $logDir = Join-Path $env:LOCALAPPDATA 'BlogGenius\logs'
+          if (Test-Path -LiteralPath $logDir) {
+            Copy-Item -Path (Join-Path $logDir '*') -Destination './startup-diagnostics/' -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Upload Windows Startup Diagnostics
+        if: failure() && matrix.suffix == 'win-x64'
+        uses: actions/upload-artifact@v6
+        with:
+          name: windows-startup-diagnostics
+          path: startup-diagnostics/
+          if-no-files-found: warn
 
       - name: Upload portable asset to Release
         uses: softprops/action-gh-release@v3

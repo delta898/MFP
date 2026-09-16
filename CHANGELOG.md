@@ -1,6 +1,11 @@
 # Changelog
 All notable changes to the Naver Auto Blog publishing tool will be documented in this file.
 
+## [0.5.0-dev6] - 2026-09-16
+
+### Fixed
+- **Windows 실행 검증 강화**: 버전 명령이 아닌 실제 앱 시작과 화면 준비까지 확인하고, 설치 파일로 설치한 뒤에도 앱이 정상 실행되는지 자동으로 확인합니다.
+
 ## [0.5.0-dev5] - 2026-09-15
 
 ### Fixed
