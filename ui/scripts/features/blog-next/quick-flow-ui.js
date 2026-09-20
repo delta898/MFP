@@ -134,6 +134,8 @@ function syncBlogNextTopicActionAvailability() {
   const enqueue = document.getElementById('blog-next-enqueue-topic');
   const publish = document.getElementById('blog-next-publish-now');
   const regenerate = document.getElementById('blog-next-regenerate-draft');
+  const clear = document.getElementById('blog-next-clear-topic');
+  const clearUndo = document.getElementById('blog-next-clear-undo');
   const aiBlocked = typeof isAiTextBlocked === 'function' && isAiTextBlocked();
   const imageAiBlocked = document.getElementById('blog-next-image-mode')?.value === 'generate'
     && typeof isUiCapabilityUnavailable === 'function'
@@ -149,6 +151,8 @@ function syncBlogNextTopicActionAvailability() {
     else publish.removeAttribute('title');
   }
   if (regenerate) regenerate.disabled = busy || runnerActive || !ideaValid || aiBlocked || imageAiBlocked;
+  if (clear) clear.disabled = busy;
+  if (clearUndo) clearUndo.disabled = busy;
   syncBlogNextAiReadinessNotice();
   syncBlogNextAiImageReadinessNotice();
   syncBlogNextSheetReadinessNotice();

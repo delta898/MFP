@@ -160,6 +160,8 @@ async function generateBlogNextAiDraft() {
   if (state.generating || state.publishing || state.imageWorking) return;
   const validity = readBlogNextTopicActionValidity();
   if (!validity.ideaValid) return;
+  setBlogNextTopicResult('');
+  setBlogNextDraftValidation('ai');
   if (typeof ensureUiCapabilityReady === 'function') {
     const aiReady = await ensureUiCapabilityReady('ai.text');
     if (!aiReady) {
@@ -177,7 +179,6 @@ async function generateBlogNextAiDraft() {
     }
   } else if (typeof guardUiConfigReady === 'function' && !guardUiConfigReady('AI 원고 생성')) return;
   setBlogNextAiGenerating(true);
-  setBlogNextTopicResult('');
   if (typeof renderBlogNextRunnerStatus === 'function') {
     renderBlogNextRunnerStatus({
       state: 'running', busy: true, source: 'manuscript_generation', progressStage: 'writing',

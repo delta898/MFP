@@ -3014,11 +3014,41 @@ async function run() {
         await page.evaluate(() => syncPlatformUiState('wordpress', true));
         assert.equal(await page.locator('#blog-next-target-wordpress').isDisabled(), false);
 
+        let aiDraftAttemptCount = 0;
+        const aiDraftRetryRoute = async (route) => {
+            aiDraftAttemptCount += 1;
+            if (aiDraftAttemptCount === 1) {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'application/json; charset=utf-8',
+                    body: JSON.stringify({
+                        success: false,
+                        error: { code: 'AI_RATE_LIMITED', message: 'AI 공급자의 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.' }
+                    })
+                });
+                return;
+            }
+            await route.fallback();
+        };
+        await page.route('**/api/v1/blog/manuscript-drafts/ai', aiDraftRetryRoute);
         await page.locator('#blog-next-subject').fill('미리 확인할 AI 원고');
         await page.locator('#blog-next-keywords').fill('단일 플랫폼, 원고 미리보기');
+        const clearActionSpacing = await page.locator('.blog-next-ai-prepare-actions').evaluate((element) => {
+            const clear = element.querySelector('#blog-next-clear-topic').getBoundingClientRect();
+            const firstAction = element.querySelector('[data-blog-next-ai-idea-actions]').getBoundingClientRect();
+            return firstAction.top - clear.bottom;
+        });
+        assert.ok(clearActionSpacing > 0, `내용 지우기와 구분선 사이 간격이 없습니다: ${clearActionSpacing}`);
+        await page.locator('#blog-next-publish-now').click();
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-validation="ai"]')?.classList.contains('has-error'));
+        assert.match((await page.locator('[data-blog-next-draft-validation="ai"]').textContent()) || '', /AI 공급자의 요청 한도/);
         await page.locator('#blog-next-publish-now').click();
         await page.waitForFunction(() => document.getElementById('blog-next-publish-now')?.textContent?.trim() === '원고 만드는 중...');
+        assert.equal(await page.locator('[data-blog-next-draft-validation="ai"]').isHidden(), true);
+        assert.equal(await page.locator('#blog-next-clear-topic').isDisabled(), true);
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="ai"]')?.hidden === false);
+        assert.equal(await page.locator('#blog-next-clear-topic').isEnabled(), true);
+        await page.unroute('**/api/v1/blog/manuscript-drafts/ai', aiDraftRetryRoute);
         await page.waitForFunction(() => document.getElementById('blog-next-publish-status')?.dataset.state === 'completed');
         assert.equal((await page.locator('#blog-next-publish-status-title').textContent())?.trim(), '원고 준비 완료');
         assert.equal(await page.locator('#blog-next-publish-settings').isVisible(), true);

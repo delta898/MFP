@@ -64,6 +64,10 @@
   margin-top: var(--ui-space-4);
 }
 
+#blog-next-topic-form-home .blog-next-ai-prepare-actions > .blog-next-recoverable-action-slot {
+  margin-bottom: var(--ui-space-3);
+}
+
 #blog-next-topic-form-home .blog-next-ai-prepare-actions[hidden],
 .blog-next-ai-preview-actions[hidden] {
   display: none;

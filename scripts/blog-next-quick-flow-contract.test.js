@@ -69,6 +69,8 @@ test('quick flow summaries update from existing controls and clear remains undoa
   assert.match(uiScript, /save\.disabled = busy \|\| sheetBlocked \|\| !editingChanged \|\| \(editingReady \? !readyValid : !ideaValid\)/);
   assert.match(uiScript, /enqueue\.disabled = busy \|\| sheetBlocked \|\| !readyValid/);
   assert.match(uiScript, /publish\.disabled = busy \|\| runnerActive [^;]* \|\| !ideaValid/);
+  assert.match(uiScript, /if \(clear\) clear\.disabled = busy/);
+  assert.match(uiScript, /if \(clearUndo\) clearUndo\.disabled = busy/);
   assert.match(script, /document\.getElementById\('blog-next-clear-undo'\)\?\.addEventListener\('click', restoreBlogNextClearedTopicContent\)/);
 });
 
@@ -108,6 +110,8 @@ test('quick writing distinguishes queued ideas from the generated manuscript flo
   assert.doesNotMatch(execution, /runWithLiveProgress/);
   assert.doesNotMatch(inputs, /runWithLiveProgress/);
   assert.match(execution, /source: 'manuscript_generation'/);
+  assert.match(execution, /setBlogNextTopicResult\(''\);\s*setBlogNextDraftValidation\('ai'\);\s*if \(typeof ensureUiCapabilityReady/);
+  assert.match(css, /#blog-next-topic-form-home \.blog-next-ai-prepare-actions > \.blog-next-recoverable-action-slot\s*\{[^}]*margin-bottom:\s*var\(--ui-space-3\)/s);
   const sourceFields = execution.match(/const sourceFields = new Set\(\[([\s\S]*?)\]\);/)?.[1] || '';
   assert.doesNotMatch(sourceFields, /blog-next-target-(?:naver|wordpress)/);
 });
