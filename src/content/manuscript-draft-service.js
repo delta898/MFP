@@ -4,6 +4,11 @@ const crypto = require('crypto');
 
 const { buildLocalMarkdownPreview, normalizeSelectedFiles, resolveMarkdownEntryFromSelectedFiles } = require('./local-markdown-preview');
 const { requireSinglePublishTarget } = require('./single-publish-target');
+const {
+    RELATED_POSTS_STATUS,
+    extractManuscriptTitle,
+    finalizeManuscriptRelatedPosts
+} = require('./manuscript-related-posts');
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_DRAFT_IMAGE_BYTES = 35 * 1024 * 1024;
@@ -113,6 +118,28 @@ function createManuscriptDraftService(options = {}) {
         : DEFAULT_COMPLETED_RETENTION_MS;
     const workspaceRoot = pathImpl.resolve(String(options.workspaceDir || pathImpl.join(process.cwd(), 'workspace')), 'manuscript-drafts');
     if (!Utils?.parseMarkdown || !Utils?.findImageByPrefix) throw new Error('Manuscript Draft requires markdown utilities.');
+    const relatedPostsGateway = options.relatedPosts || null;
+
+    function defaultRelatedPostsState(targets) {
+        return {
+            enabled: false,
+            status: RELATED_POSTS_STATUS.DISABLED,
+            count: 0,
+            targets: Array.isArray(targets) ? targets.slice() : [],
+            updated_at: new Date(now()).toISOString()
+        };
+    }
+
+    function readContentsMarkdown(locations) {
+        return fsImpl.readFileSync(pathImpl.join(locations.source, 'contents.md'), 'utf8');
+    }
+
+    function writeContentsMarkdown(locations, text) {
+        const markdownPath = pathImpl.join(locations.source, 'contents.md');
+        const pendingPath = `${markdownPath}.${process.pid}.${Date.now()}.tmp`;
+        fsImpl.writeFileSync(pendingPath, String(text || ''), { mode: 0o600 });
+        fsImpl.renameSync(pendingPath, markdownPath);
+    }
 
     function pathsFor(id) {
         const draftId = safeDraftId(id);
@@ -264,6 +291,7 @@ function createManuscriptDraftService(options = {}) {
             draftId: manifest.id,
             revision: manifest.revision,
             sourceKind: manifest.source_kind,
+            relatedPosts: manifest.related_posts || defaultRelatedPostsState(manifest.settings?.targets),
             createdAt: manifest.created_at,
             updatedAt: manifest.updated_at,
             ...preview
@@ -302,6 +330,7 @@ function createManuscriptDraftService(options = {}) {
                 updated_at: createdAt,
                 lifecycle_status: 'active',
                 settings,
+                related_posts: defaultRelatedPostsState(settings.targets),
                 image_slots: preview.images.map((image) => ({
                     id: `image-${image.index}`,
                     index: image.index,
@@ -358,6 +387,7 @@ function createManuscriptDraftService(options = {}) {
                 updated_at: createdAt,
                 lifecycle_status: 'active',
                 settings,
+                related_posts: defaultRelatedPostsState(settings.targets),
                 image_slots: preview.images.map((image) => {
                     const fileName = imageByIndex.get(Number(image.index)) || '';
                     return {
@@ -417,6 +447,7 @@ function createManuscriptDraftService(options = {}) {
                 updated_at: createdAt,
                 lifecycle_status: 'active',
                 settings,
+                related_posts: defaultRelatedPostsState(settings.targets),
                 image_slots: preview.images.map((image) => ({
                     id: `image-${image.index}`,
                     index: image.index,
@@ -595,6 +626,50 @@ function createManuscriptDraftService(options = {}) {
         return current;
     }
 
+    async function refreshDraftRelatedPosts(input = {}) {
+        if (input.enabled !== true) {
+            return getDraft(input.draftId);
+        }
+        const attempt = async (revision) => {
+            const { locations, manifest } = readManifest(input.draftId);
+            assertRevision(manifest, revision);
+            const currentTargets = Array.isArray(manifest.settings?.targets) ? manifest.settings.targets.slice() : [];
+            const stored = manifest.related_posts || {};
+            const storedTargets = Array.isArray(stored.targets) ? stored.targets : [];
+            const targetsChanged = String(currentTargets.join('|')) !== String(storedTargets.join('|'));
+            if (input.force !== true && !targetsChanged && stored.enabled === true) {
+                return buildPublicDraft(manifest, locations);
+            }
+            const raw = readContentsMarkdown(locations);
+            const finalized = await finalizeManuscriptRelatedPosts({
+                markdownText: raw,
+                title: extractManuscriptTitle(raw),
+                enabled: true,
+                gateway: relatedPostsGateway
+            });
+            return updateSlotless(input.draftId, revision, ({ locations: latestLocations, manifest: latestManifest }) => {
+                writeContentsMarkdown(latestLocations, finalized.markdownText);
+                latestManifest.related_posts = {
+                    enabled: true,
+                    status: finalized.status,
+                    count: finalized.count,
+                    targets: currentTargets.slice(),
+                    updated_at: new Date(now()).toISOString()
+                };
+                Logger?.info?.(`🔗 [ManuscriptDraft] 연관글 확정 (draft=${input.draftId}, status=${finalized.status}, count=${finalized.count})`);
+            });
+        };
+        try {
+            return await attempt(input.revision);
+        } catch (error) {
+            if (error?.code === 'MANUSCRIPT_DRAFT_REVISION_CONFLICT') {
+                const current = getDraft(input.draftId);
+                return attempt(current.revision);
+            }
+            throw error;
+        }
+    }
+
     async function preparePublishPayload(input = {}) {
         let current = getDraft(input.draftId);
         assertRevision({ revision: current.revision }, input.revision);
@@ -708,7 +783,7 @@ function createManuscriptDraftService(options = {}) {
         Logger?.info?.(`ℹ️ [ManuscriptDraft] 만료 원고 ${startupCleanup.removed}개를 시작 시 정리했습니다.`);
     }
 
-    return { createFolderDraft, createPasteDraft, createAiDraft, getDraft, updateSettings, updateMarkdown, importLocalImage, excludeImage, restoreImage, generateImage, generateMissingImages, preparePublishPayload, buildPublishPayload, markPublished, cleanupExpiredDrafts, getImage };
+    return { createFolderDraft, createPasteDraft, createAiDraft, getDraft, updateSettings, updateMarkdown, importLocalImage, excludeImage, restoreImage, generateImage, generateMissingImages, refreshDraftRelatedPosts, preparePublishPayload, buildPublishPayload, markPublished, cleanupExpiredDrafts, getImage };
 }
 
 module.exports = { createManuscriptDraftService, detectImageType, validateImageBuffer };

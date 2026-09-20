@@ -6,7 +6,7 @@ const {
     stripBlogImagePromptBlocks
 } = require('../../content/blog-image-mode');
 const { recordDashboardActivity } = require('../../activity/dashboard-activity-store');
-const { isCommandEnabled } = require('../../runtime-feature-flags');
+const { isCommandEnabled, getEnableRelatedPostsAutoLink } = require('../../runtime-feature-flags');
 const { createNaverSmartCommentCollector } = require('../../naver/smart-comment-candidate-collector');
 const {
     generateSmartCommentDraftBatch,
@@ -77,10 +77,41 @@ function createContentService(deps = {}) {
                 Utils,
                 Logger,
                 workspaceDir: CONFIG?.WORKSPACE_DIR,
-                callWritingImage: typeof Utils?.callWritingImage === 'function' ? Utils.callWritingImage.bind(Utils) : null
+                callWritingImage: typeof Utils?.callWritingImage === 'function' ? Utils.callWritingImage.bind(Utils) : null,
+                relatedPosts: {
+                    fetchPosts: typeof Utils?.fetchOwnBlogRelatedPosts === 'function'
+                        ? ({ title, content }) => Utils.fetchOwnBlogRelatedPosts({ title, content, keywords: [] }, 3)
+                        : null,
+                    pickHeading: typeof Utils?.pickRelatedPostsHeading === 'function'
+                        ? () => Utils.pickRelatedPostsHeading()
+                        : null
+                }
             });
         }
         return manuscriptDraftService;
+    }
+
+    async function resolveRelatedPostsEnabled() {
+        try {
+            if (typeof License?.checkLicenseStatus !== 'function') return undefined;
+            const status = await License.checkLicenseStatus({ quiet: true });
+            if (!status?.success) return undefined;
+            return getEnableRelatedPostsAutoLink(status.features);
+        } catch (_) {
+            return undefined;
+        }
+    }
+
+    async function refreshManuscriptRelatedPosts(draft, enabled, { force = false } = {}) {
+        if (enabled !== true || !draft?.draftId) return draft;
+        const service = getManuscriptDraftService();
+        if (typeof service.refreshDraftRelatedPosts !== 'function') return draft;
+        return service.refreshDraftRelatedPosts({
+            draftId: draft.draftId,
+            revision: draft.revision,
+            enabled: true,
+            force
+        });
     }
 
     async function runBlogNextExecution(input, task) {
@@ -847,11 +878,13 @@ function createContentService(deps = {}) {
         },
 
         async createFolderManuscriptDraft(requestBody = {}) {
-            return getManuscriptDraftService().createFolderDraft(requestBody);
+            const created = getManuscriptDraftService().createFolderDraft(requestBody);
+            return refreshManuscriptRelatedPosts(created, await resolveRelatedPostsEnabled(), { force: true });
         },
 
         async createPasteManuscriptDraft(requestBody = {}) {
-            return getManuscriptDraftService().createPasteDraft(requestBody);
+            const created = getManuscriptDraftService().createPasteDraft(requestBody);
+            return refreshManuscriptRelatedPosts(created, await resolveRelatedPostsEnabled(), { force: true });
         },
 
         async createAiManuscriptDraft(requestBody = {}) {
@@ -923,7 +956,7 @@ function createContentService(deps = {}) {
                 if (typeof deleteQuickPublishPreviewSession === 'function') {
                     deleteQuickPublishPreviewSession(data.previewId);
                 }
-                return draft;
+                return refreshManuscriptRelatedPosts(draft, await resolveRelatedPostsEnabled(), { force: true });
             });
         },
 
@@ -932,11 +965,13 @@ function createContentService(deps = {}) {
         },
 
         async updateManuscriptDraftSettings(requestBody = {}) {
-            return getManuscriptDraftService().updateSettings(requestBody);
+            const updated = getManuscriptDraftService().updateSettings(requestBody);
+            return refreshManuscriptRelatedPosts(updated, await resolveRelatedPostsEnabled());
         },
 
         async updateManuscriptDraftMarkdown(requestBody = {}) {
-            return getManuscriptDraftService().updateMarkdown(requestBody);
+            const updated = getManuscriptDraftService().updateMarkdown(requestBody);
+            return refreshManuscriptRelatedPosts(updated, await resolveRelatedPostsEnabled(), { force: true });
         },
 
         async importManuscriptDraftImage(requestBody = {}) {

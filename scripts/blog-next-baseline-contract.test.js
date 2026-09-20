@@ -153,7 +153,10 @@ test('manuscript drafts keep idle results quiet and summarize repeated image war
   }
   assert.match(script, /function summarizeBlogNextDraftWarnings\(type, validation = null, preview = null\)/);
   assert.match(script, /!BLOG_NEXT_DRAFT_TYPES\.includes\(type\) \|\| missingCount === 0/);
-  assert.match(script, /return warnings\.filter\(message => !imageWarningPattern\.test/);
+  assert.match(script, /return notices\.filter\(message => !imageWarningPattern\.test/);
+  assert.match(script, /preview\?\.relatedPosts\?\.status/);
+  assert.match(script, /연결된 블로그에서 함께 보여줄 글을 찾지 못해 연관글을 넣지 않았습니다\./);
+  assert.match(script, /연관글을 가져오지 못해 넣지 않았습니다\. 다시 저장하면 시도합니다\./);
   assert.doesNotMatch(script, /검증을 통과했습니다/);
   assert.match(script, /setBlogNextDraftValidation\('folder'\);/);
   assert.doesNotMatch(script, /setBlogNextDraftValidation\('folder', null, '원고 폴더를 선택해 주세요\.'\)/);

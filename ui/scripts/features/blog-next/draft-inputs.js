@@ -178,13 +178,22 @@ async function buildBlogNextDraftPayload(type, options = {}) {
 
 function summarizeBlogNextDraftWarnings(type, validation = null, preview = null) {
   const warnings = Array.isArray(validation?.warnings) ? validation.warnings : [];
+  const notices = warnings.slice();
+  if (BLOG_NEXT_DRAFT_TYPES.includes(type) && preview?.draftId) {
+    const relatedStatus = String(preview?.relatedPosts?.status || '');
+    if (relatedStatus === 'unavailable') {
+      notices.push('연결된 블로그에서 함께 보여줄 글을 찾지 못해 연관글을 넣지 않았습니다.');
+    } else if (relatedStatus === 'failed') {
+      notices.push('연관글을 가져오지 못해 넣지 않았습니다. 다시 저장하면 시도합니다.');
+    }
+  }
   const missingCount = Number(preview?.stats?.imageMissingCount || 0);
-  if (!BLOG_NEXT_DRAFT_TYPES.includes(type) || missingCount === 0) return warnings;
+  if (!BLOG_NEXT_DRAFT_TYPES.includes(type) || missingCount === 0) return notices;
 
   const imageWarningPattern = /^\d+_image 규칙의 이미지 파일을 찾지 못했습니다\./;
-  const imageWarnings = warnings.filter(message => imageWarningPattern.test(String(message || '')));
-  if (imageWarnings.length === 0) return warnings;
-  return warnings.filter(message => !imageWarningPattern.test(String(message || '')));
+  const imageWarnings = notices.filter(message => imageWarningPattern.test(String(message || '')));
+  if (imageWarnings.length === 0) return notices;
+  return notices.filter(message => !imageWarningPattern.test(String(message || '')));
 }
 
 function setBlogNextDraftValidation(type, validation = null, fallback = '', preview = null) {
