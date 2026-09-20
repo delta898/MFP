@@ -18,7 +18,8 @@ config/config.txt
 config/config.json
 tools/keywordmaster-cli/config.env
 config/config.json.delta*
-config/config.json.bak
+config/config.json.bak*
+config/connection_verification.json
 config/continuous_publishing.json
 config/continuous_publishing.json.*.tmp
 !config/config.json.sample
