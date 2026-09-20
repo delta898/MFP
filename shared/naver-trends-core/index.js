@@ -599,8 +599,8 @@ function createNaverTrendsCollector(options = {}) {
                 let allKeywords = [];
 
                 const maxSwipes = 50;
-                const swipeDragSteps = 3;
-                const swipeSettleMs = 50;
+                const swipeDragSteps = 4;
+                const swipeSettleMs = 400;
                 const swipeStartRatio = 0.90;
                 const swipeEndRatio = 0.05;
                 let swipeCount = 0;
