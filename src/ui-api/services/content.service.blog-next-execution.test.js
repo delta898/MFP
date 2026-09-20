@@ -185,6 +185,50 @@ test('direct AI manuscript generation stays local until the user publishes and i
     assert.deepEqual(coordinator.getStatus(), { busy: false });
 });
 
+test('direct AI manuscript generation preserves none and excludes upstream image artifacts', async () => {
+    const coordinator = createBlogNextExecutionCoordinator();
+    const calls = [];
+    const service = createService(coordinator, async () => ({ success: true, data: {} }), {
+        TEXT_MODEL: 'fixture-model',
+        TEXT_MODEL_API_KEY: 'fixture-key'
+    }, {
+        manuscriptDraftService: {
+            createAiDraft(input) {
+                calls.push(['draft', input]);
+                return { draftId: 'draft-ai-none', revision: 1 };
+            }
+        },
+        executeQuickPublish: async (input) => {
+            calls.push(['generate', input]);
+            return {
+                success: true,
+                data: {
+                    previewId: 'preview-none',
+                    primaryTarget: 'wordpress',
+                    previews: {
+                        wordpress: {
+                            title: '이미지 없는 원고',
+                            rawMarkdown: '# 이미지 없는 원고\n\n[[IMAGE_0\ntitle: 제외할 이미지\nprompt: 제외할 프롬프트\n]]\n\n본문',
+                            images: [{ index: 0, exists: true }]
+                        }
+                    }
+                }
+            };
+        },
+        getQuickPreviewImagePayload: () => ({ binary: true, body: Buffer.from('image') }),
+        deleteQuickPublishPreviewSession: () => {}
+    });
+
+    const result = await service.createAiManuscriptDraft({ subject: '주제', imageMode: 'none', platforms: ['naver'] });
+    assert.deepEqual(result, { draftId: 'draft-ai-none', revision: 1 });
+    assert.equal(calls[0][1].imageMode, 'none');
+    assert.equal(calls[0][1].imageGeneration, false);
+    assert.equal(calls[1][1].imageMode, 'none');
+    assert.equal(calls[1][1].images.length, 0);
+    assert.doesNotMatch(calls[1][1].markdownText, /\[\[IMAGE_0/);
+    assert.match(calls[1][1].markdownText, /본문/);
+});
+
 test('direct AI manuscript generation rejects missing model setup before execution', async () => {
     const coordinator = createBlogNextExecutionCoordinator();
     let executed = false;

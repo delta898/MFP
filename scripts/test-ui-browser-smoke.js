@@ -903,6 +903,12 @@ function startFixtureServer(requests) {
                 manuscriptDraftPostStatus = requestRecord.body.postStatus || 'publish';
                 manuscriptDraftSourceKind = 'ai';
                 manuscriptDraftTitle = String(requestRecord.body.title || requestRecord.body.subject || 'AI 원고');
+                manuscriptDraftImages = requestRecord.body.imageMode === 'none'
+                    ? []
+                    : [
+                        { index: 0, slotId: 'image-0', title: '첫 이미지', prompt: '푸른 하늘', exists: true, excluded: false, assetOrigin: 'generated', canRestore: false },
+                        { index: 1, slotId: 'image-1', title: '둘째 이미지', prompt: '초록 숲', exists: false, excluded: false, assetOrigin: '', canRestore: false }
+                    ];
                 setTimeout(() => {
                     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
                     res.end(JSON.stringify({ success: true, data: buildManuscriptDraftFixture() }));
@@ -3031,6 +3037,7 @@ async function run() {
             await route.fallback();
         };
         await page.route('**/api/v1/blog/manuscript-drafts/ai', aiDraftRetryRoute);
+        await page.locator('#blog-next-image-mode').selectOption('none');
         await page.locator('#blog-next-subject').fill('미리 확인할 AI 원고');
         await page.locator('#blog-next-keywords').fill('단일 플랫폼, 원고 미리보기');
         const clearActionSpacing = await page.locator('.blog-next-ai-prepare-actions').evaluate((element) => {
@@ -3048,6 +3055,16 @@ async function run() {
         assert.equal(await page.locator('#blog-next-clear-topic').isDisabled(), true);
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="ai"]')?.hidden === false);
         assert.equal(await page.locator('#blog-next-clear-topic').isEnabled(), true);
+        const noneAiDraftRequest = requests.filter((request) => request.pathname === '/api/v1/blog/manuscript-drafts/ai').at(-1);
+        assert.equal(noneAiDraftRequest?.body?.imageMode, 'none');
+        assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-draft-preview-image-details]').isHidden(), true);
+        assert.equal(await page.locator('#blog-next-publish-safety-hint').isHidden(), true);
+        assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot]').count(), 0);
+
+        await page.locator('#blog-next-image-mode').selectOption('generate');
+        await page.locator('#blog-next-publish-now').click();
+        await page.waitForFunction(() => document.getElementById('blog-next-publish-now')?.textContent?.trim() === '원고 만드는 중...');
+        await page.waitForFunction(() => document.querySelectorAll('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot]').length === 2);
         await page.unroute('**/api/v1/blog/manuscript-drafts/ai', aiDraftRetryRoute);
         await page.waitForFunction(() => document.getElementById('blog-next-publish-status')?.dataset.state === 'completed');
         assert.equal((await page.locator('#blog-next-publish-status-title').textContent())?.trim(), '원고 준비 완료');
@@ -3750,6 +3767,7 @@ async function run() {
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics/delete' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics/update' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/queue/remove' },
+            { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/ai' },
             { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/ai' },
             { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/settings` },
             { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/publish` },

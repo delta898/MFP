@@ -48,6 +48,7 @@ test('WYSIWYG manuscript publishing owns images in slots and drafts only for act
 
     assert.doesNotMatch(manuscriptView, /data-draft-field="image-mode"/);
     assert.match(manuscriptScript, /imageMode: 'prompt_only'/);
+    assert.match(manuscriptScript, /imageMode: input\.imageMode/);
     assert.match(manuscriptScript, /function supportsBlogNextDraftAutomaticImages\(type\)/);
     assert.match(manuscriptScript, /return BLOG_NEXT_DRAFT_TYPES\.includes\(type\)/);
     assert.doesNotMatch(manuscriptScript, /changedToDraft|forcedDraft/);

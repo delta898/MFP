@@ -856,11 +856,15 @@ function createContentService(deps = {}) {
 
         async createAiManuscriptDraft(requestBody = {}) {
             const aiReadiness = buildSetupReadiness({ CONFIG }).ai;
+            const imageMode = parseBlogImageMode(requestBody.imageMode ?? requestBody.image_mode, {
+                legacyGenerate: typeof requestBody.imageGeneration === 'boolean'
+                    ? requestBody.imageGeneration : undefined,
+                fallback: 'prompt_only'
+            });
             if (aiReadiness.configured !== true) {
                 throw createApiError(400, 'AI_TEXT_MODEL_REQUIRED', 'AI 설정에서 글쓰기 모델을 먼저 설정해 주세요.');
             }
-            if (String(requestBody.imageMode || requestBody.image_mode || '') === 'generate'
-                && aiReadiness.image_configured !== true) {
+            if (generatesBlogImages(imageMode) && aiReadiness.image_configured !== true) {
                 throw createApiError(400, 'AI_IMAGE_MODEL_REQUIRED', 'AI 설정에서 이미지 모델을 먼저 설정해 주세요.');
             }
             return runBlogNextExecution({
@@ -877,6 +881,8 @@ function createContentService(deps = {}) {
                 const generationTargets = ['wordpress'];
                 const generated = await executeQuickPublish({
                     ...requestBody,
+                    imageMode,
+                    imageGeneration: generatesBlogImages(imageMode),
                     targets: generationTargets,
                     postStatus: 'draft',
                     scheduleDate: '',
@@ -905,9 +911,12 @@ function createContentService(deps = {}) {
                 }
                 const draft = getManuscriptDraftService().createAiDraft({
                     ...requestBody,
+                    imageMode,
                     targets,
-                    markdownText: preview.rawMarkdown,
-                    images,
+                    markdownText: imageMode === 'none'
+                        ? stripBlogImagePromptBlocks(preview.rawMarkdown)
+                        : preview.rawMarkdown,
+                    images: imageMode === 'none' ? [] : images,
                     sourceLabel: preview.title || requestBody.title || requestBody.subject || '바로 생성 원고',
                     sourceMetadata: { generationProjection: primaryTarget }
                 });

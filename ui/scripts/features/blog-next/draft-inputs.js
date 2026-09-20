@@ -154,7 +154,13 @@ async function buildBlogNextDraftPayload(type, options = {}) {
   const settings = readBlogNextDraftSettings(type);
   if (type === 'ai') {
     const input = readBlogNextTopicPayload('generate-draft');
-    return { ...input, ...settings, targets: settings.targets, platforms: undefined };
+    return {
+      ...input,
+      ...settings,
+      imageMode: input.imageMode,
+      targets: settings.targets,
+      platforms: undefined
+    };
   }
   if (type === 'paste') {
     return {
