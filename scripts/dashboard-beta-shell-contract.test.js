@@ -85,9 +85,14 @@ test('Dashboard Beta channel chips expose brand icons, states, and publish-chann
     assert.match(betaView, /data-dashboard-beta-channel="wordpress"[^>]*data-dashboard-beta-nav="settings-next"[^>]*data-dashboard-beta-target="settings-next-wordpress-form"[^>]*disabled/);
     assert.doesNotMatch(betaView, /data-dashboard-beta-nav="settings"/);
     assert.match(betaView, /dashboard-beta-channel-icon/);
-    assert.match(betaStyle, /button\[data-dashboard-beta-channel="naver"\][\s\S]*?--channel-brand: #03C75A/);
-    assert.match(betaStyle, /button\[data-dashboard-beta-channel="wordpress"\][\s\S]*?--channel-brand: #21759B/);
+    assert.match(betaStyle, /button\[data-dashboard-beta-channel="naver"\][\s\S]*?--channel-brand: var\(--ui-channel-naver\)/);
+    assert.match(betaStyle, /button\[data-dashboard-beta-channel="wordpress"\][\s\S]*?--channel-brand: var\(--ui-channel-wordpress\)/);
     assert.match(betaStyle, /\.dashboard-beta-readiness-items button:disabled/);
+    ['autumn-night-library', 'compatibility', 'hanji-dancheong', 'quiet-sage-studio', 'retro-terminal', 'warm-editorial'].forEach((theme) => {
+      const tokens = read(`ui/styles/styles/${theme}.css`);
+      assert.match(tokens, /--ui-channel-naver:\s*#03C75A;/);
+      assert.match(tokens, /--ui-channel-wordpress:\s*#21759B;/);
+    });
 });
 
 test('Dashboard Beta distinguishes processed and public results across today and week', () => {

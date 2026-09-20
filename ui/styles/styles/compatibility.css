@@ -29,6 +29,8 @@
   --ui-status-success: #10b981;
   --ui-status-warning: #f59e0b;
   --ui-status-danger: #ef4444;
+  --ui-channel-naver: #03C75A;
+  --ui-channel-wordpress: #21759B;
   --ui-focus-ring: 0 0 0 3px rgba(14, 165, 233, 0.18);
 
   /* Typography */

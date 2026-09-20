@@ -28,6 +28,8 @@
   --ui-status-success: #78d99a;
   --ui-status-warning: #e0b35f;
   --ui-status-danger: #ef8585;
+  --ui-channel-naver: #03C75A;
+  --ui-channel-wordpress: #21759B;
   --ui-focus-ring: 0 0 0 2px rgba(224, 179, 95, 0.34);
 
   /* Latin glyphs and numerals use a terminal stack; Korean keeps a readable fallback. */

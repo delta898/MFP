@@ -190,11 +190,11 @@
 }
 
 button[data-dashboard-beta-channel="naver"] {
-  --channel-brand: #03C75A;
+  --channel-brand: var(--ui-channel-naver);
 }
 
 button[data-dashboard-beta-channel="wordpress"] {
-  --channel-brand: #21759B;
+  --channel-brand: var(--ui-channel-wordpress);
 }
 
 button[data-dashboard-beta-state="ready"][data-dashboard-beta-channel] .dashboard-beta-channel-icon-wrap,
