@@ -3,7 +3,7 @@
 - Branch: `feat/settings-publish-channel-nav`
 - Base: `dev`
 - Start date: 2026-09-20
-- Status: active; implementation in progress
+- Status: complete; user verified Beta channel chips hands-on, ready for dev merge
 
 ## User Need
 
