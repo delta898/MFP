@@ -5,7 +5,7 @@
 - Branch: `release/v0.5.0`
 - Base/parent branch: `dev`
 - Start date: 2026-09-15
-- Status: active; prerelease version setup in progress
+- Status: stable `0.5.0` finalized; awaiting verification and authorized push/tag
 
 ## User Need
 
@@ -62,6 +62,7 @@
 - 2026-09-16: traced the hosted Windows build delay to the packaged `--version` probe. Electron could consume that switch before the app entrypoint, causing the external launcher to wait for a readiness signal that a version command should never require. The launcher now handles version/help commands before starting Electron, while CI no longer treats `--version` as application startup evidence.
 - 2026-09-16: strengthened Windows release verification around real execution: the portable package must reach renderer readiness in normal and safe modes, and the generated installer must silently install into a clean runner path where the installed launcher must reach the same normal-mode checkpoint. Authenticode status is reported explicitly, but CI does not claim to verify SmartScreen reputation for the currently unsigned artifacts.
 - 2026-09-16: advanced the prerelease checkpoint from `0.5.0-dev5` to `0.5.0-dev6` for this Windows verification correction.
+- 2026-09-20: user authorized the stable `v0.5.0` release (commit, push, tag-triggered CI build). Finalized app and lockfile metadata at `0.5.0`, consolidated the `0.5.0-dev2`–`dev6` Windows verification notes out of the user-facing changelog, promoted the Unreleased outcomes to `## [0.5.0]`, and updated the backlog marker to `v0.5.0`.
 - 2026-09-16: removed the redundant Local Supabase rebuild job from environment validation. Hosted Development drift remains the pre-production environment check, while local validation commands remain available for intentional developer use.
 
 ## Corrections
@@ -88,6 +89,7 @@
 - `./clear_dev.sh --help` and local partial/full dry-runs — passed without deleting data
 - `./clear_dev.sh --full --reset-development-user --dry-run` — passed against the Development Supabase target with a single read-only `DO` statement; no local or remote data was deleted
 - focused Windows packaging, Electron startup, and environment workflow contracts — passed after replacing version-only execution with real portable and installed-application startup verification and removing Local Supabase CI reconstruction
+- 2026-09-20 stable `0.5.0` gate: `node --test scripts/version-contract.test.js` — 3 passed; release/build contracts — 11 passed; `git diff --check` — passed; `node scripts/release-details.js 0.5.0` — 5 user-facing highlights; `npm run test:unit` — 1834 passed, 1 Windows-only skipped, 0 failed
 
 ## Remaining Risks
 
