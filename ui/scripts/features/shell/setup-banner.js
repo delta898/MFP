@@ -32,19 +32,32 @@ function goToSettings() {
   if (settingsBtn) settingsBtn.click();
 }
 
-async function navigateToSettingsNextTarget(tabName, targetId) {
-  await navigateTo('settings-next', tabName);
-  requestAnimationFrame(() => {
+async function navigateToSettingsNextTarget(tabName, targetId, localTab = '') {
+  const normalizedTab = String(tabName || '').trim();
+  const normalizedLocalTab = String(localTab || '').trim();
+  if (normalizedTab === 'core' && normalizedLocalTab && typeof settingsNextActivateCoreTab === 'function') {
+    settingsNextActivateCoreTab(normalizedLocalTab);
+  }
+  const scrollToTarget = () => {
     requestAnimationFrame(() => {
-      const target = document.getElementById(String(targetId || '').trim());
-      if (!target) return;
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      target.classList.remove('settings-navigation-target');
-      void target.offsetWidth;
-      target.classList.add('settings-navigation-target');
-      setTimeout(() => target.classList.remove('settings-navigation-target'), 1800);
+      requestAnimationFrame(() => {
+        if (document.getElementById('view-settings-next')?.classList.contains('active') !== true) return;
+        const target = document.getElementById(String(targetId || '').trim());
+        if (!target) return;
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.classList.remove('settings-navigation-target');
+        void target.offsetWidth;
+        target.classList.add('settings-navigation-target');
+        setTimeout(() => target.classList.remove('settings-navigation-target'), 1800);
+      });
     });
-  });
+  };
+  // View toggle inside navigateTo() runs before its data reload. Scroll now so a
+  // hanging settings reload (fetchJson has no timeout) cannot trap the user at the
+  // top of the tab, then scroll again once loading settles.
+  scrollToTarget();
+  await navigateTo('settings-next', tabName);
+  scrollToTarget();
 }
 
 function dismissSetupBanner() {

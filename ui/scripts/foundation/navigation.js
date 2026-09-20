@@ -118,17 +118,24 @@ async function navigateTo(viewName, subTab) {
     if (typeof updateShoppingQuickActionAvailability === 'function') updateShoppingQuickActionAvailability();
     return;
   }
-  if (viewName === 'settings') {
-    void ensureUpdateCheckFresh({ silent: true });
-    const tab = subTab || settingsActiveTab;
-    if (isSettingsViewActive()) {
-      activateSettingsTab(tab, { forceReload: false });
-      return;
+  // Legacy settings surface is retired from navigation: any programmatic
+  // request for the legacy view always lands on Settings Beta instead.
+  // Files stay on disk for recovery; no reachable UI may activate view-settings.
+  if (requestedView === 'settings') {
+    const legacyTab = String(requestedSubTab || '').trim();
+    const betaTarget = {
+      'naver-blog': ['core', 'settings-next-naver-form', 'publishing'],
+      'general': ['core', 'settings-next-content-form', '']
+    }[legacyTab] || ['core', '', ''];
+    if (typeof navigateToSettingsNextTarget === 'function') {
+      await navigateToSettingsNextTarget(betaTarget[0], betaTarget[1], betaTarget[2]);
+    } else {
+      viewName = 'settings-next';
+      subTab = betaTarget[0];
     }
-    loadSettingsMajor();
-    activateSettingsTab(tab, { forceReload: true });
     return;
   }
+
   if (viewName === 'settings-next') {
     initSettingsNext();
     settingsNextActivateTab(subTab || settingsNextActiveTab);

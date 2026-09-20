@@ -75,14 +75,16 @@ function syncPlatformUiState(platform, isReady) {
         hint.style.marginLeft = '-3px';
         hint.style.fontSize = '12px';
         hint.innerHTML = '❗';
-        hint.title = `${platform === 'naver' ? '네이버' : '워드프레스'} 설정이 필요합니다. 클릭하여 [설정 > 블로그] 탭으로 이동합니다.`;
+        hint.title = `${platform === 'naver' ? '네이버' : '워드프레스'} 설정이 필요합니다. 클릭하여 [설정 > 기본 연결 > 블로그 발행 채널]로 이동합니다.`;
 
-        // 클릭 시 설정 -> 블로그 탭으로 이동
+        // 클릭 시 설정 Beta의 블로그 발행 채널로 이동
         hint.onclick = (e) => {
           e.preventDefault();
           e.stopPropagation();
-          if (typeof navigateTo === 'function') {
-            navigateTo('settings-next', 'core');
+          if (typeof goToUiCapabilitySettings === 'function') {
+            void goToUiCapabilitySettings(platform === 'naver' ? 'publish.naver' : 'publish.wordpress');
+          } else if (typeof navigateTo === 'function') {
+            void navigateTo('settings-next', 'core');
           }
         };
 

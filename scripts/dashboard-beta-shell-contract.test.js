@@ -56,8 +56,7 @@ test('Dashboard guides incomplete setup inline and routes the next action to the
     assert.match(betaScript, /function renderDashboardBetaOnboarding/);
     assert.match(betaScript, /section\.hidden = complete/);
     assert.match(betaScript, /setup\?\.publishing_channel\?\.configured === true/);
-    assert.match(betaScript, /navigateToSettingsNextTarget\(settingsTarget\.dataset\.settingsTab, settingsTarget\.dataset\.settingsTarget\)/);
-    assert.match(betaScript, /settingsNextActivateCoreTab\(localTab\)/);
+    assert.match(betaScript, /navigateToSettingsNextTarget\(\s*settingsTarget\.dataset\.settingsTab,\s*settingsTarget\.dataset\.settingsTarget,\s*settingsTarget\.dataset\.settingsLocalTab \|\| ''\s*\)/);
     assert.match(betaView, /data-dashboard-beta-setup-step="ai"[^>]*data-settings-tab="ai"[^>]*data-settings-target="settings-next-ai-text-form"/);
     assert.match(betaView, /data-dashboard-beta-setup-step="google"[^>]*data-settings-tab="core"[^>]*data-settings-target="settings-next-content-form"/);
     assert.match(betaView, /data-dashboard-beta-setup-step="channel"[^>]*data-settings-tab="core"[^>]*data-settings-target="settings-next-naver-form"[^>]*data-settings-local-tab="publishing"/);
@@ -67,6 +66,15 @@ test('Dashboard guides incomplete setup inline and routes the next action to the
     assert.match(betaStyle, /\.dashboard-beta-onboarding\s*\{[^}]*border-width:\s*2px/);
     assert.match(betaStyle, /\.dashboard-beta-onboarding\s*\{[^}]*var\(--ui-action-primary\)/);
     assert.match(betaStyle, /\.dashboard-beta-onboarding-step:hover\s*\{[^}]*transform:\s*var\(--ui-card-hover-transform\)/);
+});
+
+test('Dashboard Beta readiness buttons open the publish channel tab for blog connections', () => {
+    const betaScript = read('ui/scripts/features/shell/dashboard-beta.js');
+
+    assert.match(betaScript, /createDashboardBetaReadinessButton\(\{ \.\.\.naver, view: 'settings-next', tab: 'core', localTab: 'publishing', target: 'settings-next-naver-form' \}\)/);
+    assert.match(betaScript, /createDashboardBetaReadinessButton\(\{ \.\.\.wordpress, view: 'settings-next', tab: 'core', localTab: 'publishing', target: 'settings-next-wordpress-form' \}\)/);
+    assert.match(betaScript, /button\.dataset\.dashboardBetaTarget = target/);
+    assert.match(betaScript, /navigateToSettingsNextTarget\(betaTab \|\| 'core', betaTarget, betaLocalTab\)/);
 });
 
 test('Dashboard Beta distinguishes processed and public results across today and week', () => {

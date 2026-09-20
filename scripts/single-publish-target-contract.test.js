@@ -57,3 +57,11 @@ test('direct AI writing creates a canonical draft before publishing', () => {
   assert.match(draftUi, /renderBlogNextDraftPreview\('ai', preview\)/);
   assert.match(quickQueue, /\['blog-next-publish-now', 'blog-next-regenerate-draft'\][\s\S]*generateBlogNextAiDraft\(\)/);
 });
+
+test('unconfigured platform hints route to the publish channel tab', () => {
+  const readiness = read('ui/scripts/foundation/readiness.js');
+
+  assert.match(readiness, /hint\.title = `\$\{platform === 'naver' \? '네이버' : '워드프레스'\} 설정이 필요합니다\. 클릭하여 \[설정 > 기본 연결 > 블로그 발행 채널\]로 이동합니다\.`/);
+  assert.match(readiness, /goToUiCapabilitySettings\(platform === 'naver' \? 'publish\.naver' : 'publish\.wordpress'\)/);
+  assert.doesNotMatch(readiness, /설정 > 블로그\] 탭으로 이동합니다/);
+});

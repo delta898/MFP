@@ -1620,6 +1620,9 @@ async function run() {
         await page.waitForFunction(() => (
             document.getElementById('view-settings-next')?.classList.contains('active')
             && document.getElementById('settings-next-tab-core')?.getAttribute('aria-selected') === 'true'
+            && document.querySelector('[data-settings-next-core-tab="publishing"]')?.getAttribute('aria-selected') === 'true'
+            && document.getElementById('settings-next-core-panel-publishing')?.hidden === false
+            && document.getElementById('settings-next-wordpress-form')?.getBoundingClientRect().height > 0
         ));
         await page.evaluate(() => navigateTo('dashboard'));
         await page.waitForFunction(() => document.getElementById('view-dashboard')?.classList.contains('active'));

@@ -69,4 +69,8 @@ test('dashboard readiness prioritizes publishing channels and usable quota over 
   assert.match(dashboardScript, /WordPress 미사용/);
   assert.match(dashboardScript, /기본 \$\{Math\.max\(0, remaining\)\}회 남음/);
   assert.match(dashboardScript, /navigateTo\(view, tab\)/);
+  assert.match(dashboardScript, /function bindDashboardReadinessNavigation\(\)/);
+  assert.match(dashboardScript, /bind\('dashboard-naver-status', 'settings-next', 'core', 'publishing', 'settings-next-naver-form'\)/);
+  assert.match(dashboardScript, /bind\('dashboard-wordpress-status', 'settings-next', 'core', 'publishing', 'settings-next-wordpress-form'\)/);
+  assert.match(dashboardScript, /navigateToSettingsNextTarget\(tab, targetId, localTab\)/);
 });

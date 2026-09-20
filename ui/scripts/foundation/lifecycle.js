@@ -85,7 +85,8 @@ window.addEventListener('DOMContentLoaded', () => {
     button.addEventListener('click', () => {
       void navigateToSettingsNextTarget(
         button.getAttribute('data-account-settings-next-tab') || 'core',
-        button.getAttribute('data-account-settings-next-target') || ''
+        button.getAttribute('data-account-settings-next-target') || '',
+        button.getAttribute('data-account-settings-next-local-tab') || ''
       );
     });
   });

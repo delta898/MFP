@@ -91,13 +91,13 @@ function goToUiCapabilitySettings(capability) {
     [UI_CAPABILITY_KEYS.AI_TEXT]: ['ai', 'settings-next-ai-text-form'],
     [UI_CAPABILITY_KEYS.AI_IMAGE]: ['ai', 'settings-next-ai-image-form'],
     [UI_CAPABILITY_KEYS.CONTENT_SHEET]: ['core', 'settings-next-content-form'],
-    [UI_CAPABILITY_KEYS.PUBLISH_ANY]: ['core', 'settings-next-naver-form'],
-    [UI_CAPABILITY_KEYS.PUBLISH_NAVER]: ['core', 'settings-next-naver-form'],
-    [UI_CAPABILITY_KEYS.PUBLISH_WORDPRESS]: ['core', 'settings-next-wordpress-form']
+    [UI_CAPABILITY_KEYS.PUBLISH_ANY]: ['core', 'settings-next-naver-form', 'publishing'],
+    [UI_CAPABILITY_KEYS.PUBLISH_NAVER]: ['core', 'settings-next-naver-form', 'publishing'],
+    [UI_CAPABILITY_KEYS.PUBLISH_WORDPRESS]: ['core', 'settings-next-wordpress-form', 'publishing']
   }[capability];
   if (!target) return Promise.resolve();
   if (typeof navigateToSettingsNextTarget === 'function') {
-    return navigateToSettingsNextTarget(target[0], target[1]);
+    return navigateToSettingsNextTarget(target[0], target[1], target[2] || '');
   }
   return typeof navigateTo === 'function' ? navigateTo('settings-next', target[0]) : Promise.resolve();
 }

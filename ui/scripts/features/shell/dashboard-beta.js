@@ -43,12 +43,14 @@ function dashboardBetaCanShowSupportTeaser(accountOverview, operationsOverview) 
   return flow.busy !== true && !['selecting', 'running', 'failed', 'needs_attention', 'blocked'].includes(state);
 }
 
-function createDashboardBetaReadinessButton({ label, state, view, tab }) {
+function createDashboardBetaReadinessButton({ label, state, view, tab, localTab, target }) {
   const button = document.createElement('button');
   button.type = 'button';
   button.dataset.dashboardBetaState = state;
   button.dataset.dashboardBetaNav = view;
   if (tab) button.dataset.dashboardBetaTab = tab;
+  if (localTab) button.dataset.dashboardBetaLocalTab = localTab;
+  if (target) button.dataset.dashboardBetaTarget = target;
 
   const dot = document.createElement('span');
   dot.className = 'dashboard-beta-state-dot';
@@ -154,8 +156,8 @@ function renderDashboardBetaReadiness(overview) {
   }
 
   container.append(
-    createDashboardBetaReadinessButton({ ...naver, view: 'settings-next', tab: 'core' }),
-    createDashboardBetaReadinessButton({ ...wordpress, view: 'settings-next', tab: 'core' }),
+    createDashboardBetaReadinessButton({ ...naver, view: 'settings-next', tab: 'core', localTab: 'publishing', target: 'settings-next-naver-form' }),
+    createDashboardBetaReadinessButton({ ...wordpress, view: 'settings-next', tab: 'core', localTab: 'publishing', target: 'settings-next-wordpress-form' }),
     createDashboardBetaReadinessButton({
       label: usageLabel,
       state: Number.isFinite(remaining) || unlimited ? (remaining === 0 ? 'attention' : 'ready') : 'attention',
@@ -492,16 +494,27 @@ function bindDashboardBetaActions() {
     }
     const settingsTarget = event.target.closest('[data-settings-tab][data-settings-target]');
     if (settingsTarget) {
-      const localTab = settingsTarget.dataset.settingsLocalTab || '';
-      if (settingsTarget.dataset.settingsTab === 'core' && localTab && typeof settingsNextActivateCoreTab === 'function') {
-        settingsNextActivateCoreTab(localTab);
-      }
-      void navigateToSettingsNextTarget(settingsTarget.dataset.settingsTab, settingsTarget.dataset.settingsTarget);
+      void navigateToSettingsNextTarget(
+        settingsTarget.dataset.settingsTab,
+        settingsTarget.dataset.settingsTarget,
+        settingsTarget.dataset.settingsLocalTab || ''
+      );
       return;
     }
     const target = event.target.closest('[data-dashboard-beta-nav]');
     if (!target) return;
-    void navigateTo(target.dataset.dashboardBetaNav, target.dataset.dashboardBetaTab || '');
+    const betaNav = target.dataset.dashboardBetaNav;
+    const betaTab = target.dataset.dashboardBetaTab || '';
+    const betaLocalTab = target.dataset.dashboardBetaLocalTab || '';
+    const betaTarget = target.dataset.dashboardBetaTarget || '';
+    if (betaNav === 'settings-next' && typeof navigateToSettingsNextTarget === 'function') {
+      void navigateToSettingsNextTarget(betaTab || 'core', betaTarget, betaLocalTab);
+      return;
+    }
+    if (betaTab === 'core' && betaLocalTab && typeof settingsNextActivateCoreTab === 'function') {
+      settingsNextActivateCoreTab(betaLocalTab);
+    }
+    void navigateTo(betaNav, betaTab);
   });
   document.getElementById('dashboard-beta-refresh')?.addEventListener('click', () => {
     void loadDashboardBeta({ force: true });

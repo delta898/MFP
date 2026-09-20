@@ -15,6 +15,7 @@ function read(relativePath) {
 
 test('Settings owns navigation while legacy Settings stays hidden', () => {
     const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot }).html;
+    const navigation = read('ui/scripts/foundation/navigation.js');
 
     assert.match(html, /class="nav-btn" data-view="settings" hidden/);
     assert.match(html, /class="nav-btn" data-view="settings-next"/);
@@ -22,6 +23,11 @@ test('Settings owns navigation while legacy Settings stays hidden', () => {
     assert.match(html, /id="view-settings-next"/);
     assert.match(html, /data-view="settings-next"[\s\S]*?<span class="nav-label">설정<\/span>/);
     assert.doesNotMatch(html, /설정 Beta/);
+    assert.match(navigation, /if \(requestedView === 'settings'\)/);
+    assert.match(navigation, /'naver-blog': \['core', 'settings-next-naver-form', 'publishing'\]/);
+    assert.match(navigation, /'general': \['core', 'settings-next-content-form', ''\]/);
+    assert.match(navigation, /await navigateToSettingsNextTarget\(betaTarget\[0\], betaTarget\[1\], betaTarget\[2\]\)/);
+    assert.doesNotMatch(navigation, /activateSettingsTab\(tab, \{ forceReload: (true|false) \}\)/);
 });
 
 test('Settings Beta exposes the agreed top IA and core connection submenus as accessible tabs', () => {

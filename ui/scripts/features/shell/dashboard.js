@@ -1,4 +1,7 @@
 async function loadDashboard(options = {}) {
+  // Navigation must work even while status fetches hang ('확인 중').
+  // Bind first, unconditionally; _navBound keeps this idempotent.
+  bindDashboardReadinessNavigation();
   const force = options.force === true;
   if (isDashboardLoading) {
     if (force) dashboardForceRefreshPending = true;
@@ -32,6 +35,29 @@ async function loadDashboard(options = {}) {
       dashboardForceRefreshPending = false;
       queueMicrotask(() => void loadDashboard({ force: true }));
     }
+  }
+
+  function bindDashboardReadinessNavigation() {
+    const bind = (id, view, tab, localTab = '', targetId = '') => {
+      const element = document.getElementById(id);
+      if (!element || element._navBound) return;
+      element._navBound = true;
+      element.addEventListener('click', () => {
+        if (view === 'settings-next' && typeof navigateToSettingsNextTarget === 'function') {
+          void navigateToSettingsNextTarget(tab, targetId, localTab);
+          return;
+        }
+        if (tab === 'core' && localTab && typeof settingsNextActivateCoreTab === 'function') {
+          settingsNextActivateCoreTab(localTab);
+        }
+        void navigateTo(view, tab);
+      });
+    };
+    bind('dashboard-naver-status', 'settings-next', 'core', 'publishing', 'settings-next-naver-form');
+    bind('dashboard-wordpress-status', 'settings-next', 'core', 'publishing', 'settings-next-wordpress-form');
+    bind('dashboard-usage-status', 'account');
+    bind('dashboard-google-status', 'settings-next', 'core', '', 'settings-next-content-form');
+    bind('dashboard-health-status', 'logs');
   }
 
   const healthOk = healthResult.status === 'fulfilled' && Boolean(healthResult.value);
@@ -121,18 +147,6 @@ async function loadDashboard(options = {}) {
   if (googleStatus) googleStatus.hidden = !accountOk || googleConfigured;
   const healthStatus = document.getElementById('dashboard-health-status');
   if (healthStatus) healthStatus.hidden = healthOk && health?.status === 'ok';
-
-  const bindReadinessNavigation = (id, view, tab) => {
-    const element = document.getElementById(id);
-    if (!element || element._navBound) return;
-    element._navBound = true;
-    element.addEventListener('click', () => void navigateTo(view, tab));
-  };
-  bindReadinessNavigation('dashboard-naver-status', 'settings-next', 'core');
-  bindReadinessNavigation('dashboard-wordpress-status', 'settings-next', 'core');
-  bindReadinessNavigation('dashboard-usage-status', 'account');
-  bindReadinessNavigation('dashboard-google-status', 'settings-next', 'core');
-  bindReadinessNavigation('dashboard-health-status', 'logs');
 
   if (sessionOk && session && naverStatus !== 'unverified') {
     const sessionStateKey = session.valid

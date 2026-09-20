@@ -39,14 +39,25 @@ test('account connection shortcuts navigate to Settings Beta targets', () => {
   const html = read('ui/partials/views/account.html');
   const lifecycle = read('ui/scripts/foundation/lifecycle.js');
   const setupBanner = read('ui/scripts/features/shell/setup-banner.js');
+  const capability = read('ui/scripts/shared/capability-readiness.js');
 
   assert.match(html, /data-account-settings-next-tab="core" data-account-settings-next-target="settings-next-naver-form"/);
   assert.match(html, /data-account-settings-next-target="settings-next-content-form"/);
   assert.match(html, /data-account-settings-next-target="settings-next-wordpress-form"/);
+  assert.match(html, /data-account-settings-next-target="settings-next-naver-form" data-account-settings-next-local-tab="publishing"/);
+  assert.match(html, /data-account-settings-next-target="settings-next-wordpress-form" data-account-settings-next-local-tab="publishing"/);
+  assert.doesNotMatch(html, /settings-next-content-form" data-account-settings-next-local-tab/);
   assert.match(lifecycle, /\[data-account-settings-next-tab\]/);
   assert.match(lifecycle, /navigateToSettingsNextTarget\(/);
-  assert.match(setupBanner, /async function navigateToSettingsNextTarget\(tabName, targetId\)/);
+  assert.match(lifecycle, /data-account-settings-next-local-tab/);
+  assert.match(setupBanner, /async function navigateToSettingsNextTarget\(tabName, targetId, localTab = ''\)/);
+  assert.match(setupBanner, /settingsNextActivateCoreTab\(normalizedLocalTab\)/);
   assert.match(setupBanner, /navigateTo\('settings-next', tabName\)/);
+  assert.match(setupBanner, /const scrollToTarget = \(\) =>/);
+  assert.match(setupBanner, /getElementById\('view-settings-next'\)\?\.classList\.contains\('active'\)/);
+  assert.match(capability, /PUBLISH_NAVER\]: \['core', 'settings-next-naver-form', 'publishing'\]/);
+  assert.match(capability, /PUBLISH_WORDPRESS\]: \['core', 'settings-next-wordpress-form', 'publishing'\]/);
+  assert.match(capability, /CONTENT_SHEET\]: \['core', 'settings-next-content-form'\]/);
 });
 
 test('account overview retains its loading and data contract', () => {
