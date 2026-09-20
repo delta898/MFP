@@ -32,6 +32,58 @@ function dashboardBetaConnectionState(connection, labels = {}) {
   return { state: 'attention', label: labels.attention || '확인 필요' };
 }
 
+// Publishing channel registry. A future channel (Blogger, Tistory, …) is one
+// entry here plus its backend connection status: id, display name, brand color,
+// settings form target, inline SVG icon (currentColor-driven) and status labels.
+const DASHBOARD_BETA_CHANNELS = Object.freeze([
+  {
+    id: 'naver',
+    name: '네이버 블로그',
+    brand: '#03C75A',
+    form: 'settings-next-naver-form',
+    icon: '<svg class="dashboard-beta-channel-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 4h3.2L16 14.5V4H19v16h-3.2L8 9.5V20H5z"/></svg>',
+    labels: {
+      ready: '네이버 로그인 확인됨',
+      attention: '네이버 로그인 확인 필요',
+      notConfigured: '네이버 미설정',
+      loading: '네이버 확인 중'
+    }
+  },
+  {
+    id: 'wordpress',
+    name: 'WordPress',
+    brand: '#21759B',
+    form: 'settings-next-wordpress-form',
+    icon: '<svg class="dashboard-beta-channel-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M7.5 9.5 10 15l2-4.5L14 15l2.5-5.5"/></svg>',
+    labels: {
+      ready: 'WordPress 연결 확인됨',
+      attention: 'WordPress 연결 확인 필요',
+      notConfigured: 'WordPress 미사용',
+      loading: 'WordPress 확인 중'
+    }
+  }
+]);
+
+function createDashboardBetaChannelButton(channel, state, label) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.dataset.dashboardBetaState = state;
+  button.dataset.dashboardBetaChannel = channel.id;
+  button.dataset.dashboardBetaNav = 'settings-next';
+  button.dataset.dashboardBetaTab = 'core';
+  button.dataset.dashboardBetaLocalTab = 'publishing';
+  button.dataset.dashboardBetaTarget = channel.form;
+  button.setAttribute('aria-label', `${channel.name}, ${label}`);
+  const icon = document.createElement('span');
+  icon.className = 'dashboard-beta-channel-icon-wrap';
+  icon.setAttribute('aria-hidden', 'true');
+  icon.innerHTML = channel.icon;
+  const copy = document.createElement('span');
+  copy.textContent = label;
+  button.append(icon, copy);
+  return button;
+}
+
 function dashboardBetaCanShowSupportTeaser(accountOverview, operationsOverview) {
   if (!accountOverview || !operationsOverview) return false;
   const allowedConnectionStates = new Set(['connected', 'configured', 'not_configured']);
@@ -127,11 +179,13 @@ function renderDashboardBetaReadiness(overview) {
   error?.setAttribute('hidden', '');
 
   const connections = overview?.connections || {};
-  const naver = dashboardBetaConnectionState(connections.naver, {
-    ready: '네이버 로그인 확인됨', attention: '네이버 로그인 확인 필요', notConfigured: '네이버 미설정'
-  });
-  const wordpress = dashboardBetaConnectionState(connections.wordpress, {
-    ready: 'WordPress 연결 확인됨', attention: 'WordPress 연결 확인 필요', notConfigured: 'WordPress 미사용'
+  const channelButtons = DASHBOARD_BETA_CHANNELS.map((channel) => {
+    const { state, label } = dashboardBetaConnectionState(connections[channel.id], {
+      ready: channel.labels.ready,
+      attention: channel.labels.attention,
+      notConfigured: channel.labels.notConfigured
+    });
+    return createDashboardBetaChannelButton(channel, state, label);
   });
   const toOptionalNumber = (value) => (
     value === null || value === undefined || value === '' ? Number.NaN : Number(value)
@@ -156,8 +210,7 @@ function renderDashboardBetaReadiness(overview) {
   }
 
   container.append(
-    createDashboardBetaReadinessButton({ ...naver, view: 'settings-next', tab: 'core', localTab: 'publishing', target: 'settings-next-naver-form' }),
-    createDashboardBetaReadinessButton({ ...wordpress, view: 'settings-next', tab: 'core', localTab: 'publishing', target: 'settings-next-wordpress-form' }),
+    ...channelButtons,
     createDashboardBetaReadinessButton({
       label: usageLabel,
       state: Number.isFinite(remaining) || unlimited ? (remaining === 0 ? 'attention' : 'ready') : 'attention',

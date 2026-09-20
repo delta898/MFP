@@ -68,13 +68,26 @@ test('Dashboard guides incomplete setup inline and routes the next action to the
     assert.match(betaStyle, /\.dashboard-beta-onboarding-step:hover\s*\{[^}]*transform:\s*var\(--ui-card-hover-transform\)/);
 });
 
-test('Dashboard Beta readiness buttons open the publish channel tab for blog connections', () => {
+test('Dashboard Beta channel chips expose brand icons, states, and publish-channel deep links', () => {
     const betaScript = read('ui/scripts/features/shell/dashboard-beta.js');
+    const betaView = read('ui/partials/views/dashboard-beta.html');
+    const betaStyle = read('ui/styles/features/dashboard-beta.css');
 
-    assert.match(betaScript, /createDashboardBetaReadinessButton\(\{ \.\.\.naver, view: 'settings-next', tab: 'core', localTab: 'publishing', target: 'settings-next-naver-form' \}\)/);
-    assert.match(betaScript, /createDashboardBetaReadinessButton\(\{ \.\.\.wordpress, view: 'settings-next', tab: 'core', localTab: 'publishing', target: 'settings-next-wordpress-form' \}\)/);
-    assert.match(betaScript, /button\.dataset\.dashboardBetaTarget = target/);
+    assert.match(betaScript, /const DASHBOARD_BETA_CHANNELS = Object\.freeze\(\[/);
+    assert.match(betaScript, /id: 'naver'[\s\S]*?form: 'settings-next-naver-form'/);
+    assert.match(betaScript, /id: 'wordpress'[\s\S]*?form: 'settings-next-wordpress-form'/);
+    assert.match(betaScript, /function createDashboardBetaChannelButton\(channel, state, label\)/);
+    assert.match(betaScript, /button\.dataset\.dashboardBetaChannel = channel\.id/);
+    assert.match(betaScript, /button\.dataset\.dashboardBetaTarget = channel\.form/);
+    assert.match(betaScript, /aria-label.*channel\.name/);
     assert.match(betaScript, /navigateToSettingsNextTarget\(betaTab \|\| 'core', betaTarget, betaLocalTab\)/);
+    assert.match(betaView, /data-dashboard-beta-channel="naver"[^>]*data-dashboard-beta-nav="settings-next"[^>]*data-dashboard-beta-target="settings-next-naver-form"[^>]*disabled/);
+    assert.match(betaView, /data-dashboard-beta-channel="wordpress"[^>]*data-dashboard-beta-nav="settings-next"[^>]*data-dashboard-beta-target="settings-next-wordpress-form"[^>]*disabled/);
+    assert.doesNotMatch(betaView, /data-dashboard-beta-nav="settings"/);
+    assert.match(betaView, /dashboard-beta-channel-icon/);
+    assert.match(betaStyle, /button\[data-dashboard-beta-channel="naver"\][\s\S]*?--channel-brand: #03C75A/);
+    assert.match(betaStyle, /button\[data-dashboard-beta-channel="wordpress"\][\s\S]*?--channel-brand: #21759B/);
+    assert.match(betaStyle, /\.dashboard-beta-readiness-items button:disabled/);
 });
 
 test('Dashboard Beta distinguishes processed and public results across today and week', () => {
