@@ -5,7 +5,7 @@
 - Branch: `feat/blog-beta-related-posts`
 - Base/parent branch: `codex/fix/blog-next-generation-state` (user-directed; contains 918e786 + 30520ce on top of `dev`@27eadee)
 - Start date: 2026-09-20
-- Status: complete; user verified hands-on, ready for parent merge
+- Status: complete; merged into `codex/fix/blog-next-generation-state` (a98ac15) on 2026-09-20 with full suite green; record archived
 
 ## User Need
 
