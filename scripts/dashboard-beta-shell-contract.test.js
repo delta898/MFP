@@ -76,10 +76,12 @@ test('Dashboard Beta channel chips expose brand icons, states, and publish-chann
     assert.match(betaScript, /const DASHBOARD_BETA_CHANNELS = Object\.freeze\(\[/);
     assert.match(betaScript, /id: 'naver'[\s\S]*?form: 'settings-next-naver-form'/);
     assert.match(betaScript, /id: 'wordpress'[\s\S]*?form: 'settings-next-wordpress-form'/);
-    assert.match(betaScript, /function createDashboardBetaChannelButton\(channel, state, label\)/);
+    assert.match(betaScript, /function createDashboardBetaChannelButton\(channel, state, label, reason = ''\)/);
     assert.match(betaScript, /button\.dataset\.dashboardBetaChannel = channel\.id/);
     assert.match(betaScript, /button\.dataset\.dashboardBetaTarget = channel\.form/);
     assert.match(betaScript, /aria-label.*channel\.name/);
+    assert.match(betaScript, /failed: 'WordPress 연결 실패'/);
+    assert.match(betaScript, /status === 'failed'/);
     assert.match(betaScript, /navigateToSettingsNextTarget\(betaTab \|\| 'core', betaTarget, betaLocalTab\)/);
     assert.match(betaView, /data-dashboard-beta-channel="naver"[^>]*data-dashboard-beta-nav="settings-next"[^>]*data-dashboard-beta-target="settings-next-naver-form"[^>]*disabled/);
     assert.match(betaView, /data-dashboard-beta-channel="wordpress"[^>]*data-dashboard-beta-nav="settings-next"[^>]*data-dashboard-beta-target="settings-next-wordpress-form"[^>]*disabled/);

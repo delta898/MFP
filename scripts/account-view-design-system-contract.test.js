@@ -50,6 +50,7 @@ test('account connection shortcuts navigate to Settings Beta targets', () => {
   assert.match(lifecycle, /\[data-account-settings-next-tab\]/);
   assert.match(lifecycle, /navigateToSettingsNextTarget\(/);
   assert.match(lifecycle, /data-account-settings-next-local-tab/);
+  assert.match(lifecycle, /window\.__bloggeniusForceQuit === true/);
   assert.match(setupBanner, /async function navigateToSettingsNextTarget\(tabName, targetId, localTab = ''\)/);
   assert.match(setupBanner, /settingsNextActivateCoreTab\(normalizedLocalTab\)/);
   assert.match(setupBanner, /navigateTo\('settings-next', tabName\)/);

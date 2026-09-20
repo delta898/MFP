@@ -5,6 +5,7 @@ const settingsNextAiState = {
   profiles: { text: {}, image: {}, chat: {} },
   drafts: { text: {}, image: {}, chat: {} },
   verification: { text: null, image: null, chat: null },
+  verifiedSnapshot: {},
   busy: new Set()
 };
 
@@ -34,12 +35,79 @@ function settingsNextAiSetFeedback(role, message = '', tone = 'neutral') {
 }
 
 function settingsNextAiInvalidateVerification(role) {
-  settingsNextAiState.verification[role] = null;
+  const stillVerified = settingsNextAiVerifiedSnapshotMatches(role);
+  settingsNextAiState.verification[role] = stillVerified ? true : null;
   settingsNextAiSetFeedback(role);
   if (role === 'text' && (document.querySelector('input[name="settings-next-ai-chat-source"]:checked')?.value || 'writing') === 'writing') {
-    settingsNextAiState.verification.chat = null;
+    settingsNextAiState.verification.chat = stillVerified ? true : null;
     settingsNextAiSetFeedback('chat');
   }
+}
+
+// Last verified connection values per `${role}:${provider}`. Provider switches
+// (and reloads via server trust) keep 연결됨 when the form shows values
+// identical to a verified set — no re-test needed.
+function settingsNextAiSnapshotKey(role, provider) {
+  return `${role}:${String(provider || '').trim()}`;
+}
+
+function settingsNextAiCaptureVerifiedSnapshot(role, values = {}) {
+  const provider = String(values.provider || '').trim();
+  if (!provider) return;
+  settingsNextAiState.verifiedSnapshot[settingsNextAiSnapshotKey(role, provider)] = {
+    presetCode: String(values.presetCode || ''),
+    name: String(values.name || ''),
+    baseUrl: String(values.baseUrl || ''),
+    apiKey: String(values.apiKey || '')
+  };
+}
+
+function settingsNextAiVerifiedSnapshotMatches(role) {
+  const current = settingsNextAiReadRole(role);
+  const snapshot = settingsNextAiState.verifiedSnapshot[settingsNextAiSnapshotKey(role, current.provider)];
+  if (!snapshot) return false;
+  // KIE validates the account, not a specific model: provider + key is enough.
+  if (String(current.provider || '') === 'kie') {
+    if (String(current.apiKey || '') === snapshot.apiKey) return true;
+    return String(current.apiKey || '') === ''
+      && snapshot.apiKey === ''
+      && settingsNextAiHasConfiguredKey(role, current.provider);
+  }
+  const direct = String(current.provider || '') === 'direct';
+  if (!direct && String(current.presetCode || '') !== snapshot.presetCode) return false;
+  if (direct && String(current.name || '') !== snapshot.name) return false;
+  if (String(current.baseUrl || '') !== snapshot.baseUrl) return false;
+  if (String(current.apiKey || '') === snapshot.apiKey) return true;
+  // Empty key input means "keep the saved key": matches only when the snapshot
+  // was also taken with an untouched key and one is configured.
+  return String(current.apiKey || '') === ''
+    && snapshot.apiKey === ''
+    && settingsNextAiHasConfiguredKey(role, current.provider);
+}
+
+function settingsNextAiDerivedBaseUrl(role, provider, code) {
+  if (String(provider || '') === 'google') return 'https://generativelanguage.googleapis.com/v1beta';
+  const model = settingsNextAiCatalog(role).find((item) => String(item?.code || '') === String(code || '')
+    && String(item?.provider || '') === String(provider || ''));
+  return String(model?.base_url || '');
+}
+
+// Snapshots for every trusted provider of this role (not just the saved one),
+// so switching providers after a restart also keeps 연결됨 without re-testing.
+function settingsNextAiCaptureHistorySnapshots(role, history = []) {
+  (Array.isArray(history) ? history : []).forEach((entry) => {
+    const provider = String(entry?.provider || '').trim();
+    const code = String(entry?.code || '').trim();
+    if (!provider || entry?.trusted !== true) return;
+    const direct = provider === 'direct';
+    if (!direct && !code) return;
+    settingsNextAiState.verifiedSnapshot[settingsNextAiSnapshotKey(role, provider)] = {
+      presetCode: direct ? '' : code,
+      name: direct ? code : '',
+      baseUrl: String(entry?.base_url || '') || settingsNextAiDerivedBaseUrl(role, provider, code),
+      apiKey: ''
+    };
+  });
 }
 
 function settingsNextAiCatalog(role) {
@@ -177,19 +245,19 @@ function settingsNextAiRenderStatuses() {
     const value = settingsNextAiReadRole(role);
     const configured = Boolean((value.provider === 'direct' ? value.name && value.baseUrl : value.presetCode) && (value.provider === 'direct' || settingsNextAiHasConfiguredKey(role, value.provider)));
     const verified = settingsNextAiState.verification[role] === true;
-    settingsNextAiSetText(`settings-next-ai-${role}-readiness`, verified ? '준비됨' : (configured ? '연결 확인 필요' : '설정 필요'));
+    settingsNextAiSetText(`settings-next-ai-${role}-readiness`, verified ? '연결됨' : (configured ? '연결 확인 필요' : '설정 필요'));
     const dot = document.getElementById(`settings-next-ai-${role}-readiness-dot`);
     if (dot) dot.dataset.tone = verified ? 'success' : (configured ? 'warning' : 'danger');
-    settingsNextAiSetStatus(role, verified ? '준비됨' : (configured ? '확인 필요' : '미설정'), verified ? 'success' : (configured ? 'warning' : 'neutral'));
+    settingsNextAiSetStatus(role, verified ? '연결됨' : (configured ? '확인 필요' : '미설정'), verified ? 'success' : (configured ? 'warning' : 'neutral'));
   });
   const source = document.querySelector('input[name="settings-next-ai-chat-source"]:checked')?.value || 'writing';
   const chat = settingsNextAiReadRole('chat');
   const configured = source === 'writing' || Boolean((chat.provider === 'direct' ? chat.name && chat.baseUrl : chat.presetCode) && (chat.provider === 'direct' || settingsNextAiHasConfiguredKey('chat', chat.provider)));
   const verified = source === 'writing' ? settingsNextAiState.verification.text === true : settingsNextAiState.verification.chat === true;
-  settingsNextAiSetText('settings-next-ai-chat-readiness', source === 'writing' ? '글쓰기 모델 사용' : (verified ? '준비됨' : (configured ? '연결 확인 필요' : '설정 필요')));
+  settingsNextAiSetText('settings-next-ai-chat-readiness', source === 'writing' ? '글쓰기 모델 사용' : (verified ? '연결됨' : (configured ? '연결 확인 필요' : '설정 필요')));
   const dot = document.getElementById('settings-next-ai-chat-readiness-dot');
   if (dot) dot.dataset.tone = verified ? 'success' : (configured ? 'warning' : 'neutral');
-  settingsNextAiSetStatus('chat', source === 'writing' ? '글쓰기 모델 사용' : (verified ? '준비됨' : (configured ? '확인 필요' : '미설정')), verified ? 'success' : (configured ? 'warning' : 'neutral'));
+  settingsNextAiSetStatus('chat', source === 'writing' ? '글쓰기 모델 사용' : (verified ? '연결됨' : (configured ? '확인 필요' : '미설정')), verified ? 'success' : (configured ? 'warning' : 'neutral'));
 }
 
 function settingsNextAiSyncChatSource() {
@@ -203,6 +271,39 @@ function settingsNextAiSyncChatSource() {
   settingsNextAiRenderStatuses();
 }
 
+function settingsNextAiValidateValues(role, selected, selectedRole) {
+  if (!(selected.provider === 'direct' ? selected.name && selected.baseUrl : selected.presetCode)
+    || (selected.provider !== 'direct' && !settingsNextAiHasConfiguredKey(selectedRole, selected.provider))) {
+    settingsNextAiSetFeedback(role, '모델과 필요한 API Key를 입력해 주세요.', 'danger');
+    return false;
+  }
+  return true;
+}
+
+// Save-only path (no connection test): used by "save and proceed" flows so a
+// quit/navigation save never triggers paid model checks.
+async function settingsNextPersistAiRoleValues(role, values) {
+  const saved = await postJson('/api/v1/settings/ai-roles', { scope: role, values });
+  settingsNextAiState.fields = { ...(saved?.fields || settingsNextAiState.fields) };
+  settingsNextAiState.profiles = saved?.aiProviderProfiles || settingsNextAiState.profiles;
+  delete settingsNextAiState.drafts?.[role]?.[values.provider];
+  settingsNextAiRenderRoleFields(role, { provider: values.provider, restore: true });
+  settingsNextClearScopeDirty(`ai-${role}`);
+  return true;
+}
+
+async function settingsNextPersistAiRole(role, values) {
+  const source = role === 'chat'
+    ? (String(values.CHAT_MODEL_SOURCE || '') || document.querySelector('input[name="settings-next-ai-chat-source"]:checked')?.value || 'writing')
+    : '';
+  const selected = role === 'chat' && source === 'writing' ? settingsNextAiReadRole('text') : values;
+  const selectedRole = role === 'chat' && source === 'writing' ? 'text' : role;
+  if (!settingsNextAiValidateValues(role, selected, selectedRole)) return false;
+  if (settingsNextAiState.busy.has(role)) return false;
+  await settingsNextPersistAiRoleValues(role, values);
+  return true;
+}
+
 async function settingsNextAiSubmit(role, event) {
   event.preventDefault();
   if (settingsNextAiState.busy.has(role)) return;
@@ -211,23 +312,17 @@ async function settingsNextAiSubmit(role, event) {
   if (role === 'chat') values.CHAT_MODEL_SOURCE = source;
   const selected = role === 'chat' && source === 'writing' ? settingsNextAiReadRole('text') : values;
   const selectedRole = role === 'chat' && source === 'writing' ? 'text' : role;
-  if (!(selected.provider === 'direct' ? selected.name && selected.baseUrl : selected.presetCode) || (selected.provider !== 'direct' && !settingsNextAiHasConfiguredKey(selectedRole, selected.provider))) {
-    settingsNextAiSetFeedback(role, '모델과 필요한 API Key를 입력해 주세요.', 'danger');
-    return;
-  }
+  if (!settingsNextAiValidateValues(role, selected, selectedRole)) return;
   settingsNextAiState.busy.add(role);
   document.getElementById(`settings-next-ai-${role}-form`)?.setAttribute('aria-busy', 'true');
   const button = document.querySelector(`[data-settings-next-ai-action="${role}"]`);
   if (button) { button.disabled = true; button.textContent = '연결 확인 중...'; }
   settingsNextAiSetFeedback(role, '');
   try {
-    const saved = await postJson('/api/v1/settings/ai-roles', { scope: role, values });
-    settingsNextAiState.fields = { ...(saved?.fields || settingsNextAiState.fields) };
-    settingsNextAiState.profiles = saved?.aiProviderProfiles || settingsNextAiState.profiles;
-    delete settingsNextAiState.drafts?.[role]?.[values.provider];
-    settingsNextAiRenderRoleFields(role, { provider: values.provider, restore: true });
+    await settingsNextPersistAiRoleValues(role, values);
     const result = await postJson('/api/v1/settings/ai-roles/test', { scope: role });
     settingsNextAiState.verification[role] = Boolean(result);
+    if (result) settingsNextAiCaptureVerifiedSnapshot(selectedRole, selected);
     settingsNextAiSetFeedback(role, '');
     settingsNextClearScopeDirty(`ai-${role}`);
   } catch (error) {
@@ -245,8 +340,20 @@ function loadSettingsNextAi(data = {}) {
   settingsNextAiState.fields = { ...(data?.fields || {}) };
   settingsNextAiState.presets = data?.aiPresets || settingsNextAiState.presets;
   settingsNextAiState.profiles = data?.aiProviderProfiles || settingsNextAiState.profiles;
+  const serverVerification = data?.verification || {};
+  ['text', 'image', 'chat'].forEach((role) => {
+    if (serverVerification[role]?.trusted === true) settingsNextAiState.verification[role] = true;
+  });
   ['text', 'image', 'chat'].forEach((role) => settingsNextClearScopeDirty(`ai-${role}`));
   ['text', 'image', 'chat'].forEach(settingsNextAiRenderRoleFields);
+  // Snapshot after render: derived values (e.g. preset base URLs) must match
+  // what the compare reads from the DOM later. apiKey stays '' (untouched).
+  ['text', 'image', 'chat'].forEach((role) => {
+    settingsNextAiCaptureHistorySnapshots(role, serverVerification[role]?.history);
+    if (settingsNextAiState.verification[role] === true && serverVerification[role]?.trusted === true) {
+      settingsNextAiCaptureVerifiedSnapshot(role, { ...settingsNextAiReadRole(role), apiKey: '' });
+    }
+  });
   const source = String(settingsNextAiState.fields.CHAT_MODEL_SOURCE || 'writing');
   const radio = document.querySelector(`input[name="settings-next-ai-chat-source"][value="${source}"]`);
   if (radio) radio.checked = true;

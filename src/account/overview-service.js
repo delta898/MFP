@@ -2,6 +2,11 @@ const os = require('os');
 const { machineIdSync } = require('node-machine-id');
 const { normalizeSmartUsageItems } = require('../smart-usage');
 const { buildSetupReadiness } = require('./setup-readiness');
+const {
+    createConnectionSignature,
+    readConnectionVerification,
+    isVerificationTrusted
+} = require('../connections/verification-state');
 
 const FEATURE_LABELS = {
     cmd_batch: '일괄·자동 발행',
@@ -209,6 +214,14 @@ function createAccountOverviewService(deps = {}) {
                 appPassword: CONFIG.WORDPRESS_APP_PASSWORD
             }))
             : null;
+        const sheetVerification = (() => {
+            const sheetId = String(CONFIG.GOOGLE_SHEET_ID || '').trim();
+            if (!googleConfigured || !sheetId) return null;
+            const record = readConnectionVerification('sheets', createConnectionSignature([sheetId]));
+            if (!record) return null;
+            if (record.status === 'failed') return record;
+            return isVerificationTrusted('sheets', record) ? record : null;
+        })();
 
         return {
             identity: {
@@ -274,7 +287,13 @@ function createAccountOverviewService(deps = {}) {
                     reason: String(googleOauth?.state || '').trim(),
                     message: String(googleOauth?.message || '').trim()
                 }),
-                google_sheets: normalizeConnection(googleConfigured ? 'configured' : 'not_configured'),
+                google_sheets: normalizeConnection(
+                    !googleConfigured
+                        ? 'not_configured'
+                        : (sheetVerification?.status === 'connected' ? 'connected'
+                            : (sheetVerification?.status === 'failed' ? 'failed' : 'configured')),
+                    sheetVerification || {}
+                ),
                 wordpress: normalizeConnection(
                     !wordpressConfigured
                         ? 'not_configured'

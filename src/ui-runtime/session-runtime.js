@@ -1,3 +1,8 @@
+const {
+    createConnectionSignature,
+    recordConnectionVerification
+} = require('../connections/verification-state');
+
 function createUiSessionRuntime(deps = {}) {
     const {
         CONFIG,
@@ -60,6 +65,12 @@ function createUiSessionRuntime(deps = {}) {
         };
     }
 
+    function recordSheetsVerification(spreadsheetId, result = {}) {
+        const signature = createConnectionSignature([spreadsheetId]);
+        if (!signature) return null;
+        return recordConnectionVerification('sheets', signature, result);
+    }
+
     function shouldUseUiSheetsPreflightCache(force = false) {
         if (force) return false;
         if (!uiSheetsPreflightState.lastSuccessAt) return false;
@@ -96,19 +107,26 @@ function createUiSessionRuntime(deps = {}) {
             if (!ensured?.success) {
                 throw new Error(ensured?.message || '필수 시트 준비에 실패했습니다.');
             }
+            const spreadsheetId = String(ensured?.spreadsheetId || CONFIG.GOOGLE_SHEET_ID || '').trim();
+            try {
+                recordSheetsVerification(spreadsheetId, { success: true, connected: true });
+            } catch (_) { }
             uiSheetsPreflightState.status = 'ready';
             uiSheetsPreflightState.lastSuccessAt = new Date().toISOString();
             uiSheetsPreflightState.lastError = '';
             return {
                 ok: true,
                 cached: false,
-                spreadsheetId: String(ensured?.spreadsheetId || CONFIG.GOOGLE_SHEET_ID || '').trim(),
+                spreadsheetId,
                 ...getUiSheetsPreflightStatus()
             };
         })()
             .catch((e) => {
                 uiSheetsPreflightState.status = 'error';
                 uiSheetsPreflightState.lastError = String(e?.message || e || 'unknown');
+                try {
+                    recordSheetsVerification(String(CONFIG.GOOGLE_SHEET_ID || '').trim(), { success: false, connected: false, message: uiSheetsPreflightState.lastError });
+                } catch (_) { }
                 throw e;
             })
             .finally(() => {

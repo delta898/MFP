@@ -322,6 +322,34 @@ function settingsNextOptionalValidate(scope, values) {
   return '';
 }
 
+// Save-only path (no connection test): used by "save and proceed" flows.
+async function settingsNextPersistOptionalScope(scope) {
+  if (settingsNextOptionalState.busy.has(scope)) return false;
+  const payload = settingsNextOptionalPayload(scope);
+  const errorMessage = settingsNextOptionalValidate(scope, payload.values);
+  if (errorMessage) {
+    settingsNextSetFeedback(`settings-next-${scope}-feedback`, errorMessage, 'danger');
+    return false;
+  }
+  settingsNextOptionalState.busy.add(scope);
+  try {
+    const saved = await postJson('/api/v1/settings/optional-services', payload);
+    settingsNextOptionalApply(saved);
+    if (scope === 'buffer') {
+      if (typeof clearManualSnsWorkspaceCache === 'function') clearManualSnsWorkspaceCache();
+      if (typeof invalidateManualSnsWorkspaceState === 'function') invalidateManualSnsWorkspaceState();
+    }
+    settingsNextClearScopeDirty(`optional-${scope}`);
+    settingsNextOptionalRenderStatuses();
+    return true;
+  } catch (error) {
+    settingsNextSetFeedback(`settings-next-${scope}-feedback`, error.message || '저장하지 못했습니다.', 'danger');
+    return false;
+  } finally {
+    settingsNextOptionalState.busy.delete(scope);
+  }
+}
+
 async function settingsNextOptionalSubmit(event) {
   event.preventDefault();
   const form = event.currentTarget;

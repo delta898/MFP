@@ -2,10 +2,13 @@ function closeUiDialog(result = false) {
   const backdrop = document.getElementById('ui-dialog-backdrop');
   const confirmBtn = document.getElementById('ui-dialog-confirm');
   const cancelBtn = document.getElementById('ui-dialog-cancel');
+  const tertiaryBtn = document.getElementById('ui-dialog-tertiary');
   const inputEl = document.getElementById('ui-dialog-input');
-  const resolvedValue = uiDialogMode === 'prompt'
-    ? (result ? String(inputEl?.value || '') : null)
-    : Boolean(result);
+  const resolvedValue = result === 'tertiary'
+    ? 'tertiary'
+    : (uiDialogMode === 'prompt'
+      ? (result ? String(inputEl?.value || '') : null)
+      : Boolean(result));
   if (backdrop) {
     backdrop.classList.add('hidden');
     backdrop.setAttribute('aria-hidden', 'true');
@@ -19,6 +22,10 @@ function closeUiDialog(result = false) {
   if (cancelBtn) {
     cancelBtn.textContent = '취소';
     cancelBtn.classList.add('hidden');
+  }
+  if (tertiaryBtn) {
+    tertiaryBtn.textContent = '';
+    tertiaryBtn.classList.add('hidden');
   }
   uiDialogMode = 'default';
   if (uiDialogResolver) {
@@ -34,6 +41,7 @@ function showUiDialog(options = {}) {
   const showCancel = options?.showCancel === true;
   const confirmText = String(options?.confirmText || '확인').trim() || '확인';
   const cancelText = String(options?.cancelText || '취소').trim() || '취소';
+  const tertiaryText = String(options?.tertiaryText || '').trim();
 
   const backdrop = document.getElementById('ui-dialog-backdrop');
   const titleEl = document.getElementById('ui-dialog-title');
@@ -41,6 +49,7 @@ function showUiDialog(options = {}) {
   const inputEl = document.getElementById('ui-dialog-input');
   const confirmBtn = document.getElementById('ui-dialog-confirm');
   const cancelBtn = document.getElementById('ui-dialog-cancel');
+  const tertiaryBtn = document.getElementById('ui-dialog-tertiary');
   if (!backdrop || !titleEl || !messageEl || !confirmBtn || !cancelBtn) {
     if (showCancel) {
       return Promise.resolve(window.confirm(message));
@@ -64,6 +73,10 @@ function showUiDialog(options = {}) {
   confirmBtn.textContent = confirmText;
   cancelBtn.textContent = cancelText;
   cancelBtn.classList.toggle('hidden', !showCancel);
+  if (tertiaryBtn) {
+    tertiaryBtn.textContent = tertiaryText;
+    tertiaryBtn.classList.toggle('hidden', !tertiaryText);
+  }
 
   backdrop.classList.remove('hidden');
   backdrop.setAttribute('aria-hidden', 'false');
@@ -127,6 +140,19 @@ function showUiConfirm(message, options = {}) {
     confirmText: String(options?.confirmText || '확인'),
     cancelText: String(options?.cancelText || '취소')
   });
+}
+
+// Three-way choice: 'save' | 'discard' | 'stay'.
+// confirm = save (primary), tertiary = discard, cancel/backdrop = stay.
+function showUiThreeWayChoice(message, options = {}) {
+  return showUiDialog({
+    title: String(options?.title || '확인'),
+    message: String(message || ''),
+    showCancel: true,
+    confirmText: String(options?.saveText || '저장'),
+    cancelText: String(options?.stayText || '계속 편집'),
+    tertiaryText: String(options?.discardText || '버리기')
+  }).then((result) => (result === 'tertiary' ? 'discard' : (result === true ? 'save' : 'stay')));
 }
 
 function isSettingsViewActive() {

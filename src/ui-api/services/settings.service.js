@@ -23,6 +23,13 @@ const { isSnsAiMode } = require('../../social/sns-ai-policy');
 const DefaultRemoteModelCatalog = require('../../ai/remote-model-catalog');
 const DefaultModelConnectionTester = require('../../ai/model-connection-tester');
 const {
+    createConnectionSignature,
+    readConnectionVerification,
+    recordConnectionVerification,
+    listConnectionVerifications,
+    isVerificationTrusted
+} = require('../../connections/verification-state');
+const {
     createWritingProfileRepository,
     applyWritingProfileRuntimeAliases
 } = require('../../content/writing-profile-repository');
@@ -287,6 +294,59 @@ function applyCoreConnectionSettings(structuredConfig = {}, normalized = {}) {
     return structuredConfig;
 }
 
+function aiVerificationSignature(scope, modelConfig = {}) {
+    const provider = String(modelConfig?.provider || '').trim();
+    // KIE checks the account credit, not a specific model: trust is provider-level.
+    if (provider === 'kie') {
+        const parts = [String(scope || '').trim(), provider];
+        if (String(modelConfig?.api_key || '').trim()) parts.push(String(modelConfig.api_key).trim());
+        return createConnectionSignature(parts);
+    }
+    const parts = [
+        String(scope || '').trim(),
+        provider,
+        String(modelConfig?.code || '').trim()
+    ];
+    if (String(modelConfig?.api_key || '').trim()) parts.push(String(modelConfig.api_key).trim());
+    if (String(modelConfig?.base_url || '').trim()) parts.push(String(modelConfig.base_url).trim());
+    return createConnectionSignature(parts);
+}
+
+function aiRoleVerification(scope, modelConfig = {}) {
+    const record = readConnectionVerification('ai-role', aiVerificationSignature(scope, modelConfig));
+    if (!record) return null;
+    return {
+        status: record.status,
+        checked_at: record.checked_at,
+        trusted: isVerificationTrusted('ai-role', record)
+    };
+}
+
+function aiRoleVerificationHistory(scope) {
+    const normalized = String(scope || '').trim();
+    if (!normalized) return [];
+    return listConnectionVerifications('ai-role')
+        .filter((entry) => entry?.meta?.scope === normalized && isVerificationTrusted('ai-role', entry))
+        .map((entry) => ({
+            provider: entry.meta.provider || '',
+            code: entry.meta.code || '',
+            base_url: entry.meta.base_url || '',
+            checked_at: entry.checked_at,
+            trusted: true
+        }));
+}
+
+function recordAiRoleVerification(scope, modelConfig = {}, result = {}) {
+    const signature = aiVerificationSignature(scope, modelConfig);
+    if (!signature) return null;
+    return recordConnectionVerification('ai-role', signature, result, {
+        scope: String(scope || '').trim(),
+        provider: String(modelConfig?.provider || '').trim(),
+        code: String(modelConfig?.code || '').trim(),
+        base_url: String(modelConfig?.base_url || '').trim()
+    });
+}
+
 function createSettingsService(deps = {}) {
     const {
         fs,
@@ -526,7 +586,12 @@ function createSettingsService(deps = {}) {
             return {
                 fields: settings.fields,
                 aiPresets: getAiModelCatalog(),
-                aiProviderProfiles: redactAiProviderProfiles(CONFIG.AI_MODEL_PROFILES)
+                aiProviderProfiles: redactAiProviderProfiles(CONFIG.AI_MODEL_PROFILES),
+                verification: {
+                    text: { ...aiRoleVerification('text', CONFIG.TEXT_MODEL_CONFIG), history: aiRoleVerificationHistory('text') },
+                    image: { ...aiRoleVerification('image', CONFIG.IMAGE_MODEL_CONFIG), history: aiRoleVerificationHistory('image') },
+                    chat: { ...aiRoleVerification('chat', CONFIG.CHAT_MODEL_CONFIG), history: aiRoleVerificationHistory('chat') }
+                }
             };
         },
 
@@ -1042,8 +1107,18 @@ function createSettingsService(deps = {}) {
                 : (scope === 'chat' ? CONFIG.CHAT_MODEL_CONFIG : CONFIG.TEXT_MODEL_CONFIG);
             try {
                 const result = await ModelConnectionTester.testModelConnection({ kind, modelConfig });
+                try {
+                    // chat-source "writing" tests the shared writing (text) config:
+                    // record under the effective scope so trust survives provider switches.
+                    const effectiveScope = (scope === 'chat' && CONFIG.CHAT_MODEL_SOURCE !== 'dedicated') ? 'text' : scope;
+                    recordAiRoleVerification(effectiveScope, modelConfig, { success: true, connected: true });
+                } catch (_) { }
                 return { ...result, display_name: modelConfig?.name || modelConfig?.code || 'AI 모델' };
             } catch (error) {
+                try {
+                    const effectiveScope = (scope === 'chat' && CONFIG.CHAT_MODEL_SOURCE !== 'dedicated') ? 'text' : scope;
+                    recordAiRoleVerification(effectiveScope, modelConfig, { success: false, connected: false, message: error.message });
+                } catch (_) { }
                 throw createApiError(400, 'AI_MODEL_CONNECTION_CHECK_FAILED', 'AI 모델 연결을 확인하지 못했습니다. API Key와 모델 설정을 확인해 주세요.');
             }
         },
@@ -1629,6 +1704,9 @@ function createSettingsService(deps = {}) {
                     kind,
                     modelConfig
                 });
+                try {
+                    recordAiRoleVerification(kind, modelConfig, { success: true, connected: true });
+                } catch (_) { }
                 return {
                     ...result,
                     display_name: modelConfig.provider === 'kie'
@@ -1639,6 +1717,9 @@ function createSettingsService(deps = {}) {
                         : `${modelConfig.name || modelConfig.code} API Key와 모델 정보를 확인했습니다.`
                 };
             } catch (error) {
+                try {
+                    recordAiRoleVerification(kind, modelConfig, { success: false, connected: false, message: error.message });
+                } catch (_) { }
                 throw createApiError(
                     400,
                     'AI_MODEL_CONNECTION_CHECK_FAILED',

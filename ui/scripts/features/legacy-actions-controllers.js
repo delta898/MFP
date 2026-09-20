@@ -44,12 +44,16 @@ function bindActions() {
   const dialogBackdrop = document.getElementById('ui-dialog-backdrop');
   const dialogConfirmBtn = document.getElementById('ui-dialog-confirm');
   const dialogCancelBtn = document.getElementById('ui-dialog-cancel');
+  const dialogTertiaryBtn = document.getElementById('ui-dialog-tertiary');
   const dialogInputEl = document.getElementById('ui-dialog-input');
   if (dialogConfirmBtn) {
     dialogConfirmBtn.addEventListener('click', () => closeUiDialog(true));
   }
   if (dialogCancelBtn) {
     dialogCancelBtn.addEventListener('click', () => closeUiDialog(false));
+  }
+  if (dialogTertiaryBtn) {
+    dialogTertiaryBtn.addEventListener('click', () => closeUiDialog('tertiary'));
   }
   if (dialogBackdrop) {
     dialogBackdrop.addEventListener('click', (e) => {

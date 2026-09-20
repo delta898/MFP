@@ -24,10 +24,23 @@ const WordPressClient = require('../../wordpress-client');
 const { createConnectionReadinessService } = require('../../connections/readiness-service');
 const {
     recordWordPressVerification,
-    getWordPressVerification
+    getWordPressVerification,
+    configureConnectionVerificationState
 } = require('../../connections/verification-state');
 
 function createLegacyApiRouteHandler(deps = {}) {
+    try {
+        const configDir = String(deps.CONFIG?.CONFIG_DIR || '').trim();
+        if (configDir && deps.path) {
+            configureConnectionVerificationState({
+                fs: deps.fs,
+                path: deps.path,
+                filePath: deps.path.join(configDir, 'connection_verification.json')
+            });
+        }
+    } catch (_) {
+        // Best-effort: verification persistence must never break route setup.
+    }
     const GoogleOAuth = require('../../google-oauth');
     const blogNextExecutionCoordinator = deps.blogNextExecutionCoordinator
         || createBlogNextExecutionCoordinator();

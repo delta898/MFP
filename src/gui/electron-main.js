@@ -660,16 +660,81 @@ app.on('window-all-closed', () => {
     }
 });
 
-// 종료 직전 서버 자원 정리
-app.on('before-quit', () => {
+// 종료 요청 시 미저장 설정이 있으면 앱 내 확인창(인앱 다이얼로그)으로 묻는다.
+// 네이티브 확인창은 앱과 look & feel이 달라 사용하지 않는다.
+let quitRequested = false;
+
+async function confirmQuitWithUnsavedChanges() {
+    if (!win || win.isDestroyed()) return 'quit';
+    try {
+        const decision = await win.webContents.executeJavaScript(
+            `(() => { try {
+                return (typeof confirmAppQuitWithUnsavedChanges === 'function')
+                    ? confirmAppQuitWithUnsavedChanges()
+                    : 'quit';
+            } catch (e) { return 'stay'; } })()`,
+            true
+        );
+        if (decision === 'quit' || decision === 'save-quit') return decision;
+        return 'stay';
+    } catch (_) {
+        return 'quit';
+    }
+}
+
+app.on('before-quit', (event) => {
+    if (quitRequested) return;
+    event.preventDefault();
+    void (async () => {
+        try {
+            const decision = await confirmQuitWithUnsavedChanges();
+            if (decision === 'stay') return;
+            quitRequested = true;
+            try {
+                if (win && !win.isDestroyed()) {
+                    await win.webContents.executeJavaScript(
+                        `(() => { try { window.__bloggeniusForceQuit = true; } catch (e) {} })()`,
+                        true
+                    );
+                }
+            } catch (_) { }
+            app.quit();
+        } catch (_) { }
+    })();
+});
+
+// 종료 확정 후 서버 자원 정리. before-quit이 아니라 will-quit에서 정리한다:
+// before-quit은 창이 닫히기 전에 실행되어, 렌더러의 미저장 변경 veto로
+// 종료가 취소돼도 이미 서버가 닫혀 버리는 반쯤 죽은 상태가 된다.
+app.on('will-quit', () => {
     if (startupWatchdog) clearTimeout(startupWatchdog);
     startupWatchdog = null;
     startup.write('APP_BEFORE_QUIT', { safeMode, startupReady });
     Logger?.info?.('GUI: Shutting down...');
-    if (uiServer && uiServer.server) {
-        uiServer.server.close();
+    try {
+        const handles = typeof process._getActiveHandles === 'function'
+            ? process._getActiveHandles().map((handle) => handle?.constructor?.name || typeof handle)
+            : [];
+        const counts = handles.reduce((acc, name) => { acc[name] = (acc[name] || 0) + 1; return acc; }, {});
+        Logger?.info?.(`GUI: Shutdown active handles: ${JSON.stringify(counts)}`);
+    } catch (error) {
+        Logger?.warn?.(`GUI: Failed to inspect shutdown handles: ${error.message}`);
     }
+    if (uiServer && uiServer.server) {
+        try {
+            uiServer.server.close(() => {
+                Logger?.info?.('GUI: UI server closed.');
+            });
+        } catch (error) {
+            Logger?.warn?.(`GUI: Failed to close UI server: ${error.message}`);
+        }
+        Logger?.info?.('GUI: UI server close requested.');
+    } else {
+        Logger?.info?.('GUI: No UI server to close.');
+    }
+    Logger?.info?.('GUI: Closing agent memory...');
     closeAgentMemory?.();
+    Logger?.info?.('GUI: Agent memory closed.');
     if (typeof stopRemoteMcpService === 'function') {
         stopRemoteMcpService().catch((error) => {
             Logger?.error?.(`GUI: Failed to stop MCP remote service: ${error.message}`);

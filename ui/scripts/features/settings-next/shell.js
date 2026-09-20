@@ -702,27 +702,20 @@ async function settingsNextSubmitWordpress(event) {
 
 async function confirmDiscardUnsavedSettingsNext() {
   if (!hasPendingSettingsNextChanges()) return true;
-  const labels = {
-    content: '콘텐츠 공간',
-    naver: '네이버 블로그',
-    wordpress: '워드프레스',
-    'ai-text': '글쓰기 모델',
-    'ai-image': '이미지 모델',
-    'ai-chat': '보조 대화 모델',
-    writing: '글쓰기 기본값',
-    'optional-buffer': 'Buffer',
-    'optional-telegram': 'Telegram',
-    'optional-slack': 'Slack',
-    'optional-bitly': 'Bitly'
-  };
-  const changed = [...settingsNextDirtyScopes].map((scope) => labels[scope] || scope).join(', ');
-  const discard = await showUiConfirm(`아직 반영하지 않은 변경사항이 있습니다: ${changed}\n이 화면을 떠나면 변경사항이 사라집니다.`, {
+  const changed = settingsNextDirtyLabels();
+  const choice = await showUiThreeWayChoice(`아직 반영하지 않은 변경사항이 있습니다: ${changed}\n이 화면을 떠나면 변경사항이 사라집니다.`, {
     title: '설정 변경사항',
-    confirmText: '변경사항 버리고 이동',
-    cancelText: '계속 편집'
+    saveText: '저장 후 이동',
+    discardText: '변경사항 버리고 이동',
+    stayText: '계속 편집'
   });
-  if (!discard) return false;
-  settingsNextDirtyScopes.clear();
+  if (choice === 'stay') return false;
+  if (choice === 'save') {
+    const saved = await saveAllDirtySettingsNext();
+    if (!saved) return false;
+  } else {
+    settingsNextDirtyScopes.clear();
+  }
   await loadSettingsNext({ force: true });
   return true;
 }

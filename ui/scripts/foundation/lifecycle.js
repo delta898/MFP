@@ -3,6 +3,7 @@ window.addEventListener('DOMContentLoaded', () => {
   let startupLifecycleError = null;
   try {
   window.addEventListener('beforeunload', (event) => {
+    if (window.__bloggeniusForceQuit === true) return;
     if (!settingsMajorHasPendingBasicChanges
       && !settingsWritingProfileDirty
       && !hasPendingSettingsNextChanges()

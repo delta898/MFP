@@ -40,6 +40,26 @@ async function loadSettingsNextAppInput({ force = false } = {}) {
   }
 }
 
+// Save-only path (no typing sample): used by "save and proceed" flows.
+async function settingsNextPersistAppInput() {
+  if (settingsNextAppInputState.busy) return false;
+  settingsNextAppInputState.busy = true;
+  try {
+    const result = await postJson('/api/v1/settings/app-input', { values: {
+      TYPING_SPEED: document.getElementById('settings-next-typing-speed')?.value || 'NORMAL'
+    } });
+    settingsNextAppInputApply(result);
+    settingsNextAppInputState.loaded = true;
+    setUiSettingsCardFooterDetail('settings-next-app-input-footer-detail', result.message || '네이버 입력 속도를 적용했습니다.');
+    return true;
+  } catch (error) {
+    settingsNextSetFeedback('settings-next-app-input-feedback', error.message || '입력 환경을 적용하지 못했습니다.', 'danger');
+    return false;
+  } finally {
+    settingsNextAppInputState.busy = false;
+  }
+}
+
 async function settingsNextSubmitAppInput(event) {
   event.preventDefault();
   if (settingsNextAppInputState.busy) return;

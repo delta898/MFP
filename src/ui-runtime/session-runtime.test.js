@@ -1,6 +1,14 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { createUiSessionRuntime } = require('./session-runtime');
+const {
+    configureConnectionVerificationState,
+    createConnectionSignature,
+    readConnectionVerification
+} = require('../connections/verification-state');
 
 function createRuntime(overrides = {}) {
     return createUiSessionRuntime({
@@ -77,4 +85,25 @@ test('UI session runtime clears persisted Naver auth and resets login flow state
     assert.equal(state.status, 'idle');
     assert.equal(state.message, '로그아웃됨');
     assert.equal(state.startedAt, null);
+});
+
+test('sheets preflight records verification for restart-safe status', async () => {
+    const filePath = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'sheets-verify-')), 'connection_verification.json');
+    configureConnectionVerificationState({ fs, path, filePath });
+    const signature = createConnectionSignature(['sheet-id']);
+
+    const runtime = createRuntime({
+        Utils: { ensureAllSheetsExist: async () => ({ success: true, spreadsheetId: 'sheet-id' }) }
+    });
+    const result = await runtime.ensureSheetsReadyForUi({ force: true });
+    assert.equal(result.ok, true);
+    assert.equal(readConnectionVerification('sheets', signature).status, 'connected');
+
+    const failing = createRuntime({
+        Utils: { ensureAllSheetsExist: async () => ({ success: false, message: 'access denied' }) }
+    });
+    await assert.rejects(failing.ensureSheetsReadyForUi({ force: true }));
+    const failed = readConnectionVerification('sheets', signature);
+    assert.equal(failed.status, 'failed');
+    assert.match(failed.message, /access denied/);
 });

@@ -223,6 +223,12 @@ test('Settings Beta controller applies scoped changes seamlessly and protects pe
     assert.match(aiScript, /postJson\('\/api\/v1\/settings\/ai-roles', \{ scope: role, values \}\)/);
     assert.match(aiScript, /postJson\('\/api\/v1\/settings\/ai-roles\/test', \{ scope: role \}\)/);
     assert.doesNotMatch(aiScript, /postJson\('\/api\/v1\/settings\/test-ai-model/);
+    assert.match(aiScript, /serverVerification\[role\]\?\.trusted === true/);
+    assert.match(aiScript, /function settingsNextAiCaptureVerifiedSnapshot\(role, values = \{\}\)/);
+    assert.match(aiScript, /function settingsNextAiVerifiedSnapshotMatches\(role\)/);
+    assert.match(aiScript, /function settingsNextAiCaptureHistorySnapshots\(role, history = \[\]\)/);
+    assert.match(aiScript, /settingsNextAiState\.verification\[role\] = stillVerified \? true : null/);
+    assert.match(aiScript, /KIE validates the account, not a specific model/);
     assert.match(aiScript, /settings-next-ai-chat-source/);
     assert.doesNotMatch(aiScript, /settings-next-ai-local-tab/);
     assert.match(aiScript, /function settingsNextAiInvalidateVerification\(role\)/);
@@ -232,7 +238,14 @@ test('Settings Beta controller applies scoped changes seamlessly and protects pe
     assert.match(aiScript, /role === 'text'[\s\S]*settingsNextAiSyncChatSource\(\)/);
     assert.match(aiScript, /settingsNextMarkScopeDirty\(`ai-\$\{role\}`\)/);
     assert.match(aiScript, /settingsNextClearScopeDirty\(`ai-\$\{role\}`\)/);
-    assert.match(script, /'ai-text': '글쓰기 모델'/);
+    const saveProceed = read('ui/scripts/features/settings-next/save-proceed.js');
+    assert.match(saveProceed, /'ai-text': '글쓰기 모델'/);
+    assert.match(saveProceed, /function saveAllDirtySettingsNext\(\)/);
+    assert.match(saveProceed, /function saveDirtySettingsNextScope\(scope\)/);
+    assert.match(saveProceed, /function confirmAppQuitWithUnsavedChanges\(\)/);
+    assert.match(saveProceed, /function settingsNextDirtyLabels\(\)/);
+    assert.match(script, /showUiThreeWayChoice\(/);
+    assert.match(aiScript, /function settingsNextPersistAiRole\(role, values\)/);
     assert.match(aiScript, /api_key_configured/);
     assert.match(aiScript, /settingsNextAiSetFeedback\(role\)/);
     assert.match(aiScript, /root\.addEventListener\('input', invalidate\)/);
@@ -244,7 +257,7 @@ test('Settings Beta controller applies scoped changes seamlessly and protects pe
     assert.doesNotMatch(writingScript, /writing_strategy\s*=\s*settingsNextWritingValue/);
     assert.match(writingScript, /settingsNextMarkScopeDirty\('writing'\)/);
     assert.match(writingScript, /settingsNextClearScopeDirty\('writing'\)/);
-    assert.match(script, /writing: '글쓰기 기본값'/);
+    assert.match(saveProceed, /writing: '글쓰기 기본값'/);
 });
 
 test('Settings Beta styling consumes semantic design tokens only', () => {

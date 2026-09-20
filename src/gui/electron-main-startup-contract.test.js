@@ -77,7 +77,19 @@ test('a second app launch focuses the primary window instead of creating a port-
 test('normal shutdown closes SQLite memory while safe mode keeps a no-op boundary', () => {
     assert.match(source, /closeAgentMemory = \(\) => \{\}/);
     assert.match(source, /loadStartupModule\('ui-server', \(\) => require\('\.\.\/ui-server'\)\)/);
-    assert.match(source, /app[.]on\('before-quit',[\s\S]{0,700}closeAgentMemory[?][.]\(\)/);
+    assert.match(source, /app[.]on\('will-quit',[\s\S]{0,2000}closeAgentMemory[?][.]\(\)/);
+    assert.match(source, /GUI: Shutdown active handles/);
+    assert.match(source, /GUI: UI server closed\./);
+    assert.match(source, /GUI: Agent memory closed\./);
+});
+
+test('quit asks about unsaved settings before the silent renderer veto can trap it', () => {
+    assert.match(source, /let quitRequested = false/);
+    assert.match(source, /function confirmQuitWithUnsavedChanges\(\)/);
+    assert.match(source, /confirmAppQuitWithUnsavedChanges/);
+    assert.match(source, /window\.__bloggeniusForceQuit = true/);
+    assert.match(source, /app[.]on\('before-quit', \(event\) =>/);
+    assert.doesNotMatch(source, /dialog\.showMessageBox\(win/);
 });
 
 test('short-lived commands exit before window creation without Electron internals', () => {

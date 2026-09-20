@@ -29,6 +29,10 @@ function dashboardBetaConnectionState(connection, labels = {}) {
   if (status === 'not_configured') {
     return { state: 'muted', label: labels.notConfigured || '미설정' };
   }
+  if (status === 'failed') {
+    const reason = String(connection?.message || connection?.reason || '').trim();
+    return { state: 'attention', label: labels.failed || '연결 실패', reason };
+  }
   return { state: 'attention', label: labels.attention || '확인 필요' };
 }
 
@@ -46,6 +50,7 @@ const DASHBOARD_BETA_CHANNELS = Object.freeze([
       ready: '네이버 로그인 확인됨',
       attention: '네이버 로그인 확인 필요',
       notConfigured: '네이버 미설정',
+      failed: '네이버 로그인 실패',
       loading: '네이버 확인 중'
     }
   },
@@ -59,12 +64,13 @@ const DASHBOARD_BETA_CHANNELS = Object.freeze([
       ready: 'WordPress 연결 확인됨',
       attention: 'WordPress 연결 확인 필요',
       notConfigured: 'WordPress 미사용',
+      failed: 'WordPress 연결 실패',
       loading: 'WordPress 확인 중'
     }
   }
 ]);
 
-function createDashboardBetaChannelButton(channel, state, label) {
+function createDashboardBetaChannelButton(channel, state, label, reason = '') {
   const button = document.createElement('button');
   button.type = 'button';
   button.dataset.dashboardBetaState = state;
@@ -73,7 +79,9 @@ function createDashboardBetaChannelButton(channel, state, label) {
   button.dataset.dashboardBetaTab = 'core';
   button.dataset.dashboardBetaLocalTab = 'publishing';
   button.dataset.dashboardBetaTarget = channel.form;
-  button.setAttribute('aria-label', `${channel.name}, ${label}`);
+  const normalizedReason = String(reason || '').trim();
+  button.setAttribute('aria-label', normalizedReason ? `${channel.name}, ${label}: ${normalizedReason}` : `${channel.name}, ${label}`);
+  if (normalizedReason) button.title = normalizedReason;
   const icon = document.createElement('span');
   icon.className = 'dashboard-beta-channel-icon-wrap';
   icon.setAttribute('aria-hidden', 'true');
@@ -180,12 +188,13 @@ function renderDashboardBetaReadiness(overview) {
 
   const connections = overview?.connections || {};
   const channelButtons = DASHBOARD_BETA_CHANNELS.map((channel) => {
-    const { state, label } = dashboardBetaConnectionState(connections[channel.id], {
+    const { state, label, reason } = dashboardBetaConnectionState(connections[channel.id], {
       ready: channel.labels.ready,
       attention: channel.labels.attention,
-      notConfigured: channel.labels.notConfigured
+      notConfigured: channel.labels.notConfigured,
+      failed: channel.labels.failed
     });
-    return createDashboardBetaChannelButton(channel, state, label);
+    return createDashboardBetaChannelButton(channel, state, label, reason);
   });
   const toOptionalNumber = (value) => (
     value === null || value === undefined || value === '' ? Number.NaN : Number(value)
