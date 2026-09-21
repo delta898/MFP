@@ -144,6 +144,13 @@ const DESIGN_STYLE_REGISTRY = Object.freeze({
     blurb: '인광빛과 선명한 경계로 자동화 작업의 리듬을 살린 어두운 스타일입니다.',
     contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
     selectable: true
+  }),
+  minimalism: Object.freeze({
+    id: 'minimalism',
+    label: '미니멀',
+    blurb: '색과 장식을 걷어낸 가장 단순한 화면입니다.',
+    contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
+    selectable: true
   })
 });
 

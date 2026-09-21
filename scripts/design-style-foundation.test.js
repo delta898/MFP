@@ -298,6 +298,23 @@ test('retro terminal supplies a restrained phosphor surface without feature-spec
   assert.doesNotMatch(shared, /retro-terminal/);
 });
 
+test('minimalism supplies a flat monochrome surface without feature-specific branches', () => {
+  const css = read('ui/styles/styles/minimalism.css');
+  const shared = getDesignSystemStylePaths(CONTRACTS.STRICT_STYLE).map(read).join('\n');
+
+  assert.match(css, /\[data-style="minimalism"\]/);
+  assert.match(css, /--ui-canvas:\s*#ffffff;/);
+  assert.match(css, /--ui-text-primary:\s*#111111;/);
+  assert.match(css, /--ui-action-primary:\s*#222222;/);
+  assert.match(css, /--ui-radius-md:\s*4px;/);
+  assert.match(css, /--ui-card-shadow:\s*none;/);
+  assert.match(css, /--ui-shadow-md:\s*none;/);
+  assert.match(css, /--ui-channel-naver:\s*#03C75A;/);
+  assert.match(css, /--ui-channel-wordpress:\s*#21759B;/);
+  assert.doesNotMatch(css, /linear-gradient/);
+  assert.doesNotMatch(shared, /minimalism/);
+});
+
 test('shared patterns and Blog Beta anchored surfaces consume shared elevation recipes', () => {
   const panel = read('ui/styles/features/blog-next-panel-anatomy.css');
   const tabs = read('ui/styles/patterns/tab-navigation.css');

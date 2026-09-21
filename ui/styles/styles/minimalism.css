@@ -1,0 +1,121 @@
+[data-style="minimalism"] {
+  /* Canvas and surfaces: flat paper white, near-black ink, hairline borders. */
+  --ui-canvas: #ffffff;
+  --ui-surface: #ffffff;
+  --ui-surface-translucent: rgba(255, 255, 255, 0.96);
+  --ui-surface-muted: #f5f5f5;
+  --ui-surface-hover: #eeeeee;
+  --ui-surface-emphasis: #111111;
+  --ui-overlay: rgba(0, 0, 0, 0.4);
+
+  /* Text and borders */
+  --ui-text-primary: #111111;
+  --ui-text-secondary: #555555;
+  --ui-text-muted: #999999;
+  --ui-text-inverse: #ffffff;
+  --ui-border-default: #e0e0e0;
+  --ui-border-strong: #bdbdbd;
+  --ui-border-focus: #111111;
+
+  /* Actions and status: one neutral ink; status hues kept only where meaning depends on them. */
+  --ui-action-primary: #222222;
+  --ui-action-primary-hover: #000000;
+  --ui-action-primary-soft: #f0f0f0;
+  --ui-action-secondary: #616161;
+  --ui-action-secondary-hover: #424242;
+  --ui-action-danger: #b3261e;
+  --ui-status-info: #616161;
+  --ui-status-success: #2e7d32;
+  --ui-status-warning: #8d6e00;
+  --ui-status-danger: #b3261e;
+  --ui-channel-naver: #03C75A;
+  --ui-channel-wordpress: #21759B;
+  --ui-focus-ring: 0 0 0 2px rgba(0, 0, 0, 0.25);
+
+  /* Typography: system stack, comfortable reading sizes. */
+  --ui-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --ui-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --ui-type-display-size: 26px;
+  --ui-type-heading-size: 18px;
+  --ui-type-body-size: 15px;
+  --ui-type-label-size: 14px;
+  --ui-type-caption-size: 12px;
+  --ui-line-height-tight: 1.25;
+  --ui-line-height-body: 1.6;
+  --ui-weight-regular: 400;
+  --ui-weight-medium: 500;
+  --ui-weight-semibold: 600;
+  --ui-weight-bold: 700;
+
+  /* Compact spacing and barely-rounded shape */
+  --ui-space-1: 3px;
+  --ui-space-2: 6px;
+  --ui-space-3: 10px;
+  --ui-space-4: 14px;
+  --ui-space-5: 18px;
+  --ui-space-6: 22px;
+  --ui-space-8: 28px;
+  --ui-space-10: 36px;
+  --ui-space-12: 44px;
+  --ui-radius-sm: 2px;
+  --ui-radius-md: 4px;
+  --ui-radius-lg: 6px;
+  --ui-radius-full: 9999px;
+
+  /* Role-based density */
+  --ui-density-page-gap: var(--ui-space-5);
+  --ui-density-section-padding: var(--ui-space-5) var(--ui-space-6);
+  --ui-density-action-padding: var(--ui-space-4) var(--ui-space-6);
+  --ui-density-field-gap: var(--ui-space-3);
+  --ui-density-control-min-height: 40px;
+  --ui-density-compact-control-min-height: 32px;
+  --ui-density-control-padding-inline: var(--ui-space-4);
+  --ui-density-control-radius: var(--ui-radius-sm);
+
+  /* No elevation: borders alone separate surfaces. */
+  --ui-shadow-sm: none;
+  --ui-shadow-md: none;
+  --ui-shadow-lg: none;
+  --ui-shadow-soft: none;
+  --ui-shadow-glass: none;
+  --ui-motion-fast: 80ms;
+  --ui-motion-standard: 120ms;
+  --ui-motion-slow: 180ms;
+  --ui-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ui-transition-interactive: all var(--ui-motion-standard) var(--ui-ease-standard);
+
+  /* Shared action component */
+  --ui-button-radius: 4px;
+  --ui-button-primary-background: #222222;
+  --ui-button-primary-hover: #000000;
+  --ui-button-primary-text: #ffffff;
+  --ui-button-primary-border: #222222;
+  --ui-button-secondary-background: #ffffff;
+  --ui-button-secondary-hover: #f5f5f5;
+  --ui-button-secondary-text: #333333;
+  --ui-button-secondary-border: #bdbdbd;
+  --ui-button-secondary-hover-border: #9e9e9e;
+  --ui-button-tertiary-background: transparent;
+  --ui-button-tertiary-hover: #f5f5f5;
+  --ui-button-tertiary-text: #555555;
+  --ui-button-tertiary-border: #e0e0e0;
+  --ui-button-danger-text: #b3261e;
+  --ui-button-danger-hover: #f9e8e7;
+  --ui-button-disabled-opacity: 0.5;
+  --ui-action-group-gap: 8px;
+
+  /* Shared card component */
+  --ui-card-background: var(--ui-surface);
+  --ui-card-border: var(--ui-border-default);
+  --ui-card-radius: var(--ui-radius-lg);
+  --ui-card-shadow: none;
+  --ui-card-hover-shadow: none;
+  --ui-card-hover-transform: none;
+
+  /* Shared state and anchored-surface elevation */
+  --ui-segmented-active-shadow: inset 0 0 0 1px var(--ui-border-strong);
+  --ui-segmented-badge-shadow: inset 0 0 0 1px var(--ui-border-default);
+  --ui-row-running-shadow: inset 0 0 0 1px var(--ui-border-strong);
+  --ui-table-header-divider-shadow: 0 1px 0 var(--ui-border-default);
+  --ui-sticky-footer-shadow: none;
+}
