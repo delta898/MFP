@@ -3,7 +3,7 @@ All notable changes to the Naver Auto Blog publishing tool will be documented in
 
 ## [Unreleased]
 
-## [0.5.1-dev1] - 2026-09-21
+## [0.5.1] - 2026-09-21
 
 ### Added
 - **미니멀 화면 스타일**: 색과 장식을 걷어낸 가장 단순한 화면을 외모 설정에서 선택할 수 있습니다.
