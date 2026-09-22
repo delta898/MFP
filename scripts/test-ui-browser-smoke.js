@@ -1475,6 +1475,13 @@ async function run() {
         assert.equal(await page.locator('.nav-btn[data-view="dashboard-beta"] .nav-new-badge').count(), 0);
         assert.equal(await page.locator('.nav-btn[data-view="blog"]').isHidden(), true);
         assert.equal((await page.locator('.nav-btn[data-view="help"] .nav-label').textContent()).trim(), '도움말');
+        await page.evaluate(() => {
+            void showUiDialog({ title: '진행 중인 작업', message: '현재 결정을 먼저 완료해 주세요.' });
+        });
+        await page.waitForFunction(() => document.getElementById('ui-dialog-backdrop')?.getAttribute('aria-hidden') === 'false');
+        assert.equal(await page.evaluate(() => navigateToBlogQuickCreate()), false);
+        assert.equal(await page.locator('#view-dashboard-beta').evaluate((element) => element.classList.contains('active')), true);
+        await page.locator('#ui-dialog-confirm').click();
         await page.evaluate(() => navigateToBlogQuickCreate());
         await page.waitForFunction(() => document.getElementById('view-blog-next')?.classList.contains('active'));
         assert.equal(await page.locator('[data-blog-next-tab="quick"]').getAttribute('aria-selected'), 'true');

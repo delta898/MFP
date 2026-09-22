@@ -144,7 +144,16 @@ async function navigateTo(viewName, subTab) {
   }
 }
 
+function hasOpenBlockingDialog() {
+  return Array.from(document.querySelectorAll('dialog[open], [role="dialog"][aria-modal="true"]'))
+    .some((dialog) => (
+      dialog.getClientRects().length > 0
+      && !dialog.closest('[aria-hidden="true"]')
+    ));
+}
+
 async function navigateToBlogQuickCreate() {
+  if (hasOpenBlockingDialog()) return false;
   await navigateTo('blog-next', 'quick');
   const blogView = document.getElementById('view-blog-next');
   if (!blogView?.classList.contains('active')) return false;

@@ -362,7 +362,7 @@ function createMenu() {
         {
             label: '파일',
             submenu: [
-                { label: '새 글 작성', click: openBlogQuickCreate },
+                { label: '새 글 작성', accelerator: 'CmdOrCtrl+N', click: openBlogQuickCreate },
                 { type: 'separator' },
                 { label: '종료', role: 'quit' }
             ]

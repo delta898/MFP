@@ -165,9 +165,10 @@ test('Dashboard strengthens its visual hierarchy and the native File menu opens 
     assert.match(betaView, /class="view-title-block dashboard-beta-hero"/);
     assert.doesNotMatch(betaView, /dashboard-beta-quick-create|data-dashboard-beta-action="quick-create"/);
     assert.match(navigation, /async function navigateToBlogQuickCreate\(\)[\s\S]*navigateTo\('blog-next', 'quick'\)[\s\S]*activateBlogNextInputMode\('ai'\)[\s\S]*blog-next-subject/);
+    assert.match(navigation, /function hasOpenBlockingDialog\(\)[\s\S]*dialog\[open\][\s\S]*\[role="dialog"\]\[aria-modal="true"\]/);
+    assert.match(navigation, /async function navigateToBlogQuickCreate\(\)\s*\{\s*if \(hasOpenBlockingDialog\(\)\) return false;/);
     assert.match(electronMain, /function openBlogQuickCreate\(\)[\s\S]*navigateToBlogQuickCreate/);
-    assert.match(electronMain, /label: '새 글 작성', click: openBlogQuickCreate/);
-    assert.doesNotMatch(electronMain, /label: '새 글 작성'[^\n]*accelerator/);
+    assert.match(electronMain, /label: '새 글 작성', accelerator: 'CmdOrCtrl\+N', click: openBlogQuickCreate/);
     assert.doesNotMatch(betaStyle, /\.dashboard-beta-hero\s*\{[\s\S]*?radial-gradient/);
     assert.match(betaStyle, /\.dashboard-beta-hero\s*\{[^}]*overflow:\s*visible/);
     assert.doesNotMatch(betaStyle, /\.dashboard-beta-stat-card:nth-child\(2\)/);
