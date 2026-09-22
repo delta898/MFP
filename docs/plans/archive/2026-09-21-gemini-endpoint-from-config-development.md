@@ -3,7 +3,7 @@
 - Branch: `feat/gemini-endpoint-from-config`
 - Base: `dev` (`8cd90ae`, v0.5.1)
 - Start date: 2026-09-21
-- Status: complete; implementation and automated verification complete, ready for `dev` merge
+- Status: complete; merged into `dev` at `a2aedea` on 2026-09-22 after the full unit suite passed
 
 ## User Need
 
