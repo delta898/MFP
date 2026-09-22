@@ -216,6 +216,67 @@ test('quick publish records a grounded recommendation as saved after topics appe
     assert.equal(lifecycleCalls[0].metadata.recommendation.candidate_id, 'candidate-1');
 });
 
+test('quick preview generation failure records the effective text model without credentials', async () => {
+    const activities = [];
+    const runtime = createPublishActionsRuntime({
+        CONFIG: {
+            GOOGLE_TOPICS_SHEET: 'topics',
+            TEXT_MODEL_CONFIG: {
+                provider: 'google',
+                name: 'Gemini 3 Flash',
+                code: 'gemini-3-flash',
+                transport: 'gemini_generate_content',
+                api_key: 'must-not-escape'
+            }
+        },
+        Logger: { info() {}, warn() {}, error() {} },
+        Core: {
+            async generateContent() {
+                throw new Error('글쓰기 텍스트 모델 호출에 실패했습니다: Invalid URL (요청 주소: https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent)');
+            }
+        },
+        Utils: {
+            convertToMobileNaverBlogUrl: (value) => value,
+            async ensureAllSheetsExist() {},
+            async appendGoogleSheetTopics() {
+                return { success: true, rowNumbers: [2], rowIndices: [0] };
+            },
+            async updateGoogleSheetStatus() {}
+        },
+        License: { async checkLicenseStatus() { return { success: true, features: {} }; } },
+        normalizeKeywords: (value) => Array.isArray(value) ? value : [],
+        normalizeBool: (value, fallback) => typeof value === 'boolean' ? value : fallback,
+        normalizePublishMode: (value) => value,
+        toFeatureMap,
+        isCommandEnabled,
+        getFeatureBool,
+        buildQuickPublishDedupeKey: () => 'failure-key',
+        cleanupQuickPublishDedupeCache() {},
+        getQuickPublishRecentEntry: () => null,
+        setQuickPublishRecentEntry() {},
+        recordUiActivity(activity) { activities.push(activity); }
+    });
+
+    const result = await runtime.executeQuickPublish({
+        subject: '실패 로그 확인',
+        publishMode: 'append_and_generate',
+        targets: ['wordpress']
+    });
+
+    assert.equal(result.success, false);
+    assert.equal(result.code, 'GENERATE_FAILED');
+    const failure = activities.find((activity) => activity.type === 'quick_preview_generate_failed');
+    assert.ok(failure);
+    assert.match(failure.detail, /요청 주소:/);
+    assert.deepEqual(failure.meta, {
+        provider: 'google',
+        model_name: 'Gemini 3 Flash',
+        model_code: 'gemini-3-flash',
+        transport: 'gemini_generate_content'
+    });
+    assert.doesNotMatch(JSON.stringify(failure), /must-not-escape/);
+});
+
 test('shopping quick publish rejects an overlong instruction before external work', async () => {
     const runtime = createPublishActionsRuntime({
         CONFIG: {},

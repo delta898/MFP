@@ -1,5 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { createSystemService } = require('./system.service');
 
 function createService(logs = [], overrides = {}) {
@@ -95,4 +98,24 @@ test('config status reports completed setup from local configuration and OAuth s
     assert.equal(status.setup.ready, true);
     assert.equal(status.setup.google.configured, true);
     assert.equal(status.setup.publishing_channel.naver_configured, true);
+});
+
+test('log file APIs read the same runtime directory used by the Electron logger', async () => {
+    const previous = process.env.BLOG_GENIUS_LOG_DIR;
+    const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'system-runtime-logs-'));
+    const logName = '2026-09-22.log';
+    fs.writeFileSync(path.join(logDir, logName), '[2026-09-22 09:00:00] [ERROR] fixture error\n');
+    process.env.BLOG_GENIUS_LOG_DIR = logDir;
+    try {
+        const service = createService([], {
+            fs,
+            path,
+            CONFIG: { ROOT_DIR: '/different/application/root' }
+        });
+        assert.deepEqual(await service.getLogFiles(), { files: [logName] });
+        assert.match((await service.readLogFile({ filename: logName })).content, /fixture error/);
+    } finally {
+        if (previous === undefined) delete process.env.BLOG_GENIUS_LOG_DIR;
+        else process.env.BLOG_GENIUS_LOG_DIR = previous;
+    }
 });

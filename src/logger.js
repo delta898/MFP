@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const moment = require('moment'); // 날짜 포맷팅용 (없으면 npm install moment)
 const CONFIG = require('./config-loader');
+const { resolveRuntimeLogDir } = require('./logging/runtime-log-path');
 
 // 로그 레벨 정의 (숫자가 클수록 중요함)
 const LEVELS = {
@@ -20,8 +21,7 @@ const MAX_DAILY_LOG_BYTES = 10 * 1024 * 1024;
 // 🚀 [Portable Mode Support]
 // Electron bootstrap이 지정한 쓰기 가능한 공용 로그 폴더를 최우선으로 사용합니다.
 // CLI 및 이전 배포 경로는 기존 ROOT_DIR 규칙을 유지합니다.
-const explicitLogDir = String(process.env.BLOG_GENIUS_LOG_DIR || '').trim();
-const logDir = explicitLogDir || path.join(CONFIG.ROOT_DIR || process.cwd(), 'logs');
+const logDir = resolveRuntimeLogDir({ rootDir: CONFIG.ROOT_DIR, pathImpl: path });
 
 // 폴더 생성 (이미 있으면 통과)
 try {
@@ -94,6 +94,10 @@ class Logger {
 
     static getRecentLogs(limit = 20) {
         return this._recentLogs.slice(0, limit);
+    }
+
+    static getLogDir() {
+        return logDir;
     }
 }
 

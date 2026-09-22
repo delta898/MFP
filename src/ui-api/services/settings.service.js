@@ -1092,7 +1092,31 @@ function createSettingsService(deps = {}) {
             CONFIG.CONFIG_SOURCE_TYPE = 'json';
             CONFIG.CONFIG_SOURCE_PATH = writablePath;
             CONFIG.CONFIG_ERROR_MESSAGE = '';
-            dashboardActivityRecorder({ category: 'settings', type: 'ai_model_role_saved', title: 'AI 모델 역할 반영', detail: normalized.scope });
+            const savedModel = normalized.scope === 'text'
+                ? text
+                : (normalized.scope === 'image'
+                    ? image
+                    : (chatSource === 'writing' ? text : chatSelection));
+            const roleLabel = normalized.scope === 'text'
+                ? '글쓰기 텍스트'
+                : (normalized.scope === 'image' ? '글쓰기 이미지' : 'Chat');
+            const modelName = String(savedModel?.name || savedModel?.code || '모델 미지정').trim();
+            const provider = String(savedModel?.provider || 'unknown').trim();
+            const modelCode = String(savedModel?.code || '').trim();
+            dashboardActivityRecorder({
+                category: 'settings',
+                type: 'ai_model_role_saved',
+                title: 'AI 모델 역할 반영',
+                detail: `${roleLabel}: ${modelName}${modelCode && modelCode !== modelName ? ` (${modelCode})` : ''} · ${provider}`,
+                meta: {
+                    scope: normalized.scope,
+                    source: normalized.scope === 'chat' ? chatSource : 'dedicated',
+                    provider,
+                    model_name: modelName,
+                    model_code: modelCode,
+                    transport: String(savedModel?.transport || '').trim()
+                }
+            });
             return { scope: normalized.scope, ...(await this.getAiRoleSettings()) };
         },
 

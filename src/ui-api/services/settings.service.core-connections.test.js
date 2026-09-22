@@ -118,6 +118,7 @@ test('AI role scope preserves unrelated configuration while updating the selecte
     };
     fs.writeFileSync(configPath, JSON.stringify(initial, null, 2));
     const CONFIG = {};
+    const activities = [];
     const service = createSettingsService({
         fs, path, CONFIG, resolveWritableConfigPath: () => configPath,
         buildMajorSettings: () => ({ fields: {
@@ -125,7 +126,7 @@ test('AI role scope preserves unrelated configuration while updating the selecte
             IMAGE_MODEL_PROVIDER: 'direct', IMAGE_MODEL_NAME: 'image', IMAGE_MODEL_BASE_URL: 'https://image.example/v1', IMAGE_MODEL_API_KEY: 'image-key',
             CHAT_MODEL_SOURCE: 'writing', CHAT_MODEL_PROVIDER: 'direct', CHAT_MODEL_NAME: 'old', CHAT_MODEL_BASE_URL: 'https://old.example/v1', CHAT_MODEL_API_KEY: 'old-key'
         } }),
-        dashboardActivityRecorder: () => {}
+        dashboardActivityRecorder: (activity) => activities.push(activity)
     });
     await service.saveAiRoleSettings({ scope: 'text', values: {
         provider: 'direct', name: 'new-text', baseUrl: 'https://new.example/v1', apiKey: 'new-key'
@@ -134,6 +135,20 @@ test('AI role scope preserves unrelated configuration while updating the selecte
     assert.equal(saved.ai_settings.TEXT_MODEL.name, 'new-text');
     assert.equal(saved.ai_settings.TEXT_MODEL.base_url, 'https://new.example/v1');
     assert.deepEqual(saved.platforms, initial.platforms);
+    assert.deepEqual(activities, [{
+        category: 'settings',
+        type: 'ai_model_role_saved',
+        title: 'AI 모델 역할 반영',
+        detail: '글쓰기 텍스트: new-text · direct',
+        meta: {
+            scope: 'text',
+            source: 'dedicated',
+            provider: 'direct',
+            model_name: 'new-text',
+            model_code: 'new-text',
+            transport: 'openai_chat_completions'
+        }
+    }]);
 });
 
 test('AI role scope reuses the selected provider profile key when the user leaves the key input blank', async () => {

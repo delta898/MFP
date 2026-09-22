@@ -967,7 +967,13 @@ function createPublishActionsRuntime(deps = {}) {
                     type: 'quick_preview_generate_failed',
                     level: 'error',
                     title: '빠른 포스팅 미리보기 생성 실패',
-                    detail: generated.message || finalSubject
+                    detail: generated.message || finalSubject,
+                    meta: {
+                        provider: String(CONFIG.TEXT_MODEL_CONFIG?.provider || '').trim(),
+                        model_name: String(CONFIG.TEXT_MODEL_CONFIG?.name || '').trim(),
+                        model_code: String(CONFIG.TEXT_MODEL_CONFIG?.code || '').trim(),
+                        transport: String(CONFIG.TEXT_MODEL_CONFIG?.transport || '').trim()
+                    }
                 });
                 if (!workspaceDraft) {
                     setQuickPublishRecentEntry(dedupeKey, {

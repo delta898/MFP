@@ -4,7 +4,8 @@ const assert = require('node:assert/strict');
 const {
     extractGeminiText,
     resolveGeminiThinkingConfig,
-    resolveGeminiTextEndpoint
+    resolveGeminiEndpointFromConfig,
+    describeGeminiEndpoint
 } = require('./gemini-response');
 
 test('Gemini response joins every visible text part', () => {
@@ -59,11 +60,44 @@ test('Gemini thinking policy promotes unsupported minimal effort to the nearest 
     );
 });
 
-test('Gemini text endpoint follows the model selected for the current request', () => {
-    const configuredTextEndpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent';
+test('Gemini endpoint ignores user-supplied base URLs for code-owned providers', () => {
+    const fixed = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent';
     assert.equal(
-        resolveGeminiTextEndpoint(configuredTextEndpoint, 'gemini-3.5-flash'),
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent'
+        resolveGeminiEndpointFromConfig({ provider: 'google', baseUrl: 'https://attacker.example/v1', code: 'gemini-3-flash' }),
+        fixed
     );
-    assert.equal(resolveGeminiTextEndpoint(configuredTextEndpoint, ''), configuredTextEndpoint);
+    assert.equal(
+        resolveGeminiEndpointFromConfig({ provider: 'google', baseUrl: '', code: 'gemini-3-flash' }),
+        fixed
+    );
+    assert.equal(
+        resolveGeminiEndpointFromConfig({ provider: 'openai', baseUrl: 'https://attacker.example/v1', code: 'gemini-3-flash' }),
+        fixed
+    );
+});
+
+test('Gemini endpoint diagnostics remove credentials, query parameters, and fragments', () => {
+    assert.equal(
+        describeGeminiEndpoint('https://user:password@example.com/v1/models/test:generateContent?key=secret#fragment'),
+        'https://example.com/v1/models/test:generateContent'
+    );
+    assert.equal(
+        describeGeminiEndpoint('not a url?key=secret'),
+        'not a url'
+    );
+});
+
+test('Gemini endpoint honors custom base URLs only for direct providers', () => {
+    assert.equal(
+        resolveGeminiEndpointFromConfig({ provider: 'direct', baseUrl: 'https://my-gateway.example/v1/', code: 'my-model' }),
+        'https://my-gateway.example/v1/models/my-model:generateContent'
+    );
+    assert.throws(
+        () => resolveGeminiEndpointFromConfig({ provider: 'direct', baseUrl: '', code: 'my-model' }),
+        /Base URL/
+    );
+    assert.throws(
+        () => resolveGeminiEndpointFromConfig({ provider: 'google', baseUrl: '', code: '' }),
+        /모델 코드/
+    );
 });

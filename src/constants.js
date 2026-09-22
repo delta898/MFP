@@ -39,11 +39,6 @@ module.exports = {
     // 이전 내부 참조를 위한 공통 프롬프트 별칭
     PROMPT_FILE: path.join(__dirname, 'config', 'blog_prompt.md'),
 
-    // 🔒 API 엔드포인트 (변경 없음)
-    GEMINI_TEXT_ENDPOINT: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent',
-
-    GEMINI_IMAGE_ENDPOINT: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent',
-
     // 🔒 기본 대기 시간 (변경 없음)
     WAIT: {
         LOAD: 3000,

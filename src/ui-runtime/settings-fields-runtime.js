@@ -295,12 +295,6 @@ function createUiSettingsFieldsRuntime(deps = {}) {
         CONFIG.IMAGE_MODEL_BASE_URL = imageModelConfig.base_url;
         CONFIG.TEXT_MODEL_API_KEY = textModelConfig.api_key;
         CONFIG.IMAGE_MODEL_API_KEY = imageModelConfig.api_key;
-        CONFIG.GEMINI_TEXT_ENDPOINT = textModelConfig.transport === 'gemini_generate_content' && textModelConfig.code
-            ? `https://generativelanguage.googleapis.com/v1beta/models/${textModelConfig.code}:generateContent`
-            : '';
-        CONFIG.GEMINI_IMAGE_ENDPOINT = imageModelConfig.transport === 'gemini_generate_content' && imageModelConfig.code
-            ? `https://generativelanguage.googleapis.com/v1beta/models/${imageModelConfig.code}:generateContent`
-            : '';
         CONFIG.TYPING_SPEED = typingSpeed;
         CONFIG.TYPING = CONFIG.TYPING_PRESETS?.[typingSpeed] || CONFIG.TYPING;
         CONFIG.WRITE_URL = `https://blog.naver.com/${naverId}/postwrite`;

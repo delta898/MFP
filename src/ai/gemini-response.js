@@ -42,15 +42,44 @@ function resolveGeminiThinkingConfig(modelCode, reasoningEffort, capabilities = 
     return resolvedLevel ? { thinkingLevel: resolvedLevel } : null;
 }
 
-function resolveGeminiTextEndpoint(configuredEndpoint, modelCode) {
-    const endpoint = String(configuredEndpoint || '').trim();
-    const code = String(modelCode || '').trim();
-    if (!endpoint || !code) return endpoint;
-    return endpoint.replace(/(\/models\/)[^:]+(:generateContent(?:\?.*)?$)/, `$1${code}$2`);
+const GEMINI_API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
+
+// Code-owned transports must never send keys to user-supplied URLs: only the
+// direct provider may use a custom base URL. All other callers resolve to the
+// fixed Gemini address, so a tampered saved base_url cannot exfiltrate the key.
+function resolveGeminiEndpointFromConfig({ provider = '', baseUrl = '', code = '' } = {}) {
+    const normalizedProvider = String(provider || '').trim().toLowerCase();
+    const normalizedCode = String(code || '').trim();
+    if (!normalizedCode) throw new Error('Gemini 호출에 필요한 모델 코드가 없습니다.');
+    if (normalizedProvider === 'direct') {
+        const directBase = String(baseUrl || '').trim().replace(/\/+$/, '');
+        if (!directBase) throw new Error('직접 입력 모델의 Base URL이 없습니다.');
+        return `${directBase}/models/${encodeURIComponent(normalizedCode)}:generateContent`;
+    }
+    return `${GEMINI_API_BASE_URL}/models/${encodeURIComponent(normalizedCode)}:generateContent`;
+}
+
+function describeGeminiEndpoint(endpoint) {
+    const raw = String(endpoint || '').trim();
+    if (!raw) return '(empty)';
+    try {
+        const parsed = new URL(raw);
+        parsed.username = '';
+        parsed.password = '';
+        parsed.search = '';
+        parsed.hash = '';
+        return parsed.toString().replace(/\/$/, '');
+    } catch (_error) {
+        const withoutQuery = raw.split(/[?#]/, 1)[0]
+            .replace(/\/\/[^/@\s]+@/, '//[redacted]@');
+        return withoutQuery.slice(0, 240) || '(invalid)';
+    }
 }
 
 module.exports = {
     extractGeminiText,
     resolveGeminiThinkingConfig,
-    resolveGeminiTextEndpoint
+    GEMINI_API_BASE_URL,
+    resolveGeminiEndpointFromConfig,
+    describeGeminiEndpoint
 };

@@ -303,12 +303,6 @@ const resolvedAiModelProfiles = resolveStoredModelProfiles(structuredConfig, {
 });
 const resolvedContentWritingPreferences = resolveContentWritingPreferences(structuredConfig.content);
 const legacyContentWritingStrategy = resolvedContentWritingPreferences.strategy;
-const geminiTextModelCode = resolvedTextModelConfig.transport === 'gemini_generate_content'
-    ? resolvedTextModelConfig.code
-    : '';
-const geminiImageModelCode = resolvedImageModelConfig.transport === 'gemini_generate_content'
-    ? resolvedImageModelConfig.code
-    : '';
 
 const licenseKeyInfo = loadLicenseKey({
     primaryPath: licenseKeyStoragePaths.primaryPath,
@@ -603,12 +597,6 @@ const CONFIG = {
     },
 
     // 🔧 [AI/Dynamic]
-    GEMINI_TEXT_ENDPOINT: geminiTextModelCode
-        ? `https://generativelanguage.googleapis.com/v1beta/models/${geminiTextModelCode}:generateContent`
-        : '',
-    GEMINI_IMAGE_ENDPOINT: geminiImageModelCode
-        ? `https://generativelanguage.googleapis.com/v1beta/models/${geminiImageModelCode}:generateContent`
-        : '',
     TYPING_SPEED: typingMode,
     TYPING: typingDelay,
     CLOSE_DELAY: (structuredConfig.platforms.naver.close_delay_seconds || 10) * 1000,

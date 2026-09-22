@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const CONFIG = require('../config-loader');
+const { resolveRuntimeLogDir } = require('../logging/runtime-log-path');
 
 const DEFAULT_MAX_RECENT = 200;
 const DEFAULT_PERSIST_LIMIT = 500;
@@ -15,7 +16,14 @@ class DashboardActivityStore {
         this.rootDir = options.rootDir || CONFIG.ROOT_DIR || process.cwd();
         this.maxRecent = Number(options.maxRecent) || DEFAULT_MAX_RECENT;
         this.persistLimit = Number(options.persistLimit) || DEFAULT_PERSIST_LIMIT;
-        this.filePath = options.filePath || this.path.join(this.rootDir, 'logs', DEFAULT_FILE_NAME);
+        this.logDir = options.logDir || resolveRuntimeLogDir({
+            env: options.env || process.env,
+            rootDir: this.rootDir,
+            pathImpl: this.path
+        });
+        this.filePath = options.filePath || this.path.join(this.logDir, DEFAULT_FILE_NAME);
+        this.legacyFilePath = options.legacyFilePath
+            || this.path.join(this.rootDir, 'logs', DEFAULT_FILE_NAME);
         this.loaded = false;
         this.items = [];
     }
@@ -24,17 +32,23 @@ class DashboardActivityStore {
         if (this.loaded) return;
         this.loaded = true;
         try {
-            if (!this.fs.existsSync(this.filePath)) {
+            const legacyCandidate = this.legacyFilePath !== this.filePath
+                && this.fs.existsSync(this.legacyFilePath)
+                ? this.legacyFilePath
+                : '';
+            const sourcePath = this.fs.existsSync(this.filePath) ? this.filePath : legacyCandidate;
+            if (!sourcePath) {
                 this.items = [];
                 return;
             }
-            const raw = String(this.fs.readFileSync(this.filePath, 'utf8') || '').trim();
+            const raw = String(this.fs.readFileSync(sourcePath, 'utf8') || '').trim();
             if (!raw) {
                 this.items = [];
                 return;
             }
             const parsed = JSON.parse(raw);
             this.items = Array.isArray(parsed) ? parsed.filter(Boolean).slice(0, this.persistLimit) : [];
+            if (sourcePath === legacyCandidate) this._flush();
         } catch (error) {
             this.items = [];
             console.error(`⚠️ Dashboard activity load failed: ${error.message}`);

@@ -33,3 +33,38 @@ test('dashboard activity store records and reloads recent items', () => {
     assert.equal(restoredRecent.length, 2);
     assert.equal(restoredRecent[1].detail, '테스트 제목');
 });
+
+test('dashboard activity store shares the Electron runtime log directory', () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dashboard-activity-root-'));
+    const runtimeLogDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dashboard-activity-runtime-'));
+    const store = new DashboardActivityStore({
+        fs,
+        path,
+        rootDir,
+        env: { BLOG_GENIUS_LOG_DIR: runtimeLogDir }
+    });
+
+    store.record({ title: '공용 로그 경로 확인' });
+
+    assert.equal(store.filePath, path.join(runtimeLogDir, 'dashboard-activities.json'));
+    assert.equal(fs.existsSync(store.filePath), true);
+    assert.equal(fs.existsSync(path.join(rootDir, 'logs', 'dashboard-activities.json')), false);
+});
+
+test('dashboard activity store migrates legacy activity history into the runtime log directory', () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dashboard-activity-legacy-'));
+    const runtimeLogDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dashboard-activity-runtime-'));
+    const legacyPath = path.join(rootDir, 'logs', 'dashboard-activities.json');
+    fs.mkdirSync(path.dirname(legacyPath), { recursive: true });
+    fs.writeFileSync(legacyPath, JSON.stringify([{ id: 'legacy', title: '기존 활동', meta: {} }]));
+
+    const store = new DashboardActivityStore({
+        fs,
+        path,
+        rootDir,
+        env: { BLOG_GENIUS_LOG_DIR: runtimeLogDir }
+    });
+
+    assert.equal(store.listRecent(5)[0].title, '기존 활동');
+    assert.equal(fs.existsSync(path.join(runtimeLogDir, 'dashboard-activities.json')), true);
+});

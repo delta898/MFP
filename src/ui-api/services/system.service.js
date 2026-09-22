@@ -2,6 +2,7 @@ const { createApiError } = require('../errors');
 const { listRecentDashboardActivities } = require('../../activity/dashboard-activity-store');
 const { toSafeRuntimeEnvironmentDiagnostic } = require('../../environment/runtime-profile');
 const { buildSetupReadiness } = require('../../account/setup-readiness');
+const { resolveRuntimeLogDir } = require('../../logging/runtime-log-path');
 
 function createSystemService(deps = {}) {
     const {
@@ -171,7 +172,7 @@ function createSystemService(deps = {}) {
             const y = date.getFullYear();
             const m = String(date.getMonth() + 1).padStart(2, '0');
             const d = String(date.getDate()).padStart(2, '0');
-            const logFile = path.join(CONFIG.ROOT_DIR, 'logs', `${y}-${m}-${d}.log`);
+            const logFile = path.join(resolveRuntimeLogDir({ rootDir: CONFIG.ROOT_DIR, pathImpl: path }), `${y}-${m}-${d}.log`);
             if (!fs.existsSync(logFile)) return [];
 
             const content = String(fs.readFileSync(logFile, 'utf-8') || '');
@@ -512,7 +513,7 @@ function createSystemService(deps = {}) {
         },
 
         async getLogFiles() {
-            const logDir = path.join(CONFIG.ROOT_DIR, 'logs');
+            const logDir = resolveRuntimeLogDir({ rootDir: CONFIG.ROOT_DIR, pathImpl: path });
             if (!fs.existsSync(logDir)) {
                 return { files: [] };
             }
@@ -526,7 +527,7 @@ function createSystemService(deps = {}) {
             if (!filename || !filename.endsWith('.log') || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
                 throw createApiError(400, 'INVALID_FILE', '잘못된 파일 이름입니다.');
             }
-            const logFile = path.join(CONFIG.ROOT_DIR, 'logs', filename);
+            const logFile = path.join(resolveRuntimeLogDir({ rootDir: CONFIG.ROOT_DIR, pathImpl: path }), filename);
             if (!fs.existsSync(logFile)) {
                 throw createApiError(404, 'FILE_NOT_FOUND', '로그 파일을 찾을 수 없습니다.');
             }

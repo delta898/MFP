@@ -51,7 +51,8 @@ const {
 const {
     extractGeminiText,
     resolveGeminiThinkingConfig,
-    resolveGeminiTextEndpoint
+    resolveGeminiEndpointFromConfig,
+    describeGeminiEndpoint
 } = require('./ai/gemini-response');
 const { resolveAiRetryDecision } = require('./ai/request-retry-policy');
 const {
@@ -3897,9 +3898,18 @@ const Utils = {
             options?.reasoningEffort,
             options?.modelCapabilities
         );
-        const endpoint = resolveGeminiTextEndpoint(CONFIG.GEMINI_TEXT_ENDPOINT, modelCode);
+        let endpoint;
+        try {
+            endpoint = resolveGeminiEndpointFromConfig({
+                provider: options?.provider,
+                baseUrl: options?.baseUrl,
+                code: modelCode
+            });
+        } catch (error) {
+            throw new Error(`${usageLabel} 호출에 필요한 모델 주소 정보가 없습니다. 설정에서 모델을 다시 선택해 주세요.`);
+        }
         const logStart = options?.logStart !== false;
-
+        const endpointForLog = describeGeminiEndpoint(endpoint);
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
                 if (logStart) Logger.info(`🧠 [${usageLabel}] Gemini 호출 중... (시도 ${attempt}/${retries})`);
@@ -3934,8 +3944,12 @@ const Utils = {
                 return text;
             } catch (e) {
                 const readableError = formatAiRemoteErrorMessage(e);
+                const invalidUrl = e?.code === 'ERR_INVALID_URL' || /invalid url/i.test(readableError);
+                const failureDetail = invalidUrl
+                    ? `${readableError} (요청 주소: ${endpointForLog})`
+                    : readableError;
                 const retryDecision = resolveAiRetryDecision(e, attempt);
-                Logger.warn(`⚠️ [${usageLabel}] Gemini 호출 실패 (시도 ${attempt}/${retries}): ${readableError}`);
+                Logger.warn(`⚠️ [${usageLabel}] Gemini 호출 실패 (시도 ${attempt}/${retries}, 요청 주소=${endpointForLog}): ${readableError}`);
 
                 if (attempt === retries || !retryDecision.retryable) {
                     Logger.error(`❌ [${usageLabel}] Gemini 호출 중단`);
@@ -3945,7 +3959,7 @@ const Utils = {
                         rateLimitError.status = 429;
                         throw rateLimitError;
                     }
-                    throw new Error(`${usageLabel} 호출에 실패했습니다: ${readableError}`);
+                    throw new Error(`${usageLabel} 호출에 실패했습니다: ${failureDetail}`);
                 }
 
                 const waitTime = retryDecision.delayMs;
@@ -4070,6 +4084,8 @@ const Utils = {
                 ...runtimePolicy.options,
                 usageLabel,
                 apiKey: String(modelConfig.api_key || '').trim(),
+                baseUrl: String(modelConfig.base_url || '').trim(),
+                provider: String(modelConfig.provider || '').trim(),
                 modelCode,
                 modelCapabilities: runtimePolicy.definition.capabilities
             });
@@ -4112,15 +4128,26 @@ const Utils = {
     callGeminiImage: async function (prompt, savePath, retries = 3, options = {}) {
         const apiKey = String(options?.apiKey || '').trim();
         if (!apiKey) throw new Error('API Key 누락');
+        const modelCode = String(options?.modelCode || '').trim();
+        let endpoint;
+        try {
+            endpoint = resolveGeminiEndpointFromConfig({
+                provider: options?.provider,
+                baseUrl: options?.baseUrl,
+                code: modelCode
+            });
+        } catch (error) {
+            throw new Error('이미지 모델 호출에 필요한 모델 주소 정보가 없습니다. 설정에서 모델을 다시 선택해 주세요.');
+        }
         const imageTimeoutMs = Math.max(1000, Number(CONFIG.GEMINI_IMAGE_TIMEOUT_MS) || 180000);
         const aspectRatio = resolveWritingImageAspectRatio(options);
+        const endpointForLog = describeGeminiEndpoint(endpoint);
 
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
-                const endpoint = `${CONFIG.GEMINI_IMAGE_ENDPOINT}?key=${apiKey}`;
                 const response = await this.runWithHeartbeat(
                     `(시도 ${attempt})`,
-                    () => axios.post(endpoint,
+                    () => axios.post(`${endpoint}?key=${apiKey}`,
                         {
                             contents: [{ parts: [{ text: prompt }] }],
                             generationConfig: {
@@ -4155,11 +4182,19 @@ const Utils = {
 
                 return fullPath;
             } catch (e) {
-                Logger.warn(`⚠️ Gemini Image API 호출 실패 (시도 ${attempt}/${retries}): ${formatReadableErrorMessage(e)}`);
+                const readableError = formatReadableErrorMessage(e);
+                const invalidUrl = e?.code === 'ERR_INVALID_URL' || /invalid url/i.test(readableError);
+                const failureDetail = invalidUrl
+                    ? `${readableError} (요청 주소: ${endpointForLog})`
+                    : readableError;
+                Logger.warn(`⚠️ Gemini Image API 호출 실패 (시도 ${attempt}/${retries}, 요청 주소=${endpointForLog}): ${readableError}`);
 
                 if (attempt === retries) {
                     Logger.error(`❌ 이미지 생성 최대 재시도 횟수 초과`);
-                    throw e; // null 대신 에러 throw
+                    const finalError = new Error(failureDetail);
+                    finalError.code = e?.code;
+                    finalError.cause = e;
+                    throw finalError;
                 }
 
                 // 지수 백오프
@@ -4261,6 +4296,9 @@ const Utils = {
         if (transport === 'gemini_generate_content') {
             resultPath = await this.callGeminiImage(prompt, savePath, retries, {
                 apiKey: String(modelConfig.api_key || '').trim(),
+                baseUrl: String(modelConfig.base_url || '').trim(),
+                provider: String(modelConfig.provider || '').trim(),
+                modelCode,
                 aspectRatio,
                 useCase: options.useCase
             });
