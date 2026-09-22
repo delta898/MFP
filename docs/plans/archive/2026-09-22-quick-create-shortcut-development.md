@@ -3,7 +3,7 @@
 - Branch: `codex/quick-create-shortcut`
 - Base/parent branch: `dev` (`449ae66`)
 - Start date: 2026-09-22
-- Status: implementation complete; awaiting user review and merge approval
+- Status: complete; approved for `dev` merge on 2026-09-22
 
 ## User Need
 
@@ -49,8 +49,12 @@
 - `npm run test:ui-blog-auto`: passed
 - `npm run test:ui-e2e`: passed (sandbox 외부 로컬 포트 허용 후 재실행)
 - `npm run test:ui-browser`: 새 modal 차단과 정상 빠른 생성 진입 구간은 통과했지만, 이후 기존 legacy Settings 대기(`view-settings`)에서 timeout. 현재 제품 계약은 `settings` 요청을 Settings Beta로 redirect하므로 별도 test-debt다.
+- `npm run test:unit`: 1,887 tests, 1,886 passed, 1 Windows-only skip, 0 failed
 - Pending: user hands-on confirmation
-- Pending before parent merge: full unit suite with explicit approval
+
+## Final Result
+
+`CmdOrCtrl+N`이 Electron의 `새 글 작성` 메뉴와 연결되며, 메뉴 클릭과 단축키 모두 동일한 Blog Beta 빠른 생성 진입 경로를 사용한다. 열린 modal transaction은 보존되고, 기존 설정 미저장 확인 및 제목 입력 포커스 동작도 유지된다.
 
 ## Remaining Risks / Manual Checks
 
