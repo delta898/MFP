@@ -3,7 +3,7 @@
 - Branch: `feat/gemini-endpoint-from-config`
 - Base: `dev` (`8cd90ae`, v0.5.1)
 - Start date: 2026-09-21
-- Status: active; implementation and focused verification complete, awaiting hands-on/full-suite/merge instructions
+- Status: complete; implementation and automated verification complete, ready for `dev` merge
 
 ## User Need
 
@@ -42,7 +42,7 @@ Gemini 호출이 `GEMINI_TEXT/IMAGE_ENDPOINT` 전역 주소(앱 시작 시 1회 
 - Security fix: `resolveGeminiEndpointFromConfig` — code-owned transports use the fixed Gemini address; custom base URLs only for direct. Tampered saved base_url can no longer exfiltrate the API key.
 - Blocker fix: removed stale inner endpoint line in `callGeminiImage` retry loop (`ReferenceError: baseUrl is not defined` on every image call); added mocked-HTTP integration TCs asserting final URLs for both text and image paths.
 - Regression coverage: text/image actual axios URL, tampered base URL, missing model code, Invalid URL safe diagnostic, shared runtime log path, legacy activity migration, saved-model activity metadata.
-- Full unit suite before dev merge: pending, requires explicit user approval
+- Full unit suite: `npm run test:unit` passed across 356 test files on 2026-09-22 after explicit user approval.
 - User hands-on: 구글 모델 전환 후 저장 → 재시작 없이 빠른 생성 확인
 
 ## Remaining Risks / Manual Checks
