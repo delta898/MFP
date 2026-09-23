@@ -5,7 +5,7 @@
 - Branch: `codex/fix/settings-discard-navigation`
 - Base/parent branch: `release/v0.5.2` (`42c09bd`)
 - Start date: 2026-09-23
-- Status: implementation and required validation complete; parent merge approved
+- Status: completed and merged into `release/v0.5.2`
 
 ## User Need
 
