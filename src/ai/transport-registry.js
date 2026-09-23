@@ -41,7 +41,10 @@ const TRANSPORTS = Object.freeze({
         kinds: Object.freeze(['image']),
         base_url: KIE_BASE_URL,
         model_ids: Object.freeze([
+            'gpt-image-2-5-sunburst-text-to-image',
+            'gpt-image-2-5-flare-text-to-image',
             'gpt-image-2-text-to-image',
+            'nano-banana-2-lite',
             'nano-banana-2',
             'nano-banana-pro',
             'seedream/4.5-text-to-image',

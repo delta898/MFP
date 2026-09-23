@@ -98,6 +98,26 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.settings-next-ai-reasoning-help {
+  margin-inline-start: var(--ui-space-1);
+  vertical-align: text-bottom;
+}
+
+.settings-next-ai-reasoning-help .tooltip-text {
+  text-align: start;
+}
+
+.settings-next-ai-reasoning-help:focus .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+  transform: translateX(-50%) translateY(calc(var(--ui-space-1) * -1));
+}
+
+.settings-next-ai-reasoning-help:focus-visible .tooltip-icon {
+  outline: 2px solid var(--ui-border-focus);
+  outline-offset: 2px;
+}
+
 .settings-next-ai-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -109,6 +129,15 @@
 }
 
 .settings-next-ai-fields label[hidden] { display: none; }
+
+.settings-next-ai-choice-card {
+  --ui-settings-card-heading-body-gap: var(--ui-space-4);
+}
+
+.settings-next-ai-choice-body {
+  display: grid;
+  gap: var(--ui-space-2);
+}
 
 .settings-next-writing-stack {
   display: flex;

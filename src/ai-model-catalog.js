@@ -18,6 +18,54 @@ const PROVIDER_PRESETS = Object.freeze({
 
 const TEXT_MODEL_PRESETS = Object.freeze([
     {
+        key: 'openai:gpt-6-astra',
+        name: 'GPT-6 Astra',
+        code: 'gpt-6-astra',
+        provider: 'openai',
+        transport: 'openai_chat_completions',
+        base_url: OPENAI_BASE_URL,
+        status: 'active',
+        sort_order: 5,
+        capabilities: {
+            temperature: false,
+            structured_output: true,
+            image_input: true,
+            reasoning_efforts: ['low', 'medium', 'high', 'xhigh', 'max']
+        }
+    },
+    {
+        key: 'openai:gpt-6-sol',
+        name: 'GPT-6 Sol',
+        code: 'gpt-6-sol',
+        provider: 'openai',
+        transport: 'openai_chat_completions',
+        base_url: OPENAI_BASE_URL,
+        status: 'active',
+        sort_order: 10,
+        capabilities: {
+            temperature: false,
+            structured_output: true,
+            image_input: true,
+            reasoning_efforts: ['none', 'low', 'medium', 'high', 'xhigh', 'max']
+        }
+    },
+    {
+        key: 'openai:gpt-6-luna',
+        name: 'GPT-6 Luna',
+        code: 'gpt-6-luna',
+        provider: 'openai',
+        transport: 'openai_chat_completions',
+        base_url: OPENAI_BASE_URL,
+        status: 'active',
+        sort_order: 20,
+        capabilities: {
+            temperature: false,
+            structured_output: true,
+            image_input: true,
+            reasoning_efforts: ['none', 'low', 'medium', 'high', 'xhigh', 'max']
+        }
+    },
+    {
         key: 'openai:gpt-5.6-sol',
         name: 'GPT-5.6 Sol',
         code: 'gpt-5.6-sol',
@@ -25,8 +73,13 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         transport: 'openai_chat_completions',
         base_url: OPENAI_BASE_URL,
         status: 'active',
-        sort_order: 10,
-        capabilities: { temperature: false, structured_output: true, image_input: true }
+        sort_order: 30,
+        capabilities: {
+            temperature: false,
+            structured_output: true,
+            image_input: true,
+            reasoning_efforts: ['none', 'low', 'medium', 'high', 'xhigh', 'max']
+        }
     },
     {
         key: 'openai:gpt-5.6-terra',
@@ -36,8 +89,13 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         transport: 'openai_chat_completions',
         base_url: OPENAI_BASE_URL,
         status: 'active',
-        sort_order: 20,
-        capabilities: { temperature: false, structured_output: true, image_input: true }
+        sort_order: 40,
+        capabilities: {
+            temperature: false,
+            structured_output: true,
+            image_input: true,
+            reasoning_efforts: ['none', 'low', 'medium', 'high', 'xhigh', 'max']
+        }
     },
     {
         key: 'openai:gpt-5.6-luna',
@@ -47,8 +105,29 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         transport: 'openai_chat_completions',
         base_url: OPENAI_BASE_URL,
         status: 'active',
-        sort_order: 30,
-        capabilities: { temperature: false, structured_output: true, image_input: true }
+        sort_order: 50,
+        capabilities: {
+            temperature: false,
+            structured_output: true,
+            image_input: true,
+            reasoning_efforts: ['none', 'low', 'medium', 'high', 'xhigh', 'max']
+        }
+    },
+    {
+        key: 'google:gemini-3.8-flash',
+        name: 'Gemini 3.8 Flash',
+        code: 'gemini-3.8-flash',
+        provider: 'google',
+        transport: 'gemini_generate_content',
+        base_url: '',
+        status: 'active',
+        sort_order: 5,
+        capabilities: {
+            temperature: false,
+            structured_output: true,
+            image_input: true,
+            thinking_levels: ['low', 'medium', 'high']
+        }
     },
     {
         key: 'google:gemini-3.7-flash',
@@ -100,7 +179,7 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         provider: 'google',
         transport: 'gemini_generate_content',
         base_url: '',
-        status: 'active',
+        status: 'hidden',
         sort_order: 30,
         capabilities: { temperature: true, structured_output: true, image_input: true }
     },
@@ -116,9 +195,9 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         capabilities: { temperature: true, structured_output: true, image_input: true }
     },
     {
-        key: 'anthropic:claude-fable-5',
-        name: 'Claude Fable 5',
-        code: 'claude-fable-5',
+        key: 'anthropic:claude-fable-5-1',
+        name: 'Claude Fable 5.1',
+        code: 'claude-fable-5-1',
         provider: 'anthropic',
         transport: 'anthropic_openai_compat',
         base_url: CLAUDE_OPENAI_BASE_URL,
@@ -146,7 +225,25 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         base_url: CLAUDE_OPENAI_BASE_URL,
         status: 'active',
         sort_order: 30,
-        capabilities: { temperature: true, structured_output: false, image_input: true }
+        capabilities: { temperature: false, structured_output: false, image_input: true }
+    },
+    { key: 'anthropic:claude-haiku-4-5', name: 'Claude Haiku 4.5', code: 'claude-haiku-4-5', provider: 'anthropic', transport: 'anthropic_openai_compat', base_url: CLAUDE_OPENAI_BASE_URL, status: 'active', sort_order: 40, capabilities: { temperature: true, structured_output: false, image_input: true } },
+    { key: 'anthropic:claude-fable-5', name: 'Claude Fable 5', code: 'claude-fable-5', provider: 'anthropic', transport: 'anthropic_openai_compat', base_url: CLAUDE_OPENAI_BASE_URL, status: 'hidden', sort_order: 90, capabilities: { temperature: true, structured_output: false, image_input: true } },
+    {
+        key: 'kie:gpt-6-astra',
+        name: 'GPT-6 Astra',
+        code: 'gpt-6-astra',
+        provider: 'kie',
+        transport: 'kie_responses',
+        base_url: KIE_BASE_URL,
+        status: 'active',
+        sort_order: 5,
+        capabilities: {
+            temperature: false,
+            structured_output: false,
+            image_input: false,
+            reasoning_efforts: ['low', 'medium', 'high', 'xhigh', 'max']
+        }
     },
     {
         key: 'kie:gpt-5-6-sol',
@@ -157,7 +254,12 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         base_url: KIE_BASE_URL,
         status: 'active',
         sort_order: 10,
-        capabilities: { temperature: false, structured_output: false, image_input: false }
+        capabilities: {
+            temperature: false,
+            structured_output: false,
+            image_input: false,
+            reasoning_efforts: ['low', 'medium', 'high', 'xhigh', 'max']
+        }
     },
     {
         key: 'kie:gpt-5-6-terra',
@@ -168,7 +270,12 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         base_url: KIE_BASE_URL,
         status: 'active',
         sort_order: 20,
-        capabilities: { temperature: false, structured_output: false, image_input: false }
+        capabilities: {
+            temperature: false,
+            structured_output: false,
+            image_input: false,
+            reasoning_efforts: ['low', 'medium', 'high', 'xhigh', 'max']
+        }
     },
     {
         key: 'kie:gpt-5-6-luna',
@@ -179,6 +286,22 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         base_url: KIE_BASE_URL,
         status: 'active',
         sort_order: 30,
+        capabilities: {
+            temperature: false,
+            structured_output: false,
+            image_input: false,
+            reasoning_efforts: ['low', 'medium', 'high', 'xhigh', 'max']
+        }
+    },
+    {
+        key: 'kie:gemini-3-8-flash-openai',
+        name: 'Gemini 3.8 Flash',
+        code: 'gemini-3-8-flash-openai',
+        provider: 'kie',
+        transport: 'kie_openai_chat',
+        base_url: KIE_BASE_URL,
+        status: 'active',
+        sort_order: 35,
         capabilities: { temperature: false, structured_output: false, image_input: false }
     },
     {
@@ -199,7 +322,7 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         provider: 'kie',
         transport: 'kie_openai_chat',
         base_url: KIE_BASE_URL,
-        status: 'active',
+        status: 'hidden',
         sort_order: 50,
         capabilities: { temperature: true, structured_output: false, image_input: false }
     },
@@ -214,18 +337,17 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         sort_order: 60,
         capabilities: { temperature: true, structured_output: false, image_input: false }
     },
-    { key: 'anthropic:claude-opus-4-6', name: 'Claude Opus 4.6', code: 'claude-opus-4-6', provider: 'anthropic', transport: 'anthropic_openai_compat', base_url: CLAUDE_OPENAI_BASE_URL, status: 'active', sort_order: 40, capabilities: { temperature: true, structured_output: false, image_input: true } },
-    { key: 'anthropic:claude-sonnet-4-6', name: 'Claude Sonnet 4.6', code: 'claude-sonnet-4-6', provider: 'anthropic', transport: 'anthropic_openai_compat', base_url: CLAUDE_OPENAI_BASE_URL, status: 'active', sort_order: 50, capabilities: { temperature: true, structured_output: false, image_input: true } },
-    { key: 'anthropic:claude-haiku-4-5', name: 'Claude Haiku 4.5', code: 'claude-haiku-4-5', provider: 'anthropic', transport: 'anthropic_openai_compat', base_url: CLAUDE_OPENAI_BASE_URL, status: 'active', sort_order: 80, capabilities: { temperature: true, structured_output: false, image_input: true } },
-    { key: 'anthropic:claude-opus-4-5', name: 'Claude Opus 4.5', code: 'claude-opus-4-5', provider: 'anthropic', transport: 'anthropic_openai_compat', base_url: CLAUDE_OPENAI_BASE_URL, status: 'active', sort_order: 60, capabilities: { temperature: true, structured_output: false, image_input: true } },
-    { key: 'anthropic:claude-sonnet-4-5', name: 'Claude Sonnet 4.5', code: 'claude-sonnet-4-5', provider: 'anthropic', transport: 'anthropic_openai_compat', base_url: CLAUDE_OPENAI_BASE_URL, status: 'active', sort_order: 70, capabilities: { temperature: true, structured_output: false, image_input: true } }
+    { key: 'anthropic:claude-opus-4-6', name: 'Claude Opus 4.6', code: 'claude-opus-4-6', provider: 'anthropic', transport: 'anthropic_openai_compat', base_url: CLAUDE_OPENAI_BASE_URL, status: 'hidden', sort_order: 100, capabilities: { temperature: true, structured_output: false, image_input: true } },
+    { key: 'anthropic:claude-sonnet-4-6', name: 'Claude Sonnet 4.6', code: 'claude-sonnet-4-6', provider: 'anthropic', transport: 'anthropic_openai_compat', base_url: CLAUDE_OPENAI_BASE_URL, status: 'hidden', sort_order: 110, capabilities: { temperature: true, structured_output: false, image_input: true } },
+    { key: 'anthropic:claude-opus-4-5', name: 'Claude Opus 4.5', code: 'claude-opus-4-5', provider: 'anthropic', transport: 'anthropic_openai_compat', base_url: CLAUDE_OPENAI_BASE_URL, status: 'hidden', sort_order: 120, capabilities: { temperature: true, structured_output: false, image_input: true } },
+    { key: 'anthropic:claude-sonnet-4-5', name: 'Claude Sonnet 4.5', code: 'claude-sonnet-4-5', provider: 'anthropic', transport: 'anthropic_openai_compat', base_url: CLAUDE_OPENAI_BASE_URL, status: 'hidden', sort_order: 130, capabilities: { temperature: true, structured_output: false, image_input: true } }
 ].map((item) => Object.freeze(item)));
 
 const IMAGE_MODEL_PRESETS = Object.freeze([
     {
-        key: 'openai:gpt-image-2',
-        name: 'GPT Image 2',
-        code: 'gpt-image-2',
+        key: 'openai:gpt-image-2.5-sunburst',
+        name: 'GPT Image 2.5 Sunburst',
+        code: 'gpt-image-2.5-sunburst',
         provider: 'openai',
         transport: 'openai_images',
         base_url: OPENAI_BASE_URL,
@@ -235,12 +357,67 @@ const IMAGE_MODEL_PRESETS = Object.freeze([
             response_format: false,
             arbitrary_size: true,
             output_format: ['png', 'jpeg', 'webp'],
+            quality: ['low', 'medium', 'high', 'xhigh', 'max', 'auto']
+        }
+    },
+    {
+        key: 'openai:gpt-image-2.5-flare',
+        name: 'GPT Image 2.5 Flare',
+        code: 'gpt-image-2.5-flare',
+        provider: 'openai',
+        transport: 'openai_images',
+        base_url: OPENAI_BASE_URL,
+        status: 'active',
+        sort_order: 20,
+        capabilities: {
+            response_format: false,
+            arbitrary_size: true,
+            output_format: ['png', 'jpeg', 'webp'],
+            quality: ['low', 'medium', 'high', 'xhigh', 'max', 'auto']
+        }
+    },
+    {
+        key: 'openai:gpt-image-2',
+        name: 'GPT Image 2',
+        code: 'gpt-image-2',
+        provider: 'openai',
+        transport: 'openai_images',
+        base_url: OPENAI_BASE_URL,
+        status: 'active',
+        sort_order: 30,
+        capabilities: {
+            response_format: false,
+            arbitrary_size: true,
+            output_format: ['png', 'jpeg', 'webp'],
             quality: ['low', 'medium', 'high', 'auto']
         }
     },
     { key: 'google:gemini-3.1-flash-image', name: 'Nano Banana 2', code: 'gemini-3.1-flash-image', provider: 'google', transport: 'gemini_generate_content', base_url: '', status: 'active', sort_order: 10, capabilities: { aspect_ratio: true } },
-    { key: 'google:gemini-3-pro-image', name: 'Nano Banana Pro', code: 'gemini-3-pro-image', provider: 'google', transport: 'gemini_generate_content', base_url: '', status: 'active', sort_order: 20, capabilities: { aspect_ratio: true } },
-    { key: 'google:gemini-2.5-flash-image', name: 'Nano Banana (Gemini 2.5)', code: 'gemini-2.5-flash-image', provider: 'google', transport: 'gemini_generate_content', base_url: '', status: 'active', sort_order: 30, capabilities: { aspect_ratio: true } },
+    { key: 'google:gemini-3.1-flash-lite-image', name: 'Nano Banana 2 Lite', code: 'gemini-3.1-flash-lite-image', provider: 'google', transport: 'gemini_generate_content', base_url: '', status: 'active', sort_order: 20, capabilities: { aspect_ratio: true, image_size: ['1K'] } },
+    { key: 'google:gemini-3-pro-image', name: 'Nano Banana Pro', code: 'gemini-3-pro-image', provider: 'google', transport: 'gemini_generate_content', base_url: '', status: 'active', sort_order: 30, capabilities: { aspect_ratio: true } },
+    { key: 'google:gemini-2.5-flash-image', name: 'Nano Banana (Gemini 2.5)', code: 'gemini-2.5-flash-image', provider: 'google', transport: 'gemini_generate_content', base_url: '', status: 'active', sort_order: 40, capabilities: { aspect_ratio: true } },
+    {
+        key: 'kie:gpt-image-2-5-sunburst-text-to-image',
+        name: 'GPT Image 2.5 Sunburst',
+        code: 'gpt-image-2-5-sunburst-text-to-image',
+        provider: 'kie',
+        transport: 'kie_market_image_jobs',
+        base_url: KIE_BASE_URL,
+        status: 'active',
+        sort_order: 10,
+        capabilities: { aspect_ratio: true, image_size: ['1K', '2K'] }
+    },
+    {
+        key: 'kie:gpt-image-2-5-flare-text-to-image',
+        name: 'GPT Image 2.5 Flare',
+        code: 'gpt-image-2-5-flare-text-to-image',
+        provider: 'kie',
+        transport: 'kie_market_image_jobs',
+        base_url: KIE_BASE_URL,
+        status: 'active',
+        sort_order: 20,
+        capabilities: { aspect_ratio: true, image_size: ['1K', '2K'] }
+    },
     {
         key: 'kie:gpt-image-2-text-to-image',
         name: 'GPT Image 2',
@@ -249,10 +426,25 @@ const IMAGE_MODEL_PRESETS = Object.freeze([
         transport: 'kie_market_image_jobs',
         base_url: KIE_BASE_URL,
         status: 'active',
-        sort_order: 10,
+        sort_order: 30,
         capabilities: {
             aspect_ratio: true,
             image_size: ['1K', '2K']
+        }
+    },
+    {
+        key: 'kie:nano-banana-2-lite',
+        name: 'Nano Banana 2 Lite',
+        code: 'nano-banana-2-lite',
+        provider: 'kie',
+        transport: 'kie_market_image_jobs',
+        base_url: KIE_BASE_URL,
+        status: 'active',
+        sort_order: 40,
+        capabilities: {
+            aspect_ratio: true,
+            image_size: ['1K'],
+            output_format: ['png']
         }
     },
     {
@@ -263,7 +455,7 @@ const IMAGE_MODEL_PRESETS = Object.freeze([
         transport: 'kie_market_image_jobs',
         base_url: KIE_BASE_URL,
         status: 'active',
-        sort_order: 20,
+        sort_order: 50,
         capabilities: {
             aspect_ratio: true,
             image_size: ['1K', '2K'],
@@ -278,7 +470,7 @@ const IMAGE_MODEL_PRESETS = Object.freeze([
         transport: 'kie_market_image_jobs',
         base_url: KIE_BASE_URL,
         status: 'active',
-        sort_order: 30,
+        sort_order: 60,
         capabilities: {
             aspect_ratio: true,
             image_size: ['1K', '2K'],
@@ -293,7 +485,7 @@ const IMAGE_MODEL_PRESETS = Object.freeze([
         transport: 'kie_market_image_jobs',
         base_url: KIE_BASE_URL,
         status: 'active',
-        sort_order: 40,
+        sort_order: 70,
         capabilities: {
             aspect_ratio: true,
             image_size: ['1K', '2K'],
@@ -308,7 +500,7 @@ const IMAGE_MODEL_PRESETS = Object.freeze([
         transport: 'kie_market_image_jobs',
         base_url: KIE_BASE_URL,
         status: 'active',
-        sort_order: 50,
+        sort_order: 80,
         capabilities: {
             aspect_ratio: true,
             image_size: ['1K', '2K']

@@ -20,7 +20,8 @@ const CAPABILITY_KEYS = new Set([
     'arbitrary_size',
     'output_format',
     'quality',
-    'thinking_levels'
+    'thinking_levels',
+    'reasoning_efforts'
 ]);
 
 let remoteSnapshot = null;

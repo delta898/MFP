@@ -111,6 +111,11 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     assert.match(html, /settings-next-ai-text-form/);
     assert.match(html, /settings-next-ai-image-form/);
     assert.match(html, /settings-next-ai-chat-form/);
+    assert.match(html, /사용할 AI 모델을 관리합니다\. 글쓰기와 보조 작업은 작업에 맞춰 품질과 속도를 자동 조절합니다\./);
+    assert.doesNotMatch(html, /settings-next-ai-reasoning-note|짧은 작업은 빠르게, 본문 작성과 분석은 완성도를 우선/);
+    assert.match(html, /class="tooltip-container settings-next-ai-reasoning-help" tabindex="0"/);
+    assert.match(html, /aria-describedby="settings-next-ai-reasoning-help-text"/);
+    assert.match(html, /id="settings-next-ai-reasoning-help-text" role="tooltip">제목·댓글·해시태그 같은 짧은 작업은 속도를/);
     assert.doesNotMatch(html, /settings-next-writing-local-tab/);
     assert.match(html, /id="settings-next-writing-form"/);
     assert.match(html, /data-settings-card-target="settings-next-writing-voice-card"/);
@@ -335,6 +340,7 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
     const actions = read('ui/styles/patterns/actions.css');
     const featureStyles = read('ui/styles/features/settings-next.css');
     const cardStyles = read('ui/styles/patterns/settings-card.css');
+    const aiScript = read('ui/scripts/features/settings-next/ai-model-roles.js');
 
     assert.match(actions, /button\.ui-danger-action/);
     assert.match(html, /settings-next-google-disconnect" class="ghost ui-danger-action"/);
@@ -365,7 +371,13 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
     assert.match(cardStyles, /\.ui-settings-field-grid\s*\{/);
     assert.match(cardStyles, /\.ui-settings-choice-group legend\s*\{[\s\S]*font-size: var\(--ui-type-label-size\)/);
     assert.match(cardStyles, /\.ui-settings-choice-group label\s*\{[\s\S]*font-size: var\(--ui-type-label-size\)/);
-    assert.match(html, /class="ui-settings-choice-group"><legend>모델 선택<\/legend>/);
+    assert.match(html, /class="ui-settings-choice-group"><legend class="visually-hidden">모델 선택<\/legend>/);
+    assert.match(html, /class="ui-settings-card settings-next-ai-card settings-next-ai-choice-card" id="settings-next-ai-chat-form"/);
+    assert.match(html, /class="settings-next-ai-choice-body"/);
+    assert.match(featureStyles, /\.settings-next-ai-choice-card\s*\{[\s\S]*?--ui-settings-card-heading-body-gap: var\(--ui-space-4\)/);
+    assert.match(featureStyles, /\.settings-next-ai-choice-body\s*\{[\s\S]*?gap: var\(--ui-space-2\)/);
+    assert.match(aiScript, /settingsNextAiModelLabel\('text', writing\.provider, writing\.presetCode, writing\.name\)/);
+    assert.match(aiScript, /`현재 글쓰기 모델 · \$\{writingLabel\}`/);
     assert.doesNotMatch(featureStyles, /settings-next-ai-source/);
     assert.match(html, /class="ui-settings-field-grid"/);
     assert.doesNotMatch(html, /settings-next-field(?:-grid|-wide)?/);

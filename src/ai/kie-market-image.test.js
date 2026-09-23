@@ -5,8 +5,11 @@ const {
     KIE_MARKET_CREATE_TASK_ENDPOINT,
     KIE_MARKET_TASK_INFO_ENDPOINT,
     buildGptImage2TaskRequest,
+    buildGptImage25FlareTaskRequest,
+    buildGptImage25SunburstTaskRequest,
     buildKieMarketTaskRequest,
     buildNanoBanana2TaskRequest,
+    buildNanoBanana2LiteTaskRequest,
     buildNanoBananaProTaskRequest,
     buildSeedream45TaskRequest,
     buildSeedream5ProTaskRequest,
@@ -14,6 +17,65 @@ const {
     createKieMarketImageClient,
     normalizeKieMarketTask
 } = require('./kie-market-image');
+
+test('GPT Image 2.5 profiles build the documented Market requests within 1K/2K scope', () => {
+    const sunburst = buildGptImage25SunburstTaskRequest({
+        provider: 'kie',
+        code: 'gpt-image-2-5-sunburst-text-to-image',
+        transport: 'kie_market_image_jobs'
+    }, 'premium blog hero', {
+        aspectRatio: '16:9',
+        imageSize: '2K'
+    });
+    const flare = buildGptImage25FlareTaskRequest({
+        provider: 'kie',
+        code: 'gpt-image-2-5-flare-text-to-image',
+        transport: 'kie_market_image_jobs'
+    }, 'fast blog hero', {
+        aspectRatio: '4:3',
+        imageSize: '4K'
+    });
+
+    assert.deepEqual(sunburst.body, {
+        model: 'gpt-image-2-5-sunburst-text-to-image',
+        input: {
+            prompt: 'premium blog hero',
+            aspect_ratio: '16:9',
+            resolution: '2K',
+            background: 'opaque'
+        }
+    });
+    assert.deepEqual(flare.body, {
+        model: 'gpt-image-2-5-flare-text-to-image',
+        input: {
+            prompt: 'fast blog hero',
+            aspect_ratio: '4:3',
+            resolution: '1K',
+            background: 'opaque'
+        }
+    });
+});
+
+test('Nano Banana 2 Lite profile stays on its documented 1K-only request shape', () => {
+    const request = buildNanoBanana2LiteTaskRequest({
+        provider: 'kie',
+        code: 'nano-banana-2-lite',
+        transport: 'kie_market_image_jobs'
+    }, 'draft blog hero', {
+        aspectRatio: '16:9',
+        imageSize: '2K'
+    });
+
+    assert.deepEqual(request.body, {
+        model: 'nano-banana-2-lite',
+        input: {
+            prompt: 'draft blog hero',
+            image_input: [],
+            aspect_ratio: '16:9',
+            output_format: 'png'
+        }
+    });
+});
 
 test('Nano Banana 2 profile builds the documented Market request', () => {
     const request = buildNanoBanana2TaskRequest({

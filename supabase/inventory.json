@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "captured_at": "2026-09-03",
+  "captured_at": "2026-09-23",
   "linked_project_classification": "production",
   "linked_project_metadata_path": "supabase/.temp/linked-project.json",
   "desktop_consumers": [
@@ -183,6 +183,62 @@
     {
       "path": "supabase/migrations/202609110001_fix_smart_usage_status_capability_scope.sql",
       "classification": "canonical_migration"
+    },
+    {
+      "path": "supabase/operations/ai/2026-09-22_ai_model_catalog_2026-09-22-1_draft.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-09-22_ai_model_catalog_2026-09-22-1_publish.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-09-22_ai_model_catalog_2026-09-22-1_rollback.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-09-22_ai_model_catalog_2026-09-22-2_draft.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-09-22_ai_model_catalog_2026-09-22-2_publish.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-09-22_ai_model_catalog_2026-09-22-2_rollback.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-09-23_ai_model_catalog_2026-09-23-1_draft.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-09-23_ai_model_catalog_2026-09-23-1_publish.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-09-23_ai_model_catalog_2026-09-23-1_rollback.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-09-23_ai_model_catalog_dev_version_coexistence.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-09-23_ai_model_catalog_prod_2026-09-23-1_draft.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-09-23_ai_model_catalog_prod_2026-09-23-1_publish.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-09-23_ai_model_catalog_prod_2026-09-23-1_rollback.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-09-23_ai_model_catalog_prod_routing_verify.sql",
+      "classification": "ai_catalog_operator_action"
     },
     {
       "path": "supabase/operations/content/supabase_surface_content_account_seed.sql",

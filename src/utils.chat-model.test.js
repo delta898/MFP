@@ -45,3 +45,25 @@ test('Telegram and Agent Memory always dispatch through the common Chat Model ro
         Utils.callChatText = originalChat;
     }
 });
+
+test('writing and Chat model roles apply automatic reasoning defaults', async () => {
+    const originalCallTextByConfig = Utils.callTextByConfig;
+    const calls = [];
+    Utils.callTextByConfig = async (_config, _prompt, _retries, options) => {
+        calls.push(options);
+        return 'ok';
+    };
+
+    try {
+        await Utils.callWritingText('article');
+        await Utils.callChatText('hashtags');
+        await Utils.callChatText('legacy', 1, { reasoningEffort: 'minimal' });
+        assert.deepEqual(calls.map((options) => options.reasoningEffort), [
+            'medium',
+            'low',
+            'low'
+        ]);
+    } finally {
+        Utils.callTextByConfig = originalCallTextByConfig;
+    }
+});

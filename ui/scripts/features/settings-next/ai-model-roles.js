@@ -130,6 +130,13 @@ function settingsNextAiProviderLabel(role, provider) {
   return String(item?.name || item?.display_name || ({ google: 'Google', openai: 'OpenAI', anthropic: 'Anthropic', kie: 'KIE.ai', direct: '직접 입력' }[provider]) || provider);
 }
 
+function settingsNextAiModelLabel(role, provider, code, directName = '') {
+  if (String(provider || '') === 'direct') return String(directName || code || '선택 필요');
+  const model = settingsNextAiCatalog(role).find((item) => String(item?.provider || '') === String(provider || '')
+    && String(item?.code || '') === String(code || ''));
+  return String(model?.name || model?.display_name || code || '선택 필요');
+}
+
 function settingsNextAiProfile(role, provider) {
   return settingsNextAiState.profiles?.[role]?.[provider] || null;
 }
@@ -265,8 +272,9 @@ function settingsNextAiSyncChatSource() {
   const fields = document.querySelector('[data-settings-next-ai-fields="chat"]');
   if (fields) fields.hidden = source !== 'dedicated';
   const writing = settingsNextAiReadRole('text');
+  const writingLabel = settingsNextAiModelLabel('text', writing.provider, writing.presetCode, writing.name);
   settingsNextAiSetText('settings-next-ai-chat-inherited', source === 'writing'
-    ? `현재 글쓰기 모델(${writing.provider === 'direct' ? writing.name : writing.presetCode || '선택 필요'})을 함께 사용합니다.`
+    ? `현재 글쓰기 모델 · ${writingLabel}`
     : '글쓰기 모델과 별도로 설정합니다.');
   settingsNextAiRenderStatuses();
 }

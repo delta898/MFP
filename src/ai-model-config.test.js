@@ -33,14 +33,15 @@ test('AI model catalog contains supported Google models and excludes unavailable
     const imageCodes = catalog.image.map((item) => item.code);
 
     assert.deepEqual(googleTextCodes, [
+        'gemini-3.8-flash',
         'gemini-3.7-flash',
         'gemini-3.6-flash',
-        'gemini-3.5-flash',
         'gemini-3.1-pro-preview',
         'gemini-3.1-flash-lite'
     ]);
     assert.deepEqual(imageCodes.filter((code) => code.startsWith('gemini-')), [
         'gemini-3.1-flash-image',
+        'gemini-3.1-flash-lite-image',
         'gemini-3-pro-image',
         'gemini-2.5-flash-image'
     ]);
@@ -79,15 +80,22 @@ test('provider and model presets follow explicit product sort order', () => {
         'KIE.ai'
     ]);
     assert.deepEqual(
+        catalog.text.filter((item) => item.provider === 'openai').map((item) => item.code),
+        [
+            'gpt-6-astra',
+            'gpt-6-sol',
+            'gpt-6-luna',
+            'gpt-5.6-sol',
+            'gpt-5.6-terra',
+            'gpt-5.6-luna'
+        ]
+    );
+    assert.deepEqual(
         catalog.text.filter((item) => item.provider === 'anthropic').map((item) => item.code),
         [
-            'claude-fable-5',
+            'claude-fable-5-1',
             'claude-opus-5',
             'claude-sonnet-5',
-            'claude-opus-4-6',
-            'claude-sonnet-4-6',
-            'claude-opus-4-5',
-            'claude-sonnet-4-5',
             'claude-haiku-4-5'
         ]
     );
@@ -95,18 +103,22 @@ test('provider and model presets follow explicit product sort order', () => {
     assert.deepEqual(
         catalog.text.filter((item) => item.provider === 'kie').map((item) => item.code),
         [
+            'gpt-6-astra',
             'gpt-5-6-sol',
             'gpt-5-6-terra',
             'gpt-5-6-luna',
+            'gemini-3-8-flash-openai',
             'gemini-3-6-flash-openai',
-            'gemini-3-5-flash-openai',
             'gemini-3.1-pro'
         ]
     );
     assert.deepEqual(
         catalog.image.filter((item) => item.provider === 'kie').map((item) => item.code),
         [
+            'gpt-image-2-5-sunburst-text-to-image',
+            'gpt-image-2-5-flare-text-to-image',
             'gpt-image-2-text-to-image',
+            'nano-banana-2-lite',
             'nano-banana-2',
             'nano-banana-pro',
             'seedream/5-pro-text-to-image',
@@ -120,18 +132,26 @@ test('AI model catalog contains current models with trusted transports', () => {
     const findModel = (provider, code) => [...catalog.text, ...catalog.image]
         .find((item) => item.provider === provider && item.code === code);
 
+    assert.equal(findModel('openai', 'gpt-6-sol').transport, 'openai_chat_completions');
+    assert.equal(findModel('openai', 'gpt-6-luna').base_url, 'https://api.openai.com/v1');
+    assert.deepEqual(findModel('openai', 'gpt-6-astra').capabilities.reasoning_efforts, [
+        'low', 'medium', 'high', 'xhigh', 'max'
+    ]);
     assert.equal(findModel('openai', 'gpt-5.6-sol').transport, 'openai_chat_completions');
     assert.equal(findModel('openai', 'gpt-5.6-terra').provider, 'openai');
     assert.equal(findModel('openai', 'gpt-5.6-luna').base_url, 'https://api.openai.com/v1');
-    assert.equal(findModel('anthropic', 'claude-fable-5').transport, 'anthropic_openai_compat');
+    assert.equal(findModel('anthropic', 'claude-fable-5-1').transport, 'anthropic_openai_compat');
     assert.equal(findModel('anthropic', 'claude-opus-5').provider, 'anthropic');
     assert.equal(findModel('anthropic', 'claude-sonnet-5').code, 'claude-sonnet-5');
+    assert.equal(findModel('anthropic', 'claude-sonnet-5').capabilities.temperature, false);
+    assert.equal(findModel('openai', 'gpt-image-2.5-sunburst').transport, 'openai_images');
+    assert.equal(findModel('openai', 'gpt-image-2.5-flare').transport, 'openai_images');
     assert.equal(findModel('openai', 'gpt-image-2').transport, 'openai_images');
     assert.equal(findModel('kie', 'gpt-5-6-sol').transport, 'kie_responses');
     assert.equal(findModel('kie', 'gpt-5-6-terra').provider, 'kie');
     assert.equal(findModel('kie', 'gpt-5-6-luna').base_url, 'https://api.kie.ai');
     assert.equal(findModel('kie', 'gemini-3-6-flash-openai').transport, 'kie_openai_chat');
-    assert.equal(findModel('kie', 'gemini-3-5-flash-openai').provider, 'kie');
+    assert.equal(findModel('kie', 'gemini-3-8-flash-openai').provider, 'kie');
     assert.equal(findModel('kie', 'gemini-3.1-pro').base_url, 'https://api.kie.ai');
     assert.equal(
         findModel('kie', 'seedream/5-pro-text-to-image').transport,
@@ -142,6 +162,7 @@ test('AI model catalog contains current models with trusted transports', () => {
         'kie_market_image_jobs'
     );
     assert.equal(findModel('kie', 'nano-banana-2').transport, 'kie_market_image_jobs');
+    assert.equal(findModel('kie', 'nano-banana-2-lite').transport, 'kie_market_image_jobs');
     assert.equal(findModel('kie', 'nano-banana-pro').transport, 'kie_market_image_jobs');
     assert.equal(findModel('kie', 'seedream/4.5-text-to-image').transport, 'kie_market_image_jobs');
 });
@@ -175,13 +196,13 @@ test('known presets are stored as selection and secret values only', () => {
     const catalog = getAiModelCatalog();
     const resolved = buildModelSelectionFromFields('text', {
         TEXT_MODEL_PROVIDER: 'anthropic',
-        TEXT_MODEL_PRESET_CODE: 'claude-sonnet-4-6',
+        TEXT_MODEL_PRESET_CODE: 'claude-sonnet-5',
         TEXT_MODEL_API_KEY: 'secret'
     }, catalog);
 
     assert.deepEqual(toStoredModelSelection(resolved, catalog), {
         provider: 'anthropic',
-        code: 'claude-sonnet-4-6',
+        code: 'claude-sonnet-5',
         api_key: 'secret'
     });
 });
@@ -191,7 +212,7 @@ test('Chat Model writing source resolves the current writing model without copyi
         ai_settings: {
             TEXT_MODEL: {
                 provider: 'anthropic',
-                code: 'claude-sonnet-4-6',
+                code: 'claude-sonnet-5',
                 api_key: 'writing-secret'
             },
             CHAT_MODEL: {
@@ -207,7 +228,7 @@ test('Chat Model writing source resolves the current writing model without copyi
 
     assert.equal(settings.source, 'writing');
     assert.equal(settings.resolved.provider, 'anthropic');
-    assert.equal(settings.resolved.code, 'claude-sonnet-4-6');
+    assert.equal(settings.resolved.code, 'claude-sonnet-5');
     assert.equal(settings.selection.code, 'gpt-5.6-luna');
 });
 

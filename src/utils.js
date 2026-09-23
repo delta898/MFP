@@ -42,6 +42,7 @@ const {
     applyTextRuntimePolicy,
     buildOpenAiChatRequest,
     getModelRuntimeDefinition,
+    withAutomaticReasoningEffort,
     resolveOpenAiImageRequest
 } = require('./ai/model-runtime-policy');
 const {
@@ -4098,14 +4099,14 @@ const Utils = {
 
     callWritingText: async function (prompt, retries = 3, options = {}) {
         return this.callTextByConfig(CONFIG.TEXT_MODEL_CONFIG || {}, prompt, retries, {
-            ...options,
+            ...withAutomaticReasoningEffort(options, 'writing'),
             usageLabel: String(options?.usageLabel || '글쓰기 텍스트 모델').trim()
         });
     },
 
     callChatText: async function (prompt, retries = 3, options = {}) {
         return this.callTextByConfig(CONFIG.CHAT_MODEL_CONFIG || CONFIG.TEXT_MODEL_CONFIG || {}, prompt, retries, {
-            ...options,
+            ...withAutomaticReasoningEffort(options, 'chat'),
             usageLabel: String(options?.usageLabel || 'Chat Model').trim()
         });
     },

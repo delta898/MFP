@@ -1,15 +1,19 @@
 const { KIE_BASE_URL } = require('../ai-model-catalog');
-const { applyTextRuntimePolicy } = require('./model-runtime-policy');
+const {
+    applyTextRuntimePolicy,
+    resolveSupportedReasoningEffort
+} = require('./model-runtime-policy');
 
 const KIE_RESPONSES_ENDPOINT = `${KIE_BASE_URL}/codex/v1/responses`;
-const KIE_REASONING_EFFORTS = new Set(['low', 'medium', 'high', 'xhigh']);
+const KIE_REASONING_EFFORTS = Object.freeze(['low', 'medium', 'high', 'xhigh', 'max']);
 
 function buildKieResponsesRequest(modelConfig = {}, prompt = '', options = {}) {
     const { definition, options: sanitizedOptions } = applyTextRuntimePolicy(modelConfig, options);
-    const requestedEffort = String(sanitizedOptions.reasoningEffort || '').trim().toLowerCase();
-    const reasoningEffort = KIE_REASONING_EFFORTS.has(requestedEffort)
-        ? requestedEffort
-        : 'low';
+    const reasoningEffort = resolveSupportedReasoningEffort(
+        sanitizedOptions.reasoningEffort,
+        definition.capabilities.reasoning_efforts || KIE_REASONING_EFFORTS,
+        'low'
+    );
 
     return {
         definition,

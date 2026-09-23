@@ -29,6 +29,7 @@ test('remote catalog can add a model through an allowlisted transport', () => {
             status: 'active',
             capabilities: {
                 temperature: false,
+                reasoning_efforts: ['low', 'medium'],
                 unknown_remote_control: true
             },
             base_url: 'https://attacker.example/v1'
@@ -38,7 +39,10 @@ test('remote catalog can add a model through an allowlisted transport', () => {
     const model = getAiModelCatalog().text.find((item) => item.code === 'gpt-future');
     assert.ok(model);
     assert.equal(model.base_url, 'https://api.openai.com/v1');
-    assert.deepEqual(model.capabilities, { temperature: false });
+    assert.deepEqual(model.capabilities, {
+        temperature: false,
+        reasoning_efforts: ['low', 'medium']
+    });
     assert.deepEqual(getCatalogStatus(), {
         source: 'remote',
         version: '2026-08-01.1',
@@ -230,7 +234,7 @@ test('provider and model order are controlled by independent sort_order fields',
     ]);
     assert.deepEqual(
         catalog.text.filter((item) => item.provider === 'openai').map((item) => item.code),
-        ['gpt-future-high', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-future-low']
+        ['gpt-future-high', 'gpt-6-astra', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-future-low', 'gpt-5.6-terra', 'gpt-5.6-luna']
     );
 });
 

@@ -235,9 +235,17 @@ Apply the canonical migration chain; `supabase/migrations/202608270009_ai_model_
 `get_ai_model_catalog(channel, app_version)` RPC.
 
 The initial remote catalog is consumed from app `0.1.15` onward. Deployed `0.1.14`
-builds do not load it, so the initial rollout uses one catalog-level compatibility
-floor rather than maintaining a legacy snapshot. Version-specific parallel
-snapshots are needed only after a future transport contract becomes incompatible.
+builds do not load it. Each catalog row has a top-level `minimum_app_version`, and
+the RPC returns the newest published snapshot compatible with the requesting app
+version. Multiple published snapshots therefore coexist when a newer catalog
+depends on app-side transports, request fields, or runtime policy unavailable in
+older releases.
+
+Prefer a snapshot-level compatibility boundary for such changes. For example, a
+catalog gated at `0.5.2` can remain published alongside a legacy snapshot serving
+`0.5.1` and earlier clients. Per-model minimum versions remain useful for isolated
+model additions, but should not replace the snapshot boundary when the catalog as
+a whole assumes new runtime behavior.
 
 Catalog rows move through:
 
@@ -246,8 +254,10 @@ draft -> published -> retired
 ```
 
 Only service-role/SQL operations can modify rows. App clients can execute the RPC
-but cannot read or mutate the backing table directly. Rollback publishes a prior
-validated payload and retires the faulty version.
+but cannot read or mutate the backing table directly. Publishing a new gated
+snapshot must not retire an older published snapshot while supported app versions
+still route to it. Rollback retires only the faulty newer snapshot; the compatible
+legacy snapshot remains published and becomes the automatic fallback.
 
 ## Migration
 

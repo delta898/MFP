@@ -106,6 +106,26 @@ function buildNanoBanana2TaskRequest(modelConfig = {}, prompt = '', options = {}
     };
 }
 
+function buildNanoBanana2LiteTaskRequest(modelConfig = {}, prompt = '', options = {}) {
+    const definition = assertKieMarketImageTransport(modelConfig);
+    if (String(modelConfig.code || '').trim() !== 'nano-banana-2-lite') {
+        throw new Error('Nano Banana 2 Lite request profile의 모델 코드가 일치하지 않습니다.');
+    }
+    const aspectRatio = String(options.aspectRatio || '4:3').trim();
+    return {
+        definition,
+        body: {
+            model: 'nano-banana-2-lite',
+            input: {
+                prompt: String(prompt || ''),
+                image_input: [],
+                aspect_ratio: aspectRatio,
+                output_format: 'png'
+            }
+        }
+    };
+}
+
 function buildNanoBananaProTaskRequest(modelConfig = {}, prompt = '', options = {}) {
     const definition = assertKieMarketImageTransport(modelConfig);
     if (String(modelConfig.code || '').trim() !== 'nano-banana-pro') {
@@ -199,8 +219,52 @@ function buildGptImage2TaskRequest(modelConfig = {}, prompt = '', options = {}) 
     };
 }
 
+function buildGptImage25TaskRequest(expectedCode, modelConfig = {}, prompt = '', options = {}) {
+    const definition = assertKieMarketImageTransport(modelConfig);
+    if (String(modelConfig.code || '').trim() !== expectedCode) {
+        throw new Error('GPT Image 2.5 request profile의 모델 코드가 일치하지 않습니다.');
+    }
+    const aspectRatio = String(options.aspectRatio || '4:3').trim();
+    const resolution = String(options.imageSize || '1K').trim().toUpperCase() === '2K'
+        ? '2K'
+        : '1K';
+    return {
+        definition,
+        body: {
+            model: expectedCode,
+            input: {
+                prompt: String(prompt || ''),
+                aspect_ratio: aspectRatio,
+                resolution,
+                background: 'opaque'
+            }
+        }
+    };
+}
+
+function buildGptImage25SunburstTaskRequest(modelConfig = {}, prompt = '', options = {}) {
+    return buildGptImage25TaskRequest(
+        'gpt-image-2-5-sunburst-text-to-image',
+        modelConfig,
+        prompt,
+        options
+    );
+}
+
+function buildGptImage25FlareTaskRequest(modelConfig = {}, prompt = '', options = {}) {
+    return buildGptImage25TaskRequest(
+        'gpt-image-2-5-flare-text-to-image',
+        modelConfig,
+        prompt,
+        options
+    );
+}
+
 const KIE_MARKET_IMAGE_REQUEST_PROFILES = Object.freeze({
+    'gpt-image-2-5-sunburst-text-to-image': buildGptImage25SunburstTaskRequest,
+    'gpt-image-2-5-flare-text-to-image': buildGptImage25FlareTaskRequest,
     'gpt-image-2-text-to-image': buildGptImage2TaskRequest,
+    'nano-banana-2-lite': buildNanoBanana2LiteTaskRequest,
     'nano-banana-2': buildNanoBanana2TaskRequest,
     'nano-banana-pro': buildNanoBananaProTaskRequest,
     'seedream/4.5-text-to-image': buildSeedream45TaskRequest,
@@ -431,9 +495,12 @@ module.exports = {
     KIE_MARKET_TOTAL_TIMEOUT_MS,
     assertSafeKieResultUrl,
     buildGptImage2TaskRequest,
+    buildGptImage25FlareTaskRequest,
+    buildGptImage25SunburstTaskRequest,
     buildKieMarketTaskRequest,
     buildKieMarketHeaders,
     buildNanoBanana2TaskRequest,
+    buildNanoBanana2LiteTaskRequest,
     buildNanoBananaProTaskRequest,
     buildSeedream45TaskRequest,
     buildSeedream5ProTaskRequest,

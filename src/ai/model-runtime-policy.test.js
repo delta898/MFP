@@ -5,6 +5,9 @@ const {
     applyTextRuntimePolicy,
     buildOpenAiChatRequest,
     getModelRuntimeDefinition,
+    normalizeReasoningEffort,
+    resolveSupportedReasoningEffort,
+    withAutomaticReasoningEffort,
     resolveOpenAiImageRequest
 } = require('./model-runtime-policy');
 const {
@@ -94,7 +97,34 @@ test('OpenAI chat policy uses current token and structured-output fields', () =>
     });
 });
 
-test('Anthropic compatibility keeps its supported legacy chat fields', () => {
+test('automatic reasoning uses medium for writing, low for light tasks, and migrates minimal', () => {
+    assert.equal(withAutomaticReasoningEffort({}, 'writing').reasoningEffort, 'medium');
+    assert.equal(withAutomaticReasoningEffort({}, 'chat').reasoningEffort, 'low');
+    assert.equal(withAutomaticReasoningEffort({ reasoningEffort: 'high' }, 'chat').reasoningEffort, 'high');
+    assert.equal(normalizeReasoningEffort('minimal'), 'low');
+});
+
+test('direct OpenAI sends reasoning effort and safely downgrades unsupported levels', () => {
+    const request = buildOpenAiChatRequest({
+        provider: 'openai',
+        code: 'gpt-6-astra'
+    }, 'Write', {
+        reasoningEffort: 'minimal',
+        temperature: 0.4
+    });
+
+    assert.deepEqual(request.body, {
+        model: 'gpt-6-astra',
+        messages: [{ role: 'user', content: 'Write' }],
+        reasoning_effort: 'low'
+    });
+    assert.equal(
+        resolveSupportedReasoningEffort('max', ['low', 'medium', 'high', 'xhigh'], 'low'),
+        'xhigh'
+    );
+});
+
+test('Anthropic compatibility removes unsupported Sonnet 5 temperature', () => {
     const request = buildOpenAiChatRequest({
         provider: 'anthropic',
         code: 'claude-sonnet-5'
@@ -107,8 +137,25 @@ test('Anthropic compatibility keeps its supported legacy chat fields', () => {
     assert.deepEqual(request.body, {
         model: 'claude-sonnet-5',
         messages: [{ role: 'user', content: 'Write' }],
-        max_tokens: 300,
-        temperature: 0.2
+        max_tokens: 300
+    });
+});
+
+test('GPT Image 2.5 uses native image policy within the supported 1K/2K product range', () => {
+    const request = resolveOpenAiImageRequest({
+        provider: 'openai',
+        code: 'gpt-image-2.5-sunburst'
+    }, {
+        prompt: 'blog hero',
+        aspectRatio: '16:9',
+        imageSize: '2K'
+    });
+
+    assert.deepEqual(request.body, {
+        model: 'gpt-image-2.5-sunburst',
+        prompt: 'blog hero',
+        size: '2048x1152',
+        quality: 'auto'
     });
 });
 
@@ -178,6 +225,12 @@ test('KIE Responses adapter defaults reasoning low and extracts message output t
         code: 'gpt-5-6-luna'
     }, 'Write');
     assert.deepEqual(request.body.reasoning, { effort: 'low' });
+
+    const maximum = buildKieResponsesRequest({
+        provider: 'kie',
+        code: 'gpt-6-astra'
+    }, 'Write', { reasoningEffort: 'max' });
+    assert.deepEqual(maximum.body.reasoning, { effort: 'max' });
 
     assert.equal(extractKieResponsesText({
         output: [
