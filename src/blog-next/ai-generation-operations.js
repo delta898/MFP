@@ -51,6 +51,7 @@ function createAiGenerationOperationManager(options = {}) {
             canCancel: !operation.commitStarted
                 && (operation.state === 'accepted' || operation.state === 'running'),
             subject: operation.subject,
+            remoteJobPossible: operation.remoteJobPossible,
             startedAt: operation.startedAt,
             cancelRequestedAt: operation.cancelRequestedAt,
             finishedAt: operation.finishedAt,
@@ -97,6 +98,7 @@ function createAiGenerationOperationManager(options = {}) {
             state: 'accepted',
             stage: 'preparing',
             subject,
+            remoteJobPossible: input.remoteJobPossible === true,
             startedAt: timestamp(),
             cancelRequestedAt: '',
             finishedAt: '',
@@ -108,6 +110,7 @@ function createAiGenerationOperationManager(options = {}) {
         operations.set(operation.operationId, operation);
 
         const context = {
+            operationId,
             signal: controller.signal,
             throwIfCanceled() {
                 if (controller.signal.aborted) throw createCanceledError();

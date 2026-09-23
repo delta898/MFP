@@ -428,6 +428,7 @@ function createContentService(deps = {}) {
                 workspaceDraft: true,
                 ...(transientWorkspaceDir ? { transientWorkspaceDir } : {}),
                 ...(operation ? { signal: operation.signal } : {}),
+                ...(operation ? { onStage: (stage) => operation.setStage(stage) } : {}),
                 ...(textModelConfig ? { textModelConfig } : {}),
                 ...(imageModelConfig ? { imageModelConfig } : {})
             });
@@ -1016,7 +1017,9 @@ function createContentService(deps = {}) {
                 imageModelConfig.capabilities = { ...selectedImageModel.capabilities };
             }
             return aiGenerationOperations.start({
-                subject: String(requestBody.subject || requestBody.title || '바로 생성 원고').trim()
+                subject: String(requestBody.subject || requestBody.title || '바로 생성 원고').trim(),
+                remoteJobPossible: generatesBlogImages(imageMode)
+                    && String(imageModelConfig.transport || '') === 'kie_market_image_jobs'
             }, (operation) => generateAiManuscriptDraft(requestBody, imageMode, operation, textModelConfig, imageModelConfig));
         },
 

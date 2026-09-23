@@ -89,6 +89,7 @@ async function navigateTo(viewName, subTab) {
     initBlogNextDraftInputs();
     initBlogNextAutomationSettings();
     initBlogNextRunner();
+    void restoreBlogNextAiDraftGeneration();
     if (typeof refreshUiCapabilityReadiness === 'function') {
       await refreshUiCapabilityReadiness();
       if (typeof syncBlogNextTopicActionAvailability === 'function') syncBlogNextTopicActionAvailability();

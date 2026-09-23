@@ -499,6 +499,8 @@ function startFixtureServer(requests) {
         { index: 0, slotId: 'image-0', title: '첫 이미지', prompt: '푸른 하늘', exists: true, excluded: false, assetOrigin: 'folder', canRestore: false },
         { index: 1, slotId: 'image-1', title: '둘째 이미지', prompt: '초록 숲', exists: false, excluded: false, assetOrigin: '', canRestore: false }
     ];
+    const aiGenerationOperations = new Map();
+    let aiGenerationSequence = 0;
     let pasteManuscriptDraftRevision = 0;
     let pasteManuscriptDraftPostStatus = 'publish';
     let pasteManuscriptMarkdown = '';
@@ -894,25 +896,69 @@ function startFixtureServer(requests) {
             return;
         }
 
-        if (url.pathname === '/api/v1/blog/manuscript-drafts/ai' && req.method === 'POST') {
+        if (url.pathname === '/api/v1/blog/manuscript-drafts/ai/operations/current' && req.method === 'GET') {
+            const current = [...aiGenerationOperations.values()].find((item) => item.busy) || null;
+            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+            res.end(JSON.stringify({ success: true, data: current }));
+            return;
+        }
+
+        const aiOperationMatch = url.pathname.match(/^\/api\/v1\/blog\/manuscript-drafts\/ai\/operations\/([^/]+)(\/cancel)?$/);
+        if (aiOperationMatch) {
+            const operation = aiGenerationOperations.get(aiOperationMatch[1]);
+            if (!operation) {
+                res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+                res.end(JSON.stringify({ success: false, error: { code: 'NOT_FOUND', message: '작업 없음' } }));
+                return;
+            }
+            if (aiOperationMatch[2] && req.method === 'POST') {
+                operation.state = 'cancel_requested';
+                operation.canCancel = false;
+                operation.polls = 0;
+            } else if (req.method === 'GET') {
+                operation.polls += 1;
+                if (operation.slow && operation.state === 'running') operation.stage = 'images';
+                if (operation.state === 'cancel_requested' && operation.polls >= 2) {
+                    operation.state = 'canceled';
+                    operation.busy = false;
+                    operation.finishedAt = new Date().toISOString();
+                } else if (operation.state === 'running' && !operation.slow && operation.polls >= 2) {
+                    const payload = operation.payload;
+                    manuscriptDraftRevision = 1;
+                    manuscriptDraftPostStatus = payload.postStatus || 'publish';
+                    manuscriptDraftSourceKind = 'ai';
+                    manuscriptDraftTitle = String(payload.title || payload.subject || 'AI 원고');
+                    manuscriptDraftImages = payload.imageMode === 'none' ? [] : [
+                        { index: 0, slotId: 'image-0', title: '첫 이미지', prompt: '푸른 하늘', exists: true, excluded: false, assetOrigin: 'generated', canRestore: false },
+                        { index: 1, slotId: 'image-1', title: '둘째 이미지', prompt: '초록 숲', exists: false, excluded: false, assetOrigin: '', canRestore: false }
+                    ];
+                    operation.state = 'completed';
+                    operation.busy = false;
+                    operation.canCancel = false;
+                    operation.result = buildManuscriptDraftFixture();
+                    operation.finishedAt = new Date().toISOString();
+                }
+            }
+            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+            res.end(JSON.stringify({ success: true, data: { ...operation, payload: undefined, slow: undefined, polls: undefined } }));
+            return;
+        }
+
+        if (url.pathname === '/api/v1/blog/manuscript-drafts/ai/operations' && req.method === 'POST') {
             const chunks = [];
             req.on('data', (chunk) => chunks.push(chunk));
             req.on('end', () => {
                 requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
-                manuscriptDraftRevision = 1;
-                manuscriptDraftPostStatus = requestRecord.body.postStatus || 'publish';
-                manuscriptDraftSourceKind = 'ai';
-                manuscriptDraftTitle = String(requestRecord.body.title || requestRecord.body.subject || 'AI 원고');
-                manuscriptDraftImages = requestRecord.body.imageMode === 'none'
-                    ? []
-                    : [
-                        { index: 0, slotId: 'image-0', title: '첫 이미지', prompt: '푸른 하늘', exists: true, excluded: false, assetOrigin: 'generated', canRestore: false },
-                        { index: 1, slotId: 'image-1', title: '둘째 이미지', prompt: '초록 숲', exists: false, excluded: false, assetOrigin: '', canRestore: false }
-                    ];
-                setTimeout(() => {
-                    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-                    res.end(JSON.stringify({ success: true, data: buildManuscriptDraftFixture() }));
-                }, 100);
+                const operation = {
+                    operationId: `fixture-ai-${++aiGenerationSequence}`, state: 'running', stage: 'writing',
+                    busy: true, canCancel: true, subject: requestRecord.body.subject || 'AI 원고',
+                    remoteJobPossible: requestRecord.body.imageMode === 'generate',
+                    payload: requestRecord.body, slow: aiGenerationSequence === 3,
+                    polls: 0, finishedAt: ''
+                };
+                aiGenerationOperations.set(operation.operationId, operation);
+                res.writeHead(202, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(JSON.stringify({ success: true, data: { ...operation, payload: undefined, slow: undefined, polls: undefined } }));
             });
             return;
         }
@@ -3037,7 +3083,7 @@ async function run() {
             }
             await route.fallback();
         };
-        await page.route('**/api/v1/blog/manuscript-drafts/ai', aiDraftRetryRoute);
+        await page.route('**/api/v1/blog/manuscript-drafts/ai/operations', aiDraftRetryRoute);
         await page.locator('#blog-next-image-mode').selectOption('none');
         await page.locator('#blog-next-subject').fill('미리 확인할 AI 원고');
         await page.locator('#blog-next-keywords').fill('단일 플랫폼, 원고 미리보기');
@@ -3056,7 +3102,7 @@ async function run() {
         assert.equal(await page.locator('#blog-next-clear-topic').isDisabled(), true);
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="ai"]')?.hidden === false);
         assert.equal(await page.locator('#blog-next-clear-topic').isEnabled(), true);
-        const noneAiDraftRequest = requests.filter((request) => request.pathname === '/api/v1/blog/manuscript-drafts/ai').at(-1);
+        const noneAiDraftRequest = requests.filter((request) => request.pathname === '/api/v1/blog/manuscript-drafts/ai/operations').at(-1);
         assert.equal(noneAiDraftRequest?.body?.imageMode, 'none');
         assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-draft-preview-image-details]').isHidden(), true);
         assert.equal(await page.locator('#blog-next-publish-safety-hint').isHidden(), true);
@@ -3066,7 +3112,7 @@ async function run() {
         await page.locator('#blog-next-publish-now').click();
         await page.waitForFunction(() => document.getElementById('blog-next-publish-now')?.textContent?.trim() === '원고 만드는 중...');
         await page.waitForFunction(() => document.querySelectorAll('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot]').length === 2);
-        await page.unroute('**/api/v1/blog/manuscript-drafts/ai', aiDraftRetryRoute);
+        await page.unroute('**/api/v1/blog/manuscript-drafts/ai/operations', aiDraftRetryRoute);
         await page.waitForFunction(() => document.getElementById('blog-next-publish-status')?.dataset.state === 'completed');
         assert.equal((await page.locator('#blog-next-publish-status-title').textContent())?.trim(), '원고 준비 완료');
         assert.equal(await page.locator('#blog-next-publish-settings').isVisible(), true);
@@ -3084,7 +3130,22 @@ async function run() {
         assert.equal(await page.locator('[data-blog-next-ai-generate-action]').isHidden(), true);
         assert.equal(await page.locator('[data-blog-next-ai-preview-actions]').isVisible(), true);
         assert.equal(await page.locator('#blog-next-regenerate-draft').isVisible(), true);
-        const aiDraftRequest = requests.find((request) => request.pathname === '/api/v1/blog/manuscript-drafts/ai');
+        await page.locator('#blog-next-regenerate-draft').click();
+        await page.waitForFunction(() => document.getElementById('blog-next-cancel-regenerate')?.hidden === false);
+        assert.equal(await page.locator('#blog-next-regenerate-draft').isDisabled(), true);
+        await page.locator('[data-blog-next-tab="queue"]').click();
+        await page.locator('[data-blog-next-tab="quick"]').click();
+        assert.equal(await page.locator('#blog-next-cancel-regenerate').isVisible(), true);
+        await page.waitForFunction(() => document.getElementById('blog-next-publish-status-message')?.textContent?.includes('이미지를 준비'));
+        await page.locator('#blog-next-cancel-regenerate').click();
+        await page.waitForFunction(() => document.getElementById('blog-next-publish-status')?.dataset.state === 'cancel_requested');
+        assert.equal(await page.locator('#blog-next-regenerate-draft').isDisabled(), true);
+        assert.equal(await page.locator('#blog-next-cancel-regenerate').isDisabled(), true);
+        await page.waitForFunction(() => document.getElementById('blog-next-publish-status')?.dataset.state === 'canceled');
+        assert.match((await page.locator('#blog-next-publish-status-message').textContent()) || '', /KIE 원격 이미지 작업과 과금/);
+        assert.equal(await page.locator('#blog-next-regenerate-draft').isEnabled(), true);
+        assert.equal((await page.locator('[data-blog-next-draft-preview="ai"] [data-draft-preview-title]').textContent())?.trim(), '미리 확인할 AI 원고');
+        const aiDraftRequest = requests.find((request) => request.pathname === '/api/v1/blog/manuscript-drafts/ai/operations');
         assert.deepEqual(aiDraftRequest?.body?.targets, ['naver']);
         assert.equal(aiDraftRequest?.body?.subject, '미리 확인할 AI 원고');
         assert.equal(requests.some((request) => request.pathname === '/api/v1/continuous-publishing/topics' && request.body?.subject === '미리 확인할 AI 원고'), false);
@@ -3768,8 +3829,10 @@ async function run() {
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics/delete' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics/update' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/queue/remove' },
-            { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/ai' },
-            { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/ai' },
+            { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/ai/operations' },
+            { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/ai/operations' },
+            { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/ai/operations' },
+            { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/ai/operations/fixture-ai-3/cancel' },
             { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/settings` },
             { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/publish` },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' },

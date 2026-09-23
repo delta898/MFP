@@ -81,6 +81,13 @@ function syncBlogNextPublishReadinessNotice(capability) {
   });
 }
 
+const BLOG_NEXT_AI_OPERATION_STORAGE_KEY = 'blog-next-ai-generation-operation';
+let blogNextAiOperationId = '';
+let blogNextAiOperationToken = 0;
+let blogNextAiPollTimer = null;
+let blogNextAiCancelRequesting = false;
+let blogNextAiOperationStatus = null;
+
 function setBlogNextAiGenerating(generating) {
   const state = blogNextDraftState.ai;
   state.generating = generating;
@@ -92,8 +99,154 @@ function setBlogNextAiGenerating(generating) {
   });
   if (createButton) createButton.textContent = generating ? '원고 만드는 중...' : '원고 만들기';
   if (regenerateButton) regenerateButton.textContent = generating ? '다시 만드는 중...' : '원고 다시 만들기';
+  document.querySelectorAll('[data-blog-next-ai-cancel]').forEach((button) => {
+    button.hidden = !generating || !blogNextAiOperationId;
+    button.disabled = blogNextAiCancelRequesting
+      || blogNextAiOperationStatus?.state === 'cancel_requested'
+      || blogNextAiOperationStatus?.canCancel !== true;
+    button.textContent = blogNextAiOperationStatus?.state === 'cancel_requested'
+      ? '취소 요청 중…' : '생성 취소';
+  });
   if (typeof syncBlogNextTopicActionAvailability === 'function') syncBlogNextTopicActionAvailability();
   syncBlogNextDraftExecutionState();
+}
+
+function saveBlogNextAiOperationId(operationId) {
+  blogNextAiOperationId = String(operationId || '').trim();
+  try {
+    if (blogNextAiOperationId) sessionStorage.setItem(BLOG_NEXT_AI_OPERATION_STORAGE_KEY, blogNextAiOperationId);
+    else sessionStorage.removeItem(BLOG_NEXT_AI_OPERATION_STORAGE_KEY);
+  } catch (_) { /* Session storage may be unavailable. */ }
+}
+
+async function fetchBlogNextAiOperationStatus(url) {
+  const response = await fetch(url, { cache: 'no-store' });
+  const body = await readJsonResponseSafely(response);
+  if (response.status === 404) return null;
+  if (!response.ok || !body.success) {
+    const error = new Error(body?.error?.message || `HTTP ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return body.data;
+}
+
+function blogNextAiOperationMessage(status) {
+  const remoteHint = status.remoteJobPossible && status.stage === 'images'
+    ? ' KIE 원격 이미지 작업과 과금은 계속될 수 있습니다.' : '';
+  if (status.state === 'cancel_requested') return `서버가 작업을 마칠 때까지 기다리는 중입니다.${remoteHint}`;
+  if (status.state === 'canceled') return `원고 생성을 취소했습니다.${remoteHint}`;
+  if (status.stage === 'images') return '이미지를 준비하고 있습니다.';
+  if (status.stage === 'finalizing') return '원고 미리보기를 마무리하고 있습니다.';
+  return 'AI가 원고를 만들고 있습니다.';
+}
+
+function clearBlogNextAiOperation() {
+  clearTimeout(blogNextAiPollTimer);
+  blogNextAiPollTimer = null;
+  blogNextAiOperationToken += 1;
+  saveBlogNextAiOperationId('');
+  blogNextAiCancelRequesting = false;
+  blogNextAiOperationStatus = null;
+  setBlogNextAiGenerating(false);
+}
+
+function applyBlogNextAiOperationStatus(status, token) {
+  if (!status || token !== blogNextAiOperationToken || status.operationId !== blogNextAiOperationId) return;
+  blogNextAiOperationStatus = status;
+  const missingResult = status.state === 'completed' && !status.result?.draftId;
+  const message = missingResult
+    ? 'AI 원고 결과를 불러오지 못했습니다. 기존 원고는 유지했습니다.'
+    : blogNextAiOperationMessage(status);
+  if (typeof renderBlogNextRunnerStatus === 'function') {
+    renderBlogNextRunnerStatus({
+      state: missingResult ? 'failed' : status.state, busy: status.busy, source: 'manuscript_generation',
+      progressStage: status.stage, subject: status.subject, message,
+      finishedAt: status.finishedAt
+    });
+  }
+  if (status.busy) {
+    setBlogNextAiGenerating(true);
+    return;
+  }
+  const state = blogNextDraftState.ai;
+  if (status.state === 'completed' && status.result?.draftId) {
+    const preview = status.result;
+    state.draftId = preview.draftId;
+    state.revision = preview.revision;
+    state.previewSyncFailed = false;
+    renderBlogNextDraftPreview('ai', preview);
+    const actions = document.querySelector('[data-blog-next-draft-actions="ai"]');
+    if (actions) actions.hidden = false;
+    arrangeBlogNextAiWorkflow();
+    setBlogNextTopicResult('원고를 만들었습니다. 미리보기와 이미지를 확인해 주세요.', 'success');
+  } else if (status.state === 'canceled') {
+    setBlogNextTopicResult(message, 'editing');
+  } else if (status.state === 'failed' || status.state === 'completed') {
+    const errorMessage = status.error?.message || 'AI 원고 결과를 불러오지 못했습니다. 기존 원고는 유지했습니다.';
+    setBlogNextDraftValidation('ai', { errors: [errorMessage] }, '', state.preview);
+    setBlogNextTopicResult(errorMessage, 'error');
+  }
+  clearBlogNextAiOperation();
+}
+
+function scheduleBlogNextAiOperationPoll(token, delayMs = 800) {
+  clearTimeout(blogNextAiPollTimer);
+  blogNextAiPollTimer = setTimeout(async () => {
+    const operationId = blogNextAiOperationId;
+    if (!operationId || token !== blogNextAiOperationToken) return;
+    try {
+      const status = await fetchBlogNextAiOperationStatus(`/api/v1/blog/manuscript-drafts/ai/operations/${encodeURIComponent(operationId)}`);
+      if (!status) {
+        setBlogNextTopicResult('진행 중이던 생성 작업을 찾지 못했습니다. 다시 시도해 주세요.', 'error');
+        clearBlogNextAiOperation();
+        return;
+      }
+      applyBlogNextAiOperationStatus(status, token);
+      if (token === blogNextAiOperationToken && blogNextAiOperationId) scheduleBlogNextAiOperationPoll(token);
+    } catch (error) {
+      if (token !== blogNextAiOperationToken) return;
+      scheduleBlogNextAiOperationPoll(token, 2000);
+    }
+  }, delayMs);
+}
+
+async function cancelBlogNextAiDraftGeneration() {
+  if (!blogNextAiOperationId || blogNextAiCancelRequesting || blogNextAiOperationStatus?.canCancel !== true) return;
+  blogNextAiCancelRequesting = true;
+  setBlogNextAiGenerating(true);
+  const operationId = blogNextAiOperationId;
+  const token = blogNextAiOperationToken;
+  try {
+    const status = await postJson(`/api/v1/blog/manuscript-drafts/ai/operations/${encodeURIComponent(operationId)}/cancel`);
+    if (token === blogNextAiOperationToken) applyBlogNextAiOperationStatus(status, token);
+  } catch (error) {
+    if (token === blogNextAiOperationToken) setBlogNextTopicResult(error.message || '취소 요청을 보내지 못했습니다.', 'error');
+  } finally {
+    blogNextAiCancelRequesting = false;
+    if (token === blogNextAiOperationToken) setBlogNextAiGenerating(true);
+  }
+}
+
+async function restoreBlogNextAiDraftGeneration() {
+  if (blogNextAiOperationId || blogNextDraftState.ai.generating) return;
+  let storedId = '';
+  try { storedId = sessionStorage.getItem(BLOG_NEXT_AI_OPERATION_STORAGE_KEY) || ''; } catch (_) { }
+  let status = null;
+  if (storedId) {
+    try { status = await fetchBlogNextAiOperationStatus(`/api/v1/blog/manuscript-drafts/ai/operations/${encodeURIComponent(storedId)}`); }
+    catch (_) { saveBlogNextAiOperationId(''); }
+    if (!status) saveBlogNextAiOperationId('');
+  }
+  if (!status) {
+    try { status = await fetchBlogNextAiOperationStatus('/api/v1/blog/manuscript-drafts/ai/operations/current'); }
+    catch (_) { return; }
+  }
+  if (!status?.operationId || blogNextAiOperationId || blogNextDraftState.ai.generating) return;
+  saveBlogNextAiOperationId(status.operationId);
+  const token = ++blogNextAiOperationToken;
+  applyBlogNextAiOperationStatus(status, token);
+  if (blogNextAiOperationId) scheduleBlogNextAiOperationPoll(token);
 }
 
 function arrangeBlogNextAiWorkflow(options = {}) {
@@ -157,7 +310,7 @@ function resetBlogNextAiDraftUi() {
 
 async function generateBlogNextAiDraft() {
   const state = blogNextDraftState.ai;
-  if (state.generating || state.publishing || state.imageWorking) return;
+  if (state.generating || state.publishing || state.imageWorking || blogNextAiOperationId) return;
   const validity = readBlogNextTopicActionValidity();
   if (!validity.ideaValid) return;
   setBlogNextTopicResult('');
@@ -188,24 +341,13 @@ async function generateBlogNextAiDraft() {
   }
   try {
     const payload = await buildBlogNextDraftPayload('ai');
-    const preview = await postJson('/api/v1/blog/manuscript-drafts/ai', payload);
-    state.draftId = preview.draftId;
-    state.revision = preview.revision;
-    state.previewSyncFailed = false;
-    renderBlogNextDraftPreview('ai', preview);
-    const actions = document.querySelector('[data-blog-next-draft-actions="ai"]');
-    if (actions) actions.hidden = false;
-    arrangeBlogNextAiWorkflow();
-    setBlogNextTopicResult('원고를 만들었습니다. 미리보기와 이미지를 확인해 주세요.', 'success');
-    if (typeof renderBlogNextRunnerStatus === 'function') {
-      renderBlogNextRunnerStatus({
-        state: 'completed', busy: false, source: 'manuscript_generation',
-        subject: preview.title || payload.subject || '바로 생성 원고',
-        message: '미리보기를 준비했습니다.', finishedAt: new Date().toISOString()
-      });
-    }
+    const operation = await postJson('/api/v1/blog/manuscript-drafts/ai/operations', payload);
+    if (!operation?.operationId) throw new Error('AI 원고 작업 ID를 받지 못했습니다.');
+    saveBlogNextAiOperationId(operation.operationId);
+    const token = ++blogNextAiOperationToken;
+    applyBlogNextAiOperationStatus(operation, token);
+    if (blogNextAiOperationId) scheduleBlogNextAiOperationPoll(token);
   } catch (error) {
-    renderBlogNextDraftPreview('ai', state.preview);
     setBlogNextDraftValidation('ai', {
       errors: [error.message || 'AI 원고를 만들지 못했습니다. 기존 원고는 유지했습니다.']
     }, '', state.preview);
@@ -217,8 +359,8 @@ async function generateBlogNextAiDraft() {
         message: error.message || 'AI 원고를 만들지 못했습니다.', finishedAt: new Date().toISOString()
       });
     }
-  } finally {
-    setBlogNextAiGenerating(false);
+    clearBlogNextAiOperation();
+    void restoreBlogNextAiDraftGeneration();
   }
 }
 

@@ -18,12 +18,14 @@ test('cancellation keeps the shared lease until the actual task settles and disc
     const coordinator = createBlogNextExecutionCoordinator();
     const manager = createAiGenerationOperationManager({ coordinator, createId: () => 'operation-1' });
     const pending = deferred();
-    const started = manager.start({ subject: '주제' }, async (context) => {
+    const started = manager.start({ subject: '주제', remoteJobPossible: true }, async (context) => {
+        assert.equal(context.operationId, 'operation-1');
         context.setStage('writing');
         return pending.promise;
     });
     await settled();
 
+    assert.equal(started.remoteJobPossible, true);
     assert.equal(manager.get(started.operationId).state, 'running');
     assert.equal(manager.getCurrent().operationId, started.operationId);
     assert.equal(manager.cancel(started.operationId).cancelOutcome, 'requested');

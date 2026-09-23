@@ -732,9 +732,9 @@ function initBlogNextQuickQueue() {
     submitBlogNextTopic('enqueue');
   });
   document.getElementById('blog-next-save-topic')?.addEventListener('click', () => submitBlogNextTopic('save'));
-  ['blog-next-publish-now', 'blog-next-regenerate-draft'].forEach((id) => {
-    document.getElementById(id)?.addEventListener('click', () => generateBlogNextAiDraft());
-  });
+  ['blog-next-publish-now', 'blog-next-regenerate-draft'].forEach((id) =>
+    document.getElementById(id)?.addEventListener('click', () => generateBlogNextAiDraft()));
+  document.querySelectorAll('[data-blog-next-ai-cancel]').forEach((button) => button.addEventListener('click', () => cancelBlogNextAiDraftGeneration()));
   document.getElementById('blog-next-clear-topic')?.addEventListener('click', async () => {
     const snapshot = captureBlogNextClearableContent();
     blogNextClearedTopicSnapshot = hasBlogNextClearableContent(snapshot) ? snapshot : null;

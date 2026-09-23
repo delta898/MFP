@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 const { createHtmlCompositionRuntime } = require('../src/ui-runtime/html-composition-runtime');
 
 const repoRoot = path.resolve(__dirname, '..');
@@ -49,6 +50,33 @@ test('AI assists have one distinct pattern without becoming primary actions', ()
   assert.match(css, /\.blog-next-ai-assist\s*\{[^}]*background:\s*var\(--ui-action-primary-soft\)/s);
   assert.doesNotMatch(html, /class="primary blog-next-ai-assist"/);
   assert.doesNotMatch(html, /<span aria-hidden="true">AI<\/span>/);
+});
+
+test('AI manuscript cancellation stays beside the active generation action', () => {
+  const html = readBlogNextView();
+  const execution = read('ui/scripts/features/blog-next/draft-execution.js');
+  assert.match(html, /id="blog-next-publish-now"[\s\S]*id="blog-next-cancel-generate"[^>]*hidden/);
+  assert.match(html, /id="blog-next-regenerate-draft"[\s\S]*id="blog-next-cancel-regenerate"[^>]*hidden/);
+  assert.match(execution, /manuscript-drafts\/ai\/operations/);
+  assert.match(execution, /state === 'cancel_requested'/);
+  assert.match(execution, /state === 'canceled'/);
+});
+
+test('AI cancellation copy stays concise with or without a previous manuscript', () => {
+  const execution = read('ui/scripts/features/blog-next/draft-execution.js');
+  const source = execution.match(/function blogNextAiOperationMessage\(status\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(source, 'AI operation message function is missing');
+  const draftState = { ai: { draftId: '', preview: null } };
+  const message = vm.runInNewContext(`${source}\nblogNextAiOperationMessage`, { blogNextDraftState: draftState });
+
+  assert.equal(message({ state: 'canceled', stage: 'writing' }),
+    '원고 생성을 취소했습니다.');
+  draftState.ai.draftId = 'previous-draft';
+  draftState.ai.preview = { draftId: 'previous-draft' };
+  assert.equal(message({ state: 'canceled', stage: 'writing' }),
+    '원고 생성을 취소했습니다.');
+  assert.equal(message({ state: 'canceled', stage: 'images', remoteJobPossible: true }),
+    '원고 생성을 취소했습니다. KIE 원격 이미지 작업과 과금은 계속될 수 있습니다.');
 });
 
 test('quick flow summaries update from existing controls and clear remains undoable', () => {

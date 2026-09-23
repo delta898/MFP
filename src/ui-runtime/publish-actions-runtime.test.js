@@ -492,10 +492,11 @@ test('generation passes image model snapshot and owned workspace to image prepar
     const result = await runtime.buildMultiPlatformGeneratedContent({
         context: { subject: 'subject', imageOptions: { mode: 'generate', generate: true } },
         targets: ['wordpress'], features: {}, enableRelatedPostsAutoLink: false
-    }, { imageModelConfig, transientWorkspaceDir: '/fixture/owned' });
+    }, { imageModelConfig, transientWorkspaceDir: '/fixture/owned', onStage: (stage) => calls.push(['stage', stage]) });
     assert.equal(result.success, true);
     assert.deepEqual(calls[0], ['generate', '/fixture/owned']);
-    assert.equal(calls[1][1].imageModelConfig, imageModelConfig);
+    assert.deepEqual(calls[1], ['stage', 'images']);
+    assert.equal(calls[2][1].imageModelConfig, imageModelConfig);
 });
 
 test('multi-platform publish commits one quota unit after partial success', async () => {

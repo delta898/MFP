@@ -242,6 +242,7 @@ function createPublishActionsRuntime(deps = {}) {
                 results.finalSubject = naverResult.finalSubject;
 
                 emitProgress('네이버 이미지 준비 중...');
+                if (imageGenerationFinal) options.onStage?.('images');
                 await Core.prepareImages(naverResult.targetDir, naverTopic, {
                     imageGenerationEnabled: imageGenerationFinal,
                     signal,
@@ -278,6 +279,7 @@ function createPublishActionsRuntime(deps = {}) {
                 if (!results.finalSubject) results.finalSubject = wpResult.finalSubject;
 
                 emitProgress('워드프레스 이미지 준비 중...');
+                if (imageGenerationFinal) options.onStage?.('images');
                 await Core.prepareImages(wpResult.targetDir, wpTopic, {
                     imageGenerationEnabled: imageGenerationFinal,
                     signal,
@@ -983,6 +985,7 @@ function createPublishActionsRuntime(deps = {}) {
                 signal,
                 textModelConfig: executionOptions.textModelConfig,
                 imageModelConfig: executionOptions.imageModelConfig,
+                onStage: executionOptions.onStage,
                 transientWorkspaceDir: workspaceDraft ? executionOptions.transientWorkspaceDir : undefined
             });
             throwIfCanceled(signal);

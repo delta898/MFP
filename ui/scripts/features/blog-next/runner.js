@@ -1,5 +1,5 @@
-const BLOG_NEXT_RUNNER_ACTIVE_STATES = new Set(['selecting', 'running']);
-const BLOG_NEXT_RUNNER_TERMINAL_STATES = new Set(['completed', 'simulated', 'failed', 'needs_attention', 'blocked', 'empty']);
+const BLOG_NEXT_RUNNER_ACTIVE_STATES = new Set(['selecting', 'running', 'accepted', 'cancel_requested']);
+const BLOG_NEXT_RUNNER_TERMINAL_STATES = new Set(['completed', 'simulated', 'failed', 'canceled', 'needs_attention', 'blocked', 'empty']);
 
 let blogNextRunnerPollingTimer = null;
 let blogNextRunnerRequesting = false;
@@ -21,6 +21,9 @@ function presentBlogNextRunnerStatus(status = {}) {
   const resultStatus = String(status.resultStatus || '').trim();
   if (state === 'selecting') return { title: '준비 중', tone: 'progress' };
   if (manuscriptGeneration && state === 'running') return { title: '원고 생성 중', tone: 'progress' };
+  if (manuscriptGeneration && state === 'accepted') return { title: '원고 생성 준비 중', tone: 'progress' };
+  if (manuscriptGeneration && state === 'cancel_requested') return { title: '취소 요청 중', tone: 'progress' };
+  if (manuscriptGeneration && state === 'canceled') return { title: '원고 생성 취소', tone: 'warning' };
   if (manuscriptGeneration && state === 'completed') return { title: '원고 준비 완료', tone: 'success' };
   if (manuscriptGeneration && state === 'failed') return { title: '원고 생성 실패', tone: 'error' };
   if (state === 'running') {
@@ -164,8 +167,17 @@ function syncBlogNextRunnerWatchForTab() {
 }
 
 async function loadBlogNextRunnerStatus(options = {}) {
+  if (typeof blogNextAiOperationId !== 'undefined' && blogNextAiOperationId) return blogNextRunnerLastStatus;
+  const localDraftBusy = () => typeof blogNextDraftState !== 'undefined'
+    && BLOG_NEXT_DRAFT_TYPES.some((type) => blogNextDraftState[type].publishing || blogNextDraftState[type].imageWorking);
+  if (localDraftBusy()) return blogNextRunnerLastStatus;
+  if (blogNextRunnerLastStatus.source === 'manuscript_generation'
+    && typeof blogNextActiveTab !== 'undefined' && blogNextActiveTab !== 'queue') return blogNextRunnerLastStatus;
   try {
     const status = await fetchJson('/api/v1/continuous-publishing/runner/status');
+    if (blogNextAiOperationId || localDraftBusy()
+      || (blogNextRunnerLastStatus.source === 'manuscript_generation'
+        && typeof blogNextActiveTab !== 'undefined' && blogNextActiveTab !== 'queue')) return blogNextRunnerLastStatus;
     const previousFinishedAt = blogNextRunnerObservedFinishedAt;
     const finishedAt = String(status.finishedAt || '');
     const finishedChanged = blogNextRunnerStatusInitialized
