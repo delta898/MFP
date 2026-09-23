@@ -492,6 +492,7 @@ async function createWindow() {
     }
 
     const iconPath = path.join(__dirname, '../../assets/icons/icon.png');
+    const nativeWindowTitle = process.platform === 'darwin' ? '' : 'BlogGenius';
 
     // 2. 브라우저 창 생성
     startup.write('WINDOW_CREATING', { safeMode });
@@ -501,13 +502,17 @@ async function createWindow() {
         minWidth: 1024,
         minHeight: 768,
         backgroundColor: '#f6f4ef',
-        title: '',
+        title: nativeWindowTitle,
         icon: fs.existsSync(iconPath) ? iconPath : undefined,
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
             devTools: true // 필요 시 true
         }
+    });
+    win.on('page-title-updated', (event) => {
+        event.preventDefault();
+        win.setTitle(nativeWindowTitle);
     });
     startup.write('WINDOW_CREATED', { safeMode, durationMs: Date.now() - windowStartAt });
 

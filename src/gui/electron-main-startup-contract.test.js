@@ -56,6 +56,14 @@ test('startup captures renderer console failures and bounds hung or unresponsive
     assert.match(source, /WINDOW_UNRESPONSIVE_TIMEOUT/);
 });
 
+test('native window title is minimal on macOS and identifiable on other platforms', () => {
+    assert.match(uiIndex, /<title>BlogGenius<\/title>/);
+    assert.doesNotMatch(uiIndex, /BlogGenius WebUI/);
+    assert.match(source, /const nativeWindowTitle = process\.platform === 'darwin' \? '' : 'BlogGenius'/);
+    assert.match(source, /title: nativeWindowTitle/);
+    assert.match(source, /win\.on\('page-title-updated',[\s\S]{0,180}event\.preventDefault\(\)[\s\S]{0,180}win\.setTitle\(nativeWindowTitle\)/);
+});
+
 test('normal GUI defers memory and optional services until after renderer readiness', () => {
     const readyIndex = source.indexOf("startup.write('RENDERER_READY'");
     const postReadyIndex = source.indexOf('startPostReadyServices().catch', readyIndex);
