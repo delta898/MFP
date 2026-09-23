@@ -5,7 +5,7 @@
 - Branch: `codex/fix/settings-discard-navigation`
 - Base/parent branch: `release/v0.5.2` (`42c09bd`)
 - Start date: 2026-09-23
-- Status: implemented and automatically verified; native title visual review pending
+- Status: implementation and required validation complete; parent merge approved
 
 ## User Need
 
@@ -75,15 +75,17 @@
 - `node --test scripts/settings-next-ui-contract.test.js scripts/ui-script-structure.test.js`: 15 passed, 0 failed.
 - 최종 `npm run test:ui-browser`: passed with 391 fixture requests.
 - `node --test src/gui/electron-main-startup-contract.test.js scripts/ui-structure-contract.test.js`: 18 passed, 0 failed.
+- `npm run test:unit`: 1,897 passed, 1 Windows-only skip, 0 failed across 357 files.
 - 첫 browser run은 retired legacy Settings 화면을 기다리는 기존 기대값 때문에 수정 구간 전에 실패했다.
 - 두 번째 run은 비활성 core tab의 버튼을 누르는 기존 전제에서 실패했다.
 - 세 번째 run은 다른 기능에서 추가된 여섯 번째 style을 5개로 기대하는 기존 drift에서 실패했다.
 - 위 세 기대값을 현재 제품 계약에 맞춘 뒤 전체 browser smoke가 끝까지 통과했다.
 - 2026-09-23: user confirmed the discard-and-navigate flow works correctly in hands-on testing.
+- 2026-09-23: user approved commit, parent merge, feature-branch deletion, and the required full test gate.
 
 ## Remaining Risks
 
 - 설정 재진입 직후 원격 조회가 실패해도 폐기 시 복원한 마지막 저장 UI를 유지하며, 기존 오류 feedback 정책을 사용한다.
 - `저장 후 이동`은 기존 scope별 저장 계약을 그대로 사용하며 이번 변경에서 동작을 바꾸지 않았다.
 - macOS native title과 Windows title 표시는 실제 각 플랫폼 창에서 최종 확인이 필요하다.
-- parent merge 전 required full unit suite가 남아 있다.
+- Windows native title의 실제 플랫폼 확인은 release candidate 검증에서 수행한다.
