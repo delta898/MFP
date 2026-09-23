@@ -5,7 +5,7 @@
 - Branch: `release/v0.5.2`
 - Base/parent branch: `dev` (`20accad`)
 - Start date: 2026-09-23
-- Status: `0.5.2-dev1` release candidate prepared; hands-on validation pending
+- Status: completed; stable `0.5.2` source release approved
 
 ## User Need
 
@@ -13,10 +13,10 @@
 
 ## Goal
 
-- 앱과 lockfile 버전을 `0.5.2-dev1`로 일치시킨다.
+- 앱과 lockfile 버전을 정식 `0.5.2`로 일치시킨다.
 - `CHANGELOG.md`에 사용자가 체감할 수 있는 v0.5.2 변경을 정리한다.
 - Development/Production에 선반영된 `0.5.2+` 모델 catalog를 release candidate 앱에서 검증한다.
-- 최종 승인 전까지 stable version, tag, push, packaging과 release publication을 수행하지 않는다.
+- 승인된 stable version과 source tag를 게시하되 packaging과 GitHub Release publication은 별도 작업으로 남긴다.
 
 ## Scope
 
@@ -24,6 +24,8 @@
 - 최신 텍스트·이미지 모델과 작업별 자동 reasoning 정책
 - Gemini 설정 즉시 반영 및 안전한 오류·로그 정보
 - 저장된 화면 style의 첫 paint 적용
+- 설정 변경 폐기 시 마지막 저장값 복원과 즉시 화면 이동
+- 플랫폼에 맞춘 간결한 native window title
 - 앱/lockfile version, changelog와 release 검증 기록
 
 ## Explicit Non-goals
@@ -48,6 +50,10 @@
 - 2026-09-23: added the `0.5.2-dev1` changelog section, limited to observable shortcut, AI model, diagnostics, and startup-style outcomes.
 - 2026-09-23: added an explicit catalog routing regression check for the prerelease suffix.
 - 2026-09-23: user approved committing, pushing the release branch, and publishing the `v0.5.2-dev1` source tag.
+- 2026-09-23: fixed discard-and-navigate behavior, verified local rollback in the browser, and merged the reviewed fix into the release branch.
+- 2026-09-23: removed the redundant macOS native title while retaining `BlogGenius` on Windows/Linux and browser tabs.
+- 2026-09-23: user approved promoting the release candidate to stable `0.5.2`, updating release notes, and pushing the branch and source tag.
+- 2026-09-23: promoted package and lockfile metadata to stable `0.5.2` and finalized the user-facing changelog.
 
 ## Verification Results
 
@@ -55,6 +61,10 @@
 - Focused version, catalog routing, build-environment, release-gate, platform, and retention contracts: 17 passed, 0 failed.
 - `node scripts/release-details.js 0.5.2-dev1`: parsed the changelog and produced five release highlights.
 - Production read-only routing: app version `0.5.2-dev1` received catalog `2026-09-23.1`, minimum app version `0.5.2`, with 39 models.
+- Final application-code unit gate: 1,897 passed, 1 Windows-only skip, 0 failed across 357 files.
+- Settings navigation browser smoke passed, including immediate local rollback without a settings reload before navigation.
+- Stable metadata focus gate: 28 version, catalog routing, build, release, retention, and native-title contracts passed with 0 failures.
+- `node scripts/release-details.js 0.5.2`: parsed the stable changelog and produced the expected release summary and highlights.
 
 ## Verification Plan
 
