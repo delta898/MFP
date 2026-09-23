@@ -33,6 +33,8 @@ test('Production draft embeds the validated 39-model v0.5.2 payload', () => {
     assert.equal(payload.models.length, 39);
     const validated = validateRemoteCatalog(payload, { appVersion: '0.5.2' });
     assert.equal(validated.models.length, 39);
+    const prereleaseValidated = validateRemoteCatalog(payload, { appVersion: '0.5.2-dev1' });
+    assert.equal(prereleaseValidated.models.length, 39);
     assert.throws(
         () => validateRemoteCatalog(payload, { appVersion: '0.5.1' }),
         /0\.5\.2 이상/
