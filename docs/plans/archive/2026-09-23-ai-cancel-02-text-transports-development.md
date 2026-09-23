@@ -3,7 +3,7 @@
 - 브랜치: `codex/feature/ai-cancel-02-text-transports`
 - 시작일: 2026-09-23
 - 기준/부모 브랜치: `codex/feature/ai-generation-cancellation`
-- 상태: 구현·집중 검증 완료, parent 병합 전 검토 대기
+- 상태: 구현·집중 검증 완료, parent에 fast-forward 병합됨
 - parent 기록: `2026-09-23-ai-generation-cancellation-main-development.md`
 - 계약 결정: `../../decisions/2026-09-23-ai-generation-cancellation-contract.md`
 
@@ -45,6 +45,7 @@ AI 글쓰기 응답이 느리거나 실패해 재시도되는 동안 사용자�
 - 2026-09-23: 참고 URL 조회는 Axios 요청을 중단한다. 선택적 외부 참고 검색은 현 gateway가 자체 중단 신호를 받지 않아 로컬 대기만 종료하고 후속 텍스트 생성은 시작하지 않는다. 원격 조회가 이미 접수됐을 수 있다는 점은 남은 제약이다.
 - 2026-09-23: Core가 AI 텍스트 응답을 받은 뒤에도 파일 저장 직전 신호를 확인한다. 생성 조립기의 catch와 이미지별 catch는 취소를 일반 실패로 삼키지 않도록 했다. 이미지 HTTP 호출 자체의 중단은 다음 단계다.
 - 2026-09-23: 모의 HTTP에서 Gemini, OpenAI, Anthropic 호환, KIE Responses/OpenAI-chat 경로의 진행 중 중단과 재시도 대기 중단을 확인했다. 취소 뒤 `contents.md`를 쓰지 않고, 선택 모델 snapshot이 유지되는 것도 검증했다.
+- 2026-09-23: `93ddd59`를 parent `codex/feature/ai-generation-cancellation`에 fast-forward 병합하고 sub-feature 브랜치를 삭제했다. 완료 기록은 archive로 이동했다.
 
 ## 결과와 검증
 
