@@ -3,8 +3,8 @@
 - 브랜치: `codex/feature/ai-cancel-04-blog-beta-ui`
 - 시작일: 2026-09-23
 - 기준/부모 브랜치: `codex/feature/ai-generation-cancellation`
-- 상태: 구현·집중 검증 및 사용자 확인 완료, parent 병합 준비
-- parent 기록: `2026-09-23-ai-generation-cancellation-main-development.md`
+- 상태: 구현·집중 검증 및 사용자 확인 완료, parent에 fast-forward 병합 완료
+- parent 기록: `../active/2026-09-23-ai-generation-cancellation-main-development.md`
 
 ## 사용자 필요와 목표
 
@@ -34,6 +34,7 @@
 - 2026-09-24: 첫 생성 중 취소에도 `기존 원고는 유지됩니다`라고 표시되던 문구를, 이전 미리보기 존재 여부에 맞춰 `이번에 만들던 원고는 저장되지 않았습니다` 또는 `이전에 만든 원고는 유지됩니다`로 나눴다. 문구 위치·화면 구조는 바꾸지 않았다. 실제 원문 AI trace와 로그 노출 정책도 별도 backlog로 기록해 현재 범위에 섞지 않았다.
 - 2026-09-24: 사용자의 요청으로 이 브랜치에서 Anthropic Haiku 4.5 연결 확인의 날짜 포함 모델 ID 오류를 별도 commit `4fd1b92`로 수정했다. 생성 취소 UI 변경과는 별개이며, parent 병합 시 함께 포함된다.
 - 2026-09-24: 사용자가 Anthropic 생성 중 취소도 확인했다. 사용성 검토 결과 취소 문구는 이전 원고 유무와 관계없이 `원고 생성을 취소했습니다.`로 간결하게 통일하고, KIE 원격 작업 경고만 해당 단계에 유지했다. 발행 설정 유지 문제는 별도 bug backlog에 기록하고 현재 취소 UI 범위에서는 변경하지 않았다.
+- 2026-09-24: 집중 검사와 사용자 확인을 마친 뒤 `6aacf87`을 commit하고 parent에 fast-forward 병합했다. 개발 기록을 archive로 이동했다.
 
 ## 결과와 검증
 
