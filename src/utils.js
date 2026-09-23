@@ -4149,6 +4149,8 @@ const Utils = {
 
     // 🔧 [Fixed] 이미지 생성 API 재시도 로직 추가
     callGeminiImage: async function (prompt, savePath, retries = 3, options = {}) {
+        const signal = options.signal;
+        throwIfCanceled(signal);
         const apiKey = String(options?.apiKey || '').trim();
         if (!apiKey) throw new Error('API Key 누락');
         const modelCode = String(options?.modelCode || '').trim();
@@ -4167,6 +4169,7 @@ const Utils = {
         const endpointForLog = describeGeminiEndpoint(endpoint);
 
         for (let attempt = 1; attempt <= retries; attempt++) {
+            throwIfCanceled(signal);
             try {
                 const response = await this.runWithHeartbeat(
                     `(시도 ${attempt})`,
@@ -4178,7 +4181,7 @@ const Utils = {
                                 imageConfig: aspectRatio ? { aspectRatio } : undefined
                             }
                         },
-                        { headers: { 'Content-Type': 'application/json' }, timeout: imageTimeoutMs }
+                        { headers: { 'Content-Type': 'application/json' }, timeout: imageTimeoutMs, signal }
                     )
                 );
                 const candidates = response.data.candidates;
@@ -4187,6 +4190,7 @@ const Utils = {
                 if (!imagePart) throw new Error('No inlineData found');
 
                 const fullPath = `${savePath}.png`;
+                throwIfCanceled(signal);
                 fs.writeFileSync(fullPath, Buffer.from(imagePart.inlineData.data, 'base64'));
                 Logger.debug(`🛠️ Gemini 이미지 결과 파일 저장: ${path.basename(fullPath)}`);
 
@@ -4205,6 +4209,7 @@ const Utils = {
 
                 return fullPath;
             } catch (e) {
+                rethrowIfCanceled(e, signal);
                 const readableError = formatReadableErrorMessage(e);
                 const invalidUrl = e?.code === 'ERR_INVALID_URL' || /invalid url/i.test(readableError);
                 const failureDetail = invalidUrl
@@ -4223,12 +4228,14 @@ const Utils = {
                 // 지수 백오프
                 const waitTime = 1000 * Math.pow(2, attempt - 1);
                 Logger.info(`   ⏳ ${waitTime / 1000}초 후 재시도...`);
-                await this.sleep(waitTime);
+                await sleepWithCancellation(waitTime, signal, (ms) => this.sleep(ms));
             }
         }
     },
 
     callOpenAiCompatibleImageByConfig: async function (modelConfig = {}, prompt, savePath, retries = 3, options = {}) {
+        const signal = options.signal;
+        throwIfCanceled(signal);
         const baseUrl = normalizeOpenAiCompatibleBaseUrl(modelConfig.base_url);
         const model = String(modelConfig.code || '').trim();
         const apiKey = String(modelConfig.api_key || '').trim();
@@ -4239,6 +4246,7 @@ const Utils = {
         if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
 
         for (let attempt = 1; attempt <= retries; attempt++) {
+            throwIfCanceled(signal);
             try {
                 const imageRequest = resolveOpenAiImageRequest(modelConfig, {
                     ...options,
@@ -4248,23 +4256,26 @@ const Utils = {
                     `(시도 ${attempt})`,
                     () => axios.post(`${baseUrl}/images/generations`, imageRequest.body, {
                         headers,
-                        timeout: imageTimeoutMs
+                        timeout: imageTimeoutMs,
+                        signal
                     })
                 );
                 let imageBuffer = extractOpenAIImageBuffer(response.data);
                 if (!imageBuffer) {
                     const imageUrl = String(response.data?.data?.[0]?.url || '').trim();
                     if (imageUrl) {
-                        const downloaded = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: imageTimeoutMs });
+                        const downloaded = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: imageTimeoutMs, signal });
                         imageBuffer = Buffer.from(downloaded.data);
                     }
                 }
                 if (!imageBuffer) throw new Error('OpenAI-compatible 이미지 응답에서 b64_json 또는 url을 찾지 못했습니다.');
                 const fullPath = `${savePath}.png`;
+                throwIfCanceled(signal);
                 fs.writeFileSync(fullPath, imageBuffer);
                 Logger.debug(`🛠️ OpenAI-compatible 이미지 결과 파일 저장: ${path.basename(fullPath)}`);
                 return fullPath;
             } catch (e) {
+                rethrowIfCanceled(e, signal);
                 Logger.warn(`⚠️ OpenAI-compatible Image API 호출 실패 (시도 ${attempt}/${retries}): ${formatReadableErrorMessage(e)}`);
                 if (attempt === retries) {
                     Logger.error(`❌ 이미지 생성 최대 재시도 횟수 초과`);
@@ -4272,7 +4283,7 @@ const Utils = {
                 }
                 const waitTime = 1000 * Math.pow(2, attempt - 1);
                 Logger.info(`   ⏳ ${waitTime / 1000}초 후 재시도...`);
-                await this.sleep(waitTime);
+                await sleepWithCancellation(waitTime, signal, (ms) => this.sleep(ms));
             }
         }
     },
@@ -4291,6 +4302,7 @@ const Utils = {
             prompt,
             options
         });
+        throwIfCanceled(options.signal);
         const fullPath = `${savePath}.png`;
         fs.writeFileSync(fullPath, result.imageBuffer);
         const credit = Number.isFinite(Number(result.creditsConsumed))
@@ -4302,7 +4314,8 @@ const Utils = {
     },
 
     callWritingImage: async function (prompt, savePath, retries = 3, options = {}) {
-        const modelConfig = CONFIG.IMAGE_MODEL_CONFIG || {};
+        throwIfCanceled(options.signal);
+        const modelConfig = options.modelConfig || CONFIG.IMAGE_MODEL_CONFIG || {};
         const provider = String(modelConfig.provider || '').trim().toLowerCase();
         const modelCode = String(modelConfig.code || '').trim();
         const aspectRatio = resolveWritingImageAspectRatio(options);
@@ -4323,19 +4336,22 @@ const Utils = {
                 provider: String(modelConfig.provider || '').trim(),
                 modelCode,
                 aspectRatio,
-                useCase: options.useCase
+                useCase: options.useCase,
+                signal: options.signal
             });
         } else if (transport === 'kie_market_image_jobs') {
             resultPath = await this.callKieMarketImageByConfig(modelConfig, prompt, savePath, {
                 aspectRatio,
                 imageSize,
-                useCase: options.useCase
+                useCase: options.useCase,
+                signal: options.signal
             });
         } else {
             resultPath = await this.callOpenAiCompatibleImageByConfig(modelConfig, prompt, savePath, retries, {
                 aspectRatio,
                 imageSize,
-                useCase: options.useCase
+                useCase: options.useCase,
+                signal: options.signal
             });
         }
         const elapsedSeconds = Math.max(0, Math.round((Date.now() - startedAt) / 1000));

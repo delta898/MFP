@@ -1850,7 +1850,7 @@ ${messageText}
 			: (loggedImageMode === 'none' ? '미포함' : '프롬프트 포함');
 		Logger.info(`│ 🖼️  이미지 처리: ${loggedImageModeLabel}`);
 		Logger.info(`│ 🤖 TEXT 모델  : ${String(runtimeOptions.textModelConfig?.name || runtimeOptions.textModelConfig?.code || CONFIG.TEXT_MODEL_NAME || CONFIG.TEXT_MODEL || '(없음)')}`);
-		Logger.info(`│ 🎨 IMG 모델   : ${String(CONFIG.IMAGE_MODEL_NAME || CONFIG.IMAGE_MODEL || '(없음)')}`);
+		Logger.info(`│ 🎨 IMG 모델   : ${String(runtimeOptions.imageModelConfig?.name || runtimeOptions.imageModelConfig?.code || CONFIG.IMAGE_MODEL_NAME || CONFIG.IMAGE_MODEL || '(없음)')}`);
 		Logger.info(`│ 📤 발행 옵션  : ${effectivePostStatusLabel}`);
 		Logger.info("└─────────────────────────────────────────");
 
@@ -2101,7 +2101,11 @@ ${scrapedContext}`;
                     prompt,
                     path.join(dirPath, `${prefix}_image`),
                     3,
-                    { useCase: 'blog' }
+                    {
+                        useCase: 'blog',
+                        signal,
+                        modelConfig: runtimeOptions.imageModelConfig
+                    }
                 );
             } catch (imageErr) {
 				rethrowIfCanceled(imageErr, signal);

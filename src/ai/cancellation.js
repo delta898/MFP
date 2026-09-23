@@ -16,7 +16,11 @@ function throwIfCanceled(signal) {
 }
 
 function rethrowIfCanceled(error, signal) {
-    if (isCancellation(error, signal)) throw createCanceledError();
+    if (isCancellation(error, signal)) {
+        const canceled = createCanceledError();
+        if (error?.remoteStatusUnknown === true) canceled.remoteStatusUnknown = true;
+        throw canceled;
+    }
 }
 
 function sleepWithCancellation(ms, signal, fallbackSleep) {

@@ -2,6 +2,7 @@ const axios = require('axios');
 const { KIE_BASE_URL } = require('../ai-model-catalog');
 const { getModelRuntimeDefinition } = require('./model-runtime-policy');
 const { pollAsyncJob } = require('./async-job-runner');
+const { isCancellation, rethrowIfCanceled, sleepWithCancellation, throwIfCanceled } = require('./cancellation');
 
 const KIE_MARKET_CREATE_TASK_ENDPOINT = `${KIE_BASE_URL}/api/v1/jobs/createTask`;
 const KIE_MARKET_TASK_INFO_ENDPOINT = `${KIE_BASE_URL}/api/v1/jobs/recordInfo`;
@@ -40,6 +41,14 @@ function createKieMarketImageProgressReporter(options = {}) {
         }
         if (state === 'journal_error') {
             logWarn(`   ⚠️ KIE 작업 journal 저장 실패: ${event.error}`);
+            return;
+        }
+        if (state === 'locally_canceled') {
+            logWarn(`   ⚠️ KIE 이미지 작업의 로컬 대기를 중단했습니다 (${event.taskId}). 원격 작업 종료나 크레딧 환급은 확인되지 않았습니다.`);
+            return;
+        }
+        if (state === 'submission_unknown') {
+            logWarn('   ⚠️ KIE 제출 응답 전에 취소되어 원격 작업 접수 여부를 확인할 수 없습니다.');
             return;
         }
         if (!['waiting', 'queuing', 'generating'].includes(state)) return;
@@ -369,25 +378,31 @@ function createKieMarketImageClient(options = {}) {
         }
     }
 
-    async function downloadResult(resultUrl) {
+    async function downloadResult(resultUrl, signal) {
         const safeUrl = assertSafeKieResultUrl(resultUrl);
         let lastError = null;
         for (let attempt = 1; attempt <= 3; attempt += 1) {
+            throwIfCanceled(signal);
             try {
                 const response = await httpClient.get(safeUrl, {
                     responseType: 'arraybuffer',
-                    timeout: downloadTimeoutMs
+                    timeout: downloadTimeoutMs,
+                    signal
                 });
+                throwIfCanceled(signal);
                 return Buffer.from(response.data);
             } catch (error) {
+                rethrowIfCanceled(error, signal);
                 lastError = error;
-                if (attempt < 3) await sleep(1000 * Math.pow(2, attempt - 1));
+                if (attempt < 3) await sleepWithCancellation(1000 * Math.pow(2, attempt - 1), signal, sleep);
             }
         }
         throw new Error(`KIE 이미지 결과 다운로드에 실패했습니다: ${lastError?.message || 'unknown error'}`);
     }
 
     async function generate(params = {}) {
+        const signal = params.options?.signal;
+        throwIfCanceled(signal);
         const modelConfig = params.modelConfig || {};
         const apiKey = String(modelConfig.api_key || '').trim();
         if (!apiKey) throw new Error('KIE API Key 누락');
@@ -398,12 +413,38 @@ function createKieMarketImageClient(options = {}) {
         );
         const headers = buildKieMarketHeaders(apiKey);
 
-        const submitResponse = await httpClient.post(
-            KIE_MARKET_CREATE_TASK_ENDPOINT,
-            request.body,
-            { headers, timeout: submitTimeoutMs }
-        );
-        const taskId = extractKieMarketTaskId(submitResponse?.data);
+        let submitResponse;
+        try {
+            // A submitted remote job may be billed. Keep the bounded submit request alive
+            // after local cancellation so its task ID can be recorded if it arrives.
+            submitResponse = await httpClient.post(
+                KIE_MARKET_CREATE_TASK_ENDPOINT,
+                request.body,
+                { headers, timeout: submitTimeoutMs }
+            );
+        } catch (error) {
+            if (signal?.aborted) {
+                onProgress({ state: 'submission_unknown' });
+                const canceled = new Error('KIE 제출 응답 전에 취소되어 원격 접수 상태를 확인할 수 없습니다.');
+                canceled.code = 'AI_GENERATION_CANCELED';
+                canceled.remoteStatusUnknown = true;
+                throw canceled;
+            }
+            throw error;
+        }
+        let taskId;
+        try {
+            taskId = extractKieMarketTaskId(submitResponse?.data);
+        } catch (error) {
+            if (signal?.aborted) {
+                onProgress({ state: 'submission_unknown' });
+                const canceled = new Error('KIE 제출 응답에 작업 ID가 없어 원격 접수 상태를 확인할 수 없습니다.');
+                canceled.code = 'AI_GENERATION_CANCELED';
+                canceled.remoteStatusUnknown = true;
+                throw canceled;
+            }
+            throw error;
+        }
         const journalBase = {
             taskId,
             provider: 'kie',
@@ -415,8 +456,10 @@ function createKieMarketImageClient(options = {}) {
 
         let completedTask;
         try {
+            throwIfCanceled(signal);
             completedTask = await pollAsyncJob({
                 taskId,
+                signal,
                 sleep,
                 now,
                 totalTimeoutMs,
@@ -425,7 +468,8 @@ function createKieMarketImageClient(options = {}) {
                     const response = await httpClient.get(KIE_MARKET_TASK_INFO_ENDPOINT, {
                         params: { taskId },
                         headers,
-                        timeout: pollRequestTimeoutMs
+                        timeout: pollRequestTimeoutMs,
+                        signal
                     });
                     const task = normalizeKieMarketTask(response?.data);
                     if (!task.state) {
@@ -454,29 +498,29 @@ function createKieMarketImageClient(options = {}) {
                     onProgress(task);
                 }
             });
+            const resultUrl = completedTask.resultUrls?.[0];
+            if (!resultUrl) throw new Error('KIE 완료 작업에 이미지 결과 URL이 없습니다.');
+            const imageBuffer = await downloadResult(resultUrl, signal);
+            throwIfCanceled(signal);
+            await updateJournal({ ...journalBase, state: 'downloaded', error: '' });
+            return {
+                taskId,
+                imageBuffer,
+                resultUrl,
+                creditsConsumed: completedTask.creditsConsumed
+            };
         } catch (error) {
             await updateJournal({
                 ...journalBase,
-                state: error?.state || (error?.code === 'AI_ASYNC_JOB_TIMEOUT' ? 'timed_out' : 'fail'),
+                state: isCancellation(error, signal)
+                    ? 'locally_canceled'
+                    : (error?.state || (error?.code === 'AI_ASYNC_JOB_TIMEOUT' ? 'timed_out' : 'fail')),
                 error: String(error?.message || error)
             });
+            if (isCancellation(error, signal)) onProgress({ taskId, state: 'locally_canceled' });
+            rethrowIfCanceled(error, signal);
             throw error;
         }
-
-        const resultUrl = completedTask.resultUrls?.[0];
-        if (!resultUrl) {
-            const error = new Error('KIE 완료 작업에 이미지 결과 URL이 없습니다.');
-            await updateJournal({ ...journalBase, state: 'fail', error: error.message });
-            throw error;
-        }
-        const imageBuffer = await downloadResult(resultUrl);
-        await updateJournal({ ...journalBase, state: 'downloaded', error: '' });
-        return {
-            taskId,
-            imageBuffer,
-            resultUrl,
-            creditsConsumed: completedTask.creditsConsumed
-        };
     }
 
     return {

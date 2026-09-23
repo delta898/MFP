@@ -17,6 +17,7 @@ const { createAiGenerationOperationManager } = require('../../blog-next/ai-gener
 const { buildCompletionLinks } = require('../../continuous-publishing/presentation');
 const { createManuscriptDraftService } = require('../../content/manuscript-draft-service');
 const { buildSetupReadiness } = require('../../account/setup-readiness');
+const { createTransientPreviewWorkspaceManager } = require('../../content/transient-preview-workspace');
 
 function createContentService(deps = {}) {
     const {
@@ -393,7 +394,7 @@ function createContentService(deps = {}) {
         return imageMode;
     }
 
-    async function generateAiManuscriptDraft(requestBody, imageMode, operation = null, textModelConfig = null) {
+    async function generateAiManuscriptDraft(requestBody, imageMode, operation = null, textModelConfig = null, imageModelConfig = null) {
         operation?.throwIfCanceled();
         operation?.setStage('writing');
         const requestedTargets = Array.isArray(requestBody.targets)
@@ -403,21 +404,34 @@ function createContentService(deps = {}) {
         // The canonical manuscript is platform-neutral. Use the non-browser generation
         // projection only as a transient workspace and apply the user's platform later.
         const generationTargets = ['wordpress'];
-        const generated = await executeQuickPublish({
-            ...requestBody,
-            imageMode,
-            imageGeneration: generatesBlogImages(imageMode),
-            targets: generationTargets,
-            postStatus: 'draft',
-            scheduleDate: '',
-            publishMode: 'append_and_generate'
-        }, {
-            workspaceDraft: true,
-            ...(operation ? { signal: operation.signal } : {}),
-            ...(textModelConfig ? { textModelConfig } : {})
-        });
-        const data = generated?.data || {};
+        let transientWorkspaceDir = '';
+        let workspaceManager = null;
+        let data = {};
         try {
+            if (fs?.mkdtempSync && path?.join && typeof Utils?.resolvePlatformWorkspaceDir === 'function') {
+                const platformDir = Utils.resolvePlatformWorkspaceDir('wordpress');
+                transientWorkspaceDir = fs.mkdtempSync(path.join(platformDir, 'ai-draft-'));
+                workspaceManager = createTransientPreviewWorkspaceManager({
+                    fs, path, Logger, workspaceDir: path.dirname(platformDir)
+                });
+                workspaceManager.track({ wordpress: transientWorkspaceDir }, operation?.operationId || '');
+            }
+            const generated = await executeQuickPublish({
+                ...requestBody,
+                imageMode,
+                imageGeneration: generatesBlogImages(imageMode),
+                targets: generationTargets,
+                postStatus: 'draft',
+                scheduleDate: '',
+                publishMode: 'append_and_generate'
+            }, {
+                workspaceDraft: true,
+                ...(transientWorkspaceDir ? { transientWorkspaceDir } : {}),
+                ...(operation ? { signal: operation.signal } : {}),
+                ...(textModelConfig ? { textModelConfig } : {}),
+                ...(imageModelConfig ? { imageModelConfig } : {})
+            });
+            data = generated?.data || {};
             operation?.throwIfCanceled();
             if (!generated?.success) {
                 throw createApiError(400, generated?.code || 'MANUSCRIPT_AI_GENERATE_FAILED', generated?.message || 'AI 원고를 만들지 못했습니다.');
@@ -460,6 +474,9 @@ function createContentService(deps = {}) {
                 } catch (error) {
                     Logger?.warn?.(`AI 원고 임시 미리보기 정리 실패: ${error.message}`);
                 }
+            }
+            if (transientWorkspaceDir) {
+                workspaceManager?.dispose({ wordpress: transientWorkspaceDir });
             }
         }
     }
@@ -993,9 +1010,14 @@ function createContentService(deps = {}) {
             if (selectedTextModel.capabilities && typeof selectedTextModel.capabilities === 'object') {
                 textModelConfig.capabilities = { ...selectedTextModel.capabilities };
             }
+            const selectedImageModel = CONFIG.IMAGE_MODEL_CONFIG || {};
+            const imageModelConfig = { ...selectedImageModel };
+            if (selectedImageModel.capabilities && typeof selectedImageModel.capabilities === 'object') {
+                imageModelConfig.capabilities = { ...selectedImageModel.capabilities };
+            }
             return aiGenerationOperations.start({
                 subject: String(requestBody.subject || requestBody.title || '바로 생성 원고').trim()
-            }, (operation) => generateAiManuscriptDraft(requestBody, imageMode, operation, textModelConfig));
+            }, (operation) => generateAiManuscriptDraft(requestBody, imageMode, operation, textModelConfig, imageModelConfig));
         },
 
         getAiManuscriptDraftOperation({ operationId } = {}) {

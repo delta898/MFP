@@ -1,5 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 
 const { createContentService } = require('./content.service');
 const { createBlogNextExecutionCoordinator } = require('../../blog-next/execution-coordinator');
@@ -188,12 +191,14 @@ test('direct AI manuscript generation stays local until the user publishes and i
 test('async AI generation cancellation blocks a late Draft and keeps the lease until generation settles', async () => {
     const coordinator = createBlogNextExecutionCoordinator();
     const selectedTextModel = { provider: 'openai', code: 'gpt-6-sol', api_key: 'fixture-key' };
+    const selectedImageModel = { provider: 'kie', code: 'nano-banana-2', api_key: 'fixture-image-key' };
     let finishGeneration;
     let draftCalls = 0;
     const disposed = [];
     const service = createService(coordinator, async () => ({ success: true, data: {} }), {
         TEXT_MODEL: 'fixture-model', TEXT_MODEL_API_KEY: 'fixture-key',
-        TEXT_MODEL_CONFIG: selectedTextModel
+        TEXT_MODEL_CONFIG: selectedTextModel,
+        IMAGE_MODEL_CONFIG: selectedImageModel
     }, {
         manuscriptDraftService: {
             createAiDraft() { draftCalls += 1; return { draftId: 'should-not-exist' }; }
@@ -202,6 +207,7 @@ test('async AI generation cancellation blocks a late Draft and keeps the lease u
             assert.equal(options.workspaceDraft, true);
             assert.ok(options.signal);
             assert.equal(options.textModelConfig.code, 'gpt-6-sol');
+            assert.equal(options.imageModelConfig.code, 'nano-banana-2');
             return new Promise((resolve) => { finishGeneration = resolve; });
         },
         deleteQuickPublishPreviewSession: (previewId) => disposed.push(previewId)
@@ -209,6 +215,7 @@ test('async AI generation cancellation blocks a late Draft and keeps the lease u
 
     const started = service.startAiManuscriptDraftOperation({ subject: '주제', imageMode: 'none' });
     selectedTextModel.code = 'changed-after-start';
+    selectedImageModel.code = 'changed-after-start';
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(coordinator.getStatus().source, 'manuscript_generation');
     assert.equal(service.cancelAiManuscriptDraftOperation({ operationId: started.operationId }).state, 'cancel_requested');
@@ -222,6 +229,34 @@ test('async AI generation cancellation blocks a late Draft and keeps the lease u
     assert.equal(draftCalls, 0);
     assert.deepEqual(disposed, ['preview-late']);
     assert.deepEqual(coordinator.getStatus(), { busy: false });
+});
+
+test('AI manuscript failure removes only its owned transient workspace', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'blog-ai-cancel-'));
+    const platformDir = path.join(root, 'wp_fixture');
+    fs.mkdirSync(platformDir);
+    const priorDraft = path.join(platformDir, 'existing-draft');
+    fs.mkdirSync(priorDraft);
+    let ownedDir = '';
+    const service = createService(createBlogNextExecutionCoordinator(), async () => ({}), {
+        TEXT_MODEL: 'fixture-model', TEXT_MODEL_API_KEY: 'fixture-key'
+    }, {
+        fs, path, Utils: { resolvePlatformWorkspaceDir: () => platformDir },
+        Logger: { warn() {} },
+        executeQuickPublish: async (_input, options) => {
+            ownedDir = options.transientWorkspaceDir;
+            assert.ok(fs.existsSync(ownedDir));
+            fs.writeFileSync(path.join(ownedDir, 'contents.md'), 'partial');
+            throw new Error('generation failed');
+        }
+    });
+    try {
+        await assert.rejects(service.createAiManuscriptDraft({ subject: '주제', imageMode: 'none' }), /generation failed/);
+        assert.equal(fs.existsSync(ownedDir), false);
+        assert.equal(fs.existsSync(priorDraft), true);
+    } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+    }
 });
 
 test('direct AI manuscript generation preserves none and excludes upstream image artifacts', async () => {

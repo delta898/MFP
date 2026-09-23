@@ -368,3 +368,61 @@ test('KIE Market client does not resubmit when polling fails', async () => {
     );
     assert.equal(postCalls, 1);
 });
+
+test('KIE submission keeps the request alive after cancellation and journals the returned task ID', async () => {
+    const controller = new AbortController();
+    const journal = [];
+    let resolveSubmission;
+    let polls = 0;
+    const client = createKieMarketImageClient({
+        jobStore: { upsert: (record) => journal.push(record) },
+        httpClient: {
+            post: () => new Promise((resolve) => { resolveSubmission = resolve; }),
+            get: async () => { polls += 1; throw new Error('must not poll'); }
+        }
+    });
+    const generating = client.generate({
+        modelConfig: { provider: 'kie', code: 'nano-banana-2', transport: 'kie_market_image_jobs', api_key: 'test' },
+        prompt: 'hero', options: { signal: controller.signal }
+    });
+    controller.abort();
+    resolveSubmission({ data: { data: { taskId: 'canceled-task' } } });
+    await assert.rejects(generating, (error) => error.code === 'AI_GENERATION_CANCELED');
+    assert.equal(polls, 0);
+    assert.deepEqual(journal.map((entry) => entry.state), ['submitted', 'locally_canceled']);
+    assert.equal(journal[1].taskId, 'canceled-task');
+});
+
+test('KIE submission timeout after cancellation reports unknown remote status', async () => {
+    const controller = new AbortController();
+    let rejectSubmission;
+    const client = createKieMarketImageClient({
+        httpClient: { post: () => new Promise((_resolve, reject) => { rejectSubmission = reject; }) }
+    });
+    const generating = client.generate({
+        modelConfig: { provider: 'kie', code: 'nano-banana-2', transport: 'kie_market_image_jobs', api_key: 'test' },
+        prompt: 'hero', options: { signal: controller.signal }
+    });
+    controller.abort();
+    rejectSubmission(new Error('timeout'));
+    await assert.rejects(generating, (error) => error.code === 'AI_GENERATION_CANCELED' && error.remoteStatusUnknown === true);
+});
+
+test('KIE download cancellation stops retries', async () => {
+    const controller = new AbortController();
+    let downloads = 0;
+    const client = createKieMarketImageClient({
+        httpClient: {
+            get: async () => {
+                downloads += 1;
+                controller.abort();
+                throw Object.assign(new Error('canceled'), { code: 'ERR_CANCELED' });
+            }
+        }
+    });
+    await assert.rejects(
+        client.downloadResult('https://cdn.example/image.png', controller.signal),
+        (error) => error.code === 'AI_GENERATION_CANCELED'
+    );
+    assert.equal(downloads, 1);
+});

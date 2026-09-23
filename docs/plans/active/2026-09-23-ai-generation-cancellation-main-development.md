@@ -3,7 +3,7 @@
 - 브랜치: `codex/feature/ai-generation-cancellation`
 - 시작일: 2026-09-23
 - 기준/부모 브랜치: `dev`
-- 상태: 1·2단계 parent 병합 완료, 3단계 이미지 transport 준비
+- 상태: 1·2·3단계 parent 병합 완료, 4단계 UI 연결 대기
 - 관련 backlog: `docs/backlog.md`의 「실행 중 작업 취소와 안전한 복구」
 - 설계 결정 초안: `../../decisions/2026-09-23-ai-generation-cancellation-contract.md`
 
@@ -91,11 +91,11 @@ AI 모델의 응답 지연과 재시도로 생성이 수분간 끝나지 않을 
 - 2026-09-23: 사용자가 단계적 구현을 승인했다. 첫 sub-feature `../archive/2026-09-23-ai-cancel-01-operation-contract-development.md`에서 서버 작업 ID·상태 조회·취소 계약을 구현했다.
 - 2026-09-23: sub-feature→parent에는 관련 집중 검사, parent/단독 feature→`dev`에는 전체 TC를 적용하도록 검증 정책을 갱신했다. 서버 작업 단계는 집중 검사 32개와 공유 잠금 관련 56개를 통과한 뒤 parent에 fast-forward 병합했다.
 - 2026-09-23: 두 번째 sub-feature `../archive/2026-09-23-ai-cancel-02-text-transports-development.md`에서 생성 signal과 모델 선택 snapshot을 Gemini/OpenAI 호환 텍스트 경로에 연결했다. 집중 테스트 40개 통과 후 parent에 fast-forward 병합했다.
+- 2026-09-23: 세 번째 sub-feature `../archive/2026-09-23-ai-cancel-03-image-transports-development.md`에서 이미지 transport, KIE 로컬 취소·작업 저널, 작업별 임시 파일 정리를 구현했다. 관련 집중 검사 63개 통과 후 parent에 병합했다.
 
 ## 결과, 검증 및 남은 확인
 
-- 현재 결과: 구현 전 설계안과 parent 브랜치 준비. 0단계 취소 계약 초안 작성 완료.
-- 자동 검증: 문서·Git 상태 확인만 수행. 기능 검사는 구현 단계에서 진행한다.
-- 각 sub-feature에서는 변경 경계의 집중 테스트를 먼저 실행한다. UI 연결 단계가 끝나면 관련 browser smoke를 실행한다. 각 sub-feature 병합 전 및 parent의 `dev` 병합 전 전체 unit suite는 프로젝트 규칙대로 사용자 승인을 받아 실행한다.
+- 현재 결과: 서버 작업 계약, 텍스트·이미지 transport 단계가 parent에 병합 완료. UI 연결이 남았다.
+- 자동 검증: 3단계 관련 집중 검사 63개 통과. UI 연결 단계가 끝나면 관련 browser smoke를 실행한다. parent의 `dev` 병합 전 전체 unit suite는 사용자 승인을 받아 실행한다.
 - 수동 확인 필요: 실제 제공업체의 긴 응답 중 취소, KIE 이미지 작업 제출 후 취소 안내, 모델 변경 후 재실행, 마지막 유효 원고 보존.
 - 남은 위험: 제공업체별 원격 취소 지원·과금 정책은 별도 확인이 필요하다. 유료 모델을 호출하는 검사는 사용자 승인 없이 실행하지 않는다.

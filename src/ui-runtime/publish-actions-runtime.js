@@ -230,11 +230,12 @@ function createPublishActionsRuntime(deps = {}) {
                         count: context.imageOptions?.count
                     }
                 };
-                const naverResult = await Core.generateContent(naverTopic, null, {
+                const naverResult = await Core.generateContent(naverTopic, options.transientWorkspaceDir || null, {
                     enableRelatedPostsAutoLink,
                     platform: 'naver',
                     signal,
-                    textModelConfig: options.textModelConfig
+                    textModelConfig: options.textModelConfig,
+                    imageModelConfig: options.imageModelConfig
                 });
                 throwIfCanceled(signal);
                 results.naver.targetDir = naverResult.targetDir;
@@ -243,7 +244,8 @@ function createPublishActionsRuntime(deps = {}) {
                 emitProgress('네이버 이미지 준비 중...');
                 await Core.prepareImages(naverResult.targetDir, naverTopic, {
                     imageGenerationEnabled: imageGenerationFinal,
-                    signal
+                    signal,
+                    imageModelConfig: options.imageModelConfig
                 });
                 throwIfCanceled(signal);
             }
@@ -264,11 +266,12 @@ function createPublishActionsRuntime(deps = {}) {
                         count: context.imageOptions?.count
                     }
                 };
-                const wpResult = await Core.generateContent(wpTopic, null, {
+                const wpResult = await Core.generateContent(wpTopic, options.transientWorkspaceDir || null, {
                     enableRelatedPostsAutoLink,
                     platform: 'wordpress',
                     signal,
-                    textModelConfig: options.textModelConfig
+                    textModelConfig: options.textModelConfig,
+                    imageModelConfig: options.imageModelConfig
                 });
                 throwIfCanceled(signal);
                 results.wordpress.targetDir = wpResult.targetDir;
@@ -277,7 +280,8 @@ function createPublishActionsRuntime(deps = {}) {
                 emitProgress('워드프레스 이미지 준비 중...');
                 await Core.prepareImages(wpResult.targetDir, wpTopic, {
                     imageGenerationEnabled: imageGenerationFinal,
-                    signal
+                    signal,
+                    imageModelConfig: options.imageModelConfig
                 });
                 throwIfCanceled(signal);
             }
@@ -977,7 +981,9 @@ function createPublishActionsRuntime(deps = {}) {
         if (publishMode === 'append_and_generate') {
             const generated = await buildMultiPlatformGeneratedContent(publishParams, {
                 signal,
-                textModelConfig: executionOptions.textModelConfig
+                textModelConfig: executionOptions.textModelConfig,
+                imageModelConfig: executionOptions.imageModelConfig,
+                transientWorkspaceDir: workspaceDraft ? executionOptions.transientWorkspaceDir : undefined
             });
             throwIfCanceled(signal);
             if (!generated.success) {

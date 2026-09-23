@@ -1,4 +1,5 @@
 const DEFAULT_TOTAL_TIMEOUT_MS = 15 * 60 * 1000;
+const { rethrowIfCanceled, sleepWithCancellation, throwIfCanceled } = require('./cancellation');
 const DEFAULT_MAX_CONSECUTIVE_POLL_ERRORS = 5;
 
 const PENDING_STATES = new Set(['submitted', 'waiting', 'queuing', 'generating']);
@@ -20,6 +21,7 @@ function createAsyncJobError(code, message, details = {}) {
 
 async function pollAsyncJob(options = {}) {
     const taskId = String(options.taskId || '').trim();
+    const signal = options.signal;
     const queryTask = options.queryTask;
     const normalizeTask = typeof options.normalizeTask === 'function'
         ? options.normalizeTask
@@ -48,6 +50,7 @@ async function pollAsyncJob(options = {}) {
     let consecutivePollErrors = 0;
 
     while (true) {
+        throwIfCanceled(signal);
         const elapsedBeforeWait = Math.max(0, now() - startedAt);
         if (elapsedBeforeWait >= totalTimeoutMs) {
             throw createAsyncJobError(
@@ -58,7 +61,8 @@ async function pollAsyncJob(options = {}) {
         }
 
         const remainingMs = totalTimeoutMs - elapsedBeforeWait;
-        await sleep(Math.min(getAsyncJobPollIntervalMs(elapsedBeforeWait), remainingMs));
+        await sleepWithCancellation(Math.min(getAsyncJobPollIntervalMs(elapsedBeforeWait), remainingMs), signal, sleep);
+        throwIfCanceled(signal);
 
         if ((now() - startedAt) >= totalTimeoutMs) {
             throw createAsyncJobError(
@@ -71,8 +75,10 @@ async function pollAsyncJob(options = {}) {
         let task;
         try {
             task = normalizeTask(await queryTask(taskId));
+            throwIfCanceled(signal);
             consecutivePollErrors = 0;
         } catch (error) {
+            rethrowIfCanceled(error, signal);
             consecutivePollErrors += 1;
             if (
                 !isRetryablePollError(error)

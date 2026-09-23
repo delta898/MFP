@@ -67,6 +67,49 @@ test('Gemini image call honors custom base URLs only for direct providers', asyn
     assert.equal(seen.url, 'https://my-gateway.example/v1/models/my-model:generateContent?key=secret-key');
 });
 
+test('Gemini image cancellation does not save a late response or retry', async () => {
+    const controller = new AbortController();
+    let posts = 0;
+    const restore = mockAxiosPost(async () => {
+        posts += 1;
+        controller.abort();
+        return imageResponse();
+    });
+    const savePath = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'gemini-cancel-')), 'out');
+    try {
+        await assert.rejects(
+            Utils.callGeminiImage.call(HEARTBEAT, 'prompt', savePath, 3, {
+                apiKey: 'key', provider: 'google', modelCode: 'gemini-3-pro-image', signal: controller.signal
+            }),
+            (error) => error.code === 'AI_GENERATION_CANCELED'
+        );
+    } finally { restore(); }
+    assert.equal(posts, 1);
+    assert.equal(fs.existsSync(`${savePath}.png`), false);
+});
+
+test('OpenAI image cancellation does not save a late response or retry', async () => {
+    const controller = new AbortController();
+    let posts = 0;
+    const restore = mockAxiosPost(async () => {
+        posts += 1;
+        controller.abort();
+        return { data: { data: [{ b64_json: Buffer.from('image').toString('base64') }] } };
+    });
+    const savePath = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'openai-cancel-')), 'out');
+    try {
+        await assert.rejects(
+            Utils.callOpenAiCompatibleImageByConfig.call(HEARTBEAT, {
+                provider: 'openai', code: 'gpt-image-2', transport: 'openai_images',
+                base_url: 'https://api.openai.com/v1', api_key: 'key'
+            }, 'prompt', savePath, 3, { signal: controller.signal }),
+            (error) => error.code === 'AI_GENERATION_CANCELED'
+        );
+    } finally { restore(); }
+    assert.equal(posts, 1);
+    assert.equal(fs.existsSync(`${savePath}.png`), false);
+});
+
 test('Gemini image call fails with a clear error instead of ReferenceError', async () => {
     await assert.rejects(
         Utils.callGeminiImage.call(HEARTBEAT, 'prompt', path.join(os.tmpdir(), 'nope'), 1, {

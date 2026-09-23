@@ -476,6 +476,28 @@ test('generation passes the operation signal and model snapshot to Core and does
     assert.equal(calls[0].textModelConfig, textModelConfig);
 });
 
+test('generation passes image model snapshot and owned workspace to image preparation', async () => {
+    const imageModelConfig = { provider: 'kie', code: 'nano-banana-2' };
+    const calls = [];
+    const runtime = createPublishActionsRuntime({
+        CONFIG: {}, Logger: { info() {}, warn() {}, error() {} },
+        Core: {
+            async generateContent(_topic, customDir) {
+                calls.push(['generate', customDir]);
+                return { targetDir: customDir, finalSubject: 'subject' };
+            },
+            async prepareImages(_dir, _topic, options) { calls.push(['images', options]); }
+        }
+    });
+    const result = await runtime.buildMultiPlatformGeneratedContent({
+        context: { subject: 'subject', imageOptions: { mode: 'generate', generate: true } },
+        targets: ['wordpress'], features: {}, enableRelatedPostsAutoLink: false
+    }, { imageModelConfig, transientWorkspaceDir: '/fixture/owned' });
+    assert.equal(result.success, true);
+    assert.deepEqual(calls[0], ['generate', '/fixture/owned']);
+    assert.equal(calls[1][1].imageModelConfig, imageModelConfig);
+});
+
 test('multi-platform publish commits one quota unit after partial success', async () => {
     const { runtime, calls } = createPublishLifecycleRuntime({ naverSuccess: true, wordpressSuccess: false });
     const result = await runtime.processMultiPlatformPublish(createPublishParams(), { operationId: 'partial-success' });

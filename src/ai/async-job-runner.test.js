@@ -82,3 +82,16 @@ test('async job runner distinguishes provider failure and total timeout', async 
             && error.state === 'timed_out'
     );
 });
+
+test('async job runner stops a canceled poll without querying or retrying', async () => {
+    const controller = new AbortController();
+    let queries = 0;
+    const polling = pollAsyncJob({
+        taskId: 'cancel-task',
+        signal: controller.signal,
+        queryTask: async () => { queries += 1; return { state: 'waiting' }; }
+    });
+    controller.abort();
+    await assert.rejects(polling, (error) => error.code === 'AI_GENERATION_CANCELED');
+    assert.equal(queries, 0);
+});
