@@ -57,6 +57,11 @@ const {
 } = require('./ai/gemini-response');
 const { resolveAiRetryDecision } = require('./ai/request-retry-policy');
 const {
+    rethrowIfCanceled,
+    sleepWithCancellation,
+    throwIfCanceled
+} = require('./ai/cancellation');
+const {
     KIE_RESPONSES_ENDPOINT,
     buildKieResponsesRequest,
     extractKieResponsesText
@@ -3852,7 +3857,9 @@ const Utils = {
     // 3. (Deleted) Excel Support Removed
     // readExcelTopics & updateExcelStatus functions were removed.
 
-    fetchReferenceContent: async function (url) {
+    fetchReferenceContent: async function (url, options = {}) {
+        const signal = options?.signal;
+        throwIfCanceled(signal);
         if (!url) return "";
         Logger.debug(`🌐 [참고자료 Fetch] 요청 시작: ${url}`);
         Logger.debug(`🌐 [Scraping] 접속 시도: ${url}`);
@@ -3863,8 +3870,10 @@ const Utils = {
                     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
                 },
                 timeout: CONFIG.SCRAPING_TIMEOUT || 20000,
-                maxRedirects: 5
+                maxRedirects: 5,
+                ...(signal ? { signal } : {})
             });
+            throwIfCanceled(signal);
             const extracted = extractReferenceContentFromHtml(response.data, url);
             if (!extracted.text) {
                 Logger.debug(`⚠️ [참고자료 Fetch] 본문 추출 결과 비어 있음: ${url}`);
@@ -3876,6 +3885,7 @@ const Utils = {
             Logger.debug(`   ✅ 스크래핑 성공 (길이: ${extracted.text.length}자)`);
             return extracted.text;
         } catch (e) {
+            rethrowIfCanceled(e, signal);
             Logger.debug(`⚠️ [참고자료 Fetch] 실패: ${url} (${e.message})`);
             Logger.debug(`⚠️ 스크래핑 실패 (${url}): ${e.message}`);
             return "";
@@ -3884,6 +3894,8 @@ const Utils = {
 
     // 🔧 [Fixed] Gemini API 재시도 로직 추가 (지수 백오프)
     callGeminiText: async function (prompt, retries = 3, options = {}) {
+        const signal = options?.signal;
+        throwIfCanceled(signal);
         const apiKey = String(options?.apiKey || '').trim();
         if (!apiKey) throw new Error('API Key 누락');
         const usageLabel = String(options?.usageLabel || 'Gemini Text API').trim() || 'Gemini Text API';
@@ -3913,6 +3925,7 @@ const Utils = {
         const endpointForLog = describeGeminiEndpoint(endpoint);
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
+                throwIfCanceled(signal);
                 if (logStart) Logger.info(`🧠 [${usageLabel}] Gemini 호출 중... (시도 ${attempt}/${retries})`);
                 const response = await this.runWithHeartbeat(
                     `(시도 ${attempt})`,
@@ -3928,10 +3941,11 @@ const Utils = {
                         }
                         return axios.post(`${endpoint}?key=${apiKey}`,
                         body,
-                        { headers: { 'Content-Type': 'application/json' }, timeout: 120000 }
+                        { headers: { 'Content-Type': 'application/json' }, timeout: 120000, ...(signal ? { signal } : {}) }
                     );
                     }
                 );
+                throwIfCanceled(signal);
                 const candidate = response.data?.candidates?.[0];
                 if (options?.logTokenUsage === true && response.data?.usageMetadata) {
                     const usage = response.data.usageMetadata;
@@ -3944,6 +3958,7 @@ const Utils = {
                 if (!text) throw new Error('Empty response from Gemini');
                 return text;
             } catch (e) {
+                rethrowIfCanceled(e, signal);
                 const readableError = formatAiRemoteErrorMessage(e);
                 const invalidUrl = e?.code === 'ERR_INVALID_URL' || /invalid url/i.test(readableError);
                 const failureDetail = invalidUrl
@@ -3979,7 +3994,7 @@ const Utils = {
                         Logger.debug(`🛠️ [${usageLabel}] 재시도 상태 콜백 실패: ${callbackError.message}`);
                     }
                 }
-                await this.sleep(waitTime);
+                await sleepWithCancellation(waitTime, signal, (ms) => this.sleep(ms));
             }
         }
     },
@@ -3993,6 +4008,8 @@ const Utils = {
     },
 
     callOpenAiCompatibleTextByConfig: async function (modelConfig = {}, prompt, retries = 3, options = {}) {
+        const signal = options?.signal;
+        throwIfCanceled(signal);
         const usageLabel = String(options?.usageLabel || 'Writing Text Model').trim() || 'Writing Text Model';
         const baseUrl = normalizeOpenAiCompatibleBaseUrl(modelConfig.base_url);
         const model = String(modelConfig.code || '').trim();
@@ -4006,6 +4023,7 @@ const Utils = {
 
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
+                throwIfCanceled(signal);
                 if (logStart) Logger.info(`🧠 [${usageLabel}] OpenAI-compatible 호출 중... (시도 ${attempt}/${retries})`);
                 const response = await this.runWithHeartbeat(
                     `(시도 ${attempt})`,
@@ -4022,10 +4040,12 @@ const Utils = {
                                 : `${baseUrl}/chat/completions`);
                         return axios.post(endpoint, body, {
                             headers,
-                            timeout: 120000
+                            timeout: 120000,
+                            ...(signal ? { signal } : {})
                         });
                     }
                 );
+                throwIfCanceled(signal);
                 const definition = getModelRuntimeDefinition('text', modelConfig);
                 const text = definition.transport === 'kie_responses'
                     ? extractKieResponsesText(response.data)
@@ -4035,6 +4055,7 @@ const Utils = {
                 if (!text) throw new Error('Empty response from OpenAI-compatible chat model');
                 return text;
             } catch (e) {
+                rethrowIfCanceled(e, signal);
                 const readableError = formatAiRemoteErrorMessage(e);
                 const retryDecision = resolveAiRetryDecision(e, attempt);
                 Logger.warn(`⚠️ [${usageLabel}] 호출 실패 (시도 ${attempt}/${retries}): ${readableError}`);
@@ -4064,7 +4085,7 @@ const Utils = {
                         Logger.debug(`🛠️ [${usageLabel}] 재시도 상태 콜백 실패: ${callbackError.message}`);
                     }
                 }
-                await this.sleep(waitTime);
+                await sleepWithCancellation(waitTime, signal, (ms) => this.sleep(ms));
             }
         }
     },
@@ -4098,8 +4119,9 @@ const Utils = {
     },
 
     callWritingText: async function (prompt, retries = 3, options = {}) {
-        return this.callTextByConfig(CONFIG.TEXT_MODEL_CONFIG || {}, prompt, retries, {
-            ...withAutomaticReasoningEffort(options, 'writing'),
+        const { modelConfig, ...callOptions } = options || {};
+        return this.callTextByConfig(modelConfig || CONFIG.TEXT_MODEL_CONFIG || {}, prompt, retries, {
+            ...withAutomaticReasoningEffort(callOptions, 'writing'),
             usageLabel: String(options?.usageLabel || '글쓰기 텍스트 모델').trim()
         });
     },

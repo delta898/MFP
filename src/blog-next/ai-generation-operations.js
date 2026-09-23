@@ -1,14 +1,9 @@
 const crypto = require('crypto');
 const { createApiError } = require('../ui-api/errors');
+const { createCanceledError } = require('../ai/cancellation');
 
 const DEFAULT_RETENTION_MS = 10 * 60 * 1000;
 const DEFAULT_MAX_RETAINED = 20;
-
-function createCanceledError() {
-    const error = new Error('AI 원고 생성을 취소했습니다.');
-    error.code = 'AI_GENERATION_CANCELED';
-    return error;
-}
 
 function createAiGenerationOperationManager(options = {}) {
     const coordinator = options.coordinator;

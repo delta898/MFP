@@ -393,7 +393,7 @@ function createContentService(deps = {}) {
         return imageMode;
     }
 
-    async function generateAiManuscriptDraft(requestBody, imageMode, operation = null) {
+    async function generateAiManuscriptDraft(requestBody, imageMode, operation = null, textModelConfig = null) {
         operation?.throwIfCanceled();
         operation?.setStage('writing');
         const requestedTargets = Array.isArray(requestBody.targets)
@@ -411,7 +411,11 @@ function createContentService(deps = {}) {
             postStatus: 'draft',
             scheduleDate: '',
             publishMode: 'append_and_generate'
-        }, { workspaceDraft: true, ...(operation ? { signal: operation.signal } : {}) });
+        }, {
+            workspaceDraft: true,
+            ...(operation ? { signal: operation.signal } : {}),
+            ...(textModelConfig ? { textModelConfig } : {})
+        });
         const data = generated?.data || {};
         try {
             operation?.throwIfCanceled();
@@ -984,9 +988,14 @@ function createContentService(deps = {}) {
 
         startAiManuscriptDraftOperation(requestBody = {}) {
             const imageMode = validateAiManuscriptRequest(requestBody);
+            const selectedTextModel = CONFIG.TEXT_MODEL_CONFIG || {};
+            const textModelConfig = { ...selectedTextModel };
+            if (selectedTextModel.capabilities && typeof selectedTextModel.capabilities === 'object') {
+                textModelConfig.capabilities = { ...selectedTextModel.capabilities };
+            }
             return aiGenerationOperations.start({
                 subject: String(requestBody.subject || requestBody.title || '바로 생성 원고').trim()
-            }, (operation) => generateAiManuscriptDraft(requestBody, imageMode, operation));
+            }, (operation) => generateAiManuscriptDraft(requestBody, imageMode, operation, textModelConfig));
         },
 
         getAiManuscriptDraftOperation({ operationId } = {}) {

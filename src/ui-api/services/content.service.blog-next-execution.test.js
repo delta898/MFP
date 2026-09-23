@@ -187,11 +187,13 @@ test('direct AI manuscript generation stays local until the user publishes and i
 
 test('async AI generation cancellation blocks a late Draft and keeps the lease until generation settles', async () => {
     const coordinator = createBlogNextExecutionCoordinator();
+    const selectedTextModel = { provider: 'openai', code: 'gpt-6-sol', api_key: 'fixture-key' };
     let finishGeneration;
     let draftCalls = 0;
     const disposed = [];
     const service = createService(coordinator, async () => ({ success: true, data: {} }), {
-        TEXT_MODEL: 'fixture-model', TEXT_MODEL_API_KEY: 'fixture-key'
+        TEXT_MODEL: 'fixture-model', TEXT_MODEL_API_KEY: 'fixture-key',
+        TEXT_MODEL_CONFIG: selectedTextModel
     }, {
         manuscriptDraftService: {
             createAiDraft() { draftCalls += 1; return { draftId: 'should-not-exist' }; }
@@ -199,12 +201,14 @@ test('async AI generation cancellation blocks a late Draft and keeps the lease u
         executeQuickPublish: async (_input, options) => {
             assert.equal(options.workspaceDraft, true);
             assert.ok(options.signal);
+            assert.equal(options.textModelConfig.code, 'gpt-6-sol');
             return new Promise((resolve) => { finishGeneration = resolve; });
         },
         deleteQuickPublishPreviewSession: (previewId) => disposed.push(previewId)
     });
 
     const started = service.startAiManuscriptDraftOperation({ subject: '주제', imageMode: 'none' });
+    selectedTextModel.code = 'changed-after-start';
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(coordinator.getStatus().source, 'manuscript_generation');
     assert.equal(service.cancelAiManuscriptDraftOperation({ operationId: started.operationId }).state, 'cancel_requested');

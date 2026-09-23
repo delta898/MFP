@@ -3,7 +3,7 @@
 - 브랜치: `codex/feature/ai-generation-cancellation`
 - 시작일: 2026-09-23
 - 기준/부모 브랜치: `dev`
-- 상태: 1단계 서버 작업 수명주기 parent 병합 완료, 2단계 텍스트 transport 준비
+- 상태: 1단계 parent 병합 완료, 2단계 텍스트 transport 검토 중
 - 관련 backlog: `docs/backlog.md`의 「실행 중 작업 취소와 안전한 복구」
 - 설계 결정 초안: `../../decisions/2026-09-23-ai-generation-cancellation-contract.md`
 
@@ -90,6 +90,7 @@ AI 모델의 응답 지연과 재시도로 생성이 수분간 끝나지 않을 
 - 2026-09-23: 비동기 시작·상태 조회·취소 요청, `cancel_requested` 중 잠금 유지, Draft commit 경계, 단일 중단 신호, 작업별 임시 파일 소유권, KIE 로컬 취소와 원격 상태 구분을 설계 결정 초안으로 기록했다. 기능 코드는 아직 변경하지 않았다.
 - 2026-09-23: 사용자가 단계적 구현을 승인했다. 첫 sub-feature `../archive/2026-09-23-ai-cancel-01-operation-contract-development.md`에서 서버 작업 ID·상태 조회·취소 계약을 구현했다.
 - 2026-09-23: sub-feature→parent에는 관련 집중 검사, parent/단독 feature→`dev`에는 전체 TC를 적용하도록 검증 정책을 갱신했다. 서버 작업 단계는 집중 검사 32개와 공유 잠금 관련 56개를 통과한 뒤 parent에 fast-forward 병합했다.
+- 2026-09-23: 두 번째 sub-feature `2026-09-23-ai-cancel-02-text-transports-development.md`에서 생성 signal과 모델 선택 snapshot을 Gemini/OpenAI 호환 텍스트 경로에 연결했다. 집중 테스트 40개 통과; parent 병합 전 검토 대기.
 
 ## 결과, 검증 및 남은 확인
 

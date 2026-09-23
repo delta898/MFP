@@ -17,6 +17,7 @@ const {
     MANUAL_PUBLISH_BLOCKED_CODE,
     assertDirectPublishAllowed
 } = require('../environment/runtime-effects');
+const { rethrowIfCanceled, throwIfCanceled } = require('../ai/cancellation');
 
 function createPublishActionsRuntime(deps = {}) {
     const {
@@ -182,6 +183,7 @@ function createPublishActionsRuntime(deps = {}) {
     }
 
     async function buildMultiPlatformGeneratedContent(params = {}, options = {}) {
+        const signal = options.signal;
         const {
             context,
             targets,
@@ -200,8 +202,10 @@ function createPublishActionsRuntime(deps = {}) {
         };
 
         try {
+            throwIfCanceled(signal);
             if (targets.includes('naver')) {
                 const session = await checkAuthSessionValid();
+                throwIfCanceled(signal);
                 if (!session.ok) {
                     return {
                         success: false,
@@ -228,15 +232,20 @@ function createPublishActionsRuntime(deps = {}) {
                 };
                 const naverResult = await Core.generateContent(naverTopic, null, {
                     enableRelatedPostsAutoLink,
-                    platform: 'naver'
+                    platform: 'naver',
+                    signal,
+                    textModelConfig: options.textModelConfig
                 });
+                throwIfCanceled(signal);
                 results.naver.targetDir = naverResult.targetDir;
                 results.finalSubject = naverResult.finalSubject;
 
                 emitProgress('네이버 이미지 준비 중...');
                 await Core.prepareImages(naverResult.targetDir, naverTopic, {
-                    imageGenerationEnabled: imageGenerationFinal
+                    imageGenerationEnabled: imageGenerationFinal,
+                    signal
                 });
+                throwIfCanceled(signal);
             }
 
             if (targets.includes('wordpress')) {
@@ -257,19 +266,25 @@ function createPublishActionsRuntime(deps = {}) {
                 };
                 const wpResult = await Core.generateContent(wpTopic, null, {
                     enableRelatedPostsAutoLink,
-                    platform: 'wordpress'
+                    platform: 'wordpress',
+                    signal,
+                    textModelConfig: options.textModelConfig
                 });
+                throwIfCanceled(signal);
                 results.wordpress.targetDir = wpResult.targetDir;
                 if (!results.finalSubject) results.finalSubject = wpResult.finalSubject;
 
                 emitProgress('워드프레스 이미지 준비 중...');
                 await Core.prepareImages(wpResult.targetDir, wpTopic, {
-                    imageGenerationEnabled: imageGenerationFinal
+                    imageGenerationEnabled: imageGenerationFinal,
+                    signal
                 });
+                throwIfCanceled(signal);
             }
 
             return { success: true, results };
         } catch (error) {
+            rethrowIfCanceled(error, signal);
             Logger.error(`❌ [MultiPlatformGenerate] 오류: ${error.message}`);
             return { success: false, message: error.message, results };
         }
@@ -692,6 +707,8 @@ function createPublishActionsRuntime(deps = {}) {
 
     async function executeQuickPublish(requestBody, executionOptions = {}) {
         const workspaceDraft = executionOptions.workspaceDraft === true;
+        const signal = executionOptions.signal;
+        throwIfCanceled(signal);
         const subject = String(requestBody?.subject || '').trim();
         const title = String(requestBody?.title || '').trim();
         const keywords = normalizeKeywords(requestBody?.keywords);
@@ -773,6 +790,7 @@ function createPublishActionsRuntime(deps = {}) {
         }
 
         const precheck = await License.checkLicenseStatus();
+        throwIfCanceled(signal);
         if (!precheck.success) {
             return { success: false, code: 'LICENSE_STATUS_FAILED', message: precheck.message };
         }
@@ -957,7 +975,11 @@ function createPublishActionsRuntime(deps = {}) {
         }
 
         if (publishMode === 'append_and_generate') {
-            const generated = await buildMultiPlatformGeneratedContent(publishParams);
+            const generated = await buildMultiPlatformGeneratedContent(publishParams, {
+                signal,
+                textModelConfig: executionOptions.textModelConfig
+            });
+            throwIfCanceled(signal);
             if (!generated.success) {
                 if (Number.isInteger(rowIndex)) {
                     await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', generated.message || '생성 실패');

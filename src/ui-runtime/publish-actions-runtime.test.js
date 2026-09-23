@@ -451,6 +451,31 @@ test('Naver and WordPress generation receive the same per-post profile overrides
     assert.deepEqual(generated.map((item) => item.topic.category), ['네이버 분류', '워드프레스 분류']);
 });
 
+test('generation passes the operation signal and model snapshot to Core and does not convert cancellation to ordinary failure', async () => {
+    const controller = new AbortController();
+    const textModelConfig = { provider: 'openai', code: 'gpt-6-sol' };
+    const calls = [];
+    const runtime = createPublishActionsRuntime({
+        CONFIG: {},
+        Logger: { info() {}, warn() {}, error() {} },
+        Core: {
+            async generateContent(_topic, _unused, options) {
+                calls.push(options);
+                controller.abort();
+                throw Object.assign(new Error('canceled'), { code: 'AI_GENERATION_CANCELED' });
+            },
+            async prepareImages() { throw new Error('must not prepare images'); }
+        }
+    });
+    await assert.rejects(runtime.buildMultiPlatformGeneratedContent({
+        context: { subject: '주제', imageOptions: { mode: 'none', generate: false } },
+        targets: ['wordpress'], features: {}, enableRelatedPostsAutoLink: false
+    }, { signal: controller.signal, textModelConfig }), (error) => error.code === 'AI_GENERATION_CANCELED');
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].signal, controller.signal);
+    assert.equal(calls[0].textModelConfig, textModelConfig);
+});
+
 test('multi-platform publish commits one quota unit after partial success', async () => {
     const { runtime, calls } = createPublishLifecycleRuntime({ naverSuccess: true, wordpressSuccess: false });
     const result = await runtime.processMultiPlatformPublish(createPublishParams(), { operationId: 'partial-success' });

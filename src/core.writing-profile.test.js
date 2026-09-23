@@ -69,3 +69,56 @@ test('Core.generateContent uses the selected blog profile composer for the share
         fs.rmSync(targetDir, { recursive: true, force: true });
     }
 });
+
+test('Core does not write contents.md when generation is canceled after the model responds', async () => {
+    const targetDir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'core-canceled-text-')), 'generated');
+    const previousCallWritingText = Utils.callWritingText;
+    const controller = new AbortController();
+    const selectedModel = { provider: 'openai', code: 'gpt-6-sol' };
+    let seenOptions;
+    Utils.callWritingText = async (_prompt, _retries, options) => {
+        seenOptions = options;
+        controller.abort();
+        return JSON.stringify({ title: '늦은 원고', content: '본문' });
+    };
+    try {
+        await assert.rejects(
+            Core.generateContent({ subject: '취소 테스트', image_options: { mode: 'none' } }, targetDir, {
+                platform: 'wordpress', enableRelatedPostsAutoLink: false,
+                signal: controller.signal, textModelConfig: selectedModel
+            }),
+            (error) => error.code === 'AI_GENERATION_CANCELED'
+        );
+        assert.equal(seenOptions.signal, controller.signal);
+        assert.equal(seenOptions.modelConfig, selectedModel);
+        assert.equal(fs.existsSync(targetDir), false);
+    } finally {
+        Utils.callWritingText = previousCallWritingText;
+        fs.rmSync(path.dirname(targetDir), { recursive: true, force: true });
+    }
+});
+
+test('Core stops before the text model when optional reference lookup is still pending', async () => {
+    const targetDir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'core-canceled-reference-')), 'generated');
+    const previousFetch = Utils.fetchNaverBlogTopPosts;
+    const previousText = Utils.callWritingText;
+    const controller = new AbortController();
+    let textCalls = 0;
+    Utils.fetchNaverBlogTopPosts = async () => new Promise(() => {});
+    Utils.callWritingText = async () => { textCalls += 1; return '{}'; };
+    try {
+        const pending = Core.generateContent({
+            subject: '참고자료 취소 테스트', use_external_ref: true,
+            image_options: { mode: 'none' }
+        }, targetDir, { platform: 'wordpress', signal: controller.signal });
+        await new Promise((resolve) => setImmediate(resolve));
+        controller.abort();
+        await assert.rejects(pending, (error) => error.code === 'AI_GENERATION_CANCELED');
+        assert.equal(textCalls, 0);
+        assert.equal(fs.existsSync(targetDir), false);
+    } finally {
+        Utils.fetchNaverBlogTopPosts = previousFetch;
+        Utils.callWritingText = previousText;
+        fs.rmSync(path.dirname(targetDir), { recursive: true, force: true });
+    }
+});

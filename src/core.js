@@ -15,6 +15,12 @@ const { buildBlogGenerationPrompt } = require('./content/blog-generation-prompt'
 const { validateBlogImageBlocks } = require('./content/blog-image-plan');
 const { normalizeBlogImageMode, generatesBlogImages } = require('./content/blog-image-mode');
 const { assertDirectPublishAllowed } = require('./environment/runtime-effects');
+const {
+	raceWithCancellation,
+	rethrowIfCanceled,
+	sleepWithCancellation,
+	throwIfCanceled
+} = require('./ai/cancellation');
 
 const IS_MAC = process.platform === 'darwin';
 const CMD_KEY = IS_MAC ? 'Meta' : 'Control';
@@ -1806,6 +1812,8 @@ ${messageText}
 	 * 1. 콘텐츠 생성 (Generate)
 	 */
 	generateContent: async function (jobData, customDir = null, runtimeOptions = {}) {
+		const signal = runtimeOptions.signal;
+		throwIfCanceled(signal);
 		Logger.info("🚀 [Core] 콘텐츠 생성 프로세스 시작");
 
 		const hasSubject = !!jobData.subject;
@@ -1841,7 +1849,7 @@ ${messageText}
 			? '이미지 생성'
 			: (loggedImageMode === 'none' ? '미포함' : '프롬프트 포함');
 		Logger.info(`│ 🖼️  이미지 처리: ${loggedImageModeLabel}`);
-		Logger.info(`│ 🤖 TEXT 모델  : ${String(CONFIG.TEXT_MODEL_NAME || CONFIG.TEXT_MODEL || '(없음)')}`);
+		Logger.info(`│ 🤖 TEXT 모델  : ${String(runtimeOptions.textModelConfig?.name || runtimeOptions.textModelConfig?.code || CONFIG.TEXT_MODEL_NAME || CONFIG.TEXT_MODEL || '(없음)')}`);
 		Logger.info(`│ 🎨 IMG 모델   : ${String(CONFIG.IMAGE_MODEL_NAME || CONFIG.IMAGE_MODEL || '(없음)')}`);
 		Logger.info(`│ 📤 발행 옵션  : ${effectivePostStatusLabel}`);
 		Logger.info("└─────────────────────────────────────────");
@@ -1860,11 +1868,14 @@ ${messageText}
 			const searchKeyword = (hasKeywords ? jobData.keywords[0] : jobData.subject) || '';
 			if (searchKeyword) {
 				Logger.info(`🔍 [외부 참고] 관련 최신 글 수집 및 분석 시작: '${searchKeyword}'`);
-				const relatedPosts = await Utils.fetchNaverBlogTopPosts(searchKeyword);
+				const relatedPosts = await raceWithCancellation(() => Utils.fetchNaverBlogTopPosts(searchKeyword), signal);
+				throwIfCanceled(signal);
 
 				for (let i = 0; i < relatedPosts.length; i++) {
+					throwIfCanceled(signal);
 					const post = relatedPosts[i];
-					const text = await Utils.fetchReferenceContent(post.link);
+					const text = await Utils.fetchReferenceContent(post.link, { signal });
+					throwIfCanceled(signal);
 					if (text) {
 						refSourceCount++;
 						scrapedContext += `\n[자동 참고글 ${refSourceCount} - ${post.title}]:\n${text}\n`;
@@ -1873,7 +1884,7 @@ ${messageText}
 						const previewTitle = rawTitle.length > 7 ? rawTitle.slice(0, 7) + '...' : rawTitle;
 						scrapedTitles.push(` - ${previewTitle}`);
 					}
-					await Utils.sleep(1000);
+					await sleepWithCancellation(1000, signal, (ms) => Utils.sleep(ms));
 				}
 				Logger.info(`🔍 [외부 참고] 관련 최신 글 스크래핑 완료: ${refSourceCount}건 성공`);
 				if (scrapedTitles.length > 0) {
@@ -1887,11 +1898,13 @@ ${messageText}
 			const refUrls = jobData.content_guide.reference_urls;
 			Logger.info(`📚 수동 참고 자료(${refUrls.length}개) 분석 중...`);
 			for (let i = 0; i < refUrls.length; i++) {
+				throwIfCanceled(signal);
 				const url = refUrls[i];
 				// 네이버 블로그 URL이면 모바일 변환
 				const convertedUrl = Utils.convertToMobileNaverBlogUrl(url);
 				Logger.info(`   🔗 [참고 자료] URL 분석 중 (${i + 1}/${refUrls.length}): ${convertedUrl}`);
-				const text = await Utils.fetchReferenceContent(convertedUrl);
+				const text = await Utils.fetchReferenceContent(convertedUrl, { signal });
+				throwIfCanceled(signal);
 				if (text) {
 					refSourceCount++;
 					scrapedContext += `\n[수동 참고글 ${refSourceCount} - ${convertedUrl}]:\n${text}\n`;
@@ -1945,9 +1958,12 @@ ${scrapedContext}`;
 			resolvedPrompt.prompt,
 			3,
 			{
-				responseMimeType: 'application/json'
+				responseMimeType: 'application/json',
+				...(signal ? { signal } : {}),
+				...(runtimeOptions.textModelConfig ? { modelConfig: runtimeOptions.textModelConfig } : {})
 			}
 		);
+		throwIfCanceled(signal);
 		if (!rawResult) throw new Error("API 응답이 비어있습니다.");
 
 		// 4) JSON 파싱
@@ -1975,11 +1991,13 @@ ${scrapedContext}`;
 					Logger.info("🔎 [WordPress] 하이브리드 관련 글 수집 중...");
 					try {
 						const wpRandomPosts = await Utils.fetchWordPressRandomPosts(CONFIG.WORDPRESS_URL, 2);
+						throwIfCanceled(signal);
 						const naverRandomPosts = await Utils.fetchOwnBlogRelatedPosts({
 							title: finalSubject,
 							content: finalContent,
 							keywords: jobData.keywords || []
 						}, 2);
+						throwIfCanceled(signal);
 						const combinedPosts = Utils._shuffleArray([...wpRandomPosts, ...naverRandomPosts]).slice(0, 3);
 
 						if (combinedPosts.length > 0) {
@@ -1987,6 +2005,7 @@ ${scrapedContext}`;
 						Logger.info(`🔗 [WordPress] 관련 글 ${combinedPosts.length}개 자동 생성 완료`);
 					}
 				} catch (e) {
+					rethrowIfCanceled(e, signal);
 					Logger.error(`⚠️ [WordPress] 관련 글 수집 중 오류: ${e.message}`);
 				}
 				} else {
@@ -1996,6 +2015,7 @@ ${scrapedContext}`;
 						content: finalContent,
 						keywords: jobData.keywords || []
 					}, 3);
+					throwIfCanceled(signal);
 					if (relatedPosts.length > 0) {
 						const relatedHeading = Utils.pickRelatedPostsHeading();
 						relatedPostsMarkdown = "\n\n" + Core.buildRelatedPostsSectionMarkdown(relatedPosts, relatedHeading, true);
@@ -2009,6 +2029,7 @@ ${scrapedContext}`;
 		}
 
 		// 5) 결과 저장
+		throwIfCanceled(signal);
 		let targetDir;
 		const safeSubject = Utils.sanitizeFileName(String(finalSubject));
 		if (customDir) {
@@ -2037,6 +2058,8 @@ ${scrapedContext}`;
 	 * 2. 이미지 준비 (Prepare)
 	 */
 	prepareImages: async function (dirPath, jobData, runtimeOptions = {}) {
+		const signal = runtimeOptions.signal;
+		throwIfCanceled(signal);
 		if (runtimeOptions.imageGenerationEnabled === false) {
 			Logger.info("🖼️ 이미지 생성 기능이 플랜 정책으로 비활성화되어 건너뜁니다.");
 			return;
@@ -2058,11 +2081,14 @@ ${scrapedContext}`;
 		let lastCall = 0;
 
 		for (const item of contents) {
+			throwIfCanceled(signal);
 			if (item.type !== 'image') continue;
 
 			const prefix = String(item.index).padStart(2, '0');
 			const now = Date.now();
-			if (lastCall > 0 && (now - lastCall) < 1000) await Utils.sleep(1000);
+			if (lastCall > 0 && (now - lastCall) < 1000) {
+				await sleepWithCancellation(1000, signal, (ms) => Utils.sleep(ms));
+			}
 
 			Logger.info(`   🎨 이미지 생성 중 (Index ${item.index})`);
 
@@ -2078,6 +2104,7 @@ ${scrapedContext}`;
                     { useCase: 'blog' }
                 );
             } catch (imageErr) {
+				rethrowIfCanceled(imageErr, signal);
                 Logger.warn(`⚠️ 이미지 생성 실패 (Index ${item.index}): ${imageErr.message}. 백업 프롬프트를 유지하고 다음으로 넘어갑니다.`);
             }
 			lastCall = Date.now();
