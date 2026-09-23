@@ -41,9 +41,13 @@ function assertModelConfig(kind, modelConfig, definition) {
     }
 }
 
-function assertMatchingModelId(data, requestedCode) {
+function assertMatchingModelId(data, requestedCode, { allowAnthropicDatedAlias = false } = {}) {
     const returnedId = String(data?.id || data?.name || '').replace(/^models\//, '').trim();
-    if (returnedId && returnedId !== requestedCode) {
+    const datedAliasMatch = allowAnthropicDatedAlias
+        && /^claude-[a-z]+-\d+-\d+$/.test(requestedCode)
+        && returnedId.startsWith(`${requestedCode}-`)
+        && /^\d{8}$/.test(returnedId.slice(requestedCode.length + 1));
+    if (returnedId && returnedId !== requestedCode && !datedAliasMatch) {
         throw createCheckError(`서버가 다른 모델 정보를 반환했습니다: ${returnedId}`);
     }
 }
@@ -92,7 +96,7 @@ async function checkAnthropicModel(httpClient, modelConfig, timeoutMs) {
         },
         timeout: timeoutMs
     });
-    assertMatchingModelId(response?.data, requestedCode);
+    assertMatchingModelId(response?.data, requestedCode, { allowAnthropicDatedAlias: true });
 }
 
 async function checkOpenAiModel(httpClient, modelConfig, timeoutMs) {

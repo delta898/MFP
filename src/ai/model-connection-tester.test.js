@@ -77,6 +77,37 @@ test('checks Claude through its native model metadata endpoint', async () => {
     assert.equal(calls[0].config.headers['anthropic-version'], '2023-06-01');
 });
 
+test('accepts an Anthropic dated model ID returned for a legacy alias', async () => {
+    const calls = [];
+    const result = await testModelConnection({
+        kind: 'text',
+        modelConfig: {
+            provider: 'anthropic',
+            code: 'claude-haiku-4-5',
+            base_url: 'https://api.anthropic.com/v1',
+            api_key: 'claude-secret'
+        },
+        httpClient: createHttpClient({ id: 'claude-haiku-4-5-20251001', type: 'model' }, calls)
+    });
+
+    assert.equal(calls[0].url, 'https://api.anthropic.com/v1/models/claude-haiku-4-5');
+    assert.equal(result.success, true);
+    assert.equal(result.model, 'claude-haiku-4-5');
+});
+
+test('rejects an unrelated Anthropic model returned for an alias', async () => {
+    await assert.rejects(testModelConnection({
+        kind: 'text',
+        modelConfig: {
+            provider: 'anthropic',
+            code: 'claude-haiku-4-5',
+            base_url: 'https://api.anthropic.com/v1',
+            api_key: 'claude-secret'
+        },
+        httpClient: createHttpClient({ id: 'claude-sonnet-4-5-20250929', type: 'model' }, [])
+    }), /서버가 다른 모델 정보를 반환했습니다/);
+});
+
 test('checks KIE at provider account level without generation', async () => {
     const calls = [];
     const result = await testModelConnection({

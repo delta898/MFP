@@ -97,6 +97,44 @@ test('failed ai role checks persist the failure', async () => {
     assert.match(record.message, /invalid key/);
 });
 
+test('ai role check reports a safe model mismatch instead of blaming the API key', async () => {
+    configureStore();
+    const { service } = createService({
+        async testModelConnection() {
+            const error = new Error('서버가 다른 모델 정보를 반환했습니다: claude-sonnet-4-5-20250929');
+            error.code = 'AI_MODEL_CONNECTION_CHECK_FAILED';
+            throw error;
+        }
+    });
+    await assert.rejects(
+        service.testAiRoleConnection({ scope: 'text' }),
+        (error) => {
+            assert.match(error.message, /서버가 다른 모델 정보를 반환했습니다/);
+            assert.doesNotMatch(error.message, /API Key/);
+            return true;
+        }
+    );
+});
+
+test('ai role check does not expose untrusted remote error text', async () => {
+    configureStore();
+    const { service } = createService({
+        async testModelConnection() {
+            const error = new Error('secret-token-in-remote-error');
+            error.code = 'AI_MODEL_CONNECTION_CHECK_FAILED';
+            throw error;
+        }
+    });
+    await assert.rejects(
+        service.testAiRoleConnection({ scope: 'text' }),
+        (error) => {
+            assert.match(error.message, /모델 설정과 네트워크 상태/);
+            assert.doesNotMatch(error.message, /secret-token/);
+            return true;
+        }
+    );
+});
+
 test('unsaved model checks record under the requested values', async () => {
     const filePath = configureStore();
     const { service } = createService(successTester);

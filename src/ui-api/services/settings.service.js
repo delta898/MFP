@@ -5,6 +5,21 @@ function createApiError(status, code, message) {
     return err;
 }
 
+function describeAiModelConnectionFailure(error) {
+    const message = String(error?.message || '').trim();
+    if (/^서버가 다른 모델 정보를 반환했습니다: [a-z0-9._-]+$/i.test(message)) {
+        return `AI 모델 연결 실패 · ${message}`;
+    }
+    const status = Number(error?.remoteStatus || 0);
+    if (status === 401 || status === 403) {
+        return `AI 모델 연결 실패 · API Key 또는 모델 접근 권한을 확인해 주세요. (HTTP ${status})`;
+    }
+    if (status === 404) {
+        return 'AI 모델 연결 실패 · 선택한 모델을 찾지 못했습니다.';
+    }
+    return 'AI 모델 연결 확인에 실패했습니다. 모델 설정과 네트워크 상태를 확인해 주세요.';
+}
+
 const {
     ensureRuntimeRemoteMcpConfig,
     generateRemoteMcpBearerToken
@@ -1143,7 +1158,7 @@ function createSettingsService(deps = {}) {
                     const effectiveScope = (scope === 'chat' && CONFIG.CHAT_MODEL_SOURCE !== 'dedicated') ? 'text' : scope;
                     recordAiRoleVerification(effectiveScope, modelConfig, { success: false, connected: false, message: error.message });
                 } catch (_) { }
-                throw createApiError(400, 'AI_MODEL_CONNECTION_CHECK_FAILED', 'AI 모델 연결을 확인하지 못했습니다. API Key와 모델 설정을 확인해 주세요.');
+                throw createApiError(400, 'AI_MODEL_CONNECTION_CHECK_FAILED', describeAiModelConnectionFailure(error));
             }
         },
 
