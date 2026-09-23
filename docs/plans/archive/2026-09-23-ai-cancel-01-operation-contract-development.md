@@ -3,7 +3,7 @@
 - 브랜치: `codex/feature/ai-cancel-01-operation-contract`
 - 시작일: 2026-09-23
 - 기준/부모 브랜치: `codex/feature/ai-generation-cancellation`
-- 상태: 구현·집중 검증 완료, parent 병합 준비
+- 상태: 구현·집중 검증 완료, parent에 fast-forward 병합됨
 - parent 기록: `2026-09-23-ai-generation-cancellation-main-development.md`
 - 계약 결정: `../../decisions/2026-09-23-ai-generation-cancellation-contract.md`
 
@@ -48,6 +48,7 @@
 - 2026-09-23: 사용자가 병합 전 전체 unit suite를 이번에는 보류하기로 했다. 병합 게이트는 면제되지 않으므로 sub-feature를 parent에 병합하거나 다음 sub-feature를 시작하지 않는다.
 - 2026-09-23: 사용자가 검증 게이트를 세분화했다. sub-feature→parent는 관련 단위·계약 검사(해당하면 UI 브라우저 검사), parent 또는 단독 feature→`dev`는 전체 TC로 `AGENTS.md`를 변경하도록 승인했다. 이 단계는 UI 변경이 없으므로 공유 잠금 관련 집중 검사를 추가 확인한 뒤 parent 병합한다.
 - 2026-09-23: 연속 발행 서비스, AI 원고 서비스, 작업 관리자 집중 검사 56개가 통과했다. 연속 발행과 원고 생성의 공유 잠금 충돌 시나리오를 포함한다.
+- 2026-09-23: `474e269`까지 parent `codex/feature/ai-generation-cancellation`에 fast-forward 병합하고 sub-feature 브랜치를 삭제했다. 완료 기록은 archive로 이동했다.
 
 ## 결과와 검증
 

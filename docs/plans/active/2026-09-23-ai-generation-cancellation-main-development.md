@@ -3,7 +3,7 @@
 - 브랜치: `codex/feature/ai-generation-cancellation`
 - 시작일: 2026-09-23
 - 기준/부모 브랜치: `dev`
-- 상태: 0단계 계약 승인, 1단계 서버 작업 수명주기 구현 중
+- 상태: 1단계 서버 작업 수명주기 parent 병합 완료, 2단계 텍스트 transport 준비
 - 관련 backlog: `docs/backlog.md`의 「실행 중 작업 취소와 안전한 복구」
 - 설계 결정 초안: `../../decisions/2026-09-23-ai-generation-cancellation-contract.md`
 
@@ -88,7 +88,8 @@ AI 모델의 응답 지연과 재시도로 생성이 수분간 끝나지 않을 
 - 2026-09-23: `dev`와 작업 트리가 깨끗한 것을 확인하고 parent 브랜치를 생성했다. 현재 호출 경로와 backlog를 확인해 위 단계안을 작성했다. 기능 코드는 아직 변경하지 않았다.
 - 2026-09-23: 0단계에서 브라우저의 장시간 POST, coordinator의 단일 lease, 생성 중 파일 쓰기, 일반 오류 catch에서 취소가 흡수될 수 있는 지점, KIE 제출·폴링 경계를 조사했다. 공개 KIE 문서에서는 Market 작업 취소 endpoint를 확인하지 못했으므로 원격 취소 지원 여부를 미확정으로 둔다.
 - 2026-09-23: 비동기 시작·상태 조회·취소 요청, `cancel_requested` 중 잠금 유지, Draft commit 경계, 단일 중단 신호, 작업별 임시 파일 소유권, KIE 로컬 취소와 원격 상태 구분을 설계 결정 초안으로 기록했다. 기능 코드는 아직 변경하지 않았다.
-- 2026-09-23: 사용자가 단계적 구현을 승인했다. 첫 sub-feature `2026-09-23-ai-cancel-01-operation-contract-development.md`에서 서버 작업 ID·상태 조회·취소 계약을 구현하기 시작했다.
+- 2026-09-23: 사용자가 단계적 구현을 승인했다. 첫 sub-feature `../archive/2026-09-23-ai-cancel-01-operation-contract-development.md`에서 서버 작업 ID·상태 조회·취소 계약을 구현했다.
+- 2026-09-23: sub-feature→parent에는 관련 집중 검사, parent/단독 feature→`dev`에는 전체 TC를 적용하도록 검증 정책을 갱신했다. 서버 작업 단계는 집중 검사 32개와 공유 잠금 관련 56개를 통과한 뒤 parent에 fast-forward 병합했다.
 
 ## 결과, 검증 및 남은 확인
 
