@@ -94,6 +94,7 @@
 - `decisions/2026-08-28-runtime-credential-ownership.md`
 - `decisions/2026-09-06-naver-oauth-publishing-boundary.md`
 - `decisions/2026-09-15-sqlite-v2-agent-memory.md`
+- `decisions/2026-09-23-ai-generation-cancellation-contract.md` (구현 전 설계 제안)
 
 ## Active Work
 

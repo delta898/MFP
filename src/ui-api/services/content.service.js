@@ -13,6 +13,7 @@ const {
     generateSmartCommentDrafts
 } = require('../../naver/smart-comment-draft-generator');
 const { createBlogNextExecutionCoordinator } = require('../../blog-next/execution-coordinator');
+const { createAiGenerationOperationManager } = require('../../blog-next/ai-generation-operations');
 const { buildCompletionLinks } = require('../../continuous-publishing/presentation');
 const { createManuscriptDraftService } = require('../../content/manuscript-draft-service');
 const { buildSetupReadiness } = require('../../account/setup-readiness');
@@ -68,6 +69,8 @@ function createContentService(deps = {}) {
     } = deps;
     const blogNextExecutionCoordinator = deps.blogNextExecutionCoordinator
         || createBlogNextExecutionCoordinator();
+    const aiGenerationOperations = deps.aiGenerationOperations
+        || createAiGenerationOperationManager({ coordinator: blogNextExecutionCoordinator });
     let manuscriptDraftService = deps.manuscriptDraftService || null;
     function getManuscriptDraftService() {
         if (!manuscriptDraftService) {
@@ -372,6 +375,89 @@ function createContentService(deps = {}) {
 
     if (!manuscriptDraftService && fs && path && Utils?.parseMarkdown && Utils?.findImageByPrefix) {
         getManuscriptDraftService();
+    }
+
+    function validateAiManuscriptRequest(requestBody) {
+        const aiReadiness = buildSetupReadiness({ CONFIG }).ai;
+        const imageMode = parseBlogImageMode(requestBody.imageMode ?? requestBody.image_mode, {
+            legacyGenerate: typeof requestBody.imageGeneration === 'boolean'
+                ? requestBody.imageGeneration : undefined,
+            fallback: 'prompt_only'
+        });
+        if (aiReadiness.configured !== true) {
+            throw createApiError(400, 'AI_TEXT_MODEL_REQUIRED', 'AI 설정에서 글쓰기 모델을 먼저 설정해 주세요.');
+        }
+        if (generatesBlogImages(imageMode) && aiReadiness.image_configured !== true) {
+            throw createApiError(400, 'AI_IMAGE_MODEL_REQUIRED', 'AI 설정에서 이미지 모델을 먼저 설정해 주세요.');
+        }
+        return imageMode;
+    }
+
+    async function generateAiManuscriptDraft(requestBody, imageMode, operation = null) {
+        operation?.throwIfCanceled();
+        operation?.setStage('writing');
+        const requestedTargets = Array.isArray(requestBody.targets)
+            ? requestBody.targets
+            : (Array.isArray(requestBody.platforms) ? requestBody.platforms : []);
+        const targets = requestedTargets.length === 1 ? requestedTargets : ['naver'];
+        // The canonical manuscript is platform-neutral. Use the non-browser generation
+        // projection only as a transient workspace and apply the user's platform later.
+        const generationTargets = ['wordpress'];
+        const generated = await executeQuickPublish({
+            ...requestBody,
+            imageMode,
+            imageGeneration: generatesBlogImages(imageMode),
+            targets: generationTargets,
+            postStatus: 'draft',
+            scheduleDate: '',
+            publishMode: 'append_and_generate'
+        }, { workspaceDraft: true, ...(operation ? { signal: operation.signal } : {}) });
+        const data = generated?.data || {};
+        try {
+            operation?.throwIfCanceled();
+            if (!generated?.success) {
+                throw createApiError(400, generated?.code || 'MANUSCRIPT_AI_GENERATE_FAILED', generated?.message || 'AI 원고를 만들지 못했습니다.');
+            }
+            const primaryTarget = String(data.primaryTarget || generationTargets[0] || '').trim();
+            const preview = data.previews?.[primaryTarget];
+            if (!preview?.rawMarkdown) {
+                throw createApiError(500, 'MANUSCRIPT_AI_PREVIEW_MISSING', '생성된 원고를 작업공간으로 가져오지 못했습니다.');
+            }
+            const images = [];
+            for (const image of Array.isArray(preview.images) ? preview.images : []) {
+                operation?.throwIfCanceled();
+                if (!image?.exists) continue;
+                const payload = getQuickPreviewImagePayload({
+                    previewId: data.previewId,
+                    target: primaryTarget,
+                    index: image.index
+                });
+                if (payload?.binary && Buffer.isBuffer(payload.body)) {
+                    images.push({ index: image.index, buffer: payload.body });
+                }
+            }
+            operation?.beginCommit();
+            const draft = getManuscriptDraftService().createAiDraft({
+                ...requestBody,
+                imageMode,
+                targets,
+                markdownText: imageMode === 'none'
+                    ? stripBlogImagePromptBlocks(preview.rawMarkdown)
+                    : preview.rawMarkdown,
+                images: imageMode === 'none' ? [] : images,
+                sourceLabel: preview.title || requestBody.title || requestBody.subject || '바로 생성 원고',
+                sourceMetadata: { generationProjection: primaryTarget }
+            });
+            return refreshManuscriptRelatedPosts(draft, await resolveRelatedPostsEnabled(), { force: true });
+        } finally {
+            if (typeof deleteQuickPublishPreviewSession === 'function' && data.previewId) {
+                try {
+                    deleteQuickPublishPreviewSession(data.previewId);
+                } catch (error) {
+                    Logger?.warn?.(`AI 원고 임시 미리보기 정리 실패: ${error.message}`);
+                }
+            }
+        }
     }
 
     return {
@@ -888,76 +974,31 @@ function createContentService(deps = {}) {
         },
 
         async createAiManuscriptDraft(requestBody = {}) {
-            const aiReadiness = buildSetupReadiness({ CONFIG }).ai;
-            const imageMode = parseBlogImageMode(requestBody.imageMode ?? requestBody.image_mode, {
-                legacyGenerate: typeof requestBody.imageGeneration === 'boolean'
-                    ? requestBody.imageGeneration : undefined,
-                fallback: 'prompt_only'
-            });
-            if (aiReadiness.configured !== true) {
-                throw createApiError(400, 'AI_TEXT_MODEL_REQUIRED', 'AI 설정에서 글쓰기 모델을 먼저 설정해 주세요.');
-            }
-            if (generatesBlogImages(imageMode) && aiReadiness.image_configured !== true) {
-                throw createApiError(400, 'AI_IMAGE_MODEL_REQUIRED', 'AI 설정에서 이미지 모델을 먼저 설정해 주세요.');
-            }
+            const imageMode = validateAiManuscriptRequest(requestBody);
             return runBlogNextExecution({
                 source: 'manuscript_generation',
                 subject: String(requestBody.subject || requestBody.title || '바로 생성 원고').trim(),
                 message: 'AI로 원고를 만들고 있습니다.'
-            }, async () => {
-                const requestedTargets = Array.isArray(requestBody.targets)
-                    ? requestBody.targets
-                    : (Array.isArray(requestBody.platforms) ? requestBody.platforms : []);
-                const targets = requestedTargets.length === 1 ? requestedTargets : ['naver'];
-                // The canonical manuscript is platform-neutral. Use the non-browser generation
-                // projection only as a transient workspace and apply the user's platform later.
-                const generationTargets = ['wordpress'];
-                const generated = await executeQuickPublish({
-                    ...requestBody,
-                    imageMode,
-                    imageGeneration: generatesBlogImages(imageMode),
-                    targets: generationTargets,
-                    postStatus: 'draft',
-                    scheduleDate: '',
-                    publishMode: 'append_and_generate'
-                }, { workspaceDraft: true });
-                if (!generated?.success) {
-                    throw createApiError(400, generated?.code || 'MANUSCRIPT_AI_GENERATE_FAILED', generated?.message || 'AI 원고를 만들지 못했습니다.');
-                }
-                const data = generated.data || {};
-                const primaryTarget = String(data.primaryTarget || generationTargets[0] || '').trim();
-                const preview = data.previews?.[primaryTarget];
-                if (!preview?.rawMarkdown) {
-                    throw createApiError(500, 'MANUSCRIPT_AI_PREVIEW_MISSING', '생성된 원고를 작업공간으로 가져오지 못했습니다.');
-                }
-                const images = [];
-                for (const image of Array.isArray(preview.images) ? preview.images : []) {
-                    if (!image?.exists) continue;
-                    const payload = getQuickPreviewImagePayload({
-                        previewId: data.previewId,
-                        target: primaryTarget,
-                        index: image.index
-                    });
-                    if (payload?.binary && Buffer.isBuffer(payload.body)) {
-                        images.push({ index: image.index, buffer: payload.body });
-                    }
-                }
-                const draft = getManuscriptDraftService().createAiDraft({
-                    ...requestBody,
-                    imageMode,
-                    targets,
-                    markdownText: imageMode === 'none'
-                        ? stripBlogImagePromptBlocks(preview.rawMarkdown)
-                        : preview.rawMarkdown,
-                    images: imageMode === 'none' ? [] : images,
-                    sourceLabel: preview.title || requestBody.title || requestBody.subject || '바로 생성 원고',
-                    sourceMetadata: { generationProjection: primaryTarget }
-                });
-                if (typeof deleteQuickPublishPreviewSession === 'function') {
-                    deleteQuickPublishPreviewSession(data.previewId);
-                }
-                return refreshManuscriptRelatedPosts(draft, await resolveRelatedPostsEnabled(), { force: true });
-            });
+            }, () => generateAiManuscriptDraft(requestBody, imageMode));
+        },
+
+        startAiManuscriptDraftOperation(requestBody = {}) {
+            const imageMode = validateAiManuscriptRequest(requestBody);
+            return aiGenerationOperations.start({
+                subject: String(requestBody.subject || requestBody.title || '바로 생성 원고').trim()
+            }, (operation) => generateAiManuscriptDraft(requestBody, imageMode, operation));
+        },
+
+        getAiManuscriptDraftOperation({ operationId } = {}) {
+            return aiGenerationOperations.get(operationId);
+        },
+
+        getCurrentAiManuscriptDraftOperation() {
+            return aiGenerationOperations.getCurrent();
+        },
+
+        cancelAiManuscriptDraftOperation({ operationId } = {}) {
+            return aiGenerationOperations.cancel(operationId);
         },
 
         async getManuscriptDraft({ draftId } = {}) {

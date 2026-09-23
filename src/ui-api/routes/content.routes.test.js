@@ -8,6 +8,10 @@ test('routes manuscript draft lifecycle and slot actions with decoded identifier
         manuscriptDraftCreateFolder: async (ctx) => calls.push(['create', ctx.pathname]),
         manuscriptDraftCreatePaste: async (ctx) => calls.push(['create-paste', ctx.pathname]),
         manuscriptDraftCreateAi: async (ctx) => calls.push(['create-ai', ctx.pathname]),
+        manuscriptDraftAiOperationStart: async (ctx) => calls.push(['operation-start', ctx.pathname]),
+        manuscriptDraftAiOperationCurrent: async (ctx) => calls.push(['operation-current', ctx.pathname]),
+        manuscriptDraftAiOperationGet: async (ctx) => calls.push(['operation-get', ctx.operationId]),
+        manuscriptDraftAiOperationCancel: async (ctx) => calls.push(['operation-cancel', ctx.operationId]),
         manuscriptDraftGet: async (ctx) => calls.push(['get', ctx.draftId]),
         manuscriptDraftImage: async (ctx) => calls.push(['image', ctx.draftId, ctx.slotId]),
         manuscriptDraftMutation: async (ctx) => calls.push(['mutation', ctx.action, ctx.draftId, ctx.slotId || ''])
@@ -17,6 +21,10 @@ test('routes manuscript draft lifecycle and slot actions with decoded identifier
     await handler({ pathname: '/api/v1/blog/manuscript-drafts/folder', method: 'POST' });
     await handler({ pathname: '/api/v1/blog/manuscript-drafts/paste', method: 'POST' });
     await handler({ pathname: '/api/v1/blog/manuscript-drafts/ai', method: 'POST' });
+    await handler({ pathname: '/api/v1/blog/manuscript-drafts/ai/operations', method: 'POST' });
+    await handler({ pathname: '/api/v1/blog/manuscript-drafts/ai/operations/current', method: 'GET' });
+    await handler({ pathname: '/api/v1/blog/manuscript-drafts/ai/operations/operation%201', method: 'GET' });
+    await handler({ pathname: '/api/v1/blog/manuscript-drafts/ai/operations/operation%201/cancel', method: 'POST' });
     await handler({ pathname: '/api/v1/blog/manuscript-drafts/draft%201', method: 'GET' });
     await handler({ pathname: '/api/v1/blog/manuscript-drafts/draft%201/images/image-1', method: 'GET' });
     for (const action of ['import', 'generate', 'exclude', 'restore']) {
@@ -31,6 +39,10 @@ test('routes manuscript draft lifecycle and slot actions with decoded identifier
         ['create', '/api/v1/blog/manuscript-drafts/folder'],
         ['create-paste', '/api/v1/blog/manuscript-drafts/paste'],
         ['create-ai', '/api/v1/blog/manuscript-drafts/ai'],
+        ['operation-start', '/api/v1/blog/manuscript-drafts/ai/operations'],
+        ['operation-current', '/api/v1/blog/manuscript-drafts/ai/operations/current'],
+        ['operation-get', 'operation 1'],
+        ['operation-cancel', 'operation 1'],
         ['get', 'draft 1'],
         ['image', 'draft 1', 'image-1'],
         ['mutation', 'import', 'draft 1', 'image-1'],

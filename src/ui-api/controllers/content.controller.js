@@ -218,6 +218,42 @@ function createContentController(deps = {}) {
             }
         },
 
+        async manuscriptDraftAiOperationStart({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, service.startAiManuscriptDraftOperation(requestBody || {}), 202);
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'MANUSCRIPT_AI_GENERATE_FAILED', 'AI 원고 생성을 시작하지 못했습니다.', e);
+            }
+        },
+
+        async manuscriptDraftAiOperationCurrent({ requestId, method, res }) {
+            if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, service.getCurrentAiManuscriptDraftOperation());
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'MANUSCRIPT_AI_OPERATION_READ_FAILED', 'AI 원고 생성 상태를 확인하지 못했습니다.', e);
+            }
+        },
+
+        async manuscriptDraftAiOperationGet({ requestId, method, operationId, res }) {
+            if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, service.getAiManuscriptDraftOperation({ operationId }));
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'MANUSCRIPT_AI_OPERATION_READ_FAILED', 'AI 원고 생성 상태를 확인하지 못했습니다.', e);
+            }
+        },
+
+        async manuscriptDraftAiOperationCancel({ requestId, method, operationId, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, service.cancelAiManuscriptDraftOperation({ operationId }));
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'MANUSCRIPT_AI_OPERATION_CANCEL_FAILED', 'AI 원고 생성 취소를 요청하지 못했습니다.', e);
+            }
+        },
+
         async manuscriptDraftGet({ requestId, method, draftId, res }) {
             if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
             try {

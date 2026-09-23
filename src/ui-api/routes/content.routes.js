@@ -7,6 +7,14 @@ function createContentRouteHandler(deps = {}) {
         if (pathname === '/api/v1/blog/manuscript-drafts/folder') return controller.manuscriptDraftCreateFolder(ctx);
         if (pathname === '/api/v1/blog/manuscript-drafts/paste') return controller.manuscriptDraftCreatePaste(ctx);
         if (pathname === '/api/v1/blog/manuscript-drafts/ai') return controller.manuscriptDraftCreateAi(ctx);
+        if (pathname === '/api/v1/blog/manuscript-drafts/ai/operations') return controller.manuscriptDraftAiOperationStart(ctx);
+        if (pathname === '/api/v1/blog/manuscript-drafts/ai/operations/current') return controller.manuscriptDraftAiOperationCurrent(ctx);
+        const aiOperationMatch = pathname.match(/^\/api\/v1\/blog\/manuscript-drafts\/ai\/operations\/([^/]+)(\/cancel)?$/);
+        if (aiOperationMatch) {
+            return aiOperationMatch[2]
+                ? controller.manuscriptDraftAiOperationCancel({ ...ctx, operationId: decodeURIComponent(aiOperationMatch[1]) })
+                : controller.manuscriptDraftAiOperationGet({ ...ctx, operationId: decodeURIComponent(aiOperationMatch[1]) });
+        }
         const manuscriptBulkImageMatch = pathname.match(/^\/api\/v1\/blog\/manuscript-drafts\/([^/]+)\/images\/(generate-missing)$/);
         if (manuscriptBulkImageMatch) {
             return controller.manuscriptDraftMutation({ ...ctx, draftId: decodeURIComponent(manuscriptBulkImageMatch[1]), action: manuscriptBulkImageMatch[2] });

@@ -9,6 +9,10 @@ function harness(overrides = {}) {
         createFolderManuscriptDraft: async (input) => (calls.push(['create', input]), { draftId: 'draft-1' }),
         createPasteManuscriptDraft: async (input) => (calls.push(['create-paste', input]), { draftId: 'draft-2' }),
         createAiManuscriptDraft: async (input) => (calls.push(['create-ai', input]), { draftId: 'draft-3' }),
+        startAiManuscriptDraftOperation: (input) => (calls.push(['operation-start', input]), { operationId: 'operation-1' }),
+        getCurrentAiManuscriptDraftOperation: () => (calls.push(['operation-current']), { operationId: 'operation-1' }),
+        getAiManuscriptDraftOperation: (input) => (calls.push(['operation-get', input]), { state: 'running' }),
+        cancelAiManuscriptDraftOperation: (input) => (calls.push(['operation-cancel', input]), { state: 'cancel_requested' }),
         getManuscriptDraft: async (input) => (calls.push(['get', input]), { draftId: input.draftId }),
         updateManuscriptDraftSettings: async (input) => (calls.push(['settings', input]), input),
         updateManuscriptDraftMarkdown: async (input) => (calls.push(['markdown', input]), input),
@@ -23,7 +27,7 @@ function harness(overrides = {}) {
     };
     const controller = createContentController({
         service,
-        sendSuccess(_res, _id, data) { responses.push({ type: 'success', data }); },
+        sendSuccess(_res, _id, data, status = 200) { responses.push({ type: 'success', data, status }); },
         sendError(_res, _id, status, code, message) { responses.push({ type: 'error', status, code, message }); }
     });
     return { controller, responses, calls };
@@ -49,6 +53,25 @@ test('creates a direct AI manuscript draft through its dedicated adapter', async
     const { controller, calls } = harness();
     await controller.manuscriptDraftCreateAi({ requestId: 'req', method: 'POST', requestBody: { subject: '주제' }, res: {} });
     assert.deepEqual(calls[0], ['create-ai', { subject: '주제' }]);
+});
+
+test('starts, reads, and cancels only the requested AI generation operation', async () => {
+    const { controller, calls, responses } = harness();
+    const base = { requestId: 'req', res: {}, operationId: 'operation-1' };
+    await controller.manuscriptDraftAiOperationStart({ ...base, method: 'POST', requestBody: { subject: '주제' } });
+    await controller.manuscriptDraftAiOperationCurrent({ ...base, method: 'GET' });
+    await controller.manuscriptDraftAiOperationGet({ ...base, method: 'GET' });
+    await controller.manuscriptDraftAiOperationCancel({ ...base, method: 'POST' });
+    assert.deepEqual(calls, [
+        ['operation-start', { subject: '주제' }],
+        ['operation-current'],
+        ['operation-get', { operationId: 'operation-1' }],
+        ['operation-cancel', { operationId: 'operation-1' }]
+    ]);
+    assert.deepEqual(responses.map((response) => response.data?.state || response.data?.operationId), [
+        'operation-1', 'operation-1', 'running', 'cancel_requested'
+    ]);
+    assert.equal(responses[0].status, 202);
 });
 
 test('streams a manuscript image with no-store caching', async () => {

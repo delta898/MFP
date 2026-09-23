@@ -185,6 +185,41 @@ test('direct AI manuscript generation stays local until the user publishes and i
     assert.deepEqual(coordinator.getStatus(), { busy: false });
 });
 
+test('async AI generation cancellation blocks a late Draft and keeps the lease until generation settles', async () => {
+    const coordinator = createBlogNextExecutionCoordinator();
+    let finishGeneration;
+    let draftCalls = 0;
+    const disposed = [];
+    const service = createService(coordinator, async () => ({ success: true, data: {} }), {
+        TEXT_MODEL: 'fixture-model', TEXT_MODEL_API_KEY: 'fixture-key'
+    }, {
+        manuscriptDraftService: {
+            createAiDraft() { draftCalls += 1; return { draftId: 'should-not-exist' }; }
+        },
+        executeQuickPublish: async (_input, options) => {
+            assert.equal(options.workspaceDraft, true);
+            assert.ok(options.signal);
+            return new Promise((resolve) => { finishGeneration = resolve; });
+        },
+        deleteQuickPublishPreviewSession: (previewId) => disposed.push(previewId)
+    });
+
+    const started = service.startAiManuscriptDraftOperation({ subject: '주제', imageMode: 'none' });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(coordinator.getStatus().source, 'manuscript_generation');
+    assert.equal(service.cancelAiManuscriptDraftOperation({ operationId: started.operationId }).state, 'cancel_requested');
+    assert.equal(coordinator.getStatus().busy, true);
+    finishGeneration({ success: true, data: {
+        previewId: 'preview-late', primaryTarget: 'wordpress',
+        previews: { wordpress: { rawMarkdown: '# 늦은 원고', images: [] } }
+    } });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(service.getAiManuscriptDraftOperation({ operationId: started.operationId }).state, 'canceled');
+    assert.equal(draftCalls, 0);
+    assert.deepEqual(disposed, ['preview-late']);
+    assert.deepEqual(coordinator.getStatus(), { busy: false });
+});
+
 test('direct AI manuscript generation preserves none and excludes upstream image artifacts', async () => {
     const coordinator = createBlogNextExecutionCoordinator();
     const calls = [];
