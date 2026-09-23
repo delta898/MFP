@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 
 const { createCssCompositionRuntime } = require('../src/ui-runtime/css-composition-runtime');
 const {
@@ -39,6 +40,39 @@ test('UI root selects warm editorial as the main style while compatibility remai
   });
   assert.equal(contract.registry.compatibility.selectable, false);
   assert.equal(contract.registry['warm-editorial'].selectable, true);
+  assert.equal(root.dataset.style, 'warm-editorial');
+});
+
+test('stored style is applied before the stylesheet can paint the HTML default', () => {
+  const html = read('ui/index.html');
+  const bootstrap = read('ui/style-bootstrap.js');
+  const bootstrapIndex = html.indexOf('<script src="./style-bootstrap.js?v=1"></script>');
+  const stylesheetIndex = html.indexOf('<link rel="stylesheet" href="./styles.css?v=4">');
+  const { contract } = loadDesignStyleContract({ repoRoot, initialStyle: 'warm-editorial' });
+  const selectableIds = Object.values(contract.registry)
+    .filter((style) => style.selectable === true)
+    .map((style) => style.id);
+  const bootstrapIdsSource = bootstrap.match(/const selectableStyleIds = new Set\(\[([\s\S]*?)\]\);/)?.[1] || '';
+  const bootstrapIds = Array.from(bootstrapIdsSource.matchAll(/'([^']+)'/g), (match) => match[1]);
+
+  assert.equal(bootstrapIndex >= 0, true);
+  assert.equal(stylesheetIndex > bootstrapIndex, true);
+  assert.deepEqual([...bootstrapIds].sort(), [...selectableIds].sort());
+
+  selectableIds.forEach((styleId) => {
+    const root = { dataset: { style: 'warm-editorial' } };
+    vm.runInNewContext(bootstrap, {
+      document: { documentElement: root },
+      window: { localStorage: { getItem: () => styleId } }
+    });
+    assert.equal(root.dataset.style, styleId);
+  });
+
+  const root = { dataset: { style: 'warm-editorial' } };
+  vm.runInNewContext(bootstrap, {
+    document: { documentElement: root },
+    window: { localStorage: { getItem: () => 'unknown-style' } }
+  });
   assert.equal(root.dataset.style, 'warm-editorial');
 });
 

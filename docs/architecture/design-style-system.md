@@ -43,7 +43,8 @@ App Shell and Feature Surfaces
 - `data-style`: 등록된 style pack ID
 - 누락되거나 알 수 없는 값은 안전한 기본 style로 fallback
 - style 전환은 DOM 재생성이나 feature JavaScript 분기를 요구하지 않음
-- 앱 시작 시 저장된 선택을 가능한 이른 시점에 적용해 불필요한 화면 깜빡임을 줄임
+- 앱 시작 시 `style-bootstrap.js`를 stylesheet보다 먼저 동기 실행해 저장된 선택을 첫 paint 전에 root에 적용함
+- bootstrap은 selectable ID만 허용하고, 저장소 접근 실패나 알 수 없는 값에는 HTML 기본 style을 유지함
 
 사용자 선택 UI와 계정 동기화 여부는 별도 제품 결정이다. foundation 단계에서는 registry와 기본값만 제공할 수 있다.
 
