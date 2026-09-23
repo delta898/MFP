@@ -187,6 +187,7 @@ test('Settings Beta controller applies scoped changes seamlessly and protects pe
     const script = read('ui/scripts/features/settings-next/shell.js');
     const aiScript = read('ui/scripts/features/settings-next/ai-model-roles.js');
     const writingScript = read('ui/scripts/features/settings-next/writing-defaults.js');
+    const appInputScript = read('ui/scripts/features/settings-next/app-input.js');
     const optionalServices = read('ui/scripts/features/settings-next/optional-services.js');
     const tabNavigation = read('ui/scripts/foundation/tab-navigation.js');
     const navigation = read('ui/scripts/foundation/navigation.js');
@@ -223,6 +224,8 @@ test('Settings Beta controller applies scoped changes seamlessly and protects pe
     assert.match(script, /'settings-next-content-status'/);
     assert.doesNotMatch(script, /connected: state === 'connected' \|\| state === 'configured'/);
     assert.match(navigation, /confirmDiscardUnsavedSettingsNext/);
+    assert.match(script, /discardAllDirtySettingsNextChanges\(\)/);
+    assert.doesNotMatch(script, /discardAllDirtySettingsNextChanges\(\);[\s\S]{0,120}await loadSettingsNext/);
     assert.match(lifecycle, /hasPendingSettingsNextChanges/);
     assert.equal((composed.match(/function initSettingsNext\s*\(/g) || []).length, 1);
     assert.match(aiScript, /postJson\('\/api\/v1\/settings\/ai-roles', \{ scope: role, values \}\)/);
@@ -246,6 +249,10 @@ test('Settings Beta controller applies scoped changes seamlessly and protects pe
     const saveProceed = read('ui/scripts/features/settings-next/save-proceed.js');
     assert.match(saveProceed, /'ai-text': '글쓰기 모델'/);
     assert.match(saveProceed, /function saveAllDirtySettingsNext\(\)/);
+    assert.match(saveProceed, /function discardAllDirtySettingsNextChanges\(\)/);
+    assert.match(aiScript, /function settingsNextAiDiscardRoleChanges\(role\)/);
+    assert.match(writingScript, /function settingsNextWritingDiscardChanges\(\)/);
+    assert.match(appInputScript, /function settingsNextAppInputDiscardChanges\(\)/);
     assert.match(saveProceed, /function saveDirtySettingsNextScope\(scope\)/);
     assert.match(saveProceed, /function confirmAppQuitWithUnsavedChanges\(\)/);
     assert.match(saveProceed, /function settingsNextDirtyLabels\(\)/);

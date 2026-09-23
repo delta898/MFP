@@ -162,6 +162,22 @@ function settingsNextAiCaptureDraft(role, provider) {
   settingsNextAiState.drafts[role][provider] = settingsNextAiReadRole(role);
 }
 
+function settingsNextAiDiscardRoleChanges(role) {
+  if (!['text', 'image', 'chat'].includes(role)) return false;
+  settingsNextAiState.drafts[role] = {};
+  settingsNextAiRenderRoleFields(role, { provider: settingsNextAiValue(role, 'PROVIDER') });
+  settingsNextAiState.verification[role] = settingsNextAiVerifiedSnapshotMatches(role) ? true : null;
+  if (role === 'chat') {
+    const source = String(settingsNextAiState.fields.CHAT_MODEL_SOURCE || 'writing');
+    const radio = document.querySelector(`input[name="settings-next-ai-chat-source"][value="${source}"]`);
+    if (radio) radio.checked = true;
+  }
+  settingsNextClearScopeDirty(`ai-${role}`);
+  settingsNextAiSyncChatSource();
+  settingsNextAiRenderStatuses();
+  return true;
+}
+
 function settingsNextAiSetApiKeyPresentation(role, provider) {
   const apiKey = settingsNextAiGetField(role, 'apiKey');
   const hint = document.querySelector(`[data-settings-next-ai-fields="${role}"] [data-ai-key-hint]`);

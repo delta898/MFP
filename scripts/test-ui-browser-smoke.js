@@ -1706,19 +1706,13 @@ async function run() {
         await page.waitForFunction(() => document.querySelector('#recommendation-center-list .recommendation-card h3')?.textContent.includes('로컬 여행'));
 
         await page.evaluate(() => navigateTo('settings'));
-        await page.waitForFunction(() => document.getElementById('view-settings')?.classList.contains('active'));
-        await page.locator('.settings-tab-btn[data-settings-tab="ai"]').click();
-        await page.locator('#settings-tab-ai [data-help-guide-url]').click();
-        await page.waitForFunction(() => document.getElementById('view-help')?.classList.contains('active'));
-        await page.waitForFunction(() => document.querySelector('#view-help a[href*="224368506082"]')?.classList.contains('help-guide-navigation-target'));
-        await page.evaluate(() => navigateTo('settings', 'sns'));
-        await page.locator('#settings-tab-sns #settings-buffer-help-link').click();
-        await page.waitForFunction(() => document.getElementById('view-help')?.classList.contains('active'));
-        await page.waitForFunction(() => document.querySelector('#view-help a[href*="223940980574"]')?.classList.contains('help-guide-navigation-target'));
+        await page.waitForFunction(() => document.getElementById('view-settings-next')?.classList.contains('active'));
+        assert.equal(await page.locator('#settings-next-tab-core').getAttribute('aria-selected'), 'true');
 
         await page.locator('.nav-btn[data-view="settings-next"]').click();
         await page.waitForFunction(() => document.getElementById('view-settings-next')?.classList.contains('active'));
         await page.waitForFunction(() => document.querySelector('#view-settings-next [data-clock-display]')?.children.length > 0);
+        await page.locator('[data-settings-next-core-tab="content"]').click();
         await page.locator('#settings-next-content-save').click();
         await page.waitForFunction(() => document.getElementById('settings-next-content-status')?.textContent === '접근 가능');
         assert.equal(await page.locator('#settings-next-sheet-readiness').textContent(), '접근 가능');
@@ -1751,20 +1745,23 @@ async function run() {
         assert.equal((await page.locator('#settings-next-ai-chat-inherited').textContent())?.includes('fixture-text'), true);
         await page.locator('#settings-next-ai-text-form [data-ai-field="name"]').fill('fixture-text-b');
         assert.equal((await page.locator('#settings-next-ai-chat-inherited').textContent())?.includes('fixture-text-b'), true);
-        const settingsNextDiscardPrompt = await page.evaluate(async () => {
-            const originalConfirm = showUiConfirm;
-            let message = '';
-            showUiConfirm = async (nextMessage) => { message = nextMessage; return false; };
-            try {
-                await navigateTo('dashboard');
-                return message;
-            } finally {
-                showUiConfirm = originalConfirm;
-            }
-        });
-        assert.equal(settingsNextDiscardPrompt.includes('글쓰기 모델'), true);
-        assert.equal(await page.locator('#view-settings-next').evaluate((element) => element.classList.contains('active')), true);
-        await page.evaluate(() => settingsNextClearScopeDirty('ai-text'));
+        const aiRoleLoadsBeforeDiscard = requests.filter((request) => (
+            request.method === 'GET' && request.pathname === '/api/v1/settings/ai-roles'
+        )).length;
+        const settingsNextDiscardNavigation = page.evaluate(() => navigateTo('dashboard-beta'));
+        await page.waitForFunction(() => document.getElementById('ui-dialog-backdrop')?.getAttribute('aria-hidden') === 'false');
+        assert.equal((await page.locator('#ui-dialog-message').textContent())?.includes('글쓰기 모델'), true);
+        await page.locator('#ui-dialog-tertiary').click();
+        await settingsNextDiscardNavigation;
+        await page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active'));
+        assert.equal(await page.evaluate(() => hasPendingSettingsNextChanges()), false);
+        assert.equal(await page.locator('#settings-next-ai-text-form [data-ai-field="name"]').inputValue(), 'fixture-text');
+        assert.equal(requests.filter((request) => (
+            request.method === 'GET' && request.pathname === '/api/v1/settings/ai-roles'
+        )).length, aiRoleLoadsBeforeDiscard);
+        await page.locator('.nav-btn[data-view="settings-next"]').click();
+        await page.waitForFunction(() => document.getElementById('view-settings-next')?.classList.contains('active'));
+        await page.waitForFunction(() => document.querySelector('#settings-next-ai-text-form [data-ai-field="name"]')?.value === 'fixture-text');
         await page.locator('input[name="settings-next-ai-chat-source"][value="dedicated"]').check();
         await page.evaluate(() => settingsNextClearScopeDirty('ai-chat'));
         assert.equal(await page.locator('[data-settings-next-ai-fields="chat"]').isHidden(), false);
@@ -1786,18 +1783,11 @@ async function run() {
         assert.equal((await page.locator('#settings-next-writing-voice-summary').textContent())?.includes('문어체'), true);
         assert.equal((await page.locator('#settings-next-writing-structure-summary').textContent())?.includes('길게'), true);
         assert.equal(await page.locator('#settings-next-writing-apply').isEnabled(), true);
-        const writingDiscardPrompt = await page.evaluate(async () => {
-            const originalConfirm = showUiConfirm;
-            let message = '';
-            showUiConfirm = async (nextMessage) => { message = nextMessage; return false; };
-            try {
-                await navigateTo('dashboard');
-                return message;
-            } finally {
-                showUiConfirm = originalConfirm;
-            }
-        });
-        assert.equal(writingDiscardPrompt.includes('글쓰기 기본값'), true);
+        const writingStayNavigation = page.evaluate(() => navigateTo('dashboard-beta'));
+        await page.waitForFunction(() => document.getElementById('ui-dialog-backdrop')?.getAttribute('aria-hidden') === 'false');
+        assert.equal((await page.locator('#ui-dialog-message').textContent())?.includes('글쓰기 기본값'), true);
+        await page.locator('#ui-dialog-cancel').click();
+        await writingStayNavigation;
         assert.equal(await page.locator('#view-settings-next').evaluate((element) => element.classList.contains('active')), true);
         await page.locator('#settings-next-writing-apply').click();
         await page.waitForFunction(() => !settingsNextDirtyScopes.has('writing'));
@@ -1848,12 +1838,13 @@ async function run() {
             showUiConfirm = async () => true;
         });
         for (const viewName of ['account', 'social', 'settings', 'logs', 'shopping', 'dashboard-beta', 'blog-next']) {
+            const expectedViewName = viewName === 'settings' ? 'settings-next' : viewName;
             if (await page.locator(`.nav-btn[data-view="${viewName}"]`).isVisible()) {
                 await page.locator(`.nav-btn[data-view="${viewName}"]`).click();
             } else {
                 await page.evaluate((name) => navigateTo(name), viewName);
             }
-            await page.waitForFunction((name) => document.getElementById(`view-${name}`)?.classList.contains('active'), viewName);
+            await page.waitForFunction((name) => document.getElementById(`view-${name}`)?.classList.contains('active'), expectedViewName);
         }
         await page.evaluate(() => { showUiConfirm = window.__settingsNextSmokeConfirm; });
 
@@ -2422,7 +2413,7 @@ async function run() {
         );
         assert.equal(
             await page.evaluate(() => getSelectableDesignStyles().filter((style) => style.selectable).length),
-            5
+            6
         );
         assert.deepEqual(
             await page.locator('#dashboard-beta-discovery-refresh').evaluate((element) => {

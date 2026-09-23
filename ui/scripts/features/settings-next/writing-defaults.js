@@ -198,6 +198,12 @@ function settingsNextWritingApplyResponse(data) {
   settingsNextWritingSyncDirty();
 }
 
+function settingsNextWritingDiscardChanges() {
+  if (!settingsNextWritingResponse) return false;
+  settingsNextWritingApplyResponse(settingsNextWritingResponse);
+  return true;
+}
+
 async function settingsNextLoadWritingDefaults() {
   if (settingsNextWritingLoading) return false;
   if (settingsNextDirtyScopes.has('writing')) return false;

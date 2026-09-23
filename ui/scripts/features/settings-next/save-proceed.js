@@ -52,6 +52,29 @@ async function saveAllDirtySettingsNext() {
   return !hasPendingSettingsNextChanges();
 }
 
+function discardAllDirtySettingsNextChanges() {
+  const dirtyScopes = new Set(settingsNextDirtyScopes);
+  if (['content', 'naver', 'wordpress'].some((scope) => dirtyScopes.has(scope))) {
+    settingsNextApplyMajorFields(settingsNextMajorFields);
+  }
+  ['text', 'image', 'chat'].forEach((role) => {
+    if (dirtyScopes.has(`ai-${role}`) && typeof settingsNextAiDiscardRoleChanges === 'function') {
+      settingsNextAiDiscardRoleChanges(role);
+    }
+  });
+  if (dirtyScopes.has('writing') && typeof settingsNextWritingDiscardChanges === 'function') {
+    settingsNextWritingDiscardChanges();
+  }
+  if (dirtyScopes.has('app-input') && typeof settingsNextAppInputDiscardChanges === 'function') {
+    settingsNextAppInputDiscardChanges();
+  }
+  if ([...dirtyScopes].some((scope) => scope.startsWith('optional-'))
+    && typeof settingsNextOptionalApply === 'function') {
+    settingsNextOptionalApply({ fields: settingsNextOptionalState.fields });
+  }
+  return !hasPendingSettingsNextChanges();
+}
+
 function isAppQuitDirty() {
   if (typeof hasPendingSettingsNextChanges === 'function' && hasPendingSettingsNextChanges()) return true;
   if (typeof settingsMajorHasPendingBasicChanges !== 'undefined' && settingsMajorHasPendingBasicChanges) return true;

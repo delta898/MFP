@@ -29,6 +29,11 @@ function settingsNextSyncAppInputDirty() {
   }
 }
 
+function settingsNextAppInputDiscardChanges() {
+  settingsNextAppInputApply({ fields: { TYPING_SPEED: settingsNextAppInputState.savedSpeed } });
+  return true;
+}
+
 async function loadSettingsNextAppInput({ force = false } = {}) {
   if (settingsNextAppInputState.loaded && !force) return;
   try {

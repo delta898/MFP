@@ -714,9 +714,9 @@ async function confirmDiscardUnsavedSettingsNext() {
     const saved = await saveAllDirtySettingsNext();
     if (!saved) return false;
   } else {
-    settingsNextDirtyScopes.clear();
+    const discarded = discardAllDirtySettingsNextChanges();
+    if (!discarded) return false;
   }
-  await loadSettingsNext({ force: true });
   return true;
 }
 
