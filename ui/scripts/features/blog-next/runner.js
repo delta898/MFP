@@ -8,6 +8,8 @@ let blogNextRunnerDismissedKey = '';
 let blogNextRunnerLastStatus = { state: 'idle' };
 let blogNextRunnerObservedFinishedAt = '';
 let blogNextRunnerStatusInitialized = false;
+let blogNextLocalPublishProgressTimer = null;
+let blogNextLocalPublishProgressToken = 0;
 let blogNextStatusReturnTarget = null;
 let blogNextStatusReturnFallback = null;
 let blogNextStatusReturnMode = 'ai';
@@ -33,6 +35,42 @@ function showBlogNextExecutionStatusAtTop(target, fallback = null) {
   panel.focus({ preventScroll: true });
 }
 
+function stopBlogNextLocalPublishProgress() {
+  blogNextLocalPublishProgressToken += 1;
+  clearTimeout(blogNextLocalPublishProgressTimer);
+  blogNextLocalPublishProgressTimer = null;
+}
+
+function dismissBlogNextStatusForNewWriting() {
+  blogNextRunnerDismissedKey = getBlogNextRunnerStatusKey(blogNextRunnerLastStatus);
+  const panel = document.getElementById('blog-next-publish-status');
+  if (panel) panel.hidden = true;
+  blogNextStatusReturnTarget = null;
+  blogNextStatusReturnFallback = null;
+}
+
+function startBlogNextLocalPublishProgress(getSubject) {
+  stopBlogNextLocalPublishProgress();
+  const token = blogNextLocalPublishProgressToken;
+  const poll = async () => {
+    if (token !== blogNextLocalPublishProgressToken) return;
+    try {
+      const status = await fetchJson('/api/v1/continuous-publishing/runner/status');
+      if (token === blogNextLocalPublishProgressToken
+        && status.source === 'local_markdown' && status.state === 'running') {
+        renderBlogNextRunnerStatus({ ...status, subject: getSubject?.() || '' });
+      }
+    } catch (_error) {
+      // A missed status poll must not interrupt the authoritative publish request.
+    } finally {
+      if (token === blogNextLocalPublishProgressToken) {
+        blogNextLocalPublishProgressTimer = setTimeout(poll, 900);
+      }
+    }
+  };
+  blogNextLocalPublishProgressTimer = setTimeout(poll, 400);
+}
+
 function getBlogNextRunnerStatusKey(status = {}) {
   return [status.state, status.rowIndex, status.finishedAt, status.resultStatus, status.message]
     .map(value => String(value ?? ''))
@@ -51,7 +89,21 @@ function presentBlogNextRunnerStatus(status = {}) {
   if (manuscriptGeneration && state === 'canceled') return { title: '원고 생성 취소', tone: 'warning' };
   if (manuscriptGeneration && state === 'completed') return { title: '원고 준비 완료', tone: 'success' };
   if (manuscriptGeneration && state === 'failed') return { title: '원고 생성 실패', tone: 'error' };
-  if (localPublish && state === 'failed') return { title: '발행 실패', tone: 'error' };
+  if (localPublish && state === 'running') {
+    const progressTitles = {
+      preparing: '발행 준비 중', image_generation: 'AI 이미지 생성 중',
+      editor: '에디터 연결 중', body: '원고 입력 중', image: '이미지 업로드 중',
+      link: '링크 추가 중', settings: '저장·발행 설정 중',
+      submitting: status.postStatus === 'draft' ? '임시 저장 중'
+        : status.postStatus === 'schedule' ? '예약 등록 중' : '발행 중',
+      verifying: '완료 확인 중'
+    };
+    return { title: progressTitles[String(status.progressStage || '')]
+      || (status.postStatus === 'draft' ? '임시 저장 중'
+        : status.postStatus === 'schedule' ? '예약 등록 중' : '발행 중'), tone: 'progress' };
+  }
+  if (localPublish && state === 'failed') return { title: status.postStatus === 'draft' ? '임시 저장 실패'
+    : status.postStatus === 'schedule' ? '예약 등록 실패' : '발행 실패', tone: 'error' };
   if (state === 'running') {
     const progressTitles = {
       preparing: '준비 중', writing: '글 작성 중', images: '이미지 준비 중',
@@ -96,11 +148,14 @@ function renderBlogNextCompletionLinks(status = {}) {
     const label = String(item?.label || '').trim();
     if (!url || !label) return;
     const anchor = document.createElement('a');
-    anchor.className = 'secondary compact blog-next-publish-result-link';
+    anchor.className = 'blog-next-publish-result-link';
     anchor.href = url;
     anchor.target = '_blank';
     anchor.rel = 'noopener noreferrer';
-    anchor.textContent = label;
+    anchor.textContent = status.source === 'local_markdown'
+      ? `${item.platform === 'naver' ? '네이버' : item.platform === 'wordpress' ? '워드프레스' : label}${item.kind === 'post' ? ' 글' : ' 열기'} ↗`
+      : label;
+    anchor.setAttribute('aria-label', label);
     container.appendChild(anchor);
   });
   container.hidden = container.childElementCount === 0;
@@ -181,13 +236,18 @@ function renderBlogNextRunnerStatus(status = {}) {
   }
   const returnButton = document.getElementById('blog-next-publish-status-return');
   if (returnButton) returnButton.hidden = !panelVisible || !localStatus || !blogNextStatusReturnTarget;
+  const nextButton = document.getElementById('blog-next-publish-status-next');
+  if (nextButton) nextButton.hidden = !panelVisible || status.source !== 'local_markdown' || state !== 'completed';
   const help = document.getElementById('blog-next-publish-status-help');
   const helpText = document.getElementById('blog-next-publish-status-help-text');
   const showHelp = panelVisible && status.source === 'manuscript_generation'
     && ['accepted', 'running', 'cancel_requested', 'canceled'].includes(state);
   if (help) {
     help.hidden = !showHelp;
-    if (!showHelp) help.open = false;
+    if (!showHelp) {
+      help.open = false;
+      help.dataset.pinned = 'false';
+    }
   }
   if (showHelp && helpText) {
     helpText.textContent = '취소하면 앱은 생성과 결과 반영을 중단합니다. 이미 처리된 AI 요청에는 비용이 발생할 수 있습니다.'
@@ -277,17 +337,40 @@ function initBlogNextRunner() {
       activateBlogNextTab('queue');
     });
     document.getElementById('blog-next-publish-status-dismiss')?.addEventListener('click', () => {
-      blogNextRunnerDismissedKey = getBlogNextRunnerStatusKey(blogNextRunnerLastStatus);
-      panel.hidden = true;
+      dismissBlogNextStatusForNewWriting();
       document.getElementById('blog-next-publish-status-return').hidden = true;
     });
+    document.getElementById('blog-next-publish-status-next')?.addEventListener('click', () => {
+      void navigateToBlogQuickCreate();
+    });
+    const help = document.getElementById('blog-next-publish-status-help');
+    if (help) {
+      help.addEventListener('mouseenter', () => { help.open = true; });
+      help.addEventListener('mouseleave', () => { if (help.dataset.pinned !== 'true' && !help.contains(document.activeElement)) help.open = false; });
+      help.addEventListener('focusin', () => { help.open = true; });
+      help.addEventListener('focusout', () => {
+        setTimeout(() => {
+          if (help.dataset.pinned !== 'true' && !help.matches(':hover') && !help.contains(document.activeElement)) help.open = false;
+        }, 0);
+      });
+      help.querySelector('summary')?.addEventListener('click', (event) => {
+        event.preventDefault();
+        help.dataset.pinned = help.dataset.pinned === 'true' ? 'false' : 'true';
+        help.open = help.dataset.pinned === 'true' || help.matches(':hover') || help.contains(document.activeElement);
+      });
+      document.addEventListener('pointerdown', (event) => {
+        if (help.contains(event.target)) return;
+        help.dataset.pinned = 'false';
+        help.open = false;
+      });
+    }
     document.getElementById('blog-next-publish-status-return')?.addEventListener('click', () => {
       if (typeof activateBlogNextTab === 'function') activateBlogNextTab('quick');
       if (typeof activateBlogNextInputMode === 'function') activateBlogNextInputMode(blogNextStatusReturnMode);
       const target = isBlogNextVisibleReturnTarget(blogNextStatusReturnTarget)
         ? blogNextStatusReturnTarget : blogNextStatusReturnFallback;
       if (!isBlogNextVisibleReturnTarget(target)) return;
-      target.scrollIntoView({ behavior: blogNextStatusScrollBehavior(), block: 'center' });
+      target.scrollIntoView({ behavior: blogNextStatusScrollBehavior(), block: 'start' });
       target.setAttribute('tabindex', '-1');
       target.focus({ preventScroll: true });
     });

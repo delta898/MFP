@@ -1428,7 +1428,8 @@ function createPublishActionsRuntime(deps = {}) {
                     category: requestBody?.naverCategory || '',
                     postStatus,
                     scheduleDate,
-                    isLast: !targets.includes('wordpress')
+                    isLast: !targets.includes('wordpress'),
+                    onProgress: requestBody?.onNaverProgress
                 }) || { success: false, message: '네이버 포스팅 응답이 비어 있습니다.' };
                 results.naver = {
                     success: Boolean(naverRes.success),

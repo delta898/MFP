@@ -13,6 +13,7 @@ const {
     generateSmartCommentDrafts
 } = require('../../naver/smart-comment-draft-generator');
 const { createBlogNextExecutionCoordinator } = require('../../blog-next/execution-coordinator');
+const { presentNaverPublishProgress } = require('../../blog-next/naver-publish-progress');
 const { createAiGenerationOperationManager } = require('../../blog-next/ai-generation-operations');
 const { buildCompletionLinks } = require('../../continuous-publishing/presentation');
 const { createManuscriptDraftService } = require('../../content/manuscript-draft-service');
@@ -95,6 +96,13 @@ function createContentService(deps = {}) {
         return manuscriptDraftService;
     }
 
+    function assertManuscriptMutationAvailable() {
+        const execution = blogNextExecutionCoordinator.getStatus();
+        if (execution.busy && execution.source === 'local_markdown') {
+            throw createApiError(409, 'MANUSCRIPT_DRAFT_PUBLISHING', '포스팅 중에는 원고나 발행 설정을 변경할 수 없습니다.');
+        }
+    }
+
     async function resolveRelatedPostsEnabled() {
         try {
             if (typeof License?.checkLicenseStatus !== 'function') return undefined;
@@ -124,7 +132,7 @@ function createContentService(deps = {}) {
             throw createApiError(409, 'BLOG_NEXT_EXECUTION_BUSY', '다른 블로그 작업을 처리하고 있습니다. 현재 실행이 끝난 뒤 다시 시도해 주세요.');
         }
         try {
-            return await task();
+            return await task(lease);
         } finally {
             lease.release();
         }
@@ -1040,20 +1048,24 @@ function createContentService(deps = {}) {
         },
 
         async updateManuscriptDraftSettings(requestBody = {}) {
+            assertManuscriptMutationAvailable();
             const updated = getManuscriptDraftService().updateSettings(requestBody);
             return refreshManuscriptRelatedPosts(updated, await resolveRelatedPostsEnabled());
         },
 
         async updateManuscriptDraftMarkdown(requestBody = {}) {
+            assertManuscriptMutationAvailable();
             const updated = getManuscriptDraftService().updateMarkdown(requestBody);
             return refreshManuscriptRelatedPosts(updated, await resolveRelatedPostsEnabled(), { force: true });
         },
 
         async importManuscriptDraftImage(requestBody = {}) {
+            assertManuscriptMutationAvailable();
             return getManuscriptDraftService().importLocalImage(requestBody);
         },
 
         async generateManuscriptDraftImage(requestBody = {}) {
+            assertManuscriptMutationAvailable();
             if (buildSetupReadiness({ CONFIG }).ai.image_configured !== true) {
                 throw createApiError(400, 'AI_IMAGE_MODEL_REQUIRED', 'AI 설정에서 이미지 모델을 먼저 설정해 주세요.');
             }
@@ -1061,6 +1073,7 @@ function createContentService(deps = {}) {
         },
 
         async generateMissingManuscriptDraftImages(requestBody = {}) {
+            assertManuscriptMutationAvailable();
             if (buildSetupReadiness({ CONFIG }).ai.image_configured !== true) {
                 throw createApiError(400, 'AI_IMAGE_MODEL_REQUIRED', 'AI 설정에서 이미지 모델을 먼저 설정해 주세요.');
             }
@@ -1068,10 +1081,12 @@ function createContentService(deps = {}) {
         },
 
         async excludeManuscriptDraftImage(requestBody = {}) {
+            assertManuscriptMutationAvailable();
             return getManuscriptDraftService().excludeImage(requestBody);
         },
 
         async restoreManuscriptDraftImage(requestBody = {}) {
+            assertManuscriptMutationAvailable();
             return getManuscriptDraftService().restoreImage(requestBody);
         },
 
@@ -1084,12 +1099,25 @@ function createContentService(deps = {}) {
                 source: 'local_markdown',
                 subject: '원고 포스팅',
                 message: '빈 이미지를 준비한 뒤 원고를 포스팅합니다.'
-            }, async () => {
-                const snapshot = await getManuscriptDraftService().preparePublishPayload(requestBody);
+            }, async (lease) => {
+                const snapshot = await getManuscriptDraftService().preparePublishPayload({
+                    ...requestBody,
+                    onProgress(progress) {
+                        lease.updateProgress({
+                            stage: 'image_generation',
+                            message: `AI 이미지 ${progress.current}/${progress.total}개를 생성하고 있습니다.`,
+                            postStatus: ''
+                        });
+                    }
+                });
                 const result = await executeCompletedLocalMarkdownPublish({
                     ...snapshot.settings,
                     ...snapshot,
-                    operationId: requestBody.operationId
+                    operationId: requestBody.operationId,
+                    onNaverProgress(progress) {
+                        const presentation = presentNaverPublishProgress(progress, snapshot.settings.postStatus);
+                        if (presentation) lease.updateProgress(presentation);
+                    }
                 });
                 const draftService = getManuscriptDraftService();
                 const manuscriptPreview = typeof draftService.markPublished === 'function'
@@ -1114,8 +1142,14 @@ function createContentService(deps = {}) {
                 source: 'local_markdown',
                 subject: generated ? '바로 생성 원고' : (pasted ? '원고 붙여넣기' : '원고 폴더'),
                 message: '원고 포스팅을 처리하고 있습니다.'
-            }, async () => {
-                return executeCompletedLocalMarkdownPublish(requestBody || {});
+            }, async (lease) => {
+                return executeCompletedLocalMarkdownPublish({
+                    ...requestBody,
+                    onNaverProgress(progress) {
+                        const presentation = presentNaverPublishProgress(progress, requestBody.postStatus);
+                        if (presentation) lease.updateProgress(presentation);
+                    }
+                });
             });
         },
 

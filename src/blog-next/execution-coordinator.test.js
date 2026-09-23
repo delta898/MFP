@@ -45,3 +45,18 @@ test('Blog Beta coordinator rejects unknown execution sources', () => {
         (error) => error.code === 'BLOG_NEXT_EXECUTION_SOURCE_INVALID'
     );
 });
+
+test('Blog Beta coordinator reports only the current execution progress', () => {
+    const coordinator = createBlogNextExecutionCoordinator();
+    const first = coordinator.acquire({ source: 'local_markdown', message: '준비 중' });
+    assert.equal(first.updateProgress({ stage: 'body', message: '원고 2/5구간을 입력하고 있습니다.', postStatus: 'draft' }), true);
+    assert.equal(coordinator.getStatus().progressStage, 'body');
+    assert.equal(coordinator.getStatus().postStatus, 'draft');
+    assert.equal(coordinator.getStatus().message, '원고 2/5구간을 입력하고 있습니다.');
+    assert.equal(first.updateProgress({ stage: '', message: '무효' }), false);
+    first.release();
+    const next = coordinator.acquire({ source: 'local_markdown', message: '다음 작업' });
+    assert.equal(first.updateProgress({ stage: 'verifying', message: '오래된 작업' }), false);
+    assert.equal(coordinator.getStatus().message, '다음 작업');
+    next.release();
+});

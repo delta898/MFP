@@ -17,7 +17,9 @@ function createBlogNextExecutionCoordinator(options = {}) {
             source: active.source,
             subject: active.subject,
             message: active.message,
-            startedAt: active.startedAt
+            startedAt: active.startedAt,
+            ...(active.progressStage ? { progressStage: active.progressStage } : {}),
+            ...(active.postStatus ? { postStatus: active.postStatus } : {})
         };
     }
 
@@ -38,11 +40,23 @@ function createBlogNextExecutionCoordinator(options = {}) {
                 source,
                 subject: normalizeText(input.subject) || (source === 'local_markdown' ? '원고 포스팅' : '발행 대기열'),
                 message: normalizeText(input.message, 200) || '블로그 작업을 처리하고 있습니다.',
+                progressStage: '',
+                postStatus: '',
                 startedAt: now().toISOString()
             };
             let released = false;
             return {
                 executionId: active.executionId,
+                updateProgress(progress = {}) {
+                    if (released || active?.token !== token) return false;
+                    const stage = normalizeText(progress.stage, 40);
+                    const message = normalizeText(progress.message, 200);
+                    if (!stage || !message) return false;
+                    active.progressStage = stage;
+                    active.message = message;
+                    active.postStatus = normalizeText(progress.postStatus, 20);
+                    return true;
+                },
                 release() {
                     if (released) return false;
                     released = true;

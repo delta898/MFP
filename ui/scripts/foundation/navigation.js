@@ -158,6 +158,7 @@ async function navigateToBlogQuickCreate() {
   await navigateTo('blog-next', 'quick');
   const blogView = document.getElementById('view-blog-next');
   if (!blogView?.classList.contains('active')) return false;
+  if (typeof prepareBlogNextNewWriting === 'function' && !await prepareBlogNextNewWriting()) return false;
   if (typeof activateBlogNextInputMode === 'function') {
     activateBlogNextInputMode('ai');
   }

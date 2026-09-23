@@ -14,7 +14,6 @@ let blogNextEditingSourceStatus = '';
 let blogNextEditingInitialSnapshot = '';
 let blogNextActiveManagementTab = 'ready';
 let blogNextPendingImmediateSubmission = null;
-let blogNextClearedTopicSnapshot = null;
 const BLOG_NEXT_CLEARABLE_FIELD_IDS = Object.freeze([
   'blog-next-subject',
   'blog-next-title',
@@ -735,16 +734,7 @@ function initBlogNextQuickQueue() {
   ['blog-next-publish-now', 'blog-next-regenerate-draft'].forEach((id) =>
     document.getElementById(id)?.addEventListener('click', () => generateBlogNextAiDraft(id === 'blog-next-regenerate-draft' ? 'regenerate' : 'create')));
   document.querySelectorAll('[data-blog-next-ai-cancel]').forEach((button) => button.addEventListener('click', () => cancelBlogNextAiDraftGeneration()));
-  document.getElementById('blog-next-clear-topic')?.addEventListener('click', async () => {
-    const snapshot = captureBlogNextClearableContent();
-    blogNextClearedTopicSnapshot = hasBlogNextClearableContent(snapshot) ? snapshot : null;
-    clearBlogNextTopicContent({ preserveUndo: true });
-    setBlogNextClearUndoAvailable(Boolean(blogNextClearedTopicSnapshot));
-    setBlogNextTopicResult('');
-    document.getElementById('blog-next-clear-undo')?.focus();
-  });
   document.getElementById('blog-next-cancel-edit')?.addEventListener('click', () => closeBlogNextEditor());
-  document.getElementById('blog-next-clear-undo')?.addEventListener('click', restoreBlogNextClearedTopicContent);
   document.getElementById('blog-next-post-status')?.addEventListener('change', syncBlogNextScheduleField);
   document.getElementById('blog-next-writing-settings-open')?.addEventListener('click', async () => {
     await closeBlogNextEditor();
@@ -761,9 +751,6 @@ function initBlogNextQuickQueue() {
   });
   form.addEventListener('input', (event) => {
     syncBlogNextQuickFlowSummaries();
-    if (blogNextClearedTopicSnapshot && event.target?.id !== 'blog-next-clear-undo') {
-      setBlogNextClearUndoAvailable(false);
-    }
     syncBlogNextTopicClearAction();
     markBlogNextAiDraftSourceChanged(event.target?.id || '');
   });

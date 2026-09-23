@@ -85,14 +85,13 @@ test('Blog Beta quick writing keeps topic capture and adds the canonical AI manu
     const publishIndex = betaView.indexOf('id="blog-next-publish-now"');
     const enqueueIndex = betaView.indexOf('id="blog-next-enqueue-topic"');
     const saveIndex = betaView.indexOf('id="blog-next-save-topic"');
-    const clearIndex = betaView.indexOf('id="blog-next-clear-topic"');
 
     assert.match(betaView, /id="blog-next-save-topic"[^>]*>글감 보관/);
     assert.match(betaView, /id="blog-next-enqueue-topic"[^>]*>발행 대기열에 추가/);
     assert.match(betaView, /class="primary" id="blog-next-publish-now"[^>]*>원고 만들기/);
-    assert.match(betaView, /class="ghost blog-next-clear-action" id="blog-next-clear-topic"[^>]*hidden>내용 지우기/);
+    assert.doesNotMatch(betaView, /id="blog-next-clear-topic"|id="blog-next-clear-undo"/);
     assert.match(betaView, /class="ghost blog-next-cancel-action" id="blog-next-cancel-edit"[^>]*hidden>취소/);
-    assert.equal(clearIndex < saveIndex && saveIndex < enqueueIndex && enqueueIndex < publishIndex, true);
+    assert.equal(saveIndex < enqueueIndex && enqueueIndex < publishIndex, true);
     assert.match(betaView, /id="blog-next-queue-list"/);
     assert.match(betaView, /id="blog-next-saved-list"/);
     assert.match(quickQueueScript, /\/api\/v1\/continuous-publishing\/topics/);
@@ -286,7 +285,8 @@ test('Stage 11 exposes one shared publish status with a return action and no dup
     assert.match(betaView, /id="blog-next-publish-status-manage"[^>]*>글감 관리/);
     assert.match(betaView, /id="blog-next-publish-status-dismiss"[^>]*aria-label="닫기"[^>]*>×/);
     assert.match(betaView, /id="blog-next-runner-headless"[^>]*checked[^>]*> 보이지 않게 실행/);
-    assert.match(betaView, /id="blog-next-publish-status-return"[^>]*hidden>↓ 작업으로 돌아가기/);
+    assert.match(betaView, /id="blog-next-publish-status-return"[^>]*hidden>↓ 원고 보기/);
+    assert.match(betaView, /id="blog-next-publish-status-next"[^>]*hidden>다음 글/);
     assert.match(betaView, /id="blog-next-publish-status-help"[^>]*hidden/);
     assert.doesNotMatch(betaView, /data-blog-next-runner-status-jump|상태 보기/);
     assert.match(runnerScript, /state === 'completed'/);
@@ -295,15 +295,32 @@ test('Stage 11 exposes one shared publish status with a return action and no dup
     assert.match(runnerScript, /rawMessage === '다음 글감 한 건을 처리했습니다.'/);
     assert.match(runnerScript, /'글감 처리 완료'/);
     assert.match(runnerScript, /progressStage/);
+    assert.match(runnerScript, /startBlogNextLocalPublishProgress\(getSubject\)/);
+    assert.match(runnerScript, /editor: '에디터 연결 중'/);
+    assert.match(runnerScript, /body: '원고 입력 중'/);
+    assert.match(runnerScript, /image: '이미지 업로드 중'/);
     assert.match(runnerScript, /renderBlogNextCompletionLinks\(status\)/);
     assert.match(runnerScript, /noopener noreferrer/);
     assert.match(runnerScript, /panel\.scrollIntoView\(\{ behavior: blogNextStatusScrollBehavior\(\), block: 'start' \}\)/);
     assert.match(runnerScript, /panel\.focus\(\{ preventScroll: true \}\)/);
-    assert.match(runnerScript, /target\.scrollIntoView\(\{ behavior: blogNextStatusScrollBehavior\(\), block: 'center' \}\)/);
+    assert.match(runnerScript, /target\.scrollIntoView\(\{ behavior: blogNextStatusScrollBehavior\(\), block: 'start' \}\)/);
+    assert.match(runnerScript, /void navigateToBlogQuickCreate\(\)/);
     assert.doesNotMatch(runnerScript, /Topics\s*\$\{|showUiToast/);
     assert.match(read('ui/styles/features/continuous-publishing.css'), /\.blog-next-publish-status-help summary:focus-visible/);
     assert.match(publishPreferences, /'blog-next-runner-headless'/);
     assert.doesNotMatch(publishPreferences, /'blog-next-(?:folder|paste)-headless'/);
+});
+
+test('Naver browser milestones cross the publishing engine as structured progress', () => {
+    const core = read('src/core.js');
+    const publishRuntime = read('src/ui-runtime/publish-actions-runtime.js');
+    const contentService = read('src/ui-api/services/content.service.js');
+    assert.match(core, /options\.onProgress\(\{ stage, current, total, postStatus:/);
+    assert.match(core, /reportPublishProgress\('body', sectionCurrent, sectionTotal\)/);
+    assert.match(core, /reportPublishProgress\('image', imageCurrent, imageTotal\)/);
+    assert.match(core, /reportPublishProgress\('link', linkCurrent, linkTotal\)/);
+    assert.match(publishRuntime, /onProgress: requestBody\?\.onNaverProgress/);
+    assert.match(contentService, /presentNaverPublishProgress\(progress, snapshot\.settings\.postStatus\)/);
 });
 
 test('immediate publishing preflights selected connections and preserves the form until terminal success', () => {

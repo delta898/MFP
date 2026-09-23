@@ -134,8 +134,6 @@ function syncBlogNextTopicActionAvailability() {
   const enqueue = document.getElementById('blog-next-enqueue-topic');
   const publish = document.getElementById('blog-next-publish-now');
   const regenerate = document.getElementById('blog-next-regenerate-draft');
-  const clear = document.getElementById('blog-next-clear-topic');
-  const clearUndo = document.getElementById('blog-next-clear-undo');
   const aiBlocked = typeof isAiTextBlocked === 'function' && isAiTextBlocked();
   const imageAiBlocked = document.getElementById('blog-next-image-mode')?.value === 'generate'
     && typeof isUiCapabilityUnavailable === 'function'
@@ -151,8 +149,6 @@ function syncBlogNextTopicActionAvailability() {
     else publish.removeAttribute('title');
   }
   if (regenerate) regenerate.disabled = busy || runnerActive || !ideaValid || aiBlocked || imageAiBlocked;
-  if (clear) clear.disabled = busy;
-  if (clearUndo) clearUndo.disabled = busy;
   syncBlogNextAiReadinessNotice();
   syncBlogNextAiImageReadinessNotice();
   syncBlogNextSheetReadinessNotice();
@@ -237,12 +233,6 @@ function initBlogNextHelpPlacement(form) {
   });
 }
 
-function setBlogNextClearUndoAvailable(available) {
-  const button = document.getElementById('blog-next-clear-undo');
-  if (button) button.hidden = !available;
-  if (!available) blogNextClearedTopicSnapshot = null;
-}
-
 function captureBlogNextClearableContent() {
   const values = Object.fromEntries(BLOG_NEXT_CLEARABLE_FIELD_IDS.map((id) => [
     id,
@@ -261,34 +251,15 @@ function hasBlogNextClearableContent(snapshot) {
 
 function syncBlogNextTopicClearAction() {
   const editing = typeof blogNextEditingRowIndex !== 'undefined' && blogNextEditingRowIndex !== null;
-  const clear = document.getElementById('blog-next-clear-topic');
   const cancel = document.getElementById('blog-next-cancel-edit');
-  if (clear) clear.hidden = editing || !hasBlogNextClearableContent(captureBlogNextClearableContent());
   if (cancel) cancel.hidden = !editing;
   syncBlogNextTopicActionAvailability();
 }
 
-function restoreBlogNextClearedTopicContent() {
-  const snapshot = blogNextClearedTopicSnapshot;
-  if (!snapshot) return;
-  Object.entries(snapshot.values).forEach(([id, value]) => {
-    const element = document.getElementById(id);
-    if (element) element.value = value;
-  });
-  if (typeof blogNextTrendContext !== 'undefined') blogNextTrendContext = snapshot.trendContext;
-  syncBlogNextScheduleField();
-  syncBlogNextQuickFlowSummaries();
-  setBlogNextClearUndoAvailable(false);
-  syncBlogNextTopicClearAction();
-  setBlogNextTopicResult('지운 내용을 되돌렸습니다.', 'success');
-  document.getElementById('blog-next-subject')?.focus();
-}
-
-function clearBlogNextTopicContent(options = {}) {
+function clearBlogNextTopicContent() {
   BLOG_NEXT_CLEARABLE_FIELD_IDS
     .forEach((id) => { const element = document.getElementById(id); if (element) element.value = ''; });
   if (typeof clearBlogNextTrendContext === 'function') clearBlogNextTrendContext();
-  if (options.preserveUndo !== true) setBlogNextClearUndoAvailable(false);
   syncBlogNextScheduleField();
   syncBlogNextQuickFlowSummaries();
   syncBlogNextTopicClearAction();

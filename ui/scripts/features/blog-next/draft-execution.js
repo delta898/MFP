@@ -23,6 +23,62 @@ function getBlogNextDraftPublishCopy(postStatus = 'publish') {
   };
 }
 
+function isBlogNextDraftPublishCompleted(type) {
+  const state = blogNextDraftState[type];
+  return Boolean(state?.completedPublish
+    && state.completedPublish.draftId === state.draftId);
+}
+
+function syncBlogNextPublishMutationControls() {
+  const publishing = BLOG_NEXT_DRAFT_TYPES.some((type) => blogNextDraftState[type].publishing);
+  const activeType = BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai';
+  document.querySelectorAll('#blog-next-publish-settings input, #blog-next-publish-settings select, '
+    + '[data-blog-next-draft-preview] [data-manuscript-image-action], '
+    + '[data-blog-next-draft-preview] [data-manuscript-image-picker], '
+    + '[data-blog-next-draft-preview] [data-manuscript-image-file], '
+    + '[data-blog-next-draft-preview] [data-manuscript-generate-missing], '
+    + '[data-blog-next-draft-preview] [data-manuscript-image-ai-settings]')
+    .forEach((control) => {
+      const ownerType = control.closest('[data-blog-next-draft-preview]')?.dataset.blogNextDraftPreview || activeType;
+      const locked = publishing || isBlogNextDraftPublishCompleted(ownerType);
+      if (locked) {
+        if (!Object.prototype.hasOwnProperty.call(control.dataset, 'beforePublishDisabled')) {
+          control.dataset.beforePublishDisabled = String(control.disabled);
+        }
+        control.disabled = true;
+      } else if (Object.prototype.hasOwnProperty.call(control.dataset, 'beforePublishDisabled')) {
+        control.disabled = control.dataset.beforePublishDisabled === 'true';
+        delete control.dataset.beforePublishDisabled;
+      }
+    });
+}
+
+async function prepareBlogNextNewWriting() {
+  const busy = Boolean(blogNextAiOperationId || blogNextTopicSubmitting
+    || BLOG_NEXT_DRAFT_TYPES.some((type) => blogNextDraftState[type].publishing
+      || blogNextDraftState[type].generating || blogNextDraftState[type].imageWorking));
+  if (busy) return false;
+  const ai = blogNextDraftState.ai;
+  const hasCurrentWork = hasBlogNextClearableContent(captureBlogNextClearableContent())
+    || Boolean(ai.draftId) || blogNextEditingRowIndex !== null;
+  if (hasCurrentWork) {
+    const completed = isBlogNextDraftPublishCompleted('ai');
+    const confirmed = await showUiConfirm(completed
+      ? '현재 원고를 닫고 다음 글을 작성할까요? 블로그에 저장된 글은 그대로 유지됩니다.'
+      : '작성 중인 내용과 원고 미리보기를 지우고 새 글을 작성할까요?', {
+      title: '다음 글 작성', confirmText: '새 글 작성', cancelText: '계속 보기'
+    });
+    if (!confirmed) return false;
+  }
+  if (blogNextEditingRowIndex !== null) await closeBlogNextEditor({ force: true });
+  clearBlogNextTopicContent();
+  resetBlogNextAiDraftUi();
+  setBlogNextTopicResult('');
+  if (typeof dismissBlogNextStatusForNewWriting === 'function') dismissBlogNextStatusForNewWriting();
+  syncBlogNextDraftExecutionState();
+  return true;
+}
+
 function formatBlogNextDraftScheduleDate(value) {
   const parts = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
   if (!parts) return '';
@@ -63,16 +119,21 @@ function syncBlogNextDraftExecutionState(runnerActive) {
     const state = blogNextDraftState[type];
     const button = document.querySelector(`[data-blog-next-draft-publish="${type}"]`);
     if (!button) return;
-    button.disabled = executionActive || publishBlocked || state.previewSyncFailed || !state.preview?.validation?.ok;
+    const completed = isBlogNextDraftPublishCompleted(type);
+    button.disabled = completed || executionActive || publishBlocked || state.previewSyncFailed || !state.preview?.validation?.ok;
     button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
     const selectedStatus = readBlogNextDraftSettings(type).postStatus;
     const publishCopy = getBlogNextDraftPublishCopy(selectedStatus);
-    button.textContent = state.publishing
+    button.textContent = completed
+      ? (state.completedPublish.postStatus === 'draft' ? '임시 저장 완료'
+        : state.completedPublish.postStatus === 'schedule' ? '예약 등록 완료' : '발행 완료')
+      : state.publishing
       ? publishCopy.busyLabel
       : state.imageWorking ? '이미지 작업 중...'
       : executionActive ? '다른 작업 실행 중...'
       : publishCopy.buttonLabel;
   });
+  syncBlogNextPublishMutationControls();
   syncBlogNextPublishReadinessNotice(publishCapability);
 }
 
@@ -326,6 +387,7 @@ function resetBlogNextAiDraftUi() {
   state.preview = null;
   state.draftId = '';
   state.revision = 0;
+  state.completedPublish = null;
   state.previewSyncFailed = false;
   const preview = document.querySelector('[data-blog-next-draft-preview="ai"]');
   const actions = document.querySelector('[data-blog-next-draft-actions="ai"]');
@@ -440,7 +502,7 @@ function setBlogNextDraftPublishing(type, publishing) {
 
 async function publishBlogNextDraft(type) {
   const state = blogNextDraftState[type];
-  if (state.publishing || !state.preview?.validation?.ok) return;
+  if (state.publishing || isBlogNextDraftPublishCompleted(type) || !state.preview?.validation?.ok) return;
   let settings = readBlogNextDraftSettings(type);
   if (typeof ensureUiCapabilityReady === 'function') {
     const capability = typeof getUiPublishCapability === 'function'
@@ -472,15 +534,19 @@ async function publishBlogNextDraft(type) {
       state: 'running',
       busy: true,
       source: 'local_markdown',
-      subject: type === 'ai' ? '바로 생성 원고' : (type === 'paste' ? '원고 붙여넣기' : '원고 폴더'),
-      message: automaticImages && autoGenerationCount > 0
-        ? `빈 이미지 ${autoGenerationCount}개를 준비한 뒤 ${publishCopy.actionLabel}합니다.`
-        : `원고를 ${publishCopy.actionLabel}하고 있습니다.`,
+      progressStage: 'preparing',
+      postStatus: settings.postStatus,
+      subject: state.preview?.title || '',
+      message: '원고와 발행 설정을 확인하고 있습니다.',
       startedAt: new Date().toISOString()
     });
   }
   if (typeof showBlogNextExecutionStatusAtTop === 'function') {
-    showBlogNextExecutionStatusAtTop(document.querySelector(`[data-blog-next-draft-actions="${type}"]`));
+    showBlogNextExecutionStatusAtTop(document.querySelector(`[data-blog-next-draft-preview="${type}"]`),
+      document.querySelector(`[data-blog-next-draft-actions="${type}"]`));
+  }
+  if (typeof startBlogNextLocalPublishProgress === 'function') {
+    startBlogNextLocalPublishProgress(() => state.preview?.title || '');
   }
   try {
     const syncedPreview = await loadBlogNextDraftPreview(type);
@@ -492,13 +558,15 @@ async function publishBlogNextDraft(type) {
     if (Number.isInteger(Number(publishResult?.revision))) state.revision = Number(publishResult.revision);
     if (publishResult?.manuscriptPreview) renderBlogNextDraftPreview(type, publishResult.manuscriptPreview);
     const actualPostStatus = publishResult?.postStatus || settings.postStatus;
+    state.completedPublish = { draftId: state.draftId, revision: state.revision, postStatus: actualPostStatus };
     const actualPublishCopy = getBlogNextDraftPublishCopy(actualPostStatus);
     if (typeof renderBlogNextRunnerStatus === 'function') {
       renderBlogNextRunnerStatus({
         state: 'completed',
         busy: false,
         source: 'local_markdown',
-        subject: type === 'ai' ? '바로 생성 원고' : (type === 'paste' ? '원고 붙여넣기' : '원고 폴더'),
+        postStatus: actualPostStatus,
+        subject: state.preview?.title || '',
         message: `${targetLabel}에 ${actualPublishCopy.completionLabel}`,
         resultStatus: actualPostStatus === 'draft' ? '임시 저장 완료'
           : actualPostStatus === 'schedule' ? '예약 발행 완료' : '발행 완료',
@@ -514,12 +582,14 @@ async function publishBlogNextDraft(type) {
         state: 'failed',
         busy: false,
         source: 'local_markdown',
-        subject: type === 'ai' ? '바로 생성 원고' : (type === 'paste' ? '원고 붙여넣기' : '원고 폴더'),
+        postStatus: settings.postStatus,
+        subject: state.preview?.title || '',
         message: error.message || `${publishCopy.actionLabel}에 실패했습니다.`,
         finishedAt: new Date().toISOString()
       });
     }
   } finally {
+    if (typeof stopBlogNextLocalPublishProgress === 'function') stopBlogNextLocalPublishProgress();
     setBlogNextDraftPublishing(type, false);
   }
 }

@@ -99,27 +99,23 @@ test('direct publishing confirmation names only destination, mode, schedule, and
   assert.doesNotMatch(confirmationSource, /Queue|대기열|만들지 못한 이미지/);
 });
 
-test('quick flow summaries update from existing controls and clear remains undoable', () => {
+test('quick flow summaries update from existing controls and new writing owns input reset', () => {
   const html = readBlogNextView();
   const script = read('ui/scripts/features/blog-next/quick-queue.js');
   const uiScript = read('ui/scripts/features/blog-next/quick-flow-ui.js');
 
-  assert.match(html, /id="blog-next-clear-undo"[^>]*hidden>되돌리기/);
-  assert.match(html, /class="blog-next-recoverable-action-slot">[\s\S]*?id="blog-next-clear-topic"[\s\S]*?id="blog-next-clear-undo"/);
+  assert.doesNotMatch(html, /id="blog-next-clear-topic"|id="blog-next-clear-undo"/);
   assert.match(uiScript, /function syncBlogNextQuickFlowSummaries\(\)/);
   assert.match(uiScript, /formatBlogPlatformList\(platforms, ' \+ '\) \|\| '발행 대상 없음'/);
   assert.match(uiScript, /function captureBlogNextClearableContent\(\)/);
-  assert.match(script, /clearBlogNextTopicContent\(\{ preserveUndo: true \}\)/);
-  assert.match(uiScript, /function restoreBlogNextClearedTopicContent\(\)/);
+  assert.match(read('ui/scripts/features/blog-next/draft-execution.js'), /clearBlogNextTopicContent\(\);[\s\S]*resetBlogNextAiDraftUi\(\)/);
   assert.match(uiScript, /function syncBlogNextTopicActionAvailability\(\)/);
   assert.match(uiScript, /ideaValid: hasIdea && referencesValid/);
   assert.match(uiScript, /readyValid: hasIdea && referencesValid && hasTarget && scheduleValid/);
   assert.match(uiScript, /save\.disabled = busy \|\| sheetBlocked \|\| !editingChanged \|\| \(editingReady \? !readyValid : !ideaValid\)/);
   assert.match(uiScript, /enqueue\.disabled = busy \|\| sheetBlocked \|\| !readyValid/);
   assert.match(uiScript, /publish\.disabled = busy \|\| runnerActive [^;]* \|\| !ideaValid/);
-  assert.match(uiScript, /if \(clear\) clear\.disabled = busy/);
-  assert.match(uiScript, /if \(clearUndo\) clearUndo\.disabled = busy/);
-  assert.match(script, /document\.getElementById\('blog-next-clear-undo'\)\?\.addEventListener\('click', restoreBlogNextClearedTopicContent\)/);
+  assert.doesNotMatch(script, /blog-next-clear-topic|blog-next-clear-undo/);
 });
 
 test('quick writing distinguishes queued ideas from the generated manuscript flow', () => {
@@ -159,7 +155,7 @@ test('quick writing distinguishes queued ideas from the generated manuscript flo
   assert.doesNotMatch(inputs, /runWithLiveProgress/);
   assert.match(execution, /source: 'manuscript_generation'/);
   assert.match(execution, /setBlogNextTopicResult\(''\);\s*setBlogNextDraftValidation\('ai'\);\s*if \(typeof ensureUiCapabilityReady/);
-  assert.match(css, /#blog-next-topic-form-home \.blog-next-ai-prepare-actions > \.blog-next-recoverable-action-slot\s*\{[^}]*margin-bottom:\s*var\(--ui-space-3\)/s);
+  assert.doesNotMatch(css, /#blog-next-topic-form-home \.blog-next-ai-prepare-actions > \.blog-next-recoverable-action-slot/);
   const sourceFields = execution.match(/const sourceFields = new Set\(\[([\s\S]*?)\]\);/)?.[1] || '';
   assert.doesNotMatch(sourceFields, /blog-next-target-(?:naver|wordpress)/);
 });

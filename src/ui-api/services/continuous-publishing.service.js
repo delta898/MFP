@@ -445,6 +445,8 @@ function createContinuousPublishingService(deps = {}) {
             return {
                 state: 'running',
                 message: sharedStatus.message,
+                ...(sharedStatus.progressStage ? { progressStage: sharedStatus.progressStage } : {}),
+                ...(sharedStatus.postStatus ? { postStatus: sharedStatus.postStatus } : {}),
                 rowIndex: null,
                 rowNumber: null,
                 subject: sharedStatus.subject,

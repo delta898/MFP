@@ -175,7 +175,7 @@ test('shared action pattern keeps one filled primary and lower-emphasis alternat
   assert.match(actions, /button\.secondary\s*\{[^}]*--ui-button-secondary-background/s);
   assert.match(actions, /button\.ghost\s*\{[^}]*--ui-button-tertiary-background/s);
   assert.equal((actionGroup.match(/class="primary"/g) || []).length, 1);
-  assert.equal(actionGroup.indexOf('blog-next-clear-topic') < actionGroup.indexOf('blog-next-save-topic'), true);
+  assert.equal(actionGroup.includes('blog-next-clear-topic'), false);
   assert.equal(actionGroup.indexOf('blog-next-save-topic') < actionGroup.indexOf('blog-next-enqueue-topic'), true);
   assert.equal(actionGroup.indexOf('blog-next-enqueue-topic') < actionGroup.indexOf('blog-next-publish-now'), true);
   assert.match(blogNext, /id="blog-next-topic-recommend" class="secondary blog-next-ai-assist"/);

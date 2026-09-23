@@ -287,6 +287,7 @@ test('keeps image handling WYSIWYG-owned and excludes intentional omissions from
 test('auto-generates prompt-backed folder images before publishing with the requested status', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-draft-publish-images-'));
     const generatedPrompts = [];
+    const progress = [];
     const service = createManuscriptDraftService({
         fs,
         path,
@@ -301,7 +302,11 @@ test('auto-generates prompt-backed folder images before publishing with the requ
     });
     try {
         const created = service.createFolderDraft({ ...folderInput(), postStatus: 'publish' });
-        const payload = await service.preparePublishPayload({ draftId: created.draftId, revision: created.revision });
+        const payload = await service.preparePublishPayload({
+            draftId: created.draftId, revision: created.revision,
+            onProgress: (update) => progress.push(update)
+        });
+        assert.deepEqual(progress, [{ stage: 'image_generation', current: 1, total: 1 }]);
         assert.deepEqual(generatedPrompts, ['초록 숲']);
         assert.equal(payload.settings.postStatus, 'publish');
         assert.equal(payload.publishPolicy.forcedDraft, false);
@@ -482,6 +487,22 @@ test('marks a handled draft complete without changing its publish revision', () 
         const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
         assert.equal(manifest.lifecycle_status, 'completed');
         assert.ok(Date.parse(manifest.completed_at) > 0);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('completed manuscript cannot be edited or submitted again through the draft service', async () => {
+    const { workspaceDir, service, input } = fixture();
+    try {
+        const created = service.createFolderDraft(input);
+        service.markPublished({ draftId: created.draftId, revision: created.revision });
+        const request = { draftId: created.draftId, revision: created.revision };
+        const completed = (error) => error.code === 'MANUSCRIPT_DRAFT_COMPLETED';
+        assert.throws(() => service.updateSettings({ ...request, postStatus: 'draft' }), completed);
+        assert.throws(() => service.excludeImage({ ...request, slotId: 'image-1' }), completed);
+        assert.throws(() => service.buildPublishPayload(request), completed);
+        await assert.rejects(() => service.preparePublishPayload(request), completed);
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }

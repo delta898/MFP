@@ -233,6 +233,12 @@ function createManuscriptDraftService(options = {}) {
         }
     }
 
+    function assertDraftActive(manifest) {
+        if (manifest.lifecycle_status === 'completed') {
+            throw manuscriptError(409, 'MANUSCRIPT_DRAFT_COMPLETED', '이미 처리한 원고입니다. 다음 글을 시작해 주세요.');
+        }
+    }
+
     function currentFileForSlot(locations, slot) {
         return slot.current_file ? pathImpl.join(locations.source, slot.current_file) : '';
     }
@@ -471,6 +477,7 @@ function createManuscriptDraftService(options = {}) {
     function updateSlot(id, expectedRevision, slotId, mutate) {
         const { locations, manifest } = readManifest(id);
         assertRevision(manifest, expectedRevision);
+        assertDraftActive(manifest);
         const normalizedSlotId = safeSlotId(slotId);
         const slot = manifest.image_slots.find((item) => item.id === normalizedSlotId);
         if (!slot) throw manuscriptError(404, 'MANUSCRIPT_IMAGE_SLOT_NOT_FOUND', '이미지 영역을 찾지 못했습니다.');
@@ -577,6 +584,7 @@ function createManuscriptDraftService(options = {}) {
     function updateSlotless(id, expectedRevision, mutate) {
         const { locations, manifest } = readManifest(id);
         assertRevision(manifest, expectedRevision);
+        assertDraftActive(manifest);
         mutate({ locations, manifest });
         manifest.revision += 1;
         manifest.updated_at = new Date(now()).toISOString();
@@ -590,6 +598,7 @@ function createManuscriptDraftService(options = {}) {
         if (typeof callWritingImage !== 'function') throw manuscriptError(503, 'MANUSCRIPT_IMAGE_GENERATOR_UNAVAILABLE', '이미지 AI 기능이 준비되지 않았습니다.');
         const { locations, manifest } = readManifest(input.draftId);
         assertRevision(manifest, input.revision);
+        assertDraftActive(manifest);
         const slot = manifest.image_slots.find((item) => item.id === safeSlotId(input.slotId));
         if (!slot) throw manuscriptError(404, 'MANUSCRIPT_IMAGE_SLOT_NOT_FOUND', '이미지 영역을 찾지 못했습니다.');
         if (!String(slot.prompt || '').trim()) throw manuscriptError(400, 'MANUSCRIPT_IMAGE_PROMPT_REQUIRED', 'AI 이미지를 만들 프롬프트가 없습니다.');
@@ -671,6 +680,8 @@ function createManuscriptDraftService(options = {}) {
     }
 
     async function preparePublishPayload(input = {}) {
+        const { manifest } = readManifest(input.draftId);
+        assertDraftActive(manifest);
         let current = getDraft(input.draftId);
         assertRevision({ revision: current.revision }, input.revision);
         const targets = current.images.filter((image) => (
@@ -678,7 +689,12 @@ function createManuscriptDraftService(options = {}) {
         ));
         const failedSlotIds = [];
         let generatedCount = 0;
-        for (const image of targets) {
+        for (const [index, image] of targets.entries()) {
+            try {
+                input.onProgress?.({ stage: 'image_generation', current: index + 1, total: targets.length });
+            } catch (progressError) {
+                Logger?.warn?.(`발행 준비 상태 전달 실패: ${progressError.message}`);
+            }
             try {
                 current = await generateImage({
                     draftId: input.draftId,
@@ -708,6 +724,7 @@ function createManuscriptDraftService(options = {}) {
     function buildPublishPayload(input = {}) {
         const { locations, manifest } = readManifest(input.draftId);
         assertRevision(manifest, input.revision);
+        assertDraftActive(manifest);
         const omittedIndexes = new Set(manifest.image_slots
             .filter((slot) => slot.state === 'excluded' || (
                 (!slot.current_file || !fsImpl.existsSync(currentFileForSlot(locations, slot)))

@@ -2130,6 +2130,20 @@ ${scrapedContext}`;
 
 		const markdownRaw = fs.readFileSync(contentFile, 'utf-8');
 		const { title, contents } = Utils.parseMarkdown(markdownRaw);
+		const reportPublishProgress = (stage, current, total) => {
+			if (typeof options.onProgress !== 'function') return;
+			try {
+				options.onProgress({ stage, current, total, postStatus: options.postStatus || 'publish' });
+			} catch (progressError) {
+				Logger.warn(`네이버 진행 상태 전달 실패: ${progressError.message}`);
+			}
+		};
+		const sectionTotal = contents.filter((item) => item.type === 'header-h2').length;
+		const imageTotal = contents.filter((item) => item.type === 'image').length;
+		const linkTotal = contents.filter((item) => item.type === 'paragraph' && isUrlOnlyParagraph(String(item.text || ''))).length;
+		let sectionCurrent = 0;
+		let imageCurrent = 0;
+		let linkCurrent = 0;
 		const primaryAffiliateUrl = String(options.affiliateUrl || '').trim();
 		const requireAffiliateUrl = options.requireAffiliateUrl === true;
 		if (requireAffiliateUrl && !/^https?:\/\//i.test(primaryAffiliateUrl)) {
@@ -2141,6 +2155,7 @@ ${scrapedContext}`;
 		const typingPreset = Constants.TYPING_PRESETS[speedKey] || Constants.TYPING_PRESETS.NORMAL;
 
 		const headless = typeof options.headless === 'boolean' ? options.headless : CONFIG.HEADLESS;
+		reportPublishProgress('editor');
 		const viewport = headless ? resolvePublishViewport() : null;
 		const browser = await BrowserLauncher.launchBrowser({
 			headless,
@@ -2231,6 +2246,7 @@ ${scrapedContext}`;
 			const allFiles = fs.readdirSync(dirPath);
 
 			// ✍️ 본문 입력 루프
+			reportPublishProgress('body');
 			let inListMode = false;
 			let currentListType = null;
 			let needsExtraGapAfterList = false;
@@ -2241,6 +2257,18 @@ ${scrapedContext}`;
 			let hasImageWarnings = false;
 
 			for (const item of contents) {
+				if (item.type === 'header-h2') {
+					sectionCurrent += 1;
+					reportPublishProgress('body', sectionCurrent, sectionTotal);
+				} else if (item.type === 'image') {
+					imageCurrent += 1;
+					reportPublishProgress('image', imageCurrent, imageTotal);
+				} else if (item.type === 'paragraph' && isUrlOnlyParagraph(String(item.text || ''))) {
+					linkCurrent += 1;
+					reportPublishProgress('link', linkCurrent, linkTotal);
+				} else if (item.type !== 'newline') {
+					reportPublishProgress('body', sectionCurrent, sectionTotal);
+				}
 				if (item.type !== 'image') {
 					await this.dismissEditorPopups(page);
 					await closeVisibleOglinkPopup(page);
@@ -2539,6 +2567,7 @@ ${scrapedContext}`;
 			}
 
 			Logger.info("   ✅ 본문 작성 완료");
+			reportPublishProgress('settings');
 
 			// 💾 [Safeguard] 이미지 누락/미생성 시 Draft 강제 전환
 			if (hasImageWarnings && options.postStatus !== 'draft') {
@@ -2701,6 +2730,7 @@ ${scrapedContext}`;
 						const btn = page.locator(selector).first();
 						if (await btn.isVisible()) {
 							await btn.click();
+							reportPublishProgress('submitting');
 							Logger.info(`   ✅ [최종 발행] 버튼 클릭 성공 (${selector})`);
 							finalClicked = true;
 							break;
@@ -2721,6 +2751,7 @@ ${scrapedContext}`;
 						const saveBtn = page.locator('button.se-save-button, button:has-text("저장")').first();
 						if (await saveBtn.isVisible()) {
 							await saveBtn.click();
+							reportPublishProgress('submitting');
 							await Utils.sleep(3000);
 							Logger.info("   ✅ 임시저장 완료 (카테고리 설정 포함)");
 							return { success: true, message: isDraftMode ? 'Saved as draft' : 'Saved as draft due to category failure', status: 'draft' };
@@ -2731,6 +2762,7 @@ ${scrapedContext}`;
 				}
 
 				if (finalClicked) {
+					reportPublishProgress('verifying');
 					// 🔗 4단계: 발행 완료 후 URL 캡처 (logNo 추출용)
 					try {
 						await page.waitForURL(url => url.href.includes('logNo=') && !url.href.includes('PostList.naver'), { timeout: 20000 });

@@ -40,12 +40,55 @@ test('local manuscript publishing owns the shared Blog Beta lock until it settle
     assert.deepEqual(coordinator.getStatus(), { busy: false });
 });
 
+test('direct publish rejects concurrent settings and image changes before touching the draft', async () => {
+    const coordinator = createBlogNextExecutionCoordinator();
+    let finish;
+    let mutations = 0;
+    const manuscriptDraftService = {
+        updateSettings() { mutations += 1; },
+        updateMarkdown() { mutations += 1; },
+        importLocalImage() { mutations += 1; },
+        generateImage() { mutations += 1; },
+        excludeImage() { mutations += 1; }
+    };
+    const service = createService(coordinator, async () => new Promise((resolve) => { finish = resolve; }), {}, { manuscriptDraftService });
+    const publishing = service.localMarkdownPublish({ markdownText: '# 원고' });
+    await new Promise(resolve => setImmediate(resolve));
+    const blocked = (error) => error.status === 409 && error.apiCode === 'MANUSCRIPT_DRAFT_PUBLISHING';
+    await assert.rejects(() => service.updateManuscriptDraftSettings({ draftId: 'draft-1' }), blocked);
+    await assert.rejects(() => service.updateManuscriptDraftMarkdown({ draftId: 'draft-1' }), blocked);
+    await assert.rejects(() => service.importManuscriptDraftImage({ draftId: 'draft-1' }), blocked);
+    await assert.rejects(() => service.generateManuscriptDraftImage({ draftId: 'draft-1' }), blocked);
+    await assert.rejects(() => service.excludeManuscriptDraftImage({ draftId: 'draft-1' }), blocked);
+    assert.equal(mutations, 0);
+    finish({ success: true, data: { postStatus: 'draft' } });
+    await publishing;
+});
+
+test('Naver browser milestones reach the shared status while direct publish is running', async () => {
+    const coordinator = createBlogNextExecutionCoordinator();
+    let finish;
+    const service = createService(coordinator, async (input) => {
+        input.onNaverProgress({ stage: 'body', current: 2, total: 5, postStatus: 'draft' });
+        return new Promise(resolve => { finish = resolve; });
+    });
+    const publishing = service.localMarkdownPublish({ markdownText: '# 원고', postStatus: 'draft' });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(coordinator.getStatus().progressStage, 'body');
+    assert.equal(coordinator.getStatus().message, '본문 2/5 구간을 입력하고 있습니다.');
+    finish({ success: true, data: { postStatus: 'draft' } });
+    await publishing;
+    assert.deepEqual(coordinator.getStatus(), { busy: false });
+});
+
 test('manuscript draft publishing resolves one exact snapshot before using the existing publisher', async () => {
     const coordinator = createBlogNextExecutionCoordinator();
     const published = [];
     const manuscriptDraftService = {
         async preparePublishPayload(input) {
-            assert.deepEqual(input, { draftId: 'draft-1', revision: 4 });
+            assert.equal(input.draftId, 'draft-1');
+            assert.equal(input.revision, 4);
+            assert.equal(typeof input.onProgress, 'function');
             return {
                 folderName: '원고',
                 selectedFiles: [{ name: 'contents.md', textContent: '# 원고' }],
@@ -80,7 +123,10 @@ test('manuscript image auto-resolution stays inside the shared Blog Beta executi
     const coordinator = createBlogNextExecutionCoordinator();
     let finishPreparation;
     const manuscriptDraftService = {
-        preparePublishPayload: async () => new Promise(resolve => { finishPreparation = resolve; }),
+        preparePublishPayload: async (input) => {
+            input.onProgress({ current: 1, total: 2 });
+            return new Promise(resolve => { finishPreparation = resolve; });
+        },
         getDraft: () => ({ draftId: 'draft-1', revision: 2 })
     };
     const service = createService(coordinator, async () => ({ success: true, data: { postStatus: 'publish' } }), {}, { manuscriptDraftService });
@@ -88,6 +134,8 @@ test('manuscript image auto-resolution stays inside the shared Blog Beta executi
     const publishing = service.publishManuscriptDraft({ draftId: 'draft-1', revision: 1 });
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(coordinator.getStatus().source, 'local_markdown');
+    assert.equal(coordinator.getStatus().progressStage, 'image_generation');
+    assert.equal(coordinator.getStatus().message, 'AI 이미지 1/2개를 생성하고 있습니다.');
     await assert.rejects(
         () => service.localMarkdownPublish({ markdownText: '# 다른 원고' }),
         (error) => error.status === 409 && error.apiCode === 'BLOG_NEXT_EXECUTION_BUSY'

@@ -104,7 +104,18 @@
   align-items: center;
   justify-content: flex-end;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
+}
+
+.blog-next-publish-status-actions > button {
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: var(--ui-type-caption-size);
+}
+
+.blog-next-publish-status-actions .blog-next-status-quiet-action {
+  border-color: transparent;
+  background: transparent;
 }
 
 .blog-next-publish-status-links {
@@ -169,11 +180,12 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--ui-radius-sm);
-  padding: 8px 12px;
-  border: 1px solid var(--ui-button-secondary-border);
-  background: var(--ui-button-secondary-background);
+  min-height: 36px;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--ui-button-secondary-text);
-  font-size: var(--ui-type-label-size);
+  font-size: var(--ui-type-caption-size);
   font-weight: var(--ui-weight-bold);
   line-height: 1.2;
   text-decoration: none;
@@ -189,9 +201,10 @@
 }
 
 .blog-next-publish-status-dismiss {
-  min-width: 38px;
-  padding-inline: 10px;
-  font-size: var(--ui-type-heading-size);
+  min-width: 36px;
+  width: 36px;
+  padding-inline: 0;
+  font-size: var(--ui-type-label-size);
   line-height: 1;
 }
 
