@@ -53,9 +53,9 @@ test('direct AI writing creates a canonical draft before publishing', () => {
   assert.match(html, /id="blog-next-publish-now"[^>]*>원고 만들기/);
   assert.match(html, /data-blog-next-draft-preview="ai"/);
   assert.match(html, /data-blog-next-draft-publish="ai"/);
-  assert.match(draftUi, /postJson\('\/api\/v1\/blog\/manuscript-drafts\/ai', payload\)/);
+  assert.match(draftUi, /postJson\('\/api\/v1\/blog\/manuscript-drafts\/ai\/operations', payload\)/);
   assert.match(draftUi, /renderBlogNextDraftPreview\('ai', preview\)/);
-  assert.match(quickQueue, /\['blog-next-publish-now', 'blog-next-regenerate-draft'\][\s\S]*generateBlogNextAiDraft\(\)/);
+  assert.match(quickQueue, /\['blog-next-publish-now', 'blog-next-regenerate-draft'\][\s\S]*generateBlogNextAiDraft\(id === 'blog-next-regenerate-draft' \? 'regenerate' : 'create'\)/);
 });
 
 test('unconfigured platform hints route to the publish channel tab', () => {

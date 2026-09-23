@@ -8,6 +8,30 @@ let blogNextRunnerDismissedKey = '';
 let blogNextRunnerLastStatus = { state: 'idle' };
 let blogNextRunnerObservedFinishedAt = '';
 let blogNextRunnerStatusInitialized = false;
+let blogNextStatusReturnTarget = null;
+let blogNextStatusReturnFallback = null;
+let blogNextStatusReturnMode = 'ai';
+
+function blogNextStatusScrollBehavior() {
+  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
+    ? 'auto' : 'smooth';
+}
+
+function isBlogNextVisibleReturnTarget(element) {
+  return Boolean(element?.isConnected && !element.closest('[hidden]') && element.getClientRects().length > 0);
+}
+
+function showBlogNextExecutionStatusAtTop(target, fallback = null) {
+  blogNextStatusReturnTarget = target || null;
+  blogNextStatusReturnFallback = fallback || null;
+  blogNextStatusReturnMode = typeof blogNextActiveInputMode !== 'undefined' ? blogNextActiveInputMode : 'ai';
+  const panel = document.getElementById('blog-next-publish-status');
+  const returnButton = document.getElementById('blog-next-publish-status-return');
+  if (returnButton) returnButton.hidden = !target;
+  if (!panel || panel.hidden || (typeof blogNextActiveTab !== 'undefined' && blogNextActiveTab !== 'quick')) return;
+  panel.scrollIntoView({ behavior: blogNextStatusScrollBehavior(), block: 'start' });
+  panel.focus({ preventScroll: true });
+}
 
 function getBlogNextRunnerStatusKey(status = {}) {
   return [status.state, status.rowIndex, status.finishedAt, status.resultStatus, status.message]
@@ -18,6 +42,7 @@ function getBlogNextRunnerStatusKey(status = {}) {
 function presentBlogNextRunnerStatus(status = {}) {
   const state = String(status.state || 'idle');
   const manuscriptGeneration = String(status.source || '') === 'manuscript_generation';
+  const localPublish = String(status.source || '') === 'local_markdown';
   const resultStatus = String(status.resultStatus || '').trim();
   if (state === 'selecting') return { title: '준비 중', tone: 'progress' };
   if (manuscriptGeneration && state === 'running') return { title: '원고 생성 중', tone: 'progress' };
@@ -26,6 +51,7 @@ function presentBlogNextRunnerStatus(status = {}) {
   if (manuscriptGeneration && state === 'canceled') return { title: '원고 생성 취소', tone: 'warning' };
   if (manuscriptGeneration && state === 'completed') return { title: '원고 준비 완료', tone: 'success' };
   if (manuscriptGeneration && state === 'failed') return { title: '원고 생성 실패', tone: 'error' };
+  if (localPublish && state === 'failed') return { title: '발행 실패', tone: 'error' };
   if (state === 'running') {
     const progressTitles = {
       preparing: '준비 중', writing: '글 작성 중', images: '이미지 준비 중',
@@ -137,6 +163,7 @@ function renderBlogNextRunnerStatus(status = {}) {
   if (subject) {
     subject.textContent = String(status.subject || '').trim();
     subject.hidden = !subject.textContent;
+    subject.title = subject.textContent;
   }
   if (message) {
     const rawMessage = String(status.message || '').trim();
@@ -147,9 +174,25 @@ function renderBlogNextRunnerStatus(status = {}) {
   renderBlogNextCompletionLinks(status);
   if (manage) manage.hidden = presentation.manage !== true;
   if (dismiss) dismiss.hidden = !terminal;
-  document.querySelectorAll('[data-blog-next-runner-status-jump]').forEach((button) => {
-    button.hidden = !panelVisible || !active;
-  });
+  const localStatus = status.source === 'manuscript_generation' || status.source === 'local_markdown';
+  if (!localStatus) {
+    blogNextStatusReturnTarget = null;
+    blogNextStatusReturnFallback = null;
+  }
+  const returnButton = document.getElementById('blog-next-publish-status-return');
+  if (returnButton) returnButton.hidden = !panelVisible || !localStatus || !blogNextStatusReturnTarget;
+  const help = document.getElementById('blog-next-publish-status-help');
+  const helpText = document.getElementById('blog-next-publish-status-help-text');
+  const showHelp = panelVisible && status.source === 'manuscript_generation'
+    && ['accepted', 'running', 'cancel_requested', 'canceled'].includes(state);
+  if (help) {
+    help.hidden = !showHelp;
+    if (!showHelp) help.open = false;
+  }
+  if (showHelp && helpText) {
+    helpText.textContent = '취소하면 앱은 생성과 결과 반영을 중단합니다. 이미 처리된 AI 요청에는 비용이 발생할 수 있습니다.'
+      + (status.remoteJobPossible ? ' KIE에 접수된 이미지 작업은 원격에서 계속될 수 있습니다.' : '');
+  }
   syncBlogNextRunnerTriggerState();
   if (typeof scheduleGlobalPublishingStatusRefresh === 'function') scheduleGlobalPublishingStatusRefresh(50);
   return active;
@@ -171,12 +214,12 @@ async function loadBlogNextRunnerStatus(options = {}) {
   const localDraftBusy = () => typeof blogNextDraftState !== 'undefined'
     && BLOG_NEXT_DRAFT_TYPES.some((type) => blogNextDraftState[type].publishing || blogNextDraftState[type].imageWorking);
   if (localDraftBusy()) return blogNextRunnerLastStatus;
-  if (blogNextRunnerLastStatus.source === 'manuscript_generation'
+  if (['manuscript_generation', 'local_markdown'].includes(blogNextRunnerLastStatus.source)
     && typeof blogNextActiveTab !== 'undefined' && blogNextActiveTab !== 'queue') return blogNextRunnerLastStatus;
   try {
     const status = await fetchJson('/api/v1/continuous-publishing/runner/status');
     if (blogNextAiOperationId || localDraftBusy()
-      || (blogNextRunnerLastStatus.source === 'manuscript_generation'
+      || (['manuscript_generation', 'local_markdown'].includes(blogNextRunnerLastStatus.source)
         && typeof blogNextActiveTab !== 'undefined' && blogNextActiveTab !== 'queue')) return blogNextRunnerLastStatus;
     const previousFinishedAt = blogNextRunnerObservedFinishedAt;
     const finishedAt = String(status.finishedAt || '');
@@ -236,14 +279,17 @@ function initBlogNextRunner() {
     document.getElementById('blog-next-publish-status-dismiss')?.addEventListener('click', () => {
       blogNextRunnerDismissedKey = getBlogNextRunnerStatusKey(blogNextRunnerLastStatus);
       panel.hidden = true;
-      document.querySelectorAll('[data-blog-next-runner-status-jump]').forEach((button) => {
-        button.hidden = true;
-      });
+      document.getElementById('blog-next-publish-status-return').hidden = true;
     });
-    document.querySelectorAll('[data-blog-next-runner-status-jump]').forEach((button) => {
-      button.addEventListener('click', () => {
-        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
+    document.getElementById('blog-next-publish-status-return')?.addEventListener('click', () => {
+      if (typeof activateBlogNextTab === 'function') activateBlogNextTab('quick');
+      if (typeof activateBlogNextInputMode === 'function') activateBlogNextInputMode(blogNextStatusReturnMode);
+      const target = isBlogNextVisibleReturnTarget(blogNextStatusReturnTarget)
+        ? blogNextStatusReturnTarget : blogNextStatusReturnFallback;
+      if (!isBlogNextVisibleReturnTarget(target)) return;
+      target.scrollIntoView({ behavior: blogNextStatusScrollBehavior(), block: 'center' });
+      target.setAttribute('tabindex', '-1');
+      target.focus({ preventScroll: true });
     });
     document.getElementById('blog-next-runner-start')?.addEventListener('click', () => startBlogNextRunner());
   }

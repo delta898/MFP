@@ -76,7 +76,27 @@ test('AI cancellation copy stays concise with or without a previous manuscript',
   assert.equal(message({ state: 'canceled', stage: 'writing' }),
     '원고 생성을 취소했습니다.');
   assert.equal(message({ state: 'canceled', stage: 'images', remoteJobPossible: true }),
-    '원고 생성을 취소했습니다. KIE 원격 이미지 작업과 과금은 계속될 수 있습니다.');
+    '원고 생성을 취소했습니다.');
+  assert.equal(message({ state: 'failed', stage: 'images', error: { message: '이미지 생성 실패' } }),
+    '이미지 생성 실패');
+  assert.equal(message({ state: 'completed', stage: 'images' }),
+    '원고와 미리보기를 준비했습니다.');
+});
+
+test('direct publishing confirmation names only destination, mode, schedule, and billed image work', () => {
+  const execution = read('ui/scripts/features/blog-next/draft-execution.js');
+  const scheduleSource = execution.match(/function formatBlogNextDraftScheduleDate\(value\) \{[\s\S]*?\n\}/)?.[0];
+  const confirmationSource = execution.match(/function buildBlogNextDraftPublishConfirmation\(settings, targetLabel, autoGenerationCount\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(scheduleSource && confirmationSource, 'confirmation copy helpers are missing');
+  const confirm = vm.runInNewContext(`${scheduleSource}\n${confirmationSource}\nbuildBlogNextDraftPublishConfirmation`);
+
+  assert.equal(confirm({ postStatus: 'draft' }, '네이버 블로그', 0), '네이버 블로그에 임시 저장할까요?');
+  assert.equal(confirm({ postStatus: 'draft' }, '네이버 블로그', 1),
+    '네이버 블로그에 임시 저장할까요?\n이미지 1개를 AI로 생성합니다.');
+  assert.equal(confirm({ postStatus: 'publish' }, '워드프레스', 0), '워드프레스에 지금 발행할까요?');
+  assert.equal(confirm({ postStatus: 'schedule', scheduleDate: '2026-10-25T09:30' }, '네이버 블로그', 2),
+    '네이버 블로그에 2026년 10월 25일 09:30에 예약 발행할까요?\n이미지 2개를 AI로 생성합니다.');
+  assert.doesNotMatch(confirmationSource, /Queue|대기열|만들지 못한 이미지/);
 });
 
 test('quick flow summaries update from existing controls and clear remains undoable', () => {
@@ -127,7 +147,7 @@ test('quick writing distinguishes queued ideas from the generated manuscript flo
   assert.match(html, /data-blog-next-ai-preview-actions hidden>[\s\S]*id="blog-next-regenerate-draft"[^>]*>원고 다시 만들기/);
   assert.match(execution, /publishSettings\.hidden = !editing && !hasDraft/);
   assert.match(queue, /발행 계획을 확인한 뒤 발행 대기열에 추가해 주세요/);
-  assert.match(queue, /\['blog-next-publish-now', 'blog-next-regenerate-draft'\][\s\S]*generateBlogNextAiDraft\(\)/);
+  assert.match(queue, /\['blog-next-publish-now', 'blog-next-regenerate-draft'\][\s\S]*generateBlogNextAiDraft\(id === 'blog-next-regenerate-draft' \? 'regenerate' : 'create'\)/);
   assert.match(queue, /publishButton\.textContent = aiDraftGenerating \? '원고 만드는 중\.\.\.'/);
   assert.match(queue, /publishSettings\.hidden = false;[\s\S]*publishSettings\.open = true/);
   assert.match(queue, /bindBlogNextDetachedPublishSettings\(form\)/);

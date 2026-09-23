@@ -98,7 +98,7 @@ test('Blog Beta quick writing keeps topic capture and adds the canonical AI manu
     assert.match(quickQueueScript, /\/api\/v1\/continuous-publishing\/topics/);
     assert.match(quickQueueScript, /\/api\/v1\/continuous-publishing\/queue/);
     assert.match(quickQueueScript, /getElementById\('blog-next-cancel-edit'\).*closeBlogNextEditor/);
-    assert.match(quickQueueScript, /generateBlogNextAiDraft\(\)/);
+    assert.match(quickQueueScript, /generateBlogNextAiDraft\(id === 'blog-next-regenerate-draft' \? 'regenerate' : 'create'\)/);
     assert.doesNotMatch(quickQueueScript, /quick-publish|quick-preview|generateContent|publishBlog|reserveQuota/i);
 });
 
@@ -275,23 +275,20 @@ test('Stage 10 keeps trend discovery manual and hands one selection to quick wri
     assert.match(quickQueueScript, /startBlogNextRunner\(\{ rowIndex: Number\(data\.rowIndex\), platforms: payload\.platforms \}\)/);
 });
 
-test('Stage 11 exposes one shared publish status with an explicit status shortcut and no internal row details', () => {
+test('Stage 11 exposes one shared publish status with a return action and no duplicate shortcut', () => {
     const betaView = readBlogNextView();
     const runnerScript = read('ui/scripts/features/blog-next/runner.js');
     const publishPreferences = read('ui/scripts/features/publishing/shared-preferences.js');
 
-    assert.match(betaView, /id="blog-next-publish-status"[^>]*role="status"[^>]*hidden/);
+    assert.match(betaView, /id="blog-next-publish-status"[^>]*role="status"[^>]*tabindex="-1"[^>]*hidden/);
     assert.match(betaView, /id="blog-next-publish-status-title"/);
     assert.match(betaView, /id="blog-next-publish-status-links"[^>]*hidden/);
     assert.match(betaView, /id="blog-next-publish-status-manage"[^>]*>글감 관리/);
     assert.match(betaView, /id="blog-next-publish-status-dismiss"[^>]*aria-label="닫기"[^>]*>×/);
     assert.match(betaView, /id="blog-next-runner-headless"[^>]*checked[^>]*> 보이지 않게 실행/);
-    assert.match(betaView, /data-blog-next-runner-status-jump[^>]*hidden>상태 보기/);
-    assert.equal((betaView.match(/data-blog-next-runner-status-jump/g) || []).length, 1);
-    assert.match(
-        betaView,
-        /class="blog-next-form-result-row">[\s\S]*?id="blog-next-topic-result"[\s\S]*?data-blog-next-runner-status-jump[\s\S]*?<\/div>/
-    );
+    assert.match(betaView, /id="blog-next-publish-status-return"[^>]*hidden>↓ 작업으로 돌아가기/);
+    assert.match(betaView, /id="blog-next-publish-status-help"[^>]*hidden/);
+    assert.doesNotMatch(betaView, /data-blog-next-runner-status-jump|상태 보기/);
     assert.match(runnerScript, /state === 'completed'/);
     assert.match(runnerScript, /state === 'failed'/);
     assert.match(runnerScript, /state === 'needs_attention'/);
@@ -300,10 +297,11 @@ test('Stage 11 exposes one shared publish status with an explicit status shortcu
     assert.match(runnerScript, /progressStage/);
     assert.match(runnerScript, /renderBlogNextCompletionLinks\(status\)/);
     assert.match(runnerScript, /noopener noreferrer/);
-    assert.match(runnerScript, /panel\.scrollIntoView\(\{ behavior: 'smooth', block: 'start' \}\)/);
-    assert.doesNotMatch(runnerScript, /\.focus\s*\(/);
+    assert.match(runnerScript, /panel\.scrollIntoView\(\{ behavior: blogNextStatusScrollBehavior\(\), block: 'start' \}\)/);
+    assert.match(runnerScript, /panel\.focus\(\{ preventScroll: true \}\)/);
+    assert.match(runnerScript, /target\.scrollIntoView\(\{ behavior: blogNextStatusScrollBehavior\(\), block: 'center' \}\)/);
     assert.doesNotMatch(runnerScript, /Topics\s*\$\{|showUiToast/);
-    assert.match(read('ui/styles/features/continuous-publishing.css'), /\.blog-next-editor-modal \.blog-next-runner-status-jump/);
+    assert.match(read('ui/styles/features/continuous-publishing.css'), /\.blog-next-publish-status-help summary:focus-visible/);
     assert.match(publishPreferences, /'blog-next-runner-headless'/);
     assert.doesNotMatch(publishPreferences, /'blog-next-(?:folder|paste)-headless'/);
 });

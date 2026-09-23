@@ -1,4 +1,4 @@
-        <section class="blog-next-publish-status" id="blog-next-publish-status" role="status" aria-live="polite" hidden>
+        <section class="blog-next-publish-status" id="blog-next-publish-status" role="status" aria-live="polite" tabindex="-1" hidden>
           <span class="blog-next-publish-status-indicator" aria-hidden="true"></span>
           <div class="blog-next-publish-status-copy">
             <div class="blog-next-publish-status-heading">
@@ -9,6 +9,11 @@
           </div>
           <div class="blog-next-publish-status-actions">
             <span class="blog-next-publish-status-links" id="blog-next-publish-status-links" hidden></span>
+            <details class="blog-next-publish-status-help" id="blog-next-publish-status-help" hidden>
+              <summary aria-label="AI 생성 취소와 비용 안내">?</summary>
+              <p id="blog-next-publish-status-help-text"></p>
+            </details>
+            <button class="secondary compact" id="blog-next-publish-status-return" type="button" hidden>↓ 작업으로 돌아가기</button>
             <button class="secondary compact" id="blog-next-publish-status-manage" type="button" hidden>글감 관리</button>
             <button class="ghost compact blog-next-publish-status-dismiss" id="blog-next-publish-status-dismiss"
               type="button" aria-label="닫기" title="닫기" hidden>×</button>

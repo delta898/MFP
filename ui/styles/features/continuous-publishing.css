@@ -89,11 +89,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 42ch;
 }
 
 .blog-next-publish-status-copy p {
   margin: 3px 0 0;
-  line-height: 1.45;
+  font-size: var(--ui-type-label-size);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .blog-next-publish-status-actions {
@@ -112,6 +115,53 @@
 
 .blog-next-publish-status-links[hidden] {
   display: none;
+}
+
+.blog-next-publish-status-help {
+  position: relative;
+}
+
+.blog-next-publish-status-help[hidden] {
+  display: none;
+}
+
+.blog-next-publish-status-help summary {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-action-primary-soft);
+  color: var(--ui-action-primary-hover);
+  font-weight: var(--ui-weight-bold);
+  cursor: pointer;
+  list-style: none;
+}
+
+.blog-next-publish-status-help summary::-webkit-details-marker {
+  display: none;
+}
+
+.blog-next-publish-status-help summary:focus-visible {
+  outline: 2px solid var(--ui-action-primary);
+  outline-offset: 2px;
+}
+
+.blog-next-publish-status-help p {
+  position: absolute;
+  z-index: 3;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(320px, 80vw);
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-sm);
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-type-caption-size);
+  line-height: 1.5;
 }
 
 .blog-next-publish-result-link {
@@ -300,10 +350,6 @@
   min-height: 34px;
 }
 
-.blog-next-form-result-row .blog-next-runner-status-jump {
-  margin-inline-start: 0;
-}
-
 .blog-next-form-result[data-level="success"] {
   color: var(--ui-status-success);
 }
@@ -315,34 +361,6 @@
 .blog-next-form-result[data-level="editing"] {
   color: var(--ui-action-primary-hover);
   font-weight: var(--ui-weight-bold);
-}
-
-.blog-next-runner-status-jump {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--ui-action-primary-hover);
-  font: inherit;
-  font-size: var(--ui-type-label-size);
-  font-weight: var(--ui-weight-semibold);
-  line-height: 1.5;
-  cursor: pointer;
-}
-
-.blog-next-runner-status-jump[hidden],
-.blog-next-editor-modal .blog-next-runner-status-jump {
-  display: none;
-}
-
-.blog-next-runner-status-jump:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.blog-next-runner-status-jump:focus-visible {
-  outline: 2px solid var(--ui-action-primary);
-  outline-offset: 3px;
-  border-radius: 3px;
 }
 
 .blog-next-execution-options {
