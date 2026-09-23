@@ -3,7 +3,7 @@
 - 브랜치: `codex/feature/ai-cancel-01-operation-contract`
 - 시작일: 2026-09-23
 - 기준/부모 브랜치: `codex/feature/ai-generation-cancellation`
-- 상태: 구현 완료·커밋 준비, 전체 unit suite 및 parent 병합 보류
+- 상태: 구현·집중 검증 완료, parent 병합 준비
 - parent 기록: `2026-09-23-ai-generation-cancellation-main-development.md`
 - 계약 결정: `../../decisions/2026-09-23-ai-generation-cancellation-contract.md`
 
@@ -46,10 +46,12 @@
 - 2026-09-23: 기존 동기 원고 생성 API는 유지하고 새 `/api/v1/blog/manuscript-drafts/ai/operations` 시작·현재·ID별 상태·취소 route를 추가했다. 공통 원고 생성 서비스는 취소 신호를 받아 모델 호출 뒤 Draft 생성 전 재확인한다.
 - 2026-09-23: 생성 결과가 취소 후 늦게 도착해도 Draft를 만들지 않고 preview session을 정리하도록 했다. 이미지별 transport와 생성 중 임시 폴더 정리는 후속 단계로 남겼다.
 - 2026-09-23: 사용자가 병합 전 전체 unit suite를 이번에는 보류하기로 했다. 병합 게이트는 면제되지 않으므로 sub-feature를 parent에 병합하거나 다음 sub-feature를 시작하지 않는다.
+- 2026-09-23: 사용자가 검증 게이트를 세분화했다. sub-feature→parent는 관련 단위·계약 검사(해당하면 UI 브라우저 검사), parent 또는 단독 feature→`dev`는 전체 TC로 `AGENTS.md`를 변경하도록 승인했다. 이 단계는 UI 변경이 없으므로 공유 잠금 관련 집중 검사를 추가 확인한 뒤 parent 병합한다.
+- 2026-09-23: 연속 발행 서비스, AI 원고 서비스, 작업 관리자 집중 검사 56개가 통과했다. 연속 발행과 원고 생성의 공유 잠금 충돌 시나리오를 포함한다.
 
 ## 결과와 검증
 
 - 구현 결과: 서버 작업 계약과 취소 후 Draft 반영 차단 완료. UI와 provider 전파는 아직 없음.
-- 자동 검증: 작업 관리자, coordinator, 서비스, controller, route 집중 검사 32개 통과. `git diff --check` 통과. 전체 unit suite는 사용자 요청으로 보류했으며 parent 병합 전에 반드시 실행해야 한다.
+- 자동 검증: 작업 관리자, coordinator, 서비스, controller, route 집중 검사 32개 통과. 이어서 연속 발행 서비스·AI 원고 서비스·작업 관리자 집중 검사 56개 통과. `git diff --check` 통과. 변경된 정책에 따라 전체 unit suite는 parent→`dev` 병합 전 실행한다.
 - 수동 확인: UI 연결 이후 사용자가 실제 취소·재시도를 확인해야 한다.
 - 남은 위험: 현재 transport는 아직 중단 신호를 소비하지 않는다. 이 단계 단독으로는 지연을 즉시 해소하지 못한다.
