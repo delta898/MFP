@@ -2340,12 +2340,52 @@ async function run() {
                 } } })
             });
         });
-        await page.route('**/api/v1/card-news/images/generate', async (route) => {
-            await new Promise((resolve) => setTimeout(resolve, 1800));
+        let operationStarts = 0;
+        const operationPolls = new Map();
+        const canceledOperations = new Set();
+        await page.route(/\/api\/v1\/card-news\/image-operations(?:\/[^/]+(?:\/cancel)?)?$/, async (route) => {
+            const request = route.request();
+            const pathname = new URL(request.url()).pathname;
+            if (request.method() === 'POST' && pathname === '/api/v1/card-news/image-operations') {
+                operationStarts += 1;
+                const operationId = `ui-smoke-image-op-${operationStarts}`;
+                operationPolls.set(operationId, 0);
+                await route.fulfill({
+                    status: 202,
+                    contentType: 'application/json; charset=utf-8',
+                    body: JSON.stringify({ success: true, data: { operationId, state: 'accepted', remoteJobPossible: false } })
+                });
+                return;
+            }
+            const isCancel = request.method() === 'POST' && pathname.endsWith('/cancel');
+            const segments = pathname.split('/');
+            const operationId = isCancel ? segments.at(-2) : segments.at(-1);
+            if (isCancel) {
+                canceledOperations.add(operationId);
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'application/json; charset=utf-8',
+                    body: JSON.stringify({ success: true, data: { operationId, state: 'cancel_requested', cancelOutcome: 'requested' } })
+                });
+                return;
+            }
+            const pollCount = (operationPolls.get(operationId) || 0) + 1;
+            operationPolls.set(operationId, pollCount);
+            const generation = operationStarts === 1
+                ? progressGeneration(2, 0, 'partial')
+                : progressGeneration(2, 0, 'partial', 3);
+            const canceled = canceledOperations.has(operationId);
+            const completed = operationStarts === 1 && pollCount > 2;
             await route.fulfill({
                 status: 200,
                 contentType: 'application/json; charset=utf-8',
-                body: JSON.stringify({ success: true, data: { generation: progressGeneration(2, 0, 'partial') } })
+                body: JSON.stringify({ success: true, data: {
+                    operationId,
+                    state: canceled ? 'canceled' : (completed ? 'completed' : 'running'),
+                    busy: !canceled && !completed,
+                    remoteJobPossible: false,
+                    ...(completed ? { result: { generation } } : {})
+                } })
             });
         });
         await page.route('**/api/v1/card-news/generations/ui-smoke-progress-result', async (route) => {
@@ -2378,19 +2418,12 @@ async function run() {
             && !document.querySelector('[data-card-news-result-index="2"] [data-card-news-image-working]').hidden);
         assert.equal(await page.locator('#card-news-generation-status').textContent().then((text) => /이미지/.test(text)), true);
         await page.waitForFunction(() => document.querySelectorAll('.card-news-result-item img').length === 2);
+        await page.waitForFunction(() => !cardNewsViewState.generating);
         assert.equal(await page.locator('#card-news-generation-status').textContent().then((text) => text.includes('부분')), false);
         await page.unroute('**/api/v1/card-news/generations');
-        await page.unroute('**/api/v1/card-news/images/generate');
         await page.unroute('**/api/v1/card-news/generations/ui-smoke-progress-result');
         generationReadCount = 0;
-        await page.route('**/api/v1/card-news/images/generate', async (route) => {
-            await new Promise((resolve) => setTimeout(resolve, 1500));
-            await route.fulfill({
-                status: 200,
-                contentType: 'application/json; charset=utf-8',
-                body: JSON.stringify({ success: true, data: { generation: progressGeneration(2, 0, 'partial', 3) } })
-            });
-        });
+        operationPolls.clear();
         await page.route('**/api/v1/card-news/generations/ui-smoke-progress-result', async (route) => {
             generationReadCount += 1;
             await route.fulfill({
@@ -2403,9 +2436,44 @@ async function run() {
         await page.waitForFunction(() => !document.querySelector('[data-card-news-result-index="3"] [data-card-news-image-working]').hidden);
         assert.equal(await page.locator('[data-card-news-result-index] [data-card-news-image-working]:not([hidden])').count(), 1);
         assert.equal(await page.locator('.card-news-result-item img').count(), 2);
+        await page.locator('#card-news-bulk-image-action').click();
+        await page.waitForFunction(() => document.getElementById('card-news-bulk-image-action')?.textContent === '중지 확인');
+        assert.equal(await page.locator('#card-news-image-continue').isVisible(), true);
+        await page.locator('#card-news-image-continue').click();
+        assert.equal(await page.locator('#card-news-image-continue').isVisible(), false);
+        await page.locator('#card-news-bulk-image-action').click();
+        await page.waitForFunction(() => document.getElementById('card-news-bulk-image-action')?.textContent === '중지 확인');
+        await page.locator('#card-news-bulk-image-action').click();
         await page.waitForFunction(() => !cardNewsViewState.generating);
+        assert.match(await page.locator('#card-news-generation-status').textContent(), /이미지 생성을 중지했습니다/);
         assert.equal(await page.locator('.card-news-result-item img').count(), 2);
-        await page.unroute('**/api/v1/card-news/images/generate');
+        const missingCardAiAction = page.locator('[data-card-news-result-index="3"] [data-card-news-image-action]');
+        const missingCardAiActionTop = await missingCardAiAction.evaluate((button) => button.getBoundingClientRect().top);
+        await missingCardAiAction.click();
+        const singleStop = page.locator('[data-card-news-result-index="3"] [data-card-news-image-stop]');
+        await page.waitForFunction(() => {
+            const card = document.querySelector('[data-card-news-result-index="3"]');
+            return card && !card.querySelector('[data-card-news-image-working]').hidden
+                && card.querySelector('.card-news-media-actions')?.classList.contains('is-working');
+        });
+        assert.equal(await singleStop.isVisible(), true);
+        assert.equal(await singleStop.evaluate((button) => button.classList.contains('ghost') && button.classList.contains('ui-danger-action') && !button.classList.contains('primary')), true);
+        const singleStopTop = await singleStop.evaluate((button) => button.getBoundingClientRect().top);
+        assert.ok(Math.abs(singleStopTop - missingCardAiActionTop) < 24, 'single-card stop stays beside the image action position');
+        assert.equal(await singleStop.textContent(), '중지');
+        await singleStop.click();
+        await page.waitForFunction(() => document.querySelector('[data-card-news-result-index="3"] [data-card-news-image-stop]')?.textContent === '중지 확인');
+        const singleContinue = page.locator('[data-card-news-result-index="3"] [data-card-news-image-continue]');
+        assert.equal(await singleContinue.isVisible(), true);
+        await singleContinue.click();
+        assert.equal(await singleContinue.isVisible(), false);
+        await singleStop.click();
+        await page.waitForFunction(() => document.querySelector('[data-card-news-result-index="3"] [data-card-news-image-stop]')?.textContent === '중지 확인');
+        await singleStop.click();
+        await page.waitForFunction(() => !cardNewsViewState.generating);
+        assert.match(await page.locator('#card-news-generation-status').textContent(), /이미지 생성을 중지했습니다/);
+        assert.equal(await page.locator('.card-news-result-item img').count(), 2);
+        await page.unroute(/\/api\/v1\/card-news\/image-operations(?:\/[^/]+(?:\/cancel)?)?$/);
         await page.unroute('**/api/v1/card-news/generations/ui-smoke-progress-result');
         await page.route('**/api/v1/card-news/publishing/config?generation_id=*', async (route) => {
             await route.fulfill({

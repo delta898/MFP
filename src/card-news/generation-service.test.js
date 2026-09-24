@@ -166,6 +166,66 @@ test('publishes the active card index while sequential image generation is in pr
     }
 });
 
+test('stops image generation without discarding completed cards or marking pending cards as failed', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-image-cancel-'));
+    let secondImageStarted;
+    const secondImageGate = new Promise((resolve) => { secondImageStarted = resolve; });
+    const controller = new AbortController();
+    try {
+        const service = createCardNewsGenerationService({
+            workspaceDir,
+            createId: (() => {
+                const values = ['generation-cancel-1', 'variation-cancel-1'];
+                return () => values.shift();
+            })(),
+            parseStructuredJsonResponse: JSON.parse,
+            callWritingText: async () => JSON.stringify({
+                set_title: '중지 확인',
+                art_direction: '정보형',
+                cards: Array.from({ length: 3 }, (_, index) => ({
+                    headline: `제목 ${index + 1}`,
+                    body: '본문',
+                    image_prompt: `프롬프트 ${index + 1}`
+                }))
+            }),
+            callWritingImage: async (_prompt, savePath, _retries, options) => {
+                if (savePath.includes('pending-02-')) {
+                    assert.equal(options.signal, controller.signal);
+                    secondImageStarted();
+                    await new Promise((_resolve, reject) => {
+                        options.signal.addEventListener('abort', () => {
+                            const error = new Error('aborted');
+                            error.name = 'AbortError';
+                            reject(error);
+                        }, { once: true });
+                    });
+                }
+                const imagePath = `${savePath}.png`;
+                fs.writeFileSync(imagePath, 'generated image');
+                return imagePath;
+            }
+        });
+        await service.generate({
+            source_snapshot: { title: '제목', text: '본문' },
+            settings: { slide_count: 3 },
+            image_mode: 'prompt_only'
+        });
+        const imageTask = service.generateImages({ generation_id: 'generation-cancel-1', mode: 'all', signal: controller.signal });
+        await secondImageGate;
+        controller.abort();
+        await assert.rejects(imageTask, { code: 'AI_GENERATION_CANCELED' });
+        const generation = service.getGeneration('generation-cancel-1');
+        assert.equal(generation.status, 'partial');
+        assert.equal(generation.current_image_index, 0);
+        assert.ok(generation.cards[0].image_url);
+        assert.equal(generation.cards[1].image_url, '');
+        assert.equal(generation.cards[1].image_status, 'pending');
+        assert.equal(generation.cards[2].image_status, 'pending');
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('previews and imports an ordered ZIP as a completed local generation', () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-zip-import-'));
     const png = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), Buffer.alloc(128, 1)]);

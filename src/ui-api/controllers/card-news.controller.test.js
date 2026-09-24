@@ -9,6 +9,9 @@ function createHarness(overrides = {}) {
         getGeneration(id) { return { generation: { id } }; },
         async generate() { return { generation: { id: 'set-1' } }; },
         async generateImages() { return { generation: { id: 'set-1', status: 'completed' } }; },
+        startImageOperation() { return { operationId: 'op-1', state: 'accepted' }; },
+        getImageOperation(id) { return { operationId: id, state: 'running' }; },
+        cancelImageOperation(id) { return { operationId: id, state: 'cancel_requested' }; },
         importLocalImage() { return { generation: { id: 'set-1', status: 'completed' } }; },
         previewZip() { return { card_count: 3 }; },
         async importZip() { return { generation: { id: 'zip-1', status: 'completed' } }; },
@@ -64,6 +67,17 @@ test('updates generated and local card images through the controller', async () 
     await controller.importImage({ requestId: 'req-image-2', method: 'POST', requestBody: {}, res: {} });
     assert.equal(responses[0].data.generation.status, 'completed');
     assert.equal(responses[1].data.generation.status, 'completed');
+});
+
+test('starts, reads, and cancels an image operation through the controller', async () => {
+    const { controller, responses } = createHarness();
+    await controller.startImageOperation({ requestId: 'req-op-start', method: 'POST', requestBody: {}, res: {} });
+    await controller.imageOperation({ requestId: 'req-op-get', method: 'GET', pathname: '/api/v1/card-news/image-operations/op-1', res: {} });
+    await controller.cancelImageOperation({ requestId: 'req-op-cancel', method: 'POST', pathname: '/api/v1/card-news/image-operations/op-1/cancel', res: {} });
+    assert.equal(responses[0].status, 202);
+    assert.equal(responses[0].data.operationId, 'op-1');
+    assert.equal(responses[1].data.state, 'running');
+    assert.equal(responses[2].data.state, 'cancel_requested');
 });
 
 test('previews and imports a card-news ZIP through the controller', async () => {

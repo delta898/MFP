@@ -47,6 +47,20 @@
   표현을 복제하지 않으며, primary·secondary·ghost 중 배치 위계는 유지한 채 위험 의미만 더한다.
 - negative feedback은 낮은 강조 outline을 유지하고 확인 dialog를 요구하지 않는다. 복구가 어렵거나 자료를 삭제하는 danger action만 영향과 확인 흐름을 추가한다.
 
+### In-flight stop actions
+
+- 진행 중인 AI 작업을 멈추는 action은 이미 완성된 결과를 보존하고 이후 작업을 중단하는 lifecycle control이다. 자료를 삭제하거나 외부 작업·비용을 반드시 되돌리는 동작처럼 표현하지 않는다.
+- stop action은 현재 작업을 시작한 control의 같은 문맥·action slot을 이어받는다. 카드형 이미지 영역에서는 별도의 큰 banner나 전체 폭 bar를 만들지 않고, 기존 이미지 action 위치를 유지한다.
+- 위험 의미는 공통 `.ui-danger-action`으로 전달하되 기본 variant는 compact tertiary/ghost로 제한한다. filled danger나 강한 배경 면적을 사용해 사용자를 중단 행동으로 유도하지 않는다.
+- 확인 단계는 같은 slot에서 `중지 확인`으로 전환하고, 인접한 낮은 강조 `계속 진행`으로 빠져나올 수 있게 한다. 중지 요청 중과 취소 불가 시에는 이유가 드러나는 비활성 label을 사용한다.
+- 카드의 평상시 보조 action은 데스크톱에서 hover와 keyboard focus로 점진 노출할 수 있지만, 진행 중인 stop control은 hover에만 의존하지 않고 작업이 진행되는 동안 계속 노출한다. 터치 입력에서도 별도의 hover 없이 조작할 수 있어야 한다.
+- hover/focus 노출을 사용하는 경우 pointer가 action으로 이동해도 사라지지 않게 하고, 필요한 동안 지속적으로 보이며, keyboard focus로도 같은 control에 도달하게 한다. 입력 방식에 따라 기능이나 위험 의미를 다르게 만들지 않는다.
+
+Reference basis: [Carbon button usage](https://carbondesignsystem.com/components/button/usage/),
+[Primer button variants](https://primer.style/product/components/button/),
+[W3C WCAG 2.2: Content on Hover or Focus](https://www.w3.org/WAI/WCAG22/Understanding/content-on-hover-or-focus),
+[Apple pointing devices](https://developer.apple.com/design/human-interface-guidelines/pointing-devices).
+
 ### Action wording
 
 - action label은 `실행`, `처리`, `빼기` 같은 내부 동작보다 사용자가 얻게 될 결과를 설명한다.

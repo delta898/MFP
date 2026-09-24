@@ -9,6 +9,7 @@ const { createCardNewsFeedFetcher } = require('../../card-news/feed-fetcher');
 const { normalizeImageMode, validateSourceSnapshot } = require('../../card-news/generation');
 const { createStyleReferenceFetcher } = require('../../content/style-reference-fetcher');
 const { deriveCardNewsManagementState, toCardNewsManagementFields } = require('../../card-news/management-status');
+const { createAiGenerationOperationManager } = require('../../blog-next/ai-generation-operations');
 
 const CARD_NEWS_SOURCE_LIMIT = 30;
 const CARD_NEWS_LEDGER_REGISTRATION_TIMEOUT_MS = 3000;
@@ -192,6 +193,26 @@ function createCardNewsService(deps = {}) {
     const ledgerRegistrationTimeoutMs = Number(
         deps.ledgerRegistrationTimeoutMs || CARD_NEWS_LEDGER_REGISTRATION_TIMEOUT_MS
     );
+    let activeCardNewsImageExecution = '';
+    const imageOperationManager = createAiGenerationOperationManager({
+        coordinator: {
+            acquire() {
+                if (activeCardNewsImageExecution) return null;
+                const executionId = `card-news-image-${createId()}`;
+                activeCardNewsImageExecution = executionId;
+                let released = false;
+                return {
+                    executionId,
+                    release() {
+                        if (released) return;
+                        released = true;
+                        if (activeCardNewsImageExecution === executionId) activeCardNewsImageExecution = '';
+                    }
+                };
+            }
+        },
+        now: () => new Date(now())
+    });
 
     async function listSources() {
         try {
@@ -350,8 +371,52 @@ function createCardNewsService(deps = {}) {
             await ledgerSync.recordGenerationProgress(generation);
             return { generation };
         } catch (error) {
+            if (error?.code === 'AI_GENERATION_CANCELED') throw error;
             throw toCardNewsError(error, 'CARD_NEWS_IMAGE_GENERATION_FAILED', '카드 이미지를 만들지 못했습니다. 다시 시도해 주세요.');
         }
+    }
+
+    function startImageOperation(input = {}) {
+        if (!generationService?.generateImages) {
+            throw createApiError('CARD_NEWS_IMAGE_GENERATION_UNAVAILABLE', '카드 이미지 생성 기능이 준비되지 않았습니다.', 500);
+        }
+        if (!isConfiguredAiModel(CONFIG.IMAGE_MODEL_CONFIG)) {
+            throw createApiError('CARD_NEWS_IMAGE_MODEL_REQUIRED', '설정에서 이미지 AI를 먼저 연결해 주세요.');
+        }
+        const generation = generationService.getGeneration?.(input.generation_id);
+        return imageOperationManager.start({
+            source: 'card_news_image_generation',
+            subject: String(generation?.title || '카드뉴스 이미지'),
+            message: '카드뉴스 이미지 생성 중',
+            remoteJobPossible: String(CONFIG.IMAGE_MODEL_CONFIG?.transport || '').includes('kie')
+        }, async (operation) => {
+            try {
+                const result = await generateImages({
+                    ...input,
+                    signal: operation.signal,
+                    beginCommit: () => operation.beginCommit()
+                });
+                return result;
+            } catch (error) {
+                if (error?.code === 'AI_GENERATION_CANCELED') {
+                    try {
+                        const latest = generationService.getGeneration(input.generation_id);
+                        await ledgerSync.recordGenerationProgress(latest);
+                    } catch (syncError) {
+                        logger?.warn?.(`⚠️ [CardNews] 중지된 이미지 진행 상태 동기화 실패: ${syncError.message}`);
+                    }
+                }
+                throw error;
+            }
+        });
+    }
+
+    function getImageOperation(operationId) {
+        return imageOperationManager.get(operationId);
+    }
+
+    function cancelImageOperation(operationId) {
+        return imageOperationManager.cancel(operationId);
     }
 
     async function importLocalImage(input = {}) {
@@ -451,6 +516,9 @@ function createCardNewsService(deps = {}) {
         listProjects,
         generate,
         generateImages,
+        startImageOperation,
+        getImageOperation,
+        cancelImageOperation,
         importLocalImage,
         previewZip,
         importZip,

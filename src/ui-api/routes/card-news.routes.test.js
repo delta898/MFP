@@ -11,6 +11,9 @@ test('routes only card-news endpoints to their controllers', async () => {
         preview: async (ctx) => calls.push(['preview', ctx.method]),
         generate: async (ctx) => calls.push(['generate', ctx.method]),
         generateImages: async (ctx) => calls.push(['generateImages', ctx.method]),
+        startImageOperation: async (ctx) => calls.push(['startImageOperation', ctx.method]),
+        imageOperation: async (ctx) => calls.push(['imageOperation', ctx.method]),
+        cancelImageOperation: async (ctx) => calls.push(['cancelImageOperation', ctx.method]),
         importImage: async (ctx) => calls.push(['importImage', ctx.method]),
         previewZip: async (ctx) => calls.push(['previewZip', ctx.method]),
         importZip: async (ctx) => calls.push(['importZip', ctx.method]),
@@ -28,6 +31,9 @@ test('routes only card-news endpoints to their controllers', async () => {
     assert.equal(await handler({ pathname: '/api/v1/card-news/generations', method: 'POST' }), true);
     assert.equal(await handler({ pathname: '/api/v1/card-news/generations/set-1', method: 'GET' }), true);
     assert.equal(await handler({ pathname: '/api/v1/card-news/images/generate', method: 'POST' }), true);
+    assert.equal(await handler({ pathname: '/api/v1/card-news/image-operations', method: 'POST' }), true);
+    assert.equal(await handler({ pathname: '/api/v1/card-news/image-operations/op-1', method: 'GET' }), true);
+    assert.equal(await handler({ pathname: '/api/v1/card-news/image-operations/op-1/cancel', method: 'POST' }), true);
     assert.equal(await handler({ pathname: '/api/v1/card-news/images/import', method: 'POST' }), true);
     assert.equal(await handler({ pathname: '/api/v1/card-news/zip/preview', method: 'POST' }), true);
     assert.equal(await handler({ pathname: '/api/v1/card-news/zip/import', method: 'POST' }), true);
@@ -44,6 +50,9 @@ test('routes only card-news endpoints to their controllers', async () => {
         ['generate', 'POST'],
         ['generation', 'GET'],
         ['generateImages', 'POST'],
+        ['startImageOperation', 'POST'],
+        ['imageOperation', 'GET'],
+        ['cancelImageOperation', 'POST'],
         ['importImage', 'POST'],
         ['previewZip', 'POST'],
         ['importZip', 'POST'],

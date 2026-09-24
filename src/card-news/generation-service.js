@@ -13,6 +13,7 @@ const {
 } = require('./generation');
 const { createStoredZip } = require('./zip-bundle');
 const { parseCardNewsZip, toZipPreview } = require('./zip-import');
+const { createCanceledError, isCancellation, throwIfCanceled } = require('../ai/cancellation');
 
 function safeGenerationId(value) {
     const normalized = String(value || '').trim();
@@ -379,6 +380,7 @@ function createCardNewsGenerationService(options = {}) {
             throw error;
         }
         const { generation, outputDir, manifestPath } = resolveGeneration(input.generation_id);
+        const signal = input.signal;
         const mode = ['all', 'missing', 'single'].includes(input.mode) ? input.mode : 'missing';
         const targets = mode === 'single'
             ? [getGenerationCard(generation, input.card_index)]
@@ -395,17 +397,34 @@ function createCardNewsGenerationService(options = {}) {
             delete card.image_error;
             writeJsonAtomic(fileSystem, pathApi, manifestPath, generation);
             logger?.info?.(`🎨 [CardNews] ${card.index}번 카드 이미지 ${card.file_name ? '다시 생성' : '생성'} 중`);
+            let generatedPath = '';
             try {
+                throwIfCanceled(signal);
                 const temporaryBase = pathApi.join(outputDir, `pending-${String(card.index).padStart(2, '0')}-${crypto.randomUUID().slice(0, 8)}`);
-                const generatedPath = await callWritingImage(
+                generatedPath = await callWritingImage(
                     card.image_prompt,
                     temporaryBase,
                     2,
-                    { aspectRatio: generation.settings?.aspect_ratio || '4:5', imageSize: '1K', useCase: 'card_news' }
+                    { aspectRatio: generation.settings?.aspect_ratio || '4:5', imageSize: '1K', useCase: 'card_news', signal }
                 );
+                throwIfCanceled(signal);
                 saveGeneratedImage({ generation, outputDir, manifestPath, card, generatedPath });
                 logger?.info?.(`✅ [CardNews] ${card.index}번 카드 이미지 적용 완료`);
             } catch (error) {
+                if (isCancellation(error, signal)) {
+                    const resolvedGeneratedPath = pathApi.resolve(String(generatedPath || ''));
+                    if (pathApi.dirname(resolvedGeneratedPath) === pathApi.resolve(outputDir)) {
+                        try { if (fileSystem.existsSync(resolvedGeneratedPath)) fileSystem.unlinkSync(resolvedGeneratedPath); } catch (_) { }
+                    }
+                    generation.status = deriveGenerationStatus(generation.cards);
+                    generation.current_image_index = 0;
+                    generation.completed_at = now();
+                    delete card.image_error;
+                    delete generation.error;
+                    writeJsonAtomic(fileSystem, pathApi, manifestPath, generation);
+                    logger?.info?.(`⏹️ [CardNews] 이미지 생성을 중지했습니다 (${generation.cards.filter((item) => item.file_name).length}/${generation.cards.length}장 완료)`);
+                    throw createCanceledError();
+                }
                 generation.status = 'partial';
                 generation.current_image_index = 0;
                 card.image_error = String(error?.message || '이미지를 만들지 못했습니다.').slice(0, 500);
@@ -424,6 +443,8 @@ function createCardNewsGenerationService(options = {}) {
             }
         }
 
+        throwIfCanceled(signal);
+        input.beginCommit?.();
         generation.status = deriveGenerationStatus(generation.cards);
         generation.current_image_index = 0;
         generation.completed_at = now();

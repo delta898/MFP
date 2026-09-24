@@ -92,6 +92,43 @@ test('lists configured articles with a separate limit per platform and isolated 
     assert.equal(result.failures.length, 1);
 });
 
+test('starts, polls, and cancels a card-news image operation through the shared operation lifecycle', async () => {
+    const generationService = {
+        getGeneration() { return { id: 'generation-1', title: '테스트 카드뉴스' }; },
+        async generateImages({ signal }) {
+            return new Promise((_resolve, reject) => {
+                signal.addEventListener('abort', () => {
+                    const error = new Error('AI_GENERATION_CANCELED');
+                    error.code = 'AI_GENERATION_CANCELED';
+                    reject(error);
+                }, { once: true });
+            });
+        }
+    };
+    const { service } = createHarness({
+        generationService,
+        CONFIG: {
+            PATHS: { workspace: '/tmp/card-news-test' },
+            TEXT_MODEL_CONFIG: { provider: 'google', code: 'text-model', api_key: 'test-key' },
+            IMAGE_MODEL_CONFIG: { provider: 'kie', code: 'image-model', api_key: 'test-key', transport: 'kie_market_image_jobs' }
+        },
+        ledgerSync: { async recordGenerationProgress() {} }
+    });
+    const started = service.startImageOperation({ generation_id: 'generation-1', mode: 'all' });
+    assert.ok(started.operationId);
+    assert.equal(started.remoteJobPossible, true);
+    assert.equal(service.getImageOperation(started.operationId).busy, true);
+    const requested = service.cancelImageOperation(started.operationId);
+    assert.equal(requested.state, 'cancel_requested');
+    let current = requested;
+    for (let attempt = 0; attempt < 20 && current.state !== 'canceled'; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        current = service.getImageOperation(started.operationId);
+    }
+    assert.equal(current.state, 'canceled');
+    assert.equal(current.busy, false);
+});
+
 test('annotates source articles and lists only ledger rows with a generation', async () => {
     const ledgerSync = {
         async registerSources() { return { results: [] }; },

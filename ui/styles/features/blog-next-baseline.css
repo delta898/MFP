@@ -480,22 +480,32 @@
 }
 
 .blog-next-manuscript-image-details .local-markdown-image-card-preview.is-generating .local-markdown-image-media-actions.is-empty {
-  top: auto;
-  right: var(--ui-space-3);
-  bottom: var(--ui-space-3);
-  left: var(--ui-space-3);
-  flex-wrap: wrap;
-  padding: var(--ui-space-2);
-  border: 1px solid color-mix(in srgb, var(--ui-border-strong) 72%, transparent);
-  background: color-mix(in srgb, var(--ui-surface) 90%, transparent);
-  box-shadow: var(--ui-shadow-sm);
-  transform: none;
-  backdrop-filter: blur(8px);
+  justify-content: center;
 }
 
 .blog-next-manuscript-image-details .local-markdown-image-card-preview.is-generating .local-markdown-image-media-actions.is-empty > button {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   width: auto;
+}
+
+.blog-next-manuscript-image-details .local-markdown-image-card-preview.is-generating .local-markdown-image-media-actions:not(.is-empty) {
+  right: var(--ui-space-3);
+  left: auto;
+  width: max-content;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.blog-next-manuscript-image-details .local-markdown-image-card-preview.is-generating .local-markdown-image-media-actions:not(.is-empty) > button {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.blog-next-manuscript-image-details .local-markdown-image-card-preview.is-generating .local-markdown-image-media-actions > button {
+  background: transparent;
 }
 
 .blog-next-manuscript-image-details .local-markdown-image-card.is-excluded .local-markdown-image-card-placeholder {

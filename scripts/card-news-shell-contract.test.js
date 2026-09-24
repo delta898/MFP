@@ -112,7 +112,10 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(script, /\/api\/v1\/card-news\/generations/);
     assert.match(script, /image_mode: 'prompt_only'/);
     assert.match(script, /renderCardNewsCompositionSkeleton\(settings\.slide_count, settings\.aspect_ratio\)/);
-    assert.match(script, /monitorCardNewsImageGeneration\(generation\.id, imageRequest\)/);
+    assert.match(script, /monitorCardNewsImageGeneration\(generation\.id, \{ mode, cardIndex, replacing \}\)/);
+    assert.match(script, /\/api\/v1\/card-news\/image-operations/);
+    assert.match(script, /중지 확인/);
+    assert.match(script, /계속 진행/);
     assert.match(script, /current_image_index/);
     assert.match(script, /project_id: cardNewsViewState\.projectId \|\| ''/);
     assert.match(html, /id="card-news-create-workflow-slot"[\s\S]*id="card-news-shared-workflow"/);
@@ -140,7 +143,7 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(script, /data-card-news-local-picker/);
     assert.match(script, /이미지 교체/);
     assert.doesNotMatch(script, /card-news-local-image-trigger/);
-    assert.match(script, /\/api\/v1\/card-news\/images\/generate/);
+    assert.match(script, /\/api\/v1\/card-news\/image-operations/);
     assert.match(script, /data-card-news-local-image/);
     assert.match(script, /\/api\/v1\/card-news\/images\/import/);
     assert.match(html, /id="card-news-export-all"[^>]*>전체 이미지 받기</);
@@ -172,6 +175,9 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(script, /button\?\.classList\.toggle\('is-loading', publishing\)/);
     assert.match(script, /button\?\.setAttribute\('aria-busy', String\(publishing\)\)/);
     assert.match(script, /data-card-news-image-working/);
+    assert.match(script, /data-card-news-image-stop/);
+    assert.match(script, /data-card-news-image-continue/);
+    assert.match(script, /card-news-media-actions.*is-working/);
     assert.match(script, /새 이미지 만드는 중…/);
     assert.match(script, /function setCardNewsResultControlsDisabled\(disabled\)/);
     assert.match(script, /#card-news-regenerate, #card-news-bulk-image-action, #card-news-publish-open, \[data-card-news-image-action\], \[data-card-news-local-picker\], \[data-card-news-local-image\]/);
@@ -320,7 +326,8 @@ test('Card News results use shared sequence and action hierarchy without a fixed
     assert.match(patternCss, /\.ui-button-link\.secondary\s*\{[^}]*var\(--ui-button-secondary-border\)[^}]*var\(--ui-button-secondary-background\)/s);
     assert.match(patternCss, /\.ui-sequence-badge\s*\{[^}]*var\(--ui-surface-emphasis\)[^}]*var\(--ui-text-inverse\)/s);
     assert.match(script, /<span class="ui-sequence-badge">\$\{card\.index\}<\/span>/);
-    assert.match(script, /class="\$\{card\.image_url \? 'secondary' : 'primary'\} compact"[^>]*>\$\{card\.image_url \? 'AI 재생성' : 'AI 이미지 만들기'\}/);
+    assert.match(script, /activeSingle \? 'ghost ui-danger-action compact' : `\$\{card\.image_url \? 'secondary' : 'primary'\} compact`/);
+    assert.match(script, /card\.image_url \? 'AI 재생성' : 'AI 이미지 만들기'/);
     assert.match(script, /class="secondary compact"[^>]*data-card-news-local-picker[^>]*>\$\{card\.image_url \? '이미지 교체' : '＋ 내 이미지 선택'\}/);
     assert.match(script, /class="ui-button-link secondary compact"[^>]*download>받기<\/a>/);
     assert.match(script, /class="ui-text-action compact card-news-prompt-copy"[^>]*data-card-news-prompt-copy[^>]*>복사<\/button>/);

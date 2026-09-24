@@ -8,6 +8,7 @@ function createCardNewsRouteHandler(deps = {}) {
             '/api/v1/card-news/source-preview': controller.preview,
             '/api/v1/card-news/generations': controller.generate,
             '/api/v1/card-news/images/generate': controller.generateImages,
+            '/api/v1/card-news/image-operations': controller.startImageOperation,
             '/api/v1/card-news/images/import': controller.importImage,
             '/api/v1/card-news/zip/preview': controller.previewZip,
             '/api/v1/card-news/zip/import': controller.importZip,
@@ -20,7 +21,9 @@ function createCardNewsRouteHandler(deps = {}) {
             ? controller.asset
             : (pathname.startsWith('/api/v1/card-news/exports/')
                 ? controller.exportBundle
-                : (/^\/api\/v1\/card-news\/generations\/[^/]+$/.test(pathname) ? controller.generation : handlers[ctx.pathname]));
+            : (/^\/api\/v1\/card-news\/generations\/[^/]+$/.test(pathname) ? controller.generation
+                : (/^\/api\/v1\/card-news\/image-operations\/[^/]+\/cancel$/.test(pathname) ? controller.cancelImageOperation
+                    : (/^\/api\/v1\/card-news\/image-operations\/[^/]+$/.test(pathname) ? controller.imageOperation : handlers[ctx.pathname]))));
         if (!handler) return false;
         await handler(ctx);
         return true;

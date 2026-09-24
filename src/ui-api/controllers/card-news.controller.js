@@ -64,6 +64,39 @@ function createCardNewsController(deps = {}) {
             }
         },
 
+        async startImageOperation({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.startImageOperation(requestBody || {}), 202);
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'CARD_NEWS_IMAGE_OPERATION_START_FAILED', '카드 이미지 작업을 시작하지 못했습니다.', error);
+            }
+        },
+
+        async imageOperation({ requestId, method, pathname, res }) {
+            if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
+            const match = String(pathname || '').match(/^\/api\/v1\/card-news\/image-operations\/([^/]+)$/);
+            let operationId = '';
+            try { operationId = decodeURIComponent(match?.[1] || ''); } catch (_error) { }
+            try {
+                return sendSuccess(res, requestId, service.getImageOperation(operationId));
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'CARD_NEWS_IMAGE_OPERATION_NOT_FOUND', '카드 이미지 작업을 찾지 못했습니다.', error);
+            }
+        },
+
+        async cancelImageOperation({ requestId, method, pathname, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            const match = String(pathname || '').match(/^\/api\/v1\/card-news\/image-operations\/([^/]+)\/cancel$/);
+            let operationId = '';
+            try { operationId = decodeURIComponent(match?.[1] || ''); } catch (_error) { }
+            try {
+                return sendSuccess(res, requestId, service.cancelImageOperation(operationId));
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'CARD_NEWS_IMAGE_OPERATION_CANCEL_FAILED', '카드 이미지 작업을 중지하지 못했습니다.', error);
+            }
+        },
+
         async importImage({ requestId, method, requestBody, res }) {
             if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
             try {
