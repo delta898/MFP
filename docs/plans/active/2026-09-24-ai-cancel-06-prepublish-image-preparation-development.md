@@ -3,7 +3,7 @@
 - 브랜치: `codex/feature/ai-cancel-06-prepublish-image-preparation`
 - 시작일: 2026-09-24
 - 기준/부모 브랜치: `codex/feature/ai-generation-cancellation`
-- 상태: `바로 생성` 1단계 구현 중
+- 상태: `바로 생성` 1단계 완료; 원고 폴더·붙여넣기는 후속 단계 대기
 - parent 기록: `2026-09-23-ai-generation-cancellation-main-development.md`
 
 ## 사용자 필요와 목표
@@ -39,5 +39,9 @@
 - 코드 검토 결과 `preparePublishPayload()`가 세 입력 유형 모두에 대해 발행 전 이미지를 자동 생성하고 있었다. `바로 생성`만 이 경로에서 제외하고, 폴더·붙여넣기는 이번 단계에서 그대로 둔다.
 - 서버 변경: AI 원고는 발행 준비 시 자동 이미지 생성을 생략한다. 미해결 프롬프트는 payload에 유지되며, 요청 상태가 즉시·예약 발행이어도 기존 안전 규칙에 따라 임시저장으로 전환된다.
 - 검증: `node --test src/content/manuscript-draft-service.test.js` 통과 (22/22). 폴더/붙여넣기 자동 생성 동작 테스트도 그대로 통과했다.
+- UI 변경: `바로 생성` 원고에 프롬프트 미완성 이미지가 있으면 즉시·예약 발행 선택을 비활성화하고 임시저장으로 고정한다. 안내 문구는 이미지를 준비하거나 제외하면 발행할 수 있음을 알린다. 이미지가 해결되면 두 발행 선택을 다시 활성화한다. 폴더·붙여넣기 UI는 기존 발행 전 자동 생성 흐름을 유지한다.
+- 확인창도 `바로 생성`에서는 포스팅 중 이미지 생성 안내를 더 이상 표시하지 않는다. 이미지는 미리보기에서 명시적으로 생성한 뒤 포스팅한다.
+- 검증: `node --test scripts/blog-next-quick-flow-contract.test.js src/content/manuscript-draft-service.test.js` 통과 (35/35); `npm run test:ui-browser` 통과 (446 fixture requests). 자동 검증은 모의 응답을 사용하며 실제 AI 호출·포스팅은 포함하지 않는다.
+- 1단계 서버 커밋: `711d975f fix: keep quick-draft image work before posting`. UI 흐름은 다음 단계 커밋으로 별도 기록한다.
 - 수동 확인 필요: 네이버·워드프레스 임시저장 결과의 이미지 프롬프트 표시 및 이미지를 모두 결정한 뒤 발행되는 흐름.
 - 남은 위험: 두 플랫폼에서 프롬프트 자리표시자 표현이 다를 수 있다. 실제 포스팅과 유료 AI 이미지는 별도 승인 없이 테스트하지 않는다.

@@ -2,7 +2,7 @@ const BLOG_NEXT_DRAFT_TYPES = Object.freeze(['ai', 'folder', 'paste']);
 const BLOG_NEXT_DRAFT_PREVIEW_DELAY_MS = 350;
 
 function supportsBlogNextDraftAutomaticImages(type) {
-  return BLOG_NEXT_DRAFT_TYPES.includes(type);
+  return type === 'folder' || type === 'paste';
 }
 
 const blogNextDraftState = {
@@ -114,20 +114,26 @@ function syncBlogNextDraftImageSafety(type, preview = null) {
   const autoGenerationCount = Array.isArray(preview?.images)
     ? preview.images.filter((image) => !image.excluded && !image.exists && String(image.prompt || '').trim()).length
     : 0;
+  const aiImagePreparationRequired = type === 'ai' && autoGenerationCount > 0;
   Array.from(select.options).forEach((option) => {
-    if (option.value === 'publish' || option.value === 'schedule') option.disabled = false;
+    if (option.value === 'publish' || option.value === 'schedule') {
+      option.disabled = aiImagePreparationRequired;
+    }
   });
+  if (aiImagePreparationRequired && select.value !== 'draft') select.value = 'draft';
   if (hint) {
     const imageAiBlocked = typeof isUiCapabilityUnavailable === 'function'
       && isUiCapabilityUnavailable('ai.image');
-    hint.textContent = autoGenerationCount > 0
-      ? (imageAiBlocked
-        ? `빈 이미지 ${autoGenerationCount}개를 자동 생성할 수 없어 최종 발행 시 안전하게 임시 저장될 수 있습니다.`
-        : `빈 이미지 ${autoGenerationCount}개는 포스팅할 때 자동으로 만듭니다.`)
-      : '';
+    hint.textContent = aiImagePreparationRequired
+      ? `이미지 ${autoGenerationCount}개를 준비하거나 제외하면 발행할 수 있습니다. 현재는 임시저장만 가능합니다.`
+      : autoGenerationCount > 0
+        ? (imageAiBlocked
+          ? `빈 이미지 ${autoGenerationCount}개를 자동 생성할 수 없어 최종 발행 시 안전하게 임시 저장될 수 있습니다.`
+          : `빈 이미지 ${autoGenerationCount}개는 포스팅할 때 자동으로 만듭니다.`)
+        : '';
     hint.hidden = autoGenerationCount === 0;
   }
-  state.imageSafetyLocked = false;
+  state.imageSafetyLocked = aiImagePreparationRequired;
   syncBlogNextDraftSchedule(type);
   syncBlogNextDraftSettingsSummary(type);
 }

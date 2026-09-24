@@ -1054,7 +1054,8 @@ function startFixtureServer(requests) {
             req.on('data', (chunk) => chunks.push(chunk));
             req.on('end', () => {
                 requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
-                const automaticTargets = manuscriptDraftImages.filter((image) => !image.excluded && !image.exists && image.prompt);
+                const automaticTargets = manuscriptDraftSourceKind === 'ai' ? []
+                    : manuscriptDraftImages.filter((image) => !image.excluded && !image.exists && image.prompt);
                 automaticTargets.forEach((image) => {
                     image.exists = true;
                     image.assetOrigin = 'generated';
@@ -3116,13 +3117,20 @@ async function run() {
         assert.equal((await page.locator('#blog-next-publish-status-title').textContent())?.trim(), '원고 준비 완료');
         assert.equal(await page.locator('#blog-next-publish-settings').isVisible(), true);
         await page.locator('#blog-next-target-naver').check();
-        await page.locator('#blog-next-post-status').selectOption('publish');
         assert.equal((await page.locator('[data-blog-next-draft-preview="ai"] [data-draft-preview-title]').textContent())?.trim(), '미리 확인할 AI 원고');
         assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot]').count(), 2);
-        assert.equal(await page.locator('#blog-next-post-status').inputValue(), 'publish');
+        assert.equal(await page.locator('#blog-next-post-status').inputValue(), 'draft');
+        assert.equal(await page.locator('#blog-next-post-status option[value="publish"]').evaluate((option) => option.disabled), true);
+        assert.equal(await page.locator('#blog-next-post-status option[value="schedule"]').evaluate((option) => option.disabled), true);
+        assert.match((await page.locator('#blog-next-publish-safety-hint').textContent()) || '', /이미지 1개를 준비하거나 제외하면 발행할 수 있습니다/);
+        assert.equal((await page.locator('[data-blog-next-draft-publish="ai"]').textContent())?.trim(), '블로그에 임시 저장');
+        await page.locator('[data-blog-next-draft-preview="ai"] [data-draft-preview-image-details] > summary').click();
+        await page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-action="generate"][data-slot-id="image-1"]').click();
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot="image-1"] .local-markdown-image-card-status')?.textContent === '이미지 준비됨');
         assert.equal(await page.locator('#blog-next-post-status option[value="publish"]').evaluate((option) => option.disabled), false);
         assert.equal(await page.locator('#blog-next-post-status option[value="schedule"]').evaluate((option) => option.disabled), false);
-        assert.match((await page.locator('#blog-next-publish-safety-hint').textContent()) || '', /빈 이미지 1개는 포스팅할 때 자동으로 만듭니다/);
+        assert.equal(await page.locator('#blog-next-publish-safety-hint').isHidden(), true);
+        await page.locator('#blog-next-post-status').selectOption('publish');
         assert.equal((await page.locator('[data-blog-next-draft-publish="ai"]').textContent())?.trim(), '즉시 발행');
         assert.equal(await page.locator('.blog-next-ai-prepare-actions').isHidden(), true);
         assert.equal(await page.locator('[data-blog-next-ai-idea-actions]').isHidden(), true);
@@ -3180,8 +3188,7 @@ async function run() {
         ));
         await page.locator('[data-blog-next-draft-publish="ai"]').click();
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
-        assert.equal((await page.locator('#ui-dialog-message').textContent())?.trim(),
-            '네이버 블로그에 지금 발행할까요?\n이미지 1개를 AI로 생성합니다.');
+        assert.equal((await page.locator('#ui-dialog-message').textContent())?.trim(), '네이버 블로그에 지금 발행할까요?');
         assert.equal((await page.locator('#ui-dialog-confirm').textContent())?.trim(), '즉시 발행');
         await page.locator('#ui-dialog-confirm').click();
         await page.waitForFunction(() => document.activeElement?.id === 'blog-next-publish-status');
@@ -3209,7 +3216,7 @@ async function run() {
         assert.equal(await page.locator('[data-blog-next-draft-preview="ai"]').evaluate((element) => document.activeElement === element), true);
         const aiPublishRequest = requests.find((request) => request.pathname === `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/publish`);
         assert.equal(aiPublishRequest?.body?.draftId, MANUSCRIPT_DRAFT_ID);
-        assert.equal(aiPublishRequest?.body?.revision, 3);
+        assert.equal(aiPublishRequest?.body?.revision, 4);
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="ai"] [data-draft-preview-image-summary]')?.textContent?.includes('2/2'));
         assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-draft-preview-body] img').count(), 2);
         await page.locator('#blog-next-publish-status-next').click();
@@ -3933,6 +3940,7 @@ async function run() {
             { method: 'POST', pathname: '/api/v1/continuous-publishing/queue/remove' },
             { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/ai/operations' },
             { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/ai/operations' },
+            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/image-slots/image-1/generate` },
             { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/ai/operations' },
             { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/ai/operations/fixture-ai-3/cancel' },
             { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/settings` },
