@@ -3,7 +3,7 @@
 - 브랜치: `codex/feature/ai-cancel-06-prepublish-image-preparation`
 - 시작일: 2026-09-24
 - 기준/부모 브랜치: `codex/feature/ai-generation-cancellation`
-- 상태: `바로 생성`·원고 폴더·붙여넣기 이미지 준비/포스팅 경계 구현; 수동 UI 확인 대기
+- 상태: `바로 생성`·원고 폴더·붙여넣기 이미지 준비/포스팅 경계 구현 완료; 부모 브랜치 병합 대기
 - parent 기록: `2026-09-23-ai-generation-cancellation-main-development.md`
 
 ## 사용자 필요와 목표
@@ -102,5 +102,6 @@
 - 2026-09-24 원고 폴더 단계 구현 및 커밋: `131c4970 fix: prepare folder images before publishing`. 미해결 프롬프트가 있으면 임시저장만 허용하고 이미지 확인 영역으로 이동한다. focused 테스트 79/79 통과. 브라우저 smoke는 이 시나리오 도달 전 기존 워드프레스 대상 라디오 검사(`scripts/test-ui-browser-smoke.js:3378`)에서 실패했다.
 - 2026-09-24 원고 붙여넣기 단계 구현: 발행 payload 생성 시 어떤 원고 유형도 프롬프트 이미지를 자동 생성하지 않는다. 미완성 이미지는 AI 생성·업로드·제외로 먼저 처리할 수 있고, 남겨둔 프롬프트가 있으면 임시저장만 가능하다. 안내 버튼은 붙여넣기 이미지 확인 영역을 열며 발행 확인창에는 포스팅 중 AI 생성 문구를 표시하지 않는다. 붙여넣기 smoke fixture도 자동 이미지 생성을 하지 않고 발행 잠금/해제, 이동 버튼, 임시저장 안내 및 이미지 준비 후 발행 흐름을 검증하도록 갱신했다.
 - 붙여넣기 focused 검증: 관련 UI contract, manuscript service 및 Blog Beta execution 테스트 83/83 통과. 변경 JS `node --check` 및 `git diff --check` 통과. `npm run test:ui-browser`는 붙여넣기 시나리오 전의 기존 워드프레스 대상 라디오 검사(`scripts/test-ui-browser-smoke.js:3375`)에서 실패해 브라우저 시나리오 전체는 완료되지 않았다. 전체 unit suite는 실행하지 않았다.
-- 수동 확인 필요: 붙여넣기 원고에서 미완성 이미지가 있으면 즉시·예약 발행 선택이 잠기고 임시저장만 가능한지, 이미지 확인 이동 버튼이 열리는지, 이미지 처리 후 즉시·예약 발행을 선택할 수 있는지 확인한다. 폴더 흐름의 hands-on 확인도 남아 있다.
+- 수동 확인: 사용자가 원고 폴더와 붙여넣기 분리가 잘 동작한다고 확인했다. 이 단계에서는 즉시·예약 발행 전 이미지 준비 경계와 미완성 이미지의 임시저장 경로를 확인했다.
+- 종합 검증: 관련 focused contract/domain/service/API 테스트 83/83 통과, 변경 JavaScript 구문 검사 및 `git diff --check` 통과. 브라우저 smoke는 새 폴더·붙여넣기 시나리오에 도달하기 전 기존 AI 원고의 대상 플랫폼 전환 검사(`scripts/test-ui-browser-smoke.js:3375`)에서 실패했다. 이 실패는 이번 이미지 준비 변경의 직접 경로가 아니며, 브라우저 전체 회귀 결과는 미통과로 기록한다. 전체 unit suite는 실행하지 않았다.
 - 검증: quick-flow/baseline 계약, manuscript draft와 Blog Beta execution focused 테스트 79/79 통과. 변경 JavaScript 구문 검사와 `git diff --check` 통과. `npm run test:ui-browser`는 변경된 폴더 시나리오에 도달하기 전에 기존 워드프레스 대상 라디오 검사(`scripts/test-ui-browser-smoke.js:3378`)에서 실패했다. 폴더 흐름의 최종 hands-on UI 확인이 남아 있다.
