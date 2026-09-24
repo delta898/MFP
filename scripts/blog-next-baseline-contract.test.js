@@ -119,7 +119,8 @@ test('folder and paste previews share one reading surface and image workspace', 
   assert.match(script, /buttonLabel: '블로그에 임시 저장'/);
   assert.match(script, /buttonLabel: '예약 발행'/);
   assert.match(script, /buttonLabel: '즉시 발행'/);
-  assert.match(script, /현재 원고를 \$\{targetLabel\}에 \$\{publishCopy\.actionLabel\}할까요\?/);
+  const executionScript = read('ui/scripts/features/blog-next/draft-execution.js');
+  assert.match(executionScript, /buildBlogNextDraftPublishConfirmation\(settings, targetLabel, automaticImages \? autoGenerationCount : 0\)/);
   assert.match(html, /data-blog-next-draft-publish="ai"[^>]*>즉시 발행<\/button>/);
   assert.match(html, /data-blog-next-draft-publish="folder"[^>]*>즉시 발행<\/button>/);
   assert.match(html, /data-blog-next-draft-publish="paste"[^>]*>즉시 발행<\/button>/);
