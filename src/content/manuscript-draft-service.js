@@ -684,7 +684,7 @@ function createManuscriptDraftService(options = {}) {
         assertDraftActive(manifest);
         let current = getDraft(input.draftId);
         assertRevision({ revision: current.revision }, input.revision);
-        const targets = current.images.filter((image) => (
+        const targets = manifest.source_kind === 'ai' ? [] : current.images.filter((image) => (
             !image.excluded && !image.exists && String(image.prompt || '').trim()
         ));
         const failedSlotIds = [];
