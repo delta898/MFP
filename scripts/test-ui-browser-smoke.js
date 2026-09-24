@@ -2329,6 +2329,52 @@ async function run() {
                 image_error: index === failedIndex ? '테스트용 이미지 실패' : ''
             }))
         });
+        let compositionOperationStarts = 0;
+        const compositionOperationPolls = new Map();
+        const canceledCompositionOperations = new Set();
+        await page.route(/\/api\/v1\/card-news\/composition-operations(?:\/[^/]+(?:\/cancel)?)?$/, async (route) => {
+            const request = route.request();
+            const pathname = new URL(request.url()).pathname;
+            if (request.method() === 'POST' && pathname === '/api/v1/card-news/composition-operations') {
+                compositionOperationStarts += 1;
+                const operationId = `ui-smoke-composition-op-${compositionOperationStarts}`;
+                compositionOperationPolls.set(operationId, 0);
+                await route.fulfill({
+                    status: 202,
+                    contentType: 'application/json; charset=utf-8',
+                    body: JSON.stringify({ success: true, data: { operationId, state: 'accepted', canCancel: true } })
+                });
+                return;
+            }
+            const isCancel = request.method() === 'POST' && pathname.endsWith('/cancel');
+            const segments = pathname.split('/');
+            const operationId = isCancel ? segments.at(-2) : segments.at(-1);
+            if (isCancel) {
+                canceledCompositionOperations.add(operationId);
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'application/json; charset=utf-8',
+                    body: JSON.stringify({ success: true, data: { operationId, state: 'cancel_requested', cancelOutcome: 'requested' } })
+                });
+                return;
+            }
+            const pollCount = (compositionOperationPolls.get(operationId) || 0) + 1;
+            compositionOperationPolls.set(operationId, pollCount);
+            const canceled = canceledCompositionOperations.has(operationId);
+            const completed = compositionOperationStarts > 1 && pollCount > 1;
+            const generation = { ...progressGeneration(0, 0, 'prompt_ready'), image_mode: 'prompt_only' };
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json; charset=utf-8',
+                body: JSON.stringify({ success: true, data: {
+                    operationId,
+                    state: canceled ? 'canceled' : (completed ? 'completed' : 'running'),
+                    busy: !canceled && !completed,
+                    canCancel: true,
+                    ...(completed ? { result: { generation } } : {})
+                } })
+            });
+        });
         await page.route('**/api/v1/card-news/generations', async (route) => {
             await new Promise((resolve) => setTimeout(resolve, 250));
             await route.fulfill({
@@ -2411,7 +2457,33 @@ async function run() {
             cardNewsViewState.previewSourceKey = cardNewsSourceKey(readCardNewsSource());
             updateCardNewsGenerationAvailability();
         });
+        await page.locator('#card-news-compose-button').click();
+        await page.waitForFunction(() => document.getElementById('card-news-compose-button')?.textContent === '중지');
+        assert.equal(await page.locator('#card-news-generation-status').evaluate((status) => status.parentElement?.classList.contains('card-news-result-heading')), true);
+        assert.equal(await page.locator('#card-news-generation-status').isVisible(), true);
+        assert.equal(await page.locator('#card-news-generation-status').evaluate((status) => status.parentElement?.parentElement?.id === 'card-news-generation-panel'), false);
+        await page.locator('#card-news-compose-button').click();
+        await page.waitForFunction(() => document.getElementById('card-news-compose-button')?.textContent === '중지 확인');
+        assert.equal(await page.locator('[data-card-news-stop-confirmation]').isVisible(), true);
+        await page.evaluate(() => setCardNewsGenerationStatus('카드 구성을 만들고 있습니다.', 'loading'));
+        assert.equal(await page.locator('[data-card-news-stop-confirmation]').isVisible(), true);
+        assert.equal(await page.locator('#card-news-image-continue').isVisible(), true);
+        assert.equal(await page.locator('#card-news-image-continue').evaluate((button) => button.previousElementSibling?.id === 'card-news-compose-button'), true);
+        const compositionStopLayout = await page.locator('#card-news-image-continue').evaluate((button) => ({
+            stopTop: button.previousElementSibling.getBoundingClientRect().top,
+            continueTop: button.getBoundingClientRect().top
+        }));
+        assert.ok(Math.abs(compositionStopLayout.stopTop - compositionStopLayout.continueTop) < 24);
+        await page.locator('#card-news-image-continue').click();
+        assert.equal(await page.locator('#card-news-image-continue').isVisible(), false);
+        assert.equal(await page.locator('#card-news-image-continue').evaluate((button) => button.parentElement?.classList.contains('card-news-result-actions')), true);
+        await page.locator('#card-news-compose-button').click();
+        await page.waitForFunction(() => document.getElementById('card-news-compose-button')?.textContent === '중지 확인');
+        await page.locator('#card-news-compose-button').click();
+        await page.waitForFunction(() => !cardNewsViewState.generating);
+        assert.match(await page.locator('#card-news-generation-status').textContent(), /카드 구성 생성을 중지했습니다/);
         await page.locator('#card-news-generate-button').click();
+        await page.waitForFunction(() => document.getElementById('card-news-generate-button')?.textContent === '중지');
         await page.waitForFunction(() => document.querySelectorAll('.card-news-result-item.is-composing').length === 3);
         await page.waitForFunction(() => document.querySelector('.card-news-result-copy > strong')?.textContent === '1번째 점진 카드');
         await page.waitForFunction(() => Boolean(document.querySelector('[data-card-news-result-index="1"] img'))
@@ -2421,6 +2493,7 @@ async function run() {
         await page.waitForFunction(() => !cardNewsViewState.generating);
         assert.equal(await page.locator('#card-news-generation-status').textContent().then((text) => text.includes('부분')), false);
         await page.unroute('**/api/v1/card-news/generations');
+        await page.unroute(/\/api\/v1\/card-news\/composition-operations(?:\/[^/]+(?:\/cancel)?)?$/);
         await page.unroute('**/api/v1/card-news/generations/ui-smoke-progress-result');
         generationReadCount = 0;
         operationPolls.clear();
@@ -2438,6 +2511,9 @@ async function run() {
         assert.equal(await page.locator('.card-news-result-item img').count(), 2);
         await page.locator('#card-news-bulk-image-action').click();
         await page.waitForFunction(() => document.getElementById('card-news-bulk-image-action')?.textContent === '중지 확인');
+        assert.equal(await page.locator('[data-card-news-stop-confirmation]').isVisible(), true);
+        await page.evaluate(() => setCardNewsGenerationStatus('이미지를 만들고 있습니다. 2/3장 완료', 'loading'));
+        assert.equal(await page.locator('[data-card-news-stop-confirmation]').isVisible(), true);
         assert.equal(await page.locator('#card-news-image-continue').isVisible(), true);
         await page.locator('#card-news-image-continue').click();
         assert.equal(await page.locator('#card-news-image-continue').isVisible(), false);
@@ -2448,7 +2524,7 @@ async function run() {
         assert.match(await page.locator('#card-news-generation-status').textContent(), /이미지 생성을 중지했습니다/);
         assert.equal(await page.locator('.card-news-result-item img').count(), 2);
         const missingCardAiAction = page.locator('[data-card-news-result-index="3"] [data-card-news-image-action]');
-        const missingCardAiActionTop = await missingCardAiAction.evaluate((button) => button.getBoundingClientRect().top);
+        const missingCardAiActionTop = await missingCardAiAction.evaluate((button) => button.getBoundingClientRect().top + window.scrollY);
         await missingCardAiAction.click();
         const singleStop = page.locator('[data-card-news-result-index="3"] [data-card-news-image-stop]');
         await page.waitForFunction(() => {
@@ -2458,8 +2534,8 @@ async function run() {
         });
         assert.equal(await singleStop.isVisible(), true);
         assert.equal(await singleStop.evaluate((button) => button.classList.contains('ghost') && button.classList.contains('ui-danger-action') && !button.classList.contains('primary')), true);
-        const singleStopTop = await singleStop.evaluate((button) => button.getBoundingClientRect().top);
-        assert.ok(Math.abs(singleStopTop - missingCardAiActionTop) < 24, 'single-card stop stays beside the image action position');
+        const singleStopTop = await singleStop.evaluate((button) => button.getBoundingClientRect().top + window.scrollY);
+        assert.ok(Math.abs(singleStopTop - missingCardAiActionTop) < 24, `single-card stop stays beside the image action position (${singleStopTop} vs ${missingCardAiActionTop})`);
         assert.equal(await singleStop.textContent(), '중지');
         await singleStop.click();
         await page.waitForFunction(() => document.querySelector('[data-card-news-result-index="3"] [data-card-news-image-stop]')?.textContent === '중지 확인');

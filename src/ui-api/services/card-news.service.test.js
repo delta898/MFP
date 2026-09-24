@@ -129,6 +129,66 @@ test('starts, polls, and cancels a card-news image operation through the shared 
     assert.equal(current.busy, false);
 });
 
+test('starts and cancels card-news composition through the shared operation lifecycle', async () => {
+    let receivedSignal;
+    const generationService = {
+        async generate(input) {
+            receivedSignal = input.signal;
+            return new Promise((_resolve, reject) => {
+                input.signal.addEventListener('abort', () => {
+                    const error = new Error('AI_GENERATION_CANCELED');
+                    error.code = 'AI_GENERATION_CANCELED';
+                    reject(error);
+                }, { once: true });
+            });
+        }
+    };
+    const { service } = createHarness({ generationService });
+    const started = service.startCompositionOperation({
+        source_snapshot: { source: { kind: 'manuscript' }, title: '구성 중지 테스트', text: '본문' },
+        image_mode: 'prompt_only'
+    });
+    assert.ok(started.operationId);
+    assert.equal(service.getCompositionOperation(started.operationId).busy, true);
+    for (let attempt = 0; attempt < 20 && !receivedSignal; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.ok(receivedSignal instanceof AbortSignal);
+    const requested = service.cancelCompositionOperation(started.operationId);
+    assert.equal(requested.state, 'cancel_requested');
+    let current = requested;
+    for (let attempt = 0; attempt < 20 && current.state !== 'canceled'; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        current = service.getCompositionOperation(started.operationId);
+    }
+    assert.equal(current.state, 'canceled');
+    assert.equal(current.busy, false);
+});
+
+test('composition cancellation is disabled once the validated result enters finalization', async () => {
+    let finishGeneration;
+    const generationService = {
+        generate(input) {
+            input.beginCommit();
+            return new Promise((resolve) => { finishGeneration = resolve; });
+        }
+    };
+    const { service } = createHarness({ generationService });
+    const started = service.startCompositionOperation({
+        source_snapshot: { source: { kind: 'manuscript' }, title: '구성 완료 경계', text: '본문' },
+        image_mode: 'prompt_only'
+    });
+    for (let attempt = 0; attempt < 20 && !finishGeneration; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(service.getCompositionOperation(started.operationId).canCancel, false);
+    const tooLate = service.cancelCompositionOperation(started.operationId);
+    assert.equal(tooLate.cancelOutcome, 'too_late');
+    finishGeneration({ id: 'generation-final', status: 'prompt_ready', cards: [] });
+    let current = tooLate;
+    for (let attempt = 0; attempt < 20 && current.state !== 'completed'; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        current = service.getCompositionOperation(started.operationId);
+    }
+    assert.equal(current.state, 'completed');
+});
+
 test('annotates source articles and lists only ledger rows with a generation', async () => {
     const ledgerSync = {
         async registerSources() { return { results: [] }; },

@@ -193,20 +193,20 @@ function createCardNewsService(deps = {}) {
     const ledgerRegistrationTimeoutMs = Number(
         deps.ledgerRegistrationTimeoutMs || CARD_NEWS_LEDGER_REGISTRATION_TIMEOUT_MS
     );
-    let activeCardNewsImageExecution = '';
-    const imageOperationManager = createAiGenerationOperationManager({
+    let activeCardNewsGenerationExecution = '';
+    const generationOperationManager = createAiGenerationOperationManager({
         coordinator: {
             acquire() {
-                if (activeCardNewsImageExecution) return null;
-                const executionId = `card-news-image-${createId()}`;
-                activeCardNewsImageExecution = executionId;
+                if (activeCardNewsGenerationExecution) return null;
+                const executionId = `card-news-${createId()}`;
+                activeCardNewsGenerationExecution = executionId;
                 let released = false;
                 return {
                     executionId,
                     release() {
                         if (released) return;
                         released = true;
-                        if (activeCardNewsImageExecution === executionId) activeCardNewsImageExecution = '';
+                        if (activeCardNewsGenerationExecution === executionId) activeCardNewsGenerationExecution = '';
                     }
                 };
             }
@@ -359,6 +359,27 @@ function createCardNewsService(deps = {}) {
         }
     }
 
+    function startCompositionOperation(input = {}) {
+        if (!generationService?.generate) {
+            throw createApiError('CARD_NEWS_GENERATION_UNAVAILABLE', '카드뉴스 생성 기능이 준비되지 않았습니다.', 500);
+        }
+        if (!isConfiguredAiModel(CONFIG.TEXT_MODEL_CONFIG)) {
+            throw createApiError('CARD_NEWS_TEXT_MODEL_REQUIRED', '설정에서 글쓰기 AI를 먼저 연결해 주세요.');
+        }
+        if (normalizeImageMode(input.image_mode) === 'generate' && !isConfiguredAiModel(CONFIG.IMAGE_MODEL_CONFIG)) {
+            throw createApiError('CARD_NEWS_IMAGE_MODEL_REQUIRED', '설정에서 이미지 AI를 먼저 연결해 주세요.');
+        }
+        return generationOperationManager.start({
+            source: 'card_news_composition_generation',
+            subject: String(input.source_snapshot?.title || '카드뉴스 구성').trim().slice(0, 120),
+            message: '카드뉴스 구성 생성 중'
+        }, async (operation) => generate({
+            ...input,
+            signal: operation.signal,
+            beginCommit: () => operation.beginCommit()
+        }));
+    }
+
     async function generateImages(input = {}) {
         if (!generationService?.generateImages) {
             throw createApiError('CARD_NEWS_IMAGE_GENERATION_UNAVAILABLE', '카드 이미지 생성 기능이 준비되지 않았습니다.', 500);
@@ -384,7 +405,7 @@ function createCardNewsService(deps = {}) {
             throw createApiError('CARD_NEWS_IMAGE_MODEL_REQUIRED', '설정에서 이미지 AI를 먼저 연결해 주세요.');
         }
         const generation = generationService.getGeneration?.(input.generation_id);
-        return imageOperationManager.start({
+        return generationOperationManager.start({
             source: 'card_news_image_generation',
             subject: String(generation?.title || '카드뉴스 이미지'),
             message: '카드뉴스 이미지 생성 중',
@@ -412,11 +433,19 @@ function createCardNewsService(deps = {}) {
     }
 
     function getImageOperation(operationId) {
-        return imageOperationManager.get(operationId);
+        return generationOperationManager.get(operationId);
+    }
+
+    function getCompositionOperation(operationId) {
+        return generationOperationManager.get(operationId);
     }
 
     function cancelImageOperation(operationId) {
-        return imageOperationManager.cancel(operationId);
+        return generationOperationManager.cancel(operationId);
+    }
+
+    function cancelCompositionOperation(operationId) {
+        return generationOperationManager.cancel(operationId);
     }
 
     async function importLocalImage(input = {}) {
@@ -515,6 +544,9 @@ function createCardNewsService(deps = {}) {
         createProject,
         listProjects,
         generate,
+        startCompositionOperation,
+        getCompositionOperation,
+        cancelCompositionOperation,
         generateImages,
         startImageOperation,
         getImageOperation,

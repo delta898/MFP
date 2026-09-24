@@ -458,6 +458,22 @@
     flex-direction: column;
   }
 
+  .card-news-generation-status {
+    flex: 0 0 auto;
+    max-width: none;
+    width: 100%;
+    margin: 0;
+    text-align: left;
+  }
+
+  .card-news-generation-status[data-state="loading"]:not([hidden]) {
+    text-align: left;
+  }
+
+  .card-news-generation-status > [data-card-news-stop-confirmation] {
+    text-align: left;
+  }
+
   .card-news-result-actions {
     justify-content: stretch;
   }

@@ -10,6 +10,9 @@ test('routes only card-news endpoints to their controllers', async () => {
         generation: async (ctx) => calls.push(['generation', ctx.method]),
         preview: async (ctx) => calls.push(['preview', ctx.method]),
         generate: async (ctx) => calls.push(['generate', ctx.method]),
+        startCompositionOperation: async (ctx) => calls.push(['startCompositionOperation', ctx.method]),
+        compositionOperation: async (ctx) => calls.push(['compositionOperation', ctx.method]),
+        cancelCompositionOperation: async (ctx) => calls.push(['cancelCompositionOperation', ctx.method]),
         generateImages: async (ctx) => calls.push(['generateImages', ctx.method]),
         startImageOperation: async (ctx) => calls.push(['startImageOperation', ctx.method]),
         imageOperation: async (ctx) => calls.push(['imageOperation', ctx.method]),
@@ -30,6 +33,9 @@ test('routes only card-news endpoints to their controllers', async () => {
     assert.equal(await handler({ pathname: '/api/v1/card-news/source-preview', method: 'POST' }), true);
     assert.equal(await handler({ pathname: '/api/v1/card-news/generations', method: 'POST' }), true);
     assert.equal(await handler({ pathname: '/api/v1/card-news/generations/set-1', method: 'GET' }), true);
+    assert.equal(await handler({ pathname: '/api/v1/card-news/composition-operations', method: 'POST' }), true);
+    assert.equal(await handler({ pathname: '/api/v1/card-news/composition-operations/op-1', method: 'GET' }), true);
+    assert.equal(await handler({ pathname: '/api/v1/card-news/composition-operations/op-1/cancel', method: 'POST' }), true);
     assert.equal(await handler({ pathname: '/api/v1/card-news/images/generate', method: 'POST' }), true);
     assert.equal(await handler({ pathname: '/api/v1/card-news/image-operations', method: 'POST' }), true);
     assert.equal(await handler({ pathname: '/api/v1/card-news/image-operations/op-1', method: 'GET' }), true);
@@ -49,6 +55,9 @@ test('routes only card-news endpoints to their controllers', async () => {
         ['preview', 'POST'],
         ['generate', 'POST'],
         ['generation', 'GET'],
+        ['startCompositionOperation', 'POST'],
+        ['compositionOperation', 'GET'],
+        ['cancelCompositionOperation', 'POST'],
         ['generateImages', 'POST'],
         ['startImageOperation', 'POST'],
         ['imageOperation', 'GET'],

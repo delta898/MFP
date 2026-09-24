@@ -510,12 +510,58 @@
 }
 
 .card-news-result-heading {
-  display: block;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ui-space-5);
   margin-bottom: 0;
 }
 
 .card-news-result-heading > div:first-child {
   min-width: 0;
+}
+
+.card-news-generation-status {
+  flex: 0 1 42rem;
+  max-width: 48%;
+  margin: var(--ui-space-1) 0 0 auto;
+  text-align: right;
+}
+
+.card-news-generation-status[data-state="loading"]:not([hidden]) {
+  display: inline-grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: var(--ui-space-2);
+  align-items: center;
+}
+
+.card-news-generation-status[data-state="loading"]::before {
+  display: inline-block;
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.card-news-generation-status[hidden] {
+  display: none;
+}
+
+.card-news-generation-status > [data-card-news-generation-status-message] {
+  min-width: 0;
+}
+
+.card-news-generation-status > [data-card-news-stop-confirmation] {
+  display: block;
+  grid-column: 2;
+  text-align: right;
+  margin-top: var(--ui-space-1);
+  color: var(--ui-status-warning);
+  font-size: var(--ui-type-caption-size);
+  font-weight: var(--ui-weight-regular);
+  line-height: var(--ui-line-height-body);
+}
+
+.card-news-generation-status > [data-card-news-stop-confirmation][hidden] {
+  display: none;
 }
 
 .card-news-generation-controls {

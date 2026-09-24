@@ -255,7 +255,6 @@ function createCardNewsGenerationService(options = {}) {
         const variation = createVariation(input.variation_seed || createId());
         const outputDir = pathApi.join(exportRoot, id);
         const manifestPath = pathApi.join(outputDir, 'manifest.json');
-        fileSystem.mkdirSync(outputDir, { recursive: true });
 
         const generation = {
             schema_version: CARD_NEWS_GENERATION_SCHEMA_VERSION,
@@ -276,10 +275,9 @@ function createCardNewsGenerationService(options = {}) {
             created_at: now(),
             completed_at: ''
         };
-        writeJsonAtomic(fileSystem, pathApi, manifestPath, generation);
-
         try {
             logger?.info?.(`🎴 [CardNews] 카드 구성 생성 시작 (${settings.slide_count}장, ${settings.aspect_ratio})`);
+            throwIfCanceled(input.signal);
             const planRaw = await callWritingText(
                 buildCardPlanPrompt(snapshot, settings, variation),
                 2,
@@ -288,10 +286,13 @@ function createCardNewsGenerationService(options = {}) {
                     maxTokens: cardPlanMaxTokens(settings.slide_count),
                     temperature: 0.8,
                     responseMimeType: 'application/json',
-                    logTokenUsage: true
+                    logTokenUsage: true,
+                    signal: input.signal
                 }
             );
+            throwIfCanceled(input.signal);
             const plan = normalizeCardPlan(parseStructuredJsonResponse(planRaw), settings);
+            input.beginCommit?.();
             generation.title = plan.set_title || snapshot.title;
             generation.art_direction = plan.art_direction;
             generation.publishing_copy = plan.publishing_copy;
@@ -303,6 +304,7 @@ function createCardNewsGenerationService(options = {}) {
                 image_prompt: buildSlideImagePrompt(card, plan, settings, variation),
                 file_name: ''
             }));
+            fileSystem.mkdirSync(outputDir, { recursive: true });
             writeJsonAtomic(fileSystem, pathApi, manifestPath, generation);
 
             if (imageMode === 'prompt_only') {
@@ -361,6 +363,9 @@ function createCardNewsGenerationService(options = {}) {
             logger?.info?.(`✅ [CardNews] 카드뉴스 생성 완료 (${generation.cards.length}장)`);
             return toPublicGenerationResult(generation);
         } catch (error) {
+            if (isCancellation(error, input.signal)) {
+                throw createCanceledError();
+            }
             generation.status = 'failed';
             generation.error = {
                 code: String(error?.code || 'CARD_NEWS_GENERATION_FAILED'),

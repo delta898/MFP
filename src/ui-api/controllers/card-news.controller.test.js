@@ -8,6 +8,9 @@ function createHarness(overrides = {}) {
         async listManagedItems() { return { items: [{ generation_id: 'set-1' }] }; },
         getGeneration(id) { return { generation: { id } }; },
         async generate() { return { generation: { id: 'set-1' } }; },
+        startCompositionOperation() { return { operationId: 'op-composition-1', state: 'accepted' }; },
+        getCompositionOperation(id) { return { operationId: id, state: 'running' }; },
+        cancelCompositionOperation(id) { return { operationId: id, state: 'cancel_requested' }; },
         async generateImages() { return { generation: { id: 'set-1', status: 'completed' } }; },
         startImageOperation() { return { operationId: 'op-1', state: 'accepted' }; },
         getImageOperation(id) { return { operationId: id, state: 'running' }; },
@@ -76,6 +79,17 @@ test('starts, reads, and cancels an image operation through the controller', asy
     await controller.cancelImageOperation({ requestId: 'req-op-cancel', method: 'POST', pathname: '/api/v1/card-news/image-operations/op-1/cancel', res: {} });
     assert.equal(responses[0].status, 202);
     assert.equal(responses[0].data.operationId, 'op-1');
+    assert.equal(responses[1].data.state, 'running');
+    assert.equal(responses[2].data.state, 'cancel_requested');
+});
+
+test('starts, reads, and cancels a composition operation through the controller', async () => {
+    const { controller, responses } = createHarness();
+    await controller.startCompositionOperation({ requestId: 'req-compose-start', method: 'POST', requestBody: {}, res: {} });
+    await controller.compositionOperation({ requestId: 'req-compose-get', method: 'GET', pathname: '/api/v1/card-news/composition-operations/op-composition-1', res: {} });
+    await controller.cancelCompositionOperation({ requestId: 'req-compose-cancel', method: 'POST', pathname: '/api/v1/card-news/composition-operations/op-composition-1/cancel', res: {} });
+    assert.equal(responses[0].status, 202);
+    assert.equal(responses[0].data.operationId, 'op-composition-1');
     assert.equal(responses[1].data.state, 'running');
     assert.equal(responses[2].data.state, 'cancel_requested');
 });

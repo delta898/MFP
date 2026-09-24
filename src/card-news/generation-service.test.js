@@ -117,6 +117,45 @@ test('creates a reusable prompt-only composition without calling an image model'
     }
 });
 
+test('cancels composition AI before persistence and leaves no incomplete generation artifact', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-compose-cancel-'));
+    const controller = new AbortController();
+    let receivedSignal;
+    try {
+        const service = createCardNewsGenerationService({
+            workspaceDir,
+            createId: (() => {
+                const values = ['generation-cancel-1', 'variation-cancel-1'];
+                return () => values.shift();
+            })(),
+            parseStructuredJsonResponse: JSON.parse,
+            callWritingText: async (_prompt, _retries, options) => {
+                receivedSignal = options.signal;
+                return new Promise((_resolve, reject) => {
+                    options.signal.addEventListener('abort', () => {
+                        const error = new Error('AI_GENERATION_CANCELED');
+                        error.code = 'AI_GENERATION_CANCELED';
+                        reject(error);
+                    }, { once: true });
+                });
+            }
+        });
+        const generationPromise = service.generate({
+            source_snapshot: { title: '중지 테스트', text: '본문' },
+            settings: { slide_count: 3 },
+            image_mode: 'prompt_only',
+            signal: controller.signal
+        });
+        for (let attempt = 0; attempt < 20 && !receivedSignal; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(receivedSignal, controller.signal);
+        controller.abort();
+        await assert.rejects(generationPromise, { code: 'AI_GENERATION_CANCELED' });
+        assert.equal(fs.existsSync(path.join(workspaceDir, 'card-news', 'exports', 'generation-cancel-1')), false);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('publishes the active card index while sequential image generation is in progress', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-active-image-'));
     let imageStartedResolve;

@@ -55,6 +55,39 @@ function createCardNewsController(deps = {}) {
             }
         },
 
+        async startCompositionOperation({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.startCompositionOperation(requestBody || {}), 202);
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'CARD_NEWS_COMPOSITION_OPERATION_START_FAILED', '카드 구성을 시작하지 못했습니다.', error);
+            }
+        },
+
+        async compositionOperation({ requestId, method, pathname, res }) {
+            if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
+            const match = String(pathname || '').match(/^\/api\/v1\/card-news\/composition-operations\/([^/]+)$/);
+            let operationId = '';
+            try { operationId = decodeURIComponent(match?.[1] || ''); } catch (_error) { }
+            try {
+                return sendSuccess(res, requestId, service.getCompositionOperation(operationId));
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'CARD_NEWS_COMPOSITION_OPERATION_NOT_FOUND', '카드 구성 작업을 찾지 못했습니다.', error);
+            }
+        },
+
+        async cancelCompositionOperation({ requestId, method, pathname, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            const match = String(pathname || '').match(/^\/api\/v1\/card-news\/composition-operations\/([^/]+)\/cancel$/);
+            let operationId = '';
+            try { operationId = decodeURIComponent(match?.[1] || ''); } catch (_error) { }
+            try {
+                return sendSuccess(res, requestId, service.cancelCompositionOperation(operationId));
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'CARD_NEWS_COMPOSITION_OPERATION_CANCEL_FAILED', '카드 구성 생성을 중지하지 못했습니다.', error);
+            }
+        },
+
         async generateImages({ requestId, method, requestBody, res }) {
             if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
             try {
