@@ -3,7 +3,7 @@
 - 브랜치: `codex/feature/ai-cancel-06-prepublish-image-preparation`
 - 시작일: 2026-09-24
 - 기준/부모 브랜치: `codex/feature/ai-generation-cancellation`
-- 상태: `바로 생성`·원고 폴더·붙여넣기 이미지 준비/포스팅 경계 구현 완료; 부모 브랜치 병합 대기
+- 상태: `바로 생성`·원고 폴더·붙여넣기 이미지 준비/포스팅 경계 구현 및 부모 브랜치 병합 완료
 - parent 기록: `2026-09-23-ai-generation-cancellation-main-development.md`
 
 ## 사용자 필요와 목표
