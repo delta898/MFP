@@ -29,7 +29,7 @@ AI 모델의 응답 지연과 재시도로 생성이 수분간 끝나지 않을 
 - 앱 재시작 후 작업 재개·취소, 여러 프로세스 간 작업 공유 등 영속 작업 큐 구축.
 - 타임아웃·재시도 횟수 자체의 정책 변경. 취소 기능과 별도 판단한다.
 
-1~4단계 취소 구현은 완료했지만, 사용자는 이 브랜치를 `dev`에 바로 병합하지 않고 관련 사용성·진단 작업의 parent로 계속 사용하기로 했다. `docs/backlog.md` P2 13(진행 상태·실패 메시지 UX), 14(개발 환경 AI 로그)는 각각 범위를 합의한 뒤 독립 sub-feature로 진행한다. 발행 설정 유지 버그는 `codex/feature/ai-cancel-06-prepublish-image-preparation` 단계에서 해결했다. 후속 항목을 이번 취소 구현에 소급해 섞거나 한 번에 구현하지 않는다.
+1~4단계 취소 구현은 완료했지만, 사용자는 이 브랜치를 `dev`에 바로 병합하지 않고 관련 사용성·진단 작업의 parent로 계속 사용하기로 했다. `docs/backlog.md` P2 13(진행 상태·실패 메시지 UX), 14(개발 환경 AI 로그)는 각각 범위를 합의한 뒤 독립 sub-feature로 진행한다. `codex/feature/ai-cancel-06-prepublish-image-preparation`은 발행 설정 유지 버그와 바로 생성·원고 폴더·붙여넣기의 이미지 준비/포스팅 경계를 구현해 이 parent에 병합했다. 해당 개발 기록은 `docs/plans/archive/2026-09-24-ai-cancel-06-prepublish-image-preparation-development.md`에 보관한다. 후속 항목을 이번 취소 구현에 소급해 섞거나 한 번에 구현하지 않는다.
 
 ## 현재 구조와 영향 경계
 
