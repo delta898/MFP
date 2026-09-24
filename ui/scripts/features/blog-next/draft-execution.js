@@ -109,7 +109,7 @@ function formatBlogNextDraftScheduleDate(value) {
   return `${Number(parts[1])}년 ${Number(parts[2])}월 ${Number(parts[3])}일 ${parts[4]}:${parts[5]}`;
 }
 
-function buildBlogNextDraftPublishConfirmation(settings, targetLabel, autoGenerationCount) {
+function buildBlogNextDraftPublishConfirmation(settings, targetLabel) {
   let question;
   if (settings.postStatus === 'draft') {
     question = `${targetLabel}에 임시 저장할까요?`;
@@ -119,9 +119,7 @@ function buildBlogNextDraftPublishConfirmation(settings, targetLabel, autoGenera
   } else {
     question = `${targetLabel}에 지금 발행할까요?`;
   }
-  return autoGenerationCount > 0
-    ? `${question}\n이미지 ${autoGenerationCount}개를 AI로 생성합니다.`
-    : question;
+  return question;
 }
 
 function syncBlogNextDraftExecutionState(runnerActive) {
@@ -529,14 +527,10 @@ async function publishBlogNextDraft(type) {
       return;
     }
   } else if (typeof guardUiConfigReady === 'function' && !guardUiConfigReady('원고 포스팅')) return;
-  const autoGenerationCount = Array.isArray(state.preview?.images)
-    ? state.preview.images.filter((image) => !image.excluded && !image.exists && String(image.prompt || '').trim()).length
-    : 0;
-  const automaticImages = supportsBlogNextDraftAutomaticImages(type);
   const publishCopy = getBlogNextDraftPublishCopy(settings.postStatus);
   const targetLabel = formatBlogPlatformList(settings.targets, ' + ') || '선택한 블로그';
   const confirmed = await showUiConfirm(
-    buildBlogNextDraftPublishConfirmation(settings, targetLabel, automaticImages ? autoGenerationCount : 0),
+    buildBlogNextDraftPublishConfirmation(settings, targetLabel),
     { title: publishCopy.buttonLabel, confirmText: publishCopy.buttonLabel, cancelText: '취소' }
   );
   if (!confirmed) return;

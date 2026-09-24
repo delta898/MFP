@@ -93,7 +93,7 @@ test('AI image generation exposes per-action stop controls and sends cancellatio
   assert.match(css, /image-card-preview\.is-generating \.local-markdown-image-media-actions\.is-empty/);
 });
 
-test('unresolved AI and folder images can be opened directly from the publish restriction', () => {
+test('unresolved manuscript images can be opened directly from the publish restriction', () => {
   const html = readBlogNextView();
   const inputs = read('ui/scripts/features/blog-next/draft-inputs.js');
 
@@ -101,10 +101,11 @@ test('unresolved AI and folder images can be opened directly from the publish re
   assert.match(html, /id="blog-next-publish-image-action"[^>]*aria-controls="blog-next-ai-draft-images"[^>]*hidden/);
   assert.match(html, /id="blog-next-ai-draft-images"[^>]*data-draft-preview-image-details/);
   assert.match(html, /id="blog-next-folder-draft-images"[^>]*data-draft-preview-image-details/);
+  assert.match(html, /id="blog-next-paste-draft-images"[^>]*data-draft-preview-image-details/);
   assert.match(inputs, /function focusBlogNextDraftImages\(\)[\s\S]*?dataset\.blogNextDraftSettings[\s\S]*?details\.open = true;[\s\S]*?details\.scrollIntoView/);
   assert.match(inputs, /imageAction\.hidden = !imagePreparationRequired/);
-  assert.match(inputs, /type === 'ai' \|\| type === 'folder'/);
-  assert.match(inputs, /function supportsBlogNextDraftAutomaticImages\(type\) \{\s*return type === 'paste';/);
+  assert.match(inputs, /BLOG_NEXT_DRAFT_TYPES\.includes\(type\) && unresolvedImageCount > 0/);
+  assert.doesNotMatch(inputs, /supportsBlogNextDraftAutomaticImages/);
 });
 
 test('AI assists have one distinct pattern without becoming primary actions', () => {
@@ -174,19 +175,17 @@ test('AI cancellation copy stays concise with or without a previous manuscript',
     '원고와 미리보기를 준비했습니다.');
 });
 
-test('direct publishing confirmation names only destination, mode, schedule, and billed image work', () => {
+test('direct publishing confirmation names only destination, mode, and schedule', () => {
   const execution = read('ui/scripts/features/blog-next/draft-execution.js');
   const scheduleSource = execution.match(/function formatBlogNextDraftScheduleDate\(value\) \{[\s\S]*?\n\}/)?.[0];
-  const confirmationSource = execution.match(/function buildBlogNextDraftPublishConfirmation\(settings, targetLabel, autoGenerationCount\) \{[\s\S]*?\n\}/)?.[0];
+  const confirmationSource = execution.match(/function buildBlogNextDraftPublishConfirmation\(settings, targetLabel\) \{[\s\S]*?\n\}/)?.[0];
   assert.ok(scheduleSource && confirmationSource, 'confirmation copy helpers are missing');
   const confirm = vm.runInNewContext(`${scheduleSource}\n${confirmationSource}\nbuildBlogNextDraftPublishConfirmation`);
 
-  assert.equal(confirm({ postStatus: 'draft' }, '네이버 블로그', 0), '네이버 블로그에 임시 저장할까요?');
-  assert.equal(confirm({ postStatus: 'draft' }, '네이버 블로그', 1),
-    '네이버 블로그에 임시 저장할까요?\n이미지 1개를 AI로 생성합니다.');
-  assert.equal(confirm({ postStatus: 'publish' }, '워드프레스', 0), '워드프레스에 지금 발행할까요?');
-  assert.equal(confirm({ postStatus: 'schedule', scheduleDate: '2026-10-25T09:30' }, '네이버 블로그', 2),
-    '네이버 블로그에 2026년 10월 25일 09:30에 예약 발행할까요?\n이미지 2개를 AI로 생성합니다.');
+  assert.equal(confirm({ postStatus: 'draft' }, '네이버 블로그'), '네이버 블로그에 임시 저장할까요?');
+  assert.equal(confirm({ postStatus: 'publish' }, '워드프레스'), '워드프레스에 지금 발행할까요?');
+  assert.equal(confirm({ postStatus: 'schedule', scheduleDate: '2026-10-25T09:30' }, '네이버 블로그'),
+    '네이버 블로그에 2026년 10월 25일 09:30에 예약 발행할까요?');
   assert.doesNotMatch(confirmationSource, /Queue|대기열|만들지 못한 이미지/);
 });
 

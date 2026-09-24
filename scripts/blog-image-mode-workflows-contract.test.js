@@ -49,10 +49,10 @@ test('WYSIWYG manuscript publishing owns images in slots and drafts only for act
     assert.doesNotMatch(manuscriptView, /data-draft-field="image-mode"/);
     assert.match(manuscriptScript, /imageMode: 'prompt_only'/);
     assert.match(manuscriptScript, /imageMode: input\.imageMode/);
-    assert.match(manuscriptScript, /function supportsBlogNextDraftAutomaticImages\(type\)/);
-    assert.match(manuscriptScript, /return BLOG_NEXT_DRAFT_TYPES\.includes\(type\)/);
+    assert.doesNotMatch(manuscriptScript, /supportsBlogNextDraftAutomaticImages/);
+    assert.match(manuscriptScript, /const imagePreparationRequired = BLOG_NEXT_DRAFT_TYPES\.includes\(type\) && unresolvedImageCount > 0/);
     assert.doesNotMatch(manuscriptScript, /changedToDraft|forcedDraft/);
-    assert.match(manuscriptScript, /option\.value === 'publish' \|\| option\.value === 'schedule'\) option\.disabled = false/);
+    assert.match(manuscriptScript, /option\.disabled = imagePreparationRequired/);
     assert.match(manuscriptScript, /buttonLabel: '블로그에 임시 저장'/);
     assert.doesNotMatch(core, /if \(options\.imageGeneration === false\) \{\s*hasImageWarnings = true;/);
     assert.doesNotMatch(core, /이미지 미생성 옵션으로 인해 Draft로 강제 전환/);

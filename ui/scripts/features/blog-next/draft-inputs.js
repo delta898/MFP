@@ -1,10 +1,6 @@
 const BLOG_NEXT_DRAFT_TYPES = Object.freeze(['ai', 'folder', 'paste']);
 const BLOG_NEXT_DRAFT_PREVIEW_DELAY_MS = 350;
 
-function supportsBlogNextDraftAutomaticImages(type) {
-  return type === 'paste';
-}
-
 const blogNextDraftState = {
   ai: { preview: null, requestId: 0, publishing: false, generating: false, draftId: '', revision: 0, imageWorking: false, imageOperation: null, imageOperationNotice: null, imageSafetyLocked: false, previewSyncFailed: false },
   folder: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, imageObjectUrls: {}, draftId: '', revision: 0, imageWorking: false, imageOperation: null, imageOperationNotice: null, imageSafetyLocked: false, previewSyncFailed: false },
@@ -113,10 +109,10 @@ function syncBlogNextDraftImageSafety(type, preview = null) {
   const message = document.getElementById('blog-next-publish-safety-message');
   const imageAction = document.getElementById('blog-next-publish-image-action');
   if (!state || !select) return;
-  const autoGenerationCount = Array.isArray(preview?.images)
+  const unresolvedImageCount = Array.isArray(preview?.images)
     ? preview.images.filter((image) => !image.excluded && !image.exists && String(image.prompt || '').trim()).length
     : 0;
-  const imagePreparationRequired = (type === 'ai' || type === 'folder') && autoGenerationCount > 0;
+  const imagePreparationRequired = BLOG_NEXT_DRAFT_TYPES.includes(type) && unresolvedImageCount > 0;
   Array.from(select.options).forEach((option) => {
     if (option.value === 'publish' || option.value === 'schedule') {
       option.disabled = imagePreparationRequired;
@@ -124,18 +120,12 @@ function syncBlogNextDraftImageSafety(type, preview = null) {
   });
   if (imagePreparationRequired && select.value !== 'draft') select.value = 'draft';
   if (hint) {
-    const imageAiBlocked = typeof isUiCapabilityUnavailable === 'function'
-      && isUiCapabilityUnavailable('ai.image');
     const hintText = imagePreparationRequired
-      ? `이미지 ${autoGenerationCount}개를 처리해야 발행할 수 있어요. 지금은 임시저장만 가능해요.`
-      : autoGenerationCount > 0
-        ? (imageAiBlocked
-          ? `빈 이미지 ${autoGenerationCount}개를 자동 생성할 수 없어 최종 발행 시 안전하게 임시 저장될 수 있습니다.`
-          : `빈 이미지 ${autoGenerationCount}개는 포스팅할 때 자동으로 만듭니다.`)
+      ? `이미지 ${unresolvedImageCount}개를 처리해야 발행할 수 있어요. 지금은 임시저장만 가능해요.`
       : '';
     if (message) message.textContent = hintText;
     else hint.textContent = hintText;
-    hint.hidden = autoGenerationCount === 0;
+    hint.hidden = unresolvedImageCount === 0;
   }
   if (imageAction) {
     imageAction.hidden = !imagePreparationRequired;
