@@ -110,6 +110,7 @@ function toPublicGenerationResult(generation) {
         variation: generation.variation,
         created_at: generation.created_at,
         completed_at: generation.completed_at,
+        current_image_index: Number(generation.current_image_index || 0),
         publishing_copy: {
             caption: String(generation.publishing_copy?.caption || generation.title || ''),
             hashtags: Array.isArray(generation.publishing_copy?.hashtags) ? generation.publishing_copy.hashtags : []
@@ -122,6 +123,8 @@ function toPublicGenerationResult(generation) {
             image_url: card.file_name
                 ? `/api/v1/card-news/assets/${encodeURIComponent(generation.id)}/${encodeURIComponent(card.file_name)}`
                 : '',
+            image_status: card.file_name ? 'ready' : (card.image_error ? 'failed' : 'pending'),
+            image_error: String(card.image_error || ''),
             download_url: card.file_name
                 ? `/api/v1/card-news/assets/${encodeURIComponent(generation.id)}/${encodeURIComponent(card.file_name)}?download=1`
                 : ''
@@ -388,6 +391,9 @@ function createCardNewsGenerationService(options = {}) {
         writeJsonAtomic(fileSystem, pathApi, manifestPath, generation);
 
         for (const card of targets) {
+            generation.current_image_index = Number(card.index);
+            delete card.image_error;
+            writeJsonAtomic(fileSystem, pathApi, manifestPath, generation);
             logger?.info?.(`🎨 [CardNews] ${card.index}번 카드 이미지 ${card.file_name ? '다시 생성' : '생성'} 중`);
             try {
                 const temporaryBase = pathApi.join(outputDir, `pending-${String(card.index).padStart(2, '0')}-${crypto.randomUUID().slice(0, 8)}`);
@@ -401,6 +407,8 @@ function createCardNewsGenerationService(options = {}) {
                 logger?.info?.(`✅ [CardNews] ${card.index}번 카드 이미지 적용 완료`);
             } catch (error) {
                 generation.status = 'partial';
+                generation.current_image_index = 0;
+                card.image_error = String(error?.message || '이미지를 만들지 못했습니다.').slice(0, 500);
                 generation.completed_at = now();
                 generation.error = {
                     code: String(error?.code || 'CARD_NEWS_IMAGE_GENERATION_FAILED'),
@@ -417,6 +425,7 @@ function createCardNewsGenerationService(options = {}) {
         }
 
         generation.status = deriveGenerationStatus(generation.cards);
+        generation.current_image_index = 0;
         generation.completed_at = now();
         delete generation.error;
         writeJsonAtomic(fileSystem, pathApi, manifestPath, generation);

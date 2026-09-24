@@ -110,7 +110,10 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(html, /class="ui-workflow-title-row">\s*<h2 id="card-news-generation-title">카드 설정<\/h2>\s*<span class="ui-workflow-stage">2단계<\/span>/);
     assert.match(html, /class="card-news-result-heading ui-workflow-heading">[\s\S]*?<\/div>\s*<div class="card-news-result-actions">/);
     assert.match(script, /\/api\/v1\/card-news\/generations/);
-    assert.match(script, /image_mode: imageMode/);
+    assert.match(script, /image_mode: 'prompt_only'/);
+    assert.match(script, /renderCardNewsCompositionSkeleton\(settings\.slide_count, settings\.aspect_ratio\)/);
+    assert.match(script, /monitorCardNewsImageGeneration\(generation\.id, imageRequest\)/);
+    assert.match(script, /current_image_index/);
     assert.match(script, /project_id: cardNewsViewState\.projectId \|\| ''/);
     assert.match(html, /id="card-news-create-workflow-slot"[\s\S]*id="card-news-shared-workflow"/);
     assert.match(html, /id="card-news-managed-source" class="card-news-preview-card ui-workflow-card"[\s\S]*id="card-news-managed-workflow-slot"/);

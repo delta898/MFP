@@ -237,6 +237,67 @@ function setCardNewsGenerationStatus(message = '', state = '') {
   status.setAttribute('aria-busy', String(state === 'loading'));
 }
 
+function renderCardNewsCompositionSkeleton(slideCount, aspectRatio = '4:5') {
+  const panel = document.getElementById('card-news-result-panel');
+  const grid = document.getElementById('card-news-result-grid');
+  if (!panel || !grid) return;
+  panel.hidden = false;
+  panel.dataset.aspectRatio = aspectRatio;
+  document.getElementById('card-news-result-title').textContent = '카드뉴스 구성 중';
+  document.getElementById('card-news-result-summary').textContent = `${slideCount}장의 카드 구성을 준비하고 있습니다.`;
+  ['card-news-regenerate', 'card-news-bulk-image-action', 'card-news-export-all'].forEach((id) => {
+    const action = document.getElementById(id);
+    if (action) action.hidden = true;
+  });
+  const publishingPanel = document.getElementById('card-news-publishing-panel');
+  if (publishingPanel) publishingPanel.hidden = true;
+  grid.innerHTML = Array.from({ length: slideCount }, (_, offset) => `
+    <article class="card-news-result-item is-composing" aria-label="${offset + 1}번째 카드 구성 생성 중">
+      <div class="card-news-result-image-empty card-news-result-skeleton" aria-hidden="true">
+        <span class="ui-spinner ui-spinner-lg ui-spinner-accent"></span>
+        <strong>카드 구성 생성 중</strong>
+      </div>
+      <div class="card-news-result-copy" aria-hidden="true">
+        <span class="card-news-skeleton-line"></span>
+        <span class="card-news-skeleton-line is-short"></span>
+      </div>
+    </article>`).join('');
+  panel.setAttribute('aria-busy', 'true');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function updateCardNewsImageProgress(generation) {
+  const previous = cardNewsViewState.generation;
+  const changed = !previous || previous.id !== generation.id
+    || (generation.cards || []).some((card, index) => card.image_url !== previous.cards?.[index]?.image_url);
+  if (changed) renderCardNewsGeneration(generation, { scroll: false });
+  const total = generation.cards?.length || 0;
+  const ready = (generation.cards || []).filter((card) => card.image_url).length;
+  const currentIndex = Number(generation.current_image_index || 0);
+  document.querySelectorAll('[data-card-news-result-index]').forEach((cardElement) => {
+    const overlay = cardElement.querySelector('[data-card-news-image-working]');
+    if (!overlay) return;
+    const active = currentIndex > 0 && Number(cardElement.dataset.cardNewsResultIndex) === currentIndex;
+    overlay.hidden = !active;
+    const label = overlay.querySelector('strong');
+    if (label && active) label.textContent = `${currentIndex}/${total}번째 이미지 만드는 중…`;
+  });
+  setCardNewsGenerationStatus(`이미지를 만들고 있습니다. ${ready}/${total}장 완료`, 'loading');
+  setCardNewsResultControlsDisabled(true);
+}
+
+async function monitorCardNewsImageGeneration(generationId, requestPromise) {
+  let settled = false;
+  requestPromise.finally(() => { settled = true; }).catch(() => {});
+  while (!settled) {
+    try {
+      const result = await fetchJson(`/api/v1/card-news/generations/${encodeURIComponent(generationId)}`);
+      updateCardNewsImageProgress(result.generation);
+    } catch (_) { /* The generation request remains authoritative; transient reads can be retried. */ }
+    if (!settled) await new Promise((resolve) => window.setTimeout(resolve, 700));
+  }
+}
+
 function handleCardNewsGenerationSettingChange() {
   saveCardNewsGenerationSettings();
   if (cardNewsViewState.generation && !cardNewsViewState.generating) {
@@ -303,14 +364,14 @@ function renderCardNewsGeneration(generation, options = {}) {
   }
   if (publishOpen) publishOpen.hidden = true;
   document.getElementById('card-news-result-summary').textContent = imageCount > 0
-    ? `${generation.cards?.length || 0}장의 구성과 ${imageCount}장의 이미지가 준비되었습니다.`
+    ? `${generation.cards?.length || 0}장의 구성 · 이미지 ${imageCount}/${generation.cards?.length || 0}장 준비`
     : `${generation.cards?.length || 0}장의 구성과 이미지 프롬프트가 준비되었습니다.`;
   grid.innerHTML = (generation.cards || []).map((card) => `
-    <article class="card-news-result-item" data-card-news-result-index="${card.index}">
+    <article class="card-news-result-item${card.image_status === 'failed' && !card.image_url ? ' is-image-failed' : ''}" data-card-news-result-index="${card.index}">
       <div class="card-news-result-image-wrap${card.image_url ? '' : ' is-empty'}">
         ${card.image_url
           ? `<img src="${escapeHtml(card.image_url)}" alt="${escapeHtml(`${card.index}번째 카드: ${card.headline}`)}">`
-          : '<div class="card-news-result-image-empty"><span>이미지 미지정</span><small>AI로 만들거나 내 이미지로 채울 수 있습니다.</small></div>'}
+          : `<div class="card-news-result-image-empty"><span>${card.image_status === 'failed' ? '이미지 생성 실패' : '이미지 미지정'}</span><small>${card.image_status === 'failed' ? escapeHtml(card.image_error || '다시 시도하거나 내 이미지로 채울 수 있습니다.') : 'AI로 만들거나 내 이미지로 채울 수 있습니다.'}</small></div>`}
         <div class="card-news-media-actions${card.image_url ? '' : ' is-empty'}">
           ${importedGeneration ? '' : `<button class="${card.image_url ? 'secondary' : 'primary'} compact" type="button" data-card-news-image-action="${card.index}">${card.image_url ? 'AI 재생성' : 'AI 이미지 만들기'}</button>`}
           <button class="secondary compact" type="button" data-card-news-local-picker="${card.index}">${card.image_url ? '이미지 교체' : '＋ 내 이미지 선택'}</button>
@@ -401,22 +462,28 @@ async function runCardNewsImageGeneration({ mode = 'missing', cardIndex = 0 } = 
   setCardNewsImageWorking(
     true,
     mode === 'single' ? '카드 이미지를 만들고 있습니다.' : '카드 이미지를 차례로 만들고 있습니다.',
-    { cardIndexes: targetCards.map((item) => item.index), replacing }
+    { cardIndexes: mode === 'single' ? targetCards.map((item) => item.index) : [], replacing }
   );
   try {
-    const result = await postJson('/api/v1/card-news/images/generate', {
+    const imageRequest = postJson('/api/v1/card-news/images/generate', {
       generation_id: generation.id,
       mode,
       card_index: cardIndex || undefined
     });
+    if (mode !== 'single') await monitorCardNewsImageGeneration(generation.id, imageRequest);
+    const result = await imageRequest;
     renderCardNewsGeneration(result.generation, { scroll: false });
     setCardNewsGenerationStatus(
       result.generation.status === 'partial'
-        ? (result.generation.message || '완성한 이미지는 유지했습니다. 만들지 못한 이미지는 다시 시도해 주세요.')
+        ? (result.generation.error?.message || '완성한 이미지는 유지했습니다. 미완성 카드는 다시 시도해 주세요.')
         : '카드 이미지를 준비했습니다.',
       result.generation.status === 'partial' ? 'warning' : 'ready'
     );
   } catch (error) {
+    try {
+      const latest = await fetchJson(`/api/v1/card-news/generations/${encodeURIComponent(generation.id)}`);
+      renderCardNewsGeneration(latest.generation, { scroll: false });
+    } catch (_) { }
     setCardNewsGenerationStatus(error.message || '카드 이미지를 만들지 못했습니다. 다시 시도해 주세요.', 'error');
   } finally {
     setCardNewsImageWorking(false);
@@ -482,35 +549,60 @@ async function copyCardNewsPrompt(cardIndex, button) {
 async function generateCardNews(options = {}) {
   if (cardNewsViewState.generating || !cardNewsViewState.preview || !cardNewsPreviewMatchesCurrentSource()) return;
   const imageMode = options.imageMode || cardNewsViewState.generation?.image_mode || 'generate';
+  const previousGeneration = cardNewsViewState.generation;
+  const settings = readCardNewsGenerationSettings();
   saveCardNewsGenerationSettings();
   setCardNewsGenerating(true, imageMode);
-  setCardNewsGenerationStatus(
-    imageMode === 'prompt_only'
-      ? '카드 구성과 이미지 프롬프트를 만들고 있습니다.'
-      : '카드 구성과 이미지를 만들고 있습니다. 카드 수에 따라 몇 분 정도 걸릴 수 있습니다.',
-    'loading'
-  );
+  renderCardNewsCompositionSkeleton(settings.slide_count, settings.aspect_ratio);
+  setCardNewsGenerationStatus('카드 구성을 만들고 있습니다.', 'loading');
   try {
     const payload = {
       project_id: cardNewsViewState.projectId || '',
       source_snapshot: cardNewsViewState.preview,
-      image_mode: imageMode,
-      settings: readCardNewsGenerationSettings()
+      image_mode: 'prompt_only',
+      settings
     };
-    const result = await postJson('/api/v1/card-news/generations', payload);
-    renderCardNewsGeneration(result.generation);
-    if (result.generation.status === 'partial') {
-      setCardNewsGenerationStatus(result.generation.message || '카드 구성은 완성했지만 일부 이미지를 만들지 못했습니다.', 'warning');
+    const compositionResult = await postJson('/api/v1/card-news/generations', payload);
+    let generation = compositionResult.generation;
+    renderCardNewsGeneration(generation, { scroll: false });
+    setCardNewsResultControlsDisabled(true);
+    if (imageMode === 'generate') {
+      const imageRequest = postJson('/api/v1/card-news/images/generate', {
+        generation_id: generation.id,
+        mode: 'all'
+      });
+      setCardNewsGenerationStatus(`카드 구성을 완성했습니다. 이미지 0/${generation.cards.length}장 생성 중`, 'loading');
+      await monitorCardNewsImageGeneration(generation.id, imageRequest);
+      try {
+        const imageResult = await imageRequest;
+        generation = imageResult.generation;
+        renderCardNewsGeneration(generation, { scroll: false });
+        if (generation.status === 'partial') {
+          setCardNewsGenerationStatus(generation.error?.message || '완성한 이미지는 유지했습니다. 미완성 카드는 다시 만들 수 있습니다.', 'warning');
+        } else {
+          setCardNewsGenerationStatus('카드뉴스를 완성했습니다.', 'ready');
+        }
+      } catch (imageError) {
+        try {
+          const latest = await fetchJson(`/api/v1/card-news/generations/${encodeURIComponent(generation.id)}`);
+          generation = latest.generation;
+          renderCardNewsGeneration(generation, { scroll: false });
+        } catch (_) { }
+        setCardNewsGenerationStatus(imageError.message || '이미지 생성이 끝나지 않았습니다. 완성된 카드와 구성은 유지했습니다.', 'warning');
+      }
     } else {
-      setCardNewsGenerationStatus(
-        imageMode === 'prompt_only' ? '카드 구성과 프롬프트를 완성했습니다.' : '카드뉴스를 완성했습니다.',
-        'ready'
-      );
+      setCardNewsGenerationStatus('카드 구성과 프롬프트를 완성했습니다.', 'ready');
     }
   } catch (error) {
+    if (previousGeneration) renderCardNewsGeneration(previousGeneration, { scroll: false });
+    else {
+      const panel = document.getElementById('card-news-result-panel');
+      if (panel) panel.hidden = true;
+    }
     setCardNewsGenerationStatus(error.message || '카드뉴스를 만들지 못했습니다. AI 설정을 확인한 뒤 다시 시도해 주세요.', 'error');
   } finally {
     setCardNewsGenerating(false, imageMode);
+    document.getElementById('card-news-result-panel')?.setAttribute('aria-busy', 'false');
   }
 }
 

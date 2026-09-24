@@ -117,6 +117,55 @@ test('creates a reusable prompt-only composition without calling an image model'
     }
 });
 
+test('publishes the active card index while sequential image generation is in progress', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-active-image-'));
+    let imageStartedResolve;
+    const imageStarted = new Promise((resolve) => { imageStartedResolve = resolve; });
+    let releaseImage;
+    const imageGate = new Promise((resolve) => { releaseImage = resolve; });
+    try {
+        const service = createCardNewsGenerationService({
+            workspaceDir,
+            createId: (() => {
+                const values = ['generation-active', 'variation-active'];
+                return () => values.shift();
+            })(),
+            parseStructuredJsonResponse: JSON.parse,
+            callWritingText: async () => JSON.stringify({
+                set_title: '진행 카드',
+                art_direction: '정보형',
+                cards: Array.from({ length: 3 }, (_, index) => ({
+                    headline: `제목 ${index + 1}`,
+                    body: '본문',
+                    image_prompt: `프롬프트 ${index + 1}`
+                }))
+            }),
+            callWritingImage: async (_prompt, savePath) => {
+                imageStartedResolve();
+                await imageGate;
+                const imagePath = `${savePath}.png`;
+                fs.writeFileSync(imagePath, 'generated image');
+                return imagePath;
+            }
+        });
+        await service.generate({
+            source_snapshot: { title: '제목', text: '본문' },
+            settings: { slide_count: 3 },
+            image_mode: 'prompt_only'
+        });
+        const imageTask = service.generateImages({ generation_id: 'generation-active', mode: 'all' });
+        await imageStarted;
+        assert.equal(service.getGeneration('generation-active').current_image_index, 1);
+        releaseImage();
+        const result = await imageTask;
+        assert.equal(result.current_image_index, 0);
+        assert.equal(result.cards[0].image_url.length > 0, true);
+    } finally {
+        releaseImage?.();
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('previews and imports an ordered ZIP as a completed local generation', () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-zip-import-'));
     const png = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), Buffer.alloc(128, 1)]);
@@ -304,6 +353,8 @@ test('fills only missing image slots and preserves completed cards when a later 
         assert.equal(result.cards[0].image_url, firstUrl);
         assert.match(result.cards[1].image_url, /card-02-/);
         assert.equal(result.cards[2].image_url, '');
+        assert.equal(result.cards[2].image_status, 'failed');
+        assert.match(result.cards[2].image_error, /temporary image failure/);
         assert.match(result.message, /완성한 이미지는 유지했습니다/);
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });

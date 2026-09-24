@@ -2308,6 +2308,105 @@ async function run() {
         assert.equal(cardNewsPromptResult.imageActionsInsideMedia, true);
         assert.equal(cardNewsPromptResult.promptActionsOutsideMedia, true);
         assert.equal(cardNewsPromptResult.headingActionsBelow, true);
+        const progressImageUrl = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+        let generationReadCount = 0;
+        const progressGeneration = (imageCount, currentImageIndex, status = 'generating_images', failedIndex = 0) => ({
+            id: 'ui-smoke-progress-result',
+            project_id: '',
+            title: '점진 표시 UI smoke 카드뉴스',
+            image_mode: 'generate',
+            status,
+            current_image_index: currentImageIndex,
+            settings: { aspect_ratio: '1:1' },
+            cards: [1, 2, 3].map((index) => ({
+                index,
+                headline: `${index}번째 점진 카드`,
+                body: '텍스트 구성이 먼저 표시됩니다.',
+                image_prompt: `progress card ${index} prompt`,
+                image_url: index <= imageCount ? progressImageUrl : '',
+                download_url: index <= imageCount ? progressImageUrl : '',
+                image_status: index <= imageCount ? 'ready' : (index === failedIndex ? 'failed' : 'pending'),
+                image_error: index === failedIndex ? '테스트용 이미지 실패' : ''
+            }))
+        });
+        await page.route('**/api/v1/card-news/generations', async (route) => {
+            await new Promise((resolve) => setTimeout(resolve, 250));
+            await route.fulfill({
+                status: 201,
+                contentType: 'application/json; charset=utf-8',
+                body: JSON.stringify({ success: true, data: { generation: {
+                    ...progressGeneration(0, 0, 'prompt_ready'),
+                    image_mode: 'prompt_only'
+                } } })
+            });
+        });
+        await page.route('**/api/v1/card-news/images/generate', async (route) => {
+            await new Promise((resolve) => setTimeout(resolve, 1800));
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json; charset=utf-8',
+                body: JSON.stringify({ success: true, data: { generation: progressGeneration(2, 0, 'partial') } })
+            });
+        });
+        await page.route('**/api/v1/card-news/generations/ui-smoke-progress-result', async (route) => {
+            generationReadCount += 1;
+            const readyCount = generationReadCount === 1 ? 1 : 2;
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json; charset=utf-8',
+                body: JSON.stringify({ success: true, data: { generation: progressGeneration(readyCount, readyCount + 1) } })
+            });
+        });
+        await page.evaluate(() => {
+            cardNewsViewState.workspace = 'create';
+            cardNewsViewState.sourceKind = 'manuscript';
+            document.getElementById('card-news-manuscript-title').value = '점진 표시 테스트';
+            document.getElementById('card-news-manuscript-text').value = '카드뉴스 점진 표시 회귀 검사 원문입니다.';
+            document.getElementById('card-news-slide-count').value = '3';
+            cardNewsViewState.preview = {
+                source: { kind: 'manuscript' },
+                title: '점진 표시 테스트',
+                text: '카드뉴스 점진 표시 회귀 검사 원문입니다.'
+            };
+            cardNewsViewState.previewSourceKey = cardNewsSourceKey(readCardNewsSource());
+            updateCardNewsGenerationAvailability();
+        });
+        await page.locator('#card-news-generate-button').click();
+        await page.waitForFunction(() => document.querySelectorAll('.card-news-result-item.is-composing').length === 3);
+        await page.waitForFunction(() => document.querySelector('.card-news-result-copy > strong')?.textContent === '1번째 점진 카드');
+        await page.waitForFunction(() => Boolean(document.querySelector('[data-card-news-result-index="1"] img'))
+            && !document.querySelector('[data-card-news-result-index="2"] [data-card-news-image-working]').hidden);
+        assert.equal(await page.locator('#card-news-generation-status').textContent().then((text) => /이미지/.test(text)), true);
+        await page.waitForFunction(() => document.querySelectorAll('.card-news-result-item img').length === 2);
+        assert.equal(await page.locator('#card-news-generation-status').textContent().then((text) => text.includes('부분')), false);
+        await page.unroute('**/api/v1/card-news/generations');
+        await page.unroute('**/api/v1/card-news/images/generate');
+        await page.unroute('**/api/v1/card-news/generations/ui-smoke-progress-result');
+        generationReadCount = 0;
+        await page.route('**/api/v1/card-news/images/generate', async (route) => {
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json; charset=utf-8',
+                body: JSON.stringify({ success: true, data: { generation: progressGeneration(2, 0, 'partial', 3) } })
+            });
+        });
+        await page.route('**/api/v1/card-news/generations/ui-smoke-progress-result', async (route) => {
+            generationReadCount += 1;
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json; charset=utf-8',
+                body: JSON.stringify({ success: true, data: { generation: progressGeneration(2, 3) } })
+            });
+        });
+        await page.locator('#card-news-bulk-image-action').click();
+        await page.waitForFunction(() => !document.querySelector('[data-card-news-result-index="3"] [data-card-news-image-working]').hidden);
+        assert.equal(await page.locator('[data-card-news-result-index] [data-card-news-image-working]:not([hidden])').count(), 1);
+        assert.equal(await page.locator('.card-news-result-item img').count(), 2);
+        await page.waitForFunction(() => !cardNewsViewState.generating);
+        assert.equal(await page.locator('.card-news-result-item img').count(), 2);
+        await page.unroute('**/api/v1/card-news/images/generate');
+        await page.unroute('**/api/v1/card-news/generations/ui-smoke-progress-result');
         await page.route('**/api/v1/card-news/publishing/config?generation_id=*', async (route) => {
             await route.fulfill({
                 status: 200,
@@ -2421,8 +2520,10 @@ async function run() {
             settingsControls: false,
             primaryDisabled: true
         });
-        await page.locator('#card-news-publish-open').click();
-        assert.equal(await page.locator('#card-news-publishing-panel').isVisible(), true);
+        if (await page.locator('#card-news-publishing-panel').isHidden()) {
+            await page.locator('#card-news-publish-open').click();
+        }
+        await page.waitForFunction(() => document.getElementById('card-news-publishing-panel')?.hidden === false);
         await page.locator('[data-card-news-publish-channel][value="instagram-1"]').check();
         assert.equal(await page.locator('#card-news-publish-button').isEnabled(), true);
         assert.equal(await page.locator('#card-news-publishing-channel-limit').textContent(), '최대 3개 · 1개 선택');
