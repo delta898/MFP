@@ -33,6 +33,52 @@ test('local environment blocks direct manuscript publishing before license or fi
     assert.equal(licenseChecks, 0);
 });
 
+test('local WordPress publish preserves image upload warnings while counting the draft save as successful', async () => {
+    const activities = [];
+    const warnings = ['이미지 1번 업로드 실패'];
+    const runtime = createPublishActionsRuntime({
+        CONFIG: {},
+        Logger: { info() {}, warn() {}, error() {} },
+        Utils: {},
+        Core: {
+            async publishToWordPress() {
+                return { success: true, postUrl: 'https://example.test/draft', status: 'draft', warnings };
+            }
+        },
+        License: {
+            async checkLicenseStatus() { return { success: true, features: {} }; },
+            async reservePublishQuota() { return { success: true }; },
+            async commitPublishQuota() { return { success: true }; }
+        },
+        toFeatureMap,
+        getFeatureBool,
+        buildLocalMarkdownPreview: () => ({
+            title: '테스트 원고',
+            rawMarkdown: '# 테스트 원고',
+            validation: { ok: true, errors: [] },
+            images: [],
+            source: { fileName: 'contents.md', folderName: '붙여넣기' }
+        }),
+        materializeSelectedFilesToWorkspace: () => ({ tempDir: '' }),
+        formatActivityTargets: () => '워드프레스',
+        recordUiActivity(activity) { activities.push(activity); }
+    });
+
+    const result = await runtime.executeLocalMarkdownPublish({
+        markdownText: '# 테스트 원고',
+        targets: ['wordpress'],
+        postStatus: 'draft',
+        imageMode: 'none'
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(result.data.results.wordpress.success, true);
+    assert.deepEqual(result.data.results.wordpress.warnings, warnings);
+    const completed = activities.find((activity) => activity.type === 'local_markdown_publish_completed');
+    assert.match(completed.detail, /이미지 1개 업로드 실패/);
+    assert.equal(completed.meta.wordpressImageUploadFailures, 1);
+});
+
 test('quick publish keeps the user image option independent from legacy license flags', async () => {
     let appendedTopics = [];
     let dedupeInput = null;

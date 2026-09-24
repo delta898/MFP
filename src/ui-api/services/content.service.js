@@ -1101,7 +1101,14 @@ function createContentService(deps = {}) {
                 subject: '원고 포스팅',
                 message: '원고 포스팅을 준비하고 있습니다.'
             }, async (lease) => {
-                const snapshot = await getManuscriptDraftService().preparePublishPayload({
+                const draftService = getManuscriptDraftService();
+                if (typeof draftService.assertNotPublished === 'function') {
+                    draftService.assertNotPublished({
+                        draftId: requestBody.draftId,
+                        revision: requestBody.revision
+                    });
+                }
+                const snapshot = await draftService.preparePublishPayload({
                     ...requestBody,
                     onProgress(progress) {
                         lease.updateProgress({
@@ -1111,6 +1118,14 @@ function createContentService(deps = {}) {
                         });
                     }
                 });
+                const target = Array.isArray(snapshot.settings?.targets) ? snapshot.settings.targets[0] : '';
+                if (typeof draftService.assertNotPublished === 'function') {
+                    draftService.assertNotPublished({
+                        draftId: requestBody.draftId,
+                        revision: snapshot.publishPolicy.draftRevision,
+                        target
+                    });
+                }
                 const canStopNaver = (Array.isArray(snapshot.settings?.targets) ? snapshot.settings.targets : []).includes('naver');
                 const result = await executeCompletedLocalMarkdownPublish({
                     ...snapshot.settings,
@@ -1123,11 +1138,12 @@ function createContentService(deps = {}) {
                         if (presentation) lease.updateProgress(presentation);
                     }
                 }, { signal: lease.signal });
-                const draftService = getManuscriptDraftService();
                 const manuscriptPreview = typeof draftService.markPublished === 'function'
                     ? draftService.markPublished({
                         draftId: requestBody.draftId,
-                        revision: snapshot.publishPolicy.draftRevision
+                        revision: snapshot.publishPolicy.draftRevision,
+                        target,
+                        postStatus: snapshot.settings.postStatus
                     })
                     : draftService.getDraft(requestBody.draftId);
                 return {

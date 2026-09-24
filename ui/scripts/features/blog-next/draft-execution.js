@@ -25,32 +25,41 @@ function getBlogNextDraftPublishCopy(postStatus = 'publish') {
 
 function isBlogNextDraftPublishCompleted(type) {
   const state = blogNextDraftState[type];
-  return Boolean(state?.completedPublish
-    && state.completedPublish.draftId === state.draftId);
+  const target = readBlogNextDraftSettings(type).targets[0];
+  return Boolean(target && state?.preview?.publishedTargets?.includes(target));
+}
+
+function isBlogNextDraftResultPublished(type) {
+  return Array.isArray(blogNextDraftState[type]?.preview?.publishedTargets)
+    && blogNextDraftState[type].preview.publishedTargets.length > 0;
+}
+
+function syncBlogNextDraftOperationControls() {
+  const busy = Boolean(blogNextTopicSubmitting || BLOG_NEXT_DRAFT_TYPES.some((type) => {
+    const state = blogNextDraftState[type];
+    return state.publishing || state.generating || state.imageWorking;
+  }) || (typeof blogNextRunnerActive !== 'undefined' && blogNextRunnerActive)
+    || (typeof blogNextRunnerRequesting !== 'undefined' && blogNextRunnerRequesting));
+  const controls = document.querySelectorAll('#blog-next-topic-form input, #blog-next-topic-form select, '
+    + '#blog-next-topic-form textarea, #blog-next-topic-form button:not([data-blog-next-draft-publish]):not(#blog-next-publish-now):not(#blog-next-regenerate-draft), '
+    + '[data-blog-next-mode-panel] input, [data-blog-next-mode-panel] select, '
+    + '[data-blog-next-mode-panel] textarea, [data-blog-next-mode-panel] button:not([data-blog-next-draft-publish]):not(#blog-next-publish-now):not(#blog-next-regenerate-draft), '
+    + '[data-blog-next-input-mode], #blog-next-publish-settings input, #blog-next-publish-settings select');
+  controls.forEach((control) => {
+    if (busy) {
+      if (!Object.prototype.hasOwnProperty.call(control.dataset, 'beforeExecutionDisabled')) {
+        control.dataset.beforeExecutionDisabled = String(control.disabled);
+      }
+      control.disabled = true;
+    } else if (Object.prototype.hasOwnProperty.call(control.dataset, 'beforeExecutionDisabled')) {
+      control.disabled = control.dataset.beforeExecutionDisabled === 'true';
+      delete control.dataset.beforeExecutionDisabled;
+    }
+  });
 }
 
 function syncBlogNextPublishMutationControls() {
-  const publishing = BLOG_NEXT_DRAFT_TYPES.some((type) => blogNextDraftState[type].publishing);
-  const activeType = BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai';
-  document.querySelectorAll('#blog-next-publish-settings input, #blog-next-publish-settings select, '
-    + '[data-blog-next-draft-preview] [data-manuscript-image-action], '
-    + '[data-blog-next-draft-preview] [data-manuscript-image-picker], '
-    + '[data-blog-next-draft-preview] [data-manuscript-image-file], '
-    + '[data-blog-next-draft-preview] [data-manuscript-generate-missing], '
-    + '[data-blog-next-draft-preview] [data-manuscript-image-ai-settings]')
-    .forEach((control) => {
-      const ownerType = control.closest('[data-blog-next-draft-preview]')?.dataset.blogNextDraftPreview || activeType;
-      const locked = publishing || isBlogNextDraftPublishCompleted(ownerType);
-      if (locked) {
-        if (!Object.prototype.hasOwnProperty.call(control.dataset, 'beforePublishDisabled')) {
-          control.dataset.beforePublishDisabled = String(control.disabled);
-        }
-        control.disabled = true;
-      } else if (Object.prototype.hasOwnProperty.call(control.dataset, 'beforePublishDisabled')) {
-        control.disabled = control.dataset.beforePublishDisabled === 'true';
-        delete control.dataset.beforePublishDisabled;
-      }
-    });
+  syncBlogNextDraftOperationControls();
 }
 
 async function prepareBlogNextNewWriting() {
@@ -62,7 +71,7 @@ async function prepareBlogNextNewWriting() {
   const hasCurrentWork = hasBlogNextClearableContent(captureBlogNextClearableContent())
     || Boolean(ai.draftId) || blogNextEditingRowIndex !== null;
   if (hasCurrentWork) {
-    const completed = isBlogNextDraftPublishCompleted('ai');
+    const completed = isBlogNextDraftResultPublished('ai');
     const confirmed = await showUiConfirm(completed
       ? '현재 원고를 닫고 다음 글을 작성할까요? 블로그에 저장된 글은 그대로 유지됩니다.'
       : '작성 중인 내용과 원고 미리보기를 지우고 새 글을 작성할까요?', {
@@ -125,8 +134,7 @@ function syncBlogNextDraftExecutionState(runnerActive) {
     const selectedStatus = readBlogNextDraftSettings(type).postStatus;
     const publishCopy = getBlogNextDraftPublishCopy(selectedStatus);
     button.textContent = completed
-      ? (state.completedPublish.postStatus === 'draft' ? '임시 저장 완료'
-        : state.completedPublish.postStatus === 'schedule' ? '예약 등록 완료' : '발행 완료')
+      ? `${readBlogNextDraftSettings(type).targets[0] === 'wordpress' ? '워드프레스' : '네이버'} 처리 완료`
       : state.publishing
       ? publishCopy.busyLabel
       : state.imageWorking ? '이미지 작업 중...'
@@ -343,7 +351,7 @@ function arrangeBlogNextAiWorkflow(options = {}) {
   const ideaActions = document.querySelector('[data-blog-next-ai-idea-actions]');
   const previewActions = document.querySelector('[data-blog-next-ai-preview-actions]');
   const hint = document.getElementById('blog-next-queue-action-hint');
-  const hasDraft = Boolean(blogNextDraftState.ai.draftId) && options.sourceDirty !== true;
+  const hasDraft = Boolean(blogNextDraftState.ai.draftId);
   const editing = options.editing === true;
 
   if (editing || !hasDraft) {
@@ -380,7 +388,6 @@ function resetBlogNextAiDraftUi() {
   state.preview = null;
   state.draftId = '';
   state.revision = 0;
-  state.completedPublish = null;
   state.previewSyncFailed = false;
   const preview = document.querySelector('[data-blog-next-draft-preview="ai"]');
   const actions = document.querySelector('[data-blog-next-draft-actions="ai"]');
@@ -459,15 +466,9 @@ function markBlogNextAiDraftSourceChanged(fieldId = '') {
   ]);
   const state = blogNextDraftState.ai;
   if (!state.draftId || !sourceFields.has(fieldId)) return;
-  state.previewSyncFailed = true;
-  arrangeBlogNextAiWorkflow({ sourceDirty: true });
-  const preview = document.querySelector('[data-blog-next-draft-preview="ai"]');
-  const actions = document.querySelector('[data-blog-next-draft-actions="ai"]');
-  if (preview) preview.hidden = true;
-  if (actions) actions.hidden = true;
-  setBlogNextDraftValidation('ai', {
-    warnings: ['원고 입력이 변경되었습니다. 새 조건으로 원고를 다시 만들어 주세요.']
-  }, '', state.preview);
+  // These fields are input for a future preview. They do not mutate the
+  // already-created manuscript result until generation succeeds.
+  arrangeBlogNextAiWorkflow();
   syncBlogNextDraftExecutionState();
 }
 
@@ -558,8 +559,13 @@ async function publishBlogNextDraft(type) {
     if (Number.isInteger(Number(publishResult?.revision))) state.revision = Number(publishResult.revision);
     if (publishResult?.manuscriptPreview) renderBlogNextDraftPreview(type, publishResult.manuscriptPreview);
     const actualPostStatus = publishResult?.postStatus || settings.postStatus;
-    state.completedPublish = { draftId: state.draftId, revision: state.revision, postStatus: actualPostStatus };
     const actualPublishCopy = getBlogNextDraftPublishCopy(actualPostStatus);
+    const wordpressImageUploadFailures = Array.isArray(publishResult?.results?.wordpress?.warnings)
+      ? publishResult.results.wordpress.warnings.filter(warning => /^이미지 \d+번 업로드 실패$/.test(String(warning || ''))).length
+      : 0;
+    const completionMessage = `${targetLabel}에 ${actualPublishCopy.completionLabel}${wordpressImageUploadFailures > 0
+      ? `. 이미지 ${wordpressImageUploadFailures}개를 올리지 못했습니다. 워드프레스에서 확인해 주세요.`
+      : ''}`;
     if (typeof renderBlogNextRunnerStatus === 'function') {
       renderBlogNextRunnerStatus({
         state: 'completed',
@@ -567,7 +573,7 @@ async function publishBlogNextDraft(type) {
         source: 'local_markdown',
         postStatus: actualPostStatus,
         subject: state.preview?.title || '',
-        message: `${targetLabel}에 ${actualPublishCopy.completionLabel}`,
+        message: completionMessage,
         resultStatus: actualPostStatus === 'draft' ? '임시 저장 완료'
           : actualPostStatus === 'schedule' ? '예약 발행 완료' : '발행 완료',
         completionLinks: Array.isArray(publishResult?.completionLinks) ? publishResult.completionLinks : [],

@@ -154,6 +154,7 @@ function setBlogNextTopicBusy(busy, action = '') {
         : '원고 만들기';
   }
   syncBlogNextTopicActionAvailability();
+  if (typeof syncBlogNextDraftExecutionState === 'function') syncBlogNextDraftExecutionState();
 }
 function setBlogNextTopicResult(message, level = '') {
   const result = document.getElementById('blog-next-topic-result');

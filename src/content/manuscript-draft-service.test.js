@@ -517,32 +517,59 @@ test('bulk image generation returns the successful partial revision after a late
     }
 });
 
-test('marks a handled draft complete without changing its publish revision', () => {
+test('records a target publication without changing the manuscript revision', () => {
     const { workspaceDir, service, input } = fixture();
     try {
         const created = service.createFolderDraft(input);
-        const completed = service.markPublished({ draftId: created.draftId, revision: created.revision });
-        assert.equal(completed.revision, created.revision);
+        const published = service.markPublished({ draftId: created.draftId, revision: created.revision, target: 'naver' });
+        assert.equal(published.revision, created.revision);
+        assert.deepEqual(published.publishedTargets, ['naver']);
         const manifestPath = path.join(workspaceDir, 'manuscript-drafts', created.draftId, 'draft.json');
         const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-        assert.equal(manifest.lifecycle_status, 'completed');
-        assert.ok(Date.parse(manifest.completed_at) > 0);
+        assert.equal(manifest.lifecycle_status, 'active');
+        assert.equal(manifest.publication_history.length, 1);
+        assert.equal(manifest.publication_history[0].target, 'naver');
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }
 });
 
-test('completed manuscript cannot be edited or submitted again through the draft service', async () => {
+test('duplicate publication is scoped to manuscript version and target platform', () => {
     const { workspaceDir, service, input } = fixture();
     try {
         const created = service.createFolderDraft(input);
-        service.markPublished({ draftId: created.draftId, revision: created.revision });
-        const request = { draftId: created.draftId, revision: created.revision };
-        const completed = (error) => error.code === 'MANUSCRIPT_DRAFT_COMPLETED';
-        assert.throws(() => service.updateSettings({ ...request, postStatus: 'draft' }), completed);
-        assert.throws(() => service.excludeImage({ ...request, slotId: 'image-1' }), completed);
-        assert.throws(() => service.buildPublishPayload(request), completed);
-        await assert.rejects(() => service.preparePublishPayload(request), completed);
+        const contentVersion = created.contentVersion;
+        service.markPublished({ draftId: created.draftId, revision: created.revision, target: 'naver', postStatus: 'draft' });
+        const duplicate = (error) => error.code === 'MANUSCRIPT_ALREADY_PUBLISHED_TO_TARGET';
+        assert.throws(() => service.assertNotPublished({ draftId: created.draftId, revision: created.revision, target: 'naver' }), duplicate);
+
+        const changedSettings = service.updateSettings({
+            draftId: created.draftId,
+            revision: created.revision,
+            targets: ['wordpress'],
+            postStatus: 'publish',
+            wordpressCategory: 'News'
+        });
+        assert.equal(changedSettings.contentVersion, contentVersion);
+        assert.deepEqual(changedSettings.publishedTargets, ['naver']);
+        assert.throws(() => service.assertNotPublished({ draftId: created.draftId, revision: changedSettings.revision, target: 'naver' }), duplicate);
+        assert.doesNotThrow(() => service.assertNotPublished({ draftId: created.draftId, revision: changedSettings.revision, target: 'wordpress' }));
+        const wordpressPublished = service.markPublished({
+            draftId: created.draftId,
+            revision: changedSettings.revision,
+            target: 'wordpress',
+            postStatus: 'publish'
+        });
+        assert.deepEqual(wordpressPublished.publishedTargets, ['naver', 'wordpress']);
+
+        const changedImage = service.excludeImage({
+            draftId: created.draftId,
+            revision: changedSettings.revision,
+            slotId: 'image-1'
+        });
+        assert.notEqual(changedImage.contentVersion, contentVersion);
+        assert.deepEqual(changedImage.publishedTargets, []);
+        assert.doesNotThrow(() => service.assertNotPublished({ draftId: created.draftId, revision: changedImage.revision, target: 'naver' }));
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }
@@ -563,8 +590,8 @@ test('startup cleanup removes expired drafts while preserving recent work', () =
     try {
         const first = createManuscriptDraftService(options);
         const expiredActive = first.createPasteDraft({ markdownText: '# 오래된 원고', targets: ['naver'] });
-        const expiredCompleted = first.createPasteDraft({ markdownText: '# 완료 원고', targets: ['naver'] });
-        first.markPublished({ draftId: expiredCompleted.draftId, revision: expiredCompleted.revision });
+        const expiredPublished = first.createPasteDraft({ markdownText: '# 발행한 원고', targets: ['naver'] });
+        first.markPublished({ draftId: expiredPublished.draftId, revision: expiredPublished.revision, target: 'naver' });
         clock.value += 2 * 60 * 60 * 1000;
         const recent = first.createPasteDraft({ markdownText: '# 최근 원고', targets: ['naver'] });
         const recentRoot = path.join(workspaceDir, 'manuscript-drafts', recent.draftId);
@@ -573,7 +600,7 @@ test('startup cleanup removes expired drafts while preserving recent work', () =
 
         const restarted = createManuscriptDraftService(options);
         assert.throws(() => restarted.getDraft(expiredActive.draftId), (error) => error.code === 'MANUSCRIPT_DRAFT_NOT_FOUND');
-        assert.throws(() => restarted.getDraft(expiredCompleted.draftId), (error) => error.code === 'MANUSCRIPT_DRAFT_NOT_FOUND');
+        assert.throws(() => restarted.getDraft(expiredPublished.draftId), (error) => error.code === 'MANUSCRIPT_DRAFT_NOT_FOUND');
         assert.equal(restarted.getDraft(recent.draftId).title, '최근 원고');
         assert.equal(fs.existsSync(path.join(recentRoot, 'assets', 'abandoned-staging.png')), false);
         assert.equal(fs.existsSync(path.join(recentRoot, 'source', '00_draft-deadbeef.png')), false);

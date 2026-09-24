@@ -1468,7 +1468,8 @@ function createPublishActionsRuntime(deps = {}) {
                     success: Boolean(wpRes.success),
                     message: wpRes.message || '',
                     postUrl: wpRes.postUrl || '',
-                    status: wpRes.status || postStatus
+                    status: wpRes.status || postStatus,
+                    warnings: Array.isArray(wpRes.warnings) ? wpRes.warnings.filter((warning) => typeof warning === 'string') : []
                 };
                 if (wpRes.success && CONFIG.NOTIFY_TELEGRAM_ENABLED) {
                     const urlMsg = wpRes.postUrl ? `\n\n🔗 [글 보기](${wpRes.postUrl})` : '';
@@ -1526,15 +1527,21 @@ function createPublishActionsRuntime(deps = {}) {
             const safetyAdjustedTargets = Object.entries(results)
                 .filter(([, result]) => result?.success && result.status === 'draft' && postStatus !== 'draft')
                 .map(([target]) => target);
+            const wordpressImageUploadFailures = (results.wordpress?.warnings || [])
+                .filter((warning) => /^이미지 \d+번 업로드 실패$/.test(warning)).length;
+            const completionDetail = `${sourceLabel}${targetLabel ? ` · ${targetLabel}` : ''}${wordpressImageUploadFailures > 0
+                ? ` · 이미지 ${wordpressImageUploadFailures}개 업로드 실패`
+                : ''}`;
             recordUiActivity({
                 category: 'publish',
                 type: 'local_markdown_publish_completed',
                 title: `원고 ${publishLabel} 완료`,
-                detail: `${sourceLabel}${targetLabel ? ` · ${targetLabel}` : ''}`,
+                detail: completionDetail,
                 meta: {
                     source: sourceType,
                     postStatus,
-                    targets: Array.isArray(targets) ? targets.slice() : []
+                    targets: Array.isArray(targets) ? targets.slice() : [],
+                    ...(wordpressImageUploadFailures > 0 ? { wordpressImageUploadFailures } : {})
                 }
             });
             return {

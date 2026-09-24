@@ -55,6 +55,16 @@ test('reusable generation and publish choices persist without carrying article d
   assert.doesNotMatch(queue.match(/function readBlogNextTopicSettings\(\) \{[\s\S]*?\n\}/)?.[0] || '', /scheduleDate|referenceUrl|subject|keywords|instruction/);
 });
 
+test('WordPress image upload warnings remain visible after a successful draft save', () => {
+  const execution = read('ui/scripts/features/blog-next/draft-execution.js');
+  const publishRuntime = read('src/ui-runtime/publish-actions-runtime.js');
+
+  assert.match(publishRuntime, /warnings: Array\.isArray\(wpRes\.warnings\)/);
+  assert.match(execution, /results\?\.wordpress\?\.warnings/);
+  assert.match(execution, /이미지 \$\{wordpressImageUploadFailures\}개를 올리지 못했습니다\. 워드프레스에서 확인해 주세요\./);
+  assert.match(publishRuntime, /이미지 \$\{wordpressImageUploadFailures\}개 업로드 실패/);
+});
+
 test('unresolved AI images can be opened directly from the publish restriction', () => {
   const html = readBlogNextView();
   const inputs = read('ui/scripts/features/blog-next/draft-inputs.js');
@@ -93,6 +103,23 @@ test('AI manuscript cancellation stays in the shared execution status', () => {
   assert.match(read('ui/scripts/features/blog-next/runner.js'), /6000\)/);
   assert.match(read('ui/styles/features/continuous-publishing.css'), /\.blog-next-publish-status-stop-control\[data-disabled="true"\]:hover/);
   assert.match(read('src/core.js'), /reportPublishProgress\('submitting'\);[\s\S]*?await btn\.click\(\)/);
+});
+
+test('quick flow keeps results independent from edited inputs and scopes duplicate posts by platform', () => {
+  const execution = read('ui/scripts/features/blog-next/draft-execution.js');
+  const inputs = read('ui/scripts/features/blog-next/draft-inputs.js');
+  const service = read('src/content/manuscript-draft-service.js');
+  const html = readBlogNextView();
+
+  assert.match(execution, /function isBlogNextDraftPublishCompleted\(type\)[\s\S]*?preview\?\.publishedTargets\?\.includes\(target\)/);
+  assert.match(execution, /function markBlogNextAiDraftSourceChanged[\s\S]*?already-created manuscript result/);
+  assert.doesNotMatch(execution, /options\.sourceDirty !== true/);
+  assert.match(execution, /function syncBlogNextDraftOperationControls[\s\S]*?beforeExecutionDisabled/);
+  assert.match(inputs, /function syncBlogNextImageAiReadiness\(\)[\s\S]*?state\.imageWorking/);
+  assert.match(service, /function getContentVersion\([\s\S]*?readContentsMarkdown\(locations\)[\s\S]*?hash\.update\(fsImpl\.readFileSync\(imagePath\)\)/);
+  assert.match(service, /entry\.content_version === contentVersion && entry\.target === target/);
+  assert.match(service, /publishedTargets: getPublishedTargets\(manifest, contentVersion\)/);
+  assert.match(html, /name="blog-next-publish-target"[^>]*type="radio"/);
 });
 
 test('AI cancellation copy stays concise with or without a previous manuscript', () => {

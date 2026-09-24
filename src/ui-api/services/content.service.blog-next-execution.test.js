@@ -112,9 +112,14 @@ test('direct Naver publish exposes a stop signal only after local preparation an
 });
 
 test('manuscript draft publishing resolves one exact snapshot before using the existing publisher', async () => {
-    const coordinator = createBlogNextExecutionCoordinator();
-    const published = [];
-    const manuscriptDraftService = {
+  const coordinator = createBlogNextExecutionCoordinator();
+  const published = [];
+  const publicationChecks = [];
+  const publicationRecords = [];
+  const manuscriptDraftService = {
+        assertNotPublished(input) {
+            publicationChecks.push(input);
+        },
         async preparePublishPayload(input) {
             assert.equal(input.draftId, 'draft-1');
             assert.equal(input.revision, 4);
@@ -133,7 +138,10 @@ test('manuscript draft publishing resolves one exact snapshot before using the e
                 }
             };
         },
-        getDraft: () => ({ draftId: 'draft-1', revision: 6 })
+        markPublished(input) {
+            publicationRecords.push(input);
+            return { draftId: 'draft-1', revision: 6 };
+        }
     };
     const service = createService(coordinator, async (input) => {
         published.push(input);
@@ -147,6 +155,42 @@ test('manuscript draft publishing resolves one exact snapshot before using the e
     assert.equal(result.revision, 6);
     assert.equal(result.publishPolicy.forcedDraft, true);
     assert.deepEqual(result.manuscriptPreview, { draftId: 'draft-1', revision: 6 });
+    assert.deepEqual(publicationChecks, [
+        { draftId: 'draft-1', revision: 4 },
+        { draftId: 'draft-1', revision: 6, target: 'naver' }
+    ]);
+    assert.deepEqual(publicationRecords, [{
+        draftId: 'draft-1', revision: 6, target: 'naver', postStatus: 'draft'
+    }]);
+});
+
+test('duplicate manuscript-target pair is rejected before the publisher is called', async () => {
+    const coordinator = createBlogNextExecutionCoordinator();
+    let prepareCount = 0;
+    let publishCount = 0;
+    const manuscriptDraftService = {
+        assertNotPublished() {
+            const error = new Error('이 원고는 이미 네이버 블로그에 처리했습니다.');
+            error.status = 409;
+            error.apiCode = 'MANUSCRIPT_ALREADY_PUBLISHED_TO_TARGET';
+            throw error;
+        },
+        async preparePublishPayload() {
+            prepareCount += 1;
+            return {};
+        }
+    };
+    const service = createService(coordinator, async () => {
+        publishCount += 1;
+        return { success: true };
+    }, {}, { manuscriptDraftService });
+
+    await assert.rejects(
+        () => service.publishManuscriptDraft({ draftId: 'draft-1', revision: 4 }),
+        (error) => error.apiCode === 'MANUSCRIPT_ALREADY_PUBLISHED_TO_TARGET'
+    );
+    assert.equal(prepareCount, 0);
+    assert.equal(publishCount, 0);
 });
 
 test('manuscript image auto-resolution stays inside the shared Blog Beta execution lock', async () => {

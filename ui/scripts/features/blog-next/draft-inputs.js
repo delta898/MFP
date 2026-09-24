@@ -6,9 +6,9 @@ function supportsBlogNextDraftAutomaticImages(type) {
 }
 
 const blogNextDraftState = {
-  ai: { preview: null, requestId: 0, publishing: false, generating: false, draftId: '', revision: 0, completedPublish: null, imageWorking: false, imageSafetyLocked: false, previewSyncFailed: false },
-  folder: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, imageObjectUrls: {}, draftId: '', revision: 0, completedPublish: null, imageWorking: false, imageSafetyLocked: false, previewSyncFailed: false },
-  paste: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, clearSnapshot: null, draftId: '', revision: 0, completedPublish: null, imageWorking: false, imageSafetyLocked: false, previewSyncFailed: false }
+  ai: { preview: null, requestId: 0, publishing: false, generating: false, draftId: '', revision: 0, imageWorking: false, imageSafetyLocked: false, previewSyncFailed: false },
+  folder: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, imageObjectUrls: {}, draftId: '', revision: 0, imageWorking: false, imageSafetyLocked: false, previewSyncFailed: false },
+  paste: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, clearSnapshot: null, draftId: '', revision: 0, imageWorking: false, imageSafetyLocked: false, previewSyncFailed: false }
 };
 
 function blogNextDraftContainer(type) {
@@ -363,7 +363,7 @@ function bindBlogNextManuscriptImageActions(type, container) {
   if (!container) return;
   container.querySelectorAll('[data-manuscript-image-picker]').forEach((button) => {
     button.addEventListener('click', () => {
-      if (blogNextDraftState[type].publishing || isBlogNextDraftPublishCompleted(type)) return;
+      if (blogNextDraftState[type].publishing || blogNextDraftState[type].imageWorking) return;
       container.querySelector(`[data-manuscript-image-file][data-slot-id="${button.dataset.slotId}"]`)?.click();
     });
   });
@@ -409,9 +409,9 @@ function syncBlogNextImageAiReadiness() {
     notice.hidden = !blocked;
   });
   document.querySelectorAll('[data-manuscript-image-action="generate"], [data-manuscript-generate-missing]').forEach((button) => {
-    const type = button.closest('[data-blog-next-draft-preview]')?.dataset.blogNextDraftPreview;
-    button.disabled = blocked || BLOG_NEXT_DRAFT_TYPES.some((entry) => blogNextDraftState[entry].publishing)
-      || (type && isBlogNextDraftPublishCompleted(type));
+    button.disabled = blocked || BLOG_NEXT_DRAFT_TYPES.some((entry) => (
+      blogNextDraftState[entry].publishing || blogNextDraftState[entry].generating || blogNextDraftState[entry].imageWorking
+    ));
     if (blocked) button.title = 'AI 이미지 모델 설정이 필요합니다.';
     else button.removeAttribute('title');
   });
@@ -445,7 +445,7 @@ function bindBlogNextManuscriptBodyImageFallback(body) {
 
 async function generateMissingBlogNextManuscriptImages(type) {
   const state = blogNextDraftState[type];
-  if (!state.draftId || state.imageWorking || state.publishing || isBlogNextDraftPublishCompleted(type)) return;
+  if (!state.draftId || state.imageWorking || state.publishing) return;
   if (typeof ensureUiCapabilityReady === 'function' && !await ensureUiCapabilityReady('ai.image')) {
     syncBlogNextImageAiReadiness();
     return;
@@ -455,7 +455,7 @@ async function generateMissingBlogNextManuscriptImages(type) {
 
 async function applyBlogNextManuscriptMutation(type, action, slotId, payload = {}) {
   const state = blogNextDraftState[type];
-  if (!state.draftId || state.imageWorking || state.publishing || isBlogNextDraftPublishCompleted(type)) return null;
+  if (!state.draftId || state.imageWorking || state.publishing) return null;
   state.imageWorking = true;
   syncBlogNextDraftExecutionState();
   const imageList = document.querySelector(`[data-blog-next-mode-panel="${type}"] [data-draft-preview-images]`);
@@ -489,7 +489,7 @@ async function applyBlogNextManuscriptMutation(type, action, slotId, payload = {
 }
 
 async function runBlogNextManuscriptImageAction(type, action, slotId) {
-  if (blogNextDraftState[type].publishing || isBlogNextDraftPublishCompleted(type)) return;
+  if (blogNextDraftState[type].publishing || blogNextDraftState[type].imageWorking) return;
   const image = blogNextDraftState[type].preview?.images?.find((item) => item.slotId === slotId);
   if (action === 'generate' && typeof ensureUiCapabilityReady === 'function'
     && !await ensureUiCapabilityReady('ai.image')) {
@@ -506,7 +506,7 @@ async function runBlogNextManuscriptImageAction(type, action, slotId) {
 }
 
 async function importBlogNextManuscriptImage(type, slotId, input) {
-  if (blogNextDraftState[type].publishing || isBlogNextDraftPublishCompleted(type)) return;
+  if (blogNextDraftState[type].publishing || blogNextDraftState[type].imageWorking) return;
   const file = input?.files?.[0];
   if (!file) return;
   if (file.size > 10 * 1024 * 1024) {
@@ -617,7 +617,6 @@ function clearBlogNextFolderDraft() {
   state.preview = null;
   state.draftId = '';
   state.revision = 0;
-  state.completedPublish = null;
   state.requestId += 1;
   const input = document.getElementById('blog-next-folder-input');
   if (input) input.value = '';
@@ -670,7 +669,6 @@ function resetBlogNextPasteDraftConnection() {
   const state = blogNextDraftState.paste;
   state.draftId = '';
   state.revision = 0;
-  state.completedPublish = null;
   state.preview = null;
   state.previewSyncFailed = false;
 }
@@ -721,7 +719,6 @@ function initBlogNextDraftInputs() {
     blogNextDraftState.folder.folderName = folderName;
     blogNextDraftState.folder.draftId = '';
     blogNextDraftState.folder.revision = 0;
-    blogNextDraftState.folder.completedPublish = null;
     syncBlogNextFolderSelection(folderName);
     event.target.value = '';
     renderBlogNextDraftPreview('folder', null);

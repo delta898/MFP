@@ -243,6 +243,44 @@ function createManuscriptDraftService(options = {}) {
         return slot.current_file ? pathImpl.join(locations.source, slot.current_file) : '';
     }
 
+    function getContentVersion(locations, manifest) {
+        const hash = cryptoImpl.createHash('sha256');
+        hash.update('manuscript-result-v1\0');
+        hash.update(readContentsMarkdown(locations));
+        for (const slot of [...(manifest.image_slots || [])].sort((left, right) => Number(left.index) - Number(right.index))) {
+            const state = String(slot.state || (slot.current_file ? 'ready' : 'missing'));
+            hash.update(`\0${slot.index}:${state}\0`);
+            if (state === 'excluded' || !slot.current_file) continue;
+            const imagePath = currentFileForSlot(locations, slot);
+            if (fsImpl.existsSync(imagePath)) hash.update(fsImpl.readFileSync(imagePath));
+        }
+        return hash.digest('hex');
+    }
+
+    function getPublishedTargets(manifest, contentVersion) {
+        return [...new Set((manifest.publication_history || [])
+            .filter((entry) => entry.content_version === contentVersion)
+            .map((entry) => String(entry.target || ''))
+            .filter(Boolean))];
+    }
+
+    function assertNotPublished(input = {}) {
+        const { locations, manifest } = readManifest(input.draftId);
+        if (input.revision !== undefined) assertRevision(manifest, input.revision);
+        assertDraftActive(manifest);
+        const target = input.target !== undefined
+            ? requireSinglePublishTarget([input.target])[0]
+            : requireSinglePublishTarget(manifest.settings.targets)[0];
+        const contentVersion = getContentVersion(locations, manifest);
+        if ((manifest.publication_history || []).some((entry) => (
+            entry.content_version === contentVersion && entry.target === target
+        ))) {
+            const targetName = target === 'naver' ? '네이버' : '워드프레스';
+            throw manuscriptError(409, 'MANUSCRIPT_ALREADY_PUBLISHED_TO_TARGET', `이 원고는 이미 ${targetName}에 처리했습니다.`);
+        }
+        return { contentVersion, target, publishedTargets: getPublishedTargets(manifest, contentVersion) };
+    }
+
     function buildPublicDraft(manifest, locations) {
         const preview = buildLocalMarkdownPreview({
             directoryPath: locations.source,
@@ -293,9 +331,12 @@ function createManuscriptDraftService(options = {}) {
             const image = preview.images.find((entry) => Number(entry.index) === Number(match[1]));
             return !image?.exists && !image?.excluded;
         });
+        const contentVersion = getContentVersion(locations, manifest);
         return {
             draftId: manifest.id,
             revision: manifest.revision,
+            contentVersion,
+            publishedTargets: getPublishedTargets(manifest, contentVersion),
             sourceKind: manifest.source_kind,
             relatedPosts: manifest.related_posts || defaultRelatedPostsState(manifest.settings?.targets),
             createdAt: manifest.created_at,
@@ -776,10 +817,23 @@ function createManuscriptDraftService(options = {}) {
     function markPublished(input = {}) {
         const { locations, manifest } = readManifest(input.draftId);
         assertRevision(manifest, input.revision);
-        manifest.lifecycle_status = 'completed';
-        manifest.completed_at = new Date(now()).toISOString();
+        const publication = assertNotPublished({
+            draftId: input.draftId,
+            revision: input.revision,
+            target: input.target
+        });
+        const publishedAt = new Date(now()).toISOString();
+        manifest.publication_history = [...(manifest.publication_history || []), {
+            content_version: publication.contentVersion,
+            target: publication.target,
+            post_status: String(input.postStatus || manifest.settings.postStatus || 'publish'),
+            published_at: publishedAt
+        }];
+        manifest.lifecycle_status = 'active';
+        manifest.updated_at = publishedAt;
+        delete manifest.completed_at;
         atomicWriteJson(fsImpl, locations.manifest, manifest);
-        Logger?.info?.(`✅ [ManuscriptDraft] 원고 작업 완료 기록 (draft=${manifest.id}, revision=${manifest.revision})`);
+        Logger?.info?.(`✅ [ManuscriptDraft] 플랫폼 발행 기록 (draft=${manifest.id}, revision=${manifest.revision}, target=${publication.target})`);
         return buildPublicDraft(manifest, locations);
     }
 
@@ -800,7 +854,7 @@ function createManuscriptDraftService(options = {}) {
         Logger?.info?.(`ℹ️ [ManuscriptDraft] 만료 원고 ${startupCleanup.removed}개를 시작 시 정리했습니다.`);
     }
 
-    return { createFolderDraft, createPasteDraft, createAiDraft, getDraft, updateSettings, updateMarkdown, importLocalImage, excludeImage, restoreImage, generateImage, generateMissingImages, refreshDraftRelatedPosts, preparePublishPayload, buildPublishPayload, markPublished, cleanupExpiredDrafts, getImage };
+    return { createFolderDraft, createPasteDraft, createAiDraft, getDraft, updateSettings, updateMarkdown, importLocalImage, excludeImage, restoreImage, generateImage, generateMissingImages, refreshDraftRelatedPosts, preparePublishPayload, buildPublishPayload, assertNotPublished, markPublished, cleanupExpiredDrafts, getImage };
 }
 
 module.exports = { createManuscriptDraftService, detectImageType, validateImageBuffer };
