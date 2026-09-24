@@ -23,6 +23,10 @@ function createHarness() {
         async startShoppingReadyTopic(body) {
             calls.push({ shoppingRunner: body });
             return { rowIndex: 3, status: '발행 완료', targets: ['naver'] };
+        },
+        stopCurrentExecution() {
+            calls.push('stop-runner');
+            return { accepted: true, state: 'stop_requested', source: 'local_markdown' };
         }
     };
     const controller = createContinuousPublishingController({
@@ -114,4 +118,26 @@ test('shopping lifecycle runner is served by the continuous publishing route', a
     assert.equal(handled, true);
     assert.deepEqual(harness.calls, [{ shoppingRunner: { rowIndex: 3, headless: false } }]);
     assert.equal(harness.responses[0].data.status, '발행 완료');
+});
+
+test('stopping a runner execution is exposed only as a POST action', async () => {
+    const harness = createHarness();
+    const handled = await harness.handler({
+        pathname: '/api/v1/continuous-publishing/runner/stop',
+        method: 'POST',
+        requestId: 'runner-stop-1'
+    });
+
+    assert.equal(handled, true);
+    assert.deepEqual(harness.calls, ['stop-runner']);
+    assert.equal(harness.responses[0].data.accepted, true);
+
+    const rejected = createHarness();
+    await rejected.handler({
+        pathname: '/api/v1/continuous-publishing/runner/stop',
+        method: 'GET',
+        requestId: 'runner-stop-read'
+    });
+    assert.deepEqual(rejected.calls, []);
+    assert.equal(rejected.responses[0].status, 405);
 });

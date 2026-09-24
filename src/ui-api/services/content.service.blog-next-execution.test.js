@@ -81,6 +81,36 @@ test('Naver browser milestones reach the shared status while direct publish is r
     assert.deepEqual(coordinator.getStatus(), { busy: false });
 });
 
+test('direct Naver publish exposes a stop signal only after local preparation and settles as stopped', async () => {
+    const coordinator = createBlogNextExecutionCoordinator();
+    let publishInput;
+    let publishSignal;
+    let finish;
+    const service = createService(coordinator, async (input, options) => {
+        publishInput = input;
+        publishSignal = options.signal;
+        input.onPreparationComplete();
+        input.onNaverProgress({ stage: 'editor', postStatus: 'draft' });
+        return new Promise(resolve => { finish = resolve; });
+    });
+
+    const publishing = service.localMarkdownPublish({ markdownText: '# 네이버 원고', targets: ['naver'], postStatus: 'draft' });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(typeof publishInput.onPreparationComplete, 'function');
+    assert.equal(coordinator.getStatus().canStop, true);
+    assert.equal(publishSignal.aborted, false);
+
+    assert.equal(coordinator.requestStop().accepted, true);
+    assert.equal(publishSignal.aborted, true);
+    finish({
+        success: false,
+        code: 'BLOG_NEXT_EXECUTION_STOPPED',
+        message: '네이버 포스팅을 중지했습니다. 이미 처리된 저장·발행은 되돌리지 않습니다.'
+    });
+    await assert.rejects(publishing, (error) => error.apiCode === 'BLOG_NEXT_EXECUTION_STOPPED');
+    assert.equal(coordinator.getStatus().state, 'stopped');
+});
+
 test('manuscript draft publishing resolves one exact snapshot before using the existing publisher', async () => {
     const coordinator = createBlogNextExecutionCoordinator();
     const published = [];

@@ -3145,11 +3145,19 @@ async function run() {
         assert.equal(await page.locator('#blog-next-publish-status-cancel').isVisible(), true);
         await page.waitForFunction(() => document.getElementById('blog-next-publish-status-message')?.textContent?.includes('이미지를 준비'));
         await page.locator('#blog-next-publish-status-cancel').click();
+        assert.equal((await page.locator('#blog-next-publish-status-cancel').textContent())?.trim(), '중지 확인');
+        assert.equal(await page.locator('#blog-next-publish-status-continue').isVisible(), true);
+        await page.locator('#blog-next-publish-status-continue').click();
+        assert.equal((await page.locator('#blog-next-publish-status-cancel').textContent())?.trim(), '생성 중지');
+        assert.equal(await page.locator('#blog-next-publish-status-continue').isHidden(), true);
+        await page.locator('#blog-next-publish-status-cancel').click();
+        assert.equal((await page.locator('#blog-next-publish-status-cancel').textContent())?.trim(), '중지 확인');
+        await page.locator('#blog-next-publish-status-cancel').click();
         await page.waitForFunction(() => document.getElementById('blog-next-publish-status')?.dataset.state === 'cancel_requested');
         assert.equal(await page.locator('#blog-next-regenerate-draft').isDisabled(), true);
         assert.equal(await page.locator('#blog-next-publish-status-cancel').isDisabled(), true);
         await page.waitForFunction(() => document.getElementById('blog-next-publish-status')?.dataset.state === 'canceled');
-        assert.equal((await page.locator('#blog-next-publish-status-message').textContent())?.trim(), '원고 생성을 취소했습니다.');
+        assert.equal((await page.locator('#blog-next-publish-status-message').textContent())?.trim(), '원고 생성을 중지했습니다.');
         assert.equal(await page.locator('#blog-next-publish-status-help').isVisible(), true);
         await page.locator('#blog-next-publish-status-help summary').hover();
         assert.equal(await page.locator('#blog-next-publish-status-help').evaluate((element) => element.open), true);
@@ -3607,6 +3615,46 @@ async function run() {
         assert.equal(pastedPublishRequest?.body?.draftId, PASTE_MANUSCRIPT_DRAFT_ID);
         assert.equal(pastedPublishRequest?.body?.revision, 5);
         await page.evaluate(() => document.getElementById('ui-toast-container')?.replaceChildren());
+
+        let naverStopRequestCount = 0;
+        await page.route('**/api/v1/continuous-publishing/runner/stop', async (route) => {
+            naverStopRequestCount += 1;
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json; charset=utf-8',
+                body: JSON.stringify({ success: true, data: { accepted: true, state: 'stop_requested' } })
+            });
+        });
+        await page.evaluate(() => renderBlogNextRunnerStatus({
+            state: 'running', busy: true, canStop: true, source: 'local_markdown',
+            subject: '중지할 네이버 원고', progressStage: 'body',
+            message: '네이버 원고를 입력하고 있습니다.'
+        }));
+        assert.equal((await page.locator('#blog-next-publish-status-cancel').textContent())?.trim(), '포스팅 중지');
+        assert.equal(await page.locator('#blog-next-publish-status-help').isVisible(), true);
+        assert.match((await page.locator('#blog-next-publish-status-help-text').textContent()) || '', /이미 네이버에 저장·발행된 내용은 되돌리지 않습니다/);
+        await page.locator('#blog-next-publish-status-cancel').click();
+        assert.equal((await page.locator('#blog-next-publish-status-cancel').textContent())?.trim(), '중지 확인');
+        assert.equal(naverStopRequestCount, 0);
+        await page.locator('#blog-next-publish-status-continue').click();
+        assert.equal(await page.locator('#blog-next-publish-status-continue').isHidden(), true);
+        await page.locator('#blog-next-publish-status-cancel').click();
+        await page.locator('#blog-next-publish-status-cancel').click();
+        await page.waitForFunction(() => document.getElementById('blog-next-publish-status')?.dataset.state === 'stop_requested');
+        assert.equal(await page.locator('#blog-next-publish-status-cancel').isDisabled(), true);
+        assert.equal(naverStopRequestCount, 1);
+        await page.evaluate(() => renderBlogNextRunnerStatus({
+            state: 'running', busy: true, source: 'local_markdown',
+            subject: '중지할 네이버 원고', progressStage: 'submitting',
+            postStatus: 'publish', message: '네이버 블로그에 발행을 요청하고 있습니다.'
+        }));
+        assert.equal(await page.locator('#blog-next-publish-status-cancel').isVisible(), true);
+        assert.equal(await page.locator('#blog-next-publish-status-cancel').isDisabled(), true);
+        assert.equal((await page.locator('#blog-next-publish-status-cancel').textContent())?.trim(), '중지할 수 없음');
+        await page.locator('#blog-next-publish-status-stop-control').focus();
+        assert.equal(await page.locator('#blog-next-publish-status-stop-note').isVisible(), true);
+        assert.match((await page.locator('#blog-next-publish-status-stop-note').textContent()) || '', /외부 반영 여부가 불확실해 중지할 수 없습니다/);
+        await page.unroute('**/api/v1/continuous-publishing/runner/stop');
 
         let manualSnsWorkspaceRequestCount = 0;
         await page.route('**/api/v1/social/manual/config', async (route) => {

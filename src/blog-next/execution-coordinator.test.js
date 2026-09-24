@@ -18,6 +18,7 @@ test('Blog Beta coordinator admits one execution and exposes only bounded public
     assert.ok(lease);
     assert.deepEqual(coordinator.getStatus(), {
         busy: true,
+        state: 'running',
         executionId: 'blog-next-1',
         source: 'local_markdown',
         subject: '원고 붙여넣기',
@@ -59,4 +60,48 @@ test('Blog Beta coordinator reports only the current execution progress', () => 
     assert.equal(first.updateProgress({ stage: 'verifying', message: '오래된 작업' }), false);
     assert.equal(coordinator.getStatus().message, '다음 작업');
     next.release();
+});
+
+test('Blog Beta coordinator only stops eligible local Markdown work and retains its terminal status', () => {
+    const coordinator = createBlogNextExecutionCoordinator({
+        now: () => new Date('2026-09-24T00:00:00.000Z')
+    });
+    const lease = coordinator.acquire({ source: 'local_markdown', canStop: true, message: '네이버 포스팅 중' });
+    assert.equal(coordinator.getStatus().canStop, true);
+    const stopped = coordinator.requestStop();
+    assert.equal(stopped.accepted, true);
+    assert.equal(lease.signal.aborted, true);
+    assert.equal(coordinator.getStatus().state, 'stop_requested');
+    lease.release();
+    assert.deepEqual(coordinator.getStatus(), {
+        busy: false,
+        state: 'stopped',
+        executionId: 'blog-next-1',
+        source: 'local_markdown',
+        subject: '원고 포스팅',
+        message: '네이버 포스팅을 중지했습니다. 이미 처리된 저장·발행은 되돌리지 않습니다.',
+        startedAt: '2026-09-24T00:00:00.000Z',
+        finishedAt: '2026-09-24T00:00:00.000Z'
+    });
+});
+
+test('Blog Beta coordinator does not allow stopping other or non-stoppable executions', () => {
+    const coordinator = createBlogNextExecutionCoordinator();
+    const lease = coordinator.acquire({ source: 'local_markdown', canStop: false });
+    assert.equal(coordinator.requestStop().accepted, false);
+    lease.release();
+    const other = coordinator.acquire({ source: 'continuous_runner', canStop: true });
+    assert.equal(coordinator.requestStop().accepted, false);
+    other.release();
+});
+
+test('Blog Beta coordinator closes the stop window before the final request', () => {
+    const coordinator = createBlogNextExecutionCoordinator();
+    const lease = coordinator.acquire({ source: 'local_markdown' });
+    lease.setCanStop(true);
+    assert.equal(coordinator.getStatus().canStop, true);
+    lease.updateProgress({ stage: 'submitting', message: '네이버 블로그에 발행을 요청하고 있습니다.' });
+    assert.equal(coordinator.getStatus().canStop, undefined);
+    assert.equal(coordinator.requestStop().accepted, false);
+    lease.release();
 });

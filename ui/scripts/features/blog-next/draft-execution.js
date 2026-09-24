@@ -181,14 +181,7 @@ function setBlogNextAiGenerating(generating) {
   });
   if (createButton) createButton.textContent = generating ? '원고 만드는 중...' : '원고 만들기';
   if (regenerateButton) regenerateButton.textContent = generating ? '다시 만드는 중...' : '원고 다시 만들기';
-  document.querySelectorAll('[data-blog-next-ai-cancel]').forEach((button) => {
-    button.hidden = !generating || !blogNextAiOperationId;
-    button.disabled = blogNextAiCancelRequesting
-      || blogNextAiOperationStatus?.state === 'cancel_requested'
-      || blogNextAiOperationStatus?.canCancel !== true;
-    button.textContent = blogNextAiOperationStatus?.state === 'cancel_requested'
-      ? '취소 요청 중…' : '생성 취소';
-  });
+  if (typeof syncBlogNextExecutionStopButton === 'function') syncBlogNextExecutionStopButton();
   if (typeof syncBlogNextTopicActionAvailability === 'function') syncBlogNextTopicActionAvailability();
   syncBlogNextDraftExecutionState();
 }
@@ -214,8 +207,8 @@ async function fetchBlogNextAiOperationStatus(url) {
 }
 
 function blogNextAiOperationMessage(status) {
-  if (status.state === 'cancel_requested') return '서버가 취소 요청을 처리하고 있습니다.';
-  if (status.state === 'canceled') return '원고 생성을 취소했습니다.';
+  if (status.state === 'cancel_requested') return '중지 요청을 처리하고 있습니다.';
+  if (status.state === 'canceled') return '원고 생성을 중지했습니다.';
   if (status.state === 'failed') return status.error?.message || '원고를 만들지 못했습니다.';
   if (status.state === 'completed') return '원고와 미리보기를 준비했습니다.';
   if (status.stage === 'images') return '이미지를 준비하고 있습니다.';
@@ -306,7 +299,7 @@ async function cancelBlogNextAiDraftGeneration() {
       renderBlogNextRunnerStatus({
         state: 'running', busy: true, source: 'manuscript_generation',
         subject: blogNextAiOperationStatus?.subject || '',
-        message: `${error.message || '취소 요청을 보내지 못했습니다.'} 생성은 계속되고 있습니다.`,
+        message: `${error.message || '중지 요청을 보내지 못했습니다.'} 생성은 계속되고 있습니다.`,
         remoteJobPossible: blogNextAiOperationStatus?.remoteJobPossible === true
       });
     }
@@ -579,8 +572,9 @@ async function publishBlogNextDraft(type) {
   } catch (error) {
     setBlogNextDraftValidation(type, state.preview?.validation, '', state.preview);
     if (typeof renderBlogNextRunnerStatus === 'function') {
+      const stopped = error.code === 'BLOG_NEXT_EXECUTION_STOPPED';
       renderBlogNextRunnerStatus({
-        state: 'failed',
+        state: stopped ? 'stopped' : 'failed',
         busy: false,
         source: 'local_markdown',
         postStatus: settings.postStatus,

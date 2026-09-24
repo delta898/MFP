@@ -17,6 +17,7 @@ function createContinuousPublishingRouteHandler(deps = {}) {
         if (ctx.pathname === '/api/v1/continuous-publishing/queue/reorder') return controller.reorderQueue(ctx);
         if (ctx.pathname === '/api/v1/continuous-publishing/runner/start') return controller.startRunner(ctx);
         if (ctx.pathname === '/api/v1/continuous-publishing/runner/status') return controller.runnerStatus(ctx);
+        if (ctx.pathname === '/api/v1/continuous-publishing/runner/stop') return controller.stopRunner(ctx);
         if (ctx.pathname === '/api/v1/continuous-publishing/status-summary') return controller.statusSummary(ctx);
         return false;
     };

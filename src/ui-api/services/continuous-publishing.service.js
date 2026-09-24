@@ -440,10 +440,22 @@ function createContinuousPublishingService(deps = {}) {
 
     function getRunnerStatusSnapshot() {
         const sharedStatus = blogNextExecutionCoordinator.getStatus();
+        if (!runnerPromise && sharedStatus.state === 'stopped') {
+            externalExecutionObserved = false;
+            return {
+                ...runnerState,
+                ...sharedStatus,
+                state: 'stopped',
+                resultStatus: '',
+                completionLinks: [],
+                busy: false
+            };
+        }
         if (!runnerPromise && sharedStatus.busy) {
             externalExecutionObserved = true;
             return {
                 state: 'running',
+                ...(sharedStatus.state === 'stop_requested' ? { state: 'stop_requested' } : {}),
                 message: sharedStatus.message,
                 ...(sharedStatus.progressStage ? { progressStage: sharedStatus.progressStage } : {}),
                 ...(sharedStatus.postStatus ? { postStatus: sharedStatus.postStatus } : {}),
@@ -454,6 +466,7 @@ function createContinuousPublishingService(deps = {}) {
                 startedAt: sharedStatus.startedAt,
                 finishedAt: '',
                 source: sharedStatus.source,
+                ...(sharedStatus.canStop === true ? { canStop: true } : {}),
                 busy: true
             };
         }
@@ -839,6 +852,14 @@ function createContinuousPublishingService(deps = {}) {
 
         getRunnerStatus() {
             return getRunnerStatusSnapshot();
+        },
+
+        stopCurrentExecution() {
+            const result = blogNextExecutionCoordinator.requestStop();
+            if (!result.accepted) {
+                throw createApiError(409, 'BLOG_NEXT_EXECUTION_NOT_STOPPABLE', '현재 작업은 지금 중지할 수 없습니다.');
+            }
+            return { accepted: true, ...result.status };
         },
 
         async getGlobalStatusSummary() {

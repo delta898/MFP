@@ -138,10 +138,11 @@ function createContentService(deps = {}) {
         }
     }
 
-    async function executeCompletedLocalMarkdownPublish(requestBody = {}) {
-        const result = await executeLocalMarkdownPublish(requestBody);
+    async function executeCompletedLocalMarkdownPublish(requestBody = {}, executionOptions = {}) {
+        const result = await executeLocalMarkdownPublish(requestBody, executionOptions);
         if (!result.success) {
-            throw createApiError(400, result.code || 'LOCAL_MARKDOWN_PUBLISH_FAILED', result.message || '원고 포스팅에 실패했습니다.');
+            const stopped = result.code === 'BLOG_NEXT_EXECUTION_STOPPED';
+            throw createApiError(stopped ? 409 : 400, result.code || 'LOCAL_MARKDOWN_PUBLISH_FAILED', result.message || '원고 포스팅에 실패했습니다.');
         }
         return {
             ...result.data,
@@ -1098,7 +1099,7 @@ function createContentService(deps = {}) {
             return runBlogNextExecution({
                 source: 'local_markdown',
                 subject: '원고 포스팅',
-                message: '빈 이미지를 준비한 뒤 원고를 포스팅합니다.'
+                message: '원고 포스팅을 준비하고 있습니다.'
             }, async (lease) => {
                 const snapshot = await getManuscriptDraftService().preparePublishPayload({
                     ...requestBody,
@@ -1110,15 +1111,18 @@ function createContentService(deps = {}) {
                         });
                     }
                 });
+                const canStopNaver = (Array.isArray(snapshot.settings?.targets) ? snapshot.settings.targets : []).includes('naver');
                 const result = await executeCompletedLocalMarkdownPublish({
                     ...snapshot.settings,
                     ...snapshot,
                     operationId: requestBody.operationId,
+                    onPreparationComplete() { lease.setCanStop(canStopNaver); },
                     onNaverProgress(progress) {
+                        if (progress?.stage === 'editor') lease.setCanStop(canStopNaver);
                         const presentation = presentNaverPublishProgress(progress, snapshot.settings.postStatus);
                         if (presentation) lease.updateProgress(presentation);
                     }
-                });
+                }, { signal: lease.signal });
                 const draftService = getManuscriptDraftService();
                 const manuscriptPreview = typeof draftService.markPublished === 'function'
                     ? draftService.markPublished({
@@ -1141,15 +1145,20 @@ function createContentService(deps = {}) {
             return runBlogNextExecution({
                 source: 'local_markdown',
                 subject: generated ? '바로 생성 원고' : (pasted ? '원고 붙여넣기' : '원고 폴더'),
-                message: '원고 포스팅을 처리하고 있습니다.'
+                message: '원고 포스팅을 준비하고 있습니다.',
+                canStop: false
             }, async (lease) => {
                 return executeCompletedLocalMarkdownPublish({
                     ...requestBody,
+                    onPreparationComplete() {
+                        lease.setCanStop((Array.isArray(requestBody.targets) ? requestBody.targets : []).includes('naver'));
+                    },
                     onNaverProgress(progress) {
+                        if (progress?.stage === 'editor') lease.setCanStop((Array.isArray(requestBody.targets) ? requestBody.targets : []).includes('naver'));
                         const presentation = presentNaverPublishProgress(progress, requestBody.postStatus);
                         if (presentation) lease.updateProgress(presentation);
                     }
-                });
+                }, { signal: lease.signal });
             });
         },
 

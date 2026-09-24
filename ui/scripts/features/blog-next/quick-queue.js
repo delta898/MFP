@@ -733,7 +733,10 @@ function initBlogNextQuickQueue() {
   document.getElementById('blog-next-save-topic')?.addEventListener('click', () => submitBlogNextTopic('save'));
   ['blog-next-publish-now', 'blog-next-regenerate-draft'].forEach((id) =>
     document.getElementById(id)?.addEventListener('click', () => generateBlogNextAiDraft(id === 'blog-next-regenerate-draft' ? 'regenerate' : 'create')));
-  document.querySelectorAll('[data-blog-next-ai-cancel]').forEach((button) => button.addEventListener('click', () => cancelBlogNextAiDraftGeneration()));
+  document.querySelectorAll('[data-blog-next-execution-stop]').forEach((button) => button.addEventListener('click', () => {
+    handleBlogNextExecutionStopClick();
+  }));
+  document.querySelectorAll('[data-blog-next-execution-continue]').forEach((button) => button.addEventListener('click', continueBlogNextExecution));
   document.getElementById('blog-next-cancel-edit')?.addEventListener('click', () => closeBlogNextEditor());
   document.getElementById('blog-next-post-status')?.addEventListener('change', syncBlogNextScheduleField);
   document.getElementById('blog-next-writing-settings-open')?.addEventListener('click', async () => {

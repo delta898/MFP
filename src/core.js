@@ -2120,6 +2120,14 @@ ${scrapedContext}`;
 	*/
 	publishToBlog: async function (dirPath, options = {}) {
 		assertDirectPublishAllowed(CONFIG, options);
+		const signal = options.signal;
+		const throwIfPublishStopped = () => {
+			if (!signal?.aborted) return;
+			const error = new Error('네이버 포스팅을 중지했습니다. 이미 처리된 저장·발행은 되돌리지 않습니다.');
+			error.code = 'BLOG_NEXT_EXECUTION_STOPPED';
+			throw error;
+		};
+		throwIfPublishStopped();
 		Logger.info(`🚀 [Step 5] 발행 시작: ${path.basename(dirPath)}`);
 
 		const authPath = CONFIG.AUTH_FILE_PATH || Constants.AUTH_FILE_PATH;
@@ -2161,6 +2169,10 @@ ${scrapedContext}`;
 			headless,
 			windowSize: headless ? null : resolvePublishWindowSize()
 		});
+		if (signal?.aborted) {
+			await browser.close().catch(() => {});
+			throwIfPublishStopped();
+		}
 		const context = await browser.newContext({
 			storageState: authPath,
 			viewport: viewport,
@@ -2174,6 +2186,10 @@ ${scrapedContext}`;
 		}
 
 		const page = await context.newPage();
+		if (signal?.aborted) {
+			await browser.close().catch(() => {});
+			throwIfPublishStopped();
+		}
 		const dialogHandler = async dialog => {
 			if (dialog.type() === 'beforeunload') {
 				// 사용자의 수동 종료 의사를 존중하여 허용
@@ -2201,8 +2217,11 @@ ${scrapedContext}`;
 					return false;
 				}
 			};
+			const onPublishStop = () => { void closeBrowserSession('사용자 중지'); };
+			if (signal) signal.addEventListener('abort', onPublishStop, { once: true });
 
 			try {
+				throwIfPublishStopped();
 				Logger.info("   🔄 블로그 에디터 접속 중...");
 			const writeUrl = CONFIG.WRITE_URL || `https://blog.naver.com/${CONFIG.NAVER_ID}/postwrite`;
 			Logger.info(`   🔗 접속 URL: ${writeUrl}`);
@@ -2257,6 +2276,7 @@ ${scrapedContext}`;
 			let hasImageWarnings = false;
 
 			for (const item of contents) {
+				throwIfPublishStopped();
 				if (item.type === 'header-h2') {
 					sectionCurrent += 1;
 					reportPublishProgress('body', sectionCurrent, sectionTotal);
@@ -2729,8 +2749,9 @@ ${scrapedContext}`;
 					for (const selector of finalPublishBtnSelectors) {
 						const btn = page.locator(selector).first();
 						if (await btn.isVisible()) {
-							await btn.click();
+							throwIfPublishStopped();
 							reportPublishProgress('submitting');
+							await btn.click();
 							Logger.info(`   ✅ [최종 발행] 버튼 클릭 성공 (${selector})`);
 							finalClicked = true;
 							break;
@@ -2750,8 +2771,9 @@ ${scrapedContext}`;
 						// 2. 에디터 상단 '저장' 버튼 클릭
 						const saveBtn = page.locator('button.se-save-button, button:has-text("저장")').first();
 						if (await saveBtn.isVisible()) {
-							await saveBtn.click();
+							throwIfPublishStopped();
 							reportPublishProgress('submitting');
+							await saveBtn.click();
 							await Utils.sleep(3000);
 							Logger.info("   ✅ 임시저장 완료 (카테고리 설정 포함)");
 							return { success: true, message: isDraftMode ? 'Saved as draft' : 'Saved as draft due to category failure', status: 'draft' };
@@ -2788,11 +2810,13 @@ ${scrapedContext}`;
 			}
 
 			} catch (e) {
+				if (signal?.aborted) throwIfPublishStopped();
 				Logger.error(`❌ 에러 발생: ${e.message}`);
 				throw e;
 			} finally {
+				if (signal) signal.removeEventListener('abort', onPublishStop);
 				const currentUrl = String(page?.url?.() || '');
-				if (context && currentUrl && !/nid\.naver\.com/i.test(currentUrl) && !/nidlogin\.login/i.test(currentUrl)) {
+				if (!signal?.aborted && context && currentUrl && !/nid\.naver\.com/i.test(currentUrl) && !/nidlogin\.login/i.test(currentUrl)) {
 					await persistAuthSessionState(context, { authPath });
 				}
 
@@ -2805,7 +2829,9 @@ ${scrapedContext}`;
 				const isHeadless = headless === true;
 				const isLast = options.isLast === true;
 
-				if (!isHeadless && isLast) {
+				if (signal?.aborted) {
+					await closeBrowserSession('사용자 중지');
+				} else if (!isHeadless && isLast) {
 					if (page) {
 						page.off('dialog', dialogHandler);
 						page.once('close', () => {

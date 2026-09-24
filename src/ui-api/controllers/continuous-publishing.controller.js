@@ -145,6 +145,15 @@ function createContinuousPublishingController(deps = {}) {
             }
         },
 
+        async stopRunner({ requestId, method, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, service.stopCurrentExecution());
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'CONTINUOUS_RUNNER_STOP_FAILED', '현재 작업을 중지하지 못했습니다.', error);
+            }
+        },
+
         async statusSummary({ requestId, method, res }) {
             if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
             try {

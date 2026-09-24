@@ -1,5 +1,5 @@
-const BLOG_NEXT_RUNNER_ACTIVE_STATES = new Set(['selecting', 'running', 'accepted', 'cancel_requested']);
-const BLOG_NEXT_RUNNER_TERMINAL_STATES = new Set(['completed', 'simulated', 'failed', 'canceled', 'needs_attention', 'blocked', 'empty']);
+const BLOG_NEXT_RUNNER_ACTIVE_STATES = new Set(['selecting', 'running', 'accepted', 'cancel_requested', 'stop_requested']);
+const BLOG_NEXT_RUNNER_TERMINAL_STATES = new Set(['completed', 'simulated', 'failed', 'canceled', 'stopped', 'needs_attention', 'blocked', 'empty']);
 
 let blogNextRunnerPollingTimer = null;
 let blogNextRunnerRequesting = false;
@@ -10,6 +10,8 @@ let blogNextRunnerObservedFinishedAt = '';
 let blogNextRunnerStatusInitialized = false;
 let blogNextLocalPublishProgressTimer = null;
 let blogNextLocalPublishProgressToken = 0;
+let blogNextStopConfirmationPending = false;
+let blogNextStopConfirmationTimer = null;
 let blogNextStatusReturnTarget = null;
 let blogNextStatusReturnFallback = null;
 let blogNextStatusReturnMode = 'ai';
@@ -45,6 +47,41 @@ function stopBlogNextLocalPublishProgress() {
   blogNextLocalPublishProgressTimer = null;
 }
 
+function clearBlogNextStopConfirmation() {
+  blogNextStopConfirmationPending = false;
+  clearTimeout(blogNextStopConfirmationTimer);
+  blogNextStopConfirmationTimer = null;
+}
+
+function handleBlogNextExecutionStopClick() {
+  const status = blogNextRunnerLastStatus || {};
+  const localPublish = status.source === 'local_markdown';
+  const manuscriptGeneration = status.source === 'manuscript_generation';
+  const canStop = localPublish
+    ? status.canStop === true && status.state === 'running'
+    : manuscriptGeneration && blogNextAiOperationStatus?.canCancel === true;
+  if (!canStop) return;
+  if (blogNextStopConfirmationPending) {
+    clearBlogNextStopConfirmation();
+    syncBlogNextExecutionStopButton();
+    if (localPublish) void stopBlogNextLocalMarkdownPublish();
+    else void cancelBlogNextAiDraftGeneration();
+    return;
+  }
+  blogNextStopConfirmationPending = true;
+  clearTimeout(blogNextStopConfirmationTimer);
+  blogNextStopConfirmationTimer = setTimeout(() => {
+    clearBlogNextStopConfirmation();
+    syncBlogNextExecutionStopButton();
+  }, 6000);
+  syncBlogNextExecutionStopButton();
+}
+
+function continueBlogNextExecution() {
+  clearBlogNextStopConfirmation();
+  syncBlogNextExecutionStopButton();
+}
+
 function dismissBlogNextStatusForNewWriting() {
   blogNextRunnerDismissedKey = getBlogNextRunnerStatusKey(blogNextRunnerLastStatus);
   const panel = document.getElementById('blog-next-publish-status');
@@ -63,8 +100,12 @@ function startBlogNextLocalPublishProgress(getSubject) {
     try {
       const status = await fetchJson('/api/v1/continuous-publishing/runner/status');
       if (token === blogNextLocalPublishProgressToken
-        && status.source === 'local_markdown' && status.state === 'running') {
+        && status.source === 'local_markdown' && ['running', 'stop_requested', 'stopped'].includes(status.state)) {
         renderBlogNextRunnerStatus({ ...status, subject: getSubject?.() || '' });
+        if (status.state === 'stopped') {
+          stopBlogNextLocalPublishProgress();
+          return;
+        }
       }
     } catch (_error) {
       // A missed status poll must not interrupt the authoritative publish request.
@@ -75,6 +116,34 @@ function startBlogNextLocalPublishProgress(getSubject) {
     }
   };
   blogNextLocalPublishProgressTimer = setTimeout(poll, 400);
+}
+
+async function stopBlogNextLocalMarkdownPublish() {
+  const status = blogNextRunnerLastStatus || {};
+  if (status.source !== 'local_markdown' || status.canStop !== true) return;
+  renderBlogNextRunnerStatus({
+    ...status,
+    state: 'stop_requested',
+    busy: true,
+    canStop: false,
+    message: '네이버 포스팅 중지를 처리하고 있습니다.'
+  });
+  try {
+    await postJson('/api/v1/continuous-publishing/runner/stop', {});
+  } catch (error) {
+    const latest = await fetchJson('/api/v1/continuous-publishing/runner/status').catch(() => null);
+    if (latest?.source === 'local_markdown') {
+      renderBlogNextRunnerStatus(latest);
+    } else {
+      renderBlogNextRunnerStatus({
+        ...status,
+        state: 'running',
+        busy: true,
+        canStop: status.canStop === true,
+        message: error.message || '포스팅 중지를 요청하지 못했습니다.'
+      });
+    }
+  }
 }
 
 function getBlogNextRunnerStatusKey(status = {}) {
@@ -91,8 +160,10 @@ function presentBlogNextRunnerStatus(status = {}) {
   if (state === 'selecting') return { title: '준비 중', tone: 'progress' };
   if (manuscriptGeneration && state === 'running') return { title: '원고 생성 중', tone: 'progress' };
   if (manuscriptGeneration && state === 'accepted') return { title: '원고 생성 준비 중', tone: 'progress' };
-  if (manuscriptGeneration && state === 'cancel_requested') return { title: '취소 요청 중', tone: 'progress' };
-  if (manuscriptGeneration && state === 'canceled') return { title: '원고 생성 취소', tone: 'warning' };
+  if (manuscriptGeneration && state === 'cancel_requested') return { title: '중지 요청 중', tone: 'progress' };
+  if (manuscriptGeneration && state === 'canceled') return { title: '원고 생성 중지', tone: 'warning' };
+  if (localPublish && state === 'stop_requested') return { title: '포스팅 중지 중', tone: 'progress' };
+  if (localPublish && state === 'stopped') return { title: '포스팅 중지', tone: 'warning' };
   if (manuscriptGeneration && state === 'completed') return { title: '원고 준비 완료', tone: 'success' };
   if (manuscriptGeneration && state === 'failed') return { title: '원고 생성 실패', tone: 'error' };
   if (localPublish && state === 'running') {
@@ -248,8 +319,12 @@ function renderBlogNextRunnerStatus(status = {}) {
   if (nextButton) nextButton.hidden = !panelVisible || status.source !== 'local_markdown' || state !== 'completed';
   const help = document.getElementById('blog-next-publish-status-help');
   const helpText = document.getElementById('blog-next-publish-status-help-text');
-  const showHelp = panelVisible && status.source === 'manuscript_generation'
+  const showAiStopHelp = status.source === 'manuscript_generation'
     && ['accepted', 'running', 'cancel_requested', 'canceled'].includes(state);
+  const showNaverStopHelp = status.source === 'local_markdown'
+    && (status.canStop === true || ['stop_requested', 'stopped'].includes(state)
+      || (state === 'running' && ['submitting', 'verifying'].includes(status.progressStage)));
+  const showHelp = panelVisible && (showAiStopHelp || showNaverStopHelp);
   if (help) {
     help.hidden = !showHelp;
     if (!showHelp) {
@@ -258,12 +333,70 @@ function renderBlogNextRunnerStatus(status = {}) {
     }
   }
   if (showHelp && helpText) {
-    helpText.textContent = '취소하면 앱은 생성과 결과 반영을 중단합니다. 이미 처리된 AI 요청에는 비용이 발생할 수 있습니다.'
-      + (status.remoteJobPossible ? ' KIE에 접수된 이미지 작업은 원격에서 계속될 수 있습니다.' : '');
+    helpText.textContent = showNaverStopHelp
+      ? (['submitting', 'verifying'].includes(status.progressStage)
+        ? '최종 저장·발행 요청을 보낸 뒤에는 외부 반영 여부가 불확실해 중지할 수 없습니다.'
+        : '중지하면 네이버 포스팅 자동화를 멈춥니다. 이미 네이버에 저장·발행된 내용은 되돌리지 않습니다.')
+      : '중지하면 앱은 생성과 결과 반영을 중단합니다. 이미 처리된 AI 요청에는 비용이 발생할 수 있습니다.'
+        + (status.remoteJobPossible ? ' KIE에 접수된 이미지 작업은 원격에서 계속될 수 있습니다.' : '');
   }
+  syncBlogNextExecutionStopButton();
   syncBlogNextRunnerTriggerState();
   if (typeof scheduleGlobalPublishingStatusRefresh === 'function') scheduleGlobalPublishingStatusRefresh(50);
   return active;
+}
+
+function syncBlogNextExecutionStopButton() {
+  const button = document.getElementById('blog-next-publish-status-cancel');
+  if (!button) return;
+  const control = document.getElementById('blog-next-publish-status-stop-control');
+  const note = document.getElementById('blog-next-publish-status-stop-note');
+  const continueButton = document.getElementById('blog-next-publish-status-continue');
+  const status = blogNextRunnerLastStatus || {};
+  const localPublish = status.source === 'local_markdown';
+  const manuscriptGeneration = status.source === 'manuscript_generation';
+  const stopRequested = status.state === 'stop_requested';
+  const aiStopRequested = manuscriptGeneration && status.state === 'cancel_requested';
+  const localStopUnavailable = localPublish && status.state === 'running'
+    && ['submitting', 'verifying'].includes(status.progressStage);
+  const canStop = localPublish
+    ? status.canStop === true && status.state === 'running'
+    : manuscriptGeneration
+      && blogNextDraftState.ai.generating === true
+      && Boolean(blogNextAiOperationId)
+      && blogNextAiOperationStatus?.canCancel === true;
+  if (blogNextStopConfirmationPending && !canStop) clearBlogNextStopConfirmation();
+  const showStopControl = canStop || stopRequested || aiStopRequested || localStopUnavailable;
+  const disabled = stopRequested || aiStopRequested || localStopUnavailable
+    || (manuscriptGeneration && blogNextAiCancelRequesting);
+  const confirming = blogNextStopConfirmationPending && canStop;
+  if (control) {
+    control.hidden = !showStopControl;
+    control.dataset.disabled = disabled ? 'true' : 'false';
+    control.tabIndex = disabled ? 0 : -1;
+    if (localStopUnavailable) control.setAttribute('aria-describedby', 'blog-next-publish-status-stop-note');
+    else control.removeAttribute('aria-describedby');
+    control.setAttribute('aria-label', localStopUnavailable
+      ? '최종 요청이 시작되어 중지할 수 없습니다.'
+      : localPublish ? '네이버 포스팅 중지' : 'AI 생성 중지');
+  }
+  button.disabled = disabled;
+  button.textContent = stopRequested || aiStopRequested
+    ? '중지 요청 중…'
+    : localStopUnavailable ? '중지할 수 없음'
+      : confirming ? '중지 확인'
+        : localPublish ? '포스팅 중지' : '생성 중지';
+  button.classList.toggle('is-confirming', confirming);
+  button.setAttribute('aria-label', localStopUnavailable ? '중지할 수 없음'
+    : confirming ? `${localPublish ? '포스팅' : '생성'} 중지를 확인합니다`
+      : localPublish ? '네이버 포스팅 중지' : 'AI 생성 중지');
+  if (note) {
+    note.hidden = !localStopUnavailable;
+    note.textContent = localStopUnavailable
+      ? '최종 저장·발행 요청을 보낸 뒤에는 외부 반영 여부가 불확실해 중지할 수 없습니다.'
+      : '';
+  }
+  if (continueButton) continueButton.hidden = !confirming;
 }
 
 function scheduleBlogNextRunnerPoll(delay = 1000) {

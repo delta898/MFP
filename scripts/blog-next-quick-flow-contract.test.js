@@ -56,11 +56,18 @@ test('AI manuscript cancellation stays in the shared execution status', () => {
   const html = readBlogNextView();
   const status = read('ui/partials/views/blog-next/publish-status.html');
   const execution = read('ui/scripts/features/blog-next/draft-execution.js');
-  assert.match(status, /id="blog-next-publish-status-cancel"[^>]*data-blog-next-ai-cancel[^>]*hidden/);
-  assert.equal((html.match(/data-blog-next-ai-cancel/g) || []).length, 1);
+  assert.match(status, /id="blog-next-publish-status-stop-control"[^>]*hidden/);
+  assert.match(status, /id="blog-next-publish-status-cancel"[\s\S]*?data-blog-next-execution-stop/);
+  assert.match(status, /data-blog-next-execution-continue hidden>계속 진행/);
+  assert.equal((html.match(/data-blog-next-execution-stop/g) || []).length, 1);
   assert.match(execution, /manuscript-drafts\/ai\/operations/);
   assert.match(execution, /state === 'cancel_requested'/);
   assert.match(execution, /state === 'canceled'/);
+  assert.match(read('ui/scripts/features/blog-next/runner.js'), /async function stopBlogNextLocalMarkdownPublish/);
+  assert.match(read('src/ui-api/routes/continuous-publishing.routes.js'), /runner\/stop/);
+  assert.match(read('ui/scripts/features/blog-next/runner.js'), /6000\)/);
+  assert.match(read('ui/styles/features/continuous-publishing.css'), /\.blog-next-publish-status-stop-control\[data-disabled="true"\]:hover/);
+  assert.match(read('src/core.js'), /reportPublishProgress\('submitting'\);[\s\S]*?await btn\.click\(\)/);
 });
 
 test('AI cancellation copy stays concise with or without a previous manuscript', () => {
@@ -71,13 +78,13 @@ test('AI cancellation copy stays concise with or without a previous manuscript',
   const message = vm.runInNewContext(`${source}\nblogNextAiOperationMessage`, { blogNextDraftState: draftState });
 
   assert.equal(message({ state: 'canceled', stage: 'writing' }),
-    '원고 생성을 취소했습니다.');
+    '원고 생성을 중지했습니다.');
   draftState.ai.draftId = 'previous-draft';
   draftState.ai.preview = { draftId: 'previous-draft' };
   assert.equal(message({ state: 'canceled', stage: 'writing' }),
-    '원고 생성을 취소했습니다.');
+    '원고 생성을 중지했습니다.');
   assert.equal(message({ state: 'canceled', stage: 'images', remoteJobPossible: true }),
-    '원고 생성을 취소했습니다.');
+    '원고 생성을 중지했습니다.');
   assert.equal(message({ state: 'failed', stage: 'images', error: { message: '이미지 생성 실패' } }),
     '이미지 생성 실패');
   assert.equal(message({ state: 'completed', stage: 'images' }),

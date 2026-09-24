@@ -1249,7 +1249,15 @@ function createPublishActionsRuntime(deps = {}) {
         }
     }
 
-    async function executeLocalMarkdownPublish(requestBody = {}) {
+    async function executeLocalMarkdownPublish(requestBody = {}, executionOptions = {}) {
+        const signal = executionOptions.signal;
+        const throwIfStopped = () => {
+            if (!signal?.aborted) return;
+            const error = new Error('네이버 포스팅을 중지했습니다. 이미 처리된 저장·발행은 되돌리지 않습니다.');
+            error.code = 'BLOG_NEXT_EXECUTION_STOPPED';
+            throw error;
+        };
+        throwIfStopped();
         const selectedFiles = Array.isArray(requestBody?.selectedFiles) ? requestBody.selectedFiles : [];
         const hasPastedMarkdown = Object.prototype.hasOwnProperty.call(requestBody, 'markdownText');
         const markdownText = hasPastedMarkdown ? String(requestBody.markdownText || '') : '';
@@ -1291,6 +1299,7 @@ function createPublishActionsRuntime(deps = {}) {
             return { success: false, code: 'INVALID_SCHEDULE_DATE', message: '예약 발행을 위해서는 예약 일시가 필요합니다.' };
         }
 
+        throwIfStopped();
         const precheck = await License.checkLicenseStatus();
         if (!precheck.success) {
             return { success: false, code: 'LICENSE_STATUS_FAILED', message: precheck.message };
@@ -1413,23 +1422,28 @@ function createPublishActionsRuntime(deps = {}) {
                 selectedFiles: effectiveSelectedFiles,
                 ...(hasPastedMarkdown ? { markdownText: effectiveMarkdownText } : {})
             }, { fs, path });
+            throwIfStopped();
             await prepareMissingImagesForLocalMarkdown(workspace.tempDir, previewData, {
                 imageGenerationEnabled: imageGenerationFinal
             });
 
+            throwIfStopped();
+            requestBody?.onPreparationComplete?.();
             const reservation = await reserveQuota(operationId, { source: sourceType, post_status: postStatus, targets });
             quotaReserved = true;
             const executionTargets = applyPreviouslySuccessfulTargets(results, targets, reservation);
             const actionLabel = getPostActionLabel(postStatus);
 
             if (executionTargets.includes('naver')) {
+                throwIfStopped();
                 const naverRes = await Core.publishToBlog(workspace.tempDir, {
                     headless,
                     category: requestBody?.naverCategory || '',
                     postStatus,
                     scheduleDate,
                     isLast: !targets.includes('wordpress'),
-                    onProgress: requestBody?.onNaverProgress
+                    onProgress: requestBody?.onNaverProgress,
+                    signal
                 }) || { success: false, message: '네이버 포스팅 응답이 비어 있습니다.' };
                 results.naver = {
                     success: Boolean(naverRes.success),
@@ -1542,6 +1556,18 @@ function createPublishActionsRuntime(deps = {}) {
         } catch (error) {
             if (quotaReserved) {
                 await settleQuota(operationId, results, { error: error.message });
+            }
+            if (signal?.aborted || error.code === 'BLOG_NEXT_EXECUTION_STOPPED') {
+                const message = '네이버 포스팅을 중지했습니다. 이미 처리된 저장·발행은 되돌리지 않습니다.';
+                recordUiActivity({
+                    category: 'publish',
+                    type: 'local_markdown_publish_stopped',
+                    level: 'warning',
+                    title: `원고 ${publishLabel} 중지`,
+                    detail: `${sourceLabel}${targetLabel ? ` · ${targetLabel}` : ''} · ${message}`,
+                    meta: { source: sourceType, postStatus, targets: targets.slice() }
+                });
+                return { success: false, code: 'BLOG_NEXT_EXECUTION_STOPPED', message };
             }
             Logger.error(`❌ [LocalMarkdownPublish] 오류: ${error.message}`);
             recordUiActivity({
