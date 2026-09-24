@@ -12,6 +12,9 @@ test('routes manuscript draft lifecycle and slot actions with decoded identifier
         manuscriptDraftAiOperationCurrent: async (ctx) => calls.push(['operation-current', ctx.pathname]),
         manuscriptDraftAiOperationGet: async (ctx) => calls.push(['operation-get', ctx.operationId]),
         manuscriptDraftAiOperationCancel: async (ctx) => calls.push(['operation-cancel', ctx.operationId]),
+        manuscriptDraftImageOperationStart: async (ctx) => calls.push(['image-operation-start', ctx.pathname]),
+        manuscriptDraftImageOperationGet: async (ctx) => calls.push(['image-operation-get', ctx.operationId]),
+        manuscriptDraftImageOperationCancel: async (ctx) => calls.push(['image-operation-cancel', ctx.operationId]),
         manuscriptDraftGet: async (ctx) => calls.push(['get', ctx.draftId]),
         manuscriptDraftImage: async (ctx) => calls.push(['image', ctx.draftId, ctx.slotId]),
         manuscriptDraftMutation: async (ctx) => calls.push(['mutation', ctx.action, ctx.draftId, ctx.slotId || ''])
@@ -25,6 +28,9 @@ test('routes manuscript draft lifecycle and slot actions with decoded identifier
     await handler({ pathname: '/api/v1/blog/manuscript-drafts/ai/operations/current', method: 'GET' });
     await handler({ pathname: '/api/v1/blog/manuscript-drafts/ai/operations/operation%201', method: 'GET' });
     await handler({ pathname: '/api/v1/blog/manuscript-drafts/ai/operations/operation%201/cancel', method: 'POST' });
+    await handler({ pathname: '/api/v1/blog/manuscript-drafts/image-operations', method: 'POST' });
+    await handler({ pathname: '/api/v1/blog/manuscript-drafts/image-operations/operation%201', method: 'GET' });
+    await handler({ pathname: '/api/v1/blog/manuscript-drafts/image-operations/operation%201/cancel', method: 'POST' });
     await handler({ pathname: '/api/v1/blog/manuscript-drafts/draft%201', method: 'GET' });
     await handler({ pathname: '/api/v1/blog/manuscript-drafts/draft%201/images/image-1', method: 'GET' });
     for (const action of ['import', 'generate', 'exclude', 'restore']) {
@@ -43,6 +49,9 @@ test('routes manuscript draft lifecycle and slot actions with decoded identifier
         ['operation-current', '/api/v1/blog/manuscript-drafts/ai/operations/current'],
         ['operation-get', 'operation 1'],
         ['operation-cancel', 'operation 1'],
+        ['image-operation-start', '/api/v1/blog/manuscript-drafts/image-operations'],
+        ['image-operation-get', 'operation 1'],
+        ['image-operation-cancel', 'operation 1'],
         ['get', 'draft 1'],
         ['image', 'draft 1', 'image-1'],
         ['mutation', 'import', 'draft 1', 'image-1'],

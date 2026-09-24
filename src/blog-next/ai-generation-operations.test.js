@@ -104,3 +104,21 @@ test('shared coordinator rejects a generation while another Blog Beta task holds
     assert.throws(() => manager.start({}, async () => null), (error) => error.status === 409);
     other.release();
 });
+
+test('operation manager exposes a dedicated source and progress for other cancellable AI work', async () => {
+    const coordinator = createBlogNextExecutionCoordinator();
+    const manager = createAiGenerationOperationManager({ coordinator });
+    const pending = deferred();
+    const started = manager.start({ source: 'manuscript_image_generation', subject: '이미지 일괄 생성' }, async (operation) => {
+        operation.setProgress({ current: 2, total: 4, slotId: 'image-2' });
+        return pending.promise;
+    });
+    await settled();
+    assert.equal(started.source, 'manuscript_image_generation');
+    assert.deepEqual(manager.get(started.operationId).progress, { current: 2, total: 4, slotId: 'image-2' });
+    assert.equal(coordinator.getStatus().source, 'manuscript_image_generation');
+    manager.cancel(started.operationId);
+    pending.resolve(null);
+    await settled();
+    assert.equal(manager.get(started.operationId).state, 'canceled');
+});

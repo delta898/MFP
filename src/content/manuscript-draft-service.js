@@ -3,6 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const { buildLocalMarkdownPreview, normalizeSelectedFiles, resolveMarkdownEntryFromSelectedFiles } = require('./local-markdown-preview');
+const { isCancellation, throwIfCanceled } = require('../ai/cancellation');
 const { requireSinglePublishTarget } = require('./single-publish-target');
 const {
     RELATED_POSTS_STATUS,
@@ -645,10 +646,13 @@ function createManuscriptDraftService(options = {}) {
         if (!String(slot.prompt || '').trim()) throw manuscriptError(400, 'MANUSCRIPT_IMAGE_PROMPT_REQUIRED', 'AI 이미지를 만들 프롬프트가 없습니다.');
         const pendingBase = pathImpl.join(locations.assets, `pending-${slot.id}-${cryptoImpl.randomUUID().slice(0, 8)}`);
         Logger?.info?.(`🎨 [ManuscriptDraft] ${slot.id} AI 이미지 생성 중 (draft=${input.draftId})`);
-        const generatedPath = await callWritingImage(slot.prompt, pendingBase, 2, { useCase: 'blog' });
+        throwIfCanceled(input.signal);
+        let generatedPath = '';
         let buffer;
         let detected;
         try {
+            generatedPath = await callWritingImage(slot.prompt, pendingBase, 2, { useCase: 'blog', signal: input.signal });
+            throwIfCanceled(input.signal);
             buffer = fsImpl.readFileSync(generatedPath);
             detected = validateImageBuffer(buffer);
         } finally {
@@ -664,10 +668,14 @@ function createManuscriptDraftService(options = {}) {
         let current = getDraft(input.draftId);
         if (Number(input.revision) !== Number(current.revision)) assertRevision({ revision: current.revision }, input.revision);
         const targets = current.images.filter((image) => !image.excluded && !image.exists && String(image.prompt || '').trim());
-        for (const image of targets) {
+        for (const [index, image] of targets.entries()) {
+            throwIfCanceled(input.signal);
+            input.onProgress?.({ current: index + 1, total: targets.length, completed: index, slotId: image.slotId, phase: 'generating' });
             try {
-                current = await generateImage({ draftId: input.draftId, revision: current.revision, slotId: image.slotId });
+                current = await generateImage({ draftId: input.draftId, revision: current.revision, slotId: image.slotId, signal: input.signal });
+                input.onProgress?.({ current: index + 1, total: targets.length, completed: index + 1, slotId: image.slotId, phase: 'completed' });
             } catch (error) {
+                if (isCancellation(error, input.signal)) throw error;
                 if (current.revision === Number(input.revision)) throw error;
                 Logger?.warn?.(`⚠️ [ManuscriptDraft] 빈 이미지 생성 일부 완료 (draft=${input.draftId}): ${error.message}`);
                 return { ...current, imageOperationWarning: '완성한 이미지는 유지했습니다. 만들지 못한 이미지는 다시 시도해 주세요.' };

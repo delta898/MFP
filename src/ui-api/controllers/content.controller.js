@@ -254,6 +254,33 @@ function createContentController(deps = {}) {
             }
         },
 
+        async manuscriptDraftImageOperationStart({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, service.startManuscriptDraftImageOperation(requestBody || {}), 202);
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'MANUSCRIPT_IMAGE_GENERATE_FAILED', 'AI 이미지 생성을 시작하지 못했습니다.', e);
+            }
+        },
+
+        async manuscriptDraftImageOperationGet({ requestId, method, operationId, res }) {
+            if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, service.getManuscriptDraftImageOperation({ operationId }));
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'MANUSCRIPT_IMAGE_OPERATION_READ_FAILED', 'AI 이미지 생성 상태를 확인하지 못했습니다.', e);
+            }
+        },
+
+        async manuscriptDraftImageOperationCancel({ requestId, method, operationId, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, service.cancelManuscriptDraftImageOperation({ operationId }));
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'MANUSCRIPT_IMAGE_OPERATION_CANCEL_FAILED', 'AI 이미지 생성을 중지하지 못했습니다.', e);
+            }
+        },
+
         async manuscriptDraftGet({ requestId, method, draftId, res }) {
             if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
             try {

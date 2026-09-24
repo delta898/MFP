@@ -1037,11 +1037,64 @@ function createContentService(deps = {}) {
         },
 
         getCurrentAiManuscriptDraftOperation() {
-            return aiGenerationOperations.getCurrent();
+            const operation = aiGenerationOperations.getCurrent();
+            return operation?.source === 'manuscript_generation' ? operation : null;
         },
 
         cancelAiManuscriptDraftOperation({ operationId } = {}) {
             return aiGenerationOperations.cancel(operationId);
+        },
+
+        startManuscriptDraftImageOperation(requestBody = {}) {
+            assertManuscriptMutationAvailable();
+            const action = String(requestBody.action || '').trim();
+            if (!['generate', 'generate-missing'].includes(action)) {
+                throw createApiError(400, 'MANUSCRIPT_IMAGE_OPERATION_INVALID', '지원하지 않는 이미지 작업입니다.');
+            }
+            if (buildSetupReadiness({ CONFIG }).ai.image_configured !== true) {
+                throw createApiError(400, 'AI_IMAGE_MODEL_REQUIRED', 'AI 설정에서 이미지 모델을 먼저 설정해 주세요.');
+            }
+            const selectedImageModel = CONFIG.IMAGE_MODEL_CONFIG || {};
+            const remoteJobPossible = String(selectedImageModel.transport || '') === 'kie_market_image_jobs';
+            const draftId = String(requestBody.draftId || '').trim();
+            const operationInput = { ...requestBody, draftId };
+            return aiGenerationOperations.start({
+                source: 'manuscript_image_generation',
+                subject: action === 'generate-missing' ? '이미지 일괄 생성' : '이미지 생성',
+                message: '원고 이미지 생성 중',
+                remoteJobPossible
+            }, async (operation) => {
+                operation.setStage('image_generation');
+                if (action === 'generate-missing') {
+                    return getManuscriptDraftService().generateMissingImages({
+                        ...operationInput,
+                        signal: operation.signal,
+                        onProgress: (progress) => operation.setProgress(progress)
+                    });
+                }
+                operation.setProgress({ current: 1, total: 1, slotId: String(operationInput.slotId || ''), phase: 'generating' });
+                const result = await getManuscriptDraftService().generateImage({ ...operationInput, signal: operation.signal });
+                operation.setProgress({ current: 1, total: 1, slotId: String(operationInput.slotId || ''), phase: 'completed' });
+                return result;
+            });
+        },
+
+        getManuscriptDraftImageOperation({ operationId } = {}) {
+            const operation = aiGenerationOperations.get(operationId);
+            if (operation.source !== 'manuscript_image_generation') {
+                throw createApiError(404, 'MANUSCRIPT_IMAGE_OPERATION_NOT_FOUND', '이미지 작업을 찾지 못했습니다.');
+            }
+            return operation;
+        },
+
+        cancelManuscriptDraftImageOperation({ operationId } = {}) {
+            const operation = aiGenerationOperations.get(operationId);
+            if (operation.source !== 'manuscript_image_generation') {
+                throw createApiError(404, 'MANUSCRIPT_IMAGE_OPERATION_NOT_FOUND', '이미지 작업을 찾지 못했습니다.');
+            }
+            const result = aiGenerationOperations.cancel(operationId);
+            Logger?.info?.(`⏹️ [ManuscriptDraft] 이미지 생성 중지 ${result.cancelOutcome === 'requested' ? '요청' : '불가'}: ${operationId} (${result.cancelOutcome || result.state})`);
+            return result;
         },
 
         async getManuscriptDraft({ draftId } = {}) {

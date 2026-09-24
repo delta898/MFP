@@ -285,7 +285,7 @@ function renderBlogNextRunnerStatus(status = {}) {
   const presentation = presentBlogNextRunnerStatus(status);
   const statusKey = getBlogNextRunnerStatusKey(status);
   const dismissed = terminal && statusKey === blogNextRunnerDismissedKey;
-  const panelVisible = state !== 'idle' && !dismissed;
+  const panelVisible = state !== 'idle' && !dismissed && status.source !== 'manuscript_image_generation';
 
   blogNextRunnerLastStatus = { ...status };
   blogNextRunnerActive = active;

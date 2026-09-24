@@ -353,6 +353,45 @@ test('async AI generation cancellation blocks a late Draft and keeps the lease u
     assert.deepEqual(coordinator.getStatus(), { busy: false });
 });
 
+test('manuscript image operations use the shared cancellable AI lifecycle', async () => {
+    const coordinator = createBlogNextExecutionCoordinator();
+    let finishGeneration;
+    let generationInput;
+    const logMessages = [];
+    const service = createService(coordinator, async () => ({ success: true, data: {} }), {
+        IMAGE_MODEL: 'nano-banana-2',
+        IMAGE_MODEL_API_KEY: 'fixture-key',
+        IMAGE_MODEL_CONFIG: { provider: 'kie', code: 'nano-banana-2', transport: 'kie_market_image_jobs', api_key: 'fixture-key' }
+    }, {
+        Logger: { info: (message) => logMessages.push(message) },
+        manuscriptDraftService: {
+            generateImage(input) {
+                generationInput = input;
+                return new Promise((resolve) => { finishGeneration = resolve; });
+            }
+        }
+    });
+
+    const started = service.startManuscriptDraftImageOperation({
+        action: 'generate', draftId: 'draft-1', revision: 1, slotId: 'image-2'
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(started.source, 'manuscript_image_generation');
+    assert.equal(started.remoteJobPossible, true);
+    assert.equal(service.getCurrentAiManuscriptDraftOperation(), null);
+    assert.ok(generationInput.signal instanceof AbortSignal);
+    assert.equal(service.getManuscriptDraftImageOperation({ operationId: started.operationId }).state, 'running');
+    const canceled = service.cancelManuscriptDraftImageOperation({ operationId: started.operationId });
+    assert.equal(canceled.state, 'cancel_requested');
+    assert.equal(generationInput.signal.aborted, true);
+    assert.match(logMessages.at(-1), /이미지 생성 중지 요청/);
+    assert.equal(coordinator.getStatus().busy, true);
+    finishGeneration({ revision: 2 });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(service.getManuscriptDraftImageOperation({ operationId: started.operationId }).state, 'canceled');
+    assert.deepEqual(coordinator.getStatus(), { busy: false });
+});
+
 test('AI manuscript failure removes only its owned transient workspace', async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'blog-ai-cancel-'));
     const platformDir = path.join(root, 'wp_fixture');

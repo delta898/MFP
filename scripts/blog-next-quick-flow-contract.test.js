@@ -65,6 +65,34 @@ test('WordPress image upload warnings remain visible after a successful draft sa
   assert.match(publishRuntime, /이미지 \$\{wordpressImageUploadFailures\}개 업로드 실패/);
 });
 
+test('AI image generation exposes per-action stop controls and sends cancellation to the active server operation', () => {
+  const inputs = read('ui/scripts/features/blog-next/draft-inputs.js');
+  const operations = read('src/blog-next/ai-generation-operations.js');
+  const drafts = read('src/content/manuscript-draft-service.js');
+  const execution = read('ui/scripts/features/blog-next/draft-execution.js');
+  const routes = read('src/ui-api/routes/content.routes.js');
+  const css = read('ui/styles/features/blog-next-baseline.css');
+
+  assert.match(inputs, /data-manuscript-generate-missing[^>]*>[\s\S]*?중지 확인/);
+  assert.match(inputs, /data-manuscript-image-action="generate"[\s\S]*?중지 확인/);
+  assert.match(inputs, /중지하려면 버튼을 한 번 더 누르세요/);
+  assert.match(inputs, /operation\?\.confirmingStop === true/);
+  assert.match(inputs, /operation\.confirmingStop = true/);
+  assert.match(inputs, /사용 안 함<\/button>` : ''\}/);
+  assert.match(execution, /data-manuscript-image-continue\].*?imageOperation\?\.confirmingStop === true/);
+  assert.match(inputs, /completedCount > operation\.syncedCompletedCount/);
+  assert.match(inputs, /fetchJson\(`\/api\/v1\/blog\/manuscript-drafts\/\$\{encodeURIComponent\(state\.draftId\)\}`\)/);
+  assert.match(inputs, /!bulkOperationActive/);
+  assert.match(inputs, /handleBlogNextManuscriptImageStop/);
+  assert.match(inputs, /image-operations\/\$\{encodeURIComponent\(operation\.operationId\)\}\/cancel/);
+  assert.match(operations, /signal: controller\.signal/);
+  assert.match(operations, /setProgress\(progress\)/);
+  assert.match(drafts, /callWritingImage\(slot\.prompt, pendingBase, 2, \{ useCase: 'blog', signal: input\.signal \}\)/);
+  assert.match(routes, /manuscript-drafts\/image-operations/);
+  assert.match(css, /local-markdown-image-spinner[\s\S]*?blog-next-image-spin/);
+  assert.match(css, /image-card-preview\.is-generating \.local-markdown-image-media-actions\.is-empty/);
+});
+
 test('unresolved AI images can be opened directly from the publish restriction', () => {
   const html = readBlogNextView();
   const inputs = read('ui/scripts/features/blog-next/draft-inputs.js');

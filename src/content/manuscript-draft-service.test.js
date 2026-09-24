@@ -487,6 +487,43 @@ test('generates one image from the stored prompt and keeps the prior asset on fa
     }
 });
 
+test('stopped image generation does not commit a late provider result to the manuscript', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-draft-image-stop-'));
+    let finishGeneration;
+    let receivedSignal;
+    const service = createManuscriptDraftService({
+        fs,
+        path,
+        Utils,
+        workspaceDir,
+        callWritingImage: async (_prompt, savePath, _retries, options) => {
+            receivedSignal = options.signal;
+            return new Promise((resolve) => { finishGeneration = () => {
+                const output = `${savePath}.png`;
+                fs.writeFileSync(output, PNG);
+                resolve(output);
+            }; });
+        }
+    });
+    try {
+        const created = service.createFolderDraft(folderInput());
+        const controller = new AbortController();
+        const generating = service.generateImage({
+            draftId: created.draftId, revision: created.revision, slotId: 'image-2', signal: controller.signal
+        });
+        await new Promise((resolve) => setImmediate(resolve));
+        assert.equal(receivedSignal, controller.signal);
+        controller.abort();
+        finishGeneration();
+        await assert.rejects(generating, (error) => error.code === 'AI_GENERATION_CANCELED');
+        const current = service.getDraft(created.draftId);
+        assert.equal(current.revision, created.revision);
+        assert.equal(current.images[1].exists, false);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('bulk image generation returns the successful partial revision after a later failure', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-draft-bulk-'));
     let calls = 0;
@@ -507,11 +544,21 @@ test('bulk image generation returns the successful partial revision after a late
     input.selectedFiles = input.selectedFiles.slice(0, 1);
     try {
         const created = service.createFolderDraft(input);
-        const result = await service.generateMissingImages({ draftId: created.draftId, revision: 1 });
+        const progress = [];
+        const result = await service.generateMissingImages({
+            draftId: created.draftId,
+            revision: 1,
+            onProgress: (value) => progress.push(value)
+        });
         assert.equal(result.revision, 2);
         assert.equal(result.images[0].exists, true);
         assert.equal(result.images[1].exists, false);
         assert.match(result.imageOperationWarning, /완성한 이미지는 유지/);
+        assert.deepEqual(progress.map(({ phase, completed }) => ({ phase, completed })), [
+            { phase: 'generating', completed: 0 },
+            { phase: 'completed', completed: 1 },
+            { phase: 'generating', completed: 1 }
+        ]);
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }

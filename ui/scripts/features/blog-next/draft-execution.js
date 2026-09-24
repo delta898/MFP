@@ -47,6 +47,21 @@ function syncBlogNextDraftOperationControls() {
     + '[data-blog-next-input-mode], #blog-next-publish-settings input, #blog-next-publish-settings select');
   controls.forEach((control) => {
     if (busy) {
+      const ownerType = control.closest('[data-blog-next-mode-panel]')?.dataset.blogNextModePanel;
+      const imageOperation = ownerType ? blogNextDraftState[ownerType]?.imageOperation : null;
+      const imageStopControl = imageOperation && (
+        (control.matches('[data-manuscript-generate-missing]') && imageOperation.action === 'generate-missing')
+        || (control.matches('[data-manuscript-image-action="generate"]')
+          && imageOperation.action === 'generate' && control.dataset.slotId === imageOperation.slotId)
+      );
+      if (imageStopControl) {
+        control.disabled = imageOperation.state === 'cancel_requested';
+        return;
+      }
+      if (control.matches('[data-manuscript-image-continue]') && imageOperation?.confirmingStop === true) {
+        control.disabled = false;
+        return;
+      }
       if (!Object.prototype.hasOwnProperty.call(control.dataset, 'beforeExecutionDisabled')) {
         control.dataset.beforeExecutionDisabled = String(control.disabled);
       }
@@ -388,6 +403,8 @@ function resetBlogNextAiDraftUi() {
   state.preview = null;
   state.draftId = '';
   state.revision = 0;
+  state.imageOperation = null;
+  state.imageOperationNotice = null;
   state.previewSyncFailed = false;
   const preview = document.querySelector('[data-blog-next-draft-preview="ai"]');
   const actions = document.querySelector('[data-blog-next-draft-actions="ai"]');

@@ -15,6 +15,16 @@ function createContentRouteHandler(deps = {}) {
                 ? controller.manuscriptDraftAiOperationCancel({ ...ctx, operationId: decodeURIComponent(aiOperationMatch[1]) })
                 : controller.manuscriptDraftAiOperationGet({ ...ctx, operationId: decodeURIComponent(aiOperationMatch[1]) });
         }
+        if (pathname === '/api/v1/blog/manuscript-drafts/image-operations') {
+            return controller.manuscriptDraftImageOperationStart(ctx);
+        }
+        const imageOperationMatch = pathname.match(/^\/api\/v1\/blog\/manuscript-drafts\/image-operations\/([^/]+)(\/cancel)?$/);
+        if (imageOperationMatch) {
+            const operationId = decodeURIComponent(imageOperationMatch[1]);
+            return imageOperationMatch[2]
+                ? controller.manuscriptDraftImageOperationCancel({ ...ctx, operationId })
+                : controller.manuscriptDraftImageOperationGet({ ...ctx, operationId });
+        }
         const manuscriptBulkImageMatch = pathname.match(/^\/api\/v1\/blog\/manuscript-drafts\/([^/]+)\/images\/(generate-missing)$/);
         if (manuscriptBulkImageMatch) {
             return controller.manuscriptDraftMutation({ ...ctx, draftId: decodeURIComponent(manuscriptBulkImageMatch[1]), action: manuscriptBulkImageMatch[2] });

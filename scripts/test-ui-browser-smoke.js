@@ -504,6 +504,8 @@ function startFixtureServer(requests) {
     ];
     const aiGenerationOperations = new Map();
     let aiGenerationSequence = 0;
+    const manuscriptImageOperations = new Map();
+    let manuscriptImageOperationSequence = 0;
     let pasteManuscriptDraftRevision = 0;
     let pasteManuscriptDraftPostStatus = 'publish';
     let pasteManuscriptMarkdown = '';
@@ -970,6 +972,86 @@ function startFixtureServer(requests) {
                 res.writeHead(202, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
                 res.end(JSON.stringify({ success: true, data: { ...operation, payload: undefined, slow: undefined, polls: undefined } }));
             });
+            return;
+        }
+
+        if (url.pathname === '/api/v1/blog/manuscript-drafts/image-operations' && req.method === 'POST') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                const input = requestRecord.body;
+                const pasteDraft = input.draftId === PASTE_MANUSCRIPT_DRAFT_ID;
+                const images = pasteDraft ? pasteManuscriptDraftImages : manuscriptDraftImages;
+                const targets = input.action === 'generate-missing'
+                    ? images.filter((image) => !image.exists && !image.excluded && image.prompt)
+                    : images.filter((image) => image.slotId === input.slotId);
+                const sequence = ++manuscriptImageOperationSequence;
+                const slow = sequence === 1;
+                const completeOperation = () => {
+                    targets.forEach((image) => {
+                        image.exists = true;
+                        image.excluded = false;
+                        image.assetOrigin = 'generated';
+                        image.canRestore = image.index === 0;
+                    });
+                    if (pasteDraft) pasteManuscriptDraftRevision += Math.max(1, targets.length);
+                    else {
+                        manuscriptDraftRevision += Math.max(1, targets.length);
+                        manuscriptContentVersion += Math.max(1, targets.length);
+                    }
+                    return pasteDraft ? buildPasteManuscriptDraftFixture() : buildManuscriptDraftFixture();
+                };
+                const operation = {
+                    operationId: `fixture-image-${sequence}`,
+                    source: 'manuscript_image_generation', state: slow ? 'running' : 'completed', busy: slow,
+                    canCancel: slow, remoteJobPossible: true, slow, polls: 0, input,
+                    progress: { current: 1, total: targets.length, slotId: targets[0]?.slotId || '', phase: 'generating' }
+                };
+                if (!slow) {
+                    operation.result = completeOperation();
+                    operation.progress = { current: targets.length, total: targets.length, slotId: targets.at(-1)?.slotId || '', phase: 'completed' };
+                }
+                operation.complete = completeOperation;
+                manuscriptImageOperations.set(operation.operationId, operation);
+                res.writeHead(202, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                const { complete: _complete, input: _input, polls: _polls, slow: _slow, ...snapshot } = operation;
+                res.end(JSON.stringify({ success: true, data: snapshot }));
+            });
+            return;
+        }
+
+        const imageOperationMatch = url.pathname.match(/^\/api\/v1\/blog\/manuscript-drafts\/image-operations\/([^/]+)(\/cancel)?$/);
+        if (imageOperationMatch && req.method === (imageOperationMatch[2] ? 'POST' : 'GET')) {
+            const operation = manuscriptImageOperations.get(decodeURIComponent(imageOperationMatch[1]));
+            if (operation && imageOperationMatch[2]) {
+                operation.state = 'canceled';
+                operation.busy = false;
+                operation.result = undefined;
+            } else if (operation?.state === 'running') {
+                operation.polls += 1;
+                if (operation.slow && operation.polls >= 30) {
+                    operation.state = 'completed';
+                    operation.busy = false;
+                    operation.canCancel = false;
+                    operation.result = operation.complete();
+                    operation.progress = { current: 1, total: 1, slotId: operation.progress.slotId, phase: 'completed' };
+                }
+            }
+            res.writeHead(operation ? 200 : 404, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+            if (operation) {
+                const { complete: _complete, input: _input, polls: _polls, slow: _slow, ...snapshot } = operation;
+                res.end(JSON.stringify({ success: true, data: snapshot }));
+            } else res.end(JSON.stringify({ success: false, message: 'operation missing' }));
+            return;
+        }
+
+        const manuscriptDraftMatch = url.pathname.match(/^\/api\/v1\/blog\/manuscript-drafts\/([^/]+)$/);
+        if (manuscriptDraftMatch && req.method === 'GET') {
+            const draft = decodeURIComponent(manuscriptDraftMatch[1]) === PASTE_MANUSCRIPT_DRAFT_ID
+                ? buildPasteManuscriptDraftFixture() : buildManuscriptDraftFixture();
+            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+            res.end(JSON.stringify({ success: true, data: draft }));
             return;
         }
 
@@ -3167,6 +3249,20 @@ async function run() {
         assert.equal(await page.locator('#blog-next-ai-draft-images').evaluate((element) => element.open), true);
         assert.equal(await page.locator('#blog-next-ai-draft-images > summary').evaluate((element) => document.activeElement === element), true);
         await page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-action="generate"][data-slot-id="image-1"]').click();
+        const imageGenerateButton = page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-action="generate"][data-slot-id="image-1"]');
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot="image-1"] .local-markdown-image-spinner'));
+        assert.equal((await imageGenerateButton.textContent())?.trim(), '중지');
+        assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot="image-1"] .local-markdown-image-card-utility-actions [data-manuscript-image-action="exclude"]').isDisabled(), true);
+        await imageGenerateButton.click();
+        assert.equal((await imageGenerateButton.textContent())?.trim(), '중지 확인');
+        assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-continue]').isEnabled(), true);
+        await page.waitForTimeout(6200);
+        assert.equal((await imageGenerateButton.textContent())?.trim(), '중지 확인');
+        assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-continue]').isEnabled(), true);
+        await imageGenerateButton.click();
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="ai"] .local-markdown-image-operation-status')?.textContent?.includes('이미지 생성을 중지했습니다'));
+        assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot="image-1"] .local-markdown-image-card-status').textContent(), '파일 없음');
+        await imageGenerateButton.click();
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot="image-1"] .local-markdown-image-card-status')?.textContent === '이미지 준비됨');
         assert.equal(await page.locator('#blog-next-post-status option[value="publish"]').evaluate((option) => option.disabled), false);
         assert.equal(await page.locator('#blog-next-post-status option[value="schedule"]').evaluate((option) => option.disabled), false);
@@ -4095,7 +4191,9 @@ async function run() {
             { method: 'POST', pathname: '/api/v1/continuous-publishing/queue/remove' },
             { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/ai/operations' },
             { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/ai/operations' },
-            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/image-slots/image-1/generate` },
+            { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/image-operations' },
+            { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/image-operations/fixture-image-1/cancel' },
+            { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/image-operations' },
             { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/ai/operations' },
             { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/ai/operations/fixture-ai-3/cancel' },
             { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/settings` },
@@ -4116,7 +4214,7 @@ async function run() {
             { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/image-slots/image-1/import` },
             { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/image-slots/image-0/exclude` },
             { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/image-slots/image-0/restore` },
-            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/image-slots/image-1/generate` },
+            { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/image-operations' },
             { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/settings` },
             { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/publish` },
             { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/paste' },

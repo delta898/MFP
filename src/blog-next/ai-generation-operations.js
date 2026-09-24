@@ -45,6 +45,7 @@ function createAiGenerationOperationManager(options = {}) {
         return {
             operationId: operation.operationId,
             executionId: operation.executionId,
+            source: operation.source,
             state: operation.state,
             stage: operation.stage,
             busy: !isTerminal(operation.state),
@@ -56,7 +57,8 @@ function createAiGenerationOperationManager(options = {}) {
             cancelRequestedAt: operation.cancelRequestedAt,
             finishedAt: operation.finishedAt,
             ...(operation.state === 'completed' ? { result: operation.result } : {}),
-            ...(operation.state === 'failed' ? { error: operation.error } : {})
+            ...(operation.state === 'failed' ? { error: operation.error } : {}),
+            ...(operation.progress ? { progress: { ...operation.progress } } : {})
         };
     }
 
@@ -73,10 +75,11 @@ function createAiGenerationOperationManager(options = {}) {
         if (typeof task !== 'function') throw new TypeError('AI 생성 실행 함수가 필요합니다.');
         prune();
         const subject = String(input.subject || '바로 생성 원고').trim().slice(0, 120);
+        const source = String(input.source || 'manuscript_generation').trim() || 'manuscript_generation';
         const lease = coordinator.acquire({
-            source: 'manuscript_generation',
+            source,
             subject,
-            message: 'AI로 원고를 만들고 있습니다.'
+            message: String(input.message || 'AI로 원고를 만들고 있습니다.')
         });
         if (!lease) {
             throw createApiError(409, 'BLOG_NEXT_EXECUTION_BUSY', '다른 블로그 작업을 처리하고 있습니다. 현재 실행이 끝난 뒤 다시 시도해 주세요.');
@@ -95,6 +98,7 @@ function createAiGenerationOperationManager(options = {}) {
         const operation = {
             operationId,
             executionId: lease.executionId,
+            source,
             state: 'accepted',
             stage: 'preparing',
             subject,
@@ -104,6 +108,7 @@ function createAiGenerationOperationManager(options = {}) {
             finishedAt: '',
             result: null,
             error: null,
+            progress: null,
             controller,
             commitStarted: false
         };
@@ -118,6 +123,11 @@ function createAiGenerationOperationManager(options = {}) {
             setStage(stage) {
                 if (operation.state !== 'running') return false;
                 operation.stage = String(stage || '').trim().slice(0, 40) || operation.stage;
+                return true;
+            },
+            setProgress(progress) {
+                if (operation.state !== 'running') return false;
+                operation.progress = progress && typeof progress === 'object' ? { ...progress } : null;
                 return true;
             },
             beginCommit() {
