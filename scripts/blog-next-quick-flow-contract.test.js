@@ -41,6 +41,31 @@ test('optional content and publish settings disclose their current values', () =
   assert.doesNotMatch(html, /<details[^>]*\sopen(?:\s|>)/);
 });
 
+test('reusable generation and publish choices persist without carrying article data or schedule time', () => {
+  const queue = read('ui/scripts/features/blog-next/quick-queue.js');
+  const execution = read('ui/scripts/features/blog-next/draft-execution.js');
+
+  assert.match(queue, /headless: true/);
+  assert.match(queue, /headless: document\.getElementById\('blog-next-runner-headless'\)\?\.checked !== false/);
+  assert.match(queue, /'blog-next-writing-length'[\s\S]*?'blog-next-writing-ending'/);
+  assert.match(queue, /function rememberBlogNextTopicDefaultsForSetting\(fieldId = ''\)[\s\S]*?BLOG_NEXT_PERSISTED_SETTING_IDS\.has/);
+  assert.match(queue, /function rememberBlogNextTopicDefaults\(\) \{\s*if \(blogNextEditingRowIndex !== null\) return;/);
+  assert.match(queue, /form\.addEventListener\('change',[\s\S]*?rememberBlogNextTopicDefaultsForSetting\(event\.target\?\.id\)/);
+  assert.match(execution, /publishSettings\?\.addEventListener\('change',[\s\S]*?rememberBlogNextTopicDefaultsForSetting\(event\.target\?\.id\)/);
+  assert.doesNotMatch(queue.match(/function readBlogNextTopicSettings\(\) \{[\s\S]*?\n\}/)?.[0] || '', /scheduleDate|referenceUrl|subject|keywords|instruction/);
+});
+
+test('unresolved AI images can be opened directly from the publish restriction', () => {
+  const html = readBlogNextView();
+  const inputs = read('ui/scripts/features/blog-next/draft-inputs.js');
+
+  assert.match(html, /id="blog-next-publish-safety-message"/);
+  assert.match(html, /id="blog-next-publish-image-action"[^>]*aria-controls="blog-next-ai-draft-images"[^>]*hidden/);
+  assert.match(html, /id="blog-next-ai-draft-images"[^>]*data-draft-preview-image-details/);
+  assert.match(inputs, /function focusBlogNextAiDraftImages\(\)[\s\S]*?details\.open = true;[\s\S]*?details\.scrollIntoView/);
+  assert.match(inputs, /imageAction\.hidden = !aiImagePreparationRequired/);
+});
+
 test('AI assists have one distinct pattern without becoming primary actions', () => {
   const html = readBlogNextView();
   const css = read('ui/styles/features/blog-next-quick-flow.css');

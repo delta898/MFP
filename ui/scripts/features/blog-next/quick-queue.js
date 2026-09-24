@@ -1,8 +1,15 @@
 const BLOG_NEXT_TOPIC_DEFAULTS_STORAGE_KEY = 'blog_next_topic_defaults_v1';
 const BLOG_NEXT_BUILTIN_DEFAULTS = Object.freeze({
   platforms: ['naver'], naverCategory: '', wordpressCategory: '', writingStrategy: 'search',
-  imageMode: 'prompt_only', postStatus: 'publish', externalReference: true
+  imageMode: 'prompt_only', postStatus: 'publish', externalReference: true, headless: true
 });
+const BLOG_NEXT_PERSISTED_SETTING_IDS = new Set([
+  'blog-next-target-naver', 'blog-next-target-wordpress', 'blog-next-naver-category',
+  'blog-next-wordpress-category', 'blog-next-writing-strategy', 'blog-next-image-mode',
+  'blog-next-post-status', 'blog-next-runner-headless', 'blog-next-external-reference',
+  'blog-next-writing-length', 'blog-next-writing-opening', 'blog-next-writing-development',
+  'blog-next-writing-ending'
+]);
 
 let blogNextTopicSubmitting = false;
 let blogNextQueueLoading = false;
@@ -34,6 +41,7 @@ function readBlogNextTopicSettings() {
     writingStrategy: document.getElementById('blog-next-writing-strategy')?.value || 'search',
     imageMode: document.getElementById('blog-next-image-mode')?.value || 'prompt_only',
     postStatus: document.getElementById('blog-next-post-status')?.value || 'publish',
+    headless: document.getElementById('blog-next-runner-headless')?.checked !== false,
     externalReference: document.getElementById('blog-next-external-reference')?.checked === true,
     writingOverrides: readBlogNextWritingOverrides()
   };
@@ -50,6 +58,7 @@ function normalizeBlogNextTopicDefaults(value = {}) {
     writingStrategy: ['search', 'discovery'].includes(value.writingStrategy) ? value.writingStrategy : 'search',
     imageMode: ['generate', 'prompt_only', 'none'].includes(value.imageMode) ? value.imageMode : 'prompt_only',
     postStatus: ['publish', 'draft', 'schedule'].includes(value.postStatus) ? value.postStatus : 'publish',
+    headless: value.headless !== false,
     externalReference: value.externalReference !== false,
     writingOverrides: normalizeBlogNextWritingOverrides(value.writingOverrides)
   };
@@ -75,10 +84,13 @@ function applyBlogNextTopicSettings(settings = BLOG_NEXT_BUILTIN_DEFAULTS) {
     'blog-next-wordpress-category': normalized.wordpressCategory,
     'blog-next-writing-strategy': normalized.writingStrategy,
     'blog-next-image-mode': normalized.imageMode,
-    'blog-next-post-status': normalized.postStatus
+    'blog-next-post-status': normalized.postStatus,
+    'blog-next-runner-headless': normalized.headless
   }).forEach(([id, value]) => {
     const element = document.getElementById(id);
-    if (element) element.value = value;
+    if (!element) return;
+    if (element.type === 'checkbox') element.checked = value;
+    else element.value = value;
   });
   const externalReference = document.getElementById('blog-next-external-reference');
   if (externalReference) externalReference.checked = normalized.externalReference;
@@ -88,11 +100,17 @@ function applyBlogNextTopicSettings(settings = BLOG_NEXT_BUILTIN_DEFAULTS) {
 }
 
 function rememberBlogNextTopicDefaults() {
+  if (blogNextEditingRowIndex !== null) return;
   try {
     localStorage.setItem(BLOG_NEXT_TOPIC_DEFAULTS_STORAGE_KEY, JSON.stringify(readBlogNextTopicSettings()));
   } catch (_error) {
     // 저장소가 차단되어도 글감 등록은 계속할 수 있어야 한다.
   }
+}
+
+function rememberBlogNextTopicDefaultsForSetting(fieldId = '') {
+  if (!BLOG_NEXT_PERSISTED_SETTING_IDS.has(String(fieldId || ''))) return;
+  rememberBlogNextTopicDefaults();
 }
 
 function readBlogNextTopicPayload(action) {
@@ -748,6 +766,7 @@ function initBlogNextQuickQueue() {
     if (['blog-next-target-naver', 'blog-next-target-wordpress'].includes(event.target?.id)) {
       syncBlogNextProviderDependentFields();
     }
+    rememberBlogNextTopicDefaultsForSetting(event.target?.id);
     syncBlogNextQuickFlowSummaries();
     syncBlogNextTopicActionAvailability();
     markBlogNextAiDraftSourceChanged(event.target?.id || '');

@@ -36,7 +36,11 @@
         <option value="draft">임시 저장</option>
         <option value="schedule">예약 발행</option>
       </select></span>
-      <small class="blog-next-image-safety-hint" id="blog-next-publish-safety-hint" data-draft-image-safety-hint hidden></small>
+      <small class="blog-next-image-safety-hint" id="blog-next-publish-safety-hint" data-draft-image-safety-hint hidden>
+        <span id="blog-next-publish-safety-message"></span>
+        <button class="ui-text-action blog-next-image-safety-action" id="blog-next-publish-image-action" type="button"
+          aria-controls="blog-next-ai-draft-images" hidden>이미지 처리하기 ↑</button>
+      </small>
     </label>
     <label class="blog-next-field blog-next-dependent-field" id="blog-next-schedule-field" data-draft-schedule-field data-dependency-active="false">
       <span>예약 일시 <small id="blog-next-schedule-required" data-draft-schedule-required hidden>(필수)</small></span>

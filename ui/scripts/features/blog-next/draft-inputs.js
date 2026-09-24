@@ -110,6 +110,8 @@ function syncBlogNextDraftImageSafety(type, preview = null) {
   const state = blogNextDraftState[type];
   const select = blogNextDraftField(type, 'post-status');
   const hint = document.getElementById('blog-next-publish-safety-hint');
+  const message = document.getElementById('blog-next-publish-safety-message');
+  const imageAction = document.getElementById('blog-next-publish-image-action');
   if (!state || !select) return;
   const autoGenerationCount = Array.isArray(preview?.images)
     ? preview.images.filter((image) => !image.excluded && !image.exists && String(image.prompt || '').trim()).length
@@ -124,18 +126,29 @@ function syncBlogNextDraftImageSafety(type, preview = null) {
   if (hint) {
     const imageAiBlocked = typeof isUiCapabilityUnavailable === 'function'
       && isUiCapabilityUnavailable('ai.image');
-    hint.textContent = aiImagePreparationRequired
-      ? `이미지 ${autoGenerationCount}개를 준비하거나 제외하면 발행할 수 있습니다. 현재는 임시저장만 가능합니다.`
+    const hintText = aiImagePreparationRequired
+      ? `이미지 ${autoGenerationCount}개를 처리해야 발행할 수 있어요. 지금은 임시저장만 가능해요.`
       : autoGenerationCount > 0
         ? (imageAiBlocked
           ? `빈 이미지 ${autoGenerationCount}개를 자동 생성할 수 없어 최종 발행 시 안전하게 임시 저장될 수 있습니다.`
           : `빈 이미지 ${autoGenerationCount}개는 포스팅할 때 자동으로 만듭니다.`)
-        : '';
+      : '';
+    if (message) message.textContent = hintText;
+    else hint.textContent = hintText;
     hint.hidden = autoGenerationCount === 0;
   }
+  if (imageAction) imageAction.hidden = !aiImagePreparationRequired;
   state.imageSafetyLocked = aiImagePreparationRequired;
   syncBlogNextDraftSchedule(type);
   syncBlogNextDraftSettingsSummary(type);
+}
+
+function focusBlogNextAiDraftImages() {
+  const details = document.querySelector('[data-blog-next-draft-preview="ai"] [data-draft-preview-image-details]');
+  if (!details || details.hidden || details.closest('[hidden]')) return;
+  details.open = true;
+  details.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  requestAnimationFrame(() => details.querySelector('summary')?.focus({ preventScroll: true }));
 }
 
 async function serializeBlogNextFolderFiles(files = [], options = {}) {
@@ -696,6 +709,7 @@ function initBlogNextDraftInputs() {
   const folderInput = document.getElementById('blog-next-folder-input');
   if (!folderInput || folderInput.dataset.bound === 'true') return;
   folderInput.dataset.bound = 'true';
+  document.getElementById('blog-next-publish-image-action')?.addEventListener('click', focusBlogNextAiDraftImages);
   document.getElementById('blog-next-folder-select')?.addEventListener('click', () => folderInput.click());
   document.getElementById('blog-next-folder-clear')?.addEventListener('click', clearBlogNextFolderDraft);
   folderInput.addEventListener('change', async (event) => {

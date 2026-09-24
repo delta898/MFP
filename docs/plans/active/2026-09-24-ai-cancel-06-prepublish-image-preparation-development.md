@@ -60,4 +60,11 @@
 - 사용자 피드백에 따라 중지 동작을 즉시 실행에서 2단계 확인으로 변경했다. 첫 클릭은 위험 스타일의 `중지 확인` 상태로 전환하고 6초 안에 다시 누르면 실행한다. `계속 진행` 버튼으로 확인 상태를 해제할 수 있고, 시간 초과 시에도 자동으로 원래 상태로 돌아간다. AI 생성과 네이버 포스팅에 같은 확인 패턴을 적용했다.
 - 최종 저장·발행 요청 이후에는 중지 버튼을 숨기지 않고 비활성화 상태로 유지한다. 포인터 hover 또는 키보드 focus에서 외부 반영 여부가 불확실해 중지할 수 없는 이유를 확인할 수 있도록 설명을 연결했다.
 - 추가 검증: `node --test scripts/blog-next-quick-flow-contract.test.js` 통과 (13/13), `npm run test:ui-browser` 통과 (444 fixture requests), `git diff --check` 통과. 실제 AI 호출·포스팅은 포함하지 않는다.
+- 2026-09-24: 사용자가 이미지 처리 안내의 줄바꿈을 줄이고 해당 안내에서 이미지 영역으로 바로 이동하기를 요청했다. AI 바로 생성에서 문구를 `이미지 N개를 처리해야 발행할 수 있어요. 지금은 임시저장만 가능해요.`로 간결화하고, `이미지 처리하기 ↑` 버튼이 접힌 이미지 확인 영역을 열어 그 위치로 스크롤·포커스하도록 했다. 이 버튼은 미완성 이미지가 있어 발행이 막힌 경우에만 표시한다.
+- 검증: `node --test scripts/blog-next-quick-flow-contract.test.js` 통과 (14/14), `npm run test:ui-browser` 통과 (449 fixture requests). 실제 UI의 최종 시각 확인은 사용자 hands-on 테스트로 남긴다.
+- 2026-09-24: backlog의 Blog Beta 발행 설정 유지 버그를 같은 단계에서 해결했다. 생성 기본값으로 외부 참고 사용 여부, 글쓰기 전략, 이미지 처리, 글 구성 override를 유지한다. 발행 기본값으로 대상, 플랫폼별 카테고리, 발행 방식과 `보이지 않게 실행`을 유지한다. 예약 일시와 주제·제목·키워드·추가 지시·참고 URL은 다음 글로 넘기지 않는다. 기존 대기열 항목을 수정하는 동안에는 해당 항목의 값이 전역 기본값을 덮어쓰지 않는다.
+- 설정은 `blog_next_topic_defaults_v1` 키의 앱 프로필 `localStorage`에 변경 즉시 저장된다. 계정·기기 간 동기화는 하지 않는다. 예약 일시는 기본값 payload에서 제외되고 새 글 시작 시 기존 clear 흐름으로 비워진다.
+- 검증: `node --test scripts/blog-next-quick-flow-contract.test.js scripts/blog-next-baseline-contract.test.js` 통과 (36/36), `npm run test:ui-browser` 통과 (441 fixture requests), 구문 검사 및 `git diff --check` 통과.
+- 2026-09-24: 사용자가 네이버 포스팅 중지 후 재시도 시 상단 진행 메시지가 이전 상태로 남을 수 있는지 확인을 요청했다. 새 게시 요청이 서버의 새 실행 lease를 얻기 전에 약 400ms 뒤 상태 polling이 시작되어, 이전 실행의 `stopped` 응답이 새 실행 상태로 렌더링되고 poller까지 종료되는 경합을 재현 조건으로 확인했다. polling을 optimistic `running` 렌더보다 먼저 시작해 이전 `executionId`를 기억하고, 같은 ID의 응답은 무시하되 새 실행 ID가 확인될 때까지 조회를 계속하도록 수정했다.
+- 회귀 검증은 이전 실행의 `stopped` 응답 다음에 새 실행의 `running` 응답을 반환하는 브라우저 smoke 시나리오로 추가했다. `node --test scripts/blog-next-quick-flow-contract.test.js scripts/blog-next-baseline-contract.test.js` 통과 (36/36), `npm run test:ui-browser` 통과 (448 fixture requests), `git diff --check` 통과. 실제 네이버 발행/중지는 실행하지 않았다.
 - 수동 확인 필요: 네이버 브라우저 포스팅 도중 중지 시 브라우저가 닫히고 다음 작업이 가능해지는지, 최종 저장·발행 요청 단계에서 중지 버튼이 비활성화되고 이유 안내를 확인할 수 있는지 hands-on 확인. 워드프레스에는 중지 버튼이 없어야 한다.

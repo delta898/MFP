@@ -268,6 +268,11 @@
   font-weight: var(--ui-weight-semibold);
 }
 
+.blog-next-draft-options .blog-next-image-safety-action {
+  margin-inline-start: 0.5rem;
+  white-space: nowrap;
+}
+
 .blog-next-manuscript-image-details .local-markdown-image-list[aria-busy="true"] {
   opacity: 0.68;
   pointer-events: none;

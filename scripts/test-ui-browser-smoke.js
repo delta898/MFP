@@ -2938,6 +2938,18 @@ async function run() {
         });
         await page.waitForFunction(() => document.getElementById('view-blog-next')?.classList.contains('active'));
 
+        await page.locator('#blog-next-writing-strategy').selectOption('discovery');
+        await page.locator('#blog-next-image-mode').selectOption('none');
+        await page.locator('#blog-next-writing-length').selectOption('long');
+        await page.locator('#blog-next-external-reference').uncheck();
+        const creationDefaults = await page.evaluate(() => JSON.parse(localStorage.getItem('blog_next_topic_defaults_v1') || '{}'));
+        assert.equal(creationDefaults.writingStrategy, 'discovery');
+        assert.equal(creationDefaults.imageMode, 'none');
+        assert.equal(creationDefaults.writingOverrides.length, 'long');
+        assert.equal(creationDefaults.externalReference, false);
+        assert.equal(Object.hasOwn(creationDefaults, 'referenceUrl'), false);
+        assert.equal(Object.hasOwn(creationDefaults, 'scheduleDate'), false);
+
         await page.locator('#blog-next-subject').fill('나중에 다듬을 제주 글감');
         await page.locator('#blog-next-save-topic').click();
         await page.waitForFunction(() => document.getElementById('blog-next-topic-result')?.textContent.includes('글감을 보관했습니다'));
@@ -2978,12 +2990,15 @@ async function run() {
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="schedule-date"]').isDisabled(), true);
         await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"]').selectOption('schedule');
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="schedule-date"]').isEnabled(), true);
+        assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('blog_next_topic_defaults_v1') || '{}').postStatus), 'schedule');
         await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="schedule-date"]').fill('2026-09-20T11:30');
+        assert.equal(await page.evaluate(() => Object.hasOwn(JSON.parse(localStorage.getItem('blog_next_topic_defaults_v1') || '{}'), 'scheduleDate')), false);
         await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"]').selectOption('publish');
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="schedule-date"]').isDisabled(), true);
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="schedule-date"]').inputValue(), '2026-09-20T11:30');
         assert.equal(await page.locator('#blog-next-runner-headless').isChecked(), true);
         await page.locator('#blog-next-runner-headless').uncheck();
+        assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('blog_next_topic_defaults_v1') || '{}').headless), false);
         await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="target-wordpress"]').check();
         assert.equal(await page.locator('#blog-next-runner-headless').isDisabled(), true);
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="naver-category"]').isDisabled(), true);
@@ -3122,9 +3137,13 @@ async function run() {
         assert.equal(await page.locator('#blog-next-post-status').inputValue(), 'draft');
         assert.equal(await page.locator('#blog-next-post-status option[value="publish"]').evaluate((option) => option.disabled), true);
         assert.equal(await page.locator('#blog-next-post-status option[value="schedule"]').evaluate((option) => option.disabled), true);
-        assert.match((await page.locator('#blog-next-publish-safety-hint').textContent()) || '', /이미지 1개를 준비하거나 제외하면 발행할 수 있습니다/);
+        assert.match((await page.locator('#blog-next-publish-safety-message').textContent()) || '', /이미지 1개를 처리해야 발행할 수 있어요/);
+        assert.equal((await page.locator('#blog-next-publish-image-action').textContent())?.trim(), '이미지 처리하기 ↑');
+        assert.equal(await page.locator('#blog-next-publish-image-action').isVisible(), true);
         assert.equal((await page.locator('[data-blog-next-draft-publish="ai"]').textContent())?.trim(), '블로그에 임시 저장');
-        await page.locator('[data-blog-next-draft-preview="ai"] [data-draft-preview-image-details] > summary').click();
+        await page.locator('#blog-next-publish-image-action').click();
+        assert.equal(await page.locator('#blog-next-ai-draft-images').evaluate((element) => element.open), true);
+        assert.equal(await page.locator('#blog-next-ai-draft-images > summary').evaluate((element) => document.activeElement === element), true);
         await page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-action="generate"][data-slot-id="image-1"]').click();
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot="image-1"] .local-markdown-image-card-status')?.textContent === '이미지 준비됨');
         assert.equal(await page.locator('#blog-next-post-status option[value="publish"]').evaluate((option) => option.disabled), false);
@@ -3615,6 +3634,42 @@ async function run() {
         assert.equal(pastedPublishRequest?.body?.draftId, PASTE_MANUSCRIPT_DRAFT_ID);
         assert.equal(pastedPublishRequest?.body?.revision, 5);
         await page.evaluate(() => document.getElementById('ui-toast-container')?.replaceChildren());
+
+        let retryStatusPollCount = 0;
+        const retryStatusRoute = async (route) => {
+            retryStatusPollCount += 1;
+            const status = retryStatusPollCount === 1
+                ? {
+                    state: 'stopped', busy: false, source: 'local_markdown',
+                    executionId: 'previous-naver-run', message: '이전 포스팅을 중지했습니다.'
+                }
+                : {
+                    state: 'running', busy: true, source: 'local_markdown',
+                    executionId: 'retried-naver-run', progressStage: 'body',
+                    message: '다시 입력 중입니다.'
+                };
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json; charset=utf-8',
+                body: JSON.stringify({ success: true, data: status })
+            });
+        };
+        await page.route('**/api/v1/continuous-publishing/runner/status', retryStatusRoute);
+        await page.evaluate(() => {
+            renderBlogNextRunnerStatus({
+                state: 'stopped', busy: false, source: 'local_markdown',
+                executionId: 'previous-naver-run', message: '이전 포스팅을 중지했습니다.'
+            });
+            startBlogNextLocalPublishProgress(() => '재시도 원고');
+            renderBlogNextRunnerStatus({
+                state: 'running', busy: true, source: 'local_markdown',
+                message: '새 포스팅을 준비하고 있습니다.'
+            });
+        });
+        await page.waitForFunction(() => document.getElementById('blog-next-publish-status-message')?.textContent === '다시 입력 중입니다.');
+        assert.equal(retryStatusPollCount, 2);
+        await page.evaluate(() => stopBlogNextLocalPublishProgress());
+        await page.unroute('**/api/v1/continuous-publishing/runner/status', retryStatusRoute);
 
         let naverStopRequestCount = 0;
         await page.route('**/api/v1/continuous-publishing/runner/stop', async (route) => {

@@ -95,11 +95,17 @@ function dismissBlogNextStatusForNewWriting() {
 function startBlogNextLocalPublishProgress(getSubject) {
   stopBlogNextLocalPublishProgress();
   const token = blogNextLocalPublishProgressToken;
+  // A retry begins before the server acquires its new execution lease. Ignore
+  // the previous terminal snapshot during that hand-off instead of stopping
+  // this poller on the old run's `stopped` state.
+  const previousExecutionId = blogNextRunnerLastStatus?.executionId || '';
   const poll = async () => {
     if (token !== blogNextLocalPublishProgressToken) return;
     try {
       const status = await fetchJson('/api/v1/continuous-publishing/runner/status');
-      if (token === blogNextLocalPublishProgressToken
+      const stalePreviousExecution = previousExecutionId
+        && status.executionId === previousExecutionId;
+      if (!stalePreviousExecution && token === blogNextLocalPublishProgressToken
         && status.source === 'local_markdown' && ['running', 'stop_requested', 'stopped'].includes(status.state)) {
         renderBlogNextRunnerStatus({ ...status, subject: getSubject?.() || '' });
         if (status.state === 'stopped') {

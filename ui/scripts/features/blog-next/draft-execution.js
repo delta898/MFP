@@ -475,6 +475,9 @@ function bindBlogNextDetachedPublishSettings(form) {
   const publishSettings = document.getElementById('blog-next-publish-settings');
   publishSettings?.addEventListener('change', (event) => {
     if (form.contains(event.target)) return;
+    if (typeof rememberBlogNextTopicDefaultsForSetting === 'function') {
+      rememberBlogNextTopicDefaultsForSetting(event.target?.id);
+    }
     const type = BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai';
     if (['blog-next-target-naver', 'blog-next-target-wordpress'].includes(event.target?.id)) {
       syncBlogNextDraftProviderFields(type);
@@ -522,6 +525,12 @@ async function publishBlogNextDraft(type) {
 
   setBlogNextDraftValidation(type, state.preview?.validation, '', state.preview);
   setBlogNextDraftPublishing(type, true);
+  // Start polling before the optimistic running status replaces the previous
+  // execution snapshot; the poller uses that prior executionId to reject stale
+  // terminal responses while the new server run is being acquired.
+  if (typeof startBlogNextLocalPublishProgress === 'function') {
+    startBlogNextLocalPublishProgress(() => state.preview?.title || '');
+  }
   if (typeof renderBlogNextRunnerStatus === 'function') {
     renderBlogNextRunnerStatus({
       state: 'running',
@@ -538,9 +547,6 @@ async function publishBlogNextDraft(type) {
     const publishSettingsHeading = document.querySelector('#blog-next-publish-settings > summary');
     const publishActions = document.querySelector(`[data-blog-next-draft-actions="${type}"]`);
     showBlogNextExecutionStatusAtTop(publishSettingsHeading || publishActions, publishActions);
-  }
-  if (typeof startBlogNextLocalPublishProgress === 'function') {
-    startBlogNextLocalPublishProgress(() => state.preview?.title || '');
   }
   try {
     const syncedPreview = await loadBlogNextDraftPreview(type);

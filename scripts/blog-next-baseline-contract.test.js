@@ -114,7 +114,7 @@ test('folder and paste previews share one reading surface and image workspace', 
   assert.match(script, /function syncBlogNextDraftImageSafety\(type, preview = null\)/);
   assert.match(script, /option\.value === 'publish' \|\| option\.value === 'schedule'/);
   assert.doesNotMatch(script, /changedToDraft|forcedDraft/);
-  assert.match(script, /option\.value === 'publish' \|\| option\.value === 'schedule'\) option\.disabled = false/);
+  assert.match(script, /option\.value === 'publish' \|\| option\.value === 'schedule'\) \{\s*option\.disabled = aiImagePreparationRequired;/);
   assert.match(script, /function getBlogNextDraftPublishCopy\(postStatus = 'publish'\)/);
   assert.match(script, /buttonLabel: '블로그에 임시 저장'/);
   assert.match(script, /buttonLabel: '예약 발행'/);
