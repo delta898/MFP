@@ -52,11 +52,12 @@ test('AI assists have one distinct pattern without becoming primary actions', ()
   assert.doesNotMatch(html, /<span aria-hidden="true">AI<\/span>/);
 });
 
-test('AI manuscript cancellation stays beside the active generation action', () => {
+test('AI manuscript cancellation stays in the shared execution status', () => {
   const html = readBlogNextView();
+  const status = read('ui/partials/views/blog-next/publish-status.html');
   const execution = read('ui/scripts/features/blog-next/draft-execution.js');
-  assert.match(html, /id="blog-next-publish-now"[\s\S]*id="blog-next-cancel-generate"[^>]*hidden/);
-  assert.match(html, /id="blog-next-regenerate-draft"[\s\S]*id="blog-next-cancel-regenerate"[^>]*hidden/);
+  assert.match(status, /id="blog-next-publish-status-cancel"[^>]*data-blog-next-ai-cancel[^>]*hidden/);
+  assert.equal((html.match(/data-blog-next-ai-cancel/g) || []).length, 1);
   assert.match(execution, /manuscript-drafts\/ai\/operations/);
   assert.match(execution, /state === 'cancel_requested'/);
   assert.match(execution, /state === 'canceled'/);

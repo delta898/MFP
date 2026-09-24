@@ -285,7 +285,7 @@ test('Stage 11 exposes one shared publish status with a return action and no dup
     assert.match(betaView, /id="blog-next-publish-status-manage"[^>]*>글감 관리/);
     assert.match(betaView, /id="blog-next-publish-status-dismiss"[^>]*aria-label="닫기"[^>]*>×/);
     assert.match(betaView, /id="blog-next-runner-headless"[^>]*checked[^>]*> 보이지 않게 실행/);
-    assert.match(betaView, /id="blog-next-publish-status-return"[^>]*hidden>↓ 원고 보기/);
+    assert.match(betaView, /id="blog-next-publish-status-return"[^>]*hidden>↓ 작업 위치로/);
     assert.match(betaView, /id="blog-next-publish-status-next"[^>]*hidden>다음 글/);
     assert.match(betaView, /id="blog-next-publish-status-help"[^>]*hidden/);
     assert.doesNotMatch(betaView, /data-blog-next-runner-status-jump|상태 보기/);
@@ -303,7 +303,8 @@ test('Stage 11 exposes one shared publish status with a return action and no dup
     assert.match(runnerScript, /noopener noreferrer/);
     assert.match(runnerScript, /panel\.scrollIntoView\(\{ behavior: blogNextStatusScrollBehavior\(\), block: 'start' \}\)/);
     assert.match(runnerScript, /panel\.focus\(\{ preventScroll: true \}\)/);
-    assert.match(runnerScript, /target\.scrollIntoView\(\{ behavior: blogNextStatusScrollBehavior\(\), block: 'start' \}\)/);
+    assert.match(runnerScript, /scrollContainer\.scrollTop = blogNextStatusReturnScrollTop/);
+    assert.match(runnerScript, /target\.focus\(\{ preventScroll: true \}\)/);
     assert.match(runnerScript, /void navigateToBlogQuickCreate\(\)/);
     assert.doesNotMatch(runnerScript, /Topics\s*\$\{|showUiToast/);
     assert.match(read('ui/styles/features/continuous-publishing.css'), /\.blog-next-publish-status-help summary:focus-visible/);

@@ -43,5 +43,9 @@
 - 확인창도 `바로 생성`에서는 포스팅 중 이미지 생성 안내를 더 이상 표시하지 않는다. 이미지는 미리보기에서 명시적으로 생성한 뒤 포스팅한다.
 - 검증: `node --test scripts/blog-next-quick-flow-contract.test.js src/content/manuscript-draft-service.test.js` 통과 (35/35); `npm run test:ui-browser` 통과 (446 fixture requests). 자동 검증은 모의 응답을 사용하며 실제 AI 호출·포스팅은 포함하지 않는다.
 - 1단계 서버 커밋: `711d975f fix: keep quick-draft image work before posting`. UI 흐름은 다음 단계 커밋으로 별도 기록한다.
+- 사용자 hands-on 테스트 중 발견된 상태 UI 불일치를 추가 수정했다: 생성 취소 버튼을 상단 공유 상태 영역에 하나만 표시하고, 반환 라벨을 짧은 `↓ 작업 위치로`로 정리했다. 포스팅 중 반환은 미리보기나 하단 버튼 한 줄 대신 발행 설정 요약으로 이동해 설정과 발행 버튼 문맥을 함께 볼 수 있게 한다.
+- 추가 검증: `node --test scripts/blog-next-quick-flow-contract.test.js scripts/continuous-publishing-shell-contract.test.js` 통과 (32/32); `npm run test:ui-browser` 통과 (452 fixture requests). 첫 sandbox 실행은 localhost bind 권한으로 실패하여 승인된 elevated 실행에서 통과했다.
+- 후속 스크린샷 검증으로 하단 발행 버튼만 상단 정렬하면 화면에 버튼·푸터·빈 공간만 남는 것을 확인했다. 반환 앵커를 `발행 설정` 요약으로 옮겼으며 브라우저 smoke가 다시 통과했다 (446 fixture requests).
+- 사용자가 `작업 위치로`를 누를 때마다 빈 공간과 비정상 스크롤이 계속된다고 재현했다. 원인을 대상 요소의 `scrollIntoView()`가 `.main` 끝으로 강제 스크롤하는 동작으로 좁혔고, 상태 영역으로 이동하기 직전의 `.main.scrollTop`을 저장해 반환 시 복원하도록 수정했다. 브라우저 자동 스크롤 보정이 반영된 실제 저장 위치를 기준으로 테스트해 `npm run test:ui-browser` 통과 (444 fixture requests).
 - 수동 확인 필요: 네이버·워드프레스 임시저장 결과의 이미지 프롬프트 표시 및 이미지를 모두 결정한 뒤 발행되는 흐름.
 - 남은 위험: 두 플랫폼에서 프롬프트 자리표시자 표현이 다를 수 있다. 실제 포스팅과 유료 AI 이미지는 별도 승인 없이 테스트하지 않는다.

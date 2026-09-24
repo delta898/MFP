@@ -13,6 +13,8 @@ let blogNextLocalPublishProgressToken = 0;
 let blogNextStatusReturnTarget = null;
 let blogNextStatusReturnFallback = null;
 let blogNextStatusReturnMode = 'ai';
+let blogNextStatusReturnScrollContainer = null;
+let blogNextStatusReturnScrollTop = 0;
 
 function blogNextStatusScrollBehavior() {
   return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -31,6 +33,8 @@ function showBlogNextExecutionStatusAtTop(target, fallback = null) {
   const returnButton = document.getElementById('blog-next-publish-status-return');
   if (returnButton) returnButton.hidden = !target;
   if (!panel || panel.hidden || (typeof blogNextActiveTab !== 'undefined' && blogNextActiveTab !== 'quick')) return;
+  blogNextStatusReturnScrollContainer = document.querySelector('.main') || document.scrollingElement;
+  blogNextStatusReturnScrollTop = Number(blogNextStatusReturnScrollContainer?.scrollTop || 0);
   panel.scrollIntoView({ behavior: blogNextStatusScrollBehavior(), block: 'start' });
   panel.focus({ preventScroll: true });
 }
@@ -47,6 +51,8 @@ function dismissBlogNextStatusForNewWriting() {
   if (panel) panel.hidden = true;
   blogNextStatusReturnTarget = null;
   blogNextStatusReturnFallback = null;
+  blogNextStatusReturnScrollContainer = null;
+  blogNextStatusReturnScrollTop = 0;
 }
 
 function startBlogNextLocalPublishProgress(getSubject) {
@@ -233,6 +239,8 @@ function renderBlogNextRunnerStatus(status = {}) {
   if (!localStatus) {
     blogNextStatusReturnTarget = null;
     blogNextStatusReturnFallback = null;
+    blogNextStatusReturnScrollContainer = null;
+    blogNextStatusReturnScrollTop = 0;
   }
   const returnButton = document.getElementById('blog-next-publish-status-return');
   if (returnButton) returnButton.hidden = !panelVisible || !localStatus || !blogNextStatusReturnTarget;
@@ -370,8 +378,12 @@ function initBlogNextRunner() {
       const target = isBlogNextVisibleReturnTarget(blogNextStatusReturnTarget)
         ? blogNextStatusReturnTarget : blogNextStatusReturnFallback;
       if (!isBlogNextVisibleReturnTarget(target)) return;
-      target.scrollIntoView({ behavior: blogNextStatusScrollBehavior(), block: 'start' });
-      target.setAttribute('tabindex', '-1');
+      const scrollContainer = blogNextStatusReturnScrollContainer?.isConnected
+        ? blogNextStatusReturnScrollContainer : document.querySelector('.main') || document.scrollingElement;
+      if (scrollContainer) scrollContainer.scrollTop = blogNextStatusReturnScrollTop;
+      if (!target.hasAttribute('tabindex') && !['BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'SUMMARY'].includes(target.tagName)) {
+        target.setAttribute('tabindex', '-1');
+      }
       target.focus({ preventScroll: true });
     });
     document.getElementById('blog-next-runner-start')?.addEventListener('click', () => startBlogNextRunner());

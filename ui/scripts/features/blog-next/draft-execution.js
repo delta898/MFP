@@ -542,8 +542,9 @@ async function publishBlogNextDraft(type) {
     });
   }
   if (typeof showBlogNextExecutionStatusAtTop === 'function') {
-    showBlogNextExecutionStatusAtTop(document.querySelector(`[data-blog-next-draft-preview="${type}"]`),
-      document.querySelector(`[data-blog-next-draft-actions="${type}"]`));
+    const publishSettingsHeading = document.querySelector('#blog-next-publish-settings > summary');
+    const publishActions = document.querySelector(`[data-blog-next-draft-actions="${type}"]`);
+    showBlogNextExecutionStatusAtTop(publishSettingsHeading || publishActions, publishActions);
   }
   if (typeof startBlogNextLocalPublishProgress === 'function') {
     startBlogNextLocalPublishProgress(() => state.preview?.title || '');
