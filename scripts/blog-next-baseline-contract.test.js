@@ -114,7 +114,7 @@ test('folder and paste previews share one reading surface and image workspace', 
   assert.match(script, /function syncBlogNextDraftImageSafety\(type, preview = null\)/);
   assert.match(script, /option\.value === 'publish' \|\| option\.value === 'schedule'/);
   assert.doesNotMatch(script, /changedToDraft|forcedDraft/);
-  assert.match(script, /option\.value === 'publish' \|\| option\.value === 'schedule'\) \{\s*option\.disabled = aiImagePreparationRequired;/);
+  assert.match(script, /option\.value === 'publish' \|\| option\.value === 'schedule'\) \{\s*option\.disabled = imagePreparationRequired;/);
   assert.match(script, /function getBlogNextDraftPublishCopy\(postStatus = 'publish'\)/);
   assert.match(script, /buttonLabel: '블로그에 임시 저장'/);
   assert.match(script, /buttonLabel: '예약 발행'/);
@@ -128,7 +128,7 @@ test('folder and paste previews share one reading surface and image workspace', 
   assert.match(script, /actualPublishCopy\.completionLabel/);
   assert.match(script, /showPostingCompletionCelebration\(actualPostStatus\)/);
   assert.match(html, /data-draft-image-safety-hint/);
-  assert.match(html, /id="blog-next-help-post-status"[^>]*>[\s\S]*없는 이미지는 포스팅 전에 자동으로 만들/);
+  assert.match(html, /id="blog-next-help-post-status"[^>]*>[\s\S]*원고 폴더는 이미지 확인에서 먼저 이미지를 준비해야/);
   assert.match(script, /supportsBlogNextDraftAutomaticImages\(type\)[\s\S]*빈 이미지 \$\{autoGenerationCount\}개는 포스팅할 때 자동으로 만듭니다/);
   assert.match(css, /\.local-markdown-image-media-actions\.is-empty\s*\{[\s\S]*?justify-content:\s*center/);
   assert.match(css, /\.local-markdown-image-media-actions\.is-empty\s*\{[\s\S]*?flex-wrap:\s*nowrap/);

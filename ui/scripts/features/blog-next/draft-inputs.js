@@ -2,7 +2,7 @@ const BLOG_NEXT_DRAFT_TYPES = Object.freeze(['ai', 'folder', 'paste']);
 const BLOG_NEXT_DRAFT_PREVIEW_DELAY_MS = 350;
 
 function supportsBlogNextDraftAutomaticImages(type) {
-  return type === 'folder' || type === 'paste';
+  return type === 'paste';
 }
 
 const blogNextDraftState = {
@@ -116,17 +116,17 @@ function syncBlogNextDraftImageSafety(type, preview = null) {
   const autoGenerationCount = Array.isArray(preview?.images)
     ? preview.images.filter((image) => !image.excluded && !image.exists && String(image.prompt || '').trim()).length
     : 0;
-  const aiImagePreparationRequired = type === 'ai' && autoGenerationCount > 0;
+  const imagePreparationRequired = (type === 'ai' || type === 'folder') && autoGenerationCount > 0;
   Array.from(select.options).forEach((option) => {
     if (option.value === 'publish' || option.value === 'schedule') {
-      option.disabled = aiImagePreparationRequired;
+      option.disabled = imagePreparationRequired;
     }
   });
-  if (aiImagePreparationRequired && select.value !== 'draft') select.value = 'draft';
+  if (imagePreparationRequired && select.value !== 'draft') select.value = 'draft';
   if (hint) {
     const imageAiBlocked = typeof isUiCapabilityUnavailable === 'function'
       && isUiCapabilityUnavailable('ai.image');
-    const hintText = aiImagePreparationRequired
+    const hintText = imagePreparationRequired
       ? `이미지 ${autoGenerationCount}개를 처리해야 발행할 수 있어요. 지금은 임시저장만 가능해요.`
       : autoGenerationCount > 0
         ? (imageAiBlocked
@@ -137,14 +137,19 @@ function syncBlogNextDraftImageSafety(type, preview = null) {
     else hint.textContent = hintText;
     hint.hidden = autoGenerationCount === 0;
   }
-  if (imageAction) imageAction.hidden = !aiImagePreparationRequired;
-  state.imageSafetyLocked = aiImagePreparationRequired;
+  if (imageAction) {
+    imageAction.hidden = !imagePreparationRequired;
+    const details = document.querySelector(`[data-blog-next-draft-preview="${type}"] [data-draft-preview-image-details]`);
+    if (details?.id) imageAction.setAttribute('aria-controls', details.id);
+  }
+  state.imageSafetyLocked = imagePreparationRequired;
   syncBlogNextDraftSchedule(type);
   syncBlogNextDraftSettingsSummary(type);
 }
 
-function focusBlogNextAiDraftImages() {
-  const details = document.querySelector('[data-blog-next-draft-preview="ai"] [data-draft-preview-image-details]');
+function focusBlogNextDraftImages() {
+  const type = document.getElementById('blog-next-publish-settings')?.dataset.blogNextDraftSettings || 'ai';
+  const details = document.querySelector(`[data-blog-next-draft-preview="${type}"] [data-draft-preview-image-details]`);
   if (!details || details.hidden || details.closest('[hidden]')) return;
   details.open = true;
   details.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -925,7 +930,7 @@ function initBlogNextDraftInputs() {
   const folderInput = document.getElementById('blog-next-folder-input');
   if (!folderInput || folderInput.dataset.bound === 'true') return;
   folderInput.dataset.bound = 'true';
-  document.getElementById('blog-next-publish-image-action')?.addEventListener('click', focusBlogNextAiDraftImages);
+  document.getElementById('blog-next-publish-image-action')?.addEventListener('click', focusBlogNextDraftImages);
   document.getElementById('blog-next-folder-select')?.addEventListener('click', () => folderInput.click());
   document.getElementById('blog-next-folder-clear')?.addEventListener('click', clearBlogNextFolderDraft);
   folderInput.addEventListener('change', async (event) => {

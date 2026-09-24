@@ -93,15 +93,18 @@ test('AI image generation exposes per-action stop controls and sends cancellatio
   assert.match(css, /image-card-preview\.is-generating \.local-markdown-image-media-actions\.is-empty/);
 });
 
-test('unresolved AI images can be opened directly from the publish restriction', () => {
+test('unresolved AI and folder images can be opened directly from the publish restriction', () => {
   const html = readBlogNextView();
   const inputs = read('ui/scripts/features/blog-next/draft-inputs.js');
 
   assert.match(html, /id="blog-next-publish-safety-message"/);
   assert.match(html, /id="blog-next-publish-image-action"[^>]*aria-controls="blog-next-ai-draft-images"[^>]*hidden/);
   assert.match(html, /id="blog-next-ai-draft-images"[^>]*data-draft-preview-image-details/);
-  assert.match(inputs, /function focusBlogNextAiDraftImages\(\)[\s\S]*?details\.open = true;[\s\S]*?details\.scrollIntoView/);
-  assert.match(inputs, /imageAction\.hidden = !aiImagePreparationRequired/);
+  assert.match(html, /id="blog-next-folder-draft-images"[^>]*data-draft-preview-image-details/);
+  assert.match(inputs, /function focusBlogNextDraftImages\(\)[\s\S]*?dataset\.blogNextDraftSettings[\s\S]*?details\.open = true;[\s\S]*?details\.scrollIntoView/);
+  assert.match(inputs, /imageAction\.hidden = !imagePreparationRequired/);
+  assert.match(inputs, /type === 'ai' \|\| type === 'folder'/);
+  assert.match(inputs, /function supportsBlogNextDraftAutomaticImages\(type\) \{\s*return type === 'paste';/);
 });
 
 test('AI assists have one distinct pattern without becoming primary actions', () => {

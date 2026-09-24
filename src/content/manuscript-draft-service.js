@@ -733,9 +733,12 @@ function createManuscriptDraftService(options = {}) {
         assertDraftActive(manifest);
         let current = getDraft(input.draftId);
         assertRevision({ revision: current.revision }, input.revision);
-        const targets = manifest.source_kind === 'ai' ? [] : current.images.filter((image) => (
+        // AI-generated and folder drafts finish image work in the preparation UI.
+        // Pasted Markdown keeps its existing publish-time completion behavior until
+        // that input mode is moved to the same pre-publish flow.
+        const targets = manifest.source_kind === 'paste' ? current.images.filter((image) => (
             !image.excluded && !image.exists && String(image.prompt || '').trim()
-        ));
+        )) : [];
         const failedSlotIds = [];
         let generatedCount = 0;
         for (const [index, image] of targets.entries()) {
