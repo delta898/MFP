@@ -1,7 +1,8 @@
 # Discovery 소재 적용 → 바로 생성
 
 - Branch: `codex/feature/discovery-apply-quick-create`
-- Base branch: `dev`
+- Base branch: `dev` (the branch was created from this commit)
+- Integration parent: `codex/feature/card-news-image-stop` (user-requested parent merge target)
 - Started: 2026-09-25
 - Status: committed on feature branch; ready for integration validation
 
@@ -29,7 +30,7 @@
 
 ## 진행 및 검증
 
-- 작업 시작 전 `codex/feature/card-news-image-stop` 작업 트리는 깨끗했고, 새 독립 feature branch는 해당 브랜치의 미병합 작업을 포함하지 않도록 `dev`에서 분기했다.
+- 작업 브랜치는 `dev`에서 분기해 만들어졌으며, 결과는 사용자 요청에 따라 `codex/feature/card-news-image-stop` 통합 브랜치로 병합한다. 따라서 두 브랜치는 현재 형제 관계이고, 통합에는 fast-forward가 아닌 merge commit이 필요하다.
 - 발견 뉴스 제목은 추천 카드 제목 길이 제한(180자)과 별도로 발행 화면 handoff에 원문 제목(최대 1000자)을 보존한다. 기존 `query`는 호환성을 위해 유지하며, 새 원문 필드가 있으면 따옴표 정규화 없이 작성 주제로 넣는다.
 - `blog.quick` 목적지는 `navigateToBlogQuickCreate()`를 재사용해 Blog Beta의 빠른 글 작성 및 `바로 생성` 입력 모드까지 활성화한 뒤 주제를 입력한다. 이전에 원고 폴더/붙여넣기를 선택했더라도 목적 모드가 남지 않는다.
 - 뉴스 추천 원문/저장 뉴스 원문에 대한 handoff 보존 테스트와 Dashboard Beta 계약 테스트 25/25 통과. `npm run test:ui-browser`도 발견 소재 시나리오(기존 붙여넣기 모드에서 바로 생성으로 전환, 180자보다 긴 제목의 완전 전달 포함)를 포함해 통과했다.
