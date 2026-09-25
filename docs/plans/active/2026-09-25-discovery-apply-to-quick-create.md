@@ -4,7 +4,7 @@
 - Base branch: `dev` (the branch was created from this commit)
 - Integration parent: `codex/feature/card-news-image-stop` (user-requested parent merge target)
 - Started: 2026-09-25
-- Status: committed on feature branch; ready for integration validation
+- Status: merged into `codex/feature/card-news-image-stop`; awaiting user hands-on validation
 
 ## 사용자 요구와 목표
 
@@ -36,4 +36,5 @@
 - 뉴스 추천 원문/저장 뉴스 원문에 대한 handoff 보존 테스트와 Dashboard Beta 계약 테스트 25/25 통과. `npm run test:ui-browser`도 발견 소재 시나리오(기존 붙여넣기 모드에서 바로 생성으로 전환, 180자보다 긴 제목의 완전 전달 포함)를 포함해 통과했다.
 - 수동 확인 뒤 기존 항목에서 잘림이 재현됨. 저장 추천은 `original_title`이 없을 수도 있고, 있어도 짧을 수 있다. UI handoff에서 뉴스 근거 문장의 제목이 저장 제목보다 길고 동일 제목의 접두부임을 검증해 더 긴 값을 사용한다. 구버전은 표시 `query`의 접두부가 일치할 때만 복구하며, 불완전 표시(말줄임표) 제목은 원문으로 승격하지 않는다.
 - 재검증: `node --test src/recommendations/producers/content-opportunity.test.js` 통과(13/13), `npm run test:ui-browser` 통과(393 fixture requests), `git diff --check` 통과.
+- 통합: `codex/feature/discovery-apply-quick-create`를 `codex/feature/card-news-image-stop`에 merge commit `3f812894`로 병합하고, 요청에 따라 소스 feature branch를 삭제했다.
 - 남은 수동 확인: 실제 대시보드에서 기존·새 `새로운 발견` 항목 각각의 `소재 적용`을 눌러 제목 전체가 주제 필드에 들어가고 `바로 생성`이 열리는지 확인. 입력 필드의 시각적 말줄임과 실제 값 절단은 구분해서 확인한다.
