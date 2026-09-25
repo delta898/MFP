@@ -205,6 +205,25 @@ function recommendationPresentationQuery(value) {
   return query;
 }
 
+function recommendationSourceTitle(item = {}) {
+  const payload = item?.action?.payload || {};
+  const savedTitle = String(payload.original_title || '').trim();
+  const query = String(payload.query || '').trim();
+  if (item?.lane !== 'serendipity') return savedTitle;
+
+  // Older discovery records predate original_title, and some saved records may
+  // have a shortened value there. Their news evidence retains the headline.
+  for (const evidence of Array.isArray(item.evidence) ? item.evidence : []) {
+    const summary = String(evidence?.summary || '');
+    const match = summary.match(/관련 보도:\s*(.+)$/);
+    const title = String(match?.[1] || '').trim();
+    if (!title || /[.…]{3}$/.test(title)) continue;
+    if (savedTitle && title.length > savedTitle.length && title.startsWith(savedTitle)) return title;
+    if (!savedTitle && query && title.length > query.length && title.startsWith(query)) return title;
+  }
+  return savedTitle;
+}
+
 function createRecommendationCard(item) {
   const card = document.createElement('article');
   card.className = 'recommendation-card';
@@ -408,14 +427,21 @@ async function openRecommendationPresentation(action = {}) {
     await showUiPopup('이 안내의 관련 설정이나 상세 화면은 데스크톱 화면에서 확인해 주세요.');
     return;
   }
-  await navigateTo(target[0], target[1]);
+  if (surface === 'blog.quick') {
+    const navigated = await navigateToBlogQuickCreate();
+    if (!navigated) return;
+  } else {
+    await navigateTo(target[0], target[1]);
+  }
   if (surface === 'logs.system') {
     document.querySelector('.logs-tab-btn[data-logs-tab="system"]')?.click();
   }
   if (surface === 'blog.quick' && action?.payload?.query) {
     const subject = document.getElementById('blog-next-subject');
     if (subject) {
-      subject.value = recommendationPresentationQuery(action.payload.query);
+      subject.value = action.payload.original_title
+        ? String(action.payload.original_title).trim()
+        : recommendationPresentationQuery(action.payload.query);
       subject.dispatchEvent(new Event('input', { bubbles: true }));
       subject.dispatchEvent(new Event('change', { bubbles: true }));
     }
@@ -431,7 +457,11 @@ async function executeRecommendationCenterOpen(item) {
     interaction: 'open'
   });
   if (result.status === 'presentation') {
-    await openRecommendationPresentation(result.action);
+    const sourceTitle = recommendationSourceTitle(item);
+    const action = sourceTitle
+      ? { ...result.action, payload: { ...result.action.payload, original_title: sourceTitle } }
+      : result.action;
+    await openRecommendationPresentation(action);
     return;
   }
   if (result.status === 'confirmation_required') {

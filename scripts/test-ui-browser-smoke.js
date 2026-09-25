@@ -1729,21 +1729,44 @@ async function run() {
             { title: '경찰 계급도' }, { title: '두 번째 소재' }, { title: '세 번째 소재' }
         ])), '경찰 계급도 외 2건');
 
-        await page.evaluate(async () => {
+        const discoverySourceTitle = `뜻밖의 발견 전체 제목 ${'끝까지 전달되어야 합니다 '.repeat(12)}원문 끝`;
+        await page.evaluate(async (sourceTitle) => {
+            activateBlogNextInputMode('paste');
             await openRecommendationPresentation({
                 target: { surface: 'blog.quick' },
-                payload: { query: '첫 번째 뜻밖의 소재' }
+                payload: { query: '발견 카드의 짧은 표시값', original_title: sourceTitle }
             });
             await openRecommendationPresentation({
                 target: { surface: 'blog.quick' },
                 payload: { query: '"산림재난 정책 성공위한 \'재난에 강한 마을\' 설계해야 한다"' }
             });
-        });
+        }, discoverySourceTitle);
         assert.equal(await page.locator('#view-blog-next').evaluate((element) => element.classList.contains('active')), true);
+        assert.equal(await page.locator('[data-blog-next-input-mode="ai"]').getAttribute('aria-selected'), 'true');
         assert.equal(
             await page.locator('#blog-next-subject').inputValue(),
             '산림재난 정책 성공위한 \'재난에 강한 마을\' 설계해야 한다'
         );
+        await page.evaluate(async (sourceTitle) => {
+            activateBlogNextInputMode('paste');
+            await openRecommendationPresentation({
+                target: { surface: 'blog.quick' },
+                payload: { query: '잘린 카드 표시값', original_title: sourceTitle }
+            });
+        }, discoverySourceTitle);
+        assert.equal(await page.locator('[data-blog-next-input-mode="ai"]').getAttribute('aria-selected'), 'true');
+        assert.equal(await page.locator('#blog-next-subject').inputValue(), discoverySourceTitle);
+        const legacyDiscoverySourceTitle = '원본 뉴스의 전체 제목은 이 근거에서 복구되어야 합니다';
+        assert.equal(await page.evaluate((sourceTitle) => recommendationSourceTitle({
+            lane: 'serendipity',
+            action: { payload: { query: sourceTitle.slice(0, 8) } },
+            evidence: [{ summary: `언론사 관련 보도: ${sourceTitle}` }]
+        }), legacyDiscoverySourceTitle), legacyDiscoverySourceTitle);
+        assert.equal(await page.evaluate((sourceTitle) => recommendationSourceTitle({
+            lane: 'serendipity',
+            action: { payload: { query: sourceTitle.slice(0, 8), original_title: sourceTitle.slice(0, 15) } },
+            evidence: [{ summary: `언론사 관련 보도: ${sourceTitle}` }]
+        }), legacyDiscoverySourceTitle), legacyDiscoverySourceTitle);
         assert.equal(await page.evaluate(() => recommendationPresentationQuery('“겹따옴표 소재”')), '겹따옴표 소재');
         assert.equal(await page.evaluate(() => recommendationActionLabel({
             lane: 'serendipity', action: { type: 'presentation', label: '소재 살펴보기' }

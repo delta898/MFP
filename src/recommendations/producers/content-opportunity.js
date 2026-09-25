@@ -10,6 +10,13 @@ function compact(value, maxLength = 240) {
     return String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, maxLength);
 }
 
+function articleHandoffPayload(displayTopic, originalTitle) {
+    return {
+        query: displayTopic,
+        original_title: compact(originalTitle, 1000)
+    };
+}
+
 function stableHash(value) {
     return crypto.createHash('sha256').update(String(value || '')).digest('hex');
 }
@@ -182,7 +189,8 @@ function describeCandidate(topic, bases, articleCount) {
 }
 
 function buildDiscoveryCandidate(ownerUserId, query, articleEntry, createdAt) {
-    const articleTopic = compact(articleEntry?.item?.title, 180);
+    const originalTitle = compact(articleEntry?.item?.title, 1000);
+    const articleTopic = compact(originalTitle, 180);
     const articleKey = normalizeTopicKey(articleTopic);
     if (!articleTopic || !articleKey) return null;
     const articleHash = stableHash(`${CONTENT_PRODUCER_VERSION}:discovery:${articleKey}`);
@@ -201,7 +209,7 @@ function buildDiscoveryCandidate(ownerUserId, query, articleEntry, createdAt) {
             type: 'presentation',
             label: '소재 적용하기',
             target: { surface: 'blog.quick', view: 'blog', tab: 'quick' },
-            payload: { query: articleTopic }
+            payload: articleHandoffPayload(articleTopic, originalTitle)
         },
         dedupe_key: `content_opportunity:${articleHash}`,
         created_at: createdAt,
@@ -223,7 +231,8 @@ function buildDiscoveryCandidate(ownerUserId, query, articleEntry, createdAt) {
 function buildCorpusDiscoveryCandidate(ownerUserId, articleEntry, createdAt) {
     const item = articleEntry?.item || {};
     const snapshot = articleEntry?.snapshot || {};
-    const articleTopic = compact(item.title, 180);
+    const originalTitle = compact(item.title, 1000);
+    const articleTopic = compact(originalTitle, 180);
     const articleKey = normalizeTopicKey(articleTopic);
     const itemId = compact(item.id, 180);
     const providerId = compact(snapshot.provider_id, 120);
@@ -245,7 +254,7 @@ function buildCorpusDiscoveryCandidate(ownerUserId, articleEntry, createdAt) {
             type: 'presentation',
             label: '소재 적용하기',
             target: { surface: 'blog.quick', view: 'blog', tab: 'quick' },
-            payload: { query: articleTopic }
+            payload: articleHandoffPayload(articleTopic, originalTitle)
         },
         dedupe_key: `content_opportunity:${articleHash}`,
         created_at: createdAt,
@@ -264,7 +273,8 @@ function buildCorpusDiscoveryCandidate(ownerUserId, articleEntry, createdAt) {
 
 function buildOwnerExpansionCandidate(ownerUserId, query, articleEntry, createdAt) {
     const originalTopic = compact(query?.topic, 180);
-    const expandedTopic = compact(articleEntry?.item?.title, 180);
+    const originalTitle = compact(articleEntry?.item?.title, 1000);
+    const expandedTopic = compact(originalTitle, 180);
     const originalKey = normalizeTopicKey(originalTopic);
     const expandedKey = normalizeTopicKey(expandedTopic);
     const ownerBases = (Array.isArray(query?.bases) ? query.bases : [])
@@ -292,7 +302,7 @@ function buildOwnerExpansionCandidate(ownerUserId, query, articleEntry, createdA
             type: 'presentation',
             label: '소재 적용하기',
             target: { surface: 'blog.quick', view: 'blog', tab: 'quick' },
-            payload: { query: expandedTopic }
+            payload: articleHandoffPayload(expandedTopic, originalTitle)
         },
         dedupe_key: `content_opportunity:${articleHash}`,
         created_at: createdAt,

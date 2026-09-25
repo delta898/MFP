@@ -158,6 +158,30 @@ test('serendipity mode creates one current headline per independent domain and s
     assert.equal(second.candidates.every((candidate) => candidate.title.includes('다음 소재')), true);
 });
 
+test('serendipity handoff preserves the complete source headline separately from its compact card title', async () => {
+    const sourceTitle = `제목 시작 ${'원문 제목 전체 보존 '.repeat(18)}제목 끝`;
+    const query = {
+        topic: '긴 제목 검증', normalized_topic: '긴제목검증', lane: 'discovery',
+        bases: [{ lane: 'discovery', basis: { domain_index: 0 } }]
+    };
+    const result = await createContentOpportunityProducer({ now: () => new Date(NOW) }).produce({
+        owner_user_id: 'owner-local', serendipity: true,
+        content_knowledge: {
+            query_plan: { queries: [query] },
+            news_queries: [{ query, snapshots: [newsSnapshot([
+                article('long-headline', sourceTitle, 'https://news.example.com/long-headline')
+            ])] }]
+        }
+    });
+
+    assert.equal(result.candidates.length, 1);
+    const candidate = result.candidates[0];
+    assert.equal(candidate.title.length, 180);
+    assert.equal(candidate.handoff.payload.query, candidate.title);
+    assert.equal(candidate.handoff.payload.original_title, sourceTitle);
+    assert.equal(validateRecommendationCandidate(candidate).ok, true);
+});
+
 test('serendipity mode fills three cards from healthy domains when one domain is empty', async () => {
     const queries = ['과학 발견', '생활 변화', '여행 문화'].map((topic, index) => ({
         topic, normalized_topic: topic.replace(/\s/g, ''), lane: 'discovery',
@@ -229,7 +253,9 @@ test('serendipity mode expands published owner history with a different grounded
     assert.equal(result.candidates[2].metadata.origin_topic, '예전에 쓴 소재');
     assert.equal(result.candidates[2].evidence.some((evidence) => evidence.kind === 'owner_activity'), true);
     assert.equal(result.candidates[2].evidence.some((evidence) => evidence.kind === 'knowledge'), true);
-    assert.deepEqual(result.candidates[2].handoff.payload, { query: '관련 제도의 최근 변화' });
+    assert.deepEqual(result.candidates[2].handoff.payload, {
+        query: '관련 제도의 최근 변화', original_title: '관련 제도의 최근 변화'
+    });
     assert.equal(result.candidates.every((candidate) => validateRecommendationCandidate(candidate).ok), true);
 });
 
@@ -290,8 +316,27 @@ test('serendipity creates a grounded corpus news card without claiming live fres
     assert.equal(candidate.metadata.discovery_hint, '발견 뉴스');
     assert.equal(candidate.evidence[0].source_ref.provider_id, 'serpapi-corpus');
     assert.equal(candidate.evidence[0].source_ref.id, 'corpus-news-1');
-    assert.deepEqual(candidate.handoff.payload, { query: '며칠 지나 다시 보는 우주 소재' });
+    assert.deepEqual(candidate.handoff.payload, {
+        query: '며칠 지나 다시 보는 우주 소재', original_title: '며칠 지나 다시 보는 우주 소재'
+    });
     assert.deepEqual(validateRecommendationCandidate(candidate).errors, []);
+});
+
+test('corpus discovery handoff preserves the complete source headline', async () => {
+    const sourceTitle = `지난 기록 뉴스 ${'제목 끝까지 그대로 전달 '.repeat(18)}원문 끝`;
+    const result = await createContentOpportunityProducer({ now: () => new Date(NOW) }).produce({
+        owner_user_id: 'owner-local', serendipity: true,
+        content_knowledge: {
+            query_plan: { queries: [] },
+            news_queries: [],
+            corpus_snapshots: [corpusNewsSnapshot([
+                article('long-corpus-headline', sourceTitle, 'https://corpus.example.com/long-headline')
+            ])]
+        }
+    });
+    assert.equal(result.candidates.length, 1);
+    assert.equal(result.candidates[0].handoff.payload.original_title, sourceTitle);
+    assert.equal(validateRecommendationCandidate(result.candidates[0]).ok, true);
 });
 
 test('serendipity mode fills an unavailable source slot without repeating a topic', async () => {
