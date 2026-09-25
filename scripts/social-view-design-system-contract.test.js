@@ -26,7 +26,7 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.match(view, /id="social-tab-compose" role="tabpanel"[^>]*aria-labelledby="social-tab-button-compose"/);
   assert.match(view, /class="social-composer-intro blog-next-panel-lead blog-next-panel-intro"/);
   assert.match(view, /<h2>SNS 게시물 작성<\/h2>/);
-  assert.match(view, /발행 채널을 고르고 메시지와 이미지를 준비해 발행하세요\./);
+  assert.match(view, /메시지와 이미지를 준비한 뒤 발행 대상을 선택해 발행하세요\./);
   assert.doesNotMatch(view, /class="[^"]*blog-next-panel[^"]*social-composer-card/);
   assert.doesNotMatch(view, /id="view-social"[^>]*data-style-scope=/);
   assert.doesNotMatch(view, /SNS에 바로 공유|채널을 고르고, 메시지와 이미지를 준비해 바로 발행하세요/);
@@ -36,6 +36,9 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.match(view, /class="ui-settings-field social-workspace-select buffer-publishing-workspace"[\s\S]*<span>작업 공간<\/span>\s*<span class="ui-field-action"><span class="ui-select-shell"><select id="manual-sns-organization"/);
   assert.ok(view.indexOf('for="manual-sns-organization"') < view.indexOf('id="manual-sns-select-all"'));
   assert.ok(view.indexOf('id="manual-sns-select-all"') < view.indexOf('id="manual-sns-channel-list"'));
+  assert.ok(view.indexOf('id="manual-sns-text"') < view.indexOf('id="manual-sns-image-title"'));
+  assert.ok(view.indexOf('id="manual-sns-image-title"') < view.indexOf('for="manual-sns-organization"'));
+  assert.ok(view.indexOf('id="manual-sns-channel-list"') < view.indexOf('id="manual-sns-publish-btn"'));
   assert.doesNotMatch(view, /manual-sns-organization-field|manual-sns-workspace-summary|social-workspace-control/);
   assert.match(view, /id="manual-sns-text" class="social-editor" rows="6"/);
   assert.match(lifecycle, /navigateTo\('settings-next', 'extras'\)/);

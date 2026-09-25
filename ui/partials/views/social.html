@@ -21,28 +21,9 @@
           <div class="social-composer-intro blog-next-panel-lead blog-next-panel-intro">
             <div class="blog-next-panel-intro-copy">
               <h2>SNS 게시물 작성</h2>
-              <p>발행 채널을 고르고 메시지와 이미지를 준비해 발행하세요.</p>
+              <p>메시지와 이미지를 준비한 뒤 발행 대상을 선택해 발행하세요.</p>
             </div>
           </div>
-          <section class="social-composer-section" aria-labelledby="manual-sns-channels-title">
-            <label class="ui-settings-field social-workspace-select buffer-publishing-workspace" for="manual-sns-organization">
-              <span>작업 공간</span>
-              <span class="ui-field-action"><span class="ui-select-shell"><select id="manual-sns-organization" disabled><option value="">작업 공간을 불러와 선택해 주세요.</option></select></span><button id="manual-sns-workspaces-load" class="secondary" type="button" disabled>작업 공간 불러오기</button></span>
-              <small>선택한 작업 공간의 SNS 채널을 불러옵니다.</small>
-            </label>
-            <div class="social-section-heading buffer-publishing-channel-heading">
-              <div class="social-channel-heading-copy buffer-publishing-channel-heading-copy">
-                <div class="social-channel-title-row buffer-publishing-channel-title-row">
-                  <input id="manual-sns-select-all" type="checkbox" disabled>
-                  <label id="manual-sns-channels-title" for="manual-sns-select-all">발행 채널 <small id="manual-sns-channel-limit">최대 3개 · 0개 선택</small></label>
-                </div>
-                <p>이번 발행에 사용할 채널을 선택하세요.</p>
-              </div>
-              <button class="context-help-link" type="button" data-help-guide-url="https://m.blog.naver.com/amadejjs/223940980574">Buffer 도움말</button>
-            </div>
-            <div id="manual-sns-channel-list" class="social-channel-grid ui-selectable-card-grid" aria-live="polite"></div>
-          </section>
-
           <section class="social-composer-section" aria-labelledby="manual-sns-text-title">
             <div class="social-section-heading social-editor-heading">
               <div>
@@ -106,6 +87,25 @@
               <img id="manual-sns-image-preview-img" alt="선택한 SNS 이미지 미리보기">
               <span id="manual-sns-image-preview-status">이미지 미리보기</span>
             </div>
+          </section>
+
+          <section class="social-composer-section" aria-labelledby="manual-sns-channels-title">
+            <label class="ui-settings-field social-workspace-select buffer-publishing-workspace" for="manual-sns-organization">
+              <span>작업 공간</span>
+              <span class="ui-field-action"><span class="ui-select-shell"><select id="manual-sns-organization" disabled><option value="">작업 공간을 불러와 선택해 주세요.</option></select></span><button id="manual-sns-workspaces-load" class="secondary" type="button" disabled>작업 공간 불러오기</button></span>
+              <small>선택한 작업 공간의 SNS 채널을 불러옵니다.</small>
+            </label>
+            <div class="social-section-heading buffer-publishing-channel-heading">
+              <div class="social-channel-heading-copy buffer-publishing-channel-heading-copy">
+                <div class="social-channel-title-row buffer-publishing-channel-title-row">
+                  <input id="manual-sns-select-all" type="checkbox" disabled>
+                  <label id="manual-sns-channels-title" for="manual-sns-select-all">발행 채널 <small id="manual-sns-channel-limit">최대 3개 · 0개 선택</small></label>
+                </div>
+                <p>이번 발행에 사용할 채널을 선택하세요.</p>
+              </div>
+              <button class="context-help-link" type="button" data-help-guide-url="https://m.blog.naver.com/amadejjs/223940980574">Buffer 도움말</button>
+            </div>
+            <div id="manual-sns-channel-list" class="social-channel-grid ui-selectable-card-grid" aria-live="polite"></div>
           </section>
 
           <div class="social-composer-actions">
