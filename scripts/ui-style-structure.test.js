@@ -50,6 +50,7 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
         'styles/patterns/select-shell.css',
         'styles/patterns/tab-navigation.css',
         'styles/patterns/overview-card.css',
+        'styles/patterns/grid-spacer.css',
         'styles/patterns/settings-card.css',
         'styles/patterns/transaction-dialog.css',
         'styles/components/clock.css',

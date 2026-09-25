@@ -48,7 +48,7 @@ test('single-target UI and API boundaries reject silent multi-platform publishin
 test('direct AI writing creates a canonical draft before publishing', () => {
   const html = read('ui/partials/views/blog-next.html');
   const draftUi = `${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-execution.js')}`;
-  const quickQueue = read('ui/scripts/features/blog-next/quick-queue.js');
+  const quickQueue = `${read('ui/scripts/features/blog-next/quick-queue.js')}\n${read('ui/scripts/features/blog-next/queue-management.js')}`;
 
   assert.match(html, /id="blog-next-publish-now"[^>]*>원고 만들기/);
   assert.match(html, /data-blog-next-draft-preview="ai"/);

@@ -474,7 +474,8 @@ test('Card News keeps feature styling independent from concrete design styles', 
     'ui/scripts/features/card-news/management.js',
     'ui/scripts/features/card-news/publishing.js',
     'ui/scripts/features/card-news/source-manager.js',
-    'ui/scripts/features/card-news/source-preview.js'
+    'ui/scripts/features/card-news/source-preview.js',
+    'ui/scripts/features/card-news/generation-workflow.js'
   ].map(read).join('\n');
   const legacyTokenPattern = /var\(--(?:line|text-main|text-muted|text-light|brand-primary|brand-hover|brand-light|success|warning|danger|radius-sm|radius-md|radius-lg|radius-full|transition)\)/;
 

@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { createHtmlCompositionRuntime } = require('../src/ui-runtime/html-composition-runtime');
+const { readCardNewsPreviewScripts } = require('./helpers/ui-feature-scripts');
 
 const repoRoot = path.resolve(__dirname, '..');
 const uiRoot = path.join(repoRoot, 'ui');
@@ -14,6 +15,7 @@ test('Card News is a top-level source-preview workflow', () => {
         'scripts/shared/buffer-publishing-controls.js',
         'scripts/shared/grid-tail-spacers.js',
         'scripts/features/card-news/source-preview.js',
+        'scripts/features/card-news/generation-workflow.js',
         'scripts/features/card-news/publishing.js',
         'scripts/features/card-news/management.js',
         'scripts/features/card-news/source-manager.js'
@@ -243,7 +245,7 @@ test('Card News owns a focused source manager without coupling source changes to
     const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot }).html;
     const cardNewsHtml = fs.readFileSync(path.join(uiRoot, 'partials/views/card-news.html'), 'utf8');
     const app = fs.readFileSync(path.join(uiRoot, 'app.js'), 'utf8');
-    const cardNewsScript = fs.readFileSync(path.join(uiRoot, 'scripts/features/card-news/source-preview.js'), 'utf8');
+    const cardNewsScript = readCardNewsPreviewScripts();
     const sourceManager = fs.readFileSync(path.join(uiRoot, 'scripts/features/card-news/source-manager.js'), 'utf8');
 
     assert.match(html, /id="card-news-source-manage"[^>]*>소스 관리</);
@@ -353,7 +355,7 @@ test('Card News generation uses shared field, choice, role and feedback patterns
 
 test('Card News results use shared sequence and action hierarchy without a fixed palette', () => {
     const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot }).html;
-    const script = fs.readFileSync(path.join(uiRoot, 'scripts/features/card-news/source-preview.js'), 'utf8');
+    const script = readCardNewsPreviewScripts();
     const patternCss = [
         fs.readFileSync(path.join(uiRoot, 'styles/patterns/actions.css'), 'utf8'),
         fs.readFileSync(path.join(uiRoot, 'styles/patterns/overview-card.css'), 'utf8')
@@ -426,14 +428,14 @@ test('Card News empty and confirmed source states are mutually exclusive', () =>
 });
 
 test('Card News preserves the last valid preview when a later request fails', () => {
-    const script = fs.readFileSync(path.join(uiRoot, 'scripts/features/card-news/source-preview.js'), 'utf8');
+    const script = readCardNewsPreviewScripts();
     assert.match(script, /cardNewsViewState\.preview = snapshot/);
     assert.match(script, /if \(cardNewsViewState\.preview\)[\s\S]*이전 미리보기/);
     assert.doesNotMatch(script, /catch \(error\)[\s\S]{0,220}cardNewsViewState\.preview = null/);
 });
 
 test('Card News preserves the last valid generated set when a later request fails', () => {
-    const script = fs.readFileSync(path.join(uiRoot, 'scripts/features/card-news/source-preview.js'), 'utf8');
+    const script = readCardNewsPreviewScripts();
     assert.match(script, /cardNewsViewState\.generation = generation/);
     assert.doesNotMatch(script, /catch \(error\)[\s\S]{0,260}cardNewsViewState\.generation = null/);
 });

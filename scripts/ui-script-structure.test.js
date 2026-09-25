@@ -25,9 +25,10 @@ test('JavaScript manifest preserves one explicit classic-script execution order'
         (match) => match[1]
     );
 
-    assert.equal(manifest.split('\n').length - 1 <= 104, true);
+    assert.equal(manifest.split('\n').length - 1 <= 108, true);
     assert.deepEqual(includePaths, [
         'scripts/foundation/style-system.js',
+        'scripts/shared/grid-tail-spacers.js',
         'scripts/foundation/ui-feedback-state.js',
         'scripts/features/shell/setup-banner.js',
         'scripts/features/shell/sidebar.js',
@@ -95,13 +96,16 @@ test('JavaScript manifest preserves one explicit classic-script execution order'
         'scripts/features/blog-next/queue-ui.js',
         'scripts/features/blog-next/writing-overrides.js',
         'scripts/features/blog-next/quick-queue.js',
+        'scripts/features/blog-next/queue-management.js',
         'scripts/features/blog-next/trend-posting.js',
         'scripts/features/blog-next/draft-inputs.js',
+        'scripts/features/blog-next/draft-images.js',
         'scripts/features/blog-next/draft-execution.js',
         'scripts/features/blog-next/smart-comment.js',
         'scripts/features/blog-next/automation-settings.js',
         'scripts/features/blog-next/runner.js',
         'scripts/features/card-news/source-preview.js',
+        'scripts/features/card-news/generation-workflow.js',
         'scripts/features/card-news/publishing.js',
         'scripts/features/card-news/management.js',
         'scripts/features/card-news/source-manager.js',

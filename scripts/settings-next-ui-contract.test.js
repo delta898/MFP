@@ -325,7 +325,7 @@ test('Blog Beta and Settings Beta use one shared keyboard tab controller', () =>
     const app = read('ui/app.js');
     const shared = read('ui/scripts/foundation/tab-navigation.js');
     const blogShell = read('ui/scripts/features/blog-next/shell.js');
-    const blogQueue = read('ui/scripts/features/blog-next/quick-queue.js');
+    const blogQueue = `${read('ui/scripts/features/blog-next/quick-queue.js')}\n${read('ui/scripts/features/blog-next/queue-management.js')}`;
     const settings = read('ui/scripts/features/settings-next/shell.js');
 
     assert.match(app, /@include scripts\/foundation\/tab-navigation\.js/);

@@ -67,13 +67,16 @@
 // @include scripts/features/blog-next/queue-ui.js
 // @include scripts/features/blog-next/writing-overrides.js
 // @include scripts/features/blog-next/quick-queue.js
+// @include scripts/features/blog-next/queue-management.js
 // @include scripts/features/blog-next/trend-posting.js
 // @include scripts/features/blog-next/draft-inputs.js
+// @include scripts/features/blog-next/draft-images.js
 // @include scripts/features/blog-next/draft-execution.js
 // @include scripts/features/blog-next/smart-comment.js
 // @include scripts/features/blog-next/automation-settings.js
 // @include scripts/features/blog-next/runner.js
 // @include scripts/features/card-news/source-preview.js
+// @include scripts/features/card-news/generation-workflow.js
 // @include scripts/features/card-news/publishing.js
 // @include scripts/features/card-news/management.js
 // @include scripts/features/card-news/source-manager.js

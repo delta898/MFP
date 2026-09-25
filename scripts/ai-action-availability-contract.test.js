@@ -24,7 +24,7 @@ test('shared capability readiness blocks only explicit unavailability and reuses
 
 test('all Blog Beta manuscript modes gate only AI image generation actions', () => {
   const view = read('ui/partials/views/blog-next.html');
-  const drafts = read('ui/scripts/features/blog-next/draft-inputs.js');
+  const drafts = `${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-images.js')}`;
   const execution = read('ui/scripts/features/blog-next/draft-execution.js');
   const service = read('src/ui-api/services/content.service.js');
 
@@ -32,7 +32,7 @@ test('all Blog Beta manuscript modes gate only AI image generation actions', () 
   assert.match(drafts, /data-manuscript-image-ai-readiness/);
   assert.match(drafts, /data-manuscript-image-action="generate"/);
   assert.match(drafts, /ensureUiCapabilityReady\('ai\.image'\)/);
-  assert.match(drafts, /빈 이미지 .*안전하게 임시 저장/);
+  assert.match(drafts, /이미지 \$\{unresolvedImageCount\}개를 처리해야 발행할 수 있어요\. 지금은 임시저장만 가능해요\./);
   assert.match(execution, /image-mode'\)\?\.value === 'generate'/);
   assert.match(service, /AI_IMAGE_MODEL_REQUIRED/);
   assert.doesNotMatch(drafts, /data-manuscript-image-picker[^\n]*disabled title="AI 이미지 모델/);
@@ -57,7 +57,7 @@ test('Blog Beta gates storage and publishing by their exact capabilities', () =>
   const draftModes = read('ui/partials/views/blog-next/quick-draft-modes.html');
   const settings = read('ui/partials/views/blog-next/publish-settings.html');
   const flow = read('ui/scripts/features/blog-next/quick-flow-ui.js');
-  const queue = read('ui/scripts/features/blog-next/quick-queue.js');
+  const queue = `${read('ui/scripts/features/blog-next/quick-queue.js')}\n${read('ui/scripts/features/blog-next/queue-management.js')}`;
   const execution = read('ui/scripts/features/blog-next/draft-execution.js');
   const shell = read('ui/scripts/features/blog-next/shell.js');
 

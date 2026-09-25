@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { readCardNewsPreviewScripts } = require('./helpers/ui-feature-scripts');
 
 const repoRoot = path.resolve(__dirname, '..');
 const read = (relativePath) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
@@ -30,7 +31,7 @@ test('active surfaces use shared loading action and standalone spinner primitive
   const shopping = read('ui/partials/views/shopping.html');
   const cardNews = read('ui/partials/views/card-news.html');
   const dashboard = read('ui/partials/views/dashboard-beta.html');
-  const cardNewsRuntime = read('ui/scripts/features/card-news/source-preview.js');
+  const cardNewsRuntime = readCardNewsPreviewScripts();
   const featureStyles = [
     'ui/styles/features/social.css',
     'ui/styles/features/social-media.css',
@@ -48,7 +49,7 @@ test('active surfaces use shared loading action and standalone spinner primitive
   assert.match(social, /id="manual-sns-publish-btn" class="primary ui-loading-action"/);
   assert.match(shopping, /class="ui-spinner ui-spinner-md ui-spinner-accent"/);
   assert.equal((cardNews.match(/ui-loading-action/g) || []).length, 3);
-  assert.match(cardNews, /class="ui-workflow-feedback ui-loading-indicator"/);
+  assert.match(cardNews, /id="card-news-generation-status" class="[^"]*\bui-workflow-feedback\b[^"]*\bui-loading-indicator\b/);
   assert.match(dashboard, /data-recommendation-refresh[^>]*data-idle-label=/);
   assert.match(dashboard, /class="secondary compact ui-loading-action"/);
   assert.match(cardNewsRuntime, /class="ui-spinner ui-spinner-lg ui-spinner-accent"/);

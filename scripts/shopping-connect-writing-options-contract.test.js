@@ -64,7 +64,7 @@ test('shopping quick writing copy describes user actions instead of internal con
 
 test('shopping quick save mirrors Blog Beta busy feedback and completion toast', () => {
   const controller = read('ui/scripts/features/legacy-actions-controllers.js');
-  const blogQueue = read('ui/scripts/features/blog-next/quick-queue.js');
+  const blogQueue = `${read('ui/scripts/features/blog-next/quick-queue.js')}\n${read('ui/scripts/features/blog-next/queue-management.js')}`;
   const saveStart = controller.indexOf('const saveShoppingQuickTopic');
   const publishStart = controller.indexOf('const runShoppingQuickPublish');
   const saveHandler = controller.slice(saveStart, publishStart);

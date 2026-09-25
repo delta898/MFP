@@ -110,9 +110,8 @@ test('Buffer guidance uses one contextual Help action across SNS publishing surf
     assert.match(view, new RegExp(`class="context-help-link"[^>]*data-help-guide-url="${guideUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
     assert.match(view, /Buffer 도움말/);
   });
-  assert.match(cardNews, new RegExp(`class="ui-text-action compact"[^>]*href="${guideUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"[^>]*target="_blank"[^>]*rel="noopener noreferrer"`));
+  assert.match(cardNews, new RegExp(`class="context-help-link"[^>]*data-help-guide-url="${guideUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
   assert.match(cardNews, /Buffer 도움말/);
-  assert.doesNotMatch(cardNews, /data-help-guide-url/);
   assert.match(settings, /href="https:\/\/join\.buffer\.com\/delta898-gmail-com"[^>]*target="_blank"/);
   assert.match(appChrome, /\.context-help-link\s*\{/);
   assert.match(navigation, /closest\('\[data-help-guide-url\]'\)/);

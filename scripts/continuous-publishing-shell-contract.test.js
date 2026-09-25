@@ -20,7 +20,8 @@ function readBlogNextView() {
 function readBlogNextQueueScripts() {
     return [
         read('ui/scripts/features/blog-next/queue-ui.js'),
-        read('ui/scripts/features/blog-next/quick-queue.js')
+        read('ui/scripts/features/blog-next/quick-queue.js'),
+        read('ui/scripts/features/blog-next/queue-management.js')
     ].join('\n');
 }
 
@@ -81,7 +82,7 @@ test('Blog Beta shell does not call data, AI, or publishing APIs during Stage 1'
 
 test('Blog Beta quick writing keeps topic capture and adds the canonical AI manuscript action', () => {
     const betaView = readBlogNextView();
-    const quickQueueScript = read('ui/scripts/features/blog-next/quick-queue.js');
+    const quickQueueScript = readBlogNextQueueScripts();
     const publishIndex = betaView.indexOf('id="blog-next-publish-now"');
     const enqueueIndex = betaView.indexOf('id="blog-next-enqueue-topic"');
     const saveIndex = betaView.indexOf('id="blog-next-save-topic"');
@@ -256,7 +257,7 @@ test('Stage 9 exposes adjacent queue movement without drag, lease, or synthetic 
 test('Stage 10 keeps trend discovery manual and hands one selection to quick writing', () => {
     const betaView = readBlogNextView();
     const trendScript = read('ui/scripts/features/blog-next/trend-posting.js');
-    const quickQueueScript = read('ui/scripts/features/blog-next/quick-queue.js');
+    const quickQueueScript = readBlogNextQueueScripts();
 
     assert.match(betaView, /data-blog-next-tab="trend-posting">트렌드 포스팅/);
     assert.match(betaView, /id="blog-next-panel-trend-posting"/);
@@ -329,7 +330,8 @@ test('Naver browser milestones cross the publishing engine as structured progres
 test('immediate publishing preflights selected connections and preserves the form until terminal success', () => {
     const queueScript = [
         read('ui/scripts/features/blog-next/publish-preflight.js'),
-        read('ui/scripts/features/blog-next/quick-queue.js')
+        read('ui/scripts/features/blog-next/quick-queue.js'),
+        read('ui/scripts/features/blog-next/queue-management.js')
     ].join('\n');
     const runnerScript = read('ui/scripts/features/blog-next/runner.js');
     const readinessScript = read('ui/scripts/foundation/readiness.js');

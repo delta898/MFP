@@ -42,7 +42,7 @@ test('optional content and publish settings disclose their current values', () =
 });
 
 test('reusable generation and publish choices persist without carrying article data or schedule time', () => {
-  const queue = read('ui/scripts/features/blog-next/quick-queue.js');
+  const queue = `${read('ui/scripts/features/blog-next/quick-queue.js')}\n${read('ui/scripts/features/blog-next/queue-management.js')}`;
   const execution = read('ui/scripts/features/blog-next/draft-execution.js');
 
   assert.match(queue, /headless: true/);
@@ -66,7 +66,7 @@ test('WordPress image upload warnings remain visible after a successful draft sa
 });
 
 test('AI image generation exposes per-action stop controls and sends cancellation to the active server operation', () => {
-  const inputs = read('ui/scripts/features/blog-next/draft-inputs.js');
+  const inputs = `${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-images.js')}`;
   const operations = read('src/blog-next/ai-generation-operations.js');
   const drafts = read('src/content/manuscript-draft-service.js');
   const execution = read('ui/scripts/features/blog-next/draft-execution.js');
@@ -89,13 +89,13 @@ test('AI image generation exposes per-action stop controls and sends cancellatio
   assert.match(operations, /setProgress\(progress\)/);
   assert.match(drafts, /callWritingImage\(slot\.prompt, pendingBase, 2, \{ useCase: 'blog', signal: input\.signal \}\)/);
   assert.match(routes, /manuscript-drafts\/image-operations/);
-  assert.match(css, /local-markdown-image-spinner[\s\S]*?blog-next-image-spin/);
+  assert.match(css, /local-markdown-image-spinner[\s\S]*?ui-refresh-action-spin/);
   assert.match(css, /image-card-preview\.is-generating \.local-markdown-image-media-actions\.is-empty/);
 });
 
 test('unresolved manuscript images can be opened directly from the publish restriction', () => {
   const html = readBlogNextView();
-  const inputs = read('ui/scripts/features/blog-next/draft-inputs.js');
+  const inputs = `${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-images.js')}`;
 
   assert.match(html, /id="blog-next-publish-safety-message"/);
   assert.match(html, /id="blog-next-publish-image-action"[^>]*aria-controls="blog-next-ai-draft-images"[^>]*hidden/);
@@ -139,7 +139,7 @@ test('AI manuscript cancellation stays in the shared execution status', () => {
 
 test('quick flow keeps results independent from edited inputs and scopes duplicate posts by platform', () => {
   const execution = read('ui/scripts/features/blog-next/draft-execution.js');
-  const inputs = read('ui/scripts/features/blog-next/draft-inputs.js');
+  const inputs = `${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-images.js')}`;
   const service = read('src/content/manuscript-draft-service.js');
   const html = readBlogNextView();
 
@@ -191,7 +191,7 @@ test('direct publishing confirmation names only destination, mode, and schedule'
 
 test('quick flow summaries update from existing controls and new writing owns input reset', () => {
   const html = readBlogNextView();
-  const script = read('ui/scripts/features/blog-next/quick-queue.js');
+  const script = `${read('ui/scripts/features/blog-next/quick-queue.js')}\n${read('ui/scripts/features/blog-next/queue-management.js')}`;
   const uiScript = read('ui/scripts/features/blog-next/quick-flow-ui.js');
 
   assert.doesNotMatch(html, /id="blog-next-clear-topic"|id="blog-next-clear-undo"/);
@@ -212,7 +212,7 @@ test('quick writing distinguishes queued ideas from the generated manuscript flo
   const html = readBlogNextView();
   const css = read('ui/styles/features/blog-next-quick-flow.css');
   const execution = read('ui/scripts/features/blog-next/draft-execution.js');
-  const queue = read('ui/scripts/features/blog-next/quick-queue.js');
+  const queue = `${read('ui/scripts/features/blog-next/quick-queue.js')}\n${read('ui/scripts/features/blog-next/queue-management.js')}`;
   const inputs = read('ui/scripts/features/blog-next/draft-inputs.js');
   const uiScript = read('ui/scripts/features/blog-next/quick-flow-ui.js');
 
@@ -283,7 +283,7 @@ test('quick flow uses user language and separates publishing targets', () => {
 test('surface fills communicate state and help follows the active style', () => {
   const html = readBlogNextView();
   const css = read('ui/styles/features/blog-next-quick-flow.css');
-  const script = read('ui/scripts/features/blog-next/quick-queue.js');
+  const script = `${read('ui/scripts/features/blog-next/quick-queue.js')}\n${read('ui/scripts/features/blog-next/queue-management.js')}`;
 
   assert.match(css, /\.blog-next-disclosure > summary:hover\s*\{[^}]*background:\s*var\(--ui-surface-hover\)/s);
   assert.match(css, /\.blog-next-disclosure\[open\] > summary\s*\{[^}]*background:\s*var\(--ui-surface-muted\)/s);
@@ -325,7 +325,7 @@ test('collision-aware help placement and dependent schedule field follow their e
 test('provider-dependent controls align UI, summaries and runner payloads', () => {
   const html = readBlogNextView();
   const css = read('ui/styles/features/blog-next-quick-flow.css');
-  const script = read('ui/scripts/features/blog-next/quick-queue.js');
+  const script = `${read('ui/scripts/features/blog-next/quick-queue.js')}\n${read('ui/scripts/features/blog-next/queue-management.js')}`;
   const uiScript = read('ui/scripts/features/blog-next/quick-flow-ui.js');
   const runnerScript = read('ui/scripts/features/blog-next/runner.js');
 
