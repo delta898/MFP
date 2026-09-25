@@ -157,6 +157,14 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     assert.match(optionalServices, /syncSettingsNextSecretRegistration/);
     assert.match(optionalServices, /scope === 'sns-distribution'/);
     assert.match(optionalServices, /function settingsNextLoadBufferWorkspaces/);
+    assert.match(optionalServices, /const selectedBlogs = new Set\(Array\.isArray\(fields\.SNS_SOURCE_BLOGS\)[\s\S]*?input\.checked = selectedBlogs\.has\(source\)/);
+    assert.match(optionalServices, /BUFFER_CHANNELS: resolvedOrganizationId === previousOrganizationId[\s\S]*?settingsNextOptionalState\.fields\.BUFFER_CHANNELS/);
+    assert.match(optionalServices, /settingsNextOptionalSecretConfigured\('buffer'\)[\s\S]*?settingsNextLoadBufferWorkspaces\(\)/);
+    assert.match(optionalServices, /function settingsNextSnsDistributionValuesSnapshot/);
+    assert.match(optionalServices, /save\.disabled = !connected \|\| saving \|\| !hasChanges/);
+    assert.match(optionalServices, /\['저장됨', 'success'\]/);
+    assert.match(optionalServices, /\['변경됨', 'warning'\]/);
+    assert.doesNotMatch(optionalServices, /setUiSettingsCardFooterDetail\('settings-next-sns-distribution-footer-detail', '저장했습니다\.'/);
     assert.match(optionalServices, /BUFFER_CONNECTION_VERIFICATION/);
     assert.match(optionalServices, /function settingsNextRenderBufferVerificationDetail/);
     assert.match(optionalServices, /최근 연결 확인됨/);

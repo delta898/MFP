@@ -4,6 +4,8 @@ const settingsNextOptionalState = {
   fields: {},
   verified: { buffer: null, 'sns-distribution': null, telegram: null, slack: null, bitly: null },
   bufferConnection: { organizations: [], organizationId: '', channels: [], workspacesLoaded: false },
+  snsDistributionSavedSnapshot: null,
+  snsDistributionSaveState: 'loading',
   busy: new Set()
 };
 
@@ -64,6 +66,11 @@ function settingsNextBufferChannel(channel = {}) {
 }
 
 function settingsNextSelectedBufferChannels() {
+  if (!settingsNextOptionalState.bufferConnection.workspacesLoaded) {
+    return (Array.isArray(settingsNextOptionalState.fields.BUFFER_CHANNELS)
+      ? settingsNextOptionalState.fields.BUFFER_CHANNELS
+      : []).map(settingsNextBufferChannel).filter((channel) => channel.id);
+  }
   const candidates = Array.isArray(settingsNextOptionalState.bufferConnection.channels) && settingsNextOptionalState.bufferConnection.channels.length
     ? settingsNextOptionalState.bufferConnection.channels
     : (Array.isArray(settingsNextOptionalState.fields.BUFFER_CHANNELS) ? settingsNextOptionalState.fields.BUFFER_CHANNELS : []);
@@ -75,6 +82,59 @@ function settingsNextSelectedBufferChannels() {
     .filter((channel) => selectedIds.has(String(channel.id || channel.channelId || '').trim()))
     .map(settingsNextBufferChannel)
     .filter((channel) => channel.id);
+}
+
+function settingsNextSnsDistributionValuesSnapshot(values = settingsNextOptionalValues('sns-distribution')) {
+  return {
+    SNS_PUBLISH_ENABLED: values.SNS_PUBLISH_ENABLED === true,
+    SNS_SOURCE_BLOGS: [...new Set(values.SNS_SOURCE_BLOGS || [])].sort(),
+    BUFFER_ORGANIZATION_ID: String(values.BUFFER_ORGANIZATION_ID || '').trim(),
+    BUFFER_CHANNEL_IDS: [...new Set((values.BUFFER_CHANNELS || []).map((channel) => String(channel?.id || channel?.channelId || '').trim()).filter(Boolean))].sort()
+  };
+}
+
+function settingsNextSnsDistributionHasChanges() {
+  if (!settingsNextOptionalState.snsDistributionSavedSnapshot) return false;
+  return JSON.stringify(settingsNextSnsDistributionValuesSnapshot())
+    !== JSON.stringify(settingsNextOptionalState.snsDistributionSavedSnapshot);
+}
+
+function settingsNextSyncSnsDistributionSaveState() {
+  const dirty = settingsNextSnsDistributionHasChanges();
+  if (dirty) {
+    settingsNextMarkScopeDirty('optional-sns-distribution');
+    if (settingsNextOptionalState.snsDistributionSaveState !== 'saving') {
+      settingsNextOptionalState.snsDistributionSaveState = 'dirty';
+    }
+  } else {
+    settingsNextClearScopeDirty('optional-sns-distribution');
+    settingsNextOptionalState.snsDistributionSaveState = 'saved';
+  }
+  settingsNextRenderSnsDistributionSaveState();
+}
+
+function settingsNextRenderSnsDistributionSaveState() {
+  const status = document.getElementById('settings-next-sns-distribution-status');
+  const save = document.getElementById('settings-next-sns-distribution-save');
+  const connected = settingsNextOptionalSecretConfigured('buffer');
+  const saving = settingsNextOptionalState.busy.has('sns-distribution');
+  const hasChanges = settingsNextSnsDistributionHasChanges();
+  const labels = {
+    loading: ['저장 상태 확인 중', 'neutral'],
+    saved: ['저장됨', 'success'],
+    dirty: ['변경됨', 'warning'],
+    saving: ['저장 중...', 'neutral'],
+    failed: ['저장 실패', 'danger']
+  };
+  const [label, tone] = labels[settingsNextOptionalState.snsDistributionSaveState] || labels.saved;
+  if (status) {
+    status.textContent = label;
+    status.dataset.state = tone;
+  }
+  if (save) {
+    save.disabled = !connected || saving || !hasChanges;
+    save.textContent = saving ? '저장 중...' : '저장';
+  }
 }
 
 function settingsNextRenderSnsDistribution() {
@@ -111,7 +171,8 @@ function settingsNextRenderSnsDistribution() {
   const availableChannels = settingsNextOptionalState.bufferConnection.workspacesLoaded
     ? (Array.isArray(settingsNextOptionalState.bufferConnection.channels) ? settingsNextOptionalState.bufferConnection.channels : [])
     : [];
-  workspaceLoad.disabled = !connected;
+  const saving = settingsNextOptionalState.busy.has('sns-distribution');
+  workspaceLoad.disabled = !connected || saving;
   workspaceLoad.textContent = settingsNextOptionalState.bufferConnection.workspacesLoaded ? '다시 불러오기' : '작업 공간 불러오기';
   const selectedIds = new Set((Array.isArray(fields.BUFFER_CHANNELS) ? fields.BUFFER_CHANNELS : []).map((channel) => String(channel?.id || channel?.channelId || '').trim()));
   channelsRoot.replaceChildren();
@@ -133,7 +194,7 @@ function settingsNextRenderSnsDistribution() {
       input.id = `settings-next-buffer-channel-${channel.id}`;
       input.dataset.channelId = channel.id;
       input.checked = selectedIds.has(channel.id);
-      input.disabled = !connected;
+      input.disabled = !connected || saving;
       const copy = document.createElement('span');
       copy.className = 'ui-selectable-card-copy';
       const title = document.createElement('strong');
@@ -146,24 +207,17 @@ function settingsNextRenderSnsDistribution() {
     });
   }
 
-  enabledInput.checked = fields.SNS_PUBLISH_ENABLED === true;
-  enabledInput.disabled = !connected;
-  organization.disabled = !connected || !settingsNextOptionalState.bufferConnection.workspacesLoaded;
-  document.querySelectorAll('#settings-next-sns-distribution-fields input').forEach((input) => { input.disabled = !connected; });
+  enabledInput.disabled = !connected || saving;
+  organization.disabled = !connected || saving || !settingsNextOptionalState.bufferConnection.workspacesLoaded;
+  document.querySelectorAll('#settings-next-sns-distribution-fields input').forEach((input) => { input.disabled = !connected || saving; });
   fieldsRoot.setAttribute('aria-disabled', connected ? 'false' : 'true');
-  const save = document.getElementById('settings-next-sns-distribution-save');
-  if (save) {
-    save.disabled = !connected;
-    save.textContent = '저장';
-  }
-  if (!connected) settingsNextOptionalSetStatus('sns-distribution', 'Buffer 연결 필요', 'neutral');
-  else if (fields.SNS_PUBLISH_ENABLED === true) settingsNextOptionalSetStatus('sns-distribution', '사용 중', 'success');
-  else settingsNextOptionalSetStatus('sns-distribution', '사용 안 함', 'neutral');
+  settingsNextRenderSnsDistributionSaveState();
 }
 
 async function settingsNextLoadBufferWorkspaces() {
   const organization = document.getElementById('settings-next-buffer-organization');
   const organizationId = String(organization?.value || settingsNextOptionalState.fields.BUFFER_ORGANIZATION_ID || '').trim();
+  const previousOrganizationId = String(settingsNextOptionalState.fields.BUFFER_ORGANIZATION_ID || '').trim();
   if (settingsNextOptionalState.busy.has('buffer-workspaces')) return;
   settingsNextOptionalState.busy.add('buffer-workspaces');
   if (organization) organization.disabled = true;
@@ -179,7 +233,11 @@ async function settingsNextLoadBufferWorkspaces() {
       settingsNextOptionalState.fields = {
         ...settingsNextOptionalState.fields,
         BUFFER_ORGANIZATION_ID: resolvedOrganizationId,
-        BUFFER_CHANNELS: []
+        // Keep persisted channel selections when refreshing the same workspace.
+        // A different workspace has a different channel set, so clear them.
+        BUFFER_CHANNELS: resolvedOrganizationId === previousOrganizationId
+          ? (Array.isArray(settingsNextOptionalState.fields.BUFFER_CHANNELS) ? settingsNextOptionalState.fields.BUFFER_CHANNELS : [])
+          : []
       };
     }
     settingsNextOptionalState.bufferConnection = {
@@ -275,6 +333,20 @@ function settingsNextOptionalRenderStatuses() {
 function settingsNextOptionalApply(data = {}) {
   settingsNextOptionalState.fields = { ...(data.fields || {}) };
   const fields = settingsNextOptionalState.fields;
+  const selectedBlogs = new Set(Array.isArray(fields.SNS_SOURCE_BLOGS) ? fields.SNS_SOURCE_BLOGS : []);
+  const enabledInput = document.getElementById('settings-next-sns-distribution-enabled');
+  if (enabledInput) enabledInput.checked = fields.SNS_PUBLISH_ENABLED === true;
+  ['naver', 'wordpress'].forEach((source) => {
+    const input = document.getElementById(`settings-next-sns-source-${source}`);
+    if (input) input.checked = selectedBlogs.has(source);
+  });
+  settingsNextOptionalState.snsDistributionSavedSnapshot = settingsNextSnsDistributionValuesSnapshot({
+    SNS_PUBLISH_ENABLED: fields.SNS_PUBLISH_ENABLED,
+    SNS_SOURCE_BLOGS: fields.SNS_SOURCE_BLOGS,
+    BUFFER_ORGANIZATION_ID: fields.BUFFER_ORGANIZATION_ID,
+    BUFFER_CHANNELS: fields.BUFFER_CHANNELS
+  });
+  settingsNextOptionalState.snsDistributionSaveState = 'saved';
   const bufferVerification = fields.BUFFER_CONNECTION_VERIFICATION;
   settingsNextOptionalState.verified.buffer = bufferVerification?.status === 'failed'
     ? false
@@ -335,6 +407,12 @@ async function loadSettingsNextOptionalServices() {
   try {
     settingsNextOptionalApply(await fetchJson('/api/v1/settings/optional-services'));
     settingsNextSetFeedback('settings-next-extras-load-feedback', '');
+    // Restore the saved workspace and channel checks when this panel opens.
+    // Keep it asynchronous so a Buffer outage does not block the rest of Settings.
+    if (settingsNextOptionalSecretConfigured('buffer')
+      && String(settingsNextOptionalState.fields.BUFFER_ORGANIZATION_ID || '').trim()) {
+      void settingsNextLoadBufferWorkspaces();
+    }
   } catch (error) {
     settingsNextSetFeedback('settings-next-extras-load-feedback', error.message || '부가 서비스 설정을 불러오지 못했습니다.', 'danger');
     throw error;
@@ -401,6 +479,16 @@ async function settingsNextOptionalSubmit(event) {
       ? 'Bot·채팅·메시지 확인 중...'
       : '연결 확인 중...';
   if (button) { button.disabled = true; button.textContent = busyLabel; }
+  if (scope === 'sns-distribution') {
+    settingsNextOptionalState.snsDistributionSaveState = 'saving';
+    settingsNextRenderSnsDistributionSaveState();
+    document.getElementById('settings-next-sns-distribution-enabled').disabled = true;
+    document.querySelectorAll('#settings-next-sns-distribution-fields input').forEach((input) => { input.disabled = true; });
+    const organization = document.getElementById('settings-next-buffer-organization');
+    const workspaceLoad = document.getElementById('settings-next-buffer-workspaces-load');
+    if (organization) organization.disabled = true;
+    if (workspaceLoad) workspaceLoad.disabled = true;
+  }
   settingsNextSetFeedback(`settings-next-${scope}-feedback`, '');
     if (['buffer', 'sns-distribution', 'telegram', 'slack', 'bitly'].includes(scope)) setUiSettingsCardFooterDetail(`settings-next-${scope}-footer-detail`, '');
   let persisted = false;
@@ -437,7 +525,6 @@ async function settingsNextOptionalSubmit(event) {
       );
       settingsNextOptionalState.verified.buffer = tested.verification?.status === 'connected';
     }
-    if (scope === 'sns-distribution') setUiSettingsCardFooterDetail('settings-next-sns-distribution-footer-detail', '저장했습니다.');
     if (scope === 'telegram') setUiSettingsCardFooterDetail('settings-next-telegram-footer-detail', tested?.message || '연결됨 · 테스트 메시지를 전송했습니다.');
     if (scope === 'slack') setUiSettingsCardFooterDetail('settings-next-slack-footer-detail', '테스트 메시지를 전송했습니다.');
     if (scope === 'bitly') setUiSettingsCardFooterDetail('settings-next-bitly-footer-detail', 'Bitly 연결을 확인했습니다.');
@@ -446,6 +533,7 @@ async function settingsNextOptionalSubmit(event) {
     settingsNextOptionalState.verified[scope] = false;
     const message = error.message || '연결을 확인하지 못했습니다.';
     const resultMessage = persisted ? `입력값은 반영됨 · ${message}` : message;
+    if (scope === 'sns-distribution') settingsNextOptionalState.snsDistributionSaveState = 'failed';
     if (['buffer', 'sns-distribution', 'telegram', 'slack', 'bitly'].includes(scope)) {
       setUiSettingsCardFooterDetail(`settings-next-${scope}-footer-detail`, resultMessage, 'danger');
     } else {
@@ -454,7 +542,7 @@ async function settingsNextOptionalSubmit(event) {
   } finally {
     settingsNextOptionalState.busy.delete(scope);
     form.setAttribute('aria-busy', 'false');
-    if (button) { button.disabled = false; button.textContent = actionLabel; }
+    if (button && scope !== 'sns-distribution') { button.disabled = false; button.textContent = actionLabel; }
     settingsNextOptionalRenderStatuses();
   }
 }
@@ -495,7 +583,11 @@ function initSettingsNextOptionalServices() {
       settingsNextOptionalState.verified[scope] = null;
       if (['buffer', 'sns-distribution', 'telegram', 'slack', 'bitly'].includes(scope)) setUiSettingsCardFooterDetail(`settings-next-${scope}-footer-detail`, '');
       settingsNextSetFeedback(`settings-next-${scope}-feedback`, '');
-      if (scope === 'sns-distribution') return;
+      if (scope === 'sns-distribution') {
+        if (settingsNextOptionalState.snsDistributionSaveState === 'failed') settingsNextOptionalState.snsDistributionSaveState = 'dirty';
+        settingsNextSyncSnsDistributionSaveState();
+        return;
+      }
       settingsNextOptionalRenderStatuses();
     });
     form.addEventListener('change', (event) => {
@@ -503,7 +595,11 @@ function initSettingsNextOptionalServices() {
       settingsNextMarkScopeDirty(`optional-${scope}`);
       settingsNextOptionalState.verified[scope] = null;
       if (['buffer', 'sns-distribution', 'telegram', 'slack', 'bitly'].includes(scope)) setUiSettingsCardFooterDetail(`settings-next-${scope}-footer-detail`, '');
-      if (scope === 'sns-distribution') return;
+      if (scope === 'sns-distribution') {
+        if (settingsNextOptionalState.snsDistributionSaveState === 'failed') settingsNextOptionalState.snsDistributionSaveState = 'dirty';
+        settingsNextSyncSnsDistributionSaveState();
+        return;
+      }
       settingsNextOptionalRenderStatuses();
     });
   });
