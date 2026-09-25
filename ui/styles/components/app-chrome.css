@@ -337,13 +337,13 @@
 }
 
 .app-footer {
-  margin-top: 28px;
-  padding: 18px 4px 8px;
+  margin-top: 16px;
+  padding: 12px 4px 0;
   border-top: 1px solid color-mix(in srgb, var(--ui-border-strong) 55%, transparent);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
+  gap: 14px;
   color: var(--ui-text-secondary);
   font-size: var(--ui-type-label-size);
 }
@@ -387,8 +387,8 @@
 }
 
 .app-footer-link {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   display: inline-flex;
   align-items: center;
   justify-content: center;

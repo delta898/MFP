@@ -1,10 +1,10 @@
 @media (max-width: 960px) {
   .app-footer {
-    margin-top: 22px;
-    padding: 16px 0 4px;
+    margin-top: 14px;
+    padding: 10px 0 0;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 12px;
+    gap: 8px;
     text-align: center;
   }
 
@@ -18,5 +18,10 @@
     order: 3;
     width: 100%;
     font-size: var(--ui-type-caption-size);
+  }
+
+  .app-footer-link {
+    width: 28px;
+    height: 28px;
   }
 }
