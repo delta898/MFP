@@ -26,7 +26,7 @@ const UiGridTailSpacers = Object.freeze({
 
     update();
     if (this.observers.has(grid) || typeof ResizeObserver !== 'function') return;
-    const observer = new ResizeObserver(update);
+    const observer = new ResizeObserver(() => window.requestAnimationFrame(update));
     observer.observe(grid);
     this.observers.set(grid, observer);
   }

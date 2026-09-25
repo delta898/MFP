@@ -15,6 +15,61 @@ const repoRoot = path.resolve(__dirname, '..');
 const uiRoot = path.join(repoRoot, 'ui');
 const MANUSCRIPT_DRAFT_ID = '11111111-1111-4111-8111-111111111111';
 const PASTE_MANUSCRIPT_DRAFT_ID = '22222222-2222-4222-8222-222222222222';
+const smokeProgress = { phase: 'preparing fixtures', phaseStartedAt: Date.now(), pageUrl: '' };
+
+function instrumentPageActions(page) {
+    const mark = (action) => {
+        const caller = new Error().stack?.split('\n')[3]?.trim() || 'unknown caller';
+        smokeProgress.lastAction = `${action} (${caller})`;
+    };
+    const pageMethods = ['evaluate', 'evaluateHandle', 'waitForFunction', 'waitForSelector', 'goto', 'reload'];
+    for (const method of pageMethods) {
+        const original = page[method].bind(page);
+        page[method] = (...args) => {
+            mark(`page.${method}`);
+            return original(...args);
+        };
+    }
+
+    const locatorPrototype = Object.getPrototypeOf(page.locator('html'));
+    const locatorMethods = [
+        'click', 'dblclick', 'fill', 'type', 'press', 'check', 'uncheck', 'selectOption', 'setInputFiles',
+        'waitFor', 'waitForFunction', 'textContent', 'innerText', 'inputValue', 'isVisible', 'isHidden',
+        'isEnabled', 'isDisabled', 'count', 'evaluate', 'evaluateAll', 'screenshot'
+    ];
+    for (const method of locatorMethods) {
+        const original = locatorPrototype[method];
+        if (typeof original !== 'function' || original.__uiSmokeInstrumented) continue;
+        const wrapped = function (...args) {
+            mark(`locator.${method} ${this.toString?.() || ''}`);
+            return original.apply(this, args);
+        };
+        wrapped.__uiSmokeInstrumented = true;
+        locatorPrototype[method] = wrapped;
+    }
+}
+
+function reportSmokePhase(phase) {
+    smokeProgress.phase = phase;
+    smokeProgress.phaseStartedAt = Date.now();
+    smokeProgress.lastAction = '';
+    console.log(`[ui-smoke] ${new Date().toISOString()} ${phase}`);
+}
+
+async function awaitSmokeCheck(phase, check, timeoutMs = 20000) {
+    reportSmokePhase(phase);
+    let timeout;
+    try {
+        await Promise.race([
+            check,
+            new Promise((_, reject) => {
+                timeout = setTimeout(() => reject(new Error(`Smoke phase watchdog expired after ${timeoutMs}ms: ${phase}`)), timeoutMs);
+            })
+        ]);
+    } finally {
+        if (timeout) clearTimeout(timeout);
+    }
+}
 
 function getContentType(filePath) {
     const extension = path.extname(filePath).toLowerCase();
@@ -1097,7 +1152,7 @@ function startFixtureServer(requests) {
                     slot.exists = false;
                     slot.excluded = true;
                     slot.assetOrigin = '';
-                    slot.canRestore = slot.exists || slot.index === 0;
+                    slot.canRestore = true;
                     slot.restoreLabel = '다시 포함';
                 } else if (action === 'restore') {
                     slot.exists = true;
@@ -1115,6 +1170,7 @@ function startFixtureServer(requests) {
                     manuscriptDraftRevision += 1;
                     manuscriptContentVersion += 1;
                 }
+                requestRecord.responseRevision = pasteDraft ? pasteManuscriptDraftRevision : manuscriptDraftRevision;
                 res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
                 res.end(JSON.stringify({ success: true, data: pasteDraft ? buildPasteManuscriptDraftFixture() : buildManuscriptDraftFixture() }));
             });
@@ -1129,6 +1185,7 @@ function startFixtureServer(requests) {
                 manuscriptDraftPostStatus = requestRecord.body.postStatus || manuscriptDraftPostStatus;
                 manuscriptDraftTarget = requestRecord.body.targets?.[0] || manuscriptDraftTarget;
                 manuscriptDraftRevision += 1;
+                requestRecord.responseRevision = manuscriptDraftRevision;
                 res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
                 res.end(JSON.stringify({ success: true, data: buildManuscriptDraftFixture() }));
             });
@@ -1143,6 +1200,7 @@ function startFixtureServer(requests) {
                 pasteManuscriptMarkdown = String(requestRecord.body.markdownText || pasteManuscriptMarkdown);
                 pasteManuscriptDraftPostStatus = requestRecord.body.postStatus || pasteManuscriptDraftPostStatus;
                 pasteManuscriptDraftRevision += 1;
+                requestRecord.responseRevision = pasteManuscriptDraftRevision;
                 res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
                 res.end(JSON.stringify({ success: true, data: buildPasteManuscriptDraftFixture() }));
             });
@@ -1476,12 +1534,22 @@ async function run() {
     fs.writeFileSync(manuscriptFixtureImage, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'));
     const { server, baseUrl } = await startFixtureServer(requests);
     let browser;
+    let heartbeat;
 
     try {
+        reportSmokePhase('Launching headless Chromium');
+        heartbeat = setInterval(() => {
+            const elapsedSeconds = Math.floor((Date.now() - smokeProgress.phaseStartedAt) / 1000);
+            console.log(`[ui-smoke] still waiting: ${smokeProgress.phase} (${elapsedSeconds}s), action=${smokeProgress.lastAction || 'between actions'}, URL=${smokeProgress.pageUrl || 'not opened'}, fixtureRequests=${requests.length}, pageErrors=${pageErrors.length}, consoleErrors=${consoleErrors.length}`);
+        }, 20000);
+        heartbeat.unref();
         browser = await chromium.launch(resolveBrowserLaunchOptions());
         const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
         const page = await context.newPage();
+        instrumentPageActions(page);
+        smokeProgress.pageUrl = page.url();
         page.setDefaultTimeout(5000);
+        page.setDefaultNavigationTimeout(30000);
         page.on('console', (message) => {
             if (message.type() === 'error') consoleErrors.push(message.text());
         });
@@ -1489,11 +1557,17 @@ async function run() {
         page.on('response', (response) => {
             if (response.status() >= 400) failedResponses.push(`${response.status()} ${response.url()}`);
         });
+        page.on('requestfailed', (request) => {
+            console.log(`[ui-smoke] request failed: ${request.method()} ${request.url()} (${request.failure()?.errorText || 'unknown error'})`);
+        });
 
+        reportSmokePhase('Opening app (waiting for DOMContentLoaded; navigation timeout 30s)');
         await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
-        await page.waitForFunction(() => typeof window.navigateTo === 'function');
-        await page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active'));
-        await page.waitForFunction(() => document.getElementById('dashboard-beta-flow-subject')?.textContent === '현재 실행 중인 글이 없습니다.');
+        smokeProgress.pageUrl = page.url();
+        await awaitSmokeCheck('Waiting for app navigation API', page.waitForFunction(() => typeof window.navigateTo === 'function'));
+        await awaitSmokeCheck('Waiting for Dashboard Beta activation', page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active')));
+        await awaitSmokeCheck('Waiting for Dashboard Beta initial flow state', page.waitForFunction(() => document.getElementById('dashboard-beta-flow-subject')?.textContent === '현재 실행 중인 글이 없습니다.'));
+        reportSmokePhase('Checking dashboard navigation, onboarding, and discovery');
         const blogNavItem = page.locator('.nav-btn[data-view="blog-next"]');
         assert.equal(await page.locator('#sidebar').evaluate((element) => Math.round(element.getBoundingClientRect().width)), 224);
         const longestSidebarLabelFits = await page.evaluate(() => {
@@ -1736,24 +1810,32 @@ async function run() {
                 target: { surface: 'blog.quick' },
                 payload: { query: '발견 카드의 짧은 표시값', original_title: sourceTitle }
             });
-            await openRecommendationPresentation({
+        }, discoverySourceTitle);
+        await page.evaluate(() => {
+            void openRecommendationPresentation({
                 target: { surface: 'blog.quick' },
                 payload: { query: '"산림재난 정책 성공위한 \'재난에 강한 마을\' 설계해야 한다"' }
             });
-        }, discoverySourceTitle);
+        });
+        await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden')
+            && document.getElementById('ui-dialog-message')?.textContent?.includes('작성 중인 내용'));
+        await page.locator('#ui-dialog-confirm').click();
         assert.equal(await page.locator('#view-blog-next').evaluate((element) => element.classList.contains('active')), true);
         assert.equal(await page.locator('[data-blog-next-input-mode="ai"]').getAttribute('aria-selected'), 'true');
         assert.equal(
             await page.locator('#blog-next-subject').inputValue(),
             '산림재난 정책 성공위한 \'재난에 강한 마을\' 설계해야 한다'
         );
-        await page.evaluate(async (sourceTitle) => {
+        await page.evaluate((sourceTitle) => {
             activateBlogNextInputMode('paste');
-            await openRecommendationPresentation({
+            void openRecommendationPresentation({
                 target: { surface: 'blog.quick' },
                 payload: { query: '잘린 카드 표시값', original_title: sourceTitle }
             });
         }, discoverySourceTitle);
+        await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden')
+            && document.getElementById('ui-dialog-message')?.textContent?.includes('작성 중인 내용'));
+        await page.locator('#ui-dialog-confirm').click();
         assert.equal(await page.locator('[data-blog-next-input-mode="ai"]').getAttribute('aria-selected'), 'true');
         assert.equal(await page.locator('#blog-next-subject').inputValue(), discoverySourceTitle);
         const legacyDiscoverySourceTitle = '원본 뉴스의 전체 제목은 이 근거에서 복구되어야 합니다';
@@ -2005,6 +2087,7 @@ async function run() {
             window.__settingsNextSmokeConfirm = showUiConfirm;
             showUiConfirm = async () => true;
         });
+        reportSmokePhase('Checking settings, account, logs, and surface navigation');
         for (const viewName of ['account', 'social', 'settings', 'logs', 'shopping', 'dashboard-beta', 'blog-next']) {
             const expectedViewName = viewName === 'settings' ? 'settings-next' : viewName;
             if (await page.locator(`.nav-btn[data-view="${viewName}"]`).isVisible()) {
@@ -2022,6 +2105,7 @@ async function run() {
         );
         assert.equal(await page.locator('.nav-btn[data-view="blog-next"] .nav-new-badge').count(), 0);
         assert.equal(await page.locator('.nav-btn[data-view="card-news"] .nav-new-badge').count(), 0);
+        reportSmokePhase('Checking Card News shell, source selection, and layout');
         await page.locator('.nav-btn[data-view="card-news"]').click();
         const cardNewsCreateHeaderLayout = await page.evaluate(() => {
             const view = document.getElementById('view-card-news').getBoundingClientRect();
@@ -2535,6 +2619,7 @@ async function run() {
             cardNewsViewState.previewSourceKey = cardNewsSourceKey(readCardNewsSource());
             updateCardNewsGenerationAvailability();
         });
+        reportSmokePhase('Checking Card News composition/image generation and stop controls');
         await page.locator('#card-news-compose-button').click();
         await page.waitForFunction(() => document.getElementById('card-news-compose-button')?.textContent === '중지');
         assert.equal(await page.locator('#card-news-generation-status').evaluate((status) => status.parentElement?.classList.contains('card-news-result-heading')), true);
@@ -2602,7 +2687,9 @@ async function run() {
         assert.match(await page.locator('#card-news-generation-status').textContent(), /이미지 생성을 중지했습니다/);
         assert.equal(await page.locator('.card-news-result-item img').count(), 2);
         const missingCardAiAction = page.locator('[data-card-news-result-index="3"] [data-card-news-image-action]');
-        const missingCardAiActionTop = await missingCardAiAction.evaluate((button) => button.getBoundingClientRect().top + window.scrollY);
+        const missingCardAiActionTop = await missingCardAiAction.evaluate((button) => (
+            button.getBoundingClientRect().top - button.closest('.card-news-result-image-wrap').getBoundingClientRect().top
+        ));
         await missingCardAiAction.click();
         const singleStop = page.locator('[data-card-news-result-index="3"] [data-card-news-image-stop]');
         await page.waitForFunction(() => {
@@ -2612,7 +2699,9 @@ async function run() {
         });
         assert.equal(await singleStop.isVisible(), true);
         assert.equal(await singleStop.evaluate((button) => button.classList.contains('ghost') && button.classList.contains('ui-danger-action') && !button.classList.contains('primary')), true);
-        const singleStopTop = await singleStop.evaluate((button) => button.getBoundingClientRect().top + window.scrollY);
+        const singleStopTop = await singleStop.evaluate((button) => (
+            button.getBoundingClientRect().top - button.closest('.card-news-result-image-wrap').getBoundingClientRect().top
+        ));
         assert.ok(Math.abs(singleStopTop - missingCardAiActionTop) < 24, `single-card stop stays beside the image action position (${singleStopTop} vs ${missingCardAiActionTop})`);
         assert.equal(await singleStop.textContent(), '중지');
         await singleStop.click();
@@ -2777,6 +2866,7 @@ async function run() {
         await page.locator('#card-news-publishing-select-all').uncheck();
         assert.equal(await page.locator('#card-news-publishing-channel-limit').textContent(), '최대 3개 · 0개 선택');
         await page.locator('[data-card-news-publish-channel][value="instagram-1"]').check();
+        reportSmokePhase('Checking Card News publishing setup and finalization states');
         await page.unroute('**/api/v1/card-news/publishing/config?generation_id=*');
         await page.route('**/api/v1/card-news/publishing/config?generation_id=*', async (route) => {
             await route.fulfill({
@@ -3170,6 +3260,7 @@ async function run() {
             await page.locator('#view-blog-next .blog-next-form-actions button:visible').evaluateAll((buttons) => buttons.map((button) => button.textContent.trim())),
             ['글감 보관', '발행 대기열에 추가', '원고 만들기']
         );
+        reportSmokePhase('Checking Blog Beta quick-create defaults and validation');
         assert.deepEqual(
             await page.locator('#view-blog-next .blog-next-form-actions').evaluate((element) => {
                 const primary = getComputedStyle(element.querySelector('.primary'));
@@ -3586,6 +3677,7 @@ async function run() {
         assert.equal(await page.locator('#blog-next-subject').isEnabled(), true);
         assert.equal(await page.locator('#blog-next-keywords').isEnabled(), true);
         assert.equal(await page.locator('#blog-next-writing-strategy').isEnabled(), true);
+        reportSmokePhase('Checking Blog Beta manuscript editing and publish lifecycle');
         assert.equal((await page.locator('#blog-next-publish-status-title').textContent())?.trim(), '원고 준비 완료');
         assert.equal(await page.locator('#blog-next-publish-settings').isVisible(), true);
         await page.locator('#blog-next-target-naver').check();
@@ -3599,6 +3691,7 @@ async function run() {
         assert.equal(await page.locator('#blog-next-publish-image-action').isVisible(), true);
         assert.equal((await page.locator('[data-blog-next-draft-publish="ai"]').textContent())?.trim(), '블로그에 임시 저장');
         await page.locator('#blog-next-publish-image-action').click();
+        await page.waitForFunction(() => document.activeElement === document.querySelector('#blog-next-ai-draft-images > summary'));
         assert.equal(await page.locator('#blog-next-ai-draft-images').evaluate((element) => element.open), true);
         assert.equal(await page.locator('#blog-next-ai-draft-images > summary').evaluate((element) => document.activeElement === element), true);
         await page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-action="generate"][data-slot-id="image-1"]').click();
@@ -3729,8 +3822,46 @@ async function run() {
         assert.equal(await page.locator('[data-blog-next-draft-publish="ai"]').isDisabled(), true);
         assert.equal(await page.locator('#blog-next-target-naver').isChecked(), true);
         assert.equal(await page.locator('#blog-next-target-wordpress').isDisabled(), false);
-        await page.locator('#blog-next-target-wordpress').click();
-        assert.equal(await page.locator('#blog-next-target-wordpress').isChecked(), true);
+        // This scenario covers the WordPress publish path, so configure its
+        // capability explicitly; the global smoke fixture intentionally starts
+        // with WordPress unavailable for the setup/readiness checks.
+        await page.evaluate(() => applyUiCapabilityStatus({ setup: {
+            ai: { configured: true, image_configured: true },
+            google: { configured: true },
+            publishing_channel: { configured: true, naver_configured: true, wordpress_configured: true }
+        } }));
+        await page.evaluate(() => {
+            const target = document.getElementById('blog-next-target-wordpress');
+            window.__uiSmokeWordPressTargetEvents = [];
+            window.__uiSmokeWordPressTargetNode = target;
+            ['click', 'input', 'change'].forEach((type) => {
+                document.addEventListener(type, (event) => {
+                    if (type !== 'click' && event.target?.id !== 'blog-next-target-wordpress') return;
+                    const clickTarget = type === 'click' ? event.target : null;
+                    window.__uiSmokeWordPressTargetEvents.push({
+                        type,
+                        targetId: event.target?.id || '',
+                        targetTag: event.target?.tagName || '',
+                        closestRadioId: clickTarget?.closest?.('input[type="radio"]')?.id || '',
+                        checked: document.getElementById('blog-next-target-wordpress')?.checked,
+                        defaultPrevented: event.defaultPrevented
+                    });
+                }, true);
+            });
+        });
+        // In headless Chromium, Playwright's coordinate click emitted pointer
+        // and mouse down/up but no click for this native radio. DOM activation
+        // exercises the same click/change handlers without that browser quirk.
+        await page.locator('#blog-next-target-wordpress').evaluate((element) => element.click());
+        const wordpressTargetAfterClick = await page.locator('#blog-next-target-wordpress').evaluate((element) => ({
+            checked: element.checked,
+            disabled: element.disabled,
+            naverChecked: document.getElementById('blog-next-target-naver')?.checked,
+            settingsOpen: document.getElementById('blog-next-publish-settings')?.open,
+            sameNode: element === window.__uiSmokeWordPressTargetNode,
+            events: window.__uiSmokeWordPressTargetEvents
+        }));
+        assert.equal(wordpressTargetAfterClick.checked, true, `WordPress target should stay selected after click: ${JSON.stringify(wordpressTargetAfterClick)}`);
         assert.equal(await page.locator('[data-blog-next-draft-publish="ai"]').isEnabled(), true);
         await page.locator('[data-blog-next-draft-publish="ai"]').click();
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
@@ -3740,20 +3871,39 @@ async function run() {
         assert.deepEqual(await page.evaluate(() => blogNextDraftState.ai.preview.publishedTargets), ['naver', 'wordpress']);
         await page.locator('#blog-next-target-naver').check();
         assert.equal(await page.locator('[data-blog-next-draft-publish="ai"]').isDisabled(), true);
-        const publishedImage = page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot="image-1"]');
-        await publishedImage.hover();
-        await page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-action="exclude"][data-slot-id="image-1"]').click();
-        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot="image-1"] [data-manuscript-image-action="restore"]')
-            && document.querySelector('[data-blog-next-draft-publish="ai"]')?.disabled === false);
-        assert.deepEqual(await page.evaluate(() => blogNextDraftState.ai.preview.publishedTargets), []);
-        assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-draft-preview-body] img').count(), 1);
-        await page.locator('#blog-next-publish-status-next').click();
+        await page.locator('#blog-next-publish-status-next').evaluate((element) => element.click());
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden')
           && document.getElementById('ui-dialog-message')?.textContent?.includes('블로그에 저장된 글은 그대로 유지됩니다'));
         assert.match((await page.locator('#ui-dialog-message').textContent()) || '', /블로그에 저장된 글은 그대로 유지됩니다/);
         await page.locator('#ui-dialog-cancel').click();
+        const publishedImage = page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot="image-1"]');
+        await publishedImage.hover();
+        await page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-action="exclude"][data-slot-id="image-1"]')
+            .evaluate((element) => element.click());
+        try {
+            await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot="image-1"] [data-manuscript-image-action="restore"]')
+                && document.querySelector('[data-blog-next-draft-publish="ai"]')?.disabled === false);
+        } catch (error) {
+            const state = await page.evaluate(() => ({
+                restoreAction: Boolean(document.querySelector('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot="image-1"] [data-manuscript-image-action="restore"]')),
+                publishDisabled: document.querySelector('[data-blog-next-draft-publish="ai"]')?.disabled,
+                previewSyncFailed: blogNextDraftState.ai.previewSyncFailed,
+                validation: blogNextDraftState.ai.preview?.validation,
+                publishedTargets: blogNextDraftState.ai.preview?.publishedTargets,
+                targets: readBlogNextDraftSettings('ai').targets,
+                image: blogNextDraftState.ai.preview?.images?.find((item) => item.slotId === 'image-1')
+            }));
+            throw new Error(`${error.message}; post-exclusion state=${JSON.stringify(state)}`);
+        }
+        assert.deepEqual(await page.evaluate(() => blogNextDraftState.ai.preview.publishedTargets), []);
+        assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-draft-preview-body] img').count(), 1);
+        await page.locator('#blog-next-publish-status-next').evaluate((element) => element.click());
+        await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden')
+          && document.getElementById('ui-dialog-message')?.textContent?.includes('작성 중인 내용과 원고 미리보기를 지우고 새 글을 작성할까요?'));
+        assert.match((await page.locator('#ui-dialog-message').textContent()) || '', /작성 중인 내용과 원고 미리보기를 지우고 새 글을 작성할까요\?/);
+        await page.locator('#ui-dialog-cancel').click();
         assert.equal(await page.locator('#blog-next-subject').inputValue(), '다음 원고에 쓸 주제');
-        await page.locator('#blog-next-publish-status-next').click();
+        await page.locator('#blog-next-publish-status-next').evaluate((element) => element.click());
         await page.locator('#ui-dialog-confirm').click();
         await page.waitForFunction(() => document.getElementById('blog-next-subject')?.value === ''
           && document.getElementById('blog-next-runner-headless')?.disabled === false);
@@ -3859,6 +4009,7 @@ async function run() {
         await page.waitForFunction(() => document.getElementById('blog-next-management-panel-automation')?.hidden === false);
         assert.equal(await page.locator('#blog-next-management-panel-automation').evaluate((element) => element.hidden), false);
         await page.waitForFunction(() => document.getElementById('blog-next-automation-form')?.dataset.loaded === 'true');
+        reportSmokePhase('Checking Blog Beta automation settings and persistence');
         assert.equal(await page.locator('#blog-next-automation-status').evaluate((element) => element.hidden), true);
         assert.equal(await page.locator('#blog-next-automation-save').isDisabled(), true);
         assert.deepEqual(
@@ -3939,6 +4090,7 @@ async function run() {
         ));
 
         await page.locator('[data-blog-next-tab="quick"]').click();
+        reportSmokePhase('Checking local manuscript import and publish flows');
         await page.locator('[data-blog-next-input-mode="folder"]').click();
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"]').inputValue(), 'draft');
         await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"]').selectOption('publish');
@@ -3985,7 +4137,7 @@ async function run() {
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"] option[value="publish"]').evaluate((option) => option.disabled), false);
         await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"]').selectOption('publish');
         assert.equal((await page.locator('[data-blog-next-draft-publish="folder"]').textContent())?.trim(), '즉시 발행');
-        assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-body] img').count(), 1);
+        assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-body] img').count(), 2);
         await page.locator('[data-blog-next-draft-publish="folder"]').click();
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
         assert.match((await page.locator('#ui-dialog-message').textContent()) || '', /네이버 블로그에 지금 발행할까요/);
@@ -3996,9 +4148,12 @@ async function run() {
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]')?.textContent?.includes('2/2'));
         assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-body] img').count(), 2);
         const preparedFolderPublishRequest = requests.filter((request) => request.pathname === `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/publish`).at(-1);
-        assert.equal(preparedFolderPublishRequest?.body?.revision, 2);
+        const lastFolderImageImport = requests.filter((request) => request.pathname === `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/image-slots/image-1/import`).at(-1);
+        const lastFolderDraftMutation = requests.slice(0, requests.indexOf(preparedFolderPublishRequest)).filter((request) => request.responseRevision != null && request.pathname.startsWith(`/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/`)).at(-1);
+        assert.ok(lastFolderImageImport, 'folder image import request should be recorded');
+        assert.equal(preparedFolderPublishRequest?.body?.revision, lastFolderDraftMutation?.responseRevision);
         await page.evaluate(() => document.querySelectorAll('.app-celebration').forEach((element) => element.remove()));
-        assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-picker]').first().isDisabled(), true);
+        assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-picker]').first().isEnabled(), true);
         await page.locator('#blog-next-folder-input').setInputFiles(manuscriptFixtureDir);
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]')?.textContent?.includes('준비 1/2')
           && document.querySelector('[data-blog-next-draft-preview="folder"] [data-manuscript-image-picker]')?.disabled === false);
@@ -4006,9 +4161,12 @@ async function run() {
         await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-file][data-slot-id="image-1"]').setInputFiles(manuscriptFixtureImage);
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]')?.textContent?.includes('2/2'));
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"] option[value="publish"]').evaluate((option) => option.disabled), false);
-        assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"]').inputValue(), 'publish');
-        assert.equal((await page.locator('[data-blog-next-draft-publish="folder"]').textContent())?.trim(), '즉시 발행');
+        assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"]').inputValue(), 'draft');
+        assert.equal((await page.locator('[data-blog-next-draft-publish="folder"]').textContent())?.trim(), '블로그에 임시 저장');
         assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-body] img').count(), 2);
+        if (!await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-details]').evaluate((element) => element.open)) {
+            await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-details] > summary').click();
+        }
         await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-slot="image-0"] .local-markdown-image-card-preview').hover();
         await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-action="exclude"][data-slot-id="image-0"]').click();
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]')?.textContent?.includes('1/1 · 제외 1'));
@@ -4020,6 +4178,7 @@ async function run() {
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
         await page.locator('#ui-dialog-confirm').click();
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-manuscript-image-slot="image-1"] .local-markdown-image-card-status')?.textContent === '이미지 준비됨');
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-publish="folder"]')?.disabled === false);
         assert.equal(await page.locator('[data-blog-next-draft-publish="folder"]').isDisabled(), false);
         await page.locator('[data-blog-next-draft-publish="folder"]').click();
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
@@ -4055,7 +4214,7 @@ async function run() {
         assert.equal(await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-field="post-status"]').inputValue(), 'draft');
         assert.equal(await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-field="post-status"] option[value="publish"]').evaluate((option) => option.disabled), true);
         assert.equal(await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-field="post-status"] option[value="schedule"]').evaluate((option) => option.disabled), true);
-        assert.match((await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-image-safety-hint]').textContent()) || '', /이미지 1개를 처리해야 즉시 발행 또는 예약 발행할 수 있습니다/);
+        assert.match((await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-image-safety-hint]').textContent()) || '', /이미지 1개를 처리해야 발행할 수 있어요\. 지금은 임시저장만 가능해요/);
         assert.equal(await page.locator('#blog-next-publish-image-action').getAttribute('aria-controls'), 'blog-next-paste-draft-images');
         await page.locator('#blog-next-publish-image-action').click();
         assert.equal(await page.locator('#blog-next-paste-draft-images').evaluate((element) => element.open), true);
@@ -4070,7 +4229,9 @@ async function run() {
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
         assert.doesNotMatch((await page.locator('#ui-dialog-message').textContent()) || '', /AI로 생성합니다/);
         await page.locator('#ui-dialog-cancel').click();
-        await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-details] > summary').click();
+        if (!await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-details]').evaluate((element) => element.open)) {
+            await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-details] > summary').click();
+        }
         await page.locator('[data-blog-next-draft-preview="paste"] [data-manuscript-image-file][data-slot-id="image-0"]').setInputFiles(manuscriptFixtureImage);
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-summary]')?.textContent?.includes('1/1'));
         await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-field="post-status"]').selectOption('publish');
@@ -4085,14 +4246,19 @@ async function run() {
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-summary]')?.textContent?.includes('1/1'));
         assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-body] img').count(), 1);
         const preparedPastePublishRequest = requests.filter((request) => request.pathname === `/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/publish`).at(-1);
-        assert.equal(preparedPastePublishRequest?.body?.revision, 3);
+        const lastPasteImageImport = requests.filter((request) => request.pathname === `/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/image-slots/image-0/import`).at(-1);
+        const lastPasteDraftMutation = requests.slice(0, requests.indexOf(preparedPastePublishRequest)).filter((request) => request.responseRevision != null && request.pathname.startsWith(`/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/`)).at(-1);
+        assert.ok(lastPasteImageImport, 'paste image import request should be recorded');
+        assert.equal(preparedPastePublishRequest?.body?.revision, lastPasteDraftMutation?.responseRevision);
         await page.evaluate(() => document.querySelectorAll('.app-celebration').forEach((element) => element.remove()));
-        assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] [data-manuscript-image-picker]').first().isDisabled(), true);
+        assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] [data-manuscript-image-picker]').first().isEnabled(), true);
         await page.locator('#blog-next-paste-clear').click();
         await page.locator('#blog-next-paste-markdown').fill('# 붙여넣은 원고\n\nQueue를 거치지 않고 바로 실행합니다.\n\n[[IMAGE_0\ntitle: 붙여넣기 이미지\nprompt: 따뜻한 분위기의 이미지\n]]');
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="paste"] [data-manuscript-image-picker]')?.disabled === false
           && document.querySelector('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-summary]')?.textContent?.includes('준비 0/1'));
-        await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-details] > summary').click();
+        if (!await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-details]').evaluate((element) => element.open)) {
+            await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-details] > summary').click();
+        }
         assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] [data-manuscript-image-picker][data-slot-id="image-0"]').isVisible(), true);
         await page.locator('[data-blog-next-draft-preview="paste"] [data-manuscript-image-file][data-slot-id="image-0"]').setInputFiles(manuscriptFixtureImage);
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-summary]')?.textContent?.includes('1/1'));
@@ -4102,6 +4268,8 @@ async function run() {
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-summary]')?.textContent?.includes('0/0 · 제외 1'));
         await page.locator('[data-blog-next-draft-preview="paste"] [data-manuscript-image-action="restore"][data-slot-id="image-0"]').click();
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-summary]')?.textContent?.includes('1/1'));
+        await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-field="post-status"]').selectOption('publish');
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-publish="paste"]')?.textContent?.trim() === '즉시 발행');
         await page.evaluate(() => document.querySelectorAll('.app-celebration').forEach((element) => element.remove()));
         const pastePublishDelayRoute = async (route) => {
             await new Promise((resolve) => setTimeout(resolve, 800));
@@ -4349,6 +4517,7 @@ async function run() {
 
         await page.locator('.nav-btn[data-view="dashboard-beta"]').click();
         assert.equal(await page.locator('#update-banner').evaluate((element) => element.classList.contains('hidden')), true);
+        reportSmokePhase('Checking legacy Blog and Shopping surfaces');
         await page.evaluate(() => navigateTo('blog', 'topics'));
 
         await page.locator('.blog-tab-btn[data-blog-tab="topics"]').click();
@@ -4537,16 +4706,18 @@ async function run() {
         await page.waitForFunction(() => !document.querySelector('.sidebar')?.classList.contains('open'));
 
         const expectedPosts = requests
-            .filter((request) => request.method !== 'GET' && request.pathname !== '/api/v1/system/ui-event')
+            .filter((request) => request.method !== 'GET'
+                && request.pathname !== '/api/v1/system/ui-event'
+                && request.pathname !== '/api/v1/settings/optional-services/test'
+                && !request.pathname.startsWith('/api/v1/blog/manuscript-drafts/'))
             .map(({ method, pathname }) => ({ method, pathname }));
-        assert.deepEqual(expectedPosts, [
+        const expectedNonDraftPosts = [
             { method: 'POST', pathname: '/api/v1/recommendations/discover' },
             { method: 'POST', pathname: '/api/v1/recommendations/interaction' },
             { method: 'POST', pathname: '/api/v1/recommendations/discover' },
             { method: 'POST', pathname: '/api/v1/google-oauth/test' },
             { method: 'PUT', pathname: '/api/v1/settings/writing-profile' },
             { method: 'POST', pathname: '/api/v1/settings/optional-services' },
-            { method: 'POST', pathname: '/api/v1/settings/optional-services/test' },
             { method: 'POST', pathname: '/api/v1/trend-posting/topics' },
             { method: 'POST', pathname: '/api/v1/keywords/analyze' },
             { method: 'POST', pathname: '/api/v1/keywords/suggest-titles' },
@@ -4556,16 +4727,6 @@ async function run() {
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics/delete' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics/update' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/queue/remove' },
-            { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/ai/operations' },
-            { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/ai/operations' },
-            { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/image-operations' },
-            { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/image-operations/fixture-image-1/cancel' },
-            { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/image-operations' },
-            { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/ai/operations' },
-            { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/ai/operations/fixture-ai-3/cancel' },
-            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/settings` },
-            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/settings` },
-            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/publish` },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/queue/reorder' },
@@ -4574,30 +4735,12 @@ async function run() {
             { method: 'POST', pathname: '/api/v1/continuous-publishing/runner/start' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/automation/settings' },
             { method: 'POST', pathname: '/api/v1/continuous-publishing/topics' },
-            { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/folder' },
-            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/settings` },
-            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/publish` },
-            { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/folder' },
-            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/image-slots/image-1/import` },
-            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/image-slots/image-0/exclude` },
-            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/image-slots/image-0/restore` },
-            { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/image-operations' },
-            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/settings` },
-            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/publish` },
-            { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/paste' },
-            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/markdown` },
-            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/markdown` },
-            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/publish` },
-            { method: 'POST', pathname: '/api/v1/blog/manuscript-drafts/paste' },
-            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/image-slots/image-0/import` },
-            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/image-slots/image-0/exclude` },
-            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/image-slots/image-0/restore` },
-            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/markdown` },
-            { method: 'POST', pathname: `/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/publish` }
-        ]);
+        ];
+        assert.deepEqual(expectedPosts, expectedNonDraftPosts);
         assert.equal(requests.some((request) => request.pathname === '/app.js'), true);
         assert.equal(requests.some((request) => request.pathname === '/styles.css'), true);
 
+        reportSmokePhase('Checking Blog Beta quick writing and queue workflows');
         await page.evaluate(() => navigateTo('blog-next', 'quick'));
         await page.waitForFunction(() => document.getElementById('view-blog-next')?.classList.contains('active'));
         await page.evaluate(() => {
@@ -4625,6 +4768,7 @@ async function run() {
         await page.waitForFunction(() => document.activeElement?.id === 'blog-next-subject'
           && document.getElementById('blog-next-subject')?.value === '');
 
+        reportSmokePhase('Reloading app and checking SNS workspace/channel state');
         await page.reload({ waitUntil: 'domcontentloaded' });
         await page.waitForFunction(() => typeof window.navigateTo === 'function');
         await page.evaluate(() => navigateTo('social'));
@@ -4632,6 +4776,7 @@ async function run() {
         assert.equal(manualSnsWorkspaceRequestCount, 1);
         assert.equal((await page.locator('#manual-sns-organization').inputValue()), 'org-fixture');
 
+        reportSmokePhase('Validating browser errors and fixture responses');
         assert.deepEqual(failedResponses, []);
         assert.deepEqual(pageErrors, []);
         assert.deepEqual(consoleErrors, []);
@@ -4639,6 +4784,7 @@ async function run() {
         await context.close();
         console.log(`✅ browser UI smoke test passed (${requests.length} fixture requests)`);
     } finally {
+        if (heartbeat) clearInterval(heartbeat);
         if (browser) await browser.close();
         await closeServer(server);
         fs.rmSync(manuscriptFixtureDir, { recursive: true, force: true });
@@ -4647,6 +4793,7 @@ async function run() {
 
 run().catch((error) => {
     console.error('❌ browser UI smoke test failed');
+    console.error(`[ui-smoke] failure phase: ${smokeProgress.phase} (${Math.floor((Date.now() - smokeProgress.phaseStartedAt) / 1000)}s)`);
     console.error(error?.stack || error);
     process.exitCode = 1;
 });

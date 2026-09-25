@@ -44,6 +44,7 @@ class FakeGrid extends FakeGridItem {
 
 test('decorative grid tail cells complete only the current row and respond to column changes', () => {
   const observers = [];
+  const animationFrames = [];
   class FakeResizeObserver {
     constructor(callback) { this.callback = callback; observers.push(this); }
     observe() {}
@@ -52,7 +53,8 @@ test('decorative grid tail cells complete only the current row and respond to co
   const spacers = vm.runInNewContext(`${source}\nUiGridTailSpacers`, {
     document: { createElement: () => new FakeGridItem() },
     getComputedStyle: (grid) => ({ gridTemplateColumns: Array(grid.columns).fill('1fr').join(' ') }),
-    ResizeObserver: FakeResizeObserver
+    ResizeObserver: FakeResizeObserver,
+    window: { requestAnimationFrame: (callback) => animationFrames.push(callback) }
   });
   const grid = new FakeGrid(5, 3);
 
@@ -63,10 +65,13 @@ test('decorative grid tail cells complete only the current row and respond to co
 
   grid.columns = 4;
   observers[0].callback();
+  assert.equal(grid.querySelectorAll(':scope > [data-ui-grid-spacer]').length, 1);
+  animationFrames.shift()();
   assert.equal(grid.querySelectorAll(':scope > [data-ui-grid-spacer]').length, 3);
 
   grid.columns = 1;
   observers[0].callback();
+  animationFrames.shift()();
   assert.equal(grid.querySelectorAll(':scope > [data-ui-grid-spacer]').length, 0);
 
   grid.columns = 3;
