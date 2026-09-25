@@ -7,22 +7,90 @@ function getCardNewsPlatformLabel(platform) {
   return platform || '직접 입력';
 }
 
+function hasCardNewsGeneration(article = {}) {
+  return Boolean(article.management?.generation_id);
+}
+
 function isCardNewsSourcePublished(article = {}) {
   return article.management?.status_key === 'published'
     || article.management?.publishing_status === '발행 완료';
+}
+
+function isCardNewsSourceManaged(article = {}) {
+  return hasCardNewsGeneration(article) || isCardNewsSourcePublished(article);
+}
+
+function updateCardNewsWorkspaceCounts() {
+  const createCount = document.getElementById('card-news-create-count');
+  const managedCount = document.getElementById('card-news-managed-count');
+  if (createCount) createCount.textContent = String(cardNewsViewState.articles.filter((article) => !isCardNewsSourceManaged(article)).length);
+  if (managedCount) managedCount.textContent = String(cardNewsViewState.managedItems.length);
+}
+
+function updateCardNewsManagedFilterCounts() {
+  const counts = new Map([['전체', cardNewsViewState.managedItems.length]]);
+  cardNewsViewState.managedItems.forEach((item) => {
+    const status = String(item.status || '확인 필요');
+    counts.set(status, (counts.get(status) || 0) + 1);
+  });
+  document.querySelectorAll('[data-card-news-managed-count-for]').forEach((badge) => {
+    const filter = badge.dataset.cardNewsManagedCountFor;
+    badge.textContent = String(counts.get(filter) || 0);
+    badge.setAttribute('aria-label', `${filter} ${counts.get(filter) || 0}개`);
+  });
+}
+
+function refreshCardNewsSourcesAfterGeneration(generation = {}) {
+  const source = cardNewsViewState.preview?.source;
+  if (!source) return;
+  const sourceKey = cardNewsSourceKey(source);
+  const index = cardNewsViewState.articles.findIndex((article) => cardNewsSourceKey(article) === sourceKey);
+  if (index >= 0) {
+    const current = cardNewsViewState.articles[index];
+    cardNewsViewState.articles[index] = {
+      ...current,
+      management: {
+        ...(current.management || {}),
+        generation_id: String(generation.id || ''),
+        status: generation.status === 'completed' ? '발행 대기' : '작업 중',
+        status_key: generation.status === 'completed' ? 'ready_to_publish' : 'in_progress',
+        status_tone: generation.status === 'completed' ? 'pending' : 'neutral'
+      }
+    };
+    renderCardNewsPlatformTabs();
+    renderCardNewsVisibleArticles();
+  }
+  const summary = {
+    generation_id: String(generation.id || ''),
+    title: String(generation.title || '제목 없는 카드뉴스'),
+    source_platform: String(source.source_platform || source.feed_label || 'local'),
+    status: generation.status === 'completed' ? '발행 대기' : '작업 중',
+    status_tone: generation.status === 'completed' ? 'pending' : 'neutral',
+    card_count: Array.isArray(generation.cards) ? generation.cards.length : 0,
+    image_count: Array.isArray(generation.cards) ? generation.cards.filter((card) => card.image_url).length : 0,
+    local_available: true,
+    updated_at: new Date().toISOString(),
+    last_error: ''
+  };
+  const existingIndex = cardNewsViewState.managedItems.findIndex((item) => item.generation_id === summary.generation_id);
+  if (existingIndex >= 0) cardNewsViewState.managedItems[existingIndex] = { ...cardNewsViewState.managedItems[existingIndex], ...summary };
+  else if (summary.generation_id) cardNewsViewState.managedItems.unshift(summary);
+  updateCardNewsWorkspaceCounts();
+  renderCardNewsManagedItems();
 }
 
 function visibleCardNewsArticlesForPlatform(platform = '') {
   return cardNewsViewState.articles
     .map((article, index) => ({ article, index }))
     .filter(({ article }) => !platform || article.source_platform === platform)
-    .filter(({ article }) => !isCardNewsSourcePublished(article));
+    .filter(({ article }) => !isCardNewsSourceManaged(article));
 }
 
 function renderCardNewsPlatformTabs() {
   const container = document.getElementById('card-news-platform-tabs');
   if (!container) return;
   const sources = cardNewsViewState.configuredSources;
+  updateCardNewsWorkspaceCounts();
   container.hidden = sources.length < 2;
   if (sources.length < 2) {
     container.innerHTML = '';
@@ -62,14 +130,14 @@ function renderCardNewsVisibleArticles() {
 
   if (!visibleArticles.length) {
     const hasConfiguredSource = sources.length > 0;
-    const onlyPublished = platformArticles.length > 0 && platformArticles.every(isCardNewsSourcePublished);
+    const onlyManaged = platformArticles.length > 0 && platformArticles.every(isCardNewsSourceManaged);
     const title = visibleFailures.length
       ? `${getCardNewsPlatformLabel(activePlatform)} 글을 불러오지 못했습니다.`
-      : (onlyPublished ? '새로 만들 글이 없습니다.' : (hasConfiguredSource ? '공개된 글을 찾지 못했습니다.' : '등록된 피드가 없습니다.'));
+      : (onlyManaged ? '새 카드뉴스를 만들 수 있는 글이 없습니다.' : (hasConfiguredSource ? '공개된 글을 찾지 못했습니다.' : '등록된 피드가 없습니다.'));
     const message = visibleFailures.length
       ? '잠시 후 새로고침해 주세요.'
-      : (onlyPublished
-        ? '발행한 카드뉴스는 만든 카드뉴스에서 확인할 수 있습니다.'
+      : (onlyManaged
+        ? '카드뉴스 작업 이력이 있는 원문은 만든 카드뉴스에서 확인할 수 있습니다.'
         : (hasConfiguredSource ? 'RSS 주소를 확인한 뒤 새로고침해 주세요.' : '설정에서 블로그를 연결하거나 RSS를 추가해 주세요.'));
     list.innerHTML = `<div class="card-news-empty-state ui-empty-state"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(message)}</span></div>`;
   } else {
@@ -118,6 +186,7 @@ function renderCardNewsArticles(result = {}) {
   }
   renderCardNewsPlatformTabs();
   renderCardNewsVisibleArticles();
+  updateCardNewsWorkspaceCounts();
   markCardNewsPreviewStale();
 }
 
@@ -148,6 +217,8 @@ function safeCardNewsExternalUrl(value = '') {
 function renderCardNewsManagedItems() {
   const list = document.getElementById('card-news-managed-list');
   if (!list) return;
+  updateCardNewsWorkspaceCounts();
+  updateCardNewsManagedFilterCounts();
   const items = cardNewsViewState.managedItems.filter((item) => (
     cardNewsViewState.managedFilter === '전체' || item.status === cardNewsViewState.managedFilter
   ));
@@ -363,6 +434,8 @@ function renderManagedCardNewsSource(snapshot, item = {}) {
   const content = document.getElementById('card-news-managed-source-content');
   const badge = document.getElementById('card-news-managed-source-badge');
   const relatedLinks = document.getElementById('card-news-managed-source-links');
+  const newVersionButton = document.getElementById('card-news-new-version');
+  if (newVersionButton) newVersionButton.hidden = !snapshot;
   if (empty) empty.hidden = Boolean(snapshot);
   if (content) content.hidden = !snapshot;
   if (badge) {
@@ -397,6 +470,25 @@ function renderManagedCardNewsSource(snapshot, item = {}) {
       return `<a href="${escapeHtml(safeLink)}" target="_blank" rel="noopener noreferrer">${escapeHtml(channel)} 열기 ↗</a>`;
     }).filter(Boolean).join('');
   }
+}
+
+function startNewCardNewsFromManagedSource() {
+  const snapshot = cardNewsViewState.preview;
+  if (!snapshot || cardNewsViewState.generating) return;
+  cardNewsViewState.createWorkflowContext = {
+    preview: snapshot,
+    previewSourceKey: `managed-new-version:${cardNewsViewState.generation?.id || Date.now()}`,
+    previewFromManaged: true,
+    projectId: '',
+    generation: null,
+    publishingConfig: null,
+    publishingOutcome: '',
+    publishedChannelIds: new Set()
+  };
+  activateCardNewsWorkspace('create');
+  renderCardNewsPreview(snapshot);
+  setCardNewsStatus('원문을 불러왔습니다. 기존 카드뉴스는 유지되며 새 작업으로 만들어집니다.', 'ready');
+  document.getElementById('card-news-source-title')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function showManagedCardNewsGeneration(result = {}) {
@@ -497,6 +589,7 @@ function bindCardNewsManagementView() {
     }));
   });
   document.getElementById('card-news-managed-refresh')?.addEventListener('click', () => void loadCardNewsManagedItems());
+  document.getElementById('card-news-new-version')?.addEventListener('click', startNewCardNewsFromManagedSource);
   document.getElementById('card-news-zip-select')?.addEventListener('click', () => document.getElementById('card-news-zip-file')?.click());
   document.getElementById('card-news-zip-file')?.addEventListener('change', (event) => void previewCardNewsZip(event.currentTarget.files?.[0]));
   document.getElementById('card-news-zip-cancel')?.addEventListener('click', resetCardNewsZipImport);

@@ -134,6 +134,35 @@ test('cardnews ledger updates a generation with one read and skips identical wri
     assert.equal(gateway.calls.updates.length, writesBeforeUpdate + 1);
 });
 
+test('creating another card news version preserves the prior version and its publishing history', async () => {
+    const gateway = createMemoryGateway();
+    const store = createCardNewsLedgerStore({ gateway });
+    const candidate = {
+        source: { kind: 'feed_item', item_key: 'rss-versioned', canonical_url: 'https://example.com/versioned', title: '원문' },
+        title: '원문'
+    };
+    await store.upsertCandidateWithPatch(candidate, {
+        workflowStatus: '제작 완료',
+        publishingStatus: '발행 완료',
+        generationId: 'generation-v1',
+        channels: 'Threads',
+        postLinks: 'https://threads.example/post/1'
+    });
+
+    const second = await store.upsertCandidateWithPatch(candidate, {
+        workflowStatus: '제작 중',
+        publishingStatus: '미발행',
+        generationId: 'generation-v2'
+    });
+    const rows = await store.listRows();
+
+    assert.equal(rows.length, 2);
+    assert.notEqual(second.entryKey, rows[0].entryKey);
+    assert.equal((await store.findByGenerationId('generation-v1')).publishingStatus, '발행 완료');
+    assert.equal((await store.findByGenerationId('generation-v1')).postLinks, 'https://threads.example/post/1');
+    assert.equal((await store.findByGenerationId('generation-v2')).publishingStatus, '미발행');
+});
+
 test('cardnews ledger rejects invalid independent states', async () => {
     const gateway = createMemoryGateway();
     const store = createCardNewsLedgerStore({ gateway });

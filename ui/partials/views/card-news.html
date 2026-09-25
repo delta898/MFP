@@ -15,9 +15,9 @@
 
         <div class="card-news-workspace-tabs ui-top-tabs" role="tablist" aria-label="카드뉴스 작업 구분">
           <button class="ui-top-tab active" id="card-news-workspace-tab-create" type="button" role="tab"
-            aria-selected="true" aria-controls="card-news-create-workspace" tabindex="0" data-card-news-workspace="create">새 카드뉴스</button>
+            aria-selected="true" aria-controls="card-news-create-workspace" tabindex="0" data-card-news-workspace="create">새 카드뉴스 <span id="card-news-create-count" class="ui-count-badge" aria-label="새 카드뉴스 개수">–</span></button>
           <button class="ui-top-tab" id="card-news-workspace-tab-managed" type="button" role="tab"
-            aria-selected="false" aria-controls="card-news-managed-workspace" tabindex="-1" data-card-news-workspace="managed">만든 카드뉴스</button>
+            aria-selected="false" aria-controls="card-news-managed-workspace" tabindex="-1" data-card-news-workspace="managed">만든 카드뉴스 <span id="card-news-managed-count" class="ui-count-badge" aria-label="만든 카드뉴스 개수">–</span></button>
         </div>
 
         <div id="card-news-create-workspace" role="tabpanel" aria-labelledby="card-news-workspace-tab-create"
@@ -281,6 +281,16 @@
                   <h2 id="card-news-managed-title">만든 카드뉴스</h2>
                   <p>항목을 선택해 원문과 카드 작업을 이어서 확인합니다.</p>
                 </div>
+                <div class="card-news-panel-actions">
+                  <button id="card-news-zip-select" class="secondary compact" type="button">ZIP 가져오기</button>
+                  <input id="card-news-zip-file" type="file" accept=".zip,application/zip,application/x-zip-compressed" hidden>
+                  <button id="card-news-managed-refresh" class="ui-refresh-action-icon" type="button" aria-label="만든 카드뉴스 새로고침" title="만든 카드뉴스 새로고침">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5" />
+                      <path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 20v-5h-5" />
+                    </svg>
+                  </button>
+                </div>
               </div>
               <dialog id="card-news-zip-dialog" class="card-news-zip-dialog ui-transaction-dialog" aria-labelledby="card-news-zip-title">
                 <form id="card-news-zip-form" class="card-news-zip-form ui-transaction-dialog-form" method="dialog">
@@ -305,21 +315,11 @@
               </dialog>
               <div class="card-news-panel-toolbar card-news-entry-toolbar">
                 <div class="card-news-managed-filters ui-segmented-tabs" role="tablist" aria-label="만든 카드뉴스 상태">
-                  <button class="ui-segmented-tab active" type="button" role="tab" aria-selected="true" aria-controls="card-news-managed-list" tabindex="0" data-card-news-managed-filter="전체">전체</button>
-                  <button class="ui-segmented-tab" type="button" role="tab" aria-selected="false" aria-controls="card-news-managed-list" tabindex="-1" data-card-news-managed-filter="작업 중">작업 중</button>
-                  <button class="ui-segmented-tab" type="button" role="tab" aria-selected="false" aria-controls="card-news-managed-list" tabindex="-1" data-card-news-managed-filter="발행 대기">발행 대기</button>
-                  <button class="ui-segmented-tab" type="button" role="tab" aria-selected="false" aria-controls="card-news-managed-list" tabindex="-1" data-card-news-managed-filter="발행 완료">발행 완료</button>
-                  <button class="ui-segmented-tab" type="button" role="tab" aria-selected="false" aria-controls="card-news-managed-list" tabindex="-1" data-card-news-managed-filter="확인 필요">확인 필요</button>
-                </div>
-                <div class="card-news-panel-actions">
-                  <button id="card-news-zip-select" class="secondary compact" type="button">ZIP 가져오기</button>
-                  <input id="card-news-zip-file" type="file" accept=".zip,application/zip,application/x-zip-compressed" hidden>
-                  <button id="card-news-managed-refresh" class="ui-refresh-action-icon" type="button" aria-label="만든 카드뉴스 새로고침" title="만든 카드뉴스 새로고침">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5" />
-                      <path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 20v-5h-5" />
-                    </svg>
-                  </button>
+                  <button class="ui-segmented-tab active" type="button" role="tab" aria-selected="true" aria-controls="card-news-managed-list" tabindex="0" data-card-news-managed-filter="전체">전체 <span class="ui-count-badge" data-card-news-managed-count-for="전체">0</span></button>
+                  <button class="ui-segmented-tab" type="button" role="tab" aria-selected="false" aria-controls="card-news-managed-list" tabindex="-1" data-card-news-managed-filter="작업 중">작업 중 <span class="ui-count-badge" data-card-news-managed-count-for="작업 중">0</span></button>
+                  <button class="ui-segmented-tab" type="button" role="tab" aria-selected="false" aria-controls="card-news-managed-list" tabindex="-1" data-card-news-managed-filter="발행 대기">발행 대기 <span class="ui-count-badge" data-card-news-managed-count-for="발행 대기">0</span></button>
+                  <button class="ui-segmented-tab" type="button" role="tab" aria-selected="false" aria-controls="card-news-managed-list" tabindex="-1" data-card-news-managed-filter="발행 완료">발행 완료 <span class="ui-count-badge" data-card-news-managed-count-for="발행 완료">0</span></button>
+                  <button class="ui-segmented-tab" type="button" role="tab" aria-selected="false" aria-controls="card-news-managed-list" tabindex="-1" data-card-news-managed-filter="확인 필요">확인 필요 <span class="ui-count-badge" data-card-news-managed-count-for="확인 필요">0</span></button>
                 </div>
               </div>
               <div id="card-news-managed-list" class="card-news-managed-list card-news-entry-list" role="tabpanel" aria-live="polite">
@@ -343,6 +343,9 @@
                     <a id="card-news-managed-source-link" href="#" target="_blank" rel="noopener noreferrer" hidden>원문 열기 ↗</a>
                     <span id="card-news-managed-source-links" class="card-news-managed-source-links"></span>
                     <small id="card-news-managed-source-meta"></small>
+                  </div>
+                  <div class="card-news-managed-source-actions">
+                    <button id="card-news-new-version" class="secondary compact" type="button">이 원문으로 새 카드뉴스 만들기</button>
                   </div>
                 </article>
               </div>

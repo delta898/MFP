@@ -32,6 +32,8 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(html, /class="card-news-source-tabs ui-segmented-tabs"/);
     assert.match(html, /class="card-news-source-tab ui-segmented-tab active"/);
     assert.match(html, /class="card-news-managed-filters ui-segmented-tabs"/);
+    assert.match(html, /class="card-news-managed-heading[^>]*>[\s\S]*?id="card-news-zip-select"[\s\S]*?id="card-news-managed-refresh"/);
+    assert.match(html, /class="card-news-panel-toolbar card-news-entry-toolbar">\s*<div class="card-news-managed-filters/);
     assert.match(html, /data-card-news-source-kind="feed_item"[^>]*>피드에서 선택/);
     assert.match(html, /data-card-news-source-kind="url"[^>]*>URL 직접 입력/);
     assert.match(html, /data-card-news-source-kind="manuscript"[^>]*>내용 직접 입력/);
@@ -44,11 +46,21 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.doesNotMatch(html, /플랫폼을 선택해 공개된 글을 확인하세요/);
     assert.match(html, /id="card-news-platform-tabs"[^>]*hidden/);
     assert.match(html, /id="card-news-source-refresh" class="ui-refresh-action-icon"[^>]*aria-label="피드 새로고침"/);
-    assert.match(html, /data-card-news-workspace="create">새 카드뉴스/);
-    assert.match(html, /data-card-news-workspace="managed">만든 카드뉴스/);
+    assert.match(html, /data-card-news-workspace="create">새 카드뉴스 <span id="card-news-create-count"/);
+    assert.match(html, /data-card-news-workspace="managed">만든 카드뉴스 <span id="card-news-managed-count"/);
     assert.doesNotMatch(html, /card-news-include-published|card-news-published-toggle/);
     assert.doesNotMatch(script, /includePublished|card-news-include-published/);
-    assert.match(script, /발행한 카드뉴스는 만든 카드뉴스에서 확인할 수 있습니다/);
+    assert.match(script, /카드뉴스 작업 이력이 있는 원문은 만든 카드뉴스에서 확인할 수 있습니다/);
+    assert.match(html, /id="card-news-create-count" class="ui-count-badge"/);
+    assert.match(html, /id="card-news-managed-count" class="ui-count-badge"/);
+    for (const status of ['전체', '작업 중', '발행 대기', '발행 완료', '확인 필요']) {
+      assert.match(html, new RegExp(`data-card-news-managed-count-for="${status}"`));
+    }
+    assert.match(script, /function updateCardNewsManagedFilterCounts\(\)/);
+    assert.match(script, /updateCardNewsManagedFilterCounts\(\);/);
+    assert.match(html, /id="card-news-new-version"[^>]*>이 원문으로 새 카드뉴스 만들기</);
+    assert.match(script, /function startNewCardNewsFromManagedSource\(\)/);
+    assert.match(script, /previewFromManaged: true/);
     assert.match(html, /data-card-news-managed-filter="발행 완료"/);
     assert.match(html, /id="card-news-zip-select"[^>]*>ZIP 가져오기</);
     assert.match(html, /id="card-news-zip-file"[^>]*accept="\.zip/);

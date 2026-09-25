@@ -229,14 +229,28 @@ function createCardNewsLedgerStore(options = {}) {
         await gateway.prepare();
         const parsed = await readPreparedRows();
         const candidate = normalizeCandidate(input, now);
-        const existing = parsed.items.find((item) => item.entryKey === candidate.entryKey);
-        if (existing) return updateParsedRow(parsed, existing, patch);
         const normalizedPatch = normalizeMutablePatch(patch);
+        const generationId = normalizedPatch.generationId;
+        const existingGeneration = generationId
+            ? parsed.items.find((item) => item.generationId === generationId)
+            : null;
+        if (existingGeneration) return updateParsedRow(parsed, existingGeneration, patch);
+
+        const existing = parsed.items.find((item) => item.entryKey === candidate.entryKey);
+        if (existing && (!generationId || !existing.generationId)) {
+            return updateParsedRow(parsed, existing, patch);
+        }
+
+        // Keep each generated version on its own row so earlier card news and
+        // its publishing history remain available when the same source is reused.
+        const versionedCandidate = existing && generationId
+            ? { ...candidate, entryKey: `${candidate.entryKey}:generation:${generationId}` }
+            : candidate;
         const item = { ...candidate, ...normalizedPatch };
         const appendResult = await gateway.appendRows([
-            buildSheetRow(parsed.headers.length, parsed.headerMap, item)
+            buildSheetRow(parsed.headers.length, parsed.headerMap, { ...item, entryKey: versionedCandidate.entryKey })
         ]);
-        return { ...item, rowNumber: appendResult?.rowNumbers?.[0] || null };
+        return { ...item, entryKey: versionedCandidate.entryKey, rowNumber: appendResult?.rowNumbers?.[0] || null };
     }
 
     return { listRows, findByGenerationId, upsertCandidates, updateRow, updateByGenerationId, upsertCandidateWithPatch };

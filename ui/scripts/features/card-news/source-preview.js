@@ -9,6 +9,7 @@ const cardNewsViewState = {
   activePlatform: '',
   preview: null,
   previewSourceKey: '',
+  previewFromManaged: false,
   previewCache: new Map(),
   previewRequestId: 0,
   busy: false,
@@ -104,6 +105,9 @@ function setCardNewsSourceLoading(loading) {
 }
 
 function cardNewsPreviewMatchesCurrentSource() {
+  if (cardNewsViewState.previewFromManaged && cardNewsViewState.workspace === 'create') {
+    return Boolean(cardNewsViewState.preview);
+  }
   if (cardNewsViewState.workspace === 'managed' && cardNewsViewState.managedDetailOpen) {
     return Boolean(cardNewsViewState.preview && cardNewsViewState.projectId);
   }
@@ -118,6 +122,7 @@ function captureCardNewsWorkflowContext() {
   return {
     preview: cardNewsViewState.preview,
     previewSourceKey: cardNewsViewState.previewSourceKey,
+    previewFromManaged: cardNewsViewState.previewFromManaged,
     projectId: cardNewsViewState.projectId,
     generation: cardNewsViewState.generation,
     publishingConfig: cardNewsViewState.publishingConfig,
@@ -130,6 +135,7 @@ function restoreCardNewsWorkflowContext(context = {}) {
   context = context || {};
   cardNewsViewState.preview = context.preview || null;
   cardNewsViewState.previewSourceKey = context.previewSourceKey || '';
+  cardNewsViewState.previewFromManaged = context.previewFromManaged === true;
   cardNewsViewState.projectId = context.projectId || '';
   cardNewsViewState.publishingConfig = context.publishingConfig || null;
   cardNewsViewState.publishingOutcome = context.publishingOutcome || '';
@@ -920,6 +926,7 @@ async function generateCardNews(options = {}) {
   if (cardNewsViewState.generating || !cardNewsViewState.preview || !cardNewsPreviewMatchesCurrentSource()) return;
   const imageMode = options.imageMode || cardNewsViewState.generation?.image_mode || 'generate';
   const previousGeneration = cardNewsViewState.generation;
+  let generationCreated = false;
   const settings = readCardNewsGenerationSettings();
   saveCardNewsGenerationSettings();
   setCardNewsGenerating(true, imageMode);
@@ -934,7 +941,9 @@ async function generateCardNews(options = {}) {
     };
     let generation = await monitorCardNewsCompositionGeneration(payload, imageMode);
     if (!generation) return;
+    generationCreated = true;
     renderCardNewsGeneration(generation, { scroll: false });
+    if (typeof refreshCardNewsSourcesAfterGeneration === 'function') refreshCardNewsSourcesAfterGeneration(generation);
     setCardNewsResultControlsDisabled(true);
     if (imageMode === 'generate') {
       setCardNewsGenerationStatus(`카드 구성을 완성했습니다. 이미지 0/${generation.cards.length}장 생성 중`, 'loading');
@@ -971,6 +980,7 @@ async function generateCardNews(options = {}) {
   } finally {
     setCardNewsGenerating(false, imageMode);
     document.getElementById('card-news-result-panel')?.setAttribute('aria-busy', 'false');
+    if (generationCreated) void loadCardNewsManagedItems();
   }
 }
 
@@ -1029,6 +1039,7 @@ function commitCardNewsPreview(sourceKey, snapshot) {
     clearCardNewsDownstreamContext();
   }
   cardNewsViewState.previewSourceKey = sourceKey;
+  cardNewsViewState.previewFromManaged = false;
   cardNewsViewState.previewCache.set(sourceKey, snapshot);
   renderCardNewsPreview(snapshot);
 }
@@ -1042,6 +1053,7 @@ async function previewCardNewsSource(sourceOverride = null) {
     setCardNewsStatus(error.message, 'error');
     return;
   }
+  cardNewsViewState.previewFromManaged = false;
   const sourceKey = cardNewsSourceKey(source);
   const requestId = ++cardNewsViewState.previewRequestId;
   const cachedSnapshot = cardNewsViewState.previewCache.get(sourceKey);
@@ -1080,6 +1092,7 @@ async function previewCardNewsSource(sourceOverride = null) {
 
 function activateCardNewsSourceKind(kind) {
   cardNewsViewState.sourceKind = kind;
+  cardNewsViewState.previewFromManaged = false;
   cardNewsViewState.previewRequestId += 1;
   setCardNewsBusy(false);
   document.querySelectorAll('[data-card-news-source-kind]').forEach((button) => {
@@ -1150,6 +1163,7 @@ function bindCardNewsView() {
   document.getElementById('card-news-additional-request')?.addEventListener('input', handleCardNewsGenerationSettingChange);
   ['card-news-url', 'card-news-manuscript-title', 'card-news-manuscript-text'].forEach((id) => {
     document.getElementById(id)?.addEventListener('input', () => {
+      cardNewsViewState.previewFromManaged = false;
       cardNewsViewState.previewRequestId += 1;
       setCardNewsBusy(false);
       markCardNewsPreviewStale();
@@ -1165,6 +1179,7 @@ function initCardNewsView() {
   }
   if (cardNewsViewState.sourcesStale && !cardNewsViewState.loadingSources) {
     void loadCardNewsSources();
+    void loadCardNewsManagedItems();
   }
 }
 

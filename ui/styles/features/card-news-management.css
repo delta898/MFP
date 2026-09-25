@@ -149,6 +149,12 @@
   margin-top: var(--ui-space-2);
 }
 
+.card-news-managed-source-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--ui-space-4);
+}
+
 .card-news-managed-error {
   margin: 0;
   padding: var(--ui-space-3) var(--ui-space-4);

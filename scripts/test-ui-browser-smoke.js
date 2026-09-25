@@ -2075,6 +2075,25 @@ async function run() {
             renderCardNewsManagedItems();
         });
         assert.deepEqual(await page.evaluate(() => ({
+            newCount: document.getElementById('card-news-create-count')?.textContent,
+            managedCount: document.getElementById('card-news-managed-count')?.textContent,
+            statusCounts: Object.fromEntries([...document.querySelectorAll('[data-card-news-managed-count-for]')].map((badge) => [badge.dataset.cardNewsManagedCountFor, badge.textContent])),
+            generatedSourceRows: document.querySelectorAll('.card-news-feed-item').length
+        })), {
+            newCount: '0',
+            managedCount: '1',
+            statusCounts: { '전체': '1', '작업 중': '0', '발행 대기': '1', '발행 완료': '0', '확인 필요': '0' },
+            generatedSourceRows: 0
+        });
+        await page.evaluate(() => renderCardNewsArticles({
+            configured_sources: ['naver'],
+            feed_sources: [{ source_platform: 'naver', label: '네이버' }],
+            articles: [{
+                kind: 'feed_item', item_key: 'existing-source', title: '기존 카드뉴스 원문',
+                source_platform: 'naver'
+            }]
+        }));
+        assert.deepEqual(await page.evaluate(() => ({
             feedStatus: document.querySelector('.card-news-feed-item .ui-status-badge')?.textContent,
             managedStatus: document.querySelector('.card-news-managed-status')?.textContent,
             feedState: document.querySelector('.card-news-feed-item .ui-status-badge')?.dataset.state,
@@ -2087,9 +2106,9 @@ async function run() {
             managedStatusArea: getComputedStyle(document.querySelector('.card-news-managed-item .card-news-entry-status')).gridArea,
             managedRowLinkCount: document.querySelectorAll('.card-news-managed-item a').length
         })), {
-            feedStatus: '발행 대기',
+            feedStatus: undefined,
             managedStatus: '발행 대기',
-            feedState: 'pending',
+            feedState: undefined,
             managedState: 'pending',
             managedSelectable: 'button',
             managedHasNestedButton: false,
@@ -2104,6 +2123,20 @@ async function run() {
         await page.locator('[data-card-news-article-index="0"]').click();
         assert.equal(await page.locator('#card-news-preview-heading').textContent(), '기존 카드뉴스 원문');
         assert.equal(await page.locator('#card-news-preview-badge').textContent(), '확인 완료');
+        await page.evaluate(() => refreshCardNewsSourcesAfterGeneration({
+            id: 'generation-new-version', title: '새 카드뉴스 버전', status: 'prompt_ready', cards: [{}]
+        }));
+        assert.deepEqual(await page.evaluate(() => ({
+            newCount: document.getElementById('card-news-create-count')?.textContent,
+            managedCount: document.getElementById('card-news-managed-count')?.textContent,
+            statusCounts: Object.fromEntries([...document.querySelectorAll('[data-card-news-managed-count-for]')].map((badge) => [badge.dataset.cardNewsManagedCountFor, badge.textContent])),
+            remainingSourceRows: document.querySelectorAll('.card-news-feed-item').length
+        })), {
+            newCount: '0',
+            managedCount: '2',
+            statusCounts: { '전체': '2', '작업 중': '1', '발행 대기': '1', '발행 완료': '0', '확인 필요': '0' },
+            remainingSourceRows: 0
+        });
         const restoredGeneration = {
             id: 'generation-existing',
             project_id: 'project-existing',
@@ -2213,6 +2246,7 @@ async function run() {
         assert.equal(await page.locator('#card-news-managed-source-links a').textContent(), 'Threads 열기 ↗');
         assert.equal(await page.locator('#card-news-result-title').textContent(), '복원된 카드뉴스 결과');
         assert.equal(await page.evaluate(() => cardNewsViewState.projectId), 'project-existing');
+        assert.equal(await page.locator('#card-news-new-version').isVisible(), true);
         await page.evaluate(() => activateCardNewsWorkspace('create'));
         assert.equal(await page.locator('#card-news-preview-heading').textContent(), '기존 카드뉴스 원문');
         assert.equal(await page.locator('#card-news-result-panel').isHidden(), true);
@@ -2223,6 +2257,21 @@ async function run() {
         });
         assert.equal(await page.locator('#card-news-managed-source-title').textContent(), '프로젝트에 보존된 원문');
         assert.equal(await page.locator('#card-news-result-title').textContent(), '복원된 카드뉴스 결과');
+        await page.locator('#card-news-new-version').click();
+        assert.equal(await page.locator('#card-news-workspace-tab-create').getAttribute('aria-selected'), 'true');
+        assert.equal(await page.locator('#card-news-preview-heading').textContent(), '프로젝트에 보존된 원문');
+        assert.deepEqual(await page.evaluate(() => ({
+            projectId: cardNewsViewState.projectId,
+            previewMatches: cardNewsPreviewMatchesCurrentSource(),
+            oldResultHidden: document.getElementById('card-news-result-panel')?.hidden
+        })), { projectId: '', previewMatches: true, oldResultHidden: true });
+        await page.evaluate(() => {
+            cardNewsViewState.managedLoading = true;
+            activateCardNewsWorkspace('managed');
+            cardNewsViewState.managedLoading = false;
+        });
+        await page.locator('[data-card-news-open-generation="generation-existing"]').click();
+        await page.waitForFunction(() => cardNewsViewState.projectId === 'project-existing');
         await page.unroute('**/api/v1/card-news/generations/generation-existing');
 
         await page.route('**/api/v1/card-news/generations/generation-old', async (route) => {

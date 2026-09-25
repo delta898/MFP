@@ -476,6 +476,14 @@
     flex-direction: column;
   }
 
+  .card-news-managed-heading {
+    flex-direction: column;
+  }
+
+  .card-news-managed-heading .card-news-panel-actions {
+    align-self: flex-end;
+  }
+
   .card-news-panel-actions {
     justify-content: flex-end;
   }
