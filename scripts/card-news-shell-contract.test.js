@@ -116,6 +116,7 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(html, /class="card-news-result-heading ui-workflow-heading">[\s\S]*id="card-news-generation-status" class="card-news-generation-status ui-workflow-feedback ui-loading-indicator" role="status" aria-live="polite" hidden[\s\S]*<\/div>\s*<div class="card-news-result-actions">/);
     assert.match(html, /data-card-news-generation-status-message[\s\S]*data-card-news-stop-confirmation hidden/);
     assert.match(html, /data-card-news-generation-status-message[\s\S]*data-card-news-stop-confirmation hidden/);
+    assert.match(cardNewsStyles, /\.card-news-generation-status\s*\{[^}]*flex:\s*0 1 auto;[^}]*width:\s*max-content;[^}]*margin:[^}]*auto;/s);
     assert.doesNotMatch(html, /card-news-generation-actions">\s*<span id="card-news-generation-status"/);
     assert.match(script, /additional_request: document\.getElementById\('card-news-additional-request'\)/);
     assert.match(html, /id="card-news-compose-button"[^>]*>카드 구성만 만들기</);

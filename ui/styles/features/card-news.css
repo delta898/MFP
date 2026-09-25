@@ -530,7 +530,8 @@
 }
 
 .card-news-generation-status {
-  flex: 0 1 42rem;
+  flex: 0 1 auto;
+  width: max-content;
   max-width: 48%;
   margin: var(--ui-space-1) 0 0 auto;
   text-align: right;
