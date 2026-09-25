@@ -10,7 +10,9 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   const view = read('ui/partials/views/social.html');
   const composer = read('ui/scripts/features/social/manual-composer.js');
   const lifecycle = read('ui/scripts/features/social/manual-lifecycle.js');
+  const sharedBufferControls = read('ui/scripts/shared/buffer-publishing-controls.js');
   const styles = [
+    'ui/styles/patterns/buffer-publishing-controls.css',
     'ui/styles/features/social.css',
     'ui/styles/features/social-media.css',
     'ui/styles/features/social-actions.css',
@@ -29,15 +31,23 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.doesNotMatch(view, /id="view-social"[^>]*data-style-scope=/);
   assert.doesNotMatch(view, /SNS에 바로 공유|채널을 고르고, 메시지와 이미지를 준비해 바로 발행하세요/);
   assert.match(view, /id="manual-sns-channel-list" class="social-channel-grid ui-selectable-card-grid"/);
-  assert.match(view, /발행 채널 <small>최대 3개<\/small>/);
+  assert.match(view, /발행 채널 <small id="manual-sns-channel-limit">최대 3개 · 0개 선택<\/small>/);
   assert.match(view, /id="manual-sns-workspaces-load"[^>]*>작업 공간 불러오기/);
-  assert.match(view, /<span>Buffer 작업 공간<\/span>\s*<span class="ui-field-action"><span class="ui-select-shell"><select id="manual-sns-organization"/);
+  assert.match(view, /class="ui-settings-field social-workspace-select buffer-publishing-workspace"[\s\S]*<span>작업 공간<\/span>\s*<span class="ui-field-action"><span class="ui-select-shell"><select id="manual-sns-organization"/);
+  assert.ok(view.indexOf('for="manual-sns-organization"') < view.indexOf('id="manual-sns-select-all"'));
+  assert.ok(view.indexOf('id="manual-sns-select-all"') < view.indexOf('id="manual-sns-channel-list"'));
   assert.doesNotMatch(view, /manual-sns-organization-field|manual-sns-workspace-summary|social-workspace-control/);
   assert.match(view, /id="manual-sns-text" class="social-editor" rows="6"/);
   assert.match(lifecycle, /navigateTo\('settings-next', 'extras'\)/);
   assert.match(lifecycle, /settingsNextActivateExtrasTab\?\.\('social'\)/);
   assert.match(composer, /social-channel-option ui-selectable-card/);
   assert.match(composer, /social-channel-copy ui-selectable-card-copy/);
+  assert.match(composer, /BufferPublishingControls\.syncWorkspace/);
+  assert.match(composer, /BufferPublishingControls\.syncChannelSelectAll/);
+  assert.match(lifecycle, /BufferPublishingControls\.applyChannelSelectAll/);
+  assert.match(lifecycle, /BufferPublishingControls\.setWorkspaceRefresh/);
+  assert.match(sharedBufferControls, /syncWorkspace\(/);
+  assert.match(sharedBufferControls, /syncChannelSelectAll\(/);
   assert.match(composer, /if \(listEl && !manualSnsConfig\.configured\)/);
   assert.match(composer, /const snapshot = readManualSnsWorkspaceCache\(\)/);
   assert.match(composer, /refreshStaleSnapshot = !snapshot\.isFresh/);

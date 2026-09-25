@@ -46,6 +46,7 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
         'styles/components/app-chrome.css',
         'styles/patterns/actions.css',
         'styles/patterns/selection-controls.css',
+        'styles/patterns/buffer-publishing-controls.css',
         'styles/patterns/select-shell.css',
         'styles/patterns/tab-navigation.css',
         'styles/patterns/overview-card.css',

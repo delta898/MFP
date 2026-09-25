@@ -92,6 +92,69 @@ test('publishing config distinguishes a connected Buffer account from missing se
     }
 });
 
+test('publishing config lists workspaces and limits channels to the selected workspace', async () => {
+    const data = fixture();
+    const inspected = [];
+    try {
+        const service = createCardNewsPublishingService({
+            CONFIG: config(),
+            generationService: { resolveCompleteAssets: () => data },
+            bufferClient: {
+                async inspectConnection(_key, organizationId) {
+                    inspected.push(organizationId);
+                    return {
+                        organizations: [{ id: 'org-1', name: 'Main' }, { id: 'org-2', name: 'Campaigns' }],
+                        organization_id: organizationId,
+                        channels: organizationId === 'org-2'
+                            ? [{ id: 'threads-2', name: '@campaign', service: 'threads' }]
+                            : []
+                    };
+                },
+                shareNowMany: async () => []
+            },
+            mediaTransport: transport()
+        });
+        const result = await service.getConfig('generation-123', 'org-2');
+        assert.deepEqual(result.organizations, [{ id: 'org-1', name: 'Main' }, { id: 'org-2', name: 'Campaigns' }]);
+        assert.equal(result.organization_id, 'org-2');
+        assert.deepEqual(result.channels.map((channel) => channel.id), ['threads-2']);
+        assert.deepEqual(inspected, ['org-2']);
+    } finally {
+        fs.rmSync(data.root, { recursive: true, force: true });
+    }
+});
+
+test('publishing rejects a channel from a different workspace before uploading media', async () => {
+    const data = fixture();
+    let uploadCalled = false;
+    try {
+        const service = createCardNewsPublishingService({
+            CONFIG: config(),
+            generationService: { resolveCompleteAssets: () => data },
+            bufferClient: {
+                async inspectConnection(_key, organizationId) {
+                    return {
+                        organizations: [{ id: 'org-1' }, { id: 'org-2' }],
+                        organization_id: organizationId,
+                        channels: organizationId === 'org-2'
+                            ? [{ id: 'channel-org-2', name: 'Threads', service: 'threads' }]
+                            : [{ id: 'channel-org-1', name: 'Instagram', service: 'instagram' }]
+                    };
+                },
+                shareNowMany: async () => []
+            },
+            mediaTransport: transport({ async upload() { uploadCalled = true; } })
+        });
+        await assert.rejects(
+            () => service.publish({ generation_id: 'generation-123', organization_id: 'org-2', channel_ids: ['channel-org-1'], text: '카드뉴스' }),
+            (error) => error.code === 'CARD_NEWS_CHANNEL_NOT_CONFIGURED'
+        );
+        assert.equal(uploadCalled, false);
+    } finally {
+        fs.rmSync(data.root, { recursive: true, force: true });
+    }
+});
+
 test('publishing config and execution require Google public media without WordPress settings', async () => {
     const data = fixture();
     try {

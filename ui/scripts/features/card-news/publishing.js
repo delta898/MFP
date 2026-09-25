@@ -1,3 +1,15 @@
+const CARD_NEWS_BUFFER_ORGANIZATION_STORAGE_KEY = 'card_news_buffer_organization_id_v1';
+
+function loadCardNewsBufferOrganizationId() {
+  try { return String(localStorage.getItem(CARD_NEWS_BUFFER_ORGANIZATION_STORAGE_KEY) || '').trim(); }
+  catch (_error) { return ''; }
+}
+
+function persistCardNewsBufferOrganizationId(value) {
+  try { localStorage.setItem(CARD_NEWS_BUFFER_ORGANIZATION_STORAGE_KEY, String(value || '').trim()); }
+  catch (_error) { /* remembering the last workspace is optional */ }
+}
+
 function selectedCardNewsPublishingChannels() {
   return [...document.querySelectorAll('[data-card-news-publish-channel]:checked')]
     .map((input) => input.value)
@@ -25,10 +37,8 @@ function cardNewsPublishingReadinessIssues(config = {}) {
   const issues = [];
   if (!config.buffer_api_key_configured) {
     issues.push('설정 > 부가 서비스 > SNS 배포에서 Buffer API Key를 연결해 주세요.');
-  } else if (!config.buffer_organization_configured) {
-    issues.push('설정 > 부가 서비스 > SNS 배포에서 Buffer 작업 공간을 선택해 주세요.');
-  } else if (!config.buffer_channels_configured) {
-    issues.push('설정 > 부가 서비스 > SNS 배포에서 사용할 Buffer 채널을 선택하고 저장해 주세요. 자동 SNS 배포를 켤 필요는 없습니다.');
+  } else if (!(config.organizations || []).length) {
+    issues.push('Buffer 작업 공간을 찾지 못했습니다. 연결 상태를 확인해 주세요.');
   }
   if (!config.media_transport) {
     issues.push('설정 > 기본 연결 > 콘텐츠 공간에서 Google 계정을 먼저 연결해 주세요.');
@@ -43,6 +53,7 @@ function cardNewsPublishingReadinessIssues(config = {}) {
 function syncCardNewsPublishingChannelAvailability() {
   const selectedCount = selectedCardNewsPublishingChannels().length;
   const maxChannels = Math.max(1, Number(cardNewsViewState.publishingConfig?.max_channels || 1));
+  const controls = [...document.querySelectorAll('[data-card-news-publish-channel]')];
   document.querySelectorAll('[data-card-news-publish-channel]').forEach((control) => {
     const unavailable = control.dataset.cardNewsPublishCompatible !== 'true'
       || control.dataset.cardNewsPublishCompleted === 'true';
@@ -52,6 +63,32 @@ function syncCardNewsPublishingChannelAvailability() {
   });
   const limit = document.getElementById('card-news-publishing-channel-limit');
   if (limit) limit.textContent = `최대 ${maxChannels}개 · ${selectedCount}개 선택`;
+  BufferPublishingControls.syncChannelSelectAll({
+    master: document.getElementById('card-news-publishing-select-all'),
+    controls,
+    isEligible: (control) => control.dataset.cardNewsPublishCompatible === 'true'
+      && control.dataset.cardNewsPublishCompleted !== 'true',
+    limit: maxChannels,
+    disabled: cardNewsViewState.publishing
+  });
+}
+
+function syncCardNewsPublishingWorkspaceControl() {
+  const button = document.getElementById('card-news-publishing-workspaces-load');
+  const select = document.getElementById('card-news-publishing-workspace');
+  if (!button || !select) return;
+  const organizations = Array.isArray(cardNewsViewState.publishingConfig?.organizations)
+    ? cardNewsViewState.publishingConfig.organizations
+    : [];
+  const configured = cardNewsViewState.publishingConfig?.buffer_api_key_configured === true;
+  BufferPublishingControls.syncWorkspace({
+    button,
+    select,
+    configured,
+    loaded: organizations.length > 0,
+    loading: cardNewsViewState.publishingWorkspaceLoading,
+    disabled: cardNewsViewState.publishing
+  });
 }
 
 function syncCardNewsPublishButton() {
@@ -73,9 +110,42 @@ function syncCardNewsPublishButton() {
 
 function renderCardNewsPublishingConfig(config = {}) {
   cardNewsViewState.publishingConfig = config;
+  const workspaceSelect = document.getElementById('card-news-publishing-workspace');
   const channels = document.getElementById('card-news-publishing-channels');
   const text = document.getElementById('card-news-publishing-text');
-  if (!channels || !text) return;
+  if (!workspaceSelect || !channels || !text) return;
+  const organizations = Array.isArray(config.organizations) ? config.organizations : [];
+  const selectedOrganizationId = String(config.organization_id || '');
+  if (selectedOrganizationId) persistCardNewsBufferOrganizationId(selectedOrganizationId);
+  workspaceSelect.replaceChildren(new Option('작업 공간을 선택해 주세요.', ''));
+  organizations.forEach((organization) => {
+    const option = new Option(String(organization.name || organization.id || 'Buffer 작업 공간'), String(organization.id || ''));
+    option.selected = option.value === selectedOrganizationId;
+    workspaceSelect.append(option);
+  });
+  workspaceSelect.disabled = cardNewsViewState.publishing || organizations.length === 0;
+  workspaceSelect.onchange = () => {
+    const nextOrganizationId = String(workspaceSelect.value || '').trim();
+    persistCardNewsBufferOrganizationId(nextOrganizationId);
+    void loadCardNewsPublishingWorkspace(nextOrganizationId);
+  };
+  const workspaceRefresh = document.getElementById('card-news-publishing-workspaces-load');
+  BufferPublishingControls.setWorkspaceRefresh(workspaceRefresh, () => {
+    void loadCardNewsPublishingWorkspace(String(workspaceSelect.value || '').trim());
+  });
+  const selectAll = document.getElementById('card-news-publishing-select-all');
+  if (selectAll) {
+    selectAll.onchange = () => {
+      BufferPublishingControls.applyChannelSelectAll({
+        master: selectAll,
+        controls: [...channels.querySelectorAll('[data-card-news-publish-channel]')],
+        isEligible: (control) => control.dataset.cardNewsPublishCompatible === 'true'
+          && control.dataset.cardNewsPublishCompleted !== 'true',
+        limit: Math.max(1, Number(config.max_channels || 1))
+      });
+      syncCardNewsPublishButton();
+    };
+  }
   channels.innerHTML = (config.channels || []).map((channel) => {
     const completed = cardNewsViewState.publishedChannelIds.has(String(channel.id || ''));
     const compatible = Boolean(channel.compatible);
@@ -84,12 +154,70 @@ function renderCardNewsPublishingConfig(config = {}) {
       <input type="checkbox" value="${escapeHtml(channel.id)}" data-card-news-publish-channel data-card-news-publish-compatible="${compatible ? 'true' : 'false'}" data-card-news-publish-completed="${completed ? 'true' : 'false'}" ${compatible && !completed ? '' : 'disabled'}>
       <span class="ui-selectable-card-copy"><strong>${escapeHtml(channel.name || channel.service)}</strong><small>${escapeHtml(completed ? '발행 완료' : (channel.compatible ? `${channel.max_assets}장까지` : channel.reason))}</small></span>
     </label>`;
-  }).join('') || '<p class="ui-workflow-empty">설정된 Buffer 채널이 없습니다.</p>';
+  }).join('') || `<p class="ui-workflow-empty">${selectedOrganizationId ? '이 작업 공간에 발행 가능한 채널이 없습니다.' : '먼저 작업 공간을 선택해 주세요.'}</p>`;
   if (!text.value.trim()) text.value = String(config.default_text || [config.title, config.source_url].filter(Boolean).join('\n\n'));
   channels.querySelectorAll('[data-card-news-publish-channel]').forEach((input) => {
     input.addEventListener('change', syncCardNewsPublishButton);
   });
   syncCardNewsPublishButton();
+  syncCardNewsPublishingWorkspaceControl();
+}
+
+async function loadCardNewsPublishingWorkspace(organizationId = '') {
+  const generation = cardNewsViewState.generation;
+  const panel = document.getElementById('card-news-publishing-panel');
+  if (!generation || !panel || cardNewsViewState.publishing) return;
+  const workspaceSelect = document.getElementById('card-news-publishing-workspace');
+  const preserveSelection = Boolean(organizationId)
+    && String(workspaceSelect?.value || '') === String(organizationId);
+  const selectedChannelIds = preserveSelection ? new Set(selectedCardNewsPublishingChannels()) : new Set();
+  const requestId = ++cardNewsViewState.publishingRequestId;
+  cardNewsViewState.publishingWorkspaceLoading = true;
+  syncCardNewsPublishingWorkspaceControl();
+  const channelList = document.getElementById('card-news-publishing-channels');
+  if (channelList) channelList.innerHTML = '<p class="ui-workflow-empty">발행 채널을 불러오는 중...</p>';
+  const publishButton = document.getElementById('card-news-publish-button');
+  if (publishButton) publishButton.disabled = true;
+  setCardNewsPublishingReadiness('작업 공간과 발행 채널을 불러오고 있습니다.', 'loading');
+  try {
+    const query = new URLSearchParams({ generation_id: generation.id });
+    if (organizationId) query.set('organization_id', organizationId);
+    let config;
+    try {
+      config = await fetchJson(`/api/v1/card-news/publishing/config?${query.toString()}`);
+    } catch (error) {
+      // A remembered workspace can disappear or lose access. Reload the available list
+      // without that stale selection so the user can choose another workspace.
+      if (!organizationId || requestId !== cardNewsViewState.publishingRequestId) throw error;
+      config = await fetchJson(`/api/v1/card-news/publishing/config?generation_id=${encodeURIComponent(generation.id)}`);
+      persistCardNewsBufferOrganizationId('');
+    }
+    if (requestId !== cardNewsViewState.publishingRequestId || generation.id !== cardNewsViewState.generation?.id) return;
+    const issues = cardNewsPublishingReadinessIssues(config);
+    if (issues.length) {
+      cardNewsViewState.publishingConfig = null;
+      setCardNewsPublishingReadiness(issues.join(' '), 'warning');
+      return;
+    }
+    renderCardNewsPublishingConfig(config);
+    if (preserveSelection) {
+      document.querySelectorAll('[data-card-news-publish-channel]').forEach((control) => {
+        control.checked = selectedChannelIds.has(control.value)
+          && control.dataset.cardNewsPublishCompatible === 'true'
+          && control.dataset.cardNewsPublishCompleted !== 'true';
+      });
+      syncCardNewsPublishButton();
+    }
+    setCardNewsPublishingReadiness();
+  } catch (error) {
+    if (requestId !== cardNewsViewState.publishingRequestId) return;
+    setCardNewsPublishingReadiness(error.message || '작업 공간과 발행 채널을 불러오지 못했습니다.', 'error');
+  } finally {
+    if (requestId === cardNewsViewState.publishingRequestId) {
+      cardNewsViewState.publishingWorkspaceLoading = false;
+      syncCardNewsPublishingWorkspaceControl();
+    }
+  }
 }
 
 async function openCardNewsPublishing(options = {}) {
@@ -108,7 +236,17 @@ async function openCardNewsPublishing(options = {}) {
   if (publishOpen) publishOpen.hidden = true;
   setCardNewsPublishingReadiness('SNS 발행 조건을 확인하고 있습니다.', 'loading');
   try {
-    const config = await fetchJson(`/api/v1/card-news/publishing/config?generation_id=${encodeURIComponent(generation.id)}`);
+    const organizationId = loadCardNewsBufferOrganizationId();
+    const query = new URLSearchParams({ generation_id: generation.id });
+    if (organizationId) query.set('organization_id', organizationId);
+    let config;
+    try {
+      config = await fetchJson(`/api/v1/card-news/publishing/config?${query.toString()}`);
+    } catch (error) {
+      if (!organizationId) throw error;
+      config = await fetchJson(`/api/v1/card-news/publishing/config?generation_id=${encodeURIComponent(generation.id)}`);
+      persistCardNewsBufferOrganizationId('');
+    }
     if (requestId !== cardNewsViewState.publishingRequestId || generation.id !== cardNewsViewState.generation?.id) return;
     const issues = cardNewsPublishingReadinessIssues(config);
     if (issues.length) {
@@ -171,6 +309,7 @@ async function publishCardNews() {
   try {
     const result = await postJson('/api/v1/card-news/publishing/publish', {
       generation_id: generation.id,
+      organization_id: document.getElementById('card-news-publishing-workspace')?.value || '',
       channel_ids: channelIds,
       text
     });

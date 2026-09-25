@@ -19,6 +19,7 @@ const cardNewsViewState = {
   imageOperation: null,
   publishing: false,
   publishingRequestId: 0,
+  publishingWorkspaceLoading: false,
   publishingConfig: null,
   publishingOutcome: '',
   publishedChannelIds: new Set(),

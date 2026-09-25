@@ -511,12 +511,12 @@ function createCardNewsService(deps = {}) {
         }
     }
 
-    async function getPublishingConfig(generationId) {
+    async function getPublishingConfig(generationId, organizationId) {
         if (!publishingService?.getConfig) {
             throw createApiError('CARD_NEWS_PUBLISHING_UNAVAILABLE', '카드뉴스 SNS 발행 기능이 준비되지 않았습니다.', 500);
         }
         try {
-            return await publishingService.getConfig(generationId);
+            return await publishingService.getConfig(generationId, organizationId);
         } catch (error) {
             throw toCardNewsError(error, 'CARD_NEWS_PUBLISHING_CONFIG_FAILED', '카드뉴스 발행 설정을 확인하지 못했습니다.');
         }

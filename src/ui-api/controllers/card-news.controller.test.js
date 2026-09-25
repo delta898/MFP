@@ -157,11 +157,17 @@ test('downloads a completed card-news set as one ZIP bundle', async () => {
 });
 
 test('reads publishing config and publishes a completed card-news set', async () => {
-    const { controller, responses } = createHarness();
+    const calls = [];
+    const { controller, responses } = createHarness({ service: {
+        getPublishingConfig(generationId, organizationId) {
+            calls.push(['config', generationId, organizationId]);
+            return { channels: [{ id: 'channel-1' }] };
+        }
+    } });
     await controller.publishingConfig({
         requestId: 'req-config',
         method: 'GET',
-        searchParams: new URLSearchParams('generation_id=set-1'),
+        searchParams: new URLSearchParams('generation_id=set-1&organization_id=org-2'),
         res: {}
     });
     await controller.publish({
@@ -172,4 +178,5 @@ test('reads publishing config and publishes a completed card-news set', async ()
     });
     assert.equal(responses[0].data.channels[0].id, 'channel-1');
     assert.equal(responses[1].data.success, true);
+    assert.deepEqual(calls, [['config', 'set-1', 'org-2']]);
 });

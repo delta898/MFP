@@ -367,13 +367,14 @@ function syncManualSnsComposerState() {
     if (input) input.disabled = input.dataset.manualSnsUnavailable === 'true' || manualSnsPublishingInFlight;
     label.classList.toggle('is-locked', manualSnsPublishingInFlight);
   });
-  if (selectAllEl) {
-    const enabledInputs = Array.from(document.querySelectorAll('[data-manual-sns-channel]:not(:disabled)'));
-    const selectedCount = enabledInputs.filter((input) => input.checked).length;
-    selectAllEl.disabled = manualSnsPublishingInFlight || enabledInputs.length === 0;
-    selectAllEl.checked = enabledInputs.length > 0 && selectedCount === enabledInputs.length;
-    selectAllEl.indeterminate = selectedCount > 0 && selectedCount < enabledInputs.length;
-  }
+  BufferPublishingControls.syncChannelSelectAll({
+    master: selectAllEl,
+    controls: Array.from(document.querySelectorAll('[data-manual-sns-channel]')),
+    isEligible: (input) => !input.disabled,
+    disabled: manualSnsPublishingInFlight
+  });
+  const channelLimitEl = document.getElementById('manual-sns-channel-limit');
+  if (channelLimitEl) channelLimitEl.textContent = `최대 3개 · ${selectedChannels.length}개 선택`;
 }
 
 function renderManualSnsChannels() {
@@ -457,9 +458,13 @@ function renderManualSnsWorkspaceControl() {
     option.selected = option.value === manualSnsConfig.organizationId;
     select.append(option);
   });
-  button.disabled = !manualSnsConfig.configured || manualSnsConfigLoading || manualSnsWorkspaceLoading;
-  button.textContent = manualSnsWorkspaceLoading ? '불러오는 중...' : (manualSnsConfig.workspacesLoaded ? '다시 불러오기' : '작업 공간 불러오기');
-  select.disabled = !manualSnsConfig.configured || !manualSnsConfig.workspacesLoaded || manualSnsConfigLoading || manualSnsWorkspaceLoading;
+  BufferPublishingControls.syncWorkspace({
+    button,
+    select,
+    configured: manualSnsConfig.configured,
+    loaded: manualSnsConfig.workspacesLoaded,
+    loading: manualSnsConfigLoading || manualSnsWorkspaceLoading
+  });
 }
 
 async function loadManualSnsWorkspaces({ background = false } = {}) {

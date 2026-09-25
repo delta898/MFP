@@ -60,13 +60,15 @@ function initManualSnsComposer() {
     });
   });
   selectAllEl?.addEventListener('change', () => {
-    const enabledInputs = Array.from(document.querySelectorAll('[data-manual-sns-channel]:not(:disabled)'));
-    const shouldSelect = selectAllEl.checked;
-    enabledInputs.forEach((input) => { input.checked = shouldSelect; });
+    BufferPublishingControls.applyChannelSelectAll({
+      master: selectAllEl,
+      controls: Array.from(document.querySelectorAll('[data-manual-sns-channel]')),
+      isEligible: (input) => !input.disabled
+    });
     persistManualSnsSelectedChannels();
     syncManualSnsComposerState();
   });
-  workspaceLoad?.addEventListener('click', () => void loadManualSnsWorkspaces());
+  BufferPublishingControls.setWorkspaceRefresh(workspaceLoad, () => void loadManualSnsWorkspaces());
   organization?.addEventListener('change', () => void loadManualSnsWorkspaces());
   publishBtn?.addEventListener('click', () => void publishManualSns());
   optimizeBtn?.addEventListener('click', () => void optimizeManualSnsText());

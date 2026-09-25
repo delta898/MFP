@@ -25,7 +25,7 @@ test('JavaScript manifest preserves one explicit classic-script execution order'
         (match) => match[1]
     );
 
-    assert.equal(manifest.split('\n').length - 1 <= 103, true);
+    assert.equal(manifest.split('\n').length - 1 <= 104, true);
     assert.deepEqual(includePaths, [
         'scripts/foundation/style-system.js',
         'scripts/foundation/ui-feedback-state.js',
@@ -82,6 +82,7 @@ test('JavaScript manifest preserves one explicit classic-script execution order'
         'scripts/features/shell/celebration.js',
         'scripts/features/shell/clock.js',
         'scripts/features/shell/global-publishing-status.js',
+        'scripts/shared/buffer-publishing-controls.js',
         'scripts/features/social/manual-state.js',
         'scripts/features/social/manual-workspace-cache.js',
         'scripts/features/social/manual-composer.js',

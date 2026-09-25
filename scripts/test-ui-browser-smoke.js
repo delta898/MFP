@@ -2574,6 +2574,8 @@ async function run() {
                         buffer_organization_configured: true,
                         buffer_channels_configured: true,
                         buffer_configured: true,
+                        organizations: [{ id: 'card-news-org-1', name: 'Card News Workspace' }],
+                        organization_id: 'card-news-org-1',
                         media_transport: 'google_drive',
                         url_shortening_configured: true,
                         channels: [
@@ -2637,10 +2639,12 @@ async function run() {
         assert.deepEqual(await page.evaluate(() => {
             const panel = document.getElementById('card-news-publishing-panel');
             const resultPanel = document.getElementById('card-news-result-panel');
-            const help = panel.querySelector('a[target="_blank"]');
+            const help = panel.querySelector('.context-help-link[data-help-guide-url]');
             const heading = panel.querySelector('.card-news-publishing-heading');
-            const channelLegend = panel.querySelector('.card-news-publishing-channel-group legend');
+            const channelHeading = panel.querySelector('.buffer-publishing-channel-heading');
             const channelGrid = document.getElementById('card-news-publishing-channels');
+            const workspaceSelect = document.getElementById('card-news-publishing-workspace');
+            const workspaceRefresh = document.getElementById('card-news-publishing-workspaces-load');
             const publishButton = document.getElementById('card-news-publish-button');
             const panelBox = panel.getBoundingClientRect();
             const headingBox = heading.getBoundingClientRect();
@@ -2649,13 +2653,16 @@ async function run() {
                 inlineAfterResult: panel.getBoundingClientRect().top >= resultPanel.getBoundingClientRect().bottom,
                 contentIsPadded: headingBox.left - panelBox.left >= 20 && headingBox.top - panelBox.top >= 20,
                 actionIsPadded: panelBox.right - buttonBox.right >= 20 && panelBox.bottom - buttonBox.bottom >= 20,
-                channelLabelGapIsClear: channelGrid.getBoundingClientRect().top - channelLegend.getBoundingClientRect().bottom >= 10,
+                channelLabelGapIsClear: channelGrid.getBoundingClientRect().top - channelHeading.getBoundingClientRect().bottom >= 10,
+                workspaceControlsHaveMatchingHeight: Math.abs(workspaceSelect.getBoundingClientRect().height - workspaceRefresh.getBoundingClientRect().height) < 1,
                 stepLabel: panel.querySelector('.ui-workflow-stage')?.textContent.trim(),
-                channelCount: document.querySelectorAll('.card-news-publishing-channel.ui-selectable-card').length,
+            channelCount: document.querySelectorAll('.card-news-publishing-channel.ui-selectable-card').length,
+            workspaceCount: document.querySelectorAll('#card-news-publishing-workspace option').length,
+            workspaceValue: document.getElementById('card-news-publishing-workspace')?.value,
                 limit: document.getElementById('card-news-publishing-channel-limit')?.textContent,
                 preparedText: document.getElementById('card-news-publishing-text')?.value,
                 providerNamed: document.getElementById('card-news-drive-notice')?.textContent.includes('Bitly'),
-                externalHelp: help?.target === '_blank' && help?.rel.includes('noopener'),
+                externalHelp: help?.dataset.helpGuideUrl?.startsWith('https://'),
                 settingsControls: Boolean(document.querySelector('#card-news-buffer-settings, #card-news-google-settings')),
                 primaryDisabled: document.getElementById('card-news-publish-button')?.disabled
             };
@@ -2664,8 +2671,11 @@ async function run() {
             contentIsPadded: true,
             actionIsPadded: true,
             channelLabelGapIsClear: true,
+            workspaceControlsHaveMatchingHeight: true,
             stepLabel: '3단계',
             channelCount: 3,
+            workspaceCount: 2,
+            workspaceValue: 'card-news-org-1',
             limit: '최대 3개 · 0개 선택',
             preparedText: '완성된 UI smoke 카드뉴스\n\nhttps://short.example/card-news',
             providerNamed: false,
@@ -2673,6 +2683,15 @@ async function run() {
             settingsControls: false,
             primaryDisabled: true
         });
+        await page.locator('[data-card-news-publish-channel][value="instagram-1"]').check();
+        const workspaceReloadRequest = page.waitForRequest((request) => request.url().includes('/api/v1/card-news/publishing/config')
+            && request.url().includes('organization_id=card-news-org-1'));
+        await page.locator('#card-news-publishing-workspaces-load').click();
+        await workspaceReloadRequest;
+        await page.waitForFunction(() => document.getElementById('card-news-publishing-workspaces-load')?.textContent === '다시 불러오기');
+        assert.equal(await page.locator('#card-news-publishing-workspace').inputValue(), 'card-news-org-1');
+        assert.equal(await page.locator('[data-card-news-publish-channel][value="instagram-1"]').isChecked(), true);
+        await page.locator('[data-card-news-publish-channel][value="instagram-1"]').uncheck();
         if (await page.locator('#card-news-publishing-panel').isHidden()) {
             await page.locator('#card-news-publish-open').click();
         }
@@ -2680,6 +2699,12 @@ async function run() {
         await page.locator('[data-card-news-publish-channel][value="instagram-1"]').check();
         assert.equal(await page.locator('#card-news-publish-button').isEnabled(), true);
         assert.equal(await page.locator('#card-news-publishing-channel-limit').textContent(), '최대 3개 · 1개 선택');
+        await page.locator('#card-news-publishing-select-all').check();
+        assert.equal(await page.locator('#card-news-publishing-channel-limit').textContent(), '최대 3개 · 2개 선택');
+        assert.equal(await page.locator('#card-news-publishing-select-all').isChecked(), true);
+        await page.locator('#card-news-publishing-select-all').uncheck();
+        assert.equal(await page.locator('#card-news-publishing-channel-limit').textContent(), '최대 3개 · 0개 선택');
+        await page.locator('[data-card-news-publish-channel][value="instagram-1"]').check();
         await page.unroute('**/api/v1/card-news/publishing/config?generation_id=*');
         await page.route('**/api/v1/card-news/publishing/config?generation_id=*', async (route) => {
             await route.fulfill({
@@ -2690,9 +2715,11 @@ async function run() {
                     data: {
                         generation_id: 'ui-smoke-not-ready',
                         buffer_api_key_configured: true,
-                        buffer_organization_configured: true,
+                        buffer_organization_configured: false,
                         buffer_channels_configured: false,
                         buffer_configured: false,
+                        organizations: [],
+                        organization_id: '',
                         media_transport: 'google_drive',
                         channels: []
                     }
@@ -2714,7 +2741,7 @@ async function run() {
             panelHidden: true,
             publishButtonHidden: true,
             readinessState: 'warning',
-            readinessText: '설정 > 부가 서비스 > SNS 배포에서 사용할 Buffer 채널을 선택하고 저장해 주세요. 자동 SNS 배포를 켤 필요는 없습니다.',
+            readinessText: 'Buffer 작업 공간을 찾지 못했습니다. 연결 상태를 확인해 주세요.',
             readinessInStatus: true
         });
         await page.unroute('**/api/v1/card-news/publishing/config?generation_id=*');
@@ -4184,6 +4211,10 @@ async function run() {
         assert.equal(manualSnsWorkspaceRequestCount, 1);
         assert.equal((await page.locator('#manual-sns-organization').inputValue()), 'org-fixture');
         assert.equal((await page.locator('[data-manual-sns-channel]').first().getAttribute('value')), 'channel-fixture');
+        await page.locator('#manual-sns-select-all').check();
+        assert.equal(await page.locator('[data-manual-sns-channel]').first().isChecked(), true);
+        assert.equal(await page.locator('#manual-sns-channel-limit').textContent(), '최대 3개 · 1개 선택');
+        await page.locator('#manual-sns-select-all').uncheck();
         assert.equal(await page.locator('#manual-sns-image-source-local').isChecked(), true);
         assert.equal(await page.locator('#manual-sns-image-file').getAttribute('multiple'), '');
         assert.equal(await page.locator('#manual-sns-image-local-panel').isVisible(), true);

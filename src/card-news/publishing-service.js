@@ -104,10 +104,29 @@ function createCardNewsPublishingService(options = {}) {
     if (!generationService?.resolveCompleteAssets) throw new Error('카드뉴스 결과 조회 기능이 필요합니다.');
     if (!bufferClient?.shareNowMany) throw new Error('Buffer 발행 기능이 필요합니다.');
 
-    function configuredChannels() {
-        return (Array.isArray(CONFIG.BUFFER_CHANNELS) ? CONFIG.BUFFER_CHANNELS : [])
+    function configuredChannels(channels = CONFIG.BUFFER_CHANNELS) {
+        return (Array.isArray(channels) ? channels : [])
             .map(normalizeChannel)
             .filter((channel) => channel.id);
+    }
+
+    async function inspectBufferWorkspace(organizationId = '') {
+        const apiKey = String(CONFIG.BUFFER_API_KEY || '').trim();
+        if (!apiKey) return { organizations: [], organization_id: '', channels: [] };
+        if (typeof bufferClient.inspectConnection === 'function') {
+            const result = await bufferClient.inspectConnection(apiKey, String(organizationId || '').trim());
+            return {
+                organizations: Array.isArray(result?.organizations) ? result.organizations : [],
+                organization_id: String(result?.organization_id || '').trim(),
+                channels: configuredChannels(result?.channels)
+            };
+        }
+        const selectedId = String(organizationId || CONFIG.BUFFER_ORGANIZATION_ID || '').trim();
+        return {
+            organizations: selectedId ? [{ id: selectedId, name: selectedId }] : [],
+            organization_id: selectedId,
+            channels: configuredChannels()
+        };
     }
 
     function mediaTransportAvailable() {
@@ -118,12 +137,13 @@ function createCardNewsPublishingService(options = {}) {
         );
     }
 
-    async function getConfig(generationId) {
+    async function getConfig(generationId, organizationId = '') {
         const { generation, assets } = generationService.resolveCompleteAssets(generationId);
+        const workspace = await inspectBufferWorkspace(organizationId);
         const cardCount = assets.length;
         const unsupportedAsset = assets.find((asset) => !['image/png', 'image/jpeg', 'image/webp'].includes(asset.mime_type));
         const aspectRatio = String(generation.settings?.aspect_ratio || '');
-        const channels = configuredChannels().map((channel) => ({
+        const channels = workspace.channels.map((channel) => ({
             ...channel,
             compatible: channel.supported
                 && !channel.is_disconnected
@@ -143,13 +163,15 @@ function createCardNewsPublishingService(options = {}) {
         }));
         const config = {
             generation_id: generation.id,
+            organizations: workspace.organizations,
+            organization_id: workspace.organization_id,
             title: generation.title,
             source_url: String(generation.source?.canonical_url || ''),
             default_text: buildDefaultPublishText(generation),
             card_count: cardCount,
             max_channels: MAX_CHANNELS,
             buffer_api_key_configured: Boolean(String(CONFIG.BUFFER_API_KEY || '').trim()),
-            buffer_organization_configured: Boolean(String(CONFIG.BUFFER_ORGANIZATION_ID || '').trim()),
+            buffer_organization_configured: Boolean(workspace.organization_id),
             buffer_channels_configured: channels.length > 0,
             buffer_configured: Boolean(String(CONFIG.BUFFER_API_KEY || '').trim() && channels.length > 0),
             media_transport: mediaTransportAvailable() ? String(mediaTransport.transport || 'public_media') : '',
@@ -193,11 +215,15 @@ function createCardNewsPublishingService(options = {}) {
         }
     }
 
-    function selectChannels(ids, cardCount) {
+    async function selectChannels(ids, cardCount, organizationId) {
         const requested = [...new Set((Array.isArray(ids) ? ids : []).map((id) => String(id || '').trim()).filter(Boolean))];
         if (!requested.length) throw createPublishingError(400, 'CARD_NEWS_CHANNEL_REQUIRED', '발행할 Buffer 채널을 선택해 주세요.');
         if (requested.length > MAX_CHANNELS) throw createPublishingError(400, 'CARD_NEWS_CHANNEL_LIMIT_EXCEEDED', `채널은 최대 ${MAX_CHANNELS}개까지 선택할 수 있습니다.`);
-        const byId = new Map(configuredChannels().map((channel) => [channel.id, channel]));
+        const workspace = await inspectBufferWorkspace(organizationId);
+        if (!workspace.organization_id || workspace.organization_id !== String(organizationId || '').trim()) {
+            throw createPublishingError(400, 'CARD_NEWS_ORGANIZATION_REQUIRED', '카드뉴스를 발행할 Buffer 작업 공간을 선택해 주세요.');
+        }
+        const byId = new Map(workspace.channels.map((channel) => [channel.id, channel]));
         return requested.map((id) => {
             const channel = byId.get(id);
             if (!channel) throw createPublishingError(400, 'CARD_NEWS_CHANNEL_NOT_CONFIGURED', '설정에 저장되지 않은 Buffer 채널이 포함되어 있습니다.');
@@ -252,7 +278,9 @@ function createCardNewsPublishingService(options = {}) {
         if (!mediaTransportAvailable()) throw createPublishingError(400, 'CARD_NEWS_GOOGLE_DRIVE_REQUIRED', 'Buffer에 카드 이미지를 전달하려면 설정에서 Google 계정을 연결해 주세요.');
 
         const { generation, assets } = generationService.resolveCompleteAssets(input.generation_id || input.generationId);
-        const channels = selectChannels(input.channel_ids || input.channelIds, assets.length);
+        const organizationId = String(input.organization_id || input.organizationId
+            || (typeof bufferClient.inspectConnection !== 'function' ? CONFIG.BUFFER_ORGANIZATION_ID : '') || '').trim();
+        const channels = await selectChannels(input.channel_ids || input.channelIds, assets.length, organizationId);
         const unsupportedAsset = assets.find((asset) => !['image/png', 'image/jpeg', 'image/webp'].includes(asset.mime_type));
         if (unsupportedAsset) throw createPublishingError(400, 'CARD_NEWS_ASSET_FORMAT_UNSUPPORTED', 'Buffer 발행은 PNG, JPG 또는 WebP 카드만 지원합니다.');
         if (String(generation.settings?.aspect_ratio || '') === '9:16' && channels.some((channel) => channel.service === 'instagram')) {
