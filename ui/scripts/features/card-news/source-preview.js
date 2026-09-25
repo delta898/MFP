@@ -437,6 +437,10 @@ function renderCardNewsCompositionSkeleton(slideCount, aspectRatio = '4:5') {
         <span class="card-news-skeleton-line is-short"></span>
       </div>
     </article>`).join('');
+  UiGridTailSpacers.sync(grid, {
+    itemSelector: '.card-news-result-item',
+    spacerClass: 'ui-grid-tail-spacer card-news-result-grid-spacer'
+  });
   panel.setAttribute('aria-busy', 'true');
   panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -778,6 +782,10 @@ function renderCardNewsGeneration(generation, options = {}) {
         </div>` : ''}
       </div>
     </article>`).join('');
+  UiGridTailSpacers.sync(grid, {
+    itemSelector: '.card-news-result-item',
+    spacerClass: 'ui-grid-tail-spacer card-news-result-grid-spacer'
+  });
   grid.querySelectorAll('[data-card-news-prompt-copy]').forEach((button) => {
     button.addEventListener('click', () => void copyCardNewsPrompt(Number(button.dataset.cardNewsPromptCopy), button));
   });

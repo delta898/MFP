@@ -58,3 +58,15 @@ test('WYSIWYG manuscript publishing owns images in slots and drafts only for act
     assert.doesNotMatch(core, /이미지 미생성 옵션으로 인해 Draft로 강제 전환/);
     assert.match(core, /발행 대상으로 남은 이미지의 누락\/업로드 실패 시 Draft 강제/);
 });
+
+test('Blog Beta image preview completes only its final grid row with inert decorative cells', () => {
+    const script = read('ui/scripts/features/blog-next/draft-inputs.js');
+    const shared = read('ui/scripts/shared/grid-tail-spacers.js');
+    const styles = read('ui/styles/patterns/grid-spacer.css');
+
+    assert.match(script, /UiGridTailSpacers\.sync\(images,[\s\S]*?itemSelector: '\.local-markdown-image-card'/);
+    assert.match(shared, /aria-hidden/);
+    assert.match(shared, /setAttribute\('inert'/);
+    assert.match(styles, /\.ui-grid-tail-spacer/);
+    assert.match(styles, /pointer-events:\s*none/);
+});

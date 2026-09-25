@@ -1,0 +1,11 @@
+.ui-grid-tail-spacer {
+  min-width: 0;
+  align-self: stretch;
+  border: 1px dashed var(--ui-card-border);
+  border-radius: var(--ui-card-radius);
+  background: color-mix(in srgb, var(--ui-surface-muted) 28%, transparent);
+  box-shadow: none;
+  opacity: 0.68;
+  pointer-events: none;
+  user-select: none;
+}

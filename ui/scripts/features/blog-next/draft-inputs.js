@@ -738,7 +738,13 @@ function renderBlogNextDraftPreview(type, preview = null) {
   const stats = preview.stats || {};
   if (body) body.innerHTML = renderBlogNextDraftBodyHtml(type, preview);
   if (body) bindBlogNextManuscriptBodyImageFallback(body);
-  if (images) images.innerHTML = renderBlogNextDraftImages(type, preview);
+  if (images) {
+    images.innerHTML = renderBlogNextDraftImages(type, preview);
+    UiGridTailSpacers.sync(images, {
+      itemSelector: '.local-markdown-image-card',
+      spacerClass: 'ui-grid-tail-spacer local-markdown-image-grid-spacer'
+    });
+  }
   if (images) bindBlogNextManuscriptImageActions(type, images);
   if (images && focusedImageControlKey) {
     const nextFocus = focusedImageControlKey === 'bulk' ? images.querySelector('[data-manuscript-generate-missing]')

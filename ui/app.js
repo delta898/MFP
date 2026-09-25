@@ -1,4 +1,5 @@
 // @include scripts/foundation/style-system.js
+// @include scripts/shared/grid-tail-spacers.js
 // @include scripts/foundation/ui-feedback-state.js
 // @include scripts/features/shell/setup-banner.js
 // @include scripts/features/shell/sidebar.js

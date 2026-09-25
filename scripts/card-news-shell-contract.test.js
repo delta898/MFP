@@ -12,6 +12,7 @@ test('Card News is a top-level source-preview workflow', () => {
     const navigation = fs.readFileSync(path.join(uiRoot, 'scripts/foundation/navigation.js'), 'utf8');
     const script = [
         'scripts/shared/buffer-publishing-controls.js',
+        'scripts/shared/grid-tail-spacers.js',
         'scripts/features/card-news/source-preview.js',
         'scripts/features/card-news/publishing.js',
         'scripts/features/card-news/management.js',
@@ -58,6 +59,8 @@ test('Card News is a top-level source-preview workflow', () => {
     }
     assert.match(script, /function updateCardNewsManagedFilterCounts\(\)/);
     assert.match(script, /updateCardNewsManagedFilterCounts\(\);/);
+    assert.match(script, /UiGridTailSpacers\.sync\(grid,[\s\S]*?itemSelector: '\.card-news-result-item'/);
+    assert.match(script, /new ResizeObserver\(update\)/);
     assert.match(html, /id="card-news-new-version"[^>]*>이 원문으로 새 카드뉴스 만들기</);
     assert.match(script, /function startNewCardNewsFromManagedSource\(\)/);
     assert.match(script, /previewFromManaged: true/);
