@@ -364,6 +364,8 @@ function createMenu() {
             submenu: [
                 { label: '새 글 작성', accelerator: 'CmdOrCtrl+N', click: openBlogQuickCreate },
                 { type: 'separator' },
+                { label: '창 닫기', role: 'close' },
+                { type: 'separator' },
                 { label: '종료', role: 'quit' }
             ]
         },

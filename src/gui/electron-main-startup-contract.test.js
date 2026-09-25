@@ -64,6 +64,10 @@ test('native window title is minimal on macOS and identifiable on other platform
     assert.match(source, /win\.on\('page-title-updated',[\s\S]{0,180}event\.preventDefault\(\)[\s\S]{0,180}win\.setTitle\(nativeWindowTitle\)/);
 });
 
+test('custom File menu supports closing the focused window with the native platform shortcut', () => {
+    assert.match(source, /label: '파일',[\s\S]*?label: '창 닫기', role: 'close'[\s\S]*?label: '종료', role: 'quit'/);
+});
+
 test('normal GUI defers memory and optional services until after renderer readiness', () => {
     const readyIndex = source.indexOf("startup.write('RENDERER_READY'");
     const postReadyIndex = source.indexOf('startPostReadyServices().catch', readyIndex);
