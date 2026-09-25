@@ -1605,6 +1605,20 @@ async function run() {
         assert.equal(await page.locator('#dashboard-beta-published-count').textContent(), '1건');
         assert.equal((await page.locator('#dashboard-beta-recent-results-list').textContent()).includes('오늘 발행 결과'), true);
         assert.equal((await page.locator('#dashboard-beta-readiness-items').textContent()).includes('Free · 이번 달 2/10회 사용 · 8회 남음'), true);
+        const naverConnectionChip = page.locator('#dashboard-beta-readiness-items [data-dashboard-beta-channel="naver"]');
+        assert.equal((await naverConnectionChip.locator('.dashboard-beta-channel-name').textContent())?.trim(), '네이버 블로그');
+        assert.equal(await naverConnectionChip.locator('.dashboard-beta-channel-status').textContent(), '');
+        assert.match(await naverConnectionChip.getAttribute('aria-label') || '', /네이버 로그인 확인됨/);
+        await naverConnectionChip.focus();
+        assert.equal(await naverConnectionChip.evaluate((element) => getComputedStyle(element, '::after').visibility), 'visible');
+        await naverConnectionChip.click();
+        await page.waitForFunction(() => (
+            document.getElementById('view-settings-next')?.classList.contains('active')
+            && document.getElementById('settings-next-core-panel-publishing')?.hidden === false
+            && document.getElementById('settings-next-naver-form')?.getBoundingClientRect().height > 0
+        ));
+        await page.evaluate(() => navigateTo('dashboard-beta'));
+        await page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active'));
         assert.equal(await page.locator('#dashboard-beta-onboarding').evaluate(element => element.hidden), true);
         const operationsRequestCountBeforeSetupCheck = requests.filter((request) => (
             request.pathname === '/api/v1/continuous-publishing/dashboard-overview'

@@ -173,7 +173,26 @@
   background: var(--ui-status-warning);
 }
 
-/* Publishing channel chips: the icon itself carries the connection state. */
+[data-dashboard-beta-state="failed"] {
+  color: var(--ui-status-danger);
+}
+
+[data-dashboard-beta-state="failed"] .dashboard-beta-state-dot {
+  background: var(--ui-status-danger);
+}
+
+[data-dashboard-beta-state="muted"],
+[data-dashboard-beta-state="loading"] {
+  color: var(--ui-text-muted);
+}
+
+.dashboard-beta-readiness-items [data-dashboard-beta-nav="account"] {
+  margin-left: auto;
+  padding-left: var(--ui-space-6);
+  border-left: 1px solid var(--ui-border-default);
+}
+
+/* Provider marks retain brand colors; only the adjacent dot communicates state. */
 .dashboard-beta-channel-icon-wrap {
   display: inline-flex;
   flex: 0 0 auto;
@@ -181,7 +200,7 @@
   height: 22px;
   align-items: center;
   justify-content: center;
-  color: var(--ui-text-muted);
+  color: var(--channel-brand, var(--ui-text-muted));
 }
 
 .dashboard-beta-channel-icon {
@@ -197,9 +216,59 @@ button[data-dashboard-beta-channel="wordpress"] {
   --channel-brand: var(--ui-channel-wordpress);
 }
 
-button[data-dashboard-beta-state="ready"][data-dashboard-beta-channel] .dashboard-beta-channel-icon-wrap,
-button[data-dashboard-beta-state="attention"][data-dashboard-beta-channel] .dashboard-beta-channel-icon-wrap {
-  color: var(--channel-brand);
+.dashboard-beta-channel-name {
+  color: var(--ui-text-primary);
+}
+
+.dashboard-beta-channel-status {
+  display: inline-flex;
+  align-items: center;
+}
+
+.dashboard-beta-channel-status[data-state="ready"] .dashboard-beta-state-dot {
+  background: var(--ui-status-success);
+}
+
+.dashboard-beta-channel-status[data-state="attention"] .dashboard-beta-state-dot {
+  background: var(--ui-status-warning);
+}
+
+.dashboard-beta-channel-status[data-state="failed"] .dashboard-beta-state-dot {
+  background: var(--ui-status-danger);
+}
+
+button[data-dashboard-beta-channel] {
+  position: relative;
+}
+
+button[data-dashboard-beta-channel]::after {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + var(--ui-space-2));
+  left: 0;
+  width: max-content;
+  max-width: min(340px, calc(100vw - 2rem));
+  padding: var(--ui-space-2) var(--ui-space-3);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-card-background);
+  box-shadow: var(--ui-shadow-md);
+  color: var(--ui-text-primary);
+  content: attr(data-dashboard-beta-tooltip);
+  font-size: var(--ui-type-caption-size);
+  font-weight: var(--ui-weight-regular);
+  line-height: var(--ui-line-height-body);
+  text-align: left;
+  white-space: normal;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+button[data-dashboard-beta-channel]:hover::after,
+button[data-dashboard-beta-channel]:focus::after {
+  opacity: 1;
+  visibility: visible;
 }
 
 .dashboard-beta-readiness-items button:disabled {

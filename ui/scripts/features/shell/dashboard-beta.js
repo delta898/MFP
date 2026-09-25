@@ -23,17 +23,21 @@ function formatDashboardBetaDateTime(value) {
 
 function dashboardBetaConnectionState(connection, labels = {}) {
   const status = String(connection?.status || '').trim();
-  if (['connected', 'configured'].includes(status)) {
-    return { state: 'ready', label: labels.ready || '연결 확인됨' };
+  const reason = String(connection?.message || connection?.reason || '').trim();
+  const checkedAt = String(connection?.checked_at || '').trim();
+  if (status === 'connected') {
+    return { state: 'ready', label: labels.ready || '연결 확인됨', reason, checkedAt };
   }
   if (status === 'not_configured') {
-    return { state: 'muted', label: labels.notConfigured || '미설정' };
+    return { state: 'muted', label: labels.notConfigured || '미설정', reason, checkedAt };
   }
   if (status === 'failed') {
-    const reason = String(connection?.message || connection?.reason || '').trim();
-    return { state: 'attention', label: labels.failed || '연결 실패', reason };
+    return { state: 'failed', label: labels.failed || '연결 실패', reason, checkedAt };
   }
-  return { state: 'attention', label: labels.attention || '확인 필요' };
+  if (status === 'not_connected') {
+    return { state: 'attention', label: labels.notConnected || labels.attention || '로그인 필요', reason, checkedAt };
+  }
+  return { state: 'attention', label: labels.attention || '확인 필요', reason, checkedAt };
 }
 
 // Publishing channel registry. A future channel (Blogger, Tistory, …) is one
@@ -51,6 +55,7 @@ const DASHBOARD_BETA_CHANNELS = Object.freeze([
       attention: '네이버 로그인 확인 필요',
       notConfigured: '네이버 미설정',
       failed: '네이버 로그인 실패',
+      notConnected: '네이버 로그인이 필요합니다',
       loading: '네이버 확인 중'
     }
   },
@@ -63,14 +68,14 @@ const DASHBOARD_BETA_CHANNELS = Object.freeze([
     labels: {
       ready: 'WordPress 연결 확인됨',
       attention: 'WordPress 연결 확인 필요',
-      notConfigured: 'WordPress 미사용',
+      notConfigured: 'WordPress 설정이 없습니다',
       failed: 'WordPress 연결 실패',
       loading: 'WordPress 확인 중'
     }
   }
 ]);
 
-function createDashboardBetaChannelButton(channel, state, label, reason = '') {
+function createDashboardBetaChannelButton(channel, state, label, reason = '', checkedAt = '') {
   const button = document.createElement('button');
   button.type = 'button';
   button.dataset.dashboardBetaState = state;
@@ -80,15 +85,28 @@ function createDashboardBetaChannelButton(channel, state, label, reason = '') {
   button.dataset.dashboardBetaLocalTab = 'publishing';
   button.dataset.dashboardBetaTarget = channel.form;
   const normalizedReason = String(reason || '').trim();
-  button.setAttribute('aria-label', normalizedReason ? `${channel.name}, ${label}: ${normalizedReason}` : `${channel.name}, ${label}`);
-  if (normalizedReason) button.title = normalizedReason;
+  const normalizedCheckedAt = formatDashboardBetaDateTime(checkedAt);
+  const detail = [label, normalizedReason, normalizedCheckedAt ? `마지막 확인 ${normalizedCheckedAt}` : '']
+    .filter(Boolean)
+    .join(' · ');
+  button.setAttribute('aria-label', `${channel.name}, ${detail}`);
+  button.dataset.dashboardBetaTooltip = detail;
+  button.title = detail;
   const icon = document.createElement('span');
   icon.className = 'dashboard-beta-channel-icon-wrap';
   icon.setAttribute('aria-hidden', 'true');
   icon.innerHTML = channel.icon;
-  const copy = document.createElement('span');
-  copy.textContent = label;
-  button.append(icon, copy);
+  const name = document.createElement('span');
+  name.className = 'dashboard-beta-channel-name';
+  name.textContent = channel.name;
+  const status = document.createElement('span');
+  status.className = 'dashboard-beta-channel-status';
+  status.dataset.state = state;
+  const dot = document.createElement('span');
+  dot.className = 'dashboard-beta-state-dot';
+  dot.setAttribute('aria-hidden', 'true');
+  status.append(dot);
+  button.append(icon, name, status);
   return button;
 }
 
@@ -188,13 +206,13 @@ function renderDashboardBetaReadiness(overview) {
 
   const connections = overview?.connections || {};
   const channelButtons = DASHBOARD_BETA_CHANNELS.map((channel) => {
-    const { state, label, reason } = dashboardBetaConnectionState(connections[channel.id], {
+    const { state, label, reason, checkedAt } = dashboardBetaConnectionState(connections[channel.id], {
       ready: channel.labels.ready,
       attention: channel.labels.attention,
       notConfigured: channel.labels.notConfigured,
       failed: channel.labels.failed
     });
-    return createDashboardBetaChannelButton(channel, state, label, reason);
+    return createDashboardBetaChannelButton(channel, state, label, reason, checkedAt);
   });
   const toOptionalNumber = (value) => (
     value === null || value === undefined || value === '' ? Number.NaN : Number(value)

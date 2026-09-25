@@ -44,6 +44,12 @@
     flex-direction: column;
   }
 
+  .dashboard-beta-readiness-items [data-dashboard-beta-nav="account"] {
+    margin-left: 0;
+    padding-left: 0;
+    border-left: 0;
+  }
+
   .dashboard-beta-counts {
     grid-template-columns: 1fr;
   }
