@@ -188,6 +188,15 @@ async function settingsNextLoadBufferWorkspaces() {
       channels: Array.isArray(result.channels) ? result.channels : [],
       workspacesLoaded: true
     };
+    const checkedAt = settingsNextBufferVerificationTime(result.verification?.checked_at);
+    if (result.verification?.status === 'connected') {
+      settingsNextOptionalState.verified.buffer = true;
+      const organizations = Array.isArray(result.organizations) ? result.organizations.length : 0;
+      const channels = Array.isArray(result.channels) ? result.channels.length : 0;
+      setUiSettingsCardFooterDetail('settings-next-buffer-footer-detail',
+        `최근 연결 확인됨 · ${checkedAt} · 조직 ${organizations}개${channels ? ` · 발행 채널 ${channels}개` : ''}`);
+      settingsNextOptionalRenderStatuses();
+    }
     if (typeof persistManualSnsWorkspaceCache === 'function') {
       persistManualSnsWorkspaceCache(settingsNextOptionalState.bufferConnection);
     }
@@ -223,6 +232,25 @@ function settingsNextOptionalSetStatus(scope, label, tone) {
   settingsNextSetDot(document.getElementById(`settings-next-${scope}-readiness-dot`), tone);
 }
 
+function settingsNextBufferVerificationTime(checkedAt) {
+  const date = new Date(String(checkedAt || ''));
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function settingsNextRenderBufferVerificationDetail(verification = null) {
+  const checkedAt = settingsNextBufferVerificationTime(verification?.checked_at);
+  if (!checkedAt) {
+    setUiSettingsCardFooterDetail('settings-next-buffer-footer-detail', '');
+  } else if (verification.status === 'failed') {
+    setUiSettingsCardFooterDetail('settings-next-buffer-footer-detail', `마지막 연결 확인 실패 · ${checkedAt}${verification.message ? ` · ${verification.message}` : ''}`, 'danger');
+  } else if (verification.trusted === true) {
+    setUiSettingsCardFooterDetail('settings-next-buffer-footer-detail', `최근 연결 확인됨 · ${checkedAt}`);
+  } else {
+    setUiSettingsCardFooterDetail('settings-next-buffer-footer-detail', `마지막 연결 확인 · ${checkedAt} · 다시 확인해 주세요.`);
+  }
+}
+
 function settingsNextOptionalRenderStatuses() {
   ['buffer', 'telegram', 'slack', 'bitly'].forEach((scope) => {
     const enteredSecret = {
@@ -238,7 +266,7 @@ function settingsNextOptionalRenderStatuses() {
     if (!hasSecret) settingsNextOptionalSetStatus(scope, '미설정', 'neutral');
     else if (!configured) settingsNextOptionalSetStatus(scope, '확인 필요', 'warning');
     else if (verified === false) settingsNextOptionalSetStatus(scope, '확인 실패', 'danger');
-    else if (verified === true) settingsNextOptionalSetStatus(scope, '연결됨', 'success');
+    else if (verified === true) settingsNextOptionalSetStatus(scope, scope === 'buffer' ? '최근 확인됨' : '연결됨', 'success');
     else settingsNextOptionalSetStatus(scope, '확인 필요', 'warning');
   });
   settingsNextRenderSnsDistribution();
@@ -247,6 +275,10 @@ function settingsNextOptionalRenderStatuses() {
 function settingsNextOptionalApply(data = {}) {
   settingsNextOptionalState.fields = { ...(data.fields || {}) };
   const fields = settingsNextOptionalState.fields;
+  const bufferVerification = fields.BUFFER_CONNECTION_VERIFICATION;
+  settingsNextOptionalState.verified.buffer = bufferVerification?.status === 'failed'
+    ? false
+    : (bufferVerification?.status === 'connected' && bufferVerification.trusted === true ? true : null);
   setUiSettingsCardFooterDetail('settings-next-buffer-footer-detail', '');
   setUiSettingsCardFooterDetail('settings-next-sns-distribution-footer-detail', '');
   setUiSettingsCardFooterDetail('settings-next-telegram-footer-detail', '');
@@ -295,6 +327,7 @@ function settingsNextOptionalApply(data = {}) {
     });
   });
   ['buffer', 'sns-distribution', 'telegram', 'slack', 'bitly'].forEach((scope) => settingsNextClearScopeDirty(`optional-${scope}`));
+  settingsNextRenderBufferVerificationDetail(bufferVerification);
   settingsNextOptionalRenderStatuses();
 }
 
@@ -397,10 +430,12 @@ async function settingsNextOptionalSubmit(event) {
       }
       const organizations = Array.isArray(tested.organizations) ? tested.organizations.length : 0;
       const channels = Array.isArray(tested.channels) ? tested.channels.length : 0;
+      const checkedAt = settingsNextBufferVerificationTime(tested.verification?.checked_at || new Date().toISOString());
       setUiSettingsCardFooterDetail(
         'settings-next-buffer-footer-detail',
-        `연결된 조직 ${organizations}개${channels ? ` · 사용 가능한 발행 채널 ${channels}개` : ''}`
+        `최근 연결 확인됨 · ${checkedAt} · 조직 ${organizations}개${channels ? ` · 발행 채널 ${channels}개` : ''}`
       );
+      settingsNextOptionalState.verified.buffer = tested.verification?.status === 'connected';
     }
     if (scope === 'sns-distribution') setUiSettingsCardFooterDetail('settings-next-sns-distribution-footer-detail', '저장했습니다.');
     if (scope === 'telegram') setUiSettingsCardFooterDetail('settings-next-telegram-footer-detail', tested?.message || '연결됨 · 테스트 메시지를 전송했습니다.');

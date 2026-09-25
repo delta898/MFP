@@ -564,6 +564,17 @@
   display: none;
 }
 
+.card-news-generation-status > .card-news-publishing-readiness {
+  display: block;
+  grid-column: 2;
+  margin: var(--ui-space-1) 0 0;
+  text-align: right;
+}
+
+.card-news-generation-status > .card-news-publishing-readiness[hidden] {
+  display: none;
+}
+
 .card-news-generation-controls {
   display: grid;
   gap: var(--ui-space-4);

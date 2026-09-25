@@ -385,6 +385,10 @@ function getApiFixture(pathname) {
     if (pathname === '/api/v1/settings/optional-services') {
         return { fields: {
             BUFFER_API_KEY_CONFIGURED: true,
+            BUFFER_ORGANIZATION_ID: 'fixture-buffer-org',
+            BUFFER_CONNECTION_VERIFICATION: {
+                status: 'connected', checked_at: '2026-09-25T00:00:00.000Z', trusted: true, message: ''
+            },
             NOTIFY_TELEGRAM_BOT_TOKEN_CONFIGURED: true,
             NOTIFY_TELEGRAM_CHAT_ID: 'fixture-chat',
             NOTIFY_SLACK_WEBHOOK_URL_CONFIGURED: true,
@@ -1938,6 +1942,8 @@ async function run() {
         assert.equal(writingApplyRequest.body.custom_profile.common.voice.writing_mode, 'written');
         assert.equal(writingApplyRequest.body.custom_profile.channels.blog.length.preset, 'long');
         await page.locator('[data-settings-next-tab="extras"]').click();
+        assert.equal((await page.locator('#settings-next-buffer-status').textContent())?.trim(), '최근 확인됨');
+        assert.match((await page.locator('#settings-next-buffer-footer-detail').textContent()) || '', /최근 연결 확인됨/);
         assert.deepEqual(
             await page.locator('[data-settings-next-extras-tab]').allTextContents(),
             ['SNS 배포', '메시지·알림', '링크 단축']
@@ -2564,6 +2570,9 @@ async function run() {
                         default_text: '완성된 UI smoke 카드뉴스\n\nhttps://short.example/card-news',
                         card_count: 3,
                         max_channels: 3,
+                        buffer_api_key_configured: true,
+                        buffer_organization_configured: true,
+                        buffer_channels_configured: true,
                         buffer_configured: true,
                         media_transport: 'google_drive',
                         url_shortening_configured: true,
@@ -2680,8 +2689,11 @@ async function run() {
                     success: true,
                     data: {
                         generation_id: 'ui-smoke-not-ready',
+                        buffer_api_key_configured: true,
+                        buffer_organization_configured: true,
+                        buffer_channels_configured: false,
                         buffer_configured: false,
-                        media_transport: '',
+                        media_transport: 'google_drive',
                         channels: []
                     }
                 })
@@ -2696,12 +2708,14 @@ async function run() {
             panelHidden: document.getElementById('card-news-publishing-panel')?.hidden,
             publishButtonHidden: document.getElementById('card-news-publish-open')?.hidden,
             readinessState: document.getElementById('card-news-publishing-readiness')?.dataset.state,
-            readinessText: document.getElementById('card-news-publishing-readiness')?.textContent
+            readinessText: document.getElementById('card-news-publishing-readiness')?.textContent,
+            readinessInStatus: document.getElementById('card-news-publishing-readiness')?.closest('#card-news-generation-status') !== null
         })), {
             panelHidden: true,
             publishButtonHidden: true,
             readinessState: 'warning',
-            readinessText: '설정 > 부가 서비스 > SNS 배포에서 Buffer 연결을 먼저 완료해 주세요. 설정 > 기본 연결 > 콘텐츠 공간에서 Google 계정을 먼저 연결해 주세요.'
+            readinessText: '설정 > 부가 서비스 > SNS 배포에서 사용할 Buffer 채널을 선택하고 저장해 주세요. 자동 SNS 배포를 켤 필요는 없습니다.',
+            readinessInStatus: true
         });
         await page.unroute('**/api/v1/card-news/publishing/config?generation_id=*');
         await page.locator('.card-news-result-image-wrap').first().hover();
@@ -4100,7 +4114,7 @@ async function run() {
         }));
         assert.equal(await page.locator('#blog-next-publish-status-cancel').isVisible(), true);
         assert.equal(await page.locator('#blog-next-publish-status-cancel').isDisabled(), true);
-        assert.equal((await page.locator('#blog-next-publish-status-cancel').textContent())?.trim(), '중지할 수 없음');
+        assert.equal((await page.locator('#blog-next-publish-status-cancel').textContent())?.trim(), '마무리 중…');
         await page.locator('#blog-next-publish-status-stop-control').focus();
         assert.equal(await page.locator('#blog-next-publish-status-stop-note').isVisible(), true);
         assert.match((await page.locator('#blog-next-publish-status-stop-note').textContent()) || '', /외부 반영 여부가 불확실해 중지할 수 없습니다/);

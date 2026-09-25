@@ -4,6 +4,42 @@ function selectedCardNewsPublishingChannels() {
     .filter(Boolean);
 }
 
+function setCardNewsPublishingReadiness(message = '', state = '') {
+  const readiness = document.getElementById('card-news-publishing-readiness');
+  const status = document.getElementById('card-news-generation-status');
+  if (!readiness || !status) return;
+  readiness.textContent = message;
+  readiness.dataset.state = state;
+  readiness.hidden = !message;
+  if (message) status.hidden = false;
+  else {
+    const main = status.querySelector('[data-card-news-generation-status-message]');
+    const stopConfirmation = status.querySelector('[data-card-news-stop-confirmation]');
+    status.hidden = !main?.textContent
+      && stopConfirmation?.hidden !== false
+      && readiness.hidden;
+  }
+}
+
+function cardNewsPublishingReadinessIssues(config = {}) {
+  const issues = [];
+  if (!config.buffer_api_key_configured) {
+    issues.push('설정 > 부가 서비스 > SNS 배포에서 Buffer API Key를 연결해 주세요.');
+  } else if (!config.buffer_organization_configured) {
+    issues.push('설정 > 부가 서비스 > SNS 배포에서 Buffer 작업 공간을 선택해 주세요.');
+  } else if (!config.buffer_channels_configured) {
+    issues.push('설정 > 부가 서비스 > SNS 배포에서 사용할 Buffer 채널을 선택하고 저장해 주세요. 자동 SNS 배포를 켤 필요는 없습니다.');
+  }
+  if (!config.media_transport) {
+    issues.push('설정 > 기본 연결 > 콘텐츠 공간에서 Google 계정을 먼저 연결해 주세요.');
+  }
+  if (config.buffer_channels_configured && config.media_transport
+    && !(config.channels || []).some((channel) => channel.compatible)) {
+    issues.push('선택한 Buffer 채널은 현재 카드 구성을 발행할 수 없습니다. 카드 수, 이미지 형식 또는 채널 상태를 확인해 주세요.');
+  }
+  return issues;
+}
+
 function syncCardNewsPublishingChannelAvailability() {
   const selectedCount = selectedCardNewsPublishingChannels().length;
   const maxChannels = Math.max(1, Number(cardNewsViewState.publishingConfig?.max_channels || 1));
@@ -59,7 +95,6 @@ function renderCardNewsPublishingConfig(config = {}) {
 async function openCardNewsPublishing(options = {}) {
   const generation = cardNewsViewState.generation;
   const panel = document.getElementById('card-news-publishing-panel');
-  const readiness = document.getElementById('card-news-publishing-readiness');
   if (!generation || !panel || cardNewsViewState.publishing) return;
   if (cardNewsViewState.publishingConfig?.generation_id === generation.id && !panel.hidden) {
     const publishOpen = document.getElementById('card-news-publish-open');
@@ -71,49 +106,28 @@ async function openCardNewsPublishing(options = {}) {
   panel.hidden = true;
   const publishOpen = document.getElementById('card-news-publish-open');
   if (publishOpen) publishOpen.hidden = true;
-  if (readiness) {
-    readiness.hidden = false;
-    readiness.textContent = 'SNS 발행 조건을 확인하고 있습니다.';
-    readiness.dataset.state = 'loading';
-  }
+  setCardNewsPublishingReadiness('SNS 발행 조건을 확인하고 있습니다.', 'loading');
   try {
     const config = await fetchJson(`/api/v1/card-news/publishing/config?generation_id=${encodeURIComponent(generation.id)}`);
     if (requestId !== cardNewsViewState.publishingRequestId || generation.id !== cardNewsViewState.generation?.id) return;
-    const issues = [];
-    if (!config.buffer_configured) {
-      issues.push('설정 > 부가 서비스 > SNS 배포에서 Buffer 연결을 먼저 완료해 주세요.');
-    }
-    if (!config.media_transport) {
-      issues.push('설정 > 기본 연결 > 콘텐츠 공간에서 Google 계정을 먼저 연결해 주세요.');
-    }
-    if (config.buffer_configured && config.media_transport && !(config.channels || []).some((channel) => channel.compatible)) {
-      issues.push('현재 카드 구성을 발행할 수 있는 Buffer 채널이 없습니다.');
-    }
+    const issues = cardNewsPublishingReadinessIssues(config);
     if (issues.length) {
       cardNewsViewState.publishingConfig = null;
       panel.hidden = true;
-      if (readiness) {
-        readiness.hidden = false;
-        readiness.textContent = issues.join(' ');
-        readiness.dataset.state = 'warning';
-      }
+      setCardNewsPublishingReadiness(issues.join(' '), 'warning');
       syncCardNewsPublishButton();
       return;
     }
     renderCardNewsPublishingConfig(config);
     panel.hidden = false;
     if (publishOpen) publishOpen.hidden = false;
-    if (readiness) readiness.hidden = true;
+    setCardNewsPublishingReadiness();
     if (options.scroll !== false) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (error) {
     if (requestId !== cardNewsViewState.publishingRequestId) return;
     cardNewsViewState.publishingConfig = null;
     panel.hidden = true;
-    if (readiness) {
-      readiness.hidden = false;
-      readiness.textContent = error.message || 'SNS 발행 조건을 확인하지 못했습니다.';
-      readiness.dataset.state = 'error';
-    }
+    setCardNewsPublishingReadiness(error.message || 'SNS 발행 조건을 확인하지 못했습니다.', 'error');
     syncCardNewsPublishButton();
   }
 }

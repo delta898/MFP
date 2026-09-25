@@ -362,6 +362,22 @@ function recordAiRoleVerification(scope, modelConfig = {}, result = {}) {
     });
 }
 
+function bufferConnectionSignature(apiKey, organizationId) {
+    return createConnectionSignature(['buffer', apiKey, organizationId || '<all-workspaces>']);
+}
+
+function bufferConnectionVerification(apiKey, organizationId) {
+    const signature = bufferConnectionSignature(apiKey, organizationId);
+    const record = readConnectionVerification('buffer', signature);
+    if (!record) return null;
+    return {
+        status: record.status,
+        checked_at: record.checked_at,
+        trusted: isVerificationTrusted('buffer', record),
+        message: record.message || ''
+    };
+}
+
 function createSettingsService(deps = {}) {
     const {
         fs,
@@ -611,9 +627,12 @@ function createSettingsService(deps = {}) {
         },
 
         async getOptionalServiceSettings() {
+            const bufferApiKey = String(CONFIG.BUFFER_API_KEY || '').trim();
+            const bufferOrganizationId = String(CONFIG.BUFFER_ORGANIZATION_ID || '').trim();
             return { fields: {
-                BUFFER_API_KEY_CONFIGURED: Boolean(String(CONFIG.BUFFER_API_KEY || '').trim()),
-                BUFFER_ORGANIZATION_ID: String(CONFIG.BUFFER_ORGANIZATION_ID || '').trim(),
+                BUFFER_API_KEY_CONFIGURED: Boolean(bufferApiKey),
+                BUFFER_ORGANIZATION_ID: bufferOrganizationId,
+                BUFFER_CONNECTION_VERIFICATION: bufferConnectionVerification(bufferApiKey, bufferOrganizationId),
                 BUFFER_CHANNELS: Array.isArray(CONFIG.BUFFER_CHANNELS) ? CONFIG.BUFFER_CHANNELS : [],
                 SNS_PUBLISH_ENABLED: CONFIG.SNS_PUBLISH_ENABLED === true,
                 SNS_SOURCE_BLOGS: Array.isArray(CONFIG.SNS_SOURCE_BLOGS) ? CONFIG.SNS_SOURCE_BLOGS : [],
@@ -951,10 +970,19 @@ function createSettingsService(deps = {}) {
         async testOptionalServiceConnection(requestBody = {}) {
             const normalized = normalizeOptionalServiceSettings(requestBody);
             const fields = normalized.fields;
-            if (normalized.scope === 'buffer') return this.inspectBufferConnection({
-                apiKey: fields.BUFFER_API_KEY || CONFIG.BUFFER_API_KEY,
-                organizationId: fields.BUFFER_ORGANIZATION_ID || CONFIG.BUFFER_ORGANIZATION_ID
-            });
+            if (normalized.scope === 'buffer') {
+                const apiKey = fields.BUFFER_API_KEY || CONFIG.BUFFER_API_KEY;
+                const organizationId = fields.BUFFER_ORGANIZATION_ID || CONFIG.BUFFER_ORGANIZATION_ID;
+                const signature = bufferConnectionSignature(apiKey, organizationId);
+                try {
+                    const result = await this.inspectBufferConnection({ apiKey, organizationId });
+                    const verification = recordConnectionVerification('buffer', signature, { success: true, connected: true });
+                    return { ...result, verification };
+                } catch (error) {
+                    recordConnectionVerification('buffer', signature, { success: false, connected: false, message: error.message });
+                    throw error;
+                }
+            }
             if (normalized.scope === 'telegram') return this.testTelegramConnection({ botToken: fields.NOTIFY_TELEGRAM_BOT_TOKEN || CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN, chatId: fields.NOTIFY_TELEGRAM_CHAT_ID || CONFIG.NOTIFY_TELEGRAM_CHAT_ID });
             if (normalized.scope === 'slack') return this.testSlackConnection({ webhookUrl: fields.NOTIFY_SLACK_WEBHOOK_URL || CONFIG.NOTIFY_SLACK_WEBHOOK_URL });
             const token = fields.NOTIFY_BITLY_TOKEN || CONFIG.NOTIFY_BITLY_TOKEN;

@@ -474,6 +474,10 @@
     text-align: left;
   }
 
+  .card-news-generation-status > .card-news-publishing-readiness {
+    text-align: left;
+  }
+
   .card-news-result-actions {
     justify-content: stretch;
   }

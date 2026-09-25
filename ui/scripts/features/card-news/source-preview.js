@@ -372,7 +372,10 @@ function setCardNewsGenerationStatus(message = '', state = '', options = {}) {
   else status.textContent = message;
   status.dataset.state = state;
   const stopConfirmation = status.querySelector('[data-card-news-stop-confirmation]');
-  status.hidden = !message && (!stopConfirmation || stopConfirmation.hidden);
+  const publishingReadiness = status.querySelector('[data-card-news-publishing-readiness]');
+  status.hidden = !message
+    && (!stopConfirmation || stopConfirmation.hidden)
+    && (!publishingReadiness || publishingReadiness.hidden);
   status.title = options.title || message;
   status.setAttribute('aria-busy', String(state === 'loading'));
   syncCardNewsStopConfirmationMessage();
@@ -794,9 +797,8 @@ function renderCardNewsGeneration(generation, options = {}) {
     void openCardNewsPublishing({ scroll: false });
   } else {
     const publishingPanel = document.getElementById('card-news-publishing-panel');
-    const readiness = document.getElementById('card-news-publishing-readiness');
     if (publishingPanel) publishingPanel.hidden = true;
-    if (readiness) readiness.hidden = true;
+    if (typeof setCardNewsPublishingReadiness === 'function') setCardNewsPublishingReadiness();
   }
   setCardNewsResultControlsDisabled(cardNewsViewState.generating);
   syncCardNewsImageStopControls();

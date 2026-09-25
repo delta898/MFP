@@ -160,7 +160,8 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(html, /id="card-news-export-all"[^>]*>전체 이미지 받기</);
     assert.match(script, /\/api\/v1\/card-news\/exports\/\$\{encodeURIComponent\(generation\.id\)\}\.zip/);
     assert.match(html, /id="card-news-publish-open"[^>]*hidden>SNS 발행</);
-    assert.match(html, /id="card-news-publishing-readiness"[^>]*role="status"[^>]*hidden/);
+    assert.match(html, /id="card-news-publishing-readiness"[^>]*data-card-news-publishing-readiness[^>]*hidden/);
+    assert.match(html, /id="card-news-generation-status"[\s\S]*id="card-news-publishing-readiness"/);
     assert.match(html, /id="card-news-publishing-panel" class="card-news-publishing-panel ui-workflow-card"[^>]*aria-labelledby="card-news-publishing-title"[^>]*hidden/);
     assert.match(html, /id="card-news-publishing-form" class="card-news-publishing-form"/);
     assert.match(html, /class="ui-workflow-title-row">\s*<h2 id="card-news-publishing-title">SNS에 발행<\/h2>\s*<span class="ui-workflow-stage">3단계<\/span>/);
@@ -171,7 +172,8 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(script, /\/api\/v1\/card-news\/publishing\/config\?generation_id=/);
     assert.match(script, /\/api\/v1\/card-news\/publishing\/publish/);
     assert.match(script, /설정 > 기본 연결 > 콘텐츠 공간에서 Google 계정을 먼저 연결/);
-    assert.match(script, /설정 > 부가 서비스 > SNS 배포에서 Buffer 연결을 먼저 완료/);
+    assert.match(script, /설정 > 부가 서비스 > SNS 배포에서 사용할 Buffer 채널을 선택하고 저장/);
+    assert.match(script, /자동 SNS 배포를 켤 필요는 없습니다/);
     assert.doesNotMatch(script, /카드 이미지를 Buffer에 전달하려면[^\n]*WordPress/);
     assert.match(html, /class="card-news-drive-notice"[^>]*>[^<]*Google Drive[^<]*자동 삭제/);
     assert.doesNotMatch(html + script, /Bitly로 단축|원문 링크는 발행할 때/);

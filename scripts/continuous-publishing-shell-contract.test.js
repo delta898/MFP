@@ -295,6 +295,8 @@ test('Stage 11 exposes one shared publish status with a return action and no dup
     assert.match(runnerScript, /rawMessage === '다음 글감 한 건을 처리했습니다.'/);
     assert.match(runnerScript, /'글감 처리 완료'/);
     assert.match(runnerScript, /progressStage/);
+    assert.match(runnerScript, /localStopUnavailable \? '마무리 중…'/);
+    assert.match(runnerScript, /최종 요청 처리 중\. 외부 반영 여부가 불확실해 중지할 수 없습니다\./);
     assert.match(runnerScript, /startBlogNextLocalPublishProgress\(getSubject\)/);
     assert.match(runnerScript, /editor: '에디터 연결 중'/);
     assert.match(runnerScript, /body: '원고 입력 중'/);

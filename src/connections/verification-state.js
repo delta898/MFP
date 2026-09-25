@@ -122,7 +122,8 @@ function resetConnectionVerificationState() {
 // counts as connected for display. Live operations still verify at use time.
 const CONNECTION_TRUST_TTL_MS = Object.freeze({
     sheets: 24 * 60 * 60 * 1000,
-    'ai-role': 7 * 24 * 60 * 60 * 1000
+    'ai-role': 7 * 24 * 60 * 60 * 1000,
+    buffer: 24 * 60 * 60 * 1000
 });
 
 function createConnectionSignature(parts = []) {

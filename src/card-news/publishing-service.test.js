@@ -27,6 +27,7 @@ function fixture() {
 function config(overrides = {}) {
     return {
         BUFFER_API_KEY: 'buffer-key',
+        BUFFER_ORGANIZATION_ID: 'org-1',
         BUFFER_CHANNELS: [
             { id: 'instagram-1', name: 'Instagram', service: 'instagram' },
             { id: 'bluesky-1', name: 'Bluesky', service: 'bluesky' },
@@ -59,11 +60,33 @@ test('publishing config reports channel-specific carousel compatibility', async 
         assert.equal(result.card_count, 3);
         assert.equal(result.max_channels, 3);
         assert.equal(result.url_shortening_configured, false);
+        assert.equal(result.buffer_api_key_configured, true);
+        assert.equal(result.buffer_organization_configured, true);
+        assert.equal(result.buffer_channels_configured, true);
         assert.equal(result.media_transport, 'google_drive');
         assert.equal(result.default_text, '제주의 새로운 모습을 카드로 만나보세요.\n\nhttps://blog.example/jeju\n\n#제주여행 #카드뉴스');
         assert.equal(result.channels.find((item) => item.service === 'instagram').compatible, true);
         assert.equal(result.channels.find((item) => item.service === 'bluesky').compatible, true);
         assert.equal(result.channels.find((item) => item.service === 'pinterest').compatible, false);
+    } finally {
+        fs.rmSync(data.root, { recursive: true, force: true });
+    }
+});
+
+test('publishing config distinguishes a connected Buffer account from missing selected channels', async () => {
+    const data = fixture();
+    try {
+        const service = createCardNewsPublishingService({
+            CONFIG: config({ BUFFER_CHANNELS: [] }),
+            generationService: { resolveCompleteAssets: () => data },
+            bufferClient: { shareNowMany: async () => [] },
+            mediaTransport: transport()
+        });
+        const result = await service.getConfig('generation-123');
+        assert.equal(result.buffer_api_key_configured, true);
+        assert.equal(result.buffer_organization_configured, true);
+        assert.equal(result.buffer_channels_configured, false);
+        assert.equal(result.buffer_configured, false);
     } finally {
         fs.rmSync(data.root, { recursive: true, force: true });
     }

@@ -157,6 +157,9 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     assert.match(optionalServices, /syncSettingsNextSecretRegistration/);
     assert.match(optionalServices, /scope === 'sns-distribution'/);
     assert.match(optionalServices, /function settingsNextLoadBufferWorkspaces/);
+    assert.match(optionalServices, /BUFFER_CONNECTION_VERIFICATION/);
+    assert.match(optionalServices, /function settingsNextRenderBufferVerificationDetail/);
+    assert.match(optionalServices, /최근 연결 확인됨/);
     assert.match(optionalServices, /workspacesLoaded/);
     assert.match(optionalServices, /const actionLabel = scope === 'sns-distribution' \? '저장' : '연결 확인'/);
     assert.match(externalConnections, /postJson\('\/api\/v1\/settings\/external-connections'/);

@@ -3,6 +3,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const {
+    configureConnectionVerificationState,
+    resetConnectionVerificationState
+} = require('../../connections/verification-state');
 
 const {
     createSettingsService,
@@ -15,7 +19,10 @@ function createHarness(initial = {}, overrides = {}) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'settings-optional-services-'));
     const configPath = path.join(dir, 'config.json');
     fs.writeFileSync(configPath, JSON.stringify(initial, null, 2));
+    configureConnectionVerificationState({ fs, path, filePath: path.join(dir, 'connection_verification.json') });
+    resetConnectionVerificationState();
     const CONFIG = {
+        CONFIG_DIR: dir,
         BUFFER_API_KEY: initial.integrations?.buffer?.api_key || '',
         BUFFER_ORGANIZATION_ID: initial.integrations?.buffer?.organization_id || '',
         BUFFER_CHANNELS: initial.integrations?.buffer?.channels || [],
@@ -166,6 +173,36 @@ test('optional connection tests reuse stored secrets when the new input is blank
     const { service } = createHarness({ integrations: { buffer: { api_key: 'stored-key', organization_id: 'stored-org' } } }, { BufferClient });
     await service.testOptionalServiceConnection({ scope: 'buffer', values: { BUFFER_API_KEY: '' } });
     assert.deepEqual(calls, [{ apiKey: 'stored-key', organizationId: 'stored-org' }]);
+});
+
+test('Buffer connection verification persists across settings reloads and is tied to the saved credentials', async () => {
+    class BufferClient {
+        async inspectConnection(apiKey, organizationId) {
+            assert.equal(apiKey, 'stored-key');
+            assert.equal(organizationId, 'stored-org');
+            return { organizations: [{ id: 'stored-org', name: 'Workspace' }], channels: [] };
+        }
+    }
+    const { CONFIG, configPath, service } = createHarness({
+        integrations: { buffer: { api_key: 'stored-key', organization_id: 'stored-org' } }
+    }, { BufferClient });
+
+    const tested = await service.testOptionalServiceConnection({ scope: 'buffer', values: { BUFFER_API_KEY: '' } });
+    assert.equal(tested.verification.status, 'connected');
+    assert.ok(tested.verification.checked_at);
+
+    const settings = await service.getOptionalServiceSettings();
+    assert.equal(settings.fields.BUFFER_CONNECTION_VERIFICATION.status, 'connected');
+    assert.equal(settings.fields.BUFFER_CONNECTION_VERIFICATION.trusted, true);
+    assert.equal(settings.fields.BUFFER_CONNECTION_VERIFICATION.checked_at, tested.verification.checked_at);
+
+    const verificationFile = path.join(path.dirname(configPath), 'connection_verification.json');
+    const persisted = fs.readFileSync(verificationFile, 'utf8');
+    assert.doesNotMatch(persisted, /stored-key/);
+    assert.match(persisted, /"status": "connected"/);
+
+    CONFIG.BUFFER_API_KEY = 'changed-key';
+    assert.equal((await service.getOptionalServiceSettings()).fields.BUFFER_CONNECTION_VERIFICATION, null);
 });
 
 test('Telegram optional connection test preserves staged corrective guidance', async () => {

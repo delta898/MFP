@@ -148,12 +148,17 @@ function createCardNewsPublishingService(options = {}) {
             default_text: buildDefaultPublishText(generation),
             card_count: cardCount,
             max_channels: MAX_CHANNELS,
+            buffer_api_key_configured: Boolean(String(CONFIG.BUFFER_API_KEY || '').trim()),
+            buffer_organization_configured: Boolean(String(CONFIG.BUFFER_ORGANIZATION_ID || '').trim()),
+            buffer_channels_configured: channels.length > 0,
             buffer_configured: Boolean(String(CONFIG.BUFFER_API_KEY || '').trim() && channels.length > 0),
             media_transport: mediaTransportAvailable() ? String(mediaTransport.transport || 'public_media') : '',
             url_shortening_configured: urlService?.isConfigured?.() === true,
             channels
         };
-        const ready = config.buffer_configured
+        const ready = config.buffer_api_key_configured
+            && config.buffer_organization_configured
+            && config.buffer_channels_configured
             && Boolean(config.media_transport)
             && channels.some((channel) => channel.compatible);
         if (ready && config.default_text) {

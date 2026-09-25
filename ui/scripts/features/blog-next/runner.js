@@ -389,11 +389,11 @@ function syncBlogNextExecutionStopButton() {
   button.disabled = disabled;
   button.textContent = stopRequested || aiStopRequested
     ? '중지 요청 중…'
-    : localStopUnavailable ? '중지할 수 없음'
+    : localStopUnavailable ? '마무리 중…'
       : confirming ? '중지 확인'
         : localPublish ? '포스팅 중지' : '생성 중지';
   button.classList.toggle('is-confirming', confirming);
-  button.setAttribute('aria-label', localStopUnavailable ? '중지할 수 없음'
+  button.setAttribute('aria-label', localStopUnavailable ? '최종 요청 처리 중. 외부 반영 여부가 불확실해 중지할 수 없습니다.'
     : confirming ? `${localPublish ? '포스팅' : '생성'} 중지를 확인합니다`
       : localPublish ? '네이버 포스팅 중지' : 'AI 생성 중지');
   if (note) {
