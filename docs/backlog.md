@@ -1,6 +1,6 @@
 # BlogGenius Backlog
 
-> 현행 기준: 2026-09-24 · 최신 릴리스: `v0.5.2`
+> 현행 기준: 2026-09-27 · 최신 릴리스: `v0.5.2`
 
 이 문서는 현재 실행 가능한 일감만 관리한다. 완료된 구현 과정은 `docs/plans/archive/`, 안정된 현재
 계약은 `docs/architecture/`, `docs/features/`, `docs/decisions/`를 따른다.
@@ -330,6 +330,14 @@
      기본적으로 생성하지 않고 일반 로그·UI에도 원문을 섞지 않는다.
    - API Key·인증 헤더 등 비밀값 제거, 파일 접근 권한·크기·보존 기간, 요청/응답 연결 ID와 생성 실패 시
      부분 응답 처리 기준을 정한 뒤 구현한다. 현재 AI 작업 취소 parent에서 별도 sub-feature 범위를 협의한다.
+
+15. Telegram bot library v2 전환 검토
+   - 현재 앱은 보안 업데이트로 `node-telegram-bot-api` v1.2.0을 사용한다. v1.2.0은 v1 계열 최신이지만
+     npm의 `latest`는 v2.1.0(2026-08-24 공개)이며 v2.2.0-rc2(2026-09-07)는 prerelease다.
+   - v2는 기존 `TelegramBot` 이벤트 API와 호환되지 않는 재설계이므로 즉시 올리지 않고 별도 FBR에서 migration
+     adapter 경계, 영향받는 호출과 lifecycle, callback/update 처리, polling 재시도·중단 동작을 먼저 설계한다.
+   - 대상을 안정판 v2.1.0으로 고정해 계약 테스트와 mock 기반 회귀를 추가하고, 설정·토큰·실제 원격 발송 없이
+     빌드·시작·수신·응답 경로를 검증한다. v2.2 prerelease는 안정판 검토 대상에 포함하지 않는다.
 
 ## P3 — 후순위 탐색
 

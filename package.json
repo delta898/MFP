@@ -15,6 +15,8 @@
     "test:ui-e2e": "node scripts/test-ui-e2e.js",
     "test:ui-browser": "node scripts/test-ui-browser-smoke.js",
     "test:chat-model": "node --test src/utils.chat-model.test.js src/ai-model-config.test.js src/capabilities/settings/chat-model.test.js src/social/sns-ai-service.test.js",
+    "test:security": "npm audit --audit-level=high",
+    "pretest:unit": "npm run test:security",
     "test:unit": "node scripts/run-unit-tests.js",
     "mcp:stdio": "node src/mcp/stdio-server.js",
     "mcp:http": "node src/mcp/http-server.js",
@@ -92,30 +94,26 @@
     "outputPath": "dist"
   },
   "dependencies": {
-    "@supabase/supabase-js": "2.113.0",
-    "axios": "^1.13.6",
+    "@supabase/supabase-js": "2.117.2",
+    "axios": "^1.20.0",
     "chalk": "^4.1.2",
-    "cheerio": "^1.0.0-rc.12",
+    "cheerio": "^1.2.0",
     "googleapis": "^171.4.0",
-    "marked": "^17.0.3",
-    "moment": "^2.30.1",
-    "moment-timezone": "^0.6.0",
+    "marked": "^17.0.6",
+    "moment": "^2.31.0",
+    "moment-timezone": "^0.6.4",
     "node-machine-id": "^1.1.12",
-    "node-telegram-bot-api": "^0.67.0",
-    "playwright": "1.44.0",
-    "sharp": "^0.34.5"
+    "node-telegram-bot-api": "^1.2.0",
+    "playwright": "1.63.0",
+    "sharp": "^0.35.4"
   },
   "engines": {
     "node": ">=24.0.0"
   },
   "author": "amadejjs",
   "license": "Commercial",
-  "//": "👇 [필수] 로컬 및 GitHub Actions 의존성 해석을 일관되게 유지",
-  "overrides": {
-    "undici": "6.19.2"
-  },
   "devDependencies": {
-    "@electron/packager": "^20.0.1",
-    "electron": "^44.2.0"
+    "@electron/packager": "^20.3.0",
+    "electron": "^44.4.5"
   }
 }

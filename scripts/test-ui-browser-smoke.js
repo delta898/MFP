@@ -1787,6 +1787,9 @@ async function run() {
             activateBlogNextManagementTab('automation');
         });
         await page.locator('#blog-next-automation-enabled').focus();
+        await page.keyboard.press('Shift+Tab');
+        await page.keyboard.press('Tab');
+        assert.equal(await page.evaluate(() => document.activeElement?.id), 'blog-next-automation-enabled');
         assert.equal(await page.locator('#blog-next-automation-enabled').evaluate((element) => {
             const style = getComputedStyle(element);
             return style.outlineStyle === 'none' && style.boxShadow !== 'none';

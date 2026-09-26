@@ -158,8 +158,8 @@ test('desktop Supabase client does not restore the deprecated node-fetch punycod
     const packageLock = readJson('package-lock.json');
     const supabasePackage = packageLock.packages['node_modules/@supabase/supabase-js'];
 
-    assert.equal(packageJson.dependencies['@supabase/supabase-js'], '2.113.0');
-    assert.equal(supabasePackage.version, '2.113.0');
+    assert.match(packageJson.dependencies['@supabase/supabase-js'], /^\d+\.\d+\.\d+$/);
+    assert.equal(supabasePackage.version, packageJson.dependencies['@supabase/supabase-js']);
     assert.equal(Object.hasOwn(supabasePackage.dependencies || {}, '@supabase/node-fetch'), false);
     assert.equal(Object.hasOwn(packageLock.packages, 'node_modules/@supabase/node-fetch'), false);
 });

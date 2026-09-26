@@ -1,4 +1,4 @@
-const TelegramBot = require('node-telegram-bot-api');
+const { TelegramBot } = require('node-telegram-bot-api');
 const CONFIG = require('./config-loader');
 const Logger = require('./logger');
 const fs = require('fs');
