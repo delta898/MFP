@@ -517,7 +517,7 @@ function createCardNewsGenerationService(options = {}) {
                 aspect_ratio: String(parsed.metadata?.settings?.aspect_ratio || '4:5'),
                 slide_count: parsed.images.length,
                 style: String(parsed.metadata?.settings?.style || 'imported'),
-                include_korean_text: parsed.metadata?.settings?.include_korean_text !== false,
+                include_korean_text: parsed.metadata?.settings?.include_korean_text === true,
                 additional_request: ''
             },
             variation: null,

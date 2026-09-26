@@ -2551,6 +2551,34 @@ async function run() {
         assert.equal(cardNewsGenerationLayout.fieldColumnCount, 3);
         assert.ok(cardNewsGenerationLayout.requestToChoiceRatio > 1.8 && cardNewsGenerationLayout.requestToChoiceRatio < 2.2);
         assert.equal(cardNewsGenerationLayout.sameRow, true);
+        const legacyKoreanPreference = await page.evaluate(() => {
+            const key = 'bloggenius.cardNews.generationSettings';
+            localStorage.setItem(key, JSON.stringify({ include_korean_text: true }));
+            restoreCardNewsGenerationSettings();
+            const previouslyIncluded = {
+                checked: document.getElementById('card-news-exclude-korean-text').checked,
+                includeKoreanText: readCardNewsGenerationSettings().include_korean_text
+            };
+            localStorage.setItem(key, JSON.stringify({ include_korean_text: false }));
+            restoreCardNewsGenerationSettings();
+            const previouslyExcluded = {
+                checked: document.getElementById('card-news-exclude-korean-text').checked,
+                includeKoreanText: readCardNewsGenerationSettings().include_korean_text
+            };
+            localStorage.removeItem(key);
+            restoreCardNewsGenerationSettings();
+            return { previouslyIncluded, previouslyExcluded };
+        });
+        assert.deepEqual(legacyKoreanPreference, {
+            previouslyIncluded: { checked: false, includeKoreanText: true },
+            previouslyExcluded: { checked: true, includeKoreanText: false }
+        });
+        await page.locator('#card-news-exclude-korean-text').uncheck();
+        assert.equal(await page.evaluate(() => readCardNewsGenerationSettings().include_korean_text), true);
+        assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('bloggenius.cardNews.generationSettings')).include_korean_text), true);
+        await page.locator('#card-news-exclude-korean-text').check();
+        assert.equal(await page.evaluate(() => readCardNewsGenerationSettings().include_korean_text), false);
+        assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('bloggenius.cardNews.generationSettings')).include_korean_text), false);
         await page.evaluate(() => {
             renderCardNewsGeneration({
                 id: 'ui-smoke-prompt-result',

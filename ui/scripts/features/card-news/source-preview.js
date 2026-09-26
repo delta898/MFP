@@ -505,7 +505,7 @@ function readCardNewsGenerationSettings() {
     slide_count: Number.parseInt(document.getElementById('card-news-slide-count')?.value || '5', 10),
     aspect_ratio: document.getElementById('card-news-aspect-ratio')?.value || '4:5',
     style: document.getElementById('card-news-style')?.value || 'ai_recommended',
-    include_korean_text: Boolean(document.getElementById('card-news-include-korean-text')?.checked),
+    include_korean_text: !Boolean(document.getElementById('card-news-exclude-korean-text')?.checked),
     additional_request: document.getElementById('card-news-additional-request')?.value?.trim() || ''
   };
 }
@@ -529,8 +529,8 @@ function restoreCardNewsGenerationSettings() {
     const field = document.getElementById(id);
     if (field && [...field.options].some((option) => option.value === value)) field.value = value;
   });
-  const koreanText = document.getElementById('card-news-include-korean-text');
-  if (koreanText && typeof saved.include_korean_text === 'boolean') koreanText.checked = saved.include_korean_text;
+  const excludeKoreanText = document.getElementById('card-news-exclude-korean-text');
+  if (excludeKoreanText && typeof saved.include_korean_text === 'boolean') excludeKoreanText.checked = !saved.include_korean_text;
   const additionalRequest = document.getElementById('card-news-additional-request');
   if (additionalRequest && typeof saved.additional_request === 'string') additionalRequest.value = saved.additional_request.slice(0, 500);
 }
@@ -947,7 +947,7 @@ function bindCardNewsView() {
     saveCardNewsSignatureEnabled();
     refreshCardNewsSignaturePreview();
   });
-  ['card-news-slide-count', 'card-news-aspect-ratio', 'card-news-style', 'card-news-include-korean-text'].forEach((id) => {
+  ['card-news-slide-count', 'card-news-aspect-ratio', 'card-news-style', 'card-news-exclude-korean-text'].forEach((id) => {
     document.getElementById(id)?.addEventListener('change', handleCardNewsGenerationSettingChange);
   });
   document.getElementById('card-news-additional-request')?.addEventListener('input', handleCardNewsGenerationSettingChange);

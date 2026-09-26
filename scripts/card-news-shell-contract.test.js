@@ -108,10 +108,14 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(html, /id="card-news-slide-count"/);
     assert.match(html, /id="card-news-aspect-ratio"/);
     assert.match(html, /id="card-news-style"/);
-    assert.match(html, /id="card-news-include-korean-text"/);
+    assert.match(html, /id="card-news-exclude-korean-text" type="checkbox" checked/);
+    assert.match(html, /이미지에 한글 사용 안 함/);
+    assert.match(html, /체크하면 한글만 제외합니다\. 영어 등 다른 문자는 장면에 어울릴 때 사용할 수 있습니다\./);
     assert.match(html, /id="card-news-additional-request"[^>]*maxlength="500"/);
     assert.match(html, /class="card-news-generation-field-grid ui-workflow-field-grid"[\s\S]*id="card-news-slide-count"[\s\S]*id="card-news-aspect-ratio"[\s\S]*id="card-news-style"/);
-    assert.match(html, /class="card-news-generation-detail-grid ui-workflow-detail-grid"[\s\S]*id="card-news-additional-request"[\s\S]*class="card-news-text-option ui-inline-choice"[\s\S]*id="card-news-include-korean-text"/);
+    assert.match(html, /class="card-news-generation-detail-grid ui-workflow-detail-grid"[\s\S]*id="card-news-additional-request"[\s\S]*class="card-news-text-option ui-inline-choice"[\s\S]*id="card-news-exclude-korean-text"/);
+    assert.match(script, /include_korean_text:\s*!Boolean\(document\.getElementById\('card-news-exclude-korean-text'\)\?\.checked\)/);
+    assert.match(script, /excludeKoreanText\.checked = !saved\.include_korean_text/);
     assert.match(html, /필요한 것만 고르세요\. 글쓰기 AI가 카드 구성을 만들고 이미지 AI가 각 카드를 제작합니다\./);
     assert.doesNotMatch(html, /card-news-model-role-note|ui-workflow-role-note|aria-label="사용 AI 역할"/);
     assert.match(html, /class="card-news-result-heading ui-workflow-heading">[\s\S]*id="card-news-generation-status" class="card-news-generation-status ui-workflow-feedback ui-loading-indicator" role="status" aria-live="polite" hidden[\s\S]*<\/div>\s*<div class="card-news-result-controls">[\s\S]*<div class="card-news-result-actions">/);
