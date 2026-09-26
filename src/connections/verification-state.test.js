@@ -71,9 +71,25 @@ test('reset clears memory and the state file', () => {
     const store = freshModule();
     store.configureConnectionVerificationState({ fs, path, filePath });
     store.recordWordPressVerification(CONFIG, { success: true, connected: true });
-    store.resetConnectionVerificationState();
+    store.resetConnectionVerificationState({ filePath });
     assert.equal(store.getWordPressVerification(CONFIG), null);
     assert.deepEqual(JSON.parse(fs.readFileSync(filePath, 'utf8')), {});
+});
+
+test('reset without an explicit isolated file never deletes persisted verification', () => {
+    const filePath = tempFile();
+    let store = freshModule();
+    store.configureConnectionVerificationState({ fs, path, filePath });
+    store.recordWordPressVerification(CONFIG, { success: true, connected: true });
+    const persistedBeforeReset = fs.readFileSync(filePath, 'utf8');
+
+    store.resetConnectionVerificationState();
+
+    assert.equal(store.getWordPressVerification(CONFIG), null);
+    assert.equal(fs.readFileSync(filePath, 'utf8'), persistedBeforeReset);
+    store = freshModule();
+    store.configureConnectionVerificationState({ fs, path, filePath });
+    assert.equal(store.getWordPressVerification(CONFIG).status, 'connected');
 });
 
 test('generic kinds persist with trust windows', () => {

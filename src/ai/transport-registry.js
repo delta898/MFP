@@ -9,7 +9,8 @@ const TRANSPORTS = Object.freeze({
         id: 'gemini_generate_content',
         providers: Object.freeze(['google']),
         kinds: Object.freeze(['text', 'image']),
-        base_url: ''
+        base_url: 'https://generativelanguage.googleapis.com/v1beta',
+        endpoint_mode: 'fixed'
     }),
     openai_chat_completions: Object.freeze({
         id: 'openai_chat_completions',
@@ -27,19 +28,22 @@ const TRANSPORTS = Object.freeze({
         id: 'kie_openai_chat',
         providers: Object.freeze(['kie']),
         kinds: Object.freeze(['text']),
-        base_url: KIE_BASE_URL
+        base_url: KIE_BASE_URL,
+        verification_scope: 'provider'
     }),
     kie_responses: Object.freeze({
         id: 'kie_responses',
         providers: Object.freeze(['kie']),
         kinds: Object.freeze(['text']),
-        base_url: KIE_BASE_URL
+        base_url: KIE_BASE_URL,
+        verification_scope: 'provider'
     }),
     kie_market_image_jobs: Object.freeze({
         id: 'kie_market_image_jobs',
         providers: Object.freeze(['kie']),
         kinds: Object.freeze(['image']),
         base_url: KIE_BASE_URL,
+        verification_scope: 'provider',
         model_ids: Object.freeze([
             'gpt-image-2-5-sunburst-text-to-image',
             'gpt-image-2-5-flare-text-to-image',
@@ -72,6 +76,18 @@ function isSupportedTransportRoute({ kind, provider, transport } = {}) {
 
 function getTransportBaseUrl(transport) {
     return String(getTransportDefinition(transport)?.base_url || '').trim();
+}
+
+function getTransportVerificationScope(transport) {
+    return String(getTransportDefinition(transport)?.verification_scope || 'model').trim();
+}
+
+function getCanonicalTransportEndpoint(transport, configuredBaseUrl = '') {
+    const definition = getTransportDefinition(transport);
+    if (definition?.endpoint_mode === 'fixed') {
+        return String(definition.base_url || '').trim().replace(/\/+$/, '');
+    }
+    return String(configuredBaseUrl || '').trim().replace(/\/+$/, '');
 }
 
 function isSupportedTransportModel(transport, modelCode) {
@@ -108,6 +124,8 @@ module.exports = {
     TRANSPORTS,
     getTransportDefinition,
     getTransportBaseUrl,
+    getTransportVerificationScope,
+    getCanonicalTransportEndpoint,
     inferTransport,
     isSupportedProviderKind,
     isSupportedTransportModel,

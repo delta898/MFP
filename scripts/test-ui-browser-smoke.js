@@ -401,6 +401,28 @@ function getApiFixture(pathname) {
     if (pathname === '/api/v1/social/manual/config') {
         return { configured: false, local_media_available: true, channels: [], ai: { available: false, model_name: '' } };
     }
+    if (pathname === '/api/v1/card-news/image-models') {
+        return {
+            default: { provider: 'direct', code: 'fixture-image', name: 'Fixture Image', configured: true },
+            providers: [
+                {
+                    provider: 'google',
+                    name: 'Google',
+                    models: [{ provider: 'google', code: 'gemini-3.1-flash-image', name: 'Gemini Image', identity: 'google:gemini-3.1-flash-image' }]
+                },
+                {
+                    provider: 'openai',
+                    name: 'OpenAI',
+                    models: [{ provider: 'openai', code: 'gpt-image-1', name: 'GPT Image', identity: 'openai:gpt-image-1' }]
+                },
+                {
+                    provider: 'kie',
+                    name: 'KIE.ai',
+                    models: [{ provider: 'kie', code: 'nano-banana-pro', name: 'Nano Banana Pro', identity: 'kie:nano-banana-pro' }]
+                }
+            ]
+        };
+    }
     if (pathname === '/api/v1/settings/major') {
         return {
             configPath: 'fixture/config.json',
@@ -2436,6 +2458,83 @@ async function run() {
         assert.equal(await page.locator('.card-news-managed-error').count(), 0);
         await page.unroute('**/api/v1/card-news/generations/generation-old');
         await page.locator('#card-news-generation-panel').evaluate((element) => { element.hidden = false; });
+        await page.waitForFunction(() => !cardNewsViewState.imageModelChoiceLoading && Boolean(cardNewsViewState.imageModels));
+        assert.equal(await page.locator('#card-news-image-model-control').evaluate((element) => element.parentElement?.id), 'card-news-generation-image-model-slot');
+        assert.equal(await page.locator('#card-news-image-model-control-result').evaluate((element) => element.parentElement?.id), 'card-news-result-image-model-slot');
+        assert.equal(await page.locator('#card-news-image-model-control').getAttribute('open'), null);
+        assert.match(await page.locator('#card-news-image-model-summary').textContent(), /기본/);
+        await page.evaluate(() => {
+            const panel = document.getElementById('card-news-result-panel');
+            panel.hidden = true;
+            syncCardNewsImageModelControlLocation();
+        });
+        assert.equal(await page.locator('#card-news-image-model-control').evaluate((element) => element.parentElement?.id), 'card-news-generation-image-model-slot');
+        assert.equal(await page.locator('#card-news-image-model-control-result').evaluate((element) => element.parentElement?.id), 'card-news-result-image-model-slot');
+        await page.evaluate(() => {
+            const panel = document.getElementById('card-news-result-panel');
+            panel.hidden = false;
+            syncCardNewsImageModelControlLocation();
+        });
+        const resultActionColumns = await page.evaluate(() => {
+            const modelSlot = document.getElementById('card-news-result-image-model-slot').getBoundingClientRect();
+            const model = document.getElementById('card-news-image-model-control-result').getBoundingClientRect();
+            const buttons = document.querySelector('.card-news-result-button-group').getBoundingClientRect();
+            const actionGrid = document.querySelector('.card-news-result-actions').getBoundingClientRect();
+            const spacer = document.querySelector('.card-news-result-header-spacer').getBoundingClientRect();
+            const signature = document.querySelector('.card-news-result-actions .card-news-signature-field').getBoundingClientRect();
+            const generationSlot = document.getElementById('card-news-generation-image-model-slot').getBoundingClientRect();
+            const generationModel = document.getElementById('card-news-image-model-control').getBoundingClientRect();
+            const generationButtons = document.querySelector('.card-news-generation-buttons').getBoundingClientRect();
+            const generationActions = document.querySelector('.card-news-generation-actions').getBoundingClientRect();
+            return {
+                modelLeft: model.left, modelSlotLeft: modelSlot.left, buttonsRight: buttons.right, actionGridRight: actionGrid.right,
+                signatureLeft: signature.left, signatureWidth: signature.width,
+                signatureTop: signature.top, spacerTop: spacer.top, modelTop: model.top, buttonsTop: buttons.top,
+                generationModelLeft: generationModel.left, generationSlotLeft: generationSlot.left,
+                generationButtonsRight: generationButtons.right, generationActionsRight: generationActions.right
+            };
+        });
+        assert.ok(Math.abs(resultActionColumns.modelLeft - resultActionColumns.modelSlotLeft) < 2);
+        assert.ok(Math.abs(resultActionColumns.buttonsRight - resultActionColumns.actionGridRight) < 2);
+        assert.ok(Math.abs(resultActionColumns.signatureLeft - resultActionColumns.modelLeft) < 2);
+        assert.ok(resultActionColumns.signatureWidth <= 362);
+        assert.ok(Math.abs(resultActionColumns.signatureTop - resultActionColumns.spacerTop) < 2);
+        assert.ok(resultActionColumns.modelTop > resultActionColumns.signatureTop);
+        assert.ok(Math.abs(resultActionColumns.modelTop - resultActionColumns.buttonsTop) < 2);
+        assert.ok(Math.abs(resultActionColumns.generationModelLeft - resultActionColumns.generationSlotLeft) < 2);
+        assert.ok(Math.abs(resultActionColumns.generationButtonsRight - resultActionColumns.generationActionsRight) < 2);
+        await page.locator('#card-news-image-model-control-result > summary').click();
+        await page.locator('#card-news-result-title').click();
+        assert.equal(await page.locator('#card-news-image-model-control-result').evaluate((element) => element.open), false);
+        await page.locator('#card-news-image-model-control-result > summary').click();
+        await page.keyboard.press('Escape');
+        assert.equal(await page.locator('#card-news-image-model-control-result').evaluate((element) => element.open), false);
+        await page.locator('#card-news-image-model-control-result > summary').click();
+        const resultModelOverlay = await page.evaluate(() => {
+            const control = document.getElementById('card-news-image-model-control-result').getBoundingClientRect();
+            const summary = document.querySelector('#card-news-image-model-control-result > summary').getBoundingClientRect();
+            const fields = document.querySelector('#card-news-image-model-control-result .card-news-image-model-fields').getBoundingClientRect();
+            return { controlHeight: control.height, summaryHeight: summary.height, fieldsTop: fields.top, summaryTop: summary.top };
+        });
+        assert.ok(Math.abs(resultModelOverlay.controlHeight - resultModelOverlay.summaryHeight) < 1);
+        assert.ok(resultModelOverlay.fieldsTop < resultModelOverlay.summaryTop);
+        assert.ok(await page.locator('#card-news-bulk-image-action').evaluate((button) => button.getBoundingClientRect().height < 60));
+        assert.deepEqual(
+            await page.locator('#card-news-image-provider-select-result option').evaluateAll((options) => options.map((option) => option.value)),
+            ['', 'google', 'openai', 'kie']
+        );
+        await page.locator('#card-news-image-provider-select-result').selectOption('google');
+        assert.equal(await page.locator('#card-news-image-model-select-result').inputValue(), 'gemini-3.1-flash-image');
+        assert.equal(await page.locator('#card-news-image-provider-select').inputValue(), 'google');
+        assert.equal(await page.locator('#card-news-image-model-select').inputValue(), 'gemini-3.1-flash-image');
+        await page.locator('#card-news-image-provider-select-result').selectOption('openai');
+        await page.locator('#card-news-image-model-select-result').selectOption('gpt-image-1');
+        assert.equal(await page.locator('#card-news-image-provider-select').inputValue(), 'openai');
+        assert.equal(await page.locator('#card-news-image-model-select').inputValue(), 'gpt-image-1');
+        assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('bloggenius.cardNews.imageModelSelection'))), {
+            provider: 'openai', code: 'gpt-image-1'
+        });
+        assert.equal(await page.locator('#card-news-image-provider-select').inputValue(), 'openai');
         const cardNewsGenerationLayout = await page.evaluate(() => {
             const fieldGrid = document.querySelector('.card-news-generation-field-grid');
             const request = document.getElementById('card-news-additional-request');
@@ -2526,12 +2625,14 @@ async function run() {
             }))
         });
         let compositionOperationStarts = 0;
+        const cardNewsImageModelSelections = [];
         const compositionOperationPolls = new Map();
         const canceledCompositionOperations = new Set();
         await page.route(/\/api\/v1\/card-news\/composition-operations(?:\/[^/]+(?:\/cancel)?)?$/, async (route) => {
             const request = route.request();
             const pathname = new URL(request.url()).pathname;
             if (request.method() === 'POST' && pathname === '/api/v1/card-news/composition-operations') {
+                cardNewsImageModelSelections.push(request.postDataJSON()?.image_model_selection || null);
                 compositionOperationStarts += 1;
                 const operationId = `ui-smoke-composition-op-${compositionOperationStarts}`;
                 compositionOperationPolls.set(operationId, 0);
@@ -2589,6 +2690,7 @@ async function run() {
             const request = route.request();
             const pathname = new URL(request.url()).pathname;
             if (request.method() === 'POST' && pathname === '/api/v1/card-news/image-operations') {
+                cardNewsImageModelSelections.push(request.postDataJSON()?.image_model_selection || null);
                 operationStarts += 1;
                 const operationId = `ui-smoke-image-op-${operationStarts}`;
                 operationPolls.set(operationId, 0);
@@ -2656,6 +2758,10 @@ async function run() {
         reportSmokePhase('Checking Card News composition/image generation and stop controls');
         await page.locator('#card-news-compose-button').click();
         await page.waitForFunction(() => document.getElementById('card-news-compose-button')?.textContent === '중지');
+        assert.equal(await page.locator('#card-news-regenerate').isVisible(), true);
+        assert.equal(await page.locator('#card-news-regenerate').isDisabled(), true);
+        assert.equal(await page.locator('#card-news-bulk-image-action').isVisible(), true);
+        assert.equal(await page.locator('#card-news-bulk-image-action').isDisabled(), true);
         assert.equal(await page.locator('#card-news-generation-status').evaluate((status) => status.parentElement?.classList.contains('card-news-result-heading')), true);
         assert.equal(await page.locator('#card-news-generation-status').isVisible(), true);
         assert.equal(await page.locator('#card-news-generation-status').evaluate((status) => status.parentElement?.parentElement?.id === 'card-news-generation-panel'), false);
@@ -2673,7 +2779,7 @@ async function run() {
         assert.ok(Math.abs(compositionStopLayout.stopTop - compositionStopLayout.continueTop) < 24);
         await page.locator('#card-news-image-continue').click();
         assert.equal(await page.locator('#card-news-image-continue').isVisible(), false);
-        assert.equal(await page.locator('#card-news-image-continue').evaluate((button) => button.parentElement?.classList.contains('card-news-result-actions')), true);
+        assert.equal(await page.locator('#card-news-image-continue').evaluate((button) => button.parentElement?.classList.contains('card-news-result-image-actions')), true);
         await page.locator('#card-news-compose-button').click();
         await page.waitForFunction(() => document.getElementById('card-news-compose-button')?.textContent === '중지 확인');
         await page.locator('#card-news-compose-button').click();
@@ -2685,6 +2791,11 @@ async function run() {
         await page.waitForFunction(() => document.querySelector('.card-news-result-copy > strong')?.textContent === '1번째 점진 카드');
         await page.waitForFunction(() => Boolean(document.querySelector('[data-card-news-result-index="1"] img'))
             && !document.querySelector('[data-card-news-result-index="2"] [data-card-news-image-working]').hidden);
+        assert.ok(cardNewsImageModelSelections.some((selection) => selection?.provider === 'openai' && selection?.code === 'gpt-image-1'));
+        assert.equal(await page.locator('#card-news-image-model-control').evaluate((element) => element.parentElement?.id), 'card-news-generation-image-model-slot');
+        assert.equal(await page.locator('#card-news-image-model-control-result').evaluate((element) => element.parentElement?.id), 'card-news-result-image-model-slot');
+        assert.ok(await page.locator('#card-news-bulk-image-action').evaluate((button) => button.getBoundingClientRect().height < 60));
+        assert.match(await page.locator('#card-news-image-model-summary').textContent(), /OpenAI.*GPT Image/);
         assert.equal(await page.locator('#card-news-generation-status').textContent().then((text) => /이미지/.test(text)), true);
         await page.waitForFunction(() => document.querySelectorAll('.card-news-result-item img').length === 2);
         await page.waitForFunction(() => !cardNewsViewState.generating);

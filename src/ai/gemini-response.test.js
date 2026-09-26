@@ -5,7 +5,8 @@ const {
     extractGeminiText,
     resolveGeminiThinkingConfig,
     resolveGeminiEndpointFromConfig,
-    describeGeminiEndpoint
+    describeGeminiEndpoint,
+    GEMINI_API_BASE_URL
 } = require('./gemini-response');
 
 test('Gemini response joins every visible text part', () => {
@@ -62,6 +63,7 @@ test('Gemini thinking policy promotes unsupported minimal effort to the nearest 
 
 test('Gemini endpoint ignores user-supplied base URLs for code-owned providers', () => {
     const fixed = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent';
+    assert.equal(GEMINI_API_BASE_URL, 'https://generativelanguage.googleapis.com/v1beta');
     assert.equal(
         resolveGeminiEndpointFromConfig({ provider: 'google', baseUrl: 'https://attacker.example/v1', code: 'gemini-3-flash' }),
         fixed

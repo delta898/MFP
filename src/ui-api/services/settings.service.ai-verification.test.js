@@ -16,8 +16,8 @@ const TEXT_CONFIG = { provider: 'openai', code: 'gpt-5.6-terra', name: 'GPT-5.6 
 
 function configureStore() {
     const filePath = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ai-verify-')), 'connection_verification.json');
-    resetConnectionVerificationState();
     configureConnectionVerificationState({ fs, path, filePath });
+    resetConnectionVerificationState({ filePath });
     return filePath;
 }
 

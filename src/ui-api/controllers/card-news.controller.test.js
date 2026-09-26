@@ -51,6 +51,16 @@ test('creates a generation through the controller', async () => {
     assert.deepEqual(responses[0], { kind: 'success', data: { generation: { id: 'set-1' } }, status: 201 });
 });
 
+test('returns safe configured image model choices through the controller', async () => {
+    const { controller, responses } = createHarness({ service: {
+        listImageModels() {
+            return { default: { provider: 'google', code: 'image-1', name: 'Image One' }, providers: [] };
+        }
+    } });
+    await controller.imageModels({ requestId: 'req-image-models', method: 'GET', res: {} });
+    assert.deepEqual(responses[0].data.default, { provider: 'google', code: 'image-1', name: 'Image One' });
+});
+
 test('lists managed card news and reloads one local result', async () => {
     const { controller, responses } = createHarness();
     await controller.managed({ requestId: 'req-managed', method: 'GET', res: {} });

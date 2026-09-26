@@ -1,6 +1,15 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { createCardNewsService, CARD_NEWS_SOURCE_LIMIT, isConfiguredAiModel } = require('./card-news.service');
+const {
+    configureConnectionVerificationState,
+    recordConnectionVerification,
+    resetConnectionVerificationState
+} = require('../../connections/verification-state');
+const { createAiModelVerificationSignature } = require('../../ai/model-verification');
 
 function createHarness(overrides = {}) {
     const saved = [];
@@ -407,6 +416,140 @@ test('delegates AI image work and local image import through the card-news bound
     assert.equal(generated.generation.input.mode, 'missing');
     const imported = await service.importLocalImage({ generation_id: 'generation-1', card_index: 2 });
     assert.equal(imported.generation.input.card_index, 2);
+});
+
+test('lists only configured, verified image profiles without exposing credentials', () => {
+    const { service } = createHarness({
+        CONFIG: {
+            IMAGE_MODEL_CONFIG: { provider: 'google', code: 'image-model', name: 'Default image', api_key: 'test-key' },
+            AI_MODEL_PROFILES: { image: {
+                google: { provider: 'google', code: 'image-model', name: 'Default image', api_key: 'test-key' },
+                openai: { provider: 'openai', code: 'gpt-image-1', name: 'GPT Image', api_key: '' },
+                kie: { provider: 'kie', code: 'seedream', name: 'Seedream', api_key: 'kie-key' }
+            } }
+        },
+        isImageModelVerified: (model) => model.provider !== 'kie'
+    });
+    const result = service.listImageModels();
+    assert.deepEqual(result.providers.map(({ provider }) => provider), ['google']);
+    assert.ok(result.providers[0].models.length > 1);
+    assert.ok(result.providers[0].models.some(({ code }) => code === 'gemini-3.1-flash-image'));
+    assert.equal(JSON.stringify(result).includes('test-key'), false);
+    assert.equal(JSON.stringify(result).includes('kie-key'), false);
+});
+
+test('lists a Google image provider verified with its fixed endpoint when the saved profile omits Base URL', () => {
+    const filePath = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-model-verification-')), 'connection_verification.json');
+    configureConnectionVerificationState({ fs, path, filePath });
+    resetConnectionVerificationState({ filePath });
+    const google = {
+        provider: 'google',
+        code: 'gemini-3.1-flash-image',
+        name: 'Gemini 3.1 Flash Image',
+        api_key: 'fixture-google-key',
+        base_url: ''
+    };
+    const signature = createAiModelVerificationSignature('image', {
+        ...google,
+        base_url: 'https://generativelanguage.googleapis.com/v1beta'
+    });
+    recordConnectionVerification('ai-role', signature, { success: true, connected: true }, {
+        scope: 'image',
+        provider: 'google',
+        code: google.code,
+        base_url: 'https://generativelanguage.googleapis.com/v1beta'
+    });
+
+    const { service } = createHarness({
+        CONFIG: {
+            IMAGE_MODEL_CONFIG: { ...google },
+            AI_MODEL_PROFILES: { image: { google } }
+        }
+    });
+
+    assert.deepEqual(service.listImageModels().providers.map(({ provider }) => provider), ['google']);
+});
+
+test('uses the explicitly selected verified model for subsequent Card News image generation', async () => {
+    let received;
+    const { service } = createHarness({
+        CONFIG: {
+            IMAGE_MODEL_CONFIG: { provider: 'google', code: 'image-model', api_key: 'default-key' },
+            AI_MODEL_PROFILES: { image: {
+                google: { provider: 'google', code: 'image-model', api_key: 'default-key' },
+                openai: { provider: 'openai', code: 'gpt-image-1', api_key: 'other-key' }
+            } }
+        },
+        isImageModelVerified: (model) => model.provider === 'openai',
+        generationService: {
+            async generateImages(input) { received = input; return { id: 'generation-1', status: 'completed' }; },
+            getGeneration() { return { id: 'generation-1', title: '제목' }; }
+        }
+    });
+    await service.generateImages({
+        generation_id: 'generation-1',
+        image_model_selection: { provider: 'openai', code: 'gpt-image-1' }
+    });
+    assert.equal(received.imageModelConfig.provider, 'openai');
+    assert.equal(received.imageModelConfig.api_key, 'other-key');
+});
+
+test('lists the selected provider image catalog and applies a different model with the saved provider key', async () => {
+    let received;
+    const { service } = createHarness({
+        CONFIG: {
+            IMAGE_MODEL_CONFIG: { provider: 'openai', code: 'gpt-image-2.5-sunburst', api_key: 'openai-key' },
+            AI_MODEL_PROFILES: { image: {
+                openai: { provider: 'openai', code: 'gpt-image-2.5-sunburst', api_key: 'openai-key' }
+            } }
+        },
+        isImageModelVerified: (profile) => profile.provider === 'openai',
+        generationService: {
+            async generateImages(input) { received = input; return { id: 'generation-1', status: 'completed' }; },
+            getGeneration() { return { id: 'generation-1', title: '제목' }; }
+        }
+    });
+    const listing = service.listImageModels();
+    assert.ok(listing.providers.find((item) => item.provider === 'openai').models.length >= 2);
+    await service.generateImages({
+        generation_id: 'generation-1',
+        image_model_selection: { provider: 'openai', code: 'gpt-image-2.5-flare' }
+    });
+    assert.equal(received.imageModelConfig.provider, 'openai');
+    assert.equal(received.imageModelConfig.code, 'gpt-image-2.5-flare');
+    assert.equal(received.imageModelConfig.api_key, 'openai-key');
+});
+
+test('rejects an explicit Card News model selection when its connection is not verified', async () => {
+    const { service } = createHarness({
+        CONFIG: {
+            IMAGE_MODEL_CONFIG: { provider: 'google', code: 'image-model', api_key: 'default-key' },
+            AI_MODEL_PROFILES: { image: {
+                openai: { provider: 'openai', code: 'gpt-image-1', api_key: 'other-key' }
+            } }
+        },
+        isImageModelVerified: () => false
+    });
+    await assert.rejects(
+        service.generateImages({ generation_id: 'generation-1', image_model_selection: { provider: 'openai', code: 'gpt-image-1' } }),
+        (error) => error.code === 'CARD_NEWS_IMAGE_MODEL_UNVERIFIED'
+    );
+});
+
+test('rejects an explicit profile selection when its API key is not configured', async () => {
+    const { service } = createHarness({
+        CONFIG: {
+            IMAGE_MODEL_CONFIG: { provider: 'google', code: 'image-model', api_key: 'default-key' },
+            AI_MODEL_PROFILES: { image: {
+                openai: { provider: 'openai', code: 'gpt-image-1', api_key: '' }
+            } }
+        },
+        isImageModelVerified: () => true
+    });
+    await assert.rejects(
+        service.generateImages({ generation_id: 'generation-1', image_model_selection: { provider: 'openai', code: 'gpt-image-1' } }),
+        (error) => error.code === 'CARD_NEWS_IMAGE_MODEL_UNAVAILABLE'
+    );
 });
 
 test('previews and imports a ZIP without requiring an AI model', async () => {

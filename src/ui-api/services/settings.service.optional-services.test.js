@@ -19,8 +19,9 @@ function createHarness(initial = {}, overrides = {}) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'settings-optional-services-'));
     const configPath = path.join(dir, 'config.json');
     fs.writeFileSync(configPath, JSON.stringify(initial, null, 2));
-    configureConnectionVerificationState({ fs, path, filePath: path.join(dir, 'connection_verification.json') });
-    resetConnectionVerificationState();
+    const verificationFilePath = path.join(dir, 'connection_verification.json');
+    configureConnectionVerificationState({ fs, path, filePath: verificationFilePath });
+    resetConnectionVerificationState({ filePath: verificationFilePath });
     const CONFIG = {
         CONFIG_DIR: dir,
         BUFFER_API_KEY: initial.integrations?.buffer?.api_key || '',

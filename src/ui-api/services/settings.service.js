@@ -44,6 +44,7 @@ const {
     listConnectionVerifications,
     isVerificationTrusted
 } = require('../../connections/verification-state');
+const { createAiModelVerificationSignature } = require('../../ai/model-verification');
 const {
     createWritingProfileRepository,
     applyWritingProfileRuntimeAliases
@@ -310,21 +311,7 @@ function applyCoreConnectionSettings(structuredConfig = {}, normalized = {}) {
 }
 
 function aiVerificationSignature(scope, modelConfig = {}) {
-    const provider = String(modelConfig?.provider || '').trim();
-    // KIE checks the account credit, not a specific model: trust is provider-level.
-    if (provider === 'kie') {
-        const parts = [String(scope || '').trim(), provider];
-        if (String(modelConfig?.api_key || '').trim()) parts.push(String(modelConfig.api_key).trim());
-        return createConnectionSignature(parts);
-    }
-    const parts = [
-        String(scope || '').trim(),
-        provider,
-        String(modelConfig?.code || '').trim()
-    ];
-    if (String(modelConfig?.api_key || '').trim()) parts.push(String(modelConfig.api_key).trim());
-    if (String(modelConfig?.base_url || '').trim()) parts.push(String(modelConfig.base_url).trim());
-    return createConnectionSignature(parts);
+    return createAiModelVerificationSignature(scope, modelConfig);
 }
 
 function aiRoleVerification(scope, modelConfig = {}) {

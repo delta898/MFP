@@ -3,6 +3,7 @@ function createCardNewsRouteHandler(deps = {}) {
 
     return async function tryHandleCardNewsRoute(ctx = {}) {
         const handlers = {
+            '/api/v1/card-news/image-models': controller.imageModels,
             '/api/v1/card-news/sources': controller.sources,
             '/api/v1/card-news/managed': controller.managed,
             '/api/v1/card-news/signature-policy': controller.signaturePolicy,

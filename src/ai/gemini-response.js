@@ -15,6 +15,7 @@ function extractGeminiText(data = {}) {
 }
 
 const GEMINI_THINKING_EFFORTS = Object.freeze(['minimal', 'low', 'medium', 'high']);
+const { getTransportBaseUrl } = require('./transport-registry');
 
 function resolveGeminiThinkingConfig(modelCode, reasoningEffort, capabilities = {}) {
     const model = String(modelCode || '').trim().toLowerCase();
@@ -42,7 +43,7 @@ function resolveGeminiThinkingConfig(modelCode, reasoningEffort, capabilities = 
     return resolvedLevel ? { thinkingLevel: resolvedLevel } : null;
 }
 
-const GEMINI_API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
+const GEMINI_API_BASE_URL = getTransportBaseUrl('gemini_generate_content');
 
 // Code-owned transports must never send keys to user-supplied URLs: only the
 // direct provider may use a custom base URL. All other callers resolve to the

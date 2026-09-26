@@ -192,9 +192,34 @@
             </div>
           </div>
           <div class="card-news-generation-actions">
+            <div id="card-news-generation-image-model-slot" class="card-news-image-model-slot">
+              <details id="card-news-image-model-control" class="card-news-image-model-control" data-card-news-image-model-control>
+                <summary>
+                  <span>이미지 모델</span>
+                  <strong id="card-news-image-model-summary" data-card-news-image-model-summary>기본 설정</strong>
+                </summary>
+                <div class="card-news-image-model-fields">
+                  <label>
+                    <span>공급자</span>
+                    <span class="ui-select-shell"><select id="card-news-image-provider-select" data-card-news-image-provider-select aria-describedby="card-news-image-model-note">
+                      <option value="">기본 설정</option>
+                    </select></span>
+                  </label>
+                  <label>
+                    <span>모델</span>
+                    <span class="ui-select-shell"><select id="card-news-image-model-select" data-card-news-image-model-select aria-describedby="card-news-image-model-note" disabled>
+                      <option value="">기본 이미지 모델</option>
+                    </select></span>
+                  </label>
+                  <small id="card-news-image-model-note" data-card-news-image-model-note>현재 설정의 이미지 모델을 사용합니다.</small>
+                </div>
+              </details>
+            </div>
             <div class="card-news-generation-buttons">
               <button id="card-news-compose-button" class="secondary ui-loading-action" type="button">카드 구성만 만들기</button>
-              <button id="card-news-generate-button" class="primary ui-loading-action" type="button">이미지까지 만들기</button>
+              <div id="card-news-generation-image-action-group" class="card-news-image-action-group">
+                <button id="card-news-generate-button" class="primary ui-loading-action" type="button">이미지까지 만들기</button>
+              </div>
             </div>
           </div>
         </section>
@@ -212,25 +237,31 @@
             </span>
           </div>
           <div class="card-news-result-controls">
-            <section class="card-news-signature-field" aria-label="이미지 서명 설정">
-              <div class="card-news-signature-row">
-                <label class="card-news-signature-toggle" for="card-news-signature-enabled">
-                  <input id="card-news-signature-enabled" type="checkbox" checked disabled>
-                  <span>서명</span>
-                </label>
-                <span class="tooltip-container card-news-signature-help-trigger" data-card-news-signature-help tabindex="0" aria-label="서명 제한 안내" aria-describedby="card-news-signature-help-text" hidden>
-                  <span class="tooltip-icon" aria-hidden="true">?</span>
-                  <span class="tooltip-text" id="card-news-signature-help-text" role="tooltip">Free 플랜에서는 BlogGenius.kr 서명이 고정 적용됩니다.</span>
-                </span>
-                <input id="card-news-signature" type="text" maxlength="48" autocomplete="off" aria-label="이미지 서명 문구" placeholder="예: @mybrand" disabled>
-              </div>
-            </section>
             <div class="card-news-result-actions">
-              <button id="card-news-regenerate" class="secondary" type="button">구성 재생성</button>
-              <button id="card-news-bulk-image-action" class="primary compact" type="button">이미지 생성</button>
-              <button id="card-news-image-continue" class="ghost compact" type="button" data-card-news-image-continue hidden>계속 진행</button>
-              <a id="card-news-export-all" class="card-news-export-all ui-button-link secondary" href="#" download hidden>ZIP 내보내기</a>
-              <button id="card-news-publish-open" class="primary" type="button" hidden>SNS 발행</button>
+              <div class="card-news-result-header-spacer" aria-hidden="true"></div>
+              <section class="card-news-signature-field" aria-label="이미지 서명 설정">
+                <div class="card-news-signature-row">
+                  <label class="card-news-signature-toggle" for="card-news-signature-enabled">
+                    <input id="card-news-signature-enabled" type="checkbox" checked disabled>
+                    <span>서명</span>
+                  </label>
+                  <span class="tooltip-container card-news-signature-help-trigger" data-card-news-signature-help tabindex="0" aria-label="서명 제한 안내" aria-describedby="card-news-signature-help-text" hidden>
+                    <span class="tooltip-icon" aria-hidden="true">?</span>
+                    <span class="tooltip-text" id="card-news-signature-help-text" role="tooltip">Free 플랜에서는 BlogGenius.kr 서명이 고정 적용됩니다.</span>
+                  </span>
+                  <input id="card-news-signature" type="text" maxlength="48" autocomplete="off" aria-label="이미지 서명 문구" placeholder="예: @mybrand" disabled>
+                </div>
+              </section>
+              <div id="card-news-result-image-model-slot" class="card-news-image-model-slot"></div>
+              <div class="card-news-result-button-group">
+                <button id="card-news-regenerate" class="secondary" type="button">구성 재생성</button>
+                <div class="card-news-image-action-group card-news-result-image-actions">
+                  <button id="card-news-bulk-image-action" class="primary compact" type="button">이미지 생성</button>
+                  <button id="card-news-image-continue" class="ghost compact" type="button" data-card-news-image-continue hidden>계속 진행</button>
+                </div>
+                <a id="card-news-export-all" class="card-news-export-all ui-button-link secondary" href="#" download hidden>ZIP 내보내기</a>
+                <button id="card-news-publish-open" class="primary" type="button" hidden>SNS 발행</button>
+              </div>
             </div>
           </div>
           <div id="card-news-result-grid" class="card-news-result-grid"></div>

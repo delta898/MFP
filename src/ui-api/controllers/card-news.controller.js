@@ -7,6 +7,14 @@ function createCardNewsController(deps = {}) {
         .replace(/['()*]/g, (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`);
 
     return {
+        async imageModels({ requestId, method, res }) {
+            if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, service.listImageModels());
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'CARD_NEWS_IMAGE_MODELS_FAILED', '이미지 모델 선택지를 불러오지 못했습니다.', error);
+            }
+        },
         async sources({ requestId, method, res }) {
             if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
             try {

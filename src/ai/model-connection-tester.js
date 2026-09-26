@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { KIE_BASE_URL } = require('../ai-model-catalog');
 const { getModelRuntimeDefinition } = require('./model-runtime-policy');
+const { getTransportBaseUrl } = require('./transport-registry');
 
 function normalizeBaseUrl(value) {
     return String(value || '').trim().replace(/\/+$/, '');
@@ -62,7 +63,7 @@ function findOpenAiCompatibleModel(data, requestedCode) {
 async function checkGoogleModel(httpClient, modelConfig, timeoutMs) {
     const requestedCode = String(modelConfig.code || '').trim();
     const response = await httpClient.get(
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(requestedCode)}`,
+        `${getTransportBaseUrl('gemini_generate_content')}/models/${encodeURIComponent(requestedCode)}`,
         {
             params: { key: String(modelConfig.api_key || '').trim() },
             headers: { Accept: 'application/json' },

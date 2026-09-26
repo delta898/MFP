@@ -21,6 +21,12 @@ function defaultPath() {
 }
 
 function defaultFilePath() {
+    // Node's test runner sets this for test processes. Keep any test that
+    // forgets to inject a store away from the user's project configuration.
+    if (process.env.NODE_TEST_CONTEXT) {
+        const os = require('os');
+        return defaultPath().join(os.tmpdir(), `bloggenius-connection-verification-test-${process.pid}.json`);
+    }
     return defaultPath().join(__dirname, '..', '..', 'config', 'connection_verification.json');
 }
 
@@ -108,9 +114,15 @@ function getWordPressVerification(config = {}) {
     return readConnectionVerification('wordpress', signature);
 }
 
-function resetConnectionVerificationState() {
+function resetConnectionVerificationState(options = {}) {
     verificationState.clear();
-    const target = verificationFilePath || defaultFilePath();
+    // Clearing in-memory test state must never erase the active user's persisted
+    // connection checks. Persist a reset only when a test explicitly names the
+    // isolated file it owns.
+    const requestedPath = String(options.filePath || '').trim();
+    if (!requestedPath) return;
+    const target = defaultPath().resolve(requestedPath);
+    if (!verificationFilePath || defaultPath().resolve(verificationFilePath) !== target) return;
     try {
         defaultFs().writeFileSync(target, '{}');
     } catch (_) {

@@ -1,8 +1,19 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 
 const { testModelConnection } = require('./model-connection-tester');
 const { createSettingsService } = require('../ui-api/services/settings.service');
+const {
+    configureConnectionVerificationState,
+    resetConnectionVerificationState
+} = require('../connections/verification-state');
+
+const verificationFilePath = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'model-connection-tester-')), 'connection_verification.json');
+configureConnectionVerificationState({ fs, path, filePath: verificationFilePath });
+resetConnectionVerificationState({ filePath: verificationFilePath });
 
 function createHttpClient(responseData, calls) {
     return {

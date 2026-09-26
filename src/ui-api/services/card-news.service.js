@@ -12,6 +12,8 @@ const { createStyleReferenceFetcher } = require('../../content/style-reference-f
 const { deriveCardNewsManagementState, toCardNewsManagementFields } = require('../../card-news/management-status');
 const { createAiGenerationOperationManager } = require('../../blog-next/ai-generation-operations');
 const { createCardNewsOutgoingImageService } = require('../../card-news/outgoing-image-service');
+const { getAiModelCatalog, resolveAiModelConfig, resolveStoredModelProfiles } = require('../../ai-model-config');
+const { getTrustedAiModelVerification } = require('../../ai/model-verification');
 
 const CARD_NEWS_SOURCE_LIMIT = 30;
 const CARD_NEWS_LEDGER_REGISTRATION_TIMEOUT_MS = 3000;
@@ -87,6 +89,14 @@ function isConfiguredAiModel(model = {}) {
     return Boolean(String(model.api_key || '').trim());
 }
 
+function imageModelIdentity(model = {}) {
+    return `${String(model.provider || '').trim().toLowerCase()}:${String(model.code || '').trim()}`;
+}
+
+function hasSelectableImageCredentials(model = {}) {
+    return Boolean(String(model.api_key || '').trim());
+}
+
 function cardNewsManagementStatus(row = {}) {
     return deriveCardNewsManagementState(row).label;
 }
@@ -142,6 +152,9 @@ function createCardNewsService(deps = {}) {
         now = () => new Date().toISOString(),
         createId = () => crypto.randomUUID()
     } = deps;
+    const isImageModelVerified = typeof deps.isImageModelVerified === 'function'
+        ? deps.isImageModelVerified
+        : (model) => Boolean(getTrustedAiModelVerification('image', model));
 
     const outgoingImageService = deps.outgoingImageService || createCardNewsOutgoingImageService({
         License,
@@ -167,6 +180,56 @@ function createCardNewsService(deps = {}) {
         path,
         workspaceDir: CONFIG.PATHS?.workspace
     });
+
+    function getSelectableImageProviders() {
+        const profiles = resolveStoredModelProfiles({
+            ai_settings: { MODEL_PROFILES: CONFIG.AI_MODEL_PROFILES || {} }
+        }, { imageSelection: CONFIG.IMAGE_MODEL_CONFIG || {} }).image;
+        const catalog = getAiModelCatalog();
+        return Object.values(profiles)
+            .map((stored) => resolveAiModelConfig({ ai_settings: { IMAGE_MODEL: stored } }, 'image'))
+            .filter((profile) => hasSelectableImageCredentials(profile) && isConfiguredAiModel(profile) && isImageModelVerified(profile))
+            .map((profile) => {
+                const provider = String(profile.provider || '');
+                const catalogModels = catalog.image.filter((model) => model.provider === provider);
+                const models = catalogModels.length > 0
+                    ? catalogModels
+                    : [{ provider, code: profile.code, name: profile.name || profile.code }];
+                return {
+                    provider,
+                    name: catalog.providers.image.find((item) => item.id === provider)?.name || provider,
+                    models: models.map((model) => ({
+                        provider,
+                        code: String(model.code || ''),
+                        name: String(model.name || model.code || ''),
+                        identity: imageModelIdentity({ provider, code: model.code })
+                    }))
+                };
+            });
+    }
+
+    function resolveImageModelSelection(selection) {
+        if (!selection || typeof selection !== 'object') return CONFIG.IMAGE_MODEL_CONFIG || {};
+        const provider = String(selection.provider || '').trim().toLowerCase();
+        const code = String(selection.code || '').trim();
+        const profiles = resolveStoredModelProfiles({
+            ai_settings: { MODEL_PROFILES: CONFIG.AI_MODEL_PROFILES || {} }
+        }, { imageSelection: CONFIG.IMAGE_MODEL_CONFIG || {} }).image;
+        const providerProfile = profiles[provider]
+            ? resolveAiModelConfig({ ai_settings: { IMAGE_MODEL: profiles[provider] } }, 'image')
+            : null;
+        const definition = getAiModelCatalog().image.find((item) => item.provider === provider && item.code === code);
+        const model = providerProfile && definition
+            ? { ...definition, api_key: providerProfile.api_key }
+            : providerProfile?.code === code ? providerProfile : null;
+        if (!model || !hasSelectableImageCredentials(providerProfile || {}) || !isConfiguredAiModel(model)) {
+            throw createApiError('CARD_NEWS_IMAGE_MODEL_UNAVAILABLE', '선택한 이미지 모델을 찾을 수 없습니다. 기본 이미지 모델 또는 다른 연결된 모델을 선택해 주세요.');
+        }
+        if (!isImageModelVerified(providerProfile)) {
+            throw createApiError('CARD_NEWS_IMAGE_MODEL_UNVERIFIED', '선택한 이미지 모델의 연결 확인이 만료되었거나 실패했습니다. 설정에서 연결을 확인한 뒤 다시 선택해 주세요.');
+        }
+        return model;
+    }
     const generationService = deps.generationService || (Utils ? createCardNewsGenerationService({
         fs,
         path,
@@ -341,7 +404,10 @@ function createCardNewsService(deps = {}) {
         if (!isConfiguredAiModel(CONFIG.TEXT_MODEL_CONFIG)) {
             throw createApiError('CARD_NEWS_TEXT_MODEL_REQUIRED', '설정에서 글쓰기 AI를 먼저 연결해 주세요.');
         }
-        if (normalizeImageMode(input.image_mode) === 'generate' && !isConfiguredAiModel(CONFIG.IMAGE_MODEL_CONFIG)) {
+        const imageModelConfig = normalizeImageMode(input.image_mode) === 'generate'
+            ? resolveImageModelSelection(input.image_model_selection)
+            : (CONFIG.IMAGE_MODEL_CONFIG || {});
+        if (normalizeImageMode(input.image_mode) === 'generate' && !isConfiguredAiModel(imageModelConfig)) {
             throw createApiError('CARD_NEWS_IMAGE_MODEL_REQUIRED', '설정에서 이미지 AI를 먼저 연결해 주세요.');
         }
         try {
@@ -360,6 +426,7 @@ function createCardNewsService(deps = {}) {
             }
             const generated = await generationService.generate({
                 ...input,
+                imageModelConfig,
                 project_id: project.id,
                 source_snapshot: project.source_snapshot
             });
@@ -381,7 +448,10 @@ function createCardNewsService(deps = {}) {
         if (!isConfiguredAiModel(CONFIG.TEXT_MODEL_CONFIG)) {
             throw createApiError('CARD_NEWS_TEXT_MODEL_REQUIRED', '설정에서 글쓰기 AI를 먼저 연결해 주세요.');
         }
-        if (normalizeImageMode(input.image_mode) === 'generate' && !isConfiguredAiModel(CONFIG.IMAGE_MODEL_CONFIG)) {
+        const imageModelConfig = normalizeImageMode(input.image_mode) === 'generate'
+            ? resolveImageModelSelection(input.image_model_selection)
+            : (CONFIG.IMAGE_MODEL_CONFIG || {});
+        if (normalizeImageMode(input.image_mode) === 'generate' && !isConfiguredAiModel(imageModelConfig)) {
             throw createApiError('CARD_NEWS_IMAGE_MODEL_REQUIRED', '설정에서 이미지 AI를 먼저 연결해 주세요.');
         }
         return generationOperationManager.start({
@@ -399,11 +469,12 @@ function createCardNewsService(deps = {}) {
         if (!generationService?.generateImages) {
             throw createApiError('CARD_NEWS_IMAGE_GENERATION_UNAVAILABLE', '카드 이미지 생성 기능이 준비되지 않았습니다.', 500);
         }
-        if (!isConfiguredAiModel(CONFIG.IMAGE_MODEL_CONFIG)) {
+        const imageModelConfig = resolveImageModelSelection(input.image_model_selection);
+        if (!isConfiguredAiModel(imageModelConfig)) {
             throw createApiError('CARD_NEWS_IMAGE_MODEL_REQUIRED', '설정에서 이미지 AI를 먼저 연결해 주세요.');
         }
         try {
-            const generation = await generationService.generateImages(input);
+            const generation = await generationService.generateImages({ ...input, imageModelConfig });
             await ledgerSync.recordGenerationProgress(generation);
             return { generation };
         } catch (error) {
@@ -416,7 +487,8 @@ function createCardNewsService(deps = {}) {
         if (!generationService?.generateImages) {
             throw createApiError('CARD_NEWS_IMAGE_GENERATION_UNAVAILABLE', '카드 이미지 생성 기능이 준비되지 않았습니다.', 500);
         }
-        if (!isConfiguredAiModel(CONFIG.IMAGE_MODEL_CONFIG)) {
+        const imageModelConfig = resolveImageModelSelection(input.image_model_selection);
+        if (!isConfiguredAiModel(imageModelConfig)) {
             throw createApiError('CARD_NEWS_IMAGE_MODEL_REQUIRED', '설정에서 이미지 AI를 먼저 연결해 주세요.');
         }
         const generation = generationService.getGeneration?.(input.generation_id);
@@ -424,11 +496,12 @@ function createCardNewsService(deps = {}) {
             source: 'card_news_image_generation',
             subject: String(generation?.title || '카드뉴스 이미지'),
             message: '카드뉴스 이미지 생성 중',
-            remoteJobPossible: String(CONFIG.IMAGE_MODEL_CONFIG?.transport || '').includes('kie')
+            remoteJobPossible: String(imageModelConfig?.transport || '').includes('kie')
         }, async (operation) => {
             try {
                 const result = await generateImages({
                     ...input,
+                    imageModelConfig,
                     signal: operation.signal,
                     beginCommit: () => operation.beginCommit()
                 });
@@ -568,6 +641,18 @@ function createCardNewsService(deps = {}) {
     }
 
     return {
+        listImageModels() {
+            const globalModel = CONFIG.IMAGE_MODEL_CONFIG || {};
+            return {
+                default: {
+                    provider: String(globalModel.provider || ''),
+                    code: String(globalModel.code || ''),
+                    name: String(globalModel.name || globalModel.code || ''),
+                    configured: isConfiguredAiModel(globalModel)
+                },
+                providers: getSelectableImageProviders()
+            };
+        },
         listSources,
         listManagedItems,
         getGeneration,

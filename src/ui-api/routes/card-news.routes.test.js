@@ -5,6 +5,7 @@ const { createCardNewsRouteHandler } = require('./card-news.routes');
 test('routes only card-news endpoints to their controllers', async () => {
     const calls = [];
     const controller = {
+        imageModels: async (ctx) => calls.push(['imageModels', ctx.method]),
         sources: async (ctx) => calls.push(['sources', ctx.method]),
         managed: async (ctx) => calls.push(['managed', ctx.method]),
         signaturePolicy: async (ctx) => calls.push(['signaturePolicy', ctx.method]),
@@ -29,6 +30,7 @@ test('routes only card-news endpoints to their controllers', async () => {
     };
     const handler = createCardNewsRouteHandler({ controller });
 
+    assert.equal(await handler({ pathname: '/api/v1/card-news/image-models', method: 'GET' }), true);
     assert.equal(await handler({ pathname: '/api/v1/card-news/sources', method: 'GET' }), true);
     assert.equal(await handler({ pathname: '/api/v1/card-news/managed', method: 'GET' }), true);
     assert.equal(await handler({ pathname: '/api/v1/card-news/signature-policy', method: 'GET' }), true);
@@ -52,6 +54,7 @@ test('routes only card-news endpoints to their controllers', async () => {
     assert.equal(await handler({ pathname: '/api/v1/card-news/projects', method: 'GET' }), true);
     assert.equal(await handler({ pathname: '/api/v1/other', method: 'GET' }), false);
     assert.deepEqual(calls, [
+        ['imageModels', 'GET'],
         ['sources', 'GET'],
         ['managed', 'GET'],
         ['signaturePolicy', 'GET'],

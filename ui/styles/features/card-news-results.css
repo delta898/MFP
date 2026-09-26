@@ -449,7 +449,6 @@
     grid-template-columns: 1fr;
   }
 
-  .card-news-generation-actions,
   .card-news-generation-heading,
   .card-news-result-heading,
   .card-news-publishing-heading,
@@ -505,15 +504,12 @@
     text-align: left;
   }
 
-  .card-news-result-actions {
-    justify-content: stretch;
-  }
-
   .card-news-result-actions button,
   .card-news-result-actions a,
   .card-news-generation-actions button,
   .card-news-publishing-actions button,
-  .card-news-generation-buttons {
+  .card-news-generation-buttons,
+  .card-news-result-button-group {
     width: 100%;
   }
 

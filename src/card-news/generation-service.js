@@ -329,7 +329,7 @@ function createCardNewsGenerationService(options = {}) {
                         generation.cards[card.index - 1].image_prompt,
                         pathApi.join(outputDir, baseName),
                         2,
-                        { aspectRatio: settings.aspect_ratio, imageSize: '1K', useCase: 'card_news' }
+                        { aspectRatio: settings.aspect_ratio, imageSize: '1K', useCase: 'card_news', modelConfig: input.imageModelConfig }
                     );
                     const fileName = pathApi.basename(String(generatedPath || ''));
                     if (!safeAssetName(fileName) || !fileSystem.existsSync(generatedPath)) {
@@ -410,7 +410,7 @@ function createCardNewsGenerationService(options = {}) {
                     card.image_prompt,
                     temporaryBase,
                     2,
-                    { aspectRatio: generation.settings?.aspect_ratio || '4:5', imageSize: '1K', useCase: 'card_news', signal }
+                    { aspectRatio: generation.settings?.aspect_ratio || '4:5', imageSize: '1K', useCase: 'card_news', signal, modelConfig: input.imageModelConfig }
                 );
                 throwIfCanceled(signal);
                 saveGeneratedImage({ generation, outputDir, manifestPath, card, generatedPath });
