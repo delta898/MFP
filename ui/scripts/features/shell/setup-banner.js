@@ -39,18 +39,10 @@ async function navigateToSettingsNextTarget(tabName, targetId, localTab = '') {
     settingsNextActivateCoreTab(normalizedLocalTab);
   }
   const scrollToTarget = () => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (document.getElementById('view-settings-next')?.classList.contains('active') !== true) return;
-        const target = document.getElementById(String(targetId || '').trim());
-        if (!target) return;
-        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        target.classList.remove('settings-navigation-target');
-        void target.offsetWidth;
-        target.classList.add('settings-navigation-target');
-        setTimeout(() => target.classList.remove('settings-navigation-target'), 1800);
-      });
-    });
+    const target = document.getElementById(String(targetId || '').trim());
+    if (typeof scrollUiSettingsTargetIntoView === 'function') {
+      void scrollUiSettingsTargetIntoView(target, { highlight: true });
+    }
   };
   // View toggle inside navigateTo() runs before its data reload. Scroll now so a
   // hanging settings reload (fetchJson has no timeout) cannot trap the user at the

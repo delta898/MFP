@@ -1985,6 +1985,24 @@ async function run() {
         await settingsTopTab.press('ArrowRight');
         assert.equal(await page.locator('[data-settings-next-tab="ai"]').getAttribute('aria-selected'), 'true');
         await page.waitForFunction(() => document.querySelector('#settings-next-ai-text-form [data-ai-field="provider"]')?.value === 'direct');
+        for (const targetId of [
+            'settings-next-ai-text-form',
+            'settings-next-ai-image-form',
+            'settings-next-ai-chat-form'
+        ]) {
+            await page.locator(`[data-settings-card-target="${targetId}"]`).click();
+            await page.waitForFunction((id) => {
+                const scroller = document.querySelector('.main');
+                const target = document.getElementById(id);
+                if (!scroller || !target) return false;
+                const scrollerRect = scroller.getBoundingClientRect();
+                const targetRect = target.getBoundingClientRect();
+                const scrollerCenter = scrollerRect.top + scroller.clientHeight / 2;
+                const targetCenter = targetRect.top + targetRect.height / 2;
+                return Math.abs(targetCenter - scrollerCenter) < 120;
+            }, targetId);
+            assert.equal(await page.evaluate((id) => document.activeElement?.id === id, targetId), true);
+        }
         assert.equal(await page.locator('#settings-next-ai-chat-status').textContent(), '글쓰기 모델 사용');
         assert.equal(await page.locator('#settings-next-ai-text-form [data-ai-field="apiKey"]').inputValue(), '');
         assert.equal(await page.locator('#settings-next-ai-text-form [data-ai-field="apiKey"]').getAttribute('placeholder'), '직접 입력 API Key 등록됨');

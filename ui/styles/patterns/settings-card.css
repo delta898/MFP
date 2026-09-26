@@ -117,6 +117,11 @@
   outline-offset: 3px;
 }
 
+.settings-navigation-scroll-spacer {
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+
 .ui-settings-card-heading p {
   margin-top: var(--ui-space-2);
   color: var(--ui-text-secondary);

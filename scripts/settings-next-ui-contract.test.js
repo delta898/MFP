@@ -429,7 +429,11 @@ test('Settings Beta shows operation loading only on the initiating action', () =
     assert.match(app, /@include scripts\/features\/settings-next\/optional-services\.js/);
     assert.match(shared, /function initUiSettingsCardPattern/);
     assert.match(shared, /data-settings-card-target/);
-    assert.match(shared, /scrollIntoView\(\{ behavior: 'smooth', block: 'start' \}\)/);
+    assert.match(shared, /function scrollUiSettingsTargetIntoView/);
+    assert.match(shared, /function prepareUiSettingsTargetScrollSpace/);
+    assert.match(shared, /target\.scrollIntoView\(\{ behavior: reduceMotion \? 'auto' : 'smooth', block: 'center', inline: 'nearest' \}\)/);
+    assert.match(shared, /void scrollUiSettingsTargetIntoView\(target\)/);
+    assert.doesNotMatch(shared, /target\.scrollIntoView\(\{ behavior: 'smooth', block: 'start' \}\)/);
     assert.doesNotMatch(script, /function settingsNextJumpToConfiguration/);
 });
 
