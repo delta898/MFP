@@ -3,7 +3,7 @@
 - Branch: `codex/feature/card-news-image-model-selection`
 - Start date: 2026-09-26
 - Base/parent branch: `dev`
-- Status: Implemented on feature branch; endpoint-verification consistency and isolated-test safety hardened; full unit and browser regression suites pass; awaiting user review before dev merge
+- Status: Merged into `dev`; full unit and browser regression suites pass; final hands-on visual review remains with the user
 
 ## User need and goal
 
