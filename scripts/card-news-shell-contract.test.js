@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { createHtmlCompositionRuntime } = require('../src/ui-runtime/html-composition-runtime');
+const { createCssCompositionRuntime } = require('../src/ui-runtime/css-composition-runtime');
 const { readCardNewsPreviewScripts } = require('./helpers/ui-feature-scripts');
 
 const repoRoot = path.resolve(__dirname, '..');
@@ -14,6 +15,7 @@ test('Card News is a top-level source-preview workflow', () => {
     const script = [
         'scripts/shared/buffer-publishing-controls.js',
         'scripts/shared/grid-tail-spacers.js',
+        'scripts/features/card-news/image-model-selection.js',
         'scripts/features/card-news/source-preview.js',
         'scripts/features/card-news/signature-requests.js',
         'scripts/features/card-news/generation-workflow.js',
@@ -467,7 +469,7 @@ test('Card News signature is locally remembered, plan-locked when needed, and ap
     const scripts = readCardNewsPreviewScripts();
     const workflow = fs.readFileSync(path.join(uiRoot, 'scripts/features/card-news/generation-workflow.js'), 'utf8');
     const publishing = fs.readFileSync(path.join(uiRoot, 'scripts/features/card-news/publishing.js'), 'utf8');
-    const css = fs.readFileSync(path.join(uiRoot, 'styles/features/card-news.css'), 'utf8');
+    const css = createCssCompositionRuntime({ fs, path }).composeCssFile({ uiRoot }).css;
 
     assert.match(html, /class="card-news-result-controls">[\s\S]*?id="card-news-signature-enabled" type="checkbox" checked disabled[\s\S]*?id="card-news-signature"[^>]*maxlength="48"[^>]*disabled/);
     assert.doesNotMatch(html.slice(html.indexOf('id="card-news-generation-panel"'), html.indexOf('id="card-news-result-panel"')), /card-news-signature-field/);

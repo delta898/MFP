@@ -92,6 +92,7 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
         'styles/features/continuous-publishing-responsive.css',
         'styles/features/blog-next-smart-comment.css',
         'styles/features/card-news.css',
+        'styles/features/card-news-image-model.css',
         'styles/features/card-news-results.css',
         'styles/features/card-news-management.css',
         'styles/features/continuous-publishing-interactions.css',
@@ -309,13 +310,16 @@ test('responsive breakpoints use the canonical set', () => {
         }
     };
     collect(path.join(uiRoot, 'styles'));
-    const maxWidths = new Set();
+    const maxWidthsByFile = new Map();
     const minWidths = new Set();
     for (const file of cssFiles) {
         const css = fs.readFileSync(file, 'utf8');
+        const relativePath = path.relative(path.join(uiRoot, 'styles'), file).replaceAll(path.sep, '/');
+        const fileMaxWidths = new Set();
         for (const match of css.matchAll(/@media\s*\(\s*max-width:\s*([0-9]+)px\s*\)/g)) {
-            maxWidths.add(match[1]);
+            fileMaxWidths.add(match[1]);
         }
+        maxWidthsByFile.set(relativePath, fileMaxWidths);
         for (const match of css.matchAll(/@media\s*\(\s*min-width:\s*([0-9]+)px\s*\)/g)) {
             minWidths.add(match[1]);
         }
@@ -323,8 +327,17 @@ test('responsive breakpoints use the canonical set', () => {
             minWidths.add(match[1]);
         }
     }
-    // 1240px stays frozen in the hidden legacy dashboard view.
-    assert.deepEqual([...maxWidths].sort((a, b) => a - b), ['640', '768', '960', '1100', '1240']);
+    const maxWidths = new Set([...maxWidthsByFile.values()].flatMap((widths) => [...widths]));
+    // 1240px stays frozen in the hidden legacy dashboard view. Card News has two
+    // intentionally local thresholds: 460px stacks the provider/model fields,
+    // while 760px switches its action layout before the general 768px breakpoint.
+    const cardNewsWidths = maxWidthsByFile.get('features/card-news-image-model.css');
+    assert.deepEqual([...cardNewsWidths].sort((a, b) => a - b), ['460', '760']);
+    for (const [file, widths] of maxWidthsByFile) {
+        if (file === 'features/card-news-image-model.css') continue;
+        assert.deepEqual([...widths].filter((width) => width === '460' || width === '760'), [], file);
+    }
+    assert.deepEqual([...maxWidths].sort((a, b) => a - b), ['460', '640', '760', '768', '960', '1100', '1240']);
     assert.deepEqual([...minWidths].sort((a, b) => a - b), ['769', '961']);
 });
 
