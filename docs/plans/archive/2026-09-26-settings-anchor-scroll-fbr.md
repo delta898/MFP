@@ -3,7 +3,7 @@
 - Branch: `codex/fix-settings-anchor-scroll`
 - Base branch: `dev`
 - Start date: 2026-09-26
-- Status: Implementation complete; awaiting user review
+- Status: Implemented and merged into `dev`
 
 ## User need and goal
 
@@ -40,4 +40,6 @@ Settings summary cards should consistently navigate to their target forms. In pa
 - Focused verification: `node --test scripts/settings-next-ui-contract.test.js` passed (13 tests); `git diff --check` passed.
 - Browser verification: `npm run test:ui-browser` passed, including new assertions that writing, image, and auxiliary chat model forms are focused and centered in the scroll viewport.
 - During iteration, the first browser run caught a regression in the pre-navigation shortcut timing; the helper was adjusted to defer visibility checks until after the view switch. The next run exposed the bottom-of-view scroll clamp for the final chat form, addressed with the temporary per-view spacer and covered by the new browser assertions.
+- Full regression verification after merge: `npm run test:unit` passed (1,987 passed, 1 skipped, 0 failed); `npm run test:ui-browser` passed (510 fixture requests).
+- Full-suite verification also found a source-level contract test tied to the prior inline active-view guard; the active-view guard is now owned by the shared scroll helper and the contract follows that shared behavior.
 - Manual UI acceptance: pending user review.

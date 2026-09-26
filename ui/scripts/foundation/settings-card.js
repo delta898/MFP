@@ -43,7 +43,7 @@ function prepareUiSettingsTargetScrollSpace(target) {
   spacer.style.blockSize = `${Math.max(0, desiredScrollTop - currentMaximum)}px`;
 }
 
-function scrollUiSettingsTargetIntoView(target, { highlight = false } = {}) {
+function scrollUiSettingsTargetIntoView(target, { highlight = false, activeViewId = '' } = {}) {
   if (!target) return Promise.resolve(false);
   if (highlight) {
     target.classList.remove('settings-navigation-target');
@@ -55,6 +55,10 @@ function scrollUiSettingsTargetIntoView(target, { highlight = false } = {}) {
   return new Promise((resolve) => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
+        if (activeViewId && document.getElementById(activeViewId)?.classList.contains('active') !== true) {
+          resolve(false);
+          return;
+        }
         if (!target.isConnected || target.getClientRects().length === 0) {
           resolve(false);
           return;

@@ -55,7 +55,8 @@ test('account connection shortcuts navigate to Settings Beta targets', () => {
   assert.match(setupBanner, /settingsNextActivateCoreTab\(normalizedLocalTab\)/);
   assert.match(setupBanner, /navigateTo\('settings-next', tabName\)/);
   assert.match(setupBanner, /const scrollToTarget = \(\) =>/);
-  assert.match(setupBanner, /getElementById\('view-settings-next'\)\?\.classList\.contains\('active'\)/);
+  assert.match(setupBanner, /scrollUiSettingsTargetIntoView\(target, \{ highlight: true, activeViewId: 'view-settings-next' \}\)/);
+  assert.match(read('ui/scripts/foundation/settings-card.js'), /if \(activeViewId && document\.getElementById\(activeViewId\)\?\.classList\.contains\('active'\) !== true\)/);
   assert.match(capability, /PUBLISH_NAVER\]: \['core', 'settings-next-naver-form', 'publishing'\]/);
   assert.match(capability, /PUBLISH_WORDPRESS\]: \['core', 'settings-next-wordpress-form', 'publishing'\]/);
   assert.match(capability, /CONTENT_SHEET\]: \['core', 'settings-next-content-form'\]/);

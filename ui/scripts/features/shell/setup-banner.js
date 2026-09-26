@@ -41,7 +41,7 @@ async function navigateToSettingsNextTarget(tabName, targetId, localTab = '') {
   const scrollToTarget = () => {
     const target = document.getElementById(String(targetId || '').trim());
     if (typeof scrollUiSettingsTargetIntoView === 'function') {
-      void scrollUiSettingsTargetIntoView(target, { highlight: true });
+      void scrollUiSettingsTargetIntoView(target, { highlight: true, activeViewId: 'view-settings-next' });
     }
   };
   // View toggle inside navigateTo() runs before its data reload. Scroll now so a
