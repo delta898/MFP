@@ -15,6 +15,7 @@ test('Card News is a top-level source-preview workflow', () => {
         'scripts/shared/buffer-publishing-controls.js',
         'scripts/shared/grid-tail-spacers.js',
         'scripts/features/card-news/source-preview.js',
+        'scripts/features/card-news/signature-requests.js',
         'scripts/features/card-news/generation-workflow.js',
         'scripts/features/card-news/publishing.js',
         'scripts/features/card-news/management.js',

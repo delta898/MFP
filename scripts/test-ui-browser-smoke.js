@@ -1528,6 +1528,7 @@ async function run() {
     const consoleErrors = [];
     const pageErrors = [];
     const failedResponses = [];
+    const failedRequests = [];
     const manuscriptFixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'blog-next-manuscript-browser-'));
     const manuscriptFixtureImage = path.join(manuscriptFixtureDir, '00_existing.png');
     fs.writeFileSync(path.join(manuscriptFixtureDir, 'contents.md'), '# 폴더 원고\n\n[[IMAGE_0\ntitle: 첫 이미지\nprompt: 푸른 하늘\n]]\n\n본문\n\n[[IMAGE_1\ntitle: 둘째 이미지\nprompt: 초록 숲\n]]');
@@ -1551,13 +1552,14 @@ async function run() {
         page.setDefaultTimeout(5000);
         page.setDefaultNavigationTimeout(30000);
         page.on('console', (message) => {
-            if (message.type() === 'error') consoleErrors.push(message.text());
+            if (message.type() === 'error') consoleErrors.push(`${message.text()} @ ${JSON.stringify(message.location())}`);
         });
         page.on('pageerror', (error) => pageErrors.push(error.stack || error.message));
         page.on('response', (response) => {
             if (response.status() >= 400) failedResponses.push(`${response.status()} ${response.url()}`);
         });
         page.on('requestfailed', (request) => {
+            failedRequests.push(`${request.method()} ${request.url()} (${request.failure()?.errorText || 'unknown error'})`);
             console.log(`[ui-smoke] request failed: ${request.method()} ${request.url()} (${request.failure()?.errorText || 'unknown error'})`);
         });
 
@@ -4321,8 +4323,12 @@ async function run() {
         assert.equal(await page.locator('[data-blog-next-run-now]').isDisabled(), false);
         await page.waitForFunction(() => document.querySelector('.app-celebration-message')?.textContent.includes('글쓰기 완료'));
         const pastedPublishRequest = requests.filter((request) => request.pathname === `/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/publish`).at(-1);
+        const lastPastedDraftMutation = requests.slice(0, requests.indexOf(pastedPublishRequest))
+            .filter((request) => request.responseRevision != null && request.pathname.startsWith(`/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/`))
+            .at(-1);
         assert.equal(pastedPublishRequest?.body?.draftId, PASTE_MANUSCRIPT_DRAFT_ID);
-        assert.equal(pastedPublishRequest?.body?.revision, 5);
+        assert.ok(lastPastedDraftMutation, 'latest pasted manuscript mutation should be recorded');
+        assert.equal(pastedPublishRequest?.body?.revision, lastPastedDraftMutation.responseRevision);
         await page.evaluate(() => document.getElementById('ui-toast-container')?.replaceChildren());
 
         let retryStatusPollCount = 0;
@@ -4792,8 +4798,15 @@ async function run() {
 
         reportSmokePhase('Validating browser errors and fixture responses');
         assert.deepEqual(failedResponses, []);
+        assert.deepEqual(failedRequests, []);
         assert.deepEqual(pageErrors, []);
-        assert.deepEqual(consoleErrors, []);
+        const expectedAccountFailureErrors = consoleErrors.filter((item) => item.includes('/api/v1/account/overview?quiet=1'));
+        assert.ok(expectedAccountFailureErrors.length === 0 || expectedAccountFailureErrors.length === 2, `unexpected intentional account failure logs: ${JSON.stringify(consoleErrors)}`);
+        if (expectedAccountFailureErrors.length) {
+            assert.ok(expectedAccountFailureErrors.some((item) => item.includes('API Fetch Error')));
+            assert.ok(expectedAccountFailureErrors.some((item) => item.includes('Network or Parse Error')));
+        }
+        assert.deepEqual(consoleErrors.filter((item) => !item.includes('/api/v1/account/overview?quiet=1')), []);
 
         await context.close();
         console.log(`✅ browser UI smoke test passed (${requests.length} fixture requests)`);

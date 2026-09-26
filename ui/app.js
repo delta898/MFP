@@ -76,6 +76,7 @@
 // @include scripts/features/blog-next/automation-settings.js
 // @include scripts/features/blog-next/runner.js
 // @include scripts/features/card-news/source-preview.js
+// @include scripts/features/card-news/signature-requests.js
 // @include scripts/features/card-news/generation-workflow.js
 // @include scripts/features/card-news/publishing.js
 // @include scripts/features/card-news/management.js

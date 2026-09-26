@@ -17,6 +17,7 @@ function readBlogNextQueueScripts() {
 function readCardNewsPreviewScripts() {
   return readUiModules([
     'ui/scripts/features/card-news/source-preview.js',
+    'ui/scripts/features/card-news/signature-requests.js',
     'ui/scripts/features/card-news/generation-workflow.js'
   ]);
 }
