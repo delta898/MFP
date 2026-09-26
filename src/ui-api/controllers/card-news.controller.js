@@ -25,6 +25,15 @@ function createCardNewsController(deps = {}) {
             }
         },
 
+        async signaturePolicy({ requestId, method, searchParams, res }) {
+            if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.getSignaturePolicy(searchParams?.get('signature') || ''));
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'CARD_NEWS_SIGNATURE_POLICY_FAILED', '카드뉴스 서명 정책을 확인하지 못했습니다.', error);
+            }
+        },
+
         async generation({ requestId, method, pathname, res }) {
             if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
             const match = String(pathname || '').match(/^\/api\/v1\/card-news\/generations\/([^/]+)$/);
@@ -166,23 +175,40 @@ function createCardNewsController(deps = {}) {
                 generationId = decodeURIComponent(match?.[1] || '');
                 fileName = decodeURIComponent(match?.[2] || '');
             } catch (_error) { }
-            const asset = service.resolveAsset(generationId, fileName);
+            let asset;
+            try {
+                asset = await (typeof service.prepareAsset === 'function'
+                    ? service.prepareAsset(
+                        generationId,
+                        fileName,
+                        searchParams?.get('signature') || '',
+                        searchParams?.get('expected_signature'),
+                        { force: searchParams?.get('download') === '1' }
+                    )
+                    : service.resolveAsset(generationId, fileName));
+            } catch (error) {
+                return toErrorResponse(res, requestId, 'CARD_NEWS_ASSET_PREPARE_FAILED', '미리보기 서명 상태가 바뀌었습니다. 미리보기를 갱신해 주세요.', error);
+            }
             if (!asset || !fs) {
                 return sendError(res, requestId, 404, 'CARD_NEWS_ASSET_NOT_FOUND', '카드 이미지를 찾지 못했습니다.');
             }
             const headers = {
                 'Content-Type': asset.mime_type,
-                'Cache-Control': 'private, max-age=3600'
+                'Cache-Control': 'private, no-store'
             };
             if (searchParams?.get('download') === '1') {
                 headers['Content-Disposition'] = `attachment; filename="${asset.file_name.replace(/["\\]/g, '')}"`;
             }
             res.writeHead(200, headers);
+            if (Buffer.isBuffer(asset.buffer)) {
+                res.end(asset.buffer);
+                return true;
+            }
             fs.createReadStream(asset.path).pipe(res);
             return true;
         },
 
-        async exportBundle({ requestId, method, pathname, res }) {
+        async exportBundle({ requestId, method, pathname, searchParams, res }) {
             if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
             const match = String(pathname || '').match(/^\/api\/v1\/card-news\/exports\/([^/]+)\.zip$/);
             let generationId = '';
@@ -190,7 +216,11 @@ function createCardNewsController(deps = {}) {
                 generationId = decodeURIComponent(match?.[1] || '');
             } catch (_error) { }
             try {
-                const bundle = service.createExportBundle(generationId);
+                const bundle = await service.createExportBundle(
+                    generationId,
+                    searchParams?.get('signature') || '',
+                    searchParams?.get('expected_signature')
+                );
                 res.writeHead(200, {
                     'Content-Type': bundle.mime_type,
                     'Content-Length': bundle.buffer.length,

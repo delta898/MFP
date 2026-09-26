@@ -1,4 +1,5 @@
 const crypto = require('node:crypto');
+const fileSystem = require('node:fs');
 const { createCardNewsSourceService } = require('../../card-news/source-service');
 const { createCardNewsProject } = require('../../card-news/project');
 const { createCardNewsProjectRepository } = require('../../card-news/project-repository');
@@ -10,6 +11,7 @@ const { normalizeImageMode, validateSourceSnapshot } = require('../../card-news/
 const { createStyleReferenceFetcher } = require('../../content/style-reference-fetcher');
 const { deriveCardNewsManagementState, toCardNewsManagementFields } = require('../../card-news/management-status');
 const { createAiGenerationOperationManager } = require('../../blog-next/ai-generation-operations');
+const { createCardNewsOutgoingImageService } = require('../../card-news/outgoing-image-service');
 
 const CARD_NEWS_SOURCE_LIMIT = 30;
 const CARD_NEWS_LEDGER_REGISTRATION_TIMEOUT_MS = 3000;
@@ -130,6 +132,7 @@ function summarizeLocalCardNews(generation = {}) {
 function createCardNewsService(deps = {}) {
     const {
         CONFIG = {},
+        License,
         axios,
         cheerio,
         fs,
@@ -139,6 +142,12 @@ function createCardNewsService(deps = {}) {
         now = () => new Date().toISOString(),
         createId = () => crypto.randomUUID()
     } = deps;
+
+    const outgoingImageService = deps.outgoingImageService || createCardNewsOutgoingImageService({
+        License,
+        fileSystem: fs || fileSystem,
+        logger
+    });
 
     const fetchFeed = deps.fetchFeed || (axios
         ? createCardNewsFeedFetcher({ httpClient: axios })
@@ -179,6 +188,12 @@ function createCardNewsService(deps = {}) {
                 bufferClient: deps.bufferClient,
                 mediaTransport: deps.mediaTransport,
                 urlService: deps.urlService,
+                prepareAssets: (assets, signature, expectedSignature) => outgoingImageService.prepareAssets(
+                    assets,
+                    signature,
+                    expectedSignature,
+                    { force: true }
+                ),
                 fileSystem: fs,
                 pathApi: path,
                 logger
@@ -500,12 +515,28 @@ function createCardNewsService(deps = {}) {
         return generationService?.resolveAsset(generationId, fileName) || null;
     }
 
-    function createExportBundle(generationId) {
+    async function getSignaturePolicy(signature = '') {
+        return outgoingImageService.getSignaturePolicy(signature, { force: true });
+    }
+
+    async function prepareAsset(generationId, fileName, signature = '', expectedSignature, options = {}) {
+        const asset = resolveAsset(generationId, fileName);
+        if (!asset) return null;
+        return outgoingImageService.prepareAssets([asset], signature, expectedSignature, options).then((prepared) => prepared[0]);
+    }
+
+    async function createExportBundle(generationId, signature = '', expectedSignature) {
         if (!generationService?.createExportBundle) {
             throw createApiError('CARD_NEWS_EXPORT_UNAVAILABLE', '전체 이미지 받기 기능이 준비되지 않았습니다.', 500);
         }
         try {
-            return generationService.createExportBundle(generationId);
+            if (typeof generationService.resolveCompleteAssets !== 'function') {
+                return generationService.createExportBundle(generationId);
+            }
+            const { assets } = generationService.resolveCompleteAssets(generationId);
+            const prepared = await outgoingImageService.prepareAssets(assets, signature, expectedSignature, { force: true });
+            const assetDataByName = Object.fromEntries(prepared.map((asset) => [asset.file_name, asset.buffer]));
+            return generationService.createExportBundle(generationId, { assetDataByName });
         } catch (error) {
             throw toCardNewsError(error, 'CARD_NEWS_EXPORT_FAILED', '전체 이미지를 준비하지 못했습니다.');
         }
@@ -555,6 +586,8 @@ function createCardNewsService(deps = {}) {
         previewZip,
         importZip,
         resolveAsset,
+        getSignaturePolicy,
+        prepareAsset,
         createExportBundle,
         getPublishingConfig,
         publish

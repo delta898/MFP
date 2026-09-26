@@ -544,6 +544,11 @@ test('exports every completed card in manifest order with portable names and met
         assert.ok(archiveText.indexOf('02.png') < archiveText.indexOf('03.png'));
         assert.match(archiveText, /card-news\.json/);
         assert.match(archiveText, /내보내기 세트/);
+
+        const brandedBundle = service.createExportBundle(generated.id, {
+            assetDataByName: { 'card-01.png': Buffer.from('watermarked-card-one') }
+        });
+        assert.match(brandedBundle.buffer.toString('utf8'), /watermarked-card-one/);
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }

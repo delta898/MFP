@@ -299,6 +299,7 @@ async function publishCardNews() {
     { title: '카드뉴스 발행', confirmText: '지금 발행', cancelText: '취소' }
   );
   if (confirmed === false) return;
+  if (!await ensureCardNewsSignaturePreviewCurrent()) return;
   setCardNewsPublishing(true);
   const status = document.getElementById('card-news-publishing-status');
   const resultElement = document.getElementById('card-news-publishing-result');
@@ -311,7 +312,9 @@ async function publishCardNews() {
       generation_id: generation.id,
       organization_id: document.getElementById('card-news-publishing-workspace')?.value || '',
       channel_ids: channelIds,
-      text
+      text,
+      signature: getCardNewsSignatureForRequest(),
+      expected_signature: cardNewsViewState.signaturePreviewEffectiveSignature
     });
     if (status) {
       status.textContent = result.success
@@ -342,6 +345,14 @@ async function publishCardNews() {
     }
   } catch (error) {
     cardNewsViewState.publishingOutcome = 'failed';
+    if (error.code === 'CARD_NEWS_SIGNATURE_PREVIEW_STALE') {
+      await handleCardNewsSignaturePreviewStale();
+      if (status) {
+        status.textContent = '미리보기가 갱신되었습니다. 이미지를 확인한 뒤 다시 발행해 주세요.';
+        status.dataset.state = 'warning';
+      }
+      return;
+    }
     if (status) {
       status.textContent = error.message || '카드뉴스를 발행하지 못했습니다.';
       status.dataset.state = 'error';

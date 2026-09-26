@@ -600,11 +600,11 @@ function createCardNewsGenerationService(options = {}) {
         return { generation, cards, assets };
     }
 
-    function createExportBundle(generationId) {
+    function createExportBundle(generationId, options = {}) {
         const { generation, cards, assets } = resolveCompleteAssets(generationId);
         const entries = assets.map((asset) => ({
             name: `${String(asset.index).padStart(2, '0')}${imageExtension(asset.file_name)}`,
-            data: fileSystem.readFileSync(asset.path)
+            data: options.assetDataByName?.[asset.file_name] || fileSystem.readFileSync(asset.path)
         }));
         const exportedNames = new Map(cards.map((card, index) => [Number(card.index), entries[index].name]));
         const portableManifest = {

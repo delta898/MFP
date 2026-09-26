@@ -92,6 +92,7 @@ function createCardNewsPublishingService(options = {}) {
         generationService,
         bufferClient,
         mediaTransport,
+        prepareAssets,
         urlService,
         fileSystem = fs,
         pathApi = path,
@@ -298,11 +299,14 @@ function createCardNewsPublishingService(options = {}) {
         }
 
         const uploaded = [];
+        const outgoingAssets = typeof prepareAssets === 'function'
+            ? await prepareAssets(assets, input.signature, input.expected_signature)
+            : assets.map((asset) => ({ ...asset, buffer: fileSystem.readFileSync(asset.path) }));
         try {
-            for (const asset of assets) {
+            for (const asset of outgoingAssets) {
                 const extension = pathApi.extname(asset.file_name).toLowerCase() || '.png';
                 const media = await mediaTransport.upload({
-                    buffer: fileSystem.readFileSync(asset.path),
+                    buffer: asset.buffer,
                     file_name: `card-news-${generation.id}-${String(asset.index).padStart(2, '0')}${extension}`,
                     description: `${generation.title} ${asset.index}번째 카드`,
                     mime_type: asset.mime_type

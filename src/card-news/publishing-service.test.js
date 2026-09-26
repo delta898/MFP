@@ -155,6 +155,34 @@ test('publishing rejects a channel from a different workspace before uploading m
     }
 });
 
+test('a stale signature preview blocks SNS media uploads', async () => {
+    const data = fixture();
+    let uploadCalled = false;
+    const staleError = new Error('미리보기를 갱신해 주세요.');
+    staleError.status = 409;
+    staleError.apiCode = 'CARD_NEWS_SIGNATURE_PREVIEW_STALE';
+    try {
+        const service = createCardNewsPublishingService({
+            CONFIG: config(),
+            generationService: { resolveCompleteAssets: () => data },
+            bufferClient: { shareNowMany: async () => [] },
+            mediaTransport: transport({ async upload() { uploadCalled = true; } }),
+            async prepareAssets(_assets, _signature, expectedSignature) {
+                assert.equal(expectedSignature, 'My Brand');
+                throw staleError;
+            }
+        });
+
+        await assert.rejects(
+            () => service.publish({ generation_id: 'generation-123', channel_ids: ['instagram-1'], signature: 'My Brand', expected_signature: 'My Brand' }),
+            (error) => error === staleError
+        );
+        assert.equal(uploadCalled, false);
+    } finally {
+        fs.rmSync(data.root, { recursive: true, force: true });
+    }
+});
+
 test('publishing config and execution require Google public media without WordPress settings', async () => {
     const data = fixture();
     try {
@@ -227,6 +255,11 @@ test('publish uploads images to public media in order, sends an ordered Buffer a
                 },
                 async remove(item) { deleted.push(item.id); return true; }
             }),
+            async prepareAssets(assets, signature, expectedSignature) {
+                assert.equal(signature, 'My Brand');
+                assert.equal(expectedSignature, 'My Brand');
+                return assets.map((asset) => ({ ...asset, buffer: Buffer.from(`watermarked-${asset.index}`) }));
+            },
             pollIntervalMs: 0,
             pollTimeoutMs: 10
         });
@@ -234,11 +267,14 @@ test('publish uploads images to public media in order, sends an ordered Buffer a
         const result = await service.publish({
             generation_id: 'generation-123',
             channel_ids: ['instagram-1', 'bluesky-1'],
-            text: '제주 카드뉴스'
+            text: '제주 카드뉴스',
+            signature: 'My Brand',
+            expected_signature: 'My Brand'
         });
 
         assert.equal(result.success, true);
         assert.equal(uploaded.length, 3);
+        assert.deepEqual(uploaded.map((item) => item.buffer.toString()), ['watermarked-1', 'watermarked-2', 'watermarked-3']);
         assert.deepEqual(deliveries[0].imageUrls, [
             'https://drive.usercontent.google.com/download?id=1',
             'https://drive.usercontent.google.com/download?id=2',

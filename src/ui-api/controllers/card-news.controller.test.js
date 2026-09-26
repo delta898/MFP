@@ -122,6 +122,71 @@ test('streams a resolved local card image with optional download headers', async
     assert.equal(response.pipedPath, '/safe/card-01.png');
 });
 
+test('serves the prepared image bytes for preview and download', async () => {
+    let receivedSignature = '';
+    let receivedExpectedSignature = null;
+    const { controller } = createHarness({
+        service: {
+            async prepareAsset(_generationId, _fileName, signature, expectedSignature) {
+                receivedSignature = signature;
+                receivedExpectedSignature = expectedSignature;
+                return { buffer: Buffer.from('watermarked-image'), file_name: 'card-01.png', mime_type: 'image/png' };
+            }
+        }
+    });
+    const response = {
+        headers: null,
+        writeHead(status, headers) { this.status = status; this.headers = headers; },
+        end(buffer) { this.body = buffer; }
+    };
+    await controller.asset({
+        requestId: 'req-prepared-asset',
+        method: 'GET',
+        pathname: '/api/v1/card-news/assets/set-1/card-01.png',
+        searchParams: new URLSearchParams('signature=My%20Brand&expected_signature=My%20Brand'),
+        res: response
+    });
+    assert.equal(response.status, 200);
+    assert.equal(response.headers['Cache-Control'], 'private, no-store');
+    assert.equal(response.body.toString(), 'watermarked-image');
+    assert.equal(receivedSignature, 'My Brand');
+    assert.equal(receivedExpectedSignature, 'My Brand');
+});
+
+test('returns a stale preview conflict without streaming mismatched image bytes', async () => {
+    const staleError = new Error('미리보기를 갱신해 주세요.');
+    staleError.status = 409;
+    staleError.apiCode = 'CARD_NEWS_SIGNATURE_PREVIEW_STALE';
+    const { controller, responses } = createHarness({ service: {
+        async prepareAsset() { throw staleError; }
+    } });
+    const response = { writeHead() { throw new Error('must not stream stale image'); } };
+    await controller.asset({
+        requestId: 'req-stale-asset',
+        method: 'GET',
+        pathname: '/api/v1/card-news/assets/set-1/card-01.png',
+        searchParams: new URLSearchParams('signature=My%20Brand&expected_signature=My%20Brand'),
+        res: response
+    });
+    assert.deepEqual(responses[0], {
+        kind: 'error',
+        status: 409,
+        code: 'CARD_NEWS_SIGNATURE_PREVIEW_STALE',
+        message: '미리보기를 갱신해 주세요.'
+    });
+});
+
+test('returns the server-resolved card signature policy', async () => {
+    const { controller, responses } = createHarness({ service: {
+        async getSignaturePolicy(signature) {
+            assert.equal(signature, 'My Brand');
+            return { editable: false, plan_verified: false, default_signature: 'BlogGenius.kr', effective_signature: 'BlogGenius.kr' };
+        }
+    } });
+    await controller.signaturePolicy({ requestId: 'req-signature-policy', method: 'GET', searchParams: new URLSearchParams('signature=My%20Brand'), res: {} });
+    assert.deepEqual(responses[0].data, { editable: false, plan_verified: false, default_signature: 'BlogGenius.kr', effective_signature: 'BlogGenius.kr' });
+});
+
 test('returns not found without exposing arbitrary asset paths', async () => {
     const { controller, responses } = createHarness({ service: { resolveAsset() { return null; } } });
     await controller.asset({
@@ -136,7 +201,18 @@ test('returns not found without exposing arbitrary asset paths', async () => {
 });
 
 test('downloads a completed card-news set as one ZIP bundle', async () => {
-    const { controller } = createHarness();
+    let receivedSignature = '';
+    const { controller } = createHarness({ service: {
+        async createExportBundle(generationId, signature, expectedSignature) {
+            receivedSignature = `${signature}|${expectedSignature}`;
+            return {
+                buffer: Buffer.from('zip'),
+                file_name: '카드뉴스-제주 여행.zip',
+                fallback_file_name: `card-news-${generationId}.zip`,
+                mime_type: 'application/zip'
+            };
+        }
+    } });
     const response = {
         headers: null,
         writeHead(status, headers) { this.status = status; this.headers = headers; },
@@ -146,6 +222,7 @@ test('downloads a completed card-news set as one ZIP bundle', async () => {
         requestId: 'req-export',
         method: 'GET',
         pathname: '/api/v1/card-news/exports/set-1.zip',
+        searchParams: new URLSearchParams('signature=My%20Brand&expected_signature=My%20Brand'),
         res: response
     });
     assert.equal(response.status, 200);
@@ -154,6 +231,7 @@ test('downloads a completed card-news set as one ZIP bundle', async () => {
     assert.match(response.headers['Content-Disposition'], /card-news-set-1\.zip/);
     assert.match(response.headers['Content-Disposition'], /filename\*=UTF-8''%EC%B9%B4%EB%93%9C%EB%89%B4%EC%8A%A4-/);
     assert.equal(response.body.toString(), 'zip');
+    assert.equal(receivedSignature, 'My Brand|My Brand');
 });
 
 test('reads publishing config and publishes a completed card-news set', async () => {

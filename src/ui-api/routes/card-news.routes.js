@@ -5,6 +5,7 @@ function createCardNewsRouteHandler(deps = {}) {
         const handlers = {
             '/api/v1/card-news/sources': controller.sources,
             '/api/v1/card-news/managed': controller.managed,
+            '/api/v1/card-news/signature-policy': controller.signaturePolicy,
             '/api/v1/card-news/source-preview': controller.preview,
             '/api/v1/card-news/generations': controller.generate,
             '/api/v1/card-news/composition-operations': controller.startCompositionOperation,

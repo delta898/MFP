@@ -312,8 +312,8 @@ function renderCardNewsGeneration(generation, options = {}) {
   if (bulkImageAction) {
     bulkImageAction.hidden = importedGeneration;
     bulkImageAction.textContent = imageCount === 0
-      ? '이미지 모두 만들기'
-      : (imageCount < (generation.cards?.length || 0) ? '빈 이미지 모두 만들기' : '이미지 모두 다시 만들기');
+      ? '이미지 생성'
+      : (imageCount < (generation.cards?.length || 0) ? '누락 이미지 생성' : '전체 재생성');
     bulkImageAction.classList.toggle('primary', imageCount < (generation.cards?.length || 0));
     bulkImageAction.classList.toggle('secondary', imageCount === (generation.cards?.length || 0));
   }
@@ -323,7 +323,7 @@ function renderCardNewsGeneration(generation, options = {}) {
     const complete = imageCount > 0 && imageCount === (generation.cards?.length || 0);
     exportAll.hidden = !complete;
     exportAll.href = complete
-      ? `/api/v1/card-news/exports/${encodeURIComponent(generation.id)}.zip`
+      ? cardNewsUrlWithSignature(`/api/v1/card-news/exports/${encodeURIComponent(generation.id)}.zip`)
       : '#';
   }
   if (publishOpen) publishOpen.hidden = true;
@@ -334,7 +334,7 @@ function renderCardNewsGeneration(generation, options = {}) {
     <article class="card-news-result-item${card.image_status === 'failed' && !card.image_url ? ' is-image-failed' : ''}" data-card-news-result-index="${card.index}">
       <div class="card-news-result-image-wrap${card.image_url ? '' : ' is-empty'}">
         ${card.image_url
-          ? `<img src="${escapeHtml(card.image_url)}" alt="${escapeHtml(`${card.index}번째 카드: ${card.headline}`)}">`
+          ? `<img src="${escapeHtml(cardNewsUrlWithSignature(card.image_url))}" alt="${escapeHtml(`${card.index}번째 카드: ${card.headline}`)}">`
           : `<div class="card-news-result-image-empty"><span>${card.image_status === 'failed' ? '이미지 생성 실패' : '이미지 미지정'}</span><small>${card.image_status === 'failed' ? escapeHtml(card.image_error || '다시 시도하거나 내 이미지로 채울 수 있습니다.') : 'AI로 만들거나 내 이미지로 채울 수 있습니다.'}</small></div>`}
         <div class="card-news-media-actions${card.image_url ? '' : ' is-empty'}${cardNewsViewState.imageOperation?.mode === 'single' && Number(cardNewsViewState.imageOperation.cardIndex) === Number(card.index) ? ' is-working' : ''}">
           ${importedGeneration ? '' : (() => {
@@ -348,7 +348,7 @@ function renderCardNewsGeneration(generation, options = {}) {
           })()}
           <button class="secondary compact" type="button" data-card-news-local-picker="${card.index}">${card.image_url ? '이미지 교체' : '＋ 내 이미지 선택'}</button>
           <input type="file" accept="image/png,image/jpeg,image/webp,image/avif" data-card-news-local-image="${card.index}" hidden>
-          ${card.download_url ? `<a class="ui-button-link secondary compact" href="${escapeHtml(card.download_url)}" download>받기</a>` : ''}
+          ${card.download_url ? `<a class="ui-button-link secondary compact" href="${escapeHtml(cardNewsUrlWithSignature(card.download_url))}" download>받기</a>` : ''}
         </div>
         <span class="ui-sequence-badge">${card.index}</span>
         <div class="card-news-image-working" data-card-news-image-working hidden>

@@ -467,11 +467,52 @@ test('keeps publishing errors while recording the ledger failure state', async (
     assert.deepEqual(calls, [['generation-1', 'Buffer failure']]);
 });
 
-test('delegates complete-set export through the card-news boundary', () => {
+test('delegates complete-set export through the card-news boundary', async () => {
     const { service } = createHarness();
-    assert.deepEqual(service.createExportBundle('generation-1'), {
+    assert.deepEqual(await service.createExportBundle('generation-1'), {
         generationId: 'generation-1',
         file_name: 'cards.zip'
+    });
+});
+
+test('prepares watermark bytes before building a complete-set export bundle', async () => {
+    const asset = { index: 1, path: '/original/01.png', file_name: '01.png', mime_type: 'image/png' };
+    let bundleOptions;
+    const { service } = createHarness({
+        generationService: {
+            resolveCompleteAssets() { return { assets: [asset] }; },
+            createExportBundle(id, options) { bundleOptions = options; return { generationId: id, file_name: 'cards.zip' }; }
+        },
+        outgoingImageService: {
+            async prepareAssets(assets, signature, expectedSignature, options) {
+                assert.equal(signature, 'My Brand');
+                assert.equal(expectedSignature, 'My Brand');
+                assert.deepEqual(options, { force: true });
+                return assets.map((item) => ({ ...item, buffer: Buffer.from('watermarked-image') }));
+            }
+        }
+    });
+    const bundle = await service.createExportBundle('generation-1', 'My Brand', 'My Brand');
+    assert.equal(bundle.file_name, 'cards.zip');
+    assert.equal(bundleOptions.assetDataByName['01.png'].toString(), 'watermarked-image');
+});
+
+test('exposes only the signature policy resolved by the injected entitlement boundary', async () => {
+    const { service } = createHarness({
+        outgoingImageService: {
+            async getSignaturePolicy(signature, options) {
+                assert.equal(signature, 'My Brand');
+                assert.deepEqual(options, { force: true });
+                return { editable: true, plan_verified: true, plan_code: 'pro', default_signature: '', effective_signature: 'My Brand' };
+            }
+        }
+    });
+    assert.deepEqual(await service.getSignaturePolicy('My Brand'), {
+        editable: true,
+        plan_verified: true,
+        plan_code: 'pro',
+        default_signature: '',
+        effective_signature: 'My Brand'
     });
 });
 

@@ -254,6 +254,7 @@ function createUiApiRouteRuntime(deps = {}) {
         if (!cardNewsRouteHandler) {
             const service = createCardNewsService({
                 CONFIG,
+                License,
                 axios,
                 cheerio,
                 fs,

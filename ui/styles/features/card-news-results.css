@@ -458,6 +458,33 @@
     flex-direction: column;
   }
 
+  .card-news-signature-field {
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+  }
+
+  .card-news-result-controls {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .card-news-signature-row {
+    flex-wrap: wrap;
+    gap: var(--ui-space-2);
+  }
+
+  .card-news-signature-row > a {
+    margin-left: auto;
+  }
+
+  .card-news-signature-field > .card-news-signature-row > input[type="text"] {
+    flex: 1 0 100%;
+    width: 100%;
+    max-width: none;
+    order: 1;
+  }
+
   .card-news-generation-status {
     flex: 0 0 auto;
     max-width: none;

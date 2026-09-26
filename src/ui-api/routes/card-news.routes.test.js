@@ -7,6 +7,7 @@ test('routes only card-news endpoints to their controllers', async () => {
     const controller = {
         sources: async (ctx) => calls.push(['sources', ctx.method]),
         managed: async (ctx) => calls.push(['managed', ctx.method]),
+        signaturePolicy: async (ctx) => calls.push(['signaturePolicy', ctx.method]),
         generation: async (ctx) => calls.push(['generation', ctx.method]),
         preview: async (ctx) => calls.push(['preview', ctx.method]),
         generate: async (ctx) => calls.push(['generate', ctx.method]),
@@ -30,6 +31,7 @@ test('routes only card-news endpoints to their controllers', async () => {
 
     assert.equal(await handler({ pathname: '/api/v1/card-news/sources', method: 'GET' }), true);
     assert.equal(await handler({ pathname: '/api/v1/card-news/managed', method: 'GET' }), true);
+    assert.equal(await handler({ pathname: '/api/v1/card-news/signature-policy', method: 'GET' }), true);
     assert.equal(await handler({ pathname: '/api/v1/card-news/source-preview', method: 'POST' }), true);
     assert.equal(await handler({ pathname: '/api/v1/card-news/generations', method: 'POST' }), true);
     assert.equal(await handler({ pathname: '/api/v1/card-news/generations/set-1', method: 'GET' }), true);
@@ -52,6 +54,7 @@ test('routes only card-news endpoints to their controllers', async () => {
     assert.deepEqual(calls, [
         ['sources', 'GET'],
         ['managed', 'GET'],
+        ['signaturePolicy', 'GET'],
         ['preview', 'POST'],
         ['generate', 'POST'],
         ['generation', 'GET'],
