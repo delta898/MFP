@@ -6,7 +6,11 @@
     'autumn-night-library',
     'hanji-dancheong',
     'retro-terminal',
-    'minimalism'
+    'minimalism',
+    'cerulean-atelier',
+    'amethyst-salon',
+    'techwear',
+    'goblincore'
   ]);
 
   try {

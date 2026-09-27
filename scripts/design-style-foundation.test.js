@@ -46,8 +46,8 @@ test('UI root selects warm editorial as the main style while compatibility remai
 test('stored style is applied before the stylesheet can paint the HTML default', () => {
   const html = read('ui/index.html');
   const bootstrap = read('ui/style-bootstrap.js');
-  const bootstrapIndex = html.indexOf('<script src="./style-bootstrap.js?v=1"></script>');
-  const stylesheetIndex = html.indexOf('<link rel="stylesheet" href="./styles.css?v=4">');
+  const bootstrapIndex = html.indexOf('<script src="./style-bootstrap.js?v=2"></script>');
+  const stylesheetIndex = html.indexOf('<link rel="stylesheet" href="./styles.css?v=5">');
   const { contract } = loadDesignStyleContract({ repoRoot, initialStyle: 'warm-editorial' });
   const selectableIds = Object.values(contract.registry)
     .filter((style) => style.selectable === true)

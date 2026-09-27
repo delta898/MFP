@@ -151,6 +151,34 @@ const DESIGN_STYLE_REGISTRY = Object.freeze({
     blurb: '색과 장식을 걷어낸 가장 단순한 화면입니다.',
     contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
     selectable: true
+  }),
+  'cerulean-atelier': Object.freeze({
+    id: 'cerulean-atelier',
+    label: '세룰리안 아틀리에',
+    blurb: '맑은 세룰리안 블루와 차가운 백색으로 완성한 선명한 에디토리얼입니다.',
+    contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
+    selectable: true
+  }),
+  'amethyst-salon': Object.freeze({
+    id: 'amethyst-salon',
+    label: '자수정 살롱',
+    blurb: '플럼빛 다크 바탕에 자수정과 은빛 라일락을 얹은 우아한 스타일입니다.',
+    contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
+    selectable: true
+  }),
+  techwear: Object.freeze({
+    id: 'techwear',
+    label: '테크웨어',
+    blurb: '차콜과 블루그레이, 절제된 빙하 블루 포인트로 완성한 기능적 스타일입니다.',
+    contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
+    selectable: true
+  }),
+  goblincore: Object.freeze({
+    id: 'goblincore',
+    label: '고블린코어',
+    blurb: '이끼·버섯·흙빛과 유기적인 표면 질감에서 영감을 얻은 스타일입니다.',
+    contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
+    selectable: true
   })
 });
 

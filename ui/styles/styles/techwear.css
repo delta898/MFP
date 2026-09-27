@@ -1,0 +1,121 @@
+[data-style="techwear"] {
+  /* 테크웨어: signature canvas and surfaces */
+  --ui-canvas: linear-gradient(145deg, #15191c 0%, #0d1012 100%);
+  --ui-surface: #1c2226;
+  --ui-surface-translucent: rgba(28, 34, 38, 0.96);
+  --ui-surface-muted: #242c31;
+  --ui-surface-hover: #303a40;
+  --ui-surface-emphasis: #f0f4f5;
+  --ui-overlay: rgba(4, 7, 9, 0.76);
+
+  /* Text and borders */
+  --ui-text-primary: #eef2f3;
+  --ui-text-secondary: #b8c2c6;
+  --ui-text-muted: #87959b;
+  --ui-text-inverse: #15191c;
+  --ui-border-default: #3b484e;
+  --ui-border-strong: #58666d;
+  --ui-border-focus: #78b8ca;
+
+  /* Actions and status */
+  --ui-action-primary: #78b8ca;
+  --ui-action-primary-hover: #96cbd8;
+  --ui-action-primary-soft: #243840;
+  --ui-action-secondary: #b8c2c6;
+  --ui-action-secondary-hover: #e4eaec;
+  --ui-action-danger: #ff7777;
+  --ui-status-info: #74b9d0;
+  --ui-status-success: #8fc994;
+  --ui-status-warning: #f0c35d;
+  --ui-status-danger: #ff7777;
+  --ui-channel-naver: #03C75A;
+  --ui-channel-wordpress: #21759B;
+  --ui-focus-ring: 0 0 0 3px rgba(120, 184, 202, 0.32);
+
+  /* Typography */
+  --ui-font-sans: 'Inter', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --ui-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --ui-type-display-size: 28px;
+  --ui-type-heading-size: 20px;
+  --ui-type-body-size: 15px;
+  --ui-type-label-size: 13px;
+  --ui-type-caption-size: 11px;
+  --ui-line-height-tight: 1.25;
+  --ui-line-height-body: 1.6;
+  --ui-weight-regular: 400;
+  --ui-weight-medium: 500;
+  --ui-weight-semibold: 600;
+  --ui-weight-bold: 700;
+
+  /* Space and shape */
+  --ui-space-1: 3px;
+  --ui-space-2: 6px;
+  --ui-space-3: 9px;
+  --ui-space-4: 13px;
+  --ui-space-5: 17px;
+  --ui-space-6: 21px;
+  --ui-space-8: 28px;
+  --ui-space-10: 36px;
+  --ui-space-12: 44px;
+  --ui-radius-sm: 2px;
+  --ui-radius-md: 4px;
+  --ui-radius-lg: 6px;
+  --ui-radius-full: 9999px;
+
+  /* Role-based density */
+  --ui-density-page-gap: var(--ui-space-5);
+  --ui-density-section-padding: var(--ui-space-5) var(--ui-space-6);
+  --ui-density-action-padding: var(--ui-space-4) var(--ui-space-6);
+  --ui-density-field-gap: var(--ui-space-3);
+  --ui-density-control-min-height: 42px;
+  --ui-density-compact-control-min-height: 34px;
+  --ui-density-control-padding-inline: var(--ui-space-4);
+  --ui-density-control-radius: 2px;
+
+  /* Elevation and motion */
+  --ui-shadow-sm: 0 0 0 1px rgb(255 255 255 / 0.035);
+  --ui-shadow-md: 0 5px 14px rgb(0 0 0 / 0.38);
+  --ui-shadow-lg: 0 14px 34px rgb(0 0 0 / 0.46);
+  --ui-shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.34);
+  --ui-shadow-glass: 0 10px 28px rgba(0, 0, 0, 0.38);
+  --ui-motion-fast: 120ms;
+  --ui-motion-standard: 180ms;
+  --ui-motion-slow: 280ms;
+  --ui-ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --ui-transition-interactive: all var(--ui-motion-standard) var(--ui-ease-standard);
+
+  /* Shared action component */
+  --ui-button-radius: 3px;
+  --ui-button-primary-background: #78b8ca;
+  --ui-button-primary-hover: #96cbd8;
+  --ui-button-primary-text: #10171a;
+  --ui-button-primary-border: #78b8ca;
+  --ui-button-secondary-background: #242c31;
+  --ui-button-secondary-hover: #303a40;
+  --ui-button-secondary-text: #eef2f3;
+  --ui-button-secondary-border: #58666d;
+  --ui-button-secondary-hover-border: #829199;
+  --ui-button-tertiary-background: transparent;
+  --ui-button-tertiary-hover: #303a40;
+  --ui-button-tertiary-text: #b8c2c6;
+  --ui-button-tertiary-border: #3b484e;
+  --ui-button-danger-text: #9b4a3c;
+  --ui-button-danger-hover: #f8e9e5;
+  --ui-button-disabled-opacity: 0.58;
+  --ui-action-group-gap: 10px;
+
+  /* Shared card component */
+  --ui-card-background: linear-gradient(145deg, #20272b, #1a2024);
+  --ui-card-border: var(--ui-border-default);
+  --ui-card-radius: var(--ui-radius-lg);
+  --ui-card-shadow: 0 0 0 1px rgb(255 255 255 / 0.025);
+  --ui-card-hover-shadow: 0 0 0 1px rgba(120, 184, 202, 0.3), 0 8px 24px rgba(0, 0, 0, 0.3);
+  --ui-card-hover-transform: translateY(-1px);
+
+  /* Shared state and anchored-surface elevation */
+  --ui-segmented-active-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-action-primary) 26%, transparent), var(--ui-shadow-sm);
+  --ui-segmented-badge-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-action-primary) 14%, transparent);
+  --ui-row-running-shadow: 0 0 0 1px color-mix(in srgb, var(--ui-action-primary) 10%, transparent);
+  --ui-table-header-divider-shadow: 0 2px 0 var(--ui-border-default);
+  --ui-sticky-footer-shadow: 0 -8px 18px rgba(15, 23, 42, 0.06);
+}

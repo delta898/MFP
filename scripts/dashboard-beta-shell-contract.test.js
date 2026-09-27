@@ -101,7 +101,7 @@ test('Dashboard Beta channel chips expose brand icons, states, and publish-chann
     assert.match(betaStyle, /button\[data-dashboard-beta-channel\]:focus::after/);
     assert.match(betaStyle, /\.dashboard-beta-readiness-items \[data-dashboard-beta-nav="account"\]/);
     assert.match(betaStyle, /\.dashboard-beta-readiness-items button:disabled/);
-    ['autumn-night-library', 'compatibility', 'hanji-dancheong', 'minimalism', 'quiet-sage-studio', 'retro-terminal', 'warm-editorial'].forEach((theme) => {
+    ['amethyst-salon', 'autumn-night-library', 'cerulean-atelier', 'compatibility', 'goblincore', 'hanji-dancheong', 'minimalism', 'quiet-sage-studio', 'retro-terminal', 'techwear', 'warm-editorial'].forEach((theme) => {
       const tokens = read(`ui/styles/styles/${theme}.css`);
       assert.match(tokens, /--ui-channel-naver:\s*#03C75A;/);
       assert.match(tokens, /--ui-channel-wordpress:\s*#21759B;/);

@@ -41,6 +41,29 @@ test('only product styles are selectable', () => {
     assert.equal(typeof style.label === 'string' && style.label.trim().length > 0, true, style.id);
     assert.equal(typeof style.blurb === 'string' && style.blurb.trim().length > 0, true, style.id);
   });
+  ['cerulean-atelier', 'amethyst-salon', 'techwear', 'goblincore'].forEach((styleId) => {
+    assert.equal(contract.registry[styleId]?.selectable, true, styleId);
+    assert.match(read(`ui/styles/styles/${styleId}.css`), new RegExp(`\\[data-style="${styleId}"\\]`));
+  });
+});
+
+test('the four new style directions have distinct signature palettes and shapes', () => {
+  const cerulean = read('ui/styles/styles/cerulean-atelier.css');
+  const amethyst = read('ui/styles/styles/amethyst-salon.css');
+  const techwear = read('ui/styles/styles/techwear.css');
+  const goblincore = read('ui/styles/styles/goblincore.css');
+
+  assert.match(cerulean, /--ui-action-primary:\s*#007ba7;/);
+  assert.match(amethyst, /--ui-canvas:\s*linear-gradient\([^;]*#211a27/);
+  assert.match(amethyst, /--ui-action-primary:\s*#c39bd7;/);
+  assert.match(techwear, /--ui-canvas:\s*linear-gradient\([^;]*#15191c/);
+  assert.match(techwear, /--ui-action-primary:\s*#78b8ca;/);
+  assert.match(techwear, /--ui-radius-md:\s*4px;/);
+  assert.match(goblincore, /--ui-canvas:\s*radial-gradient\(/);
+  assert.match(goblincore, /--ui-action-primary:\s*#586c3e;/);
+  assert.match(goblincore, /--ui-radius-lg:\s*20px;/);
+  assert.notEqual(cerulean.match(/--ui-action-primary:\s*([^;]+);/)?.[1], goblincore.match(/--ui-action-primary:\s*([^;]+);/)?.[1]);
+  assert.notEqual(amethyst.match(/--ui-canvas:\s*([^;]+);/)?.[1], techwear.match(/--ui-canvas:\s*([^;]+);/)?.[1]);
 });
 
 test('appearance styles use shared tokens only', () => {

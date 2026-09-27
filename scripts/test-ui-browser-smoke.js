@@ -3271,6 +3271,29 @@ async function run() {
             await page.locator('#quick-discovery-modal .modal-footer').evaluate((element) => getComputedStyle(element).backgroundColor),
             'rgb(53, 43, 36)'
         );
+        const newStyleTokens = await page.evaluate(() => {
+            const expected = {
+                'cerulean-atelier': '#007ba7',
+                'amethyst-salon': '#c39bd7',
+                techwear: '#78b8ca',
+                goblincore: '#586c3e'
+            };
+            return Object.entries(expected).map(([id, primary]) => {
+                document.documentElement.dataset.style = id;
+                return {
+                    id,
+                    registered: getSelectableDesignStyles().some((style) => style.id === id),
+                    primary: getComputedStyle(document.documentElement).getPropertyValue('--ui-action-primary').trim(),
+                    expected: primary
+                };
+            });
+        });
+        assert.deepEqual(newStyleTokens, [
+            { id: 'cerulean-atelier', registered: true, primary: '#007ba7', expected: '#007ba7' },
+            { id: 'amethyst-salon', registered: true, primary: '#c39bd7', expected: '#c39bd7' },
+            { id: 'techwear', registered: true, primary: '#78b8ca', expected: '#78b8ca' },
+            { id: 'goblincore', registered: true, primary: '#586c3e', expected: '#586c3e' }
+        ]);
         await page.locator('html').evaluate((element) => { element.dataset.style = 'hanji-dancheong'; });
         assert.deepEqual(
             await page.locator('#view-dashboard-beta .ui-overview-card').first().evaluate((element) => {
@@ -3294,7 +3317,7 @@ async function run() {
         );
         assert.equal(
             await page.evaluate(() => getSelectableDesignStyles().filter((style) => style.selectable).length),
-            6
+            10
         );
         assert.deepEqual(
             await page.locator('#dashboard-beta-discovery-refresh').evaluate((element) => {
