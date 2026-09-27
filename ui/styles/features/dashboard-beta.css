@@ -10,7 +10,7 @@
 
 .dashboard-beta-readiness {
   padding: var(--ui-space-5) var(--ui-space-6);
-  margin-bottom: var(--ui-space-5);
+  margin-bottom: var(--ui-space-4);
 }
 
 .dashboard-beta-onboarding {
@@ -284,7 +284,7 @@ button[data-dashboard-beta-channel]:focus::after {
 .dashboard-beta-overview-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--ui-space-5);
+  gap: var(--ui-space-4);
   margin-bottom: var(--ui-space-5);
 }
 

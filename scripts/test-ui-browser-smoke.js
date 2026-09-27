@@ -1591,6 +1591,8 @@ async function run() {
         await awaitSmokeCheck('Waiting for app navigation API', page.waitForFunction(() => typeof window.navigateTo === 'function'));
         await awaitSmokeCheck('Waiting for Dashboard Beta activation', page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active')));
         await awaitSmokeCheck('Waiting for Dashboard Beta initial flow state', page.waitForFunction(() => document.getElementById('dashboard-beta-flow-subject')?.textContent === '현재 실행 중인 글이 없습니다.'));
+        assert.equal(await page.locator('.main').evaluate((element) => getComputedStyle(element).paddingLeft), '20px');
+        assert.equal(await page.locator('.main').evaluate((element) => getComputedStyle(element).paddingRight), '20px');
         reportSmokePhase('Checking dashboard navigation, onboarding, and discovery');
         const blogNavItem = page.locator('.nav-btn[data-view="blog-next"]');
         assert.equal(await page.locator('#sidebar').evaluate((element) => Math.round(element.getBoundingClientRect().width)), 224);
@@ -4987,6 +4989,7 @@ async function run() {
 
         await page.setViewportSize({ width: 390, height: 844 });
         await page.waitForFunction(() => document.body.classList.contains('mobile-quick-mode'));
+        assert.equal(await page.locator('.main').evaluate((element) => getComputedStyle(element).paddingLeft), '14px');
         assert.equal(await page.locator('#sidebar-menu-tooltip').evaluate((element) => element.hidden), true);
         await page.waitForFunction(() => document.getElementById('view-blog-next')?.classList.contains('active'));
         const blogNextNarrowLayout = await page.evaluate(() => {

@@ -119,6 +119,25 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
     ]);
 });
 
+test('shared app shell narrows only the desktop gutter and preserves responsive gutters', () => {
+    const appChrome = fs.readFileSync(path.join(uiRoot, 'styles/components/app-chrome.css'), 'utf8');
+    const responsiveShell = fs.readFileSync(path.join(uiRoot, 'styles/layout/responsive-shell.css'), 'utf8');
+    const responsive = fs.readFileSync(path.join(uiRoot, 'styles/layout/responsive.css'), 'utf8');
+
+    assert.match(appChrome, /\.main\s*\{[^}]*padding:\s*32px 20px;/s);
+    assert.match(responsiveShell, /@media\s*\(max-width:\s*960px\)[\s\S]*?\.main\s*\{[^}]*padding:\s*24px 20px;/);
+    assert.match(responsive, /body\.mobile-quick-mode \.main\s*\{[^}]*padding:\s*18px 14px 28px;/s);
+});
+
+test('dashboard and card-news reduce only their own large layout gaps', () => {
+    const dashboard = fs.readFileSync(path.join(uiRoot, 'styles/features/dashboard-beta.css'), 'utf8');
+    const cardNews = fs.readFileSync(path.join(uiRoot, 'styles/features/card-news.css'), 'utf8');
+
+    assert.match(dashboard, /\.dashboard-beta-readiness\s*\{[^}]*margin-bottom:\s*var\(--ui-space-4\);/s);
+    assert.match(dashboard, /\.dashboard-beta-overview-grid\s*\{[^}]*gap:\s*var\(--ui-space-4\);/s);
+    assert.match(cardNews, /\.card-news-layout\s*\{[^}]*gap:\s*var\(--ui-space-4\);/s);
+});
+
 test('CSS manifest declares one cascade contract and keeps every module inside a named layer', () => {
     const manifest = fs.readFileSync(manifestPath, 'utf8');
     const declaredOrder = manifest.match(/@layer\s+([^;]+);/)?.[1]

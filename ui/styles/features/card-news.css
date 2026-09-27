@@ -9,7 +9,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.75fr);
   align-items: stretch;
-  gap: var(--ui-space-5);
+  gap: var(--ui-space-4);
 }
 
 .card-news-preview-card {
