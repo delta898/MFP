@@ -1,6 +1,12 @@
 # Changelog
 All notable changes to the Naver Auto Blog publishing tool will be documented in this file.
 
+## [0.5.3-dev2] - 2026-09-27
+
+### Changed
+- **관련 글 선택 개선**: 네이버와 워드프레스 글을 발행 대상과 관계없이 함께 비교해 관련도 높은 글을 우선 고르고, 가능하면 출처도 섞습니다.
+- **Spreadsheet 연결 시작 개선**: 주소가 없을 때도 Google Sheets를 바로 열 수 있고, 공유 링크로 접근 확인을 하면 설정에는 문서의 표준 주소만 저장합니다.
+
 ## [0.5.3-dev1] - 2026-09-27
 
 ### Added
