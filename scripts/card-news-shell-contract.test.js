@@ -500,8 +500,8 @@ test('Card News signature is locally remembered, plan-locked when needed, and ap
     assert.match(workflow, /cardNewsUrlWithSignature\(`\/api\/v1\/card-news\/exports/);
     assert.match(workflow, /cardNewsUrlWithSignature\(card\.image_url\)/);
     assert.match(workflow, /cardNewsUrlWithSignature\(card\.download_url\)/);
-    assert.match(publishing, /signature: getCardNewsSignatureForRequest\(\)/);
-    assert.match(publishing, /expected_signature: cardNewsViewState\.signaturePreviewEffectiveSignature/);
+    assert.match(publishing, /const signature = getCardNewsSignatureForRequest\(\);[\s\S]*const expectedSignature = cardNewsViewState\.signaturePreviewEffectiveSignature;[\s\S]*const previewToken = cardNewsViewState\.signaturePreviewToken;/);
+    assert.match(publishing, /channel_ids: channelIds,[\s\n]*text,[\s\n]*signature,[\s\n]*expected_signature: expectedSignature,[\s\n]*preview_token: previewToken/);
     assert.match(css, /\.card-news-signature-field/);
     assert.match(css, /\.card-news-result-heading\s*\{[^}]*display:\s*flex;[^}]*justify-content:\s*space-between;/s);
     assert.match(css, /\.card-news-result-controls\s*\{[^}]*width:\s*100%;[^}]*margin:[^;]*auto;/s);

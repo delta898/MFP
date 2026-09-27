@@ -3,7 +3,7 @@
 - Branch: `codex/feat/appearance-style-expansion`
 - Base/parent branch: `dev`
 - Start date: 2026-09-27
-- Status: In progress
+- Status: Verified; ready to merge into `dev`
 
 ## User need and goal
 
@@ -39,11 +39,13 @@ Out of scope:
 - The feature changes were present as uncommitted edits on `dev`; they were preserved and carried to this feature branch without committing or changing `dev` history.
 - Focused appearance contract test passed: `node --test scripts/settings-next-appearance-contract.test.js`.
 - Browser smoke passed: `npm run test:ui-browser` (519 fixture requests; no page or console errors).
+- The first full-unit gate exposed a stale Card News signature source-shape assertion: production code captured `signature`, `expectedSignature`, and `previewToken` before locking controls, while the test expected inline property expressions. Updated the contract to verify the captured values and shorthand request fields without changing publishing behavior.
+- Focused Card News shell contract passed: 17/17.
+- Full gate passed: `npm run test:unit` (security audit: 0 vulnerabilities; 2,008 passed, 1 skipped, 0 failed across 368 test files).
 - Manual visual review remains with the user.
 
 ## Remaining work and risks
 
-- Review the final diff and ensure the style registry, previews, and documentation are coherent.
-- Run any additional focused tests warranted by the final diff.
-- Keep the branch uncommitted until the user requests a commit; do not merge without explicit approval.
+- Merge the verified branch into `dev` and delete the feature branch when the user has requested integration.
+- All work is committed; no push or release action is included in scope.
 - Verify appearance visually in the app, especially Techwear contrast and the distinction among the four styles.
