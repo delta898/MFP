@@ -464,6 +464,13 @@ test('Card News preserves the last valid generated set when a later request fail
     assert.doesNotMatch(script, /catch \(error\)[\s\S]{0,260}cardNewsViewState\.generation = null/);
 });
 
+test('Card News refreshes managed status counts after publishing settles', () => {
+    const publishing = fs.readFileSync(path.join(uiRoot, 'scripts/features/card-news/publishing.js'), 'utf8');
+    const publishAction = publishing.match(/async function publishCardNews\(\) \{[\s\S]*?\n\}/)?.[0] || '';
+    assert.match(publishAction, /finally \{\s*setCardNewsPublishing\(false\);\s*\/\/[\s\S]*?await loadCardNewsManagedItems\(\);\s*\}/);
+    assert.doesNotMatch(publishing, /publishedChannelIds|cardNewsPublishCompleted/);
+});
+
 test('Card News signature is locally remembered, plan-locked when needed, and applied to every export path', () => {
     const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot }).html;
     const scripts = readCardNewsPreviewScripts();

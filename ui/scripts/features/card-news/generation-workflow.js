@@ -300,7 +300,6 @@ function renderCardNewsGeneration(generation, options = {}) {
     }
     cardNewsViewState.publishingConfig = null;
     cardNewsViewState.publishingOutcome = '';
-    cardNewsViewState.publishedChannelIds.clear();
   }
   const panel = document.getElementById('card-news-result-panel');
   const grid = document.getElementById('card-news-result-grid');

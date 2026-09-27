@@ -3021,6 +3021,62 @@ async function run() {
             primaryDisabled: true
         });
         await page.locator('[data-card-news-publish-channel][value="instagram-1"]').check();
+        let cardNewsPublishConfirmed = false;
+        let managedItemsRequestCount = 0;
+        let releaseFirstManagedRequest;
+        const firstManagedRequestGate = new Promise((resolve) => { releaseFirstManagedRequest = resolve; });
+        await page.route('**/api/v1/card-news/managed', async (route) => {
+            managedItemsRequestCount += 1;
+            const requestCount = managedItemsRequestCount;
+            const confirmedAtRequest = cardNewsPublishConfirmed;
+            if (requestCount === 1) await firstManagedRequestGate;
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json; charset=utf-8',
+                body: JSON.stringify({
+                    success: true,
+                    data: {
+                        items: [{
+                            generation_id: 'ui-smoke-complete-result',
+                            title: '완성된 UI smoke 카드뉴스',
+                            status: confirmedAtRequest ? '발행 완료' : '발행 대기',
+                            status_key: confirmedAtRequest ? 'published' : 'ready_to_publish',
+                            status_tone: confirmedAtRequest ? 'ready' : 'pending',
+                            action_label: '결과 보기',
+                            card_count: 3,
+                            image_count: 3,
+                            local_available: true,
+                            source_platform: 'naver'
+                        }]
+                    }
+                })
+            });
+        });
+        await page.route('**/api/v1/card-news/publishing/publish', async (route) => {
+            cardNewsPublishConfirmed = true;
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json; charset=utf-8',
+                body: JSON.stringify({
+                    success: true,
+                    data: {
+                        success: true,
+                        confirmed: true,
+                        success_count: 1,
+                        failure_count: 0,
+                        results: [{
+                            success: true,
+                            channel_id: 'instagram-1',
+                            channel_name: 'Instagram',
+                            service: 'instagram',
+                            status: 'sent',
+                            external_link: 'https://instagram.com/p/ui-smoke'
+                        }]
+                    }
+                })
+            });
+        });
         const workspaceReloadRequest = page.waitForRequest((request) => request.url().includes('/api/v1/card-news/publishing/config')
             && request.url().includes('organization_id=card-news-org-1'));
         await page.locator('#card-news-publishing-workspaces-load').click();
@@ -3042,6 +3098,63 @@ async function run() {
         await page.locator('#card-news-publishing-select-all').uncheck();
         assert.equal(await page.locator('#card-news-publishing-channel-limit').textContent(), '최대 3개 · 0개 선택');
         await page.locator('[data-card-news-publish-channel][value="instagram-1"]').check();
+        await page.evaluate(async () => {
+            window.ensureCardNewsSignaturePreviewCurrent = async () => true;
+            cardNewsViewState.managedDetailOpen = true;
+            cardNewsViewState.managedWorkflowContext = { generation: { id: 'ui-smoke-complete-result' } };
+            void loadCardNewsManagedItems();
+        });
+        await page.waitForFunction(() => cardNewsViewState.managedLoading === true);
+        assert.equal(managedItemsRequestCount, 1);
+        await page.locator('#card-news-publish-button').click();
+        await page.locator('#ui-dialog-confirm').click();
+        await page.waitForFunction(() => cardNewsViewState.publishing === true);
+        assert.deepEqual(await page.evaluate(() => ({
+            generateButtonDisabled: document.getElementById('card-news-generate-button')?.disabled,
+            cardSettingsDisabled: ['card-news-slide-count', 'card-news-aspect-ratio', 'card-news-style', 'card-news-exclude-korean-text']
+                .every((id) => document.getElementById(id)?.disabled),
+            imageModelControlsDisabled: [...document.querySelectorAll('[data-card-news-image-model-select], [data-card-news-image-provider-select]')]
+                .every((control) => control.disabled),
+            signatureDisabled: document.getElementById('card-news-signature-enabled')?.disabled
+                && document.getElementById('card-news-signature')?.disabled,
+            publishTextDisabled: document.getElementById('card-news-publishing-text')?.disabled,
+            publishButtonDisabled: document.getElementById('card-news-publish-button')?.disabled
+        })), {
+            generateButtonDisabled: true,
+            cardSettingsDisabled: true,
+            imageModelControlsDisabled: true,
+            signatureDisabled: true,
+            publishTextDisabled: true,
+            publishButtonDisabled: true
+        });
+        await page.waitForFunction(() => cardNewsViewState.managedReloadRequested === true);
+        releaseFirstManagedRequest();
+        await page.waitForFunction(() => [...document.querySelectorAll('[data-card-news-managed-count-for]')]
+                .find((item) => item.dataset.cardNewsManagedCountFor === '발행 완료')?.textContent === '1');
+        assert.equal(managedItemsRequestCount, 2, 'the publish refresh should run again after the stale in-flight request settles');
+        assert.deepEqual(await page.evaluate(() => ({
+            publishedCount: [...document.querySelectorAll('[data-card-news-managed-count-for]')]
+                .find((item) => item.dataset.cardNewsManagedCountFor === '발행 완료')?.textContent,
+            itemStatus: document.querySelector('#card-news-managed-list [data-generation-id="ui-smoke-complete-result"] .card-news-managed-status')?.textContent,
+            itemSummary: document.querySelector('#card-news-managed-list [data-generation-id="ui-smoke-complete-result"] .card-news-entry-summary')?.textContent,
+            publishResult: document.getElementById('card-news-publishing-result')?.textContent.replace(/\s+/g, ''),
+            channelCanBeSelectedAgain: !document.querySelector('[data-card-news-publish-channel][value="instagram-1"]')?.disabled,
+            channelCheckedAfterPublish: document.querySelector('[data-card-news-publish-channel][value="instagram-1"]')?.checked,
+            selectedItemPreserved: document.querySelector('#card-news-managed-list [data-generation-id="ui-smoke-complete-result"]')?.getAttribute('aria-pressed'),
+            publishOutcome: cardNewsViewState.publishingOutcome
+        })), {
+            publishedCount: '1',
+            itemStatus: '발행 완료',
+            itemSummary: '네이버 · 카드 3장 · 이미지 3장',
+            publishResult: 'Instagram발행완료게시물열기↗',
+            channelCanBeSelectedAgain: true,
+            channelCheckedAfterPublish: false,
+            selectedItemPreserved: 'true',
+            publishOutcome: 'completed'
+        });
+        await page.locator('[data-card-news-publish-channel][value="instagram-1"]').check();
+        assert.equal(await page.locator('[data-card-news-publish-channel][value="instagram-1"]').isChecked(), true);
+        await page.locator('[data-card-news-publish-channel][value="instagram-1"]').uncheck();
         reportSmokePhase('Checking Card News publishing setup and finalization states');
         await page.unroute('**/api/v1/card-news/publishing/config?generation_id=*');
         await page.route('**/api/v1/card-news/publishing/config?generation_id=*', async (route) => {

@@ -29,7 +29,6 @@ const cardNewsViewState = {
   signaturePreviewEffectiveSignature: '',
   signaturePreviewResolved: false,
   publishingOutcome: '',
-  publishedChannelIds: new Set(),
   projectId: '',
   generation: null,
   createWorkflowContext: null,
@@ -39,6 +38,7 @@ const cardNewsViewState = {
   managedItems: [],
   managedFilter: '전체',
   managedLoading: false,
+  managedReloadRequested: false,
   zipImport: null,
   zipImporting: false,
   scrollTop: 0
@@ -270,8 +270,7 @@ function captureCardNewsWorkflowContext() {
     projectId: cardNewsViewState.projectId,
     generation: cardNewsViewState.generation,
     publishingConfig: cardNewsViewState.publishingConfig,
-    publishingOutcome: cardNewsViewState.publishingOutcome,
-    publishedChannelIds: new Set(cardNewsViewState.publishedChannelIds)
+    publishingOutcome: cardNewsViewState.publishingOutcome
   };
 }
 
@@ -283,7 +282,6 @@ function restoreCardNewsWorkflowContext(context = {}) {
   cardNewsViewState.projectId = context.projectId || '';
   cardNewsViewState.publishingConfig = context.publishingConfig || null;
   cardNewsViewState.publishingOutcome = context.publishingOutcome || '';
-  cardNewsViewState.publishedChannelIds = new Set(context.publishedChannelIds || []);
   if (context.generation) {
     renderCardNewsGeneration(context.generation, { scroll: false });
   } else {
@@ -590,7 +588,6 @@ function clearCardNewsDownstreamContext() {
   cardNewsViewState.generation = null;
   cardNewsViewState.publishingConfig = null;
   cardNewsViewState.publishingOutcome = '';
-  cardNewsViewState.publishedChannelIds.clear();
   const resultPanel = document.getElementById('card-news-result-panel');
   const publishingPanel = document.getElementById('card-news-publishing-panel');
   if (resultPanel) resultPanel.hidden = true;

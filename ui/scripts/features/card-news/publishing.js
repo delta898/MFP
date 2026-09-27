@@ -1,4 +1,33 @@
 const CARD_NEWS_BUFFER_ORGANIZATION_STORAGE_KEY = 'card_news_buffer_organization_id_v1';
+const cardNewsPublishingControlDisabledStates = new Map();
+
+function setCardNewsPublishingControlsLocked(locked) {
+  const selector = [
+    '#card-news-generation-panel input',
+    '#card-news-generation-panel select',
+    '#card-news-generation-panel textarea',
+    '#card-news-generation-panel button',
+    '[data-card-news-image-model-select]',
+    '[data-card-news-image-provider-select]',
+    '#card-news-signature-enabled',
+    '#card-news-signature',
+    '#card-news-publishing-panel input',
+    '#card-news-publishing-panel select',
+    '#card-news-publishing-panel textarea',
+    '#card-news-publishing-panel button'
+  ].join(', ');
+  document.querySelectorAll(selector).forEach((control) => {
+    if (locked) {
+      if (!cardNewsPublishingControlDisabledStates.has(control)) {
+        cardNewsPublishingControlDisabledStates.set(control, control.disabled);
+      }
+      control.disabled = true;
+    } else if (cardNewsPublishingControlDisabledStates.has(control)) {
+      control.disabled = cardNewsPublishingControlDisabledStates.get(control);
+      cardNewsPublishingControlDisabledStates.delete(control);
+    }
+  });
+}
 
 function loadCardNewsBufferOrganizationId() {
   try { return String(localStorage.getItem(CARD_NEWS_BUFFER_ORGANIZATION_STORAGE_KEY) || '').trim(); }
@@ -55,8 +84,7 @@ function syncCardNewsPublishingChannelAvailability() {
   const maxChannels = Math.max(1, Number(cardNewsViewState.publishingConfig?.max_channels || 1));
   const controls = [...document.querySelectorAll('[data-card-news-publish-channel]')];
   document.querySelectorAll('[data-card-news-publish-channel]').forEach((control) => {
-    const unavailable = control.dataset.cardNewsPublishCompatible !== 'true'
-      || control.dataset.cardNewsPublishCompleted === 'true';
+    const unavailable = control.dataset.cardNewsPublishCompatible !== 'true';
     const selectionLimitReached = !control.checked && selectedCount >= maxChannels;
     control.disabled = cardNewsViewState.publishing || unavailable || selectionLimitReached;
     control.closest('.card-news-publishing-channel')?.classList.toggle('is-disabled', control.disabled);
@@ -66,8 +94,7 @@ function syncCardNewsPublishingChannelAvailability() {
   BufferPublishingControls.syncChannelSelectAll({
     master: document.getElementById('card-news-publishing-select-all'),
     controls,
-    isEligible: (control) => control.dataset.cardNewsPublishCompatible === 'true'
-      && control.dataset.cardNewsPublishCompleted !== 'true',
+    isEligible: (control) => control.dataset.cardNewsPublishCompatible === 'true',
     limit: maxChannels,
     disabled: cardNewsViewState.publishing
   });
@@ -139,20 +166,18 @@ function renderCardNewsPublishingConfig(config = {}) {
       BufferPublishingControls.applyChannelSelectAll({
         master: selectAll,
         controls: [...channels.querySelectorAll('[data-card-news-publish-channel]')],
-        isEligible: (control) => control.dataset.cardNewsPublishCompatible === 'true'
-          && control.dataset.cardNewsPublishCompleted !== 'true',
+        isEligible: (control) => control.dataset.cardNewsPublishCompatible === 'true',
         limit: Math.max(1, Number(config.max_channels || 1))
       });
       syncCardNewsPublishButton();
     };
   }
   channels.innerHTML = (config.channels || []).map((channel) => {
-    const completed = cardNewsViewState.publishedChannelIds.has(String(channel.id || ''));
     const compatible = Boolean(channel.compatible);
     return `
-    <label class="card-news-publishing-channel ui-selectable-card${compatible && !completed ? '' : ' is-disabled'}" title="${escapeHtml(channel.reason || '')}">
-      <input type="checkbox" value="${escapeHtml(channel.id)}" data-card-news-publish-channel data-card-news-publish-compatible="${compatible ? 'true' : 'false'}" data-card-news-publish-completed="${completed ? 'true' : 'false'}" ${compatible && !completed ? '' : 'disabled'}>
-      <span class="ui-selectable-card-copy"><strong>${escapeHtml(channel.name || channel.service)}</strong><small>${escapeHtml(completed ? '발행 완료' : (channel.compatible ? `${channel.max_assets}장까지` : channel.reason))}</small></span>
+    <label class="card-news-publishing-channel ui-selectable-card${compatible ? '' : ' is-disabled'}" title="${escapeHtml(channel.reason || '')}">
+      <input type="checkbox" value="${escapeHtml(channel.id)}" data-card-news-publish-channel data-card-news-publish-compatible="${compatible ? 'true' : 'false'}" ${compatible ? '' : 'disabled'}>
+      <span class="ui-selectable-card-copy"><strong>${escapeHtml(channel.name || channel.service)}</strong><small>${escapeHtml(channel.compatible ? `${channel.max_assets}장까지` : channel.reason)}</small></span>
     </label>`;
   }).join('') || `<p class="ui-workflow-empty">${selectedOrganizationId ? '이 작업 공간에 발행 가능한 채널이 없습니다.' : '먼저 작업 공간을 선택해 주세요.'}</p>`;
   if (!text.value.trim()) text.value = String(config.default_text || [config.title, config.source_url].filter(Boolean).join('\n\n'));
@@ -203,8 +228,7 @@ async function loadCardNewsPublishingWorkspace(organizationId = '') {
     if (preserveSelection) {
       document.querySelectorAll('[data-card-news-publish-channel]').forEach((control) => {
         control.checked = selectedChannelIds.has(control.value)
-          && control.dataset.cardNewsPublishCompatible === 'true'
-          && control.dataset.cardNewsPublishCompleted !== 'true';
+          && control.dataset.cardNewsPublishCompatible === 'true';
       });
       syncCardNewsPublishButton();
     }
@@ -273,6 +297,8 @@ async function openCardNewsPublishing(options = {}) {
 function setCardNewsPublishing(publishing) {
   cardNewsViewState.publishing = publishing;
   cardNewsViewState.generating = publishing;
+  setCardNewsPublishingControlsLocked(publishing);
+  updateCardNewsGenerationAvailability();
   const button = document.getElementById('card-news-publish-button');
   const status = document.getElementById('card-news-publishing-status');
   document.querySelectorAll('#card-news-regenerate, #card-news-bulk-image-action, #card-news-export-all, [data-card-news-image-action], [data-card-news-local-image], #card-news-publishing-text').forEach((control) => {
@@ -328,11 +354,9 @@ async function publishCardNews() {
     const successfulChannelIds = new Set((result.results || [])
       .filter((item) => item.success)
       .map((item) => String(item.channel_id || '')));
-    successfulChannelIds.forEach((channelId) => cardNewsViewState.publishedChannelIds.add(channelId));
     document.querySelectorAll('[data-card-news-publish-channel]').forEach((input) => {
       if (!successfulChannelIds.has(input.value)) return;
       input.checked = false;
-      input.dataset.cardNewsPublishCompleted = 'true';
     });
     if (resultElement) {
       resultElement.hidden = false;
@@ -359,5 +383,9 @@ async function publishCardNews() {
     }
   } finally {
     setCardNewsPublishing(false);
+    // The publish endpoint records its result in the managed ledger. Refresh
+    // that source of truth after both success and failure so status filters
+    // and workspace counts do not remain stale until the next navigation.
+    await loadCardNewsManagedItems();
   }
 }

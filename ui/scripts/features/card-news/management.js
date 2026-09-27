@@ -404,7 +404,10 @@ async function importCardNewsZip() {
 }
 
 async function loadCardNewsManagedItems() {
-  if (cardNewsViewState.managedLoading) return;
+  if (cardNewsViewState.managedLoading) {
+    cardNewsViewState.managedReloadRequested = true;
+    return;
+  }
   const list = document.getElementById('card-news-managed-list');
   if (list) list.innerHTML = '<div class="card-news-empty-state ui-empty-state">만든 카드뉴스를 불러오는 중입니다.</div>';
   setCardNewsManagedLoading(true);
@@ -416,6 +419,10 @@ async function loadCardNewsManagedItems() {
     if (list) list.innerHTML = `<div class="card-news-empty-state ui-empty-state" data-state="error"><strong>목록을 불러오지 못했습니다.</strong><span>${escapeHtml(error.message || '잠시 후 다시 시도해 주세요.')}</span></div>`;
   } finally {
     setCardNewsManagedLoading(false);
+    if (cardNewsViewState.managedReloadRequested) {
+      cardNewsViewState.managedReloadRequested = false;
+      await loadCardNewsManagedItems();
+    }
   }
 }
 
@@ -482,8 +489,7 @@ function startNewCardNewsFromManagedSource() {
     projectId: '',
     generation: null,
     publishingConfig: null,
-    publishingOutcome: '',
-    publishedChannelIds: new Set()
+    publishingOutcome: ''
   };
   activateCardNewsWorkspace('create');
   renderCardNewsPreview(snapshot);
@@ -499,7 +505,6 @@ function showManagedCardNewsGeneration(result = {}) {
   cardNewsViewState.projectId = generation.project_id || '';
   cardNewsViewState.publishingConfig = null;
   cardNewsViewState.publishingOutcome = '';
-  cardNewsViewState.publishedChannelIds.clear();
   cardNewsViewState.managedDetailOpen = true;
   const detail = document.getElementById('card-news-managed-detail');
   if (detail) detail.hidden = false;

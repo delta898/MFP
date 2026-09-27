@@ -7,12 +7,18 @@ const { createUiHttpServerRuntime } = require('./http-server-runtime');
 function createWindowsServerHarness(overrides = {}) {
     const uiRoot = 'C:\\Program Files\\BlogGenius\\resources\\app.asar\\ui';
     let requestHandler = null;
+    const logEvents = [];
     const fs = {
         existsSync() { return true; },
         statSync() { return { isFile: () => true, isDirectory: () => true }; },
         readFileSync(filePath) { return `raw:${filePath}`; }
     };
-    const Logger = { debug() {}, info() {}, warn() {}, error() {} };
+    const Logger = {
+        debug() {},
+        info(message) { logEvents.push(String(message)); },
+        warn(message) { logEvents.push(String(message)); },
+        error() {}
+    };
     const httpUtils = createUiHttpUtils({
         fs,
         path: path.win32,
@@ -48,7 +54,7 @@ function createWindowsServerHarness(overrides = {}) {
         normalizeListenPort: (value, fallback) => Number(value) || fallback,
         createRequestId: () => 'request-test',
         readJsonBody: async () => ({}),
-        handleApi: async () => false,
+        handleApi: overrides.handleApi || (async () => false),
         sanitizePathname: httpUtils.sanitizePathname,
         shouldServeUiShell: httpUtils.shouldServeUiShell,
         sendError: () => false,
@@ -75,6 +81,7 @@ function createWindowsServerHarness(overrides = {}) {
 
     return {
         lifecycle,
+        logEvents,
         async start(options = {}) {
             return runtime.startUiServer(options);
         },
@@ -89,6 +96,7 @@ function createWindowsServerHarness(overrides = {}) {
                     headersSent: false,
                     writableEnded: false,
                     writeHead(statusCode, headers) {
+                        this.statusCode = statusCode;
                         response.statusCode = statusCode;
                         response.headers = headers;
                     },
@@ -116,6 +124,24 @@ test('Windows UI server returns composed CSS and JavaScript assets', async () =>
     assert.equal(script.statusCode, 200);
     assert.equal(script.headers['Content-Type'], 'application/javascript; charset=utf-8');
     assert.equal(script.body, 'globalThis.composed = true;');
+});
+
+test('Card News publish and managed-list API requests leave focused diagnostic logs', async () => {
+    const harness = createWindowsServerHarness({
+        handleApi: async (_requestId, _method, pathname, _searchParams, _body, res) => {
+            if (!['/api/v1/card-news/managed', '/api/v1/card-news/publishing/publish'].includes(pathname)) return false;
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end('{"success":true}');
+            return true;
+        }
+    });
+    await harness.start();
+
+    const response = await harness.request('/api/v1/card-news/managed');
+
+    assert.equal(response.statusCode, 200);
+    assert.ok(harness.logEvents.some((line) => line.includes('[CardNews][API] request id=request-test method=GET path=/api/v1/card-news/managed')));
+    assert.ok(harness.logEvents.some((line) => line.includes('[CardNews][API] response id=request-test path=/api/v1/card-news/managed status=200')));
 });
 
 test('UI server restart replaces the Card News RSS scheduler instead of duplicating it', async () => {

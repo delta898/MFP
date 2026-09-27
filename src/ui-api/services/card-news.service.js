@@ -339,9 +339,16 @@ function createCardNewsService(deps = {}) {
         const localItems = (generationService?.listGenerations?.() || [])
             .filter((generation) => !knownGenerationIds.has(String(generation.id || '')))
             .map(summarizeLocalCardNews);
+        const managedItems = [...items, ...localItems]
+            .sort((left, right) => String(right.updated_at).localeCompare(String(left.updated_at)));
+        const statusCounts = managedItems.reduce((counts, item) => {
+            const status = String(item.status || '확인 필요');
+            counts[status] = (counts[status] || 0) + 1;
+            return counts;
+        }, {});
+        logger?.info?.(`[CardNews] managed list ready (items=${managedItems.length}, statuses=${JSON.stringify(statusCounts)})`);
         return {
-            items: [...items, ...localItems]
-                .sort((left, right) => String(right.updated_at).localeCompare(String(left.updated_at)))
+            items: managedItems
         };
     }
 
@@ -633,6 +640,7 @@ function createCardNewsService(deps = {}) {
         try {
             const result = await publishingService.publish(input);
             await ledgerSync.recordPublishing(input.generation_id || input.generationId, result);
+            logger?.info?.(`[CardNews] publish ledger recorded (confirmed=${Boolean(result.confirmed)}, success=${Number(result.success_count || 0)}, failure=${Number(result.failure_count || 0)})`);
             return result;
         } catch (error) {
             await ledgerSync.recordPublishingFailure(input.generation_id || input.generationId, error);

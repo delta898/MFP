@@ -99,7 +99,13 @@ function createUiHttpServerRuntime(deps = {}) {
 
                 if (pathname.startsWith('/api/v1/')) {
                     const startTime = Date.now();
+                    const traceCardNewsList = pathname === '/api/v1/card-news/managed';
+                    const traceCardNewsPublish = pathname === '/api/v1/card-news/publishing/publish';
+                    const traceCardNewsRequest = traceCardNewsList || traceCardNewsPublish;
                     Logger.debug(`[API][${requestId}] Request: ${method} ${pathname}`);
+                    if (traceCardNewsRequest) {
+                        Logger.info(`[CardNews][API] request id=${requestId} method=${method} path=${pathname}`);
+                    }
                     let requestBody = {};
                     if (method === 'POST' || method === 'PUT') {
                         let limitBytes = 1024 * 1024;
@@ -126,8 +132,14 @@ function createUiHttpServerRuntime(deps = {}) {
                     const apiHandled = await handleApi(requestId, method, pathname, url.searchParams, requestBody, res);
                     const duration = Date.now() - startTime;
                     if (apiHandled !== false) {
+                        if (traceCardNewsRequest) {
+                            Logger.info(`[CardNews][API] response id=${requestId} path=${pathname} status=${res.statusCode || 'unknown'} duration_ms=${duration}`);
+                        }
                         Logger.debug(`[API][${requestId}] Responded in ${duration}ms`);
                         return;
+                    }
+                    if (traceCardNewsRequest) {
+                        Logger.info(`[CardNews][API] response id=${requestId} path=${pathname} status=404 duration_ms=${duration}`);
                     }
                     Logger.debug(`[API][${requestId}] Not found (${duration}ms)`);
                     return sendError(res, requestId, 404, 'NOT_FOUND', '요청한 API를 찾을 수 없습니다.');
@@ -161,6 +173,9 @@ function createUiHttpServerRuntime(deps = {}) {
                 });
                 res.end(body);
             } catch (error) {
+                if (pathname === '/api/v1/card-news/managed' || pathname === '/api/v1/card-news/publishing/publish') {
+                    Logger.warn(`[CardNews][API] failed id=${requestId} method=${method} path=${pathname} code=${error.code || 'INTERNAL_ERROR'}`);
+                }
                 Logger.error(`❌ UI 서버 요청 처리 실패: ${error.message}`);
                 sendError(res, requestId, 500, 'INTERNAL_ERROR', '서버 내부 오류가 발생했습니다.');
             }
