@@ -3,7 +3,7 @@
 - Branch: `codex/feat/spreadsheet-open-default`
 - Start date: 2026-09-27
 - Base/parent branch: `release/v0.5.3`
-- Status: In progress
+- Status: Complete; merged into `release/v0.5.3`
 
 ## User Need and Goal
 
@@ -42,4 +42,4 @@ The Settings Beta Spreadsheet section currently disables “Spreadsheet 열기�
 
 ## Final Handoff
 
-Implementation is ready for review on this feature branch. Manual confirmation that a blank address opens Google Sheets and a saved address opens its spreadsheet remains useful. No commit, merge, or full TC has been requested or performed.
+Implementation was committed and merged into `release/v0.5.3`. Focused Settings Beta UI contract and script structure tests passed (15/15); browser UI smoke passed (507 fixture requests, 0 page errors). Manual confirmation that a blank address opens Google Sheets and a saved address opens its spreadsheet remains useful.

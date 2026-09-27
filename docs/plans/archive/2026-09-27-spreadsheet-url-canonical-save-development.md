@@ -3,7 +3,7 @@
 - Branch: `codex/feat/spreadsheet-url-canonical-save`
 - Start date: 2026-09-27
 - Base/parent branch: `release/v0.5.3`
-- Status: In progress
+- Status: Complete; merged into `release/v0.5.3`
 
 ## User Need and Goal
 
@@ -41,4 +41,4 @@ When users paste a Google Sheets sharing URL such as `/spreadsheets/d/{id}/edit?
 
 ## Final Handoff
 
-Implementation is ready for review on this feature branch. Focused tests passed (26/26); full TC and manual Settings Beta confirmation remain pending. No commit or merge has been requested or performed. The separate Spreadsheet-open-default FBR remains preserved in the named stash.
+Implementation was committed and merged into `release/v0.5.3`. Focused Settings service and Settings Beta contract tests passed (26/26); full TC and manual Settings Beta confirmation were not performed for this save-only slice. No live Google access was tested.
