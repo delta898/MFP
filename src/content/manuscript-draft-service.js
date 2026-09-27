@@ -588,6 +588,9 @@ function createManuscriptDraftService(options = {}) {
     function updateSettings(input = {}) {
         return updateSlotless(input.draftId, input.revision, ({ manifest }) => {
             manifest.settings = normalizeDraftSettings(input, manifest.settings);
+            if (manifest.related_posts?.enabled === true) {
+                manifest.related_posts.targets = manifest.settings.targets.slice();
+            }
         });
     }
 
@@ -693,9 +696,7 @@ function createManuscriptDraftService(options = {}) {
             assertRevision(manifest, revision);
             const currentTargets = Array.isArray(manifest.settings?.targets) ? manifest.settings.targets.slice() : [];
             const stored = manifest.related_posts || {};
-            const storedTargets = Array.isArray(stored.targets) ? stored.targets : [];
-            const targetsChanged = String(currentTargets.join('|')) !== String(storedTargets.join('|'));
-            if (input.force !== true && !targetsChanged && stored.enabled === true) {
+            if (input.force !== true && stored.enabled === true) {
                 return buildPublicDraft(manifest, locations);
             }
             const raw = readContentsMarkdown(locations);

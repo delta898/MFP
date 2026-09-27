@@ -3510,8 +3510,7 @@ const Utils = {
         return markdown;
     },
 
-    fetchOwnBlogRelatedPosts: async function (context = {}, count = 3) {
-        const targetCount = Math.max(1, Math.min(10, parseInt(count, 10) || 3));
+    fetchOwnBlogRelatedPostCandidates: async function () {
         const blogId = this._resolveOwnBlogId();
         if (!blogId) return [];
 
@@ -3525,6 +3524,7 @@ const Utils = {
             collected.push({
                 title: cleanTitle,
                 url: cleanLink,
+                source: 'naver',
                 description: String(extra.description || extra.summary || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(),
                 publishedAt: String(extra.publishedAt || extra.pubDate || '').trim()
             });
@@ -3557,8 +3557,8 @@ const Utils = {
             Logger.debug(`🔎 [관련글] RSS 수집 실패: ${e.message}`);
         }
 
-        // 2) RSS가 부족하면 목록 페이지에서 보강
-        if (collected.length < targetCount) {
+        // RSS 후보가 적을 때는 네이버 목록 페이지에서 후보를 더 수집한다.
+        if (collected.length < 10) {
             try {
                 const cheerio = require('cheerio');
                 const listUrl = `https://blog.naver.com/PostList.naver?blogId=${encodeURIComponent(blogId)}&from=postList&categoryNo=0&currentPage=1`;
@@ -3586,15 +3586,67 @@ const Utils = {
             }
         }
 
+        return collected;
+    },
+
+    fetchOwnBlogRelatedPosts: async function (context = {}, count = 3, options = {}) {
+        const targetCount = Math.max(1, Math.min(10, parseInt(count, 10) || 3));
+        const collected = await this.fetchOwnBlogRelatedPostCandidates(context);
         const selection = selectRelatedPosts(
             collected,
             buildRelatedPostContext(context),
             targetCount,
-            { shuffle: (items) => this._shuffleArray(items) }
+            { shuffle: (items) => this._shuffleArray(items), ...options }
         );
-
         Logger.info(`🔎 [관련글] 후보 ${selection.totalCandidates}건 중 연관 선택 ${selection.heuristicCount}건, 랜덤 보강 ${selection.fallbackCount}건`);
         return selection.posts;
+    },
+
+    fetchConfiguredRelatedPosts: async function (context = {}, count = 3) {
+        const [naverCandidates, wordpressCandidates] = await Promise.all([
+            this.fetchOwnBlogRelatedPostCandidates(context),
+            this.fetchWordPressRelatedPostCandidates()
+        ]);
+        const candidates = [...naverCandidates, ...wordpressCandidates];
+        const selection = selectRelatedPosts(
+            candidates,
+            buildRelatedPostContext(context),
+            count,
+            {
+                shuffle: (items) => this._shuffleArray(items),
+                preferSourceDiversity: true
+            }
+        );
+        Logger.info(`🔎 [연관글] Naver ${naverCandidates.length}건 + WordPress ${wordpressCandidates.length}건을 함께 평가해 연관 ${selection.heuristicCount}건, 랜덤 보강 ${selection.fallbackCount}건 선택`);
+        return selection.posts;
+    },
+
+    fetchWordPressRelatedPostCandidates: async function (wpUrl = CONFIG.WORDPRESS_URL) {
+        if (!wpUrl) return [];
+        const rssUrl = String(wpUrl).replace(/\/$/, '') + '/feed';
+        const collected = [];
+        try {
+            const rssRes = await this.runWithHeartbeat(
+                'WordPress 관련 글 RSS 수집',
+                () => axios.get(rssUrl, {
+                    timeout: 10000,
+                    headers: { 'User-Agent': 'Mozilla/5.0' },
+                    validateStatus: () => true
+                })
+            );
+            if (rssRes.status >= 200 && rssRes.status < 300 && typeof rssRes.data === 'string') {
+                const $ = cheerio.load(rssRes.data, { xmlMode: true, decodeEntities: true });
+                $('item').each((_, el) => {
+                    const title = $(el).find('title').first().text().trim();
+                    const url = $(el).find('link').first().text().trim();
+                    const description = $(el).find('description').first().text().trim();
+                    if (title && url) collected.push({ title, url, description, source: 'wordpress' });
+                });
+            }
+        } catch (e) {
+            Logger.debug(`🔎 [WordPress 관련글] RSS 수집 실패: ${e.message}`);
+        }
+        return collected;
     },
 
     fetchOwnBlogRandomPosts: async function (count = 3) {

@@ -160,16 +160,42 @@ function selectRelatedPosts(candidates = [], context = {}, count = 3, options = 
     const selectedUrls = new Set();
     let heuristicCount = 0;
 
-    for (const candidate of scored) {
-        if (candidate._relatedScore <= 0) break;
+    const diversify = options.preferSourceDiversity === true;
+    const pendingRelevant = scored.filter((candidate) => candidate._relatedScore > 0);
+    while (pendingRelevant.length && selected.length < targetCount) {
+        const bestScore = pendingRelevant[0]._relatedScore;
+        let bestIndex = 0;
+        if (diversify && selected.some((post) => post.source)) {
+            const selectedSources = new Set(selected.map((post) => post.source).filter(Boolean));
+            const tolerance = Number.isFinite(options.diversityScoreTolerance)
+                ? Math.max(0, options.diversityScoreTolerance)
+                : 6;
+            const diverseIndex = pendingRelevant.findIndex((candidate) =>
+                candidate.source && !selectedSources.has(candidate.source)
+                && candidate._relatedScore >= Math.max(bestScore - tolerance, bestScore * 0.75)
+            );
+            if (diverseIndex >= 0) bestIndex = diverseIndex;
+        }
+        const [candidate] = pendingRelevant.splice(bestIndex, 1);
         selected.push(candidate);
         selectedUrls.add(candidate.url);
         heuristicCount += 1;
-        if (selected.length >= targetCount) break;
     }
 
     const fallbackPool = unique.filter((candidate) => !selectedUrls.has(candidate.url));
-    const fallback = shuffle(fallbackPool).slice(0, Math.max(0, targetCount - selected.length));
+    const shuffledFallback = shuffle(fallbackPool);
+    const fallback = [];
+    while (shuffledFallback.length && selected.length + fallback.length < targetCount) {
+        let fallbackIndex = 0;
+        if (diversify) {
+            const selectedSources = new Set([...selected, ...fallback].map((post) => post.source).filter(Boolean));
+            const diverseIndex = shuffledFallback.findIndex((candidate) =>
+                candidate.source && !selectedSources.has(candidate.source)
+            );
+            if (diverseIndex >= 0) fallbackIndex = diverseIndex;
+        }
+        fallback.push(shuffledFallback.splice(fallbackIndex, 1)[0]);
+    }
 
     return {
         posts: [...selected, ...fallback].slice(0, targetCount).map(({ _relatedScore, ...candidate }) => candidate),

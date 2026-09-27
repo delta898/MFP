@@ -44,7 +44,8 @@ test('new drafts expose a disabled related-posts state until finalized', () => {
 });
 
 test('refresh finalizes the section and keeps preview and publish payload identical', async () => {
-    const { workspaceDir, service } = fixture(stubGateway());
+    const relatedPosts = stubGateway();
+    const { workspaceDir, service } = fixture(relatedPosts);
     try {
         const created = service.createPasteDraft({ markdownText: '# 제목\n\n본문', targets: ['naver'] });
         const refreshed = await service.refreshDraftRelatedPosts({
@@ -108,7 +109,7 @@ test('refresh records failure without losing the draft body', async () => {
     }
 });
 
-test('refresh skips the fetch when targets are unchanged but recomputes on target switch', async () => {
+test('related links stay unchanged when the publishing target switches', async () => {
     const gateway = stubGateway();
     const { workspaceDir, service } = fixture(gateway);
     try {
@@ -133,8 +134,9 @@ test('refresh skips the fetch when targets are unchanged but recomputes on targe
             revision: retargeted.revision,
             enabled: true
         });
-        assert.equal(gateway.calls.length, 2);
+        assert.equal(gateway.calls.length, 1);
         assert.equal(recomputed.relatedPosts.status, 'included');
+        assert.deepEqual(recomputed.relatedPosts.targets, ['wordpress']);
         assert.match(recomputed.rawMarkdown, /## 함께 보면 좋은 글/);
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });

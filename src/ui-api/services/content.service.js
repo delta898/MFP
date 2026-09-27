@@ -84,9 +84,11 @@ function createContentService(deps = {}) {
                 workspaceDir: CONFIG?.WORKSPACE_DIR,
                 callWritingImage: typeof Utils?.callWritingImage === 'function' ? Utils.callWritingImage.bind(Utils) : null,
                 relatedPosts: {
-                    fetchPosts: typeof Utils?.fetchOwnBlogRelatedPosts === 'function'
-                        ? ({ title, content }) => Utils.fetchOwnBlogRelatedPosts({ title, content, keywords: [] }, 3)
-                        : null,
+                    fetchPosts: typeof Utils?.fetchConfiguredRelatedPosts === 'function'
+                        ? ({ title, content }) => Utils.fetchConfiguredRelatedPosts({ title, content, keywords: [] }, 3)
+                        : typeof Utils?.fetchOwnBlogRelatedPosts === 'function'
+                            ? ({ title, content }) => Utils.fetchOwnBlogRelatedPosts({ title, content, keywords: [] }, 3)
+                            : null,
                     pickHeading: typeof Utils?.pickRelatedPostsHeading === 'function'
                         ? () => Utils.pickRelatedPostsHeading()
                         : null

@@ -6,6 +6,7 @@ const {
     scoreRelatedPostCandidate,
     selectRelatedPosts
 } = require('./related-post-selection');
+const Utils = require('../utils');
 
 test('related post scoring prefers title and keyword overlap', () => {
     const context = buildRelatedPostContext({
@@ -65,4 +66,84 @@ test('related post selector removes duplicate urls before ranking', () => {
 
     assert.equal(result.totalCandidates, 2);
     assert.equal(result.posts[0].url, 'https://example.com/a');
+});
+
+test('related post selector prefers a comparable candidate from another source', () => {
+    const context = buildRelatedPostContext({ title: '제주 올레길 봄 여행 코스', keywords: ['제주 올레길'] });
+    const result = selectRelatedPosts([
+        { title: '제주 올레길 봄 여행 코스 추천', url: 'https://naver.example/a', source: 'naver' },
+        { title: '제주 올레길 봄 산책 여행', url: 'https://wp.example/b', source: 'wordpress' },
+        { title: '제주 올레길 준비물 안내', url: 'https://naver.example/c', source: 'naver' }
+    ], context, 3, { shuffle: (items) => items.slice(), preferSourceDiversity: true });
+
+    assert.deepEqual(result.posts.map((post) => post.source), ['naver', 'wordpress', 'naver']);
+    assert.equal(result.heuristicCount, 3);
+});
+
+test('related post selector random fallback mixes available sources and caps at three', () => {
+    const result = selectRelatedPosts([
+        { title: '완전히 다른 네이버 글', url: 'https://naver.example/a', source: 'naver' },
+        { title: '다른 주제 워드프레스 글', url: 'https://wp.example/b', source: 'wordpress' },
+        { title: '네이버의 또 다른 글', url: 'https://naver.example/c', source: 'naver' },
+        { title: '워드프레스의 또 다른 글', url: 'https://wp.example/d', source: 'wordpress' }
+    ], buildRelatedPostContext({ title: '제주 올레길 봄 여행', keywords: ['제주 올레길'] }), 3, {
+        shuffle: (items) => items.slice(),
+        preferSourceDiversity: true
+    });
+
+    assert.equal(result.posts.length, 3);
+    assert.equal(result.heuristicCount, 0);
+    assert.deepEqual(result.posts.map((post) => post.source), ['naver', 'wordpress', 'naver']);
+});
+
+test('configured related-post collection is independent of the publishing target', async () => {
+    const originalNaver = Utils.fetchOwnBlogRelatedPostCandidates;
+    const originalWordPress = Utils.fetchWordPressRelatedPostCandidates;
+    const originalShuffle = Utils._shuffleArray;
+    try {
+        Utils.fetchOwnBlogRelatedPostCandidates = async () => [
+            { title: '제주 올레길 봄 코스', url: 'https://naver.example/a', source: 'naver' }
+        ];
+        Utils.fetchWordPressRelatedPostCandidates = async () => [
+            { title: '제주 올레길 봄 여행 추천', url: 'https://wp.example/b', source: 'wordpress' }
+        ];
+        Utils._shuffleArray = (items) => items.slice();
+
+        const posts = await Utils.fetchConfiguredRelatedPosts({
+            title: '제주 올레길 봄 여행',
+            keywords: ['제주 올레길']
+        }, 3);
+
+        assert.deepEqual(new Set(posts.map((post) => post.source)), new Set(['naver', 'wordpress']));
+    } finally {
+        Utils.fetchOwnBlogRelatedPostCandidates = originalNaver;
+        Utils.fetchWordPressRelatedPostCandidates = originalWordPress;
+        Utils._shuffleArray = originalShuffle;
+    }
+});
+
+test('configured related-post collection only uses sources that return candidates', async () => {
+    const originalNaver = Utils.fetchOwnBlogRelatedPostCandidates;
+    const originalWordPress = Utils.fetchWordPressRelatedPostCandidates;
+    const originalShuffle = Utils._shuffleArray;
+    try {
+        Utils.fetchOwnBlogRelatedPostCandidates = async () => [];
+        Utils.fetchWordPressRelatedPostCandidates = async () => [
+            { title: '제주 올레길 봄 여행 안내', url: 'https://wp.example/a', source: 'wordpress' },
+            { title: '워드프레스 다른 글', url: 'https://wp.example/b', source: 'wordpress' }
+        ];
+        Utils._shuffleArray = (items) => items.slice();
+
+        const posts = await Utils.fetchConfiguredRelatedPosts({
+            title: '제주 올레길 봄 여행',
+            keywords: ['제주 올레길']
+        }, 3);
+
+        assert.ok(posts.length > 0);
+        assert.ok(posts.every((post) => post.source === 'wordpress'));
+    } finally {
+        Utils.fetchOwnBlogRelatedPostCandidates = originalNaver;
+        Utils.fetchWordPressRelatedPostCandidates = originalWordPress;
+        Utils._shuffleArray = originalShuffle;
+    }
 });

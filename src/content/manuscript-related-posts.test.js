@@ -64,7 +64,12 @@ test('finalize leaves the body untouched when disabled', async () => {
 
 test('finalize includes the section and replaces an existing one without duplication', async () => {
     const source = '# 제목\n\n본문\n\n## 함께 보면 좋은 글\nhttps://blog.naver.com/old\n';
-    const result = await finalizeManuscriptRelatedPosts({ markdownText: source, title: '제목', enabled: true, gateway: gateway() });
+    const result = await finalizeManuscriptRelatedPosts({
+        markdownText: source,
+        title: '제목',
+        enabled: true,
+        gateway: gateway()
+    });
     assert.equal(result.status, RELATED_POSTS_STATUS.INCLUDED);
     assert.equal(result.count, 2);
     assert.doesNotMatch(result.markdownText, /blog\.naver\.com\/old/);
