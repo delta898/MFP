@@ -3,7 +3,7 @@
 - Branch: `codex/feat/main-content-gutter`
 - Base/parent branch: `dev`
 - Start date: 2026-09-27
-- Status: Implemented; awaiting user visual review
+- Status: Verified; ready to merge into `dev`
 
 ## User need and goal
 
@@ -41,6 +41,7 @@ Out of scope:
 - Browser smoke passed: `npm run test:ui-browser` (519 fixture requests; no page or console errors); verified computed desktop padding is 20px per side and mobile quick-mode left padding remains 14px.
 - Reduced dashboard readiness-to-overview spacing and its two-card grid gap to `--ui-space-4`; reduced the Card News two-panel layout gap to the same token. Added static contract assertions for these targeted values.
 - Focused style structure test rerun after the targeted spacing update: `node --test scripts/ui-style-structure.test.js` passed (13/13).
+- Full pre-merge validation approved by the user and passed: `npm run test:unit` (security audit: 0 vulnerabilities; 2,010 passed, 1 skipped, 0 failed across 368 test files).
 - Final visual review remains with the user.
 
 ## Remaining work and risks
