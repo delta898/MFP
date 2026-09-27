@@ -251,11 +251,11 @@ function createCardNewsService(deps = {}) {
                 bufferClient: deps.bufferClient,
                 mediaTransport: deps.mediaTransport,
                 urlService: deps.urlService,
-                prepareAssets: (assets, signature, expectedSignature) => outgoingImageService.prepareAssets(
+                prepareAssets: (assets, signature, expectedSignature, previewToken) => outgoingImageService.prepareAssets(
                     assets,
                     signature,
                     expectedSignature,
-                    { force: true }
+                    { previewToken }
                 ),
                 fileSystem: fs,
                 pathApi: path,
@@ -605,7 +605,7 @@ function createCardNewsService(deps = {}) {
         return outgoingImageService.prepareAssets([asset], signature, expectedSignature, options).then((prepared) => prepared[0]);
     }
 
-    async function createExportBundle(generationId, signature = '', expectedSignature) {
+    async function createExportBundle(generationId, signature = '', expectedSignature, previewToken = '') {
         if (!generationService?.createExportBundle) {
             throw createApiError('CARD_NEWS_EXPORT_UNAVAILABLE', '전체 이미지 받기 기능이 준비되지 않았습니다.', 500);
         }
@@ -614,7 +614,12 @@ function createCardNewsService(deps = {}) {
                 return generationService.createExportBundle(generationId);
             }
             const { assets } = generationService.resolveCompleteAssets(generationId);
-            const prepared = await outgoingImageService.prepareAssets(assets, signature, expectedSignature, { force: true });
+            const prepared = await outgoingImageService.prepareAssets(
+                assets,
+                signature,
+                expectedSignature,
+                previewToken ? { previewToken } : { force: true }
+            );
             const assetDataByName = Object.fromEntries(prepared.map((asset) => [asset.file_name, asset.buffer]));
             return generationService.createExportBundle(generationId, { assetDataByName });
         } catch (error) {
@@ -636,6 +641,9 @@ function createCardNewsService(deps = {}) {
     async function publish(input = {}) {
         if (!publishingService?.publish) {
             throw createApiError('CARD_NEWS_PUBLISHING_UNAVAILABLE', '카드뉴스 SNS 발행 기능이 준비되지 않았습니다.', 500);
+        }
+        if (!String(input.preview_token || '')) {
+            throw createApiError('CARD_NEWS_SIGNATURE_PREVIEW_STALE', '미리보기 확인 정보가 없습니다. 미리보기를 새로고침한 뒤 다시 진행해 주세요.', 409);
         }
         try {
             const result = await publishingService.publish(input);

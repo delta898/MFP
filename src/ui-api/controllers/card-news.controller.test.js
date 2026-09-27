@@ -135,11 +135,13 @@ test('streams a resolved local card image with optional download headers', async
 test('serves the prepared image bytes for preview and download', async () => {
     let receivedSignature = '';
     let receivedExpectedSignature = null;
+    let receivedPreviewToken = '';
     const { controller } = createHarness({
         service: {
-            async prepareAsset(_generationId, _fileName, signature, expectedSignature) {
+            async prepareAsset(_generationId, _fileName, signature, expectedSignature, options) {
                 receivedSignature = signature;
                 receivedExpectedSignature = expectedSignature;
+                receivedPreviewToken = options.previewToken;
                 return { buffer: Buffer.from('watermarked-image'), file_name: 'card-01.png', mime_type: 'image/png' };
             }
         }
@@ -153,7 +155,7 @@ test('serves the prepared image bytes for preview and download', async () => {
         requestId: 'req-prepared-asset',
         method: 'GET',
         pathname: '/api/v1/card-news/assets/set-1/card-01.png',
-        searchParams: new URLSearchParams('signature=My%20Brand&expected_signature=My%20Brand'),
+        searchParams: new URLSearchParams('signature=My%20Brand&expected_signature=My%20Brand&preview_token=preview-token'),
         res: response
     });
     assert.equal(response.status, 200);
@@ -161,6 +163,7 @@ test('serves the prepared image bytes for preview and download', async () => {
     assert.equal(response.body.toString(), 'watermarked-image');
     assert.equal(receivedSignature, 'My Brand');
     assert.equal(receivedExpectedSignature, 'My Brand');
+    assert.equal(receivedPreviewToken, 'preview-token');
 });
 
 test('returns a stale preview conflict without streaming mismatched image bytes', async () => {
@@ -212,9 +215,11 @@ test('returns not found without exposing arbitrary asset paths', async () => {
 
 test('downloads a completed card-news set as one ZIP bundle', async () => {
     let receivedSignature = '';
+    let receivedPreviewToken = '';
     const { controller } = createHarness({ service: {
-        async createExportBundle(generationId, signature, expectedSignature) {
+        async createExportBundle(generationId, signature, expectedSignature, previewToken) {
             receivedSignature = `${signature}|${expectedSignature}`;
+            receivedPreviewToken = previewToken;
             return {
                 buffer: Buffer.from('zip'),
                 file_name: '카드뉴스-제주 여행.zip',
@@ -232,7 +237,7 @@ test('downloads a completed card-news set as one ZIP bundle', async () => {
         requestId: 'req-export',
         method: 'GET',
         pathname: '/api/v1/card-news/exports/set-1.zip',
-        searchParams: new URLSearchParams('signature=My%20Brand&expected_signature=My%20Brand'),
+        searchParams: new URLSearchParams('signature=My%20Brand&expected_signature=My%20Brand&preview_token=preview-token'),
         res: response
     });
     assert.equal(response.status, 200);
@@ -242,6 +247,7 @@ test('downloads a completed card-news set as one ZIP bundle', async () => {
     assert.match(response.headers['Content-Disposition'], /filename\*=UTF-8''%EC%B9%B4%EB%93%9C%EB%89%B4%EC%8A%A4-/);
     assert.equal(response.body.toString(), 'zip');
     assert.equal(receivedSignature, 'My Brand|My Brand');
+    assert.equal(receivedPreviewToken, 'preview-token');
 });
 
 test('reads publishing config and publishes a completed card-news set', async () => {
@@ -250,7 +256,8 @@ test('reads publishing config and publishes a completed card-news set', async ()
         getPublishingConfig(generationId, organizationId) {
             calls.push(['config', generationId, organizationId]);
             return { channels: [{ id: 'channel-1' }] };
-        }
+        },
+        async publish(input) { calls.push(['publish', input.preview_token]); return { success: true }; }
     } });
     await controller.publishingConfig({
         requestId: 'req-config',
@@ -261,10 +268,10 @@ test('reads publishing config and publishes a completed card-news set', async ()
     await controller.publish({
         requestId: 'req-publish',
         method: 'POST',
-        requestBody: { generation_id: 'set-1', channel_ids: ['channel-1'] },
+        requestBody: { generation_id: 'set-1', channel_ids: ['channel-1'], preview_token: 'preview-token' },
         res: {}
     });
     assert.equal(responses[0].data.channels[0].id, 'channel-1');
     assert.equal(responses[1].data.success, true);
-    assert.deepEqual(calls, [['config', 'set-1', 'org-2']]);
+    assert.deepEqual(calls, [['config', 'set-1', 'org-2'], ['publish', 'preview-token']]);
 });

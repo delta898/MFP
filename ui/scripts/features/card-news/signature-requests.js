@@ -34,10 +34,13 @@ function cardNewsUrlWithSignature(value) {
   const query = new URLSearchParams(queryIndex >= 0 ? withoutHash.slice(queryIndex + 1) : '');
   const signature = getCardNewsSignatureForRequest();
   const expectedSignature = cardNewsViewState.signaturePreviewEffectiveSignature;
+  const previewToken = cardNewsViewState.signaturePreviewToken;
   if (signature) query.set('signature', signature);
   else query.delete('signature');
   if (cardNewsViewState.signaturePreviewResolved) query.set('expected_signature', expectedSignature);
   else query.delete('expected_signature');
+  if (previewToken) query.set('preview_token', previewToken);
+  else query.delete('preview_token');
   const serialized = query.toString();
   return `${pathname}${serialized ? `?${serialized}` : ''}${hash}`;
 }

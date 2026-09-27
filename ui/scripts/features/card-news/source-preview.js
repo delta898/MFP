@@ -27,6 +27,7 @@ const cardNewsViewState = {
   imageModels: null,
   imageModelChoiceLoading: false,
   signaturePreviewEffectiveSignature: '',
+  signaturePreviewToken: '',
   signaturePreviewResolved: false,
   publishingOutcome: '',
   projectId: '',
@@ -90,10 +91,9 @@ async function loadCardNewsSignaturePolicy(options = {}) {
     && previousResolved
     && previousEffectiveSignature !== policy?.effective_signature;
   cardNewsViewState.signaturePreviewEffectiveSignature = String(policy?.effective_signature ?? 'BlogGenius.kr');
+  cardNewsViewState.signaturePreviewToken = String(policy?.preview_token || '');
   cardNewsViewState.signaturePreviewResolved = true;
-  if (cardNewsViewState.generation && (changed || !previousResolved)) {
-    renderCardNewsGeneration(cardNewsViewState.generation, { scroll: false });
-  }
+  if (cardNewsViewState.generation && (changed || !previousResolved)) renderCardNewsGeneration(cardNewsViewState.generation, { scroll: false });
   if (changed && options.notifyOnChange === true) {
     showUiToast({
       level: 'warning',
@@ -109,6 +109,10 @@ async function loadCardNewsSignaturePolicy(options = {}) {
 async function ensureCardNewsSignaturePreviewCurrent() {
   const previewWasResolved = cardNewsViewState.signaturePreviewResolved;
   const { changed } = await loadCardNewsSignaturePolicy();
+  if (!cardNewsViewState.signaturePreviewToken) {
+    showUiToast({ level: 'error', title: '미리보기 확인 실패', message: '서명 기준을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.' });
+    return false;
+  }
   if (!changed && previewWasResolved) return true;
   showUiToast({
     level: 'warning',
@@ -134,7 +138,7 @@ async function handleCardNewsSignaturePreviewStale() {
 async function downloadCardNewsArtifact(link) {
   if (!await ensureCardNewsSignaturePreviewCurrent()) return;
   try {
-    const response = await fetch(link.href, { cache: 'no-store' });
+    const response = await fetch(cardNewsUrlWithSignature(link.href), { cache: 'no-store' });
     if (!response.ok) {
       const body = await readJsonResponseSafely(response);
       const error = new Error(body?.error?.message || `HTTP ${response.status}`);

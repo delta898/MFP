@@ -1,7 +1,10 @@
 const { loadSharp } = require('../sharp-loader');
+const crypto = require('node:crypto');
 
 const DEFAULT_SIGNATURE = 'BlogGenius.kr';
 const MAX_SIGNATURE_LENGTH = 48;
+const PREVIEW_POLICY_TTL_MS = 10 * 60 * 1000;
+const MAX_PREVIEW_POLICIES = 128;
 
 function normalizeSignature(value = '') {
     return String(value || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, MAX_SIGNATURE_LENGTH);
@@ -58,6 +61,7 @@ function createWatermarkSvg(width, height, signature = DEFAULT_SIGNATURE) {
 
 function createCardNewsOutgoingImageService(options = {}) {
     const { License, fileSystem, logger } = options;
+    const previewPolicies = new Map();
 
     async function resolvePlanStatus(force = false) {
         if (typeof License?.checkLicenseStatus !== 'function') return { verified: false, planCode: '' };
@@ -84,13 +88,55 @@ function createCardNewsOutgoingImageService(options = {}) {
 
     async function getSignaturePolicy(signature = '', options = {}) {
         const policy = await resolveEffectivePolicy(signature, options.force === true);
+        const now = Date.now();
+        for (const [token, snapshot] of previewPolicies) {
+            if (snapshot.expiresAt <= now) previewPolicies.delete(token);
+        }
+        while (previewPolicies.size >= MAX_PREVIEW_POLICIES) {
+            previewPolicies.delete(previewPolicies.keys().next().value);
+        }
+        const previewToken = crypto.randomBytes(32).toString('base64url');
+        previewPolicies.set(previewToken, {
+            policy,
+            expiresAt: now + PREVIEW_POLICY_TTL_MS
+        });
         return {
             editable: policy.editable,
             plan_verified: policy.verified,
             plan_code: policy.planCode,
             default_signature: policy.editable ? '' : DEFAULT_SIGNATURE,
-            effective_signature: policy.effectiveSignature
+            effective_signature: policy.effectiveSignature,
+            preview_token: previewToken
         };
+    }
+
+    function resolvePreviewPolicy(previewToken, signature, expectedSignature) {
+        const snapshot = previewPolicies.get(String(previewToken || ''));
+        if (!snapshot || snapshot.expiresAt <= Date.now()) {
+            previewPolicies.delete(String(previewToken || ''));
+            logger?.warn?.(`[CardNews] signature preview rejected (snapshot=${snapshot ? 'expired' : 'missing'})`);
+            const error = new Error('미리보기 확인 정보가 만료되었습니다. 미리보기를 새로고침한 뒤 다시 진행해 주세요.');
+            error.status = 409;
+            error.apiCode = 'CARD_NEWS_SIGNATURE_PREVIEW_STALE';
+            throw error;
+        }
+        if (expectedSignature !== undefined && expectedSignature !== null
+            && String(expectedSignature) !== snapshot.policy.effectiveSignature) {
+            logger?.warn?.('[CardNews] signature preview rejected (expected signature does not match snapshot)');
+            const error = new Error('미리보기와 발행 서명 기준이 다릅니다. 미리보기를 새로고침한 뒤 다시 진행해 주세요.');
+            error.status = 409;
+            error.apiCode = 'CARD_NEWS_SIGNATURE_PREVIEW_STALE';
+            throw error;
+        }
+        const requestedSignature = snapshot.policy.editable ? normalizeSignature(signature) : DEFAULT_SIGNATURE;
+        if (requestedSignature !== snapshot.policy.effectiveSignature) {
+            logger?.warn?.('[CardNews] signature preview rejected (request signature does not match snapshot)');
+            const error = new Error('미리보기와 발행 서명 기준이 다릅니다. 미리보기를 새로고침한 뒤 다시 진행해 주세요.');
+            error.status = 409;
+            error.apiCode = 'CARD_NEWS_SIGNATURE_PREVIEW_STALE';
+            throw error;
+        }
+        return snapshot.policy;
     }
 
     function assertSignatureSnapshot(policy, expectedSignature) {
@@ -127,7 +173,9 @@ function createCardNewsOutgoingImageService(options = {}) {
     async function prepareAsset(asset, signature = '', expectedSignature, options = {}) {
         if (!asset?.path || !fileSystem?.readFileSync) throw new Error('카드 이미지 파일을 읽지 못했습니다.');
         const buffer = fileSystem.readFileSync(asset.path);
-        const policy = await resolveEffectivePolicy(signature, options.force === true);
+        const policy = options.previewToken
+            ? resolvePreviewPolicy(options.previewToken, signature, expectedSignature)
+            : await resolveEffectivePolicy(signature, options.force === true);
         assertSignatureSnapshot(policy, expectedSignature);
         const effectiveSignature = policy.effectiveSignature;
         if (!effectiveSignature) return { ...asset, buffer };
@@ -136,7 +184,9 @@ function createCardNewsOutgoingImageService(options = {}) {
     }
 
     async function prepareAssets(assets = [], signature = '', expectedSignature, options = {}) {
-        const policy = await resolveEffectivePolicy(signature, options.force === true);
+        const policy = options.previewToken
+            ? resolvePreviewPolicy(options.previewToken, signature, expectedSignature)
+            : await resolveEffectivePolicy(signature, options.force === true);
         assertSignatureSnapshot(policy, expectedSignature);
         const effectiveSignature = policy.effectiveSignature;
         if (!effectiveSignature) {

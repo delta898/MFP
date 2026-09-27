@@ -191,7 +191,10 @@ function createCardNewsController(deps = {}) {
                         fileName,
                         searchParams?.get('signature') || '',
                         searchParams?.get('expected_signature'),
-                        { force: searchParams?.get('download') === '1' }
+                        {
+                            force: searchParams?.get('download') === '1',
+                            previewToken: searchParams?.get('preview_token') || ''
+                        }
                     )
                     : service.resolveAsset(generationId, fileName));
             } catch (error) {
@@ -227,7 +230,8 @@ function createCardNewsController(deps = {}) {
                 const bundle = await service.createExportBundle(
                     generationId,
                     searchParams?.get('signature') || '',
-                    searchParams?.get('expected_signature')
+                    searchParams?.get('expected_signature'),
+                    searchParams?.get('preview_token') || ''
                 );
                 res.writeHead(200, {
                     'Content-Type': bundle.mime_type,

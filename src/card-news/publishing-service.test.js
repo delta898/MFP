@@ -255,9 +255,10 @@ test('publish uploads images to public media in order, sends an ordered Buffer a
                 },
                 async remove(item) { deleted.push(item.id); return true; }
             }),
-            async prepareAssets(assets, signature, expectedSignature) {
+            async prepareAssets(assets, signature, expectedSignature, previewToken) {
                 assert.equal(signature, 'My Brand');
                 assert.equal(expectedSignature, 'My Brand');
+                assert.equal(previewToken, 'preview-token');
                 return assets.map((asset) => ({ ...asset, buffer: Buffer.from(`watermarked-${asset.index}`) }));
             },
             pollIntervalMs: 0,
@@ -269,7 +270,8 @@ test('publish uploads images to public media in order, sends an ordered Buffer a
             channel_ids: ['instagram-1', 'bluesky-1'],
             text: '제주 카드뉴스',
             signature: 'My Brand',
-            expected_signature: 'My Brand'
+            expected_signature: 'My Brand',
+            preview_token: 'preview-token'
         });
 
         assert.equal(result.success, true);

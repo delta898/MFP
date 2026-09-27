@@ -300,7 +300,7 @@ function createCardNewsPublishingService(options = {}) {
 
         const uploaded = [];
         const outgoingAssets = typeof prepareAssets === 'function'
-            ? await prepareAssets(assets, input.signature, input.expected_signature)
+            ? await prepareAssets(assets, input.signature, input.expected_signature, input.preview_token)
             : assets.map((asset) => ({ ...asset, buffer: fileSystem.readFileSync(asset.path) }));
         try {
             for (const asset of outgoingAssets) {

@@ -326,6 +326,12 @@ async function publishCardNews() {
   );
   if (confirmed === false) return;
   if (!await ensureCardNewsSignaturePreviewCurrent()) return;
+  // Locking the publishing controls disables the editable signature input.
+  // Capture all preview-bound values first so the publish request matches the
+  // signature policy snapshot the user just reviewed.
+  const signature = getCardNewsSignatureForRequest();
+  const expectedSignature = cardNewsViewState.signaturePreviewEffectiveSignature;
+  const previewToken = cardNewsViewState.signaturePreviewToken;
   setCardNewsPublishing(true);
   const status = document.getElementById('card-news-publishing-status');
   const resultElement = document.getElementById('card-news-publishing-result');
@@ -339,8 +345,9 @@ async function publishCardNews() {
       organization_id: document.getElementById('card-news-publishing-workspace')?.value || '',
       channel_ids: channelIds,
       text,
-      signature: getCardNewsSignatureForRequest(),
-      expected_signature: cardNewsViewState.signaturePreviewEffectiveSignature
+      signature,
+      expected_signature: expectedSignature,
+      preview_token: previewToken
     });
     if (status) {
       status.textContent = result.success

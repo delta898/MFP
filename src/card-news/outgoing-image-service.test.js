@@ -101,6 +101,58 @@ test('a paid-to-Free plan change ignores the retained custom signature, then res
     assert.deepEqual(upgradedImage.buffer, paidImage.buffer);
 });
 
+test('preview policy snapshot keeps preview and publish signature aligned across entitlement rechecks', async () => {
+    let planCode = 'pro';
+    let checks = 0;
+    const original = await loadSharp().sharp({
+        create: { width: 640, height: 480, channels: 3, background: '#dce8df' }
+    }).png().toBuffer();
+    const service = createCardNewsOutgoingImageService({
+        License: { async checkLicenseStatus() { checks += 1; return { success: true, planCode }; } },
+        fileSystem: { readFileSync: () => original }
+    });
+    const asset = { path: '/unused/card.png', file_name: 'card.png', mime_type: 'image/png' };
+    const preview = await service.getSignaturePolicy('My Brand', { force: true });
+    assert.ok(preview.preview_token);
+    assert.equal(checks, 1);
+
+    // The external entitlement can change after the user sees the preview.
+    // Publishing must apply the exact policy snapshot that produced it.
+    planCode = 'free';
+    const publishedAssets = await service.prepareAssets(
+        [asset],
+        'My Brand',
+        preview.effective_signature,
+        { previewToken: preview.preview_token, force: true }
+    );
+    assert.notDeepEqual(publishedAssets[0].buffer, original);
+    assert.match(createWatermarkSvg(640, 480, 'My Brand').input.toString('utf8'), /My Brand/);
+    assert.equal(checks, 1, 'publishing should not independently re-check entitlement');
+});
+
+test('rejects missing or mismatched preview policy snapshots', async () => {
+    const original = await loadSharp().sharp({
+        create: { width: 64, height: 64, channels: 3, background: '#dce8df' }
+    }).png().toBuffer();
+    const service = createCardNewsOutgoingImageService({
+        License: { async checkLicenseStatus() { return { success: true, planCode: 'pro' }; } },
+        fileSystem: { readFileSync: () => original }
+    });
+    const preview = await service.getSignaturePolicy('My Brand');
+    await assert.rejects(
+        () => service.prepareAssets([{ path: '/unused/card.png', mime_type: 'image/png' }], 'My Brand', 'Other Brand', { previewToken: preview.preview_token }),
+        (error) => error.status === 409 && error.apiCode === 'CARD_NEWS_SIGNATURE_PREVIEW_STALE'
+    );
+    await assert.rejects(
+        () => service.prepareAssets([{ path: '/unused/card.png', mime_type: 'image/png' }], 'Changed Brand', 'My Brand', { previewToken: preview.preview_token }),
+        (error) => error.status === 409 && error.apiCode === 'CARD_NEWS_SIGNATURE_PREVIEW_STALE'
+    );
+    await assert.rejects(
+        () => service.prepareAssets([{ path: '/unused/card.png', mime_type: 'image/png' }], 'My Brand', 'My Brand', { previewToken: 'unknown-token' }),
+        (error) => error.status === 409 && error.apiCode === 'CARD_NEWS_SIGNATURE_PREVIEW_STALE'
+    );
+});
+
 test('rejects an output request when its expected signature no longer matches the verified plan', async () => {
     const service = createCardNewsOutgoingImageService({
         License: { async checkLicenseStatus() { return { success: true, planCode: 'free' }; } },

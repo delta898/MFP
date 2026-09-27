@@ -587,7 +587,7 @@ test('synchronizes RSS discovery, generation, image progress, and publishing thr
     await service.generate({ source_snapshot: { title: '제목', text: '본문' }, image_mode: 'prompt_only' });
     await service.generateImages({ generation_id: 'generation-1' });
     await service.importLocalImage({ generation_id: 'generation-1', card_index: 1 });
-    await service.publish({ generation_id: 'generation-1' });
+    await service.publish({ generation_id: 'generation-1', preview_token: 'preview-token' });
     assert.deepEqual(calls.map((call) => call[0]), ['sources', 'generation', 'progress', 'progress', 'published']);
 });
 
@@ -606,7 +606,7 @@ test('keeps publishing errors while recording the ledger failure state', async (
             async publish() { throw new Error('Buffer failure'); }
         }
     });
-    await assert.rejects(() => service.publish({ generation_id: 'generation-1' }), /Buffer failure/);
+    await assert.rejects(() => service.publish({ generation_id: 'generation-1', preview_token: 'preview-token' }), /Buffer failure/);
     assert.deepEqual(calls, [['generation-1', 'Buffer failure']]);
 });
 
@@ -640,13 +640,13 @@ test('prepares watermark bytes before building a complete-set export bundle', as
     assert.equal(bundleOptions.assetDataByName['01.png'].toString(), 'watermarked-image');
 });
 
-test('exposes only the signature policy resolved by the injected entitlement boundary', async () => {
+test('exposes the resolved signature policy and its preview snapshot token', async () => {
     const { service } = createHarness({
         outgoingImageService: {
             async getSignaturePolicy(signature, options) {
                 assert.equal(signature, 'My Brand');
                 assert.deepEqual(options, { force: true });
-                return { editable: true, plan_verified: true, plan_code: 'pro', default_signature: '', effective_signature: 'My Brand' };
+                return { editable: true, plan_verified: true, plan_code: 'pro', default_signature: '', effective_signature: 'My Brand', preview_token: 'preview-token' };
             }
         }
     });
@@ -655,7 +655,8 @@ test('exposes only the signature policy resolved by the injected entitlement bou
         plan_verified: true,
         plan_code: 'pro',
         default_signature: '',
-        effective_signature: 'My Brand'
+        effective_signature: 'My Brand',
+        preview_token: 'preview-token'
     });
 });
 
@@ -668,8 +669,23 @@ test('delegates publishing config and execution through the card-news boundary',
         }
     });
     assert.equal((await service.getPublishingConfig('generation-1')).generation_id, 'generation-1');
-    assert.equal((await service.publish({ generation_id: 'generation-1' })).success, true);
+    assert.equal((await service.publish({ generation_id: 'generation-1', preview_token: 'preview-token' })).success, true);
     assert.equal(calls.length, 2);
+});
+
+test('requires the server-issued preview policy token before card-news publishing', async () => {
+    let publishCalls = 0;
+    const { service } = createHarness({
+        publishingService: {
+            getConfig() { return {}; },
+            async publish() { publishCalls += 1; return { success: true }; }
+        }
+    });
+    await assert.rejects(
+        () => service.publish({ generation_id: 'generation-1' }),
+        (error) => error.status === 409 && error.apiCode === 'CARD_NEWS_SIGNATURE_PREVIEW_STALE'
+    );
+    assert.equal(publishCalls, 0);
 });
 
 test('validates configured AI models before generation starts', async () => {
