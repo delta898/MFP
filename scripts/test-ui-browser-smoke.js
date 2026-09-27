@@ -2972,6 +2972,11 @@ async function run() {
             downloadInsideMedia: true,
             completedActionOpacity: '0'
         });
+        const resultActionHeights = await page.locator('.card-news-result-button-group > button, .card-news-result-button-group > a, .card-news-result-image-actions > button').evaluateAll((controls) => controls
+            .map((control) => Math.round(control.getBoundingClientRect().height))
+            .filter((height) => height > 0));
+        assert.ok(resultActionHeights.length >= 3);
+        assert.equal(new Set(resultActionHeights).size, 1, `Card News result action heights differ: ${resultActionHeights.join(', ')}`);
         await page.waitForFunction(() => document.querySelectorAll('[data-card-news-publish-channel]').length === 3);
         assert.deepEqual(await page.evaluate(() => {
             const panel = document.getElementById('card-news-publishing-panel');

@@ -512,6 +512,7 @@ test('Card News signature is locally remembered, plan-locked when needed, and ap
     assert.match(css, /@media \(max-width: 760px\)[\s\S]*grid-template-areas:\s*"signature" "model" "buttons"[\s\S]*\.card-news-result-actions > \.card-news-signature-field \{ justify-self: start; \}/);
     assert.match(css, /\.card-news-image-model-slot\s*\{[^}]*justify-content:\s*flex-start;/s);
     assert.match(css, /\.card-news-result-button-group\s*\{[^}]*justify-content:\s*flex-end;/s);
+    assert.match(css, /\.card-news-result-button-group > button,[\s\S]*?\.card-news-result-image-actions > button\s*\{[^}]*height:\s*42px;[^}]*min-height:\s*42px;/s);
     assert.match(css, /\.card-news-image-model-fields select\s*\{[^}]*background:\s*var\(--ui-surface\);[^}]*color:\s*var\(--ui-text-primary\)/s);
     assert.match(css, /\.card-news-image-model-fields\s*\{[^}]*position:\s*absolute;[^}]*bottom:\s*calc\(100% \+ var\(--ui-space-2\)\)/s);
     assert.match(css, /\.card-news-image-model-control\[open\]\s*\{\s*z-index:\s*20;/);
