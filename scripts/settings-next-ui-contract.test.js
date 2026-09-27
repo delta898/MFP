@@ -96,6 +96,8 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
         /settings-next-panel-lead[\s\S]*?settings-next-local-nav-row[\s\S]*?settings-next-core-panel-content/
     );
     assert.match(html, /id="settings-next-google-sheet-url"/);
+    assert.match(html, /id="settings-next-open-google-sheet"[^>]*>Spreadsheet 열기<\/button>/);
+    assert.match(html, /주소가 없으면 Google Sheets를 열고, 주소가 있으면 해당 Spreadsheet를 엽니다\./);
     assert.match(html, /id="settings-next-content-status"[^>]*>확인 필요/);
     assert.match(html, /id="settings-next-naver-id"/);
     assert.match(html, /id="settings-next-wordpress-url"/);
