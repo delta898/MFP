@@ -144,7 +144,13 @@ function normalizeCoreConnectionSettings(requestBody = {}) {
         if (parsedUrl.protocol !== 'https:' || parsedUrl.hostname !== 'docs.google.com' || !spreadsheetId) {
             throw createApiError(400, 'GOOGLE_SHEET_URL_INVALID', 'Google Spreadsheet의 HTTPS 주소를 입력해 주세요.');
         }
-        return { scope, fields: { GOOGLE_SHEET_URL, GOOGLE_SHEET_ID: spreadsheetId } };
+        return {
+            scope,
+            fields: {
+                GOOGLE_SHEET_URL: `https://docs.google.com/spreadsheets/d/${spreadsheetId}`,
+                GOOGLE_SHEET_ID: spreadsheetId
+            }
+        };
     }
 
     if (scope === 'naver') {

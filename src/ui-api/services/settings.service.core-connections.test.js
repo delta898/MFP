@@ -54,7 +54,7 @@ test('core connection normalization validates each independently saved scope', (
         {
             scope: 'content',
             fields: {
-                GOOGLE_SHEET_URL: 'https://docs.google.com/spreadsheets/d/sheet-id_1234567890/edit',
+                GOOGLE_SHEET_URL: 'https://docs.google.com/spreadsheets/d/sheet-id_1234567890',
                 GOOGLE_SHEET_ID: 'sheet-id_1234567890'
             }
         }
@@ -191,23 +191,25 @@ test('content scope preserves unrelated settings and updates runtime sheet alias
         platforms: { naver: { user_id: 'keep-naver', typing_speed: 'NORMAL' } }
     };
     const { CONFIG, activities, configPath, service } = createHarness(initial);
-    const nextUrl = 'https://docs.google.com/spreadsheets/d/new-sheet-id_987654/edit';
+    const nextUrl = 'https://docs.google.com/spreadsheets/d/new-sheet-id_987654/edit?usp=sharing#gid=0';
+    const canonicalUrl = 'https://docs.google.com/spreadsheets/d/new-sheet-id_987654';
 
     const result = await service.saveCoreConnectionSettings({
         scope: 'content', values: { GOOGLE_SHEET_URL: nextUrl }
     });
     const saved = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
-    assert.equal(saved.general.google_sheet_url, nextUrl);
+    assert.equal(saved.general.google_sheet_url, canonicalUrl);
     assert.equal(saved.general.listen_port, 3000);
     assert.deepEqual(saved.ai_settings, initial.ai_settings);
     assert.deepEqual(saved.automation, initial.automation);
     assert.deepEqual(saved.platforms, initial.platforms);
     assert.equal(saved.NAVER_SEARCHAD_API_KEY, 'preserve-unrelated-value');
     assert.equal(Object.hasOwn(saved.mcp.remote.auth, 'bearer_token'), false);
-    assert.equal(CONFIG.GOOGLE_SHEET_URL, nextUrl);
+    assert.equal(CONFIG.GOOGLE_SHEET_URL, canonicalUrl);
     assert.equal(CONFIG.GOOGLE_SHEET_ID, 'new-sheet-id_987654');
     assert.equal(result.scope, 'content');
+    assert.equal(result.fields.GOOGLE_SHEET_URL, canonicalUrl);
     assert.equal(activities[0].type, 'core_connection_saved');
 });
 
