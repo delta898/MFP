@@ -190,7 +190,7 @@ function settingsNextUpdateSaveUi(scope) {
         ? (googleConnected ? '접근 확인 중...' : '주소 적용 중...')
         : (googleConnected ? '접근 확인' : '주소 적용');
     }
-    if (openButton) openButton.disabled = !hasValidUrl || busy;
+    if (openButton) openButton.disabled = busy;
   }
   if (scope === 'naver') {
     const button = document.getElementById('settings-next-naver-login');
