@@ -241,6 +241,30 @@
       "classification": "ai_catalog_operator_action"
     },
     {
+      "path": "supabase/operations/ai/2026-09-27_ai_model_catalog_2026-09-27-1_draft.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-09-27_ai_model_catalog_2026-09-27-1_publish.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-09-27_ai_model_catalog_2026-09-27-1_rollback.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-09-27_ai_model_catalog_prod_2026-09-27-1_draft.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-09-27_ai_model_catalog_prod_2026-09-27-1_publish.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-09-27_ai_model_catalog_prod_2026-09-27-1_rollback.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
       "path": "supabase/operations/content/supabase_surface_content_account_seed.sql",
       "classification": "content_operator_action"
     },

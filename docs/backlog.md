@@ -121,6 +121,9 @@
    - Anthropic은 `/v1/models`의 model ID, 표시 이름, token 한도와 제공되는 capability metadata를 수집한다.
      Messages의 streaming·tool·thinking 기능에 SDK 이점이 확인되면 native Anthropic transport 내부에서만 SDK를
      사용하며 OpenAI compatibility를 canonical 계약으로 삼지 않는다.
+   - Anthropic의 현재 `anthropic_openai_compat` transport에서 native Messages API transport로 전환한다.
+     request/response·오류·usage 변환과 streaming/tool/thinking capability 차이를 공통 계약으로 검증하고,
+     기존 catalog 모델을 단계적으로 이관한다. 이 작업 전까지 현재 호환 transport는 유지한다.
    - OpenAI-compatible direct provider는 `/models`가 있더라도 신뢰 가능한 capability 정보가 없을 수 있으므로
      사용자 입력 model ID의 존재 확인에만 사용한다. KIE.ai처럼 안정적인 per-model 목록 API가 없는 provider는
      account 연결 확인과 제품 검증 카탈로그를 분리한다.
