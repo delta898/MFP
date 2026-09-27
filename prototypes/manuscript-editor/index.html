@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ko" data-style="warm-editorial">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,nofollow">
+    <title>원고 편집기 비교 prototype</title>
+  </head>
+  <body>
+    <main class="prototype-shell">
+      <header class="prototype-header">
+        <div>
+          <p class="eyebrow">BLOGGENIUS · EDITOR STUDY</p>
+          <h1>원고 편집기 비교</h1>
+          <p class="intro">같은 원고와 기능 범위로 Tiptap 최소 UI와 Milkdown Crepe를 비교합니다.</p>
+        </div>
+        <div class="sample-actions">
+          <button class="button secondary" id="reset-sample" type="button">샘플 원고 되돌리기</button>
+        </div>
+      </header>
+
+      <aside class="decision-note" aria-label="비교 기준">
+        <strong>비교 범위</strong>
+        <span>제목 · 문단 · 소제목 · 굵게/기울임 · 목록 · 인용 (기존 링크는 그대로 보존)</span>
+        <span>편집기에서 제공하는 기능이 실제 발행에서 지원되는지는 별도 검증 전입니다. 미지원 콘텐츠를 조용히 제거하지 않는 것을 기준으로 봅니다.</span>
+      </aside>
+
+      <section class="comparison-grid" aria-label="편집기 비교">
+        <article class="editor-panel" data-editor-panel="tiptap">
+          <header class="panel-heading">
+            <div><p class="eyebrow">A · MINIMAL UI</p><h2>Tiptap</h2></div>
+            <span class="status-chip">핵심 편집 + 직접 만든 최소 툴바</span>
+          </header>
+          <label class="title-field">제목<input data-title value="제주 일주일 살기, 천천히 발견한 아침의 풍경"></label>
+          <div class="editor-toolbar" role="toolbar" aria-label="Tiptap 서식 도구">
+            <button class="toolbar-button" data-command="bold" type="button" aria-label="굵게"><strong>B</strong></button>
+            <button class="toolbar-button" data-command="italic" type="button" aria-label="기울임"><em>I</em></button>
+            <button class="toolbar-button" data-command="heading" type="button" aria-label="소제목">H2</button>
+            <button class="toolbar-button" data-command="bulletList" type="button" aria-label="글머리 목록">목록</button>
+            <button class="toolbar-button" data-command="blockquote" type="button" aria-label="인용">인용</button>
+            <span class="toolbar-spacer"></span>
+            <span class="toolbar-caption">선택한 문장에 서식을 적용</span>
+          </div>
+          <div class="editor-canvas" data-tiptap-editor aria-label="Tiptap 원고 편집"></div>
+          <details class="markdown-output" open>
+            <summary>Markdown 결과 확인</summary>
+            <pre data-tiptap-markdown></pre>
+          </details>
+        </article>
+
+        <article class="editor-panel" data-editor-panel="crepe">
+          <header class="panel-heading">
+            <div><p class="eyebrow">B · PROVIDED EDITOR UI</p><h2>Milkdown Crepe</h2></div>
+            <span class="status-chip">기능을 줄인 제공 툴바 · 블록 메뉴</span>
+          </header>
+          <label class="title-field">제목<input data-title value="제주 일주일 살기, 천천히 발견한 아침의 풍경"></label>
+          <div class="editor-canvas crepe-canvas" data-crepe-editor aria-label="Crepe 원고 편집"></div>
+          <details class="markdown-output" open>
+            <summary>Markdown 결과 확인</summary>
+            <pre data-crepe-markdown></pre>
+          </details>
+        </article>
+      </section>
+      <p class="prototype-footer">개발용 비교 화면 · 실제 저장/발행을 하지 않습니다.</p>
+    </main>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

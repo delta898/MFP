@@ -5,6 +5,7 @@
   "main": "src/gui/electron-main.js",
   "scripts": {
     "start": "electron .",
+    "editor:prototype": "vite --config prototypes/manuscript-editor/vite.config.mjs --host 127.0.0.1",
     "app:local": "node scripts/app-environment-launcher.js local",
     "app:development": "node scripts/app-environment-launcher.js development",
     "app:production": "node scripts/production-app-launcher.js",
@@ -114,6 +115,12 @@
   "license": "Commercial",
   "devDependencies": {
     "@electron/packager": "^20.3.0",
-    "electron": "^44.4.5"
+    "@milkdown/crepe": "^7.22.2",
+    "@milkdown/kit": "^7.22.2",
+    "@tiptap/core": "^3.31.3",
+    "@tiptap/markdown": "^3.31.3",
+    "@tiptap/starter-kit": "^3.31.3",
+    "electron": "^44.4.5",
+    "vite": "^8.3.1"
   }
 }
