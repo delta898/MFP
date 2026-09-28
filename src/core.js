@@ -13,6 +13,7 @@ const WordPressClient = require('./wordpress-client');
 const { marked } = require('marked');
 const { buildBlogGenerationPrompt } = require('./content/blog-generation-prompt');
 const { validateBlogImageBlocks } = require('./content/blog-image-plan');
+const { formatRelatedPostsForNaver } = require('./content/naver-related-posts');
 const { normalizeBlogImageMode, generatesBlogImages } = require('./content/blog-image-mode');
 const { assertDirectPublishAllowed } = require('./environment/runtime-effects');
 const {
@@ -2139,7 +2140,7 @@ ${scrapedContext}`;
 		const contentFile = path.join(dirPath, 'contents.md');
 		if (!fs.existsSync(contentFile)) throw new Error(`콘텐츠 파일 없음: contents.md`);
 
-		const markdownRaw = fs.readFileSync(contentFile, 'utf-8');
+		const markdownRaw = formatRelatedPostsForNaver(fs.readFileSync(contentFile, 'utf-8'));
 		const { title, contents } = Utils.parseMarkdown(markdownRaw);
 		const reportPublishProgress = (stage, current, total) => {
 			if (typeof options.onProgress !== 'function') return;
