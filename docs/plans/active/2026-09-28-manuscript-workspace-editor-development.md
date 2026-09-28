@@ -3,7 +3,7 @@
 - Branch: `codex/manuscript-workspace-editor`
 - Start date: 2026-09-28
 - Base/parent branch: `dev`
-- Status: Stage 0 기술 prototype 완료; Stage 1 paste workspace 구현 완료, 사용자 확인/통합 대기
+- Status: Stage 0 기술 prototype 완료; Stage 1 paste workspace 구현 및 parent 통합 진행, 다음은 folder workspace
 
 ## 사용자 필요와 목표
 
@@ -220,3 +220,5 @@ Stage 1 하위 브랜치 `codex/feat/manuscript-paste-workspace`에서 붙여넣
 이미지 UX 후속 구현: paste 블록 편집기에 stable-ID 기반 이미지 title/prompt 편집, AI 생성, 로컬 이미지 선택·교체, 이미지 연결 제거, 블록 추가·이동·삭제를 연결했다. Inline block과 기존 하단 이미지 관리 영역은 shared media renderer를 사용하며, 하단 영역은 아직 유지한다. 이미지 연결 제거는 directive/prompt를 남기고, block 삭제는 directive를 없앤다. manifest 저장 후 app-owned 미참조 asset만 정리하고 folder 원본은 자동 삭제하지 않는다. 60 focused tests, editor bundle build, browser smoke (511 fixture requests) 및 diff 검사가 통과했다. 사용자 hands-on 시각 확인은 남았고, 하단 영역 제거는 inline UX 안정화 뒤 별도 결정한다. 상세 진행은 [Stage 1/이미지 UX 개발 기록](2026-09-28-manuscript-paste-workspace-development.md)을 참조한다.
 
 추가 이미지 UX 개선: 인라인 생성 상태/진행 표시와 카드뉴스·기존 이미지 카드와 일치하는 2단계 중지 확인, hover/focus 기반 미디어 액션, 이동/블록 삭제의 별도 위계를 적용했다. 편집 중 최신 prompt 저장을 확인한 뒤에만 AI 생성 요청을 보내도록 순서를 보장했다. 공통 실행 잠금의 inline 중지/계속 버튼 예외 등록까지 연결했다. 60 focused tests, editor bundle build, `git diff --check`, `node --check`, browser smoke (522 fixture requests; 0 page/console errors)가 통과했다. AI/폴더 경로는 현재 서비스가 본문 수정을 paste source에만 허용하므로 UI 연결을 복제하기 전에 source별 편집 저장 경계와 folder 원본 보호를 설계해야 한다. 상세 내용과 테스트 결과는 Stage 1 하위 기록을 참조한다.
+
+Stage 1 paste workspace는 `codex/feat/manuscript-paste-workspace`에서 사용자 요청에 따른 안내 문구/이미지 블록 이동/불필요한 원고 지우기 버튼 제거까지 마쳤고 parent 병합 승인을 받았다. 최종 브라우저 스모크(520 fixture requests, 0 page/console errors)와 image safety contract test를 통과했다. Stage 2는 `codex/feat/manuscript-folder-workspace`에서 같은 편집기를 folder source에 연결한다. 현재 `updateMarkdown()`은 paste 외 source를 거부하고 slot 재구성은 index 기반이므로, folder 원본 보존 및 stable block ID 기준 image manifest reconciliation을 우선 설계하고 최소 범위로 구현한다. 원본 폴더 파일 수정/삭제, AI entry 통합은 비범위다.

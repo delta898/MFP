@@ -3,7 +3,7 @@
 - Branch: `codex/feat/manuscript-paste-workspace`
 - Start date: 2026-09-28
 - Base/parent branch: `codex/manuscript-workspace-editor`
-- Status: Stage 1 구현 완료; 사용자 승인에 따라 이미지 UX Stage 2 작업 진행 중
+- Status: Stage 1 및 paste 이미지 UX 구현 완료; parent 통합 승인됨
 
 ## 사용자 필요와 목표
 
@@ -64,6 +64,15 @@
 
 - Tiptap의 지원 범위에 맞춘 Markdown 변환이며, 임의의 Markdown 문법을 원문 그대로 보존한다고 보장하지 않는다. 변환 가드는 후속 논의로 미뤘다.
 - 사용자 hands-on 확인: macOS 한글 IME 조합, 실제 외부 Markdown 붙여넣기, 번호 없는 이미지 지시문 생성/편집, 3모드 전환, 원고 지우기와 undo/redo.
+
+## 최종 통합 handoff
+
+- 붙여넣기 발행 안내는 `미지정 이미지 N개가 있습니다. 지금은 임시 저장만 가능합니다.`로 단순화했다. `이미지 블록으로 이동 ↑`는 블록 편집 모드로 전환하고 첫 미지정 이미지의 prompt 입력란에 포커스를 둔다.
+- 사용자의 요청에 따라 붙여넣기 화면의 `내용 지우기`/전용 복구 버튼과 이에 종속된 snapshot 상태·처리를 제거했다. 사용자는 편집기에서 원고를 직접 편집/삭제한다.
+- 마지막 변경 커밋 `7f58c7b6 fix: streamline pasted draft image guidance`; 앞선 이미지 UX/툴바/editor 커밋은 `28a6f3f4`, `3078e9c9`, `15d3eac0`이다.
+- 최종 검증: `node --test scripts/ai-action-availability-contract.test.js`, `git diff --check`, `npm run test:ui-browser` 통과 (520 fixture requests; 0 page/console errors). 브라우저 smoke는 첫 미지정 이미지 이동·포커스, 발행 안내, 기존 이미지 패널 이미지 업로드 경로, 내용 지우기 버튼 제거를 포함한다.
+- 남은 수동 확인: macOS native Korean IME 및 사용자의 최종 시각/탐색 확인. 전체 unit suite는 이 parent를 `dev`에 병합하기 전에 승인 후 실행한다.
+- 다음 단계는 폴더 원고 경로이며 별도 하위 feature branch/개발 기록에서 진행한다. Draft 본문 저장을 folder source에 허용할 때 원본 폴더 불변, stable image block/asset 연결, reorder·삽입·삭제 후 mapping이 보존되는지 설계·검증해야 한다.
 
 ## 구현 단계
 
