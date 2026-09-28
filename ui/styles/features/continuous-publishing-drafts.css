@@ -173,7 +173,21 @@
 
 .manuscript-image-block-header { justify-content: space-between; margin-bottom: 10px; }
 .manuscript-image-block > small { color: var(--ui-text-muted); font-size: 0.85em; }
-.manuscript-image-block-header input { flex: 1; min-width: 0; font: inherit; font-weight: 700; }
+.manuscript-editor-canvas .manuscript-image-block-header input {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  min-height: var(--ui-density-control-min-height);
+  padding: var(--ui-space-2) var(--ui-density-control-padding-inline);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-density-control-radius);
+  background: var(--ui-surface);
+  color: var(--ui-text-primary);
+  font: inherit;
+  font-size: var(--ui-type-body-size);
+  font-weight: var(--ui-weight-bold);
+  line-height: 1.4;
+}
 .manuscript-image-block-delete {
   display: grid;
   width: 30px;
@@ -255,7 +269,25 @@
   transform: translateY(0);
 }
 .manuscript-image-block label { display: grid; gap: 6px; color: var(--ui-text-secondary); }
-.manuscript-image-block textarea { min-height: 60px; resize: vertical; }
+.manuscript-editor-canvas .manuscript-image-block textarea {
+  min-height: 60px;
+  box-sizing: border-box;
+  padding: var(--ui-space-2) var(--ui-density-control-padding-inline);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-density-control-radius);
+  background: var(--ui-surface);
+  color: var(--ui-text-primary);
+  font: inherit;
+  font-size: var(--ui-type-body-size);
+  font-weight: var(--ui-weight-regular);
+  line-height: 1.4;
+  resize: vertical;
+}
+.manuscript-editor-canvas .manuscript-image-block-header input:focus,
+.manuscript-editor-canvas .manuscript-image-block textarea:focus {
+  border-color: var(--ui-action-primary);
+  outline: 2px solid var(--ui-action-primary-soft);
+}
 .manuscript-image-block-action-groups { display: flex; justify-content: flex-end; margin-top: 10px; }
 .manuscript-image-block-structure-actions { display: flex; gap: var(--ui-action-group-gap); }
 .manuscript-image-block-media-actions [data-image-action="remove"][hidden] { display: none; }
