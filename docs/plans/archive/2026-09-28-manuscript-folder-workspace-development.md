@@ -3,7 +3,7 @@
 - Branch: `codex/feat/manuscript-folder-workspace`
 - Start date: 2026-09-28
 - Base/parent branch: `codex/manuscript-workspace-editor`
-- Status: 구현 및 focused 검증 완료, parent 병합 대기
+- Status: parent 병합 완료 (`0a210ed1`까지 fast-forward)
 
 ## 사용자 필요와 목표
 
@@ -53,8 +53,9 @@
 - `npm run test:ui-blog-auto` 통과.
 - `npm run test:ui-browser` 통과 (516 fixture requests, page errors 0). 기존 smoke selector를 폴더/붙여넣기 editor rail 각각으로 범위 제한했다.
 - `git diff --check` 통과.
+- 병합 직전 이미지 제목·설명 입력 스타일을 공통 편집기 CSS로 통일했고, 브라우저 UI smoke 통과 (514 fixture requests), `git diff --check` 통과.
 - 사용자 hands-on 확인: 폴더 불러오기 후 블록 편집 / Markdown 편집 / 보기 전환, 이미지 제목·prompt 변경 후 생성, 이미지 파일 연결과 블록 순서 변경, 원본 폴더 파일 불변.
-- TODO: parent 병합 결과 기록 및 계획 문서 archive 이동.
+- parent `codex/manuscript-workspace-editor`에 fast-forward 병합 완료.
 
 ## 남은 위험 및 사용자 확인
 
