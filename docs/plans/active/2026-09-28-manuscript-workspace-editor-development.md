@@ -165,11 +165,14 @@ ImageBlock
 - unsupported Markdown 변환 가드는 Stage 1에서 구현하지 않고 원고 편집 범위가 검증될 때 설계한다.
 - 완료: paste 원고가 블록 순서/지원 서식/이미지를 유지하며 모드 전환되고 저장·보기·발행 입력이 같은 revision 사용. 저장 오류/revision 충돌/undo-redo 테스트 통과.
 
-### Stage 2 — 이미지 제작·관리 경험
+### Stage 2 — 이미지 제작·관리 경험 (진행 중)
 
-- 블록 내 AI 생성, 내 이미지 선택, 교체, 제외/복원, 이미지 block 추가/이동/삭제와 collapsed image manager 제공.
-- 기존 source마다 다른 이미지 UI/서비스 동작을 공통 서비스로 합친다.
-- 완료: 빈/생성 중/완료/실패 상태, 마지막 정상 asset 유지, block reorder 후 identity 보존, 관리 패널에서 위치 점프와 상태 추적 확인.
+- 이미지 directive의 안정 ID를 원고 블록과 이미지 슬롯에 연결한다. 블록 순서를 바꿔도 같은 asset이 같은 이미지 블록을 따라야 한다.
+- 블록 편집에서는 기존 생성/파일 선택 흐름을 재사용해 AI 생성, 로컬 이미지 선택·교체, 이미지 연결 제거, 이미지 블록 추가·이동·삭제를 제공한다. Markdown 모드는 directive 원문 편집을 유지하고, 보기는 연결된 이미지를 표시한다.
+- 이미지 UI는 공유 media renderer로 모듈화해 본문 블록과 기존 하단 이미지 관리 영역이 함께 사용한다. 현재 하단 영역은 병행 검증을 위해 유지하며, inline UX가 안정화되고 사용자 확인을 받은 뒤 제거 여부를 결정한다.
+- `이미지 제거`는 이미지 asset 연결만 해제하고 directive의 제목·prompt는 남긴다. `이미지 블록 삭제`는 directive 자체를 원고에서 제거한다. 별도의 “발행에서만 제외” 기능은 이번 inline UX에 추가하지 않는다.
+- manifest 저장이 성공한 뒤 앱이 소유한(generated/user) 미참조 asset만 정리한다. 원고 폴더에서 온 원본 파일은 자동 삭제하지 않는다.
+- 완료: 생성/선택/교체/연결 제거/블록 추가·이동·삭제 및 상태 UI를 focused/browser 테스트로 검증하고, 기존 하단 영역과 동일한 asset·revision 상태를 확인한다. 하단 영역 제거는 안정화 후 별도 결정으로 둔다.
 
 ### Stage 3 — AI·Folder source 통합과 원본 보호
 
@@ -188,8 +191,8 @@ ImageBlock
 
 아래는 기본 추천안이며, 반대가 없으면 Stage 0 prototype에서 검증한다.
 
-1. **하단 이미지 영역:** 상시 펼친 갤러리를 없애고 본문 inline 이미지 블록을 주 UI로 하며, 접힌 `이미지 관리 · n개` 패널을 보조로 둔다. 목록/일괄 상태 확인의 효용을 유지하면서 본문 중복과 화면 점유를 줄인다.
-2. **이미지 생성 접근:** 블록 편집 안에서 직접 생성하고, Markdown mode에서도 이미지 directive 선택 시 동일한 공통 생성 도구를 제공한다. 특정 모드를 거쳐야만 생성 가능하게 막지 않는다.
+1. **하단 이미지 영역:** inline 이미지 UX 안정화 전에는 기존 영역을 유지한다. 양쪽을 같은 shared media component/서비스에 연결해 중복 구현을 피하고, 안정화 후 제거 또는 보조 패널화 여부를 결정한다.
+2. **이미지 생성 접근:** 1차는 블록 편집 안에서 생성·선택·교체한다. Markdown mode는 directive 원문 편집에 집중하고, 보기 모드는 연결된 이미지/placeholder를 표시한다.
 3. **문서 모델:** editor JSON 직접 영속화가 아니라 app-owned canonical block schema + 별도 asset manifest를 두고 Tiptap은 adapter로 사용한다. Markdown의 실질 round-trip은 prototype으로 확인 후 gate를 통과해야 노출한다.
 
 논의가 특히 필요한 제품 결정은 3번의 Markdown mode에서 미지원 구문 발견 시 정책이다. 추천은 **원문을 보존하고 저장을 막거나 명시적 변환 확인을 받는 것**이다. 조용히 손실시키는 정책은 피한다. 기술 prototype이 정확한 한계를 보여준 뒤 확정한다.
@@ -213,3 +216,7 @@ ImageBlock
 ## 다음 단계
 
 Stage 1 하위 브랜치 `codex/feat/manuscript-paste-workspace`에서 붙여넣기 경로의 Tiptap 블록 편집/보기, Draft revision 갱신, 번호 없는 이미지 지시문 인식과 폴더 번호 필수 검증을 구현했다. 관련 focused tests와 browser smoke는 통과했고 실제 OS IME 및 사용자 UI 확인이 남아 있다. 전체 unit suite는 parent feature를 dev에 병합하기 전 승인 후 실행한다. 상세 진행은 [Stage 1 개발 기록](2026-09-28-manuscript-paste-workspace-development.md)을 참조한다.
+
+이미지 UX 후속 구현: paste 블록 편집기에 stable-ID 기반 이미지 title/prompt 편집, AI 생성, 로컬 이미지 선택·교체, 이미지 연결 제거, 블록 추가·이동·삭제를 연결했다. Inline block과 기존 하단 이미지 관리 영역은 shared media renderer를 사용하며, 하단 영역은 아직 유지한다. 이미지 연결 제거는 directive/prompt를 남기고, block 삭제는 directive를 없앤다. manifest 저장 후 app-owned 미참조 asset만 정리하고 folder 원본은 자동 삭제하지 않는다. 60 focused tests, editor bundle build, browser smoke (511 fixture requests) 및 diff 검사가 통과했다. 사용자 hands-on 시각 확인은 남았고, 하단 영역 제거는 inline UX 안정화 뒤 별도 결정한다. 상세 진행은 [Stage 1/이미지 UX 개발 기록](2026-09-28-manuscript-paste-workspace-development.md)을 참조한다.
+
+추가 이미지 UX 개선: 인라인 생성 상태/진행 표시와 카드뉴스·기존 이미지 카드와 일치하는 2단계 중지 확인, hover/focus 기반 미디어 액션, 이동/블록 삭제의 별도 위계를 적용했다. 편집 중 최신 prompt 저장을 확인한 뒤에만 AI 생성 요청을 보내도록 순서를 보장했다. 공통 실행 잠금의 inline 중지/계속 버튼 예외 등록까지 연결했다. 60 focused tests, editor bundle build, `git diff --check`, `node --check`, browser smoke (522 fixture requests; 0 page/console errors)가 통과했다. AI/폴더 경로는 현재 서비스가 본문 수정을 paste source에만 허용하므로 UI 연결을 복제하기 전에 source별 편집 저장 경계와 folder 원본 보호를 설계해야 한다. 상세 내용과 테스트 결과는 Stage 1 하위 기록을 참조한다.

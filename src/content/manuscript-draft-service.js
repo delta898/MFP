@@ -75,7 +75,14 @@ function safeDraftId(value) {
 
 function safeSlotId(value) {
     const id = String(value || '').trim();
-    return /^image-(?:0|[1-9][0-9]*)$/.test(id) ? id : '';
+    return /^image-(?:(?:0|[1-9][0-9]*)|mb-[a-z0-9_-]{1,100})$/i.test(id) ? id : '';
+}
+
+function slotIdForImage(image = {}) {
+    const blockId = String(image.blockId || '').trim();
+    return /^[a-z0-9][a-z0-9_-]{0,100}$/i.test(blockId)
+        ? `image-${blockId}`
+        : `image-${Number(image.index || 0)}`;
 }
 
 function stripImageBlocksByIndex(content, indexes = []) {
@@ -295,15 +302,17 @@ function createManuscriptDraftService(options = {}) {
         } else if (manifest.source_kind === 'ai') {
             preview.source = { ...preview.source, type: 'generated_quick_post', folderName: manifest.source_label };
         }
+        const slotByBlockId = new Map(manifest.image_slots.filter((slot) => slot.block_id).map((slot) => [slot.block_id, slot]));
         const slotByIndex = new Map(manifest.image_slots.map((slot) => [Number(slot.index), slot]));
         preview.images = preview.images.map((image) => {
-            const slot = slotByIndex.get(Number(image.index));
+            const slot = (image.blockId && slotByBlockId.get(image.blockId)) || slotByIndex.get(Number(image.index));
             const slotState = String(slot?.state || (slot?.current_file ? 'ready' : 'missing'));
             const excluded = slotState === 'excluded';
             const exists = Boolean(!excluded && slot?.current_file && fsImpl.existsSync(currentFileForSlot(locations, slot)));
             return {
                 ...image,
-                slotId: slot?.id || `image-${image.index}`,
+                blockId: slot?.block_id || image.blockId || '',
+                slotId: slot?.id || slotIdForImage(image),
                 exists,
                 excluded,
                 state: excluded ? 'excluded' : (exists ? 'ready' : 'missing'),
@@ -319,7 +328,7 @@ function createManuscriptDraftService(options = {}) {
         });
         preview.contentItems = preview.contentItems.map((item) => {
             if (item.type !== 'image') return item;
-            const image = preview.images.find((entry) => Number(entry.index) === Number(item.index));
+            const image = preview.images.find((entry) => (item.blockId && entry.blockId === item.blockId) || Number(entry.index) === Number(item.index));
             return { ...item, exists: Boolean(image?.exists), imageUrl: image?.imageUrl || '', slotId: image?.slotId || '' };
         }).filter((item) => item.type !== 'image' || !preview.images.find((image) => Number(image.index) === Number(item.index))?.excluded);
         preview.stats.imageResolvedCount = preview.images.filter((image) => image.exists).length;
@@ -380,7 +389,8 @@ function createManuscriptDraftService(options = {}) {
                 settings,
                 related_posts: defaultRelatedPostsState(settings.targets),
                 image_slots: preview.images.map((image) => ({
-                    id: `image-${image.index}`,
+                    id: slotIdForImage(image),
+                    block_id: image.blockId || '',
                     index: image.index,
                     prompt: image.prompt,
                     original_file: '',
@@ -439,7 +449,8 @@ function createManuscriptDraftService(options = {}) {
                 image_slots: preview.images.map((image) => {
                     const fileName = imageByIndex.get(Number(image.index)) || '';
                     return {
-                        id: `image-${image.index}`,
+                        id: slotIdForImage(image),
+                        block_id: image.blockId || '',
                         index: image.index,
                         prompt: image.prompt,
                         original_file: fileName,
@@ -497,7 +508,8 @@ function createManuscriptDraftService(options = {}) {
                 settings,
                 related_posts: defaultRelatedPostsState(settings.targets),
                 image_slots: preview.images.map((image) => ({
-                    id: `image-${image.index}`,
+                    id: slotIdForImage(image),
+                    block_id: image.blockId || '',
                     index: image.index,
                     prompt: image.prompt,
                     original_file: image.exists ? image.fileName : '',
@@ -523,13 +535,28 @@ function createManuscriptDraftService(options = {}) {
         const normalizedSlotId = safeSlotId(slotId);
         const slot = manifest.image_slots.find((item) => item.id === normalizedSlotId);
         if (!slot) throw manuscriptError(404, 'MANUSCRIPT_IMAGE_SLOT_NOT_FOUND', '이미지 영역을 찾지 못했습니다.');
+        const previousSlots = manifest.image_slots.map((item) => ({ ...item }));
         mutate({ locations, manifest, slot });
         manifest.revision += 1;
         manifest.updated_at = new Date(now()).toISOString();
         manifest.lifecycle_status = 'active';
         delete manifest.completed_at;
         atomicWriteJson(fsImpl, locations.manifest, manifest);
+        cleanupUnreferencedDraftAssets(previousSlots, manifest.image_slots, locations);
         return buildPublicDraft(manifest, locations);
+    }
+
+    function cleanupUnreferencedDraftAssets(previousSlots = [], nextSlots = [], locations = {}) {
+        const referenced = new Set((nextSlots || []).flatMap((slot) => [slot.current_file, slot.original_file]).filter(Boolean));
+        const candidates = new Map();
+        for (const slot of previousSlots || []) {
+            if (slot.current_file && slot.current_origin !== 'folder') candidates.set(slot.current_file, slot.current_origin);
+            if (slot.original_file && slot.original_origin !== 'folder') candidates.set(slot.original_file, slot.original_origin);
+        }
+        for (const [fileName, origin] of candidates) {
+            if (referenced.has(fileName) || !['generated', 'user'].includes(origin)) continue;
+            try { fsImpl.rmSync(pathImpl.join(locations.source, pathImpl.basename(fileName)), { force: true }); } catch (_) { }
+        }
     }
 
     function replaceSlotFile({ locations, slot, buffer, extension, origin }) {
@@ -585,6 +612,18 @@ function createManuscriptDraftService(options = {}) {
         });
     }
 
+    function removeImage(input = {}) {
+        return updateSlot(input.draftId, input.revision, input.slotId, ({ slot }) => {
+            slot.current_file = '';
+            slot.current_origin = '';
+            if (slot.original_origin !== 'folder') {
+                slot.original_file = '';
+                slot.original_origin = '';
+            }
+            slot.state = 'missing';
+        });
+    }
+
     function updateSettings(input = {}) {
         return updateSlotless(input.draftId, input.revision, ({ manifest }) => {
             manifest.settings = normalizeDraftSettings(input, manifest.settings);
@@ -602,13 +641,15 @@ function createManuscriptDraftService(options = {}) {
             const markdownText = String(input.markdownText || '');
             const settings = normalizeDraftSettings(input, manifest.settings);
             const preview = buildLocalMarkdownPreview({ markdownText, folderName: manifest.source_label, ...settings }, { fs: fsImpl, path: pathImpl, Utils });
+            const previousByBlockId = new Map(manifest.image_slots.filter((slot) => slot.block_id).map((slot) => [slot.block_id, slot]));
             const previousByIndex = new Map(manifest.image_slots.map((slot) => [Number(slot.index), slot]));
             manifest.settings = settings;
             manifest.image_slots = preview.images.map((image) => {
-                const previous = previousByIndex.get(Number(image.index));
+                const previous = (image.blockId && previousByBlockId.get(image.blockId)) || previousByIndex.get(Number(image.index));
                 const currentExists = Boolean(previous?.current_file && fsImpl.existsSync(currentFileForSlot(locations, previous)));
                 return {
-                    id: `image-${image.index}`,
+                    id: slotIdForImage(image),
+                    block_id: image.blockId || previous?.block_id || '',
                     index: image.index,
                     prompt: image.prompt,
                     original_file: previous?.original_file || '',
@@ -630,12 +671,14 @@ function createManuscriptDraftService(options = {}) {
         const { locations, manifest } = readManifest(id);
         assertRevision(manifest, expectedRevision);
         assertDraftActive(manifest);
+        const previousSlots = manifest.image_slots.map((slot) => ({ ...slot }));
         mutate({ locations, manifest });
         manifest.revision += 1;
         manifest.updated_at = new Date(now()).toISOString();
         manifest.lifecycle_status = 'active';
         delete manifest.completed_at;
         atomicWriteJson(fsImpl, locations.manifest, manifest);
+        cleanupUnreferencedDraftAssets(previousSlots, manifest.image_slots, locations);
         return buildPublicDraft(manifest, locations);
     }
 
@@ -864,7 +907,7 @@ function createManuscriptDraftService(options = {}) {
         Logger?.info?.(`ℹ️ [ManuscriptDraft] 만료 원고 ${startupCleanup.removed}개를 시작 시 정리했습니다.`);
     }
 
-    return { createFolderDraft, createPasteDraft, createAiDraft, getDraft, updateSettings, updateMarkdown, importLocalImage, excludeImage, restoreImage, generateImage, generateMissingImages, refreshDraftRelatedPosts, preparePublishPayload, buildPublishPayload, assertNotPublished, markPublished, cleanupExpiredDrafts, getImage };
+    return { createFolderDraft, createPasteDraft, createAiDraft, getDraft, updateSettings, updateMarkdown, importLocalImage, excludeImage, restoreImage, removeImage, generateImage, generateMissingImages, refreshDraftRelatedPosts, preparePublishPayload, buildPublishPayload, assertNotPublished, markPublished, cleanupExpiredDrafts, getImage };
 }
 
 module.exports = { createManuscriptDraftService, detectImageType, validateImageBuffer };

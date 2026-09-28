@@ -3,7 +3,7 @@
 - Branch: `codex/feat/manuscript-paste-workspace`
 - Start date: 2026-09-28
 - Base/parent branch: `codex/manuscript-workspace-editor`
-- Status: 구현 완료; 사용자 UI 확인 후 parent merge 준비
+- Status: Stage 1 구현 완료; 사용자 승인에 따라 이미지 UX Stage 2 작업 진행 중
 
 ## 사용자 필요와 목표
 
@@ -71,3 +71,21 @@
 2. 공통 editor workspace를 paste 진입점에 연결하고 편집/보기 전환 제공
 3. 이미지 marker parse/placeholder와 파일 없는 paste marker의 안정 identity 처리
 4. 최소 편집/저장/보기 흐름의 회귀 테스트 및 browser smoke
+
+## 이미지 UX 후속 작업 (진행 중)
+
+- 사용자는 inline 이미지 UX가 안정화될 때까지 기존 하단 이미지 관리 영역을 유지하기로 결정했다. 두 UI가 같은 상태와 서비스 동작을 쓰도록 이미지 media renderer를 공통화하며, 하단 영역을 이 작업에서 제거하지 않는다.
+- 이미지 블록의 stable ID를 Markdown directive와 draft image slot manifest에 연결한다. reorder 때 asset이 원래 블록을 따라가고, 번호/sourceKey는 폴더 파일 mapping 용도로 계속 쓴다.
+- Inline block에서 제목·prompt 수정, 이미지 생성, 로컬 선택/교체, 이미지 연결 제거, 블록 추가/이동/삭제를 제공한다. 이미지 연결 제거는 title/prompt directive를 남기고, 블록 삭제는 directive를 제거한다. 별도 “발행에서만 제외” 기능은 이번 1차 범위가 아니다.
+- 공유 media renderer를 inline block 및 하단 이미지 관리 카드 양쪽에서 사용해 loading/ready/placeholder 상태와 모양의 중복 구현을 피한다.
+- 파일 정리는 draft 변경 저장 성공 후 수행한다. generated/user 원본은 더 이상 참조되지 않을 때만 정리하며 folder 원본은 앱에서 삭제하지 않는다.
+- 검증 완료: focused manuscript/parser/preview/API tests 60개 통과, `node --check`, `npm run build:manuscript-editor`, `git diff --check`, `npm run test:ui-browser` (511 fixture requests; 0 page errors). Browser flow covers inline image block title/prompt and generate/local-pick controls, plus legacy image manager flows. Sticky rail assertion was made threshold-aware: it scrolls until the layout-derived sticky position is reached, then confirms that further scrolling keeps it fixed.
+- 이미지 UX follow-up: inline 이미지 미디어 위에 이미지가 있을 때 hover/focus로 생성·교체·연결 제거를 노출하고, 이미지가 없을 때는 기본 노출한다. 위/아래 이동은 별도 구조 그룹으로 분리하고 블록 삭제는 제목 행의 X 버튼으로 옮겼다. 공통 실행 잠금에서 inline 생성/중지 및 계속 버튼을 기존 이미지 카드와 같은 예외 흐름에 등록해 생성 중에도 조작할 수 있게 한다. 진행 spinner/status, 진행 수, 2단계 중지 확인을 기존 이미지 관리와 맞춘다.
+- prompt/title은 입력 즉시 편집기 문서에 반영한다. AI 이미지 생성 직전 붙여넣기 원고의 마지막 변경이 저장되었는지 동기화 키/revision으로 확인하고, 실패 시 생성 요청을 시작하지 않는다. Browser smoke에는 delayed Markdown save 후 generation 요청 순서와 stop → confirm → continue → stop 시나리오를 추가했다.
+- 다른 입력 경로 조사: 이미지 media renderer는 공통 재사용 가능하지만 Tiptap editor는 현재 paste에만 mount되어 있고 `updateMarkdown` 서비스도 `source_kind !== paste`를 읽기 전용으로 거부한다. 따라서 AI·folder 적용은 frontend mount만 복제할 수 없으며 source별 편집 저장/폴더 원본 보호 경계를 확장하는 후속 단계가 필요하다. 이번 Stage에서는 그 저장 의미를 임의 변경하지 않는다.
+- 이번 변경 검증: focused manuscript/parser/preview/API tests 60개 통과, `npm run build:manuscript-editor` (443.70 KB; gzip 139.59 KB), `node --check`, `git diff --check`, `npm run test:ui-browser` 통과 (522 fixture requests, 0 page/console errors). 브라우저 smoke에서 최신 prompt의 Markdown 저장 완료가 이미지 생성 요청보다 먼저인 것과 중지 확인/계속 진행/중지 완료 흐름을 검증했다. 사용자 hands-on UI/IME 확인은 남았고, 변경은 미커밋 상태다.
+- 남은 확인: 사용자 hands-on UI 확인 및 OS native IME. 기존 하단 이미지 관리 영역은 inline UX가 안정화될 때까지 유지한다. 변경은 미커밋 상태다.
+- 이미지 생성 중 상태 UI 후속: `중지 확인`과 `계속 진행`을 액션 순서상 붙이고 이미지 선택/제거 액션을 뒤에 두었다. 상태·중지 안내의 아래쪽에 액션 레일 공간을 확보해 가림을 방지하고, 개별 블록 상태 문구에서 불필요한 `1/N`을 제거했으며 헤더의 `이미지 블록` 배지도 생략했다. Browser smoke에서 안내문과 버튼 비겹침, 버튼 인접 순서, 단일 상태 문구 및 배지 제거를 검증했다. 에디터 빌드와 browser smoke (520 fixture requests; 0 page/console errors) 통과. 사용자 hands-on 확인은 남았고 미커밋 상태다.
+- 상태 위치 안정화: 생성 중과 중지 확인 중 같은 두 줄 status-copy 슬롯을 사용하고, 안내 문장을 짧게 유지해 상태 변화 때 텍스트가 옆/아래로 이동하지 않도록 했다. 상태 카피는 하단 액션 레일과 겹치지 않는 고정 lane에 배치했다. Browser smoke에서 상태 전후 이미지 영역 기준 copy 좌표 동일성 및 안내문/액션 레일 간격을 검증했다. 최종 browser smoke 516 fixture requests, 0 page errors 통과. 변경은 미커밋이며 화면의 최종 시각 확인은 사용자에게 남아 있다.
+- 사용자 화면 재확인 후 수정: 실제 스크린샷에서 공통 미디어 renderer의 “AI 이미지 생성 중” placeholder와 node view 상태가 겹쳐 흐릿한 중복 문구가 생기는 점, 보조 문구가 왼쪽으로 이동한 것처럼 보이는 점을 확인했다. inline editor에서는 공통 renderer의 생성 오버레이를 끄고 불투명 상태 레이어 하나만 사용한다. 상태/보조 문구를 같은 중앙축의 고정 2줄 슬롯에 두고, 하단 액션 레일과 겹치지 않도록 슬롯 위치/폭을 잡았다. 생성 전/중지 확인 상태 간 슬롯 좌표 동일성, 중앙축 일치, placeholder 중복 문구 없음, 액션과 안내 비겹침을 Browser smoke로 검증했다. 번들 빌드 및 smoke 515 fixture requests 통과. 변경은 미커밋이며 사용자 화면 재검토가 남아 있다.
+- 사용자 확정 UX: 대기 중에는 placeholder의 `이미지 미지정` 제목과 설명을 보인다. 생성 중/중지 확인 중에는 같은 제목 위치에 `AI 이미지 생성 중`만 표시하고 설명은 노출하지 않되, 설명 행 공간은 비워 고정해 상태 변화로 위치가 이동하지 않게 한다. 중지 안내문은 제거하고 버튼 라벨만으로 확인/계속 동작을 전달한다. 이 상태에서는 공통 renderer의 생성 문구를 억제해 흐릿한 중복 표시를 막는다. Browser smoke에 생성 중/중지 확인 중 동일 문구·좌표와 placeholder 중복 억제를 검증하도록 갱신한다.

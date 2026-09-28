@@ -71,6 +71,97 @@ test('creates and publishes pasted Markdown through the canonical draft', () => 
     }
 });
 
+test('keeps image asset identity attached to its stable block id after Markdown reorder', () => {
+    const { workspaceDir, service } = fixture();
+    const firstId = 'mb-11111111-1111-4111-8111-111111111111';
+    const secondId = 'mb-22222222-2222-4222-8222-222222222222';
+    const firstBlock = `[[IMAGE_0\nid: ${firstId}\ntitle: 첫 이미지\nprompt: 푸른 하늘\n]]`;
+    const secondBlock = `[[IMAGE_1\nid: ${secondId}\ntitle: 둘째 이미지\nprompt: 초록 숲\n]]`;
+    try {
+        const created = service.createPasteDraft({
+            markdownText: `# 초안\n\n${firstBlock}\n\n${secondBlock}`,
+            targets: ['naver']
+        });
+        const imported = service.importLocalImage({
+            draftId: created.draftId,
+            revision: created.revision,
+            slotId: `image-${firstId}`,
+            base64Data: PNG.toString('base64')
+        });
+        const updated = service.updateMarkdown({
+            draftId: created.draftId,
+            revision: imported.revision,
+            markdownText: `# 초안\n\n${secondBlock}\n\n${firstBlock}`
+        });
+        const first = updated.images.find((image) => image.blockId === firstId);
+        const second = updated.images.find((image) => image.blockId === secondId);
+        assert.equal(first.slotId, `image-${firstId}`);
+        assert.equal(first.exists, true);
+        assert.equal(first.fileName, imported.images.find((image) => image.blockId === firstId).fileName);
+        assert.equal(second.slotId, `image-${secondId}`);
+        assert.equal(second.exists, false);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('removes only the attached generated or user asset while preserving the image block', () => {
+    const { workspaceDir, service } = fixture();
+    const blockId = 'mb-33333333-3333-4333-8333-333333333333';
+    try {
+        const created = service.createPasteDraft({
+            markdownText: `# 초안\n\n[[IMAGE_0\nid: ${blockId}\ntitle: 이미지 제목\nprompt: 푸른 하늘\n]]`,
+            targets: ['naver']
+        });
+        const imported = service.importLocalImage({
+            draftId: created.draftId,
+            revision: created.revision,
+            slotId: `image-${blockId}`,
+            base64Data: PNG.toString('base64')
+        });
+        const attachedFile = imported.images[0].fileName;
+        assert.ok(fs.existsSync(path.join(workspaceDir, 'manuscript-drafts', created.draftId, 'source', attachedFile)));
+        const removed = service.removeImage({
+            draftId: created.draftId,
+            revision: imported.revision,
+            slotId: `image-${blockId}`
+        });
+        assert.equal(removed.images[0].exists, false);
+        assert.equal(removed.images[0].title, '이미지 제목');
+        assert.equal(removed.images[0].prompt, '푸른 하늘');
+        assert.equal(fs.existsSync(path.join(workspaceDir, 'manuscript-drafts', created.draftId, 'source', attachedFile)), false);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('deleting an image block cleans its unreferenced app-owned image after the draft update', () => {
+    const { workspaceDir, service } = fixture();
+    const blockId = 'mb-44444444-4444-4444-8444-444444444444';
+    try {
+        const created = service.createPasteDraft({
+            markdownText: `# 초안\n\n[[IMAGE_0\nid: ${blockId}\ntitle: 이미지 제목\nprompt: 푸른 하늘\n]]`,
+            targets: ['naver']
+        });
+        const imported = service.importLocalImage({
+            draftId: created.draftId,
+            revision: created.revision,
+            slotId: `image-${blockId}`,
+            base64Data: PNG.toString('base64')
+        });
+        const attachedFile = imported.images[0].fileName;
+        const updated = service.updateMarkdown({
+            draftId: created.draftId,
+            revision: imported.revision,
+            markdownText: '# 초안\n\n본문만 남깁니다.'
+        });
+        assert.equal(updated.images.length, 0);
+        assert.equal(fs.existsSync(path.join(workspaceDir, 'manuscript-drafts', created.draftId, 'source', attachedFile)), false);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('creates one AI draft from generated Markdown and preserves generated originals', () => {
     const { workspaceDir, service } = fixture();
     try {

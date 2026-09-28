@@ -295,6 +295,7 @@ function buildLocalMarkdownPreview(input = {}, deps = {}) {
                 : !!(imagePath && fsImpl.existsSync(imagePath));
             return {
                 index: Number(item.index || 0),
+                blockId: normalizeString(item.blockId),
                 indexProvided,
                 title: normalizeString(item.text),
                 prompt: normalizeString(item.prompt),
@@ -332,6 +333,7 @@ function buildLocalMarkdownPreview(input = {}, deps = {}) {
             type: item.type || 'paragraph',
             text: normalizeString(item.text),
             prompt: normalizeString(item.prompt),
+            blockId: normalizeString(item.blockId),
             index: Number.isInteger(Number(item.index)) ? Number(item.index) : null,
             indexProvided: item.indexProvided !== false,
             listType: normalizeString(item.listType),

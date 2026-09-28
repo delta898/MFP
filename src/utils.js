@@ -4483,6 +4483,7 @@ const Utils = {
                     const blockText = currentImageLines.join('\n');
                     contents.push({
                         type: 'image', index: currentImageIndex, indexProvided: currentImageIndexProvided, raw: blockText,
+                        ...(this.extractInfo(blockText, 'id') ? { blockId: this.extractInfo(blockText, 'id') } : {}),
                         text: this.extractInfo(blockText, 'title'), prompt: this.extractInfo(blockText, 'prompt')
                     });
                     skipImageBlock = false;
@@ -4495,6 +4496,7 @@ const Utils = {
                     const blockText = currentImageLines.join('\n');
                     contents.push({
                         type: 'image', index: currentImageIndex, indexProvided: currentImageIndexProvided, raw: blockText,
+                        ...(this.extractInfo(blockText, 'id') ? { blockId: this.extractInfo(blockText, 'id') } : {}),
                         text: this.extractInfo(blockText, 'title'), prompt: this.extractInfo(blockText, 'prompt')
                     });
                     skipImageBlock = false;

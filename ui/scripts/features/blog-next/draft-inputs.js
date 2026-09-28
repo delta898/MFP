@@ -4,7 +4,7 @@ const BLOG_NEXT_DRAFT_PREVIEW_DELAY_MS = 350;
 const blogNextDraftState = {
   ai: { preview: null, requestId: 0, publishing: false, generating: false, draftId: '', revision: 0, imageWorking: false, imageOperation: null, imageOperationNotice: null, imageSafetyLocked: false, previewSyncFailed: false },
   folder: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, imageObjectUrls: {}, draftId: '', revision: 0, imageWorking: false, imageOperation: null, imageOperationNotice: null, imageSafetyLocked: false, previewSyncFailed: false },
-  paste: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, clearSnapshot: null, draftId: '', revision: 0, imageWorking: false, imageOperation: null, imageOperationNotice: null, imageSafetyLocked: false, previewSyncFailed: false, workspaceMode: 'block', editor: null, previewPromise: null, syncedPreviewKey: '' }
+  paste: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, clearSnapshot: null, draftId: '', revision: 0, imageWorking: false, imageMutationSlotId: '', imageOperation: null, imageOperationNotice: null, imageSafetyLocked: false, previewSyncFailed: false, workspaceMode: 'block', editor: null, previewPromise: null, syncedPreviewKey: '' }
 };
 
 function blogNextDraftContainer(type) {
@@ -332,6 +332,13 @@ function renderBlogNextDraftPreview(type, preview = null) {
   const stats = preview.stats || {};
   if (body) body.innerHTML = renderBlogNextDraftBodyHtml(type, preview);
   if (body) bindBlogNextManuscriptBodyImageFallback(body);
+  if (type === 'paste') {
+    const imageOperation = blogNextDraftState.paste.imageOperation;
+    blogNextDraftState.paste.editor?.syncImages?.(
+      preview.images || [], imageOperation,
+      blogNextDraftState.paste.imageMutationSlotId
+    );
+  }
   if (images) {
     images.innerHTML = renderBlogNextDraftImages(type, preview);
     UiGridTailSpacers.sync(images, {
@@ -481,6 +488,23 @@ function getBlogNextPasteSyncKey() {
     markdownText: document.getElementById('blog-next-paste-markdown')?.value || '',
     settings: readBlogNextDraftSettings('paste')
   });
+}
+
+async function flushBlogNextPasteDraftBeforeImageGeneration() {
+  const state = blogNextDraftState.paste;
+  const input = document.getElementById('blog-next-paste-markdown');
+  if (!input?.value.trim()) return false;
+  clearTimeout(state.previewTimer);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const expectedKey = getBlogNextPasteSyncKey();
+    if (state.previewPromise) await state.previewPromise;
+    if (state.preview && !state.previewSyncFailed && state.syncedPreviewKey === getBlogNextPasteSyncKey()) return true;
+    if (getBlogNextPasteSyncKey() !== expectedKey) continue;
+    await loadBlogNextDraftPreview('paste');
+    if (state.preview && !state.previewSyncFailed && state.syncedPreviewKey === getBlogNextPasteSyncKey()) return true;
+  }
+  setBlogNextDraftValidation('paste', { errors: ['변경한 원고를 저장하지 못해 이미지 생성을 시작하지 않았습니다. 잠시 후 다시 시도해 주세요.'] }, '', state.preview);
+  return false;
 }
 
 function setBlogNextPasteWorkspaceMode(mode, state, editorRoot, pastedInput) {
@@ -673,6 +697,27 @@ function initBlogNextDraftInputs() {
         onChange(markdown) {
           pastedInput.value = markdown;
           pastedInput.dispatchEvent(new Event('input', { bubbles: true }));
+        },
+        getImage(blockId, sourceKey) {
+          const images = blogNextDraftState.paste.preview?.images || [];
+          return images.find((image) => image.blockId && image.blockId === blockId)
+            || images.find((image) => Number(image.index) === Number(sourceKey))
+            || null;
+        },
+        onImageAction(action, slotId) {
+          if (action === 'continue') {
+            continueBlogNextManuscriptImageGeneration('paste');
+            return;
+          }
+          if (action === 'generate') {
+            const operation = blogNextDraftState.paste.imageOperation;
+            if (operation?.action === 'generate' && operation.slotId === slotId) handleBlogNextManuscriptImageStop('paste');
+            else void runBlogNextManuscriptImageAction('paste', 'generate', slotId);
+          }
+          else if (action === 'remove') void applyBlogNextManuscriptMutation('paste', 'remove', slotId);
+        },
+        onImageFile(slotId, input) {
+          void importBlogNextManuscriptImage('paste', slotId, input);
         }
       });
       if (pastedInput.value.trim()) blogNextDraftState.paste.editor.setMarkdown(pastedInput.value);

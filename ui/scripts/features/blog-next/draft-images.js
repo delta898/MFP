@@ -43,9 +43,11 @@ function renderBlogNextDraftImages(type, preview = {}) {
     const activeActionButton = operation?.action === 'generate' && imageIsActive;
     return `<article class="local-markdown-image-card${exists ? '' : ' is-missing'}${excluded ? ' is-excluded' : ''}${imageIsActive ? ' is-generating' : ''}" data-manuscript-image-slot="${escapeHtml(image.slotId || '')}">
       <div class="local-markdown-image-card-preview${exists ? '' : ' is-empty'}${imageIsActive ? ' is-generating' : ''}">
-        ${imageUrl
-          ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(image.title || `IMAGE_${image.index}`)}" data-manuscript-card-image>`
-          : `<div class="local-markdown-image-card-placeholder">${imageIsActive ? '<span class="local-markdown-image-spinner" aria-hidden="true"></span><strong>AI 이미지 생성 중</strong><span>완료되면 여기에 표시됩니다.</span>' : `<strong>${excluded ? '원고에서 제외됨' : '이미지 미지정'}</strong><span>${excluded ? '발행 대상에 포함되지 않습니다.' : 'AI로 만들거나 내 이미지로 채울 수 있습니다.'}</span>`}</div>`}
+        ${window.BlogGeniusManuscriptImageCard?.renderMedia
+          ? window.BlogGeniusManuscriptImageCard.renderMedia({ ...image, exists: Boolean(imageUrl), imageUrl, generating: imageIsActive })
+          : imageUrl
+            ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(image.title || `IMAGE_${image.index}`)}" data-manuscript-card-image>`
+            : `<div class="local-markdown-image-card-placeholder"><strong>${excluded ? '원고에서 제외됨' : '이미지 미지정'}</strong><span>${excluded ? '발행 대상에 포함되지 않습니다.' : 'AI로 만들거나 내 이미지로 채울 수 있습니다.'}</span></div>`}
         ${imageIsActive && imageUrl ? '<div class="local-markdown-image-generating-overlay" role="status"><span class="local-markdown-image-spinner" aria-hidden="true"></span><span>새 이미지 생성 중</span></div>' : ''}
         ${ownsDraft && !excluded && !bulkOperationActive ? `<div class="local-markdown-image-media-actions${exists ? '' : ' is-empty'}">
           <button class="${activeActionButton ? 'ghost ui-danger-action' : exists ? 'secondary' : 'primary'} compact" type="button" data-manuscript-image-action="generate" data-slot-id="${escapeHtml(image.slotId)}"${imageAiBlocked && !activeActionButton ? ' disabled title="AI 이미지 모델 설정이 필요합니다."' : operationActive && !activeActionButton ? ' disabled title="이미지 작업 중에는 변경할 수 없습니다."' : ''}>${activeActionButton ? (stopRequested ? '중지 요청 중…' : stopConfirming ? '중지 확인' : '중지') : exists ? 'AI 재생성' : 'AI로 만들기'}</button>
@@ -329,6 +331,7 @@ async function startBlogNextManuscriptImageOperation(type, action, slotId) {
     if (state.imageOperation === operation) {
       state.imageOperation = null;
       state.imageWorking = false;
+      state.imageMutationSlotId = '';
       renderBlogNextDraftPreview(type, state.preview);
       syncBlogNextDraftExecutionState();
     }
@@ -339,6 +342,7 @@ async function applyBlogNextManuscriptMutation(type, action, slotId, payload = {
   const state = blogNextDraftState[type];
   if (!state.draftId || state.imageWorking || state.publishing) return null;
   state.imageWorking = true;
+  state.imageMutationSlotId = slotId || '';
   state.imageOperationNotice = null;
   syncBlogNextDraftExecutionState();
   const imageList = document.querySelector(`[data-blog-next-mode-panel="${type}"] [data-draft-preview-images]`);
@@ -363,6 +367,7 @@ async function applyBlogNextManuscriptMutation(type, action, slotId, payload = {
     return null;
   } finally {
     state.imageWorking = false;
+    state.imageMutationSlotId = '';
     imageList?.removeAttribute('aria-busy');
     renderBlogNextDraftPreview(type, state.preview);
     syncBlogNextDraftExecutionState();
@@ -386,6 +391,7 @@ async function runBlogNextManuscriptImageAction(type, action, slotId) {
     if (!confirmed) return;
   }
   if (action === 'generate') {
+    if (type === 'paste' && !await flushBlogNextPasteDraftBeforeImageGeneration()) return;
     await startBlogNextManuscriptImageOperation(type, action, slotId);
     return;
   }

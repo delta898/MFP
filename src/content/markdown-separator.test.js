@@ -109,6 +109,12 @@ test('parseMarkdown accepts optional image marker numbers and allocates unused i
     assert.deepEqual(images.map((item) => item.text), ['첫 이미지', '번호 이미지', '세 번째 이미지']);
 });
 
+test('parseMarkdown carries stable image block IDs through the preview contract', () => {
+    const blockId = 'mb-55555555-5555-4555-8555-555555555555';
+    const parsed = Utils.parseMarkdown(`# 제목\n\n[[IMAGE_4\nid: ${blockId}\ntitle: 제목\nprompt: 장면\n]]`);
+    assert.equal(parsed.contents.find((item) => item.type === 'image').blockId, blockId);
+});
+
 test('marked renders standalone hyphen rules as horizontal rules for WordPress', () => {
     const html = marked('첫 문단\n\n---\n\n다음 문단');
 

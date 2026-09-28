@@ -1149,6 +1149,11 @@ function createContentService(deps = {}) {
             return getManuscriptDraftService().restoreImage(requestBody);
         },
 
+        async removeManuscriptDraftImage(requestBody = {}) {
+            assertManuscriptMutationAvailable();
+            return getManuscriptDraftService().removeImage(requestBody);
+        },
+
         async getManuscriptDraftImage(request = {}) {
             return getManuscriptDraftService().getImage(request);
         },
