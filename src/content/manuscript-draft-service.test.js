@@ -182,7 +182,14 @@ test('creates one AI draft from generated Markdown and preserves generated origi
         });
         const restored = service.restoreImage({ draftId: created.draftId, revision: replaced.revision, slotId: 'image-0' });
         assert.equal(restored.images[0].assetOrigin, 'generated');
-        assert.equal(service.buildPublishPayload({ draftId: created.draftId, revision: restored.revision }).sourceKind, 'ai');
+        const edited = service.updateMarkdown({
+            draftId: created.draftId,
+            revision: restored.revision,
+            markdownText: restored.rawMarkdown.replace('# AI 원고', '# 수정한 AI 원고').replace('본문', '수정한 본문')
+        });
+        assert.equal(edited.title, '수정한 AI 원고');
+        assert.equal(edited.images[0].assetOrigin, 'generated');
+        assert.equal(service.buildPublishPayload({ draftId: created.draftId, revision: edited.revision }).sourceKind, 'ai');
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }

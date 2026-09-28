@@ -391,9 +391,10 @@ async function runBlogNextManuscriptImageAction(type, action, slotId) {
     if (!confirmed) return;
   }
   if (action === 'generate') {
+    if (type === 'ai' && !await flushBlogNextAiDraftBeforeImageGeneration()) return;
     if (type === 'paste' && !await flushBlogNextPasteDraftBeforeImageGeneration()) return;
     if (type === 'folder' && !await flushBlogNextFolderDraftBeforeImageGeneration()) return;
-    if (type === 'paste' || type === 'folder') {
+    if (type === 'ai' || type === 'paste' || type === 'folder') {
       const currentImage = blogNextDraftState[type].preview?.images?.find((item) => (
         (image?.blockId && item.blockId === image.blockId)
         || (!image?.blockId && Number(item.index) === Number(image?.index))

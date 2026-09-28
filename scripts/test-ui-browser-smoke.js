@@ -612,8 +612,8 @@ function startFixtureServer(requests) {
                 ? { type: 'generated_quick_post', folderName: '' }
                 : { type: 'local_markdown', folderName: 'browser-manuscript' },
             title: manuscriptDraftTitle,
-            rawMarkdown: manuscriptDraftSourceKind === 'folder'
-                ? `# ${manuscriptDraftTitle}\n\n[[IMAGE_0\ntitle: ${manuscriptDraftImages[0]?.title || '첫 이미지'}\nprompt: ${manuscriptDraftImages[0]?.prompt || '푸른 하늘'}\n]]\n\n폴더 본문\n\n[[IMAGE_1\ntitle: ${manuscriptDraftImages[1]?.title || '둘째 이미지'}\nprompt: ${manuscriptDraftImages[1]?.prompt || '초록 숲'}\n]]`
+            rawMarkdown: manuscriptDraftSourceKind === 'folder' || manuscriptDraftSourceKind === 'ai'
+                ? `# ${manuscriptDraftTitle}\n\n${manuscriptDraftSourceKind === 'folder' ? '폴더 본문' : 'AI 본문'}\n\n[[IMAGE_0\ntitle: ${manuscriptDraftImages[0]?.title || '첫 이미지'}\nprompt: ${manuscriptDraftImages[0]?.prompt || '푸른 하늘'}\n]]\n\n[[IMAGE_1\ntitle: ${manuscriptDraftImages[1]?.title || '둘째 이미지'}\nprompt: ${manuscriptDraftImages[1]?.prompt || '초록 숲'}\n]]`
                 : `# ${manuscriptDraftTitle}`,
             bodyPreview: '폴더 본문',
             contentItems: [
@@ -1233,6 +1233,19 @@ function startFixtureServer(requests) {
             req.on('data', (chunk) => chunks.push(chunk));
             req.on('end', () => {
                 requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                const markdownText = String(requestRecord.body.markdownText || '');
+                if (manuscriptDraftSourceKind === 'ai') {
+                    manuscriptContentVersion += 1;
+                    const heading = markdownText.match(/^#\s+(.+)$/m);
+                    if (heading) manuscriptDraftTitle = heading[1].trim();
+                    for (const match of markdownText.matchAll(/^\[\[IMAGE_(\d+)\s*\ntitle:\s*(.*)\n(?:prompt:\s*(.*)\n)?\]\]/gm)) {
+                        const image = manuscriptDraftImages.find((item) => Number(item.index) === Number(match[1]));
+                        if (image) {
+                            image.title = match[2].trim();
+                            image.prompt = (match[3] || '').trim();
+                        }
+                    }
+                }
                 manuscriptDraftPostStatus = requestRecord.body.postStatus || manuscriptDraftPostStatus;
                 manuscriptDraftTarget = requestRecord.body.targets?.[0] || manuscriptDraftTarget;
                 manuscriptDraftRevision += 1;
@@ -4011,9 +4024,18 @@ async function run() {
         await page.locator('#blog-next-publish-status-return').click();
         assert.equal(await page.locator('[data-blog-next-ai-generate-action]').evaluate((element) => document.activeElement === element), true);
         assert.equal(await page.locator('[data-blog-next-draft-validation="ai"]').isHidden(), true);
-        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="ai"]')?.hidden === false);
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="ai"]')?.hidden === true
+            && document.querySelector('[data-ai-editor-workspace]')?.hidden === false);
         const noneAiDraftRequest = requests.filter((request) => request.pathname === '/api/v1/blog/manuscript-drafts/ai/operations').at(-1);
         assert.equal(noneAiDraftRequest?.body?.imageMode, 'none');
+        assert.equal(await page.locator('#blog-next-ai-editor').isVisible(), true);
+        assert.equal((await page.locator('#blog-next-ai-editor .ProseMirror h1').textContent())?.trim(), '미리 확인할 AI 원고');
+        assert.equal(await page.locator('[data-ai-formatting-toolbar]').isVisible(), true);
+        await page.locator('[data-ai-workspace-mode="markdown"]').click();
+        assert.equal(await page.locator('#blog-next-ai-markdown').isVisible(), true);
+        assert.match(await page.locator('#blog-next-ai-markdown').inputValue(), /미리 확인할 AI 원고/);
+        await page.locator('[data-ai-workspace-mode="view"]').click();
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="ai"]')?.hidden === false);
         assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-draft-preview-image-details]').isHidden(), true);
         assert.equal(await page.locator('#blog-next-publish-safety-hint').isHidden(), true);
         assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot]').count(), 0);
@@ -4021,7 +4043,7 @@ async function run() {
         await page.locator('#blog-next-image-mode').selectOption('generate');
         await page.locator('#blog-next-regenerate-draft').click();
         await page.waitForFunction(() => document.getElementById('blog-next-regenerate-draft')?.textContent?.trim() === '다시 만드는 중...');
-        await page.waitForFunction(() => document.querySelectorAll('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot]').length === 2);
+        await page.waitForFunction(() => document.querySelectorAll('#blog-next-ai-editor .manuscript-image-block').length === 2);
         await page.unroute('**/api/v1/blog/manuscript-drafts/ai/operations', aiDraftRetryRoute);
         await page.waitForFunction(() => document.getElementById('blog-next-publish-status')?.dataset.state === 'completed');
         assert.equal(await page.locator('#blog-next-subject').isEnabled(), true);
@@ -4030,36 +4052,43 @@ async function run() {
         reportSmokePhase('Checking Blog Beta manuscript editing and publish lifecycle');
         assert.equal((await page.locator('#blog-next-publish-status-title').textContent())?.trim(), '원고 준비 완료');
         assert.equal(await page.locator('#blog-next-publish-settings').isVisible(), true);
+        assert.equal(await page.locator('#blog-next-ai-editor .manuscript-image-block').count(), 2);
+        assert.equal(await page.locator('[data-ai-editor-rail] [data-ai-workspace-mode="block"]').getAttribute('aria-pressed'), 'true');
+        await page.locator('[data-ai-workspace-mode="view"]').click();
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="ai"]')?.hidden === false);
         await page.locator('#blog-next-target-naver').check();
         assert.equal((await page.locator('[data-blog-next-draft-preview="ai"] [data-draft-preview-title]').textContent())?.trim(), '미리 확인할 AI 원고');
-        assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot]').count(), 2);
+        assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-draft-preview-image-details]').isHidden(), true);
+        assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot]').count(), 0);
         assert.equal(await page.locator('#blog-next-post-status').inputValue(), 'draft');
         assert.equal(await page.locator('#blog-next-post-status option[value="publish"]').evaluate((option) => option.disabled), true);
         assert.equal(await page.locator('#blog-next-post-status option[value="schedule"]').evaluate((option) => option.disabled), true);
         assert.match((await page.locator('#blog-next-publish-safety-message').textContent()) || '', /미지정 이미지 1개가 있습니다\. 지금은 임시 저장만 가능합니다\./);
-        assert.equal((await page.locator('#blog-next-publish-image-action').textContent())?.trim(), '이미지 처리하기 ↑');
+        assert.equal((await page.locator('#blog-next-publish-image-action').textContent())?.trim(), '이미지 블록으로 이동 ↑');
         assert.equal(await page.locator('#blog-next-publish-image-action').isVisible(), true);
         assert.equal((await page.locator('[data-blog-next-draft-publish="ai"]').textContent())?.trim(), '블로그에 임시 저장');
         await page.locator('#blog-next-publish-image-action').click();
-        await page.waitForFunction(() => document.activeElement === document.querySelector('#blog-next-ai-draft-images > summary'));
-        assert.equal(await page.locator('#blog-next-ai-draft-images').evaluate((element) => element.open), true);
-        assert.equal(await page.locator('#blog-next-ai-draft-images > summary').evaluate((element) => document.activeElement === element), true);
-        await page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-action="generate"][data-slot-id="image-1"]').click();
-        const imageGenerateButton = page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-action="generate"][data-slot-id="image-1"]');
-        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot="image-1"] .local-markdown-image-spinner'));
+        await page.waitForFunction(() => document.querySelector('[data-ai-workspace-mode="block"]')?.getAttribute('aria-pressed') === 'true');
+        assert.equal(await page.locator('#blog-next-ai-editor .manuscript-image-block:has(.manuscript-image-block-placeholder)').count(), 1);
+        await page.locator('[data-ai-workspace-mode="view"]').click();
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="ai"]')?.hidden === false);
+        await page.locator('[data-ai-workspace-mode="block"]').click();
+        const imageGenerateButton = page.locator('#blog-next-ai-editor [data-image-action="generate"][data-slot-id="image-1"]');
+        await imageGenerateButton.click();
+        await page.waitForFunction(() => document.querySelector('#blog-next-ai-editor [data-block-id] .manuscript-image-block-status:not([hidden])'));
         assert.equal((await imageGenerateButton.textContent())?.trim(), '중지');
-        assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot="image-1"] .local-markdown-image-card-utility-actions [data-manuscript-image-action="exclude"]').isDisabled(), true);
         await imageGenerateButton.click();
         assert.equal((await imageGenerateButton.textContent())?.trim(), '중지 확인');
-        assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-continue]').isEnabled(), true);
+        assert.equal(await page.locator('#blog-next-ai-editor [data-manuscript-image-continue]:visible').isVisible(), true);
         await page.waitForTimeout(6200);
         assert.equal((await imageGenerateButton.textContent())?.trim(), '중지 확인');
-        assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-continue]').isEnabled(), true);
+        assert.equal(await page.locator('#blog-next-ai-editor [data-manuscript-image-continue]:visible').isEnabled(), true);
         await imageGenerateButton.click();
-        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="ai"] .local-markdown-image-operation-status')?.textContent?.includes('이미지 생성을 중지했습니다'));
-        assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot="image-1"] .local-markdown-image-card-status').textContent(), '파일 없음');
+        await page.waitForFunction(() => document.querySelector('#blog-next-ai-editor [data-image-action="generate"][data-slot-id="image-1"]')?.textContent?.trim() === 'AI로 만들기');
         await imageGenerateButton.click();
-        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot="image-1"] .local-markdown-image-card-status')?.textContent === '이미지 준비됨');
+        await page.waitForFunction(() => document.querySelector('#blog-next-ai-editor .manuscript-image-block[data-source-key="1"] .manuscript-image-block-image'));
+        await page.locator('[data-ai-workspace-mode="view"]').click();
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="ai"]')?.hidden === false);
         assert.equal(await page.locator('#blog-next-post-status option[value="publish"]').evaluate((option) => option.disabled), false);
         assert.equal(await page.locator('#blog-next-post-status option[value="schedule"]').evaluate((option) => option.disabled), false);
         assert.equal(await page.locator('#blog-next-publish-safety-hint').isHidden(), true);
@@ -4136,7 +4165,6 @@ async function run() {
         assert.equal(await page.locator('#blog-next-publish-status-return').isVisible(), true);
         assert.equal(await page.locator('#blog-next-target-naver').isDisabled(), true);
         assert.equal(await page.locator('#blog-next-post-status').isDisabled(), true);
-        assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-picker]').first().isDisabled(), true);
         const aiPublishReturnScrollTop = await page.evaluate(() => blogNextStatusReturnScrollTop);
         await aiPublishResponse;
         await page.unroute(`**/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/publish`, aiPublishDelayRoute);
@@ -4146,7 +4174,6 @@ async function run() {
         assert.equal((await page.locator('[data-blog-next-draft-publish="ai"]').textContent())?.trim(), '네이버 처리 완료');
         assert.equal(await page.locator('#blog-next-subject').isEnabled(), true);
         assert.equal(await page.locator('#blog-next-post-status').isEnabled(), true);
-        assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-picker]').first().isEnabled(), true);
         assert.equal(await page.evaluate(() => {
             blogNextDraftState.ai.revision += 1;
             syncBlogNextDraftExecutionState();
@@ -4161,11 +4188,13 @@ async function run() {
         assert.equal(await page.locator('.main').evaluate((element) => element.scrollTop), aiPublishReturnScrollTop);
         const aiPublishRequest = requests.find((request) => request.pathname === `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/publish`);
         assert.equal(aiPublishRequest?.body?.draftId, MANUSCRIPT_DRAFT_ID);
-        assert.equal(aiPublishRequest?.body?.revision, 4);
+        const lastAiDraftMutation = requests.slice(0, requests.indexOf(aiPublishRequest))
+            .filter((request) => request.responseRevision != null && request.pathname.startsWith(`/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/`))
+            .at(-1);
+        assert.equal(aiPublishRequest?.body?.revision, lastAiDraftMutation?.responseRevision);
         assert.equal((await page.locator('[data-blog-next-draft-publish="ai"]').textContent())?.trim(), '네이버 처리 완료');
         assert.equal(await page.locator('#blog-next-subject').isEnabled(), true);
         assert.equal(await page.locator('#blog-next-post-status').isEnabled(), true);
-        assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-picker]').first().isEnabled(), true);
         await page.locator('#blog-next-subject').fill('다음 원고에 쓸 주제');
         assert.equal((await page.locator('[data-blog-next-draft-preview="ai"] [data-draft-preview-title]').textContent())?.trim(), '미리 확인할 AI 원고');
         await page.locator('#blog-next-post-status').selectOption('draft');
@@ -4226,27 +4255,17 @@ async function run() {
           && document.getElementById('ui-dialog-message')?.textContent?.includes('블로그에 저장된 글은 그대로 유지됩니다'));
         assert.match((await page.locator('#ui-dialog-message').textContent()) || '', /블로그에 저장된 글은 그대로 유지됩니다/);
         await page.locator('#ui-dialog-cancel').click();
-        const publishedImage = page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot="image-1"]');
-        await publishedImage.hover();
-        await page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-action="exclude"][data-slot-id="image-1"]')
-            .evaluate((element) => element.click());
-        try {
-            await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot="image-1"] [data-manuscript-image-action="restore"]')
-                && document.querySelector('[data-blog-next-draft-publish="ai"]')?.disabled === false);
-        } catch (error) {
-            const state = await page.evaluate(() => ({
-                restoreAction: Boolean(document.querySelector('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot="image-1"] [data-manuscript-image-action="restore"]')),
-                publishDisabled: document.querySelector('[data-blog-next-draft-publish="ai"]')?.disabled,
-                previewSyncFailed: blogNextDraftState.ai.previewSyncFailed,
-                validation: blogNextDraftState.ai.preview?.validation,
-                publishedTargets: blogNextDraftState.ai.preview?.publishedTargets,
-                targets: readBlogNextDraftSettings('ai').targets,
-                image: blogNextDraftState.ai.preview?.images?.find((item) => item.slotId === 'image-1')
-            }));
-            throw new Error(`${error.message}; post-exclusion state=${JSON.stringify(state)}`);
-        }
+        assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-draft-preview-image-details]').isHidden(), true);
+        assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-manuscript-image-slot]').count(), 0);
+        assert.deepEqual(await page.evaluate(() => blogNextDraftState.ai.preview.publishedTargets), ['naver', 'wordpress']);
+        await page.locator('[data-ai-workspace-mode="block"]').click();
+        await page.locator('#blog-next-ai-editor .manuscript-image-block[data-source-key="1"] [aria-label="이미지 생성 프롬프트 편집"]')
+            .fill('수정 후 새 버전 프롬프트');
+        await page.waitForFunction(() => blogNextDraftState.ai.syncedPreviewKey === getBlogNextAiSyncKey()
+            && blogNextDraftState.ai.previewSyncFailed === false);
+        await page.locator('[data-ai-workspace-mode="view"]').click();
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="ai"]')?.hidden === false);
         assert.deepEqual(await page.evaluate(() => blogNextDraftState.ai.preview.publishedTargets), []);
-        assert.equal(await page.locator('[data-blog-next-draft-preview="ai"] [data-draft-preview-body] img').count(), 1);
         await page.locator('#blog-next-publish-status-next').evaluate((element) => element.click());
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden')
           && document.getElementById('ui-dialog-message')?.textContent?.includes('작성 중인 내용과 원고 미리보기를 지우고 새 글을 작성할까요?'));
@@ -4455,7 +4474,8 @@ async function run() {
         await page.locator('[data-folder-workspace-mode="view"]').click();
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"]')?.hidden === false);
         assert.equal(await page.locator('[data-folder-workspace-mode="view"]').getAttribute('aria-pressed'), 'true');
-        assert.equal((await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]').textContent())?.trim(), '준비 1/2');
+        assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-details]').isHidden(), true);
+        assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-slot]').count(), 0);
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"]').inputValue(), 'draft');
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"] option[value="publish"]').evaluate((option) => option.disabled), true);
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"] option[value="schedule"]').evaluate((option) => option.disabled), true);
@@ -4465,9 +4485,7 @@ async function run() {
             google: { configured: true },
             publishing_channel: { configured: true, naver_configured: true, wordpress_configured: true }
         } }));
-        assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-action="generate"]').first().isDisabled(), true);
-        assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-picker]').first().isEnabled(), true);
-        assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-ai-readiness]').evaluate((element) => element.hidden), false);
+        assert.equal(await page.locator('#blog-next-folder-editor [data-image-action="generate"]').first().isDisabled(), true);
         assert.equal(await page.locator('[data-blog-next-draft-publish="folder"]').isEnabled(), true);
         assert.match((await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-image-safety-hint]').textContent()) || '', /미지정 이미지 1개가 있습니다\. 지금은 임시 저장만 가능합니다\./);
         await page.evaluate(() => applyUiCapabilityStatus({ setup: {
@@ -4487,9 +4505,9 @@ async function run() {
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
         assert.equal((await page.locator('#ui-dialog-message').textContent())?.trim(), '네이버 블로그에 임시 저장할까요?');
         await page.locator('#ui-dialog-cancel').click();
-        await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-details] > summary').click();
-        await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-file][data-slot-id="image-1"]').setInputFiles(manuscriptFixtureImage);
-        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]')?.textContent?.includes('2/2'));
+        await page.locator('[data-folder-workspace-mode="block"]').click();
+        await page.locator('#blog-next-folder-editor .manuscript-image-block[data-source-key="1"] input[type="file"]').setInputFiles(manuscriptFixtureImage);
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-body] img'));
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"] option[value="publish"]').evaluate((option) => option.disabled), false);
         await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"]').selectOption('publish');
         assert.equal((await page.locator('[data-blog-next-draft-publish="folder"]').textContent())?.trim(), '즉시 발행');
@@ -4501,7 +4519,7 @@ async function run() {
         assert.doesNotMatch((await page.locator('#ui-dialog-message').textContent()) || '', /AI로 생성합니다/);
         await page.locator('#ui-dialog-confirm').click();
         await page.waitForFunction(() => document.getElementById('blog-next-publish-status')?.dataset.state === 'completed');
-        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]')?.textContent?.includes('2/2'));
+        assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-details]').isHidden(), true);
         assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-body] img').count(), 2);
         const preparedFolderPublishRequest = requests.filter((request) => request.pathname === `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/publish`).at(-1);
         const lastFolderImageImport = requests.filter((request) => request.pathname === `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/image-slots/image-1/import`).at(-1);
@@ -4509,42 +4527,15 @@ async function run() {
         assert.ok(lastFolderImageImport, 'folder image import request should be recorded');
         assert.equal(preparedFolderPublishRequest?.body?.revision, lastFolderDraftMutation?.responseRevision);
         await page.evaluate(() => document.querySelectorAll('.app-celebration').forEach((element) => element.remove()));
-        assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-picker]').first().isEnabled(), true);
         await page.locator('#blog-next-folder-input').setInputFiles(manuscriptFixtureDir);
-        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]')?.textContent?.includes('준비 1/2')
-          && document.querySelector('[data-blog-next-draft-preview="folder"] [data-manuscript-image-picker]')?.disabled === false);
+        await page.waitForFunction(() => document.querySelectorAll('#blog-next-folder-editor .manuscript-image-block').length === 2);
         await page.locator('[data-folder-workspace-mode="view"]').click();
-        await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-details] > summary').click();
-        await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-file][data-slot-id="image-1"]').setInputFiles(manuscriptFixtureImage);
-        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]')?.textContent?.includes('2/2'));
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-details]')?.hidden === true);
+        assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-slot]').count(), 0);
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"] option[value="publish"]').evaluate((option) => option.disabled), false);
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"]').inputValue(), 'draft');
         assert.equal((await page.locator('[data-blog-next-draft-publish="folder"]').textContent())?.trim(), '블로그에 임시 저장');
         assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-body] img').count(), 2);
-        if (!await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-details]').evaluate((element) => element.open)) {
-            await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-details] > summary').click();
-        }
-        await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-slot="image-0"] .local-markdown-image-card-preview').hover();
-        await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-action="exclude"][data-slot-id="image-0"]').click();
-        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]')?.textContent?.includes('1/1 · 제외 1'));
-        assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-action="restore"][data-slot-id="image-0"]').isVisible(), true);
-        await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-action="restore"][data-slot-id="image-0"]').click();
-        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]')?.textContent?.includes('2/2'));
-        await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-slot="image-1"] .local-markdown-image-card-preview').hover();
-        await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-action="generate"][data-slot-id="image-1"]').click();
-        await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
-        await page.locator('#ui-dialog-confirm').click();
-        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-manuscript-image-slot="image-1"] .local-markdown-image-card-status')?.textContent === '이미지 준비됨');
-        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-publish="folder"]')?.disabled === false);
-        assert.equal(await page.locator('[data-blog-next-draft-publish="folder"]').isDisabled(), false);
-        await page.locator('[data-blog-next-draft-publish="folder"]').click();
-        await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
-        await page.locator('#ui-dialog-confirm').click();
-        await page.waitForFunction(() => document.getElementById('blog-next-publish-status')?.dataset.state === 'completed');
-        const folderPublishRequest = requests.filter((request) => request.pathname === `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/publish`).at(-1);
-        assert.equal(folderPublishRequest?.body?.draftId, MANUSCRIPT_DRAFT_ID);
-        assert.equal(folderPublishRequest?.body?.revision, 6);
-        await page.evaluate(() => document.querySelectorAll('.app-celebration').forEach((element) => element.remove()));
 
         await page.locator('[data-blog-next-input-mode="paste"]').click();
         let delayedPasteMarkdownMarker = '';
@@ -4733,7 +4724,7 @@ async function run() {
         await page.waitForFunction(() => (
             document.querySelector('[data-blog-next-draft-preview="paste"]')?.hidden === false
             && document.querySelector('[data-blog-next-draft-preview="paste"] [data-draft-preview-body]')?.textContent?.includes('마지막 편집 내용입니다')
-            && document.querySelector('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-summary]')?.textContent?.includes('준비 0/1')
+            && document.querySelector('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-details]')?.hidden === true
         ));
         const latestPasteMarkdownSync = requests.filter((request) => request.pathname === `/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/markdown`).at(-1);
         assert.match(latestPasteMarkdownSync?.body?.markdownText || '', /마지막 편집 내용입니다/);
@@ -4748,8 +4739,7 @@ async function run() {
         assert.equal(await page.locator('#blog-next-paste-clear-undo').count(), 0);
         assert.equal((await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-title]').textContent())?.trim(), '붙여넣은 원고');
         assert.equal((await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-body] h2').first().textContent())?.trim(), '미리보기 소제목');
-        assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] .local-markdown-image-card').count(), 1);
-        assert.equal((await page.locator('[data-blog-next-draft-preview="paste"] .local-markdown-image-card-status').textContent())?.trim(), '파일 없음');
+        assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] [data-manuscript-image-slot]').count(), 0);
         assert.equal(await page.locator('[data-blog-next-draft-publish="paste"]').isDisabled(), false);
         assert.equal(await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-field="post-status"]').inputValue(), 'draft');
         assert.equal(await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-field="post-status"] option[value="publish"]').evaluate((option) => option.disabled), true);
@@ -4773,11 +4763,11 @@ async function run() {
         await page.locator('#ui-dialog-cancel').click();
         await page.locator('[data-paste-workspace-mode="view"]').click();
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="paste"]')?.hidden === false);
-        if (!await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-details]').evaluate((element) => element.open)) {
-            await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-details] > summary').click();
-        }
-        await page.locator('[data-blog-next-draft-preview="paste"] [data-manuscript-image-file][data-slot-id="image-0"]').setInputFiles(manuscriptFixtureImage);
-        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-summary]')?.textContent?.includes('1/1'));
+        assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-details]').isHidden(), true);
+        await page.locator('[data-paste-workspace-mode="block"]').click();
+        await page.locator('#blog-next-paste-editor .manuscript-image-block[data-source-key="0"] input[type="file"]').setInputFiles(manuscriptFixtureImage);
+        await page.waitForFunction(() => document.querySelector('#blog-next-paste-editor .manuscript-image-block img'));
+        await page.locator('[data-paste-workspace-mode="view"]').click();
         await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-field="post-status"]').selectOption('publish');
         await page.waitForFunction(() => document.querySelector('[data-blog-next-mode-panel="paste"] [data-draft-field="post-status"] option[value="publish"]')?.disabled === false);
         assert.equal(await page.locator('[data-blog-next-draft-publish="paste"]').isDisabled(), false);
@@ -4787,7 +4777,6 @@ async function run() {
         assert.doesNotMatch((await page.locator('#ui-dialog-message').textContent()) || '', /AI로 생성합니다/);
         await page.locator('#ui-dialog-confirm').click();
         await page.waitForFunction(() => document.getElementById('blog-next-publish-status')?.dataset.state === 'completed');
-        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-summary]')?.textContent?.includes('1/1'));
         assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-body] img').count(), 1);
         const preparedPastePublishRequest = requests.filter((request) => request.pathname === `/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/publish`).at(-1);
         const lastPasteImageImport = requests.filter((request) => request.pathname === `/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/image-slots/image-0/import`).at(-1);
@@ -4795,7 +4784,6 @@ async function run() {
         assert.ok(lastPasteImageImport, 'paste image import request should be recorded');
         assert.equal(preparedPastePublishRequest?.body?.revision, lastPasteDraftMutation?.responseRevision);
         await page.evaluate(() => document.querySelectorAll('.app-celebration').forEach((element) => element.remove()));
-        assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] [data-manuscript-image-picker]').first().isEnabled(), true);
         await page.locator('[data-paste-workspace-mode="markdown"]').click();
         await page.locator('#blog-next-paste-markdown').fill('');
         await page.locator('[data-paste-workspace-mode="block"]').click();
@@ -4807,20 +4795,13 @@ async function run() {
             target.dispatchEvent(new ClipboardEvent('paste', { clipboardData, bubbles: true, cancelable: true }));
         }, '# 붙여넣은 원고\n\nQueue를 거치지 않고 바로 실행합니다.\n\n[[IMAGE_0\ntitle: 붙여넣기 이미지\nprompt: 따뜻한 분위기의 이미지\n]]');
         await page.locator('[data-paste-workspace-mode="view"]').click();
-        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="paste"] [data-manuscript-image-picker]')?.disabled === false
-          && document.querySelector('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-summary]')?.textContent?.includes('준비 0/1'));
-        if (!await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-details]').evaluate((element) => element.open)) {
-            await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-details] > summary').click();
-        }
-        assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] [data-manuscript-image-picker][data-slot-id="image-0"]').isVisible(), true);
-        await page.locator('[data-blog-next-draft-preview="paste"] [data-manuscript-image-file][data-slot-id="image-0"]').setInputFiles(manuscriptFixtureImage);
-        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-summary]')?.textContent?.includes('1/1'));
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-details]')?.hidden === true
+          && document.querySelector('#blog-next-paste-editor .manuscript-image-block:not(:has(img))'));
+        await page.locator('[data-paste-workspace-mode="block"]').click();
+        await page.locator('#blog-next-paste-editor .manuscript-image-block[data-source-key="0"] input[type="file"]').setInputFiles(manuscriptFixtureImage);
+        await page.waitForFunction(() => document.querySelector('#blog-next-paste-editor .manuscript-image-block img'));
+        await page.locator('[data-paste-workspace-mode="view"]').click();
         assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-body] img').count(), 1);
-        await page.locator('[data-blog-next-draft-preview="paste"] [data-manuscript-image-slot="image-0"] .local-markdown-image-card-preview').hover();
-        await page.locator('[data-blog-next-draft-preview="paste"] [data-manuscript-image-action="exclude"][data-slot-id="image-0"]').click();
-        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-summary]')?.textContent?.includes('0/0 · 제외 1'));
-        await page.locator('[data-blog-next-draft-preview="paste"] [data-manuscript-image-action="restore"][data-slot-id="image-0"]').click();
-        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-summary]')?.textContent?.includes('1/1'));
         await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-field="post-status"]').selectOption('publish');
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-publish="paste"]')?.textContent?.trim() === '즉시 발행');
         await page.evaluate(() => document.querySelectorAll('.app-celebration').forEach((element) => element.remove()));

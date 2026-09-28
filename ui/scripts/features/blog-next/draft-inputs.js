@@ -1,8 +1,10 @@
 const BLOG_NEXT_DRAFT_TYPES = Object.freeze(['ai', 'folder', 'paste']);
 const BLOG_NEXT_DRAFT_PREVIEW_DELAY_MS = 350;
+// Keep the legacy preview image manager available in code, but dormant while the workspace owns image editing.
+const BLOG_NEXT_LEGACY_PREVIEW_IMAGE_MANAGER_ENABLED = false;
 
 const blogNextDraftState = {
-  ai: { preview: null, requestId: 0, publishing: false, generating: false, draftId: '', revision: 0, imageWorking: false, imageOperation: null, imageOperationNotice: null, imageSafetyLocked: false, previewSyncFailed: false },
+  ai: { preview: null, previewTimer: null, requestId: 0, publishing: false, generating: false, draftId: '', revision: 0, imageWorking: false, imageOperation: null, imageOperationNotice: null, imageSafetyLocked: false, previewSyncFailed: false, workspaceMode: 'block', editor: null, previewPromise: null, syncedPreviewKey: '' },
   folder: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, imageObjectUrls: {}, draftId: '', revision: 0, imageWorking: false, imageMutationSlotId: '', imageOperation: null, imageOperationNotice: null, imageSafetyLocked: false, previewSyncFailed: false, workspaceMode: 'block', editor: null, previewPromise: null, syncedPreviewKey: '' },
   paste: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, draftId: '', revision: 0, imageWorking: false, imageMutationSlotId: '', imageOperation: null, imageOperationNotice: null, imageSafetyLocked: false, previewSyncFailed: false, workspaceMode: 'block', editor: null, previewPromise: null, syncedPreviewKey: '' }
 };
@@ -129,8 +131,9 @@ function syncBlogNextDraftImageSafety(type, preview = null) {
   }
   if (imageAction) {
     imageAction.hidden = !imagePreparationRequired;
-    if (type === 'paste' || type === 'folder') {
-      const editorId = type === 'paste' ? 'blog-next-paste-editor' : 'blog-next-folder-editor';
+    if (type === 'ai' || type === 'paste' || type === 'folder') {
+      const editorId = type === 'ai' ? 'blog-next-ai-editor'
+        : type === 'paste' ? 'blog-next-paste-editor' : 'blog-next-folder-editor';
       imageAction.textContent = '이미지 블록으로 이동 ↑';
       imageAction.setAttribute('aria-controls', editorId);
     } else {
@@ -146,6 +149,17 @@ function syncBlogNextDraftImageSafety(type, preview = null) {
 
 function focusBlogNextDraftImages() {
   const type = document.getElementById('blog-next-publish-settings')?.dataset.blogNextDraftSettings || 'ai';
+  if (type === 'ai') {
+    const state = blogNextDraftState.ai;
+    if (state.workspaceMode !== 'block') document.querySelector('[data-ai-workspace-mode="block"]')?.click();
+    requestAnimationFrame(() => {
+      const firstUnassigned = document.getElementById('blog-next-ai-editor')?.querySelector('.manuscript-image-block:has(.manuscript-image-block-placeholder)');
+      if (!firstUnassigned) return;
+      firstUnassigned.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      requestAnimationFrame(() => firstUnassigned.querySelector('[aria-label="이미지 생성 프롬프트 편집"]')?.focus({ preventScroll: true }));
+    });
+    return;
+  }
   if (type === 'paste') {
     const modeButton = document.querySelector('[data-paste-workspace-mode="block"]');
     if (document.querySelector('[data-paste-workspace-mode="block"]')?.getAttribute('aria-pressed') !== 'true') {
@@ -205,6 +219,7 @@ async function buildBlogNextDraftPayload(type, options = {}) {
     return {
       ...input,
       ...settings,
+      ...(blogNextDraftState.ai.draftId ? { markdownText: document.getElementById('blog-next-ai-markdown')?.value || '' } : {}),
       imageMode: input.imageMode,
       targets: settings.targets,
       platforms: undefined
@@ -348,8 +363,9 @@ function renderBlogNextDraftBodyHtml(type, preview = {}) {
 
 function renderBlogNextDraftPreview(type, preview = null) {
   const container = document.querySelector(`[data-blog-next-draft-preview="${type}"]`);
-  const imageDetailsWasOpen = container?.querySelector('[data-draft-preview-image-details]')?.open === true;
-  const focusedImageControl = container?.contains(document.activeElement)
+  const imageDetailsWasOpen = BLOG_NEXT_LEGACY_PREVIEW_IMAGE_MANAGER_ENABLED
+    && container?.querySelector('[data-draft-preview-image-details]')?.open === true;
+  const focusedImageControl = BLOG_NEXT_LEGACY_PREVIEW_IMAGE_MANAGER_ENABLED && container?.contains(document.activeElement)
     ? document.activeElement.closest('[data-manuscript-generate-missing], [data-manuscript-image-action="generate"], [data-manuscript-image-continue]')
     : null;
   const focusedImageControlKey = focusedImageControl
@@ -362,14 +378,24 @@ function renderBlogNextDraftPreview(type, preview = null) {
   syncBlogNextDraftExecutionState();
   if (!container || !preview) {
     if (container) container.hidden = true;
+    if (type === 'ai') {
+      document.querySelector('[data-ai-editor-rail]')?.setAttribute('hidden', '');
+      document.querySelector('[data-ai-editor-workspace]')?.setAttribute('hidden', '');
+    }
     if (type === 'folder') {
       document.querySelector('[data-folder-editor-rail]')?.setAttribute('hidden', '');
       document.querySelector('[data-folder-editor-workspace]')?.setAttribute('hidden', '');
     }
     return;
   }
-  container.hidden = type === 'paste' ? blogNextDraftState.paste.workspaceMode !== 'view'
+  container.hidden = type === 'ai' ? blogNextDraftState.ai.workspaceMode !== 'view'
+    : type === 'paste' ? blogNextDraftState.paste.workspaceMode !== 'view'
     : type === 'folder' ? blogNextDraftState.folder.workspaceMode !== 'view' : false;
+  if (type === 'ai') {
+    document.querySelector('[data-ai-editor-workspace]')?.removeAttribute('hidden');
+    document.querySelector('[data-ai-editor-rail]')?.removeAttribute('hidden');
+    blogNextDraftState.ai.editor?.syncImages?.(preview.images || [], blogNextDraftState.ai.imageOperation);
+  }
   const title = container.querySelector('[data-draft-preview-title]');
   const body = container.querySelector('[data-draft-preview-body]');
   const images = container.querySelector('[data-draft-preview-images]');
@@ -391,14 +417,15 @@ function renderBlogNextDraftPreview(type, preview = null) {
       blogNextDraftState.folder.imageMutationSlotId
     );
   }
-  if (images) {
+  if (images && BLOG_NEXT_LEGACY_PREVIEW_IMAGE_MANAGER_ENABLED) {
     images.innerHTML = renderBlogNextDraftImages(type, preview);
     UiGridTailSpacers.sync(images, {
       itemSelector: '.local-markdown-image-card',
       spacerClass: 'ui-grid-tail-spacer local-markdown-image-grid-spacer'
     });
   }
-  if (images) bindBlogNextManuscriptImageActions(type, images);
+  if (images && BLOG_NEXT_LEGACY_PREVIEW_IMAGE_MANAGER_ENABLED) bindBlogNextManuscriptImageActions(type, images);
+  if (images && !BLOG_NEXT_LEGACY_PREVIEW_IMAGE_MANAGER_ENABLED) images.replaceChildren();
   if (images && focusedImageControlKey) {
     const nextFocus = focusedImageControlKey === 'bulk' ? images.querySelector('[data-manuscript-generate-missing]')
       : focusedImageControlKey === 'continue'
@@ -408,9 +435,9 @@ function renderBlogNextDraftPreview(type, preview = null) {
         : images.querySelector(`[data-manuscript-image-action="generate"][data-slot-id="${focusedImageControlKey.slice(5)}"]`);
     nextFocus?.focus({ preventScroll: true });
   }
-  if (imageDetails) imageDetails.hidden = preview.draftId
+  if (imageDetails) imageDetails.hidden = !BLOG_NEXT_LEGACY_PREVIEW_IMAGE_MANAGER_ENABLED || (preview.draftId
     ? Number(stats.imageBlockCount || 0) === 0
-    : Number(stats.imageMissingCount || 0) === 0;
+    : Number(stats.imageMissingCount || 0) === 0);
   if (imageDetails && imageDetailsWasOpen && !imageDetails.hidden) imageDetails.open = true;
   if (imageSummary) {
     imageSummary.textContent = preview.draftId
@@ -434,7 +461,7 @@ async function loadBlogNextDraftPreview(type) {
   const state = blogNextDraftState[type];
   clearTimeout(state.previewTimer);
   const hasSource = type === 'ai'
-    ? Boolean(state.draftId)
+    ? Boolean(state.draftId && document.getElementById('blog-next-ai-markdown')?.value?.trim())
     : type === 'paste'
     ? Boolean(document.getElementById('blog-next-paste-markdown')?.value?.trim())
     : state.files.length > 0;
@@ -449,6 +476,14 @@ async function loadBlogNextDraftPreview(type) {
     : '';
   const folderSyncKey = type === 'folder' ? getBlogNextFolderSyncKey() : '';
   const folderMarkdownAtRequest = type === 'folder' ? (document.getElementById('blog-next-folder-markdown')?.value || '') : '';
+  const aiSyncKey = type === 'ai' ? getBlogNextAiSyncKey() : '';
+  const aiMarkdownAtRequest = type === 'ai' ? (document.getElementById('blog-next-ai-markdown')?.value || '') : '';
+  if (type === 'ai' && state.previewPromise) {
+    await state.previewPromise;
+    if (state.preview && !state.previewSyncFailed && state.syncedPreviewKey === getBlogNextAiSyncKey()) return state.preview;
+    return loadBlogNextDraftPreview(type);
+  }
+  if (type === 'ai' && state.preview && !state.previewSyncFailed && state.syncedPreviewKey === aiSyncKey) return state.preview;
   if (type === 'folder' && state.previewPromise) {
     await state.previewPromise;
     if (state.preview && !state.previewSyncFailed && state.syncedPreviewKey === getBlogNextFolderSyncKey()) return state.preview;
@@ -472,7 +507,7 @@ async function loadBlogNextDraftPreview(type) {
       const payload = await buildBlogNextDraftPayload(type, { includeImages: type === 'folder' && !state.draftId });
       let preview;
       if (type === 'ai') {
-        preview = await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/settings`, { ...payload, revision: state.revision });
+        preview = await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/markdown`, { ...payload, revision: state.revision });
       } else if (type === 'folder') {
         preview = state.draftId
           ? await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/markdown`, { ...payload, selectedFiles: undefined, revision: state.revision })
@@ -535,6 +570,10 @@ async function loadBlogNextDraftPreview(type) {
         }
         state.syncedPreviewKey = pasteContentChangedDuringRequest ? pasteSyncKey : getBlogNextPasteSyncKey();
       }
+      if (type === 'ai') {
+        state.syncedPreviewKey = aiMarkdownAtRequest !== document.getElementById('blog-next-ai-markdown')?.value
+          ? aiSyncKey : getBlogNextAiSyncKey();
+      }
       if (preview.draftId !== state.preview?.draftId) state.imageOperationNotice = null;
       state.previewSyncFailed = false;
       if (type === 'paste' && pasteSyncKey !== getBlogNextPasteSyncKey() && !preview.rawMarkdown) return null;
@@ -550,7 +589,7 @@ async function loadBlogNextDraftPreview(type) {
     }
   };
 
-  if (type !== 'paste' && type !== 'folder') return performRequest();
+  if (!['ai', 'paste', 'folder'].includes(type)) return performRequest();
   const request = performRequest();
   state.previewPromise = request;
   try {
@@ -564,6 +603,13 @@ function getBlogNextPasteSyncKey() {
   return JSON.stringify({
     markdownText: document.getElementById('blog-next-paste-markdown')?.value || '',
     settings: readBlogNextDraftSettings('paste')
+  });
+}
+
+function getBlogNextAiSyncKey() {
+  return JSON.stringify({
+    markdownText: document.getElementById('blog-next-ai-markdown')?.value || '',
+    settings: readBlogNextDraftSettings('ai')
   });
 }
 
@@ -581,6 +627,23 @@ async function flushBlogNextPasteDraftBeforeImageGeneration() {
     if (state.preview && !state.previewSyncFailed && state.syncedPreviewKey === getBlogNextPasteSyncKey()) return true;
   }
   setBlogNextDraftValidation('paste', { errors: ['변경한 원고를 저장하지 못해 이미지 생성을 시작하지 않았습니다. 잠시 후 다시 시도해 주세요.'] }, '', state.preview);
+  return false;
+}
+
+async function flushBlogNextAiDraftBeforeImageGeneration() {
+  const state = blogNextDraftState.ai;
+  const input = document.getElementById('blog-next-ai-markdown');
+  if (!input?.value.trim()) return false;
+  clearTimeout(state.previewTimer);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const expectedKey = getBlogNextAiSyncKey();
+    if (state.previewPromise) await state.previewPromise;
+    if (state.preview && !state.previewSyncFailed && state.syncedPreviewKey === getBlogNextAiSyncKey()) return true;
+    if (getBlogNextAiSyncKey() !== expectedKey) continue;
+    await loadBlogNextDraftPreview('ai');
+    if (state.preview && !state.previewSyncFailed && state.syncedPreviewKey === getBlogNextAiSyncKey()) return true;
+  }
+  setBlogNextDraftValidation('ai', { errors: ['변경한 원고를 저장하지 못해 이미지 생성을 시작하지 않았습니다. 잠시 후 다시 시도해 주세요.'] }, '', state.preview);
   return false;
 }
 
@@ -627,6 +690,30 @@ function setBlogNextPasteWorkspaceMode(mode, state, editorRoot, pastedInput) {
   });
 }
 
+function setBlogNextAiWorkspaceMode(mode, state, editorRoot, markdownInput) {
+  const scrollX = window.scrollX;
+  const scrollY = window.scrollY;
+  const activeModeControl = document.activeElement?.matches?.('[data-ai-workspace-mode]') ? document.activeElement : null;
+  const modeControlTop = activeModeControl?.getBoundingClientRect().top;
+  state.workspaceMode = mode;
+  document.querySelectorAll('[data-ai-workspace-mode]').forEach((control) => {
+    control.setAttribute('aria-pressed', String(control.dataset.aiWorkspaceMode === mode));
+  });
+  editorRoot.hidden = mode !== 'block';
+  markdownInput.hidden = mode !== 'markdown';
+  document.querySelector('[data-ai-formatting-toolbar]')?.toggleAttribute('hidden', mode !== 'block');
+  const preview = document.querySelector('[data-blog-next-draft-preview="ai"]');
+  if (preview) preview.hidden = mode !== 'view' || !state.preview;
+  if (mode === 'markdown') requestAnimationFrame(() => resizeBlogNextMarkdownEditor(markdownInput));
+  requestAnimationFrame(() => {
+    window.scrollTo(scrollX, scrollY);
+    if (activeModeControl && Number.isFinite(modeControlTop)) {
+      const main = document.querySelector('.main');
+      if (main) main.scrollTop += activeModeControl.getBoundingClientRect().top - modeControlTop;
+    }
+  });
+}
+
 function setBlogNextFolderWorkspaceMode(mode, state, editorRoot, markdownInput) {
   const scrollX = window.scrollX;
   const scrollY = window.scrollY;
@@ -659,7 +746,7 @@ function resizeBlogNextMarkdownEditor(textarea) {
 
 function scheduleBlogNextDraftPreview(type) {
   const state = blogNextDraftState[type];
-  if (type !== 'paste' && type !== 'folder') state.requestId += 1;
+  if (type !== 'paste' && type !== 'folder' && type !== 'ai') state.requestId += 1;
   clearTimeout(state.previewTimer);
   state.previewTimer = setTimeout(() => loadBlogNextDraftPreview(type), type === 'paste' ? 650 : BLOG_NEXT_DRAFT_PREVIEW_DELAY_MS);
 }
@@ -749,6 +836,61 @@ function initBlogNextDraftInputs() {
   if (!folderInput || folderInput.dataset.bound === 'true') return;
   folderInput.dataset.bound = 'true';
   document.getElementById('blog-next-publish-image-action')?.addEventListener('click', focusBlogNextDraftImages);
+  const aiMarkdown = document.getElementById('blog-next-ai-markdown');
+  const aiEditorRoot = document.getElementById('blog-next-ai-editor');
+  if (aiMarkdown && aiEditorRoot && window.BlogGeniusManuscriptEditor?.mount) {
+    blogNextDraftState.ai.editor = window.BlogGeniusManuscriptEditor.mount(aiEditorRoot, {
+      onChange(markdown) {
+        aiMarkdown.value = markdown;
+        aiMarkdown.dispatchEvent(new Event('input', { bubbles: true }));
+      },
+      getImage(blockId, sourceKey) {
+        const images = blogNextDraftState.ai.preview?.images || [];
+        return images.find((image) => image.blockId && image.blockId === blockId)
+          || images.find((image) => Number(image.index) === Number(sourceKey)) || null;
+      },
+      onImageAction(action, slotId) {
+        if (action === 'continue') return continueBlogNextManuscriptImageGeneration('ai');
+        if (action === 'generate') {
+          const operation = blogNextDraftState.ai.imageOperation;
+          if (operation?.action === 'generate' && operation.slotId === slotId) handleBlogNextManuscriptImageStop('ai');
+          else void runBlogNextManuscriptImageAction('ai', 'generate', slotId);
+        } else if (action === 'remove') void applyBlogNextManuscriptMutation('ai', 'remove', slotId);
+      },
+      onImageFile(slotId, input) { void importBlogNextManuscriptImage('ai', slotId, input); }
+    });
+    aiEditorRoot.addEventListener('paste', () => {
+      window.setTimeout(() => {
+        aiMarkdown.value = blogNextDraftState.ai.editor?.getMarkdown() || '';
+        aiMarkdown.dispatchEvent(new Event('input', { bubbles: true }));
+      }, 0);
+    });
+    document.querySelectorAll('[data-ai-manuscript-command]').forEach((button) => {
+      button.addEventListener('mousedown', (event) => event.preventDefault());
+      button.addEventListener('click', () => blogNextDraftState.ai.editor?.command(button.dataset.aiManuscriptCommand));
+    });
+    document.querySelectorAll('[data-ai-workspace-mode]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const mode = ['block', 'markdown', 'view'].includes(button.dataset.aiWorkspaceMode) ? button.dataset.aiWorkspaceMode : 'block';
+        const state = blogNextDraftState.ai;
+        if (mode === 'view') {
+          if (!aiMarkdown.value.trim()) return;
+          setBlogNextAiWorkspaceMode(mode, state, aiEditorRoot, aiMarkdown);
+          await loadBlogNextDraftPreview('ai');
+          return;
+        }
+        if (mode === 'block' && state.workspaceMode === 'markdown') state.editor?.setMarkdown(aiMarkdown.value);
+        setBlogNextAiWorkspaceMode(mode, state, aiEditorRoot, aiMarkdown);
+      });
+    });
+    aiMarkdown.addEventListener('input', () => {
+      resizeBlogNextMarkdownEditor(aiMarkdown);
+      scheduleBlogNextDraftPreview('ai');
+    });
+  } else if (aiEditorRoot) {
+    aiEditorRoot.hidden = true;
+    setBlogNextDraftValidation('ai', { errors: ['원고 편집기를 불러오지 못했습니다. 앱을 다시 시작해 주세요.'] });
+  }
   document.getElementById('blog-next-folder-select')?.addEventListener('click', () => folderInput.click());
   document.getElementById('blog-next-folder-clear')?.addEventListener('click', clearBlogNextFolderDraft);
   folderInput.addEventListener('change', async (event) => {

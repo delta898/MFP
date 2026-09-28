@@ -637,7 +637,7 @@ function createManuscriptDraftService(options = {}) {
 
     function updateMarkdown(input = {}) {
         return updateSlotless(input.draftId, input.revision, ({ locations, manifest }) => {
-            if (!['paste', 'folder'].includes(manifest.source_kind)) {
+            if (!['ai', 'paste', 'folder'].includes(manifest.source_kind)) {
                 throw manuscriptError(409, 'MANUSCRIPT_DRAFT_SOURCE_READ_ONLY', '이 원고의 본문은 현재 입력 방식에서 변경할 수 없습니다.');
             }
             const markdownText = String(input.markdownText || '');
@@ -665,7 +665,9 @@ function createManuscriptDraftService(options = {}) {
             const pendingPath = `${markdownPath}.${process.pid}.${Date.now()}.tmp`;
             fsImpl.writeFileSync(pendingPath, markdownText, { mode: 0o600 });
             fsImpl.renameSync(pendingPath, markdownPath);
-            Logger?.info?.(`✅ [ManuscriptDraft] ${manifest.source_kind === 'folder' ? '폴더' : '붙여넣기'} 원고 갱신 완료 (draft=${input.draftId}, images=${preview.stats.imageBlockCount})`);
+            const sourceLabel = manifest.source_kind === 'folder' ? '폴더'
+                : manifest.source_kind === 'ai' ? '바로 생성' : '붙여넣기';
+            Logger?.info?.(`✅ [ManuscriptDraft] ${sourceLabel} 원고 갱신 완료 (draft=${input.draftId}, images=${preview.stats.imageBlockCount})`);
         });
     }
 

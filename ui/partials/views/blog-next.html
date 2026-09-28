@@ -193,21 +193,44 @@
             </form>
             </div>
             <div class="blog-next-workflow-step-head" data-blog-next-ai-step="preview" hidden>
-              <span>2</span><div><strong>미리보기</strong><small>본문과 이미지를 확인하고 필요한 부분을 보완하세요.</small></div>
+              <span>2</span><div><strong>원고</strong><small>AI가 만든 원고와 이미지를 편집하거나 확인하세요.</small></div>
             </div>
             <div class="blog-next-draft-validation" data-blog-next-draft-validation="ai" role="status"
               aria-live="polite" hidden></div>
-            <div class="blog-next-draft-preview blog-next-manuscript-preview local-markdown-preview-panel"
-              data-blog-next-draft-preview="ai" hidden>
-              <div class="local-markdown-preview-head">
-                <h4 data-draft-preview-title>제목 없음</h4>
+            <div class="manuscript-editor-sticky-rail" data-ai-editor-rail hidden>
+              <div class="manuscript-editor-toolbar" role="toolbar" aria-label="원고 서식" data-ai-formatting-toolbar>
+                <button type="button" data-ai-manuscript-command="paragraph">본문</button>
+                <button type="button" data-ai-manuscript-command="heading">소제목</button>
+                <button type="button" data-ai-manuscript-command="bold" aria-label="굵게"><strong>B</strong></button>
+                <button type="button" data-ai-manuscript-command="italic" aria-label="기울임"><em>I</em></button>
+                <button type="button" data-ai-manuscript-command="bulletList">글머리 목록</button>
+                <button type="button" data-ai-manuscript-command="orderedList">번호 목록</button>
+                <button type="button" data-ai-manuscript-command="blockquote">인용</button>
+                <button type="button" data-ai-manuscript-command="image">이미지 추가</button>
+                <button type="button" data-ai-manuscript-command="undo">되돌리기</button>
+                <button type="button" data-ai-manuscript-command="redo">다시 실행</button>
               </div>
-              <div class="local-markdown-body-preview" data-draft-preview-body aria-label="본문 미리보기"></div>
-              <details class="blog-next-manuscript-image-details" id="blog-next-ai-draft-images" data-draft-preview-image-details>
-                <summary><strong>이미지 확인</strong><span data-draft-preview-image-summary>-</span></summary>
-                <div class="local-markdown-image-list" data-draft-preview-images></div>
-              </details>
+              <div class="manuscript-editor-mode" role="group" aria-label="원고 작업 방식">
+                <button type="button" data-ai-workspace-mode="block" aria-pressed="true">블록</button>
+                <button type="button" data-ai-workspace-mode="markdown" aria-pressed="false">Markdown</button>
+                <button type="button" data-ai-workspace-mode="view" aria-pressed="false">보기</button>
+              </div>
             </div>
+            <section class="blog-next-draft-source blog-next-paste-field" aria-label="AI 원고 편집 및 보기" data-ai-editor-workspace hidden>
+              <textarea id="blog-next-ai-markdown" class="blog-next-markdown-input" rows="18" aria-label="Markdown 원고 편집" hidden></textarea>
+              <div id="blog-next-ai-editor" class="manuscript-editor-canvas" role="region" aria-label="원고 블록 편집기" hidden></div>
+              <div class="blog-next-draft-preview blog-next-manuscript-preview local-markdown-preview-panel"
+                data-blog-next-draft-preview="ai" hidden>
+                <div class="local-markdown-preview-head">
+                  <h4 data-draft-preview-title>제목 없음</h4>
+                </div>
+                <div class="local-markdown-body-preview" data-draft-preview-body aria-label="본문 미리보기"></div>
+                <details class="blog-next-manuscript-image-details" id="blog-next-ai-draft-images" data-draft-preview-image-details>
+                  <summary><strong>이미지 확인</strong><span data-draft-preview-image-summary>-</span></summary>
+                  <div class="local-markdown-image-list" data-draft-preview-images></div>
+                </details>
+              </div>
+            </section>
             <div class="blog-next-draft-actions blog-next-ai-preview-actions" data-blog-next-ai-preview-actions hidden>
               <button class="secondary" id="blog-next-regenerate-draft" type="button">원고 다시 만들기</button>
             </div>
