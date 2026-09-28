@@ -168,6 +168,13 @@ NODE
 echo "🚀 [Build] ${APP_NAME} v${VERSION} 패키징을 시작합니다..."
 echo "---------------------------------------------------"
 
+echo "📝 [Build] 원고 편집기 UI 자산을 생성합니다..."
+npm run build:manuscript-editor
+if [ $? -ne 0 ]; then
+    echo "🚨 [Error] 원고 편집기 UI 빌드 실패"
+    exit 1
+fi
+
 BUILT_ROOTS=()
 BUILT_SUFFIXES=()
 BUILT_ZIPS=()

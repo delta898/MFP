@@ -4,7 +4,7 @@ const BLOG_NEXT_DRAFT_PREVIEW_DELAY_MS = 350;
 const blogNextDraftState = {
   ai: { preview: null, requestId: 0, publishing: false, generating: false, draftId: '', revision: 0, imageWorking: false, imageOperation: null, imageOperationNotice: null, imageSafetyLocked: false, previewSyncFailed: false },
   folder: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, imageObjectUrls: {}, draftId: '', revision: 0, imageWorking: false, imageOperation: null, imageOperationNotice: null, imageSafetyLocked: false, previewSyncFailed: false },
-  paste: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, clearSnapshot: null, draftId: '', revision: 0, imageWorking: false, imageOperation: null, imageOperationNotice: null, imageSafetyLocked: false, previewSyncFailed: false }
+  paste: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, clearSnapshot: null, draftId: '', revision: 0, imageWorking: false, imageOperation: null, imageOperationNotice: null, imageSafetyLocked: false, previewSyncFailed: false, workspaceMode: 'block', editor: null, previewPromise: null, syncedPreviewKey: '' }
 };
 
 function blogNextDraftContainer(type) {
@@ -322,7 +322,7 @@ function renderBlogNextDraftPreview(type, preview = null) {
     if (container) container.hidden = true;
     return;
   }
-  container.hidden = false;
+  container.hidden = type === 'paste' && blogNextDraftState.paste.workspaceMode !== 'view';
   const title = container.querySelector('[data-draft-preview-title]');
   const body = container.querySelector('[data-draft-preview-body]');
   const images = container.querySelector('[data-draft-preview-images]');
@@ -367,7 +367,6 @@ function renderBlogNextDraftPreview(type, preview = null) {
 async function loadBlogNextDraftPreview(type) {
   const state = blogNextDraftState[type];
   clearTimeout(state.previewTimer);
-  const requestId = ++state.requestId;
   const hasSource = type === 'ai'
     ? Boolean(state.draftId)
     : type === 'paste'
@@ -378,45 +377,139 @@ async function loadBlogNextDraftPreview(type) {
     setBlogNextDraftValidation(type);
     return null;
   }
-  try {
-    if (!state.preview) {
-      setBlogNextDraftValidation(type, null, '원고를 확인하고 있습니다.');
-    }
-    const payload = await buildBlogNextDraftPayload(type, { includeImages: type === 'folder' && !state.draftId });
-    let preview;
-    if (type === 'ai') {
-      preview = await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/settings`, { ...payload, revision: state.revision });
-    } else if (type === 'folder') {
-      preview = state.draftId
-        ? await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/settings`, { ...payload, selectedFiles: undefined, revision: state.revision })
-        : await postJson('/api/v1/blog/manuscript-drafts/folder', payload);
-    } else {
-      preview = state.draftId
-        ? await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/markdown`, { ...payload, revision: state.revision })
-        : await postJson('/api/v1/blog/manuscript-drafts/paste', payload);
-    }
-    if (requestId !== state.requestId) return null;
-    state.draftId = preview.draftId;
-    state.revision = preview.revision;
-    if (preview.draftId !== state.preview?.draftId) state.imageOperationNotice = null;
-    state.previewSyncFailed = false;
-    renderBlogNextDraftPreview(type, preview);
-    return preview;
-  } catch (error) {
-    if (requestId !== state.requestId) return null;
-    state.previewSyncFailed = true;
-    renderBlogNextDraftPreview(type, state.preview);
-    setBlogNextDraftValidation(type, { errors: [error.message || '원고를 확인하지 못했습니다.'] }, '', state.preview);
-    syncBlogNextDraftExecutionState();
-    return null;
+  const pasteSyncKey = type === 'paste' ? getBlogNextPasteSyncKey() : '';
+  const pasteMarkdownAtRequest = type === 'paste'
+    ? (document.getElementById('blog-next-paste-markdown')?.value || '')
+    : '';
+  if (type === 'paste' && state.previewPromise) {
+    await state.previewPromise;
+    const latestKey = getBlogNextPasteSyncKey();
+    if (state.preview && !state.previewSyncFailed && state.syncedPreviewKey === latestKey) return state.preview;
+    return loadBlogNextDraftPreview(type);
   }
+  if (type === 'paste' && state.preview && !state.previewSyncFailed && state.syncedPreviewKey === pasteSyncKey) {
+    return state.preview;
+  }
+
+  const requestId = ++state.requestId;
+  const performRequest = async () => {
+    try {
+      if (!state.preview && type !== 'paste') setBlogNextDraftValidation(type, null, '원고를 확인하고 있습니다.');
+      const payload = await buildBlogNextDraftPayload(type, { includeImages: type === 'folder' && !state.draftId });
+      let preview;
+      if (type === 'ai') {
+        preview = await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/settings`, { ...payload, revision: state.revision });
+      } else if (type === 'folder') {
+        preview = state.draftId
+          ? await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/settings`, { ...payload, selectedFiles: undefined, revision: state.revision })
+          : await postJson('/api/v1/blog/manuscript-drafts/folder', payload);
+      } else if (state.draftId) {
+        try {
+          preview = await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/markdown`, { ...payload, revision: state.revision });
+        } catch (error) {
+          if (error?.status !== 409 || error?.code !== 'MANUSCRIPT_DRAFT_REVISION_CONFLICT') throw error;
+          const current = await fetchJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}`);
+          if (requestId !== state.requestId) return null;
+          state.revision = current.revision;
+          preview = await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/markdown`, { ...payload, revision: state.revision });
+        }
+      } else {
+        preview = await postJson('/api/v1/blog/manuscript-drafts/paste', payload);
+      }
+      if (requestId !== state.requestId) return null;
+      state.draftId = preview.draftId;
+      state.revision = preview.revision;
+      if (type === 'paste') {
+        const pastedInput = document.getElementById('blog-next-paste-markdown');
+        const currentMarkdown = pastedInput?.value || '';
+        const pasteContentChangedDuringRequest = currentMarkdown !== pasteMarkdownAtRequest;
+        const canonicalMarkdown = String(preview.rawMarkdown || '');
+        const relatedHeading = /^## (?:함께 보면 좋은 글|같이 보면 좋은 글|이어서 보면 좋은 글|추천 포스팅|관련 글 더 보기|다른 글도 확인해 보세요)\s*$/m;
+        if (pastedInput && canonicalMarkdown && canonicalMarkdown !== pasteMarkdownAtRequest) {
+          let nextMarkdown = currentMarkdown;
+          if (currentMarkdown === pasteMarkdownAtRequest) {
+            nextMarkdown = canonicalMarkdown;
+          } else if (!relatedHeading.test(currentMarkdown)) {
+            const canonicalLines = canonicalMarkdown.split('\n');
+            const headingIndex = canonicalLines.findIndex((line) => relatedHeading.test(line));
+            if (headingIndex >= 0) {
+              let sectionEnd = headingIndex + 1;
+              while (sectionEnd < canonicalLines.length && !/^#[# ]/.test(canonicalLines[sectionEnd])) sectionEnd += 1;
+              const section = canonicalLines.slice(headingIndex, sectionEnd).join('\n').trim();
+              const lines = currentMarkdown.replace(/\s+$/, '').split('\n');
+              let insertAt = lines.length;
+              while (insertAt > 0 && /^#[\p{L}\p{N}_]+(?:\s+#[\p{L}\p{N}_]+)*$/u.test(lines[insertAt - 1].trim())) insertAt -= 1;
+              lines.splice(insertAt, 0, ...(insertAt < lines.length ? ['', section, ''] : ['', section]));
+              nextMarkdown = lines.join('\n').replace(/\n*$/, '\n');
+            }
+          }
+          if (nextMarkdown !== currentMarkdown) {
+            pastedInput.value = nextMarkdown;
+            state.editor?.setMarkdown(nextMarkdown);
+            syncBlogNextPastedDraftActions();
+          }
+        }
+        state.syncedPreviewKey = pasteContentChangedDuringRequest ? pasteSyncKey : getBlogNextPasteSyncKey();
+      }
+      if (preview.draftId !== state.preview?.draftId) state.imageOperationNotice = null;
+      state.previewSyncFailed = false;
+      if (type === 'paste' && pasteSyncKey !== getBlogNextPasteSyncKey() && !preview.rawMarkdown) return null;
+      renderBlogNextDraftPreview(type, preview);
+      return preview;
+    } catch (error) {
+      if (requestId !== state.requestId) return null;
+      state.previewSyncFailed = true;
+      renderBlogNextDraftPreview(type, state.preview);
+      setBlogNextDraftValidation(type, { errors: [error.message || '원고를 확인하지 못했습니다.'] }, '', state.preview);
+      syncBlogNextDraftExecutionState();
+      return null;
+    }
+  };
+
+  if (type !== 'paste') return performRequest();
+  const request = performRequest();
+  state.previewPromise = request;
+  try {
+    return await request;
+  } finally {
+    if (state.previewPromise === request) state.previewPromise = null;
+  }
+}
+
+function getBlogNextPasteSyncKey() {
+  return JSON.stringify({
+    markdownText: document.getElementById('blog-next-paste-markdown')?.value || '',
+    settings: readBlogNextDraftSettings('paste')
+  });
+}
+
+function setBlogNextPasteWorkspaceMode(mode, state, editorRoot, pastedInput) {
+  const scrollX = window.scrollX;
+  const scrollY = window.scrollY;
+  state.workspaceMode = mode;
+  document.querySelectorAll('[data-paste-workspace-mode]').forEach((control) => {
+    control.setAttribute('aria-pressed', String(control.dataset.pasteWorkspaceMode === mode));
+  });
+  editorRoot.hidden = mode !== 'block';
+  pastedInput.hidden = mode !== 'markdown';
+  editorRoot.closest('.blog-next-paste-field')?.querySelector('.manuscript-editor-toolbar')?.toggleAttribute('hidden', mode !== 'block');
+  const preview = document.querySelector('[data-blog-next-draft-preview="paste"]');
+  if (preview) preview.hidden = mode !== 'view' || !state.preview;
+  if (mode === 'markdown') requestAnimationFrame(() => resizeBlogNextMarkdownEditor(pastedInput));
+  requestAnimationFrame(() => window.scrollTo(scrollX, scrollY));
+}
+
+function resizeBlogNextMarkdownEditor(textarea) {
+  if (!textarea || textarea.hidden) return;
+  textarea.style.height = 'auto';
+  textarea.style.height = `${Math.max(420, textarea.scrollHeight)}px`;
 }
 
 function scheduleBlogNextDraftPreview(type) {
   const state = blogNextDraftState[type];
-  state.requestId += 1;
+  if (type !== 'paste') state.requestId += 1;
   clearTimeout(state.previewTimer);
-  state.previewTimer = setTimeout(() => loadBlogNextDraftPreview(type), BLOG_NEXT_DRAFT_PREVIEW_DELAY_MS);
+  state.previewTimer = setTimeout(() => loadBlogNextDraftPreview(type), type === 'paste' ? 650 : BLOG_NEXT_DRAFT_PREVIEW_DELAY_MS);
 }
 
 function clearBlogNextFolderDraft() {
@@ -460,6 +553,7 @@ function clearBlogNextPastedDraft() {
   localStorage.removeItem('blog_next_pasted_markdown_draft');
   blogNextDraftState.paste.preview = null;
   blogNextDraftState.paste.imageOperationNotice = null;
+  blogNextDraftState.paste.syncedPreviewKey = '';
   blogNextDraftState.paste.requestId += 1;
   renderBlogNextDraftPreview('paste', null);
   setBlogNextDraftValidation('paste');
@@ -483,6 +577,7 @@ function resetBlogNextPasteDraftConnection() {
   state.revision = 0;
   state.preview = null;
   state.previewSyncFailed = false;
+  state.syncedPreviewKey = '';
   state.imageOperationNotice = null;
 }
 
@@ -497,11 +592,7 @@ function restoreBlogNextPastedDraft() {
   const input = document.getElementById('blog-next-paste-markdown');
   if (!snapshot || !input) return;
   input.value = snapshot;
-  try {
-    localStorage.setItem('blog_next_pasted_markdown_draft', snapshot);
-  } catch (_error) {
-    // The restored live input remains usable when browser storage is full.
-  }
+  blogNextDraftState.paste.editor?.setMarkdown(snapshot);
   discardBlogNextPastedClearSnapshot();
   syncBlogNextPastedDraftActions();
   scheduleBlogNextDraftPreview('paste');
@@ -540,20 +631,63 @@ function initBlogNextDraftInputs() {
 
   const pastedInput = document.getElementById('blog-next-paste-markdown');
   if (pastedInput) {
-    pastedInput.value = localStorage.getItem('blog_next_pasted_markdown_draft') || '';
+    // Paste manuscripts live only for this app session. Also remove the old
+    // persistent key so a previous build cannot silently restore stale text.
+    try { localStorage.removeItem('blog_next_pasted_markdown_draft'); } catch (_error) { /* storage may be unavailable */ }
+    pastedInput.value = '';
+    const editorRoot = document.getElementById('blog-next-paste-editor');
+    if (editorRoot && window.BlogGeniusManuscriptEditor?.mount) {
+      blogNextDraftState.paste.editor = window.BlogGeniusManuscriptEditor.mount(editorRoot, {
+        onChange(markdown) {
+          pastedInput.value = markdown;
+          pastedInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      });
+      if (pastedInput.value.trim()) blogNextDraftState.paste.editor.setMarkdown(pastedInput.value);
+      editorRoot.addEventListener('paste', () => {
+        window.setTimeout(() => {
+          pastedInput.value = blogNextDraftState.paste.editor?.getMarkdown() || '';
+          pastedInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }, 0);
+      });
+      document.querySelectorAll('[data-manuscript-command]').forEach((button) => {
+        button.addEventListener('mousedown', (event) => event.preventDefault());
+        button.addEventListener('click', () => blogNextDraftState.paste.editor?.command(button.dataset.manuscriptCommand));
+      });
+      document.querySelectorAll('[data-paste-workspace-mode]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          const mode = ['block', 'markdown', 'view'].includes(button.dataset.pasteWorkspaceMode)
+            ? button.dataset.pasteWorkspaceMode
+            : 'block';
+          const state = blogNextDraftState.paste;
+          if (mode === 'view') {
+            if (!pastedInput.value.trim()) return;
+            const scrollX = window.scrollX;
+            const scrollY = window.scrollY;
+            setBlogNextPasteWorkspaceMode(mode, state, editorRoot, pastedInput);
+            await loadBlogNextDraftPreview('paste');
+            window.scrollTo(scrollX, scrollY);
+            return;
+          }
+          if (mode === 'block' && state.workspaceMode === 'markdown') {
+            state.editor?.setMarkdown(pastedInput.value);
+          }
+          setBlogNextPasteWorkspaceMode(mode, state, editorRoot, pastedInput);
+        });
+      });
+    } else if (editorRoot) {
+      editorRoot.hidden = true;
+      setBlogNextDraftValidation('paste', { errors: ['원고 편집기를 불러오지 못했습니다. 앱을 다시 시작해 주세요.'] });
+    }
     syncBlogNextPastedDraftActions();
     pastedInput.addEventListener('input', () => {
+      resizeBlogNextMarkdownEditor(pastedInput);
       if (blogNextDraftState.paste.clearSnapshot !== null) {
         resetBlogNextPasteDraftConnection();
         discardBlogNextPastedClearSnapshot();
       }
       if (!pastedInput.value.trim()) resetBlogNextPasteDraftConnection();
       syncBlogNextPastedDraftActions();
-      try {
-        localStorage.setItem('blog_next_pasted_markdown_draft', pastedInput.value);
-      } catch (_error) {
-        // Large pasted manuscripts can exceed browser storage. The live input remains usable.
-      }
       scheduleBlogNextDraftPreview('paste');
     });
     if (pastedInput.value.trim()) scheduleBlogNextDraftPreview('paste');

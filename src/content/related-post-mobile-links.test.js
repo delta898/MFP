@@ -41,6 +41,6 @@ test('buildRelatedPostsSectionMarkdown uses mobile Naver links for Naver publish
         { title: '워드프레스 글', url: 'https://example.com/wordpress-post' }
     ], '함께 보면 좋은 글');
 
-    assert.match(markdown, /https:\/\/m\.blog\.naver\.com\/example_blog\/1234567890/);
-    assert.match(markdown, /https:\/\/example\.com\/wordpress-post/);
+    assert.match(markdown, /\[네이버 글\]\(https:\/\/m\.blog\.naver\.com\/example_blog\/1234567890\)/);
+    assert.match(markdown, /\[워드프레스 글\]\(https:\/\/example\.com\/wordpress-post\)/);
 });

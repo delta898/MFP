@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ko" data-style="warm-editorial">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,nofollow">
+    <link rel="icon" href="data:,">
+    <title>원고 편집기 Stage 0 기술 검증</title>
+  </head>
+  <body>
+    <main class="stage0-shell">
+      <header class="stage0-header">
+        <div>
+          <p class="eyebrow">BLOGGENIUS · STAGE 0</p>
+          <h1>원고 편집 기술 검증</h1>
+          <p class="intro">AI가 만든 IMAGE marker를 가져와 편집하고, Markdown으로 다시 저장해도 이미지와 순번이 연결되는지 확인합니다.</p>
+        </div>
+        <a class="button secondary" href="/">편집기 비교로 돌아가기</a>
+      </header>
+
+      <aside class="stage0-contract">
+        <strong>검증 계약</strong>
+        <span><code>IMAGE_N</code> 숫자는 최초 폴더 파일 매핑용 <code>sourceKey</code>입니다. 편집 중 이미지 정체성은 별도 <code>blockId</code>로 유지합니다.</span>
+        <span>예: <code>IMAGE_0 → 00_coast.png</code>. 블록을 옮겨도 번호와 파일 연결을 재정렬하지 않습니다.</span>
+      </aside>
+
+      <section class="stage0-grid">
+        <article class="stage0-panel">
+          <header class="stage0-panel-heading">
+            <div><p class="eyebrow">1 · SOURCE MARKDOWN</p><h2>가져올 원고</h2></div>
+            <button class="button primary" id="import-markdown" type="button">블록 편집에 가져오기</button>
+          </header>
+          <p class="stage0-hint">AI 출력/폴더 원고가 쓰는 입력 문법입니다. AI는 안정 ID를 만들지 않습니다.</p>
+          <textarea id="source-markdown" class="stage0-markdown" spellcheck="false" aria-label="가져올 Markdown 원고"></textarea>
+          <div class="stage0-mapping"><strong>폴더 파일 예시</strong><span>00_coast.png</span><span>01_morning.png</span><small>최초 가져올 때만 sourceKey로 매핑합니다.</small></div>
+        </article>
+
+        <article class="stage0-panel stage0-editor-panel">
+          <header class="stage0-panel-heading">
+            <div><p class="eyebrow">2 · TIPTAP BLOCK EDITOR</p><h2>블록 편집</h2></div>
+            <span class="stage0-result" id="editor-status" role="status">가져오기 전</span>
+          </header>
+          <label class="stage0-title">제목<input id="manuscript-title" value="제주 아침 풍경" aria-label="원고 제목"></label>
+          <div class="editor-toolbar" role="toolbar" aria-label="서식 도구">
+            <button class="toolbar-button" data-command="bold" type="button" aria-label="굵게"><strong>B</strong></button>
+            <button class="toolbar-button" data-command="heading" type="button" aria-label="소제목">H2</button>
+            <button class="toolbar-button" data-command="bulletList" type="button" aria-label="글머리 목록">목록</button>
+            <button class="toolbar-button" data-command="blockquote" type="button" aria-label="인용">인용</button>
+            <span class="toolbar-spacer"></span><span class="toolbar-caption">한글 문장을 입력한 뒤 아래 Markdown 왕복 검사를 눌러보세요.</span>
+          </div>
+          <div class="editor-canvas stage0-editor-canvas" id="stage0-editor" aria-label="원고 블록 편집기"></div>
+          <div class="stage0-action-row">
+            <button class="button secondary" id="add-image-block" type="button">이미지 블록 추가</button>
+            <button class="button primary" id="roundtrip-markdown" type="button">Markdown 왕복 검사</button>
+          </div>
+          <details class="markdown-output" open>
+            <summary>Markdown 결과 (앱이 부여한 ID 포함)</summary>
+            <pre id="markdown-output"></pre>
+          </details>
+        </article>
+      </section>
+
+      <section class="stage0-results" aria-label="검증 결과">
+        <h2>검증 상태</h2>
+        <div class="stage0-checks">
+          <div><span class="check-dot" id="check-import"></span><strong>IMAGE_N 입력 파싱</strong><small id="check-import-note">대기</small></div>
+          <div><span class="check-dot" id="check-files"></span><strong>폴더 파일 매핑</strong><small id="check-files-note">대기</small></div>
+          <div><span class="check-dot" id="check-roundtrip"></span><strong>ID·prompt 왕복 보존</strong><small id="check-roundtrip-note">대기</small></div>
+          <div><span class="check-dot" id="check-korean"></span><strong>한글 입력</strong><small id="check-korean-note">본문에 한글을 입력해 주세요.</small></div>
+        </div>
+      </section>
+      <p class="prototype-footer">개발 prototype · 로컬 편집만 수행하며 저장·이미지 생성·발행 API를 호출하지 않습니다.</p>
+    </main>
+    <script type="module" src="./stage0.js"></script>
+  </body>
+</html>

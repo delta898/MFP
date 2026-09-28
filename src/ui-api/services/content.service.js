@@ -91,6 +91,9 @@ function createContentService(deps = {}) {
                             : null,
                     pickHeading: typeof Utils?.pickRelatedPostsHeading === 'function'
                         ? () => Utils.pickRelatedPostsHeading()
+                        : null,
+                    toMobileUrl: typeof Utils?.toMobileNaverBlogPostUrl === 'function'
+                        ? (url) => Utils.toMobileNaverBlogPostUrl(url)
                         : null
                 }
             });
@@ -1112,7 +1115,7 @@ function createContentService(deps = {}) {
         async updateManuscriptDraftMarkdown(requestBody = {}) {
             assertManuscriptMutationAvailable();
             const updated = getManuscriptDraftService().updateMarkdown(requestBody);
-            return refreshManuscriptRelatedPosts(updated, await resolveRelatedPostsEnabled(), { force: true });
+            return refreshManuscriptRelatedPosts(updated, await resolveRelatedPostsEnabled());
         },
 
         async importManuscriptDraftImage(requestBody = {}) {

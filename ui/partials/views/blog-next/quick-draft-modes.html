@@ -1,6 +1,6 @@
           <div class="blog-next-mode-panel blog-next-draft-mode" id="blog-next-mode-panel-folder" role="tabpanel"
             aria-labelledby="blog-next-mode-tab-folder" data-blog-next-mode-panel="folder" hidden>
-            <div class="blog-next-workflow-step-head"><span>1</span><div><strong>원고 준비</strong><small>Markdown 원고와 이미지가 든 폴더를 선택하세요.</small></div></div>
+            <div class="blog-next-workflow-step-head"><span>1</span><div><strong>원고</strong><small>폴더를 선택하고 원고와 이미지를 확인하세요.</small></div></div>
             <section class="blog-next-draft-source" aria-labelledby="blog-next-folder-source-title">
               <div class="blog-next-field blog-next-field-wide blog-next-folder-field">
                 <div class="blog-next-folder-label">
@@ -24,7 +24,6 @@
             </section>
             <div class="blog-next-draft-validation" data-blog-next-draft-validation="folder" role="status"
               aria-live="polite" hidden></div>
-            <div class="blog-next-workflow-step-head"><span>2</span><div><strong>미리보기</strong><small>본문과 이미지를 확인하고 필요한 부분을 보완하세요.</small></div></div>
             <div class="blog-next-draft-preview blog-next-manuscript-preview local-markdown-preview-panel"
               data-blog-next-draft-preview="folder" hidden>
               <div class="local-markdown-preview-head">
@@ -36,7 +35,7 @@
                 <div class="local-markdown-image-list" data-draft-preview-images></div>
               </details>
             </div>
-            <div class="blog-next-workflow-step-head"><span>3</span><div><strong>발행</strong><small>현재 미리보기 원고를 올릴 곳과 방식을 정하세요.</small></div></div>
+            <div class="blog-next-workflow-step-head"><span>2</span><div><strong>발행</strong><small>원고를 올릴 곳과 방식을 정하세요.</small></div></div>
             <div data-blog-next-publish-settings-slot="folder"></div>
             <div class="blog-next-draft-actions" data-blog-next-draft-actions="folder">
               <span class="blog-next-draft-action-copy">
@@ -51,33 +50,47 @@
 
           <div class="blog-next-mode-panel blog-next-draft-mode" id="blog-next-mode-panel-paste" role="tabpanel"
             aria-labelledby="blog-next-mode-tab-paste" data-blog-next-mode-panel="paste" hidden>
-            <div class="blog-next-workflow-step-head"><span>1</span><div><strong>원고 준비</strong><small>Markdown 원고를 붙여넣으세요.</small></div></div>
+            <div class="blog-next-workflow-step-head blog-next-workspace-step-head"><span>1</span><div><strong>원고</strong><small>붙여넣은 원고를 편집하거나 보기에서 확인하세요.</small></div>
+              <div class="manuscript-editor-mode" role="group" aria-label="원고 작업 방식">
+                <button type="button" data-paste-workspace-mode="block" aria-label="블록 편집" aria-pressed="true">블록</button>
+                <button type="button" data-paste-workspace-mode="markdown" aria-label="Markdown 편집" aria-pressed="false">Markdown</button>
+                <button type="button" data-paste-workspace-mode="view" aria-pressed="false">보기</button>
+              </div>
+            </div>
             <section class="blog-next-draft-source" aria-labelledby="blog-next-paste-source-title">
               <div class="blog-next-field blog-next-field-wide blog-next-paste-field">
-                <div class="blog-next-paste-field-head">
-                  <label id="blog-next-paste-source-title" for="blog-next-paste-markdown">Markdown 원고</label>
+                <span class="visually-hidden" id="blog-next-paste-source-title">원고 편집 및 보기</span>
+                <textarea id="blog-next-paste-markdown" class="blog-next-markdown-input" rows="18" aria-label="Markdown 원고 편집" hidden></textarea>
+                <div class="manuscript-editor-toolbar" role="toolbar" aria-label="원고 서식">
+                  <button type="button" data-manuscript-command="paragraph">본문</button>
+                  <button type="button" data-manuscript-command="heading">소제목</button>
+                  <button type="button" data-manuscript-command="bold" aria-label="굵게"><strong>B</strong></button>
+                  <button type="button" data-manuscript-command="italic" aria-label="기울임"><em>I</em></button>
+                  <button type="button" data-manuscript-command="bulletList">글머리 목록</button>
+                  <button type="button" data-manuscript-command="orderedList">번호 목록</button>
+                  <button type="button" data-manuscript-command="blockquote">인용</button>
+                  <button type="button" data-manuscript-command="undo">되돌리기</button>
+                  <button type="button" data-manuscript-command="redo">다시 실행</button>
                 </div>
-                <small>본문을 붙여넣으면 내용과 이미지 블록을 확인합니다.</small>
-                <textarea id="blog-next-paste-markdown" class="blog-next-markdown-input" placeholder="# 제목&#10;&#10;본문을 붙여넣으세요."></textarea>
+                <div id="blog-next-paste-editor" class="manuscript-editor-canvas" role="region" aria-label="원고 블록 편집기"></div>
+                <div class="blog-next-draft-preview blog-next-manuscript-preview local-markdown-preview-panel"
+                  data-blog-next-draft-preview="paste" hidden>
+                  <div class="local-markdown-preview-head">
+                    <h4 data-draft-preview-title>제목 없음</h4>
+                  </div>
+                  <div class="local-markdown-body-preview" data-draft-preview-body aria-label="본문 미리보기"></div>
+                  <details class="blog-next-manuscript-image-details" id="blog-next-paste-draft-images" data-draft-preview-image-details>
+                    <summary><strong>이미지 확인</strong><span data-draft-preview-image-summary>-</span></summary>
+                    <div class="local-markdown-image-list" data-draft-preview-images></div>
+                  </details>
+                </div>
               </div>
             </section>
             <div class="blog-next-draft-feedback-row">
               <div class="blog-next-draft-validation" data-blog-next-draft-validation="paste" role="status"
                 aria-live="polite" hidden></div>
             </div>
-            <div class="blog-next-workflow-step-head"><span>2</span><div><strong>미리보기</strong><small>본문과 이미지를 확인하고 필요한 부분을 보완하세요.</small></div></div>
-            <div class="blog-next-draft-preview blog-next-manuscript-preview local-markdown-preview-panel"
-              data-blog-next-draft-preview="paste" hidden>
-              <div class="local-markdown-preview-head">
-                <h4 data-draft-preview-title>제목 없음</h4>
-              </div>
-              <div class="local-markdown-body-preview" data-draft-preview-body aria-label="본문 미리보기"></div>
-              <details class="blog-next-manuscript-image-details" id="blog-next-paste-draft-images" data-draft-preview-image-details>
-                <summary><strong>이미지 확인</strong><span data-draft-preview-image-summary>-</span></summary>
-                <div class="local-markdown-image-list" data-draft-preview-images></div>
-              </details>
-            </div>
-            <div class="blog-next-workflow-step-head"><span>3</span><div><strong>발행</strong><small>현재 미리보기 원고를 올릴 곳과 방식을 정하세요.</small></div></div>
+            <div class="blog-next-workflow-step-head"><span>2</span><div><strong>발행</strong><small>원고를 올릴 곳과 방식을 정하세요.</small></div></div>
             <div data-blog-next-publish-settings-slot="paste"></div>
             <div class="blog-next-draft-actions" data-blog-next-draft-actions="paste">
               <span class="blog-next-draft-action-copy">
