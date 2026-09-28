@@ -1,6 +1,14 @@
 # Changelog
 All notable changes to the Naver Auto Blog publishing tool will be documented in this file.
 
+## [0.5.4] - 2026-09-28
+
+### Added
+- **원고 편집 통합**: 바로 생성, 원고 폴더, 붙여넣기 원고를 블록 편집·Markdown 편집·보기에서 같은 작업 공간으로 확인하고 수정할 수 있습니다. 이미지 블록도 원고 안에서 관리합니다.
+
+### Changed
+- **네이버 연관글 링크 처리**: 네이버에 발행할 때 연관글은 링크 문구 대신 URL만 표시하고 목록 기호를 제거합니다. 다른 발행 대상과 편집 중인 원고에는 영향을 주지 않습니다.
+
 ## [0.5.3] - 2026-09-27
 
 ### Added
