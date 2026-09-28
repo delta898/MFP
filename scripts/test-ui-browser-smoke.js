@@ -1235,7 +1235,7 @@ function startFixtureServer(requests) {
                 requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
                 const markdownText = String(requestRecord.body.markdownText || '');
                 if (manuscriptDraftSourceKind === 'ai') {
-                    manuscriptContentVersion += 1;
+                    if (markdownText !== buildManuscriptDraftFixture().rawMarkdown) manuscriptContentVersion += 1;
                     const heading = markdownText.match(/^#\s+(.+)$/m);
                     if (heading) manuscriptDraftTitle = heading[1].trim();
                     for (const match of markdownText.matchAll(/^\[\[IMAGE_(\d+)\s*\ntitle:\s*(.*)\n(?:prompt:\s*(.*)\n)?\]\]/gm)) {
