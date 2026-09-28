@@ -5,7 +5,7 @@
 - Branch: `codex/feat/naver-related-link-format`
 - Start date: 2026-09-28
 - Base/parent branch: `codex/manuscript-workspace-editor`
-- Status: 구현 완료, 별도 검증/수동 확인 대기
+- Status: 부모 브랜치 병합 완료, 네이버 실발행 UI 수동 확인 대기
 
 ## 사용자 필요와 목표
 
