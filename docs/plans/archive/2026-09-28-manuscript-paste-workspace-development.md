@@ -3,7 +3,7 @@
 - Branch: `codex/feat/manuscript-paste-workspace`
 - Start date: 2026-09-28
 - Base/parent branch: `codex/manuscript-workspace-editor`
-- Status: Stage 1 및 paste 이미지 UX 구현 완료; parent 통합 승인됨
+- Status: Stage 1 및 paste 이미지 UX 구현 완료; parent `codex/manuscript-workspace-editor`에 병합 완료
 
 ## 사용자 필요와 목표
 
