@@ -158,8 +158,8 @@
 .manuscript-editor-canvas .ProseMirror > :first-child { margin-top: 0; }
 .manuscript-editor-canvas .ProseMirror > :last-child { margin-bottom: 0; }
 .manuscript-editor-canvas .ProseMirror p { margin: 0.8em 0; }
-.manuscript-editor-canvas .ProseMirror h1 { font-size: 1.8em; }
-.manuscript-editor-canvas .ProseMirror h2 { margin-top: 1.7em; font-size: 1.35em; }
+.manuscript-editor-canvas .ProseMirror h1 { font-size: var(--ui-type-display-size); }
+.manuscript-editor-canvas .ProseMirror h2 { margin-top: 1.7em; font-size: var(--ui-type-heading-size); }
 .manuscript-editor-canvas .ProseMirror ul,
 .manuscript-editor-canvas .ProseMirror ol { padding-inline-start: 1.5em; }
 
@@ -172,7 +172,7 @@
 }
 
 .manuscript-image-block-header { justify-content: space-between; margin-bottom: 10px; }
-.manuscript-image-block > small { color: var(--ui-text-muted); font-size: 0.85em; }
+.manuscript-image-block > small { color: var(--ui-text-muted); font-size: var(--ui-type-caption-size); }
 .manuscript-editor-canvas .manuscript-image-block-header input {
   flex: 1;
   min-width: 0;
@@ -198,7 +198,7 @@
   border-radius: 50%;
   color: var(--ui-text-muted);
   background: transparent;
-  font-size: 1.35rem;
+  font-size: var(--ui-type-heading-size);
   line-height: 1;
 }
 .manuscript-image-block-delete:hover,

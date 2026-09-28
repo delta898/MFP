@@ -206,23 +206,16 @@ test('manuscript summaries expose consequential values without opening settings'
   assert.match(script, /if \(settings\.targets\.includes\('naver'\)\)/);
 });
 
-test('pasted manuscript clearing is recoverable until new input replaces the snapshot', () => {
+test('pasted manuscripts start empty in each app session', () => {
   const html = readBlogNextView();
   const script = read('ui/scripts/features/blog-next/draft-inputs.js');
 
-  assert.match(html, /id="blog-next-paste-source-title"[^>]*for="blog-next-paste-markdown">Markdown 원고<\/label>/);
-  assert.doesNotMatch(html, /완성된 원고 입력/);
-  assert.match(html, /data-blog-next-draft-validation="paste"[^>]*aria-live="polite" hidden><\/div>/);
-  assert.match(html, /id="blog-next-paste-clear"[^>]*hidden>내용 지우기/);
-  assert.match(html, /id="blog-next-paste-clear-undo"[^>]*hidden>되돌리기/);
-  assert.match(html, /data-blog-next-draft-actions="paste">[\s\S]*?<span class="blog-next-recoverable-action-slot">[\s\S]*?id="blog-next-paste-clear"[\s\S]*?id="blog-next-paste-clear-undo"/);
-  assert.match(script, /function syncBlogNextPastedDraftActions\(\)/);
-  assert.match(script, /if \(clear\) clear\.hidden = !input\?\.value/);
-  assert.doesNotMatch(script, /setBlogNextDraftValidation\('paste', null, 'Markdown 원고를 붙여넣어 주세요\.'\)/);
-  assert.match(script, /blogNextDraftState\.paste\.clearSnapshot = currentValue/);
-  assert.match(script, /function restoreBlogNextPastedDraft\(\)/);
-  assert.match(script, /function discardBlogNextPastedClearSnapshot\(\)/);
-  assert.match(script, /pastedInput\.addEventListener\('input',[\s\S]*discardBlogNextPastedClearSnapshot\(\)/);
+  assert.match(html, /aria-labelledby="blog-next-paste-source-title"[\s\S]*id="blog-next-paste-source-title">원고 편집 및 보기<\/span>/);
+  assert.match(html, /id="blog-next-paste-markdown"[^>]*hidden/);
+  assert.match(html, /id="blog-next-paste-editor"[^>]*class="manuscript-editor-canvas"/);
+  assert.doesNotMatch(html, /blog-next-paste-clear(?:-undo)?/);
+  assert.match(script, /localStorage\.removeItem\('blog_next_pasted_markdown_draft'\)/);
+  assert.match(script, /pastedInput\.value = ''/);
 });
 
 test('manuscript baseline styles use semantic tokens and collapse predictably', () => {

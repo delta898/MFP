@@ -87,7 +87,7 @@ test('Blog Beta consumes every density role while preserving workflow geometry',
   const combined = files.map(read).join('\n');
 
   densityTokens.forEach((token) => assert.match(combined, new RegExp(`var\\(${token.replaceAll('-', '\\-')}\\)`), token));
-  assert.match(combined, /\.blog-next-markdown-input\s*\{[^}]*min-height:\s*280px/s);
+  assert.match(combined, /\.blog-next-markdown-input\s*\{[^}]*min-height:\s*420px/s);
   assert.match(combined, /\.blog-next-queue-item:not\(\.blog-next-saved-item\) \.blog-next-queue-actions\s*\{[^}]*grid-template-columns:\s*36px 36px 112px 120px/s);
   assert.match(combined, /\.blog-next-manuscript-preview \.local-markdown-body-preview figure img\s*\{[^}]*max-width:\s*min\(100%, 720px\)[^}]*max-height:\s*min\(42vh, 460px\)/s);
 });

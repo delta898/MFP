@@ -221,7 +221,7 @@ test('quick writing distinguishes queued ideas from the generated manuscript flo
   assert.match(html, /data-blog-next-ai-generate-action[\s\S]*>지금 작성<[\s\S]*id="blog-next-publish-now"[\s\S]*>원고 만들기/);
   assert.match(html, /id="blog-next-enqueue-topic"[\s\S]*>발행 대기열에 추가<\/button>/);
   assert.match(html, /id="blog-next-queue-action-hint">대기열의 글감은 실행할 때 원고를 새로 만듭니다/);
-  assert.match(html, /data-blog-next-ai-step="preview" hidden>[\s\S]*>미리보기</);
+  assert.match(html, /data-blog-next-ai-step="preview" hidden>[\s\S]*>원고</);
   assert.match(html, /data-blog-next-ai-step="publish" hidden>[\s\S]*>발행</);
   assert.match(execution, /data-blog-next-publish-settings-slot="ai-publish"/);
   assert.match(uiScript, /function mountBlogNextPublishSettings/);

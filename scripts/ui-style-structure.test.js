@@ -124,8 +124,8 @@ test('shared app shell narrows only the desktop gutter and preserves responsive 
     const responsiveShell = fs.readFileSync(path.join(uiRoot, 'styles/layout/responsive-shell.css'), 'utf8');
     const responsive = fs.readFileSync(path.join(uiRoot, 'styles/layout/responsive.css'), 'utf8');
 
-    assert.match(appChrome, /\.main\s*\{[^}]*padding:\s*32px 20px;/s);
-    assert.match(responsiveShell, /@media\s*\(max-width:\s*960px\)[\s\S]*?\.main\s*\{[^}]*padding:\s*24px 20px;/);
+    assert.match(appChrome, /\.main\s*\{[^}]*--main-content-inset-block-start:\s*32px;[^}]*padding:\s*var\(--main-content-inset-block-start\) 20px;/s);
+    assert.match(responsiveShell, /@media\s*\(max-width:\s*960px\)[\s\S]*?\.main\s*\{[^}]*--main-content-inset-block-start:\s*24px;[^}]*padding:\s*var\(--main-content-inset-block-start\) 20px;/);
     assert.match(responsive, /body\.mobile-quick-mode \.main\s*\{[^}]*padding:\s*18px 14px 28px;/s);
 });
 
@@ -356,7 +356,7 @@ test('responsive breakpoints use the canonical set', () => {
         if (file === 'features/card-news-image-model.css') continue;
         assert.deepEqual([...widths].filter((width) => width === '460' || width === '760'), [], file);
     }
-    assert.deepEqual([...maxWidths].sort((a, b) => a - b), ['460', '640', '760', '768', '960', '1100', '1240']);
+    assert.deepEqual([...maxWidths].sort((a, b) => a - b), ['460', '640', '700', '760', '768', '960', '1100', '1240']);
     assert.deepEqual([...minWidths].sort((a, b) => a - b), ['769', '961']);
 });
 
