@@ -60,11 +60,21 @@
   gap: 8px;
 }
 
-.blog-next-workspace-step-head {
-  flex-wrap: nowrap;
+.manuscript-editor-sticky-rail {
+  position: sticky;
+  top: calc(var(--mobile-topbar-block-size, 0px) - var(--main-content-inset-block-start, 0px));
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 8px var(--ui-space-3);
+  border-bottom: 1px solid var(--ui-border-default);
+  background: var(--ui-canvas);
 }
 
-.blog-next-workspace-step-head > .manuscript-editor-mode {
+.manuscript-editor-sticky-rail > .manuscript-editor-mode {
   display: flex;
   flex: 0 0 auto;
   flex-direction: row;
@@ -90,7 +100,7 @@
   cursor: pointer;
 }
 
-.blog-next-workspace-step-head > .manuscript-editor-mode button {
+.manuscript-editor-sticky-rail > .manuscript-editor-mode button {
   min-height: 30px;
   padding: 4px 10px;
   border: 0;
@@ -103,30 +113,20 @@
   white-space: nowrap;
 }
 
-.blog-next-workspace-step-head > .manuscript-editor-mode button:hover:not([aria-pressed="true"]) {
+.manuscript-editor-sticky-rail > .manuscript-editor-mode button:hover:not([aria-pressed="true"]) {
   background: var(--ui-surface-hover);
   color: var(--ui-text-primary);
 }
 
-.blog-next-workspace-step-head > .manuscript-editor-mode button[aria-pressed="true"] {
+.manuscript-editor-sticky-rail > .manuscript-editor-mode button[aria-pressed="true"] {
   background: var(--ui-action-primary-soft);
   color: var(--ui-action-primary-hover);
   font-weight: var(--ui-weight-bold);
 }
 
-.blog-next-workspace-step-head {
-  flex-wrap: wrap;
-}
-
 .blog-next-workspace-step-head > div:nth-child(2) {
   flex: 1 1 auto;
   min-width: 180px;
-}
-
-.blog-next-workspace-step-head .manuscript-editor-mode {
-  flex: 0 0 auto;
-  justify-content: flex-end;
-  margin-left: auto;
 }
 
 .manuscript-editor-canvas[hidden],
@@ -137,7 +137,9 @@
 
 .manuscript-editor-toolbar {
   flex-wrap: wrap;
-  margin: 10px 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
 }
 
 .manuscript-editor-canvas {
@@ -187,8 +189,8 @@
   .manuscript-editor-canvas { min-height: 320px; padding: 14px; }
   .manuscript-editor-canvas .ProseMirror { min-height: 280px; }
   #blog-next-paste-markdown:not([hidden]) { min-height: 320px; padding: 14px; }
-  .blog-next-workspace-step-head { flex-wrap: wrap; }
-  .blog-next-workspace-step-head > .manuscript-editor-mode { margin-left: auto; }
+  .manuscript-editor-sticky-rail { align-items: flex-start; flex-wrap: wrap; }
+  .manuscript-editor-sticky-rail > .manuscript-editor-mode { margin-left: auto; }
   .manuscript-editor-toolbar { gap: 6px; }
   .manuscript-editor-toolbar button { padding-inline: 7px; }
 }

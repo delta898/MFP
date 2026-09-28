@@ -56,6 +56,8 @@
 - 모드 전환은 편집기/textarea로 포커스를 강제로 옮기지 않고 클릭한 모드 버튼에 유지한다. 컨텐츠 변경 후에도 현재 페이지 스크롤 위치를 보존한다.
 - 회귀 검증 추가: 브라우저에서 모드 전환 후 활성 포커스 버튼과 위치/scrollY가 유지되는지, 오래된 localStorage 값이 다음 앱 실행에 복원되지 않고 정리되는지 확인한다.
 - 결과: `npm run test:ui-browser` 통과 (513 fixture requests; 0 page/console errors), `git diff --check` 통과. 브라우저 테스트 과정에서 UI fixture 서버의 localhost listen은 sandbox에서 차단되어 승인된 권한 상승으로 테스트를 실행했다.
+- 고정 툴바 후속: 서식 도구와 `블록 | Markdown | 보기` 전환을 원고 단계의 단일 sticky 레일로 배치했다. 블록 편집에서만 서식 도구를 표시하고 세 모드 전환은 항상 노출한다. sticky 오프셋은 `.main` 상단 여백 변수와 모바일 상단바의 `ResizeObserver` 실측 높이에서 계산해 레이아웃 조정 시 별도 pixel 보정을 수정하지 않도록 했다. 레일 좌우에는 UI spacing token 기반 여백을 적용한다. 모드 전환 시 클릭한 버튼의 화면 위치도 보존한다.
+- 후속 검증: `npm run test:ui-browser` 통과 (508 fixture requests). UI 테스트에서 sticky 위치, 모바일 상단바 실측 높이 동기화, 양쪽 여백, toolbar/mode 정렬 및 서식 도구를 숨긴 Markdown/보기 모드에서도 모드 버튼이 우측에 남는 것, 모드 전환 후 버튼 위치 보존을 확인했다. 시각적 수용은 사용자 hands-on 확인이 남는다.
 - `git diff --check` 통과. 변경은 아직 commit되지 않았다. 전체 unit suite는 parent feature를 `dev`에 병합하기 전 사용자 승인 후 실행한다.
 
 ## 남은 확인과 위험

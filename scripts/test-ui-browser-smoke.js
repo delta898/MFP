@@ -4544,11 +4544,15 @@ async function run() {
         ));
         assert.match(await page.locator('#blog-next-paste-markdown').inputValue(), /\[\[IMAGE_0/);
         assert.equal(await page.locator('#blog-next-paste-editor .ProseMirror a').textContent(), '추천 글');
-        assert.equal(await page.locator('[data-paste-workspace-mode="block"]').evaluate((button) => button.closest('.blog-next-workflow-step-head') !== null), true);
-        assert.equal(await page.locator('.blog-next-workspace-step-head').evaluate((header) => {
-            const mode = header.querySelector('.manuscript-editor-mode');
+        assert.equal(await page.locator('[data-paste-workspace-mode="block"]').evaluate((button) => button.closest('.manuscript-editor-sticky-rail') !== null), true);
+        assert.equal(await page.locator('.manuscript-editor-sticky-rail').evaluate((rail) => {
+            const mode = rail.querySelector('.manuscript-editor-mode');
+            const toolbar = rail.querySelector('.manuscript-editor-toolbar');
             const buttons = [...mode.querySelectorAll('button')].map((button) => button.getBoundingClientRect());
-            return Math.abs(header.getBoundingClientRect().right - mode.getBoundingClientRect().right) < 4
+            return getComputedStyle(rail).position === 'sticky'
+                && toolbar.getBoundingClientRect().left > rail.getBoundingClientRect().left
+                && mode.getBoundingClientRect().left > toolbar.getBoundingClientRect().right
+                && mode.getBoundingClientRect().right < rail.getBoundingClientRect().right
                 && buttons.every((button) => Math.abs(button.top - buttons[0].top) < 2);
         }), true);
         assert.equal(await page.locator('.manuscript-editor-mode').evaluate((mode) => getComputedStyle(mode).borderRadius), '9999px');
@@ -4569,6 +4573,12 @@ async function run() {
         assert.match(await page.locator('#blog-next-paste-markdown').inputValue(), /- \[추천 글\]\(https:\/\/example\.com\/related\)/);
         assert.equal(await page.locator('#blog-next-paste-editor').isVisible(), false);
         assert.equal(await page.locator('[data-manuscript-command="bold"]').isVisible(), false);
+        assert.equal(await page.locator('[data-paste-workspace-mode="view"]').isVisible(), true);
+        assert.equal(await page.locator('.manuscript-editor-sticky-rail').evaluate((rail) => {
+            const mode = rail.querySelector('.manuscript-editor-mode');
+            return rail.getBoundingClientRect().right - mode.getBoundingClientRect().right
+                - parseFloat(getComputedStyle(rail).paddingRight) < 2;
+        }), true);
         assert.equal(await page.locator('[data-paste-workspace-mode="markdown"]').getAttribute('aria-pressed'), 'true');
         await page.locator('#blog-next-paste-markdown').fill(`${await page.locator('#blog-next-paste-markdown').inputValue()}\n\nMarkdown 편집 확인 문장입니다.`);
         await page.locator('[data-paste-workspace-mode="block"]').click();
@@ -4588,8 +4598,39 @@ async function run() {
         assert.equal(await page.locator('#blog-next-paste-markdown').evaluate((textarea) => textarea.scrollHeight <= textarea.clientHeight + 2), true);
         await delayedPasteSync;
         await page.locator('#blog-next-paste-markdown').fill(`${delayedPasteMarkdown}\n\n마지막 편집 내용입니다.`);
+        await page.locator('[data-paste-workspace-mode="block"]').click();
+        await page.evaluate(() => {
+            const main = document.querySelector('.main');
+            const rail = document.querySelector('.manuscript-editor-sticky-rail');
+            main.scrollTop = rail.getBoundingClientRect().top + main.scrollTop + 600;
+        });
+        await page.waitForTimeout(30);
+        assert.equal(await page.locator('.manuscript-editor-sticky-rail').evaluate((rail) => (
+            Math.abs(rail.getBoundingClientRect().top - (
+                rail.closest('.main').getBoundingClientRect().top
+                + parseFloat(getComputedStyle(rail.closest('.main')).paddingTop)
+                + parseFloat(getComputedStyle(rail).top)
+            )) < 3
+        )), true);
+        await page.setViewportSize({ width: 700, height: 900 });
+        await page.waitForTimeout(40);
+        assert.equal(await page.locator('.manuscript-editor-sticky-rail').evaluate((rail) => {
+            const main = rail.closest('.main');
+            const topbar = document.querySelector('.mobile-topbar');
+            const measuredHeight = parseFloat(getComputedStyle(main).getPropertyValue('--mobile-topbar-block-size'));
+            return Math.abs(measuredHeight - topbar.getBoundingClientRect().height) < 1
+                && Math.abs(parseFloat(getComputedStyle(rail).paddingLeft)) > 0;
+        }), true);
+        await page.setViewportSize({ width: 1440, height: 1000 });
+        await page.waitForTimeout(40);
+        assert.equal(await page.locator('[data-paste-workspace-mode="view"]').isVisible(), true);
         await page.locator('[data-paste-workspace-mode="view"]').click();
         assert.equal(await page.locator('[data-paste-workspace-mode="view"]').getAttribute('aria-pressed'), 'true');
+        assert.equal(await page.locator('.manuscript-editor-sticky-rail').evaluate((rail) => {
+            const mode = rail.querySelector('.manuscript-editor-mode');
+            return rail.getBoundingClientRect().right - mode.getBoundingClientRect().right
+                - parseFloat(getComputedStyle(rail).paddingRight) < 2;
+        }), true);
         assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-body]').evaluate((body) => getComputedStyle(body).maxHeight), 'none');
         await page.waitForFunction(() => (
             document.querySelector('[data-blog-next-draft-preview="paste"]')?.hidden === false

@@ -486,17 +486,27 @@ function getBlogNextPasteSyncKey() {
 function setBlogNextPasteWorkspaceMode(mode, state, editorRoot, pastedInput) {
   const scrollX = window.scrollX;
   const scrollY = window.scrollY;
+  const main = document.querySelector('.main');
+  const activeModeControl = document.activeElement?.matches?.('[data-paste-workspace-mode]')
+    ? document.activeElement
+    : null;
+  const modeControlTop = activeModeControl?.getBoundingClientRect().top;
   state.workspaceMode = mode;
   document.querySelectorAll('[data-paste-workspace-mode]').forEach((control) => {
     control.setAttribute('aria-pressed', String(control.dataset.pasteWorkspaceMode === mode));
   });
   editorRoot.hidden = mode !== 'block';
   pastedInput.hidden = mode !== 'markdown';
-  editorRoot.closest('.blog-next-paste-field')?.querySelector('.manuscript-editor-toolbar')?.toggleAttribute('hidden', mode !== 'block');
+  document.querySelector('[data-manuscript-formatting-toolbar]')?.toggleAttribute('hidden', mode !== 'block');
   const preview = document.querySelector('[data-blog-next-draft-preview="paste"]');
   if (preview) preview.hidden = mode !== 'view' || !state.preview;
   if (mode === 'markdown') requestAnimationFrame(() => resizeBlogNextMarkdownEditor(pastedInput));
-  requestAnimationFrame(() => window.scrollTo(scrollX, scrollY));
+  requestAnimationFrame(() => {
+    window.scrollTo(scrollX, scrollY);
+    if (main && activeModeControl && Number.isFinite(modeControlTop)) {
+      main.scrollTop += activeModeControl.getBoundingClientRect().top - modeControlTop;
+    }
+  });
 }
 
 function resizeBlogNextMarkdownEditor(textarea) {
@@ -607,7 +617,29 @@ function bindBlogNextDraftOptions(type) {
   syncBlogNextDraftSettingsSummary(type);
 }
 
+function initManuscriptEditorStickyOffsets() {
+  const main = document.querySelector('.main');
+  const mobileTopbar = document.querySelector('.mobile-topbar');
+  if (!main || !mobileTopbar || main.dataset.manuscriptStickyOffsetsBound === 'true') return;
+  main.dataset.manuscriptStickyOffsetsBound = 'true';
+
+  const syncOffset = () => {
+    const height = getComputedStyle(mobileTopbar).display === 'none'
+      ? 0
+      : mobileTopbar.getBoundingClientRect().height;
+    main.style.setProperty('--mobile-topbar-block-size', `${height}px`);
+  };
+  syncOffset();
+  window.addEventListener('resize', syncOffset, { passive: true });
+  if (typeof ResizeObserver === 'function') {
+    const observer = new ResizeObserver(syncOffset);
+    observer.observe(mobileTopbar);
+    main._manuscriptStickyOffsetObserver = observer;
+  }
+}
+
 function initBlogNextDraftInputs() {
+  initManuscriptEditorStickyOffsets();
   const folderInput = document.getElementById('blog-next-folder-input');
   if (!folderInput || folderInput.dataset.bound === 'true') return;
   folderInput.dataset.bound = 'true';

@@ -50,7 +50,19 @@
 
           <div class="blog-next-mode-panel blog-next-draft-mode" id="blog-next-mode-panel-paste" role="tabpanel"
             aria-labelledby="blog-next-mode-tab-paste" data-blog-next-mode-panel="paste" hidden>
-            <div class="blog-next-workflow-step-head blog-next-workspace-step-head"><span>1</span><div><strong>원고</strong><small>붙여넣은 원고를 편집하거나 보기에서 확인하세요.</small></div>
+            <div class="blog-next-workflow-step-head blog-next-workspace-step-head"><span>1</span><div><strong>원고</strong><small>붙여넣은 원고를 편집하거나 보기에서 확인하세요.</small></div></div>
+            <div class="manuscript-editor-sticky-rail">
+              <div class="manuscript-editor-toolbar" role="toolbar" aria-label="원고 서식" data-manuscript-formatting-toolbar>
+                <button type="button" data-manuscript-command="paragraph">본문</button>
+                <button type="button" data-manuscript-command="heading">소제목</button>
+                <button type="button" data-manuscript-command="bold" aria-label="굵게"><strong>B</strong></button>
+                <button type="button" data-manuscript-command="italic" aria-label="기울임"><em>I</em></button>
+                <button type="button" data-manuscript-command="bulletList">글머리 목록</button>
+                <button type="button" data-manuscript-command="orderedList">번호 목록</button>
+                <button type="button" data-manuscript-command="blockquote">인용</button>
+                <button type="button" data-manuscript-command="undo">되돌리기</button>
+                <button type="button" data-manuscript-command="redo">다시 실행</button>
+              </div>
               <div class="manuscript-editor-mode" role="group" aria-label="원고 작업 방식">
                 <button type="button" data-paste-workspace-mode="block" aria-label="블록 편집" aria-pressed="true">블록</button>
                 <button type="button" data-paste-workspace-mode="markdown" aria-label="Markdown 편집" aria-pressed="false">Markdown</button>
@@ -61,17 +73,6 @@
               <div class="blog-next-field blog-next-field-wide blog-next-paste-field">
                 <span class="visually-hidden" id="blog-next-paste-source-title">원고 편집 및 보기</span>
                 <textarea id="blog-next-paste-markdown" class="blog-next-markdown-input" rows="18" aria-label="Markdown 원고 편집" hidden></textarea>
-                <div class="manuscript-editor-toolbar" role="toolbar" aria-label="원고 서식">
-                  <button type="button" data-manuscript-command="paragraph">본문</button>
-                  <button type="button" data-manuscript-command="heading">소제목</button>
-                  <button type="button" data-manuscript-command="bold" aria-label="굵게"><strong>B</strong></button>
-                  <button type="button" data-manuscript-command="italic" aria-label="기울임"><em>I</em></button>
-                  <button type="button" data-manuscript-command="bulletList">글머리 목록</button>
-                  <button type="button" data-manuscript-command="orderedList">번호 목록</button>
-                  <button type="button" data-manuscript-command="blockquote">인용</button>
-                  <button type="button" data-manuscript-command="undo">되돌리기</button>
-                  <button type="button" data-manuscript-command="redo">다시 실행</button>
-                </div>
                 <div id="blog-next-paste-editor" class="manuscript-editor-canvas" role="region" aria-label="원고 블록 편집기"></div>
                 <div class="blog-next-draft-preview blog-next-manuscript-preview local-markdown-preview-panel"
                   data-blog-next-draft-preview="paste" hidden>
