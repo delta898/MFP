@@ -301,6 +301,7 @@ function createContentController(deps = {}) {
                 if (action === 'generate-missing') return sendSuccess(res, requestId, await service.generateMissingManuscriptDraftImages(input));
                 if (action === 'exclude') return sendSuccess(res, requestId, await service.excludeManuscriptDraftImage(input));
                 if (action === 'restore') return sendSuccess(res, requestId, await service.restoreManuscriptDraftImage(input));
+                if (action === 'remove') return sendSuccess(res, requestId, await service.removeManuscriptDraftImage(input));
                 if (action === 'publish') return sendSuccess(res, requestId, await service.publishManuscriptDraft(input));
                 return toErrorResponse(res, requestId, 'MANUSCRIPT_DRAFT_ACTION_INVALID', '지원하지 않는 원고 작업입니다.', new Error(action));
             } catch (e) {

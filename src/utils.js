@@ -4417,7 +4417,17 @@ const Utils = {
         const contents = [];
         let skipImageBlock = false;
         let currentImageIndex = null;
+        let currentImageIndexProvided = false;
         let currentImageLines = [];
+        const usedImageIndexes = new Set(
+            Array.from(String(raw || '').matchAll(/^\s*\[\[IMAGE_(\d+)/gm), (match) => Number(match[1]))
+        );
+        const nextAvailableImageIndex = () => {
+            let index = 0;
+            while (usedImageIndexes.has(index)) index += 1;
+            usedImageIndexes.add(index);
+            return index;
+        };
 
         const createTextContent = (type, source, extra = {}) => {
             const rawText = String(source || '');
@@ -4450,7 +4460,7 @@ const Utils = {
                 title = trimmedLine.replace(/^#\s+/, '').trim();
                 continue;
             }
-            const imageStart = trimmedLine.match(/^\[\[IMAGE_(\d+)/);
+            const imageStart = trimmedLine.match(/^\[\[IMAGE(?:_(\d+))?(?:\s|\]\]|$)/);
             if (imageStart) {
                 // 🔧 [Fixed] 중첩된 이미지 블록 감지 및 처리
                 if (skipImageBlock) {
@@ -4466,12 +4476,14 @@ const Utils = {
                 }
 
                 skipImageBlock = true;
-                currentImageIndex = Number(imageStart[1]);
+                currentImageIndexProvided = imageStart[1] !== undefined;
+                currentImageIndex = currentImageIndexProvided ? Number(imageStart[1]) : nextAvailableImageIndex();
                 currentImageLines = [line];
                 if (trimmedLine.endsWith(']]')) {
                     const blockText = currentImageLines.join('\n');
                     contents.push({
-                        type: 'image', index: currentImageIndex, raw: blockText,
+                        type: 'image', index: currentImageIndex, indexProvided: currentImageIndexProvided, raw: blockText,
+                        ...(this.extractInfo(blockText, 'id') ? { blockId: this.extractInfo(blockText, 'id') } : {}),
                         text: this.extractInfo(blockText, 'title'), prompt: this.extractInfo(blockText, 'prompt')
                     });
                     skipImageBlock = false;
@@ -4483,7 +4495,8 @@ const Utils = {
                 if (trimmedLine.includes(']]')) {
                     const blockText = currentImageLines.join('\n');
                     contents.push({
-                        type: 'image', index: currentImageIndex, raw: blockText,
+                        type: 'image', index: currentImageIndex, indexProvided: currentImageIndexProvided, raw: blockText,
+                        ...(this.extractInfo(blockText, 'id') ? { blockId: this.extractInfo(blockText, 'id') } : {}),
                         text: this.extractInfo(blockText, 'title'), prompt: this.extractInfo(blockText, 'prompt')
                     });
                     skipImageBlock = false;

@@ -150,7 +150,7 @@ function buildBodyPreview(contents = []) {
         .trim();
 }
 
-function buildValidation({ title, rawMarkdown, targets, postStatus, scheduleDate, imageGeneration, imageEntries }) {
+function buildValidation({ title, rawMarkdown, targets, postStatus, scheduleDate, imageGeneration, imageEntries, requiresImageIndexes = false }) {
     const errors = [];
     const warnings = [];
 
@@ -168,6 +168,10 @@ function buildValidation({ title, rawMarkdown, targets, postStatus, scheduleDate
     }
 
     (Array.isArray(imageEntries) ? imageEntries : []).forEach((entry) => {
+        if (requiresImageIndexes && entry.indexProvided === false) {
+            errors.push('원고 폴더에서 이미지 파일을 자동 연결하려면 [[IMAGE_N ...]] 형식으로 순번을 지정해 주세요.');
+            return;
+        }
         if (entry.exists) return;
         const message = `${String(entry.index).padStart(2, '0')}_image 규칙의 이미지 파일을 찾지 못했습니다.`;
         if (imageGeneration) {
@@ -272,21 +276,27 @@ function buildLocalMarkdownPreview(input = {}, deps = {}) {
     const scheduleDate = normalizeString(input.scheduleDate);
     const imageGeneration = input.imageGeneration === true;
     const title = normalizeString(parsed?.title);
+    const requiresImageIndexes = usingSelectedFiles || Boolean(directoryPath);
 
     const imageEntries = contents
         .filter((item) => item?.type === 'image')
         .map((item) => {
-            const selectedImageEntry = usingSelectedFiles
+            const indexProvided = item.indexProvided !== false;
+            const selectedImageEntry = usingSelectedFiles && indexProvided
                 ? findImageEntryByPrefix(availableFileEntries, item.index)
                 : null;
-            const imagePath = usingSelectedFiles
-                ? normalizeString(selectedImageEntry?.relativePath)
+            const imagePath = requiresImageIndexes && !indexProvided
+                ? ''
+                : usingSelectedFiles
+                ? (indexProvided ? normalizeString(selectedImageEntry?.relativePath) : '')
                 : utils.findImageByPrefix(directoryPath, item.index);
             const exists = usingSelectedFiles
                 ? Boolean(selectedImageEntry)
                 : !!(imagePath && fsImpl.existsSync(imagePath));
             return {
                 index: Number(item.index || 0),
+                blockId: normalizeString(item.blockId),
+                indexProvided,
                 title: normalizeString(item.text),
                 prompt: normalizeString(item.prompt),
                 exists,
@@ -304,7 +314,8 @@ function buildLocalMarkdownPreview(input = {}, deps = {}) {
         postStatus,
         scheduleDate,
         imageGeneration,
-        imageEntries
+        imageEntries,
+        requiresImageIndexes
     });
 
     return {
@@ -322,7 +333,9 @@ function buildLocalMarkdownPreview(input = {}, deps = {}) {
             type: item.type || 'paragraph',
             text: normalizeString(item.text),
             prompt: normalizeString(item.prompt),
+            blockId: normalizeString(item.blockId),
             index: Number.isInteger(Number(item.index)) ? Number(item.index) : null,
+            indexProvided: item.indexProvided !== false,
             listType: normalizeString(item.listType),
             boldRanges: Array.isArray(item.boldRanges)
                 ? item.boldRanges

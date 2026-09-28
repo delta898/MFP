@@ -72,9 +72,9 @@ test('settings updates recompute without forcing when enabled', async () => {
     assert.deepEqual(calls[1], ['refresh', { draftId: 'draft-1', revision: 2, enabled: true, force: false }]);
 });
 
-test('markdown updates force recomputation when enabled', async () => {
+test('markdown updates preserve finalized related links when enabled', async () => {
     const calls = [];
     const service = createService({ License: licenseFeatures(true), manuscriptDraftService: draftService(calls) });
     await service.updateManuscriptDraftMarkdown({ draftId: 'draft-1', revision: 1, markdownText: '# 변경' });
-    assert.deepEqual(calls[1], ['refresh', { draftId: 'draft-1', revision: 2, enabled: true, force: true }]);
+    assert.deepEqual(calls[1], ['refresh', { draftId: 'draft-1', revision: 2, enabled: true, force: false }]);
 });

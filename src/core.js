@@ -1645,7 +1645,10 @@ function buildRelatedPostsSectionMarkdown(relatedPosts, heading, includeHeading 
 
 	validPosts.slice(0, 3).forEach(post => {
 		const postUrl = Utils.toMobileNaverBlogPostUrl(post?.url);
-		lines.push(postUrl);
+		const title = String(post?.title || post?.name || '').replace(/[\r\n]+/g, ' ').trim();
+		const label = (title || postUrl).replace(/\\/g, '\\\\').replace(/\[/g, '\\[').replace(/\]/g, '\\]');
+		const markdownUrl = postUrl.replace(/\s/g, '%20').replace(/\(/g, '%28').replace(/\)/g, '%29');
+		lines.push(`- [${label}](${markdownUrl})`);
 	});
 	return lines.join('\n').trim();
 }

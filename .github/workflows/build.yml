@@ -147,6 +147,9 @@ jobs:
             --target production \
             --input src/config/secret.js
 
+      - name: Build Manuscript Editor UI
+        run: npm run build:manuscript-editor
+
       - name: Build GUI App
         shell: bash
         run: |

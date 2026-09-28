@@ -70,6 +70,7 @@
 // @include scripts/features/blog-next/queue-management.js
 // @include scripts/features/blog-next/trend-posting.js
 // @include scripts/features/blog-next/draft-inputs.js
+// @include scripts/shared/manuscript-image-card.js
 // @include scripts/features/blog-next/draft-images.js
 // @include scripts/features/blog-next/draft-execution.js
 // @include scripts/features/blog-next/smart-comment.js

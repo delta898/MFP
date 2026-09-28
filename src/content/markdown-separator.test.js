@@ -83,6 +83,38 @@ test('parseMarkdown keeps H2, H3, and quote blocks distinct', () => {
     ]);
 });
 
+test('parseMarkdown accepts optional image marker numbers and allocates unused indexes', () => {
+    const parsed = Utils.parseMarkdown([
+        '# 제목',
+        '',
+        '[[IMAGE',
+        'title: 첫 이미지',
+        'prompt: 첫 장면',
+        ']]',
+        '',
+        '[[IMAGE_0',
+        'title: 번호 이미지',
+        'prompt: 둘째 장면',
+        ']]',
+        '',
+        '[[IMAGE',
+        'title: 세 번째 이미지',
+        'prompt: 셋째 장면',
+        ']]'
+    ].join('\n'));
+
+    const images = parsed.contents.filter((item) => item.type === 'image');
+    assert.deepEqual(images.map((item) => item.index), [1, 0, 2]);
+    assert.deepEqual(images.map((item) => item.indexProvided), [false, true, false]);
+    assert.deepEqual(images.map((item) => item.text), ['첫 이미지', '번호 이미지', '세 번째 이미지']);
+});
+
+test('parseMarkdown carries stable image block IDs through the preview contract', () => {
+    const blockId = 'mb-55555555-5555-4555-8555-555555555555';
+    const parsed = Utils.parseMarkdown(`# 제목\n\n[[IMAGE_4\nid: ${blockId}\ntitle: 제목\nprompt: 장면\n]]`);
+    assert.equal(parsed.contents.find((item) => item.type === 'image').blockId, blockId);
+});
+
 test('marked renders standalone hyphen rules as horizontal rules for WordPress', () => {
     const html = marked('첫 문단\n\n---\n\n다음 문단');
 

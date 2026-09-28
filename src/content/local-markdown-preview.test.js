@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const Utils = require('../utils');
 
 const {
     buildLocalMarkdownPreview,
@@ -311,6 +312,38 @@ test('buildLocalMarkdownPreview supports pasted markdown without selected files'
     assert.equal(preview.source.fileName, '붙여넣은 원고');
     assert.equal(preview.title, '붙여넣은 제목');
     assert.equal(preview.validation.ok, true);
+});
+
+test('pasted image blocks may omit their number while folder mapping requires an explicit number', () => {
+    const markdownText = '# 제목\n\n[[IMAGE\ntitle: 장면\nprompt: 해안 풍경\n]]';
+    const pasted = buildLocalMarkdownPreview({
+        markdownText,
+        targets: ['naver'],
+        imageGeneration: false
+    }, {
+        fs: createFsStub({}, []),
+        path: require('path'),
+        Utils
+    });
+    assert.equal(pasted.images[0].indexProvided, false);
+    assert.equal(pasted.images[0].index, 0);
+    assert.equal(pasted.validation.ok, true);
+
+    const folder = buildLocalMarkdownPreview({
+        selectedFiles: [
+            { relativePath: 'post/contents.md', name: 'contents.md', textContent: markdownText },
+            { relativePath: 'post/00_image.png', name: '00_image.png', contentType: 'image/png' }
+        ],
+        targets: ['naver'],
+        imageGeneration: false
+    }, {
+        fs: createFsStub({}, []),
+        path: require('path'),
+        Utils
+    });
+    assert.equal(folder.images[0].exists, false);
+    assert.equal(folder.validation.ok, false);
+    assert.match(folder.validation.errors[0], /\[\[IMAGE_N/);
 });
 
 test('buildLocalMarkdownPreview preserves inline bold ranges for the UI preview', () => {

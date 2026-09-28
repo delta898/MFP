@@ -5,6 +5,7 @@ const os = require('os');
 const path = require('path');
 
 const Utils = require('../utils');
+const Core = require('../core');
 const { createManuscriptDraftService } = require('./manuscript-draft-service');
 
 function fixture(gateway) {
@@ -26,7 +27,8 @@ function stubGateway(overrides = {}) {
         },
         pickHeading: () => '함께 보면 좋은 글',
         stripSection: (text) => String(text || ''),
-        buildSection: (posts, heading) => `## ${heading}\n${posts.map((post) => post.url).join('\n')}`,
+        buildSection: (posts, heading) => Core.buildRelatedPostsSectionMarkdown(posts, heading, true),
+        toMobileUrl: (url) => Utils.toMobileNaverBlogPostUrl(url),
         ...overrides
     };
 }
@@ -58,6 +60,7 @@ test('refresh finalizes the section and keeps preview and publish payload identi
         assert.equal(refreshed.relatedPosts.status, 'included');
         assert.equal(refreshed.relatedPosts.count, 2);
         assert.match(refreshed.rawMarkdown, /## 함께 보면 좋은 글/);
+        assert.match(refreshed.rawMarkdown, /\[첫 글\]\(https:\/\/blog\.naver\.com\/fixture\/1\)/);
         const payload = service.buildPublishPayload({ draftId: created.draftId, revision: refreshed.revision });
         const published = payload.selectedFiles.find((entry) => entry.name === 'contents.md').textContent;
         assert.match(published, /## 함께 보면 좋은 글/);
@@ -138,6 +141,40 @@ test('related links stay unchanged when the publishing target switches', async (
         assert.equal(recomputed.relatedPosts.status, 'included');
         assert.deepEqual(recomputed.relatedPosts.targets, ['wordpress']);
         assert.match(recomputed.rawMarkdown, /## 함께 보면 좋은 글/);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('editing the finalized related-post section preserves the user version', async () => {
+    const gateway = stubGateway();
+    const { workspaceDir, service } = fixture(gateway);
+    try {
+        const created = service.createPasteDraft({ markdownText: '# 제목\n\n본문', targets: ['naver'] });
+        const finalized = await service.refreshDraftRelatedPosts({
+            draftId: created.draftId,
+            revision: created.revision,
+            enabled: true,
+            force: true
+        });
+        const editedMarkdown = finalized.rawMarkdown.replace('https://blog.naver.com/fixture/1', 'https://example.com/edited');
+        const edited = service.updateMarkdown({
+            draftId: finalized.draftId,
+            revision: finalized.revision,
+            markdownText: editedMarkdown
+        });
+        const afterRefresh = await service.refreshDraftRelatedPosts({
+            draftId: edited.draftId,
+            revision: edited.revision,
+            enabled: true
+        });
+        assert.equal(gateway.calls.length, 1);
+        assert.match(afterRefresh.rawMarkdown, /https:\/\/example\.com\/edited/);
+        assert.doesNotMatch(afterRefresh.rawMarkdown, /https:\/\/blog\.naver\.com\/fixture\/1/);
+        const payload = service.buildPublishPayload({ draftId: afterRefresh.draftId, revision: afterRefresh.revision });
+        const published = payload.selectedFiles.find((entry) => entry.name === 'contents.md').textContent;
+        assert.match(published, /https:\/\/example\.com\/edited/);
+        assert.doesNotMatch(published, /https:\/\/blog\.naver\.com\/fixture\/1/);
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }

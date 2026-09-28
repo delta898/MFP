@@ -648,7 +648,11 @@ function startFixtureServer(requests) {
             bodyPreview: pasteManuscriptMarkdown,
             contentItems: [
                 { type: 'header-h2', text: '미리보기 소제목' },
-                { type: 'paragraph', text: 'Markdown 본문입니다.', boldRanges: [{ start: 0, end: 8 }] },
+                { type: 'paragraph', text: pasteManuscriptMarkdown.includes('마지막 편집 내용입니다') ? '마지막 편집 내용입니다' : 'Markdown 본문입니다.', boldRanges: [{ start: 0, end: 8 }] },
+                ...(pasteManuscriptMarkdown.includes('## 함께 보면 좋은 글') ? [
+                    { type: 'header-h2', text: '함께 보면 좋은 글' },
+                    { type: 'list-item', listType: 'unordered', text: '[추천 글](https://example.com/related)' }
+                ] : []),
                 ...images.filter((image) => !image.excluded).map((image) => ({ type: 'image', index: image.index, slotId: image.slotId, text: image.title, prompt: image.prompt, exists: image.exists, imageUrl: image.imageUrl }))
             ],
             images,
@@ -1069,7 +1073,7 @@ function startFixtureServer(requests) {
                     ? images.filter((image) => !image.exists && !image.excluded && image.prompt)
                     : images.filter((image) => image.slotId === input.slotId);
                 const sequence = ++manuscriptImageOperationSequence;
-                const slow = sequence === 1;
+                const slow = sequence === 1 || (pasteDraft && input.action === 'generate');
                 const completeOperation = () => {
                     targets.forEach((image) => {
                         image.exists = true;
@@ -1145,6 +1149,9 @@ function startFixtureServer(requests) {
                 pasteManuscriptDraftRevision = 1;
                 pasteManuscriptDraftPostStatus = requestRecord.body.postStatus || 'publish';
                 pasteManuscriptMarkdown = String(requestRecord.body.markdownText || '');
+                if (!pasteManuscriptMarkdown.includes('## 함께 보면 좋은 글')) {
+                    pasteManuscriptMarkdown = `${pasteManuscriptMarkdown.trimEnd()}\n\n## 함께 보면 좋은 글\n\n- [추천 글](https://example.com/related)\n`;
+                }
                 pasteManuscriptDraftImages = pasteManuscriptDraftImages.map((image) => ({ ...image, exists: false, excluded: false, assetOrigin: '', canRestore: false }));
                 res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
                 res.end(JSON.stringify({ success: true, data: buildPasteManuscriptDraftFixture() }));
@@ -1160,7 +1167,7 @@ function startFixtureServer(requests) {
             return;
         }
 
-        const manuscriptSlotMatch = url.pathname.match(/^\/api\/v1\/blog\/manuscript-drafts\/([^/]+)\/image-slots\/(image-[0-9]+)\/(import|generate|exclude|restore)$/);
+        const manuscriptSlotMatch = url.pathname.match(/^\/api\/v1\/blog\/manuscript-drafts\/([^/]+)\/image-slots\/(image-[0-9]+)\/(import|generate|exclude|restore|remove)$/);
         if (manuscriptSlotMatch && req.method === 'POST') {
             const chunks = [];
             req.on('data', (chunk) => chunks.push(chunk));
@@ -1180,6 +1187,11 @@ function startFixtureServer(requests) {
                     slot.exists = true;
                     slot.excluded = false;
                     slot.assetOrigin = pasteDraft ? 'user' : 'folder';
+                    slot.canRestore = false;
+                } else if (action === 'remove') {
+                    slot.exists = false;
+                    slot.excluded = false;
+                    slot.assetOrigin = '';
                     slot.canRestore = false;
                 } else {
                     slot.exists = true;
@@ -1220,6 +1232,8 @@ function startFixtureServer(requests) {
             req.on('end', () => {
                 requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
                 pasteManuscriptMarkdown = String(requestRecord.body.markdownText || pasteManuscriptMarkdown);
+                const imageIndexes = new Set(Array.from(pasteManuscriptMarkdown.matchAll(/^\[\[IMAGE_(\d+)/gm), (match) => Number(match[1])));
+                pasteManuscriptDraftImages = pasteManuscriptDraftImages.filter((image) => imageIndexes.has(Number(image.index)));
                 pasteManuscriptDraftPostStatus = requestRecord.body.postStatus || pasteManuscriptDraftPostStatus;
                 pasteManuscriptDraftRevision += 1;
                 requestRecord.responseRevision = pasteManuscriptDraftRevision;
@@ -4005,7 +4019,7 @@ async function run() {
         assert.equal(await page.locator('#blog-next-post-status').inputValue(), 'draft');
         assert.equal(await page.locator('#blog-next-post-status option[value="publish"]').evaluate((option) => option.disabled), true);
         assert.equal(await page.locator('#blog-next-post-status option[value="schedule"]').evaluate((option) => option.disabled), true);
-        assert.match((await page.locator('#blog-next-publish-safety-message').textContent()) || '', /이미지 1개를 처리해야 발행할 수 있어요/);
+        assert.match((await page.locator('#blog-next-publish-safety-message').textContent()) || '', /미지정 이미지 1개가 있습니다\. 지금은 임시 저장만 가능합니다\./);
         assert.equal((await page.locator('#blog-next-publish-image-action').textContent())?.trim(), '이미지 처리하기 ↑');
         assert.equal(await page.locator('#blog-next-publish-image-action').isVisible(), true);
         assert.equal((await page.locator('[data-blog-next-draft-publish="ai"]').textContent())?.trim(), '블로그에 임시 저장');
@@ -4422,7 +4436,7 @@ async function run() {
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"]').inputValue(), 'draft');
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"] option[value="publish"]').evaluate((option) => option.disabled), true);
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"] option[value="schedule"]').evaluate((option) => option.disabled), true);
-        assert.match((await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-image-safety-hint]').textContent()) || '', /이미지 1개를 처리해야 발행할 수 있어요\. 지금은 임시저장만 가능해요/);
+        assert.match((await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-image-safety-hint]').textContent()) || '', /미지정 이미지 1개가 있습니다\. 지금은 임시 저장만 가능합니다\./);
         await page.evaluate(() => applyUiCapabilityStatus({ setup: {
             ai: { configured: true, image_configured: false },
             google: { configured: true },
@@ -4432,7 +4446,7 @@ async function run() {
         assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-picker]').first().isEnabled(), true);
         assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-ai-readiness]').evaluate((element) => element.hidden), false);
         assert.equal(await page.locator('[data-blog-next-draft-publish="folder"]').isEnabled(), true);
-        assert.match((await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-image-safety-hint]').textContent()) || '', /이미지 1개를 처리해야 발행할 수 있어요/);
+        assert.match((await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-image-safety-hint]').textContent()) || '', /미지정 이미지 1개가 있습니다\. 지금은 임시 저장만 가능합니다\./);
         await page.evaluate(() => applyUiCapabilityStatus({ setup: {
             ai: { configured: true, image_configured: true },
             google: { configured: true },
@@ -4509,35 +4523,220 @@ async function run() {
         await page.evaluate(() => document.querySelectorAll('.app-celebration').forEach((element) => element.remove()));
 
         await page.locator('[data-blog-next-input-mode="paste"]').click();
-        await page.locator('#blog-next-paste-markdown').fill('# 붙여넣은 원고\n\nQueue를 거치지 않고 바로 실행합니다.\n\n[[IMAGE_0\ntitle: 붙여넣기 이미지\nprompt: 따뜻한 분위기의 이미지\n]]');
+        let delayedPasteMarkdownMarker = '';
+        await page.route(`**/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/markdown`, async (route) => {
+            if (delayedPasteMarkdownMarker && route.request().postData()?.includes(delayedPasteMarkdownMarker)) {
+                delayedPasteMarkdownMarker = '';
+                await new Promise((resolve) => setTimeout(resolve, 350));
+            }
+            await route.fallback();
+        });
+        const pasteWorkflowSteps = page.locator('[data-blog-next-mode-panel="paste"] .blog-next-workflow-step-head');
+        assert.equal(await pasteWorkflowSteps.count(), 2);
+        assert.deepEqual(await pasteWorkflowSteps.locator('strong').allTextContents(), ['원고', '발행']);
+        assert.equal(await page.locator('[data-blog-next-draft-preview="paste"]').evaluate((element) => element.closest('.blog-next-paste-field') !== null), true);
+        assert.deepEqual(await page.locator('[data-paste-workspace-mode]').allTextContents(), ['블록', 'Markdown', '보기']);
+        const pastedManuscript = '# 붙여넣은 원고\n\nQueue를 거치지 않고 바로 실행합니다.\n\n[[IMAGE\ntitle: 붙여넣기 이미지\nprompt: 따뜻한 분위기의 이미지\n]]';
+        await page.locator('#blog-next-paste-editor .ProseMirror').click();
+        await page.evaluate((markdown) => {
+            const target = document.querySelector('#blog-next-paste-editor .ProseMirror');
+            const clipboardData = new DataTransfer();
+            clipboardData.setData('text/plain', markdown);
+            target.dispatchEvent(new ClipboardEvent('paste', { clipboardData, bubbles: true, cancelable: true }));
+        }, pastedManuscript);
+        await page.waitForFunction(() => (
+            document.querySelector('#blog-next-paste-markdown')?.value?.startsWith('# 붙여넣은 원고')
+            && document.querySelector('#blog-next-paste-editor .manuscript-image-block')?.dataset.sourceKey === '0'
+            && document.querySelector('#blog-next-paste-markdown')?.value?.includes('- [추천 글](https://example.com/related)')
+        ));
+        assert.equal(await page.locator('#blog-next-paste-editor .manuscript-image-block').count(), 1);
+        assert.equal(await page.locator('#blog-next-paste-editor .manuscript-image-block-header').getByText('이미지 블록').count(), 0);
+        assert.equal(await page.locator('#blog-next-paste-editor [aria-label="이미지 제목 편집"]').inputValue(), '붙여넣기 이미지');
+        assert.equal(await page.locator('#blog-next-paste-editor [aria-label="이미지 생성 프롬프트 편집"]').inputValue(), '따뜻한 분위기의 이미지');
+        assert.equal(await page.locator('#blog-next-paste-editor [data-image-action="generate"]').isVisible(), true);
+        assert.equal(await page.locator('#blog-next-paste-editor [data-image-action="pick"]').isVisible(), true);
+        assert.equal(await page.locator('#blog-next-paste-editor .manuscript-image-block-delete').getAttribute('aria-label'), '이미지 블록 삭제');
+        assert.deepEqual(await page.locator('#blog-next-paste-editor .manuscript-image-block-structure-actions button').allTextContents(), ['위로', '아래로']);
+        assert.match(await page.locator('#blog-next-paste-markdown').inputValue(), /\[\[IMAGE_0/);
+        assert.equal(await page.locator('#blog-next-paste-editor .ProseMirror a').textContent(), '추천 글');
+        assert.equal(await page.locator('[data-paste-workspace-mode="block"]').evaluate((button) => button.closest('.manuscript-editor-sticky-rail') !== null), true);
+        assert.equal(await page.locator('.manuscript-editor-sticky-rail').evaluate((rail) => {
+            const mode = rail.querySelector('.manuscript-editor-mode');
+            const toolbar = rail.querySelector('.manuscript-editor-toolbar');
+            const buttons = [...mode.querySelectorAll('button')].map((button) => button.getBoundingClientRect());
+            return getComputedStyle(rail).position === 'sticky'
+                && toolbar.getBoundingClientRect().left > rail.getBoundingClientRect().left
+                && mode.getBoundingClientRect().left > toolbar.getBoundingClientRect().right
+                && mode.getBoundingClientRect().right < rail.getBoundingClientRect().right
+                && buttons.every((button) => Math.abs(button.top - buttons[0].top) < 2);
+        }), true);
+        assert.equal(await page.locator('.manuscript-editor-mode').evaluate((mode) => getComputedStyle(mode).borderRadius), '9999px');
+        assert.equal(await page.locator('[data-manuscript-command="bold"]').isVisible(), true);
+        assert.equal(await page.locator('[data-manuscript-command="bold"]').evaluate((toolbar) => Boolean(
+            toolbar.closest('.manuscript-editor-toolbar').compareDocumentPosition(document.querySelector('#blog-next-paste-editor'))
+                & Node.DOCUMENT_POSITION_FOLLOWING
+        )), true);
+        const latestPrompt = 'prompt 저장 경합을 검증하는 최신 이미지 설명';
+        delayedPasteMarkdownMarker = latestPrompt;
+        await page.locator('#blog-next-paste-editor [aria-label="이미지 생성 프롬프트 편집"]').fill(latestPrompt);
+        const imageOperationResponse = page.waitForResponse((response) => response.request().method() === 'POST'
+            && response.url().endsWith('/api/v1/blog/manuscript-drafts/image-operations'));
+        await page.locator('#blog-next-paste-editor [data-image-action="generate"]').click();
+        await imageOperationResponse;
+        await page.waitForFunction(() => {
+            const block = document.querySelector('#blog-next-paste-editor .manuscript-image-block');
+            return block?.querySelector('[data-image-action="generate"]')?.textContent === '중지'
+                && !block.querySelector('.manuscript-image-block-status')?.hidden;
+        });
+        assert.doesNotMatch(await page.locator('#blog-next-paste-editor .manuscript-image-block-artwork').innerText(), /AI 이미지 생성 중/);
+        const saveAndGenerateRequests = requests.filter((request) => (
+            request.pathname === `/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/markdown`
+            || request.pathname === '/api/v1/blog/manuscript-drafts/image-operations'
+        ));
+        const latestPromptSaveIndex = saveAndGenerateRequests.findLastIndex((request) => (
+            request.pathname.endsWith('/markdown') && request.body?.markdownText?.includes(latestPrompt)
+        ));
+        const imageGenerationIndex = saveAndGenerateRequests.findLastIndex((request) => request.pathname === '/api/v1/blog/manuscript-drafts/image-operations');
+        assert.ok(latestPromptSaveIndex >= 0, 'latest prompt should be persisted in the manuscript before generation');
+        assert.ok(imageGenerationIndex > latestPromptSaveIndex, 'image generation should start after the latest manuscript save');
+        assert.equal(await page.locator('#blog-next-paste-editor .manuscript-image-block-status .local-markdown-image-spinner').isVisible(), true);
+        const generationStatusPosition = await page.locator('#blog-next-paste-editor .manuscript-image-block-status-copy').evaluate((copy) => {
+            const rect = copy.getBoundingClientRect();
+            const media = copy.closest('.manuscript-image-block-status').getBoundingClientRect();
+            return { top: rect.top - media.top, left: rect.left - media.left, width: rect.width, height: rect.height };
+        });
+        await page.locator('#blog-next-paste-editor [data-image-action="generate"]').click();
+        assert.equal(await page.locator('#blog-next-paste-editor [data-image-action="generate"]').textContent(), '중지 확인');
+        assert.equal(await page.locator('#blog-next-paste-editor .manuscript-image-block-media-actions button').filter({ hasText: '계속 진행' }).isVisible(), true);
+        assert.equal(await page.locator('#blog-next-paste-editor .manuscript-image-block-status').innerText().then((text) => /\b\d+\/\d+\b/.test(text)), false);
+        assert.equal(await page.locator('#blog-next-paste-editor .manuscript-image-block-status-message').innerText(), 'AI 이미지 생성 중');
+        assert.deepEqual(await page.locator('#blog-next-paste-editor .manuscript-image-block-status-copy').evaluate((copy) => {
+            const rect = copy.getBoundingClientRect();
+            const media = copy.closest('.manuscript-image-block-status').getBoundingClientRect();
+            return { top: rect.top - media.top, left: rect.left - media.left, width: rect.width, height: rect.height };
+        }), generationStatusPosition, 'status copy should not move within the image area when stop confirmation appears');
+        assert.equal(await page.locator('#blog-next-paste-editor .manuscript-image-block-media-actions').evaluate((actions) => {
+            const buttons = [...actions.querySelectorAll('button')].filter((button) => !button.hidden);
+            return buttons.findIndex((button) => button.textContent === '계속 진행')
+                === buttons.findIndex((button) => button.dataset.imageAction === 'pick') - 1;
+        }), true);
+        await page.locator('#blog-next-paste-editor .manuscript-image-block-media-actions button').filter({ hasText: '계속 진행' }).click();
+        assert.equal(await page.locator('#blog-next-paste-editor [data-image-action="generate"]').textContent(), '중지');
+        await page.locator('#blog-next-paste-editor [data-image-action="generate"]').click();
+        await page.locator('#blog-next-paste-editor [data-image-action="generate"]').click();
+        await page.waitForFunction(() => document.querySelector('#blog-next-paste-editor .manuscript-image-block-status')?.hidden === true);
+        const modeButtonBeforeSwitch = await page.locator('[data-paste-workspace-mode="markdown"]').evaluate((button) => ({
+            top: button.getBoundingClientRect().top,
+            scrollY: window.scrollY
+        }));
+        await page.locator('[data-paste-workspace-mode="markdown"]').click();
+        assert.equal(await page.evaluate(() => document.activeElement?.dataset?.pasteWorkspaceMode), 'markdown');
+        assert.equal(await page.evaluate(() => window.scrollY), modeButtonBeforeSwitch.scrollY);
+        assert.equal(await page.locator('[data-paste-workspace-mode="markdown"]').evaluate((button) => button.getBoundingClientRect().top), modeButtonBeforeSwitch.top);
+        assert.equal(await page.locator('#blog-next-paste-markdown').isVisible(), true);
+        assert.match(await page.locator('#blog-next-paste-markdown').inputValue(), /- \[추천 글\]\(https:\/\/example\.com\/related\)/);
+        assert.equal(await page.locator('#blog-next-paste-editor').isVisible(), false);
+        assert.equal(await page.locator('[data-manuscript-command="bold"]').isVisible(), false);
+        assert.equal(await page.locator('[data-paste-workspace-mode="view"]').isVisible(), true);
+        assert.equal(await page.locator('.manuscript-editor-sticky-rail').evaluate((rail) => {
+            const mode = rail.querySelector('.manuscript-editor-mode');
+            return rail.getBoundingClientRect().right - mode.getBoundingClientRect().right
+                - parseFloat(getComputedStyle(rail).paddingRight) < 2;
+        }), true);
+        assert.equal(await page.locator('[data-paste-workspace-mode="markdown"]').getAttribute('aria-pressed'), 'true');
+        await page.locator('#blog-next-paste-markdown').fill(`${await page.locator('#blog-next-paste-markdown').inputValue()}\n\nMarkdown 편집 확인 문장입니다.`);
+        await page.locator('[data-paste-workspace-mode="block"]').click();
+        assert.equal(await page.locator('#blog-next-paste-markdown').isVisible(), false);
+        assert.equal(await page.locator('#blog-next-paste-editor').isVisible(), true);
+        assert.match(await page.locator('#blog-next-paste-editor .ProseMirror').innerText(), /Markdown 편집 확인 문장입니다/);
+        assert.equal(await page.locator('[data-paste-workspace-mode="block"]').getAttribute('aria-pressed'), 'true');
+        await page.locator('[data-paste-workspace-mode="view"]').click();
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="paste"]')?.hidden === false);
+        await page.locator('[data-paste-workspace-mode="markdown"]').click();
+        const longManuscriptTail = Array.from({ length: 32 }, (_value, index) => `추가 원고 ${index + 1}`).join('\n\n');
+        const delayedPasteMarkdown = `${await page.locator('#blog-next-paste-markdown').inputValue()}\n\n${longManuscriptTail}\n\n첫 번째 저장 요청입니다.`;
+        delayedPasteMarkdownMarker = '첫 번째 저장 요청입니다.';
+        const delayedPasteSync = page.waitForRequest((request) => request.method() === 'POST'
+            && request.url().endsWith(`/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/markdown`));
+        await page.locator('#blog-next-paste-markdown').fill(delayedPasteMarkdown);
+        assert.equal(await page.locator('#blog-next-paste-markdown').evaluate((textarea) => textarea.scrollHeight <= textarea.clientHeight + 2), true);
+        await delayedPasteSync;
+        await page.locator('#blog-next-paste-markdown').fill(`${delayedPasteMarkdown}\n\n마지막 편집 내용입니다.`);
+        await page.locator('[data-paste-workspace-mode="block"]').click();
+        await page.evaluate(() => {
+            const main = document.querySelector('.main');
+            const rail = document.querySelector('.manuscript-editor-sticky-rail');
+            main.scrollTop = rail.getBoundingClientRect().top + main.scrollTop + 600;
+        });
+        await page.waitForTimeout(30);
+        await page.locator('.main').evaluate((main) => { main.scrollTop += 1200; });
+        await page.waitForTimeout(30);
+        const stickyRailPosition = await page.locator('.manuscript-editor-sticky-rail').evaluate((rail) => {
+            const main = rail.closest('.main');
+            return {
+                top: rail.getBoundingClientRect().top,
+                expectedTop: main.getBoundingClientRect().top
+                    + parseFloat(getComputedStyle(main).paddingTop)
+                    + parseFloat(getComputedStyle(rail).top)
+            };
+        });
+        await page.locator('.main').evaluate((main) => { main.scrollTop += 160; });
+        await page.waitForTimeout(30);
+        const stickyRailTopAfterMoreScroll = await page.locator('.manuscript-editor-sticky-rail').evaluate((rail) => rail.getBoundingClientRect().top);
+        assert.ok(Math.abs(stickyRailPosition.top - stickyRailPosition.expectedTop) < 3
+            && Math.abs(stickyRailTopAfterMoreScroll - stickyRailPosition.top) < 2,
+        'sticky toolbar should reach and keep its layout-derived position while scrolling');
+        await page.setViewportSize({ width: 700, height: 900 });
+        await page.waitForTimeout(40);
+        assert.equal(await page.locator('.manuscript-editor-sticky-rail').evaluate((rail) => {
+            const main = rail.closest('.main');
+            const topbar = document.querySelector('.mobile-topbar');
+            const measuredHeight = parseFloat(getComputedStyle(main).getPropertyValue('--mobile-topbar-block-size'));
+            return Math.abs(measuredHeight - topbar.getBoundingClientRect().height) < 1
+                && Math.abs(parseFloat(getComputedStyle(rail).paddingLeft)) > 0;
+        }), true);
+        await page.setViewportSize({ width: 1440, height: 1000 });
+        await page.waitForTimeout(40);
+        assert.equal(await page.locator('[data-paste-workspace-mode="view"]').isVisible(), true);
+        await page.locator('[data-paste-workspace-mode="view"]').click();
+        assert.equal(await page.locator('[data-paste-workspace-mode="view"]').getAttribute('aria-pressed'), 'true');
+        assert.equal(await page.locator('.manuscript-editor-sticky-rail').evaluate((rail) => {
+            const mode = rail.querySelector('.manuscript-editor-mode');
+            return rail.getBoundingClientRect().right - mode.getBoundingClientRect().right
+                - parseFloat(getComputedStyle(rail).paddingRight) < 2;
+        }), true);
+        assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-body]').evaluate((body) => getComputedStyle(body).maxHeight), 'none');
         await page.waitForFunction(() => (
             document.querySelector('[data-blog-next-draft-preview="paste"]')?.hidden === false
+            && document.querySelector('[data-blog-next-draft-preview="paste"] [data-draft-preview-body]')?.textContent?.includes('마지막 편집 내용입니다')
             && document.querySelector('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-summary]')?.textContent?.includes('준비 0/1')
         ));
+        const latestPasteMarkdownSync = requests.filter((request) => request.pathname === `/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/markdown`).at(-1);
+        assert.match(latestPasteMarkdownSync?.body?.markdownText || '', /마지막 편집 내용입니다/);
+        assert.doesNotMatch((await page.locator('[data-blog-next-draft-validation="paste"]').textContent()) || '', /다른 작업으로 변경/);
+        assert.equal(await page.locator('#blog-next-paste-editor').isVisible(), false);
+        assert.equal(await page.locator('#blog-next-paste-markdown').isVisible(), false);
+        assert.equal(await page.locator('[data-manuscript-command="bold"]').isVisible(), false);
+        assert.equal(await page.locator('[data-paste-workspace-mode="view"]').getAttribute('aria-pressed'), 'true');
         assert.equal(await page.locator('[data-blog-next-draft-validation="paste"]').isHidden(), true);
-        await page.locator('#blog-next-paste-clear').click();
-        assert.equal(await page.locator('#blog-next-paste-markdown').inputValue(), '');
-        assert.equal(await page.locator('#blog-next-paste-clear-undo').isVisible(), true);
-        assert.equal(await page.locator('#blog-next-paste-clear-undo').evaluate((element) => element === document.activeElement), true);
-        await page.locator('#blog-next-paste-clear-undo').click();
-        assert.equal((await page.locator('#blog-next-paste-markdown').inputValue()).startsWith('# 붙여넣은 원고'), true);
-        await page.waitForFunction(() => (
-            document.querySelector('[data-blog-next-draft-preview="paste"]')?.hidden === false
-            && document.querySelector('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-summary]')?.textContent?.includes('준비 0/1')
-        ));
+        assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-body] a[href="https://example.com/related"]').textContent(), '추천 글');
+        assert.equal(await page.locator('#blog-next-paste-clear').count(), 0);
+        assert.equal(await page.locator('#blog-next-paste-clear-undo').count(), 0);
         assert.equal((await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-title]').textContent())?.trim(), '붙여넣은 원고');
-        assert.equal((await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-body] h2').textContent())?.trim(), '미리보기 소제목');
+        assert.equal((await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-body] h2').first().textContent())?.trim(), '미리보기 소제목');
         assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] .local-markdown-image-card').count(), 1);
         assert.equal((await page.locator('[data-blog-next-draft-preview="paste"] .local-markdown-image-card-status').textContent())?.trim(), '파일 없음');
         assert.equal(await page.locator('[data-blog-next-draft-publish="paste"]').isDisabled(), false);
         assert.equal(await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-field="post-status"]').inputValue(), 'draft');
         assert.equal(await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-field="post-status"] option[value="publish"]').evaluate((option) => option.disabled), true);
         assert.equal(await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-field="post-status"] option[value="schedule"]').evaluate((option) => option.disabled), true);
-        assert.match((await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-image-safety-hint]').textContent()) || '', /이미지 1개를 처리해야 발행할 수 있어요\. 지금은 임시저장만 가능해요/);
-        assert.equal(await page.locator('#blog-next-publish-image-action').getAttribute('aria-controls'), 'blog-next-paste-draft-images');
+        assert.match((await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-image-safety-hint]').textContent()) || '', /미지정 이미지 1개가 있습니다\. 지금은 임시 저장만 가능합니다\./);
+        assert.equal((await page.locator('#blog-next-publish-image-action').textContent())?.trim(), '이미지 블록으로 이동 ↑');
+        assert.equal(await page.locator('#blog-next-publish-image-action').getAttribute('aria-controls'), 'blog-next-paste-editor');
         await page.locator('#blog-next-publish-image-action').click();
-        assert.equal(await page.locator('#blog-next-paste-draft-images').evaluate((element) => element.open), true);
-        await page.locator('#blog-next-paste-draft-images > summary').click();
+        assert.equal(await page.locator('[data-paste-workspace-mode="block"]').getAttribute('aria-pressed'), 'true');
+        await page.waitForFunction(() => document.querySelector('#blog-next-paste-editor .manuscript-image-block .manuscript-image-block-placeholder'));
+        await page.waitForFunction(() => document.querySelector('#blog-next-paste-editor .manuscript-image-block [aria-label="이미지 생성 프롬프트 편집"]') === document.activeElement);
         if (!await page.locator('[data-blog-next-draft-settings="paste"]').evaluate((element) => element.open)) {
             await page.locator('[data-blog-next-draft-settings="paste"] > summary').click();
         }
@@ -4548,6 +4747,8 @@ async function run() {
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
         assert.doesNotMatch((await page.locator('#ui-dialog-message').textContent()) || '', /AI로 생성합니다/);
         await page.locator('#ui-dialog-cancel').click();
+        await page.locator('[data-paste-workspace-mode="view"]').click();
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="paste"]')?.hidden === false);
         if (!await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-details]').evaluate((element) => element.open)) {
             await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-details] > summary').click();
         }
@@ -4571,8 +4772,17 @@ async function run() {
         assert.equal(preparedPastePublishRequest?.body?.revision, lastPasteDraftMutation?.responseRevision);
         await page.evaluate(() => document.querySelectorAll('.app-celebration').forEach((element) => element.remove()));
         assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] [data-manuscript-image-picker]').first().isEnabled(), true);
-        await page.locator('#blog-next-paste-clear').click();
-        await page.locator('#blog-next-paste-markdown').fill('# 붙여넣은 원고\n\nQueue를 거치지 않고 바로 실행합니다.\n\n[[IMAGE_0\ntitle: 붙여넣기 이미지\nprompt: 따뜻한 분위기의 이미지\n]]');
+        await page.locator('[data-paste-workspace-mode="markdown"]').click();
+        await page.locator('#blog-next-paste-markdown').fill('');
+        await page.locator('[data-paste-workspace-mode="block"]').click();
+        await page.locator('#blog-next-paste-editor .ProseMirror').click();
+        await page.evaluate((markdown) => {
+            const target = document.querySelector('#blog-next-paste-editor .ProseMirror');
+            const clipboardData = new DataTransfer();
+            clipboardData.setData('text/plain', markdown);
+            target.dispatchEvent(new ClipboardEvent('paste', { clipboardData, bubbles: true, cancelable: true }));
+        }, '# 붙여넣은 원고\n\nQueue를 거치지 않고 바로 실행합니다.\n\n[[IMAGE_0\ntitle: 붙여넣기 이미지\nprompt: 따뜻한 분위기의 이미지\n]]');
+        await page.locator('[data-paste-workspace-mode="view"]').click();
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="paste"] [data-manuscript-image-picker]')?.disabled === false
           && document.querySelector('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-summary]')?.textContent?.includes('준비 0/1'));
         if (!await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-details]').evaluate((element) => element.open)) {
@@ -5093,8 +5303,11 @@ async function run() {
           && document.getElementById('blog-next-subject')?.value === '');
 
         reportSmokePhase('Reloading app and checking SNS workspace/channel state');
+        await page.evaluate(() => localStorage.setItem('blog_next_pasted_markdown_draft', '# 이전 실행의 원고'));
         await page.reload({ waitUntil: 'domcontentloaded' });
         await page.waitForFunction(() => typeof window.navigateTo === 'function');
+        assert.equal(await page.locator('#blog-next-paste-markdown').inputValue(), '');
+        assert.equal(await page.evaluate(() => localStorage.getItem('blog_next_pasted_markdown_draft')), null);
         await page.evaluate(() => navigateTo('social'));
         await page.waitForFunction(() => document.querySelectorAll('[data-manual-sns-channel]').length === 1);
         assert.equal(manualSnsWorkspaceRequestCount, 1);

@@ -60,7 +60,8 @@
   }
 
   .main {
-    padding: 24px 20px;
+    --main-content-inset-block-start: 24px;
+    padding: var(--main-content-inset-block-start) 20px;
     overflow-x: hidden;
   }
 

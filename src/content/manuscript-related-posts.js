@@ -1,9 +1,8 @@
 // Canonical manuscript related-posts finalization.
 //
-// The related section is finalized when a manuscript draft is created or
-// updated, so the user-visible preview and the publish payload always carry
-// the same body. Network and heading behavior is injected through `gateway`
-// to keep this module pure and deterministic in tests.
+// The related section is selected while a manuscript draft is created, then
+// remains part of its editable Markdown body. Network and heading behavior is
+// injected through `gateway` to keep this module pure and deterministic.
 
 const RELATED_POSTS_STATUS = Object.freeze({
     INCLUDED: 'included',
@@ -48,13 +47,24 @@ function insertSectionAboveHashtags(markdown = '', section = '') {
 function buildRelatedSection(posts, heading, toMobileUrl) {
     const title = String(heading || DEFAULT_HEADING).trim() || DEFAULT_HEADING;
     const lines = [`## ${title}`];
-    const urls = (Array.isArray(posts) ? posts : [])
-        .map((post) => String(post?.url || '').trim())
-        .filter((url) => /^https?:\/\//i.test(url))
-        .slice(0, MAX_RELATED_POSTS)
-        .map((url) => (typeof toMobileUrl === 'function' ? String(toMobileUrl(url) || url).trim() : url))
-        .filter(Boolean);
-    for (const url of urls) lines.push(url);
+    const validPosts = (Array.isArray(posts) ? posts : [])
+        .map((post) => ({
+            title: String(post?.title || post?.name || '').replace(/[\r\n]+/g, ' ').trim(),
+            url: String(post?.url || '').trim()
+        }))
+        .filter((post) => /^https?:\/\//i.test(post.url))
+        .slice(0, MAX_RELATED_POSTS);
+    for (const [index, post] of validPosts.entries()) {
+        const url = typeof toMobileUrl === 'function'
+            ? String(toMobileUrl(post.url) || post.url).trim()
+            : post.url;
+        const label = (post.title || `관련 글 ${index + 1}`)
+            .replace(/\\/g, '\\\\')
+            .replace(/\[/g, '\\[')
+            .replace(/\]/g, '\\]');
+        const markdownUrl = url.replace(/\s/g, '%20').replace(/\(/g, '%28').replace(/\)/g, '%29');
+        lines.push(`- [${label}](${markdownUrl})`);
+    }
     return lines.join('\n').trim();
 }
 
