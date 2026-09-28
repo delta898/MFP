@@ -3,7 +3,7 @@ const BLOG_NEXT_DRAFT_PREVIEW_DELAY_MS = 350;
 
 const blogNextDraftState = {
   ai: { preview: null, requestId: 0, publishing: false, generating: false, draftId: '', revision: 0, imageWorking: false, imageOperation: null, imageOperationNotice: null, imageSafetyLocked: false, previewSyncFailed: false },
-  folder: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, imageObjectUrls: {}, draftId: '', revision: 0, imageWorking: false, imageOperation: null, imageOperationNotice: null, imageSafetyLocked: false, previewSyncFailed: false },
+  folder: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, imageObjectUrls: {}, draftId: '', revision: 0, imageWorking: false, imageMutationSlotId: '', imageOperation: null, imageOperationNotice: null, imageSafetyLocked: false, previewSyncFailed: false, workspaceMode: 'block', editor: null, previewPromise: null, syncedPreviewKey: '' },
   paste: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, draftId: '', revision: 0, imageWorking: false, imageMutationSlotId: '', imageOperation: null, imageOperationNotice: null, imageSafetyLocked: false, previewSyncFailed: false, workspaceMode: 'block', editor: null, previewPromise: null, syncedPreviewKey: '' }
 };
 
@@ -129,9 +129,10 @@ function syncBlogNextDraftImageSafety(type, preview = null) {
   }
   if (imageAction) {
     imageAction.hidden = !imagePreparationRequired;
-    if (type === 'paste') {
+    if (type === 'paste' || type === 'folder') {
+      const editorId = type === 'paste' ? 'blog-next-paste-editor' : 'blog-next-folder-editor';
       imageAction.textContent = '이미지 블록으로 이동 ↑';
-      imageAction.setAttribute('aria-controls', 'blog-next-paste-editor');
+      imageAction.setAttribute('aria-controls', editorId);
     } else {
       imageAction.textContent = '이미지 처리하기 ↑';
       const details = document.querySelector(`[data-blog-next-draft-preview="${type}"] [data-draft-preview-image-details]`);
@@ -153,6 +154,19 @@ function focusBlogNextDraftImages() {
     requestAnimationFrame(() => {
       const editor = document.getElementById('blog-next-paste-editor');
       const firstUnassigned = editor?.querySelector('.manuscript-image-block:has(.manuscript-image-block-placeholder)');
+      if (!firstUnassigned) return;
+      firstUnassigned.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      requestAnimationFrame(() => firstUnassigned.querySelector('[aria-label="이미지 생성 프롬프트 편집"]')?.focus({ preventScroll: true }));
+    });
+    return;
+  }
+  if (type === 'folder') {
+    const state = blogNextDraftState.folder;
+    if (state.workspaceMode !== 'block') {
+      document.querySelector('[data-folder-workspace-mode="block"]')?.click();
+    }
+    requestAnimationFrame(() => {
+      const firstUnassigned = document.getElementById('blog-next-folder-editor')?.querySelector('.manuscript-image-block:has(.manuscript-image-block-placeholder)');
       if (!firstUnassigned) return;
       firstUnassigned.scrollIntoView({ behavior: 'smooth', block: 'center' });
       requestAnimationFrame(() => firstUnassigned.querySelector('[aria-label="이미지 생성 프롬프트 편집"]')?.focus({ preventScroll: true }));
@@ -206,8 +220,16 @@ async function buildBlogNextDraftPayload(type, options = {}) {
   return {
     ...settings,
     folderName: state.folderName,
-    selectedFiles: await serializeBlogNextFolderFiles(state.files, options)
+    ...(state.draftId ? { markdownText: document.getElementById('blog-next-folder-markdown')?.value || '' } : {}),
+    ...(!state.draftId ? { selectedFiles: await serializeBlogNextFolderFiles(state.files, options) } : {})
   };
+}
+
+function getBlogNextFolderSyncKey() {
+  return JSON.stringify({
+    markdownText: document.getElementById('blog-next-folder-markdown')?.value || '',
+    settings: readBlogNextDraftSettings('folder')
+  });
 }
 
 function summarizeBlogNextDraftWarnings(type, validation = null, preview = null) {
@@ -340,9 +362,14 @@ function renderBlogNextDraftPreview(type, preview = null) {
   syncBlogNextDraftExecutionState();
   if (!container || !preview) {
     if (container) container.hidden = true;
+    if (type === 'folder') {
+      document.querySelector('[data-folder-editor-rail]')?.setAttribute('hidden', '');
+      document.querySelector('[data-folder-editor-workspace]')?.setAttribute('hidden', '');
+    }
     return;
   }
-  container.hidden = type === 'paste' && blogNextDraftState.paste.workspaceMode !== 'view';
+  container.hidden = type === 'paste' ? blogNextDraftState.paste.workspaceMode !== 'view'
+    : type === 'folder' ? blogNextDraftState.folder.workspaceMode !== 'view' : false;
   const title = container.querySelector('[data-draft-preview-title]');
   const body = container.querySelector('[data-draft-preview-body]');
   const images = container.querySelector('[data-draft-preview-images]');
@@ -357,6 +384,11 @@ function renderBlogNextDraftPreview(type, preview = null) {
     blogNextDraftState.paste.editor?.syncImages?.(
       preview.images || [], imageOperation,
       blogNextDraftState.paste.imageMutationSlotId
+    );
+  } else if (type === 'folder') {
+    blogNextDraftState.folder.editor?.syncImages?.(
+      preview.images || [], blogNextDraftState.folder.imageOperation,
+      blogNextDraftState.folder.imageMutationSlotId
     );
   }
   if (images) {
@@ -386,6 +418,13 @@ function renderBlogNextDraftPreview(type, preview = null) {
       : `누락 ${stats.imageMissingCount || 0}개`;
   }
   setLocalMarkdownPreviewDensity(container, body, images, stats);
+  if (type === 'folder') {
+    const hasDraft = Boolean(preview.draftId);
+    const rail = document.querySelector('[data-folder-editor-rail]');
+    const workspace = document.querySelector('[data-folder-editor-workspace]');
+    if (rail) rail.hidden = !hasDraft;
+    if (workspace) workspace.hidden = !hasDraft;
+  }
   setBlogNextDraftValidation(type, preview.validation, '', preview);
   if (typeof syncBlogNextPublishMutationControls === 'function') syncBlogNextPublishMutationControls();
   syncBlogNextImageAiReadiness();
@@ -408,6 +447,14 @@ async function loadBlogNextDraftPreview(type) {
   const pasteMarkdownAtRequest = type === 'paste'
     ? (document.getElementById('blog-next-paste-markdown')?.value || '')
     : '';
+  const folderSyncKey = type === 'folder' ? getBlogNextFolderSyncKey() : '';
+  const folderMarkdownAtRequest = type === 'folder' ? (document.getElementById('blog-next-folder-markdown')?.value || '') : '';
+  if (type === 'folder' && state.previewPromise) {
+    await state.previewPromise;
+    if (state.preview && !state.previewSyncFailed && state.syncedPreviewKey === getBlogNextFolderSyncKey()) return state.preview;
+    return loadBlogNextDraftPreview(type);
+  }
+  if (type === 'folder' && state.draftId && state.preview && !state.previewSyncFailed && state.syncedPreviewKey === folderSyncKey) return state.preview;
   if (type === 'paste' && state.previewPromise) {
     await state.previewPromise;
     const latestKey = getBlogNextPasteSyncKey();
@@ -428,7 +475,7 @@ async function loadBlogNextDraftPreview(type) {
         preview = await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/settings`, { ...payload, revision: state.revision });
       } else if (type === 'folder') {
         preview = state.draftId
-          ? await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/settings`, { ...payload, selectedFiles: undefined, revision: state.revision })
+          ? await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/markdown`, { ...payload, selectedFiles: undefined, revision: state.revision })
           : await postJson('/api/v1/blog/manuscript-drafts/folder', payload);
       } else if (state.draftId) {
         try {
@@ -446,6 +493,17 @@ async function loadBlogNextDraftPreview(type) {
       if (requestId !== state.requestId) return null;
       state.draftId = preview.draftId;
       state.revision = preview.revision;
+      if (type === 'folder') {
+        const markdownInput = document.getElementById('blog-next-folder-markdown');
+        const currentMarkdown = markdownInput?.value || '';
+        const canonicalMarkdown = String(preview.rawMarkdown || '');
+        const changedDuringRequest = currentMarkdown !== folderMarkdownAtRequest;
+        if (markdownInput && canonicalMarkdown && currentMarkdown === folderMarkdownAtRequest && canonicalMarkdown !== currentMarkdown) {
+          markdownInput.value = canonicalMarkdown;
+          state.editor?.setMarkdown(canonicalMarkdown);
+        }
+        state.syncedPreviewKey = changedDuringRequest ? folderSyncKey : getBlogNextFolderSyncKey();
+      }
       if (type === 'paste') {
         const pastedInput = document.getElementById('blog-next-paste-markdown');
         const currentMarkdown = pastedInput?.value || '';
@@ -492,7 +550,7 @@ async function loadBlogNextDraftPreview(type) {
     }
   };
 
-  if (type !== 'paste') return performRequest();
+  if (type !== 'paste' && type !== 'folder') return performRequest();
   const request = performRequest();
   state.previewPromise = request;
   try {
@@ -526,6 +584,23 @@ async function flushBlogNextPasteDraftBeforeImageGeneration() {
   return false;
 }
 
+async function flushBlogNextFolderDraftBeforeImageGeneration() {
+  const state = blogNextDraftState.folder;
+  const input = document.getElementById('blog-next-folder-markdown');
+  if (!input?.value.trim()) return false;
+  clearTimeout(state.previewTimer);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const expectedKey = getBlogNextFolderSyncKey();
+    if (state.previewPromise) await state.previewPromise;
+    if (state.preview && !state.previewSyncFailed && state.syncedPreviewKey === getBlogNextFolderSyncKey()) return true;
+    if (getBlogNextFolderSyncKey() !== expectedKey) continue;
+    await loadBlogNextDraftPreview('folder');
+    if (state.preview && !state.previewSyncFailed && state.syncedPreviewKey === getBlogNextFolderSyncKey()) return true;
+  }
+  setBlogNextDraftValidation('folder', { errors: ['변경한 원고를 저장하지 못해 이미지 생성을 시작하지 않았습니다. 잠시 후 다시 시도해 주세요.'] }, '', state.preview);
+  return false;
+}
+
 function setBlogNextPasteWorkspaceMode(mode, state, editorRoot, pastedInput) {
   const scrollX = window.scrollX;
   const scrollY = window.scrollY;
@@ -552,6 +627,30 @@ function setBlogNextPasteWorkspaceMode(mode, state, editorRoot, pastedInput) {
   });
 }
 
+function setBlogNextFolderWorkspaceMode(mode, state, editorRoot, markdownInput) {
+  const scrollX = window.scrollX;
+  const scrollY = window.scrollY;
+  const activeModeControl = document.activeElement?.matches?.('[data-folder-workspace-mode]') ? document.activeElement : null;
+  const modeControlTop = activeModeControl?.getBoundingClientRect().top;
+  state.workspaceMode = mode;
+  document.querySelectorAll('[data-folder-workspace-mode]').forEach((control) => {
+    control.setAttribute('aria-pressed', String(control.dataset.folderWorkspaceMode === mode));
+  });
+  editorRoot.hidden = mode !== 'block';
+  markdownInput.hidden = mode !== 'markdown';
+  document.querySelector('[data-folder-formatting-toolbar]')?.toggleAttribute('hidden', mode !== 'block');
+  const preview = document.querySelector('[data-blog-next-draft-preview="folder"]');
+  if (preview) preview.hidden = mode !== 'view' || !state.preview;
+  if (mode === 'markdown') requestAnimationFrame(() => resizeBlogNextMarkdownEditor(markdownInput));
+  requestAnimationFrame(() => {
+    window.scrollTo(scrollX, scrollY);
+    if (activeModeControl && Number.isFinite(modeControlTop)) {
+      const main = document.querySelector('.main');
+      if (main) main.scrollTop += activeModeControl.getBoundingClientRect().top - modeControlTop;
+    }
+  });
+}
+
 function resizeBlogNextMarkdownEditor(textarea) {
   if (!textarea || textarea.hidden) return;
   textarea.style.height = 'auto';
@@ -560,7 +659,7 @@ function resizeBlogNextMarkdownEditor(textarea) {
 
 function scheduleBlogNextDraftPreview(type) {
   const state = blogNextDraftState[type];
-  if (type !== 'paste') state.requestId += 1;
+  if (type !== 'paste' && type !== 'folder') state.requestId += 1;
   clearTimeout(state.previewTimer);
   state.previewTimer = setTimeout(() => loadBlogNextDraftPreview(type), type === 'paste' ? 650 : BLOG_NEXT_DRAFT_PREVIEW_DELAY_MS);
 }
@@ -573,6 +672,14 @@ function clearBlogNextFolderDraft() {
   state.preview = null;
   state.draftId = '';
   state.revision = 0;
+  state.previewSyncFailed = false;
+  state.syncedPreviewKey = '';
+  state.workspaceMode = 'block';
+  state.editor?.setMarkdown('');
+  const markdown = document.getElementById('blog-next-folder-markdown');
+  if (markdown) markdown.value = '';
+  const editorRoot = document.getElementById('blog-next-folder-editor');
+  if (editorRoot && markdown) setBlogNextFolderWorkspaceMode('block', state, editorRoot, markdown);
   state.imageOperationNotice = null;
   state.requestId += 1;
   const input = document.getElementById('blog-next-folder-input');
@@ -653,11 +760,72 @@ function initBlogNextDraftInputs() {
     blogNextDraftState.folder.folderName = folderName;
     blogNextDraftState.folder.draftId = '';
     blogNextDraftState.folder.revision = 0;
+    blogNextDraftState.folder.previewSyncFailed = false;
+    blogNextDraftState.folder.syncedPreviewKey = '';
+    const folderMarkdown = document.getElementById('blog-next-folder-markdown');
+    if (folderMarkdown) folderMarkdown.value = '';
+    blogNextDraftState.folder.editor?.setMarkdown('');
+    blogNextDraftState.folder.workspaceMode = 'block';
+    setBlogNextFolderWorkspaceMode('block', blogNextDraftState.folder,
+      document.getElementById('blog-next-folder-editor'), folderMarkdown);
     syncBlogNextFolderSelection(folderName);
     event.target.value = '';
     renderBlogNextDraftPreview('folder', null);
     await loadBlogNextDraftPreview('folder');
   });
+
+  const folderMarkdown = document.getElementById('blog-next-folder-markdown');
+  const folderEditorRoot = document.getElementById('blog-next-folder-editor');
+  if (folderMarkdown && folderEditorRoot && window.BlogGeniusManuscriptEditor?.mount) {
+    blogNextDraftState.folder.editor = window.BlogGeniusManuscriptEditor.mount(folderEditorRoot, {
+      onChange(markdown) {
+        folderMarkdown.value = markdown;
+        folderMarkdown.dispatchEvent(new Event('input', { bubbles: true }));
+      },
+      getImage(blockId, sourceKey) {
+        const images = blogNextDraftState.folder.preview?.images || [];
+        return images.find((image) => image.blockId && image.blockId === blockId)
+          || images.find((image) => Number(image.index) === Number(sourceKey)) || null;
+      },
+      onImageAction(action, slotId) {
+        if (action === 'continue') return continueBlogNextManuscriptImageGeneration('folder');
+        if (action === 'generate') {
+          const operation = blogNextDraftState.folder.imageOperation;
+          if (operation?.action === 'generate' && operation.slotId === slotId) handleBlogNextManuscriptImageStop('folder');
+          else void runBlogNextManuscriptImageAction('folder', 'generate', slotId);
+        } else if (action === 'remove') void applyBlogNextManuscriptMutation('folder', 'remove', slotId);
+      },
+      onImageFile(slotId, input) { void importBlogNextManuscriptImage('folder', slotId, input); }
+    });
+    folderEditorRoot.addEventListener('paste', () => {
+      window.setTimeout(() => {
+        folderMarkdown.value = blogNextDraftState.folder.editor?.getMarkdown() || '';
+        folderMarkdown.dispatchEvent(new Event('input', { bubbles: true }));
+      }, 0);
+    });
+    document.querySelectorAll('[data-folder-manuscript-command]').forEach((button) => {
+      button.addEventListener('mousedown', (event) => event.preventDefault());
+      button.addEventListener('click', () => blogNextDraftState.folder.editor?.command(button.dataset.folderManuscriptCommand));
+    });
+    document.querySelectorAll('[data-folder-workspace-mode]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const mode = ['block', 'markdown', 'view'].includes(button.dataset.folderWorkspaceMode) ? button.dataset.folderWorkspaceMode : 'block';
+        const state = blogNextDraftState.folder;
+        if (mode === 'view') {
+          if (!folderMarkdown.value.trim()) return;
+          setBlogNextFolderWorkspaceMode(mode, state, folderEditorRoot, folderMarkdown);
+          await loadBlogNextDraftPreview('folder');
+          return;
+        }
+        if (mode === 'block' && state.workspaceMode === 'markdown') state.editor?.setMarkdown(folderMarkdown.value);
+        setBlogNextFolderWorkspaceMode(mode, state, folderEditorRoot, folderMarkdown);
+      });
+    });
+    folderMarkdown.addEventListener('input', () => {
+      resizeBlogNextMarkdownEditor(folderMarkdown);
+      scheduleBlogNextDraftPreview('folder');
+    });
+  }
 
   const pastedInput = document.getElementById('blog-next-paste-markdown');
   if (pastedInput) {

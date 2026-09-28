@@ -24,17 +24,38 @@
             </section>
             <div class="blog-next-draft-validation" data-blog-next-draft-validation="folder" role="status"
               aria-live="polite" hidden></div>
-            <div class="blog-next-draft-preview blog-next-manuscript-preview local-markdown-preview-panel"
-              data-blog-next-draft-preview="folder" hidden>
-              <div class="local-markdown-preview-head">
-                <h4 data-draft-preview-title>제목 없음</h4>
+            <div class="manuscript-editor-sticky-rail" data-folder-editor-rail hidden>
+              <div class="manuscript-editor-toolbar" role="toolbar" aria-label="원고 서식" data-folder-formatting-toolbar>
+                <button type="button" data-folder-manuscript-command="paragraph">본문</button>
+                <button type="button" data-folder-manuscript-command="heading">소제목</button>
+                <button type="button" data-folder-manuscript-command="bold" aria-label="굵게"><strong>B</strong></button>
+                <button type="button" data-folder-manuscript-command="italic" aria-label="기울임"><em>I</em></button>
+                <button type="button" data-folder-manuscript-command="bulletList">글머리 목록</button>
+                <button type="button" data-folder-manuscript-command="orderedList">번호 목록</button>
+                <button type="button" data-folder-manuscript-command="blockquote">인용</button>
+                <button type="button" data-folder-manuscript-command="image">이미지 추가</button>
+                <button type="button" data-folder-manuscript-command="undo">되돌리기</button>
+                <button type="button" data-folder-manuscript-command="redo">다시 실행</button>
               </div>
-              <div class="local-markdown-body-preview" data-draft-preview-body aria-label="본문 미리보기"></div>
-              <details class="blog-next-manuscript-image-details" id="blog-next-folder-draft-images" data-draft-preview-image-details>
-                <summary><strong>이미지 확인</strong><span data-draft-preview-image-summary>-</span></summary>
-                <div class="local-markdown-image-list" data-draft-preview-images></div>
-              </details>
+              <div class="manuscript-editor-mode" role="group" aria-label="원고 작업 방식">
+                <button type="button" data-folder-workspace-mode="block" aria-pressed="true">블록</button>
+                <button type="button" data-folder-workspace-mode="markdown" aria-pressed="false">Markdown</button>
+                <button type="button" data-folder-workspace-mode="view" aria-pressed="false">보기</button>
+              </div>
             </div>
+            <section class="blog-next-draft-source blog-next-paste-field" aria-label="폴더 원고 편집 및 보기" data-folder-editor-workspace hidden>
+              <textarea id="blog-next-folder-markdown" class="blog-next-markdown-input" rows="18" aria-label="Markdown 원고 편집" hidden></textarea>
+              <div id="blog-next-folder-editor" class="manuscript-editor-canvas" role="region" aria-label="원고 블록 편집기"></div>
+              <div class="blog-next-draft-preview blog-next-manuscript-preview local-markdown-preview-panel"
+                data-blog-next-draft-preview="folder" hidden>
+                <div class="local-markdown-preview-head"><h4 data-draft-preview-title>제목 없음</h4></div>
+                <div class="local-markdown-body-preview" data-draft-preview-body aria-label="본문 미리보기"></div>
+                <details class="blog-next-manuscript-image-details" id="blog-next-folder-draft-images" data-draft-preview-image-details>
+                  <summary><strong>이미지 확인</strong><span data-draft-preview-image-summary>-</span></summary>
+                  <div class="local-markdown-image-list" data-draft-preview-images></div>
+                </details>
+              </div>
+            </section>
             <div class="blog-next-workflow-step-head"><span>2</span><div><strong>발행</strong><small>원고를 올릴 곳과 방식을 정하세요.</small></div></div>
             <div data-blog-next-publish-settings-slot="folder"></div>
             <div class="blog-next-draft-actions" data-blog-next-draft-actions="folder">

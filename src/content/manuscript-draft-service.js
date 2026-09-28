@@ -299,6 +299,8 @@ function createManuscriptDraftService(options = {}) {
         }, { fs: fsImpl, path: pathImpl, Utils });
         if (manifest.source_kind === 'paste') {
             preview.source = { ...preview.source, type: 'pasted_markdown', folderName: manifest.source_label };
+        } else if (manifest.source_kind === 'folder') {
+            preview.source = { ...preview.source, type: 'local_markdown', folderName: manifest.source_label };
         } else if (manifest.source_kind === 'ai') {
             preview.source = { ...preview.source, type: 'generated_quick_post', folderName: manifest.source_label };
         }
@@ -635,12 +637,12 @@ function createManuscriptDraftService(options = {}) {
 
     function updateMarkdown(input = {}) {
         return updateSlotless(input.draftId, input.revision, ({ locations, manifest }) => {
-            if (manifest.source_kind !== 'paste') {
+            if (!['paste', 'folder'].includes(manifest.source_kind)) {
                 throw manuscriptError(409, 'MANUSCRIPT_DRAFT_SOURCE_READ_ONLY', '이 원고의 본문은 현재 입력 방식에서 변경할 수 없습니다.');
             }
             const markdownText = String(input.markdownText || '');
             const settings = normalizeDraftSettings(input, manifest.settings);
-            const preview = buildLocalMarkdownPreview({ markdownText, folderName: manifest.source_label, ...settings }, { fs: fsImpl, path: pathImpl, Utils });
+            const preview = buildLocalMarkdownPreview({ directoryPath: locations.source, markdownText, folderName: manifest.source_label, ...settings }, { fs: fsImpl, path: pathImpl, Utils });
             const previousByBlockId = new Map(manifest.image_slots.filter((slot) => slot.block_id).map((slot) => [slot.block_id, slot]));
             const previousByIndex = new Map(manifest.image_slots.map((slot) => [Number(slot.index), slot]));
             manifest.settings = settings;
@@ -663,7 +665,7 @@ function createManuscriptDraftService(options = {}) {
             const pendingPath = `${markdownPath}.${process.pid}.${Date.now()}.tmp`;
             fsImpl.writeFileSync(pendingPath, markdownText, { mode: 0o600 });
             fsImpl.renameSync(pendingPath, markdownPath);
-            Logger?.info?.(`✅ [ManuscriptDraft] 붙여넣기 원고 갱신 완료 (draft=${input.draftId}, images=${preview.stats.imageBlockCount})`);
+            Logger?.info?.(`✅ [ManuscriptDraft] ${manifest.source_kind === 'folder' ? '폴더' : '붙여넣기'} 원고 갱신 완료 (draft=${input.draftId}, images=${preview.stats.imageBlockCount})`);
         });
     }
 

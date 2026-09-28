@@ -378,7 +378,7 @@ async function applyBlogNextManuscriptMutation(type, action, slotId, payload = {
 
 async function runBlogNextManuscriptImageAction(type, action, slotId) {
   if (blogNextDraftState[type].publishing || blogNextDraftState[type].imageWorking) return;
-  const image = blogNextDraftState[type].preview?.images?.find((item) => item.slotId === slotId);
+  let image = blogNextDraftState[type].preview?.images?.find((item) => item.slotId === slotId);
   if (action === 'generate' && typeof ensureUiCapabilityReady === 'function'
     && !await ensureUiCapabilityReady('ai.image')) {
     syncBlogNextImageAiReadiness();
@@ -392,6 +392,17 @@ async function runBlogNextManuscriptImageAction(type, action, slotId) {
   }
   if (action === 'generate') {
     if (type === 'paste' && !await flushBlogNextPasteDraftBeforeImageGeneration()) return;
+    if (type === 'folder' && !await flushBlogNextFolderDraftBeforeImageGeneration()) return;
+    if (type === 'paste' || type === 'folder') {
+      const currentImage = blogNextDraftState[type].preview?.images?.find((item) => (
+        (image?.blockId && item.blockId === image.blockId)
+        || (!image?.blockId && Number(item.index) === Number(image?.index))
+      ));
+      if (currentImage) {
+        image = currentImage;
+        slotId = currentImage.slotId;
+      }
+    }
     await startBlogNextManuscriptImageOperation(type, action, slotId);
     return;
   }

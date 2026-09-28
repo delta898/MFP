@@ -3,7 +3,7 @@
 - Branch: `codex/feat/manuscript-folder-workspace`
 - Start date: 2026-09-28
 - Base/parent branch: `codex/manuscript-workspace-editor`
-- Status: 계획 및 구현 조사 중
+- Status: 구현 및 focused 검증 완료, parent 병합 대기
 
 ## 사용자 필요와 목표
 
@@ -37,12 +37,24 @@
 
 ## 조사 결과 및 결정
 
-- TODO: 기존 folder preview/Draft API 경계와 `updateMarkdown` source 제한 확인.
-- TODO: folder original snapshot과 편집 작업본의 실제 소유권을 검증하고 구현 계약 확정.
+- 폴더 선택은 브라우저가 전달한 파일을 app-owned Draft 작업공간에 복사하며, 원본 로컬 파일을 수정하지 않는다.
+- 폴더 Draft의 초기 이미지 슬롯에는 stable block ID가 아직 없으므로 첫 Markdown 저장에서는 IMAGE 순번으로 기존 슬롯을 연결하고, 저장된 이후에는 block ID를 우선해 순서 변경에도 asset을 보존한다.
+- 서버 `updateMarkdown`는 기존에 붙여넣기 Draft만 허용했지만, 작업공간 복사본을 수정하는 것은 폴더 Draft에도 안전하다. 다만 preview 분석 시 앱 작업공간 경로를 함께 전달해 기존 폴더 이미지 탐색이 계속 가능하도록 한다.
+- AI 생성 직전 최신 Markdown을 먼저 저장한다. 저장 과정에서 슬롯 ID가 순번 기반에서 stable block ID 기반으로 바뀔 수 있으므로, 저장 응답의 해당 이미지 슬롯을 다시 찾아 생성한다.
+- 보기 전환은 붙여넣기와 같이 `블록 | Markdown | 보기`로 제공한다. 기존 하단 이미지 확인 영역은 제거하지 않고 보기 모드에 남긴다.
 
 ## 구현 진행 및 검증
 
-- TODO
+- 폴더 모드에 공통 Tiptap 편집기와 동일한 세 작업 모드를 연결했다. Markdown 편집 및 block editor 변경은 Draft API에 저장되며 보기 결과와 발행 입력에 반영된다.
+- 폴더의 원래 IMAGE_N 순번 연결, 첫 stable ID 수화, 이후 ID 기준 재정렬의 asset 보존을 서비스 테스트로 검증했다.
+- 브라우저 smoke fixture를 폴더 원고의 실제 `[[IMAGE_N]]` 문법에 맞추고, 폴더 편집기 초기화와 Markdown/보기 전환을 회귀 흐름에 추가했다.
+- `node --test scripts/ai-action-availability-contract.test.js src/content/manuscript-draft-service.test.js src/content/local-markdown-preview.test.js` 통과 (47 tests).
+- `node --check`로 수정한 UI 스크립트와 browser smoke 스크립트 구문 확인.
+- `npm run test:ui-blog-auto` 통과.
+- `npm run test:ui-browser` 통과 (516 fixture requests, page errors 0). 기존 smoke selector를 폴더/붙여넣기 editor rail 각각으로 범위 제한했다.
+- `git diff --check` 통과.
+- 사용자 hands-on 확인: 폴더 불러오기 후 블록 편집 / Markdown 편집 / 보기 전환, 이미지 제목·prompt 변경 후 생성, 이미지 파일 연결과 블록 순서 변경, 원본 폴더 파일 불변.
+- TODO: parent 병합 결과 기록 및 계획 문서 archive 이동.
 
 ## 남은 위험 및 사용자 확인
 

@@ -244,15 +244,29 @@ test('updates pasted Markdown while preserving matching image slot state', () =>
     }
 });
 
-test('rejects Markdown mutation for a folder source without changing its revision', () => {
+test('edits a folder draft copy and keeps folder images attached to stable block ids after reorder', () => {
     const { workspaceDir, service, input } = fixture();
+    const firstId = 'mb-33333333-3333-4333-8333-333333333333';
+    const secondId = 'mb-44444444-4444-4444-8444-444444444444';
     try {
         const created = service.createFolderDraft(input);
-        assert.throws(
-            () => service.updateMarkdown({ draftId: created.draftId, revision: 1, markdownText: '# 변경' }),
-            (error) => error.code === 'MANUSCRIPT_DRAFT_SOURCE_READ_ONLY'
-        );
-        assert.equal(service.getDraft(created.draftId).revision, 1);
+        const hydrated = service.updateMarkdown({
+            draftId: created.draftId,
+            revision: created.revision,
+            markdownText: `# 제목\n\n[[IMAGE_1\nid: ${firstId}\ntitle: 첫 이미지\nprompt: 수정된 프롬프트\n]]\n\n[[IMAGE_2\nid: ${secondId}\ntitle: 둘째 이미지\nprompt: 초록 숲\n]]\n\n본문`
+        });
+        assert.equal(hydrated.revision, 2);
+        assert.equal(hydrated.images[0].assetOrigin, 'folder');
+        assert.equal(hydrated.images[0].blockId, firstId);
+        const reordered = service.updateMarkdown({
+            draftId: created.draftId,
+            revision: hydrated.revision,
+            markdownText: `# 제목 변경\n\n[[IMAGE_2\nid: ${secondId}\ntitle: 둘째 이미지\nprompt: 새 prompt\n]]\n\n[[IMAGE_1\nid: ${firstId}\ntitle: 첫 이미지\nprompt: 푸른 하늘\n]]`
+        });
+        assert.deepEqual(reordered.images.map((image) => image.blockId), [secondId, firstId]);
+        assert.deepEqual(reordered.images.map((image) => image.fileName), ['', '01_existing.png']);
+        assert.deepEqual(reordered.images.map((image) => image.assetOrigin), ['', 'folder']);
+        assert.match(reordered.rawMarkdown, /# 제목 변경/);
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }

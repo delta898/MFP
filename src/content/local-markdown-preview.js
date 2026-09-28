@@ -232,6 +232,7 @@ function buildLocalMarkdownPreview(input = {}, deps = {}) {
     if (usingPastedMarkdown) {
         rawMarkdown = String(input.markdownText || '');
         markdownPath = 'contents.md';
+        directoryPath = directoryPathInput;
         fileName = '붙여넣은 원고';
         folderName = normalizeString(input.folderName) || '붙여넣기';
     } else if (usingSelectedFiles) {

@@ -37,7 +37,8 @@
   line-height: 1.65;
 }
 
-#blog-next-paste-markdown:not([hidden]) {
+#blog-next-paste-markdown:not([hidden]),
+#blog-next-folder-markdown:not([hidden]) {
   width: 100%;
   min-height: 420px;
   height: auto;
@@ -131,7 +132,9 @@
 
 .manuscript-editor-canvas[hidden],
 .manuscript-editor-toolbar[hidden],
-.blog-next-markdown-input[hidden] {
+.blog-next-markdown-input[hidden],
+.manuscript-editor-sticky-rail[hidden],
+.blog-next-draft-source[hidden] {
   display: none;
 }
 

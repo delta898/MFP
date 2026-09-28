@@ -612,7 +612,9 @@ function startFixtureServer(requests) {
                 ? { type: 'generated_quick_post', folderName: '' }
                 : { type: 'local_markdown', folderName: 'browser-manuscript' },
             title: manuscriptDraftTitle,
-            rawMarkdown: `# ${manuscriptDraftTitle}`,
+            rawMarkdown: manuscriptDraftSourceKind === 'folder'
+                ? `# ${manuscriptDraftTitle}\n\n[[IMAGE_0\ntitle: ${manuscriptDraftImages[0]?.title || '첫 이미지'}\nprompt: ${manuscriptDraftImages[0]?.prompt || '푸른 하늘'}\n]]\n\n폴더 본문\n\n[[IMAGE_1\ntitle: ${manuscriptDraftImages[1]?.title || '둘째 이미지'}\nprompt: ${manuscriptDraftImages[1]?.prompt || '초록 숲'}\n]]`
+                : `# ${manuscriptDraftTitle}`,
             bodyPreview: '폴더 본문',
             contentItems: [
                 { type: 'header-h2', text: '폴더 미리보기' },
@@ -1212,6 +1214,21 @@ function startFixtureServer(requests) {
         }
 
         if (url.pathname === `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/settings` && req.method === 'POST') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                manuscriptDraftPostStatus = requestRecord.body.postStatus || manuscriptDraftPostStatus;
+                manuscriptDraftTarget = requestRecord.body.targets?.[0] || manuscriptDraftTarget;
+                manuscriptDraftRevision += 1;
+                requestRecord.responseRevision = manuscriptDraftRevision;
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(JSON.stringify({ success: true, data: buildManuscriptDraftFixture() }));
+            });
+            return;
+        }
+
+        if (url.pathname === `/api/v1/blog/manuscript-drafts/${MANUSCRIPT_DRAFT_ID}/markdown` && req.method === 'POST') {
             const chunks = [];
             req.on('data', (chunk) => chunks.push(chunk));
             req.on('end', () => {
@@ -4429,9 +4446,15 @@ async function run() {
         await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"]').selectOption('publish');
         await page.locator('#blog-next-folder-input').setInputFiles(manuscriptFixtureDir);
         await page.waitForFunction(() => (
-            document.querySelector('[data-blog-next-draft-preview="folder"]')?.hidden === false
-            && document.querySelectorAll('[data-blog-next-draft-preview="folder"] [data-manuscript-image-slot]').length === 2
+            document.querySelector('[data-folder-editor-workspace]')?.hidden === false
+            && document.querySelectorAll('#blog-next-folder-editor .manuscript-image-block').length === 2
         ));
+        assert.equal(await page.locator('#blog-next-folder-markdown').isHidden(), true);
+        await page.locator('[data-folder-workspace-mode="markdown"]').click();
+        assert.equal((await page.locator('#blog-next-folder-markdown').inputValue()).includes('[[IMAGE_1'), true);
+        await page.locator('[data-folder-workspace-mode="view"]').click();
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"]')?.hidden === false);
+        assert.equal(await page.locator('[data-folder-workspace-mode="view"]').getAttribute('aria-pressed'), 'true');
         assert.equal((await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]').textContent())?.trim(), '준비 1/2');
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"]').inputValue(), 'draft');
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"] option[value="publish"]').evaluate((option) => option.disabled), true);
@@ -4490,6 +4513,7 @@ async function run() {
         await page.locator('#blog-next-folder-input').setInputFiles(manuscriptFixtureDir);
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]')?.textContent?.includes('준비 1/2')
           && document.querySelector('[data-blog-next-draft-preview="folder"] [data-manuscript-image-picker]')?.disabled === false);
+        await page.locator('[data-folder-workspace-mode="view"]').click();
         await page.locator('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-details] > summary').click();
         await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-file][data-slot-id="image-1"]').setInputFiles(manuscriptFixtureImage);
         await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="folder"] [data-draft-preview-image-summary]')?.textContent?.includes('2/2'));
@@ -4560,7 +4584,7 @@ async function run() {
         assert.match(await page.locator('#blog-next-paste-markdown').inputValue(), /\[\[IMAGE_0/);
         assert.equal(await page.locator('#blog-next-paste-editor .ProseMirror a').textContent(), '추천 글');
         assert.equal(await page.locator('[data-paste-workspace-mode="block"]').evaluate((button) => button.closest('.manuscript-editor-sticky-rail') !== null), true);
-        assert.equal(await page.locator('.manuscript-editor-sticky-rail').evaluate((rail) => {
+        assert.equal(await page.locator('[data-blog-next-mode-panel="paste"] .manuscript-editor-sticky-rail').evaluate((rail) => {
             const mode = rail.querySelector('.manuscript-editor-mode');
             const toolbar = rail.querySelector('.manuscript-editor-toolbar');
             const buttons = [...mode.querySelectorAll('button')].map((button) => button.getBoundingClientRect());
@@ -4570,7 +4594,7 @@ async function run() {
                 && mode.getBoundingClientRect().right < rail.getBoundingClientRect().right
                 && buttons.every((button) => Math.abs(button.top - buttons[0].top) < 2);
         }), true);
-        assert.equal(await page.locator('.manuscript-editor-mode').evaluate((mode) => getComputedStyle(mode).borderRadius), '9999px');
+        assert.equal(await page.locator('[data-blog-next-mode-panel="paste"] .manuscript-editor-mode').evaluate((mode) => getComputedStyle(mode).borderRadius), '9999px');
         assert.equal(await page.locator('[data-manuscript-command="bold"]').isVisible(), true);
         assert.equal(await page.locator('[data-manuscript-command="bold"]').evaluate((toolbar) => Boolean(
             toolbar.closest('.manuscript-editor-toolbar').compareDocumentPosition(document.querySelector('#blog-next-paste-editor'))
@@ -4638,7 +4662,7 @@ async function run() {
         assert.equal(await page.locator('#blog-next-paste-editor').isVisible(), false);
         assert.equal(await page.locator('[data-manuscript-command="bold"]').isVisible(), false);
         assert.equal(await page.locator('[data-paste-workspace-mode="view"]').isVisible(), true);
-        assert.equal(await page.locator('.manuscript-editor-sticky-rail').evaluate((rail) => {
+        assert.equal(await page.locator('[data-blog-next-mode-panel="paste"] .manuscript-editor-sticky-rail').evaluate((rail) => {
             const mode = rail.querySelector('.manuscript-editor-mode');
             return rail.getBoundingClientRect().right - mode.getBoundingClientRect().right
                 - parseFloat(getComputedStyle(rail).paddingRight) < 2;
@@ -4665,13 +4689,13 @@ async function run() {
         await page.locator('[data-paste-workspace-mode="block"]').click();
         await page.evaluate(() => {
             const main = document.querySelector('.main');
-            const rail = document.querySelector('.manuscript-editor-sticky-rail');
+            const rail = document.querySelector('[data-blog-next-mode-panel="paste"] .manuscript-editor-sticky-rail');
             main.scrollTop = rail.getBoundingClientRect().top + main.scrollTop + 600;
         });
         await page.waitForTimeout(30);
         await page.locator('.main').evaluate((main) => { main.scrollTop += 1200; });
         await page.waitForTimeout(30);
-        const stickyRailPosition = await page.locator('.manuscript-editor-sticky-rail').evaluate((rail) => {
+        const stickyRailPosition = await page.locator('[data-blog-next-mode-panel="paste"] .manuscript-editor-sticky-rail').evaluate((rail) => {
             const main = rail.closest('.main');
             return {
                 top: rail.getBoundingClientRect().top,
@@ -4682,13 +4706,13 @@ async function run() {
         });
         await page.locator('.main').evaluate((main) => { main.scrollTop += 160; });
         await page.waitForTimeout(30);
-        const stickyRailTopAfterMoreScroll = await page.locator('.manuscript-editor-sticky-rail').evaluate((rail) => rail.getBoundingClientRect().top);
+        const stickyRailTopAfterMoreScroll = await page.locator('[data-blog-next-mode-panel="paste"] .manuscript-editor-sticky-rail').evaluate((rail) => rail.getBoundingClientRect().top);
         assert.ok(Math.abs(stickyRailPosition.top - stickyRailPosition.expectedTop) < 3
             && Math.abs(stickyRailTopAfterMoreScroll - stickyRailPosition.top) < 2,
         'sticky toolbar should reach and keep its layout-derived position while scrolling');
         await page.setViewportSize({ width: 700, height: 900 });
         await page.waitForTimeout(40);
-        assert.equal(await page.locator('.manuscript-editor-sticky-rail').evaluate((rail) => {
+        assert.equal(await page.locator('[data-blog-next-mode-panel="paste"] .manuscript-editor-sticky-rail').evaluate((rail) => {
             const main = rail.closest('.main');
             const topbar = document.querySelector('.mobile-topbar');
             const measuredHeight = parseFloat(getComputedStyle(main).getPropertyValue('--mobile-topbar-block-size'));
@@ -4700,7 +4724,7 @@ async function run() {
         assert.equal(await page.locator('[data-paste-workspace-mode="view"]').isVisible(), true);
         await page.locator('[data-paste-workspace-mode="view"]').click();
         assert.equal(await page.locator('[data-paste-workspace-mode="view"]').getAttribute('aria-pressed'), 'true');
-        assert.equal(await page.locator('.manuscript-editor-sticky-rail').evaluate((rail) => {
+        assert.equal(await page.locator('[data-blog-next-mode-panel="paste"] .manuscript-editor-sticky-rail').evaluate((rail) => {
             const mode = rail.querySelector('.manuscript-editor-mode');
             return rail.getBoundingClientRect().right - mode.getBoundingClientRect().right
                 - parseFloat(getComputedStyle(rail).paddingRight) < 2;
