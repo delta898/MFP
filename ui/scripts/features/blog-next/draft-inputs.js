@@ -4,7 +4,7 @@ const BLOG_NEXT_DRAFT_PREVIEW_DELAY_MS = 350;
 const blogNextDraftState = {
   ai: { preview: null, requestId: 0, publishing: false, generating: false, draftId: '', revision: 0, imageWorking: false, imageOperation: null, imageOperationNotice: null, imageSafetyLocked: false, previewSyncFailed: false },
   folder: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, imageObjectUrls: {}, draftId: '', revision: 0, imageWorking: false, imageOperation: null, imageOperationNotice: null, imageSafetyLocked: false, previewSyncFailed: false },
-  paste: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, clearSnapshot: null, draftId: '', revision: 0, imageWorking: false, imageMutationSlotId: '', imageOperation: null, imageOperationNotice: null, imageSafetyLocked: false, previewSyncFailed: false, workspaceMode: 'block', editor: null, previewPromise: null, syncedPreviewKey: '' }
+  paste: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, draftId: '', revision: 0, imageWorking: false, imageMutationSlotId: '', imageOperation: null, imageOperationNotice: null, imageSafetyLocked: false, previewSyncFailed: false, workspaceMode: 'block', editor: null, previewPromise: null, syncedPreviewKey: '' }
 };
 
 function blogNextDraftContainer(type) {
@@ -121,7 +121,7 @@ function syncBlogNextDraftImageSafety(type, preview = null) {
   if (imagePreparationRequired && select.value !== 'draft') select.value = 'draft';
   if (hint) {
     const hintText = imagePreparationRequired
-      ? `이미지 ${unresolvedImageCount}개를 처리해야 발행할 수 있어요. 지금은 임시저장만 가능해요.`
+      ? `미지정 이미지 ${unresolvedImageCount}개가 있습니다. 지금은 임시 저장만 가능합니다.`
       : '';
     if (message) message.textContent = hintText;
     else hint.textContent = hintText;
@@ -129,8 +129,14 @@ function syncBlogNextDraftImageSafety(type, preview = null) {
   }
   if (imageAction) {
     imageAction.hidden = !imagePreparationRequired;
-    const details = document.querySelector(`[data-blog-next-draft-preview="${type}"] [data-draft-preview-image-details]`);
-    if (details?.id) imageAction.setAttribute('aria-controls', details.id);
+    if (type === 'paste') {
+      imageAction.textContent = '이미지 블록으로 이동 ↑';
+      imageAction.setAttribute('aria-controls', 'blog-next-paste-editor');
+    } else {
+      imageAction.textContent = '이미지 처리하기 ↑';
+      const details = document.querySelector(`[data-blog-next-draft-preview="${type}"] [data-draft-preview-image-details]`);
+      if (details?.id) imageAction.setAttribute('aria-controls', details.id);
+    }
   }
   state.imageSafetyLocked = imagePreparationRequired;
   syncBlogNextDraftSchedule(type);
@@ -139,6 +145,20 @@ function syncBlogNextDraftImageSafety(type, preview = null) {
 
 function focusBlogNextDraftImages() {
   const type = document.getElementById('blog-next-publish-settings')?.dataset.blogNextDraftSettings || 'ai';
+  if (type === 'paste') {
+    const modeButton = document.querySelector('[data-paste-workspace-mode="block"]');
+    if (document.querySelector('[data-paste-workspace-mode="block"]')?.getAttribute('aria-pressed') !== 'true') {
+      modeButton?.click();
+    }
+    requestAnimationFrame(() => {
+      const editor = document.getElementById('blog-next-paste-editor');
+      const firstUnassigned = editor?.querySelector('.manuscript-image-block:has(.manuscript-image-block-placeholder)');
+      if (!firstUnassigned) return;
+      firstUnassigned.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      requestAnimationFrame(() => firstUnassigned.querySelector('[aria-label="이미지 생성 프롬프트 편집"]')?.focus({ preventScroll: true }));
+    });
+    return;
+  }
   const details = document.querySelector(`[data-blog-next-draft-preview="${type}"] [data-draft-preview-image-details]`);
   if (!details || details.hidden || details.closest('[hidden]')) return;
   details.open = true;
@@ -453,7 +473,6 @@ async function loadBlogNextDraftPreview(type) {
           if (nextMarkdown !== currentMarkdown) {
             pastedInput.value = nextMarkdown;
             state.editor?.setMarkdown(nextMarkdown);
-            syncBlogNextPastedDraftActions();
           }
         }
         state.syncedPreviewKey = pasteContentChangedDuringRequest ? pasteSyncKey : getBlogNextPasteSyncKey();
@@ -578,33 +597,6 @@ function syncBlogNextFolderSelection(folderName = '') {
   if (select) select.textContent = selected ? '원고 폴더 변경' : '원고 폴더 선택';
 }
 
-function clearBlogNextPastedDraft() {
-  const input = document.getElementById('blog-next-paste-markdown');
-  const currentValue = input?.value || '';
-  if (!currentValue) return;
-  blogNextDraftState.paste.clearSnapshot = currentValue;
-  if (input) input.value = '';
-  localStorage.removeItem('blog_next_pasted_markdown_draft');
-  blogNextDraftState.paste.preview = null;
-  blogNextDraftState.paste.imageOperationNotice = null;
-  blogNextDraftState.paste.syncedPreviewKey = '';
-  blogNextDraftState.paste.requestId += 1;
-  renderBlogNextDraftPreview('paste', null);
-  setBlogNextDraftValidation('paste');
-  syncBlogNextPastedDraftActions();
-  const undo = document.getElementById('blog-next-paste-clear-undo');
-  if (undo) {
-    undo.hidden = false;
-    undo.focus();
-  }
-}
-
-function discardBlogNextPastedClearSnapshot() {
-  blogNextDraftState.paste.clearSnapshot = null;
-  const undo = document.getElementById('blog-next-paste-clear-undo');
-  if (undo) undo.hidden = true;
-}
-
 function resetBlogNextPasteDraftConnection() {
   const state = blogNextDraftState.paste;
   state.draftId = '';
@@ -613,24 +605,6 @@ function resetBlogNextPasteDraftConnection() {
   state.previewSyncFailed = false;
   state.syncedPreviewKey = '';
   state.imageOperationNotice = null;
-}
-
-function syncBlogNextPastedDraftActions() {
-  const input = document.getElementById('blog-next-paste-markdown');
-  const clear = document.getElementById('blog-next-paste-clear');
-  if (clear) clear.hidden = !input?.value;
-}
-
-function restoreBlogNextPastedDraft() {
-  const snapshot = blogNextDraftState.paste.clearSnapshot;
-  const input = document.getElementById('blog-next-paste-markdown');
-  if (!snapshot || !input) return;
-  input.value = snapshot;
-  blogNextDraftState.paste.editor?.setMarkdown(snapshot);
-  discardBlogNextPastedClearSnapshot();
-  syncBlogNextPastedDraftActions();
-  scheduleBlogNextDraftPreview('paste');
-  input.focus();
 }
 
 function bindBlogNextDraftOptions(type) {
@@ -756,21 +730,13 @@ function initBlogNextDraftInputs() {
       editorRoot.hidden = true;
       setBlogNextDraftValidation('paste', { errors: ['원고 편집기를 불러오지 못했습니다. 앱을 다시 시작해 주세요.'] });
     }
-    syncBlogNextPastedDraftActions();
     pastedInput.addEventListener('input', () => {
       resizeBlogNextMarkdownEditor(pastedInput);
-      if (blogNextDraftState.paste.clearSnapshot !== null) {
-        resetBlogNextPasteDraftConnection();
-        discardBlogNextPastedClearSnapshot();
-      }
       if (!pastedInput.value.trim()) resetBlogNextPasteDraftConnection();
-      syncBlogNextPastedDraftActions();
       scheduleBlogNextDraftPreview('paste');
     });
     if (pastedInput.value.trim()) scheduleBlogNextDraftPreview('paste');
   }
-  document.getElementById('blog-next-paste-clear')?.addEventListener('click', clearBlogNextPastedDraft);
-  document.getElementById('blog-next-paste-clear-undo')?.addEventListener('click', restoreBlogNextPastedDraft);
   ['folder', 'paste'].forEach(bindBlogNextDraftOptions);
   document.querySelector('[data-blog-next-draft-publish="ai"]')?.addEventListener('click', () => publishBlogNextDraft('ai'));
 }

@@ -4019,7 +4019,7 @@ async function run() {
         assert.equal(await page.locator('#blog-next-post-status').inputValue(), 'draft');
         assert.equal(await page.locator('#blog-next-post-status option[value="publish"]').evaluate((option) => option.disabled), true);
         assert.equal(await page.locator('#blog-next-post-status option[value="schedule"]').evaluate((option) => option.disabled), true);
-        assert.match((await page.locator('#blog-next-publish-safety-message').textContent()) || '', /이미지 1개를 처리해야 발행할 수 있어요/);
+        assert.match((await page.locator('#blog-next-publish-safety-message').textContent()) || '', /미지정 이미지 1개가 있습니다\. 지금은 임시 저장만 가능합니다\./);
         assert.equal((await page.locator('#blog-next-publish-image-action').textContent())?.trim(), '이미지 처리하기 ↑');
         assert.equal(await page.locator('#blog-next-publish-image-action').isVisible(), true);
         assert.equal((await page.locator('[data-blog-next-draft-publish="ai"]').textContent())?.trim(), '블로그에 임시 저장');
@@ -4436,7 +4436,7 @@ async function run() {
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"]').inputValue(), 'draft');
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"] option[value="publish"]').evaluate((option) => option.disabled), true);
         assert.equal(await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-field="post-status"] option[value="schedule"]').evaluate((option) => option.disabled), true);
-        assert.match((await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-image-safety-hint]').textContent()) || '', /이미지 1개를 처리해야 발행할 수 있어요\. 지금은 임시저장만 가능해요/);
+        assert.match((await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-image-safety-hint]').textContent()) || '', /미지정 이미지 1개가 있습니다\. 지금은 임시 저장만 가능합니다\./);
         await page.evaluate(() => applyUiCapabilityStatus({ setup: {
             ai: { configured: true, image_configured: false },
             google: { configured: true },
@@ -4446,7 +4446,7 @@ async function run() {
         assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-picker]').first().isEnabled(), true);
         assert.equal(await page.locator('[data-blog-next-draft-preview="folder"] [data-manuscript-image-ai-readiness]').evaluate((element) => element.hidden), false);
         assert.equal(await page.locator('[data-blog-next-draft-publish="folder"]').isEnabled(), true);
-        assert.match((await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-image-safety-hint]').textContent()) || '', /이미지 1개를 처리해야 발행할 수 있어요/);
+        assert.match((await page.locator('[data-blog-next-mode-panel="folder"] [data-draft-image-safety-hint]').textContent()) || '', /미지정 이미지 1개가 있습니다\. 지금은 임시 저장만 가능합니다\./);
         await page.evaluate(() => applyUiCapabilityStatus({ setup: {
             ai: { configured: true, image_configured: true },
             google: { configured: true },
@@ -4720,16 +4720,8 @@ async function run() {
         assert.equal(await page.locator('[data-paste-workspace-mode="view"]').getAttribute('aria-pressed'), 'true');
         assert.equal(await page.locator('[data-blog-next-draft-validation="paste"]').isHidden(), true);
         assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-body] a[href="https://example.com/related"]').textContent(), '추천 글');
-        await page.locator('#blog-next-paste-clear').click();
-        assert.equal(await page.locator('#blog-next-paste-markdown').inputValue(), '');
-        assert.equal(await page.locator('#blog-next-paste-clear-undo').isVisible(), true);
-        assert.equal(await page.locator('#blog-next-paste-clear-undo').evaluate((element) => element === document.activeElement), true);
-        await page.locator('#blog-next-paste-clear-undo').click();
-        assert.equal((await page.locator('#blog-next-paste-markdown').inputValue()).startsWith('# 붙여넣은 원고'), true);
-        await page.waitForFunction(() => (
-            document.querySelector('[data-blog-next-draft-preview="paste"]')?.hidden === false
-            && document.querySelector('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-summary]')?.textContent?.includes('준비 0/1')
-        ));
+        assert.equal(await page.locator('#blog-next-paste-clear').count(), 0);
+        assert.equal(await page.locator('#blog-next-paste-clear-undo').count(), 0);
         assert.equal((await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-title]').textContent())?.trim(), '붙여넣은 원고');
         assert.equal((await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-body] h2').first().textContent())?.trim(), '미리보기 소제목');
         assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] .local-markdown-image-card').count(), 1);
@@ -4738,11 +4730,13 @@ async function run() {
         assert.equal(await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-field="post-status"]').inputValue(), 'draft');
         assert.equal(await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-field="post-status"] option[value="publish"]').evaluate((option) => option.disabled), true);
         assert.equal(await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-field="post-status"] option[value="schedule"]').evaluate((option) => option.disabled), true);
-        assert.match((await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-image-safety-hint]').textContent()) || '', /이미지 1개를 처리해야 발행할 수 있어요\. 지금은 임시저장만 가능해요/);
-        assert.equal(await page.locator('#blog-next-publish-image-action').getAttribute('aria-controls'), 'blog-next-paste-draft-images');
+        assert.match((await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-image-safety-hint]').textContent()) || '', /미지정 이미지 1개가 있습니다\. 지금은 임시 저장만 가능합니다\./);
+        assert.equal((await page.locator('#blog-next-publish-image-action').textContent())?.trim(), '이미지 블록으로 이동 ↑');
+        assert.equal(await page.locator('#blog-next-publish-image-action').getAttribute('aria-controls'), 'blog-next-paste-editor');
         await page.locator('#blog-next-publish-image-action').click();
-        assert.equal(await page.locator('#blog-next-paste-draft-images').evaluate((element) => element.open), true);
-        await page.locator('#blog-next-paste-draft-images > summary').click();
+        assert.equal(await page.locator('[data-paste-workspace-mode="block"]').getAttribute('aria-pressed'), 'true');
+        await page.waitForFunction(() => document.querySelector('#blog-next-paste-editor .manuscript-image-block .manuscript-image-block-placeholder'));
+        await page.waitForFunction(() => document.querySelector('#blog-next-paste-editor .manuscript-image-block [aria-label="이미지 생성 프롬프트 편집"]') === document.activeElement);
         if (!await page.locator('[data-blog-next-draft-settings="paste"]').evaluate((element) => element.open)) {
             await page.locator('[data-blog-next-draft-settings="paste"] > summary').click();
         }
@@ -4753,6 +4747,8 @@ async function run() {
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
         assert.doesNotMatch((await page.locator('#ui-dialog-message').textContent()) || '', /AI로 생성합니다/);
         await page.locator('#ui-dialog-cancel').click();
+        await page.locator('[data-paste-workspace-mode="view"]').click();
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="paste"]')?.hidden === false);
         if (!await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-details]').evaluate((element) => element.open)) {
             await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-image-details] > summary').click();
         }
@@ -4776,7 +4772,8 @@ async function run() {
         assert.equal(preparedPastePublishRequest?.body?.revision, lastPasteDraftMutation?.responseRevision);
         await page.evaluate(() => document.querySelectorAll('.app-celebration').forEach((element) => element.remove()));
         assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] [data-manuscript-image-picker]').first().isEnabled(), true);
-        await page.locator('#blog-next-paste-clear').click();
+        await page.locator('[data-paste-workspace-mode="markdown"]').click();
+        await page.locator('#blog-next-paste-markdown').fill('');
         await page.locator('[data-paste-workspace-mode="block"]').click();
         await page.locator('#blog-next-paste-editor .ProseMirror').click();
         await page.evaluate((markdown) => {
