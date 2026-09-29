@@ -87,7 +87,7 @@ test('topic recommendation continuation is explicit and uses user-facing languag
 
     assert.match(stateSource, /smartUsage:\s*null/);
     assert.doesNotMatch(modalFunction, /quickTopicRecommendationState\.smartUsageSessionId\s*=/);
-    assert.match(source, /return quickTopicNeedsAnotherUse\(\) \? '계속 추천받기'/);
+    assert.match(source, /function getQuickTopicRefreshLabel\(\) \{\s*return '글감 추천';\s*\}/);
     assert.match(source, /추천을 만들지 못하면 횟수는 사용되지 않습니다/);
     assert.match(source, /한 번 더 새로운 글감을 받아볼 수 있어요/);
     assert.match(source, /새 추천을 준비하고 있어요/);
