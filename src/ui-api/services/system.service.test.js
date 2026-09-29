@@ -69,7 +69,8 @@ test('config status exposes setup guidance without requiring a license lookup', 
         google: {
             configured: false,
             account_connected: false,
-            spreadsheet_configured: false
+            spreadsheet_configured: false,
+            transition_required: false
         },
         publishing_channel: {
             configured: false,
@@ -87,6 +88,7 @@ test('config status reports completed setup from local configuration and OAuth s
             CONFIG_IS_NAVER_SET: true,
             CONFIG_IS_WP_SET: false,
             GOOGLE_SHEET_URL: 'https://docs.google.com/spreadsheets/d/example',
+            GOOGLE_SHEET_AUTHORIZED_FILE_ID: 'example',
             TEXT_MODEL: 'configured-model',
             TEXT_MODEL_API_KEY: 'configured-key'
         },
@@ -98,6 +100,25 @@ test('config status reports completed setup from local configuration and OAuth s
     assert.equal(status.setup.ready, true);
     assert.equal(status.setup.google.configured, true);
     assert.equal(status.setup.publishing_channel.naver_configured, true);
+});
+
+test('config status keeps a legacy Spreadsheet pending until its file is reselected', async () => {
+    const service = createService([], {
+        CONFIG: {
+            CONFIG_READY: true,
+            CONFIG_IS_NAVER_SET: true,
+            GOOGLE_SHEET_URL: 'https://docs.google.com/spreadsheets/d/legacy-file',
+            TEXT_MODEL: 'configured-model',
+            TEXT_MODEL_API_KEY: 'configured-key'
+        },
+        peekGoogleOauthStatus: () => ({ state: 'connected_cached', connected: true })
+    });
+
+    const status = await service.getConfigStatus();
+
+    assert.equal(status.setup.google.spreadsheet_configured, false);
+    assert.equal(status.setup.google.transition_required, true);
+    assert.equal(status.setup.ready, false);
 });
 
 test('log file APIs read the same runtime directory used by the Electron logger', async () => {

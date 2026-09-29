@@ -3,6 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
@@ -44,6 +45,47 @@ test('Google OAuth configuration reports missing app inputs without contacting R
     const status = inspectConfiguration();
     assert.equal(status.configured, false);
     assert.deepEqual(status.missing, ['client_id', 'client_secret']);
+});
+
+test('default Google OAuth authorization is limited to drive.file', () => {
+    const env = { ...process.env };
+    Object.assign(env, {
+        BLOGGENIUS_ENV: 'local',
+        BLOGGENIUS_RUNTIME_ROOT: REPO_ROOT,
+        GOOGLE_OAUTH_CLIENT_ID: 'desktop-client-id',
+        GOOGLE_OAUTH_CLIENT_SECRET: 'desktop-client-secret',
+        GOOGLE_OAUTH_TOKENS_JSON_PATH: path.join(os.tmpdir(), 'google-default-scope-test-tokens.json')
+    });
+    const result = spawnSync(process.execPath, ['-e', [
+        "const oauth = require('./src/google-oauth');",
+        "process.stdout.write(oauth.buildAuthUrl({ redirectUri: 'http://127.0.0.1:43127/callback' }).authUrl);"
+    ].join(' ')], { cwd: REPO_ROOT, env, encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    const url = new URL(result.stdout);
+    assert.equal(url.searchParams.get('scope'), 'https://www.googleapis.com/auth/drive.file');
+    assert.doesNotMatch(url.searchParams.get('scope'), /spreadsheets/);
+});
+
+test('Picker OAuth requests only drive.file and enables spreadsheet selection', () => {
+    const env = { ...process.env };
+    Object.assign(env, {
+        BLOGGENIUS_ENV: 'local',
+        BLOGGENIUS_RUNTIME_ROOT: REPO_ROOT,
+        GOOGLE_OAUTH_CLIENT_ID: 'desktop-client-id',
+        GOOGLE_OAUTH_CLIENT_SECRET: 'desktop-client-secret',
+        GOOGLE_OAUTH_TOKENS_JSON_PATH: path.join(os.tmpdir(), 'google-picker-test-tokens.json')
+    });
+    const result = spawnSync(process.execPath, ['-e', [
+        "const oauth = require('./src/google-oauth');",
+        "const auth = oauth.buildAuthUrl({ redirectUri: 'http://127.0.0.1:43127/callback', scopes: ['https://www.googleapis.com/auth/drive.file'], picker: true, includeGrantedScopes: false });",
+        'process.stdout.write(auth.authUrl);'
+    ].join(' ')], { cwd: REPO_ROOT, env, encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    const url = new URL(result.stdout);
+    assert.equal(url.searchParams.get('scope'), 'https://www.googleapis.com/auth/drive.file');
+    assert.equal(url.searchParams.get('include_granted_scopes'), null);
+    assert.equal(url.searchParams.get('trigger_onepick'), 'true');
+    assert.equal(url.searchParams.get('mimetypes'), 'application/vnd.google-apps.spreadsheet');
 });
 
 test('Google OAuth consumers never fetch app credentials from Runtime Config', () => {

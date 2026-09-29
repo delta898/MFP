@@ -464,6 +464,8 @@ const CONFIG = {
     GOOGLE_OAUTH_TOKENS_JSON_PATH: googleOauthTokensPath,
     GOOGLE_SHEET_URL: resolvedSheetUrl,
     GOOGLE_SHEET_ID: resolvedSheetId,
+    GOOGLE_SHEET_TITLE: String(structuredConfig.general?.google_sheet_title || ''),
+    GOOGLE_SHEET_AUTHORIZED_FILE_ID: String(structuredConfig.general?.google_sheet_authorized_file_id || ''),
     LISTEN_HOST: structuredConfig.general?.listen_host || '127.0.0.1',
     LISTEN_PORT: structuredConfig.general?.listen_port || 4577,
     WORKSPACE_DIR: resolvedWorkspaceDir,

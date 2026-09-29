@@ -382,6 +382,46 @@
   min-width: 132px;
 }
 
+.settings-next-sheet-current {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-3);
+  min-height: 44px;
+  padding: 0 var(--ui-space-4);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface-muted);
+}
+
+.settings-next-sheet-current strong {
+  overflow: hidden;
+  color: var(--ui-text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-next-sheet-current strong[data-empty="true"] {
+  color: var(--ui-text-secondary);
+  font-weight: 500;
+}
+
+.settings-next-sheet-migration-note {
+  min-height: 0;
+  overflow: visible;
+  white-space: normal;
+  color: var(--ui-status-warning);
+  line-height: var(--ui-line-height-body);
+}
+
+.settings-next-sheet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--ui-space-3);
+  margin-top: var(--ui-space-4);
+}
+
 @media (max-width: 768px) {
   .settings-next-panel-intro,
   .settings-next-local-nav-row,
@@ -421,6 +461,14 @@
   }
 
   .settings-next-input-action button {
+    width: 100%;
+  }
+
+  .settings-next-sheet-actions {
+    flex-direction: column;
+  }
+
+  .settings-next-sheet-actions button {
     width: 100%;
   }
 

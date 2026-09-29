@@ -8,10 +8,6 @@ const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
 const DEFAULT_SCOPES = [
-    'openid',
-    'email',
-    'profile',
-    'https://www.googleapis.com/auth/spreadsheets',
     'https://www.googleapis.com/auth/drive.file'
 ];
 const STATE_TTL_MS = 10 * 60 * 1000;
@@ -113,6 +109,7 @@ function buildAuthUrl(options = {}) {
     const normalizedScopes = normalizeScopes(options.scopes || []);
     pendingStates.set(state, {
         scopes: normalizedScopes,
+        picker: options.picker === true,
         redirectUri,
         codeVerifier: pkce.verifier,
         createdAt: Date.now()
@@ -123,12 +120,16 @@ function buildAuthUrl(options = {}) {
         response_type: 'code',
         scope: normalizedScopes.join(' '),
         access_type: 'offline',
-        include_granted_scopes: 'true',
         prompt: 'consent',
         code_challenge: pkce.challenge,
         code_challenge_method: 'S256',
         state
     });
+    if (options.includeGrantedScopes !== false) params.set('include_granted_scopes', 'true');
+    if (options.picker === true) {
+        params.set('trigger_onepick', 'true');
+        params.set('mimetypes', 'application/vnd.google-apps.spreadsheet');
+    }
     return {
         authUrl: `${GOOGLE_AUTH_URL}?${params.toString()}`,
         redirectUri,
@@ -171,12 +172,14 @@ async function exchangeCode(code, state) {
         throw new Error(`Google 토큰 교환 실패: ${describeAxiosError(error)}`);
     }
     const tokenData = tokenResponse.data || {};
-    const userInfo = await fetchUserInfo(tokenData.access_token);
+    const previousTokens = readTokens() || {};
+    const needsUserInfo = pending.scopes.some((scope) => ['openid', 'email', 'profile'].includes(scope));
+    const userInfo = needsUserInfo ? await fetchUserInfo(tokenData.access_token) : {};
     const nextTokens = {
         provider: 'google',
-        connected_email: String(userInfo.email || ''),
+        connected_email: String(userInfo.email || previousTokens.connected_email || ''),
         access_token: String(tokenData.access_token || ''),
-        refresh_token: String(tokenData.refresh_token || ''),
+        refresh_token: String(tokenData.refresh_token || previousTokens.refresh_token || ''),
         expiry_date: Date.now() + Number(tokenData.expires_in || 0) * 1000,
         scope: String(tokenData.scope || pending.scopes.join(' ')),
         token_type: String(tokenData.token_type || 'Bearer'),
@@ -303,15 +306,16 @@ function peekStatus() {
     }
 }
 
-function renderCallbackHtml({ success, message = '', email = '' }) {
+function renderCallbackHtml({ success, message = '', email = '', pickerFileId = '', source = 'google-oauth' }) {
     const title = success ? 'Google 연결 완료' : 'Google 연결 실패';
     const description = success
         ? `${email ? `${email} 계정으로 ` : ''}연결이 완료되었습니다. 이 창을 닫고 앱으로 돌아가세요.`
         : `연결 처리 중 오류가 발생했습니다. ${message}`.trim();
     const payload = JSON.stringify({
-        source: 'google-oauth',
+        source: String(source || 'google-oauth'),
         status: success ? 'success' : 'error',
         email: String(email || ''),
+        pickerFileId: String(pickerFileId || ''),
         message: String(message || '')
     });
     return `<!doctype html>

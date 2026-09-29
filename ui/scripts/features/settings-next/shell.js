@@ -15,7 +15,8 @@ let settingsNextLoaded = false;
 let settingsNextLoading = false;
 let settingsNextRefreshBusy = false;
 let settingsNextGoogleBusy = false;
-let settingsNextGoogleBusyAction = '';
+let settingsNextGoogleFlowId = '';
+let settingsNextGoogleFlowAction = '';
 let settingsNextAccountOverviewError = false;
 const settingsNextDirtyScopes = new Set();
 const settingsNextBusyScopes = new Set();
@@ -138,7 +139,11 @@ function settingsNextActivateAppTab(tabName) {
 
 function settingsNextScopeValues(scope) {
   if (scope === 'content') {
-    return { GOOGLE_SHEET_URL: String(document.getElementById('settings-next-google-sheet-url')?.value || '').trim() };
+    return {
+      GOOGLE_SHEET_URL: String(document.getElementById('settings-next-google-sheet-url')?.value || '').trim(),
+      GOOGLE_SHEET_TITLE: String(document.getElementById('settings-next-google-sheet-title')?.value || '').trim(),
+      GOOGLE_SHEET_AUTHORIZED_FILE_ID: String(document.getElementById('settings-next-google-sheet-authorized-id')?.value || '').trim()
+    };
   }
   if (scope === 'naver') {
     return { NAVER_ID: String(document.getElementById('settings-next-naver-id')?.value || '').trim() };
@@ -155,7 +160,11 @@ function settingsNextScopeValues(scope) {
 }
 
 function settingsNextSavedScopeValues(scope) {
-  if (scope === 'content') return { GOOGLE_SHEET_URL: String(settingsNextMajorFields.GOOGLE_SHEET_URL || '').trim() };
+  if (scope === 'content') return {
+    GOOGLE_SHEET_URL: String(settingsNextMajorFields.GOOGLE_SHEET_URL || '').trim(),
+    GOOGLE_SHEET_TITLE: String(settingsNextMajorFields.GOOGLE_SHEET_TITLE || '').trim(),
+    GOOGLE_SHEET_AUTHORIZED_FILE_ID: String(settingsNextMajorFields.GOOGLE_SHEET_AUTHORIZED_FILE_ID || '').trim()
+  };
   if (scope === 'naver') return { NAVER_ID: String(settingsNextMajorFields.NAVER_ID || '').trim() };
   if (scope === 'wordpress') {
     return {
@@ -180,17 +189,28 @@ function settingsNextUpdateSaveUi(scope) {
   const busy = settingsNextBusyScopes.has(scope);
   const busyAction = settingsNextBusyActionByScope.get(scope) || '';
   if (scope === 'content') {
-    const button = document.getElementById('settings-next-content-save');
     const openButton = document.getElementById('settings-next-open-google-sheet');
-    const hasValidUrl = settingsNextHasValidSheetUrl(settingsNextScopeValues('content').GOOGLE_SHEET_URL);
-    const googleConnected = String(settingsNextGoogleStatus?.state || '').trim().toLowerCase() === 'connected';
-    if (button) {
-      button.disabled = !hasValidUrl || busy || (!googleConnected && !dirty);
-      button.textContent = busy
-        ? (googleConnected ? '접근 확인 중...' : '주소 적용 중...')
-        : (googleConnected ? '접근 확인' : '주소 적용');
-    }
+    const createButton = document.getElementById('settings-next-google-sheet-create');
+    const pickerButton = document.getElementById('settings-next-google-sheet-pick');
+    const sheetUrl = String(document.getElementById('settings-next-google-sheet-url')?.value || '').trim();
+    const sheetId = settingsNextExtractSheetId(sheetUrl);
+    const authorizedId = String(document.getElementById('settings-next-google-sheet-authorized-id')?.value || '').trim();
+    const transitionNeeded = Boolean(sheetId && authorizedId !== sheetId);
     if (openButton) openButton.disabled = busy;
+    if (createButton) {
+      const canCancel = settingsNextGoogleBusy && settingsNextGoogleFlowId && settingsNextGoogleFlowAction === 'create-sheet';
+      createButton.disabled = busy || (settingsNextGoogleBusy && !canCancel);
+      createButton.textContent = canCancel ? '인증 취소' : '새 파일 생성';
+      createButton.classList.toggle('primary', !transitionNeeded);
+      createButton.classList.toggle('secondary', transitionNeeded);
+    }
+    if (pickerButton) {
+      const canCancel = settingsNextGoogleBusy && settingsNextGoogleFlowId && settingsNextGoogleFlowAction === 'pick-sheet';
+      pickerButton.disabled = busy || (settingsNextGoogleBusy && !canCancel);
+      pickerButton.textContent = canCancel ? '인증 취소' : (transitionNeeded ? '전환' : '기존 파일 선택');
+      pickerButton.classList.toggle('primary', transitionNeeded);
+      pickerButton.classList.toggle('secondary', !transitionNeeded);
+    }
   }
   if (scope === 'naver') {
     const button = document.getElementById('settings-next-naver-login');
@@ -233,22 +253,13 @@ function settingsNextSetRefreshBusy(busy) {
   settingsNextSyncRefreshAvailability();
 }
 
-function settingsNextSetGoogleBusy(busy, action = '') {
+function settingsNextSetGoogleBusy(busy) {
   settingsNextGoogleBusy = busy;
-  settingsNextGoogleBusyAction = busy ? action : '';
-  const section = document.getElementById('settings-next-google-section');
-  if (section) section.setAttribute('aria-busy', busy ? 'true' : 'false');
-  const labels = {
-    'settings-next-google-connect': ['connect', 'Google 계정 연결', '연결 중...'],
-    'settings-next-google-test': ['test', '연결 확인', '연결 확인 중...'],
-    'settings-next-google-disconnect': ['disconnect', '연결 해제', '연결 해제 중...']
-  };
-  Object.entries(labels).forEach(([id, [buttonAction, idleLabel, busyLabel]]) => {
-    const button = document.getElementById(id);
-    if (!button) return;
-    button.disabled = busy;
-    button.textContent = busy && settingsNextGoogleBusyAction === buttonAction ? busyLabel : idleLabel;
-  });
+  if (!busy) {
+    settingsNextGoogleFlowId = '';
+    settingsNextGoogleFlowAction = '';
+  }
+  settingsNextUpdateSaveUi('content');
   settingsNextSyncRefreshAvailability();
 }
 
@@ -270,7 +281,12 @@ function settingsNextApplyMajorFields(data = {}) {
   settingsNextMajorFields = { ...(data?.fields || data || {}) };
   if (!settingsNextDirtyScopes.has('content')) {
     const input = document.getElementById('settings-next-google-sheet-url');
+    const titleInput = document.getElementById('settings-next-google-sheet-title');
+    const authorizedId = document.getElementById('settings-next-google-sheet-authorized-id');
     if (input) input.value = String(settingsNextMajorFields.GOOGLE_SHEET_URL || '');
+    if (titleInput) titleInput.value = String(settingsNextMajorFields.GOOGLE_SHEET_TITLE || '');
+    if (authorizedId) authorizedId.value = String(settingsNextMajorFields.GOOGLE_SHEET_AUTHORIZED_FILE_ID || '');
+    settingsNextRenderSheetSelection();
   }
   if (!settingsNextDirtyScopes.has('naver')) {
     const input = document.getElementById('settings-next-naver-id');
@@ -297,6 +313,39 @@ function settingsNextApplyMajorFields(data = {}) {
   settingsNextRenderReadiness();
 }
 
+function settingsNextRenderSheetSelection() {
+  const url = String(document.getElementById('settings-next-google-sheet-url')?.value || '').trim();
+  const title = String(document.getElementById('settings-next-google-sheet-title')?.value || '').trim();
+  const sheetId = settingsNextExtractSheetId(url);
+  const authorizedId = String(document.getElementById('settings-next-google-sheet-authorized-id')?.value || '').trim();
+  const migrationNeeded = Boolean(sheetId && authorizedId !== sheetId);
+  const label = document.getElementById('settings-next-google-sheet-label');
+  if (label) label.textContent = migrationNeeded ? '전환할 기존 Spreadsheet' : '연결된 Spreadsheet';
+  const name = document.getElementById('settings-next-google-sheet-name');
+  if (name) {
+    name.textContent = title || (url ? '기존 URL로 연결된 Spreadsheet' : '연결된 파일 없음');
+    name.dataset.empty = url ? 'false' : 'true';
+  }
+  const openButton = document.getElementById('settings-next-open-google-sheet');
+  if (openButton) {
+    openButton.hidden = !url;
+    openButton.textContent = migrationNeeded ? '기존 파일 열기 ↗' : '열기 ↗';
+  }
+  const migration = document.getElementById('settings-next-google-sheet-migration');
+  if (migration) {
+    migration.hidden = !migrationNeeded;
+    migration.textContent = migrationNeeded
+      ? '기존 파일을 다시 선택하면 전환됩니다. 같은 파일을 선택하면 내용은 바뀌지 않습니다.'
+      : '';
+  }
+  const detail = document.getElementById('settings-next-google-sheet-detail');
+  if (detail) {
+    detail.hidden = migrationNeeded;
+    detail.textContent = '새 파일은 내 Drive의 BlogGenius 폴더에 오늘 날짜 이름으로 생성됩니다.';
+  }
+  settingsNextUpdateSaveUi('content');
+}
+
 function settingsNextConnectionState(connection) {
   const state = String(connection?.status || '').trim().toLowerCase();
   return {
@@ -307,49 +356,36 @@ function settingsNextConnectionState(connection) {
 }
 
 function settingsNextRenderReadiness() {
-  const googleState = String(settingsNextGoogleStatus?.state || '').trim().toLowerCase();
-  const googleConnected = googleState === 'connected';
-  const googleReadiness = document.getElementById('settings-next-google-readiness');
-  const googleDot = googleReadiness?.closest('.ui-settings-readiness-card')?.querySelector('.settings-next-status-dot');
-  settingsNextSetText(
-    'settings-next-google-readiness',
-    googleState === 'error'
-      ? '상태 확인 실패'
-      : (googleConnected ? '연결됨' : '연결 필요')
-  );
-  settingsNextSetDot(
-    googleDot,
-    googleState === 'error'
-      ? 'danger'
-      : (googleConnected ? 'success' : (googleState === 'reauth_required' ? 'warning' : 'danger'))
-  );
-
   const sheet = settingsNextConnectionState(settingsNextAccountOverview?.connections?.google_sheets);
   const sheetUrl = String(settingsNextMajorFields.GOOGLE_SHEET_URL || '').trim();
+  const sheetId = settingsNextExtractSheetId(sheetUrl);
+  const authorizedId = String(settingsNextMajorFields.GOOGLE_SHEET_AUTHORIZED_FILE_ID || '').trim();
+  const migrationNeeded = Boolean(sheetId && authorizedId !== sheetId);
   const hasSheetUrl = Boolean(sheetUrl);
-  const localVerification = settingsNextSheetVerification?.url === sheetUrl ? settingsNextSheetVerification : null;
+  const localVerification = settingsNextSheetVerification?.spreadsheetId === sheetId ? settingsNextSheetVerification : null;
   const sheetAccessible = localVerification?.success === true || (!localVerification && sheet.connected);
   const sheetFailed = localVerification?.success === false;
   const sheetReadiness = document.getElementById('settings-next-sheet-readiness');
   const sheetDot = sheetReadiness?.closest('.ui-settings-readiness-card')?.querySelector('.settings-next-status-dot');
   settingsNextSetText(
     'settings-next-sheet-readiness',
-    settingsNextAccountOverviewError && !settingsNextAccountOverview
+    migrationNeeded ? '전환할 Spreadsheet를 한 번 선택해 주세요'
+      : settingsNextAccountOverviewError && !settingsNextAccountOverview
       ? '상태 확인 실패'
       : (sheetAccessible ? '접근 가능' : (sheetFailed ? '접근 확인 실패' : (hasSheetUrl ? '접근 확인 필요' : '주소 필요')))
   );
   settingsNextSetDot(
     sheetDot,
-    settingsNextAccountOverviewError && !settingsNextAccountOverview
+    migrationNeeded ? 'warning'
+      : settingsNextAccountOverviewError && !settingsNextAccountOverview
       ? 'danger'
       : (sheetAccessible ? 'success' : (sheetFailed ? 'danger' : (hasSheetUrl ? 'warning' : 'danger')))
   );
   settingsNextSetStatus(
     'settings-next-content-status',
-    sheetAccessible ? '접근 가능' : (sheetFailed ? '확인 실패' : (hasSheetUrl ? '확인 필요' : '주소 필요')),
-    sheetAccessible ? 'success' : (sheetFailed ? 'danger' : (hasSheetUrl ? 'warning' : 'neutral'))
+    migrationNeeded ? '전환 필요' : (sheetAccessible ? '접근 가능' : (sheetFailed ? '확인 실패' : (hasSheetUrl ? '확인 필요' : '연결 필요'))),
+    migrationNeeded ? 'warning' : (sheetAccessible ? 'success' : (sheetFailed ? 'danger' : (hasSheetUrl ? 'warning' : 'neutral')))
   );
-
   const wordpress = settingsNextConnectionState(settingsNextAccountOverview?.connections?.wordpress);
   const wordpressConfigured = Boolean(settingsNextMajorFields.WORDPRESS_URL
     && settingsNextMajorFields.WORDPRESS_USER_ID
@@ -388,25 +424,11 @@ function settingsNextRenderReadiness() {
 
 function settingsNextRenderGoogleStatus(data = {}) {
   settingsNextGoogleStatus = data;
-  const state = String(data?.state || '').trim().toLowerCase();
-  const connected = state === 'connected';
-  const email = String(data?.connectedEmail || data?.email || '').trim();
-  settingsNextSetStatus(
-    'settings-next-google-status',
-    connected ? '연결됨' : (state === 'reauth_required' ? '다시 로그인 필요' : (state === 'error' ? '확인 실패' : '미연결')),
-    connected ? 'success' : (state === 'reauth_required' ? 'warning' : (state === 'error' ? 'danger' : 'neutral'))
-  );
-  settingsNextSetText(
-    'settings-next-google-detail',
-    connected ? `연결 계정: ${email || '확인됨'}` : (data?.message || 'Google 계정을 연결하면 현재 계정 권한으로 Spreadsheet에 접근합니다.')
-  );
-  const connect = document.getElementById('settings-next-google-connect');
-  const test = document.getElementById('settings-next-google-test');
-  const disconnect = document.getElementById('settings-next-google-disconnect');
-  if (connect) connect.hidden = connected;
-  if (test) test.hidden = !connected;
-  if (disconnect) disconnect.hidden = !connected;
   settingsNextRenderReadiness();
+}
+
+function settingsNextExtractSheetId(value = '') {
+  return String(value || '').match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/i)?.[1] || '';
 }
 
 function settingsNextRenderNaverStatus(data = {}) {
@@ -537,91 +559,111 @@ async function settingsNextSaveScope(scope) {
   }
 }
 
-async function settingsNextTestGoogle({ feedbackId = 'settings-next-google-feedback', ownerScope = '' } = {}) {
-  if (settingsNextGoogleBusy) return false;
-  settingsNextSetGoogleBusy(true, 'test');
-  if (ownerScope) settingsNextSetScopeBusy(ownerScope, true, 'verify');
-  settingsNextSetFeedback(feedbackId, '');
-  try {
-    const result = await postJson('/api/v1/google-oauth/test', {});
-    settingsNextSetFeedback(feedbackId, '');
-    void settingsNextLoadStatuses({ force: true });
-    return result;
-  } catch (error) {
-    settingsNextSetFeedback(feedbackId, error.message || '연결을 확인하지 못했습니다.', 'danger');
-    void settingsNextLoadStatuses({ force: true });
-    return null;
-  } finally {
-    if (ownerScope) settingsNextSetScopeBusy(ownerScope, false);
-    settingsNextSetGoogleBusy(false);
-  }
+async function settingsNextApplySpreadsheetSelection(file) {
+  const url = String(file?.spreadsheetUrl || '').trim();
+  const title = String(file?.title || '').trim();
+  const fileId = String(file?.spreadsheetId || file?.fileId || settingsNextExtractSheetId(url)).trim();
+  const urlInput = document.getElementById('settings-next-google-sheet-url');
+  const titleInput = document.getElementById('settings-next-google-sheet-title');
+  const authorizedIdInput = document.getElementById('settings-next-google-sheet-authorized-id');
+  if (!url || !title || !fileId || !urlInput || !titleInput || !authorizedIdInput) throw new Error('선택한 Spreadsheet 정보를 확인하지 못했습니다.');
+  urlInput.value = url;
+  titleInput.value = title;
+  authorizedIdInput.value = fileId;
+  settingsNextRenderSheetSelection();
+  settingsNextSyncScopeDirty('content');
+  if (!await settingsNextSaveScope('content')) return false;
+  const verifiedTitle = title;
+  titleInput.value = verifiedTitle;
+  settingsNextMajorFields.GOOGLE_SHEET_TITLE = verifiedTitle;
+  settingsNextMajorFields.GOOGLE_SHEET_AUTHORIZED_FILE_ID = fileId;
+  settingsNextSheetVerification = { spreadsheetId: fileId, success: true, title: verifiedTitle };
+  settingsNextRenderSheetSelection();
+  settingsNextRenderReadiness();
+  settingsNextSetFeedback('settings-next-content-feedback', `연결 완료 · ${verifiedTitle}`, 'success');
+  return true;
 }
 
-async function settingsNextStartGoogleOauth() {
-  if (settingsNextGoogleBusy) return;
-  settingsNextSetGoogleBusy(true, 'connect');
-  settingsNextSetFeedback('settings-next-google-feedback', '브라우저에서 Google 로그인을 진행해 주세요.');
-  try {
-    const data = await postJson('/api/v1/google-oauth/start', {});
-    if (!data?.authUrl) throw new Error('Google 인증 URL을 만들지 못했습니다.');
-    const popup = window.open(data.authUrl, 'google-oauth-login', 'width=620,height=760');
-    if (!popup) throw new Error('브라우저 팝업을 열지 못했습니다. 팝업 차단을 확인해 주세요.');
-    let connected = null;
-    for (let attempt = 0; attempt < 60; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      const status = await fetchJson('/api/v1/google-oauth/status').catch(() => null);
-      if (String(status?.state || '').trim().toLowerCase() === 'connected') {
-        connected = status;
-        break;
-      }
+async function settingsNextWaitForGoogleFlow(flowId) {
+  while (settingsNextGoogleBusy && settingsNextGoogleFlowId === flowId) {
+    const flow = await fetchJson(`/api/v1/google-oauth/flows/${encodeURIComponent(flowId)}`);
+    if (flow?.status === 'pending') {
+      await new Promise((resolve) => setTimeout(resolve, 900));
+      continue;
     }
-    if (!connected) throw new Error('로그인 완료를 확인하지 못했습니다. 새로고침으로 다시 확인해 주세요.');
-    settingsNextRenderGoogleStatus(connected);
-    settingsNextSetFeedback('settings-next-google-feedback', '');
-    void settingsNextLoadStatuses({ force: true });
-  } catch (error) {
-    settingsNextSetFeedback('settings-next-google-feedback', error.message || 'Google 계정을 연결하지 못했습니다.', 'danger');
-  } finally {
-    settingsNextSetGoogleBusy(false);
+    if (flow?.status === 'success') return flow;
+    const error = new Error(flow?.message || (flow?.status === 'cancelled' ? '인증을 취소했습니다.' : 'Google 인증을 완료하지 못했습니다.'));
+    error.cancelled = flow?.status === 'cancelled' || flow?.status === 'expired';
+    throw error;
   }
+  const error = new Error('인증을 취소했습니다.');
+  error.cancelled = true;
+  throw error;
 }
 
-async function settingsNextDisconnectGoogle() {
-  if (settingsNextGoogleBusy) return;
-  const confirmed = await showUiConfirm('Google 계정 연결을 해제할까요? 연결을 해제하면 Spreadsheet를 사용하는 기능이 중단됩니다.', {
-    title: 'Google 계정 연결 해제',
-    confirmText: '연결 해제',
-    cancelText: '취소'
-  });
-  if (!confirmed) return;
-  settingsNextSetGoogleBusy(true, 'disconnect');
-  settingsNextSetFeedback('settings-next-google-feedback', '');
+async function settingsNextStartGoogleFlow(mode, action) {
+  const data = await postJson('/api/v1/google-oauth/start', { mode });
+  const flowId = String(data?.flowId || '').trim();
+  if (!flowId) throw new Error('Google 인증 요청을 시작하지 못했습니다. 다시 시도해 주세요.');
+  settingsNextGoogleFlowId = flowId;
+  settingsNextGoogleFlowAction = action;
+  settingsNextUpdateSaveUi('content');
   try {
-    await postJson('/api/v1/google-oauth/disconnect', {});
-    settingsNextSetFeedback('settings-next-google-feedback', '');
-    settingsNextRenderGoogleStatus({ state: 'disconnected', message: 'Google 계정이 연결되어 있지 않습니다.' });
-    void settingsNextLoadStatuses({ force: true });
+    await postJson(`/api/v1/google-oauth/flows/${encodeURIComponent(flowId)}/open`, {});
+    return await settingsNextWaitForGoogleFlow(flowId);
   } catch (error) {
-    settingsNextSetFeedback('settings-next-google-feedback', error.message || '연결을 해제하지 못했습니다.', 'danger');
+    void postJson(`/api/v1/google-oauth/flows/${encodeURIComponent(flowId)}/cancel`, {}).catch(() => { });
+    throw error;
+  }
+}
+
+async function settingsNextCancelGoogleFlow() {
+  const flowId = settingsNextGoogleFlowId;
+  if (!flowId) return;
+  settingsNextGoogleFlowId = '';
+  settingsNextUpdateSaveUi('content');
+  try {
+    await postJson(`/api/v1/google-oauth/flows/${encodeURIComponent(flowId)}/cancel`, {});
+  } catch (_error) { }
+}
+
+async function settingsNextCreateSpreadsheet() {
+  if (settingsNextGoogleBusy || settingsNextBusyScopes.has('content')) return;
+  settingsNextSetGoogleBusy(true, 'create-sheet');
+  try {
+    if (String(settingsNextGoogleStatus?.state || '').trim().toLowerCase() !== 'connected') {
+      settingsNextSetFeedback('settings-next-content-feedback', '기본 브라우저에서 Google 연결을 진행해 주세요.');
+      await settingsNextStartGoogleFlow('create', 'create-sheet');
+      settingsNextRenderGoogleStatus(await fetchJson('/api/v1/google-oauth/status'));
+    }
+    settingsNextSetFeedback('settings-next-content-feedback', 'BlogGenius 폴더에 새 파일을 만들고 있습니다.');
+    const file = await postJson('/api/v1/google-oauth/spreadsheets/create', {});
+    await settingsNextApplySpreadsheetSelection(file);
+  } catch (error) {
+    settingsNextSetFeedback('settings-next-content-feedback', error.message || '새 Spreadsheet를 만들지 못했습니다.', error.cancelled ? 'neutral' : 'danger');
   } finally {
     settingsNextSetGoogleBusy(false);
   }
 }
 
-async function settingsNextSubmitContent(event) {
-  event.preventDefault();
-  if (settingsNextDirtyScopes.has('content') && !await settingsNextSaveScope('content')) return;
-  if (String(settingsNextGoogleStatus?.state || '').trim().toLowerCase() === 'connected') {
-    const result = await settingsNextTestGoogle({ feedbackId: 'settings-next-content-feedback', ownerScope: 'content' });
-    const url = String(settingsNextMajorFields.GOOGLE_SHEET_URL || '').trim();
-    settingsNextSheetVerification = {
-      url,
-      success: Boolean(result?.ok && result?.spreadsheetId),
-      title: String(result?.spreadsheetTitle || '')
-    };
-    settingsNextRenderReadiness();
-  } else {
-    settingsNextSetScopeFeedback('content', 'Google 계정을 연결하면 Spreadsheet 접근을 확인할 수 있습니다.', 'warning');
+async function settingsNextPickSpreadsheet() {
+  if (settingsNextGoogleBusy || settingsNextBusyScopes.has('content')) return;
+  settingsNextSetGoogleBusy(true, 'pick-sheet');
+  settingsNextSetFeedback('settings-next-content-feedback', '기본 브라우저에서 연결할 기존 파일을 선택해 주세요.');
+  try {
+    const flow = await settingsNextStartGoogleFlow('picker', 'pick-sheet');
+    settingsNextRenderGoogleStatus(await fetchJson('/api/v1/google-oauth/status'));
+    const fileId = String(flow?.pickerFileId || '').trim();
+    if (!fileId) {
+      settingsNextSetFeedback('settings-next-content-feedback', '파일 선택을 취소했습니다.', 'neutral');
+      return;
+    }
+    const file = await postJson('/api/v1/google-oauth/picker/verify', { fileId });
+    await settingsNextApplySpreadsheetSelection(file);
+  } catch (error) {
+    settingsNextSetFeedback('settings-next-content-feedback', error.message || 'Spreadsheet를 선택하지 못했습니다.', error.cancelled ? 'neutral' : 'danger');
+  } finally {
+    settingsNextSetGoogleBusy(false);
   }
 }
 
@@ -771,17 +813,21 @@ function initSettingsNext() {
         settingsNextSyncScopeDirty(scope);
       }));
     });
-    document.getElementById('settings-next-content-form')?.addEventListener('submit', settingsNextSubmitContent);
+    document.getElementById('settings-next-google-sheet-create')?.addEventListener('click', () => {
+      if (settingsNextGoogleFlowAction === 'create-sheet' && settingsNextGoogleFlowId) void settingsNextCancelGoogleFlow();
+      else void settingsNextCreateSpreadsheet();
+    });
+    document.getElementById('settings-next-google-sheet-pick')?.addEventListener('click', () => {
+      if (settingsNextGoogleFlowAction === 'pick-sheet' && settingsNextGoogleFlowId) void settingsNextCancelGoogleFlow();
+      else void settingsNextPickSpreadsheet();
+    });
     document.getElementById('settings-next-naver-form')?.addEventListener('submit', settingsNextSubmitNaver);
     document.getElementById('settings-next-wordpress-form')?.addEventListener('submit', settingsNextSubmitWordpress);
-    document.getElementById('settings-next-google-connect')?.addEventListener('click', () => void settingsNextStartGoogleOauth());
-    document.getElementById('settings-next-google-test')?.addEventListener('click', () => void settingsNextTestGoogle());
-    document.getElementById('settings-next-google-disconnect')?.addEventListener('click', () => void settingsNextDisconnectGoogle());
     document.getElementById('settings-next-naver-logout')?.addEventListener('click', () => void settingsNextLogoutNaver());
     initOpaqueSettingsSecretToggles(document.getElementById('view-settings-next'));
     document.getElementById('settings-next-open-google-sheet')?.addEventListener('click', () => {
       const raw = document.getElementById('settings-next-google-sheet-url')?.value || '';
-      window.open(buildGoogleSheetOpenUrl(raw), '_blank', 'noopener,noreferrer');
+      if (raw) window.open(buildGoogleSheetOpenUrl(raw), '_blank', 'noopener,noreferrer');
     });
     settingsNextBound = true;
   }

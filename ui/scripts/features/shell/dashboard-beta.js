@@ -169,7 +169,7 @@ function renderDashboardBetaOnboarding(setup = {}) {
   if (!section) return;
   const stepState = {
     ai: setup?.ai?.configured === true,
-    google: setup?.google?.configured === true,
+    google: setup?.google?.configured === true && setup?.google?.transition_required !== true,
     channel: setup?.publishing_channel?.configured === true
   };
   const completedCount = Object.values(stepState).filter(Boolean).length;
@@ -181,16 +181,28 @@ function renderDashboardBetaOnboarding(setup = {}) {
     const element = section.querySelector(`[data-dashboard-beta-setup-step="${step.id}"]`);
     const ready = stepState[step.id];
     if (!element) return;
-    element.dataset.state = ready ? 'ready' : 'pending';
+    const transitionRequired = step.id === 'google' && setup?.google?.transition_required === true;
+    // Google is complete for readiness counting, but visually remains a normal numbered card.
+    // Only a legacy connection gets the warning treatment.
+    element.dataset.state = step.id === 'google'
+      ? (transitionRequired ? 'transition' : 'pending')
+      : (ready ? 'ready' : 'pending');
     const mark = element.querySelector('.dashboard-beta-onboarding-step-mark');
-    if (mark) mark.textContent = ready ? '✓' : String(index + 1);
+    if (mark) mark.textContent = step.id === 'google' || !ready ? String(index + 1) : '✓';
+    if (step.id === 'google') {
+      const badge = element.querySelector('.dashboard-beta-onboarding-step-badge');
+      if (badge) badge.hidden = !transitionRequired;
+    }
   });
 
   const nextStep = DASHBOARD_BETA_SETUP_STEPS.find((step) => !stepState[step.id]);
   const action = document.getElementById('dashboard-beta-onboarding-action');
   if (!nextStep || !action) return;
-  setText('dashboard-beta-onboarding-next-copy', `${nextStep.label} 설정이 필요합니다.`);
-  action.textContent = nextStep.actionLabel;
+  const transitionRequired = nextStep.id === 'google' && setup?.google?.transition_required === true;
+  setText('dashboard-beta-onboarding-next-copy', transitionRequired
+    ? 'Spreadsheet 전환 필요'
+    : `${nextStep.label} 설정이 필요합니다.`);
+  action.textContent = transitionRequired ? '전환하기' : nextStep.actionLabel;
   action.dataset.settingsTab = nextStep.tab;
   action.dataset.settingsTarget = nextStep.targetId;
   if (nextStep.localTab) action.dataset.settingsLocalTab = nextStep.localTab;

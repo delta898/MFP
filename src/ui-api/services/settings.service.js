@@ -134,6 +134,8 @@ function normalizeCoreConnectionSettings(requestBody = {}) {
 
     if (scope === 'content') {
         const GOOGLE_SHEET_URL = String(values.GOOGLE_SHEET_URL || '').trim();
+        const GOOGLE_SHEET_TITLE = String(values.GOOGLE_SHEET_TITLE || '').trim().slice(0, 200);
+        const GOOGLE_SHEET_AUTHORIZED_FILE_ID = String(values.GOOGLE_SHEET_AUTHORIZED_FILE_ID || '').trim().slice(0, 200);
         let parsedUrl;
         try {
             parsedUrl = new URL(GOOGLE_SHEET_URL);
@@ -144,11 +146,16 @@ function normalizeCoreConnectionSettings(requestBody = {}) {
         if (parsedUrl.protocol !== 'https:' || parsedUrl.hostname !== 'docs.google.com' || !spreadsheetId) {
             throw createApiError(400, 'GOOGLE_SHEET_URL_INVALID', 'Google Spreadsheet의 HTTPS 주소를 입력해 주세요.');
         }
+        if (GOOGLE_SHEET_AUTHORIZED_FILE_ID && GOOGLE_SHEET_AUTHORIZED_FILE_ID !== spreadsheetId) {
+            throw createApiError(400, 'GOOGLE_SHEET_AUTHORIZATION_MISMATCH', '선택한 Spreadsheet와 연결 주소가 일치하지 않습니다. 파일을 다시 선택해 주세요.');
+        }
         return {
             scope,
             fields: {
                 GOOGLE_SHEET_URL: `https://docs.google.com/spreadsheets/d/${spreadsheetId}`,
-                GOOGLE_SHEET_ID: spreadsheetId
+                GOOGLE_SHEET_ID: spreadsheetId,
+                GOOGLE_SHEET_TITLE,
+                GOOGLE_SHEET_AUTHORIZED_FILE_ID
             }
         };
     }
@@ -294,6 +301,8 @@ function applyCoreConnectionSettings(structuredConfig = {}, normalized = {}) {
     if (scope === 'content') {
         if (!structuredConfig.general || typeof structuredConfig.general !== 'object') structuredConfig.general = {};
         structuredConfig.general.google_sheet_url = fields.GOOGLE_SHEET_URL;
+        structuredConfig.general.google_sheet_title = fields.GOOGLE_SHEET_TITLE || '';
+        structuredConfig.general.google_sheet_authorized_file_id = fields.GOOGLE_SHEET_AUTHORIZED_FILE_ID || '';
     }
     if (scope === 'naver') {
         if (!structuredConfig.platforms || typeof structuredConfig.platforms !== 'object') structuredConfig.platforms = {};
@@ -594,6 +603,8 @@ function createSettingsService(deps = {}) {
             return {
                 fields: {
                     GOOGLE_SHEET_URL: source.GOOGLE_SHEET_URL || '',
+                    GOOGLE_SHEET_TITLE: String(CONFIG.general?.google_sheet_title || ''),
+                    GOOGLE_SHEET_AUTHORIZED_FILE_ID: String(CONFIG.general?.google_sheet_authorized_file_id || ''),
                     NAVER_ID: source.NAVER_ID || '',
                     WORDPRESS_URL: source.WORDPRESS_URL || '',
                     WORDPRESS_USER_ID: source.WORDPRESS_USER_ID || '',
@@ -1026,6 +1037,8 @@ function createSettingsService(deps = {}) {
             if (normalized.scope === 'content') {
                 if (!CONFIG.general || typeof CONFIG.general !== 'object') CONFIG.general = {};
                 CONFIG.general.google_sheet_url = normalized.fields.GOOGLE_SHEET_URL;
+                CONFIG.general.google_sheet_title = normalized.fields.GOOGLE_SHEET_TITLE || '';
+                CONFIG.general.google_sheet_authorized_file_id = normalized.fields.GOOGLE_SHEET_AUTHORIZED_FILE_ID || '';
             }
             if (normalized.scope === 'naver') {
                 if (!CONFIG.platforms || typeof CONFIG.platforms !== 'object') CONFIG.platforms = {};

@@ -29,7 +29,14 @@ function createContentService(deps = {}) {
         CONFIG,
         License,
         GoogleOAuth,
+        GoogleDriveSpreadsheets,
+        createGoogleOauthCallbackServer = (...args) => require('http').createServer(...args),
         BrowserLauncher,
+        openExternal = async (url) => {
+            const electron = require('electron');
+            if (!electron?.shell?.openExternal) throw new Error('시스템 브라우저를 실행할 수 없습니다.');
+            await electron.shell.openExternal(url);
+        },
         ShoppingManager,
         Logger,
         checkNaverSessionForUi,
@@ -69,6 +76,7 @@ function createContentService(deps = {}) {
         executeBlogTopicsDelete,
         executeShoppingTopicsDelete
     } = deps;
+    const googleOauthFlows = new Map();
     const blogNextExecutionCoordinator = deps.blogNextExecutionCoordinator
         || createBlogNextExecutionCoordinator();
     const aiGenerationOperations = deps.aiGenerationOperations
@@ -594,7 +602,7 @@ function createContentService(deps = {}) {
             return GoogleOAuth.getStatus();
         },
 
-        async startGoogleOauth() {
+        async startGoogleOauth(requestBody = {}) {
             const configuration = GoogleOAuth.getConfigurationStatus();
             if (!configuration.configured) {
                 throw createApiError(
@@ -603,24 +611,68 @@ function createContentService(deps = {}) {
                     'Google OAuth 앱 설정이 준비되지 않았습니다. BlogGenius 앱 설정 또는 버전을 확인해 주세요.'
                 );
             }
-            const http = require('http');
-            const callbackServer = http.createServer(async (req, res) => {
+            const oauthMode = String(requestBody?.mode || '').trim().toLowerCase();
+            const pickerMode = oauthMode === 'picker';
+            const createMode = oauthMode === 'create';
+            const flowId = require('crypto').randomUUID();
+            const flow = { id: flowId, mode: pickerMode ? 'picker' : (createMode ? 'create' : 'connect'), status: 'pending', result: null, callbackServer: null };
+            const callbackServer = createGoogleOauthCallbackServer(async (req, res) => {
+                if (flow.status !== 'pending' || flow.callbackProcessing) {
+                    res.writeHead(409, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+                    res.end('This Google authorization flow is already complete. You can return to BlogGenius.');
+                    return;
+                }
+                flow.callbackProcessing = true;
                 try {
                     const requestUrl = new URL(req.url, redirectUri);
                     const code = requestUrl.searchParams.get('code');
                     const state = requestUrl.searchParams.get('state');
-                    if (!code || !state) {
+                    const pickerFileId = String(requestUrl.searchParams.get('picked_file_ids') || '').split(',').filter(Boolean)[0] || '';
+                    const oauthError = String(requestUrl.searchParams.get('error') || '').trim();
+                    if (oauthError) {
+                        flow.status = oauthError === 'access_denied' ? 'cancelled' : 'error';
+                        flow.result = { message: oauthError === 'access_denied' ? 'Google 인증을 취소했습니다.' : oauthError };
                         res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
-                        res.end(GoogleOAuth.renderCallbackHtml({ success: false, message: '인증 코드 또는 상태값이 없습니다.' }));
+                        res.end(GoogleOAuth.renderCallbackHtml({
+                            success: false,
+                            message: flow.result.message,
+                            source: 'google-oauth'
+                        }));
+                        return;
+                    }
+                    if (!code || !state) {
+                        flow.status = 'error';
+                        flow.result = { message: '인증 코드 또는 상태값이 없습니다.' };
+                        res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
+                        res.end(GoogleOAuth.renderCallbackHtml({ success: false, message: flow.result.message, source: 'google-oauth' }));
+                        return;
+                    }
+                    if (pickerMode && !pickerFileId) {
+                        flow.status = 'cancelled';
+                        flow.result = { message: '파일 선택을 취소했습니다.' };
+                        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                        res.end(GoogleOAuth.renderCallbackHtml({ success: true, message: flow.result.message, source: 'google-oauth' }));
                         return;
                     }
                     const tokens = await GoogleOAuth.exchangeCode(code, state);
                     Utils.clearGoogleAuthCache();
+                    flow.status = 'success';
+                    flow.result = {
+                        email: String(tokens.connected_email || ''),
+                        pickerFileId
+                    };
                     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-                    res.end(GoogleOAuth.renderCallbackHtml({ success: true, email: String(tokens.connected_email || '') }));
+                    res.end(GoogleOAuth.renderCallbackHtml({
+                        success: true,
+                        email: String(tokens.connected_email || ''),
+                        pickerFileId,
+                        source: 'google-oauth'
+                    }));
                 } catch (error) {
+                    flow.status = 'error';
+                    flow.result = { message: error.message || 'Google 인증에 실패했습니다.' };
                     res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
-                    res.end(GoogleOAuth.renderCallbackHtml({ success: false, message: error.message }));
+                    res.end(GoogleOAuth.renderCallbackHtml({ success: false, message: flow.result.message, source: 'google-oauth' }));
                 } finally {
                     setTimeout(() => callbackServer.close(() => { }), 250);
                 }
@@ -637,17 +689,84 @@ function createContentService(deps = {}) {
                     resolve(`http://127.0.0.1:${address.port}`);
                 });
             });
+            flow.callbackServer = callbackServer;
+            googleOauthFlows.set(flowId, flow);
+            const flowExpiry = setTimeout(() => {
+                if (flow.status === 'pending') {
+                    flow.status = 'expired';
+                    flow.result = { message: '인증 시간이 만료되었습니다. 다시 시도해 주세요.' };
+                }
+                callbackServer.close(() => { });
+                setTimeout(() => googleOauthFlows.delete(flowId), 60 * 1000).unref?.();
+            }, 10 * 60 * 1000);
+            flowExpiry.unref?.();
 
             callbackServer.setTimeout(10 * 60 * 1000, () => {
                 callbackServer.close(() => { });
             });
 
-            const { authUrl } = GoogleOAuth.buildAuthUrl({ redirectUri });
-            return {
-                authUrl,
+            const fileAccessMode = pickerMode || createMode;
+            const { authUrl } = GoogleOAuth.buildAuthUrl(fileAccessMode ? {
                 redirectUri,
-                message: '브라우저에서 Google 로그인을 진행하세요.'
+                scopes: ['https://www.googleapis.com/auth/drive.file'],
+                includeGrantedScopes: false,
+                picker: pickerMode
+            } : { redirectUri });
+            flow.authUrl = authUrl;
+            return {
+                flowId,
+                ...(oauthMode ? {} : { authUrl }),
+                mode: flow.mode,
+                message: pickerMode ? 'Google Picker에서 Spreadsheet를 선택해 주세요.' : (createMode ? 'Google 계정 권한을 확인한 뒤 새 Spreadsheet를 만듭니다.' : '브라우저에서 Google 로그인을 진행하세요.')
             };
+        },
+
+        async openGoogleOauthFlow(flowIdRaw = '') {
+            const flowId = String(flowIdRaw || '').trim();
+            const flow = googleOauthFlows.get(flowId);
+            if (!flow || flow.status !== 'pending' || !flow.authUrl) {
+                throw createApiError(404, 'GOOGLE_OAUTH_FLOW_NOT_FOUND', 'Google 인증 요청이 만료되었습니다. 다시 시도해 주세요.');
+            }
+            await openExternal(flow.authUrl);
+            return { opened: true };
+        },
+
+        getGoogleOauthFlow(flowIdRaw = '') {
+            const flow = googleOauthFlows.get(String(flowIdRaw || '').trim());
+            if (!flow) throw createApiError(404, 'GOOGLE_OAUTH_FLOW_NOT_FOUND', 'Google 인증 요청이 만료되었습니다. 다시 시도해 주세요.');
+            return { flowId: flow.id, status: flow.status, ...(flow.result || {}) };
+        },
+
+        cancelGoogleOauthFlow(flowIdRaw = '') {
+            const flowId = String(flowIdRaw || '').trim();
+            const flow = googleOauthFlows.get(flowId);
+            if (!flow) return { cancelled: true };
+            if (flow.status === 'pending') {
+                flow.status = 'cancelled';
+                flow.result = { message: '인증을 취소했습니다.' };
+                flow.callbackServer?.close(() => { });
+            }
+            return { cancelled: true };
+        },
+
+        async verifyGooglePickerSpreadsheet(requestBody = {}) {
+            const fileId = String(requestBody?.fileId || '').trim();
+            if (!fileId || fileId.length > 256) {
+                throw createApiError(400, 'GOOGLE_PICKER_FILE_REQUIRED', '선택한 Spreadsheet 정보를 확인할 수 없습니다. 다시 선택해 주세요.');
+            }
+            try {
+                return await GoogleDriveSpreadsheets.getSpreadsheet(fileId);
+            } catch (error) {
+                throw createApiError(400, error.code || 'GOOGLE_PICKER_FILE_INVALID', error.message || '선택한 Spreadsheet를 확인하지 못했습니다.');
+            }
+        },
+
+        async createGoogleDailySpreadsheet() {
+            try {
+                return await GoogleDriveSpreadsheets.createDailySpreadsheet();
+            } catch (error) {
+                throw createApiError(400, error.code || 'GOOGLE_SHEET_CREATE_FAILED', error.message || '새 Spreadsheet를 만들지 못했습니다.');
+            }
         },
 
         async disconnectGoogleOauth() {
@@ -678,7 +797,7 @@ function createContentService(deps = {}) {
                 throw createApiError(400, 'INVALID_SHEET_URL', '스프레드시트 주소를 다시 확인해 주세요.');
             }
 
-            const accessToken = await Utils.getGoogleAccessToken(['https://www.googleapis.com/auth/spreadsheets.readonly']);
+            const accessToken = await Utils.getGoogleAccessToken(['https://www.googleapis.com/auth/drive.file']);
             const response = await axios.get(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=spreadsheetId,properties.title`, {
                 headers: {
                     Authorization: `Bearer ${accessToken}`

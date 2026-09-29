@@ -428,6 +428,7 @@ function getApiFixture(pathname) {
             configPath: 'fixture/config.json',
             fields: {
                 GOOGLE_SHEET_URL: 'https://docs.google.com/spreadsheets/d/fixture-sheet-id/edit',
+                GOOGLE_SHEET_AUTHORIZED_FILE_ID: 'fixture-sheet-id',
                 TEXT_MODEL_PROVIDER: 'direct', TEXT_MODEL_NAME: 'fixture-text', TEXT_MODEL_BASE_URL: 'https://ai.fixture.example/v1', TEXT_MODEL_API_KEY: 'fixture-text-key',
                 IMAGE_MODEL_PROVIDER: 'direct', IMAGE_MODEL_NAME: 'fixture-image', IMAGE_MODEL_BASE_URL: 'https://image.fixture.example/v1', IMAGE_MODEL_API_KEY: 'fixture-image-key',
                 CHAT_MODEL_SOURCE: 'writing', CHAT_MODEL_PROVIDER: 'direct', CHAT_MODEL_NAME: 'fixture-text', CHAT_MODEL_BASE_URL: 'https://ai.fixture.example/v1', CHAT_MODEL_API_KEY: 'fixture-text-key'
@@ -439,7 +440,10 @@ function getApiFixture(pathname) {
         };
     }
     if (pathname === '/api/v1/settings/core-connections') {
-        return { fields: { GOOGLE_SHEET_URL: 'https://docs.google.com/spreadsheets/d/fixture-sheet-id/edit' } };
+        return { fields: {
+            GOOGLE_SHEET_URL: 'https://docs.google.com/spreadsheets/d/fixture-sheet-id/edit',
+            GOOGLE_SHEET_AUTHORIZED_FILE_ID: 'fixture-sheet-id'
+        } };
     }
     if (pathname === '/api/v1/settings/ai-roles') {
         return {
@@ -2048,9 +2052,11 @@ async function run() {
         await page.waitForFunction(() => document.getElementById('view-settings-next')?.classList.contains('active'));
         await page.waitForFunction(() => document.querySelector('#view-settings-next [data-clock-display]')?.children.length > 0);
         await page.locator('[data-settings-next-core-tab="content"]').click();
-        await page.locator('#settings-next-content-save').click();
-        await page.waitForFunction(() => document.getElementById('settings-next-content-status')?.textContent === '접근 가능');
+        assert.equal(await page.locator('#settings-next-content-status').textContent(), '접근 가능');
         assert.equal(await page.locator('#settings-next-sheet-readiness').textContent(), '접근 가능');
+        assert.equal(await page.locator('#settings-next-google-sheet-create').isVisible(), true);
+        assert.equal(await page.locator('#settings-next-google-sheet-pick').isVisible(), true);
+        assert.equal(await page.locator('#settings-next-google-connect').count(), 0);
         const settingsTopTab = page.locator('[data-settings-next-tab="core"]');
         await settingsTopTab.focus();
         await settingsTopTab.press('ArrowRight');

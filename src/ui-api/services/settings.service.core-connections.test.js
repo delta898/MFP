@@ -55,13 +55,25 @@ test('core connection normalization validates each independently saved scope', (
             scope: 'content',
             fields: {
                 GOOGLE_SHEET_URL: 'https://docs.google.com/spreadsheets/d/sheet-id_1234567890',
-                GOOGLE_SHEET_ID: 'sheet-id_1234567890'
+                GOOGLE_SHEET_ID: 'sheet-id_1234567890',
+                GOOGLE_SHEET_TITLE: '',
+                GOOGLE_SHEET_AUTHORIZED_FILE_ID: ''
             }
         }
     );
     assert.throws(
         () => normalizeCoreConnectionSettings({ scope: 'content', values: { GOOGLE_SHEET_URL: 'https://example.com/sheet' } }),
         (error) => error.apiCode === 'GOOGLE_SHEET_URL_INVALID'
+    );
+    assert.throws(
+        () => normalizeCoreConnectionSettings({
+            scope: 'content',
+            values: {
+                GOOGLE_SHEET_URL: 'https://docs.google.com/spreadsheets/d/sheet-id_1234567890/edit',
+                GOOGLE_SHEET_AUTHORIZED_FILE_ID: 'different-file-id'
+            }
+        }),
+        (error) => error.apiCode === 'GOOGLE_SHEET_AUTHORIZATION_MISMATCH'
     );
     assert.throws(
         () => normalizeCoreConnectionSettings({ scope: 'wordpress', values: { WORDPRESS_URL: 'ftp://example.com' } }),
@@ -195,11 +207,17 @@ test('content scope preserves unrelated settings and updates runtime sheet alias
     const canonicalUrl = 'https://docs.google.com/spreadsheets/d/new-sheet-id_987654';
 
     const result = await service.saveCoreConnectionSettings({
-        scope: 'content', values: { GOOGLE_SHEET_URL: nextUrl }
+        scope: 'content', values: {
+            GOOGLE_SHEET_URL: nextUrl,
+            GOOGLE_SHEET_TITLE: 'Test Spreadsheet',
+            GOOGLE_SHEET_AUTHORIZED_FILE_ID: 'new-sheet-id_987654'
+        }
     });
     const saved = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
     assert.equal(saved.general.google_sheet_url, canonicalUrl);
+    assert.equal(saved.general.google_sheet_title, 'Test Spreadsheet');
+    assert.equal(saved.general.google_sheet_authorized_file_id, 'new-sheet-id_987654');
     assert.equal(saved.general.listen_port, 3000);
     assert.deepEqual(saved.ai_settings, initial.ai_settings);
     assert.deepEqual(saved.automation, initial.automation);
@@ -208,6 +226,7 @@ test('content scope preserves unrelated settings and updates runtime sheet alias
     assert.equal(Object.hasOwn(saved.mcp.remote.auth, 'bearer_token'), false);
     assert.equal(CONFIG.GOOGLE_SHEET_URL, canonicalUrl);
     assert.equal(CONFIG.GOOGLE_SHEET_ID, 'new-sheet-id_987654');
+    assert.equal(CONFIG.general.google_sheet_title, 'Test Spreadsheet');
     assert.equal(result.scope, 'content');
     assert.equal(result.fields.GOOGLE_SHEET_URL, canonicalUrl);
     assert.equal(activities[0].type, 'core_connection_saved');

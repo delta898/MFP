@@ -32,6 +32,7 @@ function createService(overrides = {}) {
         },
         CONFIG: {
             GOOGLE_SHEET_URL: 'https://docs.google.com/spreadsheets/d/example',
+            GOOGLE_SHEET_AUTHORIZED_FILE_ID: 'example',
             WORDPRESS_URL: '',
             TEXT_MODEL_API_KEY: 'test-api-key',
             TEXT_MODEL: 'test-model'
@@ -93,7 +94,8 @@ test('account overview exposes subscription, usage, device, and connection read 
         google: {
             configured: true,
             account_connected: true,
-            spreadsheet_configured: true
+            spreadsheet_configured: true,
+            transition_required: false
         },
         publishing_channel: {
             configured: true,
@@ -139,7 +141,8 @@ test('account overview identifies the next setup gaps without active Google netw
     assert.deepEqual(overview.setup.google, {
         configured: false,
         account_connected: false,
-        spreadsheet_configured: false
+        spreadsheet_configured: false,
+        transition_required: false
     });
     assert.deepEqual(overview.setup.publishing_channel, {
         configured: false,
@@ -168,6 +171,7 @@ test('account overview accepts a complete direct text model without an API key',
     const service = createService({
         CONFIG: {
             GOOGLE_SHEET_URL: 'https://docs.google.com/spreadsheets/d/example',
+            GOOGLE_SHEET_AUTHORIZED_FILE_ID: 'example',
             WORDPRESS_URL: '',
             TEXT_MODEL_PROVIDER: 'direct',
             TEXT_MODEL_NAME: 'local-model',

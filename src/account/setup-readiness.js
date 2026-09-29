@@ -8,8 +8,18 @@ function hasUsableConfigValue(value) {
         && !normalized.startsWith('xxxxxxx');
 }
 
+function extractSpreadsheetId(value) {
+    return String(value || '').match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/i)?.[1] || '';
+}
+
 function buildSetupReadiness({ CONFIG = {}, googleOauth = {}, naverConnected = false } = {}) {
-    const googleConfigured = hasUsableConfigValue(CONFIG.GOOGLE_SHEET_URL || CONFIG.GOOGLE_SHEET_ID);
+    const spreadsheetId = extractSpreadsheetId(CONFIG.GOOGLE_SHEET_URL) || String(CONFIG.GOOGLE_SHEET_ID || '').trim();
+    const authorizedSpreadsheetId = String(CONFIG.GOOGLE_SHEET_AUTHORIZED_FILE_ID || '').trim();
+    const spreadsheetConfigured = hasUsableConfigValue(CONFIG.GOOGLE_SHEET_URL || CONFIG.GOOGLE_SHEET_ID);
+    const spreadsheetTransitionRequired = Boolean(spreadsheetConfigured
+        && spreadsheetId
+        && authorizedSpreadsheetId !== spreadsheetId);
+    const googleConfigured = spreadsheetConfigured && !spreadsheetTransitionRequired;
     const googleAccountConnected = googleOauth?.connected === true
         || ['connected', 'connected_cached'].includes(String(googleOauth?.state || '').trim());
     const textModelProvider = String(CONFIG.TEXT_MODEL_PROVIDER || CONFIG.TEXT_MODEL_CONFIG?.provider || '')
@@ -50,7 +60,8 @@ function buildSetupReadiness({ CONFIG = {}, googleOauth = {}, naverConnected = f
         google: {
             configured: googleAccountConnected && googleConfigured,
             account_connected: googleAccountConnected,
-            spreadsheet_configured: googleConfigured
+            spreadsheet_configured: googleConfigured,
+            transition_required: spreadsheetTransitionRequired
         },
         publishing_channel: {
             configured: publishingChannelConfigured,
@@ -62,5 +73,6 @@ function buildSetupReadiness({ CONFIG = {}, googleOauth = {}, naverConnected = f
 
 module.exports = {
     hasUsableConfigValue,
+    extractSpreadsheetId,
     buildSetupReadiness
 };

@@ -70,3 +70,19 @@ test('does not claim unrelated routes', async () => {
     const handler = createContentRouteHandler({ controller: {} });
     assert.equal(await handler({ pathname: '/api/v1/not-content', method: 'GET' }), false);
 });
+
+test('routes Google OAuth flow polling, external launch, and cancellation by flow id', async () => {
+    const calls = [];
+    const controller = {
+        googleOauthFlowGet: async (ctx) => calls.push(['get', ctx.flowId]),
+        googleOauthFlowOpen: async (ctx) => calls.push(['open', ctx.requestBody.flowId]),
+        googleOauthFlowCancel: async (ctx) => calls.push(['cancel', ctx.flowId])
+    };
+    const handler = createContentRouteHandler({ controller });
+
+    await handler({ pathname: '/api/v1/google-oauth/flows/flow%201', method: 'GET' });
+    await handler({ pathname: '/api/v1/google-oauth/flows/flow%201/open', method: 'POST', requestBody: {} });
+    await handler({ pathname: '/api/v1/google-oauth/flows/flow%201/cancel', method: 'POST' });
+
+    assert.deepEqual(calls, [['get', 'flow 1'], ['open', 'flow 1'], ['cancel', 'flow 1']]);
+});

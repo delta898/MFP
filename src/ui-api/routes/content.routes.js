@@ -53,6 +53,15 @@ function createContentRouteHandler(deps = {}) {
         if (pathname === '/api/v1/settings/shopping-image/preview') return controller.shoppingImagePreview(ctx);
         if (pathname === '/api/v1/google-oauth/status') return controller.googleOauthStatus(ctx);
         if (pathname === '/api/v1/google-oauth/start') return controller.googleOauthStart(ctx);
+        const googleOauthFlowMatch = pathname.match(/^\/api\/v1\/google-oauth\/flows\/([^/]+)(\/open|\/cancel)?$/);
+        if (googleOauthFlowMatch) {
+            const flowId = decodeURIComponent(googleOauthFlowMatch[1]);
+            if (googleOauthFlowMatch[2] === '/open') return controller.googleOauthFlowOpen({ ...ctx, requestBody: { ...(ctx.requestBody || {}), flowId } });
+            if (googleOauthFlowMatch[2] === '/cancel') return controller.googleOauthFlowCancel({ ...ctx, flowId });
+            return controller.googleOauthFlowGet({ ...ctx, flowId });
+        }
+        if (pathname === '/api/v1/google-oauth/picker/verify') return controller.googlePickerSpreadsheetVerify(ctx);
+        if (pathname === '/api/v1/google-oauth/spreadsheets/create') return controller.googleSpreadsheetCreate(ctx);
         if (pathname === '/api/v1/google-oauth/disconnect') return controller.googleOauthDisconnect(ctx);
         if (pathname === '/api/v1/google-oauth/test') return controller.googleOauthTest(ctx);
         if (pathname === '/api/v1/blog/naver-comment-draft/settings') return controller.naverCommentDraftSettings(ctx);

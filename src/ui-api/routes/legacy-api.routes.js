@@ -18,6 +18,7 @@ const { createTrendPostingController } = require('../controllers/trend-posting.c
 const { createAccountController } = require('../controllers/account.controller');
 const { createContinuousPublishingController } = require('../controllers/continuous-publishing.controller');
 const { createContinuousPublishingService } = require('../services/continuous-publishing.service');
+const { createGoogleDriveSpreadsheets } = require('../../google-drive-spreadsheets');
 const { createAccountOverviewService } = require('../../account/overview-service');
 const { createBlogNextExecutionCoordinator } = require('../../blog-next/execution-coordinator');
 const WordPressClient = require('../../wordpress-client');
@@ -42,6 +43,11 @@ function createLegacyApiRouteHandler(deps = {}) {
         // Best-effort: verification persistence must never break route setup.
     }
     const GoogleOAuth = require('../../google-oauth');
+    const GoogleDriveSpreadsheets = createGoogleDriveSpreadsheets({
+        axios: deps.axios,
+        getAccessToken: (scopes) => deps.Utils.getGoogleAccessToken(scopes),
+        ensureSheetsExist: (spreadsheetId) => deps.Utils.ensureAllSheetsExistStrict(spreadsheetId)
+    });
     const blogNextExecutionCoordinator = deps.blogNextExecutionCoordinator
         || createBlogNextExecutionCoordinator();
     const systemService = createSystemService({
@@ -119,6 +125,7 @@ function createLegacyApiRouteHandler(deps = {}) {
         CONFIG: deps.CONFIG,
         License: deps.License,
         GoogleOAuth,
+        GoogleDriveSpreadsheets,
         BrowserLauncher: deps.BrowserLauncher,
         ShoppingManager: deps.ShoppingManager,
         Logger: deps.Logger,

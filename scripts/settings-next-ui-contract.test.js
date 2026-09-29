@@ -31,6 +31,8 @@ test('Settings owns navigation while legacy Settings stays hidden', () => {
 });
 
 test('Settings Beta exposes the agreed top IA and core connection submenus as accessible tabs', () => {
+    const script = read('ui/scripts/features/settings-next/shell.js');
+    const style = read('ui/styles/features/settings-next.css');
     const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({
         uiRoot,
         entryFile: 'partials/views/settings-next.html'
@@ -96,8 +98,25 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
         /settings-next-panel-lead[\s\S]*?settings-next-local-nav-row[\s\S]*?settings-next-core-panel-content/
     );
     assert.match(html, /id="settings-next-google-sheet-url"/);
-    assert.match(html, /id="settings-next-open-google-sheet"[^>]*>Spreadsheet 열기<\/button>/);
-    assert.match(html, /주소가 없으면 Google Sheets를 열고, 주소가 있으면 해당 Spreadsheet를 엽니다\./);
+    assert.match(html, /id="settings-next-google-sheet-url" type="hidden"/);
+    assert.match(html, /id="settings-next-google-sheet-label">연결된 Spreadsheet/);
+    assert.match(html, /id="settings-next-google-sheet-name">연결된 파일 없음/);
+    assert.match(html, /id="settings-next-google-sheet-create"[^>]*>새 파일 생성<\/button>/);
+    assert.match(html, /id="settings-next-google-sheet-pick"[^>]*>기존 파일 선택<\/button>/);
+    assert.match(script, /pickerButton\.textContent = canCancel \? '인증 취소' : \(transitionNeeded \? '전환' : '기존 파일 선택'\)/);
+    assert.match(script, /createButton\.classList\.toggle\('primary', !transitionNeeded\)/);
+    assert.match(script, /pickerButton\.classList\.toggle\('primary', transitionNeeded\)/);
+    assert.match(script, /label\.textContent = migrationNeeded \? '전환할 기존 Spreadsheet' : '연결된 Spreadsheet'/);
+    assert.match(script, /기존 URL로 연결된 Spreadsheet/);
+    assert.match(script, /openButton\.textContent = migrationNeeded \? '기존 파일 열기 ↗' : '열기 ↗'/);
+    assert.match(script, /기존 파일을 다시 선택하면 전환됩니다\. 같은 파일을 선택하면 내용은 바뀌지 않습니다\./);
+    assert.doesNotMatch(script, /Google Picker를 진행해 주세요/);
+    assert.match(style, /\.settings-next-sheet-actions\s*\{[^}]*justify-content:\s*flex-end/);
+    assert.match(html, /id="settings-next-open-google-sheet"[^>]*>열기 ↗<\/button>/);
+    assert.match(html, /콘텐츠를 저장할 Spreadsheet를 연결합니다\./);
+    assert.match(html, /id="settings-next-google-sheet-authorized-id"/);
+    assert.match(html, /id="settings-next-google-sheet-migration"/);
+    assert.doesNotMatch(html, /<h3>Google 계정<\/h3>|settings-next-google-connect|settings-next-google-test/);
     assert.match(html, /id="settings-next-content-status"[^>]*>확인 필요/);
     assert.match(html, /id="settings-next-naver-id"/);
     assert.match(html, /id="settings-next-wordpress-url"/);
@@ -106,7 +125,7 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     assert.match(html, /aria-label="블로그 발행 채널 준비 상태"/);
     assert.match(html, /settings-next-naver-readiness/);
     assert.match(html, /settings-next-wordpress-readiness/);
-    assert.equal((html.match(/data-settings-card-target=/g) || []).length, 14);
+    assert.equal((html.match(/data-settings-card-target=/g) || []).length, 13);
     assert.match(html, /data-settings-card-target="settings-next-naver-form"/);
     assert.match(html, /data-settings-card-target="settings-next-wordpress-form"/);
     assert.doesNotMatch(html, /settings-next-ai-local-tab/);
@@ -217,6 +236,13 @@ test('Settings Beta controller applies scoped changes seamlessly and protects pe
     assert.match(optionalServices, /function settingsNextOptionalToggleDelivery\(scope, input\)/);
     assert.doesNotMatch(script, /function settingsNextHandleTabKeydown/);
     assert.match(script, /settingsNextHasValidSheetUrl/);
+    assert.match(script, /settingsNextSheetVerification\?\.spreadsheetId === sheetId/);
+    assert.match(script, /settingsNextSheetVerification = \{ spreadsheetId: fileId, success: true, title: verifiedTitle \}/);
+    assert.match(script, /function settingsNextWaitForGoogleFlow\(flowId\)/);
+    assert.match(script, /google-oauth\/flows\/\$\{encodeURIComponent\(flowId\)\}\/open/);
+    assert.match(script, /function settingsNextCancelGoogleFlow\(\)/);
+    assert.match(script, /google-oauth\/flows\/\$\{encodeURIComponent\(flowId\)\}\/cancel/);
+    assert.doesNotMatch(script, /window\.open\(data\.authUrl, 'google-sheet-picker'/);
     assert.match(script, /settingsNextBusyScopes\.has\('naver'\)/);
     assert.match(script, /settingsNextBusyScopes\.has\('wordpress'\)/);
     assert.match(script, /button\.hidden = loggedIn && !dirty/);
@@ -363,21 +389,20 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
     const aiScript = read('ui/scripts/features/settings-next/ai-model-roles.js');
 
     assert.match(actions, /button\.ui-danger-action/);
-    assert.match(html, /settings-next-google-disconnect" class="ghost ui-danger-action"/);
+    assert.doesNotMatch(html, /settings-next-google-disconnect" class="ghost ui-danger-action"/);
     assert.match(html, /settings-next-naver-logout" class="ghost ui-danger-action"/);
-    assert.match(html, /settings-next-google-disconnect[\s\S]*settings-next-google-test/);
-    assert.match(html, /settings-next-google-status[\s\S]*settings-next-google-detail[\s\S]*settings-next-google-feedback[\s\S]*settings-next-action-row/);
+    assert.match(html, /settings-next-google-sheet-create[\s\S]*settings-next-google-sheet-pick/);
     assert.match(html, /settings-next-naver-status[\s\S]*settings-next-naver-detail[\s\S]*settings-next-naver-feedback[\s\S]*ui-settings-card-footer[\s\S]*settings-next-naver-logout[\s\S]*settings-next-naver-login/);
     assert.match(html, /settings-next-wordpress-status[\s\S]*settings-next-wordpress-feedback[\s\S]*ui-settings-card-footer[\s\S]*settings-next-wordpress-save/);
-    assert.equal((html.match(/class="settings-next-completion-group"/g) || []).length, 3);
-    assert.equal((html.match(/id="settings-next-(?:google|content|naver|wordpress)-feedback"/g) || []).length, 4);
+    assert.equal((html.match(/class="settings-next-completion-group"/g) || []).length, 2);
+    assert.equal((html.match(/id="settings-next-(?:google|content|naver|wordpress)-feedback"/g) || []).length, 3);
     assert.doesNotMatch(html, /settings-next-channel-summary/);
     assert.doesNotMatch(html, /settings-next-(?:content|naver|wordpress)-save-status/);
     assert.doesNotMatch(featureStyles, /settings-next-save-status/);
     assert.doesNotMatch(html, />[^<]*저장하고[^<]*<\/button>/);
     assert.doesNotMatch(html, /저장됨/);
-    assert.equal((html.match(/class="ui-settings-card(?:\s|")/g) || []).length, 23);
-    assert.equal((html.match(/class="ui-settings-readiness-card"/g) || []).length, 9);
+    assert.equal((html.match(/class="ui-settings-card(?:\s|")/g) || []).length, 22);
+    assert.equal((html.match(/class="ui-settings-readiness-card"/g) || []).length, 8);
     assert.equal((html.match(/class="ui-settings-summary-card"/g) || []).length, 3);
     assert.match(cardStyles, /\.ui-settings-card\s*\{/);
     assert.match(cardStyles, /\.ui-settings-card-footer\s*\{/);

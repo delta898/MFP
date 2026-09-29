@@ -605,7 +605,7 @@ const Utils = {
             const incoming = Array.isArray(scopes) ? scopes : [];
             const merged = incoming.length > 0
                 ? incoming
-                : ['https://www.googleapis.com/auth/spreadsheets'];
+                : ['https://www.googleapis.com/auth/drive.file'];
             return Array.from(new Set(merged.map(s => String(s || '').trim()).filter(Boolean))).sort();
         })();
         const scopeKey = normalizedScopes.join(' ');
@@ -862,7 +862,7 @@ const Utils = {
     createSpreadsheetWithDefaultSheets: async function (options = {}) {
         const title = String(options.title || '').trim() || `BlogGenius ${new Date().toISOString().slice(0, 10)}`;
         const shareEmail = String(options.shareEmail || '').trim();
-        const sheetsToken = await this.getGoogleAccessToken(['https://www.googleapis.com/auth/spreadsheets']);
+        const sheetsToken = await this.getGoogleAccessToken(['https://www.googleapis.com/auth/drive.file']);
         let createRes;
         try {
             createRes = await this.callWithRetry(() => axios.post(
@@ -892,7 +892,7 @@ const Utils = {
         if (shareEmail) {
             shareResult.attempted = true;
             try {
-                const driveToken = await this.getGoogleAccessToken(['https://www.googleapis.com/auth/drive']);
+                const driveToken = await this.getGoogleAccessToken(['https://www.googleapis.com/auth/drive.file']);
                 await this.callWithRetry(() => axios.post(
                     `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(spreadsheetId)}/permissions`,
                     {

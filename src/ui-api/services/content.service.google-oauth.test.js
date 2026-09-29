@@ -41,3 +41,34 @@ test('Google OAuth status delegates directly to the desktop OAuth client', async
     });
     assert.equal(calls, 1);
 });
+
+test('Google OAuth flow opens externally, exposes callback completion, and can be cancelled', async () => {
+    const openedUrls = [];
+    const callbackServer = {
+        once() {},
+        listen(_port, _host, callback) { callback(); },
+        address() { return { port: 43127 }; },
+        setTimeout() {},
+        close(callback) { callback?.(); }
+    };
+    const service = createContentService({
+        GoogleOAuth: {
+            getConfigurationStatus() { return { configured: true, missing: [] }; },
+            buildAuthUrl({ redirectUri }) {
+                return { authUrl: `https://accounts.google.com/o/oauth2/v2/auth?redirect_uri=${encodeURIComponent(redirectUri)}` };
+            }
+        },
+        openExternal: async (url) => openedUrls.push(url),
+        createGoogleOauthCallbackServer: () => callbackServer
+    });
+
+    const started = await service.startGoogleOauth({ mode: 'picker' });
+    assert.ok(started.flowId);
+    assert.equal(Object.hasOwn(started, 'authUrl'), false);
+    assert.equal((await service.getGoogleOauthFlow(started.flowId)).status, 'pending');
+    await service.openGoogleOauthFlow(started.flowId);
+    assert.equal(openedUrls.length, 1);
+    assert.match(openedUrls[0], /^https:\/\/accounts\.google\.com\//);
+    await service.cancelGoogleOauthFlow(started.flowId);
+    assert.equal((await service.getGoogleOauthFlow(started.flowId)).status, 'cancelled');
+});

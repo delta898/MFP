@@ -50,14 +50,59 @@ function createContentController(deps = {}) {
             }
         },
 
-        async googleOauthStart({ requestId, method, res }) {
+        async googleOauthStart({ requestId, method, requestBody, res }) {
             if (method !== 'POST') {
                 return sendMethodNotAllowed(sendError, res, requestId);
             }
             try {
-                return sendSuccess(res, requestId, await service.startGoogleOauth());
+                return sendSuccess(res, requestId, await service.startGoogleOauth(requestBody || {}));
             } catch (e) {
                 return toErrorResponse(res, requestId, 'GOOGLE_OAUTH_START_FAILED', 'Google 연결 시작에 실패했습니다.', e);
+            }
+        },
+
+        async googleOauthFlowOpen({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.openGoogleOauthFlow(requestBody?.flowId));
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'GOOGLE_OAUTH_OPEN_FAILED', '시스템 브라우저를 열지 못했습니다.', e);
+            }
+        },
+
+        async googleOauthFlowGet({ requestId, method, flowId, res }) {
+            if (method !== 'GET') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, service.getGoogleOauthFlow(flowId));
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'GOOGLE_OAUTH_FLOW_READ_FAILED', 'Google 인증 상태를 확인하지 못했습니다.', e);
+            }
+        },
+
+        async googleOauthFlowCancel({ requestId, method, flowId, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, service.cancelGoogleOauthFlow(flowId));
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'GOOGLE_OAUTH_FLOW_CANCEL_FAILED', 'Google 인증을 취소하지 못했습니다.', e);
+            }
+        },
+
+        async googlePickerSpreadsheetVerify({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.verifyGooglePickerSpreadsheet(requestBody || {}));
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'GOOGLE_PICKER_VERIFY_FAILED', '선택한 Spreadsheet를 확인하지 못했습니다.', e);
+            }
+        },
+
+        async googleSpreadsheetCreate({ requestId, method, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.createGoogleDailySpreadsheet());
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'GOOGLE_SHEET_CREATE_FAILED', '새 Spreadsheet를 만들지 못했습니다.', e);
             }
         },
 
