@@ -1586,7 +1586,9 @@ function resolveBrowserLaunchOptions() {
     if (!executablePath) {
         throw new Error('UI smoke test browser not found. Set BLOGGENIUS_TEST_BROWSER or install Playwright Chromium.');
     }
-    return { executablePath, headless: true };
+    const headlessSetting = String(process.env.UI_BROWSER_HEADLESS || 'true').trim().toLowerCase();
+    const headless = !['false', '0', 'no'].includes(headlessSetting);
+    return { executablePath, headless };
 }
 
 async function closeServer(server) {
@@ -1599,6 +1601,7 @@ async function run() {
     const pageErrors = [];
     const failedResponses = [];
     const failedRequests = [];
+    const blockedExternalRequests = [];
     const manuscriptFixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'blog-next-manuscript-browser-'));
     const manuscriptFixtureImage = path.join(manuscriptFixtureDir, '00_existing.png');
     fs.writeFileSync(path.join(manuscriptFixtureDir, 'contents.md'), '# 폴더 원고\n\n[[IMAGE_0\ntitle: 첫 이미지\nprompt: 푸른 하늘\n]]\n\n본문\n\n[[IMAGE_1\ntitle: 둘째 이미지\nprompt: 초록 숲\n]]');
@@ -1608,14 +1611,27 @@ async function run() {
     let heartbeat;
 
     try {
-        reportSmokePhase('Launching headless Chromium');
+        const launchOptions = resolveBrowserLaunchOptions();
+        const browserMode = launchOptions.headless ? 'headless' : 'headed';
+        reportSmokePhase(`Launching ${browserMode} Chromium`);
         heartbeat = setInterval(() => {
             const elapsedSeconds = Math.floor((Date.now() - smokeProgress.phaseStartedAt) / 1000);
             console.log(`[ui-smoke] still waiting: ${smokeProgress.phase} (${elapsedSeconds}s), action=${smokeProgress.lastAction || 'between actions'}, URL=${smokeProgress.pageUrl || 'not opened'}, fixtureRequests=${requests.length}, pageErrors=${pageErrors.length}, consoleErrors=${consoleErrors.length}`);
         }, 20000);
         heartbeat.unref();
-        browser = await chromium.launch(resolveBrowserLaunchOptions());
+        browser = await chromium.launch(launchOptions);
         const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+        const fixtureOrigin = new URL(baseUrl).origin;
+        await context.route('**/*', async (route) => {
+            const requestUrl = new URL(route.request().url());
+            if (requestUrl.origin === fixtureOrigin) {
+                await route.continue();
+                return;
+            }
+            blockedExternalRequests.push(`${route.request().method()} ${requestUrl.origin}${requestUrl.pathname}`);
+            console.log(`[ui-smoke] blocked external request: ${route.request().method()} ${requestUrl.origin}${requestUrl.pathname}`);
+            await route.abort('blockedbyclient');
+        });
         const page = await context.newPage();
         instrumentPageActions(page);
         smokeProgress.pageUrl = page.url();
@@ -1629,6 +1645,7 @@ async function run() {
             if (response.status() >= 400) failedResponses.push(`${response.status()} ${response.url()}`);
         });
         page.on('requestfailed', (request) => {
+            if (new URL(request.url()).origin !== fixtureOrigin) return;
             failedRequests.push(`${request.method()} ${request.url()} (${request.failure()?.errorText || 'unknown error'})`);
             console.log(`[ui-smoke] request failed: ${request.method()} ${request.url()} (${request.failure()?.errorText || 'unknown error'})`);
         });
@@ -5370,7 +5387,7 @@ async function run() {
         assert.deepEqual(consoleErrors.filter((item) => !item.includes('/api/v1/account/overview?quiet=1')), []);
 
         await context.close();
-        console.log(`✅ browser UI smoke test passed (${requests.length} fixture requests)`);
+        console.log(`✅ browser UI smoke test passed (${requests.length} fixture requests; blocked ${blockedExternalRequests.length} external requests${blockedExternalRequests.length ? `: ${blockedExternalRequests.join(', ')}` : ''})`);
     } finally {
         if (heartbeat) clearInterval(heartbeat);
         if (browser) await browser.close();

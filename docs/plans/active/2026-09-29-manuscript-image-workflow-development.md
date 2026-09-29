@@ -43,7 +43,8 @@ AI 이미지 생성·로컬 이미지 선택 흐름으로 자연스럽게 연결
    - Sub-feature record: [아카이브 개발 기록](../archive/2026-09-29-manuscript-image-block-ui-development.md)
    - Status: parent 병합 및 사용자 hands-on 확인 완료
 3. 프롬프트 품질 및 입력량 최적화
-   - 다음 sub-feature로 시작 예정. 생성 로그의 문맥/응답 길이를 바탕으로 입력 경량화와 출력 품질을 다듬는다.
+   - Sub-feature record: `2026-09-29-manuscript-image-context-relevance-development.md`
+   - Status: 문맥 위치 매칭, 근접 문단 선택과 원고 주제 우선 지시를 보완; 사용자 hands-on 확인 대기
 
 ## 검증 계획
 
@@ -61,6 +62,9 @@ AI 이미지 생성·로컬 이미지 선택 흐름으로 자연스럽게 연결
 - 사용자가 재테스트해 title·prompt 생성과 WordPress 이미지 업로드/본문 삽입이 정상 동작함을 확인했다.
 - 원고/이미지 단위·계약 테스트 69개가 통과했다. Browser smoke는 새 이미지 UI 확인 후 기존 slash 상호작용 단계에서
   실패해, `dev` 통합 전 재검증이 남아 있다.
+- Stage 3 조사에서 stable ID가 Markdown에 아직 반영되지 않은 legacy block은 기존 코드가 문맥 시작 위치 0으로 조용히
+  fallback할 수 있음을 발견했다. 또한 빈 문단 segment 때문에 후속 문맥이 선택되지 않을 수 있었다. 새 stage record에
+  수정과 focused 검증 결과를 기록했다.
 - 최종 browser smoke는 새 이미지 UI 구간을 지난 뒤 기존 slash 상호작용 단계에서 실패했고, 전용 browser 실행은 Chrome
   abort로 미완료다. focused slash static contract는 통과했으며 `dev` 통합 전에 브라우저 재검증한다.
 - 전체 unit suite는 parent를 `dev`에 병합하기 전 사용자 승인을 받아 별도로 실행한다.
