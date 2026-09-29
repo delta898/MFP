@@ -403,7 +403,7 @@
 
 .settings-next-sheet-current strong[data-empty="true"] {
   color: var(--ui-text-secondary);
-  font-weight: 500;
+  font-weight: var(--ui-weight-medium);
 }
 
 .settings-next-sheet-migration-note {

@@ -217,6 +217,8 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
 
 test('Settings Beta controller applies scoped changes seamlessly and protects pending local changes', () => {
     const script = read('ui/scripts/features/settings-next/shell.js');
+    const spreadsheetConnection = read('ui/scripts/features/settings-next/spreadsheet-connection.js');
+    const spreadsheetScript = `${script}\n${spreadsheetConnection}`;
     const aiScript = read('ui/scripts/features/settings-next/ai-model-roles.js');
     const writingScript = read('ui/scripts/features/settings-next/writing-defaults.js');
     const appInputScript = read('ui/scripts/features/settings-next/app-input.js');
@@ -236,13 +238,13 @@ test('Settings Beta controller applies scoped changes seamlessly and protects pe
     assert.match(optionalServices, /function settingsNextOptionalToggleDelivery\(scope, input\)/);
     assert.doesNotMatch(script, /function settingsNextHandleTabKeydown/);
     assert.match(script, /settingsNextHasValidSheetUrl/);
-    assert.match(script, /settingsNextSheetVerification\?\.spreadsheetId === sheetId/);
-    assert.match(script, /settingsNextSheetVerification = \{ spreadsheetId: fileId, success: true, title: verifiedTitle \}/);
-    assert.match(script, /function settingsNextWaitForGoogleFlow\(flowId\)/);
-    assert.match(script, /google-oauth\/flows\/\$\{encodeURIComponent\(flowId\)\}\/open/);
-    assert.match(script, /function settingsNextCancelGoogleFlow\(\)/);
-    assert.match(script, /google-oauth\/flows\/\$\{encodeURIComponent\(flowId\)\}\/cancel/);
-    assert.doesNotMatch(script, /window\.open\(data\.authUrl, 'google-sheet-picker'/);
+    assert.match(spreadsheetScript, /settingsNextSheetVerification\?\.spreadsheetId === sheetId/);
+    assert.match(spreadsheetScript, /settingsNextSheetVerification = \{ spreadsheetId: fileId, success: true, title: verifiedTitle \}/);
+    assert.match(spreadsheetScript, /function settingsNextWaitForGoogleFlow\(flowId\)/);
+    assert.match(spreadsheetScript, /google-oauth\/flows\/\$\{encodeURIComponent\(flowId\)\}\/open/);
+    assert.match(spreadsheetScript, /function settingsNextCancelGoogleFlow\(\)/);
+    assert.match(spreadsheetScript, /google-oauth\/flows\/\$\{encodeURIComponent\(flowId\)\}\/cancel/);
+    assert.doesNotMatch(spreadsheetScript, /window\.open\(data\.authUrl, 'google-sheet-picker'/);
     assert.match(script, /settingsNextBusyScopes\.has\('naver'\)/);
     assert.match(script, /settingsNextBusyScopes\.has\('wordpress'\)/);
     assert.match(script, /button\.hidden = loggedIn && !dirty/);

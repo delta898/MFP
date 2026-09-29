@@ -3,7 +3,7 @@
 - Branch: `codex/feat/settings-google-sheet-picker-connection`
 - Start date: 2026-09-29
 - Base/parent branch: `release/v0.5.4`
-- Status: 구현 및 집중 검증 완료, 사용자 수동 검증 대기
+- Status: 구현 및 자동 검증 완료, 사용자 실계정 최종 확인 대기
 
 ## 사용자 필요와 목표
 
@@ -81,8 +81,12 @@ BlogGenius 설정의 현재 Spreadsheet 선택 방식을 사용자가 명확히 
 - OAuth 외부 브라우저 flow 상태/취소 단위 테스트와 Settings UI 계약 테스트 16개 통과. JavaScript 구문 검사 및 `git diff --check` 통과.
 - 변경 후 전체 UI browser smoke를 다시 실행했다. 설정·계정·블로그 자동화 단계를 통과했지만, 이전과 같은 `local manuscript import and publish flows` fixture assertion (`scripts/test-ui-browser-smoke.js:4541`, `true !== false`)에서 실패했다. 이번 OAuth 변경과 무관한 영역으로 보이며 별도 확인이 필요하다.
 - `npm run test:ui-browser`는 갱신된 Spreadsheet 설정 시나리오를 통과했으나 이후 `local manuscript import and publish flows` 단계에서 기존 fixture 예상값 assertion이 실패했다 (`scripts/test-ui-browser-smoke.js:4541`). Google Picker 실인증/선택은 자동 스모크에서 호출하지 않으므로 사용자 수동 확인이 남아 있다.
+- Spreadsheet UI 코드 분리 후 관련 계약 테스트가 소스 파일 경계를 따라가도록 갱신했다. manifest 순서 계약, 캐시 버전 계약, 현재 패키지 버전(`0.5.4`) 계약도 정렬했다.
+- 최신 집중 검증: 관련 Dashboard/Settings/구조/스타일/버전/시작 순서 테스트 55개 통과, JS 구문 검사 및 `git diff --check` 통과.
+- 승인된 전체 검증: `npm run test:unit` 통과 (370개 파일, 2,034 tests: 2,033 통과, 1 skipped), 보안 audit 취약점 0건.
+- 최신 `npm run test:ui-browser`는 Dashboard 및 설정 구간을 통과했으나, Blog Beta 원고 편집 시나리오에서 이미지 생성 버튼 기대값이 `중지`가 아닌 `준비 중…`으로 관찰되어 실패했다 (`scripts/test-ui-browser-smoke.js:4085`). Spreadsheet 연결 플로우와는 별도 영역이며, 실계정 OAuth/파일 선택은 수동 확인 대상이다.
 
 ## 결과 및 검증
 
 - 사용자 수동 확인: 설정 Beta에서 (1) 새 계정 연결 후 신규 파일 생성 및 파일명/열기 링크 표시, (2) 같은 날짜 중복 생성 시 기존 파일 선택 안내, (3) Picker에서 기존 Spreadsheet 선택/취소, (4) 앱 재시작 후 파일명/연결 유지, (5) 저장된 파일로 기존 콘텐츠 공간 읽기/쓰기.
-- 브라우저 스모크의 후속 local-manuscript fixture assertion 실패는 별도 확인한다. Google Cloud Console scope와 설정 사용자 흐름은 실제 계정으로 수동 확인이 남아 있다.
+- 브라우저 smoke의 Blog 편집 assertion 실패는 별도 확인이 필요하다. Google Cloud Console scope와 설정 사용자 흐름은 실제 계정으로 수동 확인이 남아 있다.

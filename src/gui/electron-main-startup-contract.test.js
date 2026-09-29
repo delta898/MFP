@@ -36,7 +36,8 @@ test('safe mode uses the minimal server and does not automatically disable the s
 });
 
 test('renderer readiness requires an explicit bootstrap handshake before the CI probe exits', () => {
-    assert.ok(uiIndex.indexOf('startup-guard.js') < uiIndex.indexOf('app.js?v=4'));
+    const appScriptIndex = uiIndex.search(/app\.js\?v=\d+/);
+    assert.ok(uiIndex.indexOf('startup-guard.js') < appScriptIndex);
     assert.match(rendererGuard, /window[.]addEventListener\('error'/);
     assert.match(rendererGuard, /window[.]addEventListener\('unhandledrejection'/);
     assert.match(rendererLifecycle, /__BLOGGENIUS_STARTUP__[?][.]markReady/);
