@@ -86,7 +86,12 @@ function createDashboardBetaChannelButton(channel, state, label, reason = '', ch
   button.dataset.dashboardBetaTarget = channel.form;
   const normalizedReason = String(reason || '').trim();
   const normalizedCheckedAt = formatDashboardBetaDateTime(checkedAt);
-  const detail = [label, normalizedReason, normalizedCheckedAt ? `마지막 확인 ${normalizedCheckedAt}` : '']
+  const includeDiagnostics = state === 'ready' || state === 'muted';
+  const detail = [
+    label,
+    includeDiagnostics ? normalizedReason : '',
+    includeDiagnostics && normalizedCheckedAt ? `마지막 확인 ${normalizedCheckedAt}` : ''
+  ]
     .filter(Boolean)
     .join(' · ');
   button.setAttribute('aria-label', `${channel.name}, ${detail}`);

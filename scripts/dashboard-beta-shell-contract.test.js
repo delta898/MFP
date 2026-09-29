@@ -93,6 +93,9 @@ test('Dashboard Beta channel chips expose brand icons, states, and publish-chann
     assert.match(betaScript, /button\.dataset\.dashboardBetaTarget = channel\.form/);
     assert.match(betaScript, /aria-label.*channel\.name/);
     assert.match(betaScript, /button\.dataset\.dashboardBetaTooltip = detail/);
+    assert.match(betaScript, /const includeDiagnostics = state === 'ready' \|\| state === 'muted'/);
+    assert.match(betaScript, /includeDiagnostics \? normalizedReason : ''/);
+    assert.match(betaScript, /includeDiagnostics && normalizedCheckedAt/);
     assert.match(betaScript, /status === 'not_connected'/);
     assert.match(betaScript, /state: 'failed', label: labels\.failed/);
     assert.doesNotMatch(betaScript, /\['connected', 'configured'\]\.includes\(status\)/);
@@ -107,8 +110,13 @@ test('Dashboard Beta channel chips expose brand icons, states, and publish-chann
     assert.match(betaView, /dashboard-beta-channel-icon/);
     assert.match(betaStyle, /button\[data-dashboard-beta-channel="naver"\][\s\S]*?--channel-brand: var\(--ui-channel-naver\)/);
     assert.match(betaStyle, /button\[data-dashboard-beta-channel="wordpress"\][\s\S]*?--channel-brand: var\(--ui-channel-wordpress\)/);
+    assert.match(betaStyle, /button\[data-dashboard-beta-channel="wordpress"\] \.dashboard-beta-channel-icon\s*\{[^}]*transform:\s*scale\(1\.12\)/);
     assert.match(betaStyle, /\.dashboard-beta-channel-status\[data-state="ready"\] \.dashboard-beta-state-dot/);
     assert.match(betaStyle, /\.dashboard-beta-channel-status\[data-state="failed"\] \.dashboard-beta-state-dot/);
+    assert.match(betaStyle, /#view-dashboard-beta\s*\{[^}]*--dashboard-beta-status-ready:\s*#087b35;[^}]*--dashboard-beta-status-attention:\s*#c15a00;[^}]*--dashboard-beta-status-failed:\s*#c52222;/);
+    assert.match(betaStyle, /\.dashboard-beta-state-dot\s*\{[^}]*width:\s*14px;[^}]*height:\s*14px;[^}]*border:\s*2px solid var\(--ui-surface\);[^}]*box-shadow:\s*0 0 0 1px var\(--ui-border-strong\)/);
+    assert.match(betaStyle, /background:\s*var\(--dashboard-beta-status-ready\)/);
+    assert.match(betaStyle, /background:\s*var\(--dashboard-beta-status-attention\)/);
     assert.match(betaStyle, /button\[data-dashboard-beta-channel\]:focus::after/);
     assert.match(betaStyle, /\.dashboard-beta-readiness-items \[data-dashboard-beta-nav="account"\]/);
     assert.match(betaStyle, /\.dashboard-beta-readiness-items button:disabled/);
