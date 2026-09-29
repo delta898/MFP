@@ -23,6 +23,16 @@
 - A required merge or release gate is not waived by the approval requirement. If approval has not been given, stop before that gate and report that full validation remains pending.
 - Avoid repeatedly running a broad suite when no relevant code has changed since the last successful run.
 
+## Concise Collaboration
+- Think as deeply as the task requires, but keep user-facing explanations concise.
+- Lead with the outcome, decision, or blocker; include only the reasoning needed to understand it.
+- Do not narrate routine tool calls, repeat known context, or list steps that do not affect the user's decision.
+- Share progress only for meaningful results, decisions, delays, or blockers.
+- Run the narrowest test that provides useful confidence. Do not repeat a successful test unless relevant code or conditions changed.
+- Do not add tests or checks merely to increase test count. Cover changed behavior and important regression risks.
+- Run broader suites only when required by validation rules, change risk, or the user's request. Obtain approval before broad suites when required.
+- Keep handoffs to the outcome, focused verification, remaining user action, and commit state.
+
 ## Product and UI Direction
 - Unless the user explicitly requests work in another Blog surface, apply Blog feature and UI changes only to `블로그 Beta` (`view-blog-next`). Treat the existing `블로그` surface as out of scope by default.
 - Start from the user's need and use the user's language. Do not expose internal architecture, storage, provider, or prompt concepts unless they help the user make a decision.
