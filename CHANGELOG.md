@@ -1,6 +1,12 @@
 # Changelog
 All notable changes to the Naver Auto Blog publishing tool will be documented in this file.
 
+## [0.5.4-dev2] - 2026-09-29
+
+### Changed
+- **Spreadsheet 연결 전환**: 기존 Google Spreadsheet를 파일 선택 화면에서 다시 지정해 새 연결 방식으로 전환할 수 있고, 새 파일도 앱에서 바로 만들 수 있습니다. Dashboard는 전환이 필요한 경우에만 이를 강조합니다.
+- **macOS 설정 메뉴 안정화**: `Cmd+,`를 여러 번 눌러도 설정 화면을 다시 열 수 있으며, 화면 전환 오류가 앱을 종료시키지 않습니다.
+
 ## [0.5.4] - 2026-09-28
 
 ### Added

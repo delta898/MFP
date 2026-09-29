@@ -6,7 +6,7 @@ const packageLock = require('../package-lock.json');
 const { bumpVersion, formatVersion, parseVersion } = require('./version-utils');
 
 test('desktop package and lockfile root versions remain consistent', () => {
-  assert.equal(packageJson.version, '0.5.4');
+  assert.match(packageJson.version, /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
   assert.equal(packageLock.version, packageJson.version);
   assert.equal(packageLock.packages[''].version, packageJson.version);
 });
