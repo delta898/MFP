@@ -12,6 +12,12 @@
 - When the user asks for an opinion, diagnosis, or design discussion first, do not implement until the user explicitly approves proceeding.
 - Treat short approvals such as `승인`, `고고`, or `gogo` as permission to proceed with the currently agreed scope only. They do not authorize unrelated cleanup, release, push, or deployment work.
 - Do not commit, merge, delete branches, tag, push, or publish a release unless the user requests that action or included it explicitly in the current task.
+
+## User-Defined Shortcuts
+- When the user says `cmd` or `[cmd]`, interpret it as: commit the current feature work, merge the feature branch into its parent branch, then delete the successfully merged feature branch.
+- Resolve the parent using the branch policy: a sub-feature merges into its parent feature branch; a standalone feature branch merges into its base/integration branch (commonly `dev`).
+- Apply the normal validation and safety rules before committing or merging. Keep unrelated working-tree changes out of the feature commit, request approval where required (including the full unit suite before merging into `dev`), and do not push unless the user explicitly asks.
+- Append future user-defined shortcut commands to this section, keeping each definition concise and unambiguous.
 - Preserve unrelated working-tree changes. Before editing, identify pre-existing changes and do not absorb them into the current logical change without agreement.
 - If a choice materially changes user-visible behavior, data ownership, compatibility, cost, or external side effects, explain the tradeoff and get agreement before proceeding.
 
