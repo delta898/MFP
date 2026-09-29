@@ -80,3 +80,6 @@ AI 이미지 생성·로컬 이미지 선택 흐름으로 자연스럽게 연결
 - 보기 모드 첫 구현은 이미지가 있어도 title/prompt caption을 함께 보여 사용자 결정과 달랐다. 사용자 확인 후 이미지가
   있으면 image only, asset이 없으면 prompt text only로 수정했다. 두 상태를 확인하는 browser assertion은 통과했다.
 - 전체 unit suite는 parent를 `dev`에 병합하기 전 사용자 승인을 받아 별도로 실행한다.
+- 병합 전 full suite에서 이미지 prompt 생성 오류 안내 CSS의 구식 raw-color fallback이 style contract를 위반한 것을
+  확인해 `--ui-status-danger` semantic token으로 교체했다. design-system foundation 24/24 및 수정 후 전체 unit suite
+  2,044 passed, 1 skipped, 0 failed로 확인했다.

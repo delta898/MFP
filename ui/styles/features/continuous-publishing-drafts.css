@@ -417,7 +417,7 @@
 .manuscript-editor-canvas .manuscript-image-block-prompt-guidance { min-width: 0; height: var(--ui-density-control-min-height); }
 .manuscript-image-block-generate-prompt { min-height: var(--ui-density-control-min-height); align-self: center; font-size: var(--ui-type-caption-size); }
 .manuscript-image-block-prompt-generation-help { grid-column: 1 / -1; color: var(--ui-text-muted); font-size: var(--ui-type-caption-size); }
-.manuscript-image-block-prompt-generation-help[data-error="true"] { color: var(--danger, #a33b32); }
+.manuscript-image-block-prompt-generation-help[data-error="true"] { color: var(--ui-status-danger); }
 .manuscript-editor-canvas .manuscript-image-block textarea { min-height: 160px; resize: vertical; }
 .manuscript-editor-canvas .manuscript-image-block-fields textarea { height: 100%; min-height: 160px; }
 .manuscript-image-block-generate-prompt[disabled] { opacity: .58; cursor: not-allowed; }
