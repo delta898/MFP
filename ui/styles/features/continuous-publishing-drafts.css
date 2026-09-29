@@ -218,7 +218,7 @@
   opacity: 0;
   pointer-events: none;
   transform: translate(-50%, -2px);
-  transition: opacity 100ms ease, transform 100ms ease;
+  transition: var(--ui-transition-interactive);
   white-space: nowrap;
 }
 

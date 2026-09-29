@@ -3,7 +3,7 @@
 - Branch: `codex/feat/manuscript-content-counts`
 - Start date: 2026-09-29
 - Base/parent branch: `dev`
-- Status: 구현 진행 중
+- Status: 구현 및 전체 자동 검증 완료, `dev` 병합 대기
 
 ## 사용자 필요와 목표
 
@@ -44,7 +44,7 @@
 - 후속 UX 반영: 툴바를 왼쪽, 통계를 가운데, `[블록, Markdown, 보기]`를 오른쪽에 배치했다. 모든 도구 아이콘은 `aria-label`과 동일한 스타일의 hover/focus-visible 툴팁을 갖는다.
 - 도구 클릭 시 `mousedown.preventDefault()`가 ProseMirror selection을 보존하고 command 실행 시 editor에 focus를 되돌린다. 편집 조작 후 바로 이어서 입력할 수 있도록 의도한 편집기 동작이다.
 
-## 남은 작업
+## 결과 및 검증
 
 - 키워드는 comma/newline 분리, case-insensitive 비교, phrase의 겹치지 않는 단순 문자열 출현 횟수로 계산한다. 형태소 분석이나 의미 기반 매칭은 하지 않는다.
 - 네이티브 `details/summary`를 사용해 hover/focus와 click/tap 모두 키워드 popover를 열 수 있게 했다.
@@ -54,4 +54,6 @@
 - 제거 뒤 최종 브라우저 검증에서는 의도적으로 차단된 외부 폰트/위젯 요청이 console error로 잡혔다. smoke가 이미 외부 요청을 의도적으로 차단하므로 해당 `ERR_BLOCKED_BY_CLIENT`만 known noise로 제외했다.
 - 최종 `npm run test:ui-browser` 통과: fixture 요청 486건, 외부 요청 4건 차단. Blog Beta 및 공용 smoke 구간은 유지.
 - 집중 contract 23개와 JS syntax, `git diff --check` 통과.
+- 전체 `npm run test:unit` 통과: 375개 test file, 2,046 pass, 1 skipped, 0 failures. 최초 실행에서 motion-token 계약 실패를 발견해 CSS transition을 `--ui-transition-interactive`로 수정했고, 전체 suite 재실행은 통과했다.
+- 전체 `npm run test:ui-browser` 통과: fixture 요청 486건, 외부 요청 4건 차단. 레거시 Blog/Shopping 화면 검사는 사용자 결정에 따라 제거했고 Blog Beta 및 공용 smoke 구간은 유지했다.
 - 수동 확인: 통계 숫자 업데이트, hover/focus/click 키워드 popover, 좁은 화면에서 툴바 줄바꿈, 심볼 버튼의 이해도/가독성.
