@@ -28,21 +28,25 @@
 ## 설계 및 결정
 
 - 사용자는 `보기`에서 콘텐츠를 그대로 보여주는 방향을 승인했다: image는 image, prompt는 원문 text.
-- 기존 이미지 제목/대체 텍스트 처리 여부는 구현 경계와 접근성을 확인해 확정한다.
-- 이미지가 없을 때 prompt만 있으면 prompt 원문을 읽을 수 있어야 하며, 실제 발행 규칙을 이번 변경에서 임의로 결정하지 않는다.
+- 표시 기준을 구체화했다: 이미지 asset이 있으면 **이미지만** 보여주며 title과 prompt는 숨긴다. 이미지가 없으면
+  내부 표식이나 title을 보여주지 않고 prompt 원문만 텍스트로 표시한다. 이미지의 title은 보이는 캡션 대신 접근성용
+  `alt`에만 남긴다.
+- 실제 발행 규칙은 이번 변경에서 임의로 결정하지 않는다.
 
 ## 진행 및 검증
 
-- 기존 renderer는 이미지 파일이 없을 때 `이미지 파일 없음` 상자를 표시하고 이미지 제목과 prompt를 figure caption으로
-  보여줬다. Blog Beta 보기에서는 실제 이미지가 있는 경우에만 `<img>`를 렌더하고, 없는 경우에는 제목과 원문 prompt를
-  텍스트로 표시하도록 바꿨다. 누락 placeholder는 제거했다.
-- prompt는 HTML escaping 후 텍스트로만 출력하고, 줄바꿈을 보존하도록 `white-space: pre-wrap`을 적용했다. 이미지가 있는
-  경우 제목은 기존처럼 alt/caption에 유지하며 prompt는 별도 원문 텍스트로 표시한다.
+- 최초 구현은 실제 이미지가 있어도 제목과 prompt를 함께 노출했다. 사용자 검토에서 합의와 다름을 확인해 수정 중이다.
+- 최종 renderer는 이미지가 있으면 `<img>`만 보여주고 title은 alt에만 유지한다. 이미지가 없을 때만 prompt 원문을
+  HTML escaping 후 텍스트로 표시하며, 줄바꿈 보존을 위해 `white-space: pre-wrap`을 적용한다. title과 누락 placeholder는
+  보기 결과에서 숨긴다.
 - 검증: `node --test scripts/blog-next-baseline-contract.test.js scripts/manuscript-image-workspace-contract.test.js`
   23/23 통과, `node --check ui/scripts/features/blog-next/draft-inputs.js`, `git diff --check` 통과.
-- `npm run test:ui-browser`는 원고 이미지 흐름을 포함해 Legacy Blog/Shopping 단계까지 진행했으나 기존 fixture 요청 순서
-  assertion에서 예상한 `POST /api/v1/google-oauth/test`가 없어 실패했다 (`scripts/test-ui-browser-smoke.js:5405`).
+- `npm run test:ui-browser`는 보강한 prompt-only/image-only browser assertion을 통과하고 Legacy Blog/Shopping 단계까지
+  진행했으나 기존 fixture 요청 순서 assertion에서 예상한 `POST /api/v1/google-oauth/test`가 없어 실패했다
+  (`scripts/test-ui-browser-smoke.js:5412`).
   이번 보기 렌더링과 무관한 기존 smoke 이슈로 판단한다.
+- 사용자 검토에서 이미지가 있는 경우 title/prompt 캡션이 보이는 것이 합의와 다르다는 점을 확인했다. 브라우저 smoke 회귀에
+  두 상태를 고정했다: 이미지 없는 경우 prompt만 보이고, 이미지가 있는 경우 image만 보이며 title/prompt는 보이지 않아야 한다.
 
 ## 남은 작업
 

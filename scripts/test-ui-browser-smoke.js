@@ -4849,6 +4849,10 @@ async function run() {
         assert.equal(await page.locator('#blog-next-paste-clear-undo').count(), 0);
         assert.equal((await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-title]').textContent())?.trim(), '붙여넣은 원고');
         assert.equal((await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-body] h2').first().textContent())?.trim(), '미리보기 소제목');
+        const pasteImagePromptText = page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-body] .image-caption-prompt');
+        assert.equal((await pasteImagePromptText.textContent())?.trim(), '따뜻한 분위기의 이미지');
+        assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-body] .image-caption-title').count(), 0);
+        assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-body] .local-markdown-inline-image-missing').count(), 0);
         assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] [data-manuscript-image-slot]').count(), 0);
         assert.equal(await page.locator('[data-blog-next-draft-publish="paste"]').isDisabled(), false);
         assert.equal(await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-field="post-status"]').inputValue(), 'draft');
@@ -4887,6 +4891,9 @@ async function run() {
         await expandImageButton.click();
         assert.equal(await pasteImageBlock.evaluate((block) => block.classList.contains('is-media-expanded')), false);
         await page.locator('[data-paste-workspace-mode="view"]').click();
+        await page.waitForFunction(() => document.querySelector('[data-blog-next-draft-preview="paste"] [data-draft-preview-body] [data-manuscript-preview-image]'));
+        assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-body] [data-manuscript-preview-image]').count(), 1);
+        assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-body] .image-caption-title, [data-blog-next-draft-preview="paste"] [data-draft-preview-body] .image-caption-prompt').count(), 0);
         await page.locator('[data-blog-next-mode-panel="paste"] [data-draft-field="post-status"]').selectOption('publish');
         await page.waitForFunction(() => document.querySelector('[data-blog-next-mode-panel="paste"] [data-draft-field="post-status"] option[value="publish"]')?.disabled === false);
         assert.equal(await page.locator('[data-blog-next-draft-publish="paste"]').isDisabled(), false);

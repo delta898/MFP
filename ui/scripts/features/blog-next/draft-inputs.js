@@ -347,14 +347,10 @@ function renderBlogNextDraftBodyHtml(type, preview = {}) {
       const imageTitle = image?.title || item.text || `IMAGE_${item.index}`;
       const prompt = image?.prompt || item.prompt || '';
       const imageHtml = previewUrl
-        ? `<figure><img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(imageTitle)}" loading="lazy" data-manuscript-preview-image><figcaption>
-            <div class="image-caption-title">${escapeHtml(imageTitle)}</div>
-            ${prompt ? `<div class="image-caption-prompt" aria-label="이미지 프롬프트 원문">${escapeHtml(prompt)}</div>` : ''}
-          </figcaption></figure>`
-        : `<div class="local-markdown-image-source-text">
-            <div class="image-caption-title">${escapeHtml(imageTitle)}</div>
-            ${prompt ? `<div class="image-caption-prompt" aria-label="이미지 프롬프트 원문">${escapeHtml(prompt)}</div>` : ''}
-          </div>`;
+        ? `<figure><img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(imageTitle)}" loading="lazy" data-manuscript-preview-image></figure>`
+        : prompt
+          ? `<div class="local-markdown-image-source-text"><div class="image-caption-prompt" aria-label="이미지 프롬프트 원문">${escapeHtml(prompt)}</div></div>`
+          : '';
       fragments.push(imageHtml);
     } else if (itemType === 'separator') {
       fragments.push('<div class="local-markdown-preview-separator" role="separator" aria-label="구분선"></div>');

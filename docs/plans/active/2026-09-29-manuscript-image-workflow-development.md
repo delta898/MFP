@@ -48,6 +48,9 @@ AI 이미지 생성·로컬 이미지 선택 흐름으로 자연스럽게 연결
 4. 이미지 블록 UI 고도화
    - Sub-feature record: `2026-09-29-manuscript-image-block-ui-polish-development.md`
    - Status: 이미지 우세 컬럼, prompt 하단 정렬, 중립 미디어 stage, 간결한 이동/추가요청 UI 구현; 사용자 시각 확인 대기
+5. 원고 보기 모드의 이미지/prompt 표시
+   - Sub-feature record: `2026-09-29-manuscript-view-mode-source-content.md`
+   - Status: 이미지 only/prompt only 동작과 브라우저 assertion 보완 완료; 사용자 시각 검토 대기
 
 ## 검증 계획
 
@@ -74,4 +77,6 @@ AI 이미지 생성·로컬 이미지 선택 흐름으로 자연스럽게 연결
   block 폭 기준 responsive layout을 구현 중이며 visual acceptance는 사용자 검토 전이다.
 - 최종 browser smoke는 새 이미지 UI 구간을 지난 뒤 기존 slash 상호작용 단계에서 실패했고, 전용 browser 실행은 Chrome
   abort로 미완료다. focused slash static contract는 통과했으며 `dev` 통합 전에 브라우저 재검증한다.
+- 보기 모드 첫 구현은 이미지가 있어도 title/prompt caption을 함께 보여 사용자 결정과 달랐다. 사용자 확인 후 이미지가
+  있으면 image only, asset이 없으면 prompt text only로 수정했다. 두 상태를 확인하는 browser assertion은 통과했다.
 - 전체 unit suite는 parent를 `dev`에 병합하기 전 사용자 승인을 받아 별도로 실행한다.
