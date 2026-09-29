@@ -4596,13 +4596,78 @@ async function run() {
         assert.equal(await page.locator('#blog-next-paste-editor [data-image-action="generate"]').isVisible(), true);
         assert.equal(await page.locator('#blog-next-paste-editor [data-image-action="pick"]').isVisible(), true);
         assert.equal(await page.locator('#blog-next-paste-editor .manuscript-image-block-delete').getAttribute('aria-label'), '이미지 블록 삭제');
-        assert.deepEqual(await page.locator('#blog-next-paste-editor .manuscript-image-block-move').allTextContents(), ['↑ 위로', '↓ 아래로']);
+        assert.deepEqual(await page.locator('#blog-next-paste-editor .manuscript-image-block-move').allTextContents(), ['↑', '↓']);
+        assert.deepEqual(await page.locator('#blog-next-paste-editor .manuscript-image-block-move').evaluateAll((buttons) => buttons.map((button) => button.getAttribute('aria-label'))), ['위로 이동', '아래로 이동']);
         assert.equal(await page.locator('#blog-next-paste-editor .manuscript-image-block-structure-actions [aria-label="이미지 블록 삭제"]').count(), 1);
         assert.equal(await page.locator('#blog-next-paste-editor .manuscript-image-block-main').evaluate((main) => {
             const children = [...main.children];
             return children[0].classList.contains('manuscript-image-block-media')
                 && children[1].classList.contains('manuscript-image-block-fields');
         }), true);
+        const imageBlockVisuals = await page.locator('#blog-next-paste-editor .manuscript-image-block').evaluate((block) => {
+            const main = block.querySelector('.manuscript-image-block-main');
+            const media = block.querySelector('.manuscript-image-block-media');
+            const fields = block.querySelector('.manuscript-image-block-fields');
+            const prompt = block.querySelector('.manuscript-image-block-fields textarea');
+            const guidanceLabel = block.querySelector('.manuscript-image-block-prompt-guidance-label');
+            const guidanceInput = block.querySelector('.manuscript-image-block-prompt-guidance');
+            const promptButton = block.querySelector('.manuscript-image-block-generate-prompt');
+            const blockStyle = getComputedStyle(block);
+            const mediaStyle = getComputedStyle(media);
+            const tokenProbe = document.createElement('span');
+            tokenProbe.style.position = 'absolute';
+            tokenProbe.style.backgroundColor = 'var(--ui-surface)';
+            tokenProbe.style.borderColor = 'var(--ui-border-default)';
+            block.append(tokenProbe);
+            const expectedMediaBackground = getComputedStyle(tokenProbe).backgroundColor;
+            const expectedMediaBorder = getComputedStyle(tokenProbe).borderTopColor;
+            tokenProbe.remove();
+            const desktopColumns = getComputedStyle(main).gridTemplateColumns.trim().split(/\s+/).length;
+            const desktopMediaRect = media.getBoundingClientRect();
+            const desktopFieldsRect = fields.getBoundingClientRect();
+            const promptRect = prompt.getBoundingClientRect();
+            const inputRect = guidanceInput.getBoundingClientRect();
+            const buttonRect = promptButton.getBoundingClientRect();
+            const previousWidth = block.style.width;
+            block.style.width = '480px';
+            const compactColumns = getComputedStyle(main).gridTemplateColumns.trim().split(/\s+/).length;
+            block.style.width = previousWidth;
+            return {
+                borderStyle: blockStyle.borderTopStyle,
+                containerType: blockStyle.containerType,
+                desktopColumns,
+                compactColumns,
+                mediaRatio: mediaStyle.aspectRatio,
+                mediaBackground: mediaStyle.backgroundColor,
+                mediaBorder: mediaStyle.borderTopColor,
+                expectedMediaBackground,
+                expectedMediaBorder,
+                placeholderIconCount: block.querySelectorAll('.manuscript-image-block-placeholder-icon').length,
+                placeholderWaveCount: block.querySelectorAll('.manuscript-image-block-placeholder-waves path').length,
+                mediaBeforeFields: desktopMediaRect.left < desktopFieldsRect.left,
+                mediaWiderThanFields: desktopMediaRect.width > desktopFieldsRect.width,
+                promptAlignedWithMediaBottom: Math.abs(promptRect.bottom - desktopMediaRect.bottom) <= 2,
+                guidanceLabelOneLine: guidanceLabel.getBoundingClientRect().height < inputRect.height,
+                guidanceControlsSameHeight: Math.abs(inputRect.height - buttonRect.height) <= 1,
+                guidanceControlsCentered: Math.abs((inputRect.top + inputRect.bottom) / 2 - (buttonRect.top + buttonRect.bottom) / 2) <= 1
+            };
+        });
+        assert.equal(imageBlockVisuals.borderStyle, 'solid');
+        assert.equal(imageBlockVisuals.containerType, 'inline-size');
+        assert.equal(imageBlockVisuals.desktopColumns, 2);
+        assert.equal(imageBlockVisuals.compactColumns, 1);
+        assert.equal(imageBlockVisuals.mediaRatio, '4 / 3');
+        assert.equal(imageBlockVisuals.mediaBackground, imageBlockVisuals.expectedMediaBackground);
+        assert.equal(imageBlockVisuals.mediaBorder, imageBlockVisuals.expectedMediaBorder);
+        assert.equal(imageBlockVisuals.placeholderIconCount, 1);
+        assert.equal(imageBlockVisuals.placeholderWaveCount, 3);
+        assert.equal(await page.locator('#blog-next-paste-editor .manuscript-image-block-generate-prompt').getAttribute('class'), 'ui-text-action compact manuscript-image-block-generate-prompt');
+        assert.equal(imageBlockVisuals.mediaBeforeFields, true);
+        assert.equal(imageBlockVisuals.mediaWiderThanFields, true);
+        assert.equal(imageBlockVisuals.promptAlignedWithMediaBottom, true);
+        assert.equal(imageBlockVisuals.guidanceLabelOneLine, true);
+        assert.equal(imageBlockVisuals.guidanceControlsSameHeight, true);
+        assert.equal(imageBlockVisuals.guidanceControlsCentered, true);
         assert.match(await page.locator('#blog-next-paste-markdown').inputValue(), /\[\[IMAGE_0/);
         assert.equal(await page.locator('#blog-next-paste-editor .ProseMirror a').textContent(), '추천 글');
         const lastTopLevelParagraph = page.locator('#blog-next-paste-editor .ProseMirror > p').last();

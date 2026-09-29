@@ -278,12 +278,13 @@ function createImageBlock(onMove, options = {}) {
           const position = getPos();
           editor.view.dispatch(editor.state.tr.delete(position, position + currentNode.nodeSize));
         });
-        for (const [label, direction] of [['↑ 위로', -1], ['↓ 아래로', 1]]) {
+        for (const [icon, direction] of [['↑', -1], ['↓', 1]]) {
           const button = document.createElement('button');
           button.type = 'button';
           button.className = 'secondary compact manuscript-image-block-move';
-          button.textContent = label;
+          button.textContent = icon;
           button.setAttribute('aria-label', `${direction < 0 ? '위로' : '아래로'} 이동`);
+          button.title = `${direction < 0 ? '위로' : '아래로'} 이동`;
           button.addEventListener('mousedown', (event) => event.preventDefault());
           button.addEventListener('click', () => onMove(editor, getPos, direction));
           structuralActions.append(button);
@@ -333,7 +334,7 @@ function createImageBlock(onMove, options = {}) {
         promptGeneration.className = 'manuscript-image-block-prompt-generation';
         const promptGuidanceLabel = document.createElement('label');
         promptGuidanceLabel.className = 'manuscript-image-block-prompt-guidance-label';
-        promptGuidanceLabel.textContent = '프롬프트 추가 요청';
+        promptGuidanceLabel.textContent = '추가 요청';
         const optional = document.createElement('span');
         optional.textContent = '선택';
         promptGuidanceLabel.append(optional);
@@ -344,7 +345,7 @@ function createImageBlock(onMove, options = {}) {
         promptGuidance.setAttribute('aria-label', '프롬프트 생성 추가 요청');
         const generatePrompt = document.createElement('button');
         generatePrompt.type = 'button';
-        generatePrompt.className = 'primary compact manuscript-image-block-generate-prompt';
+        generatePrompt.className = 'ui-text-action compact manuscript-image-block-generate-prompt';
         generatePrompt.textContent = '프롬프트 만들기';
         generatePrompt.disabled = typeof options.onPromptGenerate !== 'function';
         generatePrompt.title = '글쓰기 모델로 이미지 제목과 프롬프트 생성';

@@ -45,6 +45,9 @@ AI 이미지 생성·로컬 이미지 선택 흐름으로 자연스럽게 연결
 3. 프롬프트 품질 및 입력량 최적화
    - Sub-feature record: `2026-09-29-manuscript-image-context-relevance-development.md`
    - Status: 문맥 위치 매칭, 근접 문단 선택과 원고 주제 우선 지시를 보완; 사용자 hands-on 확인 대기
+4. 이미지 블록 UI 고도화
+   - Sub-feature record: `2026-09-29-manuscript-image-block-ui-polish-development.md`
+   - Status: 이미지 우세 컬럼, prompt 하단 정렬, 중립 미디어 stage, 간결한 이동/추가요청 UI 구현; 사용자 시각 확인 대기
 
 ## 검증 계획
 
@@ -65,6 +68,10 @@ AI 이미지 생성·로컬 이미지 선택 흐름으로 자연스럽게 연결
 - Stage 3 조사에서 stable ID가 Markdown에 아직 반영되지 않은 legacy block은 기존 코드가 문맥 시작 위치 0으로 조용히
   fallback할 수 있음을 발견했다. 또한 빈 문단 segment 때문에 후속 문맥이 선택되지 않을 수 있었다. 새 stage record에
   수정과 focused 검증 결과를 기록했다.
+- Stage 3 (`codex/feat/manuscript-image-context-quality`)를 48개 focused test 통과 후 parent에 fast-forward 통합했다.
+  smoke는 원고 영역의 새 검증까지 진행했지만 기존 slash suggestion test의 timeout은 남아 있다.
+- Stage 4는 `codex/feat/manuscript-image-block-ui-polish`에서 시작했다. 점선 block을 theme card surface로 정리하고,
+  block 폭 기준 responsive layout을 구현 중이며 visual acceptance는 사용자 검토 전이다.
 - 최종 browser smoke는 새 이미지 UI 구간을 지난 뒤 기존 slash 상호작용 단계에서 실패했고, 전용 browser 실행은 Chrome
   abort로 미완료다. focused slash static contract는 통과했으며 `dev` 통합 전에 브라우저 재검증한다.
 - 전체 unit suite는 parent를 `dev`에 병합하기 전 사용자 승인을 받아 별도로 실행한다.
