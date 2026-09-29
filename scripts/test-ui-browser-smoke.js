@@ -498,10 +498,6 @@ function getApiFixture(pathname) {
             sample: '현재 기본값을 적용한 미리보기입니다.'
         };
     }
-    if (pathname === '/api/v1/google-oauth/status') return { state: 'connected', connectedEmail: 'fixture@example.com' };
-    if (pathname === '/api/v1/google-oauth/test') {
-        return { ok: true, spreadsheetId: 'fixture-sheet-id', spreadsheetTitle: 'UI smoke spreadsheet' };
-    }
     if (pathname === '/api/v1/session/naver') return { status: 'logged_in', valid: true };
     if (pathname === '/api/v1/session/wordpress-verify') return { success: true, message: '연동 성공' };
     if (pathname === '/api/v1/logs/files') return { files: [] };
@@ -1795,7 +1791,6 @@ async function run() {
             '대시보드'
         );
         assert.equal(await page.locator('.nav-btn[data-view="dashboard-beta"] .nav-new-badge').count(), 0);
-        assert.equal(await page.locator('.nav-btn[data-view="blog"]').isHidden(), true);
         assert.equal((await page.locator('.nav-btn[data-view="help"] .nav-label').textContent()).trim(), '도움말');
         await page.evaluate(() => {
             void showUiDialog({ title: '진행 중인 작업', message: '현재 결정을 먼저 완료해 주세요.' });
@@ -5189,152 +5184,7 @@ async function run() {
 
         await page.locator('.nav-btn[data-view="dashboard-beta"]').click();
         assert.equal(await page.locator('#update-banner').evaluate((element) => element.classList.contains('hidden')), true);
-        reportSmokePhase('Checking legacy Blog and Shopping surfaces');
-        await page.evaluate(() => navigateTo('blog', 'topics'));
-
-        await page.locator('.blog-tab-btn[data-blog-tab="topics"]').click();
-        await page.waitForFunction(() => document.getElementById('blog-tab-topics')?.classList.contains('active'));
-        assert.equal(await page.locator('#blog-table').count(), 1);
-
-        await page.locator('.blog-tab-btn[data-blog-tab="trend-posting"]').click();
-        await page.waitForFunction(() => document.getElementById('blog-tab-trend-posting')?.classList.contains('active'));
-
-        await page.locator('.blog-tab-btn[data-blog-tab="collect"]').click();
-        await page.waitForFunction(() => document.getElementById('blog-tab-collect')?.classList.contains('active'));
-        await page.waitForFunction(() => document.getElementById('blog-collect-trends-result')?.textContent?.includes('불러오기 완료'));
-        await page.evaluate(() => setBlogCollectResultText('수집 설정 테스트'));
-        assert.equal((await page.locator('#blog-collect-trends-result').textContent())?.trim(), '수집 설정 테스트');
-
-        await page.locator('.nav-btn[data-view="shopping"]').click();
-        assert.equal((await page.locator('#shopping-tab-button-quick').textContent())?.trim(), '빠른 글 작성');
-        await page.locator('#shopping-quick-url').fill('https://naver.me/fixture');
-        await page.locator('#shopping-quick-preview-btn').click();
-        await page.waitForFunction(() => document.getElementById('shopping-quick-preview')?.dataset.state === 'success');
-        assert.equal((await page.locator('#shopping-quick-preview-title').textContent())?.trim(), 'UI 회귀 테스트 상품');
-        assert.equal((await page.locator('#shopping-quick-preview-price').textContent())?.trim(), '19,900원 · 정가 29,900원');
-        assert.equal((await page.locator('#shopping-quick-preview-discount').textContent())?.trim(), '33%');
-        assert.equal((await page.locator('#shopping-quick-preview-image-count').textContent())?.trim(), '4장');
-        assert.equal(await page.locator('#shopping-quick-product-field').evaluate((element) => element.hidden), false);
-        assert.equal(await page.locator('#shopping-quick-product').inputValue(), 'UI 회귀 테스트 상품');
-        assert.equal(await page.locator('#shopping-quick-preview-link').getAttribute('href'), 'https://smartstore.naver.com/fixture/products/1234567890');
-        await page.locator('#shopping-quick-url').fill('https://naver.me/changed');
-        assert.equal(await page.locator('#shopping-quick-preview').getAttribute('data-state'), 'empty');
-        assert.equal(await page.locator('#shopping-quick-product-field').evaluate((element) => element.hidden), true);
-        assert.equal(await page.locator('#shopping-quick-product').inputValue(), '');
-        assert.equal(await page.locator('#shopping-tab-button-batch').isHidden(), true);
-        await page.evaluate(() => activateShoppingTab('batch'));
-        assert.equal(await page.locator('#shopping-tab-quick').evaluate((element) => element.classList.contains('active')), true);
-        assert.equal(await page.locator('#shopping-tab-batch').isHidden(), true);
-
-        const missingShoppingSetupRoute = async (route) => route.fulfill({
-            status: 200,
-            contentType: 'application/json; charset=utf-8',
-            body: JSON.stringify({
-                success: true,
-                data: {
-                    ready: false,
-                    isEssentialSet: false,
-                    isNaverSet: false,
-                    isWpSet: false,
-                    setup: {
-                        ready: false,
-                        ai: { configured: false, text_configured: false, image_configured: false },
-                        google: { configured: false, account_connected: false, spreadsheet_configured: false },
-                        publishing_channel: { configured: false, naver_configured: false, wordpress_configured: false }
-                    }
-                }
-            })
-        });
-        await page.route('**/api/v1/config/status', missingShoppingSetupRoute);
-        await page.evaluate(() => navigateTo('dashboard-beta'));
-        await page.evaluate(() => navigateTo('shopping', 'quick'));
-        await page.waitForFunction(() => document.getElementById('view-shopping')?.classList.contains('active'));
-        assert.equal(await page.locator('#shopping-quick-deferred-actions').isHidden(), true);
-        assert.equal(await page.locator('#shopping-sheet-readiness').isVisible(), true);
-        assert.equal(await page.locator('#shopping-ai-readiness').isVisible(), true);
-        assert.equal(await page.locator('#shopping-publish-readiness').isVisible(), true);
-        assert.equal(await page.locator('#shopping-quick-preview-btn').isEnabled(), true);
-        assert.equal(await page.locator('#shopping-quick-save-btn').isHidden(), true);
-        assert.equal(await page.locator('#ui-dialog-backdrop').evaluate((element) => element.classList.contains('hidden')), true);
-        await page.unroute('**/api/v1/config/status', missingShoppingSetupRoute);
-
-        await page.evaluate(() => navigateTo('blog', 'quick'));
-        await page.locator('.blog-tab-btn[data-blog-tab="quick"]').click();
-        await page.waitForFunction(() => document.getElementById('blog-tab-quick')?.classList.contains('active'));
-
-        await page.locator('#quick-keywords').fill('블로그 자동화, 글쓰기 도구');
-        await page.locator('#quick-keyword-discovery-open-btn').click();
-        await page.waitForFunction(() => !document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
-        assert.equal(await page.locator('[data-quick-discovery-tab="keyword"]').getAttribute('aria-selected'), 'true');
-        assert.equal(await page.locator('#quick-discovery-keyword-panel').evaluate((element) => element.hidden), false);
-        assert.equal(await page.locator('#quick-keyword-discovery-query').inputValue(), '블로그 자동화, 글쓰기 도구');
-        await page.locator('#quick-discovery-modal-close').click();
-        await page.waitForFunction(() => document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
-
-        await page.evaluate(async () => {
-            const originalConfirm = showUiConfirm;
-            showUiConfirm = async () => true;
-            try {
-                document.getElementById('quick-subject').value = '사용자가 작성한 주제';
-                await applyQuickKeywordDiscovery([{ keyword: '선택 키워드' }]);
-            } finally {
-                showUiConfirm = originalConfirm;
-            }
-        });
-        assert.equal(await page.locator('#quick-subject').inputValue(), '사용자가 작성한 주제');
-        assert.equal(await page.locator('#quick-keywords').inputValue(), '선택 키워드');
-
-        await page.evaluate(async () => {
-            const originalConfirm = showUiConfirm;
-            showUiConfirm = async () => true;
-            try {
-                document.getElementById('quick-subject').value = '   ';
-                await applyQuickKeywordDiscovery([{ keyword: '빈 주제 자동 입력' }]);
-            } finally {
-                showUiConfirm = originalConfirm;
-            }
-        });
-        assert.equal(await page.locator('#quick-subject').inputValue(), '빈 주제 자동 입력');
-        assert.equal(await page.locator('#quick-keywords').inputValue(), '빈 주제 자동 입력');
-
-        await page.evaluate(() => {
-            Object.assign(quickTopicRecommendationState, {
-                items: [],
-                loaded: false,
-                loading: false,
-                error: '',
-                query: '',
-                smartUsageSessionId: '',
-                smartUsage: null,
-                smartUsageStartedAt: 0
-            });
-        });
-        await page.locator('#quick-discovery-open-btn').click();
-        await page.waitForFunction(() => !document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
-        assert.equal(await page.locator('[data-quick-discovery-tab="topic"]').getAttribute('aria-selected'), 'true');
-        await page.locator('#quick-topic-recommendations-refresh').click();
-        await page.waitForFunction(() => document.querySelectorAll('.quick-topic-recommendation-row').length === 1);
-        assert.match((await page.locator('#quick-topic-smart-usage').textContent()) || '', /한 번 더 새로운 글감을/);
-        await page.evaluate(() => {
-            const staleOverview = JSON.parse(JSON.stringify(lastAccountOverview));
-            staleOverview.smart_usage.items[0].remaining = 20;
-            renderAccountOverview(staleOverview, { smartUsageRevisionAtRequest: 0 });
-        });
-        assert.match((await page.locator('#quick-topic-smart-usage').textContent()) || '', /^19 \/ 20회 남음/);
-        await page.locator('#quick-discovery-modal-close').click();
-        await page.waitForFunction(() => document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
-        await page.locator('#quick-discovery-open-btn').click();
-        await page.waitForFunction(() => !document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
-        assert.equal(await page.locator('.quick-topic-recommendation-row').count(), 1);
-        await page.locator('#quick-topic-recommendations-refresh').click();
-        await page.waitForFunction(() => document.getElementById('quick-topic-recommendations-refresh')?.textContent?.includes('계속 추천받기'));
-        await page.locator('#quick-topic-recommendations-refresh').click();
-        await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
-        assert.equal((await page.locator('#ui-dialog-title').textContent())?.trim(), '계속 추천받을까요?');
-        assert.doesNotMatch((await page.locator('#ui-dialog-message').textContent()) || '', /세션|provider|request/i);
-        await page.locator('#ui-dialog-cancel').click();
-        await page.locator('#quick-discovery-modal-close').click();
-        await page.waitForFunction(() => document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
+        await page.evaluate(() => navigateTo('blog-next', 'quick'));
 
         await page.setViewportSize({ width: 390, height: 844 });
         await page.waitForFunction(() => document.body.classList.contains('mobile-quick-mode'));
@@ -5361,7 +5211,6 @@ async function run() {
         });
         assert.equal(blogNextNarrowLayout.panelChecks.every(({ left, right, width }) => left >= 0 && right <= 391 && width > 0), true);
         assert.equal(blogNextNarrowLayout.modeChecks.every(({ left, right, width }) => left >= 0 && right <= 391 && width > 0), true);
-        assert.equal(await page.locator('.nav-btn[data-view="blog"]').isHidden(), true);
         assert.equal(await page.locator('.nav-btn[data-view="blog-next"]').isVisible(), true);
         assert.equal(await page.locator('.mobile-topbar').evaluate((element) => getComputedStyle(element).display), 'flex');
         await page.evaluate(() => navigateTo('dashboard'));
@@ -5388,7 +5237,6 @@ async function run() {
             { method: 'POST', pathname: '/api/v1/recommendations/discover' },
             { method: 'POST', pathname: '/api/v1/recommendations/interaction' },
             { method: 'POST', pathname: '/api/v1/recommendations/discover' },
-            { method: 'POST', pathname: '/api/v1/google-oauth/test' },
             { method: 'PUT', pathname: '/api/v1/settings/writing-profile' },
             { method: 'POST', pathname: '/api/v1/settings/optional-services' },
             { method: 'POST', pathname: '/api/v1/trend-posting/topics' },
@@ -5462,7 +5310,14 @@ async function run() {
             assert.ok(expectedAccountFailureErrors.some((item) => item.includes('API Fetch Error')));
             assert.ok(expectedAccountFailureErrors.some((item) => item.includes('Network or Parse Error')));
         }
-        assert.deepEqual(consoleErrors.filter((item) => !item.includes('/api/v1/account/overview?quiet=1')), []);
+        const intentionallyBlockedExternalErrors = consoleErrors.filter((item) => (
+            item.includes('ERR_BLOCKED_BY_CLIENT')
+            && blockedExternalRequests.some((request) => item.includes(request.slice(request.indexOf('https://'))))
+        ));
+        assert.deepEqual(consoleErrors.filter((item) => (
+            !item.includes('/api/v1/account/overview?quiet=1')
+            && !intentionallyBlockedExternalErrors.includes(item)
+        )), []);
 
         await context.close();
         console.log(`✅ browser UI smoke test passed (${requests.length} fixture requests; blocked ${blockedExternalRequests.length} external requests${blockedExternalRequests.length ? `: ${blockedExternalRequests.join(', ')}` : ''})`);

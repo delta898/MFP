@@ -199,17 +199,21 @@
               aria-live="polite" hidden></div>
             <div class="manuscript-editor-sticky-rail" data-ai-editor-rail hidden>
               <div class="manuscript-editor-toolbar" role="toolbar" aria-label="원고 서식" data-ai-formatting-toolbar>
-                <button type="button" data-ai-manuscript-command="paragraph">본문</button>
-                <button type="button" data-ai-manuscript-command="heading">소제목</button>
-                <button type="button" data-ai-manuscript-command="bold" aria-label="굵게"><strong>B</strong></button>
-                <button type="button" data-ai-manuscript-command="italic" aria-label="기울임"><em>I</em></button>
-                <button type="button" data-ai-manuscript-command="bulletList">글머리 목록</button>
-                <button type="button" data-ai-manuscript-command="orderedList">번호 목록</button>
-                <button type="button" data-ai-manuscript-command="blockquote">인용</button>
-                <button type="button" data-ai-manuscript-command="image">이미지 추가</button>
-                <button type="button" data-ai-manuscript-command="undo">되돌리기</button>
-                <button type="button" data-ai-manuscript-command="redo">다시 실행</button>
+                <button type="button" aria-label="본문" data-tooltip="본문" data-ai-manuscript-command="paragraph">¶</button>
+                <button type="button" aria-label="소제목" data-tooltip="소제목" data-ai-manuscript-command="heading">H₂</button>
+                <button type="button" data-ai-manuscript-command="bold" aria-label="굵게" data-tooltip="굵게"><strong>B</strong></button>
+                <button type="button" data-ai-manuscript-command="italic" aria-label="기울임" data-tooltip="기울임"><em>I</em></button>
+                <button type="button" aria-label="글머리 목록" data-tooltip="글머리 목록" data-ai-manuscript-command="bulletList">•≡</button>
+                <button type="button" aria-label="번호 목록" data-tooltip="번호 목록" data-ai-manuscript-command="orderedList">1≡</button>
+                <button type="button" aria-label="인용" data-tooltip="인용" data-ai-manuscript-command="blockquote">❞</button>
+                <button type="button" aria-label="이미지 추가" data-tooltip="이미지 추가" data-ai-manuscript-command="image">▧+</button>
+                <button type="button" aria-label="되돌리기" data-tooltip="되돌리기" data-ai-manuscript-command="undo">↶</button>
+                <button type="button" aria-label="다시 실행" data-tooltip="다시 실행" data-ai-manuscript-command="redo">↷</button>
               </div>
+              <details class="manuscript-editor-counts" data-manuscript-counts="ai">
+                <summary aria-label="원고 통계"><span data-count-title>제목 0자</span><span data-count-body>본문 0자</span><span data-count-words>0어절</span></summary>
+                <div class="manuscript-editor-counts-popover" role="tooltip" data-count-keywords>키워드 통계가 없습니다.</div>
+              </details>
               <div class="manuscript-editor-mode" role="group" aria-label="원고 작업 방식">
                 <button type="button" data-ai-workspace-mode="block" aria-pressed="true">블록</button>
                 <button type="button" data-ai-workspace-mode="markdown" aria-pressed="false">Markdown</button>

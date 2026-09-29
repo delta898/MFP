@@ -63,6 +63,64 @@ function readBlogNextDraftSettings(type) {
   };
 }
 
+function stripBlogNextMarkdownForCounts(markdown = '') {
+  return String(markdown || '')
+    .replace(/^\s*\[\[IMAGE(?:_\d+)?\b[\s\S]*?^\]\]\s*$/gm, '\n')
+    .replace(/^\s*---\s*$\n[\s\S]*?^\s*---\s*$/m, '')
+    .replace(/^\s*#\s+.*(?:\n|$)/m, '')
+    .replace(/^\s{0,3}(?:#{1,6}\s+|>\s?|[-*+]\s+|\d+[.)]\s+)/gm, '')
+    .replace(/```[\s\S]*?```/g, (match) => match.replace(/^```[^\n]*\n?|```$/g, ''))
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/(\*\*|__|~~|`)([\s\S]*?)\1/g, '$2')
+    .replace(/(?<!\w)\*([^*]+)\*(?!\w)/g, '$1')
+    .replace(/(?<!\w)_([^_]+)_(?!\w)/g, '$1')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function countBlogNextKeywordOccurrences(text, keyword) {
+  const normalizedKeyword = String(keyword || '').trim();
+  if (!normalizedKeyword) return 0;
+  let count = 0;
+  let offset = 0;
+  const source = String(text || '').toLocaleLowerCase();
+  const needle = normalizedKeyword.toLocaleLowerCase();
+  while ((offset = source.indexOf(needle, offset)) !== -1) {
+    count += 1;
+    offset += needle.length;
+  }
+  return count;
+}
+
+function updateBlogNextManuscriptCounts(type, markdown = '') {
+  const container = document.querySelector(`[data-manuscript-counts="${type}"]`);
+  if (!container) return;
+  const source = String(markdown || '');
+  const heading = source.match(/^\s*#\s+(.+?)\s*$/m)?.[1] || '';
+  const previewTitle = blogNextDraftState[type]?.preview?.title || '';
+  const title = heading || previewTitle;
+  const body = stripBlogNextMarkdownForCounts(source);
+  const titleCount = Array.from(title).length;
+  const bodyCount = Array.from(body).length;
+  const wordCount = body.trim() ? body.trim().split(/\s+/u).length : 0;
+  container.querySelector('[data-count-title]').textContent = `제목 ${titleCount}자`;
+  container.querySelector('[data-count-body]').textContent = `본문 ${bodyCount.toLocaleString()}자`;
+  container.querySelector('[data-count-words]').textContent = `${wordCount.toLocaleString()}어절`;
+
+  const keywords = type === 'ai'
+    ? String(document.getElementById('blog-next-keywords')?.value || '').split(/[,\n]/u).map(value => value.trim()).filter(Boolean)
+    : [];
+  const keywordArea = container.querySelector('[data-count-keywords]');
+  if (keywords.length) {
+    keywordArea.textContent = `키워드별 본문 출현 횟수 · ${keywords.map(keyword => `${keyword} ${countBlogNextKeywordOccurrences(body, keyword)}회`).join(' · ')}`;
+    container.classList.add('has-keywords');
+  } else {
+    keywordArea.textContent = '키워드 통계가 없습니다.';
+    container.classList.remove('has-keywords');
+  }
+}
+
 function syncBlogNextDraftSettingsSummary(type) {
   const summary = document.getElementById('blog-next-publish-settings-summary');
   if (!summary) return;
@@ -375,6 +433,8 @@ function renderBlogNextDraftPreview(type, preview = null) {
         : `slot:${focusedImageControl.dataset.slotId || ''}`
     : '';
   blogNextDraftState[type].preview = preview;
+  const markdownInput = document.getElementById(`blog-next-${type === 'ai' ? 'ai-markdown' : type === 'folder' ? 'folder-markdown' : 'paste-markdown'}`);
+  updateBlogNextManuscriptCounts(type, markdownInput?.value || '');
   syncBlogNextDraftImageSafety(type, preview);
   syncBlogNextDraftExecutionState();
   if (!container || !preview) {
@@ -860,6 +920,9 @@ function initBlogNextDraftInputs() {
   folderInput.dataset.bound = 'true';
   document.getElementById('blog-next-publish-image-action')?.addEventListener('click', focusBlogNextDraftImages);
   const aiMarkdown = document.getElementById('blog-next-ai-markdown');
+  document.getElementById('blog-next-keywords')?.addEventListener('input', () => {
+    updateBlogNextManuscriptCounts('ai', aiMarkdown?.value || '');
+  });
   const aiEditorRoot = document.getElementById('blog-next-ai-editor');
   if (aiMarkdown && aiEditorRoot && window.BlogGeniusManuscriptEditor?.mount) {
     blogNextDraftState.ai.editor = window.BlogGeniusManuscriptEditor.mount(aiEditorRoot, {
@@ -909,6 +972,7 @@ function initBlogNextDraftInputs() {
     });
     aiMarkdown.addEventListener('input', () => {
       resizeBlogNextMarkdownEditor(aiMarkdown);
+      updateBlogNextManuscriptCounts('ai', aiMarkdown.value);
       scheduleBlogNextDraftPreview('ai');
     });
   } else if (aiEditorRoot) {
@@ -990,6 +1054,7 @@ function initBlogNextDraftInputs() {
     });
     folderMarkdown.addEventListener('input', () => {
       resizeBlogNextMarkdownEditor(folderMarkdown);
+      updateBlogNextManuscriptCounts('folder', folderMarkdown.value);
       scheduleBlogNextDraftPreview('folder');
     });
   }
@@ -1068,6 +1133,7 @@ function initBlogNextDraftInputs() {
     }
     pastedInput.addEventListener('input', () => {
       resizeBlogNextMarkdownEditor(pastedInput);
+      updateBlogNextManuscriptCounts('paste', pastedInput.value);
       if (!pastedInput.value.trim()) resetBlogNextPasteDraftConnection();
       scheduleBlogNextDraftPreview('paste');
     });
