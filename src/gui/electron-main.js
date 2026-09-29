@@ -356,6 +356,13 @@ function openBlogQuickCreate() {
     });
 }
 
+function executeSettingsMenuScript(script, actionLabel) {
+    if (!win || win.isDestroyed()) return;
+    void win.webContents.executeJavaScript(script).catch((error) => {
+        Logger.warn(`macOS 메뉴에서 ${actionLabel} 화면을 열지 못했습니다: ${error.message}`);
+    });
+}
+
 // Electron의 기본 메뉴를 제거하거나 커스터마이징합니다.
 function createMenu() {
     const template = [
@@ -417,26 +424,21 @@ function createMenu() {
                 {
                     label: '설정...',
                     accelerator: 'CmdOrCtrl+,',
-                    click: () => {
-                        if (win) {
-                            win.webContents.executeJavaScript("const btn = document.querySelector('.nav-btn[data-view=\"settings\"]'); if(btn) btn.click();");
-                        }
-                    }
+                    click: () => executeSettingsMenuScript(
+                        "var settingsButton = document.querySelector('.nav-btn[data-view=\"settings-next\"]'); if (settingsButton) settingsButton.click();",
+                        '설정'
+                    )
                 },
                 {
                     label: '업데이트 확인...',
-                    click: () => {
-                        if (win) {
-                            win.webContents.executeJavaScript(`
-                                const navBtn = document.querySelector('.nav-btn[data-view="settings"]');
-                                if(navBtn) navBtn.click();
-                                setTimeout(() => {
-                                    const updateBtn = document.getElementById('settings-check-update-btn');
-                                    if(updateBtn) updateBtn.click();
-                                }, 100);
-                            `);
-                        }
-                    }
+                    click: () => executeSettingsMenuScript(`
+                        var settingsButton = document.querySelector('.nav-btn[data-view="settings-next"]');
+                        if (settingsButton) settingsButton.click();
+                        setTimeout(() => {
+                            var updateButton = document.querySelector('[data-settings-next-update-action="check"]');
+                            if (updateButton) updateButton.click();
+                        }, 100);
+                    `, '업데이트 확인')
                 },
                 { type: 'separator' },
                 { role: 'services' },

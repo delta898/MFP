@@ -69,6 +69,15 @@ test('custom File menu supports closing the focused window with the native platf
     assert.match(source, /label: '파일',[\s\S]*?label: '창 닫기', role: 'close'[\s\S]*?label: '종료', role: 'quit'/);
 });
 
+test('macOS settings menu safely reopens Settings Beta without leaking script errors into app lifecycle', () => {
+    assert.match(source, /function executeSettingsMenuScript\(script, actionLabel\)/);
+    assert.match(source, /executeJavaScript\(script\)\.catch\(\(error\) =>/);
+    assert.match(source, /accelerator: 'CmdOrCtrl\+,',[\s\S]{0,240}settings-next/);
+    assert.match(source, /var settingsButton = document\.querySelector\('\.nav-btn\[data-view="settings-next"\]'\)/);
+    assert.doesNotMatch(source, /const btn = document\.querySelector\('\.nav-btn\[data-view="settings"\]'\)/);
+    assert.match(source, /data-settings-next-update-action="check"/);
+});
+
 test('normal GUI defers memory and optional services until after renderer readiness', () => {
     const readyIndex = source.indexOf("startup.write('RENDERER_READY'");
     const postReadyIndex = source.indexOf('startPostReadyServices().catch', readyIndex);
