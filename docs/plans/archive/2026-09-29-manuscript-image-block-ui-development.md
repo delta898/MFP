@@ -3,7 +3,7 @@
 - Branch: `codex/feat/manuscript-image-block-ui`
 - Start date: 2026-09-29
 - Base/parent branch: `codex/manuscript-image-workflow`
-- Status: 구현 완료, 사용자 hands-on에서 프롬프트 생성과 WordPress 이미지 발행 확인; sub-feature 병합 준비
+- Status: 구현 완료, 사용자 hands-on에서 프롬프트 생성과 WordPress 이미지 발행 확인; parent에 병합 완료
 - Parent feature: [원고 이미지 작업 흐름 개선](2026-09-29-manuscript-image-workflow-development.md)
 
 ## 사용자 필요와 목표
