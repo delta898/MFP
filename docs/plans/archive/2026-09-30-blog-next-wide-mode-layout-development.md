@@ -3,7 +3,7 @@
 - Branch: `codex/feat/blog-next-wide-mode-layout`
 - Start date: 2026-09-30
 - Base/parent branch: `dev`
-- Status: in progress
+- Status: complete; merged into `dev`
 
 ## User need and goal
 
@@ -47,9 +47,11 @@ Investigate shared mode-panel wrappers and nested max-width/inset rules. Prefer 
 - `npm run test:ui-browser` passed (487 fixture requests; external requests were blocked).
 - After the recommendation button/alignment update, `npm run test:ui-browser` passed again (490 fixture requests; external requests were blocked).
 - After making widths content-sensitive, `npm run test:ui-browser` passed (486 fixture requests; external requests were blocked). One preceding run failed in an unrelated dashboard focus assertion before retry passed.
+- Stale width-contract expectations were updated to match the shared full-width layout; focused tests passed (39 tests).
 - `git diff --check` passed.
+- Full `npm run test:unit` passed after the final changes: 2,046 passed, 1 skipped, 0 failed.
 
 ## Final result and remaining work
 
-- Visual confirmation of the narrower dialogs and aligned quick-create modes remains with the user. Branch is not committed.
-- User visual acceptance remains pending.
+- Feature implementation and automated validation are complete; merged into `dev`.
+- The user retains final visual confirmation of the narrower dialogs and aligned quick-create modes.
