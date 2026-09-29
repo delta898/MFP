@@ -90,10 +90,16 @@ test('Blog Beta typography hierarchy uses shared semantic roles', () => {
 });
 
 test('Blog Beta quick modes share the same content start inset', () => {
-    const styles = read('ui/styles/features/continuous-publishing.css');
+  const styles = read('ui/styles/features/continuous-publishing.css');
+  const quickFlow = read('ui/styles/features/blog-next-quick-flow.css');
+  const baseline = read('ui/styles/features/blog-next-baseline.css');
 
-    assert.doesNotMatch(styles, /\.blog-next-topic-form\s*\{[^}]*margin-top:/s);
-    assert.match(styles, /\.blog-next-mode-panel\s*\{[^}]*padding:\s*var\(--ui-density-section-padding\)/s);
+  assert.doesNotMatch(styles, /\.blog-next-topic-form\s*\{[^}]*margin-top:/s);
+  assert.match(styles, /\.blog-next-mode-panel\s*\{[^}]*padding:\s*var\(--ui-density-section-padding\)/s);
+  assert.match(quickFlow, /#blog-next-topic-form-home\s*\{[^}]*width:\s*100%/s);
+  assert.match(quickFlow, /#blog-next-topic-form-home \.blog-next-topic-form\s*\{[^}]*width:\s*100%/s);
+  assert.match(baseline, /\.blog-next-draft-mode\s*\{[^}]*width:\s*100%/s);
+  assert.doesNotMatch(baseline, /\.blog-next-draft-mode\s*\{[^}]*max-width|\.blog-next-draft-mode\s*\{[^}]*margin-inline:\s*auto/s);
 });
 
 test('Blog Beta tab interaction separates selection and keyboard focus', () => {

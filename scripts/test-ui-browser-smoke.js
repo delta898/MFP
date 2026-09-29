@@ -3781,10 +3781,16 @@ async function run() {
 
         await page.locator('#blog-next-subject').fill('기존에 적어둔 제주 글감');
         await page.locator('#blog-next-keywords').fill('제주 산책');
+        let quickDiscoveryWideWidth = 0;
         await page.locator('#blog-next-keyword-recommend').click();
         await page.waitForFunction(() => !document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
+        quickDiscoveryWideWidth = await page.locator('.quick-discovery-modal-container')
+            .evaluate((element) => Math.round(element.getBoundingClientRect().width));
+        assert.ok(quickDiscoveryWideWidth > 840 && quickDiscoveryWideWidth <= 1040);
         assert.equal(await page.locator('#quick-keyword-discovery-query').inputValue(), '제주 산책');
-        await page.locator('#quick-discovery-modal-close').click();
+        await page.keyboard.press('Escape');
+        await page.waitForFunction(() => document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
+        assert.equal(await page.evaluate(() => document.activeElement?.id), 'blog-next-keyword-recommend');
         await page.evaluate(async () => {
             const originalConfirm = showUiConfirm;
             showUiConfirm = async () => true;
@@ -3801,8 +3807,31 @@ async function run() {
 
         await page.locator('#blog-next-topic-recommend').click();
         await page.waitForFunction(() => !document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
+        const quickDiscoveryCompactWidth = await page.locator('.quick-discovery-modal-container')
+            .evaluate((element) => Math.round(element.getBoundingClientRect().width));
+        assert.ok(quickDiscoveryCompactWidth <= 840);
+        assert.ok(quickDiscoveryCompactWidth < quickDiscoveryWideWidth);
+        assert.equal((await page.locator('#quick-topic-recommendations-refresh').textContent())?.trim(), '글감 추천');
         await page.locator('#quick-topic-recommendations-refresh').click();
         await page.waitForFunction(() => document.querySelectorAll('.quick-topic-recommendation-row').length === 1);
+        assert.equal((await page.locator('#quick-topic-recommendations-refresh').textContent())?.trim(), '글감 추천');
+        const quickTopicButtonAlignment = await page.locator('.quick-topic-recommendation-row').evaluate((row) => {
+            const refresh = document.querySelector('#quick-topic-recommendations-refresh').getBoundingClientRect();
+            const actions = row.querySelector('.quick-topic-recommendation-actions').getBoundingClientRect();
+            const pick = row.querySelector('[data-recommendation-action="quick"]').getBoundingClientRect();
+            const dismiss = row.querySelector('.quick-topic-recommendation-dismiss').getBoundingClientRect();
+            return {
+                requestButtonWidth: refresh.width,
+                requestButtonRight: Math.round(refresh.right),
+                actionRight: Math.round(actions.right),
+                pickButtonRight: Math.round(pick.right),
+                dismissRight: Math.round(dismiss.right)
+            };
+        });
+        assert.ok(quickTopicButtonAlignment.requestButtonWidth < 148);
+        assert.equal(quickTopicButtonAlignment.actionRight, quickTopicButtonAlignment.requestButtonRight);
+        assert.ok(quickTopicButtonAlignment.pickButtonRight < quickTopicButtonAlignment.dismissRight);
+        assert.equal(quickTopicButtonAlignment.actionRight, quickTopicButtonAlignment.dismissRight);
         await page.locator('.quick-topic-recommendation-row [data-recommendation-action="quick"]').click();
         await page.waitForFunction(() => document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
         assert.equal(await page.locator('#blog-next-subject').inputValue(), '추천 글감 1');
@@ -3810,6 +3839,9 @@ async function run() {
 
         await page.locator('#blog-next-title-recommend').click();
         await page.waitForFunction(() => !document.getElementById('keyword-research-modal')?.classList.contains('hidden'));
+        const keywordResearchWidth = await page.locator('.keyword-research-modal-container')
+            .evaluate((element) => Math.round(element.getBoundingClientRect().width));
+        assert.ok(keywordResearchWidth > 840 && keywordResearchWidth <= 1040);
         await page.waitForFunction(() => !document.getElementById('keyword-modal-loading')?.classList.contains('hidden'));
         assert.equal((await page.locator('#keyword-modal-search-btn').textContent())?.trim(), '분석 중…');
         assert.equal(await page.locator('#keyword-modal-search-btn').getAttribute('aria-busy'), 'true');
@@ -3850,6 +3882,12 @@ async function run() {
         assert.equal((await page.locator('#keyword-ai-readiness').textContent())?.includes('키워드 분석은 AI 설정 없이도'), true);
         await page.locator('#keyword-modal-input').fill('AI 없는 키워드 분석');
         assert.equal(await page.locator('#keyword-modal-search-btn').isEnabled(), true);
+        await page.keyboard.press('Escape');
+        await page.waitForFunction(() => document.getElementById('keyword-research-modal')?.classList.contains('hidden'));
+        assert.equal(await page.evaluate(() => document.activeElement?.id), 'blog-next-title-recommend');
+        await page.locator('#blog-next-title-recommend').click();
+        await page.waitForFunction(() => !document.getElementById('keyword-research-modal')?.classList.contains('hidden'));
+        await page.waitForFunction(() => !document.getElementById('keyword-ai-readiness')?.classList.contains('hidden'));
         await page.evaluate(() => {
             const input = document.getElementById('blog-next-subject');
             input.value = 'AI 설정이 필요한 원고';

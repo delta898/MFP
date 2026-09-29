@@ -14,6 +14,7 @@ function initKeywordResearchModal() {
   const keywordModalContent = document.getElementById('keyword-modal-content');
   const keywordAiReadiness = document.getElementById('keyword-ai-readiness');
   const keywordAiSettingsBtn = document.getElementById('keyword-ai-settings-btn');
+  let keywordModalOpener = null;
   const keywordModalState = {
     analysis: null,
     analysisError: '',
@@ -105,7 +106,8 @@ function initKeywordResearchModal() {
     });
   };
 
-  const openKeywordModal = () => {
+  const openKeywordModal = (opener = document.activeElement) => {
+    keywordModalOpener = opener;
     const currentSubject = readQuickDiscoveryInput('subject');
     const currentKeywords = readQuickDiscoveryInput('keywords');
     const currentTitle = readQuickDiscoveryInput('title');
@@ -133,6 +135,8 @@ function initKeywordResearchModal() {
   const closeKeywordModal = () => {
     keywordModal.classList.add('hidden');
     keywordModal.setAttribute('aria-hidden', 'true');
+    if (keywordModalOpener?.isConnected) keywordModalOpener.focus({ preventScroll: true });
+    keywordModalOpener = null;
   };
 
   const runKeywordAnalysis = async (query) => {
@@ -448,6 +452,13 @@ function initKeywordResearchModal() {
   });
   if (keywordModalCloseBtn) keywordModalCloseBtn.addEventListener('click', closeKeywordModal);
   if (keywordModalCloseFooter) keywordModalCloseFooter.addEventListener('click', closeKeywordModal);
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || keywordModal.classList.contains('hidden')) return;
+    const confirmDialog = document.getElementById('ui-dialog-backdrop');
+    if (confirmDialog && !confirmDialog.classList.contains('hidden')) return;
+    event.preventDefault();
+    closeKeywordModal();
+  });
   if (keywordModalSearchBtn) keywordModalSearchBtn.addEventListener('click', () => void runKeywordAnalysis());
   if (keywordAiSettingsBtn) keywordAiSettingsBtn.addEventListener('click', () => {
     closeKeywordModal();

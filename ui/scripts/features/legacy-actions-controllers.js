@@ -102,6 +102,7 @@ function bindActions() {
   const quickKeywordDiscoveryOpenBtn = document.getElementById('quick-keyword-discovery-open-btn');
   const quickDiscoveryCloseBtn = document.getElementById('quick-discovery-modal-close');
   const quickDiscoveryCloseFooter = document.getElementById('quick-discovery-modal-close-footer');
+  let quickDiscoveryOpener = null;
   const quickKeywordDiscoverySearchBtn = document.getElementById('quick-keyword-discovery-search');
   const quickKeywordDiscoveryClearBtn = document.getElementById('quick-keyword-discovery-clear');
   const quickKeywordDiscoveryQuery = document.getElementById('quick-keyword-discovery-query');
@@ -114,11 +115,13 @@ function bindActions() {
   quickSubjectInput?.addEventListener('input', handleQuickTopicIdentityInput);
   quickKeywordsInput?.addEventListener('input', handleQuickTopicIdentityInput);
   quickDiscoveryOpenBtn?.addEventListener('click', () => {
+    quickDiscoveryOpener = quickDiscoveryOpenBtn;
     setQuickDiscoveryInputTarget('quick');
     setQuickDiscoveryTab('topic');
     setQuickDiscoveryModalOpen(true);
   });
   quickKeywordDiscoveryOpenBtn?.addEventListener('click', () => {
+    quickDiscoveryOpener = quickKeywordDiscoveryOpenBtn;
     setQuickDiscoveryInputTarget('quick');
     if (quickKeywordDiscoveryQuery) {
       quickKeywordDiscoveryQuery.value = String(quickKeywordsInput?.value || '').trim();
@@ -127,8 +130,21 @@ function bindActions() {
     setQuickDiscoveryTab('keyword');
     setQuickDiscoveryModalOpen(true);
   });
-  quickDiscoveryCloseBtn?.addEventListener('click', () => setQuickDiscoveryModalOpen(false));
-  quickDiscoveryCloseFooter?.addEventListener('click', () => setQuickDiscoveryModalOpen(false));
+  const closeQuickDiscoveryModal = () => {
+    setQuickDiscoveryModalOpen(false);
+    if (quickDiscoveryOpener?.isConnected) quickDiscoveryOpener.focus({ preventScroll: true });
+    quickDiscoveryOpener = null;
+  };
+  quickDiscoveryCloseBtn?.addEventListener('click', closeQuickDiscoveryModal);
+  quickDiscoveryCloseFooter?.addEventListener('click', closeQuickDiscoveryModal);
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    const modal = document.getElementById('quick-discovery-modal');
+    const confirmDialog = document.getElementById('ui-dialog-backdrop');
+    if (!modal || modal.classList.contains('hidden') || (confirmDialog && !confirmDialog.classList.contains('hidden'))) return;
+    event.preventDefault();
+    closeQuickDiscoveryModal();
+  });
   document.querySelectorAll('[data-quick-discovery-tab]').forEach((button) => {
     button.addEventListener('click', () => setQuickDiscoveryTab(button.dataset.quickDiscoveryTab));
   });

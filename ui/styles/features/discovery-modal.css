@@ -2,18 +2,25 @@
    Keyword Research & SEO Title Generator Modal Styles
    ========================================================================== */
 .keyword-research-modal-container {
-  background: var(--ui-surface);
-  border-radius: var(--ui-density-control-radius);
-  box-shadow: var(--ui-shadow-lg);
-  width: min(960px, calc(100vw - 32px));
+  width: min(1040px, calc(100vw - 32px));
   max-width: none;
   max-height: min(860px, calc(100vh - 32px));
 }
 
 .quick-discovery-modal-container {
-  width: min(1040px, calc(100vw - 32px));
+  width: min(840px, calc(100vw - 32px));
   max-width: none;
   max-height: min(860px, calc(100vh - 32px));
+}
+
+.quick-discovery-modal-container.is-keyword-mode {
+  width: min(1040px, calc(100vw - 32px));
+}
+
+.keyword-research-modal-container {
+  background: var(--ui-surface);
+  border-radius: var(--ui-density-control-radius);
+  box-shadow: var(--ui-shadow-lg);
 }
 
 .quick-discovery-modal-body {
@@ -163,12 +170,16 @@
 }
 
 .quick-discovery-query-actions .primary {
-  width: 148px;
-  min-width: 148px;
+  width: auto;
+  min-width: 112px;
   min-height: var(--ui-density-control-min-height);
   box-sizing: border-box;
   padding: 8px 14px;
   white-space: nowrap;
+}
+
+.quick-discovery-panel .quick-discovery-query-actions .primary {
+  min-width: 112px;
 }
 
 .quick-discovery-query-help {

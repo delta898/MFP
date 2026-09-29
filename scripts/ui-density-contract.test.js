@@ -65,8 +65,11 @@ test('Discovery consumes density roles while preserving result geometry', () => 
     '--ui-density-control-radius'
   ].forEach((token) => assert.match(combined, new RegExp(`var\\(${token.replaceAll('-', '\\-')}\\)`), token));
   assert.match(center, /\.recommendation-center-list\s*\{[^}]*repeat\(3, minmax\(0, 1fr\)\)[^}]*gap:\s*var\(--ui-density-field-gap\)/s);
-  assert.match(recommendations, /\.quick-topic-recommendation-row\s*\{[^}]*minmax\(160px, 1fr\)/s);
-  assert.match(modal, /\.quick-discovery-modal-container\s*\{[^}]*width:\s*min\(1040px, calc\(100vw - 32px\)\)/s);
+  assert.match(recommendations, /\.quick-topic-recommendation-row\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto/s);
+  assert.match(recommendations, /\.quick-topic-recommendation-actions\s*\{[^}]*justify-content:\s*flex-end/s);
+  assert.match(modal, /\.keyword-research-modal-container\s*\{[^}]*width:\s*min\(1040px, calc\(100vw - 32px\)\)/s);
+  assert.match(modal, /\.quick-discovery-modal-container\s*\{[^}]*width:\s*min\(840px, calc\(100vw - 32px\)\)/s);
+  assert.match(modal, /\.quick-discovery-modal-container\.is-keyword-mode\s*\{[^}]*width:\s*min\(1040px, calc\(100vw - 32px\)\)/s);
   assert.match(modal, /\.keyword-metrics-table\s*\{[^}]*width:\s*100%/s);
 });
 

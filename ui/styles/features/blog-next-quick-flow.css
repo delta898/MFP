@@ -1,10 +1,10 @@
 #blog-next-topic-form-home {
   display: flex;
-  justify-content: center;
+  width: 100%;
 }
 
 #blog-next-topic-form-home .blog-next-topic-form {
-  width: min(100%, 1180px);
+  width: 100%;
 }
 
 .blog-next-workflow-step-head {

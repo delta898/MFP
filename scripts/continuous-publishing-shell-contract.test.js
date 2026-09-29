@@ -45,9 +45,9 @@ test('Blog Beta shell is isolated from the legacy blog DOM namespace', () => {
 test('Blog Beta quick shell preserves all three existing input concepts', () => {
     const betaView = readBlogNextView();
 
-    assert.match(betaView, /data-blog-next-input-mode="ai"[^>]*>바로 생성/);
+    assert.match(betaView, /data-blog-next-input-mode="ai"[^>]*>AI 생성/);
     assert.match(betaView, /data-blog-next-input-mode="folder"[^>]*>원고 폴더/);
-    assert.match(betaView, /data-blog-next-input-mode="paste"[^>]*>원고 붙여넣기/);
+    assert.match(betaView, /data-blog-next-input-mode="paste"[^>]*>원고 입력/);
     assert.doesNotMatch(betaView, /기존 블로그 기능은 그대로 유지됩니다/);
 });
 
@@ -110,7 +110,7 @@ test('completed manuscripts publish directly without entering the continuous que
     assert.match(betaView, /data-blog-next-draft-publish="paste"/);
     assert.doesNotMatch(betaView, /Queue에 저장하지 않습니다/);
     assert.match(betaView, /data-blog-next-input-mode="folder" title="Markdown 원고와 같은 폴더의 이미지를 함께 불러옵니다."/);
-    assert.match(betaView, /data-blog-next-input-mode="paste" title="완성된 Markdown 원고를 붙여넣어 바로 포스팅합니다."/);
+    assert.match(betaView, /data-blog-next-input-mode="paste" title="완성된 Markdown 원고를 입력하거나 붙여넣어 포스팅합니다."/);
     assert.doesNotMatch(betaView, /blog-next-draft-heading|blog-next-stage-badge/);
     assert.match(draftInputs, /\/api\/v1\/blog\/manuscript-drafts\/paste/);
     assert.match(draftInputs, /\/api\/v1\/blog\/manuscript-drafts\/\$\{encodeURIComponent\(state\.draftId\)\}\/publish/);

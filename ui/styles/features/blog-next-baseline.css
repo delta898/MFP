@@ -1,6 +1,5 @@
 .blog-next-draft-mode {
-  width: min(100%, 1180px);
-  margin-inline: auto;
+  width: 100%;
 }
 
 .blog-next-draft-source,

@@ -191,8 +191,7 @@ function formatQuickTopicUsageHint() {
 }
 
 function getQuickTopicRefreshLabel() {
-  if (!quickTopicRecommendationState.loaded) return '글감 추천';
-  return quickTopicNeedsAnotherUse() ? '계속 추천받기' : '다른 글감 추천';
+  return '글감 추천';
 }
 
 async function beginAnotherQuickTopicUse() {
@@ -257,6 +256,8 @@ function applySmartUsageUpdate(usage) {
 
 function setQuickDiscoveryTab(tab) {
   const activeTab = tab === 'keyword' ? 'keyword' : 'topic';
+  document.querySelector('#quick-discovery-modal .quick-discovery-modal-container')
+    ?.classList.toggle('is-keyword-mode', activeTab === 'keyword');
   document.querySelectorAll('[data-quick-discovery-tab]').forEach((button) => {
     const selected = button.dataset.quickDiscoveryTab === activeTab;
     button.classList.toggle('is-active', selected);
