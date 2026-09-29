@@ -3,7 +3,7 @@
 - Branch: `codex/feat/manuscript-content-counts`
 - Start date: 2026-09-29
 - Base/parent branch: `dev`
-- Status: 구현 및 전체 자동 검증 완료, `dev` 병합 대기
+- Status: `dev` 병합 완료 (`97ccbd87`)
 
 ## 사용자 필요와 목표
 
