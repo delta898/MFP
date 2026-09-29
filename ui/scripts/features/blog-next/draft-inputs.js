@@ -344,13 +344,18 @@ function renderBlogNextDraftBodyHtml(type, preview = {}) {
     } else if (itemType === 'image') {
       const image = imageMap.get(Number(item.index));
       const previewUrl = image?.exists ? (image.imageUrl || getBlogNextDraftImageUrl(type, image.imagePath)) : '';
-      const imageBody = previewUrl
-        ? `<img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(image?.title || item.text || '')}" loading="lazy" data-manuscript-preview-image>`
-        : '<div class="local-markdown-inline-image-missing">이미지 파일 없음</div>';
-      fragments.push(`<figure>${imageBody}<figcaption>
-        <div class="image-caption-title">${escapeHtml(image?.title || item.text || `IMAGE_${item.index}`)}</div>
-        ${image?.prompt || item.prompt ? `<div class="image-caption-prompt">${escapeHtml(image?.prompt || item.prompt || '')}</div>` : ''}
-      </figcaption></figure>`);
+      const imageTitle = image?.title || item.text || `IMAGE_${item.index}`;
+      const prompt = image?.prompt || item.prompt || '';
+      const imageHtml = previewUrl
+        ? `<figure><img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(imageTitle)}" loading="lazy" data-manuscript-preview-image><figcaption>
+            <div class="image-caption-title">${escapeHtml(imageTitle)}</div>
+            ${prompt ? `<div class="image-caption-prompt" aria-label="이미지 프롬프트 원문">${escapeHtml(prompt)}</div>` : ''}
+          </figcaption></figure>`
+        : `<div class="local-markdown-image-source-text">
+            <div class="image-caption-title">${escapeHtml(imageTitle)}</div>
+            ${prompt ? `<div class="image-caption-prompt" aria-label="이미지 프롬프트 원문">${escapeHtml(prompt)}</div>` : ''}
+          </div>`;
+      fragments.push(imageHtml);
     } else if (itemType === 'separator') {
       fragments.push('<div class="local-markdown-preview-separator" role="separator" aria-label="구분선"></div>');
     } else if (itemType === 'newline') fragments.push('<div style="height:8px"></div>');

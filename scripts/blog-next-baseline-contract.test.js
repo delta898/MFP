@@ -91,6 +91,11 @@ test('folder and paste previews share one reading surface and image workspace', 
   assert.match(script, /state\.previewSyncFailed \|\| !state\.preview\?\.validation\?\.ok/);
   assert.match(script, /if \(!syncedPreview \|\| state\.previewSyncFailed/);
   assert.match(script, /renderBlogNextDraftPreview\(type, state\.preview\)/);
+  assert.match(script, /const imageHtml = previewUrl[\s\S]*data-manuscript-preview-image/);
+  assert.match(script, /class="image-caption-prompt" aria-label="이미지 프롬프트 원문">\$\{escapeHtml\(prompt\)\}/);
+  assert.match(script, /class="local-markdown-image-source-text"/);
+  assert.doesNotMatch(script, /이미지 파일 없음/);
+  assert.match(css, /\.blog-next-manuscript-preview \.local-markdown-body-preview \.image-caption-prompt\s*\{[^}]*white-space:\s*pre-wrap;[^}]*overflow-wrap:\s*anywhere;/s);
   assert.match(script, /if \(!pastedInput\.value\.trim\(\)\) resetBlogNextPasteDraftConnection\(\)/);
   assert.match(script, /data-manuscript-image-action="generate"/);
   assert.match(script, /data-manuscript-image-picker/);

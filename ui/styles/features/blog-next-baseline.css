@@ -176,6 +176,15 @@
   color: var(--ui-text-secondary);
 }
 
+.blog-next-manuscript-preview .local-markdown-body-preview .image-caption-prompt {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.blog-next-manuscript-preview .local-markdown-image-source-text {
+  margin: var(--ui-space-3) 0;
+}
+
 .blog-next-manuscript-image-details {
   padding-top: var(--ui-space-4);
   border-top: 1px solid var(--ui-border-default);
