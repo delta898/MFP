@@ -163,6 +163,48 @@
 .manuscript-editor-canvas .ProseMirror ul,
 .manuscript-editor-canvas .ProseMirror ol { padding-inline-start: 1.5em; }
 
+.manuscript-slash-menu {
+  z-index: 1200;
+  display: grid;
+  width: min(320px, calc(100vw - 24px));
+  padding: var(--ui-space-2);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-md);
+}
+
+.manuscript-slash-menu[hidden] { display: none; }
+
+.manuscript-slash-menu-option {
+  display: grid;
+  width: 100%;
+  gap: 2px;
+  padding: var(--ui-space-2) var(--ui-space-3);
+  border: 0;
+  border-radius: var(--ui-radius-sm);
+  background: transparent;
+  color: var(--ui-text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.manuscript-slash-menu-option[aria-selected="true"],
+.manuscript-slash-menu-option:hover {
+  background: var(--ui-action-primary-soft);
+}
+
+.manuscript-slash-menu-option strong {
+  font-size: var(--ui-type-body-size);
+  font-weight: var(--ui-weight-bold);
+}
+
+.manuscript-slash-menu-option small {
+  color: var(--ui-text-muted);
+  font-size: var(--ui-type-caption-size);
+}
+
 .manuscript-image-block {
   margin: 18px 0;
   padding: 16px;

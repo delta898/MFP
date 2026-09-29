@@ -4580,6 +4580,31 @@ async function run() {
         assert.deepEqual(await page.locator('#blog-next-paste-editor .manuscript-image-block-structure-actions button').allTextContents(), ['위로', '아래로']);
         assert.match(await page.locator('#blog-next-paste-markdown').inputValue(), /\[\[IMAGE_0/);
         assert.equal(await page.locator('#blog-next-paste-editor .ProseMirror a').textContent(), '추천 글');
+        const lastTopLevelParagraph = page.locator('#blog-next-paste-editor .ProseMirror > p').last();
+        await lastTopLevelParagraph.click();
+        await page.keyboard.press('End');
+        await page.keyboard.press('Enter');
+        await page.keyboard.type('/');
+        await page.waitForFunction(() => document.querySelector('.manuscript-slash-menu:not([hidden])'));
+        assert.equal(await page.locator('.manuscript-slash-menu').getAttribute('role'), 'listbox');
+        assert.deepEqual(await page.locator('.manuscript-slash-menu [role="option"]').allTextContents(), [
+            '이미지 블록현재 위치에 이미지 블록을 추가합니다.'
+        ]);
+        await page.keyboard.press('Escape');
+        await page.waitForFunction(() => !document.querySelector('.manuscript-slash-menu'));
+        await page.keyboard.press('Backspace');
+        await page.keyboard.type('/image');
+        await page.waitForFunction(() => document.querySelector('#blog-next-paste-editor .suggestion')?.textContent === '/image');
+        await page.waitForFunction(() => document.querySelector('.manuscript-slash-menu:not([hidden]) [role="option"]'));
+        await page.keyboard.press('ArrowDown');
+        await page.keyboard.press('Enter');
+        await page.waitForFunction(() => document.querySelectorAll('#blog-next-paste-editor .manuscript-image-block').length === 2);
+        assert.equal(await page.locator('#blog-next-paste-editor .manuscript-image-block[data-source-key="1"]').count(), 1);
+        assert.match(await page.locator('#blog-next-paste-markdown').inputValue(), /\[\[IMAGE_1/);
+        assert.doesNotMatch(await page.locator('#blog-next-paste-markdown').inputValue(), /^\/image$/m);
+        await page.locator('#blog-next-paste-editor .manuscript-image-block[data-source-key="1"] .manuscript-image-block-delete').click();
+        await page.waitForFunction(() => document.querySelectorAll('#blog-next-paste-editor .manuscript-image-block').length === 1);
+        assert.doesNotMatch(await page.locator('#blog-next-paste-markdown').inputValue(), /\[\[IMAGE_1/);
         assert.equal(await page.locator('[data-paste-workspace-mode="block"]').evaluate((button) => button.closest('.manuscript-editor-sticky-rail') !== null), true);
         assert.equal(await page.locator('[data-blog-next-mode-panel="paste"] .manuscript-editor-sticky-rail').evaluate((rail) => {
             const mode = rail.querySelector('.manuscript-editor-mode');

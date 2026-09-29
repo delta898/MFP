@@ -1,7 +1,9 @@
-import { Editor, Node } from '@tiptap/core';
+import { Editor, Extension, Node } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown } from '@tiptap/markdown';
 import { Fragment } from '@tiptap/pm/model';
+import { PluginKey } from '@tiptap/pm/state';
+import Suggestion from '@tiptap/suggestion';
 
 function newBlockId() {
   return `mb-${crypto.randomUUID()}`;
@@ -24,6 +26,164 @@ function parseImageFields(raw) {
 
 let nextMissingIndex = 0;
 const usedImageIndexes = new Set();
+const manuscriptImageSlashPluginKey = new PluginKey('manuscriptImageSlash');
+const IMAGE_SLASH_ITEM = Object.freeze({
+  id: 'image',
+  label: '이미지 블록',
+  description: '현재 위치에 이미지 블록을 추가합니다.',
+  aliases: Object.freeze(['image', '이미지'])
+});
+
+function nextImageSourceKey(editor) {
+  const used = new Set();
+  editor.state.doc.descendants((node) => {
+    if (node.type.name === 'manuscriptImage') used.add(Number(node.attrs.sourceKey));
+  });
+  let sourceKey = 0;
+  while (used.has(sourceKey)) sourceKey += 1;
+  return String(sourceKey);
+}
+
+function insertManuscriptImage(editor, range = null) {
+  const image = {
+    type: 'manuscriptImage',
+    attrs: { sourceKey: nextImageSourceKey(editor), blockId: newBlockId(), title: '', prompt: '' }
+  };
+  if (range) {
+    const $from = editor.state.doc.resolve(range.from);
+    return editor.chain().focus().insertContentAt({ from: $from.before(), to: $from.after() }, image).run();
+  }
+  return editor.chain().focus().insertContent(image).run();
+}
+
+function filterImageSlashItems(query = '') {
+  const normalized = String(query || '').trim().toLocaleLowerCase();
+  if (!normalized) return [IMAGE_SLASH_ITEM];
+  const searchable = [IMAGE_SLASH_ITEM.label, ...IMAGE_SLASH_ITEM.aliases]
+    .join(' ')
+    .toLocaleLowerCase();
+  return searchable.includes(normalized) ? [IMAGE_SLASH_ITEM] : [];
+}
+
+function createImageSlashMenuRenderer() {
+  let menu = null;
+  let unmount = null;
+  let currentProps = null;
+  let selectedIndex = 0;
+
+  const selectItem = (item) => {
+    if (!item || !currentProps) return;
+    currentProps.command(item);
+  };
+
+  const renderMenu = (props) => {
+    if (!menu) return;
+    currentProps = props;
+    const items = Array.isArray(props.items) ? props.items : [];
+    selectedIndex = items.length > 0 ? Math.min(selectedIndex, items.length - 1) : 0;
+    menu.replaceChildren();
+    menu.hidden = items.length === 0;
+    items.forEach((item, index) => {
+      const option = document.createElement('button');
+      option.type = 'button';
+      option.className = 'manuscript-slash-menu-option';
+      option.id = `manuscript-slash-${item.id}`;
+      option.setAttribute('role', 'option');
+      option.setAttribute('aria-selected', String(index === selectedIndex));
+      option.tabIndex = -1;
+      const label = document.createElement('strong');
+      label.textContent = item.label;
+      const description = document.createElement('small');
+      description.textContent = item.description;
+      option.append(label, description);
+      option.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+        selectItem(item);
+      });
+      menu.append(option);
+    });
+  };
+
+  const moveSelection = (direction) => {
+    const items = currentProps?.items || [];
+    if (items.length === 0) return false;
+    selectedIndex = (selectedIndex + direction + items.length) % items.length;
+    renderMenu(currentProps);
+    return true;
+  };
+
+  return {
+    onStart(props) {
+      menu = document.createElement('div');
+      menu.className = 'manuscript-slash-menu';
+      menu.setAttribute('role', 'listbox');
+      menu.setAttribute('aria-label', '원고 블록 추가');
+      renderMenu(props);
+      unmount = props.mount(menu);
+    },
+    onUpdate(props) { renderMenu(props); },
+    onKeyDown({ event }) {
+      if (event.key === 'ArrowDown') return moveSelection(1);
+      if (event.key === 'ArrowUp') return moveSelection(-1);
+      if (event.key === 'Enter') {
+        const item = currentProps?.items?.[selectedIndex];
+        if (!item) return false;
+        selectItem(item);
+        return true;
+      }
+      return false;
+    },
+    onExit() {
+      unmount?.();
+      unmount = null;
+      menu = null;
+      currentProps = null;
+      selectedIndex = 0;
+    }
+  };
+}
+
+function createImageSlashCommand() {
+  return Extension.create({
+    name: 'manuscriptImageSlash',
+    priority: 1000,
+    addKeyboardShortcuts() {
+      return {
+        Enter: () => {
+          const state = manuscriptImageSlashPluginKey.getState(this.editor.state);
+          if (!state?.active || filterImageSlashItems(state.query).length === 0) return false;
+          return insertManuscriptImage(this.editor, state.range);
+        },
+        ArrowDown: () => Boolean(manuscriptImageSlashPluginKey.getState(this.editor.state)?.active),
+        ArrowUp: () => Boolean(manuscriptImageSlashPluginKey.getState(this.editor.state)?.active)
+      };
+    },
+    addProseMirrorPlugins() {
+      const editor = this.editor;
+      return [Suggestion({
+        editor,
+        pluginKey: manuscriptImageSlashPluginKey,
+        char: '/',
+        startOfLine: true,
+        allowedPrefixes: null,
+        shouldResetDismissed: ({ match, transaction }) => (
+          transaction.docChanged && match.text === '/'
+        ),
+        items: ({ query }) => filterImageSlashItems(query),
+        allow: ({ state, range }) => {
+          if (!editor.isEditable) return false;
+          const $from = state.doc.resolve(range.from);
+          return $from.depth === 1
+            && $from.parent.type.name === 'paragraph'
+            && range.from === $from.start()
+            && range.to - range.from === $from.parent.content.size;
+        },
+        command: ({ editor: current, range }) => insertManuscriptImage(current, range),
+        render: createImageSlashMenuRenderer
+      })];
+    }
+  });
+}
 
 function createImageBlock(onMove, options = {}) {
   return Node.create({
@@ -270,10 +430,11 @@ function mount(root, options = {}) {
   let isImporting = false;
   let lastMarkdown = '';
   const imageNode = createImageBlock(moveTopLevelNode, options);
+  const imageSlashCommand = createImageSlashCommand();
   let editor;
   editor = new Editor({
     element: root,
-    extensions: [StarterKit.configure({ codeBlock: false }), Markdown, imageNode],
+    extensions: [StarterKit.configure({ codeBlock: false }), Markdown, imageNode, imageSlashCommand],
     content: '',
     contentType: 'markdown',
     editorProps: {
@@ -342,14 +503,7 @@ function mount(root, options = {}) {
     command(name) {
       const chain = editor.chain().focus();
       if (name === 'image') {
-        const used = new Set();
-        editor.state.doc.descendants((node) => { if (node.type.name === 'manuscriptImage') used.add(Number(node.attrs.sourceKey)); });
-        let sourceKey = 0;
-        while (used.has(sourceKey)) sourceKey += 1;
-        return editor.chain().focus().insertContent({
-          type: 'manuscriptImage',
-          attrs: { sourceKey: String(sourceKey), blockId: newBlockId(), title: '', prompt: '' }
-        }).run();
+        return insertManuscriptImage(editor);
       }
       if (name === 'paragraph') chain.setParagraph();
       else if (name === 'heading') chain.toggleHeading({ level: 2 });

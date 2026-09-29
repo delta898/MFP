@@ -8,6 +8,7 @@
     "editor:prototype": "vite --config prototypes/manuscript-editor/vite.config.mjs --host 127.0.0.1",
     "build:manuscript-editor": "vite build --config prototypes/manuscript-editor/product-editor.vite.config.mjs",
     "test:editor-stage0": "node scripts/test-manuscript-editor-stage0.js",
+    "test:manuscript-image-slash": "npm run build:manuscript-editor && node --test scripts/manuscript-image-slash-contract.test.js && node scripts/test-manuscript-image-slash.js",
     "app:local": "node scripts/app-environment-launcher.js local",
     "app:development": "node scripts/app-environment-launcher.js development",
     "app:production": "node scripts/production-app-launcher.js",
@@ -122,6 +123,7 @@
     "@tiptap/core": "^3.31.3",
     "@tiptap/markdown": "^3.31.3",
     "@tiptap/starter-kit": "^3.31.3",
+    "@tiptap/suggestion": "^3.31.3",
     "electron": "^44.4.5",
     "vite": "^8.3.1"
   }
