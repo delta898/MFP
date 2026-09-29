@@ -319,11 +319,9 @@ function settingsNextRenderSheetSelection() {
   const sheetId = settingsNextExtractSheetId(url);
   const authorizedId = String(document.getElementById('settings-next-google-sheet-authorized-id')?.value || '').trim();
   const migrationNeeded = Boolean(sheetId && authorizedId !== sheetId);
-  const label = document.getElementById('settings-next-google-sheet-label');
-  if (label) label.textContent = migrationNeeded ? '전환할 기존 Spreadsheet' : '연결된 Spreadsheet';
   const name = document.getElementById('settings-next-google-sheet-name');
   if (name) {
-    name.textContent = title || (url ? '기존 URL로 연결된 Spreadsheet' : '연결된 파일 없음');
+    name.textContent = title || (url ? '기존 방식으로 연결된 Spreadsheet' : '연결된 파일 없음');
     name.dataset.empty = url ? 'false' : 'true';
   }
   const openButton = document.getElementById('settings-next-open-google-sheet');
@@ -335,7 +333,7 @@ function settingsNextRenderSheetSelection() {
   if (migration) {
     migration.hidden = !migrationNeeded;
     migration.textContent = migrationNeeded
-      ? '기존 파일을 다시 선택하면 전환됩니다. 같은 파일을 선택하면 내용은 바뀌지 않습니다.'
+      ? '기존 연결을 전환해 주세요. 기존 Spreadsheet를 다시 선택해도 파일 내용은 바뀌지 않습니다.'
       : '';
   }
   const detail = document.getElementById('settings-next-google-sheet-detail');
@@ -369,10 +367,10 @@ function settingsNextRenderReadiness() {
   const sheetDot = sheetReadiness?.closest('.ui-settings-readiness-card')?.querySelector('.settings-next-status-dot');
   settingsNextSetText(
     'settings-next-sheet-readiness',
-    migrationNeeded ? '전환할 Spreadsheet를 한 번 선택해 주세요'
+    migrationNeeded ? '기존 연결 전환 필요'
       : settingsNextAccountOverviewError && !settingsNextAccountOverview
-      ? '상태 확인 실패'
-      : (sheetAccessible ? '접근 가능' : (sheetFailed ? '접근 확인 실패' : (hasSheetUrl ? '접근 확인 필요' : '주소 필요')))
+      ? '연결 상태 확인 실패'
+      : (sheetAccessible ? '연결됨' : (sheetFailed ? '연결 확인 실패' : (hasSheetUrl ? '연결 확인 필요' : '연결 필요')))
   );
   settingsNextSetDot(
     sheetDot,
@@ -383,7 +381,7 @@ function settingsNextRenderReadiness() {
   );
   settingsNextSetStatus(
     'settings-next-content-status',
-    migrationNeeded ? '전환 필요' : (sheetAccessible ? '접근 가능' : (sheetFailed ? '확인 실패' : (hasSheetUrl ? '확인 필요' : '연결 필요'))),
+    migrationNeeded ? '전환 필요' : (sheetAccessible ? '연결됨' : (sheetFailed ? '연결 확인 실패' : (hasSheetUrl ? '연결 확인 필요' : '연결 필요'))),
     migrationNeeded ? 'warning' : (sheetAccessible ? 'success' : (sheetFailed ? 'danger' : (hasSheetUrl ? 'warning' : 'neutral')))
   );
   const wordpress = settingsNextConnectionState(settingsNextAccountOverview?.connections?.wordpress);

@@ -32,6 +32,8 @@
 - Do not add tests or checks merely to increase test count. Cover changed behavior and important regression risks.
 - Run broader suites only when required by validation rules, change risk, or the user's request. Obtain approval before broad suites when required.
 - Keep handoffs to the outcome, focused verification, remaining user action, and commit state.
+- Prefer compact summaries over narrative handoffs. Use short labels such as `완료`, `검증`, `남은 작업`, and `미포함` instead of describing routine steps in prose.
+- Include only outcomes relevant to the request; omit routine details unless they affect user action, risk, or scope.
 
 ## Product and UI Direction
 - Unless the user explicitly requests work in another Blog surface, apply Blog feature and UI changes only to `블로그 Beta` (`view-blog-next`). Treat the existing `블로그` surface as out of scope by default.

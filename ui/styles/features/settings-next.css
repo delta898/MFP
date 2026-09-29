@@ -382,6 +382,10 @@
   min-width: 132px;
 }
 
+.settings-next-sheet-connection {
+  margin-block-start: var(--ui-space-1);
+}
+
 .settings-next-sheet-current {
   display: flex;
   align-items: center;

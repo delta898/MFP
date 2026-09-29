@@ -2052,8 +2052,8 @@ async function run() {
         await page.waitForFunction(() => document.getElementById('view-settings-next')?.classList.contains('active'));
         await page.waitForFunction(() => document.querySelector('#view-settings-next [data-clock-display]')?.children.length > 0);
         await page.locator('[data-settings-next-core-tab="content"]').click();
-        assert.equal(await page.locator('#settings-next-content-status').textContent(), '접근 가능');
-        assert.equal(await page.locator('#settings-next-sheet-readiness').textContent(), '접근 가능');
+        assert.equal(await page.locator('#settings-next-content-status').textContent(), '연결됨');
+        assert.equal(await page.locator('#settings-next-sheet-readiness').textContent(), '연결됨');
         assert.equal(await page.locator('#settings-next-google-sheet-create').isVisible(), true);
         assert.equal(await page.locator('#settings-next-google-sheet-pick').isVisible(), true);
         assert.equal(await page.locator('#settings-next-google-connect').count(), 0);

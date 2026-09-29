@@ -1,8 +1,8 @@
 #view-dashboard-beta {
-  --dashboard-beta-status-ready: #087b35;
-  --dashboard-beta-status-attention: #c15a00;
-  --dashboard-beta-status-failed: #c52222;
-  --dashboard-beta-status-muted: #626b78;
+  --dashboard-beta-status-ready: var(--ui-channel-naver);
+  --dashboard-beta-status-attention: var(--ui-action-primary);
+  --dashboard-beta-status-failed: var(--ui-status-danger);
+  --dashboard-beta-status-muted: var(--ui-text-secondary);
 }
 
 .dashboard-beta-hero {
@@ -198,7 +198,6 @@
   flex: 0 0 14px;
   border-radius: 50%;
   border: 2px solid var(--ui-surface);
-  box-shadow: 0 0 0 1px var(--ui-border-strong);
   background: var(--dashboard-beta-status-muted);
 }
 

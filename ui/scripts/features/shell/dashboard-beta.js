@@ -205,8 +205,8 @@ function renderDashboardBetaOnboarding(setup = {}) {
   if (!nextStep || !action) return;
   const transitionRequired = nextStep.id === 'google' && setup?.google?.transition_required === true;
   setText('dashboard-beta-onboarding-next-copy', transitionRequired
-    ? 'Spreadsheet 전환 필요'
-    : `${nextStep.label} 설정이 필요합니다.`);
+    ? '기존 Spreadsheet 연결을 전환해 주세요.'
+    : (nextStep.id === 'google' ? '사용할 Spreadsheet를 연결해 주세요.' : `${nextStep.label} 설정이 필요합니다.`));
   action.textContent = transitionRequired ? '전환하기' : nextStep.actionLabel;
   action.dataset.settingsTab = nextStep.tab;
   action.dataset.settingsTarget = nextStep.targetId;
@@ -421,7 +421,7 @@ function renderDashboardBetaOperationsSetupRequired() {
     flowBadge.textContent = '설정 필요';
   }
   setText('dashboard-beta-flow-subject', 'Google 연결 후 발행 현황을 확인할 수 있습니다.');
-  setText('dashboard-beta-flow-message', '위의 사용 준비 안내에서 Google 계정과 Spreadsheet를 연결해 주세요.');
+  setText('dashboard-beta-flow-message', '위의 사용 준비 안내에서 사용할 Spreadsheet를 연결해 주세요.');
   const automationBadge = document.getElementById('dashboard-beta-automation-badge');
   if (automationBadge) {
     automationBadge.dataset.state = 'attention';

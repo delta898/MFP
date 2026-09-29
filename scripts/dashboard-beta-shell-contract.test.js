@@ -51,6 +51,7 @@ test('Dashboard guides incomplete setup inline and routes the next action to the
     assert.match(betaView, /id="dashboard-beta-onboarding"[^>]*hidden/);
     assert.match(betaView, /AI 글쓰기 모델/);
     assert.match(betaView, /Google Spreadsheet/);
+    assert.match(betaView, /콘텐츠를 저장할 Spreadsheet를 연결합니다\./);
     assert.match(betaView, /dashboard-beta-onboarding-step-badge" hidden>전환 필요/);
     assert.match(betaView, /네이버 또는 WordPress 중 하나를 준비합니다/);
     assert.doesNotMatch(betaView, /온보딩[^<]*닫기|data-dashboard-beta-onboarding-dismiss/);
@@ -61,7 +62,7 @@ test('Dashboard guides incomplete setup inline and routes the next action to the
     assert.match(betaScript, /step\.id === 'google'\s*\? \(transitionRequired \? 'transition' : 'pending'\)/);
     assert.match(betaScript, /step\.id === 'google' \|\| !ready \? String\(index \+ 1\) : '✓'/);
     assert.match(betaScript, /badge\.hidden = !transitionRequired/);
-    assert.match(betaScript, /Spreadsheet 전환 필요/);
+    assert.match(betaScript, /기존 Spreadsheet 연결을 전환해 주세요\./);
     assert.match(betaScript, /action\.textContent = transitionRequired \? '전환하기'/);
     assert.match(betaStyle, /data-state="transition"/);
     assert.match(betaStyle, /\.dashboard-beta-onboarding-step-badge\[hidden\]\s*\{\s*display:\s*none/);
@@ -113,8 +114,8 @@ test('Dashboard Beta channel chips expose brand icons, states, and publish-chann
     assert.match(betaStyle, /button\[data-dashboard-beta-channel="wordpress"\] \.dashboard-beta-channel-icon\s*\{[^}]*transform:\s*scale\(1\.12\)/);
     assert.match(betaStyle, /\.dashboard-beta-channel-status\[data-state="ready"\] \.dashboard-beta-state-dot/);
     assert.match(betaStyle, /\.dashboard-beta-channel-status\[data-state="failed"\] \.dashboard-beta-state-dot/);
-    assert.match(betaStyle, /#view-dashboard-beta\s*\{[^}]*--dashboard-beta-status-ready:\s*#087b35;[^}]*--dashboard-beta-status-attention:\s*#c15a00;[^}]*--dashboard-beta-status-failed:\s*#c52222;/);
-    assert.match(betaStyle, /\.dashboard-beta-state-dot\s*\{[^}]*width:\s*14px;[^}]*height:\s*14px;[^}]*border:\s*2px solid var\(--ui-surface\);[^}]*box-shadow:\s*0 0 0 1px var\(--ui-border-strong\)/);
+    assert.match(betaStyle, /#view-dashboard-beta\s*\{[^}]*--dashboard-beta-status-ready:\s*var\(--ui-channel-naver\);[^}]*--dashboard-beta-status-attention:\s*var\(--ui-action-primary\);[^}]*--dashboard-beta-status-failed:\s*var\(--ui-status-danger\);/);
+    assert.match(betaStyle, /\.dashboard-beta-state-dot\s*\{[^}]*width:\s*14px;[^}]*height:\s*14px;[^}]*border:\s*2px solid var\(--ui-surface\)/);
     assert.match(betaStyle, /background:\s*var\(--dashboard-beta-status-ready\)/);
     assert.match(betaStyle, /background:\s*var\(--dashboard-beta-status-attention\)/);
     assert.match(betaStyle, /button\[data-dashboard-beta-channel\]:focus::after/);
