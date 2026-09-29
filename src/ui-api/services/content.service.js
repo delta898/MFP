@@ -1369,18 +1369,50 @@ function createContentService(deps = {}) {
                         if (presentation) lease.updateProgress(presentation);
                     }
                 }, { signal: lease.signal });
+                const platformResult = result.results?.[target];
+                const actualPostStatus = String(platformResult?.status || result.postStatus || snapshot.settings.postStatus || 'publish') === 'future'
+                    ? 'schedule'
+                    : String(platformResult?.status || result.postStatus || snapshot.settings.postStatus || 'publish');
                 const manuscriptPreview = typeof draftService.markPublished === 'function'
                     ? draftService.markPublished({
                         draftId: requestBody.draftId,
                         revision: snapshot.publishPolicy.draftRevision,
                         target,
-                        postStatus: snapshot.settings.postStatus
+                        postStatus: actualPostStatus
                     })
                     : draftService.getDraft(requestBody.draftId);
+                let archiveSnapshot = null;
+                if (typeof draftService.persistPublicationSnapshot === 'function') {
+                    if (platformResult?.success !== true) {
+                        archiveSnapshot = { success: false, message: '게시 결과 정보를 확인할 수 없어 로컬 스냅샷을 저장하지 못했습니다.' };
+                    } else {
+                        try {
+                            const platformIdentity = target === 'wordpress'
+                                ? String(CONFIG?.WORDPRESS_URL || '')
+                                : String(CONFIG?.NAVER_ID || '');
+                            const saved = draftService.persistPublicationSnapshot({
+                                draftId: requestBody.draftId,
+                                revision: snapshot.publishPolicy.draftRevision,
+                                target,
+                                platformIdentity,
+                                postStatus: actualPostStatus,
+                                postUrl: platformResult.postUrl,
+                                remotePostId: platformResult.postId,
+                                files: snapshot.selectedFiles
+                            });
+                            archiveSnapshot = { success: true, ...saved };
+                        } catch (error) {
+                            archiveSnapshot = { success: false, message: '게시에는 성공했지만 로컬 결과물 보관에 실패했습니다.' };
+                            Logger?.error?.(`❌ [ManuscriptDraft] 게시 성공 후 결과물 스냅샷 저장 실패 (target=${target}): ${error.message}`);
+                        }
+                    }
+                }
                 return {
                     ...result,
+                    postStatus: actualPostStatus,
                     revision: snapshot.publishPolicy.draftRevision,
                     publishPolicy: snapshot.publishPolicy,
+                    ...(archiveSnapshot ? { archiveSnapshot } : {}),
                     manuscriptPreview
                 };
             });

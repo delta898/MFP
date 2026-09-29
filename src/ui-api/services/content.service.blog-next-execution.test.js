@@ -116,6 +116,7 @@ test('manuscript draft publishing resolves one exact snapshot before using the e
   const published = [];
   const publicationChecks = [];
   const publicationRecords = [];
+  const archivedSnapshots = [];
   const manuscriptDraftService = {
         assertNotPublished(input) {
             publicationChecks.push(input);
@@ -141,12 +142,20 @@ test('manuscript draft publishing resolves one exact snapshot before using the e
         markPublished(input) {
             publicationRecords.push(input);
             return { draftId: 'draft-1', revision: 6 };
+        },
+        persistPublicationSnapshot(input) {
+            archivedSnapshots.push(input);
+            return { publicationId: 'aZ3_xQ7m', platformFolder: 'naver_my-blog', files: ['contents.md'] };
         }
     };
     const service = createService(coordinator, async (input) => {
         published.push(input);
-        return { success: true, data: { status: '임시 저장 완료', postStatus: 'draft' } };
-    }, {}, { manuscriptDraftService });
+        return { success: true, data: {
+            status: '임시 저장 완료',
+            postStatus: 'draft',
+            results: { naver: { success: true, status: 'draft', postUrl: 'https://blog.naver.com/my-blog/123' } }
+        } };
+    }, { NAVER_ID: 'my-blog' }, { manuscriptDraftService });
 
     const result = await service.publishManuscriptDraft({ draftId: 'draft-1', revision: 4 });
     assert.equal(result.status, '임시 저장 완료');
@@ -162,6 +171,12 @@ test('manuscript draft publishing resolves one exact snapshot before using the e
     assert.deepEqual(publicationRecords, [{
         draftId: 'draft-1', revision: 6, target: 'naver', postStatus: 'draft'
     }]);
+    assert.deepEqual(result.archiveSnapshot, {
+        success: true, publicationId: 'aZ3_xQ7m', platformFolder: 'naver_my-blog', files: ['contents.md']
+    });
+    assert.equal(archivedSnapshots[0].platformIdentity, 'my-blog');
+    assert.equal(archivedSnapshots[0].postUrl, 'https://blog.naver.com/my-blog/123');
+    assert.equal(archivedSnapshots[0].files[0].name, 'contents.md');
 });
 
 test('duplicate manuscript-target pair is rejected before the publisher is called', async () => {
@@ -224,6 +239,35 @@ test('manuscript image auto-resolution stays inside the shared Blog Beta executi
     assert.equal(result.postStatus, 'publish');
     assert.equal(result.revision, 2);
     assert.deepEqual(coordinator.getStatus(), { busy: false });
+});
+
+test('keeps successful remote publication when local snapshot persistence fails', async () => {
+    const coordinator = createBlogNextExecutionCoordinator();
+    let recorded = 0;
+    const manuscriptDraftService = {
+        assertNotPublished() {},
+        async preparePublishPayload() {
+            return {
+                selectedFiles: [{ name: 'contents.md', textContent: '# 원고' }],
+                settings: { targets: ['naver'], postStatus: 'publish' },
+                publishPolicy: { draftRevision: 2 }
+            };
+        },
+        markPublished() { recorded += 1; return { draftId: 'draft-1', revision: 2 }; },
+        persistPublicationSnapshot() { throw new Error('디스크 쓰기 실패'); }
+    };
+    const service = createService(coordinator, async () => ({
+        success: true,
+        data: {
+            postStatus: 'publish',
+            results: { naver: { success: true, status: 'publish', postUrl: 'https://blog.naver.com/my-blog/123' } }
+        }
+    }), { NAVER_ID: 'my-blog' }, { manuscriptDraftService });
+
+    const result = await service.publishManuscriptDraft({ draftId: 'draft-1', revision: 2 });
+    assert.equal(result.postStatus, 'publish');
+    assert.equal(result.archiveSnapshot.success, false);
+    assert.equal(recorded, 1);
 });
 
 test('local manuscript publishing returns the successful channel completion destination', async () => {

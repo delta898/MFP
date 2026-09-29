@@ -591,9 +591,12 @@ async function publishBlogNextDraft(type) {
     const wordpressImageUploadFailures = Array.isArray(publishResult?.results?.wordpress?.warnings)
       ? publishResult.results.wordpress.warnings.filter(warning => /^이미지 \d+번 업로드 실패$/.test(String(warning || ''))).length
       : 0;
+    const archiveFailed = publishResult?.archiveSnapshot?.success === false;
     const completionMessage = `${targetLabel}에 ${actualPublishCopy.completionLabel}${wordpressImageUploadFailures > 0
       ? `. 이미지 ${wordpressImageUploadFailures}개를 올리지 못했습니다. 워드프레스에서 확인해 주세요.`
-      : ''}`;
+      : ''}${archiveFailed
+        ? ' 게시에는 성공했지만 로컬 결과물 저장에 실패했습니다. 원고가 만료되기 전에 백업해 주세요.'
+        : ''}`;
     if (typeof renderBlogNextRunnerStatus === 'function') {
       renderBlogNextRunnerStatus({
         state: 'completed',

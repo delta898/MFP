@@ -124,9 +124,140 @@ function createManuscriptDraftService(options = {}) {
     const completedRetentionMs = Number.isFinite(Number(options.completedRetentionMs))
         ? Math.max(60 * 60 * 1000, Number(options.completedRetentionMs))
         : DEFAULT_COMPLETED_RETENTION_MS;
-    const workspaceRoot = pathImpl.resolve(String(options.workspaceDir || pathImpl.join(process.cwd(), 'workspace')), 'manuscript-drafts');
+    const workspaceBase = pathImpl.resolve(String(options.workspaceDir || pathImpl.join(process.cwd(), 'workspace')));
+    const workspaceRoot = pathImpl.join(workspaceBase, 'manuscript-drafts');
     if (!Utils?.parseMarkdown || !Utils?.findImageByPrefix) throw new Error('Manuscript Draft requires markdown utilities.');
     const relatedPostsGateway = options.relatedPosts || null;
+
+    function normalizePostStatus(value) {
+        const status = String(value || '').trim().toLowerCase();
+        return status === 'future' ? 'schedule' : (status || 'publish');
+    }
+
+    function safePlatformFolder(target, identity) {
+        const normalizedTarget = String(target || '').trim().toLowerCase();
+        if (!['naver', 'wordpress'].includes(normalizedTarget)) {
+            throw manuscriptError(400, 'MANUSCRIPT_PUBLICATION_TARGET_INVALID', '게시 대상이 올바르지 않습니다.');
+        }
+        let label = String(identity || '').trim();
+        if (normalizedTarget === 'wordpress' && label) {
+            try { label = new URL(label).host || label; } catch (_) { }
+        }
+        label = label.replace(/[^a-z0-9._-]/gi, '_').replace(/^\.+|\.+$/g, '').slice(0, 100);
+        return `${normalizedTarget === 'wordpress' ? 'wp' : 'naver'}_${label || 'unknown'}`;
+    }
+
+    function cleanPublicationStaging() {
+        const stagingRoot = pathImpl.join(workspaceBase, '.publication-staging');
+        try {
+            if (!fsImpl.existsSync(stagingRoot)) return;
+            const staleBefore = Date.now() - 24 * 60 * 60 * 1000;
+            for (const name of fsImpl.readdirSync(stagingRoot)) {
+                const candidate = pathImpl.join(stagingRoot, name);
+                if (fsImpl.statSync(candidate).mtimeMs < staleBefore) {
+                    fsImpl.rmSync(candidate, { recursive: true, force: true });
+                }
+            }
+            if (fsImpl.readdirSync(stagingRoot).length === 0) fsImpl.rmdirSync(stagingRoot);
+        } catch (error) {
+            Logger?.warn?.(`⚠️ [ManuscriptDraft] 게시 스냅샷 임시 파일 정리 실패: ${error.message}`);
+        }
+    }
+
+    function safeSnapshotFileName(value) {
+        const name = String(value || '').trim();
+        if (!name || name === '.' || name === '..' || /[\\/\0]/.test(name) || pathImpl.basename(name) !== name) {
+            throw manuscriptError(400, 'MANUSCRIPT_SNAPSHOT_FILE_INVALID', '게시 스냅샷 파일 이름이 올바르지 않습니다.');
+        }
+        return name;
+    }
+
+    function persistPublicationSnapshot(input = {}) {
+        const { locations, manifest } = readManifest(input.draftId);
+        assertRevision(manifest, input.revision);
+        assertDraftActive(manifest);
+        const target = String(input.target || '').trim().toLowerCase();
+        const postStatus = normalizePostStatus(input.postStatus || manifest.settings.postStatus);
+        const contentVersion = getContentVersion(locations, manifest);
+        const published = (manifest.publication_history || []).some((entry) => (
+            entry.target === target
+            && entry.content_version === contentVersion
+            && normalizePostStatus(entry.post_status) === postStatus
+        ));
+        if (!published) throw manuscriptError(409, 'MANUSCRIPT_PUBLICATION_NOT_RECORDED', '게시 성공 기록을 확인할 수 없어 결과물을 보관하지 않았습니다.');
+
+        const files = Array.isArray(input.files) ? input.files : [];
+        if (files.length === 0) throw manuscriptError(400, 'MANUSCRIPT_SNAPSHOT_FILES_REQUIRED', '보관할 게시 원고 파일이 없습니다.');
+        const platformFolder = safePlatformFolder(target, input.platformIdentity);
+        const platformRoot = pathImpl.join(workspaceBase, platformFolder);
+        const stagingRoot = pathImpl.join(workspaceBase, '.publication-staging');
+        fsImpl.mkdirSync(platformRoot, { recursive: true });
+        fsImpl.mkdirSync(stagingRoot, { recursive: true });
+        const stagingDir = fsImpl.mkdtempSync(pathImpl.join(stagingRoot, 'snapshot-'));
+        const names = new Set();
+        let snapshotId = '';
+        let finalDir = '';
+        try {
+            for (const entry of files) {
+                const name = safeSnapshotFileName(entry?.name);
+                if (names.has(name)) throw manuscriptError(400, 'MANUSCRIPT_SNAPSHOT_FILE_DUPLICATE', '게시 스냅샷에 중복 파일 이름이 있습니다.');
+                names.add(name);
+                if (/\.(?:md|markdown)$/i.test(name) && typeof entry?.textContent === 'string') {
+                    fsImpl.writeFileSync(pathImpl.join(stagingDir, name), entry.textContent, { mode: 0o600 });
+                    continue;
+                }
+                if (!String(entry?.contentType || '').startsWith('image/') || !entry?.base64Data) {
+                    throw manuscriptError(400, 'MANUSCRIPT_SNAPSHOT_FILE_UNSUPPORTED', '게시 스냅샷에 지원하지 않는 파일이 있습니다.');
+                }
+                const buffer = Buffer.from(String(entry.base64Data), 'base64');
+                const detected = validateImageBuffer(buffer);
+                if (detected.mimeType !== entry.contentType) {
+                    throw manuscriptError(400, 'MANUSCRIPT_SNAPSHOT_IMAGE_INVALID', '게시 스냅샷 이미지가 올바르지 않습니다.');
+                }
+                fsImpl.writeFileSync(pathImpl.join(stagingDir, name), buffer, { mode: 0o600 });
+            }
+            const markdownEntry = files.find((entry) => /\.(?:md|markdown)$/i.test(String(entry?.name || '')));
+            const title = extractManuscriptTitle(String(markdownEntry?.textContent || ''));
+            const createdAt = new Date(now()).toISOString();
+            const metadata = {
+                schema_version: 1,
+                platform: target,
+                platform_identity: String(input.platformIdentity || ''),
+                publication_id: '',
+                published_at: createdAt,
+                post_status: postStatus,
+                post_url: String(input.postUrl || ''),
+                remote_post_id: String(input.remotePostId || ''),
+                title,
+                source_kind: manifest.source_kind,
+                source_label: manifest.source_label,
+                draft_id: manifest.id,
+                revision: manifest.revision,
+                files: [...names]
+            };
+            fsImpl.writeFileSync(pathImpl.join(stagingDir, 'publication.json'), `${JSON.stringify(metadata, null, 2)}\n`, { mode: 0o600 });
+            for (let attempt = 0; attempt < 10; attempt += 1) {
+                snapshotId = cryptoImpl.randomBytes(6).toString('base64url');
+                if (!/^[A-Za-z0-9_-]{8}$/.test(snapshotId)) continue;
+                finalDir = pathImpl.join(platformRoot, snapshotId);
+                if (!fsImpl.existsSync(finalDir)) break;
+                finalDir = '';
+            }
+            if (!finalDir) throw manuscriptError(500, 'MANUSCRIPT_SNAPSHOT_ID_EXHAUSTED', '고유한 게시 결과 ID를 만들지 못했습니다.');
+            metadata.publication_id = snapshotId;
+            fsImpl.writeFileSync(pathImpl.join(stagingDir, 'publication.json'), `${JSON.stringify(metadata, null, 2)}\n`, { mode: 0o600 });
+            fsImpl.renameSync(stagingDir, finalDir);
+            Logger?.info?.(`✅ [ManuscriptDraft] 게시 결과 스냅샷 저장 (platform=${target}, id=${snapshotId})`);
+            return { publicationId: snapshotId, platformFolder, files: [...names] };
+        } catch (error) {
+            try { fsImpl.rmSync(stagingDir, { recursive: true, force: true }); } catch (_) { }
+            throw error;
+        } finally {
+            try {
+                if (fsImpl.existsSync(stagingRoot) && fsImpl.readdirSync(stagingRoot).length === 0) fsImpl.rmdirSync(stagingRoot);
+            } catch (_) { }
+        }
+    }
 
     function defaultRelatedPostsState(targets) {
         return {
@@ -883,7 +1014,7 @@ function createManuscriptDraftService(options = {}) {
         manifest.publication_history = [...(manifest.publication_history || []), {
             content_version: publication.contentVersion,
             target: publication.target,
-            post_status: String(input.postStatus || manifest.settings.postStatus || 'publish'),
+            post_status: normalizePostStatus(input.postStatus || manifest.settings.postStatus),
             published_at: publishedAt
         }];
         manifest.lifecycle_status = 'active';
@@ -906,12 +1037,13 @@ function createManuscriptDraftService(options = {}) {
         return { binary: true, body: buffer, contentType: detected.mimeType };
     }
 
+    cleanPublicationStaging();
     const startupCleanup = cleanupExpiredDrafts();
     if (startupCleanup.removed > 0) {
         Logger?.info?.(`ℹ️ [ManuscriptDraft] 만료 원고 ${startupCleanup.removed}개를 시작 시 정리했습니다.`);
     }
 
-    return { createFolderDraft, createPasteDraft, createAiDraft, getDraft, updateSettings, updateMarkdown, importLocalImage, excludeImage, restoreImage, removeImage, generateImage, generateMissingImages, refreshDraftRelatedPosts, preparePublishPayload, buildPublishPayload, assertNotPublished, markPublished, cleanupExpiredDrafts, getImage };
+    return { createFolderDraft, createPasteDraft, createAiDraft, getDraft, updateSettings, updateMarkdown, importLocalImage, excludeImage, restoreImage, removeImage, generateImage, generateMissingImages, refreshDraftRelatedPosts, preparePublishPayload, buildPublishPayload, assertNotPublished, markPublished, persistPublicationSnapshot, cleanupExpiredDrafts, getImage };
 }
 
 module.exports = { createManuscriptDraftService, detectImageType, validateImageBuffer };

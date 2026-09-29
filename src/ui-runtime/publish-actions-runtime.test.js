@@ -42,7 +42,7 @@ test('local WordPress publish preserves image upload warnings while counting the
         Utils: {},
         Core: {
             async publishToWordPress() {
-                return { success: true, postUrl: 'https://example.test/draft', status: 'draft', warnings };
+                return { success: true, postId: 456, postUrl: 'https://example.test/draft', status: 'draft', warnings };
             }
         },
         License: {
@@ -73,6 +73,7 @@ test('local WordPress publish preserves image upload warnings while counting the
 
     assert.equal(result.success, true);
     assert.equal(result.data.results.wordpress.success, true);
+    assert.equal(result.data.results.wordpress.postId, '456');
     assert.deepEqual(result.data.results.wordpress.warnings, warnings);
     const completed = activities.find((activity) => activity.type === 'local_markdown_publish_completed');
     assert.match(completed.detail, /이미지 1개 업로드 실패/);

@@ -1467,6 +1467,7 @@ function createPublishActionsRuntime(deps = {}) {
                 results.wordpress = {
                     success: Boolean(wpRes.success),
                     message: wpRes.message || '',
+                    postId: wpRes.postId ? String(wpRes.postId) : '',
                     postUrl: wpRes.postUrl || '',
                     status: wpRes.status || postStatus,
                     warnings: Array.isArray(wpRes.warnings) ? wpRes.warnings.filter((warning) => typeof warning === 'string') : []

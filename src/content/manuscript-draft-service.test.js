@@ -695,6 +695,85 @@ test('records a target publication without changing the manuscript revision', ()
     }
 });
 
+test('persists a successful publication snapshot under the platform folder with an eight-character id', () => {
+    const { workspaceDir, service, input } = fixture();
+    try {
+        const created = service.createFolderDraft(input);
+        const payload = service.buildPublishPayload({ draftId: created.draftId, revision: created.revision });
+        service.markPublished({ draftId: created.draftId, revision: created.revision, target: 'naver', postStatus: 'draft' });
+        const saved = service.persistPublicationSnapshot({
+            draftId: created.draftId,
+            revision: created.revision,
+            target: 'naver',
+            platformIdentity: 'my-blog',
+            postStatus: 'draft',
+            postUrl: 'https://blog.naver.com/my-blog/123',
+            remotePostId: '123',
+            files: payload.selectedFiles
+        });
+
+        assert.match(saved.publicationId, /^[A-Za-z0-9_-]{8}$/);
+        const snapshotRoot = path.join(workspaceDir, 'naver_my-blog', saved.publicationId);
+        assert.equal(fs.existsSync(path.join(snapshotRoot, 'contents.md')), true);
+        assert.equal(fs.existsSync(path.join(snapshotRoot, '01_existing.png')), true);
+        const metadata = JSON.parse(fs.readFileSync(path.join(snapshotRoot, 'publication.json'), 'utf8'));
+        assert.equal(metadata.platform, 'naver');
+        assert.equal(metadata.post_status, 'draft');
+        assert.equal(metadata.post_url, 'https://blog.naver.com/my-blog/123');
+        assert.equal(metadata.remote_post_id, '123');
+        assert.equal(metadata.publication_id, saved.publicationId);
+        assert.equal(fs.existsSync(path.join(workspaceDir, '.publication-staging')), false);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('persists WordPress publication snapshots under the site host with remote post metadata', () => {
+    const { workspaceDir, service } = fixture();
+    try {
+        const created = service.createPasteDraft({ markdownText: '# 워드프레스 원고\n\n본문', targets: ['wordpress'] });
+        const payload = service.buildPublishPayload({ draftId: created.draftId, revision: created.revision });
+        service.markPublished({ draftId: created.draftId, revision: created.revision, target: 'wordpress' });
+        const saved = service.persistPublicationSnapshot({
+            draftId: created.draftId,
+            revision: created.revision,
+            target: 'wordpress',
+            platformIdentity: 'https://blog.example.com/wp-json',
+            postStatus: 'publish',
+            postUrl: 'https://blog.example.com/2026/post/',
+            remotePostId: '456',
+            files: payload.selectedFiles
+        });
+
+        const snapshotRoot = path.join(workspaceDir, 'wp_blog.example.com', saved.publicationId);
+        assert.equal(fs.existsSync(path.join(snapshotRoot, 'contents.md')), true);
+        const metadata = JSON.parse(fs.readFileSync(path.join(snapshotRoot, 'publication.json'), 'utf8'));
+        assert.equal(metadata.platform_identity, 'https://blog.example.com/wp-json');
+        assert.equal(metadata.post_url, 'https://blog.example.com/2026/post/');
+        assert.equal(metadata.remote_post_id, '456');
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('does not persist a publication snapshot before the draft records a successful post', () => {
+    const { workspaceDir, service } = fixture();
+    try {
+        const created = service.createPasteDraft({ markdownText: '# 보관 전 원고', targets: ['wordpress'] });
+        const payload = service.buildPublishPayload({ draftId: created.draftId, revision: created.revision });
+        assert.throws(() => service.persistPublicationSnapshot({
+            draftId: created.draftId,
+            revision: created.revision,
+            target: 'wordpress',
+            platformIdentity: 'https://blog.example',
+            files: payload.selectedFiles
+        }), (error) => error.code === 'MANUSCRIPT_PUBLICATION_NOT_RECORDED');
+        assert.equal(fs.existsSync(path.join(workspaceDir, 'wp_blog.example')), false);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('duplicate publication is scoped to manuscript version and target platform', () => {
     const { workspaceDir, service, input } = fixture();
     try {
