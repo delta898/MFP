@@ -229,7 +229,7 @@ test('manuscript baseline styles use semantic tokens and collapse predictably', 
   const actionCss = read('ui/styles/patterns/actions.css');
   const interactionCss = read('ui/styles/features/continuous-publishing-interactions.css');
 
-  assert.match(css, /\.blog-next-draft-mode\s*\{[^}]*width:\s*min\(100%, 1180px\)/s);
+  assert.match(css, /\.blog-next-draft-mode\s*\{[^}]*width:\s*100%;/s);
   assert.match(css, /\.blog-next-draft-options\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/s);
   assert.match(css, /data-dependency-active="false"[\s\S]*color:\s*var\(--ui-text-muted\)/);
   assert.match(css, /@media \(max-width: 768px\)[\s\S]*\.blog-next-draft-options\s*\{[^}]*grid-template-columns:\s*1fr/s);

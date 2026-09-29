@@ -255,7 +255,7 @@ test('quick flow width and disclosure layout adapt without style-specific select
   const css = read('ui/styles/features/blog-next-quick-flow.css');
   const selectShellCss = read('ui/styles/patterns/select-shell.css');
 
-  assert.match(css, /#blog-next-topic-form-home \.blog-next-topic-form\s*\{[^}]*width:\s*min\(100%, 1180px\)/s);
+  assert.match(css, /#blog-next-topic-form-home \.blog-next-topic-form\s*\{[^}]*width:\s*100%;/s);
   assert.match(css, /#blog-next-topic-form-home \.blog-next-ai-prepare-actions\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0, 1fr\);[^}]*width:\s*100%;/s);
   assert.match(css, /\.blog-next-ai-action-row\s*\{[^}]*grid-column:\s*1 \/ -1;[^}]*width:\s*100%;/s);
   assert.match(css, /\[data-blog-next-draft-actions\]\[hidden\]\s*\{[^}]*display:\s*none;/s);
