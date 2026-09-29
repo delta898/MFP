@@ -7,20 +7,43 @@
 
 ## P0 — 기반과 운영 마무리
 
-1. 새 개발 PC Bootstrap 자동화
+1. 사용자 데이터 경로와 배포 패키지 정리
+   - 앱 실행 파일/번들은 사용자가 선택한 설치 위치에 둔다.
+   - `config/`는 Windows AppData 및 macOS Application Support 아래 `BlogGenius/` 사용자 데이터 영역에,
+     `logs/`와 앱 내부 상태인 `data/`도 같은 앱 데이터 영역에 두는 방향으로 정리한다.
+   - 사용자 작업물인 `workspace/`는 Documents 아래 `BlogGenius/workspace/`에 두는 방향으로 정리한다.
+   - 배포 패키지에는 `config/`, `data/`, `logs/`, `workspace/` 사용자 데이터 디렉터리를 정적으로 포함하지
+     않고, 앱이 실행된 뒤 실제로 필요한 디렉터리만 생성한다. 기본 이미지 등 읽기 전용 앱 리소스는 사용자
+     데이터 디렉터리와 구별해 패키지에 포함하고 필요 시 초기화한다.
+   - 현재는 사용자별 설치/실행 경로가 기본이므로 경로 전환을 즉시 진행할 필요는 없다. macOS 앱을
+     `/Applications` 같은 시스템 공용 영역에서 실행하는 예외는 사용자 데이터 분리 필요성을 별도로 고려한다.
+   - 기존 설치의 데이터 탐지, 복사/검증, 충돌 처리, 원본 보존·삭제와 사용자 안내를 포함한 migration 정책은
+     후속 기획에서 결정한다. 이 항목의 합의는 목표 경로 방향이며 migration 세부안이나 구현 승인이 아니다.
+
+2. 게시 성공 결과 스냅샷의 플랫폼별 보관
+   - 성공한 포스팅(플랫폼 임시저장 포함)만 `workspace/wp_<wp>/` 또는 `workspace/naver_<id>/`에 보관한다.
+   - BlogGenius는 post만 지원하고 update는 지원하지 않으므로 게시 성공 건마다 별도 스냅샷을 남긴다.
+     같은 원고를 임시저장 후 정식 발행해 플랫폼에 두 글이 생기면 로컬에도 각각 보관한다.
+   - 게시별 공유 ID는 `crypto.randomBytes(6)`의 Base64 URL-safe 인코딩 결과(8자)를 사용한다.
+   - 게시 전 임시 산출물은 OS 임시 폴더 또는 다른 작업 경로를 사용할 수 있으며, 성공/실패 후 누적되지 않게
+     정리한다.
+   - 초안 작업 폴더는 앱 종료 때 일괄 삭제하지 않는다. 기존 만료 기간 기반 정리는 유지하며, 재실행 후
+     초안 이어쓰기/복구 진입점은 별도 범위로 다룬다.
+
+3. 새 개발 PC Bootstrap 자동화
    - Node/npm, Docker, Supabase CLI, `npm ci`, runtime config, Local Supabase, Development 설정과
      Google OAuth build input의 준비 여부를 값 노출 없이 확인하는 `bootstrap:check`를 제공한다.
    - PC별 설정·사용자 로그인을 환경 공용 migration·Function·server secret과 구분한다.
    - Local/Development 준비 명령과 간결한 한글 가이드를 제공한다.
    - Production 사용자 자료, credential, license와 secret은 개발 PC로 복사하지 않는다.
 
-2. Production migration ledger 정합화
+4. Production migration ledger 정합화
    - Production 실제 schema와 canonical migration을 read-only evidence로 먼저 비교한다.
    - 이미 적용됐음이 입증된 migration만 이력에 반영하며 drift를 숨기기 위한 임의 repair를 금지한다.
    - `db push --dry-run`이 실제 신규 migration만 표시하는 상태를 복구한다.
    - 이력 repair와 후속 Production 변경은 명시적 승인과 감사 기록을 거친다.
 
-3. Production Runtime Credential 전환 마무리
+5. Production Runtime Credential 전환 마무리
    - Desktop, Local과 Development의 credential 경계 전환은 완료된 것으로 본다.
    - Production migration ledger가 신뢰 가능한 상태가 된 뒤 cutover artifact와 구버전 호환 정책을
      검토한다.
@@ -29,7 +52,7 @@
    - Production migration, Function, Secret, row 삭제와 credential 회전은 각각 별도 승인 없이 실행하지
      않는다.
 
-4. 릴리스 빌드 필수 설정 사전검증
+6. 릴리스 빌드 필수 설정 사전검증
    - GitHub Release 생성과 packaging matrix 시작 전에 필수 Repository Variables·Secrets를 검증한다.
    - 태그, package/lockfile 버전, 지원 OS 정책과 비어 있지 않은 `CHANGELOG.md` 버전 항목을 같은
      관문에서 확인한다.
