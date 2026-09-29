@@ -193,7 +193,7 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(script, /전체 재생성/);
     assert.match(script, /data-card-news-image-action/);
     assert.match(script, /data-card-news-local-picker/);
-    assert.match(script, /이미지 교체/);
+    assert.match(script, /내 이미지로 교체/);
     assert.doesNotMatch(script, /card-news-local-image-trigger/);
     assert.match(script, /\/api\/v1\/card-news\/image-operations/);
     assert.match(script, /data-card-news-local-image/);
@@ -393,7 +393,10 @@ test('Card News results use shared sequence and action hierarchy without a fixed
     assert.match(script, /<span class="ui-sequence-badge">\$\{card\.index\}<\/span>/);
     assert.match(script, /activeSingle \? 'ghost ui-danger-action compact' : `\$\{card\.image_url \? 'secondary' : 'primary'\} compact`/);
     assert.match(script, /card\.image_url \? 'AI 재생성' : 'AI 이미지 만들기'/);
-    assert.match(script, /class="secondary compact"[^>]*data-card-news-local-picker[^>]*>\$\{card\.image_url \? '이미지 교체' : '＋ 내 이미지 선택'\}/);
+    assert.match(script, /class="secondary compact card-news-local-image-picker"[^>]*data-card-news-local-picker[^>]*aria-label="\$\{card\.image_url \? '내 이미지로 교체' : '내 이미지에서 선택'\}"[^>]*>＋<\/button>/);
+    assert.match(script, /\.card-news-result-image-wrap'\)\.forEach\(\(wrap\)/);
+    assert.match(script, /className = 'card-news-image-drop-hint'/);
+    assert.match(script, /wrap\.classList\.add\('is-drag-over'\)/);
     assert.match(script, /class="ui-button-link secondary compact"[^>]*download>받기<\/a>/);
     assert.match(script, /class="ui-text-action compact card-news-prompt-copy"[^>]*data-card-news-prompt-copy[^>]*>복사<\/button>/);
     assert.match(script, /<details class="card-news-prompt-details">\s*<summary>프롬프트 보기<\/summary>/);

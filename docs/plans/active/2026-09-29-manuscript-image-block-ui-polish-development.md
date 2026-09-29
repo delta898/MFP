@@ -3,7 +3,7 @@
 - Branch: `codex/feat/manuscript-image-block-ui-polish`
 - Start date: 2026-09-29
 - Base/parent branch: `codex/manuscript-image-workflow`
-- Status: 2차 시각 피드백 반영, 사용자 시각 검토 대기
+- Status: 구현 완료, 사용자 시각·탐색 검토 대기
 - Parent feature: [원고 이미지 작업 흐름 개선](2026-09-29-manuscript-image-workflow-development.md)
 
 ## 사용자 필요와 목표
@@ -14,15 +14,17 @@
 
 ## 범위
 
-- 상단의 블록 이동·삭제 제어, 이미지 미리보기와 title/prompt 입력, 하단 작업 영역의 기존 배치를 유지한다.
-- 정보 위계, 간격과 정렬, 비어 있음/준비됨/생성 중/오류 상태, 버튼 우선순위와 좁은 화면 대응을 다듬는다.
-- 기존 Blog Beta (`view-blog-next`) 원고 이미지 블록에만 적용한다.
-- UI 변경에 필요한 계약/브라우저 회귀 검증을 보완한다.
+- 상단의 블록 이동·삭제와 title/prompt 편집 구조는 유지하고, 이미지 생성·교체·로컬 선택 조작을 미디어 영역 안으로 모은다.
+- 이미지가 없을 때는 `AI로 만들기`와 `+` 로컬 선택을 노출하고, 이미지가 있으면 hover/focus에서 조작을 보이며 터치에서는 계속 노출한다.
+- 미디어 영역 drag & drop으로 로컬 이미지를 선택할 수 있게 하되, 파일 검증과 편집기 드롭 충돌 방지를 포함한다.
+- 이미지 미리보기 확대 시 이미지가 블록 전체를 차지하게 하고, 사선 화살표 토글로 원래 편집 화면으로 돌아오게 한다.
+- Blog Beta 이미지 블록을 먼저 구현하며, 카드뉴스와 기존 패턴을 맞춘다. 카드뉴스에는 이미 미디어 오버레이 액션이 있으므로 필요한 공통 동작만 확장한다.
+- 관련 UI 계약/브라우저 회귀 검증을 보완한다.
 
 ## 비범위
 
 - 이미지 생성·title/prompt 생성 API, 데이터 모델, publishing 동작 변경
-- 새 조작 기능, 새 AI provider/model selector 또는 과금 흐름
+- 새 AI provider/model selector 또는 과금 흐름
 - 기존 `블로그` surface 및 다른 콘텐츠 UI 개편
 - 별도의 범용 block editor 동작 추가
 
@@ -58,6 +60,22 @@
 - 세 테마를 비교한 후 고정색 자체가 맞지 않을 수 있다는 사용자 판단에 동의해, 빈 미리보기 stage를 테마 표면색/경계색으로
   되돌리고 낮은 대비의 SVG 물결선 3개와 선형 이미지 아이콘을 배치했다. 실제 이미지가 있으면 기존 render 경로가 placeholder
   전체를 이미지로 교체하므로 장식은 노출되지 않는다. browser contract는 테마 토큰 사용 및 아이콘/파형 수를 검증한다.
+- 사용자는 이미지 조작의 제품 공통 패턴으로 미디어 내부 액션, 빈 상태의 상시 AI/로컬 선택 버튼, 이미지가 있을 때 hover/focus 액션,
+  로컬 파일 drag & drop 및 `+` 선택을 확정했다. 이어 이미지 확대 시 블록을 이미지 전용 화면으로 바꾸고 사선 아이콘으로 복귀하는
+  토글을 추가하기로 했다. 이번 slice는 Blog Beta 원고 이미지 블록에 구현하고 기존 카드뉴스 오버레이와 상호작용을 일치시킨다.
+- Blog Beta 원고 이미지 블록에서 하단 생성/선택/제거 버튼을 미리보기 오버레이로 옮겼다. 빈 상태에서는 생성과 `+` 선택을 상시 노출하고,
+  이미지가 있으면 hover/focus에서 노출하며 터치·작업 중 상태에서는 감추지 않는다. 이동·삭제는 헤더에 두어 구조 조작과 미디어 조작을 분리했다.
+- 원고 이미지 블록과 카드뉴스 미리보기 모두 `+` 로컬 선택 및 단일 파일 drag & drop을 지원한다. 파일은 PNG/JPEG/WebP/AVIF, 10MB 이하로
+  제한하고, 다중 파일·지원하지 않는 형식·진행 중 변경은 안내 상태로 거절한다. 드롭 이벤트는 미디어 경계에서 취소/전파 중단해 편집기 동작과
+  충돌하지 않게 했다. 카드뉴스 오버레이는 빈 상태/hover/focus 패턴을 유지하고 터치에서 항상 노출한다.
+- 원고 이미지가 지정된 경우 대각선 토글로 이미지 미디어를 블록의 편집 영역 전체로 확장한다. 확장 중 제목/프롬프트/보조 조작은 숨기고
+  복귀 토글을 고정 노출한다. 이미지가 제거되면 확장 상태를 자동 종료한다.
+- 브라우저 계약은 빈 상태 조작 위치, 확대/복귀, 이미지 drag/drop import를 fixture 원고에서 검증했다. 앞선 smoke 오류 예방을 위해
+  slash-menu 시퀀스는 자동 smoke에서 제외한 상태를 유지한다. 전체 smoke는 새 원고 이미지 흐름을 지나 Legacy 단계까지 도달했으나,
+  종료 직전 기존 요청 순서 assertion에서 예상한 `/api/v1/google-oauth/test` 요청이 없어 실패했다. 외부 AI/발행은 로컬 fixture·네트워크 차단으로
+  수행하지 않았다.
+- 검증: Manuscript/Card News/UI 스타일 관련 집중 계약 테스트 57/57 통과, `npm run build:manuscript-editor` 성공 (476.68 KB; gzip 151.12 KB).
+  `npm run test:ui-browser`는 새 원고 drag/drop 및 확대 흐름을 지나갔지만, 마지막 Legacy surface fixture 요청 순서 mismatch로 전체 통과하지 못했다.
 - 후속 검증: focused UI/style/slash contracts 41/41 통과. browser smoke에서 테마 토큰 색, 아이콘, 물결선, 레이아웃 assertion은
   통과했고 이후 legacy slash suggestion 대기 구간 (`scripts/test-ui-browser-smoke.js:4678`) timeout으로 종료했다.
 - Node view source 변경 뒤 `npm run build:manuscript-editor`를 실행해 `ui/scripts/vendor/manuscript-editor.js`를
@@ -74,4 +92,5 @@
 ## 남은 위험
 
 - 실제 글꼴/테마 조합과 이미지 asset별 화면 대비, 시각 품질은 사용자의 hands-on review가 필요하다.
-- browser smoke는 현행 legacy slash-command 시나리오 timeout이 남아 있어 이후 slice 검증에서 다시 확인해야 한다.
+- Browser smoke의 기존 Legacy fixture 요청 순서 (`/api/v1/google-oauth/test`) mismatch가 남아 있다. 이미지 조작 기능 회귀와는 별개로 분리해 후속 수정한다.
+- 파일 형식·크기 오류 문구, 실제 포인터/터치 노출과 확대 화면의 적절한 높이는 사용자 hands-on review가 필요하다.

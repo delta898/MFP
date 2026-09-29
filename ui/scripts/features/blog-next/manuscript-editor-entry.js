@@ -295,6 +295,15 @@ function createImageBlock(onMove, options = {}) {
         media.className = 'manuscript-image-block-media';
         const artwork = document.createElement('div');
         artwork.className = 'manuscript-image-block-artwork';
+        const dropHint = document.createElement('div');
+        dropHint.className = 'manuscript-image-block-drop-hint';
+        dropHint.setAttribute('aria-hidden', 'true');
+        dropHint.innerHTML = '<span aria-hidden="true">＋</span><strong>이미지를 놓아 추가</strong>';
+        const mediaFeedback = document.createElement('div');
+        mediaFeedback.className = 'manuscript-image-block-media-feedback';
+        mediaFeedback.setAttribute('role', 'status');
+        mediaFeedback.setAttribute('aria-live', 'polite');
+        mediaFeedback.hidden = true;
         const mediaStatus = document.createElement('div');
         mediaStatus.className = 'manuscript-image-block-status';
         mediaStatus.setAttribute('role', 'status');
@@ -313,7 +322,6 @@ function createImageBlock(onMove, options = {}) {
         statusDescriptionSlot.setAttribute('aria-hidden', 'true');
         statusCopy.append(statusMessage, statusDescriptionSlot);
         mediaStatus.append(statusCopy);
-        media.append(artwork, mediaStatus);
         const main = document.createElement('div');
         main.className = 'manuscript-image-block-main';
         const fields = document.createElement('div');
@@ -419,7 +427,10 @@ function createImageBlock(onMove, options = {}) {
           return button;
         };
         const generate = actionButton('AI로 만들기', 'generate');
-        const pick = actionButton('내 이미지 선택', 'pick');
+        const pick = actionButton('＋', 'pick');
+        pick.className = 'secondary compact manuscript-image-block-pick';
+        pick.setAttribute('aria-label', '내 이미지에서 선택');
+        pick.title = '내 이미지에서 선택';
         const continueButton = document.createElement('button');
         continueButton.type = 'button';
         continueButton.className = 'secondary compact';
@@ -436,8 +447,107 @@ function createImageBlock(onMove, options = {}) {
         fileInput.type = 'file';
         fileInput.accept = 'image/png,image/jpeg,image/webp,image/avif';
         fileInput.hidden = true;
-        fileInput.addEventListener('change', () => options.onImageFile?.(currentNode.attrs.slotId, fileInput));
-        card.append(header, main, promptGeneration, mediaActions, fileInput);
+        const validateImageFile = (file) => {
+          if (!file) return '이미지 파일을 선택해 주세요.';
+          const allowedTypes = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/avif']);
+          const type = String(file.type || '').toLowerCase();
+          const extension = String(file.name || '').split('.').pop().toLowerCase();
+          if (type ? !allowedTypes.has(type) : !['png', 'jpg', 'jpeg', 'webp', 'avif'].includes(extension)) {
+            return 'PNG, JPEG, WebP 또는 AVIF 이미지를 선택해 주세요.';
+          }
+          if (file.size > 10 * 1024 * 1024) return '이미지는 최대 10MB까지 선택할 수 있습니다.';
+          return '';
+        };
+        let dragDepth = 0;
+        const hasFiles = (event) => Array.from(event.dataTransfer?.types || []).includes('Files');
+        const setMediaFeedback = (message) => {
+          mediaFeedback.textContent = message;
+          mediaFeedback.hidden = !message;
+        };
+        const handleImageFile = (file) => {
+          const error = validateImageFile(file);
+          if (error) {
+            setMediaFeedback(error);
+            return false;
+          }
+          if (!currentNode.attrs.slotId) {
+            setMediaFeedback('이미지 영역이 준비된 뒤 다시 시도해 주세요.');
+            return false;
+          }
+          setMediaFeedback('');
+          const transfer = new DataTransfer();
+          transfer.items.add(file);
+          fileInput.files = transfer.files;
+          fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+          return true;
+        };
+        fileInput.addEventListener('change', () => {
+          const error = validateImageFile(fileInput.files?.[0]);
+          if (error) {
+            setMediaFeedback(error);
+            fileInput.value = '';
+            return;
+          }
+          setMediaFeedback('');
+          options.onImageFile?.(currentNode.attrs.slotId, fileInput);
+        });
+        media.addEventListener('dragenter', (event) => {
+          if (!hasFiles(event)) return;
+          event.preventDefault();
+          event.stopPropagation();
+          dragDepth += 1;
+          if (!currentNode.attrs.imageBusy) media.classList.add('is-drag-over');
+        });
+        media.addEventListener('dragover', (event) => {
+          if (!hasFiles(event)) return;
+          event.preventDefault();
+          event.stopPropagation();
+          if (event.dataTransfer) event.dataTransfer.dropEffect = currentNode.attrs.imageBusy ? 'none' : 'copy';
+        });
+        media.addEventListener('dragleave', (event) => {
+          if (!hasFiles(event)) return;
+          event.preventDefault();
+          event.stopPropagation();
+          dragDepth = Math.max(0, dragDepth - 1);
+          if (dragDepth === 0) media.classList.remove('is-drag-over');
+        });
+        media.addEventListener('drop', (event) => {
+          if (!hasFiles(event)) return;
+          event.preventDefault();
+          event.stopPropagation();
+          dragDepth = 0;
+          media.classList.remove('is-drag-over');
+          if (currentNode.attrs.imageBusy) {
+            setMediaFeedback('이미지 작업이 끝난 뒤 다시 시도해 주세요.');
+            return;
+          }
+          const files = Array.from(event.dataTransfer?.files || []);
+          if (files.length !== 1) {
+            setMediaFeedback('한 번에 이미지 한 장씩 추가해 주세요.');
+            return;
+          }
+          handleImageFile(files[0]);
+        });
+        fileInput.addEventListener('cancel', () => setMediaFeedback(''));
+        const expand = document.createElement('button');
+        expand.type = 'button';
+        expand.className = 'secondary compact manuscript-image-block-expand';
+        const expandIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4H4v4M4 4l6 6M16 4h4v4m0-4-6 6M4 16v4h4m-4 0 6-6m10 2v4h-4m4 0-6-6"/></svg>';
+        const collapseIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M4 4l6 6m10-1V4h-5m5 0-6 6M4 15v5h5m-5 0 6-6m10 1v5h-5m5 0-6-6"/></svg>';
+        const syncExpandToggle = () => {
+          const expanded = card.classList.contains('is-media-expanded');
+          expand.innerHTML = expanded ? collapseIcon : expandIcon;
+          expand.setAttribute('aria-pressed', String(expanded));
+          expand.setAttribute('aria-label', expanded ? '이미지 편집 화면으로 돌아가기' : '이미지 영역 확대');
+          expand.title = expanded ? '이미지 편집 화면으로 돌아가기' : '이미지 영역 확대';
+        };
+        expand.addEventListener('mousedown', (event) => event.preventDefault());
+        expand.addEventListener('click', () => {
+          card.classList.toggle('is-media-expanded');
+          syncExpandToggle();
+        });
+        media.append(artwork, mediaStatus, dropHint, mediaFeedback, mediaActions, expand, fileInput);
+        card.append(header, main, promptGeneration);
         const render = (value) => {
           currentNode = value;
           if (title.value !== (value.attrs.title || '')) title.value = value.attrs.title || '';
@@ -451,6 +561,7 @@ function createImageBlock(onMove, options = {}) {
           const isGenerating = value.attrs.imageBusy && operationState !== 'mutating';
           const isBusy = value.attrs.imageBusy;
           const stopConfirming = value.attrs.imageStopConfirming;
+          if (!value.attrs.imageExists) card.classList.remove('is-media-expanded');
           artwork.innerHTML = shared?.renderMedia
             // This node view owns the single inline generation status; don't render a second one inside the placeholder.
             ? shared.renderMedia({ ...image, exists: Boolean(value.attrs.imageExists), imageUrl: value.attrs.sourceUrl, generating: false }, { compact: true })
@@ -464,7 +575,9 @@ function createImageBlock(onMove, options = {}) {
                 : stopConfirming ? '중지 확인' : '중지';
           generate.textContent = isBusy ? generateLabel : value.attrs.imageExists ? 'AI 재생성' : 'AI로 만들기';
           generate.className = `compact ${isBusy ? (operationState === 'mutating' ? 'secondary' : 'ghost ui-danger-action') : value.attrs.imageExists ? 'secondary' : 'primary'}`;
-          pick.textContent = value.attrs.imageExists ? '이미지 교체' : '내 이미지 선택';
+          pick.textContent = '＋';
+          pick.title = value.attrs.imageExists ? '내 이미지로 교체' : '내 이미지에서 선택';
+          pick.setAttribute('aria-label', pick.title);
           continueButton.hidden = !stopConfirming;
           // Keep the active generate/stop control available like the legacy image cards.
           // The stop handler owns the operation-state guard and provides its two-step confirmation.
@@ -477,6 +590,10 @@ function createImageBlock(onMove, options = {}) {
               : topLevelIndex >= editor.state.doc.childCount - 1);
           });
           mediaActions.classList.toggle('is-empty', !value.attrs.imageExists);
+          mediaActions.classList.toggle('is-present', Boolean(value.attrs.imageExists));
+          mediaActions.classList.toggle('is-working', Boolean(isBusy));
+          expand.hidden = !value.attrs.imageExists;
+          syncExpandToggle();
           mediaStatus.hidden = !isBusy;
           statusSpinner.hidden = !isGenerating;
           statusMessageText.textContent = value.attrs.imageProgressText || '이미지 작업 중';

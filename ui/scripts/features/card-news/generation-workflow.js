@@ -354,7 +354,7 @@ function renderCardNewsGeneration(generation, options = {}) {
             const classes = activeSingle ? 'ghost ui-danger-action compact' : `${card.image_url ? 'secondary' : 'primary'} compact`;
             return `<button class="${classes}" type="button" data-card-news-image-action="${card.index}"${activeSingle ? ' data-card-news-image-stop' : ''}${activeSingle && (operation.state === 'cancel_requested' || operation.canCancel === false || !operation.operationId) ? ' disabled' : ''}>${label}</button>`;
           })()}
-          <button class="secondary compact" type="button" data-card-news-local-picker="${card.index}">${card.image_url ? '이미지 교체' : '＋ 내 이미지 선택'}</button>
+          <button class="secondary compact card-news-local-image-picker" type="button" data-card-news-local-picker="${card.index}" aria-label="${card.image_url ? '내 이미지로 교체' : '내 이미지에서 선택'}" title="${card.image_url ? '내 이미지로 교체' : '내 이미지에서 선택'}">＋</button>
           <input type="file" accept="image/png,image/jpeg,image/webp,image/avif" data-card-news-local-image="${card.index}" hidden>
           ${card.download_url ? `<a class="ui-button-link secondary compact" href="${escapeHtml(cardNewsUrlWithSignature(card.download_url))}" download>받기</a>` : ''}
         </div>
@@ -399,6 +399,82 @@ function renderCardNewsGeneration(generation, options = {}) {
   grid.querySelectorAll('[data-card-news-local-picker]').forEach((button) => {
     button.addEventListener('click', () => {
       grid.querySelector(`[data-card-news-local-image="${button.dataset.cardNewsLocalPicker}"]`)?.click();
+    });
+  });
+  grid.querySelectorAll('.card-news-result-image-wrap').forEach((wrap) => {
+    const cardIndex = Number(wrap.closest('[data-card-news-result-index]')?.dataset.cardNewsResultIndex);
+    const hint = document.createElement('div');
+    hint.className = 'card-news-image-drop-hint';
+    hint.setAttribute('aria-hidden', 'true');
+    hint.innerHTML = '<span aria-hidden="true">＋</span><strong>이미지를 놓아 추가</strong>';
+    const feedback = document.createElement('div');
+    feedback.className = 'card-news-image-drop-feedback';
+    feedback.setAttribute('role', 'status');
+    feedback.setAttribute('aria-live', 'polite');
+    feedback.hidden = true;
+    wrap.append(hint, feedback);
+    let dragDepth = 0;
+    const hasFiles = (event) => Array.from(event.dataTransfer?.types || []).includes('Files');
+    const fileInput = wrap.querySelector(`[data-card-news-local-image="${cardIndex}"]`);
+    const acceptDroppedFile = (file) => {
+      const allowedTypes = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/avif']);
+      const type = String(file?.type || '').toLowerCase();
+      const extension = String(file?.name || '').split('.').pop().toLowerCase();
+      if (!file || (type ? !allowedTypes.has(type) : !['png', 'jpg', 'jpeg', 'webp', 'avif'].includes(extension))) {
+        feedback.textContent = 'PNG, JPEG, WebP 또는 AVIF 이미지를 선택해 주세요.';
+        feedback.hidden = false;
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        feedback.textContent = '이미지는 최대 10MB까지 선택할 수 있습니다.';
+        feedback.hidden = false;
+        return;
+      }
+      if (cardNewsViewState.generating || cardNewsViewState.imageOperation) {
+        feedback.textContent = '이미지 작업이 끝난 뒤 다시 시도해 주세요.';
+        feedback.hidden = false;
+        return;
+      }
+      feedback.textContent = '';
+      feedback.hidden = true;
+      const transfer = new DataTransfer();
+      transfer.items.add(file);
+      fileInput.files = transfer.files;
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    wrap.addEventListener('dragenter', (event) => {
+      if (!hasFiles(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      dragDepth += 1;
+      if (!cardNewsViewState.generating && !cardNewsViewState.imageOperation) wrap.classList.add('is-drag-over');
+    });
+    wrap.addEventListener('dragover', (event) => {
+      if (!hasFiles(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = cardNewsViewState.generating || cardNewsViewState.imageOperation ? 'none' : 'copy';
+    });
+    wrap.addEventListener('dragleave', (event) => {
+      if (!hasFiles(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (dragDepth === 0) wrap.classList.remove('is-drag-over');
+    });
+    wrap.addEventListener('drop', (event) => {
+      if (!hasFiles(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      dragDepth = 0;
+      wrap.classList.remove('is-drag-over');
+      const files = Array.from(event.dataTransfer?.files || []);
+      if (files.length !== 1) {
+        feedback.textContent = '한 번에 이미지 한 장씩 추가해 주세요.';
+        feedback.hidden = false;
+        return;
+      }
+      acceptDroppedFile(files[0]);
     });
   });
   const complete = imageCount > 0 && imageCount === (generation.cards?.length || 0);
