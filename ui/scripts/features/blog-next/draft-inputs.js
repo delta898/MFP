@@ -613,6 +613,28 @@ function getBlogNextAiSyncKey() {
   });
 }
 
+async function generateBlogNextManuscriptImagePrompt(type, values) {
+  const state = blogNextDraftState[type];
+  if (!state || state.imageWorking || state.promptGenerating || state.publishing) throw new Error('다른 작업이 진행 중입니다.');
+  state.promptGenerating = true;
+  if (typeof syncBlogNextDraftExecutionState === 'function') syncBlogNextDraftExecutionState();
+  try {
+    if (typeof ensureUiCapabilityReady === 'function' && !await ensureUiCapabilityReady('ai.text')) {
+      throw new Error('AI 글쓰기 모델 설정이 필요합니다.');
+    }
+    const flush = type === 'ai' ? flushBlogNextAiDraftBeforeImageGeneration
+      : type === 'folder' ? flushBlogNextFolderDraftBeforeImageGeneration : flushBlogNextPasteDraftBeforeImageGeneration;
+    if (!await flush()) throw new Error('변경한 원고를 저장하지 못해 생성을 시작하지 않았습니다.');
+    if (!state.draftId) throw new Error('원고 작업공간을 준비하지 못했습니다.');
+    return await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/image-slots/${encodeURIComponent(values.slotId)}/prompt`, {
+      title: values.title, prompt: values.prompt, instruction: values.instruction
+    });
+  } finally {
+    state.promptGenerating = false;
+    if (typeof syncBlogNextDraftExecutionState === 'function') syncBlogNextDraftExecutionState();
+  }
+}
+
 async function flushBlogNextPasteDraftBeforeImageGeneration() {
   const state = blogNextDraftState.paste;
   const input = document.getElementById('blog-next-paste-markdown');
@@ -840,6 +862,7 @@ function initBlogNextDraftInputs() {
   const aiEditorRoot = document.getElementById('blog-next-ai-editor');
   if (aiMarkdown && aiEditorRoot && window.BlogGeniusManuscriptEditor?.mount) {
     blogNextDraftState.ai.editor = window.BlogGeniusManuscriptEditor.mount(aiEditorRoot, {
+      onPromptGenerate(values) { return generateBlogNextManuscriptImagePrompt('ai', values); },
       onChange(markdown) {
         aiMarkdown.value = markdown;
         aiMarkdown.dispatchEvent(new Event('input', { bubbles: true }));
@@ -920,6 +943,7 @@ function initBlogNextDraftInputs() {
   const folderEditorRoot = document.getElementById('blog-next-folder-editor');
   if (folderMarkdown && folderEditorRoot && window.BlogGeniusManuscriptEditor?.mount) {
     blogNextDraftState.folder.editor = window.BlogGeniusManuscriptEditor.mount(folderEditorRoot, {
+      onPromptGenerate(values) { return generateBlogNextManuscriptImagePrompt('folder', values); },
       onChange(markdown) {
         folderMarkdown.value = markdown;
         folderMarkdown.dispatchEvent(new Event('input', { bubbles: true }));
@@ -978,6 +1002,7 @@ function initBlogNextDraftInputs() {
     const editorRoot = document.getElementById('blog-next-paste-editor');
     if (editorRoot && window.BlogGeniusManuscriptEditor?.mount) {
       blogNextDraftState.paste.editor = window.BlogGeniusManuscriptEditor.mount(editorRoot, {
+        onPromptGenerate(values) { return generateBlogNextManuscriptImagePrompt('paste', values); },
         onChange(markdown) {
           pastedInput.value = markdown;
           pastedInput.dispatchEvent(new Event('input', { bubbles: true }));

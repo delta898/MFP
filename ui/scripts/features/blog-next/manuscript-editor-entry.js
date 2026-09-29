@@ -257,9 +257,15 @@ function createImageBlock(onMove, options = {}) {
         card.contentEditable = 'false';
         const header = document.createElement('div');
         header.className = 'manuscript-image-block-header';
+        const blockLabel = document.createElement('span');
+        blockLabel.className = 'manuscript-image-block-label';
+        blockLabel.textContent = '이미지 블록';
+        const structuralActions = document.createElement('div');
+        structuralActions.className = 'manuscript-image-block-structure-actions';
         const title = document.createElement('input');
         title.type = 'text';
         title.placeholder = '이미지 제목';
+        title.className = 'manuscript-image-block-title';
         title.setAttribute('aria-label', '이미지 제목 편집');
         const deleteBlock = document.createElement('button');
         deleteBlock.type = 'button';
@@ -272,7 +278,18 @@ function createImageBlock(onMove, options = {}) {
           const position = getPos();
           editor.view.dispatch(editor.state.tr.delete(position, position + currentNode.nodeSize));
         });
-        header.append(title, deleteBlock);
+        for (const [label, direction] of [['↑ 위로', -1], ['↓ 아래로', 1]]) {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'secondary compact manuscript-image-block-move';
+          button.textContent = label;
+          button.setAttribute('aria-label', `${direction < 0 ? '위로' : '아래로'} 이동`);
+          button.addEventListener('mousedown', (event) => event.preventDefault());
+          button.addEventListener('click', () => onMove(editor, getPos, direction));
+          structuralActions.append(button);
+        }
+        structuralActions.append(deleteBlock);
+        header.append(blockLabel, structuralActions);
         const media = document.createElement('div');
         media.className = 'manuscript-image-block-media';
         const artwork = document.createElement('div');
@@ -295,18 +312,95 @@ function createImageBlock(onMove, options = {}) {
         statusDescriptionSlot.setAttribute('aria-hidden', 'true');
         statusCopy.append(statusMessage, statusDescriptionSlot);
         mediaStatus.append(statusCopy);
+        media.append(artwork, mediaStatus);
+        const main = document.createElement('div');
+        main.className = 'manuscript-image-block-main';
+        const fields = document.createElement('div');
+        fields.className = 'manuscript-image-block-fields';
+        const titleLabel = document.createElement('label');
+        titleLabel.textContent = '이미지 제목';
+        titleLabel.append(title);
         const promptLabel = document.createElement('label');
-        promptLabel.textContent = '이미지 설명';
+        promptLabel.textContent = '이미지 프롬프트';
         const prompt = document.createElement('textarea');
-        prompt.rows = 2;
+        prompt.rows = 5;
+        prompt.placeholder = '어떤 이미지를 만들지 설명합니다.';
         prompt.setAttribute('aria-label', '이미지 생성 프롬프트 편집');
         promptLabel.append(prompt);
-        const actionGroups = document.createElement('div');
-        actionGroups.className = 'manuscript-image-block-action-groups';
+        fields.append(titleLabel, promptLabel);
+        main.append(media, fields);
+        const promptGeneration = document.createElement('div');
+        promptGeneration.className = 'manuscript-image-block-prompt-generation';
+        const promptGuidanceLabel = document.createElement('label');
+        promptGuidanceLabel.className = 'manuscript-image-block-prompt-guidance-label';
+        promptGuidanceLabel.textContent = '프롬프트 추가 요청';
+        const optional = document.createElement('span');
+        optional.textContent = '선택';
+        promptGuidanceLabel.append(optional);
+        const promptGuidance = document.createElement('input');
+        promptGuidance.type = 'text';
+        promptGuidance.className = 'manuscript-image-block-prompt-guidance';
+        promptGuidance.placeholder = '예: 따뜻한 색감, 사람은 나오지 않게';
+        promptGuidance.setAttribute('aria-label', '프롬프트 생성 추가 요청');
+        const generatePrompt = document.createElement('button');
+        generatePrompt.type = 'button';
+        generatePrompt.className = 'primary compact manuscript-image-block-generate-prompt';
+        generatePrompt.textContent = '프롬프트 만들기';
+        generatePrompt.disabled = typeof options.onPromptGenerate !== 'function';
+        generatePrompt.title = '글쓰기 모델로 이미지 제목과 프롬프트 생성';
+        generatePrompt.setAttribute('aria-label', '프롬프트 만들기 (글쓰기 모델)');
+        const promptGenerationHelpId = `manuscript-image-prompt-generation-help-${crypto.randomUUID()}`;
+        generatePrompt.setAttribute('aria-describedby', promptGenerationHelpId);
+        const promptGenerationHelp = document.createElement('small');
+        promptGenerationHelp.id = promptGenerationHelpId;
+        promptGenerationHelp.className = 'manuscript-image-block-prompt-generation-help';
+        promptGenerationHelp.textContent = '글쓰기 모델이 원고 맥락, 현재 내용과 추가 요청을 참고합니다.';
+        promptGenerationHelp.hidden = true;
+        promptGenerationHelp.setAttribute('role', 'status');
+        promptGenerationHelp.setAttribute('aria-live', 'polite');
+        generatePrompt.addEventListener('mousedown', (event) => event.preventDefault());
+        generatePrompt.addEventListener('click', async () => {
+          if (generatePrompt.disabled || typeof options.onPromptGenerate !== 'function') return;
+          generatePrompt.disabled = true;
+          generatePrompt.textContent = '생성 중…';
+          [title, prompt, promptGuidance].forEach((field) => { field.disabled = true; });
+          promptGenerationHelp.hidden = false;
+          promptGenerationHelp.textContent = '글쓰기 모델로 제목과 프롬프트를 만드는 중…';
+          promptGenerationHelp.removeAttribute('data-error');
+          try {
+            const result = await options.onPromptGenerate({
+              blockId: currentNode.attrs.blockId,
+              slotId: currentNode.attrs.slotId,
+              title: title.value,
+              prompt: prompt.value,
+              instruction: promptGuidance.value
+            });
+            if (!result?.title || !result?.prompt) throw new Error('생성 결과가 비어 있습니다.');
+            title.value = result.title;
+            prompt.value = result.prompt;
+            const position = getPos();
+            const existing = editor.state.doc.nodeAt(position);
+            if (existing) {
+              editor.view.dispatch(editor.state.tr.setNodeMarkup(position, undefined, {
+                ...existing.attrs,
+                title: result.title,
+                prompt: result.prompt
+              }));
+            }
+            promptGuidance.value = '';
+            promptGenerationHelp.hidden = true;
+          } catch (error) {
+            promptGenerationHelp.textContent = error?.message || '생성에 실패했습니다. 기존 제목과 프롬프트는 유지됩니다.';
+            promptGenerationHelp.dataset.error = 'true';
+          } finally {
+            [title, prompt, promptGuidance].forEach((field) => { field.disabled = false; });
+            generatePrompt.disabled = typeof options.onPromptGenerate !== 'function';
+            generatePrompt.textContent = '프롬프트 만들기';
+          }
+        });
+        promptGeneration.append(promptGuidanceLabel, promptGuidance, generatePrompt, promptGenerationHelp);
         const mediaActions = document.createElement('div');
         mediaActions.className = 'manuscript-image-block-media-actions';
-        const structuralActions = document.createElement('div');
-        structuralActions.className = 'manuscript-image-block-structure-actions';
         const actionButton = (label, action) => {
           const button = document.createElement('button');
           button.type = 'button';
@@ -342,18 +436,7 @@ function createImageBlock(onMove, options = {}) {
         fileInput.accept = 'image/png,image/jpeg,image/webp,image/avif';
         fileInput.hidden = true;
         fileInput.addEventListener('change', () => options.onImageFile?.(currentNode.attrs.slotId, fileInput));
-        media.append(artwork, mediaStatus, mediaActions);
-        for (const [label, direction] of [['위로', -1], ['아래로', 1]]) {
-          const button = document.createElement('button');
-          button.type = 'button';
-          button.className = 'secondary';
-          button.textContent = label;
-          button.addEventListener('mousedown', (event) => event.preventDefault());
-          button.addEventListener('click', () => onMove(editor, getPos, direction));
-          structuralActions.append(button);
-        }
-        actionGroups.append(structuralActions);
-        card.append(header, media, promptLabel, actionGroups, fileInput);
+        card.append(header, main, promptGeneration, mediaActions, fileInput);
         const render = (value) => {
           currentNode = value;
           if (title.value !== (value.attrs.title || '')) title.value = value.attrs.title || '';
@@ -386,7 +469,12 @@ function createImageBlock(onMove, options = {}) {
           // The stop handler owns the operation-state guard and provides its two-step confirmation.
           generate.disabled = isBusy && operationState === 'mutating';
           pick.disabled = removeImage.disabled = isBusy;
-          structuralActions.querySelectorAll('button').forEach((button) => { button.disabled = isBusy; });
+          const topLevelIndex = editor.state.doc.resolve(getPos()).index(0);
+          structuralActions.querySelectorAll('.manuscript-image-block-move').forEach((button, index) => {
+            button.disabled = isBusy || (index === 0
+              ? topLevelIndex === 0
+              : topLevelIndex >= editor.state.doc.childCount - 1);
+          });
           mediaActions.classList.toggle('is-empty', !value.attrs.imageExists);
           mediaStatus.hidden = !isBusy;
           statusSpinner.hidden = !isGenerating;
@@ -405,7 +493,7 @@ function createImageBlock(onMove, options = {}) {
         return {
           dom: card,
           update(value) { if (value.type.name !== currentNode.type.name) return false; render(value); return true; },
-          stopEvent(event) { return event.target === prompt || event.target === title || event.target === fileInput || Boolean(event.target.closest('button')); }
+          stopEvent(event) { return event.target === prompt || event.target === title || event.target === promptGuidance || event.target === fileInput || Boolean(event.target.closest('button')); }
         };
       };
     }

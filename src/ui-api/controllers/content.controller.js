@@ -335,6 +335,15 @@ function createContentController(deps = {}) {
             }
         },
 
+        async manuscriptDraftImagePromptGenerate({ requestId, method, draftId, slotId, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try {
+                return sendSuccess(res, requestId, await service.generateManuscriptImagePrompt({ ...(requestBody || {}), draftId, slotId }));
+            } catch (e) {
+                return toErrorResponse(res, requestId, 'MANUSCRIPT_IMAGE_PROMPT_GENERATE_FAILED', '이미지 제목과 프롬프트를 만들지 못했습니다.', e);
+            }
+        },
+
         async manuscriptDraftMutation({ requestId, method, draftId, slotId, action, requestBody, res }) {
             if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
             const input = { ...(requestBody || {}), draftId, slotId };

@@ -37,7 +37,7 @@ function isBlogNextDraftResultPublished(type) {
 function syncBlogNextDraftOperationControls() {
   const busy = Boolean(blogNextTopicSubmitting || BLOG_NEXT_DRAFT_TYPES.some((type) => {
     const state = blogNextDraftState[type];
-    return state.publishing || state.generating || state.imageWorking;
+    return state.publishing || state.generating || state.imageWorking || state.promptGenerating;
   }) || (typeof blogNextRunnerActive !== 'undefined' && blogNextRunnerActive)
     || (typeof blogNextRunnerRequesting !== 'undefined' && blogNextRunnerRequesting));
   const controls = document.querySelectorAll('#blog-next-topic-form input, #blog-next-topic-form select, '
@@ -80,7 +80,7 @@ function syncBlogNextPublishMutationControls() {
 async function prepareBlogNextNewWriting() {
   const busy = Boolean(blogNextAiOperationId || blogNextTopicSubmitting
     || BLOG_NEXT_DRAFT_TYPES.some((type) => blogNextDraftState[type].publishing
-      || blogNextDraftState[type].generating || blogNextDraftState[type].imageWorking));
+      || blogNextDraftState[type].generating || blogNextDraftState[type].imageWorking || blogNextDraftState[type].promptGenerating));
   if (busy) return false;
   const ai = blogNextDraftState.ai;
   const hasCurrentWork = hasBlogNextClearableContent(captureBlogNextClearableContent())
@@ -128,7 +128,7 @@ function syncBlogNextDraftExecutionState(runnerActive) {
     : ((typeof blogNextRunnerActive !== 'undefined' && blogNextRunnerActive)
       || (typeof blogNextRunnerRequesting !== 'undefined' && blogNextRunnerRequesting));
   const manuscriptActive = BLOG_NEXT_DRAFT_TYPES.some(type => blogNextDraftState[type].publishing
-    || blogNextDraftState[type].imageWorking || blogNextDraftState[type].generating);
+    || blogNextDraftState[type].imageWorking || blogNextDraftState[type].generating || blogNextDraftState[type].promptGenerating);
   const executionActive = anotherRunnerActive || manuscriptActive;
   const activeType = BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai';
   const activeSettings = readBlogNextDraftSettings(activeType);
@@ -150,6 +150,7 @@ function syncBlogNextDraftExecutionState(runnerActive) {
       ? `${readBlogNextDraftSettings(type).targets[0] === 'wordpress' ? '워드프레스' : '네이버'} 처리 완료`
       : state.publishing
       ? publishCopy.busyLabel
+      : state.promptGenerating ? '프롬프트 생성 중...'
       : state.imageWorking ? '이미지 작업 중...'
       : executionActive ? '다른 작업 실행 중...'
       : publishCopy.buttonLabel;
@@ -430,7 +431,7 @@ function resetBlogNextAiDraftUi() {
 
 async function generateBlogNextAiDraft(origin = 'create') {
   const state = blogNextDraftState.ai;
-  if (state.generating || state.publishing || state.imageWorking || blogNextAiOperationId) return;
+  if (state.generating || state.publishing || state.imageWorking || state.promptGenerating || blogNextAiOperationId) return;
   const validity = readBlogNextTopicActionValidity();
   if (!validity.ideaValid) return;
   setBlogNextTopicResult('');

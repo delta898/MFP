@@ -3,7 +3,7 @@
 - Branch: `codex/manuscript-image-workflow`
 - Start date: 2026-09-29
 - Base/parent branch: `dev`
-- Status: Stage 1 `/image` slash command 구현 완료, 최종 브라우저 재검증·사용자 확인 대기
+- Status: Stage 1 `/image` 완료, Stage 2 title/prompt 생성과 WordPress 이미지 발행을 사용자 확인; sub-feature parent 통합 후 다음 slice 진행 중
 
 ## 사용자 필요와 목표
 
@@ -38,9 +38,12 @@ AI 이미지 생성·로컬 이미지 선택 흐름으로 자연스럽게 연결
 
 1. `/image` slash command
    - Sub-feature record: `2026-09-29-manuscript-image-slash-command-development.md`
-   - Status: 구현 및 focused contract 완료, 최종 브라우저 재검증·사용자 hands-on 확인 대기
-2. 문맥 기반 image title·prompt 생성
-   - Status: Stage 1 완료와 사용자 검토 후 별도 branch에서 설계·구현
+   - Status: 구현·focused contract 완료, 사용자가 정상 동작을 확인함
+2. 이미지 블록 작업 UI
+   - Sub-feature record: `2026-09-29-manuscript-image-block-ui-development.md`
+   - Status: 사용자 hands-on에서 title/prompt 생성과 WordPress 이미지 발행 확인 완료
+3. 프롬프트 품질 및 입력량 최적화
+   - 다음 sub-feature로 시작 예정. 생성 로그의 문맥/응답 길이를 바탕으로 입력 경량화와 출력 품질을 다듬는다.
 
 ## 검증 계획
 
@@ -53,6 +56,11 @@ AI 이미지 생성·로컬 이미지 선택 흐름으로 자연스럽게 연결
 
 - 공통 Tiptap 편집기에 image 전용 slash suggestion과 기존 이미지 블록 삽입 경로를 연결했다.
 - Stage 1의 editor bundle build와 focused static contract는 통과했다.
+- Stage 2는 설정된 글쓰기 모델과 현재 원고 상태를 사용한 title/prompt 생성 요청을 연결했다. 자세한 문맥 선택,
+  동작 및 남은 검토 사항은 sub-feature record에 기록했다.
+- 사용자가 재테스트해 title·prompt 생성과 WordPress 이미지 업로드/본문 삽입이 정상 동작함을 확인했다.
+- 원고/이미지 단위·계약 테스트 69개가 통과했다. Browser smoke는 새 이미지 UI 확인 후 기존 slash 상호작용 단계에서
+  실패해, `dev` 통합 전 재검증이 남아 있다.
 - 최종 키맵 보완 뒤 브라우저 재실행은 실행 권한이 승인되지 않아 미완료다. 사용자 확인과 함께 `/image` Enter 삽입,
   pointer 선택, Escape 후 재입력을 다시 확인한 뒤 Stage 1 병합 여부를 결정한다.
 - 전체 unit suite는 parent를 `dev`에 병합하기 전 사용자 승인을 받아 별도로 실행한다.

@@ -33,6 +33,14 @@ function createContentRouteHandler(deps = {}) {
         if (manuscriptImageMatch) {
             return controller.manuscriptDraftImage({ ...ctx, draftId: decodeURIComponent(manuscriptImageMatch[1]), slotId: decodeURIComponent(manuscriptImageMatch[2]) });
         }
+        const manuscriptPromptMatch = pathname.match(/^\/api\/v1\/blog\/manuscript-drafts\/([^/]+)\/image-slots\/([^/]+)\/prompt$/);
+        if (manuscriptPromptMatch) {
+            return controller.manuscriptDraftImagePromptGenerate({
+                ...ctx,
+                draftId: decodeURIComponent(manuscriptPromptMatch[1]),
+                slotId: decodeURIComponent(manuscriptPromptMatch[2])
+            });
+        }
         const manuscriptSlotActionMatch = pathname.match(/^\/api\/v1\/blog\/manuscript-drafts\/([^/]+)\/image-slots\/([^/]+)\/(import|generate|exclude|restore|remove)$/);
         if (manuscriptSlotActionMatch) {
             return controller.manuscriptDraftMutation({

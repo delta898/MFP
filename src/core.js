@@ -2885,8 +2885,9 @@ ${scrapedContext}`;
 		let finalMarkdown = markdownRaw;
 		const uploadResults = new Map(); // index -> { id, url, alt }
 
-		// [[IMAGE_N\ntitle: ...\nprompt: ...\n]] 포맷 파싱
-		const imageRegex = /\[\[IMAGE_(\d+)\n\s*title:\s*(.+)\n\s*prompt:\s*([\s\S]+?)\n\]\]/g;
+		// [[IMAGE_N\n[id: ...\n]title: ...\nprompt: ...\n]] 포맷 파싱
+		// Manuscript editor가 추가한 stable block ID와 빈 title/prompt도 허용한다.
+		const imageRegex = /\[\[IMAGE_(\d+)\r?\n(?:[ \t]*id:[^\r\n]*\r?\n)?[ \t]*title:[ \t]*([^\r\n]*)\r?\n[ \t]*prompt:[ \t]*([\s\S]*?)\r?\n\]\]/g;
 		let match;
 		const imageBlocks = [];
 		while ((match = imageRegex.exec(markdownRaw)) !== null) {
