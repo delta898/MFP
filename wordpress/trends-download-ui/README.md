@@ -3,7 +3,8 @@
 WordPress integration assets for the public trends download page.
 
 Preferred integration mode:
-- WordPress server-side requests to `apps/trends/trends-api`
+- WordPress server-side requests to the Production Trends API hostname,
+  currently served by Cloudflare Workers.
 - no direct browser-side Supabase service-role usage
 
 ## Included Asset

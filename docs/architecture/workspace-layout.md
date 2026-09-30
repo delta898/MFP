@@ -36,7 +36,7 @@ wordpress/
 - `apps/trends/trends-collector` is an internal CLI.
 - `apps/trends/trends-api` is an internal service/API.
 - Human-facing component commands live under the owning app's `commands/` directory.
-- Environment-specific API Compose units live under `trends-api/deployment/<environment>/`.
+- Docker API Compose units live under `trends-api/docker/deployment/<environment>/`; the Cloudflare runtime lives separately under `trends-api/workers/`.
 - App-specific operator configuration lives with the owning app rather than at `apps/trends/` root.
 
 ### `shared/`

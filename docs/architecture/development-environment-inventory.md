@@ -30,7 +30,7 @@ These consumers now obtain an immutable public connection through `resolveSupaba
 
 ## Operator-only service consumer
 
-`apps/trends/trends-api/src/server.js` uses a server-side Supabase secret and has its own deployment lifecycle. It participates in the common environment naming and safety rules, but its server secret must never flow through the desktop resolver.
+`apps/trends/trends-api/docker/src/server.js` uses a server-side Supabase secret and has its own deployment lifecycle. The Workers runtime has a separate deployment lifecycle. Both participate in the common environment naming and safety rules, but their server secrets must never flow through the desktop resolver.
 
 ## Edge Functions
 

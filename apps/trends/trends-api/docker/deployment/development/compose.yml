@@ -1,8 +1,8 @@
 services:
   trends-api-development:
     build:
-      context: ../../../../..
-      dockerfile: apps/trends/trends-api/Dockerfile
+      context: ../../../../../..
+      dockerfile: apps/trends/trends-api/docker/Dockerfile
     image: bloggenius/trends-api:development
     container_name: bloggenius-trends-api-development
     init: true

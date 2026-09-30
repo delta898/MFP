@@ -13,81 +13,102 @@ This document does not replace the structural contracts in [trends-backend.md](/
 
 ## Current Deployment Model
 
+The existing Node/Docker runtime is preserved under
+`apps/trends/trends-api/docker/` as an Oracle rollback option. The active API
+runtime is the Cloudflare Workers implementation under
+`apps/trends/trends-api/workers/`. Development uses
+`trendapi-dev.hangadac.com`; Production uses `trendapi.hangadac.com`. Both are
+Cloudflare Custom Domains with Cloudflare-managed DNS and TLS. See the Workers
+[deployment guide](../../apps/trends/trends-api/workers/README.md).
+
+The Development Worker uses the Cloudflare Custom Domain
+`trendapi-dev.hangadac.com`. Cloudflare manages its DNS record and TLS
+certificate, with all paths on that hostname routed to the Worker. The previous
+Oracle DNS record and redundant `trendapi-dev.hangadac.com/*` Worker Route were
+removed during migration.
+
 Development와 Production은 운영 단위를 공유하지 않는다.
 
 ### Development
 
-- 배포 단위: `apps/trends/trends-api/deployment/development/`
-- API 설정: 같은 폴더의 ignored `.env.trends-api.development`
-- 실행: 해당 폴더에서 `docker compose up -d --build`
-- host boundary: `4582`, 외부 Caddy 컨테이너가 Development HTTPS hostname을 소유하며
-  VCN과 host firewall은 4582의 공인 ingress를 차단
+- Active API: `bloggenius-trends-api` Worker at `trendapi-dev.hangadac.com`
+- Legacy Development Docker fallback: `apps/trends/trends-api/docker/deployment/development/`
+  - API config: ignored `.env.trends-api.development` in that directory
+  - Start with `docker compose up -d --build`
+  - Host port `4582` is restricted to the external Caddy container; VCN and host
+    firewall rules block public ingress
 - Collector 설정:
   `apps/trends/trends-collector/config/.env.trends-collector.development`
 - Collector 실행:
   `./apps/trends/trends-collector/commands/collect_development.sh`
 
-재배포와 검증의 canonical runbook은
-[`apps/trends/trends-api/deployment/development/README.md`](../../apps/trends/trends-api/deployment/development/README.md)이다.
+Development Docker fallback runbook은
+[`apps/trends/trends-api/docker/deployment/development/README.md`](../../apps/trends/trends-api/docker/deployment/development/README.md)이다.
 
 ### Production
 
 The trends backend is not packaged like `BlogGenius.app`.
 
-2026-08-30 기준 실제 트래픽은
-`apps/trends/trends-api/deployment/production/`의 Production 컨테이너가 host `4583`에서
-처리한다. 기존 host `4581`의 systemd Node 서비스는 안정화 기간 동안 즉시 되돌릴 수 있는
-rollback 경로로만 유지한다.
+2026-09-30부터 Production API 트래픽은 Cloudflare의
+`bloggenius-trends-api-production` Worker가 처리한다. 기존 Oracle Production
+컨테이너(`4583`)와 systemd Node 서비스(`4581`)는 전환 안정화 기간 동안 rollback
+경로로 유지한다.
 
 The current operating model is:
-- run `trends-api` as a hardened Docker container on Oracle Cloud Free Tier
-- run `trends-collector` on the operator Mac Studio against the Oracle API
-- let the WordPress plugin call the Oracle API with the internal token
+- run `trends-api` on Cloudflare Workers for Development and Production
+- keep the Oracle Docker and systemd deployments available for rollback
+- run `trends-collector` on the operator Mac Studio against the API hostname
+- let the WordPress plugin call the same API hostname with the internal token
 - let BlogGenius desktop clients call only the HTTPS read endpoints with
   short-lived licensed-user tokens
 
-전환은 기존 systemd를 유지한 채 Production 컨테이너를 host `4583`에 병행 기동하고 검증한 뒤,
-Caddy upstream만 `4581`에서 `4583`으로 교체하는 blue/green 방식으로 완료했다. 문제가 생기면
-Caddy를 `4581`로 되돌리는 것이 첫 rollback이다. canonical runbook은
-[`apps/trends/trends-api/deployment/production/README.md`](../../apps/trends/trends-api/deployment/production/README.md)이다.
+Production `/health` and unauthenticated-read checks passed through the
+Cloudflare Edge, and authenticated metadata succeeded through the Production
+`workers.dev` hostname before cutover. The Production collector's first live
+ingest through the Custom Domain remains the operator's next validation; keep
+the Oracle deployment available for rollback until that succeeds.
+
+The earlier Oracle systemd-to-container migration used a blue/green switch from
+host `4581` to `4583`. Its legacy rollback procedure is documented in the
+[`Oracle Production runbook`](../../apps/trends/trends-api/docker/deployment/production/README.md).
 
 Preferred shape:
 
 ```text
-Oracle Cloud
-  /home/ubuntu/Project/NaverAutoBlog/
-    apps/trends/
-    shared/naver-trends-core/
-    bin/
+Cloudflare Workers
+  trendapi-dev.hangadac.com -> Development Worker
+  trendapi.hangadac.com     -> Production Worker
 
 Mac Studio
   trends-collector + Naver auth
 
 WordPress
-  trends-download-ui plugin -> Oracle HTTPS API
+  trends-download-ui plugin -> Production HTTPS API
 ```
 
 ## Why This Model
 
-- It avoids creating a separate packaging pipeline for the trends runtime too early.
-- It keeps WordPress and the Node trends runtime operationally separate.
-- It gives WordPress and BlogGenius one central, policy-enforcing data gateway.
-- It keeps the Supabase secret key on the Node backend only.
+- It removes the API runtime from the resource-constrained Oracle instance.
+- It gives the collector, WordPress, and BlogGenius one policy-enforcing API gateway.
+- It keeps the Supabase secret key in the Worker secret store, outside clients.
 - It preserves shared-code reuse with the main desktop app.
 
 ## Runtime Topology
 
 ### `trends-api`
+- Active runtime: Cloudflare Worker with separate Development and Production environments.
+- Oracle Docker/systemd services are retained as rollback targets during stabilization.
+- The Worker owns Supabase read/write access and serves ingest, metadata, and export endpoints.
+
+Legacy Oracle container details:
 - Runs as a long-lived hardened container on Oracle Cloud.
 - Binds container `4581` to host `4583` for the external Caddy reverse proxy.
 - Must not expose host port `4583` directly to the public Internet.
-- Owns Supabase read/write access.
-- Serves ingest, metadata, and export endpoints.
 
 Legacy Production rollback command:
 
 ```bash
-node /home/ubuntu/Project/NaverAutoBlog/apps/trends/trends-api/src/server.js
+node /home/ubuntu/Project/NaverAutoBlog/apps/trends/trends-api/docker/src/server.js
 ```
 
 Production 컨테이너는 내부 `4581`, host `4583`을 사용한다. Production Supabase가 알려진
@@ -97,7 +118,7 @@ Development Supabase와 같으면 runtime guard가 시작을 거부한다.
 - Runs on the operator Mac Studio in the current topology.
 - Uses Playwright and the shared Naver auth session file.
 - Posts collected rows to `trends-api`.
-- Uses the internal token to call the Oracle ingest endpoint.
+- Uses the internal token to call the Production API hostname, currently served by Cloudflare Workers.
 
 Low-level command:
 
@@ -120,11 +141,11 @@ upsert한다. `--dry-run`은 항상 무변경으로 끝나며, 비대화형 자�
 
 ### WordPress plugin
 - Stays in WordPress only.
-- Calls Oracle `trends-api` from server-side PHP with `wp_remote_get()`.
+- Calls the Production `trends-api` hostname from server-side PHP with `wp_remote_get()`.
 - Uses the HTTPS hostname and internal token.
 - Never receives a Supabase key or the user-token signing secret.
 
-## Server Setup
+## Legacy Oracle Server Setup (Rollback Only)
 
 ### Repository
 
@@ -198,9 +219,9 @@ project. Configure these function secrets:
 - optional `TRENDS_READ_TOKEN_AUDIENCE=trends-api`
 - optional `TRENDS_READ_TOKEN_TTL_SECONDS=900`
 
-Configure the same `TRENDS_READ_TOKEN_SECRET`, issuer, and audience in the
-Production API operator environment. The secret is shared only between the Edge
-Function and `trends-api`; it is never packaged into the desktop app.
+Configure the matching `TRENDS_READ_TOKEN_SECRET`, issuer, and audience as
+Production Worker settings/secrets. The signing secret is shared only between
+the Edge Function and `trends-api`; it is never packaged into the desktop app.
 
 BlogGenius desktop clients call only these read endpoints:
 
@@ -209,7 +230,7 @@ GET /api/v1/trends
 GET /api/v1/trends/meta
 ```
 
-The proxy must preserve the `Authorization` header. In the current topology the
+The gateway must preserve the `Authorization` header. In the current topology the
 collector and WordPress plugin also reach ingest and export routes through the
 same HTTPS hostname with `TRENDS_API_TOKEN`. `trends-api` independently rejects
 user read tokens on those routes. Source-IP allowlists or a private network can
@@ -219,7 +240,7 @@ be added later without changing the desktop token contract.
 
 WordPress should not call Supabase directly.
 
-It should call the Oracle HTTPS API:
+It should call the Production HTTPS API hostname:
 
 ```php
 define('BG_TRENDS_API_BASE_URL', 'https://trendapi.hangadac.com');
@@ -245,9 +266,10 @@ trends-collector
   -> Supabase
 ```
 
-## Public HTTPS Boundary
+## Legacy Oracle HTTPS Boundary (Rollback Only)
 
-The Oracle instance currently has only a public IP. Before desktop integration:
+The following describes the previous Oracle/Caddy gateway and is retained for
+rollback. It is not the active public API path.
 
 1. Point the `trendapi.hangadac.com` DNS `A` record to the Oracle public IP.
 2. Open TCP 80 and 443 in the Oracle VCN security rules and host firewall.
@@ -277,10 +299,11 @@ The API authorization layer keeps ingest and export unavailable to user read
 tokens. A later hardening step may restrict these routes by source IP or a
 separate private hostname.
 
-## Operator Action Checklist
+## Historical Oracle Gateway Checklist
 
-The operator performs these steps once. BlogGenius users never copy or manage a
-trends access token.
+This checklist records the earlier Oracle gateway setup. Current Worker setup
+is documented in the [Workers deployment guide](../../apps/trends/trends-api/workers/README.md).
+BlogGenius users never copy or manage a trends access token.
 
 ### Phase 1: hostname and HTTPS
 
@@ -301,7 +324,7 @@ trends access token.
 
 - Generate two different high-entropy values:
   - `TRENDS_API_TOKEN`: collector and WordPress internal operations
-  - `TRENDS_READ_TOKEN_SECRET`: Edge Function signing and Oracle verification
+  - `TRENDS_READ_TOKEN_SECRET`: Edge Function signing and API verification
 - Put both values in the Production API operator environment.
 - Put only `TRENDS_READ_TOKEN_SECRET` in the Supabase Edge Function secrets.
 - Deploy `issue-trends-access-token` in the same Supabase project that owns the
@@ -314,10 +337,10 @@ trends access token.
 - Change the Mac Studio collector base URL to the HTTPS hostname; keep its
   existing internal token.
 - Change `BG_TRENDS_API_BASE_URL` in WordPress to the HTTPS hostname; keep
-  `BG_TRENDS_API_TOKEN` equal to Oracle `TRENDS_API_TOKEN`.
+  `BG_TRENDS_API_TOKEN` equal to the API's `TRENDS_API_TOKEN`.
 - Verify WordPress preview and CSV download before enabling desktop reads.
 
-Operational status on 2026-08-12:
+Historical Oracle gateway status on 2026-08-12:
 
 - WordPress was changed from the Docker host gateway URL to
   `https://trendapi.hangadac.com`.
@@ -347,7 +370,7 @@ Operational status on 2026-08-12:
 
 ## Secret Ownership
 
-| Value | Oracle | Supabase Edge Function | WordPress | Mac collector | BlogGenius app |
+| Value | Cloudflare Worker | Supabase Edge Function | WordPress | Mac collector | BlogGenius app |
 | --- | --- | --- | --- | --- | --- |
 | Supabase secret key | yes | platform secret | no | no | no |
 | `TRENDS_API_TOKEN` | yes | no | yes | yes | no |
@@ -357,7 +380,7 @@ Operational status on 2026-08-12:
 The user token contains no license key. Its `sub` is a one-way hash used for
 per-license request limiting and operational correlation.
 
-## Caddy Configuration
+## Legacy Caddy Configuration (Rollback Only)
 
 The production hostname is `trendapi.hangadac.com`. Its DNS `A` record must
 point to the Oracle public IP before Caddy requests the certificate.
@@ -421,7 +444,7 @@ Keep `TRENDS_API_HOST=0.0.0.0` because the Caddy container reaches the host
 through the Docker bridge. After HTTPS health verification succeeds, remove
 public ingress for TCP 4581 while retaining Docker bridge access.
 
-## Service Management
+## Legacy Oracle Service Management (Rollback Only)
 
 ### `systemd` for Oracle `trends-api`
 
@@ -457,7 +480,7 @@ Group=ubuntu
 WorkingDirectory=/home/ubuntu/Project/NaverAutoBlog
 Environment=HOME=/home/ubuntu
 EnvironmentFile=/etc/bloggenius/trends-api.production.env
-ExecStart=/home/ubuntu/.nvm/versions/node/v24.14.1/bin/node /home/ubuntu/Project/NaverAutoBlog/apps/trends/trends-api/src/server.js
+ExecStart=/home/ubuntu/.nvm/versions/node/v24.14.1/bin/node /home/ubuntu/Project/NaverAutoBlog/apps/trends/trends-api/docker/src/server.js
 Restart=always
 RestartSec=3
 KillSignal=SIGINT

@@ -158,7 +158,7 @@ test('Local Trends container uses a permission-limited temporary env file and re
     try {
         assert.equal(runLocalTrendsApiContainer({ repoRoot, spawn }), 0);
         assert.deepEqual(calls.map(({ command }) => command), ['supabase', 'docker']);
-        assert.ok(calls[1].args.includes('apps/trends/trends-api/deployment/local/compose.yml'));
+        assert.ok(calls[1].args.includes('apps/trends/trends-api/docker/deployment/local/compose.yml'));
         assert.equal(calls[1].args.includes('--detach'), false);
         assert.equal(fs.existsSync(runtimeEnvPath), false);
     } finally {

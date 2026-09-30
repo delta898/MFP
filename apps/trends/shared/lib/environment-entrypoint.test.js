@@ -4,7 +4,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const REPO_ROOT = path.resolve(__dirname, '../../../..');
-const API_ENTRYPOINT = path.join(REPO_ROOT, 'apps/trends/trends-api/src/server.js');
+const API_ENTRYPOINT = path.join(REPO_ROOT, 'apps/trends/trends-api/docker/src/server.js');
 const COLLECTOR_ENTRYPOINT = path.join(REPO_ROOT, 'apps/trends/trends-collector/bin/collect.js');
 
 function envWithoutTrendsSelection() {

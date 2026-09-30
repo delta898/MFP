@@ -1,0 +1,16 @@
+{
+  "name": "@bloggenius/trends-api-workers",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "secret:development": "wrangler secret put",
+    "secret:production": "wrangler secret put --env production",
+    "deploy:development": "wrangler deploy --env=\"\"",
+    "deploy:production": "wrangler deploy --env production",
+    "types": "wrangler types"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

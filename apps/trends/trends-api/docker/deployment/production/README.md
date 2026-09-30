@@ -33,7 +33,7 @@
 Production 실제 값은 이 폴더의 ignored 파일 하나에만 둔다.
 
 ```bash
-cd apps/trends/trends-api/deployment/production
+cd apps/trends/trends-api/docker/deployment/production
 cp .env.trends-api.production.example .env.trends-api.production
 chmod 600 .env.trends-api.production
 ```
@@ -66,7 +66,7 @@ token 서명에 쓰는 `TRENDS_READ_TOKEN_SECRET`의 최소 길이는 완화하�
 Compose 문법도 secret을 출력하지 않는 방식으로 확인한다.
 
 ```bash
-cd apps/trends/trends-api/deployment/production
+cd apps/trends/trends-api/docker/deployment/production
 docker compose config --quiet
 ```
 
@@ -96,7 +96,7 @@ curl -sS 'https://trendapi.hangadac.com/health?check=legacy'
 Production 서버의 저장소 checkout에서 실행한다.
 
 ```bash
-cd apps/trends/trends-api/deployment/production
+cd apps/trends/trends-api/docker/deployment/production
 docker compose up -d --build
 docker compose ps
 docker compose logs --tail=100 trends-api-production
@@ -155,7 +155,7 @@ WordPress preview/export 순으로 smoke한다. 이 시점에도 systemd는 중�
 후보만 중지해야 할 때:
 
 ```bash
-cd apps/trends/trends-api/deployment/production
+cd apps/trends/trends-api/docker/deployment/production
 docker compose stop trends-api-production
 ```
 

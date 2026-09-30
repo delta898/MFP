@@ -436,7 +436,7 @@ Trends API는 Supabase Production 적용과 별개의 runtime 전환이다. 현�
 6. 실패하면 Caddy를 `4581`로 먼저 되돌리고 원인을 조사한다.
 
 실행 명령과 중단 조건은
-[Trends API Production 전환 runbook](../apps/trends/trends-api/deployment/production/README.md)을
+[Trends API Docker Production runbook](../apps/trends/trends-api/docker/deployment/production/README.md)을
 따른다. Production preflight와 GitHub `production-checklist`는 모두 배포 승인 자료일 뿐, 그
 자체로 DB·컨테이너·Caddy를 변경하지 않는다.
 

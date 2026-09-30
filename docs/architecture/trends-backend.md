@@ -13,6 +13,8 @@ apps/
   trends/
     trends-collector/       # operator-only Node CLI
     trends-api/             # operator-only ingest/export API
+      docker/               # Oracle Node/Docker rollback runtime
+      workers/              # active Cloudflare Workers runtime
 shared/
   naver-trends-core/        # shared Playwright collection and normalization logic
 wordpress/
@@ -41,13 +43,15 @@ wordpress/
 - Serves filtered JSON/CSV exports.
 - Stores operational scrape history in file logs, not in a database `collection_runs` table.
 - Receives API-owned runtime configuration from its deployment environment.
-- Runs as the central Node service on Oracle Cloud Free Tier.
+- Runs through the API hostname for the selected environment.
 - Is reached by the WordPress plugin with the internal token and by BlogGenius
   desktop clients with short-lived user read tokens.
+- Keeps runtime implementations separate: `workers/` is the active gateway and
+  `docker/` preserves the prior Oracle Node service for rollback.
 
 ### `wordpress/trends-download-ui`
 - Hosts WordPress integration assets only.
-- Calls the Oracle Cloud `trends-api` from WordPress server-side PHP.
+- Calls the Production `trends-api` hostname from WordPress server-side PHP.
 - Must not hold Supabase service-role credentials.
 - Holds only the internal trends API token needed by the server-side plugin.
 - Current starter asset: `wordpress/trends-download-ui/trends-download-ui.php`
@@ -56,8 +60,7 @@ wordpress/
 
 ## Runtime Flow
 1. Operator uses an environment-specific command under
-   `apps/trends/trends-collector/commands/`. The legacy `bin/trends-collector` entrypoint remains only
-   for the current Production schedule until its container transition.
+   `apps/trends/trends-collector/commands/`.
 2. Collector fetches trends through `shared/naver-trends-core`.
 3. Collector posts payloads to `POST /internal/ingest/naver-trends`.
 4. API validates and upserts into Supabase.
@@ -67,16 +70,17 @@ wordpress/
 Operationally, the current topology is:
 
 ```text
-Mac Studio collector --internal token--> Oracle Cloud trends-api --> Supabase trends.items
-WordPress plugin ----internal token-----> Oracle Cloud trends-api
-BlogGenius app --15-minute user token---> Oracle Cloud HTTPS read endpoints
+Mac Studio collector --internal token--> Cloudflare Worker --> Supabase trends.items
+WordPress plugin ----internal token-----> Production Worker
+BlogGenius app --15-minute user token---> Production Worker HTTPS read endpoints
                          ^
                          |
                Supabase license Edge Function
 ```
 
-Oracle Cloud is the only public trends data gateway. Direct Supabase access is
-never given to WordPress or the desktop app.
+Cloudflare Workers is the current public trends data gateway. Direct Supabase
+access is never given to WordPress or the desktop app. The former Oracle
+deployment remains available for rollback during stabilization.
 
 ## Collector Contract
 

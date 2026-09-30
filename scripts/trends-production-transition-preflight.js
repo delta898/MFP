@@ -8,7 +8,7 @@ const { parseEnvFile } = require('../apps/trends/shared/lib/load-env');
 const { resolveApiRuntimeGuard } = require('../apps/trends/shared/lib/runtime-target-guard');
 
 const PRODUCTION_DEPLOYMENT_PATH = path.join(
-    'apps', 'trends', 'trends-api', 'deployment', 'production'
+    'apps', 'trends', 'trends-api', 'docker', 'deployment', 'production'
 );
 const MANIFEST_PATH = path.join(PRODUCTION_DEPLOYMENT_PATH, 'manifest.json');
 const RUNTIME_ENV_PATH = path.join(PRODUCTION_DEPLOYMENT_PATH, '.env.trends-api.production');

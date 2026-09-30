@@ -61,7 +61,7 @@ test('Production preflight accepts the approved topology without exposing secret
 test('Production preflight owns one ignored runtime file and fixes topology', () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'trends-production-preflight-'));
     const envDirectory = path.join(
-        repoRoot, 'apps', 'trends', 'trends-api', 'deployment', 'production'
+        repoRoot, 'apps', 'trends', 'trends-api', 'docker', 'deployment', 'production'
     );
     fs.mkdirSync(envDirectory, { recursive: true });
     fs.writeFileSync(path.join(envDirectory, '.env.trends-api.production'), [
@@ -125,7 +125,7 @@ test('Production preflight preserves a short legacy ingest token with an explici
 test('Production Compose publishes only the parallel candidate port and contains no secret', () => {
     const compose = fs.readFileSync(
         path.join(
-            REPO_ROOT, 'apps', 'trends', 'trends-api', 'deployment', 'production', 'compose.yml'
+            REPO_ROOT, 'apps', 'trends', 'trends-api', 'docker', 'deployment', 'production', 'compose.yml'
         ),
         'utf8'
     );

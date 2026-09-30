@@ -8,8 +8,8 @@
     "container_port": 4581,
     "candidate_host_port": 4583,
     "legacy_host_port": 4581,
-    "compose_file": "apps/trends/trends-api/deployment/production/compose.yml",
-    "runtime_env_file": "apps/trends/trends-api/deployment/production/.env.trends-api.production",
+    "compose_file": "apps/trends/trends-api/docker/deployment/production/compose.yml",
+    "runtime_env_file": "apps/trends/trends-api/docker/deployment/production/.env.trends-api.production",
     "health_path": "/health"
   },
   "supabase": {

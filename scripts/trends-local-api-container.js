@@ -229,7 +229,7 @@ function runLocalTrendsApiContainer(options = {}) {
         const result = spawn('docker', [
             'compose',
             '--file',
-            'apps/trends/trends-api/deployment/local/compose.yml',
+            'apps/trends/trends-api/docker/deployment/local/compose.yml',
             'up',
             '--build',
             ...(options.detached === true ? ['--detach', '--wait'] : []),

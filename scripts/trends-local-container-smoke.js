@@ -10,7 +10,7 @@ const { prepareLocalRuntimeEnvironment } = require('./trends-local-api-container
 const COMPOSE_ARGS = [
     'compose',
     '--file',
-    'apps/trends/trends-api/deployment/local/compose.yml'
+    'apps/trends/trends-api/docker/deployment/local/compose.yml'
 ];
 
 function runDocker(repoRoot, runtimeEnv, args) {

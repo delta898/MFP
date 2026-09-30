@@ -36,11 +36,11 @@ test('development deployment manifest fixes the approved isolated topology', () 
     assert.equal(manifest.service.host_port, 4582);
     assert.equal(
         manifest.service.compose_file,
-        'apps/trends/trends-api/deployment/development/compose.yml'
+        'apps/trends/trends-api/docker/deployment/development/compose.yml'
     );
     assert.equal(
         manifest.service.runtime_env_file,
-        'apps/trends/trends-api/deployment/development/.env.trends-api.development'
+        'apps/trends/trends-api/docker/deployment/development/.env.trends-api.development'
     );
     assert.equal(manifest.deployment_policy.ingress_owner, 'external_server_routing');
     assert.equal(manifest.service.container_name, 'bloggenius-trends-api-development');
@@ -59,7 +59,7 @@ test('development preflight accepts the approved topology without exposing secre
 test('development preflight loads only the API-owned file and keeps topology fixed', () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'trends-development-preflight-'));
     const envDirectory = path.join(
-        repoRoot, 'apps', 'trends', 'trends-api', 'deployment', 'development'
+        repoRoot, 'apps', 'trends', 'trends-api', 'docker', 'deployment', 'development'
     );
     fs.mkdirSync(envDirectory, { recursive: true });
     fs.writeFileSync(path.join(envDirectory, '.env.trends-api.development'), [
@@ -101,7 +101,7 @@ test('development preflight rejects Production targets and token contract drift'
 test('Development Compose publishes the approved host port for external container ingress', () => {
     const compose = fs.readFileSync(
         path.join(
-            REPO_ROOT, 'apps', 'trends', 'trends-api', 'deployment', 'development', 'compose.yml'
+            REPO_ROOT, 'apps', 'trends', 'trends-api', 'docker', 'deployment', 'development', 'compose.yml'
         ),
         'utf8'
     );

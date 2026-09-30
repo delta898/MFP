@@ -1,0 +1,40 @@
+name = "bloggenius-trends-api"
+main = "src/index.js"
+compatibility_date = "2026-09-30"
+workers_dev = true
+
+[[routes]]
+pattern = "trendapi-dev.hangadac.com"
+custom_domain = true
+
+[vars]
+TRENDS_ENV = "development"
+TRENDS_SUPABASE_SCHEMA = "trends"
+TRENDS_SUPABASE_TABLE = "items"
+TRENDS_SUPABASE_META_FUNCTION = "get_items_meta"
+TRENDS_API_READ_RATE_LIMIT_PER_MINUTE = "120"
+TRENDS_EXPORT_MAX_ROWS = "5000"
+TRENDS_API_MAX_BODY_BYTES = "1048576"
+TRENDS_META_CACHE_TTL_MS = "300000"
+TRENDS_READ_TOKEN_ISSUER = "bloggenius-development"
+TRENDS_READ_TOKEN_AUDIENCE = "trends-api-development"
+
+[env.production]
+name = "bloggenius-trends-api-production"
+workers_dev = true
+
+[[env.production.routes]]
+pattern = "trendapi.hangadac.com"
+custom_domain = true
+
+[env.production.vars]
+TRENDS_ENV = "production"
+TRENDS_SUPABASE_SCHEMA = "trends"
+TRENDS_SUPABASE_TABLE = "items"
+TRENDS_SUPABASE_META_FUNCTION = "get_items_meta"
+TRENDS_API_READ_RATE_LIMIT_PER_MINUTE = "120"
+TRENDS_EXPORT_MAX_ROWS = "5000"
+TRENDS_API_MAX_BODY_BYTES = "1048576"
+TRENDS_META_CACHE_TTL_MS = "300000"
+TRENDS_READ_TOKEN_ISSUER = "bloggenius-license"
+TRENDS_READ_TOKEN_AUDIENCE = "trends-api"

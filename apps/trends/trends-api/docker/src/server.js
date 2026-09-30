@@ -6,12 +6,12 @@ const { createClient } = require('@supabase/supabase-js');
 const {
     formatTrendsEnvironmentDiagnostic,
     loadTrendsEnvironment
-} = require('../../shared/lib/environment-profile');
+} = require('../../../shared/lib/environment-profile');
 const {
     formatRuntimeTargetDiagnostic,
     resolveApiRuntimeGuard
-} = require('../../shared/lib/runtime-target-guard');
-const { normalizeCollectedTrendItem } = require('../../../../shared/naver-trends-core');
+} = require('../../../shared/lib/runtime-target-guard');
+const { normalizeCollectedTrendItem } = require('../../../../../shared/naver-trends-core');
 
 const VALID_CHANGE_TYPES = new Set(['up', 'down', 'new', 'steady']);
 
@@ -853,7 +853,7 @@ function startServer(config = resolveApiConfig()) {
 
 function prepareApiRuntime(env = process.env) {
     const profile = loadTrendsEnvironment({
-        baseDir: path.resolve(__dirname, '../..'),
+        baseDir: path.resolve(__dirname, '..'),
         env
     });
     console.log(formatTrendsEnvironmentDiagnostic(profile));
