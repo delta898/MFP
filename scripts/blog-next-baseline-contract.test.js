@@ -292,6 +292,9 @@ test('trend posting state styling remains semantic and style-independent', () =>
   assert.doesNotMatch(css, /trend-posting-status\[data-state="success"\]/);
   assert.match(css, /trend-posting-result-filters\[aria-disabled="true"\][\s\S]*var\(--ui-surface-muted\)/);
   assert.match(css, /trend-posting-result-filters\[hidden\]\s*\{[^}]*display:\s*none/s);
+  assert.match(css, /trend-posting-filter-keyword,[\s\S]*trend-posting-filter-view,[\s\S]*trend-posting-period-select-shell > select\s*\{[^}]*border:\s*1px solid var\(--ui-border-default\)[^}]*background:\s*var\(--ui-surface\)[^}]*color:\s*var\(--ui-text-primary\)[^}]*font-size:\s*var\(--ui-type-body-size\)[^}]*font-weight:\s*var\(--ui-weight-regular\)/s);
+  assert.match(css, /trend-posting-filter-keyword:focus-visible,[\s\S]*trend-posting-filter-view:focus-visible,[\s\S]*trend-posting-period-select-shell > select:focus-visible\s*\{[^}]*box-shadow:\s*var\(--ui-focus-ring\)/s);
+  assert.match(css, /trend-posting-filter-keyword:disabled,[\s\S]*trend-posting-filter-view:disabled,[\s\S]*trend-posting-period-select-shell > select:disabled\s*\{[^}]*background:\s*var\(--ui-surface-muted\)[^}]*color:\s*var\(--ui-text-muted\)/s);
   assert.match(css, /trend-posting-filter-view-shell\s*\{[^}]*flex:\s*0 0 180px/s);
   assert.match(css, /trend-posting-filter-view-shell > select\s*\{[^}]*width:\s*100%/s);
   assert.match(css, /trend-posting-period-select-shell > select\s*\{[^}]*width:\s*100%/s);
