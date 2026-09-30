@@ -4,7 +4,7 @@
 - Branch: `codex/trends-api-cloudflare-workers`
 - Start date: 2026-09-30
 - Base branch: `dev`
-- Status: Implementation and domain cutover complete; Production collection validation remains
+- Status: Implementation and validation complete; ready to merge to `dev`
 
 ## User Need and Goal
 Oracle Cloud Free Tier is resource constrained while serving WordPress and the Trends API. Move the Trends API runtime toward Cloudflare Workers while preserving `trendapi.hangadac.com` and existing client contracts.
@@ -45,7 +45,8 @@ Use `apps/trends/trends-api/docker/` for the existing Node/Docker runtime and `a
 ## Verification and Handoff
 - Static syntax checks for both runtimes and affected preflight scripts passed; JSON manifests, Docker build-context roots, stale active path references, and whitespace checks passed.
 - Focused Node tests passed: 46 tests across the moved API server, environment-entrypoint checks, and Development/Production preflight and container helpers. The two localhost-binding tests required an escalated rerun after the sandbox blocked socket binding.
-- The pre-merge full-suite attempt found the Docker contract test still referenced pre-move paths. Updated the contract test to read the `docker/` layout; all four assertions now pass in a focused run. A clean full-suite rerun is still required before merging into `dev`.
+- The pre-merge full-suite attempt found the Docker contract test still referenced pre-move paths. Updated the contract test to read the `docker/` layout; all four assertions now pass in a focused run.
+- After the path correction, the approved full unit suite passed: 2,059 passed, 0 failed, and 1 skipped across 376 test files. The package security audit reported 0 vulnerabilities.
 - Development Worker health/auth checks passed. The user confirmed authenticated metadata, list reads, and collector operation through the Development hostname.
 - Deployed the Custom Domain configuration to the Development Worker. `https://trendapi-dev.hangadac.com/health` returned `200` with `environment: development`; unauthenticated `/api/v1/trends/meta` returned the expected `401`.
 - The Development Custom Domain was confirmed by the user's collector run.
@@ -59,3 +60,4 @@ Use `apps/trends/trends-api/docker/` for the existing Node/Docker runtime and `a
 - Production authenticated metadata read through `workers.dev` was confirmed by the user before cutover. The Production custom domain was then bound and verified against Cloudflare Edge for health and expected unauthenticated `401`.
 - Production collector ingest through the custom hostname has not yet been exercised; it writes to Production Supabase and should be validated during the user's normal production collection run.
 - The Development collector performed a successful end-to-end run through its Worker hostname. No direct Production write test was run.
+- The Docker service remains available as the Production rollback path pending a normal Production collector run.
