@@ -3,7 +3,7 @@
 - Branch: `codex/manual-sns-image-workflow`
 - Start date: 2026-09-30
 - Base/parent branch: `dev`
-- Status: Implementation complete; awaiting user review
+- Status: Implementation complete; user-reviewed; awaiting integration into `dev`
 
 ## User need and goal
 
@@ -116,12 +116,16 @@ will attach multiple images.
   generated output has no filename caption.
 - Latest focused SNS service/AI/design-contract tests pass (41 tests), the full UI browser smoke
   passes (485 fixture requests; 4 expected blocked external requests), and `git diff --check` passes.
-- Manual validation: create an image from SNS content with and without an extra instruction, add a
-  local image by picker and drag/drop, remove it, and verify publish readiness without entering URLs.
+- User reviewed the generated-image workflow and approved the UI refinements: generated images can be
+  regenerated from their saved optional instruction, downloaded, and kept visually aligned with the
+  empty add tile; generated image filenames are hidden.
+- Manual validation still recommended: local file selection and drag/drop, GIF/channel validation,
+  and publish readiness with a test account. No Buffer publishing was performed as part of this work.
 
 ## Final handoff
 
-Implemented on `codex/manual-sns-image-workflow`; changes are uncommitted. No live AI generation,
-Buffer publishing, commit, or merge was performed. User review should cover image generation,
-local file handling, GIF/channel validation, and the normal SNS publish flow with an approved test
-account.
+Implemented and committed on `codex/manual-sns-image-workflow` (`f351a594`). Focused SNS tests and
+browser smoke passed as recorded above. This branch has not yet been merged into `dev`; the full unit
+suite remains the required integration gate. No Buffer publishing was performed. User review of the
+image-generation UI is complete; local file handling, GIF/channel validation, and publish readiness
+with a test account remain useful follow-up checks.
