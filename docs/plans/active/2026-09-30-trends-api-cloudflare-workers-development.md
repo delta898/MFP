@@ -45,6 +45,7 @@ Use `apps/trends/trends-api/docker/` for the existing Node/Docker runtime and `a
 ## Verification and Handoff
 - Static syntax checks for both runtimes and affected preflight scripts passed; JSON manifests, Docker build-context roots, stale active path references, and whitespace checks passed.
 - Focused Node tests passed: 46 tests across the moved API server, environment-entrypoint checks, and Development/Production preflight and container helpers. The two localhost-binding tests required an escalated rerun after the sandbox blocked socket binding.
+- The pre-merge full-suite attempt found the Docker contract test still referenced pre-move paths. Updated the contract test to read the `docker/` layout; all four assertions now pass in a focused run. A clean full-suite rerun is still required before merging into `dev`.
 - Development Worker health/auth checks passed. The user confirmed authenticated metadata, list reads, and collector operation through the Development hostname.
 - Deployed the Custom Domain configuration to the Development Worker. `https://trendapi-dev.hangadac.com/health` returned `200` with `environment: development`; unauthenticated `/api/v1/trends/meta` returned the expected `401`.
 - The Development Custom Domain was confirmed by the user's collector run.

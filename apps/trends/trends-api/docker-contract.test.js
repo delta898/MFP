@@ -11,16 +11,16 @@ function read(relativePath) {
 }
 
 test('Trends API image uses Node 24, a locked dependency set, and a non-root runtime', () => {
-    const dockerfile = read('Dockerfile');
-    const packageJson = JSON.parse(read('package.json'));
-    const packageLock = JSON.parse(read('package-lock.json'));
+    const dockerfile = read('docker/Dockerfile');
+    const packageJson = JSON.parse(read('docker/package.json'));
+    const packageLock = JSON.parse(read('docker/package-lock.json'));
 
     assert.match(dockerfile, /^FROM node:24-bookworm-slim AS runtime/m);
     assert.match(dockerfile, /^WORKDIR \/app$/m);
     assert.match(dockerfile, /npm ci --omit=dev --ignore-scripts/);
-    assert.match(dockerfile, /apps\/trends\/trends-api\/src \/app\/apps\/trends\/trends-api\/src/);
+    assert.match(dockerfile, /apps\/trends\/trends-api\/docker\/src \/app\/apps\/trends\/trends-api\/docker\/src/);
     assert.match(dockerfile, /apps\/trends\/shared \/app\/apps\/trends\/shared/);
-    assert.match(dockerfile, /^WORKDIR \/app\/apps\/trends\/trends-api$/m);
+    assert.match(dockerfile, /^WORKDIR \/app\/apps\/trends\/trends-api\/docker$/m);
     assert.match(dockerfile, /^USER node$/m);
     assert.match(dockerfile, /^HEALTHCHECK /m);
     assert.equal(packageJson.dependencies['@supabase/supabase-js'], '2.39.0');
@@ -30,8 +30,8 @@ test('Trends API image uses Node 24, a locked dependency set, and a non-root run
 });
 
 test('Trends API image build never copies environment or secret-bearing operator files', () => {
-    const dockerfile = read('Dockerfile');
-    const dockerignore = read('Dockerfile.dockerignore');
+    const dockerfile = read('docker/Dockerfile');
+    const dockerignore = read('docker/Dockerfile.dockerignore');
 
     assert.doesNotMatch(dockerfile, /COPY[^\n]*(?:\.env|config\/|secret)/i);
     assert.doesNotMatch(dockerfile, /\b(?:ARG|ENV)\s+(?:SUPABASE_SECRET_KEY|TRENDS_API_TOKEN|TRENDS_READ_TOKEN_SECRET)\b/);
@@ -40,7 +40,7 @@ test('Trends API image build never copies environment or secret-bearing operator
 });
 
 test('Local Compose injects runtime config and exposes API only on loopback', () => {
-    const compose = read('deployment/local/compose.yml');
+    const compose = read('docker/deployment/local/compose.yml');
 
     assert.match(
         compose,
