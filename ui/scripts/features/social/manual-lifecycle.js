@@ -1,10 +1,6 @@
 function initManualSnsComposer() {
   const textEl = document.getElementById('manual-sns-text');
-  const imageUrlEl = document.getElementById('manual-sns-image-url');
-  const imageRemoveBtn = document.getElementById('manual-sns-image-remove-btn');
   const imageFileEl = document.getElementById('manual-sns-image-file');
-  const imageSourceUrlEl = document.getElementById('manual-sns-image-source-url');
-  const imageSourceLocalEl = document.getElementById('manual-sns-image-source-local');
   const imageLocalPanelEl = document.getElementById('manual-sns-image-local-panel');
   const selectAllEl = document.getElementById('manual-sns-select-all');
   const publishBtn = document.getElementById('manual-sns-publish-btn');
@@ -13,16 +9,9 @@ function initManualSnsComposer() {
   const settingsLink = document.getElementById('manual-sns-settings-link');
   const workspaceLoad = document.getElementById('manual-sns-workspaces-load');
   const organization = document.getElementById('manual-sns-organization');
-  textEl?.addEventListener('input', syncManualSnsComposerState);
-  imageUrlEl?.addEventListener('input', () => {
-    syncManualSnsImagePreview();
+  textEl?.addEventListener('input', () => {
+    if (String(textEl.value || '').trim()) renderManualSnsImageGenerationStatus('');
     syncManualSnsComposerState();
-  });
-  imageRemoveBtn?.addEventListener('click', () => {
-    if (imageUrlEl) imageUrlEl.value = '';
-    syncManualSnsImagePreview();
-    syncManualSnsComposerState();
-    imageUrlEl?.focus();
   });
   imageFileEl?.addEventListener('change', () => {
     addManualSnsLocalImageFiles(imageFileEl.files || []);
@@ -52,12 +41,6 @@ function initManualSnsComposer() {
     addManualSnsLocalImageFiles(event.dataTransfer.files);
     syncManualSnsImagePreview();
     syncManualSnsComposerState();
-  });
-  [imageSourceUrlEl, imageSourceLocalEl].forEach((radio) => {
-    radio?.addEventListener('change', () => {
-      syncManualSnsImagePreview();
-      syncManualSnsComposerState();
-    });
   });
   selectAllEl?.addEventListener('change', () => {
     BufferPublishingControls.applyChannelSelectAll({

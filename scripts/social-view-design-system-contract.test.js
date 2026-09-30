@@ -10,6 +10,7 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   const view = read('ui/partials/views/social.html');
   const composer = read('ui/scripts/features/social/manual-composer.js');
   const lifecycle = read('ui/scripts/features/social/manual-lifecycle.js');
+  const optimization = read('ui/scripts/features/social/manual-optimization.js');
   const sharedBufferControls = read('ui/scripts/shared/buffer-publishing-controls.js');
   const styles = [
     'ui/styles/patterns/buffer-publishing-controls.css',
@@ -41,6 +42,30 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.ok(view.indexOf('id="manual-sns-channel-list"') < view.indexOf('id="manual-sns-publish-btn"'));
   assert.doesNotMatch(view, /manual-sns-organization-field|manual-sns-workspace-summary|social-workspace-control/);
   assert.match(view, /id="manual-sns-text" class="social-editor" rows="6"/);
+  assert.match(view, /id="manual-sns-image-grid"/);
+  assert.match(composer, /social-local-image-add-tile/);
+  assert.match(composer, /AI 이미지 만들기/);
+  assert.match(composer, /manualSnsImagePromptOpen/);
+  assert.match(composer, /이미지 추가 요청/);
+  assert.match(composer, /예: 벚꽃길을 걷는 장면, 따뜻한 봄 햇살의 수채화풍/);
+  assert.match(composer, /artwork\.append\(instruction\)/);
+  assert.match(composer, /promptRow\.append\(generate, cancel\)/);
+  assert.match(composer, /footer\.hidden = false/);
+  assert.match(composer, /footer\.append\(promptRow\)/);
+  assert.doesNotMatch(composer, /workingOverlay\.append\(promptRow\)/);
+  assert.match(composer, /generatedInstruction: generated \? String\(instruction \|\| ''\)\.trim\(\) : null/);
+  assert.match(composer, /social-local-image-regenerate/);
+  assert.match(composer, /manualSnsImagePromptTargetIndex = index/);
+  assert.match(composer, /download\.download = file\.name/);
+  assert.match(composer, /const isAiGenerated = generatedInstruction !== null && generatedInstruction !== undefined/);
+  assert.match(composer, /const caption = isAiGenerated \? null : document\.createElement\('figcaption'\)/);
+  assert.match(composer, /if \(caption\) tile\.appendChild\(caption\)/);
+  assert.match(optimization, /const targetIndex = manualSnsImagePromptTargetIndex/);
+  assert.match(optimization, /replaceManualSnsLocalImage\(targetIndex, file, instructionSnapshot\)/);
+  assert.match(optimization, /본문을 입력한 뒤 이미지를 생성해 주세요\./);
+  assert.doesNotMatch(view, /이미지 URL|manual-sns-image-url/);
+  assert.match(composer, /generateManualSnsImage\(\)/);
+  assert.match(optimization, /postJson\('\/api\/v1\/social\/manual\/image'/);
   assert.match(lifecycle, /navigateTo\('settings-next', 'extras'\)/);
   assert.match(lifecycle, /settingsNextActivateExtrasTab\?\.\('social'\)/);
   assert.match(composer, /social-channel-option ui-selectable-card/);
@@ -58,6 +83,16 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.doesNotMatch(styles, /\.social-view \.view-title-block\s*\{/);
   assert.match(styles, /\.social-view \.social-channel-option[\s\S]*?var\(--ui-action-primary-soft\)/);
   assert.match(styles, /\.social-view \.social-composer-actions[\s\S]*?var\(--ui-border-default\)/);
+  assert.match(styles, /\.social-local-image-add-tile\s*\{[\s\S]*?aspect-ratio:\s*1\s*\/\s*1/);
+  assert.match(styles, /\.social-local-image-tile\s*\{[\s\S]*?width:\s*100%[\s\S]*?box-sizing:\s*border-box/);
+  assert.match(styles, /\.social-local-image-add-tile\s*\{[\s\S]*?width:\s*100%[\s\S]*?box-sizing:\s*border-box/);
+  assert.match(styles, /\.social-local-image-add-artwork \.manuscript-image-block-placeholder-waves\s*\{[\s\S]*?translateY\(-14%\)/);
+  assert.match(styles, /\.social-local-image-add-artwork textarea\s*\{[\s\S]*?inset:\s*12px 12px 92px[\s\S]*?background:\s*transparent/);
+  assert.match(styles, /\.social-local-image-add-tile\s*\{[\s\S]*?background:\s*transparent/);
+  assert.match(styles, /\.social-view \.social-local-image-add-actions button\.primary\.compact[\s\S]*?height:\s*48px[\s\S]*?min-height:\s*48px/);
+  assert.match(styles, /\.social-view \.social-local-image-prompt button\.secondary\.compact[\s\S]*?height:\s*48px[\s\S]*?min-height:\s*48px/);
+  assert.match(styles, /\.social-local-image-prompt\s*\{[\s\S]*?display:\s*flex/);
+  assert.doesNotMatch(styles, /\.social-local-image-add-tile\.is-prompt-open\s*\{[^}]*grid-column/);
   assert.doesNotMatch(styles, /var\(--(?:brand|text-|line|radius|shadow|transition|danger)\b/);
   assert.match(styles, /\.social-editor\s*\{[\s\S]*?block-size:\s*168px[\s\S]*?min-block-size:\s*168px/);
 });

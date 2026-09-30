@@ -8,6 +8,7 @@ const {
     measurePost
 } = require('./sns-content-formatter');
 const { assertManualPublishAllowed } = require('../environment/runtime-effects');
+const { createAiGenerationOperationManager } = require('../blog-next/ai-generation-operations');
 
 const MAX_CHANNELS = 3;
 const MAX_TEXT_LENGTH = 10000;
@@ -111,6 +112,25 @@ function createManualSnsService(deps = {}) {
         throw new Error('Manual SNS Service에는 BufferClient가 필요합니다.');
     }
 
+    let imageGenerationActive = false;
+    const imageOperationManager = createAiGenerationOperationManager({
+        coordinator: {
+            acquire() {
+                if (imageGenerationActive) return null;
+                imageGenerationActive = true;
+                let released = false;
+                return {
+                    executionId: 'manual-sns-image-generation',
+                    release() {
+                        if (released) return;
+                        released = true;
+                        imageGenerationActive = false;
+                    }
+                };
+            }
+        }
+    });
+
     function getChannels() {
         return normalizeConfiguredChannels(CONFIG.BUFFER_CHANNELS);
     }
@@ -129,12 +149,51 @@ function createManualSnsService(deps = {}) {
         const ai = typeof aiService?.getManualOptimizationAvailability === 'function'
             ? aiService.getManualOptimizationAvailability()
             : { available: false, model_name: '' };
+        const imageAi = typeof aiService?.getManualImageGenerationAvailability === 'function'
+            ? aiService.getManualImageGenerationAvailability()
+            : { available: false, model_name: '' };
         return {
             configured: Boolean(String(CONFIG.BUFFER_API_KEY || '').trim()),
             local_media_available: isPublicMediaAvailable(),
             channels: [],
-            ai
+            ai,
+            image_ai: imageAi
         };
+    }
+
+    async function generateImage(input = {}) {
+        if (typeof aiService?.generateManualPostImage !== 'function') {
+            throw createManualSnsError(503, 'MANUAL_SNS_IMAGE_GENERATOR_UNAVAILABLE', 'AI 이미지 생성 기능을 사용할 수 없습니다.');
+        }
+        try {
+            return await aiService.generateManualPostImage(input);
+        } catch (error) {
+            if (error?.code === 'IMAGE_MODEL_UNAVAILABLE') {
+                throw createManualSnsError(400, error.code, error.message);
+            }
+            if (error?.code === 'MANUAL_SNS_TEXT_REQUIRED' || error?.code === 'MANUAL_SNS_TEXT_TOO_LARGE') {
+                throw createManualSnsError(400, error.code, error.message);
+            }
+            throw createManualSnsError(502, error?.code || 'MANUAL_SNS_IMAGE_GENERATION_FAILED', error?.message || 'AI 이미지 생성에 실패했습니다.');
+        }
+    }
+
+    function startImageOperation(input = {}) {
+        const model = CONFIG.IMAGE_MODEL_CONFIG || {};
+        return imageOperationManager.start({
+            source: 'manual_sns_image_generation',
+            subject: 'SNS 이미지',
+            message: 'SNS 이미지 생성 중',
+            remoteJobPossible: String(model.transport || '').toLowerCase().includes('kie')
+        }, (operation) => generateImage({ ...input, signal: operation.signal }));
+    }
+
+    function getImageOperation(operationId) {
+        return imageOperationManager.get(operationId);
+    }
+
+    function cancelImageOperation(operationId) {
+        return imageOperationManager.cancel(operationId);
     }
 
     async function loadWorkspaceOptions(input = {}) {
@@ -450,6 +509,17 @@ function createManualSnsService(deps = {}) {
                     throw createManualSnsError(400, 'MANUAL_SNS_LOCAL_IMAGE_INVALID', `${index + 1}번째 이미지: ${error?.message || '파일을 확인해 주세요.'}`);
                 }
             });
+            const gifSupportedServices = new Set(['facebook', 'twitter', 'mastodon', 'bluesky', 'pinterest']);
+            const gifUnsupportedChannel = parsedImages.some((image) => image.mimeType === 'image/gif')
+                ? selectedChannels.find((channel) => !gifSupportedServices.has(channel.service))
+                : null;
+            if (gifUnsupportedChannel) {
+                throw createManualSnsError(
+                    400,
+                    'MANUAL_SNS_IMAGE_FORMAT_UNSUPPORTED_FOR_CHANNEL',
+                    `GIF는 ${gifUnsupportedChannel.name || gifUnsupportedChannel.service} 채널에서 지원되지 않을 수 있습니다. PNG, JPG 또는 WEBP를 사용해 주세요.`
+                );
+            }
             if (totalImageBytes > MAX_LOCAL_IMAGES_TOTAL_BYTES) {
                 throw createManualSnsError(400, 'MANUAL_SNS_LOCAL_IMAGES_TOO_LARGE', '선택한 이미지의 전체 크기는 최대 60MB까지 사용할 수 있습니다.');
             }
@@ -470,7 +540,7 @@ function createManualSnsService(deps = {}) {
                 throw createManualSnsError(
                     502,
                     'MANUAL_SNS_GOOGLE_DRIVE_UPLOAD_FAILED',
-                    'Google Drive에 이미지를 임시 업로드하지 못했습니다. 이미지 URL을 사용하거나 이미지를 제거한 후 다시 발행해 주세요.'
+                    'Google Drive에 이미지를 임시 업로드하지 못했습니다. 연결 상태를 확인하거나 이미지를 제거한 뒤 다시 발행해 주세요.'
                 );
             }
             imageUrls = temporaryMedia.map((media) => media.url);
@@ -571,6 +641,10 @@ function createManualSnsService(deps = {}) {
 
     return {
         getComposerConfig,
+        generateImage,
+        startImageOperation,
+        getImageOperation,
+        cancelImageOperation,
         loadWorkspaceOptions,
         optimize,
         publish

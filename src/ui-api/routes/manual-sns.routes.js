@@ -14,6 +14,18 @@ function createManualSnsRouteHandler(deps = {}) {
             await controller.handleOptimize(ctx);
             return true;
         }
+        if (ctx.pathname === '/api/v1/social/manual/image') {
+            await controller.handleGenerateImage(ctx);
+            return true;
+        }
+        if (/^\/api\/v1\/social\/manual\/image-operations\/[^/]+$/.test(ctx.pathname || '')) {
+            await controller.handleGetImageOperation(ctx);
+            return true;
+        }
+        if (/^\/api\/v1\/social\/manual\/image-operations\/[^/]+\/cancel$/.test(ctx.pathname || '')) {
+            await controller.handleCancelImageOperation(ctx);
+            return true;
+        }
         if (ctx.pathname === '/api/v1/social/manual/publish') {
             await controller.handlePublish(ctx);
             return true;

@@ -26,6 +26,7 @@ test('composer config exposes Buffer readiness but not persisted channel targets
     assert.equal(result.configured, true);
     assert.equal(result.channels.length, 0);
     assert.equal(result.ai.available, false);
+    assert.equal(result.image_ai.available, false);
     assert.equal(result.local_media_available, false);
     assert.equal(JSON.stringify(result).includes('buffer-secret'), false);
     assert.equal(Object.hasOwn(result, 'SNS_PUBLISH_ENABLED'), false);
@@ -78,6 +79,75 @@ test('composer config exposes only public Chat Model availability', () => {
     const result = service.getComposerConfig();
     assert.deepEqual(result.ai, { available: true, model_name: 'Chat Model' });
     assert.equal(JSON.stringify(result).includes('buffer-secret'), false);
+});
+
+test('composer config exposes configured SNS image model readiness without secrets', () => {
+    const service = createManualSnsService({
+        CONFIG: createConfig(),
+        bufferClient: { async shareNowMany() { return []; } },
+        aiService: {
+            getManualImageGenerationAvailability() {
+                return { available: true, model_name: 'Image Model' };
+            }
+        }
+    });
+    assert.deepEqual(service.getComposerConfig().image_ai, { available: true, model_name: 'Image Model' });
+    assert.equal(JSON.stringify(service.getComposerConfig()).includes('buffer-secret'), false);
+});
+
+test('manual SNS image generation delegates content and optional instruction to the image model', async () => {
+    const inputs = [];
+    const service = createManualSnsService({
+        CONFIG: createConfig(),
+        bufferClient: { async shareNowMany() { return []; } },
+        aiService: {
+            async generateManualPostImage(input) {
+                inputs.push(input);
+                return { success: true, file_name: 'sns-image.png', mime_type: 'image/png', base64_data: 'AA==', model_name: 'Image Model' };
+            }
+        }
+    });
+    const result = await service.generateImage({ text: '게시물 본문', instruction: '따뜻한 색감' });
+    assert.equal(result.model_name, 'Image Model');
+    assert.deepEqual(inputs, [{ text: '게시물 본문', instruction: '따뜻한 색감' }]);
+});
+
+test('manual SNS image generation operation can be canceled and reports remote job cost risk', async () => {
+    const receivedSignals = [];
+    const service = createManualSnsService({
+        CONFIG: createConfig({ IMAGE_MODEL_CONFIG: { transport: 'kie_async' } }),
+        bufferClient: { async shareNowMany() { return []; } },
+        aiService: {
+            async generateManualPostImage(input) {
+                receivedSignals.push(input.signal);
+                return new Promise((_resolve, reject) => {
+                    input.signal.addEventListener('abort', () => {
+                        const error = new Error('generation stopped');
+                        error.code = 'AI_GENERATION_CANCELED';
+                        reject(error);
+                    }, { once: true });
+                });
+            }
+        }
+    });
+
+    const started = service.startImageOperation({ text: '게시물 본문', instruction: '봄 풍경' });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(started.state, 'accepted');
+    assert.ok(receivedSignals[0] instanceof AbortSignal);
+    assert.throws(() => service.startImageOperation({ text: '중복 요청' }), (error) => error.apiCode === 'BLOG_NEXT_EXECUTION_BUSY');
+    const cancelRequested = service.cancelImageOperation(started.operationId);
+    assert.equal(cancelRequested.state, 'cancel_requested');
+    assert.equal(cancelRequested.cancelOutcome, 'requested');
+    assert.equal(cancelRequested.remoteJobPossible, true);
+
+    let current;
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+        await new Promise((resolve) => setImmediate(resolve));
+        current = service.getImageOperation(started.operationId);
+        if (current.state === 'canceled') break;
+    }
+    assert.equal(current.state, 'canceled');
 });
 
 test('manual optimization delegates to Chat Model with the shortest selected channel limit', async () => {
@@ -354,6 +424,24 @@ test('channel image limit is validated before Google Drive upload', async () => 
     assert.equal(calls.upload.length, 0);
 });
 
+test('GIF is rejected for a selected channel outside Buffer help-supported GIF services', async () => {
+    const { deps, calls } = createLocalMediaDeps({
+        parseImagePayload(input) {
+            return { buffer: Buffer.from(String(input.fileName || 'animation.gif')), ext: '.gif' };
+        }
+    });
+    const service = createManualSnsService(deps);
+    await assert.rejects(
+        () => service.publish({
+            channelIds: ['threads-1'],
+            text: 'GIF 테스트',
+            localImage: { fileName: 'animation.gif', mimeType: 'image/gif', base64Data: 'ignored' }
+        }),
+        (error) => error.apiCode === 'MANUAL_SNS_IMAGE_FORMAT_UNSUPPORTED_FOR_CHANNEL'
+    );
+    assert.equal(calls.upload.length, 0);
+});
+
 test('total local image size is validated before Google Drive upload', async () => {
     const { deps, calls } = createLocalMediaDeps({
         parseImagePayload() {
@@ -549,7 +637,7 @@ test('Google Drive upload failure stops before Buffer publishing', async () => {
             text: '업로드 실패',
             localImage: { fileName: 'photo.png', mimeType: 'image/png', base64Data: 'ignored' }
         }),
-        (error) => error.apiCode === 'MANUAL_SNS_GOOGLE_DRIVE_UPLOAD_FAILED' && /이미지 URL/.test(error.message)
+        (error) => error.apiCode === 'MANUAL_SNS_GOOGLE_DRIVE_UPLOAD_FAILED' && /연결 상태/.test(error.message)
     );
     assert.equal(calls.share.length, 0);
     assert.equal(calls.remove.length, 0);

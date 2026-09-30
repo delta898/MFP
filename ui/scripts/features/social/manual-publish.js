@@ -29,12 +29,12 @@ async function publishManualSns() {
   syncManualSnsComposerState();
   if (resultEl) {
     resultEl.classList.add('is-visible');
-    resultEl.textContent = image.mode === 'local'
+    resultEl.textContent = image.hasImage
       ? 'Google Drive에 이미지를 임시 업로드하고 Buffer로 발행하고 있습니다.'
       : 'Buffer로 즉시 발행하고 있습니다.';
   }
   try {
-    const localImages = image.mode === 'local'
+    const localImages = image.hasImage
       ? await Promise.all((image.files || []).map(async (file) => ({
           fileName: file.name,
           mimeType: file.type,
@@ -45,7 +45,6 @@ async function publishManualSns() {
       organizationId: manualSnsConfig.organizationId,
       channelIds: selectedChannels.map((channel) => channel.id),
       text,
-      imageUrl: image.url,
       localImages
     });
     if (data?.success === true) {

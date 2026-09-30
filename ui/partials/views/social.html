@@ -51,42 +51,13 @@
             <div class="social-section-heading">
               <div>
                 <h2 id="manual-sns-image-title">이미지 <span class="social-optional-label">선택</span></h2>
-                <p>로컬 이미지를 선택해 순서대로 확인할 수 있습니다.</p>
               </div>
             </div>
-            <div class="social-image-source-options" role="radiogroup" aria-label="SNS 이미지 입력 방식">
-              <label id="manual-sns-image-source-local-label">
-                <input id="manual-sns-image-source-local" type="radio" name="manual-sns-image-source" value="local" checked>
-                로컬 이미지
-              </label>
-              <label>
-                <input id="manual-sns-image-source-url" type="radio" name="manual-sns-image-source" value="url">
-                이미지 URL
-              </label>
-              <span class="tooltip-container social-media-help">
-                <span class="tooltip-icon">?</span>
-                <span class="tooltip-text">로컬 파일은 연결된 Google Drive에 공개 링크가 있는 임시 파일로 업로드한 뒤 Buffer 발행이 끝나면 삭제합니다. 상태 확인 시간 초과 또는 앱 종료 시 Drive에 남을 수 있습니다.</span>
-              </span>
-            </div>
-            <div id="manual-sns-image-url-panel" class="social-image-row">
-              <input id="manual-sns-image-url" type="url" inputmode="url" placeholder="https://example.com/image.jpg">
-              <button id="manual-sns-image-remove-btn" class="secondary" type="button" hidden>제거</button>
-            </div>
             <div id="manual-sns-image-local-panel" class="social-local-image-panel">
-              <label id="manual-sns-image-file-picker" class="social-local-image-picker" for="manual-sns-image-file">
-                <input id="manual-sns-image-file" class="social-local-image-input" type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif">
-                <span class="social-local-image-icon" aria-hidden="true">＋</span>
-                <span class="social-local-image-copy">
-                  <strong id="manual-sns-image-file-name">이미지 추가</strong>
-                  <small>PNG, JPG, WEBP, GIF · 파일당 최대 10MB</small>
-                </span>
-              </label>
+              <input id="manual-sns-image-file" class="social-local-image-input" type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif">
               <div id="manual-sns-image-grid" class="social-local-image-grid" aria-live="polite"></div>
             </div>
-            <div id="manual-sns-image-preview" class="social-image-preview" hidden>
-              <img id="manual-sns-image-preview-img" alt="선택한 SNS 이미지 미리보기">
-              <span id="manual-sns-image-preview-status">이미지 미리보기</span>
-            </div>
+            <div id="manual-sns-image-generation-status" class="social-ai-status" aria-live="polite"></div>
           </section>
 
           <section class="social-composer-section" aria-labelledby="manual-sns-channels-title">
