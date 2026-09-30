@@ -116,6 +116,13 @@ will attach multiple images.
   generated output has no filename caption.
 - Latest focused SNS service/AI/design-contract tests pass (41 tests), the full UI browser smoke
   passes (485 fixture requests; 4 expected blocked external requests), and `git diff --check` passes.
+- The approved full unit suite initially caught two CSS structure-contract violations in the final
+  tile styling: a noncanonical 620px breakpoint and a fixed 32px fallback glyph. Both were corrected
+  to the canonical 640px breakpoint and the shared display-size token. The focused structure and SNS
+  design-contract tests now pass, and the full unit suite passes (2,059 passed, 1 skipped, 0 failed).
+- A subsequent full browser smoke attempt stopped in the unrelated Blog Beta keyboard-focus check
+  before reaching SNS (`blog-next-automation-enabled` focus assertion); the previously recorded SNS
+  browser smoke passed. The small responsive/style-token corrections do not change that flow.
 - User reviewed the generated-image workflow and approved the UI refinements: generated images can be
   regenerated from their saved optional instruction, downloaded, and kept visually aligned with the
   empty add tile; generated image filenames are hidden.
@@ -124,8 +131,7 @@ will attach multiple images.
 
 ## Final handoff
 
-Implemented and committed on `codex/manual-sns-image-workflow` (`f351a594`). Focused SNS tests and
-browser smoke passed as recorded above. This branch has not yet been merged into `dev`; the full unit
-suite remains the required integration gate. No Buffer publishing was performed. User review of the
-image-generation UI is complete; local file handling, GIF/channel validation, and publish readiness
-with a test account remain useful follow-up checks.
+Implemented and committed on `codex/manual-sns-image-workflow` (`f351a594`), with final CSS contract
+corrections to follow. Focused SNS tests and the full unit suite pass as recorded above. No Buffer
+publishing was performed. User review of the image-generation UI is complete; local file handling,
+GIF/channel validation, and publish readiness with a test account remain useful follow-up checks.

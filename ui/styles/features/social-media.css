@@ -284,7 +284,7 @@
   place-items: center;
   color: var(--ui-text-muted);
   background: transparent;
-  font-size: 32px;
+  font-size: var(--ui-type-display-size);
 }
 
 .social-local-image-add-actions {
@@ -396,7 +396,7 @@
   min-height: 48px;
 }
 
-@media (max-width: 620px) {
+@media (max-width: 640px) {
   .social-local-image-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
 }
 
