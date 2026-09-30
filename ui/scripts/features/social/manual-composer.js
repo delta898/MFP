@@ -645,6 +645,7 @@ function syncManualSnsComposerState() {
   const undoBtn = document.getElementById('manual-sns-ai-undo-btn');
   const imageFileEl = document.getElementById('manual-sns-image-file');
   const text = String(textEl?.value || '').trim();
+  const hasText = Boolean(text);
   syncManualSnsLivePreview();
   const characterCount = Array.from(text).length;
   const selectedChannels = getManualSnsSelectedChannels();
@@ -676,12 +677,16 @@ function syncManualSnsComposerState() {
     countEl.classList.toggle('is-over', Boolean(exceeded));
   }
   if (limitEl) {
-    limitEl.textContent = errorMessage || (selectedChannels.length > 0 ? '선택한 모든 채널의 글자 수 제한 안에 있습니다.' : '');
+    limitEl.textContent = errorMessage || (selectedChannels.length > 0
+      ? hasText ? '선택한 모든 채널의 글자 수 제한 안에 있습니다.' : '발행할 내용을 입력해 주세요.'
+      : '');
     limitEl.classList.toggle('is-error', Boolean(errorMessage));
   }
   if (summaryEl) {
     summaryEl.textContent = selectedChannels.length > 0
-      ? `${selectedChannels.length}개 채널에 즉시 발행합니다${image.hasImage ? ` · 이미지 ${image.files?.length || 1}장` : ''}.`
+      ? hasText
+        ? `${selectedChannels.length}개 채널에 즉시 발행합니다${image.hasImage ? ` · 이미지 ${image.files?.length || 1}장` : ''}.`
+        : '내용을 입력하면 선택한 채널에 발행할 수 있습니다.'
       : '발행할 채널을 선택하세요.';
   }
   if (publishBtn) {
@@ -691,6 +696,7 @@ function syncManualSnsComposerState() {
         ? '발행 완료'
         : selectedChannels.length > 0 ? `${selectedChannels.length}개 채널에 지금 발행` : '지금 발행';
     publishBtn.disabled = manualSnsPublishingInFlight || manualSnsImageGenerationInFlight || alreadyPublished || manualSnsOptimizationInFlight || !manualSnsConfig.configured || selectedChannels.length === 0 || !text || Boolean(errorMessage);
+    publishBtn.title = errorMessage || (!hasText && selectedChannels.length > 0 ? '발행할 내용을 입력해 주세요.' : '');
     publishBtn.classList.toggle('is-loading', manualSnsPublishingInFlight);
     publishBtn.classList.toggle('is-published', alreadyPublished);
     publishBtn.setAttribute('aria-busy', manualSnsPublishingInFlight ? 'true' : 'false');

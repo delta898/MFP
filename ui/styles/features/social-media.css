@@ -136,6 +136,14 @@
   box-shadow: none;
 }
 
+#manual-sns-publish-btn:disabled:not(.is-loading):not(.is-published),
+#manual-sns-publish-btn:disabled:not(.is-loading):not(.is-published):hover {
+  border-color: var(--ui-border-default);
+  background: var(--ui-surface-muted);
+  color: var(--ui-text-muted);
+  opacity: 1;
+}
+
 #manual-sns-publish-btn.is-loading:disabled {
   cursor: wait;
   opacity: 0.82;
