@@ -4,7 +4,7 @@
 - Branch: `codex/trends-api-cloudflare-workers`
 - Start date: 2026-09-30
 - Base branch: `dev`
-- Status: Implementation and validation complete; ready to merge to `dev`
+- Status: Completed and merged to `dev`; Production collection validation remains an operational follow-up
 
 ## User Need and Goal
 Oracle Cloud Free Tier is resource constrained while serving WordPress and the Trends API. Move the Trends API runtime toward Cloudflare Workers while preserving `trendapi.hangadac.com` and existing client contracts.
@@ -61,3 +61,4 @@ Use `apps/trends/trends-api/docker/` for the existing Node/Docker runtime and `a
 - Production collector ingest through the custom hostname has not yet been exercised; it writes to Production Supabase and should be validated during the user's normal production collection run.
 - The Development collector performed a successful end-to-end run through its Worker hostname. No direct Production write test was run.
 - The Docker service remains available as the Production rollback path pending a normal Production collector run.
+- The feature branch was fast-forward merged into `dev`; no push was requested or performed.
