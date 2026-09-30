@@ -1591,6 +1591,279 @@ async function closeServer(server) {
     await new Promise((resolve) => server.close(resolve));
 }
 
+async function createUiDemoVideo(browser, baseUrl, outputPath) {
+    const outputDirectory = path.dirname(path.resolve(outputPath));
+    const recordingDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'bloggenius-ui-demo-video-'));
+    fs.mkdirSync(outputDirectory, { recursive: true });
+    const context = await browser.newContext({
+        viewport: { width: 1440, height: 1000 },
+        recordVideo: { dir: recordingDirectory, size: { width: 1440, height: 1000 } }
+    });
+    const fixtureOrigin = new URL(baseUrl).origin;
+    await context.addInitScript(() => {
+        localStorage.setItem('bloggenius.ui.style', 'warm-editorial');
+        localStorage.removeItem('sidebar-collapsed');
+    });
+    await context.route('**/*', async (route) => {
+        if (new URL(route.request().url()).origin === fixtureOrigin) return route.continue();
+        return route.abort('blockedbyclient');
+    });
+    const page = await context.newPage();
+    try {
+        await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+        await page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active'));
+        await page.waitForTimeout(900);
+        await page.locator('#sidebar-toggle-btn').click();
+        await page.waitForFunction(() => document.getElementById('sidebar')?.classList.contains('collapsed'));
+        await page.waitForTimeout(850);
+        await page.locator('#sidebar-toggle-btn').click();
+        await page.waitForFunction(() => !document.getElementById('sidebar')?.classList.contains('collapsed'));
+        await page.waitForTimeout(700);
+        await page.locator('.nav-btn[data-view="settings-next"]').click();
+        await page.waitForFunction(() => document.getElementById('view-settings-next')?.classList.contains('active'));
+        await page.locator('[data-settings-next-tab="app"]').click();
+        await page.locator('#settings-next-app-tab-appearance').click();
+        await page.waitForFunction(() => document.getElementById('settings-next-app-panel-appearance')?.hidden === false);
+        await page.waitForTimeout(700);
+        await page.locator('[data-appearance-style="quiet-sage-studio"]').click();
+        await page.waitForFunction(() => document.documentElement.dataset.style === 'quiet-sage-studio');
+        await page.waitForTimeout(1600);
+    } finally {
+        const video = page.video();
+        await context.close();
+        if (video) fs.copyFileSync(await video.path(), path.resolve(outputPath));
+        fs.rmSync(recordingDirectory, { recursive: true, force: true });
+    }
+}
+
+async function createUiOverviewDemoVideo(browser, baseUrl, outputPath) {
+    const outputDirectory = path.dirname(path.resolve(outputPath));
+    const recordingDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'bloggenius-overview-demo-'));
+    fs.mkdirSync(outputDirectory, { recursive: true });
+    const context = await browser.newContext({
+        viewport: { width: 1600, height: 1000 },
+        recordVideo: { dir: recordingDirectory, size: { width: 1600, height: 1000 } }
+    });
+    const fixtureOrigin = new URL(baseUrl).origin;
+    await context.addInitScript(() => {
+        localStorage.setItem('bloggenius.ui.style', 'warm-editorial');
+        localStorage.removeItem('sidebar-collapsed');
+    });
+    await context.route('**/*', async (route) => {
+        if (new URL(route.request().url()).origin === fixtureOrigin) return route.continue();
+        return route.abort('blockedbyclient');
+    });
+    const page = await context.newPage();
+    page.setDefaultTimeout(7000);
+    page.setDefaultNavigationTimeout(30000);
+    const wait = (ms = 1100) => page.waitForTimeout(ms);
+    let demoArtworkBase64 = '';
+    const caption = async (eyebrow, title, detail = '') => {
+        await page.evaluate(({ eyebrow, title, detail }) => {
+            let box = document.getElementById('bloggenius-demo-caption');
+            if (!box) {
+                box = document.createElement('div');
+                box.id = 'bloggenius-demo-caption';
+                box.innerHTML = '<span class="demo-eyebrow"></span><strong></strong><small></small><i></i>';
+                Object.assign(box.style, {
+                    position: 'fixed', zIndex: '2147483647', left: '50%', bottom: '28px', transform: 'translateX(-50%)',
+                    width: 'min(760px, calc(100vw - 64px))', padding: '18px 24px 20px', borderRadius: '18px',
+                    color: '#fff8ed', background: 'rgba(28, 24, 22, .94)', border: '1px solid rgba(255,255,255,.17)',
+                    boxShadow: '0 16px 55px rgba(0,0,0,.36)', backdropFilter: 'blur(12px)',
+                    display: 'grid', gap: '5px', fontFamily: 'inherit', opacity: '0', transition: 'opacity .2s ease'
+                });
+                const style = document.createElement('style');
+                style.textContent = '#bloggenius-demo-caption .demo-eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#e9a66d;font-weight:800}#bloggenius-demo-caption strong{font-size:26px;line-height:1.2}#bloggenius-demo-caption small{font-size:15px;color:#d4c6b2}#bloggenius-demo-caption i{position:absolute;bottom:0;left:24px;right:24px;height:3px;border-radius:3px;background:linear-gradient(90deg,#e28443,#ffd08b)}';
+                document.head.appendChild(style);
+                document.body.appendChild(box);
+            }
+            box.querySelector('.demo-eyebrow').textContent = eyebrow;
+            box.querySelector('strong').textContent = title;
+            box.querySelector('small').textContent = detail;
+            box.style.opacity = '1';
+        }, { eyebrow, title, detail });
+    };
+    const go = async (view, tab) => {
+        await page.evaluate(({ view, tab }) => navigateTo(view, tab), { view, tab });
+        await page.waitForFunction((view) => document.getElementById(`view-${view}`)?.classList.contains('active'), view);
+        await wait(500);
+    };
+    const makeDemoArtwork = async () => page.evaluate(() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 960; canvas.height = 720;
+        const ctx = canvas.getContext('2d');
+        const sky = ctx.createLinearGradient(0, 0, 0, 720);
+        sky.addColorStop(0, '#86c8ec'); sky.addColorStop(.62, '#ffe0a0'); sky.addColorStop(1, '#f6a36b');
+        ctx.fillStyle = sky; ctx.fillRect(0, 0, 960, 720);
+        ctx.fillStyle = 'rgba(255,245,195,.95)'; ctx.beginPath(); ctx.arc(735, 270, 82, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#8aa584'; ctx.beginPath(); ctx.moveTo(0, 450); ctx.quadraticCurveTo(185, 290, 355, 438); ctx.quadraticCurveTo(610, 230, 960, 440); ctx.lineTo(960, 720); ctx.lineTo(0, 720); ctx.fill();
+        ctx.fillStyle = '#587c68'; ctx.beginPath(); ctx.moveTo(0, 520); ctx.quadraticCurveTo(250, 370, 470, 520); ctx.quadraticCurveTo(710, 370, 960, 510); ctx.lineTo(960, 720); ctx.lineTo(0, 720); ctx.fill();
+        ctx.fillStyle = '#e9b666'; ctx.beginPath(); ctx.moveTo(0, 615); ctx.quadraticCurveTo(270, 540, 510, 650); ctx.quadraticCurveTo(690, 710, 960, 600); ctx.lineTo(960, 720); ctx.lineTo(0, 720); ctx.fill();
+        for (let i = 0; i < 38; i++) { const x = (i * 173) % 960; const y = 530 + ((i * 79) % 175); ctx.fillStyle = i % 2 ? '#fff1cf' : '#d58f55'; ctx.beginPath(); ctx.arc(x, y, 3 + i % 5, 0, Math.PI * 2); ctx.fill(); }
+        return canvas.toDataURL('image/png').split(',')[1];
+    });
+
+    try {
+        await page.route('**/api/v1/social/manual/config', (route) => route.fulfill({
+            status: 200, contentType: 'application/json; charset=utf-8',
+            body: JSON.stringify({ success: true, data: { configured: true, local_media_available: true, organizations: [], channels: [], image_ai: { available: true, model_name: 'Demo Image Model' } } })
+        }));
+        await page.route('**/api/v1/social/manual/image', (route) => route.fulfill({
+            status: 200, contentType: 'application/json; charset=utf-8',
+            body: JSON.stringify({ success: true, data: { operationId: 'overview-demo-image', state: 'running', canCancel: true, remoteJobPossible: false } })
+        }));
+        await page.route('**/api/v1/social/manual/image-operations/overview-demo-image', (route) => route.fulfill({
+            status: 200, contentType: 'application/json; charset=utf-8',
+            body: JSON.stringify({ success: true, data: { operationId: 'overview-demo-image', state: 'completed', canCancel: false, remoteJobPossible: false, result: { file_name: 'demo-sns-image.png', mime_type: 'image/png', base64_data: demoArtworkBase64, model_name: 'Demo Image Model' } } })
+        }));
+        await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+        await page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active'));
+        demoArtworkBase64 = await makeDemoArtwork();
+        await page.locator('.ui-toast-close').evaluateAll((buttons) => buttons.forEach((button) => button.click()));
+        await caption('BlogGenius · QUICK TOUR', '아이디어에서 발행까지', '블로그·카드뉴스·SNS를 한 흐름으로');
+        await wait(1800);
+
+        await caption('01 · DASHBOARD', '오늘 할 일을 한눈에', '콘텐츠 작업의 시작점');
+        await wait(1300);
+        await page.locator('#sidebar-toggle-btn').click(); await wait(550);
+        await page.locator('#sidebar-toggle-btn').click(); await wait(650);
+
+        await caption('02 · FOCUS', '집중 타이머로 리듬을 만들고', '대시보드에서 바로 실행');
+        const dashboardClock = page.locator('#view-dashboard-beta .clock-style-button');
+        await dashboardClock.click(); await wait(300);
+        await page.locator('#view-dashboard-beta .clock-style-menu').locator('[data-clock-mode="timer"]').click(); await wait(300);
+        await page.locator('#view-dashboard-beta .clock-style-menu').locator('[data-timer-action="start-focus"]').click(); await wait(1000);
+
+        await caption('03 · YOUR SPACE', '취향에 맞게 분위기를 바꾸고', '스타일은 화면마다 자연스럽게 이어집니다');
+        await go('settings-next');
+        await page.locator('[data-settings-next-tab="app"]').click();
+        await page.locator('#settings-next-app-tab-appearance').click();
+        await page.locator('[data-appearance-style="quiet-sage-studio"]').click(); await wait(450);
+        await go('dashboard-beta'); await wait(450);
+        await caption('STYLE A · DASHBOARD', '차분한 대시보드', '스타일 A'); await wait(950);
+        await go('settings-next'); await page.locator('[data-settings-next-tab="app"]').click(); await page.locator('#settings-next-app-tab-appearance').click();
+        await page.locator('[data-appearance-style="autumn-night-library"]').click(); await wait(400);
+        await go('blog-next', 'quick');
+        await caption('STYLE B · BLOG', '블로그 작업도 다른 분위기로', '스타일 B'); await wait(1050);
+        await go('settings-next'); await page.locator('[data-settings-next-tab="app"]').click(); await page.locator('#settings-next-app-tab-appearance').click();
+        await page.locator('[data-appearance-style="hanji-dancheong"]').click(); await wait(400);
+        await go('card-news');
+        await caption('STYLE C · CARD NEWS', '카드뉴스까지 한결같이', '스타일 C'); await wait(1200);
+
+        await caption('04 · DISCOVER', '지금 주목받는 주제를 찾고', '트렌드 탐색으로 다음 글감을 발견');
+        await go('blog-next', 'trend-posting');
+        await page.locator('[data-blog-next-tab="trend-posting"]').click(); await wait(700);
+        await page.evaluate(() => {
+            const categories = ['여행', '맛집', '라이프'];
+            const latestTrendDate = '2026-09-29';
+            blogNextTrendState.meta = { categories, dateRange: { min: '2026-09-23', max: latestTrendDate } };
+            blogNextTrendState.queryRange = { dateFrom: '2026-09-23', dateTo: latestTrendDate };
+            renderBlogNextTrendCategories(categories, ['여행']);
+            renderBlogNextTrendResults([
+                { id: 'demo-trend-jeju', keyword: '제주 가을 여행', latestTrendDate, categories: ['여행'], change: { type: 'up', amount: 38, raw: '38↑' } },
+                { id: 'demo-trend-walk', keyword: '가을 산책 코스', latestTrendDate, categories: ['여행'], change: { type: 'up', amount: 21, raw: '21↑' } },
+                { id: 'demo-trend-cafe', keyword: '제주 감성 카페', latestTrendDate, categories: ['여행', '맛집'], change: { type: 'new', raw: '신규' } }
+            ]);
+            const period = document.getElementById('blog-next-trend-period');
+            const latestOption = period?.querySelector('option[value="latest"]');
+            if (period) period.value = 'latest';
+            if (latestOption) latestOption.textContent = '최신 데이터 (9월 29일)';
+            ['from', 'to'].forEach((side) => {
+                const input = document.getElementById(`blog-next-trend-date-${side}`);
+                if (input) input.value = side === 'from' ? '2026-09-23' : latestTrendDate;
+            });
+            const badge = document.getElementById('blog-next-trend-latest-badge');
+            if (badge) { badge.dataset.state = 'ready'; badge.textContent = '최신 데이터 9월 29일'; }
+        });
+        await wait(1700);
+
+        await caption('05 · IDEAS', 'AI가 글감을 제안하고', '관심 주제에서 시작하는 글쓰기');
+        await page.locator('[data-blog-next-tab="quick"]').click(); await wait(400);
+        await page.locator('#blog-next-topic-recommend').click();
+        await page.waitForFunction(() => !document.getElementById('quick-discovery-modal')?.classList.contains('hidden'));
+        await wait(1400);
+        await page.keyboard.press('Escape'); await wait(250);
+
+        await caption('06 · KEYWORDS', '키워드를 살펴 제목을 고르고', '검색 수요와 경쟁도를 함께 확인');
+        await page.locator('#blog-next-subject').fill('제주 봄 여행의 작은 발견');
+        await page.locator('#blog-next-keyword-recommend').click(); await wait(1400);
+        await page.keyboard.press('Escape'); await wait(350);
+
+        await caption('07 · WRITE', '원고는 블록으로 다듬고', '이미지 블록도 글 안에서 함께 준비');
+        await page.evaluate(() => {
+            const root = document.getElementById('blog-next-ai-editor');
+            const workspace = document.querySelector('[data-ai-editor-workspace]');
+            const rail = document.querySelector('[data-ai-editor-rail]');
+            const markdown = document.getElementById('blog-next-ai-markdown');
+            const text = '# 제주 봄 여행의 작은 발견\n\n벚꽃길을 따라 걷다 보면 익숙한 풍경도 새롭게 보입니다.\n\n[[IMAGE_0\ntitle: 햇살 아래 봄 산책\nprompt: 벚꽃길을 걷는 장면, 따뜻한 봄 햇살의 수채화풍\n]]\n\n천천히 걷고 오래 기억할 하루를 만나보세요.';
+            blogNextDraftState.ai.editor?.setMarkdown(text);
+            if (markdown) markdown.value = text;
+            if (workspace) workspace.hidden = false;
+            if (rail) rail.hidden = false;
+            if (root) root.hidden = false;
+            document.querySelector('[data-blog-next-ai-step="preview"]')?.removeAttribute('hidden');
+        });
+        await wait(1700);
+        await page.evaluate(() => document.querySelector('[aria-label="이미지 생성 프롬프트 편집"]')?.scrollIntoView({ block: 'center' }));
+        await wait(700);
+
+        await caption('08 · NAVER', '네이버 임시 저장도 준비 완료', '실제 발행 없이 설정 화면만 시연합니다');
+        await page.locator('#blog-next-publish-settings').evaluate((element) => { element.hidden = false; element.open = true; });
+        await page.locator('#blog-next-post-status').selectOption('draft').catch(() => {});
+        await page.locator('#blog-next-runner-headless').check().catch(() => {});
+        await wait(1400);
+
+        await caption('09 · CARD NEWS', '블로그 원고를 카드뉴스로', '구성부터 이미지까지 한 번에 이어서');
+        await go('card-news');
+        await page.evaluate((base64) => {
+            const imageUrl = `data:image/png;base64,${base64}`;
+            renderCardNewsGeneration({
+                id: 'overview-demo-generation', title: '제주 봄 여행의 작은 발견', image_mode: 'generate', status: 'completed',
+                settings: { aspect_ratio: '4:5' }, cards: [
+                    { index: 1, headline: '벚꽃길을 따라 만난 봄', body: '익숙한 길도 천천히 걸으면 새로운 풍경이 됩니다.', image_prompt: '제주 봄 풍경', image_url: imageUrl, download_url: imageUrl },
+                    { index: 2, headline: '햇살 아래 잠깐의 쉼', body: '따뜻한 바람과 함께 하루를 채워 보세요.', image_prompt: '햇살 가득한 산책', image_url: imageUrl, download_url: imageUrl },
+                    { index: 3, headline: '기억하고 싶은 하루', body: '좋은 순간은 나누면 더 오래 남습니다.', image_prompt: '봄날의 기록', image_url: imageUrl, download_url: imageUrl }
+                ]
+            }, { scroll: false });
+        }, demoArtworkBase64);
+        await page.evaluate(() => document.getElementById('card-news-result-panel')?.scrollIntoView({ block: 'start' }));
+        await wait(1800);
+
+        await caption('10 · SOCIAL', 'SNS 글에 어울리는 이미지까지', '본문과 추가 요청을 함께 반영하는 생성 흐름');
+        await go('social');
+        await page.evaluate(() => {
+            manualSnsConfig = { ...manualSnsConfig, local_media_available: true, image_ai: { available: true, model_name: 'Demo Image Model' } };
+            syncManualSnsComposerState();
+        });
+        await page.locator('#manual-sns-text').fill('고향의 봄, 천천히 걷고 싶은 오늘');
+        await wait(450);
+        await page.locator('#manual-sns-image-grid .social-local-image-ai-trigger').click();
+        await wait(450);
+        await page.locator('#manual-sns-image-instruction').fill('벚꽃길을 걷는 장면, 따뜻한 봄 햇살의 수채화풍');
+        await page.locator('#manual-sns-image-generate-btn').click();
+        await page.waitForFunction(() => document.querySelectorAll('.social-local-image-tile img').length > 0, null, { timeout: 7000 }).catch(() => {});
+        await wait(1300);
+
+        await caption('11 · READY TO SHARE', '만든 이미지는 저장하고, 다시 활용하고', '소중한 콘텐츠 자산을 내 것으로'); await wait(1200);
+
+        await page.evaluate(() => {
+            const veil = document.createElement('div');
+            veil.id = 'bloggenius-demo-finale';
+            veil.innerHTML = '<div class="demo-fireworks">✦　✧　✦　✧　✦<br>🎆　✦　🎇　✧　🎆</div><strong>BlogGenius</strong><span>아이디어에서 발행까지, 한 곳에서.</span><small>데모 화면 · 외부 서비스 요청 없음</small>';
+            Object.assign(veil.style, { position: 'fixed', inset: '0', zIndex: '2147483647', display: 'grid', placeContent: 'center', textAlign: 'center', gap: '14px', color: '#fff6e8', background: 'radial-gradient(circle at 50% 45%, rgba(167,86,47,.94), rgba(24,20,21,.98) 65%)', fontFamily: 'inherit' });
+            const style = document.createElement('style');
+            style.textContent = '#bloggenius-demo-finale strong{font-size:60px;letter-spacing:-.04em}#bloggenius-demo-finale span{font-size:25px;color:#f1d5b5}#bloggenius-demo-finale small{font-size:14px;opacity:.72}.demo-fireworks{font-size:48px;line-height:1.35;color:#ffd48e;animation:demo-pop .7s ease-in-out infinite alternate}@keyframes demo-pop{to{transform:scale(1.08);filter:brightness(1.4)}}';
+            document.head.appendChild(style); document.body.appendChild(veil);
+        });
+        await wait(2600);
+    } finally {
+        const video = page.video();
+        await context.close();
+        if (video) fs.copyFileSync(await video.path(), path.resolve(outputPath));
+        fs.rmSync(recordingDirectory, { recursive: true, force: true });
+    }
+}
+
 async function run() {
     const requests = [];
     const consoleErrors = [];
@@ -1652,6 +1925,17 @@ async function run() {
         await awaitSmokeCheck('Waiting for app navigation API', page.waitForFunction(() => typeof window.navigateTo === 'function'));
         await awaitSmokeCheck('Waiting for Dashboard Beta activation', page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active')));
         await awaitSmokeCheck('Waiting for Dashboard Beta initial flow state', page.waitForFunction(() => document.getElementById('dashboard-beta-flow-subject')?.textContent === '현재 실행 중인 글이 없습니다.'));
+        if (process.env.UI_BROWSER_DEMO_VIDEO_PATH) {
+            const scenario = process.env.UI_BROWSER_DEMO_SCENARIO || 'sidebar-style';
+            if (scenario === 'overview-a-to-z') {
+                await createUiOverviewDemoVideo(browser, baseUrl, process.env.UI_BROWSER_DEMO_VIDEO_PATH);
+            } else {
+                await createUiDemoVideo(browser, baseUrl, process.env.UI_BROWSER_DEMO_VIDEO_PATH);
+            }
+            console.log(`✅ UI demo video saved: ${path.resolve(process.env.UI_BROWSER_DEMO_VIDEO_PATH)}`);
+            await context.close();
+            return;
+        }
         assert.equal(await page.locator('.main').evaluate((element) => getComputedStyle(element).paddingLeft), '20px');
         assert.equal(await page.locator('.main').evaluate((element) => getComputedStyle(element).paddingRight), '20px');
         reportSmokePhase('Checking dashboard navigation, onboarding, and discovery');
