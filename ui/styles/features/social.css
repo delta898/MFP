@@ -241,6 +241,15 @@
   display: inline-flex;
 }
 
+.social-ai-confirm-actions {
+  align-items: center;
+  gap: 8px;
+}
+
+.social-ai-confirm-actions:not([hidden]) {
+  display: inline-flex;
+}
+
 .social-ai-tooltip {
   position: absolute;
   z-index: 100;

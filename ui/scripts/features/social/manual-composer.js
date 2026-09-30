@@ -66,6 +66,15 @@ function getManualSnsSelectedChannels() {
     .filter((channel) => selectedIds.has(String(channel.id || '').trim()));
 }
 
+function getManualSnsAssetLimitExceededChannel(images = manualSnsLocalImages) {
+  const imageCount = Array.isArray(images) ? images.length : 0;
+  if (imageCount === 0) return null;
+  const exceeded = getManualSnsSelectedChannels()
+    .filter((channel) => imageCount > Math.max(1, Number(channel.max_assets) || 1))
+    .sort((left, right) => Number(left.max_assets || 1) - Number(right.max_assets || 1));
+  return exceeded[0] || null;
+}
+
 function getManualSnsPublishSignature() {
   const text = String(document.getElementById('manual-sns-text')?.value || '').trim();
   const channelIds = getManualSnsSelectedChannels()
@@ -86,6 +95,9 @@ function getManualSnsImageValidation() {
   const files = manualSnsLocalImages.map(({ file }) => file);
   if (files.length > 0 && manualSnsConfig.local_media_available !== true) {
     return { valid: false, mode: 'local', hasImage: false, files, message: '로컬 이미지를 사용하려면 Google 계정을 먼저 연결해 주세요.' };
+  }
+  if (files.length > 10) {
+    return { valid: false, mode: 'local', hasImage: true, files, message: '이미지는 최대 10장까지 선택할 수 있습니다.' };
   }
   if (files.length === 0) return { valid: true, mode: 'local', hasImage: false, files };
   const allowedTypes = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
@@ -112,18 +124,20 @@ function getManualSnsImageValidation() {
   if (totalBytes > 60 * 1024 * 1024) {
     return { valid: false, mode: 'local', hasImage: true, files, message: '선택한 이미지의 전체 크기는 최대 60MB까지 사용할 수 있습니다.' };
   }
-  if (files.length > 10) {
-    return { valid: false, mode: 'local', hasImage: true, files, message: '로컬 이미지는 최대 10장까지 선택할 수 있습니다.' };
-  }
   return { valid: true, mode: 'local', hasImage: true, files, file: files[0] };
 }
 
 function addManualSnsLocalImageFiles(files = [], { generated = false, instruction = '' } = {}) {
   if (manualSnsPublishingInFlight || (manualSnsImageGenerationInFlight && !generated)) return;
   const existingKeys = new Set(manualSnsLocalImages.map(({ file }) => `${file.name}:${file.size}:${file.lastModified}`));
+  let skippedForCapacity = false;
   Array.from(files).forEach((file) => {
     const key = `${file.name}:${file.size}:${file.lastModified}`;
     if (!existingKeys.has(key)) {
+      if (manualSnsLocalImages.length >= 10) {
+        skippedForCapacity = true;
+        return;
+      }
       manualSnsLocalImages.push({
         file,
         previewUrl: URL.createObjectURL(file),
@@ -132,6 +146,7 @@ function addManualSnsLocalImageFiles(files = [], { generated = false, instructio
       existingKeys.add(key);
     }
   });
+  if (skippedForCapacity) renderManualSnsImageGenerationStatus('이미지는 최대 10장까지 추가할 수 있습니다. 초과한 파일은 추가되지 않았습니다.', true);
 }
 
 function replaceManualSnsLocalImage(index, file, instruction = '') {
@@ -170,15 +185,16 @@ function syncManualSnsImageGenerationControls() {
   const imageFileEl = document.getElementById('manual-sns-image-file');
   const activeOperation = manualSnsImageOperation;
   const stopButton = document.getElementById('manual-sns-image-generate-btn');
+  const canAddImage = manualSnsLocalImages.length < 10 || manualSnsImagePromptTargetIndex !== null;
   const stopConfirming = activeOperation?.confirmingStop === true;
   const hasPostText = Boolean(String(document.getElementById('manual-sns-text')?.value || '').trim());
   const canGenerate = !manualSnsPublishingInFlight && !manualSnsImageGenerationInFlight
     && hasPostText
     && manualSnsConfig.image_ai?.available === true
     && manualSnsConfig.local_media_available === true;
-  if (imageFileEl) imageFileEl.disabled = manualSnsPublishingInFlight || manualSnsImageGenerationInFlight || manualSnsConfig.local_media_available !== true;
+  if (imageFileEl) imageFileEl.disabled = manualSnsPublishingInFlight || manualSnsImageGenerationInFlight || manualSnsConfig.local_media_available !== true || !canAddImage;
   document.querySelectorAll('.social-local-image-ai-trigger').forEach((button) => {
-    button.disabled = !canGenerate;
+    button.disabled = !canGenerate || !canAddImage;
   });
   document.querySelectorAll('.social-local-image-regenerate').forEach((button) => {
     button.disabled = manualSnsPublishingInFlight || manualSnsImageGenerationInFlight
@@ -192,14 +208,16 @@ function syncManualSnsImageGenerationControls() {
       : !canGenerate);
   }
   const localButton = document.querySelector('.social-local-image-plus');
-  if (localButton) localButton.disabled = manualSnsPublishingInFlight || manualSnsImageGenerationInFlight || manualSnsConfig.local_media_available !== true;
+  if (localButton) localButton.disabled = manualSnsPublishingInFlight || manualSnsImageGenerationInFlight || manualSnsConfig.local_media_available !== true || !canAddImage;
 }
 
 function syncManualSnsImagePreview() {
   const imageFileEl = document.getElementById('manual-sns-image-file');
   const gridEl = document.getElementById('manual-sns-image-grid');
+  const capacityEl = document.getElementById('manual-sns-image-capacity');
+  if (capacityEl) capacityEl.textContent = `이미지 ${manualSnsLocalImages.length}/10장 · 채널별 제한은 발행 시 확인합니다.`;
   syncManualSnsImageSourceUi();
-  if (imageFileEl) imageFileEl.disabled = manualSnsPublishingInFlight || manualSnsImageGenerationInFlight || manualSnsConfig.local_media_available !== true;
+  if (imageFileEl) imageFileEl.disabled = manualSnsPublishingInFlight || manualSnsImageGenerationInFlight || manualSnsConfig.local_media_available !== true || manualSnsLocalImages.length >= 10;
   if (gridEl) {
     gridEl.replaceChildren();
     manualSnsLocalImages.forEach(({ file, previewUrl, generatedInstruction }, index) => {
@@ -210,7 +228,7 @@ function syncManualSnsImagePreview() {
       tile.dataset.imageIndex = String(index);
       const image = document.createElement('img');
       image.src = previewUrl;
-      image.alt = `${index + 1}번 이미지: ${file.name}`;
+      image.alt = `${index + 1}번 이미지`;
       const order = document.createElement('span');
       order.className = 'social-local-image-order';
       order.textContent = String(index + 1);
@@ -262,8 +280,6 @@ function syncManualSnsImagePreview() {
           element.classList.remove('is-dragging', 'is-drop-before', 'is-drop-after');
         });
       });
-      const caption = isAiGenerated ? null : document.createElement('figcaption');
-      if (caption) caption.textContent = file.name;
       const actions = document.createElement('div');
       actions.className = 'social-local-image-tile-actions';
       if (isAiGenerated) {
@@ -298,9 +314,7 @@ function syncManualSnsImagePreview() {
       download.textContent = '받기';
       download.setAttribute('aria-label', `${index + 1}번 이미지 받기`);
       actions.appendChild(download);
-      tile.append(image, order, remove);
-      if (caption) tile.appendChild(caption);
-      tile.appendChild(actions);
+      tile.append(image, order, remove, actions);
       gridEl.appendChild(tile);
     });
 
@@ -370,10 +384,40 @@ function syncManualSnsImagePreview() {
           : operation?.canCancel === false ? '마무리 중…'
             : stopConfirming ? '중지 확인' : '중지'
         : manualSnsImagePromptTargetIndex !== null ? '재생성' : '생성';
+      const generateLabel = operationPending
+        ? operation?.state === 'cancel_requested' ? '중지 요청 중'
+          : operation?.state === 'starting' ? '준비 중'
+          : operation?.canCancel === false ? '마무리 중'
+            : stopConfirming ? '중지 확인' : '중지'
+        : manualSnsImagePromptTargetIndex !== null ? '이미지 재생성' : '이미지 생성';
+      generate.setAttribute('aria-label', generateLabel);
       const modelName = String(manualSnsConfig.image_ai?.model_name || '').trim();
       generate.title = operationPending
         ? '이미지 생성 중지'
         : `AI 이미지 모델${modelName ? `: ${modelName}` : ''} · 사용량에 따라 비용이 발생할 수 있습니다.`;
+      const makeActionIcon = (paths) => {
+        const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        icon.setAttribute('viewBox', '0 0 24 24');
+        icon.setAttribute('fill', 'none');
+        icon.setAttribute('aria-hidden', 'true');
+        for (const pathData of paths) {
+          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          path.setAttribute('d', pathData);
+          icon.appendChild(path);
+        }
+        return icon;
+      };
+      const generateText = document.createElement('span');
+      generateText.className = 'visually-hidden';
+      generateText.textContent = operationPending
+        ? operation?.state === 'cancel_requested' ? '중지 요청 중…'
+          : operation?.state === 'starting' ? '준비 중…'
+          : operation?.canCancel === false ? '마무리 중…'
+            : stopConfirming ? '중지 확인' : '중지'
+        : manualSnsImagePromptTargetIndex !== null ? '재생성' : '생성';
+      generate.replaceChildren(makeActionIcon(operationPending
+        ? stopConfirming ? ['m5 12 4 4L19 6'] : ['M8 8h8v8H8z']
+        : ['M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z', 'M19 15l1 2.5 2.5 1-2.5 1L19 22l-1-2.5-2.5-1 2.5-1L19 15z']), generateText);
       generate.addEventListener('click', () => {
         if (operationPending) void handleManualSnsImageStop();
         else void generateManualSnsImage();
@@ -382,10 +426,15 @@ function syncManualSnsImagePreview() {
       const cancel = document.createElement('button');
       cancel.type = 'button';
       cancel.className = 'secondary compact social-local-image-cancel';
-      if (operationPending && stopConfirming) cancel.removeAttribute('aria-label');
-      else cancel.setAttribute('aria-label', operationPending ? '중지 확인 취소' : '이미지 요청 취소');
+      cancel.setAttribute('aria-label', operationPending && stopConfirming ? '계속 진행' : operationPending ? '중지 확인 취소' : '이미지 요청 취소');
       cancel.title = operationPending ? (stopConfirming ? '계속 진행' : '중지 확인') : '요청 편집 취소';
       cancel.textContent = operationPending && stopConfirming ? '계속 진행' : '취소';
+      const cancelText = document.createElement('span');
+      cancelText.className = 'visually-hidden';
+      cancelText.textContent = operationPending && stopConfirming ? '계속 진행' : '취소';
+      cancel.replaceChildren(makeActionIcon(operationPending && stopConfirming
+        ? ['M8 5v14l11-7-11-7z']
+        : ['M6 6l12 12M18 6 6 18']), cancelText);
       cancel.hidden = operationPending && !stopConfirming;
       cancel.disabled = manualSnsPublishingInFlight || (operationPending
         ? !stopConfirming || operation?.state === 'cancel_requested' || operation?.canCancel === false
@@ -409,13 +458,23 @@ function syncManualSnsImagePreview() {
       promptRow.append(generate, cancel);
       footer.append(promptRow);
     } else {
+      footer.classList.add('is-idle-actions');
       const actions = document.createElement('div');
       actions.className = 'social-local-image-add-actions';
       const aiButton = document.createElement('button');
       aiButton.type = 'button';
-      aiButton.className = 'primary compact social-local-image-ai-trigger';
-      aiButton.textContent = 'AI 이미지 만들기';
-      aiButton.disabled = manualSnsPublishingInFlight || manualSnsImageGenerationInFlight
+      aiButton.className = 'secondary compact social-local-image-ai-trigger';
+      aiButton.setAttribute('aria-label', 'AI 이미지 생성');
+      aiButton.title = 'AI 이미지 생성';
+      const aiImageIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      aiImageIcon.setAttribute('class', 'social-local-image-ai-icon');
+      aiImageIcon.setAttribute('viewBox', '0 0 24 24');
+      aiImageIcon.setAttribute('fill', 'none');
+      aiImageIcon.setAttribute('aria-hidden', 'true');
+      aiImageIcon.innerHTML = '<rect x="3.5" y="5.5" width="14" height="13" rx="2"/><circle cx="13.2" cy="9.6" r="1.4"/><path d="m5.4 16 4.1-4.1 2.4 2.4 1.5-1.5 2.2 2.2M19 3.3l.8 2.1 2.1.8-2.1.8-.8 2.1-.8-2.1-2.1-.8 2.1-.8.8-2.1Z"/><path d="m19.4 13.4.5 1.3 1.3.5-1.3.5-.5 1.3-.5-1.3-1.3-.5 1.3-.5.5-1.3Z"/>';
+      aiButton.appendChild(aiImageIcon);
+      const canAddImage = manualSnsLocalImages.length < 10;
+      aiButton.disabled = manualSnsPublishingInFlight || manualSnsImageGenerationInFlight || !canAddImage
         || !String(document.getElementById('manual-sns-text')?.value || '').trim()
         || manualSnsConfig.image_ai?.available !== true
         || manualSnsConfig.local_media_available !== true;
@@ -432,15 +491,142 @@ function syncManualSnsImagePreview() {
       localButton.setAttribute('aria-label', '로컬 이미지 선택');
       localButton.title = '로컬 이미지 선택';
       localButton.textContent = '+';
-      localButton.disabled = manualSnsPublishingInFlight || manualSnsImageGenerationInFlight || manualSnsConfig.local_media_available !== true;
+      localButton.disabled = manualSnsPublishingInFlight || manualSnsImageGenerationInFlight || manualSnsConfig.local_media_available !== true || !canAddImage;
       localButton.addEventListener('click', () => imageFileEl?.click());
       actions.append(aiButton, localButton);
       footer.append(actions);
     }
     addTile.append(footer);
-    gridEl.appendChild(addTile);
+    gridEl.prepend(addTile);
   }
   syncManualSnsImageGenerationControls();
+  syncManualSnsLivePreview();
+}
+
+function syncManualSnsLivePreview() {
+  const textEl = document.getElementById('manual-sns-preview-text');
+  const mediaEl = document.getElementById('manual-sns-preview-media');
+  const paginationEl = document.getElementById('manual-sns-preview-pagination');
+  if (!textEl || !mediaEl || !paginationEl) return;
+
+  const text = String(document.getElementById('manual-sns-text')?.value || '').trim();
+  textEl.textContent = text || '게시물 내용이 여기에 표시됩니다.';
+  textEl.classList.toggle('is-empty', !text);
+  mediaEl.replaceChildren();
+  paginationEl.replaceChildren();
+
+  if (manualSnsLocalImages.length === 0) {
+    manualSnsPreviewImageIndex = 0;
+    mediaEl.classList.add('is-empty');
+    mediaEl.style.removeProperty('--social-preview-ratio');
+    mediaEl.style.removeProperty('width');
+    const emptyState = document.createElement('div');
+    emptyState.className = 'social-live-preview-empty-state';
+    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    icon.setAttribute('class', 'social-live-preview-empty-icon');
+    icon.setAttribute('viewBox', '0 0 48 48');
+    icon.setAttribute('fill', 'none');
+    icon.setAttribute('aria-hidden', 'true');
+    const iconFrame = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    iconFrame.setAttribute('x', '5');
+    iconFrame.setAttribute('y', '8');
+    iconFrame.setAttribute('width', '38');
+    iconFrame.setAttribute('height', '31');
+    iconFrame.setAttribute('rx', '4');
+    const iconSun = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    iconSun.setAttribute('cx', '32');
+    iconSun.setAttribute('cy', '18');
+    iconSun.setAttribute('r', '3');
+    const iconLandscape = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    iconLandscape.setAttribute('d', 'm9 34 10-10 7 7 5-5 8 8');
+    icon.append(iconFrame, iconSun, iconLandscape);
+    const empty = document.createElement('p');
+    empty.className = 'social-live-preview-empty';
+    empty.textContent = '이미지를 선택하면 여기에 표시됩니다.';
+    emptyState.append(icon, empty);
+    mediaEl.appendChild(emptyState);
+    paginationEl.hidden = true;
+    return;
+  }
+
+  mediaEl.classList.remove('is-empty');
+  manualSnsPreviewImageIndex = Math.min(manualSnsPreviewImageIndex, manualSnsLocalImages.length - 1);
+  const activeImage = manualSnsLocalImages[manualSnsPreviewImageIndex];
+  const image = document.createElement('img');
+  image.src = activeImage.previewUrl;
+  image.alt = `${manualSnsPreviewImageIndex + 1}번 이미지 미리보기`;
+  image.draggable = false;
+  mediaEl.appendChild(image);
+  if (manualSnsLocalImages.length > 1) {
+    const makeArrow = (direction) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `social-live-preview-arrow is-${direction}`;
+      button.setAttribute('aria-label', direction === 'previous' ? '이전 이미지' : '다음 이미지');
+      button.textContent = direction === 'previous' ? '‹' : '›';
+      button.addEventListener('click', () => {
+        const offset = direction === 'previous' ? -1 : 1;
+        manualSnsPreviewImageIndex = (manualSnsPreviewImageIndex + offset + manualSnsLocalImages.length) % manualSnsLocalImages.length;
+        syncManualSnsLivePreview();
+      });
+      return button;
+    };
+    mediaEl.append(makeArrow('previous'), makeArrow('next'));
+  }
+  const updatePreviewImageFrame = () => {
+    const currentImage = mediaEl.querySelector('img');
+    if (!currentImage?.naturalWidth || !currentImage?.naturalHeight) return;
+    const ratio = currentImage.naturalWidth / currentImage.naturalHeight;
+    const maxHeight = Math.min(window.innerHeight * 0.58, 620);
+    const preview = mediaEl.parentElement;
+    const previewStyle = preview ? window.getComputedStyle(preview) : null;
+    const horizontalPadding = previewStyle
+      ? Number.parseFloat(previewStyle.paddingLeft || '0') + Number.parseFloat(previewStyle.paddingRight || '0')
+      : 0;
+    const availableWidth = Math.min(460, Math.max(1, (preview?.clientWidth || 460) - horizontalPadding));
+    mediaEl.style.setProperty('--social-preview-ratio', `${currentImage.naturalWidth} / ${currentImage.naturalHeight}`);
+    mediaEl.style.width = `${Math.max(1, Math.min(availableWidth, maxHeight * ratio))}px`;
+  };
+  image.addEventListener('load', updatePreviewImageFrame, { once: true });
+  if (image.complete) updatePreviewImageFrame();
+  if (mediaEl.dataset.resizeBound !== 'true') {
+    window.addEventListener('resize', updatePreviewImageFrame);
+    mediaEl.dataset.resizeBound = 'true';
+  }
+  paginationEl.hidden = manualSnsLocalImages.length < 2;
+
+  if (mediaEl.dataset.swipeBound !== 'true') {
+    let pointerStartX = null;
+    mediaEl.addEventListener('pointerdown', (event) => {
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      pointerStartX = event.clientX;
+    });
+    mediaEl.addEventListener('pointerup', (event) => {
+      if (pointerStartX === null || manualSnsLocalImages.length < 2) return;
+      const deltaX = event.clientX - pointerStartX;
+      pointerStartX = null;
+      if (Math.abs(deltaX) < 44) return;
+      const direction = deltaX < 0 ? 1 : -1;
+      manualSnsPreviewImageIndex = (manualSnsPreviewImageIndex + direction + manualSnsLocalImages.length) % manualSnsLocalImages.length;
+      syncManualSnsLivePreview();
+    });
+    mediaEl.addEventListener('pointercancel', () => { pointerStartX = null; });
+    mediaEl.dataset.swipeBound = 'true';
+  }
+
+  manualSnsLocalImages.forEach((_item, index) => {
+    const dot = document.createElement('button');
+    dot.type = 'button';
+    dot.className = 'social-live-preview-dot';
+    dot.classList.toggle('is-active', index === manualSnsPreviewImageIndex);
+    dot.setAttribute('aria-label', `${index + 1}번 이미지 보기`);
+    dot.setAttribute('aria-pressed', String(index === manualSnsPreviewImageIndex));
+    dot.addEventListener('click', () => {
+      manualSnsPreviewImageIndex = index;
+      syncManualSnsLivePreview();
+    });
+    paginationEl.appendChild(dot);
+  });
 }
 
 function syncManualSnsComposerState() {
@@ -453,9 +639,13 @@ function syncManualSnsComposerState() {
   const selectAllEl = document.getElementById('manual-sns-select-all');
   const optimizeBtn = document.getElementById('manual-sns-ai-optimize-btn');
   const optimizeActionEl = document.getElementById('manual-sns-ai-action');
+  const optimizeConfirmActionsEl = document.getElementById('manual-sns-ai-confirm-actions');
+  const optimizeConfirmBtn = document.getElementById('manual-sns-ai-confirm-btn');
+  const optimizeCancelBtn = document.getElementById('manual-sns-ai-cancel-btn');
   const undoBtn = document.getElementById('manual-sns-ai-undo-btn');
   const imageFileEl = document.getElementById('manual-sns-image-file');
   const text = String(textEl?.value || '').trim();
+  syncManualSnsLivePreview();
   const characterCount = Array.from(text).length;
   const selectedChannels = getManualSnsSelectedChannels();
   const image = getManualSnsImageValidation();
@@ -473,12 +663,8 @@ function syncManualSnsComposerState() {
   } else if (!image.valid) {
     errorMessage = image.message;
   } else {
-    const assetLimitExceeded = selectedChannels.find((channel) => image.hasImage && Number(channel.max_assets || 1) < (image.files?.length || 1));
-    if (assetLimitExceeded) {
-      errorMessage = `${assetLimitExceeded.name || assetLimitExceeded.service} 채널은 이미지를 최대 ${assetLimitExceeded.max_assets}장까지 지원합니다.`;
-    }
     const imageRequired = selectedChannels.find((channel) => channel.image_required === true);
-    if (!errorMessage && imageRequired && !image.hasImage) {
+    if (imageRequired && !image.hasImage) {
       errorMessage = `${imageRequired.name || imageRequired.service} 채널은 이미지가 필요합니다.`;
     }
   }
@@ -511,9 +697,18 @@ function syncManualSnsComposerState() {
   }
   if (optimizeBtn) {
     const aiAvailable = manualSnsConfig.ai?.available === true;
-    if (optimizeActionEl) optimizeActionEl.hidden = !aiAvailable;
-    optimizeBtn.disabled = manualSnsPublishingInFlight || manualSnsOptimizationInFlight || selectedChannels.length === 0 || !text;
+    if (optimizeActionEl) optimizeActionEl.hidden = !aiAvailable || manualSnsOptimizationConfirmOpen;
+    if (optimizeConfirmActionsEl) optimizeConfirmActionsEl.hidden = !aiAvailable || !manualSnsOptimizationConfirmOpen;
+    optimizeBtn.hidden = manualSnsOptimizationConfirmOpen;
+    optimizeBtn.disabled = manualSnsPublishingInFlight || manualSnsOptimizationInFlight || !text;
+    optimizeBtn.title = !text
+      ? '내용을 입력하면 사용할 수 있습니다.'
+      : selectedChannels.length > 0
+        ? '선택 채널의 글자 수 제한에 맞춰 내용을 다듬습니다.'
+        : '연결된 Chat Model로 내용을 다듬습니다. 채널별 글자 수 제한은 발행 시 확인합니다.';
     optimizeBtn.textContent = manualSnsOptimizationInFlight ? 'AI 최적화 중...' : 'AI 최적화';
+    if (optimizeConfirmBtn) optimizeConfirmBtn.disabled = manualSnsPublishingInFlight || manualSnsOptimizationInFlight || !text;
+    if (optimizeCancelBtn) optimizeCancelBtn.disabled = manualSnsPublishingInFlight || manualSnsOptimizationInFlight;
   }
   if (undoBtn) {
     undoBtn.hidden = manualSnsOptimizationSnapshot === null;

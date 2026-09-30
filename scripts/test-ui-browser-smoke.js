@@ -5387,7 +5387,7 @@ async function run() {
                         configured: true,
                         local_media_available: true,
                         channels: [],
-                        ai: { available: false, model_name: '' },
+                        ai: { available: true, model_name: 'Fixture Chat Model' },
                         image_ai: { available: true, model_name: 'Fixture Image Model' }
                     }
                 })
@@ -5409,7 +5409,7 @@ async function run() {
                             display_name: 'fixture.threads',
                             service: 'threads',
                             limit: 500,
-                            max_assets: 10,
+                            max_assets: 1,
                             image_required: false,
                             supported: true
                         }]
@@ -5418,6 +5418,8 @@ async function run() {
             });
         });
         let manualSnsImageRequest = null;
+        let manualSnsOptimizationRequest = null;
+        let manualSnsOptimizationRequestCount = 0;
         let manualSnsImageOperation = null;
         let manualSnsImageOperationSequence = 0;
         await page.route('**/api/v1/social/manual/image', async (route) => {
@@ -5436,6 +5438,19 @@ async function run() {
                         stopFixture: manualSnsImageRequest.text === '중지 테스트'
                     })
                 })
+            });
+        });
+        await page.route('**/api/v1/social/manual/optimize', async (route) => {
+            manualSnsOptimizationRequest = route.request().postDataJSON();
+            manualSnsOptimizationRequestCount += 1;
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json; charset=utf-8',
+                body: JSON.stringify({ success: true, data: {
+                    optimized_text: '테스트 문구를 더 자연스럽게 다듬었습니다.',
+                    within_limit: true,
+                    limit_scope: 'all_channels'
+                } })
             });
         });
         await page.route('**/api/v1/social/manual/image-operations/*/cancel', async (route) => {
@@ -5492,33 +5507,117 @@ async function run() {
         assert.equal(await page.locator('#manual-sns-image-file').getAttribute('multiple'), '');
         assert.equal(await page.locator('#manual-sns-image-local-panel').isVisible(), true);
         assert.equal(await page.locator('#manual-sns-image-url').count(), 0);
+        const snsPreviewBounds = await page.evaluate(() => {
+            const preview = document.querySelector('.social-live-preview')?.getBoundingClientRect();
+            const media = document.getElementById('manual-sns-preview-media')?.getBoundingClientRect();
+            const footer = document.querySelector('.social-local-image-add-footer.is-idle-actions');
+            const aiButton = footer?.querySelector('.social-local-image-ai-trigger');
+            const plusButton = footer?.querySelector('.social-local-image-plus');
+            return {
+                contained: Boolean(preview && media && media.left >= preview.left && media.right <= preview.right + 1 && media.bottom <= preview.bottom + 1),
+                footerBorder: footer ? getComputedStyle(footer).borderTopStyle : '',
+                aiBorderColor: aiButton ? getComputedStyle(aiButton).borderTopColor : '',
+                plusBorderColor: plusButton ? getComputedStyle(plusButton).borderTopColor : '',
+                aiWidth: aiButton ? Math.round(aiButton.getBoundingClientRect().width) : 0,
+                plusWidth: plusButton ? Math.round(plusButton.getBoundingClientRect().width) : 0
+            };
+        });
+        assert.equal(snsPreviewBounds.contained, true);
+        assert.equal(snsPreviewBounds.footerBorder, 'none');
+        assert.equal(snsPreviewBounds.aiBorderColor, 'rgba(0, 0, 0, 0)');
+        assert.equal(snsPreviewBounds.plusBorderColor, 'rgba(0, 0, 0, 0)');
+        assert.equal(snsPreviewBounds.aiWidth, 40);
+        assert.equal(snsPreviewBounds.plusWidth, 40);
         await page.locator('#manual-sns-image-file').setInputFiles([
             path.join(repoRoot, 'assets/icons/1.png'),
             path.join(repoRoot, 'assets/icons/2.png')
         ]);
         await page.waitForFunction(() => document.querySelectorAll('.social-local-image-tile').length === 2);
         assert.equal(await page.locator('.social-local-image-tile').nth(0).getAttribute('draggable'), 'true');
-        assert.equal((await page.locator('.social-local-image-tile figcaption').nth(0).textContent())?.trim(), '1.png');
+        assert.equal(await page.locator('.social-local-image-tile figcaption').count(), 0);
         await page.locator('.social-local-image-tile').nth(0).dragTo(page.locator('.social-local-image-tile').nth(1));
-        assert.equal((await page.locator('.social-local-image-tile figcaption').nth(0).textContent())?.trim(), '2.png');
+        assert.equal(await page.locator('.social-local-image-tile figcaption').count(), 0);
         await page.locator('.social-local-image-remove').nth(1).click();
         assert.equal(await page.locator('.social-local-image-tile').count(), 1);
         const imageTileWidths = await page.locator('.social-local-image-tile, .social-local-image-add-tile').evaluateAll((tiles) =>
             tiles.map((tile) => Math.round(tile.getBoundingClientRect().width)));
         assert.equal(imageTileWidths[0], imageTileWidths[1]);
+        const imageCardGeometry = await page.locator('.social-local-image-tile, .social-local-image-add-tile').evaluateAll((tiles) =>
+            tiles.map((tile) => ({ width: Math.round(tile.getBoundingClientRect().width), height: Math.round(tile.getBoundingClientRect().height) })));
+        assert.equal(imageCardGeometry[0].height, imageCardGeometry[1].height);
+        assert.equal(await page.locator('.social-local-image-tile-actions').first().evaluate((actions) => getComputedStyle(actions).opacity), '0');
+        await page.locator('.social-local-image-tile').first().hover();
+        await page.waitForFunction(() => Number.parseFloat(getComputedStyle(document.querySelector('.social-local-image-tile-actions')).opacity) > 0.95);
         await page.locator('#manual-sns-text').fill('테스트 문구');
         await page.waitForFunction(() => document.getElementById('manual-sns-character-count')?.textContent === '6자');
+        assert.equal((await page.locator('#manual-sns-preview-text').textContent())?.trim(), '테스트 문구');
+        assert.equal(await page.locator('#manual-sns-ai-optimize-btn').isVisible(), true);
+        assert.equal(await page.locator('#manual-sns-ai-optimize-btn').isDisabled(), false);
+        assert.match(await page.locator('#manual-sns-ai-optimize-btn').getAttribute('title'), /채널별 글자 수 제한은 발행 시 확인/);
+        await page.locator('#manual-sns-ai-optimize-btn').click();
+        assert.equal(await page.locator('#manual-sns-ai-confirm-btn').isVisible(), true);
+        assert.equal(await page.locator('#manual-sns-ai-cancel-btn').isVisible(), true);
+        assert.equal(manualSnsOptimizationRequestCount, 0);
+        assert.match(await page.locator('#manual-sns-ai-status').textContent(), /적용할까요/);
+        await page.locator('#manual-sns-ai-cancel-btn').click();
+        assert.equal(await page.locator('#manual-sns-ai-confirm-btn').isVisible(), false);
+        assert.equal(await page.locator('#manual-sns-ai-optimize-btn').isVisible(), true);
+        assert.equal(manualSnsOptimizationRequestCount, 0);
+        await page.locator('#manual-sns-ai-optimize-btn').click();
+        await page.locator('#manual-sns-ai-confirm-btn').click();
+        await page.waitForFunction(() => document.getElementById('manual-sns-text')?.value === '테스트 문구를 더 자연스럽게 다듬었습니다.');
+        assert.deepEqual(manualSnsOptimizationRequest, {
+            organizationId: 'org-fixture',
+            channelIds: [],
+            text: '테스트 문구'
+        });
+        assert.equal(await page.locator('#manual-sns-ai-undo-btn').isVisible(), true);
+        await page.locator('#manual-sns-ai-undo-btn').click();
+        assert.equal(await page.locator('#manual-sns-text').inputValue(), '테스트 문구');
         assert.equal(await page.locator('#manual-sns-publish-btn').isDisabled(), true);
         await page.locator('.social-local-image-ai-trigger').click();
         assert.equal(await page.locator('#manual-sns-image-instruction').isVisible(), true);
         await page.locator('#manual-sns-image-instruction').fill('따뜻한 자연광');
         await page.locator('#manual-sns-image-generate-btn').click();
         await page.waitForFunction(() => document.querySelectorAll('.social-local-image-tile').length === 2);
+        assert.equal(await page.locator('#manual-sns-preview-pagination button').count(), 2);
+        assert.equal(await page.locator('.social-live-preview-arrow').count(), 2);
+        await page.locator('#manual-sns-preview-pagination button').nth(1).click();
+        assert.equal(await page.locator('#manual-sns-preview-media img').getAttribute('alt'), '2번 이미지 미리보기');
+        const previewArrowInsets = await page.locator('.social-live-preview-arrow').evaluateAll((arrows) => {
+            const media = document.getElementById('manual-sns-preview-media').getBoundingClientRect();
+            const previous = arrows.find((arrow) => arrow.classList.contains('is-previous')).getBoundingClientRect();
+            const next = arrows.find((arrow) => arrow.classList.contains('is-next')).getBoundingClientRect();
+            return {
+                left: Math.round(previous.left - media.left),
+                right: Math.round(media.right - next.right),
+                mediaInsidePreview: media.right <= document.querySelector('.social-live-preview').getBoundingClientRect().right - 1
+            };
+        });
+        assert.equal(previewArrowInsets.left, previewArrowInsets.right);
+        assert.equal(previewArrowInsets.mediaInsidePreview, true);
+        await page.locator('#manual-sns-preview-media').hover();
+        await page.locator('.social-live-preview-arrow.is-next').click();
+        assert.equal(await page.locator('#manual-sns-preview-media img').getAttribute('alt'), '1번 이미지 미리보기');
+        await page.locator('.social-live-preview-arrow.is-previous').click();
+        assert.equal(await page.locator('#manual-sns-preview-media img').getAttribute('alt'), '2번 이미지 미리보기');
+        const previewMediaBox = await page.locator('#manual-sns-preview-media').boundingBox();
+        await page.mouse.move(previewMediaBox.x + previewMediaBox.width * 0.72, previewMediaBox.y + previewMediaBox.height * 0.5);
+        await page.mouse.down();
+        await page.mouse.move(previewMediaBox.x + previewMediaBox.width * 0.25, previewMediaBox.y + previewMediaBox.height * 0.5, { steps: 5 });
+        await page.mouse.up();
+        assert.equal(await page.locator('#manual-sns-preview-media img').getAttribute('alt'), '1번 이미지 미리보기');
+        assert.equal(await page.locator('.social-local-image-ai-trigger').getAttribute('aria-label'), 'AI 이미지 생성');
         assert.deepEqual(manualSnsImageRequest, { text: '테스트 문구', instruction: '따뜻한 자연광' });
-        assert.equal(await page.locator('.social-local-image-tile').nth(1).locator('figcaption').count(), 0);
+        assert.equal(await page.locator('.social-local-image-tile figcaption').count(), 0);
+        const generatedCardGeometry = await page.locator('.social-local-image-tile, .social-local-image-add-tile').evaluateAll((tiles) =>
+            tiles.map((tile) => ({ width: Math.round(tile.getBoundingClientRect().width), height: Math.round(tile.getBoundingClientRect().height) })));
+        assert.ok(generatedCardGeometry.every((geometry) => geometry.width === generatedCardGeometry[0].width && geometry.height === generatedCardGeometry[0].height));
         const firstGeneratedImageSrc = await page.locator('.social-local-image-tile img').nth(1).getAttribute('src');
         assert.equal(await page.locator('.social-local-image-tile').nth(1).locator('a[download]').getAttribute('download'), 'sns-image-fixture.png');
         await page.locator('#manual-sns-text').fill('');
+        assert.equal((await page.locator('#manual-sns-preview-text').textContent())?.trim(), '게시물 내용이 여기에 표시됩니다.');
+        await page.locator('.social-local-image-tile').nth(1).hover();
         await page.locator('.social-local-image-regenerate').click();
         assert.equal(await page.locator('#manual-sns-image-instruction').inputValue(), '따뜻한 자연광');
         assert.match(await page.locator('#manual-sns-image-generation-status').textContent(), /본문을 입력한 뒤/);
@@ -5533,6 +5632,17 @@ async function run() {
           && document.getElementById('manual-sns-image-instruction') === null);
         assert.deepEqual(manualSnsImageRequest, { text: '수정된 게시물 본문', instruction: '봄 햇살 수채화' });
         assert.notEqual(await page.locator('.social-local-image-tile img').nth(1).getAttribute('src'), firstGeneratedImageSrc);
+        assert.match(await page.locator('#manual-sns-image-capacity').textContent(), /이미지 2\/10장/);
+        assert.match(await page.locator('#manual-sns-image-capacity').textContent(), /발행 시 확인/);
+        await page.locator('#manual-sns-select-all').check();
+        await page.locator('#manual-sns-text').fill('채널 이미지 제한 발행 검증');
+        assert.equal(await page.locator('#manual-sns-publish-btn').isDisabled(), false);
+        await page.locator('#manual-sns-publish-btn').click();
+        await page.waitForFunction(() => document.getElementById('ui-dialog-title')?.textContent === '채널별 이미지 개수 확인');
+        assert.match(await page.locator('#ui-dialog-message').textContent(), /최대 1장/);
+        assert.match(await page.locator('#ui-dialog-message').textContent(), /발행해 주세요/);
+        await page.locator('#ui-dialog-confirm').click();
+        await page.locator('#manual-sns-select-all').uncheck();
         await page.locator('#manual-sns-text').fill('중지 테스트');
         await page.locator('.social-local-image-ai-trigger').click();
         await page.locator('#manual-sns-image-generate-btn').click();
@@ -5554,7 +5664,15 @@ async function run() {
         await page.locator('#manual-sns-image-generate-btn').click();
         await page.waitForFunction(() => document.querySelector('#manual-sns-image-generation-status')?.textContent.includes('이미지 생성을 중지했습니다'));
         assert.equal(await page.locator('.social-local-image-tile').count(), 2);
-        await page.locator('#manual-sns-text').fill('');
+        const imageFixture = fs.readFileSync(path.join(repoRoot, 'assets/icons/3.png'));
+        await page.locator('#manual-sns-image-file').setInputFiles(Array.from({ length: 9 }, (_value, index) => ({
+            name: `capacity-${index}.png`,
+            mimeType: 'image/png',
+            buffer: imageFixture
+        })));
+        await page.waitForFunction(() => document.querySelectorAll('.social-local-image-tile').length === 10);
+        assert.match(await page.locator('#manual-sns-image-capacity').textContent(), /이미지 10\/10장/);
+        assert.equal(await page.locator('#manual-sns-image-file').isDisabled(), true);
 
         await page.locator('.nav-btn[data-view="account"]').click();
         await page.locator('.nav-btn[data-view="social"]').click();

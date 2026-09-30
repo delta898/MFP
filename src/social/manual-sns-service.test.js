@@ -182,6 +182,27 @@ test('manual optimization delegates to Chat Model with the shortest selected cha
     assert.deepEqual(calls[0].services, ['threads', 'twitter']);
 });
 
+test('manual optimization works before a publishing channel is selected', async () => {
+    const calls = [];
+    const service = createManualSnsService({
+        CONFIG: createConfig(),
+        bufferClient: { async shareNowMany() { return []; } },
+        aiService: {
+            async optimizeManualPost(input) {
+                calls.push(input);
+                return { text: '다듬은 글', model_name: 'Chat Model', max_length: input.maxLength, within_limit: true };
+            }
+        }
+    });
+
+    const result = await service.optimize({ text: '초안' });
+
+    assert.equal(result.optimized_text, '다듬은 글');
+    assert.equal(result.limit_scope, 'general');
+    assert.equal(result.max_length, 10000);
+    assert.deepEqual(calls[0].services, []);
+});
+
 test('manual publish works in development while SNS automation is disabled', async () => {
     const calls = [];
     const service = createManualSnsService({

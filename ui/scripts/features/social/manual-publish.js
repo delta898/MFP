@@ -14,6 +14,25 @@ async function publishManualSns() {
   const text = String(document.getElementById('manual-sns-text')?.value || '').trim();
   const selectedChannels = getManualSnsSelectedChannels();
   const image = getManualSnsImageValidation();
+  if (!image.valid) {
+    await showUiDialog({
+      title: '이미지를 확인해 주세요',
+      message: image.message,
+      showCancel: false,
+      confirmText: '확인'
+    });
+    return;
+  }
+  const assetLimitExceeded = getManualSnsAssetLimitExceededChannel(image.files);
+  if (assetLimitExceeded) {
+    await showUiDialog({
+      title: '채널별 이미지 개수 확인',
+      message: `${assetLimitExceeded.name || assetLimitExceeded.service} 채널은 이미지를 최대 ${assetLimitExceeded.max_assets}장까지 지원합니다. 이미지를 줄이거나 해당 채널을 해제한 뒤 다시 발행해 주세요.`,
+      showCancel: false,
+      confirmText: '확인'
+    });
+    return;
+  }
   const confirmed = await showUiDialog({
     title: 'SNS 즉시 발행',
     message: `${selectedChannels.map((channel) => channel.name || channel.service).join(', ')}에 지금 발행할까요?`,

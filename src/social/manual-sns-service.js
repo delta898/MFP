@@ -265,22 +265,25 @@ function createManualSnsService(deps = {}) {
             throw createManualSnsError(400, 'MANUAL_SNS_TEXT_TOO_LARGE', `AI 최적화 원문은 최대 ${MAX_TEXT_LENGTH.toLocaleString('ko-KR')}자까지 입력할 수 있습니다.`);
         }
 
-        const selectedChannels = await resolveSelectedChannels(input);
+        const requestedChannelIds = normalizeSelectedChannelIds(input.channelIds || input.channel_ids);
+        const selectedChannels = requestedChannelIds.length > 0 ? await resolveSelectedChannels(input) : [];
         const maxLength = Math.min(...selectedChannels
             .map((channel) => Number(channel.limit || 0))
             .filter((limit) => limit > 0));
+        const effectiveMaxLength = Number.isFinite(maxLength) ? maxLength : MAX_TEXT_LENGTH;
         try {
             const result = await aiService.optimizeManualPost({
                 text,
-                maxLength: Number.isFinite(maxLength) ? maxLength : MAX_TEXT_LENGTH,
+                maxLength: effectiveMaxLength,
                 services: selectedChannels.map((channel) => channel.service)
             });
             return {
                 success: true,
                 optimized_text: String(result?.text || '').trim(),
                 model_name: String(result?.model_name || '').trim(),
-                max_length: Number(result?.max_length) || maxLength,
-                within_limit: result?.within_limit === true
+                max_length: Number(result?.max_length) || effectiveMaxLength,
+                within_limit: result?.within_limit === true,
+                limit_scope: selectedChannels.length > 0 ? 'selected_channels' : 'general'
             };
         } catch (error) {
             Logger?.warn?.(`⚠️ [MANUAL_SNS] AI 최적화 실패: ${error?.message || 'unknown error'}`);

@@ -5,6 +5,8 @@ function initManualSnsComposer() {
   const selectAllEl = document.getElementById('manual-sns-select-all');
   const publishBtn = document.getElementById('manual-sns-publish-btn');
   const optimizeBtn = document.getElementById('manual-sns-ai-optimize-btn');
+  const optimizeConfirmBtn = document.getElementById('manual-sns-ai-confirm-btn');
+  const optimizeCancelBtn = document.getElementById('manual-sns-ai-cancel-btn');
   const undoBtn = document.getElementById('manual-sns-ai-undo-btn');
   const settingsLink = document.getElementById('manual-sns-settings-link');
   const workspaceLoad = document.getElementById('manual-sns-workspaces-load');
@@ -54,7 +56,9 @@ function initManualSnsComposer() {
   BufferPublishingControls.setWorkspaceRefresh(workspaceLoad, () => void loadManualSnsWorkspaces());
   organization?.addEventListener('change', () => void loadManualSnsWorkspaces());
   publishBtn?.addEventListener('click', () => void publishManualSns());
-  optimizeBtn?.addEventListener('click', () => void optimizeManualSnsText());
+  optimizeBtn?.addEventListener('click', openManualSnsOptimizationConfirmation);
+  optimizeConfirmBtn?.addEventListener('click', () => void optimizeManualSnsText());
+  optimizeCancelBtn?.addEventListener('click', cancelManualSnsOptimizationConfirmation);
   undoBtn?.addEventListener('click', undoManualSnsOptimization);
   settingsLink?.addEventListener('click', async () => {
     await navigateTo('settings-next', 'extras');

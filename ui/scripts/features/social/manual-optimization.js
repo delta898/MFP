@@ -136,12 +136,30 @@ async function handleManualSnsImageStop() {
   syncManualSnsImagePreview();
 }
 
+function openManualSnsOptimizationConfirmation() {
+  const text = String(document.getElementById('manual-sns-text')?.value || '').trim();
+  if (!text || manualSnsOptimizationInFlight || manualSnsConfig.ai?.available !== true) return;
+  manualSnsOptimizationConfirmOpen = true;
+  renderManualSnsAiStatus('현재 본문을 AI가 다듬어 바꿉니다. 적용할까요?');
+  syncManualSnsComposerState();
+  document.getElementById('manual-sns-ai-confirm-btn')?.focus();
+}
+
+function cancelManualSnsOptimizationConfirmation() {
+  if (!manualSnsOptimizationConfirmOpen || manualSnsOptimizationInFlight) return;
+  manualSnsOptimizationConfirmOpen = false;
+  renderManualSnsAiStatus('');
+  syncManualSnsComposerState();
+  document.getElementById('manual-sns-ai-optimize-btn')?.focus();
+}
+
 async function optimizeManualSnsText() {
   const textEl = document.getElementById('manual-sns-text');
-  const optimizeBtn = document.getElementById('manual-sns-ai-optimize-btn');
-  if (!textEl || !optimizeBtn || optimizeBtn.disabled || manualSnsOptimizationInFlight) return;
+  const confirmBtn = document.getElementById('manual-sns-ai-confirm-btn');
+  if (!textEl || !confirmBtn || confirmBtn.disabled || !manualSnsOptimizationConfirmOpen || manualSnsOptimizationInFlight) return;
 
   const originalValue = String(textEl.value || '');
+  manualSnsOptimizationConfirmOpen = false;
   const selectedChannels = getManualSnsSelectedChannels();
   manualSnsOptimizationInFlight = true;
   renderManualSnsAiStatus('Chat Model이 글과 해시태그를 다듬고 있습니다.');
@@ -161,10 +179,14 @@ async function optimizeManualSnsText() {
     manualSnsOptimizationSnapshot = originalValue;
     textEl.value = optimizedText;
     textEl.dispatchEvent(new Event('input', { bubbles: true }));
-    renderManualSnsAiStatus(data?.within_limit === true
-      ? 'AI 최적화를 완료했습니다. 내용을 확인하고 필요하면 직접 수정하세요.'
-      : 'AI 최적화를 완료했지만 선택한 채널의 글자 수 제한을 넘었습니다. 내용을 줄여 주세요.',
-    data?.within_limit !== true);
+    const withinLimit = data?.within_limit === true;
+    const hasChannelLimit = data?.limit_scope === 'selected_channels';
+    renderManualSnsAiStatus(!withinLimit
+      ? 'AI 최적화를 완료했지만 선택 채널의 글자 수 제한을 넘었습니다. 내용을 줄여 주세요.'
+      : hasChannelLimit
+        ? 'AI 최적화를 완료했습니다. 내용을 확인하고 필요하면 직접 수정하세요.'
+        : 'AI 최적화를 완료했습니다. 채널별 글자 수 제한은 발행 시 확인됩니다.',
+    hasChannelLimit && !withinLimit);
     textEl.focus();
   } catch (error) {
     renderManualSnsAiStatus(`AI 최적화 실패: ${error.message || '잠시 후 다시 시도해 주세요.'}`, true);
