@@ -199,7 +199,7 @@ test('manual optimization works before a publishing channel is selected', async 
 
     assert.equal(result.optimized_text, '다듬은 글');
     assert.equal(result.limit_scope, 'general');
-    assert.equal(result.max_length, 10000);
+    assert.equal(result.max_length, 1000);
     assert.deepEqual(calls[0].services, []);
 });
 

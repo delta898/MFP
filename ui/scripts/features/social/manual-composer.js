@@ -1,4 +1,6 @@
 
+const MANUAL_SNS_DEFAULT_TEXT_LIMIT = 1000;
+
 function loadManualSnsSelectedChannelIds() {
   try {
     const raw = localStorage.getItem(MANUAL_SNS_SELECTED_CHANNELS_STORAGE_KEY);
@@ -64,6 +66,11 @@ function getManualSnsSelectedChannels() {
     .map((input) => String(input.value || '').trim()));
   return (Array.isArray(manualSnsConfig.channels) ? manualSnsConfig.channels : [])
     .filter((channel) => selectedIds.has(String(channel.id || '').trim()));
+}
+
+function getManualSnsChannelTextLimit(channel = {}) {
+  const limit = Number(channel.limit);
+  return Number.isFinite(limit) && limit > 0 ? limit : MANUAL_SNS_DEFAULT_TEXT_LIMIT;
 }
 
 function getManualSnsAssetLimitExceededChannel(images = manualSnsLocalImages) {
@@ -658,9 +665,10 @@ function syncManualSnsComposerState() {
   if (textEl) textEl.disabled = manualSnsPublishingInFlight;
   if (imageFileEl) imageFileEl.disabled = manualSnsPublishingInFlight || manualSnsImageGenerationInFlight || manualSnsConfig.local_media_available !== true;
 
-  const exceeded = selectedChannels.find((channel) => characterCount > Number(channel.limit || 0));
+  const exceeded = selectedChannels.find((channel) => characterCount > getManualSnsChannelTextLimit(channel));
   if (exceeded) {
-    errorMessage = `${exceeded.name || exceeded.service} 글자 수 제한을 ${characterCount - Number(exceeded.limit || 0)}자 초과했습니다. (${characterCount}/${exceeded.limit}자)`;
+    const limit = getManualSnsChannelTextLimit(exceeded);
+    errorMessage = `${exceeded.name || exceeded.service} 글자 수 제한을 ${characterCount - limit}자 초과했습니다. (${characterCount}/${limit}자)`;
   } else if (!image.valid) {
     errorMessage = image.message;
   } else {
@@ -670,16 +678,16 @@ function syncManualSnsComposerState() {
     }
   }
 
+  const selectedLimits = selectedChannels.map(getManualSnsChannelTextLimit);
+  const shortestLimit = selectedLimits.length > 0 ? Math.min(...selectedLimits) : MANUAL_SNS_DEFAULT_TEXT_LIMIT;
   if (countEl) {
-    const selectedLimits = selectedChannels.map((channel) => Number(channel.limit || 0)).filter((limit) => limit > 0);
-    const shortestLimit = selectedLimits.length > 0 ? Math.min(...selectedLimits) : 0;
-    countEl.textContent = shortestLimit > 0 ? `${characterCount}/${shortestLimit}자` : `${characterCount}자`;
+    countEl.textContent = `${characterCount}/${shortestLimit}자`;
     countEl.classList.toggle('is-over', Boolean(exceeded));
   }
   if (limitEl) {
     limitEl.textContent = errorMessage || (selectedChannels.length > 0
-      ? hasText ? '선택한 모든 채널의 글자 수 제한 안에 있습니다.' : '발행할 내용을 입력해 주세요.'
-      : '');
+      ? hasText ? `선택 채널 중 가장 낮은 글자 수 제한은 ${shortestLimit.toLocaleString('ko-KR')}자입니다.` : '발행할 내용을 입력해 주세요.'
+      : `앱 기본 최대 입력은 ${MANUAL_SNS_DEFAULT_TEXT_LIMIT.toLocaleString('ko-KR')}자입니다. 채널을 선택하면 해당 채널의 제한을 적용합니다.`);
     limitEl.classList.toggle('is-error', Boolean(errorMessage));
   }
   if (summaryEl) {
@@ -799,7 +807,7 @@ function renderManualSnsChannels() {
     const detail = document.createElement('span');
     detail.textContent = unavailable
       ? '현재 수동 발행 미지원'
-      : `${channel.service} · 최대 ${Number(channel.limit || 0).toLocaleString('ko-KR')}자 · 이미지 ${Number(channel.max_assets || 1)}장${channel.image_required ? ' 필수' : ''}`;
+      : `${channel.service} · 최대 ${getManualSnsChannelTextLimit(channel).toLocaleString('ko-KR')}자 · 이미지 ${Number(channel.max_assets || 1)}장${channel.image_required ? ' 필수' : ''}`;
     copy.append(name, detail);
     label.append(input, copy);
     listEl.appendChild(label);

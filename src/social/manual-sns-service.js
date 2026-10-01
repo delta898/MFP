@@ -11,7 +11,7 @@ const { assertManualPublishAllowed } = require('../environment/runtime-effects')
 const { createAiGenerationOperationManager } = require('../blog-next/ai-generation-operations');
 
 const MAX_CHANNELS = 3;
-const MAX_TEXT_LENGTH = 10000;
+const MAX_TEXT_LENGTH = 1000;
 const MAX_LOCAL_IMAGES = 10;
 const MAX_LOCAL_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_LOCAL_IMAGES_TOTAL_BYTES = 60 * 1024 * 1024;

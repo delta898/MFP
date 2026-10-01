@@ -1,5 +1,5 @@
 const MANUAL_SNS_WORKSPACE_CACHE_STORAGE_KEY = 'manual_sns_workspace_snapshot_v1';
-const MANUAL_SNS_WORKSPACE_CACHE_VERSION = 1;
+const MANUAL_SNS_WORKSPACE_CACHE_VERSION = 2;
 const MANUAL_SNS_WORKSPACE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 function normalizeManualSnsCachedOrganization(item = {}) {

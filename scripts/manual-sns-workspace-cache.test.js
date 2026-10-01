@@ -62,3 +62,16 @@ test('SNS workspace cache rejects corrupted ownership and invalidates only autho
   assert.equal(api.shouldInvalidateManualSnsWorkspaceCache({ status: 503 }), false);
   assert.equal(api.shouldInvalidateManualSnsWorkspaceCache({ status: 0 }), false);
 });
+
+test('SNS workspace cache invalidates snapshots from the previous channel-limit contract', () => {
+  const { api, values } = createRuntime();
+  values.set('manual_sns_workspace_snapshot_v1', JSON.stringify({
+    version: 1,
+    fetchedAt: 2_000_000_000_000,
+    organizations: [{ id: 'org-1' }],
+    organizationId: 'org-1',
+    channels: [{ id: 'channel-1', service: 'threads', limit: 0 }]
+  }));
+
+  assert.equal(api.readManualSnsWorkspaceCache(2_000_000_000_100), null);
+});
