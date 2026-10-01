@@ -3,7 +3,7 @@
 - Branch: `codex/feature/ai-model-save-without-key`
 - Base/parent branch: `release/v0.5.5`
 - Start date: 2026-10-01
-- Status: Ready for parent merge; hands-on UI review pending
+- Status: Merged into `release/v0.5.5`; hands-on UI review pending
 
 ## User need and goal
 
@@ -53,4 +53,5 @@ Out of scope unless separately approved:
 
 - Hands-on desktop review is still needed for the original settings flow: choose a model with no key, select “저장 후 이동” and “저장 후 종료”, then verify the preference persists and the missing-key status is clear. Also confirm explicit connection check asks for the key without undoing the saved model.
 - No hands-on desktop acceptance has been performed; the user owns final visual/exploratory validation.
-- Feature implementation was committed as `028486e8`; parent merge and branch cleanup remain pending.
+- Feature implementation was committed as `028486e8` with verification record commit `a3e1b047`, then fast-forward merged into `release/v0.5.5`.
+- The feature branch was deleted after the successful merge, per the user's `[cmd]` request.
