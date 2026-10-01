@@ -168,7 +168,7 @@ No execution model is selected yet.
 ## Next discovery experiments (proposal)
 
 1. **Template contract spike (prototype completed):** a minimal descriptor and Astro fixture were implemented and merged in `fbc4b0e5`. Treat it as a candidate for design review, not as an adopted canonical contract. See the [spike record](2026-10-01-static-template-contract-spike-development.md); do not implement existing-site migration.
-2. **Cloudflare user-journey PoC:** Authorization Code + PKCE, account membership lookup, and Worker Static Assets inventory are verified and merged. Next, investigate the read/write API boundary for deploying one disposable sample site to a confirmed development account, then query deployment/script status and verify its URL. Record requested OAuth scopes, identifiers, cancellation/revocation behavior, and actionable failures. A live deployment mutates the remote account and needs explicit user approval before execution. Custom-domain/DNS changes remain outside the stage.
+2. **Cloudflare user-journey PoC:** Authorization Code + PKCE, membership lookup, and Worker Static Assets inventory are verified and merged. An approved sample Worker was successfully deployed through the stable version API after matching Cloudflare's hash-named multipart asset fields; the public `workers.dev` URL returned HTTP 200 and the expected sample content. See the [Cloudflare Static Assets 배포 PoC 기록](2026-10-02-cloudflare-static-assets-deploy-poc-development.md). Custom-domain/DNS changes remain outside the stage.
 3. **Independent consumer check:** use the same descriptor/source artifact from a future Amade2 proof and a BlogGenius-side prototype or contract check. The goal is to confirm independent consumption of one neutral contract; BlogGenius must not invoke or package a CLI.
 4. **Runtime feasibility check:** on macOS Apple Silicon and Windows x64, establish whether BlogGenius can package or manage the Astro build/preview runtime without user-installed developer tools. Check package size, startup, process cleanup, preview port conflicts, and whether site build scripts can access Cloudflare credentials. Windows ARM64 is a future compatibility consideration only.
 
@@ -177,7 +177,10 @@ No execution model is selected yet.
 - Cloudflare OAuth 및 계정 목록 검증은 완료되어 [Cloudflare 데스크톱 OAuth 및 계정 목록 PoC 기록](../archive/2026-10-01-cloudflare-oauth-desktop-poc-development.md)에 보관했다. 결과는 `codex/cloudflare-oauth-poc`에서 `codex/static-site-builder-main`으로 fast-forward 병합했다.
 - 2026-10-02 기준 시스템 브라우저 OAuth Authorization Code + PKCE 인증, `memberships.read` scope, Bearer token을 이용한 `GET /memberships` 조회가 실제 Cloudflare 계정에서 성공했다. 실제 계정의 식별 정보와 token은 기록하지 않는다.
 - Workers Static Assets 목록 조회 단계는 [Cloudflare Static Assets 목록 조회 PoC 기록](2026-10-02-cloudflare-static-assets-list-poc-development.md)에서 추적한다. `workers-scripts.read` scope와 `has_assets` 기반 분류를 실제 계정에서 확인했고, 커밋 `4c943f9c`로 부모에 병합했다. 하위 브랜치는 삭제했다.
-- 다음 검증은 Static Assets Worker의 배포 및 상태 조회 API, 필요한 scope, 샘플 배포의 변경 위험을 조사하는 것이다. 배포는 별도 합의 전까지 수행하지 않는다.
+- 배포 PoC는 [Cloudflare Static Assets 배포 기록](2026-10-02-cloudflare-static-assets-deploy-poc-development.md)에서 추적한다. OAuth write 동의 후 사용자가 승인한 동일 샘플 Worker 배포가 완료됐고, workers.dev 공개 URL에서 HTTP 200과 예상 본문을 확인했다. Worker와 샘플은 Cloudflare 계정에 남겨두었다.
+- 배포 scope는 Cloudflare API 문서의 `Workers Scripts Write`에 대응하는 OAuth scope ID를 실제 scope 목록에서 재확인해야 한다. 계정/Worker의 `workers.dev` 설정도 배포 URL 확인 전에 확인해야 한다.
+- 현재 직접 upload 문서의 첫 Worker 생성 및 분리된 version API 예제는 Workers Beta API를 사용한다. 안정 API의 module upload 경로와 비교해 장기 지원 위험을 확인하기 전에는 제품 구조의 확정 근거로 삼지 않는다.
+- Cloudflare 공식 문서 중 Workers for Platforms 가이드의 hash 이름 multipart 필드와 안정 `/workers/scripts/{name}/versions` API를 사용해 실제 샘플을 배포했다. `workers.dev` URL에서 HTTP 200과 샘플 marker를 확인했다. `body[hash]`는 HTTP 202와 completion JWT 없는 응답을, beta version API는 HTTP 415를 반환한 뒤 경로를 수정했다. 집중 테스트 25개가 통과했다.
 
 These are decision-support experiments, not approval to implement the full feature. Prefer disposable fixtures and a dedicated development Cloudflare target; do not incur paid AI, production mutations, or unapproved remote changes.
 
