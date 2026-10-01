@@ -71,9 +71,19 @@ test('manual SNS image generation uses the image model and returns a temporary g
     assert.equal(fs.existsSync(require('node:path').dirname(calls[0].savePath)), false);
 });
 
-test('manual SNS optimization parser accepts plain text and JSON text responses', () => {
-    assert.equal(parseOptimizedPostResponse('```text\n다듬은 글 #태그\n```'), '다듬은 글 #태그');
-    assert.equal(parseOptimizedPostResponse('{"text":"JSON 결과 #태그"}'), 'JSON 결과 #태그');
+test('manual SNS optimization parser separates structured hashtags and tolerates legacy text', () => {
+    assert.deepEqual(parseOptimizedPostResponse('{"body":"다듬은 글","hashtags":["기록","#일상","#기록"]}'), {
+        body: '다듬은 글', hashtags: ['#기록', '#일상']
+    });
+    assert.deepEqual(parseOptimizedPostResponse('```text\n다듬은 글\n\n#기록 #일상\n```'), {
+        body: '다듬은 글', hashtags: ['#기록', '#일상']
+    });
+    assert.deepEqual(parseOptimizedPostResponse('본문 마지막 #기록 #일상'), {
+        body: '본문 마지막', hashtags: ['#기록', '#일상']
+    });
+    assert.deepEqual(parseOptimizedPostResponse('{"text":"JSON 결과 #태그"}'), {
+        body: 'JSON 결과 #태그', hashtags: []
+    });
 });
 
 test('manual SNS optimization prompt preserves intent and selected channel limit', () => {
@@ -84,7 +94,8 @@ test('manual SNS optimization prompt preserves intent and selected channel limit
     });
 
     assert.match(prompt, /의도, 말투, 사실을 보존/);
-    assert.match(prompt, /해시태그를 최대 5개/);
+    assert.match(prompt, /해시태그를 별도 배열로 최대 5개/);
+    assert.match(prompt, /"body":"본문","hashtags"/);
     assert.match(prompt, /280자 이하/);
     assert.match(prompt, /대상 채널: twitter, threads/);
     assert.match(prompt, /<원문>\n오늘 기록\n<\/원문>/);
@@ -161,7 +172,7 @@ test('manual SNS optimization uses the common Chat Model once and returns editab
             },
             async callChatText(prompt, retries, options) {
                 calls.push({ prompt, retries, options });
-                return '더 읽기 좋은 글입니다.\n\n#기록 #일상';
+                return '{"body":"더 읽기 좋은 글입니다.","hashtags":["#기록","#일상"]}';
             }
         }
     });
@@ -173,6 +184,8 @@ test('manual SNS optimization uses the common Chat Model once and returns editab
     });
 
     assert.equal(result.success, true);
+    assert.equal(result.body, '더 읽기 좋은 글입니다.');
+    assert.deepEqual(result.hashtags, ['#기록', '#일상']);
     assert.equal(result.text, '더 읽기 좋은 글입니다.\n\n#기록 #일상');
     assert.equal(result.model_name, 'Gemini Chat');
     assert.equal(result.within_limit, true);

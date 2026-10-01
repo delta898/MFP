@@ -321,10 +321,15 @@
 }
 
 .social-ai-status {
-  min-height: 20px;
+  display: none;
   margin-top: 7px;
   color: var(--ui-text-secondary);
   font-size: var(--ui-type-caption-size);
+}
+
+.social-ai-status.is-visible {
+  display: block;
+  min-height: 20px;
 }
 
 .social-ai-status.is-error {

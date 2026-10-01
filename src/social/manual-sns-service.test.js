@@ -162,7 +162,9 @@ test('manual optimization delegates to Chat Model with the shortest selected cha
             async optimizeManualPost(input) {
                 calls.push(input);
                 return {
-                    text: '다듬은 글 #태그',
+                    body: '다듬은 글',
+                    hashtags: ['#태그'],
+                    text: '다듬은 글\n\n#태그',
                     model_name: 'Chat Model',
                     max_length: input.maxLength,
                     within_limit: true
@@ -176,7 +178,9 @@ test('manual optimization delegates to Chat Model with the shortest selected cha
         text: '초안'
     });
 
-    assert.equal(result.optimized_text, '다듬은 글 #태그');
+    assert.equal(result.body, '다듬은 글');
+    assert.deepEqual(result.hashtags, ['#태그']);
+    assert.equal(result.optimized_text, '다듬은 글\n\n#태그');
     assert.equal(result.max_length, 280);
     assert.equal(calls[0].maxLength, 280);
     assert.deepEqual(calls[0].services, ['threads', 'twitter']);
@@ -197,6 +201,7 @@ test('manual optimization works before a publishing channel is selected', async 
 
     const result = await service.optimize({ text: '초안' });
 
+    assert.equal(result.body, '다듬은 글');
     assert.equal(result.optimized_text, '다듬은 글');
     assert.equal(result.limit_scope, 'general');
     assert.equal(result.max_length, 1000);

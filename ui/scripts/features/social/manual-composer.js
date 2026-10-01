@@ -77,7 +77,10 @@ function getManualSnsAssetLimitExceededChannel(images = manualSnsLocalImages) {
   const imageCount = Array.isArray(images) ? images.length : 0;
   if (imageCount === 0) return null;
   const exceeded = getManualSnsSelectedChannels()
-    .filter((channel) => imageCount > Math.max(1, Number(channel.max_assets) || 1))
+    .filter((channel) => {
+      const limit = Number(channel.max_assets);
+      return Number.isFinite(limit) && limit > 0 && imageCount > limit;
+    })
     .sort((left, right) => Number(left.max_assets || 1) - Number(right.max_assets || 1));
   return exceeded[0] || null;
 }
@@ -663,9 +666,11 @@ function syncManualSnsComposerState() {
   syncManualSnsImageSourceUi();
   const textEl = document.getElementById('manual-sns-text');
   const countEl = document.getElementById('manual-sns-character-count');
-  const limitEl = document.getElementById('manual-sns-limit-status');
+  const feedbackEl = document.getElementById('manual-sns-ai-status');
   const summaryEl = document.getElementById('manual-sns-publish-summary');
   const publishBtn = document.getElementById('manual-sns-publish-btn');
+  const newPostBtn = document.getElementById('manual-sns-new-post-btn');
+  const publishActionGroup = newPostBtn?.closest('.social-publish-action-group');
   const selectAllEl = document.getElementById('manual-sns-select-all');
   const optimizeBtn = document.getElementById('manual-sns-ai-optimize-btn');
   const optimizeActionEl = document.getElementById('manual-sns-ai-action');
@@ -707,19 +712,28 @@ function syncManualSnsComposerState() {
     countEl.textContent = `${characterCount}/${shortestLimit.toLocaleString('ko-KR')}자`;
     countEl.classList.toggle('is-over', Boolean(exceeded));
   }
-  if (limitEl) {
-    limitEl.textContent = errorMessage || (selectedChannels.length > 0
-      ? hasText ? `선택 채널 중 가장 낮은 글자 수 제한은 ${shortestLimit.toLocaleString('ko-KR')}자입니다.` : '발행할 내용을 입력해 주세요.'
-      : `앱 기본 최대 입력은 ${MANUAL_SNS_DEFAULT_TEXT_LIMIT.toLocaleString('ko-KR')}자입니다. 채널을 선택하면 해당 채널의 제한을 적용합니다.`);
-    limitEl.classList.toggle('is-error', Boolean(errorMessage));
+  if (feedbackEl) {
+    const feedback = errorMessage || manualSnsAiStatusMessage || (selectedChannels.length > 0
+      ? `선택 채널 중 가장 낮은 글자 수 제한은 ${shortestLimit.toLocaleString('ko-KR')}자입니다.`
+      : '');
+    feedbackEl.textContent = feedback;
+    feedbackEl.classList.toggle('is-error', Boolean(errorMessage || manualSnsAiStatusIsError));
+    feedbackEl.classList.toggle('is-visible', Boolean(feedback));
   }
   if (summaryEl) {
     summaryEl.textContent = selectedChannels.length > 0
       ? hasText
         ? `${selectedChannels.length}개 채널에 즉시 발행합니다${image.hasImage ? ` · 이미지 ${image.files?.length || 1}장` : ''}.`
-        : '내용을 입력하면 선택한 채널에 발행할 수 있습니다.'
+        : `${selectedChannels.length}개 채널 선택됨`
       : '발행할 채널을 선택하세요.';
   }
+  if (newPostBtn) {
+    newPostBtn.hidden = !manualSnsLastPublishedSignature;
+    newPostBtn.disabled = manualSnsPublishingInFlight || manualSnsImageGenerationInFlight;
+    newPostBtn.classList.toggle('primary', alreadyPublished);
+    newPostBtn.classList.toggle('secondary', !alreadyPublished);
+  }
+  publishActionGroup?.classList.toggle('has-new-post-primary', alreadyPublished);
   if (publishBtn) {
     publishBtn.textContent = manualSnsPublishingInFlight
       ? '발행 중...'
@@ -727,6 +741,8 @@ function syncManualSnsComposerState() {
         ? '발행 완료'
         : selectedChannels.length > 0 ? `${selectedChannels.length}개 채널에 지금 발행` : '지금 발행';
     publishBtn.disabled = manualSnsPublishingInFlight || manualSnsImageGenerationInFlight || alreadyPublished || manualSnsOptimizationInFlight || !manualSnsConfig.configured || selectedChannels.length === 0 || !text || Boolean(errorMessage);
+    publishBtn.classList.toggle('primary', !alreadyPublished);
+    publishBtn.classList.toggle('secondary', alreadyPublished);
     publishBtn.title = errorMessage || (!hasText && selectedChannels.length > 0 ? '발행할 내용을 입력해 주세요.' : '');
     publishBtn.classList.toggle('is-loading', manualSnsPublishingInFlight);
     publishBtn.classList.toggle('is-published', alreadyPublished);
@@ -830,7 +846,7 @@ function renderManualSnsChannels() {
     const detail = document.createElement('span');
     detail.textContent = unavailable
       ? '현재 수동 발행 미지원'
-      : `${channel.service} · 최대 ${getManualSnsChannelTextLimit(channel).toLocaleString('ko-KR')}자 · 이미지 ${Number(channel.max_assets || 1)}장${channel.image_required ? ' 필수' : ''}`;
+      : `${channel.service} · 최대 ${getManualSnsChannelTextLimit(channel).toLocaleString('ko-KR')}자 · ${Number(channel.max_assets) > 0 ? `이미지 ${Number(channel.max_assets)}장` : '이미지 제한 발행 시 확인'}${channel.image_required ? ' 필수' : ''}`;
     copy.append(name, detail);
     label.append(input, copy);
     listEl.appendChild(label);

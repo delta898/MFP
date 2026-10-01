@@ -277,9 +277,15 @@ function createManualSnsService(deps = {}) {
                 maxLength: effectiveMaxLength,
                 services: selectedChannels.map((channel) => channel.service)
             });
+            const body = String(result?.body ?? result?.text ?? '').trim();
+            const hashtags = Array.isArray(result?.hashtags) ? result.hashtags : [];
+            const optimizedText = String(result?.text || '').trim()
+                || [body, hashtags.join(' ')].filter(Boolean).join('\n\n');
             return {
                 success: true,
-                optimized_text: String(result?.text || '').trim(),
+                body,
+                hashtags,
+                optimized_text: optimizedText,
                 model_name: String(result?.model_name || '').trim(),
                 max_length: Number(result?.max_length) || effectiveMaxLength,
                 within_limit: result?.within_limit === true,

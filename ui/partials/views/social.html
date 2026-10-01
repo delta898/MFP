@@ -30,7 +30,6 @@
                 <div class="social-section-heading social-editor-heading">
                   <div>
                     <h2 id="manual-sns-text-title">내용</h2>
-                    <p>발행할 글을 입력하세요. 채널별 글자 수 제한을 넘으면 발행되지 않습니다.</p>
                   </div>
                   <div class="social-editor-tools">
                     <span id="manual-sns-ai-action" class="social-ai-action" hidden>
@@ -41,7 +40,7 @@
                       <button id="manual-sns-ai-confirm-btn" class="primary compact" type="button">최적화 적용</button>
                       <button id="manual-sns-ai-cancel-btn" class="secondary compact" type="button">취소</button>
                     </span>
-                    <button id="manual-sns-ai-undo-btn" class="text-btn" type="button" hidden>최적화 전으로 되돌리기</button>
+                    <button id="manual-sns-ai-undo-btn" class="secondary compact social-ai-undo-btn" type="button" title="AI 최적화 전 내용으로 되돌리기" hidden>되돌리기</button>
                   </div>
                 </div>
                 <div class="social-editor-shell">
@@ -50,7 +49,6 @@
                   <span id="manual-sns-character-count" class="social-character-count">0/1,000자</span>
                 </div>
                 <div id="manual-sns-ai-status" class="social-ai-status" aria-live="polite"></div>
-                <div id="manual-sns-limit-status" class="social-limit-status" aria-live="polite"></div>
               </section>
 
               <section class="social-composer-section social-composer-image-section" aria-labelledby="manual-sns-image-title">
@@ -93,7 +91,10 @@
 
               <div class="social-composer-actions">
                 <div id="manual-sns-publish-summary" class="social-publish-summary">발행할 채널을 선택하세요.</div>
-                <button id="manual-sns-publish-btn" class="primary ui-loading-action" type="button" disabled>지금 발행</button>
+                <div class="social-publish-action-group">
+                  <button id="manual-sns-new-post-btn" class="secondary" type="button" hidden>새 게시물 작성</button>
+                  <button id="manual-sns-publish-btn" class="primary ui-loading-action" type="button" disabled>지금 발행</button>
+                </div>
               </div>
             </div>
             <aside class="social-live-preview" aria-labelledby="manual-sns-preview-title">

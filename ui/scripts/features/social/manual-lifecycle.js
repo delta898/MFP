@@ -4,6 +4,7 @@ function initManualSnsComposer() {
   const imageLocalPanelEl = document.getElementById('manual-sns-image-local-panel');
   const selectAllEl = document.getElementById('manual-sns-select-all');
   const publishBtn = document.getElementById('manual-sns-publish-btn');
+  const newPostBtn = document.getElementById('manual-sns-new-post-btn');
   const optimizeBtn = document.getElementById('manual-sns-ai-optimize-btn');
   const optimizeConfirmBtn = document.getElementById('manual-sns-ai-confirm-btn');
   const optimizeCancelBtn = document.getElementById('manual-sns-ai-cancel-btn');
@@ -56,6 +57,7 @@ function initManualSnsComposer() {
   BufferPublishingControls.setWorkspaceRefresh(workspaceLoad, () => void loadManualSnsWorkspaces());
   organization?.addEventListener('change', () => void loadManualSnsWorkspaces());
   publishBtn?.addEventListener('click', () => void publishManualSns());
+  newPostBtn?.addEventListener('click', () => void startNewManualSnsPost());
   optimizeBtn?.addEventListener('click', openManualSnsOptimizationConfirmation);
   optimizeConfirmBtn?.addEventListener('click', () => void optimizeManualSnsText());
   optimizeCancelBtn?.addEventListener('click', cancelManualSnsOptimizationConfirmation);

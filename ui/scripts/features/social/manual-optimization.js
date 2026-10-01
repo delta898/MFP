@@ -1,8 +1,9 @@
 function renderManualSnsAiStatus(message = '', isError = false) {
   const statusEl = document.getElementById('manual-sns-ai-status');
   if (!statusEl) return;
-  statusEl.textContent = String(message || '');
-  statusEl.classList.toggle('is-error', isError);
+  manualSnsAiStatusMessage = String(message || '');
+  manualSnsAiStatusIsError = Boolean(isError);
+  syncManualSnsComposerState();
 }
 
 function renderManualSnsImageGenerationStatus(message = '', isError = false) {
@@ -170,7 +171,10 @@ async function optimizeManualSnsText() {
       channelIds: selectedChannels.map((channel) => channel.id),
       text: originalValue.trim()
     });
-    const optimizedText = String(data?.optimized_text || '').trim();
+    const body = String(data?.body || '').trim();
+    const hashtags = Array.isArray(data?.hashtags) ? data.hashtags.map((tag) => String(tag || '').trim()).filter(Boolean) : [];
+    const optimizedText = [body, hashtags.join(' ')].filter(Boolean).join('\n\n')
+      || String(data?.optimized_text || '').trim();
     if (!optimizedText) throw new Error('AI 최적화 결과가 비어 있습니다.');
     if (String(textEl.value || '') !== originalValue) {
       throw new Error('최적화 중 내용이 변경되어 결과를 반영하지 않았습니다. 다시 실행해 주세요.');
@@ -202,7 +206,7 @@ function undoManualSnsOptimization() {
   textEl.value = manualSnsOptimizationSnapshot;
   manualSnsOptimizationSnapshot = null;
   textEl.dispatchEvent(new Event('input', { bubbles: true }));
-  renderManualSnsAiStatus('AI 최적화 전 내용으로 되돌렸습니다.');
+  renderManualSnsAiStatus('최적화 전 내용으로 되돌렸습니다.');
   textEl.focus();
 }
 
@@ -219,9 +223,28 @@ function renderManualSnsPublishResult(data = {}) {
   (Array.isArray(data.results) ? data.results : []).forEach((result) => {
     const row = document.createElement('div');
     row.className = `social-result-row ${result.success ? 'is-success' : 'is-error'}`;
-    row.textContent = result.success
-      ? `✅ ${result.channel_name || result.service} ${result.status === 'sent' ? '발행 성공' : '발행 요청 성공'}`
-      : `❌ ${result.channel_name || result.service} 실패${result.message ? ` · ${result.message}` : ''}`;
+    const channelLabel = result.channel_name || result.service || '채널';
+    row.append(document.createTextNode(result.success
+      ? `✅ ${channelLabel} ${result.status === 'sent' ? '발행 성공' : '발행 요청 성공'}`
+      : `❌ ${channelLabel} 실패${result.message ? ` · ${result.message}` : ''}`));
+    if (result.success) {
+      try {
+        const postUrl = new URL(String(result.external_link || ''));
+        if (postUrl.protocol === 'https:' && !postUrl.username && !postUrl.password) {
+          const link = document.createElement('a');
+          link.className = 'social-result-link';
+          link.href = postUrl.href;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.title = `${channelLabel} 게시물 열기`;
+          link.setAttribute('aria-label', `${channelLabel} 게시물 열기`);
+          link.textContent = '↗';
+          row.append(link);
+        }
+      } catch (_error) {
+        // 링크가 없거나 올바른 URL이 아니면 성공 상태만 표시합니다.
+      }
+    }
     resultEl.appendChild(row);
   });
   if (data.media_cleanup?.retained === true) {

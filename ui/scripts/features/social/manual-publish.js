@@ -7,6 +7,47 @@ function readManualSnsFileAsDataUrl(file) {
   });
 }
 
+async function startNewManualSnsPost() {
+  if (!manualSnsLastPublishedSignature || manualSnsPublishingInFlight || manualSnsImageGenerationInFlight) return;
+  if (getManualSnsPublishSignature() !== manualSnsLastPublishedSignature) {
+    const confirmed = await showUiDialog({
+      title: '새 게시물 작성',
+      message: '현재 작성 중인 내용과 이미지를 지우고 새 게시물을 시작할까요?',
+      showCancel: true,
+      confirmText: '새 게시물 작성',
+      cancelText: '계속 작성'
+    });
+    if (!confirmed) return;
+  }
+
+  const textEl = document.getElementById('manual-sns-text');
+  if (textEl) {
+    textEl.value = '';
+    textEl.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  manualSnsLocalImages.forEach(({ previewUrl }) => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+  });
+  manualSnsLocalImages = [];
+  manualSnsPreviewImageIndex = 0;
+  manualSnsOptimizationSnapshot = null;
+  manualSnsOptimizationConfirmOpen = false;
+  manualSnsAiStatusMessage = '';
+  manualSnsAiStatusIsError = false;
+  manualSnsLastPublishedSignature = '';
+  manualSnsImagePromptOpen = false;
+  manualSnsImageInstruction = '';
+  manualSnsImagePromptTargetIndex = null;
+  const resultEl = document.getElementById('manual-sns-publish-result');
+  resultEl?.replaceChildren();
+  resultEl?.classList.remove('is-visible');
+  renderManualSnsImageGenerationStatus('');
+  renderManualSnsAiStatus('');
+  syncManualSnsImagePreview();
+  syncManualSnsComposerState();
+  textEl?.focus();
+}
+
 async function publishManualSns() {
   syncManualSnsComposerState();
   const publishBtn = document.getElementById('manual-sns-publish-btn');

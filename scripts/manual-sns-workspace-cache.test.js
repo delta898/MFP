@@ -66,11 +66,11 @@ test('SNS workspace cache rejects corrupted ownership and invalidates only autho
 test('SNS workspace cache invalidates snapshots from the previous channel-limit contract', () => {
   const { api, values } = createRuntime();
   values.set('manual_sns_workspace_snapshot_v1', JSON.stringify({
-    version: 1,
+    version: 2,
     fetchedAt: 2_000_000_000_000,
     organizations: [{ id: 'org-1' }],
     organizationId: 'org-1',
-    channels: [{ id: 'channel-1', service: 'threads', limit: 0 }]
+    channels: [{ id: 'channel-1', service: 'threads', limit: 500, max_assets: 0 }]
   }));
 
   assert.equal(api.readManualSnsWorkspaceCache(2_000_000_000_100), null);

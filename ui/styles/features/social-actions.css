@@ -6,6 +6,17 @@
   padding: 18px 20px;
 }
 
+.social-publish-action-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.social-ai-undo-btn {
+  white-space: nowrap;
+}
+
 .social-publish-summary {
   color: var(--ui-text-secondary);
   font-size: var(--ui-type-label-size);
@@ -20,6 +31,22 @@
   background: var(--ui-surface-muted);
   font-size: var(--ui-type-label-size);
   line-height: 1.65;
+}
+
+.social-result-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5em;
+  margin-left: 6px;
+  color: var(--ui-action-primary);
+  font-weight: var(--ui-weight-semibold);
+  text-decoration: none;
+}
+
+.social-result-link:hover,
+.social-result-link:focus-visible {
+  text-decoration: underline;
 }
 
 .social-publish-result.is-visible {
@@ -52,6 +79,15 @@
 
   .social-composer-actions button {
     width: 100%;
+  }
+
+  .social-publish-action-group {
+    width: 100%;
+    flex-direction: column-reverse;
+  }
+
+  .social-publish-action-group.has-new-post-primary {
+    flex-direction: column;
   }
 }
 
