@@ -3,7 +3,7 @@
 - Branch: `codex/feature/ai-model-save-without-key`
 - Base/parent branch: `release/v0.5.5`
 - Start date: 2026-10-01
-- Status: Implementation and automated verification complete; hands-on UI review pending
+- Status: Ready for parent merge; hands-on UI review pending
 
 ## User need and goal
 
@@ -47,8 +47,10 @@ Out of scope unless separately approved:
 - 2026-10-01: Confirmed the current failure mode in the renderer: save-and-proceed calls AI role validation that rejects the selection if no API key is configured. The desktop quit guard reuses the same save path, so “저장 후 종료” also remains in the app on failure; “변경사항 버리고 종료” remains available.
 - 2026-10-01: Updated AI role persistence to accept a valid model selection without requiring an API key. Connection verification remains a separate explicit action and still requires credentials. The UI reports “API Key 필요” for a selected model without a configured key and “확인 필요” when a key exists but the connection has not been verified.
 - 2026-10-01: Added server persistence and UI contract regressions. Focused unit/contract tests passed (50 tests), and the browser UI smoke passed (382 fixture requests; 2 external font requests were blocked as expected). `git diff --check` passed.
+- 2026-10-01: Full unit suite passed before parent merge: 2,053 passed, 15 skipped, 0 failed. The security audit reported 0 vulnerabilities.
 
 ## Remaining work and risks
 
 - Hands-on desktop review is still needed for the original settings flow: choose a model with no key, select “저장 후 이동” and “저장 후 종료”, then verify the preference persists and the missing-key status is clear. Also confirm explicit connection check asks for the key without undoing the saved model.
-- The full unit suite was not requested or run; no broad test approval was sought. No commit or merge has been made.
+- No hands-on desktop acceptance has been performed; the user owns final visual/exploratory validation.
+- Feature implementation was committed as `028486e8`; parent merge and branch cleanup remain pending.
