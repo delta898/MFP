@@ -85,7 +85,7 @@ This is the agreed product boundary: BlogGenius must not invoke, bundle, or depe
 7. A Site can be deployed and inspected without a custom domain using its Cloudflare `workers.dev` address. A custom domain is optional and can be connected through Cloudflare when desired.
 8. Create an article in BlogGenius's writing workflow, publish it to the chosen static site, then rebuild/deploy the updated site.
 
-Each Site is an independent build/deploy unit and is expected to have its own hostname when custom domains are used (for example, `docs.example.com` and `blog.example.com`). Project is a management grouping; whether it also carries a required parent/root domain is not yet decided. Without a custom domain, each Site still has its own `workers.dev` URL. This remains a user-flow hypothesis, not an implementation contract. Local preview must not silently imply an extra user-installed tool; custom-domain connection must account for Cloudflare account scope, domain ownership, DNS state, and confirmation of remote changes.
+Each Site is an independent build/deploy unit. A Project may have zero or one configured root domain: it may be created and used before the user owns or chooses a domain, but Sites in one Project must not use multiple unrelated root domains. When the Project has a root domain, a Site's optional hostname is interpreted within that domain (for example, `www` produces `www.example.com`, while `docs` produces `docs.example.com`); whether to represent the apex hostname specially remains a contract detail. A Site without a custom hostname still has its own `workers.dev` URL. To manage a separate root domain, the user creates a separate Project. This is the agreed policy direction and remains to be reflected in a later data/UX contract. Cloudflare custom-domain attachment requires an active zone, and an existing CNAME at the chosen hostname can block attachment; the app must check and explain conflicts rather than silently changing DNS. Local preview must not silently imply an extra user-installed tool.
 
 ## Platform prerequisite requirement
 
@@ -96,7 +96,7 @@ Each Site is an independent build/deploy unit and is expected to have its own ho
 
 ## Design questions to resolve
 
-1. What optional domain metadata, if any, belongs on a Project when it groups Sites that each have a hostname? How should a Project work before any custom domain exists?
+1. How should the data/UI represent a Site's optional custom hostname before a Project has a root domain, and how should the apex hostname be represented? `www` and other subdomain labels are allowed under the Project's single root domain; separate root domains require separate Projects.
 2. The default source-sharing model is a shared local Astro project. What file ownership and change-detection rules are needed when an external editor changes it? Should Git remain optional, and is export/import sufficient for cross-machine transfer?
 3. Where do Astro dependencies, local preview, and builds run while preserving the no-extra-tool installation requirement?
 4. How are Cloudflare identity, credentials, account selection, deployment approval, and recovery handled without exposing secrets to site scripts or static output?
@@ -106,6 +106,22 @@ Each Site is an independent build/deploy unit and is expected to have its own ho
 8. What can Cloudflare custom-domain setup safely automate, and which domain/DNS changes require explicit user action?
 9. What minimal consumer behaviors should BlogGenius and future Amade2 implement independently against the new contract?
 10. What is the smallest end-to-end user scenario that validates value without turning BlogGenius into a site builder or general CMS?
+
+## Site attributes (discussion draft)
+
+Keep user choices separate from implementation state. The Project owns the optional single root domain; a Site chooses a hostname under that Project domain. A Site with no custom hostname remains available at its generated `workers.dev` address.
+
+| User-facing/site configuration candidates | Internally managed candidates |
+| --- | --- |
+| Site display name (for example, “Product docs”) | Stable Site ID |
+| Selected template and pinned template version | Parent Project ID |
+| Template-supported settings (for example title, logo, menu) | Local Astro source location and source state |
+| Optional hostname label under the Project domain (for example `www`, `docs`) | Build/dependency/runtime metadata and build output location |
+| Optional custom-domain attachment and canonical-host preference, if supported | Cloudflare account/Worker identifiers and `workers.dev` URL |
+| Content/site publishing choices supported by the selected template | Deployment history, status, timestamps, and diagnostics |
+|  | Credentials/tokens in secure credential storage, never in site source/config |
+
+This is a candidate list, not a committed schema. A hostname is exact: `www.example.com` and `example.com` are separate hostnames. Cloudflare Custom Domains attach to an exact hostname; supporting both requires a redirect or a second hostname attachment/configuration. Therefore, selecting `www` does not itself make the apex `example.com` work. The initial product can treat the Site's chosen hostname as canonical and defer apex alias/redirect handling, while explaining that distinction. Cloudflare can attach a Custom Domain to the apex as well as subdomains, subject to zone and DNS conditions.
 
 ## Proposed boundaries to evaluate
 
@@ -192,13 +208,18 @@ These are decision-support experiments, not approval to implement the full featu
 - User expects separate hostnames per Site when custom domains are used (for example, `docs.example.com`, `blog.example.com`). Custom domains are optional; each Site must work through `workers.dev` without one.
 - The normal external-editing workflow shares the same source project. Export/import is primarily for moving a project between machines.
 - User clarified that the existing Amade project is worth reviewing as an experimental workflow reference, while its current template remains non-normative and is not the basis for the new template specification. This supersedes the earlier exclusion of all Amade material as evidence.
+- User agreed to the domain grouping rule: a Project supports at most one root domain; it may remain unassigned so sites can be built, deployed, and inspected on `workers.dev`; sites needing another root domain belong in another Project. Do not represent an unassigned domain using a fake placeholder such as `notassignedyet.com`.
+- User clarified the ownership boundary: the root domain belongs to Project; a Site should choose only its hostname under that Project domain. `www` must be allowed.
+- Product principle: BlogGenius is a best-effort helper. It should automate what it can, detect external constraints/conflicts, explain them plainly, and guide the user to resolution; it cannot promise to override Cloudflare/domain/DNS limitations.
+- Recorded a draft split of Site user-configurable attributes and internally managed state. The exact fields remain subject to product-flow design.
 
 ### 2026-10-01 — Project/Site and deployment assumptions clarified
 
 - Revised the candidate journey to distinguish Project management grouping from independently built/deployed Sites, and to make custom domains optional.
 - Recorded `workers.dev` as the default inspection/deployment address when the user has no custom domain.
-- Updated open questions to focus on optional Project domain metadata, shared local source ownership/change detection, and cross-machine transfer.
+- Updated open questions to focus on the exact hostname rule under a Project's optional single root domain, shared local source ownership/change detection, and cross-machine transfer.
 - The user's latest clarification supersedes earlier notes that treated the current Amade workflow itself as nonexistent; only its template remains excluded as a standard.
+- Clarified that `www.example.com` is not the apex `example.com`; Cloudflare custom domain attachment is exact-hostname. Serving both requires separate hostname handling (typically a redirect/alias setup), so the initial Site hostname can be canonical and apex behavior can be a separate supported flow.
 - Astro's conventional project structure is the baseline; any product-specific template contract should be a thin addition, not a competing Astro project standard.
 - The current parent starts from `main` and is named `codex/static-site-builder-main`; the intended destination is `dev`. Future feature work starts from `dev`.
 
