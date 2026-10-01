@@ -1,0 +1,25 @@
+---
+import site from '../site.config.json';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{site.siteTitle}</title>
+  </head>
+  <body>
+    <header>
+      {site.logoPath ? <img src={site.logoPath} alt="" /> : null}
+      <a href="/">{site.siteTitle}</a>
+      <nav aria-label="Main navigation">
+        {site.navigation.map((item) => <a href={item.href}>{item.label}</a>)}
+      </nav>
+    </header>
+    <main>
+      <h1>{site.siteTitle}</h1>
+      <p>Site-specific pages and content are added by the owning tool.</p>
+    </main>
+  </body>
+</html>
