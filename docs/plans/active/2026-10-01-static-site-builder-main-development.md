@@ -139,9 +139,10 @@ These are hypotheses for design work, not finalized architecture decisions.
 
 1. **Product and architecture discovery**: map the user flow, Project/Site relationship, source ownership, execution choices, Cloudflare boundaries, and new template contract. Recommend an initial vertical slice before implementation.
 2. **Foundation contracts**: after user agreement, define project/site/content/template/build/deploy contracts and local data ownership. Start the template project and its initial specification independently from tool implementations.
-3. **Vertical slice**: initialize one project, create one site from one catalog template, apply its basic settings, preview/build, and deploy to a development Cloudflare target with explicit confirmation.
-4. **Writing integration**: publish one BlogGenius manuscript as static-site content and redeploy the changed site, preserving the last successful deployment if a later build/deploy fails.
-5. **Site lifecycle expansion**: validate the already-agreed N-site Project model, external Astro editing, optional custom domains, production deployment, and template upgrade/switch behavior as separate decisions.
+3. **User-scenario technical PoCs**: validate the journey in order, starting with Cloudflare authorization and account discovery, then read-only inventory, a disposable Static Assets deployment, and deployment/status inspection. Derive the required scopes, data model, error handling, and product boundaries from observed results.
+4. **Local site lifecycle**: initialize one project, create one site from one catalog template, apply basic settings, and preview/build locally.
+5. **Writing integration**: publish one BlogGenius manuscript as static-site content and redeploy the changed site, preserving the last successful deployment if a later build/deploy fails.
+6. **Site lifecycle expansion**: validate the already-agreed N-site Project model, external Astro editing, optional custom domains, production deployment, and template upgrade/switch behavior as separate decisions.
 
 Stages 2–5 may be reordered or narrowed based on the discovery result. Each implementation stage should be a separate sub-feature branch based on this parent branch and should have its own dated development record before material changes.
 
@@ -167,11 +168,13 @@ No execution model is selected yet.
 ## Next discovery experiments (proposal)
 
 1. **Template contract spike:** define one minimal product descriptor layered on a conventional Astro starter, from scratch. Validate that title/logo/menu-style values can be declared, validated, and applied. Include immutable template identity/version and integrity metadata; do not implement existing-site migration.
-2. **Independent consumer check:** use the same descriptor/source artifact from a future Amade2 proof and a BlogGenius-side prototype or contract check. The goal is to confirm independent consumption of one neutral contract; BlogGenius must not invoke or package a CLI.
-3. **Runtime feasibility check:** on macOS Apple Silicon and Windows x64, establish whether BlogGenius can package or manage the Astro build/preview runtime without user-installed developer tools. Check package size, startup, process cleanup, preview port conflicts, and whether site build scripts can access Cloudflare credentials. Windows ARM64 is a future compatibility consideration only.
-4. **Cloudflare auth/deploy check:** separately prove the smallest dev-only deploy flow and its permissions, with explicit target confirmation and safe failure behavior. Custom-domain/DNS changes are excluded from this first check.
+2. **Cloudflare user-journey PoC (next):** proceed in order: (a) authorize BlogGenius with a registered Cloudflare OAuth desktop client using Authorization Code + PKCE, (b) discover/select the user's Cloudflare account, (c) read existing Worker/Static Assets deployment inventory, (d) deploy a disposable sample Static Assets site to a confirmed development account, and (e) query deployment/script status and verify its resulting URL. At each step record requested OAuth scopes, relevant API/package support, persisted identifiers, cancellation/revocation behavior, and actionable failures. No custom-domain/DNS changes are included.
+3. **Independent consumer check:** use the same descriptor/source artifact from a future Amade2 proof and a BlogGenius-side prototype or contract check. The goal is to confirm independent consumption of one neutral contract; BlogGenius must not invoke or package a CLI.
+4. **Runtime feasibility check:** on macOS Apple Silicon and Windows x64, establish whether BlogGenius can package or manage the Astro build/preview runtime without user-installed developer tools. Check package size, startup, process cleanup, preview port conflicts, and whether site build scripts can access Cloudflare credentials. Windows ARM64 is a future compatibility consideration only.
 
 These are decision-support experiments, not approval to implement the full feature. Prefer disposable fixtures and a dedicated development Cloudflare target; do not incur paid AI, production mutations, or unapproved remote changes.
+
+The Cloudflare PoC follows the user journey rather than selecting a technology stack in advance. Cloudflare's OAuth documentation supports Authorization Code with PKCE for desktop clients. Its API exposes Worker Script inventory and Static Assets upload/deployment operations; “Static Assets list” should therefore be verified as the relevant Worker/deployment inventory and not assumed to be a separate site registry. A live sample deployment is a remote mutation and must use a user-designated disposable/development account and an explicitly confirmed Worker name.
 
 ## Progress log
 
@@ -212,6 +215,7 @@ These are decision-support experiments, not approval to implement the full featu
 - User clarified the ownership boundary: the root domain belongs to Project; a Site should choose only its hostname under that Project domain. `www` must be allowed.
 - Product principle: BlogGenius is a best-effort helper. It should automate what it can, detect external constraints/conflicts, explain them plainly, and guide the user to resolution; it cannot promise to override Cloudflare/domain/DNS limitations.
 - Recorded a draft split of Site user-configurable attributes and internally managed state. The exact fields remain subject to product-flow design.
+- User chose a scenario-first discovery method: validate technical capability in the order the user encounters it, and derive requirements and architecture from PoC evidence rather than trying to settle every detail by speculation.
 
 ### 2026-10-01 — Project/Site and deployment assumptions clarified
 
@@ -220,6 +224,7 @@ These are decision-support experiments, not approval to implement the full featu
 - Updated open questions to focus on the exact hostname rule under a Project's optional single root domain, shared local source ownership/change detection, and cross-machine transfer.
 - The user's latest clarification supersedes earlier notes that treated the current Amade workflow itself as nonexistent; only its template remains excluded as a standard.
 - Clarified that `www.example.com` is not the apex `example.com`; Cloudflare custom domain attachment is exact-hostname. Serving both requires separate hostname handling (typically a redirect/alias setup), so the initial Site hostname can be canonical and apex behavior can be a separate supported flow.
+- Reordered the proposed discovery path so the next technical PoC follows Cloudflare authorization, account selection, read-only inventory, disposable sample deployment, then status/URL verification. Astro local build/preview follows that platform-path check.
 - Astro's conventional project structure is the baseline; any product-specific template contract should be a thin addition, not a competing Astro project standard.
 - The current parent starts from `main` and is named `codex/static-site-builder-main`; the intended destination is `dev`. Future feature work starts from `dev`.
 
