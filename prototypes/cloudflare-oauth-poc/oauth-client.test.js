@@ -2,7 +2,16 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const test = require('node:test');
 
-const { AUTHORIZATION_URL, MEMBERSHIPS_URL, TOKEN_URL, createCloudflareOAuthClient, listCloudflareMemberships } = require('./oauth-client');
+const {
+    AUTHORIZATION_URL,
+    MEMBERSHIPS_URL,
+    TOKEN_URL,
+    WORKER_SCRIPTS_URL,
+    createCloudflareOAuthClient,
+    listCloudflareMemberships,
+    listCloudflareWorkerScripts,
+    selectCloudflareAccount
+} = require('./oauth-client');
 
 function makeResponse(payload, status = 200) {
     return {
@@ -122,6 +131,54 @@ test('membership lookup uses the OAuth bearer token and returns linked accounts'
 test('membership lookup reports API errors without including the access token', async () => {
     await assert.rejects(
         listCloudflareMemberships('temporary-access-token', {
+            fetchImpl: async () => makeResponse({ success: false, errors: [{ message: 'Forbidden' }] }, 403)
+        }),
+        (error) => error.message.includes('Forbidden') && !error.message.includes('temporary-access-token')
+    );
+});
+
+test('account selection requires membership authorization and avoids guessing across accounts', () => {
+    const memberships = [
+        { account: { id: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', name: 'First account' } },
+        { account: { id: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', name: 'Second account' } }
+    ];
+
+    assert.throws(() => selectCloudflareAccount(memberships), /Multiple Cloudflare accounts are available.*CF_ACCOUNT_ID.*aaaaaaaa/);
+    assert.equal(selectCloudflareAccount(memberships, memberships[1].account.id), memberships[1].account);
+    assert.equal(selectCloudflareAccount([memberships[0]]), memberships[0].account);
+    assert.throws(() => selectCloudflareAccount(memberships, 'cccccccccccccccccccccccccccccccc'), /not in the authorized membership list/);
+});
+
+test('Worker script listing sends a bearer read request for a validated account', async () => {
+    let request;
+    const scripts = [{ id: 'site-worker', has_assets: true }, { id: 'api-worker', has_assets: false }];
+    const result = await listCloudflareWorkerScripts('temporary-access-token', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', {
+        fetchImpl: async (url, options) => {
+            request = { url, options };
+            return makeResponse({ success: true, result: scripts });
+        }
+    });
+
+    assert.equal(request.url, `${WORKER_SCRIPTS_URL}/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/workers/scripts`);
+    assert.equal(request.options.headers.Authorization, 'Bearer temporary-access-token');
+    assert.deepEqual(result, scripts);
+    assert.deepEqual(result.filter((script) => script.has_assets === true).map((script) => script.id), ['site-worker']);
+});
+
+test('Worker script listing rejects invalid account IDs before making a request', async () => {
+    let requestCount = 0;
+    await assert.rejects(
+        listCloudflareWorkerScripts('temporary-access-token', 'not-an-account-id', {
+            fetchImpl: async () => { requestCount += 1; return makeResponse({}); }
+        }),
+        /32 hexadecimal characters/
+    );
+    assert.equal(requestCount, 0);
+});
+
+test('Worker script API errors do not include the access token', async () => {
+    await assert.rejects(
+        listCloudflareWorkerScripts('temporary-access-token', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', {
             fetchImpl: async () => makeResponse({ success: false, errors: [{ message: 'Forbidden' }] }, 403)
         }),
         (error) => error.message.includes('Forbidden') && !error.message.includes('temporary-access-token')

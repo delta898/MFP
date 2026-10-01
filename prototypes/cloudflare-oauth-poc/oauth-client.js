@@ -3,6 +3,7 @@ const crypto = require('node:crypto');
 const AUTHORIZATION_URL = 'https://dash.cloudflare.com/oauth2/auth';
 const TOKEN_URL = 'https://dash.cloudflare.com/oauth2/token';
 const MEMBERSHIPS_URL = 'https://api.cloudflare.com/client/v4/memberships';
+const WORKER_SCRIPTS_URL = 'https://api.cloudflare.com/client/v4/accounts';
 const DEFAULT_STATE_TTL_MS = 10 * 60 * 1000;
 
 function base64Url(value) {
@@ -107,10 +108,48 @@ async function listCloudflareMemberships(accessToken, { fetchImpl = globalThis.f
     return Array.isArray(payload.result) ? payload.result : [];
 }
 
+function selectCloudflareAccount(memberships, requestedAccountId = '') {
+    const available = Array.isArray(memberships) ? memberships : [];
+    const requestedId = String(requestedAccountId || '').trim();
+    if (requestedId) {
+        if (!/^[a-f\d]{32}$/i.test(requestedId)) throw new Error('Cloudflare account ID must be 32 hexadecimal characters.');
+        const match = available.find((membership) => String(membership.account?.id || '') === requestedId);
+        if (!match) throw new Error('The selected Cloudflare account is not in the authorized membership list.');
+        return match.account;
+    }
+    if (available.length === 1 && available[0]?.account?.id) return available[0].account;
+    if (available.length === 0) throw new Error('No Cloudflare account memberships are available.');
+    const accountIds = available.map((membership) => String(membership.account?.id || '')).filter(Boolean);
+    throw new Error(`Multiple Cloudflare accounts are available. Set CF_ACCOUNT_ID to one of: ${accountIds.join(', ')}`);
+}
+
+async function listCloudflareWorkerScripts(accessToken, accountId, { fetchImpl = globalThis.fetch } = {}) {
+    const token = String(accessToken || '').trim();
+    const normalizedAccountId = String(accountId || '').trim();
+    if (!token) throw new Error('Cloudflare access token is required.');
+    if (!/^[a-f\d]{32}$/i.test(normalizedAccountId)) throw new Error('Cloudflare account ID must be 32 hexadecimal characters.');
+    if (typeof fetchImpl !== 'function') throw new Error('A fetch implementation is required.');
+
+    const response = await fetchImpl(`${WORKER_SCRIPTS_URL}/${normalizedAccountId}/workers/scripts`, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.success !== true) {
+        const detail = Array.isArray(payload.errors)
+            ? payload.errors.map((item) => item.message).filter(Boolean).join('; ')
+            : '';
+        throw new Error(`Cloudflare Worker script lookup failed: ${detail || `HTTP ${response.status}`}`);
+    }
+    return Array.isArray(payload.result) ? payload.result : [];
+}
+
 module.exports = {
     AUTHORIZATION_URL,
     MEMBERSHIPS_URL,
     TOKEN_URL,
+    WORKER_SCRIPTS_URL,
     createCloudflareOAuthClient,
-    listCloudflareMemberships
+    listCloudflareMemberships,
+    listCloudflareWorkerScripts,
+    selectCloudflareAccount
 };

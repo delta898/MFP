@@ -29,3 +29,19 @@ CF_OAUTH_CLIENT_ID=your-client-id node prototypes/cloudflare-oauth-poc/run-live-
 기본 scope는 `memberships.read`이며 Cloudflare Dashboard의 **Memberships Read** 권한에 해당한다. OAuth 클라이언트에도 이 권한을 허용해야 한다. 등록된 클라이언트에서 다른 scope를 선택했다면 공백으로 구분해 `CF_OAUTH_SCOPES` 환경 변수에 지정한다. 이 scope로 실제 OAuth 승인 및 멤버십 목록 조회를 확인했다.
 
 실제 인증을 시작하기 전에 redirect URI와 scope가 등록된 클라이언트 설정과 일치하는지 확인한다. Client ID는 공개 식별자이지만, access token, refresh token, client secret 또는 API token은 이 저장소나 채팅에 기록하지 않는다.
+
+## Workers Static Assets 목록 확인
+
+등록된 비공개 OAuth 클라이언트가 `Memberships Read`와 `Workers Scripts Read`를 허용하는지 확인한 뒤 다음 명령으로 읽기 전용 목록 조회를 시작한다.
+
+```sh
+CF_OAUTH_CLIENT_ID=your-client-id node prototypes/cloudflare-oauth-poc/run-static-assets-list-check.js
+```
+
+기본 요청 scope는 `memberships.read workers-scripts.read`다. 이 PoC는 먼저 승인된 account membership을 조회한 다음 `GET /accounts/{account_id}/workers/scripts`를 호출한다. 연결된 계정이 하나면 자동 선택하고, 여러 개면 임의로 고르지 않고 종료한다. 이 경우 membership 결과의 ID 중 하나를 지정해 다시 실행한다.
+
+```sh
+CF_OAUTH_CLIENT_ID=your-client-id CF_ACCOUNT_ID=32-character-account-id node prototypes/cloudflare-oauth-poc/run-static-assets-list-check.js
+```
+
+출력은 Worker script 수와 `has_assets: true`인 항목의 이름만 포함한다. Worker 생성·수정·삭제·배포는 수행하지 않는다.

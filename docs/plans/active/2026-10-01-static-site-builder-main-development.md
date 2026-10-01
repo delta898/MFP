@@ -163,9 +163,10 @@ No execution model is selected yet.
 
 ## Cloudflare 연동 검증 진행
 
-- Cloudflare 연결과 계정 목록 조회를 검증하는 하위 단계는 [Cloudflare 데스크톱 OAuth 및 계정 목록 PoC 기록](2026-10-01-cloudflare-oauth-desktop-poc-development.md)에서 추적한다. 현재 `codex/cloudflare-oauth-poc`에서 작업 중이며 이 부모 브랜치에 아직 병합하지 않았다.
+- Cloudflare OAuth 및 계정 목록 검증은 완료되어 [Cloudflare 데스크톱 OAuth 및 계정 목록 PoC 기록](../archive/2026-10-01-cloudflare-oauth-desktop-poc-development.md)에 보관했다. 결과는 `codex/cloudflare-oauth-poc`에서 `codex/static-site-builder-main`으로 fast-forward 병합했다.
 - 2026-10-02 기준 시스템 브라우저 OAuth Authorization Code + PKCE 인증, `memberships.read` scope, Bearer token을 이용한 `GET /memberships` 조회가 실제 Cloudflare 계정에서 성공했다. 실제 계정의 식별 정보와 token은 기록하지 않는다.
-- 다음 검증은 Cloudflare Static Assets 목록 조회와 최소 권한 확인이다. 배포 또는 계정 리소스 변경은 별도 합의 전까지 범위 밖이다.
+- Workers Static Assets 목록 조회 단계는 [Cloudflare Static Assets 목록 조회 PoC 기록](2026-10-02-cloudflare-static-assets-list-poc-development.md)에서 추적한다. `workers-scripts.read` scope와 `has_assets` 기반 분류를 실제 계정에서 확인했다. 결과는 구현된 `codex/cloudflare-static-assets-list-poc` 브랜치에 있으며 아직 커밋·병합하지 않았다.
+- 다음 검증은 Static Assets Worker의 배포 및 상태 조회 API, 필요한 scope, 샘플 배포의 변경 위험을 조사하는 것이다. 배포는 별도 합의 전까지 수행하지 않는다.
 
 These are decision-support experiments, not approval to implement the full feature. Prefer disposable fixtures and a dedicated development Cloudflare target; do not incur paid AI, production mutations, or unapproved remote changes.
 

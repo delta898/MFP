@@ -6,7 +6,7 @@
 - 시작일: 2026-10-01
 - 기준/부모 브랜치: `codex/static-site-builder-main`
 - 상태: Authorization Code + PKCE 및 `memberships.read` 실제 승인을 확인했고, OAuth Bearer token으로 계정 멤버십 목록을 읽는 데 성공했다.
-- 부모 기능: [정적 사이트 빌더 메인 기능](2026-10-01-static-site-builder-main-development.md)
+- 부모 기능: [정적 사이트 빌더 메인 기능](../active/2026-10-01-static-site-builder-main-development.md)
 
 ## 사용자 요구와 목표
 
