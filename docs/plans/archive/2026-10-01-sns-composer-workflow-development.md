@@ -3,7 +3,7 @@
 - Branch: `codex/feature/sns-composer-workflow`
 - Start date: 2026-10-01
 - Base/parent branch: `release/v0.5.5`
-- Status: ready to merge
+- Status: complete
 
 ## User need and goal
 
@@ -58,7 +58,7 @@ Improve the manual SNS compose/publish flow after hands-on testing: remove redun
 - Follow-up from image-limit report: the screenshot showed cached channel metadata with `max_assets: 0`, while the card misleadingly rendered that as one image and the publish guard surfaced zero. Bumped the SNS workspace-cache version to invalidate stale snapshots, stopped client-side blocking when a channel has no positive known image limit (the publish service remains authoritative), and made unknown limits explicit in the channel card.
 - Final requested verification: `npm run test:unit` passed (2,065 passed, 1 skipped; security audit reported 0 vulnerabilities). SNS-focused UI contract tests passed (8/8): publishing-social structure, social view design-system, and SNS workspace cache. The full browser UI smoke also passed (379 fixture requests, no page errors; external font requests were blocked as expected).
 - The full browser smoke first exposed one stale assertion expecting the removed empty-content footer copy. Updated the assertion to the current concise selected-channel label, then reran the complete browser smoke successfully.
-- Final verification is complete. Manual visual/exploratory acceptance remains with the user; no merge or release has occurred yet.
+- Final verification is complete. The feature was fast-forward merged into `release/v0.5.5`; release preparation/publication and manual visual/exploratory acceptance remain separate user-owned steps.
 - Verification: `node --test src/social/sns-ai-service.test.js src/social/manual-sns-service.test.js` (41 passing); `node --check` for edited social UI scripts; `git diff --check` (all passed). After each follow-up UI-only refinement, affected script syntax and `git diff --check` passed.
 - Browser/UI test and full unit suite: not run. The user asked to defer UI tests unless specifically requested; the full suite also requires explicit approval per project rules.
 - Manual UI acceptance: pending user review.
