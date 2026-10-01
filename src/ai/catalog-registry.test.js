@@ -234,7 +234,7 @@ test('provider and model order are controlled by independent sort_order fields',
     ]);
     assert.deepEqual(
         catalog.text.filter((item) => item.provider === 'openai').map((item) => item.code),
-        ['gpt-future-high', 'gpt-6-astra', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-future-low', 'gpt-5.6-terra', 'gpt-5.6-luna']
+        ['gpt-future-high', 'gpt-6-astra', 'gpt-6.1-sol', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-future-low', 'gpt-5.6-terra', 'gpt-5.6-luna']
     );
 });
 

@@ -56,3 +56,26 @@ test('Production publish preserves the legacy snapshot and verifies version rout
     assert.match(rollbackSql, /version = '2026-09-23\.1'/);
     assert.doesNotMatch(rollbackSql, /set status = 'published'/);
 });
+
+test('GPT-6.1 Sol rollout drafts preserve older catalogs and gate the new snapshot at v0.5.5', () => {
+    const devDraft = read('2026-10-01_ai_model_catalog_2026-10-01-1_draft.sql');
+    const devPublish = read('2026-10-01_ai_model_catalog_2026-10-01-1_publish.sql');
+    const devRollback = read('2026-10-01_ai_model_catalog_2026-10-01-1_rollback.sql');
+    const prodDraft = read('2026-10-01_ai_model_catalog_prod_2026-10-01-1_draft.sql');
+    const prodPublish = read('2026-10-01_ai_model_catalog_prod_2026-10-01-1_publish.sql');
+    const prodRollback = read('2026-10-01_ai_model_catalog_prod_2026-10-01-1_rollback.sql');
+
+    for (const draft of [devDraft, prodDraft]) {
+        assert.match(draft, /version = '2026-09-27\.1'[\s\S]*status = 'published'/);
+        assert.match(draft, /'2026-10-01\.1'/);
+        assert.match(draft, /'0\.5\.5-dev1'/);
+        assert.match(draft, /'openai:gpt-6\.1-sol'[\s\S]*'gpt-6\.1-sol'[\s\S]*'openai_chat_completions'/);
+        assert.match(draft, /'reasoning_efforts',[\s\S]*'low',[\s\S]*'medium',[\s\S]*'high',[\s\S]*'xhigh',[\s\S]*'max'/);
+        assert.match(draft, /<> 41/);
+    }
+    assert.match(devPublish, /jsonb_array_length\(target_payload->'models'\) <> 41/);
+    assert.match(devRollback, /set status = 'retired'/);
+    assert.match(prodPublish, /get_ai_model_catalog\('stable', '0\.5\.4'\)/);
+    assert.match(prodPublish, /get_ai_model_catalog\('stable', '0\.5\.5'\)/);
+    assert.match(prodRollback, /get_ai_model_catalog\('stable', '0\.5\.4'\)/);
+});

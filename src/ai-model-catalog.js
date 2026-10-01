@@ -34,6 +34,22 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         }
     },
     {
+        key: 'openai:gpt-6.1-sol',
+        name: 'GPT-6.1 Sol',
+        code: 'gpt-6.1-sol',
+        provider: 'openai',
+        transport: 'openai_chat_completions',
+        base_url: OPENAI_BASE_URL,
+        status: 'active',
+        sort_order: 10,
+        capabilities: {
+            temperature: false,
+            structured_output: true,
+            image_input: true,
+            reasoning_efforts: ['low', 'medium', 'high', 'xhigh', 'max']
+        }
+    },
+    {
         key: 'openai:gpt-6-sol',
         name: 'GPT-6 Sol',
         code: 'gpt-6-sol',
@@ -41,7 +57,7 @@ const TEXT_MODEL_PRESETS = Object.freeze([
         transport: 'openai_chat_completions',
         base_url: OPENAI_BASE_URL,
         status: 'active',
-        sort_order: 10,
+        sort_order: 15,
         capabilities: {
             temperature: false,
             structured_output: true,

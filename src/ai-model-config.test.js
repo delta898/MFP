@@ -83,6 +83,7 @@ test('provider and model presets follow explicit product sort order', () => {
         catalog.text.filter((item) => item.provider === 'openai').map((item) => item.code),
         [
             'gpt-6-astra',
+            'gpt-6.1-sol',
             'gpt-6-sol',
             'gpt-6-luna',
             'gpt-5.6-sol',
@@ -132,6 +133,10 @@ test('AI model catalog contains current models with trusted transports', () => {
     const findModel = (provider, code) => [...catalog.text, ...catalog.image]
         .find((item) => item.provider === provider && item.code === code);
 
+    assert.equal(findModel('openai', 'gpt-6.1-sol').transport, 'openai_chat_completions');
+    assert.deepEqual(findModel('openai', 'gpt-6.1-sol').capabilities.reasoning_efforts, [
+        'low', 'medium', 'high', 'xhigh', 'max'
+    ]);
     assert.equal(findModel('openai', 'gpt-6-sol').transport, 'openai_chat_completions');
     assert.equal(findModel('openai', 'gpt-6-luna').base_url, 'https://api.openai.com/v1');
     assert.deepEqual(findModel('openai', 'gpt-6-astra').capabilities.reasoning_efforts, [

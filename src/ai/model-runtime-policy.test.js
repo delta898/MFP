@@ -97,6 +97,17 @@ test('OpenAI chat policy uses current token and structured-output fields', () =>
     });
 });
 
+test('GPT-6.1 Sol uses its Chat Completions model ID and supported reasoning level', () => {
+    const request = buildOpenAiChatRequest({
+        provider: 'openai',
+        code: 'gpt-6.1-sol'
+    }, 'Write', { reasoningEffort: 'medium' });
+
+    assert.equal(request.definition.transport, 'openai_chat_completions');
+    assert.equal(request.body.model, 'gpt-6.1-sol');
+    assert.equal(request.body.reasoning_effort, 'medium');
+});
+
 test('automatic reasoning uses medium for writing, low for light tasks, and migrates minimal', () => {
     assert.equal(withAutomaticReasoningEffort({}, 'writing').reasoningEffort, 'medium');
     assert.equal(withAutomaticReasoningEffort({}, 'chat').reasoningEffort, 'low');
