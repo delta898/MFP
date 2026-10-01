@@ -161,6 +161,12 @@ No execution model is selected yet.
 3. **Runtime feasibility check:** on macOS Apple Silicon and Windows x64, establish whether BlogGenius can package or manage the Astro build/preview runtime without user-installed developer tools. Check package size, startup, process cleanup, preview port conflicts, and whether site build scripts can access Cloudflare credentials. Windows ARM64 is a future compatibility consideration only.
 4. **Cloudflare auth/deploy check:** separately prove the smallest dev-only deploy flow and its permissions, with explicit target confirmation and safe failure behavior. Custom-domain/DNS changes are excluded from this first check.
 
+## Cloudflare 연동 검증 진행
+
+- Cloudflare 연결과 계정 목록 조회를 검증하는 하위 단계는 [Cloudflare 데스크톱 OAuth 및 계정 목록 PoC 기록](2026-10-01-cloudflare-oauth-desktop-poc-development.md)에서 추적한다. 현재 `codex/cloudflare-oauth-poc`에서 작업 중이며 이 부모 브랜치에 아직 병합하지 않았다.
+- 2026-10-02 기준 시스템 브라우저 OAuth Authorization Code + PKCE 인증, `memberships.read` scope, Bearer token을 이용한 `GET /memberships` 조회가 실제 Cloudflare 계정에서 성공했다. 실제 계정의 식별 정보와 token은 기록하지 않는다.
+- 다음 검증은 Cloudflare Static Assets 목록 조회와 최소 권한 확인이다. 배포 또는 계정 리소스 변경은 별도 합의 전까지 범위 밖이다.
+
 These are decision-support experiments, not approval to implement the full feature. Prefer disposable fixtures and a dedicated development Cloudflare target; do not incur paid AI, production mutations, or unapproved remote changes.
 
 ## Progress log
