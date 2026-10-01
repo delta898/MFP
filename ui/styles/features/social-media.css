@@ -179,6 +179,20 @@
   transition: border-color var(--ui-motion-standard) ease, opacity var(--ui-motion-standard) ease, transform var(--ui-motion-standard) ease;
 }
 
+.social-local-image-tile.is-preview-active {
+  border-color: var(--ui-action-primary);
+  box-shadow: 0 0 0 2px var(--ui-action-primary-soft);
+}
+
+.social-local-image-tile > img {
+  cursor: pointer;
+}
+
+.social-local-image-tile > img:focus-visible {
+  outline: 3px solid var(--ui-action-primary);
+  outline-offset: -3px;
+}
+
 .social-local-image-add-tile {
   position: relative;
   display: block;
@@ -678,7 +692,7 @@
   grid-template-rows: auto minmax(4.5em, auto) minmax(240px, 1fr) 16px;
   gap: var(--ui-space-3);
   min-width: 0;
-  min-height: 100%;
+  min-height: 0;
   margin: var(--ui-density-section-padding);
   padding: var(--ui-density-section-padding);
   border: 1px solid var(--ui-border-default);

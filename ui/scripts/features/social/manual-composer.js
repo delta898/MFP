@@ -236,6 +236,29 @@ function syncManualSnsImagePreview() {
       const image = document.createElement('img');
       image.src = previewUrl;
       image.alt = `${index + 1}번 이미지`;
+      image.tabIndex = 0;
+      image.setAttribute('role', 'button');
+      image.setAttribute('aria-label', `${index + 1}번 이미지를 미리보기에 표시`);
+      image.setAttribute('aria-pressed', String(index === manualSnsPreviewImageIndex));
+      tile.classList.toggle('is-preview-active', index === manualSnsPreviewImageIndex);
+      const selectForPreview = () => {
+        manualSnsPreviewImageIndex = index;
+        gridEl.querySelectorAll('.social-local-image-tile').forEach((element) => {
+          const isActive = Number(element.dataset.imageIndex) === index;
+          element.classList.toggle('is-preview-active', isActive);
+          element.querySelector('img')?.setAttribute('aria-pressed', String(isActive));
+        });
+        syncManualSnsLivePreview();
+      };
+      image.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        selectForPreview();
+      });
+      tile.addEventListener('click', (event) => {
+        if (event.target.closest('button, a')) return;
+        selectForPreview();
+      });
       const order = document.createElement('span');
       order.className = 'social-local-image-order';
       order.textContent = String(index + 1);

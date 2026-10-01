@@ -65,6 +65,9 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.match(optimization, /!manualSnsOptimizationConfirmOpen/);
   assert.match(optimization, /postJson\('\/api\/v1\/social\/manual\/optimize'/);
   assert.match(composer, /function syncManualSnsLivePreview\(\)/);
+  assert.match(composer, /aria-label', `\$\{index \+ 1\}번 이미지를 미리보기에 표시`/);
+  assert.match(composer, /tile\.addEventListener\('click', \(event\) => \{[\s\S]*event\.target\.closest\('button, a'\)/);
+  assert.match(composer, /manualSnsPreviewImageIndex = index;[\s\S]*syncManualSnsLivePreview\(\)/);
   assert.match(composer, /class', 'social-local-image-ai-icon'/);
   assert.match(composer, /setAttribute\('aria-label', 'AI 이미지 생성'\)/);
   assert.match(composer, /pointerStartX/);
@@ -80,6 +83,7 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.match(styles, /\.social-live-preview\s*\{[^}]*grid-row:\s*1\s*\/\s*span\s*2/s);
   assert.match(styles, /grid-template-columns:\s*minmax\(0,\s*2fr\)\s+minmax\(320px,\s*1fr\)/);
   assert.match(styles, /\.social-composer-layout\s*\{[^}]*align-items:\s*stretch/s);
+  assert.match(styles, /\.social-live-preview\s*\{[^}]*grid-row:\s*1\s*\/\s*span\s*2;[^}]*min-height:\s*0/s);
   assert.match(styles, /\.social-live-preview\s*\{[^}]*padding:\s*clamp\(14px,\s*1\.4vw,\s*22px\);[^}]*margin-bottom:\s*0/s);
   assert.match(styles, /#manual-sns-image-grid\s*\{[^}]*150px/);
   assert.match(styles, /\.social-local-image-add-actions \.social-local-image-ai-trigger\s*\{[^}]*flex:\s*0\s+0\s+40px/s);
