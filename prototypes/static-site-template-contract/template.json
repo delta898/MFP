@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "starter.editorial-home",
+  "version": "1.0.0",
+  "name": "Editorial Home",
+  "description": "A compact content-focused Astro site starter.",
+  "engine": {
+    "id": "astro",
+    "range": "^5.0.0"
+  },
+  "settings": {
+    "siteTitle": {
+      "type": "string",
+      "label": "Site title",
+      "required": true,
+      "minLength": 1,
+      "maxLength": 80,
+      "default": "My Site"
+    },
+    "logoPath": {
+      "type": "string",
+      "label": "Logo path",
+      "required": false,
+      "maxLength": 240,
+      "default": ""
+    },
+    "navigation": {
+      "type": "navigation",
+      "label": "Navigation menu",
+      "required": true,
+      "maxItems": 8,
+      "default": [
+        { "label": "About", "href": "/about/" },
+        { "label": "Articles", "href": "/articles/" }
+      ]
+    }
+  },
+  "files": [
+    {
+      "path": "astro/package.json",
+      "sha256": "1305703a447cd20a33ac8bf7dac086acdb2683c74d17c616d7e182040f995109"
+    },
+    {
+      "path": "astro/astro.config.mjs",
+      "sha256": "e5d5ea9257e249ae17fca29f597bc14551cda34cbcb5ee277491f634091ea861"
+    },
+    {
+      "path": "astro/src/pages/index.astro",
+      "sha256": "842b7eb5980ce083fc2b1343723c2dcb2e77e9563e06736560945da06faa1b90"
+    }
+  ]
+}
