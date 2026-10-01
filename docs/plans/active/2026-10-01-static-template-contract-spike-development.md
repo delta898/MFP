@@ -5,7 +5,7 @@
 - Branch: `codex/static-template-contract-spike`
 - Start date: 2026-10-01
 - Base/parent branch: `codex/static-site-builder-main`
-- Status: Contract proof implemented and focused checks pass; ready for design review.
+- Status: Contract proof implemented, focused checks pass, and merged into `codex/static-site-builder-main` in merge commit `fbc4b0e5`. The prototype remains a candidate for design review and is not the adopted canonical contract.
 - Parent feature: [Static Site Builder Main Feature](2026-10-01-static-site-builder-main-development.md)
 
 ## User need and goal

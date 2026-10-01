@@ -5,7 +5,7 @@
 - 브랜치: `codex/cloudflare-static-assets-list-poc`
 - 시작일: 2026-10-02
 - 기준/부모 브랜치: `codex/static-site-builder-main`
-- 상태: 읽기 전용 PoC 구현, 집중 테스트 및 실제 Cloudflare 계정 검증을 마쳤다. 이 하위 브랜치의 통합은 아직 하지 않았다.
+- 상태: 읽기 전용 PoC 구현, 집중 테스트 및 실제 Cloudflare 계정 검증을 마쳤고, 커밋 `4c943f9c`로 부모에 병합했다. 하위 브랜치는 삭제했다.
 - 부모 기능: [정적 사이트 빌더 메인 기능](2026-10-01-static-site-builder-main-development.md)
 - 선행 단계: [Cloudflare OAuth 및 계정 멤버십 목록 PoC](../archive/2026-10-01-cloudflare-oauth-desktop-poc-development.md)
 
