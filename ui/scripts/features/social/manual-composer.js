@@ -681,7 +681,7 @@ function syncManualSnsComposerState() {
   const selectedLimits = selectedChannels.map(getManualSnsChannelTextLimit);
   const shortestLimit = selectedLimits.length > 0 ? Math.min(...selectedLimits) : MANUAL_SNS_DEFAULT_TEXT_LIMIT;
   if (countEl) {
-    countEl.textContent = `${characterCount}/${shortestLimit}자`;
+    countEl.textContent = `${characterCount}/${shortestLimit.toLocaleString('ko-KR')}자`;
     countEl.classList.toggle('is-over', Boolean(exceeded));
   }
   if (limitEl) {

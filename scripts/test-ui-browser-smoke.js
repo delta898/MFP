@@ -5552,7 +5552,7 @@ async function run() {
         await page.locator('.social-local-image-tile').first().hover();
         await page.waitForFunction(() => Number.parseFloat(getComputedStyle(document.querySelector('.social-local-image-tile-actions')).opacity) > 0.95);
         await page.locator('#manual-sns-text').fill('테스트 문구');
-        await page.waitForFunction(() => document.getElementById('manual-sns-character-count')?.textContent === '6자');
+        await page.waitForFunction(() => document.getElementById('manual-sns-character-count')?.textContent === '6/1,000자');
         assert.equal((await page.locator('#manual-sns-preview-text').textContent())?.trim(), '테스트 문구');
         assert.equal(await page.locator('#manual-sns-ai-optimize-btn').isVisible(), true);
         assert.equal(await page.locator('#manual-sns-ai-optimize-btn').isDisabled(), false);

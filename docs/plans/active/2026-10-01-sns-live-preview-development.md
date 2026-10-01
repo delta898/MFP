@@ -3,7 +3,7 @@
 - Branch: `codex/sns-live-preview`
 - Base/parent branch: `release/v0.5.5`
 - Start date: 2026-10-01
-- Status: In progress
+- Status: Ready to integrate
 
 ## User need and goal
 
@@ -53,8 +53,7 @@ Out of scope:
 
 ## Remaining work and risks
 
-- User visual review remains pending: check the narrower editor/wider preview proportions at desktop width, zero/one/multiple-image states, dot switching after image removal, and the stacked layout on a narrow window.
-- Automated tests do not confirm visual balance; adjust after user review if needed.
+- Manual visual follow-up remains user-owned: check the final channel settings layout and the 1,000-character / selected-channel counter at the user's preferred window size. Automated tests do not confirm visual balance; make any requested refinements on a follow-up branch.
 ## Follow-up: image grid and publish-time platform limits
 
 - User decision: keep a 2:1 content-to-preview layout; shrink image tiles to roughly half their former width and height; pin the add/generate tile as the first grid cell and let images flow beside it and wrap naturally. Allow up to 10 images independent of selected channels; validate channel-specific `max_assets` only when the user attempts to publish and explain which channel requires reducing images or deselection.
@@ -70,3 +69,4 @@ Out of scope:
 - 2026-10-01: Matched previous/next arrow insets at 12px and made them appear on image hover or keyboard focus. Kept arrows visible on hoverless/touch devices. User screenshot review showed the preview media itself could overflow its padded container because the natural-ratio sizing calculation included the container's padding; sizing now subtracts that padding and browser smoke asserts equal arrow insets plus media containment. Focused SNS design contract passed; browser smoke passed (480 fixture requests, no page errors); `git diff --check` passed. The initial smoke attempt correctly exposed that the hover-only arrow needed an explicit hover in the test before clicking; test interaction was updated.
 - 2026-10-01: Reorganized the SNS workspace/channel settings into a responsive two-column layout: compact workspace controls on the left and an auto-fitting, extensible channel grid on the right. Below 900px they stack. Updated the UI contract for the new structure. Per user request, no UI tests were run for this layout change; manual UI review is pending.
 - 2026-10-01: Clarified the empty-body publish state. The existing trimmed-text guard already disabled the action and the publish service already rejected empty content, but the UI still showed a success-like character-limit message and kept the primary accent color. Empty content now prompts for text in the inline message and button tooltip, keeps the publish action's channel-specific label unchanged, and uses a neutral disabled treatment. Added browser regression assertions, but did not run UI tests per the user's instruction.
+- 2026-10-01: Set the default SNS draft limit to 1,000 characters before channel selection; selected channels use the strictest valid per-channel limit. Fixed missing/zero cached limits falling back to the app default instead of producing a `0` limit error, and bumped workspace-cache version to discard stale channel metadata. Character counts now format limits consistently (for example, `12/1,000자`). Focused SNS/cache/design contracts passed (38 tests). The full browser smoke passed (489 fixture requests, no page errors); it first exposed and then verified the updated count format. `git diff --check` passed.
