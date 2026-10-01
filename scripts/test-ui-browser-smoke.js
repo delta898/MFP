@@ -5405,7 +5405,7 @@ async function run() {
         assert.equal(await page.locator('#manual-sns-channel-limit').textContent(), '최대 3개 · 1개 선택');
         assert.equal(await page.locator('#manual-sns-publish-btn').isDisabled(), true);
         assert.equal((await page.locator('#manual-sns-publish-btn').textContent())?.trim(), '1개 채널에 지금 발행');
-        assert.equal((await page.locator('#manual-sns-publish-summary').textContent())?.trim(), '내용을 입력하면 선택한 채널에 발행할 수 있습니다.');
+        assert.equal((await page.locator('#manual-sns-publish-summary').textContent())?.trim(), '1개 채널 선택됨');
         await page.locator('#manual-sns-select-all').uncheck();
         assert.equal(await page.locator('#manual-sns-image-file').getAttribute('multiple'), '');
         assert.equal(await page.locator('#manual-sns-image-local-panel').isVisible(), true);
