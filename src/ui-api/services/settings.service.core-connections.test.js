@@ -193,6 +193,32 @@ test('AI role scope reuses the selected provider profile key when the user leave
     assert.equal(saved.ai_settings.MODEL_PROFILES.text.openai.api_key, 'openai-secret');
 });
 
+test('AI role scope saves a valid catalog model before its API Key is configured', async () => {
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'settings-ai-model-without-key-'));
+    const configPath = path.join(configDir, 'config.json');
+    fs.writeFileSync(configPath, JSON.stringify({ ai_settings: {} }, null, 2));
+    const CONFIG = {};
+    const service = createSettingsService({
+        fs, path, CONFIG, resolveWritableConfigPath: () => configPath,
+        buildMajorSettings: () => ({ fields: {
+            TEXT_MODEL_PROVIDER: 'openai', TEXT_MODEL_PRESET_CODE: '', TEXT_MODEL_API_KEY: ''
+        } }),
+        dashboardActivityRecorder: () => {}
+    });
+
+    await service.saveAiRoleSettings({ scope: 'text', values: {
+        provider: 'openai', presetCode: 'gpt-6.1-sol', apiKey: ''
+    } });
+
+    const saved = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    assert.equal(saved.ai_settings.TEXT_MODEL.provider, 'openai');
+    assert.equal(saved.ai_settings.TEXT_MODEL.code, 'gpt-6.1-sol');
+    assert.equal(saved.ai_settings.TEXT_MODEL.api_key, '');
+    assert.equal(saved.ai_settings.MODEL_PROFILES.text.openai.code, 'gpt-6.1-sol');
+    assert.equal(CONFIG.TEXT_MODEL_CONFIG.code, 'gpt-6.1-sol');
+    assert.equal(CONFIG.TEXT_MODEL_CONFIG.api_key, '');
+});
+
 test('content scope preserves unrelated settings and updates runtime sheet aliases', async () => {
     const initial = {
         general: { google_sheet_url: 'https://docs.google.com/spreadsheets/d/old-sheet-id_123456/edit', listen_port: 3000 },

@@ -266,21 +266,22 @@ function settingsNextAiReadRole(role) {
 function settingsNextAiRenderStatuses() {
   ['text', 'image'].forEach((role) => {
     const value = settingsNextAiReadRole(role);
-    const configured = Boolean((value.provider === 'direct' ? value.name && value.baseUrl : value.presetCode) && (value.provider === 'direct' || settingsNextAiHasConfiguredKey(role, value.provider)));
     const verified = settingsNextAiState.verification[role] === true;
-    settingsNextAiSetText(`settings-next-ai-${role}-readiness`, verified ? '연결됨' : (configured ? '연결 확인 필요' : '설정 필요'));
+    const readiness = settingsNextAiReadiness(value, role, verified);
+    settingsNextAiSetText(`settings-next-ai-${role}-readiness`, readiness.readiness);
     const dot = document.getElementById(`settings-next-ai-${role}-readiness-dot`);
-    if (dot) dot.dataset.tone = verified ? 'success' : (configured ? 'warning' : 'danger');
-    settingsNextAiSetStatus(role, verified ? '연결됨' : (configured ? '확인 필요' : '미설정'), verified ? 'success' : (configured ? 'warning' : 'neutral'));
+    if (dot) dot.dataset.tone = readiness.tone;
+    settingsNextAiSetStatus(role, readiness.status, readiness.tone);
   });
   const source = document.querySelector('input[name="settings-next-ai-chat-source"]:checked')?.value || 'writing';
   const chat = settingsNextAiReadRole('chat');
-  const configured = source === 'writing' || Boolean((chat.provider === 'direct' ? chat.name && chat.baseUrl : chat.presetCode) && (chat.provider === 'direct' || settingsNextAiHasConfiguredKey('chat', chat.provider)));
-  const verified = source === 'writing' ? settingsNextAiState.verification.text === true : settingsNextAiState.verification.chat === true;
-  settingsNextAiSetText('settings-next-ai-chat-readiness', source === 'writing' ? '글쓰기 모델 사용' : (verified ? '연결됨' : (configured ? '연결 확인 필요' : '설정 필요')));
+  const readiness = source === 'writing'
+    ? { readiness: '글쓰기 모델 사용', status: '글쓰기 모델 사용', tone: settingsNextAiState.verification.text === true ? 'success' : 'neutral' }
+    : settingsNextAiReadiness(chat, 'chat', settingsNextAiState.verification.chat === true);
+  settingsNextAiSetText('settings-next-ai-chat-readiness', readiness.readiness);
   const dot = document.getElementById('settings-next-ai-chat-readiness-dot');
-  if (dot) dot.dataset.tone = verified ? 'success' : (configured ? 'warning' : 'neutral');
-  settingsNextAiSetStatus('chat', source === 'writing' ? '글쓰기 모델 사용' : (verified ? '연결됨' : (configured ? '확인 필요' : '미설정')), verified ? 'success' : (configured ? 'warning' : 'neutral'));
+  if (dot) dot.dataset.tone = readiness.tone;
+  settingsNextAiSetStatus('chat', readiness.status, readiness.tone);
 }
 
 function settingsNextAiSyncChatSource() {
@@ -295,13 +296,29 @@ function settingsNextAiSyncChatSource() {
   settingsNextAiRenderStatuses();
 }
 
-function settingsNextAiValidateValues(role, selected, selectedRole) {
-  if (!(selected.provider === 'direct' ? selected.name && selected.baseUrl : selected.presetCode)
-    || (selected.provider !== 'direct' && !settingsNextAiHasConfiguredKey(selectedRole, selected.provider))) {
-    settingsNextAiSetFeedback(role, '모델과 필요한 API Key를 입력해 주세요.', 'danger');
+function settingsNextAiValidateValues(role, selected) {
+  if (!(selected.provider === 'direct' ? selected.name && selected.baseUrl : selected.presetCode)) {
+    settingsNextAiSetFeedback(role, selected.provider === 'direct'
+      ? '직접 입력 모델의 이름과 Base URL을 입력해 주세요.'
+      : '사용할 모델을 선택해 주세요.', 'danger');
     return false;
   }
   return true;
+}
+
+function settingsNextAiHasSelectedModel(values) {
+  return values.provider === 'direct'
+    ? Boolean(values.name && values.baseUrl)
+    : Boolean(values.presetCode);
+}
+
+function settingsNextAiReadiness(values, role, verified) {
+  if (verified) return { readiness: '연결됨', status: '연결됨', tone: 'success' };
+  const selected = settingsNextAiHasSelectedModel(values);
+  const configured = selected && (values.provider === 'direct' || settingsNextAiHasConfiguredKey(role, values.provider));
+  if (configured) return { readiness: '연결 확인 필요', status: '확인 필요', tone: 'warning' };
+  if (selected) return { readiness: 'API Key 필요', status: 'API Key 필요', tone: 'danger' };
+  return { readiness: '모델 설정 필요', status: '미설정', tone: 'neutral' };
 }
 
 // Save-only path (no connection test): used by "save and proceed" flows so a
@@ -321,8 +338,7 @@ async function settingsNextPersistAiRole(role, values) {
     ? (String(values.CHAT_MODEL_SOURCE || '') || document.querySelector('input[name="settings-next-ai-chat-source"]:checked')?.value || 'writing')
     : '';
   const selected = role === 'chat' && source === 'writing' ? settingsNextAiReadRole('text') : values;
-  const selectedRole = role === 'chat' && source === 'writing' ? 'text' : role;
-  if (!settingsNextAiValidateValues(role, selected, selectedRole)) return false;
+  if (!settingsNextAiValidateValues(role, selected)) return false;
   if (settingsNextAiState.busy.has(role)) return false;
   await settingsNextPersistAiRoleValues(role, values);
   return true;
@@ -336,7 +352,7 @@ async function settingsNextAiSubmit(role, event) {
   if (role === 'chat') values.CHAT_MODEL_SOURCE = source;
   const selected = role === 'chat' && source === 'writing' ? settingsNextAiReadRole('text') : values;
   const selectedRole = role === 'chat' && source === 'writing' ? 'text' : role;
-  if (!settingsNextAiValidateValues(role, selected, selectedRole)) return;
+  if (!settingsNextAiValidateValues(role, selected)) return;
   settingsNextAiState.busy.add(role);
   document.getElementById(`settings-next-ai-${role}-form`)?.setAttribute('aria-busy', 'true');
   const button = document.querySelector(`[data-settings-next-ai-action="${role}"]`);

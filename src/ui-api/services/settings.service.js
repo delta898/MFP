@@ -1109,11 +1109,9 @@ function createSettingsService(deps = {}) {
             const image = buildModelSelectionFromFields('image', fields, catalog);
             const chatSelection = buildModelSelectionFromFields('chat', fields, catalog);
             const chatSource = normalizeChatModelSource(fields.CHAT_MODEL_SOURCE);
-            const requiresKey = (selection) => selection.provider !== 'direct' && !String(selection.api_key || '').trim();
             const selected = normalized.scope === 'text' ? text : (normalized.scope === 'image' ? image : chatSelection);
             if (normalized.scope !== 'chat' || chatSource === 'dedicated') {
                 if (!String(selected.code || '').trim()) throw createApiError(400, 'AI_MODEL_REQUIRED', '사용할 AI 모델을 선택해 주세요.');
-                if (requiresKey(selected)) throw createApiError(400, 'AI_MODEL_API_KEY_REQUIRED', '선택한 모델의 API Key를 입력해 주세요.');
                 if (selected.provider === 'direct' && (!String(selected.name || '').trim() || !String(selected.base_url || '').trim())) {
                     throw createApiError(400, 'AI_MODEL_DIRECT_CONFIG_REQUIRED', '직접 입력 모델은 모델 이름과 Base URL이 필요합니다.');
                 }

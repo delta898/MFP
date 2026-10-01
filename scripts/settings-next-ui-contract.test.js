@@ -315,6 +315,9 @@ test('Settings Beta controller applies scoped changes seamlessly and protects pe
     assert.match(saveProceed, /function settingsNextDirtyLabels\(\)/);
     assert.match(script, /showUiThreeWayChoice\(/);
     assert.match(aiScript, /function settingsNextPersistAiRole\(role, values\)/);
+    assert.match(aiScript, /function settingsNextAiHasSelectedModel\(values\)/);
+    assert.match(aiScript, /if \(selected\) return \{ readiness: 'API Key 필요'/);
+    assert.doesNotMatch(aiScript, /settingsNextAiValidateValues[\s\S]{0,500}settingsNextAiHasConfiguredKey/);
     assert.match(aiScript, /api_key_configured/);
     assert.match(aiScript, /settingsNextAiSetFeedback\(role\)/);
     assert.match(aiScript, /root\.addEventListener\('input', invalidate\)/);
