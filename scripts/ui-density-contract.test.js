@@ -41,7 +41,7 @@ test('SNS consumes density roles without changing its content or interaction geo
 
   densityTokens.forEach((token) => assert.match(combined, new RegExp(`var\\(${token.replaceAll('-', '\\-')}\\)`), token));
   assert.match(social, /\.social-editor\s*\{[^}]*block-size:\s*168px[^}]*min-block-size:\s*168px/s);
-  assert.match(social, /\.social-channel-grid\s*\{[^}]*repeat\(3, minmax\(0, 1fr\)\)/s);
+  assert.match(social, /\.social-channel-grid\s*\{[^}]*repeat\(auto-fit, minmax\(min\(100%, 190px\), 1fr\)\)/s);
   assert.match(surfaces, /\.social-view \.social-workspace-select\s*\{\s*margin:\s*0 0 var\(--ui-space-4\);\s*\}/);
 });
 

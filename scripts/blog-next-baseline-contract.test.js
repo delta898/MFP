@@ -69,7 +69,10 @@ test('folder and paste modes share one manuscript publishing grammar', () => {
 test('folder and paste previews share one reading surface and image workspace', () => {
   const html = readBlogNextView();
   const script = `${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-images.js')}\n${read('ui/scripts/features/blog-next/draft-execution.js')}`;
-  const css = read('ui/styles/features/blog-next-baseline.css');
+  const css = [
+    read('ui/styles/features/blog-next-baseline.css'),
+    read('ui/styles/features/blog-next-baseline-responsive.css')
+  ].join('\n');
 
   for (const type of ['folder', 'paste']) {
     const panel = html.match(new RegExp(`<div class="blog-next-draft-preview blog-next-manuscript-preview local-markdown-preview-panel"[\\s\\S]*?data-blog-next-draft-preview="${type}"[\\s\\S]*?(?=<details class="blog-next-disclosure)`))?.[0] || '';
@@ -225,7 +228,10 @@ test('pasted manuscripts start empty in each app session', () => {
 });
 
 test('manuscript baseline styles use semantic tokens and collapse predictably', () => {
-  const css = read('ui/styles/features/blog-next-baseline.css');
+  const css = [
+    read('ui/styles/features/blog-next-baseline.css'),
+    read('ui/styles/features/blog-next-baseline-responsive.css')
+  ].join('\n');
   const actionCss = read('ui/styles/patterns/actions.css');
   const interactionCss = read('ui/styles/features/continuous-publishing-interactions.css');
 

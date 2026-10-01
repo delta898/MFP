@@ -32,7 +32,7 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.doesNotMatch(view, /class="[^"]*blog-next-panel[^"]*social-composer-card/);
   assert.doesNotMatch(view, /id="view-social"[^>]*data-style-scope=/);
   assert.doesNotMatch(view, /SNS에 바로 공유|채널을 고르고, 메시지와 이미지를 준비해 바로 발행하세요/);
-  assert.match(view, /id="manual-sns-channel-list" class="social-channel-grid ui-selectable-card-grid"/);
+  assert.match(view, /class="social-channel-settings-layout"[\s\S]*class="[^"]*\bsocial-workspace-panel\b[^"]*"[\s\S]*class="[^"]*\bsocial-channels-panel\b[^"]*"[\s\S]*id="manual-sns-channel-list" class="social-channel-grid ui-selectable-card-grid"/);
   assert.match(view, /발행 채널 <small id="manual-sns-channel-limit">최대 3개 · 0개 선택<\/small>/);
   assert.match(view, /id="manual-sns-workspaces-load"[^>]*>작업 공간 불러오기/);
   assert.match(view, /class="ui-settings-field social-workspace-select buffer-publishing-workspace"[\s\S]*<span>작업 공간<\/span>\s*<span class="ui-field-action"><span class="ui-select-shell"><select id="manual-sns-organization"/);
@@ -79,6 +79,8 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.match(composer, /aria-label', `\$\{index \+ 1\}번 이미지 보기`/);
   assert.match(styles, /\.social-live-preview\s*\{[^}]*grid-row:\s*1\s*\/\s*span\s*2/s);
   assert.match(styles, /grid-template-columns:\s*minmax\(0,\s*2fr\)\s+minmax\(320px,\s*1fr\)/);
+  assert.match(styles, /\.social-composer-layout\s*\{[^}]*align-items:\s*stretch/s);
+  assert.match(styles, /\.social-live-preview\s*\{[^}]*padding:\s*clamp\(14px,\s*1\.4vw,\s*22px\);[^}]*margin-bottom:\s*0/s);
   assert.match(styles, /#manual-sns-image-grid\s*\{[^}]*150px/);
   assert.match(styles, /\.social-local-image-add-actions \.social-local-image-ai-trigger\s*\{[^}]*flex:\s*0\s+0\s+40px/s);
   assert.match(composer, /footer\.classList\.add\('is-idle-actions'\)/);

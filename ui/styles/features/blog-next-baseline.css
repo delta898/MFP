@@ -887,38 +887,3 @@
   background: color-mix(in srgb, var(--ui-status-danger) 8%, var(--ui-surface));
   color: var(--ui-status-danger);
 }
-
-@media (max-width: 768px) {
-  .blog-next-draft-section-head {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .blog-next-draft-options {
-    grid-template-columns: 1fr;
-  }
-
-  .blog-next-draft-options .blog-next-field-wide {
-    grid-column: auto;
-  }
-
-  .blog-next-draft-feedback-row {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .blog-next-draft-actions,
-  .blog-next-draft-actions .primary {
-    width: 100%;
-  }
-
-  .blog-next-view .trend-posting-filter-view-shell {
-    flex: 0 0 auto;
-    width: 100%;
-  }
-
-  .blog-next-view .trend-posting-row-actions {
-    flex-wrap: nowrap;
-    min-width: max-content;
-  }
-}

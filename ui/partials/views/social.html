@@ -68,22 +68,27 @@
               </section>
 
               <section class="social-composer-section social-composer-channel-section" aria-labelledby="manual-sns-channels-title">
-                <label class="ui-settings-field social-workspace-select buffer-publishing-workspace" for="manual-sns-organization">
-                  <span>작업 공간</span>
-                  <span class="ui-field-action"><span class="ui-select-shell"><select id="manual-sns-organization" disabled><option value="">작업 공간을 불러와 선택해 주세요.</option></select></span><button id="manual-sns-workspaces-load" class="secondary" type="button" disabled>작업 공간 불러오기</button></span>
-                  <small>선택한 작업 공간의 SNS 채널을 불러옵니다.</small>
-                </label>
-                <div class="social-section-heading buffer-publishing-channel-heading">
-                  <div class="social-channel-heading-copy buffer-publishing-channel-heading-copy">
-                    <div class="social-channel-title-row buffer-publishing-channel-title-row">
-                      <input id="manual-sns-select-all" type="checkbox" disabled>
-                      <label id="manual-sns-channels-title" for="manual-sns-select-all">발행 채널 <small id="manual-sns-channel-limit">최대 3개 · 0개 선택</small></label>
-                    </div>
-                    <p>이번 발행에 사용할 채널을 선택하세요.</p>
+                <div class="social-channel-settings-layout">
+                  <div class="social-channel-settings-panel social-workspace-panel">
+                    <label class="ui-settings-field social-workspace-select buffer-publishing-workspace" for="manual-sns-organization">
+                      <span>작업 공간</span>
+                      <span class="ui-field-action"><span class="ui-select-shell"><select id="manual-sns-organization" disabled><option value="">먼저 작업 공간을 불러오세요.</option></select></span><button id="manual-sns-workspaces-load" class="secondary" type="button" disabled>작업 공간 불러오기</button></span>
+                    </label>
                   </div>
-                  <button class="context-help-link" type="button" data-help-guide-url="https://m.blog.naver.com/amadejjs/223940980574">Buffer 도움말</button>
+                  <div class="social-channel-settings-panel social-channels-panel">
+                    <div class="social-section-heading buffer-publishing-channel-heading">
+                      <div class="social-channel-heading-copy buffer-publishing-channel-heading-copy">
+                        <div class="social-channel-title-row buffer-publishing-channel-title-row">
+                          <input id="manual-sns-select-all" type="checkbox" disabled>
+                          <label id="manual-sns-channels-title" for="manual-sns-select-all">발행 채널 <small id="manual-sns-channel-limit">최대 3개 · 0개 선택</small></label>
+                        </div>
+                        <p>이번 발행에 사용할 채널을 선택하세요.</p>
+                      </div>
+                      <button class="context-help-link" type="button" data-help-guide-url="https://m.blog.naver.com/amadejjs/223940980574">Buffer 도움말</button>
+                    </div>
+                    <div id="manual-sns-channel-list" class="social-channel-grid ui-selectable-card-grid" aria-live="polite"></div>
+                  </div>
                 </div>
-                <div id="manual-sns-channel-list" class="social-channel-grid ui-selectable-card-grid" aria-live="polite"></div>
               </section>
 
               <div class="social-composer-actions">

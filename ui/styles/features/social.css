@@ -107,10 +107,39 @@
   white-space: normal;
 }
 
-.social-channel-grid {
+.social-channel-settings-layout {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.7fr);
+  align-items: stretch;
+  gap: var(--ui-space-4);
+}
+
+.social-channel-settings-panel {
+  min-width: 0;
+  padding: var(--ui-space-4);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface-muted);
+}
+
+.social-workspace-panel .ui-field-action {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.social-workspace-panel .ui-field-action > button {
+  width: 100%;
+}
+
+.social-channel-settings-layout .social-channel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+  gap: var(--ui-space-3);
+}
+
+@media (max-width: 900px) {
+  .social-channel-settings-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .social-channel-empty {
