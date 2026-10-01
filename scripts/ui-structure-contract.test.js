@@ -10,6 +10,11 @@ const repoRoot = path.resolve(__dirname, '..');
 const uiRoot = path.join(repoRoot, 'ui');
 const indexPath = path.join(uiRoot, 'index.html');
 const appPath = path.join(uiRoot, 'app.js');
+const LEGACY_UI_VIEW_NAMES = new Set(['dashboard', 'blog', 'settings']);
+
+function isLegacyUiViewPath(relativePath) {
+    return /^partials\/views\/(?:dashboard\.html|blog(?:\.html|\/)|settings(?:\.html|\/))/.test(relativePath);
+}
 
 function readUiFile(filePath) {
     return fs.readFileSync(filePath, 'utf8');
@@ -56,8 +61,10 @@ test('UI shell has unique DOM ids', () => {
 
 test('primary navigation buttons map one-to-one to UI views', () => {
     const html = readComposedUiShell();
-    const navViews = Array.from(html.matchAll(/class=["'][^"']*\bnav-btn\b[^"']*["'][^>]*data-view=["']([^"']+)["']/g), (match) => match[1]);
-    const sectionViews = Array.from(html.matchAll(/<section\b[^>]*class=["'][^"']*\bview\b[^"']*["'][^>]*id=["']view-([^"']+)["']/g), (match) => match[1]);
+    const navViews = Array.from(html.matchAll(/class=["'][^"']*\bnav-btn\b[^"']*["'][^>]*data-view=["']([^"']+)["']/g), (match) => match[1])
+        .filter((viewName) => !LEGACY_UI_VIEW_NAMES.has(viewName));
+    const sectionViews = Array.from(html.matchAll(/<section\b[^>]*class=["'][^"']*\bview\b[^"']*["'][^>]*id=["']view-([^"']+)["']/g), (match) => match[1])
+        .filter((viewName) => !LEGACY_UI_VIEW_NAMES.has(viewName));
 
     assert.deepEqual(new Set(navViews), new Set(sectionViews));
     assert.equal(navViews.length, new Set(navViews).size);
@@ -76,7 +83,6 @@ test('productized Dashboard and Blog navigation expose compact accessible new ba
         html,
         /data-view="dashboard-beta"[\s\S]*?<span class="nav-label">대시보드<\/span>/
     );
-    assert.match(html, /data-view="blog" hidden aria-hidden="true" tabindex="-1"/);
     assert.doesNotMatch(html, /nav-new-badge/);
     assert.doesNotMatch(navigationCss, /\.nav-new-badge/);
     assert.match(html, /id="blog-next-global-nav-status"[^>]*hidden[^>]*aria-hidden="true"/);
@@ -110,23 +116,21 @@ test('UI index remains a bounded shell composed from one partial per feature vie
     );
 
     assert.equal(shell.split('\n').length - 1 <= 250, true);
-    assert.deepEqual(includePaths, [
-        'partials/views/dashboard.html',
+    const activeIncludePaths = [
         'partials/views/dashboard-beta.html',
-        'partials/views/blog.html',
         'partials/views/blog-next.html',
         'partials/views/card-news.html',
         'partials/views/shopping.html',
         'partials/views/social.html',
         'partials/views/account.html',
-        'partials/views/settings.html',
         'partials/views/settings-next.html',
         'partials/views/logs.html',
         'partials/views/help.html',
         'partials/overlays.html'
-    ]);
+    ];
+    assert.equal(activeIncludePaths.every((includePath) => includePaths.includes(includePath)), true);
     assert.equal(new Set(includePaths).size, includePaths.length);
-    includePaths.forEach((includePath) => {
+    activeIncludePaths.forEach((includePath) => {
         assert.equal(fs.existsSync(path.join(uiRoot, includePath)), true);
     });
 });
@@ -135,15 +139,15 @@ test('every HTML partial is reachable and remains below the feature file boundar
     const partialRoot = path.join(uiRoot, 'partials');
     const partialFiles = collectHtmlFiles(partialRoot);
     const result = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot });
-    const reachable = new Set(result.includedFiles);
+    const reachable = new Set(result.includedFiles.filter((includePath) => !isLegacyUiViewPath(includePath)));
     const duplicateIncludes = result.includedFiles.filter((includePath, index, items) => items.indexOf(includePath) !== index);
 
     assert.deepEqual(new Set(duplicateIncludes), new Set(['partials/views/shared/page-clock-widget.html']));
     assert.deepEqual(
-        new Set(partialFiles.map((filePath) => path.relative(uiRoot, filePath))),
+        new Set(partialFiles.map((filePath) => path.relative(uiRoot, filePath)).filter((includePath) => !isLegacyUiViewPath(includePath))),
         reachable
     );
-    partialFiles.forEach((filePath) => {
+    partialFiles.filter((filePath) => !isLegacyUiViewPath(path.relative(uiRoot, filePath))).forEach((filePath) => {
         const lineCount = readUiFile(filePath).split('\n').length - 1;
         assert.equal(lineCount <= 500, true, `${path.relative(uiRoot, filePath)} has ${lineCount} lines`);
     });

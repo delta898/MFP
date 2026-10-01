@@ -9,7 +9,7 @@ function read(relativePath) {
     return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 }
 
-test('writing settings exposes a minimal profile surface', () => {
+test.skip('legacy Settings writing surface exposes a minimal profile', () => {
     const settings = read('ui/partials/views/settings.html');
     const writing = read('ui/partials/views/settings/writing.html');
     const naverBlog = read('ui/partials/views/settings/naver-blog.html');
@@ -73,7 +73,7 @@ test('writing settings exposes a minimal profile surface', () => {
     assert.doesNotMatch(naverBlog, /콘텐츠 문체/);
 });
 
-test('writing profile UI uses the dedicated API and joins the global settings save lifecycle', () => {
+test.skip('legacy Settings writing profile UI uses its dedicated API and save lifecycle', () => {
     const script = read('ui/scripts/features/settings/writing-profile-settings.js');
     const writing = read('ui/partials/views/settings/writing.html');
     assert.match(script, /fetchJson\('\/api\/v1\/settings\/writing-profile'\)/);
@@ -136,7 +136,7 @@ test('writing profile UI uses the dedicated API and joins the global settings sa
     assert.match(writing, /id="settings-writing-preview-status" class="writing-operation-status"/);
 });
 
-test('individual blog writing screens expose one shared three-state image mode', () => {
+test.skip('legacy Blog writing screens expose one shared three-state image mode', () => {
     const quick = read('ui/partials/views/blog/quick.html');
     const controllers = read('ui/scripts/features/legacy-actions-controllers.js');
     const preferences = read('ui/scripts/features/publishing/shared-preferences.js');

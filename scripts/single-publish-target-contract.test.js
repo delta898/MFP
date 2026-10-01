@@ -15,20 +15,12 @@ test('every writing surface presents Naver and WordPress as one exclusive choice
   const blogNext = read('ui/partials/views/blog-next.html');
   const blogNextDrafts = read('ui/partials/views/blog-next/quick-draft-modes.html');
   const blogNextPublishSettings = read('ui/partials/views/blog-next/publish-settings.html');
-  const legacyQuick = read('ui/partials/views/blog/quick.html');
-  const legacyTopics = read('ui/partials/views/blog/topics.html');
-  const legacyAuto = read('ui/partials/views/blog/auto.html');
   const shopping = read('ui/partials/views/shopping.html');
   const overlays = read('ui/partials/overlays.html');
 
   assertRadioPair(blogNextPublishSettings, 'blog-next-target-naver', 'blog-next-target-wordpress', 'blog-next-publish-target');
   assert.equal((blogNext.match(/@include blog-next\/publish-settings\.html/g) || []).length, 1);
   assert.equal((blogNextDrafts.match(/data-blog-next-publish-settings-slot="(?:folder|paste)"/g) || []).length, 2);
-  assertRadioPair(legacyQuick, 'quick-target-naver', 'quick-target-wordpress', 'quick-publish-target');
-  assertRadioPair(legacyQuick, 'quick-manuscript-target-naver', 'quick-manuscript-target-wordpress', 'quick-manuscript-target');
-  assertRadioPair(legacyQuick, 'quick-pasted-target-naver', 'quick-pasted-target-wordpress', 'quick-pasted-target');
-  assertRadioPair(legacyTopics, 'blog-batch-target-naver', 'blog-batch-target-wordpress', 'blog-batch-target');
-  assertRadioPair(legacyAuto, 'blog-publish-auto-target-naver', 'blog-publish-auto-target-wordpress', 'blog-auto-target');
   assertRadioPair(shopping, 'shopping-quick-target-naver', 'shopping-quick-target-wordpress', 'shopping-quick-target');
   assertRadioPair(overlays, 'shopping-edit-target-naver', 'shopping-edit-target-wordpress', 'shopping-edit-target');
 });

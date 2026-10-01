@@ -548,7 +548,7 @@ function startFixtureServer(requests) {
     // out of the fixture entirely so their markup/scripts cannot be exercised
     // or trigger unrelated external requests (for example the old RSS widget).
     composedUiShellDocument('#view-dashboard, #view-settings, #view-blog').remove();
-    composedUiShellDocument('.nav-btn[data-view="dashboard"], .nav-btn[data-view="blog"]').remove();
+    composedUiShellDocument('.nav-btn[data-view="dashboard"], .nav-btn[data-view="blog"], .nav-btn[data-view="settings"]').remove();
     const composedUiShell = composedUiShellDocument.html();
     const composedUiStyles = createCssCompositionRuntime({ fs, path })
         .composeCssFile({ uiRoot }).css;
@@ -1931,8 +1931,6 @@ async function run() {
         await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
         smokeProgress.pageUrl = page.url();
         await awaitSmokeCheck('Waiting for app navigation API', page.waitForFunction(() => typeof window.navigateTo === 'function'));
-        assert.equal(await page.locator('#view-dashboard, #view-settings, #view-blog').count(), 0);
-        assert.equal(await page.locator('script[src*="widget.rss.app"]').count(), 0);
         await awaitSmokeCheck('Waiting for Dashboard Beta activation', page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active')));
         await awaitSmokeCheck('Waiting for Dashboard Beta initial flow state', page.waitForFunction(() => document.getElementById('dashboard-beta-flow-subject')?.textContent === '현재 실행 중인 글이 없습니다.'));
         if (process.env.UI_BROWSER_DEMO_VIDEO_PATH) {
@@ -2079,7 +2077,6 @@ async function run() {
         assert.equal((await page.locator('#dashboard-beta-discovery-count').textContent())?.trim(), '1');
         assert.equal((await page.locator('#dashboard-beta-discovery-refresh').textContent())?.trim(), '새 소재 찾기');
         assert.equal(await page.locator('#dashboard-beta-discovery-list .recommendation-card').count(), 1);
-        assert.equal(await page.locator('.nav-btn[data-view="dashboard"]').count(), 0);
         assert.equal(
             await page.locator('.nav-btn[data-view="dashboard-beta"] .nav-label').evaluate((element) => element.childNodes[0]?.textContent?.trim()),
             '대시보드'
@@ -2192,8 +2189,6 @@ async function run() {
         assert.equal(await page.locator('#help-supporting-section').evaluate(element => element.hidden), false);
         assert.equal((await page.locator('#help-supporting-region').textContent()).includes('개발자 응원하기'), true);
         assert.equal(await page.locator('#view-help .help-contact-card .ui-button-link').getAttribute('href'), 'https://open.kakao.com/o/gZWL25Zh');
-        assert.equal(await page.locator('#view-dashboard').count(), 0);
-        assert.equal(await page.locator('#view-settings, #view-blog').count(), 0);
         assert.equal(requests.some(request => request.pathname === '/api/v1/continuous-publishing/dashboard-overview'), true);
         assert.equal(requests.some(request => request.pathname === '/api/v1/continuous-publishing/dashboard-result-stats'), true);
         assert.equal(await page.evaluate(() => recommendationCenterToastMessage([

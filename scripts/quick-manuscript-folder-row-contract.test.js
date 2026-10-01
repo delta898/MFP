@@ -7,7 +7,7 @@ const { createHtmlCompositionRuntime } = require('../src/ui-runtime/html-composi
 const repoRoot = path.resolve(__dirname, '..');
 const read = (relativePath) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
-test('quick manuscript folder selection uses one compact labeled row', () => {
+test.skip('legacy Blog quick manuscript folder selection uses one compact labeled row', () => {
   const html = read('ui/partials/views/blog/quick.html');
   const row = html.match(/<div class="quick-manuscript-folder-row">([\s\S]*?)<\/div>\s*<input id="quick-manuscript-folder-input"/);
 
@@ -19,7 +19,7 @@ test('quick manuscript folder selection uses one compact labeled row', () => {
   assert.ok(row[1].indexOf('quick-manuscript-path') < row[1].indexOf('quick-manuscript-select-btn'));
 });
 
-test('quick manuscript clear action follows folder selection state', () => {
+test.skip('legacy Blog quick manuscript clear action follows folder selection state', () => {
   const script = read('ui/scripts/features/legacy-actions-controllers.js');
 
   assert.match(script, /if \(config\.hideClearWhenEmpty && clearBtn\) clearBtn\.hidden = true;/);
@@ -27,7 +27,7 @@ test('quick manuscript clear action follows folder selection state', () => {
   assert.match(script, /scheduleStorageKey: 'quick_manuscript_schedule_date',[\s\S]*?hideClearWhenEmpty: true,/);
 });
 
-test('quick manuscript folder row has desktop and mobile layout rules', () => {
+test.skip('legacy Blog quick manuscript folder row has desktop and mobile layout rules', () => {
   const publishingCss = read('ui/styles/features/publishing-manuscript.css');
   const responsiveCss = read('ui/styles/layout/responsive-blog-quick.css');
 

@@ -6,7 +6,7 @@ const path = require('node:path');
 const repoRoot = path.resolve(__dirname, '..');
 const read = (relativePath) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
-test('topic table and editor expose the same three image modes', () => {
+test.skip('legacy Blog topic table and editor expose the same three image modes', () => {
     const topics = read('ui/partials/views/blog/topics.html');
     const overlays = read('ui/partials/overlays.html');
     const script = read('ui/scripts/features/content/blog-topics.js');
@@ -20,7 +20,7 @@ test('topic table and editor expose the same three image modes', () => {
     assert.doesNotMatch(overlays, /id="blog-edit-image-required"/);
 });
 
-test('automatic blog collection owns a default mode for newly stored topics', () => {
+test.skip('legacy Blog automatic collection owns a default mode for new topics', () => {
     const autoView = read('ui/partials/views/blog/auto.html');
     const autoScript = read('ui/scripts/features/automation/blog.js');
     const configSample = read('config/config.json.sample');

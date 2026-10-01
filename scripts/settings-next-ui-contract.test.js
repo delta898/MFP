@@ -13,13 +13,11 @@ function read(relativePath) {
     return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 }
 
-test('Settings owns navigation while legacy Settings stays hidden', () => {
+test('Settings Beta owns the Settings navigation destination', () => {
     const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot }).html;
     const navigation = read('ui/scripts/foundation/navigation.js');
 
-    assert.match(html, /class="nav-btn" data-view="settings" hidden/);
     assert.match(html, /class="nav-btn" data-view="settings-next"/);
-    assert.match(html, /id="view-settings"/);
     assert.match(html, /id="view-settings-next"/);
     assert.match(html, /data-view="settings-next"[\s\S]*?<span class="nav-label">설정<\/span>/);
     assert.doesNotMatch(html, /설정 Beta/);

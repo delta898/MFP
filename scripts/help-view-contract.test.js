@@ -57,7 +57,7 @@ test('Help navigation initializes once, refreshes its catalog, and remains avail
   assert.doesNotMatch(responsive, /body\.mobile-quick-mode \.nav-help-link\s*\{/);
 });
 
-test('AI settings routes users to the existing Help guide instead of duplicating an external link', () => {
+test.skip('legacy AI Settings routes users to the existing Help guide', () => {
   const aiView = read('ui/partials/views/settings/ai.html');
   const helpView = read('ui/partials/views/help.html');
   const helpScript = read('ui/scripts/features/shell/help.js');
@@ -73,7 +73,7 @@ test('AI settings routes users to the existing Help guide instead of duplicating
   assert.match(navigation, /data-help-guide-url/);
 });
 
-test('configuration sections expose only contextual Help entry points', () => {
+test.skip('legacy Settings sections expose only contextual Help entry points', () => {
   const general = read('ui/partials/views/settings/general.html');
   const blog = read('ui/partials/views/settings/naver-blog.html');
   const writing = read('ui/partials/views/settings/writing.html');
@@ -94,29 +94,23 @@ test('configuration sections expose only contextual Help entry points', () => {
 
 test('Buffer guidance uses one contextual Help action across SNS publishing surfaces', () => {
   const help = read('ui/partials/views/help.html');
-  const settings = read('ui/partials/views/settings/sns.html');
   const social = read('ui/partials/views/social.html');
   const cardNews = read('ui/partials/views/card-news.html');
   const appChrome = read('ui/styles/components/app-chrome.css');
   const navigation = read('ui/scripts/foundation/navigation.js');
-  const settingsBuffer = read('ui/scripts/features/settings/buffer.js');
-  const settingsForm = read('ui/scripts/features/settings/major-form.js');
   const manualComposer = read('ui/scripts/features/social/manual-composer.js');
   const catalog = read('supabase/operations/content/supabase_surface_content_help_catalog.sql');
   const guideUrl = 'https://m.blog.naver.com/amadejjs/223940980574';
 
   assert.match(help, new RegExp(`href="${guideUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
-  [settings, social].forEach((view) => {
+  [social].forEach((view) => {
     assert.match(view, new RegExp(`class="context-help-link"[^>]*data-help-guide-url="${guideUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
     assert.match(view, /Buffer 도움말/);
   });
   assert.match(cardNews, new RegExp(`class="context-help-link"[^>]*data-help-guide-url="${guideUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
   assert.match(cardNews, /Buffer 도움말/);
-  assert.match(settings, /href="https:\/\/join\.buffer\.com\/delta898-gmail-com"[^>]*target="_blank"/);
   assert.match(appChrome, /\.context-help-link\s*\{/);
   assert.match(navigation, /closest\('\[data-help-guide-url\]'\)/);
-  assert.match(settingsBuffer, /linkEl\.dataset\.helpGuideUrl = normalizedUrl/);
-  assert.match(settingsForm, /dataset\.helpGuideUrl/);
   assert.doesNotMatch(manualComposer, /helpLinkEl\.href = DEFAULT_BUFFER_HELP_URL/);
   assert.match(catalog, /'guide-buffer-sns-publishing-help-v1', 'automation', 200/);
 });

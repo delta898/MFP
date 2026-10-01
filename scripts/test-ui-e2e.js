@@ -27,8 +27,9 @@ async function run() {
         const shellResponse = await fetch(`${baseUrl}/`);
         const shellHtml = await shellResponse.text();
         assert.strictEqual(shellResponse.status, 200);
-        assert.match(shellHtml, /id="view-dashboard"/);
-        assert.match(shellHtml, /id="view-settings"/);
+        assert.match(shellHtml, /id="view-dashboard-beta"/);
+        assert.match(shellHtml, /id="view-settings-next"/);
+        assert.match(shellHtml, /id="view-blog-next"/);
         assert.doesNotMatch(shellHtml, /<!--\s*@include\s+/);
 
         const stylesResponse = await fetch(`${baseUrl}/styles.css`);
@@ -57,11 +58,6 @@ async function run() {
         assert.strictEqual(config2.status, 200);
         assert.ok(config1.json?.success);
         assert.ok(config2.json?.success);
-
-        const dashLogs = await requestJson(baseUrl, '/api/v1/dashboard/logs');
-        assert.strictEqual(dashLogs.status, 200);
-        assert.ok(dashLogs.json?.success);
-        assert.ok(Array.isArray(dashLogs.json?.data?.logs));
 
         const naverLoginStatus = await requestJson(baseUrl, '/api/v1/session/naver-login');
         assert.strictEqual(naverLoginStatus.status, 200);

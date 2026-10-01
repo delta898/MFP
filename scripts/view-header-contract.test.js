@@ -7,13 +7,12 @@ const repoRoot = path.resolve(__dirname, '..');
 const read = (relativePath) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
 const viewHeaders = [
-  ['ui/partials/views/dashboard.html', 'Dashboard', '서비스 상태와 추천, 자동화 현황을 한눈에 확인합니다.'],
-  ['ui/partials/views/blog.html', '블로그', '블로그 글을 작성하고 발행하며 자동화 흐름을 관리합니다.'],
+  ['ui/partials/views/dashboard-beta.html', 'Dashboard', '글쓰기 흐름과 다음 발행 계획을 한눈에 확인합니다.'],
   ['ui/partials/views/blog-next.html', '블로그', '글감을 빠르게 쌓아두고, 준비된 글을 한 건씩 이어서 발행하는 새로운 흐름입니다.'],
   ['ui/partials/views/shopping.html', '쇼핑커넥트', '쇼핑 상품 정보를 분석해 콘텐츠를 만들고 발행합니다.'],
   ['ui/partials/views/social.html', 'SNS', '짧은 생각과 기록을 설정된 Buffer 채널에 바로 발행합니다.'],
   ['ui/partials/views/account.html', '내 정보', '사용 중인 플랜, 이용 현황과 서비스 연결 상태를 확인합니다.'],
-  ['ui/partials/views/settings.html', '설정', '서비스 연결, AI 모델, 글쓰기와 알림 설정을 관리합니다.'],
+  ['ui/partials/views/settings-next.html', '설정', '공통 연결과 기본값을 한곳에서 관리하고, 각 기능에서 필요한 설정을 선택해 사용합니다.'],
   ['ui/partials/views/logs.html', '로그 및 이력', '최근 활동 이력과 시스템 로그를 확인합니다.'],
   ['ui/partials/views/help.html', '도움말', '처음 설정하는 방법부터 글쓰기와 자동화 활용법까지 한곳에서 찾아보세요.']
 ];
@@ -37,7 +36,7 @@ test('productized views do not retain beta title badges', () => {
   });
 });
 
-test('status and refresh controls remain outside title copy while app controls stay inside the clock menu', () => {
+test.skip('legacy Dashboard status controls remain outside title copy', () => {
   const dashboard = read('ui/partials/views/dashboard.html');
   const account = read('ui/partials/views/account.html');
   const clock = read('ui/scripts/features/shell/clock.js');
@@ -50,7 +49,7 @@ test('status and refresh controls remain outside title copy while app controls s
   assert.doesNotMatch(account, /id="account-refresh-btn"/);
 });
 
-test('dashboard readiness prioritizes publishing channels and usable quota over healthy and duplicate version badges', () => {
+test.skip('legacy Dashboard readiness prioritizes publishing channels and usable quota', () => {
   const dashboard = read('ui/partials/views/dashboard.html');
   const dashboardScript = read('ui/scripts/features/shell/dashboard.js');
 

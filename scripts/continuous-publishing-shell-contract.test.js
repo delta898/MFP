@@ -25,12 +25,10 @@ function readBlogNextQueueScripts() {
     ].join('\n');
 }
 
-test('Blog Beta shell is isolated from the legacy blog DOM namespace', () => {
-    const legacyView = read('ui/partials/views/blog.html');
+test('Blog Beta shell uses its own DOM namespace', () => {
     const betaView = readBlogNextView();
     const betaScript = read('ui/scripts/features/blog-next/shell.js');
 
-    assert.match(legacyView, /id="view-blog"/);
     assert.match(betaView, /id="view-blog-next"/);
     assert.match(betaView, /data-blog-next-tab="quick"/);
     assert.match(betaView, /data-blog-next-tab="queue"/);

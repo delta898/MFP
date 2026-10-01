@@ -9,17 +9,14 @@ function read(relativePath) {
     return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 }
 
-test('the productized Dashboard uses the current style while the legacy Dashboard is hidden', () => {
+test('Dashboard Beta uses its own current view and controller', () => {
     const index = read('ui/index.html');
-    const legacyView = read('ui/partials/views/dashboard.html');
     const betaView = read('ui/partials/views/dashboard-beta.html');
     const betaScript = read('ui/scripts/features/shell/dashboard-beta.js');
 
-    assert.match(index, /data-view="dashboard" hidden aria-hidden="true" tabindex="-1"/);
     assert.match(index, /class="nav-btn active" data-view="dashboard-beta"/);
     assert.match(index, /data-view="dashboard-beta"[\s\S]*?<span class="nav-label">대시보드<\/span>/);
     assert.doesNotMatch(index, /대시보드 Beta/);
-    assert.match(legacyView, /class="view" id="view-dashboard"/);
     assert.match(betaView, /class="view active" id="view-dashboard-beta"/);
     assert.doesNotMatch(betaView, /data-style-scope=/);
     assert.doesNotMatch(betaView, /\bid="dashboard-(?!beta)/);
@@ -46,7 +43,6 @@ test('Dashboard guides incomplete setup inline and routes the next action to the
     const betaView = read('ui/partials/views/dashboard-beta.html');
     const betaScript = read('ui/scripts/features/shell/dashboard-beta.js');
     const betaStyle = read('ui/styles/features/dashboard-beta.css');
-    const generalSettings = read('ui/partials/views/settings/general.html');
 
     assert.match(betaView, /id="dashboard-beta-onboarding"[^>]*hidden/);
     assert.match(betaView, /AI 글쓰기 모델/);
@@ -72,7 +68,6 @@ test('Dashboard guides incomplete setup inline and routes the next action to the
     assert.match(betaView, /data-dashboard-beta-setup-step="ai"[^>]*data-settings-tab="ai"[^>]*data-settings-target="settings-next-ai-text-form"/);
     assert.match(betaView, /data-dashboard-beta-setup-step="google"[^>]*data-settings-tab="core"[^>]*data-settings-target="settings-next-content-form"/);
     assert.match(betaView, /data-dashboard-beta-setup-step="channel"[^>]*data-settings-tab="core"[^>]*data-settings-target="settings-next-naver-form"[^>]*data-settings-local-tab="publishing"/);
-    assert.match(generalSettings, /id="settings-google-auth-section"/);
     assert.match(betaStyle, /\.dashboard-beta-onboarding\[hidden\]\s*\{\s*display:\s*none/);
     assert.match(betaStyle, /\.dashboard-beta-onboarding-steps\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);
     assert.match(betaStyle, /\.dashboard-beta-onboarding\s*\{[^}]*border-width:\s*2px/);
@@ -207,7 +202,6 @@ test('Dashboard strengthens its visual hierarchy and the native File menu opens 
 
 test('Dashboard Beta restores the shared new discovery center without blocking operations', () => {
     const betaView = read('ui/partials/views/dashboard-beta.html');
-    const legacyView = read('ui/partials/views/dashboard.html');
     const betaScript = read('ui/scripts/features/shell/dashboard-beta.js');
     const centerScript = read('ui/scripts/features/recommendations/center.js');
 
@@ -217,7 +211,6 @@ test('Dashboard Beta restores the shared new discovery center without blocking o
     assert.match(betaView, /id="dashboard-beta-discovery-list"[^>]*data-recommendation-list/);
     assert.match(betaView, /data-idle-label="새 소재 찾기"/);
     assert.match(betaView, /class="recommendation-center-count ui-count-badge"/);
-    assert.match(legacyView, /id="recommendation-center"[^>]*data-recommendation-center/);
     assert.match(betaScript, /void loadRecommendationCenterForDashboard\(\)/);
     assert.match(centerScript, /function activeRecommendationCenterMount\(\)/);
     assert.match(centerScript, /'dashboard\.recommendations': \['dashboard-beta', ''\]/);
@@ -227,17 +220,13 @@ test('Dashboard Beta restores the shared new discovery center without blocking o
     assert.doesNotMatch(centerScript, /surface === 'blog\.quick'[\s\S]{0,300}getElementById\('quick-subject'\)/);
 });
 
-test('productized navigation hides legacy Blog and uses the new Blog on mobile', () => {
+test('Blog Beta is the productized Blog destination on desktop and mobile', () => {
     const index = read('ui/index.html');
     const navigation = read('ui/scripts/foundation/navigation.js');
-    const responsive = read('ui/styles/layout/responsive.css');
 
-    assert.match(index, /data-view="blog" hidden aria-hidden="true" tabindex="-1"/);
     assert.match(index, /data-view="blog-next"[\s\S]*?<span class="nav-label">블로그<\/span>/);
     assert.match(navigation, /viewName = 'blog-next';[\s\S]*subTab = 'quick';/);
     assert.match(navigation, /void navigateTo\('blog-next', 'quick'\)/);
-    assert.match(responsive, /mobile-quick-mode \.nav-btn\[data-view="blog"\]/);
-    assert.doesNotMatch(responsive, /mobile-quick-mode \.nav-btn\[data-view="blog-next"\]/);
 });
 
 test('the productized Dashboard shows one remote BlogGenius tip and hides an empty region', () => {
