@@ -17,7 +17,7 @@ The user intends this to be the only feature-development track for the near term
 ## Scope
 
 - Explore the product and architecture needed to connect site building, content management/publishing, and deployment in BlogGenius.
-- Treat existing StaticWeb and Amade repositories as separate projects, not as sources that constrain this feature's product or template specification.
+- Treat existing StaticWeb and Amade repositories as separate products. Their workflows may provide empirical lessons, but they do not constrain this feature's product or template specification.
 - Define the template contract and catalog from a clean slate in a dedicated template project, separate from the tools.
 - Keep existing Naver Blog and WordPress functionality stable and separately bounded.
 - Develop an agreed feature roadmap, architecture, data/auth ownership, and migration/reuse strategy before material implementation.
@@ -52,7 +52,7 @@ The user intends this to be the only feature-development track for the near term
 
 BlogGenius may provide one guided user experience for project/site setup, template configuration, content creation, preview, build, and deployment while keeping the site/build/deploy domain separate from current Naver and WordPress publishers. Astro and Cloudflare Static Assets are the initial target hypothesis based on the user's existing projects. The precise product scope and execution architecture remain open.
 
-The user's product model separates tools from templates. BlogGenius provides a desktop UI, while a future Amade2 may provide a Docker-based CLI; each independently consumes a neutral template specification from a separate template project. The current Amade project and its templates are excluded as design inputs and are treated as nonexistent. No tool runtime is shared by the template project.
+The user's product model separates tools from templates. BlogGenius provides a desktop UI, while a future Amade2 may provide a Docker-based CLI; each independently consumes a neutral template specification from a separate template project. The current Amade project may be inspected for workflow lessons, but its template is not a specification source and can be treated as nonexistent. No tool runtime is shared by the template project.
 
 ### Template ownership and lifecycle (initial direction)
 
@@ -78,14 +78,14 @@ This is the agreed product boundary: BlogGenius must not invoke, bundle, or depe
 
 1. User has a Cloudflare account.
 2. In BlogGenius, connect Cloudflare and grant the required account permissions.
-3. Initialize a project, then add one or more sites (project-to-site cardinality is undecided).
+3. Initialize a Project as a management grouping, then add one or more Sites. The agreed relationship is one Project to many Sites.
 4. For each site, select a managed template and configure the fields it exposes.
-5. Edit the site using a separate Astro-capable tool when deeper edits are needed; the ownership, handoff, and supported scope of such edits need design.
+5. Edit the same Astro source project using a separate Astro-capable tool when deeper edits are needed. The normal collaboration model is shared source on the same machine; export/import is a secondary cross-machine transfer path.
 6. Preview locally before the first deployment, then deploy to Cloudflare Static Assets.
-7. Optionally connect a custom domain through Cloudflare and verify the live site.
+7. A Site can be deployed and inspected without a custom domain using its Cloudflare `workers.dev` address. A custom domain is optional and can be connected through Cloudflare when desired.
 8. Create an article in BlogGenius's writing workflow, publish it to the chosen static site, then rebuild/deploy the updated site.
 
-This is a user-flow hypothesis, not an implementation contract. In particular, local preview must not silently imply an extra user-installed tool; and custom-domain connection must account for Cloudflare account scope, domain ownership, DNS state, and confirmation of any remote changes.
+Each Site is an independent build/deploy unit and is expected to have its own hostname when custom domains are used (for example, `docs.example.com` and `blog.example.com`). Project is a management grouping; whether it also carries a required parent/root domain is not yet decided. Without a custom domain, each Site still has its own `workers.dev` URL. This remains a user-flow hypothesis, not an implementation contract. Local preview must not silently imply an extra user-installed tool; custom-domain connection must account for Cloudflare account scope, domain ownership, DNS state, and confirmation of remote changes.
 
 ## Platform prerequisite requirement
 
@@ -96,11 +96,11 @@ This is a user-flow hypothesis, not an implementation contract. In particular, l
 
 ## Design questions to resolve
 
-1. What does a Project represent in BlogGenius, and should it contain one Site or N Sites?
-2. Who owns canonical site source and content: BlogGenius-managed files, user-selected files, Git, or a hosted service? What happens when the user edits Astro files externally?
+1. What optional domain metadata, if any, belongs on a Project when it groups Sites that each have a hostname? How should a Project work before any custom domain exists?
+2. The default source-sharing model is a shared local Astro project. What file ownership and change-detection rules are needed when an external editor changes it? Should Git remain optional, and is export/import sufficient for cross-machine transfer?
 3. Where do Astro dependencies, local preview, and builds run while preserving the no-extra-tool installation requirement?
 4. How are Cloudflare identity, credentials, account selection, deployment approval, and recovery handled without exposing secrets to site scripts or static output?
-5. Where should the template project live, and should it own only source/specification or also the user-facing catalog and release distribution?
+5. Where should the template project live, and should it own only source/specification or also the user-facing catalog and release distribution? Existing Amade workflow may inform this investigation, while its template remains excluded.
 6. How does the external template catalog work (version pinning, cache/offline behavior, compatibility, integrity, and trusted distribution)?
 7. How should a BlogGenius article map to static-site content, and how should edits, scheduling, deletion, and failed redeployment behave?
 8. What can Cloudflare custom-domain setup safely automate, and which domain/DNS changes require explicit user action?
@@ -125,7 +125,7 @@ These are hypotheses for design work, not finalized architecture decisions.
 2. **Foundation contracts**: after user agreement, define project/site/content/template/build/deploy contracts and local data ownership. Start the template project and its initial specification independently from tool implementations.
 3. **Vertical slice**: initialize one project, create one site from one catalog template, apply its basic settings, preview/build, and deploy to a development Cloudflare target with explicit confirmation.
 4. **Writing integration**: publish one BlogGenius manuscript as static-site content and redeploy the changed site, preserving the last successful deployment if a later build/deploy fails.
-5. **Site lifecycle expansion**: validate N-site projects, external Astro editing, custom domains, production deployment, and template upgrade/switch behavior as separate decisions.
+5. **Site lifecycle expansion**: validate the already-agreed N-site Project model, external Astro editing, optional custom domains, production deployment, and template upgrade/switch behavior as separate decisions.
 
 Stages 2–5 may be reordered or narrowed based on the discovery result. Each implementation stage should be a separate sub-feature branch based on this parent branch and should have its own dated development record before material changes.
 
@@ -188,6 +188,17 @@ These are decision-support experiments, not approval to implement the full featu
 - User explicitly clarified that BlogGenius must not use any CLI, because doing so would create a Docker dependency. BlogGenius and future Amade2 independently consume the new template contract.
 - User explicitly removed the current Amade project and its templates as design inputs: treat them as nonexistent and start the template specification from scratch.
 - User agreed tools and templates are separate: BlogGenius UI and future Amade2 CLI consume a separate template project's specification/catalog independently.
+- User confirmed the Project/Site model: Project is a management grouping with one-to-many Sites; each Site is an independent build/deploy unit.
+- User expects separate hostnames per Site when custom domains are used (for example, `docs.example.com`, `blog.example.com`). Custom domains are optional; each Site must work through `workers.dev` without one.
+- The normal external-editing workflow shares the same source project. Export/import is primarily for moving a project between machines.
+- User clarified that the existing Amade project is worth reviewing as an experimental workflow reference, while its current template remains non-normative and is not the basis for the new template specification. This supersedes the earlier exclusion of all Amade material as evidence.
+
+### 2026-10-01 — Project/Site and deployment assumptions clarified
+
+- Revised the candidate journey to distinguish Project management grouping from independently built/deployed Sites, and to make custom domains optional.
+- Recorded `workers.dev` as the default inspection/deployment address when the user has no custom domain.
+- Updated open questions to focus on optional Project domain metadata, shared local source ownership/change detection, and cross-machine transfer.
+- The user's latest clarification supersedes earlier notes that treated the current Amade workflow itself as nonexistent; only its template remains excluded as a standard.
 - Astro's conventional project structure is the baseline; any product-specific template contract should be a thin addition, not a competing Astro project standard.
 - The current parent starts from `main` and is named `codex/static-site-builder-main`; the intended destination is `dev`. Future feature work starts from `dev`.
 

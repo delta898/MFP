@@ -10,7 +10,7 @@
 
 ## User need and goal
 
-The user wants tools and templates to be separate products: BlogGenius (desktop UI) and a future Amade2 (Docker CLI) independently consume a neutral template specification from a dedicated template project. BlogGenius must never invoke, bundle, or depend on a CLI because that would introduce a Docker dependency. The current Amade project and all its templates are excluded as design inputs and are treated as nonexistent for this work.
+The user wants tools and templates to be separate products: BlogGenius (desktop UI) and a future Amade2 (Docker CLI) independently consume a neutral template specification from a dedicated template project. BlogGenius must never invoke, bundle, or depend on a CLI because that would introduce a Docker dependency. The current Amade project may provide workflow lessons, but its existing templates are excluded as standards or sources for this new specification.
 
 This spike should test whether a small, tool-neutral template contract can describe a template's identity/version, its user-adjustable settings, and the source files needed to produce an Astro site. It is an experiment to inform discussion, not a decision to adopt the contract or begin the full product implementation.
 
@@ -24,7 +24,7 @@ This spike should test whether a small, tool-neutral template contract can descr
 
 ## Explicit non-goals
 
-- Do not inspect, change, or depend on the existing Amade repository or its template files.
+- Do not derive the new contract from existing Amade template files. Its workflow may be inspected as empirical context.
 - Do not implement BlogGenius UI, Astro runtime packaging, local preview, Cloudflare authentication/deployment, custom domains, or content publishing.
 - Do not implement template upgrades/migration for existing sites.
 - Do not establish a production catalog service, CDN, registry, payment/license model, or repository name in this spike.
@@ -47,6 +47,8 @@ Favor plain data plus explicitly supported substitutions/copy rules. Avoid desig
 - Agreed direction: create a new template project with a new specification and sources; it is separate from tool repositories.
 - Agreed boundary: BlogGenius and future Amade2 are independent consumers; BlogGenius never uses a CLI.
 - Agreed baseline: preserve Astro's conventional project structure and add only a thin product-specific contract if required for template catalog identity, declared settings, version pinning, and package integrity.
+- The product-level Project groups one or more Sites; each Site is an independent Astro build/deployment unit. Sites can use separate custom hostnames, but custom domains are optional and `workers.dev` should remain usable by default.
+- External authoring normally edits the same source project on the same machine; export/import is a secondary cross-machine transfer path.
 - Open: whether the spec is a published package, a repository convention, or a versioned archive/catalog artifact.
 - Open: how content collections and user-authored content attach to a template-generated Astro app.
 - Open: exact setting types, field constraints, asset references, localization, and compatibility policy.
