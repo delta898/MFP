@@ -1,0 +1,14 @@
+{
+  "name": "bloggenius-cloudflare-node-sdk-integration-poc",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Isolated Cloudflare official Node SDK integration proof of concept",
+  "type": "module",
+  "scripts": {
+    "test": "node --test *.test.js",
+    "live": "node run-live-check.js"
+  },
+  "dependencies": {
+    "cloudflare": "7.2.0"
+  }
+}
