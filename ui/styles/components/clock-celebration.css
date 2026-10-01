@@ -42,9 +42,10 @@
   padding: 18px 24px;
   border: 1px solid rgba(255, 255, 255, 0.84);
   border-radius: 22px;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.97);
   box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24), 0 0 0 8px rgba(56, 189, 248, 0.1);
-  color: var(--ui-text-primary);
+  /* The card stays light across themes, so use fixed dark text instead of theme text tokens. */
+  color: #1f2937;
   text-align: center;
   backdrop-filter: blur(14px);
   transform: translate(-50%, -50%);
@@ -57,7 +58,7 @@
 }
 
 .app-celebration-message span {
-  color: var(--ui-text-secondary);
+  color: #4b5563;
   font-size: 13px;
   font-weight: 700;
 }

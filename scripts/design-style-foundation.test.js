@@ -449,6 +449,18 @@ test('design-system feature styles do not bypass the style contract', () => {
   });
 });
 
+test('celebration message keeps readable text on its fixed light surface in every theme', () => {
+  const celebration = read('ui/styles/components/clock-celebration.css');
+  const message = celebration.match(/\.app-celebration-message\s*\{([^}]+)\}/)?.[1] || '';
+  const supportingText = celebration.match(/\.app-celebration-message span\s*\{([^}]+)\}/)?.[1] || '';
+
+  assert.match(message, /background:\s*rgba\(255,\s*255,\s*255,\s*0\.97\)/);
+  assert.match(message, /color:\s*#1f2937/);
+  assert.match(supportingText, /color:\s*#4b5563/);
+  assert.doesNotMatch(message, /var\(--ui-text-primary\)/);
+  assert.doesNotMatch(supportingText, /var\(--ui-text-secondary\)/);
+});
+
 test('every design-system style target has strict coverage or a documented exclusion', () => {
   DESIGN_SYSTEM_STYLE_TARGETS.forEach((entry) => {
     if (entry.contracts.includes(CONTRACTS.STRICT_STYLE)) {
