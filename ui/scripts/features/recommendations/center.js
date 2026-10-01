@@ -351,7 +351,13 @@ async function loadRecommendationCenter(options = {}) {
         ? await postJson('/api/v1/recommendations/discover', {})
         : await fetchJson(`/api/v1/recommendations?limit=3${options.refresh ? '&refresh=1' : ''}`);
       renderRecommendationCenter(payload);
-      notifyNewRecommendationCenterItems(payload.items || []);
+      if (!options.suppressExistingNotification || payload.refresh?.status === 'evaluated') {
+        notifyNewRecommendationCenterItems(payload.items || []);
+      } else {
+        // Treat the persisted startup snapshot as the baseline. A following
+        // discovery refresh should notify only about recommendations it adds.
+        rememberRecommendationCenterIds(payload.items || []);
+      }
       return payload;
     } catch (error) {
       if (options.preserveExistingOnError && recommendationCenterItems.length > 0) {
@@ -384,7 +390,7 @@ async function loadRecommendationCenterForDashboard() {
     return recommendationCenterStartupRefreshPromise;
   }
   recommendationCenterStartupRefreshPromise = (async () => {
-    const initial = await loadRecommendationCenter();
+    const initial = await loadRecommendationCenter({ suppressExistingNotification: true });
     if (!initial || initial.refresh) return initial;
     return loadRecommendationCenter({ discover: true, preserveExistingOnError: true });
   })();

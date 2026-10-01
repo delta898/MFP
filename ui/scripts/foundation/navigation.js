@@ -140,7 +140,7 @@ async function navigateTo(viewName, subTab) {
   if (viewName === 'settings-next') {
     initSettingsNext();
     settingsNextActivateTab(subTab || settingsNextActiveTab);
-    await loadSettingsNext({ force: true });
+    await loadSettingsNext();
     return;
   }
 }

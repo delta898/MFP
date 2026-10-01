@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
+const cheerio = require('cheerio');
 const { chromium } = require('playwright');
 const { createHtmlCompositionRuntime } = require('../src/ui-runtime/html-composition-runtime');
 const { createCssCompositionRuntime } = require('../src/ui-runtime/css-composition-runtime');
@@ -540,8 +541,15 @@ function getApiFixture(pathname) {
 }
 
 function startFixtureServer(requests) {
-    const composedUiShell = createHtmlCompositionRuntime({ fs, path })
+    const composedUiShellSource = createHtmlCompositionRuntime({ fs, path })
         .composeHtmlFile({ uiRoot }).html;
+    const composedUiShellDocument = cheerio.load(composedUiShellSource);
+    // Browser smoke covers the active product surfaces. Keep the retired views
+    // out of the fixture entirely so their markup/scripts cannot be exercised
+    // or trigger unrelated external requests (for example the old RSS widget).
+    composedUiShellDocument('#view-dashboard, #view-settings, #view-blog').remove();
+    composedUiShellDocument('.nav-btn[data-view="dashboard"], .nav-btn[data-view="blog"]').remove();
+    const composedUiShell = composedUiShellDocument.html();
     const composedUiStyles = createCssCompositionRuntime({ fs, path })
         .composeCssFile({ uiRoot }).css;
     const composedUiScript = createJsCompositionRuntime({ fs, path })
@@ -1923,6 +1931,8 @@ async function run() {
         await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
         smokeProgress.pageUrl = page.url();
         await awaitSmokeCheck('Waiting for app navigation API', page.waitForFunction(() => typeof window.navigateTo === 'function'));
+        assert.equal(await page.locator('#view-dashboard, #view-settings, #view-blog').count(), 0);
+        assert.equal(await page.locator('script[src*="widget.rss.app"]').count(), 0);
         await awaitSmokeCheck('Waiting for Dashboard Beta activation', page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active')));
         await awaitSmokeCheck('Waiting for Dashboard Beta initial flow state', page.waitForFunction(() => document.getElementById('dashboard-beta-flow-subject')?.textContent === '현재 실행 중인 글이 없습니다.'));
         if (process.env.UI_BROWSER_DEMO_VIDEO_PATH) {
@@ -2069,7 +2079,7 @@ async function run() {
         assert.equal((await page.locator('#dashboard-beta-discovery-count').textContent())?.trim(), '1');
         assert.equal((await page.locator('#dashboard-beta-discovery-refresh').textContent())?.trim(), '새 소재 찾기');
         assert.equal(await page.locator('#dashboard-beta-discovery-list .recommendation-card').count(), 1);
-        assert.equal(await page.locator('.nav-btn[data-view="dashboard"]').isHidden(), true);
+        assert.equal(await page.locator('.nav-btn[data-view="dashboard"]').count(), 0);
         assert.equal(
             await page.locator('.nav-btn[data-view="dashboard-beta"] .nav-label').evaluate((element) => element.childNodes[0]?.textContent?.trim()),
             '대시보드'
@@ -2182,10 +2192,10 @@ async function run() {
         assert.equal(await page.locator('#help-supporting-section').evaluate(element => element.hidden), false);
         assert.equal((await page.locator('#help-supporting-region').textContent()).includes('개발자 응원하기'), true);
         assert.equal(await page.locator('#view-help .help-contact-card .ui-button-link').getAttribute('href'), 'https://open.kakao.com/o/gZWL25Zh');
-        assert.equal(await page.locator('#view-dashboard').evaluate(element => element.classList.contains('active')), false);
+        assert.equal(await page.locator('#view-dashboard').count(), 0);
+        assert.equal(await page.locator('#view-settings, #view-blog').count(), 0);
         assert.equal(requests.some(request => request.pathname === '/api/v1/continuous-publishing/dashboard-overview'), true);
         assert.equal(requests.some(request => request.pathname === '/api/v1/continuous-publishing/dashboard-result-stats'), true);
-        await page.evaluate(() => navigateTo('dashboard'));
         assert.equal(await page.evaluate(() => recommendationCenterToastMessage([
             { title: '경찰 계급도' }, { title: '두 번째 소재' }, { title: '세 번째 소재' }
         ])), '경찰 계급도 외 2건');
@@ -2240,106 +2250,6 @@ async function run() {
         assert.equal(await page.evaluate(() => recommendationActionLabel({
             lane: 'serendipity', action: { type: 'presentation', label: '소재 살펴보기' }
         })), '소재 적용하기');
-        await page.evaluate(() => navigateTo('dashboard'));
-        await page.waitForFunction(() => document.getElementById('view-dashboard')?.classList.contains('active'));
-
-        assert.equal(await page.locator('#view-dashboard').count(), 1);
-        assert.equal(await page.locator('#view-dashboard').evaluate((element) => element.classList.contains('active')), true);
-        assert.notEqual(await page.locator('#view-dashboard').evaluate((element) => getComputedStyle(element).display), 'none');
-        assert.equal(await page.locator('#view-settings').evaluate((element) => getComputedStyle(element).display), 'none');
-        assert.equal(await page.locator('.sidebar').evaluate((element) => getComputedStyle(element).display), 'flex');
-        assert.equal(await page.locator('#badge-version').count(), 0);
-        assert.equal(await page.locator('#settings-current-version-display').textContent(), 'v0.2.0');
-        assert.equal(await page.locator('#footer-version-display').textContent(), 'v0.2.0');
-        assert.equal((await page.locator('#dashboard-naver-status-label').textContent())?.trim(), '네이버 로그인 확인됨');
-        assert.equal((await page.locator('#dashboard-wordpress-status-label').textContent())?.trim(), 'WordPress 미사용');
-        assert.equal((await page.locator('#dashboard-usage-status-label').textContent())?.trim(), '기본 8회 남음');
-        assert.equal((await page.locator('#dashboard-plan-status-label').textContent())?.trim(), 'Free');
-        assert.equal(await page.locator('#dashboard-google-status').isHidden(), true);
-        assert.equal(await page.locator('#dashboard-health-status').isHidden(), true);
-        assert.equal(await page.locator('#dashboard-readiness-bar').evaluate((element) => getComputedStyle(element).display), 'flex');
-        await page.locator('#dashboard-wordpress-status').click();
-        await page.waitForFunction(() => (
-            document.getElementById('view-settings-next')?.classList.contains('active')
-            && document.getElementById('settings-next-tab-core')?.getAttribute('aria-selected') === 'true'
-            && document.querySelector('[data-settings-next-core-tab="publishing"]')?.getAttribute('aria-selected') === 'true'
-            && document.getElementById('settings-next-core-panel-publishing')?.hidden === false
-            && document.getElementById('settings-next-wordpress-form')?.getBoundingClientRect().height > 0
-        ));
-        await page.evaluate(() => navigateTo('dashboard'));
-        await page.waitForFunction(() => document.getElementById('view-dashboard')?.classList.contains('active'));
-        await page.waitForFunction(() => (
-            document.querySelectorAll('.recommendation-card').length === 1
-            && document.querySelector('.recommendation-card h3')?.textContent?.trim() === '로컬 여행'
-        ));
-        assert.equal((await page.locator('.recommendation-card h3').textContent())?.trim(), '로컬 여행');
-        assert.equal(await page.locator('#recommendation-nav-badge').count(), 0);
-        assert.equal((await page.locator('#recommendation-center-count').textContent())?.trim(), '1');
-        assert.equal(await page.locator('#recommendation-center-count').isHidden(), false);
-        assert.equal(await page.locator('#view-dashboard [data-global-publishing-status]').isHidden(), true);
-        assert.equal(await page.locator('#blog-next-global-nav-status').isHidden(), true);
-        await page.evaluate(() => renderGlobalPublishingStatus({
-            state: 'attention', subject: '확인이 필요한 글감', message: '발행 결과를 확인해 주세요.'
-        }));
-        assert.equal(
-            (await page.locator('#view-dashboard [data-global-publishing-status]').textContent())?.includes('발행 확인 필요'),
-            true
-        );
-        assert.equal(await page.locator('#blog-next-global-nav-status').getAttribute('data-state'), 'attention');
-        await page.evaluate(() => renderGlobalPublishingStatus({ state: 'idle' }));
-        assert.equal(await page.locator('#view-dashboard [data-global-publishing-status]').isHidden(), true);
-        assert.equal(await page.locator('.recommendation-evidence-list').isHidden(), true);
-        assert.equal(
-            await page.locator('.recommendation-evidence-toggle').evaluate((element) => getComputedStyle(element).alignSelf),
-            'flex-start'
-        );
-        await page.locator('.recommendation-evidence-toggle').click();
-        assert.equal(await page.locator('.recommendation-evidence-list').isHidden(), false);
-        assert.equal((await page.locator('.recommendation-card').textContent()).includes('capability_id'), false);
-        assert.equal(await page.locator('.recommendation-kind').count(), 0);
-        assert.equal((await page.locator('.recommendation-card-hint').textContent())?.trim(), '트렌드 키워드');
-        assert.equal(await page.locator('.recommendation-card-top .recommendation-card-hint').count(), 1);
-        assert.equal(await page.locator('.recommendation-card-title-row .recommendation-card-hint').count(), 0);
-        assert.equal(await page.locator('.recommendation-card').evaluate((element) => getComputedStyle(element).display), 'flex');
-        assert.equal(await page.locator('#recommendation-center-list').evaluate((element) => getComputedStyle(element).alignItems), 'stretch');
-        assert.equal(await page.locator('[data-recommendation-action="snooze"]').count(), 0);
-        assert.equal(await page.locator('[data-recommendation-action="dismiss"]').isDisabled(), false);
-        const recommendationDismiss = page.locator('[data-recommendation-action="dismiss"]');
-        await recommendationDismiss.hover();
-        await page.waitForFunction(() => {
-            const element = document.querySelector('[data-recommendation-action="dismiss"]');
-            if (!element?.matches(':hover')) return false;
-            const style = getComputedStyle(element);
-            return style.backgroundColor === 'rgb(255, 241, 242)' && style.color === 'rgb(185, 28, 28)';
-        });
-        const recommendationDismissHover = await recommendationDismiss.evaluate((element) => {
-            const style = getComputedStyle(element);
-            return {
-                hovered: element.matches(':hover'),
-                background: style.backgroundColor,
-                color: style.color,
-                transform: style.transform
-            };
-        });
-        assert.equal(recommendationDismissHover.hovered, true);
-        assert.equal(recommendationDismissHover.background, 'rgb(255, 241, 242)');
-        assert.equal(recommendationDismissHover.color, 'rgb(185, 28, 28)');
-        assert.equal(recommendationDismissHover.transform, 'none');
-        assert.equal(
-            await page.locator('#recommendation-center-list').evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length),
-            3
-        );
-        assert.equal((await page.locator('#recommendation-center-title').textContent())?.trim(), '뜻밖의 발견');
-        await page.locator('.recommendation-card-actions .primary').click();
-        await page.waitForFunction(() => document.getElementById('view-settings-next')?.classList.contains('active'));
-        assert.equal(
-            await page.locator('#settings-next-tab-core').getAttribute('aria-selected'),
-            'true'
-        );
-        await page.evaluate(() => navigateTo('dashboard'));
-        await page.locator('#recommendation-center-refresh').click();
-        await page.waitForFunction(() => document.querySelector('#recommendation-center-list .recommendation-card h3')?.textContent.includes('로컬 여행'));
-
         await page.evaluate(() => navigateTo('settings'));
         await page.waitForFunction(() => document.getElementById('view-settings-next')?.classList.contains('active'));
         assert.equal(await page.locator('#settings-next-tab-core').getAttribute('aria-selected'), 'true');
@@ -2430,8 +2340,6 @@ async function run() {
         );
         await page.locator('[data-settings-next-tab="writing"]').click();
         await page.waitForFunction(() => document.getElementById('settings-next-writing-voice-summary')?.textContent !== '불러오는 중');
-        assert.equal(await page.locator('input[name="settings-writing-profile-kind"]').count(), 2);
-        assert.equal(await page.locator('#settings-next-panel-writing [name*="writing-strategy"]').count(), 0);
         const writingStrategyBefore = await page.evaluate(() => settingsNextWritingDraft.common.writing_strategy);
         await page.locator('#settings-next-writing-mode').selectOption('written');
         await page.locator('#settings-next-writing-length').selectOption('long');
@@ -2494,7 +2402,7 @@ async function run() {
             window.__settingsNextSmokeConfirm = showUiConfirm;
             showUiConfirm = async () => true;
         });
-        reportSmokePhase('Checking settings, account, logs, and surface navigation');
+        reportSmokePhase('Checking current Settings, account, logs, and active-surface navigation');
         for (const viewName of ['account', 'social', 'settings', 'logs', 'shopping', 'dashboard-beta', 'blog-next']) {
             const expectedViewName = viewName === 'settings' ? 'settings-next' : viewName;
             if (await page.locator(`.nav-btn[data-view="${viewName}"]`).isVisible()) {
@@ -4798,14 +4706,6 @@ async function run() {
             document.querySelector('#view-blog-next [data-global-publishing-status]')?.textContent?.includes('다음 처리')
         ));
         assert.equal(await page.locator('#blog-next-global-nav-status').isHidden(), true);
-        await page.evaluate(() => navigateTo('dashboard'));
-        await page.waitForFunction(() => document.getElementById('view-dashboard')?.classList.contains('active'));
-        await page.locator('#view-dashboard [data-global-publishing-status]').click();
-        await page.waitForFunction(() => (
-            document.getElementById('view-blog-next')?.classList.contains('active')
-            && document.getElementById('blog-next-panel-queue')?.hidden === false
-        ));
-
         await page.locator('[data-blog-next-tab="quick"]').click();
         reportSmokePhase('Checking local manuscript import and publish flows');
         await page.locator('[data-blog-next-input-mode="folder"]').click();
@@ -5748,12 +5648,12 @@ async function run() {
         assert.equal(blogNextNarrowLayout.modeChecks.every(({ left, right, width }) => left >= 0 && right <= 391 && width > 0), true);
         assert.equal(await page.locator('.nav-btn[data-view="blog-next"]').isVisible(), true);
         assert.equal(await page.locator('.mobile-topbar').evaluate((element) => getComputedStyle(element).display), 'flex');
-        await page.evaluate(() => navigateTo('dashboard'));
-        await page.waitForFunction(() => document.getElementById('view-dashboard')?.classList.contains('active'));
-        const centerBox = await page.locator('#recommendation-center').boundingBox();
+        await page.evaluate(() => navigateTo('dashboard-beta'));
+        await page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active'));
+        const centerBox = await page.locator('#dashboard-beta-discovery').boundingBox();
         assert.equal(Boolean(centerBox && centerBox.width <= 390), true);
         assert.equal(
-            await page.locator('#recommendation-center-list').evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length),
+            await page.locator('#dashboard-beta-discovery-list').evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length),
             1
         );
         await page.locator('#mobile-menu-btn').click();
@@ -5769,8 +5669,6 @@ async function run() {
                 && !request.pathname.startsWith('/api/v1/blog/manuscript-drafts/'))
             .map(({ method, pathname }) => ({ method, pathname }));
         const expectedNonDraftPosts = [
-            { method: 'POST', pathname: '/api/v1/recommendations/discover' },
-            { method: 'POST', pathname: '/api/v1/recommendations/interaction' },
             { method: 'POST', pathname: '/api/v1/recommendations/discover' },
             { method: 'PUT', pathname: '/api/v1/settings/writing-profile' },
             { method: 'POST', pathname: '/api/v1/settings/optional-services' },

@@ -141,12 +141,15 @@ async function checkAuthSessionValid(options = {}) {
         return cloneSessionResult(cachedSession);
     }
 
-    if (!forceRefresh && sessionCheckInFlight) {
-        return cloneSessionResult(await sessionCheckInFlight);
+    // A forced refresh bypasses cached data, but it should still join an
+    // equivalent check already in progress instead of opening another browser.
+    if (sessionCheckInFlight?.configKey === sessionConfigKey) {
+        return cloneSessionResult(await sessionCheckInFlight.promise);
     }
 
     const checkGeneration = sessionStateGeneration;
-    sessionCheckInFlight = (async () => {
+    const check = { configKey: sessionConfigKey, promise: null };
+    check.promise = (async () => {
         const result = await performAuthSessionCheck(options);
         if (checkGeneration !== sessionStateGeneration) {
             return { ok: false, reason: 'missing_auth' };
@@ -157,11 +160,12 @@ async function checkAuthSessionValid(options = {}) {
         cachedSessionConfigKey = sessionConfigKey;
         return result;
     })();
+    sessionCheckInFlight = check;
 
     try {
-        return cloneSessionResult(await sessionCheckInFlight);
+        return cloneSessionResult(await check.promise);
     } finally {
-        sessionCheckInFlight = null;
+        if (sessionCheckInFlight === check) sessionCheckInFlight = null;
     }
 }
 
@@ -171,7 +175,7 @@ async function clearAuthSession(options = {}) {
         throw new Error('네이버 인증 파일 경로가 설정되어 있지 않습니다.');
     }
 
-    const inFlightCheck = sessionCheckInFlight;
+    const inFlightCheck = sessionCheckInFlight?.promise;
     sessionStateGeneration += 1;
     if (inFlightCheck) {
         try {

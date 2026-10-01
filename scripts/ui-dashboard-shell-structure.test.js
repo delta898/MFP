@@ -77,6 +77,9 @@ test('dashboard refreshes persisted discoveries once per app session without rep
     assert.match(dashboardSource, /loadRecommendationCenterForDashboard\(\)/);
     assert.match(centerSource, /recommendationCenterStartupRefreshCompleted/);
     assert.match(centerSource, /if \(!initial \|\| initial\.refresh\) return initial/);
+    assert.match(centerSource, /loadRecommendationCenter\(\{ suppressExistingNotification: true \}\)/);
+    assert.match(centerSource, /payload\.refresh\?\.status === 'evaluated'/);
+    assert.match(centerSource, /rememberRecommendationCenterIds\(payload\.items \|\| \[\]\)/);
     assert.match(centerSource, /loadRecommendationCenter\(\{ discover: true, preserveExistingOnError: true \}\)/);
     assert.match(centerSource, /options\.preserveExistingOnError && recommendationCenterItems\.length > 0/);
 });

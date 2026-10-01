@@ -13,6 +13,12 @@ let settingsNextSheetVerification = null;
 let settingsNextBound = false;
 let settingsNextLoaded = false;
 let settingsNextLoading = false;
+let settingsNextStatusesLoaded = false;
+let settingsNextStatusesLoading = null;
+let settingsNextStatusesLoadingForce = false;
+let settingsNextForcedStatusRefresh = null;
+let settingsNextStatusChecks = { google: false, account: false, naver: false };
+let settingsNextStatusErrors = { google: false, account: false, naver: false };
 let settingsNextRefreshBusy = false;
 let settingsNextGoogleBusy = false;
 let settingsNextGoogleFlowId = '';
@@ -367,23 +373,37 @@ function settingsNextRenderReadiness() {
   const sheetDot = sheetReadiness?.closest('.ui-settings-readiness-card')?.querySelector('.settings-next-status-dot');
   settingsNextSetText(
     'settings-next-sheet-readiness',
-    migrationNeeded ? '기존 연결 전환 필요'
+    settingsNextStatusChecks.account ? '확인 중…'
+      : settingsNextStatusErrors.account ? '확인 실패 · 이전 상태 유지'
+      : migrationNeeded ? '기존 연결 전환 필요'
       : settingsNextAccountOverviewError && !settingsNextAccountOverview
       ? '연결 상태 확인 실패'
       : (sheetAccessible ? '연결됨' : (sheetFailed ? '연결 확인 실패' : (hasSheetUrl ? '연결 확인 필요' : '연결 필요')))
   );
   settingsNextSetDot(
     sheetDot,
-    migrationNeeded ? 'warning'
+    settingsNextStatusChecks.account ? 'neutral'
+      : settingsNextStatusErrors.account ? 'warning'
+      : migrationNeeded ? 'warning'
       : settingsNextAccountOverviewError && !settingsNextAccountOverview
       ? 'danger'
       : (sheetAccessible ? 'success' : (sheetFailed ? 'danger' : (hasSheetUrl ? 'warning' : 'danger')))
   );
-  settingsNextSetStatus(
-    'settings-next-content-status',
-    migrationNeeded ? '전환 필요' : (sheetAccessible ? '연결됨' : (sheetFailed ? '연결 확인 실패' : (hasSheetUrl ? '연결 확인 필요' : '연결 필요'))),
-    migrationNeeded ? 'warning' : (sheetAccessible ? 'success' : (sheetFailed ? 'danger' : (hasSheetUrl ? 'warning' : 'neutral')))
-  );
+  const contentStatusLabel = settingsNextStatusChecks.account
+    ? '확인 중…'
+    : settingsNextStatusErrors.account
+      ? '확인 실패 · 이전 상태 유지'
+      : migrationNeeded
+        ? '전환 필요'
+        : sheetAccessible
+          ? '연결됨'
+          : sheetFailed ? '연결 확인 실패' : (hasSheetUrl ? '연결 확인 필요' : '연결 필요');
+  const contentStatusTone = settingsNextStatusChecks.account
+    ? 'neutral'
+    : settingsNextStatusErrors.account
+      ? 'warning'
+      : migrationNeeded ? 'warning' : (sheetAccessible ? 'success' : (sheetFailed ? 'danger' : (hasSheetUrl ? 'warning' : 'neutral')));
+  settingsNextSetStatus('settings-next-content-status', contentStatusLabel, contentStatusTone);
   const wordpress = settingsNextConnectionState(settingsNextAccountOverview?.connections?.wordpress);
   const wordpressConfigured = Boolean(settingsNextMajorFields.WORDPRESS_URL
     && settingsNextMajorFields.WORDPRESS_USER_ID
@@ -393,30 +413,30 @@ function settingsNextRenderReadiness() {
   const naverReadinessTone = naverValid ? 'success' : (naverReason === 'expired' ? 'warning' : 'danger');
   settingsNextSetText(
     'settings-next-naver-readiness',
-    naverValid
+    settingsNextStatusChecks.naver ? '확인 중…' : (settingsNextStatusErrors.naver ? '확인 실패 · 이전 상태 유지' : naverValid
       ? '로그인됨'
       : (naverReason === 'check_failed'
         ? '상태 확인 실패'
-        : (naverReason === 'expired' ? '다시 로그인 필요' : (settingsNextMajorFields.NAVER_ID ? '로그인 필요' : '아이디 필요')))
+        : (naverReason === 'expired' ? '다시 로그인 필요' : (settingsNextMajorFields.NAVER_ID ? '로그인 필요' : '아이디 필요'))))
   );
-  settingsNextSetDot(document.getElementById('settings-next-naver-readiness-dot'), naverReadinessTone);
+  settingsNextSetDot(document.getElementById('settings-next-naver-readiness-dot'), settingsNextStatusChecks.naver ? 'neutral' : (settingsNextStatusErrors.naver ? 'warning' : naverReadinessTone));
 
   const wordpressStatusUnavailable = settingsNextAccountOverviewError && !settingsNextAccountOverview;
   settingsNextSetText(
     'settings-next-wordpress-readiness',
-    wordpressStatusUnavailable
+    settingsNextStatusChecks.account ? '확인 중…' : settingsNextStatusErrors.account ? '확인 실패 · 이전 상태 유지' : wordpressStatusUnavailable
       ? '상태 확인 실패'
       : (wordpress.connected ? '연결됨' : (wordpressConfigured ? '연결 확인 필요' : '설정 필요'))
   );
   settingsNextSetDot(
     document.getElementById('settings-next-wordpress-readiness-dot'),
-    wordpressStatusUnavailable ? 'danger' : (wordpress.connected ? 'success' : (wordpressConfigured ? 'warning' : 'danger'))
+    settingsNextStatusChecks.account ? 'neutral' : (settingsNextStatusErrors.account ? 'warning' : (wordpressStatusUnavailable ? 'danger' : (wordpress.connected ? 'success' : (wordpressConfigured ? 'warning' : 'danger'))))
   );
 
   settingsNextSetStatus(
     'settings-next-wordpress-status',
-    wordpress.connected ? '연결됨' : (wordpressConfigured ? '확인 필요' : '미설정'),
-    wordpress.connected ? 'success' : (wordpressConfigured ? 'warning' : 'neutral')
+    settingsNextStatusChecks.account ? '확인 중…' : (settingsNextStatusErrors.account ? '확인 실패 · 이전 상태 유지' : (wordpress.connected ? '연결됨' : (wordpressConfigured ? '확인 필요' : '미설정'))),
+    settingsNextStatusChecks.account ? 'neutral' : (settingsNextStatusErrors.account ? 'warning' : (wordpress.connected ? 'success' : (wordpressConfigured ? 'warning' : 'neutral')))
   );
 }
 
@@ -435,8 +455,8 @@ function settingsNextRenderNaverStatus(data = {}) {
   const reason = String(data?.reason || '').trim();
   settingsNextSetStatus(
     'settings-next-naver-status',
-    valid ? '로그인됨' : (reason === 'expired' ? '로그인 만료' : (reason === 'check_failed' ? '확인 실패' : '로그아웃됨')),
-    valid ? 'success' : (reason === 'expired' || reason === 'check_failed' ? 'warning' : 'neutral')
+    settingsNextStatusChecks.naver ? '확인 중…' : (settingsNextStatusErrors.naver ? '확인 실패 · 이전 상태 유지' : (valid ? '로그인됨' : (reason === 'expired' ? '로그인 만료' : (reason === 'check_failed' ? '확인 실패' : '로그아웃됨')))),
+    settingsNextStatusChecks.naver ? 'neutral' : (settingsNextStatusErrors.naver ? 'warning' : (valid ? 'success' : (reason === 'expired' || reason === 'check_failed' ? 'warning' : 'neutral')))
   );
   settingsNextSetText(
     'settings-next-naver-detail',
@@ -450,61 +470,79 @@ function settingsNextRenderNaverStatus(data = {}) {
 }
 
 async function settingsNextLoadStatuses({ force = false } = {}) {
-  const results = await Promise.allSettled([
-    fetchJson('/api/v1/google-oauth/status'),
-    fetchJson(`/api/v1/account/overview?quiet=1${force ? '&force=1' : ''}`),
-    fetchJson(`/api/v1/session/naver${force ? '?force=1' : ''}`)
-  ]);
-  const failures = [];
-  if (results[0].status === 'fulfilled') {
-    settingsNextRenderGoogleStatus(results[0].value);
-  } else {
-    failures.push('Google 계정');
-    if (!settingsNextGoogleStatus) settingsNextRenderGoogleStatus({ state: 'error', message: 'Google 연결 상태를 확인하지 못했습니다.' });
+  if (settingsNextStatusesLoading) {
+    if (force && !settingsNextStatusesLoadingForce) {
+      if (!settingsNextForcedStatusRefresh) {
+        settingsNextForcedStatusRefresh = settingsNextStatusesLoading
+          .then(() => settingsNextLoadStatuses({ force: true }))
+          .finally(() => { settingsNextForcedStatusRefresh = null; });
+      }
+      return settingsNextForcedStatusRefresh;
+    }
+    return settingsNextStatusesLoading;
   }
-  if (results[1].status === 'fulfilled') {
-    settingsNextAccountOverviewError = false;
-    settingsNextAccountOverview = results[1].value;
-  } else {
-    settingsNextAccountOverviewError = true;
-    failures.push('Spreadsheet와 발행 채널');
-  }
-  if (results[2].status === 'fulfilled') {
-    settingsNextRenderNaverStatus(results[2].value);
-  } else {
-    failures.push('네이버 로그인');
-    if (!settingsNextNaverStatus) settingsNextRenderNaverStatus({ valid: false, reason: 'check_failed', message: '네이버 로그인 상태를 확인하지 못했습니다.' });
-  }
-  settingsNextSetFeedback(
-    'settings-next-load-feedback',
-    failures.length > 0 ? `${failures.join(', ')} 상태를 확인하지 못했습니다. 마지막으로 확인한 정보는 유지했습니다.` : '',
-    failures.length > 0 ? 'danger' : 'neutral'
-  );
+  if (settingsNextStatusesLoaded && !force) return;
+  settingsNextStatusChecks = { google: true, account: true, naver: true };
+  settingsNextStatusErrors = { google: false, account: false, naver: false };
+  settingsNextStatusesLoadingForce = force;
   settingsNextRenderReadiness();
+  settingsNextSetStatus('settings-next-naver-status', '확인 중…', 'neutral');
+  const failures = [];
+  const settleStatus = async (key, label, request, onSuccess, onFailure) => {
+    try {
+      onSuccess(await request);
+    } catch (_error) {
+      failures.push(label);
+      settingsNextStatusErrors[key] = true;
+      onFailure();
+    } finally {
+      settingsNextStatusChecks[key] = false;
+      settingsNextRenderReadiness();
+    }
+  };
+  settingsNextStatusesLoading = Promise.all([
+    settleStatus('google', 'Google 계정', fetchJson('/api/v1/google-oauth/status'),
+      settingsNextRenderGoogleStatus,
+      () => { if (!settingsNextGoogleStatus) settingsNextRenderGoogleStatus({ state: 'error', message: 'Google 연결 상태를 확인하지 못했습니다.' }); }),
+    settleStatus('account', 'Spreadsheet와 발행 채널', fetchJson(`/api/v1/account/overview?quiet=1${force ? '&force=1' : ''}`),
+      (overview) => { settingsNextAccountOverviewError = false; settingsNextAccountOverview = overview; },
+      () => { settingsNextAccountOverviewError = true; }),
+    settleStatus('naver', '네이버 로그인', fetchJson(`/api/v1/session/naver${force ? '?force=1' : ''}`),
+      settingsNextRenderNaverStatus,
+      () => { if (!settingsNextNaverStatus) settingsNextRenderNaverStatus({ valid: false, reason: 'check_failed', message: '네이버 로그인 상태를 확인하지 못했습니다.' }); })
+  ]).then(() => {
+    settingsNextStatusesLoaded = true;
+    settingsNextSetFeedback(
+      'settings-next-load-feedback',
+      failures.length > 0 ? `${failures.join(', ')} 상태를 확인하지 못했습니다. 마지막으로 확인한 정보는 유지했습니다.` : '',
+      failures.length > 0 ? 'danger' : 'neutral'
+    );
+    settingsNextRenderReadiness();
+  }).finally(() => {
+    settingsNextStatusesLoading = null;
+    settingsNextStatusesLoadingForce = false;
+  });
+  return settingsNextStatusesLoading;
 }
 
-async function loadSettingsNext({ force = false } = {}) {
-  if (settingsNextLoading || (settingsNextLoaded && !force)) return;
+async function loadSettingsNext() {
+  if (settingsNextLoading || settingsNextLoaded) return;
   settingsNextLoading = true;
-  settingsNextSetRefreshBusy(true);
-  document.getElementById('view-settings-next')?.setAttribute('aria-busy', 'true');
+  void settingsNextLoadStatuses();
+  void settingsNextLoadWritingDefaults();
+  void loadSettingsNextOptionalServices();
   try {
-    const [core, ai] = await Promise.all([
-      fetchJson('/api/v1/settings/core-connections'),
-      fetchJson('/api/v1/settings/ai-roles'),
-      settingsNextLoadStatuses({ force }),
-      settingsNextLoadWritingDefaults(),
-      loadSettingsNextOptionalServices()
+    const results = await Promise.allSettled([
+      fetchJson('/api/v1/settings/core-connections').then(settingsNextApplyMajorFields),
+      fetchJson('/api/v1/settings/ai-roles').then(loadSettingsNextAi)
     ]);
-    settingsNextApplyMajorFields(core);
-    loadSettingsNextAi(ai);
-    settingsNextLoaded = true;
-  } catch (error) {
-    settingsNextSetFeedback('settings-next-load-feedback', error.message || '기본 연결 설정을 불러오지 못했습니다. 새로고침으로 다시 시도해 주세요.', 'danger');
+    settingsNextLoaded = results.every((result) => result.status === 'fulfilled');
+    if (!settingsNextLoaded) {
+      const failed = results.find((result) => result.status === 'rejected')?.reason;
+      settingsNextSetFeedback('settings-next-load-feedback', failed?.message || '저장된 설정을 불러오지 못했습니다. 다시 시도해 주세요.', 'danger');
+    }
   } finally {
     settingsNextLoading = false;
-    settingsNextSetRefreshBusy(false);
-    document.getElementById('view-settings-next')?.removeAttribute('aria-busy');
   }
 }
 
@@ -683,7 +721,10 @@ function initSettingsNext() {
     });
     document.querySelectorAll('[data-settings-next-refresh]').forEach((button) => {
       button.addEventListener('click', () => {
-        if (!settingsNextLoading) void loadSettingsNext({ force: true });
+        if (!settingsNextRefreshBusy) {
+          settingsNextSetRefreshBusy(true);
+          void settingsNextLoadStatuses({ force: true }).finally(() => settingsNextSetRefreshBusy(false));
+        }
       });
     });
     initUiSettingsCardPattern();

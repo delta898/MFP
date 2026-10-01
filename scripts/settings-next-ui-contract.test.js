@@ -30,6 +30,21 @@ test('Settings owns navigation while legacy Settings stays hidden', () => {
     assert.doesNotMatch(navigation, /activateSettingsTab\(tab, \{ forceReload: (true|false) \}\)/);
 });
 
+test('Settings loads saved models separately from cached connection status checks', () => {
+    const script = read('ui/scripts/features/settings-next/shell.js');
+    const navigation = read('ui/scripts/foundation/navigation.js');
+
+    assert.match(navigation, /await loadSettingsNext\(\)/);
+    assert.doesNotMatch(navigation, /loadSettingsNext\(\{ force: true \}\)/);
+    assert.match(script, /fetchJson\('\/api\/v1\/settings\/ai-roles'\)\.then\(loadSettingsNextAi\)/);
+    assert.match(script, /void settingsNextLoadStatuses\(\)/);
+    assert.match(script, /if \(settingsNextStatusesLoaded && !force\) return/);
+    assert.match(script, /settingsNextStatusChecks\.account \? '확인 중…'/);
+    assert.match(script, /settingsNextLoadStatuses\(\{ force: true \}\)\.finally/);
+    assert.match(script, /if \(settingsNextStatusesLoading\) \{/);
+    assert.match(script, /settingsNextForcedStatusRefresh = settingsNextStatusesLoading/);
+});
+
 test('Settings Beta exposes the agreed top IA and core connection submenus as accessible tabs', () => {
     const script = read('ui/scripts/features/settings-next/shell.js');
     const style = read('ui/styles/features/settings-next.css');
