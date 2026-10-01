@@ -17,9 +17,8 @@ The user intends this to be the only feature-development track for the near term
 ## Scope
 
 - Explore the product and architecture needed to connect site building, content management/publishing, and deployment in BlogGenius.
-- Use the existing projects as evidence and potential sources of validated contracts, without assuming their current template implementation is a standard:
-  - `/Users/delta898/Project/StaticWeb`: Astro and Cloudflare static-site conventions.
-  - `/Users/delta898/Project/Amade`: Docker CLI workflow and starter templates.
+- Treat existing StaticWeb and Amade repositories as separate projects, not as sources that constrain this feature's product or template specification.
+- Define the template contract and catalog from a clean slate in a dedicated template project, separate from the tools.
 - Keep existing Naver Blog and WordPress functionality stable and separately bounded.
 - Develop an agreed feature roadmap, architecture, data/auth ownership, and migration/reuse strategy before material implementation.
 - Implement the agreed scope as short-lived sub-feature branches, each with its own development record.
@@ -49,37 +48,31 @@ The user intends this to be the only feature-development track for the near term
 - Separates site source, build output, deployment target, and optional CI/CD concerns.
 - Has operating experience with independent dev and production Workers and warns against putting secrets in generated static output.
 
-### Amade
-
-- Provides a Docker-distributed CLI, local templates, and a workspace-oriented Astro setup.
-- Docker fixes toolchain consistency and host prerequisite variation, but still requires Docker and usually Git; it adds container, mount, permission, preview, and auth-volume concerns.
-- Its documentation explicitly accepts a security tradeoff where trusted build scripts share a container with provider auth state. BlogGenius must reassess that boundary rather than inherit it by default.
-
 ## Initial product hypothesis
 
 BlogGenius may provide one guided user experience for project/site setup, template configuration, content creation, preview, build, and deployment while keeping the site/build/deploy domain separate from current Naver and WordPress publishers. Astro and Cloudflare Static Assets are the initial target hypothesis based on the user's existing projects. The precise product scope and execution architecture remain open.
 
-The user's broader product model is that BlogGenius, StaticWeb, and Amade are distinct tools for realizing a shared site/product specification. BlogGenius may provide a desktop UI; StaticWeb/Amade may provide a Docker-based CLI and potentially other interfaces later. They should share agreed contracts where useful without being forced into one implementation or dependency chain.
+The user's product model separates tools from templates. BlogGenius provides a desktop UI, while a future Amade2 may provide a Docker-based CLI; each independently consumes a neutral template specification from a separate template project. The current Amade project and its templates are excluded as design inputs and are treated as nonexistent. No tool runtime is shared by the template project.
 
 ### Template ownership and lifecycle (initial direction)
 
 - BlogGenius is not a visual/free-form site builder. It helps a user choose a managed template, set the template's supported values (for example title, logo, and menu), connect content, preview/build, and deploy.
-- Template definitions and releases are managed outside BlogGenius, currently envisioned in the Amade project. BlogGenius consumes a catalog/reference so adding a template such as `A2` or `D1` need not require a BlogGenius app release.
-- The preferred direction is a dedicated repository for template specification, sources, and catalog, separate from both tool repositories. This may become the canonical template project rather than Amade; no repository has been created or named yet.
+- Template definitions and releases are managed in a dedicated template project, separate from BlogGenius and future Amade2. BlogGenius consumes a catalog/reference so new templates can be offered without a BlogGenius app release.
+- The template project owns the new specification, template sources, and versioned catalog; it does not depend on either tool's runtime.
 - A created site records the selected template identity and version. New sites may choose newer catalog entries; existing sites remain on their selected version until an explicit update/migration feature is designed.
 - Whether existing sites can switch template families or upgrade from `A1` to `A2` is deferred until real templates and user changes provide evidence.
-- The existing Amade template is only an initial example and may be replaced completely. Define a new template spec from product needs rather than treating its current file layout as normative.
+- Astro's conventional project structure is the baseline. Add only a thin product-specific contract for catalog identity/version, supported settings, and package integrity; do not redefine Astro's project layout.
 - The exact configurable fields, compatibility contract, catalog transport, offline behavior, and asset delivery mechanism remain open.
 
 ### Candidate product separation
 
 ```text
-Tools: BlogGenius (desktop UI) | Amade (Docker CLI) | possible future interfaces
+Tools: BlogGenius (desktop UI) | future Amade2 (Docker CLI) | possible future interfaces
                                   consume
-Templates: separate repository (spec + template sources + versioned catalog)
+Templates: new, separate project (spec + template sources + versioned catalog)
 ```
 
-This is the agreed product boundary: BlogGenius must not invoke, bundle, or depend on the Amade CLI. Doing so would introduce a Docker dependency and violate BlogGenius's no-extra-development-tools requirement. BlogGenius and Amade are independent consumers of the neutral template specification/catalog and implement their own runtime paths. The template project must not depend on either tool's runtime.
+This is the agreed product boundary: BlogGenius must not invoke, bundle, or depend on an Amade CLI. Doing so would introduce a Docker dependency and violate BlogGenius's no-extra-development-tools requirement. BlogGenius and future Amade2 independently consume the neutral template specification/catalog and implement their own runtime paths.
 
 ## Candidate user journey (discussion draft)
 
@@ -111,7 +104,7 @@ This is a user-flow hypothesis, not an implementation contract. In particular, l
 6. How does the external template catalog work (version pinning, cache/offline behavior, compatibility, integrity, and trusted distribution)?
 7. How should a BlogGenius article map to static-site content, and how should edits, scheduling, deletion, and failed redeployment behave?
 8. What can Cloudflare custom-domain setup safely automate, and which domain/DNS changes require explicit user action?
-9. Which StaticWeb/Amade contracts are stable and reusable, and which are early experiments that should not be adopted?
+9. What minimal consumer behaviors should BlogGenius and future Amade2 implement independently against the new contract?
 10. What is the smallest end-to-end user scenario that validates value without turning BlogGenius into a site builder or general CMS?
 
 ## Proposed boundaries to evaluate
@@ -121,14 +114,15 @@ This is a user-flow hypothesis, not an implementation contract. In particular, l
 - Build execution: an explicit boundary with resource limits, cancellation, logs, and deterministic outputs.
 - Deployment adapter: initially Cloudflare Static Assets, with target and environment shown before remote changes.
 - Identity and secrets: explicit ownership and least privilege; never embed deployment secrets in site source, generated pages, or logs.
-- Existing StaticWeb and Amade repositories: reference implementations and possible upstream assets, not assumed runtime dependencies.
+- New template project: owns product-specific template specification, sources, and versioned catalog independently from tool runtimes.
+- BlogGenius and future Amade2: independent consumers that implement their own package retrieval and materialization behavior.
 
 These are hypotheses for design work, not finalized architecture decisions.
 
 ## Staged plan
 
-1. **Product and architecture discovery**: map the user flow, Project/Site relationship, source ownership, execution choices, Cloudflare boundaries, and external template contract. Recommend an initial vertical slice before implementation.
-2. **Foundation contracts**: after user agreement, define project/site/content/template/build/deploy contracts and local data ownership.
+1. **Product and architecture discovery**: map the user flow, Project/Site relationship, source ownership, execution choices, Cloudflare boundaries, and new template contract. Recommend an initial vertical slice before implementation.
+2. **Foundation contracts**: after user agreement, define project/site/content/template/build/deploy contracts and local data ownership. Start the template project and its initial specification independently from tool implementations.
 3. **Vertical slice**: initialize one project, create one site from one catalog template, apply its basic settings, preview/build, and deploy to a development Cloudflare target with explicit confirmation.
 4. **Writing integration**: publish one BlogGenius manuscript as static-site content and redeploy the changed site, preserving the last successful deployment if a later build/deploy fails.
 5. **Site lifecycle expansion**: validate N-site projects, external Astro editing, custom domains, production deployment, and template upgrade/switch behavior as separate decisions.
@@ -145,7 +139,7 @@ Stages 2–5 may be reordered or narrowed based on the discovery result. Each im
 
 ## Alternatives and tradeoffs under discussion
 
-- **Docker CLI model (Amade)**: reproducible, pinned toolchain and OS isolation; users still install/run Docker, and mounts/auth state/build code create operational and security complexity.
+- **Independent Docker CLI tool**: reproducible, pinned toolchain and OS isolation; users still install/run Docker, and mounts/auth state/build code create operational and security complexity. This is for a future CLI product, never a BlogGenius dependency.
 - **BlogGenius-managed local runtime**: can remove Docker and Node/npm setup from the user flow; transfers cross-platform toolchain lifecycle and filesystem/process isolation responsibilities to the desktop app.
 - **Remote build service**: minimizes local prerequisites and improves centralized reproducibility; requires uploading or syncing source/content, service operations, privacy/cost controls, and a remote credential/deployment model.
 - **Git-first workflow**: strong ownership/history and integration with StaticWeb; may retain setup burden that the product is intended to remove.
@@ -156,8 +150,8 @@ No execution model is selected yet.
 
 ## Next discovery experiments (proposal)
 
-1. **Template contract spike:** define one minimal template descriptor and one Astro template from scratch (not by inheriting the current Amade template). Validate that title/logo/menu-style values can be declared, validated, applied, and previewed. Include immutable template identity/version and integrity metadata; do not implement existing-site migration.
-2. **Independent consumer check:** use the same descriptor/source artifact from an Amade CLI proof and a BlogGenius-side prototype or contract check. The goal is to confirm independent consumption of one neutral contract; BlogGenius must not invoke or package the Amade CLI.
+1. **Template contract spike:** define one minimal product descriptor layered on a conventional Astro starter, from scratch. Validate that title/logo/menu-style values can be declared, validated, and applied. Include immutable template identity/version and integrity metadata; do not implement existing-site migration.
+2. **Independent consumer check:** use the same descriptor/source artifact from a future Amade2 proof and a BlogGenius-side prototype or contract check. The goal is to confirm independent consumption of one neutral contract; BlogGenius must not invoke or package a CLI.
 3. **Runtime feasibility check:** on macOS Apple Silicon and Windows x64, establish whether BlogGenius can package or manage the Astro build/preview runtime without user-installed developer tools. Check package size, startup, process cleanup, preview port conflicts, and whether site build scripts can access Cloudflare credentials. Windows ARM64 is a future compatibility consideration only.
 4. **Cloudflare auth/deploy check:** separately prove the smallest dev-only deploy flow and its permissions, with explicit target confirmation and safe failure behavior. Custom-domain/DNS changes are excluded from this first check.
 
@@ -168,17 +162,17 @@ These are decision-support experiments, not approval to implement the full featu
 ### 2026-10-01 — initial discovery and branch setup
 
 - Inspected BlogGenius architecture, workspace layout, runtime credential boundaries, agent runtime, manuscript workspace, and publishing references.
-- Inspected StaticWeb README, system overview, static-site publishing specification, container runtime evaluation, staged project/deployment workflow, and ADR-0008/ADR-0019.
-- Inspected Amade README, Compose setup, starter manifest, and template instructions.
+- Reviewed Astro and Cloudflare conventions in StaticWeb documentation as background only; they do not define the new template contract.
+- Earlier inspection of the current Amade repository is historical context only. Its code, CLI behavior, and templates are excluded from specification decisions for this feature.
 - Confirmed the working tree was clean on `main` before creating this branch.
-- Created `codex/static-site-builder-main` from a commit shared by `main` and `dev` (`3b6158ca`). The intended branch name was later clarified as `codex/dev-static-site-builder-main`.
+- Created `codex/static-site-builder-main` from `main`; `main` and `dev` happened to point to the same commit (`3b6158ca`) at branch creation.
 - No implementation code changed. This record is the initial planning artifact; deeper discovery and architecture recommendation remain.
 
 ### 2026-10-01 — integration flow clarified
 
 - User confirmed the intended flow: `main -> dev -> parent feature -> sub-feature`, then merge in reverse order.
 - Confirmed the current parent feature's base commit is identical to `dev` (`3b6158ca`), so its file ancestry already matches the selected integration base.
-- The actual branch rename to `codex/dev-static-site-builder-main` was attempted but blocked by a filesystem permission error while Git moved the reflog. No Git metadata was edited manually; the current checked-out branch remains `codex/static-site-builder-main` until the rename can be performed safely.
+- The user chose to keep this parent based on `main`; it can later merge into `dev`. Future feature branches should start from `dev`.
 
 ### 2026-10-01 — shared specification and tool roles
 
@@ -190,12 +184,16 @@ These are decision-support experiments, not approval to implement the full featu
 - User agreed that adding/updating catalog templates should not require BlogGenius release, while existing-site migration between template versions/families is deferred.
 - User supplied a candidate flow covering Cloudflare connection, Project/Site setup, template settings, external Astro editing, local preview, Static Assets deployment, article publishing, redeployment, and custom domains. It remains a draft to refine.
 - User cautioned that Amade's current template is not a standard and may be replaced or discarded; the template specification should be designed from product needs.
-- User proposed separating tools (BlogGenius UI and Amade CLI) from a dedicated template repository, potentially a new “Amade2”-like project. This is the preferred structure to examine, not yet a finalized catalog distribution contract.
-- User explicitly clarified that BlogGenius must not use the Amade CLI at all, because doing so would create a Docker dependency. BlogGenius and Amade are independent tools that consume the separately defined template contract through their own implementations.
+- User proposed a separate template repository and a future Amade2-like CLI tool; this direction is now agreed.
+- User explicitly clarified that BlogGenius must not use any CLI, because doing so would create a Docker dependency. BlogGenius and future Amade2 independently consume the new template contract.
+- User explicitly removed the current Amade project and its templates as design inputs: treat them as nonexistent and start the template specification from scratch.
+- User agreed tools and templates are separate: BlogGenius UI and future Amade2 CLI consume a separate template project's specification/catalog independently.
+- Astro's conventional project structure is the baseline; any product-specific template contract should be a thin addition, not a competing Astro project standard.
+- The current parent starts from `main` and is named `codex/static-site-builder-main`; the intended destination is `dev`. Future feature work starts from `dev`.
 
 ## Verification and handoff
 
 - Automated verification: not applicable; documentation/branch setup only.
 - Manual review: user and agent should agree on initial product scenarios, source ownership, and local-vs-remote execution before the first implementation sub-feature.
-- Current worktree changes: development record and docs index are uncommitted. The checked-out branch is still `codex/static-site-builder-main`; intended name is `codex/dev-static-site-builder-main`.
+- Current worktree changes are tracked by the active sub-feature branch and its development record.
 - Remaining risks: execution model and data/credential ownership materially affect privacy, cost, OS support, and feasibility; they must be resolved before product implementation.
