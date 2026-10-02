@@ -131,7 +131,35 @@ function createSiteHostingSiteRepository(options = {}) {
         }
     }
 
-    return { list, get, create };
+    function recordDeployment(projectId, siteId, deployment) {
+        const site = readSite(projectId, siteId);
+        if (!site) {
+            const error = new Error('사이트를 찾을 수 없습니다.');
+            error.code = 'SITE_HOSTING_SITE_NOT_FOUND';
+            error.status = 404;
+            throw error;
+        }
+        const manifestPath = pathApi.join(site.root_path, '.bloggenius', 'site.json');
+        const manifest = JSON.parse(String(fileSystem.readFileSync(manifestPath, 'utf8') || ''));
+        const updated = {
+            ...manifest,
+            deployment: {
+                provider: 'cloudflare',
+                worker_name: String(deployment.worker_name || ''),
+                url: String(deployment.url || ''),
+                deployment_id: String(deployment.deployment_id || ''),
+                version_id: String(deployment.version_id || ''),
+                deployed_at: String(deployment.deployed_at || '')
+            },
+            updated_at: String(deployment.deployed_at || manifest.updated_at || '')
+        };
+        const tempPath = pathApi.join(pathApi.dirname(manifestPath), `.site.json.${process.pid}.${Date.now()}.tmp`);
+        fileSystem.writeFileSync(tempPath, `${JSON.stringify(updated, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+        fileSystem.renameSync(tempPath, manifestPath);
+        return readSite(projectId, siteId);
+    }
+
+    return { list, get, create, recordDeployment };
 }
 
 module.exports = { SITE_SCHEMA_VERSION, safeSiteId, createSiteHostingSiteRepository };

@@ -1,0 +1,115 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const test = require('node:test');
+const Cloudflare = require('cloudflare');
+const { createAssetManifest, createCloudflareSdkAdapter, createCloudflareStaticAssetsDeployer } = require('./cloudflare-static-assets-deployer');
+
+test('static asset manifest maps relative build paths to content hashes', () => {
+    const { manifest, filesByHash } = createAssetManifest([{ path: 'index.html', content: '<h1>site</h1>' }]);
+    const entry = manifest['/index.html'];
+    assert.equal(entry.size, Buffer.byteLength('<h1>site</h1>'));
+    assert.equal(filesByHash.get(entry.hash).toString(), '<h1>site</h1>');
+    assert.throws(() => createAssetManifest([{ path: '../outside', content: 'x' }]), /올바르지 않은 파일 경로/);
+});
+
+test('official SDK adapter sends the OAuth token as a Bearer credential', async () => {
+    const requests = [];
+    const client = new Cloudflare({
+        apiToken: 'oauth-token-test',
+        maxRetries: 0,
+        fetch: async (url, options) => {
+            requests.push({ url: String(url), authorization: new Headers(options.headers).get('authorization') });
+            return new Response(JSON.stringify({
+                success: true,
+                result: [{ id: 'sample-worker' }],
+                result_info: { page: 1, per_page: 20, total_count: 1 }
+            }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        }
+    });
+    const adapter = createCloudflareSdkAdapter({ client });
+    const scripts = await adapter.listWorkerScripts('a'.repeat(32));
+    assert.equal(scripts[0].id, 'sample-worker');
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].authorization, 'Bearer oauth-token-test');
+    assert.match(requests[0].url, /\/workers\/scripts/);
+});
+
+test('deploy uses the connected account with a stable Site ID worker name', async () => {
+    const siteRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'cloudflare-static-deploy-'));
+    try {
+        fs.mkdirSync(path.join(siteRoot, 'dist'));
+        fs.writeFileSync(path.join(siteRoot, 'dist', 'index.html'), '<h1>deployed site</h1>');
+        const calls = [];
+        const adapter = {
+            getWorkersSubdomain: async (accountId) => { calls.push(['subdomain', accountId]); return 'example'; },
+            listWorkerScripts: async (accountId) => { calls.push(['list', accountId]); return []; },
+            createWorker: async (args) => { calls.push(['create', args.workerName]); return { id: args.workerName }; },
+            createAssetUploadSession: async ({ workerName, manifest }) => {
+                calls.push(['session', workerName]);
+                return { buckets: [[manifest['/index.html'].hash]], jwt: 'upload-token' };
+            },
+            uploadAssetBuckets: async ({ uploadToken }) => { calls.push(['upload', uploadToken]); return 'completion-token'; },
+            createWorkerVersion: async ({ workerId, completionToken }) => {
+                calls.push(['version', workerId, completionToken]);
+                return { id: 'version-1' };
+            },
+            createDeployment: async ({ workerName, versionId }) => {
+                calls.push(['deploy', workerName, versionId]);
+                return { id: 'deployment-1' };
+            },
+            listDeployments: async ({ accountId, workerName }) => {
+                calls.push(['verify', accountId, workerName]);
+                return [{ id: 'deployment-1', versions: [{ version_id: 'version-1', percentage: 100 }] }];
+            }
+        };
+        const deployer = createCloudflareStaticAssetsDeployer({
+            fs, path,
+            getCredentials: async () => ({ accessToken: 'never-return-this', account: { id: 'a'.repeat(32) } }),
+            createClient: (token) => { calls.push(['client', token]); return {}; },
+            createAdapter: () => adapter,
+            sleep: async () => {},
+            fetchImpl: async () => new Response('<h1>deployed site</h1>', { status: 200 })
+        });
+        const result = await deployer.deploy({ id: 'site-123', root_path: siteRoot });
+        assert.equal(result.worker_name, 'bg-site-123');
+        assert.equal(result.url, 'https://bg-site-123.example.workers.dev/');
+        assert.equal(result.deployment_id, 'deployment-1');
+        assert.deepEqual(calls.map(([name]) => name), ['client', 'subdomain', 'list', 'create', 'session', 'upload', 'version', 'deploy', 'verify']);
+        assert.equal(calls[0][1], 'never-return-this');
+    } finally {
+        fs.rmSync(siteRoot, { recursive: true, force: true });
+    }
+});
+
+test('deploy reports missing Cloudflare permission clearly and stops before writes', async () => {
+    const calls = [];
+    const deployer = createCloudflareStaticAssetsDeployer({
+        getCredentials: async () => ({ accessToken: 'oauth-token', account: { id: 'a'.repeat(32) } }),
+        createClient: () => ({}),
+        createAdapter: () => ({
+            getWorkersSubdomain: async () => {
+                calls.push('subdomain');
+                const error = new Error('{"success":false,"errors":[{"code":10000,"message":"Authentication error"}]}');
+                error.status = 403;
+                throw error;
+            },
+            listWorkerScripts: async () => { calls.push('list'); return []; },
+            createWorker: async () => { calls.push('create'); }
+        })
+    });
+
+    await assert.rejects(
+        deployer.deploy({ id: 'site-123', root_path: '/unused' }),
+        (error) => {
+            assert.equal(error.code, 'CLOUDFLARE_DEPLOY_PERMISSION_DENIED');
+            assert.match(error.message, /Cloudflare 권한이 거부되었습니다: workers\.dev 주소 확인/);
+            assert.doesNotMatch(error.message, /Authentication error|10000|oauth-token/);
+            return true;
+        }
+    );
+    assert.deepEqual(calls, ['subdomain']);
+});

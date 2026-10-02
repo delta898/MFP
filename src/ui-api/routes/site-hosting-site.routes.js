@@ -42,6 +42,33 @@ function createSiteHostingSiteRouteHandler(deps = {}) {
                 await sendSuccess(res, requestId, service.listTemplates());
                 return true;
             }
+            const siteActionMatch = pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)\/(build|build-status|preview|deploy)$/);
+            if (siteActionMatch) {
+                const projectId = decodePathPart(siteActionMatch[1]);
+                const siteId = decodePathPart(siteActionMatch[2]);
+                const action = siteActionMatch[3];
+                if (action === 'build' && method === 'POST') {
+                    await sendSuccess(res, requestId, await service.build(projectId, siteId));
+                    return true;
+                }
+                if (action === 'build-status' && method === 'GET') {
+                    await sendSuccess(res, requestId, service.getBuildStatus(projectId, siteId));
+                    return true;
+                }
+                if (action === 'preview' && method === 'POST') {
+                    await sendSuccess(res, requestId, await service.startPreview(projectId, siteId));
+                    return true;
+                }
+                if (action === 'preview' && method === 'DELETE') {
+                    await sendSuccess(res, requestId, await service.stopPreview(projectId, siteId));
+                    return true;
+                }
+                if (action === 'deploy' && method === 'POST') {
+                    await sendSuccess(res, requestId, await service.deploy(projectId, siteId));
+                    return true;
+                }
+                return false;
+            }
             const sitesMatch = pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites$/);
             if (!sitesMatch) return false;
             const projectId = decodePathPart(sitesMatch[1]);
@@ -59,7 +86,7 @@ function createSiteHostingSiteRouteHandler(deps = {}) {
                 res,
                 requestId,
                 Number.isInteger(error?.status) ? error.status : 500,
-                error?.code || 'SITE_HOSTING_SITE_REQUEST_FAILED',
+                error?.code || error?.apiCode || 'SITE_HOSTING_SITE_REQUEST_FAILED',
                 error?.message || '사이트 요청을 처리하지 못했습니다.'
             );
             return true;

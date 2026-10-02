@@ -4,6 +4,8 @@ const crypto = require('node:crypto');
 const { createSiteHostingProjectRepository } = require('../../site-hosting/project-repository');
 const { createSiteHostingSiteRepository } = require('../../site-hosting/site-repository');
 const { createSiteTemplateCatalog } = require('../../site-hosting/site-template-catalog');
+const { createAstroSiteRuntime } = require('../../site-hosting/astro-site-runtime');
+const { createCloudflareStaticAssetsDeployer } = require('../../site-hosting/cloudflare-static-assets-deployer');
 
 function createSiteHostingSiteService(deps = {}) {
     const projectRepository = deps.projectRepository || createSiteHostingProjectRepository({
@@ -22,6 +24,32 @@ function createSiteHostingSiteService(deps = {}) {
         projectRepository,
         templates
     });
+    const getCloudflareDeploymentCredentials = deps.getCloudflareDeploymentCredentials || (async () => {
+        const error = new Error('Cloudflare 배포 연결을 사용할 수 없습니다.');
+        error.code = 'CLOUDFLARE_CONNECTION_REQUIRED';
+        error.status = 409;
+        throw error;
+    });
+    const astroRuntime = deps.astroRuntime || createAstroSiteRuntime({
+        fs: deps.fs,
+        path: deps.path,
+        workspaceDir: deps.workspaceDir,
+        templatesRoot: deps.templatesRoot,
+        projectRepository,
+        siteRepository: repository,
+        templates,
+        npmCliPath: deps.npmCliPath,
+        spawn: deps.spawn,
+        cacheRoot: deps.cacheRoot
+    });
+    const cloudflareDeployer = deps.cloudflareDeployer || createCloudflareStaticAssetsDeployer({
+        fs: deps.fs,
+        path: deps.path,
+        getCredentials: getCloudflareDeploymentCredentials,
+        createClient: deps.createCloudflareSdkClient,
+        createAdapter: deps.createCloudflareSdkAdapter,
+        fetchImpl: deps.fetchImpl
+    });
     const now = deps.now || (() => new Date().toISOString());
     const createId = deps.createId || (() => crypto.randomUUID().replace(/-/g, ''));
 
@@ -30,8 +58,8 @@ function createSiteHostingSiteService(deps = {}) {
     }
 
     function list(projectId) {
-        return repository.list(projectId).map(({ id, project_id, name, template, template_name, template_status, hostname, created_at, updated_at }) => ({
-            id, project_id, name, template, template_name, template_status, hostname, created_at, updated_at
+        return repository.list(projectId).map(({ id, project_id, name, template, template_name, template_status, hostname, deployment, created_at, updated_at }) => ({
+            id, project_id, name, template, template_name, template_status, hostname, deployment, created_at, updated_at
         }));
     }
 
@@ -84,7 +112,30 @@ function createSiteHostingSiteService(deps = {}) {
         };
     }
 
-    return { listTemplates, list, create };
+    return {
+        listTemplates,
+        list,
+        create,
+        build: (projectId, siteId) => astroRuntime.build(projectId, siteId),
+        getBuildStatus: (projectId, siteId) => astroRuntime.getBuildStatus(projectId, siteId),
+        startPreview: (projectId, siteId) => astroRuntime.startPreview(projectId, siteId),
+        stopPreview: (projectId, siteId) => astroRuntime.stopPreview(projectId, siteId),
+        async deploy(projectId, siteId) {
+            const site = repository.get(projectId, siteId);
+            if (!site) {
+                const error = new Error('사이트를 찾을 수 없습니다.');
+                error.code = 'SITE_HOSTING_SITE_NOT_FOUND';
+                error.status = 404;
+                throw error;
+            }
+            const credentials = await getCloudflareDeploymentCredentials();
+            await astroRuntime.build(projectId, siteId);
+            const deployed = await cloudflareDeployer.deploy(site, credentials);
+            const deployedAt = now();
+            repository.recordDeployment(projectId, siteId, { ...deployed, deployed_at: deployedAt });
+            return { ...deployed, deployed_at: deployedAt };
+        }
+    };
 }
 
 module.exports = { createSiteHostingSiteService };

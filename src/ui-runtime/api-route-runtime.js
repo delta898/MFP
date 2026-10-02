@@ -151,6 +151,7 @@ function createUiApiRouteRuntime(deps = {}) {
     let keywordsRouteHandler = null;
     let legacyApiRouteHandler = null;
     let cloudflareConnectionRouteHandler = null;
+    let cloudflareConnectionService = null;
     let siteHostingProjectRouteHandler = null;
     let siteHostingSiteRouteHandler = null;
     let apiRouteHub = null;
@@ -469,20 +470,26 @@ function createUiApiRouteRuntime(deps = {}) {
         return legacyApiRouteHandler;
     }
 
-    function getCloudflareConnectionRouteHandlerInstance() {
-        if (!cloudflareConnectionRouteHandler) {
+    function getCloudflareConnectionServiceInstance() {
+        if (!cloudflareConnectionService) {
             const userDataDir = String(process.env.BLOG_GENIUS_USER_DATA || CONFIG?.CONFIG_DIR || process.cwd());
             const credentialStore = createEncryptedCredentialStore({
                 filePath: path.join(userDataDir, 'credentials', 'cloudflare-oauth.json'),
                 fsImpl: fs,
                 pathImpl: path
             });
-            const service = createCloudflareConnectionService({
+            cloudflareConnectionService = createCloudflareConnectionService({
                 clientId: CONFIG?.CLOUDFLARE_OAUTH_CLIENT_ID,
                 credentialStore
             });
+        }
+        return cloudflareConnectionService;
+    }
+
+    function getCloudflareConnectionRouteHandlerInstance() {
+        if (!cloudflareConnectionRouteHandler) {
             cloudflareConnectionRouteHandler = createCloudflareConnectionRouteHandler({
-                service,
+                service: getCloudflareConnectionServiceInstance(),
                 sendSuccess,
                 sendError
             });
@@ -511,7 +518,8 @@ function createUiApiRouteRuntime(deps = {}) {
             const service = createSiteHostingSiteService({
                 fs,
                 path,
-                workspaceDir: CONFIG?.WORKSPACE_DIR
+                workspaceDir: CONFIG?.WORKSPACE_DIR,
+                getCloudflareDeploymentCredentials: () => getCloudflareConnectionServiceInstance().getDeploymentCredentials()
             });
             siteHostingSiteRouteHandler = createSiteHostingSiteRouteHandler({
                 service,

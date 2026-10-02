@@ -66,6 +66,16 @@
   min-width: 0;
 }
 
+.site-hosting-site-card > div:first-child {
+  flex: 1;
+}
+
+.site-hosting-site-card > .site-hosting-project-actions {
+  display: flex;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
 .site-hosting-site-card strong {
   color: var(--ui-text-primary);
   font-size: var(--ui-type-label-size);
@@ -75,6 +85,12 @@
 
 .site-hosting-site-card span {
   color: var(--ui-text-secondary);
+  font-size: var(--ui-type-caption-size);
+}
+
+.site-hosting-site-card a {
+  width: fit-content;
+  color: var(--ui-accent);
   font-size: var(--ui-type-caption-size);
 }
 

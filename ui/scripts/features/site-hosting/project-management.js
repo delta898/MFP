@@ -80,7 +80,7 @@ function siteHostingProjectPanel(project, tab) {
     ${siteHostingSiteLoadState === 'loading' ? `<section class="ui-empty-state" aria-label="사이트를 불러오는 중"><span class="ui-spinner ui-spinner-accent ui-spinner-md" aria-hidden="true"></span><span>사이트를 불러오는 중입니다.</span></section>` : ''}
     ${siteHostingSiteLoadState === 'error' ? `<section class="ui-empty-state" data-state="error"><h3>사이트를 불러오지 못했습니다.</h3><button class="secondary" type="button" data-site-retry>다시 시도</button></section>` : ''}
     ${siteHostingSiteLoadState === 'ready' && !siteHostingSites.length ? `<section class="ui-empty-state" aria-label="프로젝트 사이트 목록"><h3>이 프로젝트에는 아직 사이트가 없습니다.</h3></section>` : ''}
-    ${siteHostingSiteLoadState === 'ready' && siteHostingSites.length ? `<div class="site-hosting-site-list" role="list">${siteHostingSites.map((site) => `<article class="site-hosting-site-card" role="listitem"><div><strong>${siteHostingEscapeHtml(site.name)}</strong><span>${siteHostingEscapeHtml(site.template_name || '템플릿 확인 필요')}</span></div></article>`).join('')}</div>` : ''}
+    ${siteHostingSiteLoadState === 'ready' && siteHostingSites.length ? `<div class="site-hosting-site-list" role="list">${siteHostingSites.map((site) => `<article class="site-hosting-site-card" role="listitem"><div><strong>${siteHostingEscapeHtml(site.name)}</strong><span>${siteHostingEscapeHtml(site.template_name || '템플릿 확인 필요')}</span>${site.deployment?.url ? `<a href="${siteHostingEscapeHtml(site.deployment.url)}" target="_blank" rel="noopener noreferrer">${siteHostingEscapeHtml(site.deployment.url)}</a>` : ''}</div><div class="site-hosting-project-actions"><button class="secondary" type="button" data-site-build="${siteHostingEscapeHtml(site.id)}">빌드</button><button class="secondary" type="button" data-site-preview="${siteHostingEscapeHtml(site.id)}">미리보기</button><button class="primary" type="button" data-site-deploy="${siteHostingEscapeHtml(site.id)}">배포</button></div></article>`).join('')}</div>` : ''}
   </section>`;
 }
 
@@ -162,6 +162,65 @@ async function siteHostingCreateSite(event) {
   } finally {
     submit.disabled = false;
     submit.classList.remove('is-loading');
+  }
+}
+
+async function siteHostingBuildSite(siteId, button) {
+  const project = siteHostingSelectedProject;
+  if (!project || !siteId || button?.disabled) return;
+  button.disabled = true;
+  button.classList.add('is-loading');
+  button.textContent = '빌드 중…';
+  siteHostingSetFeedback('사이트를 빌드하고 있습니다.', 'neutral');
+  try {
+    await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites/${encodeURIComponent(siteId)}/build`, {});
+    siteHostingSetFeedback('사이트 빌드를 마쳤습니다.', 'success');
+  } catch (error) {
+    siteHostingSetFeedback(error.message || '사이트를 빌드하지 못했습니다.', 'danger');
+  } finally {
+    button.disabled = false;
+    button.classList.remove('is-loading');
+    button.textContent = '빌드';
+  }
+}
+
+async function siteHostingPreviewSite(siteId) {
+  const project = siteHostingSelectedProject;
+  if (!project || !siteId) return;
+  const previewWindow = window.open('about:blank', '_blank');
+  if (!previewWindow) {
+    siteHostingSetFeedback('미리보기 창을 열 수 없습니다. 팝업을 허용해 주세요.', 'danger');
+    return;
+  }
+  try {
+    const result = await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites/${encodeURIComponent(siteId)}/preview`, {});
+    previewWindow.location.href = result.url;
+    siteHostingSetFeedback('사이트 미리보기를 열었습니다.', 'success');
+  } catch (error) {
+    previewWindow.close();
+    siteHostingSetFeedback(error.message || '미리보기를 열지 못했습니다.', 'danger');
+  }
+}
+
+async function siteHostingDeploySite(siteId, button) {
+  const project = siteHostingSelectedProject;
+  if (!project || !siteId || button?.disabled) return;
+  button.disabled = true;
+  button.classList.add('is-loading');
+  button.textContent = '배포 중…';
+  siteHostingSetFeedback('사이트를 빌드하고 Cloudflare에 배포하고 있습니다.', 'neutral');
+  try {
+    const result = await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites/${encodeURIComponent(siteId)}/deploy`, {});
+    const site = siteHostingSites.find((item) => item.id === siteId);
+    if (site) site.deployment = { ...result, provider: 'cloudflare' };
+    siteHostingRenderProjectDetail();
+    siteHostingSetFeedback('Cloudflare 배포를 마쳤습니다.', 'success');
+  } catch (error) {
+    siteHostingSetFeedback(error.message || 'Cloudflare에 배포하지 못했습니다.', 'danger');
+  } finally {
+    if (button.isConnected && button.textContent === '배포 중…') button.textContent = '배포';
+    button.disabled = false;
+    button.classList.remove('is-loading');
   }
 }
 
@@ -292,6 +351,12 @@ function initSiteHostingProjects() {
         return siteHostingRenderProjectDetail();
       }
       if (event.target.closest('[data-site-create]')) return void siteHostingOpenCreateSiteDialog();
+      const buildSite = event.target.closest('[data-site-build]');
+      if (buildSite) return void siteHostingBuildSite(buildSite.dataset.siteBuild, buildSite);
+      const previewSite = event.target.closest('[data-site-preview]');
+      if (previewSite) return void siteHostingPreviewSite(previewSite.dataset.sitePreview);
+      const deploySite = event.target.closest('[data-site-deploy]');
+      if (deploySite) return void siteHostingDeploySite(deploySite.dataset.siteDeploy, deploySite);
       if (event.target.closest('[data-site-retry]') && siteHostingSelectedProject) return void siteHostingLoadSites(siteHostingSelectedProject.id);
       if (event.target.closest('[data-site-project-retry]')) return void siteHostingLoadProjects();
     });

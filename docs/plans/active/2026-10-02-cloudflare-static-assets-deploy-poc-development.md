@@ -100,6 +100,10 @@ Cloudflare Static Assets를 포함한 정적 사이트를 BlogGenius가 배포�
 - `memberships.read workers-scripts.read workers-scripts.write` OAuth 요청 및 동의가 성공했다. 최초 live 요청은 새 Worker 생성을 허용했으나 asset upload가 실패했다.
 - 동일 Worker 복구를 위해 Worker 목록 조회만으로는 미배포 Worker를 발견할 수 없다는 점을 확인했다. beta Worker direct lookup 및 deployment 조회를 사용하도록 바꾸었으며, 기존 deployment가 없는 동일 Worker만 복구 계획에 포함한다.
 - OAuth client는 private 상태이며 `workers-scripts.write` scope를 허용한다. 실제 OAuth 동의 후 Worker 생성, 자산 업로드, 버전 생성, 배포, 공개 URL 확인까지 성공했다.
+- 별도 OAuth client에 새 역할 `Workers Editor` (`workers-scripts.edit`)와 `Memberships Read`만 부여해 앱에서 재인증한 결과, subdomain 조회와 Worker 조회를 지난 뒤 Worker 생성 단계에서 Cloudflare가 권한을 거부했다. 이는 Editor가 기존 Worker 편집·배포에 쓰이는 역할이며 새 Worker 생성 권한은 포함하지 않는다는 역할 문서와 일치한다.
+- 현재 Cloudflare OAuth UI에서는 해당 client에 legacy `Workers Scripts Read/Write` scope를 선택할 수 없었다. 기존 Worker 대상 배포는 Editor로 별도 검증하지 않았으므로 아직 결론 내리지 않는다. 이번 결과는 새 Worker 생성 실패만 확인한 것이다.
+- 앱의 실제 OAuth 요청 scope도 신규 Client에서 허용하지 않은 `workers-scripts.edit`를 사용 중이어서 오류가 발생했다. 검증된 기존 Client 설정으로 돌아가기 위해 요청 scope를 `memberships.read workers-scripts.read workers-scripts.write offline_access`로 되돌렸다. `.env.oauth`의 Client ID는 사용자가 기존 Client로 직접 변경했다.
+- 앱에 Cloudflare 배포 공개 주소를 로그 한 줄로 남기도록 추가했다. 사용자는 앱 화면에서 URL을 확인해 직접 검증할 수 있다.
 - Cloudflare API Reference는 해당 쓰기 권한을 허용하지만, 최신 Workers 역할 문서는 새 Worker 생성에 제품 범위 `Admin`이 필요하다고 설명한다. 실계정에서 OAuth `workers-scripts.write`로 Worker 생성은 성공했다.
 - Live publish 전에 runner는 계정 membership, account `workers.dev` subdomain, Worker 이름 direct lookup을 읽기 전용으로 점검한다. 기존 Worker라면 deployments를 확인하고, 배포가 없는 경우에만 재사용을 표시한다. 사용자는 대상 URL과 동작을 확인하고 터미널에 정확한 확인 문구를 입력한다.
 - 사용자가 정확한 Worker 및 URL을 확인하고 게시 문구를 입력해 최초 live write를 승인했다. Cloudflare는 Worker 생성을 허용했지만 자산 업로드에서 generic unknown error를 반환했고 버전/배포는 만들지 않았다.

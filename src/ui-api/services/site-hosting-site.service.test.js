@@ -41,3 +41,30 @@ test('site service validates the project, name, and selected template', () => {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }
 });
+
+test('site deploy rebuilds the site and saves the Cloudflare workers.dev result', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-site-deploy-'));
+    try {
+        const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
+        projectRepository.create({ id: 'project-1', name: '개인 사이트' });
+        const calls = [];
+        const service = createSiteHostingSiteService({
+            fs, path, workspaceDir, projectRepository,
+            createId: () => 'site-1', now: () => '2026-10-02T00:00:00.000Z',
+            astroRuntime: { build: async () => { calls.push('build'); } },
+            getCloudflareDeploymentCredentials: async () => ({ accessToken: 'secret', account: { id: 'a'.repeat(32) } }),
+            cloudflareDeployer: { deploy: async (_site, credentials) => {
+                calls.push('deploy');
+                assert.equal(credentials.account.id, 'a'.repeat(32));
+                return { worker_name: 'bg-site-1', url: 'https://bg-site-1.example.workers.dev/', deployment_id: 'deployment-1', version_id: 'version-1' };
+            } }
+        });
+        service.create('project-1', { name: '개인 블로그', template_id: 'minimal-homepage' });
+        const result = await service.deploy('project-1', 'site-1');
+        assert.deepEqual(calls, ['build', 'deploy']);
+        assert.equal(result.url, 'https://bg-site-1.example.workers.dev/');
+        assert.equal(service.list('project-1')[0].deployment.worker_name, 'bg-site-1');
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});

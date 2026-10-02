@@ -28,6 +28,31 @@ test('site routes expose the local template catalog and create/list sites for a 
     assert.equal(responses.pop().status, 201);
 });
 
+test('site routes build, preview, and deploy a site', async () => {
+    const calls = [];
+    const responses = [];
+    const handler = createSiteHostingSiteRouteHandler({
+        service: {
+            build: async (projectId, siteId) => { calls.push(['build', projectId, siteId]); return { status: 'succeeded' }; },
+            getBuildStatus: (projectId, siteId) => ({ project_id: projectId, site_id: siteId, status: 'succeeded' }),
+            startPreview: async (projectId, siteId) => { calls.push(['startPreview', projectId, siteId]); return { url: 'http://127.0.0.1:43210/' }; },
+            stopPreview: async (projectId, siteId) => { calls.push(['stopPreview', projectId, siteId]); return { stopped: true }; },
+            deploy: async (projectId, siteId) => { calls.push(['deploy', projectId, siteId]); return { url: 'https://bg-site.workers.dev/' }; }
+        },
+        sendSuccess: async (_res, _id, data) => responses.push(data),
+        sendError: async (_res, _id, status, code) => responses.push({ status, code })
+    });
+    const base = { remoteAddress: '127.0.0.1', host: '127.0.0.1:43127', origin: 'http://127.0.0.1:43127' };
+    const path = '/api/v1/site-hosting/projects/project-1/sites/site-1';
+    await handler({ ...base, method: 'POST', contentType: 'application/json', pathname: `${path}/build` });
+    await handler({ ...base, method: 'GET', pathname: `${path}/build-status` });
+    await handler({ ...base, method: 'POST', contentType: 'application/json', pathname: `${path}/preview` });
+    await handler({ ...base, method: 'DELETE', pathname: `${path}/preview` });
+    await handler({ ...base, method: 'POST', contentType: 'application/json', pathname: `${path}/deploy` });
+    assert.deepEqual(calls, [['build', 'project-1', 'site-1'], ['startPreview', 'project-1', 'site-1'], ['stopPreview', 'project-1', 'site-1'], ['deploy', 'project-1', 'site-1']]);
+    assert.deepEqual(responses.map((item) => item.status || item.stopped || item.url), ['succeeded', 'succeeded', 'http://127.0.0.1:43210/', true, 'https://bg-site.workers.dev/']);
+});
+
 test('site routes reject requests outside the local same-origin app', async () => {
     const responses = [];
     const handler = createSiteHostingSiteRouteHandler({

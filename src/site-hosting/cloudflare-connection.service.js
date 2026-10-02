@@ -209,6 +209,25 @@ function createCloudflareConnectionService(deps = {}) {
             return { connected: true, accounts };
         },
 
+        async getDeploymentCredentials() {
+            const refreshToken = await readRefreshToken();
+            if (!refreshToken) {
+                const error = new Error('먼저 Cloudflare를 연결해 주세요.');
+                error.status = 409;
+                error.apiCode = 'CLOUDFLARE_CONNECTION_REQUIRED';
+                throw error;
+            }
+            const token = await getAccessToken();
+            const accounts = await loadMemberships(token);
+            if (!accounts.length) {
+                const error = new Error('배포할 수 있는 Cloudflare 계정이 없습니다.');
+                error.status = 409;
+                error.apiCode = 'CLOUDFLARE_ACCOUNT_REQUIRED';
+                throw error;
+            }
+            return { accessToken: token, account: accounts[0] };
+        },
+
         async start() {
             const active = [...flows.values()].find((flow) => flow.status === 'pending');
             if (active) {
@@ -226,7 +245,7 @@ function createCloudflareConnectionService(deps = {}) {
                 client_id: requireClientId(),
                 redirect_uri: REDIRECT_URI,
                 response_type: 'code',
-                scope: 'memberships.read offline_access',
+                scope: 'memberships.read workers-scripts.read workers-scripts.write offline_access',
                 prompt: 'consent',
                 state,
                 code_challenge: challenge,
