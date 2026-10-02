@@ -13,7 +13,33 @@
           </div>
         </div>
 
-        <section class="ui-empty-state" aria-labelledby="site-hosting-coming-soon-title">
-          <h3 id="site-hosting-coming-soon-title">사이트 관리 기능을 준비하고 있습니다.</h3>
-        </section>
+        <div id="site-hosting-feedback" class="ui-workflow-feedback" role="status" aria-live="polite" hidden></div>
+        <div id="site-hosting-content" class="site-hosting-content" aria-live="polite">
+          <section class="ui-empty-state" aria-label="프로젝트를 불러오는 중">
+            <span class="ui-spinner ui-spinner-accent ui-spinner-md" aria-hidden="true"></span>
+            <span>프로젝트를 불러오는 중입니다.</span>
+          </section>
+        </div>
+
+        <dialog id="site-project-create-dialog" class="site-project-dialog ui-transaction-dialog" aria-labelledby="site-project-create-title">
+          <form id="site-project-create-form" class="ui-transaction-dialog-form">
+            <div class="ui-transaction-dialog-header">
+              <div>
+                <h2 id="site-project-create-title">프로젝트 만들기</h2>
+                <p>목록에서 구분할 이름입니다. 한글도 사용할 수 있습니다.</p>
+              </div>
+            </div>
+            <label class="site-project-form-field" for="site-project-name">
+              <span>프로젝트 이름</span>
+              <input id="site-project-name" name="name" type="text" maxlength="80" required autocomplete="off" placeholder="예: 개인 블로그, 회사 홈페이지">
+            </label>
+            <p id="site-project-create-feedback" class="ui-workflow-feedback" role="status" aria-live="polite"></p>
+            <div class="ui-transaction-dialog-footer">
+              <div class="ui-transaction-dialog-footer-actions">
+                <button class="secondary" type="button" data-site-project-cancel>취소</button>
+                <button class="primary ui-loading-action" type="submit">만들기</button>
+              </div>
+            </div>
+          </form>
+        </dialog>
       </section>

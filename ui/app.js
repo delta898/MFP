@@ -15,6 +15,7 @@
 // @include scripts/features/settings/state.js
 // @include scripts/features/settings-next/shell.js
 // @include scripts/features/settings-next/site-hosting.js
+// @include scripts/features/site-hosting/project-management.js
 // @include scripts/features/settings-next/spreadsheet-connection.js
 // @include scripts/features/settings-next/save-proceed.js
 // @include scripts/features/settings-next/ai-model-roles.js

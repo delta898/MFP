@@ -119,6 +119,10 @@ async function navigateTo(viewName, subTab) {
     if (typeof updateShoppingQuickActionAvailability === 'function') updateShoppingQuickActionAvailability();
     return;
   }
+  if (viewName === 'site-hosting') {
+    initSiteHostingProjects();
+    return;
+  }
   // Legacy settings surface is retired from navigation: any programmatic
   // request for the legacy view always lands on Settings Beta instead.
   // Files stay on disk for recovery; no reachable UI may activate view-settings.
@@ -209,7 +213,7 @@ function applyMobileQuickMode() {
     return;
   }
 
-  if (activeView && !['dashboard', 'dashboard-beta', 'blog-next', 'card-news', 'settings-next', 'help'].includes(activeView)) {
+  if (activeView && !['dashboard', 'dashboard-beta', 'blog-next', 'card-news', 'settings-next', 'site-hosting', 'help'].includes(activeView)) {
     void navigateTo('blog-next', 'quick');
   }
 }

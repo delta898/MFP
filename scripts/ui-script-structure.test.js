@@ -25,7 +25,7 @@ test('JavaScript manifest preserves one explicit classic-script execution order'
         (match) => match[1]
     );
 
-    assert.equal(manifest.split('\n').length - 1 <= 112, true);
+    assert.equal(manifest.split('\n').length - 1 <= 120, true);
     assert.deepEqual(includePaths, [
         'scripts/foundation/style-system.js',
         'scripts/shared/grid-tail-spacers.js',
@@ -43,6 +43,8 @@ test('JavaScript manifest preserves one explicit classic-script execution order'
         'scripts/features/discovery/state.js',
         'scripts/features/settings/state.js',
         'scripts/features/settings-next/shell.js',
+        'scripts/features/settings-next/site-hosting.js',
+        'scripts/features/site-hosting/project-management.js',
         'scripts/features/settings-next/spreadsheet-connection.js',
         'scripts/features/settings-next/save-proceed.js',
         'scripts/features/settings-next/ai-model-roles.js',

@@ -126,6 +126,8 @@ const { createSmartUsageService } = require('./smart-usage');
 const { createLegacyApiRouteHandler } = require('./ui-api/routes/legacy-api.routes');
 const { createCloudflareConnectionService, createEncryptedCredentialStore } = require('./site-hosting/cloudflare-connection.service');
 const { createCloudflareConnectionRouteHandler } = require('./ui-api/routes/cloudflare-connection.routes');
+const { createSiteHostingProjectService } = require('./ui-api/services/site-hosting-project.service');
+const { createSiteHostingProjectRouteHandler } = require('./ui-api/routes/site-hosting-project.routes');
 const { createApiRouteHub } = require('./ui-api/routes');
 const UiValidators = require('./ui-api/middleware/validate');
 
@@ -1070,6 +1072,8 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     createCloudflareConnectionService,
     createEncryptedCredentialStore,
     createCloudflareConnectionRouteHandler,
+    createSiteHostingProjectService,
+    createSiteHostingProjectRouteHandler,
     createApiRouteHub,
     UiValidators,
     normalizeYmdToken,

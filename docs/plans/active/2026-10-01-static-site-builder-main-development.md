@@ -265,6 +265,7 @@ The Cloudflare PoC follows the user journey rather than selecting a technology s
 - sidebar에 `웹사이트` 소그룹과 `사이트` 항목을 추가한다. 사용자는 `홈 → 웹사이트 → 콘텐츠 → 계정 → 시스템`을 잠정 순서로 적용하고 사용 후 변경하기로 했다. `웹사이트`를 먼저 두면 Project/Site/source/build/deploy를 아우르는 영역의 제품상 비중과 사이트 준비 흐름이 드러난다. `콘텐츠`를 먼저 두면 기존 BlogGenius의 익숙한 글쓰기·발행 흐름을 우선할 수 있다. 두 그룹은 부모·자식이 아닌 형제 영역이며, 실제 사용 흐름과 메뉴 탐색성을 확인한 뒤 순서를 재검토한다. `사이트` 첫 화면은 이후 Project 목록이 되며, 메뉴 slice에서는 준비 중 상태만 간결하게 알린다.
 - Project/Site 관계, Project root, 선택적 domain, Cloudflare 경계와 기본 사용자 흐름의 설계 기록은 [완료된 설계 단계](../archive/2026-10-02-project-site-model-and-user-flow-design.md)에 보관한다. 세부 계약은 이후 구현 slice에서 보완한다.
 - 첫 UI slice인 `웹사이트 > 사이트` 메뉴와 진입 화면은 [사이트 메뉴 및 진입 화면 개발 기록](../archive/2026-10-02-site-sidebar-navigation-development.md)에 기록했다. 해당 구현은 `codex/static-site-builder-main`에 병합되었으며, 다음 serial sub-feature는 사이트 화면 내부(Project/Site 관리 흐름) 개발을 다룬다.
+- Project 목록·생성·상세 진입 sub-feature를 구현해 부모 feature에 병합했다. IA는 Project 상세 `개요 / 사이트 / 설정` 내부 탭으로 시작하며, 결과와 검증은 [완료된 사이트 관리 화면 개발 기록](../archive/2026-10-02-site-management-page-development.md)에 기록한다.
 - 가칭 Amade2는 외부 template source repository다. 저작 도구/CLI가 아니며 BlogGenius는 이 repository의 catalog와 source를 참조한다. 별도 consumer/tool 논의는 후속으로 미룬다.
 - 이 최신 합의는 위의 과거 진행 기록 중 “Amade2 CLI” 또는 build 단계의 Cloudflare 의존을 전제한 문장을 대체한다.
 - 이후 하위 기능은 직렬로 진행한다. 현재 `codex/project-site-model-and-flow` 설계 단계를 이 `codex/static-site-builder-main`에 먼저 병합하고, 메뉴 진입점 작업은 병합 완료 후 이 부모 브랜치에서 새 하위 브랜치로 시작한다. 이는 2026-10-01 기록의 “미래 작업은 dev에서 시작” 방침을 현재 sub-feature 흐름에 맞춰 구체화한 것이다.

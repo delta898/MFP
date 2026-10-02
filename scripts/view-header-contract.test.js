@@ -18,12 +18,14 @@ const viewHeaders = [
   ['ui/partials/views/help.html', '도움말', '처음 설정하는 방법부터 글쓰기와 자동화 활용법까지 한곳에서 찾아보세요.']
 ];
 
-test('site hosting placeholder uses the shared empty-state heading style', () => {
+test('site hosting view provides project workspace and accessible create dialog shells', () => {
   const html = read('ui/partials/views/site-hosting.html');
-  assert.match(
-    html,
-    /<section class="ui-empty-state" aria-labelledby="site-hosting-coming-soon-title">\s*<h3 id="site-hosting-coming-soon-title">사이트 관리 기능을 준비하고 있습니다\.<\/h3>\s*<\/section>/
-  );
+  assert.match(html, /id="site-hosting-content"/);
+  assert.match(html, /id="site-project-create-dialog" class="site-project-dialog ui-transaction-dialog"/);
+  assert.match(html, /id="site-project-create-form"/);
+  assert.match(html, /프로젝트 이름/);
+  assert.match(html, /목록에서 구분할 이름입니다\. 한글도 사용할 수 있습니다\./);
+  assert.match(html, /id="site-project-name"[^>]*placeholder="예: 개인 블로그, 회사 홈페이지"/);
 });
 
 test('every top-level view uses the shared title and description structure', () => {

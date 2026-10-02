@@ -119,6 +119,8 @@ function createUiApiRouteRuntime(deps = {}) {
         createCloudflareConnectionService,
         createEncryptedCredentialStore,
         createCloudflareConnectionRouteHandler,
+        createSiteHostingProjectService,
+        createSiteHostingProjectRouteHandler,
         createApiRouteHub,
         UiValidators,
         normalizeYmdToken,
@@ -147,6 +149,7 @@ function createUiApiRouteRuntime(deps = {}) {
     let keywordsRouteHandler = null;
     let legacyApiRouteHandler = null;
     let cloudflareConnectionRouteHandler = null;
+    let siteHostingProjectRouteHandler = null;
     let apiRouteHub = null;
     let smartUsageService = null;
 
@@ -484,6 +487,22 @@ function createUiApiRouteRuntime(deps = {}) {
         return cloudflareConnectionRouteHandler;
     }
 
+    function getSiteHostingProjectRouteHandlerInstance() {
+        if (!siteHostingProjectRouteHandler) {
+            const service = createSiteHostingProjectService({
+                fs,
+                path,
+                workspaceDir: CONFIG?.WORKSPACE_DIR
+            });
+            siteHostingProjectRouteHandler = createSiteHostingProjectRouteHandler({
+                service,
+                sendSuccess,
+                sendError
+            });
+        }
+        return siteHostingProjectRouteHandler;
+    }
+
     function getApiRouteHubInstance() {
         if (!apiRouteHub) {
             apiRouteHub = createApiRouteHub([
@@ -497,6 +516,7 @@ function createUiApiRouteRuntime(deps = {}) {
                 getKeywordDiscoveryRouteHandlerInstance(),
                 getKeywordsRouteHandlerInstance(),
                 getCloudflareConnectionRouteHandlerInstance(),
+                getSiteHostingProjectRouteHandlerInstance(),
                 getLegacyApiRouteHandlerInstance()
             ]);
         }

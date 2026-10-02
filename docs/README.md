@@ -102,6 +102,7 @@
 - `plans/active/2026-10-02-cloudflare-static-assets-list-poc-development.md`
 - `plans/active/2026-10-02-cloudflare-static-assets-deploy-poc-development.md`
 - `plans/active/2026-10-01-static-site-builder-main-development.md` (`main` → `codex/static-site-builder-main` → serial sub-features; the parent may merge into `dev` only by explicit request)
+- `plans/archive/2026-10-02-site-management-page-development.md` (completed serial sub-feature; Project list, create, and detail IA)
 - `plans/archive/2026-10-02-project-site-model-and-user-flow-design.md` (completed Project/Site model and user-flow design stage)
 - `plans/archive/2026-10-02-site-sidebar-navigation-development.md` (completed site sidebar navigation and entry screen slice)
 - `plans/archive/2026-09-30-release-v0.5.5-development.md`

@@ -95,6 +95,7 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
         'styles/features/card-news-image-model.css',
         'styles/features/card-news-results.css',
         'styles/features/card-news-management.css',
+        'styles/features/site-hosting.css',
         'styles/features/continuous-publishing-interactions.css',
         'styles/features/blog-next-panel-anatomy.css',
         'styles/features/blog-next-quick-flow.css',

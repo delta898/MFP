@@ -555,6 +555,7 @@ function startFixtureServer(requests) {
     const composedUiScript = createJsCompositionRuntime({ fs, path })
         .composeJsFile({ uiRoot }).js;
     const topicRecommendationCallsBySession = new Map();
+    const siteHostingProjects = [];
     const continuousPublishingQueue = [];
     const continuousSavedTopics = [];
     let continuousTopicSequence = 10;
@@ -711,6 +712,38 @@ function startFixtureServer(requests) {
         const url = new URL(req.url || '/', 'http://127.0.0.1');
         const requestRecord = { method: req.method || 'GET', pathname: url.pathname };
         requests.push(requestRecord);
+
+        if (url.pathname === '/api/v1/site-hosting/projects' && req.method === 'GET') {
+            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+            res.end(JSON.stringify({ success: true, data: siteHostingProjects }));
+            return;
+        }
+        if (url.pathname === '/api/v1/site-hosting/projects' && req.method === 'POST') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                const timestamp = '2026-10-02T00:00:00.000Z';
+                const project = {
+                    id: 'site-project-smoke', name: requestRecord.body.name, root_domain: '',
+                    root_path: '/fixture/workspace/site-hosting/projects/site-project-smoke',
+                    created_at: timestamp, updated_at: timestamp, site_count: 0
+                };
+                siteHostingProjects.push(project);
+                res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(JSON.stringify({ success: true, data: project }));
+            });
+            return;
+        }
+        const siteProjectMatch = url.pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)$/);
+        if (siteProjectMatch && req.method === 'GET') {
+            const project = siteHostingProjects.find((item) => item.id === decodeURIComponent(siteProjectMatch[1]));
+            res.writeHead(project ? 200 : 404, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+            res.end(JSON.stringify(project
+                ? { success: true, data: project }
+                : { success: false, error: { message: '프로젝트를 찾을 수 없습니다.' } }));
+            return;
+        }
 
         if (url.pathname === '/api/v1/continuous-publishing/automation/settings') {
             const respond = () => {
@@ -2406,6 +2439,21 @@ async function run() {
                 await page.evaluate((name) => navigateTo(name), viewName);
             }
             await page.waitForFunction((name) => document.getElementById(`view-${name}`)?.classList.contains('active'), expectedViewName);
+            if (viewName === 'site-hosting') {
+                await page.getByRole('heading', { name: '아직 프로젝트가 없습니다.' }).waitFor();
+                await page.locator('[data-site-project-create]').click();
+                await page.locator('#site-project-name').fill('브라우저 검증 프로젝트');
+                await page.getByRole('button', { name: '만들기', exact: true }).click();
+                await page.getByRole('heading', { name: '브라우저 검증 프로젝트' }).waitFor();
+                await page.locator('[data-site-project-tab="sites"]').click();
+                await page.getByRole('heading', { name: '이 프로젝트에는 아직 사이트가 없습니다.' }).waitFor();
+                await page.locator('[data-site-project-tab="settings"]').click();
+                await page.getByRole('heading', { name: '프로젝트 설정' }).waitFor();
+                await page.locator('[data-site-project-list]').click();
+                await page.getByRole('button', { name: /브라우저 검증 프로젝트/ }).waitFor();
+                await page.locator('[data-site-project-open="site-project-smoke"]').click();
+                await page.getByRole('heading', { name: '브라우저 검증 프로젝트' }).waitFor();
+            }
         }
         await page.evaluate(() => { showUiConfirm = window.__settingsNextSmokeConfirm; });
 
@@ -5673,6 +5721,7 @@ async function run() {
             { method: 'POST', pathname: '/api/v1/recommendations/discover' },
             { method: 'PUT', pathname: '/api/v1/settings/writing-profile' },
             { method: 'POST', pathname: '/api/v1/settings/optional-services' },
+            { method: 'POST', pathname: '/api/v1/site-hosting/projects' },
             { method: 'POST', pathname: '/api/v1/trend-posting/topics' },
             { method: 'POST', pathname: '/api/v1/keywords/analyze' },
             { method: 'POST', pathname: '/api/v1/keywords/suggest-titles' },
