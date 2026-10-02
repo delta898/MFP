@@ -174,7 +174,7 @@ Stages 2–5 may be reordered or narrowed based on the discovery result. Each im
 ## Cloudflare 연동 검증 진행
 
 - Cloudflare OAuth 및 계정 목록 검증은 완료되어 [Cloudflare 데스크톱 OAuth 및 계정 목록 PoC 기록](../archive/2026-10-01-cloudflare-oauth-desktop-poc-development.md)에 보관했다. 결과는 `codex/cloudflare-oauth-poc`에서 `codex/static-site-builder-main`으로 fast-forward 병합했다.
-- 현재 sub-feature [Cloudflare 데스크톱 연결 통합](2026-10-02-cloudflare-desktop-connection-development.md)에서 `설정 > 기본 연결 > 사이트 호스팅` UI와 OAuth connection API를 구현했다. 이번 slice는 사용자 단위 연결 및 접근 가능한 계정 표시까지이며 Project account binding/Worker 선택/배포는 다음 단계다. 사용자의 system-browser OAuth 및 실제 UI 검증을 기다린다.
+- 하위 feature [Cloudflare 데스크톱 연결 통합](../archive/2026-10-02-cloudflare-desktop-connection-development.md)을 완료해 `설정 > 기본 연결 > 사이트 호스팅` UI와 OAuth connection API를 통합했다. 사용자가 실제 system-browser OAuth 승인과 계정 목록 표시를 확인했다. Project account binding/Worker 선택/배포는 후속 단계다.
 - 개발 사용자는 `.env.oauth`에 `CLOUDFLARE_OAUTH_CLIENT_ID`를 넣고 `./run_dev.sh`로 실행한다. 개발 launcher는 이 값을 Development 프로세스에 전달하고 Production launcher는 `.env.oauth`에서 이 값을 읽지 않는다. 공개 앱용 release 설정은 별도 후속 작업이다.
 - 2026-10-02 기준 시스템 브라우저 OAuth Authorization Code + PKCE 인증, `memberships.read` scope, Bearer token을 이용한 `GET /memberships` 조회가 실제 Cloudflare 계정에서 성공했다. 실제 계정의 식별 정보와 token은 기록하지 않는다.
 - OAuth 정체성 연결은 BlogGenius 사용자/설치 단위로 두고, 한 사용자가 접근할 수 있는 Cloudflare account 중 하나를 각 Project가 선택한다. 한 Project는 Cloudflare account 하나에 연결되며 Site는 각자 Worker 배포 대상이 된다.
