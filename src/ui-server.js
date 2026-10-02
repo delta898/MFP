@@ -128,6 +128,8 @@ const { createCloudflareConnectionService, createEncryptedCredentialStore } = re
 const { createCloudflareConnectionRouteHandler } = require('./ui-api/routes/cloudflare-connection.routes');
 const { createSiteHostingProjectService } = require('./ui-api/services/site-hosting-project.service');
 const { createSiteHostingProjectRouteHandler } = require('./ui-api/routes/site-hosting-project.routes');
+const { createSiteHostingSiteService } = require('./ui-api/services/site-hosting-site.service');
+const { createSiteHostingSiteRouteHandler } = require('./ui-api/routes/site-hosting-site.routes');
 const { createApiRouteHub } = require('./ui-api/routes');
 const UiValidators = require('./ui-api/middleware/validate');
 
@@ -1074,6 +1076,8 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     createCloudflareConnectionRouteHandler,
     createSiteHostingProjectService,
     createSiteHostingProjectRouteHandler,
+    createSiteHostingSiteService,
+    createSiteHostingSiteRouteHandler,
     createApiRouteHub,
     UiValidators,
     normalizeYmdToken,

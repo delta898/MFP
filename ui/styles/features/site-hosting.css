@@ -39,6 +39,45 @@
   gap: var(--ui-space-3);
 }
 
+.site-hosting-site-list {
+  display: grid;
+  gap: var(--ui-space-3);
+}
+
+.site-hosting-project-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+}
+
+.site-hosting-site-card {
+  display: flex;
+  align-items: center;
+  min-height: 72px;
+  padding: var(--ui-space-4) var(--ui-space-5);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface);
+}
+
+.site-hosting-site-card > div {
+  display: grid;
+  gap: var(--ui-space-1);
+  min-width: 0;
+}
+
+.site-hosting-site-card strong {
+  color: var(--ui-text-primary);
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.site-hosting-site-card span {
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-type-caption-size);
+}
+
 .site-hosting-project-card {
   border: 1px solid var(--ui-border-default);
   border-radius: var(--ui-radius-md);
@@ -67,8 +106,7 @@
 }
 
 .site-hosting-project-card > button:focus-visible,
-.site-hosting-back-link:focus-visible,
-.site-hosting-project-tab:focus-visible {
+.site-hosting-back-link:focus-visible {
   outline: none;
   box-shadow: var(--ui-focus-ring);
 }
@@ -110,16 +148,6 @@
   color: var(--ui-action-primary-hover);
   font: inherit;
   cursor: pointer;
-}
-
-.site-hosting-project-tabs {
-  width: 100%;
-  overflow-x: auto;
-}
-
-.site-hosting-project-tab[aria-selected="true"] {
-  background: var(--ui-action-primary-soft);
-  color: var(--ui-action-primary-hover);
 }
 
 .site-hosting-panel {
@@ -180,7 +208,8 @@
   font-weight: var(--ui-weight-semibold);
 }
 
-.site-project-form-field input {
+.site-project-form-field input,
+.site-project-form-field select {
   width: 100%;
   min-height: 44px;
   padding: var(--ui-space-3) var(--ui-space-4);
@@ -191,7 +220,8 @@
   font: inherit;
 }
 
-.site-project-form-field input:focus-visible {
+.site-project-form-field input:focus-visible,
+.site-project-form-field select:focus-visible {
   outline: none;
   border-color: var(--ui-border-focus);
   box-shadow: var(--ui-focus-ring);

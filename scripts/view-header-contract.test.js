@@ -23,6 +23,10 @@ test('site hosting view provides project workspace and accessible create dialog 
   assert.match(html, /id="site-hosting-content"/);
   assert.match(html, /id="site-project-create-dialog" class="site-project-dialog ui-transaction-dialog"/);
   assert.match(html, /id="site-project-create-form"/);
+  assert.match(html, /id="site-create-dialog" class="site-project-dialog ui-transaction-dialog"/);
+  assert.match(html, /id="site-create-form"/);
+  assert.match(html, /id="site-template-id" name="template_id" required/);
+  assert.match(html, /id="site-name" name="name" type="text" maxlength="80" required/);
   assert.match(html, /프로젝트 이름/);
   assert.match(html, /목록에서 구분할 이름입니다\. 한글도 사용할 수 있습니다\./);
   assert.match(html, /id="site-project-name"[^>]*placeholder="예: 개인 블로그, 회사 홈페이지"/);

@@ -556,6 +556,7 @@ function startFixtureServer(requests) {
         .composeJsFile({ uiRoot }).js;
     const topicRecommendationCallsBySession = new Map();
     const siteHostingProjects = [];
+    const siteHostingSites = new Map();
     const continuousPublishingQueue = [];
     const continuousSavedTopics = [];
     let continuousTopicSequence = 10;
@@ -730,8 +731,49 @@ function startFixtureServer(requests) {
                     created_at: timestamp, updated_at: timestamp, site_count: 0
                 };
                 siteHostingProjects.push(project);
+                siteHostingSites.set(project.id, []);
                 res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
                 res.end(JSON.stringify({ success: true, data: project }));
+            });
+            return;
+        }
+        if (url.pathname === '/api/v1/site-hosting/templates' && req.method === 'GET') {
+            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+            res.end(JSON.stringify({ success: true, data: [{ id: 'minimal-homepage', version: '0.1.0', name: '간단한 홈페이지', description: 'Astro 사이트 시작 템플릿' }] }));
+            return;
+        }
+        const siteHostingSitesMatch = url.pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites$/);
+        if (siteHostingSitesMatch && req.method === 'GET') {
+            const projectId = decodeURIComponent(siteHostingSitesMatch[1]);
+            const sites = siteHostingSites.get(projectId);
+            res.writeHead(sites ? 200 : 404, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+            res.end(JSON.stringify(sites ? { success: true, data: sites } : { success: false, error: { message: '프로젝트를 찾을 수 없습니다.' } }));
+            return;
+        }
+        if (siteHostingSitesMatch && req.method === 'POST') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                const projectId = decodeURIComponent(siteHostingSitesMatch[1]);
+                const sites = siteHostingSites.get(projectId);
+                const project = siteHostingProjects.find((item) => item.id === projectId);
+                if (!sites || !project) {
+                    res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                    res.end(JSON.stringify({ success: false, error: { message: '프로젝트를 찾을 수 없습니다.' } }));
+                    return;
+                }
+                const timestamp = '2026-10-02T00:00:00.000Z';
+                const site = {
+                    id: `site-smoke-${sites.length + 1}`, project_id: projectId, name: requestRecord.body.name,
+                    template: { id: requestRecord.body.template_id, version: '0.1.0' },
+                    template_name: '간단한 홈페이지', template_status: 'available', hostname: '',
+                    created_at: timestamp, updated_at: timestamp
+                };
+                sites.push(site);
+                project.site_count = sites.length;
+                res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(JSON.stringify({ success: true, data: site }));
             });
             return;
         }
@@ -2445,10 +2487,16 @@ async function run() {
                 await page.locator('#site-project-name').fill('브라우저 검증 프로젝트');
                 await page.getByRole('button', { name: '만들기', exact: true }).click();
                 await page.getByRole('heading', { name: '브라우저 검증 프로젝트' }).waitFor();
-                await page.locator('[data-site-project-tab="sites"]').click();
                 await page.getByRole('heading', { name: '이 프로젝트에는 아직 사이트가 없습니다.' }).waitFor();
-                await page.locator('[data-site-project-tab="settings"]').click();
+                await page.locator('.site-hosting-project-actions [data-site-create]').click();
+                await page.locator('#site-template-id').selectOption('minimal-homepage');
+                await page.locator('#site-name').fill('브라우저 검증 사이트');
+                await page.locator('#site-create-form [type="submit"]').click();
+                await page.getByText('브라우저 검증 사이트', { exact: true }).waitFor();
+                await page.locator('[data-site-project-settings]').click();
                 await page.getByRole('heading', { name: '프로젝트 설정' }).waitFor();
+                await page.locator('[data-site-project-sites]').click();
+                await page.getByText('브라우저 검증 사이트', { exact: true }).waitFor();
                 await page.locator('[data-site-project-list]').click();
                 await page.getByRole('button', { name: /브라우저 검증 프로젝트/ }).waitFor();
                 await page.locator('[data-site-project-open="site-project-smoke"]').click();
@@ -5722,6 +5770,7 @@ async function run() {
             { method: 'PUT', pathname: '/api/v1/settings/writing-profile' },
             { method: 'POST', pathname: '/api/v1/settings/optional-services' },
             { method: 'POST', pathname: '/api/v1/site-hosting/projects' },
+            { method: 'POST', pathname: '/api/v1/site-hosting/projects/site-project-smoke/sites' },
             { method: 'POST', pathname: '/api/v1/trend-posting/topics' },
             { method: 'POST', pathname: '/api/v1/keywords/analyze' },
             { method: 'POST', pathname: '/api/v1/keywords/suggest-titles' },

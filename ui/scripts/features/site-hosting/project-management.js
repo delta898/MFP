@@ -1,8 +1,10 @@
 let siteHostingProjectsBound = false;
 let siteHostingProjects = [];
 let siteHostingSelectedProject = null;
-let siteHostingProjectTab = 'overview';
+let siteHostingProjectView = 'sites';
 let siteHostingProjectBusy = false;
+let siteHostingSites = [];
+let siteHostingSiteLoadState = 'idle';
 
 function siteHostingEscapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -59,41 +61,114 @@ function siteHostingRenderProjectList() {
 
 function siteHostingProjectPanel(project, tab) {
   const siteCount = Number(project.site_count || 0);
-  if (tab === 'sites') {
-    return `<section class="site-hosting-panel" role="tabpanel" id="site-hosting-project-panel-sites" aria-labelledby="site-hosting-project-tab-sites">
-      <div class="site-hosting-section-heading"><div><h3>사이트</h3><p>${siteCount}개</p></div></div>
-      <section class="ui-empty-state" aria-label="프로젝트 사이트 목록">
-        <h3>${siteCount === 0 ? '이 프로젝트에는 아직 사이트가 없습니다.' : `사이트 ${siteCount}개`}</h3>
-      </section>
-    </section>`;
-  }
   if (tab === 'settings') {
-    return `<section class="site-hosting-panel" role="tabpanel" id="site-hosting-project-panel-settings" aria-labelledby="site-hosting-project-tab-settings">
-      <div class="site-hosting-section-heading"><div><h3>프로젝트 설정</h3><p>프로젝트 정보와 저장 위치</p></div></div>
+    return `<section class="site-hosting-panel" aria-labelledby="site-hosting-project-settings-title">
+      <div class="site-hosting-section-heading"><div><h3 id="site-hosting-project-settings-title">프로젝트 설정</h3></div><button class="secondary" type="button" data-site-project-sites>사이트 목록</button></div>
       <div class="site-hosting-overview-grid">
         <article class="site-hosting-info-card"><h3>사용자 정의 도메인</h3><p>${siteHostingEscapeHtml(project.root_domain || '미설정')}</p></article>
         <article class="site-hosting-info-card"><h3>저장 위치</h3><code>${siteHostingEscapeHtml(project.root_path || '')}</code></article>
       </div>
     </section>`;
   }
-  return `<section class="site-hosting-panel" role="tabpanel" id="site-hosting-project-panel-overview" aria-labelledby="site-hosting-project-tab-overview">
-    <div class="site-hosting-section-heading"><div><h3>프로젝트 개요</h3></div></div>
-    <div class="site-hosting-overview-grid">
-      <article class="site-hosting-info-card"><h3>사이트</h3><p>${siteCount}개</p></article>
-      <article class="site-hosting-info-card"><h3>사용자 정의 도메인</h3><p>${siteHostingEscapeHtml(project.root_domain || '미설정')}</p></article>
+  return `<section class="site-hosting-panel" aria-labelledby="site-hosting-sites-title">
+    <div class="site-hosting-section-heading">
+      <div><h3 id="site-hosting-sites-title">사이트</h3><p>${siteCount}개</p></div>
+      <div class="site-hosting-project-actions">
+        ${tab === 'settings' ? '' : `<button class="secondary" type="button" data-site-project-settings>설정</button><button class="primary" type="button" data-site-create>사이트 만들기</button>`}
+      </div>
     </div>
+    ${siteHostingSiteLoadState === 'loading' ? `<section class="ui-empty-state" aria-label="사이트를 불러오는 중"><span class="ui-spinner ui-spinner-accent ui-spinner-md" aria-hidden="true"></span><span>사이트를 불러오는 중입니다.</span></section>` : ''}
+    ${siteHostingSiteLoadState === 'error' ? `<section class="ui-empty-state" data-state="error"><h3>사이트를 불러오지 못했습니다.</h3><button class="secondary" type="button" data-site-retry>다시 시도</button></section>` : ''}
+    ${siteHostingSiteLoadState === 'ready' && !siteHostingSites.length ? `<section class="ui-empty-state" aria-label="프로젝트 사이트 목록"><h3>이 프로젝트에는 아직 사이트가 없습니다.</h3></section>` : ''}
+    ${siteHostingSiteLoadState === 'ready' && siteHostingSites.length ? `<div class="site-hosting-site-list" role="list">${siteHostingSites.map((site) => `<article class="site-hosting-site-card" role="listitem"><div><strong>${siteHostingEscapeHtml(site.name)}</strong><span>${siteHostingEscapeHtml(site.template_name || '템플릿 확인 필요')}</span></div></article>`).join('')}</div>` : ''}
   </section>`;
+}
+
+async function siteHostingLoadSites(projectId) {
+  siteHostingSiteLoadState = 'loading';
+  siteHostingSites = [];
+  siteHostingRenderProjectDetail();
+  try {
+    const sites = await fetchJson(`/api/v1/site-hosting/projects/${encodeURIComponent(projectId)}/sites`);
+    if (siteHostingSelectedProject?.id !== projectId) return;
+    siteHostingSites = Array.isArray(sites) ? sites : [];
+    siteHostingSelectedProject.site_count = siteHostingSites.length;
+    siteHostingSiteLoadState = 'ready';
+  } catch (_error) {
+    if (siteHostingSelectedProject?.id !== projectId) return;
+    siteHostingSiteLoadState = 'error';
+  }
+  siteHostingRenderProjectDetail();
+}
+
+async function siteHostingOpenCreateSiteDialog() {
+  const dialog = document.getElementById('site-create-dialog');
+  const input = document.getElementById('site-name');
+  const select = document.getElementById('site-template-id');
+  const feedback = document.getElementById('site-create-feedback');
+  const submit = document.querySelector('#site-create-form [type="submit"]');
+  if (!dialog || dialog.open || !siteHostingSelectedProject) return;
+  input.value = '';
+  input.removeAttribute('aria-invalid');
+  feedback.textContent = '';
+  select.disabled = false;
+  if (submit) submit.disabled = true;
+  select.innerHTML = '<option value="">불러오는 중…</option>';
+  dialog.showModal();
+  try {
+    const templates = await fetchJson('/api/v1/site-hosting/templates');
+    select.innerHTML = (Array.isArray(templates) ? templates : []).map((template) => `<option value="${siteHostingEscapeHtml(template.id)}">${siteHostingEscapeHtml(template.name)}</option>`).join('');
+    if (!select.options.length) throw new Error('사용할 수 있는 템플릿이 없습니다.');
+    if (submit) submit.disabled = false;
+    requestAnimationFrame(() => input.focus());
+  } catch (error) {
+    select.innerHTML = '<option value="">템플릿을 불러오지 못했습니다.</option>';
+    select.disabled = true;
+    feedback.textContent = error.message || '템플릿을 불러오지 못했습니다.';
+  }
+}
+
+async function siteHostingCreateSite(event) {
+  event.preventDefault();
+  const project = siteHostingSelectedProject;
+  const form = event.currentTarget;
+  const input = document.getElementById('site-name');
+  const select = document.getElementById('site-template-id');
+  const feedback = document.getElementById('site-create-feedback');
+  const submit = form.querySelector('[type="submit"]');
+  const name = String(input?.value || '').trim();
+  if (!name || !select?.value || !project) {
+    if (!name) {
+      input?.setAttribute('aria-invalid', 'true');
+      input?.focus();
+    }
+    return;
+  }
+  submit.disabled = true;
+  submit.classList.add('is-loading');
+  try {
+    const site = await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites`, {
+      name,
+      template_id: select.value
+    });
+    document.getElementById('site-create-dialog')?.close();
+    siteHostingSites = [...siteHostingSites, site];
+    siteHostingSelectedProject.site_count = siteHostingSites.length;
+    siteHostingSiteLoadState = 'ready';
+    siteHostingRenderProjectDetail();
+    siteHostingSetFeedback('사이트를 만들었습니다.', 'success');
+  } catch (error) {
+    if (feedback) feedback.textContent = error.message || '사이트를 만들지 못했습니다.';
+  } finally {
+    submit.disabled = false;
+    submit.classList.remove('is-loading');
+  }
 }
 
 function siteHostingRenderProjectDetail() {
   const content = document.getElementById('site-hosting-content');
   const project = siteHostingSelectedProject;
   if (!content || !project) return;
-  const tabs = [
-    ['overview', '개요'],
-    ['sites', '사이트'],
-    ['settings', '설정']
-  ];
   content.innerHTML = `<div class="site-hosting-project-detail">
     <nav class="site-hosting-breadcrumb" aria-label="현재 위치">
       <button class="site-hosting-back-link" type="button" data-site-project-list>프로젝트</button>
@@ -102,10 +177,7 @@ function siteHostingRenderProjectDetail() {
     <header class="site-hosting-project-detail-header">
       <div><h2>${siteHostingEscapeHtml(project.name)}</h2><p>프로젝트</p></div>
     </header>
-    <div class="site-hosting-project-tabs ui-segmented-tabs" role="tablist" aria-label="프로젝트 메뉴">
-      ${tabs.map(([id, label]) => `<button class="site-hosting-project-tab ui-segmented-tab" id="site-hosting-project-tab-${id}" type="button" role="tab" aria-selected="${siteHostingProjectTab === id}" aria-controls="site-hosting-project-panel-${id}" tabindex="${siteHostingProjectTab === id ? '0' : '-1'}" data-site-project-tab="${id}">${label}</button>`).join('')}
-    </div>
-    ${siteHostingProjectPanel(project, siteHostingProjectTab)}
+    ${siteHostingProjectPanel(project, siteHostingProjectView)}
   </div>`;
 }
 
@@ -123,6 +195,7 @@ async function siteHostingLoadProjects() {
       if (exists) {
         siteHostingSelectedProject = await fetchJson(`/api/v1/site-hosting/projects/${encodeURIComponent(siteHostingSelectedProject.id)}`);
         siteHostingRenderProjectDetail();
+        void siteHostingLoadSites(siteHostingSelectedProject.id);
       } else {
         siteHostingSelectedProject = null;
         siteHostingRenderProjectList();
@@ -142,9 +215,12 @@ async function siteHostingLoadProjects() {
 async function siteHostingOpenProject(projectId) {
   try {
     siteHostingSelectedProject = await fetchJson(`/api/v1/site-hosting/projects/${encodeURIComponent(projectId)}`);
-    siteHostingProjectTab = 'overview';
+    siteHostingProjectView = 'sites';
+    siteHostingSites = [];
+    siteHostingSiteLoadState = 'idle';
     siteHostingSetFeedback('');
     siteHostingRenderProjectDetail();
+    void siteHostingLoadSites(siteHostingSelectedProject.id);
   } catch (error) {
     siteHostingSetFeedback(error.message || '프로젝트를 열지 못했습니다.', 'danger');
   }
@@ -179,7 +255,9 @@ async function siteHostingCreateProject(event) {
     const project = await postJson('/api/v1/site-hosting/projects', { name });
     document.getElementById('site-project-create-dialog')?.close();
     siteHostingSelectedProject = project;
-    siteHostingProjectTab = 'overview';
+    siteHostingProjectView = 'sites';
+    siteHostingSites = [];
+    siteHostingSiteLoadState = 'idle';
     await siteHostingLoadProjects();
   } catch (error) {
     const feedback = document.getElementById('site-project-create-feedback');
@@ -202,31 +280,26 @@ function initSiteHostingProjects() {
       if (project) return void siteHostingOpenProject(project.dataset.siteProjectOpen);
       if (event.target.closest('[data-site-project-list]')) {
         siteHostingSelectedProject = null;
-        siteHostingProjectTab = 'overview';
+        siteHostingProjectView = 'sites';
         return siteHostingRenderProjectList();
       }
-      const tab = event.target.closest('[data-site-project-tab]');
-      if (tab && siteHostingSelectedProject) {
-        siteHostingProjectTab = tab.dataset.siteProjectTab;
+      if (event.target.closest('[data-site-project-settings]') && siteHostingSelectedProject) {
+        siteHostingProjectView = 'settings';
         return siteHostingRenderProjectDetail();
       }
+      if (event.target.closest('[data-site-project-sites]') && siteHostingSelectedProject) {
+        siteHostingProjectView = 'sites';
+        return siteHostingRenderProjectDetail();
+      }
+      if (event.target.closest('[data-site-create]')) return void siteHostingOpenCreateSiteDialog();
+      if (event.target.closest('[data-site-retry]') && siteHostingSelectedProject) return void siteHostingLoadSites(siteHostingSelectedProject.id);
       if (event.target.closest('[data-site-project-retry]')) return void siteHostingLoadProjects();
-    });
-    content.addEventListener('keydown', (event) => {
-      const current = event.target.closest('[role="tab"][data-site-project-tab]');
-      if (!current) return;
-      const tabs = [...content.querySelectorAll('[role="tab"][data-site-project-tab]')];
-      const currentIndex = tabs.indexOf(current);
-      const nextIndex = event.key === 'ArrowRight' ? (currentIndex + 1) % tabs.length
-        : event.key === 'ArrowLeft' ? (currentIndex - 1 + tabs.length) % tabs.length
-          : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1;
-      if (nextIndex < 0) return;
-      event.preventDefault();
-      tabs[nextIndex].click();
-      content.querySelector(`[data-site-project-tab="${tabs[nextIndex].dataset.siteProjectTab}"]`)?.focus();
     });
     document.getElementById('site-project-create-form')?.addEventListener('submit', (event) => void siteHostingCreateProject(event));
     document.querySelector('[data-site-project-cancel]')?.addEventListener('click', () => document.getElementById('site-project-create-dialog')?.close());
+    document.getElementById('site-create-form')?.addEventListener('submit', (event) => void siteHostingCreateSite(event));
+    document.querySelector('[data-site-create-cancel]')?.addEventListener('click', () => document.getElementById('site-create-dialog')?.close());
+    document.getElementById('site-name')?.addEventListener('input', (event) => event.currentTarget.removeAttribute('aria-invalid'));
   }
   void siteHostingLoadProjects();
 }
