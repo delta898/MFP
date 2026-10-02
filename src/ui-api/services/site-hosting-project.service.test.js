@@ -26,6 +26,24 @@ test('site hosting project service creates, lists, and opens projects', () => {
     assert.equal(service.get('project-1').root_path, '/workspace/project-1');
 });
 
+test('site hosting project service creates one default project when workspace is empty', () => {
+    const projects = new Map();
+    const repository = {
+        create(project) {
+            if (projects.has(project.id)) throw new Error('already exists');
+            const value = { ...project, root_path: `/workspace/${project.id}`, site_count: 0 };
+            projects.set(project.id, value);
+            return value;
+        },
+        list() { return [...projects.values()]; },
+        get(id) { return projects.get(id) || null; }
+    };
+    const service = createSiteHostingProjectService({ repository, now: () => '2026-10-02T00:00:00.000Z' });
+
+    assert.deepEqual(service.list().map(({ id, name }) => ({ id, name })), [{ id: 'default', name: '내 사이트' }]);
+    assert.deepEqual(service.list().map(({ id }) => id), ['default']);
+});
+
 test('site hosting project service validates names and reports missing projects', () => {
     const service = createSiteHostingProjectService({
         repository: { list: () => [], get: () => null, create: (value) => value },

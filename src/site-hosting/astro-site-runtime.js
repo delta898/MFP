@@ -3,11 +3,13 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
+const crypto = require('node:crypto');
 const http = require('node:http');
 const { spawn } = require('node:child_process');
 const { createSiteHostingProjectRepository } = require('./project-repository');
 const { createSiteHostingSiteRepository } = require('./site-repository');
 const { createSiteTemplateCatalog } = require('./site-template-catalog');
+const { captureSiteScreenshot, VIEWPORT } = require('./electron-site-screenshot');
 
 const BUILD_TIMEOUT_MS = 10 * 60 * 1000;
 const CONTENT_TYPES = {
@@ -26,6 +28,25 @@ const CONTENT_TYPES = {
     '.woff2': 'font/woff2',
     '.xml': 'application/xml; charset=utf-8'
 };
+
+function replaceFile(fileSystem, tempPath, targetPath, backupPath) {
+    try {
+        fileSystem.renameSync(tempPath, targetPath);
+    } catch (cause) {
+        if (!fileSystem.existsSync(targetPath) || !['EEXIST', 'EPERM', 'ENOTEMPTY'].includes(cause?.code)) throw cause;
+        fileSystem.renameSync(targetPath, backupPath);
+        try {
+            fileSystem.renameSync(tempPath, targetPath);
+            fileSystem.unlinkSync(backupPath);
+        } catch (replaceError) {
+            try {
+                if (fileSystem.existsSync(targetPath)) fileSystem.unlinkSync(targetPath);
+                fileSystem.renameSync(backupPath, targetPath);
+            } catch (_restoreError) { }
+            throw replaceError;
+        }
+    }
+}
 
 function createAstroSiteRuntime(options = {}) {
     const fileSystem = options.fs || fs;
@@ -46,6 +67,7 @@ function createAstroSiteRuntime(options = {}) {
     const previewServers = new Map();
     const npmCliPath = options.npmCliPath || pathApi.join(pathApi.dirname(require.resolve('npm/package.json')), 'bin', 'npm-cli.js');
     const cacheRoot = options.cacheRoot || pathApi.join(os.tmpdir(), 'bloggenius-site-npm-cache');
+    const captureScreenshot = options.captureScreenshot || captureSiteScreenshot;
 
     function ensureNodeShim() {
         const binRoot = pathApi.join(cacheRoot, 'runtime-bin');
@@ -177,7 +199,7 @@ function createAstroSiteRuntime(options = {}) {
             error.status = 400;
             throw error;
         }
-        const job = { status: 'running', started_at: new Date().toISOString(), finished_at: '', message: '' };
+        const job = { status: 'running', build_id: crypto.randomUUID().replace(/-/g, ''), started_at: new Date().toISOString(), finished_at: '', message: '' };
         buildJobs.set(key, job);
         try {
             await runNpm(site.root_path, ['ci', '--no-audit', '--no-fund']);
@@ -188,7 +210,41 @@ function createAstroSiteRuntime(options = {}) {
                 error.code = 'SITE_HOSTING_BUILD_OUTPUT_MISSING';
                 throw error;
             }
-            Object.assign(job, { status: 'succeeded', finished_at: new Date().toISOString(), message: '사이트를 빌드했습니다.' });
+            const completedAt = new Date().toISOString();
+            Object.assign(job, { status: 'succeeded', finished_at: completedAt, message: '사이트를 빌드했습니다.' });
+            siteRepository.recordBuildResult?.(projectId, siteId, { build_id: job.build_id, completed_at: completedAt });
+            const existingPreview = previewServers.has(key);
+            try {
+                const preview = await ensurePreviewServer(site);
+                const captured = await captureScreenshot(preview.url, { viewport: VIEWPORT });
+                const fileName = 'build-preview.jpg';
+                const metadataRoot = pathApi.join(site.root_path, '.bloggenius');
+                fileSystem.mkdirSync(metadataRoot, { recursive: true });
+                const relativePath = `.bloggenius/${fileName}`;
+                const screenshotPath = pathApi.join(metadataRoot, fileName);
+                const tempScreenshotPath = pathApi.join(metadataRoot, `.${fileName}.${process.pid}.${job.build_id}.tmp`);
+                const backupScreenshotPath = pathApi.join(metadataRoot, `.${fileName}.${process.pid}.${job.build_id}.bak`);
+                try {
+                    fileSystem.writeFileSync(tempScreenshotPath, captured.buffer, { flag: 'wx', mode: 0o600 });
+                    replaceFile(fileSystem, tempScreenshotPath, screenshotPath, backupScreenshotPath);
+                } catch (error) {
+                    try { fileSystem.unlinkSync(tempScreenshotPath); } catch (_cleanupError) { }
+                    throw error;
+                }
+                const screenshot = siteRepository.recordBuildScreenshot(projectId, siteId, {
+                    path: relativePath,
+                    build_id: job.build_id,
+                    captured_at: completedAt,
+                    viewport: captured.viewport || VIEWPORT
+                });
+                job.message = '사이트 빌드와 스크린샷 생성을 마쳤습니다.';
+                job.screenshot = screenshot.screenshot?.latest_build || null;
+            } catch (screenshotError) {
+                job.screenshot_error = String(screenshotError?.message || '스크린샷을 만들지 못했습니다.');
+                job.message = '사이트 빌드를 마쳤지만 새 스크린샷을 만들지 못했습니다.';
+            } finally {
+                if (!existingPreview) await stopPreview(projectId, siteId);
+            }
         } catch (error) {
             Object.assign(job, {
                 status: 'failed',
@@ -210,9 +266,8 @@ function createAstroSiteRuntime(options = {}) {
         return job ? { ...job, output: undefined } : { status: 'not_started' };
     }
 
-    async function startPreview(projectId, siteId) {
-        const site = getSite(projectId, siteId);
-        const key = `${projectId}/${siteId}`;
+    async function ensurePreviewServer(site) {
+        const key = `${site.project_id}/${site.id}`;
         const distRoot = pathApi.join(site.root_path, 'dist');
         const indexPath = pathApi.join(distRoot, 'index.html');
         if (!fileSystem.existsSync(indexPath) || !fileSystem.statSync(indexPath).isFile()) {
@@ -283,6 +338,17 @@ function createAstroSiteRuntime(options = {}) {
         return { url: preview.url };
     }
 
+    async function startPreview(projectId, siteId) {
+        const site = getSite(projectId, siteId);
+        const buildResult = await build(projectId, siteId);
+        const preview = await ensurePreviewServer(site);
+        return {
+            ...preview,
+            screenshot: buildResult.screenshot || null,
+            screenshot_error: buildResult.screenshot_error || ''
+        };
+    }
+
     async function stopPreview(projectId, siteId) {
         const key = `${projectId}/${siteId}`;
         const preview = previewServers.get(key);
@@ -295,4 +361,4 @@ function createAstroSiteRuntime(options = {}) {
     return { build, getBuildStatus, startPreview, stopPreview };
 }
 
-module.exports = { BUILD_TIMEOUT_MS, createAstroSiteRuntime };
+module.exports = { BUILD_TIMEOUT_MS, createAstroSiteRuntime, replaceFile };

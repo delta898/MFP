@@ -5,7 +5,7 @@
 - 브랜치: `codex/site-creation`
 - 시작일: 2026-10-02
 - 기준/부모 브랜치: `codex/static-site-builder-main`
-- 상태: Site 생성 slice 커밋 완료; Astro build/loopback preview 구현 완료; Cloudflare workers.dev 배포 통합 구현 및 focused 검증 진행 중
+- 상태: 완료 — Project/Site 생성부터 로컬 설정, 전체 빌드·미리보기, Cloudflare 배포 및 사용자 도메인 연결까지 구현; 다음 완성도 작업은 별도 FBR에서 진행
 - 상위 기능 계획: [Static Site Builder](2026-10-01-static-site-builder-main-development.md)
 - 선행 Project 관리 slice: [Project 목록·생성·상세](../archive/2026-10-02-site-management-page-development.md)
 
@@ -20,7 +20,7 @@ Project에서 Site 종류(template)와 사용자가 알아볼 이름을 선택�
 3. Site를 구분할 이름을 입력한다.
 4. Site 폴더와 기본 정보를 만들고 Project의 Site 목록에 표시한다.
 
-Project는 이름만으로 생성한다. Site 생성은 template 종류와 표시 이름만 받는다. Domain, root 위치 변경 등 세부 설정은 실제로 필요해질 때 다룬다. 이번 PoC의 배포는 연결된 Cloudflare 계정 중 첫 번째 계정에 Site별 Static Assets Worker를 배포하고 `workers.dev` 주소로 확인하는 범위까지 포함한다. 계정 선택 UI, custom domain, 콘텐츠 저작, export/import는 범위에서 제외한다.
+Project는 이름만으로 생성한다. Site 생성은 template 종류와 표시 이름만 받는다. Site의 hostname/domain은 생성 후 사이트 설정에서 입력한다. 이번 PoC의 배포는 연결된 Cloudflare 계정 중 첫 번째 계정에 Site별 Static Assets Worker를 배포하고 `workers.dev` 주소로 확인하는 범위까지 포함한다. 계정 선택 UI, Cloudflare에 custom domain을 실제 연결하는 처리, 콘텐츠 저작, export/import는 범위에서 제외한다.
 
 ## 설계 원칙과 미확정 항목
 
@@ -32,15 +32,17 @@ Project는 이름만으로 생성한다. Site 생성은 template 종류와 표�
 - 임시 Astro source는 Site 폴더의 최상위에 복사하고 BlogGenius metadata는 `.bloggenius/site.json`에 저장한다. manifest에는 안정적인 내부 Site ID, Project ID, 화면 표시 이름, template ID/version, 선택적 hostname, 생성/수정 시각을 기록한다.
 - Site는 BlogGenius 관리 개념과 표준 Astro 프로젝트를 하나의 디렉터리에서 함께 보유한다. `.bloggenius/site.json`은 BG 전용이고, Astro 프로젝트 파일은 루트에 둔다. `node_modules`와 `dist`는 재생성 가능한 산출물로 본다. export/import가 구현되면 둘은 제외하고, `package.json`과 lock 파일로 복원한다.
 - 현재 임시 template은 Astro 정적 홈페이지 한 페이지와 기본 `package.json`/`astro.config.mjs`로 제한한다. 일반 설정 언어, 변환 엔진, 사용자별 template 옵션은 만들지 않는다.
-- Project root domain은 최대 하나라는 합의를 유지한다. Site hostname은 별도이며 custom domain 미설정이어도 Site 생성 가능하다. 이번 생성 흐름에서 hostname 입력이 실제 필요하지 않으면 Project의 Site 목록 이후 단계로 미룬다.
+- Project UI를 숨기고 내부 `default` Project만 쓰기로 결정했으므로, 도메인 설정은 Site 소유로 둔다. `hostname`은 선택적 서브도메인 부분(예: `blog`), `domain`은 기본 도메인(예: `example.com`)이다. 전체 사용자 주소는 두 값을 조합해 계산하며, 둘 다 비어 있으면 custom domain 미설정이다. `workers.dev` 배포 주소와 Cloudflare 연결 상태는 별도다. custom domain 연결은 Cloudflare 계정에 해당 활성 Zone이 있고 기존 배포 Worker가 준비된 뒤 별도 명시 동작으로 수행한다.
 
 ## 명시적 비목표
 
 - 자유 형식 Astro site builder 제공
 - Amade CLI/Docker 실행 또는 기존 Amade template 재사용
 - 외부 template catalog/spec을 이 브랜치에서 새 표준으로 확정
-- Cloudflare Project 계정 선택 UI와 custom domain 적용
+- Cloudflare 계정 선택 UI
 - 기존 Site의 template 변경/upgrade/migration
+- Site 상세를 별도 페이지로 만들지 modal로 열지 결정
+- 목록과 카드(grid) 보기 전환, 삭제를 포함한 사이트별 확장 관리 메뉴
 
 ## 구현/검증 계획
 
@@ -96,9 +98,34 @@ Project는 이름만으로 생성한다. Site 생성은 template 종류와 표�
 - Site 생성 slice는 `d2c3359a` (`feat: create local Astro sites from templates`)로 커밋했다.
 - Astro 7.3.5를 각 Site의 `package.json` dependency로 선언하고 lock 파일을 template에 포함했다. Electron embedded Node/npm 조합으로 Astro를 설치하고 build하는 PoC, 일반 OS Node/npm에서 독립 Astro build, 복사한 export/import fixture에서 `npm ci` 후 build를 각각 확인했다. Site와 Astro 프로젝트를 한 디렉터리에 결합해도 BG 전용 메타데이터를 `.bloggenius/`에 분리하면 독립 동작한다.
 - `src/site-hosting/astro-site-runtime.js`에 Site별 npm CLI 실행과 build output 정적 서버를 연결했다. npm 호출은 별도 child process에서 실행하고 BG 프로세스 환경변수 전체를 넘기지 않는다. npm run script가 Astro CLI의 `#!/usr/bin/env node`를 찾을 수 있도록 앱 내장 Node를 가리키는 작은 실행 shim을 임시 runtime 경로에 둔다. preview는 `127.0.0.1`에만 바인딩하고 `dist/` 밖으로 나가는 경로를 차단한다.
-- Site 목록 카드에서 빌드 및 미리보기를 호출하도록 연결했다. build 전 미리보기는 안내 오류를 반환하고, 성공 build 후 미리보기 서버는 기존 주소를 재사용한다. API에는 build 상태 조회와 미리보기 종료 경로도 제공한다.
+- 초기 구현에서는 build 전 미리보기를 안내 오류로 막았다. 후속 기본 작업 공간 slice에서 미리보기 동작이 매번 전체 빌드 후 서버를 열도록 바꿨다. API에는 build 상태 조회와 미리보기 종료 경로도 제공한다.
 - 관련 runtime/service/route focused 테스트 7개가 통과했다. 실제 loopback HTTP 응답, MIME type, traversal 차단, build 전 preview 차단을 검증했다. JS syntax check와 `git diff --check`도 통과했다. 사용자 요청대로 UI browser smoke는 실행하지 않았다.
 - Cloudflare 배포 통합 구현: OAuth 요청에 Worker Scripts read/write scope를 포함하고, 연결된 계정 중 첫 계정으로 Static Assets 업로드/버전 생성/배포를 수행한다. Cloudflare가 새 deployment에 100% 트래픽을 연결했는지 조회하고 공개 URL의 HTTP 응답도 확인한다. 배포 결과 URL과 Worker/version/deployment ID를 Site metadata에 저장한다. Site 카드의 `배포` 동작 하나로 build와 publish를 수행하고, 배포 URL을 다시 열 수 있다.
 - 배포 통합 focused 테스트 9개와 JS syntax/`git diff --check`가 통과했다. 기존 Astro runtime focused test 2개는 loopback listener에 sandbox 권한이 필요해 승인 후 별도로 재실행해 통과했다. UI browser smoke는 사용자의 지시에 따라 생략했다.
 - 권한 실패 단계 표시 변경 후 `node --test src/site-hosting/cloudflare-static-assets-deployer.test.js` 4개 통과, 배포 모듈 syntax와 `git diff --check` 통과.
-- 미완료: 사용자가 앱에서 새 OAuth client로 다시 연결한 뒤 첫 workers.dev 배포를 실행해 공개 결과를 확인한다. Workers Editor 권한이 배포 흐름의 목록 조회·기존 Worker 수정·신규 Worker 생성에 각각 충분한지는 실계정 결과로 판단한다. npm 12.2.0 audit 취약점 3건 및 라이선스 고지 방식은 출시 준비 시 재검토한다. 이번 단계의 변경사항은 아직 커밋하지 않았다.
+- Site 생성/build/preview/deploy 경로는 `a891cec7` (`feat: add Astro site build preview and Cloudflare deploy`)로 커밋했다. 다음 기본 작업 공간 및 사이트 관리 첫 화면 slice는 현재 작업 중이다.
+- 미완료: npm 12.2.0 audit 취약점 3건 및 라이선스 고지 방식은 출시 준비 시 재검토한다.
+- 첫 사이트 관리 화면의 목업은 [기본 작업 공간 목업](2026-10-02-site-management-default-workspace-mockup.svg)에 저장했다. 목업은 Project/Site 계층과 핵심 동작 배치를 논의하는 큰 틀이며, 세부 문구와 타이틀 패턴은 기존 UI를 기준으로 조정한다. Site 상세 진입을 페이지로 할지 modal로 할지는 후속 설계에서 결정한다.
+- 사용자는 기본 Project/Site를 예외적 고정 리소스보다 다시 준비할 수 있는 로컬 기본 작업 공간 개념으로 제안했다. workspace에 Project가 없으면 `default` ID의 일반 Project를 만들고, 해당 Project에 기본 Site가 없으면 기본 템플릿으로 다시 만든다. 삭제 기능이 추가될 때 재생성 시점과 삭제 범위를 정한다.
+- 사이트 메뉴 진입은 기본 작업 공간의 Site 목록을 우선 보여준다. `프로젝트 관리`는 전체 프로젝트 목록으로 이동하고, `사이트 추가`는 현재 Project에 추가한다. 목록/카드 전환은 추후 확장으로 둔다. Site row는 이름·템플릿 정보·로컬 준비/배포 상태와 미리보기·빌드 폴더 열기·배포 동작을 제공한다.
+- 미리보기와 배포는 매번 전체 빌드를 실행한다. 미리보기는 빌드 후 열리고, 배포는 사용자 동작으로만 시작한다. 빌드 폴더 열기는 산출물이 없으면 먼저 미리보기를 실행하도록 안내한다.
+- 삭제는 빠른 작업과 분리해 추후 overflow 메뉴 후보로 둔다. 페이지/modal 상세 방식, 목록 보기 전환과 구체적인 문구·시각 요소는 아직 확정하지 않았다.
+- 목록 상태 표시는 별도 종합 Site status를 만들지 않고 우선 배포 기록 존재 여부로 `미배포`/`배포됨`을 파생한다. 빌드 상태는 작업 중/실패 오류 피드백에 사용한다.
+- 검증: Project/Site service와 site route 집중 테스트 11개, loopback preview runtime 테스트 2개 통과. 관련 JS syntax 검사와 `git diff --check` 통과. 사용자의 지시에 따라 UI smoke는 실행하지 않았다.
+- 배포 직후 앱의 공개 URL 확인은 HTTP 404로 실패했지만, 로그에 표시된 같은 workers.dev 주소는 잠시 뒤 브라우저에서 정상 접속됐다. 전파 지연과 일치하는 관찰로 기록하며, 사용자가 현재 수정하지 말라고 했으므로 재시도나 확인 로직 변경은 보류한다.
+- 사이트 관리 화면의 카드형 목업은 [사이트 관리 카드 목업](2026-10-02-site-management-grid-mockup.svg)에 있다. 사용자는 배포물/빌드물 중 어느 화면을 이미지로 쓸지 상태별로 달라질 수 있다고 보고, 그 세부 사항은 뒤로 미루고 이미지 영역만 먼저 두기로 했다. 카드에서 시작한 작업의 오류/설정 안내 위치와 전체 화면 오류 위치도 아직 정하지 않는다.
+- 사이트 목록을 세로 행에서 grid 카드로 바꾸고, 각 Site 카드 위쪽에 스크린샷 영역을 예약했다. 후속 구현에서 이 영역을 template 기본 이미지와 빌드 캡처로 채운다. 카드는 사이트 이름, 로컬/배포 상태 배지, 그리고 사이트별 공유 메시지 영역으로 정보를 최소화한다. 메시지는 빌드·미리보기·배포 작업 중 상태, 완료 결과나 오류를 담고, 배포 성공 후에는 workers.dev와 연결된 custom domain 링크를 제공한다. 기존 설정·미리보기·폴더 열기·배포 action은 유지한다.
+- 카드 구조 변경 당시 집중 검증은 JS syntax와 `git diff --check`로 한정했으며 UI smoke는 사용자의 지시에 따라 생략했다. UI 결과는 사용자가 직접 확인한다.
+- 사용자는 `default` Project를 내부 Site 소속용으로만 유지하고 Project/프로젝트 관리 UI는 숨기기로 결정했다. 기존 `Project has domain` 제약과 프로젝트별 동일 도메인 규칙은 더 이상 사용자 흐름의 전제로 삼지 않는다. Site 관리 목업에서 프로젝트 설명/진입 버튼을 제거했다.
+- 다음 Site 설정 slice의 논의용 화면은 [사이트 설정 흐름 목업](2026-10-02-site-settings-flow-mockup.svg)에 있다. 사용자는 Site 설정에 표시 이름과 custom domain 정보를 두기로 승인했다. Project를 사용자에게 숨기므로 도메인도 Project가 아닌 Site 속성으로 저장한다. 필드는 `hostname`(선택적 서브도메인)과 `domain`(기본 도메인)으로 분리하고, 전체 주소는 파생한다. 이번 구현은 로컬 설정 저장/표시까지이며 Cloudflare Worker에 도메인을 실제 연결하는 일은 후속 범위다.
+- Site 설정을 목록 카드에서 열고 이름, 읽기 전용 템플릿, Cloudflare 사용자 도메인 연결을 제공한다. 계정의 모든 활성 Zone을 조회한 뒤 사용자가 도메인을 고르고 hostname을 입력한다. 이름은 `저장`으로 보관하며, hostname/domain은 명시적 `연결` 성공 후 binding metadata와 함께 저장한다. 조회·연결 오류는 도메인 설정 영역에 표시하고, `닫기`는 변경사항 확인 후 목록으로 돌아간다. `workers.dev` 공개 주소는 계속 사용할 수 있다.
+- 사이트 설정에 현재 템플릿 이름과 버전을 읽기 전용으로 표시한다. 템플릿 교체 및 Astro 파일 덮어쓰기는 지원하지 않는다.
+- 사용자 후속 승인에 따라 custom domain 연결을 추가했다. 설정에서 계정의 전체 활성 Zone을 조회하고 선택한 뒤 hostname을 입력해, 이미 배포된 Worker에 명시적으로 연결한다. 연결 성공 시 binding ID/hostname/Zone/연결 시각 및 hostname/domain을 `.bloggenius/site.json`에 보관한다. 이름 저장은 별도 동작이며 Cloudflare API를 호출하지 않는다. `workers.dev` URL은 계속 쓸 수 있다.
+- 연결 시 Cloudflare는 Worker Custom Domain과 DNS/TLS 설정을 처리한다. Cloudflare 공식 권한 문서에 따르면 기존 Worker의 Editor 권한과 대상 Zone의 Workers Routes Write가 필요하며, 앱이 활성 Zone을 조회하기 위해 Zone Read도 요청한다. 앱의 OAuth scope는 현재 client의 `workers-scripts.edit`와 `zone.read workers-routes.write`를 요청한다. OAuth Client에 해당 권한을 추가한 뒤 사용자 재인증이 필요하다.
+- 자동 테스트, Cloudflare 재인증, 실제 도메인 연결은 아직 하지 않았다. 사용자의 기존 지시에 따라 UI smoke는 생략한다. 다음 단계는 OAuth Client 권한 추가와 재연결 후, 도메인을 저장하고 Zone 조회 및 명시적 연결을 직접 검증하는 것이다.
+- 사용자는 카드 이미지 자리에 템플릿 기본 스크린샷을 두고, 빌드 캡처는 기본 파일과 분리해 최신 파일 하나만 보관하기로 결정했다. `template.json`에 선택적 `preview_file`을 추가했다. Site 생성 시 기본 이미지는 `.bloggenius/template-preview.svg`로 복사되고, 빌드 캡처는 Electron 내장 Chromium으로 만든 `.bloggenius/build-preview.jpg`에 매번 덮어쓴다. `.bloggenius/site.json`에는 템플릿 이미지와 최신 캡처 정보만 별도로 보관한다.
+- 빌드 결과를 캡처용 loopback 정적 서버에 로드하고, Electron `webContents.capturePage()`로 1200×675 JPEG를 만든다. 숨김 창은 sandbox/context isolation을 켜고 Node 통합과 새 창을 막으며 캡처 뒤 닫는다. 새 이미지 생성 또는 기록에 실패하면 Astro 빌드는 성공으로 유지하고 기존 이미지 포인터를 보존한다. 카드의 이미지 URL은 로컬 API가 현재 최신 캡처 또는 template 기본 이미지를 제공한다.
+- 스크린샷은 템플릿 catalog/repository/runtime/site service/site route 집중 테스트로 검증한다. 실제 capture 창은 mock으로 대체한다. 사용자의 지시에 따라 UI smoke와 앱 수동 실행은 하지 않는다.
+- 미리보기는 클릭 직후 팝업을 열어 빈 화면 대신 전체 빌드와 스크린샷 갱신 진행 상태를 보여준다. 빌드 완료 후 사이트 목록을 갱신하고 팝업을 preview URL로 이동하며, 실패하면 팝업 안에 오류를 표시한다. 사용자가 빌드 중 창을 닫아도 성공한 빌드가 오류로 표시되지 않도록 처리한다.
+- 최종 집중 검증: site template/repository, Cloudflare deployer, project/site service, site/Cloudflare/project routes 31개 통과; Astro runtime loopback 테스트 3개 통과; 변경 JavaScript 문법 검사 및 `git diff --check` 통과. Browser smoke는 사용자의 지시에 따라 생략했다. 사용자는 앱에서 화면 표시와 실계정 Cloudflare 흐름을 직접 확인한다.
+- 다음 단계의 품질 개선(미리보기 캡처 차이, 작업 오류 복구, 카드 상태 정확도 등)은 후속 FBR 범위로 넘긴다. 이 브랜치 단계는 기능 경로를 연결한 상태로 마감한다.

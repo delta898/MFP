@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" role="img" aria-labelledby="title description">
+  <title id="title">BlogGenius 사이트 관리 카드형 목업</title>
+  <desc id="description">사용자에게 프로젝트를 노출하지 않고 사이트 두 개를 빈 스크린샷 영역이 있는 카드로 보여주며 세 번째 카드는 사이트 추가 동작이다.</desc>
+  <defs>
+    <linearGradient id="page" x2="0" y2="1"><stop stop-color="#211914"/><stop offset="1" stop-color="#17120f"/></linearGradient>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+      .muted { fill: #b6a697; }
+      .text { fill: #f0e5d8; }
+      .caption { fill: #a99584; font-size: 15px; }
+      .outline { fill: #2d231d; stroke: #554237; stroke-width: 1.5; }
+      .button { fill: #30251f; stroke: #604a3b; stroke-width: 1.5; }
+    </style>
+  </defs>
+  <rect width="1600" height="1000" rx="22" fill="url(#page)"/>
+  <rect x="0" y="0" width="290" height="1000" rx="22" fill="#2c221c"/>
+  <path d="M289 0v1000" stroke="#514034" stroke-width="2"/>
+  <text x="38" y="62" class="text" font-size="31" font-weight="700">BlogGenius</text>
+  <text x="44" y="125" class="muted" font-size="15">홈</text>
+  <text x="84" y="166" class="muted" font-size="21">▦　대시보드</text>
+  <path d="M32 205h226" stroke="#514034"/>
+  <text x="44" y="244" class="muted" font-size="15">웹사이트</text>
+  <rect x="24" y="263" width="242" height="56" rx="10" fill="#cc7842"/>
+  <text x="54" y="299" fill="#251812" font-size="20" font-weight="700">▣　사이트</text>
+  <path d="M32 345h226" stroke="#514034"/>
+  <text x="44" y="384" class="muted" font-size="15">콘텐츠</text>
+  <text x="54" y="429" class="muted" font-size="20">☷　블로그</text>
+  <text x="54" y="478" class="muted" font-size="20">▧　카드뉴스</text>
+  <text x="54" y="527" class="muted" font-size="20">▢　쇼핑커넥트</text>
+  <text x="54" y="576" class="muted" font-size="20">♧　SNS</text>
+  <path d="M32 612h226" stroke="#514034"/>
+  <text x="44" y="651" class="muted" font-size="15">계정</text>
+  <text x="54" y="696" class="muted" font-size="20">♙　내 정보</text>
+  <path d="M32 732h226" stroke="#514034"/>
+  <text x="44" y="771" class="muted" font-size="15">시스템</text>
+  <text x="54" y="816" class="muted" font-size="20">◴　설정</text>
+
+  <text x="334" y="88" class="text" font-size="38" font-weight="700">사이트</text>
+  <text x="334" y="126" class="muted" font-size="19">웹사이트를 만들고 관리합니다.</text>
+  <text x="334" y="218" class="text" font-size="28" font-weight="700">내 사이트</text>
+  <text x="334" y="248" class="caption">2개</text>
+
+  <!-- Site card frames: screenshot contents and status-dependent selection are intentionally unspecified. -->
+  <g>
+    <rect x="334" y="278" width="386" height="402" rx="12" class="outline"/>
+    <rect x="350" y="294" width="354" height="200" rx="8" fill="#211914" stroke="#554237"/>
+    <text x="358" y="529" class="text" font-size="20" font-weight="700">나의 첫 사이트</text>
+    <rect x="630" y="510" width="66" height="30" rx="7" class="button"/>
+    <text x="648" y="530" class="text" font-size="13">설정</text>
+    <text x="358" y="554" class="muted" font-size="14">간단한 홈페이지</text>
+    <text x="358" y="584" class="caption">상태 · 공개 주소(있을 때)</text>
+    <path d="M358 602h338" stroke="#514034"/>
+    <rect x="358" y="618" width="98" height="42" rx="8" class="button"/>
+    <text x="379" y="645" class="text" font-size="14">미리보기</text>
+    <rect x="463" y="618" width="98" height="42" rx="8" class="button"/>
+    <text x="484" y="645" class="text" font-size="14">폴더 열기</text>
+    <rect x="568" y="618" width="104" height="42" rx="8" fill="#d27c43"/>
+    <text x="600" y="645" fill="#21150f" font-size="14" font-weight="700">배포</text>
+  </g>
+  <g>
+    <rect x="744" y="278" width="386" height="402" rx="12" class="outline"/>
+    <rect x="760" y="294" width="354" height="200" rx="8" fill="#211914" stroke="#554237"/>
+    <text x="768" y="529" class="text" font-size="20" font-weight="700">제품 소개</text>
+    <rect x="1040" y="510" width="66" height="30" rx="7" class="button"/>
+    <text x="1058" y="530" class="text" font-size="13">설정</text>
+    <text x="768" y="554" class="muted" font-size="14">간단한 홈페이지</text>
+    <text x="768" y="584" class="caption">상태 · 공개 주소(있을 때)</text>
+    <path d="M768 602h338" stroke="#514034"/>
+    <rect x="768" y="618" width="98" height="42" rx="8" class="button"/>
+    <text x="789" y="645" class="text" font-size="14">미리보기</text>
+    <rect x="873" y="618" width="98" height="42" rx="8" class="button"/>
+    <text x="894" y="645" class="text" font-size="14">폴더 열기</text>
+    <rect x="978" y="618" width="104" height="42" rx="8" fill="#d27c43"/>
+    <text x="1010" y="645" fill="#21150f" font-size="14" font-weight="700">배포</text>
+  </g>
+  <g>
+    <rect x="1154" y="278" width="386" height="402" rx="12" fill="#211914" stroke="#70543f" stroke-width="1.5" stroke-dasharray="7 6"/>
+    <circle cx="1347" cy="432" r="31" fill="#39291f" stroke="#8d5a38" stroke-width="1.5"/>
+    <path d="M1347 416v32M1331 432h32" stroke="#e09a61" stroke-width="3" stroke-linecap="round"/>
+    <text x="1290" y="494" class="text" font-size="18" font-weight="600">사이트 추가</text>
+  </g>
+  <text x="334" y="724" class="caption">큰 틀 검토: 각 사이트 카드에 이미지 영역, 기존 정보와 빠른 작업을 배치합니다.</text>
+  <text x="334" y="750" class="caption">이미지의 원본(빌드/배포 결과)과 오류 안내 위치 등 세부 동작은 여기서 정하지 않습니다.</text>
+  <path d="M334 916h1222" stroke="#514034" stroke-width="1.5"/>
+  <text x="339" y="953" class="text" font-size="16" font-weight="700">BlogGenius</text>
+  <text x="1071" y="953" class="muted" font-size="15">©도전인생 All rights reserved</text>
+</svg>

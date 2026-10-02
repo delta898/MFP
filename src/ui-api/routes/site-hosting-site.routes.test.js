@@ -37,7 +37,8 @@ test('site routes build, preview, and deploy a site', async () => {
             getBuildStatus: (projectId, siteId) => ({ project_id: projectId, site_id: siteId, status: 'succeeded' }),
             startPreview: async (projectId, siteId) => { calls.push(['startPreview', projectId, siteId]); return { url: 'http://127.0.0.1:43210/' }; },
             stopPreview: async (projectId, siteId) => { calls.push(['stopPreview', projectId, siteId]); return { stopped: true }; },
-            deploy: async (projectId, siteId) => { calls.push(['deploy', projectId, siteId]); return { url: 'https://bg-site.workers.dev/' }; }
+            deploy: async (projectId, siteId) => { calls.push(['deploy', projectId, siteId]); return { url: 'https://bg-site.workers.dev/' }; },
+            openBuildFolder: async (projectId, siteId) => { calls.push(['openBuildFolder', projectId, siteId]); return { opened: true }; }
         },
         sendSuccess: async (_res, _id, data) => responses.push(data),
         sendError: async (_res, _id, status, code) => responses.push({ status, code })
@@ -49,8 +50,9 @@ test('site routes build, preview, and deploy a site', async () => {
     await handler({ ...base, method: 'POST', contentType: 'application/json', pathname: `${path}/preview` });
     await handler({ ...base, method: 'DELETE', pathname: `${path}/preview` });
     await handler({ ...base, method: 'POST', contentType: 'application/json', pathname: `${path}/deploy` });
-    assert.deepEqual(calls, [['build', 'project-1', 'site-1'], ['startPreview', 'project-1', 'site-1'], ['stopPreview', 'project-1', 'site-1'], ['deploy', 'project-1', 'site-1']]);
-    assert.deepEqual(responses.map((item) => item.status || item.stopped || item.url), ['succeeded', 'succeeded', 'http://127.0.0.1:43210/', true, 'https://bg-site.workers.dev/']);
+    await handler({ ...base, method: 'POST', contentType: 'application/json', pathname: `${path}/open-folder` });
+    assert.deepEqual(calls, [['build', 'project-1', 'site-1'], ['startPreview', 'project-1', 'site-1'], ['stopPreview', 'project-1', 'site-1'], ['deploy', 'project-1', 'site-1'], ['openBuildFolder', 'project-1', 'site-1']]);
+    assert.deepEqual(responses.map((item) => item.status || item.stopped || item.opened || item.url), ['succeeded', 'succeeded', 'http://127.0.0.1:43210/', true, 'https://bg-site.workers.dev/', true]);
 });
 
 test('site routes reject requests outside the local same-origin app', async () => {
@@ -65,4 +67,25 @@ test('site routes reject requests outside the local same-origin app', async () =
         remoteAddress: '203.0.113.4', host: '127.0.0.1:43127', origin: 'http://127.0.0.1:43127', contentType: 'application/json'
     }), true);
     assert.deepEqual(responses, [{ status: 403, code: 'LOCAL_SITE_MANAGEMENT_REQUIRED' }]);
+});
+
+test('site screenshot route serves stored preview bytes from the local app', async () => {
+    const response = { headers: null, body: null, writeHead(status, headers) { this.status = status; this.headers = headers; }, end(body) { this.body = body; } };
+    const expected = Buffer.from('preview-image');
+    const handler = createSiteHostingSiteRouteHandler({
+        service: { getScreenshot: () => ({ buffer: expected, contentType: 'image/jpeg' }) },
+        sendSuccess: async () => assert.fail('screenshot should be served as bytes'),
+        sendError: async (_res, _id, status, code) => { response.status = status; response.body = code; }
+    });
+    const handled = await handler({
+        method: 'GET',
+        pathname: '/api/v1/site-hosting/projects/default/sites/home/screenshot',
+        remoteAddress: '127.0.0.1', host: '127.0.0.1:43127', origin: 'http://127.0.0.1:43127',
+        res: response
+    });
+    assert.equal(handled, true);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers['Content-Type'], 'image/jpeg');
+    assert.equal(response.headers['Cache-Control'], 'no-store');
+    assert.equal(response.body, expected);
 });

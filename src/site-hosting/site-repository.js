@@ -51,7 +51,7 @@ function createSiteHostingSiteRepository(options = {}) {
                 site.template_name = template.name;
                 site.template_status = 'available';
             }
-            return { ...site, root_path: siteRoot };
+            return { domain: '', ...site, root_path: siteRoot };
         } catch (cause) {
             const error = new Error('사이트 정보를 읽지 못했습니다.');
             error.code = 'SITE_HOSTING_SITE_READ_FAILED';
@@ -112,11 +112,19 @@ function createSiteHostingSiteRepository(options = {}) {
                 name: String(site.name || '').trim(),
                 template: { id: template.id, version: templateSnapshot.version },
                 hostname: '',
+                domain: '',
                 created_at: String(site.created_at || ''),
                 updated_at: String(site.updated_at || '')
             };
             const metadataRoot = pathApi.join(siteRoot, '.bloggenius');
             fileSystem.mkdirSync(metadataRoot, { recursive: true });
+            const templatePreviewPath = templates.copyPreview?.(template.id, pathApi.join(metadataRoot, 'template-preview.svg')) || '';
+            if (templatePreviewPath) {
+                manifest.screenshot = {
+                    template: { path: '.bloggenius/template-preview.svg', captured_at: '' },
+                    latest_build: null
+                };
+            }
             const tempPath = pathApi.join(metadataRoot, `.site.json.${process.pid}.${Date.now()}.tmp`);
             fileSystem.writeFileSync(tempPath, `${JSON.stringify(manifest, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
             fileSystem.renameSync(tempPath, pathApi.join(metadataRoot, 'site.json'));
@@ -159,7 +167,156 @@ function createSiteHostingSiteRepository(options = {}) {
         return readSite(projectId, siteId);
     }
 
-    return { list, get, create, recordDeployment };
+    function recordBuildResult(projectId, siteId, build) {
+        const site = readSite(projectId, siteId);
+        if (!site) {
+            const error = new Error('사이트를 찾을 수 없습니다.');
+            error.code = 'SITE_HOSTING_SITE_NOT_FOUND';
+            error.status = 404;
+            throw error;
+        }
+        const metadataRoot = pathApi.join(site.root_path, '.bloggenius');
+        const manifestPath = pathApi.join(metadataRoot, 'site.json');
+        const manifest = JSON.parse(String(fileSystem.readFileSync(manifestPath, 'utf8') || ''));
+        const updated = {
+            ...manifest,
+            last_build: {
+                status: 'succeeded',
+                build_id: String(build.build_id || ''),
+                completed_at: String(build.completed_at || '')
+            },
+            updated_at: String(build.completed_at || manifest.updated_at || '')
+        };
+        const tempPath = pathApi.join(metadataRoot, `.site.json.${process.pid}.${Date.now()}.tmp`);
+        fileSystem.writeFileSync(tempPath, `${JSON.stringify(updated, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+        fileSystem.renameSync(tempPath, manifestPath);
+        return readSite(projectId, siteId);
+    }
+
+    function recordBuildScreenshot(projectId, siteId, build) {
+        const site = readSite(projectId, siteId);
+        if (!site) {
+            const error = new Error('사이트를 찾을 수 없습니다.');
+            error.code = 'SITE_HOSTING_SITE_NOT_FOUND';
+            error.status = 404;
+            throw error;
+        }
+        const relativePath = String(build?.path || '');
+        if (relativePath !== '.bloggenius/build-preview.jpg') {
+            const error = new Error('사이트 스크린샷 경로가 올바르지 않습니다.');
+            error.code = 'SITE_HOSTING_SCREENSHOT_PATH_INVALID';
+            error.status = 400;
+            throw error;
+        }
+        const filePath = pathApi.resolve(site.root_path, relativePath);
+        const metadataRoot = pathApi.resolve(site.root_path, '.bloggenius');
+        if (!filePath.startsWith(`${metadataRoot}${pathApi.sep}`) || !fileSystem.existsSync(filePath) || !fileSystem.statSync(filePath).isFile()) {
+            const error = new Error('사이트 스크린샷 파일을 찾을 수 없습니다.');
+            error.code = 'SITE_HOSTING_SCREENSHOT_NOT_FOUND';
+            error.status = 404;
+            throw error;
+        }
+        const manifestPath = pathApi.join(metadataRoot, 'site.json');
+        const manifest = JSON.parse(String(fileSystem.readFileSync(manifestPath, 'utf8') || ''));
+        const updated = {
+            ...manifest,
+            screenshot: {
+                ...(manifest.screenshot || {}),
+                latest_build: {
+                    path: relativePath,
+                    build_id: String(build.build_id || ''),
+                    captured_at: String(build.captured_at || ''),
+                    viewport: { width: Number(build.viewport?.width) || 1200, height: Number(build.viewport?.height) || 675 }
+                }
+            },
+            last_build: { status: 'succeeded', build_id: String(build.build_id || ''), completed_at: String(build.captured_at || '') },
+            updated_at: String(build.captured_at || manifest.updated_at || '')
+        };
+        const tempPath = pathApi.join(metadataRoot, `.site.json.${process.pid}.${Date.now()}.tmp`);
+        fileSystem.writeFileSync(tempPath, `${JSON.stringify(updated, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+        fileSystem.renameSync(tempPath, manifestPath);
+        return readSite(projectId, siteId);
+    }
+
+    function getScreenshot(projectId, siteId) {
+        const site = readSite(projectId, siteId);
+        if (!site) {
+            const error = new Error('사이트를 찾을 수 없습니다.');
+            error.code = 'SITE_HOSTING_SITE_NOT_FOUND';
+            error.status = 404;
+            throw error;
+        }
+        const relativePath = String(site.screenshot?.latest_build?.path || site.screenshot?.template?.path || '');
+        if (!/^\.bloggenius\/(?:template-preview\.svg|build-preview\.jpg)$/.test(relativePath)) {
+            const error = new Error('사이트 스크린샷이 없습니다.');
+            error.code = 'SITE_HOSTING_SCREENSHOT_NOT_FOUND';
+            error.status = 404;
+            throw error;
+        }
+        const filePath = pathApi.resolve(site.root_path, relativePath);
+        const metadataRoot = pathApi.resolve(site.root_path, '.bloggenius');
+        if (!filePath.startsWith(`${metadataRoot}${pathApi.sep}`) || !fileSystem.existsSync(filePath) || !fileSystem.statSync(filePath).isFile()) {
+            const error = new Error('사이트 스크린샷 파일을 찾을 수 없습니다.');
+            error.code = 'SITE_HOSTING_SCREENSHOT_NOT_FOUND';
+            error.status = 404;
+            throw error;
+        }
+        return { buffer: fileSystem.readFileSync(filePath), contentType: filePath.endsWith('.svg') ? 'image/svg+xml' : 'image/jpeg' };
+    }
+
+    function recordCustomDomainBinding(projectId, siteId, binding) {
+        const site = readSite(projectId, siteId);
+        if (!site) {
+            const error = new Error('사이트를 찾을 수 없습니다.');
+            error.code = 'SITE_HOSTING_SITE_NOT_FOUND';
+            error.status = 404;
+            throw error;
+        }
+        const manifestPath = pathApi.join(site.root_path, '.bloggenius', 'site.json');
+        const manifest = JSON.parse(String(fileSystem.readFileSync(manifestPath, 'utf8') || ''));
+        const updated = {
+            ...manifest,
+            hostname: String(binding.site_hostname ?? manifest.hostname ?? '').trim(),
+            domain: String(binding.domain ?? manifest.domain ?? '').trim(),
+            custom_domain_binding: {
+                id: String(binding.id || ''),
+                hostname: String(binding.hostname || ''),
+                zone_id: String(binding.zone_id || ''),
+                zone_name: String(binding.zone_name || ''),
+                connected_at: String(binding.connected_at || '')
+            },
+            updated_at: String(binding.connected_at || manifest.updated_at || '')
+        };
+        const tempPath = pathApi.join(pathApi.dirname(manifestPath), `.site.json.${process.pid}.${Date.now()}.tmp`);
+        fileSystem.writeFileSync(tempPath, `${JSON.stringify(updated, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+        fileSystem.renameSync(tempPath, manifestPath);
+        return readSite(projectId, siteId);
+    }
+
+    function update(projectId, siteId, patch = {}) {
+        const site = readSite(projectId, siteId);
+        if (!site) {
+            const error = new Error('사이트를 찾을 수 없습니다.');
+            error.code = 'SITE_HOSTING_SITE_NOT_FOUND';
+            error.status = 404;
+            throw error;
+        }
+        const manifestPath = pathApi.join(site.root_path, '.bloggenius', 'site.json');
+        const manifest = JSON.parse(String(fileSystem.readFileSync(manifestPath, 'utf8') || ''));
+        const updated = {
+            ...manifest,
+            name: String(patch.name ?? manifest.name).trim(),
+            hostname: String(patch.hostname ?? manifest.hostname ?? '').trim(),
+            domain: String(patch.domain ?? manifest.domain ?? '').trim(),
+            updated_at: String(patch.updated_at || new Date().toISOString())
+        };
+        const tempPath = pathApi.join(pathApi.dirname(manifestPath), `.site.json.${process.pid}.${Date.now()}.tmp`);
+        fileSystem.writeFileSync(tempPath, `${JSON.stringify(updated, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+        fileSystem.renameSync(tempPath, manifestPath);
+        return readSite(projectId, siteId);
+    }
+
+    return { list, get, create, update, recordDeployment, recordBuildResult, recordBuildScreenshot, getScreenshot, recordCustomDomainBinding };
 }
 
 module.exports = { SITE_SCHEMA_VERSION, safeSiteId, createSiteHostingSiteRepository };

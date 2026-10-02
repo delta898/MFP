@@ -13,6 +13,20 @@ function createSiteHostingProjectService(deps = {}) {
     const createId = deps.createId || (() => crypto.randomUUID().replace(/-/g, ''));
 
     function list() {
+        const projects = repository.list();
+        if (!projects.length) {
+            const timestamp = now();
+            try {
+                repository.create({
+                    id: 'default',
+                    name: '내 사이트',
+                    created_at: timestamp,
+                    updated_at: timestamp
+                });
+            } catch (error) {
+                if (error?.code !== 'SITE_HOSTING_PROJECT_ALREADY_EXISTS' || !repository.list().length) throw error;
+            }
+        }
         return repository.list().map(({ id, name, root_domain, created_at, updated_at, site_count }) => ({
             id, name, root_domain, created_at, updated_at, site_count
         }));

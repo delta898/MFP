@@ -42,6 +42,7 @@ function createCloudflareSdkAdapter({ client, fetchImpl = globalThis.fetch } = {
 
     return {
         listWorkerScripts: (accountId) => listItems(client.workers.scripts.list({ account_id: accountId })),
+        listZones: (accountId) => listItems(client.zones.list({ account: { id: accountId }, status: 'active' })),
         getWorkersSubdomain: async (accountId) => String((await client.workers.subdomains.get({ account_id: accountId }))?.subdomain || '').trim(),
         createWorker: ({ accountId, workerName }) => client.workers.beta.workers.create({
             account_id: accountId,
@@ -96,7 +97,13 @@ function createCloudflareSdkAdapter({ client, fetchImpl = globalThis.fetch } = {
             if (Array.isArray(page?.result?.deployments)) return page.result.deployments;
             const items = await listItems(page);
             return items.flatMap((item) => Array.isArray(item?.deployments) ? item.deployments : [item]);
-        }
+        },
+        attachWorkerDomain: ({ accountId, hostname, workerName, zoneId }) => client.workers.domains.update({
+            account_id: accountId,
+            hostname,
+            service: workerName,
+            zone_id: zoneId
+        })
     };
 }
 

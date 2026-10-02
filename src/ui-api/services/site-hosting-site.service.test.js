@@ -22,7 +22,10 @@ test('site service lists templates and creates a named site without Cloudflare d
         assert.equal(created.name, '개인 블로그');
         assert.equal(created.hostname, '');
         assert.deepEqual(created.template, { id: 'minimal-homepage', version: '0.1.0' });
-        assert.deepEqual(service.list('project-1').map(({ id, name }) => ({ id, name })), [{ id: 'site-1', name: '개인 블로그' }]);
+        const listed = service.list('project-1');
+        assert.deepEqual(listed.map(({ id, name }) => ({ id, name })), [{ id: 'site-1', name: '개인 블로그' }]);
+        assert.match(listed[0].screenshot_url, /sites\/site-1\/screenshot$/);
+        assert.equal(service.getScreenshot('project-1', 'site-1').contentType, 'image/svg+xml');
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }
@@ -42,6 +45,45 @@ test('site service validates the project, name, and selected template', () => {
     }
 });
 
+test('site service materializes the default starter site only for the default project', () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-default-site-'));
+    try {
+        const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
+        projectRepository.create({ id: 'default', name: '내 사이트' });
+        projectRepository.create({ id: 'other-project', name: '다른 프로젝트' });
+        const service = createSiteHostingSiteService({ fs, path, workspaceDir });
+
+        assert.deepEqual(service.list('default').map(({ id, name, template_name }) => ({ id, name, template_name })), [
+            { id: 'default', name: '나의 첫 사이트', template_name: '간단한 홈페이지' }
+        ]);
+        assert.deepEqual(service.list('default').map(({ id }) => id), ['default']);
+        assert.deepEqual(service.list('other-project'), []);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('site service opens the built output folder and requests preview when it is missing', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-open-build-folder-'));
+    try {
+        const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
+        projectRepository.create({ id: 'project-1', name: '개인 사이트' });
+        const opened = [];
+        const service = createSiteHostingSiteService({
+            fs, path, workspaceDir, projectRepository, createId: () => 'site-1',
+            openPath: async (targetPath) => { opened.push(targetPath); return ''; }
+        });
+        service.create('project-1', { name: '개인 블로그', template_id: 'minimal-homepage' });
+        await assert.rejects(service.openBuildFolder('project-1', 'site-1'), { code: 'SITE_HOSTING_BUILD_REQUIRED', status: 409 });
+        const distPath = path.join(workspaceDir, 'site-hosting', 'projects', 'project-1', 'sites', 'site-1', 'dist');
+        fs.mkdirSync(distPath);
+        assert.deepEqual(await service.openBuildFolder('project-1', 'site-1'), { opened: true });
+        assert.deepEqual(opened, [distPath]);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('site deploy rebuilds the site and saves the Cloudflare workers.dev result', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-site-deploy-'));
     try {
@@ -51,7 +93,7 @@ test('site deploy rebuilds the site and saves the Cloudflare workers.dev result'
         const service = createSiteHostingSiteService({
             fs, path, workspaceDir, projectRepository,
             createId: () => 'site-1', now: () => '2026-10-02T00:00:00.000Z',
-            astroRuntime: { build: async () => { calls.push('build'); } },
+            astroRuntime: { build: async () => { calls.push('build'); return { screenshot: { path: '.bloggenius/build-build1.jpg', build_id: 'build1' } }; } },
             getCloudflareDeploymentCredentials: async () => ({ accessToken: 'secret', account: { id: 'a'.repeat(32) } }),
             cloudflareDeployer: { deploy: async (_site, credentials) => {
                 calls.push('deploy');
@@ -63,6 +105,7 @@ test('site deploy rebuilds the site and saves the Cloudflare workers.dev result'
         const result = await service.deploy('project-1', 'site-1');
         assert.deepEqual(calls, ['build', 'deploy']);
         assert.equal(result.url, 'https://bg-site-1.example.workers.dev/');
+        assert.equal(result.screenshot.build_id, 'build1');
         assert.equal(service.list('project-1')[0].deployment.worker_name, 'bg-site-1');
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });

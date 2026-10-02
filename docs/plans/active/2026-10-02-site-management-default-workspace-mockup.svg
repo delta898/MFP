@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" role="img" aria-labelledby="title description">
+  <title id="title">BlogGenius 기본 사이트 관리 화면 목업</title>
+  <desc id="description">기본 프로젝트 아래 두 사이트가 있으며 미리보기, 폴더 열기, 배포를 선택하는 화면.</desc>
+  <defs>
+    <linearGradient id="page" x2="0" y2="1"><stop stop-color="#211914"/><stop offset="1" stop-color="#17120f"/></linearGradient>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+      .muted { fill: #b6a697; }
+      .text { fill: #f0e5d8; }
+      .caption { fill: #a99584; font-size: 15px; }
+      .outline { fill: #2d231d; stroke: #554237; stroke-width: 1.5; }
+    </style>
+  </defs>
+  <rect width="1600" height="1000" rx="22" fill="url(#page)"/>
+  <rect x="0" y="0" width="290" height="1000" rx="22" fill="#2c221c"/>
+  <path d="M289 0v1000" stroke="#514034" stroke-width="2"/>
+  <text x="38" y="62" class="text" font-size="31" font-weight="700">BlogGenius</text>
+  <text x="44" y="125" class="muted" font-size="15">홈</text>
+  <text x="84" y="166" class="muted" font-size="21">▦　대시보드</text>
+  <path d="M32 205h226" stroke="#514034"/>
+  <text x="44" y="244" class="muted" font-size="15">웹사이트</text>
+  <rect x="24" y="263" width="242" height="56" rx="10" fill="#cc7842"/>
+  <text x="54" y="299" fill="#251812" font-size="20" font-weight="700">▣　사이트</text>
+  <path d="M32 345h226" stroke="#514034"/>
+  <text x="44" y="384" class="muted" font-size="15">콘텐츠</text>
+  <text x="54" y="429" class="muted" font-size="20">☷　블로그</text>
+  <text x="54" y="478" class="muted" font-size="20">▧　카드뉴스</text>
+  <text x="54" y="527" class="muted" font-size="20">▢　쇼핑커넥트</text>
+  <text x="54" y="576" class="muted" font-size="20">♧　SNS</text>
+  <path d="M32 612h226" stroke="#514034"/>
+  <text x="44" y="651" class="muted" font-size="15">계정</text>
+  <text x="54" y="696" class="muted" font-size="20">♙　내 정보</text>
+  <path d="M32 732h226" stroke="#514034"/>
+  <text x="44" y="771" class="muted" font-size="15">시스템</text>
+  <text x="54" y="816" class="muted" font-size="20">◴　설정</text>
+
+  <text x="334" y="88" class="text" font-size="38" font-weight="700">사이트</text>
+  <text x="334" y="126" class="muted" font-size="19">프로젝트와 사이트를 관리합니다.</text>
+  <rect x="1371" y="190" width="185" height="46" rx="9" class="outline"/>
+  <text x="1401" y="219" class="text" font-size="16" font-weight="600">프로젝트 관리</text>
+  <text x="334" y="220" class="text" font-size="29" font-weight="700">내 사이트</text>
+  <text x="334" y="250" class="caption">기본 프로젝트</text>
+
+  <text x="334" y="327" class="caption">2개</text>
+  <rect x="1431" y="297" width="125" height="48" rx="9" fill="#d27c43"/>
+  <text x="1452" y="328" fill="#21150f" font-size="17" font-weight="700">사이트 추가</text>
+
+  <rect x="334" y="365" width="1222" height="143" rx="12" class="outline"/>
+  <text x="362" y="408" class="text" font-size="20" font-weight="700">나의 첫 사이트</text>
+  <text x="362" y="439" class="muted" font-size="16">간단한 홈페이지 · 로컬에 준비됨</text>
+  <rect x="362" y="460" width="66" height="27" rx="14" fill="#403329"/>
+  <text x="376" y="479" fill="#c3b19e" font-size="13">미배포</text>
+  <rect x="990" y="414" width="111" height="44" rx="8" class="outline"/>
+  <text x="1017" y="442" class="text" font-size="15">미리보기</text>
+  <rect x="1110" y="414" width="111" height="44" rx="8" class="outline"/>
+  <text x="1137" y="442" class="text" font-size="15">폴더 열기</text>
+  <rect x="1230" y="414" width="104" height="44" rx="8" fill="#d27c43"/>
+  <text x="1262" y="442" fill="#21150f" font-size="15" font-weight="700">배포</text>
+
+  <rect x="334" y="526" width="1222" height="143" rx="12" class="outline"/>
+  <text x="362" y="569" class="text" font-size="20" font-weight="700">제품 소개</text>
+  <text x="362" y="600" class="muted" font-size="16">간단한 홈페이지 · 로컬에 준비됨</text>
+  <rect x="362" y="621" width="66" height="27" rx="14" fill="#334033"/>
+  <text x="376" y="640" fill="#a4c28e" font-size="13">배포됨</text>
+  <rect x="990" y="575" width="111" height="44" rx="8" class="outline"/>
+  <text x="1017" y="603" class="text" font-size="15">미리보기</text>
+  <rect x="1110" y="575" width="111" height="44" rx="8" class="outline"/>
+  <text x="1137" y="603" class="text" font-size="15">폴더 열기</text>
+  <rect x="1230" y="575" width="104" height="44" rx="8" fill="#d27c43"/>
+  <text x="1262" y="603" fill="#21150f" font-size="15" font-weight="700">배포</text>
+
+  <text x="334" y="711" class="caption">미리보기는 전체 빌드 후 열립니다.</text>
+  <path d="M334 916h1222" stroke="#514034" stroke-width="1.5"/>
+  <text x="339" y="953" class="text" font-size="16" font-weight="700">BlogGenius</text>
+  <text x="1071" y="953" class="muted" font-size="15">©도전인생 All rights reserved</text>
+</svg>

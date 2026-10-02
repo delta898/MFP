@@ -22,6 +22,9 @@ test('temporary homepage template is listed as metadata and copied from its Astr
         assert.equal(fs.existsSync(path.join(destination, 'astro.config.mjs')), true);
         assert.equal(fs.existsSync(path.join(destination, 'src', 'pages', 'index.astro')), true);
         assert.equal(fs.existsSync(path.join(destination, '.bloggenius')), false);
+        const previewPath = path.join(destination, '.bloggenius', 'template-preview.svg');
+        assert.equal(catalog.copyPreview('minimal-homepage', previewPath), previewPath);
+        assert.equal(fs.readFileSync(previewPath, 'utf8').includes('새로운 사이트를 시작해 보세요.'), true);
     } finally {
         fs.rmSync(destination, { recursive: true, force: true });
     }

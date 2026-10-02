@@ -26,12 +26,16 @@ function createSiteTemplateCatalog(options = {}) {
             }
             const sourceRoot = pathApi.resolve(templateRoot, sourceDirectory);
             if (!sourceRoot.startsWith(`${pathApi.resolve(templateRoot)}${pathApi.sep}`) || !fileSystem.existsSync(sourceRoot)) return null;
+            const previewFile = String(descriptor.preview_file || '').trim();
+            if (previewFile && (pathApi.isAbsolute(previewFile) || previewFile.split(/[\\/]/).includes('..')
+                || !fileSystem.existsSync(pathApi.resolve(templateRoot, previewFile)))) return null;
             return {
                 id: safeId,
                 version: String(descriptor.version),
                 name: String(descriptor.name),
                 description: String(descriptor.description || ''),
-                source_root: sourceRoot
+                source_root: sourceRoot,
+                preview_file: previewFile ? pathApi.resolve(templateRoot, previewFile) : ''
             };
         } catch (_error) {
             return null;
@@ -44,7 +48,7 @@ function createSiteTemplateCatalog(options = {}) {
             .filter((entry) => entry.isDirectory() && TEMPLATE_ID_PATTERN.test(entry.name))
             .map((entry) => readTemplate(entry.name))
             .filter(Boolean)
-            .map(({ id, version, name, description }) => ({ id, version, name, description }))
+            .map(({ id, version, name, description, preview_file }) => ({ id, version, name, description, has_preview: Boolean(preview_file) }))
             .sort((left, right) => left.name.localeCompare(right.name, 'ko'));
     }
 
@@ -87,7 +91,15 @@ function createSiteTemplateCatalog(options = {}) {
         return { id: template.id, version: template.version };
     }
 
-    return { templatesRoot, list, get, copySource };
+    function copyPreview(id, destination) {
+        const template = readTemplate(id);
+        if (!template?.preview_file) return '';
+        fileSystem.mkdirSync(pathApi.dirname(destination), { recursive: true });
+        fileSystem.copyFileSync(template.preview_file, destination);
+        return destination;
+    }
+
+    return { templatesRoot, list, get, copySource, copyPreview };
 }
 
 module.exports = { TEMPLATE_ID_PATTERN, createSiteTemplateCatalog };

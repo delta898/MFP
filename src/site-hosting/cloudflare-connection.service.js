@@ -245,7 +245,7 @@ function createCloudflareConnectionService(deps = {}) {
                 client_id: requireClientId(),
                 redirect_uri: REDIRECT_URI,
                 response_type: 'code',
-                scope: 'memberships.read workers-scripts.read workers-scripts.write offline_access',
+                scope: 'memberships.read workers-scripts.edit zone.read workers-routes.write offline_access',
                 prompt: 'consent',
                 state,
                 code_challenge: challenge,

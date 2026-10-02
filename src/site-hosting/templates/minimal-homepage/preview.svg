@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
+  <rect width="1200" height="675" fill="#fbf7f2"/>
+  <rect x="1" y="1" width="1198" height="673" rx="24" fill="none" stroke="#e8ddd2" stroke-width="2"/>
+  <g font-family="system-ui, sans-serif" text-anchor="middle">
+    <text x="600" y="286" fill="#30251f" font-size="54" font-weight="700">새로운 사이트를 시작해 보세요.</text>
+    <text x="600" y="354" fill="#756960" font-size="26">이 페이지는 선택한 템플릿에서 만들어졌습니다.</text>
+    <text x="600" y="396" fill="#756960" font-size="26">Astro 편집 도구에서 자유롭게 바꿀 수 있습니다.</text>
+  </g>
+</svg>

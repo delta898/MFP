@@ -32,7 +32,7 @@ function createSiteHostingSiteRouteHandler(deps = {}) {
             && !pathname.startsWith('/api/v1/site-hosting/projects/')) return false;
         const { method, requestId, res } = ctx;
         const contentType = String(ctx.contentType || '').split(';', 1)[0].trim().toLowerCase();
-        if (!isLoopbackRequest(ctx) || (method === 'POST' && contentType !== 'application/json')) {
+        if (!isLoopbackRequest(ctx) || (['POST', 'PUT'].includes(method) && contentType !== 'application/json')) {
             await sendError(res, requestId, 403, 'LOCAL_SITE_MANAGEMENT_REQUIRED', '사이트 관리는 BlogGenius에서만 사용할 수 있습니다.');
             return true;
         }
@@ -42,7 +42,7 @@ function createSiteHostingSiteRouteHandler(deps = {}) {
                 await sendSuccess(res, requestId, service.listTemplates());
                 return true;
             }
-            const siteActionMatch = pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)\/(build|build-status|preview|deploy)$/);
+            const siteActionMatch = pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)\/(build|build-status|preview|deploy|open-folder|zones|custom-domain)$/);
             if (siteActionMatch) {
                 const projectId = decodePathPart(siteActionMatch[1]);
                 const siteId = decodePathPart(siteActionMatch[2]);
@@ -67,7 +67,36 @@ function createSiteHostingSiteRouteHandler(deps = {}) {
                     await sendSuccess(res, requestId, await service.deploy(projectId, siteId));
                     return true;
                 }
+                if (action === 'open-folder' && method === 'POST') {
+                    await sendSuccess(res, requestId, await service.openBuildFolder(projectId, siteId));
+                    return true;
+                }
+                if (action === 'zones' && method === 'GET') {
+                    await sendSuccess(res, requestId, await service.listCloudflareZones(projectId, siteId));
+                    return true;
+                }
+                if (action === 'custom-domain' && method === 'POST') {
+                    await sendSuccess(res, requestId, await service.connectCustomDomain(projectId, siteId, ctx.requestBody || {}));
+                    return true;
+                }
                 return false;
+            }
+            const screenshotMatch = pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)\/screenshot$/);
+            if (screenshotMatch && method === 'GET') {
+                const screenshot = service.getScreenshot(decodePathPart(screenshotMatch[1]), decodePathPart(screenshotMatch[2]));
+                res.writeHead(200, {
+                    'Content-Type': screenshot.contentType,
+                    'Content-Length': screenshot.buffer.length,
+                    'Cache-Control': 'no-store',
+                    'X-Content-Type-Options': 'nosniff'
+                });
+                res.end(screenshot.buffer);
+                return true;
+            }
+            const siteMatch = pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)$/);
+            if (siteMatch && method === 'PUT') {
+                await sendSuccess(res, requestId, service.update(decodePathPart(siteMatch[1]), decodePathPart(siteMatch[2]), ctx.requestBody || {}));
+                return true;
             }
             const sitesMatch = pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites$/);
             if (!sitesMatch) return false;
