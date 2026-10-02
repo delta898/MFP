@@ -12,7 +12,7 @@
 
 BlogGenius currently supports Naver Blog and WordPress as publishing destinations. The user wants to add Astro-based static sites deployed to Cloudflare Static Assets, including site creation and management in addition to publishing content. The product goal is to make this workflow accessible without requiring users to understand Docker, npm, or Cloudflare tooling.
 
-The user intends this to be the only feature-development track for the near term; bug fixes may continue independently. Work should be divided into independently reviewable sub-feature branches created from this parent branch. The parent branch name must include `-main` for clear identification. This parent currently branches from `main` and may later merge into `dev`; future feature work should branch from `dev`, then use the parent/sub-feature hierarchy with reverse-order integration.
+The user intends this to be the only feature-development track for the near term; bug fixes may continue independently. Work should be divided into independently reviewable sub-feature branches created serially from this parent branch and merged back here before the next sub-feature begins. The parent branch name must include `-main` for clear identification. This parent currently branches from `main` and may later merge into `dev` only on the user's explicit instruction. The initial 2026-10-01 idea that future feature work would branch directly from `dev` was refined on 2026-10-02: current static-site sub-features branch from this `-main` integration branch.
 
 ## Scope
 
@@ -73,18 +73,29 @@ BlogGenius (desktop UI) ── 참조/가져오기 ──> 외부 template 저�
 
 합의된 경계: BlogGenius는 template을 저작하거나 관리하는 site builder가 아니며, Amade CLI를 호출·포함·의존하지 않는다. 외부 저장소가 template 모음을 소유하고 BlogGenius가 이를 참조한다. 별도 CLI 소비자는 현재 요구사항이 아니며 추후 논의한다.
 
-## Candidate user journey (discussion draft)
+## User journey and BlogGenius surfaces (current proposal)
 
-1. User has a Cloudflare account.
-2. BlogGenius 사용자 단위로 Cloudflare OAuth를 한 번 연결한다. Cloudflare 사용자는 여러 account에 접근할 수 있다.
-3. Project는 관리 묶음이며, 각 Project에 접근 가능한 Cloudflare account 하나를 선택한다. 한 Project에는 여러 Site를 둘 수 있고 Project마다 다른 account를 선택할 수 있다.
-4. For each site, select a managed template and configure the fields it exposes.
-5. Edit the same Astro source project using a separate Astro-capable tool when deeper edits are needed. The normal collaboration model is shared source on the same machine; export/import is a secondary cross-machine transfer path.
-6. Cloudflare 인증 없이 로컬에서 build/preview 한다. Cloudflare는 원격 배포 시에만 필요하며, 배포 대상은 Cloudflare Static Assets다.
-7. A Site can be deployed and inspected without a custom domain using its Cloudflare `workers.dev` address. A custom domain is optional and can be connected through Cloudflare when desired.
-8. Create an article in BlogGenius's writing workflow, publish it to the chosen static site, then rebuild/deploy the updated site.
+Cloudflare is a deployment connection, not a prerequisite for creating or working on a Site. The proposed user-facing responsibilities are:
 
-Each Site is an independent build/deploy unit. A Project may have zero or one configured root domain: it may be created and used before the user owns or chooses a domain, but Sites in one Project must not use multiple unrelated root domains. When the Project has a root domain, a Site's optional hostname is interpreted within that domain (for example, `www` produces `www.example.com`, while `docs` produces `docs.example.com`); whether to represent the apex hostname specially remains a contract detail. A Site without a custom hostname still has its own `workers.dev` URL. To manage a separate root domain, the user creates a separate Project. This is the agreed policy direction and remains to be reflected in a later data/UX contract. Cloudflare custom-domain attachment requires an active zone, and an existing CNAME at the chosen hostname can block attachment; the app must check and explain conflicts rather than silently changing DNS. Local preview must not silently imply an extra user-installed tool.
+| BlogGenius surface | What the user does there | Cloudflare required? |
+| --- | --- | --- |
+| `설정 > 기본 연결 > 사이트 호스팅` | Connect/reconnect Cloudflare once and inspect accessible accounts | Only to authorize deployment later; connection can be deferred |
+| New top-level `사이트` surface | Create/manage Projects and Sites, choose an external template, set the Project's optional root domain and storage root, configure template-supported fields | No |
+| Project detail | See its Sites and shared Project settings; choose/bind one accessible Cloudflare account when first deploying a Site in this Project | Only when starting remote deployment |
+| Site detail | Open the shared Astro source folder in another tool, run BlogGenius-managed local preview/build, inspect build status, and deploy this Site | Preview/build: no. Deployment: yes |
+| Blog writing workflow | Create content and choose a managed Site as a publishing destination; BlogGenius writes the content into that Site and rebuilds/deploys according to the agreed publishing flow | Local content/build may not; remote deploy does |
+
+Proposed first-use journey:
+
+1. Open `사이트` and create a Project. BlogGenius proposes `workspace/site-hosting/projects/{project-id}` as its root. The user may keep that location or choose a different Project root. The Project can be created without a Cloudflare connection or account binding.
+2. Set an actual custom root domain only if one is known. It is optional; do not use a fake placeholder. Add a Site and choose a template from the external catalog.
+3. BlogGenius creates the Site package under `{project-root}/sites/{site-id}`. The Astro project root remains standard and can be opened by a separate Astro-capable tool; BlogGenius metadata is kept separately inside the package.
+4. Set the template's supported fields, edit source in the external tool as needed, and build/preview locally without Cloudflare.
+5. When the user chooses `배포`, connect Cloudflare if needed, select one accessible account for the Project, and deploy the Site. A Site uses its own Worker target (1:1 is the current candidate policy). The `workers.dev` URL is generated/obtained without requiring a custom domain.
+6. Optionally configure the Project's single root domain and a Site hostname later. Apex handling remains a separate feature.
+7. In the Blog writing flow, choose a Site as the content destination. Publishing content updates the selected Site and follows the separately agreed build/deploy confirmation flow.
+
+Each Site is an independent build/deploy unit. A Project may have zero or one configured custom root domain: it may be created and used before the user owns or chooses one, but Sites in one Project must not use multiple unrelated root domains. When the Project has a root domain, a Site's optional hostname is interpreted within that domain (for example, `www` produces `www.example.com`, while `docs` produces `docs.example.com`). The Site's `workers.dev` address is an internal deployment address, not a user-entered custom domain. To manage a separate root domain, create a separate Project. Apex handling remains separate. Cloudflare custom-domain attachment requires an active zone, and an existing DNS record can block attachment; the app must explain conflicts rather than silently changing DNS. Local preview must not require an extra user-installed tool.
 
 ## Platform prerequisite requirement
 
@@ -95,10 +106,10 @@ Each Site is an independent build/deploy unit. A Project may have zero or one co
 
 ## Design questions to resolve
 
-1. How should the data/UI represent a Site's optional custom hostname before a Project has a root domain, and how should the apex hostname be represented? `www` and other subdomain labels are allowed under the Project's single root domain; separate root domains require separate Projects.
+1. How should the Site's optional hostname be represented when a Project has no custom root domain? The Project may have zero or one root domain; `www` and other subdomain labels belong under that root. Apex handling is separate.
 2. The default source-sharing model is a shared local Astro project. What file ownership and change-detection rules are needed when an external editor changes it? Should Git remain optional, and is export/import sufficient for cross-machine transfer?
 3. Where do Astro dependencies, local preview, and builds run while preserving the no-extra-tool installation requirement?
-4. 사용자 단위 Cloudflare 연결과 Project별 account 선택, 배포 승인 및 복구를 어떻게 하며 site script나 산출물에 비밀정보가 노출되지 않게 할까?
+4. 사용자 단위 Cloudflare 연결, 첫 배포 때 Project account binding, 배포 승인 및 복구를 어떻게 하며 site script나 산출물에 비밀정보가 노출되지 않게 할까?
 5. 외부 template 저장소는 BlogGenius가 가져갈 source/사양/catalog를 어떻게 배포할까? 기존 Amade workflow와 template은 요구사항에서 제외한다.
 6. How does the external template catalog work (version pinning, cache/offline behavior, compatibility, integrity, and trusted distribution)?
 7. How should a BlogGenius article map to static-site content, and how should edits, scheduling, deletion, and failed redeployment behave?
@@ -112,15 +123,16 @@ Keep user choices separate from implementation state. The Project owns the optio
 
 | User-facing/site configuration candidates | Internally managed candidates |
 | --- | --- |
+| Project display name and optional Project root folder | Stable Project ID and machine-local root-path registry |
 | Site display name (for example, “Product docs”) | Stable Site ID |
 | Selected template and pinned template version | Parent Project ID |
 | Template-supported settings (for example title, logo, menu) | Local Astro source location and source state |
-| Optional hostname label under the Project domain (for example `www`, `docs`) | Build/dependency/runtime metadata and build output location |
-| Optional custom-domain attachment and canonical-host preference, if supported | Cloudflare account/Worker identifiers and `workers.dev` URL |
+| Optional Project custom root domain; optional Site hostname under it (for example `www`, `docs`) | Build/dependency/runtime metadata and build output location |
+| Cloudflare account choice when deploying; optional custom-domain attachment | Cloudflare account/Worker identifiers and `workers.dev` URL |
 | Content/site publishing choices supported by the selected template | Deployment history, status, timestamps, and diagnostics |
 |  | Credentials/tokens in secure credential storage, never in site source/config |
 
-This is a candidate list, not a committed schema. A hostname is exact: `www.example.com` and `example.com` are separate hostnames. Cloudflare Custom Domains attach to an exact hostname; supporting both requires a redirect or a second hostname attachment/configuration. Therefore, selecting `www` does not itself make the apex `example.com` work. The initial product can treat the Site's chosen hostname as canonical and defer apex alias/redirect handling, while explaining that distinction. Cloudflare can attach a Custom Domain to the apex as well as subdomains, subject to zone and DNS conditions.
+This is a candidate list, not a committed schema. A hostname is exact: `www.example.com` and `example.com` are separate hostnames. Cloudflare Custom Domains attach to an exact hostname; supporting both requires separate hostname handling. Selecting `www` does not itself make the apex `example.com` work. Apex alias/redirect handling remains a separate feature.
 
 ## Proposed boundaries to evaluate
 
@@ -244,13 +256,20 @@ The Cloudflare PoC follows the user journey rather than selecting a technology s
 ### 2026-10-02 — 현재 유효한 제품 경계
 
 - Cloudflare OAuth는 BlogGenius 사용자/설치 범위에서 연결한다. 사용자는 여러 Cloudflare account에 접근할 수 있으며 각 Project는 그중 account 하나를 선택한다. Site마다 Worker 배포 대상을 둔다.
+- Cloudflare는 배포 기능의 prerequisite다. Project/Site 생성, template 설정, Astro 편집, local build/preview는 OAuth 연결 및 Cloudflare account 지정 없이 가능해야 한다. 계정 연결과 Project account binding은 첫 배포까지 미뤄도 된다.
 - Astro build와 preview는 로컬에서 수행하며 Cloudflare와 무관하다. OAuth 연결/account는 원격 배포 시점에만 필요하다.
+- Project/Site 관리는 설정의 Cloudflare 연결 카드가 아니라 별도 `사이트` top-level surface에 둔다. Cloudflare 연결은 설정에서 하고, static-site content destination은 BlogGenius 글쓰기 흐름에서 선택하는 안을 제안한다.
+- 기본 Project root는 `workspace/site-hosting/projects/{project_id}`이고, 사용자는 Project별 다른 root를 지정할 수 있다. 각 Site는 Project root 아래 `sites/{site_id}`에 저장한다. Project metadata는 그 root에 두며, machine-local absolute path는 portable manifest와 분리하는 방향을 검토한다.
+- 사용자는 논의를 무한정 끝내기보다 큰 경계와 위험을 먼저 합의한 뒤, 구현 결과에서 새로 드러난 점을 문서화하고 보완하는 반복 방식을 선택했다. 매 하위 기능 전마다 전체 설계를 다시 확정할 필요는 없다.
+- 현재 UX 제안은 `설정 > 기본 연결 > 사이트 호스팅`에서 Cloudflare만 연결하고, 별도 `사이트` 화면에서 Project/Site 생성·편집·local preview/build/deploy를 관리하는 것이다. BlogGenius 글쓰기 화면에서 Site를 발행 대상으로 고르는 안은 사용자 확인 전이다.
+- sidebar에 `웹사이트` 소그룹과 `사이트` 항목을 추가한다. 사용자는 `홈 → 웹사이트 → 콘텐츠 → 계정 → 시스템`을 잠정 순서로 적용하고 사용 후 변경하기로 했다. `웹사이트`를 먼저 두면 Project/Site/source/build/deploy를 아우르는 영역의 제품상 비중과 사이트 준비 흐름이 드러난다. `콘텐츠`를 먼저 두면 기존 BlogGenius의 익숙한 글쓰기·발행 흐름을 우선할 수 있다. 두 그룹은 부모·자식이 아닌 형제 영역이며, 실제 사용 흐름과 메뉴 탐색성을 확인한 뒤 순서를 재검토한다. `사이트` 첫 화면은 이후 Project 목록이 되며, 메뉴 slice에서는 준비 중 상태만 간결하게 알린다.
 - 가칭 Amade2는 외부 template source repository다. 저작 도구/CLI가 아니며 BlogGenius는 이 repository의 catalog와 source를 참조한다. 별도 consumer/tool 논의는 후속으로 미룬다.
 - 이 최신 합의는 위의 과거 진행 기록 중 “Amade2 CLI” 또는 build 단계의 Cloudflare 의존을 전제한 문장을 대체한다.
+- 이후 하위 기능은 직렬로 진행한다. 현재 `codex/project-site-model-and-flow` 설계 단계를 이 `codex/static-site-builder-main`에 먼저 병합하고, 메뉴 진입점 작업은 병합 완료 후 이 부모 브랜치에서 새 하위 브랜치로 시작한다. 이는 2026-10-01 기록의 “미래 작업은 dev에서 시작” 방침을 현재 sub-feature 흐름에 맞춰 구체화한 것이다.
 
 ## Verification and handoff
 
 - Automated verification: not applicable; documentation/branch setup only.
 - Manual review: user and agent should agree on initial product scenarios, source ownership, and local-vs-remote execution before the first implementation sub-feature.
-- Current worktree changes are tracked by the active sub-feature branch and its development record.
+- Current sub-feature work is tracked by its branch-specific development record; the parent integration record summarizes cross-stage decisions.
 - Remaining risks: execution model and data/credential ownership materially affect privacy, cost, OS support, and feasibility; they must be resolved before product implementation.
