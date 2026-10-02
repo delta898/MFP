@@ -2398,7 +2398,7 @@ async function run() {
             showUiConfirm = async () => true;
         });
         reportSmokePhase('Checking current Settings, account, logs, and active-surface navigation');
-        for (const viewName of ['account', 'social', 'settings', 'logs', 'shopping', 'dashboard-beta', 'blog-next']) {
+        for (const viewName of ['account', 'social', 'settings', 'logs', 'shopping', 'site-hosting', 'dashboard-beta', 'blog-next']) {
             const expectedViewName = viewName === 'settings' ? 'settings-next' : viewName;
             if (await page.locator(`.nav-btn[data-view="${viewName}"]`).isVisible()) {
                 await page.locator(`.nav-btn[data-view="${viewName}"]`).click();
@@ -5654,6 +5654,12 @@ async function run() {
         await page.locator('#mobile-menu-btn').click();
         await page.waitForFunction(() => document.querySelector('.sidebar')?.classList.contains('open'));
         assert.equal(await page.locator('#sidebar-overlay').evaluate((element) => element.classList.contains('active')), true);
+        await page.locator('.nav-btn[data-view="site-hosting"]').click();
+        await page.waitForFunction(() => document.getElementById('view-site-hosting')?.classList.contains('active'));
+        await page.waitForFunction(() => !document.querySelector('.sidebar')?.classList.contains('open'));
+        assert.equal((await page.locator('#view-site-hosting h1').textContent())?.trim(), '사이트');
+        await page.locator('#mobile-menu-btn').click();
+        await page.waitForFunction(() => document.querySelector('.sidebar')?.classList.contains('open'));
         await page.locator('#sidebar-overlay').click({ position: { x: 380, y: 420 } });
         await page.waitForFunction(() => !document.querySelector('.sidebar')?.classList.contains('open'));
 

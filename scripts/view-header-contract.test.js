@@ -8,6 +8,7 @@ const read = (relativePath) => fs.readFileSync(path.join(repoRoot, relativePath)
 
 const viewHeaders = [
   ['ui/partials/views/dashboard-beta.html', 'Dashboard', '글쓰기 흐름과 다음 발행 계획을 한눈에 확인합니다.'],
+  ['ui/partials/views/site-hosting.html', '사이트', '프로젝트와 사이트를 관리합니다.'],
   ['ui/partials/views/blog-next.html', '블로그', '글감을 빠르게 쌓아두고, 준비된 글을 한 건씩 이어서 발행하는 새로운 흐름입니다.'],
   ['ui/partials/views/shopping.html', '쇼핑커넥트', '쇼핑 상품 정보를 분석해 콘텐츠를 만들고 발행합니다.'],
   ['ui/partials/views/social.html', 'SNS', '짧은 생각과 기록을 설정된 Buffer 채널에 바로 발행합니다.'],
@@ -16,6 +17,14 @@ const viewHeaders = [
   ['ui/partials/views/logs.html', '로그 및 이력', '최근 활동 이력과 시스템 로그를 확인합니다.'],
   ['ui/partials/views/help.html', '도움말', '처음 설정하는 방법부터 글쓰기와 자동화 활용법까지 한곳에서 찾아보세요.']
 ];
+
+test('site hosting placeholder uses the shared empty-state heading style', () => {
+  const html = read('ui/partials/views/site-hosting.html');
+  assert.match(
+    html,
+    /<section class="ui-empty-state" aria-labelledby="site-hosting-coming-soon-title">\s*<h3 id="site-hosting-coming-soon-title">사이트 관리 기능을 준비하고 있습니다\.<\/h3>\s*<\/section>/
+  );
+});
 
 test('every top-level view uses the shared title and description structure', () => {
   viewHeaders.forEach(([file, title, description]) => {
