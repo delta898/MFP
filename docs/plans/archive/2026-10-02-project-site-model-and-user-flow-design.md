@@ -6,7 +6,7 @@
 - 시작일: 2026-10-02
 - Base/parent branch: `codex/static-site-builder-main`
 - 상태: 설계 단계 완료; 세부 계약은 구현 slice에서 보완
-- 상위 feature 기록: [Static Site Builder 전체 계획](2026-10-01-static-site-builder-main-development.md)
+- 상위 feature 기록: [Static Site Builder 전체 계획](../active/2026-10-01-static-site-builder-main-development.md)
 
 ## 사용자 필요와 목표
 
@@ -42,7 +42,7 @@ BlogGenius 안에서 사용자가 Project와 Site를 이해하고 관리할 수 
 - custom domain과 site hostname은 분리된 개념으로 논의했다. `www`도 허용하고 apex 처리는 별도 기능으로 다룬다.
 - Site source는 기본적으로 같은 기기의 Astro project를 외부 편집 도구와 공유한다. 다른 기기로 옮길 때 export/import를 제공하는 방향이다.
 - BlogGenius는 site builder가 아니다. 외부 template repository의 catalog를 참조하고 제한된 template 설정만 받는다.
-- 기존 합의 기록은 [상위 계획의 사용자 흐름/사이트 속성 초안](2026-10-01-static-site-builder-main-development.md)을 참고하되, 기록의 초안과 최신 합의 사이의 모호함은 검증한다.
+- 기존 합의 기록은 [상위 계획의 사용자 흐름/사이트 속성 초안](../active/2026-10-01-static-site-builder-main-development.md)을 참고하되, 기록의 초안과 최신 합의 사이의 모호함은 검증한다.
 
 ## 사용자 논의 메모 (2026-10-02, 아직 구현/최종 계약 전)
 

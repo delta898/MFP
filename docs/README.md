@@ -101,7 +101,8 @@
 - `plans/active/2026-10-01-static-template-contract-spike-development.md`
 - `plans/active/2026-10-02-cloudflare-static-assets-list-poc-development.md`
 - `plans/active/2026-10-02-cloudflare-static-assets-deploy-poc-development.md`
-- `plans/active/2026-10-01-static-site-builder-main-development.md` (`main` → `codex/static-site-builder-main` → sub-features; future features branch from `dev`)
+- `plans/active/2026-10-01-static-site-builder-main-development.md` (`main` → `codex/static-site-builder-main` → serial sub-features; the parent may merge into `dev` only by explicit request)
+- `plans/archive/2026-10-02-project-site-model-and-user-flow-design.md` (completed Project/Site model and user-flow design stage)
 - `plans/archive/2026-09-30-release-v0.5.5-development.md`
 - `plans/archive/2026-10-01-ai-model-save-without-key-development.md`
 - `plans/archive/2026-09-15-telegram-network-resilience-development.md`
