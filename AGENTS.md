@@ -15,6 +15,7 @@
 
 ## User-Defined Shortcuts
 - When the user says `cmd` or `[cmd]`, interpret it as: commit the current feature work, merge the feature branch into its parent branch, then delete the successfully merged feature branch.
+- When the user says `rv` or `[rv]`, interpret it as a request to review the current changes against their target branch and report actionable findings by severity and file/line. Do not modify code unless the user asks.
 - Resolve the parent using the branch policy: a sub-feature merges into its parent feature branch; a standalone feature branch merges into its base/integration branch (commonly `dev`).
 - Apply the normal validation and safety rules before committing or merging. Keep unrelated working-tree changes out of the feature commit, request approval where required (including the full unit suite before merging into `dev`), and do not push unless the user explicitly asks.
 - Append future user-defined shortcut commands to this section, keeping each definition concise and unambiguous.
@@ -86,6 +87,14 @@
 - Create `release/vX.Y.Z` from the intended integration branch only when release preparation begins. Release branches contain stabilization, release notes, version metadata, and release-only fixes rather than unrelated feature expansion.
 - Prefer fast-forward merges when branch history permits. Never rewrite shared history to force a merge.
 - Before every merge or branch deletion, confirm the current branch, target branch, merge status, and working-tree state. Never discard uncommitted user work to make Git operations convenient.
+
+## Code Review
+- Before every merge, review the complete change set against its target branch, regardless of whether the target is a parent feature branch, `-main`, `dev`, `main`, or a release branch.
+- A merge containing code, configuration, tests, or build/release logic requires review. A documentation-only merge may skip review; a mixed documentation and implementation change still requires it.
+- A commit request by itself does not trigger code review. Review is required before the subsequent merge.
+- Report actionable findings with severity and file/line references. Resolve findings or explicitly record the accepted risk before merging.
+- Code review is separate from automated testing: neither one replaces the other.
+- Skip review for an urgent change only when the user explicitly requests the exception.
 
 ## Feature Branch Development Records
 - Every feature branch, including a parent feature branch and each independently reviewable sub-feature branch, must have its own development record under `/Users/delta898/Project/NaverAutoBlog/docs/plans/active/`.

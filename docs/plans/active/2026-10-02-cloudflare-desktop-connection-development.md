@@ -5,7 +5,7 @@
 - Branch: `codex/cloudflare-desktop-connection`
 - 시작일: 2026-10-02
 - Base/parent branch: `codex/static-site-builder-main`
-- 상태: 사용자 단위 Cloudflare OAuth 연결 및 설정 UI 구현 완료; 사용자 최종 UI 확인과 후속 Project/Site slice 대기
+- 상태: 완료 — 사용자 단위 Cloudflare OAuth 연결과 접근 계정 목록 UI를 통합 브랜치에 반영할 준비가 됨. Project/Site 관리는 후속 sub-feature 범위
 - 상위 feature 기록: [Static Site Builder 전체 계획](2026-10-01-static-site-builder-main-development.md)
 
 ## 사용자 필요와 목표
@@ -24,6 +24,7 @@ Cloudflare OAuth와 계정/Worker 조회, Static Assets 배포가 별도 PoC에�
 - 첫 구현 slice는 사용자/설치 수준 Cloudflare OAuth 연결 및 접근 가능한 account 목록 확인이다. Project에 account 지정, Worker 선택/목록, 배포는 포함하지 않는다.
 - 개발·검증은 사용자가 소유한 private OAuth client를 쓴다. Client ID를 저장소에 포함하지 않고 로컬 런타임 설정으로 전달한다.
 - OAuth 연결은 system browser, Authorization Code + PKCE, `memberships.read offline_access`, 고정 callback `http://127.0.0.1:43127/oauth/callback`을 사용한다. refresh token은 Electron `safeStorage` 암호화 후 로컬 credential 파일에 보관하고 access token은 메모리에서만 유지한다.
+- OAuth token 발급/갱신/revoke와 Memberships 조회는 REST API로 구현한다. 이 단계에서는 Cloudflare SDK dependency를 추가하지 않는다.
 
 ## 범위
 
@@ -253,10 +254,12 @@ template 설정  [title, logo, menu ... catalog schema에 따라 생성]
 - 완료: UI API/service에서 Authorization Code + PKCE와 loopback callback을 처리한다. scope는 `memberships.read offline_access`이며 계정 목록은 Cloudflare Memberships REST API에서 pagination을 읽는다. OAuth/계정 API는 현재 별도 Cloudflare SDK dependency를 추가하지 않았다.
 - 완료: refresh token은 Electron `safeStorage`의 비동기 암복호화로 OS 보호 credential file에 저장한다. access token은 메모리에만 두고, refresh rotation·병렬 갱신 잠금·로컬 callback/API 경계를 처리한다.
 - 완료: OAuth Client ID는 `CLOUDFLARE_OAUTH_CLIENT_ID` 환경변수에서 읽는다. 사용자가 `.env.oauth`에 값을 넣고 `./run_dev.sh`를 실행하면 Development launcher가 앱 프로세스에 전달한다. 이 값은 Local/Development allowlist에만 포함하고 Production launcher는 `.env.oauth`에서 Cloudflare ID를 읽지 않는다. private test ID는 코드/문서에 저장하지 않는다. 일반 사용자 배포용 BlogGenius-owned public client와 release build 공급값은 후속 작업이다.
-- 정적 확인: 변경 JavaScript 파일에 `node --check`, 전체 작업 diff에 `git diff --check`를 수행했다. 기능 test suite는 실행하지 않았다.
+- 검증: Cloudflare callback/API loopback 경계, 재연결 실패 상태 보존, 개발 환경변수 전달, Settings UI contract를 포함한 focused suite 30/30 통과. `git diff --check` 통과.
 - 사용자 확인: 시스템 브라우저 OAuth 승인을 완료했고 Cloudflare 계정 목록이 설정 화면에 표시되는 것을 확인했다. 앱 공통 확인 dialog, 간결한 안내, readiness summary 카드를 반영했다.
-- 후속 UI 확인: 사용자는 최종 카드 스타일과 연결 해제 동작을 직접 확인할 수 있다. OAuth 거부와 callback port 충돌 등 오류 복구 확인은 후속 검증에 남긴다.
-- 후속: Project에 계정 연결, Worker 조회/선택, 실제 배포, Client ID release configuration 및 UI browser regressions를 별도 slice로 설계한다.
+- 수동 확인: 사용자가 시스템 브라우저 OAuth 승인과 계정 목록 표시, 설정 UI 구조 및 연결 해제 dialog를 확인했다. OAuth 거부와 callback port 충돌 복구는 focused UI/service test에서 일부 보강했으며 실계정 장애 재현은 범위에 포함하지 않았다.
+- 코드 리뷰 후속(2026-10-02): Cloudflare loopback API에 loopback Host, 동일 Origin, JSON content-type 검증을 추가해 브라우저 교차 출처 mutation을 차단했다. OAuth 재연결이 실패해도 기존 연결 표시를 유지한다. 라우트 보안과 재연결 상태 보존 회귀 테스트를 추가하고, hosting 탭/summary 추가 뒤 낡은 Settings UI 계약 기대값을 갱신했다.
+- 코드 리뷰 후속 검증: `node --test src/ui-api/routes/cloudflare-connection.routes.test.js scripts/cloudflare-site-hosting-ui.test.js scripts/project-environment.test.js scripts/settings-next-ui-contract.test.js` 통과(30/30). 교차 출처 요청 거부, 허용된 로컬 Origin, OAuth 실패 후 기존 상태 보존, Settings navigation/card 계약을 포함한다.
+- 후속 범위: Project에 계정 연결, Worker 조회/선택, 실제 배포, Client ID release configuration 및 UI browser regressions는 별도 sub-feature에서 설계한다.
 - 2026-10-02: 기존 설정 UI, UI API service 구조, Google OAuth loopback/PKCE 흐름과 자격 증명 경계를 조사했다.
 - 2026-10-02: 사용자가 구현보다 계획 공유와 합의를 먼저 하도록 순서를 조정했다. 제품 코드와 의존성 변경은 이 기록에서 제거했다.
 - 2026-10-02: Cloudflare OAuth Client API에서 refresh token grant 및 `offline_access` 처리가 선택적으로 지원됨을 확인했다. 이전 PoC client 설정에서는 refresh가 안 나왔으므로 그 관찰을 OAuth 전체의 제한으로 보지 않도록 기존 가설을 수정했다. 별도 client 변경 및 refresh live test는 하지 않았다.

@@ -38,7 +38,7 @@ test('Settings loads saved models separately from cached connection status check
     assert.match(script, /void settingsNextLoadStatuses\(\)/);
     assert.match(script, /if \(settingsNextStatusesLoaded && !force\) return/);
     assert.match(script, /settingsNextStatusChecks\.account \? '확인 중…'/);
-    assert.match(script, /settingsNextLoadStatuses\(\{ force: true \}\)\.finally/);
+    assert.match(script, /const refresh = button\.dataset\.settingsNextRefresh === 'hosting'[\s\S]*settingsNextLoadStatuses\(\{ force: true \}\)[\s\S]*refresh\.finally/);
     assert.match(script, /if \(settingsNextStatusesLoading\) \{/);
     assert.match(script, /settingsNextForcedStatusRefresh = settingsNextStatusesLoading/);
 });
@@ -68,7 +68,8 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     ]);
     assert.deepEqual(coreTabs, [
         ['content', '콘텐츠 공간'],
-        ['publishing', '블로그 발행 채널']
+        ['publishing', '블로그 발행 채널'],
+        ['hosting', '사이트 호스팅']
     ]);
     const appTabs = Array.from(
         html.matchAll(/data-settings-next-app-tab="([^"]+)"[^>]*>([^<]+)<\/button>/g),
@@ -80,12 +81,12 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
         ['general', '일반'],
         ['appearance', '외모']
     ]);
-    assert.equal((html.match(/role="tab"/g) || []).length, 14);
-    assert.equal((html.match(/aria-controls="settings-next-/g) || []).length, 14);
+    assert.equal((html.match(/role="tab"/g) || []).length, 15);
+    assert.equal((html.match(/aria-controls="settings-next-/g) || []).length, 15);
     assert.match(html, /class="settings-next-tabs ui-top-tabs"/);
     assert.equal((html.match(/settings-next-tab ui-top-tab/g) || []).length, 5);
     assert.match(html, /class="settings-next-local-nav ui-segmented-tabs"/);
-    assert.equal((html.match(/settings-next-local-tab ui-segmented-tab/g) || []).length, 9);
+    assert.equal((html.match(/settings-next-local-tab ui-segmented-tab/g) || []).length, 10);
     assert.doesNotMatch(html, /settings-next-tab-publishing|settings-next-panel-publishing/);
     assert.match(html, /id="settings-next-panel-app"[\s\S]*?aria-label="앱 설정"/);
     assert.doesNotMatch(html, /settings-next-app-panel-notifications|settings-next-app-notification-form/);
@@ -425,8 +426,8 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
     assert.doesNotMatch(featureStyles, /settings-next-save-status/);
     assert.doesNotMatch(html, />[^<]*저장하고[^<]*<\/button>/);
     assert.doesNotMatch(html, /저장됨/);
-    assert.equal((html.match(/class="ui-settings-card(?:\s|")/g) || []).length, 22);
-    assert.equal((html.match(/class="ui-settings-readiness-card"/g) || []).length, 8);
+    assert.equal((html.match(/class="ui-settings-card(?:\s|")/g) || []).length, 23);
+    assert.equal((html.match(/class="ui-settings-readiness-card"/g) || []).length, 9);
     assert.equal((html.match(/class="ui-settings-summary-card"/g) || []).length, 3);
     assert.match(cardStyles, /\.ui-settings-card\s*\{/);
     assert.match(cardStyles, /\.ui-settings-card-footer\s*\{/);
@@ -455,10 +456,10 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
     assert.match(cardStyles, /\.ui-settings-card-footer\s*\{[\s\S]*margin-block-start: calc\(var\(--ui-space-1\) \* -1\)/);
     assert.doesNotMatch(featureStyles, /\.settings-next-section\s*\{/);
     assert.doesNotMatch(featureStyles, /\.settings-next-readiness-item\s*\{/);
-    assert.equal((html.match(/data-settings-next-refresh/g) || []).length, 2);
-    assert.equal((html.match(/>새로고침<\/button>/g) || []).length, 2);
+    assert.equal((html.match(/data-settings-next-refresh/g) || []).length, 3);
+    assert.equal((html.match(/>새로고침<\/button>/g) || []).length, 3);
     assert.doesNotMatch(html, />상태 새로고침<\/button>/);
-    assert.equal((html.match(/aria-busy="false"/g) || []).length, 20);
+    assert.equal((html.match(/aria-busy="false"/g) || []).length, 22);
     assert.match(html, /id="settings-next-load-feedback"[^>]*role="status"[^>]*aria-live="polite"/);
 });
 

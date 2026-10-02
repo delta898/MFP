@@ -79,7 +79,7 @@ async function settingsNextCloudflareWait(flowId) {
       await settingsNextSiteHostingRefresh();
     } else {
       settingsNextCloudflareFeedback(state.message || 'Cloudflare 연결을 완료하지 못했습니다.', 'danger');
-      settingsNextCloudflareRenderStatus({ connected: false, accounts: [] });
+      settingsNextCloudflareRenderStatus(settingsNextCloudflareCurrentStatus());
     }
     break;
   }
@@ -118,7 +118,7 @@ async function settingsNextCloudflareConnect() {
     settingsNextCloudflareBusy = false;
     settingsNextCloudflareFlowId = '';
     settingsNextCloudflareFeedback(error.message || 'Cloudflare 연결을 시작하지 못했습니다.', 'danger');
-    settingsNextCloudflareRenderStatus({ connected: false, accounts: [] });
+    settingsNextCloudflareRenderStatus(settingsNextCloudflareCurrentStatus());
   }
 }
 

@@ -511,6 +511,9 @@ function createUiApiRouteRuntime(deps = {}) {
             searchParams,
             requestBody,
             remoteAddress: req?.socket?.remoteAddress || '',
+            origin: req?.headers?.origin || '',
+            host: req?.headers?.host || '',
+            contentType: req?.headers?.['content-type'] || '',
             res
         });
         return routed === true;
