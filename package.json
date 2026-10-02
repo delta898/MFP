@@ -69,6 +69,7 @@
       "src/telegram-bot.service.js",
       "src/insight-engine.js",
       "src/config/**/*.js",
+      "src/site-hosting/**/*.js",
       "src/content/**/*.js",
       "src/environment/**/*.js",
       "src/naver/**/*.js",

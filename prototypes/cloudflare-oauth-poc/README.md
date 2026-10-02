@@ -30,6 +30,16 @@ CF_OAUTH_CLIENT_ID=your-client-id node prototypes/cloudflare-oauth-poc/run-live-
 
 실제 인증을 시작하기 전에 redirect URI와 scope가 등록된 클라이언트 설정과 일치하는지 확인한다. Client ID는 공개 식별자이지만, access token, refresh token, client secret 또는 API token은 이 저장소나 채팅에 기록하지 않는다.
 
+### Refresh token 발급·갱신·폐기 확인
+
+별도 비공개 테스트 client에서 Authorization Code와 Refresh Token grant를 모두 허용한 뒤 실행한다.
+
+```sh
+CF_OAUTH_CLIENT_ID=your-client-id node prototypes/cloudflare-oauth-poc/run-refresh-token-check.js
+```
+
+이 흐름은 `memberships.read offline_access`를 요청한다. Client 설정에 refresh grant가 있어도 authorization 요청에서 `offline_access`를 빠뜨리면 실제 refresh token이 발급되지 않는 것을 확인했다. 검증 스크립트는 callback code 교환, Memberships Read, refresh 교환/회전, refresh token 폐기 및 폐기 후 재사용 거부를 확인한다. 테스트로 받은 refresh token은 마지막에 revoke하며 token 값은 출력하거나 저장하지 않는다. 2026-10-02 실계정 검증에서 전체 단계가 성공했다.
+
 ## Workers Static Assets 목록 확인
 
 등록된 비공개 OAuth 클라이언트가 `Memberships Read`와 `Workers Scripts Read`를 허용하는지 확인한 뒤 다음 명령으로 읽기 전용 목록 조회를 시작한다.

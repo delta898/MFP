@@ -5,7 +5,8 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const {
     loadDevelopmentEnvironment,
-    loadGoogleOauthEnvironment
+    loadGoogleOauthEnvironment,
+    loadDevelopmentDesktopOauthEnvironment
 } = require('./project-environment');
 const {
     loadManifest,
@@ -56,7 +57,7 @@ function runChecked(spawn, command, args, options = {}) {
 function prepareLocalEnvironment(options = {}) {
     const repoRoot = path.resolve(options.repoRoot || path.join(__dirname, '..'));
     const spawn = options.spawn || spawnSync;
-    const baseEnv = loadGoogleOauthEnvironment({
+    const baseEnv = loadDevelopmentDesktopOauthEnvironment({
         repoRoot,
         fs: options.fs,
         env: options.env || process.env
@@ -128,7 +129,7 @@ function prepareDevelopmentEnvironment(options = {}) {
         fs: options.fs,
         env: options.env || process.env
     });
-    const env = loadGoogleOauthEnvironment({
+    const env = loadDevelopmentDesktopOauthEnvironment({
         repoRoot,
         fs: options.fs,
         env: developmentEnv

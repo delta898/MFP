@@ -393,6 +393,10 @@ const googleOauthClientSecret = String(
     || (IS_PACKAGED ? internalSecrets.GOOGLE_OAUTH_CLIENT_SECRET : '')
     || ''
 ).trim();
+const cloudflareOauthClientId = String(
+    process.env.CLOUDFLARE_OAUTH_CLIENT_ID
+    || ''
+).trim();
 
 const workspaceRaw = String(structuredConfig.general?.workspace_dir || '').trim();
 const resolvedWorkspaceDir = workspaceRaw
@@ -460,6 +464,7 @@ const CONFIG = {
     // 🔧 [Essential Resolved]
     GOOGLE_OAUTH_CLIENT_ID: googleOauthClientId,
     GOOGLE_OAUTH_CLIENT_SECRET: googleOauthClientSecret,
+    CLOUDFLARE_OAUTH_CLIENT_ID: cloudflareOauthClientId,
     GOOGLE_OAUTH_TOKENS_JSON: googleOauthTokensRaw,
     GOOGLE_OAUTH_TOKENS_JSON_PATH: googleOauthTokensPath,
     GOOGLE_SHEET_URL: resolvedSheetUrl,

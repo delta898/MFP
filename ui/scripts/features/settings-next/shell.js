@@ -1,5 +1,5 @@
 const SETTINGS_NEXT_TABS = Object.freeze(['core', 'ai', 'writing', 'extras', 'app']);
-const SETTINGS_NEXT_CORE_TABS = Object.freeze(['content', 'publishing']);
+const SETTINGS_NEXT_CORE_TABS = Object.freeze(['content', 'publishing', 'hosting']);
 const SETTINGS_NEXT_APP_TABS = Object.freeze(['external', 'input', 'general', 'appearance']);
 
 let settingsNextActiveTab = 'core';
@@ -123,6 +123,9 @@ function settingsNextActivateCoreTab(tabName) {
   document.querySelectorAll('[data-settings-next-core-action]').forEach((action) => {
     action.hidden = action.dataset.settingsNextCoreAction !== target;
   });
+  if (target === 'hosting' && typeof settingsNextSiteHostingRefresh === 'function') {
+    void settingsNextSiteHostingRefresh();
+  }
 }
 
 function settingsNextActivateAppTab(tabName) {
@@ -723,7 +726,10 @@ function initSettingsNext() {
       button.addEventListener('click', () => {
         if (!settingsNextRefreshBusy) {
           settingsNextSetRefreshBusy(true);
-          void settingsNextLoadStatuses({ force: true }).finally(() => settingsNextSetRefreshBusy(false));
+          const refresh = button.dataset.settingsNextRefresh === 'hosting'
+            ? settingsNextSiteHostingRefresh()
+            : settingsNextLoadStatuses({ force: true });
+          void refresh.finally(() => settingsNextSetRefreshBusy(false));
         }
       });
     });
@@ -732,6 +738,7 @@ function initSettingsNext() {
     initSettingsNextWriting();
     initSettingsNextOptionalServices();
     initSettingsNextExternalConnections();
+    initSettingsNextSiteHosting();
     initSettingsNextAppEnvironment();
     const scopedInputs = {
       content: ['settings-next-google-sheet-url'],

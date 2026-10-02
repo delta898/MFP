@@ -129,7 +129,7 @@ function createUiHttpServerRuntime(deps = {}) {
                         }
                         requestBody = await readJsonBody(req, limitBytes);
                     }
-                    const apiHandled = await handleApi(requestId, method, pathname, url.searchParams, requestBody, res);
+                    const apiHandled = await handleApi(requestId, method, pathname, url.searchParams, requestBody, res, req);
                     const duration = Date.now() - startTime;
                     if (apiHandled !== false) {
                         if (traceCardNewsRequest) {

@@ -51,18 +51,24 @@ preflight가 허용되지 않은 브랜치와 target 조합을 차단한다.
 
 Local은 일상적인 기능 개발, migration 작성, DB reset과 자동 테스트를 위한 기본 환경이다.
 
-### 개발 PC의 Google OAuth 앱 설정
+### 개발 PC의 OAuth 앱 설정
 
-Local과 Development 앱은 공통으로 저장소 루트의 Git 제외 파일 `.env.oauth`에서 Google Desktop
-OAuth 앱 설정을 읽는다. `config/google-oauth.env.sample`을 참고해 개발 컴퓨터마다 한 번 준비한다.
+Local과 Development 앱은 공통으로 저장소 루트의 Git 제외 파일 `.env.oauth`에서 Desktop OAuth
+앱 설정을 읽는다. `config/google-oauth.env.sample`을 참고해 개발 컴퓨터마다 한 번 준비한다.
 
 ```dotenv
 GOOGLE_OAUTH_CLIENT_ID="..."
 GOOGLE_OAUTH_CLIENT_SECRET="..."
+CLOUDFLARE_OAUTH_CLIENT_ID="..."
 ```
 
-이 파일은 실행 환경이나 Supabase endpoint를 선택하지 않으며 위 두 key만 로더에 반영된다. 실제
-값은 Git, `config.json`, Runtime Config DB와 문서에 넣지 않는다. 설치형 앱의 Client Secret은
+`./run_dev.sh`는 이 파일의 Cloudflare Client ID를 BlogGenius Development 프로세스에 전달한다.
+Cloudflare 값은 Local/Development용이며 Production launcher는 `.env.oauth`의 해당 값을 읽지
+않는다. 일반 사용자 배포용 Cloudflare OAuth Client 설정은 별도 release configuration 단계에서
+추가한다.
+
+이 파일은 실행 환경이나 Supabase endpoint를 선택하지 않으며 허용 목록에 있는 OAuth key만 로더에
+반영된다. 실제 값은 Git, `config.json`, Runtime Config DB와 문서에 넣지 않는다. 설치형 앱의 Client Secret은
 배포본에서 추출 가능하다는 전제를 가지며, 공용 provider quota를 보호하는 server secret과 구분한다.
 
 사용자 access/refresh token은 계속 `config/google_oauth_tokens.json`에 저장된다. `.env.oauth`을

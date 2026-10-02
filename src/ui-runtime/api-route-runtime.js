@@ -116,6 +116,9 @@ function createUiApiRouteRuntime(deps = {}) {
         topicRecommendationEventStore,
         topicRecommendationLearningService,
         createLegacyApiRouteHandler,
+        createCloudflareConnectionService,
+        createEncryptedCredentialStore,
+        createCloudflareConnectionRouteHandler,
         createApiRouteHub,
         UiValidators,
         normalizeYmdToken,
@@ -143,6 +146,7 @@ function createUiApiRouteRuntime(deps = {}) {
     let keywordDiscoveryRouteHandler = null;
     let keywordsRouteHandler = null;
     let legacyApiRouteHandler = null;
+    let cloudflareConnectionRouteHandler = null;
     let apiRouteHub = null;
     let smartUsageService = null;
 
@@ -459,6 +463,27 @@ function createUiApiRouteRuntime(deps = {}) {
         return legacyApiRouteHandler;
     }
 
+    function getCloudflareConnectionRouteHandlerInstance() {
+        if (!cloudflareConnectionRouteHandler) {
+            const userDataDir = String(process.env.BLOG_GENIUS_USER_DATA || CONFIG?.CONFIG_DIR || process.cwd());
+            const credentialStore = createEncryptedCredentialStore({
+                filePath: path.join(userDataDir, 'credentials', 'cloudflare-oauth.json'),
+                fsImpl: fs,
+                pathImpl: path
+            });
+            const service = createCloudflareConnectionService({
+                clientId: CONFIG?.CLOUDFLARE_OAUTH_CLIENT_ID,
+                credentialStore
+            });
+            cloudflareConnectionRouteHandler = createCloudflareConnectionRouteHandler({
+                service,
+                sendSuccess,
+                sendError
+            });
+        }
+        return cloudflareConnectionRouteHandler;
+    }
+
     function getApiRouteHubInstance() {
         if (!apiRouteHub) {
             apiRouteHub = createApiRouteHub([
@@ -471,19 +496,21 @@ function createUiApiRouteRuntime(deps = {}) {
                 getRecommendationCenterRouteHandlerInstance(),
                 getKeywordDiscoveryRouteHandlerInstance(),
                 getKeywordsRouteHandlerInstance(),
+                getCloudflareConnectionRouteHandlerInstance(),
                 getLegacyApiRouteHandlerInstance()
             ]);
         }
         return apiRouteHub;
     }
 
-    async function handleApi(requestId, method, pathname, searchParams, requestBody, res) {
+    async function handleApi(requestId, method, pathname, searchParams, requestBody, res, req) {
         const routed = await getApiRouteHubInstance()({
             requestId,
             method,
             pathname,
             searchParams,
             requestBody,
+            remoteAddress: req?.socket?.remoteAddress || '',
             res
         });
         return routed === true;

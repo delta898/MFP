@@ -38,6 +38,7 @@
 
 - Google 계정과 Spreadsheet: 여러 콘텐츠 기능의 필수 기반이므로 `기본 연결 > 콘텐츠 공간`
 - 네이버 블로그와 워드프레스 계정: 발행의 필수 기반이므로 `기본 연결 > 블로그 발행 채널`
+- Cloudflare 등 정적 사이트 호스팅 연결: 사이트 배포의 기반이므로 `기본 연결 > 사이트 호스팅`. 호스팅 공급자를 늘릴 수 있도록 준비도 요약과 공급자별 설정 카드를 둔다.
 - Buffer, Bitly, Telegram, Slack: 여러 기능이 선택적으로 사용하는 외부 연동이므로 `부가 서비스`
 - 네이버 입력 속도: 앱이 네이버 에디터에 입력하는 공통 실행 환경이므로 `앱 > 입력 환경`이 기본값을 소유한다.
 - 브라우저 표시 방식: 글 발행 화면의 글별 실행 설정이 소유한다.
@@ -60,9 +61,11 @@
 │  ├─ 콘텐츠 공간
 │  │  ├─ Google 계정
 │  │  └─ Google Spreadsheet
-│  └─ 블로그 발행 채널
-│     ├─ 네이버 블로그
-│     └─ 워드프레스
+│  ├─ 블로그 발행 채널
+│  │  ├─ 네이버 블로그
+│  │  └─ 워드프레스
+│  └─ 사이트 호스팅
+│     └─ Cloudflare
 ├─ AI
 │  ├─ 글쓰기 모델
 │  ├─ 이미지 모델
@@ -100,8 +103,8 @@ Buffer는 SNS와 카드뉴스가 공유하고, Telegram과 Slack은 메시지·�
 않는 공통 URL 단축 연결이다. 이 화면은 연결 credential과 검증만 소유하고, Telegram/Slack 사용 여부나 Telegram
 수신 daemon 같은 실행 설정은 소유하지 않는다. Buffer Organization·발행 채널처럼
 실행 대상을 고르는 값과 자동 발행 여부·주기 같은 실행 설정은 각 기능이 소유한다. SNS 메뉴의 작업 공간·채널 선택은
-수동 발행의 local 선택이며, RSS 자동 공유의 작업 공간·채널은 자동 공유 정책이 별도로 소유한다. 하나의 목적에 provider가 둘 이상 있을 때만 readiness summary를 제공하므로
-`메시지·알림`은 Telegram과 Slack summary를 함께 보여주고 단일 provider 목적은 상세 card로 바로 시작한다.
+수동 발행의 local 선택이며, RSS 자동 공유의 작업 공간·채널은 자동 공유 정책이 별도로 소유한다. provider를 추가할 수 있는 연결 목적은 현재 provider가 하나여도 readiness summary와 상세 설정 card의 공통 패턴을 사용한다.
+`블로그 발행 채널`은 네이버·WordPress를, `사이트 호스팅`은 Cloudflare와 향후 호스팅 공급자를 같은 위계로 확장한다. `메시지·알림`은 Telegram과 Slack summary를 함께 보여주며, provider 확장이 예정되지 않은 단일 provider 목적은 상세 card로 바로 시작한다.
 Telegram과 Slack 카드 제목 앞 체크박스는 공통 발송 channel 사용 여부를 소유하고, 각 기능은 알림을 발생시키는 이벤트를 소유한다. `앱 > 외부 연결`은 Telegram 명령
 수신과 원격 MCP처럼 외부에서 앱으로 들어오는 adapter의 활성화와 실행 상태를 소유한다. MCP는 Telegram과 독립적인
 transport이며, Telegram은 선택 가능한 별도 inbound channel이다. 외부 연결의 credential은 필요 위치에서만 수정하며,

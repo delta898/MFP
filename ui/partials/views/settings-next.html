@@ -29,7 +29,7 @@
           <div class="settings-next-panel-lead settings-next-panel-intro">
             <div>
               <h2>서비스를 사용하기 위한 연결 준비</h2>
-              <p>콘텐츠를 저장할 공간과 글을 발행할 블로그를 연결합니다.</p>
+              <p>콘텐츠 저장 공간, 블로그 발행 채널과 사이트 호스팅 서비스를 연결합니다.</p>
             </div>
           </div>
           <div class="settings-next-local-nav-row">
@@ -40,12 +40,17 @@
               <button class="settings-next-local-tab ui-segmented-tab" id="settings-next-core-tab-publishing" type="button" role="tab"
                 aria-selected="false" aria-controls="settings-next-core-panel-publishing" tabindex="-1"
                 data-settings-next-core-tab="publishing">블로그 발행 채널</button>
+              <button class="settings-next-local-tab ui-segmented-tab" id="settings-next-core-tab-hosting" type="button" role="tab"
+                aria-selected="false" aria-controls="settings-next-core-panel-hosting" tabindex="-1"
+                data-settings-next-core-tab="hosting">사이트 호스팅</button>
             </div>
             <div class="settings-next-local-actions" role="group" aria-label="기본 연결 도구">
               <button class="secondary settings-next-refresh" type="button" data-settings-next-refresh="content"
                 data-settings-next-core-action="content" aria-busy="false" title="기본 연결 정보를 다시 확인합니다">새로고침</button>
               <button class="secondary settings-next-refresh" type="button" data-settings-next-refresh="publishing"
                 data-settings-next-core-action="publishing" aria-busy="false" hidden title="기본 연결 정보를 다시 확인합니다">새로고침</button>
+              <button class="secondary settings-next-refresh" type="button" data-settings-next-refresh="hosting"
+                data-settings-next-core-action="hosting" aria-busy="false" hidden title="Cloudflare 연결 정보를 다시 확인합니다">새로고침</button>
             </div>
           </div>
           <p id="settings-next-load-feedback" class="ui-settings-card-feedback settings-next-load-feedback" role="status" aria-live="polite"></p>
@@ -158,6 +163,31 @@
                 </div>
               </div>
             </form>
+          </section>
+          <section class="settings-next-core-panel" id="settings-next-core-panel-hosting" role="tabpanel"
+            aria-labelledby="settings-next-core-tab-hosting" hidden>
+            <div class="settings-next-readiness" aria-label="사이트 호스팅 준비 상태">
+              <button class="ui-settings-readiness-card" type="button" data-settings-card-target="settings-next-cloudflare-card">
+                <span class="settings-next-status-dot" id="settings-next-cloudflare-readiness-dot" data-tone="neutral" aria-hidden="true"></span>
+                <span><strong>Cloudflare</strong><small id="settings-next-cloudflare-readiness">상태 확인 중</small></span>
+              </button>
+            </div>
+            <section class="ui-settings-card" id="settings-next-cloudflare-card" aria-busy="false">
+              <div class="ui-settings-card-heading">
+                <div><h3>Cloudflare</h3><p>사이트 배포에 사용할 계정을 연결합니다.</p></div>
+                <span id="settings-next-cloudflare-status" class="ui-status-badge" data-state="neutral" role="status">연결 상태 확인 전</span>
+              </div>
+              <p class="ui-settings-card-detail" id="settings-next-cloudflare-detail"></p>
+              <div id="settings-next-cloudflare-account-list" class="settings-next-cloudflare-account-list" aria-live="polite"></div>
+              <p id="settings-next-cloudflare-feedback" class="ui-settings-card-feedback" role="status" aria-live="polite"></p>
+              <div class="ui-settings-card-footer">
+                <div></div>
+                <div class="ui-settings-card-footer-actions">
+                  <button id="settings-next-cloudflare-disconnect" class="ghost ui-danger-action" type="button" hidden>연결 해제</button>
+                  <button id="settings-next-cloudflare-connect" class="primary" type="button">Cloudflare 연결</button>
+                </div>
+              </div>
+            </section>
           </section>
         </div>
 

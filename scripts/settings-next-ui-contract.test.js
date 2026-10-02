@@ -141,7 +141,10 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     assert.match(html, /aria-label="블로그 발행 채널 준비 상태"/);
     assert.match(html, /settings-next-naver-readiness/);
     assert.match(html, /settings-next-wordpress-readiness/);
-    assert.equal((html.match(/data-settings-card-target=/g) || []).length, 13);
+    assert.match(html, /aria-label="사이트 호스팅 준비 상태"/);
+    assert.match(html, /settings-next-cloudflare-readiness/);
+    assert.match(html, /data-settings-card-target="settings-next-cloudflare-card"/);
+    assert.equal((html.match(/data-settings-card-target=/g) || []).length, 14);
     assert.match(html, /data-settings-card-target="settings-next-naver-form"/);
     assert.match(html, /data-settings-card-target="settings-next-wordpress-form"/);
     assert.doesNotMatch(html, /settings-next-ai-local-tab/);

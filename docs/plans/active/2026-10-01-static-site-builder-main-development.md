@@ -26,7 +26,7 @@ The user intends this to be the only feature-development track for the near term
 ## Explicit non-goals until separately agreed
 
 - Do not immediately port or merge all of StaticWeb or Amade into BlogGenius.
-- Do not assume Docker must be retained or removed; compare app-managed local tooling, remote build execution, and other feasible approaches.
+- Do not assume how BlogGenius should package or manage the local Astro toolchain; validate platform-specific approaches. Build and preview themselves are local by user decision; a remote build service is not the current product direction.
 - Do not treat BlogGenius as a free-form site builder. It will select a separately managed template and expose a bounded set of template-defined settings; the exact settings remain to be discovered.
 - Do not assume a CMS, theme marketplace, or dynamic/server-rendered sites are part of the initial product.
 - Do not alter Naver or WordPress behavior as incidental cleanup.
@@ -52,12 +52,12 @@ The user intends this to be the only feature-development track for the near term
 
 BlogGenius may provide one guided user experience for project/site setup, template configuration, content creation, preview, build, and deployment while keeping the site/build/deploy domain separate from current Naver and WordPress publishers. Astro and Cloudflare Static Assets are the initial target hypothesis based on the user's existing projects. The precise product scope and execution architecture remain open.
 
-The user's product model separates tools from templates. BlogGenius provides a desktop UI, while a future Amade2 may provide a Docker-based CLI; each independently consumes a neutral template specification from a separate template project. The current Amade project may be inspected for workflow lessons, but its template is not a specification source and can be treated as nonexistent. No tool runtime is shared by the template project.
+현재 합의: BlogGenius는 데스크톱 UI를 제공하고, 별도 외부 저장소에서 template을 가져온다. 가칭 Amade2는 이 template source repository를 뜻하며 저작 도구나 CLI가 아니다. BlogGenius는 template catalog/source를 내장하거나 소유하지 않는다. 별도 CLI나 다른 소비 도구는 현재 범위 밖이며 추후 별도로 논의한다. 기존 Amade 프로젝트와 그 template은 사양의 근거로 사용하지 않는다.
 
 ### Template ownership and lifecycle (initial direction)
 
 - BlogGenius is not a visual/free-form site builder. It helps a user choose a managed template, set the template's supported values (for example title, logo, and menu), connect content, preview/build, and deploy.
-- Template definitions and releases are managed in a dedicated template project, separate from BlogGenius and future Amade2. BlogGenius consumes a catalog/reference so new templates can be offered without a BlogGenius app release.
+- Template 정의와 배포 버전은 BlogGenius와 분리된 외부 저장소에서 관리한다. BlogGenius는 catalog와 template source를 참조하므로 새 template 제공에 BlogGenius 앱 배포가 필요하지 않다.
 - The template project owns the new specification, template sources, and versioned catalog; it does not depend on either tool's runtime.
 - A created site records the selected template identity and version. New sites may choose newer catalog entries; existing sites remain on their selected version until an explicit update/migration feature is designed.
 - Whether existing sites can switch template families or upgrade from `A1` to `A2` is deferred until real templates and user changes provide evidence.
@@ -67,21 +67,20 @@ The user's product model separates tools from templates. BlogGenius provides a d
 ### Candidate product separation
 
 ```text
-Tools: BlogGenius (desktop UI) | future Amade2 (Docker CLI) | possible future interfaces
-                                  consume
-Templates: new, separate project (spec + template sources + versioned catalog)
+BlogGenius (desktop UI) ── 참조/가져오기 ──> 외부 template 저장소
+                                           (사양 + template source + 버전 catalog)
 ```
 
-This is the agreed product boundary: BlogGenius must not invoke, bundle, or depend on an Amade CLI. Doing so would introduce a Docker dependency and violate BlogGenius's no-extra-development-tools requirement. BlogGenius and future Amade2 independently consume the neutral template specification/catalog and implement their own runtime paths.
+합의된 경계: BlogGenius는 template을 저작하거나 관리하는 site builder가 아니며, Amade CLI를 호출·포함·의존하지 않는다. 외부 저장소가 template 모음을 소유하고 BlogGenius가 이를 참조한다. 별도 CLI 소비자는 현재 요구사항이 아니며 추후 논의한다.
 
 ## Candidate user journey (discussion draft)
 
 1. User has a Cloudflare account.
-2. In BlogGenius, connect Cloudflare and grant the required account permissions.
-3. Initialize a Project as a management grouping, then add one or more Sites. The agreed relationship is one Project to many Sites.
+2. BlogGenius 사용자 단위로 Cloudflare OAuth를 한 번 연결한다. Cloudflare 사용자는 여러 account에 접근할 수 있다.
+3. Project는 관리 묶음이며, 각 Project에 접근 가능한 Cloudflare account 하나를 선택한다. 한 Project에는 여러 Site를 둘 수 있고 Project마다 다른 account를 선택할 수 있다.
 4. For each site, select a managed template and configure the fields it exposes.
 5. Edit the same Astro source project using a separate Astro-capable tool when deeper edits are needed. The normal collaboration model is shared source on the same machine; export/import is a secondary cross-machine transfer path.
-6. Preview locally before the first deployment, then deploy to Cloudflare Static Assets.
+6. Cloudflare 인증 없이 로컬에서 build/preview 한다. Cloudflare는 원격 배포 시에만 필요하며, 배포 대상은 Cloudflare Static Assets다.
 7. A Site can be deployed and inspected without a custom domain using its Cloudflare `workers.dev` address. A custom domain is optional and can be connected through Cloudflare when desired.
 8. Create an article in BlogGenius's writing workflow, publish it to the chosen static site, then rebuild/deploy the updated site.
 
@@ -99,12 +98,12 @@ Each Site is an independent build/deploy unit. A Project may have zero or one co
 1. How should the data/UI represent a Site's optional custom hostname before a Project has a root domain, and how should the apex hostname be represented? `www` and other subdomain labels are allowed under the Project's single root domain; separate root domains require separate Projects.
 2. The default source-sharing model is a shared local Astro project. What file ownership and change-detection rules are needed when an external editor changes it? Should Git remain optional, and is export/import sufficient for cross-machine transfer?
 3. Where do Astro dependencies, local preview, and builds run while preserving the no-extra-tool installation requirement?
-4. How are Cloudflare identity, credentials, account selection, deployment approval, and recovery handled without exposing secrets to site scripts or static output?
-5. Where should the template project live, and should it own only source/specification or also the user-facing catalog and release distribution? Existing Amade workflow may inform this investigation, while its template remains excluded.
+4. 사용자 단위 Cloudflare 연결과 Project별 account 선택, 배포 승인 및 복구를 어떻게 하며 site script나 산출물에 비밀정보가 노출되지 않게 할까?
+5. 외부 template 저장소는 BlogGenius가 가져갈 source/사양/catalog를 어떻게 배포할까? 기존 Amade workflow와 template은 요구사항에서 제외한다.
 6. How does the external template catalog work (version pinning, cache/offline behavior, compatibility, integrity, and trusted distribution)?
 7. How should a BlogGenius article map to static-site content, and how should edits, scheduling, deletion, and failed redeployment behave?
 8. What can Cloudflare custom-domain setup safely automate, and which domain/DNS changes require explicit user action?
-9. What minimal consumer behaviors should BlogGenius and future Amade2 implement independently against the new contract?
+9. 외부 template contract를 바탕으로 BlogGenius가 구현할 최소 retrieval/materialization 동작은 무엇인가? 다른 소비 도구는 현재 범위에서 제외한다.
 10. What is the smallest end-to-end user scenario that validates value without turning BlogGenius into a site builder or general CMS?
 
 ## Site attributes (discussion draft)
@@ -131,7 +130,7 @@ This is a candidate list, not a committed schema. A hostname is exact: `www.exam
 - Deployment adapter: initially Cloudflare Static Assets, with target and environment shown before remote changes.
 - Identity and secrets: explicit ownership and least privilege; never embed deployment secrets in site source, generated pages, or logs.
 - New template project: owns product-specific template specification, sources, and versioned catalog independently from tool runtimes.
-- BlogGenius and future Amade2: independent consumers that implement their own package retrieval and materialization behavior.
+- BlogGenius: 외부 저장소에서 template을 가져와 site source로 만든다. 외부 저장소 자체는 앱에 포함하지 않는다.
 
 These are hypotheses for design work, not finalized architecture decisions.
 
@@ -163,19 +162,23 @@ Stages 2–5 may be reordered or narrowed based on the discovery result. Each im
 - **Managed template configuration**: keeps the BlogGenius product bounded and can add catalog templates independently; users are limited to fields each template exposes and need an external path for deeper edits.
 - **Direct Astro source editing through a separate tool**: preserves flexibility and project separation; requires clear file ownership, handoff, and preview/build compatibility.
 
-No execution model is selected yet.
+실행 위치는 사용자가 로컬 build/preview로 정했다. 다만 사용자에게 Node/npm을 추가 설치시키지 않으면서 macOS Apple Silicon과 Windows x64에서 Astro runtime을 어떻게 제공·업데이트·격리할지는 아직 검증이 필요하다.
 
 ## Next discovery experiments (proposal)
 
 1. **Template contract spike (prototype completed):** a minimal descriptor and Astro fixture were implemented and merged in `fbc4b0e5`. Treat it as a candidate for design review, not as an adopted canonical contract. See the [spike record](2026-10-01-static-template-contract-spike-development.md); do not implement existing-site migration.
 2. **Cloudflare user-journey PoC:** Authorization Code + PKCE, membership lookup, and Worker Static Assets inventory are verified and merged. An approved sample Worker was successfully deployed through the stable version API after matching Cloudflare's hash-named multipart asset fields; the public `workers.dev` URL returned HTTP 200 and the expected sample content. See the [Cloudflare Static Assets 배포 PoC 기록](2026-10-02-cloudflare-static-assets-deploy-poc-development.md). Custom-domain/DNS changes remain outside the stage.
-3. **Independent consumer check:** use the same descriptor/source artifact from a future Amade2 proof and a BlogGenius-side prototype or contract check. The goal is to confirm independent consumption of one neutral contract; BlogGenius must not invoke or package a CLI.
-4. **Runtime feasibility check:** on macOS Apple Silicon and Windows x64, establish whether BlogGenius can package or manage the Astro build/preview runtime without user-installed developer tools. Check package size, startup, process cleanup, preview port conflicts, and whether site build scripts can access Cloudflare credentials. Windows ARM64 is a future compatibility consideration only.
+3. **Template retrieval check:** BlogGenius가 외부 저장소에서 버전 지정 template을 가져오며 catalog를 앱에 내장하거나 CLI에 의존하지 않는지 확인한다.
+4. **Runtime feasibility check:** macOS Apple Silicon과 Windows x64에서 사용자 별도 개발 도구 설치 없이 Astro build/preview runtime을 앱이 관리할 수 있는지 확인한다. 패키지 크기, 시작 시간, 프로세스 정리, preview port 충돌, Cloudflare 연결·credential 없는 build/preview를 살핀다. Windows ARM64는 추후 호환성 고려사항이다.
 
 ## Cloudflare 연동 검증 진행
 
 - Cloudflare OAuth 및 계정 목록 검증은 완료되어 [Cloudflare 데스크톱 OAuth 및 계정 목록 PoC 기록](../archive/2026-10-01-cloudflare-oauth-desktop-poc-development.md)에 보관했다. 결과는 `codex/cloudflare-oauth-poc`에서 `codex/static-site-builder-main`으로 fast-forward 병합했다.
+- 현재 sub-feature [Cloudflare 데스크톱 연결 통합](2026-10-02-cloudflare-desktop-connection-development.md)에서 `설정 > 기본 연결 > 사이트 호스팅` UI와 OAuth connection API를 구현했다. 이번 slice는 사용자 단위 연결 및 접근 가능한 계정 표시까지이며 Project account binding/Worker 선택/배포는 다음 단계다. 사용자의 system-browser OAuth 및 실제 UI 검증을 기다린다.
+- 개발 사용자는 `.env.oauth`에 `CLOUDFLARE_OAUTH_CLIENT_ID`를 넣고 `./run_dev.sh`로 실행한다. 개발 launcher는 이 값을 Development 프로세스에 전달하고 Production launcher는 `.env.oauth`에서 이 값을 읽지 않는다. 공개 앱용 release 설정은 별도 후속 작업이다.
 - 2026-10-02 기준 시스템 브라우저 OAuth Authorization Code + PKCE 인증, `memberships.read` scope, Bearer token을 이용한 `GET /memberships` 조회가 실제 Cloudflare 계정에서 성공했다. 실제 계정의 식별 정보와 token은 기록하지 않는다.
+- OAuth 정체성 연결은 BlogGenius 사용자/설치 단위로 두고, 한 사용자가 접근할 수 있는 Cloudflare account 중 하나를 각 Project가 선택한다. 한 Project는 Cloudflare account 하나에 연결되며 Site는 각자 Worker 배포 대상이 된다.
+- Astro build/preview는 Cloudflare와 독립된 로컬 작업이다. OAuth 연결과 Cloudflare account는 원격 배포 시점에만 필요하다.
 - Workers Static Assets 목록 조회 단계는 [Cloudflare Static Assets 목록 조회 PoC 기록](2026-10-02-cloudflare-static-assets-list-poc-development.md)에서 추적한다. `workers-scripts.read` scope와 `has_assets` 기반 분류를 실제 계정에서 확인했고, 커밋 `4c943f9c`로 부모에 병합했다. 하위 브랜치는 삭제했다.
 - 배포 PoC는 [Cloudflare Static Assets 배포 기록](2026-10-02-cloudflare-static-assets-deploy-poc-development.md)에서 추적한다. OAuth write 동의 후 사용자가 승인한 동일 샘플 Worker 배포가 완료됐고, workers.dev 공개 URL에서 HTTP 200과 예상 본문을 확인했다. Worker와 샘플은 Cloudflare 계정에 남겨두었다.
 - 배포 scope는 Cloudflare API 문서의 `Workers Scripts Write`에 대응하는 OAuth scope ID를 실제 scope 목록에서 재확인해야 한다. 계정/Worker의 `workers.dev` 설정도 배포 URL 확인 전에 확인해야 한다.
@@ -237,6 +240,13 @@ The Cloudflare PoC follows the user journey rather than selecting a technology s
 - Reordered the proposed discovery path so the next technical PoC follows Cloudflare authorization, account selection, read-only inventory, disposable sample deployment, then status/URL verification. Astro local build/preview follows that platform-path check.
 - Astro's conventional project structure is the baseline; any product-specific template contract should be a thin addition, not a competing Astro project standard.
 - The current parent starts from `main` and is named `codex/static-site-builder-main`; the intended destination is `dev`. Future feature work starts from `dev`.
+
+### 2026-10-02 — 현재 유효한 제품 경계
+
+- Cloudflare OAuth는 BlogGenius 사용자/설치 범위에서 연결한다. 사용자는 여러 Cloudflare account에 접근할 수 있으며 각 Project는 그중 account 하나를 선택한다. Site마다 Worker 배포 대상을 둔다.
+- Astro build와 preview는 로컬에서 수행하며 Cloudflare와 무관하다. OAuth 연결/account는 원격 배포 시점에만 필요하다.
+- 가칭 Amade2는 외부 template source repository다. 저작 도구/CLI가 아니며 BlogGenius는 이 repository의 catalog와 source를 참조한다. 별도 consumer/tool 논의는 후속으로 미룬다.
+- 이 최신 합의는 위의 과거 진행 기록 중 “Amade2 CLI” 또는 build 단계의 Cloudflare 의존을 전제한 문장을 대체한다.
 
 ## Verification and handoff
 

@@ -10,6 +10,10 @@ const GOOGLE_OAUTH_ENV_KEYS = Object.freeze([
     'GOOGLE_OAUTH_CLIENT_ID',
     'GOOGLE_OAUTH_CLIENT_SECRET'
 ]);
+const DEVELOPMENT_DESKTOP_OAUTH_ENV_KEYS = Object.freeze([
+    ...GOOGLE_OAUTH_ENV_KEYS,
+    'CLOUDFLARE_OAUTH_CLIENT_ID'
+]);
 
 function stripQuotes(value) {
     if (value.length >= 2 && (
@@ -60,18 +64,26 @@ function loadProductionEnvironment(options = {}) {
     });
 }
 
-function loadGoogleOauthEnvironment(options = {}) {
+function loadOauthEnvironment(options = {}, allowedKeys = GOOGLE_OAUTH_ENV_KEYS) {
     const loaded = loadProjectEnvironment({
         ...options,
         fileName: options.fileName || DEFAULT_GOOGLE_OAUTH_ENV_FILE
     });
     const base = options.env || process.env;
     const selected = {};
-    for (const key of GOOGLE_OAUTH_ENV_KEYS) {
+    for (const key of allowedKeys) {
         if (loaded[key] !== undefined) selected[key] = loaded[key];
         if (base[key] !== undefined) selected[key] = base[key];
     }
     return Object.freeze({ ...base, ...selected });
+}
+
+function loadGoogleOauthEnvironment(options = {}) {
+    return loadOauthEnvironment(options, GOOGLE_OAUTH_ENV_KEYS);
+}
+
+function loadDevelopmentDesktopOauthEnvironment(options = {}) {
+    return loadOauthEnvironment(options, DEVELOPMENT_DESKTOP_OAUTH_ENV_KEYS);
 }
 
 module.exports = {
@@ -79,9 +91,11 @@ module.exports = {
     DEFAULT_PRODUCTION_ENV_FILE,
     DEFAULT_GOOGLE_OAUTH_ENV_FILE,
     GOOGLE_OAUTH_ENV_KEYS,
+    DEVELOPMENT_DESKTOP_OAUTH_ENV_KEYS,
     parseEnvironmentFile,
     loadProjectEnvironment,
     loadDevelopmentEnvironment,
     loadProductionEnvironment,
-    loadGoogleOauthEnvironment
+    loadGoogleOauthEnvironment,
+    loadDevelopmentDesktopOauthEnvironment
 };

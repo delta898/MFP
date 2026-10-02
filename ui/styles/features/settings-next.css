@@ -43,6 +43,21 @@
   gap: var(--ui-action-group-gap);
 }
 
+.settings-next-cloudflare-account-list {
+  display: grid;
+  gap: var(--ui-space-2);
+}
+
+.settings-next-cloudflare-account {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: var(--ui-space-3) var(--ui-space-4);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface-muted);
+}
+
 .settings-next-load-feedback:empty {
   display: none;
   min-block-size: 0;
