@@ -5,9 +5,9 @@
 - 브랜치: `codex/site-sidebar-navigation`
 - 시작일: 2026-10-02
 - 기준/부모 브랜치: `codex/static-site-builder-main`
-- 상태: 자동 검증 완료; parent merge 대기
-- 상위 기능 계획: [Static Site Builder](2026-10-01-static-site-builder-main-development.md)
-- 선행 설계 기록: [Project/Site 모델 및 사용자 흐름](../archive/2026-10-02-project-site-model-and-user-flow-design.md)
+- 상태: 완료; `codex/static-site-builder-main`에 fast-forward 병합됨
+- 상위 기능 계획: [Static Site Builder](../active/2026-10-01-static-site-builder-main-development.md)
+- 선행 설계 기록: [Project/Site 모델 및 사용자 흐름](2026-10-02-project-site-model-and-user-flow-design.md)
 
 ## 사용자 필요와 목표
 
@@ -75,4 +75,6 @@
 - 구현 결과: 메뉴, navigation 연결, 준비 중 진입 화면 완료
 - 자동 검증: focused contract 및 browser smoke 통과. 무관한 기존 JS manifest 줄 수 상한 검사 1건 실패.
 - 사용자 수동 확인: 구현 후 전달
-- 커밋 상태: 미커밋
+- 커밋: `49331206 feat: add site hosting navigation entry`
+- 병합: `codex/static-site-builder-main`에 fast-forward 완료
+- 사용자 수동 확인: 메뉴 위치와 진입 화면의 시각적 일관성 확인은 필요
