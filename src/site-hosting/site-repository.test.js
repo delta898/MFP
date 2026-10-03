@@ -52,3 +52,38 @@ test('site repository rejects unsafe and duplicate IDs without replacing an exis
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }
 });
+
+test('site repository applies declared template defaults and records the immutable source revision', () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-customization-'));
+    try {
+        const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
+        projectRepository.create({ id: 'project-1', name: '개인 사이트' });
+        const resource = {
+            site_hosting: { customization: { fields: [
+                { key: 'site_name', type: 'string', default: '기본 이름', target: { file: 'src/site-config.json', path: 'name' } },
+                { key: 'navigation', type: 'navigation', default: [{ label: '홈', href: '/' }], target: { file: 'src/site-config.json', path: 'navigation' } }
+            ] } }
+        };
+        const templates = {
+            get: () => ({ id: 'external-home', version: '1.2.0', name: '외부 템플릿', source_root: '', resource }),
+            copySource: (_id, destination) => {
+                fs.mkdirSync(path.join(destination, 'src'), { recursive: true });
+                fs.writeFileSync(path.join(destination, 'src', 'site-config.json'), '{"name":"template","navigation":[]}\n');
+                return { id: 'external-home', version: '1.2.0', source_revision: 'c'.repeat(40) };
+            },
+            copyPreview: () => ''
+        };
+        const repository = createSiteHostingSiteRepository({ fs, path, projectRepository, templates });
+        const created = repository.create('project-1', { id: 'site-1', name: 'My Site', template_id: 'external-home' });
+        const siteRoot = path.join(workspaceDir, 'site-hosting', 'projects', 'project-1', 'sites', 'site-1');
+        const siteConfig = JSON.parse(fs.readFileSync(path.join(siteRoot, 'src', 'site-config.json'), 'utf8'));
+        const manifest = JSON.parse(fs.readFileSync(path.join(siteRoot, '.bloggenius', 'site.json'), 'utf8'));
+        assert.equal(siteConfig.name, 'My Site');
+        assert.deepEqual(siteConfig.navigation, [{ label: '홈', href: '/' }]);
+        assert.equal(manifest.template.source_revision, 'c'.repeat(40));
+        assert.equal(manifest.customization.site_name, 'My Site');
+        assert.equal(created.template_name, '외부 템플릿');
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});

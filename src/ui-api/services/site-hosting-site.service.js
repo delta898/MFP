@@ -5,7 +5,7 @@ const { domainToASCII } = require('node:url');
 const net = require('node:net');
 const { createSiteHostingProjectRepository } = require('../../site-hosting/project-repository');
 const { createSiteHostingSiteRepository } = require('../../site-hosting/site-repository');
-const { createSiteTemplateCatalog } = require('../../site-hosting/site-template-catalog');
+const { createGitHubSiteTemplateCatalog } = require('../../site-hosting/github-site-template-catalog');
 const { createAstroSiteRuntime } = require('../../site-hosting/astro-site-runtime');
 const { createCloudflareStaticAssetsDeployer } = require('../../site-hosting/cloudflare-static-assets-deployer');
 
@@ -17,10 +17,13 @@ function createSiteHostingSiteService(deps = {}) {
         path: deps.path,
         workspaceDir: deps.workspaceDir
     });
-    const templates = deps.templates || createSiteTemplateCatalog({
+    const templates = deps.templates || createGitHubSiteTemplateCatalog({
         fs: deps.fs,
         path: deps.path,
-        templatesRoot: deps.templatesRoot
+        cacheRoot: deps.templateCacheRoot || pathApi.join(String(deps.workspaceDir || ''), 'site-hosting', 'template-cache'),
+        catalogUrl: deps.templateCatalogUrl,
+        environment: deps.runtimeEnvironment,
+        fetchImpl: deps.fetchImpl
     });
     const repository = deps.repository || createSiteHostingSiteRepository({
         fs: deps.fs,
@@ -52,7 +55,8 @@ function createSiteHostingSiteService(deps = {}) {
         getCredentials: getCloudflareDeploymentCredentials,
         createClient: deps.createCloudflareSdkClient,
         createAdapter: deps.createCloudflareSdkAdapter,
-        fetchImpl: deps.fetchImpl
+        fetchImpl: deps.fetchImpl,
+        logger: deps.Logger
     });
     const createCloudflareClient = deps.createCloudflareSdkClient || ((accessToken) => {
         const Cloudflare = require('cloudflare');
@@ -68,7 +72,7 @@ function createSiteHostingSiteService(deps = {}) {
         return electron.shell.openPath(targetPath);
     }
 
-    function createSite(projectId, name, templateId, id = createId()) {
+    function createSite(projectId, name, templateId, id = createId(), customization = {}) {
         const project = projectRepository.get(projectId);
         if (!project) {
             const error = new Error('프로젝트를 찾을 수 없습니다.');
@@ -83,7 +87,7 @@ function createSiteHostingSiteService(deps = {}) {
             throw error;
         }
         const timestamp = now();
-        const created = repository.create(project.id, { id, name, template_id: templateId, created_at: timestamp, updated_at: timestamp });
+        const created = repository.create(project.id, { id, name, template_id: templateId, customization, created_at: timestamp, updated_at: timestamp });
         return {
             id: created.id,
             project_id: created.project_id,
@@ -99,15 +103,35 @@ function createSiteHostingSiteService(deps = {}) {
         };
     }
 
-    function listTemplates() {
-        return templates.list();
+    async function listTemplates() {
+        const items = await templates.list();
+        return items.map((template) => {
+            const resource = templates.get(template.id)?.resource;
+            const siteHosting = resource?.site_hosting;
+            const fields = siteHosting?.customization?.fields;
+            const customization = Array.isArray(fields) ? fields
+                .filter((field) => ['site_name', 'logo', 'navigation'].includes(field?.key))
+                .map((field) => ({ key: field.key, type: field.type, label: String(field.label || ''), default: field.default })) : [];
+            const publishing = normalizePublishingCapability(siteHosting?.publishing);
+            return {
+                ...template,
+                author: String(resource?.author || resource?.maintainer || template.author || '').trim().slice(0, 100),
+                homepage_url: normalizeHomepageUrl(resource?.homepage || template.homepage_url),
+                customization,
+                pages: normalizePageCapability(siteHosting?.pages),
+                ...(publishing ? { publishing } : {}),
+                preview_url: template.preview_url || `/api/v1/site-hosting/templates/${encodeURIComponent(template.id)}/preview`
+            };
+        });
     }
 
-    function list(projectId) {
+    async function list(projectId) {
         let sites = repository.list(projectId);
         if (projectId === 'default' && !sites.some((site) => site.id === 'default')) {
             try {
-                createSite('default', '나의 첫 사이트', 'minimal-homepage', 'default');
+                await templates.prepare?.('astro-homepage');
+                const defaultTemplateId = templates.get('astro-homepage') ? 'astro-homepage' : 'minimal-homepage';
+                createSite('default', '나의 첫 사이트', defaultTemplateId, 'default');
             } catch (error) {
                 if (error?.code !== 'SITE_HOSTING_SITE_ALREADY_EXISTS' || !repository.get('default', 'default')) throw error;
             }
@@ -123,7 +147,13 @@ function createSiteHostingSiteService(deps = {}) {
         }));
     }
 
-    function create(projectId, payload = {}) {
+    async function create(projectId, payload = {}) {
+        if (!projectRepository.get(projectId)) {
+            const error = new Error('프로젝트를 찾을 수 없습니다.');
+            error.code = 'SITE_HOSTING_PROJECT_NOT_FOUND';
+            error.status = 404;
+            throw error;
+        }
         const name = String(payload.name || '').trim();
         if (!name) {
             const error = new Error('사이트 이름을 입력해 주세요.');
@@ -137,7 +167,140 @@ function createSiteHostingSiteService(deps = {}) {
             error.status = 400;
             throw error;
         }
-        return createSite(projectId, name, String(payload.template_id || '').trim());
+        const templateId = String(payload.template_id || '').trim();
+        await templates.prepare?.(templateId);
+        const customization = normalizeSiteCustomization(templates.get(templateId), payload.customization || {});
+        return createSite(projectId, name, templateId, createId(), customization);
+    }
+
+    function normalizeSiteCustomization(template, input) {
+        const siteHosting = template?.resource?.site_hosting;
+        const fields = siteHosting?.customization?.fields;
+        if (!Array.isArray(fields)) return {};
+        const output = {};
+        const declared = new Map(fields.map((field) => [field.key, field]));
+        const pageCapability = normalizePageCapability(siteHosting.pages);
+        const publishing = normalizePublishingCapability(siteHosting.publishing);
+        const pageInputs = Array.isArray(input.pages) ? input.pages : [];
+        const postListIndex = input.publishing?.post_list_navigation_index;
+        if (pageInputs.length && !pageCapability) throw siteInputError('이 템플릿은 새 내부 페이지 추가를 지원하지 않습니다.', 'SITE_HOSTING_PAGES_UNSUPPORTED');
+        if (pageInputs.length > (pageCapability?.max_items || 0)) throw siteInputError('사이트 메뉴 구성을 확인해 주세요.', 'SITE_HOSTING_NAVIGATION_INVALID');
+        if (declared.has('navigation') && Array.isArray(input.navigation)) {
+            const defaults = Array.isArray(declared.get('navigation').default) ? declared.get('navigation').default : [];
+            if (input.navigation.length !== defaults.length) throw siteInputError('사이트 메뉴 구성을 확인해 주세요.', 'SITE_HOSTING_NAVIGATION_INVALID');
+            const customPages = pageInputs.map((entry) => {
+                const label = normalizeMenuLabel(entry?.label);
+                const slug = createPageSlug(label);
+                if (!slug || pageCapability.reserved_slugs.includes(slug)) throw siteInputError(`'${label}' 메뉴의 경로를 만들 수 없습니다. 다른 이름을 입력해 주세요.`, 'SITE_HOSTING_PAGE_SLUG_INVALID');
+                return { label, slug };
+            });
+            if (new Set(customPages.map((page) => page.slug)).size !== customPages.length
+                || customPages.some(({ slug }) => defaults.some((item) => /^\/[\p{L}\p{N}_-]+\/$/u.test(String(item.href || ''))
+                    && createPageSlug(String(item.href).slice(1, -1)) === slug))) {
+                throw siteInputError('메뉴 이름이 중복되거나 예약된 경로와 겹칩니다.', 'SITE_HOSTING_PAGE_SLUG_CONFLICT');
+            }
+            output.navigation = defaults.map((item, index) => ({
+                ...item,
+                label: normalizeMenuLabel(input.navigation[index]?.label)
+            })).concat(customPages.map((page) => ({ label: page.label, href: `/${encodeURIComponent(page.slug)}/` })));
+            if (pageCapability) output.custom_pages = customPages;
+        } else if (pageInputs.length) {
+            const customPages = pageInputs.map((entry) => {
+                const label = normalizeMenuLabel(entry?.label);
+                const slug = createPageSlug(label);
+                if (!slug || pageCapability.reserved_slugs.includes(slug)) throw siteInputError(`'${label}' 메뉴의 경로를 만들 수 없습니다. 다른 이름을 입력해 주세요.`, 'SITE_HOSTING_PAGE_SLUG_INVALID');
+                return { label, slug };
+            });
+            if (new Set(customPages.map((page) => page.slug)).size !== customPages.length) {
+                throw siteInputError('메뉴 이름이 중복되거나 예약된 경로와 겹칩니다.', 'SITE_HOSTING_PAGE_SLUG_CONFLICT');
+            }
+            output.custom_pages = customPages;
+        }
+        if (postListIndex !== undefined && !publishing) {
+            throw siteInputError('이 템플릿은 글 목록 메뉴 연결을 지원하지 않습니다.', 'SITE_HOSTING_PUBLISHING_UNSUPPORTED');
+        }
+        if (publishing) {
+            const defaults = Array.isArray(declared.get('navigation')?.default) ? declared.get('navigation').default : [];
+            if (!declared.has('navigation') || !Number.isInteger(postListIndex) || postListIndex < 0 || postListIndex >= defaults.length) {
+                throw siteInputError('글 목록에 연결할 메뉴를 선택해 주세요.', 'SITE_HOSTING_POST_LIST_MENU_REQUIRED');
+            }
+            output.publishing = {
+                listing_route: publishing.routes.listing,
+                post_list_navigation_index: postListIndex
+            };
+        }
+        if (declared.has('logo') && input.logo) output.logo = normalizeLogo(input.logo);
+        return output;
+    }
+
+    function normalizePublishingCapability(value) {
+        if (!value || value.schema_version !== 2 || value.format !== 'markdown'
+            || !value.routes || typeof value.routes.listing !== 'string' || typeof value.routes.detail !== 'string') return null;
+        const listing = value.routes.listing;
+        const detail = value.routes.detail;
+        const safePath = (route) => route.startsWith('/') && !route.startsWith('//')
+            && !/[?#\\\\]/.test(route) && route.split('/').every((segment) => segment !== '..' && segment !== '.');
+        if (!safePath(listing) || !safePath(detail) || !detail.includes('{slug}')) return null;
+        return { routes: { listing, detail } };
+    }
+
+    function normalizePageCapability(value) {
+        if (!value || value.schema_version !== 1 || value.mode !== 'static_placeholders'
+            || !Number.isInteger(value.max_items) || value.max_items < 1 || value.max_items > 20
+            || value.route_pattern !== '/{slug}/' || !value.target || typeof value.target.file !== 'string'
+            || !/^src\/[A-Za-z0-9._/-]+\.json$/.test(value.target.file) || value.target.file.split('/').includes('..')
+            || typeof value.target.path !== 'string' || !/^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*$/.test(value.target.path)) return null;
+        return {
+            max_items: value.max_items,
+            route_pattern: value.route_pattern,
+            target: { file: value.target.file, path: value.target.path },
+            reserved_slugs: ['blog', 'index', ...(Array.isArray(value.reserved_slugs) ? value.reserved_slugs.map((slug) => createPageSlug(slug)).filter(Boolean) : [])]
+        };
+    }
+
+    function createPageSlug(value) {
+        return String(value || '').normalize('NFKC').trim().toLocaleLowerCase('en-US')
+            .replace(/[\s_]+/g, '-')
+            .replace(/[^\p{L}\p{N}-]/gu, '')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '')
+            .slice(0, 48)
+            .replace(/-$/g, '');
+    }
+
+    function normalizeMenuLabel(value) {
+        const label = String(value || '').trim();
+        if (!label || label.length > 30 || /[<>\u0000-\u001f]/.test(label)) throw siteInputError('메뉴 이름은 1~30자 이내로 입력해 주세요.', 'SITE_HOSTING_NAVIGATION_INVALID');
+        return label;
+    }
+
+    function normalizeLogo(value) {
+        const match = String(value || '').match(/^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/);
+        if (!match) throw siteInputError('로고는 PNG, JPG 또는 WebP 이미지로 선택해 주세요.', 'SITE_HOSTING_LOGO_INVALID');
+        const bytes = Buffer.from(match[2], 'base64');
+        if (!bytes.length || bytes.length > 1024 * 1024) throw siteInputError('로고 이미지는 1MB 이하로 선택해 주세요.', 'SITE_HOSTING_LOGO_TOO_LARGE');
+        const signatures = { png: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), jpeg: Buffer.from([0xff, 0xd8, 0xff]), webp: Buffer.from('RIFF') };
+        if (!bytes.subarray(0, signatures[match[1]].length).equals(signatures[match[1]])
+            || (match[1] === 'webp' && bytes.toString('ascii', 8, 12) !== 'WEBP')) {
+            throw siteInputError('이미지 형식이 올바르지 않습니다.', 'SITE_HOSTING_LOGO_INVALID');
+        }
+        return { extension: match[1] === 'jpeg' ? 'jpg' : match[1], content: bytes };
+    }
+
+    function siteInputError(message, code) {
+        const error = new Error(message);
+        error.code = code;
+        error.status = 400;
+        return error;
+    }
+
+    function normalizeHomepageUrl(value) {
+        try {
+            const parsed = new URL(String(value || '').trim());
+            return parsed.protocol === 'https:' && !parsed.username && !parsed.password ? parsed.href : '';
+        } catch (_error) {
+            return '';
+        }
     }
 
     function update(projectId, siteId, payload = {}) {
@@ -328,6 +491,7 @@ function createSiteHostingSiteService(deps = {}) {
 
     return {
         listTemplates,
+        getTemplatePreview: (id) => templates.getPreview?.(String(id || '').trim()) || null,
         list,
         create,
         update,
@@ -339,7 +503,7 @@ function createSiteHostingSiteService(deps = {}) {
         getBuildStatus: (projectId, siteId) => astroRuntime.getBuildStatus(projectId, siteId),
         startPreview: (projectId, siteId) => astroRuntime.startPreview(projectId, siteId),
         stopPreview: (projectId, siteId) => astroRuntime.stopPreview(projectId, siteId),
-        async deploy(projectId, siteId) {
+        async deploy(projectId, siteId, context = {}) {
             const site = repository.get(projectId, siteId);
             if (!site) {
                 const error = new Error('사이트를 찾을 수 없습니다.');
@@ -349,7 +513,7 @@ function createSiteHostingSiteService(deps = {}) {
             }
             const credentials = await getCloudflareDeploymentCredentials();
             const buildResult = await astroRuntime.build(projectId, siteId);
-            const deployed = await cloudflareDeployer.deploy(site, credentials);
+            const deployed = await cloudflareDeployer.deploy(site, credentials, context);
             const deployedAt = now();
             repository.recordDeployment(projectId, siteId, { ...deployed, deployed_at: deployedAt });
             return { ...deployed, deployed_at: deployedAt, screenshot: buildResult?.screenshot || null, screenshot_error: buildResult?.screenshot_error || '' };

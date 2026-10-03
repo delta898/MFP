@@ -516,9 +516,11 @@ function createUiApiRouteRuntime(deps = {}) {
     function getSiteHostingSiteRouteHandlerInstance() {
         if (!siteHostingSiteRouteHandler) {
             const service = createSiteHostingSiteService({
+                Logger,
                 fs,
                 path,
                 workspaceDir: CONFIG?.WORKSPACE_DIR,
+                runtimeEnvironment: CONFIG?.RUNTIME_ENVIRONMENT,
                 getCloudflareDeploymentCredentials: () => getCloudflareConnectionServiceInstance().getDeploymentCredentials()
             });
             siteHostingSiteRouteHandler = createSiteHostingSiteRouteHandler({

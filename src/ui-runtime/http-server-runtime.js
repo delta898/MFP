@@ -117,6 +117,8 @@ function createUiHttpServerRuntime(deps = {}) {
                             limitBytes = 15 * 1024 * 1024;
                         } else if (pathname === '/api/v1/social/manual/publish') {
                             limitBytes = 85 * 1024 * 1024;
+                        } else if (/^\/api\/v1\/site-hosting\/projects\/[^/]+\/sites$/.test(pathname)) {
+                            limitBytes = 2 * 1024 * 1024;
                         } else if (
                             pathname === '/api/v1/card-news/zip/preview'
                             || pathname === '/api/v1/card-news/zip/import'

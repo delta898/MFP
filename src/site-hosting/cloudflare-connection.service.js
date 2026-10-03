@@ -12,6 +12,15 @@ const CALLBACK_PORT = 43127;
 const CALLBACK_PATH = '/oauth/callback';
 const REDIRECT_URI = `http://${CALLBACK_HOST}:${CALLBACK_PORT}${CALLBACK_PATH}`;
 const FLOW_TTL_MS = 10 * 60 * 1000;
+const OAUTH_REQUESTED_SCOPES = [
+    'memberships.read',
+    'workers-scripts.edit',
+    'workers-routes.write',
+    'workers-scripts.read',
+    'workers-scripts.write',
+    'zone.read',
+    'offline_access'
+].join(' ');
 
 function createCloudflareConnectionService(deps = {}) {
     const {
@@ -245,7 +254,7 @@ function createCloudflareConnectionService(deps = {}) {
                 client_id: requireClientId(),
                 redirect_uri: REDIRECT_URI,
                 response_type: 'code',
-                scope: 'memberships.read workers-scripts.edit zone.read workers-routes.write offline_access',
+                scope: OAUTH_REQUESTED_SCOPES,
                 prompt: 'consent',
                 state,
                 code_challenge: challenge,

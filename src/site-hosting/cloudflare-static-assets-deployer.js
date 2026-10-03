@@ -122,10 +122,39 @@ function readStaticAssets(distRoot, fileSystem = fs, pathApi = path) {
     return files;
 }
 
+function getCloudflareErrorDetails(error) {
+    const cloudflareErrors = Array.isArray(error?.errors)
+        ? error.errors
+        : Array.isArray(error?.error?.errors) ? error.error.errors : [];
+    const details = {
+        status: Number(error?.status) || null,
+        code: error?.code === undefined
+            ? (cloudflareErrors[0]?.code === undefined ? null : String(cloudflareErrors[0].code))
+            : String(error.code),
+        message: String(error?.message || 'Unknown Cloudflare error')
+    };
+    if (cloudflareErrors.length) {
+        details.errors = cloudflareErrors.map((item) => ({
+            code: item?.code === undefined ? undefined : String(item.code),
+            message: item?.message === undefined ? undefined : String(item.message)
+        }));
+    }
+    return details;
+}
+
+function redactDeploymentLog(value, secrets = []) {
+    let text = String(value ?? '');
+    for (const secret of secrets) {
+        if (secret) text = text.split(String(secret)).join('[redacted]');
+    }
+    return text.replace(/(Bearer\s+)[^\s"']+/gi, '$1[redacted]');
+}
+
 function createCloudflareStaticAssetsDeployer(options = {}) {
     const fileSystem = options.fs || fs;
     const pathApi = options.path || path;
     const getCredentials = options.getCredentials;
+    const logger = options.logger || console;
     const fetchImpl = options.fetchImpl || globalThis.fetch;
     const sleep = options.sleep || ((duration) => new Promise((resolve) => setTimeout(resolve, duration)));
     const createClient = options.createClient || ((accessToken) => {
@@ -134,7 +163,7 @@ function createCloudflareStaticAssetsDeployer(options = {}) {
     });
     const createAdapter = options.createAdapter || createCloudflareSdkAdapter;
 
-    async function deploy(site, suppliedCredentials) {
+    async function deploy(site, suppliedCredentials, context = {}) {
         const credentials = suppliedCredentials || await getCredentials();
         const { accessToken, account } = credentials || {};
         if (!accessToken || !account?.id) throw new Error('Cloudflare 배포 인증 정보를 확인하지 못했습니다.');
@@ -179,13 +208,33 @@ function createCloudflareStaticAssetsDeployer(options = {}) {
                 if (attempt < 14) await sleep(1000);
             }
             if (!active) throw new Error('Cloudflare가 새 배포를 활성 상태로 확인하지 못했습니다.');
-            activeStep = '공개 사이트 응답 확인';
+            // Cloudflare control plane confirms the deployment is active. Avoid treating
+            // a transient workers.dev propagation 404 as a failed deployment.
             console.info('[Site Hosting] 배포 주소:', url);
-            const response = await fetchImpl(url, { method: 'GET' });
-            if (!response?.ok) throw new Error(`공개 사이트 확인에 실패했습니다 (HTTP ${response?.status || 0}).`);
             return { worker_name: workerName, url, deployment_id: deploymentId, version_id: versionId };
         } catch (cause) {
             const status = Number(cause?.status);
+            const diagnostic = getCloudflareErrorDetails(cause);
+            diagnostic.message = redactDeploymentLog(diagnostic.message, [accessToken]);
+            if (Array.isArray(diagnostic.errors)) {
+                diagnostic.errors = diagnostic.errors.map((item) => ({
+                    ...item,
+                    message: redactDeploymentLog(item.message, [accessToken])
+                }));
+            }
+            const requestId = String(context.requestId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);
+            const logRecord = {
+                ...(requestId ? { request_id: requestId } : {}),
+                site_id: String(site.id || ''),
+                worker_name: workerName,
+                step: activeStep,
+                ...diagnostic
+            };
+            try {
+                logger.error(`[Site Hosting][Cloudflare] deploy failed ${JSON.stringify(logRecord)}`);
+            } catch (_logError) {
+                // Diagnostics must not replace the original deployment failure.
+            }
             const message = status === 401 || status === 403
                 ? `Cloudflare 권한이 거부되었습니다: ${activeStep}. OAuth Client의 Workers 권한과 계정 역할을 확인해 주세요.`
                 : String(cause?.message || 'Cloudflare 배포에 실패했습니다.').split(String(accessToken)).join('[redacted]');

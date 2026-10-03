@@ -5,7 +5,7 @@
 - Branch: `codex/static-site-builder-main`
 - Start date: 2026-10-01
 - Base branch: `main`
-- Status: In progress; Project/Site design and the first site navigation slice are complete, and the next serial sub-feature will implement the site page interior.
+- Status: In progress; Site creation/management is integrated; current serial sub-feature defines Amade's external template catalog and connects BlogGenius to its first Site Hosting template.
 - Parent branch: none; this is the integration branch for the Static Site Builder feature.
 
 ## User need and goal
@@ -18,7 +18,7 @@ The user intends this to be the only feature-development track for the near term
 
 - Explore the product and architecture needed to connect site building, content management/publishing, and deployment in BlogGenius.
 - Treat existing StaticWeb and Amade repositories as separate products. Their workflows may provide empirical lessons, but they do not constrain this feature's product or template specification.
-- Define the template contract and catalog from a clean slate in a dedicated template project, separate from the tools.
+- Define Amade's external template package/catalog contract separately from BlogGenius, with distinct Site Hosting and BlogGenius design Style resource types.
 - Keep existing Naver Blog and WordPress functionality stable and separately bounded.
 - Develop an agreed feature roadmap, architecture, data/auth ownership, and migration/reuse strategy before material implementation.
 - Implement the agreed scope as short-lived sub-feature branches, each with its own development record.
@@ -52,13 +52,13 @@ The user intends this to be the only feature-development track for the near term
 
 BlogGenius may provide one guided user experience for project/site setup, template configuration, content creation, preview, build, and deployment while keeping the site/build/deploy domain separate from current Naver and WordPress publishers. Astro and Cloudflare Static Assets are the initial target hypothesis based on the user's existing projects. The precise product scope and execution architecture remain open.
 
-현재 합의: BlogGenius는 데스크톱 UI를 제공하고, 별도 외부 저장소에서 template을 가져온다. 가칭 Amade2는 이 template source repository를 뜻하며 저작 도구나 CLI가 아니다. BlogGenius는 template catalog/source를 내장하거나 소유하지 않는다. 별도 CLI나 다른 소비 도구는 현재 범위 밖이며 추후 별도로 논의한다. 기존 Amade 프로젝트와 그 template은 사양의 근거로 사용하지 않는다.
+현재 합의: BlogGenius는 데스크톱 UI를 제공하고, 외부 Amade GitHub 저장소에서 template package를 가져온다. Amade는 Site Hosting template과 BlogGenius design Style pack 두 종류를 제공하되, 공통 메타데이터/배포 기반 아래 type별 명세와 카탈로그를 분리한다. 현재 Style은 `설정 > 앱 > 외모`의 design-style registry와 semantic-token contract를 뜻한다. 첫 구현은 Site Hosting template 하나를 규격대로 제공하고 BlogGenius와 연동한다. Style 원격 로딩/적용과 제작자 업로드 장은 후속 범위다. 기존 Amade template과 구현은 새 규격의 제약으로 간주하지 않는다.
 
 ### Template ownership and lifecycle (initial direction)
 
 - BlogGenius is not a visual/free-form site builder. It helps a user choose a managed template, set the template's supported values (for example title, logo, and menu), connect content, preview/build, and deploy.
 - Template 정의와 배포 버전은 BlogGenius와 분리된 외부 저장소에서 관리한다. BlogGenius는 catalog와 template source를 참조하므로 새 template 제공에 BlogGenius 앱 배포가 필요하지 않다.
-- The template project owns the new specification, template sources, and versioned catalog; it does not depend on either tool's runtime.
+- Amade owns the specification, package sources, and versioned catalogs; it does not depend on BlogGenius runtime. Amade may also retain its independent CLI product.
 - A created site records the selected template identity and version. New sites may choose newer catalog entries; existing sites remain on their selected version until an explicit update/migration feature is designed.
 - Whether existing sites can switch template families or upgrade from `A1` to `A2` is deferred until real templates and user changes provide evidence.
 - Astro's conventional project structure is the baseline. Add only a thin product-specific contract for catalog identity/version, supported settings, and package integrity; do not redefine Astro's project layout.
@@ -275,7 +275,14 @@ The Cloudflare PoC follows the user journey rather than selecting a technology s
 
 ## Verification and handoff
 
-- Automated verification: not applicable; documentation/branch setup only.
-- Manual review: user and agent should agree on initial product scenarios, source ownership, and local-vs-remote execution before the first implementation sub-feature.
-- Current sub-feature work is tracked by its branch-specific development record; the parent integration record summarizes cross-stage decisions.
-- Remaining risks: execution model and data/credential ownership materially affect privacy, cost, OS support, and feasibility; they must be resolved before product implementation.
+- Initial parent setup was documentation-only; subsequent stages and current validation are recorded below and in linked sub-feature records.
+- Current manual review: user can check Amade template preview selection, Site creation, and build/preview in the BlogGenius app.
+- The Amade catalog integration is implemented on `codex/amade-template-catalog`, still uncommitted and not merged into the parent. Amade's cleaned catalog repository is published on `main`.
+- Remaining follow-ups: connect BlogGenius article publishing to each template's declared content path/route, evaluate external Style loading/application, and assess runtime packaging on supported operating systems.
+
+## 2026-10-03 — Amade templates and external catalog
+
+- The earlier temporary in-app Astro fixture has now been superseded as the creation catalog source by the user's Amade repository. Amade provides two typed resources: `site-hosting` and `bloggenius-style`; the first external delivery is the MIT-licensed Astro Homepage 1.0.0 package. External Style loading/application and public creator uploads remain follow-up work.
+- Amade's `codex/bloggenius-template-contract` is published and fast-forwarded to `main` at `841e62670f24946142aa737782af0b51c6299049`. The old CLI/Compose/config and homepage starter remnants were removed; README now describes the catalog and schemas. Catalog index commit `d927e9755c46ba4de8f1df3a94d9b3bceab6185a` points at immutable template revision `6bf86200290017e82cab1013add3fc2320ca48b1`.
+- BlogGenius's current feature branch `codex/amade-template-catalog` retrieves the external catalog, validates package checksums, caches the selected template, exposes its preview, and records declared customization and source revision on Site creation. Implementation and test details are in [Amade Template Catalog and Site Template Development](2026-10-03-amade-template-catalog-and-site-template-development.md).
+- Focused site-hosting tests pass (18/18); live Amade `main` catalog/package retrieval and the Astro 7.3.5 static build also pass. The desktop app and browser smoke were not run. BlogGenius work is uncommitted and not merged; user review remains.

@@ -43,22 +43,30 @@
           </form>
         </dialog>
 
-        <dialog id="site-create-dialog" class="site-project-dialog ui-transaction-dialog" aria-labelledby="site-create-title">
+        <dialog id="site-create-dialog" class="site-project-dialog site-create-dialog ui-transaction-dialog" aria-labelledby="site-create-title">
           <form id="site-create-form" class="ui-transaction-dialog-form">
             <div class="ui-transaction-dialog-header">
               <div>
                 <h2 id="site-create-title">사이트 만들기</h2>
-                <p>템플릿을 고르고 사이트 이름을 입력하세요.</p>
+                <p>템플릿을 고르고 사이트의 기본 정보를 정하세요.</p>
               </div>
             </div>
-            <label class="site-project-form-field" for="site-template-id">
-              <span>템플릿</span>
-              <select id="site-template-id" name="template_id" required></select>
-            </label>
+            <section class="site-template-picker" aria-labelledby="site-template-picker-title">
+              <h3 id="site-template-picker-title">템플릿</h3>
+              <div id="site-template-grid" class="site-template-grid" role="radiogroup" aria-label="사이트 템플릿"></div>
+              <input id="site-template-id" name="template_id" type="hidden" required>
+            </section>
             <label class="site-project-form-field" for="site-name">
               <span>사이트 이름</span>
               <input id="site-name" name="name" type="text" maxlength="80" required autocomplete="off" placeholder="예: 개인 블로그">
             </label>
+            <label class="site-project-form-field" for="site-logo">
+              <span>로고 이미지 <small>선택</small></span>
+              <input id="site-logo" name="logo" type="file" accept="image/png,image/jpeg,image/webp">
+              <small>PNG, JPG, WebP · 1MB 이하</small>
+              <span id="site-logo-preview" class="site-logo-preview" hidden><img alt="로고 미리보기"><button type="button" class="secondary" data-site-logo-remove>제거</button></span>
+            </label>
+            <section id="site-navigation-fields" class="site-navigation-fields" aria-label="메뉴 이름"></section>
             <p id="site-create-feedback" class="ui-workflow-feedback" role="status" aria-live="polite"></p>
             <div class="ui-transaction-dialog-footer">
               <div class="ui-transaction-dialog-footer-actions">

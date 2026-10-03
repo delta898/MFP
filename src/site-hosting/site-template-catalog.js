@@ -35,7 +35,11 @@ function createSiteTemplateCatalog(options = {}) {
                 name: String(descriptor.name),
                 description: String(descriptor.description || ''),
                 source_root: sourceRoot,
-                preview_file: previewFile ? pathApi.resolve(templateRoot, previewFile) : ''
+                preview_file: previewFile ? pathApi.resolve(templateRoot, previewFile) : '',
+                source_revision: String(descriptor.source_revision || ''),
+                kind: String(descriptor.kind || 'site-hosting'),
+                resource: descriptor.resource || null,
+                package_ready: descriptor.package_ready !== false
             };
         } catch (_error) {
             return null;
@@ -88,7 +92,7 @@ function createSiteTemplateCatalog(options = {}) {
         }
 
         copyDirectory(template.source_root, destination);
-        return { id: template.id, version: template.version };
+        return { id: template.id, version: template.version, ...(template.source_revision ? { source_revision: template.source_revision } : {}) };
     }
 
     function copyPreview(id, destination) {

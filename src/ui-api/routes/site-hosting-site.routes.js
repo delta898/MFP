@@ -39,7 +39,23 @@ function createSiteHostingSiteRouteHandler(deps = {}) {
 
         try {
             if (pathname === '/api/v1/site-hosting/templates' && method === 'GET') {
-                await sendSuccess(res, requestId, service.listTemplates());
+                await sendSuccess(res, requestId, await service.listTemplates());
+                return true;
+            }
+            const templatePreviewMatch = pathname.match(/^\/api\/v1\/site-hosting\/templates\/([^/]+)\/preview$/);
+            if (templatePreviewMatch && method === 'GET') {
+                const preview = service.getTemplatePreview?.(decodePathPart(templatePreviewMatch[1]));
+                if (!preview) {
+                    await sendError(res, requestId, 404, 'SITE_HOSTING_TEMPLATE_PREVIEW_NOT_FOUND', '템플릿 미리보기를 찾을 수 없습니다.');
+                    return true;
+                }
+                res.writeHead(200, {
+                    'Content-Type': preview.contentType,
+                    'Content-Length': preview.buffer.length,
+                    'Cache-Control': 'no-store',
+                    'X-Content-Type-Options': 'nosniff'
+                });
+                res.end(preview.buffer);
                 return true;
             }
             const siteActionMatch = pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)\/(build|build-status|preview|deploy|open-folder|zones|custom-domain)$/);
@@ -64,7 +80,7 @@ function createSiteHostingSiteRouteHandler(deps = {}) {
                     return true;
                 }
                 if (action === 'deploy' && method === 'POST') {
-                    await sendSuccess(res, requestId, await service.deploy(projectId, siteId));
+                    await sendSuccess(res, requestId, await service.deploy(projectId, siteId, { requestId }));
                     return true;
                 }
                 if (action === 'open-folder' && method === 'POST') {
@@ -102,11 +118,11 @@ function createSiteHostingSiteRouteHandler(deps = {}) {
             if (!sitesMatch) return false;
             const projectId = decodePathPart(sitesMatch[1]);
             if (method === 'GET') {
-                await sendSuccess(res, requestId, service.list(projectId));
+                await sendSuccess(res, requestId, await service.list(projectId));
                 return true;
             }
             if (method === 'POST') {
-                await sendSuccess(res, requestId, service.create(projectId, ctx.requestBody || {}), 201);
+                await sendSuccess(res, requestId, await service.create(projectId, ctx.requestBody || {}), 201);
                 return true;
             }
             return false;
