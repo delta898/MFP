@@ -154,4 +154,4 @@ function createSiteHostingSiteRouteHandler(deps = {}) {
     };
 }
 
-module.exports = { createSiteHostingSiteRouteHandler };
+module.exports = { createSiteHostingSiteRouteHandler, isLoopbackRequest };

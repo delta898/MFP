@@ -98,6 +98,8 @@
 - `decisions/2026-09-23-ai-generation-cancellation-contract.md` (구현 전 설계 제안)
 - `decisions/2026-10-03-amade-template-kinds-and-catalog.md` (Site Hosting / BlogGenius Style resource separation and GitHub catalog)
 - `decisions/2026-10-03-amade-template-switching-direction.md` (agreed Template Family / Template terms and same-family conversion promise)
+- `decisions/2026-10-04-amade-shared-catalog-resource-types.md` (shared Amade catalog for Site Hosting Templates and BlogGenius UI Styles)
+- `decisions/2026-10-04-amade-shared-catalog-resource-types.md` (shared Amade discovery/metadata contract for Site Hosting families and BlogGenius UI Styles, with separate typed package contracts)
 
 ## Active Work
 
@@ -105,8 +107,8 @@
 - `plans/active/2026-10-02-cloudflare-static-assets-list-poc-development.md`
 - `plans/active/2026-10-02-cloudflare-static-assets-deploy-poc-development.md`
 - `plans/active/2026-10-01-static-site-builder-main-development.md` (`main` → `codex/static-site-builder-main` → serial sub-features; the parent may merge into `dev` only by explicit request)
-- `plans/active/2026-10-03-amade-template-catalog-and-site-template-development.md` (current serial sub-feature; define Amade resource types and connect a versioned Site Hosting template)
-- `plans/active/2026-10-03-amade-template-spec-v0.1-design.md` (fresh Site Hosting specification design; existing 1.x resources are legacy)
+- `plans/active/2026-10-03-amade-template-catalog-and-site-template-development.md` (current serial sub-feature; Amade catalog and Site Hosting Template Family integration)
+- `plans/active/2026-10-03-amade-template-spec-v0.1-design.md` (experimental Site Hosting 0.1 design extended to share Amade discovery/metadata with BlogGenius UI Styles; existing 1.x resources are legacy)
 - `plans/archive/2026-10-02-site-creation-development.md` (completed serial sub-feature; Site creation, Astro build/preview, Cloudflare deployment/domain connection, and Site management UI)
 - `plans/archive/2026-10-02-site-management-page-development.md` (completed serial sub-feature; Project list, create, and detail IA)
 - `plans/archive/2026-10-02-project-site-model-and-user-flow-design.md` (completed Project/Site model and user-flow design stage)

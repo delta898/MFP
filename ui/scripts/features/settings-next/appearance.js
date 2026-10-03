@@ -1,7 +1,7 @@
 let settingsNextAppearanceBound = false;
 
 function getSettingsNextAppearanceCopy(styleId) {
-  const entry = typeof DESIGN_STYLE_REGISTRY !== 'undefined' ? DESIGN_STYLE_REGISTRY[styleId] : null;
+  const entry = typeof getDesignStyleEntry === 'function' ? getDesignStyleEntry(styleId) : null;
   if (!entry) return '';
   if (entry.blurb) return entry.blurb;
   return `${entry.label} 스타일로 화면을 바꿉니다.`;
@@ -9,8 +9,8 @@ function getSettingsNextAppearanceCopy(styleId) {
 
 function getSettingsNextAppearanceCurrentId() {
   const rootId = String(document.documentElement?.dataset?.style || '').trim().toLowerCase();
-  if (typeof DESIGN_STYLE_REGISTRY !== 'undefined'
-    && DESIGN_STYLE_REGISTRY[rootId]?.selectable === true) return rootId;
+  if (typeof getDesignStyleEntry === 'function'
+    && getDesignStyleEntry(rootId)?.selectable === true) return rootId;
   const firstSelectable = typeof getSelectableDesignStyles === 'function'
     ? getSelectableDesignStyles()[0]
     : null;
@@ -41,6 +41,7 @@ function createSettingsNextAppearancePreview(styleId) {
   row.append(primary, badge);
   card.append(title, body, row);
   preview.appendChild(card);
+  if (typeof applyDesignStyle === 'function') applyDesignStyle(styleId, preview);
   return preview;
 }
 
@@ -78,7 +79,7 @@ function setSettingsNextAppearanceFeedback(message) {
 
 async function applySettingsNextAppearance(styleId) {
   const normalized = String(styleId || '').trim().toLowerCase();
-  const entry = typeof DESIGN_STYLE_REGISTRY !== 'undefined' ? DESIGN_STYLE_REGISTRY[normalized] : null;
+  const entry = typeof getDesignStyleEntry === 'function' ? getDesignStyleEntry(normalized) : null;
   if (!entry || entry.selectable !== true) return false;
   if (typeof applyDesignStyle === 'function') applyDesignStyle(normalized);
   const persisted = typeof persistDesignStyleId === 'function' ? persistDesignStyleId(normalized) : false;
@@ -94,5 +95,9 @@ function initSettingsNextAppearance() {
   const grid = document.getElementById('settings-next-appearance-grid');
   if (!grid) return;
   settingsNextAppearanceBound = true;
-  renderSettingsNextAppearance();
+  if (typeof refreshRemoteDesignStyles === 'function') {
+    void refreshRemoteDesignStyles().finally(() => renderSettingsNextAppearance());
+  } else {
+    renderSettingsNextAppearance();
+  }
 }

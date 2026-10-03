@@ -2,17 +2,45 @@
 
 ## Status
 
-The user approved proceeding in this order: define common family data contracts, create two presentation templates in each of two families, validate the families using the same data, then connect the catalog to BlogGenius development. The 0.1.0 contract remains experimental; do not treat it as a stable production schema or promote it to 1.0.0 yet. Canonical packages now live in the local Amade `dev` checkout under `amade/families/` and `amade/templates/`; the isolated experiment directory retains conformance fixtures/scripts. BlogGenius's development reader consumes the grouped `families[]` catalog while production remains on its configured main URL. The Amade changes have not been pushed.
+The user approved proceeding in this order: define family data contracts, create and validate two presentation templates in each of two families, connect them to BlogGenius development, then extend Amade to serve Site Hosting templates and BlogGenius UI Styles from one repository/catalog. The 0.1.0 contract remains experimental; do not promote it to 1.0.0 until both resource kinds and shared discovery have been validated. Canonical Site Hosting packages are in Amade `dev` under `amade/families/` and `amade/templates/`; the integration was pushed as `529f2d5`. The current BlogGenius branch is `codex/amade-template-catalog`.
 
 ## User decision
 
 - Start a new specification line at `0.1.0` and use it for experimentation and validation.
 - Promote the specification to `1.0.0` only after the model has been tested and is sufficiently stable.
 - Treat all existing Amade templates using the current `1.x` format as **legacy**. They are reference material only; they do not define the new specification and are not automatically converted.
-- Focus this design on Site Hosting templates. The BlogGenius Style resource kind is deferred until the shared parts and Site Hosting contract are understood.
+- The initial 0.1 design focused on Site Hosting; the user has now approved extending this same experimental specification to cover BlogGenius UI Style packages before calling it stable.
 - Use two product concepts: **Template Family (템플릿 계열)** and **Template (템플릿)**. A family is the compatibility boundary; every template published in one family promises conversion to every other template in that family while preserving family-contract site data.
 
-The specification version and an individual template package's release version are separate concepts. On 2026-10-04, the user agreed on common template metadata: name, description, author, package version, license, categories, tags, and representative preview are required; screenshots, homepage, and support are optional. Templates also declare a lifecycle status (`active`, `deprecated`, or `withdrawn`).
+The specification version and an individual package's release version are separate concepts. On 2026-10-04, the user agreed on common selectable-package metadata: name, description, author, package version, license, creation date, categories, tags, and representative preview are required; screenshots, homepage, and support are optional. Templates and UI Styles also declare a lifecycle status (`active`, `deprecated`, or `withdrawn`).
+
+## Amade shared catalog extension (2026-10-04)
+
+Amade will host both Site Hosting Template Families and BlogGenius UI Styles. “Shared specification” means shared discovery/catalog, metadata, lifecycle, immutable revision pinning, and repository safety rules; it does not mean merging their technical payload contracts. Keep `families[]` as the compatibility grouping for Site Hosting Templates and add an ordered `styles[]` list of standalone Style manifest references. Family and template remain separate objects; a family is not a selectable template.
+
+Both selectable package types use the agreed common metadata: `name`, `description`, `author`, package `version`, `license`, `created_at`, `categories`, `tags`, representative `preview`, optional `screenshots`, `homepage`, `support`, lifecycle `status` (`active`, `deprecated`, `withdrawn`), and required `compatibility.min_bloggenius_version` plus `compatibility.contract` (`id`, `version`). Only `active` resources are offered for new selection; absent status is not active. Catalog-level `experimental` describes specification maturity, not package availability. All catalog and package reads are pinned to one Amade commit SHA.
+
+The Style-specific payload stays data-only and references the BlogGenius semantic-token contract ID/version. It contains a complete allowlisted token map and no executable JavaScript or arbitrary CSS file. Both resource types also declare a minimum BlogGenius app version; current packages target `0.6.0`. Compatibility requires both meeting that minimum and supporting the declared type-specific contract. The BlogGenius consumer must validate token names, value syntax/type and length, and reject rule/declaration/import injection and external resource URLs before applying values. The bundled application default remains available as the offline/error fallback.
+
+The user further agreed that both fields are mandatory for both package types. The contract declaration shape is `compatibility: { min_bloggenius_version, contract: { id, version } }`; Templates use `bloggenius-site-hosting-template@0.1.0` and UI Styles use `bloggenius-ui-style-tokens@1.0`. A newer minimum or unsupported valid contract makes a package unavailable for selection; a missing/malformed declaration fails manifest validation. BlogGenius `0.6.0-devN` and `0.6.0-rcN` builds are treated as the `0.6.0` line for minimum-version checks so they can validate the upcoming stable release's resources. The app and lockfile now identify this branch as `0.6.0-dev1`.
+
+Proposed Amade structure:
+
+```text
+amade/
+  catalog/index.json
+  spec/
+    common-metadata-v0.1.schema.json
+    catalog-index-v0.1.schema.json
+    site-hosting-family-v0.1.schema.json
+    site-hosting-template-v0.1.schema.json
+    bloggenius-ui-style-v0.1.schema.json
+  families/<family-id>/family.json + site-data seed
+  templates/<template-id>/template.json + astro/ + preview media
+  styles/<style-id>/style.json + preview media
+```
+
+Implementation order: finalize and document the composed schemas and unified catalog; reorganize Amade and add representative Style packages sourced from the current registry; verify all Site Hosting packages and Style packages; then connect BlogGenius Appearance to active Amade Styles with validation, caching, fallback, and incompatible-contract handling. Do not run UI/browser smoke or launch the app; the user performs those checks on request.
 
 ## Problem to solve
 
@@ -199,7 +227,7 @@ Keep these version axes separate:
 
 - **Specification version:** shape and semantics of the Amade contract; begin experimental work at `0.1.0`, then stabilize at `1.0.0` after validation.
 - **Template release version:** creator's version of one template package.
-- **BlogGenius compatibility:** minimum app version only when the package needs app behavior unavailable in earlier versions; prefer explicit required capabilities where practical.
+- **BlogGenius compatibility:** every selectable Template and UI Style requires a minimum app version and a type-specific contract ID/version. Current packages require BlogGenius `0.6.0`; a resource is selectable only when both checks pass. The app release version and contract version are separate axes.
 - **Astro compatibility:** tested/supported Astro range and package/runtime expectations.
 - **Content contract version:** version only if its semantics can evolve independently from the manifest structure; avoid adding this axis unless the prototype shows it is needed.
 
@@ -241,7 +269,8 @@ The current curated Amade repository can be the initial trust boundary; public u
 - Added repeatable build and conformance checks. All four templates built from the actual `<site>/site-data` plus `<site>/template/astro` layout; A→B→A verified unchanged data hashes and a nested authored route.
 - Added required/optional/default field declarations to family manifests and strict, family-specific Astro/Zod validation for `site.json` and Markdown frontmatter. Builds verify accepted fixtures across every template.
 - Covered profile and logo, editable navigation labels and paths, authored pages, posts, family-specific work/services, public/private filtering, canonical list/detail routes, entry-relative images, and separate template discovery categories/tags.
-- Remaining work: negative schema tests, JSON Schema validation for manifests, route conflicts and Unicode URL output, optional-field cases, user-edited Astro source handling, failure recovery, and BlogGenius materialization integration.
+- Added required minimum-app and type-specific contract compatibility checks to both BlogGenius 0.1 template discovery/materialization and the Amade Style consumer. Current Amade resources require BlogGenius `0.6.0`; `0.6.0-devN` and `0.6.0-rcN` builds can test those resources. BlogGenius package and lockfile versions are `0.6.0-dev1`.
+- Remaining work: run formal JSON Schema validation with a Draft 2020-12 validator, negative schema cases, route conflicts and Unicode URL output, optional-field cases, user-edited Astro source handling, failure recovery, and live catalog/UI acceptance.
 
 ## Open design questions
 
@@ -250,9 +279,8 @@ The current curated Amade repository can be the initial trust boundary; public u
 3. Are user-created pages structured Markdown documents, simple generated placeholders, or both?
 4. Which route rules are invariant within a family, and how should templates prove route compatibility?
 5. Which controlled category and tag vocabulary best helps users discover families/templates?
-6. Is minimum BlogGenius version needed at all in 0.1.0, or are required capabilities sufficient for the prototype?
-7. What source edits can BlogGenius detect, and what does it promise to preserve during a same-family conversion?
-8. What minimum quality/security review is required before a community-authored package can be listed?
+6. How should BlogGenius detect user-authored Astro source edits before a same-family conversion?
+7. What minimum quality/security review is required before a community-authored package can be listed?
 
 ## References
 
@@ -280,7 +308,14 @@ The current curated Amade repository can be the initial trust boundary; public u
 
 ## 2026-10-04 — Common metadata and template lifecycle
 
-- User agreed that every template exposes `name`, `description`, `author`, package `version`, `license`, `categories`, `tags`, and a representative `preview`; `screenshots`, `homepage`, and `support` are optional.
+- User agreed that every selectable package exposes `name`, `description`, `author`, package `version`, `license`, `created_at`, `categories`, `tags`, and a representative `preview`; `screenshots`, `homepage`, and `support` are optional.
 - User agreed to define lifecycle states `active`, `deprecated`, and `withdrawn` now, while using only the needed state initially. New-Site selection offers only `active`; `deprecated` remains usable by already materialized Sites; `withdrawn` is not served for new downloads, while existing local copies may continue to build.
 - Amade's four proof templates now carry the agreed metadata and representative preview images. All are `active`; one includes an additional screenshot. The repeatable manifest verifier checks required fields, status values, discovery arrays, and package-relative image references. BlogGenius consumption of these states remains a later integration step.
 - Existing 1.x resources remain untouched legacy material and are not mixed into the isolated experimental 0.1 catalog.
+
+## 2026-10-04 — Shared Amade catalog and BlogGenius Style packages
+
+- Added the `styles[]` resource group alongside family-grouped Site Hosting templates. Common package metadata is composed into separate type-specific schemas; family manifests remain data contracts, not selectable packages.
+- Added 10 Amade UI Style packages from the current BlogGenius semantic token values. Each uses the 98-token `bloggenius-style-tokens-1.0` contract, package metadata, an SVG representative preview, and active lifecycle state.
+- BlogGenius now has a local API catalog reader that pins Amade catalog and manifest reads to one commit, filters by active lifecycle, validates token names/values, and caches verified data. The Appearance screen registers remote Styles and applies their token values; built-in CSS remains offline and validation fallback.
+- Amade `dev` now publishes ten Styles, and a temporary `remote-test-style` was added to verify the live integration. The user confirmed the remote-only style appears in BlogGenius Appearance. Focused compatibility/template/style/API tests pass (17 tests before RC support; 14 directly related tests after RC support), as do package version-contract checks and `git diff --check`. Formal schema validation with Draft 2020-12 remains pending. UI smoke was not run, per user preference.

@@ -2,7 +2,7 @@
 
 ## 문서 상태
 
-- Status: 다섯 정식 style, registry 기반 확장과 주요 product surface 적용 검증 완료
+- Status: 10개 selectable style의 semantic token 계약 유지; Amade 원격 패키지 연동은 0.1 실험 단계
 - Source stage: `codex/feature/design-system-01-principles`
 - 목적: 여러 style이 같은 기능·component 위에서 안전하게 동작하기 위한 최소 계약을 정의한다.
 
@@ -46,7 +46,7 @@ App Shell and Feature Surfaces
 - 앱 시작 시 `style-bootstrap.js`를 stylesheet보다 먼저 동기 실행해 저장된 선택을 첫 paint 전에 root에 적용함
 - bootstrap은 selectable ID만 허용하고, 저장소 접근 실패나 알 수 없는 값에는 HTML 기본 style을 유지함
 
-사용자 선택 UI와 계정 동기화 여부는 별도 제품 결정이다. foundation 단계에서는 registry와 기본값만 제공할 수 있다.
+선택 ID는 기기의 localStorage에 저장한다. Amade에서 내려받은 Style 패키지는 local API 서버가 검증 후 workspace 캐시에 저장하며, renderer는 검증된 token 데이터만 적용한다. 앱은 캐시된 package를 먼저 사용하고 원격 catalog를 갱신한다. 패키지 조회가 실패하거나 호환되지 않으면 기존 bundled registry/CSS를 계속 사용한다.
 
 ## Token Layers
 
@@ -128,6 +128,14 @@ feature 고유의 계산값이나 layout contract만 허용한다. color나 일�
 
 style에 따라 component anatomy를 바꿀 필요가 생기면 style 분기가 아니라 공통 component variant가 정말 필요한지 먼저 검토한다.
 
+## Amade Style package
+
+Amade catalog's `styles[]` references each `amade/styles/<style-id>/style.json` package. A package shares Amade common metadata and declares `style_id`, `compatibility.min_bloggenius_version`, `compatibility.contract` (`id: bloggenius-ui-style-tokens`, `version: 1.0`), and the complete required token map. It carries token data, not CSS selectors, JavaScript, or other executable assets. The Amade package `spec_version`, package release version, minimum app version, and token contract version are separate values. Current Style packages require BlogGenius `0.6.0`.
+
+The local API fetches the catalog and all Style manifests at one immutable Git revision. It offers only `active` packages whose minimum BlogGenius version is met and whose exact contract ID/version is supported. Incompatible future packages are skipped; malformed compatibility declarations fail validation. It validates IDs, metadata, exact token names, token count, contract version, and each value before writing a local cache. Values that could introduce declarations, rules, imports, or external resources (`;`, braces, `url()`, `@import`, and similar constructs) are rejected. The renderer repeats token allowlist/value validation before calling `CSSStyleDeclaration.setProperty`; packages never become a `<style>` block or stylesheet import.
+
+The Appearance UI uses the active Amade list when available and the built-in registry when no valid remote package is available. The existing per-style CSS modules remain bundled fallback and component-specific refinement; validated remote semantic tokens override the corresponding values at the document root. Appearance preview cards apply the same token map to their isolated preview element.
+
 ## File Responsibility
 
 ```text
@@ -182,15 +190,15 @@ style registry는 최소한 다음 정보를 제공해야 한다.
 
 Registry의 style ID와 CSS module은 일대일 naming contract를 따른다. `future-style` ID의 token module은 반드시 `ui/styles/styles/future-style.css`이며, style directory의 CSS도 빠짐없이 registry에 등록한다. 테스트는 runtime registry에서 파일 경로를 파생해 파일 존재, selector, 필수 token, density token과 composition manifest 등록을 자동 확인한다. 따라서 새 style을 추가할 때 기존 테스트의 style 목록이나 파일 map을 수정하지 않는다.
 
-새 style 추가 시 변경 지점은 다음 세 곳으로 제한한다.
+새 bundled fallback style 추가 시 변경 지점은 다음 세 곳으로 제한한다.
 
 1. `ui/styles/styles/<style-id>.css`에 필수 token을 정의한다.
 2. `DESIGN_STYLE_REGISTRY`에 같은 ID와 사용자 표시 metadata를 등록한다.
 3. `ui/styles.css`의 `bloggenius.tokens` layer에 해당 module을 명시적으로 include한다.
 
-CSS manifest는 cascade 순서의 source of truth이므로 자동 directory scan으로 대체하지 않는다. 설정 Beta의 style 선택 UI는 registry의 selectable entry를 자동 렌더링한다.
+Amade에서 제공하는 Style package는 별도로 Amade의 공통 메타데이터와 token schema를 만족하고 `styles[]` catalog에 등록한다. CSS manifest는 bundled fallback의 cascade 순서에 대한 source of truth이므로 자동 directory scan으로 대체하지 않는다. 설정 Beta의 style 선택 UI는 remote active package 목록을 우선 렌더링하고, 원격 목록이 없을 때 registry의 selectable entry를 표시한다.
 
-알 수 없는 저장값, 제거된 style, 불완전한 style pack이 앱을 깨뜨리면 안 된다. registry validation에 실패하면 기본 style을 적용하고 기능은 계속 사용할 수 있어야 한다.
+알 수 없는 저장값, 제거된 style, 불완전한 style pack이 앱을 깨뜨리면 안 된다. package validation에 실패하면 마지막 정상 캐시 또는 bundled style을 적용하고 기능은 계속 사용할 수 있어야 한다.
 
 ## Migration Rules
 
@@ -222,7 +230,7 @@ CSS manifest는 cascade 순서의 source of truth이므로 자동 directory scan
 
 ## 현재 검증 결과
 
-- Compatibility와 다섯 정식 style `따뜻한 에디토리얼`, `고요한 세이지 스튜디오`, `가을밤 서재`, `한지 위의 단청`, `레트로 터미널`이 동일 registry 및 필수 token contract를 사용한다.
+- Compatibility와 10개 selectable style이 동일한 98-token contract를 사용한다. Amade는 이들 10개를 각각 공통 metadata, 미리보기, lifecycle, 전체 token map이 있는 실험 패키지로 보관한다.
 - 정식 style은 따뜻한 밝은 화면, 차분한 세이지, 어두운 월넛, 한지·청자·쪽빛, 저광량 phosphor 계열로 palette뿐 아니라 spacing/density, radius와 elevation을 달리하면서 동일 DOM·기능·상태·ARIA·keyboard 순서를 유지한다.
 - style ID와 CSS 파일명은 일대일 규칙을 사용하고, 설정의 2열 선택 UI는 selectable registry entry를 자동 렌더링한다. 새 style 추가는 token module, registry metadata와 ordered CSS manifest 등록 세 곳으로 제한한다.
 - `가을밤 서재`는 dark surface의 modal footer와 공통 feedback을 semantic surface token으로 교정했고, `한지 위의 단청`은 일반 secondary와 명시적 negative/danger action의 의미를 style 색상과 분리해 검증했다.

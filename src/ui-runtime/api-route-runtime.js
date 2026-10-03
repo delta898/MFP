@@ -1,3 +1,8 @@
+'use strict';
+
+const { createGitHubDesignStyleCatalog } = require('../site-hosting/github-design-style-catalog');
+const { createDesignStylesRouteHandler } = require('../ui-api/routes/design-styles.routes');
+
 function createUiApiRouteRuntime(deps = {}) {
     const {
         APP_VERSION,
@@ -154,6 +159,7 @@ function createUiApiRouteRuntime(deps = {}) {
     let cloudflareConnectionService = null;
     let siteHostingProjectRouteHandler = null;
     let siteHostingSiteRouteHandler = null;
+    let designStylesRouteHandler = null;
     let apiRouteHub = null;
     let smartUsageService = null;
 
@@ -532,6 +538,19 @@ function createUiApiRouteRuntime(deps = {}) {
         return siteHostingSiteRouteHandler;
     }
 
+    function getDesignStylesRouteHandlerInstance() {
+        if (!designStylesRouteHandler) {
+            const catalog = createGitHubDesignStyleCatalog({
+                fs,
+                path,
+                workspaceDir: CONFIG?.WORKSPACE_DIR,
+                environment: CONFIG?.RUNTIME_ENVIRONMENT
+            });
+            designStylesRouteHandler = createDesignStylesRouteHandler({ catalog, sendSuccess, sendError });
+        }
+        return designStylesRouteHandler;
+    }
+
     function getApiRouteHubInstance() {
         if (!apiRouteHub) {
             apiRouteHub = createApiRouteHub([
@@ -547,6 +566,7 @@ function createUiApiRouteRuntime(deps = {}) {
                 getCloudflareConnectionRouteHandlerInstance(),
                 getSiteHostingProjectRouteHandlerInstance(),
                 getSiteHostingSiteRouteHandlerInstance(),
+                getDesignStylesRouteHandlerInstance(),
                 getLegacyApiRouteHandlerInstance()
             ]);
         }

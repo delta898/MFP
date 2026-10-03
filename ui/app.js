@@ -1,3 +1,4 @@
+// @include scripts/foundation/design-style-token-contract.js
 // @include scripts/foundation/style-system.js
 // @include scripts/shared/grid-tail-spacers.js
 // @include scripts/foundation/ui-feedback-state.js

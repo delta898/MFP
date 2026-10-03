@@ -177,7 +177,8 @@ test('Amade 0.1 family catalog groups active templates and materializes Astro so
         const template = {
             spec_version: '0.1.0', template_id: 'personal-post-list', family_id: 'personal-homepage',
             name: '글 목록형', description: '기본 설명', author: 'amadejjs', version: '0.1.0', license: 'MIT',
-            categories: ['Personal Website'], tags: ['List'], status: 'active', astro_project: 'astro', preview: 'preview.png'
+            categories: ['Personal Website'], tags: ['List'], status: 'active', astro_project: 'astro', preview: 'preview.png',
+            compatibility: { min_bloggenius_version: '0.6.0', contract: { id: 'bloggenius-site-hosting-template', version: '0.1.0' } }
         };
         const catalogDocument = { spec_version: '0.1.0', status: 'experimental', families: [{
             family_id: 'personal-homepage', manifest: familyPath,
@@ -199,6 +200,7 @@ test('Amade 0.1 family catalog groups active templates and materializes Astro so
         };
         const catalog = createGitHubSiteTemplateCatalog({
             fs, path, cacheRoot: path.join(workspaceDir, 'cache'), catalogUrl, fetchImpl,
+            bloggeniusVersion: '0.6.0',
             revisionResolver: async () => revision
         });
         const listed = await catalog.list();
@@ -207,6 +209,12 @@ test('Amade 0.1 family catalog groups active templates and materializes Astro so
         assert.equal(listed[0].family_name, '개인 홈페이지');
         assert.deepEqual(listed[0].tags, ['List']);
         assert.equal(catalog.getPreview('personal-post-list').contentType, 'image/png');
+
+        const olderBlogGenius = createGitHubSiteTemplateCatalog({
+            fs, path, cacheRoot: path.join(workspaceDir, 'older-app-cache'), catalogUrl, fetchImpl,
+            bloggeniusVersion: '0.5.5', revisionResolver: async () => revision
+        });
+        assert.deepEqual(await olderBlogGenius.list(), []);
 
         await catalog.prepare('personal-post-list');
         const destination = path.join(workspaceDir, 'site');
