@@ -94,6 +94,37 @@ function createAstroSiteRuntime(options = {}) {
         return site;
     }
 
+    function getAstroProjectRoot(site) {
+        const siteRoot = pathApi.resolve(site.root_path);
+        const nestedRoot = pathApi.join(siteRoot, 'template', 'astro');
+        return site.template?.family_id && fileSystem.existsSync(pathApi.join(nestedRoot, 'package.json')) ? nestedRoot : siteRoot;
+    }
+
+    async function buildAstroProject(site) {
+        const projectRoot = getAstroProjectRoot(site);
+        await runNpm(projectRoot, ['ci', '--no-audit', '--no-fund']);
+        await runNpm(projectRoot, ['run', 'build']);
+        if (projectRoot !== pathApi.resolve(site.root_path)) {
+            const builtOutput = pathApi.join(projectRoot, 'dist');
+            if (!fileSystem.existsSync(builtOutput) || !fileSystem.statSync(builtOutput).isDirectory()) {
+                const error = new Error('Astro 템플릿에서 dist 빌드 결과를 만들지 못했습니다.');
+                error.code = 'SITE_HOSTING_BUILD_OUTPUT_MISSING';
+                throw error;
+            }
+            const outputPath = pathApi.join(site.root_path, 'dist');
+            const backupPath = pathApi.join(site.root_path, `.dist.previous-${process.pid}-${Date.now()}`);
+            const hadOutput = fileSystem.existsSync(outputPath);
+            if (hadOutput) fileSystem.renameSync(outputPath, backupPath);
+            try {
+                fileSystem.renameSync(builtOutput, outputPath);
+                if (hadOutput) fileSystem.rmSync(backupPath, { recursive: true, force: true });
+            } catch (error) {
+                if (hadOutput && fileSystem.existsSync(backupPath) && !fileSystem.existsSync(outputPath)) fileSystem.renameSync(backupPath, outputPath);
+                throw error;
+            }
+        }
+    }
+
     function runNpm(siteRoot, args) {
         return new Promise((resolve, reject) => {
             const runtimeBin = ensureNodeShim();
@@ -187,7 +218,8 @@ function createAstroSiteRuntime(options = {}) {
         const selectedRoute = String(site.customization?.publishing?.listing_route || '');
         if (!selectedRoute) return;
         const template = templates.get(site.template?.id);
-        const defaultRoute = String(template?.resource?.site_hosting?.publishing?.routes?.listing || '');
+        const defaultRoute = String(template?.resource?.site_hosting?.publishing?.routes?.listing
+            || template?.resource?.family?.content_types?.find((item) => item.kind === 'post')?.listing_route || '');
         if (!defaultRoute || selectedRoute === defaultRoute) return;
         const distRoot = pathApi.join(site.root_path, 'dist');
         const sourceDirectory = routeOutputDirectory(distRoot, defaultRoute);
@@ -225,8 +257,9 @@ function createAstroSiteRuntime(options = {}) {
             error.status = 409;
             throw error;
         }
-        const packagePath = pathApi.join(site.root_path, 'package.json');
-        const lockPath = pathApi.join(site.root_path, 'package-lock.json');
+        const projectRoot = getAstroProjectRoot(site);
+        const packagePath = pathApi.join(projectRoot, 'package.json');
+        const lockPath = pathApi.join(projectRoot, 'package-lock.json');
         if (!fileSystem.existsSync(packagePath) || !fileSystem.existsSync(lockPath)) {
             const error = new Error('package.json과 package-lock.json이 있는 Astro 프로젝트가 필요합니다.');
             error.code = 'SITE_HOSTING_ASTRO_PROJECT_REQUIRED';
@@ -251,8 +284,7 @@ function createAstroSiteRuntime(options = {}) {
         const job = { status: 'running', build_id: crypto.randomUUID().replace(/-/g, ''), started_at: new Date().toISOString(), finished_at: '', message: '미리보기를 빌드하고 있습니다.' };
         buildJobs.set(key, job);
         try {
-            await runNpm(site.root_path, ['ci', '--no-audit', '--no-fund']);
-            await runNpm(site.root_path, ['run', 'build']);
+            await buildAstroProject(site);
             try { applyPublishingRoute(site); }
             catch (error) { console.warn('[Site Hosting] draft preview route adjustment skipped', { site_id: site.id, message: String(error?.message || error).slice(0, 500) }); }
             const indexPath = pathApi.join(site.root_path, 'dist', 'index.html');
@@ -282,8 +314,9 @@ function createAstroSiteRuntime(options = {}) {
             error.status = 409;
             throw error;
         }
-        const packagePath = pathApi.join(site.root_path, 'package.json');
-        const lockPath = pathApi.join(site.root_path, 'package-lock.json');
+        const projectRoot = getAstroProjectRoot(site);
+        const packagePath = pathApi.join(projectRoot, 'package.json');
+        const lockPath = pathApi.join(projectRoot, 'package-lock.json');
         if (!fileSystem.existsSync(packagePath) || !fileSystem.existsSync(lockPath)) {
             const error = new Error('package.json과 package-lock.json이 있는 Astro 프로젝트가 필요합니다.');
             error.code = 'SITE_HOSTING_ASTRO_PROJECT_REQUIRED';
@@ -309,8 +342,7 @@ function createAstroSiteRuntime(options = {}) {
         const job = { status: 'running', build_id: crypto.randomUUID().replace(/-/g, ''), started_at: new Date().toISOString(), finished_at: '', message: '' };
         buildJobs.set(key, job);
         try {
-            await runNpm(site.root_path, ['ci', '--no-audit', '--no-fund']);
-            await runNpm(site.root_path, ['run', 'build']);
+            await buildAstroProject(site);
             try { applyPublishingRoute(site); }
             catch (error) {
                 console.warn('[Site Hosting] post-list route adjustment skipped', {

@@ -114,6 +114,35 @@ test('Astro runtime installs locked site dependencies, builds, and serves dist o
     }
 });
 
+test('Astro runtime builds family templates from template/astro and keeps dist at the Site root', async () => {
+    const fixture = createFixture();
+    try {
+        const nestedRoot = path.join(fixture.site.root_path, 'template', 'astro');
+        fs.mkdirSync(nestedRoot, { recursive: true });
+        fs.writeFileSync(path.join(nestedRoot, 'package.json'), '{"scripts":{"build":"astro build"}}');
+        fs.writeFileSync(path.join(nestedRoot, 'package-lock.json'), '{"lockfileVersion":3}');
+        const manifestPath = path.join(fixture.site.root_path, '.bloggenius', 'site.json');
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        manifest.template.family_id = 'personal-homepage';
+        fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+        const calls = [];
+        const runtime = createAstroSiteRuntime({
+            fs, path, projectRepository: fixture.projectRepository,
+            siteRepository: fixture.siteRepository, templates: fixture.templates,
+            npmCliPath: '/app/node_modules/npm/bin/npm-cli.js',
+            cacheRoot: path.join(fixture.workspaceDir, '.cache'),
+            spawn: fakeNpmSpawn(calls),
+            captureScreenshot: async () => ({ buffer: Buffer.from('family-preview'), viewport: { width: 1200, height: 675 } })
+        });
+        const result = await runtime.build('project-1', 'site-1');
+        assert.equal(result.status, 'succeeded');
+        assert.equal(calls.every((call) => call.options.cwd === nestedRoot), true);
+        assert.equal(fs.readFileSync(path.join(fixture.site.root_path, 'dist', 'index.html'), 'utf8'), '<h1>Built site</h1>');
+    } finally {
+        fs.rmSync(fixture.workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('Astro build remains successful and preserves the template image when capture fails', async () => {
     const fixture = createFixture();
     try {

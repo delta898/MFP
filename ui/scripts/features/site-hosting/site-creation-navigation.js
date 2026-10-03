@@ -410,14 +410,22 @@ function siteHostingRenderCreateTemplates() {
   if (!grid) return;
   const count = document.getElementById('site-template-count');
   if (count) count.textContent = `${siteHostingCreateTemplates.length}개`;
-  const cards = siteHostingCreateTemplates.map((template) => `<article class="site-template-card${template.id === siteHostingSelectedCreateTemplate ? ' is-selected' : ''}">
-    <button type="button" class="site-template-card-select" role="radio" aria-checked="${template.id === siteHostingSelectedCreateTemplate}" data-site-template-select="${siteHostingEscapeHtml(template.id)}">
-      <span class="site-template-card-preview">${template.preview_url ? `<img src="${siteHostingEscapeHtml(template.preview_url)}" alt="${siteHostingEscapeHtml(template.name)} 미리보기" loading="lazy">` : '<span>미리보기 없음</span>'}</span>
-      <span class="site-template-card-copy"><strong>${siteHostingEscapeHtml(template.name)}</strong></span>
-    </button>
-  </article>`);
-  while (cards.length % 3) cards.push('<span class="site-template-card-placeholder" aria-hidden="true"></span>');
-  grid.innerHTML = cards.join('');
+  const families = new Map();
+  for (const template of siteHostingCreateTemplates) {
+    const key = template.family_id || 'other';
+    if (!families.has(key)) families.set(key, { name: template.family_name || '템플릿', templates: [] });
+    families.get(key).templates.push(template);
+  }
+  grid.innerHTML = [...families.values()].map((family) => {
+    const cards = family.templates.map((template) => `<article class="site-template-card${template.id === siteHostingSelectedCreateTemplate ? ' is-selected' : ''}">
+      <button type="button" class="site-template-card-select" role="radio" aria-checked="${template.id === siteHostingSelectedCreateTemplate}" data-site-template-select="${siteHostingEscapeHtml(template.id)}">
+        <span class="site-template-card-preview">${template.preview_url ? `<img src="${siteHostingEscapeHtml(template.preview_url)}" alt="${siteHostingEscapeHtml(template.name)} 미리보기" loading="lazy">` : '<span>미리보기 없음</span>'}</span>
+        <span class="site-template-card-copy"><strong>${siteHostingEscapeHtml(template.name)}</strong></span>
+      </button>
+    </article>`);
+    while (cards.length % 3) cards.push('<span class="site-template-card-placeholder" aria-hidden="true"></span>');
+    return `<section class="site-template-family-group"><h4 class="site-template-family-heading">${siteHostingEscapeHtml(family.name)}</h4>${cards.join('')}</section>`;
+  }).join('');
   if (templateInput) templateInput.value = siteHostingSelectedCreateTemplate;
   siteHostingRenderCreateTemplateDetails();
 }

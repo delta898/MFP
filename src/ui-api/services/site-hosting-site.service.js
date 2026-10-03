@@ -109,6 +109,26 @@ function createSiteHostingSiteService(deps = {}) {
         const items = await templates.list();
         return items.map((template) => {
             const resource = templates.get(template.id)?.resource;
+            if (resource?.spec_version === '0.1.0') {
+                const seedSite = resource.family_seed_site || {};
+                const postType = (resource.family?.content_types || []).find((type) => type.kind === 'post');
+                const pageType = (resource.family?.content_types || []).find((type) => type.kind === 'page');
+                const publishing = postType?.listing_route && postType?.detail_route
+                    ? { routes: { listing: postType.listing_route, detail: postType.detail_route } }
+                    : null;
+                return {
+                    ...template,
+                    author: String(resource.template.author || '').trim().slice(0, 100),
+                    homepage_url: normalizeHomepageUrl(resource.template.homepage),
+                    categories: resource.template.categories,
+                    tags: resource.template.tags,
+                    status: resource.template.status,
+                    customization: [{ key: 'navigation', type: 'array', label: '사이트 메뉴', default: (seedSite.navigation || []).map((item) => ({ label: item.label, href: item.path })) }],
+                    ...(pageType ? { pages: { max_items: 20, route_pattern: '/{slug}/', reserved_slugs: ['blog', 'work', 'services'] } } : {}),
+                    ...(publishing ? { publishing } : {}),
+                    preview_url: template.preview_url || `/api/v1/site-hosting/templates/${encodeURIComponent(template.id)}/preview`
+                };
+            }
             const siteHosting = resource?.site_hosting;
             const fields = siteHosting?.customization?.fields;
             const customization = Array.isArray(fields) ? fields
@@ -131,9 +151,27 @@ function createSiteHostingSiteService(deps = {}) {
         let sites = repository.list(projectId);
         if (projectId === 'default' && !sites.some((site) => site.id === 'default')) {
             try {
-                await templates.prepare?.('astro-homepage');
-                const defaultTemplateId = templates.get('astro-homepage') ? 'astro-homepage' : 'minimal-homepage';
-                createSite('default', '나의 첫 사이트', defaultTemplateId, 'default');
+                const availableTemplates = await templates.list?.() || [];
+                const defaultTemplateId = ['personal-post-list', 'astro-homepage', 'minimal-homepage']
+                    .find((templateId) => templates.get(templateId)) || availableTemplates[0]?.id;
+                if (defaultTemplateId) {
+                    await templates.prepare?.(defaultTemplateId);
+                    const defaultTemplate = templates.get(defaultTemplateId);
+                    let customization = {};
+                    if (defaultTemplate?.resource?.spec_version === '0.1.0') {
+                        const seedSite = defaultTemplate.resource.family_seed_site || {};
+                        const navigation = (seedSite.navigation || []).map((item) => ({ label: item.label, href: item.path }));
+                        const postType = (defaultTemplate.resource.family?.content_types || []).find((type) => type.kind === 'post');
+                        const postMenuIndex = postType?.listing_route
+                            ? navigation.findIndex((item) => item.href === postType.listing_route)
+                            : -1;
+                        customization = normalizeSiteCustomization(defaultTemplate, {
+                            navigation,
+                            ...(postMenuIndex >= 0 ? { publishing: { post_list_navigation_index: postMenuIndex } } : {})
+                        });
+                    }
+                    createSite('default', '나의 첫 사이트', defaultTemplateId, 'default', customization);
+                }
             } catch (error) {
                 if (error?.code !== 'SITE_HOSTING_SITE_ALREADY_EXISTS' || !repository.get('default', 'default')) throw error;
             }
@@ -228,6 +266,51 @@ function createSiteHostingSiteService(deps = {}) {
             throw siteInputError('사이트 설정 형식이 올바르지 않습니다.', 'SITE_HOSTING_NAVIGATION_INVALID');
         }
         const siteHosting = template?.resource?.site_hosting;
+        if (template?.resource?.spec_version === '0.1.0') {
+            const seedSite = template.resource.family_seed_site || {};
+            const navigationDefaults = Array.isArray(seedSite.navigation) ? seedSite.navigation.map((item) => ({ label: item.label, href: item.path })) : [];
+            const postType = (template.resource.family?.content_types || []).find((type) => type.kind === 'post');
+            const requestedNavigation = Array.isArray(input.navigation) ? input.navigation : navigationDefaults;
+            if (!requestedNavigation.length || requestedNavigation.length > 50) throw siteInputError('메뉴는 1개 이상, 50개 이내로 입력해 주세요.', 'SITE_HOSTING_NAVIGATION_INVALID');
+            const normalizedInput = requestedNavigation.map((entry, index) => {
+                if (!entry || typeof entry !== 'object' || Array.isArray(entry)
+                    || Object.keys(entry).some((key) => key !== 'label' && key !== 'href')) throw siteInputError('메뉴에는 이름과 주소만 지정할 수 있습니다.', 'SITE_HOSTING_NAVIGATION_INVALID');
+                const label = normalizeMenuLabel(entry.label);
+                return { label, href: String(entry.href || '').trim() || navigationDefaults[index]?.href || `/${encodeURIComponent(createPageSlug(label))}/` };
+            });
+            let navigation;
+            try { navigation = normalizeNavigationItems(normalizedInput, { maxItems: 50 }); }
+            catch (cause) { throw siteInputError(cause.message, cause.code || 'SITE_HOSTING_NAVIGATION_INVALID'); }
+            const output = { navigation };
+            const defaultPaths = new Set(navigationDefaults.map((entry) => normalizeMenuDestination(entry.href)));
+            for (const item of navigation) {
+                if (!isFamilyInternalPath(item.href)) throw siteInputError('Amade 0.1 메뉴는 내부 경로만 사용할 수 있습니다.', 'SITE_HOSTING_NAVIGATION_INVALID');
+            }
+            const postListIndex = input.publishing?.post_list_navigation_index;
+            if (input.publishing !== undefined && (!input.publishing || typeof input.publishing !== 'object' || Array.isArray(input.publishing)
+                || Object.keys(input.publishing).some((key) => key !== 'post_list_navigation_index'))) {
+                throw siteInputError('글 목록 메뉴 설정이 올바르지 않습니다.', 'SITE_HOSTING_POST_LIST_MENU_INVALID');
+            }
+            if (postType && postListIndex !== undefined) {
+                if (!Number.isInteger(postListIndex) || postListIndex < 0 || postListIndex >= navigation.length) throw siteInputError('글 목록으로 연결할 메뉴를 선택해 주세요.', 'SITE_HOSTING_POST_LIST_MENU_REQUIRED');
+                const selected = navigation[postListIndex].href;
+                const route = normalizeMenuDestination(selected);
+                if (!route.endsWith('/')) throw siteInputError('글 목록 주소는 / 로 끝나야 합니다.', 'SITE_HOSTING_POST_LIST_MENU_INVALID');
+                output.publishing = {
+                    listing_route: route,
+                    detail_route: `${route}{slug}/`,
+                    post_list_navigation_index: postListIndex
+                };
+            }
+            const reserved = new Set(['blog', 'work', 'services', 'index']);
+            const customPages = navigation
+                .filter(({ href }, index) => !defaultPaths.has(href) && index !== postListIndex && !reserved.has(familyPathSegments(href)[0]?.toLocaleLowerCase('en-US')))
+                .map(({ label, href }) => ({ label, path: href, slug: `custom-${familyPathSegments(href).join('-')}`.normalize('NFKC').toLocaleLowerCase('en-US').replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 48) }))
+                .slice(0, 20);
+            if (customPages.length) output.custom_pages = customPages;
+            if (input.logo) output.logo = normalizeLogo(input.logo);
+            return output;
+        }
         const fields = siteHosting?.customization?.fields;
         if (!Array.isArray(fields)) return {};
         const output = {};
@@ -303,6 +386,22 @@ function createSiteHostingSiteService(deps = {}) {
         const detail = value.routes.detail;
         if (!internalPathSegment(listing) || detail !== `${listing}{slug}/`) return null;
         return { routes: { listing, detail } };
+    }
+
+    function familyPathSegments(value) {
+        const path = String(value || '');
+        if (!isFamilyInternalPath(path)) return [];
+        return path.split('/').filter(Boolean).map((segment) => decodeURIComponent(segment));
+    }
+
+    function isFamilyInternalPath(value) {
+        if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//') || /[?#\\]/u.test(value)) return false;
+        try {
+            const parsed = new URL(value, 'https://bloggenius.invalid/');
+            if (parsed.origin !== 'https://bloggenius.invalid' || parsed.pathname !== value) return false;
+            const segments = value.split('/').filter(Boolean).map((segment) => decodeURIComponent(segment));
+            return segments.every((segment) => segment && segment !== '.' && segment !== '..' && !/[\\/\u0000-\u001f\u007f]/u.test(segment));
+        } catch (_error) { return false; }
     }
 
     function normalizePageCapability(value) {

@@ -1,9 +1,11 @@
 # Amade Template kinds and external catalog
 
-- Status: Accepted for the initial implementation
+- Status: Legacy specification for existing 1.x resources; retained as historical reference
 - Date: 2026-10-03
 
-## Decision
+> **Legacy scope:** This decision records the original Amade resource v1 integration only. The existing development v1 catalog/BlogGenius reader remain in use for current packages; Amade main is README-only, but new Site Hosting work follows the separate 0.1.0 Template Family draft. Do not use v1 schemas or this ADR as the 0.1 contract. See the [BlogGenius 0.1 design record](../plans/active/2026-10-03-amade-template-spec-v0.1-design.md) and [Amade spec-generation index](/Users/delta898/Project/Amade/amade/spec/README.md).
+
+## Historical v1 decision (2026-10-03)
 
 Amade is the external source of versioned resources consumed by BlogGenius. It uses a shared catalog envelope and distinct type-specific specifications for:
 

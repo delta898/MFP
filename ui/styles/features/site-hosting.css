@@ -583,10 +583,24 @@
 
 .site-template-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-content: start;
   gap: var(--ui-space-2);
   padding: 1px;
+}
+
+.site-template-family-group {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: start;
+  gap: var(--ui-space-2);
+}
+
+.site-template-family-heading {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-type-caption-size);
+  font-weight: var(--ui-weight-semibold);
 }
 
 .site-template-card,

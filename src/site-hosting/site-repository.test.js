@@ -121,6 +121,54 @@ test('site repository applies declared template defaults and records the immutab
     }
 });
 
+test('site repository materializes family data separately from replaceable Astro presentation', () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-family-materialization-'));
+    try {
+        const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
+        projectRepository.create({ id: 'project-1', name: '개인 사이트' });
+        const familySeed = { displayName: '기본 이름', logo: '/logo.svg', navigation: [{ id: 'posts', label: '글', path: '/blog/' }] };
+        const template = {
+            id: 'personal-post-list', version: '0.1.0', name: '글 목록형', family_id: 'personal-homepage', package_ready: true,
+            resource: {
+                spec_version: '0.1.0', family: { content_types: [{ kind: 'post', listing_route: '/blog/', detail_route: '/blog/{slug}/' }] },
+                template: { status: 'active' }, family_seed_site: familySeed
+            }
+        };
+        const templates = {
+            get: () => template,
+            copySource: (_id, destination) => {
+                fs.mkdirSync(path.join(destination, 'template', 'astro', 'src'), { recursive: true });
+                fs.writeFileSync(path.join(destination, 'template', 'astro', 'package.json'), '{}');
+                fs.mkdirSync(path.join(destination, 'site-data', 'data', 'posts'), { recursive: true });
+                fs.mkdirSync(path.join(destination, 'site-data', 'public'), { recursive: true });
+                fs.writeFileSync(path.join(destination, 'site-data', 'site.json'), `${JSON.stringify(familySeed)}\n`);
+                fs.writeFileSync(path.join(destination, 'site-data', 'data', 'posts', 'first.md'), 'seed');
+                return { id: template.id, version: template.version, source_revision: 'd'.repeat(40) };
+            },
+            copyPreview: () => ''
+        };
+        const repository = createSiteHostingSiteRepository({ fs, path, projectRepository, templates });
+        const created = repository.create('project-1', {
+            id: 'site-1', name: '내 사이트', template_id: template.id,
+            customization: {
+                navigation: [{ label: '이야기', href: '/stories/' }],
+                publishing: { listing_route: '/stories/', detail_route: '/stories/{slug}/', post_list_navigation_index: 0 }
+            }
+        });
+        const root = created.root_path;
+        const siteData = JSON.parse(fs.readFileSync(path.join(root, 'site-data', 'site.json'), 'utf8'));
+        const manifest = JSON.parse(fs.readFileSync(path.join(root, '.bloggenius', 'site.json'), 'utf8'));
+        assert.equal(fs.existsSync(path.join(root, 'template', 'astro', 'package.json')), true);
+        assert.equal(siteData.displayName, '내 사이트');
+        assert.deepEqual(siteData.navigation, [{ id: 'posts', label: '이야기', path: '/stories/' }]);
+        assert.equal(fs.existsSync(path.join(root, 'site-data', 'data', 'posts', 'first.md')), true);
+        assert.equal(manifest.template.family_id, 'personal-homepage');
+        assert.deepEqual(manifest.customization.publishing, { listing_route: '/stories/', detail_route: '/stories/{slug}/', post_list_navigation_index: 0 });
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('site repository preserves valid external and multi-segment menu destinations', () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-menu-security-'));
     try {

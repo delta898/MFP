@@ -26,6 +26,11 @@ function createSiteTemplateCatalog(options = {}) {
             }
             const sourceRoot = pathApi.resolve(templateRoot, sourceDirectory);
             if (!sourceRoot.startsWith(`${pathApi.resolve(templateRoot)}${pathApi.sep}`) || !fileSystem.existsSync(sourceRoot)) return null;
+            const familyDataDirectory = String(descriptor.family_data_directory || '').trim();
+            if (familyDataDirectory && (pathApi.isAbsolute(familyDataDirectory) || familyDataDirectory.split(/[\\/]/).includes('..'))) return null;
+            const familyDataRoot = familyDataDirectory ? pathApi.resolve(templateRoot, familyDataDirectory) : '';
+            if (familyDataRoot && (!familyDataRoot.startsWith(`${pathApi.resolve(templateRoot)}${pathApi.sep}`)
+                || (descriptor.package_ready !== false && !fileSystem.existsSync(familyDataRoot)))) return null;
             const previewFile = String(descriptor.preview_file || '').trim();
             if (previewFile && (pathApi.isAbsolute(previewFile) || previewFile.split(/[\\/]/).includes('..')
                 || !fileSystem.existsSync(pathApi.resolve(templateRoot, previewFile)))) return null;
@@ -35,10 +40,14 @@ function createSiteTemplateCatalog(options = {}) {
                 name: String(descriptor.name),
                 description: String(descriptor.description || ''),
                 source_root: sourceRoot,
+                family_data_root: familyDataRoot,
                 preview_file: previewFile ? pathApi.resolve(templateRoot, previewFile) : '',
                 source_revision: String(descriptor.source_revision || ''),
                 kind: String(descriptor.kind || 'site-hosting'),
                 resource: descriptor.resource || null,
+                family_id: String(descriptor.family_id || ''),
+                family_name: String(descriptor.family_name || ''),
+                family_description: String(descriptor.family_description || ''),
                 package_ready: descriptor.package_ready !== false
             };
         } catch (_error) {
@@ -52,7 +61,10 @@ function createSiteTemplateCatalog(options = {}) {
             .filter((entry) => entry.isDirectory() && TEMPLATE_ID_PATTERN.test(entry.name))
             .map((entry) => readTemplate(entry.name))
             .filter(Boolean)
-            .map(({ id, version, name, description, preview_file }) => ({ id, version, name, description, has_preview: Boolean(preview_file) }))
+            .map(({ id, version, name, description, preview_file, family_id, family_name, family_description }) => ({
+                id, version, name, description, has_preview: Boolean(preview_file),
+                ...(family_id ? { family_id, family_name, family_description } : {})
+            }))
             .sort((left, right) => left.name.localeCompare(right.name, 'ko'));
     }
 
@@ -91,7 +103,12 @@ function createSiteTemplateCatalog(options = {}) {
             }
         }
 
-        copyDirectory(template.source_root, destination);
+        if (template.family_data_root) {
+            copyDirectory(template.source_root, pathApi.join(destination, 'template', 'astro'));
+            copyDirectory(template.family_data_root, pathApi.join(destination, 'site-data'));
+        } else {
+            copyDirectory(template.source_root, destination);
+        }
         return { id: template.id, version: template.version, ...(template.source_revision ? { source_revision: template.source_revision } : {}) };
     }
 

@@ -6,10 +6,43 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
-const { DEFAULT_CATALOG_URL, createGitHubSiteTemplateCatalog } = require('./github-site-template-catalog');
+const { DEFAULT_CATALOG_URL, DEVELOPMENT_CATALOG_URL, createGitHubSiteTemplateCatalog } = require('./github-site-template-catalog');
 
 test('default Amade catalog points at the GitHub main branch', () => {
     assert.equal(DEFAULT_CATALOG_URL, 'https://raw.githubusercontent.com/delta898/Amade/main/amade/catalog/index.json');
+});
+
+test('development Amade catalog points at the grouped dev branch', () => {
+    const catalog = createGitHubSiteTemplateCatalog({ cacheRoot: path.join(os.tmpdir(), 'amade-development-catalog-test'), environment: 'development' });
+    assert.equal(catalog.catalogUrl, DEVELOPMENT_CATALOG_URL);
+    assert.equal(DEVELOPMENT_CATALOG_URL, 'https://raw.githubusercontent.com/delta898/Amade/dev/amade/catalog/index.json');
+});
+
+test('development Amade catalog hides templates without active status', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'amade-development-legacy-filter-'));
+    try {
+        const fixture = createFixture();
+        const cacheRoot = path.join(workspaceDir, 'cache');
+        const legacyCatalog = createGitHubSiteTemplateCatalog({
+            cacheRoot,
+            catalogUrl: fixture.catalogUrl,
+            fetchImpl: fixture.fetchImpl
+        });
+        await legacyCatalog.list();
+        await legacyCatalog.prepare('astro-homepage');
+
+        const developmentCatalog = createGitHubSiteTemplateCatalog({
+            cacheRoot,
+            environment: 'development',
+            catalogUrl: fixture.catalogUrl,
+            fetchImpl: async (url) => String(url) === fixture.catalogUrl
+                ? { ok: true, status: 200, arrayBuffer: async () => Buffer.from(JSON.stringify(fixture.catalog)) }
+                : { ok: false, status: 404, arrayBuffer: async () => new ArrayBuffer(0) }
+        });
+        assert.deepEqual(await developmentCatalog.list(), []);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
 });
 
 function createFixture(revision = 'a'.repeat(40)) {
@@ -120,4 +153,87 @@ test('GitHub catalog rejects a bad package checksum without replacing prior cach
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }
+});
+
+test('Amade 0.1 family catalog groups active templates and materializes Astro source beside family site data', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'github-site-family-template-'));
+    try {
+        const catalogUrl = 'https://raw.githubusercontent.com/delta898/Amade/test/amade/catalog/index.json';
+        const revision = 'c'.repeat(40);
+        const familyPath = 'amade/families/personal-homepage/family.json';
+        const templatePath = 'amade/templates/personal-post-list/template.json';
+        const sourceFiles = {
+            'amade/templates/personal-post-list/preview.png': Buffer.from('png-preview'),
+            'amade/templates/personal-post-list/astro/package.json': Buffer.from('{"scripts":{"build":"astro build"}}'),
+            'amade/templates/personal-post-list/astro/package-lock.json': Buffer.from('{"lockfileVersion":3}'),
+            'amade/templates/personal-post-list/astro/src/pages/index.astro': Buffer.from('<h1>home</h1>'),
+            'amade/families/personal-homepage/data/site.json': Buffer.from(JSON.stringify({ displayName: '기본 이름', navigation: [{ id: 'posts', label: '글', path: '/blog/' }] })),
+            'amade/families/personal-homepage/data/data/posts/hello/index.md': Buffer.from('---\nkind: post\n---')
+        };
+        const family = {
+            spec_version: '0.1.0', family_id: 'personal-homepage', name: '개인 홈페이지',
+            site_data_directory: 'data', content_types: [{ kind: 'post', listing_route: '/blog/', detail_route: '/blog/{slug}/' }]
+        };
+        const template = {
+            spec_version: '0.1.0', template_id: 'personal-post-list', family_id: 'personal-homepage',
+            name: '글 목록형', description: '기본 설명', author: 'amadejjs', version: '0.1.0', license: 'MIT',
+            categories: ['Personal Website'], tags: ['List'], status: 'active', astro_project: 'astro', preview: 'preview.png'
+        };
+        const catalogDocument = { spec_version: '0.1.0', status: 'experimental', families: [{
+            family_id: 'personal-homepage', manifest: familyPath,
+            templates: [{ template_id: 'personal-post-list', manifest: templatePath }]
+        }] };
+        const tree = Object.entries(sourceFiles).map(([filePath, bytes]) => ({ path: filePath, type: 'blob', mode: '100644', size: bytes.length }));
+        const fetchImpl = async (url) => {
+            const value = String(url);
+            let bytes;
+            if (value === catalogUrl || value === `https://raw.githubusercontent.com/delta898/Amade/${revision}/amade/catalog/index.json`) bytes = Buffer.from(JSON.stringify(catalogDocument));
+            else if (value === `https://raw.githubusercontent.com/delta898/Amade/${revision}/${familyPath}`) bytes = Buffer.from(JSON.stringify(family));
+            else if (value === `https://raw.githubusercontent.com/delta898/Amade/${revision}/${templatePath}`) bytes = Buffer.from(JSON.stringify(template));
+            else if (value === `https://api.github.com/repos/delta898/Amade/git/trees/${revision}?recursive=1`) bytes = Buffer.from(JSON.stringify({ truncated: false, tree }));
+            else {
+                const prefix = `https://raw.githubusercontent.com/delta898/Amade/${revision}/`;
+                bytes = value.startsWith(prefix) ? sourceFiles[value.slice(prefix.length)] : null;
+            }
+            return bytes ? { ok: true, status: 200, arrayBuffer: async () => bytes } : { ok: false, status: 404, arrayBuffer: async () => new ArrayBuffer(0) };
+        };
+        const catalog = createGitHubSiteTemplateCatalog({
+            fs, path, cacheRoot: path.join(workspaceDir, 'cache'), catalogUrl, fetchImpl,
+            revisionResolver: async () => revision
+        });
+        const listed = await catalog.list();
+        assert.equal(listed.length, 1);
+        assert.equal(listed[0].family_id, 'personal-homepage');
+        assert.equal(listed[0].family_name, '개인 홈페이지');
+        assert.deepEqual(listed[0].tags, ['List']);
+        assert.equal(catalog.getPreview('personal-post-list').contentType, 'image/png');
+
+        await catalog.prepare('personal-post-list');
+        const destination = path.join(workspaceDir, 'site');
+        assert.equal(catalog.copySource('personal-post-list', destination).version, '0.1.0');
+        assert.equal(fs.existsSync(path.join(destination, 'template', 'astro', 'src', 'pages', 'index.astro')), true);
+        assert.equal(fs.existsSync(path.join(destination, 'site-data', 'site.json')), true);
+        assert.equal(fs.existsSync(path.join(destination, 'site-data', 'data', 'posts', 'hello', 'index.md')), true);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('Amade 0.1 grouped catalog references use repository-root package paths', async () => {
+    const catalogUrl = 'https://raw.githubusercontent.com/delta898/Amade/test/amade/catalog/index.json';
+    const revision = 'd'.repeat(40);
+    const catalog = createGitHubSiteTemplateCatalog({
+        fs,
+        path,
+        cacheRoot: path.join(os.tmpdir(), `github-family-invalid-refs-${crypto.randomUUID()}`),
+        catalogUrl,
+        fetchImpl: async (url) => {
+            if (String(url) === catalogUrl || String(url) === `https://raw.githubusercontent.com/delta898/Amade/${revision}/amade/catalog/index.json`) {
+                return { ok: true, status: 200, arrayBuffer: async () => Buffer.from(JSON.stringify({ spec_version: '0.1.0', status: 'experimental', families: [{ family_id: 'personal-homepage', manifest: 'families/personal-homepage/family.json', templates: [] }] })) };
+            }
+            return { ok: false, status: 404, arrayBuffer: async () => new ArrayBuffer(0) };
+        },
+        revisionResolver: async () => revision
+    });
+    await assert.rejects(catalog.list(), { code: 'SITE_HOSTING_TEMPLATE_CATALOG_INVALID' });
 });

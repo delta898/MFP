@@ -50,6 +50,41 @@ test('site service validates the project, name, and selected template', async ()
     }
 });
 
+test('site service exposes Amade 0.1 family metadata and normalizes its shared menu and publishing contract', async () => {
+    const template = {
+        id: 'personal-post-list', version: '0.1.0', name: '글 목록형', description: '소개', family_id: 'personal-homepage', family_name: '개인 홈페이지',
+        resource: {
+            spec_version: '0.1.0',
+            family: { family_id: 'personal-homepage', content_types: [{ kind: 'page' }, { kind: 'post', listing_route: '/blog/', detail_route: '/blog/{slug}/' }] },
+            template: { author: 'amadejjs', homepage: 'https://www.bloggenius.kr', categories: ['Blog'], tags: ['List'], status: 'active' },
+            family_seed_site: { displayName: '기본 사이트', navigation: [{ id: 'posts', label: '글', path: '/blog/' }] }
+        }
+    };
+    let created;
+    const service = createSiteHostingSiteService({
+        projectRepository: { get: (id) => id === 'project-1' ? { id } : null },
+        templates: { list: async () => [{ id: template.id, family_id: template.family_id, family_name: template.family_name }], get: () => template, prepare: async () => {} },
+        repository: { create: (_projectId, site) => { created = site; return { ...site, project_id: 'project-1', template: { id: template.id, version: template.version } }; } },
+        createId: () => 'site-1'
+    });
+    const [listed] = await service.listTemplates();
+    assert.equal(listed.family_name, '개인 홈페이지');
+    assert.deepEqual(listed.tags, ['List']);
+    assert.deepEqual(listed.customization[0].default, [{ label: '글', href: '/blog/' }]);
+    await service.create('project-1', {
+        name: '내 사이트', template_id: template.id,
+        customization: { navigation: [{ label: '이야기', href: '/stories/' }], publishing: { post_list_navigation_index: 0 } }
+    });
+    assert.deepEqual(created.customization, {
+        navigation: [{ label: '이야기', href: '/stories/' }],
+        publishing: { listing_route: '/stories/', detail_route: '/stories/{slug}/', post_list_navigation_index: 0 }
+    });
+    await assert.rejects(service.create('project-1', {
+        name: '내 사이트', template_id: template.id,
+        customization: { navigation: [{ label: '외부', href: 'https://example.com/' }] }
+    }), { code: 'SITE_HOSTING_NAVIGATION_INVALID' });
+});
+
 test('site service builds a temporary customized preview without adding a Site and cleans it on close', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-preview-draft-service-'));
     let draftRoot = '';
@@ -158,6 +193,39 @@ test('site service materializes the default starter site only for the default pr
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }
+});
+
+test('site service seeds the default project from the first active family template when the Amade catalog has no legacy starter', async () => {
+    const template = {
+        id: 'personal-post-list', version: '0.1.0', name: '글 목록형', family_id: 'personal-homepage',
+        resource: { spec_version: '0.1.0', family: { content_types: [{ kind: 'post', listing_route: '/blog/', detail_route: '/blog/{slug}/' }] }, template: { status: 'active' }, family_seed_site: { navigation: [{ label: '글', path: '/blog/' }] } }
+    };
+    const created = [];
+    const fakeTemplates = {
+        list: async () => [{ id: template.id }],
+        get: (id) => id === template.id ? template : null,
+        prepare: async () => template
+    };
+    const service = createSiteHostingSiteService({
+        projectRepository: { get: (id) => id === 'default' ? { id } : null },
+        templates: fakeTemplates,
+        repository: {
+            list: () => [],
+            create: (_projectId, site) => {
+                created.push(site);
+                return { ...site, project_id: 'default', template: { id: template.id, version: template.version } };
+            },
+            get: () => null
+        },
+        createId: () => 'default'
+    });
+
+    await service.list('default');
+    assert.equal(created[0].template_id, 'personal-post-list');
+    assert.deepEqual(created[0].customization.navigation, [{ label: '글', href: '/blog/' }]);
+    assert.deepEqual(created[0].customization.publishing, {
+        listing_route: '/blog/', detail_route: '/blog/{slug}/', post_list_navigation_index: 0
+    });
 });
 
 test('site service opens the built output folder and requests preview when it is missing', async () => {

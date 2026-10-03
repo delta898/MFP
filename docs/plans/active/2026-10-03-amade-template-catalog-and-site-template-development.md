@@ -6,6 +6,7 @@
 - Start date: 2026-10-03
 - Base/parent branch: `codex/static-site-builder-main`
 - Status: Amade 1.3.0 menu defaults/spec are published to `dev`. BlogGenius menu editing, validation, persistence, build routing, and Site creation preview workflow are implemented locally on this branch; UI smoke remains user-requested only.
+- Specification note: this branch's Amade `1.x` resources and contract are now legacy for future template work. A fresh Site Hosting specification design starts at `0.1.0`; see [the new specification draft](2026-10-03-amade-template-spec-v0.1-design.md). Existing implementation notes below describe the legacy integration and remain historical.
 - Parent plan: [Static Site Builder](2026-10-01-static-site-builder-main-development.md)
 - Related completed stage: [Site creation and management](../archive/2026-10-02-site-creation-development.md)
 
@@ -47,6 +48,7 @@ The current repository only provides the first template to validate the contract
 - Do not expose unsupported arbitrary repositories as catalog sources in the initial UI. The first implementation targets the user-designated Amade repository.
 - Site creation UI is a modal with a wider, scrollable body; template selection uses a three-column card grid with outline-only placeholders in the incomplete final row.
 - Only expose customization supported by each template's manifest. Menu labels/pages are internal routes; article publishing storage and route remain a separate manifest contract.
+- Template switching is deferred. Keep durable site data (identity, navigation, pages, posts, and media) conceptually separate from template presentation in future Amade design; do not imply that replacing a copied Astro project is a safe template switch. See [Amade template switching direction](../../decisions/2026-10-03-amade-template-switching-direction.md).
 
 ## Decisions and tradeoffs
 
@@ -208,3 +210,46 @@ The BlogGenius publisher is not implemented in this stage. The focused Amade/Ast
 - A newly created Site's deployment card reported a permission failure at `Worker 생성`, while the app log did not preserve Cloudflare's underlying API response. The exact cause cannot be determined from the card alone.
 - Cloudflare deploy failures now log the request ID, Site ID, Worker name, failed step, HTTP status, provider error code/message, and Cloudflare error list. Access tokens and Bearer credentials are redacted; the existing concise UI error remains unchanged.
 - Static Node syntax checks and `git diff --check` passed. No automated tests or deployment were run. Manual follow-up: retry deployment and inspect the new `[Site Hosting][Cloudflare] deploy failed` log record to identify the permission/resource detail returned by Cloudflare.
+
+### 2026-10-03 — Future template switching direction
+
+- User raised the future need to change a Site Hosting template while retaining its name, logo, menus, pages, posts, and media. This is deferred and is not part of current implementation scope.
+- Documented the distinction between Astro's layout/content/routing building blocks and a cross-template preservation contract, which Astro does not define for us. Future switching should only be promised between templates that consume a shared site-data and rendering contract; arbitrary edited Astro source cannot be safely replaced automatically.
+- Recorded design questions for a later Amade spec stage: durable data ownership/location, common page/post/frontmatter/media contract, route compatibility, user source edits, and a preserving Astro proof of concept. See [Amade template switching direction](../../decisions/2026-10-03-amade-template-switching-direction.md).
+
+### 2026-10-03 — Amade Template Family specification 0.1 proof
+
+- User approved a new 0.1.0 specification line; existing 1.x packages remain legacy and untouched. The Amade experiment now compares two templates each in Personal Homepage and Company Homepage families.
+- A repeatable Astro A→B→A proof passed for all four templates. Family data, editable navigation labels/paths, public/private filtering, pages, posts, family-specific content, logo, images, and generated routes were checked; data hashes remained unchanged.
+- The 0.1 contract remains experimental. JSON Schema, route collisions, optional/multi-level path cases, edited Astro source handling, failure recovery, and BlogGenius integration remain open. See [Amade Template Family 0.1 design and proof](2026-10-03-amade-template-spec-v0.1-design.md) and the linked Amade proof README there.
+
+### 2026-10-04 — Refine Site Hosting family data contract
+
+- Defined the tested common `site.json` and Markdown contract: site identity/navigation, required and optional frontmatter, private-by-default publication, file-path identity, internal navigation paths, entry-relative images, and family-specific work/service collections.
+- Each of the four Astro projects now validates the Site JSON and a strict family-specific frontmatter union. Personal templates accept pages/posts/work; company templates accept pages/posts/services.
+- Re-ran the A→B→A proof after schema changes. All six Astro 7.3.5 builds passed and both families retained identical hashes for all nine site-data files.
+- Remaining contract decisions: slug syntax and Unicode, route collisions/reserved routes, negative validation cases, image type/size, manifest JSON Schema, optional-field edge cases, and BlogGenius conversion integration. No UI smoke was run.
+
+### 2026-10-04 — Confirm content IDs and internal routes
+
+- User confirmed content IDs use lowercase English letters, digits, and hyphens; public paths are internal paths.
+- Tightened the four experimental Astro loaders to validate file identity/kind and read content from the declared `site-data/data/` root. Corrected fixture page placement and verified a nested `/about/team/` route.
+- All six Astro 7.3.5 builds and four artifact verifiers passed; A→B→A retained identical hashes for each family's nine data/media fixtures.
+- Scratch negative builds reject unknown frontmatter, non-canonical IDs, and mismatched path/kind. Remaining: make those repeatable fixtures, malformed `site.json` coverage, Unicode route output, route collision/reserved-path behavior, optional-field/media limits, formal manifest schemas, and BlogGenius materialization. No UI smoke was run.
+
+### 2026-10-04 — Grouped Amade catalog index
+
+- Replaced the experimental flat template list with an ordered `families[]` index. Each family points to its canonical family manifest and lists associated template manifest references.
+- Kept family/template descriptive metadata in the canonical manifests; consumers follow repository-confined references at one pinned Amade revision. The Amade verifier checks uniqueness, completeness, and ID/family consistency.
+- This is enough for BlogGenius to group template choices and for a future Template Builder to enumerate the available family contracts and member templates. Formal JSON Schema and index generation remain open.
+
+### 2026-10-04 — Integrate Amade 0.1 into dev and BlogGenius
+
+- Promoted the four tested Astro projects and two family seed packages from the isolated experiment into Amade's canonical `amade/templates/` and `amade/families/` paths. Existing v1 package paths and documents remain preserved as legacy material.
+- Replaced only Amade `dev`'s catalog index with the grouped 0.1.0 experimental catalog. The catalog points to repository-root-relative canonical manifests; each family declares its seed `site_data_directory`, each template declares its complete Astro project directory, and all four carry the agreed common metadata including categories and tags.
+- BlogGenius's development catalog reader pins the catalog to one Amade commit, reads the family/template manifests and package files from that revision, groups selectable templates by family, filters out non-active templates, and materializes Astro source beside durable `site-data/`. Existing v1 parsing remains for production/main and cached legacy sites.
+- Development mode now requires the 0.1 grouped catalog and filters legacy v1 packages from offline cache fallback, so old entries cannot reappear in the new template picker while Amade `dev` is being updated.
+- Updated new-site default seeding to prefer the first available personal family template when the legacy `astro-homepage` resource is absent. Added focused regression coverage for grouped paths and default-site selection.
+- Focused catalog, repository, and service tests pass (25/25); the targeted nested-Astro runtime build test passes (1/1). The Amade A→B→A proof was rebuilt from a fresh temporary output: all six builds and four artifact verifiers passed, with nine family data/media hashes retained per family.
+- A local-fixture transport through the real BlogGenius GitHub catalog reader loaded the local Amade dev catalog, prepared all four 0.1 templates, and copied `template/astro/` plus `site-data/` for each. Public GitHub retrieval could not be confirmed from this sandbox, and the Amade changes remain unpushed. User has explicitly asked that UI/browser smoke be left to them; none was run.
+- Manual review by the user should cover catalog grouping, selecting one template per family, creating each site, preview/build, and verifying logo/menu/post-list configuration materializes under `site-data/` after the Amade changes are pushed to the dev remote.
