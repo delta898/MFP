@@ -172,7 +172,7 @@ test('site service opens the built output folder and requests preview when it is
         });
         await service.create('project-1', { name: '개인 블로그', template_id: 'minimal-homepage' });
         await assert.rejects(service.openBuildFolder('project-1', 'site-1'), { code: 'SITE_HOSTING_BUILD_REQUIRED', status: 409 });
-        const distPath = path.join(workspaceDir, 'site-hosting', 'projects', 'project-1', 'sites', 'site-1', 'dist');
+        const distPath = path.join(workspaceDir, 'site-hosting', 'sites', 'site-1', 'dist');
         fs.mkdirSync(distPath);
         assert.deepEqual(await service.openBuildFolder('project-1', 'site-1'), { opened: true });
         assert.deepEqual(opened, [distPath]);

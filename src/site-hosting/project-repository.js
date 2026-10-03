@@ -16,7 +16,25 @@ function createSiteHostingProjectRepository(options = {}) {
     const workspaceDir = pathApi.resolve(String(options.workspaceDir || '').trim());
     if (!String(options.workspaceDir || '').trim()) throw new Error('사이트 호스팅 작업 폴더가 필요합니다.');
 
-    const projectsRoot = pathApi.join(workspaceDir, 'site-hosting', 'projects');
+    const siteHostingRoot = pathApi.join(workspaceDir, 'site-hosting');
+    const projectsRoot = pathApi.join(siteHostingRoot, 'projects');
+    const sitesRoot = pathApi.join(siteHostingRoot, 'sites');
+
+    function countSites(projectId) {
+        if (!fileSystem.existsSync(sitesRoot)) return 0;
+        return fileSystem.readdirSync(sitesRoot, { withFileTypes: true })
+            .filter((entry) => entry.isDirectory() && /^[a-zA-Z0-9_-]{1,100}$/.test(entry.name))
+            .filter((entry) => {
+                const manifestPath = pathApi.join(sitesRoot, entry.name, '.bloggenius', 'site.json');
+                if (!fileSystem.existsSync(manifestPath)) return false;
+                try {
+                    const site = JSON.parse(String(fileSystem.readFileSync(manifestPath, 'utf8') || ''));
+                    return site?.id === entry.name && site?.project_id === projectId;
+                } catch (_error) {
+                    return false;
+                }
+            }).length;
+    }
 
     function getProjectRoot(id) {
         const safeId = safeProjectId(id);
@@ -41,9 +59,7 @@ function createSiteHostingProjectRepository(options = {}) {
             return {
                 ...project,
                 root_path: projectRoot,
-                site_count: fileSystem.existsSync(pathApi.join(projectRoot, 'sites'))
-                    ? fileSystem.readdirSync(pathApi.join(projectRoot, 'sites'), { withFileTypes: true }).filter((entry) => entry.isDirectory()).length
-                    : 0
+                site_count: countSites(id)
             };
         } catch (cause) {
             const error = new Error('프로젝트 정보를 읽지 못했습니다.');
@@ -77,6 +93,7 @@ function createSiteHostingProjectRepository(options = {}) {
         }
         const projectRoot = getProjectRoot(id);
         fileSystem.mkdirSync(projectsRoot, { recursive: true });
+        fileSystem.mkdirSync(sitesRoot, { recursive: true });
         try {
             fileSystem.mkdirSync(projectRoot, { recursive: false });
         } catch (cause) {
@@ -88,7 +105,6 @@ function createSiteHostingProjectRepository(options = {}) {
         }
 
         try {
-            fileSystem.mkdirSync(pathApi.join(projectRoot, 'sites'));
             const manifest = {
                 schema_version: PROJECT_SCHEMA_VERSION,
                 id,
@@ -111,7 +127,7 @@ function createSiteHostingProjectRepository(options = {}) {
         }
     }
 
-    return { projectsRoot, getProjectRoot, list, get, create };
+    return { siteHostingRoot, projectsRoot, sitesRoot, getProjectRoot, list, get, create };
 }
 
 module.exports = { PROJECT_SCHEMA_VERSION, safeProjectId, createSiteHostingProjectRepository };

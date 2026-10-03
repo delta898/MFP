@@ -6,6 +6,7 @@ let siteHostingProjectBusy = false;
 let siteHostingProjectListMode = false;
 let siteHostingSites = [];
 let siteHostingOperationStates = new Map();
+let siteHostingDomainConnectStates = new Map();
 let siteHostingSiteLoadState = 'idle';
 let siteHostingSelectedSiteId = '';
 let siteHostingZoneChoices = [];
@@ -51,11 +52,10 @@ function siteHostingProjectCard(project) {
 }
 
 function siteHostingSiteCard(site) {
+  const siteKey = `${site.project_id}:${site.id}`;
   const siteId = siteHostingEscapeHtml(site.id);
-  const operation = siteHostingOperationStates.get(`${site.project_id}:${site.id}`) || null;
-  const localState = site.template_status === 'unavailable'
-    ? { label: '확인 필요', state: 'error' }
-    : { label: '로컬 준비됨', state: 'success' };
+  const operation = siteHostingOperationStates.get(siteKey) || null;
+  const domainConnect = siteHostingDomainConnectStates.get(siteKey) || null;
   const deploymentState = site.deployment?.url
     ? { label: '배포됨', state: 'success' }
     : { label: '미배포', state: 'neutral' };
@@ -66,43 +66,88 @@ function siteHostingSiteCard(site) {
   return `<article class="site-hosting-site-card" role="listitem">
     <div class="site-hosting-site-preview" aria-label="사이트 스크린샷">${screenshot}</div>
     <div class="site-hosting-site-card-content">
-      <strong>${siteHostingEscapeHtml(site.name)}</strong>
-      <div class="site-hosting-site-badges" aria-label="사이트 상태">
-        <span class="site-hosting-site-status" data-state="${localState.state}">로컬 · ${localState.label}</span>
-        <span class="site-hosting-site-status" data-state="${deploymentState.state}">배포 · ${deploymentState.label}</span>
+      <div class="site-hosting-site-heading">
+        <strong>${siteHostingEscapeHtml(site.name)}</strong>
+        <span class="site-hosting-site-status" data-state="${deploymentState.state}" aria-label="배포 상태">${deploymentState.label}</span>
       </div>
-      <div class="site-hosting-site-message" data-site-message="${siteId}" role="status" aria-live="polite">${message}</div>
-      <div class="site-hosting-project-actions">
-        <button class="secondary" type="button" data-site-settings="${siteId}">설정</button>
-        <button class="secondary" type="button" data-site-preview="${siteId}">미리보기</button>
-        <button class="secondary" type="button" data-site-open-folder="${siteId}">폴더 열기</button>
-        <button class="primary" type="button" data-site-deploy="${siteId}">배포</button>
+      <div class="site-hosting-site-feedback-row">
+        <div class="site-hosting-site-message" data-site-message="${siteId}" role="status" aria-live="polite">${message}</div>
+        ${siteHostingSiteAddresses(site, domainConnect)}
+      </div>
+      ${siteHostingSiteDomainConnectPanel(site, domainConnect)}
+      <div class="site-hosting-site-card-footer">
+        <details class="site-hosting-site-more">
+          <summary aria-label="사이트 더보기" title="사이트 더보기">더보기 <span aria-hidden="true">⌄</span></summary>
+          <div class="site-hosting-site-more-menu">
+            <button class="secondary" type="button" data-site-open-folder="${siteId}">폴더 열기</button>
+            <button class="secondary" type="button" data-site-settings="${siteId}">설정</button>
+            <button class="secondary" type="button" disabled title="삭제 기능은 추후 제공됩니다.">삭제</button>
+          </div>
+        </details>
+        <div class="site-hosting-project-actions">
+          <button class="secondary" type="button" data-site-preview="${siteId}">미리보기</button>
+          <button class="primary" type="button" data-site-deploy="${siteId}">배포</button>
+        </div>
       </div>
     </div>
   </article>`;
 }
 
 function siteHostingSiteMessage(site, operation) {
-  const links = [];
+  if (operation?.phase === 'running') return `<span data-state="pending">${siteHostingEscapeHtml(operation.message)}</span>`;
+  if (operation?.phase === 'error') return `<span data-state="error">${siteHostingEscapeHtml(operation.message)}</span>`;
+  return '';
+}
+
+function siteHostingSiteAddresses(site, domainConnect) {
   const workerUrl = String(site.deployment?.url || '');
   const workerHref = siteHostingSafeHttpsUrl(workerUrl);
   const customDomain = String(site.custom_domain_binding?.hostname || '').trim();
   const customDomainHref = customDomain && !/[\s/\\?#@]/.test(customDomain)
     ? siteHostingSafeHttpsUrl(`https://${customDomain}`)
     : '';
-  if (workerHref) links.push(`<a href="${siteHostingEscapeHtml(workerHref)}" target="_blank" rel="noopener noreferrer">Worker 주소</a>`);
-  if (customDomainHref) links.push(`<a href="${siteHostingEscapeHtml(customDomainHref)}" target="_blank" rel="noopener noreferrer">사용자 도메인</a>`);
-  if (operation?.phase === 'running') {
-    return `<span data-state="pending">${siteHostingEscapeHtml(operation.message)}</span>${links.length ? `<div class="site-hosting-site-message-links">${links.join(' · ')}</div>` : ''}`;
-  }
-  if (operation?.phase === 'error') {
-    return `<span data-state="error">${siteHostingEscapeHtml(operation.message)}</span>${links.length ? `<div class="site-hosting-site-message-links">${links.join(' · ')}</div>` : ''}`;
-  }
-  if (operation?.phase === 'success') {
-    return `<span data-state="success">${siteHostingEscapeHtml(operation.message)}</span>${links.length ? `<div class="site-hosting-site-message-links">${links.join(' · ')}</div>` : ''}`;
-  }
-  if (links.length) return `<div class="site-hosting-site-message-links">${links.join(' · ')}</div>`;
-  return '<span data-state="neutral">아직 빌드하거나 배포한 결과가 없습니다.</span>';
+  const workerLink = workerHref
+    ? `<a class="site-hosting-address-link" href="${siteHostingEscapeHtml(workerHref)}" target="_blank" rel="noopener noreferrer">기본 주소 <span aria-hidden="true">↗</span></a>`
+    : '<span class="site-hosting-address-link is-unavailable" aria-disabled="true" title="배포 후 사용할 수 있습니다.">기본 주소</span>';
+  const domainLink = customDomainHref
+    ? `<a class="site-hosting-address-link" href="${siteHostingEscapeHtml(customDomainHref)}" target="_blank" rel="noopener noreferrer">연결 도메인 <span aria-hidden="true">↗</span></a>`
+    : site.deployment?.worker_name
+      ? `<button class="site-hosting-address-link site-hosting-domain-start" type="button" data-site-domain-start="${siteHostingEscapeHtml(site.id)}" ${domainConnect?.open ? 'aria-expanded="true"' : ''}>도메인 연결 <span aria-hidden="true">+</span></button>`
+      : '<span class="site-hosting-address-link is-unavailable" aria-disabled="true" title="먼저 사이트를 배포하세요.">도메인 연결</span>';
+  return `<div class="site-hosting-site-addresses" aria-label="사이트 주소">${workerLink}${domainLink}</div>`;
+}
+
+function siteHostingSiteDomainConnectPanel(site, state) {
+  if (!state?.open) return '';
+  const siteId = siteHostingEscapeHtml(site.id);
+  const zones = Array.isArray(state.zones) ? state.zones : [];
+  const zoneOptions = zones.map((zone) => `<option value="${siteHostingEscapeHtml(zone.id)}" ${zone.id === state.zoneId ? 'selected' : ''}>${siteHostingEscapeHtml(zone.name)}</option>`).join('');
+  const zoneField = state.status === 'ready'
+    ? `<label for="site-card-zone-${siteId}">도메인<select id="site-card-zone-${siteId}" data-site-card-zone="${siteId}"><option value="">도메인 선택</option>${zoneOptions}</select></label>`
+    : '';
+  const hostnameField = state.status === 'ready'
+    ? `<label for="site-card-hostname-${siteId}">호스트 이름<input id="site-card-hostname-${siteId}" data-site-card-hostname="${siteId}" type="text" maxlength="253" value="${siteHostingEscapeHtml(state.hostname || '')}" placeholder="예: blog" autocomplete="off"></label>`
+    : '';
+  const previewAddress = state.hostname && state.zoneId
+    ? `${state.hostname}.${zones.find((zone) => zone.id === state.zoneId)?.name || ''}`
+    : '';
+  const preview = state.status === 'ready'
+    ? `<p class="site-hosting-card-domain-preview" ${previewAddress ? '' : 'hidden'}>주소 미리보기 <strong data-site-card-domain-preview>${siteHostingEscapeHtml(previewAddress)}</strong></p>`
+    : '';
+  const status = state.status === 'loading'
+    ? '<p role="status">Cloudflare 도메인을 불러오고 있습니다.</p>'
+    : state.status === 'error'
+      ? `<p data-state="error" role="alert">${siteHostingEscapeHtml(state.message || '도메인 목록을 불러오지 못했습니다.')}</p>`
+      : state.status === 'empty'
+        ? `<p data-state="error" role="alert">${siteHostingEscapeHtml(state.message || 'Cloudflare 계정에서 활성 도메인을 찾지 못했습니다.')}</p>`
+        : '';
+  return `<section class="site-hosting-card-domain-panel" aria-label="커스텀 도메인 연결">
+    <div class="site-hosting-card-domain-fields">${zoneField}${hostnameField}</div>
+    ${preview}${status}
+    <div class="site-hosting-card-domain-actions">
+      ${state.status === 'ready' ? `<button class="secondary" type="button" data-site-card-domain-cancel="${siteId}">취소</button><button class="primary" type="button" data-site-card-domain-connect="${siteId}" ${!state.zoneId || !String(state.hostname || '').trim() ? 'disabled' : ''}>연결</button>` : `<button class="secondary" type="button" data-site-card-domain-cancel="${siteId}">취소</button>${state.status !== 'loading' ? `<button class="primary" type="button" data-site-card-domain-retry="${siteId}">${state.status === 'idle' ? '도메인 불러오기' : '다시 시도'}</button>` : ''}`}
+    </div>
+  </section>`;
 }
 
 function siteHostingSafeHttpsUrl(value) {
@@ -119,13 +164,14 @@ function siteHostingSetSiteOperation(siteId, phase, message) {
   const projectId = siteHostingSelectedProject?.id;
   if (!projectId || !siteId) return;
   const key = `${projectId}:${siteId}`;
-  siteHostingOperationStates.set(key, { phase, message });
+  if (phase === 'success') siteHostingOperationStates.delete(key);
+  else siteHostingOperationStates.set(key, { phase, message });
   const site = siteHostingSites.find((item) => item.id === siteId);
   const target = [...document.querySelectorAll('[data-site-message]')].find((element) => element.dataset.siteMessage === siteId);
   if (site && target) {
-    target.innerHTML = siteHostingSiteMessage(site, siteHostingOperationStates.get(key));
+    target.innerHTML = siteHostingSiteMessage(site, siteHostingOperationStates.get(key) || null);
     const card = target.closest('.site-hosting-site-card');
-    card?.querySelectorAll('.site-hosting-project-actions button').forEach((button) => { button.disabled = phase === 'running'; });
+    card?.querySelectorAll('button').forEach((button) => { if (!button.matches('[data-site-card-domain-cancel]')) button.disabled = phase === 'running'; });
   }
 }
 
@@ -461,6 +507,98 @@ async function siteHostingLoadCloudflareZones(siteId, button) {
   }
 }
 
+function siteHostingDomainStateKey(siteId) {
+  return `${siteHostingSelectedProject?.id || ''}:${siteId}`;
+}
+
+async function siteHostingOpenCardDomainConnection(siteId) {
+  const site = siteHostingSites.find((item) => item.id === siteId);
+  if (!site?.deployment?.worker_name) return;
+  const key = siteHostingDomainStateKey(siteId);
+  const previous = siteHostingDomainConnectStates.get(key);
+  if (previous?.open) {
+    siteHostingDomainConnectStates.delete(key);
+    siteHostingRenderProjectDetail();
+    return;
+  }
+  siteHostingDomainConnectStates.set(key, {
+    open: true,
+    status: 'loading',
+    message: '',
+    zones: [],
+    zoneId: '',
+    hostname: String(site.hostname || '')
+  });
+  siteHostingRenderProjectDetail();
+  try {
+    const project = siteHostingSelectedProject;
+    const zones = await fetchJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites/${encodeURIComponent(siteId)}/zones`);
+    const state = siteHostingDomainConnectStates.get(key);
+    if (!state?.open) return;
+    state.zones = Array.isArray(zones) ? zones : [];
+    if (state.zones.length) {
+      state.status = 'ready';
+      state.zoneId = state.zones.find((zone) => zone.name.toLowerCase() === String(site.domain || '').toLowerCase())?.id || '';
+    } else {
+      state.status = 'empty';
+      state.message = 'Cloudflare 계정에서 활성 도메인을 찾지 못했습니다.';
+    }
+  } catch (error) {
+    const state = siteHostingDomainConnectStates.get(key);
+    if (!state?.open) return;
+    state.status = 'error';
+    state.message = error.message || 'Cloudflare 도메인 목록을 불러오지 못했습니다.';
+  }
+  siteHostingRenderProjectDetail();
+}
+
+async function siteHostingConnectCardDomain(siteId, button) {
+  const project = siteHostingSelectedProject;
+  const key = siteHostingDomainStateKey(siteId);
+  const state = siteHostingDomainConnectStates.get(key);
+  const zoneId = String(state?.zoneId || '');
+  const hostname = String(state?.hostname || '').trim();
+  if (!project || !state?.open || !zoneId || !hostname || button?.disabled) return;
+  button.disabled = true;
+  button.classList.add('is-loading');
+  button.textContent = '연결 중…';
+  siteHostingSetSiteOperation(siteId, 'running', '도메인을 연결하고 있습니다…');
+  try {
+    await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites/${encodeURIComponent(siteId)}/custom-domain`, { zone_id: zoneId, hostname });
+    const refreshedSites = await fetchJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites`);
+    siteHostingSites = Array.isArray(refreshedSites) ? refreshedSites : siteHostingSites;
+    siteHostingDomainConnectStates.delete(key);
+    siteHostingRenderProjectDetail();
+    siteHostingSetSiteOperation(siteId, 'success', '');
+  } catch (error) {
+    siteHostingSetSiteOperation(siteId, 'error', error.message || '도메인을 연결하지 못했습니다.');
+  } finally {
+    if (button.isConnected) {
+      button.disabled = false;
+      button.classList.remove('is-loading');
+      button.textContent = '연결';
+    }
+  }
+}
+
+function siteHostingUpdateCardDomainState(target) {
+  const siteId = target.dataset.siteCardZone || target.dataset.siteCardHostname;
+  if (!siteId) return;
+  const state = siteHostingDomainConnectStates.get(siteHostingDomainStateKey(siteId));
+  if (!state) return;
+  if (target.matches('[data-site-card-zone]')) state.zoneId = target.value;
+  else state.hostname = target.value;
+  const form = target.closest('.site-hosting-card-domain-panel');
+  const zone = state.zones.find((item) => item.id === state.zoneId);
+  const preview = form?.querySelector('[data-site-card-domain-preview]');
+  const previewRow = form?.querySelector('.site-hosting-card-domain-preview');
+  const address = state.hostname && zone ? `${state.hostname}.${zone.name}` : '';
+  if (preview) preview.textContent = address;
+  if (previewRow) previewRow.hidden = !address;
+  const connect = form?.querySelector('[data-site-card-domain-connect]');
+  if (connect) connect.disabled = !state.zoneId || !String(state.hostname || '').trim();
+}
+
 async function siteHostingConnectCustomDomain(siteId, button) {
   const project = siteHostingSelectedProject;
   const form = [...document.querySelectorAll('[data-site-settings-form]')].find((item) => item.dataset.siteSettingsForm === siteId);
@@ -681,6 +819,20 @@ function initSiteHostingProjects() {
         siteHostingZoneMessage = '';
         return siteHostingRenderProjectDetail();
       }
+      const domainStart = event.target.closest('[data-site-domain-start]');
+      if (domainStart) return void siteHostingOpenCardDomainConnection(domainStart.dataset.siteDomainStart);
+      const domainCancel = event.target.closest('[data-site-card-domain-cancel]');
+      if (domainCancel) {
+        siteHostingDomainConnectStates.delete(siteHostingDomainStateKey(domainCancel.dataset.siteCardDomainCancel));
+        return siteHostingRenderProjectDetail();
+      }
+      const domainRetry = event.target.closest('[data-site-card-domain-retry]');
+      if (domainRetry) {
+        siteHostingDomainConnectStates.delete(siteHostingDomainStateKey(domainRetry.dataset.siteCardDomainRetry));
+        return void siteHostingOpenCardDomainConnection(domainRetry.dataset.siteCardDomainRetry);
+      }
+      const cardDomainConnect = event.target.closest('[data-site-card-domain-connect]');
+      if (cardDomainConnect) return void siteHostingConnectCardDomain(cardDomainConnect.dataset.siteCardDomainConnect, cardDomainConnect);
       if (event.target.closest('[data-site-settings-close]')) return void siteHostingCloseSiteSettings();
       if (event.target.closest('[data-site-create]')) return void siteHostingOpenCreateSiteDialog();
       const buildSite = event.target.closest('[data-site-build]');
@@ -690,7 +842,10 @@ function initSiteHostingProjects() {
       const deploySite = event.target.closest('[data-site-deploy]');
       if (deploySite) return void siteHostingDeploySite(deploySite.dataset.siteDeploy, deploySite);
       const openFolder = event.target.closest('[data-site-open-folder]');
-      if (openFolder) return void siteHostingOpenBuildFolder(openFolder.dataset.siteOpenFolder);
+      if (openFolder) {
+        openFolder.closest('.site-hosting-site-more')?.removeAttribute('open');
+        return void siteHostingOpenBuildFolder(openFolder.dataset.siteOpenFolder);
+      }
       const zoneLookup = event.target.closest('[data-site-domain-zones]');
       if (zoneLookup) return void siteHostingLoadCloudflareZones(zoneLookup.dataset.siteDomainZones, zoneLookup);
       const domainConnect = event.target.closest('[data-site-domain-connect]');
@@ -700,9 +855,11 @@ function initSiteHostingProjects() {
     });
     content.addEventListener('input', (event) => {
       if (event.target.matches('#site-settings-hostname, #site-settings-name')) siteHostingUpdateDomainPreview(event.target.form);
+      if (event.target.matches('[data-site-card-hostname]')) siteHostingUpdateCardDomainState(event.target);
     });
     content.addEventListener('change', (event) => {
       if (event.target.matches('#site-settings-zone')) siteHostingUpdateDomainPreview(event.target.form);
+      if (event.target.matches('[data-site-card-zone]')) siteHostingUpdateCardDomainState(event.target);
     });
     document.getElementById('site-project-create-form')?.addEventListener('submit', (event) => void siteHostingCreateProject(event));
     document.querySelector('[data-site-project-cancel]')?.addEventListener('click', () => document.getElementById('site-project-create-dialog')?.close());

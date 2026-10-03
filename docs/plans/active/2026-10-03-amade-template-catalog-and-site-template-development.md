@@ -178,6 +178,31 @@ The BlogGenius publisher is not implemented in this stage. The focused Amade/Ast
 - The preview dialog header now has inset padding so its title and close button do not sit against the dialog border.
 - Static UI/CSS/JS composition, header contract, JavaScript syntax, and `git diff --check` passed. UI smoke was not run per the user's instruction to run it only when explicitly requested; manual UI review remains with the user.
 
+### 2026-10-03 — Site Hosting filesystem ownership
+
+- User chose sibling storage roots: `workspace/site-hosting/projects/{project_id}/project.json` and `workspace/site-hosting/sites/{site_id}/`.
+- The Site's `.bloggenius/site.json` `project_id` is the relationship source of truth. Project directories remain metadata-only; Site roots remain independent Astro projects with BlogGenius metadata grouped in `.bloggenius/`.
+- Existing nested Project/Site data will not be migrated; the user will clear old local data and manually verify fresh creation. Code and existing path expectations were updated; automated tests were not run by request.
+
+### 2026-10-03 — Site card deployment status and feedback
+
+- User clarified that local readiness is not useful in the card; only deployment status should be shown beside the Site name.
+- The shared feedback area now shows progress only while an operation runs, errors when one fails, and no success toast after completion. When deployment URLs exist, it shows concise `기본 주소` and `연결 도메인` link buttons without exposing long URLs or provider terminology. An empty area is collapsed.
+- Browser/UI smoke was not run, per the user's instruction to run it only when explicitly requested. Manual UI review remains with the user.
+
+### 2026-10-03 — Persistent address slots and card-level domain connection
+
+- Site cards always reserve the feedback/address strip. Progress or error appears on the left; concise `기본 주소` and domain controls remain on the right, including before deployment as disabled placeholders.
+- Once deployed, `도메인 연결 +` opens an inline card flow that loads Cloudflare zones, collects a hostname, previews the resulting address, and connects without requiring the user to discover the Settings page. A connected domain becomes a short `연결 도메인 ↗` link.
+- Kept `미리보기` and `배포` as direct actions; moved `설정` and `폴더 열기` into a `⋯` menu.
+- UI smoke was not run, per the user's instruction. Manual review remains with the user.
+
+### 2026-10-03 — Site card more-menu placement
+
+- Moved the `더보기` disclosure to the card footer's left edge; `미리보기` and `배포` stay grouped at the right.
+- Its menu lists `폴더 열기`, `설정`, and a visibly disabled `삭제` placeholder. Delete behavior is intentionally not implemented pending the separate deletion discussion.
+- UI smoke was not run, per the user's instruction.
+
 ### 2026-10-03 — Cloudflare deployment failure diagnostics
 
 - A newly created Site's deployment card reported a permission failure at `Worker 생성`, while the app log did not preserve Cloudflare's underlying API response. The exact cause cannot be determined from the card alone.

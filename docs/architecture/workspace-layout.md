@@ -71,6 +71,26 @@ workspace/card-news/
 - A generation references its owning project instead of duplicating the full source snapshot.
 - The unsupported aggregate `workspace/card-news/projects.json` format is deleted when the project repository starts; it is not migrated.
 
+## Local Site Hosting Data
+
+```text
+workspace/site-hosting/
+  projects/
+    {project_id}/
+      project.json           # Project identity and settings
+  sites/
+    {site_id}/               # Independent Astro project root
+      package.json
+      src/
+      public/
+      .bloggenius/
+        site.json            # Includes the owning project_id
+```
+
+- Project and Site directories are siblings. A Site's owning Project is determined by `project_id` in `.bloggenius/site.json`, not by filesystem nesting.
+- Site IDs are unique within the shared `sites/` directory. Project site counts and Site lists are derived by matching that manifest field.
+- Existing nested `projects/{project_id}/sites/` data is not migrated or read by the current storage contract.
+
 ## Deployment Rule
 - Desktop app release continues through the root release pipeline.
 - Trends collector and API are deployed separately from the desktop app.

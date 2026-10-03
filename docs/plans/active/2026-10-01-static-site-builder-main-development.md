@@ -89,7 +89,7 @@ Proposed first-use journey:
 
 1. Open `사이트` and create a Project. BlogGenius proposes `workspace/site-hosting/projects/{project-id}` as its root. The user may keep that location or choose a different Project root. The Project can be created without a Cloudflare connection or account binding.
 2. Set an actual custom root domain only if one is known. It is optional; do not use a fake placeholder. Add a Site and choose a template from the external catalog.
-3. BlogGenius creates the Site package under `{project-root}/sites/{site-id}`. The Astro project root remains standard and can be opened by a separate Astro-capable tool; BlogGenius metadata is kept separately inside the package.
+3. BlogGenius creates the Site package at `workspace/site-hosting/sites/{site-id}`. The Astro project root remains standard and can be opened by a separate Astro-capable tool; `.bloggenius/site.json` records its owning `project_id`.
 4. Set the template's supported fields, edit source in the external tool as needed, and build/preview locally without Cloudflare.
 5. When the user chooses `배포`, connect Cloudflare if needed, select one accessible account for the Project, and deploy the Site. A Site uses its own Worker target (1:1 is the current candidate policy). The `workers.dev` URL is generated/obtained without requiring a custom domain.
 6. Optionally configure the Project's single root domain and a Site hostname later. Apex handling remains a separate feature.
@@ -259,7 +259,7 @@ The Cloudflare PoC follows the user journey rather than selecting a technology s
 - Cloudflare는 배포 기능의 prerequisite다. Project/Site 생성, template 설정, Astro 편집, local build/preview는 OAuth 연결 및 Cloudflare account 지정 없이 가능해야 한다. 계정 연결과 Project account binding은 첫 배포까지 미뤄도 된다.
 - Astro build와 preview는 로컬에서 수행하며 Cloudflare와 무관하다. OAuth 연결/account는 원격 배포 시점에만 필요하다.
 - Project/Site 관리는 설정의 Cloudflare 연결 카드가 아니라 별도 `사이트` top-level surface에 둔다. Cloudflare 연결은 설정에서 하고, static-site content destination은 BlogGenius 글쓰기 흐름에서 선택하는 안을 제안한다.
-- 기본 Project root는 `workspace/site-hosting/projects/{project_id}`이고, 사용자는 Project별 다른 root를 지정할 수 있다. 각 Site는 Project root 아래 `sites/{site_id}`에 저장한다. Project metadata는 그 root에 두며, machine-local absolute path는 portable manifest와 분리하는 방향을 검토한다.
+- 현재 저장 규칙은 `workspace/site-hosting/projects/{project_id}/project.json`과 `workspace/site-hosting/sites/{site_id}/`를 형제 경로로 둔다. Site와 Project의 관계는 `.bloggenius/site.json`의 `project_id`로 정한다. 중첩 `projects/{project_id}/sites/` 데이터는 이전하지 않는다.
 - 사용자는 논의를 무한정 끝내기보다 큰 경계와 위험을 먼저 합의한 뒤, 구현 결과에서 새로 드러난 점을 문서화하고 보완하는 반복 방식을 선택했다. 매 하위 기능 전마다 전체 설계를 다시 확정할 필요는 없다.
 - 현재 UX 제안은 `설정 > 기본 연결 > 사이트 호스팅`에서 Cloudflare만 연결하고, 별도 `사이트` 화면에서 Project/Site 생성·편집·local preview/build/deploy를 관리하는 것이다. BlogGenius 글쓰기 화면에서 Site를 발행 대상으로 고르는 안은 사용자 확인 전이다.
 - sidebar에 `웹사이트` 소그룹과 `사이트` 항목을 추가한다. 사용자는 `홈 → 웹사이트 → 콘텐츠 → 계정 → 시스템`을 잠정 순서로 적용하고 사용 후 변경하기로 했다. `웹사이트`를 먼저 두면 Project/Site/source/build/deploy를 아우르는 영역의 제품상 비중과 사이트 준비 흐름이 드러난다. `콘텐츠`를 먼저 두면 기존 BlogGenius의 익숙한 글쓰기·발행 흐름을 우선할 수 있다. 두 그룹은 부모·자식이 아닌 형제 영역이며, 실제 사용 흐름과 메뉴 탐색성을 확인한 뒤 순서를 재검토한다. `사이트` 첫 화면은 이후 Project 목록이 되며, 메뉴 slice에서는 준비 중 상태만 간결하게 알린다.

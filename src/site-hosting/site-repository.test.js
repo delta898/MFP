@@ -21,7 +21,7 @@ test('site repository materializes selected Astro files and keeps BlogGenius met
             id: 'site-1', name: '개인 블로그', template_id: 'minimal-homepage',
             created_at: '2026-10-02T00:00:00.000Z', updated_at: '2026-10-02T00:00:00.000Z'
         });
-        const siteRoot = path.join(workspaceDir, 'site-hosting', 'projects', 'project-1', 'sites', 'site-1');
+        const siteRoot = path.join(workspaceDir, 'site-hosting', 'sites', 'site-1');
         const metadata = JSON.parse(fs.readFileSync(path.join(siteRoot, '.bloggenius', 'site.json'), 'utf8'));
 
         assert.equal(fs.existsSync(path.join(siteRoot, 'src', 'pages', 'index.astro')), true);
@@ -107,7 +107,7 @@ test('site repository applies declared template defaults and records the immutab
                 publishing: { listing_route: '/stories/', detail_route: '/stories/{slug}/', post_list_navigation_index: 1 }
             }
         });
-        const siteRoot = path.join(workspaceDir, 'site-hosting', 'projects', 'project-1', 'sites', 'site-1');
+        const siteRoot = path.join(workspaceDir, 'site-hosting', 'sites', 'site-1');
         const siteConfig = JSON.parse(fs.readFileSync(path.join(siteRoot, 'src', 'site-config.json'), 'utf8'));
         const manifest = JSON.parse(fs.readFileSync(path.join(siteRoot, '.bloggenius', 'site.json'), 'utf8'));
         assert.equal(siteConfig.name, 'My Site');

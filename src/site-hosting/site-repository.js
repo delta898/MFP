@@ -28,7 +28,7 @@ function createSiteHostingSiteRepository(options = {}) {
             error.status = 404;
             throw error;
         }
-        return pathApi.join(project.root_path, 'sites');
+        return projectRepository.sitesRoot || pathApi.join(pathApi.dirname(pathApi.dirname(project.root_path)), 'sites');
     }
 
     function readSite(projectId, siteId) {
@@ -44,7 +44,8 @@ function createSiteHostingSiteRepository(options = {}) {
         if (!fileSystem.existsSync(manifestPath)) return null;
         try {
             const site = JSON.parse(String(fileSystem.readFileSync(manifestPath, 'utf8') || ''));
-            if (site?.id !== safeId || site?.project_id !== projectId || site?.schema_version !== SITE_SCHEMA_VERSION || !String(site?.name || '').trim()) {
+            if (site?.project_id !== projectId) return null;
+            if (site?.id !== safeId || site?.schema_version !== SITE_SCHEMA_VERSION || !String(site?.name || '').trim()) {
                 throw new Error('Site manifest contract mismatch.');
             }
             const template = templates.get(site.template?.id);

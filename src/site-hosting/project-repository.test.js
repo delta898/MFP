@@ -19,7 +19,8 @@ test('site hosting project repository persists a project package and lists stabl
         });
 
         assert.equal(fs.existsSync(path.join(workspaceDir, 'site-hosting', 'projects', 'project-one', 'project.json')), true);
-        assert.equal(fs.existsSync(path.join(workspaceDir, 'site-hosting', 'projects', 'project-one', 'sites')), true);
+        assert.equal(fs.existsSync(path.join(workspaceDir, 'site-hosting', 'sites')), true);
+        assert.equal(fs.existsSync(path.join(workspaceDir, 'site-hosting', 'projects', 'project-one', 'sites')), false);
         assert.equal(project.id, 'project-one');
         assert.equal(project.site_count, 0);
         assert.deepEqual(repository.list().map(({ id, name }) => ({ id, name })), [{ id: 'project-one', name: '테스트 프로젝트' }]);
