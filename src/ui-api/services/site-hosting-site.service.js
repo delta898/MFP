@@ -5,6 +5,7 @@ const { domainToASCII } = require('node:url');
 const net = require('node:net');
 const { createSiteHostingProjectRepository } = require('../../site-hosting/project-repository');
 const { createSiteHostingSiteRepository } = require('../../site-hosting/site-repository');
+const { normalizeMenuDestination, normalizeMenuLabel: validateMenuLabel, normalizeNavigationItems, internalPathSegment } = require('../../site-hosting/navigation-contract');
 const { createGitHubSiteTemplateCatalog } = require('../../site-hosting/github-site-template-catalog');
 const { createAstroSiteRuntime } = require('../../site-hosting/astro-site-runtime');
 const { createCloudflareStaticAssetsDeployer } = require('../../site-hosting/cloudflare-static-assets-deployer');
@@ -148,6 +149,10 @@ function createSiteHostingSiteService(deps = {}) {
     }
 
     async function create(projectId, payload = {}) {
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)
+            || Object.keys(payload).some((key) => !['name', 'template_id', 'customization'].includes(key))) {
+            throw siteInputError('사이트 생성 요청에 허용되지 않은 항목이 포함되어 있습니다.', 'SITE_HOSTING_CREATE_INPUT_INVALID');
+        }
         if (!projectRepository.get(projectId)) {
             const error = new Error('프로젝트를 찾을 수 없습니다.');
             error.code = 'SITE_HOSTING_PROJECT_NOT_FOUND';
@@ -174,58 +179,71 @@ function createSiteHostingSiteService(deps = {}) {
     }
 
     function normalizeSiteCustomization(template, input) {
+        if (!input || typeof input !== 'object' || Array.isArray(input)) {
+            throw siteInputError('사이트 설정 형식이 올바르지 않습니다.', 'SITE_HOSTING_NAVIGATION_INVALID');
+        }
         const siteHosting = template?.resource?.site_hosting;
         const fields = siteHosting?.customization?.fields;
         if (!Array.isArray(fields)) return {};
         const output = {};
         const declared = new Map(fields.map((field) => [field.key, field]));
+        const allowedInputKeys = new Set([...declared.keys(), 'publishing']);
+        if (Object.keys(input).some((key) => !allowedInputKeys.has(key))) {
+            throw siteInputError('사이트 설정에 허용되지 않은 항목이 포함되어 있습니다.', 'SITE_HOSTING_NAVIGATION_INVALID');
+        }
+        if (input.publishing && (typeof input.publishing !== 'object' || Array.isArray(input.publishing)
+            || Object.keys(input.publishing).some((key) => key !== 'post_list_navigation_index'))) {
+            throw siteInputError('글 목록 메뉴 설정에 허용되지 않은 항목이 포함되어 있습니다.', 'SITE_HOSTING_POST_LIST_MENU_INVALID');
+        }
         const pageCapability = normalizePageCapability(siteHosting.pages);
         const publishing = normalizePublishingCapability(siteHosting.publishing);
-        const pageInputs = Array.isArray(input.pages) ? input.pages : [];
         const postListIndex = input.publishing?.post_list_navigation_index;
-        if (pageInputs.length && !pageCapability) throw siteInputError('이 템플릿은 새 내부 페이지 추가를 지원하지 않습니다.', 'SITE_HOSTING_PAGES_UNSUPPORTED');
-        if (pageInputs.length > (pageCapability?.max_items || 0)) throw siteInputError('사이트 메뉴 구성을 확인해 주세요.', 'SITE_HOSTING_NAVIGATION_INVALID');
-        if (declared.has('navigation') && Array.isArray(input.navigation)) {
+        if (declared.has('navigation')) {
             const defaults = Array.isArray(declared.get('navigation').default) ? declared.get('navigation').default : [];
-            if (input.navigation.length !== defaults.length) throw siteInputError('사이트 메뉴 구성을 확인해 주세요.', 'SITE_HOSTING_NAVIGATION_INVALID');
-            const customPages = pageInputs.map((entry) => {
-                const label = normalizeMenuLabel(entry?.label);
-                const slug = createPageSlug(label);
-                if (!slug || pageCapability.reserved_slugs.includes(slug)) throw siteInputError(`'${label}' 메뉴의 경로를 만들 수 없습니다. 다른 이름을 입력해 주세요.`, 'SITE_HOSTING_PAGE_SLUG_INVALID');
-                return { label, slug };
-            });
-            if (new Set(customPages.map((page) => page.slug)).size !== customPages.length
-                || customPages.some(({ slug }) => defaults.some((item) => /^\/[\p{L}\p{N}_-]+\/$/u.test(String(item.href || ''))
-                    && createPageSlug(String(item.href).slice(1, -1)) === slug))) {
-                throw siteInputError('메뉴 이름이 중복되거나 예약된 경로와 겹칩니다.', 'SITE_HOSTING_PAGE_SLUG_CONFLICT');
+            const requestedNavigation = Array.isArray(input.navigation) ? input.navigation : defaults;
+            const maxMenuItems = 50;
+            if (!requestedNavigation.length || requestedNavigation.length > maxMenuItems) {
+                throw siteInputError('메뉴는 1개 이상, 템플릿이 지원하는 개수 이내로 입력해 주세요.', 'SITE_HOSTING_NAVIGATION_INVALID');
             }
-            output.navigation = defaults.map((item, index) => ({
-                ...item,
-                label: normalizeMenuLabel(input.navigation[index]?.label)
-            })).concat(customPages.map((page) => ({ label: page.label, href: `/${encodeURIComponent(page.slug)}/` })));
-            if (pageCapability) output.custom_pages = customPages;
-        } else if (pageInputs.length) {
-            const customPages = pageInputs.map((entry) => {
-                const label = normalizeMenuLabel(entry?.label);
-                const slug = createPageSlug(label);
-                if (!slug || pageCapability.reserved_slugs.includes(slug)) throw siteInputError(`'${label}' 메뉴의 경로를 만들 수 없습니다. 다른 이름을 입력해 주세요.`, 'SITE_HOSTING_PAGE_SLUG_INVALID');
-                return { label, slug };
+            const normalizedInput = requestedNavigation.map((entry, index) => {
+                if (!entry || typeof entry !== 'object' || Array.isArray(entry)
+                    || Object.keys(entry).some((key) => key !== 'label' && key !== 'href')) {
+                    throw siteInputError('메뉴에는 이름과 주소만 지정할 수 있습니다.', 'SITE_HOSTING_NAVIGATION_INVALID');
+                }
+                const label = validateMenuLabel(entry?.label);
+                const fallbackHref = defaults[index]?.href || `/${encodeURIComponent(createPageSlug(label))}/`;
+                return { label, href: String(entry?.href || '').trim() || fallbackHref };
             });
-            if (new Set(customPages.map((page) => page.slug)).size !== customPages.length) {
-                throw siteInputError('메뉴 이름이 중복되거나 예약된 경로와 겹칩니다.', 'SITE_HOSTING_PAGE_SLUG_CONFLICT');
+            let navigation;
+            try { navigation = normalizeNavigationItems(normalizedInput, { maxItems: maxMenuItems }); }
+            catch (cause) { throw siteInputError(cause.message, cause.code || 'SITE_HOSTING_NAVIGATION_INVALID'); }
+            output.navigation = navigation;
+            const defaultPaths = new Set(defaults.map((entry) => normalizeMenuDestination(entry.href)));
+            const publishingPath = postListIndex !== undefined ? navigation[postListIndex]?.href : '';
+            const reserved = new Set(pageCapability?.reserved_slugs || []);
+            if (pageCapability) {
+                const customPages = navigation
+                    .filter(({ href }) => !defaultPaths.has(href) && href !== publishingPath && internalPathSegment(href))
+                    .map(({ label, href }) => ({ label, slug: internalPathSegment(href) }))
+                    .filter(({ slug }) => !reserved.has(slug.toLocaleLowerCase('en-US')))
+                    .slice(0, pageCapability.max_items);
+                if (customPages.length) output.custom_pages = customPages;
             }
-            output.custom_pages = customPages;
         }
         if (postListIndex !== undefined && !publishing) {
             throw siteInputError('이 템플릿은 글 목록 메뉴 연결을 지원하지 않습니다.', 'SITE_HOSTING_PUBLISHING_UNSUPPORTED');
         }
         if (publishing) {
-            const defaults = Array.isArray(declared.get('navigation')?.default) ? declared.get('navigation').default : [];
-            if (!declared.has('navigation') || !Number.isInteger(postListIndex) || postListIndex < 0 || postListIndex >= defaults.length) {
+            const navigation = output.navigation;
+            if (!declared.has('navigation') || !Array.isArray(navigation)
+                || !Number.isInteger(postListIndex) || postListIndex < 0 || postListIndex >= navigation.length) {
                 throw siteInputError('글 목록에 연결할 메뉴를 선택해 주세요.', 'SITE_HOSTING_POST_LIST_MENU_REQUIRED');
             }
+            const listingRoute = navigation[postListIndex].href;
+            const detailRoute = publishing.routes.detail.replace(publishing.routes.listing, listingRoute);
             output.publishing = {
-                listing_route: publishing.routes.listing,
+                listing_route: listingRoute,
+                detail_route: detailRoute,
                 post_list_navigation_index: postListIndex
             };
         }
@@ -238,9 +256,7 @@ function createSiteHostingSiteService(deps = {}) {
             || !value.routes || typeof value.routes.listing !== 'string' || typeof value.routes.detail !== 'string') return null;
         const listing = value.routes.listing;
         const detail = value.routes.detail;
-        const safePath = (route) => route.startsWith('/') && !route.startsWith('//')
-            && !/[?#\\\\]/.test(route) && route.split('/').every((segment) => segment !== '..' && segment !== '.');
-        if (!safePath(listing) || !safePath(detail) || !detail.includes('{slug}')) return null;
+        if (!internalPathSegment(listing) || detail !== `${listing}{slug}/`) return null;
         return { routes: { listing, detail } };
     }
 
@@ -269,9 +285,8 @@ function createSiteHostingSiteService(deps = {}) {
     }
 
     function normalizeMenuLabel(value) {
-        const label = String(value || '').trim();
-        if (!label || label.length > 30 || /[<>\u0000-\u001f]/.test(label)) throw siteInputError('메뉴 이름은 1~30자 이내로 입력해 주세요.', 'SITE_HOSTING_NAVIGATION_INVALID');
-        return label;
+        try { return validateMenuLabel(value); }
+        catch (cause) { throw siteInputError('메뉴 이름은 1~30자 이내로 입력해 주세요.', cause.code || 'SITE_HOSTING_NAVIGATION_INVALID'); }
     }
 
     function normalizeLogo(value) {

@@ -296,40 +296,6 @@ function siteHostingRenderCreateTemplates() {
   if (templateInput) templateInput.value = siteHostingSelectedCreateTemplate;
 }
 
-function siteHostingRenderCreateNavigation() {
-  const container = document.getElementById('site-navigation-fields');
-  const template = siteHostingCreateTemplates.find((item) => item.id === siteHostingSelectedCreateTemplate);
-  const navigation = template?.customization?.find((field) => field.key === 'navigation')?.default;
-  const postListRoute = template?.publishing?.routes?.listing;
-  if (!container) return;
-  if (!Array.isArray(navigation) || !navigation.length) {
-    container.innerHTML = template?.pages
-      ? `<h3>메뉴 이름</h3><p>새 메뉴는 이름으로 내부 페이지를 만듭니다.</p><div data-site-page-list></div><button class="secondary" type="button" data-site-page-add>페이지 추가</button>`
-      : '';
-    return;
-  }
-  const help = postListRoute
-    ? '메뉴 중 글 목록을 열 항목을 선택하세요. 목록과 글 주소는 템플릿 규칙을 따릅니다.'
-    : template?.pages ? '새 메뉴는 이름으로 내부 페이지를 만듭니다.' : '메뉴가 연결되는 위치는 템플릿이 정합니다.';
-  const defaultPostListIndex = postListRoute ? navigation.findIndex((item) => item.href === postListRoute) : -1;
-  container.innerHTML = `<h3>메뉴 이름</h3><p>${help}</p>${navigation.map((item, index) => `<div class="site-project-form-field site-navigation-item"><label class="site-navigation-name"><span>${siteHostingEscapeHtml(item.label || `메뉴 ${index + 1}`)}</span><input type="text" maxlength="30" required data-site-navigation-label="${index}" value="${siteHostingEscapeHtml(item.label || '')}"></label>${postListRoute ? `<label class="site-post-list-choice"><input type="radio" name="site-post-list-menu" value="${index}"${index === defaultPostListIndex ? ' checked' : ''}><span>글 목록으로 연결</span></label>` : ''}</div>`).join('')}${template?.pages ? '<div data-site-page-list></div><button class="secondary" type="button" data-site-page-add>페이지 추가</button>' : ''}`;
-}
-
-function siteHostingAddCreatePageRow(value = '') {
-  const list = document.querySelector('#site-navigation-fields [data-site-page-list]');
-  const template = siteHostingCreateTemplates.find((item) => item.id === siteHostingSelectedCreateTemplate);
-  const max = Number(template?.pages?.max_items || 0);
-  if (!list || list.children.length >= max) return;
-  const row = document.createElement('label');
-  row.className = 'site-project-form-field site-custom-page-field';
-  row.innerHTML = `<span>새 페이지 이름</span><span class="site-custom-page-row"><input type="text" maxlength="30" required data-site-page-label placeholder="예: 소개"><button class="secondary" type="button" data-site-page-remove aria-label="페이지 제거">제거</button></span>`;
-  row.querySelector('input').value = value;
-  list.append(row);
-  row.querySelector('input').focus();
-  const addButton = document.querySelector('#site-navigation-fields [data-site-page-add]');
-  if (addButton) addButton.disabled = list.children.length >= max;
-}
-
 function siteHostingReadLogo(file) {
   return new Promise((resolve, reject) => {
     if (!file) return resolve('');
@@ -341,70 +307,6 @@ function siteHostingReadLogo(file) {
     reader.onerror = () => reject(new Error('로고 이미지를 읽지 못했습니다.'));
     reader.readAsDataURL(file);
   });
-}
-
-async function siteHostingCreateSite(event) {
-  event.preventDefault();
-  const project = siteHostingSelectedProject;
-  const form = event.currentTarget;
-  const input = document.getElementById('site-name');
-  const templateInput = document.getElementById('site-template-id');
-  const feedback = document.getElementById('site-create-feedback');
-  const submit = form.querySelector('[type="submit"]');
-  const name = String(input?.value || '').trim();
-  if (!name || !templateInput?.value || !project) {
-    if (!name) {
-      input?.setAttribute('aria-invalid', 'true');
-      input?.focus();
-    }
-    return;
-  }
-  submit.disabled = true;
-  submit.classList.add('is-loading');
-  try {
-    const logoInput = document.getElementById('site-logo');
-    const logo = await siteHostingReadLogo(logoInput?.files?.[0]);
-    const selectedTemplate = siteHostingCreateTemplates.find((template) => template.id === templateInput.value);
-    const navigationDefaults = selectedTemplate?.customization?.find((field) => field.key === 'navigation')?.default;
-    const navigation = Array.isArray(navigationDefaults) ? navigationDefaults.map((item, index) => ({
-      label: String(document.querySelector(`[data-site-navigation-label="${index}"]`)?.value || item.label || '').trim()
-    })) : undefined;
-    const postListRoute = selectedTemplate?.publishing?.routes?.listing;
-    const postListSelection = postListRoute
-      ? document.querySelector('input[name="site-post-list-menu"]:checked')
-      : null;
-    const pages = [...document.querySelectorAll('[data-site-page-label]')].map((field) => ({ label: String(field.value || '').trim() }));
-    if (navigation?.some((item) => !item.label || item.label.length > 30)) throw new Error('메뉴 이름은 1~30자 이내로 입력해 주세요.');
-    if (postListRoute && !postListSelection) throw new Error('글 목록에 연결할 메뉴를 선택해 주세요.');
-    if (pages.some((page) => !page.label || page.label.length > 30)) throw new Error('새 페이지 이름은 1~30자 이내로 입력해 주세요.');
-    const site = await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites`, {
-      name,
-      template_id: templateInput.value,
-      customization: {
-        ...(logo ? { logo } : {}),
-        ...(navigation ? { navigation } : {}),
-        ...(postListSelection ? { publishing: { post_list_navigation_index: Number(postListSelection.value) } } : {}),
-        ...(pages.length ? { pages } : {})
-      }
-    });
-    document.getElementById('site-create-dialog')?.close();
-    // The create response is a command result and does not include list-only fields
-    // such as the persisted template screenshot URL. Refresh the projection before rendering.
-    try {
-      siteHostingSites = await fetchJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites`);
-    } catch (_refreshError) {
-      siteHostingSites = [...siteHostingSites, site];
-    }
-    siteHostingSelectedProject.site_count = siteHostingSites.length;
-    siteHostingSiteLoadState = 'ready';
-    siteHostingRenderProjectDetail();
-    siteHostingSetFeedback('사이트를 만들었습니다.', 'success');
-  } catch (error) {
-    if (feedback) feedback.textContent = error.message || '사이트를 만들지 못했습니다.';
-  } finally {
-    submit.disabled = false;
-    submit.classList.remove('is-loading');
-  }
 }
 
 async function siteHostingBuildSite(siteId, button) {
@@ -858,33 +760,8 @@ function initSiteHostingProjects() {
     });
     document.getElementById('site-project-create-form')?.addEventListener('submit', (event) => void siteHostingCreateProject(event));
     document.querySelector('[data-site-project-cancel]')?.addEventListener('click', () => document.getElementById('site-project-create-dialog')?.close());
-    document.getElementById('site-create-form')?.addEventListener('submit', (event) => void siteHostingCreateSite(event));
-    document.getElementById('site-create-dialog')?.addEventListener('click', (event) => {
-      const templateChoice = event.target.closest('[data-site-template-select]');
-      if (templateChoice) {
-        siteHostingSelectedCreateTemplate = templateChoice.dataset.siteTemplateSelect;
-        siteHostingRenderCreateTemplates();
-        siteHostingRenderCreateNavigation();
-        return;
-      }
-      if (event.target.closest('[data-site-logo-remove]')) {
-        const logoInput = document.getElementById('site-logo');
-        const preview = document.getElementById('site-logo-preview');
-        if (logoInput) logoInput.value = '';
-        if (preview) preview.hidden = true;
-        siteHostingLogoDataUrl = '';
-        return;
-      }
-      if (event.target.closest('[data-site-page-add]')) return siteHostingAddCreatePageRow();
-      if (event.target.closest('[data-site-page-remove]')) {
-        event.target.closest('.site-custom-page-field')?.remove();
-        const template = siteHostingCreateTemplates.find((item) => item.id === siteHostingSelectedCreateTemplate);
-        const addButton = document.querySelector('#site-navigation-fields [data-site-page-add]');
-        if (addButton) addButton.disabled = false;
-      }
-    });
     document.querySelector('[data-site-create-cancel]')?.addEventListener('click', () => document.getElementById('site-create-dialog')?.close());
-    document.getElementById('site-name')?.addEventListener('input', (event) => event.currentTarget.removeAttribute('aria-invalid'));
+    siteHostingBindCreateDialogEvents();
     document.getElementById('site-logo')?.addEventListener('change', async (event) => {
       const input = event.currentTarget;
       const feedback = document.getElementById('site-create-feedback');

@@ -50,6 +50,66 @@ test('site service validates the project, name, and selected template', async ()
     }
 });
 
+test('site creation accepts editable internal menu paths and binds publishing to the selected menu', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-menu-contract-'));
+    try {
+        const template = {
+            id: 'studio-journal', version: '1.3.0', name: 'Studio Journal',
+            resource: { site_hosting: {
+                customization: { fields: [{ key: 'navigation', type: 'navigation', default: [
+                    { label: 'Home', href: '/' }, { label: 'Blog', href: '/blog/' }
+                ] }] },
+                pages: { schema_version: 1, mode: 'static_placeholders', max_items: 5, route_pattern: '/{slug}/', target: { file: 'src/site-config.json', path: 'pages' } },
+                publishing: { schema_version: 2, format: 'markdown', routes: { listing: '/blog/', detail: '/blog/{slug}/' } }
+            } }
+        };
+        let createdSite;
+        const service = createSiteHostingSiteService({
+            fs, path, workspaceDir,
+            projectRepository: { get: (id) => id === 'project-1' ? { id } : null },
+            templates: { get: (id) => id === template.id ? template : null, prepare: async () => {} },
+            repository: { create: (_projectId, input) => { createdSite = input; return { ...input, project_id: 'project-1', template: { id: template.id, version: template.version } }; } },
+            createId: () => 'site-1'
+        });
+        await service.create('project-1', {
+            name: 'Stories', template_id: template.id,
+            customization: {
+                navigation: [{ label: 'Home', href: '/' }, { label: 'Stories', href: '/stories/' }],
+                publishing: { post_list_navigation_index: 1 }
+            }
+        });
+        assert.deepEqual(createdSite.customization.navigation, [
+            { label: 'Home', href: '/' }, { label: 'Stories', href: '/stories/' }
+        ]);
+        assert.deepEqual(createdSite.customization.publishing, {
+            listing_route: '/stories/', detail_route: '/stories/{slug}/', post_list_navigation_index: 1
+        });
+        for (const href of ['https://example.com/articles/', '/about/team/', '../about/team', '/blog/?draft=1', '/blog/#section']) {
+            await service.create('project-1', {
+                name: 'Valid destination', template_id: template.id,
+                customization: { navigation: [{ label: 'Home', href: '/' }, { label: 'Destination', href }], publishing: { post_list_navigation_index: 1 } }
+            });
+            assert.equal(createdSite.customization.navigation[1].href, href);
+        }
+        for (const href of ['javascript:alert(1)', 'https://[bad-host/', '/bad%zz/']) {
+            await assert.rejects(service.create('project-1', {
+                name: 'Malformed', template_id: template.id,
+                customization: { navigation: [{ label: 'Home', href: '/' }, { label: 'Malformed', href }], publishing: { post_list_navigation_index: 1 } }
+            }), { code: 'SITE_HOSTING_MENU_PATH_INVALID' }, href);
+        }
+        await assert.rejects(service.create('project-1', {
+            name: 'Unsafe', template_id: template.id,
+            customization: { navigation: [{ label: 'Home', href: '/', target: '_blank' }, { label: 'Blog', href: '/blog/' }] }
+        }), { code: 'SITE_HOSTING_NAVIGATION_INVALID' });
+        await assert.rejects(service.create('project-1', {
+            name: 'Unsafe', template_id: template.id,
+            customization: { navigation: [{ label: 'Home', href: '/' }, { label: 'Blog', href: '/blog/' }], unknown: 'ignored?' }
+        }), { code: 'SITE_HOSTING_NAVIGATION_INVALID' });
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('site service materializes the default starter site only for the default project', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-default-site-'));
     try {

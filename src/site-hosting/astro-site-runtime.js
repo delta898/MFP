@@ -9,6 +9,7 @@ const { spawn } = require('node:child_process');
 const { createSiteHostingProjectRepository } = require('./project-repository');
 const { createSiteHostingSiteRepository } = require('./site-repository');
 const { createSiteTemplateCatalog } = require('./site-template-catalog');
+const { normalizeMenuDestination } = require('./navigation-contract');
 const { captureSiteScreenshot, VIEWPORT } = require('./electron-site-screenshot');
 
 const BUILD_TIMEOUT_MS = 10 * 60 * 1000;
@@ -166,6 +167,56 @@ function createAstroSiteRuntime(options = {}) {
         });
     }
 
+    function routeOutputDirectory(distRoot, route) {
+        try {
+            if (normalizeMenuDestination(route) !== route || !route.startsWith('/') || route.startsWith('//')) return null;
+            const parsed = new URL(route, 'https://bloggenius.invalid/');
+            if (parsed.search || parsed.hash) return null;
+            const pathname = parsed.pathname;
+            const encodedSegments = pathname.split('/').filter(Boolean);
+            if (!encodedSegments.length) return null;
+            const segments = encodedSegments.map((encoded) => decodeURIComponent(encoded));
+            if (segments.some((segment) => !segment || segment === '.' || segment === '..' || /[\\/\u0000-\u001f\u007f]/u.test(segment))) return null;
+            const root = pathApi.resolve(distRoot);
+            const output = pathApi.resolve(root, ...segments);
+            return output.startsWith(`${root}${pathApi.sep}`) ? output : null;
+        } catch (_error) { return null; }
+    }
+
+    function applyPublishingRoute(site) {
+        const selectedRoute = String(site.customization?.publishing?.listing_route || '');
+        if (!selectedRoute) return;
+        const template = templates.get(site.template?.id);
+        const defaultRoute = String(template?.resource?.site_hosting?.publishing?.routes?.listing || '');
+        if (!defaultRoute || selectedRoute === defaultRoute) return;
+        const distRoot = pathApi.join(site.root_path, 'dist');
+        const sourceDirectory = routeOutputDirectory(distRoot, defaultRoute);
+        const destinationDirectory = routeOutputDirectory(distRoot, selectedRoute);
+        if (!sourceDirectory || !destinationDirectory || sourceDirectory === destinationDirectory) return;
+        const sourceIndex = pathApi.join(sourceDirectory, 'index.html');
+        if (!fileSystem.existsSync(sourceIndex) || !fileSystem.statSync(sourceIndex).isFile()) return;
+        if (fileSystem.existsSync(destinationDirectory)) {
+            // A site builder may already own this route; preserve its output and
+            // let the normal site build finish without taking over that path.
+            return;
+        }
+        fileSystem.mkdirSync(pathApi.dirname(destinationDirectory), { recursive: true });
+        fileSystem.renameSync(sourceDirectory, destinationDirectory);
+        const replaceLinks = (directory) => {
+            for (const entry of fileSystem.readdirSync(directory, { withFileTypes: true })) {
+                const entryPath = pathApi.join(directory, entry.name);
+                if (entry.isDirectory()) {
+                    replaceLinks(entryPath);
+                } else if (entry.isFile() && entry.name.endsWith('.html')) {
+                    const html = String(fileSystem.readFileSync(entryPath, 'utf8') || '');
+                    const updated = html.split(defaultRoute).join(selectedRoute);
+                    if (updated !== html) fileSystem.writeFileSync(entryPath, updated, { encoding: 'utf8', mode: 0o600 });
+                }
+            }
+        };
+        replaceLinks(destinationDirectory);
+    }
+
     async function build(projectId, siteId) {
         const site = getSite(projectId, siteId);
         const key = `${projectId}/${siteId}`;
@@ -204,6 +255,12 @@ function createAstroSiteRuntime(options = {}) {
         try {
             await runNpm(site.root_path, ['ci', '--no-audit', '--no-fund']);
             await runNpm(site.root_path, ['run', 'build']);
+            try { applyPublishingRoute(site); }
+            catch (error) {
+                console.warn('[Site Hosting] post-list route adjustment skipped', {
+                    site_id: site.id, message: String(error?.message || error).slice(0, 500)
+                });
+            }
             const indexPath = pathApi.join(site.root_path, 'dist', 'index.html');
             if (!fileSystem.existsSync(indexPath) || !fileSystem.statSync(indexPath).isFile()) {
                 const error = new Error('빌드 결과에서 dist/index.html을 찾지 못했습니다.');

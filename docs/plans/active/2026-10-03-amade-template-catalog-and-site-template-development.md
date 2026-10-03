@@ -5,7 +5,7 @@
 - Branch: `codex/amade-template-catalog`
 - Start date: 2026-10-03
 - Base/parent branch: `codex/static-site-builder-main`
-- Status: Catalog integration, Site creation customization, and post-list menu binding are implemented locally. Amade 1.2.0 packages are published to the public `dev` catalog; BlogGenius changes remain uncommitted on this feature branch.
+- Status: Amade 1.3.0 menu defaults/spec are published to `dev`. BlogGenius menu editing, validation, persistence, and build routing are implemented locally on this branch; preview redesign remains a separate discussion.
 - Parent plan: [Static Site Builder](2026-10-01-static-site-builder-main-development.md)
 - Related completed stage: [Site creation and management](../archive/2026-10-02-site-creation-development.md)
 
@@ -67,6 +67,8 @@ The current repository only provides the first template to validate the contract
 7. Update Amade/BlogGenius documentation and parent progress record; report commits, remote publication state, verification, and follow-ups. **Complete; hands-on review remains.**
 8. Implement the approved Site creation customization UI and validation contract. **Complete locally:** wider scrollable dialog, three-column preview cards, optional logo, editable manifest-defined menu labels, and internal placeholder page support when declared. Amade package publication remains a separate action.
 9. Let users designate one manifest navigation item as the post-list entry point during Site creation and persist the route/menu binding for the future publisher. **Implemented locally:** uses only an explicit publishing-v2 listing route; Amade catalog publication is separate.
+10. Simplify the Amade menu contract. **Published to Amade `dev` in 1.3.0:** templates provide their existing default `label`/`href` values; the declared `publishing.routes.listing` must match a default menu path; BlogGenius owns edits, validation, and placeholder routes.
+11. Update the BlogGenius Site creation form to edit both menu labels and internal paths, show default/suggested paths as placeholders, allow menu add/remove, validate field-level errors, and use the selected menu path for the post-list route. Preview-panel redesign is excluded pending separate discussion.
 
 ## Progress log
 
@@ -135,13 +137,26 @@ The BlogGenius publisher is not implemented in this stage. The focused Amade/Ast
 - The menu already targeting that route is preselected. The user's selected menu destination is set to the manifest listing route and the selection is saved in `.bloggenius/site.json` as Site-specific publishing configuration.
 - The article writer remains deferred; it will read this saved selection and the pinned manifest contract.
 
+### 2026-10-03 — Simplified menu contract and creation-form follow-up
+
+- User approved a simple contract: template manifests supply only default menu items (`label`/`href`) and a publishing listing default; BlogGenius owns menu editing and internal path behavior. Backward compatibility is not required for this unreleased feature.
+- Amade `dev` now publishes 1.3.0 of both Site Hosting templates. Package/spec commit: `7e0b02cb3c34f780de5a1f16d524cd6cc2e902bb`; catalog pointer commit: `166d6ce` (pushed).
+- Current BlogGenius slice is limited to menu controls and validation in Site creation. A split settings/live-preview panel remains deferred for further discussion. Logo picker polish is also out of scope for this slice.
+- BlogGenius now lets users edit each menu label and destination, add/remove entries within the current form allowance, and select which menu opens the post list. Blank destinations use the template default or the label-derived suggestion. Destination validation concerns syntax only; valid external URLs and multi-segment paths are accepted.
+- The selected listing path is persisted with its menu index and detail route. During build, Astro's generated default listing directory can be moved to the selected route and its generated listing/detail HTML links rewritten when that destination is unused; output already produced by another Site builder is preserved.
+- User clarified that route choice belongs to the Site owner and may be edited with another Site builder. Validation now rejects malformed URL syntax and unsafe executable schemes, while allowing valid HTTP(S), mailto/tel, relative, external, query/fragment, and multi-segment destinations. Automatic placeholder generation is only a convenience for simple internal paths supported by the selected template; it does not reject other valid destinations.
+- Repository validation independently checks input shapes and logo signatures/size. Build-time listing relocation is best-effort: it supports nested root-relative paths when the destination is unused, preserves existing builder output, and skips the adjustment rather than failing the build when it cannot safely take over a route.
+- Focused verification passed after this correction: 12 navigation/service/repository tests, 2 listing-route runtime tests, 2 UI script-structure tests, JavaScript syntax checks, and `git diff --check`. Browser smoke ran with localhost access but stopped in its existing project-creation flow before reaching Site creation (it timed out waiting for the `브라우저 검증 프로젝트` heading), so the changed form interaction remains unverified there.
+- Menu UI and submit logic live in a dedicated `site-creation-navigation.js` module; responsive CSS uses the shared 640/768 breakpoints.
+
 ## Verification and handoff
 
 - Earlier catalog-stage verification: 18 focused BlogGenius tests; live Amade `main` catalog and pinned package retrieval/checksum validation; Astro dependency installation and static build. No browser smoke or app launch.
-- Current customization-stage verification: static syntax, JSON, package checksum/size, and diff checks passed. No tests, app launch, or UI smoke were run.
+- Current menu-stage verification: 13 focused Site Hosting service/repository/runtime tests pass, including selected-route persistence and built listing/detail link rewrites. JavaScript composition and CSS structure tests pass. `git diff --check` and syntax checks pass.
+- Browser smoke was attempted but timed out in the existing project-creation setup before reaching Site creation. It therefore does not verify the menu interaction. No app launch or manual visual check was performed; user review remains.
 - Current publishing-contract verification: Astro 7.3.5 static builds passed for both unpublished 1.2.0 templates in temporary copies. In each, `is_public: true` appeared in the listing and generated a detail page; `false` and missing `is_public` appeared in neither; a `./images/proof.svg` reference emitted an existing hashed asset. Both Amade package manifests were regenerated and their file count, sizes, and SHA-256 hashes passed verification after the final template source edit.
-- Manual review remains: choose each template card, create with and without a logo, edit default menu labels, add an internal page after the 1.1.0 packages are published, then use build/preview.
-- Amade's original catalog feature branch is pushed and merged into `main`. The two 1.2.0 packages and catalog references are now pushed to Amade `dev` in commits `52ad2a3` and `d9fb93e`; no production promotion was performed in this task. BlogGenius implementation remains uncommitted on `codex/amade-template-catalog` and unmerged into its parent.
+- Manual review remains: select both Amade templates, rename a menu, change an internal path, add/remove a menu, choose a different post-list menu, and build to verify the listing/detail routes. Preview-panel behavior remains deferred.
+- Amade `dev` is pushed through catalog pointer commit `166d6ce` (package/spec commit `7e0b02c`); no production promotion was performed. BlogGenius implementation remains uncommitted on `codex/amade-template-catalog` and unmerged into its parent.
 - Follow-up: implement BlogGenius article publishing using the selected Site's pinned manifest as listed above; separately design retrieval/application of external Style resources.
 
 ### 2026-10-03 — Cloudflare deployment failure diagnostics

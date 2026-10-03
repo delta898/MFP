@@ -45,6 +45,7 @@ test('JavaScript manifest preserves one explicit classic-script execution order'
         'scripts/features/settings-next/shell.js',
         'scripts/features/settings-next/site-hosting.js',
         'scripts/features/site-hosting/project-management.js',
+        'scripts/features/site-hosting/site-creation-navigation.js',
         'scripts/features/settings-next/spreadsheet-connection.js',
         'scripts/features/settings-next/save-proceed.js',
         'scripts/features/settings-next/ai-model-roles.js',

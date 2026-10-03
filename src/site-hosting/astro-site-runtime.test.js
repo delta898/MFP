@@ -135,6 +135,113 @@ test('Astro build remains successful and preserves the template image when captu
     }
 });
 
+test('Astro build moves the publishing listing to the selected menu route and rewrites detail links', async () => {
+    const fixture = createFixture();
+    try {
+        const manifestPath = path.join(fixture.site.root_path, '.bloggenius', 'site.json');
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        manifest.customization = {
+            navigation: [{ label: '이야기', href: '/stories/series/' }],
+            publishing: { listing_route: '/stories/series/', detail_route: '/stories/series/{slug}/', post_list_navigation_index: 0 }
+        };
+        fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+        const templates = {
+            ...fixture.templates,
+            get: (id) => ({
+                ...fixture.templates.get(id),
+                resource: { site_hosting: { publishing: { routes: { listing: '/blog/', detail: '/blog/{slug}/' } } } }
+            })
+        };
+        const runtime = createAstroSiteRuntime({
+            fs, path, projectRepository: fixture.projectRepository,
+            siteRepository: fixture.siteRepository, templates,
+            npmCliPath: '/app/node_modules/npm/bin/npm-cli.js',
+            cacheRoot: path.join(fixture.workspaceDir, '.cache'),
+            spawn: (_executable, args, options) => {
+                const child = new EventEmitter();
+                child.stdout = new PassThrough();
+                child.stderr = new PassThrough();
+                child.kill = () => true;
+                process.nextTick(() => {
+                    if (args.includes('build')) {
+                        const dist = path.join(options.cwd, 'dist');
+                        fs.mkdirSync(path.join(dist, 'blog', 'welcome'), { recursive: true });
+                        fs.writeFileSync(path.join(dist, 'index.html'), '<h1>Home</h1>');
+                        fs.writeFileSync(path.join(dist, 'blog', 'index.html'), '<a href="/blog/welcome/">Post</a>');
+                        fs.writeFileSync(path.join(dist, 'blog', 'welcome', 'index.html'), '<a href="/blog/">Back</a>');
+                    }
+                    child.stdout.end('ok\n');
+                    child.emit('close', 0, null);
+                });
+                return child;
+            },
+            captureScreenshot: async () => ({ buffer: Buffer.from('fake-jpeg'), viewport: { width: 1200, height: 675 } })
+        });
+        const result = await runtime.build('project-1', 'site-1');
+        assert.equal(result.status, 'succeeded');
+        const dist = path.join(fixture.site.root_path, 'dist');
+        assert.equal(fs.existsSync(path.join(dist, 'blog')), false);
+        assert.equal(fs.readFileSync(path.join(dist, 'stories', 'series', 'index.html'), 'utf8'), '<a href="/stories/series/welcome/">Post</a>');
+        assert.equal(fs.readFileSync(path.join(dist, 'stories', 'series', 'welcome', 'index.html'), 'utf8'), '<a href="/stories/series/">Back</a>');
+    } finally {
+        fs.rmSync(fixture.workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('Astro build preserves an existing site-builder route and still succeeds', async () => {
+    const fixture = createFixture();
+    try {
+        const manifestPath = path.join(fixture.site.root_path, '.bloggenius', 'site.json');
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        manifest.customization = {
+            navigation: [{ label: '이야기', href: '/stories/series/' }],
+            publishing: { listing_route: '/stories/series/', detail_route: '/stories/series/{slug}/', post_list_navigation_index: 0 }
+        };
+        fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+        const templates = {
+            ...fixture.templates,
+            get: (id) => ({
+                ...fixture.templates.get(id),
+                resource: { site_hosting: { publishing: { routes: { listing: '/blog/', detail: '/blog/{slug}/' } } } }
+            })
+        };
+        const runtime = createAstroSiteRuntime({
+            fs, path, projectRepository: fixture.projectRepository,
+            siteRepository: fixture.siteRepository, templates,
+            npmCliPath: '/app/node_modules/npm/bin/npm-cli.js',
+            cacheRoot: path.join(fixture.workspaceDir, '.cache'),
+            spawn: (_executable, args, options) => {
+                const child = new EventEmitter();
+                child.stdout = new PassThrough();
+                child.stderr = new PassThrough();
+                child.kill = () => true;
+                process.nextTick(() => {
+                    if (args.includes('build')) {
+                        const dist = path.join(options.cwd, 'dist');
+                        fs.mkdirSync(path.join(dist, 'blog'), { recursive: true });
+                        fs.mkdirSync(path.join(dist, 'stories', 'series'), { recursive: true });
+                        fs.writeFileSync(path.join(dist, 'index.html'), '<h1>Home</h1>');
+                        fs.writeFileSync(path.join(dist, 'blog', 'index.html'), '<h1>Posts</h1>');
+                        fs.writeFileSync(path.join(dist, 'stories', 'series', 'index.html'), '<h1>Custom builder output</h1>');
+                        fs.writeFileSync(path.join(dist, 'stories', 'series', 'asset.js'), 'keep me');
+                    }
+                    child.stdout.end('ok\n');
+                    child.emit('close', 0, null);
+                });
+                return child;
+            }
+        });
+        const result = await runtime.build('project-1', 'site-1');
+        assert.equal(result.status, 'succeeded');
+        const dist = path.join(fixture.site.root_path, 'dist');
+        assert.equal(fs.readFileSync(path.join(dist, 'stories', 'series', 'asset.js'), 'utf8'), 'keep me');
+        assert.equal(fs.readFileSync(path.join(dist, 'stories', 'series', 'index.html'), 'utf8'), '<h1>Custom builder output</h1>');
+        assert.equal(fs.existsSync(path.join(dist, 'blog', 'index.html')), true);
+    } finally {
+        fs.rmSync(fixture.workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('Astro runtime builds a site before starting preview when no output exists', async () => {
     const fixture = createFixture();
     try {

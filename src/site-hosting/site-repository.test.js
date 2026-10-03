@@ -59,10 +59,14 @@ test('site repository applies declared template defaults and records the immutab
         const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
         projectRepository.create({ id: 'project-1', name: '개인 사이트' });
         const resource = {
-            site_hosting: { customization: { fields: [
+            site_hosting: {
+                customization: { fields: [
                 { key: 'site_name', type: 'string', default: '기본 이름', target: { file: 'src/site-config.json', path: 'name' } },
                 { key: 'navigation', type: 'navigation', default: [{ label: '홈', href: '/' }], target: { file: 'src/site-config.json', path: 'navigation' } }
-            ] } }
+                ] },
+                pages: { schema_version: 1, mode: 'static_placeholders', max_items: 5, reserved_slugs: [], target: { file: 'src/site-config.json', path: 'pages' } },
+                publishing: { schema_version: 2, routes: { listing: '/blog/', detail: '/blog/{slug}/' } }
+            }
         };
         const templates = {
             get: () => ({ id: 'external-home', version: '1.2.0', name: '외부 템플릿', source_root: '', resource }),
@@ -74,15 +78,59 @@ test('site repository applies declared template defaults and records the immutab
             copyPreview: () => ''
         };
         const repository = createSiteHostingSiteRepository({ fs, path, projectRepository, templates });
-        const created = repository.create('project-1', { id: 'site-1', name: 'My Site', template_id: 'external-home' });
+        const created = repository.create('project-1', {
+            id: 'site-1', name: 'My Site', template_id: 'external-home',
+            customization: {
+                navigation: [{ label: '홈', href: '/' }, { label: '이야기', href: '/stories/' }],
+                publishing: { listing_route: '/stories/', detail_route: '/stories/{slug}/', post_list_navigation_index: 1 }
+            }
+        });
         const siteRoot = path.join(workspaceDir, 'site-hosting', 'projects', 'project-1', 'sites', 'site-1');
         const siteConfig = JSON.parse(fs.readFileSync(path.join(siteRoot, 'src', 'site-config.json'), 'utf8'));
         const manifest = JSON.parse(fs.readFileSync(path.join(siteRoot, '.bloggenius', 'site.json'), 'utf8'));
         assert.equal(siteConfig.name, 'My Site');
-        assert.deepEqual(siteConfig.navigation, [{ label: '홈', href: '/' }]);
+        assert.deepEqual(siteConfig.navigation, [{ label: '홈', href: '/' }, { label: '이야기', href: '/stories/' }]);
         assert.equal(manifest.template.source_revision, 'c'.repeat(40));
         assert.equal(manifest.customization.site_name, 'My Site');
+        assert.deepEqual(manifest.customization.publishing, { listing_route: '/stories/', detail_route: '/stories/{slug}/', post_list_navigation_index: 1 });
         assert.equal(created.template_name, '외부 템플릿');
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('site repository preserves valid external and multi-segment menu destinations', () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-menu-security-'));
+    try {
+        const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
+        projectRepository.create({ id: 'project-1', name: '개인 사이트' });
+        const resource = { site_hosting: { customization: { fields: [
+            { key: 'navigation', type: 'navigation', default: [{ label: '홈', href: '/' }], target: { file: 'src/site-config.json', path: 'navigation' } }
+        ] } } };
+        const templates = {
+            get: () => ({ id: 'strict-template', version: '1.0.0', name: 'Strict', source_root: '', resource }),
+            copySource: (_id, destination) => {
+                fs.mkdirSync(path.join(destination, 'src'), { recursive: true });
+                fs.writeFileSync(path.join(destination, 'src', 'site-config.json'), '{"navigation":[]}\n');
+                return { id: 'strict-template', version: '1.0.0', source_revision: 'd'.repeat(40) };
+            },
+            copyPreview: () => ''
+        };
+        const repository = createSiteHostingSiteRepository({ fs, path, projectRepository, templates });
+        for (const [index, href] of ['https://example.com/path', '/about/team/', '/about/?draft=1'].entries()) {
+            const site = repository.create('project-1', {
+                id: `site-${index + 1}`, name: 'Valid', template_id: 'strict-template', customization: { navigation: [{ label: '페이지', href }] }
+            });
+            assert.equal(site.customization.navigation[0].href, href);
+        }
+        assert.throws(() => repository.create('project-1', {
+            id: 'unsafe-site', name: 'Malformed', template_id: 'strict-template',
+            customization: { navigation: [{ label: '페이지', href: 'javascript:alert(1)' }] }
+        }), { status: 400 });
+        assert.throws(() => repository.create('project-1', {
+            id: 'extra-site', name: 'Extra', template_id: 'strict-template',
+            customization: { navigation: [{ label: '페이지', href: '/about/', target: '_blank' }] }
+        }), { status: 400 });
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }

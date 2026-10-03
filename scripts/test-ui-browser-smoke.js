@@ -739,7 +739,11 @@ function startFixtureServer(requests) {
         }
         if (url.pathname === '/api/v1/site-hosting/templates' && req.method === 'GET') {
             res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-            res.end(JSON.stringify({ success: true, data: [{ id: 'minimal-homepage', version: '0.1.0', name: '간단한 홈페이지', description: 'Astro 사이트 시작 템플릿' }] }));
+            res.end(JSON.stringify({ success: true, data: [{
+                id: 'minimal-homepage', version: '1.3.0', name: '간단한 홈페이지', description: 'Astro 사이트 시작 템플릿',
+                customization: [{ key: 'navigation', type: 'navigation', label: '메뉴', default: [{ label: '홈', href: '/' }, { label: '블로그', href: '/blog/' }] }],
+                pages: { max_items: 5 }, publishing: { routes: { listing: '/blog/' } }
+            }] }));
             return;
         }
         const siteHostingSitesMatch = url.pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites$/);
@@ -2489,10 +2493,17 @@ async function run() {
                 await page.getByRole('heading', { name: '브라우저 검증 프로젝트' }).waitFor();
                 await page.getByRole('heading', { name: '이 프로젝트에는 아직 사이트가 없습니다.' }).waitFor();
                 await page.locator('.site-hosting-project-actions [data-site-create]').click();
-                await page.locator('#site-template-id').selectOption('minimal-homepage');
                 await page.locator('#site-name').fill('브라우저 검증 사이트');
+                await page.locator('#site-navigation-fields [data-site-menu-label]').nth(1).fill('이야기');
+                await page.locator('#site-navigation-fields [data-site-menu-href]').nth(1).fill('/stories/');
+                await page.locator('#site-navigation-fields input[type="radio"]').nth(1).check();
                 await page.locator('#site-create-form [type="submit"]').click();
                 await page.getByText('브라우저 검증 사이트', { exact: true }).waitFor();
+                const createRequest = requests.find((request) => request.method === 'POST' && request.pathname.endsWith('/sites'));
+                assert.deepEqual(createRequest?.body?.customization?.navigation, [
+                    { label: '홈', href: '/' }, { label: '이야기', href: '/stories/' }
+                ]);
+                assert.deepEqual(createRequest?.body?.customization?.publishing, { post_list_navigation_index: 1 });
                 await page.locator('[data-site-project-settings]').click();
                 await page.getByRole('heading', { name: '프로젝트 설정' }).waitFor();
                 await page.locator('[data-site-project-sites]').click();
