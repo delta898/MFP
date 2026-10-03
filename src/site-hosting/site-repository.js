@@ -2,6 +2,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 const { normalizeMenuDestination, normalizeNavigationItems, internalPathSegment } = require('./navigation-contract');
 
 const SITE_SCHEMA_VERSION = 1;
@@ -14,6 +15,7 @@ function safeSiteId(value) {
 function createSiteHostingSiteRepository(options = {}) {
     const fileSystem = options.fs || fs;
     const pathApi = options.path || path;
+    const temporaryRoot = options.temporaryRoot || os.tmpdir();
     const projectRepository = options.projectRepository;
     const templates = options.templates;
     if (!projectRepository || !templates) throw new Error('프로젝트 저장소와 템플릿 catalog가 필요합니다.');
@@ -148,6 +150,53 @@ function createSiteHostingSiteRepository(options = {}) {
             error.cause = cause;
             throw error;
         }
+    }
+
+    function createPreviewDraft(projectId, site) {
+        if (!projectRepository.get(projectId)) {
+            const error = new Error('프로젝트를 찾을 수 없습니다.');
+            error.code = 'SITE_HOSTING_PROJECT_NOT_FOUND';
+            error.status = 404;
+            throw error;
+        }
+        const id = safeSiteId(site?.id);
+        if (!id) throw withStatus(new Error('미리보기 ID가 올바르지 않습니다.'), 400, 'SITE_HOSTING_PREVIEW_ID_INVALID');
+        const template = templates.get(site?.template_id);
+        if (!template || template.package_ready === false) {
+            throw withStatus(new Error('선택한 템플릿을 찾을 수 없습니다.'), 404, 'SITE_HOSTING_TEMPLATE_NOT_FOUND');
+        }
+        const rootPath = fileSystem.mkdtempSync(pathApi.join(temporaryRoot, 'bloggenius-site-preview-'));
+        try {
+            const templateSnapshot = templates.copySource(template.id, rootPath);
+            const customization = applyTemplateCustomization(template, rootPath, site);
+            return {
+                id,
+                project_id: projectId,
+                name: String(site.name || '').trim(),
+                template: {
+                    id: template.id,
+                    version: templateSnapshot.version,
+                    ...(templateSnapshot.source_revision ? { source_revision: templateSnapshot.source_revision } : {})
+                },
+                ...(customization ? { customization } : {}),
+                root_path: rootPath
+            };
+        } catch (cause) {
+            try { fileSystem.rmSync(rootPath, { recursive: true, force: true }); } catch (_cleanupError) { }
+            const error = new Error('미리보기 사이트를 준비하지 못했습니다.');
+            error.code = cause?.code || 'SITE_HOSTING_PREVIEW_CREATE_FAILED';
+            error.status = Number.isInteger(cause?.status) ? cause.status : 500;
+            error.cause = cause;
+            throw error;
+        }
+    }
+
+    function removePreviewDraft(draft) {
+        const rootPath = pathApi.resolve(String(draft?.root_path || ''));
+        const safeTemporaryRoot = `${pathApi.resolve(temporaryRoot)}${pathApi.sep}`;
+        if (!rootPath.startsWith(safeTemporaryRoot)) return false;
+        fileSystem.rmSync(rootPath, { recursive: true, force: true });
+        return true;
     }
 
     function applyTemplateCustomization(template, siteRoot, site) {
@@ -523,7 +572,7 @@ function createSiteHostingSiteRepository(options = {}) {
         return readSite(projectId, siteId);
     }
 
-    return { list, get, create, update, recordDeployment, recordBuildResult, recordBuildScreenshot, getScreenshot, recordCustomDomainBinding };
+    return { list, get, create, createPreviewDraft, removePreviewDraft, update, recordDeployment, recordBuildResult, recordBuildScreenshot, getScreenshot, recordCustomDomainBinding };
 }
 
 module.exports = { SITE_SCHEMA_VERSION, safeSiteId, createSiteHostingSiteRepository };

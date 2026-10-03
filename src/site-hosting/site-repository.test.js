@@ -53,6 +53,28 @@ test('site repository rejects unsafe and duplicate IDs without replacing an exis
     }
 });
 
+test('site repository creates a customized preview draft outside the persistent site list and removes it', () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-draft-preview-'));
+    try {
+        const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
+        projectRepository.create({ id: 'project-1', name: '개인 사이트' });
+        const repository = createSiteHostingSiteRepository({
+            fs, path, projectRepository, templates: createSiteTemplateCatalog({ fs, path }), temporaryRoot: workspaceDir
+        });
+        const draft = repository.createPreviewDraft('project-1', {
+            id: 'draft-one', name: '임시 사이트', template_id: 'minimal-homepage',
+            customization: { navigation: [{ label: '홈', href: '/' }] }
+        });
+
+        assert.equal(fs.existsSync(path.join(draft.root_path, 'package.json')), true);
+        assert.deepEqual(repository.list('project-1'), []);
+        assert.equal(repository.removePreviewDraft(draft), true);
+        assert.equal(fs.existsSync(draft.root_path), false);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('site repository applies declared template defaults and records the immutable source revision', () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-customization-'));
     try {

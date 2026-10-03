@@ -20,6 +20,7 @@ function isLoopbackRequest(ctx = {}) {
 }
 
 function decodePathPart(value) {
+    if (value === undefined || value === null || value === '') return '';
     try { return decodeURIComponent(value); } catch (_error) { return ''; }
 }
 
@@ -57,6 +58,20 @@ function createSiteHostingSiteRouteHandler(deps = {}) {
                 });
                 res.end(preview.buffer);
                 return true;
+            }
+            const draftPreviewMatch = pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/preview-drafts(?:\/([^/]+))?$/);
+            if (draftPreviewMatch) {
+                const projectId = decodePathPart(draftPreviewMatch[1]);
+                const draftId = decodePathPart(draftPreviewMatch[2]);
+                if (!draftId && method === 'POST') {
+                    await sendSuccess(res, requestId, await service.previewDraft(projectId, ctx.requestBody || {}));
+                    return true;
+                }
+                if (draftId && method === 'DELETE') {
+                    await sendSuccess(res, requestId, await service.stopDraftPreview(projectId, draftId));
+                    return true;
+                }
+                return false;
             }
             const siteActionMatch = pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)\/(build|build-status|preview|deploy|open-folder|zones|custom-domain)$/);
             if (siteActionMatch) {

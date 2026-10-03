@@ -746,6 +746,22 @@ function startFixtureServer(requests) {
             }] }));
             return;
         }
+        const siteHostingPreviewDraftsMatch = url.pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/preview-drafts(?:\/([^/]+))?$/);
+        if (siteHostingPreviewDraftsMatch && req.method === 'POST') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(JSON.stringify({ success: true, data: { id: 'site-preview-smoke', url: `http://127.0.0.1:${server.address().port}/preview-fixture/` } }));
+            });
+            return;
+        }
+        if (siteHostingPreviewDraftsMatch && siteHostingPreviewDraftsMatch[2] && req.method === 'DELETE') {
+            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+            res.end(JSON.stringify({ success: true, data: { removed: true } }));
+            return;
+        }
         const siteHostingSitesMatch = url.pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites$/);
         if (siteHostingSitesMatch && req.method === 'GET') {
             const projectId = decodeURIComponent(siteHostingSitesMatch[1]);
@@ -2497,6 +2513,14 @@ async function run() {
                 await page.locator('#site-navigation-fields [data-site-menu-label]').nth(1).fill('이야기');
                 await page.locator('#site-navigation-fields [data-site-menu-href]').nth(1).fill('/stories/');
                 await page.locator('#site-navigation-fields input[type="radio"]').nth(1).check();
+                await page.locator('[data-site-create-preview]').click();
+                await page.locator('#site-create-preview-frame').waitFor({ state: 'visible' });
+                await page.waitForFunction(() => document.getElementById('site-create-preview-status')?.textContent === '미리보기 완료');
+                const previewRequest = requests.find((request) => request.method === 'POST' && request.pathname.endsWith('/preview-drafts'));
+                assert.deepEqual(previewRequest?.body?.customization?.navigation, [
+                    { label: '홈', href: '/' }, { label: '이야기', href: '/stories/' }
+                ]);
+                assert.deepEqual(previewRequest?.body?.customization?.publishing, { post_list_navigation_index: 1 });
                 await page.locator('#site-create-form [type="submit"]').click();
                 await page.getByText('브라우저 검증 사이트', { exact: true }).waitFor();
                 const createRequest = requests.find((request) => request.method === 'POST' && request.pathname.endsWith('/sites'));
@@ -5781,6 +5805,8 @@ async function run() {
             { method: 'PUT', pathname: '/api/v1/settings/writing-profile' },
             { method: 'POST', pathname: '/api/v1/settings/optional-services' },
             { method: 'POST', pathname: '/api/v1/site-hosting/projects' },
+            { method: 'POST', pathname: '/api/v1/site-hosting/projects/site-project-smoke/preview-drafts' },
+            { method: 'DELETE', pathname: '/api/v1/site-hosting/projects/site-project-smoke/preview-drafts/site-preview-smoke' },
             { method: 'POST', pathname: '/api/v1/site-hosting/projects/site-project-smoke/sites' },
             { method: 'POST', pathname: '/api/v1/trend-posting/topics' },
             { method: 'POST', pathname: '/api/v1/keywords/analyze' },

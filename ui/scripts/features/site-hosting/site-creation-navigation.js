@@ -10,7 +10,7 @@ function siteHostingRenderCreateNavigation() {
   }
   const matchingPostListIndex = postListRoute ? navigation.findIndex((item) => item.href === postListRoute) : -1;
   const defaultPostListIndex = postListRoute ? Math.max(0, matchingPostListIndex) : -1;
-  container.innerHTML = `<h3>사이트 메뉴</h3><p>메뉴 이름과 연결할 주소를 정하세요. 비워 두면 제안된 주소를 사용합니다.</p><div class="site-navigation-table"><div class="site-navigation-table-head" aria-hidden="true"><span>항목</span><span>메뉴 이름</span><span>주소</span><span>${postListRoute ? '글 목록' : ''}</span><span></span></div><div class="site-navigation-list" data-site-navigation-list>${navigation.map((item, index) => siteHostingCreateMenuRow(item, index, { postListRoute, selected: index === defaultPostListIndex, isDefault: true })).join('')}</div></div>${template?.pages ? '<button class="secondary site-navigation-add" type="button" data-site-menu-add>메뉴 추가</button>' : ''}`;
+  container.innerHTML = `<h3>사이트 메뉴</h3><p>메뉴 이름과 연결할 주소를 정하세요. 비워 두면 제안된 주소를 사용합니다.</p><div class="site-navigation-table"><div class="site-navigation-table-head"><span>항목</span><span>메뉴 이름</span><span>주소</span><span>${postListRoute ? '글 목록' : ''}</span>${template?.pages ? '<button class="secondary site-navigation-add" type="button" data-site-menu-add aria-label="메뉴 추가" title="메뉴 추가">+</button>' : '<span></span>'}</div><div class="site-navigation-list" data-site-navigation-list>${navigation.map((item, index) => siteHostingCreateMenuRow(item, index, { postListRoute, selected: index === defaultPostListIndex, isDefault: true })).join('')}</div></div>`;
 }
 
 function siteHostingCreateMenuRow(item = {}, index = 0, options = {}) {
@@ -81,69 +81,88 @@ function siteHostingRefreshCreateMenuRows() {
   list.querySelectorAll('[data-site-menu-remove]').forEach((button) => { button.disabled = list.children.length <= 1; });
 }
 
-async function siteHostingCreateSite(event) {
-  event.preventDefault();
-  const project = siteHostingSelectedProject;
-  const form = event.currentTarget;
+async function siteHostingCollectCreatePayload() {
   const input = document.getElementById('site-name');
   const templateInput = document.getElementById('site-template-id');
   const feedback = document.getElementById('site-create-feedback');
-  const submit = form.querySelector('[type="submit"]');
   const name = String(input?.value || '').trim();
-  if (!name || !templateInput?.value || !project) {
+  if (!name || !templateInput?.value || !siteHostingSelectedProject) {
     if (!name) {
       input?.setAttribute('aria-invalid', 'true');
       input?.focus();
     }
-    return;
+    return null;
   }
+  const selectedTemplate = siteHostingCreateTemplates.find((template) => template.id === templateInput.value);
+  const navigationDefaults = selectedTemplate?.customization?.find((field) => field.key === 'navigation')?.default;
+  const menuRows = [...document.querySelectorAll('#site-navigation-fields [data-site-menu-row]')];
+  const logoError = document.getElementById('site-logo-error');
+  if (logoError) { logoError.hidden = true; logoError.textContent = ''; }
+  if (feedback) feedback.textContent = '';
+  document.querySelectorAll('#site-navigation-fields [data-site-menu-href], #site-navigation-fields [data-site-menu-label]')
+    .forEach((field) => field.removeAttribute('aria-invalid'));
+  document.querySelectorAll('#site-navigation-fields [data-site-menu-error]')
+    .forEach((error) => { error.hidden = true; error.textContent = ''; });
+  let logo = siteHostingLogoDataUrl;
+  const logoInput = document.getElementById('site-logo');
+  if (logoInput?.files?.[0]) {
+    try { logo = await siteHostingReadLogo(logoInput.files[0]); }
+    catch (error) {
+      if (logoError) { logoError.textContent = error.message; logoError.hidden = false; }
+      logoInput.focus();
+      return null;
+    }
+  }
+  const navigation = Array.isArray(navigationDefaults) ? menuRows.map((row) => {
+    const labelInput = row.querySelector('[data-site-menu-label]');
+    const hrefInput = row.querySelector('[data-site-menu-href]');
+    const label = String(labelInput?.value || '').trim();
+    if (!label || label.length > 30 || /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(label)) {
+      siteHostingShowMenuError(labelInput, '메뉴 이름을 1~30자로 입력해 주세요.');
+      return null;
+    }
+    try {
+      const fallback = hrefInput?.dataset.defaultHref || (hrefInput?.dataset.hasDefault === 'true' ? '' : siteHostingSuggestMenuPath(label));
+      return { label, href: siteHostingNormalizeMenuPath(hrefInput?.value, fallback, label) };
+    } catch (error) {
+      siteHostingShowMenuError(hrefInput, error.message);
+      return null;
+    }
+  }) : undefined;
+  if (navigation?.some((item) => !item)) {
+    document.querySelector('#site-navigation-fields [aria-invalid="true"]')?.focus();
+    return null;
+  }
+  const postListRoute = selectedTemplate?.publishing?.routes?.listing;
+  const postListSelection = postListRoute ? document.querySelector('input[name="site-post-list-menu"]:checked') : null;
+  const selectedMenuIndex = postListSelection ? menuRows.indexOf(postListSelection.closest('[data-site-menu-row]')) : -1;
+  if (postListRoute && selectedMenuIndex < 0) {
+    if (feedback) feedback.textContent = '글 목록으로 연결할 메뉴를 선택해 주세요.';
+    return null;
+  }
+  return {
+    name,
+    template_id: templateInput.value,
+    customization: {
+      ...(logo ? { logo } : {}),
+      ...(navigation ? { navigation } : {}),
+      ...(postListSelection ? { publishing: { post_list_navigation_index: selectedMenuIndex } } : {})
+    }
+  };
+}
+
+async function siteHostingCreateSite(event) {
+  event.preventDefault();
+  const project = siteHostingSelectedProject;
+  const form = event.currentTarget;
+  const feedback = document.getElementById('site-create-feedback');
+  const submit = form.querySelector('[type="submit"]');
   submit.disabled = true;
   submit.classList.add('is-loading');
   try {
-    const logoInput = document.getElementById('site-logo');
-    const logo = await siteHostingReadLogo(logoInput?.files?.[0]);
-    const selectedTemplate = siteHostingCreateTemplates.find((template) => template.id === templateInput.value);
-    const navigationDefaults = selectedTemplate?.customization?.find((field) => field.key === 'navigation')?.default;
-    const menuRows = [...document.querySelectorAll('#site-navigation-fields [data-site-menu-row]')];
-    document.querySelectorAll('#site-navigation-fields [data-site-menu-href], #site-navigation-fields [data-site-menu-label]')
-      .forEach((field) => field.removeAttribute('aria-invalid'));
-    document.querySelectorAll('#site-navigation-fields [data-site-menu-error]')
-      .forEach((error) => { error.hidden = true; error.textContent = ''; });
-    const navigation = Array.isArray(navigationDefaults) ? menuRows.map((row) => {
-      const labelInput = row.querySelector('[data-site-menu-label]');
-      const hrefInput = row.querySelector('[data-site-menu-href]');
-      const label = String(labelInput?.value || '').trim();
-      if (!label || label.length > 30 || /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(label)) {
-        siteHostingShowMenuError(labelInput, '메뉴 이름을 1~30자로 입력해 주세요.');
-        return null;
-      }
-      try {
-        const fallback = hrefInput?.dataset.defaultHref || (hrefInput?.dataset.hasDefault === 'true' ? '' : siteHostingSuggestMenuPath(label));
-        return { label, href: siteHostingNormalizeMenuPath(hrefInput?.value, fallback, label) };
-      } catch (error) {
-        siteHostingShowMenuError(hrefInput, error.message);
-        return null;
-      }
-    }) : undefined;
-    if (navigation?.some((item) => !item)) {
-      document.querySelector('#site-navigation-fields [aria-invalid="true"]')?.focus();
-      return;
-    }
-    const postListRoute = selectedTemplate?.publishing?.routes?.listing;
-    const postListSelection = postListRoute ? document.querySelector('input[name="site-post-list-menu"]:checked') : null;
-    const selectedMenuIndex = postListSelection ? menuRows.indexOf(postListSelection.closest('[data-site-menu-row]')) : -1;
-    if (postListRoute && selectedMenuIndex < 0) {
-      feedback.textContent = '글 목록으로 연결할 메뉴를 선택해 주세요.';
-      return;
-    }
-    const site = await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites`, {
-      name, template_id: templateInput.value,
-      customization: {
-        ...(logo ? { logo } : {}),
-        ...(navigation ? { navigation } : {}),
-        ...(postListSelection ? { publishing: { post_list_navigation_index: selectedMenuIndex } } : {})
-      }
-    });
+    const payload = await siteHostingCollectCreatePayload();
+    if (!payload) return;
+    const site = await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites`, payload);
     document.getElementById('site-create-dialog')?.close();
     try {
       siteHostingSites = await fetchJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites`);
@@ -162,6 +181,86 @@ async function siteHostingCreateSite(event) {
   }
 }
 
+function siteHostingSetLogoPreview(dataUrl) {
+  const image = document.getElementById('site-logo-image');
+  const empty = document.getElementById('site-logo-empty');
+  const choose = document.querySelector('[data-site-logo-choose]');
+  const remove = document.querySelector('[data-site-logo-remove]');
+  if (image) {
+    if (dataUrl) image.src = dataUrl;
+    else image.removeAttribute('src');
+    image.hidden = !dataUrl;
+  }
+  if (empty) empty.hidden = Boolean(dataUrl);
+  if (choose) choose.textContent = dataUrl ? '이미지 변경' : '이미지 선택';
+  if (remove) remove.hidden = !dataUrl;
+}
+
+function siteHostingMarkCreatePreviewStale() {
+  if (!siteHostingCreatePreviewId) return;
+  const status = document.getElementById('site-create-preview-status');
+  if (status) status.textContent = '설정 변경됨 · 다시 미리보기 하세요';
+}
+
+async function siteHostingClearCreatePreview() {
+  const project = siteHostingSelectedProject;
+  const previewId = siteHostingCreatePreviewId;
+  siteHostingCreatePreviewId = '';
+  const frame = document.getElementById('site-create-preview-frame');
+  if (frame) { frame.hidden = true; frame.removeAttribute('src'); }
+  if (previewId && project) {
+    try { await deleteJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/preview-drafts/${encodeURIComponent(previewId)}`); } catch (_error) { }
+  }
+}
+
+async function siteHostingPreviewCreateSite() {
+  const project = siteHostingSelectedProject;
+  const button = document.querySelector('[data-site-create-preview]');
+  const feedback = document.getElementById('site-create-feedback');
+  const busy = document.getElementById('site-create-preview-busy');
+  const image = document.getElementById('site-create-template-preview');
+  const frame = document.getElementById('site-create-preview-frame');
+  const empty = document.getElementById('site-create-preview-empty');
+  const status = document.getElementById('site-create-preview-status');
+  if (!project || !button || button.disabled) return;
+  const payload = await siteHostingCollectCreatePayload();
+  if (!payload) return;
+  const previewDialog = document.getElementById('site-create-preview-dialog');
+  if (previewDialog && !previewDialog.open) previewDialog.showModal();
+  const previousPreviewId = siteHostingCreatePreviewId;
+  button.disabled = true;
+  button.classList.add('is-loading');
+  if (busy) busy.hidden = false;
+  if (status) status.textContent = '사이트를 빌드하고 있습니다.';
+  if (feedback) feedback.textContent = '';
+  try {
+    const result = await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/preview-drafts`, payload);
+    if (document.getElementById('site-create-dialog')?.open) {
+      if (frame) { frame.src = result.url; frame.hidden = false; }
+      if (image) image.hidden = true;
+      if (empty) empty.hidden = true;
+      siteHostingCreatePreviewId = result.id;
+      if (status) status.textContent = '미리보기 완료';
+      if (previousPreviewId) {
+        try { await deleteJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/preview-drafts/${encodeURIComponent(previousPreviewId)}`); } catch (_error) { }
+      }
+    } else {
+      try { await deleteJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/preview-drafts/${encodeURIComponent(result.id)}`); } catch (_error) { }
+    }
+  } catch (error) {
+    if (feedback) feedback.textContent = error.message || '미리보기를 만들지 못했습니다.';
+    if (status) status.textContent = siteHostingCreatePreviewId ? '이전 미리보기를 유지합니다.' : '미리보기 실패';
+    if (empty && !siteHostingCreatePreviewId) {
+      empty.textContent = '미리보기를 만들지 못했습니다.\n설정을 확인하고 다시 시도하세요.';
+      empty.hidden = false;
+    }
+  } finally {
+    if (busy) busy.hidden = true;
+    button.disabled = false;
+    button.classList.remove('is-loading');
+  }
+}
+
 function siteHostingShowMenuError(input, message) {
   if (!input) return;
   const row = input.closest('[data-site-menu-row]');
@@ -175,33 +274,68 @@ function siteHostingShowMenuError(input, message) {
 
 function siteHostingBindCreateDialogEvents() {
   const dialog = document.getElementById('site-create-dialog');
+  const previewDialog = document.getElementById('site-create-preview-dialog');
   document.getElementById('site-create-form')?.addEventListener('submit', (event) => void siteHostingCreateSite(event));
+  document.querySelector('[data-site-create-preview]')?.addEventListener('click', () => void siteHostingPreviewCreateSite());
+  dialog?.addEventListener('close', () => {
+    if (previewDialog?.open) previewDialog.close();
+    void siteHostingClearCreatePreview();
+  });
   dialog?.addEventListener('click', (event) => {
     const templateChoice = event.target.closest('[data-site-template-select]');
     if (templateChoice) {
       siteHostingSelectedCreateTemplate = templateChoice.dataset.siteTemplateSelect;
       siteHostingRenderCreateTemplates();
       siteHostingRenderCreateNavigation();
+      siteHostingMarkCreatePreviewStale();
       return;
     }
     if (event.target.closest('[data-site-logo-remove]')) {
       const logoInput = document.getElementById('site-logo');
-      const preview = document.getElementById('site-logo-preview');
       if (logoInput) logoInput.value = '';
-      if (preview) preview.hidden = true;
       siteHostingLogoDataUrl = '';
+      siteHostingSetLogoPreview('');
+      const error = document.getElementById('site-logo-error');
+      if (error) { error.hidden = true; error.textContent = ''; }
+      siteHostingMarkCreatePreviewStale();
       return;
     }
-    if (event.target.closest('[data-site-menu-add]')) return siteHostingAddCreateMenuRow();
+    if (event.target.closest('[data-site-logo-choose]')) {
+      document.getElementById('site-logo')?.click();
+      return;
+    }
+    if (event.target.closest('[data-site-menu-add]')) {
+      siteHostingAddCreateMenuRow();
+      siteHostingMarkCreatePreviewStale();
+      return;
+    }
     if (!event.target.closest('[data-site-menu-remove]')) return;
     event.target.closest('[data-site-menu-row]')?.remove();
     siteHostingRefreshCreateMenuRows();
+    siteHostingMarkCreatePreviewStale();
     const radios = [...document.querySelectorAll('#site-navigation-fields input[name="site-post-list-menu"]')];
     if (radios.length && !radios.some((radio) => radio.checked)) radios[0].checked = true;
   });
   document.getElementById('site-name')?.addEventListener('input', (event) => event.currentTarget.removeAttribute('aria-invalid'));
+  document.getElementById('site-logo')?.addEventListener('change', async (event) => {
+    const input = event.currentTarget;
+    const error = document.getElementById('site-logo-error');
+    try {
+      const selected = await siteHostingReadLogo(input.files?.[0]);
+      if (selected) siteHostingLogoDataUrl = selected;
+      siteHostingSetLogoPreview(siteHostingLogoDataUrl);
+      if (error) { error.hidden = true; error.textContent = ''; }
+      input.value = '';
+      siteHostingMarkCreatePreviewStale();
+    } catch (cause) {
+      input.value = '';
+      if (error) { error.textContent = cause.message; error.hidden = false; }
+    }
+  });
   dialog?.addEventListener('input', (event) => {
     const field = event.target;
+    if (field.matches('#site-name, [data-site-menu-label], [data-site-menu-href]')) siteHostingMarkCreatePreviewStale();
+    if (field.matches('#site-name')) field.removeAttribute('aria-invalid');
     if (!field.matches('[data-site-menu-label], [data-site-menu-href]')) return;
     field.removeAttribute('aria-invalid');
     const row = field.closest('[data-site-menu-row]');
@@ -215,4 +349,96 @@ function siteHostingBindCreateDialogEvents() {
       if (href?.dataset.hasDefault !== 'true') href.placeholder = siteHostingSuggestMenuPath(field.value);
     }
   });
+  dialog?.addEventListener('change', (event) => {
+    if (event.target.matches('input[name="site-post-list-menu"]')) siteHostingMarkCreatePreviewStale();
+  });
+}
+async function siteHostingOpenCreateSiteDialog() {
+  const dialog = document.getElementById('site-create-dialog');
+  const input = document.getElementById('site-name');
+  const templateInput = document.getElementById('site-template-id');
+  const templateGrid = document.getElementById('site-template-grid');
+  const feedback = document.getElementById('site-create-feedback');
+  const submit = document.querySelector('#site-create-form [type="submit"]');
+  const previewButton = document.querySelector('[data-site-create-preview]');
+  if (!dialog || dialog.open || !siteHostingSelectedProject) return;
+  input.value = '';
+  input.removeAttribute('aria-invalid');
+  feedback.textContent = '';
+  templateInput.value = '';
+  templateGrid.innerHTML = '<div class="site-template-loading" role="status">템플릿을 불러오는 중…</div>';
+  siteHostingCreateTemplates = [];
+  siteHostingSelectedCreateTemplate = '';
+  document.getElementById('site-template-details').replaceChildren();
+  document.getElementById('site-template-count').textContent = '';
+  const templatePreview = document.getElementById('site-create-template-preview');
+  if (templatePreview) { templatePreview.removeAttribute('src'); templatePreview.hidden = true; }
+  siteHostingLogoDataUrl = '';
+  const logoInput = document.getElementById('site-logo');
+  if (logoInput) logoInput.value = '';
+  siteHostingSetLogoPreview('');
+  void siteHostingClearCreatePreview();
+  document.getElementById('site-create-preview-status').textContent = '';
+  document.getElementById('site-create-preview-empty').hidden = false;
+  document.getElementById('site-create-preview-busy').hidden = true;
+  document.getElementById('site-navigation-fields').replaceChildren();
+  if (submit) submit.disabled = true;
+  if (previewButton) {
+    previewButton.disabled = true;
+  }
+  dialog.showModal();
+  try {
+    const templates = await fetchJson('/api/v1/site-hosting/templates');
+    siteHostingCreateTemplates = Array.isArray(templates) ? templates : [];
+    if (!siteHostingCreateTemplates.length) throw new Error('사용할 수 있는 템플릿이 없습니다.');
+    siteHostingSelectedCreateTemplate = siteHostingCreateTemplates[0].id;
+    templateInput.value = siteHostingSelectedCreateTemplate;
+    siteHostingRenderCreateTemplates();
+    siteHostingRenderCreateNavigation();
+    if (submit) submit.disabled = false;
+    if (previewButton) previewButton.disabled = false;
+    requestAnimationFrame(() => input.focus());
+  } catch (error) {
+    templateGrid.innerHTML = '<p class="site-template-loading" role="alert">템플릿을 불러오지 못했습니다.</p>';
+    feedback.textContent = error.message || '템플릿을 불러오지 못했습니다.';
+  }
+}
+
+function siteHostingRenderCreateTemplates() {
+  const grid = document.getElementById('site-template-grid');
+  const templateInput = document.getElementById('site-template-id');
+  if (!grid) return;
+  const count = document.getElementById('site-template-count');
+  if (count) count.textContent = `${siteHostingCreateTemplates.length}개`;
+  const cards = siteHostingCreateTemplates.map((template) => `<article class="site-template-card${template.id === siteHostingSelectedCreateTemplate ? ' is-selected' : ''}">
+    <button type="button" class="site-template-card-select" role="radio" aria-checked="${template.id === siteHostingSelectedCreateTemplate}" data-site-template-select="${siteHostingEscapeHtml(template.id)}">
+      <span class="site-template-card-preview">${template.preview_url ? `<img src="${siteHostingEscapeHtml(template.preview_url)}" alt="${siteHostingEscapeHtml(template.name)} 미리보기" loading="lazy">` : '<span>미리보기 없음</span>'}</span>
+      <span class="site-template-card-copy"><strong>${siteHostingEscapeHtml(template.name)}</strong></span>
+    </button>
+  </article>`);
+  while (cards.length % 3) cards.push('<span class="site-template-card-placeholder" aria-hidden="true"></span>');
+  grid.innerHTML = cards.join('');
+  if (templateInput) templateInput.value = siteHostingSelectedCreateTemplate;
+  siteHostingRenderCreateTemplateDetails();
+}
+
+function siteHostingRenderCreateTemplateDetails() {
+  const template = siteHostingCreateTemplates.find((item) => item.id === siteHostingSelectedCreateTemplate);
+  const details = document.getElementById('site-template-details');
+  const image = document.getElementById('site-create-template-preview');
+  const frame = document.getElementById('site-create-preview-frame');
+  const empty = document.getElementById('site-create-preview-empty');
+  if (!details || !image || !template) return;
+  details.innerHTML = `<div class="site-template-details-heading"><strong>${siteHostingEscapeHtml(template.name)}</strong><span>제작자 · ${siteHostingEscapeHtml(template.author || '정보 없음')}</span></div><p>${siteHostingEscapeHtml(template.description || '')}</p>${template.homepage_url ? `<a href="${siteHostingEscapeHtml(template.homepage_url)}" target="_blank" rel="noopener noreferrer">템플릿 홈페이지 ↗</a>` : ''}`;
+  const hasBuiltPreview = Boolean(siteHostingCreatePreviewId);
+  image.src = template.preview_url || '';
+  image.alt = `${template.name} 대표 미리보기`;
+  image.hidden = hasBuiltPreview || !template.preview_url;
+  if (frame) {
+    frame.hidden = !hasBuiltPreview;
+    if (!hasBuiltPreview) frame.removeAttribute('src');
+  }
+  if (empty) empty.hidden = hasBuiltPreview || Boolean(template.preview_url);
+  const status = document.getElementById('site-create-preview-status');
+  if (status) status.textContent = hasBuiltPreview ? '설정 변경됨 · 이전 미리보기' : '템플릿 대표 화면';
 }

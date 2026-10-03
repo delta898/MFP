@@ -48,31 +48,77 @@
             <div class="ui-transaction-dialog-header">
               <div>
                 <h2 id="site-create-title">사이트 만들기</h2>
-                <p>템플릿을 고르고 사이트의 기본 정보를 정하세요.</p>
+                <p>템플릿을 고르고 사이트 정보를 설정하세요. 미리보기에서 결과를 확인할 수 있습니다.</p>
               </div>
             </div>
-            <section class="site-template-picker" aria-labelledby="site-template-picker-title">
-              <h3 id="site-template-picker-title">템플릿</h3>
-              <div id="site-template-grid" class="site-template-grid" role="radiogroup" aria-label="사이트 템플릿"></div>
-              <input id="site-template-id" name="template_id" type="hidden" required>
-            </section>
-            <label class="site-project-form-field" for="site-name">
-              <span>사이트 이름</span>
-              <input id="site-name" name="name" type="text" maxlength="80" required autocomplete="off" placeholder="예: 개인 블로그">
-            </label>
-            <label class="site-project-form-field" for="site-logo">
-              <span>로고 이미지 <small>선택</small></span>
-              <input id="site-logo" name="logo" type="file" accept="image/png,image/jpeg,image/webp">
-              <small>PNG, JPG, WebP · 1MB 이하</small>
-              <span id="site-logo-preview" class="site-logo-preview" hidden><img alt="로고 미리보기"><button type="button" class="secondary" data-site-logo-remove>제거</button></span>
-            </label>
-            <section id="site-navigation-fields" class="site-navigation-fields" aria-label="사이트 메뉴"></section>
-            <p id="site-create-feedback" class="ui-workflow-feedback" role="status" aria-live="polite"></p>
-            <div class="ui-transaction-dialog-footer">
-              <div class="ui-transaction-dialog-footer-actions">
-                <button class="secondary" type="button" data-site-create-cancel>취소</button>
-                <button class="primary ui-loading-action" type="submit">사이트 만들기</button>
+            <div class="site-create-workspace">
+              <section class="site-template-picker" aria-labelledby="site-template-picker-title">
+                <div class="site-create-section-heading">
+                  <h3 id="site-template-picker-title">템플릿</h3>
+                  <span id="site-template-count"></span>
+                </div>
+                <div class="site-template-scroll"><div id="site-template-grid" class="site-template-grid" role="radiogroup" aria-label="사이트 템플릿"></div></div>
+                <input id="site-template-id" name="template_id" type="hidden" required>
+              </section>
+              <section class="site-create-settings" aria-labelledby="site-create-settings-title">
+                <h3 id="site-create-settings-title">사이트 설정</h3>
+                <div class="site-create-settings-scroll">
+                    <label class="site-project-form-field" for="site-name">
+                      <span>사이트 이름</span>
+                      <input id="site-name" name="name" type="text" maxlength="80" required autocomplete="off" placeholder="예: 개인 블로그">
+                    </label>
+                    <div class="site-project-form-field site-logo-field">
+                      <span>로고 이미지 <small>선택</small></span>
+                      <input id="site-logo" name="logo" type="file" accept="image/png,image/jpeg,image/webp" class="site-logo-input">
+                      <div class="site-logo-control">
+                        <div id="site-logo-image-slot" class="site-logo-image-slot" aria-label="로고 이미지 미리보기">
+                          <img id="site-logo-image" alt="선택한 로고 미리보기" hidden>
+                          <span id="site-logo-empty" class="site-logo-empty" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="15.5" cy="9" r="1.5"/><path d="m4 17 5-5 4 4 2-2 5 4"/></svg><span>이미지 없음</span></span>
+                        </div>
+                        <div class="site-logo-actions">
+                          <button class="secondary" type="button" data-site-logo-choose>이미지 선택</button>
+                          <button class="secondary" type="button" data-site-logo-remove hidden>제거</button>
+                          <small>PNG, JPG, WebP · 1MB 이하</small>
+                        </div>
+                      </div>
+                      <small id="site-logo-error" class="site-field-error" role="alert" hidden></small>
+                    </div>
+                    <section id="site-navigation-fields" class="site-navigation-fields" aria-label="사이트 메뉴"></section>
+                </div>
+              </section>
+            </div>
+            <div class="ui-transaction-dialog-footer site-create-footer">
+              <div class="site-create-footer-left">
+                <p id="site-create-feedback" class="ui-workflow-feedback" role="status" aria-live="polite"></p>
               </div>
+              <div class="site-create-footer-right">
+                <button class="secondary" type="button" data-site-create-preview>미리보기</button>
+                <div class="ui-transaction-dialog-footer-actions">
+                  <button class="secondary" type="button" data-site-create-cancel>취소</button>
+                  <button class="primary ui-loading-action" type="submit">사이트 만들기</button>
+                </div>
+              </div>
+            </div>
+          </form>
+        </dialog>
+
+        <dialog id="site-create-preview-dialog" class="site-create-preview-dialog ui-transaction-dialog" aria-labelledby="site-create-preview-title">
+          <form class="ui-transaction-dialog-form" method="dialog">
+            <div class="ui-transaction-dialog-header">
+              <div>
+                <h2 id="site-create-preview-title">사이트 미리보기</h2>
+                <p id="site-create-preview-status" role="status" aria-live="polite">선택한 템플릿의 대표 화면입니다.</p>
+              </div>
+              <button class="secondary" type="submit" aria-label="미리보기 닫기">닫기</button>
+            </div>
+            <div class="site-create-preview-dialog-body">
+              <div class="site-create-preview-frame">
+                <img id="site-create-template-preview" alt="선택한 템플릿 대표 화면">
+                <iframe id="site-create-preview-frame" title="사이트 미리보기" sandbox="allow-scripts allow-same-origin" hidden></iframe>
+                <div id="site-create-preview-empty" class="site-create-preview-empty">템플릿을 선택하고 미리보기를 눌러<br>설정한 사이트를 확인하세요.</div>
+                <div id="site-create-preview-busy" class="site-create-preview-busy" hidden><span class="ui-spinner" aria-hidden="true"></span><strong>미리보기를 만드는 중…</strong><span>사이트를 빌드하고 있습니다.</span></div>
+              </div>
+              <section id="site-template-details" class="site-template-details" aria-label="템플릿 정보"></section>
             </div>
           </form>
         </dialog>

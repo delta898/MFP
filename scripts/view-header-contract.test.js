@@ -8,7 +8,7 @@ const read = (relativePath) => fs.readFileSync(path.join(repoRoot, relativePath)
 
 const viewHeaders = [
   ['ui/partials/views/dashboard-beta.html', 'Dashboard', '글쓰기 흐름과 다음 발행 계획을 한눈에 확인합니다.'],
-  ['ui/partials/views/site-hosting.html', '사이트', '프로젝트와 사이트를 관리합니다.'],
+  ['ui/partials/views/site-hosting.html', '사이트', '웹사이트를 만들고 관리합니다.'],
   ['ui/partials/views/blog-next.html', '블로그', '글감을 빠르게 쌓아두고, 준비된 글을 한 건씩 이어서 발행하는 새로운 흐름입니다.'],
   ['ui/partials/views/shopping.html', '쇼핑커넥트', '쇼핑 상품 정보를 분석해 콘텐츠를 만들고 발행합니다.'],
   ['ui/partials/views/social.html', 'SNS', '짧은 생각과 기록을 설정된 Buffer 채널에 바로 발행합니다.'],
@@ -23,9 +23,9 @@ test('site hosting view provides project workspace and accessible create dialog 
   assert.match(html, /id="site-hosting-content"/);
   assert.match(html, /id="site-project-create-dialog" class="site-project-dialog ui-transaction-dialog"/);
   assert.match(html, /id="site-project-create-form"/);
-  assert.match(html, /id="site-create-dialog" class="site-project-dialog ui-transaction-dialog"/);
+  assert.match(html, /id="site-create-dialog" class="[^"]*site-create-dialog[^"]*ui-transaction-dialog/);
   assert.match(html, /id="site-create-form"/);
-  assert.match(html, /id="site-template-id" name="template_id" required/);
+  assert.match(html, /id="site-template-id" name="template_id" type="hidden" required/);
   assert.match(html, /id="site-name" name="name" type="text" maxlength="80" required/);
   assert.match(html, /프로젝트 이름/);
   assert.match(html, /목록에서 구분할 이름입니다\. 한글도 사용할 수 있습니다\./);

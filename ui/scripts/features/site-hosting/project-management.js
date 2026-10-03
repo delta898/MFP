@@ -14,6 +14,7 @@ let siteHostingZoneMessage = '';
 let siteHostingCreateTemplates = [];
 let siteHostingSelectedCreateTemplate = '';
 let siteHostingLogoDataUrl = '';
+let siteHostingCreatePreviewId = '';
 
 function siteHostingEscapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -239,61 +240,6 @@ async function siteHostingLoadSites(projectId) {
     siteHostingSiteLoadState = 'error';
   }
   siteHostingRenderProjectDetail();
-}
-
-async function siteHostingOpenCreateSiteDialog() {
-  const dialog = document.getElementById('site-create-dialog');
-  const input = document.getElementById('site-name');
-  const templateInput = document.getElementById('site-template-id');
-  const templateGrid = document.getElementById('site-template-grid');
-  const feedback = document.getElementById('site-create-feedback');
-  const submit = document.querySelector('#site-create-form [type="submit"]');
-  if (!dialog || dialog.open || !siteHostingSelectedProject) return;
-  input.value = '';
-  input.removeAttribute('aria-invalid');
-  feedback.textContent = '';
-  templateInput.value = '';
-  templateGrid.innerHTML = '<div class="site-template-loading" role="status">템플릿을 불러오는 중…</div>';
-  siteHostingCreateTemplates = [];
-  siteHostingSelectedCreateTemplate = '';
-  siteHostingLogoDataUrl = '';
-  const logoInput = document.getElementById('site-logo');
-  if (logoInput) logoInput.value = '';
-  const logoPreview = document.getElementById('site-logo-preview');
-  if (logoPreview) logoPreview.hidden = true;
-  document.getElementById('site-navigation-fields').replaceChildren();
-  if (submit) submit.disabled = true;
-  dialog.showModal();
-  try {
-    const templates = await fetchJson('/api/v1/site-hosting/templates');
-    siteHostingCreateTemplates = Array.isArray(templates) ? templates : [];
-    if (!siteHostingCreateTemplates.length) throw new Error('사용할 수 있는 템플릿이 없습니다.');
-    siteHostingSelectedCreateTemplate = siteHostingCreateTemplates[0].id;
-    templateInput.value = siteHostingSelectedCreateTemplate;
-    siteHostingRenderCreateTemplates();
-    siteHostingRenderCreateNavigation();
-    if (submit) submit.disabled = false;
-    requestAnimationFrame(() => input.focus());
-  } catch (error) {
-    templateGrid.innerHTML = '<p class="site-template-loading" role="alert">템플릿을 불러오지 못했습니다.</p>';
-    feedback.textContent = error.message || '템플릿을 불러오지 못했습니다.';
-  }
-}
-
-function siteHostingRenderCreateTemplates() {
-  const grid = document.getElementById('site-template-grid');
-  const templateInput = document.getElementById('site-template-id');
-  if (!grid) return;
-  const cards = siteHostingCreateTemplates.map((template) => `<article class="site-template-card${template.id === siteHostingSelectedCreateTemplate ? ' is-selected' : ''}">
-    <button type="button" class="site-template-card-select" role="radio" aria-checked="${template.id === siteHostingSelectedCreateTemplate}" data-site-template-select="${siteHostingEscapeHtml(template.id)}">
-      <span class="site-template-card-preview">${template.preview_url ? `<img src="${siteHostingEscapeHtml(template.preview_url)}" alt="${siteHostingEscapeHtml(template.name)} 미리보기" loading="lazy">` : '<span>미리보기 없음</span>'}</span>
-      <span class="site-template-card-copy"><strong>${siteHostingEscapeHtml(template.name)}</strong><span>${siteHostingEscapeHtml(template.description || '')}</span></span>
-    </button>
-    <span class="site-template-card-meta"><span>제작자 · ${siteHostingEscapeHtml(template.author || '정보 없음')}</span>${template.homepage_url ? `<a href="${siteHostingEscapeHtml(template.homepage_url)}" target="_blank" rel="noopener noreferrer" aria-label="${siteHostingEscapeHtml(template.name)} 홈페이지 열기" title="홈페이지 열기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M21 3l-9 9"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a>` : ''}</span>
-  </article>`);
-  while (cards.length % 3) cards.push('<span class="site-template-card-placeholder" aria-hidden="true"></span>');
-  grid.innerHTML = cards.join('');
-  if (templateInput) templateInput.value = siteHostingSelectedCreateTemplate;
 }
 
 function siteHostingReadLogo(file) {
@@ -762,22 +708,6 @@ function initSiteHostingProjects() {
     document.querySelector('[data-site-project-cancel]')?.addEventListener('click', () => document.getElementById('site-project-create-dialog')?.close());
     document.querySelector('[data-site-create-cancel]')?.addEventListener('click', () => document.getElementById('site-create-dialog')?.close());
     siteHostingBindCreateDialogEvents();
-    document.getElementById('site-logo')?.addEventListener('change', async (event) => {
-      const input = event.currentTarget;
-      const feedback = document.getElementById('site-create-feedback');
-      const preview = document.getElementById('site-logo-preview');
-      try {
-        siteHostingLogoDataUrl = await siteHostingReadLogo(input.files?.[0]);
-        preview.querySelector('img').src = siteHostingLogoDataUrl;
-        preview.hidden = !siteHostingLogoDataUrl;
-        feedback.textContent = '';
-      } catch (error) {
-        input.value = '';
-        siteHostingLogoDataUrl = '';
-        preview.hidden = true;
-        feedback.textContent = error.message;
-      }
-    });
   }
   void siteHostingLoadProjects();
 }

@@ -5,7 +5,7 @@
 - Branch: `codex/amade-template-catalog`
 - Start date: 2026-10-03
 - Base/parent branch: `codex/static-site-builder-main`
-- Status: Amade 1.3.0 menu defaults/spec are published to `dev`. BlogGenius menu editing, validation, persistence, and build routing are implemented locally on this branch; preview redesign remains a separate discussion.
+- Status: Amade 1.3.0 menu defaults/spec are published to `dev`. BlogGenius menu editing, validation, persistence, build routing, and Site creation preview workflow are implemented locally on this branch; UI smoke remains user-requested only.
 - Parent plan: [Static Site Builder](2026-10-01-static-site-builder-main-development.md)
 - Related completed stage: [Site creation and management](../archive/2026-10-02-site-creation-development.md)
 
@@ -68,7 +68,7 @@ The current repository only provides the first template to validate the contract
 8. Implement the approved Site creation customization UI and validation contract. **Complete locally:** wider scrollable dialog, three-column preview cards, optional logo, editable manifest-defined menu labels, and internal placeholder page support when declared. Amade package publication remains a separate action.
 9. Let users designate one manifest navigation item as the post-list entry point during Site creation and persist the route/menu binding for the future publisher. **Implemented locally:** uses only an explicit publishing-v2 listing route; Amade catalog publication is separate.
 10. Simplify the Amade menu contract. **Published to Amade `dev` in 1.3.0:** templates provide their existing default `label`/`href` values; the declared `publishing.routes.listing` must match a default menu path; BlogGenius owns edits, validation, and placeholder routes.
-11. Update the BlogGenius Site creation form to edit both menu labels and internal paths, show default/suggested paths as placeholders, allow menu add/remove, validate field-level errors, and use the selected menu path for the post-list route. Preview-panel redesign is excluded pending separate discussion.
+11. Update the BlogGenius Site creation form to edit both menu labels and paths, show default/suggested paths as placeholders, allow menu add/remove, validate field-level errors, and use the selected menu path for the post-list route. **Complete locally:** template catalog and settings now occupy separate left/right panes; a button opens a separate preview dialog that shows the representative template screenshot or the generated draft and template metadata.
 
 ## Progress log
 
@@ -155,9 +155,28 @@ The BlogGenius publisher is not implemented in this stage. The focused Amade/Ast
 - Current menu-stage verification: 13 focused Site Hosting service/repository/runtime tests pass, including selected-route persistence and built listing/detail link rewrites. JavaScript composition and CSS structure tests pass. `git diff --check` and syntax checks pass.
 - Browser smoke was attempted but timed out in the existing project-creation setup before reaching Site creation. It therefore does not verify the menu interaction. No app launch or manual visual check was performed; user review remains.
 - Current publishing-contract verification: Astro 7.3.5 static builds passed for both unpublished 1.2.0 templates in temporary copies. In each, `is_public: true` appeared in the listing and generated a detail page; `false` and missing `is_public` appeared in neither; a `./images/proof.svg` reference emitted an existing hashed asset. Both Amade package manifests were regenerated and their file count, sizes, and SHA-256 hashes passed verification after the final template source edit.
-- Manual review remains: select both Amade templates, rename a menu, change an internal path, add/remove a menu, choose a different post-list menu, and build to verify the listing/detail routes. Preview-panel behavior remains deferred.
+- Manual review remains: select both Amade templates, rename a menu, change an internal path, add/remove a menu, choose a different post-list menu, and build to verify the listing/detail routes. The split creation workspace and explicit draft preview are tracked in the follow-up section below.
 - Amade `dev` is pushed through catalog pointer commit `166d6ce` (package/spec commit `7e0b02c`); no production promotion was performed. BlogGenius implementation remains uncommitted on `codex/amade-template-catalog` and unmerged into its parent.
 - Follow-up: implement BlogGenius article publishing using the selected Site's pinned manifest as listed above; separately design retrieval/application of external Style resources.
+
+### 2026-10-03 — Split site-creation workspace and explicit preview
+
+- User approved the split creation workspace: compact three-column template cards and settings occupy the left side; the selected template or built preview and template details occupy the right. Template and settings areas scroll independently. `메뉴 추가` sits at the right of the menu table header; `미리보기` sits at the bottom right of the left pane; `취소` / `사이트 만들기` sit at the bottom right of the preview pane.
+- Logo selection uses one persistent preview slot with an empty state, choose/change, and remove actions. Upload errors are displayed beside the logo field.
+- The preview button sends the current form payload to a loopback-only draft-preview API. Drafts are built outside the persistent Site list, served for the preview session, and deleted when replaced or when the dialog closes; normal create/build/deploy records are not changed.
+- The UI keeps the template's representative image until a built draft is ready, then shows the draft in an iframe. Failed refreshes preserve the last successful preview and surface feedback in the footer.
+- Implementation boundaries: `site-repository` owns temporary draft directories; `astro-site-runtime` builds and serves draft output without recording a normal build or screenshot; `site-hosting-site.service` owns draft lifetime; Site creation UI collects and reuses its normal validated payload for preview and creation.
+- Added focused repository, runtime, service, and route tests, plus browser-smoke fixture coverage for preview payload and cleanup. Repository/service/route tests (17), Astro runtime tests (6), UI structure/header tests (18 passed, 2 skipped), JavaScript syntax checks, and `git diff --check` passed. UI smoke was not run after the user requested it only on explicit request.
+- Manual review remains: inspect compact template browsing, logo empty/selected/replaced states, independent scrolling, menu validation feedback, preview rendering/stale refresh, preview preservation after failure, dialog-close cleanup, and final site creation.
+
+### 2026-10-03 — Template catalog and settings layout revision
+
+- User reported that the template catalog was too narrow and asked to try a two-pane layout: template catalog on the left, settings on the right, and a popup preview opened by the Preview button.
+- Removed the always-visible preview pane so the catalog and settings can each use roughly half of the wide creation dialog. The catalog retains its three-column cards and scrolls independently from the settings pane.
+- Moved the existing representative-template image, generated draft iframe, progress state, and metadata into a separate modal preview dialog. Clicking Preview opens that dialog and starts the already implemented validated draft build; closing the preview returns to the still-open creation form.
+- Preview sits at the left edge of the settings pane; Cancel and Create remain at its right edge. Its label stays `미리보기` while building and after a successful preview.
+- The preview dialog header now has inset padding so its title and close button do not sit against the dialog border.
+- Static UI/CSS/JS composition, header contract, JavaScript syntax, and `git diff --check` passed. UI smoke was not run per the user's instruction to run it only when explicitly requested; manual UI review remains with the user.
 
 ### 2026-10-03 — Cloudflare deployment failure diagnostics
 

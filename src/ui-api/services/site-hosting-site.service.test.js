@@ -50,6 +50,38 @@ test('site service validates the project, name, and selected template', async ()
     }
 });
 
+test('site service builds a temporary customized preview without adding a Site and cleans it on close', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-preview-draft-service-'));
+    let draftRoot = '';
+    try {
+        const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
+        projectRepository.create({ id: 'project-1', name: '개인 사이트' });
+        const calls = [];
+        const service = createSiteHostingSiteService({
+            fs, path, workspaceDir, projectRepository, templates: localTemplates(), createId: () => 'preview-one',
+            astroRuntime: {
+                startDraftPreview: async (draft) => {
+                    calls.push(['start', draft.id, draft.name]);
+                    draftRoot = draft.root_path;
+                    return { url: 'http://127.0.0.1:43210/' };
+                },
+                stopDraftPreview: async (_projectId, id) => { calls.push(['stop', id]); return { stopped: true }; }
+            }
+        });
+        const preview = await service.previewDraft('project-1', {
+            name: '임시 사이트', template_id: 'minimal-homepage', customization: {}
+        });
+        assert.deepEqual(preview, { id: 'draft_preview-one', url: 'http://127.0.0.1:43210/' });
+        assert.equal((await service.list('project-1')).length, 0);
+        assert.equal(fs.existsSync(draftRoot), true);
+        assert.deepEqual(await service.stopDraftPreview('project-1', preview.id), { stopped: true });
+        assert.equal(fs.existsSync(draftRoot), false);
+        assert.deepEqual(calls, [['start', preview.id, '임시 사이트'], ['stop', preview.id]]);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('site creation accepts editable internal menu paths and binds publishing to the selected menu', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-menu-contract-'));
     try {

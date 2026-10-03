@@ -217,6 +217,62 @@ function createAstroSiteRuntime(options = {}) {
         replaceLinks(destinationDirectory);
     }
 
+    async function buildDraftPreview(site) {
+        const key = `draft/${site.project_id}/${site.id}`;
+        if (buildJobs.get(key)?.status === 'running') {
+            const error = new Error('이미 미리보기를 만들고 있습니다.');
+            error.code = 'SITE_HOSTING_BUILD_IN_PROGRESS';
+            error.status = 409;
+            throw error;
+        }
+        const packagePath = pathApi.join(site.root_path, 'package.json');
+        const lockPath = pathApi.join(site.root_path, 'package-lock.json');
+        if (!fileSystem.existsSync(packagePath) || !fileSystem.existsSync(lockPath)) {
+            const error = new Error('package.json과 package-lock.json이 있는 Astro 프로젝트가 필요합니다.');
+            error.code = 'SITE_HOSTING_ASTRO_PROJECT_REQUIRED';
+            error.status = 400;
+            throw error;
+        }
+        let packageJson;
+        try { packageJson = JSON.parse(fileSystem.readFileSync(packagePath, 'utf8')); }
+        catch (cause) {
+            const error = new Error('package.json을 읽을 수 없습니다.');
+            error.code = 'SITE_HOSTING_PACKAGE_JSON_INVALID';
+            error.status = 400;
+            error.cause = cause;
+            throw error;
+        }
+        if (!packageJson?.scripts?.build) {
+            const error = new Error('package.json에 build 명령이 없습니다.');
+            error.code = 'SITE_HOSTING_BUILD_SCRIPT_REQUIRED';
+            error.status = 400;
+            throw error;
+        }
+        const job = { status: 'running', build_id: crypto.randomUUID().replace(/-/g, ''), started_at: new Date().toISOString(), finished_at: '', message: '미리보기를 빌드하고 있습니다.' };
+        buildJobs.set(key, job);
+        try {
+            await runNpm(site.root_path, ['ci', '--no-audit', '--no-fund']);
+            await runNpm(site.root_path, ['run', 'build']);
+            try { applyPublishingRoute(site); }
+            catch (error) { console.warn('[Site Hosting] draft preview route adjustment skipped', { site_id: site.id, message: String(error?.message || error).slice(0, 500) }); }
+            const indexPath = pathApi.join(site.root_path, 'dist', 'index.html');
+            if (!fileSystem.existsSync(indexPath) || !fileSystem.statSync(indexPath).isFile()) {
+                const error = new Error('빌드 결과에서 dist/index.html을 찾지 못했습니다.');
+                error.code = 'SITE_HOSTING_BUILD_OUTPUT_MISSING';
+                throw error;
+            }
+            const preview = await ensurePreviewServer(site, `draft/${site.project_id}/${site.id}`);
+            Object.assign(job, { status: 'succeeded', finished_at: new Date().toISOString(), message: '미리보기를 준비했습니다.', url: preview.url });
+            return { ...job, output: undefined };
+        } catch (error) {
+            Object.assign(job, { status: 'failed', finished_at: new Date().toISOString(), message: error.message, output: String(error.output || '').slice(-12000) });
+            throw error;
+        } finally {
+            if (job.status === 'failed') buildJobs.delete(key);
+            else buildJobs.set(key, job);
+        }
+    }
+
     async function build(projectId, siteId) {
         const site = getSite(projectId, siteId);
         const key = `${projectId}/${siteId}`;
@@ -323,8 +379,7 @@ function createAstroSiteRuntime(options = {}) {
         return job ? { ...job, output: undefined } : { status: 'not_started' };
     }
 
-    async function ensurePreviewServer(site) {
-        const key = `${site.project_id}/${site.id}`;
+    async function ensurePreviewServer(site, key = `${site.project_id}/${site.id}`) {
         const distRoot = pathApi.join(site.root_path, 'dist');
         const indexPath = pathApi.join(distRoot, 'index.html');
         if (!fileSystem.existsSync(indexPath) || !fileSystem.statSync(indexPath).isFile()) {
@@ -407,7 +462,17 @@ function createAstroSiteRuntime(options = {}) {
     }
 
     async function stopPreview(projectId, siteId) {
-        const key = `${projectId}/${siteId}`;
+        return stopPreviewByKey(`${projectId}/${siteId}`);
+    }
+
+    async function stopDraftPreview(projectId, draftId) {
+        const key = `draft/${projectId}/${draftId}`;
+        const result = await stopPreviewByKey(key);
+        buildJobs.delete(key);
+        return result;
+    }
+
+    async function stopPreviewByKey(key) {
         const preview = previewServers.get(key);
         if (!preview) return { stopped: false };
         await new Promise((resolve) => preview.server.close(resolve));
@@ -415,7 +480,12 @@ function createAstroSiteRuntime(options = {}) {
         return { stopped: true };
     }
 
-    return { build, getBuildStatus, startPreview, stopPreview };
+    async function startDraftPreview(site) {
+        const result = await buildDraftPreview(site);
+        return { url: result.url };
+    }
+
+    return { build, getBuildStatus, startPreview, stopPreview, startDraftPreview, stopDraftPreview };
 }
 
 module.exports = { BUILD_TIMEOUT_MS, createAstroSiteRuntime, replaceFile };

@@ -265,3 +265,32 @@ test('Astro runtime builds a site before starting preview when no output exists'
         fs.rmSync(fixture.workspaceDir, { recursive: true, force: true });
     }
 });
+
+test('Astro runtime builds and serves a draft preview without recording a persistent Site build', async () => {
+    const fixture = createFixture();
+    let draft;
+    try {
+        draft = fixture.siteRepository.createPreviewDraft('project-1', {
+            id: 'draft-preview-one', name: 'Draft Preview', template_id: 'minimal-homepage', customization: {}
+        });
+        const runtime = createAstroSiteRuntime({
+            fs, path, projectRepository: fixture.projectRepository,
+            siteRepository: fixture.siteRepository, templates: fixture.templates,
+            npmCliPath: '/app/node_modules/npm/bin/npm-cli.js',
+            cacheRoot: path.join(fixture.workspaceDir, '.cache'),
+            spawn: fakeNpmSpawn([])
+        });
+        const preview = await runtime.startDraftPreview(draft);
+        try {
+            const page = await get(preview.url);
+            assert.equal(page.status, 200);
+            assert.equal(page.body, '<h1>Built site</h1>');
+            assert.equal(fixture.siteRepository.get('project-1', 'site-1').last_build, undefined);
+        } finally {
+            await runtime.stopDraftPreview('project-1', draft.id);
+        }
+    } finally {
+        if (draft) fixture.siteRepository.removePreviewDraft(draft);
+        fs.rmSync(fixture.workspaceDir, { recursive: true, force: true });
+    }
+});

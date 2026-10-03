@@ -55,6 +55,27 @@ test('site routes build, preview, and deploy a site', async () => {
     assert.deepEqual(responses.map((item) => item.status || item.stopped || item.opened || item.url), ['succeeded', 'succeeded', 'http://127.0.0.1:43210/', true, 'https://bg-site.workers.dev/', true]);
 });
 
+test('site routes create and clean up a temporary site preview draft', async () => {
+    const calls = [];
+    const responses = [];
+    const handler = createSiteHostingSiteRouteHandler({
+        service: {
+            previewDraft: async (projectId, payload) => { calls.push(['previewDraft', projectId, payload]); return { id: 'draft-1', url: 'http://127.0.0.1:43210/' }; },
+            stopDraftPreview: async (projectId, draftId) => { calls.push(['stopDraftPreview', projectId, draftId]); return { stopped: true }; }
+        },
+        sendSuccess: async (_res, _id, data) => responses.push(data),
+        sendError: async (_res, _id, status, code) => responses.push({ status, code })
+    });
+    const base = { remoteAddress: '127.0.0.1', host: '127.0.0.1:43127', origin: 'http://127.0.0.1:43127' };
+    await handler({ ...base, method: 'POST', contentType: 'application/json', pathname: '/api/v1/site-hosting/projects/project-1/preview-drafts', requestBody: { name: 'Draft', template_id: 'minimal-homepage' } });
+    await handler({ ...base, method: 'DELETE', pathname: '/api/v1/site-hosting/projects/project-1/preview-drafts/draft-1' });
+    assert.deepEqual(calls, [
+        ['previewDraft', 'project-1', { name: 'Draft', template_id: 'minimal-homepage' }],
+        ['stopDraftPreview', 'project-1', 'draft-1']
+    ]);
+    assert.deepEqual(responses, [{ id: 'draft-1', url: 'http://127.0.0.1:43210/' }, { stopped: true }]);
+});
+
 test('site routes reject requests outside the local same-origin app', async () => {
     const responses = [];
     const handler = createSiteHostingSiteRouteHandler({

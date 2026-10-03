@@ -66,6 +66,7 @@ function createSiteHostingSiteService(deps = {}) {
     const createCloudflareAdapter = deps.createCloudflareSdkAdapter || require('../../site-hosting/cloudflare-static-assets-deployer').createCloudflareSdkAdapter;
     const now = deps.now || (() => new Date().toISOString());
     const createId = deps.createId || (() => crypto.randomUUID().replace(/-/g, ''));
+    const draftPreviews = new Map();
 
     async function openPath(targetPath) {
         const electron = require('electron');
@@ -176,6 +177,50 @@ function createSiteHostingSiteService(deps = {}) {
         await templates.prepare?.(templateId);
         const customization = normalizeSiteCustomization(templates.get(templateId), payload.customization || {});
         return createSite(projectId, name, templateId, createId(), customization);
+    }
+
+    async function previewDraft(projectId, payload = {}) {
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)
+            || Object.keys(payload).some((key) => !['name', 'template_id', 'customization'].includes(key))) {
+            throw siteInputError('미리보기 요청에 허용되지 않은 항목이 포함되어 있습니다.', 'SITE_HOSTING_CREATE_INPUT_INVALID');
+        }
+        if (!projectRepository.get(projectId)) {
+            const error = new Error('프로젝트를 찾을 수 없습니다.');
+            error.code = 'SITE_HOSTING_PROJECT_NOT_FOUND';
+            error.status = 404;
+            throw error;
+        }
+        const name = String(payload.name || '').trim();
+        if (!name) throw siteInputError('사이트 이름을 입력해 주세요.', 'SITE_HOSTING_SITE_NAME_REQUIRED');
+        if (name.length > 80) throw siteInputError('사이트 이름은 80자 이내로 입력해 주세요.', 'SITE_HOSTING_SITE_NAME_TOO_LONG');
+        const templateId = String(payload.template_id || '').trim();
+        await templates.prepare?.(templateId);
+        const customization = normalizeSiteCustomization(templates.get(templateId), payload.customization || {});
+        const draft = repository.createPreviewDraft(projectId, {
+            id: `draft_${createId()}`,
+            name,
+            template_id: templateId,
+            customization
+        });
+        try {
+            const preview = await astroRuntime.startDraftPreview(draft);
+            const timeout = setTimeout(() => { void stopDraftPreview(projectId, draft.id); }, 30 * 60 * 1000);
+            timeout.unref?.();
+            draftPreviews.set(draft.id, { project_id: projectId, draft, timeout });
+            return { id: draft.id, url: preview.url };
+        } catch (error) {
+            repository.removePreviewDraft(draft);
+            throw error;
+        }
+    }
+
+    async function stopDraftPreview(projectId, draftId) {
+        const entry = draftPreviews.get(String(draftId || ''));
+        if (!entry || entry.project_id !== projectId) return { stopped: false };
+        draftPreviews.delete(String(draftId));
+        clearTimeout(entry.timeout);
+        try { return await astroRuntime.stopDraftPreview(projectId, draftId); }
+        finally { repository.removePreviewDraft(entry.draft); }
     }
 
     function normalizeSiteCustomization(template, input) {
@@ -509,6 +554,8 @@ function createSiteHostingSiteService(deps = {}) {
         getTemplatePreview: (id) => templates.getPreview?.(String(id || '').trim()) || null,
         list,
         create,
+        previewDraft,
+        stopDraftPreview,
         update,
         listCloudflareZones,
         connectCustomDomain,
