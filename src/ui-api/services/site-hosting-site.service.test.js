@@ -70,19 +70,19 @@ test('site service exposes Amade 0.1 family metadata and normalizes its shared m
     const [listed] = await service.listTemplates();
     assert.equal(listed.family_name, '개인 홈페이지');
     assert.deepEqual(listed.tags, ['List']);
-    assert.deepEqual(listed.customization[0].default, [{ label: '글', href: '/blog/' }]);
+    assert.deepEqual(listed.customization[0].default, [{ id: 'posts', label: '글', href: '/blog/' }]);
     await service.create('project-1', {
         name: '내 사이트', template_id: template.id,
         customization: { navigation: [{ label: '이야기', href: '/stories/' }], publishing: { post_list_navigation_index: 0 } }
     });
     assert.deepEqual(created.customization, {
-        navigation: [{ label: '이야기', href: '/stories/' }],
+        navigation: [{ id: 'posts', label: '이야기', href: '/stories/' }],
         publishing: { listing_route: '/stories/', detail_route: '/stories/{slug}/', post_list_navigation_index: 0 }
     });
-    await assert.rejects(service.create('project-1', {
+    await service.create('project-1', {
         name: '내 사이트', template_id: template.id,
         customization: { navigation: [{ label: '외부', href: 'https://example.com/' }] }
-    }), { code: 'SITE_HOSTING_NAVIGATION_INVALID' });
+    });
 });
 
 test('site service builds a temporary customized preview without adding a Site and cleans it on close', async () => {
@@ -104,14 +104,14 @@ test('site service builds a temporary customized preview without adding a Site a
             }
         });
         const preview = await service.previewDraft('project-1', {
-            name: '임시 사이트', template_id: 'minimal-homepage', customization: {}
+            template_id: 'minimal-homepage', customization: {}
         });
         assert.deepEqual(preview, { id: 'draft_preview-one', url: 'http://127.0.0.1:43210/' });
         assert.equal((await service.list('project-1')).length, 0);
         assert.equal(fs.existsSync(draftRoot), true);
         assert.deepEqual(await service.stopDraftPreview('project-1', preview.id), { stopped: true });
         assert.equal(fs.existsSync(draftRoot), false);
-        assert.deepEqual(calls, [['start', preview.id, '임시 사이트'], ['stop', preview.id]]);
+        assert.deepEqual(calls, [['start', preview.id, '미리보기'], ['stop', preview.id]]);
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }
@@ -154,10 +154,26 @@ test('site creation accepts editable internal menu paths and binds publishing to
         for (const href of ['https://example.com/articles/', '/about/team/', '../about/team', '/blog/?draft=1', '/blog/#section']) {
             await service.create('project-1', {
                 name: 'Valid destination', template_id: template.id,
-                customization: { navigation: [{ label: 'Home', href: '/' }, { label: 'Destination', href }], publishing: { post_list_navigation_index: 1 } }
+                customization: {
+                    navigation: [{ label: 'Home', href: '/' }, { label: 'Posts', href: '/stories/' }, { label: 'Destination', href }],
+                    publishing: { post_list_navigation_index: 1 }
+                }
             });
-            assert.equal(createdSite.customization.navigation[1].href, href);
+            assert.equal(createdSite.customization.navigation[2].href, href);
         }
+        await assert.rejects(service.create('project-1', {
+            name: 'External post list', template_id: template.id,
+            customization: { navigation: [{ label: 'Home', href: '/' }, { label: 'External', href: 'https://example.com/' }], publishing: { post_list_navigation_index: 1 } }
+        }), { code: 'SITE_HOSTING_POST_LIST_MENU_INVALID' });
+        await service.create('project-1', {
+            name: 'Internal custom page', template_id: template.id,
+            customization: {
+                navigation: [{ label: 'Home', href: '/' }, { label: 'Posts', href: '/blog/' }, { label: 'Guide', href: '/guide/' }, { label: 'Guide duplicate', href: '/guide/' }, { label: 'External', href: 'https://example.com/' }],
+                publishing: { post_list_navigation_index: 1 }
+            }
+        });
+        assert.equal(createdSite.customization.custom_pages.length, 1);
+        assert.equal(createdSite.customization.custom_pages[0].slug, 'guide');
         for (const href of ['javascript:alert(1)', 'https://[bad-host/', '/bad%zz/']) {
             await assert.rejects(service.create('project-1', {
                 name: 'Malformed', template_id: template.id,

@@ -10,14 +10,14 @@ function siteHostingRenderCreateNavigation() {
   }
   const matchingPostListIndex = postListRoute ? navigation.findIndex((item) => item.href === postListRoute) : -1;
   const defaultPostListIndex = postListRoute ? Math.max(0, matchingPostListIndex) : -1;
-  container.innerHTML = `<h3>사이트 메뉴</h3><p>메뉴 이름과 연결할 주소를 정하세요. 비워 두면 제안된 주소를 사용합니다.</p><div class="site-navigation-table"><div class="site-navigation-table-head"><span>항목</span><span>메뉴 이름</span><span>주소</span><span>${postListRoute ? '글 목록' : ''}</span>${template?.pages ? '<button class="secondary site-navigation-add" type="button" data-site-menu-add aria-label="메뉴 추가" title="메뉴 추가">+</button>' : '<span></span>'}</div><div class="site-navigation-list" data-site-navigation-list>${navigation.map((item, index) => siteHostingCreateMenuRow(item, index, { postListRoute, selected: index === defaultPostListIndex, isDefault: true })).join('')}</div></div>`;
+  container.innerHTML = `<h3>사이트 메뉴</h3><p>메뉴 이름과 연결할 주소를 정하세요. 비워 두면 제안된 주소를 사용합니다.</p><div class="site-navigation-table"><div class="site-navigation-table-head"><span>항목</span><span>메뉴 이름</span><span>주소</span><span>${postListRoute ? '글 목록' : ''}</span>${template?.pages ? '<button class="secondary site-navigation-add" type="button" data-site-menu-add aria-label="메뉴 추가" title="메뉴 추가">+</button>' : '<span></span>'}</div><div class="site-navigation-list" data-site-navigation-list>${navigation.map((item, index) => siteHostingCreateMenuRow(item, index, { postListRoute, selected: index === defaultPostListIndex, isDefault: true })).join('')}</div></div><p class="site-navigation-duplicate-warning" data-site-menu-duplicate-warning role="status" hidden></p>`;
 }
 
 function siteHostingCreateMenuRow(item = {}, index = 0, options = {}) {
   const label = String(item.label || '');
   const href = String(item.href || '');
   const rowNumber = index + 1;
-  return `<div class="site-navigation-row" data-site-menu-row>
+  return `<div class="site-navigation-row" data-site-menu-row data-site-menu-id="${siteHostingEscapeHtml(item.id || '')}">
     <span class="site-navigation-number" aria-hidden="true">${rowNumber}</span>
     <label class="site-navigation-cell"><span class="site-navigation-mobile-label">메뉴 이름</span><input type="text" maxlength="30" data-site-menu-label placeholder="예: 소개" aria-label="메뉴 ${rowNumber} 이름" value="${siteHostingEscapeHtml(label)}"></label>
     <label class="site-navigation-cell"><span class="site-navigation-mobile-label">주소</span><input type="text" maxlength="2048" data-site-menu-href data-has-default="${options.isDefault ? 'true' : 'false'}" data-default-href="${siteHostingEscapeHtml(href)}" placeholder="${siteHostingEscapeHtml(href || '/about/')}" aria-label="메뉴 ${rowNumber} 주소"></label>
@@ -81,13 +81,13 @@ function siteHostingRefreshCreateMenuRows() {
   list.querySelectorAll('[data-site-menu-remove]').forEach((button) => { button.disabled = list.children.length <= 1; });
 }
 
-async function siteHostingCollectCreatePayload() {
+async function siteHostingCollectCreatePayload(options = {}) {
   const input = document.getElementById('site-name');
   const templateInput = document.getElementById('site-template-id');
   const feedback = document.getElementById('site-create-feedback');
   const name = String(input?.value || '').trim();
-  if (!name || !templateInput?.value || !siteHostingSelectedProject) {
-    if (!name) {
+  if ((!name && options.allowEmptyName !== true) || !templateInput?.value || !siteHostingSelectedProject) {
+    if (!name && options.allowEmptyName !== true) {
       input?.setAttribute('aria-invalid', 'true');
       input?.focus();
     }
@@ -103,6 +103,8 @@ async function siteHostingCollectCreatePayload() {
     .forEach((field) => field.removeAttribute('aria-invalid'));
   document.querySelectorAll('#site-navigation-fields [data-site-menu-error]')
     .forEach((error) => { error.hidden = true; error.textContent = ''; });
+  const duplicateWarning = document.querySelector('#site-navigation-fields [data-site-menu-duplicate-warning]');
+  if (duplicateWarning) { duplicateWarning.hidden = true; duplicateWarning.textContent = ''; }
   let logo = siteHostingLogoDataUrl;
   const logoInput = document.getElementById('site-logo');
   if (logoInput?.files?.[0]) {
@@ -123,7 +125,8 @@ async function siteHostingCollectCreatePayload() {
     }
     try {
       const fallback = hrefInput?.dataset.defaultHref || (hrefInput?.dataset.hasDefault === 'true' ? '' : siteHostingSuggestMenuPath(label));
-      return { label, href: siteHostingNormalizeMenuPath(hrefInput?.value, fallback, label) };
+      const id = String(row.dataset.siteMenuId || '').trim();
+      return { ...(id ? { id } : {}), label, href: siteHostingNormalizeMenuPath(hrefInput?.value, fallback, label) };
     } catch (error) {
       siteHostingShowMenuError(hrefInput, error.message);
       return null;
@@ -132,6 +135,18 @@ async function siteHostingCollectCreatePayload() {
   if (navigation?.some((item) => !item)) {
     document.querySelector('#site-navigation-fields [aria-invalid="true"]')?.focus();
     return null;
+  }
+  if (navigation) {
+    const seen = new Set();
+    const hasDuplicate = navigation.some((item) => {
+      if (seen.has(item.href)) return true;
+      seen.add(item.href);
+      return false;
+    });
+    if (hasDuplicate && duplicateWarning) {
+      duplicateWarning.textContent = '같은 주소를 사용하는 메뉴가 있습니다. 중복 주소는 허용되며, 연결 결과는 템플릿에 따라 다를 수 있습니다.';
+      duplicateWarning.hidden = false;
+    }
   }
   const postListRoute = selectedTemplate?.publishing?.routes?.listing;
   const postListSelection = postListRoute ? document.querySelector('input[name="site-post-list-menu"]:checked') : null;
@@ -223,7 +238,7 @@ async function siteHostingPreviewCreateSite() {
   const empty = document.getElementById('site-create-preview-empty');
   const status = document.getElementById('site-create-preview-status');
   if (!project || !button || button.disabled) return;
-  const payload = await siteHostingCollectCreatePayload();
+  const payload = await siteHostingCollectCreatePayload({ allowEmptyName: true });
   if (!payload) return;
   const previewDialog = document.getElementById('site-create-preview-dialog');
   if (previewDialog && !previewDialog.open) previewDialog.showModal();

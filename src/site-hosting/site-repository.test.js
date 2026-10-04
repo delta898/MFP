@@ -126,7 +126,9 @@ test('site repository materializes family data separately from replaceable Astro
     try {
         const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
         projectRepository.create({ id: 'project-1', name: '개인 사이트' });
-        const familySeed = { displayName: '기본 이름', logo: '/logo.svg', navigation: [{ id: 'posts', label: '글', path: '/blog/' }] };
+        const familySeed = { displayName: '기본 이름', logo: '/logo.svg', navigation: [
+            { id: 'about', label: '소개', path: '/about/team/' }, { id: 'posts', label: '글', path: '/blog/' }
+        ] };
         const template = {
             id: 'personal-post-list', version: '0.1.0', name: '글 목록형', family_id: 'personal-homepage', package_ready: true,
             resource: {
@@ -140,9 +142,11 @@ test('site repository materializes family data separately from replaceable Astro
                 fs.mkdirSync(path.join(destination, 'template', 'astro', 'src'), { recursive: true });
                 fs.writeFileSync(path.join(destination, 'template', 'astro', 'package.json'), '{}');
                 fs.mkdirSync(path.join(destination, 'site-data', 'data', 'posts'), { recursive: true });
+                fs.mkdirSync(path.join(destination, 'site-data', 'data', 'pages'), { recursive: true });
                 fs.mkdirSync(path.join(destination, 'site-data', 'public'), { recursive: true });
                 fs.writeFileSync(path.join(destination, 'site-data', 'site.json'), `${JSON.stringify(familySeed)}\n`);
                 fs.writeFileSync(path.join(destination, 'site-data', 'data', 'posts', 'first.md'), 'seed');
+                fs.writeFileSync(path.join(destination, 'site-data', 'data', 'pages', 'about.md'), '---\nkind: page\ntitle: 소개\npath: "/about/team/"\nis_public: true\n---\n소개 내용');
                 return { id: template.id, version: template.version, source_revision: 'd'.repeat(40) };
             },
             copyPreview: () => ''
@@ -151,8 +155,14 @@ test('site repository materializes family data separately from replaceable Astro
         const created = repository.create('project-1', {
             id: 'site-1', name: '내 사이트', template_id: template.id,
             customization: {
-                navigation: [{ label: '이야기', href: '/stories/' }],
-                publishing: { listing_route: '/stories/', detail_route: '/stories/{slug}/', post_list_navigation_index: 0 }
+                navigation: [
+                    { id: 'about', label: '소개', href: '/story/' },
+                    { id: 'posts', label: '이야기', href: '/stories/' },
+                    { label: '가이드', href: '/guide/first-steps/' },
+                    { label: '외부', href: 'https://example.com/' }
+                ],
+                custom_pages: [{ label: '가이드', path: '/guide/first-steps/', slug: 'custom-guide-first-steps' }],
+                publishing: { listing_route: '/stories/', detail_route: '/stories/{slug}/', post_list_navigation_index: 1 }
             }
         });
         const root = created.root_path;
@@ -160,10 +170,16 @@ test('site repository materializes family data separately from replaceable Astro
         const manifest = JSON.parse(fs.readFileSync(path.join(root, '.bloggenius', 'site.json'), 'utf8'));
         assert.equal(fs.existsSync(path.join(root, 'template', 'astro', 'package.json')), true);
         assert.equal(siteData.displayName, '내 사이트');
-        assert.deepEqual(siteData.navigation, [{ id: 'posts', label: '이야기', path: '/stories/' }]);
+        assert.deepEqual(siteData.navigation, [
+            { id: 'about', label: '소개', path: '/story/' }, { id: 'posts', label: '이야기', path: '/stories/' },
+            { id: 'menu-3', label: '가이드', path: '/guide/first-steps/' }, { id: 'menu-4', label: '외부', path: 'https://example.com/' }
+        ]);
+        assert.ok(fs.readFileSync(path.join(root, 'site-data', 'data', 'pages', 'about.md'), 'utf8').includes('path: "/story/"'));
+        assert.ok(fs.readFileSync(path.join(root, 'site-data', 'data', 'pages', 'custom-guide-first-steps.md'), 'utf8').includes('path: "/guide/first-steps/"'));
+        assert.equal(fs.existsSync(path.join(root, 'site-data', 'data', 'pages', 'custom-https-example-com.md')), false);
         assert.equal(fs.existsSync(path.join(root, 'site-data', 'data', 'posts', 'first.md')), true);
         assert.equal(manifest.template.family_id, 'personal-homepage');
-        assert.deepEqual(manifest.customization.publishing, { listing_route: '/stories/', detail_route: '/stories/{slug}/', post_list_navigation_index: 0 });
+        assert.deepEqual(manifest.customization.publishing, { listing_route: '/stories/', detail_route: '/stories/{slug}/', post_list_navigation_index: 1 });
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }

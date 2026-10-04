@@ -99,6 +99,39 @@ test('Amade style catalog rejects unsafe token values and does not cache the pac
     }
 });
 
+test('Amade valid catalog with no active styles clears selectable cache instead of resurrecting it', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'amade-style-empty-authoritative-'));
+    try {
+        const catalog = {
+            spec_version: '0.1.0', status: 'experimental',
+            styles: [{ style_id: 'warm-editorial', manifest: 'amade/styles/warm-editorial/style.json' }]
+        };
+        let manifest = validStyle();
+        const service = createGitHubDesignStyleCatalog({
+            workspaceDir,
+            bloggeniusVersion: '0.6.0',
+            revisionResolver: async () => REVISION,
+            fetchImpl: async (url) => url.endsWith('/amade/catalog/index.json') ? response(catalog) : response(manifest)
+        });
+        assert.equal((await service.list()).styles.length, 1);
+        manifest = { ...validStyle(), status: 'withdrawn' };
+        const empty = await service.list();
+        assert.equal(empty.source, 'amade');
+        assert.deepEqual(empty.styles, []);
+        assert.deepEqual(JSON.parse(fs.readFileSync(path.join(workspaceDir, 'site-hosting', 'design-style-cache.json'), 'utf8')).styles, []);
+
+        const offline = createGitHubDesignStyleCatalog({
+            workspaceDir,
+            bloggeniusVersion: '0.6.0',
+            revisionResolver: async () => REVISION,
+            fetchImpl: async () => { throw new Error('offline'); }
+        });
+        await assert.rejects(offline.list(), { code: 'BLOGGENIUS_UI_STYLE_CATALOG_UNAVAILABLE' });
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('Amade style catalog skips packages requiring a newer app without hiding compatible styles', async () => {
     const catalog = {
         spec_version: '0.1.0', status: 'experimental',

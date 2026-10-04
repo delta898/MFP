@@ -23,7 +23,7 @@ Amade is intended to offer two resource types: Site Hosting templates and BlogGe
 3. Define the Site Hosting template contract, including preview media, identity/version, compatibility, bounded configurable fields, and the article content location/route metadata needed for future BlogGenius publishing.
 4. Create one Site Hosting template that implements the contract and publish the source/catalog to the Amade GitHub repository.
 5. Integrate BlogGenius with the public GitHub catalog so users can browse template previews and create a Site from a pinned external template version.
-6. Improve Site creation with a three-column template preview grid, wider scrollable dialog, and only the customization/page choices declared by the selected manifest. Support an optional logo and user-defined internal navigation labels/pages; never accept external URLs as menu destinations. Keep article publishing directory/route distinct from navigation pages.
+6. Improve Site creation with a three-column template preview grid, wider scrollable dialog, and only the customization/page choices declared by the selected manifest. Support an optional logo and user-defined navigation labels/destinations. Validate destination syntax, allow valid external destinations, and keep article publishing directory/route distinct from navigation pages.
 
 The current repository only provides the first template to validate the contract. Catalog and retrieval boundaries should permit multiple creators/resources later without building creator upload, moderation, or marketplace systems now.
 
@@ -34,7 +34,7 @@ The current repository only provides the first template to validate the contract
 - Arbitrary Astro editing, free-form visual site building, or template switching/upgrading for an already-created Site.
 - Creator accounts, self-service uploads, marketplace ranking, moderation, ratings, or payment.
 - Git CLI dependency inside BlogGenius; public catalog/source retrieval uses HTTPS.
-- External links, arbitrary route/source editing, and a general-purpose site builder.
+- Arbitrary route/source editing and a general-purpose site builder.
 - Compatibility migration for existing local templates or Sites. Existing Site data is not deleted as part of catalog replacement.
 - Publishing directly to Amade's default branch without an agreed Git workflow. Repository changes and their remote publication will follow the confirmed Amade branch/publish path.
 
@@ -72,6 +72,21 @@ The current repository only provides the first template to validate the contract
 10. Simplify the Amade menu contract. **Published to Amade `dev` in 1.3.0:** templates provide their existing default `label`/`href` values; the declared `publishing.routes.listing` must match a default menu path; BlogGenius owns edits, validation, and placeholder routes.
 11. Update the BlogGenius Site creation form to edit both menu labels and paths, show default/suggested paths as placeholders, allow menu add/remove, validate field-level errors, and use the selected menu path for the post-list route. **Complete locally:** template catalog and settings now occupy separate left/right panes; a button opens a separate preview dialog that shows the representative template screenshot or the generated draft and template metadata.
 
+### 2026-10-04 — Menu destination and remote Style lifecycle corrections
+
+- User approved syntax validation for both internal paths and external destinations. Valid `http(s)`, `mailto`, and `tel` destinations remain user-owned; malformed destinations and unsafe schemes are rejected. A post-list destination must remain an internal route.
+- Repeated destinations are allowed and reported as a non-blocking notice. Added internal menu routes receive empty page sources; external destinations do not. A file collision while creating a generated page is an explicit error.
+- Family menu IDs are stable identity. When a built-in menu route changes, its matching page source (`data/pages/<menu-id>.md`) receives the new frontmatter route. User-added routes use collision-resistant generated IDs and retain the complete internal path in frontmatter.
+- For remote styles, a successfully fetched catalog that has no active compatible styles is authoritative. It clears cached remote selections and returns an empty list; the prior cache is only a fallback when the remote catalog cannot be retrieved or validated.
+- Scope excludes UI smoke, which the user runs on request. Focused service, repository, catalog and renderer contract tests are the automated verification boundary.
+- Known issues retained by user decision: (1) repeated built-in/custom internal routes can create conflicting page outputs; (2) malformed-looking `http:`/`https:` inputs such as `https:/example.com` may be interpreted as same-site paths instead of rejected; (3) when a remote style catalog becomes empty, the currently displayed page can retain previously applied remote tokens until reinitialization.
+
+### 2026-10-04 — Site creation preview and narrow settings layout
+
+- Site creation preview no longer requires a Site name; when omitted, the preview uses the selected template's seed/default name, then a generic preview label. Actual Site creation continues to require a name.
+- Reduced minimum navigation-column widths so the Settings pane fits narrower laptop viewports without horizontal scrolling while keeping the two-pane layout.
+- Focused site-hosting service tests and static checks are the verification scope. UI smoke remains user-requested only.
+
 ## Progress log
 
 ### 2026-10-03 — Scope and first contract slice
@@ -92,7 +107,7 @@ The current repository only provides the first template to validate the contract
 ### 2026-10-03 — Site creation customization scope
 
 - User approved a three-column template card grid, outline placeholders for unused cells, and a wider/scrollable creation dialog.
-- User approved minimal template-based personalization: site name, optional logo, editable menu names, and internal-only added menu pages with placeholder destinations. External links and arbitrary URL entry are out of scope.
+- Historical scope later superseded on 2026-10-04: menu destinations are syntax-validated only; valid external URLs and multi-segment internal paths are allowed.
 - Menu/page routing is separate from the manifest's article publishing directory/route. Future BlogGenius publishing should use the latter; menu items must not become its source of truth.
 - Implementation exposes only manifest-declared capabilities. The Amade v1 contract declares name/logo/navigation labels; dynamic placeholder pages require a template declaration. User prefers retaining a popup when it fits, with more width and vertical scrolling.
 
@@ -120,7 +135,7 @@ The BlogGenius publisher is not implemented in this stage. The focused Amade/Ast
 
 - BlogGenius now renders the external catalog as a three-column template gallery with preview, name, description, and outline-only filler cells; the selected resource still resolves to its immutable catalog version.
 - Site creation accepts an optional PNG/JPG/WebP logo (1 MB maximum), writes it into the new site, and applies only manifest-declared JSON configuration targets.
-- Manifest navigation labels can be edited while their template-defined destinations remain intact. When a template declares the `static_placeholders` page capability, users can add internal pages by name; BlogGenius derives a safe one-segment slug and the template emits a placeholder page for it. External URLs and arbitrary paths remain unsupported.
+- Historical implementation note later superseded on 2026-10-04: routes are now user-editable, external destinations are allowed, and family-template internal placeholders preserve nested paths.
 - User decided Amade will use `dev` for development and `main` for production. BlogGenius now selects Amade `dev` for local/development runtime and `main` for production, with the existing explicit catalog URL override taking precedence.
 - User set the current two templates' creator metadata (`author: amadejjs`, BlogGenius homepage, support email, `created_at: 2026-10-03`, MIT license) and approved the next immutable resource version, `1.2.0`, because both packages were already published as `1.1.0`. The common resource schema now describes creator and support metadata. BlogGenius's template picker renders name, author, description, preview, and an HTTPS homepage icon link.
 - Added Amade Site Hosting schema documentation and 1.1.0 versions of both starter templates with the placeholder-page route. Checksums in both manifests match their package files. The package commit is pinned by the Amade `dev` catalog, now published remotely.
@@ -150,6 +165,12 @@ The BlogGenius publisher is not implemented in this stage. The focused Amade/Ast
 - Repository validation independently checks input shapes and logo signatures/size. Build-time listing relocation is best-effort: it supports nested root-relative paths when the destination is unused, preserves existing builder output, and skips the adjustment rather than failing the build when it cannot safely take over a route.
 - Focused verification passed after this correction: 12 navigation/service/repository tests, 2 listing-route runtime tests, 2 UI script-structure tests, JavaScript syntax checks, and `git diff --check`. Browser smoke ran with localhost access but stopped in its existing project-creation flow before reaching Site creation (it timed out waiting for the `브라우저 검증 프로젝트` heading), so the changed form interaction remains unverified there.
 - Menu UI and submit logic live in a dedicated `site-creation-navigation.js` module; responsive CSS uses the shared 640/768 breakpoints.
+
+### 2026-10-04 — Parent-merge validation attempt
+
+- User requested the `[cmd]` flow and a full test run. `npm run test:unit` stopped in its `pretest:unit` security audit because the installed npm dependency tree reports 3 high and 1 moderate advisories. No dependency update was applied.
+- Ran the unit runner directly: 393 test files were discovered, but the suite failed. A focused run of changed Site Hosting contracts passed the catalog, repository, navigation, and service cases; the combined run still exposed UI composition/style structure failures (new contract script missing from expected order; Site Hosting JS/CSS modules exceed current size limits; an unregistered 540px breakpoint) and Astro runtime tests that require loopback/network permissions unavailable in this sandbox.
+- UI/browser smoke was not run; user explicitly reserved it for their request. Parent merge is deferred until relevant automated failures are resolved or their baseline/accepted status is established.
 
 ## Verification and handoff
 

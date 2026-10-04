@@ -5,7 +5,7 @@ const { domainToASCII } = require('node:url');
 const net = require('node:net');
 const { createSiteHostingProjectRepository } = require('../../site-hosting/project-repository');
 const { createSiteHostingSiteRepository } = require('../../site-hosting/site-repository');
-const { normalizeMenuDestination, normalizeMenuLabel: validateMenuLabel, normalizeNavigationItems, internalPathSegment } = require('../../site-hosting/navigation-contract');
+const { normalizeMenuDestination, normalizeMenuLabel: validateMenuLabel, normalizeNavigationItems, internalPathSegment, internalPathname } = require('../../site-hosting/navigation-contract');
 const { createGitHubSiteTemplateCatalog } = require('../../site-hosting/github-site-template-catalog');
 const { createAstroSiteRuntime } = require('../../site-hosting/astro-site-runtime');
 const { createCloudflareStaticAssetsDeployer } = require('../../site-hosting/cloudflare-static-assets-deployer');
@@ -123,7 +123,7 @@ function createSiteHostingSiteService(deps = {}) {
                     categories: resource.template.categories,
                     tags: resource.template.tags,
                     status: resource.template.status,
-                    customization: [{ key: 'navigation', type: 'array', label: '사이트 메뉴', default: (seedSite.navigation || []).map((item) => ({ label: item.label, href: item.path })) }],
+                    customization: [{ key: 'navigation', type: 'array', label: '사이트 메뉴', default: (seedSite.navigation || []).map((item) => ({ ...(item.id ? { id: item.id } : {}), label: item.label, href: item.path })) }],
                     ...(pageType ? { pages: { max_items: 20, route_pattern: '/{slug}/', reserved_slugs: ['blog', 'work', 'services'] } } : {}),
                     ...(publishing ? { publishing } : {}),
                     preview_url: template.preview_url || `/api/v1/site-hosting/templates/${encodeURIComponent(template.id)}/preview`
@@ -228,12 +228,15 @@ function createSiteHostingSiteService(deps = {}) {
             error.status = 404;
             throw error;
         }
-        const name = String(payload.name || '').trim();
-        if (!name) throw siteInputError('사이트 이름을 입력해 주세요.', 'SITE_HOSTING_SITE_NAME_REQUIRED');
-        if (name.length > 80) throw siteInputError('사이트 이름은 80자 이내로 입력해 주세요.', 'SITE_HOSTING_SITE_NAME_TOO_LONG');
+        const requestedName = String(payload.name || '').trim();
+        if (requestedName.length > 80) throw siteInputError('사이트 이름은 80자 이내로 입력해 주세요.', 'SITE_HOSTING_SITE_NAME_TOO_LONG');
         const templateId = String(payload.template_id || '').trim();
         await templates.prepare?.(templateId);
-        const customization = normalizeSiteCustomization(templates.get(templateId), payload.customization || {});
+        const template = templates.get(templateId);
+        const customization = normalizeSiteCustomization(template, payload.customization || {});
+        const name = requestedName || String(template?.resource?.family_seed_site?.displayName
+            || template?.resource?.site_hosting?.customization?.fields?.find((field) => field.key === 'site_name')?.default
+            || '미리보기').trim();
         const draft = repository.createPreviewDraft(projectId, {
             id: `draft_${createId()}`,
             name,
@@ -268,24 +271,24 @@ function createSiteHostingSiteService(deps = {}) {
         const siteHosting = template?.resource?.site_hosting;
         if (template?.resource?.spec_version === '0.1.0') {
             const seedSite = template.resource.family_seed_site || {};
-            const navigationDefaults = Array.isArray(seedSite.navigation) ? seedSite.navigation.map((item) => ({ label: item.label, href: item.path })) : [];
+            const navigationDefaults = Array.isArray(seedSite.navigation) ? seedSite.navigation.map((item) => ({ id: item.id, label: item.label, href: item.path })) : [];
             const postType = (template.resource.family?.content_types || []).find((type) => type.kind === 'post');
             const requestedNavigation = Array.isArray(input.navigation) ? input.navigation : navigationDefaults;
             if (!requestedNavigation.length || requestedNavigation.length > 50) throw siteInputError('메뉴는 1개 이상, 50개 이내로 입력해 주세요.', 'SITE_HOSTING_NAVIGATION_INVALID');
             const normalizedInput = requestedNavigation.map((entry, index) => {
                 if (!entry || typeof entry !== 'object' || Array.isArray(entry)
-                    || Object.keys(entry).some((key) => key !== 'label' && key !== 'href')) throw siteInputError('메뉴에는 이름과 주소만 지정할 수 있습니다.', 'SITE_HOSTING_NAVIGATION_INVALID');
+                    || Object.keys(entry).some((key) => key !== 'id' && key !== 'label' && key !== 'href')) throw siteInputError('메뉴에는 이름과 주소만 지정할 수 있습니다.', 'SITE_HOSTING_NAVIGATION_INVALID');
                 const label = normalizeMenuLabel(entry.label);
-                return { label, href: String(entry.href || '').trim() || navigationDefaults[index]?.href || `/${encodeURIComponent(createPageSlug(label))}/` };
+                const defaultItem = entry.id ? navigationDefaults.find((item) => item.id === entry.id) : navigationDefaults[index];
+                if (entry.id && !defaultItem) throw siteInputError('템플릿 메뉴 ID가 올바르지 않습니다.', 'SITE_HOSTING_NAVIGATION_INVALID');
+                return { ...(defaultItem?.id ? { id: defaultItem.id } : {}), label, href: String(entry.href || '').trim() || defaultItem?.href || `/${encodeURIComponent(createPageSlug(label))}/` };
             });
             let navigation;
             try { navigation = normalizeNavigationItems(normalizedInput, { maxItems: 50 }); }
             catch (cause) { throw siteInputError(cause.message, cause.code || 'SITE_HOSTING_NAVIGATION_INVALID'); }
             const output = { navigation };
+            const defaultIds = new Set(navigationDefaults.map((entry) => entry.id).filter(Boolean));
             const defaultPaths = new Set(navigationDefaults.map((entry) => normalizeMenuDestination(entry.href)));
-            for (const item of navigation) {
-                if (!isFamilyInternalPath(item.href)) throw siteInputError('Amade 0.1 메뉴는 내부 경로만 사용할 수 있습니다.', 'SITE_HOSTING_NAVIGATION_INVALID');
-            }
             const postListIndex = input.publishing?.post_list_navigation_index;
             if (input.publishing !== undefined && (!input.publishing || typeof input.publishing !== 'object' || Array.isArray(input.publishing)
                 || Object.keys(input.publishing).some((key) => key !== 'post_list_navigation_index'))) {
@@ -295,17 +298,26 @@ function createSiteHostingSiteService(deps = {}) {
                 if (!Number.isInteger(postListIndex) || postListIndex < 0 || postListIndex >= navigation.length) throw siteInputError('글 목록으로 연결할 메뉴를 선택해 주세요.', 'SITE_HOSTING_POST_LIST_MENU_REQUIRED');
                 const selected = navigation[postListIndex].href;
                 const route = normalizeMenuDestination(selected);
-                if (!route.endsWith('/')) throw siteInputError('글 목록 주소는 / 로 끝나야 합니다.', 'SITE_HOSTING_POST_LIST_MENU_INVALID');
+                if (!internalPathname(route) || !route.endsWith('/')) throw siteInputError('글 목록 주소는 내부 경로이고 / 로 끝나야 합니다.', 'SITE_HOSTING_POST_LIST_MENU_INVALID');
                 output.publishing = {
                     listing_route: route,
                     detail_route: `${route}{slug}/`,
                     post_list_navigation_index: postListIndex
                 };
             }
-            const reserved = new Set(['blog', 'work', 'services', 'index']);
             const customPages = navigation
-                .filter(({ href }, index) => !defaultPaths.has(href) && index !== postListIndex && !reserved.has(familyPathSegments(href)[0]?.toLocaleLowerCase('en-US')))
-                .map(({ label, href }) => ({ label, path: href, slug: `custom-${familyPathSegments(href).join('-')}`.normalize('NFKC').toLocaleLowerCase('en-US').replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 48) }))
+                .filter(({ id, href }, index) => !defaultIds.has(id)
+                    && !defaultPaths.has(href)
+                    && !navigation.some((item) => item.id && item.href === href)
+                    && index !== postListIndex && internalPathname(href))
+                .map(({ label, href }) => {
+                    const route = internalPathname(href);
+                    const slug = `custom-${crypto.createHash('sha256').update(route).digest('hex').slice(0, 32)}`;
+                    return { label, path: route, slug };
+                })
+                .filter((page) => ![...defaultPaths, ...(template.resource.family?.content_types || []).map((item) => item.listing_route).filter(Boolean)]
+                    .some((reservedPath) => internalPathname(reservedPath) === page.path))
+                .filter((page, index, all) => all.findIndex((candidate) => candidate.path === page.path) === index)
                 .slice(0, 20);
             if (customPages.length) output.custom_pages = customPages;
             if (input.logo) output.logo = normalizeLogo(input.logo);
@@ -354,6 +366,7 @@ function createSiteHostingSiteService(deps = {}) {
                     .filter(({ href }) => !defaultPaths.has(href) && href !== publishingPath && internalPathSegment(href))
                     .map(({ label, href }) => ({ label, slug: internalPathSegment(href) }))
                     .filter(({ slug }) => !reserved.has(slug.toLocaleLowerCase('en-US')))
+                    .filter((page, index, all) => all.findIndex((candidate) => candidate.slug.toLocaleLowerCase('en-US') === page.slug.toLocaleLowerCase('en-US')) === index)
                     .slice(0, pageCapability.max_items);
                 if (customPages.length) output.custom_pages = customPages;
             }
@@ -368,6 +381,9 @@ function createSiteHostingSiteService(deps = {}) {
                 throw siteInputError('글 목록에 연결할 메뉴를 선택해 주세요.', 'SITE_HOSTING_POST_LIST_MENU_REQUIRED');
             }
             const listingRoute = navigation[postListIndex].href;
+            if (!internalPathname(listingRoute) || internalPathname(listingRoute) !== listingRoute || !listingRoute.endsWith('/')) {
+                throw siteInputError('글 목록 주소는 내부 경로이고 / 로 끝나야 합니다.', 'SITE_HOSTING_POST_LIST_MENU_INVALID');
+            }
             const detailRoute = publishing.routes.detail.replace(publishing.routes.listing, listingRoute);
             output.publishing = {
                 listing_route: listingRoute,
@@ -386,22 +402,6 @@ function createSiteHostingSiteService(deps = {}) {
         const detail = value.routes.detail;
         if (!internalPathSegment(listing) || detail !== `${listing}{slug}/`) return null;
         return { routes: { listing, detail } };
-    }
-
-    function familyPathSegments(value) {
-        const path = String(value || '');
-        if (!isFamilyInternalPath(path)) return [];
-        return path.split('/').filter(Boolean).map((segment) => decodeURIComponent(segment));
-    }
-
-    function isFamilyInternalPath(value) {
-        if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//') || /[?#\\]/u.test(value)) return false;
-        try {
-            const parsed = new URL(value, 'https://bloggenius.invalid/');
-            if (parsed.origin !== 'https://bloggenius.invalid' || parsed.pathname !== value) return false;
-            const segments = value.split('/').filter(Boolean).map((segment) => decodeURIComponent(segment));
-            return segments.every((segment) => segment && segment !== '.' && segment !== '..' && !/[\\/\u0000-\u001f\u007f]/u.test(segment));
-        } catch (_error) { return false; }
     }
 
     function normalizePageCapability(value) {

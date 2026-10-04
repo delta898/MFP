@@ -121,7 +121,6 @@ function registerRemoteDesignStyles(styles) {
     if (!normalized || next.has(normalized.id)) return false;
     next.set(normalized.id, normalized);
   }
-  if (!next.size) return false;
   DESIGN_STYLE_REMOTE_REGISTRY.clear();
   next.forEach((style, id) => DESIGN_STYLE_REMOTE_REGISTRY.set(id, style));
   return true;
@@ -147,11 +146,11 @@ async function refreshRemoteDesignStyles() {
     const response = await window.fetch('/api/v1/settings/design-styles', { cache: 'no-store' });
     const body = await response.json();
     const styles = body?.data?.styles;
-    if (!response.ok || body?.success !== true || !registerRemoteDesignStyles(styles)) return false;
+    if (!response.ok || body?.success !== true || !Array.isArray(styles) || !registerRemoteDesignStyles(styles)) return false;
     try { window.localStorage?.setItem(DESIGN_STYLE_REMOTE_STORAGE_KEY, JSON.stringify(styles)); } catch (_error) { }
     designStyleCatalogLoadedAt = Date.now();
     const selected = readStoredDesignStyleId();
-    if (selected && DESIGN_STYLE_REMOTE_REGISTRY.has(selected)) applyDesignStyle(selected);
+    if (selected) applyDesignStyle(selected);
     return true;
   })().catch(() => false).finally(() => { designStyleCatalogPromise = null; });
   return designStyleCatalogPromise;

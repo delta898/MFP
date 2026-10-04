@@ -181,7 +181,6 @@ function createGitHubDesignStyleCatalog(options = {}) {
                     throw error;
                 }
             }
-            if (!styles.length) throw fail('BLOGGENIUS_UI_STYLE_EMPTY', '사용할 수 있는 BlogGenius UI Style이 없습니다.');
             writeCache(styles);
             return { styles, source: 'amade', revision };
         } catch (error) {

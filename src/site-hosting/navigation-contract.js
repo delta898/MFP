@@ -25,11 +25,16 @@ function normalizeMenuLabel(value) {
 function normalizeNavigationItems(value, options = {}) {
     if (!Array.isArray(value) || value.length < (options.minItems ?? 1)
         || value.length > (options.maxItems ?? 32)) throw invalidNavigation();
-    return value.map((item) => {
+    const normalized = value.map((item) => {
         if (!item || typeof item !== 'object' || Array.isArray(item)
-            || Object.keys(item).some((key) => key !== 'label' && key !== 'href')) throw invalidNavigation();
-        return { label: normalizeMenuLabel(item.label), href: normalizeMenuDestination(item.href) };
+            || Object.keys(item).some((key) => key !== 'id' && key !== 'label' && key !== 'href')) throw invalidNavigation();
+        const id = item.id === undefined ? '' : String(item.id);
+        if (id && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) throw invalidNavigation();
+        return { ...(id ? { id } : {}), label: normalizeMenuLabel(item.label), href: normalizeMenuDestination(item.href) };
     });
+    const ids = normalized.map((item) => item.id).filter(Boolean);
+    if (new Set(ids).size !== ids.length) throw invalidNavigation();
+    return normalized;
 }
 
 // Placeholder pages are a convenience for simple internal routes. Other valid
@@ -46,6 +51,15 @@ function internalPathSegment(value) {
     return segment;
 }
 
+function internalPathname(value) {
+    if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//') || value.includes('\\')) return null;
+    let parsed;
+    try { parsed = new URL(value, BASE_URL); }
+    catch (_error) { return null; }
+    if (parsed.origin !== 'https://bloggenius.invalid' || /[\u0000-\u001f\u007f]/u.test(parsed.pathname)) return null;
+    return parsed.pathname;
+}
+
 function invalidPath() {
     const error = new Error('메뉴 주소 형식을 확인해 주세요. http(s) URL 또는 올바른 상대 경로를 입력할 수 있습니다.');
     error.code = 'SITE_HOSTING_MENU_PATH_INVALID';
@@ -58,4 +72,4 @@ function invalidNavigation() {
     return error;
 }
 
-module.exports = { normalizeMenuDestination, normalizeMenuLabel, normalizeNavigationItems, internalPathSegment };
+module.exports = { normalizeMenuDestination, normalizeMenuLabel, normalizeNavigationItems, internalPathSegment, internalPathname };

@@ -136,7 +136,7 @@ These candidate fields are recorded in each 0.1 family manifest. Astro/Zod schem
 - Company service listing/detail: `/services/` and `/services/{slug}/`.
 - Posts/news listing/detail: `/blog/` and `/blog/{slug}/`.
 
-The proof verifies these initial route conventions: `/`, editable authored internal pages including nested `/about/team/`, `/blog/` and `/blog/{slug}/`, and the family-specific `/work/` or `/services/` listing/detail routes. Custom route conflict rules and which built-in collection routes users may edit remain open.
+The proof verifies these initial route conventions: `/`, editable authored internal pages including nested `/about/team/`, `/blog/` and `/blog/{slug}/`, and the family-specific `/work/` or `/services/` listing/detail routes. Navigation IDs are stable identities; where an ID matches `data/pages/<id>.md`, changing that menu route updates the matching page's `path` frontmatter. User-added internal routes receive empty Markdown page sources whose IDs are deterministic hashes of their normalized path, so nested and Unicode paths do not collapse to the same filename. External menu destinations remain syntax-validated and do not generate pages. Repeated user destinations are allowed and shown as a non-blocking notice; automatic placeholder generation deduplicates repeated paths and never silently ignores a source-file collision.
 
 ### Proof result (2026-10-03)
 

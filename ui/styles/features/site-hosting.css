@@ -957,7 +957,7 @@
 .site-navigation-table-head,
 .site-navigation-row {
   display: grid;
-  grid-template-columns: 2.5rem minmax(130px, 0.8fr) minmax(190px, 1.2fr) minmax(140px, 0.8fr) auto;
+  grid-template-columns: 2rem minmax(0, 0.8fr) minmax(0, 1.2fr) minmax(0, 0.8fr) auto;
   align-items: center;
   gap: var(--ui-space-2);
 }

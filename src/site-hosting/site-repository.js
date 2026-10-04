@@ -3,9 +3,22 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
-const { normalizeMenuDestination, normalizeNavigationItems, internalPathSegment } = require('./navigation-contract');
+const { normalizeMenuDestination, normalizeNavigationItems, internalPathSegment, internalPathname } = require('./navigation-contract');
 
 const SITE_SCHEMA_VERSION = 1;
+
+function updateFamilyPageRoute(fileSystem, pagePath, route) {
+    const source = fileSystem.readFileSync(pagePath, 'utf8');
+    const match = source.match(/^(---\r?\n)([\s\S]*?)(\r?\n---(?:\r?\n|$))/u);
+    if (!match || !/^path:\s*.*$/mu.test(match[2])) {
+        const error = new Error('템플릿 페이지 원본에서 경로 항목을 찾지 못했습니다.');
+        error.code = 'SITE_HOSTING_TEMPLATE_PAGE_INVALID';
+        error.status = 502;
+        throw error;
+    }
+    const frontmatter = match[2].replace(/^path:\s*.*$/mu, `path: ${JSON.stringify(route)}`);
+    fileSystem.writeFileSync(pagePath, `${match[1]}${frontmatter}${match[3]}${source.slice(match[0].length)}`, { encoding: 'utf8', mode: 0o600 });
+}
 
 function safeSiteId(value) {
     const id = String(value || '').trim();
@@ -220,10 +233,18 @@ function createSiteHostingSiteRepository(options = {}) {
             const defaultNavigation = Array.isArray(siteData.navigation) ? siteData.navigation : [];
             siteData.displayName = String(site.name || '').trim();
             siteData.navigation = navigation.map((item, index) => ({
-                id: defaultNavigation[index]?.id || `menu-${index + 1}`,
+                id: item.id || defaultNavigation[index]?.id || `menu-${index + 1}`,
                 label: item.label,
                 path: item.href
             }));
+            const defaultById = new Map(defaultNavigation.filter((item) => item?.id).map((item) => [item.id, item]));
+            for (const item of siteData.navigation) {
+                const previous = defaultById.get(item.id);
+                if (!previous || previous.path === item.path) continue;
+                const pagePath = pathApi.join(dataRoot, 'data', 'pages', `${item.id}.md`);
+                const nextRoute = internalPathname(item.path);
+                if (fileSystem.existsSync(pagePath) && nextRoute) updateFamilyPageRoute(fileSystem, pagePath, nextRoute);
+            }
             let logoPath = String(siteData.logo || '');
             const logo = site.customization?.logo;
             if (logo) {
@@ -257,19 +278,26 @@ function createSiteHostingSiteRepository(options = {}) {
                 if (!page || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(page.slug) || !String(page.label || '').trim()) {
                     throw withStatus(new Error('내부 페이지 설정이 올바르지 않습니다.'), 400, 'SITE_HOSTING_NAVIGATION_INVALID');
                 }
-                const route = String(page.path || `/${page.slug}/`);
-                if (!route.startsWith('/') || route.startsWith('//') || /[?#\\]/u.test(route)
-                    || !navigation.some((item) => item.label === page.label && item.href === route)) {
+                const route = internalPathname(String(page.path || `/${page.slug}/`));
+                if (!route || !navigation.some((item) => item.label === page.label && internalPathname(item.href) === route)) {
                     throw withStatus(new Error('내부 페이지 경로가 메뉴와 일치하지 않습니다.'), 400, 'SITE_HOSTING_NAVIGATION_INVALID');
                 }
                 const pagePath = pathApi.join(dataRoot, 'data', 'pages', `${page.slug}.md`);
-                if (!fileSystem.existsSync(pagePath)) {
-                    const frontmatter = `---\nkind: page\ntitle: ${JSON.stringify(page.label)}\npath: ${JSON.stringify(route)}\nis_public: true\n---\n`;
-                    fileSystem.writeFileSync(pagePath, frontmatter, { flag: 'wx', mode: 0o600 });
+                if (fileSystem.existsSync(pagePath)) {
+                    throw withStatus(new Error('내부 페이지 파일 경로가 이미 사용 중입니다.'), 409, 'SITE_HOSTING_MENU_PATH_CONFLICT');
+                }
+                const frontmatter = `---\nkind: page\ntitle: ${JSON.stringify(page.label)}\npath: ${JSON.stringify(route)}\nis_public: true\n---\n`;
+                try { fileSystem.writeFileSync(pagePath, frontmatter, { flag: 'wx', mode: 0o600 }); }
+                catch (cause) {
+                    const error = new Error(cause?.code === 'EEXIST' ? '내부 페이지 파일 경로가 이미 사용 중입니다.' : '내부 페이지를 만들지 못했습니다.');
+                    error.code = cause?.code === 'EEXIST' ? 'SITE_HOSTING_MENU_PATH_CONFLICT' : 'SITE_HOSTING_PAGE_CREATE_FAILED';
+                    error.status = cause?.code === 'EEXIST' ? 409 : 500;
+                    error.cause = cause;
+                    throw error;
                 }
             }
             return {
-                navigation: siteData.navigation.map(({ label, path: href }) => ({ label, href })),
+                navigation: siteData.navigation.map(({ id, label, path: href }) => ({ ...(id ? { id } : {}), label, href })),
                 ...(logoPath ? { logo: logoPath } : {}),
                 ...(postList ? { publishing: postList } : {}),
                 ...(pages.length ? { custom_pages: pages } : {})

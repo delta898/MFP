@@ -53,7 +53,7 @@ Existing Amade 1.x packages remain legacy reference material. They are neither i
 
 ## BlogGenius consumption
 
-The Appearance UI will obtain active Style metadata and previews from Amade. A selected Style's token data is cached locally and applied through the existing style system without package-provided executable code. Bundled BlogGenius styles remain a safe startup/offline fallback until remote loading, validation, and recovery behavior are proven. Catalog/network/contract failures must not prevent app startup or discard the last usable appearance.
+The Appearance UI will obtain active Style metadata and previews from Amade. A selected Style's token data is cached locally and applied through the existing style system without package-provided executable code. Bundled BlogGenius styles remain a safe startup/offline fallback. Retrieval/network/contract failures must not prevent app startup or discard the last usable appearance. A successfully retrieved and valid catalog with no active compatible styles is authoritative: clear selectable remote cache and use the bundled registry, rather than resurrecting deprecated or withdrawn remote styles.
 
 ## Consequences and tradeoffs
 
