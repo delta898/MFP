@@ -52,7 +52,7 @@ test('Help navigation initializes once, refreshes its catalog, and remains avail
   assert.match(helpScript, /arrow\.className = 'help-link-arrow'/);
   assert.match(helpScript, /regions\.getting_started\?\.blocks/);
   assert.match(helpScript, /renderHelpSupportingRegion\(regions\.supporting\?\.blocks\)/);
-  assert.match(navigation, /'account', 'settings-next', 'help'/);
+  assert.match(navigation, /'account', 'settings-next', 'site-hosting', 'help'/);
   assert.match(navigation, /viewName === 'help'[\s\S]*initHelpView\(\)/);
   assert.doesNotMatch(responsive, /body\.mobile-quick-mode \.nav-help-link\s*\{/);
 });

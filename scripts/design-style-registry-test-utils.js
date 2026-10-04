@@ -13,8 +13,10 @@ function loadDesignStyleContract({ repoRoot, initialStyle = '' }) {
     window: { localStorage },
     console: { warn() {} }
   });
+  const contractPath = path.join(repoRoot, 'ui', 'scripts', 'foundation', 'design-style-token-contract.js');
   const styleSystemPath = path.join(repoRoot, 'ui', 'scripts', 'foundation', 'style-system.js');
-  const source = `${fs.readFileSync(styleSystemPath, 'utf8')}
+  const source = `${fs.readFileSync(contractPath, 'utf8')}
+${fs.readFileSync(styleSystemPath, 'utf8')}
 ;globalThis.__styleContract = {
   defaultId: DESIGN_STYLE_DEFAULT_ID,
   registry: DESIGN_STYLE_REGISTRY,

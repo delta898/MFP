@@ -11,6 +11,7 @@ test('appearance tab renders registry-driven live previews without compatibility
   const html = read('ui/partials/views/settings-next.html');
   const appearance = read('ui/scripts/features/settings-next/appearance.js');
   const system = read('ui/scripts/foundation/style-system.js');
+  const contract = read('ui/scripts/foundation/design-style-token-contract.js');
 
   assert.match(html, /data-settings-next-app-tab="appearance"[^>]*>외모<\/button>/);
   assert.match(html, /id="settings-next-app-panel-appearance"/);
@@ -27,7 +28,7 @@ test('appearance tab renders registry-driven live previews without compatibility
   assert.doesNotMatch(appearance, /hanji-dancheong/);
   assert.match(appearance, /entry\.blurb/);
   assert.match(appearance, /getSelectableDesignStyles\(\)\[0\]/);
-  assert.match(system, /DESIGN_STYLE_STORAGE_KEY = 'bloggenius\.ui\.style'/);
+  assert.match(contract, /DESIGN_STYLE_STORAGE_KEY = 'bloggenius\.ui\.style'/);
   assert.match(system, /readStoredDesignStyleId/);
 });
 

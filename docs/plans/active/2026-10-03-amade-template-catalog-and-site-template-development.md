@@ -274,3 +274,12 @@ The BlogGenius publisher is not implemented in this stage. The focused Amade/Ast
 - Focused catalog, repository, and service tests pass (25/25); the targeted nested-Astro runtime build test passes (1/1). The Amade A→B→A proof was rebuilt from a fresh temporary output: all six builds and four artifact verifiers passed, with nine family data/media hashes retained per family.
 - A local-fixture transport through the real BlogGenius GitHub catalog reader loaded the local Amade dev catalog, prepared all four 0.1 templates, and copied `template/astro/` plus `site-data/` for each. Public GitHub retrieval could not be confirmed from this sandbox, and the Amade changes remain unpushed. User has explicitly asked that UI/browser smoke be left to them; none was run.
 - Manual review by the user should cover catalog grouping, selecting one template per family, creating each site, preview/build, and verifying logo/menu/post-list configuration materializes under `site-data/` after the Amade changes are pushed to the dev remote.
+
+### 2026-10-04 — Repair full-suite blockers and split Site Hosting modules
+
+- To address the full validation failures, extracted card and settings domain-connection behavior into `site-hosting/domains.js` and moved Site creation dialog styles into `site-hosting-create.css`; registered both in their explicit manifests.
+- Fixed the style registry test loader to include the token-contract module, updated structural contracts for the new module order and Site Hosting's 540px breakpoint, and corrected stale Help/appearance expectations after the Site Hosting view and token-contract split.
+- Corrected Site Hosting's compatibility style scope and replaced undefined design tokens with defined spacing/action tokens.
+- Focused contracts: 69 tests, 67 passed, 2 skipped, 0 failed. `git diff --check` passed. UI smoke was not run, as requested.
+- The full direct unit runner completed with 2,123 passing, 15 skipped, and one failure: the existing `src/ui-server.boundary.test.js` line-count guard sees 1,208 lines in `src/ui-server.js`. Both files are unchanged from the parent branch, and the parent source is also 1,208 lines, so this is an inherited baseline failure rather than a regression from this feature. `npm run test:unit` also stops in its audit precheck on reported vulnerabilities in the installed npm 12.2.0 dependency tree; no dependency changes are part of this feature.
+- No UI/browser smoke or manual visual acceptance was performed. The user retains the visual check.

@@ -96,6 +96,7 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
         'styles/features/card-news-results.css',
         'styles/features/card-news-management.css',
         'styles/features/site-hosting.css',
+        'styles/features/site-hosting-create.css',
         'styles/features/site-create.css',
         'styles/features/continuous-publishing-interactions.css',
         'styles/features/blog-next-panel-anatomy.css',
@@ -365,11 +366,17 @@ test('responsive breakpoints use the canonical set', () => {
     assert.deepEqual([...cardNewsWidths].sort((a, b) => a - b), ['460', '760']);
     const socialWidths = maxWidthsByFile.get('features/social.css');
     assert.deepEqual([...socialWidths], ['900']);
+    const siteHostingWidths = maxWidthsByFile.get('features/site-hosting.css');
+    assert.deepEqual([...siteHostingWidths], ['540']);
     for (const [file, widths] of maxWidthsByFile) {
-        if (file === 'features/card-news-image-model.css' || file === 'features/social.css') continue;
+        if (
+            file === 'features/card-news-image-model.css'
+            || file === 'features/social.css'
+            || file === 'features/site-hosting.css'
+        ) continue;
         assert.deepEqual([...widths].filter((width) => width === '460' || width === '760' || width === '900'), [], file);
     }
-    assert.deepEqual([...maxWidths].sort((a, b) => a - b), ['460', '640', '700', '760', '768', '900', '960', '1100', '1240']);
+    assert.deepEqual([...maxWidths].sort((a, b) => a - b), ['460', '540', '640', '700', '760', '768', '900', '960', '1100', '1240']);
     assert.deepEqual([...minWidths].sort((a, b) => a - b), ['769', '961']);
 });
 
