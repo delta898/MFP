@@ -41,6 +41,7 @@
 - `architecture/keyword-research-backend.md`
 - `architecture/workspace-layout.md`
 - `decisions/2026-10-03-site-hosting-sibling-storage.md`
+- `decisions/2026-10-04-site-hosting-post-frontmatter-contract.md`
 - `architecture/manuscript-workspace.md`
 - `architecture/ui-runtime-boundaries.md`
 - `architecture/ai-model-management.md`

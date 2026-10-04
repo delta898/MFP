@@ -38,7 +38,7 @@ The Site Hosting manifest's publishing contract covers the template's file forma
 - External Style application and the creator contribution product are intentionally not included yet.
 - Site creation should stay a modal when its content can fit a wider, vertically scrollable dialog. Template choice uses a three-column preview grid; site name and optional logo are editable there, while menu labels are editable only when declared by the selected template.
 - Template-supported added pages are internal placeholder pages generated from the menu name. Arbitrary external links and paths are excluded. The publishing content directory and article route remain separate from navigation and custom-page routes.
-- The verified publishing contract uses Markdown `index.md` bundles with per-post `images/`, entry-relative image links, and `is_public: true` for public output (missing defaults to private). BlogGenius publishing must honor the manifest's routes and visibility rules when that follow-up is implemented.
+- Historical v1/1.x publishing used Markdown bundles and `is_public`. The current experimental family contract supersedes that post rule with `date`, `editorial_status`, and `publication`; see [Site Hosting post frontmatter contract](2026-10-04-site-hosting-post-frontmatter-contract.md). BlogGenius must consume the selected Amade family manifest and its pinned contract version.
 - During Site creation, users choose one declared navigation item as the post-list entry point when the selected manifest declares a valid listing route. BlogGenius sets that item's destination to the manifest route and persists the menu index and route in Site-specific metadata; the selected menu is not inferred later from its visible label.
 
 ## References

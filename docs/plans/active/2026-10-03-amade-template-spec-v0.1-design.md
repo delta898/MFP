@@ -2,7 +2,11 @@
 
 ## Status
 
-The user approved proceeding in this order: define family data contracts, create and validate two presentation templates in each of two families, connect them to BlogGenius development, then extend Amade to serve Site Hosting templates and BlogGenius UI Styles from one repository/catalog. The 0.1.0 contract remains experimental; do not promote it to 1.0.0 until both resource kinds and shared discovery have been validated. Canonical Site Hosting packages are in Amade `dev` under `amade/families/` and `amade/templates/`; the integration was pushed as `529f2d5`. The current BlogGenius branch is `codex/amade-template-catalog`.
+The user approved proceeding in this order: define family data contracts, create and validate two presentation templates in each of two families, connect them to BlogGenius development, then extend Amade to serve Site Hosting templates and BlogGenius UI Styles from one repository/catalog. The Amade manifest/catalog shape remains experimental `0.1.0`; do not promote it to `1.0.0` until both resource kinds and shared discovery have been validated. Canonical Site Hosting packages are in Amade `dev` under `amade/families/` and `amade/templates/`; the integration was pushed as `529f2d5`. The current BlogGenius branch is `codex/amade-template-catalog`.
+
+### Current post contract update (2026-10-04)
+
+Amade is the canonical source for Site Hosting post rules. Its two `family.json` manifests now declare `content_contract_version: 0.4.0`; each of the four templates declares package version `0.4.0` and `bloggenius-site-hosting-template@0.4.0`. The Amade manifest format remains `spec_version: 0.1.0`. BlogGenius support for this contract is deliberately pending; its current exact compatibility check must continue to hide the new package until the consumer implementation is updated. See [the accepted post frontmatter contract](../../decisions/2026-10-04-site-hosting-post-frontmatter-contract.md).
 
 ## User decision
 
@@ -22,7 +26,7 @@ Both selectable package types use the agreed common metadata: `name`, `descripti
 
 The Style-specific payload stays data-only and references the BlogGenius semantic-token contract ID/version. It contains a complete allowlisted token map and no executable JavaScript or arbitrary CSS file. Both resource types also declare a minimum BlogGenius app version; current packages target `0.6.0`. Compatibility requires both meeting that minimum and supporting the declared type-specific contract. The BlogGenius consumer must validate token names, value syntax/type and length, and reject rule/declaration/import injection and external resource URLs before applying values. The bundled application default remains available as the offline/error fallback.
 
-The user further agreed that both fields are mandatory for both package types. The contract declaration shape is `compatibility: { min_bloggenius_version, contract: { id, version } }`; Templates use `bloggenius-site-hosting-template@0.1.0` and UI Styles use `bloggenius-ui-style-tokens@1.0`. A newer minimum or unsupported valid contract makes a package unavailable for selection; a missing/malformed declaration fails manifest validation. BlogGenius `0.6.0-devN` and `0.6.0-rcN` builds are treated as the `0.6.0` line for minimum-version checks so they can validate the upcoming stable release's resources. The app and lockfile now identify this branch as `0.6.0-dev1`.
+The user further agreed that both fields are mandatory for both package types. The contract declaration shape is `compatibility: { min_bloggenius_version, contract: { id, version } }`; the original Site Hosting package contract was `bloggenius-site-hosting-template@0.1.0` and has since advanced through `@0.2.0`, `@0.3.0`, and `@0.4.0` for the post frontmatter changes. UI Styles use `bloggenius-ui-style-tokens@1.0`. A newer minimum or unsupported valid contract makes a package unavailable for selection; a missing/malformed declaration fails manifest validation. BlogGenius `0.6.0-devN` and `0.6.0-rcN` builds are treated as the `0.6.0` line for minimum-version checks so they can validate the upcoming stable release's resources. The app and lockfile now identify this branch as `0.6.0-dev1`.
 
 Proposed Amade structure:
 
@@ -108,11 +112,11 @@ The contract below is the minimum common dataset each sibling template must pres
 - Site identity: required non-empty name; optional logo stored in public media.
 - Navigation: required ordered items with stable unique IDs, editable non-empty labels, and root-relative internal paths. External, protocol-relative, query/fragment, backslash, and dot-segment paths are outside the 0.1 contract. Nested paths are allowed syntactically but need generation/collision tests.
 - Pages: `pages/<id>.md`, with lowercase ASCII kebab-case filename stem as stable page ID; required title/path and optional `is_public` defaulting to false.
-- Posts: `posts/<slug>/index.md`, with a lowercase ASCII kebab-case directory slug as stable ID; required title, description, date, and Markdown body; optional `is_public` defaulting to false.
+- Posts: `posts/<slug>/index.md`, with a lowercase ASCII kebab-case directory slug as stable ID; required `kind`, `title`, and `description`; optional `date` (`YYYY-MM-DD`), `editorial_status` (`draft` or `complete`, default `draft`), and `publication` (`none`, `private`, `public`, default `none`). Editorial status is independent from deployment behavior. This current post shape is family content contract 0.4.0 and supersedes earlier post fields.
 - Media: entry images live in the sibling `images/` directory and Markdown references are relative to the entry. Site logos live in the site's public directory.
 - Route semantics: content identity and canonical public paths are family data; templates may change layout but not silently remap them. Paths are root-relative internal paths, including nested paths; Unicode URL output and route collisions remain to be verified.
 
-These candidate fields are recorded in each 0.1 family manifest. Astro/Zod schemas in the four projects validate `site.json` and family-specific frontmatter; strict schemas reject unknown content properties. Family profiles add required display fields (`headline`/`biography` or `tagline`/`about`).
+These fields are recorded in each 0.1 family manifest. Astro/Zod schemas in the four projects validate `site.json` and family-specific frontmatter; strict schemas reject unknown content properties. The `content_contract_version` is separate from Amade `spec_version`. Family profiles add required display fields (`headline`/`biography` or `tagline`/`about`).
 
 **Personal homepage family data**
 
@@ -154,7 +158,7 @@ This validates the folder boundary and static build behavior; it is not yet a Bl
 The previous `1.x` package format is legacy, but its tested publishing behavior is useful input rather than a normative dependency:
 
 - Markdown post bundles use one directory per slug, an `index.md` entry, and a sibling `images/` folder with entry-relative references.
-- Posts declare `title`, `description`, and `pubDate`; `is_public` controls public listing/detail output and defaults to private.
+- The legacy 1.x post convention used `title`, `description`, and `pubDate`; `is_public` controlled public output. It is historical input only and is superseded by the current family post contract 0.4.0.
 - A listing route and a detail route are declared and verified by building Astro output.
 - Template packages include a complete Astro project, immutable package file hashes, preview media, and author/license metadata.
 
@@ -229,7 +233,7 @@ Keep these version axes separate:
 - **Template release version:** creator's version of one template package.
 - **BlogGenius compatibility:** every selectable Template and UI Style requires a minimum app version and a type-specific contract ID/version. Current packages require BlogGenius `0.6.0`; a resource is selectable only when both checks pass. The app release version and contract version are separate axes.
 - **Astro compatibility:** tested/supported Astro range and package/runtime expectations.
-- **Content contract version:** version only if its semantics can evolve independently from the manifest structure; avoid adding this axis unless the prototype shows it is needed.
+- **Content contract version:** separate from the Amade manifest `spec_version` when family data/frontmatter semantics evolve independently. The current post contract demonstrates the need: both families declare `content_contract_version: 0.4.0` while the Amade manifest shape remains `0.1.0`.
 
 The legacy `1.x` resources must not be treated as compatible just because their package version is numerically greater than the new spec's `0.x` version.
 
@@ -312,6 +316,13 @@ The current curated Amade repository can be the initial trust boundary; public u
 - User agreed to define lifecycle states `active`, `deprecated`, and `withdrawn` now, while using only the needed state initially. New-Site selection offers only `active`; `deprecated` remains usable by already materialized Sites; `withdrawn` is not served for new downloads, while existing local copies may continue to build.
 - Amade's four proof templates now carry the agreed metadata and representative preview images. All are `active`; one includes an additional screenshot. The repeatable manifest verifier checks required fields, status values, discovery arrays, and package-relative image references. BlogGenius consumption of these states remains a later integration step.
 - Existing 1.x resources remain untouched legacy material and are not mixed into the isolated experimental 0.1 catalog.
+
+## 2026-10-04 — Post frontmatter contract 0.4.0
+
+- Recorded `date` as optional date-only `YYYY-MM-DD`; removed required `pubDate` from the current family post contract.
+- Separated editorial completeness (`editorial_status: draft | complete`) from deployment/listing (`publication: none | private | public`). All pairs are valid. `none` stays in local Site data and produces no Worker output; `private` produces an unlisted, directly accessible page; `public` is built and listed.
+- BlogGenius Site Hosting temporary save writes `complete + none` locally; immediate post writes `complete + public` before full build/deploy; scheduled posting remains unsupported. Delivery result remains in the BlogGenius publishing record.
+- Bumped template package and BlogGenius Site Hosting contract versions to `0.4.0`; Amade manifest shape remains `spec_version: 0.1.0`. BlogGenius consumer support and conformance verification remain follow-up work.
 
 ## 2026-10-04 — Shared Amade catalog and BlogGenius Style packages
 

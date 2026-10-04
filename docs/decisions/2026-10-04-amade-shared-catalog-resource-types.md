@@ -22,7 +22,7 @@ Use one Amade repository and one immutable-revision-pinned catalog with explicit
 Both selectable package manifests compose the same common metadata and lifecycle contract:
 
 - Required: `name`, `description`, `author`, package `version`, `license`, `created_at`, `categories`, `tags`, representative `preview`, `status`.
-- Required compatibility: `compatibility.min_bloggenius_version` and `compatibility.contract` with a type-specific `id` and `version`. Current packages require BlogGenius `0.6.0`; Site Hosting Templates use `bloggenius-site-hosting-template@0.1.0`, UI Styles use `bloggenius-ui-style-tokens@1.0`.
+- Required compatibility: `compatibility.min_bloggenius_version` and `compatibility.contract` with a type-specific `id` and `version`. Current packages require BlogGenius `0.6.0`; Site Hosting Templates use `bloggenius-site-hosting-template@0.4.0` for the post-content contract, while UI Styles use `bloggenius-ui-style-tokens@1.0`.
 - Optional: `screenshots`, `homepage`, `support`.
 - Lifecycle values: `active`, `deprecated`, `withdrawn`; consumers show only `active` for new selection. Missing status is not active.
 - Catalog maturity (`experimental`) remains independent of package lifecycle.
@@ -50,6 +50,8 @@ amade/
 ```
 
 Existing Amade 1.x packages remain legacy reference material. They are neither implicitly active nor automatically converted into 0.1 packages.
+
+The Amade package shape remains `spec_version: 0.1.0`. The independently versioned current post contract is `0.4.0`, recorded by each family manifest as `content_contract_version`. See [Site Hosting post frontmatter contract](2026-10-04-site-hosting-post-frontmatter-contract.md) for fields, deployment/listing rules, and BlogGenius's later consumer responsibilities.
 
 ## BlogGenius consumption
 
