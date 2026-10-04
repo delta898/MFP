@@ -6,7 +6,7 @@ const BLOG_NEXT_LEGACY_PREVIEW_IMAGE_MANAGER_ENABLED = false;
 const blogNextDraftState = {
   ai: { preview: null, previewTimer: null, requestId: 0, publishing: false, generating: false, draftId: '', revision: 0, imageWorking: false, imageOperation: null, imageOperationNotice: null, imageSafetyLocked: false, previewSyncFailed: false, workspaceMode: 'block', editor: null, previewPromise: null, syncedPreviewKey: '' },
   folder: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, imageObjectUrls: {}, draftId: '', revision: 0, imageWorking: false, imageMutationSlotId: '', imageOperation: null, imageOperationNotice: null, imageSafetyLocked: false, previewSyncFailed: false, workspaceMode: 'block', editor: null, previewPromise: null, syncedPreviewKey: '' },
-  paste: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, draftId: '', revision: 0, imageWorking: false, imageMutationSlotId: '', imageOperation: null, imageOperationNotice: null, imageSafetyLocked: false, previewSyncFailed: false, workspaceMode: 'block', editor: null, previewPromise: null, syncedPreviewKey: '' }
+  paste: { files: [], folderName: '', preview: null, previewTimer: null, requestId: 0, publishing: false, draftId: '', revision: 0, imageWorking: false, imageMutationSlotId: '', imageOperation: null, imageOperationNotice: null, imageSafetyLocked: false, previewSyncFailed: false, workspaceMode: 'block', editor: null, previewPromise: null, syncedPreviewKey: '', siteHostingPosted: false }
 };
 
 function blogNextDraftContainer(type) {
@@ -17,6 +17,7 @@ function blogNextDraftField(type, name) {
   const fieldIds = {
     'target-naver': 'blog-next-target-naver',
     'target-wordpress': 'blog-next-target-wordpress',
+    'target-site-hosting': 'blog-next-target-site-hosting',
     'naver-category': 'blog-next-naver-category',
     'wordpress-category': 'blog-next-wordpress-category',
     'post-status': 'blog-next-post-status',
@@ -52,6 +53,7 @@ function readBlogNextDraftSettings(type) {
   const targets = [];
   if (blogNextDraftField(type, 'target-naver')?.checked) targets.push('naver');
   if (blogNextDraftField(type, 'target-wordpress')?.checked) targets.push('wordpress');
+  if (blogNextDraftField(type, 'target-site-hosting')?.checked) targets.push('site-hosting');
   return {
     targets,
     naverCategory: blogNextDraftField(type, 'naver-category')?.value?.trim() || '',
@@ -134,6 +136,53 @@ function syncBlogNextDraftSettingsSummary(type) {
   summary.textContent = parts.join(' · ');
 }
 
+function isBlogNextSiteHostingTarget(type) {
+  return type === 'paste' && readBlogNextDraftSettings(type).targets.includes('site-hosting');
+}
+
+async function loadBlogNextFirstSiteHostingTarget() {
+  const option = document.getElementById('blog-next-target-site-hosting-option');
+  const input = blogNextDraftField('paste', 'target-site-hosting');
+  const label = document.getElementById('blog-next-target-site-hosting-label');
+  if (!option || !input || !label || option.dataset.loaded === 'true') return;
+  option.dataset.loaded = 'true';
+  try {
+    const projects = await fetchJson('/api/v1/site-hosting/projects');
+    const list = Array.isArray(projects) ? projects : [];
+    const preferred = list.find((project) => project?.id === 'default') || list[0];
+    const ordered = [preferred, ...list.filter((project) => project?.id !== preferred?.id)].filter(Boolean);
+    for (const project of ordered) {
+      const sites = await fetchJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites`);
+      const site = Array.isArray(sites) ? sites.find((item) => item?.id) : null;
+      if (!site) continue;
+      input.dataset.projectId = project.id;
+      input.dataset.siteId = site.id;
+      input.disabled = false;
+      label.textContent = `내 사이트 · ${site.name || '사이트'}`;
+      option.hidden = false;
+      return;
+    }
+    label.textContent = '내 사이트 (생성된 사이트 없음)';
+  } catch (error) {
+    console.warn('[Blog Beta] Site Hosting 대상 조회 실패:', error);
+    label.textContent = '내 사이트 (목록을 불러오지 못함)';
+  }
+  input.disabled = true;
+  option.hidden = false;
+}
+
+function syncBlogNextSiteHostingOptions(type) {
+  const selected = isBlogNextSiteHostingTarget(type);
+  const schedule = blogNextDraftField(type, 'post-status')?.querySelector('option[value="schedule"]');
+  const preview = blogNextDraftState[type]?.preview;
+  const unresolvedImages = Array.isArray(preview?.images)
+    && preview.images.some((image) => !image.excluded && !image.exists && String(image.prompt || '').trim());
+  if (schedule) schedule.disabled = selected || unresolvedImages;
+  const status = blogNextDraftField(type, 'post-status');
+  if (selected && status?.value === 'schedule') status.value = 'publish';
+  syncBlogNextDraftSchedule(type);
+}
+
 function syncBlogNextDraftSchedule(type) {
   const field = document.getElementById('blog-next-schedule-field');
   const input = blogNextDraftField(type, 'schedule-date');
@@ -150,6 +199,13 @@ function syncBlogNextDraftSchedule(type) {
 function syncBlogNextDraftProviderFields(type) {
   const settings = document.getElementById('blog-next-publish-settings');
   if (!settings) return;
+  const siteHostingOption = document.getElementById('blog-next-target-site-hosting-option');
+  const activeContext = settings.dataset.blogNextDraftSettings || type;
+  if (siteHostingOption) siteHostingOption.hidden = activeContext !== 'paste';
+  if (activeContext !== 'paste' && blogNextDraftField(type, 'target-site-hosting')?.checked) {
+    blogNextDraftField(type, 'target-site-hosting').checked = false;
+    blogNextDraftField(type, 'target-naver').checked = true;
+  }
   const naverSelected = blogNextDraftField(type, 'target-naver')?.checked === true;
   const wordpressSelected = blogNextDraftField(type, 'target-wordpress')?.checked === true;
   settings.querySelectorAll('[data-draft-provider-field]').forEach((field) => {
@@ -160,6 +216,7 @@ function syncBlogNextDraftProviderFields(type) {
     });
   });
   syncBlogNextDraftSettingsSummary(type);
+  syncBlogNextSiteHostingOptions(type);
 }
 
 function syncBlogNextDraftImageSafety(type, preview = null) {
@@ -175,7 +232,7 @@ function syncBlogNextDraftImageSafety(type, preview = null) {
   const imagePreparationRequired = BLOG_NEXT_DRAFT_TYPES.includes(type) && unresolvedImageCount > 0;
   Array.from(select.options).forEach((option) => {
     if (option.value === 'publish' || option.value === 'schedule') {
-      option.disabled = imagePreparationRequired;
+      option.disabled = imagePreparationRequired || (option.value === 'schedule' && isBlogNextSiteHostingTarget(type));
     }
   });
   if (imagePreparationRequired && select.value !== 'draft') select.value = 'draft';
@@ -882,12 +939,14 @@ function resetBlogNextPasteDraftConnection() {
   state.previewSyncFailed = false;
   state.syncedPreviewKey = '';
   state.imageOperationNotice = null;
+  state.siteHostingPosted = false;
 }
 
 function bindBlogNextDraftOptions(type) {
   document.querySelector(`[data-blog-next-draft-publish="${type}"]`)
     ?.addEventListener('click', () => publishBlogNextDraft(type));
   syncBlogNextDraftSchedule(type);
+  syncBlogNextSiteHostingOptions(type);
   syncBlogNextDraftProviderFields(type);
   syncBlogNextDraftSettingsSummary(type);
 }
@@ -914,6 +973,7 @@ function initManuscriptEditorStickyOffsets() {
 }
 
 function initBlogNextDraftInputs() {
+  void loadBlogNextFirstSiteHostingTarget();
   initManuscriptEditorStickyOffsets();
   const folderInput = document.getElementById('blog-next-folder-input');
   if (!folderInput || folderInput.dataset.bound === 'true') return;
@@ -1132,6 +1192,7 @@ function initBlogNextDraftInputs() {
       setBlogNextDraftValidation('paste', { errors: ['원고 편집기를 불러오지 못했습니다. 앱을 다시 시작해 주세요.'] });
     }
     pastedInput.addEventListener('input', () => {
+      blogNextDraftState.paste.siteHostingPosted = false;
       resizeBlogNextMarkdownEditor(pastedInput);
       updateBlogNextManuscriptCounts('paste', pastedInput.value);
       if (!pastedInput.value.trim()) resetBlogNextPasteDraftConnection();

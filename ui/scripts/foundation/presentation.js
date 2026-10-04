@@ -6,7 +6,8 @@ function formatRemaining(value) {
 
 const BLOG_PLATFORM_LABELS = Object.freeze({
   naver: '네이버 블로그',
-  wordpress: '워드프레스'
+  wordpress: '워드프레스',
+  'site-hosting': '내 사이트'
 });
 
 function formatBlogPlatformLabel(platform) {

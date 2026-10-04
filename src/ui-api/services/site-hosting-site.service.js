@@ -6,6 +6,7 @@ const net = require('node:net');
 const { createSiteHostingProjectRepository } = require('../../site-hosting/project-repository');
 const { createSiteHostingSiteRepository } = require('../../site-hosting/site-repository');
 const { normalizeMenuDestination, normalizeMenuLabel: validateMenuLabel, normalizeNavigationItems, internalPathSegment, internalPathname } = require('../../site-hosting/navigation-contract');
+const { replaceImageBlocks } = require('../../content/image-blocks');
 const { createGitHubSiteTemplateCatalog } = require('../../site-hosting/github-site-template-catalog');
 const { createAstroSiteRuntime } = require('../../site-hosting/astro-site-runtime');
 const { createCloudflareStaticAssetsDeployer } = require('../../site-hosting/cloudflare-static-assets-deployer');
@@ -38,6 +39,11 @@ function createSiteHostingSiteService(deps = {}) {
         error.status = 409;
         throw error;
     });
+    const openExternal = deps.openExternal || (async (url) => {
+        const electron = require('electron');
+        if (!electron?.shell?.openExternal) throw new Error('시스템 브라우저를 실행할 수 없습니다.');
+        await electron.shell.openExternal(url);
+    });
     const astroRuntime = deps.astroRuntime || createAstroSiteRuntime({
         fs: deps.fs,
         path: deps.path,
@@ -59,6 +65,7 @@ function createSiteHostingSiteService(deps = {}) {
         fetchImpl: deps.fetchImpl,
         logger: deps.Logger
     });
+    const manuscriptDraftService = deps.manuscriptDraftService || null;
     const createCloudflareClient = deps.createCloudflareSdkClient || ((accessToken) => {
         const Cloudflare = require('cloudflare');
         return new Cloudflare({ apiToken: accessToken, maxRetries: 1 });
@@ -68,10 +75,314 @@ function createSiteHostingSiteService(deps = {}) {
     const createId = deps.createId || (() => crypto.randomUUID().replace(/-/g, ''));
     const draftPreviews = new Map();
 
+    function localDate(value) {
+        const date = new Date(value);
+        if (Number.isNaN(date.valueOf())) return new Date().toISOString().slice(0, 10);
+        const pad = (part) => String(part).padStart(2, '0');
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    }
+
+    function parseManuscript(markdownText) {
+        const source = String(markdownText || '').replace(/^\uFEFF/u, '').trim();
+        if (!source) throw siteInputError('Markdown 원고를 입력해 주세요.', 'SITE_HOSTING_POST_CONTENT_REQUIRED');
+        if (Buffer.byteLength(source, 'utf8') > 1024 * 1024) throw siteInputError('원고는 1MB 이하로 입력해 주세요.', 'SITE_HOSTING_POST_TOO_LARGE');
+        const heading = source.match(/^\s*#\s+(.+?)\s*$/mu);
+        const title = String(heading?.[1] || '').trim();
+        if (!title) throw siteInputError('원고 맨 앞에 `# 제목`을 입력해 주세요.', 'SITE_HOSTING_POST_TITLE_REQUIRED');
+        const body = source.replace(heading[0], '').trim();
+        const descriptionSource = replaceImageBlocks(body, () => '');
+        const description = descriptionSource.split(/\r?\n/u)
+            .map((line) => line.trim())
+            .find((line) => line && !/^#{1,6}\s/u.test(line) && !/^```/u.test(line) && !/^\s*</u.test(line))
+            ?.replace(/\s+/gu, ' ')
+            .replace(/(?:\*\*|__|~~|`)/gu, '')
+            .slice(0, 240) || title;
+        return { title, description, body };
+    }
+
+    function decodeDraftImage(entry, expectedIndex) {
+        const fileName = String(entry?.name || '');
+        const match = fileName.match(/^(\d{2})_.+\.(png|jpe?g|webp|avif)$/iu);
+        if (!match || Number.parseInt(match[1], 10) !== expectedIndex || pathApi.basename(fileName) !== fileName) return null;
+        const extension = match[2].toLowerCase();
+        const encoded = String(entry?.base64Data || '').replace(/^data:[^;,]+;base64,/iu, '');
+        if (!encoded) return null;
+        const bytes = Buffer.from(encoded, 'base64');
+        if (!bytes.length || bytes.length > 10 * 1024 * 1024) return null;
+        const signatures = {
+            png: bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])),
+            jpg: bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff,
+            jpeg: bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff,
+            webp: bytes.length >= 12 && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP',
+            avif: bytes.length >= 12 && bytes.toString('ascii', 4, 8) === 'ftyp' && /^(?:avif|avis)$/u.test(bytes.toString('ascii', 8, 12))
+        };
+        if (!signatures[extension]) return null;
+        return { extension: extension === 'jpeg' ? 'jpg' : extension, bytes };
+    }
+
+    function markdownImageAlt(value, fallback) {
+        return String(value || fallback).replace(/[\\\[\]]/gu, '\\$&').replace(/[\r\n]+/gu, ' ').trim();
+    }
+
+    function createPostSlug(title, date) {
+        const base = String(title || '').normalize('NFKD').toLocaleLowerCase('en-US')
+            .replace(/[^a-z0-9]+/gu, '-')
+            .replace(/^-|-$/gu, '')
+            .slice(0, 48)
+            .replace(/-$/u, '') || 'post';
+        const suffix = String(createId()).toLocaleLowerCase('en-US').replace(/[^a-f0-9]/gu, '').slice(0, 8)
+            || crypto.randomUUID().replace(/-/gu, '').slice(0, 8);
+        return `${base}-${date.replace(/-/gu, '')}-${suffix}`;
+    }
+
     async function openPath(targetPath) {
         const electron = require('electron');
         if (!electron?.shell?.openPath) throw new Error('시스템 파일 탐색기를 실행할 수 없습니다.');
         return electron.shell.openPath(targetPath);
+    }
+
+    async function openSiteAddress(projectId, siteId, addressType) {
+        const site = repository.get(projectId, siteId);
+        if (!site) {
+            const error = new Error('사이트를 찾을 수 없습니다.');
+            error.code = 'SITE_HOSTING_SITE_NOT_FOUND';
+            error.status = 404;
+            throw error;
+        }
+        let address = '';
+        if (addressType === 'worker') address = String(site.deployment?.url || '');
+        else if (addressType === 'domain') {
+            const hostname = String(site.custom_domain_binding?.hostname || '').trim();
+            if (hostname && !/[\s/\\?#@]/u.test(hostname)) address = `https://${hostname}/`;
+        }
+        let url;
+        try { url = new URL(address); }
+        catch (_error) { url = null; }
+        if (!url || url.protocol !== 'https:' || !url.hostname || url.username || url.password) {
+            const error = new Error('열 수 있는 배포 주소가 없습니다. 사이트 배포와 도메인 연결 상태를 확인해 주세요.');
+            error.code = 'SITE_HOSTING_ADDRESS_UNAVAILABLE';
+            error.status = 409;
+            throw error;
+        }
+        await openExternal(url.href);
+        return { opened: true };
+    }
+
+    async function openSitePost(projectId, siteId, postId) {
+        const site = repository.get(projectId, siteId);
+        if (!site) throw siteInputError('사이트를 찾을 수 없습니다.', 'SITE_HOSTING_SITE_NOT_FOUND', 404);
+        const slug = String(postId || '').trim();
+        if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(slug)) {
+            throw siteInputError('글 주소를 확인할 수 없습니다.', 'SITE_HOSTING_POST_ID_INVALID', 400);
+        }
+        const workerUrl = String(site.deployment?.url || '');
+        let baseUrl;
+        try { baseUrl = new URL(workerUrl); } catch (_error) { baseUrl = null; }
+        if (!baseUrl || baseUrl.protocol !== 'https:' || !baseUrl.hostname || baseUrl.username || baseUrl.password) {
+            throw siteInputError('배포된 사이트 주소가 없습니다.', 'SITE_HOSTING_ADDRESS_UNAVAILABLE', 409);
+        }
+        const resource = templates.get(site.template?.id)?.resource;
+        const postType = (resource?.family?.content_types || []).find((item) => item?.kind === 'post');
+        const routeSettings = site.customization?.publishing || {
+            listing_route: postType?.listing_route,
+            detail_route: postType?.detail_route
+        };
+        const listingRoute = String(routeSettings?.listing_route || '');
+        const detailRoute = String(routeSettings?.detail_route || '');
+        if (!internalPathname(listingRoute) || !listingRoute.endsWith('/')
+            || detailRoute !== `${listingRoute}{slug}/`
+            || !internalPathname(detailRoute.replace('{slug}', slug))) {
+            throw siteInputError('이 사이트의 글 주소를 확인할 수 없습니다.', 'SITE_HOSTING_PUBLISHING_ROUTE_MISSING', 409);
+        }
+        const url = new URL(detailRoute.replace('{slug}', encodeURIComponent(slug)), baseUrl);
+        if (url.origin !== baseUrl.origin || url.protocol !== 'https:') {
+            throw siteInputError('글 주소가 배포 사이트를 벗어납니다.', 'SITE_HOSTING_POST_URL_INVALID', 409);
+        }
+        await openExternal(url.href);
+        return { opened: true };
+    }
+
+    async function deploy(projectId, siteId, context = {}) {
+        const site = repository.get(projectId, siteId);
+        if (!site) {
+            const error = new Error('사이트를 찾을 수 없습니다.');
+            error.code = 'SITE_HOSTING_SITE_NOT_FOUND';
+            error.status = 404;
+            throw error;
+        }
+        const credentials = await getCloudflareDeploymentCredentials();
+        const buildResult = await astroRuntime.build(projectId, siteId);
+        const deployed = await cloudflareDeployer.deploy(site, credentials, context);
+        const deployedAt = now();
+        repository.recordDeployment(projectId, siteId, { ...deployed, deployed_at: deployedAt });
+        return { ...deployed, deployed_at: deployedAt, screenshot: buildResult?.screenshot || null, screenshot_error: buildResult?.screenshot_error || '' };
+    }
+
+    async function postMarkdown(projectId, siteId, payload = {}, context = {}) {
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)
+            || Object.keys(payload).some((key) => !['markdownText', 'postStatus', 'draftId', 'revision'].includes(key))) {
+            throw siteInputError('Site 포스팅 요청 형식이 올바르지 않습니다.', 'SITE_HOSTING_POST_INPUT_INVALID');
+        }
+        const draftId = String(payload.draftId || '').trim();
+        const draftRevision = payload.revision === undefined ? null : Number(payload.revision);
+        if ((draftId && (!Number.isInteger(draftRevision) || draftRevision < 1)) || (!draftId && payload.revision !== undefined)) {
+            throw siteInputError('원고 버전을 확인하지 못했습니다. 미리보기를 새로고침해 주세요.', 'SITE_HOSTING_POST_DRAFT_INVALID', 409);
+        }
+        const postStatus = String(payload.postStatus || '').trim().toLowerCase();
+        if (!['draft', 'publish'].includes(postStatus)) {
+            throw siteInputError('사이트 포스팅은 임시 저장 또는 즉시 발행만 지원합니다.', 'SITE_HOSTING_POST_STATUS_UNSUPPORTED');
+        }
+        const site = repository.get(projectId, siteId);
+        if (!site) {
+            const error = new Error('사이트를 찾을 수 없습니다.');
+            error.code = 'SITE_HOSTING_SITE_NOT_FOUND';
+            error.status = 404;
+            throw error;
+        }
+        if (site.template_status !== 'available') {
+            throw siteInputError('이 사이트의 템플릿을 사용할 수 없어 글을 저장할 수 없습니다.', 'SITE_HOSTING_TEMPLATE_UNAVAILABLE', 409);
+        }
+        const template = templates.get(site.template?.id);
+        const resource = template?.resource;
+        const family = resource?.family;
+        const postType = (family?.content_types || []).find((item) => item?.kind === 'post');
+        if (resource?.spec_version !== '0.1.0' || family?.content_contract_version !== '0.7.1'
+            || resource?.template?.compatibility?.contract?.version !== '0.7.1'
+            || !postType || typeof postType.source !== 'string') {
+            throw siteInputError('이 템플릿은 Site Hosting 글 규격 0.7.1을 지원하지 않습니다.', 'SITE_HOSTING_POST_CONTRACT_UNSUPPORTED', 409);
+        }
+        const routeSettings = site.customization?.publishing || {
+            listing_route: postType.listing_route,
+            detail_route: postType.detail_route
+        };
+        const listingRoute = String(routeSettings.listing_route || '');
+        const detailRoutePattern = String(routeSettings.detail_route || '');
+        if (!internalPathname(listingRoute) || !listingRoute.endsWith('/')
+            || detailRoutePattern !== `${listingRoute}{slug}/`
+            || !internalPathname(detailRoutePattern.replace('{slug}', 'post-check'))) {
+            throw siteInputError('이 사이트에서 글 목록과 상세 주소를 확인할 수 없습니다.', 'SITE_HOSTING_PUBLISHING_ROUTE_MISSING', 409);
+        }
+        const sourceMatch = postType.source.match(/^((?:[A-Za-z0-9_-]+\/)*)\{slug\}\/index\.md$/u);
+        if (!sourceMatch) throw siteInputError('템플릿의 글 저장 경로가 올바르지 않습니다.', 'SITE_HOSTING_POST_CONTRACT_INVALID', 409);
+
+        let publishDraft = null;
+        if (draftId) {
+            if (typeof manuscriptDraftService?.buildPublishPayload !== 'function') {
+                throw siteInputError('원고 이미지 작업공간에 접근할 수 없습니다.', 'SITE_HOSTING_DRAFT_SERVICE_UNAVAILABLE', 503);
+            }
+            publishDraft = manuscriptDraftService.buildPublishPayload({ draftId, revision: draftRevision });
+        }
+        const draftMarkdown = publishDraft?.selectedFiles?.find((file) => /\.(?:md|markdown)$/iu.test(String(file?.name || '')))?.textContent;
+        const manuscript = parseManuscript(draftMarkdown ?? payload.markdownText);
+        const timestamp = now();
+        const date = localDate(timestamp);
+        const slug = createPostSlug(manuscript.title, date);
+        const publication = postStatus === 'draft' ? 'none' : 'public';
+        const editorialStatus = postStatus === 'draft' ? 'draft' : 'complete';
+        const availableImages = new Map();
+        for (const entry of publishDraft?.selectedFiles || []) {
+            const match = String(entry?.name || '').match(/^(\d{2})_.+\.(?:png|jpe?g|webp|avif)$/iu);
+            if (!match) continue;
+            const index = Number.parseInt(match[1], 10);
+            if (availableImages.has(index)) throw siteInputError(`이미지 ${index}번이 여러 개 연결되어 있습니다. 원고 미리보기를 새로고침해 주세요.`, 'SITE_HOSTING_IMAGE_MAPPING_AMBIGUOUS', 409);
+            availableImages.set(index, entry);
+        }
+        const imageAssets = new Map();
+        let coverImage = null;
+        const body = replaceImageBlocks(manuscript.body, (block) => {
+            const entry = availableImages.get(block.index);
+            if (!entry) {
+                if (publication === 'none') return block.fullTag;
+                throw siteInputError(`이미지 ${block.index}번 파일을 찾지 못했습니다. 이미지가 준비된 뒤 발행해 주세요.`, 'SITE_HOSTING_IMAGE_MISSING', 409);
+            }
+            const image = decodeDraftImage(entry, block.index);
+            if (!image) throw siteInputError(`이미지 ${block.index}번 파일을 읽을 수 없습니다. PNG, JPEG, WebP 또는 AVIF 이미지를 확인해 주세요.`, 'SITE_HOSTING_IMAGE_INVALID', 400);
+            const fileName = `image-${block.index}.${image.extension}`;
+            imageAssets.set(fileName, image.bytes);
+            const alt = markdownImageAlt(block.title, `이미지 ${block.index + 1}`);
+            if (!coverImage || block.start < coverImage.start) coverImage = { start: block.start, fileName, alt };
+            return `![${alt}](./images/${fileName})`;
+        });
+        if (publication === 'public' && /\[\[IMAGE_\d+/u.test(body)) {
+            throw siteInputError('이미지 자리표시자를 처리하지 못했습니다. 원고 미리보기를 새로고침한 뒤 다시 발행해 주세요.', 'SITE_HOSTING_IMAGE_MARKER_UNSUPPORTED', 409);
+        }
+        const frontmatter = [
+            '---',
+            'kind: post',
+            `title: ${JSON.stringify(manuscript.title)}`,
+            `description: ${JSON.stringify(manuscript.description)}`,
+            ...(coverImage ? [`cover: ${JSON.stringify(`./images/${coverImage.fileName}`)}`, `cover_alt: ${JSON.stringify(coverImage.alt)}`] : []),
+            `date: ${date}`,
+            ...(publication === 'public' ? [`published_at: ${JSON.stringify(timestamp)}`] : []),
+            `editorial_status: ${editorialStatus}`,
+            `publication: ${publication}`,
+            '---',
+            body
+        ].join('\n').trimEnd() + '\n';
+
+        const siteRoot = pathApi.resolve(site.root_path);
+        const siteDataRoot = pathApi.resolve(siteRoot, 'site-data');
+        const postsRoot = pathApi.resolve(siteDataRoot, ...sourceMatch[1].split('/').filter(Boolean));
+        const isWithin = (root, target) => {
+            const relative = pathApi.relative(root, target);
+            return relative === '' || (!relative.startsWith(`..${pathApi.sep}`) && relative !== '..' && !pathApi.isAbsolute(relative));
+        };
+        if (!isWithin(siteRoot, siteDataRoot) || !isWithin(siteDataRoot, postsRoot)) {
+            throw siteInputError('템플릿의 글 저장 경로가 사이트 폴더를 벗어납니다.', 'SITE_HOSTING_POST_PATH_INVALID', 409);
+        }
+        fileSystem.mkdirSync(postsRoot, { recursive: true });
+        const realSiteRoot = fileSystem.realpathSync(siteRoot);
+        const realSiteDataRoot = fileSystem.realpathSync(siteDataRoot);
+        const realPostsRoot = fileSystem.realpathSync(postsRoot);
+        if (!isWithin(realSiteRoot, realSiteDataRoot) || !isWithin(realSiteDataRoot, realPostsRoot)) {
+            throw siteInputError('글 저장 경로가 사이트 데이터 폴더를 벗어납니다.', 'SITE_HOSTING_POST_PATH_INVALID', 409);
+        }
+        const postDirectory = pathApi.join(realPostsRoot, slug);
+        try {
+            fileSystem.mkdirSync(postDirectory, { recursive: false, mode: 0o700 });
+        } catch (cause) {
+            if (cause?.code === 'EEXIST') throw siteInputError('같은 글 경로가 이미 있습니다. 원고를 다시 포스팅해 주세요.', 'SITE_HOSTING_POST_ALREADY_EXISTS', 409);
+            throw cause;
+        }
+        try {
+            if (imageAssets.size) {
+                const imagesDirectory = pathApi.join(postDirectory, 'images');
+                fileSystem.mkdirSync(imagesDirectory, { recursive: true, mode: 0o700 });
+                for (const [fileName, bytes] of imageAssets) {
+                    fileSystem.writeFileSync(pathApi.join(imagesDirectory, fileName), bytes, { flag: 'wx', mode: 0o600 });
+                }
+            }
+            fileSystem.writeFileSync(pathApi.join(postDirectory, 'index.md'), frontmatter, { encoding: 'utf8', flag: 'wx', mode: 0o600 });
+        } catch (cause) {
+            try { fileSystem.rmSync(postDirectory, { recursive: true, force: true }); } catch (_cleanupError) { }
+            throw cause;
+        }
+
+        if (publication === 'none') {
+            return { status: '사이트에 임시 저장했습니다.', postStatus: 'draft', post_id: slug, publication, date };
+        }
+        try {
+            const deployed = await deploy(projectId, siteId, context);
+            const detailRoute = String(routeSettings.detail_route).replace('{slug}', encodeURIComponent(slug));
+            let postUrl = '';
+            try { postUrl = deployed.url ? new URL(detailRoute, deployed.url).href : ''; } catch (_error) { }
+            return {
+                status: '사이트에 글을 발행하고 배포했습니다.',
+                postStatus: 'publish',
+                post_id: slug,
+                publication,
+                date,
+                deployed_at: deployed.deployed_at,
+                ...(postUrl ? { post_url: postUrl } : {}),
+                ...(deployed.screenshot_error ? { screenshot_error: deployed.screenshot_error } : {})
+            };
+        } catch (cause) {
+            const error = new Error(`글은 사이트에 저장했지만 빌드 또는 배포에 실패했습니다. 다시 배포하면 반영됩니다. (${cause?.message || '배포 오류'})`);
+            error.code = 'SITE_HOSTING_POST_SAVED_DEPLOY_FAILED';
+            error.status = Number.isInteger(cause?.status) ? cause.status : 502;
+            error.cause = cause;
+            throw error;
+        }
     }
 
     function createSite(projectId, name, templateId, id = createId(), customization = {}) {
@@ -446,10 +757,10 @@ function createSiteHostingSiteService(deps = {}) {
         return { extension: match[1] === 'jpeg' ? 'jpg' : match[1], content: bytes };
     }
 
-    function siteInputError(message, code) {
+    function siteInputError(message, code, status = 400) {
         const error = new Error(message);
         error.code = code;
-        error.status = 400;
+        error.status = Number.isInteger(status) ? status : 400;
         return error;
     }
 
@@ -664,21 +975,10 @@ function createSiteHostingSiteService(deps = {}) {
         getBuildStatus: (projectId, siteId) => astroRuntime.getBuildStatus(projectId, siteId),
         startPreview: (projectId, siteId) => astroRuntime.startPreview(projectId, siteId),
         stopPreview: (projectId, siteId) => astroRuntime.stopPreview(projectId, siteId),
-        async deploy(projectId, siteId, context = {}) {
-            const site = repository.get(projectId, siteId);
-            if (!site) {
-                const error = new Error('사이트를 찾을 수 없습니다.');
-                error.code = 'SITE_HOSTING_SITE_NOT_FOUND';
-                error.status = 404;
-                throw error;
-            }
-            const credentials = await getCloudflareDeploymentCredentials();
-            const buildResult = await astroRuntime.build(projectId, siteId);
-            const deployed = await cloudflareDeployer.deploy(site, credentials, context);
-            const deployedAt = now();
-            repository.recordDeployment(projectId, siteId, { ...deployed, deployed_at: deployedAt });
-            return { ...deployed, deployed_at: deployedAt, screenshot: buildResult?.screenshot || null, screenshot_error: buildResult?.screenshot_error || '' };
-        }
+        deploy,
+        openSiteAddress,
+        openSitePost,
+        postMarkdown
     };
 }
 

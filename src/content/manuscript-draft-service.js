@@ -95,9 +95,12 @@ function stripImageBlocksByIndex(content, indexes = []) {
 }
 
 function normalizeDraftSettings(input = {}, previous = {}) {
-    const targets = input.targets !== undefined
-        ? requireSinglePublishTarget(input.targets)
-        : requireSinglePublishTarget(previous.targets || ['naver']);
+    const requestedTargets = input.targets !== undefined ? input.targets : (previous.targets || ['naver']);
+    const targets = Array.isArray(requestedTargets)
+        && requestedTargets.length === 1
+        && String(requestedTargets[0] || '').trim().toLowerCase() === 'site-hosting'
+        ? ['site-hosting']
+        : requireSinglePublishTarget(requestedTargets);
     return {
         ...previous,
         targets,

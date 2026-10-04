@@ -390,6 +390,10 @@
   font-weight: var(--ui-weight-semibold);
 }
 
+.blog-next-targets label[hidden] {
+  display: none;
+}
+
 .blog-next-external-reference {
   justify-content: flex-end;
 }

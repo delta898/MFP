@@ -2,6 +2,7 @@
 
 const { createGitHubDesignStyleCatalog } = require('../site-hosting/github-design-style-catalog');
 const { createDesignStylesRouteHandler } = require('../ui-api/routes/design-styles.routes');
+const { createManuscriptDraftService } = require('../content/manuscript-draft-service');
 
 function createUiApiRouteRuntime(deps = {}) {
     const {
@@ -159,6 +160,34 @@ function createUiApiRouteRuntime(deps = {}) {
     let cloudflareConnectionService = null;
     let siteHostingProjectRouteHandler = null;
     let siteHostingSiteRouteHandler = null;
+    let manuscriptDraftService = null;
+
+    function getManuscriptDraftService() {
+        if (!manuscriptDraftService) {
+            manuscriptDraftService = createManuscriptDraftService({
+                fs,
+                path,
+                Utils,
+                Logger,
+                workspaceDir: CONFIG?.WORKSPACE_DIR,
+                callWritingImage: typeof Utils?.callWritingImage === 'function' ? Utils.callWritingImage.bind(Utils) : null,
+                relatedPosts: {
+                    fetchPosts: typeof Utils?.fetchConfiguredRelatedPosts === 'function'
+                        ? ({ title, content }) => Utils.fetchConfiguredRelatedPosts({ title, content, keywords: [] }, 3)
+                        : typeof Utils?.fetchOwnBlogRelatedPosts === 'function'
+                            ? ({ title, content }) => Utils.fetchOwnBlogRelatedPosts({ title, content, keywords: [] }, 3)
+                            : null,
+                    pickHeading: typeof Utils?.pickRelatedPostsHeading === 'function'
+                        ? () => Utils.pickRelatedPostsHeading()
+                        : null,
+                    toMobileUrl: typeof Utils?.toMobileNaverBlogPostUrl === 'function'
+                        ? (url) => Utils.toMobileNaverBlogPostUrl(url)
+                        : null
+                }
+            });
+        }
+        return manuscriptDraftService;
+    }
     let designStylesRouteHandler = null;
     let apiRouteHub = null;
     let smartUsageService = null;
@@ -389,6 +418,7 @@ function createUiApiRouteRuntime(deps = {}) {
             Logger,
             Updater,
             Utils,
+            manuscriptDraftService: getManuscriptDraftService(),
             BrowserLauncher,
             fs,
             path,
@@ -525,6 +555,7 @@ function createUiApiRouteRuntime(deps = {}) {
                 Logger,
                 fs,
                 path,
+                manuscriptDraftService: getManuscriptDraftService(),
                 workspaceDir: CONFIG?.WORKSPACE_DIR,
                 runtimeEnvironment: CONFIG?.RUNTIME_ENVIRONMENT,
                 getCloudflareDeploymentCredentials: () => getCloudflareConnectionServiceInstance().getDeploymentCredentials()

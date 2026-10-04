@@ -73,7 +73,14 @@ function createSiteHostingSiteRouteHandler(deps = {}) {
                 }
                 return false;
             }
-            const siteActionMatch = pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)\/(build|build-status|preview|deploy|open-folder|zones|custom-domain)$/);
+            const sitePostsMatch = pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)\/posts$/);
+            if (sitePostsMatch && method === 'POST') {
+                const projectId = decodePathPart(sitePostsMatch[1]);
+                const siteId = decodePathPart(sitePostsMatch[2]);
+                await sendSuccess(res, requestId, await service.postMarkdown(projectId, siteId, ctx.requestBody || {}, { requestId }));
+                return true;
+            }
+            const siteActionMatch = pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)\/(build|build-status|preview|deploy|open-folder|open-address|open-post|zones|custom-domain)$/);
             if (siteActionMatch) {
                 const projectId = decodePathPart(siteActionMatch[1]);
                 const siteId = decodePathPart(siteActionMatch[2]);
@@ -100,6 +107,19 @@ function createSiteHostingSiteRouteHandler(deps = {}) {
                 }
                 if (action === 'open-folder' && method === 'POST') {
                     await sendSuccess(res, requestId, await service.openBuildFolder(projectId, siteId));
+                    return true;
+                }
+                if (action === 'open-address' && method === 'POST') {
+                    const addressType = String(ctx.requestBody?.type || '');
+                    if (!['worker', 'domain'].includes(addressType)) {
+                        await sendError(res, requestId, 400, 'SITE_HOSTING_ADDRESS_TYPE_INVALID', '열 주소 종류가 올바르지 않습니다.');
+                        return true;
+                    }
+                    await sendSuccess(res, requestId, await service.openSiteAddress(projectId, siteId, addressType));
+                    return true;
+                }
+                if (action === 'open-post' && method === 'POST') {
+                    await sendSuccess(res, requestId, await service.openSitePost(projectId, siteId, ctx.requestBody?.post_id));
                     return true;
                 }
                 if (action === 'zones' && method === 'GET') {

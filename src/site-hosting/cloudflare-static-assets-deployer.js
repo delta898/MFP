@@ -6,11 +6,39 @@ const path = require('node:path');
 
 const API_BASE_URL = 'https://api.cloudflare.com/client/v4';
 const WORKER_MODULE = `export default {\n  fetch(request, env) {\n    return env.ASSETS.fetch(request);\n  }\n};\n`;
+const ASSET_CONTENT_TYPES = Object.freeze({
+    avif: 'image/avif',
+    css: 'text/css; charset=utf-8',
+    gif: 'image/gif',
+    htm: 'text/html; charset=utf-8',
+    html: 'text/html; charset=utf-8',
+    ico: 'image/x-icon',
+    jpeg: 'image/jpeg',
+    jpg: 'image/jpeg',
+    js: 'text/javascript; charset=utf-8',
+    json: 'application/json; charset=utf-8',
+    mjs: 'text/javascript; charset=utf-8',
+    otf: 'font/otf',
+    png: 'image/png',
+    svg: 'image/svg+xml',
+    txt: 'text/plain; charset=utf-8',
+    ttf: 'font/ttf',
+    webp: 'image/webp',
+    woff: 'font/woff',
+    woff2: 'font/woff2',
+    xml: 'application/xml; charset=utf-8'
+});
+
+function getAssetContentType(assetPath) {
+    const extension = path.posix.extname(String(assetPath || '')).slice(1).toLowerCase();
+    return ASSET_CONTENT_TYPES[extension] || 'application/octet-stream';
+}
 
 function createAssetManifest(files) {
     if (!Array.isArray(files) || files.length === 0) throw new Error('빌드 결과에 업로드할 파일이 없습니다.');
     const manifest = {};
     const filesByHash = new Map();
+    const contentTypesByHash = new Map();
     for (const file of files) {
         const assetPath = String(file?.path || '').replace(/\\/g, '/');
         if (!assetPath || assetPath.startsWith('//') || assetPath.split('/').some((part) => part === '.' || part === '..')) {
@@ -20,11 +48,18 @@ function createAssetManifest(files) {
         if (manifest[normalizedPath]) throw new Error(`중복된 빌드 파일 경로가 있습니다: ${normalizedPath}`);
         const content = Buffer.isBuffer(file.content) ? file.content : Buffer.from(file.content ?? '');
         const extension = path.posix.extname(normalizedPath).slice(1);
-        const hash = crypto.createHash('sha256').update(content.toString('base64') + extension).digest('hex').slice(0, 32);
+        const contentType = getAssetContentType(normalizedPath);
+        // Cloudflare deduplicates assets by hash. Include the response MIME type so
+        // assets uploaded before MIME metadata was added are re-uploaded once.
+        const hash = crypto.createHash('sha256')
+            .update(content.toString('base64') + extension + contentType)
+            .digest('hex')
+            .slice(0, 32);
         manifest[normalizedPath] = { hash, size: content.length };
         filesByHash.set(hash, content);
+        contentTypesByHash.set(hash, contentType);
     }
-    return { manifest, filesByHash };
+    return { manifest, filesByHash, contentTypesByHash };
 }
 
 function createCloudflareSdkAdapter({ client, fetchImpl = globalThis.fetch } = {}) {
@@ -53,7 +88,7 @@ function createCloudflareSdkAdapter({ client, fetchImpl = globalThis.fetch } = {
         createAssetUploadSession: ({ accountId, workerName, manifest }) => client.workers.scripts.assets.upload.create(
             workerName, { account_id: accountId, manifest }
         ),
-        async uploadAssetBuckets({ accountId, buckets, filesByHash, uploadToken }) {
+        async uploadAssetBuckets({ accountId, buckets, filesByHash, contentTypesByHash, uploadToken }) {
             if (!Array.isArray(buckets)) throw new Error('Cloudflare 자산 업로드 정보가 올바르지 않습니다.');
             let completionToken = '';
             for (const bucket of buckets) {
@@ -61,7 +96,9 @@ function createCloudflareSdkAdapter({ client, fetchImpl = globalThis.fetch } = {
                 for (const hash of bucket) {
                     const content = filesByHash.get(hash);
                     if (content === undefined) throw new Error('Cloudflare 업로드 대상 파일을 찾을 수 없습니다.');
-                    form.append(hash, Buffer.from(content).toString('base64'));
+                    const encodedContent = Buffer.from(content).toString('base64');
+                    const contentType = contentTypesByHash?.get(hash) || 'application/octet-stream';
+                    form.append(hash, new Blob([encodedContent], { type: contentType }), hash);
                 }
                 const response = await fetchImpl(`${API_BASE_URL}/accounts/${accountId}/workers/assets/upload?base64=true`, {
                     method: 'POST', headers: { Authorization: `Bearer ${uploadToken}` }, body: form
@@ -183,11 +220,11 @@ function createCloudflareStaticAssetsDeployer(options = {}) {
             if (!existing) activeStep = 'Worker 생성';
             const worker = existing || await adapter.createWorker({ accountId, workerName });
             const workerId = String(worker?.id || worker?.name || workerName);
-            const { manifest, filesByHash } = createAssetManifest(readStaticAssets(pathApi.join(site.root_path, 'dist'), fileSystem, pathApi));
+            const { manifest, filesByHash, contentTypesByHash } = createAssetManifest(readStaticAssets(pathApi.join(site.root_path, 'dist'), fileSystem, pathApi));
             activeStep = '정적 파일 업로드';
             const session = await adapter.createAssetUploadSession({ accountId, workerName, manifest });
             const completionToken = await adapter.uploadAssetBuckets({
-                accountId, buckets: session?.buckets || [], filesByHash, uploadToken: session?.jwt
+                accountId, buckets: session?.buckets || [], filesByHash, contentTypesByHash, uploadToken: session?.jwt
             });
             activeStep = '배포 버전 생성';
             const version = await adapter.createWorkerVersion({
@@ -248,4 +285,4 @@ function createCloudflareStaticAssetsDeployer(options = {}) {
     return { deploy };
 }
 
-module.exports = { createAssetManifest, createCloudflareSdkAdapter, readStaticAssets, createCloudflareStaticAssetsDeployer };
+module.exports = { createAssetManifest, getAssetContentType, createCloudflareSdkAdapter, readStaticAssets, createCloudflareStaticAssetsDeployer };

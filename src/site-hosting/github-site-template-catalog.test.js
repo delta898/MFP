@@ -178,7 +178,7 @@ test('Amade 0.1 family catalog groups active templates and materializes Astro so
             spec_version: '0.1.0', template_id: 'personal-post-list', family_id: 'personal-homepage',
             name: '글 목록형', description: '기본 설명', author: 'amadejjs', version: '0.1.0', license: 'MIT',
             categories: ['Personal Website'], tags: ['List'], status: 'active', astro_project: 'astro', preview: 'preview.png',
-            compatibility: { min_bloggenius_version: '0.6.0', contract: { id: 'bloggenius-site-hosting-template', version: '0.1.0' } }
+            compatibility: { min_bloggenius_version: '0.6.0', contract: { id: 'bloggenius-site-hosting-template', version: '0.7.1' } }
         };
         const catalogDocument = { spec_version: '0.1.0', status: 'experimental', families: [{
             family_id: 'personal-homepage', manifest: familyPath,

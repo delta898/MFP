@@ -236,9 +236,27 @@ function renderBlogNextCompletionLinks(status = {}) {
     anchor.target = '_blank';
     anchor.rel = 'noopener noreferrer';
     anchor.textContent = status.source === 'local_markdown'
-      ? `${item.platform === 'naver' ? '네이버' : item.platform === 'wordpress' ? '워드프레스' : label}${item.kind === 'post' ? ' 글' : ' 열기'} ↗`
+      ? item.platform === 'site-hosting'
+        ? `${label} ↗`
+        : `${item.platform === 'naver' ? '네이버' : item.platform === 'wordpress' ? '워드프레스' : label}${item.kind === 'post' ? ' 글' : ' 열기'} ↗`
       : label;
     anchor.setAttribute('aria-label', label);
+    if (item.platform === 'site-hosting' && item.kind === 'post') {
+      anchor.addEventListener('click', async (event) => {
+        event.preventDefault();
+        anchor.setAttribute('aria-disabled', 'true');
+        try {
+          if (!item.projectId || !item.siteId || !item.postId) throw new Error('발행된 글 주소를 확인할 수 없습니다.');
+          await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(item.projectId)}/sites/${encodeURIComponent(item.siteId)}/open-post`, {
+            post_id: item.postId
+          });
+        } catch (error) {
+          if (typeof showUiToast === 'function') showUiToast({ message: error?.message || '시스템 브라우저에서 글을 열지 못했습니다.', level: 'error' });
+        } finally {
+          anchor.removeAttribute('aria-disabled');
+        }
+      });
+    }
     container.appendChild(anchor);
   });
   container.hidden = container.childElementCount === 0;

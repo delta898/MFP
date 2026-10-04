@@ -26,8 +26,20 @@ test('package compatibility requires minimum app version and an exact supported 
     assert.equal(isCompatibleWithBlogGenius(compatibility), compareVersions(BLOGGENIUS_VERSION, '0.6.0') >= 0);
     assert.equal(isCompatibleWithBlogGenius({
         min_bloggenius_version: '0.6.0',
-        contract: { id: 'bloggenius-site-hosting-template', version: '0.1.0' }
+        contract: { id: 'bloggenius-site-hosting-template', version: '0.7.1' }
     }, { appVersion: '0.6.0' }), true);
+    assert.equal(isCompatibleWithBlogGenius({
+        min_bloggenius_version: '0.6.0',
+        contract: { id: 'bloggenius-site-hosting-template', version: '0.5.0' }
+    }, { appVersion: '0.6.0' }), false);
+    assert.equal(isCompatibleWithBlogGenius({
+        min_bloggenius_version: '0.6.0',
+        contract: { id: 'bloggenius-site-hosting-template', version: '0.7.0' }
+    }, { appVersion: '0.6.0' }), false);
+    assert.equal(isCompatibleWithBlogGenius({
+        min_bloggenius_version: '0.6.0',
+        contract: { id: 'bloggenius-site-hosting-template', version: '0.7.2' }
+    }, { appVersion: '0.6.0' }), false);
 });
 
 test('development and release-candidate builds can consume resources for their exact stable release line', () => {

@@ -15,6 +15,7 @@ const { captureSiteScreenshot, VIEWPORT } = require('./electron-site-screenshot'
 const BUILD_TIMEOUT_MS = 10 * 60 * 1000;
 const CONTENT_TYPES = {
     '.css': 'text/css; charset=utf-8',
+    '.avif': 'image/avif',
     '.html': 'text/html; charset=utf-8',
     '.ico': 'image/x-icon',
     '.jpg': 'image/jpeg',
@@ -100,10 +101,23 @@ function createAstroSiteRuntime(options = {}) {
         return site.template?.family_id && fileSystem.existsSync(pathApi.join(nestedRoot, 'package.json')) ? nestedRoot : siteRoot;
     }
 
+    function getPublicSiteUrl(site) {
+        const bindingHost = String(site?.custom_domain_binding?.hostname || '').trim();
+        const raw = bindingHost ? `https://${bindingHost}` : String(site?.deployment?.url || '').trim();
+        try {
+            const url = new URL(raw);
+            if (url.protocol !== 'https:' || !url.hostname || url.username || url.password) return '';
+            return `${url.origin}/`;
+        } catch (_error) {
+            return '';
+        }
+    }
+
     async function buildAstroProject(site) {
         const projectRoot = getAstroProjectRoot(site);
-        await runNpm(projectRoot, ['ci', '--no-audit', '--no-fund']);
-        await runNpm(projectRoot, ['run', 'build']);
+        const buildEnvironment = { BLOGGENIUS_SITE_URL: getPublicSiteUrl(site) };
+        await runNpm(projectRoot, ['ci', '--no-audit', '--no-fund'], buildEnvironment);
+        await runNpm(projectRoot, ['run', 'build'], buildEnvironment);
         if (projectRoot !== pathApi.resolve(site.root_path)) {
             const builtOutput = pathApi.join(projectRoot, 'dist');
             if (!fileSystem.existsSync(builtOutput) || !fileSystem.statSync(builtOutput).isDirectory()) {
@@ -125,7 +139,7 @@ function createAstroSiteRuntime(options = {}) {
         }
     }
 
-    function runNpm(siteRoot, args) {
+    function runNpm(siteRoot, args, extraEnvironment = {}) {
         return new Promise((resolve, reject) => {
             const runtimeBin = ensureNodeShim();
             const child = spawnProcess(process.execPath, [npmCliPath, ...args], {
@@ -146,7 +160,8 @@ function createAstroSiteRuntime(options = {}) {
                     npm_config_cache: cacheRoot,
                     npm_config_audit: 'false',
                     npm_config_fund: 'false',
-                    npm_config_update_notifier: 'false'
+                    npm_config_update_notifier: 'false',
+                    ...extraEnvironment
                 },
                 detached: process.platform !== 'win32',
                 windowsHide: true,

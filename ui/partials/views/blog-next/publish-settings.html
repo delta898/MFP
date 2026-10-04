@@ -9,11 +9,15 @@
         포스팅 대상
         <span class="tooltip-container blog-next-help-trigger" tabindex="0" aria-label="포스팅 대상 도움말" aria-describedby="blog-next-help-publish-targets">
           <span class="tooltip-icon">?</span>
-          <span class="tooltip-text" id="blog-next-help-publish-targets" role="tooltip">현재 원고를 올릴 블로그를 선택합니다.</span>
+          <span class="tooltip-text" id="blog-next-help-publish-targets" role="tooltip">현재 원고를 올릴 블로그나 내 사이트를 선택합니다.</span>
         </span>
       </legend>
       <label><input id="blog-next-target-naver" name="blog-next-publish-target" data-draft-field="target-naver" type="radio" value="naver" checked> 네이버 블로그</label>
       <label><input id="blog-next-target-wordpress" name="blog-next-publish-target" data-draft-field="target-wordpress" type="radio" value="wordpress"> 워드프레스</label>
+      <label id="blog-next-target-site-hosting-option" data-blog-next-site-target hidden>
+        <input id="blog-next-target-site-hosting" name="blog-next-publish-target" data-draft-field="target-site-hosting" type="radio" value="site-hosting" disabled>
+        <span id="blog-next-target-site-hosting-label">내 사이트</span>
+      </label>
     </fieldset>
     <label class="blog-next-field blog-next-dependent-field" id="blog-next-naver-category-field" data-draft-provider-field="naver" data-dependency-active="true">
       <span>네이버 카테고리 <small>(선택)</small></span>
@@ -28,7 +32,7 @@
         포스팅 옵션
         <span class="tooltip-container blog-next-help-trigger" tabindex="0" aria-label="포스팅 옵션 도움말" aria-describedby="blog-next-help-post-status">
           <span class="tooltip-icon">?</span>
-          <span class="tooltip-text" id="blog-next-help-post-status" role="tooltip">즉시 발행은 바로 공개하고, 임시 저장은 블로그에 초안으로 보관합니다. 예약 발행은 지정한 공개 일시에 등록합니다. 공개·예약 발행 전에는 이미지 확인에서 빈 이미지를 먼저 처리해야 합니다. 미완성 이미지가 있으면 임시저장만 가능합니다.</span>
+          <span class="tooltip-text" id="blog-next-help-post-status" role="tooltip">즉시 발행은 바로 공개하고, 임시 저장은 대상 서비스 정책에 따라 비공개로 보관합니다. 내 사이트는 글을 로컬에만 저장하고 배포하지 않습니다. 예약 발행은 지정한 공개 일시에 등록하며 내 사이트에서는 지원하지 않습니다. 공개·예약 발행 전에는 이미지 확인에서 빈 이미지를 먼저 처리해야 합니다. 미완성 이미지가 있으면 임시저장만 가능합니다.</span>
         </span>
       </span>
       <span class="ui-select-shell"><select id="blog-next-post-status" data-draft-field="post-status" aria-describedby="blog-next-publish-safety-hint">

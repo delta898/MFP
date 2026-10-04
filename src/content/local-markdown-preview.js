@@ -11,7 +11,7 @@ function normalizeTargets(value) {
         list
             .map((item) => normalizeString(item).toLowerCase())
             .filter(Boolean)
-            .map((item) => (item.includes('wordpress') ? 'wordpress' : 'naver'))
+            .map((item) => (item.includes('wordpress') ? 'wordpress' : (item === 'site-hosting' ? 'site-hosting' : 'naver')))
     ));
 }
 

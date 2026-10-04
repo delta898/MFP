@@ -244,6 +244,46 @@ test('site service seeds the default project from the first active family templa
     });
 });
 
+test('site draft stores its first image block as the optional cover frontmatter field', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-cover-frontmatter-'));
+    try {
+        const siteRoot = path.join(workspaceDir, 'site');
+        fs.mkdirSync(path.join(siteRoot, 'site-data'), { recursive: true });
+        const template = {
+            resource: {
+                spec_version: '0.1.0',
+                family: { content_contract_version: '0.7.1', content_types: [{ kind: 'post', source: 'posts/{slug}/index.md', listing_route: '/blog/', detail_route: '/blog/{slug}/' }] },
+                template: { compatibility: { contract: { version: '0.7.1' } } }
+            }
+        };
+        const pngBytes = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+        const manuscript = '# 테스트 글\n\n도입 문단\n\n[[IMAGE_1\ntitle: 본문 첫 이미지\nprompt: 바다\n]]\n\n[[IMAGE_0\ntitle: 두번째 이미지\nprompt: 하늘\n]]\n\n본문';
+        const service = createSiteHostingSiteService({
+            fs, path, workspaceDir,
+            repository: { get: () => ({ root_path: siteRoot, template_status: 'available', template: { id: 'template-1' } }) },
+            templates: { get: () => template },
+            createId: () => 'abc12345',
+            now: () => '2026-10-05T12:30:00.000Z',
+            manuscriptDraftService: { buildPublishPayload: () => ({ selectedFiles: [
+                { name: 'contents.md', textContent: manuscript },
+                { name: '00_first.png', base64Data: `data:image/png;base64,${pngBytes.toString('base64')}` },
+                { name: '01_second.png', base64Data: `data:image/png;base64,${pngBytes.toString('base64')}` }
+            ] }) }
+        });
+        const result = await service.postMarkdown('project-1', 'site-1', { draftId: 'draft-1', revision: 1, postStatus: 'draft' });
+        assert.equal(result.publication, 'none');
+        const postRoot = path.join(siteRoot, 'site-data', 'posts', result.post_id);
+        const markdown = fs.readFileSync(path.join(postRoot, 'index.md'), 'utf8');
+        assert.match(markdown, /^cover: "\.\/images\/image-1\.png"$/mu);
+        assert.match(markdown, /^cover_alt: "본문 첫 이미지"$/mu);
+        assert.match(markdown, /!\[본문 첫 이미지\]\(\.\/images\/image-1\.png\)/u);
+        assert.equal(fs.existsSync(path.join(postRoot, 'images', 'image-0.png')), true);
+        assert.equal(fs.existsSync(path.join(postRoot, 'images', 'image-1.png')), true);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('site service opens the built output folder and requests preview when it is missing', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-open-build-folder-'));
     try {

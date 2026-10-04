@@ -25,6 +25,7 @@ function getBlogNextDraftPublishCopy(postStatus = 'publish') {
 
 function isBlogNextDraftPublishCompleted(type) {
   const state = blogNextDraftState[type];
+  if (isBlogNextSiteHostingTarget(type)) return state?.siteHostingPosted === true;
   const target = readBlogNextDraftSettings(type).targets[0];
   return Boolean(target && state?.preview?.publishedTargets?.includes(target));
 }
@@ -132,28 +133,31 @@ function syncBlogNextDraftExecutionState(runnerActive) {
   const executionActive = anotherRunnerActive || manuscriptActive;
   const activeType = BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai';
   const activeSettings = readBlogNextDraftSettings(activeType);
+  const siteHostingTarget = isBlogNextSiteHostingTarget(activeType);
   const publishCapability = typeof getUiPublishCapability === 'function'
     ? getUiPublishCapability(activeSettings.targets)
     : 'publish.any';
-  const publishBlocked = typeof isUiCapabilityUnavailable === 'function'
+  const publishBlocked = !siteHostingTarget && typeof isUiCapabilityUnavailable === 'function'
     && isUiCapabilityUnavailable(publishCapability);
   BLOG_NEXT_DRAFT_TYPES.forEach((type) => {
     const state = blogNextDraftState[type];
     const button = document.querySelector(`[data-blog-next-draft-publish="${type}"]`);
     if (!button) return;
     const completed = isBlogNextDraftPublishCompleted(type);
-    button.disabled = completed || executionActive || publishBlocked || state.previewSyncFailed || !state.preview?.validation?.ok;
+    const typeSiteTarget = isBlogNextSiteHostingTarget(type);
+    button.disabled = completed || executionActive || (!typeSiteTarget && publishBlocked) || state.previewSyncFailed || !state.preview?.validation?.ok;
     button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
     const selectedStatus = readBlogNextDraftSettings(type).postStatus;
     const publishCopy = getBlogNextDraftPublishCopy(selectedStatus);
+    const siteActionLabel = selectedStatus === 'draft' ? '사이트에 임시 저장' : '사이트 발행';
     button.textContent = completed
-      ? `${readBlogNextDraftSettings(type).targets[0] === 'wordpress' ? '워드프레스' : '네이버'} 처리 완료`
+      ? `${typeSiteTarget ? '내 사이트' : readBlogNextDraftSettings(type).targets[0] === 'wordpress' ? '워드프레스' : '네이버'} 처리 완료`
       : state.publishing
-      ? publishCopy.busyLabel
+      ? typeSiteTarget ? (selectedStatus === 'draft' ? '사이트에 임시 저장 중...' : '사이트 빌드·배포 중...') : publishCopy.busyLabel
       : state.promptGenerating ? '프롬프트 생성 중...'
       : state.imageWorking ? '이미지 작업 중...'
       : executionActive ? '다른 작업 실행 중...'
-      : publishCopy.buttonLabel;
+      : typeSiteTarget ? siteActionLabel : publishCopy.buttonLabel;
   });
   syncBlogNextPublishMutationControls();
   syncBlogNextPublishReadinessNotice(publishCapability);
@@ -165,7 +169,8 @@ function syncBlogNextPublishReadinessNotice(capability) {
     && isUiCapabilityUnavailable(capability);
   document.querySelectorAll('[data-blog-next-publish-readiness]').forEach((notice) => {
     const type = notice.dataset.blogNextPublishReadiness;
-    notice.hidden = !blocked || type !== activeType;
+    const siteTarget = isBlogNextSiteHostingTarget(type);
+    notice.hidden = !blocked || siteTarget || type !== activeType;
     const message = notice.querySelector('[data-blog-next-publish-readiness-message]');
     if (message && typeof getUiCapabilityMessage === 'function') {
       message.textContent = getUiCapabilityMessage(capability);
@@ -512,10 +517,14 @@ function bindBlogNextDetachedPublishSettings(form) {
       rememberBlogNextTopicDefaultsForSetting(event.target?.id);
     }
     const type = BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai';
-    if (['blog-next-target-naver', 'blog-next-target-wordpress'].includes(event.target?.id)) {
+    if (['blog-next-target-naver', 'blog-next-target-wordpress', 'blog-next-target-site-hosting'].includes(event.target?.id)) {
       syncBlogNextDraftProviderFields(type);
+      if (type === 'paste') blogNextDraftState.paste.siteHostingPosted = false;
     }
-    if (event.target?.id === 'blog-next-post-status') syncBlogNextDraftSchedule(type);
+    if (event.target?.id === 'blog-next-post-status') {
+      syncBlogNextSiteHostingOptions(type);
+      if (type === 'paste') blogNextDraftState.paste.siteHostingPosted = false;
+    }
     syncBlogNextDraftSettingsSummary(type);
     syncBlogNextTopicActionAvailability();
     syncBlogNextDraftExecutionState();
@@ -533,7 +542,17 @@ async function publishBlogNextDraft(type) {
   const state = blogNextDraftState[type];
   if (state.publishing || isBlogNextDraftPublishCompleted(type) || !state.preview?.validation?.ok) return;
   let settings = readBlogNextDraftSettings(type);
-  if (typeof ensureUiCapabilityReady === 'function') {
+  const siteHostingTarget = isBlogNextSiteHostingTarget(type);
+  const siteTargetInput = blogNextDraftField(type, 'target-site-hosting');
+  if (siteHostingTarget && settings.postStatus === 'schedule') {
+    setBlogNextDraftValidation(type, { errors: ['내 사이트 포스팅은 임시 저장 또는 즉시 발행만 지원합니다.'] }, '', state.preview);
+    return;
+  }
+  if (siteHostingTarget && (!siteTargetInput?.dataset.projectId || !siteTargetInput?.dataset.siteId)) {
+    setBlogNextDraftValidation(type, { errors: ['포스팅할 사이트를 찾지 못했습니다. 사이트 관리에서 사이트를 먼저 만들어 주세요.'] }, '', state.preview);
+    return;
+  }
+  if (!siteHostingTarget && typeof ensureUiCapabilityReady === 'function') {
     const capability = typeof getUiPublishCapability === 'function'
       ? getUiPublishCapability(settings.targets)
       : 'publish.any';
@@ -543,8 +562,12 @@ async function publishBlogNextDraft(type) {
       document.querySelector(`[data-blog-next-publish-settings-btn="${type}"]`)?.focus();
       return;
     }
-  } else if (typeof guardUiConfigReady === 'function' && !guardUiConfigReady('원고 포스팅')) return;
-  const publishCopy = getBlogNextDraftPublishCopy(settings.postStatus);
+  } else if (!siteHostingTarget && typeof guardUiConfigReady === 'function' && !guardUiConfigReady('원고 포스팅')) return;
+  const publishCopy = siteHostingTarget
+    ? settings.postStatus === 'draft'
+      ? { buttonLabel: '사이트에 임시 저장', actionLabel: '사이트 임시 저장', busyLabel: '사이트에 임시 저장 중...', completionLabel: '임시 저장했습니다.' }
+      : { buttonLabel: '사이트 발행', actionLabel: '사이트 발행', busyLabel: '사이트 빌드·배포 중...', completionLabel: '발행했습니다.' }
+    : getBlogNextDraftPublishCopy(settings.postStatus);
   const targetLabel = formatBlogPlatformList(settings.targets, ' + ') || '선택한 블로그';
   const confirmed = await showUiConfirm(
     buildBlogNextDraftPublishConfirmation(settings, targetLabel),
@@ -557,7 +580,7 @@ async function publishBlogNextDraft(type) {
   // Start polling before the optimistic running status replaces the previous
   // execution snapshot; the poller uses that prior executionId to reject stale
   // terminal responses while the new server run is being acquired.
-  if (typeof startBlogNextLocalPublishProgress === 'function') {
+  if (!siteHostingTarget && typeof startBlogNextLocalPublishProgress === 'function') {
     startBlogNextLocalPublishProgress(() => state.preview?.title || '');
   }
   if (typeof renderBlogNextRunnerStatus === 'function') {
@@ -568,7 +591,9 @@ async function publishBlogNextDraft(type) {
       progressStage: 'preparing',
       postStatus: settings.postStatus,
       subject: state.preview?.title || '',
-      message: '원고와 발행 설정을 확인하고 있습니다.',
+      message: siteHostingTarget
+        ? settings.postStatus === 'draft' ? '사이트에 글을 임시 저장하고 있습니다.' : '사이트를 전체 빌드하고 배포하고 있습니다.'
+        : '원고와 발행 설정을 확인하고 있습니다.',
       startedAt: new Date().toISOString()
     });
   }
@@ -582,17 +607,26 @@ async function publishBlogNextDraft(type) {
     if (!syncedPreview || state.previewSyncFailed || !state.draftId || !state.preview?.validation?.ok) {
       throw new Error('최신 원고 미리보기를 준비하지 못했습니다.');
     }
-    const payload = { draftId: state.draftId, revision: state.revision };
-    const publishResult = await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/publish`, payload);
+    const publishResult = siteHostingTarget
+      ? await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(siteTargetInput.dataset.projectId)}/sites/${encodeURIComponent(siteTargetInput.dataset.siteId)}/posts`, {
+        markdownText: document.getElementById('blog-next-paste-markdown')?.value || state.preview.rawMarkdown || '',
+        postStatus: settings.postStatus,
+        draftId: state.draftId,
+        revision: state.revision
+      })
+      : await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/publish`, { draftId: state.draftId, revision: state.revision });
+    if (siteHostingTarget) state.siteHostingPosted = true;
     if (Number.isInteger(Number(publishResult?.revision))) state.revision = Number(publishResult.revision);
-    if (publishResult?.manuscriptPreview) renderBlogNextDraftPreview(type, publishResult.manuscriptPreview);
+    if (!siteHostingTarget && publishResult?.manuscriptPreview) renderBlogNextDraftPreview(type, publishResult.manuscriptPreview);
     const actualPostStatus = publishResult?.postStatus || settings.postStatus;
     const actualPublishCopy = getBlogNextDraftPublishCopy(actualPostStatus);
     const wordpressImageUploadFailures = Array.isArray(publishResult?.results?.wordpress?.warnings)
       ? publishResult.results.wordpress.warnings.filter(warning => /^이미지 \d+번 업로드 실패$/.test(String(warning || ''))).length
       : 0;
     const archiveFailed = publishResult?.archiveSnapshot?.success === false;
-    const completionMessage = `${targetLabel}에 ${actualPublishCopy.completionLabel}${wordpressImageUploadFailures > 0
+    const completionMessage = siteHostingTarget
+      ? (actualPostStatus === 'draft' ? '내 사이트에 임시 저장했습니다. 아직 빌드하거나 배포하지 않았습니다.' : '내 사이트를 빌드하고 배포했습니다.')
+      : `${targetLabel}에 ${actualPublishCopy.completionLabel}${wordpressImageUploadFailures > 0
       ? `. 이미지 ${wordpressImageUploadFailures}개를 올리지 못했습니다. 워드프레스에서 확인해 주세요.`
       : ''}${archiveFailed
         ? ' 게시에는 성공했지만 로컬 결과물 저장에 실패했습니다. 원고가 만료되기 전에 백업해 주세요.'
@@ -607,7 +641,14 @@ async function publishBlogNextDraft(type) {
         message: completionMessage,
         resultStatus: actualPostStatus === 'draft' ? '임시 저장 완료'
           : actualPostStatus === 'schedule' ? '예약 발행 완료' : '발행 완료',
-        completionLinks: Array.isArray(publishResult?.completionLinks) ? publishResult.completionLinks : [],
+        completionLinks: siteHostingTarget && publishResult?.post_url
+          ? [{
+            label: '발행한 글', url: publishResult.post_url, platform: 'site-hosting', kind: 'post',
+            projectId: siteTargetInput.dataset.projectId,
+            siteId: siteTargetInput.dataset.siteId,
+            postId: publishResult.post_id
+          }]
+          : Array.isArray(publishResult?.completionLinks) ? publishResult.completionLinks : [],
         finishedAt: new Date().toISOString()
       });
     }

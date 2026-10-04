@@ -19,6 +19,7 @@ function mountBlogNextPublishSettings(type = 'ai') {
   if (target === 'ai') {
     const editing = typeof blogNextEditingRowIndex !== 'undefined' && blogNextEditingRowIndex !== null;
     if (typeof arrangeBlogNextAiWorkflow === 'function') arrangeBlogNextAiWorkflow({ editing });
+    if (typeof syncBlogNextDraftProviderFields === 'function') syncBlogNextDraftProviderFields(target);
     if (typeof syncBlogNextDraftImageSafety === 'function') {
       syncBlogNextDraftImageSafety(target, blogNextDraftState?.[target]?.preview || null);
     }
@@ -34,6 +35,7 @@ function mountBlogNextPublishSettings(type = 'ai') {
   if (typeof syncBlogNextDraftImageSafety === 'function') {
     syncBlogNextDraftImageSafety(target, blogNextDraftState?.[target]?.preview || null);
   }
+  if (typeof syncBlogNextDraftProviderFields === 'function') syncBlogNextDraftProviderFields(target);
   syncBlogNextProviderDependentFields();
   syncBlogNextScheduleField();
 }
@@ -45,6 +47,7 @@ function syncBlogNextQuickFlowSummaries() {
   const platforms = [];
   if (document.getElementById('blog-next-target-naver')?.checked) platforms.push('naver');
   if (document.getElementById('blog-next-target-wordpress')?.checked) platforms.push('wordpress');
+  if (document.getElementById('blog-next-target-site-hosting')?.checked) platforms.push('site-hosting');
   if (contentSummary) {
     contentSummary.textContent = [
       externalReference ? '외부 참고 사용' : '외부 참고 안 함',

@@ -13,6 +13,7 @@ const WordPressClient = require('./wordpress-client');
 const { marked } = require('marked');
 const { buildBlogGenerationPrompt } = require('./content/blog-generation-prompt');
 const { validateBlogImageBlocks } = require('./content/blog-image-plan');
+const { parseImageBlocks } = require('./content/image-blocks');
 const { formatRelatedPostsForNaver } = require('./content/naver-related-posts');
 const { normalizeBlogImageMode, generatesBlogImages } = require('./content/blog-image-mode');
 const { assertDirectPublishAllowed } = require('./environment/runtime-effects');
@@ -2885,19 +2886,8 @@ ${scrapedContext}`;
 		let finalMarkdown = markdownRaw;
 		const uploadResults = new Map(); // index -> { id, url, alt }
 
-		// [[IMAGE_N\n[id: ...\n]title: ...\nprompt: ...\n]] 포맷 파싱
-		// Manuscript editor가 추가한 stable block ID와 빈 title/prompt도 허용한다.
-		const imageRegex = /\[\[IMAGE_(\d+)\r?\n(?:[ \t]*id:[^\r\n]*\r?\n)?[ \t]*title:[ \t]*([^\r\n]*)\r?\n[ \t]*prompt:[ \t]*([\s\S]*?)\r?\n\]\]/g;
-		let match;
-		const imageBlocks = [];
-		while ((match = imageRegex.exec(markdownRaw)) !== null) {
-			imageBlocks.push({
-				fullTag: match[0],
-				index: parseInt(match[1]),
-				title: match[2].trim(),
-				prompt: match[3].trim()
-			});
-		}
+		// Manuscript image blocks use the shared contract also consumed by Site Hosting.
+		const imageBlocks = parseImageBlocks(markdownRaw);
 
 		Logger.info(`🖼️ [WordPress] 이미지 업로드 프로세스 시작 (총 ${imageBlocks.length}개)`);
 

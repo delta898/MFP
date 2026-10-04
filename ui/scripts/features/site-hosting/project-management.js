@@ -107,14 +107,27 @@ function siteHostingSiteAddresses(site, domainConnect) {
     ? siteHostingSafeHttpsUrl(`https://${customDomain}`)
     : '';
   const workerLink = workerHref
-    ? `<a class="site-hosting-address-link" href="${siteHostingEscapeHtml(workerHref)}" target="_blank" rel="noopener noreferrer">기본 주소 <span aria-hidden="true">↗</span></a>`
+    ? `<button class="site-hosting-address-link" type="button" data-site-open-address="${siteHostingEscapeHtml(site.id)}" data-address-type="worker">기본 주소 <span aria-hidden="true">↗</span></button>`
     : '<span class="site-hosting-address-link is-unavailable" aria-disabled="true" title="배포 후 사용할 수 있습니다.">기본 주소</span>';
   const domainLink = customDomainHref
-    ? `<a class="site-hosting-address-link" href="${siteHostingEscapeHtml(customDomainHref)}" target="_blank" rel="noopener noreferrer">연결 도메인 <span aria-hidden="true">↗</span></a>`
+    ? `<button class="site-hosting-address-link" type="button" data-site-open-address="${siteHostingEscapeHtml(site.id)}" data-address-type="domain">연결 도메인 <span aria-hidden="true">↗</span></button>`
     : site.deployment?.worker_name
       ? `<button class="site-hosting-address-link site-hosting-domain-start" type="button" data-site-domain-start="${siteHostingEscapeHtml(site.id)}" ${domainConnect?.open ? 'aria-expanded="true"' : ''}>도메인 연결 <span aria-hidden="true">+</span></button>`
       : '<span class="site-hosting-address-link is-unavailable" aria-disabled="true" title="먼저 사이트를 배포하세요.">도메인 연결</span>';
   return `<div class="site-hosting-site-addresses" aria-label="사이트 주소">${workerLink}${domainLink}</div>`;
+}
+
+async function siteHostingOpenAddress(siteId, addressType, button) {
+  const projectId = siteHostingSelectedProject?.id;
+  if (!projectId || !siteId || !['worker', 'domain'].includes(addressType) || button?.disabled) return;
+  if (button) button.disabled = true;
+  try {
+    await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(projectId)}/sites/${encodeURIComponent(siteId)}/open-address`, { type: addressType });
+  } catch (error) {
+    siteHostingSetFeedback(error.message || '시스템 브라우저에서 주소를 열지 못했습니다.', 'danger');
+  } finally {
+    if (button?.isConnected) button.disabled = false;
+  }
 }
 
 function siteHostingSetSiteOperation(siteId, phase, message) {
@@ -594,6 +607,8 @@ function initSiteHostingProjects() {
       }
       const domainStart = event.target.closest('[data-site-domain-start]');
       if (domainStart) return void siteHostingOpenCardDomainConnection(domainStart.dataset.siteDomainStart);
+      const openAddress = event.target.closest('[data-site-open-address]');
+      if (openAddress) return void siteHostingOpenAddress(openAddress.dataset.siteOpenAddress, openAddress.dataset.addressType, openAddress);
       const domainCancel = event.target.closest('[data-site-card-domain-cancel]');
       if (domainCancel) {
         siteHostingDomainConnectStates.delete(siteHostingDomainStateKey(domainCancel.dataset.siteCardDomainCancel));

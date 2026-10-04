@@ -2,7 +2,7 @@
 
 const BLOGGENIUS_VERSION = require('../../package.json').version;
 const SUPPORTED_BLOGGENIUS_CONTRACTS = Object.freeze({
-    'bloggenius-site-hosting-template': '0.1.0',
+    'bloggenius-site-hosting-template': '0.7.1',
     'bloggenius-ui-style-tokens': '1.0'
 });
 
