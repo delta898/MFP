@@ -58,7 +58,7 @@ Before implementation, inspect current target selection, temporary-save/immediat
 
 ## Result and remaining work
 
-Completed manual review: the user tested a Site Hosting post and confirmed that its image displays in the deployed Worker. Scheduled posting remains unavailable for the Site target. The feature branch is ready for the user's requested commit; merge and push remain separate actions.
+The user tested a Site Hosting post and confirmed that its image displays in the deployed Worker. Scheduled posting remains unavailable for the Site target. The implementation and documentation are committed in `7c7126be`; focused compatibility/catalog/service tests passed (21/21), the Blog Beta posting UI smoke test passed, and the four canonical Amade template builds plus artifact verification passed. The user requested merging this branch into its parent; push remains a separate action.
 
 ## Follow-up: system browser and template logo
 
