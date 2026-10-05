@@ -2506,9 +2506,30 @@ async function run() {
                 await page.locator('[data-site-project-create]').click();
                 await page.locator('#site-project-name').fill('브라우저 검증 프로젝트');
                 await page.getByRole('button', { name: '만들기', exact: true }).click();
-                await page.getByRole('heading', { name: '브라우저 검증 프로젝트' }).waitFor();
-                await page.getByRole('heading', { name: '이 프로젝트에는 아직 사이트가 없습니다.' }).waitFor();
-                await page.locator('.site-hosting-project-actions [data-site-create]').click();
+                // The project name is represented in the project card/list, while
+                // the detail view intentionally presents the site's workspace.
+                await page.getByRole('heading', { name: '내 사이트' }).waitFor();
+                await page.locator('.site-hosting-add-site-card[data-site-create]').waitFor();
+                await page.locator('.site-hosting-add-site-card[data-site-create]').click();
+                await page.locator('[data-site-template-select]').first().waitFor();
+                assert.equal(await page.locator('#site-search-indexing').isChecked(), true);
+                await page.locator('#site-name').fill('취소 확인 테스트');
+                await page.locator('[data-site-create-cancel]').click();
+                await page.getByRole('heading', { name: '사이트 만들기를 취소할까요?' }).waitFor();
+                await page.locator('#site-create-cancel-dialog [value="stay"]').click();
+                assert.equal(await page.locator('#site-create-dialog').evaluate((dialog) => dialog.open), true);
+                await page.locator('[data-site-create-cancel]').click();
+                await page.locator('#site-create-cancel-dialog [value="confirm"]').click();
+                await page.waitForFunction(() => document.getElementById('site-create-dialog')?.open === false);
+                await page.locator('.site-hosting-add-site-card[data-site-create]').click();
+                await page.locator('[data-site-template-select]').first().waitFor();
+                await page.locator('#site-description').fill('브라우저 smoke에서 입력한 사이트 설명');
+                await page.locator('#site-search-indexing').uncheck();
+                await page.locator('#site-share-image').setInputFiles({
+                    name: 'site-share.png', mimeType: 'image/png',
+                    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/iO0AAAAASUVORK5CYII=', 'base64')
+                });
+                await page.waitForFunction(() => document.getElementById('site-share-image-preview')?.hidden === false);
                 await page.locator('#site-name').fill('브라우저 검증 사이트');
                 await page.locator('#site-navigation-fields [data-site-menu-label]').nth(1).fill('이야기');
                 await page.locator('#site-navigation-fields [data-site-menu-href]').nth(1).fill('/stories/');
@@ -2521,6 +2542,10 @@ async function run() {
                     { label: '홈', href: '/' }, { label: '이야기', href: '/stories/' }
                 ]);
                 assert.deepEqual(previewRequest?.body?.customization?.publishing, { post_list_navigation_index: 1 });
+                assert.equal(previewRequest?.body?.customization?.site_description, '브라우저 smoke에서 입력한 사이트 설명');
+                assert.equal(previewRequest?.body?.customization?.search_indexing, false);
+                assert.match(previewRequest?.body?.customization?.share_image || '', /^data:image\/png;base64,/);
+                await page.getByRole('button', { name: '미리보기 닫기' }).click();
                 await page.locator('#site-create-form [type="submit"]').click();
                 await page.getByText('브라우저 검증 사이트', { exact: true }).waitFor();
                 const createRequest = requests.find((request) => request.method === 'POST' && request.pathname.endsWith('/sites'));
@@ -2528,14 +2553,10 @@ async function run() {
                     { label: '홈', href: '/' }, { label: '이야기', href: '/stories/' }
                 ]);
                 assert.deepEqual(createRequest?.body?.customization?.publishing, { post_list_navigation_index: 1 });
-                await page.locator('[data-site-project-settings]').click();
-                await page.getByRole('heading', { name: '프로젝트 설정' }).waitFor();
-                await page.locator('[data-site-project-sites]').click();
+                assert.equal(createRequest?.body?.customization?.site_description, '브라우저 smoke에서 입력한 사이트 설명');
+                assert.equal(createRequest?.body?.customization?.search_indexing, false);
+                assert.match(createRequest?.body?.customization?.share_image || '', /^data:image\/png;base64,/);
                 await page.getByText('브라우저 검증 사이트', { exact: true }).waitFor();
-                await page.locator('[data-site-project-list]').click();
-                await page.getByRole('button', { name: /브라우저 검증 프로젝트/ }).waitFor();
-                await page.locator('[data-site-project-open="site-project-smoke"]').click();
-                await page.getByRole('heading', { name: '브라우저 검증 프로젝트' }).waitFor();
             }
         }
         await page.evaluate(() => { showUiConfirm = window.__settingsNextSmokeConfirm; });

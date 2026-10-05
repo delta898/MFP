@@ -246,10 +246,10 @@ function createSiteHostingSiteService(deps = {}) {
         const resource = template?.resource;
         const family = resource?.family;
         const postType = (family?.content_types || []).find((item) => item?.kind === 'post');
-        if (resource?.spec_version !== '0.1.0' || family?.content_contract_version !== '0.7.1'
-            || resource?.template?.compatibility?.contract?.version !== '0.7.1'
+        if (resource?.spec_version !== '0.1.0' || family?.content_contract_version !== '0.7.2'
+            || resource?.template?.compatibility?.contract?.version !== '0.7.2'
             || !postType || typeof postType.source !== 'string') {
-            throw siteInputError('이 템플릿은 Site Hosting 글 규격 0.7.1을 지원하지 않습니다.', 'SITE_HOSTING_POST_CONTRACT_UNSUPPORTED', 409);
+            throw siteInputError('이 템플릿은 Site Hosting 글 규격 0.7.2를 지원하지 않습니다.', 'SITE_HOSTING_POST_CONTRACT_UNSUPPORTED', 409);
         }
         const routeSettings = site.customization?.publishing || {
             listing_route: postType.listing_route,
@@ -582,6 +582,21 @@ function createSiteHostingSiteService(deps = {}) {
         const siteHosting = template?.resource?.site_hosting;
         if (template?.resource?.spec_version === '0.1.0') {
             const seedSite = template.resource.family_seed_site || {};
+            const profileFields = template.resource.family?.site_profile?.fields || {};
+            const profileInputKeys = {
+                site_description: 'seoDescription',
+                share_image: 'shareImage',
+                favicon: 'favicon',
+                search_engine_indexing: 'searchEngineIndexing'
+            };
+            const allowedInputKeys = new Set(['navigation', 'publishing']);
+            if (Object.hasOwn(profileFields, 'logo')) allowedInputKeys.add('logo');
+            for (const [inputKey, profileKey] of Object.entries(profileInputKeys)) {
+                if (Object.hasOwn(profileFields, profileKey)) allowedInputKeys.add(inputKey);
+            }
+            if (Object.keys(input).some((key) => !allowedInputKeys.has(key))) {
+                throw siteInputError('사이트 설정에 허용되지 않은 항목이 포함되어 있습니다.', 'SITE_HOSTING_SITE_PROFILE_INVALID');
+            }
             const navigationDefaults = Array.isArray(seedSite.navigation) ? seedSite.navigation.map((item) => ({ id: item.id, label: item.label, href: item.path })) : [];
             const postType = (template.resource.family?.content_types || []).find((type) => type.kind === 'post');
             const requestedNavigation = Array.isArray(input.navigation) ? input.navigation : navigationDefaults;
@@ -631,7 +646,24 @@ function createSiteHostingSiteService(deps = {}) {
                 .filter((page, index, all) => all.findIndex((candidate) => candidate.path === page.path) === index)
                 .slice(0, 20);
             if (customPages.length) output.custom_pages = customPages;
-            if (input.logo) output.logo = normalizeLogo(input.logo);
+            if (input.logo) output.logo = normalizeSiteProfileImage(input.logo, '로고');
+            if (input.site_description !== undefined) {
+                if (typeof input.site_description !== 'string' || input.site_description.length > 300) {
+                    throw siteInputError('사이트 설명은 300자 이내로 입력해 주세요.', 'SITE_HOSTING_SITE_DESCRIPTION_INVALID');
+                }
+                const description = input.site_description.trim();
+                if (description) output.site_description = description;
+            }
+            if (input.share_image) output.share_image = normalizeSiteProfileImage(input.share_image, '사이트 대표 이미지');
+            if (input.favicon) output.favicon = normalizeSiteProfileImage(input.favicon, 'Favicon');
+            if (input.search_engine_indexing !== undefined) {
+                if (typeof input.search_engine_indexing !== 'boolean') {
+                    throw siteInputError('검색엔진 노출 설정이 올바르지 않습니다.', 'SITE_HOSTING_SEARCH_INDEXING_INVALID');
+                }
+                output.search_engine_indexing = input.search_engine_indexing;
+            } else {
+                output.search_engine_indexing = profileFields.searchEngineIndexing?.default !== false;
+            }
             return output;
         }
         const fields = siteHosting?.customization?.fields;
@@ -702,7 +734,7 @@ function createSiteHostingSiteService(deps = {}) {
                 post_list_navigation_index: postListIndex
             };
         }
-        if (declared.has('logo') && input.logo) output.logo = normalizeLogo(input.logo);
+        if (declared.has('logo') && input.logo) output.logo = normalizeSiteProfileImage(input.logo, '로고');
         return output;
     }
 
@@ -744,15 +776,16 @@ function createSiteHostingSiteService(deps = {}) {
         catch (cause) { throw siteInputError('메뉴 이름은 1~30자 이내로 입력해 주세요.', cause.code || 'SITE_HOSTING_NAVIGATION_INVALID'); }
     }
 
-    function normalizeLogo(value) {
+    function normalizeSiteProfileImage(value, label = '이미지') {
         const match = String(value || '').match(/^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/);
-        if (!match) throw siteInputError('로고는 PNG, JPG 또는 WebP 이미지로 선택해 주세요.', 'SITE_HOSTING_LOGO_INVALID');
+        const errorCode = label === '로고' ? 'SITE_HOSTING_LOGO_INVALID' : 'SITE_HOSTING_SITE_PROFILE_IMAGE_INVALID';
+        if (!match) throw siteInputError(`${label}는 PNG, JPG 또는 WebP 이미지로 선택해 주세요.`, errorCode);
         const bytes = Buffer.from(match[2], 'base64');
-        if (!bytes.length || bytes.length > 1024 * 1024) throw siteInputError('로고 이미지는 1MB 이하로 선택해 주세요.', 'SITE_HOSTING_LOGO_TOO_LARGE');
+        if (!bytes.length || bytes.length > 1024 * 1024) throw siteInputError(`${label}는 1MB 이하로 선택해 주세요.`, `${errorCode}_TOO_LARGE`);
         const signatures = { png: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), jpeg: Buffer.from([0xff, 0xd8, 0xff]), webp: Buffer.from('RIFF') };
         if (!bytes.subarray(0, signatures[match[1]].length).equals(signatures[match[1]])
             || (match[1] === 'webp' && bytes.toString('ascii', 8, 12) !== 'WEBP')) {
-            throw siteInputError('이미지 형식이 올바르지 않습니다.', 'SITE_HOSTING_LOGO_INVALID');
+            throw siteInputError(`${label} 이미지 형식이 올바르지 않습니다.`, errorCode);
         }
         return { extension: match[1] === 'jpeg' ? 'jpg' : match[1], content: bytes };
     }

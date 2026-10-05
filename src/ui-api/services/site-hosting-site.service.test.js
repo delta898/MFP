@@ -55,7 +55,13 @@ test('site service exposes Amade 0.1 family metadata and normalizes its shared m
         id: 'personal-post-list', version: '0.1.0', name: '글 목록형', description: '소개', family_id: 'personal-homepage', family_name: '개인 홈페이지',
         resource: {
             spec_version: '0.1.0',
-            family: { family_id: 'personal-homepage', content_types: [{ kind: 'page' }, { kind: 'post', listing_route: '/blog/', detail_route: '/blog/{slug}/' }] },
+            family: { family_id: 'personal-homepage', site_profile: { fields: {
+                logo: { type: 'public-url-path', required: false },
+                seoDescription: { type: 'string', required: false, maxLength: 300 },
+                shareImage: { type: 'public-url-path', required: false },
+                favicon: { type: 'public-url-path', required: false },
+                searchEngineIndexing: { type: 'boolean', required: false, default: true }
+            } }, content_types: [{ kind: 'page' }, { kind: 'post', listing_route: '/blog/', detail_route: '/blog/{slug}/' }] },
             template: { author: 'amadejjs', homepage: 'https://www.bloggenius.kr', categories: ['Blog'], tags: ['List'], status: 'active' },
             family_seed_site: { displayName: '기본 사이트', navigation: [{ id: 'posts', label: '글', path: '/blog/' }] }
         }
@@ -73,12 +79,26 @@ test('site service exposes Amade 0.1 family metadata and normalizes its shared m
     assert.deepEqual(listed.customization[0].default, [{ id: 'posts', label: '글', href: '/blog/' }]);
     await service.create('project-1', {
         name: '내 사이트', template_id: template.id,
-        customization: { navigation: [{ label: '이야기', href: '/stories/' }], publishing: { post_list_navigation_index: 0 } }
+        customization: {
+            site_description: '작은 시도와 배움을 기록합니다.', search_engine_indexing: false,
+            logo: 'data:image/png;base64,iVBORw0KGgo=', share_image: 'data:image/png;base64,iVBORw0KGgo=', favicon: 'data:image/png;base64,iVBORw0KGgo=',
+            navigation: [{ label: '이야기', href: '/stories/' }], publishing: { post_list_navigation_index: 0 }
+        }
     });
     assert.deepEqual(created.customization, {
+        site_description: '작은 시도와 배움을 기록합니다.',
+        search_engine_indexing: false,
+        logo: { extension: 'png', content: Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]) },
+        share_image: { extension: 'png', content: Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]) },
+        favicon: { extension: 'png', content: Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]) },
         navigation: [{ id: 'posts', label: '이야기', href: '/stories/' }],
         publishing: { listing_route: '/stories/', detail_route: '/stories/{slug}/', post_list_navigation_index: 0 }
     });
+    await service.create('project-1', { name: '기본 노출', template_id: template.id, customization: {} });
+    assert.equal(created.customization.search_engine_indexing, true);
+    await assert.rejects(service.create('project-1', {
+        name: '긴 설명', template_id: template.id, customization: { site_description: 'x'.repeat(301) }
+    }), { code: 'SITE_HOSTING_SITE_DESCRIPTION_INVALID' });
     await service.create('project-1', {
         name: '내 사이트', template_id: template.id,
         customization: { navigation: [{ label: '외부', href: 'https://example.com/' }] }
@@ -252,8 +272,8 @@ test('site draft stores its first image block as the optional cover frontmatter 
         const template = {
             resource: {
                 spec_version: '0.1.0',
-                family: { content_contract_version: '0.7.1', content_types: [{ kind: 'post', source: 'posts/{slug}/index.md', listing_route: '/blog/', detail_route: '/blog/{slug}/' }] },
-                template: { compatibility: { contract: { version: '0.7.1' } } }
+                family: { content_contract_version: '0.7.2', content_types: [{ kind: 'post', source: 'posts/{slug}/index.md', listing_route: '/blog/', detail_route: '/blog/{slug}/' }] },
+                template: { compatibility: { contract: { version: '0.7.2' } } }
             }
         };
         const pngBytes = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);

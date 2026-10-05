@@ -17,6 +17,7 @@
 // @include scripts/features/settings-next/shell.js
 // @include scripts/features/settings-next/site-hosting.js
 // @include scripts/features/site-hosting/project-management.js
+// @include scripts/features/site-hosting/site-profile-fields.js
 // @include scripts/features/site-hosting/domains.js
 // @include scripts/features/site-hosting/site-creation-navigation.js
 // @include scripts/features/settings-next/spreadsheet-connection.js

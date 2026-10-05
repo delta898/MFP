@@ -232,6 +232,8 @@ function createSiteHostingSiteRepository(options = {}) {
             if (!navigation.length) throw withStatus(new Error('사이트 메뉴는 1개 이상 필요합니다.'), 400, 'SITE_HOSTING_NAVIGATION_INVALID');
             const defaultNavigation = Array.isArray(siteData.navigation) ? siteData.navigation : [];
             siteData.displayName = String(site.name || '').trim();
+            siteData.seoDescription = String(site.customization?.site_description || '').trim();
+            siteData.searchEngineIndexing = site.customization?.search_engine_indexing !== false;
             siteData.navigation = navigation.map((item, index) => ({
                 id: item.id || defaultNavigation[index]?.id || `menu-${index + 1}`,
                 label: item.label,
@@ -245,22 +247,25 @@ function createSiteHostingSiteRepository(options = {}) {
                 const nextRoute = internalPathname(item.path);
                 if (fileSystem.existsSync(pagePath) && nextRoute) updateFamilyPageRoute(fileSystem, pagePath, nextRoute);
             }
-            let logoPath = String(siteData.logo || '');
-            const logo = site.customization?.logo;
-            if (logo) {
-                const extension = String(logo.extension || '');
-                const bytes = logo.content;
+            for (const imageField of [
+                { key: 'logo', dataKey: 'logo', fileName: 'bloggenius-logo' },
+                { key: 'share_image', dataKey: 'shareImage', fileName: 'bloggenius-share-image' },
+                { key: 'favicon', dataKey: 'favicon', fileName: 'bloggenius-favicon' }
+            ]) {
+                const image = site.customization?.[imageField.key];
+                if (!image) continue;
+                const extension = String(image.extension || '');
+                const bytes = image.content;
                 const signatures = { png: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), jpg: Buffer.from([0xff, 0xd8, 0xff]), webp: Buffer.from('RIFF') };
                 if (!Object.hasOwn(signatures, extension) || !Buffer.isBuffer(bytes) || bytes.length > 1024 * 1024
                     || bytes.length < signatures[extension].length || !bytes.subarray(0, signatures[extension].length).equals(signatures[extension])
                     || (extension === 'webp' && bytes.toString('ascii', 8, 12) !== 'WEBP')) {
-                    throw withStatus(new Error('로고 이미지 형식이 올바르지 않습니다.'), 400, 'SITE_HOSTING_LOGO_INVALID');
+                    throw withStatus(new Error(`${imageField.key === 'logo' ? '로고' : imageField.key === 'favicon' ? 'Favicon' : '사이트 대표'} 이미지 형식이 올바르지 않습니다.`), 400, imageField.key === 'logo' ? 'SITE_HOSTING_LOGO_INVALID' : 'SITE_HOSTING_SITE_PROFILE_IMAGE_INVALID');
                 }
-                const assetName = `bloggenius-logo.${extension}`;
+                const assetName = `${imageField.fileName}.${extension}`;
                 fileSystem.writeFileSync(pathApi.join(dataRoot, 'public', assetName), bytes, { flag: 'wx', mode: 0o600 });
-                logoPath = `/${assetName}`;
+                siteData[imageField.dataKey] = `/${assetName}`;
             }
-            if (logoPath) siteData.logo = logoPath;
             fileSystem.writeFileSync(siteDataPath, `${JSON.stringify(siteData, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
             const postList = site.customization?.publishing;
             const family = template.resource.family;
@@ -298,7 +303,11 @@ function createSiteHostingSiteRepository(options = {}) {
             }
             return {
                 navigation: siteData.navigation.map(({ id, label, path: href }) => ({ ...(id ? { id } : {}), label, href })),
-                ...(logoPath ? { logo: logoPath } : {}),
+                ...(siteData.logo ? { logo: siteData.logo } : {}),
+                ...(siteData.seoDescription ? { site_description: siteData.seoDescription } : {}),
+                ...(siteData.shareImage ? { share_image: siteData.shareImage } : {}),
+                ...(siteData.favicon ? { favicon: siteData.favicon } : {}),
+                search_engine_indexing: siteData.searchEngineIndexing !== false,
                 ...(postList ? { publishing: postList } : {}),
                 ...(pages.length ? { custom_pages: pages } : {})
             };

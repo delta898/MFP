@@ -96,8 +96,15 @@ async function siteHostingCollectCreatePayload(options = {}) {
   const selectedTemplate = siteHostingCreateTemplates.find((template) => template.id === templateInput.value);
   const navigationDefaults = selectedTemplate?.customization?.find((field) => field.key === 'navigation')?.default;
   const menuRows = [...document.querySelectorAll('#site-navigation-fields [data-site-menu-row]')];
-  const logoError = document.getElementById('site-logo-error');
-  if (logoError) { logoError.hidden = true; logoError.textContent = ''; }
+  const profileImageFields = [
+    { key: 'logo', inputId: 'site-logo', errorId: 'site-logo-error', label: '로고' },
+    { key: 'share-image', inputId: 'site-share-image', errorId: 'site-share-image-error', label: '사이트 대표 이미지' },
+    { key: 'favicon', inputId: 'site-favicon', errorId: 'site-favicon-error', label: 'Favicon' }
+  ];
+  for (const field of profileImageFields) {
+    const error = document.getElementById(field.errorId);
+    if (error) { error.hidden = true; error.textContent = ''; }
+  }
   if (feedback) feedback.textContent = '';
   document.querySelectorAll('#site-navigation-fields [data-site-menu-href], #site-navigation-fields [data-site-menu-label]')
     .forEach((field) => field.removeAttribute('aria-invalid'));
@@ -105,13 +112,16 @@ async function siteHostingCollectCreatePayload(options = {}) {
     .forEach((error) => { error.hidden = true; error.textContent = ''; });
   const duplicateWarning = document.querySelector('#site-navigation-fields [data-site-menu-duplicate-warning]');
   if (duplicateWarning) { duplicateWarning.hidden = true; duplicateWarning.textContent = ''; }
-  let logo = siteHostingLogoDataUrl;
-  const logoInput = document.getElementById('site-logo');
-  if (logoInput?.files?.[0]) {
-    try { logo = await siteHostingReadLogo(logoInput.files[0]); }
-    catch (error) {
-      if (logoError) { logoError.textContent = error.message; logoError.hidden = false; }
-      logoInput.focus();
+  const profileImages = { ...siteHostingProfileImages };
+  for (const field of profileImageFields) {
+    const input = document.getElementById(field.inputId);
+    if (!input?.files?.[0]) continue;
+    try {
+      profileImages[field.key] = await siteHostingReadProfileImage(input.files[0], field.label);
+    } catch (error) {
+      const errorEl = document.getElementById(field.errorId);
+      if (errorEl) { errorEl.textContent = error.message; errorEl.hidden = false; }
+      input.focus();
       return null;
     }
   }
@@ -159,7 +169,13 @@ async function siteHostingCollectCreatePayload(options = {}) {
     name,
     template_id: templateInput.value,
     customization: {
-      ...(logo ? { logo } : {}),
+      ...(String(document.getElementById('site-description')?.value || '').trim()
+        ? { site_description: String(document.getElementById('site-description').value).trim() }
+        : {}),
+      ...(profileImages.logo ? { logo: profileImages.logo } : {}),
+      ...(profileImages['share-image'] ? { share_image: profileImages['share-image'] } : {}),
+      ...(profileImages.favicon ? { favicon: profileImages.favicon } : {}),
+      search_engine_indexing: document.getElementById('site-search-indexing')?.checked !== false,
       ...(navigation ? { navigation } : {}),
       ...(postListSelection ? { publishing: { post_list_navigation_index: selectedMenuIndex } } : {})
     }
@@ -194,21 +210,6 @@ async function siteHostingCreateSite(event) {
     submit.disabled = false;
     submit.classList.remove('is-loading');
   }
-}
-
-function siteHostingSetLogoPreview(dataUrl) {
-  const image = document.getElementById('site-logo-image');
-  const empty = document.getElementById('site-logo-empty');
-  const choose = document.querySelector('[data-site-logo-choose]');
-  const remove = document.querySelector('[data-site-logo-remove]');
-  if (image) {
-    if (dataUrl) image.src = dataUrl;
-    else image.removeAttribute('src');
-    image.hidden = !dataUrl;
-  }
-  if (empty) empty.hidden = Boolean(dataUrl);
-  if (choose) choose.textContent = dataUrl ? '이미지 변경' : '이미지 선택';
-  if (remove) remove.hidden = !dataUrl;
 }
 
 function siteHostingMarkCreatePreviewStale() {
@@ -287,11 +288,56 @@ function siteHostingShowMenuError(input, message) {
   }
 }
 
+function siteHostingCreateFormSnapshot() {
+  return JSON.stringify({
+    name: document.getElementById('site-name')?.value || '',
+    description: document.getElementById('site-description')?.value || '',
+    template: document.getElementById('site-template-id')?.value || '',
+    images: siteHostingProfileImages,
+    searchIndexing: document.getElementById('site-search-indexing')?.checked !== false,
+    menus: [...document.querySelectorAll('#site-navigation-fields [data-site-menu-row]')].map((row) => ({
+      id: row.dataset.siteMenuId || '',
+      label: row.querySelector('[data-site-menu-label]')?.value || '',
+      href: row.querySelector('[data-site-menu-href]')?.value || '',
+      postList: row.querySelector('input[name="site-post-list-menu"]')?.checked === true
+    }))
+  });
+}
+
+async function siteHostingRequestCreateCancel() {
+  const dialog = document.getElementById('site-create-dialog');
+  if (!dialog?.open) return;
+  if (siteHostingCreateInitialSnapshot && siteHostingCreateFormSnapshot() !== siteHostingCreateInitialSnapshot) {
+    const confirmation = document.getElementById('site-create-cancel-dialog');
+    if (!confirmation) return;
+    confirmation.returnValue = '';
+    confirmation.showModal();
+    await new Promise((resolve) => confirmation.addEventListener('close', resolve, { once: true }));
+    const confirmed = confirmation.returnValue === 'confirm';
+    if (!confirmed) return;
+  }
+  dialog.close();
+}
+
+function siteHostingProfileImageOptions(key) {
+  const options = {
+    logo: { inputId: 'site-logo', errorId: 'site-logo-error', imageId: 'site-logo-image', emptyId: 'site-logo-empty', chooseButton: '[data-site-profile-image-choose="logo"]', removeButton: '[data-site-profile-image-remove="logo"]' },
+    'share-image': { inputId: 'site-share-image', errorId: 'site-share-image-error', imageId: 'site-share-image-preview', emptyId: 'site-share-image-empty', chooseButton: '[data-site-profile-image-choose="share-image"]', removeButton: '[data-site-profile-image-remove="share-image"]' },
+    favicon: { inputId: 'site-favicon', errorId: 'site-favicon-error', imageId: 'site-favicon-preview', emptyId: 'site-favicon-empty', chooseButton: '[data-site-profile-image-choose="favicon"]', removeButton: '[data-site-profile-image-remove="favicon"]' }
+  };
+  return options[key] || null;
+}
+
 function siteHostingBindCreateDialogEvents() {
   const dialog = document.getElementById('site-create-dialog');
   const previewDialog = document.getElementById('site-create-preview-dialog');
   document.getElementById('site-create-form')?.addEventListener('submit', (event) => void siteHostingCreateSite(event));
   document.querySelector('[data-site-create-preview]')?.addEventListener('click', () => void siteHostingPreviewCreateSite());
+  document.querySelector('[data-site-create-cancel]')?.addEventListener('click', () => void siteHostingRequestCreateCancel());
+  dialog?.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    void siteHostingRequestCreateCancel();
+  });
   dialog?.addEventListener('close', () => {
     if (previewDialog?.open) previewDialog.close();
     void siteHostingClearCreatePreview();
@@ -305,18 +351,24 @@ function siteHostingBindCreateDialogEvents() {
       siteHostingMarkCreatePreviewStale();
       return;
     }
-    if (event.target.closest('[data-site-logo-remove]')) {
-      const logoInput = document.getElementById('site-logo');
-      if (logoInput) logoInput.value = '';
-      siteHostingLogoDataUrl = '';
-      siteHostingSetLogoPreview('');
-      const error = document.getElementById('site-logo-error');
+    const removeImage = event.target.closest('[data-site-profile-image-remove]');
+    if (removeImage) {
+      const key = removeImage.dataset.siteProfileImageRemove;
+      const options = siteHostingProfileImageOptions(key);
+      if (!options) return;
+      const imageInput = document.getElementById(options.inputId);
+      if (imageInput) imageInput.value = '';
+      siteHostingProfileImages[key] = '';
+      siteHostingSetProfileImagePreview({ ...options, dataUrl: '' });
+      const error = document.getElementById(options.errorId);
       if (error) { error.hidden = true; error.textContent = ''; }
       siteHostingMarkCreatePreviewStale();
       return;
     }
-    if (event.target.closest('[data-site-logo-choose]')) {
-      document.getElementById('site-logo')?.click();
+    const chooseImage = event.target.closest('[data-site-profile-image-choose]');
+    if (chooseImage) {
+      const options = siteHostingProfileImageOptions(chooseImage.dataset.siteProfileImageChoose);
+      if (options) document.getElementById(options.inputId)?.click();
       return;
     }
     if (event.target.closest('[data-site-menu-add]')) {
@@ -332,24 +384,27 @@ function siteHostingBindCreateDialogEvents() {
     if (radios.length && !radios.some((radio) => radio.checked)) radios[0].checked = true;
   });
   document.getElementById('site-name')?.addEventListener('input', (event) => event.currentTarget.removeAttribute('aria-invalid'));
-  document.getElementById('site-logo')?.addEventListener('change', async (event) => {
-    const input = event.currentTarget;
-    const error = document.getElementById('site-logo-error');
-    try {
-      const selected = await siteHostingReadLogo(input.files?.[0]);
-      if (selected) siteHostingLogoDataUrl = selected;
-      siteHostingSetLogoPreview(siteHostingLogoDataUrl);
-      if (error) { error.hidden = true; error.textContent = ''; }
-      input.value = '';
-      siteHostingMarkCreatePreviewStale();
-    } catch (cause) {
-      input.value = '';
-      if (error) { error.textContent = cause.message; error.hidden = false; }
-    }
-  });
+  for (const key of Object.keys(SITE_PROFILE_IMAGE_LABELS)) {
+    const options = siteHostingProfileImageOptions(key);
+    document.getElementById(options.inputId)?.addEventListener('change', async (event) => {
+      const input = event.currentTarget;
+      const error = document.getElementById(options.errorId);
+      try {
+        const selected = await siteHostingReadProfileImage(input.files?.[0], SITE_PROFILE_IMAGE_LABELS[key]);
+        if (selected) siteHostingProfileImages[key] = selected;
+        siteHostingSetProfileImagePreview({ ...options, dataUrl: siteHostingProfileImages[key] });
+        if (error) { error.hidden = true; error.textContent = ''; }
+        input.value = '';
+        siteHostingMarkCreatePreviewStale();
+      } catch (cause) {
+        input.value = '';
+        if (error) { error.textContent = cause.message; error.hidden = false; }
+      }
+    });
+  }
   dialog?.addEventListener('input', (event) => {
     const field = event.target;
-    if (field.matches('#site-name, [data-site-menu-label], [data-site-menu-href]')) siteHostingMarkCreatePreviewStale();
+    if (field.matches('#site-name, #site-description, [data-site-menu-label], [data-site-menu-href]')) siteHostingMarkCreatePreviewStale();
     if (field.matches('#site-name')) field.removeAttribute('aria-invalid');
     if (!field.matches('[data-site-menu-label], [data-site-menu-href]')) return;
     field.removeAttribute('aria-invalid');
@@ -365,7 +420,7 @@ function siteHostingBindCreateDialogEvents() {
     }
   });
   dialog?.addEventListener('change', (event) => {
-    if (event.target.matches('input[name="site-post-list-menu"]')) siteHostingMarkCreatePreviewStale();
+    if (event.target.matches('input[name="site-post-list-menu"], #site-search-indexing')) siteHostingMarkCreatePreviewStale();
   });
 }
 async function siteHostingOpenCreateSiteDialog() {
@@ -376,9 +431,12 @@ async function siteHostingOpenCreateSiteDialog() {
   const feedback = document.getElementById('site-create-feedback');
   const submit = document.querySelector('#site-create-form [type="submit"]');
   const previewButton = document.querySelector('[data-site-create-preview]');
+  const workspace = document.getElementById('site-create-workspace');
   if (!dialog || dialog.open || !siteHostingSelectedProject) return;
   input.value = '';
   input.removeAttribute('aria-invalid');
+  document.getElementById('site-description').value = '';
+  document.getElementById('site-search-indexing').checked = true;
   feedback.textContent = '';
   templateInput.value = '';
   templateGrid.innerHTML = '<div class="site-template-loading" role="status">템플릿을 불러오는 중…</div>';
@@ -388,15 +446,22 @@ async function siteHostingOpenCreateSiteDialog() {
   document.getElementById('site-template-count').textContent = '';
   const templatePreview = document.getElementById('site-create-template-preview');
   if (templatePreview) { templatePreview.removeAttribute('src'); templatePreview.hidden = true; }
-  siteHostingLogoDataUrl = '';
-  const logoInput = document.getElementById('site-logo');
-  if (logoInput) logoInput.value = '';
-  siteHostingSetLogoPreview('');
+  siteHostingProfileImages = { logo: '', 'share-image': '', favicon: '' };
+  for (const key of Object.keys(SITE_PROFILE_IMAGE_LABELS)) {
+    const options = siteHostingProfileImageOptions(key);
+    const imageInput = document.getElementById(options.inputId);
+    if (imageInput) imageInput.value = '';
+    const error = document.getElementById(options.errorId);
+    if (error) { error.hidden = true; error.textContent = ''; }
+    siteHostingSetProfileImagePreview({ ...options, dataUrl: '' });
+  }
   void siteHostingClearCreatePreview();
   document.getElementById('site-create-preview-status').textContent = '';
   document.getElementById('site-create-preview-empty').hidden = false;
   document.getElementById('site-create-preview-busy').hidden = true;
   document.getElementById('site-navigation-fields').replaceChildren();
+  if (workspace) workspace.inert = true;
+  siteHostingCreateInitialSnapshot = '';
   if (submit) submit.disabled = true;
   if (previewButton) {
     previewButton.disabled = true;
@@ -410,10 +475,13 @@ async function siteHostingOpenCreateSiteDialog() {
     templateInput.value = siteHostingSelectedCreateTemplate;
     siteHostingRenderCreateTemplates();
     siteHostingRenderCreateNavigation();
+    if (workspace) workspace.inert = false;
+    siteHostingCreateInitialSnapshot = siteHostingCreateFormSnapshot();
     if (submit) submit.disabled = false;
     if (previewButton) previewButton.disabled = false;
     requestAnimationFrame(() => input.focus());
   } catch (error) {
+    if (workspace) workspace.inert = true;
     templateGrid.innerHTML = '<p class="site-template-loading" role="alert">템플릿을 불러오지 못했습니다.</p>';
     feedback.textContent = error.message || '템플릿을 불러오지 못했습니다.';
   }

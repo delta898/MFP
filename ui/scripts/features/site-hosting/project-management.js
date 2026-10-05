@@ -14,7 +14,8 @@ let siteHostingZoneStatus = 'idle';
 let siteHostingZoneMessage = '';
 let siteHostingCreateTemplates = [];
 let siteHostingSelectedCreateTemplate = '';
-let siteHostingLogoDataUrl = '';
+let siteHostingProfileImages = { logo: '', 'share-image': '', favicon: '' };
+let siteHostingCreateInitialSnapshot = '';
 let siteHostingCreatePreviewId = '';
 
 function siteHostingEscapeHtml(value) {
@@ -259,16 +260,7 @@ async function siteHostingLoadSites(projectId) {
 }
 
 function siteHostingReadLogo(file) {
-  return new Promise((resolve, reject) => {
-    if (!file) return resolve('');
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 1024 * 1024) {
-      return reject(new Error('PNG, JPG 또는 WebP 로고를 1MB 이하로 선택해 주세요.'));
-    }
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(new Error('로고 이미지를 읽지 못했습니다.'));
-    reader.readAsDataURL(file);
-  });
+  return siteHostingReadProfileImage(file, '로고');
 }
 
 async function siteHostingBuildSite(siteId, button) {
@@ -651,7 +643,6 @@ function initSiteHostingProjects() {
     });
     document.getElementById('site-project-create-form')?.addEventListener('submit', (event) => void siteHostingCreateProject(event));
     document.querySelector('[data-site-project-cancel]')?.addEventListener('click', () => document.getElementById('site-project-create-dialog')?.close());
-    document.querySelector('[data-site-create-cancel]')?.addEventListener('click', () => document.getElementById('site-create-dialog')?.close());
     siteHostingBindCreateDialogEvents();
   }
   void siteHostingLoadProjects();

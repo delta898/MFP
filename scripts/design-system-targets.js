@@ -6,6 +6,7 @@ const DESIGN_SYSTEM_VIEW_IDS = Object.freeze([
   'view-shopping',
   'view-social',
   'view-account',
+  'view-site-hosting',
   'view-help'
 ]);
 

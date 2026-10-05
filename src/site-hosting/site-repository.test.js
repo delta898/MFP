@@ -126,7 +126,7 @@ test('site repository materializes family data separately from replaceable Astro
     try {
         const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
         projectRepository.create({ id: 'project-1', name: '개인 사이트' });
-        const familySeed = { displayName: '기본 이름', logo: '/logo.svg', navigation: [
+        const familySeed = { displayName: '기본 이름', logo: '/logo.svg', seoDescription: '', searchEngineIndexing: true, navigation: [
             { id: 'about', label: '소개', path: '/about/team/' }, { id: 'posts', label: '글', path: '/blog/' }
         ] };
         const template = {
@@ -155,6 +155,11 @@ test('site repository materializes family data separately from replaceable Astro
         const created = repository.create('project-1', {
             id: 'site-1', name: '내 사이트', template_id: template.id,
             customization: {
+                site_description: '사이트 소개 문구',
+                search_engine_indexing: false,
+                logo: { extension: 'png', content: Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]) },
+                share_image: { extension: 'jpg', content: Buffer.from([255, 216, 255]) },
+                favicon: { extension: 'webp', content: Buffer.from('RIFF0000WEBP') },
                 navigation: [
                     { id: 'about', label: '소개', href: '/story/' },
                     { id: 'posts', label: '이야기', href: '/stories/' },
@@ -170,6 +175,14 @@ test('site repository materializes family data separately from replaceable Astro
         const manifest = JSON.parse(fs.readFileSync(path.join(root, '.bloggenius', 'site.json'), 'utf8'));
         assert.equal(fs.existsSync(path.join(root, 'template', 'astro', 'package.json')), true);
         assert.equal(siteData.displayName, '내 사이트');
+        assert.equal(siteData.seoDescription, '사이트 소개 문구');
+        assert.equal(siteData.searchEngineIndexing, false);
+        assert.equal(siteData.logo, '/bloggenius-logo.png');
+        assert.equal(siteData.shareImage, '/bloggenius-share-image.jpg');
+        assert.equal(siteData.favicon, '/bloggenius-favicon.webp');
+        assert.equal(fs.existsSync(path.join(root, 'site-data', 'public', 'bloggenius-logo.png')), true);
+        assert.equal(fs.existsSync(path.join(root, 'site-data', 'public', 'bloggenius-share-image.jpg')), true);
+        assert.equal(fs.existsSync(path.join(root, 'site-data', 'public', 'bloggenius-favicon.webp')), true);
         assert.deepEqual(siteData.navigation, [
             { id: 'about', label: '소개', path: '/story/' }, { id: 'posts', label: '이야기', path: '/stories/' },
             { id: 'menu-3', label: '가이드', path: '/guide/first-steps/' }, { id: 'menu-4', label: '외부', path: 'https://example.com/' }
