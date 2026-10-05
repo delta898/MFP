@@ -2543,7 +2543,7 @@ async function run() {
                 ]);
                 assert.deepEqual(previewRequest?.body?.customization?.publishing, { post_list_navigation_index: 1 });
                 assert.equal(previewRequest?.body?.customization?.site_description, '브라우저 smoke에서 입력한 사이트 설명');
-                assert.equal(previewRequest?.body?.customization?.search_indexing, false);
+                assert.equal(previewRequest?.body?.customization?.search_engine_indexing, false);
                 assert.match(previewRequest?.body?.customization?.share_image || '', /^data:image\/png;base64,/);
                 await page.getByRole('button', { name: '미리보기 닫기' }).click();
                 await page.locator('#site-create-form [type="submit"]').click();
@@ -2554,7 +2554,7 @@ async function run() {
                 ]);
                 assert.deepEqual(createRequest?.body?.customization?.publishing, { post_list_navigation_index: 1 });
                 assert.equal(createRequest?.body?.customization?.site_description, '브라우저 smoke에서 입력한 사이트 설명');
-                assert.equal(createRequest?.body?.customization?.search_indexing, false);
+                assert.equal(createRequest?.body?.customization?.search_engine_indexing, false);
                 assert.match(createRequest?.body?.customization?.share_image || '', /^data:image\/png;base64,/);
                 await page.getByText('브라우저 검증 사이트', { exact: true }).waitFor();
             }
@@ -5827,8 +5827,8 @@ async function run() {
             { method: 'POST', pathname: '/api/v1/settings/optional-services' },
             { method: 'POST', pathname: '/api/v1/site-hosting/projects' },
             { method: 'POST', pathname: '/api/v1/site-hosting/projects/site-project-smoke/preview-drafts' },
-            { method: 'DELETE', pathname: '/api/v1/site-hosting/projects/site-project-smoke/preview-drafts/site-preview-smoke' },
             { method: 'POST', pathname: '/api/v1/site-hosting/projects/site-project-smoke/sites' },
+            { method: 'DELETE', pathname: '/api/v1/site-hosting/projects/site-project-smoke/preview-drafts/site-preview-smoke' },
             { method: 'POST', pathname: '/api/v1/trend-posting/topics' },
             { method: 'POST', pathname: '/api/v1/keywords/analyze' },
             { method: 'POST', pathname: '/api/v1/keywords/suggest-titles' },

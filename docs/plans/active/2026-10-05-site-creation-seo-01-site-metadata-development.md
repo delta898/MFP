@@ -5,7 +5,7 @@
 - Branch: `codex/site-creation-seo-01`
 - Base/parent branch: `codex/static-site-builder-main`
 - Start date: 2026-10-05
-- Status: Implemented; focused verification passes, full browser smoke has an unrelated late failure
+- Status: Merged into parent after focused verification; browser smoke completes Site Hosting flow but has an unrelated fixture 404 at final validation
 
 ## User need and goal
 
@@ -62,7 +62,8 @@ Improve Site Hosting site creation so users can supply the site-wide SEO metadat
 - 2026-10-05: During that UI check, the shared non-modal confirmation overlay was found to sit underneath the native Site creation dialog. Replaced it with a dedicated native confirmation dialog so the confirmation is visible and operable above the form.
 - 2026-10-05: Astro package dependencies are not installed in the Amade templates in this checkout, so template builds could not be run without installing dependencies. No dependency installation was performed.
 - 2026-10-05: Removed Site Hosting's compatibility style scope and registered the view as a design-system surface, so site cards and creation dialogs inherit the user's selected BlogGenius style. Focused design-style and Site Hosting UI contract tests pass (28/28).
+- 2026-10-05: Corrected the Site creation request's indexing key to `search_engine_indexing`; focused Site UI and service tests pass (13/13). Updated the browser smoke's expected key and request order. The smoke completes the Site creation/preview checks but fails at its final generic fixture check because `/preview-fixture/` returns 404; no Site Hosting assertion fails.
 
 ## Final result
 
-Implemented in the BlogGenius feature branch and Amade working tree. Focused automated checks pass; the full browser smoke reaches and passes the modified Site creation flow, then fails at an unrelated layout-position assertion in the later paste-editor flow. Amade Astro builds and hands-on visual review remain outstanding. Changes are uncommitted and unpushed.
+Implemented in BlogGenius and Amade. Focused automated checks pass; the browser smoke completes the Site creation and preview flow, then fails at final fixture validation because `/preview-fixture/` returns 404. Amade Astro builds and hands-on visual review remain outstanding. The BlogGenius change is committed and merged into `codex/static-site-builder-main`; it has not been pushed.
