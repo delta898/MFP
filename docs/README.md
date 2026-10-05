@@ -110,6 +110,8 @@
 - `plans/active/2026-10-01-static-site-builder-main-development.md` (`main` → `codex/static-site-builder-main` → serial sub-features; the parent may merge into `dev` only by explicit request)
 - `plans/active/2026-10-03-amade-template-catalog-and-site-template-development.md` (current serial sub-feature; Amade catalog and Site Hosting Template Family integration)
 - `plans/active/2026-10-03-amade-template-spec-v0.1-design.md` (experimental Site Hosting 0.1 design extended to share Amade discovery/metadata with BlogGenius UI Styles; existing 1.x resources are legacy)
+- `plans/active/2026-10-05-digital-garden-template-poc.md` (full-Vault local Astro POC and evidence; no deployment)
+- `plans/active/2026-10-05-knowledge-collection-template-contract-model.md` (proposed Collection/Knowledge Collection contract model and open decisions; discussion draft)
 - `plans/archive/2026-10-02-site-creation-development.md` (completed serial sub-feature; Site creation, Astro build/preview, Cloudflare deployment/domain connection, and Site management UI)
 - `plans/archive/2026-10-02-site-management-page-development.md` (completed serial sub-feature; Project list, create, and detail IA)
 - `plans/archive/2026-10-02-project-site-model-and-user-flow-design.md` (completed Project/Site model and user-flow design stage)

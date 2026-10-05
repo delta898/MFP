@@ -3,6 +3,7 @@ import { getCollection, render } from 'astro:content';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { marked } from 'marked';
+import { createObsidianRenderer, renderObsidianFootnotes } from '../lib/obsidian-markdown.js';
 
 const root = process.cwd();
 const bundleDir = path.resolve(process.env.GARDEN_BUNDLE_DIR || path.join(root, 'bundle'));
@@ -13,6 +14,114 @@ const posts = await getCollection('blog');
 const entryById = new Map(notes.map((entry) => [entry.data.id, entry]));
 const postById = new Map(posts.map((entry) => [entry.id, entry]));
 const recordById = new Map(graph.entries.map((entry) => [entry.id, entry]));
+const { routeKind = 'note', entryId, postId } = Astro.props;
+
+function escapeHtml(value) {
+  return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function encodedPath(value) {
+  return value.split('/').map(encodeURIComponent).join('/');
+}
+
+function buildExplorerTree(files) {
+  const root = { directories: new Map(), files: [] };
+  const ensureDirectory = (parts) => {
+    let node = root;
+    for (const directory of parts) {
+      if (!node.directories.has(directory)) node.directories.set(directory, { directories: new Map(), files: [] });
+      node = node.directories.get(directory);
+    }
+    return node;
+  };
+  for (const directory of graph.source_directories || []) ensureDirectory(directory.split('/'));
+  for (const file of files) {
+    const parts = file.path.split('/');
+    const name = parts.pop();
+    const node = ensureDirectory(parts);
+    node.files.push({ ...file, name });
+  }
+  const render = (node) => {
+    const folders = [...node.directories].sort(([a], [b]) => a.localeCompare(b, 'ko'))
+      .map(([name, child]) => `<li class="tree-folder"><span class="tree-label"><span aria-hidden="true">▾</span> ${escapeHtml(name)}</span><ul>${render(child)}</ul></li>`);
+    const entries = [...node.files].sort((a, b) => a.name.localeCompare(b.name, 'ko')).map((file) => {
+      const href = file.kind === 'note'
+        ? `${gardenBasePath}/${recordById.get(file.entry_id)?.route_slug || file.entry_id}/`
+        : `/knowledge-assets/${encodedPath(file.path)}`;
+      const active = file.entry_id === entryId ? ' aria-current="page" class="tree-file active"' : ' class="tree-file"';
+      const target = file.kind === 'resource' ? ' target="_blank" rel="noreferrer"' : '';
+      const icon = file.kind === 'note' ? '▤' : '·';
+      return `<li><a${active} href="${escapeHtml(href)}"${target}><span aria-hidden="true">${icon}</span> ${escapeHtml(file.name)}</a></li>`;
+    });
+    return [...folders, ...entries].join('');
+  };
+  return render(root);
+}
+
+function buildGraphSvg(entries) {
+  const width = 1400;
+  const height = 940;
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const indexById = new Map(entries.map((entry, index) => [entry.id, index]));
+  const nodes = entries.map((entry, index) => {
+    const angle = index * 2.399963229728653;
+    const radius = 35 + 12 * Math.sqrt(index + 1);
+    return { entry, x: centerX + Math.cos(angle) * radius, y: centerY + Math.sin(angle) * radius, vx: 0, vy: 0 };
+  });
+  const edges = entries.flatMap((entry, source) => entry.links
+    .map((targetId) => [source, indexById.get(targetId)])
+    .filter(([, target]) => Number.isInteger(target) && target !== source));
+
+  for (let iteration = 0; iteration < 90; iteration += 1) {
+    const fx = new Array(nodes.length).fill(0);
+    const fy = new Array(nodes.length).fill(0);
+    for (let left = 0; left < nodes.length; left += 1) {
+      for (let right = left + 1; right < nodes.length; right += 1) {
+        const dx = nodes[left].x - nodes[right].x;
+        const dy = nodes[left].y - nodes[right].y;
+        const distanceSquared = Math.max(dx * dx + dy * dy, 36);
+        const distance = Math.sqrt(distanceSquared);
+        if (distance > 145) continue;
+        const force = 105 / distanceSquared;
+        const pushX = (dx / distance) * force;
+        const pushY = (dy / distance) * force;
+        fx[left] += pushX; fy[left] += pushY;
+        fx[right] -= pushX; fy[right] -= pushY;
+      }
+    }
+    for (const [source, target] of edges) {
+      const dx = nodes[target].x - nodes[source].x;
+      const dy = nodes[target].y - nodes[source].y;
+      const distance = Math.max(Math.hypot(dx, dy), 1);
+      const force = (distance - 76) * 0.0018;
+      const pullX = (dx / distance) * force;
+      const pullY = (dy / distance) * force;
+      fx[source] += pullX; fy[source] += pullY;
+      fx[target] -= pullX; fy[target] -= pullY;
+    }
+    const cooling = 1 - iteration / 110;
+    for (let index = 0; index < nodes.length; index += 1) {
+      const node = nodes[index];
+      node.vx = (node.vx + fx[index] + (centerX - node.x) * 0.00018) * 0.82;
+      node.vy = (node.vy + fy[index] + (centerY - node.y) * 0.00018) * 0.82;
+      node.x = Math.max(24, Math.min(width - 24, node.x + node.vx * cooling));
+      node.y = Math.max(24, Math.min(height - 24, node.y + node.vy * cooling));
+    }
+  }
+
+  const edgeMarkup = edges.map(([source, target]) => {
+    const from = nodes[source]; const to = nodes[target];
+    return `<line x1="${from.x.toFixed(1)}" y1="${from.y.toFixed(1)}" x2="${to.x.toFixed(1)}" y2="${to.y.toFixed(1)}" />`;
+  }).join('');
+  const nodeMarkup = nodes.map(({ entry, x, y }) => {
+    const href = `${gardenBasePath}/${entry.route_slug}/`;
+    return `<a href="${escapeHtml(href)}" class="graph-node" aria-label="${escapeHtml(entry.title)}"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="7"><title>${escapeHtml(entry.title)}</title></circle><text x="${(x + 10).toFixed(1)}" y="${(y + 4).toFixed(1)}">${escapeHtml(entry.title)}</text></a>`;
+  }).join('');
+  return `<g class="graph-edges">${edgeMarkup}</g><g class="graph-nodes">${nodeMarkup}</g>`;
+}
+
+const explorerTreeHtml = buildExplorerTree(graph.source_files || graph.entries.map((entry) => ({ path: entry.source_path, kind: 'note', entry_id: entry.id })));
 
 export async function getStaticPaths() {
   const bundlePath = path.resolve(process.env.GARDEN_BUNDLE_DIR || path.join(process.cwd(), 'bundle'));
@@ -22,6 +131,7 @@ export async function getStaticPaths() {
   const prefix = process.env.GARDEN_BASE_PATH === '/' ? '' : (process.env.GARDEN_BASE_PATH || '/garden').split('/').filter(Boolean).join('/');
   return [
     ...(prefix ? [{ params: { path: prefix }, props: { routeKind: 'knowledge-index' } }] : []),
+    { params: { path: [prefix, 'graph'].filter(Boolean).join('/') }, props: { routeKind: 'graph-index' } },
     ...data.entries.map((entry) => ({
       params: { path: [prefix, entry.route_slug].filter(Boolean).join('/') },
       props: { routeKind: 'note', entryId: entry.id },
@@ -33,26 +143,52 @@ export async function getStaticPaths() {
   ];
 }
 
-const { routeKind = 'note', entryId, postId } = Astro.props;
 const inbound = entryId ? graph.entries.filter((entry) => entry.links.includes(entryId)) : [];
 const current = entryId ? entryById.get(entryId) : null;
 const currentPost = postId ? postById.get(postId) : null;
 const record = entryId ? recordById.get(entryId) : null;
 const basePath = gardenBasePath;
-const bodyHtml = current ? marked.parse(current.body || '').replace(/href="knowledge-note:([^\"]+)"/g, (_match, id) => {
+const noteMarkdown = current ? renderObsidianFootnotes(current.body || '', marked) : '';
+const bodyHtml = current ? marked.parse(noteMarkdown, { renderer: createObsidianRenderer(marked) }).replace(/href="knowledge-note:([^\"]+)"/g, (_match, encodedTarget) => {
+  const [id, anchor] = encodedTarget.split('#', 2);
   const target = recordById.get(id);
-  return target ? `href="${basePath}/${target.route_slug}/"` : `href="knowledge-note:${id}"`;
+  return target ? `href="${basePath}/${target.route_slug}/${anchor ? `#${anchor}` : ''}"` : `href="knowledge-note:${encodedTarget}"`;
 }) : '';
 const { Content: BlogContent } = currentPost ? await render(currentPost) : { Content: null };
 const collectionHref = gardenBasePath ? `${gardenBasePath}/` : '/';
+const graphSvg = routeKind === 'graph-index' ? buildGraphSvg(graph.entries) : '';
 ---
 
 <!doctype html>
 <html lang="en">
   <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /><title>{current?.data.title || 'Knowledge Collection'}</title></head>
-  <body>
+  <body class={current ? 'explorer-page' : routeKind === 'graph-index' ? 'graph-page' : undefined}>
+    {current ? (
+      <div class="explorer-layout">
+        <aside class="explorer-sidebar">
+          <a class="explorer-brand" href={collectionHref}>Knowledge Collection</a>
+          <p class="explorer-summary">{graph.source_files?.length || graph.entries.length} files · {graph.entries.length} notes</p>
+          <a class="graph-view-link" href={`${gardenBasePath}/graph/`}>Open graph view →</a>
+          <nav aria-label="Vault folders and files"><ul class="explorer-tree" set:html={explorerTreeHtml} /></nav>
+        </aside>
+        <div class="explorer-content">
+          <header class="reader-header">{record?.source_path}</header>
+          <main class="reader-main">
+            <article><h1>{current.data.title}</h1><div set:html={bodyHtml} /></article>
+            <section><h2>Links</h2><ul>{(record?.links || []).map((id) => <li><a href={`${gardenBasePath}/${recordById.get(id)?.route_slug || id}/`}>{recordById.get(id)?.title || id}</a></li>)}</ul></section>
+            <section><h2>Backlinks</h2><ul>{inbound.map((entry) => <li><a href={`${gardenBasePath}/${entry.route_slug}/`}>{entry.title}</a></li>)}</ul></section>
+          </main>
+        </div>
+      </div>
+    ) : (
+      <>
     <nav><a href={collectionHref}>Knowledge Collection</a></nav>
-    {routeKind === 'blog-index' ? (
+    {routeKind === 'graph-index' ? (
+      <main class="graph-view">
+        <header class="graph-header"><div><h1>Knowledge Graph</h1><p>{graph.entries.length} notes · {graph.entries.reduce((sum, entry) => sum + entry.links.length, 0)} links. Select a node to open its note.</p></div><a href={collectionHref}>Back to collection</a></header>
+        <svg viewBox="0 0 1400 940" role="img" aria-label="Knowledge Collection note relationship graph" set:html={graphSvg} />
+      </main>
+    ) : routeKind === 'blog-index' ? (
       <main><h1>Blog Collection</h1><ul>{posts.map((post) => <li><a href={`/blog/${post.id}/`}>{post.data.title}</a><p>{post.data.description}</p></li>)}</ul></main>
     ) : routeKind === 'blog-post' && currentPost ? (
       <main><nav><a href="/blog/">Blog Collection</a></nav><h1>{currentPost.data.title}</h1><p>{currentPost.data.description}</p><BlogContent /></main>
@@ -61,18 +197,61 @@ const collectionHref = gardenBasePath ? `${gardenBasePath}/` : '/';
         <h1>Knowledge Collection</h1>
         <ul>{notes.map((note) => <li><a href={`${gardenBasePath}/${note.data.route_slug}/`}>{note.data.title}</a></li>)}</ul>
       </main>
-    ) : current ? (
-      <main>
-        <article><h1>{current.data.title}</h1><div set:html={bodyHtml} /></article>
-        <section><h2>Links</h2><ul>{(record?.links || []).map((id) => <li><a href={`${gardenBasePath}/${recordById.get(id)?.route_slug || id}/`}>{recordById.get(id)?.title || id}</a></li>)}</ul></section>
-        <section><h2>Backlinks</h2><ul>{inbound.map((entry) => <li><a href={`${gardenBasePath}/${entry.route_slug}/`}>{entry.title}</a></li>)}</ul></section>
-      </main>
     ) : <main><h1>Not found</h1></main>}
+      </>
+    )}
   </body>
 </html>
 
 <style>
   body { max-width: 48rem; margin: 3rem auto; padding: 0 1.25rem; font: 1.1rem/1.65 system-ui, sans-serif; color: #21352c; }
   main, section { margin: 2rem 0; padding: 1.4rem; border: 1px solid #d5e2d9; border-radius: 1rem; }
-  img { max-width: 100%; height: auto; }
+  :global(article img) { max-width: 100%; height: auto; }
+  :global(.callout) { --callout-accent: #43835d; --callout-background: #f0f7f1; margin: 1.5rem 0; padding: 1rem 1.2rem; border: 1px solid color-mix(in srgb, var(--callout-accent) 35%, white); border-left: .35rem solid var(--callout-accent); border-radius: .65rem; background: var(--callout-background); }
+  :global(.callout-title), :global(.callout summary) { color: var(--callout-accent); font-weight: 700; }
+  :global(.callout-title) { display: flex; align-items: center; gap: .55rem; margin: -1rem -1.2rem .9rem; padding: .7rem 1rem; border-bottom: 1px solid color-mix(in srgb, var(--callout-accent) 22%, white); border-radius: .6rem .6rem 0 0; background: color-mix(in srgb, var(--callout-accent) 10%, white); }
+  :global(.callout-title::before) { content: "✦"; display: inline-grid; place-items: center; width: 1.4rem; height: 1.4rem; border-radius: 50%; background: var(--callout-accent); color: white; font-size: .85rem; }
+  :global(.callout summary) { padding: .15rem 0; }
+  :global(.callout-content > :first-child) { margin-top: .65rem; }
+  :global(.callout-content > :last-child) { margin-bottom: 0; }
+  :global(details.callout summary) { cursor: pointer; }
+  :global(.callout[data-callout="info"]), :global(.callout[data-callout="note"]) { --callout-accent: #3977a8; --callout-background: #f0f6fb; }
+  :global(.callout[data-callout="warning"]) { --callout-accent: #a46b17; --callout-background: #fbf6eb; }
+  :global(.callout[data-callout="danger"]), :global(.callout[data-callout="failure"]) { --callout-accent: #b34b45; --callout-background: #fbf0ef; }
+  :global(.callout[data-callout="important"]) { --callout-accent: #08a8a4; --callout-background: #eaf8f7; }
+  :global(.callout[data-callout="tip"]), :global(.callout[data-callout="success"]) { --callout-accent: #43835d; --callout-background: #f0f7f1; }
+  :global(.callout[data-callout="quote"]), :global(.callout[data-callout="abstract"]) { --callout-accent: #70579b; --callout-background: #f5f1fa; }
+  :global(.footnotes) { margin-top: 3rem; font-size: .9em; }
+  :global(.footnotes li) { padding: .25rem 0 .6rem; }
+  :global(.footnote-ref) { margin-left: .08em; font-size: .75em; vertical-align: super; }
+  :global(.footnote-backref) { margin-left: .35rem; text-decoration: none; }
+  body.explorer-page { max-width: none; height: 100vh; margin: 0; padding: 0; overflow: hidden; }
+  body.graph-page { max-width: none; min-height: 100vh; margin: 0; padding: 1rem; background: #f7faf8; }
+  .explorer-layout { display: grid; grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr); height: 100vh; }
+  .explorer-sidebar { overflow: auto; padding: 1.25rem .85rem; border-right: 1px solid #d5e2d9; background: #f7faf8; font-size: .88rem; }
+  .explorer-brand { display: block; margin: 0 .55rem; color: #21352c; font-size: 1.1rem; font-weight: 700; text-decoration: none; }
+  .explorer-summary { margin: .25rem .55rem 1rem; color: #6d7c73; font-size: .78rem; }
+  .graph-view-link { display: block; margin: 0 .45rem .9rem; padding: .5rem .65rem; border: 1px solid #d5e2d9; border-radius: .5rem; color: #1c5e4d; font-size: .84rem; text-decoration: none; }
+  :global(.explorer-tree), :global(.explorer-tree ul) { margin: 0; padding-left: 1rem; list-style: none; }
+  :global(.explorer-tree) { padding-left: 0; }
+  :global(.explorer-tree li) { min-width: 0; }
+  :global(.tree-label), :global(.tree-file) { display: block; overflow-wrap: anywhere; padding: .18rem .35rem; border-radius: .3rem; color: #34483d; text-decoration: none; }
+  :global(.tree-label) { color: #68776e; font-weight: 650; }
+  :global(.tree-file:hover), :global(.tree-file.active) { background: #e2eee7; color: #1c5e4d; }
+  :global(.tree-file.active) { font-weight: 700; }
+  .explorer-content { min-width: 0; overflow: auto; }
+  .reader-header { position: sticky; top: 0; z-index: 1; padding: .8rem 2rem; border-bottom: 1px solid #e2e9e4; background: rgb(255 255 255 / 94%); color: #718078; font-size: .82rem; }
+  .reader-main { max-width: 76rem; margin: 0 auto; padding: 1.25rem 2rem 4rem; }
+  .reader-main article { overflow-wrap: anywhere; }
+  .graph-view { max-width: 100%; margin: 0 auto; padding: 0; border: 0; }
+  .graph-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0 auto 1rem; padding: .75rem 1rem; }
+  .graph-header h1 { margin: 0; font-size: 1.5rem; }
+  .graph-header p { margin: .25rem 0 0; color: #68776e; font-size: .9rem; }
+  .graph-view svg { display: block; width: 100%; height: calc(100vh - 7rem); min-height: 32rem; border: 1px solid #d5e2d9; border-radius: .8rem; background: white; }
+  :global(.graph-edges line) { stroke: #8ca89a; stroke-width: 1.1; opacity: .48; }
+  :global(.graph-node circle) { fill: #39836b; stroke: white; stroke-width: 2; transition: r .12s, fill .12s; }
+  :global(.graph-node:hover circle), :global(.graph-node:focus circle) { r: 10; fill: #d17443; }
+  :global(.graph-node text) { fill: #31443a; font: 11px system-ui, sans-serif; opacity: .72; pointer-events: none; }
+  :global(.graph-node:hover text), :global(.graph-node:focus text) { fill: #17271f; font-weight: 700; opacity: 1; }
+  @media (max-width: 760px) { .explorer-layout { grid-template-columns: minmax(12rem, 42vw) minmax(0, 1fr); } .reader-header { padding-inline: 1rem; } .reader-main { padding-inline: 1rem; } }
 </style>

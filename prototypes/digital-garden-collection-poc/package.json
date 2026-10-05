@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "convert": "node scripts/convert.js",
+    "build:fixture": "npm run convert && GARDEN_BASE_PATH=/garden astro build --outDir dist/fixture",
+    "verify:obsidian-markdown": "npm run build:fixture && node scripts/verify-obsidian-markdown.js",
     "build:local-vault": "node scripts/build-local-vault.js",
     "build:subpath": "npm run convert && GARDEN_BASE_PATH=/garden astro build --outDir dist/subpath",
     "build:root": "npm run convert && GARDEN_BASE_PATH=/ astro build --outDir dist/root",

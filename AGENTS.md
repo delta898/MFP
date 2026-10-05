@@ -141,7 +141,9 @@
 
 ## Release / Development Routine
 - Do not bump versions during normal feature work.
-- Decide the version only right before release.
+- Never choose or bump a version number autonomously. When a version change is needed, explain why and ask the user to choose the exact version first; apply only the version the user approves. This applies to app, schema, contract, and package versions.
+- Decide the version only right before release, with the user's explicit choice.
+- For the Amade Site Hosting Contract, keep Template `spec_version`, Family `content_contract_version`, and Template `compatibility.contract.version` identical. If a contract change requires a version bump, ask the user for the exact shared version before editing any of the three fields; update and verify all three together. The template package's own `version` is independent and must not be inferred from the contract version.
 - During release preparation, update the app version source and its lockfile metadata together. Do not bump independently versioned tools, plugins, or services unless they are explicitly part of the same release.
 - Use conventional commit messages:
   - `feat: ...`

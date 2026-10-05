@@ -2,6 +2,7 @@ import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { createHeadingResolver } from '../src/lib/obsidian-markdown.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -42,6 +43,32 @@ function normalizeNoteTarget(value) {
   return value.trim().replace(/\\/g, '/').replace(/\.md$/i, '').replace(/^\.\//, '').toLocaleLowerCase();
 }
 
+function splitWikilinkTarget(value) {
+  const hashIndex = value.indexOf('#');
+  return hashIndex < 0
+    ? { noteTarget: value.trim(), fragment: '' }
+    : { noteTarget: value.slice(0, hashIndex).trim(), fragment: value.slice(hashIndex + 1).trim() };
+}
+
+function escapeHtml(value) {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function transformOutsideCode(markdown, transform) {
+  const protectedBlocks = [];
+  const protect = (value) => {
+    const marker = `\uE000OBSIDIAN_CODE_${protectedBlocks.length}\uE001`;
+    protectedBlocks.push(value);
+    return marker;
+  };
+  let masked = markdown.replace(/^ {0,3}(`{3,}|~{3,})[^\r\n]*\r?\n[\s\S]*?^ {0,3}\1[ \t]*$/gm, protect);
+  masked = masked.replace(/(`+)(?!`)([^\r\n]*?)(?<!`)\1(?!`)/g, protect);
+  const transformed = masked.split(/(\uE000OBSIDIAN_CODE_\d+\uE001)/g).map((part) =>
+    part.startsWith('\uE000OBSIDIAN_CODE_') ? part : transform(part),
+  ).join('');
+  return transformed.replace(/\uE000OBSIDIAN_CODE_(\d+)\uE001/g, (_match, index) => protectedBlocks[Number(index)]);
+}
+
 await rm(bundleDir, { recursive: true, force: true });
 const notesDir = path.join(bundleDir, 'knowledge/notes');
 const assetsDir = path.join(bundleDir, 'public/knowledge-assets');
@@ -52,9 +79,14 @@ const sourceFiles = await walk(vaultDir);
 const markdownFiles = sourceFiles.filter((file) => path.extname(file.relative).toLowerCase() === '.md');
 const idByPath = new Map();
 const idByName = new Map();
+const sourceById = new Map();
+const headingResolverById = new Map();
 for (const file of markdownFiles) {
   const relative = file.relative.split(path.sep).join('/');
   const id = idFor(relative);
+  sourceById.set(id, await readFile(file.absolute, 'utf8'));
+  const sourceBody = parseTitleAndBody(sourceById.get(id), path.basename(relative, path.extname(relative))).body;
+  headingResolverById.set(id, createHeadingResolver(sourceBody));
   idByPath.set(normalizeNoteTarget(relative), id);
   const nameKey = normalizeNoteTarget(path.basename(relative));
   if (!idByName.has(nameKey)) idByName.set(nameKey, id);
@@ -65,30 +97,41 @@ const records = [];
 for (const file of markdownFiles) {
   const relative = file.relative.split(path.sep).join('/');
   const id = idByPath.get(normalizeNoteTarget(relative));
-  const source = await readFile(file.absolute, 'utf8');
+  const source = sourceById.get(id);
   const { title, body } = parseTitleAndBody(source, path.basename(relative, path.extname(relative)));
   const links = [];
   const noteDir = path.posix.dirname(relative);
-  const normalizedBody = body.replace(/(!?)\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_all, embed, rawTarget, rawLabel) => {
-    const targetText = rawTarget.split('#', 1)[0].trim();
+  const normalizedBody = transformOutsideCode(body, (markdown) => markdown.replace(/(?<!\\)(!?)\[\[([^\]]+)\]\]/g, (_all, embed, inner) => {
+    const separator = inner.indexOf('|');
+    const rawTarget = (separator < 0 ? inner : inner.slice(0, separator)).trim();
+    const rawLabel = separator < 0 ? '' : inner.slice(separator + 1).trim();
+    const parsedTarget = rawTarget.startsWith('^') ? { noteTarget: '', fragment: rawTarget } : splitWikilinkTarget(rawTarget);
+    const { noteTarget, fragment } = parsedTarget;
     if (embed) {
-      const candidate = path.posix.normalize(path.posix.join(noteDir, targetText));
+      const candidate = path.posix.normalize(path.posix.join(noteDir, noteTarget));
       const encoded = candidate.split('/').map(encodeURIComponent).join('/');
-      const alt = (rawLabel || path.posix.basename(targetText)).trim();
+      const alt = (rawLabel || path.posix.basename(noteTarget)).trim();
       return `![${alt}](/knowledge-assets/${encoded})`;
     }
-    const relativeCandidate = normalizeNoteTarget(path.posix.normalize(path.posix.join(noteDir, targetText)));
-    const directCandidate = normalizeNoteTarget(targetText);
-    const targetId = idByPath.get(relativeCandidate) || idByPath.get(directCandidate) || idByName.get(normalizeNoteTarget(path.posix.basename(targetText)));
-    if (!targetId) return rawLabel ? rawLabel.trim() : targetText;
+    const isCurrentNote = !noteTarget;
+    const relativeCandidate = normalizeNoteTarget(path.posix.normalize(path.posix.join(noteDir, noteTarget)));
+    const directCandidate = normalizeNoteTarget(noteTarget);
+    const targetId = isCurrentNote
+      ? id
+      : idByPath.get(relativeCandidate) || idByPath.get(directCandidate) || idByName.get(normalizeNoteTarget(path.posix.basename(noteTarget)));
+    if (!targetId) return escapeHtml(rawLabel || noteTarget || fragment);
     links.push(targetId);
-    const label = (rawLabel || path.posix.basename(targetText)).trim();
-    return `[${label}](knowledge-note:${targetId})`;
-  }).replace(/(!\[[^\]]*\]\()((?:\.\.?\/)?[^:)]+)(\))/g, (_all, before, target, after) => {
+    const anchor = fragment ? headingResolverById.get(targetId)(fragment) : '';
+    const href = `knowledge-note:${targetId}${anchor ? `#${encodeURIComponent(anchor)}` : ''}`;
+    const label = rawLabel || (fragment.startsWith('^') ? fragment.slice(1) : fragment) || path.posix.basename(noteTarget) || title;
+    return `<a href="${href}">${escapeHtml(label)}</a>`;
+  }).replace(/([.!?\w\u3131-\uD79D][^\n]*?)[ \t]+\^([A-Za-z0-9_-]+)[ \t]*$/gm, (_all, text, blockId) => `${text}<span id="${blockId}"></span>`)
+    .replace(/(^|\n)\^([A-Za-z0-9_-]+)[ \t]*$/gm, (_all, prefix, blockId) => `${prefix}<span id="${blockId}"></span>`)
+    .replace(/(\]\()((?:\.\.?\/)?[^):#?]+)(#[^)]*)?(\))/g, (_all, before, target, fragment = '', after) => {
     const absoluteAsset = path.posix.normalize(path.posix.join(noteDir, target));
     const publicPath = `/knowledge-assets/${absoluteAsset.split('/').map(encodeURIComponent).join('/')}`;
-    return `${before}${publicPath}${after}`;
-  });
+    return `${before}${publicPath}${fragment}${after}`;
+  }));
   const record = { id, title, route_slug: id, links: [...new Set(links)], source_path: relative };
   records.push(record);
   const output = `---\ntitle: ${JSON.stringify(title)}\nid: ${JSON.stringify(id)}\nroute_slug: ${JSON.stringify(id)}\nlinks: ${JSON.stringify(record.links)}\n---\n\n${normalizedBody}`;
@@ -103,7 +146,23 @@ for (const file of sourceFiles.filter((item) => path.extname(item.relative).toLo
   copiedBytes += file.size;
 }
 
-const graph = { collection_id: 'knowledge', source_root: vaultDir, entries: records };
+const fileInventory = sourceFiles.map((file) => {
+  const relative = file.relative.split(path.sep).join('/');
+  const isMarkdown = path.extname(relative).toLowerCase() === '.md';
+  return {
+    path: relative,
+    kind: isMarkdown ? 'note' : 'resource',
+    ...(isMarkdown ? { entry_id: idByPath.get(normalizeNoteTarget(relative)) } : {}),
+  };
+});
+const directoryInventory = (await walkDirectories(vaultDir)).map((directory) => path.relative(vaultDir, directory).split(path.sep).join('/'));
+const graph = {
+  collection_id: 'knowledge',
+  source_root: vaultDir,
+  entries: records,
+  source_directories: directoryInventory,
+  source_files: fileInventory,
+};
 await writeFile(path.join(bundleDir, 'knowledge/graph.json'), `${JSON.stringify(graph, null, 2)}\n`);
 for (const file of await walk(path.join(root, 'fixtures/blog'))) {
   await mkdir(path.dirname(path.join(blogDir, file.relative)), { recursive: true });
