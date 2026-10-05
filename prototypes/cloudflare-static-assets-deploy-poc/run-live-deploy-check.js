@@ -73,7 +73,7 @@ async function publishSample({ accessToken, account, workerName }) {
         workerCreated = !workerAlreadyExists;
 
         const assets = makeSampleAssets();
-        const { manifest, filesByHash } = createAssetManifest(assets);
+        const { manifest, filesByHash, contentTypesByHash } = createAssetManifest(assets);
         stage = 'Asset upload session';
         const session = await cf.createAssetUploadSession({ accountId: account.id, scriptName: workerName, manifest });
 
@@ -82,6 +82,7 @@ async function publishSample({ accessToken, account, workerName }) {
             accountId: account.id,
             buckets: session.buckets,
             filesByHash,
+            contentTypesByHash,
             uploadToken: session.uploadToken
         });
 

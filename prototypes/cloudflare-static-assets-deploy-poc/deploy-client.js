@@ -3,10 +3,41 @@ const STATIC_ASSETS_WORKER_MODULE = `export default {\n  fetch(request, env) {\n
 const crypto = require('node:crypto');
 const path = require('node:path');
 
+const CONTENT_TYPES_BY_EXTENSION = {
+    avif: 'image/avif',
+    css: 'text/css; charset=utf-8',
+    gif: 'image/gif',
+    htm: 'text/html; charset=utf-8',
+    html: 'text/html; charset=utf-8',
+    ico: 'image/x-icon',
+    jpeg: 'image/jpeg',
+    jpg: 'image/jpeg',
+    js: 'text/javascript; charset=utf-8',
+    json: 'application/json; charset=utf-8',
+    mjs: 'text/javascript; charset=utf-8',
+    otf: 'font/otf',
+    pdf: 'application/pdf',
+    png: 'image/png',
+    svg: 'image/svg+xml',
+    txt: 'text/plain; charset=utf-8',
+    ttf: 'font/ttf',
+    webmanifest: 'application/manifest+json',
+    webp: 'image/webp',
+    woff: 'font/woff',
+    woff2: 'font/woff2',
+    xml: 'application/xml; charset=utf-8'
+};
+
+function inferContentType(assetPath) {
+    const extension = path.posix.extname(assetPath).slice(1).toLowerCase();
+    return CONTENT_TYPES_BY_EXTENSION[extension] || 'application/octet-stream';
+}
+
 function createAssetManifest(files) {
     if (!Array.isArray(files) || files.length === 0) throw new Error('At least one static asset is required.');
     const manifest = {};
     const filesByHash = new Map();
+    const contentTypesByHash = new Map();
     for (const file of files) {
         const assetPath = String(file?.path || '').replace(/\\/g, '/');
         if (!assetPath || assetPath.startsWith('//') || assetPath.split('/').some((part) => part === '.' || part === '..')) {
@@ -22,8 +53,9 @@ function createAssetManifest(files) {
             .slice(0, 32);
         manifest[normalizedPath] = { hash, size: content.length };
         filesByHash.set(hash, content);
+        contentTypesByHash.set(hash, inferContentType(normalizedPath));
     }
-    return { manifest, filesByHash };
+    return { manifest, filesByHash, contentTypesByHash };
 }
 
 function requireValue(value, label) {
@@ -145,7 +177,7 @@ function createCloudflareStaticAssetsClient({ accessToken, fetchImpl = globalThi
         return { uploadToken: result.jwt, buckets: result.buckets };
     }
 
-    async function uploadAssetBuckets({ accountId, buckets, filesByHash, uploadToken } = {}) {
+    async function uploadAssetBuckets({ accountId, buckets, filesByHash, contentTypesByHash, uploadToken } = {}) {
         const account = validateAccountId(accountId);
         const jwt = requireValue(uploadToken, 'Cloudflare asset upload token');
         if (!Array.isArray(buckets)) throw new Error('Cloudflare upload buckets are required.');
@@ -161,11 +193,12 @@ function createCloudflareStaticAssetsClient({ accessToken, fetchImpl = globalThi
             for (const hash of bucket) {
                 const content = filesByHash.get(hash);
                 if (content === undefined) throw new Error(`A local asset is missing for hash ${hash}.`);
-                payload.push([hash, Buffer.from(content).toString('base64')]);
+                const contentType = contentTypesByHash?.get(hash) || 'application/octet-stream';
+                payload.push([hash, Buffer.from(content).toString('base64'), contentType]);
             }
             const form = new FormData();
-            for (const [hash, base64Content] of payload) {
-                form.append(hash, base64Content);
+            for (const [hash, base64Content, contentType] of payload) {
+                form.append(hash, new Blob([base64Content], { type: contentType }));
             }
             const response = await fetchImpl(
                 `${API_BASE_URL}/accounts/${account}/workers/assets/upload?base64=true`,
@@ -256,4 +289,4 @@ function createCloudflareStaticAssetsClient({ accessToken, fetchImpl = globalThi
     return { createWorker, getWorker, createAssetUploadSession, uploadAssetBuckets, uploadWorkerVersion, createDeployment, listDeployments, getWorkersSubdomain };
 }
 
-module.exports = { API_BASE_URL, STATIC_ASSETS_WORKER_MODULE, createAssetManifest, createCloudflareStaticAssetsClient };
+module.exports = { API_BASE_URL, STATIC_ASSETS_WORKER_MODULE, createAssetManifest, createCloudflareStaticAssetsClient, inferContentType };

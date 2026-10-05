@@ -24,7 +24,7 @@ CF_OAUTH_CLIENT_ID=your-private-client-id node prototypes/cloudflare-static-asse
 
 1. `POST /accounts/{account_id}/workers/workers`로 Worker 리소스를 만든다. `workers.dev` 사용을 요청한다.
 2. `POST /workers/scripts/{script_name}/assets-upload-session`에 경로별 hash/size manifest를 등록한다.
-3. Cloudflare가 돌려준 bucket별 해시 파일을 `/workers/assets/upload?base64=true`로 전송한다. 이 업로드에는 OAuth access token 대신 업로드 session JWT를 쓴다.
+3. Cloudflare가 돌려준 bucket별 해시 파일을 `/workers/assets/upload?base64=true`로 전송한다. 각 multipart 파일 파트의 `Content-Type`을 파일 확장자에 맞게 설정해야 Cloudflare가 브라우저에 올바른 MIME 형식을 응답한다. 이 업로드에는 OAuth access token 대신 업로드 session JWT를 쓴다.
 4. `POST /workers/scripts/{script_name}/versions`로 assets binding을 포함한 multipart 새 버전을 올린다. 이 안정 API는 업로드만 하고 traffic은 바꾸지 않는다.
 5. 별도의 `POST /workers/scripts/{script_name}/deployments`로 새 버전에 트래픽을 보낸다.
 6. `GET /workers/scripts/{script_name}/deployments`로 배포를 조회한다. 응답 첫 항목이 현재 트래픽을 받는 최신 배포다.

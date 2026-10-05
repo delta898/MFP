@@ -1,0 +1,17 @@
+{
+  "name": "digital-garden-collection-poc",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "convert": "node scripts/convert.js",
+    "build:local-vault": "node scripts/build-local-vault.js",
+    "build:subpath": "npm run convert && GARDEN_BASE_PATH=/garden astro build --outDir dist/subpath",
+    "build:root": "npm run convert && GARDEN_BASE_PATH=/ astro build --outDir dist/root",
+    "deploy:subpath": "npm run build:subpath && node scripts/deploy-cloudflare.js dist/subpath",
+    "verify": "node scripts/verify.js"
+  },
+  "dependencies": {
+    "astro": "7.3.5",
+    "marked": "17.0.6"
+  }
+}

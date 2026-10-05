@@ -1,0 +1,78 @@
+---
+import { getCollection, render } from 'astro:content';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { marked } from 'marked';
+
+const root = process.cwd();
+const bundleDir = path.resolve(process.env.GARDEN_BUNDLE_DIR || path.join(root, 'bundle'));
+const graph = JSON.parse(await readFile(path.join(bundleDir, 'knowledge/graph.json'), 'utf8'));
+const gardenBasePath = process.env.GARDEN_BASE_PATH === '/' ? '' : `/${(process.env.GARDEN_BASE_PATH || '/garden').split('/').filter(Boolean).join('/')}`;
+const notes = await getCollection('knowledge');
+const posts = await getCollection('blog');
+const entryById = new Map(notes.map((entry) => [entry.data.id, entry]));
+const postById = new Map(posts.map((entry) => [entry.id, entry]));
+const recordById = new Map(graph.entries.map((entry) => [entry.id, entry]));
+
+export async function getStaticPaths() {
+  const bundlePath = path.resolve(process.env.GARDEN_BUNDLE_DIR || path.join(process.cwd(), 'bundle'));
+  const graphPath = path.join(bundlePath, 'knowledge/graph.json');
+  const data = JSON.parse(await readFile(graphPath, 'utf8'));
+  const posts = await getCollection('blog');
+  const prefix = process.env.GARDEN_BASE_PATH === '/' ? '' : (process.env.GARDEN_BASE_PATH || '/garden').split('/').filter(Boolean).join('/');
+  return [
+    ...(prefix ? [{ params: { path: prefix }, props: { routeKind: 'knowledge-index' } }] : []),
+    ...data.entries.map((entry) => ({
+      params: { path: [prefix, entry.route_slug].filter(Boolean).join('/') },
+      props: { routeKind: 'note', entryId: entry.id },
+    })),
+    ...(prefix ? [
+      { params: { path: 'blog' }, props: { routeKind: 'blog-index' } },
+      ...posts.map((post) => ({ params: { path: `blog/${post.id}` }, props: { routeKind: 'blog-post', postId: post.id } })),
+    ] : []),
+  ];
+}
+
+const { routeKind = 'note', entryId, postId } = Astro.props;
+const inbound = entryId ? graph.entries.filter((entry) => entry.links.includes(entryId)) : [];
+const current = entryId ? entryById.get(entryId) : null;
+const currentPost = postId ? postById.get(postId) : null;
+const record = entryId ? recordById.get(entryId) : null;
+const basePath = gardenBasePath;
+const bodyHtml = current ? marked.parse(current.body || '').replace(/href="knowledge-note:([^\"]+)"/g, (_match, id) => {
+  const target = recordById.get(id);
+  return target ? `href="${basePath}/${target.route_slug}/"` : `href="knowledge-note:${id}"`;
+}) : '';
+const { Content: BlogContent } = currentPost ? await render(currentPost) : { Content: null };
+const collectionHref = gardenBasePath ? `${gardenBasePath}/` : '/';
+---
+
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /><title>{current?.data.title || 'Knowledge Collection'}</title></head>
+  <body>
+    <nav><a href={collectionHref}>Knowledge Collection</a></nav>
+    {routeKind === 'blog-index' ? (
+      <main><h1>Blog Collection</h1><ul>{posts.map((post) => <li><a href={`/blog/${post.id}/`}>{post.data.title}</a><p>{post.data.description}</p></li>)}</ul></main>
+    ) : routeKind === 'blog-post' && currentPost ? (
+      <main><nav><a href="/blog/">Blog Collection</a></nav><h1>{currentPost.data.title}</h1><p>{currentPost.data.description}</p><BlogContent /></main>
+    ) : routeKind === 'knowledge-index' ? (
+      <main>
+        <h1>Knowledge Collection</h1>
+        <ul>{notes.map((note) => <li><a href={`${gardenBasePath}/${note.data.route_slug}/`}>{note.data.title}</a></li>)}</ul>
+      </main>
+    ) : current ? (
+      <main>
+        <article><h1>{current.data.title}</h1><div set:html={bodyHtml} /></article>
+        <section><h2>Links</h2><ul>{(record?.links || []).map((id) => <li><a href={`${gardenBasePath}/${recordById.get(id)?.route_slug || id}/`}>{recordById.get(id)?.title || id}</a></li>)}</ul></section>
+        <section><h2>Backlinks</h2><ul>{inbound.map((entry) => <li><a href={`${gardenBasePath}/${entry.route_slug}/`}>{entry.title}</a></li>)}</ul></section>
+      </main>
+    ) : <main><h1>Not found</h1></main>}
+  </body>
+</html>
+
+<style>
+  body { max-width: 48rem; margin: 3rem auto; padding: 0 1.25rem; font: 1.1rem/1.65 system-ui, sans-serif; color: #21352c; }
+  main, section { margin: 2rem 0; padding: 1.4rem; border: 1px solid #d5e2d9; border-radius: 1rem; }
+  img { max-width: 100%; height: auto; }
+</style>

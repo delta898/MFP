@@ -1,0 +1,39 @@
+---
+import { getCollection } from 'astro:content';
+import path from 'node:path';
+import { readFile } from 'node:fs/promises';
+
+const gardenBasePath = process.env.GARDEN_BASE_PATH === '/' ? '' : `/${(process.env.GARDEN_BASE_PATH || '/garden').split('/').filter(Boolean).join('/')}`;
+const notes = await getCollection('knowledge');
+const posts = await getCollection('blog');
+const bundleDir = path.resolve(process.env.GARDEN_BUNDLE_DIR || './bundle');
+const summary = JSON.parse(await readFile(path.join(bundleDir, 'summary.json'), 'utf8'));
+const standaloneGarden = gardenBasePath === '';
+const gardenHref = standaloneGarden ? '/' : `${gardenBasePath}/`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /><title>{standaloneGarden ? 'Knowledge Collection' : 'Homepage + Collections'}</title></head>
+  <body>
+    <header><h1>{standaloneGarden ? 'Knowledge Collection' : 'Personal Homepage'}</h1></header>
+    {standaloneGarden ? (
+      <section>
+        <h2>Notes</h2>
+        <p>{summary.files} files · {summary.directories} directories</p>
+        <ul>{notes.map((note) => <li><a href={`${gardenBasePath}/${note.data.route_slug}/`}>{note.data.title}</a></li>)}</ul>
+      </section>
+    ) : (
+      <>
+        <nav><a href="/">Home</a> · <a href="/blog/">Blog</a> · <a href={gardenHref}>Knowledge Collection</a></nav>
+        <section><h2>Blog Collection</h2><ul>{posts.map((post) => <li><a href={`/blog/${post.id}/`}>{post.data.title}</a></li>)}</ul></section>
+        <section><h2>Knowledge Collection</h2><p><a href={gardenHref}>Open the collection</a> · {notes.length} notes · {summary.files} source files</p></section>
+      </>
+    )}
+  </body>
+</html>
+
+<style>
+  body { max-width: 48rem; margin: 3rem auto; padding: 0 1.25rem; font: 1.1rem/1.65 system-ui, sans-serif; color: #21352c; }
+  header, section { margin: 2rem 0; padding: 1.4rem; border: 1px solid #d5e2d9; border-radius: 1rem; }
+</style>

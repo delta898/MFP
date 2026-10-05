@@ -45,6 +45,10 @@ test('sample assets produce Cloudflare path/hash/size manifest and reject unsafe
     assert.equal(entry[1].size, Buffer.byteLength('<h1>PoC</h1>'));
     assert.match(entry[1].hash, /^[a-f0-9]{32}$/);
     assert.equal(result.filesByHash.get(entry[1].hash).toString(), '<h1>PoC</h1>');
+    const image = createAssetManifest([{ path: 'mark.svg', content: '<svg></svg>' }]);
+    assert.equal(image.contentTypesByHash.get(image.manifest['/mark.svg'].hash), 'image/svg+xml');
+    const pdf = createAssetManifest([{ path: 'guide.pdf', content: '%PDF-1.4' }]);
+    assert.equal(pdf.contentTypesByHash.get(pdf.manifest['/guide.pdf'].hash), 'application/pdf');
     assert.throws(() => createAssetManifest([{ path: '../outside.html', content: 'x' }]), /without dot segments/);
 });
 
@@ -93,7 +97,7 @@ test('Worker lookup treats only an HTTP 404 as an absent Worker', async () => {
     assert.equal(await client.getWorker({ accountId: ACCOUNT_ID, name: SCRIPT_NAME }), null);
 });
 
-test('asset bucket upload uses each asset hash as a multipart field name', async () => {
+test('asset bucket upload sends base64 content with each file MIME type in its multipart part', async () => {
     let request;
     const client = createCloudflareStaticAssetsClient({
         accessToken: 'oauth-access-token',
@@ -110,14 +114,22 @@ test('asset bucket upload uses each asset hash as a multipart field name', async
             ['hash-a', Buffer.from('hello')],
             ['hash-b', Buffer.from('world')]
         ]),
+        contentTypesByHash: new Map([
+            ['hash-a', 'image/svg+xml'],
+            ['hash-b', 'application/pdf']
+        ]),
         uploadToken: 'upload-session-jwt'
     });
 
     assert.equal(request.url, `${API_BASE_URL}/accounts/${ACCOUNT_ID}/workers/assets/upload?base64=true`);
     assert.equal(request.options.method, 'POST');
     assert.equal(request.options.headers.Authorization, 'Bearer upload-session-jwt');
-    assert.equal(request.options.body.get('hash-a'), Buffer.from('hello').toString('base64'));
-    assert.equal(request.options.body.get('hash-b'), Buffer.from('world').toString('base64'));
+    const svgPart = request.options.body.get('hash-a');
+    const pdfPart = request.options.body.get('hash-b');
+    assert.equal(await svgPart.text(), Buffer.from('hello').toString('base64'));
+    assert.equal(await pdfPart.text(), Buffer.from('world').toString('base64'));
+    assert.equal(svgPart.type, 'image/svg+xml');
+    assert.equal(pdfPart.type, 'application/pdf');
     assert.equal(request.options.body.get('body[hash-a]'), null);
     assert.equal(request.options.body.get('body'), null);
     assert.equal(result, 'completion-jwt');
