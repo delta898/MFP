@@ -14,6 +14,7 @@ let siteHostingZoneStatus = 'idle';
 let siteHostingZoneMessage = '';
 let siteHostingCreateTemplates = [];
 let siteHostingSelectedCreateTemplate = '';
+let siteHostingCreateSetupInputs = {};
 let siteHostingProfileImages = { logo: '', 'share-image': '', favicon: '' };
 let siteHostingCreateInitialSnapshot = '';
 let siteHostingCreatePreviewId = '';

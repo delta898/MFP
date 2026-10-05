@@ -137,6 +137,7 @@ function createSiteHostingSiteRepository(options = {}) {
                     ...(templateSnapshot.source_revision ? { source_revision: templateSnapshot.source_revision } : {})
                 },
                 ...(customization ? { customization } : {}),
+                ...(site.setup_inputs && Object.keys(site.setup_inputs).length ? { setup_inputs: site.setup_inputs } : {}),
                 hostname: '',
                 domain: '',
                 created_at: String(site.created_at || ''),
@@ -195,6 +196,7 @@ function createSiteHostingSiteRepository(options = {}) {
                     ...(templateSnapshot.source_revision ? { source_revision: templateSnapshot.source_revision } : {})
                 },
                 ...(customization ? { customization } : {}),
+                ...(site.setup_inputs && Object.keys(site.setup_inputs).length ? { setup_inputs: site.setup_inputs } : {}),
                 root_path: rootPath
             };
         } catch (cause) {
@@ -216,7 +218,7 @@ function createSiteHostingSiteRepository(options = {}) {
     }
 
     function applyTemplateCustomization(template, siteRoot, site) {
-        if (template.resource?.spec_version === '0.1.0') {
+        if (template.resource?.spec_version === '0.1.0-dev2') {
             const dataRoot = pathApi.join(siteRoot, 'site-data');
             const siteDataPath = pathApi.join(dataRoot, 'site.json');
             let siteData;

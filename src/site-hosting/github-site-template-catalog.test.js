@@ -171,14 +171,18 @@ test('Amade 0.1 family catalog groups active templates and materializes Astro so
             'amade/families/personal-homepage/data/data/posts/hello/index.md': Buffer.from('---\nkind: post\n---')
         };
         const family = {
-            spec_version: '0.1.0', family_id: 'personal-homepage', name: '개인 홈페이지',
+            spec_version: '0.1.0-dev2', family_id: 'personal-homepage', name: '개인 홈페이지',
             site_data_directory: 'data', content_types: [{ kind: 'post', listing_route: '/blog/', detail_route: '/blog/{slug}/' }]
         };
         const template = {
-            spec_version: '0.1.0', template_id: 'personal-post-list', family_id: 'personal-homepage',
+            spec_version: '0.1.0-dev2', template_id: 'personal-post-list', family_id: 'personal-homepage',
             name: '글 목록형', description: '기본 설명', author: 'amadejjs', version: '0.1.0', license: 'MIT',
             categories: ['Personal Website'], tags: ['List'], status: 'active', astro_project: 'astro', preview: 'preview.png',
-            compatibility: { min_bloggenius_version: '0.6.0', contract: { id: 'bloggenius-site-hosting-template', version: '0.7.1' } }
+            compatibility: { min_bloggenius_version: '0.6.0', contract: { id: 'bloggenius-site-hosting-template', version: '0.1.0-dev2' } },
+            setup_inputs: [
+                { id: 'knowledge_collection_root', type: 'directory', purpose: 'knowledge_collection', label: 'Obsidian Vault root', required: true },
+                { id: 'publication_filter', type: 'frontmatter_match', purpose: 'publication_filter', label: '공개 노트 기준', required: true }
+            ]
         };
         const catalogDocument = { spec_version: '0.1.0', status: 'experimental', families: [{
             family_id: 'personal-homepage', manifest: familyPath,
@@ -208,6 +212,7 @@ test('Amade 0.1 family catalog groups active templates and materializes Astro so
         assert.equal(listed[0].family_id, 'personal-homepage');
         assert.equal(listed[0].family_name, '개인 홈페이지');
         assert.deepEqual(listed[0].tags, ['List']);
+        assert.equal(catalog.get('personal-post-list').resource.template.setup_inputs[1].type, 'frontmatter_match');
         assert.equal(catalog.getPreview('personal-post-list').contentType, 'image/png');
 
         const olderBlogGenius = createGitHubSiteTemplateCatalog({

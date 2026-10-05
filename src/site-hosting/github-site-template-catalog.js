@@ -170,17 +170,31 @@ function createGitHubSiteTemplateCatalog(options = {}) {
         const projectPath = safeRelativePath(template.astro_project);
         const dataPath = safeRelativePath(family.site_data_directory);
         const previewPath = safeRelativePath(template.preview);
-        if (family.spec_version !== '0.1.0' || family.family_id !== reference.family_id
-            || template.spec_version !== '0.1.0' || template.template_id !== reference.template_id
+        const setupInputs = template.setup_inputs === undefined ? [] : template.setup_inputs;
+        const setupInputIds = new Set();
+        if (family.spec_version !== '0.1.0-dev2' || family.family_id !== reference.family_id
+            || template.spec_version !== '0.1.0-dev2' || template.template_id !== reference.template_id
             || template.family_id !== reference.family_id || !projectPath || !dataPath || !previewPath
             || !String(template.name || '').trim() || !String(template.description || '').trim()
             || !String(template.author || '').trim() || !/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(String(template.version || ''))
             || !String(template.license || '').trim() || !Array.isArray(template.categories) || !template.categories.length
             || !Array.isArray(template.tags) || !['active', 'deprecated', 'withdrawn'].includes(template.status)
+            || !Array.isArray(setupInputs) || setupInputs.some((input) => {
+                const id = String(input?.id || '');
+                const supportedInput = (input.type === 'directory' && input.purpose === 'knowledge_collection')
+                    || (input.type === 'frontmatter_match' && input.purpose === 'publication_filter');
+                if (!/^[a-z][a-z0-9_]*$/.test(id) || setupInputIds.has(id)
+                    || !supportedInput
+                    || !String(input.label || '').trim() || typeof input.required !== 'boolean'
+                    || Object.keys(input).some((key) => !['id', 'type', 'purpose', 'label', 'required'].includes(key))) return true;
+                setupInputIds.add(id);
+                return false;
+            })
             || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(String(template.compatibility?.min_bloggenius_version || ''))
             || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(String(template.compatibility?.contract?.id || ''))
-            || !/^\d+\.\d+(?:\.\d+)?$/.test(String(template.compatibility?.contract?.version || ''))) {
-            throw fail('SITE_HOSTING_TEMPLATE_MANIFEST_INVALID', 'Amade family 또는 template manifest가 0.1 규격에 맞지 않습니다.');
+            || !/^\d+\.\d+\.\d+(?:-dev\d+)?$/.test(String(template.compatibility?.contract?.version || ''))
+            || template.compatibility.contract.version !== template.spec_version) {
+            throw fail('SITE_HOSTING_TEMPLATE_MANIFEST_INVALID', 'Amade family 또는 template manifest가 Site Hosting 계약 규격에 맞지 않습니다.');
         }
         if (!isSupportedByBlogGenius(template.compatibility)) {
             throw fail('SITE_HOSTING_TEMPLATE_INCOMPATIBLE', '이 BlogGenius 버전에서 지원하지 않는 템플릿 호환성 계약입니다.', 422);
@@ -262,7 +276,7 @@ function createGitHubSiteTemplateCatalog(options = {}) {
                 family_id: family.family_id,
                 family_name: family.name,
                 family_description: family.description || '',
-                resource: { spec_version: '0.1.0', family, template, family_seed_site: familySeedSite },
+                resource: { spec_version: template.spec_version, family, template, family_seed_site: familySeedSite },
                 package_ready: Boolean(includePackage)
             };
             fileSystem.writeFileSync(pathApi.join(stagingRoot, 'template.json'), `${JSON.stringify(descriptor, null, 2)}\n`, { flag: 'wx', mode: 0o600 });

@@ -43,6 +43,13 @@ function createSiteHostingSiteRouteHandler(deps = {}) {
                 await sendSuccess(res, requestId, await service.listTemplates());
                 return true;
             }
+            const setupInputMatch = pathname.match(/^\/api\/v1\/site-hosting\/templates\/([^/]+)\/setup-inputs\/([^/]+)\/select-directory$/);
+            if (setupInputMatch && method === 'POST') {
+                await sendSuccess(res, requestId, await service.selectSetupDirectory(
+                    decodePathPart(setupInputMatch[1]), decodePathPart(setupInputMatch[2])
+                ));
+                return true;
+            }
             const templatePreviewMatch = pathname.match(/^\/api\/v1\/site-hosting\/templates\/([^/]+)\/preview$/);
             if (templatePreviewMatch && method === 'GET') {
                 const preview = service.getTemplatePreview?.(decodePathPart(templatePreviewMatch[1]));

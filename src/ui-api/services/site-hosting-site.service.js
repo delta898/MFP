@@ -75,6 +75,94 @@ function createSiteHostingSiteService(deps = {}) {
     const createId = deps.createId || (() => crypto.randomUUID().replace(/-/g, ''));
     const draftPreviews = new Map();
 
+    function normalizeSetupInputs(template, requested = {}, { allowMissingRequired = false } = {}) {
+        if (!requested || typeof requested !== 'object' || Array.isArray(requested)) {
+            throw siteInputError('템플릿 입력 설정 형식이 올바르지 않습니다.', 'SITE_HOSTING_SETUP_INPUT_INVALID');
+        }
+        const declared = template?.resource?.template?.setup_inputs || [];
+        if (!Array.isArray(declared)) throw siteInputError('템플릿 입력 규격을 읽지 못했습니다.', 'SITE_HOSTING_TEMPLATE_MANIFEST_INVALID');
+        const allowed = new Set(declared.map((item) => item.id));
+        if (Object.keys(requested).some((key) => !allowed.has(key))) {
+            throw siteInputError('템플릿에서 요청하지 않은 설정 항목입니다.', 'SITE_HOSTING_SETUP_INPUT_INVALID');
+        }
+        const normalized = {};
+        for (const input of declared) {
+            if (input.type === 'directory' && input.purpose === 'knowledge_collection') {
+                const value = String(requested[input.id] || '').trim();
+                if (!value) {
+                    if (input.required && !allowMissingRequired) {
+                        throw siteInputError(`${input.label || '폴더'}를 선택해 주세요.`, 'SITE_HOSTING_SETUP_INPUT_REQUIRED');
+                    }
+                    continue;
+                }
+                if (!pathApi.isAbsolute(value)) throw siteInputError('선택한 폴더 경로가 올바르지 않습니다.', 'SITE_HOSTING_SETUP_INPUT_INVALID');
+                let resolved;
+                try {
+                    resolved = fileSystem.realpathSync(value);
+                    if (!fileSystem.statSync(resolved).isDirectory()) throw new Error('not a directory');
+                } catch (_error) {
+                    throw siteInputError('선택한 폴더를 찾을 수 없습니다. 다시 선택해 주세요.', 'SITE_HOSTING_SETUP_INPUT_INVALID');
+                }
+                normalized[input.id] = resolved;
+                continue;
+            }
+            if (input.type === 'frontmatter_match' && input.purpose === 'publication_filter') {
+                const supplied = requested[input.id];
+                if (supplied === undefined) {
+                    if (input.required && !allowMissingRequired) {
+                        throw siteInputError('공개 노트 기준의 속성명과 일치값을 입력해 주세요.', 'SITE_HOSTING_SETUP_INPUT_REQUIRED');
+                    }
+                    continue;
+                }
+                if (!supplied || typeof supplied !== 'object' || Array.isArray(supplied)
+                    || Object.keys(supplied).some((key) => !['field', 'value'].includes(key))) {
+                    throw siteInputError('공개 노트 기준 형식이 올바르지 않습니다.', 'SITE_HOSTING_SETUP_INPUT_INVALID');
+                }
+                if (typeof supplied.field !== 'string' || typeof supplied.value !== 'string') {
+                    throw siteInputError('속성명과 일치값은 문자열로 입력해 주세요.', 'SITE_HOSTING_SETUP_INPUT_INVALID');
+                }
+                const field = supplied.field.trim();
+                const value = supplied.value.trim();
+                if (!field || !value) {
+                    if (input.required && !allowMissingRequired) {
+                        throw siteInputError('공개 노트 기준의 속성명과 일치값을 모두 입력해 주세요.', 'SITE_HOSTING_SETUP_INPUT_REQUIRED');
+                    }
+                    continue;
+                }
+                if (field.length > 128 || value.length > 256 || /[\u0000-\u001f\u007f]/u.test(field + value)) {
+                    throw siteInputError('공개 노트 기준은 속성명 128자, 일치값 256자 이내로 입력해 주세요.', 'SITE_HOSTING_SETUP_INPUT_INVALID');
+                }
+                normalized[input.id] = { field, value };
+                continue;
+            }
+            throw siteInputError('BlogGenius가 지원하지 않는 템플릿 입력 형식입니다.', 'SITE_HOSTING_SETUP_INPUT_UNSUPPORTED');
+        }
+        return normalized;
+    }
+
+    async function selectSetupDirectory(templateId, inputId) {
+        await templates.prepare?.(templateId);
+        const template = templates.get(templateId);
+        const setupInput = template?.resource?.template?.setup_inputs?.find((item) => item.id === inputId);
+        if (!setupInput || setupInput.type !== 'directory' || setupInput.purpose !== 'knowledge_collection') {
+            throw siteInputError('선택한 템플릿은 이 폴더 입력을 요청하지 않습니다.', 'SITE_HOSTING_SETUP_INPUT_UNSUPPORTED');
+        }
+        let nativeDialog = deps.dialog;
+        if (!nativeDialog) {
+            try { nativeDialog = require('electron').dialog; } catch (_error) { }
+        }
+        if (typeof nativeDialog?.showOpenDialog !== 'function') {
+            throw siteInputError('시스템 폴더 선택 창을 사용할 수 없습니다.', 'SITE_HOSTING_DIRECTORY_PICKER_UNAVAILABLE');
+        }
+        const result = await nativeDialog.showOpenDialog({
+            title: `${setupInput.label || '폴더'} 선택`,
+            properties: ['openDirectory']
+        });
+        if (result?.canceled || !result?.filePaths?.[0]) return { cancelled: true };
+        const setupInputs = normalizeSetupInputs(template, { [inputId]: result.filePaths[0] });
+        return { cancelled: false, path: setupInputs[inputId], name: pathApi.basename(setupInputs[inputId]) };
+    }
+
     function localDate(value) {
         const date = new Date(value);
         if (Number.isNaN(date.valueOf())) return new Date().toISOString().slice(0, 10);
@@ -246,10 +334,10 @@ function createSiteHostingSiteService(deps = {}) {
         const resource = template?.resource;
         const family = resource?.family;
         const postType = (family?.content_types || []).find((item) => item?.kind === 'post');
-        if (resource?.spec_version !== '0.1.0' || family?.content_contract_version !== '0.7.2'
-            || resource?.template?.compatibility?.contract?.version !== '0.7.2'
+        if (resource?.spec_version !== '0.1.0-dev2' || family?.content_contract_version !== resource.spec_version
+            || resource?.template?.compatibility?.contract?.version !== resource.spec_version
             || !postType || typeof postType.source !== 'string') {
-            throw siteInputError('이 템플릿은 Site Hosting 글 규격 0.7.2를 지원하지 않습니다.', 'SITE_HOSTING_POST_CONTRACT_UNSUPPORTED', 409);
+            throw siteInputError('이 템플릿은 현재 Site Hosting 계약을 지원하지 않습니다.', 'SITE_HOSTING_POST_CONTRACT_UNSUPPORTED', 409);
         }
         const routeSettings = site.customization?.publishing || {
             listing_route: postType.listing_route,
@@ -385,7 +473,7 @@ function createSiteHostingSiteService(deps = {}) {
         }
     }
 
-    function createSite(projectId, name, templateId, id = createId(), customization = {}) {
+    function createSite(projectId, name, templateId, id = createId(), customization = {}, setupInputs = {}) {
         const project = projectRepository.get(projectId);
         if (!project) {
             const error = new Error('프로젝트를 찾을 수 없습니다.');
@@ -400,7 +488,7 @@ function createSiteHostingSiteService(deps = {}) {
             throw error;
         }
         const timestamp = now();
-        const created = repository.create(project.id, { id, name, template_id: templateId, customization, created_at: timestamp, updated_at: timestamp });
+        const created = repository.create(project.id, { id, name, template_id: templateId, customization, setup_inputs: setupInputs, created_at: timestamp, updated_at: timestamp });
         return {
             id: created.id,
             project_id: created.project_id,
@@ -420,7 +508,7 @@ function createSiteHostingSiteService(deps = {}) {
         const items = await templates.list();
         return items.map((template) => {
             const resource = templates.get(template.id)?.resource;
-            if (resource?.spec_version === '0.1.0') {
+            if (resource?.spec_version === '0.1.0-dev2') {
                 const seedSite = resource.family_seed_site || {};
                 const postType = (resource.family?.content_types || []).find((type) => type.kind === 'post');
                 const pageType = (resource.family?.content_types || []).find((type) => type.kind === 'page');
@@ -434,6 +522,7 @@ function createSiteHostingSiteService(deps = {}) {
                     categories: resource.template.categories,
                     tags: resource.template.tags,
                     status: resource.template.status,
+                    setup_inputs: Array.isArray(resource.template.setup_inputs) ? resource.template.setup_inputs : [],
                     customization: [{ key: 'navigation', type: 'array', label: '사이트 메뉴', default: (seedSite.navigation || []).map((item) => ({ ...(item.id ? { id: item.id } : {}), label: item.label, href: item.path })) }],
                     ...(pageType ? { pages: { max_items: 20, route_pattern: '/{slug}/', reserved_slugs: ['blog', 'work', 'services'] } } : {}),
                     ...(publishing ? { publishing } : {}),
@@ -469,7 +558,7 @@ function createSiteHostingSiteService(deps = {}) {
                     await templates.prepare?.(defaultTemplateId);
                     const defaultTemplate = templates.get(defaultTemplateId);
                     let customization = {};
-                    if (defaultTemplate?.resource?.spec_version === '0.1.0') {
+                    if (defaultTemplate?.resource?.spec_version === '0.1.0-dev2') {
                         const seedSite = defaultTemplate.resource.family_seed_site || {};
                         const navigation = (seedSite.navigation || []).map((item) => ({ label: item.label, href: item.path }));
                         const postType = (defaultTemplate.resource.family?.content_types || []).find((type) => type.kind === 'post');
@@ -500,7 +589,7 @@ function createSiteHostingSiteService(deps = {}) {
 
     async function create(projectId, payload = {}) {
         if (!payload || typeof payload !== 'object' || Array.isArray(payload)
-            || Object.keys(payload).some((key) => !['name', 'template_id', 'customization'].includes(key))) {
+            || Object.keys(payload).some((key) => !['name', 'template_id', 'customization', 'setup_inputs'].includes(key))) {
             throw siteInputError('사이트 생성 요청에 허용되지 않은 항목이 포함되어 있습니다.', 'SITE_HOSTING_CREATE_INPUT_INVALID');
         }
         if (!projectRepository.get(projectId)) {
@@ -524,13 +613,15 @@ function createSiteHostingSiteService(deps = {}) {
         }
         const templateId = String(payload.template_id || '').trim();
         await templates.prepare?.(templateId);
-        const customization = normalizeSiteCustomization(templates.get(templateId), payload.customization || {});
-        return createSite(projectId, name, templateId, createId(), customization);
+        const template = templates.get(templateId);
+        const customization = normalizeSiteCustomization(template, payload.customization || {});
+        const setupInputs = normalizeSetupInputs(template, payload.setup_inputs || {});
+        return createSite(projectId, name, templateId, createId(), customization, setupInputs);
     }
 
     async function previewDraft(projectId, payload = {}) {
         if (!payload || typeof payload !== 'object' || Array.isArray(payload)
-            || Object.keys(payload).some((key) => !['name', 'template_id', 'customization'].includes(key))) {
+            || Object.keys(payload).some((key) => !['name', 'template_id', 'customization', 'setup_inputs'].includes(key))) {
             throw siteInputError('미리보기 요청에 허용되지 않은 항목이 포함되어 있습니다.', 'SITE_HOSTING_CREATE_INPUT_INVALID');
         }
         if (!projectRepository.get(projectId)) {
@@ -545,6 +636,7 @@ function createSiteHostingSiteService(deps = {}) {
         await templates.prepare?.(templateId);
         const template = templates.get(templateId);
         const customization = normalizeSiteCustomization(template, payload.customization || {});
+        const setupInputs = normalizeSetupInputs(template, payload.setup_inputs || {}, { allowMissingRequired: true });
         const name = requestedName || String(template?.resource?.family_seed_site?.displayName
             || template?.resource?.site_hosting?.customization?.fields?.find((field) => field.key === 'site_name')?.default
             || '미리보기').trim();
@@ -552,7 +644,8 @@ function createSiteHostingSiteService(deps = {}) {
             id: `draft_${createId()}`,
             name,
             template_id: templateId,
-            customization
+            customization,
+            setup_inputs: setupInputs
         });
         try {
             const preview = await astroRuntime.startDraftPreview(draft);
@@ -580,7 +673,7 @@ function createSiteHostingSiteService(deps = {}) {
             throw siteInputError('사이트 설정 형식이 올바르지 않습니다.', 'SITE_HOSTING_NAVIGATION_INVALID');
         }
         const siteHosting = template?.resource?.site_hosting;
-        if (template?.resource?.spec_version === '0.1.0') {
+        if (template?.resource?.spec_version === '0.1.0-dev2') {
             const seedSite = template.resource.family_seed_site || {};
             const profileFields = template.resource.family?.site_profile?.fields || {};
             const profileInputKeys = {
@@ -994,6 +1087,7 @@ function createSiteHostingSiteService(deps = {}) {
 
     return {
         listTemplates,
+        selectSetupDirectory,
         getTemplatePreview: (id) => templates.getPreview?.(String(id || '').trim()) || null,
         list,
         create,

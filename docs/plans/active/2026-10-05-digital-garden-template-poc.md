@@ -5,7 +5,7 @@
 - Branch: `codex/digital-garden-template-poc`
 - Base/parent branch: `codex/static-site-builder-main`
 - Start date: 2026-10-05
-- Status: Local full-vault build POC complete; no Cloudflare deployment or product implementation authorized
+- Status: Local full-vault and Obsidian UI feasibility POC complete; Digital Garden templates are listed in Site creation; manifest-declared Vault-root and frontmatter publication-match inputs are implemented; unified Site Hosting Contract `0.1.0-dev2` is being adopted
 
 ## User need and goal
 
@@ -18,10 +18,30 @@ Assess whether Amade Template Spec can support an Obsidian-vault-backed Digital 
 - Identify which capabilities are generic site/content contracts and which are specific to Obsidian or a Digital Garden presentation.
 - Recommend whether the existing template contract needs extension, with a minimal proof-of-concept boundary and open questions.
 
+## Current implementation stage (2026-10-05)
+
+The user approved adding a Digital Garden family with two templates to Amade `dev` and making them appear in BlogGenius's Site creation template list. One template places the static, always-expanded directory/file explorer on the left and the note reader on the right; the other mirrors those panes. The Knowledge Collection is mounted at `/` for this initial stage. Vault-root selection is now included; import, conversion, build/deploy integration, and publish-field selection remain deferred.
+
+The existing BlogGenius Site creation UI already groups catalog templates by `family_id` and renders `family_name`, preview, title, and description. Prefer supplying valid family/template catalog resources over adding a one-off family layout to BlogGenius.
+
+The first catalog stage is complete: both templates are visible in the creation picker. The current follow-up stage adds Vault-root selection only. It does not implement Vault scanning, conversion, publication-frontmatter selection, or build/deploy integration, and it does not claim unverified Obsidian compatibility. The form makes clear that selecting a Vault only records its path.
+
+### Follow-up stage: Vault root input
+
+The user approved continuing on the current feature branch without creating another branch. This increment adds a declarative `setup_inputs` contract to both Digital Garden template manifests, renders a required native directory picker from that metadata, and saves the selected Vault root under `setup_inputs` in the new site's local manifest. This increment stops at selecting and recording the path: no Vault scanning, conversion, publication-field selection, build, or deployment is part of this stage. The form states that Vault-content conversion follows in a later stage.
+
+The user decided to unify Template `spec_version`, Family `content_contract_version`, and Template `compatibility.contract.version` as one Site Hosting Contract Version, beginning at `0.1.0-dev1`. On 2026-10-05, the user explicitly selected `0.1.0-dev2` for the setup-input extension. All three fields advance together when any one of these contract areas changes. A template package's own `version` remains a separate release version.
+
+Contract `0.1.0-dev2` adds a required, manifest-declared `frontmatter_match` input for Digital Garden templates. The Site creation UI collects a property name and a textual match value, stores them in the Site manifest, and refuses creation if either is empty; an empty rule never means “publish all.” Vault scanning, scalar type interpretation, filtering, conversion, build, and deployment are outside this UI-only increment.
+
+### Version approval rule (user decision, 2026-10-05)
+
+Do not choose or bump any version number autonomously, including app, schema, contract, or package versions. When a change needs a version bump, explain why and ask the user to choose the exact number before editing version fields. For the Site Hosting Contract, apply the user's chosen version consistently to Template `spec_version`, Family `content_contract_version`, and Template `compatibility.contract.version`, then verify all three match. Package release versions are independent and require a separate user choice when a bump is needed.
+
 ## Non-goals
 
-- Implement vault selection, synchronization, or publishing.
-- Build or modify a Digital Garden template.
+- Implement Vault scanning, content conversion, publication filtering, synchronization, or publishing in BlogGenius.
+- Expand the validated Obsidian syntax surface beyond the existing POC.
 - Finalize the visual design or define every Obsidian plugin syntax.
 - Commit, merge, push, or release.
 
@@ -64,8 +84,9 @@ Site concept: homepage | digital garden
 
 ## Decisions and progress
 
-- The user requested a separate feature branch for a design discussion/POC, not immediate product implementation.
-- No architectural decisions have been made yet.
+- The user requested a separate feature branch for the design discussion/POC, then approved a first product-integration stage on this branch.
+- The user confirmed that `page`, `post`, and `note` are the relevant content terms; `work` and `service` are not part of this taxonomy. This stage does not revise those contracts.
+- The user chose to add a Digital Garden Template Family with two different explorer/reader layouts, mounted at `/` initially. Vault-root selection is implemented in this stage; publication-frontmatter selection is deferred.
 - Initial read of Amade's current Site Hosting family contract: it declares content source paths, fields/frontmatter policy, media locations, and content kinds, while each selectable Template package contains the runnable Astro project. The current content kinds are limited to page/post/work/service, and there is no declared link-graph, Obsidian syntax, or backlink contract. This is an initial gap observation, not yet a recommendation to expand the schema.
 - The user clarified that the publishable scope is a selected vault subdirectory plus notes selected by frontmatter policy, not the entire Vault.
 - The user proposed that vault parsing/graph generation be a standalone Digital Garden Engine, separated by layers from BlogGenius itself.
@@ -117,6 +138,11 @@ Site concept: homepage | digital garden
 - Full local build result from `vault_example/vault_root`: 186 directories, 1,237 files, 951,317,429 bytes; 469 Markdown notes and 768 non-Markdown resources; 321 resolved wikilinks; Astro emitted 470 pages (including the fixture homepage). Conversion took 2.61s, Astro build 5.09s, total local build 7.70s. The build includes all source files in local artifacts and did not modify the source vault. Deployment was not run. Build report: `prototypes/digital-garden-collection-poc/dist/vault-local/poc-summary.json` (ignored local artifact).
 - First full-vault build failed on a zero-byte Markdown note (`무제.md`) because the renderer received an undefined body; treating an empty body as an empty string fixed the case, and the subsequent full Astro build passed. Shiki emitted informational plaintext fallback warnings for several code fence names, with no build failure.
 - The user confirmed that some links being broken are acceptable for this POC and that the overall site/build worked well. Next stage is to return to the original goal: model the concepts and derive an Amade Template Spec. Do not spend time enumerating individual broken links unless the user requests it.
+- The current POC checkpoint was committed as `e4b14de4` (`feat: build local digital garden vault POC`); it includes the local build runner and the earlier Cloudflare static asset MIME correction, but no actual deployment. The user's `vault_example/` source and unrelated `test_cf.sh` were excluded from that commit.
+- Next-stage model proposal is recorded in [Knowledge Collection and Template Contract Model](2026-10-05-knowledge-collection-template-contract-model.md). Its central recommendation is a reusable Knowledge Collection that can be placed at the site root or a subpath, composed with pages/blog collections, and represented through source-neutral normalized data; the exact entry taxonomy and Amade schema shape remain open for user review.
 - The user also supplied an untracked `vault_example/` directory during this work. It is unrelated to the synthetic POC and was left untouched; do not add it to this branch's change set.
 - The existing `publication` semantics may interact with a source-specific selector, but runtime behavior for private/excluded/missing/outside-root notes and references is explicitly out of scope for this spec POC. Record any contract vocabulary these examples expose without choosing product policy. Keep `editorial_status` and `publication` conceptually independent unless the contract review finds a concrete incompatibility.
 - POC-only sequence: (1) refine the site/content classification seed and identify contract concerns without fixing product behavior; (2) create small synthetic scenarios/fixtures as vocabulary and coverage probes (homepage pages/posts, garden notes, frontmatter selector examples, relationships, image/PDF references, and unresolved references as questions); (3) sketch alternative Family models and normalized engine-to-template handoffs; (4) compare those alternatives with current Amade Family/Template schemas and record gaps, ambiguities, and extension options; (5) decide whether an Amade spec-only proposal is warranted. Do not implement the engine, BlogGenius integration, Astro behavior, or product-level warnings as part of this POC.
+- Follow-up syntax validation found that the prior static anchor audit did not prove browser interaction, and the full-vault page visibly retained Obsidian footnote references such as `[^para]`. The POC now renders defined footnotes as numbered references with endnotes and return links, while preserving literal footnote syntax inside code. Callout CSS now gives the generated callout structure a distinct title band and icon treatment. The synthetic fixture check passes; the full 469-note/470-page local Vault build completed with deployment disabled. A static audit found 11 internal fragment links with matching IDs; a manual browser click check is still needed before claiming end-to-end navigation acceptance. The built-in `marked` renderer still does not imply complete Obsidian syntax support; coverage remains explicitly POC-scoped.
+- Added an always-expanded file explorer to note pages for the user's UI feasibility check. The normalized graph now retains the Vault's directory and file inventory independently of note entries, including empty directories; the Astro page renders all folders/files in a left pane and the selected note in a right pane. Markdown entries navigate in the reader; non-Markdown resources open their generated asset URL. Verification passed for the 4-file fixture and the full local Vault output contains 186 directory rows, 1,237 file rows, and one active note. Local full build completed in 11.31 seconds; deployment was not run.
+- Added a static, build-time positioned SVG relationship graph at `/graph/` (or under the collection mount path). Each node is a direct link to the note page; links between notes are shown as edges. The directory explorer links to the graph view. Fixture verification passed, and the full Vault build emitted 469 clickable nodes and 318 directed edges in 10.47 seconds; deployment was not run. This is a feasibility view, not a final graph interaction or visual design.

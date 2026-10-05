@@ -132,7 +132,7 @@ test('site repository materializes family data separately from replaceable Astro
         const template = {
             id: 'personal-post-list', version: '0.1.0', name: '글 목록형', family_id: 'personal-homepage', package_ready: true,
             resource: {
-                spec_version: '0.1.0', family: { content_types: [{ kind: 'post', listing_route: '/blog/', detail_route: '/blog/{slug}/' }] },
+                spec_version: '0.1.0-dev2', family: { content_types: [{ kind: 'post', listing_route: '/blog/', detail_route: '/blog/{slug}/' }] },
                 template: { status: 'active' }, family_seed_site: familySeed
             }
         };

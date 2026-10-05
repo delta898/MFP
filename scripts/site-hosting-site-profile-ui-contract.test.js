@@ -24,6 +24,20 @@ test('site creation exposes optional site SEO fields with indexing enabled by de
     assert.doesNotMatch(creation, /search_indexing:/);
 });
 
+test('template-declared Vault and publication settings render after shared Site settings', () => {
+    const sharedSettings = html.indexOf('<div class="site-profile-fields">');
+    const navigation = html.indexOf('id="site-navigation-fields"');
+    const setupInputs = html.indexOf('id="site-template-setup-inputs"');
+    assert.ok(sharedSettings >= 0 && navigation > sharedSettings && setupInputs > navigation);
+    assert.match(creation, /item\?\.type === 'frontmatter_match' && item\?\.purpose === 'publication_filter'/);
+    assert.match(creation, /data-site-setup-field="field"/);
+    assert.match(creation, /data-site-setup-field="value"/);
+    assert.match(creation, /placeholder="예: is_public"/);
+    assert.match(creation, /placeholder="예: true"/);
+    assert.match(creation, /비워 두면 전체 공개되지 않습니다/);
+    assert.match(creation, /setupInputs\[item\.id\] = \{ field, value \}/);
+});
+
 test('site creation footer places guarded cancel on the left and preview/create on the right', () => {
     const cancel = html.indexOf('data-site-create-cancel');
     const preview = html.indexOf('data-site-create-preview');
