@@ -78,6 +78,7 @@ function createSiteHostingSiteService(deps = {}) {
     const now = deps.now || (() => new Date().toISOString());
     const createId = deps.createId || (() => crypto.randomUUID().replace(/-/g, ''));
     const draftPreviews = new Map();
+    const siteDeletionPlans = new Map();
 
     function normalizeSetupInputs(template, requested = {}, { allowMissingRequired = false } = {}) {
         if (!requested || typeof requested !== 'object' || Array.isArray(requested)) {
@@ -1452,6 +1453,122 @@ function createSiteHostingSiteService(deps = {}) {
         return { hostname, custom_domain_binding: updated.custom_domain_binding || null, disconnected: true };
     }
 
+    async function prepareSiteDeletion(projectId, siteId) {
+        const site = repository.get(projectId, siteId);
+        if (!site) throw siteInputError('사이트를 찾을 수 없습니다.', 'SITE_HOSTING_SITE_NOT_FOUND', 404);
+        const steps = [];
+        const binding = site.custom_domain_binding || {};
+        const hostname = String(binding.hostname || '').trim().toLowerCase();
+        const deployment = site.deployment || {};
+        const workerName = String(deployment.worker_name || '').trim();
+        let cloudflareSnapshot = null;
+        const blocked = (message, code = 'SITE_HOSTING_DELETE_PREFLIGHT_BLOCKED') => {
+            const error = siteInputError(message, code, 409);
+            error.deletionPlan = { ready: false, site_name: site.name, steps, blocked_reason: message };
+            return error;
+        };
+        if (site.custom_domain_binding && !hostname) throw blocked('사이트에 저장된 도메인 연결 정보를 확인할 수 없어 삭제를 멈췄습니다.');
+        if (site.deployment && !workerName) throw blocked('사이트에 저장된 기본 연결 정보를 확인할 수 없어 삭제를 멈췄습니다.');
+        if (typeof repository.getArchiveTarget !== 'function' || typeof repository.archive !== 'function') {
+            throw blocked('사이트 파일을 안전하게 보관할 수 없어 삭제 계획을 만들지 못했습니다.', 'SITE_HOSTING_ARCHIVE_UNAVAILABLE');
+        }
+        const archiveAt = now();
+        const archiveTarget = repository.getArchiveTarget(projectId, siteId, archiveAt);
+
+        if (hostname) {
+            const bindingId = String(binding.id || '').trim();
+            const zoneId = String(binding.zone_id || '').trim();
+            const zoneName = String(binding.zone_name || '').trim().toLowerCase();
+            if (!bindingId || !zoneId || !zoneName || !workerName) {
+                throw blocked('저장된 도메인 연결 정보를 확인할 수 없어 삭제를 멈췄습니다. Cloudflare와 사이트 연결 상태를 확인해 주세요.');
+            }
+            const { credentials, adapter } = await getCloudflareAdapter();
+            const accountId = String(credentials.account.id || '');
+            if (!accountId || typeof adapter.listZones !== 'function' || typeof adapter.listWorkerDomains !== 'function' || typeof adapter.listDnsRecords !== 'function') {
+                throw blocked('Cloudflare 도메인 및 DNS 상태를 확인할 수 없어 삭제를 진행할 수 없습니다.', 'SITE_HOSTING_DELETE_PREFLIGHT_UNAVAILABLE');
+            }
+            const zones = await adapter.listZones(accountId);
+            const zone = zones.find((item) => String(item?.id || '') === zoneId && String(item?.name || '').toLowerCase() === zoneName && String(item?.status || '').toLowerCase() === 'active');
+            if (!zone) throw blocked('연결 도메인의 활성 상태를 확인하지 못했습니다. Cloudflare에서 직접 확인해 주세요.');
+            const bindings = (await adapter.listWorkerDomains({ accountId, hostname })).filter((item) => String(item?.hostname || '').toLowerCase() === hostname);
+            if (bindings.length !== 1 || String(bindings[0]?.id || '') !== bindingId || String(bindings[0]?.service || '') !== workerName || String(bindings[0]?.zone_id || '') !== zoneId) {
+                throw blocked('Cloudflare 도메인 연결이 저장된 정보와 달라 삭제를 멈췄습니다. Cloudflare 상태를 확인해 주세요.');
+            }
+            const records = (await adapter.listDnsRecords({ zoneId, hostname })).filter((record) => String(record?.name || '').replace(/\.$/u, '').toLowerCase() === hostname)
+                .map((record) => ({ id: String(record.id || ''), type: String(record.type || '').toUpperCase(), name: String(record.name || '').replace(/\.$/u, '').toLowerCase(), content: String(record.content || ''), proxied: record.proxied === true, ttl: Number(record.ttl) || 0 }))
+                .sort((a, b) => a.id.localeCompare(b.id));
+            cloudflareSnapshot = { accountId, bindings, records };
+            steps.push({ kind: 'custom_domain', label: `도메인 연결 해제: ${hostname}`, status: 'ready' });
+        }
+
+        if (workerName) {
+            const accountId = String(deployment.worker_account_id || '').trim();
+            const createdOn = String(deployment.worker_created_on || '').trim();
+            const deploymentId = String(deployment.deployment_id || '').trim();
+            const versionId = String(deployment.version_id || '').trim();
+            if (deployment.managed_by_app !== true || !accountId || !createdOn || !deploymentId || !versionId) {
+                throw blocked('Worker 소유권을 확인할 수 없어 사이트 삭제를 멈췄습니다. Cloudflare에서 Worker를 직접 확인해 주세요.', 'SITE_HOSTING_WORKER_OWNERSHIP_UNVERIFIED');
+            }
+            const { credentials, adapter } = await getCloudflareAdapter();
+            if (String(credentials.account.id || '') !== accountId) throw blocked('Worker를 만든 Cloudflare 계정과 현재 연결된 계정이 달라 삭제를 멈췄습니다.');
+            if (typeof adapter.listWorkerScripts !== 'function' || typeof adapter.listWorkerDomains !== 'function' || typeof adapter.listDeployments !== 'function') {
+                throw blocked('Worker 소유권과 연결 상태를 확인할 수 없어 사이트 삭제를 진행할 수 없습니다.', 'SITE_HOSTING_DELETE_PREFLIGHT_UNAVAILABLE');
+            }
+            const scripts = (await adapter.listWorkerScripts(accountId)).filter((item) => String(item?.id || item?.name || '') === workerName);
+            if (scripts.length > 1 || (scripts.length === 1 && String(scripts[0].created_on || '') !== createdOn)) throw blocked('Cloudflare Worker의 생성 정보가 달라 소유권을 확인하지 못했습니다.');
+            const workerBindings = (await adapter.listWorkerDomains({ accountId })).filter((item) => String(item?.service || '').trim() === workerName);
+            const expectedBinding = hostname ? workerBindings.filter((item) => String(item?.id || '') === String(binding.id || '')
+                && String(item?.hostname || '').toLowerCase() === hostname && String(item?.zone_id || '') === String(binding.zone_id || '')) : [];
+            const unexpectedBindings = workerBindings.filter((item) => !expectedBinding.includes(item));
+            if (unexpectedBindings.length || (hostname && expectedBinding.length !== 1)) throw blocked('사이트에서 기록하지 않은 도메인 연결이 Worker에 있어 삭제를 멈췄습니다. Cloudflare 상태를 확인해 주세요.');
+            if (scripts.length) {
+                const deployments = await adapter.listDeployments({ accountId, workerName });
+                const active = deployments.find((item) => String(item?.id || '') === deploymentId)?.versions?.some((item) => String(item?.version_id || '') === versionId && Number(item?.percentage) === 100);
+                if (!active) throw blocked('Worker의 현재 배포 상태가 저장된 정보와 달라 삭제를 멈췄습니다.');
+            }
+            const snapshot = { scripts: scripts.map((item) => ({ id: String(item.id || item.name || ''), created_on: String(item.created_on || '') })), workerBindings: workerBindings.map((item) => ({ id: String(item.id || ''), hostname: String(item.hostname || ''), zone_id: String(item.zone_id || '') })).sort((a, b) => a.id.localeCompare(b.id)) };
+            cloudflareSnapshot = { ...(cloudflareSnapshot || {}), worker: snapshot };
+            steps.push({ kind: 'worker', label: `기본 연결 Worker 삭제: ${workerName}`, status: 'ready' });
+        }
+
+        const planId = String(createId());
+        const plan = {
+            id: planId, project_id: projectId, site_id: siteId, site_name: site.name,
+            steps: [...steps, { kind: 'archive', label: `사이트 파일 보관: ${archiveTarget}`, status: 'ready' }],
+            ready: true, expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString()
+        };
+        const localSnapshot = JSON.stringify({ id: site.id, name: site.name, updated_at: site.updated_at, deployment: site.deployment || null, custom_domain_binding: site.custom_domain_binding || null });
+        siteDeletionPlans.set(planId, { plan, cloudflareSnapshot, localSnapshot, archiveTarget, archiveAt, expiresAt: Date.now() + 5 * 60 * 1000 });
+        for (const [id, item] of siteDeletionPlans) if (item.expiresAt < Date.now()) siteDeletionPlans.delete(id);
+        return plan;
+    }
+
+    async function deleteSite(projectId, siteId, payload = {}) {
+        if (payload.confirmed !== true || !String(payload.plan_id || '').trim()) throw siteInputError('사이트 삭제 계획 확인이 필요합니다.', 'SITE_HOSTING_DELETE_CONFIRMATION_REQUIRED', 400);
+        const savedPlan = siteDeletionPlans.get(String(payload.plan_id));
+        if (!savedPlan || savedPlan.expiresAt < Date.now() || savedPlan.plan.project_id !== projectId || savedPlan.plan.site_id !== siteId) {
+            throw siteInputError('삭제 계획이 만료되었거나 사이트 상태가 바뀌었습니다. 다시 확인해 주세요.', 'SITE_HOSTING_DELETE_PLAN_EXPIRED', 409);
+        }
+        // Re-read the local state and re-run the external preflight immediately before teardown.
+        const freshPlan = await prepareSiteDeletion(projectId, siteId);
+        const freshState = siteDeletionPlans.get(freshPlan.id);
+        if (savedPlan.localSnapshot !== freshState?.localSnapshot
+            || JSON.stringify(savedPlan.cloudflareSnapshot) !== JSON.stringify(freshState?.cloudflareSnapshot)) {
+            siteDeletionPlans.delete(freshPlan.id);
+            siteDeletionPlans.delete(String(payload.plan_id));
+            throw siteInputError('확인 후 Cloudflare 상태가 바뀌어 삭제를 멈췄습니다. 현재 상태로 다시 확인해 주세요.', 'SITE_HOSTING_DELETE_STATE_CHANGED', 409);
+        }
+        siteDeletionPlans.delete(freshPlan.id);
+        siteDeletionPlans.delete(String(payload.plan_id));
+
+        const site = repository.get(projectId, siteId);
+        if (site?.custom_domain_binding?.hostname) await disconnectCustomDomain(projectId, siteId, { confirmed: true });
+        const current = repository.get(projectId, siteId);
+        if (current?.deployment?.worker_name) await disconnectWorker(projectId, siteId, { confirmed: true });
+        const archived = repository.archive(projectId, siteId, savedPlan.archiveAt, savedPlan.archiveTarget);
+        return { ...archived, completed: true };
+    }
+
     async function openBuildFolder(projectId, siteId) {
         const site = repository.get(projectId, siteId);
         if (!site) {
@@ -1490,6 +1607,8 @@ function createSiteHostingSiteService(deps = {}) {
         connectCustomDomain,
         disconnectWorker,
         disconnectCustomDomain,
+        prepareSiteDeletion,
+        deleteSite,
         getScreenshot: (projectId, siteId) => repository.getScreenshot(projectId, siteId),
         openBuildFolder,
         build: (projectId, siteId) => astroRuntime.build(projectId, siteId),

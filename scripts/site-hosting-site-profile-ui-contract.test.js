@@ -141,3 +141,15 @@ test('site settings reuse the creation preview without exposing template selecti
     assert.match(creationStyles, /#site-create-dialog\.is-site-settings-mode \.site-create-workspace \{\s*grid-template-columns: minmax\(0, 1\.05fr\) minmax\(0, 0\.95fr\)/);
     assert.match(creationStyles, /#site-create-dialog\.is-site-settings-mode #site-template-grid \{\s*display: none/);
 });
+
+test('site deletion requires a read-only plan, explicit user confirmation, and shows the archive destination', () => {
+    const runtime = fs.readFileSync(path.join(root, 'ui/scripts/features/site-hosting/project-management.js'), 'utf8');
+    assert.match(runtime, /data-site-delete="\$\{siteId\}"/);
+    assert.match(runtime, /async function siteHostingDeleteSite/);
+    assert.match(runtime, /\/delete-plan/);
+    assert.match(runtime, /\/delete`/);
+    assert.match(runtime, /confirmed: true, plan_id: plan.id/);
+    assert.match(runtime, /Cloudflare 상태를 다시 확인한 뒤 실행합니다/);
+    assert.match(runtime, /보관 위치: \$\{result.archived_path\}/);
+    assert.match(runtime, /siteHostingSites = siteHostingSites.filter\(\(item\) => item.id !== siteId\)/);
+});

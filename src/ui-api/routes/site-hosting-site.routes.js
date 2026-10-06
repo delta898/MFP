@@ -87,7 +87,7 @@ function createSiteHostingSiteRouteHandler(deps = {}) {
                 await sendSuccess(res, requestId, await service.postMarkdown(projectId, siteId, ctx.requestBody || {}, { requestId }));
                 return true;
             }
-            const siteActionMatch = pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)\/(build|build-status|preview|deploy|update-template|test-template-update|open-folder|open-vault|open-address|open-post|zones|custom-domain|custom-domain-disconnect|worker-disconnect)$/);
+            const siteActionMatch = pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)\/(build|build-status|preview|deploy|update-template|test-template-update|open-folder|open-vault|open-address|open-post|zones|custom-domain|custom-domain-disconnect|worker-disconnect|delete-plan|delete)$/);
             if (siteActionMatch) {
                 const projectId = decodePathPart(siteActionMatch[1]);
                 const siteId = decodePathPart(siteActionMatch[2]);
@@ -155,6 +155,14 @@ function createSiteHostingSiteRouteHandler(deps = {}) {
                 }
                 if (action === 'worker-disconnect' && method === 'POST') {
                     await sendSuccess(res, requestId, await service.disconnectWorker(projectId, siteId, ctx.requestBody || {}));
+                    return true;
+                }
+                if (action === 'delete-plan' && method === 'POST') {
+                    await sendSuccess(res, requestId, await service.prepareSiteDeletion(projectId, siteId));
+                    return true;
+                }
+                if (action === 'delete' && method === 'POST') {
+                    await sendSuccess(res, requestId, await service.deleteSite(projectId, siteId, ctx.requestBody || {}));
                     return true;
                 }
                 return false;

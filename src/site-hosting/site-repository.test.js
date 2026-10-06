@@ -54,6 +54,25 @@ test('site repository rejects unsafe and duplicate IDs without replacing an exis
     }
 });
 
+test('site repository archives a site intact and removes it from the active site list', () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-site-archive-'));
+    try {
+        const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
+        projectRepository.create({ id: 'project-1', name: '개인 사이트' });
+        const repository = createSiteHostingSiteRepository({ fs, path, projectRepository, templates: createSiteTemplateCatalog({ fs, path }) });
+        repository.create('project-1', { id: 'site-1', name: '보관할 사이트', template_id: 'minimal-homepage' });
+        const archived = repository.archive('project-1', 'site-1', '2026-10-06T12:00:00.000Z');
+        assert.equal(archived.archived, true);
+        assert.equal(path.dirname(archived.archived_path), path.join(workspaceDir, 'site-hosting', 'archive'));
+        assert.equal(fs.existsSync(path.join(archived.archived_path, '.bloggenius', 'site.json')), true);
+        assert.deepEqual(repository.list('project-1'), []);
+        assert.equal(projectRepository.get('project-1').site_count, 0);
+        assert.throws(() => repository.archive('project-1', 'site-1'), { code: 'SITE_HOSTING_SITE_NOT_FOUND' });
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('site repository creates a customized preview draft outside the persistent site list and removes it', () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-draft-preview-'));
     try {

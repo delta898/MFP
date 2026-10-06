@@ -2,7 +2,7 @@
 
 ## 상태
 
-해지 방향 합의 및 Custom Domain 해제 기능 구현. 난수 hostname 실험에서 Worker Custom Domain 해제 직후 Cloudflare가 생성한 DNS 레코드가 사라지는 것을 확인했다. 실제 사이트를 대상으로 한 해지 테스트는 별도 확인 전까지 수행하지 않는다.
+해지 방향 합의 및 Custom Domain/기본 Worker 해제와 사이트 삭제 기능 구현. 난수 hostname 실험에서 Worker Custom Domain 해제 직후 Cloudflare가 생성한 DNS 레코드가 사라지는 것을 확인했다. 제품 삭제 로직은 DNS 레코드를 직접 쓰지 않고 기존 해지 검증 경로를 재사용한다.
 
 ## 맥락
 
@@ -31,7 +31,7 @@ Site Hosting의 생성과 운영은 세 단계로 이해한다.
 - 연결 API 응답과 로컬 manifest에는 Worker 도메인 binding의 ID, 호스트 이름, zone ID/name, 서비스 이름 등이 기록된다. DNS 레코드 ID나 연결 전 레코드 상태는 기록하지 않는다.
 - 앱은 `zone.read`와 `dns.read` scope를 요청한다. 사용자는 Cloudflare OAuth client에 DNS Read를 추가하고 재인증했으며, DNS Records API 읽기와 Worker custom-domain 목록 조회를 확인했다. DNS Write는 요청하지 않는다.
 - 배포는 `bg-{site_id}` 이름의 Worker가 이미 있으면 새로 만들지 않고 재사용할 수 있다. 따라서 manifest의 `worker_name`만으로 앱이 만든 Worker라고 단정할 수 없다. 생성/재사용 여부나 소유권 증거도 현재 저장하지 않는다.
-- 현재 Custom Domain 연결 외에 연결 해제, 기본 Worker 해제, 사이트 삭제 기능은 없다.
+- Custom Domain/기본 Worker 해제와 사이트 삭제는 별도 사용자 확인 후 실행하며, 사이트 삭제는 기존 연결 해제 검증을 순서대로 재사용한다.
 
 ## Dry-run 범위
 
@@ -74,6 +74,10 @@ Cloudflare 공식 문서는 Custom Domain 삭제 API의 DNS 레코드 잔존/삭
 4. 모든 외부 자원 정리가 확인된 뒤에만 사이트 디렉터리를 archive로 이동한다. 파일 이동은 같은 workspace 안에서 원자적으로 수행하고, 이동 실패 시 원본을 보존한다.
 5. archive 경로를 사용자에게 알린다. 앱은 archive의 복원이나 영구 삭제를 자동 관리하지 않는다.
 
+삭제는 읽기 전용 `delete-plan`으로 확인 내용을 만들고 5분 유효한 일회성 plan ID를 발급한다. 계획 단계에서 archive 경로, 충돌 여부, 쓰기 가능성, 같은 볼륨 여부도 확인해 사용자에게 보여준다. 승인 뒤 서버는 로컬 manifest와 Cloudflare 상태를 다시 비교하고, 각 기존 해지 함수도 destructive call 직전에 상태를 독립적으로 재검증한다. 권한 부족, binding/Worker 상태 불일치, Worker의 앱 소유권 증거 부족, 기록되지 않은 도메인 연결이 있으면 해당 단계에서 멈춘다. 앞 단계가 끝난 뒤 다음 단계가 실패하면 원격 자원을 억지로 되돌리지 않는다. 갱신된 로컬 상태와 실패 안내를 남겨 재확인 가능하게 한다.
+
+사이트 파일은 `workspace/site-hosting/archive/{site_id}-{UTC timestamp}`로 동일 볼륨 내 원자적 `rename` 처리한다. 이름 충돌은 숫자 suffix로 회피하고, archive 경로가 symlink이거나 다른 볼륨이면 이동을 거부한다. 활성 사이트 목록에서는 빠지며, 보관된 파일은 사용자가 직접 관리한다.
+
 ## 확인한 실험
 
 - `scripts/cloudflare-domain-detach-test.js --run`으로 난수 Worker와 `<random>.bloggenius.kr` custom domain을 생성했다.
@@ -84,11 +88,10 @@ Cloudflare 공식 문서는 Custom Domain 삭제 API의 DNS 레코드 잔존/삭
 
 ## 후속 구현 항목
 
-- 해지 UI는 연결 도메인 주소 행에서 열기/복사와 함께 해지 아이콘을 제공하며, 승인 확인을 거친다. 사용자 hands-on UI 검증은 남아 있다.
+- 사용자 hands-on 검증: 삭제를 취소/승인하고, 원격 연결이 있는 사이트와 로컬 전용 사이트를 각각 확인한다. 중간 해지 실패 안내 및 archive 경로를 확인한다.
 - DNS 정리가 필요하다고 확인되면 DNS Read/Write 권한 범위, 레코드 ownership marker/ID 보존 방식, 사전/사후 재검증, 충돌 시 중단 정책을 별도 합의한다. 단순한 hostname 매칭 기반 삭제는 금지한다.
-- Worker 생성/재사용 구분을 새 manifest에 기록하는 계약을 설계한다. 기존 사이트처럼 소유권 증거가 없는 Worker는 삭제 전에 사용자 선택/확인이 필요한지 결정한다.
-- Worker를 참조하는 다른 서비스가 발견될 때 사이트 삭제를 어떻게 안내할지 정한다. 기본값은 force 없이 중단이다.
-- archive 디렉터리 이름 충돌, 권한 오류, 다른 볼륨 여부, 이동 검증, 사용자가 직접 파일을 제거한 경우의 UX를 정한다.
+- Worker 생성/재사용 구분을 새 manifest에 기록하는 계약은 별도 개선 과제다. 현재는 앱 소유권 증거가 없는 Worker를 자동 삭제하지 않는다.
+- Worker를 참조하는 추가 연결이 발견되면 force 없이 중단한다. archive의 복원/영구 삭제는 앱 범위 밖이며 사용자가 직접 관리한다.
 
 ## 공식 자료
 

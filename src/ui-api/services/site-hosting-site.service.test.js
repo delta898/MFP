@@ -52,6 +52,100 @@ test('site service validates the project, name, and selected template', async ()
     }
 });
 
+test('site deletion confirms a read-only plan, archives local files, and leaves no active site', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-delete-'));
+    try {
+        const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
+        projectRepository.create({ id: 'project-1', name: '개인 사이트' });
+        const templates = localTemplates();
+        const repository = createSiteHostingSiteRepository({ fs, path, projectRepository, templates });
+        let id = 0;
+        const service = createSiteHostingSiteService({ fs, path, workspaceDir, projectRepository, repository, templates, createId: () => `plan-${++id}`, now: () => '2026-10-06T12:00:00.000Z' });
+        repository.create('project-1', { id: 'site-1', name: '삭제 대상', template_id: 'minimal-homepage' });
+        const plan = await service.prepareSiteDeletion('project-1', 'site-1');
+        assert.equal(plan.ready, true);
+        assert.deepEqual(plan.steps.map((step) => step.kind), ['archive']);
+        assert.equal(repository.list('project-1').length, 1, 'planning must not mutate the site');
+        await assert.rejects(service.deleteSite('project-1', 'site-1', { confirmed: true }), { code: 'SITE_HOSTING_DELETE_CONFIRMATION_REQUIRED' });
+        const result = await service.deleteSite('project-1', 'site-1', { confirmed: true, plan_id: plan.id });
+        assert.equal(result.completed, true);
+        assert.equal(fs.existsSync(path.join(result.archived_path, '.bloggenius', 'site.json')), true);
+        assert.deepEqual(repository.list('project-1'), []);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('site deletion refuses to plan removal when Worker ownership cannot be verified', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-delete-ownership-'));
+    try {
+        const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
+        projectRepository.create({ id: 'project-1', name: '개인 사이트' });
+        const templates = localTemplates();
+        const repository = createSiteHostingSiteRepository({ fs, path, projectRepository, templates });
+        const service = createSiteHostingSiteService({ fs, path, workspaceDir, projectRepository, repository, templates, createId: () => 'plan-1' });
+        repository.create('project-1', { id: 'site-1', name: '삭제 대상', template_id: 'minimal-homepage' });
+        repository.recordDeployment('project-1', 'site-1', { worker_name: 'bg-site-1', url: 'https://bg-site-1.workers.dev', managed_by_app: false });
+        await assert.rejects(service.prepareSiteDeletion('project-1', 'site-1'), { code: 'SITE_HOSTING_WORKER_OWNERSHIP_UNVERIFIED' });
+        assert.equal(repository.get('project-1', 'site-1').name, '삭제 대상');
+        assert.equal(fs.existsSync(path.join(workspaceDir, 'site-hosting', 'sites', 'site-1')), true);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('site deletion detaches the recorded custom domain before deleting its verified Worker', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-delete-remote-'));
+    try {
+        const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
+        projectRepository.create({ id: 'project-1', name: '개인 사이트' });
+        const templates = localTemplates();
+        const repository = createSiteHostingSiteRepository({ fs, path, projectRepository, templates });
+        repository.create('project-1', { id: 'site-1', name: '연결된 사이트', template_id: 'minimal-homepage' });
+        repository.recordDeployment('project-1', 'site-1', {
+            worker_name: 'bg-site-1', url: 'https://bg-site-1.workers.dev', deployment_id: 'deployment-1', version_id: 'version-1',
+            worker_account_id: 'account-1', worker_created_on: '2026-10-06T00:00:00Z', managed_by_app: true, deployed_at: '2026-10-06T00:01:00Z'
+        });
+        repository.recordCustomDomainBinding('project-1', 'site-1', {
+            id: 'binding-1', hostname: 'blog.example.com', site_hostname: 'blog', domain: 'example.com', zone_id: 'zone-1', zone_name: 'example.com', connected_at: '2026-10-06T00:02:00Z'
+        });
+        let bindingPresent = true;
+        let dnsPresent = true;
+        let workerPresent = true;
+        const calls = [];
+        const binding = { id: 'binding-1', hostname: 'blog.example.com', service: 'bg-site-1', zone_id: 'zone-1', environment: 'production' };
+        const adapter = {
+            listZones: async () => [{ id: 'zone-1', name: 'example.com', status: 'active' }],
+            listWorkerDomains: async ({ hostname } = {}) => bindingPresent && (!hostname || hostname === binding.hostname) ? [{ ...binding }] : [],
+            listDnsRecords: async () => dnsPresent ? [{ id: 'dns-1', type: 'AAAA', name: 'blog.example.com', content: '100::', proxied: true, ttl: 1 }] : [],
+            listWorkerScripts: async () => workerPresent ? [{ id: 'bg-site-1', created_on: '2026-10-06T00:00:00Z' }] : [],
+            listDeployments: async () => [{ id: 'deployment-1', versions: [{ version_id: 'version-1', percentage: 100 }] }],
+            detachWorkerDomain: async () => { calls.push('domain'); bindingPresent = false; dnsPresent = false; },
+            deleteWorker: async () => { calls.push('worker'); workerPresent = false; }
+        };
+        let id = 0;
+        const service = createSiteHostingSiteService({
+            fs, path, workspaceDir, projectRepository, repository, templates,
+            getCloudflareDeploymentCredentials: async () => ({ accessToken: 'test-token', account: { id: 'account-1' } }),
+            createCloudflareSdkAdapter: () => adapter,
+            createId: () => `plan-${++id}`,
+            now: () => '2026-10-06T12:00:00.000Z',
+            sleep: async () => {}
+        });
+        const plan = await service.prepareSiteDeletion('project-1', 'site-1');
+        assert.deepEqual(plan.steps.map((step) => step.kind), ['custom_domain', 'worker', 'archive']);
+        const result = await service.deleteSite('project-1', 'site-1', { confirmed: true, plan_id: plan.id });
+        assert.deepEqual(calls, ['domain', 'worker']);
+        assert.equal(bindingPresent, false);
+        assert.equal(dnsPresent, false);
+        assert.equal(workerPresent, false);
+        assert.equal(fs.existsSync(path.join(result.archived_path, '.bloggenius', 'site.json')), true);
+        assert.deepEqual(repository.list('project-1'), []);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('site service exposes Amade 0.1 family metadata and normalizes its shared menu and publishing contract', async () => {
     const template = {
         id: 'personal-post-list', version: '0.1.0', name: '글 목록형', description: '소개', family_id: 'personal-homepage', family_name: '개인 홈페이지',

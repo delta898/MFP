@@ -103,7 +103,7 @@ function siteHostingSiteCard(site) {
               ${site.knowledge_collection ? `<button class="secondary" type="button" data-site-open-vault="${siteId}">Vault 폴더 열기</button>` : ''}
               <button class="secondary" type="button" data-site-open-folder="${siteId}">폴더 열기</button>
               <button class="secondary" type="button" data-site-settings="${siteId}">설정</button>
-              <button class="secondary" type="button" disabled title="삭제 기능은 추후 제공됩니다.">삭제</button>
+              <button class="secondary danger" type="button" data-site-delete="${siteId}" ${siteHostingSiteOperationIsRunning(site.project_id, site.id) ? 'disabled' : ''}>사이트 삭제</button>
             </div>
           </details>
           ${domainConnectOpen ? siteHostingCardDomainActions(site.id, domainConnect) : `<div class="site-hosting-project-actions"><button class="secondary" type="button" data-site-preview="${siteId}">미리보기</button><button class="primary" type="button" data-site-deploy="${siteId}">배포</button></div>`}
@@ -580,6 +580,64 @@ async function siteHostingOpenBuildFolder(siteId) {
   }
 }
 
+async function siteHostingDeleteSite(siteId, button) {
+  const project = siteHostingSelectedProject;
+  const site = siteHostingSites.find((item) => item.id === siteId);
+  if (!project || !site || button?.disabled || siteHostingSiteOperationIsRunning(project.id, siteId)) return;
+  button.closest('.site-hosting-site-more')?.removeAttribute('open');
+  button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
+  siteHostingSetSiteOperation(siteId, 'running', '삭제할 연결과 파일 보관 위치를 확인하고 있습니다…');
+  try {
+    const base = `/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites/${encodeURIComponent(siteId)}`;
+    const plan = await postJson(`${base}/delete-plan`, {});
+    if (!plan?.ready || !plan?.id) throw new Error(plan?.blocked_reason || '사이트 삭제를 안전하게 계획할 수 없습니다.');
+    const steps = (plan.steps || []).map((step) => `• ${step.label}`).join('\n');
+    const accepted = await showUiConfirm(
+      `“${plan.site_name || site.name}” 사이트를 삭제할까요?\n\n${steps}\n\nCloudflare 상태를 다시 확인한 뒤 실행합니다. 확인할 수 없는 상태가 발견되면 그 단계에서 멈춥니다. 로컬 파일은 영구 삭제하지 않고 archive로 옮깁니다.`,
+      { title: '사이트 삭제', confirmText: '삭제 진행', cancelText: '취소' }
+    );
+    if (!accepted) {
+      siteHostingSetSiteOperation(siteId, 'success', '사이트 삭제를 취소했습니다.');
+      return;
+    }
+    siteHostingSetSiteOperation(siteId, 'running', '연결을 정리하고 사이트 파일을 보관하고 있습니다…');
+    const result = await postJson(`${base}/delete`, { confirmed: true, plan_id: plan.id });
+    siteHostingOperationStates.delete(`${project.id}:${siteId}`);
+    siteHostingDomainConnectStates.delete(`${project.id}:${siteId}`);
+    siteHostingSites = siteHostingSites.filter((item) => item.id !== siteId);
+    try {
+      const refreshedSites = await fetchJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites`);
+      siteHostingSites = Array.isArray(refreshedSites) ? refreshedSites : siteHostingSites;
+    } catch {
+      // The confirmed archive result is authoritative for this card even if a later list refresh fails.
+    }
+    siteHostingSelectedProject.site_count = siteHostingSites.length;
+    siteHostingRenderProjectDetail();
+    await showUiDialog({
+      title: '사이트를 보관했습니다',
+      message: `연결 정리를 마치고 사이트 파일을 보관했습니다.\n\n보관 위치: ${result.archived_path}\n\narchive 안의 파일은 사용자가 직접 관리해 주세요.`,
+      showCancel: false,
+      confirmText: '확인'
+    });
+  } catch (error) {
+    try {
+      const refreshedSites = await fetchJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites`);
+      siteHostingSites = Array.isArray(refreshedSites) ? refreshedSites : siteHostingSites;
+      siteHostingSelectedProject.site_count = siteHostingSites.length;
+      siteHostingRenderProjectDetail();
+    } catch {
+      // Keep the last known Site card when the local API cannot refresh after a partial teardown.
+    }
+    siteHostingSetSiteOperation(siteId, 'error', error.message || '사이트를 삭제하지 못했습니다.');
+  } finally {
+    if (button.isConnected) {
+      button.disabled = false;
+      button.removeAttribute('aria-busy');
+    }
+  }
+}
+
 async function siteHostingOpenVaultFolder(siteId) {
   const project = siteHostingSelectedProject;
   if (!project || !siteId || siteHostingSiteOperationIsRunning(project.id, siteId)) return;
@@ -920,6 +978,8 @@ function initSiteHostingProjects() {
         openFolder.closest('.site-hosting-site-more')?.removeAttribute('open');
         return void siteHostingOpenBuildFolder(openFolder.dataset.siteOpenFolder);
       }
+      const deleteSite = event.target.closest('[data-site-delete]');
+      if (deleteSite) return void siteHostingDeleteSite(deleteSite.dataset.siteDelete, deleteSite);
       const zoneLookup = event.target.closest('[data-site-domain-zones]');
       if (zoneLookup) return void siteHostingLoadCloudflareZones(zoneLookup.dataset.siteDomainZones, zoneLookup);
       const domainConnect = event.target.closest('[data-site-domain-connect]');

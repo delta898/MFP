@@ -109,6 +109,75 @@ function createSiteHostingSiteRepository(options = {}) {
         return readSite(String(projectId || '').trim(), String(siteId || '').trim());
     }
 
+    function getArchiveTarget(projectId, siteId, archivedAt = new Date().toISOString()) {
+        const site = readSite(String(projectId || '').trim(), String(siteId || '').trim());
+        if (!site) throw withStatus(new Error('사이트를 찾을 수 없습니다.'), 404, 'SITE_HOSTING_SITE_NOT_FOUND');
+        const sitesRoot = pathApi.resolve(getSitesRoot(projectId));
+        const siteRoot = pathApi.resolve(site.root_path);
+        if (pathApi.dirname(siteRoot) !== sitesRoot || pathApi.basename(siteRoot) !== safeSiteId(siteId)) {
+            throw withStatus(new Error('사이트 경로를 안전하게 확인할 수 없어 보관하지 않았습니다.'), 409, 'SITE_HOSTING_ARCHIVE_PATH_INVALID');
+        }
+        const siteHostingRoot = pathApi.resolve(projectRepository.siteHostingRoot || pathApi.dirname(sitesRoot));
+        if (sitesRoot !== pathApi.join(siteHostingRoot, 'sites')) {
+            throw withStatus(new Error('보관 위치를 안전하게 확인할 수 없습니다.'), 409, 'SITE_HOSTING_ARCHIVE_PATH_INVALID');
+        }
+        const archiveRoot = pathApi.join(siteHostingRoot, 'archive');
+        if (fileSystem.lstatSync(siteRoot).isSymbolicLink()) throw withStatus(new Error('사이트 폴더가 링크 경로여서 안전하게 보관하지 않았습니다.'), 409, 'SITE_HOSTING_ARCHIVE_PATH_INVALID');
+        const archiveExists = fileSystem.existsSync(archiveRoot);
+        if (archiveExists && (fileSystem.lstatSync(archiveRoot).isSymbolicLink() || !fileSystem.statSync(archiveRoot).isDirectory())) {
+            throw withStatus(new Error('보관 폴더가 일반 디렉터리가 아니어서 이동을 계획하지 않았습니다.'), 409, 'SITE_HOSTING_ARCHIVE_PATH_INVALID');
+        }
+        const archiveDevice = archiveExists ? fileSystem.statSync(archiveRoot).dev : fileSystem.statSync(siteHostingRoot).dev;
+        if (fileSystem.statSync(siteRoot).dev !== archiveDevice) throw withStatus(new Error('보관 폴더가 같은 볼륨에 있지 않아 이동을 계획하지 않았습니다.'), 409, 'SITE_HOSTING_ARCHIVE_PATH_INVALID');
+        try { fileSystem.accessSync(siteHostingRoot, fileSystem.constants?.W_OK); }
+        catch (_error) { throw withStatus(new Error('보관 위치에 쓸 수 없어 사이트 삭제를 계획하지 않았습니다.'), 409, 'SITE_HOSTING_ARCHIVE_PATH_INVALID'); }
+        const datePart = new Date(archivedAt).toISOString().replace(/[-:]/gu, '').replace(/\.\d{3}/u, '');
+        const baseName = `${safeSiteId(siteId)}-${datePart}`;
+        for (let index = 0; index < 100; index += 1) {
+            const destination = pathApi.join(archiveRoot, index ? `${baseName}-${index}` : baseName);
+            if (!fileSystem.existsSync(destination)) return destination;
+        }
+        throw withStatus(new Error('보관 위치 이름이 계속 겹쳐 사이트 파일 이동을 계획하지 못했습니다.'), 409, 'SITE_HOSTING_ARCHIVE_COLLISION');
+    }
+
+    function archive(projectId, siteId, archivedAt = new Date().toISOString(), plannedTarget = '') {
+        const site = readSite(String(projectId || '').trim(), String(siteId || '').trim());
+        if (!site) throw withStatus(new Error('사이트를 찾을 수 없습니다.'), 404, 'SITE_HOSTING_SITE_NOT_FOUND');
+        const sitesRoot = pathApi.resolve(getSitesRoot(projectId));
+        const siteRoot = pathApi.resolve(site.root_path);
+        const siteHostingRoot = pathApi.resolve(projectRepository.siteHostingRoot || pathApi.dirname(sitesRoot));
+        const archiveRoot = pathApi.join(siteHostingRoot, 'archive');
+        if (pathApi.dirname(siteRoot) !== sitesRoot || pathApi.basename(siteRoot) !== safeSiteId(siteId)
+            || sitesRoot !== pathApi.join(siteHostingRoot, 'sites')) {
+            throw withStatus(new Error('사이트 경로를 안전하게 확인할 수 없어 보관하지 않았습니다.'), 409, 'SITE_HOSTING_ARCHIVE_PATH_INVALID');
+        }
+        const destination = plannedTarget ? pathApi.resolve(plannedTarget) : getArchiveTarget(projectId, siteId, archivedAt);
+        if (pathApi.dirname(destination) !== archiveRoot || !pathApi.basename(destination).startsWith(`${safeSiteId(siteId)}-`)) {
+            throw withStatus(new Error('확인한 보관 위치가 사이트 삭제 계획과 달라 이동하지 않았습니다.'), 409, 'SITE_HOSTING_ARCHIVE_PATH_INVALID');
+        }
+        if (fileSystem.lstatSync(siteRoot).isSymbolicLink()) throw withStatus(new Error('사이트 폴더가 링크 경로여서 안전하게 보관하지 않았습니다.'), 409, 'SITE_HOSTING_ARCHIVE_PATH_INVALID');
+        fileSystem.mkdirSync(archiveRoot, { recursive: true });
+        if (fileSystem.lstatSync(archiveRoot).isSymbolicLink() || !fileSystem.statSync(archiveRoot).isDirectory()
+            || fileSystem.statSync(siteRoot).dev !== fileSystem.statSync(archiveRoot).dev) {
+            throw withStatus(new Error('보관 폴더가 안전한 같은 볼륨 위치가 아니어서 사이트 파일을 이동하지 않았습니다.'), 409, 'SITE_HOSTING_ARCHIVE_PATH_INVALID');
+        }
+        if (fileSystem.existsSync(destination)) throw withStatus(new Error('확인한 보관 위치가 이미 사용 중이어서 파일을 이동하지 않았습니다. 삭제 계획을 다시 확인해 주세요.'), 409, 'SITE_HOSTING_ARCHIVE_COLLISION');
+        try {
+            fileSystem.renameSync(siteRoot, destination);
+            if (fileSystem.existsSync(siteRoot) || !fileSystem.existsSync(pathApi.join(destination, '.bloggenius', 'site.json'))) {
+                try { if (fileSystem.existsSync(destination) && !fileSystem.existsSync(siteRoot)) fileSystem.renameSync(destination, siteRoot); } catch (_restoreError) { }
+                throw withStatus(new Error('사이트 파일 이동을 확인하지 못했습니다. 원본 파일을 보존하고 상태를 확인해 주세요.'), 500, 'SITE_HOSTING_ARCHIVE_VERIFY_FAILED');
+            }
+            return { archived_path: destination, site_id: site.id, archived: true };
+        } catch (cause) {
+            if (cause?.code?.startsWith?.('SITE_HOSTING_')) throw cause;
+            if (cause?.code === 'EEXIST' || cause?.code === 'ENOTEMPTY') {
+                throw withStatus(new Error('확인한 보관 위치가 실행 중 사용되어 파일을 이동하지 않았습니다. 삭제 계획을 다시 확인해 주세요.'), 409, 'SITE_HOSTING_ARCHIVE_COLLISION');
+            }
+            throw withStatus(new Error('사이트 파일을 보관하지 못했습니다. 원본 파일은 유지했습니다.'), 500, 'SITE_HOSTING_ARCHIVE_MOVE_FAILED');
+        }
+    }
+
     function create(projectId, site) {
         const sitesRoot = getSitesRoot(projectId);
         const id = safeSiteId(site?.id);
@@ -899,7 +968,7 @@ function createSiteHostingSiteRepository(options = {}) {
         }
     }
 
-    return { list, get, create, createPreviewDraft, removePreviewDraft, update, updateSettings, setTemplateUpdateTestVersion, applyTemplateUpdate, recordDeployment, clearDeployment, recordBuildResult, recordBuildScreenshot, getScreenshot, recordCustomDomainBinding, clearCustomDomainBinding };
+    return { list, get, create, getArchiveTarget, archive, createPreviewDraft, removePreviewDraft, update, updateSettings, setTemplateUpdateTestVersion, applyTemplateUpdate, recordDeployment, clearDeployment, recordBuildResult, recordBuildScreenshot, getScreenshot, recordCustomDomainBinding, clearCustomDomainBinding };
 }
 
 module.exports = { SITE_SCHEMA_VERSION, safeSiteId, createSiteHostingSiteRepository };

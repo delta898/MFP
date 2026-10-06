@@ -71,6 +71,24 @@ test('site routes pass explicit Worker disconnect confirmation to the service', 
     assert.deepEqual(response.body, { worker_name: 'bg-site-1', disconnected: true });
 });
 
+test('site deletion routes separate the read-only plan from explicitly confirmed deletion', async () => {
+    const calls = [];
+    const responses = [];
+    const handler = createSiteHostingSiteRouteHandler({
+        service: {
+            prepareSiteDeletion: async (projectId, siteId) => { calls.push(['plan', projectId, siteId]); return { id: 'plan-1', ready: true }; },
+            deleteSite: async (projectId, siteId, payload) => { calls.push(['delete', projectId, siteId, payload]); return { archived: true }; }
+        },
+        sendSuccess: async (_res, _id, data) => responses.push(data),
+        sendError: async (_res, _id, status, code) => responses.push({ status, code })
+    });
+    const base = { remoteAddress: '127.0.0.1', host: '127.0.0.1:43127', origin: 'http://127.0.0.1:43127', contentType: 'application/json' };
+    assert.equal(await handler({ ...base, method: 'POST', pathname: '/api/v1/site-hosting/projects/project-1/sites/site-1/delete-plan', requestBody: {} }), true);
+    assert.equal(await handler({ ...base, method: 'POST', pathname: '/api/v1/site-hosting/projects/project-1/sites/site-1/delete', requestBody: { confirmed: true, plan_id: 'plan-1' } }), true);
+    assert.deepEqual(calls, [['plan', 'project-1', 'site-1'], ['delete', 'project-1', 'site-1', { confirmed: true, plan_id: 'plan-1' }]]);
+    assert.deepEqual(responses, [{ id: 'plan-1', ready: true }, { archived: true }]);
+});
+
 test('site routes build, preview, and deploy a site', async () => {
     const calls = [];
     const responses = [];

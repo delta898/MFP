@@ -779,6 +779,30 @@ function startFixtureServer(requests) {
         const siteHostingSettingsMatch = url.pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)$/);
         const siteHostingDisconnectMatch = url.pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)\/custom-domain-disconnect$/);
         const siteHostingWorkerDisconnectMatch = url.pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)\/worker-disconnect$/);
+        const siteHostingDeletePlanMatch = url.pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)\/delete-plan$/);
+        const siteHostingDeleteMatch = url.pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)\/delete$/);
+        if (siteHostingDeletePlanMatch && req.method === 'POST') {
+            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+            res.end(JSON.stringify({ success: true, data: { id: 'site-delete-plan-smoke', ready: true, site_name: '설정 변경 사이트', steps: [{ kind: 'archive', label: '사이트 파일을 site-hosting/archive에 보관' }] } }));
+            return;
+        }
+        if (siteHostingDeleteMatch && req.method === 'POST') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                const projectId = decodeURIComponent(siteHostingDeleteMatch[1]);
+                const siteId = decodeURIComponent(siteHostingDeleteMatch[2]);
+                const sites = siteHostingSites.get(projectId) || [];
+                const siteIndex = sites.findIndex((item) => item.id === siteId);
+                if (siteIndex >= 0) sites.splice(siteIndex, 1);
+                res.writeHead(siteIndex >= 0 ? 200 : 404, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(JSON.stringify(siteIndex >= 0
+                    ? { success: true, data: { archived: true, completed: true, archived_path: '/fixture/workspace/site-hosting/archive/site-smoke-1-20261006T000000Z' } }
+                    : { success: false, error: { message: '사이트를 찾을 수 없습니다.' } }));
+            });
+            return;
+        }
         if (siteHostingDisconnectMatch && req.method === 'POST') {
             const chunks = [];
             req.on('data', (chunk) => chunks.push(chunk));
@@ -2765,6 +2789,16 @@ async function run() {
                 await page.waitForFunction(() => document.querySelector('[data-site-worker-disconnect="site-smoke-1"]')?.disabled === true);
                 assert.deepEqual(requests.find((request) => request.method === 'POST'
                     && request.pathname.endsWith('/sites/site-smoke-1/worker-disconnect'))?.body, { confirmed: true });
+                await page.locator('.site-hosting-site-more summary').click();
+                const deletionPlanResponse = page.waitForResponse((response) => new URL(response.url()).pathname.endsWith('/sites/site-smoke-1/delete-plan'));
+                await page.locator('[data-site-delete="site-smoke-1"]').click();
+                await deletionPlanResponse;
+                await page.getByRole('heading', { name: '사이트를 보관했습니다' }).waitFor();
+                assert.deepEqual(requests.find((request) => request.method === 'POST' && request.pathname.endsWith('/sites/site-smoke-1/delete'))?.body,
+                    { confirmed: true, plan_id: 'site-delete-plan-smoke' });
+                assert.match(await page.locator('#ui-dialog-message').textContent(), /site-hosting\/archive\/site-smoke-1/);
+                await page.locator('#ui-dialog-confirm').click();
+                await page.waitForFunction(() => !document.querySelector('[data-site-settings="site-smoke-1"]'));
             }
         }
         await page.evaluate(() => { showUiConfirm = window.__settingsNextSmokeConfirm; });
@@ -6042,6 +6076,8 @@ async function run() {
             { method: 'DELETE', pathname: '/api/v1/site-hosting/projects/site-project-smoke/preview-drafts/site-preview-smoke' },
             { method: 'POST', pathname: '/api/v1/site-hosting/projects/site-project-smoke/sites/site-smoke-1/custom-domain-disconnect' },
             { method: 'POST', pathname: '/api/v1/site-hosting/projects/site-project-smoke/sites/site-smoke-1/worker-disconnect' },
+            { method: 'POST', pathname: '/api/v1/site-hosting/projects/site-project-smoke/sites/site-smoke-1/delete-plan' },
+            { method: 'POST', pathname: '/api/v1/site-hosting/projects/site-project-smoke/sites/site-smoke-1/delete' },
             { method: 'POST', pathname: '/api/v1/trend-posting/topics' },
             { method: 'POST', pathname: '/api/v1/keywords/analyze' },
             { method: 'POST', pathname: '/api/v1/keywords/suggest-titles' },
