@@ -19,6 +19,7 @@ const OAUTH_REQUESTED_SCOPES = [
     'workers-scripts.read',
     'workers-scripts.write',
     'zone.read',
+    'dns.read',
     'offline_access'
 ].join(' ');
 
