@@ -26,6 +26,9 @@
 - Minimize output tokens without sacrificing correctness. Keep progress updates and final handoffs concise and focused on decisions, results, failures, remaining risks, and required user actions.
 - Do not reproduce long command or test output when a summary is sufficient. Report detailed output only when it is needed to diagnose a failure.
 - Run focused tests autonomously when they are proportionate to the current change.
+- For a simple version-only change, apply only the exact version approved by the user, run the relevant synchronization/consistency check and `git diff --check`, then stop. Do not add broad test runs or version-management redesign to that task.
+- Treat improvements to version-management tooling or workflow as a separate feature. Make its scope and verification level explicit before starting it.
+- Interpret a short approval as authorization for the currently agreed change only; do not expand it to adjacent improvements.
 - Before running the full unit suite or another broad regression suite, tell the user why the full run is now warranted and request explicit approval. Do not run it until approved or explicitly requested by the user.
 - A required merge or release gate is not waived by the approval requirement. If approval has not been given, stop before that gate and report that full validation remains pending.
 - Avoid repeatedly running a broad suite when no relevant code has changed since the last successful run.
