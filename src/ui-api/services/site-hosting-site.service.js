@@ -1247,6 +1247,113 @@ function createSiteHostingSiteService(deps = {}) {
         }
     }
 
+    async function disconnectWorker(projectId, siteId, payload = {}) {
+        const site = repository.get(projectId, siteId);
+        if (!site) throw siteInputError('사이트를 찾을 수 없습니다.', 'SITE_HOSTING_SITE_NOT_FOUND', 404);
+        if (payload.confirmed !== true) {
+            throw siteInputError('기본 연결 해제 확인이 필요합니다.', 'SITE_HOSTING_WORKER_DISCONNECT_CONFIRMATION_REQUIRED', 400);
+        }
+        if (String(site.custom_domain_binding?.hostname || '').trim()) {
+            throw siteInputError('기본 연결을 해제하기 전에 연결 도메인을 먼저 해지해 주세요.', 'SITE_HOSTING_CUSTOM_DOMAIN_MUST_BE_DISCONNECTED', 409);
+        }
+        const deployment = site.deployment || {};
+        const workerName = String(deployment.worker_name || '').trim();
+        const workerAccountId = String(deployment.worker_account_id || '').trim();
+        const workerCreatedOn = String(deployment.worker_created_on || '').trim();
+        const deploymentId = String(deployment.deployment_id || '').trim();
+        const versionId = String(deployment.version_id || '').trim();
+        if (deployment.managed_by_app !== true || !workerName || !workerAccountId || !workerCreatedOn || !deploymentId || !versionId) {
+            throw siteInputError('Worker 소유권을 확인할 수 없어 자동 해지하지 않았습니다. Cloudflare 대시보드에서 Worker를 직접 확인하고 해지해 주세요.', 'SITE_HOSTING_WORKER_OWNERSHIP_UNVERIFIED', 409);
+        }
+
+        const { credentials, adapter } = await getCloudflareAdapter();
+        const accountId = String(credentials.account.id);
+        if (accountId !== workerAccountId) {
+            throw siteInputError('현재 연결된 Cloudflare 계정이 Worker를 생성한 계정과 달라 해지하지 않았습니다. 원래 계정으로 다시 연결해 주세요.', 'SITE_HOSTING_WORKER_ACCOUNT_CHANGED', 409);
+        }
+        const fail = (message, code = 'SITE_HOSTING_WORKER_DISCONNECT_PREFLIGHT_FAILED', status = 409) => siteInputError(message, code, status);
+        const readSnapshot = async () => {
+            if (typeof adapter.listWorkerScripts !== 'function'
+                || typeof adapter.listWorkerDomains !== 'function'
+                || typeof adapter.listDeployments !== 'function') {
+                throw fail('Cloudflare Worker 상태를 확인할 수 없어 해지하지 않았습니다. 앱을 업데이트한 뒤 다시 시도해 주세요.', 'SITE_HOSTING_WORKER_DISCONNECT_PREFLIGHT_UNAVAILABLE', 503);
+            }
+            const scripts = (await adapter.listWorkerScripts(accountId))
+                .filter((item) => String(item?.id || item?.name || '') === workerName);
+            if (scripts.length > 1) throw fail('같은 이름의 Worker가 여러 개 확인되어 해지하지 않았습니다. Cloudflare에서 직접 확인해 주세요.');
+            const worker = scripts[0] || null;
+            if (worker && String(worker.created_on || '') !== workerCreatedOn) {
+                throw fail('Cloudflare Worker의 생성 정보가 저장된 정보와 달라 소유권을 확인할 수 없습니다. Cloudflare에서 직접 확인해 주세요.', 'SITE_HOSTING_WORKER_OWNERSHIP_CHANGED');
+            }
+            const bindings = (await adapter.listWorkerDomains({ accountId }))
+                .filter((item) => String(item?.service || '').trim() === workerName)
+                .map((item) => ({
+                    id: String(item.id || ''), hostname: String(item.hostname || '').trim().toLowerCase(),
+                    zone_id: String(item.zone_id || ''), environment: String(item.environment || '')
+                }))
+                .sort((left, right) => `${left.hostname}:${left.id}`.localeCompare(`${right.hostname}:${right.id}`));
+            if (bindings.length) throw fail('이 Worker에 연결된 도메인이 있어 기본 연결을 해지하지 않았습니다. 연결 도메인을 먼저 해지해 주세요.', 'SITE_HOSTING_CUSTOM_DOMAIN_MUST_BE_DISCONNECTED');
+            if (!worker) return { worker: null, bindings, deployment: null };
+            const deployments = await adapter.listDeployments({ accountId, workerName });
+            const activeDeployment = deployments.find((item) => String(item?.id || '') === deploymentId);
+            const versionIsActive = activeDeployment?.versions?.some((item) => String(item?.version_id || '') === versionId
+                && Number(item?.percentage) === 100) === true;
+            if (!versionIsActive) {
+                throw fail('Cloudflare Worker의 현재 배포가 저장된 상태와 달라 안전하게 해지할 수 없습니다. Cloudflare에서 직접 확인해 주세요.', 'SITE_HOSTING_WORKER_DEPLOYMENT_CHANGED');
+            }
+            return {
+                worker: { id: String(worker.id || ''), created_on: String(worker.created_on || '') },
+                bindings,
+                deployment: { id: deploymentId, version_id: versionId, active: versionIsActive }
+            };
+        };
+
+        let before;
+        try {
+            before = await readSnapshot();
+            const current = await readSnapshot();
+            if (JSON.stringify(before) !== JSON.stringify(current)) {
+                throw fail('확인 중 Cloudflare Worker 상태가 바뀌어 해지하지 않았습니다. 상태를 확인한 뒤 다시 시도해 주세요.');
+            }
+            if (!before.worker) {
+                const updated = repository.clearDeployment(projectId, siteId, now());
+                return { worker_name: workerName, deployment: updated.deployment || null, disconnected: true, already_absent: true };
+            }
+            if (typeof adapter.deleteWorker !== 'function') {
+                throw fail('Cloudflare Worker 삭제 기능을 사용할 수 없어 해지하지 않았습니다. 앱을 업데이트한 뒤 다시 시도해 주세요.', 'SITE_HOSTING_WORKER_DELETE_UNAVAILABLE', 503);
+            }
+            await adapter.deleteWorker({ accountId, workerName });
+        } catch (cause) {
+            if (cause?.code?.startsWith?.('SITE_HOSTING_')) throw cause;
+            const status = Number(cause?.status);
+            throw siteInputError(status === 401 || status === 403
+                ? 'Cloudflare Worker 삭제 권한이 없습니다. OAuth Client의 Workers Scripts Write 권한을 확인해 주세요.'
+                : String(cause?.message || 'Cloudflare Worker를 해지하지 못했습니다. 사이트 연결 정보는 보존했습니다.'),
+            status === 401 || status === 403 ? 'CLOUDFLARE_WORKER_DELETE_PERMISSION_DENIED' : 'SITE_HOSTING_WORKER_DELETE_FAILED', status || 502);
+        }
+
+        let after = null;
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+            try {
+                const scripts = (await adapter.listWorkerScripts(accountId))
+                    .filter((item) => String(item?.id || item?.name || '') === workerName);
+                const bindings = (await adapter.listWorkerDomains({ accountId }))
+                    .filter((item) => String(item?.service || '').trim() === workerName);
+                after = { worker_count: scripts.length, binding_count: bindings.length };
+                if (after.worker_count === 0 && after.binding_count === 0) break;
+            } catch (_error) {
+                after = null;
+            }
+            if (attempt < 4) await (deps.sleep || ((duration) => new Promise((resolve) => setTimeout(resolve, duration))))(250);
+        }
+        if (!after) throw fail('Cloudflare Worker 삭제 후 상태를 확인하지 못했습니다. 사이트 연결 정보는 보존했습니다. Cloudflare에서 상태를 확인해 주세요.', 'SITE_HOSTING_WORKER_DELETE_VERIFY_FAILED', 502);
+        if (after.worker_count || after.binding_count) {
+            throw fail('Cloudflare에서 Worker 또는 도메인 연결이 남아 있어 앱의 연결 정보를 지우지 않았습니다. Cloudflare에서 상태를 확인해 주세요.', 'SITE_HOSTING_WORKER_DELETE_REMAINS', 409);
+        }
+        const updated = repository.clearDeployment(projectId, siteId, now());
+        return { worker_name: workerName, deployment: updated.deployment || null, disconnected: true };
+    }
+
     async function disconnectCustomDomain(projectId, siteId, payload = {}) {
         const site = repository.get(projectId, siteId);
         if (!site) {
@@ -1409,6 +1516,7 @@ function createSiteHostingSiteService(deps = {}) {
         prepareTemplateUpdateTest,
         listCloudflareZones,
         connectCustomDomain,
+        disconnectWorker,
         disconnectCustomDomain,
         getScreenshot: (projectId, siteId) => repository.getScreenshot(projectId, siteId),
         openBuildFolder,

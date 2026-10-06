@@ -358,6 +358,11 @@
   gap: var(--ui-space-1);
 }
 
+.site-hosting-icon-tooltip {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
 .site-hosting-address-value {
   flex: 0 1 auto;
   max-width: min(18rem, 34vw);
@@ -465,6 +470,11 @@
 }
 
 .site-hosting-site-card .site-hosting-domain-disconnect:hover:not(:disabled) {
+  border-color: var(--ui-status-danger, #d44);
+  color: var(--ui-status-danger, #d44);
+}
+
+.site-hosting-site-card .site-hosting-worker-disconnect:hover:not(:disabled) {
   border-color: var(--ui-status-danger, #d44);
   color: var(--ui-status-danger, #d44);
 }

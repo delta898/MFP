@@ -6,6 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 const { createSiteHostingProjectRepository } = require('../../site-hosting/project-repository');
+const { createSiteHostingSiteRepository } = require('../../site-hosting/site-repository');
 const { createSiteTemplateCatalog } = require('../../site-hosting/site-template-catalog');
 const { SITE_HOSTING_CONTRACT_VERSION } = require('../../site-hosting/bloggenius-compatibility');
 const { createSiteHostingSiteService } = require('./site-hosting-site.service');
@@ -504,6 +505,106 @@ test('site deploy rebuilds the site and saves the Cloudflare workers.dev result'
         assert.deepEqual(calls, ['build', 'deploy']);
         assert.equal(result.url, 'https://bg-site-1.example.workers.dev/');
         assert.equal(result.screenshot.build_id, 'build1');
+        assert.equal((await service.list('project-1'))[0].deployment.worker_name, 'bg-site-1');
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('Worker disconnect requires app ownership and removes only a verified standalone Worker', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-worker-disconnect-'));
+    try {
+        const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
+        projectRepository.create({ id: 'project-1', name: '개인 사이트' });
+        const templates = localTemplates();
+        const repository = createSiteHostingSiteRepository({ fs, path, projectRepository, templates });
+        let workerPresent = true;
+        let deletionCalls = 0;
+        const adapter = {
+            listWorkerScripts: async () => workerPresent ? [{ id: 'bg-site-1', created_on: '2026-10-06T00:00:00Z' }] : [],
+            listWorkerDomains: async () => [],
+            listDeployments: async () => [{ id: 'deployment-1', versions: [{ version_id: 'version-1', percentage: 100 }] }],
+            deleteWorker: async ({ workerName }) => {
+                assert.equal(workerName, 'bg-site-1');
+                deletionCalls += 1;
+                workerPresent = false;
+            }
+        };
+        const service = createSiteHostingSiteService({
+            fs, path, workspaceDir, projectRepository, repository, templates, createId: () => 'site-1',
+            now: () => '2026-10-06T00:00:00.000Z', astroRuntime: { build: async () => ({}) },
+            cloudflareDeployer: { deploy: async () => ({
+                worker_name: 'bg-site-1', url: 'https://bg-site-1.example.workers.dev/', deployment_id: 'deployment-1',
+                version_id: 'version-1', worker_account_id: 'a'.repeat(32), worker_created_on: '2026-10-06T00:00:00Z', managed_by_app: true
+            }) },
+            getCloudflareDeploymentCredentials: async () => ({ accessToken: 'test-token', account: { id: 'a'.repeat(32) } }),
+            createCloudflareSdkClient: () => ({}), createCloudflareSdkAdapter: () => adapter
+        });
+        await service.create('project-1', { name: '내 사이트', template_id: 'minimal-homepage' });
+        await service.deploy('project-1', 'site-1');
+        await assert.rejects(service.disconnectWorker('project-1', 'site-1'), { code: 'SITE_HOSTING_WORKER_DISCONNECT_CONFIRMATION_REQUIRED' });
+        repository.recordDeployment('project-1', 'site-1', {
+            ...repository.get('project-1', 'site-1').deployment, managed_by_app: false, deployed_at: '2026-10-06T00:00:00Z'
+        });
+        await assert.rejects(service.disconnectWorker('project-1', 'site-1', { confirmed: true }), { code: 'SITE_HOSTING_WORKER_OWNERSHIP_UNVERIFIED' });
+        assert.equal(deletionCalls, 0);
+        repository.recordDeployment('project-1', 'site-1', {
+            ...repository.get('project-1', 'site-1').deployment, managed_by_app: true, deployed_at: '2026-10-06T00:00:00Z'
+        });
+        const result = await service.disconnectWorker('project-1', 'site-1', { confirmed: true });
+        assert.deepEqual(result, { worker_name: 'bg-site-1', deployment: null, disconnected: true });
+        assert.equal(deletionCalls, 1);
+        const [site] = await service.list('project-1');
+        assert.equal(site.deployment, undefined);
+        assert.equal(fs.existsSync(path.join(workspaceDir, 'site-hosting', 'sites', 'site-1', '.bloggenius', 'site.json')), true, 'Worker disconnect must retain local Site files');
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('Worker disconnect blocks custom domains, unverified current deployments, and remote bindings before deletion', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-worker-disconnect-preflight-'));
+    try {
+        const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
+        projectRepository.create({ id: 'project-1', name: '개인 사이트' });
+        const templates = localTemplates();
+        const repository = createSiteHostingSiteRepository({ fs, path, projectRepository, templates });
+        let bindings = [];
+        let activeVersionId = 'version-1';
+        let connectedAccountId = 'a'.repeat(32);
+        let deletionCalls = 0;
+        const adapter = {
+            listWorkerScripts: async () => [{ id: 'bg-site-1', created_on: '2026-10-06T00:00:00Z' }],
+            listWorkerDomains: async () => bindings,
+            listDeployments: async () => [{ id: 'deployment-1', versions: [{ version_id: activeVersionId, percentage: 100 }] }],
+            deleteWorker: async () => { deletionCalls += 1; }
+        };
+        const service = createSiteHostingSiteService({
+            fs, path, workspaceDir, projectRepository, repository, templates, createId: () => 'site-1',
+            astroRuntime: { build: async () => ({}) },
+            cloudflareDeployer: { deploy: async () => ({
+                worker_name: 'bg-site-1', url: 'https://bg-site-1.example.workers.dev/', deployment_id: 'deployment-1',
+                version_id: 'version-1', worker_account_id: 'a'.repeat(32), worker_created_on: '2026-10-06T00:00:00Z', managed_by_app: true
+            }) },
+            getCloudflareDeploymentCredentials: async () => ({ accessToken: 'test-token', account: { id: connectedAccountId } }),
+            createCloudflareSdkClient: () => ({}), createCloudflareSdkAdapter: () => adapter
+        });
+        await service.create('project-1', { name: '내 사이트', template_id: 'minimal-homepage' });
+        await service.deploy('project-1', 'site-1');
+        await repository.recordCustomDomainBinding('project-1', 'site-1', {
+            id: 'binding-local', hostname: 'blog.example.com', zone_id: 'zone-1', zone_name: 'example.com'
+        });
+        await assert.rejects(service.disconnectWorker('project-1', 'site-1', { confirmed: true }), { code: 'SITE_HOSTING_CUSTOM_DOMAIN_MUST_BE_DISCONNECTED' });
+        await repository.clearCustomDomainBinding('project-1', 'site-1');
+        connectedAccountId = 'b'.repeat(32);
+        await assert.rejects(service.disconnectWorker('project-1', 'site-1', { confirmed: true }), { code: 'SITE_HOSTING_WORKER_ACCOUNT_CHANGED' });
+        connectedAccountId = 'a'.repeat(32);
+        activeVersionId = 'external-version';
+        await assert.rejects(service.disconnectWorker('project-1', 'site-1', { confirmed: true }), { code: 'SITE_HOSTING_WORKER_DEPLOYMENT_CHANGED' });
+        activeVersionId = 'version-1';
+        bindings = [{ id: 'binding-remote', hostname: 'other.example.com', service: 'bg-site-1', zone_id: 'zone-2' }];
+        await assert.rejects(service.disconnectWorker('project-1', 'site-1', { confirmed: true }), { code: 'SITE_HOSTING_CUSTOM_DOMAIN_MUST_BE_DISCONNECTED' });
+        assert.equal(deletionCalls, 0);
         assert.equal((await service.list('project-1'))[0].deployment.worker_name, 'bg-site-1');
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });

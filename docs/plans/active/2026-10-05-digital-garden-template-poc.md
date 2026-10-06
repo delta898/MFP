@@ -5,7 +5,7 @@
 - Branch: `codex/digital-garden-template-poc`
 - Base/parent branch: `codex/static-site-builder-main`
 - Start date: 2026-10-05
-- Status: Local full-vault and Obsidian UI feasibility POC complete; Site creation/settings work is implemented; custom-domain disconnect UI and verified Cloudflare detach flow are implemented with mocked tests; hands-on UI review remains
+- Status: Local full-vault and Obsidian UI feasibility POC complete; Site creation/settings, custom-domain disconnect, and default Worker disconnect are implemented; hands-on UI review remains
 
 ## User need and goal
 
@@ -219,3 +219,16 @@ The user approved implementing the first teardown stage: disconnect only a custo
 For the follow-up address-actions UI, the focused site-profile UI contract test passes (7 tests), changed JavaScript syntax checks pass, and the browser UI smoke passes (414 fixture requests). The smoke covers keeping the default hostname out of the row, keeping the custom hostname visible, revealing the ordered actions to its right and before the right-side control, displaying the disconnect tooltip without clipping, closing on outside click and pointer exit, and completing the verified disconnect interaction. A first smoke attempt exposed that the test needed to re-open the hover menu before choosing disconnect; the browser scenario was corrected and the full smoke then passed. No production Cloudflare resources were changed.
 
 Focused service, route, deployer-adapter, UI-contract, and browser smoke verification should use mocked Cloudflare responses; no real site/domain is mutated during verification. Manual UI review remains necessary. The implementation does not include default Worker disconnection or Site deletion.
+
+#### Default Worker disconnect implementation (approved 2026-10-06)
+
+Principle: when ownership or remote state is uncertain, do not delete or mutate the resource; stop and explain how to inspect it manually. The user approved disconnecting the default `workers.dev` connection by deleting the Worker while retaining all local Site files/configuration.
+
+- If a custom domain binding is present, disable the default-disconnect action in the UI and explain that the custom domain must be detached first. The endpoint independently enforces the same precondition so direct/forged requests cannot bypass it.
+- At deploy time, record the exact Cloudflare account ID, Worker creation time, and whether BlogGenius created or found/reused the Worker. Ownership is true only for the create path; later deploys preserve a previously verified ownership marker and never infer ownership from the deterministic `bg-{site_id}` name. Disconnect requires the currently authorized Cloudflare account ID to match the recorded account.
+- A Worker with missing/false ownership metadata (including legacy deployments) cannot be deleted by BlogGenius. Explain that the user must inspect and remove it directly in Cloudflare.
+- After explicit confirmation, preflight the exact saved account/Worker identity and enumerate Worker Domain bindings. Abort before mutation if the Worker identity is missing/ambiguous, custom-domain bindings exist, ownership is unproven, or Cloudflare state differs from the saved deployment. Repeat the read immediately before deletion.
+- Delete using Cloudflare's Worker Script delete API without `force`; then verify the Worker is absent before clearing only local deployment-connection metadata. Keep Site source/build files, settings, and screenshot. On any failure or unverifiable outcome, stop and preserve local connection metadata for recovery.
+- The Cloudflare account ID is part of the ownership record as well as Worker creation time. A reconnect to a different account blocks disconnect; redeploying an existing Worker in another account cannot inherit the old account's ownership marker.
+- Focused verification passed: 43 deployer/repository/service/route/UI-contract tests, JavaScript syntax checks, and `git diff --check`. Browser UI smoke passed with 424 fixture requests, covering the disabled action while a custom domain is present, the confirmation copy, successful mock disconnect, and the resulting unavailable default address. A browser-smoke iteration found and fixed a stale disabled state after custom-domain disconnect; no production Cloudflare mutation was made.
+- Manual UI review remains: confirm the disabled tooltip and confirmation/result messaging in the running app. Focused tests use a mocked Cloudflare adapter. No real Cloudflare resource deletion is part of implementation verification. No commit or push was made.

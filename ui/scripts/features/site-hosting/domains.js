@@ -171,8 +171,48 @@ async function siteHostingDisconnectCustomDomain(siteId, button) {
     siteHostingSites = Array.isArray(refreshedSites) ? refreshedSites : siteHostingSites;
     siteHostingRenderProjectDetail();
     siteHostingSetSiteOperation(siteId, 'success', '도메인 연결을 해제했습니다. 기본 주소는 계속 사용할 수 있습니다.');
+    siteHostingRenderProjectDetail();
   } catch (error) {
     siteHostingSetSiteOperation(siteId, 'error', error.message || '도메인 연결을 해제하지 못했습니다.');
+  } finally {
+    if (button.isConnected) {
+      button.disabled = false;
+      button.removeAttribute('aria-busy');
+    }
+  }
+}
+
+async function siteHostingDisconnectWorker(siteId, button) {
+  const project = siteHostingSelectedProject;
+  const site = siteHostingSites.find((item) => item.id === siteId);
+  if (!project || !site || button?.disabled) return;
+  if (String(site.custom_domain_binding?.hostname || '').trim()) {
+    siteHostingSetSiteOperation(siteId, 'error', '기본 연결 해지 전에 연결 도메인을 먼저 해지해 주세요.');
+    return;
+  }
+  if (site.deployment?.managed_by_app !== true || !site.deployment?.worker_account_id || !site.deployment?.worker_created_on) {
+    siteHostingSetSiteOperation(siteId, 'error', 'Worker 소유권을 확인할 수 없어 해지하지 않았습니다. Cloudflare에서 직접 확인해 주세요.');
+    return;
+  }
+  const workerName = String(site.deployment.worker_name || '').trim();
+  const accepted = await showUiConfirm(
+    `기본 연결 ${workerName}을(를) 해지할까요? Cloudflare Worker와 workers.dev 주소가 삭제됩니다. 로컬 사이트 파일과 설정은 유지됩니다.`,
+    { title: '기본 연결 해지', confirmText: 'Worker 해지', cancelText: '취소' }
+  );
+  if (!accepted) return;
+
+  button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
+  siteHostingSetSiteOperation(siteId, 'running', 'Worker 소유권과 도메인 상태를 확인한 뒤 기본 연결을 해지하고 있습니다…');
+  try {
+    await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites/${encodeURIComponent(siteId)}/worker-disconnect`, { confirmed: true });
+    const refreshedSites = await fetchJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites`);
+    siteHostingSites = Array.isArray(refreshedSites) ? refreshedSites : siteHostingSites;
+    siteHostingRenderProjectDetail();
+    siteHostingSetSiteOperation(siteId, 'success', '기본 연결을 해지했습니다. 로컬 사이트 파일과 설정은 유지됩니다.');
+    siteHostingRenderProjectDetail();
+  } catch (error) {
+    siteHostingSetSiteOperation(siteId, 'error', error.message || '기본 연결을 해지하지 못했습니다.');
   } finally {
     if (button.isConnected) {
       button.disabled = false;

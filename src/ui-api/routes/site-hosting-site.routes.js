@@ -87,7 +87,7 @@ function createSiteHostingSiteRouteHandler(deps = {}) {
                 await sendSuccess(res, requestId, await service.postMarkdown(projectId, siteId, ctx.requestBody || {}, { requestId }));
                 return true;
             }
-            const siteActionMatch = pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)\/(build|build-status|preview|deploy|update-template|test-template-update|open-folder|open-vault|open-address|open-post|zones|custom-domain|custom-domain-disconnect)$/);
+            const siteActionMatch = pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)\/(build|build-status|preview|deploy|update-template|test-template-update|open-folder|open-vault|open-address|open-post|zones|custom-domain|custom-domain-disconnect|worker-disconnect)$/);
             if (siteActionMatch) {
                 const projectId = decodePathPart(siteActionMatch[1]);
                 const siteId = decodePathPart(siteActionMatch[2]);
@@ -151,6 +151,10 @@ function createSiteHostingSiteRouteHandler(deps = {}) {
                 }
                 if (action === 'custom-domain-disconnect' && method === 'POST') {
                     await sendSuccess(res, requestId, await service.disconnectCustomDomain(projectId, siteId, ctx.requestBody || {}));
+                    return true;
+                }
+                if (action === 'worker-disconnect' && method === 'POST') {
+                    await sendSuccess(res, requestId, await service.disconnectWorker(projectId, siteId, ctx.requestBody || {}));
                     return true;
                 }
                 return false;

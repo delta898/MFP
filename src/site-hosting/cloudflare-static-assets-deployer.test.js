@@ -44,7 +44,7 @@ test('Cloudflare adapter reads Worker bindings and DNS records and deletes only 
         workers: { domains: {
             list: (args) => { calls.push(['worker-domains-list', args]); return [{ id: 'binding-1', hostname: args.hostname }]; },
             delete: (id, args) => { calls.push(['worker-domains-delete', id, args]); return { id }; }
-        } },
+        }, scripts: { delete: (name, args) => { calls.push(['worker-delete', name, args]); return {}; } } },
         dns: { records: {
             list: (args) => { calls.push(['dns-list', args]); return [{ id: 'record-1', name: args.name }]; }
         } }
@@ -57,10 +57,12 @@ test('Cloudflare adapter reads Worker bindings and DNS records and deletes only 
         { id: 'record-1', name: 'blog.example.com' }
     ]);
     await adapter.detachWorkerDomain({ accountId: 'account-1', bindingId: 'binding-1' });
+    await adapter.deleteWorker({ accountId: 'account-1', workerName: 'bg-site-1' });
     assert.deepEqual(calls, [
         ['worker-domains-list', { account_id: 'account-1', hostname: 'blog.example.com' }],
         ['dns-list', { zone_id: 'zone-1', name: 'blog.example.com', per_page: 100 }],
-        ['worker-domains-delete', 'binding-1', { account_id: 'account-1' }]
+        ['worker-domains-delete', 'binding-1', { account_id: 'account-1' }],
+        ['worker-delete', 'bg-site-1', { account_id: 'account-1' }]
     ]);
 });
 
@@ -72,7 +74,10 @@ test('deploy uses the connected account with a stable Site ID worker name', asyn
         const calls = [];
         const adapter = {
             getWorkersSubdomain: async (accountId) => { calls.push(['subdomain', accountId]); return 'example'; },
-            listWorkerScripts: async (accountId) => { calls.push(['list', accountId]); return []; },
+            listWorkerScripts: async (accountId) => {
+                calls.push(['list', accountId]);
+                return calls.some((item) => item[0] === 'create') ? [{ id: 'bg-site-123', created_on: '2026-10-06T00:00:00Z' }] : [];
+            },
             createWorker: async (args) => { calls.push(['create', args.workerName]); return { id: args.workerName }; },
             createAssetUploadSession: async ({ workerName, manifest }) => {
                 calls.push(['session', workerName]);
@@ -104,8 +109,17 @@ test('deploy uses the connected account with a stable Site ID worker name', asyn
         assert.equal(result.worker_name, 'bg-site-123');
         assert.equal(result.url, 'https://bg-site-123.example.workers.dev/');
         assert.equal(result.deployment_id, 'deployment-1');
-        assert.deepEqual(calls.map(([name]) => name), ['client', 'subdomain', 'list', 'create', 'session', 'upload', 'version', 'deploy', 'verify']);
+        assert.equal(result.managed_by_app, true);
+        assert.equal(result.worker_account_id, 'a'.repeat(32));
+        assert.equal(result.worker_created_on, '2026-10-06T00:00:00Z');
+        assert.deepEqual(calls.map(([name]) => name), ['client', 'subdomain', 'list', 'create', 'list', 'session', 'upload', 'version', 'deploy', 'verify']);
         assert.equal(calls[0][1], 'never-return-this');
+        const reconnectedAccountDeploy = await deployer.deploy({
+            id: 'site-123', root_path: siteRoot,
+            deployment: { ...result, worker_account_id: 'b'.repeat(32) }
+        });
+        assert.equal(reconnectedAccountDeploy.managed_by_app, false,
+            'a Worker in another Cloudflare account must not inherit BlogGenius ownership');
     } finally {
         fs.rmSync(siteRoot, { recursive: true, force: true });
     }

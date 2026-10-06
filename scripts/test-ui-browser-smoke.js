@@ -778,6 +778,7 @@ function startFixtureServer(requests) {
         const siteHostingSitesMatch = url.pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites$/);
         const siteHostingSettingsMatch = url.pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)$/);
         const siteHostingDisconnectMatch = url.pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)\/custom-domain-disconnect$/);
+        const siteHostingWorkerDisconnectMatch = url.pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)\/worker-disconnect$/);
         if (siteHostingDisconnectMatch && req.method === 'POST') {
             const chunks = [];
             req.on('data', (chunk) => chunks.push(chunk));
@@ -788,12 +789,28 @@ function startFixtureServer(requests) {
                 const site = (siteHostingSites.get(projectId) || []).find((item) => item.id === siteId);
                 if (site) {
                     site.custom_domain_binding = null;
-                    site.deployment = { worker_name: 'bg-site-smoke-1', url: 'https://bg-site-smoke-1.example.workers.dev/' };
+                    site.deployment = { worker_name: 'bg-site-smoke-1', url: 'https://bg-site-smoke-1.example.workers.dev/', worker_account_id: 'a'.repeat(32), worker_created_on: '2026-10-02T00:00:00Z', managed_by_app: true };
                 }
                 res.writeHead(site ? 200 : 404, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
                 res.end(JSON.stringify(site
                     ? { success: true, data: { hostname: 'blog.example.com', custom_domain_binding: null, disconnected: true } }
                     : { success: false, error: { message: '사이트를 찾을 수 없습니다.' } }));
+            });
+            return;
+        }
+        if (siteHostingWorkerDisconnectMatch && req.method === 'POST') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                const projectId = decodeURIComponent(siteHostingWorkerDisconnectMatch[1]);
+                const siteId = decodeURIComponent(siteHostingWorkerDisconnectMatch[2]);
+                const site = (siteHostingSites.get(projectId) || []).find((item) => item.id === siteId);
+                if (site && !site.custom_domain_binding?.hostname) site.deployment = null;
+                res.writeHead(site && !site.custom_domain_binding?.hostname ? 200 : 409, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(JSON.stringify(site && !site.custom_domain_binding?.hostname
+                    ? { success: true, data: { worker_name: 'bg-site-smoke-1', disconnected: true } }
+                    : { success: false, error: { message: '먼저 연결 도메인을 해지해 주세요.' } }));
             });
             return;
         }
@@ -2661,7 +2678,7 @@ async function run() {
                 await page.getByText('설정 변경 사이트', { exact: true }).waitFor();
                 await page.evaluate(() => {
                     const site = siteHostingSites.find((item) => item.id === 'site-smoke-1');
-                    site.deployment = { worker_name: 'bg-site-smoke-1', url: 'https://bg-site-smoke-1.example.workers.dev/' };
+                    site.deployment = { worker_name: 'bg-site-smoke-1', url: 'https://bg-site-smoke-1.example.workers.dev/', worker_account_id: 'a'.repeat(32), worker_created_on: '2026-10-02T00:00:00Z', managed_by_app: true };
                     site.custom_domain_binding = { hostname: 'blog.example.com' };
                     siteHostingRenderProjectDetail();
                     window.__domainDisconnectConfirmCalls = [];
@@ -2712,6 +2729,8 @@ async function run() {
                 await disconnectButton.hover();
                 await page.locator('#site-hosting-action-tooltip').waitFor({ state: 'visible' });
                 assert.equal(await page.locator('#site-hosting-action-tooltip').textContent(), '도메인 연결 해지');
+                assert.equal(await page.locator('[data-site-worker-disconnect="site-smoke-1"]').isDisabled(), true,
+                    'custom domain binding must block Worker disconnect');
                 await disconnectButton.click();
                 await page.waitForFunction(() => window.__domainDisconnectConfirmCalls?.length === 1);
                 assert.match(await page.evaluate(() => window.__domainDisconnectConfirmCalls[0].message), /blog\.example\.com/);
@@ -2720,6 +2739,17 @@ async function run() {
                 assert.deepEqual(requests.find((request) => request.method === 'POST'
                     && request.pathname.endsWith('/sites/site-smoke-1/custom-domain-disconnect'))?.body, { confirmed: true });
                 assert.equal(await page.locator('[data-site-open-address="site-smoke-1"][data-address-type="worker"]').count(), 1);
+                await page.waitForFunction(() => !document.querySelector('[data-site-domain-disconnect="site-smoke-1"]'));
+                const readyWorkerDisconnect = page.locator('[data-site-worker-disconnect="site-smoke-1"]');
+                assert.equal(await readyWorkerDisconnect.isDisabled(), false, 'verified Worker can be disconnected after domain removal');
+                await page.locator('[data-site-address-tools]:has([data-site-worker-disconnect="site-smoke-1"]) [data-site-address-tools-toggle]').click();
+                await readyWorkerDisconnect.waitFor({ state: 'visible' });
+                await readyWorkerDisconnect.click();
+                await page.waitForFunction(() => window.__domainDisconnectConfirmCalls?.length === 2);
+                assert.match(await page.evaluate(() => window.__domainDisconnectConfirmCalls[1].message), /로컬 사이트 파일과 설정은 유지됩니다/);
+                await page.waitForFunction(() => document.querySelector('[data-site-worker-disconnect="site-smoke-1"]')?.disabled === true);
+                assert.deepEqual(requests.find((request) => request.method === 'POST'
+                    && request.pathname.endsWith('/sites/site-smoke-1/worker-disconnect'))?.body, { confirmed: true });
             }
         }
         await page.evaluate(() => { showUiConfirm = window.__settingsNextSmokeConfirm; });
@@ -5996,6 +6026,7 @@ async function run() {
             { method: 'PUT', pathname: '/api/v1/site-hosting/projects/site-project-smoke/sites/site-smoke-1' },
             { method: 'DELETE', pathname: '/api/v1/site-hosting/projects/site-project-smoke/preview-drafts/site-preview-smoke' },
             { method: 'POST', pathname: '/api/v1/site-hosting/projects/site-project-smoke/sites/site-smoke-1/custom-domain-disconnect' },
+            { method: 'POST', pathname: '/api/v1/site-hosting/projects/site-project-smoke/sites/site-smoke-1/worker-disconnect' },
             { method: 'POST', pathname: '/api/v1/trend-posting/topics' },
             { method: 'POST', pathname: '/api/v1/keywords/analyze' },
             { method: 'POST', pathname: '/api/v1/keywords/suggest-titles' },

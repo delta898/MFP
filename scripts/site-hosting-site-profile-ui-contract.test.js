@@ -75,6 +75,13 @@ test('site cards own operation messages and template checks refresh on entry and
     assert.match(runtime, /siteHostingCheckTemplateUpdates\(siteHostingSelectedProject\?\.id \|\| '', true\)/);
     assert.match(runtime, /await fetchJson\('\/api\/v1\/site-hosting\/templates'\)/);
     assert.match(runtime, /data-site-domain-disconnect=/);
+    assert.match(runtime, /data-site-worker-disconnect=/);
+    assert.match(runtime, /data-tooltip="기본 연결 해지"/);
+    assert.match(runtime, /const workerDisconnectDisabled = Boolean\(customDomain[\s\S]*?managed_by_app !== true[\s\S]*?worker_account_id[\s\S]*?worker_created_on/);
+    assert.match(domains, /async function siteHostingDisconnectWorker/);
+    assert.match(domains, /기본 연결 해지 전에 연결 도메인을 먼저 해지해 주세요\./);
+    assert.match(domains, /Worker 소유권과 도메인 상태를 확인한 뒤 기본 연결을 해지하고 있습니다/);
+    assert.match(domains, /로컬 사이트 파일과 설정은 유지됩니다/);
     assert.match(runtime, /siteHostingUnlinkIcon\(\)/);
     assert.match(runtime, /data-site-address-tools-toggle/);
     assert.match(runtime, /siteHostingAddressTools\('domain'/);

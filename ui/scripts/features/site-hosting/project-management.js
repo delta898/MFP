@@ -131,7 +131,13 @@ function siteHostingSiteAddresses(site, domainConnect, hasDeploymentAddress = Bo
   const customDomainHref = customDomain && !/[\s/\\?#@]/.test(customDomain)
     ? siteHostingSafeHttpsUrl(`https://${customDomain}`)
     : '';
-  const workerActions = siteHostingAddressTools('worker', `<span class="site-hosting-address-actions" aria-label="기본 연결 동작"><button class="site-hosting-icon-button" type="button" data-site-open-address="${siteHostingEscapeHtml(site.id)}" data-address-type="worker" aria-label="기본 주소 열기" data-tooltip="기본 주소 열기" ${workerHref ? '' : 'disabled'}>${siteHostingExternalLinkIcon()}</button><button class="site-hosting-icon-button" type="button" data-site-copy-address="${siteHostingEscapeHtml(site.id)}" data-address-type="worker" aria-label="기본 주소 복사" data-tooltip="기본 주소 복사" ${workerHref ? '' : 'disabled'}>${siteHostingCopyIcon()}</button></span>`);
+  const workerDisconnectDisabled = Boolean(customDomain
+    || site.deployment?.managed_by_app !== true
+    || !site.deployment?.worker_account_id
+    || !site.deployment?.worker_created_on
+    || !workerHref
+    || operation?.phase === 'running');
+  const workerActions = siteHostingAddressTools('worker', `<span class="site-hosting-address-actions" aria-label="기본 연결 동작"><span class="site-hosting-icon-tooltip" data-tooltip="기본 연결 해지"><button class="site-hosting-icon-button site-hosting-worker-disconnect" type="button" data-site-worker-disconnect="${siteHostingEscapeHtml(site.id)}" aria-label="기본 연결 해지" ${workerDisconnectDisabled ? 'disabled' : ''}>${siteHostingUnlinkIcon()}</button></span><button class="site-hosting-icon-button" type="button" data-site-open-address="${siteHostingEscapeHtml(site.id)}" data-address-type="worker" aria-label="기본 주소 열기" data-tooltip="기본 주소 열기" ${workerHref ? '' : 'disabled'}>${siteHostingExternalLinkIcon()}</button><button class="site-hosting-icon-button" type="button" data-site-copy-address="${siteHostingEscapeHtml(site.id)}" data-address-type="worker" aria-label="기본 주소 복사" data-tooltip="기본 주소 복사" ${workerHref ? '' : 'disabled'}>${siteHostingCopyIcon()}</button></span>`);
   const domainActions = customDomainHref
     ? siteHostingAddressTools('domain', `<span class="site-hosting-address-actions" aria-label="연결 도메인 동작"><button class="site-hosting-icon-button site-hosting-domain-disconnect" type="button" data-site-domain-disconnect="${siteHostingEscapeHtml(site.id)}" aria-label="도메인 연결 해지" data-tooltip="도메인 연결 해지" ${operation?.phase === 'running' ? 'disabled aria-busy="true"' : ''}>${siteHostingUnlinkIcon()}</button><button class="site-hosting-icon-button" type="button" data-site-copy-address="${siteHostingEscapeHtml(site.id)}" data-address-type="domain" aria-label="연결 도메인 복사" data-tooltip="연결 도메인 복사">${siteHostingCopyIcon()}</button><button class="site-hosting-icon-button" type="button" data-site-open-address="${siteHostingEscapeHtml(site.id)}" data-address-type="domain" aria-label="연결 도메인 열기" data-tooltip="연결 도메인 열기">${siteHostingExternalLinkIcon()}</button></span>`, `<span class="site-hosting-address-value">${siteHostingEscapeHtml(customDomain)}</span>`)
     : hasDeploymentAddress
@@ -874,6 +880,8 @@ function initSiteHostingProjects() {
       if (copyAddress) return void siteHostingCopyAddress(copyAddress.dataset.siteCopyAddress, copyAddress.dataset.addressType, copyAddress);
       const domainDisconnect = event.target.closest('[data-site-domain-disconnect]');
       if (domainDisconnect) return void siteHostingDisconnectCustomDomain(domainDisconnect.dataset.siteDomainDisconnect, domainDisconnect);
+      const workerDisconnect = event.target.closest('[data-site-worker-disconnect]');
+      if (workerDisconnect) return void siteHostingDisconnectWorker(workerDisconnect.dataset.siteWorkerDisconnect, workerDisconnect);
       const openVault = event.target.closest('[data-site-open-vault]');
       if (openVault) {
         openVault.closest('.site-hosting-site-more')?.removeAttribute('open');

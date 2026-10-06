@@ -541,10 +541,26 @@ function createSiteHostingSiteRepository(options = {}) {
                 url: String(deployment.url || ''),
                 deployment_id: String(deployment.deployment_id || ''),
                 version_id: String(deployment.version_id || ''),
+                worker_account_id: String(deployment.worker_account_id || ''),
+                worker_created_on: String(deployment.worker_created_on || ''),
+                managed_by_app: deployment.managed_by_app === true,
                 deployed_at: String(deployment.deployed_at || '')
             },
             updated_at: String(deployment.deployed_at || manifest.updated_at || '')
         };
+        const tempPath = pathApi.join(pathApi.dirname(manifestPath), `.site.json.${process.pid}.${Date.now()}.tmp`);
+        fileSystem.writeFileSync(tempPath, `${JSON.stringify(updated, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+        fileSystem.renameSync(tempPath, manifestPath);
+        return readSite(projectId, siteId);
+    }
+
+    function clearDeployment(projectId, siteId, updatedAt = new Date().toISOString()) {
+        const site = readSite(projectId, siteId);
+        if (!site) throw withStatus(new Error('사이트를 찾을 수 없습니다.'), 404, 'SITE_HOSTING_SITE_NOT_FOUND');
+        const manifestPath = pathApi.join(site.root_path, '.bloggenius', 'site.json');
+        const manifest = JSON.parse(String(fileSystem.readFileSync(manifestPath, 'utf8') || ''));
+        const updated = { ...manifest, updated_at: String(updatedAt || manifest.updated_at || '') };
+        delete updated.deployment;
         const tempPath = pathApi.join(pathApi.dirname(manifestPath), `.site.json.${process.pid}.${Date.now()}.tmp`);
         fileSystem.writeFileSync(tempPath, `${JSON.stringify(updated, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
         fileSystem.renameSync(tempPath, manifestPath);
@@ -883,7 +899,7 @@ function createSiteHostingSiteRepository(options = {}) {
         }
     }
 
-    return { list, get, create, createPreviewDraft, removePreviewDraft, update, updateSettings, setTemplateUpdateTestVersion, applyTemplateUpdate, recordDeployment, recordBuildResult, recordBuildScreenshot, getScreenshot, recordCustomDomainBinding, clearCustomDomainBinding };
+    return { list, get, create, createPreviewDraft, removePreviewDraft, update, updateSettings, setTemplateUpdateTestVersion, applyTemplateUpdate, recordDeployment, clearDeployment, recordBuildResult, recordBuildScreenshot, getScreenshot, recordCustomDomainBinding, clearCustomDomainBinding };
 }
 
 module.exports = { SITE_SCHEMA_VERSION, safeSiteId, createSiteHostingSiteRepository };

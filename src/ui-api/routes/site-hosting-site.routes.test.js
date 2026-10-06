@@ -50,6 +50,27 @@ test('site routes pass explicit custom-domain disconnect confirmation to the ser
     assert.deepEqual(responses, [{ hostname: 'blog.example.com', disconnected: true }]);
 });
 
+test('site routes pass explicit Worker disconnect confirmation to the service', async () => {
+    const calls = [];
+    const response = {};
+    const handler = createSiteHostingSiteRouteHandler({
+        service: { disconnectWorker: async (projectId, siteId, payload) => {
+            calls.push({ projectId, siteId, payload });
+            return { worker_name: 'bg-site-1', disconnected: true };
+        } },
+        sendSuccess: async (_res, _id, result) => { response.body = result; },
+        sendError: async (_res, _id, status, code) => { response.status = status; response.body = code; }
+    });
+    const handled = await handler({
+        method: 'POST', pathname: '/api/v1/site-hosting/projects/project-1/sites/site-1/worker-disconnect',
+        remoteAddress: '127.0.0.1', host: '127.0.0.1:43127', origin: 'http://127.0.0.1:43127',
+        contentType: 'application/json', requestBody: { confirmed: true }, res: response
+    });
+    assert.equal(handled, true);
+    assert.deepEqual(calls, [{ projectId: 'project-1', siteId: 'site-1', payload: { confirmed: true } }]);
+    assert.deepEqual(response.body, { worker_name: 'bg-site-1', disconnected: true });
+});
+
 test('site routes build, preview, and deploy a site', async () => {
     const calls = [];
     const responses = [];

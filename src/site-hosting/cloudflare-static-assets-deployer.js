@@ -81,6 +81,7 @@ function createCloudflareSdkAdapter({ client, fetchImpl = globalThis.fetch } = {
         listWorkerDomains: ({ accountId, hostname }) => listItems(client.workers.domains.list({ account_id: accountId, hostname })),
         listDnsRecords: ({ zoneId, hostname }) => listItems(client.dns.records.list({ zone_id: zoneId, name: hostname, per_page: 100 })),
         detachWorkerDomain: ({ accountId, bindingId }) => client.workers.domains.delete(bindingId, { account_id: accountId }),
+        deleteWorker: ({ accountId, workerName }) => client.workers.scripts.delete(workerName, { account_id: accountId }),
         getWorkersSubdomain: async (accountId) => String((await client.workers.subdomains.get({ account_id: accountId }))?.subdomain || '').trim(),
         createWorker: ({ accountId, workerName }) => client.workers.beta.workers.create({
             account_id: accountId,
@@ -219,9 +220,20 @@ function createCloudflareStaticAssetsDeployer(options = {}) {
             const url = `https://${workerName}.${subdomain}.workers.dev/`;
             activeStep = 'Worker 목록 조회';
             const scripts = await adapter.listWorkerScripts(accountId);
-            const existing = scripts.find((script) => String(script?.id || script?.name || '') === workerName);
+            const matchingScripts = scripts.filter((script) => String(script?.id || script?.name || '') === workerName);
+            if (matchingScripts.length > 1) throw new Error('같은 이름의 Worker가 여러 개 확인되어 배포를 중단했습니다.');
+            const existing = matchingScripts[0] || null;
             if (!existing) activeStep = 'Worker 생성';
-            const worker = existing || await adapter.createWorker({ accountId, workerName });
+            let worker = existing || await adapter.createWorker({ accountId, workerName });
+            let workerCreatedOn = String(worker?.created_on || existing?.created_on || '');
+            if (!existing && !workerCreatedOn) {
+                const createdScripts = (await adapter.listWorkerScripts(accountId))
+                    .filter((script) => String(script?.id || script?.name || '') === workerName);
+                if (createdScripts.length === 1) {
+                    worker = createdScripts[0];
+                    workerCreatedOn = String(worker?.created_on || '');
+                }
+            }
             const workerId = String(worker?.id || worker?.name || workerName);
             const { manifest, filesByHash, contentTypesByHash } = createAssetManifest(readStaticAssets(pathApi.join(site.root_path, 'dist'), fileSystem, pathApi));
             activeStep = '정적 파일 업로드';
@@ -251,7 +263,19 @@ function createCloudflareStaticAssetsDeployer(options = {}) {
             // Cloudflare control plane confirms the deployment is active. Avoid treating
             // a transient workers.dev propagation 404 as a failed deployment.
             console.info('[Site Hosting] 배포 주소:', url);
-            return { worker_name: workerName, url, deployment_id: deploymentId, version_id: versionId };
+            const previouslyManaged = site.deployment?.managed_by_app === true
+                && String(site.deployment?.worker_account_id || '') === accountId
+                && String(site.deployment?.worker_created_on || '')
+                && String(site.deployment.worker_created_on) === workerCreatedOn;
+            return {
+                worker_name: workerName,
+                url,
+                deployment_id: deploymentId,
+                version_id: versionId,
+                worker_account_id: accountId,
+                worker_created_on: workerCreatedOn,
+                managed_by_app: Boolean(workerCreatedOn && (!existing || previouslyManaged))
+            };
         } catch (cause) {
             const status = Number(cause?.status);
             const diagnostic = getCloudflareErrorDetails(cause);
