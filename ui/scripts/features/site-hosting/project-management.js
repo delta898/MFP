@@ -131,15 +131,22 @@ function siteHostingSiteAddresses(site, domainConnect, hasDeploymentAddress = Bo
   const customDomainHref = customDomain && !/[\s/\\?#@]/.test(customDomain)
     ? siteHostingSafeHttpsUrl(`https://${customDomain}`)
     : '';
-  const workerActions = workerHref
-    ? `<span class="site-hosting-address-actions"><button class="site-hosting-icon-button" type="button" data-site-open-address="${siteHostingEscapeHtml(site.id)}" data-address-type="worker" aria-label="기본 주소 열기" title="기본 주소 열기">${siteHostingExternalLinkIcon()}</button><button class="site-hosting-icon-button" type="button" data-site-copy-address="${siteHostingEscapeHtml(site.id)}" data-address-type="worker" aria-label="기본 주소 복사" title="기본 주소 복사">${siteHostingCopyIcon()}</button></span>`
-    : `<span class="site-hosting-address-actions"><button class="site-hosting-icon-button" type="button" disabled aria-label="배포 후 기본 주소를 열 수 있습니다." title="배포하면 기본 주소가 생깁니다.">${siteHostingExternalLinkIcon()}</button><button class="site-hosting-icon-button" type="button" disabled aria-label="배포 후 기본 주소를 복사할 수 있습니다." title="배포하면 기본 주소가 생깁니다.">${siteHostingCopyIcon()}</button></span>`;
+  const workerActions = siteHostingAddressTools('worker', `<span class="site-hosting-address-actions" aria-label="기본 연결 동작"><button class="site-hosting-icon-button" type="button" data-site-open-address="${siteHostingEscapeHtml(site.id)}" data-address-type="worker" aria-label="기본 주소 열기" data-tooltip="기본 주소 열기" ${workerHref ? '' : 'disabled'}>${siteHostingExternalLinkIcon()}</button><button class="site-hosting-icon-button" type="button" data-site-copy-address="${siteHostingEscapeHtml(site.id)}" data-address-type="worker" aria-label="기본 주소 복사" data-tooltip="기본 주소 복사" ${workerHref ? '' : 'disabled'}>${siteHostingCopyIcon()}</button></span>`);
   const domainActions = customDomainHref
-    ? `<span class="site-hosting-address-value">${siteHostingEscapeHtml(customDomain)}</span><span class="site-hosting-address-actions"><button class="site-hosting-icon-button" type="button" data-site-open-address="${siteHostingEscapeHtml(site.id)}" data-address-type="domain" aria-label="연결 도메인 열기" title="연결 도메인 열기">${siteHostingExternalLinkIcon()}</button><button class="site-hosting-icon-button" type="button" data-site-copy-address="${siteHostingEscapeHtml(site.id)}" data-address-type="domain" aria-label="연결 도메인 복사" title="연결 도메인 복사">${siteHostingCopyIcon()}</button><button class="site-hosting-icon-button site-hosting-domain-disconnect" type="button" data-site-domain-disconnect="${siteHostingEscapeHtml(site.id)}" aria-label="도메인 연결 해지" title="도메인 연결 해지" ${operation?.phase === 'running' ? 'disabled aria-busy="true"' : ''}>${siteHostingUnlinkIcon()}</button></span>`
+    ? siteHostingAddressTools('domain', `<span class="site-hosting-address-actions" aria-label="연결 도메인 동작"><button class="site-hosting-icon-button site-hosting-domain-disconnect" type="button" data-site-domain-disconnect="${siteHostingEscapeHtml(site.id)}" aria-label="도메인 연결 해지" data-tooltip="도메인 연결 해지" ${operation?.phase === 'running' ? 'disabled aria-busy="true"' : ''}>${siteHostingUnlinkIcon()}</button><button class="site-hosting-icon-button" type="button" data-site-copy-address="${siteHostingEscapeHtml(site.id)}" data-address-type="domain" aria-label="연결 도메인 복사" data-tooltip="연결 도메인 복사">${siteHostingCopyIcon()}</button><button class="site-hosting-icon-button" type="button" data-site-open-address="${siteHostingEscapeHtml(site.id)}" data-address-type="domain" aria-label="연결 도메인 열기" data-tooltip="연결 도메인 열기">${siteHostingExternalLinkIcon()}</button></span>`, `<span class="site-hosting-address-value">${siteHostingEscapeHtml(customDomain)}</span>`)
     : hasDeploymentAddress
       ? `<button class="site-hosting-domain-start" type="button" data-site-domain-start="${siteHostingEscapeHtml(site.id)}" ${domainConnect?.open ? 'aria-expanded="true"' : ''}>도메인 연결 <span aria-hidden="true">+</span></button>`
       : '<span class="site-hosting-address-empty">배포 후 연결할 수 있습니다.</span>';
-  return `<div class="site-hosting-site-addresses" aria-label="사이트 주소"><div class="site-hosting-address-row"><span>기본 주소</span>${workerActions}</div><div class="site-hosting-address-row"><span>연결 도메인</span>${domainActions}</div></div>`;
+  return `<div class="site-hosting-site-addresses" aria-label="사이트 주소"><div class="site-hosting-address-row"><span class="site-hosting-address-label">기본 연결</span>${workerHref ? '' : '<span class="site-hosting-address-empty">배포 후 연결됩니다.</span>'}${workerActions}</div><div class="site-hosting-address-row"><span class="site-hosting-address-label">연결 도메인</span>${domainActions}</div></div>`;
+}
+
+function siteHostingAddressTools(addressType, revealContent, address = '') {
+  const label = addressType === 'worker' ? '기본 연결' : '연결 도메인';
+  return `<span class="site-hosting-address-tools" data-site-address-tools>
+    ${address}
+    <span class="site-hosting-address-reveal" data-site-address-reveal>${revealContent}</span>
+    <button class="site-hosting-address-tools-toggle" type="button" data-site-address-tools-toggle aria-label="${label} 도구 열기" aria-expanded="false">${siteHostingAddressToolsIcon()}</button>
+  </span>`;
 }
 
 function siteHostingExternalLinkIcon() {
@@ -152,6 +159,48 @@ function siteHostingCopyIcon() {
 
 function siteHostingUnlinkIcon() {
   return '<svg aria-hidden="true" viewBox="0 0 16 16"><path d="M6.2 4.1 7.4 2.9a3.1 3.1 0 0 1 4.4 4.4l-1.2 1.2M9.8 11.9l-1.2 1.2a3.1 3.1 0 0 1-4.4-4.4l1.2-1.2M2 14 14 2"/></svg>';
+}
+
+function siteHostingAddressToolsIcon() {
+  return '<svg aria-hidden="true" viewBox="0 0 16 16"><path d="M13.5 8h-10M7.5 4l-4 4 4 4"/></svg>';
+}
+
+function siteHostingSetAddressToolsOpen(tools, open) {
+  if (!tools) return;
+  tools.classList.toggle('is-open', open);
+  const toggle = tools.querySelector('[data-site-address-tools-toggle]');
+  if (!toggle) return;
+  toggle.setAttribute('aria-expanded', String(open));
+  const addressType = tools.querySelector('[data-address-type]')?.dataset.addressType;
+  const label = addressType === 'worker' ? '기본 연결' : '연결 도메인';
+  const tooltip = `${label} 도구 ${open ? '닫기' : '열기'}`;
+  toggle.setAttribute('aria-label', tooltip);
+}
+
+function siteHostingShowActionTooltip(button) {
+  const text = button?.dataset.tooltip;
+  if (!text) return;
+  let tooltip = document.getElementById('site-hosting-action-tooltip');
+  if (!tooltip) {
+    tooltip = document.createElement('div');
+    tooltip.id = 'site-hosting-action-tooltip';
+    tooltip.className = 'site-hosting-action-tooltip';
+    tooltip.setAttribute('role', 'tooltip');
+    document.body.appendChild(tooltip);
+  }
+  tooltip.textContent = text;
+  tooltip.hidden = false;
+  const buttonRect = button.getBoundingClientRect();
+  const tooltipRect = tooltip.getBoundingClientRect();
+  const left = Math.min(Math.max(8, buttonRect.left + (buttonRect.width - tooltipRect.width) / 2), window.innerWidth - tooltipRect.width - 8);
+  const top = buttonRect.top >= tooltipRect.height + 8 ? buttonRect.top - tooltipRect.height - 8 : buttonRect.bottom + 8;
+  tooltip.style.left = `${Math.round(left)}px`;
+  tooltip.style.top = `${Math.round(top)}px`;
+}
+
+function siteHostingHideActionTooltip() {
+  const tooltip = document.getElementById('site-hosting-action-tooltip');
+  if (tooltip) tooltip.hidden = true;
 }
 
 async function siteHostingOpenAddress(siteId, addressType, button) {
@@ -730,7 +779,60 @@ function initSiteHostingProjects() {
   siteHostingProjectListMode = false;
   if (!siteHostingProjectsBound) {
     siteHostingProjectsBound = true;
+    content.addEventListener('pointerover', (event) => {
+      const action = event.target.closest('[data-tooltip]');
+      if (action && !action.contains(event.relatedTarget)) siteHostingShowActionTooltip(action);
+      const tools = event.target.closest('[data-site-address-tools]');
+      if (tools && !tools.contains(event.relatedTarget)) siteHostingSetAddressToolsOpen(tools, true);
+    });
+    content.addEventListener('pointerout', (event) => {
+      const action = event.target.closest('[data-tooltip]');
+      if (action && !action.contains(event.relatedTarget)) siteHostingHideActionTooltip();
+      const tools = event.target.closest('[data-site-address-tools]');
+      if (tools && !tools.contains(event.relatedTarget) && !tools.querySelector(':focus-visible') && tools.dataset.pinned !== 'true') {
+        siteHostingSetAddressToolsOpen(tools, false);
+      }
+    });
+    content.addEventListener('focusin', (event) => {
+      const action = event.target.closest('[data-tooltip]');
+      if (action) siteHostingShowActionTooltip(action);
+      const tools = event.target.closest('[data-site-address-tools]');
+      if (tools) siteHostingSetAddressToolsOpen(tools, true);
+    });
+    content.addEventListener('focusout', (event) => {
+      if (event.target.closest('[data-tooltip]') && !event.target.closest('[data-tooltip]').contains(event.relatedTarget)) siteHostingHideActionTooltip();
+      const tools = event.target.closest('[data-site-address-tools]');
+      if (!tools || tools.contains(event.relatedTarget)) return;
+      requestAnimationFrame(() => {
+        if (!tools.querySelector(':focus-visible') && tools.dataset.pinned !== 'true' && !tools.matches(':hover')) {
+          siteHostingSetAddressToolsOpen(tools, false);
+        }
+      });
+    });
+    content.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      const tools = event.target.closest('[data-site-address-tools]');
+      if (!tools?.classList.contains('is-open')) return;
+      event.preventDefault();
+      tools.dataset.pinned = 'false';
+      tools.querySelector('[data-site-address-tools-toggle]')?.focus();
+      siteHostingSetAddressToolsOpen(tools, false);
+    });
     content.addEventListener('click', (event) => {
+      const addressToolsToggle = event.target.closest('[data-site-address-tools-toggle]');
+      for (const tools of content.querySelectorAll('[data-site-address-tools].is-open')) {
+        if (tools !== addressToolsToggle?.closest('[data-site-address-tools]')) {
+          tools.dataset.pinned = 'false';
+          siteHostingSetAddressToolsOpen(tools, false);
+        }
+      }
+      if (addressToolsToggle) {
+        const tools = addressToolsToggle.closest('[data-site-address-tools]');
+        const wasPinned = tools.dataset.pinned === 'true';
+        tools.dataset.pinned = String(!wasPinned);
+        siteHostingSetAddressToolsOpen(tools, !wasPinned);
+        return;
+      }
       const create = event.target.closest('[data-site-project-create]');
       if (create) return siteHostingOpenCreateDialog();
       const project = event.target.closest('[data-site-project-open]');

@@ -10,6 +10,7 @@ const html = fs.readFileSync(path.join(root, 'ui/partials/views/site-hosting.htm
 const creation = fs.readFileSync(path.join(root, 'ui/scripts/features/site-hosting/site-creation-navigation.js'), 'utf8');
 const profile = fs.readFileSync(path.join(root, 'ui/scripts/features/site-hosting/site-profile-fields.js'), 'utf8');
 const creationStyles = fs.readFileSync(path.join(root, 'ui/styles/features/site-hosting-create.css'), 'utf8');
+const siteHostingStyles = fs.readFileSync(path.join(root, 'ui/styles/features/site-hosting.css'), 'utf8');
 
 test('site creation exposes optional site SEO fields with indexing enabled by default', () => {
     assert.match(html, /id="site-name"[^>]*required/);
@@ -75,6 +76,18 @@ test('site cards own operation messages and template checks refresh on entry and
     assert.match(runtime, /await fetchJson\('\/api\/v1\/site-hosting\/templates'\)/);
     assert.match(runtime, /data-site-domain-disconnect=/);
     assert.match(runtime, /siteHostingUnlinkIcon\(\)/);
+    assert.match(runtime, /data-site-address-tools-toggle/);
+    assert.match(runtime, /siteHostingAddressTools\('domain'/);
+    assert.match(runtime, /data-tooltip="도메인 연결 해지"/);
+    assert.match(runtime, /data-tooltip="연결 도메인 복사"/);
+    assert.match(runtime, /data-tooltip="연결 도메인 열기"/);
+    assert.match(runtime, /<span class="site-hosting-address-label">기본 연결<\/span>/);
+    assert.match(runtime, /siteHostingUnlinkIcon\(\)[\s\S]*?siteHostingCopyIcon\(\)[\s\S]*?siteHostingExternalLinkIcon\(\)/);
+    assert.doesNotMatch(runtime, /workerAddress/);
+    assert.match(runtime, /content\.addEventListener\('pointerover'/);
+    assert.match(runtime, /content\.addEventListener\('keydown'/);
+    assert.match(runtime, /aria-expanded="false"/);
+    assert.match(siteHostingStyles, /\.site-hosting-address-tools\.is-open \.site-hosting-address-reveal/);
     assert.match(domains, /showUiConfirm\([\s\S]*?title: '도메인 연결 해지'/);
     assert.match(domains, /custom-domain-disconnect`/);
     assert.match(domains, /기본 주소와 Worker는 유지됩니다/);

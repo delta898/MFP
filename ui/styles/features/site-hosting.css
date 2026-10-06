@@ -299,12 +299,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--ui-space-3);
+  gap: var(--ui-space-2);
   min-width: 0;
 }
 
-.site-hosting-address-row > span:first-child {
-  flex: 1 1 auto;
+.site-hosting-address-label {
+  flex: 0 0 5.25rem;
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-type-caption-size);
 }
 
 .site-hosting-address-value,
@@ -312,9 +314,42 @@
   margin-right: auto;
   color: var(--ui-text-secondary);
   font-size: var(--ui-type-caption-size);
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.site-hosting-address-tools {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 1 auto;
+  gap: 0;
+  min-width: 0;
+  max-width: calc(100% - 5.25rem - var(--ui-space-2));
+}
+
+.site-hosting-address-reveal {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: var(--ui-space-2);
+  margin: 0;
+  width: max-content;
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateX(.45rem);
+  visibility: hidden;
+  transition: max-width 420ms ease, opacity 280ms ease, transform 420ms ease, visibility 420ms;
+}
+
+.site-hosting-address-tools.is-open .site-hosting-address-reveal {
+  max-width: 36rem;
+  margin: 0 var(--ui-space-1);
+  opacity: 1;
+  transform: translateX(0);
+  visibility: visible;
 }
 
 .site-hosting-address-actions {
@@ -323,10 +358,70 @@
   gap: var(--ui-space-1);
 }
 
-.site-hosting-site-card .site-hosting-icon-button {
+.site-hosting-address-value {
+  flex: 0 1 auto;
+  max-width: min(18rem, 34vw);
+}
+
+.site-hosting-address-tools > .site-hosting-address-value {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0 var(--ui-space-1) 0 0;
+}
+
+.site-hosting-address-tools-toggle {
+  position: relative;
   display: inline-grid;
   width: 2rem;
   height: 2rem;
+  flex: 0 0 2rem;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--ui-radius-sm);
+  background: transparent;
+  color: var(--ui-text-tertiary, var(--ui-text-secondary));
+  cursor: pointer;
+}
+
+.site-hosting-address-tools-toggle svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+  transition: transform 180ms ease, color 140ms ease;
+}
+
+.site-hosting-address-tools.is-open .site-hosting-address-tools-toggle svg {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-hosting-address-reveal,
+  .site-hosting-address-tools-toggle svg {
+    transition-duration: 0.01ms;
+  }
+}
+
+.site-hosting-address-tools-toggle:hover,
+.site-hosting-address-tools-toggle:focus-visible {
+  color: var(--ui-action-primary);
+}
+
+.site-hosting-address-tools-toggle:focus-visible,
+.site-hosting-address-actions .site-hosting-icon-button:focus-visible {
+  outline: 2px solid var(--ui-action-primary);
+  outline-offset: 2px;
+}
+
+.site-hosting-site-card .site-hosting-icon-button {
+  position: relative;
+  display: inline-grid;
+  width: 1.75rem;
+  height: 1.75rem;
   place-items: center;
   padding: 0;
   border: 1px solid var(--ui-border-default);
@@ -334,6 +429,24 @@
   background: var(--ui-surface);
   color: var(--ui-text-secondary);
   cursor: pointer;
+}
+
+.site-hosting-action-tooltip {
+  position: fixed;
+  z-index: 10000;
+  width: max-content;
+  max-width: min(16rem, calc(100vw - 2rem));
+  padding: var(--ui-space-1) var(--ui-space-2);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-card-background);
+  box-shadow: var(--ui-shadow-md);
+  color: var(--ui-text-primary);
+  font-size: var(--ui-type-caption-size);
+  font-weight: var(--ui-weight-regular);
+  line-height: var(--ui-line-height-body);
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .site-hosting-icon-button svg {
@@ -362,7 +475,8 @@
 }
 
 .site-hosting-site-card .site-hosting-domain-start {
-  margin-right: auto;
+  margin-left: auto;
+  margin-right: 0;
   padding: var(--ui-space-1) var(--ui-space-2);
   border: 1px solid var(--ui-border-default);
   border-radius: var(--ui-radius-sm);

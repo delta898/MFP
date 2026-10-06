@@ -2670,8 +2670,48 @@ async function run() {
                         return true;
                     };
                 });
+                const addressTools = page.locator('[data-site-address-tools]:has([data-site-domain-disconnect="site-smoke-1"])');
+                const addressToolsToggle = addressTools.locator('[data-site-address-tools-toggle]');
+                const domainAddressRow = page.locator('.site-hosting-address-row').nth(1);
+                assert.equal(await domainAddressRow.locator('.site-hosting-address-value').isVisible(), true);
+                assert.equal(await domainAddressRow.evaluate((row) => [...row.children].map((child) => child.classList.contains('site-hosting-address-label') ? 'label' : 'tools').join(',')), 'label,tools');
+                const closedAddressGap = await domainAddressRow.evaluate((row) => {
+                    const address = row.querySelector('.site-hosting-address-value').getBoundingClientRect();
+                    const toggle = row.querySelector('[data-site-address-tools-toggle]').getBoundingClientRect();
+                    return toggle.left - address.right;
+                });
+                assert.ok(closedAddressGap >= 0 && closedAddressGap <= 12, `domain should sit beside the disclosure control, gap=${closedAddressGap}`);
+                assert.equal(await page.locator('.site-hosting-address-row').first().textContent().then((text) => text.includes('bg-site-smoke-1.example.workers.dev')), false);
+                await addressToolsToggle.click();
+                assert.equal(await addressToolsToggle.getAttribute('aria-expanded'), 'true');
+                await page.waitForTimeout(300);
+                assert.equal(await domainAddressRow.locator('.site-hosting-address-value').isVisible(), true);
+                assert.equal(await addressTools.locator('.site-hosting-address-actions button').evaluateAll((buttons) => buttons.map((button) => button.getAttribute('aria-label')).join(',')), '도메인 연결 해지,연결 도메인 복사,연결 도메인 열기');
+                const expandedAddressOrder = await domainAddressRow.evaluate((row) => {
+                    const bounds = (element) => element.getBoundingClientRect();
+                    return [
+                        bounds(row.querySelector('.site-hosting-address-value')).right,
+                        bounds(row.querySelector('[data-site-domain-disconnect]')).left,
+                        bounds(row.querySelector('[data-site-copy-address][data-address-type="domain"]')).left,
+                        bounds(row.querySelector('[data-site-open-address][data-address-type="domain"]')).left,
+                        bounds(row.querySelector('[data-site-address-tools-toggle]')).left
+                    ];
+                });
+                assert.ok(expandedAddressOrder.every((edge, index) => index === 0 || expandedAddressOrder[index - 1] <= edge),
+                    `address actions should follow address before the right-side disclosure: ${expandedAddressOrder.join(',')}`);
+                assert.equal(await addressTools.locator('[data-site-open-address][data-address-type="domain"], [data-site-copy-address][data-address-type="domain"], [data-site-domain-disconnect]').count(), 3);
+                await page.locator('.site-hosting-site-heading').first().click();
+                assert.equal(await addressToolsToggle.getAttribute('aria-expanded'), 'false');
+                await addressToolsToggle.hover();
+                await page.waitForFunction(() => document.querySelector('[data-site-address-tools] [data-site-address-tools-toggle][aria-expanded="true"]'));
+                await page.locator('.site-hosting-site-heading').first().hover();
+                await page.waitForFunction(() => !document.querySelector('[data-site-address-tools] [data-site-address-tools-toggle][aria-expanded="true"]'));
+                await addressToolsToggle.hover();
                 const disconnectButton = page.locator('[data-site-domain-disconnect="site-smoke-1"]');
                 await disconnectButton.waitFor({ state: 'visible' });
+                await disconnectButton.hover();
+                await page.locator('#site-hosting-action-tooltip').waitFor({ state: 'visible' });
+                assert.equal(await page.locator('#site-hosting-action-tooltip').textContent(), '도메인 연결 해지');
                 await disconnectButton.click();
                 await page.waitForFunction(() => window.__domainDisconnectConfirmCalls?.length === 1);
                 assert.match(await page.evaluate(() => window.__domainDisconnectConfirmCalls[0].message), /blog\.example\.com/);
