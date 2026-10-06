@@ -1,0 +1,13 @@
+{
+  "version": "0.1.0-dev4",
+  "previous_versions_supported": ["0.1.0-dev3"],
+  "template_update_policy": {
+    "strategy": "replace-managed-paths",
+    "managed_paths": ["template/astro"],
+    "preserved_paths": [".bloggenius", "site-data"]
+  },
+  "contract_ids": [
+    "bloggenius-site-hosting-template",
+    "bloggenius-knowledge-collection-template"
+  ]
+}

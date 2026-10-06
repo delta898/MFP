@@ -323,3 +323,56 @@ test('Astro runtime builds and serves a draft preview without recording a persis
         fs.rmSync(fixture.workspaceDir, { recursive: true, force: true });
     }
 });
+
+test('Garden build filters notes using the template-declared publication input and returns a summary', async () => {
+    const fixture = createFixture();
+    try {
+        const vaultRoot = path.join(fixture.workspaceDir, 'vault');
+        fs.mkdirSync(vaultRoot, { recursive: true });
+        fs.writeFileSync(path.join(vaultRoot, 'Public.md'), '---\npublication: public\n---\n\nPublic note.\n');
+        fs.writeFileSync(path.join(vaultRoot, 'Private.md'), '---\npublication: private\n---\n\nPrivate note.\n');
+        const setupInputs = [
+            { id: 'knowledge_collection_root', type: 'directory', purpose: 'knowledge_collection', required: true },
+            { id: 'publication_filter', type: 'frontmatter_match', purpose: 'publication_filter', required: true }
+        ];
+        const templates = {
+            ...fixture.templates,
+            get: (id) => {
+                const template = fixture.templates.get(id);
+                return { ...template, resource: { ...template.resource, template: { setup_inputs: setupInputs } } };
+            }
+        };
+        const manifestPath = path.join(fixture.site.root_path, '.bloggenius/site.json');
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        manifest.setup_inputs = {
+            knowledge_collection_root: vaultRoot,
+            publication_filter: { field: 'publication', value: 'public' }
+        };
+        fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+        const runtime = createAstroSiteRuntime({
+            fs, path, projectRepository: fixture.projectRepository,
+            siteRepository: fixture.siteRepository, templates,
+            npmCliPath: '/app/node_modules/npm/bin/npm-cli.js',
+            cacheRoot: path.join(fixture.workspaceDir, '.cache'),
+            spawn: fakeNpmSpawn([]),
+            captureScreenshot: async () => ({ buffer: Buffer.from('garden-build'), viewport: { width: 1200, height: 675 } })
+        });
+        const result = await runtime.build('project-1', 'site-1');
+        assert.deepEqual(result.knowledge_collection, {
+            source_markdown_count: 2,
+            published_note_count: 1,
+            excluded_note_count: 1,
+            copied_resource_count: 0,
+            copied_resource_bytes: 0,
+            unresolved_link_count: 0,
+            missing_resource_count: 0,
+            selection_configured: true
+        });
+        const generated = fs.readdirSync(path.join(fixture.site.root_path, 'site-data/data/knowledge/notes'));
+        assert.equal(generated.length, 1);
+        assert.match(fs.readFileSync(path.join(fixture.site.root_path, 'site-data/data/knowledge/notes', generated[0]), 'utf8'), /Public note/);
+        assert.doesNotMatch(fs.readFileSync(path.join(fixture.site.root_path, 'site-data/data/knowledge/notes', generated[0]), 'utf8'), /Private note/);
+    } finally {
+        fs.rmSync(fixture.workspaceDir, { recursive: true, force: true });
+    }
+});

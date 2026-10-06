@@ -81,6 +81,50 @@ function siteHostingRefreshCreateMenuRows() {
   list.querySelectorAll('[data-site-menu-remove]').forEach((button) => { button.disabled = list.children.length <= 1; });
 }
 
+function siteHostingCreateRequirementsMet() {
+  const name = String(document.getElementById('site-name')?.value || '').trim();
+  const templateId = String(document.getElementById('site-template-id')?.value || '');
+  const template = siteHostingCreateTemplates.find((item) => item.id === templateId);
+  if (!name || !template || !siteHostingSelectedProject) return false;
+
+  for (const item of Array.isArray(template.setup_inputs) ? template.setup_inputs : []) {
+    const configured = siteHostingCreateSetupInputs[item.id] || {};
+    if (item?.type === 'directory' && item?.purpose === 'knowledge_collection' && item.required
+      && !String(siteHostingCreateSetupInputs[item.id] || '').trim()) return false;
+    if (item?.type === 'frontmatter_match' && item?.purpose === 'publication_filter' && item.required) {
+      const mode = [...document.querySelectorAll('[data-site-setup-mode]')]
+        .find((control) => control.dataset.siteSetupId === item.id && control.checked)?.value
+        || (configured.mode === 'all' ? 'all' : 'frontmatter');
+      if (mode === 'frontmatter' && (!String(configured.field || '').trim() || !String(configured.value ?? '').trim())) return false;
+    }
+  }
+
+  const navigationDefaults = template.customization?.find((field) => field.key === 'navigation')?.default;
+  if (Array.isArray(navigationDefaults)) {
+    const rows = [...document.querySelectorAll('#site-navigation-fields [data-site-menu-row]')];
+    for (const row of rows) {
+      const label = String(row.querySelector('[data-site-menu-label]')?.value || '').trim();
+      const href = row.querySelector('[data-site-menu-href]');
+      if (!label || label.length > 30 || /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(label)) return false;
+      const fallback = href?.dataset.defaultHref || (href?.dataset.hasDefault === 'true' ? '' : siteHostingSuggestMenuPath(label));
+      try { siteHostingNormalizeMenuPath(href?.value, fallback, label); }
+      catch (_error) { return false; }
+    }
+    if (template.publishing?.routes?.listing && !document.querySelector('input[name="site-post-list-menu"]:checked')) return false;
+  }
+
+  for (const key of Object.keys(SITE_PROFILE_IMAGE_LABELS)) {
+    const file = document.getElementById(siteHostingProfileImageOptions(key)?.inputId)?.files?.[0];
+    if (file && (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 1024 * 1024)) return false;
+  }
+  return true;
+}
+
+function siteHostingUpdateCreateSubmitState() {
+  const submit = document.querySelector('#site-create-form [type="submit"]');
+  if (submit && !submit.classList.contains('is-loading')) submit.disabled = !siteHostingCreateRequirementsMet();
+}
+
 async function siteHostingCollectCreatePayload(options = {}) {
   const input = document.getElementById('site-name');
   const templateInput = document.getElementById('site-template-id');
@@ -109,15 +153,19 @@ async function siteHostingCollectCreatePayload(options = {}) {
     }
     if (item?.type === 'frontmatter_match' && item?.purpose === 'publication_filter') {
       const configured = siteHostingCreateSetupInputs[item.id] || {};
+      const modeInput = [...document.querySelectorAll('[data-site-setup-mode]')]
+        .find((control) => control.dataset.siteSetupId === item.id && control.checked);
+      const selectedMode = modeInput?.value || (configured.mode === 'all' ? 'all' : 'frontmatter');
       const field = String(configured.field || '').trim();
       const value = String(configured.value ?? '').trim();
-      if (item.required && (!field || !value) && options.allowMissingSetupInputs !== true) {
-        if (feedback) feedback.textContent = '공개 노트 기준의 속성명과 일치값을 모두 입력해 주세요. 비워 두면 전체 공개되지 않습니다.';
+      if (item.required && selectedMode === 'frontmatter' && (!field || !value) && options.allowMissingSetupInputs !== true) {
+        if (feedback) feedback.textContent = 'Frontmatter 속성과 일치값을 모두 입력해 주세요.';
         [...document.querySelectorAll('[data-site-setup-field]')]
           .find((control) => control.dataset.siteSetupId === item.id)?.focus();
         return null;
       }
-      if (field && value) setupInputs[item.id] = { field, value };
+      if (selectedMode === 'all') setupInputs[item.id] = { mode: 'all' };
+      else if (field && value) setupInputs[item.id] = { mode: 'frontmatter', field, value };
     }
   }
   const navigationDefaults = selectedTemplate?.customization?.find((field) => field.key === 'navigation')?.default;
@@ -215,8 +263,10 @@ async function siteHostingCreateSite(event) {
   const form = event.currentTarget;
   const feedback = document.getElementById('site-create-feedback');
   const submit = form.querySelector('[type="submit"]');
+  const submitLabel = submit.textContent;
   submit.disabled = true;
   submit.classList.add('is-loading');
+  submit.textContent = '사이트 빌드 중…';
   try {
     const payload = await siteHostingCollectCreatePayload();
     if (!payload) return;
@@ -227,19 +277,34 @@ async function siteHostingCreateSite(event) {
     } catch (_refreshError) {
       siteHostingSites = [...siteHostingSites, site];
     }
+    const createdSiteIndex = siteHostingSites.findIndex((item) => item.id === site.id);
+    if (createdSiteIndex >= 0 && site.screenshot) {
+      siteHostingSites[createdSiteIndex] = {
+        ...siteHostingSites[createdSiteIndex],
+        screenshot: { ...(siteHostingSites[createdSiteIndex].screenshot || {}), latest_build: site.screenshot },
+        screenshot_url: `/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites/${encodeURIComponent(site.id)}/screenshot`
+      };
+    }
     siteHostingSelectedProject.site_count = siteHostingSites.length;
     siteHostingSiteLoadState = 'ready';
     siteHostingRenderProjectDetail();
-    siteHostingSetFeedback('사이트를 만들었습니다.', 'success');
+    if (site.build_error) {
+      siteHostingSetSiteOperation(site.id, 'error', `사이트는 만들었지만 자동 빌드에 실패했습니다: ${site.build_error}`);
+    } else {
+      const screenshotMessage = site.screenshot_error ? ' 대표 이미지는 만들지 못했습니다.' : '';
+      siteHostingSetSiteOperation(site.id, 'success', `사이트 생성 및 빌드를 마쳤습니다.${screenshotMessage}`);
+    }
   } catch (error) {
     if (feedback) feedback.textContent = error.message || '사이트를 만들지 못했습니다.';
   } finally {
-    submit.disabled = false;
     submit.classList.remove('is-loading');
+    submit.textContent = submitLabel;
+    siteHostingUpdateCreateSubmitState();
   }
 }
 
 function siteHostingMarkCreatePreviewStale() {
+  siteHostingUpdateCreateSubmitState();
   if (!siteHostingCreatePreviewId) return;
   const status = document.getElementById('site-create-preview-status');
   if (status) status.textContent = '설정 변경됨 · 다시 미리보기 하세요';
@@ -284,7 +349,10 @@ async function siteHostingPreviewCreateSite() {
       if (empty) empty.hidden = true;
       document.getElementById('site-template-details')?.setAttribute('hidden', '');
       siteHostingCreatePreviewId = result.id;
-      if (status) status.textContent = '미리보기 완료';
+      const collection = result.knowledge_collection;
+      if (status) status.textContent = collection && (collection.source_markdown_count || collection.selection_configured)
+        ? `미리보기 완료 · 공개 노트 ${collection.published_note_count}개 · 제외 ${collection.excluded_note_count}개 · 첨부 ${collection.copied_resource_count}개 · 미해결 링크 ${collection.unresolved_link_count}개 · 누락 첨부 ${collection.missing_resource_count}개`
+        : '미리보기 완료';
       if (previousPreviewId) {
         try { await deleteJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/preview-drafts/${encodeURIComponent(previousPreviewId)}`); } catch (_error) { }
       }
@@ -367,6 +435,8 @@ function siteHostingBindCreateDialogEvents() {
     event.preventDefault();
     void siteHostingRequestCreateCancel();
   });
+  dialog?.addEventListener('input', siteHostingUpdateCreateSubmitState);
+  dialog?.addEventListener('change', siteHostingUpdateCreateSubmitState);
   dialog?.addEventListener('close', () => {
     if (previewDialog?.open) previewDialog.close();
     void siteHostingClearCreatePreview();
@@ -465,6 +535,22 @@ function siteHostingBindCreateDialogEvents() {
     }
   });
   dialog?.addEventListener('change', (event) => {
+    const field = event.target;
+    if (!field.matches('[data-site-setup-mode]')) return;
+    const inputId = field.dataset.siteSetupId;
+    siteHostingCreateSetupInputs[inputId] = field.value === 'all'
+      ? { ...(siteHostingCreateSetupInputs[inputId] || {}), mode: 'all' }
+      : { mode: 'frontmatter', ...(siteHostingCreateSetupInputs[inputId] || {}) };
+    const fields = field.closest('.site-template-setup-input')?.querySelector('.site-template-match-fields');
+    if (fields) {
+      const disabled = field.value === 'all';
+      fields.setAttribute('aria-disabled', String(disabled));
+      fields.classList.toggle('is-disabled', disabled);
+      fields.querySelectorAll('input').forEach((input) => { input.disabled = disabled; });
+    }
+    siteHostingMarkCreatePreviewStale();
+  });
+  dialog?.addEventListener('change', (event) => {
     if (event.target.matches('input[name="site-post-list-menu"], #site-search-indexing')) siteHostingMarkCreatePreviewStale();
   });
 }
@@ -525,7 +611,7 @@ async function siteHostingOpenCreateSiteDialog() {
     siteHostingRenderCreateNavigation();
     if (workspace) workspace.inert = false;
     siteHostingCreateInitialSnapshot = siteHostingCreateFormSnapshot();
-    if (submit) submit.disabled = false;
+    siteHostingUpdateCreateSubmitState();
     if (previewButton) previewButton.disabled = false;
     requestAnimationFrame(() => input.focus());
   } catch (error) {
@@ -598,14 +684,21 @@ function siteHostingRenderCreateSetupInputs() {
     const label = String(item.label || '템플릿 설정');
     if (item.type === 'frontmatter_match') {
       const configured = siteHostingCreateSetupInputs[item.id] || {};
+      const mode = configured.mode === 'all' ? 'all' : 'frontmatter';
       return `<div class="site-project-form-field site-template-setup-input">
         <span>${siteHostingEscapeHtml(label)}${item.required ? ' <b aria-hidden="true">*</b>' : ' <small>선택</small>'}</span>
-        <div class="site-template-match-row">
-          <label><span>Frontmatter 속성</span><input type="text" maxlength="128" data-site-setup-id="${siteHostingEscapeHtml(item.id)}" data-site-setup-field="field" value="${siteHostingEscapeHtml(configured.field || '')}" placeholder="예: is_public"></label>
-          <span class="site-template-match-equals" aria-hidden="true">=</span>
-          <label><span>일치 값</span><input type="text" maxlength="256" data-site-setup-id="${siteHostingEscapeHtml(item.id)}" data-site-setup-field="value" value="${siteHostingEscapeHtml(configured.value || '')}" placeholder="예: true"></label>
+        <div class="site-publication-mode-options" role="radiogroup" aria-label="공개할 노트 선택">
+          <label><input type="radio" name="site-publication-mode-${siteHostingEscapeHtml(item.id)}" value="all" data-site-setup-id="${siteHostingEscapeHtml(item.id)}" data-site-setup-mode ${mode === 'all' ? 'checked' : ''}><span>ALL · Vault의 모든 노트</span></label>
+          <label><input type="radio" name="site-publication-mode-${siteHostingEscapeHtml(item.id)}" value="frontmatter" data-site-setup-id="${siteHostingEscapeHtml(item.id)}" data-site-setup-mode ${mode === 'frontmatter' ? 'checked' : ''}><span>Frontmatter 기준으로 선택</span></label>
         </div>
-        <small>두 값이 모두 입력되어야 합니다. 비워 두면 전체 공개되지 않습니다. 이번 단계에서는 기준만 저장하며, 실제 노트 선별은 후속 단계에서 연결합니다.</small>
+        <div class="site-template-match-fields${mode === 'all' ? ' is-disabled' : ''}" aria-disabled="${mode === 'all'}">
+        <div class="site-template-match-row">
+          <label><span>Frontmatter 속성</span><input type="text" maxlength="128" data-site-setup-id="${siteHostingEscapeHtml(item.id)}" data-site-setup-field="field" value="${siteHostingEscapeHtml(configured.field || '')}" placeholder="예: is_public" ${mode === 'all' ? 'disabled' : ''}></label>
+          <span class="site-template-match-equals" aria-hidden="true">=</span>
+          <label><span>일치 값</span><input type="text" maxlength="256" data-site-setup-id="${siteHostingEscapeHtml(item.id)}" data-site-setup-field="value" value="${siteHostingEscapeHtml(configured.value || '')}" placeholder="예: true" ${mode === 'all' ? 'disabled' : ''}></label>
+        </div>
+        <small>속성명과 일치값을 모두 입력해 주세요.</small>
+        </div>
       </div>`;
     }
     const selectedPath = siteHostingCreateSetupInputs[item.id] || '';
@@ -633,6 +726,7 @@ async function siteHostingSelectCreateSetupDirectory(button) {
     if (result?.cancelled) return;
     siteHostingCreateSetupInputs[inputId] = String(result?.path || '');
     siteHostingRenderCreateSetupInputs();
+    siteHostingUpdateCreateSubmitState();
     siteHostingMarkCreatePreviewStale();
   } catch (error) {
     if (feedback) feedback.textContent = error.message || 'Vault 폴더를 선택하지 못했습니다.';

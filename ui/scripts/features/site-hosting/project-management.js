@@ -6,7 +6,14 @@ let siteHostingProjectBusy = false;
 let siteHostingProjectListMode = false;
 let siteHostingSites = [];
 let siteHostingOperationStates = new Map();
+let siteHostingOperationTimers = new Map();
 let siteHostingDomainConnectStates = new Map();
+let siteHostingTemplateCheckStarted = false;
+let siteHostingTemplateCheckRunning = false;
+let siteHostingTemplateCheckMessage = '';
+let siteHostingTemplateCheckError = false;
+let siteHostingDevelopmentMode = false;
+let siteHostingRuntimeEnvironmentLoaded = false;
 let siteHostingSiteLoadState = 'idle';
 let siteHostingSelectedSiteId = '';
 let siteHostingZoneChoices = [];
@@ -23,14 +30,6 @@ function siteHostingEscapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   })[character]);
-}
-
-function siteHostingSetFeedback(message = '', tone = 'neutral') {
-  const feedback = document.getElementById('site-hosting-feedback');
-  if (!feedback) return;
-  feedback.textContent = message;
-  feedback.hidden = !message;
-  feedback.dataset.state = tone === 'danger' ? 'error' : tone;
 }
 
 function siteHostingDateLabel(value) {
@@ -53,82 +52,134 @@ function siteHostingProjectCard(project) {
   </article>`;
 }
 
+function siteHostingTemplateCheckControl() {
+  return `<div class="site-hosting-template-check-control">
+    <span class="site-hosting-template-check-feedback" data-template-check-feedback role="status" aria-live="polite" data-state="${siteHostingTemplateCheckError ? 'error' : 'success'}"${siteHostingTemplateCheckMessage ? '' : ' hidden'}>${siteHostingEscapeHtml(siteHostingTemplateCheckMessage)}</span>
+    <button class="site-hosting-icon-button" type="button" data-site-template-refresh aria-label="템플릿 업데이트 확인" title="템플릿 업데이트 확인" ${siteHostingTemplateCheckRunning ? 'disabled aria-busy="true"' : ''}>${siteHostingRefreshIcon()}</button>
+  </div>`;
+}
+
 function siteHostingSiteCard(site) {
   const siteKey = `${site.project_id}:${site.id}`;
   const siteId = siteHostingEscapeHtml(site.id);
   const operation = siteHostingOperationStates.get(siteKey) || null;
   const domainConnect = siteHostingDomainConnectStates.get(siteKey) || null;
-  const deploymentState = site.deployment?.url
-    ? { label: '배포됨', state: 'success' }
-    : { label: '미배포', state: 'neutral' };
-  const message = siteHostingSiteMessage(site, operation);
+  const domainConnectOpen = Boolean(domainConnect?.open);
+  const deployed = Boolean(site.deployment?.url);
+  const deploymentNeeded = Boolean(site.deployment?.url && site.last_build?.status === 'succeeded'
+    && Date.parse(site.last_build.completed_at || '') > Date.parse(site.deployment.deployed_at || ''))
+    || Boolean(site.deployment?.url && Date.parse(site.template?.updated_at || '') > Date.parse(site.deployment.deployed_at || ''));
+  const hasDeploymentAddress = deployed && Boolean(site.deployment?.worker_name);
+  const deploymentState = deploymentNeeded
+    ? { label: '배포 필요', state: 'warning' }
+    : deployed
+      ? { label: '배포됨', state: 'success' }
+      : { label: '미배포', state: 'neutral' };
+  const message = siteHostingSiteMessage(site, operation, domainConnect);
   const screenshot = site.screenshot_url
     ? `<img src="${siteHostingEscapeHtml(site.screenshot_url)}?build=${siteHostingEscapeHtml(site.screenshot?.latest_build?.build_id || site.screenshot?.template?.path || 'template')}" alt="${siteHostingEscapeHtml(site.name)} 미리보기" loading="lazy">`
     : '';
-  return `<article class="site-hosting-site-card" role="listitem">
+  return `<article class="site-hosting-site-card${domainConnectOpen ? ' has-open-domain-panel' : ''}" role="listitem">
     <div class="site-hosting-site-preview" aria-label="사이트 스크린샷">${screenshot}</div>
     <div class="site-hosting-site-card-content">
       <div class="site-hosting-site-heading">
-        <strong>${siteHostingEscapeHtml(site.name)}</strong>
-        <span class="site-hosting-site-status" data-state="${deploymentState.state}" aria-label="배포 상태">${deploymentState.label}</span>
+        <div class="site-hosting-site-title"><strong>${siteHostingEscapeHtml(site.name)}</strong>${siteHostingDevelopmentMode ? `<button class="site-hosting-template-test-button" type="button" data-site-template-test="${siteId}" title="이 사이트의 템플릿 업데이트 가능 상태를 테스트합니다.">테스트</button>` : ''}</div>
+        <span class="site-hosting-site-heading-status">${site.template_update_available ? `<button class="site-hosting-template-update-badge" type="button" data-site-template-update="${siteId}" aria-label="템플릿 업데이트 가능. 눌러서 업데이트" title="템플릿 업데이트 적용">템플릿 업데이트</button>` : ''}<span class="site-hosting-site-status" data-state="${deploymentState.state}" aria-label="배포 상태"${deploymentNeeded ? ' title="사이트 변경 사항을 배포해야 합니다."' : ''}>${deploymentState.label}</span></span>
       </div>
-      <div class="site-hosting-site-feedback-row">
-        <div class="site-hosting-site-message" data-site-message="${siteId}" role="status" aria-live="polite">${message}</div>
-        ${siteHostingSiteAddresses(site, domainConnect)}
-      </div>
-      ${siteHostingSiteDomainConnectPanel(site, domainConnect)}
-      <div class="site-hosting-site-card-footer">
-        <details class="site-hosting-site-more">
-          <summary aria-label="사이트 더보기" title="사이트 더보기">더보기 <span aria-hidden="true">⌄</span></summary>
-          <div class="site-hosting-site-more-menu">
-            <button class="secondary" type="button" data-site-open-folder="${siteId}">폴더 열기</button>
-            <button class="secondary" type="button" data-site-settings="${siteId}">설정</button>
-            <button class="secondary" type="button" disabled title="삭제 기능은 추후 제공됩니다.">삭제</button>
-          </div>
-        </details>
-        <div class="site-hosting-project-actions">
-          <button class="secondary" type="button" data-site-preview="${siteId}">미리보기</button>
-          <button class="primary" type="button" data-site-deploy="${siteId}">배포</button>
+      <div class="site-hosting-site-card-body">
+        <div class="site-hosting-site-address-area">
+          ${domainConnectOpen ? siteHostingSiteDomainConnectPanel(site, domainConnect) : siteHostingSiteAddresses(site, domainConnect, hasDeploymentAddress)}
+        </div>
+        <div class="site-hosting-site-feedback-slot">
+          <div class="site-hosting-site-message" data-site-message="${siteId}" role="status" aria-live="polite"${message ? '' : ' hidden'}>${message}</div>
+        </div>
+        <div class="site-hosting-site-card-footer">
+          <details class="site-hosting-site-more">
+            <summary aria-label="사이트 더보기" title="사이트 더보기">더보기 <span aria-hidden="true">⌄</span></summary>
+            <div class="site-hosting-site-more-menu">
+              ${site.knowledge_collection ? `<button class="secondary" type="button" data-site-open-vault="${siteId}">Vault 폴더 열기</button>` : ''}
+              <button class="secondary" type="button" data-site-open-folder="${siteId}">폴더 열기</button>
+              <button class="secondary" type="button" data-site-settings="${siteId}">설정</button>
+              <button class="secondary" type="button" disabled title="삭제 기능은 추후 제공됩니다.">삭제</button>
+            </div>
+          </details>
+          ${domainConnectOpen ? siteHostingCardDomainActions(site.id, domainConnect) : `<div class="site-hosting-project-actions"><button class="secondary" type="button" data-site-preview="${siteId}">미리보기</button><button class="primary" type="button" data-site-deploy="${siteId}">배포</button></div>`}
         </div>
       </div>
     </div>
   </article>`;
 }
 
-function siteHostingSiteMessage(site, operation) {
+function siteHostingSiteMessage(site, operation, domainConnect) {
   if (operation?.phase === 'running') return `<span data-state="pending">${siteHostingEscapeHtml(operation.message)}</span>`;
   if (operation?.phase === 'error') return `<span data-state="error">${siteHostingEscapeHtml(operation.message)}</span>`;
+  if (operation?.phase === 'success' && operation.message) return `<span data-state="success">${siteHostingEscapeHtml(operation.message)}</span>`;
+  if (domainConnect?.open && domainConnect.status === 'ready' && domainConnect.zoneId && String(domainConnect.hostname || '').trim()) {
+    const zone = domainConnect.zones?.find((item) => item.id === domainConnect.zoneId);
+    if (zone) return `<span data-state="pending">주소 미리보기: ${siteHostingEscapeHtml(`${String(domainConnect.hostname).trim()}.${zone.name}`)}</span>`;
+  }
   return '';
 }
 
-function siteHostingSiteAddresses(site, domainConnect) {
-  const workerUrl = String(site.deployment?.url || '');
+function siteHostingSiteAddresses(site, domainConnect, hasDeploymentAddress = Boolean(site.deployment?.url && site.deployment?.worker_name)) {
+  const workerUrl = hasDeploymentAddress ? String(site.deployment?.url || '') : '';
   const workerHref = siteHostingSafeHttpsUrl(workerUrl);
   const customDomain = String(site.custom_domain_binding?.hostname || '').trim();
   const customDomainHref = customDomain && !/[\s/\\?#@]/.test(customDomain)
     ? siteHostingSafeHttpsUrl(`https://${customDomain}`)
     : '';
-  const workerLink = workerHref
-    ? `<button class="site-hosting-address-link" type="button" data-site-open-address="${siteHostingEscapeHtml(site.id)}" data-address-type="worker">기본 주소 <span aria-hidden="true">↗</span></button>`
-    : '<span class="site-hosting-address-link is-unavailable" aria-disabled="true" title="배포 후 사용할 수 있습니다.">기본 주소</span>';
-  const domainLink = customDomainHref
-    ? `<button class="site-hosting-address-link" type="button" data-site-open-address="${siteHostingEscapeHtml(site.id)}" data-address-type="domain">연결 도메인 <span aria-hidden="true">↗</span></button>`
-    : site.deployment?.worker_name
-      ? `<button class="site-hosting-address-link site-hosting-domain-start" type="button" data-site-domain-start="${siteHostingEscapeHtml(site.id)}" ${domainConnect?.open ? 'aria-expanded="true"' : ''}>도메인 연결 <span aria-hidden="true">+</span></button>`
-      : '<span class="site-hosting-address-link is-unavailable" aria-disabled="true" title="먼저 사이트를 배포하세요.">도메인 연결</span>';
-  return `<div class="site-hosting-site-addresses" aria-label="사이트 주소">${workerLink}${domainLink}</div>`;
+  const workerActions = workerHref
+    ? `<span class="site-hosting-address-actions"><button class="site-hosting-icon-button" type="button" data-site-open-address="${siteHostingEscapeHtml(site.id)}" data-address-type="worker" aria-label="기본 주소 열기" title="기본 주소 열기">${siteHostingExternalLinkIcon()}</button><button class="site-hosting-icon-button" type="button" data-site-copy-address="${siteHostingEscapeHtml(site.id)}" data-address-type="worker" aria-label="기본 주소 복사" title="기본 주소 복사">${siteHostingCopyIcon()}</button></span>`
+    : `<span class="site-hosting-address-actions"><button class="site-hosting-icon-button" type="button" disabled aria-label="배포 후 기본 주소를 열 수 있습니다." title="배포하면 기본 주소가 생깁니다.">${siteHostingExternalLinkIcon()}</button><button class="site-hosting-icon-button" type="button" disabled aria-label="배포 후 기본 주소를 복사할 수 있습니다." title="배포하면 기본 주소가 생깁니다.">${siteHostingCopyIcon()}</button></span>`;
+  const domainActions = customDomainHref
+    ? `<span class="site-hosting-address-value">${siteHostingEscapeHtml(customDomain)}</span><span class="site-hosting-address-actions"><button class="site-hosting-icon-button" type="button" data-site-open-address="${siteHostingEscapeHtml(site.id)}" data-address-type="domain" aria-label="연결 도메인 열기" title="연결 도메인 열기">${siteHostingExternalLinkIcon()}</button><button class="site-hosting-icon-button" type="button" data-site-copy-address="${siteHostingEscapeHtml(site.id)}" data-address-type="domain" aria-label="연결 도메인 복사" title="연결 도메인 복사">${siteHostingCopyIcon()}</button></span>`
+    : hasDeploymentAddress
+      ? `<button class="site-hosting-domain-start" type="button" data-site-domain-start="${siteHostingEscapeHtml(site.id)}" ${domainConnect?.open ? 'aria-expanded="true"' : ''}>도메인 연결 <span aria-hidden="true">+</span></button>`
+      : '<span class="site-hosting-address-empty">배포 후 연결할 수 있습니다.</span>';
+  return `<div class="site-hosting-site-addresses" aria-label="사이트 주소"><div class="site-hosting-address-row"><span>기본 주소</span>${workerActions}</div><div class="site-hosting-address-row"><span>연결 도메인</span>${domainActions}</div></div>`;
+}
+
+function siteHostingExternalLinkIcon() {
+  return '<svg aria-hidden="true" viewBox="0 0 16 16"><path d="M9 2h5v5M14 2 7 9"/><path d="M12 9v4H3V4h4"/></svg>';
+}
+
+function siteHostingCopyIcon() {
+  return '<svg aria-hidden="true" viewBox="0 0 16 16"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M11 3V2.5A1.5 1.5 0 0 0 9.5 1h-7A1.5 1.5 0 0 0 1 2.5v7A1.5 1.5 0 0 0 2.5 11H3"/></svg>';
 }
 
 async function siteHostingOpenAddress(siteId, addressType, button) {
   const projectId = siteHostingSelectedProject?.id;
   if (!projectId || !siteId || !['worker', 'domain'].includes(addressType) || button?.disabled) return;
+  const site = siteHostingSites.find((item) => item.id === siteId);
+  const addressAvailable = addressType === 'worker'
+    ? Boolean(site?.deployment?.url && site?.deployment?.worker_name)
+    : Boolean(site?.custom_domain_binding?.hostname);
+  if (!addressAvailable) {
+    siteHostingSetSiteOperation(siteId, 'error', '배포 또는 도메인 연결 후 주소를 사용할 수 있습니다.');
+    return;
+  }
   if (button) button.disabled = true;
   try {
     await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(projectId)}/sites/${encodeURIComponent(siteId)}/open-address`, { type: addressType });
   } catch (error) {
-    siteHostingSetFeedback(error.message || '시스템 브라우저에서 주소를 열지 못했습니다.', 'danger');
+    siteHostingSetSiteOperation(siteId, 'error', error.message || '시스템 브라우저에서 주소를 열지 못했습니다.');
   } finally {
     if (button?.isConnected) button.disabled = false;
+  }
+}
+
+async function siteHostingCopyAddress(siteId, addressType, button) {
+  const site = siteHostingSites.find((item) => item.id === siteId);
+  if (!site || !['worker', 'domain'].includes(addressType) || button?.disabled) return;
+  const value = addressType === 'worker'
+    ? site.deployment?.worker_name ? siteHostingSafeHttpsUrl(site.deployment?.url) : ''
+    : siteHostingSafeHttpsUrl(`https://${site.custom_domain_binding?.hostname || ''}`);
+  if (!value) return;
+  try {
+    await navigator.clipboard.writeText(value);
+    siteHostingSetSiteOperation(siteId, 'success', '주소를 복사했습니다.');
+  } catch (_error) {
+    siteHostingSetSiteOperation(siteId, 'error', '주소를 복사하지 못했습니다. 클립보드 권한을 확인해 주세요.');
   }
 }
 
@@ -136,14 +187,36 @@ function siteHostingSetSiteOperation(siteId, phase, message) {
   const projectId = siteHostingSelectedProject?.id;
   if (!projectId || !siteId) return;
   const key = `${projectId}:${siteId}`;
-  if (phase === 'success') siteHostingOperationStates.delete(key);
+  clearTimeout(siteHostingOperationTimers.get(key));
+  siteHostingOperationTimers.delete(key);
+  if (phase === 'success' && !message) siteHostingOperationStates.delete(key);
   else siteHostingOperationStates.set(key, { phase, message });
   const site = siteHostingSites.find((item) => item.id === siteId);
   const target = [...document.querySelectorAll('[data-site-message]')].find((element) => element.dataset.siteMessage === siteId);
   if (site && target) {
     target.innerHTML = siteHostingSiteMessage(site, siteHostingOperationStates.get(key) || null);
+    target.hidden = !target.innerHTML;
     const card = target.closest('.site-hosting-site-card');
-    card?.querySelectorAll('button').forEach((button) => { if (!button.matches('[data-site-card-domain-cancel]')) button.disabled = phase === 'running'; });
+    card?.querySelectorAll('button').forEach((button) => {
+      if (button.matches('[data-site-card-domain-cancel]')) return;
+      if (phase === 'running' && !button.disabled) {
+        button.dataset.operationDisabled = 'true';
+        button.disabled = true;
+      } else if (phase !== 'running' && button.dataset.operationDisabled === 'true') {
+        delete button.dataset.operationDisabled;
+        button.disabled = false;
+      }
+    });
+  }
+  if (phase === 'success' && message) {
+    siteHostingOperationTimers.set(key, setTimeout(() => {
+      siteHostingOperationTimers.delete(key);
+      if (siteHostingOperationStates.get(key)?.phase === 'success') {
+        siteHostingOperationStates.delete(key);
+        const target = [...document.querySelectorAll('[data-site-message]')].find((element) => element.dataset.siteMessage === siteId);
+        if (target) { target.replaceChildren(); target.hidden = true; }
+      }
+    }, 3000));
   }
 }
 
@@ -178,7 +251,7 @@ function siteHostingSiteSettingsPanel() {
       <div class="site-hosting-template-summary" aria-label="템플릿 정보">
         <span>템플릿</span>
         <strong>${siteHostingEscapeHtml(site.template_name || site.template?.id || '확인할 수 없음')}</strong>
-        <small>${site.template?.version ? `버전 ${siteHostingEscapeHtml(site.template.version)}` : ''}${site.template_status === 'unavailable' ? ' · 현재 사용할 수 없는 템플릿' : ''}</small>
+        <small>${site.template?.version ? `적용 버전 ${siteHostingEscapeHtml(site.template.version)}` : ''}${site.template_update_available ? ` · 새 버전 ${siteHostingEscapeHtml(site.available_template_version)} 사용 가능` : ''}${site.template_status === 'unavailable' && !site.template_update_available ? ' · 현재 사용할 수 없는 템플릿' : ''}</small>
       </div>
       <section class="site-hosting-domain-connect" aria-label="Cloudflare 도메인 연결">
         <h4>사용자 도메인</h4>
@@ -207,14 +280,14 @@ function siteHostingRenderProjectList() {
   if (!siteHostingProjects.length) {
     content.innerHTML = `<section class="ui-empty-state" aria-labelledby="site-hosting-empty-title">
       <h3 id="site-hosting-empty-title">아직 프로젝트가 없습니다.</h3>
-      <button class="primary" type="button" data-site-project-create>프로젝트 만들기</button>
+      <div class="site-hosting-project-list-actions">${siteHostingTemplateCheckControl()}<button class="primary" type="button" data-site-project-create>프로젝트 만들기</button></div>
     </section>`;
     return;
   }
   content.innerHTML = `<section aria-labelledby="site-hosting-projects-title">
     <div class="site-hosting-projects-header">
       <div><h2 id="site-hosting-projects-title">프로젝트</h2><p>사이트를 프로젝트별로 관리합니다.</p></div>
-      <button class="primary" type="button" data-site-project-create>프로젝트 만들기</button>
+      <div class="site-hosting-project-list-actions">${siteHostingTemplateCheckControl()}<button class="primary" type="button" data-site-project-create>프로젝트 만들기</button></div>
     </div>
     <div class="site-hosting-project-list" role="list">${siteHostingProjects.map(siteHostingProjectCard).join('')}</div>
   </section>`;
@@ -239,7 +312,6 @@ function siteHostingProjectPanel(project, tab) {
     ${siteHostingSiteLoadState === 'loading' ? `<section class="ui-empty-state" aria-label="사이트를 불러오는 중"><span class="ui-spinner ui-spinner-accent ui-spinner-md" aria-hidden="true"></span><span>사이트를 불러오는 중입니다.</span></section>` : ''}
     ${siteHostingSiteLoadState === 'error' ? `<section class="ui-empty-state" data-state="error"><h3>사이트를 불러오지 못했습니다.</h3><button class="secondary" type="button" data-site-retry>다시 시도</button></section>` : ''}
     ${siteHostingSiteLoadState === 'ready' ? `<div class="site-hosting-site-list" role="list">${siteHostingSites.map(siteHostingSiteCard).join('')}${siteHostingAddSiteCard()}</div>` : ''}
-    ${siteHostingSiteLoadState === 'ready' && siteHostingSites.length ? `<p class="site-hosting-status-message">미리보기는 전체 빌드 후 열립니다.</p>` : ''}
   </section>`;
 }
 
@@ -260,6 +332,72 @@ async function siteHostingLoadSites(projectId) {
   siteHostingRenderProjectDetail();
 }
 
+function siteHostingRefreshIcon() {
+  return '<svg aria-hidden="true" viewBox="0 0 16 16"><path d="M13.4 6A5.5 5.5 0 0 0 3.1 4.2L2 5.5M2 2.5v3h3M2.6 10A5.5 5.5 0 0 0 12.9 11.8L14 10.5M14 13.5v-3h-3"/></svg>';
+}
+
+async function siteHostingLoadRuntimeEnvironment() {
+  if (siteHostingRuntimeEnvironmentLoaded) return;
+  siteHostingRuntimeEnvironmentLoaded = true;
+  try {
+    const status = await fetchJson('/api/v1/config/status');
+    siteHostingDevelopmentMode = String(status?.runtimeEnvironment?.environment || '').toLowerCase() === 'development';
+  } catch (_error) {
+    siteHostingDevelopmentMode = false;
+  }
+  if (siteHostingSelectedProject && siteHostingProjectView === 'sites') siteHostingRenderProjectDetail();
+}
+
+async function siteHostingCheckTemplateUpdates(projectId, manual = true) {
+  if (siteHostingTemplateCheckRunning) return;
+  siteHostingTemplateCheckRunning = true;
+  const setStatus = (message, isError = false) => {
+    siteHostingTemplateCheckMessage = message;
+    siteHostingTemplateCheckError = isError;
+    const status = document.querySelector('[data-template-check-feedback]');
+    if (status) {
+      status.textContent = message;
+      status.hidden = !message;
+      status.dataset.state = isError ? 'error' : 'success';
+    }
+    const button = document.querySelector('[data-site-template-refresh]');
+    if (button) {
+      button.disabled = siteHostingTemplateCheckRunning;
+      button.setAttribute('aria-busy', String(siteHostingTemplateCheckRunning));
+    }
+  };
+  setStatus(manual ? '템플릿을 확인하고 있습니다…' : '템플릿 업데이트를 확인하고 있습니다…');
+  try {
+    await fetchJson('/api/v1/site-hosting/templates');
+    const activeProjectId = projectId || siteHostingSelectedProject?.id;
+    if (activeProjectId && siteHostingSelectedProject?.id === activeProjectId && siteHostingProjectView === 'sites') {
+      const sites = await fetchJson(`/api/v1/site-hosting/projects/${encodeURIComponent(activeProjectId)}/sites`);
+      if (siteHostingSelectedProject?.id === activeProjectId) {
+        siteHostingSites = Array.isArray(sites) ? sites : [];
+        siteHostingSelectedProject.site_count = siteHostingSites.length;
+        siteHostingRenderProjectDetail();
+      }
+    }
+    setStatus('템플릿 확인을 마쳤습니다.');
+    setTimeout(() => {
+      if (siteHostingTemplateCheckMessage === '템플릿 확인을 마쳤습니다.') {
+        siteHostingTemplateCheckMessage = '';
+        const status = document.querySelector('[data-template-check-feedback]');
+        if (status) status.hidden = true;
+      }
+    }, 3000);
+  } catch (error) {
+    setStatus(error.message || '템플릿 업데이트를 확인하지 못했습니다.', true);
+  } finally {
+    siteHostingTemplateCheckRunning = false;
+    const button = document.querySelector('[data-site-template-refresh]');
+    if (button) {
+      button.disabled = false;
+      button.removeAttribute('aria-busy');
+    }
+  }
+}
+
 function siteHostingReadLogo(file) {
   return siteHostingReadProfileImage(file, '로고');
 }
@@ -269,8 +407,8 @@ async function siteHostingBuildSite(siteId, button) {
   if (!project || !siteId || button?.disabled || siteHostingSiteOperationIsRunning(project.id, siteId)) return;
   button.disabled = true;
   button.classList.add('is-loading');
-  button.textContent = '빌드 중…';
-  siteHostingSetSiteOperation(siteId, 'running', '빌드 중…');
+  button.textContent = '생성 중…';
+  siteHostingSetSiteOperation(siteId, 'running', '사이트를 생성하는 중…');
   try {
     const result = await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites/${encodeURIComponent(siteId)}/build`, {});
     try {
@@ -285,13 +423,13 @@ async function siteHostingBuildSite(siteId, button) {
     }
     siteHostingRenderProjectDetail();
     const screenshotMessage = result.screenshot_error ? ' (새 스크린샷은 만들지 못했습니다.)' : '';
-    siteHostingSetSiteOperation(siteId, 'success', `빌드를 마쳤습니다.${screenshotMessage}`);
+    siteHostingSetSiteOperation(siteId, 'success', `사이트 생성을 마쳤습니다.${screenshotMessage}`);
   } catch (error) {
-    siteHostingSetSiteOperation(siteId, 'error', error.message || '사이트를 빌드하지 못했습니다.');
+    siteHostingSetSiteOperation(siteId, 'error', error.message || '사이트를 생성하지 못했습니다.');
   } finally {
     button.disabled = false;
     button.classList.remove('is-loading');
-    button.textContent = '빌드';
+    button.textContent = '생성';
   }
 }
 
@@ -303,8 +441,8 @@ async function siteHostingPreviewSite(siteId) {
     siteHostingSetSiteOperation(siteId, 'error', '미리보기 창을 열 수 없습니다. 팝업을 허용해 주세요.');
     return;
   }
-  siteHostingRenderPreviewWindowNotice(previewWindow, '미리보기를 준비하고 있습니다', '사이트를 전체 빌드하고 화면 캡처를 갱신하고 있습니다.', true);
-  siteHostingSetSiteOperation(siteId, 'running', '전체 빌드 후 미리보기를 여는 중…');
+  siteHostingRenderPreviewWindowNotice(previewWindow, '미리보기를 준비하고 있습니다', '사이트를 준비하고 미리보기 화면을 갱신하고 있습니다.', true);
+  siteHostingSetSiteOperation(siteId, 'running', '미리보기를 준비하는 중…');
   try {
     const result = await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites/${encodeURIComponent(siteId)}/preview`, {});
     try {
@@ -320,10 +458,14 @@ async function siteHostingPreviewSite(siteId) {
     siteHostingRenderProjectDetail();
     if (!previewWindow.closed) previewWindow.location.href = result.url;
     const screenshotMessage = result.screenshot_error ? ' (새 스크린샷은 만들지 못했습니다.)' : '';
-    siteHostingSetSiteOperation(siteId, 'success', `전체 빌드 후 미리보기를 열었습니다.${screenshotMessage}`);
+    const collection = result.knowledge_collection;
+    const collectionMessage = collection && (collection.source_markdown_count || collection.selection_configured)
+      ? ` 공개 ${collection.published_note_count}개 · 제외 ${collection.excluded_note_count}개 · 첨부 ${collection.copied_resource_count}개 · 확인 필요 링크 ${collection.unresolved_link_count + collection.missing_resource_count}개.`
+      : '';
+    siteHostingSetSiteOperation(siteId, 'success', `미리보기를 열었습니다.${collectionMessage}${screenshotMessage}`);
   } catch (error) {
     if (!previewWindow.closed) {
-      siteHostingRenderPreviewWindowNotice(previewWindow, '미리보기를 열지 못했습니다', error.message || '사이트 빌드에 실패했습니다.', false);
+      siteHostingRenderPreviewWindowNotice(previewWindow, '미리보기를 열지 못했습니다', error.message || '사이트를 준비하지 못했습니다.', false);
     }
     siteHostingSetSiteOperation(siteId, 'error', error.message || '미리보기를 열지 못했습니다.');
   }
@@ -360,11 +502,23 @@ async function siteHostingOpenBuildFolder(siteId) {
   const project = siteHostingSelectedProject;
   if (!project || !siteId || siteHostingSiteOperationIsRunning(project.id, siteId)) return;
   try {
-    siteHostingSetSiteOperation(siteId, 'running', '빌드 결과 폴더를 여는 중…');
+    siteHostingSetSiteOperation(siteId, 'running', '사이트 파일 폴더를 여는 중…');
     await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites/${encodeURIComponent(siteId)}/open-folder`, {});
-    siteHostingSetSiteOperation(siteId, 'success', '빌드 결과 폴더를 열었습니다.');
+    siteHostingSetSiteOperation(siteId, 'success', '사이트 파일 폴더를 열었습니다.');
   } catch (error) {
-    siteHostingSetSiteOperation(siteId, 'error', error.message || '빌드 결과 폴더를 열지 못했습니다.');
+    siteHostingSetSiteOperation(siteId, 'error', error.message || '사이트 파일 폴더를 열지 못했습니다.');
+  }
+}
+
+async function siteHostingOpenVaultFolder(siteId) {
+  const project = siteHostingSelectedProject;
+  if (!project || !siteId || siteHostingSiteOperationIsRunning(project.id, siteId)) return;
+  try {
+    siteHostingSetSiteOperation(siteId, 'running', 'Vault 폴더를 여는 중…');
+    await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites/${encodeURIComponent(siteId)}/open-vault`, {});
+    siteHostingSetSiteOperation(siteId, 'success', 'Vault 폴더를 열었습니다.');
+  } catch (error) {
+    siteHostingSetSiteOperation(siteId, 'error', error.message || 'Vault 폴더를 열지 못했습니다.');
   }
 }
 
@@ -374,7 +528,7 @@ async function siteHostingDeploySite(siteId, button) {
   button.disabled = true;
   button.classList.add('is-loading');
   button.textContent = '배포 중…';
-  siteHostingSetSiteOperation(siteId, 'running', '사이트를 빌드하고 Cloudflare에 배포 중…');
+  siteHostingSetSiteOperation(siteId, 'running', '사이트를 준비해 Cloudflare에 배포 중…');
   try {
     const result = await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites/${encodeURIComponent(siteId)}/deploy`, {});
     const site = siteHostingSites.find((item) => item.id === siteId);
@@ -464,6 +618,7 @@ function siteHostingRenderProjectDetail() {
   content.innerHTML = `<div class="site-hosting-project-detail">
     <header class="site-hosting-project-detail-header">
       <div><h2>내 사이트</h2></div>
+      ${siteHostingProjectView === 'sites' ? siteHostingTemplateCheckControl() : ''}
     </header>
     ${siteHostingProjectPanel(project, siteHostingProjectView)}
   </div>`;
@@ -476,7 +631,6 @@ async function siteHostingLoadProjects() {
   if (!content || siteHostingProjectBusy) return;
   siteHostingProjectBusy = true;
   content.setAttribute('aria-busy', 'true');
-  siteHostingSetFeedback('');
   try {
     siteHostingProjects = await fetchJson('/api/v1/site-hosting/projects');
     if (!Array.isArray(siteHostingProjects)) siteHostingProjects = [];
@@ -499,7 +653,6 @@ async function siteHostingLoadProjects() {
       }
     }
   } catch (error) {
-    siteHostingSetFeedback(error.message || '프로젝트를 불러오지 못했습니다.', 'danger');
     content.innerHTML = `<section class="ui-empty-state" data-state="error"><h3>프로젝트를 불러오지 못했습니다.</h3><button class="secondary" type="button" data-site-project-retry>다시 시도</button></section>`;
   } finally {
     siteHostingProjectBusy = false;
@@ -513,11 +666,11 @@ async function siteHostingOpenProject(projectId) {
     siteHostingProjectView = 'sites';
     siteHostingSites = [];
     siteHostingSiteLoadState = 'idle';
-    siteHostingSetFeedback('');
     siteHostingRenderProjectDetail();
     void siteHostingLoadSites(siteHostingSelectedProject.id);
   } catch (error) {
-    siteHostingSetFeedback(error.message || '프로젝트를 열지 못했습니다.', 'danger');
+    const content = document.getElementById('site-hosting-content');
+    if (content) content.innerHTML = `<section class="ui-empty-state" data-state="error"><h3>${siteHostingEscapeHtml(error.message || '프로젝트를 열지 못했습니다.')}</h3></section>`;
   }
 }
 
@@ -598,10 +751,28 @@ function initSiteHostingProjects() {
         siteHostingZoneMessage = '';
         return siteHostingRenderProjectDetail();
       }
+      const templateUpdate = event.target.closest('[data-site-template-update]');
+      if (templateUpdate && siteHostingSelectedProject) {
+        return void siteHostingUpdateTemplate(templateUpdate.dataset.siteTemplateUpdate, templateUpdate);
+      }
+      const templateTest = event.target.closest('[data-site-template-test]');
+      if (templateTest && siteHostingSelectedProject && siteHostingDevelopmentMode) {
+        return void siteHostingPrepareTemplateUpdateTest(templateTest.dataset.siteTemplateTest, templateTest);
+      }
+      if (event.target.closest('[data-site-template-refresh]')) {
+        return void siteHostingCheckTemplateUpdates(siteHostingSelectedProject?.id || '', true);
+      }
       const domainStart = event.target.closest('[data-site-domain-start]');
       if (domainStart) return void siteHostingOpenCardDomainConnection(domainStart.dataset.siteDomainStart);
       const openAddress = event.target.closest('[data-site-open-address]');
       if (openAddress) return void siteHostingOpenAddress(openAddress.dataset.siteOpenAddress, openAddress.dataset.addressType, openAddress);
+      const copyAddress = event.target.closest('[data-site-copy-address]');
+      if (copyAddress) return void siteHostingCopyAddress(copyAddress.dataset.siteCopyAddress, copyAddress.dataset.addressType, copyAddress);
+      const openVault = event.target.closest('[data-site-open-vault]');
+      if (openVault) {
+        openVault.closest('.site-hosting-site-more')?.removeAttribute('open');
+        return void siteHostingOpenVaultFolder(openVault.dataset.siteOpenVault);
+      }
       const domainCancel = event.target.closest('[data-site-card-domain-cancel]');
       if (domainCancel) {
         siteHostingDomainConnectStates.delete(siteHostingDomainStateKey(domainCancel.dataset.siteCardDomainCancel));
@@ -646,5 +817,72 @@ function initSiteHostingProjects() {
     document.querySelector('[data-site-project-cancel]')?.addEventListener('click', () => document.getElementById('site-project-create-dialog')?.close());
     siteHostingBindCreateDialogEvents();
   }
+  if (!siteHostingTemplateCheckStarted) {
+    siteHostingTemplateCheckStarted = true;
+    void siteHostingCheckTemplateUpdates('', false);
+  }
+  if (!siteHostingRuntimeEnvironmentLoaded) void siteHostingLoadRuntimeEnvironment();
   void siteHostingLoadProjects();
+}
+
+async function siteHostingPrepareTemplateUpdateTest(siteId, button) {
+  const project = siteHostingSelectedProject;
+  if (!project || !siteId || !siteHostingDevelopmentMode || button?.disabled || siteHostingSiteOperationIsRunning(project.id, siteId)) return;
+  button.disabled = true;
+  siteHostingSetSiteOperation(siteId, 'running', '테스트 준비 중…');
+  try {
+    const result = await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites/${encodeURIComponent(siteId)}/test-template-update`, {});
+    const sites = await fetchJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites`);
+    if (siteHostingSelectedProject?.id === project.id) {
+      siteHostingSites = Array.isArray(sites) ? sites : [];
+      siteHostingRenderProjectDetail();
+      siteHostingSetSiteOperation(siteId, 'success', result?.template_update_available
+        ? '테스트 상태를 준비했습니다. 템플릿 업데이트 배지를 확인하세요.'
+        : '버전은 낮췄지만 이 템플릿은 업데이트 조건을 충족하지 않습니다.');
+    }
+  } catch (error) {
+    siteHostingSetSiteOperation(siteId, 'error', error.message || '테스트 상태를 준비하지 못했습니다.');
+  }
+}
+
+async function siteHostingUpdateTemplate(siteId, button) {
+  const project = siteHostingSelectedProject;
+  const site = siteHostingSites.find((item) => item.id === siteId);
+  if (!project || !site?.template_update_available || button?.disabled || siteHostingSiteOperationIsRunning(project.id, siteId)) return;
+  const confirmed = await showUiDialog({
+    title: '템플릿 업데이트',
+    message: `“${site.name}”의 템플릿 코드를 업데이트할까요?\n\n사이트 이름, 메뉴, 로고, SEO 설정, Vault 경로와 콘텐츠는 유지됩니다. 업데이트 후 미리보기에서 확인할 수 있으며, 공개 사이트에도 반영하려면 배포를 눌러 주세요.`,
+    confirmText: '업데이트',
+    cancelText: '취소',
+    showCancel: true
+  });
+  if (!confirmed) return;
+
+  siteHostingSetSiteOperation(siteId, 'running', '템플릿 업데이트 및 사이트 생성 중…');
+  try {
+    const result = await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites/${encodeURIComponent(siteId)}/update-template`, {});
+    const siteIndex = siteHostingSites.findIndex((item) => item.id === siteId);
+    if (siteIndex >= 0) {
+      siteHostingSites[siteIndex] = {
+        ...siteHostingSites[siteIndex], ...result,
+        ...(result.screenshot ? { screenshot: { ...(siteHostingSites[siteIndex].screenshot || {}), latest_build: result.screenshot } } : {})
+      };
+      if (result.screenshot) {
+        siteHostingSites[siteIndex].screenshot_url ||= `/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites/${encodeURIComponent(siteId)}/screenshot`;
+      }
+    }
+    try {
+      const refreshedSites = await fetchJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites`);
+      siteHostingSites = Array.isArray(refreshedSites) ? refreshedSites : siteHostingSites;
+    } catch (_refreshError) { }
+    siteHostingRenderProjectDetail();
+    if (result.build_error) {
+      siteHostingSetSiteOperation(siteId, 'error', `템플릿은 업데이트했지만 사이트 생성에 실패했습니다: ${result.build_error}`);
+    } else {
+      const screenshotMessage = result.screenshot_error ? ' 새 대표 이미지는 만들지 못했습니다.' : '';
+  siteHostingSetSiteOperation(siteId, 'success', `템플릿 업데이트를 마쳤습니다.${screenshotMessage} 미리보기에서 확인할 수 있습니다.`);
+    }
+  } catch (error) {
+    siteHostingSetSiteOperation(siteId, 'error', error.message || '템플릿을 업데이트하지 못했습니다.');
+  }
 }

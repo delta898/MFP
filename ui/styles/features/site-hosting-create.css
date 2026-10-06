@@ -277,6 +277,40 @@
   gap: var(--ui-space-3);
 }
 
+.site-publication-mode-options {
+  display: grid;
+  gap: var(--ui-space-1);
+}
+
+.site-publication-mode-options label {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+  color: var(--ui-text-primary);
+}
+
+.site-publication-mode-options input[type="radio"] {
+  flex: 0 0 1rem;
+  width: 1rem;
+  height: 1rem;
+  min-height: 1rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+}
+
+.site-template-match-fields {
+  display: grid;
+  gap: var(--ui-space-2);
+}
+
+.site-template-match-fields.is-disabled {
+  opacity: 0.62;
+}
+
 .site-template-match-row label {
   display: grid;
   min-width: 0;

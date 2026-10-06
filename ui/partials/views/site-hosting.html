@@ -13,7 +13,6 @@
           </div>
         </div>
 
-        <div id="site-hosting-feedback" class="ui-workflow-feedback" role="status" aria-live="polite" hidden></div>
         <div id="site-hosting-content" class="site-hosting-content" aria-live="polite">
           <section class="ui-empty-state" aria-label="프로젝트를 불러오는 중">
             <span class="ui-spinner ui-spinner-accent ui-spinner-md" aria-hidden="true"></span>
@@ -131,13 +130,16 @@
               </section>
             </div>
             <div class="ui-transaction-dialog-footer site-create-footer">
-              <div class="site-create-footer-left">
-                <button class="secondary" type="button" data-site-create-cancel>취소</button>
-                <p id="site-create-feedback" class="ui-workflow-feedback" role="status" aria-live="polite"></p>
-              </div>
-              <div class="site-create-footer-right">
-                <button class="secondary" type="button" data-site-create-preview>미리보기</button>
-                <button class="primary ui-loading-action" type="submit">사이트 만들기</button>
+              <span class="site-create-footer-template-spacer" aria-hidden="true"></span>
+              <div class="site-create-footer-settings">
+                <div class="site-create-footer-left">
+                  <button class="secondary" type="button" data-site-create-cancel>취소</button>
+                  <p id="site-create-feedback" class="ui-workflow-feedback" role="status" aria-live="polite"></p>
+                </div>
+                <div class="site-create-footer-right">
+                  <button class="secondary" type="button" data-site-create-preview>미리보기</button>
+                  <button class="primary ui-loading-action" type="submit">사이트 만들기</button>
+                </div>
               </div>
             </div>
           </form>

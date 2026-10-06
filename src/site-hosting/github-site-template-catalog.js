@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { createSiteTemplateCatalog } = require('./site-template-catalog');
-const { isCompatibleWithBlogGenius } = require('./bloggenius-compatibility');
+const { isCompatibleWithBlogGenius, isSupportedSiteHostingContractVersion } = require('./bloggenius-compatibility');
 
 const DEFAULT_CATALOG_URL = 'https://raw.githubusercontent.com/delta898/Amade/main/amade/catalog/index.json';
 const DEVELOPMENT_CATALOG_URL = 'https://raw.githubusercontent.com/delta898/Amade/dev/amade/catalog/index.json';
@@ -172,8 +172,8 @@ function createGitHubSiteTemplateCatalog(options = {}) {
         const previewPath = safeRelativePath(template.preview);
         const setupInputs = template.setup_inputs === undefined ? [] : template.setup_inputs;
         const setupInputIds = new Set();
-        if (family.spec_version !== '0.1.0-dev2' || family.family_id !== reference.family_id
-            || template.spec_version !== '0.1.0-dev2' || template.template_id !== reference.template_id
+        if (!isSupportedSiteHostingContractVersion(family.spec_version) || family.content_contract_version !== family.spec_version || family.family_id !== reference.family_id
+            || !isSupportedSiteHostingContractVersion(template.spec_version) || template.template_id !== reference.template_id
             || template.family_id !== reference.family_id || !projectPath || !dataPath || !previewPath
             || !String(template.name || '').trim() || !String(template.description || '').trim()
             || !String(template.author || '').trim() || !/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(String(template.version || ''))

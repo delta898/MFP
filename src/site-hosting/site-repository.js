@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const { normalizeMenuDestination, normalizeNavigationItems, internalPathSegment, internalPathname } = require('./navigation-contract');
+const { SITE_HOSTING_TEMPLATE_UPDATE_POLICY, isSupportedSiteHostingContractVersion, compareVersions } = require('./bloggenius-compatibility');
 
 const SITE_SCHEMA_VERSION = 1;
 
@@ -62,11 +63,25 @@ function createSiteHostingSiteRepository(options = {}) {
                 throw new Error('Site manifest contract mismatch.');
             }
             const template = templates.get(site.template?.id);
-            if (!template || template.version !== site.template?.version) {
+            if (!template || template.package_ready === false) {
                 site.template_status = 'unavailable';
+                site.template_update_available = false;
+                site.available_template_version = '';
+                if (template?.name) site.template_name = template.name;
             } else {
                 site.template_name = template.name;
                 site.template_status = 'available';
+                const targetPath = pathApi.join(siteRoot, 'template', 'astro');
+                const updatePolicyReady = SITE_HOSTING_TEMPLATE_UPDATE_POLICY.strategy === 'replace-managed-paths'
+                    && SITE_HOSTING_TEMPLATE_UPDATE_POLICY.managed_paths.length === 1
+                    && SITE_HOSTING_TEMPLATE_UPDATE_POLICY.managed_paths[0] === 'template/astro'
+                    && SITE_HOSTING_TEMPLATE_UPDATE_POLICY.preserved_paths.includes('.bloggenius')
+                    && SITE_HOSTING_TEMPLATE_UPDATE_POLICY.preserved_paths.includes('site-data');
+                site.template_update_available = Boolean(compareVersions(template.version, site.template?.version) === 1
+                    && isSupportedSiteHostingContractVersion(template.resource?.spec_version) && updatePolicyReady
+                    && site.template?.family_id && template.family_id === site.template.family_id
+                    && template.family_data_root && fileSystem.existsSync(targetPath));
+                site.available_template_version = site.template_update_available ? String(template.version || '') : '';
             }
             return { domain: '', ...site, root_path: siteRoot };
         } catch (cause) {
@@ -218,7 +233,7 @@ function createSiteHostingSiteRepository(options = {}) {
     }
 
     function applyTemplateCustomization(template, siteRoot, site) {
-        if (template.resource?.spec_version === '0.1.0-dev2') {
+        if (isSupportedSiteHostingContractVersion(template.resource?.spec_version)) {
             const dataRoot = pathApi.join(siteRoot, 'site-data');
             const siteDataPath = pathApi.join(dataRoot, 'site.json');
             let siteData;
@@ -686,7 +701,95 @@ function createSiteHostingSiteRepository(options = {}) {
         return readSite(projectId, siteId);
     }
 
-    return { list, get, create, createPreviewDraft, removePreviewDraft, update, recordDeployment, recordBuildResult, recordBuildScreenshot, getScreenshot, recordCustomDomainBinding };
+    function setTemplateUpdateTestVersion(projectId, siteId) {
+        const site = readSite(projectId, siteId);
+        if (!site) throw withStatus(new Error('사이트를 찾을 수 없습니다.'), 404, 'SITE_HOSTING_SITE_NOT_FOUND');
+        const manifestPath = pathApi.join(site.root_path, '.bloggenius', 'site.json');
+        const manifest = JSON.parse(String(fileSystem.readFileSync(manifestPath, 'utf8') || ''));
+        const updated = { ...manifest, template: { ...manifest.template, version: '0.0.1' } };
+        const tempPath = pathApi.join(pathApi.dirname(manifestPath), `.site.json.${process.pid}.${Date.now()}.tmp`);
+        try {
+            fileSystem.writeFileSync(tempPath, `${JSON.stringify(updated, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+            fileSystem.renameSync(tempPath, manifestPath);
+        } finally {
+            try { fileSystem.rmSync(tempPath, { force: true }); } catch (_error) { }
+        }
+        return readSite(projectId, siteId);
+    }
+
+    function applyTemplateUpdate(projectId, siteId, updatedAt = new Date().toISOString()) {
+        const site = readSite(projectId, siteId);
+        if (!site) throw withStatus(new Error('사이트를 찾을 수 없습니다.'), 404, 'SITE_HOSTING_SITE_NOT_FOUND');
+        const template = templates.get(site.template?.id);
+        const policy = SITE_HOSTING_TEMPLATE_UPDATE_POLICY;
+        if (!site.template_update_available || !template || !isSupportedSiteHostingContractVersion(template.resource?.spec_version)
+            || policy.strategy !== 'replace-managed-paths' || policy.managed_paths.length !== 1
+            || policy.managed_paths[0] !== 'template/astro'
+            || !policy.preserved_paths.includes('.bloggenius') || !policy.preserved_paths.includes('site-data')) {
+            throw withStatus(new Error('이 템플릿은 안전한 업데이트를 지원하지 않습니다.'), 409, 'SITE_HOSTING_TEMPLATE_UPDATE_UNAVAILABLE');
+        }
+
+        const metadataRoot = pathApi.join(site.root_path, '.bloggenius');
+        const stagingRoot = pathApi.join(metadataRoot, `.template-update-${process.pid}-${Date.now()}`);
+        const stagedProjectRoot = pathApi.join(stagingRoot, 'template', 'astro');
+        const projectRoot = pathApi.join(site.root_path, 'template', 'astro');
+        const backupRoot = pathApi.join(metadataRoot, `.template-astro-backup-${process.pid}-${Date.now()}`);
+        const manifestPath = pathApi.join(metadataRoot, 'site.json');
+        let oldProjectMoved = false;
+        let newProjectMoved = false;
+        let manifestCommitted = false;
+        let tempManifestPath = '';
+        try {
+            fileSystem.mkdirSync(stagingRoot, { recursive: true });
+            templates.copySource(template.id, stagingRoot);
+            if (!fileSystem.existsSync(stagedProjectRoot) || !fileSystem.statSync(stagedProjectRoot).isDirectory()) {
+                throw withStatus(new Error('업데이트할 템플릿 프로젝트를 찾을 수 없습니다.'), 409, 'SITE_HOSTING_TEMPLATE_UPDATE_SOURCE_INVALID');
+            }
+
+            const manifest = JSON.parse(String(fileSystem.readFileSync(manifestPath, 'utf8') || ''));
+            fileSystem.renameSync(projectRoot, backupRoot);
+            oldProjectMoved = true;
+            fileSystem.renameSync(stagedProjectRoot, projectRoot);
+            newProjectMoved = true;
+            const updatedManifest = {
+                ...manifest,
+                template: {
+                    ...manifest.template,
+                    version: template.version,
+                    ...(template.source_revision ? { source_revision: template.source_revision } : {}),
+                    updated_at: String(updatedAt)
+                },
+                updated_at: String(updatedAt)
+            };
+            tempManifestPath = pathApi.join(metadataRoot, `.site.json.${process.pid}.${Date.now()}.tmp`);
+            fileSystem.writeFileSync(tempManifestPath, `${JSON.stringify(updatedManifest, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+            fileSystem.renameSync(tempManifestPath, manifestPath);
+            manifestCommitted = true;
+            try { fileSystem.rmSync(backupRoot, { recursive: true, force: true }); } catch (_cleanupError) { }
+            return readSite(projectId, siteId);
+        } catch (cause) {
+            if (!manifestCommitted && newProjectMoved) {
+                try { fileSystem.rmSync(projectRoot, { recursive: true, force: true }); } catch (_cleanupError) { }
+            }
+            if (!manifestCommitted && oldProjectMoved) {
+                try { fileSystem.renameSync(backupRoot, projectRoot); } catch (_rollbackError) { }
+            }
+            if (manifestCommitted) {
+                throw withStatus(new Error('템플릿은 업데이트했지만 사이트 목록을 새로 읽지 못했습니다.'), 500, 'SITE_HOSTING_TEMPLATE_UPDATE_REFRESH_FAILED');
+            }
+            if (cause?.code?.startsWith?.('SITE_HOSTING_')) throw cause;
+            const error = new Error('템플릿 업데이트를 적용하지 못했습니다. 기존 템플릿을 복구했습니다.');
+            error.code = 'SITE_HOSTING_TEMPLATE_UPDATE_FAILED';
+            error.status = 500;
+            error.cause = cause;
+            throw error;
+        } finally {
+            try { fileSystem.rmSync(stagingRoot, { recursive: true, force: true }); } catch (_cleanupError) { }
+            if (tempManifestPath) try { fileSystem.rmSync(tempManifestPath, { force: true }); } catch (_cleanupError) { }
+        }
+    }
+
+    return { list, get, create, createPreviewDraft, removePreviewDraft, update, setTemplateUpdateTestVersion, applyTemplateUpdate, recordDeployment, recordBuildResult, recordBuildScreenshot, getScreenshot, recordCustomDomainBinding };
 }
 
 module.exports = { SITE_SCHEMA_VERSION, safeSiteId, createSiteHostingSiteRepository };

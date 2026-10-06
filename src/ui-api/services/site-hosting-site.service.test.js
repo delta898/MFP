@@ -7,6 +7,7 @@ const path = require('node:path');
 const test = require('node:test');
 const { createSiteHostingProjectRepository } = require('../../site-hosting/project-repository');
 const { createSiteTemplateCatalog } = require('../../site-hosting/site-template-catalog');
+const { SITE_HOSTING_CONTRACT_VERSION } = require('../../site-hosting/bloggenius-compatibility');
 const { createSiteHostingSiteService } = require('./site-hosting-site.service');
 
 function localTemplates() {
@@ -54,7 +55,7 @@ test('site service exposes Amade 0.1 family metadata and normalizes its shared m
     const template = {
         id: 'personal-post-list', version: '0.1.0', name: '글 목록형', description: '소개', family_id: 'personal-homepage', family_name: '개인 홈페이지',
         resource: {
-            spec_version: '0.1.0-dev2',
+            spec_version: SITE_HOSTING_CONTRACT_VERSION,
             family: { family_id: 'personal-homepage', site_profile: { fields: {
                 logo: { type: 'public-url-path', required: false },
                 seoDescription: { type: 'string', required: false, maxLength: 300 },
@@ -118,7 +119,10 @@ test('site service builds a temporary customized preview without adding a Site a
                 startDraftPreview: async (draft) => {
                     calls.push(['start', draft.id, draft.name]);
                     draftRoot = draft.root_path;
-                    return { url: 'http://127.0.0.1:43210/' };
+                    return {
+                        url: 'http://127.0.0.1:43210/',
+                        knowledge_collection: { published_note_count: 2, excluded_note_count: 1 }
+                    };
                 },
                 stopDraftPreview: async (_projectId, id) => { calls.push(['stop', id]); return { stopped: true }; }
             }
@@ -126,7 +130,10 @@ test('site service builds a temporary customized preview without adding a Site a
         const preview = await service.previewDraft('project-1', {
             template_id: 'minimal-homepage', customization: {}
         });
-        assert.deepEqual(preview, { id: 'draft_preview-one', url: 'http://127.0.0.1:43210/' });
+        assert.deepEqual(preview, {
+            id: 'draft_preview-one', url: 'http://127.0.0.1:43210/',
+            knowledge_collection: { published_note_count: 2, excluded_note_count: 1 }
+        });
         assert.equal((await service.list('project-1')).length, 0);
         assert.equal(fs.existsSync(draftRoot), true);
         assert.deepEqual(await service.stopDraftPreview('project-1', preview.id), { stopped: true });
@@ -234,7 +241,7 @@ test('site service materializes the default starter site only for the default pr
 test('site service seeds the default project from the first active family template when the Amade catalog has no legacy starter', async () => {
     const template = {
         id: 'personal-post-list', version: '0.1.0', name: '글 목록형', family_id: 'personal-homepage',
-        resource: { spec_version: '0.1.0-dev2', family: { content_types: [{ kind: 'post', listing_route: '/blog/', detail_route: '/blog/{slug}/' }] }, template: { status: 'active' }, family_seed_site: { navigation: [{ label: '글', path: '/blog/' }] } }
+        resource: { spec_version: SITE_HOSTING_CONTRACT_VERSION, family: { content_types: [{ kind: 'post', listing_route: '/blog/', detail_route: '/blog/{slug}/' }] }, template: { status: 'active' }, family_seed_site: { navigation: [{ label: '글', path: '/blog/' }] } }
     };
     const created = [];
     const fakeTemplates = {
@@ -272,10 +279,17 @@ test('site creation requires and stores a declared frontmatter publication match
         const template = {
             id: 'digital-garden-explorer-left', version: '0.1.0',
             resource: {
-                spec_version: '0.1.0-dev2',
-                family: { content_contract_version: '0.1.0-dev2' },
+                spec_version: SITE_HOSTING_CONTRACT_VERSION,
+                family: { content_contract_version: SITE_HOSTING_CONTRACT_VERSION, site_profile: { fields: {
+                    displayName: { type: 'string', required: true },
+                    logo: { type: 'public-url-path', required: false },
+                    seoDescription: { type: 'string', required: false, maxLength: 300 },
+                    shareImage: { type: 'public-url-path', required: false },
+                    favicon: { type: 'public-url-path', required: false },
+                    searchEngineIndexing: { type: 'boolean', required: false, default: true }
+                } } },
                 template: {
-                    compatibility: { contract: { version: '0.1.0-dev2' } },
+                    compatibility: { contract: { version: SITE_HOSTING_CONTRACT_VERSION } },
                     setup_inputs: [
                         { id: 'knowledge_collection_root', type: 'directory', purpose: 'knowledge_collection', label: 'Obsidian Vault root', required: true },
                         { id: 'publication_filter', type: 'frontmatter_match', purpose: 'publication_filter', label: '공개 노트 기준', required: true }
@@ -298,6 +312,7 @@ test('site creation requires and stores a declared frontmatter publication match
         }), { code: 'SITE_HOSTING_SETUP_INPUT_REQUIRED' });
         await service.create('project-1', {
             name: '정원', template_id: template.id,
+            customization: { search_engine_indexing: true },
             setup_inputs: {
                 knowledge_collection_root: vaultRoot,
                 publication_filter: { field: 'is_public', value: 'true' }
@@ -307,6 +322,7 @@ test('site creation requires and stores a declared frontmatter publication match
             knowledge_collection_root: fs.realpathSync(vaultRoot),
             publication_filter: { field: 'is_public', value: 'true' }
         });
+        assert.equal(created.customization.search_engine_indexing, true);
         await assert.rejects(service.create('project-1', {
             name: '잘못된 기준', template_id: template.id,
             setup_inputs: {
@@ -314,6 +330,45 @@ test('site creation requires and stores a declared frontmatter publication match
                 publication_filter: { field: 'is_public', value: '' }
             }
         }), { code: 'SITE_HOSTING_SETUP_INPUT_REQUIRED' });
+        await service.create('project-1', {
+            name: '전체 노트', template_id: template.id,
+            setup_inputs: {
+                knowledge_collection_root: vaultRoot,
+                publication_filter: { mode: 'all' }
+            }
+        });
+        assert.deepEqual(created.setup_inputs.publication_filter, { mode: 'all' });
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('site setup directory picker returns the validated Vault root selected by the native dialog', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-vault-picker-'));
+    const vaultRoot = path.join(workspaceDir, 'vault');
+    fs.mkdirSync(vaultRoot);
+    try {
+        const template = {
+            id: 'digital-garden-explorer-left',
+            resource: { template: { setup_inputs: [
+                { id: 'knowledge_collection_root', type: 'directory', purpose: 'knowledge_collection', label: 'Obsidian Vault root', required: true },
+                { id: 'publication_filter', type: 'frontmatter_match', purpose: 'publication_filter', label: '공개 노트 기준', required: true }
+            ] } }
+        };
+        const service = createSiteHostingSiteService({
+            fs, path, workspaceDir,
+            templates: { get: (id) => id === template.id ? template : null, prepare: async () => {} },
+            dialog: { showOpenDialog: async (options) => {
+                assert.deepEqual(options.properties, ['openDirectory']);
+                assert.equal(options.defaultPath, os.homedir());
+                return { canceled: false, filePaths: [vaultRoot] };
+            } }
+        });
+
+        assert.deepEqual(await service.selectSetupDirectory(template.id, 'knowledge_collection_root'), {
+            cancelled: false, path: fs.realpathSync(vaultRoot), name: 'vault'
+        });
+        await assert.rejects(service.selectSetupDirectory(template.id, 'unknown'), { code: 'SITE_HOSTING_SETUP_INPUT_UNSUPPORTED' });
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }
@@ -326,9 +381,9 @@ test('site draft stores its first image block as the optional cover frontmatter 
         fs.mkdirSync(path.join(siteRoot, 'site-data'), { recursive: true });
         const template = {
             resource: {
-                spec_version: '0.1.0-dev2',
-                family: { content_contract_version: '0.1.0-dev2', content_types: [{ kind: 'post', source: 'posts/{slug}/index.md', listing_route: '/blog/', detail_route: '/blog/{slug}/' }] },
-                template: { compatibility: { contract: { version: '0.1.0-dev2' } } }
+                spec_version: SITE_HOSTING_CONTRACT_VERSION,
+                family: { content_contract_version: SITE_HOSTING_CONTRACT_VERSION, content_types: [{ kind: 'post', source: 'posts/{slug}/index.md', listing_route: '/blog/', detail_route: '/blog/{slug}/' }] },
+                template: { compatibility: { contract: { version: SITE_HOSTING_CONTRACT_VERSION } } }
             }
         };
         const pngBytes = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);

@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const osApi = require('node:os');
 const { domainToASCII } = require('node:url');
 const net = require('node:net');
 const { createSiteHostingProjectRepository } = require('../../site-hosting/project-repository');
@@ -10,10 +11,13 @@ const { replaceImageBlocks } = require('../../content/image-blocks');
 const { createGitHubSiteTemplateCatalog } = require('../../site-hosting/github-site-template-catalog');
 const { createAstroSiteRuntime } = require('../../site-hosting/astro-site-runtime');
 const { createCloudflareStaticAssetsDeployer } = require('../../site-hosting/cloudflare-static-assets-deployer');
+const { isSupportedSiteHostingContractVersion } = require('../../site-hosting/bloggenius-compatibility');
 
 function createSiteHostingSiteService(deps = {}) {
     const fileSystem = deps.fs || require('node:fs');
     const pathApi = deps.path || require('node:path');
+    const operatingSystem = deps.os || osApi;
+    let lastSetupDirectory = '';
     const projectRepository = deps.projectRepository || createSiteHostingProjectRepository({
         fs: deps.fs,
         path: deps.path,
@@ -115,7 +119,15 @@ function createSiteHostingSiteService(deps = {}) {
                     continue;
                 }
                 if (!supplied || typeof supplied !== 'object' || Array.isArray(supplied)
-                    || Object.keys(supplied).some((key) => !['field', 'value'].includes(key))) {
+                    || Object.keys(supplied).some((key) => !['mode', 'field', 'value'].includes(key))) {
+                    throw siteInputError('공개 노트 기준 형식이 올바르지 않습니다.', 'SITE_HOSTING_SETUP_INPUT_INVALID');
+                }
+                const mode = supplied.mode || 'frontmatter';
+                if (mode === 'all') {
+                    normalized[input.id] = { mode: 'all' };
+                    continue;
+                }
+                if (mode !== 'frontmatter') {
                     throw siteInputError('공개 노트 기준 형식이 올바르지 않습니다.', 'SITE_HOSTING_SETUP_INPUT_INVALID');
                 }
                 if (typeof supplied.field !== 'string' || typeof supplied.value !== 'string') {
@@ -132,7 +144,9 @@ function createSiteHostingSiteService(deps = {}) {
                 if (field.length > 128 || value.length > 256 || /[\u0000-\u001f\u007f]/u.test(field + value)) {
                     throw siteInputError('공개 노트 기준은 속성명 128자, 일치값 256자 이내로 입력해 주세요.', 'SITE_HOSTING_SETUP_INPUT_INVALID');
                 }
-                normalized[input.id] = { field, value };
+                normalized[input.id] = supplied.mode === undefined
+                    ? { field, value }
+                    : { mode: 'frontmatter', field, value };
                 continue;
             }
             throw siteInputError('BlogGenius가 지원하지 않는 템플릿 입력 형식입니다.', 'SITE_HOSTING_SETUP_INPUT_UNSUPPORTED');
@@ -141,10 +155,13 @@ function createSiteHostingSiteService(deps = {}) {
     }
 
     async function selectSetupDirectory(templateId, inputId) {
-        await templates.prepare?.(templateId);
-        const template = templates.get(templateId);
-        const setupInput = template?.resource?.template?.setup_inputs?.find((item) => item.id === inputId);
-        if (!setupInput || setupInput.type !== 'directory' || setupInput.purpose !== 'knowledge_collection') {
+        let template = templates.get(templateId);
+        const declaredInputs = template?.resource?.template?.setup_inputs;
+        let setupInput = declaredInputs?.find((item) => item.id === inputId);
+        if (Array.isArray(declaredInputs) && !setupInput) {
+            throw siteInputError('선택한 템플릿은 이 폴더 입력을 요청하지 않습니다.', 'SITE_HOSTING_SETUP_INPUT_UNSUPPORTED');
+        }
+        if (setupInput && (setupInput.type !== 'directory' || setupInput.purpose !== 'knowledge_collection')) {
             throw siteInputError('선택한 템플릿은 이 폴더 입력을 요청하지 않습니다.', 'SITE_HOSTING_SETUP_INPUT_UNSUPPORTED');
         }
         let nativeDialog = deps.dialog;
@@ -155,11 +172,25 @@ function createSiteHostingSiteService(deps = {}) {
             throw siteInputError('시스템 폴더 선택 창을 사용할 수 없습니다.', 'SITE_HOSTING_DIRECTORY_PICKER_UNAVAILABLE');
         }
         const result = await nativeDialog.showOpenDialog({
-            title: `${setupInput.label || '폴더'} 선택`,
+            title: `${setupInput?.label || '폴더'} 선택`,
+            defaultPath: lastSetupDirectory || operatingSystem.homedir(),
             properties: ['openDirectory']
         });
         if (result?.canceled || !result?.filePaths?.[0]) return { cancelled: true };
-        const setupInputs = normalizeSetupInputs(template, { [inputId]: result.filePaths[0] });
+        // Open the native picker before any catalog refresh or package download. Some templates
+        // are cold in the local cache, and preparing them can involve remote I/O.
+        if (!setupInput) {
+            await templates.prepare?.(templateId);
+            template = templates.get(templateId);
+            setupInput = template?.resource?.template?.setup_inputs?.find((item) => item.id === inputId);
+        }
+        if (!setupInput || setupInput.type !== 'directory' || setupInput.purpose !== 'knowledge_collection') {
+            throw siteInputError('선택한 템플릿은 이 폴더 입력을 요청하지 않습니다.', 'SITE_HOSTING_SETUP_INPUT_UNSUPPORTED');
+        }
+        // Validate the selected directory now; other required setup fields are collected separately
+        // and are validated together when the user creates the Site.
+        const setupInputs = normalizeSetupInputs(template, { [inputId]: result.filePaths[0] }, { allowMissingRequired: true });
+        lastSetupDirectory = setupInputs[inputId];
         return { cancelled: false, path: setupInputs[inputId], name: pathApi.basename(setupInputs[inputId]) };
     }
 
@@ -256,6 +287,34 @@ function createSiteHostingSiteService(deps = {}) {
         return { opened: true };
     }
 
+    function knowledgeCollectionSetupInput(site) {
+        const template = templates.get(site?.template?.id);
+        return (template?.resource?.template?.setup_inputs || []).find((input) =>
+            input?.type === 'directory' && input?.purpose === 'knowledge_collection'
+        ) || null;
+    }
+
+    function knowledgeCollectionRoot(site) {
+        const input = knowledgeCollectionSetupInput(site);
+        return input ? String(site?.setup_inputs?.[input.id] || '').trim() : '';
+    }
+
+    async function openKnowledgeCollectionFolder(projectId, siteId) {
+        const site = repository.get(projectId, siteId);
+        if (!site) throw siteInputError('사이트를 찾을 수 없습니다.', 'SITE_HOSTING_SITE_NOT_FOUND', 404);
+        const root = knowledgeCollectionRoot(site);
+        let resolvedRoot = '';
+        try {
+            resolvedRoot = fileSystem.realpathSync(root);
+            if (!root || !fileSystem.statSync(resolvedRoot).isDirectory()) throw new Error('not a directory');
+        } catch (_error) {
+            throw siteInputError('연결된 Vault 폴더를 찾을 수 없습니다.', 'SITE_HOSTING_KNOWLEDGE_COLLECTION_NOT_FOUND', 404);
+        }
+        const openError = await (deps.openPath || openPath)(resolvedRoot);
+        if (openError) throw new Error(`Vault 폴더를 열지 못했습니다: ${openError}`);
+        return { opened: true };
+    }
+
     async function openSitePost(projectId, siteId, postId) {
         const site = repository.get(projectId, siteId);
         if (!site) throw siteInputError('사이트를 찾을 수 없습니다.', 'SITE_HOSTING_SITE_NOT_FOUND', 404);
@@ -334,7 +393,7 @@ function createSiteHostingSiteService(deps = {}) {
         const resource = template?.resource;
         const family = resource?.family;
         const postType = (family?.content_types || []).find((item) => item?.kind === 'post');
-        if (resource?.spec_version !== '0.1.0-dev2' || family?.content_contract_version !== resource.spec_version
+        if (!isSupportedSiteHostingContractVersion(resource?.spec_version) || family?.content_contract_version !== resource.spec_version
             || resource?.template?.compatibility?.contract?.version !== resource.spec_version
             || !postType || typeof postType.source !== 'string') {
             throw siteInputError('이 템플릿은 현재 Site Hosting 계약을 지원하지 않습니다.', 'SITE_HOSTING_POST_CONTRACT_UNSUPPORTED', 409);
@@ -508,7 +567,7 @@ function createSiteHostingSiteService(deps = {}) {
         const items = await templates.list();
         return items.map((template) => {
             const resource = templates.get(template.id)?.resource;
-            if (resource?.spec_version === '0.1.0-dev2') {
+            if (isSupportedSiteHostingContractVersion(resource?.spec_version)) {
                 const seedSite = resource.family_seed_site || {};
                 const postType = (resource.family?.content_types || []).find((type) => type.kind === 'post');
                 const pageType = (resource.family?.content_types || []).find((type) => type.kind === 'page');
@@ -558,7 +617,7 @@ function createSiteHostingSiteService(deps = {}) {
                     await templates.prepare?.(defaultTemplateId);
                     const defaultTemplate = templates.get(defaultTemplateId);
                     let customization = {};
-                    if (defaultTemplate?.resource?.spec_version === '0.1.0-dev2') {
+            if (isSupportedSiteHostingContractVersion(defaultTemplate?.resource?.spec_version)) {
                         const seedSite = defaultTemplate.resource.family_seed_site || {};
                         const navigation = (seedSite.navigation || []).map((item) => ({ label: item.label, href: item.path }));
                         const postType = (defaultTemplate.resource.family?.content_types || []).find((type) => type.kind === 'post');
@@ -577,14 +636,19 @@ function createSiteHostingSiteService(deps = {}) {
             }
             sites = repository.list(projectId);
         }
-        return sites.map(({ id, project_id, name, template, template_name, template_status, hostname, domain, deployment, custom_domain_binding, screenshot, last_build, created_at, updated_at }) => ({
-            id, project_id, name, template, template_name, template_status, hostname, domain: domain || '',
-            custom_domain: formatCustomDomain(hostname, domain), deployment, custom_domain_binding, screenshot, last_build,
-            screenshot_url: screenshot?.latest_build?.path || screenshot?.template?.path
-                ? `/api/v1/site-hosting/projects/${encodeURIComponent(project_id)}/sites/${encodeURIComponent(id)}/screenshot`
-                : '',
-            created_at, updated_at
-        }));
+        return sites.map((site) => {
+            const { id, project_id, name, template, template_name, template_status, template_update_available, available_template_version, hostname, domain, deployment, custom_domain_binding, screenshot, last_build, created_at, updated_at } = site;
+            const root = knowledgeCollectionRoot(site);
+            return {
+                id, project_id, name, template, template_name, template_status, template_update_available, available_template_version, hostname, domain: domain || '',
+                custom_domain: formatCustomDomain(hostname, domain), deployment, custom_domain_binding, screenshot, last_build,
+                knowledge_collection: root ? { name: pathApi.basename(root) || root } : null,
+                screenshot_url: screenshot?.latest_build?.path || screenshot?.template?.path
+                    ? `/api/v1/site-hosting/projects/${encodeURIComponent(project_id)}/sites/${encodeURIComponent(id)}/screenshot`
+                    : '',
+                created_at, updated_at
+            };
+        });
     }
 
     async function create(projectId, payload = {}) {
@@ -617,6 +681,23 @@ function createSiteHostingSiteService(deps = {}) {
         const customization = normalizeSiteCustomization(template, payload.customization || {});
         const setupInputs = normalizeSetupInputs(template, payload.setup_inputs || {});
         return createSite(projectId, name, templateId, createId(), customization, setupInputs);
+    }
+
+    async function createAndBuild(projectId, payload = {}) {
+        const site = await create(projectId, payload);
+        let build = null;
+        let build_error = '';
+        try {
+            build = await astroRuntime.build(projectId, site.id);
+        } catch (error) {
+            build_error = String(error?.message || '사이트 생성 후 자동 빌드에 실패했습니다.');
+        }
+        return {
+            ...site,
+            screenshot: build?.screenshot || null,
+            screenshot_error: build?.screenshot_error || '',
+            build_error
+        };
     }
 
     async function previewDraft(projectId, payload = {}) {
@@ -652,7 +733,7 @@ function createSiteHostingSiteService(deps = {}) {
             const timeout = setTimeout(() => { void stopDraftPreview(projectId, draft.id); }, 30 * 60 * 1000);
             timeout.unref?.();
             draftPreviews.set(draft.id, { project_id: projectId, draft, timeout });
-            return { id: draft.id, url: preview.url };
+            return { id: draft.id, url: preview.url, knowledge_collection: preview.knowledge_collection || null };
         } catch (error) {
             repository.removePreviewDraft(draft);
             throw error;
@@ -673,7 +754,7 @@ function createSiteHostingSiteService(deps = {}) {
             throw siteInputError('사이트 설정 형식이 올바르지 않습니다.', 'SITE_HOSTING_NAVIGATION_INVALID');
         }
         const siteHosting = template?.resource?.site_hosting;
-        if (template?.resource?.spec_version === '0.1.0-dev2') {
+        if (isSupportedSiteHostingContractVersion(template?.resource?.spec_version)) {
             const seedSite = template.resource.family_seed_site || {};
             const profileFields = template.resource.family?.site_profile?.fields || {};
             const profileInputKeys = {
@@ -956,6 +1037,51 @@ function createSiteHostingSiteService(deps = {}) {
         };
     }
 
+    async function updateTemplate(projectId, siteId) {
+        const current = repository.get(projectId, siteId);
+        if (!current) throw siteInputError('사이트를 찾을 수 없습니다.', 'SITE_HOSTING_SITE_NOT_FOUND', 404);
+        await templates.prepare?.(current.template?.id);
+        const updated = repository.applyTemplateUpdate(projectId, siteId, now());
+        let build = null;
+        let build_error = '';
+        try {
+            build = await astroRuntime.build(projectId, siteId);
+        } catch (error) {
+            build_error = String(error?.message || '템플릿 업데이트 후 자동 빌드에 실패했습니다.');
+        }
+        return {
+            id: updated.id,
+            project_id: updated.project_id,
+            template: updated.template,
+            template_name: updated.template_name,
+            template_status: updated.template_status,
+            template_update_available: updated.template_update_available,
+            available_template_version: updated.available_template_version,
+            screenshot: build?.screenshot || null,
+            screenshot_error: build?.screenshot_error || '',
+            build_error,
+            updated_at: updated.updated_at
+        };
+    }
+
+    function prepareTemplateUpdateTest(projectId, siteId) {
+        const runtimeEnvironment = deps.runtimeEnvironment;
+        const environment = typeof runtimeEnvironment === 'string'
+            ? runtimeEnvironment
+            : runtimeEnvironment?.environment;
+        if (environment !== 'development') {
+            throw siteInputError('템플릿 업데이트 테스트는 개발 모드에서만 사용할 수 있습니다.', 'SITE_HOSTING_TEMPLATE_UPDATE_TEST_DEVELOPMENT_ONLY', 403);
+        }
+        const updated = repository.setTemplateUpdateTestVersion(projectId, siteId);
+        return {
+            id: updated.id,
+            project_id: updated.project_id,
+            template: updated.template,
+            template_update_available: updated.template_update_available,
+            available_template_version: updated.available_template_version
+        };
+    }
+
     function formatCustomDomain(hostname, domain) {
         const normalizedDomain = String(domain || '').trim();
         if (!normalizedDomain) return '';
@@ -1091,9 +1217,12 @@ function createSiteHostingSiteService(deps = {}) {
         getTemplatePreview: (id) => templates.getPreview?.(String(id || '').trim()) || null,
         list,
         create,
+        createAndBuild,
         previewDraft,
         stopDraftPreview,
         update,
+        updateTemplate,
+        prepareTemplateUpdateTest,
         listCloudflareZones,
         connectCustomDomain,
         getScreenshot: (projectId, siteId) => repository.getScreenshot(projectId, siteId),
@@ -1104,6 +1233,7 @@ function createSiteHostingSiteService(deps = {}) {
         stopPreview: (projectId, siteId) => astroRuntime.stopPreview(projectId, siteId),
         deploy,
         openSiteAddress,
+        openKnowledgeCollectionFolder,
         openSitePost,
         postMarkdown
     };

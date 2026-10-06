@@ -11,6 +11,7 @@ const { createSiteHostingSiteRepository } = require('./site-repository');
 const { createSiteTemplateCatalog } = require('./site-template-catalog');
 const { normalizeMenuDestination } = require('./navigation-contract');
 const { captureSiteScreenshot, VIEWPORT } = require('./electron-site-screenshot');
+const { createKnowledgeCollectionBuilder } = require('./knowledge-collection-builder');
 
 const BUILD_TIMEOUT_MS = 10 * 60 * 1000;
 const CONTENT_TYPES = {
@@ -67,6 +68,7 @@ function createAstroSiteRuntime(options = {}) {
     const spawnProcess = options.spawn || spawn;
     const buildJobs = new Map();
     const previewServers = new Map();
+    const knowledgeCollectionBuilder = options.knowledgeCollectionBuilder || createKnowledgeCollectionBuilder({ fs: fileSystem, path: pathApi });
     const npmCliPath = options.npmCliPath || pathApi.join(pathApi.dirname(require.resolve('npm/package.json')), 'bin', 'npm-cli.js');
     const cacheRoot = options.cacheRoot || pathApi.join(os.tmpdir(), 'bloggenius-site-npm-cache');
     const captureScreenshot = options.captureScreenshot || captureSiteScreenshot;
@@ -113,9 +115,25 @@ function createAstroSiteRuntime(options = {}) {
         }
     }
 
+    function buildKnowledgeCollection(site) {
+        const templateId = site?.template?.id || site?.template_id;
+        const template = templates.get(templateId);
+        const declared = template?.resource?.template?.setup_inputs;
+        if (!Array.isArray(declared)) return null;
+        const rootInput = declared.find((item) => item.type === 'directory' && item.purpose === 'knowledge_collection');
+        const filterInput = declared.find((item) => item.type === 'frontmatter_match' && item.purpose === 'publication_filter');
+        if (!rootInput || !filterInput) return null;
+        return knowledgeCollectionBuilder.build({
+            vaultRoot: site?.setup_inputs?.[rootInput.id],
+            publicationFilter: site?.setup_inputs?.[filterInput.id],
+            siteRoot: site.root_path
+        });
+    }
+
     async function buildAstroProject(site) {
         const projectRoot = getAstroProjectRoot(site);
         const buildEnvironment = { BLOGGENIUS_SITE_URL: getPublicSiteUrl(site) };
+        const knowledgeCollection = buildKnowledgeCollection(site);
         await runNpm(projectRoot, ['ci', '--no-audit', '--no-fund'], buildEnvironment);
         await runNpm(projectRoot, ['run', 'build'], buildEnvironment);
         if (projectRoot !== pathApi.resolve(site.root_path)) {
@@ -137,6 +155,7 @@ function createAstroSiteRuntime(options = {}) {
                 throw error;
             }
         }
+        return knowledgeCollection;
     }
 
     function runNpm(siteRoot, args, extraEnvironment = {}) {
@@ -299,7 +318,7 @@ function createAstroSiteRuntime(options = {}) {
         const job = { status: 'running', build_id: crypto.randomUUID().replace(/-/g, ''), started_at: new Date().toISOString(), finished_at: '', message: '미리보기를 빌드하고 있습니다.' };
         buildJobs.set(key, job);
         try {
-            await buildAstroProject(site);
+            const knowledgeCollection = await buildAstroProject(site);
             try { applyPublishingRoute(site); }
             catch (error) { console.warn('[Site Hosting] draft preview route adjustment skipped', { site_id: site.id, message: String(error?.message || error).slice(0, 500) }); }
             const indexPath = pathApi.join(site.root_path, 'dist', 'index.html');
@@ -309,7 +328,7 @@ function createAstroSiteRuntime(options = {}) {
                 throw error;
             }
             const preview = await ensurePreviewServer(site, `draft/${site.project_id}/${site.id}`);
-            Object.assign(job, { status: 'succeeded', finished_at: new Date().toISOString(), message: '미리보기를 준비했습니다.', url: preview.url });
+            Object.assign(job, { status: 'succeeded', finished_at: new Date().toISOString(), message: '미리보기를 준비했습니다.', url: preview.url, knowledge_collection: knowledgeCollection });
             return { ...job, output: undefined };
         } catch (error) {
             Object.assign(job, { status: 'failed', finished_at: new Date().toISOString(), message: error.message, output: String(error.output || '').slice(-12000) });
@@ -357,7 +376,7 @@ function createAstroSiteRuntime(options = {}) {
         const job = { status: 'running', build_id: crypto.randomUUID().replace(/-/g, ''), started_at: new Date().toISOString(), finished_at: '', message: '' };
         buildJobs.set(key, job);
         try {
-            await buildAstroProject(site);
+            const knowledgeCollection = await buildAstroProject(site);
             try { applyPublishingRoute(site); }
             catch (error) {
                 console.warn('[Site Hosting] post-list route adjustment skipped', {
@@ -371,7 +390,7 @@ function createAstroSiteRuntime(options = {}) {
                 throw error;
             }
             const completedAt = new Date().toISOString();
-            Object.assign(job, { status: 'succeeded', finished_at: completedAt, message: '사이트를 빌드했습니다.' });
+            Object.assign(job, { status: 'succeeded', finished_at: completedAt, message: '사이트를 빌드했습니다.', ...(knowledgeCollection ? { knowledge_collection: knowledgeCollection } : {}) });
             siteRepository.recordBuildResult?.(projectId, siteId, { build_id: job.build_id, completed_at: completedAt });
             const existingPreview = previewServers.has(key);
             try {
@@ -504,6 +523,7 @@ function createAstroSiteRuntime(options = {}) {
         return {
             ...preview,
             screenshot: buildResult.screenshot || null,
+            knowledge_collection: buildResult.knowledge_collection || null,
             screenshot_error: buildResult.screenshot_error || ''
         };
     }
@@ -529,7 +549,7 @@ function createAstroSiteRuntime(options = {}) {
 
     async function startDraftPreview(site) {
         const result = await buildDraftPreview(site);
-        return { url: result.url };
+        return { url: result.url, knowledge_collection: result.knowledge_collection || null };
     }
 
     return { build, getBuildStatus, startPreview, stopPreview, startDraftPreview, stopDraftPreview };

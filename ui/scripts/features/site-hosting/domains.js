@@ -4,16 +4,10 @@ function siteHostingSiteDomainConnectPanel(site, state) {
   const zones = Array.isArray(state.zones) ? state.zones : [];
   const zoneOptions = zones.map((zone) => `<option value="${siteHostingEscapeHtml(zone.id)}" ${zone.id === state.zoneId ? 'selected' : ''}>${siteHostingEscapeHtml(zone.name)}</option>`).join('');
   const zoneField = state.status === 'ready'
-    ? `<label for="site-card-zone-${siteId}">도메인<select id="site-card-zone-${siteId}" data-site-card-zone="${siteId}"><option value="">도메인 선택</option>${zoneOptions}</select></label>`
+    ? `<label for="site-card-zone-${siteId}"><span>도메인</span><select id="site-card-zone-${siteId}" data-site-card-zone="${siteId}"><option value="">도메인 선택</option>${zoneOptions}</select></label>`
     : '';
   const hostnameField = state.status === 'ready'
-    ? `<label for="site-card-hostname-${siteId}">호스트 이름<input id="site-card-hostname-${siteId}" data-site-card-hostname="${siteId}" type="text" maxlength="253" value="${siteHostingEscapeHtml(state.hostname || '')}" placeholder="예: blog" autocomplete="off"></label>`
-    : '';
-  const previewAddress = state.hostname && state.zoneId
-    ? `${state.hostname}.${zones.find((zone) => zone.id === state.zoneId)?.name || ''}`
-    : '';
-  const preview = state.status === 'ready'
-    ? `<p class="site-hosting-card-domain-preview" ${previewAddress ? '' : 'hidden'}>주소 미리보기 <strong data-site-card-domain-preview>${siteHostingEscapeHtml(previewAddress)}</strong></p>`
+    ? `<label for="site-card-hostname-${siteId}"><span>호스트 이름</span><input id="site-card-hostname-${siteId}" data-site-card-hostname="${siteId}" type="text" maxlength="253" value="${siteHostingEscapeHtml(state.hostname || '')}" placeholder="예: blog" autocomplete="off"></label>`
     : '';
   const status = state.status === 'loading'
     ? '<p role="status">Cloudflare 도메인을 불러오고 있습니다.</p>'
@@ -24,11 +18,18 @@ function siteHostingSiteDomainConnectPanel(site, state) {
         : '';
   return `<section class="site-hosting-card-domain-panel" aria-label="커스텀 도메인 연결">
     <div class="site-hosting-card-domain-fields">${zoneField}${hostnameField}</div>
-    ${preview}${status}
-    <div class="site-hosting-card-domain-actions">
-      ${state.status === 'ready' ? `<button class="secondary" type="button" data-site-card-domain-cancel="${siteId}">취소</button><button class="primary" type="button" data-site-card-domain-connect="${siteId}" ${!state.zoneId || !String(state.hostname || '').trim() ? 'disabled' : ''}>연결</button>` : `<button class="secondary" type="button" data-site-card-domain-cancel="${siteId}">취소</button>${state.status !== 'loading' ? `<button class="primary" type="button" data-site-card-domain-retry="${siteId}">${state.status === 'idle' ? '도메인 불러오기' : '다시 시도'}</button>` : ''}`}
-    </div>
+    ${status}
   </section>`;
+}
+
+function siteHostingCardDomainActions(siteId, state) {
+  const escapedId = siteHostingEscapeHtml(siteId);
+  const connectAction = state?.status === 'ready'
+    ? `<button class="primary" type="button" data-site-card-domain-connect="${escapedId}" ${!state.zoneId || !String(state.hostname || '').trim() ? 'disabled' : ''}>연결</button>`
+    : state?.status === 'loading'
+      ? `<button class="primary" type="button" disabled>연결</button>`
+      : `<button class="primary" type="button" data-site-card-domain-retry="${escapedId}">${state?.status === 'idle' ? '도메인 불러오기' : '다시 시도'}</button>`;
+  return `<div class="site-hosting-project-actions site-hosting-card-domain-actions"><button class="secondary" type="button" data-site-card-domain-cancel="${escapedId}">취소</button>${connectAction}</div>`;
 }
 
 function siteHostingSafeHttpsUrl(value) {
@@ -157,14 +158,14 @@ function siteHostingUpdateCardDomainState(target) {
   if (!state) return;
   if (target.matches('[data-site-card-zone]')) state.zoneId = target.value;
   else state.hostname = target.value;
-  const form = target.closest('.site-hosting-card-domain-panel');
   const zone = state.zones.find((item) => item.id === state.zoneId);
-  const preview = form?.querySelector('[data-site-card-domain-preview]');
-  const previewRow = form?.querySelector('.site-hosting-card-domain-preview');
   const address = state.hostname && zone ? `${state.hostname}.${zone.name}` : '';
-  if (preview) preview.textContent = address;
-  if (previewRow) previewRow.hidden = !address;
-  const connect = form?.querySelector('[data-site-card-domain-connect]');
+  const message = target.closest('.site-hosting-site-card')?.querySelector('[data-site-message]');
+  if (message) {
+    message.innerHTML = address ? `<span data-state="pending">주소 미리보기: ${siteHostingEscapeHtml(address)}</span>` : '';
+    message.hidden = !address;
+  }
+  const connect = target.closest('.site-hosting-site-card')?.querySelector('[data-site-card-domain-connect]');
   if (connect) connect.disabled = !state.zoneId || !String(state.hostname || '').trim();
 }
 

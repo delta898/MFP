@@ -87,7 +87,7 @@ function createSiteHostingSiteRouteHandler(deps = {}) {
                 await sendSuccess(res, requestId, await service.postMarkdown(projectId, siteId, ctx.requestBody || {}, { requestId }));
                 return true;
             }
-            const siteActionMatch = pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)\/(build|build-status|preview|deploy|open-folder|open-address|open-post|zones|custom-domain)$/);
+            const siteActionMatch = pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)\/(build|build-status|preview|deploy|update-template|test-template-update|open-folder|open-vault|open-address|open-post|zones|custom-domain)$/);
             if (siteActionMatch) {
                 const projectId = decodePathPart(siteActionMatch[1]);
                 const siteId = decodePathPart(siteActionMatch[2]);
@@ -112,8 +112,20 @@ function createSiteHostingSiteRouteHandler(deps = {}) {
                     await sendSuccess(res, requestId, await service.deploy(projectId, siteId, { requestId }));
                     return true;
                 }
+                if (action === 'update-template' && method === 'POST') {
+                    await sendSuccess(res, requestId, await service.updateTemplate(projectId, siteId));
+                    return true;
+                }
+                if (action === 'test-template-update' && method === 'POST') {
+                    await sendSuccess(res, requestId, service.prepareTemplateUpdateTest(projectId, siteId));
+                    return true;
+                }
                 if (action === 'open-folder' && method === 'POST') {
                     await sendSuccess(res, requestId, await service.openBuildFolder(projectId, siteId));
+                    return true;
+                }
+                if (action === 'open-vault' && method === 'POST') {
+                    await sendSuccess(res, requestId, await service.openKnowledgeCollectionFolder(projectId, siteId));
                     return true;
                 }
                 if (action === 'open-address' && method === 'POST') {
@@ -164,7 +176,8 @@ function createSiteHostingSiteRouteHandler(deps = {}) {
                 return true;
             }
             if (method === 'POST') {
-                await sendSuccess(res, requestId, await service.create(projectId, ctx.requestBody || {}), 201);
+                const createSite = service.createAndBuild || service.create;
+                await sendSuccess(res, requestId, await createSite(projectId, ctx.requestBody || {}), 201);
                 return true;
             }
             return false;

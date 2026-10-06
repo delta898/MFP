@@ -20,6 +20,7 @@
     "test:ui-browser": "node scripts/test-ui-browser-smoke.js",
     "test:chat-model": "node --test src/utils.chat-model.test.js src/ai-model-config.test.js src/capabilities/settings/chat-model.test.js src/social/sns-ai-service.test.js",
     "test:security": "npm audit --audit-level=high",
+    "verify:site-hosting-contract": "node scripts/verify-site-hosting-contract.js",
     "pretest:unit": "npm run test:security",
     "test:unit": "node scripts/run-unit-tests.js",
     "mcp:stdio": "node src/mcp/stdio-server.js",

@@ -41,11 +41,19 @@
 
 .site-create-footer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
   align-items: center;
-  gap: var(--ui-space-3);
+  gap: var(--ui-space-5);
   min-height: 68px;
   padding: var(--ui-space-3) var(--ui-space-6);
+}
+
+.site-create-footer-settings {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-3);
+  min-width: 0;
 }
 
 .site-create-footer-left {
@@ -65,9 +73,7 @@
   align-items: center;
   justify-content: flex-end;
   gap: var(--ui-space-3);
-  width: 100%;
-  justify-self: end;
-  margin-left: 0;
+  flex: 0 0 auto;
 }
 
 .site-create-footer .ui-transaction-dialog-footer-actions button,
@@ -235,14 +241,22 @@
     grid-template-columns: 1fr;
   }
 
+  .site-create-footer-template-spacer {
+    display: none;
+  }
+
+  .site-create-footer-settings {
+    grid-column: 1;
+    flex-wrap: wrap;
+  }
+
   .site-create-footer-left,
   .site-create-footer-right {
-    grid-column: 1;
     width: 100%;
   }
 
   .site-create-footer-left {
-    justify-content: flex-end;
+    justify-content: flex-start;
   }
 
   .site-create-footer-right {

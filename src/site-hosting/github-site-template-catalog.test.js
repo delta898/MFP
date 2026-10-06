@@ -7,6 +7,7 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 const { DEFAULT_CATALOG_URL, DEVELOPMENT_CATALOG_URL, createGitHubSiteTemplateCatalog } = require('./github-site-template-catalog');
+const { SITE_HOSTING_CONTRACT_VERSION } = require('./bloggenius-compatibility');
 
 test('default Amade catalog points at the GitHub main branch', () => {
     assert.equal(DEFAULT_CATALOG_URL, 'https://raw.githubusercontent.com/delta898/Amade/main/amade/catalog/index.json');
@@ -171,14 +172,14 @@ test('Amade 0.1 family catalog groups active templates and materializes Astro so
             'amade/families/personal-homepage/data/data/posts/hello/index.md': Buffer.from('---\nkind: post\n---')
         };
         const family = {
-            spec_version: '0.1.0-dev2', family_id: 'personal-homepage', name: '개인 홈페이지',
+            spec_version: SITE_HOSTING_CONTRACT_VERSION, content_contract_version: SITE_HOSTING_CONTRACT_VERSION, family_id: 'personal-homepage', name: '개인 홈페이지',
             site_data_directory: 'data', content_types: [{ kind: 'post', listing_route: '/blog/', detail_route: '/blog/{slug}/' }]
         };
         const template = {
-            spec_version: '0.1.0-dev2', template_id: 'personal-post-list', family_id: 'personal-homepage',
+            spec_version: SITE_HOSTING_CONTRACT_VERSION, template_id: 'personal-post-list', family_id: 'personal-homepage',
             name: '글 목록형', description: '기본 설명', author: 'amadejjs', version: '0.1.0', license: 'MIT',
             categories: ['Personal Website'], tags: ['List'], status: 'active', astro_project: 'astro', preview: 'preview.png',
-            compatibility: { min_bloggenius_version: '0.6.0', contract: { id: 'bloggenius-site-hosting-template', version: '0.1.0-dev2' } },
+            compatibility: { min_bloggenius_version: '0.6.0', contract: { id: 'bloggenius-site-hosting-template', version: SITE_HOSTING_CONTRACT_VERSION } },
             setup_inputs: [
                 { id: 'knowledge_collection_root', type: 'directory', purpose: 'knowledge_collection', label: 'Obsidian Vault root', required: true },
                 { id: 'publication_filter', type: 'frontmatter_match', purpose: 'publication_filter', label: '공개 노트 기준', required: true }

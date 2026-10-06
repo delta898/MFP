@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
     BLOGGENIUS_VERSION,
+    SITE_HOSTING_CONTRACT_VERSION,
     compareVersions,
     isCompatibleWithBlogGenius
 } = require('./bloggenius-compatibility');
@@ -26,7 +27,7 @@ test('package compatibility requires minimum app version and an exact supported 
     assert.equal(isCompatibleWithBlogGenius(compatibility), compareVersions(BLOGGENIUS_VERSION, '0.6.0') >= 0);
     assert.equal(isCompatibleWithBlogGenius({
         min_bloggenius_version: '0.6.0',
-        contract: { id: 'bloggenius-site-hosting-template', version: '0.1.0-dev2' }
+        contract: { id: 'bloggenius-site-hosting-template', version: SITE_HOSTING_CONTRACT_VERSION }
     }, { appVersion: '0.6.0' }), true);
     assert.equal(isCompatibleWithBlogGenius({
         min_bloggenius_version: '0.6.0',

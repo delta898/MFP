@@ -8,6 +8,7 @@ const test = require('node:test');
 const { createSiteHostingProjectRepository } = require('./project-repository');
 const { createSiteHostingSiteRepository } = require('./site-repository');
 const { createSiteTemplateCatalog } = require('./site-template-catalog');
+const { SITE_HOSTING_CONTRACT_VERSION } = require('./bloggenius-compatibility');
 
 test('site repository materializes selected Astro files and keeps BlogGenius metadata separate', () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-site-'));
@@ -132,7 +133,7 @@ test('site repository materializes family data separately from replaceable Astro
         const template = {
             id: 'personal-post-list', version: '0.1.0', name: '글 목록형', family_id: 'personal-homepage', package_ready: true,
             resource: {
-                spec_version: '0.1.0-dev2', family: { content_types: [{ kind: 'post', listing_route: '/blog/', detail_route: '/blog/{slug}/' }] },
+                spec_version: SITE_HOSTING_CONTRACT_VERSION, family: { content_types: [{ kind: 'post', listing_route: '/blog/', detail_route: '/blog/{slug}/' }] },
                 template: { status: 'active' }, family_seed_site: familySeed
             }
         };
@@ -154,6 +155,10 @@ test('site repository materializes family data separately from replaceable Astro
         const repository = createSiteHostingSiteRepository({ fs, path, projectRepository, templates });
         const created = repository.create('project-1', {
             id: 'site-1', name: '내 사이트', template_id: template.id,
+            setup_inputs: {
+                knowledge_collection_root: '/Users/test/Vault',
+                publication_filter: { field: 'is_public', value: 'true' }
+            },
             customization: {
                 site_description: '사이트 소개 문구',
                 search_engine_indexing: false,
@@ -192,6 +197,10 @@ test('site repository materializes family data separately from replaceable Astro
         assert.equal(fs.existsSync(path.join(root, 'site-data', 'data', 'pages', 'custom-https-example-com.md')), false);
         assert.equal(fs.existsSync(path.join(root, 'site-data', 'data', 'posts', 'first.md')), true);
         assert.equal(manifest.template.family_id, 'personal-homepage');
+        assert.deepEqual(manifest.setup_inputs, {
+            knowledge_collection_root: '/Users/test/Vault',
+            publication_filter: { field: 'is_public', value: 'true' }
+        });
         assert.deepEqual(manifest.customization.publishing, { listing_route: '/stories/', detail_route: '/stories/{slug}/', post_list_navigation_index: 1 });
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });

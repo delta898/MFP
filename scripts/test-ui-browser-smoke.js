@@ -747,13 +747,25 @@ function startFixtureServer(requests) {
             return;
         }
         const siteHostingPreviewDraftsMatch = url.pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/preview-drafts(?:\/([^/]+))?$/);
+        if (url.pathname === '/preview-fixture/' && req.method === 'GET') {
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+            res.end('<!doctype html><title>Garden preview fixture</title><main>Preview fixture</main>');
+            return;
+        }
         if (siteHostingPreviewDraftsMatch && req.method === 'POST') {
             const chunks = [];
             req.on('data', (chunk) => chunks.push(chunk));
             req.on('end', () => {
                 requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
                 res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-                res.end(JSON.stringify({ success: true, data: { id: 'site-preview-smoke', url: `http://127.0.0.1:${server.address().port}/preview-fixture/` } }));
+                res.end(JSON.stringify({ success: true, data: {
+                    id: 'site-preview-smoke', url: `http://127.0.0.1:${server.address().port}/preview-fixture/`,
+                    knowledge_collection: {
+                        source_markdown_count: 4, published_note_count: 2, excluded_note_count: 2,
+                        copied_resource_count: 1, unresolved_link_count: 3, missing_resource_count: 1,
+                        selection_configured: true
+                    }
+                } }));
             });
             return;
         }
@@ -2495,6 +2507,9 @@ async function run() {
         reportSmokePhase('Checking current Settings, account, logs, and active-surface navigation');
         for (const viewName of ['account', 'social', 'settings', 'logs', 'shopping', 'site-hosting', 'dashboard-beta', 'blog-next']) {
             const expectedViewName = viewName === 'settings' ? 'settings-next' : viewName;
+            const siteTemplateAutoCheck = viewName === 'site-hosting'
+                ? page.waitForResponse((response) => new URL(response.url()).pathname === '/api/v1/site-hosting/templates' && response.request().method() === 'GET')
+                : null;
             if (await page.locator(`.nav-btn[data-view="${viewName}"]`).isVisible()) {
                 await page.locator(`.nav-btn[data-view="${viewName}"]`).click();
             } else {
@@ -2502,6 +2517,7 @@ async function run() {
             }
             await page.waitForFunction((name) => document.getElementById(`view-${name}`)?.classList.contains('active'), expectedViewName);
             if (viewName === 'site-hosting') {
+                await siteTemplateAutoCheck;
                 await page.getByRole('heading', { name: '아직 프로젝트가 없습니다.' }).waitFor();
                 await page.locator('[data-site-project-create]').click();
                 await page.locator('#site-project-name').fill('브라우저 검증 프로젝트');
@@ -2536,7 +2552,8 @@ async function run() {
                 await page.locator('#site-navigation-fields input[type="radio"]').nth(1).check();
                 await page.locator('[data-site-create-preview]').click();
                 await page.locator('#site-create-preview-frame').waitFor({ state: 'visible' });
-                await page.waitForFunction(() => document.getElementById('site-create-preview-status')?.textContent === '미리보기 완료');
+                await page.waitForFunction(() => document.getElementById('site-create-preview-status')?.textContent
+                    === '미리보기 완료 · 공개 노트 2개 · 제외 2개 · 첨부 1개 · 미해결 링크 3개 · 누락 첨부 1개');
                 const previewRequest = requests.find((request) => request.method === 'POST' && request.pathname.endsWith('/preview-drafts'));
                 assert.deepEqual(previewRequest?.body?.customization?.navigation, [
                     { label: '홈', href: '/' }, { label: '이야기', href: '/stories/' }
@@ -2555,6 +2572,10 @@ async function run() {
                 assert.deepEqual(createRequest?.body?.customization?.publishing, { post_list_navigation_index: 1 });
                 assert.equal(createRequest?.body?.customization?.site_description, '브라우저 smoke에서 입력한 사이트 설명');
                 assert.equal(createRequest?.body?.customization?.search_engine_indexing, false);
+                const manualTemplateCheck = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/v1/site-hosting/templates' && response.request().method() === 'GET');
+                await page.locator('[data-site-template-refresh]').click();
+                await manualTemplateCheck;
+                await page.getByText('템플릿 확인을 마쳤습니다.').waitFor();
                 assert.match(createRequest?.body?.customization?.share_image || '', /^data:image\/png;base64,/);
                 await page.getByText('브라우저 검증 사이트', { exact: true }).waitFor();
             }
