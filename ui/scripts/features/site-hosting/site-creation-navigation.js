@@ -282,6 +282,7 @@ async function siteHostingPreviewCreateSite() {
       if (frame) { frame.src = result.url; frame.hidden = false; }
       if (image) image.hidden = true;
       if (empty) empty.hidden = true;
+      document.getElementById('site-template-details')?.setAttribute('hidden', '');
       siteHostingCreatePreviewId = result.id;
       if (status) status.textContent = '미리보기 완료';
       if (previousPreviewId) {
@@ -491,6 +492,7 @@ async function siteHostingOpenCreateSiteDialog() {
   document.getElementById('site-template-count').textContent = '';
   const templatePreview = document.getElementById('site-create-template-preview');
   if (templatePreview) { templatePreview.removeAttribute('src'); templatePreview.hidden = true; }
+  document.getElementById('site-template-details').hidden = false;
   siteHostingProfileImages = { logo: '', 'share-image': '', favicon: '' };
   for (const key of Object.keys(SITE_PROFILE_IMAGE_LABELS)) {
     const options = siteHostingProfileImageOptions(key);
@@ -568,6 +570,7 @@ function siteHostingRenderCreateTemplateDetails() {
   if (!details || !image || !template) return;
   details.innerHTML = `<div class="site-template-details-heading"><strong>${siteHostingEscapeHtml(template.name)}</strong><span>제작자 · ${siteHostingEscapeHtml(template.author || '정보 없음')}</span></div><p>${siteHostingEscapeHtml(template.description || '')}</p>${template.homepage_url ? `<a href="${siteHostingEscapeHtml(template.homepage_url)}" target="_blank" rel="noopener noreferrer">템플릿 홈페이지 ↗</a>` : ''}`;
   const hasBuiltPreview = Boolean(siteHostingCreatePreviewId);
+  details.hidden = hasBuiltPreview;
   image.src = template.preview_url || '';
   image.alt = `${template.name} 대표 미리보기`;
   image.hidden = hasBuiltPreview || !template.preview_url;

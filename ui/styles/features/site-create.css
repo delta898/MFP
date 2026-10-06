@@ -77,8 +77,8 @@
 
 .site-create-preview-dialog {
   display: none;
-  width: min(1120px, calc(100vw - 32px));
-  height: min(860px, calc(100vh - 32px));
+  width: min(1680px, calc(100vw - 32px));
+  height: min(1080px, calc(100vh - 32px));
   max-height: calc(100vh - 32px);
   overflow: hidden;
 }
