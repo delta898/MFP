@@ -244,3 +244,11 @@ Principle: when ownership or remote state is uncertain, do not delete or mutate 
 #### Site list empty-state policy (2026-10-06)
 
 The user changed the Site Hosting default: opening the Sites area must never create a Site automatically, including in the default project. `list(projectId)` now returns only persisted Sites. Existing Sites, including any previously auto-created default Site, are preserved; this change does not delete or migrate user data. An empty project shows an explicit message prompting the user to choose “사이트 추가”. Service and UI contract tests cover the no-creation behavior and empty-state copy.
+
+
+### Parent integration handoff (2026-10-06)
+
+The user requested `[cmd]` for this feature branch. The intended parent is `codex/static-site-builder-main`; this does not authorize integration into `dev`, pushing, or release work. The complete branch includes the Digital Garden template POC and Site Hosting creation, publishing, settings, domain/Worker lifecycle, and guarded deletion/archive work recorded above. Site deletion reuses the already verified domain and Worker disconnect boundaries, then archives local files last.
+
+Before parent integration, the latest deletion slice passed 44 focused repository/service/route/UI-contract tests, browser smoke (422 fixture requests), `git diff --check`, and the repository tests after the final archive-collision handling refinement. No real Cloudflare resource was changed. The remaining acceptance item is hands-on UI review of the delete confirmation, successful archive result, blocked unverified ownership, and partial-failure refresh. The broader Site Hosting stages and their verification outcomes are captured in the entries above; the full unit suite has not been run for this parent merge.
+
