@@ -32,6 +32,76 @@
   overflow: hidden;
 }
 
+#site-create-dialog.is-site-settings-mode .site-create-workspace {
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+}
+
+#site-create-dialog.is-site-settings-mode .site-create-footer-template-spacer {
+  display: none;
+}
+
+#site-create-dialog.is-site-settings-mode .site-template-picker {
+  padding-right: var(--ui-space-4);
+}
+
+#site-create-dialog.is-site-settings-mode #site-template-grid {
+  display: none;
+}
+
+#site-create-dialog.is-site-settings-mode #site-settings-current-preview[hidden] {
+  display: none;
+}
+
+#site-create-dialog.is-site-settings-mode .site-settings-current-preview {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-height: 240px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface-muted);
+}
+
+.site-settings-current-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.site-settings-current-preview img[hidden],
+.site-settings-current-preview p[hidden] {
+  display: none;
+}
+
+.site-settings-current-preview p {
+  margin: 0;
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-type-caption-size);
+}
+
+#site-create-dialog.is-site-settings-mode .site-create-settings {
+  max-width: none;
+}
+
+@media (max-width: 900px) {
+  #site-create-dialog.is-site-settings-mode .site-create-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    overflow: auto;
+  }
+
+  #site-create-dialog.is-site-settings-mode .site-settings-current-preview {
+    min-height: 180px;
+    max-height: 32vh;
+  }
+}
+
+#site-create-dialog.is-site-settings-mode .site-create-footer-settings {
+  grid-column: 1 / -1;
+}
+
 .site-template-picker,
 .site-navigation-fields {
   display: grid;

@@ -122,7 +122,14 @@ function siteHostingCreateRequirementsMet() {
 
 function siteHostingUpdateCreateSubmitState() {
   const submit = document.querySelector('#site-create-form [type="submit"]');
-  if (submit && !submit.classList.contains('is-loading')) submit.disabled = !siteHostingCreateRequirementsMet();
+  if (submit && !submit.classList.contains('is-loading')) {
+    const settingsUnchanged = siteHostingCreateMode === 'settings'
+      && Boolean(siteHostingCreateInitialSnapshot)
+      && siteHostingCreateFormSnapshot() === siteHostingCreateInitialSnapshot;
+    const previewRequired = siteHostingCreateMode === 'settings' && !settingsUnchanged
+      && (!siteHostingCreatePreviewSnapshot || siteHostingCreateFormSnapshot() !== siteHostingCreatePreviewSnapshot);
+    submit.disabled = !siteHostingCreateRequirementsMet() || settingsUnchanged || previewRequired;
+  }
 }
 
 async function siteHostingCollectCreatePayload(options = {}) {
@@ -259,6 +266,7 @@ async function siteHostingCollectCreatePayload(options = {}) {
 
 async function siteHostingCreateSite(event) {
   event.preventDefault();
+  if (siteHostingCreateMode === 'settings') return void siteHostingApplySiteSettings(event);
   const project = siteHostingSelectedProject;
   const form = event.currentTarget;
   const feedback = document.getElementById('site-create-feedback');
@@ -303,6 +311,42 @@ async function siteHostingCreateSite(event) {
   }
 }
 
+async function siteHostingApplySiteSettings(event) {
+  const form = event.currentTarget;
+  const project = siteHostingSelectedProject;
+  const siteId = siteHostingEditingSiteId;
+  const submit = form.querySelector('[type="submit"]');
+  const feedback = document.getElementById('site-create-feedback');
+  if (!project || !siteId || !submit || submit.disabled) return;
+  submit.disabled = true;
+  submit.classList.add('is-loading');
+  submit.textContent = '변경사항 반영 중…';
+  try {
+    const payload = await siteHostingCollectCreatePayload();
+    if (!payload) return;
+    const result = await putJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites/${encodeURIComponent(siteId)}`, payload);
+    if (result.build_error) throw new Error(`설정은 저장했지만 사이트 갱신에 실패했습니다: ${result.build_error}`);
+    document.getElementById('site-create-dialog')?.close();
+    siteHostingSites = await fetchJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites`);
+    const updatedIndex = siteHostingSites.findIndex((site) => site.id === siteId);
+    if (updatedIndex >= 0 && result.screenshot) {
+      siteHostingSites[updatedIndex] = {
+        ...siteHostingSites[updatedIndex],
+        screenshot: { ...(siteHostingSites[updatedIndex].screenshot || {}), latest_build: result.screenshot },
+        screenshot_url: `/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites/${encodeURIComponent(siteId)}/screenshot`
+      };
+    }
+    siteHostingRenderProjectDetail();
+    siteHostingSetSiteOperation(siteId, 'success', result.screenshot_error ? '설정을 반영했습니다. 대표 이미지는 갱신하지 못했습니다.' : '설정을 반영했습니다.');
+  } catch (error) {
+    if (feedback) feedback.textContent = error.message || '설정을 반영하지 못했습니다.';
+  } finally {
+    submit.classList.remove('is-loading');
+    submit.textContent = siteHostingCreateMode === 'settings' ? '변경사항 반영' : '사이트 만들기';
+    siteHostingUpdateCreateSubmitState();
+  }
+}
+
 function siteHostingMarkCreatePreviewStale() {
   siteHostingUpdateCreateSubmitState();
   if (!siteHostingCreatePreviewId) return;
@@ -314,6 +358,7 @@ async function siteHostingClearCreatePreview() {
   const project = siteHostingSelectedProject;
   const previewId = siteHostingCreatePreviewId;
   siteHostingCreatePreviewId = '';
+  siteHostingCreatePreviewSnapshot = '';
   const frame = document.getElementById('site-create-preview-frame');
   if (frame) { frame.hidden = true; frame.removeAttribute('src'); }
   if (previewId && project) {
@@ -349,6 +394,8 @@ async function siteHostingPreviewCreateSite() {
       if (empty) empty.hidden = true;
       document.getElementById('site-template-details')?.setAttribute('hidden', '');
       siteHostingCreatePreviewId = result.id;
+      siteHostingCreatePreviewSnapshot = siteHostingCreateMode === 'settings' ? siteHostingCreateFormSnapshot() : '';
+      siteHostingUpdateCreateSubmitState();
       const collection = result.knowledge_collection;
       if (status) status.textContent = collection && (collection.source_markdown_count || collection.selection_configured)
         ? `미리보기 완료 · 공개 노트 ${collection.published_note_count}개 · 제외 ${collection.excluded_note_count}개 · 첨부 ${collection.copied_resource_count}개 · 미해결 링크 ${collection.unresolved_link_count}개 · 누락 첨부 ${collection.missing_resource_count}개`
@@ -407,6 +454,9 @@ async function siteHostingRequestCreateCancel() {
   if (siteHostingCreateInitialSnapshot && siteHostingCreateFormSnapshot() !== siteHostingCreateInitialSnapshot) {
     const confirmation = document.getElementById('site-create-cancel-dialog');
     if (!confirmation) return;
+    document.getElementById('site-create-cancel-title').textContent = siteHostingCreateMode === 'settings' ? '설정 변경을 취소할까요?' : '사이트 만들기를 취소할까요?';
+    confirmation.querySelector('.ui-transaction-dialog-header p').textContent = siteHostingCreateMode === 'settings' ? '반영하지 않은 변경 사항이 저장되지 않습니다.' : '입력한 사이트 정보가 저장되지 않습니다.';
+    confirmation.querySelector('[value="confirm"]').textContent = siteHostingCreateMode === 'settings' ? '변경 취소' : '취소하고 닫기';
     confirmation.returnValue = '';
     confirmation.showModal();
     await new Promise((resolve) => confirmation.addEventListener('close', resolve, { once: true }));
@@ -440,6 +490,9 @@ function siteHostingBindCreateDialogEvents() {
   dialog?.addEventListener('close', () => {
     if (previewDialog?.open) previewDialog.close();
     void siteHostingClearCreatePreview();
+    siteHostingCreateMode = 'create';
+    siteHostingEditingSiteId = '';
+    dialog.classList.remove('is-site-settings-mode');
   });
   dialog?.addEventListener('click', (event) => {
     const templateChoice = event.target.closest('[data-site-template-select]');
@@ -564,6 +617,16 @@ async function siteHostingOpenCreateSiteDialog() {
   const previewButton = document.querySelector('[data-site-create-preview]');
   const workspace = document.getElementById('site-create-workspace');
   if (!dialog || dialog.open || !siteHostingSelectedProject) return;
+  siteHostingCreateMode = 'create';
+  siteHostingCreatePreviewSnapshot = '';
+  siteHostingEditingSiteId = '';
+  dialog.classList.remove('is-site-settings-mode');
+  document.getElementById('site-template-picker-title').textContent = '템플릿';
+  document.getElementById('site-template-grid').hidden = false;
+  document.getElementById('site-settings-current-preview').hidden = true;
+  document.getElementById('site-create-title').textContent = '사이트 만들기';
+  document.querySelector('#site-create-dialog .ui-transaction-dialog-header p').textContent = '템플릿을 고르고 사이트 정보를 설정하세요. 미리보기에서 결과를 확인할 수 있습니다.';
+  if (submit) submit.textContent = '사이트 만들기';
   input.value = '';
   input.removeAttribute('aria-invalid');
   siteHostingCreateSetupInputs = {};
@@ -618,6 +681,100 @@ async function siteHostingOpenCreateSiteDialog() {
     if (workspace) workspace.inert = true;
     templateGrid.innerHTML = '<p class="site-template-loading" role="alert">템플릿을 불러오지 못했습니다.</p>';
     feedback.textContent = error.message || '템플릿을 불러오지 못했습니다.';
+  }
+}
+
+async function siteHostingOpenSiteSettingsDialog(siteId) {
+  const dialog = document.getElementById('site-create-dialog');
+  const project = siteHostingSelectedProject;
+  const site = siteHostingSites.find((item) => item.id === siteId);
+  if (!dialog || dialog.open || !project || !site) return;
+  siteHostingCreateMode = 'settings';
+  siteHostingCreatePreviewSnapshot = '';
+  siteHostingEditingSiteId = siteId;
+  dialog.classList.add('is-site-settings-mode');
+  document.getElementById('site-template-picker-title').textContent = '현재 사이트';
+  document.getElementById('site-template-count').textContent = '';
+  const currentPreview = document.getElementById('site-settings-current-preview');
+  const currentPreviewImage = document.getElementById('site-settings-current-preview-image');
+  const currentPreviewEmpty = document.getElementById('site-settings-current-preview-empty');
+  const previewUrl = site.screenshot_url
+    || `/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites/${encodeURIComponent(siteId)}/screenshot`;
+  if (currentPreview && currentPreviewImage && currentPreviewEmpty) {
+    currentPreview.hidden = false;
+    currentPreviewImage.hidden = true;
+    currentPreviewImage.removeAttribute('src');
+    currentPreviewImage.alt = `${site.name} 설정 전 미리보기`;
+    currentPreviewEmpty.hidden = false;
+    currentPreviewImage.onerror = () => {
+      currentPreviewImage.hidden = true;
+      currentPreviewEmpty.hidden = false;
+    };
+    currentPreviewImage.onload = () => {
+      currentPreviewImage.hidden = false;
+      currentPreviewEmpty.hidden = true;
+    };
+    currentPreviewImage.src = `${previewUrl}?build=${encodeURIComponent(site.screenshot?.latest_build?.build_id || site.last_build?.build_id || site.updated_at || 'current')}`;
+  }
+  document.getElementById('site-create-title').textContent = '사이트 설정';
+  document.querySelector('#site-create-dialog .ui-transaction-dialog-header p').textContent = '설정을 바꾸고 미리보기에서 확인한 뒤 반영하세요. 템플릿은 변경할 수 없습니다.';
+  const submit = document.querySelector('#site-create-form [type="submit"]');
+  const previewButton = document.querySelector('[data-site-create-preview]');
+  const workspace = document.getElementById('site-create-workspace');
+  const feedback = document.getElementById('site-create-feedback');
+  if (submit) { submit.textContent = '변경사항 반영'; submit.disabled = true; }
+  if (previewButton) previewButton.disabled = true;
+  if (workspace) workspace.inert = true;
+  if (feedback) feedback.textContent = '';
+  siteHostingCreateSetupInputs = {};
+  siteHostingProfileImages = { logo: '', 'share-image': '', favicon: '' };
+  void siteHostingClearCreatePreview();
+  dialog.showModal();
+  try {
+    const [settings, templates] = await Promise.all([
+      fetchJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites/${encodeURIComponent(siteId)}`),
+      fetchJson('/api/v1/site-hosting/templates')
+    ]);
+    siteHostingCreateTemplates = Array.isArray(templates) ? templates.filter((item) => item.id === settings.template_id) : [];
+    if (!siteHostingCreateTemplates.length) throw new Error('현재 템플릿 설정을 불러오지 못했습니다.');
+    siteHostingSelectedCreateTemplate = settings.template_id;
+    document.getElementById('site-template-id').value = settings.template_id;
+    document.getElementById('site-name').value = settings.name || site.name;
+    document.getElementById('site-description').value = settings.customization?.site_description || '';
+    document.getElementById('site-search-indexing').checked = settings.customization?.search_engine_indexing !== false;
+    document.getElementById('site-template-grid').replaceChildren();
+    document.getElementById('site-template-count').textContent = '';
+    document.getElementById('site-template-details').replaceChildren();
+    const template = siteHostingCreateTemplates[0];
+    siteHostingCreateSetupInputs = { ...(settings.setup_inputs || {}) };
+    siteHostingRenderCreateSetupInputs();
+    const defaultMenuIds = new Set((template.customization?.find((field) => field.key === 'navigation')?.default || []).map((item) => item.id).filter(Boolean));
+    const navigation = Array.isArray(settings.customization?.navigation) ? settings.customization.navigation.map((item) => ({
+      ...item, ...(defaultMenuIds.has(item.id) ? {} : { id: '' })
+    })) : [];
+    const postListIndex = Number(settings.customization?.publishing?.post_list_navigation_index ?? -1);
+    const postListRoute = template.publishing?.routes?.listing;
+    document.getElementById('site-navigation-fields').innerHTML = navigation.length
+      ? `<h3>사이트 메뉴</h3><p>메뉴 이름과 연결할 주소를 수정할 수 있습니다.</p><div class="site-navigation-table"><div class="site-navigation-table-head"><span>항목</span><span>메뉴 이름</span><span>주소</span><span>${postListRoute ? '글 목록' : ''}</span>${template.pages ? '<button class="secondary site-navigation-add" type="button" data-site-menu-add aria-label="메뉴 추가" title="메뉴 추가">+</button>' : '<span></span>'}</div><div class="site-navigation-list" data-site-navigation-list>${navigation.map((item, index) => siteHostingCreateMenuRow(item, index, { postListRoute, selected: index === postListIndex, isDefault: true })).join('')}</div></div><p class="site-navigation-duplicate-warning" data-site-menu-duplicate-warning role="status" hidden></p>`
+      : '';
+    siteHostingRefreshCreateMenuRows();
+    for (const [key, dataKey] of [['logo', 'logo'], ['share-image', 'share_image'], ['favicon', 'favicon']]) {
+      const image = settings.customization?.[dataKey] || '';
+      siteHostingProfileImages[key] = image;
+      const options = siteHostingProfileImageOptions(key);
+      siteHostingSetProfileImagePreview({ ...options, dataUrl: image });
+      const remove = document.querySelector(options.removeButton);
+      if (remove) remove.hidden = !image;
+    }
+    if (workspace) workspace.inert = false;
+    siteHostingCreateInitialSnapshot = siteHostingCreateFormSnapshot();
+    siteHostingUpdateCreateSubmitState();
+    if (previewButton) previewButton.disabled = false;
+    requestAnimationFrame(() => document.getElementById('site-name')?.focus());
+  } catch (error) {
+    if (workspace) workspace.inert = true;
+    if (feedback) feedback.textContent = error.message || '사이트 설정을 불러오지 못했습니다.';
+    if (submit) submit.disabled = true;
   }
 }
 

@@ -202,6 +202,32 @@ test('site repository materializes family data separately from replaceable Astro
             publication_filter: { field: 'is_public', value: 'true' }
         });
         assert.deepEqual(manifest.customization.publishing, { listing_route: '/stories/', detail_route: '/stories/{slug}/', post_list_navigation_index: 1 });
+        const siteDataPath = path.join(root, 'site-data', 'site.json');
+        const legacySiteData = JSON.parse(fs.readFileSync(siteDataPath, 'utf8'));
+        legacySiteData.publishing = manifest.customization.publishing;
+        fs.writeFileSync(siteDataPath, `${JSON.stringify(legacySiteData, null, 2)}\n`);
+        const updated = repository.updateSettings('project-1', 'site-1', {
+            name: '변경된 사이트', updated_at: '2026-10-06T00:00:00.000Z',
+            setup_inputs: { publication_filter: { mode: 'all' } },
+            customization: {
+                site_description: '바뀐 소개', search_engine_indexing: true,
+                logo: { extension: 'png', content: Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]) },
+                navigation: [{ id: 'about', label: '회사 소개', href: '/company/' }, { id: 'posts', label: '글', href: '/blog/' }]
+            }
+        });
+        const updatedSiteData = JSON.parse(fs.readFileSync(path.join(root, 'site-data', 'site.json'), 'utf8'));
+        assert.equal(Object.hasOwn(updatedSiteData, 'publishing'), false);
+        assert.equal(updated.name, '변경된 사이트');
+        assert.equal(updatedSiteData.displayName, '변경된 사이트');
+        assert.equal(updatedSiteData.seoDescription, '바뀐 소개');
+        assert.equal(updatedSiteData.searchEngineIndexing, true);
+        assert.equal(updatedSiteData.logo, '/bloggenius-logo.png');
+        assert.deepEqual(updatedSiteData.navigation, [
+            { id: 'about', label: '회사 소개', path: '/company/' }, { id: 'posts', label: '글', path: '/blog/' }
+        ]);
+        assert.equal(fs.existsSync(path.join(root, 'site-data', 'public', 'bloggenius-share-image.jpg')), false);
+        assert.equal(fs.existsSync(path.join(root, 'site-data', 'public', 'bloggenius-favicon.webp')), false);
+        assert.deepEqual(updated.setup_inputs, { publication_filter: { mode: 'all' } });
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }

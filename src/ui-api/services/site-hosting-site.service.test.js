@@ -144,6 +144,53 @@ test('site service builds a temporary customized preview without adding a Site a
     }
 });
 
+test('site settings preserve the existing template, rebuild locally, and refresh the screenshot', async () => {
+    const template = {
+        id: 'personal-homepage-test', version: '1.0.0', name: 'Personal',
+        resource: {
+            spec_version: SITE_HOSTING_CONTRACT_VERSION,
+            family: { site_profile: { fields: {
+                seoDescription: { type: 'string', required: false, maxLength: 300 },
+                searchEngineIndexing: { type: 'boolean', required: false, default: true }
+            } }, content_types: [] },
+            template: { setup_inputs: [] },
+            family_seed_site: { displayName: 'Starter', navigation: [{ id: 'home', label: 'Home', path: '/' }] }
+        }
+    };
+    const current = {
+        id: 'site-1', project_id: 'project-1', name: 'Before', template: { id: template.id, version: '1.0.0' },
+        customization: { navigation: [{ id: 'home', label: 'Home', href: '/' }] }, setup_inputs: {}
+    };
+    const repositoryCalls = [];
+    const runtimeCalls = [];
+    const service = createSiteHostingSiteService({
+        projectRepository: { get: (id) => id === 'project-1' ? { id } : null },
+        templates: { get: (id) => id === template.id ? template : null, prepare: async () => {} },
+        repository: {
+            get: () => ({ ...current }),
+            updateSettings: (_projectId, _siteId, patch) => { repositoryCalls.push(patch); Object.assign(current, patch, { name: patch.name }); return { ...current }; }
+        },
+        astroRuntime: { build: async (...args) => { runtimeCalls.push(args); return { screenshot: { build_id: 'build-2' } }; } },
+        now: () => '2026-10-06T00:00:00.000Z'
+    });
+    assert.deepEqual(service.getSettings('project-1', 'site-1'), {
+        id: 'site-1', name: 'Before', template_id: template.id,
+        customization: { navigation: [{ id: 'home', label: 'Home', href: '/' }] }, setup_inputs: {}
+    });
+    const result = await service.applySettings('project-1', 'site-1', {
+        name: 'After', template_id: template.id,
+        customization: { site_description: 'Changed', search_engine_indexing: false, navigation: [{ id: 'home', label: 'Start', href: '/' }] },
+        setup_inputs: {}
+    });
+    assert.equal(result.build_error, '');
+    assert.deepEqual(result.screenshot, { build_id: 'build-2' });
+    assert.deepEqual(runtimeCalls, [['project-1', 'site-1']]);
+    assert.equal(repositoryCalls[0].name, 'After');
+    await assert.rejects(service.applySettings('project-1', 'site-1', { name: 'After', template_id: 'other', customization: {}, setup_inputs: {} }), {
+        code: 'SITE_HOSTING_TEMPLATE_CHANGE_NOT_ALLOWED'
+    });
+});
+
 test('site creation accepts editable internal menu paths and binds publishing to the selected menu', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-menu-contract-'));
     try {

@@ -25,6 +25,9 @@ let siteHostingCreateSetupInputs = {};
 let siteHostingProfileImages = { logo: '', 'share-image': '', favicon: '' };
 let siteHostingCreateInitialSnapshot = '';
 let siteHostingCreatePreviewId = '';
+let siteHostingCreateMode = 'create';
+let siteHostingEditingSiteId = '';
+let siteHostingCreatePreviewSnapshot = '';
 
 function siteHostingEscapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -744,12 +747,7 @@ function initSiteHostingProjects() {
       }
       const siteSettings = event.target.closest('[data-site-settings]');
       if (siteSettings && siteHostingSelectedProject) {
-        siteHostingSelectedSiteId = siteSettings.dataset.siteSettings;
-        siteHostingProjectView = 'site-settings';
-        siteHostingZoneChoices = [];
-        siteHostingZoneStatus = 'idle';
-        siteHostingZoneMessage = '';
-        return siteHostingRenderProjectDetail();
+        return void siteHostingOpenSiteSettingsDialog(siteSettings.dataset.siteSettings);
       }
       const templateUpdate = event.target.closest('[data-site-template-update]');
       if (templateUpdate && siteHostingSelectedProject) {

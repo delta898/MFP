@@ -56,7 +56,13 @@
                   <h3 id="site-template-picker-title">템플릿</h3>
                   <span id="site-template-count"></span>
                 </div>
-                <div class="site-template-scroll"><div id="site-template-grid" class="site-template-grid" role="radiogroup" aria-label="사이트 템플릿"></div></div>
+                <div class="site-template-scroll">
+                  <div id="site-template-grid" class="site-template-grid" role="radiogroup" aria-label="사이트 템플릿"></div>
+                  <div id="site-settings-current-preview" class="site-settings-current-preview" hidden>
+                    <img id="site-settings-current-preview-image" alt="설정 전 사이트 미리보기" hidden>
+                    <p id="site-settings-current-preview-empty">저장된 사이트 이미지가 없습니다.</p>
+                  </div>
+                </div>
                 <input id="site-template-id" name="template_id" type="hidden" required>
               </section>
               <section class="site-create-settings" aria-labelledby="site-create-settings-title">

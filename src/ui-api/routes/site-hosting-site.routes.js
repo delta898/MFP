@@ -164,6 +164,14 @@ function createSiteHostingSiteRouteHandler(deps = {}) {
                 return true;
             }
             const siteMatch = pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)$/);
+            if (siteMatch && method === 'GET' && service.getSettings) {
+                await sendSuccess(res, requestId, service.getSettings(decodePathPart(siteMatch[1]), decodePathPart(siteMatch[2])));
+                return true;
+            }
+            if (siteMatch && method === 'PUT' && service.applySettings) {
+                await sendSuccess(res, requestId, await service.applySettings(decodePathPart(siteMatch[1]), decodePathPart(siteMatch[2]), ctx.requestBody || {}));
+                return true;
+            }
             if (siteMatch && method === 'PUT') {
                 await sendSuccess(res, requestId, service.update(decodePathPart(siteMatch[1]), decodePathPart(siteMatch[2]), ctx.requestBody || {}));
                 return true;

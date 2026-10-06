@@ -693,12 +693,89 @@ function createSiteHostingSiteRepository(options = {}) {
             name: String(patch.name ?? manifest.name).trim(),
             hostname: String(patch.hostname ?? manifest.hostname ?? '').trim(),
             domain: String(patch.domain ?? manifest.domain ?? '').trim(),
+            ...(patch.customization ? { customization: patch.customization } : {}),
+            ...(patch.setup_inputs ? { setup_inputs: patch.setup_inputs } : {}),
             updated_at: String(patch.updated_at || new Date().toISOString())
         };
         const tempPath = pathApi.join(pathApi.dirname(manifestPath), `.site.json.${process.pid}.${Date.now()}.tmp`);
         fileSystem.writeFileSync(tempPath, `${JSON.stringify(updated, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
         fileSystem.renameSync(tempPath, manifestPath);
         return readSite(projectId, siteId);
+    }
+
+    function updateSettings(projectId, siteId, patch = {}) {
+        const site = readSite(projectId, siteId);
+        if (!site) throw withStatus(new Error('사이트를 찾을 수 없습니다.'), 404, 'SITE_HOSTING_SITE_NOT_FOUND');
+        const template = templates.get(site.template?.id);
+        if (!isSupportedSiteHostingContractVersion(template?.resource?.spec_version)) {
+            throw withStatus(new Error('이 템플릿은 사이트 설정 변경을 지원하지 않습니다.'), 409, 'SITE_HOSTING_SETTINGS_UNAVAILABLE');
+        }
+        const dataRoot = pathApi.join(site.root_path, 'site-data');
+        const siteDataPath = pathApi.join(dataRoot, 'site.json');
+        const siteData = JSON.parse(String(fileSystem.readFileSync(siteDataPath, 'utf8') || ''));
+        const customization = patch.customization || {};
+        // Publishing routes belong to the BlogGenius site manifest. Older settings
+        // updates also copied them into site-data/site.json, which strict templates reject.
+        delete siteData.publishing;
+        siteData.displayName = String(patch.name || '').trim();
+        siteData.seoDescription = String(customization.site_description || '').trim();
+        siteData.searchEngineIndexing = customization.search_engine_indexing !== false;
+        const previousNavigation = Array.isArray(siteData.navigation) ? siteData.navigation : [];
+        siteData.navigation = (customization.navigation || []).map((item, index) => ({
+            id: item.id || previousNavigation[index]?.id || `menu-${index + 1}`,
+            label: item.label,
+            path: item.href
+        }));
+        for (const item of siteData.navigation) {
+            const previous = previousNavigation.find((entry) => entry.id === item.id);
+            if (!previous || previous.path === item.path) continue;
+            const pagePath = pathApi.join(dataRoot, 'data', 'pages', `${item.id}.md`);
+            const route = internalPathname(item.path);
+            if (fileSystem.existsSync(pagePath) && route) updateFamilyPageRoute(fileSystem, pagePath, route);
+        }
+        const imageFields = [
+            { key: 'logo', dataKey: 'logo', fileName: 'bloggenius-logo' },
+            { key: 'share_image', dataKey: 'shareImage', fileName: 'bloggenius-share-image' },
+            { key: 'favicon', dataKey: 'favicon', fileName: 'bloggenius-favicon' }
+        ];
+        const nextCustomization = { ...customization };
+        for (const field of imageFields) {
+            const previousPath = String(siteData[field.dataKey] || '');
+            const image = customization[field.key];
+            if (!image) {
+                delete siteData[field.dataKey];
+                delete nextCustomization[field.key];
+                if (previousPath.startsWith('/') && /^\/[\w.-]+\.(?:png|jpg|webp)$/u.test(previousPath)) {
+                    try { fileSystem.rmSync(pathApi.join(dataRoot, 'public', previousPath.slice(1)), { force: true }); } catch (_error) { }
+                }
+                continue;
+            }
+            const assetName = `${field.fileName}.${image.extension}`;
+            const assetPath = pathApi.join(dataRoot, 'public', assetName);
+            const temporaryPath = `${assetPath}.${process.pid}.${Date.now()}.tmp`;
+            fileSystem.writeFileSync(temporaryPath, image.content, { mode: 0o600 });
+            fileSystem.renameSync(temporaryPath, assetPath);
+            if (previousPath && previousPath !== `/${assetName}` && previousPath.startsWith('/') && /^\/[\w.-]+\.(?:png|jpg|webp)$/u.test(previousPath)) {
+                try { fileSystem.rmSync(pathApi.join(dataRoot, 'public', previousPath.slice(1)), { force: true }); } catch (_error) { }
+            }
+            siteData[field.dataKey] = `/${assetName}`;
+            nextCustomization[field.key] = `/${assetName}`;
+        }
+        const customPages = Array.isArray(customization.custom_pages) ? customization.custom_pages : [];
+        for (const page of customPages) {
+            const pagePath = pathApi.join(dataRoot, 'data', 'pages', `${page.slug}.md`);
+            if (fileSystem.existsSync(pagePath)) continue;
+            const route = internalPathname(String(page.path || `/${page.slug}/`));
+            const frontmatter = `---\nkind: page\ntitle: ${JSON.stringify(page.label)}\npath: ${JSON.stringify(route)}\nis_public: true\n---\n`;
+            fileSystem.writeFileSync(pagePath, frontmatter, { flag: 'wx', mode: 0o600 });
+        }
+        fileSystem.writeFileSync(siteDataPath, `${JSON.stringify(siteData, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+        return update(projectId, siteId, {
+            name: patch.name,
+            customization: nextCustomization,
+            setup_inputs: patch.setup_inputs,
+            updated_at: patch.updated_at
+        });
     }
 
     function setTemplateUpdateTestVersion(projectId, siteId) {
@@ -789,7 +866,7 @@ function createSiteHostingSiteRepository(options = {}) {
         }
     }
 
-    return { list, get, create, createPreviewDraft, removePreviewDraft, update, setTemplateUpdateTestVersion, applyTemplateUpdate, recordDeployment, recordBuildResult, recordBuildScreenshot, getScreenshot, recordCustomDomainBinding };
+    return { list, get, create, createPreviewDraft, removePreviewDraft, update, updateSettings, setTemplateUpdateTestVersion, applyTemplateUpdate, recordDeployment, recordBuildResult, recordBuildScreenshot, getScreenshot, recordCustomDomainBinding };
 }
 
 module.exports = { SITE_SCHEMA_VERSION, safeSiteId, createSiteHostingSiteRepository };

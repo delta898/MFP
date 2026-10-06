@@ -92,3 +92,19 @@ test('site profile image helpers are isolated for reuse by future site settings'
     assert.match(profile, /function siteHostingSetProfileImagePreview/);
     assert.match(creation, /siteHostingReadProfileImage\(input\.files\[0\], field\.label\)/);
 });
+
+test('site settings reuse the creation preview without exposing template selection', () => {
+    const runtime = fs.readFileSync(path.join(root, 'ui/scripts/features/site-hosting/project-management.js'), 'utf8');
+    assert.match(runtime, /siteHostingOpenSiteSettingsDialog\(siteSettings\.dataset\.siteSettings\)/);
+    assert.match(creation, /async function siteHostingOpenSiteSettingsDialog\(siteId\)/);
+    assert.match(creation, /is-site-settings-mode/);
+    assert.match(creation, /설정을 바꾸고 미리보기에서 확인한 뒤 반영하세요/);
+    assert.match(creation, /변경사항 반영/);
+    assert.match(creation, /const settingsUnchanged = siteHostingCreateMode === 'settings'/);
+    assert.match(creation, /submit\.disabled = !siteHostingCreateRequirementsMet\(\) \|\| settingsUnchanged \|\| previewRequired/);
+    assert.match(html, /id="site-settings-current-preview"/);
+    assert.match(html, /id="site-settings-current-preview-image"/);
+    assert.match(creation, /site\.screenshot_url\s*\|\| `\/api\/v1\/site-hosting\/projects/);
+    assert.match(creationStyles, /#site-create-dialog\.is-site-settings-mode \.site-create-workspace \{\s*grid-template-columns: minmax\(0, 1\.05fr\) minmax\(0, 0\.95fr\)/);
+    assert.match(creationStyles, /#site-create-dialog\.is-site-settings-mode #site-template-grid \{\s*display: none/);
+});

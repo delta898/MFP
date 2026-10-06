@@ -557,6 +557,7 @@ function startFixtureServer(requests) {
     const topicRecommendationCallsBySession = new Map();
     const siteHostingProjects = [];
     const siteHostingSites = new Map();
+    const siteHostingSettings = new Map();
     const continuousPublishingQueue = [];
     const continuousSavedTopics = [];
     let continuousTopicSequence = 10;
@@ -775,6 +776,38 @@ function startFixtureServer(requests) {
             return;
         }
         const siteHostingSitesMatch = url.pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites$/);
+        const siteHostingSettingsMatch = url.pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)$/);
+        if (siteHostingSettingsMatch && ['GET', 'PUT'].includes(req.method)) {
+            const projectId = decodeURIComponent(siteHostingSettingsMatch[1]);
+            const siteId = decodeURIComponent(siteHostingSettingsMatch[2]);
+            const key = `${projectId}:${siteId}`;
+            if (req.method === 'GET') {
+                const settings = siteHostingSettings.get(key);
+                res.writeHead(settings ? 200 : 404, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(JSON.stringify(settings ? { success: true, data: settings } : { success: false, error: { message: '사이트를 찾을 수 없습니다.' } }));
+                return;
+            }
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                const settings = siteHostingSettings.get(key);
+                if (!settings) {
+                    res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+                    res.end(JSON.stringify({ success: false, error: { message: '사이트를 찾을 수 없습니다.' } }));
+                    return;
+                }
+                Object.assign(settings, requestRecord.body);
+                const site = (siteHostingSites.get(projectId) || []).find((item) => item.id === siteId);
+                if (site) site.name = settings.name;
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(JSON.stringify({ success: true, data: {
+                    id: siteId, project_id: projectId, name: settings.name,
+                    screenshot: { build_id: 'settings-build-smoke' }, screenshot_error: '', build_error: ''
+                } }));
+            });
+            return;
+        }
         if (siteHostingSitesMatch && req.method === 'GET') {
             const projectId = decodeURIComponent(siteHostingSitesMatch[1]);
             const sites = siteHostingSites.get(projectId);
@@ -803,6 +836,10 @@ function startFixtureServer(requests) {
                     created_at: timestamp, updated_at: timestamp
                 };
                 sites.push(site);
+                siteHostingSettings.set(`${projectId}:${site.id}`, {
+                    id: site.id, name: site.name, template_id: requestRecord.body.template_id,
+                    customization: requestRecord.body.customization || {}, setup_inputs: requestRecord.body.setup_inputs || {}
+                });
                 project.site_count = sites.length;
                 res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
                 res.end(JSON.stringify({ success: true, data: site }));
@@ -2565,6 +2602,30 @@ async function run() {
                 await page.getByRole('button', { name: '미리보기 닫기' }).click();
                 await page.locator('#site-create-form [type="submit"]').click();
                 await page.getByText('브라우저 검증 사이트', { exact: true }).waitFor();
+                await page.locator('.site-hosting-site-more summary').click();
+                await page.locator('[data-site-settings]').click();
+                await page.locator('#site-create-title').getByText('사이트 설정').waitFor();
+                await page.waitForFunction(() => document.getElementById('site-create-workspace')?.inert === false);
+                assert.equal(await page.locator('#site-template-picker-title').textContent(), '현재 사이트');
+                assert.equal(await page.locator('#site-settings-current-preview').isVisible(), true);
+                assert.match(await page.locator('#site-settings-current-preview-image').getAttribute('src'), /\/sites\/site-smoke-1\/screenshot\?/);
+                await page.locator('#site-name').fill('설정 변경 사이트');
+                await page.locator('#site-description').fill('설정 화면에서 수정한 소개');
+                assert.equal(await page.locator('[data-site-template-select]').count(), 0);
+                assert.equal(await page.locator('#site-create-form [type="submit"]').isDisabled(), true);
+                await page.locator('[data-site-create-preview]').click();
+                await page.locator('#site-create-preview-frame').waitFor({ state: 'visible' });
+                assert.equal(await page.locator('#site-create-form [type="submit"]').isDisabled(), false);
+                await page.getByRole('button', { name: '미리보기 닫기' }).click();
+                await page.locator('#site-create-form [type="submit"]').click();
+                await page.waitForFunction(() => document.getElementById('site-create-dialog')?.open === false
+                    || Boolean(document.getElementById('site-create-feedback')?.textContent), { timeout: 10000 });
+                assert.equal(await page.locator('#site-create-dialog').evaluate((dialog) => dialog.open), false,
+                    `site settings apply failed: ${await page.locator('#site-create-feedback').textContent()}`);
+                await page.getByText('설정 변경 사이트', { exact: true }).waitFor({ timeout: 10000 });
+                const settingsRequest = requests.find((request) => request.method === 'PUT' && request.pathname.endsWith('/sites/site-smoke-1'));
+                assert.equal(settingsRequest?.body?.name, '설정 변경 사이트');
+                assert.equal(settingsRequest?.body?.customization?.site_description, '설정 화면에서 수정한 소개');
                 const createRequest = requests.find((request) => request.method === 'POST' && request.pathname.endsWith('/sites'));
                 assert.deepEqual(createRequest?.body?.customization?.navigation, [
                     { label: '홈', href: '/' }, { label: '이야기', href: '/stories/' }
@@ -2577,7 +2638,7 @@ async function run() {
                 await manualTemplateCheck;
                 await page.getByText('템플릿 확인을 마쳤습니다.').waitFor();
                 assert.match(createRequest?.body?.customization?.share_image || '', /^data:image\/png;base64,/);
-                await page.getByText('브라우저 검증 사이트', { exact: true }).waitFor();
+                await page.getByText('설정 변경 사이트', { exact: true }).waitFor();
             }
         }
         await page.evaluate(() => { showUiConfirm = window.__settingsNextSmokeConfirm; });
@@ -5849,6 +5910,9 @@ async function run() {
             { method: 'POST', pathname: '/api/v1/site-hosting/projects' },
             { method: 'POST', pathname: '/api/v1/site-hosting/projects/site-project-smoke/preview-drafts' },
             { method: 'POST', pathname: '/api/v1/site-hosting/projects/site-project-smoke/sites' },
+            { method: 'DELETE', pathname: '/api/v1/site-hosting/projects/site-project-smoke/preview-drafts/site-preview-smoke' },
+            { method: 'POST', pathname: '/api/v1/site-hosting/projects/site-project-smoke/preview-drafts' },
+            { method: 'PUT', pathname: '/api/v1/site-hosting/projects/site-project-smoke/sites/site-smoke-1' },
             { method: 'DELETE', pathname: '/api/v1/site-hosting/projects/site-project-smoke/preview-drafts/site-preview-smoke' },
             { method: 'POST', pathname: '/api/v1/trend-posting/topics' },
             { method: 'POST', pathname: '/api/v1/keywords/analyze' },

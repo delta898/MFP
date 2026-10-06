@@ -76,6 +76,28 @@ test('site routes create and clean up a temporary site preview draft', async () 
     assert.deepEqual(responses, [{ id: 'draft-1', url: 'http://127.0.0.1:43210/' }, { stopped: true }]);
 });
 
+test('site settings routes read and apply settings without using the legacy metadata update', async () => {
+    const calls = [];
+    const responses = [];
+    const handler = createSiteHostingSiteRouteHandler({
+        service: {
+            getSettings: (projectId, siteId) => { calls.push(['getSettings', projectId, siteId]); return { id: siteId, name: 'Site' }; },
+            applySettings: async (projectId, siteId, payload) => { calls.push(['applySettings', projectId, siteId, payload]); return { id: siteId, screenshot: { build_id: 'build-1' } }; }
+        },
+        sendSuccess: async (_res, _id, data) => responses.push(data),
+        sendError: async (_res, _id, status, code) => responses.push({ status, code })
+    });
+    const base = { remoteAddress: '127.0.0.1', host: '127.0.0.1:43127', origin: 'http://127.0.0.1:43127' };
+    const pathname = '/api/v1/site-hosting/projects/project-1/sites/site-1';
+    await handler({ ...base, method: 'GET', pathname });
+    await handler({ ...base, method: 'PUT', contentType: 'application/json', pathname, requestBody: { name: 'Updated' } });
+    assert.deepEqual(calls, [
+        ['getSettings', 'project-1', 'site-1'],
+        ['applySettings', 'project-1', 'site-1', { name: 'Updated' }]
+    ]);
+    assert.deepEqual(responses, [{ id: 'site-1', name: 'Site' }, { id: 'site-1', screenshot: { build_id: 'build-1' } }]);
+});
+
 test('site routes reject requests outside the local same-origin app', async () => {
     const responses = [];
     const handler = createSiteHostingSiteRouteHandler({

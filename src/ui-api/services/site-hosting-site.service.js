@@ -740,6 +740,62 @@ function createSiteHostingSiteService(deps = {}) {
         }
     }
 
+    function getSettings(projectId, siteId) {
+        const site = repository.get(projectId, siteId);
+        if (!site) throw siteInputError('사이트를 찾을 수 없습니다.', 'SITE_HOSTING_SITE_NOT_FOUND', 404);
+        const template = templates.get(site.template?.id);
+        if (!isSupportedSiteHostingContractVersion(template?.resource?.spec_version)) {
+            throw siteInputError('이 템플릿은 설정 미리보기를 지원하지 않습니다.', 'SITE_HOSTING_SETTINGS_UNAVAILABLE', 409);
+        }
+        const customization = { ...(site.customization || {}) };
+        for (const [key, field] of [['logo', 'logo'], ['share_image', 'shareImage'], ['favicon', 'favicon']]) {
+            const publicPath = String(site.customization?.[key] || '');
+            const fileName = publicPath.startsWith('/') ? pathApi.basename(publicPath) : '';
+            if (!fileName || fileName !== publicPath.slice(1) || !/^[\w.-]+\.(?:png|jpg|webp)$/u.test(fileName)) {
+                delete customization[key];
+                continue;
+            }
+            const assetPath = pathApi.join(site.root_path, 'site-data', 'public', fileName);
+            if (!fileSystem.existsSync(assetPath)) { delete customization[key]; continue; }
+            const bytes = fileSystem.readFileSync(assetPath);
+            if (bytes.length > 1024 * 1024) { delete customization[key]; continue; }
+            const mime = fileName.endsWith('.png') ? 'image/png' : fileName.endsWith('.webp') ? 'image/webp' : 'image/jpeg';
+            customization[key] = `data:${mime};base64,${bytes.toString('base64')}`;
+        }
+        const setupInputs = { ...(site.setup_inputs || {}) };
+        return { id: site.id, name: site.name, template_id: site.template.id, customization, setup_inputs: setupInputs };
+    }
+
+    async function applySettings(projectId, siteId, payload = {}) {
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)
+            || Object.keys(payload).some((key) => !['name', 'template_id', 'customization', 'setup_inputs'].includes(key))) {
+            throw siteInputError('설정 요청에 허용되지 않은 항목이 포함되어 있습니다.', 'SITE_HOSTING_CREATE_INPUT_INVALID');
+        }
+        const current = repository.get(projectId, siteId);
+        if (!current) throw siteInputError('사이트를 찾을 수 없습니다.', 'SITE_HOSTING_SITE_NOT_FOUND', 404);
+        if (String(payload.template_id || '') !== String(current.template?.id || '')) {
+            throw siteInputError('사이트 템플릿은 설정에서 변경할 수 없습니다.', 'SITE_HOSTING_TEMPLATE_CHANGE_NOT_ALLOWED', 400);
+        }
+        const name = String(payload.name || '').trim();
+        if (!name) throw siteInputError('사이트 이름을 입력해 주세요.', 'SITE_HOSTING_SITE_NAME_REQUIRED');
+        if (name.length > 80) throw siteInputError('사이트 이름은 80자 이내로 입력해 주세요.', 'SITE_HOSTING_SITE_NAME_TOO_LONG');
+        const template = templates.get(current.template?.id);
+        await templates.prepare?.(current.template?.id);
+        const customization = normalizeSiteCustomization(template, payload.customization || {});
+        const setupInputs = normalizeSetupInputs(template, payload.setup_inputs || {}, { allowMissingRequired: false });
+        const updated = repository.updateSettings(projectId, siteId, { name, customization, setup_inputs: setupInputs, updated_at: now() });
+        let build = null;
+        let build_error = '';
+        try { build = await astroRuntime.build(projectId, siteId); }
+        catch (error) { build_error = String(error?.message || '설정을 반영한 사이트 생성에 실패했습니다.'); }
+        return {
+            id: updated.id, project_id: updated.project_id, name: updated.name,
+            template: updated.template, template_name: updated.template_name,
+            screenshot: build?.screenshot || null, screenshot_error: build?.screenshot_error || '',
+            build_error, updated_at: updated.updated_at
+        };
+    }
+
     async function stopDraftPreview(projectId, draftId) {
         const entry = draftPreviews.get(String(draftId || ''));
         if (!entry || entry.project_id !== projectId) return { stopped: false };
@@ -1216,6 +1272,8 @@ function createSiteHostingSiteService(deps = {}) {
         selectSetupDirectory,
         getTemplatePreview: (id) => templates.getPreview?.(String(id || '').trim()) || null,
         list,
+        getSettings,
+        applySettings,
         create,
         createAndBuild,
         previewDraft,
