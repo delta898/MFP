@@ -41,8 +41,20 @@ function mountBlogNextPublishSettings(type = 'ai') {
 }
 
 function syncBlogNextQuickFlowSummaries() {
+  const topicSummary = document.getElementById('blog-next-topic-settings-summary');
   const contentSummary = document.getElementById('blog-next-content-settings-summary');
   const publishSummary = document.getElementById('blog-next-publish-settings-summary');
+  const topicParts = [
+    ['주제', 'blog-next-subject'],
+    ['키워드', 'blog-next-keywords'],
+    ['제목', 'blog-next-title'],
+    ['경험·방향', 'blog-next-instruction']
+  ].flatMap(([label, id]) => {
+    const value = String(document.getElementById(id)?.value || '').replace(/\s+/g, ' ').trim();
+    if (!value) return [];
+    const excerpt = value.length > 32 ? `${value.slice(0, 32).trimEnd()}…` : value;
+    return [`${label}: ${excerpt}`];
+  });
   const externalReference = document.getElementById('blog-next-external-reference')?.checked === true;
   const platforms = [];
   if (document.getElementById('blog-next-target-naver')?.checked) platforms.push('naver');
@@ -54,6 +66,9 @@ function syncBlogNextQuickFlowSummaries() {
       readBlogNextSelectedText('blog-next-writing-strategy', '검색 중심'),
       readBlogNextSelectedText('blog-next-image-mode', '이미지 프롬프트만 포함')
     ].join(' · ');
+  }
+  if (topicSummary) {
+    topicSummary.textContent = topicParts.join(' · ') || '주제·키워드·제목과 담고 싶은 경험·방향을 정리합니다.';
   }
   if (publishSummary) {
     const summaryParts = [
@@ -102,19 +117,17 @@ function syncBlogNextProviderDependentFields() {
 }
 
 function readBlogNextTopicActionValidity() {
-  const values = ['blog-next-subject', 'blog-next-keywords', 'blog-next-instruction']
-    .map(id => String(document.getElementById(id)?.value || '').trim());
+  const subject = String(document.getElementById('blog-next-subject')?.value || '').trim();
   const references = String(document.getElementById('blog-next-reference-url')?.value || '')
     .split(',').map(value => value.trim()).filter(Boolean);
-  const hasIdea = values.some(Boolean) || references.length > 0;
   const referencesValid = references.every(value => /^https?:\/\//i.test(value));
   const hasTarget = document.getElementById('blog-next-target-naver')?.checked === true
     || document.getElementById('blog-next-target-wordpress')?.checked === true;
   const scheduled = document.getElementById('blog-next-post-status')?.value === 'schedule';
   const scheduleValid = !scheduled || Boolean(document.getElementById('blog-next-schedule-date')?.value);
   return {
-    ideaValid: hasIdea && referencesValid,
-    readyValid: hasIdea && referencesValid && hasTarget && scheduleValid
+    ideaValid: Boolean(subject) && referencesValid,
+    readyValid: Boolean(subject) && referencesValid && hasTarget && scheduleValid
   };
 }
 

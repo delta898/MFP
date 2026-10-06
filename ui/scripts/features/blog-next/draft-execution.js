@@ -206,8 +206,8 @@ function setBlogNextAiGenerating(generating) {
     button.disabled = generating;
     button.setAttribute('aria-busy', generating ? 'true' : 'false');
   });
-  if (createButton) createButton.textContent = generating ? '원고 만드는 중...' : '원고 만들기';
-  if (regenerateButton) regenerateButton.textContent = generating ? '다시 만드는 중...' : '원고 다시 만들기';
+  if (createButton) createButton.textContent = generating ? 'AI 원고 만드는 중...' : 'AI로 원고 만들기';
+  if (regenerateButton) regenerateButton.textContent = generating ? 'AI 원고 만드는 중...' : 'AI로 원고 다시 만들기';
   if (typeof syncBlogNextExecutionStopButton === 'function') syncBlogNextExecutionStopButton();
   if (typeof syncBlogNextTopicActionAvailability === 'function') syncBlogNextTopicActionAvailability();
   syncBlogNextDraftExecutionState();
@@ -369,6 +369,8 @@ async function restoreBlogNextAiDraftGeneration() {
 function arrangeBlogNextAiWorkflow(options = {}) {
   const form = document.getElementById('blog-next-topic-form');
   const disclosures = form?.querySelector('.blog-next-disclosures');
+  const previewDisclosure = document.getElementById('blog-next-ai-preview');
+  const publishDisclosure = document.getElementById('blog-next-ai-publish');
   const publishSettings = document.getElementById('blog-next-publish-settings');
   const publishTitle = document.getElementById('blog-next-publish-settings-title');
   const previewStep = document.querySelector('[data-blog-next-ai-step="preview"]');
@@ -378,16 +380,20 @@ function arrangeBlogNextAiWorkflow(options = {}) {
   const prepareActions = document.querySelector('.blog-next-ai-prepare-actions');
   const ideaActions = document.querySelector('[data-blog-next-ai-idea-actions]');
   const previewActions = document.querySelector('[data-blog-next-ai-preview-actions]');
+  const publishActions = document.querySelector('[data-blog-next-draft-actions="ai"]');
   const hint = document.getElementById('blog-next-queue-action-hint');
   const hasDraft = Boolean(blogNextDraftState.ai.draftId);
   const editing = options.editing === true;
 
-  if (editing || !hasDraft) {
+  if (editing && previewDisclosure) previewDisclosure.open = true;
+  if (publishDisclosure) publishDisclosure.hidden = editing;
+
+  if (editing) {
     const queueSlot = document.querySelector('[data-blog-next-publish-settings-slot="ai-queue"]');
     if (queueSlot && publishSettings) queueSlot.appendChild(publishSettings);
     if (typeof setBlogNextPublishSettingsContext === 'function') {
-      setBlogNextPublishSettingsContext('ai', editing ? '발행 계획' : '발행 대기열 설정');
-    } else if (publishTitle) publishTitle.textContent = editing ? '발행 계획' : '발행 대기열 설정';
+      setBlogNextPublishSettingsContext('ai', '발행 계획');
+    } else if (publishTitle) publishTitle.textContent = '발행 계획';
   } else if (publishSettings) {
     const publishSlot = document.querySelector('[data-blog-next-publish-settings-slot="ai-publish"]');
     if (publishSlot) publishSlot.appendChild(publishSettings);
@@ -395,12 +401,13 @@ function arrangeBlogNextAiWorkflow(options = {}) {
     else if (publishTitle) publishTitle.textContent = '발행 설정';
   }
 
-  if (previewStep) previewStep.hidden = editing || !hasDraft;
-  if (publishStep) publishStep.hidden = editing || !hasDraft;
-  if (publishSettings) publishSettings.hidden = !editing && !hasDraft;
+  if (previewStep) previewStep.hidden = editing;
+  if (publishStep) publishStep.hidden = editing;
+  if (publishSettings) publishSettings.hidden = editing;
   if (prepareActions) prepareActions.hidden = !editing && hasDraft;
   if (ideaActions) ideaActions.hidden = !editing && hasDraft;
   if (previewActions) previewActions.hidden = editing || !hasDraft;
+  if (publishActions) publishActions.hidden = editing;
   if (!editing) {
     if (save) save.hidden = hasDraft;
     if (enqueue) {

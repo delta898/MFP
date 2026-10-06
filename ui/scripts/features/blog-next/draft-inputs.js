@@ -497,8 +497,14 @@ function renderBlogNextDraftPreview(type, preview = null) {
   if (!container || !preview) {
     if (container) container.hidden = true;
     if (type === 'ai') {
-      document.querySelector('[data-ai-editor-rail]')?.setAttribute('hidden', '');
-      document.querySelector('[data-ai-editor-workspace]')?.setAttribute('hidden', '');
+      const state = blogNextDraftState.ai;
+      const markdown = document.getElementById('blog-next-ai-markdown');
+      const editorRoot = document.getElementById('blog-next-ai-editor');
+      document.querySelector('[data-ai-editor-rail]')?.removeAttribute('hidden');
+      document.querySelector('[data-ai-editor-workspace]')?.removeAttribute('hidden');
+      if (markdown && editorRoot) setBlogNextAiWorkspaceMode(state.workspaceMode || 'block', state, editorRoot, markdown);
+      const actions = document.querySelector('[data-blog-next-draft-actions="ai"]');
+      if (actions) actions.hidden = typeof blogNextEditingRowIndex !== 'undefined' && blogNextEditingRowIndex !== null;
     }
     if (type === 'folder') {
       document.querySelector('[data-folder-editor-rail]')?.setAttribute('hidden', '');
@@ -513,6 +519,8 @@ function renderBlogNextDraftPreview(type, preview = null) {
     document.querySelector('[data-ai-editor-workspace]')?.removeAttribute('hidden');
     document.querySelector('[data-ai-editor-rail]')?.removeAttribute('hidden');
     blogNextDraftState.ai.editor?.syncImages?.(preview.images || [], blogNextDraftState.ai.imageOperation);
+    const actions = document.querySelector('[data-blog-next-draft-actions="ai"]');
+    if (actions) actions.hidden = false;
   }
   const title = container.querySelector('[data-draft-preview-title]');
   const body = container.querySelector('[data-draft-preview-body]');
@@ -570,6 +578,7 @@ function renderBlogNextDraftPreview(type, preview = null) {
     if (rail) rail.hidden = !hasDraft;
     if (workspace) workspace.hidden = !hasDraft;
   }
+  if (type === 'ai' && typeof arrangeBlogNextAiWorkflow === 'function') arrangeBlogNextAiWorkflow();
   setBlogNextDraftValidation(type, preview.validation, '', preview);
   if (typeof syncBlogNextPublishMutationControls === 'function') syncBlogNextPublishMutationControls();
   syncBlogNextImageAiReadiness();
@@ -579,7 +588,7 @@ async function loadBlogNextDraftPreview(type) {
   const state = blogNextDraftState[type];
   clearTimeout(state.previewTimer);
   const hasSource = type === 'ai'
-    ? Boolean(state.draftId && document.getElementById('blog-next-ai-markdown')?.value?.trim())
+    ? Boolean(document.getElementById('blog-next-ai-markdown')?.value?.trim())
     : type === 'paste'
     ? Boolean(document.getElementById('blog-next-paste-markdown')?.value?.trim())
     : state.files.length > 0;
@@ -625,7 +634,14 @@ async function loadBlogNextDraftPreview(type) {
       const payload = await buildBlogNextDraftPayload(type, { includeImages: type === 'folder' && !state.draftId });
       let preview;
       if (type === 'ai') {
-        preview = await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/markdown`, { ...payload, revision: state.revision });
+        if (state.draftId) {
+          preview = await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/markdown`, { ...payload, revision: state.revision });
+        } else {
+          preview = await postJson('/api/v1/blog/manuscript-drafts/paste', {
+            ...readBlogNextDraftSettings('ai'),
+            markdownText: aiMarkdownAtRequest
+          });
+        }
       } else if (type === 'folder') {
         preview = state.draftId
           ? await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/markdown`, { ...payload, selectedFiles: undefined, revision: state.revision })

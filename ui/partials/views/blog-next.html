@@ -28,14 +28,14 @@
           aria-labelledby="blog-next-tab-quick">
           <div class="blog-next-panel-lead blog-next-panel-intro">
             <div class="blog-next-panel-intro-copy">
-              <h2>원하는 방식으로 글 준비</h2>
-              <p>주제에서 새 글을 만들거나 준비한 원고를 바로 불러오세요.</p>
+              <h2>원고를 준비하고 발행하세요</h2>
+              <p>AI로 시작하거나 직접 작성한 원고를 미리 확인한 뒤 발행할 수 있습니다.</p>
             </div>
           </div>
           <div class="blog-next-mode-switch blog-next-segmented-nav blog-next-panel-local-nav ui-segmented-tabs" role="tablist" aria-label="빠른 글 작성 입력 방식">
             <button class="blog-next-mode-btn ui-segmented-tab active" id="blog-next-mode-tab-ai" type="button" role="tab" aria-selected="true" tabindex="0"
               aria-controls="blog-next-mode-panel-ai"
-              data-blog-next-input-mode="ai" title="주제나 키워드로 AI가 새 글을 만듭니다.">AI 생성</button>
+              data-blog-next-input-mode="ai" title="AI로 시작하거나 직접 원고를 작성합니다.">원고 작성</button>
             <button class="blog-next-mode-btn ui-segmented-tab" id="blog-next-mode-tab-folder" type="button" role="tab" aria-selected="false" tabindex="-1"
               aria-controls="blog-next-mode-panel-folder"
               data-blog-next-input-mode="folder" title="Markdown 원고와 같은 폴더의 이미지를 함께 불러옵니다.">원고 폴더</button>
@@ -47,40 +47,47 @@
           <div class="blog-next-mode-panel active" id="blog-next-mode-panel-ai" role="tabpanel"
             aria-labelledby="blog-next-mode-tab-ai" data-blog-next-mode-panel="ai">
             <div id="blog-next-topic-form-home">
+            <details class="blog-next-disclosure blog-next-preparation-disclosure" id="blog-next-ai-preparation">
+              <summary><span class="blog-next-preparation-step">1</span><span><strong>원고 준비</strong><small>AI로 원고를 만들거나 글감을 먼저 정리합니다.</small></span></summary>
             <form id="blog-next-topic-form" class="blog-next-topic-form">
-              <div class="blog-next-workflow-step-head" data-blog-next-ai-step="prepare">
-                <span>1</span><div><strong>원고 준비</strong><small>주제와 글의 방향을 정한 뒤 지금 원고를 만들거나 글감만 남겨두세요.</small></div>
-              </div>
-              <div class="blog-next-form-grid blog-next-core-fields">
-                <label class="blog-next-field blog-next-field-wide">
-                  <span>주제</span>
-                  <span class="blog-next-input-action-row">
-                    <input id="blog-next-subject" type="text" placeholder="예: 제주 일주일 살기에서 발견한 작은 즐거움">
-                    <button id="blog-next-topic-recommend" class="secondary blog-next-ai-assist" type="button"
-                      aria-label="AI 글감 추천" title="AI로 글감 추천"><span aria-hidden="true">✦</span> 글감 추천</button>
-                  </span>
-                </label>
-                <label class="blog-next-field blog-next-field-wide">
-                  <span>키워드</span>
-                  <span class="blog-next-input-action-row">
-                    <input id="blog-next-keywords" type="text" placeholder="쉼표로 구분해 입력하세요">
-                    <button id="blog-next-keyword-recommend" class="secondary blog-next-ai-assist" type="button"
-                      aria-label="AI 키워드 탐색" title="AI로 키워드 탐색"><span aria-hidden="true">✦</span> 키워드 탐색</button>
-                  </span>
-                </label>
-                <label class="blog-next-field blog-next-field-wide">
-                  <span>제목 <small>(선택)</small></span>
-                  <span class="blog-next-input-action-row">
-                    <input id="blog-next-title" type="text" placeholder="비워두면 AI가 주제와 키워드로 제목을 정합니다.">
-                    <button id="blog-next-title-recommend" class="secondary blog-next-ai-assist" type="button"
-                      aria-label="AI 제목 추천" title="AI로 제목 추천"><span aria-hidden="true">✦</span> 제목 추천</button>
-                  </span>
-                </label>
-                <label class="blog-next-field blog-next-field-wide">
-                  <span>담고 싶은 경험·방향</span>
-                  <textarea id="blog-next-instruction" rows="3" placeholder="직접 겪은 일, 꼭 넣을 내용이나 글의 방향을 적어주세요"></textarea>
-                </label>
-              </div>
+              <details class="blog-next-disclosure blog-next-topic-settings" id="blog-next-topic-settings" open>
+                <summary>
+                  <strong>주제 설정</strong>
+                  <span id="blog-next-topic-settings-summary">주제·키워드·제목과 담고 싶은 경험·방향을 정리합니다.</span>
+                </summary>
+                <div class="blog-next-disclosure-grid blog-next-topic-settings-fields">
+                  <div class="blog-next-topic-settings-primary-fields">
+                    <label class="blog-next-field">
+                      <span>주제 <em class="blog-next-required-marker" aria-hidden="true">*</em></span>
+                      <span class="blog-next-input-action-row">
+                        <input id="blog-next-subject" type="text" placeholder="예: 제주 일주일 살기에서 발견한 작은 즐거움" required aria-required="true">
+                        <button id="blog-next-topic-recommend" class="secondary blog-next-ai-assist" type="button"
+                          aria-label="AI로 주제 글감 추천" data-tooltip="AI로 주제 글감 추천"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21 15 9"/><path d="m14 4 1.2 3.8L19 9l-3.8 1.2L14 14l-1.2-3.8L9 9l3.8-1.2L14 4Z"/><path d="m5 3 .7 2.3L8 6l-2.3.7L5 9l-.7-2.3L2 6l2.3-.7L5 3Z"/><path d="m19 15 .6 1.4L21 17l-1.4.6L19 19l-.6-1.4L17 17l1.4-.6L19 15Z"/></svg></button>
+                      </span>
+                    </label>
+                    <label class="blog-next-field">
+                      <span>키워드</span>
+                      <span class="blog-next-input-action-row">
+                        <input id="blog-next-keywords" type="text" placeholder="쉼표로 구분해 입력하세요">
+                        <button id="blog-next-keyword-recommend" class="secondary blog-next-ai-assist" type="button"
+                          aria-label="AI 키워드 추천" data-tooltip="AI로 키워드 추천"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21 15 9"/><path d="m14 4 1.2 3.8L19 9l-3.8 1.2L14 14l-1.2-3.8L9 9l3.8-1.2L14 4Z"/><path d="m5 3 .7 2.3L8 6l-2.3.7L5 9l-.7-2.3L2 6l2.3-.7L5 3Z"/><path d="m19 15 .6 1.4L21 17l-1.4.6L19 19l-.6-1.4L17 17l1.4-.6L19 15Z"/></svg></button>
+                      </span>
+                    </label>
+                    <label class="blog-next-field">
+                      <span>제목</span>
+                      <span class="blog-next-input-action-row">
+                        <input id="blog-next-title" type="text" placeholder="비워두면 AI가 주제와 키워드로 제목을 정합니다.">
+                        <button id="blog-next-title-recommend" class="secondary blog-next-ai-assist" type="button"
+                          aria-label="AI 제목 추천" data-tooltip="AI로 제목 추천"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21 15 9"/><path d="m14 4 1.2 3.8L19 9l-3.8 1.2L14 14l-1.2-3.8L9 9l3.8-1.2L14 4Z"/><path d="m5 3 .7 2.3L8 6l-2.3.7L5 9l-.7-2.3L2 6l2.3-.7L5 3Z"/><path d="m19 15 .6 1.4L21 17l-1.4.6L19 19l-.6-1.4L17 17l1.4-.6L19 15Z"/></svg></button>
+                      </span>
+                    </label>
+                  </div>
+                  <label class="blog-next-field blog-next-experience-field">
+                    <span>담고 싶은 경험·방향</span>
+                    <textarea id="blog-next-instruction" rows="3" placeholder="직접 겪은 일, 꼭 넣을 내용이나 글의 방향을 적어주세요"></textarea>
+                  </label>
+                </div>
+              </details>
 
               <div class="blog-next-disclosures">
                 <details class="blog-next-disclosure" id="blog-next-content-settings">
@@ -152,31 +159,19 @@
                   <!-- @include blog-next/publish-settings.html -->
                 </div>
               </div>
-              <div class="blog-next-form-result-row">
+              <div class="blog-next-form-result-row" hidden>
                 <p class="blog-next-form-result" id="blog-next-topic-result" role="status" aria-live="polite"></p>
               </div>
               <div class="blog-next-form-actions blog-next-ai-prepare-actions">
                 <button class="ghost blog-next-cancel-action" id="blog-next-cancel-edit" type="button" hidden>취소</button>
-                <div class="blog-next-ai-action-row blog-next-ai-idea-actions" data-blog-next-ai-idea-actions>
-                  <span class="blog-next-ai-action-copy">
-                    <strong>나중에 활용</strong>
-                    <small id="blog-next-queue-action-hint">대기열의 글감은 실행할 때 원고를 새로 만듭니다.</small>
+                <div class="blog-next-ai-action-row blog-next-ai-actions-row">
+                  <span class="blog-next-ai-action-copy" data-blog-next-ai-idea-actions>
+                    <strong>글감 활용</strong>
+                    <small id="blog-next-queue-action-hint">보관하거나 대기열에 추가할 수 있고, 지금 원고를 만들 수도 있습니다.</small>
                     <span id="blog-next-sheet-readiness" class="blog-next-action-readiness" role="status" hidden>
                       Google Spreadsheet 연결이 필요합니다.
                       <button id="blog-next-sheet-settings-btn" class="ui-text-action" type="button">Spreadsheet 설정하기</button>
                     </span>
-                  </span>
-                  <span class="blog-next-ai-action-buttons">
-                    <button class="secondary" id="blog-next-save-topic" type="button"
-                      aria-describedby="blog-next-queue-action-hint blog-next-sheet-readiness" disabled>글감 보관</button>
-                    <button class="secondary" id="blog-next-enqueue-topic" type="submit" form="blog-next-topic-form"
-                      aria-describedby="blog-next-queue-action-hint blog-next-sheet-readiness" disabled>발행 대기열에 추가</button>
-                  </span>
-                </div>
-                <div class="blog-next-ai-action-row blog-next-ai-generate-action" data-blog-next-ai-generate-action>
-                  <span class="blog-next-ai-action-copy">
-                    <strong>지금 작성</strong>
-                    <small id="blog-next-ai-generate-hint">입력한 내용으로 원고와 미리보기를 만듭니다.</small>
                     <span id="blog-next-ai-readiness" class="blog-next-action-readiness" role="status" hidden>
                       AI 글쓰기 모델 설정이 필요합니다.
                       <button id="blog-next-ai-settings-btn" class="ui-text-action" type="button">AI 설정하기</button>
@@ -186,18 +181,30 @@
                       <button id="blog-next-ai-image-settings-btn" class="ui-text-action" type="button">이미지 AI 설정하기</button>
                     </span>
                   </span>
-                  <button class="primary" id="blog-next-publish-now" type="button"
-                    aria-describedby="blog-next-ai-generate-hint blog-next-ai-readiness blog-next-ai-image-readiness" disabled>원고 만들기</button>
+                  <span class="blog-next-ai-action-buttons">
+                    <button class="secondary" id="blog-next-save-topic" type="button"
+                      aria-describedby="blog-next-queue-action-hint blog-next-sheet-readiness" disabled>글감 보관</button>
+                    <button class="secondary" id="blog-next-enqueue-topic" type="submit" form="blog-next-topic-form"
+                      aria-describedby="blog-next-queue-action-hint blog-next-sheet-readiness" disabled>발행 대기열에 추가</button>
+                    <span class="blog-next-ai-generate-action" data-blog-next-ai-generate-action>
+                      <button class="primary" id="blog-next-publish-now" type="button"
+                        aria-describedby="blog-next-queue-action-hint blog-next-ai-readiness blog-next-ai-image-readiness" disabled>
+                        <span aria-hidden="true">✦</span><span id="blog-next-publish-now-label">원고 만들기</span>
+                      </button>
+                    </span>
+                  </span>
                 </div>
               </div>
             </form>
+            </details>
             </div>
-            <div class="blog-next-workflow-step-head" data-blog-next-ai-step="preview" hidden>
-              <span>2</span><div><strong>원고</strong><small>AI가 만든 원고와 이미지를 편집하거나 확인하세요.</small></div>
-            </div>
+            <details class="blog-next-disclosure blog-next-preview-disclosure" id="blog-next-ai-preview" open>
+              <summary class="blog-next-workflow-step-head" data-blog-next-ai-step="preview">
+                <span>2</span><div><strong>미리보기 · 원고 입력</strong><small>생성 전에도 직접 입력하거나 붙여넣을 수 있습니다. 작성한 원고는 자동으로 미리 확인합니다.</small></div>
+              </summary>
             <div class="blog-next-draft-validation" data-blog-next-draft-validation="ai" role="status"
               aria-live="polite" hidden></div>
-            <div class="manuscript-editor-sticky-rail" data-ai-editor-rail hidden>
+            <div class="manuscript-editor-sticky-rail" data-ai-editor-rail>
               <div class="manuscript-editor-toolbar" role="toolbar" aria-label="원고 서식" data-ai-formatting-toolbar>
                 <button type="button" aria-label="본문" data-tooltip="본문" data-ai-manuscript-command="paragraph">¶</button>
                 <button type="button" aria-label="소제목" data-tooltip="소제목" data-ai-manuscript-command="heading">H₂</button>
@@ -220,9 +227,9 @@
                 <button type="button" data-ai-workspace-mode="view" aria-pressed="false">보기</button>
               </div>
             </div>
-            <section class="blog-next-draft-source blog-next-paste-field" aria-label="AI 원고 편집 및 보기" data-ai-editor-workspace hidden>
+            <section class="blog-next-draft-source blog-next-paste-field" aria-label="미리보기 및 원고 입력" data-ai-editor-workspace>
               <textarea id="blog-next-ai-markdown" class="blog-next-markdown-input" rows="18" aria-label="Markdown 원고 편집" hidden></textarea>
-              <div id="blog-next-ai-editor" class="manuscript-editor-canvas" role="region" aria-label="원고 블록 편집기" hidden></div>
+              <div id="blog-next-ai-editor" class="manuscript-editor-canvas" role="region" aria-label="원고 블록 편집기"></div>
               <div class="blog-next-draft-preview blog-next-manuscript-preview local-markdown-preview-panel"
                 data-blog-next-draft-preview="ai" hidden>
                 <div class="local-markdown-preview-head">
@@ -236,13 +243,15 @@
               </div>
             </section>
             <div class="blog-next-draft-actions blog-next-ai-preview-actions" data-blog-next-ai-preview-actions hidden>
-              <button class="secondary" id="blog-next-regenerate-draft" type="button">원고 다시 만들기</button>
+              <button class="secondary" id="blog-next-regenerate-draft" type="button">AI로 원고 다시 만들기</button>
             </div>
-            <div class="blog-next-workflow-step-head" data-blog-next-ai-step="publish" hidden>
-              <span>3</span><div><strong>발행</strong><small>현재 미리보기 원고를 올릴 곳과 방식을 정하세요.</small></div>
-            </div>
+            </details>
+            <details class="blog-next-disclosure blog-next-publish-disclosure" id="blog-next-ai-publish" open>
+              <summary class="blog-next-workflow-step-head" data-blog-next-ai-step="publish">
+                <span>3</span><div><strong>포스팅 · 발행</strong><small>원고를 올릴 곳과 발행 방식을 정합니다.</small></div>
+              </summary>
             <div data-blog-next-publish-settings-slot="ai-publish"></div>
-            <div class="blog-next-draft-actions" data-blog-next-draft-actions="ai" hidden>
+            <div class="blog-next-draft-actions" data-blog-next-draft-actions="ai">
               <span class="blog-next-draft-action-copy">
                 <span class="blog-next-action-readiness" data-blog-next-publish-readiness="ai" role="status" hidden>
                   <span data-blog-next-publish-readiness-message>발행 채널 설정이 필요합니다.</span>
@@ -251,6 +260,7 @@
               </span>
               <button class="primary" data-blog-next-draft-publish="ai" type="button" disabled>즉시 발행</button>
             </div>
+            </details>
           </div>
           <!-- @include blog-next/quick-draft-modes.html -->
         </section>
