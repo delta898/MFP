@@ -38,6 +38,32 @@ test('official SDK adapter sends the OAuth token as a Bearer credential', async 
     assert.match(requests[0].url, /\/workers\/scripts/);
 });
 
+test('Cloudflare adapter reads Worker bindings and DNS records and deletes only the selected binding', async () => {
+    const calls = [];
+    const client = {
+        workers: { domains: {
+            list: (args) => { calls.push(['worker-domains-list', args]); return [{ id: 'binding-1', hostname: args.hostname }]; },
+            delete: (id, args) => { calls.push(['worker-domains-delete', id, args]); return { id }; }
+        } },
+        dns: { records: {
+            list: (args) => { calls.push(['dns-list', args]); return [{ id: 'record-1', name: args.name }]; }
+        } }
+    };
+    const adapter = createCloudflareSdkAdapter({ client });
+    assert.deepEqual(await adapter.listWorkerDomains({ accountId: 'account-1', hostname: 'blog.example.com' }), [
+        { id: 'binding-1', hostname: 'blog.example.com' }
+    ]);
+    assert.deepEqual(await adapter.listDnsRecords({ zoneId: 'zone-1', hostname: 'blog.example.com' }), [
+        { id: 'record-1', name: 'blog.example.com' }
+    ]);
+    await adapter.detachWorkerDomain({ accountId: 'account-1', bindingId: 'binding-1' });
+    assert.deepEqual(calls, [
+        ['worker-domains-list', { account_id: 'account-1', hostname: 'blog.example.com' }],
+        ['dns-list', { zone_id: 'zone-1', name: 'blog.example.com', per_page: 100 }],
+        ['worker-domains-delete', 'binding-1', { account_id: 'account-1' }]
+    ]);
+});
+
 test('deploy uses the connected account with a stable Site ID worker name', async () => {
     const siteRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'cloudflare-static-deploy-'));
     try {

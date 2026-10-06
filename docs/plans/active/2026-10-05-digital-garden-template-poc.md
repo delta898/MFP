@@ -5,7 +5,7 @@
 - Branch: `codex/digital-garden-template-poc`
 - Base/parent branch: `codex/static-site-builder-main`
 - Start date: 2026-10-05
-- Status: Local full-vault and Obsidian UI feasibility POC complete; Digital Garden templates are listed in Site creation; embedded frontmatter-filtered Vault conversion is wired into Preview/build with a result summary; focused checks and UI browser smoke pass; manual review against an actual Garden Template remains
+- Status: Local full-vault and Obsidian UI feasibility POC complete; Site creation/settings work is implemented; custom-domain disconnect UI and verified Cloudflare detach flow are implemented with mocked tests; hands-on UI review remains
 
 ## User need and goal
 
@@ -211,3 +211,9 @@ The app uses Cloudflare Worker Custom Domain binding APIs, not the DNS Records A
 The user added DNS Read to the Cloudflare OAuth client and reauthorized. BlogGenius requests `dns.read` alongside existing scopes, but not DNS Write. Read-only API calls successfully listed DNS records and Worker custom domains. An authorized disposable-host experiment then created a temporary Worker, attached a random hostname, detached the Worker custom domain, and observed that Cloudflare had removed its proxied `AAAA 100::` record on the first DNS read after detach. The temporary Worker was deleted, and the final DNS read remained empty. This confirms observed behavior for the experiment, not a Cloudflare API guarantee. Product detach must still verify binding and DNS state afterward and stop if either is unexpected.
 
 The user-approved probe scripts are `scripts/cloudflare-domain-inspection.js` (read-only) and `scripts/cloudflare-domain-detach-test.js` (creates and cleans a disposable Worker/domain when invoked with `--run`). The durable decisions, operational sequence, experiment result, open gates, and source links are recorded in `docs/decisions/2026-10-06-site-hosting-teardown-safety.md`.
+
+#### Custom-domain disconnect implementation
+
+The user approved implementing the first teardown stage: disconnect only a custom domain while keeping its Worker and workers.dev address. The Site card now shows a disconnect icon next to the custom-domain open/copy actions. It asks for confirmation naming the hostname, and indicates that the Worker/default address remain. The server requires explicit confirmation and performs a read-only preflight of the saved binding, active zone, Worker service, and DNS records twice immediately before mutation; any drift stops the operation. It then deletes only the exact Cloudflare Worker Domain binding ID, never calls a DNS write API, and retries post-operation reads briefly. Only a verified detached binding and absent Cloudflare-managed proxied `AAAA 100::` record clear the local binding metadata. Unexpected DNS state leaves the saved metadata intact with a specific message. Retrying after an already-detached binding can reconcile local metadata once the managed DNS marker is absent.
+
+Focused service, route, deployer-adapter, UI-contract, and browser smoke verification should use mocked Cloudflare responses; no real site/domain is mutated during verification. Manual UI review remains necessary. The implementation does not include default Worker disconnection or Site deletion.

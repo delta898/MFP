@@ -509,3 +509,104 @@ test('site deploy rebuilds the site and saves the Cloudflare workers.dev result'
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }
 });
+
+test('custom domain disconnect verifies the Cloudflare binding and DNS before clearing only local binding state', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-domain-disconnect-'));
+    try {
+        const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
+        projectRepository.create({ id: 'project-1', name: '개인 사이트' });
+        let binding = null;
+        let dnsRecords = [];
+        let detachCalls = 0;
+        const adapter = {
+            listZones: async () => [{ id: 'zone-1', name: 'example.com', status: 'active' }],
+            listWorkerDomains: async () => binding ? [{ ...binding }] : [],
+            listDnsRecords: async () => dnsRecords.map((record) => ({ ...record })),
+            attachWorkerDomain: async ({ hostname, workerName, zoneId }) => {
+                binding = { id: 'binding-1', hostname, service: workerName, zone_id: zoneId };
+                dnsRecords = [{ id: 'dns-1', type: 'AAAA', name: hostname, content: '100::', proxied: true, ttl: 1 }];
+                return { ...binding };
+            },
+            detachWorkerDomain: async ({ bindingId }) => {
+                detachCalls += 1;
+                assert.equal(bindingId, 'binding-1');
+                binding = null;
+                dnsRecords = [];
+            }
+        };
+        const service = createSiteHostingSiteService({
+            fs, path, workspaceDir, projectRepository, templates: localTemplates(),
+            createId: () => 'site-1', now: () => '2026-10-06T00:00:00.000Z',
+            astroRuntime: { build: async () => ({}) },
+            cloudflareDeployer: { deploy: async () => ({ worker_name: 'bg-site-1', url: 'https://bg-site-1.example.workers.dev/' }) },
+            getCloudflareDeploymentCredentials: async () => ({ accessToken: 'test-token', account: { id: 'a'.repeat(32) } }),
+            createCloudflareSdkClient: () => ({}), createCloudflareSdkAdapter: () => adapter,
+            sleep: async () => {}
+        });
+        await service.create('project-1', { name: '내 사이트', template_id: 'minimal-homepage' });
+        await service.deploy('project-1', 'site-1');
+        await service.connectCustomDomain('project-1', 'site-1', { zone_id: 'zone-1', hostname: 'blog' });
+        await assert.rejects(service.disconnectCustomDomain('project-1', 'site-1'), { code: 'SITE_HOSTING_CUSTOM_DOMAIN_CONFIRMATION_REQUIRED' });
+        assert.ok(binding, 'a missing confirmation must not call Cloudflare');
+        binding.service = 'unexpected-worker';
+        await assert.rejects(service.disconnectCustomDomain('project-1', 'site-1', { confirmed: true }), { code: 'SITE_HOSTING_CUSTOM_DOMAIN_PREFLIGHT_FAILED' });
+        assert.equal(detachCalls, 0, 'a binding mismatch must stop before the destructive API call');
+        binding.service = 'bg-site-1';
+
+        const result = await service.disconnectCustomDomain('project-1', 'site-1', { confirmed: true });
+        assert.deepEqual(result, { hostname: 'blog.example.com', custom_domain_binding: null, disconnected: true });
+        assert.equal(binding, null);
+        assert.deepEqual(dnsRecords, []);
+        const [site] = await service.list('project-1');
+        assert.equal(site.custom_domain_binding, null);
+        assert.equal(site.deployment.worker_name, 'bg-site-1');
+        assert.equal(site.hostname, 'blog');
+        assert.equal(site.domain, 'example.com');
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('custom domain disconnect keeps local binding when Cloudflare leaves the managed DNS record behind', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-domain-disconnect-dns-'));
+    try {
+        const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
+        projectRepository.create({ id: 'project-1', name: '개인 사이트' });
+        let binding = null;
+        const record = { id: 'dns-1', type: 'AAAA', name: 'blog.example.com', content: '100::', proxied: true, ttl: 1 };
+        let dnsRecords = [];
+        const adapter = {
+            listZones: async () => [{ id: 'zone-1', name: 'example.com', status: 'active' }],
+            listWorkerDomains: async () => binding ? [{ ...binding }] : [],
+            listDnsRecords: async () => dnsRecords.map((item) => ({ ...item })),
+            attachWorkerDomain: async ({ hostname, workerName, zoneId }) => {
+                binding = { id: 'binding-1', hostname, service: workerName, zone_id: zoneId };
+                dnsRecords = [{ ...record }];
+                return { ...binding };
+            },
+            detachWorkerDomain: async () => { binding = null; }
+        };
+        const service = createSiteHostingSiteService({
+            fs, path, workspaceDir, projectRepository, templates: localTemplates(), createId: () => 'site-1',
+            astroRuntime: { build: async () => ({}) },
+            cloudflareDeployer: { deploy: async () => ({ worker_name: 'bg-site-1', url: 'https://bg-site-1.example.workers.dev/' }) },
+            getCloudflareDeploymentCredentials: async () => ({ accessToken: 'test-token', account: { id: 'a'.repeat(32) } }),
+            createCloudflareSdkClient: () => ({}), createCloudflareSdkAdapter: () => adapter,
+            sleep: async () => {}
+        });
+        await service.create('project-1', { name: '내 사이트', template_id: 'minimal-homepage' });
+        await service.deploy('project-1', 'site-1');
+        await service.connectCustomDomain('project-1', 'site-1', { zone_id: 'zone-1', hostname: 'blog' });
+        await assert.rejects(service.disconnectCustomDomain('project-1', 'site-1', { confirmed: true }), {
+            code: 'SITE_HOSTING_CUSTOM_DOMAIN_DNS_REMAINS', status: 409
+        });
+        assert.equal(binding, null, 'the API detach can succeed while DNS verification fails');
+        assert.equal((await service.list('project-1'))[0].custom_domain_binding.hostname, 'blog.example.com', 'keep the local record for safe recovery/inspection');
+        dnsRecords = [];
+        const recovered = await service.disconnectCustomDomain('project-1', 'site-1', { confirmed: true });
+        assert.equal(recovered.already_detached, true, 'a retry should reconcile local metadata without repeating Cloudflare mutation');
+        assert.equal((await service.list('project-1'))[0].custom_domain_binding, null);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});

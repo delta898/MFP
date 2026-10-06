@@ -63,15 +63,21 @@ test('Garden preview displays the Vault conversion summary when available', () =
 
 test('site cards own operation messages and template checks refresh on entry and on demand', () => {
     const runtime = fs.readFileSync(path.join(root, 'ui/scripts/features/site-hosting/project-management.js'), 'utf8');
+    const domains = fs.readFileSync(path.join(root, 'ui/scripts/features/site-hosting/domains.js'), 'utf8');
     const card = runtime.slice(runtime.indexOf('function siteHostingSiteCard('), runtime.indexOf('function siteHostingSiteMessage('));
     assert.doesNotMatch(html, /id="site-hosting-feedback"/);
-    assert.ok(card.indexOf('siteHostingSiteAddresses(site, domainConnect)') < card.indexOf('data-site-message=')
+    assert.ok(card.indexOf('siteHostingSiteAddresses(site, domainConnect, hasDeploymentAddress, operation)') < card.indexOf('data-site-message=')
         && card.indexOf('data-site-message=') < card.indexOf('site-hosting-site-card-footer'));
     assert.match(runtime, /siteHostingSetSiteOperation\(siteId, 'success', '주소를 복사했습니다\.'/);
     assert.match(runtime, /data-site-template-refresh/);
     assert.match(runtime, /siteHostingCheckTemplateUpdates\('', false\)/);
     assert.match(runtime, /siteHostingCheckTemplateUpdates\(siteHostingSelectedProject\?\.id \|\| '', true\)/);
     assert.match(runtime, /await fetchJson\('\/api\/v1\/site-hosting\/templates'\)/);
+    assert.match(runtime, /data-site-domain-disconnect=/);
+    assert.match(runtime, /siteHostingUnlinkIcon\(\)/);
+    assert.match(domains, /showUiConfirm\([\s\S]*?title: '도메인 연결 해지'/);
+    assert.match(domains, /custom-domain-disconnect`/);
+    assert.match(domains, /기본 주소와 Worker는 유지됩니다/);
 });
 
 test('site creation footer places guarded cancel on the left and preview/create on the right', () => {

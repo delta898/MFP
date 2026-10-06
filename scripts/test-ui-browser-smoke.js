@@ -777,6 +777,26 @@ function startFixtureServer(requests) {
         }
         const siteHostingSitesMatch = url.pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites$/);
         const siteHostingSettingsMatch = url.pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)$/);
+        const siteHostingDisconnectMatch = url.pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)\/custom-domain-disconnect$/);
+        if (siteHostingDisconnectMatch && req.method === 'POST') {
+            const chunks = [];
+            req.on('data', (chunk) => chunks.push(chunk));
+            req.on('end', () => {
+                requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+                const projectId = decodeURIComponent(siteHostingDisconnectMatch[1]);
+                const siteId = decodeURIComponent(siteHostingDisconnectMatch[2]);
+                const site = (siteHostingSites.get(projectId) || []).find((item) => item.id === siteId);
+                if (site) {
+                    site.custom_domain_binding = null;
+                    site.deployment = { worker_name: 'bg-site-smoke-1', url: 'https://bg-site-smoke-1.example.workers.dev/' };
+                }
+                res.writeHead(site ? 200 : 404, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                res.end(JSON.stringify(site
+                    ? { success: true, data: { hostname: 'blog.example.com', custom_domain_binding: null, disconnected: true } }
+                    : { success: false, error: { message: '사이트를 찾을 수 없습니다.' } }));
+            });
+            return;
+        }
         if (siteHostingSettingsMatch && ['GET', 'PUT'].includes(req.method)) {
             const projectId = decodeURIComponent(siteHostingSettingsMatch[1]);
             const siteId = decodeURIComponent(siteHostingSettingsMatch[2]);
@@ -2639,6 +2659,27 @@ async function run() {
                 await page.getByText('템플릿 확인을 마쳤습니다.').waitFor();
                 assert.match(createRequest?.body?.customization?.share_image || '', /^data:image\/png;base64,/);
                 await page.getByText('설정 변경 사이트', { exact: true }).waitFor();
+                await page.evaluate(() => {
+                    const site = siteHostingSites.find((item) => item.id === 'site-smoke-1');
+                    site.deployment = { worker_name: 'bg-site-smoke-1', url: 'https://bg-site-smoke-1.example.workers.dev/' };
+                    site.custom_domain_binding = { hostname: 'blog.example.com' };
+                    siteHostingRenderProjectDetail();
+                    window.__domainDisconnectConfirmCalls = [];
+                    showUiConfirm = async (message, options) => {
+                        window.__domainDisconnectConfirmCalls.push({ message, options });
+                        return true;
+                    };
+                });
+                const disconnectButton = page.locator('[data-site-domain-disconnect="site-smoke-1"]');
+                await disconnectButton.waitFor({ state: 'visible' });
+                await disconnectButton.click();
+                await page.waitForFunction(() => window.__domainDisconnectConfirmCalls?.length === 1);
+                assert.match(await page.evaluate(() => window.__domainDisconnectConfirmCalls[0].message), /blog\.example\.com/);
+                assert.match(await page.evaluate(() => window.__domainDisconnectConfirmCalls[0].message), /기본 주소와 Worker는 유지됩니다/);
+                await page.waitForFunction(() => !document.querySelector('[data-site-domain-disconnect="site-smoke-1"]'));
+                assert.deepEqual(requests.find((request) => request.method === 'POST'
+                    && request.pathname.endsWith('/sites/site-smoke-1/custom-domain-disconnect'))?.body, { confirmed: true });
+                assert.equal(await page.locator('[data-site-open-address="site-smoke-1"][data-address-type="worker"]').count(), 1);
             }
         }
         await page.evaluate(() => { showUiConfirm = window.__settingsNextSmokeConfirm; });
@@ -5914,6 +5955,7 @@ async function run() {
             { method: 'POST', pathname: '/api/v1/site-hosting/projects/site-project-smoke/preview-drafts' },
             { method: 'PUT', pathname: '/api/v1/site-hosting/projects/site-project-smoke/sites/site-smoke-1' },
             { method: 'DELETE', pathname: '/api/v1/site-hosting/projects/site-project-smoke/preview-drafts/site-preview-smoke' },
+            { method: 'POST', pathname: '/api/v1/site-hosting/projects/site-project-smoke/sites/site-smoke-1/custom-domain-disconnect' },
             { method: 'POST', pathname: '/api/v1/trend-posting/topics' },
             { method: 'POST', pathname: '/api/v1/keywords/analyze' },
             { method: 'POST', pathname: '/api/v1/keywords/suggest-titles' },

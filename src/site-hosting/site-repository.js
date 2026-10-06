@@ -678,6 +678,23 @@ function createSiteHostingSiteRepository(options = {}) {
         return readSite(projectId, siteId);
     }
 
+    function clearCustomDomainBinding(projectId, siteId, updatedAt = new Date().toISOString()) {
+        const site = readSite(projectId, siteId);
+        if (!site) {
+            const error = new Error('사이트를 찾을 수 없습니다.');
+            error.code = 'SITE_HOSTING_SITE_NOT_FOUND';
+            error.status = 404;
+            throw error;
+        }
+        const manifestPath = pathApi.join(site.root_path, '.bloggenius', 'site.json');
+        const manifest = JSON.parse(String(fileSystem.readFileSync(manifestPath, 'utf8') || ''));
+        const updated = { ...manifest, custom_domain_binding: null, updated_at: updatedAt };
+        const tempPath = pathApi.join(pathApi.dirname(manifestPath), `.site.json.${process.pid}.${Date.now()}.tmp`);
+        fileSystem.writeFileSync(tempPath, `${JSON.stringify(updated, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+        fileSystem.renameSync(tempPath, manifestPath);
+        return readSite(projectId, siteId);
+    }
+
     function update(projectId, siteId, patch = {}) {
         const site = readSite(projectId, siteId);
         if (!site) {
@@ -866,7 +883,7 @@ function createSiteHostingSiteRepository(options = {}) {
         }
     }
 
-    return { list, get, create, createPreviewDraft, removePreviewDraft, update, updateSettings, setTemplateUpdateTestVersion, applyTemplateUpdate, recordDeployment, recordBuildResult, recordBuildScreenshot, getScreenshot, recordCustomDomainBinding };
+    return { list, get, create, createPreviewDraft, removePreviewDraft, update, updateSettings, setTemplateUpdateTestVersion, applyTemplateUpdate, recordDeployment, recordBuildResult, recordBuildScreenshot, getScreenshot, recordCustomDomainBinding, clearCustomDomainBinding };
 }
 
 module.exports = { SITE_SCHEMA_VERSION, safeSiteId, createSiteHostingSiteRepository };

@@ -351,6 +351,11 @@
   color: var(--ui-action-primary);
 }
 
+.site-hosting-site-card .site-hosting-domain-disconnect:hover:not(:disabled) {
+  border-color: var(--ui-status-danger, #d44);
+  color: var(--ui-status-danger, #d44);
+}
+
 .site-hosting-site-card .site-hosting-icon-button:disabled {
   opacity: .45;
   cursor: not-allowed;

@@ -2,7 +2,7 @@
 
 ## 상태
 
-방향 합의 및 API 조사 완료. 난수 hostname 실험에서 Worker Custom Domain 해제 직후 Cloudflare가 생성한 DNS 레코드가 사라지는 것을 확인했다. 실제 사이트 해제·삭제 기능은 아직 구현하지 않았다.
+해지 방향 합의 및 Custom Domain 해제 기능 구현. 난수 hostname 실험에서 Worker Custom Domain 해제 직후 Cloudflare가 생성한 DNS 레코드가 사라지는 것을 확인했다. 실제 사이트를 대상으로 한 해지 테스트는 별도 확인 전까지 수행하지 않는다.
 
 ## 맥락
 
@@ -51,11 +51,11 @@ Cloudflare의 Advanced Certificate는 Custom Domain 삭제만으로 자동 삭�
 
 ### 사용자 도메인 해제
 
-1. Dry-run으로 저장된 binding과 Cloudflare 실제 상태를 대조한다.
-2. 사용자에게 해제 대상 hostname과 인증서/DNS 처리 범위를 보여주고 확인받는다.
-3. binding ID로 Worker Domain 연결만 해제하고, 결과를 다시 조회해 분리 여부를 확인한다.
-4. 앱은 DNS DELETE를 호출하지 않는다. binding 해제 후 DNS Read로 해당 hostname을 다시 조회한다. 레코드가 남거나 조회가 실패하면 해지를 완료 상태로 기록하지 않고 멈춰 안내한다. 자동 정리는 이번 실험에서 관찰했지만 문서상 보장이 아니므로 재조회가 필요하다.
-5. 로컬 binding metadata는 분리 성공 확인 후 갱신한다. 실패 시 기존 정보는 보존한다.
+1. UI에서 사용자가 해지 대상 hostname을 확인하고 승인한다. 기본 Worker와 기본 주소는 그대로 유지된다고 안내한다.
+2. 서버가 저장된 binding ID/hostname/zone과 Cloudflare의 활성 zone, Worker Domain binding(service 포함), DNS 상태를 조회한다. 이 읽기 전용 사전 점검을 두 번 실행하고 결과가 달라지면 중단한다.
+3. 저장된 binding과 정확히 일치할 때만 Worker Domain binding DELETE를 호출한다. DNS Records API에는 쓰기 요청을 보내지 않는다.
+4. Worker binding 및 Cloudflare가 Custom Domain용으로 관리하는 proxied `AAAA 100::` 레코드의 부재를 재조회해 확인한다. 일시적인 반영 지연은 제한적으로 재조회한다. 예상하지 못한 DNS 레코드는 그대로 두고, 삭제 여부가 불명확하면 중단한다.
+5. 두 상태가 확인된 뒤 로컬 binding metadata를 비운다. 검증 실패 시 기존 정보를 보존하고 구체적인 오류를 표시한다. Worker binding은 이미 해제됐으나 DNS marker가 남은 부분 완료 상태는 자동 DNS 삭제하지 않으며, 사용자가 Cloudflare에서 확인한 후 다시 실행하면 로컬 상태를 정리할 수 있다.
 
 Cloudflare 공식 문서는 Custom Domain 삭제 API의 DNS 레코드 잔존/삭제 결과를 명확히 보장하지 않는다. 임의 hostname 실험에서는 자동 삭제를 확인했으나, 제품 로직은 해제 후 DNS를 다시 조회해야 한다.
 
@@ -82,9 +82,9 @@ Cloudflare 공식 문서는 Custom Domain 삭제 API의 DNS 레코드 잔존/삭
 - 실험은 DNS Records DELETE API를 호출하지 않았다. 스크립트는 `--run` 없이는 변경하지 않으며 `--inspect-only`로 특정 난수 리소스를 읽기 전용 조회할 수 있다.
 - 첫 업로드는 multipart 형식 오류로 실패했고, API로 테스트 리소스가 남지 않았음을 확인했다. metadata JSON multipart 파트를 명시한 재시도는 성공했다.
 
-## 구현 전에 해결할 항목
+## 후속 구현 항목
 
-- 연결 해지 UI에서 대상 hostname과 Cloudflare가 DNS 레코드를 자동 정리할 것으로 기대한다는 점을 사용자에게 어떻게 안내할지 결정한다.
+- 해지 UI는 연결 도메인 주소 행에서 열기/복사와 함께 해지 아이콘을 제공하며, 승인 확인을 거친다. 사용자 hands-on UI 검증은 남아 있다.
 - DNS 정리가 필요하다고 확인되면 DNS Read/Write 권한 범위, 레코드 ownership marker/ID 보존 방식, 사전/사후 재검증, 충돌 시 중단 정책을 별도 합의한다. 단순한 hostname 매칭 기반 삭제는 금지한다.
 - Worker 생성/재사용 구분을 새 manifest에 기록하는 계약을 설계한다. 기존 사이트처럼 소유권 증거가 없는 Worker는 삭제 전에 사용자 선택/확인이 필요한지 결정한다.
 - Worker를 참조하는 다른 서비스가 발견될 때 사이트 삭제를 어떻게 안내할지 정한다. 기본값은 force 없이 중단이다.

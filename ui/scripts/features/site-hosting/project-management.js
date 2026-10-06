@@ -91,7 +91,7 @@ function siteHostingSiteCard(site) {
       </div>
       <div class="site-hosting-site-card-body">
         <div class="site-hosting-site-address-area">
-          ${domainConnectOpen ? siteHostingSiteDomainConnectPanel(site, domainConnect) : siteHostingSiteAddresses(site, domainConnect, hasDeploymentAddress)}
+          ${domainConnectOpen ? siteHostingSiteDomainConnectPanel(site, domainConnect) : siteHostingSiteAddresses(site, domainConnect, hasDeploymentAddress, operation)}
         </div>
         <div class="site-hosting-site-feedback-slot">
           <div class="site-hosting-site-message" data-site-message="${siteId}" role="status" aria-live="polite"${message ? '' : ' hidden'}>${message}</div>
@@ -124,7 +124,7 @@ function siteHostingSiteMessage(site, operation, domainConnect) {
   return '';
 }
 
-function siteHostingSiteAddresses(site, domainConnect, hasDeploymentAddress = Boolean(site.deployment?.url && site.deployment?.worker_name)) {
+function siteHostingSiteAddresses(site, domainConnect, hasDeploymentAddress = Boolean(site.deployment?.url && site.deployment?.worker_name), operation = null) {
   const workerUrl = hasDeploymentAddress ? String(site.deployment?.url || '') : '';
   const workerHref = siteHostingSafeHttpsUrl(workerUrl);
   const customDomain = String(site.custom_domain_binding?.hostname || '').trim();
@@ -135,7 +135,7 @@ function siteHostingSiteAddresses(site, domainConnect, hasDeploymentAddress = Bo
     ? `<span class="site-hosting-address-actions"><button class="site-hosting-icon-button" type="button" data-site-open-address="${siteHostingEscapeHtml(site.id)}" data-address-type="worker" aria-label="기본 주소 열기" title="기본 주소 열기">${siteHostingExternalLinkIcon()}</button><button class="site-hosting-icon-button" type="button" data-site-copy-address="${siteHostingEscapeHtml(site.id)}" data-address-type="worker" aria-label="기본 주소 복사" title="기본 주소 복사">${siteHostingCopyIcon()}</button></span>`
     : `<span class="site-hosting-address-actions"><button class="site-hosting-icon-button" type="button" disabled aria-label="배포 후 기본 주소를 열 수 있습니다." title="배포하면 기본 주소가 생깁니다.">${siteHostingExternalLinkIcon()}</button><button class="site-hosting-icon-button" type="button" disabled aria-label="배포 후 기본 주소를 복사할 수 있습니다." title="배포하면 기본 주소가 생깁니다.">${siteHostingCopyIcon()}</button></span>`;
   const domainActions = customDomainHref
-    ? `<span class="site-hosting-address-value">${siteHostingEscapeHtml(customDomain)}</span><span class="site-hosting-address-actions"><button class="site-hosting-icon-button" type="button" data-site-open-address="${siteHostingEscapeHtml(site.id)}" data-address-type="domain" aria-label="연결 도메인 열기" title="연결 도메인 열기">${siteHostingExternalLinkIcon()}</button><button class="site-hosting-icon-button" type="button" data-site-copy-address="${siteHostingEscapeHtml(site.id)}" data-address-type="domain" aria-label="연결 도메인 복사" title="연결 도메인 복사">${siteHostingCopyIcon()}</button></span>`
+    ? `<span class="site-hosting-address-value">${siteHostingEscapeHtml(customDomain)}</span><span class="site-hosting-address-actions"><button class="site-hosting-icon-button" type="button" data-site-open-address="${siteHostingEscapeHtml(site.id)}" data-address-type="domain" aria-label="연결 도메인 열기" title="연결 도메인 열기">${siteHostingExternalLinkIcon()}</button><button class="site-hosting-icon-button" type="button" data-site-copy-address="${siteHostingEscapeHtml(site.id)}" data-address-type="domain" aria-label="연결 도메인 복사" title="연결 도메인 복사">${siteHostingCopyIcon()}</button><button class="site-hosting-icon-button site-hosting-domain-disconnect" type="button" data-site-domain-disconnect="${siteHostingEscapeHtml(site.id)}" aria-label="도메인 연결 해지" title="도메인 연결 해지" ${operation?.phase === 'running' ? 'disabled aria-busy="true"' : ''}>${siteHostingUnlinkIcon()}</button></span>`
     : hasDeploymentAddress
       ? `<button class="site-hosting-domain-start" type="button" data-site-domain-start="${siteHostingEscapeHtml(site.id)}" ${domainConnect?.open ? 'aria-expanded="true"' : ''}>도메인 연결 <span aria-hidden="true">+</span></button>`
       : '<span class="site-hosting-address-empty">배포 후 연결할 수 있습니다.</span>';
@@ -148,6 +148,10 @@ function siteHostingExternalLinkIcon() {
 
 function siteHostingCopyIcon() {
   return '<svg aria-hidden="true" viewBox="0 0 16 16"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M11 3V2.5A1.5 1.5 0 0 0 9.5 1h-7A1.5 1.5 0 0 0 1 2.5v7A1.5 1.5 0 0 0 2.5 11H3"/></svg>';
+}
+
+function siteHostingUnlinkIcon() {
+  return '<svg aria-hidden="true" viewBox="0 0 16 16"><path d="M6.2 4.1 7.4 2.9a3.1 3.1 0 0 1 4.4 4.4l-1.2 1.2M9.8 11.9l-1.2 1.2a3.1 3.1 0 0 1-4.4-4.4l1.2-1.2M2 14 14 2"/></svg>';
 }
 
 async function siteHostingOpenAddress(siteId, addressType, button) {
@@ -766,6 +770,8 @@ function initSiteHostingProjects() {
       if (openAddress) return void siteHostingOpenAddress(openAddress.dataset.siteOpenAddress, openAddress.dataset.addressType, openAddress);
       const copyAddress = event.target.closest('[data-site-copy-address]');
       if (copyAddress) return void siteHostingCopyAddress(copyAddress.dataset.siteCopyAddress, copyAddress.dataset.addressType, copyAddress);
+      const domainDisconnect = event.target.closest('[data-site-domain-disconnect]');
+      if (domainDisconnect) return void siteHostingDisconnectCustomDomain(domainDisconnect.dataset.siteDomainDisconnect, domainDisconnect);
       const openVault = event.target.closest('[data-site-open-vault]');
       if (openVault) {
         openVault.closest('.site-hosting-site-more')?.removeAttribute('open');

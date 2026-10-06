@@ -1247,6 +1247,132 @@ function createSiteHostingSiteService(deps = {}) {
         }
     }
 
+    async function disconnectCustomDomain(projectId, siteId, payload = {}) {
+        const site = repository.get(projectId, siteId);
+        if (!site) {
+            const error = new Error('사이트를 찾을 수 없습니다.');
+            error.code = 'SITE_HOSTING_SITE_NOT_FOUND';
+            error.status = 404;
+            throw error;
+        }
+        if (payload.confirmed !== true) {
+            throw siteInputError('도메인 연결 해제 확인이 필요합니다.', 'SITE_HOSTING_CUSTOM_DOMAIN_CONFIRMATION_REQUIRED', 400);
+        }
+        const saved = site.custom_domain_binding || {};
+        const bindingId = String(saved.id || '').trim();
+        const hostname = String(saved.hostname || '').trim().toLowerCase();
+        const zoneId = String(saved.zone_id || '').trim();
+        const zoneName = String(saved.zone_name || '').trim().toLowerCase();
+        const workerName = String(site.deployment?.worker_name || '').trim();
+        if (!bindingId || !hostname || !zoneId || !zoneName || !workerName) {
+            throw siteInputError('저장된 도메인 연결 정보를 확인할 수 없어 해제하지 않았습니다. 사이트 설정을 확인해 주세요.', 'SITE_HOSTING_CUSTOM_DOMAIN_BINDING_INVALID', 409);
+        }
+
+        const { credentials, adapter } = await getCloudflareAdapter();
+        const accountId = String(credentials.account.id);
+        const fail = (message, code = 'SITE_HOSTING_CUSTOM_DOMAIN_PREFLIGHT_FAILED', status = 409) => {
+            const error = new Error(message);
+            error.code = code;
+            error.status = status;
+            return error;
+        };
+        const listSnapshot = async () => {
+            if (typeof adapter.listWorkerDomains !== 'function' || typeof adapter.listDnsRecords !== 'function') {
+                throw fail('Cloudflare 도메인과 DNS 상태를 확인할 수 없어 해제하지 않았습니다. 앱을 업데이트하고 다시 시도해 주세요.', 'SITE_HOSTING_CUSTOM_DOMAIN_PREFLIGHT_UNAVAILABLE', 503);
+            }
+            const zones = await adapter.listZones(accountId);
+            const zone = zones.find((item) => String(item?.id || '') === zoneId
+                && String(item?.name || '').trim().toLowerCase() === zoneName
+                && String(item?.status || '').toLowerCase() === 'active');
+            if (!zone) throw fail('Cloudflare 도메인 영역이 활성 상태가 아니거나 저장된 정보와 달라 해제하지 않았습니다.');
+
+            const bindings = (await adapter.listWorkerDomains({ accountId, hostname }))
+                .filter((item) => String(item?.hostname || '').trim().toLowerCase() === hostname);
+            if (bindings.length > 1) throw fail('Cloudflare 연결 상태가 예상과 달라 안전하게 해제할 수 없습니다. 연결 상태를 새로고침해 주세요.');
+            if (bindings.length === 1) {
+                const binding = bindings[0];
+                if (String(binding.id || '') !== bindingId
+                    || String(binding.service || '') !== workerName
+                    || String(binding.zone_id || '') !== zoneId) {
+                    throw fail('Cloudflare 연결 정보가 사이트에 저장된 내용과 달라 해제하지 않았습니다. 연결 상태를 확인해 주세요.');
+                }
+            }
+
+            const records = (await adapter.listDnsRecords({ zoneId, hostname }))
+                .filter((record) => String(record?.name || '').trim().replace(/\.$/, '').toLowerCase() === hostname)
+                .map((record) => ({
+                    id: String(record.id || ''), type: String(record.type || '').toUpperCase(),
+                    name: String(record.name || '').trim().replace(/\.$/, '').toLowerCase(),
+                    content: String(record.content || ''), proxied: record.proxied === true, ttl: Number(record.ttl) || 0
+                }))
+                .sort((left, right) => left.id.localeCompare(right.id));
+            return { bindings, records };
+        };
+        const managedDnsRecord = (record) => record.type === 'AAAA' && record.content === '100::' && record.proxied;
+        let before;
+        try {
+            before = await listSnapshot();
+            // Repeat the read immediately before mutation so drift between preflight and
+            // the destructive API call stops the operation instead of acting on stale data.
+            const current = await listSnapshot();
+            if (JSON.stringify(before) !== JSON.stringify(current)) {
+                throw fail('확인 중 Cloudflare 연결 또는 DNS 상태가 바뀌어 해제하지 않았습니다. 다시 시도해 주세요.');
+            }
+            if (before.bindings.length === 0) {
+                if (before.records.some(managedDnsRecord)) {
+                    throw fail('Worker 연결은 이미 없지만 DNS 레코드가 남아 있습니다. DNS는 직접 삭제하지 않았으니 Cloudflare에서 확인해 주세요. 사이트의 연결 정보는 보존했습니다.', 'SITE_HOSTING_CUSTOM_DOMAIN_DNS_REMAINS', 409);
+                }
+                const updated = repository.clearCustomDomainBinding(projectId, siteId, now());
+                return { hostname, custom_domain_binding: updated.custom_domain_binding || null, disconnected: true, already_detached: true };
+            }
+            await adapter.detachWorkerDomain({ accountId, bindingId });
+        } catch (cause) {
+            if (cause?.code?.startsWith?.('SITE_HOSTING_')) throw cause;
+            const error = new Error(Number(cause?.status) === 401 || Number(cause?.status) === 403
+                ? 'Cloudflare 도메인 연결 해제 권한이 없습니다. OAuth Client의 Workers Routes Write와 DNS Read 권한을 확인해 주세요.'
+                : String(cause?.message || 'Cloudflare 도메인 연결을 해제하지 못했습니다.'));
+            error.code = Number(cause?.status) === 401 || Number(cause?.status) === 403
+                ? 'CLOUDFLARE_CUSTOM_DOMAIN_PERMISSION_DENIED'
+                : 'SITE_HOSTING_CUSTOM_DOMAIN_DETACH_FAILED';
+            error.status = Number(cause?.status) || 502;
+            throw error;
+        }
+
+        let after;
+        let verifiedRead = false;
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+            try {
+                after = await listSnapshot();
+                verifiedRead = true;
+                if (after.bindings.length === 0 && !after.records.some(managedDnsRecord)) break;
+            } catch (error) {
+                after = null;
+                verifiedRead = false;
+            }
+            if (attempt < 4) await (deps.sleep || ((duration) => new Promise((resolve) => setTimeout(resolve, duration))))(250);
+        }
+        if (!after || !verifiedRead) {
+            throw fail('Cloudflare 연결 해제 후 상태를 확인하지 못했습니다. 사이트의 연결 정보는 그대로 두었습니다. Cloudflare 상태를 확인한 뒤 다시 시도해 주세요.', 'SITE_HOSTING_CUSTOM_DOMAIN_VERIFY_FAILED', 502);
+        }
+        if (after.bindings.length) {
+            throw fail('Cloudflare가 아직 도메인 연결 해제를 반영하지 않았습니다. 사이트의 연결 정보는 그대로 두었습니다.', 'SITE_HOSTING_CUSTOM_DOMAIN_STILL_ATTACHED', 502);
+        }
+        const currentManagedDns = after.records.filter(managedDnsRecord);
+        if (currentManagedDns.length) {
+            throw fail('Worker 연결은 해제됐지만 DNS 레코드가 남아 있습니다. DNS는 자동으로 삭제하지 않았으니 Cloudflare에서 확인해 주세요. 사이트의 연결 정보는 보존했습니다.', 'SITE_HOSTING_CUSTOM_DOMAIN_DNS_REMAINS', 409);
+        }
+        const previousOtherRecords = before.records.filter((record) => !managedDnsRecord(record));
+        const currentOtherRecords = after.records.filter((record) => !managedDnsRecord(record));
+        if (JSON.stringify(previousOtherRecords) !== JSON.stringify(currentOtherRecords)) {
+            throw fail('Worker 연결은 해제됐지만 DNS 상태가 바뀌어 안전 확인을 완료하지 못했습니다. DNS를 직접 확인해 주세요. 사이트의 연결 정보는 보존했습니다.', 'SITE_HOSTING_CUSTOM_DOMAIN_DNS_CHANGED', 409);
+        }
+        if (typeof repository.clearCustomDomainBinding !== 'function') {
+            throw fail('Cloudflare 연결은 해제됐지만 사이트의 연결 정보를 갱신하지 못했습니다. 앱을 재시작한 뒤 상태를 확인해 주세요.', 'SITE_HOSTING_CUSTOM_DOMAIN_LOCAL_UPDATE_FAILED', 500);
+        }
+        const updated = repository.clearCustomDomainBinding(projectId, siteId, now());
+        return { hostname, custom_domain_binding: updated.custom_domain_binding || null, disconnected: true };
+    }
+
     async function openBuildFolder(projectId, siteId) {
         const site = repository.get(projectId, siteId);
         if (!site) {
@@ -1283,6 +1409,7 @@ function createSiteHostingSiteService(deps = {}) {
         prepareTemplateUpdateTest,
         listCloudflareZones,
         connectCustomDomain,
+        disconnectCustomDomain,
         getScreenshot: (projectId, siteId) => repository.getScreenshot(projectId, siteId),
         openBuildFolder,
         build: (projectId, siteId) => astroRuntime.build(projectId, siteId),

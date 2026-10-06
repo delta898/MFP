@@ -28,6 +28,28 @@ test('site routes expose the local template catalog and create/list sites for a 
     assert.equal(responses.pop().status, 201);
 });
 
+test('site routes pass explicit custom-domain disconnect confirmation to the service', async () => {
+    const calls = [];
+    const responses = [];
+    const handler = createSiteHostingSiteRouteHandler({
+        service: {
+            disconnectCustomDomain: async (projectId, siteId, payload) => {
+                calls.push([projectId, siteId, payload]);
+                return { hostname: 'blog.example.com', disconnected: true };
+            }
+        },
+        sendSuccess: async (_res, _id, data) => responses.push(data),
+        sendError: async (_res, _id, status, code) => responses.push({ status, code })
+    });
+    await handler({
+        method: 'POST', pathname: '/api/v1/site-hosting/projects/project-1/sites/site-1/custom-domain-disconnect',
+        remoteAddress: '127.0.0.1', host: '127.0.0.1:43127', origin: 'http://127.0.0.1:43127',
+        contentType: 'application/json', requestBody: { confirmed: true }
+    });
+    assert.deepEqual(calls, [['project-1', 'site-1', { confirmed: true }]]);
+    assert.deepEqual(responses, [{ hostname: 'blog.example.com', disconnected: true }]);
+});
+
 test('site routes build, preview, and deploy a site', async () => {
     const calls = [];
     const responses = [];

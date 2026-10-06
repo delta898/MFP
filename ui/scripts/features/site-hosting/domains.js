@@ -151,6 +151,36 @@ async function siteHostingConnectCardDomain(siteId, button) {
   }
 }
 
+async function siteHostingDisconnectCustomDomain(siteId, button) {
+  const project = siteHostingSelectedProject;
+  const site = siteHostingSites.find((item) => item.id === siteId);
+  const hostname = String(site?.custom_domain_binding?.hostname || '').trim();
+  if (!project || !site || !hostname || button?.disabled) return;
+  const accepted = await showUiConfirm(
+    `${hostname} 연결을 해제할까요? 기본 주소와 Worker는 유지됩니다. Cloudflare가 자동 정리하지 않는 DNS 레코드가 남으면 직접 확인해야 합니다.`,
+    { title: '도메인 연결 해지', confirmText: '연결 해지', cancelText: '취소' }
+  );
+  if (!accepted) return;
+
+  button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
+  siteHostingSetSiteOperation(siteId, 'running', '도메인 연결을 해제하고 상태를 확인하고 있습니다…');
+  try {
+    await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites/${encodeURIComponent(siteId)}/custom-domain-disconnect`, { confirmed: true });
+    const refreshedSites = await fetchJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites`);
+    siteHostingSites = Array.isArray(refreshedSites) ? refreshedSites : siteHostingSites;
+    siteHostingRenderProjectDetail();
+    siteHostingSetSiteOperation(siteId, 'success', '도메인 연결을 해제했습니다. 기본 주소는 계속 사용할 수 있습니다.');
+  } catch (error) {
+    siteHostingSetSiteOperation(siteId, 'error', error.message || '도메인 연결을 해제하지 못했습니다.');
+  } finally {
+    if (button.isConnected) {
+      button.disabled = false;
+      button.removeAttribute('aria-busy');
+    }
+  }
+}
+
 function siteHostingUpdateCardDomainState(target) {
   const siteId = target.dataset.siteCardZone || target.dataset.siteCardHostname;
   if (!siteId) return;

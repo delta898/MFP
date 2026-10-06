@@ -78,6 +78,9 @@ function createCloudflareSdkAdapter({ client, fetchImpl = globalThis.fetch } = {
     return {
         listWorkerScripts: (accountId) => listItems(client.workers.scripts.list({ account_id: accountId })),
         listZones: (accountId) => listItems(client.zones.list({ account: { id: accountId }, status: 'active' })),
+        listWorkerDomains: ({ accountId, hostname }) => listItems(client.workers.domains.list({ account_id: accountId, hostname })),
+        listDnsRecords: ({ zoneId, hostname }) => listItems(client.dns.records.list({ zone_id: zoneId, name: hostname, per_page: 100 })),
+        detachWorkerDomain: ({ accountId, bindingId }) => client.workers.domains.delete(bindingId, { account_id: accountId }),
         getWorkersSubdomain: async (accountId) => String((await client.workers.subdomains.get({ account_id: accountId }))?.subdomain || '').trim(),
         createWorker: ({ accountId, workerName }) => client.workers.beta.workers.create({
             account_id: accountId,
