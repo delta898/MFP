@@ -5,7 +5,7 @@
 - Branch: `codex/digital-garden-template-poc`
 - Base/parent branch: `codex/static-site-builder-main`
 - Start date: 2026-10-05
-- Status: Local full-vault and Obsidian UI feasibility POC complete; Site creation/settings, custom-domain disconnect, default Worker disconnect, and guarded Site deletion/archive are implemented; hands-on UI review remains
+- Status: Integrated into `codex/static-site-builder-main`; implementation and focused automated verification complete, hands-on UI review remains
 
 ## User need and goal
 
