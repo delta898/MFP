@@ -412,6 +412,10 @@
   min-height: 34px;
 }
 
+.blog-next-form-result-row[hidden] {
+  display: none;
+}
+
 .blog-next-form-result[data-level="success"] {
   color: var(--ui-status-success);
 }

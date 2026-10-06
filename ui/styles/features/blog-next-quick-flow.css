@@ -7,11 +7,20 @@
   width: 100%;
 }
 
+#blog-next-mode-panel-ai {
+  gap: var(--ui-density-page-gap);
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
 .blog-next-workflow-step-head {
   display: flex;
   align-items: center;
   gap: var(--ui-space-3);
-  margin: var(--ui-space-4) 0 var(--ui-space-3);
+  margin: 0;
 }
 
 .blog-next-workflow-step-head[hidden],
@@ -47,7 +56,7 @@
   grid-template-columns: minmax(0, 1fr);
   width: 100%;
   gap: 0;
-  margin-top: var(--ui-space-4);
+  margin-top: 0;
 }
 
 #blog-next-topic-form-home .blog-next-ai-prepare-actions[hidden],
@@ -109,7 +118,7 @@
 }
 
 .blog-next-ai-preview-actions {
-  margin-top: var(--ui-space-3);
+  margin-top: var(--ui-density-page-gap);
 }
 
 .blog-next-core-fields {
@@ -286,8 +295,12 @@
 
 .blog-next-preparation-disclosure > summary {
   min-height: 30px;
-  margin: 0 0 var(--ui-space-3);
+  margin: 0;
   padding: 0;
+}
+
+.blog-next-preparation-disclosure[open] > summary {
+  margin-bottom: var(--ui-density-page-gap);
 }
 
 .blog-next-preparation-disclosure > summary > span:nth-child(2) {
@@ -332,7 +345,11 @@
 }
 
 .blog-next-preparation-disclosure > form {
-  padding: var(--ui-space-3) var(--ui-space-4) var(--ui-space-4);
+  padding: 0 var(--ui-space-4) var(--ui-density-page-gap);
+}
+
+.blog-next-preparation-disclosure .blog-next-ai-action-row {
+  padding-bottom: 0;
 }
 
 .blog-next-preview-disclosure,
@@ -343,12 +360,30 @@
   background: transparent;
 }
 
+/* Stage headers use the parent gap while open content uses one shared inner rhythm. */
 .blog-next-preview-disclosure > summary,
 .blog-next-publish-disclosure > summary {
   display: flex;
   min-height: 30px;
-  margin: var(--ui-space-4) 0 var(--ui-space-3);
+  margin: 0;
   padding: 0;
+}
+
+.blog-next-preview-disclosure[open] > summary,
+.blog-next-publish-disclosure[open] > summary {
+  margin-bottom: var(--ui-density-page-gap);
+}
+
+#blog-next-ai-preview .manuscript-editor-sticky-rail {
+  margin-bottom: var(--ui-density-page-gap);
+}
+
+#blog-next-ai-preview [data-ai-editor-workspace] {
+  padding-bottom: 0;
+}
+
+#blog-next-ai-preview[open] {
+  padding-bottom: var(--ui-density-page-gap);
 }
 
 .blog-next-preview-disclosure > summary::after,
@@ -360,10 +395,6 @@
 .blog-next-preview-disclosure[open] > summary,
 .blog-next-publish-disclosure[open] > summary {
   border-bottom: 0;
-}
-
-#blog-next-ai-publish > summary {
-  margin-top: var(--ui-space-6);
 }
 
 .blog-next-disclosure > summary::after {
@@ -440,7 +471,8 @@
 }
 
 .blog-next-publish-disclosure > [data-blog-next-draft-actions] {
-  margin-top: var(--ui-space-4);
+  margin-top: var(--ui-density-page-gap);
+  padding-bottom: var(--ui-density-page-gap);
 }
 
 .blog-next-disclosure-grid {

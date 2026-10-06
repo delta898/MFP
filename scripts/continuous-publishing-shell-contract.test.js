@@ -40,12 +40,12 @@ test('Blog Beta shell uses its own DOM namespace', () => {
     assert.doesNotMatch(betaScript, /\.blog-tab-btn|\.blog-tab-panel|quick-save-btn|blog-table-body/);
 });
 
-test('Blog Beta quick shell preserves all three existing input concepts', () => {
+test('Blog Beta quick shell removes mode tabs while retaining legacy input paths', () => {
     const betaView = readBlogNextView();
 
-    assert.match(betaView, /data-blog-next-input-mode="ai"[^>]*>AI 생성/);
-    assert.match(betaView, /data-blog-next-input-mode="folder"[^>]*>원고 폴더/);
-    assert.match(betaView, /data-blog-next-input-mode="paste"[^>]*>원고 입력/);
+    assert.doesNotMatch(betaView, /data-blog-next-input-mode|blog-next-mode-tab-/);
+    assert.match(betaView, /id="blog-next-mode-panel-folder"[\s\S]*?data-blog-next-mode-panel="folder" hidden/);
+    assert.match(betaView, /id="blog-next-mode-panel-paste"[\s\S]*?data-blog-next-mode-panel="paste" hidden/);
     assert.doesNotMatch(betaView, /기존 블로그 기능은 그대로 유지됩니다/);
 });
 
@@ -87,7 +87,7 @@ test('Blog Beta quick writing keeps topic capture and adds the canonical AI manu
 
     assert.match(betaView, /id="blog-next-save-topic"[^>]*>글감 보관/);
     assert.match(betaView, /id="blog-next-enqueue-topic"[^>]*>발행 대기열에 추가/);
-    assert.match(betaView, /class="primary" id="blog-next-publish-now"[^>]*>원고 만들기/);
+    assert.match(betaView, /class="primary" id="blog-next-publish-now"[^>]*>[\s\S]*?id="blog-next-publish-now-label">원고 만들기/);
     assert.doesNotMatch(betaView, /id="blog-next-clear-topic"|id="blog-next-clear-undo"/);
     assert.match(betaView, /class="ghost blog-next-cancel-action" id="blog-next-cancel-edit"[^>]*hidden>취소/);
     assert.equal(saveIndex < enqueueIndex && enqueueIndex < publishIndex, true);
@@ -107,8 +107,8 @@ test('completed manuscripts publish directly without entering the continuous que
     assert.match(betaView, /data-blog-next-draft-publish="folder"/);
     assert.match(betaView, /data-blog-next-draft-publish="paste"/);
     assert.doesNotMatch(betaView, /Queue에 저장하지 않습니다/);
-    assert.match(betaView, /data-blog-next-input-mode="folder" title="Markdown 원고와 같은 폴더의 이미지를 함께 불러옵니다."/);
-    assert.match(betaView, /data-blog-next-input-mode="paste" title="완성된 Markdown 원고를 입력하거나 붙여넣어 포스팅합니다."/);
+    assert.match(betaView, /id="blog-next-folder-select"[^>]*>원고 폴더 선택/);
+    assert.match(betaView, /id="blog-next-paste-markdown"/);
     assert.doesNotMatch(betaView, /blog-next-draft-heading|blog-next-stage-badge/);
     assert.match(draftInputs, /\/api\/v1\/blog\/manuscript-drafts\/paste/);
     assert.match(draftInputs, /\/api\/v1\/blog\/manuscript-drafts\/\$\{encodeURIComponent\(state\.draftId\)\}\/publish/);
@@ -262,7 +262,7 @@ test('Stage 10 keeps trend discovery manual and hands one selection to quick wri
     assert.match(trendScript, /data-blog-next-trend-select/);
     assert.match(trendScript, /data-blog-next-trend-save/);
     assert.match(trendScript, /\/api\/v1\/trend-posting\/topics/);
-    assert.match(betaView, /id="blog-next-publish-now"[^>]*>원고 만들기/);
+    assert.match(betaView, /id="blog-next-publish-now"[^>]*>AI로 원고 만들기/);
     assert.match(trendScript, /\/api\/v1\/trend-posting\/meta/);
     assert.match(trendScript, /\/api\/v1\/trend-posting\/keywords/);
     assert.match(trendScript, /activateBlogNextTab\('quick'\)/);

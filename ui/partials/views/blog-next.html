@@ -32,20 +32,8 @@
               <p>AI로 시작하거나 직접 작성한 원고를 미리 확인한 뒤 발행할 수 있습니다.</p>
             </div>
           </div>
-          <div class="blog-next-mode-switch blog-next-segmented-nav blog-next-panel-local-nav ui-segmented-tabs" role="tablist" aria-label="빠른 글 작성 입력 방식">
-            <button class="blog-next-mode-btn ui-segmented-tab active" id="blog-next-mode-tab-ai" type="button" role="tab" aria-selected="true" tabindex="0"
-              aria-controls="blog-next-mode-panel-ai"
-              data-blog-next-input-mode="ai" title="AI로 시작하거나 직접 원고를 작성합니다.">원고 작성</button>
-            <button class="blog-next-mode-btn ui-segmented-tab" id="blog-next-mode-tab-folder" type="button" role="tab" aria-selected="false" tabindex="-1"
-              aria-controls="blog-next-mode-panel-folder"
-              data-blog-next-input-mode="folder" title="Markdown 원고와 같은 폴더의 이미지를 함께 불러옵니다.">원고 폴더</button>
-            <button class="blog-next-mode-btn ui-segmented-tab" id="blog-next-mode-tab-paste" type="button" role="tab" aria-selected="false" tabindex="-1"
-              aria-controls="blog-next-mode-panel-paste"
-              data-blog-next-input-mode="paste" title="완성된 Markdown 원고를 입력하거나 붙여넣어 포스팅합니다.">원고 입력</button>
-          </div>
-
-          <div class="blog-next-mode-panel active" id="blog-next-mode-panel-ai" role="tabpanel"
-            aria-labelledby="blog-next-mode-tab-ai" data-blog-next-mode-panel="ai">
+          <div class="blog-next-mode-panel active" id="blog-next-mode-panel-ai" role="region"
+            aria-label="원고 작성" data-blog-next-mode-panel="ai">
             <div id="blog-next-topic-form-home">
             <details class="blog-next-disclosure blog-next-preparation-disclosure" id="blog-next-ai-preparation">
               <summary><span class="blog-next-preparation-step">1</span><span><strong>원고 준비</strong><small>AI로 원고를 만들거나 글감을 먼저 정리합니다.</small></span></summary>

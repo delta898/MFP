@@ -238,6 +238,11 @@
 }
 
 .manuscript-editor-canvas .ProseMirror { min-height: 370px; outline: none; line-height: 1.75; }
+.manuscript-editor-canvas .ProseMirror > p:first-child:only-child:has(> br.ProseMirror-trailingBreak)::before {
+  color: var(--ui-text-tertiary, var(--ui-text-secondary));
+  content: '원고를 입력하거나 붙여넣으세요.';
+  pointer-events: none;
+}
 .manuscript-editor-canvas .ProseMirror > :first-child { margin-top: 0; }
 .manuscript-editor-canvas .ProseMirror > :last-child { margin-bottom: 0; }
 .manuscript-editor-canvas .ProseMirror p { margin: 0.8em 0; }

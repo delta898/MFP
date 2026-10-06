@@ -424,32 +424,26 @@ async function selectBlogNextTrend(item) {
   if (!item) return;
   const keyword = String(item.keyword || '').trim();
   if (!keyword) return;
-  const currentValues = ['blog-next-subject', 'blog-next-title', 'blog-next-keywords', 'blog-next-instruction', 'blog-next-reference-url']
-    .map(id => String(document.getElementById(id)?.value || '').trim());
-  const sameTrend = blogNextTrendContext?.id === String(item.id || '')
-    && blogNextTrendContext?.trendDate === String(item.latestTrendDate || '');
-  if (!sameTrend && currentValues.some(Boolean)) {
-    const confirmed = await showUiConfirm('작성 중인 글감을 선택한 트렌드 키워드로 바꿀까요?', {
-      title: '글감 교체', confirmText: '교체', cancelText: '취소'
-    });
-    if (!confirmed) return;
-  }
-  activateBlogNextTab('quick');
-  activateBlogNextInputMode('ai');
-  document.getElementById('blog-next-subject').value = keyword;
-  document.getElementById('blog-next-title').value = '';
-  document.getElementById('blog-next-keywords').value = keyword;
-  document.getElementById('blog-next-instruction').value = '';
-  document.getElementById('blog-next-reference-url').value = '';
-  blogNextTrendContext = {
-    id: String(item.id || ''),
-    keyword,
-    trendDate: String(item.latestTrendDate || ''),
-    source: 'naver_trend'
-  };
-  setBlogNextTopicResult('');
-  syncBlogNextTopicClearAction();
-  document.getElementById('blog-next-subject')?.focus();
+  await applyBlogNextWritingIntent({
+    values: {
+      'blog-next-subject': keyword,
+      'blog-next-keywords': keyword
+    },
+    applySourceContext: () => {
+      blogNextTrendContext = {
+        id: String(item.id || ''),
+        keyword,
+        trendDate: String(item.latestTrendDate || ''),
+        source: 'naver_trend'
+      };
+    },
+    confirmation: {
+      message: '작성 중인 글감을 선택한 트렌드 키워드로 바꿀까요?',
+      title: '글감 교체',
+      confirmText: '교체',
+      cancelText: '취소'
+    }
+  });
 }
 
 async function saveBlogNextTrend(item, button) {

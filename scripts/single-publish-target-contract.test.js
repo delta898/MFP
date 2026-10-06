@@ -42,7 +42,7 @@ test('direct AI writing creates a canonical draft before publishing', () => {
   const draftUi = `${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-execution.js')}`;
   const quickQueue = `${read('ui/scripts/features/blog-next/quick-queue.js')}\n${read('ui/scripts/features/blog-next/queue-management.js')}`;
 
-  assert.match(html, /id="blog-next-publish-now"[^>]*>원고 만들기/);
+  assert.match(html, /id="blog-next-publish-now"[^>]*>AI로 원고 만들기/);
   assert.match(html, /data-blog-next-draft-preview="ai"/);
   assert.match(html, /data-blog-next-draft-publish="ai"/);
   assert.match(draftUi, /postJson\('\/api\/v1\/blog\/manuscript-drafts\/ai\/operations', payload\)/);

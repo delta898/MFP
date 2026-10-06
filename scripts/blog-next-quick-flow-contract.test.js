@@ -25,6 +25,9 @@ test('Blog Beta quick flow keeps essential writing inputs visible', () => {
   const css = read('ui/styles/features/blog-next-quick-flow.css');
   const core = topicSettings;
 
+  assert.match(html, /<section class="card form-card blog-next-panel active" id="blog-next-panel-quick"/);
+  assert.doesNotMatch(html, /data-blog-next-input-mode|blog-next-mode-tab-/);
+  assert.match(css, /#blog-next-mode-panel-ai\s*\{[^}]*gap: var\(--ui-density-page-gap\);[^}]*padding: 0;[^}]*border: 0;[^}]*background: transparent;/s);
   assert.match(html, /<details class="blog-next-disclosure blog-next-preparation-disclosure" id="blog-next-ai-preparation">/);
   assert.match(topicSettings, /<summary>[\s\S]*<strong>주제 설정<\/strong>[\s\S]*id="blog-next-topic-settings-summary"/);
   ['blog-next-subject', 'blog-next-keywords', 'blog-next-title', 'blog-next-instruction'].forEach((id) => {
@@ -233,6 +236,91 @@ test('quick flow summaries update from existing controls and new writing owns in
   assert.doesNotMatch(script, /blog-next-clear-topic|blog-next-clear-undo/);
 });
 
+test('shared writing intent leaves work untouched on cancel and resets then applies source values on confirm', async () => {
+  const fields = new Map();
+  [
+    'blog-next-subject', 'blog-next-title', 'blog-next-keywords',
+    'blog-next-instruction', 'blog-next-reference-url', 'blog-next-schedule-date',
+    'blog-next-ai-preparation', 'blog-next-topic-settings-summary'
+  ].forEach((id) => fields.set(id, { value: '', open: false, textContent: '', focused: false, focus() { this.focused = true; } }));
+  fields.get('blog-next-subject').value = '기존 주제';
+  fields.get('blog-next-keywords').value = '기존 키워드';
+  fields.get('blog-next-title').value = '기존 제목';
+  fields.get('blog-next-instruction').value = '기존 경험';
+  const state = { ai: { draftId: 'draft-old', preview: { markdown: '이전 미리보기' }, generating: false, publishing: false, imageWorking: false, promptGenerating: false } };
+  let confirmation = false;
+  let confirmationCount = 0;
+  let activeTab = 'trend-posting';
+  let activeMode = 'ai';
+  let summariesSynced = 0;
+  let draftResets = 0;
+  let resultCleared = false;
+  let clearActionSynced = false;
+  let statusDismissed = false;
+  let executionSynced = false;
+  const clearableIds = [
+    'blog-next-subject', 'blog-next-title', 'blog-next-keywords',
+    'blog-next-instruction', 'blog-next-reference-url', 'blog-next-schedule-date'
+  ];
+  const context = vm.createContext({
+    BLOG_NEXT_CLEARABLE_FIELD_IDS: clearableIds,
+    blogNextDraftState: state,
+    blogNextEditingRowIndex: null,
+    blogNextAiOperationId: '',
+    blogNextTopicSubmitting: false,
+    blogNextRunnerActive: false,
+    blogNextRunnerRequesting: false,
+    document: { getElementById: (id) => fields.get(id) || null },
+    showUiConfirm: async () => { confirmationCount += 1; return confirmation; },
+    captureBlogNextClearableContent: () => ({
+      values: Object.fromEntries(clearableIds.map((id) => [id, fields.get(id)?.value || ''])),
+      trendContext: null
+    }),
+    hasBlogNextClearableContent: (snapshot) => Object.values(snapshot.values).some(Boolean),
+    activateBlogNextTab: (tab) => { activeTab = tab; },
+    activateBlogNextInputMode: (mode) => { activeMode = mode; },
+    clearBlogNextTopicContent: () => { clearableIds.forEach((id) => { fields.get(id).value = ''; }); },
+    resetBlogNextAiDraftUi: () => { draftResets += 1; state.ai.draftId = ''; state.ai.preview = null; },
+    syncBlogNextQuickFlowSummaries: () => { summariesSynced += 1; fields.get('blog-next-topic-settings-summary').textContent = `${fields.get('blog-next-subject').value} · ${fields.get('blog-next-keywords').value}`; },
+    setBlogNextTopicResult: (message) => { resultCleared = message === ''; },
+    syncBlogNextTopicClearAction: () => { clearActionSynced = true; },
+    dismissBlogNextStatusForNewWriting: () => { statusDismissed = true; },
+    syncBlogNextDraftExecutionState: () => { executionSynced = true; }
+  });
+  vm.runInContext(read('ui/scripts/features/blog-next/writing-intent.js'), context);
+  const existingValues = Object.fromEntries(clearableIds.map((id) => [id, fields.get(id).value]));
+  const applyOptions = {
+    values: { 'blog-next-subject': '제주 가을 여행', 'blog-next-keywords': '제주 가을 여행' },
+    applySourceContext: () => { context.blogNextTrendContext = { source: 'naver_trend' }; },
+    confirmation: { message: '트렌드 글감으로 교체할까요?', title: '글감 교체' }
+  };
+
+  assert.equal(await context.applyBlogNextWritingIntent(applyOptions), false);
+  assert.deepEqual(Object.fromEntries(clearableIds.map((id) => [id, fields.get(id).value])), existingValues);
+  assert.equal(activeTab, 'trend-posting');
+  assert.equal(draftResets, 0);
+  assert.equal(fields.get('blog-next-ai-preparation').open, false);
+
+  confirmation = true;
+  assert.equal(await context.applyBlogNextWritingIntent(applyOptions), true);
+  assert.equal(confirmationCount, 2);
+  assert.equal(activeTab, 'quick');
+  assert.equal(activeMode, 'ai');
+  assert.equal(fields.get('blog-next-subject').value, '제주 가을 여행');
+  assert.equal(fields.get('blog-next-keywords').value, '제주 가을 여행');
+  assert.equal(fields.get('blog-next-title').value, '');
+  assert.equal(fields.get('blog-next-instruction').value, '');
+  assert.equal(state.ai.preview, null);
+  assert.equal(state.ai.draftId, '');
+  assert.equal(context.blogNextTrendContext.source, 'naver_trend');
+  assert.equal(fields.get('blog-next-ai-preparation').open, true);
+  assert.equal(fields.get('blog-next-topic-settings-summary').textContent, '제주 가을 여행 · 제주 가을 여행');
+  assert.equal(fields.get('blog-next-subject').focused, true);
+  assert.equal(draftResets, 1);
+  assert.equal(summariesSynced, 1);
+  assert.equal(resultCleared && clearActionSynced && statusDismissed && executionSynced, true);
+});
+
 test('quick writing keeps one editable manuscript workspace available before preparation', () => {
   const html = readBlogNextView();
   const css = read('ui/styles/features/blog-next-quick-flow.css');
@@ -240,8 +328,16 @@ test('quick writing keeps one editable manuscript workspace available before pre
   const queue = `${read('ui/scripts/features/blog-next/quick-queue.js')}\n${read('ui/scripts/features/blog-next/queue-management.js')}`;
   const inputs = read('ui/scripts/features/blog-next/draft-inputs.js');
   const uiScript = read('ui/scripts/features/blog-next/quick-flow-ui.js');
+  const writingIntent = read('ui/scripts/features/blog-next/writing-intent.js');
+  const trendScript = read('ui/scripts/features/blog-next/trend-posting.js');
 
   assert.match(html, /<details class="blog-next-disclosure blog-next-preparation-disclosure" id="blog-next-ai-preparation">[\s\S]*>원고 준비<[\s\S]*data-blog-next-ai-idea-actions/);
+  assert.match(writingIntent, /async function applyBlogNextWritingIntent\([\s\S]*?if \(isBlogNextWritingTransitionBusy\(\)\) return false;[\s\S]*?if \(hasBlogNextWritingWork\(\)\)[\s\S]*?await showUiConfirm\([\s\S]*?if \(!confirmed\) return false;/);
+  assert.match(writingIntent, /clearBlogNextTopicContent\(\);\s*resetBlogNextAiDraftUi\(\);[\s\S]*Object\.entries\(values \|\| \{\}\)/);
+  assert.match(writingIntent, /BLOG_NEXT_WRITING_INTENT_FIELD_IDS\.has\(fieldId\)/);
+  assert.match(writingIntent, /const preparation = document\.getElementById\('blog-next-ai-preparation'\);\s*if \(preparation\) preparation\.open = true;\s*syncBlogNextQuickFlowSummaries\(\);/);
+  assert.match(trendScript, /await applyBlogNextWritingIntent\(\{[\s\S]*?'blog-next-subject': keyword,[\s\S]*?'blog-next-keywords': keyword\s*\}[\s\S]*?blogNextTrendContext = \{/);
+  assert.match(trendScript, /message: '작성 중인 글감을 선택한 트렌드 키워드로 바꿀까요\?'/);
   assert.match(html, /data-blog-next-ai-idea-actions[\s\S]*>글감 활용<[\s\S]*id="blog-next-save-topic"[\s\S]*>글감 보관/);
   assert.match(html, /class="blog-next-ai-action-row blog-next-ai-actions-row"[\s\S]*id="blog-next-save-topic"[\s\S]*id="blog-next-enqueue-topic"[\s\S]*data-blog-next-ai-generate-action[\s\S]*id="blog-next-publish-now"[\s\S]*<span aria-hidden="true">✦<\/span><span id="blog-next-publish-now-label">원고 만들기/);
   assert.match(html, /id="blog-next-enqueue-topic"[\s\S]*>발행 대기열에 추가<\/button>/);
@@ -271,16 +367,25 @@ test('quick writing keeps one editable manuscript workspace available before pre
   assert.match(css, /#blog-next-topic-form-home > \.blog-next-preparation-disclosure\s*\{\s*width: 100%;[\s\S]*?border: 0;/);
   assert.match(css, /\.blog-next-preview-disclosure,\s*\.blog-next-publish-disclosure\s*\{\s*overflow: visible;[\s\S]*?border: 0;/);
   assert.match(css, /\.blog-next-workflow-step-head > span,\s*\.blog-next-preparation-step\s*\{[\s\S]*?width: 30px;[\s\S]*?height: 30px;[\s\S]*?background: var\(--ui-action-primary-soft\);[\s\S]*?color: var\(--ui-action-primary\);/);
-  assert.match(css, /\.blog-next-preview-disclosure > summary,\s*\.blog-next-publish-disclosure > summary\s*\{[\s\S]*?margin: var\(--ui-space-4\) 0 var\(--ui-space-3\);/);
-  assert.match(css, /#blog-next-ai-publish > summary\s*\{\s*margin-top: var\(--ui-space-6\);/);
+  assert.match(css, /\.blog-next-workflow-step-head\s*\{[\s\S]*?margin: 0;/);
+  assert.match(css, /\.blog-next-preview-disclosure > summary,\s*\.blog-next-publish-disclosure > summary\s*\{[\s\S]*?margin: 0;/);
+  assert.match(css, /\.blog-next-preview-disclosure\[open\] > summary,[\s\S]*\.blog-next-publish-disclosure\[open\] > summary\s*\{\s*margin-bottom: var\(--ui-density-page-gap\);/);
+  assert.doesNotMatch(css, /#blog-next-ai-publish > summary\s*\{/);
+  assert.match(css, /#blog-next-topic-form-home \.blog-next-ai-prepare-actions\s*\{[\s\S]*?margin-top: 0;/);
+  assert.match(css, /\.blog-next-preparation-disclosure \.blog-next-ai-action-row\s*\{\s*padding-bottom: 0;/);
+  assert.match(css, /\.blog-next-preparation-disclosure > form\s*\{\s*padding: 0 var\(--ui-space-4\) var\(--ui-density-page-gap\);/);
+  assert.match(css, /#blog-next-ai-preview \.manuscript-editor-sticky-rail\s*\{\s*margin-bottom: var\(--ui-density-page-gap\);/);
+  assert.match(css, /\.blog-next-ai-preview-actions\s*\{\s*margin-top: var\(--ui-density-page-gap\);/);
+  assert.match(css, /#blog-next-ai-preview\[open\]\s*\{\s*padding-bottom: var\(--ui-density-page-gap\);/);
+  assert.match(css, /#blog-next-ai-preview \[data-ai-editor-workspace\]\s*\{\s*padding-bottom: 0;/);
   assert.match(css, /\.blog-next-ai-generate-action \.primary\s*\{\s*display: inline-flex;\s*align-items: center;\s*justify-content: center;\s*gap: 8px;/);
   assert.match(css, /\.blog-next-ai-assist\s*\{[\s\S]*?gap: 8px;/);
-  assert.match(css, /\.blog-next-publish-disclosure > \[data-blog-next-draft-actions\]\s*\{\s*margin-top: var\(--ui-space-4\);/);
+  assert.match(css, /\.blog-next-publish-disclosure > \[data-blog-next-draft-actions\]\s*\{\s*margin-top: var\(--ui-density-page-gap\);\s*padding-bottom: var\(--ui-density-page-gap\);/);
   assert.match(css, /#blog-next-topic-form-home \.blog-next-preparation-disclosure\[open\] > summary,[\s\S]*summary:hover,[\s\S]*summary:active\s*\{\s*background: transparent;/);
   assert.match(css, /#blog-next-topic-form-home \.blog-next-preparation-disclosure\[open\] > summary\s*\{\s*border-bottom: 0;/);
   assert.match(css, /\.blog-next-disclosure\.blog-next-preview-disclosure\[open\] > summary,[\s\S]*\.blog-next-disclosure\.blog-next-publish-disclosure\[open\] > summary\s*\{\s*background: transparent;/);
   assert.ok(css.indexOf('.blog-next-disclosure[open] > summary {') < css.indexOf('.blog-next-disclosure.blog-next-preview-disclosure > summary,'));
-  assert.match(css, /\.blog-next-preparation-disclosure > form\s*\{\s*padding: var\(--ui-space-3\) var\(--ui-space-4\) var\(--ui-space-4\);/);
+  assert.match(css, /\.blog-next-preparation-disclosure > form\s*\{\s*padding: 0 var\(--ui-space-4\) var\(--ui-density-page-gap\);/);
   assert.match(inputs, /const hasSource = type === 'ai'[\s\S]*?blog-next-ai-markdown[\s\S]*?value\?\.trim\(\)/);
   assert.match(inputs, /postJson\('\/api\/v1\/blog\/manuscript-drafts\/paste',[\s\S]*?markdownText: aiMarkdownAtRequest/);
   assert.match(queue, /발행 계획을 확인한 뒤 발행 대기열에 추가해 주세요/);

@@ -174,19 +174,17 @@ test('manuscript drafts keep idle results quiet and summarize repeated image war
   assert.match(sharedCss, /\.blog-next-draft-validation\[hidden\],[\s\S]*?\.blog-next-draft-preview\[hidden\]\s*\{\s*display: none;/);
 });
 
-test('quick writing modes expose complete tabs and keyboard navigation', () => {
+test('unified writer hides legacy mode tabs while retaining folder and paste implementations', () => {
   const html = readBlogNextView();
   const script = read('ui/scripts/features/blog-next/shell.js');
-  const tabNavigation = read('ui/scripts/foundation/tab-navigation.js');
 
-  for (const type of ['ai', 'folder', 'paste']) {
-    assert.match(html, new RegExp(`id="blog-next-mode-tab-${type}"[\\s\\S]*?role="tab"[\\s\\S]*?aria-controls="blog-next-mode-panel-${type}"`));
-    assert.match(html, new RegExp(`id="blog-next-mode-panel-${type}" role="tabpanel"[\\s\\S]*?aria-labelledby="blog-next-mode-tab-${type}"`));
+  assert.doesNotMatch(html, /data-blog-next-input-mode|blog-next-mode-tab-/);
+  assert.match(html, /id="blog-next-mode-panel-ai" role="region"[\s\S]*?data-blog-next-mode-panel="ai"/);
+  for (const type of ['folder', 'paste']) {
+    assert.match(html, new RegExp(`id="blog-next-mode-panel-${type}" role="region"[\\s\\S]*?data-blog-next-mode-panel="${type}" hidden`));
   }
-  assert.match(script, /button\.tabIndex = active \? 0 : -1/);
-  assert.match(script, /handleUiTabNavigationKeydown/);
-  assert.match(tabNavigation, /function handleUiTabNavigationKeydown/);
-  assert.match(tabNavigation, /ArrowLeft.*ArrowRight.*Home.*End/s);
+  assert.match(script, /function activateBlogNextInputMode\(modeName\)/);
+  assert.match(script, /data-blog-next-mode-panel/);
 });
 
 test('manuscript settings preserve dependent values while matching provider and schedule state', () => {
