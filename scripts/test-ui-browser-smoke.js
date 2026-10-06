@@ -2678,7 +2678,15 @@ async function run() {
                 await page.getByText('설정 변경 사이트', { exact: true }).waitFor();
                 await page.evaluate(() => {
                     const site = siteHostingSites.find((item) => item.id === 'site-smoke-1');
+                    const operationKey = `${site.project_id}:${site.id}`;
+                    site.custom_domain_binding = null;
+                    siteHostingOperationStates.set(operationKey, { phase: 'running', message: '사이트를 Cloudflare에 배포 중…' });
+                    siteHostingRenderProjectDetail();
                     site.deployment = { worker_name: 'bg-site-smoke-1', url: 'https://bg-site-smoke-1.example.workers.dev/', worker_account_id: 'a'.repeat(32), worker_created_on: '2026-10-02T00:00:00Z', managed_by_app: true };
+                    siteHostingRenderProjectDetail();
+                    window.__workerDisconnectDisabledDuringDeploy = document.querySelector('[data-site-worker-disconnect="site-smoke-1"]')?.disabled;
+                    siteHostingSetSiteOperation(site.id, 'success', 'Cloudflare 배포를 마쳤습니다.');
+                    window.__workerDisconnectEnabledAfterDeploy = document.querySelector('[data-site-worker-disconnect="site-smoke-1"]')?.disabled === false;
                     site.custom_domain_binding = { hostname: 'blog.example.com' };
                     siteHostingRenderProjectDetail();
                     window.__domainDisconnectConfirmCalls = [];
@@ -2687,6 +2695,10 @@ async function run() {
                         return true;
                     };
                 });
+                assert.equal(await page.evaluate(() => window.__workerDisconnectDisabledDuringDeploy), true,
+                    'Worker disconnect must remain disabled while deployment is running');
+                assert.equal(await page.evaluate(() => window.__workerDisconnectEnabledAfterDeploy), true,
+                    'newly created app-owned Worker must become disconnectable after deployment succeeds');
                 const addressTools = page.locator('[data-site-address-tools]:has([data-site-domain-disconnect="site-smoke-1"])');
                 const addressToolsToggle = addressTools.locator('[data-site-address-tools-toggle]');
                 const domainAddressRow = page.locator('.site-hosting-address-row').nth(1);
