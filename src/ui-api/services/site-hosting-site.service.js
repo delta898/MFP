@@ -607,35 +607,7 @@ function createSiteHostingSiteService(deps = {}) {
     }
 
     async function list(projectId) {
-        let sites = repository.list(projectId);
-        if (projectId === 'default' && !sites.some((site) => site.id === 'default')) {
-            try {
-                const availableTemplates = await templates.list?.() || [];
-                const defaultTemplateId = ['personal-post-list', 'astro-homepage', 'minimal-homepage']
-                    .find((templateId) => templates.get(templateId)) || availableTemplates[0]?.id;
-                if (defaultTemplateId) {
-                    await templates.prepare?.(defaultTemplateId);
-                    const defaultTemplate = templates.get(defaultTemplateId);
-                    let customization = {};
-            if (isSupportedSiteHostingContractVersion(defaultTemplate?.resource?.spec_version)) {
-                        const seedSite = defaultTemplate.resource.family_seed_site || {};
-                        const navigation = (seedSite.navigation || []).map((item) => ({ label: item.label, href: item.path }));
-                        const postType = (defaultTemplate.resource.family?.content_types || []).find((type) => type.kind === 'post');
-                        const postMenuIndex = postType?.listing_route
-                            ? navigation.findIndex((item) => item.href === postType.listing_route)
-                            : -1;
-                        customization = normalizeSiteCustomization(defaultTemplate, {
-                            navigation,
-                            ...(postMenuIndex >= 0 ? { publishing: { post_list_navigation_index: postMenuIndex } } : {})
-                        });
-                    }
-                    createSite('default', '나의 첫 사이트', defaultTemplateId, 'default', customization);
-                }
-            } catch (error) {
-                if (error?.code !== 'SITE_HOSTING_SITE_ALREADY_EXISTS' || !repository.get('default', 'default')) throw error;
-            }
-            sites = repository.list(projectId);
-        }
+        const sites = repository.list(projectId);
         return sites.map((site) => {
             const { id, project_id, name, template, template_name, template_status, template_update_available, available_template_version, hostname, domain, deployment, custom_domain_binding, screenshot, last_build, created_at, updated_at } = site;
             const root = knowledgeCollectionRoot(site);

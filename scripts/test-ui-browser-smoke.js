@@ -2600,6 +2600,9 @@ async function run() {
                 // the detail view intentionally presents the site's workspace.
                 await page.getByRole('heading', { name: '내 사이트' }).waitFor();
                 await page.locator('.site-hosting-add-site-card[data-site-create]').waitFor();
+                await page.getByText('아직 사이트가 없습니다. 사이트 추가를 눌러 첫 사이트를 만들어 주세요.').waitFor();
+                assert.equal(requests.filter((request) => request.method === 'POST' && request.pathname.endsWith('/sites')).length, 0,
+                    'opening an empty project must not create a Site automatically');
                 await page.locator('.site-hosting-add-site-card[data-site-create]').click();
                 await page.locator('[data-site-template-select]').first().waitFor();
                 assert.equal(await page.locator('#site-search-indexing').isChecked(), true);

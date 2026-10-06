@@ -268,55 +268,28 @@ test('site creation accepts editable internal menu paths and binds publishing to
     }
 });
 
-test('site service materializes the default starter site only for the default project', async () => {
-    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-default-site-'));
-    try {
-        const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
-        projectRepository.create({ id: 'default', name: '내 사이트' });
-        projectRepository.create({ id: 'other-project', name: '다른 프로젝트' });
-        const service = createSiteHostingSiteService({ fs, path, workspaceDir, templates: localTemplates() });
-
-        assert.deepEqual((await service.list('default')).map(({ id, name, template_name }) => ({ id, name, template_name })), [
-            { id: 'default', name: '나의 첫 사이트', template_name: '간단한 홈페이지' }
-        ]);
-        assert.deepEqual((await service.list('default')).map(({ id }) => id), ['default']);
-        assert.deepEqual(await service.list('other-project'), []);
-    } finally {
-        fs.rmSync(workspaceDir, { recursive: true, force: true });
-    }
-});
-
-test('site service seeds the default project from the first active family template when the Amade catalog has no legacy starter', async () => {
-    const template = {
-        id: 'personal-post-list', version: '0.1.0', name: '글 목록형', family_id: 'personal-homepage',
-        resource: { spec_version: SITE_HOSTING_CONTRACT_VERSION, family: { content_types: [{ kind: 'post', listing_route: '/blog/', detail_route: '/blog/{slug}/' }] }, template: { status: 'active' }, family_seed_site: { navigation: [{ label: '글', path: '/blog/' }] } }
-    };
-    const created = [];
-    const fakeTemplates = {
-        list: async () => [{ id: template.id }],
-        get: (id) => id === template.id ? template : null,
-        prepare: async () => template
+test('site service leaves empty projects empty instead of materializing a starter Site', async () => {
+    let templateListCalls = 0;
+    let createCalls = 0;
+    const templates = {
+        list: async () => { templateListCalls += 1; return [{ id: 'personal-post-list' }]; },
+        get: () => ({ id: 'personal-post-list' }),
+        prepare: async () => { throw new Error('empty project listing must not prepare templates'); }
     };
     const service = createSiteHostingSiteService({
-        projectRepository: { get: (id) => id === 'default' ? { id } : null },
-        templates: fakeTemplates,
+        projectRepository: { get: (id) => ({ id }) },
+        templates,
         repository: {
             list: () => [],
-            create: (_projectId, site) => {
-                created.push(site);
-                return { ...site, project_id: 'default', template: { id: template.id, version: template.version } };
-            },
+            create: () => { createCalls += 1; throw new Error('empty project listing must not create a Site'); },
             get: () => null
-        },
-        createId: () => 'default'
+        }
     });
 
-    await service.list('default');
-    assert.equal(created[0].template_id, 'personal-post-list');
-    assert.deepEqual(created[0].customization.navigation, [{ label: '글', href: '/blog/' }]);
-    assert.deepEqual(created[0].customization.publishing, {
-        listing_route: '/blog/', detail_route: '/blog/{slug}/', post_list_navigation_index: 0
-    });
+    assert.deepEqual(await service.list('default'), []);
+    assert.deepEqual(await service.list('other-project'), []);
+    assert.equal(templateListCalls, 0);
+    assert.equal(createCalls, 0);
 });
 
 test('site creation requires and stores a declared frontmatter publication match without treating an empty rule as all', async () => {

@@ -102,6 +102,11 @@ test('site cards own operation messages and template checks refresh on entry and
     assert.match(domains, /기본 주소와 Worker는 유지됩니다/);
 });
 
+test('empty Site project explains that the user can create the first Site', () => {
+    const runtime = fs.readFileSync(path.join(root, 'ui/scripts/features/site-hosting/project-management.js'), 'utf8');
+    assert.match(runtime, /siteCount === 0 \? '<p>아직 사이트가 없습니다\. 사이트 추가를 눌러 첫 사이트를 만들어 주세요\.<\/p>'/);
+});
+
 test('site creation footer places guarded cancel on the left and preview/create on the right', () => {
     const cancel = html.indexOf('data-site-create-cancel');
     const preview = html.indexOf('data-site-create-preview');

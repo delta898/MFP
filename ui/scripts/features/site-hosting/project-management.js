@@ -377,7 +377,7 @@ function siteHostingProjectPanel(project, tab) {
   }
   return `<section class="site-hosting-panel" aria-labelledby="site-hosting-sites-title">
     <div class="site-hosting-section-heading">
-      <div><p id="site-hosting-sites-title">${siteCount}개</p></div>
+      <div><p id="site-hosting-sites-title">${siteCount}개</p>${siteCount === 0 ? '<p>아직 사이트가 없습니다. 사이트 추가를 눌러 첫 사이트를 만들어 주세요.</p>' : ''}</div>
     </div>
     ${siteHostingSiteLoadState === 'loading' ? `<section class="ui-empty-state" aria-label="사이트를 불러오는 중"><span class="ui-spinner ui-spinner-accent ui-spinner-md" aria-hidden="true"></span><span>사이트를 불러오는 중입니다.</span></section>` : ''}
     ${siteHostingSiteLoadState === 'error' ? `<section class="ui-empty-state" data-state="error"><h3>사이트를 불러오지 못했습니다.</h3><button class="secondary" type="button" data-site-retry>다시 시도</button></section>` : ''}
