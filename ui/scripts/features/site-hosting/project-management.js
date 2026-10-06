@@ -805,6 +805,11 @@ function initSiteHostingProjects() {
       if (event.target.closest('[data-site-retry]') && siteHostingSelectedProject) return void siteHostingLoadSites(siteHostingSelectedProject.id);
       if (event.target.closest('[data-site-project-retry]')) return void siteHostingLoadProjects();
     });
+    document.addEventListener('click', (event) => {
+      content.querySelectorAll('.site-hosting-site-more[open]').forEach((menu) => {
+        if (!menu.contains(event.target)) menu.removeAttribute('open');
+      });
+    });
     content.addEventListener('input', (event) => {
       if (event.target.matches('#site-settings-hostname, #site-settings-name')) siteHostingUpdateDomainPreview(event.target.form);
       if (event.target.matches('[data-site-card-hostname]')) siteHostingUpdateCardDomainState(event.target);

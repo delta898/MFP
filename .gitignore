@@ -71,3 +71,5 @@ trend_structure_dump.html
 tmp/test_pytrends.py
 tmp/test_pytrends_related.py
 tmp/test_pytrends_robust.py
+test_cf.sh
+vault_example/

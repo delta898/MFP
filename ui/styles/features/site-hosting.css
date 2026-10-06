@@ -522,9 +522,10 @@
   align-items: center;
   gap: var(--ui-space-1);
   min-height: 2.25rem;
-  padding: var(--ui-space-1) var(--ui-space-2);
-  border: 1px solid var(--ui-border-default);
-  border-radius: var(--ui-radius-sm);
+  padding: var(--ui-space-1);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--ui-text-secondary);
   cursor: pointer;
   font-size: var(--ui-type-caption-size);
@@ -533,8 +534,17 @@
 }
 
 .site-hosting-site-more > summary:hover {
-  background: var(--ui-surface-hover);
   color: var(--ui-text-primary);
+}
+
+.site-hosting-site-more > summary span {
+  display: inline-block;
+  transform: rotate(180deg);
+  transition: transform 120ms ease;
+}
+
+.site-hosting-site-more[open] > summary span {
+  transform: rotate(0deg);
 }
 
 .site-hosting-site-more > summary::-webkit-details-marker {
