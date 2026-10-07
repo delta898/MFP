@@ -71,10 +71,17 @@ function syncBlogNextQuickFlowSummaries() {
     topicSummary.textContent = topicParts.join(' · ') || '주제·키워드·제목과 담고 싶은 경험·방향을 정리합니다.';
   }
   if (publishSummary) {
+    const siteOption = document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0];
+    const siteSelected = Boolean(siteOption?.dataset.projectId && siteOption?.dataset.siteId && !siteOption.disabled);
+    const targetLabel = platforms.includes('site-hosting')
+      ? siteSelected ? siteOption.textContent.trim() : '사이트 선택 필요'
+      : formatBlogPlatformList(platforms, ' + ') || '발행 대상 없음';
     const summaryParts = [
-      formatBlogPlatformList(platforms, ' + ') || '발행 대상 없음',
-      readBlogNextSelectedText('blog-next-post-status', '즉시 발행')
+      targetLabel
     ];
+    if (!platforms.includes('site-hosting') || siteSelected) {
+      summaryParts.push(readBlogNextSelectedText('blog-next-post-status', '즉시 발행'));
+    }
     if (document.getElementById('blog-next-target-naver')?.checked) {
       summaryParts.push(document.getElementById('blog-next-runner-headless')?.checked === true ? '보이지 않게 실행' : '브라우저 표시');
     }
@@ -120,16 +127,21 @@ function readBlogNextTopicActionValidity() {
   const hasTarget = document.getElementById('blog-next-target-naver')?.checked === true
     || document.getElementById('blog-next-target-wordpress')?.checked === true
     || document.getElementById('blog-next-target-site-hosting')?.checked === true;
+  const siteHostingSelected = document.getElementById('blog-next-target-site-hosting')?.checked === true;
+  const siteOption = document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0];
+  const siteTargetReady = !siteHostingSelected
+    || Boolean(siteOption?.dataset.projectId && siteOption?.dataset.siteId && !siteOption.disabled);
   const scheduled = document.getElementById('blog-next-post-status')?.value === 'schedule';
   const scheduleValid = !scheduled || Boolean(document.getElementById('blog-next-schedule-date')?.value);
   return {
     ideaValid: Boolean(subject) && referencesValid,
-    readyValid: Boolean(subject) && referencesValid && hasTarget && scheduleValid
+    siteTargetReady,
+    readyValid: Boolean(subject) && referencesValid && hasTarget && siteTargetReady && scheduleValid
   };
 }
 
 function syncBlogNextTopicActionAvailability() {
-  const { ideaValid, readyValid } = readBlogNextTopicActionValidity();
+  const { ideaValid, readyValid, siteTargetReady } = readBlogNextTopicActionValidity();
   const aiDraftGenerating = typeof blogNextDraftState !== 'undefined' && blogNextDraftState.ai?.generating === true;
   const busy = (typeof blogNextTopicSubmitting !== 'undefined' && blogNextTopicSubmitting) || aiDraftGenerating;
   const editing = typeof blogNextEditingRowIndex !== 'undefined' && blogNextEditingRowIndex !== null;
@@ -154,11 +166,18 @@ function syncBlogNextTopicActionAvailability() {
   const sheetBlocked = typeof isUiCapabilityUnavailable === 'function'
     && isUiCapabilityUnavailable('content.sheet');
   if (save) save.disabled = busy || sheetBlocked || !editingChanged || (editingReady ? !readyValid : !ideaValid);
-  if (enqueue) enqueue.disabled = busy || sheetBlocked || !readyValid;
+  if (enqueue) {
+    enqueue.disabled = busy || sheetBlocked || !readyValid;
+    if (document.getElementById('blog-next-target-site-hosting')?.checked && !siteTargetReady) {
+      enqueue.title = '발행 대기열에 추가하려면 사이트를 선택해 주세요.';
+    } else enqueue.removeAttribute('title');
+  }
   if (publish) {
-    publish.disabled = busy || runnerActive || (editing && !editingReady) || !ideaValid || aiBlocked || imageAiBlocked;
+    const siteTargetMissing = document.getElementById('blog-next-target-site-hosting')?.checked === true && !siteTargetReady;
+    publish.disabled = busy || runnerActive || (editing && !editingReady) || !ideaValid || siteTargetMissing || aiBlocked || imageAiBlocked;
     if (aiBlocked || imageAiBlocked) publish.title = aiBlocked
       ? 'AI 글쓰기 모델 설정이 필요합니다.' : 'AI 이미지 모델 설정이 필요합니다.';
+    else if (siteTargetMissing) publish.title = '발행하려면 사이트를 선택해 주세요.';
     else publish.removeAttribute('title');
   }
   if (regenerate) regenerate.disabled = busy || runnerActive || !ideaValid || aiBlocked || imageAiBlocked;

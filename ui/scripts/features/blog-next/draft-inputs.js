@@ -244,10 +244,18 @@ function syncBlogNextDraftSettingsSummary(type) {
   const statusLabel = settings.postStatus === 'draft' ? '임시 저장'
     : settings.postStatus === 'schedule' ? '예약 발행' : '즉시 발행';
   let targetLabel = formatBlogPlatformList(settings.targets, ' + ') || '발행 대상 없음';
-  if (settings.targets.includes('site-hosting') && settings.siteId) {
-    targetLabel = document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0]?.textContent?.trim() || targetLabel;
+  let siteSelected = true;
+  if (settings.targets.includes('site-hosting')) {
+    const siteOption = document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0];
+    siteSelected = Boolean(settings.siteProjectId && settings.siteId && siteOption && !siteOption.disabled);
+    if (siteSelected) {
+      targetLabel = siteOption.textContent.trim();
+    } else {
+      targetLabel = '사이트 선택 필요';
+    }
   }
-  const parts = [targetLabel, statusLabel];
+  const parts = [targetLabel];
+  if (siteSelected) parts.push(statusLabel);
   if (settings.targets.includes('naver')) {
     parts.push(settings.headless ? '보이지 않게 실행' : '브라우저 표시');
   }
