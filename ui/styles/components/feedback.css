@@ -371,6 +371,54 @@ button.ui-loading-action.is-loading {
   animation: ui-progress-slide 1.35s ease-in-out infinite;
 }
 
+.ui-progress-surface {
+  position: relative;
+}
+
+.ui-progress-layer {
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--ui-space-6);
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--ui-surface) 82%, transparent);
+  color: var(--ui-text-primary);
+  cursor: progress;
+  backdrop-filter: blur(2px);
+}
+
+.ui-progress-layer[data-ui-progress-type="region-indeterminate"] {
+  z-index: 10;
+  background: color-mix(in srgb, var(--ui-surface) 90%, transparent);
+}
+
+.ui-progress-layer[data-ui-progress-type="region-indeterminate"] .ui-progress-layer-content {
+  width: min(280px, calc(100% - var(--ui-space-6)));
+}
+
+.ui-blocking-progress:focus-visible {
+  box-shadow: inset var(--ui-focus-ring);
+}
+
+.ui-progress-layer-content {
+  display: grid;
+  justify-items: center;
+  gap: var(--ui-space-3);
+  width: min(320px, 100%);
+  text-align: center;
+}
+
+.ui-progress-layer-message {
+  font-size: var(--ui-type-body-size);
+  font-weight: var(--ui-weight-semibold);
+}
+
+.ui-progress-layer-content .ui-progress-indeterminate {
+  width: 100%;
+}
+
 @keyframes ui-progress-slide {
   0% { transform: translateX(0); }
   100% { transform: translateX(385%); }
@@ -385,5 +433,11 @@ button.ui-loading-action.is-loading {
 
   .ui-progress-indeterminate > span {
     animation: none;
+  }
+
+  .ui-progress-layer .ui-progress-indeterminate > span {
+    left: 0;
+    width: 100%;
+    background: repeating-linear-gradient(90deg, var(--ui-action-primary) 0 8px, var(--ui-action-primary-soft) 8px 16px);
   }
 }

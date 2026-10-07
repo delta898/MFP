@@ -123,6 +123,12 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
   보관과 발행처럼 결과가 다르면 활성화 조건을 분리한다.
 - 사용자 입력뿐 아니라 추천·불러오기·되돌리기 같은 프로그램 입력도 동일한 availability 동기화를 거친다.
 
+## Progress states
+
+- 진행 표시 타입, 선택 기준, API 사용법과 cleanup 계약은 [UI Progress Feedback](ui-progress-feedback.md)을 따른다. 화면별 spinner나 overlay를 만들지 않는다.
+- 완료 비율과 단계별 진행을 실제로 알 수 있으면 determinate progress를 설계하고, 완료 시점만 알 수 있으면 퍼센트를 추정하지 않고 indeterminate progress를 사용한다.
+- 공통 progress layer는 메시지와 `aria-busy`를 함께 제공하며, reduced-motion 설정을 존중한다. 색상이나 애니메이션만으로 진행 상태를 전달하지 않는다.
+
 ## AI Assist actions
 
 - 글감·키워드·제목처럼 현재 입력을 보조하는 AI action은 공통 `AI Assist` 표현을 사용한다.

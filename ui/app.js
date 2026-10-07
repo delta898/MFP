@@ -3,6 +3,7 @@
 // @include scripts/shared/grid-tail-spacers.js
 // @include scripts/shared/ai-action-button.js
 // @include scripts/foundation/ui-feedback-state.js
+// @include scripts/foundation/ui-progress.js
 // @include scripts/features/shell/setup-banner.js
 // @include scripts/features/shell/sidebar.js
 // @include scripts/features/shell/supporting-surfaces.js

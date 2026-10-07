@@ -62,6 +62,7 @@
 - `architecture/design-style-quiet-sage-studio.md`
 - `architecture/design-style-retro-terminal.md`
 - `architecture/design-component-patterns.md`
+- `architecture/ui-progress-feedback.md`
 - `architecture/settings-information-architecture.md`
 - `development-environment-guide.md`
 - `development-journal-topics.md`

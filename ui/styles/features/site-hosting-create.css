@@ -36,10 +36,6 @@
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
 }
 
-#site-create-dialog.is-site-settings-mode .site-create-footer-template-spacer {
-  display: none;
-}
-
 #site-create-dialog.is-site-settings-mode .site-template-picker {
   padding-right: var(--ui-space-4);
 }
@@ -96,10 +92,6 @@
     min-height: 180px;
     max-height: 32vh;
   }
-}
-
-#site-create-dialog.is-site-settings-mode .site-create-footer-settings {
-  grid-column: 1 / -1;
 }
 
 .site-template-picker,
@@ -578,8 +570,7 @@
   display: none;
 }
 
-.site-create-preview-empty,
-.site-create-preview-busy {
+.site-create-preview-empty {
   position: absolute;
   inset: 0;
   display: grid;
@@ -591,14 +582,8 @@
   font-size: var(--ui-type-caption-size);
 }
 
-.site-create-preview-empty[hidden],
-.site-create-preview-busy[hidden] {
+.site-create-preview-empty[hidden] {
   display: none;
-}
-
-.site-create-preview-busy {
-  z-index: 1;
-  background: color-mix(in srgb, var(--ui-surface) 88%, transparent);
 }
 
 .site-template-details {
@@ -717,6 +702,43 @@
   border: 1px solid var(--ui-border-default);
   border-radius: var(--ui-radius-sm);
   background: var(--ui-surface);
+}
+
+.site-navigation-row.is-confirming-remove {
+  grid-template-columns: 2rem minmax(0, 1fr);
+  border-color: var(--ui-status-warning, var(--ui-border-default));
+  background: var(--ui-surface-muted);
+}
+
+.site-navigation-row.is-confirming-remove > :not(.site-navigation-number):not(.site-navigation-remove-confirmation) {
+  display: none;
+}
+
+.site-navigation-remove-confirmation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-3);
+  min-width: 0;
+  grid-column: 2 / -1;
+  color: var(--ui-text-primary);
+  font-size: var(--ui-type-caption-size);
+}
+
+.site-navigation-remove-confirmation[hidden] {
+  display: none;
+}
+
+.site-navigation-remove-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--ui-space-2);
+}
+
+.site-navigation-remove-actions button {
+  min-height: 34px;
+  padding: var(--ui-space-1) var(--ui-space-3);
 }
 
 .site-navigation-number {

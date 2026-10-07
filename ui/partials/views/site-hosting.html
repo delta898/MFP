@@ -19,10 +19,7 @@
         </div>
 
         <div id="site-hosting-content" class="site-hosting-content card" role="tabpanel" aria-labelledby="site-hosting-tab-sites" aria-live="polite">
-          <section class="ui-empty-state" aria-label="프로젝트를 불러오는 중">
-            <span class="ui-spinner ui-spinner-accent ui-spinner-md" aria-hidden="true"></span>
-            <span>프로젝트를 불러오는 중입니다.</span>
-          </section>
+          <div class="site-hosting-project-load-placeholder" aria-hidden="true"></div>
         </div>
 
         <dialog id="site-project-create-dialog" class="site-project-dialog ui-transaction-dialog" aria-labelledby="site-project-create-title">
@@ -187,7 +184,6 @@
                 <img id="site-create-template-preview" alt="선택한 템플릿 대표 화면">
                 <iframe id="site-create-preview-frame" title="사이트 미리보기" sandbox="allow-scripts allow-same-origin" hidden></iframe>
                 <div id="site-create-preview-empty" class="site-create-preview-empty">템플릿을 선택하고 미리보기를 눌러<br>설정한 사이트를 확인하세요.</div>
-                <div id="site-create-preview-busy" class="site-create-preview-busy" hidden><span class="ui-spinner" aria-hidden="true"></span><strong>미리보기를 만드는 중…</strong><span>사이트를 빌드하고 있습니다.</span></div>
               </div>
               <section id="site-template-details" class="site-template-details" aria-label="템플릿 정보"></section>
             </div>

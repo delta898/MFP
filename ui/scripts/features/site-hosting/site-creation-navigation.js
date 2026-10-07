@@ -23,6 +23,10 @@ function siteHostingCreateMenuRow(item = {}, index = 0, options = {}) {
     <label class="site-navigation-cell"><span class="site-navigation-mobile-label">주소</span><input type="text" maxlength="2048" data-site-menu-href data-has-default="${options.isDefault ? 'true' : 'false'}" data-default-href="${siteHostingEscapeHtml(href)}" placeholder="${siteHostingEscapeHtml(href || '/about/')}" aria-label="메뉴 ${rowNumber} 주소"></label>
     <label class="site-post-list-choice${options.postListRoute ? '' : ' is-empty'}">${options.postListRoute ? `<input type="radio" name="site-post-list-menu" value="${index}"${options.selected ? ' checked' : ''}><span class="site-navigation-mobile-label">글 목록</span><span>글 목록으로 연결</span>` : ''}</label>
     <button class="secondary site-navigation-remove" type="button" data-site-menu-remove aria-label="${rowNumber}번 메뉴 제거">제거</button>
+    <div class="site-navigation-remove-confirmation" data-site-menu-remove-confirmation hidden>
+      <span data-site-menu-remove-message role="status"></span>
+      <span class="site-navigation-remove-actions"><button class="secondary" type="button" data-site-menu-remove-cancel>취소</button><button class="primary" type="button" data-site-menu-remove-confirm>삭제</button></span>
+    </div>
     <span class="site-navigation-field-error" data-site-menu-error hidden></span>
   </div>`;
 }
@@ -110,7 +114,6 @@ function siteHostingCreateRequirementsMet() {
       try { siteHostingNormalizeMenuPath(href?.value, fallback, label); }
       catch (_error) { return false; }
     }
-    if (template.publishing?.routes?.listing && !document.querySelector('input[name="site-post-list-menu"]:checked')) return false;
   }
 
   for (const key of Object.keys(SITE_PROFILE_IMAGE_LABELS)) {
@@ -126,9 +129,7 @@ function siteHostingUpdateCreateSubmitState() {
     const settingsUnchanged = siteHostingCreateMode === 'settings'
       && Boolean(siteHostingCreateInitialSnapshot)
       && siteHostingCreateFormSnapshot() === siteHostingCreateInitialSnapshot;
-    const previewRequired = siteHostingCreateMode === 'settings' && !settingsUnchanged
-      && (!siteHostingCreatePreviewSnapshot || siteHostingCreateFormSnapshot() !== siteHostingCreatePreviewSnapshot);
-    submit.disabled = !siteHostingCreateRequirementsMet() || settingsUnchanged || previewRequired;
+    submit.disabled = !siteHostingCreateRequirementsMet() || settingsUnchanged;
   }
 }
 
@@ -242,10 +243,6 @@ async function siteHostingCollectCreatePayload(options = {}) {
   const postListRoute = selectedTemplate?.publishing?.routes?.listing;
   const postListSelection = postListRoute ? document.querySelector('input[name="site-post-list-menu"]:checked') : null;
   const selectedMenuIndex = postListSelection ? menuRows.indexOf(postListSelection.closest('[data-site-menu-row]')) : -1;
-  if (postListRoute && selectedMenuIndex < 0) {
-    if (feedback) feedback.textContent = '글 목록으로 연결할 메뉴를 선택해 주세요.';
-    return null;
-  }
   return {
     name,
     template_id: templateInput.value,
@@ -271,10 +268,12 @@ async function siteHostingCreateSite(event) {
   const form = event.currentTarget;
   const feedback = document.getElementById('site-create-feedback');
   const submit = form.querySelector('[type="submit"]');
-  const submitLabel = submit.textContent;
+  if (!submit || submit.disabled) return;
+  const hideProgress = showUiProgress(form, {
+    type: UI_PROGRESS_TYPES.BLOCKING_INDETERMINATE,
+    message: '사이트를 만들고 있습니다. 빌드가 끝날 때까지 기다려 주세요.'
+  });
   submit.disabled = true;
-  submit.classList.add('is-loading');
-  submit.textContent = '사이트 빌드 중…';
   try {
     const payload = await siteHostingCollectCreatePayload();
     if (!payload) return;
@@ -305,9 +304,8 @@ async function siteHostingCreateSite(event) {
   } catch (error) {
     if (feedback) feedback.textContent = error.message || '사이트를 만들지 못했습니다.';
   } finally {
-    submit.classList.remove('is-loading');
-    submit.textContent = submitLabel;
     siteHostingUpdateCreateSubmitState();
+    hideProgress();
   }
 }
 
@@ -318,9 +316,11 @@ async function siteHostingApplySiteSettings(event) {
   const submit = form.querySelector('[type="submit"]');
   const feedback = document.getElementById('site-create-feedback');
   if (!project || !siteId || !submit || submit.disabled) return;
+  const hideProgress = showUiProgress(form, {
+    type: UI_PROGRESS_TYPES.BLOCKING_INDETERMINATE,
+    message: '변경사항을 반영하고 사이트를 다시 빌드하고 있습니다.'
+  });
   submit.disabled = true;
-  submit.classList.add('is-loading');
-  submit.textContent = '변경사항 반영 중…';
   try {
     const payload = await siteHostingCollectCreatePayload();
     if (!payload) return;
@@ -341,9 +341,8 @@ async function siteHostingApplySiteSettings(event) {
   } catch (error) {
     if (feedback) feedback.textContent = error.message || '설정을 반영하지 못했습니다.';
   } finally {
-    submit.classList.remove('is-loading');
-    submit.textContent = siteHostingCreateMode === 'settings' ? '변경사항 반영' : '사이트 만들기';
     siteHostingUpdateCreateSubmitState();
+    hideProgress();
   }
 }
 
@@ -370,7 +369,6 @@ async function siteHostingPreviewCreateSite() {
   const project = siteHostingSelectedProject;
   const button = document.querySelector('[data-site-create-preview]');
   const feedback = document.getElementById('site-create-feedback');
-  const busy = document.getElementById('site-create-preview-busy');
   const image = document.getElementById('site-create-template-preview');
   const frame = document.getElementById('site-create-preview-frame');
   const empty = document.getElementById('site-create-preview-empty');
@@ -381,9 +379,13 @@ async function siteHostingPreviewCreateSite() {
   const previewDialog = document.getElementById('site-create-preview-dialog');
   if (previewDialog && !previewDialog.open) previewDialog.showModal();
   const previousPreviewId = siteHostingCreatePreviewId;
+  const previousButtonBusy = button.getAttribute('aria-busy');
   button.disabled = true;
-  button.classList.add('is-loading');
-  if (busy) busy.hidden = false;
+  button.setAttribute('aria-busy', 'true');
+  const finishPreviewProgress = showUiProgress(document.querySelector('.site-create-preview-frame'), {
+    type: UI_PROGRESS_TYPES.REGION_INDETERMINATE,
+    message: '미리보기를 만드는 중…'
+  });
   if (status) status.textContent = '사이트를 빌드하고 있습니다.';
   if (feedback) feedback.textContent = '';
   try {
@@ -414,9 +416,10 @@ async function siteHostingPreviewCreateSite() {
       empty.hidden = false;
     }
   } finally {
-    if (busy) busy.hidden = true;
+    finishPreviewProgress();
     button.disabled = false;
-    button.classList.remove('is-loading');
+    if (previousButtonBusy === null) button.removeAttribute('aria-busy');
+    else button.setAttribute('aria-busy', previousButtonBusy);
   }
 }
 
@@ -451,6 +454,7 @@ function siteHostingCreateFormSnapshot() {
 async function siteHostingRequestCreateCancel() {
   const dialog = document.getElementById('site-create-dialog');
   if (!dialog?.open) return;
+  if (dialog.querySelector('#site-create-form[aria-busy="true"]')) return;
   if (siteHostingCreateInitialSnapshot && siteHostingCreateFormSnapshot() !== siteHostingCreateInitialSnapshot) {
     const confirmation = document.getElementById('site-create-cancel-dialog');
     if (!confirmation) return;
@@ -534,12 +538,34 @@ function siteHostingBindCreateDialogEvents() {
       siteHostingMarkCreatePreviewStale();
       return;
     }
-    if (!event.target.closest('[data-site-menu-remove]')) return;
-    event.target.closest('[data-site-menu-row]')?.remove();
-    siteHostingRefreshCreateMenuRows();
-    siteHostingMarkCreatePreviewStale();
-    const radios = [...document.querySelectorAll('#site-navigation-fields input[name="site-post-list-menu"]')];
-    if (radios.length && !radios.some((radio) => radio.checked)) radios[0].checked = true;
+    const cancelMenuRemoval = event.target.closest('[data-site-menu-remove-cancel]');
+    const confirmMenuRemoval = event.target.closest('[data-site-menu-remove-confirm]');
+    const removeMenu = event.target.closest('[data-site-menu-remove]');
+    const row = (cancelMenuRemoval || confirmMenuRemoval || removeMenu)?.closest('[data-site-menu-row]');
+    if (cancelMenuRemoval) {
+      row?.classList.remove('is-confirming-remove');
+      const confirmation = row?.querySelector('[data-site-menu-remove-confirmation]');
+      if (confirmation) confirmation.hidden = true;
+      row?.querySelector('[data-site-menu-remove]')?.focus();
+      return;
+    }
+    if (confirmMenuRemoval) {
+      row?.remove();
+      siteHostingRefreshCreateMenuRows();
+      siteHostingMarkCreatePreviewStale();
+      return;
+    }
+    if (!removeMenu || !row) return;
+    const removesPostList = row.querySelector('input[name="site-post-list-menu"]')?.checked === true;
+    const confirmation = row.querySelector('[data-site-menu-remove-confirmation]');
+    const message = row.querySelector('[data-site-menu-remove-message]');
+    if (!confirmation || !message) return;
+    message.textContent = removesPostList
+      ? '삭제하면 이 사이트로 블로그 글을 발행할 수 없습니다. 삭제할까요?'
+      : '이 메뉴를 삭제할까요?';
+    row.classList.add('is-confirming-remove');
+    confirmation.hidden = false;
+    confirmation.querySelector('[data-site-menu-remove-confirm]')?.focus();
   });
   document.getElementById('site-name')?.addEventListener('input', (event) => event.currentTarget.removeAttribute('aria-invalid'));
   for (const key of Object.keys(SITE_PROFILE_IMAGE_LABELS)) {
@@ -654,7 +680,6 @@ async function siteHostingOpenCreateSiteDialog() {
   void siteHostingClearCreatePreview();
   document.getElementById('site-create-preview-status').textContent = '';
   document.getElementById('site-create-preview-empty').hidden = false;
-  document.getElementById('site-create-preview-busy').hidden = true;
   document.getElementById('site-navigation-fields').replaceChildren();
   if (workspace) workspace.inert = true;
   siteHostingCreateInitialSnapshot = '';

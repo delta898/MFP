@@ -3,6 +3,10 @@
   gap: var(--ui-density-page-gap);
 }
 
+.site-hosting-project-load-placeholder {
+  min-height: 180px;
+}
+
 .site-hosting-projects-header,
 .site-hosting-project-detail-header,
 .site-hosting-section-heading {

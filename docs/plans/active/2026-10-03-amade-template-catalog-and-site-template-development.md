@@ -283,3 +283,24 @@ The BlogGenius publisher is not implemented in this stage. The focused Amade/Ast
 - Focused contracts: 69 tests, 67 passed, 2 skipped, 0 failed. `git diff --check` passed. UI smoke was not run, as requested.
 - The full direct unit runner completed with 2,123 passing, 15 skipped, and one failure: the existing `src/ui-server.boundary.test.js` line-count guard sees 1,208 lines in `src/ui-server.js`. Both files are unchanged from the parent branch, and the parent source is also 1,208 lines, so this is an inherited baseline failure rather than a regression from this feature. `npm run test:unit` also stops in its audit precheck on reported vulnerabilities in the installed npm 12.2.0 dependency tree; no dependency changes are part of this feature.
 - No UI/browser smoke or manual visual acceptance was performed. The user retains the visual check.
+
+### 2026-10-07 — Optional blog-list menu and direct settings apply
+
+- Blog-list menu selection is optional for creating or updating a Site. If the selected blog-list menu is removed, keep the selection empty rather than assigning another menu; warn before deletion that the Site will no longer be eligible for BlogGenius post publishing.
+- Site eligibility remains capability-based: an ordinary Site without a configured blog-list menu is still listed as unavailable for publishing.
+- In Site settings, a valid changed form can be applied without first building a temporary preview. Preview remains available as an optional check; the actual apply path performs the normal build and reports errors.
+- No additional preview guidance copy was requested. Focused static checks passed; browser/UI review remains with the user.
+
+### 2026-10-07 — Inline menu removal confirmation
+
+- Replace the nested generic confirmation dialog for site menu removal with an in-row confirmation state, avoiding the top-layer/z-order issue inside the site creation/settings dialog.
+- Require an explicit `삭제` action for every menu removal. For the selected blog-list menu, explain that removal disables BlogGenius publishing to that site; `취소` returns to the unchanged row.
+- Reuse the same menu-row renderer and delegated behavior in create and settings flows. Keep the settings footer aligned with create mode so `취소` sits at the left edge of the right-side action panel.
+- Focus the inline confirmation action when opened and restore focus to `제거` on cancel. Browser/UI visual review remains for the user.
+
+### 2026-10-07 — Shared progress patterns
+
+- Define two shared indeterminate progress types because these operations expose completion but no reliable percentage: `region-indeterminate` locks one content region while preserving outer navigation/close actions; `blocking-indeterminate` locks the full transaction form and prevents dialog dismissal.
+- Extend the common `showUiProgress` foundation API and use one progress bar/message treatment for project and site-list loading/opening, both Site preview flows, and Site create/settings apply. Keep duplicate submission prevention on the preview trigger while the preview region owns its progress message.
+- Document progress semantics, keep blocking scoped to the necessary surface, restore prior busy/inert/focus state afterward, and do not imply cancellation without a real cancellation contract.
+- Action-level work uses the existing common button-loading state; it must not introduce feature-local spinner styles. New layer types require a documented interaction contract, not just a different page or message.

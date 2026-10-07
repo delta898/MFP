@@ -379,7 +379,6 @@ function siteHostingProjectPanel(project, tab) {
     <div class="site-hosting-section-heading">
       <div><p id="site-hosting-sites-title">${siteCount}개</p>${siteCount === 0 ? '<p>아직 사이트가 없습니다. 사이트 추가를 눌러 첫 사이트를 만들어 주세요.</p>' : ''}</div>
     </div>
-    ${siteHostingSiteLoadState === 'loading' ? `<section class="ui-empty-state" aria-label="사이트를 불러오는 중"><span class="ui-spinner ui-spinner-accent ui-spinner-md" aria-hidden="true"></span><span>사이트를 불러오는 중입니다.</span></section>` : ''}
     ${siteHostingSiteLoadState === 'error' ? `<section class="ui-empty-state" data-state="error"><h3>사이트를 불러오지 못했습니다.</h3><button class="secondary" type="button" data-site-retry>다시 시도</button></section>` : ''}
     ${siteHostingSiteLoadState === 'ready' ? `<div class="site-hosting-site-list" role="list">${siteHostingSites.map(siteHostingSiteCard).join('')}${siteHostingAddSiteCard()}</div>` : ''}
   </section>`;
@@ -389,6 +388,11 @@ async function siteHostingLoadSites(projectId) {
   siteHostingSiteLoadState = 'loading';
   siteHostingSites = [];
   siteHostingRenderProjectDetail();
+  const panel = document.querySelector('#site-hosting-content .site-hosting-panel');
+  const finishProgress = showUiProgress(panel, {
+    type: UI_PROGRESS_TYPES.REGION_INDETERMINATE,
+    message: '사이트 목록을 불러오는 중입니다.'
+  });
   try {
     const sites = await fetchJson(`/api/v1/site-hosting/projects/${encodeURIComponent(projectId)}/sites`);
     if (siteHostingSelectedProject?.id !== projectId) return;
@@ -398,8 +402,10 @@ async function siteHostingLoadSites(projectId) {
   } catch (_error) {
     if (siteHostingSelectedProject?.id !== projectId) return;
     siteHostingSiteLoadState = 'error';
+  } finally {
+    if (siteHostingSelectedProject?.id === projectId) siteHostingRenderProjectDetail();
+    finishProgress();
   }
-  siteHostingRenderProjectDetail();
 }
 
 async function siteHostingLoadRuntimeEnvironment() {
@@ -540,10 +546,20 @@ async function siteHostingPreviewSite(siteId) {
 function siteHostingRenderPreviewWindowNotice(previewWindow, title, message, isBusy) {
   try {
     const document = previewWindow.document;
+    previewWindow.__siteHostingProgressCleanup?.();
+    delete previewWindow.__siteHostingProgressCleanup;
     document.title = title;
     const body = document.body;
     body.replaceChildren();
     body.style.cssText = 'margin:0;min-height:100vh;display:grid;place-items:center;background:#fbf7f2;color:#30251f;font:16px system-ui,sans-serif';
+    const appStylesheet = window.document.querySelector('link[rel="stylesheet"]')?.href;
+    if (appStylesheet && !document.querySelector('link[data-site-hosting-progress-styles]')) {
+      const stylesheet = document.createElement('link');
+      stylesheet.rel = 'stylesheet';
+      stylesheet.href = appStylesheet;
+      stylesheet.dataset.siteHostingProgressStyles = '';
+      document.head.append(stylesheet);
+    }
     const panel = document.createElement('main');
     panel.style.cssText = 'box-sizing:border-box;width:min(560px,calc(100% - 40px));padding:40px;border:1px solid #e2d5c9;border-radius:16px;background:#fffdfa;text-align:center;box-shadow:0 12px 40px #30251f18';
     const heading = document.createElement('h1');
@@ -553,14 +569,13 @@ function siteHostingRenderPreviewWindowNotice(previewWindow, title, message, isB
     detail.textContent = message;
     detail.style.cssText = 'margin:0;color:#756960;line-height:1.6;overflow-wrap:anywhere';
     panel.append(heading, detail);
-    if (isBusy) {
-      const progress = document.createElement('progress');
-      progress.removeAttribute('value');
-      progress.setAttribute('aria-label', '사이트 빌드 및 스크린샷 생성 중');
-      progress.style.cssText = 'display:block;width:100%;height:8px;margin-top:28px;accent-color:#c97843';
-      panel.append(progress);
-    }
     body.append(panel);
+    if (isBusy) {
+      previewWindow.__siteHostingProgressCleanup = showUiProgress(panel, {
+        type: UI_PROGRESS_TYPES.REGION_INDETERMINATE,
+        message
+      });
+    }
   } catch {}
 }
 
@@ -754,7 +769,10 @@ async function siteHostingLoadProjects() {
   const content = document.getElementById('site-hosting-content');
   if (!content || siteHostingProjectBusy) return;
   siteHostingProjectBusy = true;
-  content.setAttribute('aria-busy', 'true');
+  const finishProgress = showUiProgress(content, {
+    type: UI_PROGRESS_TYPES.REGION_INDETERMINATE,
+    message: '프로젝트를 불러오는 중입니다.'
+  });
   try {
     siteHostingProjects = await fetchJson('/api/v1/site-hosting/projects');
     if (!Array.isArray(siteHostingProjects)) siteHostingProjects = [];
@@ -771,7 +789,7 @@ async function siteHostingLoadProjects() {
     } else {
       if (!siteHostingProjectListMode && siteHostingProjects.length) {
         const initialProject = siteHostingProjects.find((project) => project.id === 'default') || siteHostingProjects[0];
-        await siteHostingOpenProject(initialProject.id);
+        await siteHostingOpenProject(initialProject.id, { progressManagedByCaller: true });
       } else {
         siteHostingRenderProjectList();
       }
@@ -780,11 +798,16 @@ async function siteHostingLoadProjects() {
     content.innerHTML = `<section class="ui-empty-state" data-state="error"><h3>프로젝트를 불러오지 못했습니다.</h3><button class="secondary" type="button" data-site-project-retry>다시 시도</button></section>`;
   } finally {
     siteHostingProjectBusy = false;
-    content.removeAttribute('aria-busy');
+    finishProgress();
   }
 }
 
-async function siteHostingOpenProject(projectId) {
+async function siteHostingOpenProject(projectId, options = {}) {
+  const content = document.getElementById('site-hosting-content');
+  const finishProgress = options.progressManagedByCaller || !content ? () => {} : showUiProgress(content, {
+    type: UI_PROGRESS_TYPES.REGION_INDETERMINATE,
+    message: '프로젝트를 여는 중입니다.'
+  });
   try {
     siteHostingSelectedProject = await fetchJson(`/api/v1/site-hosting/projects/${encodeURIComponent(projectId)}`);
     siteHostingProjectView = 'sites';
@@ -793,8 +816,9 @@ async function siteHostingOpenProject(projectId) {
     siteHostingRenderProjectDetail();
     void siteHostingLoadSites(siteHostingSelectedProject.id);
   } catch (error) {
-    const content = document.getElementById('site-hosting-content');
     if (content) content.innerHTML = `<section class="ui-empty-state" data-state="error"><h3>${siteHostingEscapeHtml(error.message || '프로젝트를 열지 못했습니다.')}</h3></section>`;
+  } finally {
+    finishProgress();
   }
 }
 
