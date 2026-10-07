@@ -157,10 +157,12 @@ function hasOpenBlockingDialog() {
     ));
 }
 
-async function navigateToBlogQuickCreate() {
+async function navigateToBlogQuickCreate(options = {}) {
   if (hasOpenBlockingDialog()) return false;
   if (typeof applyBlogNextWritingIntent !== 'function') return false;
   return applyBlogNextWritingIntent({
+    values: options.values || {},
+    applySourceContext: options.applySourceContext || null,
     confirmation: () => ({
       message: isBlogNextDraftResultPublished('ai')
         ? '현재 원고를 닫고 다음 글을 작성할까요? 블로그에 저장된 글은 그대로 유지됩니다.'
@@ -171,7 +173,11 @@ async function navigateToBlogQuickCreate() {
     }),
     prepareDestination: async () => {
       await navigateTo('blog-next', 'quick');
-      return Boolean(document.getElementById('view-blog-next')?.classList.contains('active'));
+      const quickTabActive = document.querySelector('[data-blog-next-tab="quick"]')?.getAttribute('aria-selected') === 'true';
+      return Boolean(
+        document.getElementById('view-blog-next')?.classList.contains('active')
+        && quickTabActive
+      );
     },
     focusAfterFrame: true
   });

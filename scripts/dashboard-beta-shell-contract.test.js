@@ -190,10 +190,11 @@ test('Dashboard strengthens its visual hierarchy and the native File menu opens 
 
     assert.match(betaView, /class="view-title-block dashboard-beta-hero"/);
     assert.doesNotMatch(betaView, /dashboard-beta-quick-create|data-dashboard-beta-action="quick-create"/);
-    assert.match(navigation, /async function navigateToBlogQuickCreate\(\)[\s\S]*applyBlogNextWritingIntent\(\{[\s\S]*prepareDestination:[\s\S]*navigateTo\('blog-next', 'quick'\)[\s\S]*focusAfterFrame: true/);
+    assert.match(navigation, /async function navigateToBlogQuickCreate\(options = \{\}\)[\s\S]*applyBlogNextWritingIntent\(\{\s*values: options\.values \|\| \{\}[\s\S]*prepareDestination:[\s\S]*navigateTo\('blog-next', 'quick'\)[\s\S]*focusAfterFrame: true/);
+    assert.match(navigation, /prepareDestination: async \(\) => \{\s*await navigateTo\('blog-next', 'quick'\);\s*const quickTabActive = document\.querySelector\('\[data-blog-next-tab="quick"\]'\)\?\.getAttribute\('aria-selected'\) === 'true';\s*return Boolean\([\s\S]*?&& quickTabActive\s*\);/);
     assert.match(navigation, /현재 원고를 닫고 다음 글을 작성할까요\?[\s\S]*작성 중인 내용과 원고 미리보기를 지우고 새 글을 작성할까요/);
     assert.match(navigation, /function hasOpenBlockingDialog\(\)[\s\S]*dialog\[open\][\s\S]*\[role="dialog"\]\[aria-modal="true"\]/);
-    assert.match(navigation, /async function navigateToBlogQuickCreate\(\)\s*\{\s*if \(hasOpenBlockingDialog\(\)\) return false;/);
+    assert.match(navigation, /async function navigateToBlogQuickCreate\(options = \{\}\)\s*\{\s*if \(hasOpenBlockingDialog\(\)\) return false;/);
     assert.match(electronMain, /function openBlogQuickCreate\(\)[\s\S]*navigateToBlogQuickCreate/);
     assert.match(electronMain, /label: '새 글 작성', accelerator: 'CmdOrCtrl\+N', click: openBlogQuickCreate/);
     assert.doesNotMatch(betaStyle, /\.dashboard-beta-hero\s*\{[\s\S]*?radial-gradient/);
@@ -217,8 +218,8 @@ test('Dashboard Beta restores the shared new discovery center without blocking o
     assert.match(centerScript, /'dashboard\.recommendations': \['dashboard-beta', ''\]/);
     assert.match(centerScript, /await navigateTo\('dashboard-beta'\)/);
     assert.match(centerScript, /'blog\.quick': \['blog-next', 'quick'\]/);
-    assert.match(centerScript, /getElementById\('blog-next-subject'\)/);
-    assert.doesNotMatch(centerScript, /surface === 'blog\.quick'[\s\S]{0,300}getElementById\('quick-subject'\)/);
+    assert.match(centerScript, /navigateToBlogQuickCreate\(\{\s*values: query \? \{ 'blog-next-subject': query \} : \{\}/);
+    assert.doesNotMatch(centerScript, /surface === 'blog\.quick'[\s\S]{0,500}getElementById\('blog-next-subject'\)/);
 });
 
 test('Blog Beta is the productized Blog destination on desktop and mobile', () => {

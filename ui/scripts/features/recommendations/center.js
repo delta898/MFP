@@ -434,23 +434,20 @@ async function openRecommendationPresentation(action = {}) {
     return;
   }
   if (surface === 'blog.quick') {
-    const navigated = await navigateToBlogQuickCreate();
+    const query = action?.payload?.query
+      ? (action.payload.original_title
+        ? String(action.payload.original_title).trim()
+        : recommendationPresentationQuery(action.payload.query))
+      : '';
+    const navigated = await navigateToBlogQuickCreate({
+      values: query ? { 'blog-next-subject': query } : {}
+    });
     if (!navigated) return;
   } else {
     await navigateTo(target[0], target[1]);
   }
   if (surface === 'logs.system') {
     document.querySelector('.logs-tab-btn[data-logs-tab="system"]')?.click();
-  }
-  if (surface === 'blog.quick' && action?.payload?.query) {
-    const subject = document.getElementById('blog-next-subject');
-    if (subject) {
-      subject.value = action.payload.original_title
-        ? String(action.payload.original_title).trim()
-        : recommendationPresentationQuery(action.payload.query);
-      subject.dispatchEvent(new Event('input', { bubbles: true }));
-      subject.dispatchEvent(new Event('change', { bubbles: true }));
-    }
   }
   if (surface === 'dashboard.recommendations') {
     scrollToActiveRecommendationCenter();

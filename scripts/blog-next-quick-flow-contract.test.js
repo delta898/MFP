@@ -279,11 +279,17 @@ test('quick flow summaries update from existing controls and new writing owns in
 
 test('shared writing intent leaves work untouched on cancel and resets then applies source values on confirm', async () => {
   const fields = new Map();
+  const animationFrames = [];
+  let destinationScrolled = false;
   [
     'blog-next-subject', 'blog-next-title', 'blog-next-keywords',
     'blog-next-instruction', 'blog-next-reference-url', 'blog-next-schedule-date',
-    'blog-next-ai-preparation', 'blog-next-topic-settings-summary'
-  ].forEach((id) => fields.set(id, { value: '', open: false, textContent: '', focused: false, focus() { this.focused = true; } }));
+    'blog-next-ai-preparation', 'blog-next-topic-settings', 'blog-next-topic-settings-summary'
+  ].forEach((id) => fields.set(id, {
+    value: '', open: false, textContent: '', focused: false,
+    focus() { this.focused = true; },
+    scrollIntoView() { destinationScrolled = true; }
+  }));
   fields.get('blog-next-subject').value = '기존 주제';
   fields.get('blog-next-keywords').value = '기존 키워드';
   fields.get('blog-next-title').value = '기존 제목';
@@ -300,6 +306,7 @@ test('shared writing intent leaves work untouched on cancel and resets then appl
   let statusDismissed = false;
   let executionSynced = false;
   let destinationPrepared = 0;
+  let destinationAvailable = true;
   let focusScheduled = 0;
   const clearableIds = [
     'blog-next-subject', 'blog-next-title', 'blog-next-keywords',
@@ -308,6 +315,7 @@ test('shared writing intent leaves work untouched on cancel and resets then appl
   const context = vm.createContext({
     BLOG_NEXT_CLEARABLE_FIELD_IDS: clearableIds,
     blogNextDraftState: state,
+    blogNextDisclosureState: { quick: { preparation: false, topic: false } },
     blogNextEditingRowIndex: null,
     blogNextAiOperationId: '',
     blogNextTopicSubmitting: false,
@@ -329,7 +337,7 @@ test('shared writing intent leaves work untouched on cancel and resets then appl
     syncBlogNextTopicClearAction: () => { clearActionSynced = true; },
     dismissBlogNextStatusForNewWriting: () => { statusDismissed = true; },
     syncBlogNextDraftExecutionState: () => { executionSynced = true; },
-    requestAnimationFrame: (callback) => { focusScheduled += 1; callback(); }
+    requestAnimationFrame: (callback) => { focusScheduled += 1; animationFrames.push(callback); }
   });
   vm.runInContext(read('ui/scripts/features/blog-next/writing-intent.js'), context);
   const existingValues = Object.fromEntries(clearableIds.map((id) => [id, fields.get(id).value]));
@@ -337,7 +345,7 @@ test('shared writing intent leaves work untouched on cancel and resets then appl
     values: { 'blog-next-subject': '제주 가을 여행', 'blog-next-keywords': '제주 가을 여행' },
     applySourceContext: () => { context.blogNextTrendContext = { source: 'naver_trend' }; },
     confirmation: { message: '트렌드 글감으로 교체할까요?', title: '글감 교체' },
-    prepareDestination: async () => { destinationPrepared += 1; return true; },
+    prepareDestination: async () => { destinationPrepared += 1; return destinationAvailable; },
     focusAfterFrame: true
   };
 
@@ -349,8 +357,16 @@ test('shared writing intent leaves work untouched on cancel and resets then appl
   assert.equal(fields.get('blog-next-ai-preparation').open, false);
 
   confirmation = true;
+  destinationAvailable = false;
+  assert.equal(await context.applyBlogNextWritingIntent(applyOptions), false);
+  assert.deepEqual(Object.fromEntries(clearableIds.map((id) => [id, fields.get(id).value])), existingValues);
+  assert.equal(activeTab, 'trend-posting');
+  assert.equal(fields.get('blog-next-ai-preparation').open, false);
+  assert.equal(state.ai.draftId, 'draft-old');
+
+  destinationAvailable = true;
   assert.equal(await context.applyBlogNextWritingIntent(applyOptions), true);
-  assert.equal(confirmationCount, 2);
+  assert.equal(confirmationCount, 3);
   assert.equal(activeTab, 'quick');
   assert.equal(activeMode, 'ai');
   assert.equal(fields.get('blog-next-subject').value, '제주 가을 여행');
@@ -361,11 +377,26 @@ test('shared writing intent leaves work untouched on cancel and resets then appl
   assert.equal(state.ai.draftId, '');
   assert.equal(context.blogNextTrendContext.source, 'naver_trend');
   assert.equal(fields.get('blog-next-ai-preparation').open, true);
+  assert.equal(fields.get('blog-next-topic-settings').open, true);
+  assert.equal(context.blogNextDisclosureState.quick.preparation, true);
+  assert.equal(context.blogNextDisclosureState.quick.topic, true);
   assert.equal(fields.get('blog-next-topic-settings-summary').textContent, '제주 가을 여행 · 제주 가을 여행');
+  assert.equal(fields.get('blog-next-subject').focused, false);
+  assert.equal(destinationScrolled, false);
+  // A late view-state restore must not leave the destination folded or off-screen.
+  fields.get('blog-next-ai-preparation').open = false;
+  fields.get('blog-next-topic-settings').open = false;
+  animationFrames.shift()();
+  assert.equal(focusScheduled, 2);
+  animationFrames.shift()();
+  assert.equal(fields.get('blog-next-ai-preparation').open, true);
+  assert.equal(fields.get('blog-next-topic-settings').open, true);
+  assert.equal(context.blogNextDisclosureState.quick.preparation, true);
+  assert.equal(context.blogNextDisclosureState.quick.topic, true);
   assert.equal(fields.get('blog-next-subject').focused, true);
+  assert.equal(destinationScrolled, true);
   assert.equal(draftResets, 1);
-  assert.equal(destinationPrepared, 1);
-  assert.equal(focusScheduled, 1);
+  assert.equal(destinationPrepared, 2);
   assert.equal(summariesSynced, 1);
   assert.equal(resultCleared && clearActionSynced && statusDismissed && executionSynced, true);
 });
@@ -384,7 +415,8 @@ test('quick writing keeps one editable manuscript workspace available before pre
   assert.match(writingIntent, /async function applyBlogNextWritingIntent\([\s\S]*?if \(isBlogNextWritingTransitionBusy\(\)\) return false;[\s\S]*?if \(hasBlogNextWritingWork\(\)\)[\s\S]*?await showUiConfirm\([\s\S]*?if \(!confirmed\) return false;/);
   assert.match(writingIntent, /clearBlogNextTopicContent\(\);\s*resetBlogNextAiDraftUi\(\);[\s\S]*Object\.entries\(values \|\| \{\}\)/);
   assert.match(writingIntent, /BLOG_NEXT_WRITING_INTENT_FIELD_IDS\.has\(fieldId\)/);
-  assert.match(writingIntent, /const preparation = document\.getElementById\('blog-next-ai-preparation'\);\s*if \(preparation\) preparation\.open = true;\s*syncBlogNextQuickFlowSummaries\(\);/);
+  assert.match(writingIntent, /function revealBlogNextWritingDestination\(focusFieldId\)[\s\S]*?preparation\.open = true;[\s\S]*?topicSettings\.open = true;[\s\S]*?blogNextDisclosureState\.quick\.preparation = true;[\s\S]*?blogNextDisclosureState\.quick\.topic = true;[\s\S]*?preparation\.scrollIntoView\?\.\(\{ behavior: 'smooth', block: 'start' \}\)[\s\S]*?focus\(\{ preventScroll: true \}\)/);
+  assert.match(writingIntent, /requestAnimationFrame\(\(\) => requestAnimationFrame\(reveal\)\)/);
   assert.match(trendScript, /await applyBlogNextWritingIntent\(\{[\s\S]*?'blog-next-subject': keyword,[\s\S]*?'blog-next-keywords': keyword\s*\}[\s\S]*?blogNextTrendContext = \{/);
   assert.match(trendScript, /message: '작성 중인 글감을 선택한 트렌드 키워드로 바꿀까요\?'/);
   assert.match(html, /data-blog-next-ai-idea-actions[\s\S]*>글감 활용<[\s\S]*id="blog-next-save-topic"[\s\S]*>글감 보관/);

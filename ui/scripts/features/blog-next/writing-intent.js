@@ -27,6 +27,21 @@ function isBlogNextWritingTransitionBusy() {
   );
 }
 
+function revealBlogNextWritingDestination(focusFieldId) {
+  const preparation = document.getElementById('blog-next-ai-preparation');
+  const topicSettings = document.getElementById('blog-next-topic-settings');
+  if (preparation) {
+    preparation.open = true;
+    preparation.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  }
+  if (topicSettings) topicSettings.open = true;
+  if (typeof blogNextDisclosureState !== 'undefined' && blogNextDisclosureState.quick) {
+    blogNextDisclosureState.quick.preparation = true;
+    blogNextDisclosureState.quick.topic = true;
+  }
+  document.getElementById(focusFieldId)?.focus({ preventScroll: true });
+}
+
 async function applyBlogNextWritingIntent({
   values = {},
   applySourceContext = null,
@@ -69,14 +84,25 @@ async function applyBlogNextWritingIntent({
   if (typeof applySourceContext === 'function') applySourceContext();
 
   const preparation = document.getElementById('blog-next-ai-preparation');
-  if (preparation) preparation.open = true;
+  if (preparation) {
+    preparation.open = true;
+    if (typeof blogNextDisclosureState !== 'undefined' && blogNextDisclosureState.quick) {
+      blogNextDisclosureState.quick.preparation = true;
+    }
+  }
+  const topicSettings = document.getElementById('blog-next-topic-settings');
+  if (topicSettings) topicSettings.open = true;
+  if (typeof blogNextDisclosureState !== 'undefined' && blogNextDisclosureState.quick) {
+    blogNextDisclosureState.quick.topic = true;
+  }
   syncBlogNextQuickFlowSummaries();
   setBlogNextTopicResult('');
   syncBlogNextTopicClearAction();
   if (typeof dismissBlogNextStatusForNewWriting === 'function') dismissBlogNextStatusForNewWriting();
   syncBlogNextDraftExecutionState();
-  const focus = () => document.getElementById(focusFieldId)?.focus();
-  if (focusAfterFrame && typeof requestAnimationFrame === 'function') requestAnimationFrame(focus);
-  else focus();
+  const reveal = () => revealBlogNextWritingDestination(focusFieldId);
+  if (focusAfterFrame && typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => requestAnimationFrame(reveal));
+  } else reveal();
   return true;
 }
