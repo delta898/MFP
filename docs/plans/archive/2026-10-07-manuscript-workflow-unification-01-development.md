@@ -3,7 +3,7 @@
 - Branch: `codex/manuscript-workflow-unification-01`
 - Start date: 2026-10-07
 - Base/parent branch: `codex/static-site-builder-main`
-- Status: Ready to merge into `codex/static-site-builder-main`
+- Status: Complete; fast-forward merged into `codex/static-site-builder-main` on 2026-10-07
 
 ## User need and goal
 
