@@ -10,6 +10,7 @@ Recommended format:
 ## Current Decisions
 
 - [Site Hosting 연결 해제와 삭제 안전성](./2026-10-06-site-hosting-teardown-safety.md)
+- [Digital Garden 발행일·피드·증분 빌드 논의](./2026-10-06-digital-garden-published-date-and-feed-policy.md)
 - [Naver OAuth publishing boundary](./2026-09-06-naver-oauth-publishing-boundary.md)
 - [Runtime credential ownership](./2026-08-28-runtime-credential-ownership.md)
 - [Development environment boundaries](./2026-08-27-development-environment-boundaries.md)

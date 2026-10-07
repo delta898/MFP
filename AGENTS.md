@@ -6,6 +6,20 @@
 - For agent/knowledge work, follow the `kind + transport + config` model.
 - Prefer explicit capability-based control over raw config mutation.
 
+## Software Engineering Principles
+Apply these principles to every change. The later sections define the project-specific workflow and exceptions.
+
+1. **Understand the current path before changing it.** Find the owning module, its callers, data flow, existing shared patterns, tests, and relevant documentation. Preserve unrelated work already in the working tree.
+2. **Give each rule and behavior one clear owner.** Keep business rules in the appropriate domain or capability boundary; keep UI components responsible for presentation and user interaction. Avoid implementing the same workflow independently at multiple entry points.
+3. **Reuse repeated behavior through a shared contract.** When multiple screens or actions need the same behavior, define a reusable component or module and make callers provide only their context-specific inputs. Keep genuinely different behavior explicit. Do not create abstractions for hypothetical reuse alone.
+4. **Keep one source of truth for shared conventions.** Repeated tokens, labels, icons, spacing, validation rules, and interaction patterns should come from shared definitions. Do not copy values into each screen and let them drift.
+5. **Make boundaries and contracts explicit.** Define what a module accepts, returns, owns, and may change. Validate external or user-provided values at the boundary, and keep provider-specific details out of shared architecture.
+6. **Name state ownership and lifetime.** Decide whether state belongs to a component, a screen, the current app session, or persistent storage. Keep independent workflows independent, and do not persist state unless the feature requires it.
+7. **Preserve user work and valid results.** Do not silently overwrite meaningful input. Confirm destructive replacement, make cancellation leave the current state intact, and ensure request failures do not erase the last valid result.
+8. **Make repeated interactions behave the same everywhere.** Route equivalent actions through the same workflow; reuse established loading, disabled, error, tooltip, spacing, and accessibility patterns. Keep the default path simple and reveal optional detail when needed.
+9. **Verify the changed contract at the narrowest useful scope.** Choose focused checks that cover the changed behavior and key failure paths. Do not claim visual correctness from automated tests; leave final visual acceptance to the user when they own it. Follow the approval rule before broad suites.
+10. **Keep the change reviewable and its record accurate.** Limit edits to the agreed scope, update engineering documentation when decisions or structure change, and report what changed, what was verified, and what remains. Do not commit, merge, push, or release without authorization.
+
 ## Collaboration and Approval
 - The user owns product direction, UX acceptance, release approval, and final hands-on UI validation.
 - The agent owns technical investigation, architecture, implementation, automated verification, and keeping engineering documents current.
