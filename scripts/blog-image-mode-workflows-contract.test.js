@@ -43,7 +43,7 @@ test('sheet adapter keeps canonical mode and legacy boolean compatibility', () =
 
 test('WYSIWYG manuscript publishing owns images in slots and drafts only for actual unresolved targets', () => {
     const manuscriptView = read('ui/partials/views/blog-next/quick-draft-modes.html');
-    const manuscriptScript = `${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-execution.js')}`;
+    const manuscriptScript = `${read('ui/scripts/features/blog-next/publishing-targets.js')}\n${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-execution.js')}`;
     const core = read('src/core.js');
 
     assert.doesNotMatch(manuscriptView, /data-draft-field="image-mode"/);
@@ -52,7 +52,7 @@ test('WYSIWYG manuscript publishing owns images in slots and drafts only for act
     assert.doesNotMatch(manuscriptScript, /supportsBlogNextDraftAutomaticImages/);
     assert.match(manuscriptScript, /const imagePreparationRequired = BLOG_NEXT_DRAFT_TYPES\.includes\(type\) && unresolvedImageCount > 0/);
     assert.doesNotMatch(manuscriptScript, /changedToDraft|forcedDraft/);
-    assert.match(manuscriptScript, /option\.disabled = imagePreparationRequired/);
+    assert.match(manuscriptScript, /option\.disabled = imagePreparationRequired \|\| \(option\.value === 'schedule' && isBlogNextSiteHostingTarget\(type\)\)/);
     assert.match(manuscriptScript, /buttonLabel: '블로그에 임시 저장'/);
     assert.doesNotMatch(core, /if \(options\.imageGeneration === false\) \{\s*hasImageWarnings = true;/);
     assert.doesNotMatch(core, /이미지 미생성 옵션으로 인해 Draft로 강제 전환/);

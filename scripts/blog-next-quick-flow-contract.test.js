@@ -42,7 +42,7 @@ test('Blog Beta quick flow keeps essential writing inputs visible', () => {
   assert.match(css, /\.blog-next-topic-settings-fields\s*\{\s*display: grid;\s*grid-template-columns: minmax\(0, 1\.15fr\) minmax\(300px, 0\.85fr\);/);
   assert.match(css, /\.blog-next-topic-settings-primary-fields \.blog-next-input-action-row button\s*\{[^}]*inline-size: 44px;[^}]*justify-self: start;[^}]*padding-inline: 0;/);
   ['blog-next-topic-recommend', 'blog-next-keyword-recommend', 'blog-next-title-recommend'].forEach((id) => {
-    assert.match(html, new RegExp(`id="${id}"[^>]*aria-label="[^"]+"[^>]*data-tooltip="[^"]+"[^>]*><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21 15 9"`));
+    assert.match(html, new RegExp(`id="${id}"[^>]*aria-label="[^"]+"[^>]*data-tooltip="[^"]+"[^>]*><svg class="ui-ai-icon" aria-hidden="true"><use href="#ui-icon-ai"><\\/use><\\/svg>`));
   });
   assert.match(css, /button\[data-tooltip\]:hover::after[\s\S]*button\[data-tooltip\]:focus-visible::after/);
   assert.match(css, /\.blog-next-required-marker\s*\{[^}]*color:\s*var\(--ui-action-danger\)/s);
@@ -177,7 +177,7 @@ test('AI assists have one distinct pattern without becoming primary actions', ()
   const css = read('ui/styles/features/blog-next-quick-flow.css');
 
   assert.equal((html.match(/class="secondary blog-next-ai-assist"/g) || []).length, 3);
-  assert.equal((html.match(/class="secondary blog-next-ai-assist"[^>]*aria-label="AI[^"]+"[^>]*data-tooltip="[^"]+"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21 15 9"/g) || []).length, 3);
+  assert.equal((html.match(/class="secondary blog-next-ai-assist"[^>]*aria-label="AI[^"]+"[^>]*data-tooltip="[^"]+"><svg class="ui-ai-icon" aria-hidden="true"><use href="#ui-icon-ai"><\/use><\/svg>/g) || []).length, 3);
   assert.match(css, /\.blog-next-ai-assist\s*\{[^}]*background:\s*var\(--ui-action-primary-soft\)/s);
   assert.doesNotMatch(html, /class="primary blog-next-ai-assist"/);
   assert.doesNotMatch(html, /<span aria-hidden="true">AI<\/span>/);
@@ -270,7 +270,7 @@ test('quick flow summaries update from existing controls and new writing owns in
   assert.match(read('ui/scripts/features/blog-next/writing-intent.js'), /clearBlogNextTopicContent\(\);\s*resetBlogNextAiDraftUi\(\)/);
   assert.match(uiScript, /function syncBlogNextTopicActionAvailability\(\)/);
   assert.match(uiScript, /ideaValid: Boolean\(subject\) && referencesValid/);
-  assert.match(uiScript, /readyValid: Boolean\(subject\) && referencesValid && hasTarget && scheduleValid/);
+  assert.match(uiScript, /readyValid: Boolean\(subject\) && referencesValid && hasTarget && siteTargetReady && scheduleValid/);
   assert.match(uiScript, /save\.disabled = busy \|\| sheetBlocked \|\| !editingChanged \|\| \(editingReady \? !readyValid : !ideaValid\)/);
   assert.match(uiScript, /enqueue\.disabled = busy \|\| sheetBlocked \|\| !readyValid/);
   assert.match(uiScript, /publish\.disabled = busy \|\| runnerActive [^;]* \|\| !ideaValid/);
@@ -415,12 +415,12 @@ test('quick writing keeps one editable manuscript workspace available before pre
   assert.match(writingIntent, /async function applyBlogNextWritingIntent\([\s\S]*?if \(isBlogNextWritingTransitionBusy\(\)\) return false;[\s\S]*?if \(hasBlogNextWritingWork\(\)\)[\s\S]*?await showUiConfirm\([\s\S]*?if \(!confirmed\) return false;/);
   assert.match(writingIntent, /clearBlogNextTopicContent\(\);\s*resetBlogNextAiDraftUi\(\);[\s\S]*Object\.entries\(values \|\| \{\}\)/);
   assert.match(writingIntent, /BLOG_NEXT_WRITING_INTENT_FIELD_IDS\.has\(fieldId\)/);
-  assert.match(writingIntent, /function revealBlogNextWritingDestination\(focusFieldId\)[\s\S]*?preparation\.open = true;[\s\S]*?topicSettings\.open = true;[\s\S]*?blogNextDisclosureState\.quick\.preparation = true;[\s\S]*?blogNextDisclosureState\.quick\.topic = true;[\s\S]*?preparation\.scrollIntoView\?\.\(\{ behavior: 'smooth', block: 'start' \}\)[\s\S]*?focus\(\{ preventScroll: true \}\)/);
+  assert.match(writingIntent, /function revealBlogNextWritingDestination\(focusFieldId\)[\s\S]*?preparation\.open = true;[\s\S]*?preparation\.scrollIntoView\?\.\(\{ behavior: 'smooth', block: 'start' \}\)[\s\S]*?topicSettings\.open = true;[\s\S]*?blogNextDisclosureState\.quick\.preparation = true;[\s\S]*?blogNextDisclosureState\.quick\.topic = true;[\s\S]*?focus\(\{ preventScroll: true \}\)/);
   assert.match(writingIntent, /requestAnimationFrame\(\(\) => requestAnimationFrame\(reveal\)\)/);
   assert.match(trendScript, /await applyBlogNextWritingIntent\(\{[\s\S]*?'blog-next-subject': keyword,[\s\S]*?'blog-next-keywords': keyword\s*\}[\s\S]*?blogNextTrendContext = \{/);
   assert.match(trendScript, /message: '작성 중인 글감을 선택한 트렌드 키워드로 바꿀까요\?'/);
   assert.match(html, /data-blog-next-ai-idea-actions[\s\S]*>글감 활용<[\s\S]*id="blog-next-save-topic"[\s\S]*>글감 보관/);
-  assert.match(html, /class="blog-next-ai-action-row blog-next-ai-actions-row"[\s\S]*id="blog-next-save-topic"[\s\S]*id="blog-next-enqueue-topic"[\s\S]*data-blog-next-ai-generate-action[\s\S]*id="blog-next-publish-now"[\s\S]*<span aria-hidden="true">✦<\/span><span id="blog-next-publish-now-label">원고 만들기/);
+  assert.match(html, /class="blog-next-ai-action-row blog-next-ai-actions-row"[\s\S]*id="blog-next-save-topic"[\s\S]*id="blog-next-enqueue-topic"[\s\S]*data-blog-next-ai-generate-action[\s\S]*id="blog-next-publish-now"[\s\S]*<svg class="ui-ai-icon" aria-hidden="true"><use href="#ui-icon-ai"><\/use><\/svg><span id="blog-next-publish-now-label">원고 만들기/);
   assert.match(html, /id="blog-next-enqueue-topic"[\s\S]*>발행 대기열에 추가<\/button>/);
   assert.match(html, /id="blog-next-queue-action-hint">보관하거나 대기열에 추가할 수 있고, 지금 원고를 만들 수도 있습니다/);
   assert.match(html, /data-blog-next-ai-step="preview">[\s\S]*>미리보기 · 원고 입력</);
@@ -439,7 +439,7 @@ test('quick writing keeps one editable manuscript workspace available before pre
   assert.match(execution, /prepareActions\.hidden = !editing && hasDraft/);
   assert.match(execution, /ideaActions\.hidden = !editing && hasDraft/);
   assert.match(execution, /previewActions\.hidden = editing \|\| !hasDraft/);
-  assert.match(html, /data-blog-next-ai-preview-actions hidden>[\s\S]*id="blog-next-regenerate-draft"[^>]*>AI로 원고 다시 만들기/);
+  assert.match(html, /data-blog-next-ai-preview-actions hidden>[\s\S]*id="blog-next-regenerate-draft"[^>]*>[\s\S]*?<span>원고 다시 만들기<\/span>/);
   assert.match(execution, /publishStep\.hidden = editing/);
   assert.match(execution, /publishSettings\.hidden = editing/);
   assert.match(execution, /if \(publishDisclosure\) publishDisclosure\.hidden = editing/);
@@ -471,7 +471,7 @@ test('quick writing keeps one editable manuscript workspace available before pre
   assert.match(inputs, /postJson\('\/api\/v1\/blog\/manuscript-drafts\/paste',[\s\S]*?markdownText: aiMarkdownAtRequest/);
   assert.match(queue, /발행 계획을 확인한 뒤 발행 대기열에 추가해 주세요/);
   assert.match(queue, /\['blog-next-publish-now', 'blog-next-regenerate-draft'\][\s\S]*generateBlogNextAiDraft\(id === 'blog-next-regenerate-draft' \? 'regenerate' : 'create'\)/);
-  assert.match(queue, /publishLabel\.textContent = aiDraftGenerating \? '원고 만드는 중\.\.\.'/);
+  assert.match(queue, /setUiAiActionButton\(publishButton, aiDraftGenerating \? '원고 만드는 중…'/);
   assert.match(queue, /publishSettings\.hidden = false;[\s\S]*publishSettings\.open = true/);
   assert.match(queue, /bindBlogNextDetachedPublishSettings\(form\)/);
   assert.match(execution, /function bindBlogNextDetachedPublishSettings\(form\)/);
@@ -573,15 +573,15 @@ test('provider-dependent controls align UI, summaries and runner payloads', () =
   const runnerScript = read('ui/scripts/features/blog-next/runner.js');
 
   assert.match(html, /id="blog-next-headless-field"[^>]*data-dependency-active="true"/);
-  assert.match(html, /id="blog-next-naver-category-field"[^>]*data-dependency-active="true"/);
-  assert.match(html, /id="blog-next-wordpress-category-field"[^>]*data-dependency-active="false"[\s\S]*id="blog-next-wordpress-category"[^>]*disabled/);
+  assert.match(html, /id="blog-next-category-field"/);
+  assert.match(html, /id="blog-next-vault-folder-control"[^>]*hidden/);
   assert.match(html, /id="blog-next-help-headless" role="tooltip">네이버 포스팅 브라우저/);
   assert.match(css, /\.blog-next-dependent-field\[data-dependency-active="false"\] \.blog-next-check-label\s*\{[^}]*color:\s*var\(--ui-text-muted\)/s);
   assert.match(uiScript, /function syncBlogNextProviderDependentFields\(\)/);
   assert.match(uiScript, /input\.disabled = !naverSelected \|\| runnerBusy;/);
-  assert.match(uiScript, /\['blog-next-naver-category-field', 'blog-next-naver-category', naverSelected\]/);
-  assert.match(uiScript, /\['blog-next-wordpress-category-field', 'blog-next-wordpress-category', wordpressSelected\]/);
-  assert.match(uiScript, /categoryInput\.disabled = !selected/);
+  assert.match(uiScript, /syncBlogNextDraftProviderFields\(draftType\)/);
+  assert.match(uiScript, /const category = document\.getElementById\('blog-next-category'\)/);
+  assert.match(uiScript, /if \(category && typeof syncBlogNextDraftProviderFields !== 'function'\) category\.disabled = siteSelected && siteKind !== 'vault'/);
   assert.match(uiScript, /if \(document\.getElementById\('blog-next-target-naver'\)\?\.checked\)\s*\{\s*summaryParts\.push/s);
   assert.match(script, /startBlogNextRunner\(\{ rowIndex: Number\(data\.rowIndex\), platforms: payload\.platforms \}\)/);
   assert.match(script, /startBlogNextRunner\(\{ rowIndex, platforms: item\.options\?\.platforms \}\)/);

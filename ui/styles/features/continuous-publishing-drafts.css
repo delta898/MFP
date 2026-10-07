@@ -667,7 +667,7 @@
 }
 
 .blog-next-site-hosting-status[data-state="error"] {
-  color: var(--ui-action-danger, var(--ui-text-danger));
+  color: var(--ui-action-danger);
 }
 
 .blog-next-management-actions {

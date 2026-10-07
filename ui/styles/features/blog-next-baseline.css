@@ -75,37 +75,9 @@
   font-weight: var(--ui-weight-bold);
 }
 
-.blog-next-headless-control {
-  display: flex;
-  align-items: center;
-  gap: var(--ui-space-2);
-  min-height: var(--ui-density-control-min-height);
-  color: var(--ui-text-secondary);
-  font-size: var(--ui-type-body-size);
-}
-
-.blog-next-headless-option {
-  font-size: inherit;
-  font-weight: var(--ui-weight-semibold);
-}
-
-.blog-next-draft-headless[data-dependency-active="false"] .blog-next-headless-control {
-  color: var(--ui-text-muted);
-}
-
-.blog-next-draft-headless input:disabled {
-  cursor: not-allowed;
-}
-
 .blog-next-draft-options .blog-next-draft-headless {
   margin: 0;
   background: transparent;
-}
-
-@media (min-width: 769px) {
-  .blog-next-draft-options .blog-next-draft-headless {
-    padding-block-start: calc(var(--ui-type-label-size) * 1.4 + 8px);
-  }
 }
 
 .blog-next-draft-mode .blog-next-dependent-field[data-dependency-active="false"] > span:first-child,

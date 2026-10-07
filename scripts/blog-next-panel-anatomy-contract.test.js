@@ -43,9 +43,9 @@ test('Blog Beta panels share one intro slot and keep distinct local roles', () =
     const tabs = read('ui/styles/patterns/tab-navigation.css');
 
     assert.equal((view.match(/blog-next-panel-lead blog-next-panel-intro/g) || []).length, 4);
-    assert.match(view, /원하는 방식으로 글 준비/);
+    assert.match(view, /원고를 준비하고 발행하세요/);
     assert.match(view, /준비한 글을 한곳에서 관리/);
-    assert.match(view, /blog-next-mode-switch blog-next-segmented-nav blog-next-panel-local-nav/);
+    assert.match(view, /blog-next-management-tabs blog-next-panel-local-nav/);
     assert.match(view, /blog-next-management-tab-list blog-next-segmented-nav/);
     assert.match(view, /blog-next-trend-head blog-next-panel-lead blog-next-panel-intro/);
     assert.match(view, /blog-next-smart-comment-intro blog-next-panel-lead blog-next-panel-intro/);

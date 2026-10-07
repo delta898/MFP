@@ -2,6 +2,7 @@
 
 const BLOGGENIUS_VERSION = require('../../package.json').version;
 const SITE_HOSTING_CONTRACT = require('./site-hosting-contract.json');
+const { DESIGN_STYLE_CONTRACT_VERSION } = require('../../ui/scripts/foundation/design-style-token-contract');
 const SITE_HOSTING_CONTRACT_VERSION = SITE_HOSTING_CONTRACT.version;
 const SITE_HOSTING_SUPPORTED_CONTRACT_VERSIONS = Object.freeze([
     SITE_HOSTING_CONTRACT_VERSION,
@@ -14,7 +15,7 @@ const SITE_HOSTING_TEMPLATE_UPDATE_POLICY = Object.freeze({
 });
 const SUPPORTED_BLOGGENIUS_CONTRACTS = Object.freeze({
     ...Object.fromEntries(SITE_HOSTING_CONTRACT.contract_ids.map((id) => [id, SITE_HOSTING_SUPPORTED_CONTRACT_VERSIONS])),
-    'bloggenius-ui-style-tokens': '1.0'
+    'bloggenius-ui-style-tokens': DESIGN_STYLE_CONTRACT_VERSION
 });
 
 function isSupportedSiteHostingContractVersion(version) {

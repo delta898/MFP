@@ -17,6 +17,7 @@ const {
   getDesignSystemStylePaths
 } = require('./design-system-targets');
 const { createHtmlCompositionRuntime } = require('../src/ui-runtime/html-composition-runtime');
+const { DESIGN_STYLE_CONTRACT_VERSION } = require('../ui/scripts/foundation/design-style-token-contract');
 
 const repoRoot = path.resolve(__dirname, '..');
 const uiRoot = path.join(repoRoot, 'ui');
@@ -35,7 +36,7 @@ test('UI root selects warm editorial as the main style while compatibility remai
   Object.entries(contract.registry).forEach(([styleId, entry]) => {
     assert.match(styleId, /^[a-z0-9]+(?:-[a-z0-9]+)*$/);
     assert.equal(entry.id, styleId);
-    assert.equal(entry.contractVersion, '1.0');
+    assert.equal(entry.contractVersion, DESIGN_STYLE_CONTRACT_VERSION);
     assert.equal(typeof entry.selectable, 'boolean');
   });
   assert.equal(contract.registry.compatibility.selectable, false);
@@ -185,7 +186,7 @@ test('shared action pattern keeps one filled primary and lower-emphasis alternat
   assert.match(blogNext, /id="blog-next-trend-refresh" class="[^"]*ui-refresh-action-icon[^"]*"[^>]*aria-label="최신 데이터 새로고침"[^>]*title="최신 데이터 새로고침"/);
   assert.match(blogNext, /class="[^"]*ui-refresh-action-text[^"]*"[\s\S]*?id="blog-next-queue-refresh"[^>]*>새로고침<\/button>/);
   assert.match(actions, /\.ui-refresh-action-icon\s*\{[^}]*--ui-border-default[^}]*--ui-surface[^}]*--ui-text-secondary/s);
-  assert.match(actions, /\.ui-refresh-action-icon\.is-loading \[aria-hidden="true"\]\s*\{[^}]*ui-refresh-action-spin/s);
+  assert.match(actions, /\.ui-refresh-action-icon\.is-loading svg\s*,\s*\.ui-refresh-action-icon\[aria-busy="true"\] svg\s*\{[^}]*ui-refresh-action-spin/s);
   assert.match(selectionControls, /input\[type="checkbox"\][\s\S]*input\[type="radio"\][\s\S]*accent-color:\s*var\(--ui-action-primary\);/);
   assert.match(blogNext, /id="blog-next-automation-test"[\s\S]*id="blog-next-automation-save"/);
   assert.doesNotMatch(autoManualRule, /(?:^|;)\s*(?:border|background|color)\s*:/);

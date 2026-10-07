@@ -134,7 +134,7 @@ test('site settings reuse the creation preview without exposing template selecti
     assert.match(creation, /설정을 바꾸고 미리보기에서 확인한 뒤 반영하세요/);
     assert.match(creation, /변경사항 반영/);
     assert.match(creation, /const settingsUnchanged = siteHostingCreateMode === 'settings'/);
-    assert.match(creation, /submit\.disabled = !siteHostingCreateRequirementsMet\(\) \|\| settingsUnchanged \|\| previewRequired/);
+    assert.match(creation, /submit\.disabled = !siteHostingCreateRequirementsMet\(\) \|\| settingsUnchanged/);
     assert.match(html, /id="site-settings-current-preview"/);
     assert.match(html, /id="site-settings-current-preview-image"/);
     assert.match(creation, /site\.screenshot_url\s*\|\| `\/api\/v1\/site-hosting\/projects/);

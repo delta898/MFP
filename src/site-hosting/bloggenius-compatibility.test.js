@@ -8,6 +8,7 @@ const {
     compareVersions,
     isCompatibleWithBlogGenius
 } = require('./bloggenius-compatibility');
+const { DESIGN_STYLE_CONTRACT_VERSION } = require('../../ui/scripts/foundation/design-style-token-contract');
 
 test('BlogGenius compatibility compares stable application release versions', () => {
     assert.equal(compareVersions('0.6.0', '0.5.5'), 1);
@@ -19,7 +20,7 @@ test('BlogGenius compatibility compares stable application release versions', ()
 test('package compatibility requires minimum app version and an exact supported contract', () => {
     const compatibility = {
         min_bloggenius_version: '0.6.0',
-        contract: { id: 'bloggenius-ui-style-tokens', version: '1.0' }
+        contract: { id: 'bloggenius-ui-style-tokens', version: DESIGN_STYLE_CONTRACT_VERSION }
     };
     assert.equal(isCompatibleWithBlogGenius(compatibility, { appVersion: '0.6.0' }), true);
     assert.equal(isCompatibleWithBlogGenius(compatibility, { appVersion: '0.5.5' }), false);
@@ -46,7 +47,7 @@ test('package compatibility requires minimum app version and an exact supported 
 test('development and release-candidate builds can consume resources for their exact stable release line', () => {
     const compatibility = {
         min_bloggenius_version: '0.6.0',
-        contract: { id: 'bloggenius-ui-style-tokens', version: '1.0' }
+        contract: { id: 'bloggenius-ui-style-tokens', version: DESIGN_STYLE_CONTRACT_VERSION }
     };
     assert.equal(isCompatibleWithBlogGenius(compatibility, { appVersion: '0.6.0-dev1' }), true);
     assert.equal(isCompatibleWithBlogGenius(compatibility, { appVersion: '0.6.0-rc1' }), true);

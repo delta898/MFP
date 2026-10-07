@@ -82,7 +82,7 @@
   max-width: none;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 960px) {
   #site-create-dialog.is-site-settings-mode .site-create-workspace {
     grid-template-columns: minmax(0, 1fr);
     overflow: auto;

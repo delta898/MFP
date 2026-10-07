@@ -61,7 +61,6 @@ function populateBlogNextTopicForm(item = {}, sourceStatus) {
   }
   const saveButton = document.getElementById('blog-next-save-topic');
   const enqueueButton = document.getElementById('blog-next-enqueue-topic');
-  const publishButton = document.getElementById('blog-next-publish-now');
   const recoverableSlot = document.querySelector('.blog-next-form-actions .blog-next-recoverable-action-slot');
   const editorTitle = document.getElementById('blog-next-editor-title');
   if (recoverableSlot) recoverableSlot.hidden = true;
@@ -72,9 +71,6 @@ function populateBlogNextTopicForm(item = {}, sourceStatus) {
   }
   if (enqueueButton) {
     enqueueButton.hidden = true;
-  }
-  if (publishButton) {
-    publishButton.hidden = true;
   }
   if (editorTitle) editorTitle.textContent = sourceStatus === '대기' ? '보관한 글감 수정' : '발행 계획 수정';
   syncBlogNextScheduleField();

@@ -68,7 +68,7 @@ test('folder and paste modes share one manuscript publishing grammar', () => {
 
 test('folder and paste previews share one reading surface and image workspace', () => {
   const html = readBlogNextView();
-  const script = `${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-images.js')}\n${read('ui/scripts/features/blog-next/draft-execution.js')}`;
+  const script = `${read('ui/scripts/features/blog-next/publishing-targets.js')}\n${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/shared/manuscript-image-card.js')}\n${read('ui/scripts/features/blog-next/draft-images.js')}\n${read('ui/scripts/features/blog-next/draft-execution.js')}`;
   const css = [
     read('ui/styles/features/blog-next-baseline.css'),
     read('ui/styles/features/blog-next-baseline-responsive.css')
@@ -117,14 +117,14 @@ test('folder and paste previews share one reading surface and image workspace', 
   assert.match(script, /image\.replaceWith\(placeholder\)/);
   assert.match(script, /frame\.classList\.add\('is-load-error'\)/);
   assert.match(script, /원고에서 제거/);
-  assert.match(script, /AI 재생성/);
-  assert.match(script, /AI로 만들기/);
+  assert.match(script, /이미지 재생성/);
+  assert.match(script, /이미지 생성/);
   assert.match(script, /내 이미지 선택/);
   assert.match(script, /사용 안 함/);
   assert.match(script, /function syncBlogNextDraftImageSafety\(type, preview = null\)/);
   assert.match(script, /option\.value === 'publish' \|\| option\.value === 'schedule'/);
   assert.doesNotMatch(script, /changedToDraft|forcedDraft/);
-  assert.match(script, /option\.value === 'publish' \|\| option\.value === 'schedule'\) \{\s*option\.disabled = imagePreparationRequired;/);
+  assert.match(script, /option\.disabled = imagePreparationRequired \|\| \(option\.value === 'schedule' && isBlogNextSiteHostingTarget\(type\)\)/);
   assert.match(script, /function getBlogNextDraftPublishCopy\(postStatus = 'publish'\)/);
   assert.match(script, /buttonLabel: '블로그에 임시 저장'/);
   assert.match(script, /buttonLabel: '예약 발행'/);
@@ -188,7 +188,7 @@ test('unified writer hides legacy mode tabs while retaining folder and paste imp
 });
 
 test('manuscript settings preserve dependent values while matching provider and schedule state', () => {
-  const script = read('ui/scripts/features/blog-next/draft-inputs.js');
+  const script = read('ui/scripts/features/blog-next/publishing-targets.js');
 
   assert.match(script, /function syncBlogNextDraftSchedule\(type\)/);
   assert.match(script, /field\.dataset\.dependencyActive = String\(scheduled\)/);
@@ -203,7 +203,7 @@ test('manuscript settings preserve dependent values while matching provider and 
 });
 
 test('manuscript summaries expose consequential values without opening settings', () => {
-  const script = read('ui/scripts/features/blog-next/draft-inputs.js');
+  const script = read('ui/scripts/features/blog-next/publishing-targets.js');
 
   assert.match(script, /function syncBlogNextDraftSettingsSummary\(type\)/);
   assert.match(script, /formatBlogPlatformList\(settings\.targets, ' \+ '\) \|\| '발행 대상 없음'/);
@@ -375,7 +375,7 @@ test('queue metadata presents platform identifiers in user language', () => {
   const html = readBlogNextView();
   const queueScript = readBlogNextQueueScripts();
   const flowScript = read('ui/scripts/features/blog-next/quick-flow-ui.js');
-  const draftScript = read('ui/scripts/features/blog-next/draft-inputs.js');
+  const draftScript = read('ui/scripts/features/blog-next/publishing-targets.js');
   const presentationScript = read('ui/scripts/foundation/presentation.js');
 
   assert.match(presentationScript, /const BLOG_PLATFORM_LABELS = Object\.freeze\(\{[\s\S]*naver: '네이버 블로그',[\s\S]*wordpress: '워드프레스'/);
@@ -429,7 +429,7 @@ test('queue editor changes content without owning collection transitions or exec
   assert.match(queueScript, /if \(recoverableSlot\) recoverableSlot\.hidden = true/);
   assert.match(queueScript, /if \(saveButton\) \{[\s\S]*saveButton\.hidden = false;[\s\S]*saveButton\.classList\.add\('primary'\)/);
   assert.match(queueScript, /if \(enqueueButton\) \{\s*enqueueButton\.hidden = true;/);
-  assert.match(queueScript, /if \(publishButton\) \{\s*publishButton\.hidden = true;/);
+  assert.doesNotMatch(queueScript, /publishButton\.hidden\s*=\s*true/);
   assert.match(flowScript, /const editingChanged = !editing \|\| \([\s\S]*snapshotBlogNextEditingPayload\(\) !== blogNextEditingInitialSnapshot/);
   assert.match(flowScript, /if \(save\) save\.disabled = busy \|\| sheetBlocked \|\| !editingChanged \|\| \(editingReady \? !readyValid : !ideaValid\)/);
   assert.match(queueScript, /blogNextEditingInitialSnapshot = snapshotBlogNextEditingPayload\(\);\s*syncBlogNextTopicActionAvailability\(\);/);

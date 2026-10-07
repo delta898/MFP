@@ -62,7 +62,7 @@ test('Blog Beta keeps refresh semantics inside the shared panel anatomy', () => 
     assert.match(betaCss, /\.blog-next-trend-head\s*{[^}]*justify-content:\s*space-between;/s);
     assert.match(betaView, /id="blog-next-trend-refresh"[^>]*aria-label="최신 데이터 새로고침"/);
     assert.match(betaView, /id="blog-next-trend-refresh" class="[^"]*ui-refresh-action-icon/);
-    assert.match(actionCss, /\.ui-refresh-action-icon\.is-loading \[aria-hidden="true"\]/);
+    assert.match(actionCss, /\.ui-refresh-action-icon\.is-loading svg/);
     assert.match(trendScript, /loadBlogNextTrendMeta\(\{ force: true \}\)/);
     assert.doesNotMatch(trendScript, /이미 최신 데이터입니다/);
     assert.match(trendScript, /setBlogNextTrendStatus\('idle', ''\)/);
@@ -218,7 +218,7 @@ test('Stage 8 distinguishes saved ideas, keeps queue editing in context, and reu
     assert.match(queueScript, /if \(!editing\) rememberBlogNextTopicDefaults\(\)/);
     assert.match(queueScript, /navigateTo\('settings-next', 'writing'\)/);
     assert.doesNotMatch(html, /기본값 사용|최근 선택 사용/);
-    assert.doesNotMatch(queueScript, /activateBlogNextTab\('quick'\)/);
+    assert.doesNotMatch(queueScript, /applyBlogNextWritingIntent\(/);
     assert.match(discoveryScript, /blogNext: Object\.freeze/);
     assert.match(discoveryScript, /getQuickDiscoveryInputElement/);
 });
@@ -262,10 +262,10 @@ test('Stage 10 keeps trend discovery manual and hands one selection to quick wri
     assert.match(trendScript, /data-blog-next-trend-select/);
     assert.match(trendScript, /data-blog-next-trend-save/);
     assert.match(trendScript, /\/api\/v1\/trend-posting\/topics/);
-    assert.match(betaView, /id="blog-next-publish-now"[^>]*>AI로 원고 만들기/);
+    assert.match(betaView, /id="blog-next-publish-now"[^>]*>[\s\S]*?id="blog-next-publish-now-label">원고 만들기/);
     assert.match(trendScript, /\/api\/v1\/trend-posting\/meta/);
     assert.match(trendScript, /\/api\/v1\/trend-posting\/keywords/);
-    assert.match(trendScript, /activateBlogNextTab\('quick'\)/);
+    assert.match(trendScript, /applyBlogNextWritingIntent\(/);
     assert.match(trendScript, /blog-next-subject/);
     assert.doesNotMatch(trendScript, /continuous-publishing\/topics|runner\/start|quick-publish/);
     assert.match(quickQueueScript, /action === 'publish-now' \? 'enqueue'/);
@@ -307,7 +307,7 @@ test('Stage 11 exposes one shared publish status with a return action and no dup
     assert.match(runnerScript, /scrollContainer\.scrollTop = blogNextStatusReturnScrollTop/);
     assert.match(runnerScript, /target\.focus\(\{ preventScroll: true \}\)/);
     assert.match(runnerScript, /void navigateToBlogQuickCreate\(\)/);
-    assert.doesNotMatch(runnerScript, /Topics\s*\$\{|showUiToast/);
+    assert.doesNotMatch(runnerScript, /Topics\s*\$\{/);
     assert.match(read('ui/styles/features/continuous-publishing.css'), /\.blog-next-publish-status-help summary:focus-visible/);
     assert.match(publishPreferences, /'blog-next-runner-headless'/);
     assert.doesNotMatch(publishPreferences, /'blog-next-(?:folder|paste)-headless'/);

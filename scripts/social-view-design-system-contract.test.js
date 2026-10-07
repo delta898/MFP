@@ -58,7 +58,7 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.match(styles, /\.social-live-preview-arrow\.is-next\s*\{[^}]*right:\s*12px/);
   assert.match(styles, /\.social-live-preview-media:hover \.social-live-preview-arrow,[\s\S]*?\.social-live-preview-media:focus-within \.social-live-preview-arrow[\s\S]*?visibility:\s*visible/);
   assert.match(styles, /@media \(hover:\s*none\)[\s\S]*?\.social-live-preview-arrow\s*\{[^}]*visibility:\s*visible/s);
-  assert.match(view, /id="manual-sns-ai-confirm-btn"[^>]*>최적화 적용<\/button>/);
+  assert.match(view, /id="manual-sns-ai-confirm-btn"[^>]*>[\s\S]*?<span>최적화 적용<\/span><\/button>/);
   assert.match(view, /id="manual-sns-ai-cancel-btn"[^>]*>취소<\/button>/);
   assert.match(optimization, /function openManualSnsOptimizationConfirmation\(\)/);
   assert.match(optimization, /현재 본문을 AI가 다듬어 바꿉니다\. 적용할까요\?/);
@@ -68,7 +68,7 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.match(composer, /aria-label', `\$\{index \+ 1\}번 이미지를 미리보기에 표시`/);
   assert.match(composer, /tile\.addEventListener\('click', \(event\) => \{[\s\S]*event\.target\.closest\('button, a'\)/);
   assert.match(composer, /manualSnsPreviewImageIndex = index;[\s\S]*syncManualSnsLivePreview\(\)/);
-  assert.match(composer, /class', 'social-local-image-ai-icon'/);
+  assert.match(composer, /setAttribute\('class', 'ui-ai-icon social-local-image-ai-icon'\)/);
   assert.match(composer, /setAttribute\('aria-label', 'AI 이미지 생성'\)/);
   assert.match(composer, /pointerStartX/);
   assert.match(composer, /Math\.abs\(deltaX\) < 44/);
@@ -101,7 +101,7 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.match(composer, /promptRow\.append\(generate, cancel\)/);
   assert.match(composer, /footer\.hidden = false/);
   assert.match(composer, /footer\.append\(promptRow\)/);
-  assert.match(composer, /generate\.setAttribute\('aria-label', generateLabel\)/);
+  assert.match(composer, /generate\.setAttribute\('aria-label', generateActionLabel\)/);
   assert.match(composer, /cancel\.replaceChildren\(makeActionIcon/);
   assert.match(composer, /연결된 Chat Model로 내용을 다듬습니다\. 채널별 글자 수 제한은 발행 시 확인합니다\./);
   assert.doesNotMatch(composer, /workingOverlay\.append\(promptRow\)/);

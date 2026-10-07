@@ -505,7 +505,15 @@ test('site draft stores its first image block as the optional cover frontmatter 
         const manuscript = '# 테스트 글\n\n도입 문단\n\n[[IMAGE_1\ntitle: 본문 첫 이미지\nprompt: 바다\n]]\n\n[[IMAGE_0\ntitle: 두번째 이미지\nprompt: 하늘\n]]\n\n본문';
         const service = createSiteHostingSiteService({
             fs, path, workspaceDir,
-            repository: { get: () => ({ root_path: siteRoot, template_status: 'available', template: { id: 'template-1' } }) },
+            repository: { get: () => ({
+                root_path: siteRoot,
+                template_status: 'available',
+                template: { id: 'template-1' },
+                customization: {
+                    navigation: [{ label: '블로그', href: '/blog/' }],
+                    publishing: { listing_route: '/blog/', detail_route: '/blog/{slug}/', post_list_navigation_index: 0 }
+                }
+            }) },
             templates: { get: () => template },
             createId: () => 'abc12345',
             now: () => '2026-10-05T12:30:00.000Z',

@@ -178,7 +178,7 @@
   pointer-events: none;
   text-align: center;
   transform: translate(-50%, 4px);
-  transition: opacity 120ms ease, transform 120ms ease, visibility 120ms ease;
+  transition: var(--ui-transition-interactive);
   visibility: hidden;
   white-space: nowrap;
 }
@@ -194,7 +194,7 @@
   opacity: 0;
   pointer-events: none;
   transform: translateX(-50%);
-  transition: opacity 120ms ease, visibility 120ms ease;
+  transition: var(--ui-transition-interactive);
   visibility: hidden;
 }
 
@@ -338,7 +338,7 @@
 .blog-next-preparation-disclosure > summary::after {
   content: '⌄';
   color: var(--ui-text-secondary);
-  transition: transform 180ms ease;
+  transition: var(--ui-transition-interactive);
 }
 
 .blog-next-preparation-disclosure[open] > summary::after {

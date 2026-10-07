@@ -720,15 +720,16 @@ function createSiteHostingSiteService(deps = {}) {
         }
         if (!vaultRootConfigured) fileSystem.mkdirSync(postsRoot, { recursive: true });
         const realSiteRoot = fileSystem.realpathSync(siteRoot);
+        let realPostsRoot = '';
         if (vaultRootConfigured) {
             const realVaultRoot = fileSystem.realpathSync(vaultRoot);
-            const realVaultDestination = fileSystem.realpathSync(postsRoot);
-            if (realVaultRoot !== vaultRoot || !isWithin(realVaultRoot, realVaultDestination)) {
+            realPostsRoot = fileSystem.realpathSync(postsRoot);
+            if (realVaultRoot !== vaultRoot || !isWithin(realVaultRoot, realPostsRoot)) {
                 throw siteInputError('Vault 저장 경로가 연결된 Vault 폴더를 벗어납니다.', 'SITE_HOSTING_VAULT_DESTINATION_INVALID', 409);
             }
         } else {
             const realSiteDataRoot = fileSystem.realpathSync(siteDataRoot);
-            const realPostsRoot = fileSystem.realpathSync(postsRoot);
+            realPostsRoot = fileSystem.realpathSync(postsRoot);
             if (!isWithin(realSiteRoot, realSiteDataRoot) || !isWithin(realSiteDataRoot, realPostsRoot)) {
                 throw siteInputError('글 저장 경로가 사이트 데이터 폴더를 벗어납니다.', 'SITE_HOSTING_POST_PATH_INVALID', 409);
             }

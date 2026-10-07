@@ -78,6 +78,7 @@
 // @include scripts/features/blog-next/quick-queue.js
 // @include scripts/features/blog-next/queue-management.js
 // @include scripts/features/blog-next/trend-posting.js
+// @include scripts/features/blog-next/publishing-targets.js
 // @include scripts/features/blog-next/draft-inputs.js
 // @include scripts/shared/manuscript-image-card.js
 // @include scripts/features/blog-next/draft-images.js

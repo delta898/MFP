@@ -231,7 +231,21 @@ function finishBlogNextTopicEditing() {
   blogNextEditingSourceStatus = '';
   blogNextEditingInitialSnapshot = '';
   restoreBlogNextTopicFormHome();
+  if (typeof captureBlogNextPublishingTargetSettings === 'function') {
+    captureBlogNextPublishingTargetSettings('ai');
+  }
+  const publishSettingsSnapshot = new Map(blogNextPublishSettingsByTarget);
   applyBlogNextTopicSettings(loadBlogNextTopicDefaults());
+  blogNextPublishSettingsByTarget.clear();
+  publishSettingsSnapshot.forEach((value, key) => blogNextPublishSettingsByTarget.set(key, value));
+  try {
+    sessionStorage.setItem(BLOG_NEXT_PUBLISH_SETTINGS_SESSION_KEY, JSON.stringify(Object.fromEntries(blogNextPublishSettingsByTarget)));
+  } catch (_error) {
+    // Session storage may be unavailable; the in-memory target settings remain authoritative.
+  }
+  if (typeof syncBlogNextPublishingTargetSettings === 'function') {
+    syncBlogNextPublishingTargetSettings('ai', { force: true, restoreStored: true });
+  }
   const saveButton = document.getElementById('blog-next-save-topic');
   const enqueueButton = document.getElementById('blog-next-enqueue-topic');
   const publishButton = document.getElementById('blog-next-publish-now');

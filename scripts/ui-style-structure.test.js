@@ -52,6 +52,7 @@ test('CSS manifest preserves the explicit base, layout, component, and feature c
         'styles/patterns/overview-card.css',
         'styles/patterns/grid-spacer.css',
         'styles/patterns/settings-card.css',
+        'styles/patterns/form-controls.css',
         'styles/patterns/transaction-dialog.css',
         'styles/components/clock.css',
         'styles/components/clock-pomodoro-controls.css',
@@ -361,22 +362,26 @@ test('responsive breakpoints use the canonical set', () => {
     // 1240px stays frozen in the hidden legacy dashboard view. Card News has two
     // intentionally local thresholds: 460px stacks the provider/model fields,
     // while 760px switches its action layout before the general 768px breakpoint.
-    // SNS channel settings use 900px to stack the workspace/channel columns.
+    // SNS channel settings use 900px to stack columns; site settings use 960px
+    // to preserve usable preview and form widths in the two-column dialog.
     const cardNewsWidths = maxWidthsByFile.get('features/card-news-image-model.css');
     assert.deepEqual([...cardNewsWidths].sort((a, b) => a - b), ['460', '760']);
     const socialWidths = maxWidthsByFile.get('features/social.css');
     assert.deepEqual([...socialWidths], ['900']);
+    const siteHostingCreateWidths = maxWidthsByFile.get('features/site-hosting-create.css');
+    assert.deepEqual([...siteHostingCreateWidths].sort((a, b) => a - b), ['720', '960']);
     const siteHostingWidths = maxWidthsByFile.get('features/site-hosting.css');
     assert.deepEqual([...siteHostingWidths], ['540']);
     for (const [file, widths] of maxWidthsByFile) {
         if (
             file === 'features/card-news-image-model.css'
             || file === 'features/social.css'
+            || file === 'features/site-hosting-create.css'
             || file === 'features/site-hosting.css'
         ) continue;
         assert.deepEqual([...widths].filter((width) => width === '460' || width === '760' || width === '900'), [], file);
     }
-    assert.deepEqual([...maxWidths].sort((a, b) => a - b), ['460', '540', '640', '700', '760', '768', '900', '960', '1100', '1240']);
+    assert.deepEqual([...maxWidths].sort((a, b) => a - b), ['460', '540', '640', '700', '720', '760', '768', '900', '960', '1100', '1240']);
     assert.deepEqual([...minWidths].sort((a, b) => a - b), ['769', '961']);
 });
 

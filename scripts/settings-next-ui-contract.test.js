@@ -457,7 +457,7 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
     assert.doesNotMatch(featureStyles, /\.settings-next-section\s*\{/);
     assert.doesNotMatch(featureStyles, /\.settings-next-readiness-item\s*\{/);
     assert.equal((html.match(/data-settings-next-refresh/g) || []).length, 3);
-    assert.equal((html.match(/>새로고침<\/button>/g) || []).length, 3);
+    assert.equal((html.match(/class="ui-refresh-action-icon settings-next-refresh"/g) || []).length, 3);
     assert.doesNotMatch(html, />상태 새로고침<\/button>/);
     assert.equal((html.match(/aria-busy="false"/g) || []).length, 22);
     assert.match(html, /id="settings-next-load-feedback"[^>]*role="status"[^>]*aria-live="polite"/);
