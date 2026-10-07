@@ -454,7 +454,7 @@ test('quick writing keeps one editable manuscript workspace available before pre
   assert.doesNotMatch(css, /#blog-next-ai-publish > summary\s*\{/);
   assert.match(css, /#blog-next-topic-form-home \.blog-next-ai-prepare-actions\s*\{[\s\S]*?margin-top: 0;/);
   assert.match(css, /\.blog-next-preparation-disclosure \.blog-next-ai-action-row\s*\{\s*padding-bottom: 0;/);
-  assert.match(css, /\.blog-next-preparation-disclosure > form\s*\{\s*padding: 0 var\(--ui-space-4\) var\(--ui-density-page-gap\);/);
+  assert.match(css, /\.blog-next-preparation-disclosure > form\s*\{\s*padding: 0 var\(--blog-next-stage-content-inset\) var\(--ui-density-page-gap\);/);
   assert.match(css, /#blog-next-ai-preview \.manuscript-editor-sticky-rail\s*\{\s*margin-bottom: var\(--ui-density-page-gap\);/);
   assert.match(css, /\.blog-next-ai-preview-actions\s*\{\s*margin-top: var\(--ui-density-page-gap\);/);
   assert.match(css, /#blog-next-ai-preview\[open\]\s*\{\s*padding-bottom: var\(--ui-density-page-gap\);/);
@@ -466,7 +466,7 @@ test('quick writing keeps one editable manuscript workspace available before pre
   assert.match(css, /#blog-next-topic-form-home \.blog-next-preparation-disclosure\[open\] > summary\s*\{\s*border-bottom: 0;/);
   assert.match(css, /\.blog-next-disclosure\.blog-next-preview-disclosure\[open\] > summary,[\s\S]*\.blog-next-disclosure\.blog-next-publish-disclosure\[open\] > summary\s*\{\s*background: transparent;/);
   assert.ok(css.indexOf('.blog-next-disclosure[open] > summary {') < css.indexOf('.blog-next-disclosure.blog-next-preview-disclosure > summary,'));
-  assert.match(css, /\.blog-next-preparation-disclosure > form\s*\{\s*padding: 0 var\(--ui-space-4\) var\(--ui-density-page-gap\);/);
+  assert.match(css, /\.blog-next-preparation-disclosure > form\s*\{\s*padding: 0 var\(--blog-next-stage-content-inset\) var\(--ui-density-page-gap\);/);
   assert.match(inputs, /const hasSource = type === 'ai'[\s\S]*?blog-next-ai-markdown[\s\S]*?value\?\.trim\(\)/);
   assert.match(inputs, /postJson\('\/api\/v1\/blog\/manuscript-drafts\/paste',[\s\S]*?markdownText: aiMarkdownAtRequest/);
   assert.match(queue, /발행 계획을 확인한 뒤 발행 대기열에 추가해 주세요/);
@@ -495,6 +495,10 @@ test('quick flow width and disclosure layout adapt without style-specific select
   const selectShellCss = read('ui/styles/patterns/select-shell.css');
 
   assert.match(css, /#blog-next-topic-form-home \.blog-next-topic-form\s*\{[^}]*width:\s*100%;/s);
+  assert.match(css, /#blog-next-mode-panel-ai\s*\{[^}]*--blog-next-stage-content-inset:\s*var\(--ui-space-2\);/s);
+  assert.match(css, /\.blog-next-preparation-disclosure > form\s*\{[^}]*padding:\s*0 var\(--blog-next-stage-content-inset\) var\(--ui-density-page-gap\);/s);
+  assert.match(css, /\.blog-next-preview-disclosure > :not\(summary\)\s*\{[^}]*margin-inline:\s*var\(--blog-next-stage-content-inset\);/s);
+  assert.match(css, /#blog-next-ai-publish > \[data-blog-next-publish-settings-slot="ai-publish"\] > #blog-next-publish-settings,[\s\S]*?#blog-next-ai-publish > \.blog-next-draft-actions\s*\{\s*margin-inline:\s*var\(--blog-next-stage-content-inset\);/s);
   assert.match(css, /#blog-next-topic-form-home \.blog-next-ai-prepare-actions\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0, 1fr\);[^}]*width:\s*100%;/s);
   assert.match(css, /\.blog-next-ai-action-row\s*\{[^}]*grid-column:\s*1 \/ -1;[^}]*width:\s*100%;/s);
   assert.match(css, /\[data-blog-next-draft-actions\]\[hidden\]\s*\{[^}]*display:\s*none;/s);
