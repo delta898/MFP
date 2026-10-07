@@ -3,7 +3,7 @@
 - Branch: `codex/manuscript-workflow-unification-01`
 - Start date: 2026-10-07
 - Base/parent branch: `codex/static-site-builder-main`
-- Status: In progress
+- Status: Ready to merge into `codex/static-site-builder-main`
 
 ## User need and goal
 
@@ -118,3 +118,10 @@ The Blog Beta writing experience currently has separate `AI 생성`, `원고 폴
 - 2026-10-07: User approved the disabled form-control token change. Amade UI Style token contract is advanced to 1.1 with `--ui-form-control-disabled-opacity`; 10 real dev styles and the BlogGenius consumer/fallbacks are synchronized, while `remote-test-style` is intentionally excluded. The earlier manuscript and Vault publishing scope is committed as `a8d49d17`; this follow-up style contract change remains uncommitted.
 - 2026-10-07: Rechecked the ready/saved queue editor after the user clarified that unified writing means `원고 만들기` remains available while editing an idea. Removed the stale code path that hid this action; the queue editor still omits publishing-target controls. The missing target settings are a known issue and are explicitly excluded from this change; a follow-up item was recorded in `docs/backlog.md`.
 - 2026-10-07: Updated contract and browser smoke expectations to match the integrated writer, target-scoped post-status restoration, and current shared AI/image action labels. Browser UI smoke passed (457 fixture requests; external font requests blocked by the test harness). Full unit suite: 2,155 passed, 15 skipped, 1 failed; the remaining failure is the existing `src/ui-server.boundary.test.js` line ceiling (1,208 actual vs 1,200), also present on the parent baseline. No queue target-settings persistence or editor controls were changed.
+
+## Final review and handoff
+
+- 2026-10-07: Rechecked the queue editor implementation and browser smoke assertion after the user questioned whether integrated writing still had a separate `원고 만들기` action. The action remains visible in edit mode; only publishing-target controls are absent. The browser smoke test passed this exact visibility assertion.
+- 2026-10-07: Compared the complete feature diff against `codex/static-site-builder-main`; the branch is a fast-forward candidate and `git diff --check` passes. No merge-blocking issue was found in review. The full unit suite has one accepted baseline failure: `src/ui-server.boundary.test.js` expects the existing server entrypoint to remain under 1,200 lines, while both this branch and its parent contain 1,208 lines. This feature did not change `src/ui-server.js`.
+- 2026-10-07: Final verification: focused contracts and Site Hosting tests passed (67 tests), browser UI smoke passed (457 fixture requests), and the approved full unit suite completed with 2,155 passed, 15 skipped, and the one parent-baseline boundary failure noted above. Manual visual acceptance remains with the user.
+- Known follow-up: publishing target settings are still not exposed in the queued-idea edit screen. This is recorded in `docs/backlog.md` and was intentionally left unchanged per the user's instruction.
