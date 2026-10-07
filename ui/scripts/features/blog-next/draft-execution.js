@@ -500,11 +500,10 @@ function bindBlogNextDetachedPublishSettings(form) {
     const type = BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai';
     if (['blog-next-target-naver', 'blog-next-target-wordpress', 'blog-next-target-site-hosting'].includes(event.target?.id)) {
       syncBlogNextDraftProviderFields(type);
-      if (type === 'paste') blogNextDraftState.paste.siteHostingPosted = false;
     }
     if (event.target?.id === 'blog-next-post-status') {
       syncBlogNextSiteHostingOptions(type);
-      if (type === 'paste') blogNextDraftState.paste.siteHostingPosted = false;
+      if (blogNextDraftState[type]) blogNextDraftState[type].siteHostingPosted = false;
     }
     syncBlogNextDraftSettingsSummary(type);
     syncBlogNextTopicActionAvailability();
@@ -523,14 +522,31 @@ async function publishBlogNextDraft(type) {
   const state = blogNextDraftState[type];
   if (state.publishing || isBlogNextDraftPublishCompleted(type) || !state.preview?.validation?.ok) return;
   let settings = readBlogNextDraftSettings(type);
-  const siteHostingTarget = isBlogNextSiteHostingTarget(type);
-  const siteTargetInput = blogNextDraftField(type, 'target-site-hosting');
+  let siteHostingTarget = isBlogNextSiteHostingTarget(type);
+  const focusSitePicker = () => {
+    const picker = document.getElementById('blog-next-site-hosting-select');
+    const disclosure = picker?.closest('details');
+    if (disclosure) disclosure.open = true;
+    document.getElementById('blog-next-site-hosting-field').hidden = false;
+    picker?.focus();
+  };
+  if (siteHostingTarget) {
+    const availableSites = await loadBlogNextSiteHostingTargets({ preserveSelection: true });
+    settings = readBlogNextDraftSettings(type);
+    siteHostingTarget = isBlogNextSiteHostingTarget(type);
+    if (!Array.isArray(availableSites)) {
+      setBlogNextDraftValidation(type, { errors: ['사이트 목록을 확인하지 못했습니다. 다시 시도해 주세요.'] }, '', state.preview);
+      focusSitePicker();
+      return;
+    }
+  }
   if (siteHostingTarget && settings.postStatus === 'schedule') {
     setBlogNextDraftValidation(type, { errors: ['내 사이트 포스팅은 임시 저장 또는 즉시 발행만 지원합니다.'] }, '', state.preview);
     return;
   }
-  if (siteHostingTarget && (!siteTargetInput?.dataset.projectId || !siteTargetInput?.dataset.siteId)) {
-    setBlogNextDraftValidation(type, { errors: ['포스팅할 사이트를 찾지 못했습니다. 사이트 관리에서 사이트를 먼저 만들어 주세요.'] }, '', state.preview);
+  if (siteHostingTarget && (!settings.siteProjectId || !settings.siteId)) {
+    setBlogNextDraftValidation(type, { errors: ['발행할 사이트를 선택해 주세요. 선택한 사이트가 없거나 발행 조건을 충족하지 않으면 목록에서 다시 선택해야 합니다.'] }, '', state.preview);
+    focusSitePicker();
     return;
   }
   if (!siteHostingTarget && typeof ensureUiCapabilityReady === 'function') {
@@ -549,7 +565,9 @@ async function publishBlogNextDraft(type) {
       ? { buttonLabel: '사이트에 임시 저장', actionLabel: '사이트 임시 저장', busyLabel: '사이트에 임시 저장 중...', completionLabel: '임시 저장했습니다.' }
       : { buttonLabel: '사이트 발행', actionLabel: '사이트 발행', busyLabel: '사이트 빌드·배포 중...', completionLabel: '발행했습니다.' }
     : getBlogNextDraftPublishCopy(settings.postStatus);
-  const targetLabel = formatBlogPlatformList(settings.targets, ' + ') || '선택한 블로그';
+  const targetLabel = siteHostingTarget
+    ? document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0]?.textContent?.trim() || '선택한 사이트'
+    : formatBlogPlatformList(settings.targets, ' + ') || '선택한 블로그';
   const confirmed = await showUiConfirm(
     buildBlogNextDraftPublishConfirmation(settings, targetLabel),
     { title: publishCopy.buttonLabel, confirmText: publishCopy.buttonLabel, cancelText: '취소' }
@@ -584,13 +602,27 @@ async function publishBlogNextDraft(type) {
     showBlogNextExecutionStatusAtTop(publishSettingsHeading || publishActions, publishActions);
   }
   try {
+    if (siteHostingTarget) {
+      const selectedProjectId = settings.siteProjectId;
+      const selectedSiteId = settings.siteId;
+      const availableSites = await loadBlogNextSiteHostingTargets({ preserveSelection: true });
+      settings = readBlogNextDraftSettings(type);
+      if (!Array.isArray(availableSites)) {
+        throw new Error('사이트 목록을 다시 확인하지 못했습니다. 다시 불러온 뒤 발행해 주세요.');
+      }
+      if (settings.siteProjectId !== selectedProjectId || settings.siteId !== selectedSiteId) {
+        throw Object.assign(new Error('선택한 사이트가 삭제되었거나 발행 조건을 충족하지 않습니다. 사이트를 다시 선택해 주세요.'), { code: 'SITE_HOSTING_TARGET_STALE' });
+      }
+    }
     const syncedPreview = await loadBlogNextDraftPreview(type);
     if (!syncedPreview || state.previewSyncFailed || !state.draftId || !state.preview?.validation?.ok) {
       throw new Error('최신 원고 미리보기를 준비하지 못했습니다.');
     }
     const publishResult = siteHostingTarget
-      ? await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(siteTargetInput.dataset.projectId)}/sites/${encodeURIComponent(siteTargetInput.dataset.siteId)}/posts`, {
-        markdownText: document.getElementById('blog-next-paste-markdown')?.value || state.preview.rawMarkdown || '',
+      ? await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(settings.siteProjectId)}/sites/${encodeURIComponent(settings.siteId)}/posts`, {
+        markdownText: (type === 'ai' ? document.getElementById('blog-next-ai-markdown')?.value
+          : type === 'folder' ? document.getElementById('blog-next-folder-markdown')?.value
+            : document.getElementById('blog-next-paste-markdown')?.value) || state.preview.rawMarkdown || '',
         postStatus: settings.postStatus,
         draftId: state.draftId,
         revision: state.revision
@@ -625,8 +657,8 @@ async function publishBlogNextDraft(type) {
         completionLinks: siteHostingTarget && publishResult?.post_url
           ? [{
             label: '발행한 글', url: publishResult.post_url, platform: 'site-hosting', kind: 'post',
-            projectId: siteTargetInput.dataset.projectId,
-            siteId: siteTargetInput.dataset.siteId,
+            projectId: settings.siteProjectId,
+            siteId: settings.siteId,
             postId: publishResult.post_id
           }]
           : Array.isArray(publishResult?.completionLinks) ? publishResult.completionLinks : [],

@@ -300,6 +300,42 @@ function createSiteHostingSiteService(deps = {}) {
         return input ? String(site?.setup_inputs?.[input.id] || '').trim() : '';
     }
 
+    function getPostTargetEligibility(site) {
+        if (site?.template_status !== 'available') {
+            return { eligible: false, reason: '템플릿을 사용할 수 없음' };
+        }
+        const resource = templates.get(site?.template?.id)?.resource;
+        const family = resource?.family;
+        const postType = (family?.content_types || []).find((item) => item?.kind === 'post');
+        if (!isSupportedSiteHostingContractVersion(resource?.spec_version)
+            || family?.content_contract_version !== resource.spec_version
+            || resource?.template?.compatibility?.contract?.version !== resource.spec_version
+            || !postType || typeof postType.source !== 'string') {
+            return { eligible: false, reason: '글 발행 계약을 지원하지 않음' };
+        }
+        const routeSettings = site.customization?.publishing || {
+            listing_route: postType.listing_route,
+            detail_route: postType.detail_route
+        };
+        const listingRoute = String(routeSettings.listing_route || '');
+        const detailRoute = String(routeSettings.detail_route || '');
+        if (!internalPathname(listingRoute) || !listingRoute.endsWith('/')
+            || detailRoute !== `${listingRoute}{slug}/`
+            || !internalPathname(detailRoute.replace('{slug}', 'post-check'))
+            || !/^((?:[A-Za-z0-9_-]+\/)*)\{slug\}\/index\.md$/u.test(postType.source)) {
+            return { eligible: false, reason: '글 목록 또는 상세 경로를 확인할 수 없음' };
+        }
+        const isVault = Boolean(knowledgeCollectionRoot(site));
+        const navigation = site.customization?.navigation;
+        const postListIndex = routeSettings.post_list_navigation_index;
+        const menu = Array.isArray(navigation) && Number.isInteger(postListIndex) ? navigation[postListIndex] : null;
+        const hasBlogListMenu = Boolean(menu && menu.href === listingRoute);
+        if (!isVault && !hasBlogListMenu) {
+            return { eligible: false, reason: '블로그 글 목록 메뉴 없음' };
+        }
+        return { eligible: true, kind: isVault ? 'vault' : 'blog' };
+    }
+
     async function openKnowledgeCollectionFolder(projectId, siteId) {
         const site = repository.get(projectId, siteId);
         if (!site) throw siteInputError('사이트를 찾을 수 없습니다.', 'SITE_HOSTING_SITE_NOT_FOUND', 404);
@@ -389,6 +425,12 @@ function createSiteHostingSiteService(deps = {}) {
         }
         if (site.template_status !== 'available') {
             throw siteInputError('이 사이트의 템플릿을 사용할 수 없어 글을 저장할 수 없습니다.', 'SITE_HOSTING_TEMPLATE_UNAVAILABLE', 409);
+        }
+        const targetEligibility = getPostTargetEligibility(site);
+        if (!targetEligibility.eligible) {
+            const code = targetEligibility.reason === '블로그 글 목록 메뉴 없음'
+                ? 'SITE_HOSTING_BLOG_MENU_REQUIRED' : 'SITE_HOSTING_PUBLISH_TARGET_UNAVAILABLE';
+            throw siteInputError(`이 사이트는 발행 대상으로 사용할 수 없습니다: ${targetEligibility.reason}.`, code, 409);
         }
         const template = templates.get(site.template?.id);
         const resource = template?.resource;
@@ -615,6 +657,7 @@ function createSiteHostingSiteService(deps = {}) {
             return {
                 id, project_id, name, template, template_name, template_status, template_update_available, available_template_version, hostname, domain: domain || '',
                 custom_domain: formatCustomDomain(hostname, domain), deployment, custom_domain_binding, screenshot, last_build,
+                posting_target: getPostTargetEligibility(site),
                 knowledge_collection: root ? { name: pathApi.basename(root) || root } : null,
                 screenshot_url: screenshot?.latest_build?.path || screenshot?.template?.path
                     ? `/api/v1/site-hosting/projects/${encodeURIComponent(project_id)}/sites/${encodeURIComponent(id)}/screenshot`

@@ -54,8 +54,11 @@ function readBlogNextDraftSettings(type) {
   if (blogNextDraftField(type, 'target-naver')?.checked) targets.push('naver');
   if (blogNextDraftField(type, 'target-wordpress')?.checked) targets.push('wordpress');
   if (blogNextDraftField(type, 'target-site-hosting')?.checked) targets.push('site-hosting');
+  const siteOption = document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0];
   return {
     targets,
+    siteProjectId: siteOption?.dataset.projectId || '',
+    siteId: siteOption?.dataset.siteId || '',
     naverCategory: blogNextDraftField(type, 'naver-category')?.value?.trim() || '',
     wordpressCategory: blogNextDraftField(type, 'wordpress-category')?.value?.trim() || '',
     postStatus: blogNextDraftField(type, 'post-status')?.value || 'publish',
@@ -129,7 +132,11 @@ function syncBlogNextDraftSettingsSummary(type) {
   const settings = readBlogNextDraftSettings(type);
   const statusLabel = settings.postStatus === 'draft' ? '임시 저장'
     : settings.postStatus === 'schedule' ? '예약 발행' : '즉시 발행';
-  const parts = [formatBlogPlatformList(settings.targets, ' + ') || '발행 대상 없음', statusLabel];
+  let targetLabel = formatBlogPlatformList(settings.targets, ' + ') || '발행 대상 없음';
+  if (settings.targets.includes('site-hosting') && settings.siteId) {
+    targetLabel = document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0]?.textContent?.trim() || targetLabel;
+  }
+  const parts = [targetLabel, statusLabel];
   if (settings.targets.includes('naver')) {
     parts.push(settings.headless ? '보이지 않게 실행' : '브라우저 표시');
   }
@@ -137,38 +144,85 @@ function syncBlogNextDraftSettingsSummary(type) {
 }
 
 function isBlogNextSiteHostingTarget(type) {
-  return type === 'paste' && readBlogNextDraftSettings(type).targets.includes('site-hosting');
+  return readBlogNextDraftSettings(type).targets.includes('site-hosting');
 }
 
-async function loadBlogNextFirstSiteHostingTarget() {
+function setBlogNextSiteHostingMessage(message, state = '') {
+  const element = document.getElementById('blog-next-site-hosting-message');
+  if (!element) return;
+  element.textContent = message;
+  element.dataset.state = state;
+}
+
+async function loadBlogNextSiteHostingTargets({ preserveSelection = true } = {}) {
   const option = document.getElementById('blog-next-target-site-hosting-option');
   const input = blogNextDraftField('paste', 'target-site-hosting');
-  const label = document.getElementById('blog-next-target-site-hosting-label');
-  if (!option || !input || !label || option.dataset.loaded === 'true') return;
-  option.dataset.loaded = 'true';
+  const field = document.getElementById('blog-next-site-hosting-field');
+  const select = document.getElementById('blog-next-site-hosting-select');
+  const retry = document.getElementById('blog-next-site-hosting-retry');
+  if (!option || !input || !field || !select) return [];
+  const previous = select.selectedOptions?.[0];
+  const previousProjectId = preserveSelection ? previous?.dataset.projectId || '' : '';
+  const previousSiteId = preserveSelection ? previous?.dataset.siteId || '' : '';
+  input.disabled = true;
+  select.disabled = true;
+  setBlogNextSiteHostingMessage('사이트 목록을 불러오는 중입니다.');
   try {
+    delete select.dataset.loadFailed;
     const projects = await fetchJson('/api/v1/site-hosting/projects');
     const list = Array.isArray(projects) ? projects : [];
-    const preferred = list.find((project) => project?.id === 'default') || list[0];
-    const ordered = [preferred, ...list.filter((project) => project?.id !== preferred?.id)].filter(Boolean);
-    for (const project of ordered) {
-      const sites = await fetchJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites`);
-      const site = Array.isArray(sites) ? sites.find((item) => item?.id) : null;
-      if (!site) continue;
-      input.dataset.projectId = project.id;
-      input.dataset.siteId = site.id;
-      input.disabled = false;
-      label.textContent = `내 사이트 · ${site.name || '사이트'}`;
-      option.hidden = false;
-      return;
+    const groups = await Promise.all(list.filter((project) => project?.id).map(async (project) => ({
+      project,
+      sites: await fetchJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites`)
+    })));
+    const sites = groups.flatMap(({ project, sites: projectSites }) => (Array.isArray(projectSites) ? projectSites : [])
+      .filter((site) => site?.id)
+      .map((site) => ({ ...site, project_name: project.name || '사이트 프로젝트' })));
+    const options = [new Option('사이트를 선택하세요', '', true, true)];
+    for (const site of sites) {
+      const projectName = site.project_name;
+      const eligible = site.posting_target?.eligible === true;
+      const reason = String(site.posting_target?.reason || '');
+      const optionLabel = `${site.name || '이름 없는 사이트'} · ${projectName}${eligible ? '' : ` — ${reason || '발행 조건 미충족'}`}`;
+      const siteOption = new Option(optionLabel, String(options.length));
+      siteOption.dataset.projectId = site.project_id || '';
+      siteOption.dataset.siteId = site.id;
+      siteOption.disabled = !eligible;
+      options.push(siteOption);
     }
-    label.textContent = '내 사이트 (생성된 사이트 없음)';
+    select.replaceChildren(...options);
+    if (retry) retry.hidden = true;
+    const selected = Array.from(select.options).find((candidate) =>
+      candidate.dataset.projectId === previousProjectId && candidate.dataset.siteId === previousSiteId && !candidate.disabled);
+    if (selected) selected.selected = true;
+    const hadSelection = Boolean(previousProjectId && previousSiteId);
+    const selectionLost = hadSelection && !selected;
+    input.disabled = sites.length === 0;
+    select.disabled = sites.length === 0;
+    if (selectionLost) {
+      setBlogNextSiteHostingMessage('선택한 사이트가 삭제되었거나 발행 조건을 충족하지 않습니다. 다시 선택해 주세요.', 'error');
+    } else if (!sites.length) {
+      setBlogNextSiteHostingMessage('생성된 사이트가 없습니다. 사이트를 먼저 만들어 주세요.');
+    } else {
+      const disabledCount = sites.filter((site) => site.posting_target?.eligible !== true).length;
+      setBlogNextSiteHostingMessage(disabledCount ? `발행할 수 없는 사이트 ${disabledCount}개는 사유와 함께 비활성화되어 있습니다.` : '');
+    }
+    return sites;
   } catch (error) {
     console.warn('[Blog Beta] Site Hosting 대상 조회 실패:', error);
-    label.textContent = '내 사이트 (목록을 불러오지 못함)';
+    select.dataset.loadFailed = 'true';
+    if (retry) retry.hidden = false;
+    setBlogNextSiteHostingMessage('사이트 목록을 불러오지 못했습니다. 다시 시도해 주세요.', 'error');
+    return null;
+  } finally {
+    if (select.dataset.loadFailed === 'true') {
+      input.disabled = false;
+      select.disabled = !input.checked || select.options.length <= 1;
+    } else {
+      input.disabled = select.options.length <= 1;
+      select.disabled = !input.checked || select.options.length <= 1;
+    }
   }
-  input.disabled = true;
-  option.hidden = false;
 }
 
 function syncBlogNextSiteHostingOptions(type) {
@@ -200,12 +254,10 @@ function syncBlogNextDraftProviderFields(type) {
   const settings = document.getElementById('blog-next-publish-settings');
   if (!settings) return;
   const siteHostingOption = document.getElementById('blog-next-target-site-hosting-option');
-  const activeContext = settings.dataset.blogNextDraftSettings || type;
-  if (siteHostingOption) siteHostingOption.hidden = activeContext !== 'paste';
-  if (activeContext !== 'paste' && blogNextDraftField(type, 'target-site-hosting')?.checked) {
-    blogNextDraftField(type, 'target-site-hosting').checked = false;
-    blogNextDraftField(type, 'target-naver').checked = true;
-  }
+  if (siteHostingOption) siteHostingOption.hidden = false;
+  const siteSelected = blogNextDraftField(type, 'target-site-hosting')?.checked === true;
+  const siteSelect = document.getElementById('blog-next-site-hosting-select');
+  if (siteSelect) siteSelect.required = siteSelected;
   const naverSelected = blogNextDraftField(type, 'target-naver')?.checked === true;
   const wordpressSelected = blogNextDraftField(type, 'target-wordpress')?.checked === true;
   settings.querySelectorAll('[data-draft-provider-field]').forEach((field) => {
@@ -215,6 +267,9 @@ function syncBlogNextDraftProviderFields(type) {
       control.disabled = !active;
     });
   });
+  const siteActive = blogNextDraftField(type, 'target-site-hosting')?.checked === true;
+  const siteSelectField = document.getElementById('blog-next-site-hosting-select');
+  if (siteSelectField) siteSelectField.disabled = !siteActive || siteSelectField.options.length <= 1;
   syncBlogNextDraftSettingsSummary(type);
   syncBlogNextSiteHostingOptions(type);
 }
@@ -993,11 +1048,21 @@ function initManuscriptEditorStickyOffsets() {
 }
 
 function initBlogNextDraftInputs() {
-  void loadBlogNextFirstSiteHostingTarget();
+  void loadBlogNextSiteHostingTargets({ preserveSelection: false });
   initManuscriptEditorStickyOffsets();
   const folderInput = document.getElementById('blog-next-folder-input');
   if (!folderInput || folderInput.dataset.bound === 'true') return;
   folderInput.dataset.bound = 'true';
+  document.getElementById('blog-next-site-hosting-retry')?.addEventListener('click', () => {
+    void loadBlogNextSiteHostingTargets({ preserveSelection: true });
+  });
+  document.getElementById('blog-next-site-hosting-select')?.addEventListener('change', () => {
+    const type = BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai';
+    if (blogNextDraftState[type]) blogNextDraftState[type].siteHostingPosted = false;
+    setBlogNextSiteHostingMessage('');
+    syncBlogNextDraftSettingsSummary(type);
+    syncBlogNextDraftExecutionState();
+  });
   document.getElementById('blog-next-publish-image-action')?.addEventListener('click', focusBlogNextDraftImages);
   const aiMarkdown = document.getElementById('blog-next-ai-markdown');
   document.getElementById('blog-next-keywords')?.addEventListener('input', () => {

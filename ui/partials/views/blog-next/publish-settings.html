@@ -14,11 +14,17 @@
       </legend>
       <label><input id="blog-next-target-naver" name="blog-next-publish-target" data-draft-field="target-naver" type="radio" value="naver" checked> 네이버 블로그</label>
       <label><input id="blog-next-target-wordpress" name="blog-next-publish-target" data-draft-field="target-wordpress" type="radio" value="wordpress"> 워드프레스</label>
-      <label id="blog-next-target-site-hosting-option" data-blog-next-site-target hidden>
-        <input id="blog-next-target-site-hosting" name="blog-next-publish-target" data-draft-field="target-site-hosting" type="radio" value="site-hosting" disabled>
-        <span id="blog-next-target-site-hosting-label">내 사이트</span>
+      <label id="blog-next-target-site-hosting-option" data-blog-next-site-target>
+        <input id="blog-next-target-site-hosting" name="blog-next-publish-target" data-draft-field="target-site-hosting" type="radio" value="site-hosting" aria-label="사이트" disabled>
       </label>
+      <span class="ui-select-shell blog-next-site-hosting-inline" id="blog-next-site-hosting-field">
+        <select id="blog-next-site-hosting-select" aria-label="발행할 사이트" aria-describedby="blog-next-site-hosting-message" disabled>
+          <option value="" selected>사이트를 선택하세요</option>
+        </select>
+      </span>
     </fieldset>
+    <small class="blog-next-site-hosting-status" id="blog-next-site-hosting-message" role="status" aria-live="polite"></small>
+    <button class="ui-text-action blog-next-site-hosting-retry" id="blog-next-site-hosting-retry" type="button" hidden>다시 불러오기</button>
     <label class="blog-next-field blog-next-dependent-field" id="blog-next-naver-category-field" data-draft-provider-field="naver" data-dependency-active="true">
       <span>네이버 카테고리 <small>(선택)</small></span>
       <input id="blog-next-naver-category" data-draft-field="naver-category" type="text" placeholder="비우면 기본 카테고리">
