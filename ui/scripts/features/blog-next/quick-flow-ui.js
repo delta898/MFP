@@ -76,10 +76,13 @@ function syncBlogNextQuickFlowSummaries() {
     const targetLabel = platforms.includes('site-hosting')
       ? siteSelected ? siteOption.textContent.trim() : '사이트 선택 필요'
       : formatBlogPlatformList(platforms, ' + ') || '발행 대상 없음';
-    const summaryParts = [
-      targetLabel
-    ];
-    if (!platforms.includes('site-hosting') || siteSelected) {
+    const vaultFolder = document.getElementById('blog-next-vault-folder-select');
+    const siteKey = siteSelected ? `${siteOption.dataset.projectId}/${siteOption.dataset.siteId}` : '';
+    const vaultNeedsFolder = siteSelected && siteOption.dataset.siteKind === 'vault';
+    const folderSelected = vaultNeedsFolder && vaultFolder?.dataset.siteKey === siteKey && Boolean(vaultFolder.value);
+    const summaryParts = [vaultNeedsFolder && !folderSelected ? '저장 폴더 선택 필요' : targetLabel];
+    if ((!platforms.includes('site-hosting') || siteSelected) && (!vaultNeedsFolder || folderSelected)) {
+      if (folderSelected) summaryParts[0] += ` · ${vaultFolder.selectedOptions[0].textContent.trim()}`;
       summaryParts.push(readBlogNextSelectedText('blog-next-post-status', '즉시 발행'));
     }
     if (document.getElementById('blog-next-target-naver')?.checked) {
@@ -116,7 +119,8 @@ function syncBlogNextProviderDependentFields() {
   if (input) input.disabled = !naverSelected || runnerBusy;
   const siteSelected = document.getElementById('blog-next-target-site-hosting')?.checked === true;
   const category = document.getElementById('blog-next-category');
-  if (category && typeof syncBlogNextDraftProviderFields !== 'function') category.disabled = siteSelected;
+  const siteKind = document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0]?.dataset.siteKind;
+  if (category && typeof syncBlogNextDraftProviderFields !== 'function') category.disabled = siteSelected && siteKind !== 'vault';
 }
 
 function readBlogNextTopicActionValidity() {
@@ -129,8 +133,13 @@ function readBlogNextTopicActionValidity() {
     || document.getElementById('blog-next-target-site-hosting')?.checked === true;
   const siteHostingSelected = document.getElementById('blog-next-target-site-hosting')?.checked === true;
   const siteOption = document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0];
-  const siteTargetReady = !siteHostingSelected
+  let siteTargetReady = !siteHostingSelected
     || Boolean(siteOption?.dataset.projectId && siteOption?.dataset.siteId && !siteOption.disabled);
+  if (siteTargetReady && siteHostingSelected && siteOption?.dataset.siteKind === 'vault') {
+    const folderSelect = document.getElementById('blog-next-vault-folder-select');
+    const siteKey = `${siteOption.dataset.projectId}/${siteOption.dataset.siteId}`;
+    siteTargetReady = folderSelect?.dataset.siteKey === siteKey && Boolean(folderSelect.value);
+  }
   const scheduled = document.getElementById('blog-next-post-status')?.value === 'schedule';
   const scheduleValid = !scheduled || Boolean(document.getElementById('blog-next-schedule-date')?.value);
   return {

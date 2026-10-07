@@ -1,0 +1,26 @@
+# Site Hosting Vault Publishing
+
+## Scope
+
+Blog Beta can publish a manuscript to a Digital Garden (DG) Site backed by a local Vault. The destination picker exposes only folders under the root configured for that Site. The browser keeps the chosen relative path in the current tab session; the server resolves and validates it again when publishing.
+
+## Destination contract
+
+- `GET /api/v1/site-hosting/projects/{projectId}/sites/{siteId}/vault-folders` returns the configured Vault root name and root-relative folder paths. The root is represented by `.`. Symbolic-link directories are omitted, and the list is capped at 5,000 folders.
+- `POST /api/v1/site-hosting/projects/{projectId}/sites/{siteId}/vault-folder` opens the native directory chooser at the previously selected Vault-relative folder (or the Vault root on first use). It returns only a relative path. The native dialog may allow browsing outside the root, but the service rejects an outside selection and all symlinked paths.
+- Publishing to a Vault Site requires `destinationPath`. It must name an existing directory under that Site's configured Vault root. Absolute paths, traversal, symbolic links, and paths outside the root are rejected.
+- A Vault Site is eligible as a publishing target when it has the supported Site Hosting contract version plus declared Knowledge Collection root and publication-filter inputs. It does not need the ordinary Blog `post` content type or a blog-list navigation menu; the published note is surfaced by the Knowledge Collection build.
+- A folder that disappears is not replaced with another path. The user must select a currently available folder.
+- The Site Publishing target still stores a post at `{destination}/{slug}/index.md` with image assets under its sibling `images/` directory. Immediate posting follows the existing build/deploy lifecycle; temporary save writes locally without building or deploying.
+
+## Knowledge Collection visibility
+
+- Temporary BlogGenius posts use `kind: post`, `editorial_status: draft`, and `publication: none`. The Knowledge Collection builder always excludes these generated temporary posts, including in `ALL` mode.
+- Immediate posts use `editorial_status: complete` and `publication: public`. When the Site has a configured frontmatter publication filter, the publisher writes its field/value into the post frontmatter so the note matches that filter.
+- `ALL` mode otherwise retains its existing behavior. Its general visibility semantics, including visibility of other Vault notes, are outside this feature and remain a separate design decision.
+
+## Ownership and validation
+
+The UI owns selection and session-scoped target settings. It never sends absolute Vault paths. The Site Hosting service owns root resolution, folder enumeration, containment checks, post writing, and deployment. The Knowledge Collection builder owns inclusion and exclusion during collection generation.
+
+No compatibility migration is needed: destination selection is a current UI request field and generated posts live in user-selected Vault folders.

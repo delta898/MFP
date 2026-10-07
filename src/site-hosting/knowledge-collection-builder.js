@@ -184,7 +184,10 @@ function createKnowledgeCollectionBuilder(options = {}) {
         });
         const publishAll = publicationFilter?.mode === 'all';
         const selectionConfigured = publishAll || Boolean(publicationFilter?.field && publicationFilter?.value);
-        const included = parsed.filter((note) => publishAll || (selectionConfigured && matchesFrontmatter(note.fields, publicationFilter)));
+        // BlogGenius temporary posts live in the Vault too, but must never be
+        // exposed by either filtered or ALL collections until they are published.
+        const included = parsed.filter((note) => !(note.fields.kind === 'post' && note.fields.editorial_status === 'draft')
+            && (publishAll || (selectionConfigured && matchesFrontmatter(note.fields, publicationFilter))));
         const byPath = new Map(parsed.map((note) => [note.relative.replace(MARKDOWN_EXTENSION, '').toLocaleLowerCase(), note]));
         const byName = new Map();
         const aliases = new Map();

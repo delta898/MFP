@@ -18,6 +18,9 @@ The Blog Beta writing experience currently has separate `AI 생성`, `원고 폴
 - Allow the user to type or paste a manuscript without first generating it. AI generation should populate the same manuscript workspace.
 - Preserve the existing publishing options and behavior.
 - Apply Blog UI work only to `view-blog-next` (Blog Beta).
+- Follow-up Site Hosting publishing work: for Digital Garden/Vault sites, use the selected site’s configured Vault root as the base for a relative destination-folder picker and save the manuscript under that Vault folder. Keep ordinary Site Hosting blog sites on their configured blog route.
+- Keep destination folders scoped to the selected Site Hosting site in the current browser session; never silently substitute a folder if the saved relative path becomes invalid.
+- Public Vault posts must satisfy the selected frontmatter publication rule. BlogGenius temporary drafts must remain excluded from the generated Knowledge Collection, including while the current ALL mode is still supported.
 
 ## Non-goals
 
@@ -25,6 +28,7 @@ The Blog Beta writing experience currently has separate `AI 생성`, `원고 폴
 - Removing legacy folder/paste paths before the unified flow is ready.
 - Changing publish providers, platform payload contracts, or server-side manuscript ownership unless required to connect the common editor safely.
 - Changing the legacy `블로그` surface.
+- Redesigning the Digital Garden ALL-versus-filtered publication setup; preserve the existing setting and make the minimum draft-exclusion behavior required by Vault publishing.
 
 ## Proposed boundaries and stages
 
@@ -33,6 +37,8 @@ The Blog Beta writing experience currently has separate `AI 생성`, `원고 폴
 3. Route generated and manually entered manuscripts through the same draft, preview, and publishing lifecycle.
 4. Retain legacy modes while validating the unified flow; remove them only after the replacement is complete.
 5. Run focused UI contract tests and the relevant browser smoke test when the flow is reviewable. User retains final hands-on visual acceptance.
+6. Add a Vault-root-bounded folder listing and relative-path selection to Blog Beta publishing; route Vault post writes into the selected folder and retain the existing build/deploy lifecycle for public posts.
+7. Ensure generated temporary posts stay out of Knowledge Collection conversion and public posts match the site’s configured frontmatter filter; do not otherwise redefine ALL-mode semantics.
 
 ## Decisions and tradeoffs
 
@@ -40,6 +46,10 @@ The Blog Beta writing experience currently has separate `AI 생성`, `원고 폴
 - Generation is one optional way to prepare content, not a prerequisite for editing or publishing.
 - Reuse the canonical Manuscript Draft/revision contract where possible so preview and publishing refer to the same content revision.
 - Preserve legacy paths temporarily to avoid removing existing capabilities while the integrated flow is being built.
+- 2026-10-07: User approved continuing Vault category work as a publishing-path feature. The selected folder is under the DG site’s configured Vault root; ALL-mode setup redesign is explicitly deferred. A public post should be collected by the Knowledge Collection filter; a temporary post should not be collected.
+- Store the selected Vault destination as a root-relative path, not an absolute filesystem path. This avoids exposing local paths in browser state and allows the backend to revalidate containment at publish time.
+- A DG/Vault target uses Knowledge Collection publication rather than the ordinary Blog `post` content type and blog-list menu contract. Require the supported shared Site Hosting version and its declared Vault/filter setup inputs; do not mark it ineligible merely because it has no blog-post contract.
+- Vault destination selection uses the native directory chooser, opened at the last selected root-relative folder; the backend rejects any outside-root or symlinked selection.
 
 ## Starting state
 
@@ -80,6 +90,8 @@ The Blog Beta writing experience currently has separate `AI 생성`, `원고 폴
 - 2026-10-07: Follow-up clarification: the final bottom spacing applies independently to all three final sub-blocks. Explicitly aligned the publish action panel's bottom padding with the preparation form and preview disclosure trailing spacing, without changing the separate outer stage gap.
 - 2026-10-07: Increased the spacing between the three workflow stages from the field-gap token to the page-gap token; inner sub-block spacing is unchanged.
 - 2026-10-07: Trend `빠른 글 작성` now asks before replacing any non-empty writing inputs. Cancel keeps the user on the trend results with their current values untouched; confirm replaces the topic/keyword, clears optional title and experience/reference values not supplied by the trend, switches to quick writing, opens `원고 준비`, refreshes its topic summary, and focuses the subject. Focused contract tests pass; browser smoke could not start because sandbox policy denied local-port binding.
+- 2026-10-07: User reported DG was still disabled in the Site Hosting target list. The eligibility reason was the absence of an ordinary Blog `post` content type. Vault targets now use the declared Knowledge Collection contract and remain independent of blog routes/menu; successful public Vault posts build/deploy without fabricating a blog detail URL.
+- 2026-10-07: Replaced the Vault folder dropdown with a native directory chooser that opens at the last selected folder. The browser retains only a root-relative path; the service revalidates the selection against the configured Vault root and rejects outside paths and symlinks. Syntax and diff checks remain pending.
 - 2026-10-07: Extracted `applyBlogNextWritingIntent()` into a Blog Beta shared module and migrated trend quick-create to it. The module owns busy checks, whether existing form/draft work needs confirmation, no-mutation-on-cancel, editor-preview reset, applying allowlisted manuscript fields, summary and action synchronization, preparation expansion, and focus. Source-specific mapping and trend context stay with the trend adapter. The global `CmdOrCtrl+N` shortcut still uses its existing new-writing entry point; migrating it to this common module is a follow-up stage so the current implementation scope remains the trend flow.
 - 2026-10-07: Shared-intent behavior contract now verifies cancellation preserves current values/draft and acceptance resets the old preview before applying the new source. `scripts/blog-next-quick-flow-contract.test.js` passes (19 tests); changed JavaScript syntax checks, 119-script app composition/classic-script parse, and `git diff --check` pass. The broader `scripts/ui-script-structure.test.js` remains blocked by existing mismatches: its expected include list omits `site-profile-fields.js`, and unchanged `draft-inputs.js` exceeds its recorded 1,200-line ceiling (1,221 lines). Browser smoke remains blocked before Blog Beta at the existing Dashboard discovery wait (`scripts/test-ui-browser-smoke.js:2302`).
 - 2026-10-07: The global `CmdOrCtrl+N` / next-writing navigation now delegates to the same `applyBlogNextWritingIntent()` module as Trend Posting. It confirms before leaving the current view, navigates to quick writing only after approval, then resets the prior work, opens `원고 준비`, and focuses the subject. Published work retains its specific confirmation copy. Removed the now-unused duplicate `prepareBlogNextNewWriting()` implementation. Focused quick-flow and Dashboard shell contracts pass (19 and 12 tests); browser smoke starts but stops on existing Dashboard discovery fixture/content expectations before reaching Blog Beta, so this shortcut path still needs browser-level or hands-on confirmation.
@@ -101,3 +113,5 @@ The Blog Beta writing experience currently has separate `AI 생성`, `원고 폴
 - 2026-10-07: Tightened the gap between the Site radio and its adjacent dropdown independently of the shared publishing-target spacing. `git diff --check` passed.
 - 2026-10-07: Agreed follow-up stage: show one category field, post status, and schedule date for the active publishing target while keeping Naver, WordPress, and each Site's values separate for the current browser tab session. Ordinary Sites display their connected blog listing path as read-only category context; Vault directory selection remains explicitly deferred. Add a manual Site list refresh action.
 - 2026-10-07: Implemented the target-scoped settings state in `sessionStorage` (with in-memory fallback), unified category field, read-only ordinary Site route display, deferred Vault-location note, and always-visible shared refresh icon. Site Hosting target metadata now includes its validated blog listing route. Persistent defaults no longer restore target-specific category/status values across browser sessions. Syntax checks and `git diff --check` pass; behavioral tests and hands-on visual validation remain pending.
+- 2026-10-07: Implemented the next Vault publishing stage: DG Sites expose root-relative folders from the configured Vault root; Blog Beta stores the selection per Site for the current browser session and requires reselection if the saved folder disappears. The server validates the relative destination against the configured root, writes the post and images into that folder, applies a configured frontmatter publication filter to public posts, and rejects unsafe or stale paths. The Knowledge Collection builder excludes generated temporary posts even under current ALL mode; other ALL behavior remains unchanged. Added `architecture/site-hosting-vault-publishing.md` as the current contract reference. JavaScript syntax checks and `git diff --check` pass; no test suite or UI run was requested/performed. Manual review remains for folder selection, public posting/build, temporary-save exclusion in ALL mode, and missing-folder refresh behavior.
+- 2026-10-07: Follow-up layout adjustment: keep the Vault-root helper text inside its folder field so it does not consume a separate full-width grid row. Hide `보이지 않게 실행` for WordPress and Site Hosting; it remains enabled and visible for Naver Blog only. This preserves the two-column settings layout without showing a Naver-only option for other targets.

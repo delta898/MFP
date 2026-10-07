@@ -87,7 +87,7 @@ function createSiteHostingSiteRouteHandler(deps = {}) {
                 await sendSuccess(res, requestId, await service.postMarkdown(projectId, siteId, ctx.requestBody || {}, { requestId }));
                 return true;
             }
-            const siteActionMatch = pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)\/(build|build-status|preview|deploy|update-template|test-template-update|open-folder|open-vault|open-address|open-post|zones|custom-domain|custom-domain-disconnect|worker-disconnect|delete-plan|delete)$/);
+            const siteActionMatch = pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/([^/]+)\/(build|build-status|preview|deploy|update-template|test-template-update|open-folder|open-vault|vault-folders|vault-folder|open-address|open-post|zones|custom-domain|custom-domain-disconnect|worker-disconnect|delete-plan|delete)$/);
             if (siteActionMatch) {
                 const projectId = decodePathPart(siteActionMatch[1]);
                 const siteId = decodePathPart(siteActionMatch[2]);
@@ -126,6 +126,14 @@ function createSiteHostingSiteRouteHandler(deps = {}) {
                 }
                 if (action === 'open-vault' && method === 'POST') {
                     await sendSuccess(res, requestId, await service.openKnowledgeCollectionFolder(projectId, siteId));
+                    return true;
+                }
+                if (action === 'vault-folders' && method === 'GET') {
+                    await sendSuccess(res, requestId, service.listKnowledgeCollectionFolders(projectId, siteId));
+                    return true;
+                }
+                if (action === 'vault-folder' && method === 'POST') {
+                    await sendSuccess(res, requestId, await service.selectKnowledgeCollectionFolder(projectId, siteId, ctx.requestBody || {}));
                     return true;
                 }
                 if (action === 'open-address' && method === 'POST') {

@@ -552,6 +552,11 @@ async function publishBlogNextDraft(type) {
     focusSitePicker();
     return;
   }
+  if (siteHostingTarget && settings.siteKind === 'vault' && !settings.destinationPath) {
+    setBlogNextDraftValidation(type, { errors: ['저장할 Vault 폴더를 선택해 주세요.'] }, '', state.preview);
+    document.getElementById('blog-next-vault-folder-select')?.focus();
+    return;
+  }
   if (!siteHostingTarget && typeof ensureUiCapabilityReady === 'function') {
     const capability = typeof getUiPublishCapability === 'function'
       ? getUiPublishCapability(settings.targets)
@@ -628,7 +633,8 @@ async function publishBlogNextDraft(type) {
             : document.getElementById('blog-next-paste-markdown')?.value) || state.preview.rawMarkdown || '',
         postStatus: settings.postStatus,
         draftId: state.draftId,
-        revision: state.revision
+        revision: state.revision,
+        ...(settings.siteKind === 'vault' ? { destinationPath: settings.destinationPath } : {})
       })
       : await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/publish`, { draftId: state.draftId, revision: state.revision });
     if (siteHostingTarget) state.siteHostingPosted = true;

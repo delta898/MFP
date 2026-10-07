@@ -27,15 +27,25 @@
       </button>
     </fieldset>
     <small class="blog-next-site-hosting-status" id="blog-next-site-hosting-message" role="status" aria-live="polite"></small>
-    <label class="blog-next-field blog-next-category-field" id="blog-next-category-field">
-      <span id="blog-next-category-label">카테고리 <small>(선택)</small></span>
+    <div class="blog-next-field blog-next-category-field" id="blog-next-category-field">
+      <label id="blog-next-category-label" for="blog-next-category">카테고리 <small>(선택)</small></label>
       <input id="blog-next-category" type="text" placeholder="비우면 기본 카테고리">
-    </label>
+      <div class="blog-next-vault-folder-control" id="blog-next-vault-folder-control" hidden>
+        <div class="blog-next-folder-selection" id="blog-next-vault-folder-value" data-empty="true" aria-live="polite">
+          <span>폴더를 선택하세요</span>
+        </div>
+        <select id="blog-next-vault-folder-select" aria-label="Vault 저장 폴더" aria-describedby="blog-next-site-category-hint" aria-hidden="true" hidden disabled>
+          <option value="">폴더를 선택하세요</option>
+        </select>
+        <button class="secondary blog-next-folder-select" id="blog-next-vault-folder-choose" type="button"
+          aria-label="Vault 저장 폴더 선택" aria-busy="false" disabled>폴더 선택</button>
+      </div>
+      <small class="blog-next-site-category-hint" id="blog-next-site-category-hint" role="status" aria-live="polite" hidden></small>
+    </div>
     <div class="blog-next-legacy-category-values" hidden aria-hidden="true">
       <input id="blog-next-naver-category" data-draft-field="naver-category" type="text" tabindex="-1">
       <input id="blog-next-wordpress-category" data-draft-field="wordpress-category" type="text" tabindex="-1">
     </div>
-    <small class="blog-next-site-category-hint" id="blog-next-site-category-hint" role="status" aria-live="polite" hidden></small>
     <label class="blog-next-field">
       <span class="blog-next-field-label-with-help">
         포스팅 옵션

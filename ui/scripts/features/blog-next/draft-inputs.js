@@ -73,10 +73,18 @@ function readBlogNextDraftSettings(type) {
   if (blogNextDraftField(type, 'target-wordpress')?.checked) targets.push('wordpress');
   if (blogNextDraftField(type, 'target-site-hosting')?.checked) targets.push('site-hosting');
   const siteOption = document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0];
+  const vaultFolder = document.getElementById('blog-next-vault-folder-select');
+  const siteKey = siteOption?.dataset.projectId && siteOption?.dataset.siteId
+    ? `${siteOption.dataset.projectId}/${siteOption.dataset.siteId}` : '';
   return {
     targets,
     siteProjectId: siteOption?.dataset.projectId || '',
     siteId: siteOption?.dataset.siteId || '',
+    siteKind: siteOption?.dataset.siteKind || '',
+    destinationPath: siteOption?.dataset.siteKind === 'vault'
+      && vaultFolder?.dataset.siteKey === siteKey
+      && vaultFolder.selectedOptions?.[0]?.value
+      ? vaultFolder.value : '',
     naverCategory: targets.includes('naver') ? document.getElementById('blog-next-category')?.value?.trim() || '' : '',
     wordpressCategory: targets.includes('wordpress') ? document.getElementById('blog-next-category')?.value?.trim() || '' : '',
     postStatus: blogNextDraftField(type, 'post-status')?.value || 'publish',
@@ -106,6 +114,15 @@ function getBlogNextSiteCategoryValue() {
   return option.dataset.siteKind === 'blog' ? String(option.dataset.listingRoute || '') : '';
 }
 
+function getBlogNextVaultFolderValue() {
+  const siteOption = document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0];
+  const folderSelect = document.getElementById('blog-next-vault-folder-select');
+  const siteKey = siteOption?.dataset.projectId && siteOption?.dataset.siteId
+    ? `${siteOption.dataset.projectId}/${siteOption.dataset.siteId}` : '';
+  return siteOption?.dataset.siteKind === 'vault' && folderSelect?.dataset.siteKey === siteKey
+    ? String(folderSelect.value || '') : '';
+}
+
 function captureBlogNextPublishingTargetSettings(type) {
   if (!blogNextActivePublishSettingsKey) return;
   const category = document.getElementById('blog-next-category');
@@ -114,7 +131,10 @@ function captureBlogNextPublishingTargetSettings(type) {
   const current = blogNextPublishSettingsByTarget.get(blogNextActivePublishSettingsKey) || {};
   blogNextPublishSettingsByTarget.set(blogNextActivePublishSettingsKey, {
     ...current,
-    category: category?.value || '',
+    category: blogNextActivePublishSettingsKey.startsWith('site-hosting:')
+      ? (document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0]?.dataset.siteKind === 'vault'
+        ? getBlogNextVaultFolderValue() || current.category || '' : getBlogNextSiteCategoryValue())
+      : category?.value || '',
     postStatus: status?.value || 'publish',
     scheduleDate: scheduleDate?.value || ''
   });
@@ -141,6 +161,10 @@ function syncBlogNextPublishingTargetSettings(type, { force = false } = {}) {
   captureBlogNextPublishingTargetSettings(type);
   const stored = blogNextPublishSettingsByTarget.get(nextKey);
   const category = document.getElementById('blog-next-category');
+  const categoryField = document.getElementById('blog-next-category-field');
+  const categoryLabel = document.getElementById('blog-next-category-label');
+  const vaultControl = document.getElementById('blog-next-vault-folder-control');
+  const vaultSelect = document.getElementById('blog-next-vault-folder-select');
   const status = blogNextDraftField(type, 'post-status');
   const scheduleDate = blogNextDraftField(type, 'schedule-date');
   const target = nextKey.startsWith('site-hosting:') ? 'site-hosting' : nextKey;
@@ -148,22 +172,56 @@ function syncBlogNextPublishingTargetSettings(type, { force = false } = {}) {
     : target === 'wordpress' ? 'blog-next-wordpress-category' : '';
   const defaultCategory = legacyCategory ? document.getElementById(legacyCategory)?.value || '' : '';
   const siteCategory = target === 'site-hosting' ? getBlogNextSiteCategoryValue() : '';
+  const selectedSiteOption = document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0];
+  const isVault = target === 'site-hosting' && selectedSiteOption?.dataset.siteKind === 'vault';
   if (category) {
-    category.value = target === 'site-hosting' ? siteCategory : stored?.category ?? defaultCategory;
-    category.readOnly = target === 'site-hosting';
+    category.value = target === 'site-hosting' && !isVault ? siteCategory : stored?.category ?? defaultCategory;
+    category.readOnly = target === 'site-hosting' && !isVault;
     category.disabled = false;
-    category.placeholder = target === 'site-hosting'
+    category.hidden = isVault;
+    category.placeholder = target === 'site-hosting' && !isVault
       ? (siteCategory ? '' : '사이트를 선택하세요')
       : target === 'wordpress' ? '예: Daily' : '비우면 기본 카테고리';
   }
-  const categoryLabel = document.getElementById('blog-next-category-label');
+  if (categoryField) categoryField.dataset.vaultTarget = String(isVault);
+  if (vaultControl) vaultControl.hidden = !isVault;
+  if (categoryLabel) {
+    categoryLabel.htmlFor = isVault ? 'blog-next-vault-folder-choose' : 'blog-next-category';
+    categoryLabel.hidden = false;
+  }
+  if (isVault && vaultSelect) {
+    const siteKey = `${selectedSiteOption.dataset.projectId}/${selectedSiteOption.dataset.siteId}`;
+    const needsLoad = vaultSelect.dataset.siteKey !== siteKey;
+    const folderPicker = document.getElementById('blog-next-vault-folder-choose');
+    if (needsLoad) {
+      vaultSelect.disabled = true;
+      if (folderPicker) folderPicker.disabled = true;
+      vaultSelect.replaceChildren(new Option('Vault 폴더를 불러오는 중입니다.', '', true, true));
+      vaultSelect.value = '';
+      Promise.resolve().then(() => loadBlogNextVaultFolders({ preserveSelection: true }));
+    } else {
+      vaultSelect.disabled = vaultSelect.dataset.loadFailed === 'true' || vaultSelect.options.length <= 1;
+      if (folderPicker) folderPicker.disabled = vaultSelect.disabled;
+    }
+    if (vaultSelect.dataset.siteKey === siteKey && stored?.category) {
+      vaultSelect.value = stored.category;
+      if (vaultSelect.value !== stored.category) {
+        stored.category = '';
+        blogNextPublishSettingsByTarget.set(nextKey, stored);
+      }
+    }
+  } else if (target === 'site-hosting' && vaultSelect?.dataset.siteKey) {
+    Promise.resolve().then(() => loadBlogNextVaultFolders({ preserveSelection: false }));
+  }
   const siteHint = document.getElementById('blog-next-site-category-hint');
-  if (categoryLabel) categoryLabel.innerHTML = target === 'naver' ? '네이버 카테고리 <small>(선택)</small>'
-    : target === 'wordpress' ? '워드프레스 카테고리 <small>(선택)</small>' : '카테고리';
+  if (categoryLabel) {
+    categoryLabel.innerHTML = target === 'naver' ? '네이버 카테고리 <small>(선택)</small>'
+      : target === 'wordpress' ? '워드프레스 카테고리 <small>(선택)</small>'
+        : isVault ? 'Vault 저장 폴더' : '카테고리';
+  }
   if (siteHint) {
-    const isVault = target === 'site-hosting' && document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0]?.dataset.siteKind === 'vault';
     siteHint.hidden = target !== 'site-hosting' || !isVault;
-    siteHint.textContent = isVault ? 'Vault 저장 위치는 다음 단계에서 설정합니다.' : '';
+    siteHint.textContent = isVault ? '연결된 Vault root 아래 폴더에 원고를 저장합니다.' : '';
   }
   const desiredStatus = stored?.postStatus || (target === 'naver' && !blogNextActivePublishSettingsKey ? status?.value || 'publish' : 'publish');
   const validStatuses = target === 'site-hosting' ? ['publish', 'draft'] : ['publish', 'draft', 'schedule'];
@@ -171,7 +229,7 @@ function syncBlogNextPublishingTargetSettings(type, { force = false } = {}) {
   if (scheduleDate) scheduleDate.value = stored?.scheduleDate || (target === 'naver' && !blogNextActivePublishSettingsKey ? scheduleDate.value : '');
   blogNextActivePublishSettingsKey = nextKey;
   if (stored) {
-    stored.category = target === 'site-hosting' ? siteCategory : category?.value || '';
+    if (target !== 'site-hosting' || !isVault) stored.category = target === 'site-hosting' ? siteCategory : category?.value || '';
     stored.postStatus = status?.value || 'publish';
     stored.scheduleDate = scheduleDate?.value || '';
   } else {
@@ -249,7 +307,15 @@ function syncBlogNextDraftSettingsSummary(type) {
     const siteOption = document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0];
     siteSelected = Boolean(settings.siteProjectId && settings.siteId && siteOption && !siteOption.disabled);
     if (siteSelected) {
-      targetLabel = siteOption.textContent.trim();
+      const vaultFolder = document.getElementById('blog-next-vault-folder-select');
+      const siteKey = `${settings.siteProjectId}/${settings.siteId}`;
+      if (settings.siteKind === 'vault' && (vaultFolder?.dataset.siteKey !== siteKey || !vaultFolder.value)) {
+        targetLabel = '저장 폴더 선택 필요';
+        siteSelected = false;
+      } else {
+        targetLabel = siteOption.textContent.trim();
+        if (settings.siteKind === 'vault') targetLabel += ` · ${vaultFolder.selectedOptions[0].textContent.trim()}`;
+      }
     } else {
       targetLabel = '사이트 선택 필요';
     }
@@ -271,6 +337,131 @@ function setBlogNextSiteHostingMessage(message, state = '') {
   if (!element) return;
   element.textContent = message;
   element.dataset.state = state;
+}
+
+function setBlogNextVaultFolderMessage(message, state = '') {
+  const element = document.getElementById('blog-next-site-category-hint');
+  if (!element) return;
+  element.textContent = message;
+  element.dataset.state = state;
+}
+
+function syncBlogNextVaultFolderDisplay(select) {
+  const display = document.getElementById('blog-next-vault-folder-value');
+  if (!display || !select) return;
+  const selected = select.selectedOptions?.[0];
+  const hasValue = Boolean(selected?.value);
+  display.dataset.empty = String(!hasValue);
+  const text = display.querySelector('span');
+  if (text) text.textContent = hasValue ? selected.textContent.trim() : '폴더를 선택하세요';
+}
+
+async function loadBlogNextVaultFolders({ preserveSelection = true } = {}) {
+  const siteSelect = document.getElementById('blog-next-site-hosting-select');
+  const folderControl = document.getElementById('blog-next-vault-folder-control');
+  const folderSelect = document.getElementById('blog-next-vault-folder-select');
+  const folderPicker = document.getElementById('blog-next-vault-folder-choose');
+  const siteOption = siteSelect?.selectedOptions?.[0];
+  if (!folderControl || !folderSelect || !siteOption || siteOption.dataset.siteKind !== 'vault') {
+    if (folderControl) folderControl.hidden = true;
+    if (folderSelect) {
+      folderSelect.disabled = true;
+      folderSelect.dataset.siteKey = '';
+      folderSelect.replaceChildren(new Option('폴더를 선택하세요', '', true, true));
+    }
+    if (folderPicker) folderPicker.disabled = true;
+    return null;
+  }
+  const { projectId = '', siteId = '' } = siteOption.dataset;
+  const siteKey = `${projectId}/${siteId}`;
+  const settings = blogNextPublishSettingsByTarget.get(`site-hosting:${siteKey}`) || {};
+  const currentValue = folderSelect.dataset.siteKey === siteKey ? folderSelect.value : '';
+  const folderSelectWasForThisSite = folderSelect.dataset.siteKey === siteKey;
+  const previousValue = preserveSelection
+    ? (folderSelectWasForThisSite ? currentValue : settings.category || '') : '';
+  folderControl.hidden = false;
+  folderSelect.disabled = true;
+  delete folderSelect.dataset.loadFailed;
+  if (folderPicker) {
+    folderPicker.disabled = true;
+    folderPicker.setAttribute('aria-busy', 'true');
+  }
+  folderSelect.replaceChildren(new Option('Vault 폴더를 불러오는 중입니다.', '', true, true));
+  setBlogNextVaultFolderMessage('Vault 폴더 목록을 불러오는 중입니다.');
+  try {
+    const response = await fetchJson(`/api/v1/site-hosting/projects/${encodeURIComponent(projectId)}/sites/${encodeURIComponent(siteId)}/vault-folders`);
+    const folders = Array.isArray(response?.folders) ? response.folders : [];
+    const options = [new Option('폴더를 선택하세요', '', true, true)];
+    for (const folder of folders) {
+      const value = String(folder?.path || '');
+      if (!value) continue;
+      const label = value === '.' ? `${response.root_name || folder.name || 'Vault root'} (Vault root)` : value;
+      options.push(new Option(label, value));
+    }
+    folderSelect.replaceChildren(...options);
+    folderSelect.dataset.siteKey = siteKey;
+    const matchingOption = Array.from(folderSelect.options).find((candidate) => candidate.value === previousValue && previousValue !== '');
+    if (matchingOption) matchingOption.selected = true;
+    syncBlogNextVaultFolderDisplay(folderSelect);
+    if (matchingOption) {
+      settings.category = matchingOption.value;
+      if (folderSelect.dataset.siteKey === siteKey) {
+        const activeKey = getBlogNextPublishingTargetKey(BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai');
+        if (activeKey === `site-hosting:${siteKey}`) {
+          const status = blogNextDraftField(BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai', 'post-status');
+          const schedule = blogNextDraftField(BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai', 'schedule-date');
+          if (status) settings.postStatus = status.value || 'publish';
+          if (schedule) settings.scheduleDate = schedule.value || '';
+        }
+      }
+      blogNextPublishSettingsByTarget.set(`site-hosting:${siteKey}`, settings);
+      try { sessionStorage.setItem(BLOG_NEXT_PUBLISH_SETTINGS_SESSION_KEY, JSON.stringify(Object.fromEntries(blogNextPublishSettingsByTarget))); }
+      catch (_error) { /* Keep the current values in memory when session storage is unavailable. */ }
+    }
+    const lostSelection = Boolean(previousValue && !matchingOption);
+    if (lostSelection) {
+      settings.category = '';
+      blogNextPublishSettingsByTarget.set(`site-hosting:${siteKey}`, settings);
+      try { sessionStorage.setItem(BLOG_NEXT_PUBLISH_SETTINGS_SESSION_KEY, JSON.stringify(Object.fromEntries(blogNextPublishSettingsByTarget))); }
+      catch (_error) { /* Keep the current values in memory when session storage is unavailable. */ }
+      setBlogNextVaultFolderMessage('선택한 Vault 폴더를 찾지 못했습니다. 다시 선택해 주세요.', 'error');
+    } else if (!folders.length) {
+      setBlogNextVaultFolderMessage('선택할 수 있는 Vault 폴더가 없습니다.', 'error');
+    } else {
+      setBlogNextVaultFolderMessage('연결된 Vault root 아래 폴더에 원고를 저장합니다.');
+    }
+    folderSelect.disabled = folders.length === 0;
+    if (folderPicker) folderPicker.disabled = folders.length === 0
+      || document.getElementById('blog-next-target-site-hosting')?.checked !== true;
+    if (typeof syncBlogNextDraftExecutionState === 'function') syncBlogNextDraftExecutionState();
+    return response;
+  } catch (error) {
+    console.warn('[Blog Beta] Vault 폴더 조회 실패:', error);
+    folderSelect.dataset.siteKey = siteKey;
+    folderSelect.dataset.loadFailed = 'true';
+    const retainedOptions = [new Option('폴더 목록 확인 실패', '', !previousValue, !previousValue)];
+    if (previousValue) retainedOptions.push(new Option(previousValue === '.' ? 'Vault root (확인 필요)' : `${previousValue} (확인 필요)`, previousValue, true, true));
+    folderSelect.replaceChildren(...retainedOptions);
+    if (previousValue) {
+      settings.category = previousValue;
+      blogNextPublishSettingsByTarget.set(`site-hosting:${siteKey}`, settings);
+    }
+    folderSelect.disabled = true;
+    syncBlogNextVaultFolderDisplay(folderSelect);
+    if (folderPicker) folderPicker.disabled = true;
+    setBlogNextVaultFolderMessage('Vault 폴더 목록을 확인하지 못했습니다. 선택 경로는 보존했으며, 폴더를 다시 고르거나 발행 시 서버에서 확인합니다.', 'error');
+    return null;
+  } finally {
+    if (folderPicker) {
+      folderPicker.disabled = document.getElementById('blog-next-target-site-hosting')?.checked !== true;
+      folderPicker.setAttribute('aria-busy', 'false');
+    }
+    const type = BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai';
+    syncBlogNextDraftSettingsSummary(type);
+    if (typeof syncBlogNextQuickFlowSummaries === 'function') syncBlogNextQuickFlowSummaries();
+    if (typeof syncBlogNextTopicActionAvailability === 'function') syncBlogNextTopicActionAvailability();
+    if (typeof syncBlogNextDraftExecutionState === 'function') syncBlogNextDraftExecutionState();
+  }
 }
 
 async function loadBlogNextSiteHostingTargets({ preserveSelection = true } = {}) {
@@ -371,8 +562,10 @@ function syncBlogNextSiteHostingOptions(type) {
   }
   const category = document.getElementById('blog-next-category');
   if (category && selected) {
-    category.value = getBlogNextSiteCategoryValue();
-    category.readOnly = true;
+    const isVault = document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0]?.dataset.siteKind === 'vault';
+    category.value = isVault ? '' : getBlogNextSiteCategoryValue();
+    category.hidden = isVault;
+    category.readOnly = !isVault;
     category.disabled = false;
   }
   syncBlogNextDraftSchedule(type);
@@ -410,6 +603,8 @@ function syncBlogNextDraftProviderFields(type) {
   settings.querySelectorAll('[data-draft-provider-field]').forEach((field) => {
     const active = field.dataset.draftProviderField === 'naver' ? naverSelected : wordpressSelected;
     field.dataset.dependencyActive = String(active);
+    // Headless execution is a Naver-only control; hiding it keeps other targets' 2×2 settings grid balanced.
+    if (field.id === 'blog-next-headless-field') field.hidden = !naverSelected;
     field.querySelectorAll('input, select, textarea').forEach((control) => {
       control.disabled = !active;
     });
@@ -417,6 +612,12 @@ function syncBlogNextDraftProviderFields(type) {
   const siteActive = blogNextDraftField(type, 'target-site-hosting')?.checked === true;
   const siteSelectField = document.getElementById('blog-next-site-hosting-select');
   if (siteSelectField) siteSelectField.disabled = !siteActive || siteSelectField.options.length <= 1;
+  const vaultPicker = document.getElementById('blog-next-vault-folder-choose');
+  const vaultSelect = document.getElementById('blog-next-vault-folder-select');
+  if (vaultPicker && vaultPicker.getAttribute('aria-busy') !== 'true') {
+    vaultPicker.disabled = !siteActive
+      || document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0]?.dataset.siteKind !== 'vault';
+  }
   const scheduleOption = blogNextDraftField(type, 'post-status')?.querySelector('option[value="schedule"]');
   if (scheduleOption && siteActive) scheduleOption.disabled = true;
   syncBlogNextDraftSettingsSummary(type);
@@ -1217,6 +1418,65 @@ function initBlogNextDraftInputs() {
     if (blogNextDraftState[type]) blogNextDraftState[type].siteHostingPosted = false;
     setBlogNextSiteHostingMessage('');
     syncBlogNextDraftSettingsSummary(type);
+    syncBlogNextDraftExecutionState();
+  });
+  document.getElementById('blog-next-vault-folder-choose')?.addEventListener('click', async (event) => {
+    const button = event.currentTarget;
+    const siteOption = document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0];
+    const folderSelect = document.getElementById('blog-next-vault-folder-select');
+    if (!siteOption?.dataset.projectId || !siteOption?.dataset.siteId || siteOption.dataset.siteKind !== 'vault' || !folderSelect) return;
+    const { projectId, siteId } = siteOption.dataset;
+    const currentPath = getBlogNextVaultFolderValue()
+      || blogNextPublishSettingsByTarget.get(`site-hosting:${projectId}/${siteId}`)?.category
+      || '.';
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+    setBlogNextVaultFolderMessage('Vault 폴더 선택 창을 여는 중입니다.');
+    try {
+      const selection = await postJson(
+        `/api/v1/site-hosting/projects/${encodeURIComponent(projectId)}/sites/${encodeURIComponent(siteId)}/vault-folder`,
+        { currentPath }
+      );
+      if (selection?.cancelled) {
+        if (selection.startPathReset) {
+          await loadBlogNextVaultFolders({ preserveSelection: true });
+          setBlogNextVaultFolderMessage('마지막으로 선택한 폴더를 찾지 못해 Vault root에서 열었습니다. 저장 폴더를 다시 선택해 주세요.', 'error');
+        }
+        return;
+      }
+      await loadBlogNextVaultFolders({ preserveSelection: false });
+      let option = Array.from(folderSelect.options).find((candidate) => candidate.value === selection.path);
+      if (!option && selection.path) {
+        option = new Option(selection.path === '.' ? `${selection.name} (Vault root)` : selection.path, selection.path);
+        folderSelect.add(option);
+      }
+      if (!option) throw new Error('선택한 Vault 폴더를 확인하지 못했습니다. 다시 선택해 주세요.');
+      option.selected = true;
+      folderSelect.dataset.siteKey = `${projectId}/${siteId}`;
+      syncBlogNextVaultFolderDisplay(folderSelect);
+      folderSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      if (selection.startPathReset) setBlogNextVaultFolderMessage('마지막 폴더가 없어 Vault root에서 선택 창을 열었습니다.');
+    } catch (error) {
+      setBlogNextVaultFolderMessage(error?.message || 'Vault 폴더를 선택하지 못했습니다.', 'error');
+    } finally {
+      button.setAttribute('aria-busy', 'false');
+      button.disabled = document.getElementById('blog-next-target-site-hosting')?.checked !== true
+        || siteOption.dataset.siteKind !== 'vault';
+    }
+  });
+  document.getElementById('blog-next-vault-folder-select')?.addEventListener('change', () => {
+    const type = BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai';
+    syncBlogNextVaultFolderDisplay(document.getElementById('blog-next-vault-folder-select'));
+    const key = getBlogNextPublishingTargetKey(type);
+    if (key) {
+      const current = blogNextPublishSettingsByTarget.get(key) || {};
+      blogNextPublishSettingsByTarget.set(key, { ...current, category: getBlogNextVaultFolderValue() });
+      try { sessionStorage.setItem(BLOG_NEXT_PUBLISH_SETTINGS_SESSION_KEY, JSON.stringify(Object.fromEntries(blogNextPublishSettingsByTarget))); }
+      catch (_error) { /* Keep the current values in memory when session storage is unavailable. */ }
+    }
+    syncBlogNextDraftSettingsSummary(type);
+    if (typeof syncBlogNextQuickFlowSummaries === 'function') syncBlogNextQuickFlowSummaries();
+    if (typeof syncBlogNextTopicActionAvailability === 'function') syncBlogNextTopicActionAvailability();
     syncBlogNextDraftExecutionState();
   });
   document.getElementById('blog-next-publish-image-action')?.addEventListener('click', focusBlogNextDraftImages);

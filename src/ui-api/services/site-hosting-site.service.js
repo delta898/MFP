@@ -300,6 +300,21 @@ function createSiteHostingSiteService(deps = {}) {
         return input ? String(site?.setup_inputs?.[input.id] || '').trim() : '';
     }
 
+    function knowledgeCollectionPublicationFilter(site) {
+        const template = templates.get(site?.template?.id);
+        const input = (template?.resource?.template?.setup_inputs || []).find((item) =>
+            item?.type === 'frontmatter_match' && item?.purpose === 'publication_filter'
+        );
+        return input ? site?.setup_inputs?.[input.id] || null : null;
+    }
+
+    function hasKnowledgeCollectionContract(site) {
+        const template = templates.get(site?.template?.id);
+        const setupInputs = template?.resource?.template?.setup_inputs || [];
+        return setupInputs.some((item) => item?.type === 'directory' && item?.purpose === 'knowledge_collection')
+            && setupInputs.some((item) => item?.type === 'frontmatter_match' && item?.purpose === 'publication_filter');
+    }
+
     function getPostTargetEligibility(site) {
         if (site?.template_status !== 'available') {
             return { eligible: false, reason: '템플릿을 사용할 수 없음' };
@@ -307,10 +322,14 @@ function createSiteHostingSiteService(deps = {}) {
         const resource = templates.get(site?.template?.id)?.resource;
         const family = resource?.family;
         const postType = (family?.content_types || []).find((item) => item?.kind === 'post');
-        if (!isSupportedSiteHostingContractVersion(resource?.spec_version)
-            || family?.content_contract_version !== resource.spec_version
-            || resource?.template?.compatibility?.contract?.version !== resource.spec_version
-            || !postType || typeof postType.source !== 'string') {
+        const isVault = Boolean(knowledgeCollectionRoot(site));
+        const contractCompatible = isSupportedSiteHostingContractVersion(resource?.spec_version)
+            && family?.content_contract_version === resource.spec_version
+            && resource?.template?.compatibility?.contract?.version === resource.spec_version;
+        if (isVault && contractCompatible && hasKnowledgeCollectionContract(site)) {
+            return { eligible: true, kind: 'vault' };
+        }
+        if (!contractCompatible || !postType || typeof postType.source !== 'string') {
             return { eligible: false, reason: '글 발행 계약을 지원하지 않음' };
         }
         const routeSettings = site.customization?.publishing || {
@@ -325,7 +344,6 @@ function createSiteHostingSiteService(deps = {}) {
             || !/^((?:[A-Za-z0-9_-]+\/)*)\{slug\}\/index\.md$/u.test(postType.source)) {
             return { eligible: false, reason: '글 목록 또는 상세 경로를 확인할 수 없음' };
         }
-        const isVault = Boolean(knowledgeCollectionRoot(site));
         const navigation = site.customization?.navigation;
         const postListIndex = routeSettings.post_list_navigation_index;
         const menu = Array.isArray(navigation) && Number.isInteger(postListIndex) ? navigation[postListIndex] : null;
@@ -354,6 +372,114 @@ function createSiteHostingSiteService(deps = {}) {
         const openError = await (deps.openPath || openPath)(resolvedRoot);
         if (openError) throw new Error(`Vault 폴더를 열지 못했습니다: ${openError}`);
         return { opened: true };
+    }
+
+    function listKnowledgeCollectionFolders(projectId, siteId) {
+        const site = repository.get(projectId, siteId);
+        if (!site) throw siteInputError('사이트를 찾을 수 없습니다.', 'SITE_HOSTING_SITE_NOT_FOUND', 404);
+        const configuredRoot = knowledgeCollectionRoot(site);
+        let root = '';
+        try {
+            root = fileSystem.realpathSync(configuredRoot);
+            if (!configuredRoot || !fileSystem.statSync(root).isDirectory()) throw new Error('not a directory');
+        } catch (_error) {
+            throw siteInputError('연결된 Vault 폴더를 찾을 수 없습니다.', 'SITE_HOSTING_KNOWLEDGE_COLLECTION_NOT_FOUND', 404);
+        }
+        const folders = [{ path: '.', name: pathApi.basename(root) || 'Vault root', depth: 0 }];
+        const maxFolders = 5000;
+        const visit = (directory, relative = '', depth = 0) => {
+            for (const entry of fileSystem.readdirSync(directory, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
+                if (!entry.isDirectory() || entry.isSymbolicLink()) continue;
+                const nextRelative = relative ? `${relative}/${entry.name}` : entry.name;
+                folders.push({ path: nextRelative, name: entry.name, depth: depth + 1 });
+                if (folders.length >= maxFolders) return;
+                visit(pathApi.join(directory, entry.name), nextRelative, depth + 1);
+                if (folders.length >= maxFolders) return;
+            }
+        };
+        visit(root);
+        return { root_name: pathApi.basename(root) || 'Vault root', folders, truncated: folders.length >= maxFolders };
+    }
+
+    async function selectKnowledgeCollectionFolder(projectId, siteId, payload = {}) {
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)
+            || Object.keys(payload).some((key) => key !== 'currentPath')) {
+            throw siteInputError('Vault 폴더 선택 요청 형식이 올바르지 않습니다.', 'SITE_HOSTING_VAULT_DESTINATION_INVALID');
+        }
+        const site = repository.get(projectId, siteId);
+        if (!site) throw siteInputError('사이트를 찾을 수 없습니다.', 'SITE_HOSTING_SITE_NOT_FOUND', 404);
+        const configuredRoot = knowledgeCollectionRoot(site);
+        let root = '';
+        try {
+            root = fileSystem.realpathSync(configuredRoot);
+            if (!configuredRoot || !fileSystem.statSync(root).isDirectory()) throw new Error('not a directory');
+        } catch (_error) {
+            throw siteInputError('연결된 Vault 폴더를 찾을 수 없습니다.', 'SITE_HOSTING_KNOWLEDGE_COLLECTION_NOT_FOUND', 404);
+        }
+
+        const currentPath = String(payload.currentPath || '.').replace(/\\/gu, '/').trim();
+        const segments = currentPath === '.' ? [] : currentPath.split('/');
+        if (!currentPath || currentPath.startsWith('/') || /^[a-zA-Z]:/u.test(currentPath)
+            || segments.some((segment) => !segment || segment === '.' || segment === '..' || /[\u0000-\u001f\u007f]/u.test(segment))) {
+            throw siteInputError('마지막으로 선택한 Vault 폴더 경로가 올바르지 않습니다.', 'SITE_HOSTING_VAULT_DESTINATION_INVALID', 400);
+        }
+
+        let defaultPath = root;
+        let startPathReset = false;
+        try {
+            let cursor = root;
+            for (const segment of segments) {
+                cursor = pathApi.join(cursor, segment);
+                const stat = fileSystem.lstatSync(cursor);
+                if (stat.isSymbolicLink() || !stat.isDirectory()) throw new Error('not a directory');
+            }
+            defaultPath = fileSystem.realpathSync(cursor);
+        } catch (_error) {
+            // A deleted or moved previous folder falls back to the configured Vault root.
+            startPathReset = currentPath !== '.';
+        }
+
+        let nativeDialog = deps.dialog;
+        if (!nativeDialog) {
+            try { nativeDialog = require('electron').dialog; } catch (_error) { }
+        }
+        if (typeof nativeDialog?.showOpenDialog !== 'function') {
+            throw siteInputError('시스템 폴더 선택 창을 사용할 수 없습니다.', 'SITE_HOSTING_DIRECTORY_PICKER_UNAVAILABLE');
+        }
+        const result = await nativeDialog.showOpenDialog({
+            title: 'Vault 저장 폴더 선택',
+            defaultPath,
+            properties: ['openDirectory']
+        });
+        if (result?.canceled || !result?.filePaths?.[0]) return { cancelled: true, startPathReset };
+
+        const selectedPath = pathApi.resolve(String(result.filePaths[0]));
+        const relativePath = pathApi.relative(root, selectedPath);
+        if (relativePath === '..' || relativePath.startsWith(`..${pathApi.sep}`) || pathApi.isAbsolute(relativePath)) {
+            throw siteInputError('연결된 Vault root 안의 폴더만 선택할 수 있습니다.', 'SITE_HOSTING_VAULT_DESTINATION_OUTSIDE_ROOT', 400);
+        }
+        let cursor = root;
+        try {
+            for (const segment of relativePath ? relativePath.split(pathApi.sep) : []) {
+                cursor = pathApi.join(cursor, segment);
+                const stat = fileSystem.lstatSync(cursor);
+                if (stat.isSymbolicLink() || !stat.isDirectory()) throw new Error('not a directory');
+            }
+            const selectedRealPath = fileSystem.realpathSync(selectedPath);
+            const realRelativePath = pathApi.relative(root, selectedRealPath);
+            if (realRelativePath === '..' || realRelativePath.startsWith(`..${pathApi.sep}`) || pathApi.isAbsolute(realRelativePath)) {
+                throw new Error('resolved path outside Vault');
+            }
+        } catch (_error) {
+            throw siteInputError('Vault root 안의 실제 폴더를 선택해 주세요.', 'SITE_HOSTING_VAULT_DESTINATION_INVALID', 400);
+        }
+        const relative = relativePath ? relativePath.split(pathApi.sep).join('/') : '.';
+        return {
+            cancelled: false,
+            path: relative,
+            name: relative === '.' ? pathApi.basename(root) || 'Vault root' : pathApi.basename(selectedPath),
+            startPathReset
+        };
     }
 
     async function openSitePost(projectId, siteId, postId) {
@@ -408,7 +534,7 @@ function createSiteHostingSiteService(deps = {}) {
 
     async function postMarkdown(projectId, siteId, payload = {}, context = {}) {
         if (!payload || typeof payload !== 'object' || Array.isArray(payload)
-            || Object.keys(payload).some((key) => !['markdownText', 'postStatus', 'draftId', 'revision'].includes(key))) {
+            || Object.keys(payload).some((key) => !['markdownText', 'postStatus', 'draftId', 'revision', 'destinationPath'].includes(key))) {
             throw siteInputError('Site 포스팅 요청 형식이 올바르지 않습니다.', 'SITE_HOSTING_POST_INPUT_INVALID');
         }
         const draftId = String(payload.draftId || '').trim();
@@ -440,24 +566,66 @@ function createSiteHostingSiteService(deps = {}) {
         const resource = template?.resource;
         const family = resource?.family;
         const postType = (family?.content_types || []).find((item) => item?.kind === 'post');
-        if (!isSupportedSiteHostingContractVersion(resource?.spec_version) || family?.content_contract_version !== resource.spec_version
-            || resource?.template?.compatibility?.contract?.version !== resource.spec_version
-            || !postType || typeof postType.source !== 'string') {
+        const vaultRootConfigured = knowledgeCollectionRoot(site);
+        const isVault = Boolean(vaultRootConfigured);
+        const contractCompatible = isSupportedSiteHostingContractVersion(resource?.spec_version)
+            && family?.content_contract_version === resource.spec_version
+            && resource?.template?.compatibility?.contract?.version === resource.spec_version;
+        if (!contractCompatible || (isVault
+            ? !hasKnowledgeCollectionContract(site)
+            : !postType || typeof postType.source !== 'string')) {
             throw siteInputError('이 템플릿은 현재 Site Hosting 계약을 지원하지 않습니다.', 'SITE_HOSTING_POST_CONTRACT_UNSUPPORTED', 409);
         }
-        const routeSettings = site.customization?.publishing || {
+        const routeSettings = isVault ? {} : site.customization?.publishing || {
             listing_route: postType.listing_route,
             detail_route: postType.detail_route
         };
-        const listingRoute = String(routeSettings.listing_route || '');
-        const detailRoutePattern = String(routeSettings.detail_route || '');
-        if (!internalPathname(listingRoute) || !listingRoute.endsWith('/')
-            || detailRoutePattern !== `${listingRoute}{slug}/`
-            || !internalPathname(detailRoutePattern.replace('{slug}', 'post-check'))) {
-            throw siteInputError('이 사이트에서 글 목록과 상세 주소를 확인할 수 없습니다.', 'SITE_HOSTING_PUBLISHING_ROUTE_MISSING', 409);
+        let sourceMatch = null;
+        if (!isVault) {
+            const listingRoute = String(routeSettings.listing_route || '');
+            const detailRoutePattern = String(routeSettings.detail_route || '');
+            if (!internalPathname(listingRoute) || !listingRoute.endsWith('/')
+                || detailRoutePattern !== `${listingRoute}{slug}/`
+                || !internalPathname(detailRoutePattern.replace('{slug}', 'post-check'))) {
+                throw siteInputError('이 사이트에서 글 목록과 상세 주소를 확인할 수 없습니다.', 'SITE_HOSTING_PUBLISHING_ROUTE_MISSING', 409);
+            }
+            sourceMatch = postType.source.match(/^((?:[A-Za-z0-9_-]+\/)*)\{slug\}\/index\.md$/u);
+            if (!sourceMatch) throw siteInputError('글 저장 경로가 올바르지 않습니다.', 'SITE_HOSTING_POST_CONTRACT_INVALID', 409);
         }
-        const sourceMatch = postType.source.match(/^((?:[A-Za-z0-9_-]+\/)*)\{slug\}\/index\.md$/u);
-        if (!sourceMatch) throw siteInputError('템플릿의 글 저장 경로가 올바르지 않습니다.', 'SITE_HOSTING_POST_CONTRACT_INVALID', 409);
+
+        let vaultRoot = '';
+        let vaultDestination = '';
+        if (vaultRootConfigured) {
+            try {
+                vaultRoot = fileSystem.realpathSync(vaultRootConfigured);
+                if (!fileSystem.statSync(vaultRoot).isDirectory()) throw new Error('not a directory');
+            } catch (_error) {
+                throw siteInputError('연결된 Vault 폴더를 찾을 수 없습니다. 사이트 설정을 확인해 주세요.', 'SITE_HOSTING_KNOWLEDGE_COLLECTION_NOT_FOUND', 409);
+            }
+            const relativeDestination = String(payload.destinationPath ?? '').replace(/\\/gu, '/').trim();
+            const segments = relativeDestination === '.' ? [] : relativeDestination.split('/');
+            if (!relativeDestination || relativeDestination.length > 2000 || relativeDestination.startsWith('/')
+                || /^[a-zA-Z]:/u.test(relativeDestination) || segments.some((segment) => !segment || segment === '.' || segment === '..' || /[\u0000-\u001f\u007f]/u.test(segment))) {
+                throw siteInputError('Vault 저장 폴더를 다시 선택해 주세요.', 'SITE_HOSTING_VAULT_DESTINATION_INVALID', 400);
+            }
+            let cursor = vaultRoot;
+            try {
+                for (const segment of segments) {
+                    cursor = pathApi.join(cursor, segment);
+                    const stat = fileSystem.lstatSync(cursor);
+                    if (stat.isSymbolicLink() || !stat.isDirectory()) throw new Error('not a real directory');
+                }
+                vaultDestination = fileSystem.realpathSync(cursor);
+            } catch (_error) {
+                throw siteInputError('선택한 Vault 폴더를 찾을 수 없습니다. 폴더를 다시 선택해 주세요.', 'SITE_HOSTING_VAULT_DESTINATION_NOT_FOUND', 409);
+            }
+            const relativeCheck = pathApi.relative(vaultRoot, vaultDestination);
+            if (relativeCheck === '..' || relativeCheck.startsWith(`..${pathApi.sep}`) || pathApi.isAbsolute(relativeCheck)) {
+                throw siteInputError('Vault 저장 폴더가 연결된 Vault 범위를 벗어납니다.', 'SITE_HOSTING_VAULT_DESTINATION_INVALID', 400);
+            }
+        } else if (payload.destinationPath !== undefined) {
+            throw siteInputError('일반 사이트에는 Vault 저장 폴더를 지정할 수 없습니다.', 'SITE_HOSTING_VAULT_DESTINATION_INVALID', 400);
+        }
 
         let publishDraft = null;
         if (draftId) {
@@ -500,36 +668,70 @@ function createSiteHostingSiteService(deps = {}) {
         if (publication === 'public' && /\[\[IMAGE_\d+/u.test(body)) {
             throw siteInputError('이미지 자리표시자를 처리하지 못했습니다. 원고 미리보기를 새로고침한 뒤 다시 발행해 주세요.', 'SITE_HOSTING_IMAGE_MARKER_UNSUPPORTED', 409);
         }
+        const frontmatterFields = {
+            kind: 'post',
+            title: manuscript.title,
+            description: manuscript.description,
+            ...(coverImage ? { cover: `./images/${coverImage.fileName}`, cover_alt: coverImage.alt } : {}),
+            date,
+            ...(publication === 'public' ? { published_at: timestamp } : {}),
+            editorial_status: editorialStatus,
+            publication
+        };
+        if (publication === 'public' && vaultRootConfigured) {
+            const filter = knowledgeCollectionPublicationFilter(site);
+            if (filter?.mode === 'all') {
+                // ALL mode includes every non-draft note, so no extra frontmatter marker is needed.
+            } else if (filter?.field && filter?.value) {
+                const field = String(filter.field).trim();
+                const value = String(filter.value);
+                if (!field || /[\s:#]/u.test(field)) {
+                    throw siteInputError('사이트의 공개 노트 속성명을 확인해 주세요.', 'SITE_HOSTING_VAULT_PUBLICATION_FILTER_INVALID', 409);
+                }
+                if (Object.prototype.hasOwnProperty.call(frontmatterFields, field) && String(frontmatterFields[field]) !== value) {
+                    throw siteInputError(`사이트의 공개 조건(${field})이 원고의 기본 정보와 충돌합니다. 공개 조건을 확인해 주세요.`, 'SITE_HOSTING_VAULT_PUBLICATION_FILTER_CONFLICT', 409);
+                }
+                frontmatterFields[field] = value;
+            }
+        }
         const frontmatter = [
             '---',
-            'kind: post',
-            `title: ${JSON.stringify(manuscript.title)}`,
-            `description: ${JSON.stringify(manuscript.description)}`,
-            ...(coverImage ? [`cover: ${JSON.stringify(`./images/${coverImage.fileName}`)}`, `cover_alt: ${JSON.stringify(coverImage.alt)}`] : []),
-            `date: ${date}`,
-            ...(publication === 'public' ? [`published_at: ${JSON.stringify(timestamp)}`] : []),
-            `editorial_status: ${editorialStatus}`,
-            `publication: ${publication}`,
+            ...Object.entries(frontmatterFields).map(([key, value]) => `${key}: ${JSON.stringify(value)}`),
             '---',
             body
         ].join('\n').trimEnd() + '\n';
 
         const siteRoot = pathApi.resolve(site.root_path);
         const siteDataRoot = pathApi.resolve(siteRoot, 'site-data');
-        const postsRoot = pathApi.resolve(siteDataRoot, ...sourceMatch[1].split('/').filter(Boolean));
+        const postsRoot = vaultRootConfigured
+            ? vaultDestination
+            : pathApi.resolve(siteDataRoot, ...sourceMatch[1].split('/').filter(Boolean));
         const isWithin = (root, target) => {
             const relative = pathApi.relative(root, target);
             return relative === '' || (!relative.startsWith(`..${pathApi.sep}`) && relative !== '..' && !pathApi.isAbsolute(relative));
         };
-        if (!isWithin(siteRoot, siteDataRoot) || !isWithin(siteDataRoot, postsRoot)) {
+        if (vaultRootConfigured) {
+            const relativeVaultPath = pathApi.relative(vaultRoot, postsRoot);
+            if (!isWithin(vaultRoot, postsRoot) || relativeVaultPath === '..' || relativeVaultPath.startsWith(`..${pathApi.sep}`)) {
+                throw siteInputError('Vault 저장 경로가 연결된 Vault 폴더를 벗어납니다.', 'SITE_HOSTING_VAULT_DESTINATION_INVALID', 409);
+            }
+        } else if (!isWithin(siteRoot, siteDataRoot) || !isWithin(siteDataRoot, postsRoot)) {
             throw siteInputError('템플릿의 글 저장 경로가 사이트 폴더를 벗어납니다.', 'SITE_HOSTING_POST_PATH_INVALID', 409);
         }
-        fileSystem.mkdirSync(postsRoot, { recursive: true });
+        if (!vaultRootConfigured) fileSystem.mkdirSync(postsRoot, { recursive: true });
         const realSiteRoot = fileSystem.realpathSync(siteRoot);
-        const realSiteDataRoot = fileSystem.realpathSync(siteDataRoot);
-        const realPostsRoot = fileSystem.realpathSync(postsRoot);
-        if (!isWithin(realSiteRoot, realSiteDataRoot) || !isWithin(realSiteDataRoot, realPostsRoot)) {
-            throw siteInputError('글 저장 경로가 사이트 데이터 폴더를 벗어납니다.', 'SITE_HOSTING_POST_PATH_INVALID', 409);
+        if (vaultRootConfigured) {
+            const realVaultRoot = fileSystem.realpathSync(vaultRoot);
+            const realVaultDestination = fileSystem.realpathSync(postsRoot);
+            if (realVaultRoot !== vaultRoot || !isWithin(realVaultRoot, realVaultDestination)) {
+                throw siteInputError('Vault 저장 경로가 연결된 Vault 폴더를 벗어납니다.', 'SITE_HOSTING_VAULT_DESTINATION_INVALID', 409);
+            }
+        } else {
+            const realSiteDataRoot = fileSystem.realpathSync(siteDataRoot);
+            const realPostsRoot = fileSystem.realpathSync(postsRoot);
+            if (!isWithin(realSiteRoot, realSiteDataRoot) || !isWithin(realSiteDataRoot, realPostsRoot)) {
+                throw siteInputError('글 저장 경로가 사이트 데이터 폴더를 벗어납니다.', 'SITE_HOSTING_POST_PATH_INVALID', 409);
+            }
         }
         const postDirectory = pathApi.join(realPostsRoot, slug);
         try {
@@ -557,9 +759,11 @@ function createSiteHostingSiteService(deps = {}) {
         }
         try {
             const deployed = await deploy(projectId, siteId, context);
-            const detailRoute = String(routeSettings.detail_route).replace('{slug}', encodeURIComponent(slug));
             let postUrl = '';
-            try { postUrl = deployed.url ? new URL(detailRoute, deployed.url).href : ''; } catch (_error) { }
+            if (!isVault) {
+                const detailRoute = String(routeSettings.detail_route).replace('{slug}', encodeURIComponent(slug));
+                try { postUrl = deployed.url ? new URL(detailRoute, deployed.url).href : ''; } catch (_error) { }
+            }
             return {
                 status: '사이트에 글을 발행하고 배포했습니다.',
                 postStatus: 'publish',
@@ -1666,7 +1870,9 @@ function createSiteHostingSiteService(deps = {}) {
         openSiteAddress,
         openKnowledgeCollectionFolder,
         openSitePost,
-        postMarkdown
+        postMarkdown,
+        listKnowledgeCollectionFolders,
+        selectKnowledgeCollectionFolder
     };
 }
 
