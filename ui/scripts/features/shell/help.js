@@ -178,6 +178,10 @@ function initHelpView() {
   if (view.dataset.initialized !== 'true') {
     view.querySelectorAll('[data-help-nav]').forEach((button) => {
       button.addEventListener('click', () => {
+        if (button.dataset.helpNav === 'blog-next' && button.dataset.helpTab === 'quick') {
+          void navigateToBlogQuickCreate();
+          return;
+        }
         void navigateTo(button.dataset.helpNav, button.dataset.helpTab || undefined);
       });
     });
