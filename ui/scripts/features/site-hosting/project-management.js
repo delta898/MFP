@@ -511,8 +511,9 @@ async function siteHostingPreviewSite(siteId) {
     siteHostingSetSiteOperation(siteId, 'error', '미리보기 창을 열 수 없습니다. 팝업을 허용해 주세요.');
     return;
   }
-  siteHostingRenderPreviewWindowNotice(previewWindow, '미리보기를 준비하고 있습니다', '사이트를 준비하고 미리보기 화면을 갱신하고 있습니다.', true);
+  const progressStartedAt = Date.now();
   siteHostingSetSiteOperation(siteId, 'running', '미리보기를 준비하는 중…');
+  await siteHostingRenderPreviewWindowNotice(previewWindow, '미리보기 준비 중', '사이트 미리보기를 여는 동안 잠시만 기다려 주세요.', true);
   try {
     const result = await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites/${encodeURIComponent(siteId)}/preview`, {});
     try {
@@ -526,6 +527,11 @@ async function siteHostingPreviewSite(siteId) {
       }
     }
     siteHostingRenderProjectDetail();
+    const minimumProgressMs = 1200;
+    const remainingProgressMs = minimumProgressMs - (Date.now() - progressStartedAt);
+    if (remainingProgressMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, remainingProgressMs));
+    }
     if (!previewWindow.closed) previewWindow.location.href = result.url;
     const screenshotMessage = result.screenshot_error ? ' (새 스크린샷은 만들지 못했습니다.)' : '';
     const collection = result.knowledge_collection;
@@ -541,7 +547,7 @@ async function siteHostingPreviewSite(siteId) {
   }
 }
 
-function siteHostingRenderPreviewWindowNotice(previewWindow, title, message, isBusy) {
+async function siteHostingRenderPreviewWindowNotice(previewWindow, title, message, isBusy) {
   try {
     const document = previewWindow.document;
     previewWindow.__siteHostingProgressCleanup?.();
@@ -556,7 +562,22 @@ function siteHostingRenderPreviewWindowNotice(previewWindow, title, message, isB
       stylesheet.rel = 'stylesheet';
       stylesheet.href = appStylesheet;
       stylesheet.dataset.siteHostingProgressStyles = '';
+      let finishStylesheetWait;
+      const stylesheetReady = new Promise((resolve) => { finishStylesheetWait = resolve; });
+      stylesheet.addEventListener('load', finishStylesheetWait, { once: true });
+      stylesheet.addEventListener('error', finishStylesheetWait, { once: true });
       document.head.append(stylesheet);
+      await Promise.race([stylesheetReady, new Promise((resolve) => setTimeout(resolve, 1000))]);
+    }
+    if (isBusy) {
+      previewWindow.__siteHostingProgressCleanup = showUiProgress(body, {
+        type: UI_PROGRESS_TYPES.REGION_INDETERMINATE,
+        presentation: 'compact',
+        visual: 'browser-preview',
+        title: '미리보기를 준비하고 있습니다',
+        message
+      });
+      return;
     }
     const panel = document.createElement('main');
     panel.style.cssText = 'box-sizing:border-box;width:min(560px,calc(100% - 40px));padding:40px;border:1px solid #e2d5c9;border-radius:16px;background:#fffdfa;text-align:center;box-shadow:0 12px 40px #30251f18';
@@ -568,12 +589,6 @@ function siteHostingRenderPreviewWindowNotice(previewWindow, title, message, isB
     detail.style.cssText = 'margin:0;color:#756960;line-height:1.6;overflow-wrap:anywhere';
     panel.append(heading, detail);
     body.append(panel);
-    if (isBusy) {
-      previewWindow.__siteHostingProgressCleanup = showUiProgress(panel, {
-        type: UI_PROGRESS_TYPES.REGION_INDETERMINATE,
-        message
-      });
-    }
   } catch {}
 }
 

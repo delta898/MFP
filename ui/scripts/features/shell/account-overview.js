@@ -307,7 +307,7 @@ async function runLicenseEmailVerification({ email, title = '이메일 인증', 
 }
 
 async function loadAccountOverview({ force = false } = {}) {
-  const loadingEl = document.getElementById('account-overview-loading');
+  const progressSurface = document.getElementById('account-tab-overview');
   const errorEl = document.getElementById('account-overview-error');
   const contentEl = document.getElementById('account-overview-content');
 
@@ -315,29 +315,36 @@ async function loadAccountOverview({ force = false } = {}) {
   const hasCachedOverview = Boolean(lastAccountOverview);
   if (!force && hasCachedOverview) {
     renderAccountOverview(lastAccountOverview);
-    loadingEl?.classList.add('hidden');
     errorEl?.classList.add('hidden');
     contentEl?.classList.remove('hidden');
   }
 
   isAccountOverviewLoading = true;
   const smartUsageRevisionAtRequest = smartUsageRevision;
-  loadingEl?.classList.toggle('hidden', hasCachedOverview);
   errorEl?.classList.add('hidden');
   contentEl?.classList.toggle('hidden', !hasCachedOverview);
+  let finishProgress = () => {};
 
   try {
+    if ((!hasCachedOverview || force) && progressSurface) {
+      progressSurface.classList.add('is-loading');
+      finishProgress = showUiProgress(progressSurface, {
+        type: UI_PROGRESS_TYPES.REGION_INDETERMINATE,
+        presentation: 'compact',
+        message: '이용 현황을 불러오는 중입니다.'
+      });
+    }
     const overview = await fetchJson(`/api/v1/account/overview?quiet=1${force ? '&force=1' : ''}`);
     renderAccountOverview(overview, { smartUsageRevisionAtRequest });
-    loadingEl?.classList.add('hidden');
     contentEl?.classList.remove('hidden');
     return overview;
   } catch (error) {
-    loadingEl?.classList.add('hidden');
     errorEl?.classList.toggle('hidden', hasCachedOverview);
     setText('account-overview-error-message', error.message || '잠시 후 다시 시도해 주세요.');
     throw error;
   } finally {
+    finishProgress();
+    progressSurface?.classList.remove('is-loading');
     isAccountOverviewLoading = false;
   }
 }
