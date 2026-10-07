@@ -65,6 +65,46 @@ test('optional content and publish settings disclose their current values', () =
   assert.doesNotMatch(html, /<details class="blog-next-disclosure" id="blog-next-content-settings"[^>]*\sopen/);
 });
 
+test('quick writing and saved-idea editing keep independent disclosure state for the session', () => {
+  const queueSource = read('ui/scripts/features/blog-next/quick-queue.js');
+  const elements = new Map([
+    ['blog-next-ai-preparation', { open: false }],
+    ['blog-next-topic-settings', { open: true }],
+    ['blog-next-content-settings', { open: false }]
+  ]);
+  const context = vm.createContext({
+    document: { getElementById: (id) => elements.get(id) || null }
+  });
+  vm.runInContext(queueSource, context);
+
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(vm.runInContext('blogNextDisclosureState', context))),
+    { quick: { preparation: false, topic: true, content: false }, queueEditor: { topic: true, content: false } }
+  );
+
+  elements.get('blog-next-ai-preparation').open = true;
+  elements.get('blog-next-topic-settings').open = false;
+  elements.get('blog-next-content-settings').open = true;
+  context.captureBlogNextDisclosureState('quick');
+
+  elements.get('blog-next-topic-settings').open = true;
+  elements.get('blog-next-content-settings').open = false;
+  context.applyBlogNextDisclosureState('queueEditor');
+  assert.equal(elements.get('blog-next-topic-settings').open, true);
+  assert.equal(elements.get('blog-next-content-settings').open, false);
+
+  elements.get('blog-next-topic-settings').open = false;
+  elements.get('blog-next-content-settings').open = true;
+  context.captureBlogNextDisclosureState('queueEditor');
+  context.applyBlogNextDisclosureState('quick');
+  assert.equal(elements.get('blog-next-ai-preparation').open, true);
+  assert.equal(elements.get('blog-next-topic-settings').open, false);
+  assert.equal(elements.get('blog-next-content-settings').open, true);
+
+  assert.match(queueSource, /function moveBlogNextTopicFormToQueueEditor\(\)[\s\S]*captureBlogNextDisclosureState\('quick'\)[\s\S]*applyBlogNextDisclosureState\('queueEditor'\)/);
+  assert.match(queueSource, /function restoreBlogNextTopicFormHome\(\)[\s\S]*captureBlogNextDisclosureState\('queueEditor'\)[\s\S]*applyBlogNextDisclosureState\('quick'\)/);
+});
+
 test('reusable generation and publish choices persist without carrying article data or schedule time', () => {
   const queue = `${read('ui/scripts/features/blog-next/quick-queue.js')}\n${read('ui/scripts/features/blog-next/queue-management.js')}`;
   const execution = read('ui/scripts/features/blog-next/draft-execution.js');
@@ -226,7 +266,8 @@ test('quick flow summaries update from existing controls and new writing owns in
   assert.match(script, /function setBlogNextTopicResult\(message, level = ''\)[\s\S]*?result\.closest\('\.blog-next-form-result-row'\)[\s\S]*?row\.hidden = !text\.trim\(\)/);
   assert.match(uiScript, /formatBlogPlatformList\(platforms, ' \+ '\) \|\| '발행 대상 없음'/);
   assert.match(uiScript, /function captureBlogNextClearableContent\(\)/);
-  assert.match(read('ui/scripts/features/blog-next/draft-execution.js'), /clearBlogNextTopicContent\(\);[\s\S]*resetBlogNextAiDraftUi\(\)/);
+  assert.match(read('ui/scripts/features/blog-next/quick-queue.js'), /function restoreBlogNextTopicFormHome\(\)[\s\S]*const preparation = document\.getElementById\('blog-next-ai-preparation'\)[\s\S]*const destination = preparation \|\| home[\s\S]*destination\.appendChild\(form\)/);
+  assert.match(read('ui/scripts/features/blog-next/writing-intent.js'), /clearBlogNextTopicContent\(\);\s*resetBlogNextAiDraftUi\(\)/);
   assert.match(uiScript, /function syncBlogNextTopicActionAvailability\(\)/);
   assert.match(uiScript, /ideaValid: Boolean\(subject\) && referencesValid/);
   assert.match(uiScript, /readyValid: Boolean\(subject\) && referencesValid && hasTarget && scheduleValid/);
@@ -258,6 +299,8 @@ test('shared writing intent leaves work untouched on cancel and resets then appl
   let clearActionSynced = false;
   let statusDismissed = false;
   let executionSynced = false;
+  let destinationPrepared = 0;
+  let focusScheduled = 0;
   const clearableIds = [
     'blog-next-subject', 'blog-next-title', 'blog-next-keywords',
     'blog-next-instruction', 'blog-next-reference-url', 'blog-next-schedule-date'
@@ -285,19 +328,23 @@ test('shared writing intent leaves work untouched on cancel and resets then appl
     setBlogNextTopicResult: (message) => { resultCleared = message === ''; },
     syncBlogNextTopicClearAction: () => { clearActionSynced = true; },
     dismissBlogNextStatusForNewWriting: () => { statusDismissed = true; },
-    syncBlogNextDraftExecutionState: () => { executionSynced = true; }
+    syncBlogNextDraftExecutionState: () => { executionSynced = true; },
+    requestAnimationFrame: (callback) => { focusScheduled += 1; callback(); }
   });
   vm.runInContext(read('ui/scripts/features/blog-next/writing-intent.js'), context);
   const existingValues = Object.fromEntries(clearableIds.map((id) => [id, fields.get(id).value]));
   const applyOptions = {
     values: { 'blog-next-subject': '제주 가을 여행', 'blog-next-keywords': '제주 가을 여행' },
     applySourceContext: () => { context.blogNextTrendContext = { source: 'naver_trend' }; },
-    confirmation: { message: '트렌드 글감으로 교체할까요?', title: '글감 교체' }
+    confirmation: { message: '트렌드 글감으로 교체할까요?', title: '글감 교체' },
+    prepareDestination: async () => { destinationPrepared += 1; return true; },
+    focusAfterFrame: true
   };
 
   assert.equal(await context.applyBlogNextWritingIntent(applyOptions), false);
   assert.deepEqual(Object.fromEntries(clearableIds.map((id) => [id, fields.get(id).value])), existingValues);
   assert.equal(activeTab, 'trend-posting');
+  assert.equal(destinationPrepared, 0);
   assert.equal(draftResets, 0);
   assert.equal(fields.get('blog-next-ai-preparation').open, false);
 
@@ -317,6 +364,8 @@ test('shared writing intent leaves work untouched on cancel and resets then appl
   assert.equal(fields.get('blog-next-topic-settings-summary').textContent, '제주 가을 여행 · 제주 가을 여행');
   assert.equal(fields.get('blog-next-subject').focused, true);
   assert.equal(draftResets, 1);
+  assert.equal(destinationPrepared, 1);
+  assert.equal(focusScheduled, 1);
   assert.equal(summariesSynced, 1);
   assert.equal(resultCleared && clearActionSynced && statusDismissed && executionSynced, true);
 });

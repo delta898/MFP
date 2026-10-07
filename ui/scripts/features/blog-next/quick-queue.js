@@ -21,6 +21,14 @@ let blogNextEditingSourceStatus = '';
 let blogNextEditingInitialSnapshot = '';
 let blogNextActiveManagementTab = 'ready';
 let blogNextPendingImmediateSubmission = null;
+const BLOG_NEXT_DISCLOSURE_DEFAULTS = Object.freeze({
+  quick: Object.freeze({ preparation: false, topic: true, content: false }),
+  queueEditor: Object.freeze({ topic: true, content: false })
+});
+const blogNextDisclosureState = {
+  quick: { ...BLOG_NEXT_DISCLOSURE_DEFAULTS.quick },
+  queueEditor: { ...BLOG_NEXT_DISCLOSURE_DEFAULTS.queueEditor }
+};
 const BLOG_NEXT_CLEARABLE_FIELD_IDS = Object.freeze([
   'blog-next-subject',
   'blog-next-title',
@@ -165,13 +173,41 @@ function setBlogNextTopicResult(message, level = '') {
   if (row) row.hidden = !text.trim();
 }
 
+function captureBlogNextDisclosureState(context) {
+  const state = blogNextDisclosureState[context];
+  if (!state) return;
+  const preparation = document.getElementById('blog-next-ai-preparation');
+  const topic = document.getElementById('blog-next-topic-settings');
+  const content = document.getElementById('blog-next-content-settings');
+  if (context === 'quick' && preparation) state.preparation = preparation.open;
+  if (topic) state.topic = topic.open;
+  if (content) state.content = content.open;
+}
+
+function applyBlogNextDisclosureState(context) {
+  const state = blogNextDisclosureState[context];
+  if (!state) return;
+  const preparation = document.getElementById('blog-next-ai-preparation');
+  const topic = document.getElementById('blog-next-topic-settings');
+  const content = document.getElementById('blog-next-content-settings');
+  if (context === 'quick' && preparation) preparation.open = state.preparation;
+  if (topic) topic.open = state.topic;
+  if (content) content.open = state.content;
+}
+
 function restoreBlogNextTopicFormHome() {
+  const preparation = document.getElementById('blog-next-ai-preparation');
   const home = document.getElementById('blog-next-topic-form-home');
   const modal = document.getElementById('blog-next-editor-modal');
   const form = document.getElementById('blog-next-topic-form');
   const actions = document.querySelector('#blog-next-editor-actions-slot .blog-next-form-actions');
+  if (form?.parentElement === document.getElementById('blog-next-queue-editor-slot')) {
+    captureBlogNextDisclosureState('queueEditor');
+  }
   if (form && actions) form.appendChild(actions);
-  if (home && form && form.parentElement !== home) home.appendChild(form);
+  const destination = preparation || home;
+  if (destination && form && form.parentElement !== destination) destination.appendChild(form);
+  applyBlogNextDisclosureState('quick');
   if (modal) {
     modal.classList.add('hidden');
     modal.setAttribute('aria-hidden', 'true');
@@ -216,11 +252,13 @@ function moveBlogNextTopicFormToQueueEditor() {
   const actionsSlot = document.getElementById('blog-next-editor-actions-slot');
   const form = document.getElementById('blog-next-topic-form');
   if (!modal || !slot || !actionsSlot || !form) return;
+  if (form.parentElement !== slot) captureBlogNextDisclosureState('quick');
   if (typeof arrangeBlogNextAiWorkflow === 'function') arrangeBlogNextAiWorkflow({ editing: true });
   modal.hidden = false;
   slot.appendChild(form);
   const actions = form.querySelector('.blog-next-form-actions');
   if (actions) actionsSlot.appendChild(actions);
+  applyBlogNextDisclosureState('queueEditor');
   modal.classList.remove('hidden');
   modal.setAttribute('aria-hidden', 'false');
 }

@@ -14,11 +14,14 @@ function hasBlogNextWritingWork() {
 }
 
 function isBlogNextWritingTransitionBusy() {
-  const ai = typeof blogNextDraftState !== 'undefined' ? blogNextDraftState.ai : null;
+  const draftTypes = typeof BLOG_NEXT_DRAFT_TYPES !== 'undefined' ? BLOG_NEXT_DRAFT_TYPES : ['ai'];
   return Boolean(
     (typeof blogNextAiOperationId !== 'undefined' && blogNextAiOperationId)
     || (typeof blogNextTopicSubmitting !== 'undefined' && blogNextTopicSubmitting)
-    || ai?.generating || ai?.publishing || ai?.imageWorking || ai?.promptGenerating
+    || draftTypes.some((type) => {
+      const state = typeof blogNextDraftState !== 'undefined' ? blogNextDraftState[type] : null;
+      return state?.generating || state?.publishing || state?.imageWorking || state?.promptGenerating;
+    })
     || (typeof blogNextRunnerActive !== 'undefined' && blogNextRunnerActive)
     || (typeof blogNextRunnerRequesting !== 'undefined' && blogNextRunnerRequesting)
   );
@@ -28,21 +31,26 @@ async function applyBlogNextWritingIntent({
   values = {},
   applySourceContext = null,
   confirmation = {},
-  focusFieldId = 'blog-next-subject'
+  focusFieldId = 'blog-next-subject',
+  prepareDestination = null,
+  focusAfterFrame = false
 } = {}) {
   if (isBlogNextWritingTransitionBusy()) return false;
 
   if (hasBlogNextWritingWork()) {
+    const confirmationOptions = typeof confirmation === 'function' ? confirmation() : confirmation;
     const confirmed = await showUiConfirm(
-      confirmation.message || '작성 중인 글감을 지우고 새 글을 시작할까요?',
+      confirmationOptions.message || '작성 중인 글감을 지우고 새 글을 시작할까요?',
       {
-        title: confirmation.title || '새 글 작성',
-        confirmText: confirmation.confirmText || '새 글 작성',
-        cancelText: confirmation.cancelText || '계속 작성'
+        title: confirmationOptions.title || '새 글 작성',
+        confirmText: confirmationOptions.confirmText || '새 글 작성',
+        cancelText: confirmationOptions.cancelText || '계속 작성'
       }
     );
     if (!confirmed) return false;
   }
+
+  if (typeof prepareDestination === 'function' && !await prepareDestination()) return false;
 
   if (typeof blogNextEditingRowIndex !== 'undefined' && blogNextEditingRowIndex !== null) {
     await closeBlogNextEditor({ force: true });
@@ -67,6 +75,8 @@ async function applyBlogNextWritingIntent({
   syncBlogNextTopicClearAction();
   if (typeof dismissBlogNextStatusForNewWriting === 'function') dismissBlogNextStatusForNewWriting();
   syncBlogNextDraftExecutionState();
-  document.getElementById(focusFieldId)?.focus();
+  const focus = () => document.getElementById(focusFieldId)?.focus();
+  if (focusAfterFrame && typeof requestAnimationFrame === 'function') requestAnimationFrame(focus);
+  else focus();
   return true;
 }

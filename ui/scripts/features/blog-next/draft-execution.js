@@ -78,32 +78,6 @@ function syncBlogNextPublishMutationControls() {
   syncBlogNextDraftOperationControls();
 }
 
-async function prepareBlogNextNewWriting() {
-  const busy = Boolean(blogNextAiOperationId || blogNextTopicSubmitting
-    || BLOG_NEXT_DRAFT_TYPES.some((type) => blogNextDraftState[type].publishing
-      || blogNextDraftState[type].generating || blogNextDraftState[type].imageWorking || blogNextDraftState[type].promptGenerating));
-  if (busy) return false;
-  const ai = blogNextDraftState.ai;
-  const hasCurrentWork = hasBlogNextClearableContent(captureBlogNextClearableContent())
-    || Boolean(ai.draftId) || blogNextEditingRowIndex !== null;
-  if (hasCurrentWork) {
-    const completed = isBlogNextDraftResultPublished('ai');
-    const confirmed = await showUiConfirm(completed
-      ? '현재 원고를 닫고 다음 글을 작성할까요? 블로그에 저장된 글은 그대로 유지됩니다.'
-      : '작성 중인 내용과 원고 미리보기를 지우고 새 글을 작성할까요?', {
-      title: '다음 글 작성', confirmText: '새 글 작성', cancelText: '계속 보기'
-    });
-    if (!confirmed) return false;
-  }
-  if (blogNextEditingRowIndex !== null) await closeBlogNextEditor({ force: true });
-  clearBlogNextTopicContent();
-  resetBlogNextAiDraftUi();
-  setBlogNextTopicResult('');
-  if (typeof dismissBlogNextStatusForNewWriting === 'function') dismissBlogNextStatusForNewWriting();
-  syncBlogNextDraftExecutionState();
-  return true;
-}
-
 function formatBlogNextDraftScheduleDate(value) {
   const parts = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
   if (!parts) return '';

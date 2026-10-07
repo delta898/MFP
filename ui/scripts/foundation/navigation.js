@@ -159,15 +159,22 @@ function hasOpenBlockingDialog() {
 
 async function navigateToBlogQuickCreate() {
   if (hasOpenBlockingDialog()) return false;
-  await navigateTo('blog-next', 'quick');
-  const blogView = document.getElementById('view-blog-next');
-  if (!blogView?.classList.contains('active')) return false;
-  if (typeof prepareBlogNextNewWriting === 'function' && !await prepareBlogNextNewWriting()) return false;
-  if (typeof activateBlogNextInputMode === 'function') {
-    activateBlogNextInputMode('ai');
-  }
-  requestAnimationFrame(() => document.getElementById('blog-next-subject')?.focus());
-  return true;
+  if (typeof applyBlogNextWritingIntent !== 'function') return false;
+  return applyBlogNextWritingIntent({
+    confirmation: () => ({
+      message: isBlogNextDraftResultPublished('ai')
+        ? '현재 원고를 닫고 다음 글을 작성할까요? 블로그에 저장된 글은 그대로 유지됩니다.'
+        : '작성 중인 내용과 원고 미리보기를 지우고 새 글을 작성할까요?',
+      title: '다음 글 작성',
+      confirmText: '새 글 작성',
+      cancelText: '계속 보기'
+    }),
+    prepareDestination: async () => {
+      await navigateTo('blog-next', 'quick');
+      return Boolean(document.getElementById('view-blog-next')?.classList.contains('active'));
+    },
+    focusAfterFrame: true
+  });
 }
 
 function bindNavigation() {
