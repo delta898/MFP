@@ -30,6 +30,7 @@ function showUiProgress(surface, options = {}) {
   layer.className = 'ui-progress-layer';
   if (type === UI_PROGRESS_TYPES.BLOCKING_INDETERMINATE) layer.classList.add('ui-blocking-progress');
   layer.dataset.uiProgressType = type;
+  if (options.presentation === 'compact') layer.dataset.uiProgressPresentation = 'compact';
   layer.setAttribute('role', 'status');
   layer.setAttribute('aria-live', 'polite');
   if (type === UI_PROGRESS_TYPES.BLOCKING_INDETERMINATE) layer.tabIndex = 0;

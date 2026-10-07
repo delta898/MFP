@@ -100,8 +100,8 @@ function createSiteHostingSiteRepository(options = {}) {
             .filter((entry) => entry.isDirectory() && safeSiteId(entry.name))
             .map((entry) => readSite(projectId, entry.name))
             .filter(Boolean)
-            // Keep card positions tied to creation order; builds and deployments update updated_at.
-            .sort((left, right) => String(left.created_at || '').localeCompare(String(right.created_at || ''))
+            // Keep newest sites next to the leading create card; builds and deployments update updated_at.
+            .sort((left, right) => String(right.created_at || '').localeCompare(String(left.created_at || ''))
                 || String(left.id || '').localeCompare(String(right.id || '')));
     }
 

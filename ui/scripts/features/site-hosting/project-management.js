@@ -378,7 +378,7 @@ function siteHostingProjectPanel(project, tab) {
   return `<section class="site-hosting-panel" aria-label="사이트 목록">
     ${siteCount === 0 ? '<p class="site-hosting-empty-hint">아직 사이트가 없습니다. 사이트 추가를 눌러 첫 사이트를 만들어 주세요.</p>' : ''}
     ${siteHostingSiteLoadState === 'error' ? `<section class="ui-empty-state" data-state="error"><h3>사이트를 불러오지 못했습니다.</h3><button class="secondary" type="button" data-site-retry>다시 시도</button></section>` : ''}
-    ${siteHostingSiteLoadState === 'ready' ? `<div class="site-hosting-site-list" role="list">${siteHostingSites.map(siteHostingSiteCard).join('')}${siteHostingAddSiteCard()}</div>` : ''}
+    ${siteHostingSiteLoadState === 'ready' ? `<div class="site-hosting-site-list" role="list">${siteHostingAddSiteCard()}${siteHostingSites.map(siteHostingSiteCard).join('')}</div>` : ''}
   </section>`;
 }
 

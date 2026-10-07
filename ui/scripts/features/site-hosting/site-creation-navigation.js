@@ -271,7 +271,8 @@ async function siteHostingCreateSite(event) {
   if (!submit || submit.disabled) return;
   const hideProgress = showUiProgress(form, {
     type: UI_PROGRESS_TYPES.BLOCKING_INDETERMINATE,
-    message: '사이트를 만들고 있습니다. 빌드가 끝날 때까지 기다려 주세요.'
+    presentation: 'compact',
+    message: '사이트를 만들고 있습니다. 잠시 기다려 주세요.'
   });
   submit.disabled = true;
   try {
@@ -282,7 +283,7 @@ async function siteHostingCreateSite(event) {
     try {
       siteHostingSites = await fetchJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites`);
     } catch (_refreshError) {
-      siteHostingSites = [...siteHostingSites, site];
+      siteHostingSites = [site, ...siteHostingSites];
     }
     const createdSiteIndex = siteHostingSites.findIndex((item) => item.id === site.id);
     if (createdSiteIndex >= 0 && site.screenshot) {
@@ -296,10 +297,10 @@ async function siteHostingCreateSite(event) {
     siteHostingSiteLoadState = 'ready';
     siteHostingRenderProjectDetail();
     if (site.build_error) {
-      siteHostingSetSiteOperation(site.id, 'error', `사이트는 만들었지만 자동 빌드에 실패했습니다: ${site.build_error}`);
+      siteHostingSetSiteOperation(site.id, 'error', `사이트는 만들었지만 준비를 마치지 못했습니다: ${site.build_error}`);
     } else {
       const screenshotMessage = site.screenshot_error ? ' 대표 이미지는 만들지 못했습니다.' : '';
-      siteHostingSetSiteOperation(site.id, 'success', `사이트 생성 및 빌드를 마쳤습니다.${screenshotMessage}`);
+      siteHostingSetSiteOperation(site.id, 'success', `사이트를 만들었습니다.${screenshotMessage}`);
     }
   } catch (error) {
     if (feedback) feedback.textContent = error.message || '사이트를 만들지 못했습니다.';
@@ -318,7 +319,8 @@ async function siteHostingApplySiteSettings(event) {
   if (!project || !siteId || !submit || submit.disabled) return;
   const hideProgress = showUiProgress(form, {
     type: UI_PROGRESS_TYPES.BLOCKING_INDETERMINATE,
-    message: '변경사항을 반영하고 사이트를 다시 빌드하고 있습니다.'
+    presentation: 'compact',
+    message: '변경사항을 사이트에 반영하고 있습니다.'
   });
   submit.disabled = true;
   try {
@@ -386,7 +388,7 @@ async function siteHostingPreviewCreateSite() {
     type: UI_PROGRESS_TYPES.REGION_INDETERMINATE,
     message: '미리보기를 만드는 중…'
   });
-  if (status) status.textContent = '사이트를 빌드하고 있습니다.';
+  if (status) status.textContent = '사이트 미리보기를 준비하고 있습니다.';
   if (feedback) feedback.textContent = '';
   try {
     const result = await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/preview-drafts`, payload);

@@ -16,6 +16,8 @@
 
 두 layer 패턴은 같은 불확정 막대, 상태 문구, 접근성 상태를 사용한다. 차이는 잠금·focus·dialog 처리 계약뿐이다. `region-indeterminate`도 지정 영역의 자식 입력은 잠그지만 focus를 빼앗거나 dialog의 Escape를 막지 않는다. `blocking-indeterminate`는 작업 중 dialog 취소/Escape를 막고 진행 표시로 focus를 이동한 뒤 종료 시 이전 focus를 복구한다.
 
+레이어의 표현 밀도는 `presentation` 옵션으로 조정할 수 있다. `compact`는 진행 범위와 잠금 동작은 유지하면서 중앙 상태 패널만 작게 띄우고 뒤 콘텐츠를 더 잘 보이게 한다. 생성 설정처럼 입력 맥락을 유지하는 편이 중요한 `blocking-indeterminate` 작업에 사용한다. 새 상호작용 계약이 아니므로 별도 타입은 만들지 않는다.
+
 새 타입을 화면마다 추가하지 않는다. 새 타입은 위 세 패턴으로 설명할 수 없는 반복 요구가 있고, 잠금 범위·focus 처리·취소 가능성 중 적어도 하나의 계약 차이가 있을 때만 제안한다. 사용자 동작만 다른 경우에는 별도 타입을 만들지 말고 기존 타입의 상태 문구를 구체화한다.
 
 ## 사용 계약
@@ -34,6 +36,7 @@ try {
 ```
 
 - `surface`는 진행 중 안정적으로 유지할 최소 영역이다. 더 넓은 상위 화면을 잠그지 않는다.
+- `presentation: 'compact'`는 시각 표현만 바꾸며 잠금 범위나 focus, dialog 동작을 바꾸지 않는다.
 - 작업 시작 전에 중복 실행을 막고, 현재 작업 대상과 실제 단계를 알려주는 짧은 `message`를 제공한다.
 - layer는 surface에 덧붙고 `aria-busy="true"`를 설정한다. 종료 함수는 layer, inert, `aria-busy`, component class와 해당 타입의 focus 상태를 이전 값으로 복원한다.
 - 정상 완료, 오류, 조기 return 모두 cleanup을 보장하도록 `try/finally`를 사용한다. DOM 재렌더로 surface가 교체되는 흐름도 cleanup을 호출한다.
