@@ -1,4 +1,4 @@
-# 다중 Style Contract v1.0
+# 다중 Style Contract 1.1
 
 ## 문서 상태
 
@@ -130,11 +130,13 @@ style에 따라 component anatomy를 바꿀 필요가 생기면 style 분기가 
 
 ## Amade Style package
 
-Amade catalog's `styles[]` references each `amade/styles/<style-id>/style.json` package. A package shares Amade common metadata and declares `style_id`, `compatibility.min_bloggenius_version`, `compatibility.contract` (`id: bloggenius-ui-style-tokens`, `version: 1.0`), and the complete required token map. It carries token data, not CSS selectors, JavaScript, or other executable assets. The Amade package `spec_version`, package release version, minimum app version, and token contract version are separate values. Current Style packages require BlogGenius `0.6.0`.
+Amade catalog's `styles[]` references each `amade/styles/<style-id>/style.json` package. A package shares Amade common metadata and declares `style_id`, `compatibility.min_bloggenius_version`, `compatibility.contract` (`id: bloggenius-ui-style-tokens`, `version: 1.1`), and the complete required token map. It carries token data, not CSS selectors, JavaScript, or other executable assets. The Amade package `spec_version`, package release version, minimum app version, and token contract version are separate values. Current Style packages require BlogGenius `0.6.0`.
+
+Contract 1.1 adds `--ui-form-control-disabled-opacity`, owned by each style package. Shared BlogGenius form-control styling consumes it for disabled form fields; button disabled appearance remains controlled separately by `--ui-button-disabled-opacity`.
 
 The local API fetches the catalog and all Style manifests at one immutable Git revision. It offers only `active` packages whose minimum BlogGenius version is met and whose exact contract ID/version is supported. Incompatible future packages are skipped; malformed compatibility declarations fail validation. It validates IDs, metadata, exact token names, token count, contract version, and each value before writing a local cache. Values that could introduce declarations, rules, imports, or external resources (`;`, braces, `url()`, `@import`, and similar constructs) are rejected. The renderer repeats token allowlist/value validation before calling `CSSStyleDeclaration.setProperty`; packages never become a `<style>` block or stylesheet import.
 
-The Appearance UI uses the active Amade list when available and the built-in registry when no valid remote package is available. A valid remote response with zero active compatible styles is authoritative: clear the remote cache and use the bundled registry, rather than restoring stale cached remote entries. Network, retrieval, or contract validation failures may use the last valid remote cache. The existing per-style CSS modules remain bundled fallback and component-specific refinement; validated remote semantic tokens override the corresponding values at the document root. Appearance preview cards apply the same token map to their isolated preview element.
+The Appearance UI uses the active Amade list when available and the built-in registry when no valid remote package is available. A valid remote response with zero active compatible styles is authoritative: clear the remote cache and use the bundled registry, rather than restoring stale cached remote entries. Network, retrieval, or contract validation failures may use the last valid remote cache. The existing per-style CSS modules remain bundled fallback and component-specific refinement; validated remote semantic tokens override the corresponding values at the document root. Appearance preview cards apply the same token map to their isolated preview element. Therefore, Amade dev packages are the source for active style values, while BlogGenius bundled themes provide matching fallback values.
 
 ## File Responsibility
 
@@ -230,7 +232,7 @@ Amade에서 제공하는 Style package는 별도로 Amade의 공통 메타데이
 
 ## 현재 검증 결과
 
-- Compatibility와 10개 selectable style이 동일한 98-token contract를 사용한다. Amade는 이들 10개를 각각 공통 metadata, 미리보기, lifecycle, 전체 token map이 있는 실험 패키지로 보관한다.
+- Compatibility와 10개 selectable style이 동일한 99-token contract 1.1을 사용한다. Amade는 이들 10개를 각각 공통 metadata, 미리보기, lifecycle, 전체 token map이 있는 실험 패키지로 보관한다. 테스트 fixture인 `remote-test-style`은 별도다.
 - 정식 style은 따뜻한 밝은 화면, 차분한 세이지, 어두운 월넛, 한지·청자·쪽빛, 저광량 phosphor 계열로 palette뿐 아니라 spacing/density, radius와 elevation을 달리하면서 동일 DOM·기능·상태·ARIA·keyboard 순서를 유지한다.
 - style ID와 CSS 파일명은 일대일 규칙을 사용하고, 설정의 2열 선택 UI는 selectable registry entry를 자동 렌더링한다. 새 style 추가는 token module, registry metadata와 ordered CSS manifest 등록 세 곳으로 제한한다.
 - `가을밤 서재`는 dark surface의 modal footer와 공통 feedback을 semantic surface token으로 교정했고, `한지 위의 단청`은 일반 secondary와 명시적 negative/danger action의 의미를 style 색상과 분리해 검증했다.

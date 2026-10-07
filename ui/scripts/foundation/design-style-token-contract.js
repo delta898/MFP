@@ -1,4 +1,4 @@
-var DESIGN_STYLE_CONTRACT_VERSION = '1.0';
+var DESIGN_STYLE_CONTRACT_VERSION = '1.1';
 var DESIGN_STYLE_DEFAULT_ID = 'compatibility';
 var DESIGN_STYLE_STORAGE_KEY = 'bloggenius.ui.style';
 
@@ -89,6 +89,7 @@ var DESIGN_STYLE_REQUIRED_TOKENS = Object.freeze([
   '--ui-button-danger-text',
   '--ui-button-danger-hover',
   '--ui-button-disabled-opacity',
+  '--ui-form-control-disabled-opacity',
   '--ui-action-group-gap',
   '--ui-card-background',
   '--ui-card-border',

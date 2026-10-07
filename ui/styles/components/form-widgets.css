@@ -410,7 +410,6 @@
 
 .premium-input:disabled {
   cursor: not-allowed;
-  opacity: var(--ui-button-disabled-opacity);
 }
 
 /* Premium Checkbox Styling */

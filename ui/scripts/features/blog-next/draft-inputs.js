@@ -512,15 +512,18 @@ async function loadBlogNextSiteHostingTargets({ preserveSelection = true } = {})
     if (selected) selected.selected = true;
     const hadSelection = Boolean(previousProjectId && previousSiteId);
     const selectionLost = hadSelection && !selected;
-    input.disabled = sites.length === 0;
-    select.disabled = sites.length === 0;
+    const eligibleCount = sites.filter((site) => site.posting_target?.eligible === true).length;
+    input.disabled = eligibleCount === 0;
+    select.disabled = false;
     if (selectionLost) {
       setBlogNextSiteHostingMessage('선택한 사이트가 삭제되었거나 발행 조건을 충족하지 않습니다. 다시 선택해 주세요.', 'error');
     } else if (!sites.length) {
       setBlogNextSiteHostingMessage('생성된 사이트가 없습니다. 사이트를 먼저 만들어 주세요.');
     } else {
-      const disabledCount = sites.filter((site) => site.posting_target?.eligible !== true).length;
-      setBlogNextSiteHostingMessage(disabledCount ? `발행할 수 없는 사이트 ${disabledCount}개는 사유와 함께 비활성화되어 있습니다.` : '');
+      const disabledCount = sites.length - eligibleCount;
+      setBlogNextSiteHostingMessage(disabledCount
+        ? `발행 가능한 사이트 ${eligibleCount}개 · 발행할 수 없는 사이트 ${disabledCount}개는 사유와 함께 표시됩니다.`
+        : `발행 가능한 사이트 ${eligibleCount}개`);
     }
     const activeType = BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai';
     if (isBlogNextSiteHostingTarget(activeType)) {
@@ -540,10 +543,10 @@ async function loadBlogNextSiteHostingTargets({ preserveSelection = true } = {})
     }
     if (select.dataset.loadFailed === 'true') {
       input.disabled = false;
-      select.disabled = !input.checked || select.options.length <= 1;
+      select.disabled = select.options.length <= 1;
     } else {
-      input.disabled = select.options.length <= 1;
-      select.disabled = !input.checked || select.options.length <= 1;
+      input.disabled = !Array.from(select.options).some((option) => option.dataset.siteId && !option.disabled);
+      select.disabled = select.options.length <= 1;
     }
   }
 }
@@ -611,7 +614,7 @@ function syncBlogNextDraftProviderFields(type) {
   });
   const siteActive = blogNextDraftField(type, 'target-site-hosting')?.checked === true;
   const siteSelectField = document.getElementById('blog-next-site-hosting-select');
-  if (siteSelectField) siteSelectField.disabled = !siteActive || siteSelectField.options.length <= 1;
+  if (siteSelectField) siteSelectField.disabled = siteSelectField.options.length <= 1;
   const vaultPicker = document.getElementById('blog-next-vault-folder-choose');
   const vaultSelect = document.getElementById('blog-next-vault-folder-select');
   if (vaultPicker && vaultPicker.getAttribute('aria-busy') !== 'true') {

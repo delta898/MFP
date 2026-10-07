@@ -102,6 +102,7 @@
   --ui-button-danger-text: #964747;
   --ui-button-danger-hover: #f5e9e8;
   --ui-button-disabled-opacity: 0.56;
+  --ui-form-control-disabled-opacity: 0.56;
   --ui-action-group-gap: 8px;
 
   /* Shared card component */

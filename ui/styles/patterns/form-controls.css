@@ -1,0 +1,9 @@
+/*
+ * Shared disabled form-control treatment. Keep buttons on the separate
+ * --ui-button-disabled-opacity token so each style can tune both states.
+ */
+:where(input:not([type="checkbox"]):not([type="radio"]), select, textarea):disabled,
+:where(input[type="checkbox"], input[type="radio"]):disabled {
+  opacity: var(--ui-form-control-disabled-opacity);
+  cursor: not-allowed;
+}

@@ -608,10 +608,6 @@
   column-gap: 8px;
 }
 
-#blog-next-target-site-hosting-option {
-  margin-inline-end: -4px;
-}
-
 .blog-next-site-hosting-inline:not([hidden]) {
   display: inline-block;
   flex: 0 1 250px;
