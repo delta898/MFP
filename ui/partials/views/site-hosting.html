@@ -13,7 +13,12 @@
           </div>
         </div>
 
-        <div id="site-hosting-content" class="site-hosting-content" aria-live="polite">
+        <div class="site-hosting-tabs ui-top-tabs" role="tablist" aria-label="사이트 기능">
+          <button class="ui-top-tab active" id="site-hosting-tab-sites" type="button" role="tab"
+            aria-selected="true" aria-controls="site-hosting-content" tabindex="0">내 사이트</button>
+        </div>
+
+        <div id="site-hosting-content" class="site-hosting-content card" role="tabpanel" aria-labelledby="site-hosting-tab-sites" aria-live="polite">
           <section class="ui-empty-state" aria-label="프로젝트를 불러오는 중">
             <span class="ui-spinner ui-spinner-accent ui-spinner-md" aria-hidden="true"></span>
             <span>프로젝트를 불러오는 중입니다.</span>
