@@ -3,12 +3,16 @@
   gap: var(--ui-density-page-gap);
 }
 
+.site-hosting-project-detail {
+  display: grid;
+  gap: var(--ui-panel-heading-content-gap, var(--ui-density-page-gap));
+}
+
 .site-hosting-project-load-placeholder {
   min-height: 180px;
 }
 
 .site-hosting-projects-header,
-.site-hosting-project-detail-header,
 .site-hosting-section-heading {
   display: flex;
   align-items: center;
@@ -30,14 +34,12 @@
   color: var(--ui-text-primary);
 }
 
-.site-hosting-projects-header h2,
-.site-hosting-project-detail-header h2 {
+.site-hosting-projects-header h2 {
   font-size: var(--ui-type-heading-size);
   font-weight: var(--ui-weight-bold);
 }
 
 .site-hosting-projects-header p,
-.site-hosting-project-detail-header p,
 .site-hosting-section-heading p {
   margin: var(--ui-space-1) 0 0;
   color: var(--ui-text-secondary);

@@ -3,8 +3,8 @@
 .account-state-card { display: grid; gap: var(--ui-space-3); padding: var(--ui-space-5); color: var(--ui-text-secondary); }
 .account-error-card { color: var(--ui-status-danger); }
 .account-overview { display: grid; gap: var(--ui-space-5); }
-.account-overview-summary-panel { overflow: hidden; padding: 0; }
-.account-overview-summary-panel .account-overview-intro { padding: var(--ui-density-section-padding); }
+.account-overview-summary-panel { display: grid; gap: var(--ui-panel-heading-content-gap, var(--ui-density-page-gap)); overflow: hidden; padding: 0; }
+.account-overview-summary-panel > .ui-panel-heading { padding: var(--ui-density-section-padding); }
 .account-overview-summary-panel .account-usage-card { padding: var(--ui-space-5); border-top: 1px solid var(--ui-border-default); }
 .account-usage-card,
 .account-smart-usage-card,

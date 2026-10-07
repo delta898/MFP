@@ -7,6 +7,63 @@
   box-shadow: var(--ui-card-shadow);
 }
 
+/* Shared first-level heading for tab panels and workflow surfaces.
+   Optional stage, count, or action content can sit beside the common copy. */
+.ui-panel-heading {
+  --ui-panel-heading-min-block-size: 64px;
+  --ui-panel-heading-description-gap: var(--ui-space-2);
+  display: flex;
+  /* Keep the heading's first line at the same inset whether it has a description or not. */
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ui-space-4);
+  min-width: 0;
+  min-height: var(--ui-panel-heading-min-block-size);
+}
+
+.ui-panel-heading-copy {
+  min-width: 0;
+}
+
+.ui-panel-heading h2,
+.ui-panel-heading p {
+  margin: 0;
+}
+
+/* Normalize the card inset wherever the shared first-level heading is used. */
+.ui-panel-heading-surface {
+  --ui-panel-heading-content-gap: var(--ui-density-page-gap);
+}
+
+.card.ui-panel-heading-surface,
+.ui-workflow-panel.ui-panel-heading-surface {
+  padding: var(--ui-density-section-padding);
+}
+
+.ui-panel-heading h2 {
+  color: var(--ui-text-primary);
+  font-size: var(--ui-type-heading-size);
+  font-weight: var(--ui-weight-bold);
+  line-height: var(--ui-line-height-tight);
+  letter-spacing: -0.02em;
+}
+
+.ui-panel-heading p {
+  margin-top: var(--ui-panel-heading-description-gap);
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-type-body-size);
+  font-weight: var(--ui-weight-regular);
+  line-height: var(--ui-line-height-body);
+}
+
+@media (max-width: 768px) {
+  .ui-panel-heading {
+    min-height: 0;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 .ui-workflow-panel {
   padding: var(--ui-space-5);
 }

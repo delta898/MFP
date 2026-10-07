@@ -1,10 +1,13 @@
 .shopping-quick-panel-intro h2,
-.shopping-quick-panel-intro p,
 .shopping-quick-preview h3,
 .shopping-quick-preview p,
 .shopping-quick-preview dl,
 .shopping-quick-preview dd {
   margin: 0;
+}
+
+.shopping-tab-panel.ui-panel-heading-surface {
+  gap: var(--ui-panel-heading-content-gap, var(--ui-density-page-gap));
 }
 
 .shopping-quick-action-groups {
@@ -51,14 +54,6 @@
   background: var(--ui-surface-muted);
 }
 
-.shopping-quick-panel-intro h2 {
-  color: var(--ui-text-primary);
-  font-size: var(--ui-type-heading-size);
-  font-weight: var(--ui-weight-bold);
-  line-height: var(--ui-line-height-tight);
-}
-
-.shopping-quick-panel-intro p,
 .shopping-quick-url-field > small,
 .shopping-quick-product-field > small {
   color: var(--ui-text-secondary);

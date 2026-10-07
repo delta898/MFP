@@ -15,17 +15,17 @@
 
         <div class="card-news-workspace-tabs ui-top-tabs" role="tablist" aria-label="카드뉴스 작업 구분">
           <button class="ui-top-tab active" id="card-news-workspace-tab-create" type="button" role="tab"
-            aria-selected="true" aria-controls="card-news-create-workspace" tabindex="0" data-card-news-workspace="create">새 카드뉴스 <span id="card-news-create-count" class="ui-count-badge" aria-label="새 카드뉴스 개수">–</span></button>
+            aria-selected="true" aria-controls="card-news-create-workspace" tabindex="0" data-card-news-workspace="create">새 카드뉴스 <span id="card-news-create-count" aria-label="새 카드뉴스 개수">–</span></button>
           <button class="ui-top-tab" id="card-news-workspace-tab-managed" type="button" role="tab"
-            aria-selected="false" aria-controls="card-news-managed-workspace" tabindex="-1" data-card-news-workspace="managed">만든 카드뉴스 <span id="card-news-managed-count" class="ui-count-badge" aria-label="만든 카드뉴스 개수">–</span></button>
+            aria-selected="false" aria-controls="card-news-managed-workspace" tabindex="-1" data-card-news-workspace="managed">만든 카드뉴스 <span id="card-news-managed-count" aria-label="만든 카드뉴스 개수">–</span></button>
         </div>
 
         <div id="card-news-create-workspace" role="tabpanel" aria-labelledby="card-news-workspace-tab-create"
           data-card-news-workspace-panel="create">
         <div class="card-news-layout">
-          <section class="card-news-source-card ui-workflow-card ui-workflow-panel" aria-labelledby="card-news-source-title">
-            <div class="card-news-section-heading ui-workflow-heading">
-              <div>
+          <section class="card-news-source-card ui-workflow-card ui-workflow-panel ui-panel-heading-surface" aria-labelledby="card-news-source-title">
+            <div class="card-news-section-heading ui-workflow-heading ui-panel-heading">
+              <div class="ui-panel-heading-copy">
                 <div class="ui-workflow-title-row">
                   <h2 id="card-news-source-title">내용 선택</h2>
                   <span class="ui-workflow-stage">1단계</span>

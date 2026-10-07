@@ -43,6 +43,7 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.ok(view.indexOf('id="manual-sns-channel-list"') < view.indexOf('id="manual-sns-publish-btn"'));
   assert.doesNotMatch(view, /manual-sns-organization-field|manual-sns-workspace-summary|social-workspace-control/);
   assert.match(view, /id="manual-sns-text" class="social-editor" rows="6"/);
+  assert.match(view, /class="social-editor-shell"[\s\S]*id="manual-sns-text"[\s\S]*<\/div>\s*<div class="social-editor-footer">\s*<span id="manual-sns-character-count"/);
   assert.match(view, /id="manual-sns-image-grid"/);
   assert.match(view, /class="social-composer-layout"/);
   assert.match(view, /class="social-composer-section social-composer-text-section"/);
@@ -59,6 +60,7 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.match(styles, /\.social-live-preview-media:hover \.social-live-preview-arrow,[\s\S]*?\.social-live-preview-media:focus-within \.social-live-preview-arrow[\s\S]*?visibility:\s*visible/);
   assert.match(styles, /@media \(hover:\s*none\)[\s\S]*?\.social-live-preview-arrow\s*\{[^}]*visibility:\s*visible/s);
   assert.match(view, /id="manual-sns-ai-confirm-btn"[^>]*>[\s\S]*?<span>최적화 적용<\/span><\/button>/);
+  assert.match(view, /id="manual-sns-ai-confirm-btn"[^>]*>\s*<svg class="ui-ai-icon" aria-hidden="true"><use href="#ui-icon-ai"><\/use><\/svg>/);
   assert.match(view, /id="manual-sns-ai-cancel-btn"[^>]*>취소<\/button>/);
   assert.match(optimization, /function openManualSnsOptimizationConfirmation\(\)/);
   assert.match(optimization, /현재 본문을 AI가 다듬어 바꿉니다\. 적용할까요\?/);
@@ -133,6 +135,10 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.match(composer, /const snapshot = readManualSnsWorkspaceCache\(\)/);
   assert.match(composer, /refreshStaleSnapshot = !snapshot\.isFresh/);
   assert.match(styles, /\.social-view \.social-composer-card[\s\S]*?var\(--ui-border-default\)/);
+  assert.match(styles, /\.social-view \.social-composer-intro\s*\{[^}]*padding:\s*var\(--ui-space-4\) var\(--ui-space-6\) var\(--ui-space-2\)/s);
+  assert.match(styles, /\.social-view \.social-editor-footer \.social-character-count\s*\{[^}]*var\(--ui-text-muted\)/s);
+  assert.match(styles, /\.social-view \.social-composer-section:not\(\.social-composer-channel-section\)\s*\{[^}]*background:\s*var\(--ui-surface-muted\)/s);
+  assert.match(styles, /\.social-view \.social-live-preview-media\.is-empty\s*\{[^}]*min-height:\s*clamp\(220px,\s*26vh,\s*340px\)/s);
   assert.doesNotMatch(styles, /\.social-view \.view-title-block\s*\{/);
   assert.match(styles, /\.social-view \.social-channel-option[\s\S]*?var\(--ui-action-primary-soft\)/);
   assert.match(styles, /\.social-view \.social-composer-actions[\s\S]*?var\(--ui-border-default\)/);

@@ -16,10 +16,10 @@
             aria-selected="true" aria-controls="social-tab-compose" tabindex="0">직접 작성</button>
         </div>
 
-        <div class="card social-composer-card" id="social-tab-compose" role="tabpanel"
+        <div class="card social-composer-card ui-panel-heading-surface" id="social-tab-compose" role="tabpanel"
           aria-labelledby="social-tab-button-compose">
-          <div class="social-composer-intro blog-next-panel-lead blog-next-panel-intro">
-            <div class="blog-next-panel-intro-copy">
+          <div class="social-composer-intro blog-next-panel-lead blog-next-panel-intro ui-panel-heading">
+            <div class="blog-next-panel-intro-copy ui-panel-heading-copy">
               <h2>SNS 게시물 작성</h2>
               <p>메시지와 이미지를 준비한 뒤 발행 대상을 선택해 발행하세요.</p>
             </div>
@@ -46,6 +46,8 @@
                 <div class="social-editor-shell">
                   <textarea id="manual-sns-text" class="social-editor" rows="6"
                     placeholder="오늘의 생각이나 기록을 자유롭게 작성해 보세요."></textarea>
+                </div>
+                <div class="social-editor-footer">
                   <span id="manual-sns-character-count" class="social-character-count">0/1,000자</span>
                 </div>
                 <div id="manual-sns-ai-status" class="social-ai-status" aria-live="polite"></div>

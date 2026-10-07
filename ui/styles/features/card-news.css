@@ -5,6 +5,12 @@
   margin: 0 auto;
 }
 
+.card-news-workspace-tabs .ui-top-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+}
+
 .card-news-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.75fr);
@@ -24,6 +30,10 @@
   justify-content: space-between;
   gap: var(--ui-space-5);
   margin-bottom: var(--ui-space-5);
+}
+
+.card-news-source-card > .card-news-section-heading {
+  margin-bottom: var(--ui-panel-heading-content-gap, var(--ui-density-page-gap));
 }
 
 .card-news-source-panel {

@@ -23,11 +23,11 @@
 }
 
 .settings-next-panel {
-  gap: var(--ui-space-5);
+  gap: var(--ui-panel-heading-content-gap, var(--ui-density-page-gap));
 }
 
 .settings-next-panel-lead {
-  min-height: 64px;
+  min-height: var(--ui-panel-heading-min-block-size, 64px);
 }
 
 .settings-next-local-nav-row {
@@ -68,7 +68,6 @@
 .settings-next-action-group,
 .settings-next-completion-group {
   display: flex;
-  align-items: center;
 }
 
 .settings-next-panel-intro,
@@ -490,7 +489,4 @@
     width: 100%;
   }
 
-  .settings-next-panel-lead {
-    min-height: 0;
-  }
 }

@@ -217,22 +217,21 @@
   resize: vertical;
   border: 1px solid var(--ui-border-default);
   border-radius: var(--ui-radius-sm);
-  padding: 14px 62px 34px 14px;
+  padding: 14px;
   color: var(--ui-text-primary);
   background: var(--ui-surface);
   font: inherit;
   line-height: 1.65;
 }
 
-.social-editor-shell {
-  position: relative;
-}
+.social-editor-shell { min-width: 0; }
 
-.social-editor-shell .social-character-count {
-  position: absolute;
-  right: 28px;
-  bottom: 10px;
-  pointer-events: none;
+.social-editor-footer {
+  display: flex;
+  justify-content: flex-end;
+  min-height: 1.4em;
+  margin-top: var(--ui-space-1);
+  padding-inline: var(--ui-space-2);
 }
 
 .social-editor:focus,

@@ -375,10 +375,8 @@ function siteHostingProjectPanel(project, tab) {
       </div>
     </section>`;
   }
-  return `<section class="site-hosting-panel" aria-labelledby="site-hosting-sites-title">
-    <div class="site-hosting-section-heading">
-      <div><p id="site-hosting-sites-title">${siteCount}개</p>${siteCount === 0 ? '<p>아직 사이트가 없습니다. 사이트 추가를 눌러 첫 사이트를 만들어 주세요.</p>' : ''}</div>
-    </div>
+  return `<section class="site-hosting-panel" aria-label="사이트 목록">
+    ${siteCount === 0 ? '<p class="site-hosting-empty-hint">아직 사이트가 없습니다. 사이트 추가를 눌러 첫 사이트를 만들어 주세요.</p>' : ''}
     ${siteHostingSiteLoadState === 'error' ? `<section class="ui-empty-state" data-state="error"><h3>사이트를 불러오지 못했습니다.</h3><button class="secondary" type="button" data-site-retry>다시 시도</button></section>` : ''}
     ${siteHostingSiteLoadState === 'ready' ? `<div class="site-hosting-site-list" role="list">${siteHostingSites.map(siteHostingSiteCard).join('')}${siteHostingAddSiteCard()}</div>` : ''}
   </section>`;
@@ -755,8 +753,11 @@ function siteHostingRenderProjectDetail() {
   const project = siteHostingSelectedProject;
   if (!content || !project) return;
   content.innerHTML = `<div class="site-hosting-project-detail">
-    <header class="site-hosting-project-detail-header">
-      <div><h2>내 사이트</h2></div>
+    <header class="site-hosting-project-detail-header ui-panel-heading">
+      <div class="ui-panel-heading-copy">
+        <h2>내 사이트</h2>
+        <p>만든 사이트와 배포 상태를 확인하고 관리합니다.</p>
+      </div>
       ${siteHostingProjectView === 'sites' ? siteHostingTemplateCheckControl() : ''}
     </header>
     ${siteHostingProjectPanel(project, siteHostingProjectView)}

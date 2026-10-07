@@ -255,7 +255,7 @@
 
 .blog-next-panel {
   display: none;
-  gap: var(--ui-density-page-gap);
+  gap: var(--ui-panel-heading-content-gap, var(--ui-density-page-gap));
 }
 
 .blog-next-panel.active {
