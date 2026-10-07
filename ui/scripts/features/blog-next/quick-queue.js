@@ -6,7 +6,7 @@ const BLOG_NEXT_BUILTIN_DEFAULTS = Object.freeze({
 const BLOG_NEXT_PERSISTED_SETTING_IDS = new Set([
   'blog-next-target-naver', 'blog-next-target-wordpress', 'blog-next-naver-category',
   'blog-next-wordpress-category', 'blog-next-writing-strategy', 'blog-next-image-mode',
-  'blog-next-post-status', 'blog-next-runner-headless', 'blog-next-external-reference',
+  'blog-next-runner-headless', 'blog-next-external-reference',
   'blog-next-writing-length', 'blog-next-writing-opening', 'blog-next-writing-development',
   'blog-next-writing-ending'
 ]);
@@ -74,7 +74,12 @@ function normalizeBlogNextTopicDefaults(value = {}) {
 function loadBlogNextTopicDefaults() {
   try {
     const stored = localStorage.getItem(BLOG_NEXT_TOPIC_DEFAULTS_STORAGE_KEY);
-    return stored ? normalizeBlogNextTopicDefaults(JSON.parse(stored)) : normalizeBlogNextTopicDefaults(BLOG_NEXT_BUILTIN_DEFAULTS);
+    const settings = stored ? normalizeBlogNextTopicDefaults(JSON.parse(stored)) : normalizeBlogNextTopicDefaults(BLOG_NEXT_BUILTIN_DEFAULTS);
+    // Publishing fields are target-scoped and intentionally live only for the current browser session.
+    settings.naverCategory = '';
+    settings.wordpressCategory = '';
+    settings.postStatus = 'publish';
+    return settings;
   } catch (_error) {
     return normalizeBlogNextTopicDefaults(BLOG_NEXT_BUILTIN_DEFAULTS);
   }
@@ -102,6 +107,7 @@ function applyBlogNextTopicSettings(settings = BLOG_NEXT_BUILTIN_DEFAULTS) {
   const externalReference = document.getElementById('blog-next-external-reference');
   if (externalReference) externalReference.checked = normalized.externalReference;
   applyBlogNextWritingOverrides(normalized.writingOverrides);
+  if (typeof syncBlogNextDraftProviderFields === 'function') syncBlogNextDraftProviderFields('ai');
   syncBlogNextProviderDependentFields();
   syncBlogNextScheduleField();
 }
@@ -109,7 +115,11 @@ function applyBlogNextTopicSettings(settings = BLOG_NEXT_BUILTIN_DEFAULTS) {
 function rememberBlogNextTopicDefaults() {
   if (blogNextEditingRowIndex !== null) return;
   try {
-    localStorage.setItem(BLOG_NEXT_TOPIC_DEFAULTS_STORAGE_KEY, JSON.stringify(readBlogNextTopicSettings()));
+    const settings = readBlogNextTopicSettings();
+    delete settings.naverCategory;
+    delete settings.wordpressCategory;
+    delete settings.postStatus;
+    localStorage.setItem(BLOG_NEXT_TOPIC_DEFAULTS_STORAGE_KEY, JSON.stringify(settings));
   } catch (_error) {
     // 저장소가 차단되어도 글감 등록은 계속할 수 있어야 한다.
   }

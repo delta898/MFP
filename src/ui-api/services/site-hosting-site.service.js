@@ -333,7 +333,11 @@ function createSiteHostingSiteService(deps = {}) {
         if (!isVault && !hasBlogListMenu) {
             return { eligible: false, reason: '블로그 글 목록 메뉴 없음' };
         }
-        return { eligible: true, kind: isVault ? 'vault' : 'blog' };
+        return {
+            eligible: true,
+            kind: isVault ? 'vault' : 'blog',
+            ...(!isVault ? { listing_route: listingRoute } : {})
+        };
     }
 
     async function openKnowledgeCollectionFolder(projectId, siteId) {

@@ -22,17 +22,20 @@
           <option value="" selected>사이트를 선택하세요</option>
         </select>
       </span>
+      <button class="ui-refresh-action-icon blog-next-site-hosting-refresh" id="blog-next-site-hosting-retry" type="button" aria-label="사이트 목록 새로고침" title="사이트 목록 새로고침" aria-busy="false" disabled>
+        <svg aria-hidden="true"><use href="#ui-icon-refresh"></use></svg>
+      </button>
     </fieldset>
     <small class="blog-next-site-hosting-status" id="blog-next-site-hosting-message" role="status" aria-live="polite"></small>
-    <button class="ui-text-action blog-next-site-hosting-retry" id="blog-next-site-hosting-retry" type="button" hidden>다시 불러오기</button>
-    <label class="blog-next-field blog-next-dependent-field" id="blog-next-naver-category-field" data-draft-provider-field="naver" data-dependency-active="true">
-      <span>네이버 카테고리 <small>(선택)</small></span>
-      <input id="blog-next-naver-category" data-draft-field="naver-category" type="text" placeholder="비우면 기본 카테고리">
+    <label class="blog-next-field blog-next-category-field" id="blog-next-category-field">
+      <span id="blog-next-category-label">카테고리 <small>(선택)</small></span>
+      <input id="blog-next-category" type="text" placeholder="비우면 기본 카테고리">
     </label>
-    <label class="blog-next-field blog-next-dependent-field" id="blog-next-wordpress-category-field" data-draft-provider-field="wordpress" data-dependency-active="false">
-      <span>워드프레스 카테고리 <small>(선택)</small></span>
-      <input id="blog-next-wordpress-category" data-draft-field="wordpress-category" type="text" placeholder="예: Daily" disabled>
-    </label>
+    <div class="blog-next-legacy-category-values" hidden aria-hidden="true">
+      <input id="blog-next-naver-category" data-draft-field="naver-category" type="text" tabindex="-1">
+      <input id="blog-next-wordpress-category" data-draft-field="wordpress-category" type="text" tabindex="-1">
+    </div>
+    <small class="blog-next-site-category-hint" id="blog-next-site-category-hint" role="status" aria-live="polite" hidden></small>
     <label class="blog-next-field">
       <span class="blog-next-field-label-with-help">
         포스팅 옵션
@@ -57,14 +60,16 @@
       <span class="visually-hidden" id="blog-next-schedule-hint">예약 발행을 선택하면 활성화됩니다.</span>
       <input id="blog-next-schedule-date" data-draft-field="schedule-date" type="datetime-local" aria-describedby="blog-next-schedule-hint" disabled>
     </label>
-    <div class="blog-next-field blog-next-field-wide blog-next-dependent-field blog-next-draft-headless" id="blog-next-headless-field" data-draft-provider-field="naver" data-dependency-active="true">
-      <label class="blog-next-check-label blog-next-headless-option">
-        <input id="blog-next-runner-headless" data-draft-field="headless" type="checkbox" checked> 보이지 않게 실행
+    <div class="blog-next-dependent-field blog-next-draft-headless" id="blog-next-headless-field" data-draft-provider-field="naver" data-dependency-active="true">
+      <div class="blog-next-headless-control">
+        <label class="blog-next-check-label blog-next-headless-option">
+          <input id="blog-next-runner-headless" data-draft-field="headless" type="checkbox" checked> 보이지 않게 실행
+        </label>
         <span class="tooltip-container blog-next-help-trigger" tabindex="0" aria-label="보이지 않게 실행 도움말" aria-describedby="blog-next-help-headless">
           <span class="tooltip-icon">?</span>
           <span class="tooltip-text" id="blog-next-help-headless" role="tooltip">네이버 포스팅 브라우저를 화면에 표시하지 않고 실행합니다. 워드프레스에는 적용되지 않습니다.</span>
         </span>
-      </label>
+      </div>
     </div>
   </div>
 </details>

@@ -97,23 +97,19 @@ function syncBlogNextScheduleField() {
 }
 
 function syncBlogNextProviderDependentFields() {
+  const draftType = typeof blogNextActiveInputMode !== 'undefined' && BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode)
+    ? blogNextActiveInputMode : 'ai';
+  if (typeof syncBlogNextDraftProviderFields === 'function') syncBlogNextDraftProviderFields(draftType);
   const naverSelected = document.getElementById('blog-next-target-naver')?.checked === true;
-  const wordpressSelected = document.getElementById('blog-next-target-wordpress')?.checked === true;
   const field = document.getElementById('blog-next-headless-field');
   const input = document.getElementById('blog-next-runner-headless');
   const runnerBusy = (typeof blogNextRunnerActive !== 'undefined' && blogNextRunnerActive)
     || (typeof blogNextRunnerRequesting !== 'undefined' && blogNextRunnerRequesting);
   if (field) field.dataset.dependencyActive = String(naverSelected);
   if (input) input.disabled = !naverSelected || runnerBusy;
-  [
-    ['blog-next-naver-category-field', 'blog-next-naver-category', naverSelected],
-    ['blog-next-wordpress-category-field', 'blog-next-wordpress-category', wordpressSelected]
-  ].forEach(([fieldId, inputId, selected]) => {
-    const categoryField = document.getElementById(fieldId);
-    const categoryInput = document.getElementById(inputId);
-    if (categoryField) categoryField.dataset.dependencyActive = String(selected);
-    if (categoryInput) categoryInput.disabled = !selected;
-  });
+  const siteSelected = document.getElementById('blog-next-target-site-hosting')?.checked === true;
+  const category = document.getElementById('blog-next-category');
+  if (category && typeof syncBlogNextDraftProviderFields !== 'function') category.disabled = siteSelected;
 }
 
 function readBlogNextTopicActionValidity() {
@@ -122,7 +118,8 @@ function readBlogNextTopicActionValidity() {
     .split(',').map(value => value.trim()).filter(Boolean);
   const referencesValid = references.every(value => /^https?:\/\//i.test(value));
   const hasTarget = document.getElementById('blog-next-target-naver')?.checked === true
-    || document.getElementById('blog-next-target-wordpress')?.checked === true;
+    || document.getElementById('blog-next-target-wordpress')?.checked === true
+    || document.getElementById('blog-next-target-site-hosting')?.checked === true;
   const scheduled = document.getElementById('blog-next-post-status')?.value === 'schedule';
   const scheduleValid = !scheduled || Boolean(document.getElementById('blog-next-schedule-date')?.value);
   return {

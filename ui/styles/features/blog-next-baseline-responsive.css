@@ -12,6 +12,10 @@
     grid-column: auto;
   }
 
+  .blog-next-draft-options .blog-next-draft-headless {
+    padding-block-start: 0;
+  }
+
   .blog-next-draft-feedback-row {
     align-items: flex-start;
     flex-direction: column;

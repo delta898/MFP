@@ -493,11 +493,14 @@ function markBlogNextAiDraftSourceChanged(fieldId = '') {
 function bindBlogNextDetachedPublishSettings(form) {
   const publishSettings = document.getElementById('blog-next-publish-settings');
   publishSettings?.addEventListener('change', (event) => {
+    const type = BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai';
+    if (['blog-next-post-status', 'blog-next-schedule-date', 'blog-next-category'].includes(event.target?.id)) {
+      captureBlogNextPublishingTargetSettings(type);
+    }
     if (form.contains(event.target)) return;
     if (typeof rememberBlogNextTopicDefaultsForSetting === 'function') {
       rememberBlogNextTopicDefaultsForSetting(event.target?.id);
     }
-    const type = BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai';
     if (['blog-next-target-naver', 'blog-next-target-wordpress', 'blog-next-target-site-hosting'].includes(event.target?.id)) {
       syncBlogNextDraftProviderFields(type);
     }
