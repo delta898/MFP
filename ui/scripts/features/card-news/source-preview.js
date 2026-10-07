@@ -380,7 +380,7 @@ function syncCardNewsImageStopControls() {
   syncCardNewsStopConfirmationMessage();
   syncCardNewsCompositionStopControls();
   if (bulkButton && active && bulk) {
-    bulkButton.textContent = requested ? '중지 요청 중…' : (!canCancel ? '마무리 중…' : (confirming ? '중지 확인' : '중지'));
+    setUiAiActionButton(bulkButton, requested ? '중지 요청 중…' : (!canCancel ? '마무리 중…' : (confirming ? '중지 확인' : '중지')), { ai: false });
     bulkButton.classList.remove('primary', 'secondary');
     bulkButton.classList.add('ghost');
     bulkButton.classList.add('ui-danger-action');
@@ -393,9 +393,10 @@ function syncCardNewsImageStopControls() {
   } else if (bulkButton && !active) {
     const cards = cardNewsViewState.generation?.cards || [];
     const imageCount = cards.filter((card) => card.image_url).length;
-    bulkButton.textContent = imageCount === 0
+    const label = imageCount === 0
       ? '이미지 생성'
       : (imageCount < cards.length ? '누락 이미지 생성' : '전체 재생성');
+    setUiAiActionButton(bulkButton, label);
     bulkButton.classList.remove('ghost', 'ui-danger-action');
     bulkButton.classList.toggle('primary', imageCount < cards.length);
     bulkButton.classList.toggle('secondary', imageCount === cards.length);
@@ -410,7 +411,7 @@ function syncCardNewsImageStopControls() {
     const isActiveCard = active && operation.mode === 'single' && cardIndex === Number(operation.cardIndex);
     const action = cardElement.querySelector('[data-card-news-image-action]');
     if (action && isActiveCard) {
-      action.textContent = requested ? '중지 요청 중…' : (!canCancel ? '마무리 중…' : (confirming ? '중지 확인' : '중지'));
+      setUiAiActionButton(action, requested ? '중지 요청 중…' : (!canCancel ? '마무리 중…' : (confirming ? '중지 확인' : '중지')), { ai: false });
       action.classList.remove('primary', 'secondary');
       action.classList.add('ghost', 'ui-danger-action');
       action.disabled = requested || !canCancel || !operation.operationId;
@@ -423,7 +424,7 @@ function syncCardNewsImageStopControls() {
       action.closest('.card-news-media-actions')?.classList.add('is-working');
     } else if (action && !active) {
       const card = cardNewsViewState.generation?.cards?.find((item) => Number(item.index) === cardIndex);
-      action.textContent = card?.image_url ? 'AI 재생성' : 'AI 이미지 만들기';
+      setUiAiActionButton(action, card?.image_url ? '이미지 재생성' : '이미지 생성');
       action.classList.remove('ghost', 'ui-danger-action');
       action.classList.toggle('primary', !card?.image_url);
       action.classList.toggle('secondary', Boolean(card?.image_url));
@@ -477,9 +478,10 @@ function syncCardNewsCompositionStopControls() {
     if (!button) return;
     const active = button === activeButton && Boolean(operation);
     if (active) {
-      button.textContent = operation.state === 'cancel_requested'
+      const label = operation.state === 'cancel_requested'
         ? '중지 요청 중…'
         : (operation.canCancel === false ? '마무리 중…' : (operation.confirmingStop ? '중지 확인' : '중지'));
+      setUiAiActionButton(button, label, { ai: false });
       button.classList.remove('primary', 'secondary', 'is-loading');
       button.classList.add('ghost', 'ui-danger-action');
       button.disabled = operation.state === 'cancel_requested' || operation.canCancel === false || !operation.operationId;
@@ -491,7 +493,7 @@ function syncCardNewsCompositionStopControls() {
       button.classList.remove('ghost', 'ui-danger-action');
       button.classList.toggle('primary', button === generate);
       button.classList.toggle('secondary', button === compose);
-      button.textContent = button === generate ? '이미지까지 만들기' : '카드 구성만 만들기';
+      setUiAiActionButton(button, button === generate ? '이미지 생성' : '카드 구성');
       button.disabled = cardNewsViewState.generating || !cardNewsViewState.preview || !cardNewsPreviewMatchesCurrentSource();
       button.setAttribute('aria-busy', 'false');
       button.removeAttribute('title');
@@ -516,8 +518,8 @@ function setCardNewsGenerating(generating, imageMode = 'generate') {
   primary?.setAttribute('aria-busy', String(generating && imageMode === 'generate'));
   setCardNewsResultControlsDisabled(generating);
   document.getElementById('card-news-result-panel')?.setAttribute('aria-busy', String(generating));
-  if (compose) compose.textContent = generating && imageMode === 'prompt_only' ? '카드 구성 만드는 중…' : '카드 구성만 만들기';
-  if (primary) primary.textContent = generating && imageMode === 'generate' ? '이미지까지 만드는 중…' : '이미지까지 만들기';
+  if (compose) setUiAiActionButton(compose, generating && imageMode === 'prompt_only' ? '카드 구성 중…' : '카드 구성');
+  if (primary) setUiAiActionButton(primary, generating && imageMode === 'generate' ? '이미지 생성 중…' : '이미지 생성');
   updateCardNewsGenerationAvailability();
   syncCardNewsImageStopControls();
 }
@@ -705,6 +707,10 @@ function bindCardNewsView() {
     if (cardNewsViewState.compositionOperation || cardNewsViewState.imageOperation) void handleCardNewsStop();
     else void generateCardNews({ imageMode: 'prompt_only' });
   });
+  setUiAiActionButton(document.getElementById('card-news-compose-button'), '카드 구성');
+  setUiAiActionButton(document.getElementById('card-news-generate-button'), '이미지 생성');
+  setUiAiActionButton(document.getElementById('card-news-regenerate'), '구성 재생성');
+  setUiAiActionButton(document.getElementById('card-news-bulk-image-action'), '이미지 생성');
   document.getElementById('card-news-generate-button')?.addEventListener('click', () => {
     if (cardNewsViewState.compositionOperation || cardNewsViewState.imageOperation) void handleCardNewsStop();
     else void generateCardNews({ imageMode: 'generate' });

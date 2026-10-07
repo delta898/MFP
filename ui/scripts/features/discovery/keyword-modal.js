@@ -214,7 +214,7 @@ function initKeywordResearchModal() {
           <strong>AI 제목 추천</strong>
           <p>${selectedKeywordText ? escapeHtml(selectedKeywordText) : '표에서 키워드를 1~3개 선택해 제목 추천에 사용합니다.'} <span class="smart-usage-hint">${escapeHtml(formatSmartUsageHint('title_recommendation'))}</span></p>
         </div>
-        <button id="keyword-generate-titles-btn" class="primary" type="button" ${titleActionDisabled ? 'disabled' : ''}${titleActionHint ? ` title="${escapeHtml(titleActionHint)}"` : ''}>선택 키워드로 제목 추천</button>
+        <button id="keyword-generate-titles-btn" class="primary" type="button" ${titleActionDisabled ? 'disabled' : ''}${titleActionHint ? ` title="${escapeHtml(titleActionHint)}"` : ''}>제목 추천</button>
       </div>
     `;
 
@@ -315,7 +315,7 @@ function initKeywordResearchModal() {
     if (titles.length > 0) {
       html += `
         <section id="keyword-title-results" class="keyword-title-results" tabindex="-1" aria-labelledby="keyword-title-results-heading">
-        <div id="keyword-title-results-heading" class="keyword-section-title">✨ AI SEO 추천 제목 (3종)</div>
+        <div id="keyword-title-results-heading" class="keyword-section-title"><svg class="ui-ai-icon" aria-hidden="true"><use href="#ui-icon-ai"></use></svg> AI SEO 추천 제목 (3종)</div>
         <div class="title-suggestions-grid">
       `;
 
@@ -366,7 +366,10 @@ function initKeywordResearchModal() {
     });
 
     const generateTitlesBtn = document.getElementById('keyword-generate-titles-btn');
-    if (generateTitlesBtn) generateTitlesBtn.addEventListener('click', () => void runTitleRecommendations());
+    if (generateTitlesBtn) {
+      setUiAiActionButton(generateTitlesBtn, keywordModalState.isGeneratingTitles ? '제목 추천 중…' : '제목 추천');
+      generateTitlesBtn.addEventListener('click', () => void runTitleRecommendations());
+    }
 
     // Attach apply handlers
     keywordModalContent.querySelectorAll('.title-apply-btn').forEach((btn) => {

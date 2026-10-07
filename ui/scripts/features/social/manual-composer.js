@@ -411,19 +411,12 @@ function syncManualSnsImagePreview() {
         : !String(document.getElementById('manual-sns-text')?.value || '').trim()
           || manualSnsConfig.image_ai?.available !== true
           || manualSnsConfig.local_media_available !== true);
-      generate.textContent = operationPending
+      const generateActionLabel = operationPending
         ? operation?.state === 'cancel_requested' ? '중지 요청 중…'
           : operation?.state === 'starting' ? '준비 중…'
           : operation?.canCancel === false ? '마무리 중…'
             : stopConfirming ? '중지 확인' : '중지'
-        : manualSnsImagePromptTargetIndex !== null ? '재생성' : '생성';
-      const generateLabel = operationPending
-        ? operation?.state === 'cancel_requested' ? '중지 요청 중'
-          : operation?.state === 'starting' ? '준비 중'
-          : operation?.canCancel === false ? '마무리 중'
-            : stopConfirming ? '중지 확인' : '중지'
         : manualSnsImagePromptTargetIndex !== null ? '이미지 재생성' : '이미지 생성';
-      generate.setAttribute('aria-label', generateLabel);
       const modelName = String(manualSnsConfig.image_ai?.model_name || '').trim();
       generate.title = operationPending
         ? '이미지 생성 중지'
@@ -440,17 +433,20 @@ function syncManualSnsImagePreview() {
         }
         return icon;
       };
-      const generateText = document.createElement('span');
-      generateText.className = 'visually-hidden';
-      generateText.textContent = operationPending
-        ? operation?.state === 'cancel_requested' ? '중지 요청 중…'
-          : operation?.state === 'starting' ? '준비 중…'
-          : operation?.canCancel === false ? '마무리 중…'
-            : stopConfirming ? '중지 확인' : '중지'
-        : manualSnsImagePromptTargetIndex !== null ? '재생성' : '생성';
-      generate.replaceChildren(makeActionIcon(operationPending
-        ? stopConfirming ? ['m5 12 4 4L19 6'] : ['M8 8h8v8H8z']
-        : ['M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z', 'M19 15l1 2.5 2.5 1-2.5 1L19 22l-1-2.5-2.5-1 2.5-1L19 15z']), generateText);
+      if (operationPending) {
+        const generateText = document.createElement('span');
+        generateText.className = 'visually-hidden';
+        generateText.textContent = generateActionLabel;
+        generate.replaceChildren(makeActionIcon(stopConfirming ? ['m5 12 4 4L19 6'] : ['M8 8h8v8H8z']), generateText);
+        generate.classList.remove('ui-ai-action-button');
+        generate.dataset.uiAiAction = 'false';
+        generate.setAttribute('aria-label', generateActionLabel);
+      } else {
+        setUiAiActionButton(generate, generateActionLabel, {
+          visuallyHiddenLabel: true,
+          accessibleLabel: `AI ${generateActionLabel}`
+        });
+      }
       generate.addEventListener('click', () => {
         if (operationPending) void handleManualSnsImageStop();
         else void generateManualSnsImage();
@@ -500,11 +496,10 @@ function syncManualSnsImagePreview() {
       aiButton.setAttribute('aria-label', 'AI 이미지 생성');
       aiButton.title = 'AI 이미지 생성';
       const aiImageIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      aiImageIcon.setAttribute('class', 'social-local-image-ai-icon');
+      aiImageIcon.setAttribute('class', 'ui-ai-icon social-local-image-ai-icon');
       aiImageIcon.setAttribute('viewBox', '0 0 24 24');
-      aiImageIcon.setAttribute('fill', 'none');
       aiImageIcon.setAttribute('aria-hidden', 'true');
-      aiImageIcon.innerHTML = '<rect x="3.5" y="5.5" width="14" height="13" rx="2"/><circle cx="13.2" cy="9.6" r="1.4"/><path d="m5.4 16 4.1-4.1 2.4 2.4 1.5-1.5 2.2 2.2M19 3.3l.8 2.1 2.1.8-2.1.8-.8 2.1-.8-2.1-2.1-.8 2.1-.8.8-2.1Z"/><path d="m19.4 13.4.5 1.3 1.3.5-1.3.5-.5 1.3-.5-1.3-1.3-.5 1.3-.5.5-1.3Z"/>';
+      aiImageIcon.innerHTML = '<use href="#ui-icon-ai"></use>';
       aiButton.appendChild(aiImageIcon);
       const canAddImage = manualSnsLocalImages.length < 10;
       aiButton.disabled = manualSnsPublishingInFlight || manualSnsImageGenerationInFlight || !canAddImage
@@ -759,8 +754,10 @@ function syncManualSnsComposerState() {
       : selectedChannels.length > 0
         ? '선택 채널의 글자 수 제한에 맞춰 내용을 다듬습니다.'
         : '연결된 Chat Model로 내용을 다듬습니다. 채널별 글자 수 제한은 발행 시 확인합니다.';
-    optimizeBtn.textContent = manualSnsOptimizationInFlight ? 'AI 최적화 중...' : 'AI 최적화';
-    if (optimizeConfirmBtn) optimizeConfirmBtn.disabled = manualSnsPublishingInFlight || manualSnsOptimizationInFlight || !text;
+    if (optimizeConfirmBtn) {
+      setUiAiActionButton(optimizeConfirmBtn, manualSnsOptimizationInFlight ? '최적화 중…' : '최적화 적용');
+      optimizeConfirmBtn.disabled = manualSnsPublishingInFlight || manualSnsOptimizationInFlight || !text;
+    }
     if (optimizeCancelBtn) optimizeCancelBtn.disabled = manualSnsPublishingInFlight || manualSnsOptimizationInFlight;
   }
   if (undoBtn) {

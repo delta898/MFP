@@ -143,7 +143,7 @@ function setBlogNextTopicBusy(busy, action = '') {
   const aiDraftGenerating = typeof blogNextDraftState !== 'undefined' && blogNextDraftState.ai?.generating === true;
   const saveButton = document.getElementById('blog-next-save-topic');
   const enqueueButton = document.getElementById('blog-next-enqueue-topic');
-  const publishLabel = document.getElementById('blog-next-publish-now-label');
+  const publishButton = document.getElementById('blog-next-publish-now');
   if (saveButton) {
     saveButton.textContent = busy && action === 'save'
       ? (blogNextEditingRowIndex !== null ? '저장 중...' : '보관 중...')
@@ -154,11 +154,11 @@ function setBlogNextTopicBusy(busy, action = '') {
       ? (editingReady ? '저장 중...' : '추가 중...')
       : (editingReady ? '저장' : '발행 대기열에 추가');
   }
-  if (publishLabel) {
-    publishLabel.textContent = aiDraftGenerating ? '원고 만드는 중...'
+  if (publishButton) {
+    setUiAiActionButton(publishButton, aiDraftGenerating ? '원고 만드는 중…'
       : runnerActive ? '포스팅 진행 중...'
       : busy && action === 'publish-now' ? '원고 만드는 중...'
-        : '원고 만들기';
+        : '원고 만들기', { ai: !runnerActive || aiDraftGenerating });
   }
   syncBlogNextTopicActionAvailability();
   if (typeof syncBlogNextDraftExecutionState === 'function') syncBlogNextDraftExecutionState();

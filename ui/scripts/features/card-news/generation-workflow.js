@@ -319,9 +319,12 @@ function renderCardNewsGeneration(generation, options = {}) {
   }
   if (bulkImageAction) {
     bulkImageAction.hidden = importedGeneration;
-    bulkImageAction.textContent = imageCount === 0
+    const label = imageCount === 0
       ? '이미지 생성'
       : (imageCount < (generation.cards?.length || 0) ? '누락 이미지 생성' : '전체 재생성');
+    const imageOperation = cardNewsViewState.imageOperation;
+    const isStopAction = imageOperation && imageOperation.mode !== 'single';
+    setUiAiActionButton(bulkImageAction, isStopAction ? '중지' : label, { ai: !isStopAction });
     bulkImageAction.classList.toggle('primary', imageCount < (generation.cards?.length || 0));
     bulkImageAction.classList.toggle('secondary', imageCount === (generation.cards?.length || 0));
   }
@@ -350,7 +353,7 @@ function renderCardNewsGeneration(generation, options = {}) {
             const activeSingle = operation?.mode === 'single' && Number(operation.cardIndex) === Number(card.index);
             const label = activeSingle
               ? (operation.state === 'cancel_requested' ? '중지 요청 중…' : operation.canCancel === false ? '마무리 중…' : operation.confirmingStop ? '중지 확인' : '중지')
-              : card.image_url ? 'AI 재생성' : 'AI 이미지 만들기';
+              : card.image_url ? '이미지 재생성' : '이미지 생성';
             const classes = activeSingle ? 'ghost ui-danger-action compact' : `${card.image_url ? 'secondary' : 'primary'} compact`;
             return `<button class="${classes}" type="button" data-card-news-image-action="${card.index}"${activeSingle ? ' data-card-news-image-stop' : ''}${activeSingle && (operation.state === 'cancel_requested' || operation.canCancel === false || !operation.operationId) ? ' disabled' : ''}>${label}</button>`;
           })()}

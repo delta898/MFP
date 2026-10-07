@@ -228,8 +228,8 @@ function settingsNextWritingSetBusy(busy, action = '') {
   if (form) form.setAttribute('aria-busy', busy ? 'true' : 'false');
   [apply, analyze, preview].forEach((button) => { if (button) button.disabled = busy; });
   if (apply) apply.textContent = busy && action === 'apply' ? '적용 중…' : '기본값 적용';
-  if (analyze) analyze.textContent = busy && action === 'analyze' ? '분석 중…' : '참고 글 분석';
-  if (preview) preview.textContent = busy && action === 'preview' ? '생성 중…' : '미리보기 생성';
+  if (analyze) setUiAiActionButton(analyze, busy && action === 'analyze' ? '분석 중…' : '참고 글 분석');
+  if (preview) setUiAiActionButton(preview, busy && action === 'preview' ? '미리보기 생성 중…' : '미리보기 생성');
   if (!busy) settingsNextWritingSyncDirty();
 }
 

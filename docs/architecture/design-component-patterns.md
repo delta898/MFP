@@ -126,7 +126,8 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 ## AI Assist actions
 
 - 글감·키워드·제목처럼 현재 입력을 보조하는 AI action은 공통 `AI Assist` 표현을 사용한다.
-- 일반 secondary보다 발견 가능하도록 primary soft surface와 sparkle 또는 짧은 `AI` mark를 사용할 수 있지만, form의 최종 primary action과 같은 filled 강도를 사용하지 않는다. 가까운 영역에 같은 action이 반복되면 텍스트 badge보다 가벼운 공통 symbol을 우선한다.
+- AI 기능을 알아보게 하는 표식은 공통 `#ui-icon-ai` symbol과 `.ui-ai-icon`을 사용한다. 아이콘 모양은 한곳에서 관리하고, 각 컴포넌트는 문맥에 맞는 크기와 색만 정한다. 실제 AI 요청을 시작하는 action은 공통 `setUiAiActionButton`으로 아이콘·label 및 상태 전환을 일관되게 갱신한다. 단순 설정, 입력 편집, 취소·중지 등 AI 요청을 시작하지 않는 control에는 AI 표식을 붙이지 않는다. AI 의미와 무관한 sparkle 장식에도 이 symbol을 사용하지 않는다.
+- 일반 secondary보다 발견 가능하도록 primary soft surface와 공통 AI symbol을 사용할 수 있지만, form의 최종 primary action과 같은 filled 강도를 사용하지 않는다. 가까운 영역에 같은 action이 반복되면 텍스트 badge보다 가벼운 공통 symbol을 우선한다.
 - label은 `AI`만 표시하지 않고 사용자가 받을 결과를 함께 설명한다.
 - 실행 시 사용하는 model role, 진행 상태와 중복 실행 방지는 해당 AI workflow 안에서 명확히 제공한다.
 - AI가 필요한 action과 필요하지 않은 action이 한 workflow에 함께 있으면 화면 전체를 막지 않는다. 준비되지 않은

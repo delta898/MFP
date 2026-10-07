@@ -85,9 +85,9 @@ function syncBlogNextSmartCommentButtons() {
   if (runButton) {
     runButton.disabled = busy;
     runButton.setAttribute('aria-busy', blogNextSmartCommentRunning ? 'true' : 'false');
-    runButton.textContent = blogNextSmartCommentRunning
-      ? '댓글 준비 중...'
-      : (blogNextSmartCommentSeenPostUrls.size > 0 ? '새 이웃 글 더 찾기' : '댓글 초안 만들기');
+    setUiAiActionButton(runButton, blogNextSmartCommentRunning
+      ? '댓글 준비 중…'
+      : (blogNextSmartCommentSeenPostUrls.size > 0 ? '새 이웃 글 더 찾기' : '댓글 초안 만들기'));
   }
 }
 
@@ -116,18 +116,18 @@ function setBlogNextSmartCommentFormDisabled(disabled) {
 
 function setBlogNextSmartCommentRedraftActionsBusy(busy, activeItemIndex = null) {
   document.querySelectorAll('[data-blog-next-smart-comment-redraft]').forEach((button) => {
+    if (!button.dataset.idleLabel) button.dataset.idleLabel = button.textContent.trim();
     if (busy) {
-      if (!button.dataset.idleLabel) button.dataset.idleLabel = button.textContent;
       button.disabled = true;
       const itemIndex = Number(button.dataset.blogNextSmartCommentRedraft);
       const active = Number.isInteger(activeItemIndex) && itemIndex === activeItemIndex;
       button.setAttribute('aria-busy', active ? 'true' : 'false');
-      if (active) button.textContent = '만드는 중...';
+      setUiAiActionButton(button, active ? '댓글 만드는 중…' : button.dataset.idleLabel);
       return;
     }
     button.disabled = false;
     button.setAttribute('aria-busy', 'false');
-    if (button.dataset.idleLabel) button.textContent = button.dataset.idleLabel;
+    setUiAiActionButton(button, button.dataset.idleLabel || '댓글 다시 만들기');
     delete button.dataset.idleLabel;
   });
   document.querySelectorAll('[data-blog-next-smart-comment-card]').forEach((card) => {
@@ -316,6 +316,9 @@ function renderBlogNextSmartCommentItems(items = [], summary = null) {
         </div>` : ''}
       </article>`;
   }).join('');
+  list.querySelectorAll('[data-blog-next-smart-comment-redraft]').forEach((button) => {
+    setUiAiActionButton(button, button.textContent.trim());
+  });
 }
 
 function renderBlogNextSmartCommentCompletion(summary = {}) {

@@ -293,7 +293,7 @@ function renderQuickTopicRecommendations() {
   if (refreshBtn) {
     refreshBtn.disabled = quickTopicRecommendationState.loading;
     refreshBtn.setAttribute('aria-busy', String(quickTopicRecommendationState.loading));
-    refreshBtn.textContent = getQuickTopicRefreshLabel();
+    setUiAiActionButton(refreshBtn, quickTopicRecommendationState.loading ? '추천 중…' : getQuickTopicRefreshLabel());
   }
   syncQuickDiscoveryClearControl({
     inputId: 'quick-topic-recommendations-query',

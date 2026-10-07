@@ -180,8 +180,8 @@ function setBlogNextAiGenerating(generating) {
     button.disabled = generating;
     button.setAttribute('aria-busy', generating ? 'true' : 'false');
   });
-  if (createButton) createButton.textContent = generating ? 'AI 원고 만드는 중...' : 'AI로 원고 만들기';
-  if (regenerateButton) regenerateButton.textContent = generating ? 'AI 원고 만드는 중...' : 'AI로 원고 다시 만들기';
+  if (createButton) setUiAiActionButton(createButton, generating ? '원고 만드는 중…' : '원고 만들기');
+  if (regenerateButton) setUiAiActionButton(regenerateButton, generating ? '원고 만드는 중…' : '원고 다시 만들기');
   if (typeof syncBlogNextExecutionStopButton === 'function') syncBlogNextExecutionStopButton();
   if (typeof syncBlogNextTopicActionAvailability === 'function') syncBlogNextTopicActionAvailability();
   syncBlogNextDraftExecutionState();

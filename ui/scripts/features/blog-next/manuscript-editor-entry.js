@@ -354,7 +354,7 @@ function createImageBlock(onMove, options = {}) {
         const generatePrompt = document.createElement('button');
         generatePrompt.type = 'button';
         generatePrompt.className = 'ui-text-action compact manuscript-image-block-generate-prompt';
-        generatePrompt.textContent = '프롬프트 만들기';
+        setUiAiActionButton(generatePrompt, '프롬프트 만들기');
         generatePrompt.disabled = typeof options.onPromptGenerate !== 'function';
         generatePrompt.title = '글쓰기 모델로 이미지 제목과 프롬프트 생성';
         generatePrompt.setAttribute('aria-label', '프롬프트 만들기 (글쓰기 모델)');
@@ -371,7 +371,7 @@ function createImageBlock(onMove, options = {}) {
         generatePrompt.addEventListener('click', async () => {
           if (generatePrompt.disabled || typeof options.onPromptGenerate !== 'function') return;
           generatePrompt.disabled = true;
-          generatePrompt.textContent = '생성 중…';
+          setUiAiActionButton(generatePrompt, '프롬프트 만드는 중…');
           [title, prompt, promptGuidance].forEach((field) => { field.disabled = true; });
           promptGenerationHelp.hidden = false;
           promptGenerationHelp.textContent = '글쓰기 모델로 제목과 프롬프트를 만드는 중…';
@@ -404,7 +404,7 @@ function createImageBlock(onMove, options = {}) {
           } finally {
             [title, prompt, promptGuidance].forEach((field) => { field.disabled = false; });
             generatePrompt.disabled = typeof options.onPromptGenerate !== 'function';
-            generatePrompt.textContent = '프롬프트 만들기';
+            setUiAiActionButton(generatePrompt, '프롬프트 만들기');
           }
         });
         promptGeneration.append(promptGuidanceLabel, promptGuidance, generatePrompt, promptGenerationHelp);
@@ -426,7 +426,8 @@ function createImageBlock(onMove, options = {}) {
           });
           return button;
         };
-        const generate = actionButton('AI로 만들기', 'generate');
+        const generate = actionButton('이미지', 'generate');
+        setUiAiActionButton(generate, '이미지');
         const pick = actionButton('＋', 'pick');
         pick.className = 'secondary compact manuscript-image-block-pick';
         pick.setAttribute('aria-label', '내 이미지에서 선택');
@@ -573,8 +574,8 @@ function createImageBlock(onMove, options = {}) {
             : operationState === 'starting' ? '준비 중…'
               : operationState === 'cancel_requested' ? '중지 요청 중…'
                 : stopConfirming ? '중지 확인' : '중지';
-          generate.textContent = isBusy ? generateLabel : value.attrs.imageExists ? 'AI 재생성' : 'AI로 만들기';
-          generate.className = `compact ${isBusy ? (operationState === 'mutating' ? 'secondary' : 'ghost ui-danger-action') : value.attrs.imageExists ? 'secondary' : 'primary'}`;
+          setUiAiActionButton(generate, isBusy ? generateLabel : '이미지', { ai: !isBusy });
+          generate.className = `compact ui-ai-action-button ${isBusy ? (operationState === 'mutating' ? 'secondary' : 'ghost ui-danger-action') : value.attrs.imageExists ? 'secondary' : 'primary'}`;
           pick.textContent = '＋';
           pick.title = value.attrs.imageExists ? '내 이미지로 교체' : '내 이미지에서 선택';
           pick.setAttribute('aria-label', pick.title);

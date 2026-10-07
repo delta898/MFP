@@ -545,6 +545,10 @@ function renderBlogNextDraftPreview(type, preview = null) {
   }
   if (images && BLOG_NEXT_LEGACY_PREVIEW_IMAGE_MANAGER_ENABLED) {
     images.innerHTML = renderBlogNextDraftImages(type, preview);
+    images.querySelectorAll('[data-manuscript-generate-missing], [data-manuscript-image-action="generate"]').forEach((button) => {
+      const label = button.textContent.trim();
+      setUiAiActionButton(button, label, { ai: !button.hasAttribute('data-ai-stop-action') });
+    });
     UiGridTailSpacers.sync(images, {
       itemSelector: '.local-markdown-image-card',
       spacerClass: 'ui-grid-tail-spacer local-markdown-image-grid-spacer'
