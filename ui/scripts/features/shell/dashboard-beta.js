@@ -627,6 +627,8 @@ async function loadDashboardBeta(options = {}) {
   dashboardBetaLoading = true;
   const refreshButton = document.getElementById('dashboard-beta-refresh');
   refreshButton?.classList.add('is-loading');
+  refreshButton?.setAttribute('aria-busy', 'true');
+  if (refreshButton) refreshButton.disabled = true;
 
   let accountOverview = null;
   let operationsOverview = null;
@@ -667,4 +669,6 @@ async function loadDashboardBeta(options = {}) {
   dashboardBetaLastLoadedAt = Date.now();
   dashboardBetaLoading = false;
   refreshButton?.classList.remove('is-loading');
+  refreshButton?.setAttribute('aria-busy', 'false');
+  if (refreshButton) refreshButton.disabled = false;
 }

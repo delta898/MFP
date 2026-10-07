@@ -135,8 +135,16 @@ Reference basis: [Material dialogs](https://m1.material.io/components/dialogs.ht
 
 ## Refresh actions
 
-- 작은 상태나 부분 데이터만 갱신할 때는 갱신 대상 바로 옆에 icon-only tertiary action을 둔다.
-- 목록이나 panel 전체를 다시 불러올 때는 `새로고침`이라는 명시적인 secondary action을 사용한다.
+- 새로고침은 공통 refresh action component와 `#ui-icon-refresh` symbol을 사용한다. icon-only variant는
+  `.ui-refresh-action-icon`, 텍스트 variant는 `.ui-refresh-action-text`로 표현하며, 동일 의미의 glyph나 SVG를
+  화면마다 따로 그리지 않는다.
+- 상태 요약, 탭 도구 모음, 목록 헤더처럼 바로 옆의 대상이나 현재 탭이 갱신 범위를 설명하는 경우 icon-only variant를
+  우선한다. 이때 `aria-label`과 `title`에는 갱신 대상을 포함한다. 버튼의 크기, 색, hover, focus, disabled와 회전
+  상태는 공통 pattern stylesheet가 맡는다.
+- 갱신 범위가 주변 문맥으로 분명하지 않거나 새로고침 자체가 주요 page action인 경우 텍스트 variant를 쓴다. visible
+  label은 `새로고침`으로 통일하고, 상세한 범위는 접근 가능한 이름이나 tooltip으로 보충한다.
+- 새로고침 중에는 `aria-busy`와 disabled 상태를 갱신해 중복 실행을 막고, 공통 icon animation을 사용한다. 컴포넌트는
+  표시와 control state를 소유하며, 어떤 데이터를 불러오고 실패 뒤 기존 데이터를 보존하는지는 각 feature가 소유한다.
 - 설정 화면의 panel refresh는 정상 작업을 반복하는 primary path가 아니라, 앱 밖에서 계정·권한·세션·연결 값이
   바뀌었거나 최신 확인이 실패했을 때 사용하는 recovery action이다. 직접 연결·확인·로그인 action 뒤에는
   background reconciliation을 우선하고, 모든 card에 refresh를 복제하지 않는다.

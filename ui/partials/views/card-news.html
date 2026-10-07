@@ -45,11 +45,8 @@
                 <div id="card-news-platform-tabs" class="card-news-platform-tabs ui-segmented-tabs" data-density="compact" role="tablist" aria-label="피드 소스" hidden></div>
                 <div class="card-news-panel-actions">
                   <button id="card-news-source-manage" class="secondary compact" type="button">소스 관리</button>
-                  <button id="card-news-source-refresh" class="ui-refresh-action-icon" type="button" aria-label="피드 새로고침" title="피드 새로고침">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5" />
-                      <path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 20v-5h-5" />
-                    </svg>
+                  <button id="card-news-source-refresh" class="ui-refresh-action-icon" type="button" aria-label="피드 새로고침" title="피드 새로고침" aria-busy="false">
+                    <svg aria-hidden="true"><use href="#ui-icon-refresh"></use></svg>
                   </button>
                 </div>
               </div>
@@ -330,11 +327,8 @@
                 <div class="card-news-panel-actions">
                   <button id="card-news-zip-select" class="secondary compact" type="button">ZIP 가져오기</button>
                   <input id="card-news-zip-file" type="file" accept=".zip,application/zip,application/x-zip-compressed" hidden>
-                  <button id="card-news-managed-refresh" class="ui-refresh-action-icon" type="button" aria-label="만든 카드뉴스 새로고침" title="만든 카드뉴스 새로고침">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5" />
-                      <path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 20v-5h-5" />
-                    </svg>
+                  <button id="card-news-managed-refresh" class="ui-refresh-action-icon" type="button" aria-label="만든 카드뉴스 새로고침" title="만든 카드뉴스 새로고침" aria-busy="false">
+                    <svg aria-hidden="true"><use href="#ui-icon-refresh"></use></svg>
                   </button>
                 </div>
               </div>

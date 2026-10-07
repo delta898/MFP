@@ -252,8 +252,7 @@ function settingsNextSyncRefreshAvailability() {
   const busy = settingsNextRefreshBusy || settingsNextGoogleBusy || settingsNextBusyScopes.size > 0;
   document.querySelectorAll('[data-settings-next-refresh]').forEach((button) => {
     button.disabled = busy;
-    button.setAttribute('aria-busy', settingsNextRefreshBusy ? 'true' : 'false');
-    button.textContent = settingsNextRefreshBusy ? '새로고침 중...' : '새로고침';
+    button.setAttribute('aria-busy', String(settingsNextRefreshBusy));
   });
 }
 

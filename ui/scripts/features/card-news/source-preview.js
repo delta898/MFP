@@ -250,6 +250,7 @@ function setCardNewsSourceLoading(loading) {
   if (!refreshButton) return;
   refreshButton.disabled = loading || cardNewsViewState.busy;
   refreshButton.classList.toggle('is-loading', loading);
+  refreshButton.setAttribute('aria-busy', String(loading));
 }
 
 function cardNewsPreviewMatchesCurrentSource() {

@@ -58,7 +58,7 @@ function siteHostingProjectCard(project) {
 function siteHostingTemplateCheckControl() {
   return `<div class="site-hosting-template-check-control">
     <span class="site-hosting-template-check-feedback" data-template-check-feedback role="status" aria-live="polite" data-state="${siteHostingTemplateCheckError ? 'error' : 'success'}"${siteHostingTemplateCheckMessage ? '' : ' hidden'}>${siteHostingEscapeHtml(siteHostingTemplateCheckMessage)}</span>
-    <button class="site-hosting-icon-button" type="button" data-site-template-refresh aria-label="템플릿 업데이트 확인" title="템플릿 업데이트 확인" ${siteHostingTemplateCheckRunning ? 'disabled aria-busy="true"' : ''}>${siteHostingRefreshIcon()}</button>
+    <button class="ui-refresh-action-icon" type="button" data-site-template-refresh aria-label="템플릿 업데이트 확인" title="템플릿 업데이트 확인" ${siteHostingTemplateCheckRunning ? 'disabled aria-busy="true"' : 'aria-busy="false"'}><svg aria-hidden="true"><use href="#ui-icon-refresh"></use></svg></button>
   </div>`;
 }
 
@@ -402,10 +402,6 @@ async function siteHostingLoadSites(projectId) {
   siteHostingRenderProjectDetail();
 }
 
-function siteHostingRefreshIcon() {
-  return '<svg aria-hidden="true" viewBox="0 0 16 16"><path d="M13.4 6A5.5 5.5 0 0 0 3.1 4.2L2 5.5M2 2.5v3h3M2.6 10A5.5 5.5 0 0 0 12.9 11.8L14 10.5M14 13.5v-3h-3"/></svg>';
-}
-
 async function siteHostingLoadRuntimeEnvironment() {
   if (siteHostingRuntimeEnvironmentLoaded) return;
   siteHostingRuntimeEnvironmentLoaded = true;
@@ -463,7 +459,7 @@ async function siteHostingCheckTemplateUpdates(projectId, manual = true) {
     const button = document.querySelector('[data-site-template-refresh]');
     if (button) {
       button.disabled = false;
-      button.removeAttribute('aria-busy');
+      button.setAttribute('aria-busy', 'false');
     }
   }
 }

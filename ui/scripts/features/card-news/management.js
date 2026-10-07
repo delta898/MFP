@@ -262,6 +262,7 @@ function setCardNewsManagedLoading(loading) {
   if (refresh) {
     refresh.disabled = loading;
     refresh.classList.toggle('is-loading', loading);
+    refresh.setAttribute('aria-busy', String(loading));
   }
 }
 

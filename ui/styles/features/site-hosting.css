@@ -79,42 +79,6 @@
   color: var(--ui-status-danger, #d44);
 }
 
-.site-hosting-template-check-control .site-hosting-icon-button {
-  display: inline-grid;
-  width: 2.25rem;
-  height: 2.25rem;
-  place-items: center;
-  padding: 0;
-  border: 1px solid var(--ui-border-default);
-  border-radius: var(--ui-radius-sm);
-  background: var(--ui-surface);
-  color: var(--ui-text-secondary);
-  cursor: pointer;
-}
-
-.site-hosting-template-check-control .site-hosting-icon-button:hover:not(:disabled) {
-  border-color: var(--ui-action-primary);
-  color: var(--ui-action-primary);
-}
-
-.site-hosting-template-check-control .site-hosting-icon-button svg {
-  width: 1.125rem;
-  height: 1.125rem;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.5;
-}
-
-.site-hosting-template-check-control .site-hosting-icon-button[aria-busy="true"] svg {
-  animation: site-hosting-template-refresh 1s linear infinite;
-}
-
-@keyframes site-hosting-template-refresh {
-  to { transform: rotate(360deg); }
-}
-
 .site-hosting-site-card {
   display: flex;
   flex-direction: column;

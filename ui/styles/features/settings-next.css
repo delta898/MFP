@@ -470,8 +470,7 @@
   }
 
   .settings-next-action-group > button,
-  .settings-next-completion-group > button,
-  .settings-next-refresh {
+  .settings-next-completion-group > button {
     width: 100%;
   }
 
