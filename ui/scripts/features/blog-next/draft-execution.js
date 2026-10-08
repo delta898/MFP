@@ -341,6 +341,7 @@ async function restoreBlogNextAiDraftGeneration() {
 }
 
 function arrangeBlogNextAiWorkflow(options = {}) {
+  if (typeof isBlogNextQueueSettingsOpen === 'function' && isBlogNextQueueSettingsOpen()) return;
   const form = document.getElementById('blog-next-topic-form');
   const disclosures = form?.querySelector('.blog-next-disclosures');
   const previewDisclosure = document.getElementById('blog-next-ai-preview');

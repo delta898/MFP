@@ -176,10 +176,9 @@ function syncBlogNextTopicActionAvailability() {
     && isUiCapabilityUnavailable('content.sheet');
   if (save) save.disabled = busy || sheetBlocked || !editingChanged || (editingReady ? !readyValid : !ideaValid);
   if (enqueue) {
-    enqueue.disabled = busy || sheetBlocked || !readyValid;
-    if (document.getElementById('blog-next-target-site-hosting')?.checked && !siteTargetReady) {
-      enqueue.title = '발행 대기열에 추가하려면 사이트를 선택해 주세요.';
-    } else enqueue.removeAttribute('title');
+    // New quick-flow queue entries collect their publishing target in the dialog.
+    enqueue.disabled = busy || sheetBlocked || !(editing ? readyValid : ideaValid);
+    enqueue.removeAttribute('title');
   }
   if (publish) {
     const siteTargetMissing = document.getElementById('blog-next-target-site-hosting')?.checked === true && !siteTargetReady;

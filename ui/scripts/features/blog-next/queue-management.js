@@ -402,16 +402,46 @@ function initBlogNextQuickQueue() {
   activateBlogNextManagementTab(blogNextActiveManagementTab);
   form.addEventListener('submit', (event) => {
     event.preventDefault();
-    const publishSettings = document.getElementById('blog-next-publish-settings');
-    if (blogNextEditingRowIndex === null && publishSettings?.hidden) {
-      publishSettings.hidden = false;
-      publishSettings.open = true;
-      document.getElementById('blog-next-enqueue-topic')?.setAttribute('aria-expanded', 'true');
-      setBlogNextTopicResult('발행 계획을 확인한 뒤 발행 대기열에 추가해 주세요.', 'editing');
-      publishSettings.querySelector('summary')?.focus();
+    if (blogNextEditingRowIndex !== null) submitBlogNextTopic('enqueue');
+    else beginBlogNextQueueSettingsContext();
+  });
+  document.getElementById('blog-next-enqueue-topic')?.addEventListener('click', () => {
+    if (blogNextEditingRowIndex === null) beginBlogNextQueueSettingsContext();
+  });
+  const queueSettingsModal = document.getElementById('blog-next-queue-settings-modal');
+  const closeQueueSettings = () => endBlogNextQueueSettingsContext({ keepQueueValues: true });
+  document.getElementById('blog-next-queue-settings-close')?.addEventListener('click', closeQueueSettings);
+  document.getElementById('blog-next-queue-settings-cancel')?.addEventListener('click', closeQueueSettings);
+  document.getElementById('blog-next-queue-settings-confirm')?.addEventListener('click', () => {
+    const config = readBlogNextTopicSettings();
+    if (config.platforms.length !== 1) {
+      showBlogNextQueueSettingsResult('발행 대상을 하나 선택해 주세요.');
+      document.getElementById('blog-next-target-naver')?.focus();
       return;
     }
+    const status = document.getElementById('blog-next-post-status')?.value || '';
+    if (!['draft', 'publish', 'schedule'].includes(status)) {
+      showBlogNextQueueSettingsResult('발행 방식을 선택해 주세요.');
+      document.getElementById('blog-next-post-status')?.focus();
+      return;
+    }
+    if (status === 'schedule') {
+      const value = document.getElementById('blog-next-schedule-date')?.value || '';
+      const scheduledAt = new Date(value);
+      if (!value || Number.isNaN(scheduledAt.getTime()) || scheduledAt.getTime() <= Date.now()) {
+        showBlogNextQueueSettingsResult('예약 일시는 현재보다 이후로 선택해 주세요.');
+        document.getElementById('blog-next-schedule-date')?.focus();
+        return;
+      }
+    }
+    showBlogNextQueueSettingsResult('');
     submitBlogNextTopic('enqueue');
+  });
+  queueSettingsModal?.addEventListener('click', (event) => {
+    if (event.target === event.currentTarget) closeQueueSettings();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && isBlogNextQueueSettingsOpen()) closeQueueSettings();
   });
   document.getElementById('blog-next-save-topic')?.addEventListener('click', () => submitBlogNextTopic('save'));
   ['blog-next-publish-now', 'blog-next-regenerate-draft'].forEach((id) =>
