@@ -65,6 +65,24 @@ test('optional content and publish settings disclose their current values', () =
   assert.doesNotMatch(html, /<details class="blog-next-disclosure" id="blog-next-content-settings"[^>]*\sopen/);
 });
 
+test('Blog Beta settings groups are sourced from one reusable partial per group', () => {
+  const entry = read('ui/partials/views/blog-next.html');
+  const topicPartial = read('ui/partials/views/blog-next/topic-settings.html');
+  const contentPartial = read('ui/partials/views/blog-next/content-settings.html');
+  const publishPartial = read('ui/partials/views/blog-next/publish-settings.html');
+  const html = readBlogNextView();
+
+  assert.match(entry, /@include blog-next\/topic-settings\.html/);
+  assert.match(entry, /@include blog-next\/content-settings\.html/);
+  assert.match(entry, /@include blog-next\/publish-settings\.html/);
+  assert.match(topicPartial, /id="blog-next-topic-settings"[\s\S]*id="blog-next-subject"[\s\S]*id="blog-next-instruction"/);
+  assert.match(contentPartial, /id="blog-next-content-settings"[\s\S]*id="blog-next-reference-url"[\s\S]*id="blog-next-writing-strategy"[\s\S]*id="blog-next-image-mode"/);
+  assert.match(publishPartial, /id="blog-next-publish-settings"[\s\S]*id="blog-next-target-naver"[\s\S]*id="blog-next-post-status"/);
+  ['blog-next-topic-settings', 'blog-next-content-settings', 'blog-next-publish-settings'].forEach((id) => {
+    assert.equal((html.match(new RegExp(`id="${id}"`, 'g')) || []).length, 1);
+  });
+});
+
 test('quick writing and saved-idea editing keep independent disclosure state for the session', () => {
   const queueSource = read('ui/scripts/features/blog-next/quick-queue.js');
   const elements = new Map([

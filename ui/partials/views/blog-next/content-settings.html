@@ -1,0 +1,64 @@
+                <details class="blog-next-disclosure" id="blog-next-content-settings">
+                  <summary>
+                    <strong>참고·글 구성</strong>
+                    <span id="blog-next-content-settings-summary">외부 참고 사용 · 검색 중심 · 이미지 프롬프트</span>
+                  </summary>
+                  <div class="blog-next-disclosure-grid blog-next-form-grid">
+                    <label class="blog-next-field blog-next-field-wide">
+                      <span>참고 URL</span>
+                      <input id="blog-next-reference-url" type="url" placeholder="https://...">
+                    </label>
+                    <div class="blog-next-field blog-next-field-wide blog-next-execution-options blog-next-dependent-field" id="blog-next-external-reference-field" data-dependency-active="true">
+                      <label class="blog-next-check-label">
+                        <input id="blog-next-external-reference" type="checkbox" checked> 외부 참고 사용
+                        <span class="tooltip-container blog-next-help-trigger" tabindex="0" aria-label="외부 참고 사용 도움말" aria-describedby="blog-next-help-external-reference">
+                          <span class="tooltip-icon">?</span>
+                          <span class="tooltip-text" id="blog-next-help-external-reference" role="tooltip">켜면 입력한 주제와 키워드에 맞는 외부 자료를 자동으로 찾아 원고 작성에 참고합니다. 참고 URL을 입력했다면 함께 사용합니다.</span>
+                        </span>
+                      </label>
+                    </div>
+                <label class="blog-next-field">
+                  <span class="blog-next-field-label-with-help">
+                    글쓰기 전략
+                    <span class="tooltip-container blog-next-help-trigger" tabindex="0" aria-label="글쓰기 전략 도움말" aria-describedby="blog-next-help-writing-strategy">
+                      <span class="tooltip-icon">?</span>
+                      <span class="tooltip-text" id="blog-next-help-writing-strategy" role="tooltip">검색 중심은 필요한 정보를 쉽게 찾도록 구성합니다. 발견 중심은 피드에서 우연히 만난 독자가 관심을 갖고 계속 읽도록 제목과 도입부를 구성합니다.</span>
+                    </span>
+                  </span>
+                  <span class="ui-select-shell">
+                    <select id="blog-next-writing-strategy">
+                      <option value="search">검색 중심</option>
+                      <option value="discovery">발견 중심 (피드)</option>
+                    </select>
+                  </span>
+                </label>
+                <label class="blog-next-field">
+                  <span class="blog-next-field-label-with-help">
+                    이미지 처리
+                    <span class="tooltip-container blog-next-help-trigger" tabindex="0" aria-label="이미지 처리 도움말" aria-describedby="blog-next-help-image-mode">
+                      <span class="tooltip-icon">?</span>
+                      <span class="tooltip-text" id="blog-next-help-image-mode" role="tooltip">실제 이미지를 생성하거나, 원고에 프롬프트만 남기거나, 이미지 영역을 완전히 제외합니다.</span>
+                    </span>
+                  </span>
+                  <span class="ui-select-shell">
+                    <select id="blog-next-image-mode">
+                      <option value="prompt_only">이미지 프롬프트만 포함</option>
+                      <option value="generate">이미지 생성</option>
+                      <option value="none">이미지 사용 안 함</option>
+                    </select>
+                  </span>
+                </label>
+                    <div class="blog-next-field blog-next-field-wide blog-next-writing-overrides">
+                      <div class="blog-next-writing-overrides-heading">
+                        <span>이번 글 구성</span>
+                        <button id="blog-next-writing-settings-open" class="text-btn" type="button">글쓰기 기본값 변경</button>
+                      </div>
+                      <div class="blog-next-form-grid blog-next-writing-overrides-grid">
+                        <label class="blog-next-field"><span>본문 길이</span><span class="ui-select-shell"><select id="blog-next-writing-length" data-blog-next-writing-override="length"><option value="">기본값 불러오는 중</option><option value="short">짧게 · 900~1,200자</option><option value="standard">보통 · 1,500~1,800자</option><option value="long">길게 · 2,200~2,800자</option></select></span></label>
+                        <label class="blog-next-field"><span>도입 방식</span><span class="ui-select-shell"><select id="blog-next-writing-opening" data-blog-next-writing-override="opening"><option value="">기본값 불러오는 중</option><option value="direct">핵심부터</option><option value="contextual">공감 상황부터</option><option value="scene">장면·이야기부터</option></select></span></label>
+                        <label class="blog-next-field"><span>전개 방식</span><span class="ui-select-shell"><select id="blog-next-writing-development" data-blog-next-writing-override="development"><option value="">기본값 불러오는 중</option><option value="explanatory">설명형</option><option value="problem_solution">문제 해결형</option><option value="experience_review">경험·리뷰형</option><option value="comparison">비교·선택형</option></select></span></label>
+                        <label class="blog-next-field"><span>마무리 방식</span><span class="ui-select-shell"><select id="blog-next-writing-ending" data-blog-next-writing-override="ending"><option value="">기본값 불러오는 중</option><option value="summary">핵심 요약</option><option value="judgment">개인적 판단</option><option value="next_step">다음 행동 제안</option></select></span></label>
+                      </div>
+                    </div>
+                  </div>
+                </details>
