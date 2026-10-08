@@ -43,8 +43,25 @@ function readBlogNextTopicSettings() {
   const platforms = [];
   if (getBlogNextSettingsElement('blog-next-target-naver')?.checked) platforms.push('naver');
   if (getBlogNextSettingsElement('blog-next-target-wordpress')?.checked) platforms.push('wordpress');
+  const siteSelected = getBlogNextSettingsElement('blog-next-target-site-hosting')?.checked === true;
+  if (siteSelected) platforms.push('site-hosting');
+  const siteOption = getBlogNextSettingsElement('blog-next-site-hosting-select')?.selectedOptions?.[0];
+  const folderSelect = getBlogNextSettingsElement('blog-next-vault-folder-select');
+  const siteKey = siteOption?.dataset.projectId && siteOption?.dataset.siteId
+    ? `${siteOption.dataset.projectId}/${siteOption.dataset.siteId}` : '';
+  const siteTarget = siteSelected && siteKey && ['blog', 'vault'].includes(siteOption.dataset.siteKind)
+    ? {
+      project_id: siteOption.dataset.projectId,
+      site_id: siteOption.dataset.siteId,
+      kind: siteOption.dataset.siteKind,
+      ...(siteOption.dataset.siteKind === 'vault' && folderSelect?.dataset.siteKey === siteKey && folderSelect.value
+        ? { destination_path: folderSelect.value }
+        : {})
+    }
+    : null;
   return {
     platforms,
+    siteTarget,
     naverCategory: getBlogNextSettingsElement('blog-next-naver-category')?.value || '',
     wordpressCategory: getBlogNextSettingsElement('blog-next-wordpress-category')?.value || '',
     writingStrategy: getBlogNextSettingsElement('blog-next-writing-strategy')?.value || 'search',
@@ -119,6 +136,7 @@ function rememberBlogNextTopicDefaults() {
     const settings = readBlogNextTopicSettings();
     // Publishing choices belong to a specific queue item; they are never quick-flow defaults.
     delete settings.platforms;
+    delete settings.siteTarget;
     delete settings.naverCategory;
     delete settings.wordpressCategory;
     delete settings.postStatus;
@@ -342,6 +360,7 @@ async function submitBlogNextTopic(action) {
     const payload = readBlogNextTopicPayload(captureAction);
     if (action === 'save' && !editing) {
       payload.platforms = [];
+      payload.siteTarget = null;
       payload.naverCategory = '';
       payload.wordpressCategory = '';
       payload.postStatus = 'draft';

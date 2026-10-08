@@ -64,13 +64,23 @@ function populateBlogNextTopicForm(item = {}, sourceStatus) {
   getBlogNextSettingsElement('blog-next-reference-url').value = Array.isArray(item.content_guide?.reference_urls) ? item.content_guide.reference_urls.join(', ') : '';
   getBlogNextSettingsElement('blog-next-target-naver').checked = singlePlatform === 'naver';
   getBlogNextSettingsElement('blog-next-target-wordpress').checked = singlePlatform === 'wordpress';
-  getBlogNextSettingsElement('blog-next-target-site-hosting').checked = false;
+  getBlogNextSettingsElement('blog-next-target-site-hosting').checked = singlePlatform === 'site-hosting';
   getBlogNextSettingsElement('blog-next-naver-category').value = categories.naver;
   getBlogNextSettingsElement('blog-next-wordpress-category').value = categories.wordpress;
   getBlogNextSettingsElement('blog-next-writing-strategy').value = item.writing_strategy || item.options?.writing_strategy || 'search';
   getBlogNextSettingsElement('blog-next-image-mode').value = item.image_mode || item.options?.image_mode || 'prompt_only';
   getBlogNextSettingsElement('blog-next-post-status').value = item.postStatus || item.options?.post_status || 'draft';
   getBlogNextSettingsElement('blog-next-schedule-date').value = String(item.scheduleDate || item.options?.schedule_date || '').replace(' ', 'T').slice(0, 16);
+  const siteTarget = item.options?.site_target && typeof item.options.site_target === 'object'
+    ? item.options.site_target : null;
+  if (siteTarget && siteTarget.project_id && siteTarget.site_id) {
+    const key = `site-hosting:${siteTarget.project_id}/${siteTarget.site_id}`;
+    blogNextPublishSettingsByTarget.set(key, {
+      category: siteTarget.kind === 'vault' ? String(siteTarget.destination_path || '') : '',
+      postStatus: item.postStatus || item.options?.post_status || 'draft',
+      scheduleDate: String(item.scheduleDate || item.options?.schedule_date || '').replace(' ', 'T').slice(0, 16)
+    });
+  }
   getBlogNextSettingsElement('blog-next-external-reference').checked = item.external_reference === true;
   applyBlogNextWritingOverrides(item.content_guide?.writing_overrides || item.writing_overrides || item.options?.writing_overrides);
   syncBlogNextProviderDependentFields();
@@ -94,8 +104,26 @@ function populateBlogNextTopicForm(item = {}, sourceStatus) {
   syncBlogNextTopicClearAction();
   setBlogNextTopicBusy(false);
   moveBlogNextTopicFormToQueueEditor({ showPublishSettings: sourceStatus === '대기' });
-  blogNextEditingInitialSnapshot = snapshotBlogNextEditingPayload();
+  const initialSnapshot = snapshotBlogNextEditingPayload();
+  blogNextEditingInitialSnapshot = initialSnapshot;
   syncBlogNextTopicActionAvailability();
+  if (singlePlatform === 'site-hosting') {
+    void loadBlogNextSiteHostingTargets({ preserveSelection: false, selectedTarget: siteTarget }).then(() => {
+      const normalizeHydratedSiteTarget = (snapshot) => {
+        try {
+          const payload = JSON.parse(snapshot);
+          payload.siteTarget = siteTarget;
+          return JSON.stringify(payload);
+        } catch (_) {
+          return snapshot;
+        }
+      };
+      if (normalizeHydratedSiteTarget(blogNextEditingInitialSnapshot) === normalizeHydratedSiteTarget(initialSnapshot)) {
+        blogNextEditingInitialSnapshot = snapshotBlogNextEditingPayload();
+      }
+      syncBlogNextTopicActionAvailability();
+    });
+  }
   setBlogNextTopicResult(platforms.length > 1
     ? '기존 글감에 포스팅 대상이 여러 개 저장되어 있습니다. 하나를 선택한 뒤 저장해 주세요.'
     : '', platforms.length > 1 ? 'error' : '');
@@ -256,6 +284,7 @@ async function removeBlogNextQueueItem(item = {}, button) {
 }
 
 async function addBlogNextSavedItemToQueue(item = {}, button) {
+  if (item.queue_readiness?.ready === false) return;
   if (isBlogNextQueueRunnerLocked()) {
     showBlogNextQueueRunnerLockedNotice();
     return;

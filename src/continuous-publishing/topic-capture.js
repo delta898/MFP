@@ -3,7 +3,7 @@ const { validateBlogWritingOverrides } = require('../content/blog-writing-overri
 const { requireSinglePublishTarget } = require('../content/single-publish-target');
 
 const READY_POST_STATUSES = Object.freeze(['publish', 'draft', 'schedule']);
-const READY_PLATFORMS = Object.freeze(['naver', 'wordpress']);
+const CAPTURE_PLATFORMS = Object.freeze(['naver', 'wordpress', 'site-hosting']);
 const WRITING_STRATEGIES = Object.freeze(['search', 'discovery']);
 const IMAGE_MODES = Object.freeze(['generate', 'prompt_only', 'none']);
 
@@ -24,7 +24,23 @@ function normalizeEnum(value, allowed, fallback) {
 function normalizePlatforms(value) {
     return normalizeList(value)
         .map((item) => item.toLowerCase())
-        .filter((item) => READY_PLATFORMS.includes(item));
+        .filter((item) => CAPTURE_PLATFORMS.includes(item));
+}
+
+function normalizeSiteTarget(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const projectId = normalizeText(value.project_id ?? value.projectId);
+    const siteId = normalizeText(value.site_id ?? value.siteId);
+    const kind = normalizeText(value.kind ?? value.site_kind ?? value.siteKind).toLowerCase();
+    if (!projectId || !siteId || !['blog', 'vault'].includes(kind)) return null;
+    return {
+        project_id: projectId,
+        site_id: siteId,
+        kind,
+        ...(kind === 'vault' && normalizeText(value.destination_path ?? value.destinationPath)
+            ? { destination_path: normalizeText(value.destination_path ?? value.destinationPath).replace(/\\/gu, '/') }
+            : {})
+    };
 }
 
 function isValidYmd(value) {
@@ -71,6 +87,7 @@ function normalizeTopicCaptureInput(input = {}) {
         instruction: normalizeText(input.instruction),
         referenceUrls: normalizeList(input.referenceUrls || input.referenceUrl),
         platforms: normalizePlatforms(input.platforms || input.targets),
+        siteTarget: normalizeSiteTarget(input.siteTarget ?? input.site_target),
         naverCategory: normalizeText(input.naverCategory),
         wordpressCategory: normalizeText(input.wordpressCategory),
         writingStrategy: normalizeEnum(input.writingStrategy, WRITING_STRATEGIES, 'search'),
@@ -101,6 +118,18 @@ function validateTopicCapture(input = {}, options = {}) {
         errors.push({ field: 'referenceUrls', code: 'REFERENCE_URL_INVALID', message: '참고 URL은 http 또는 https 주소로 입력해 주세요.' });
     }
 
+    const rawSiteTarget = input.siteTarget ?? input.site_target;
+    const destinationPath = topic.siteTarget?.destination_path || '';
+    const invalidVaultPath = destinationPath && (destinationPath.length > 2000
+        || destinationPath.startsWith('/')
+        || /^[a-zA-Z]:/u.test(destinationPath)
+        || (destinationPath !== '.' && destinationPath.split('/').some((segment) => !segment || segment === '.' || segment === '..')));
+    if (rawSiteTarget && !topic.siteTarget) {
+        errors.push({ field: 'siteTarget', code: 'SITE_TARGET_INVALID', message: '선택한 사이트 정보를 확인해 주세요.' });
+    } else if (invalidVaultPath) {
+        errors.push({ field: 'siteTarget', code: 'SITE_DESTINATION_INVALID', message: 'Vault 저장 폴더 경로를 확인해 주세요.' });
+    }
+
     if (topic.source === 'naver_trend' && !isValidYmd(topic.trendDate)) {
         errors.push({ field: 'trendDate', code: 'TREND_DATE_INVALID', message: '선택한 트렌드의 기준일을 확인해 주세요.' });
     }
@@ -109,6 +138,10 @@ function validateTopicCapture(input = {}, options = {}) {
         errors.push({ field: 'platforms', code: 'PLATFORM_REQUIRED', message: '포스팅 대상을 하나 선택해 주세요.' });
     } else if (topic.platforms.length > 1) {
         errors.push({ field: 'platforms', code: 'MULTIPLE_PUBLISH_TARGETS', message: '하나의 글감에는 포스팅 대상을 하나만 선택할 수 있습니다.' });
+    }
+
+    if (ready && topic.platforms.includes('site-hosting')) {
+        errors.push({ field: 'platforms', code: 'PUBLISH_TARGET_UNSUPPORTED', message: '사이트 포스팅 대기열 실행은 아직 지원하지 않습니다.' });
     }
 
     if (topic.postStatus === 'schedule' && (ready || topic.scheduleDate)) {
@@ -130,7 +163,7 @@ function buildTopicSheetRow(input = {}, options = {}) {
     }
 
     const topic = validation.topic;
-    if (ready) requireSinglePublishTarget(topic.platforms);
+    if (ready && !topic.platforms.includes('site-hosting')) requireSinglePublishTarget(topic.platforms);
     const status = ready ? TOPIC_STATUS.READY : TOPIC_STATUS.WAITING;
 
     return {
@@ -167,14 +200,17 @@ function buildTopicSheetRow(input = {}, options = {}) {
             writing_overrides: topic.writingOverrides,
             image_mode: topic.imageMode,
             image_gen: topic.imageMode === 'generate',
-            external_reference: topic.externalReference
+            external_reference: topic.externalReference,
+            ...(topic.platforms.includes('site-hosting') && topic.siteTarget
+                ? { site_target: topic.siteTarget }
+                : {})
         }
     };
 }
 
 module.exports = {
     IMAGE_MODES,
-    READY_PLATFORMS,
+    READY_PLATFORMS: Object.freeze(['naver', 'wordpress']),
     READY_POST_STATUSES,
     WRITING_STRATEGIES,
     buildTopicSheetRow,

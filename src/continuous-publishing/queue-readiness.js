@@ -46,7 +46,10 @@ function diagnoseQueueReadiness(topic = {}, options = {}) {
         if (listedTargets.length > 1) {
             add('platforms', 'MULTIPLE_PUBLISH_TARGETS', '포스팅 대상이 여러 개입니다.');
         }
-        const unsupported = listedTargets.filter((target) => !normalizePublishTargets([target]).length);
+        if (listedTargets.includes('site-hosting')) {
+            add('platforms', 'SITE_QUEUE_UNSUPPORTED', '사이트 포스팅은 현재 대기열 실행을 지원하지 않습니다.');
+        }
+        const unsupported = listedTargets.filter((target) => target !== 'site-hosting' && !normalizePublishTargets([target]).length);
         if (unsupported.length > 0) {
             add('platforms', 'PUBLISH_TARGET_UNSUPPORTED', `현재 대기열에서 지원하지 않는 포스팅 대상이 있습니다: ${unsupported.join(', ')}.`);
         }

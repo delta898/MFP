@@ -2705,7 +2705,8 @@ const Utils = {
                     externalReference,
                     writingStrategy: topic.writing_strategy || topic.writingStrategy || topic.options?.writing_strategy,
                     writingOverrides: topic.content_guide?.writing_overrides || topic.writing_overrides || topic.options?.writing_overrides,
-                    platforms: topic.platforms || topic.targets || topic.options?.platforms
+                    platforms: topic.platforms || topic.targets || topic.options?.platforms,
+                    siteTarget: topic.siteTarget || topic.options?.site_target
                 });
 
                 if (map.subject !== undefined) row[map.subject] = topic.subject;
@@ -3881,7 +3882,8 @@ const Utils = {
                 externalReference: normalized.externalReference === 'Yes',
                 writingStrategy: normalized.writingStrategy,
                 writingOverrides: normalized.writingOverrides,
-                platforms: normalized.platforms
+                platforms: normalized.platforms,
+                siteTarget: fields.siteTarget
             });
             dataToUpdate.push({
                 range: `${sheetName}!${toA1(map.options)}${targetRow}`,

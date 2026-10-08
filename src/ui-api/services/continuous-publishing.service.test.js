@@ -594,13 +594,31 @@ test('ready queue includes live readiness issues without persisting a diagnostic
     assert.deepEqual(result.items.map(item => item.queue_readiness.ready), [false, false, false, false]);
     assert.deepEqual(result.items.map(item => item.queue_readiness.issues.map(issue => issue.code)), [
         ['SUBJECT_REQUIRED'],
-        ['PUBLISH_TARGET_UNSUPPORTED'],
+        ['SITE_QUEUE_UNSUPPORTED'],
         ['POST_STATUS_REQUIRED'],
         ['SCHEDULE_DATE_PAST']
     ]);
     assert.equal(result.items[0].queue_readiness.issues[0].message, '주제가 없습니다.');
     assert.equal(result.items[2].queue_readiness.issues[0].message, '포스팅 방식이 없습니다.');
-    assert.equal(Object.hasOwn(result.saved_items[0], 'queue_readiness'), false);
+    assert.deepEqual(result.saved_items[0].queue_readiness.issues.map(issue => issue.code), [
+        'PUBLISH_TARGET_REQUIRED', 'POST_STATUS_REQUIRED'
+    ]);
+    assert.equal(Object.hasOwn(state.readItems[0], 'queue_readiness'), false);
+});
+
+test('saved site topics expose the queue execution limitation as a live readiness issue', async () => {
+    const state = {
+        readItems: [{
+            rowIndex: 7, rowNumber: 9, status: '대기', subject: '사이트 글감',
+            options: { platforms: ['site-hosting'], post_status: 'draft', site_target: { site_id: 'site-1' } }
+        }]
+    };
+    const service = createService(state);
+
+    const result = await service.getReadyQueue({ searchParams: new URLSearchParams({ limit: '50' }) });
+
+    assert.deepEqual(result.saved_items[0].queue_readiness.issues.map(issue => issue.code), ['SITE_QUEUE_UNSUPPORTED']);
+    assert.equal(result.saved_items[0].queue_readiness.issues[0].message, '사이트 포스팅은 현재 대기열 실행을 지원하지 않습니다.');
     assert.equal(Object.hasOwn(state.readItems[0], 'queue_readiness'), false);
 });
 
@@ -968,10 +986,13 @@ test('saved topic can be updated in place or promoted to the ready queue', async
         action: 'save',
         sourceStatus: '대기',
         rowIndex: 2,
-        subject: '조금 더 적은 글감'
+        subject: '조금 더 적은 글감',
+        platforms: ['site-hosting'],
+        siteTarget: { project_id: 'project-1', site_id: 'site-1', kind: 'blog' }
     });
     assert.equal(saved.status, '대기');
     assert.equal(state.updatedFields.status, '대기');
+    assert.deepEqual(state.updatedFields.siteTarget, { project_id: 'project-1', site_id: 'site-1', kind: 'blog' });
 
     const promoted = await service.updateTopic({
         action: 'enqueue',

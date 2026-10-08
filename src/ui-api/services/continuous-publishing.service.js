@@ -754,7 +754,16 @@ function createContinuousPublishingService(deps = {}) {
             const runningCount = activeItem && !readyItems.some(item => Number(item?.rowIndex) === activeRowIndex) ? 1 : 0;
             return {
                 items: diagnosedItems.slice(0, limit),
-                saved_items: savedItems.slice(0, limit),
+                saved_items: savedItems.slice(0, limit).map(item => {
+                    const diagnosis = diagnoseQueueReadiness(item, { now: diagnosticTime });
+                    return {
+                        ...item,
+                        queue_readiness: {
+                            ready: diagnosis.ready,
+                            issues: diagnosis.issues
+                        }
+                    };
+                }),
                 total: readyItems.length + runningCount,
                 limit,
                 offset: 0,
@@ -838,7 +847,8 @@ function createContinuousPublishingService(deps = {}) {
                 externalReference: row.use_external_ref,
                 writingStrategy: row.writing_strategy,
                 writingOverrides: row.content_guide.writing_overrides,
-                platforms: row.targets
+                platforms: row.targets,
+                siteTarget: row.options.site_target || null
             });
             Utils.clearSheetCache('topics');
             return { action, rowIndex, rowNumber: rowIndex + 2, status: row.status };

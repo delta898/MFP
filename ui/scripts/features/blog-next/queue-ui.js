@@ -1,4 +1,19 @@
 let blogNextQueueHasLoaded = false;
+let blogNextQueueReadinessDismissalBound = false;
+
+function bindBlogNextQueueReadinessOutsideDismissal() {
+  if (blogNextQueueReadinessDismissalBound) return;
+  document.addEventListener('click', (event) => {
+    document.querySelectorAll('.blog-next-queue-readiness-trigger[aria-expanded="true"]').forEach((openButton) => {
+      const notice = openButton.closest('.blog-next-queue-readiness');
+      if (notice?.contains(event.target)) return;
+      openButton.setAttribute('aria-expanded', 'false');
+      const details = document.getElementById(openButton.getAttribute('aria-controls'));
+      if (details) details.hidden = true;
+    });
+  });
+  blogNextQueueReadinessDismissalBound = true;
+}
 
 function getBlogNextQueueRunActionCopy(item = {}) {
   if (item.postStatus === 'draft') {
@@ -153,18 +168,20 @@ function createBlogNextListItem(item, position, saved) {
   main.className = 'blog-next-queue-main';
   main.appendChild(copy);
   const readiness = item.queue_readiness;
-  if (!saved && readiness && readiness.ready === false) {
+  if (readiness && readiness.ready === false) {
     const issueMessages = Array.isArray(readiness.issues)
       ? readiness.issues.map(issue => String(issue?.message || '').trim()).filter(Boolean)
       : [];
     const notice = document.createElement('div');
     notice.className = 'blog-next-queue-readiness';
+    bindBlogNextQueueReadinessOutsideDismissal();
     const noticeId = `blog-next-queue-readiness-${Number.isInteger(Number(item.rowIndex)) ? Number(item.rowIndex) : position}`;
     const noticeButton = document.createElement('button');
     noticeButton.type = 'button';
     noticeButton.className = 'blog-next-queue-readiness-trigger';
     noticeButton.dataset.blogNextQueueReadiness = 'true';
-    noticeButton.setAttribute('aria-label', `포스팅할 수 없는 이유 보기: ${issueMessages.join(' ') || '설정 정보가 부족합니다.'}`);
+    const blockedAction = saved ? '대기열로 이동할 수 없는 이유' : '포스팅할 수 없는 이유';
+    noticeButton.setAttribute('aria-label', `${blockedAction}: ${issueMessages.join(' ') || '설정 정보가 부족합니다.'}`);
     noticeButton.setAttribute('aria-expanded', 'false');
     noticeButton.setAttribute('aria-controls', noticeId);
     noticeButton.textContent = '!';
@@ -174,7 +191,7 @@ function createBlogNextListItem(item, position, saved) {
     details.setAttribute('role', 'status');
     details.hidden = true;
     const heading = document.createElement('strong');
-    heading.textContent = '포스팅할 수 없습니다';
+    heading.textContent = saved ? '대기열로 이동할 수 없습니다' : '포스팅할 수 없습니다';
     const list = document.createElement('ul');
     (issueMessages.length ? issueMessages : ['설정 정보가 부족합니다.']).forEach((message) => {
       const issue = document.createElement('li');
@@ -184,6 +201,12 @@ function createBlogNextListItem(item, position, saved) {
     details.append(heading, list);
     noticeButton.addEventListener('click', () => {
       const expanded = noticeButton.getAttribute('aria-expanded') === 'true';
+      document.querySelectorAll('.blog-next-queue-readiness-trigger[aria-expanded="true"]').forEach((openButton) => {
+        if (openButton === noticeButton) return;
+        openButton.setAttribute('aria-expanded', 'false');
+        const openDetails = document.getElementById(openButton.getAttribute('aria-controls'));
+        if (openDetails) openDetails.hidden = true;
+      });
       noticeButton.setAttribute('aria-expanded', expanded ? 'false' : 'true');
       details.hidden = expanded;
     });
@@ -233,6 +256,13 @@ function createBlogNextListItem(item, position, saved) {
     enqueueButton.className = 'primary';
     enqueueButton.dataset.blogNextQueueDefaultDisabled = 'false';
     enqueueButton.textContent = '대기열로 이동';
+    const readinessBlocked = item.queue_readiness?.ready === false;
+    enqueueButton.dataset.blogNextQueueDefaultDisabled = readinessBlocked ? 'true' : 'false';
+    enqueueButton.disabled = readinessBlocked;
+    if (readinessBlocked) {
+      enqueueButton.setAttribute('aria-label', '대기열로 이동할 수 없는 설정이 있습니다. 이유를 느낌표 표시에서 확인하세요.');
+      enqueueButton.title = '대기열로 이동할 수 없는 설정이 있습니다. 이유를 확인해 주세요.';
+    }
     enqueueButton.addEventListener('click', () => addBlogNextSavedItemToQueue(item, enqueueButton));
     actions.append(enqueueButton);
     const deleteButton = document.createElement('button');

@@ -40,9 +40,12 @@ test('queue readiness reports missing values without inferring defaults', () => 
 
 test('queue readiness identifies unsupported and multiple targets', () => {
     const site = diagnoseQueueReadiness(readyTopic({ options: { platforms: ['site'], post_status: 'draft' } }));
+    const siteHosting = diagnoseQueueReadiness(readyTopic({ options: { platforms: ['site-hosting'], post_status: 'draft' } }));
     const multiple = diagnoseQueueReadiness(readyTopic({ options: { platforms: ['naver', 'wordpress'], post_status: 'draft' } }));
 
     assert.equal(site.issues[0].code, 'PUBLISH_TARGET_UNSUPPORTED');
+    assert.deepEqual(siteHosting.issues.map(({ code }) => code), ['SITE_QUEUE_UNSUPPORTED']);
+    assert.equal(siteHosting.issues[0].message, '사이트 포스팅은 현재 대기열 실행을 지원하지 않습니다.');
     assert.equal(multiple.issues[0].code, 'MULTIPLE_PUBLISH_TARGETS');
 });
 

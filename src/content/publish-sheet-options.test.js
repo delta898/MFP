@@ -124,6 +124,22 @@ test('inherited writing strategy removes the explicit option', () => {
     assert.equal(merged.writing_strategy, undefined);
 });
 
+test('topic option merge stores a normalized site target and removes it when cleared', () => {
+    const merged = mergeTopicSheetOptions({ custom_flag: 'keep-me' }, {
+        platforms: ['site-hosting'],
+        siteTarget: {
+            projectId: ' project-1 ', siteId: ' site-1 ', kind: 'vault', destinationPath: 'travel\\jeju'
+        }
+    });
+    assert.equal(merged.custom_flag, 'keep-me');
+    assert.deepEqual(merged.site_target, {
+        project_id: 'project-1', site_id: 'site-1', kind: 'vault', destination_path: 'travel/jeju'
+    });
+
+    const cleared = mergeTopicSheetOptions(merged, { siteTarget: null });
+    assert.equal(cleared.site_target, undefined);
+});
+
 test('shopping sheet state also applies options override for visible publish fields', () => {
     const resolved = resolveShoppingSheetState({
         instruction: '컬럼 지시',

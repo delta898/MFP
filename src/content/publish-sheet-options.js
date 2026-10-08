@@ -257,6 +257,27 @@ function mergeTopicSheetOptions(existingOptions = {}, fields = {}) {
         else delete next.platforms;
     }
 
+    if (fields.siteTarget !== undefined) {
+        const siteTarget = fields.siteTarget && typeof fields.siteTarget === 'object' && !Array.isArray(fields.siteTarget)
+            ? fields.siteTarget
+            : null;
+        const projectId = normalizeString(siteTarget?.project_id ?? siteTarget?.projectId);
+        const siteId = normalizeString(siteTarget?.site_id ?? siteTarget?.siteId);
+        const kind = normalizeString(siteTarget?.kind ?? siteTarget?.site_kind ?? siteTarget?.siteKind).toLowerCase();
+        if (projectId && siteId && ['blog', 'vault'].includes(kind)) {
+            next.site_target = {
+                project_id: projectId,
+                site_id: siteId,
+                kind,
+                ...(kind === 'vault' && normalizeString(siteTarget.destination_path ?? siteTarget.destinationPath)
+                    ? { destination_path: normalizeString(siteTarget.destination_path ?? siteTarget.destinationPath).replace(/\\/gu, '/') }
+                    : {})
+            };
+        } else {
+            delete next.site_target;
+        }
+    }
+
     if (
         fields.category !== undefined
         || fields.naverCategory !== undefined

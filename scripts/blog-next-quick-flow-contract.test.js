@@ -103,13 +103,18 @@ test('saved idea editing isolates publication settings and restores quick-writin
   assert.match(read('ui/partials/views/blog-next/editor-modal.html'), /id="blog-next-editor-settings-form"[\s\S]*data-blog-next-editor-settings-slot="topic"[\s\S]*data-blog-next-editor-settings-slot="content"[\s\S]*data-blog-next-editor-settings-slot="publishing"/);
 });
 
-test('saved ideas can be promoted through the shared validated editor without bypassing its settings', () => {
+test('saved ideas show queue readiness in the list and only open the shared editor when ready', () => {
   const management = read('ui/scripts/features/blog-next/queue-management.js');
+  const queueUi = read('ui/scripts/features/blog-next/queue-ui.js');
   const queue = read('ui/scripts/features/blog-next/quick-queue.js');
   const validity = read('ui/scripts/features/blog-next/quick-flow-ui.js');
   const execution = read('ui/scripts/features/blog-next/draft-execution.js');
 
-  assert.match(management, /function addBlogNextSavedItemToQueue\([\s\S]*?populateBlogNextTopicForm\(item, '대기'\)[\s\S]*?showBlogNextQueueReadinessIssues\(\)/);
+  assert.match(management, /async function addBlogNextSavedItemToQueue\(item = \{\}, button\)\s*\{\s*if \(item\.queue_readiness\?\.ready === false\) return;/);
+  assert.match(queueUi, /if \(readiness && readiness\.ready === false\) \{[\s\S]*?saved \? '대기열로 이동할 수 없는 이유' : '포스팅할 수 없는 이유'/);
+  assert.match(queueUi, /const readinessBlocked = item\.queue_readiness\?\.ready === false;[\s\S]*?enqueueButton\.disabled = readinessBlocked;/);
+  assert.match(queueUi, /querySelectorAll\('\.blog-next-queue-readiness-trigger\[aria-expanded="true"\]'\)[\s\S]*?details\.hidden = true/);
+  assert.match(queueUi, /function bindBlogNextQueueReadinessOutsideDismissal\(\)[\s\S]*?document\.addEventListener\('click', \(event\) => \{[\s\S]*?if \(notice\?\.contains\(event\.target\)\) return;[\s\S]*?details\.hidden = true;/);
   assert.match(management, /createBlogNextEditorSettingsInstance\(\);[\s\S]*resetBlogNextEditorSettingsInstance\(\)/);
   assert.doesNotMatch(management, /generateAction|saveButton\.hidden|enqueueButton\.hidden/);
   assert.match(queue, /function moveBlogNextTopicFormToQueueEditor\(\{ showPublishSettings = false \} = \{\}\)[\s\S]*createBlogNextEditorSettingsInstance\(\)/);
@@ -637,4 +642,19 @@ test('provider-dependent controls align UI, summaries and runner payloads', () =
   assert.match(script, /startBlogNextRunner\(\{ rowIndex, platforms: item\.options\?\.platforms \}\)/);
   assert.match(runnerScript, /const supportsHeadless = platforms === null \|\| platforms\.includes\('naver'\)/);
   assert.match(runnerScript, /const headless = supportsHeadless &&/);
+});
+
+test('Site Hosting cannot select scheduled publishing in quick writing or saved-topic editing', () => {
+  const targets = read('ui/scripts/features/blog-next/publishing-targets.js');
+  assert.match(targets, /if \(schedule\) schedule\.disabled = selected \|\| unresolvedImages/);
+  assert.match(targets, /if \(scheduleOption && siteActive\) scheduleOption\.disabled = true/);
+  assert.doesNotMatch(targets, /scheduleOption\.disabled = !topicEditor/);
+});
+
+test('Site Hosting schedule restrictions retain the editor guard used by publish-setting sync', () => {
+  const targets = read('ui/scripts/features/blog-next/publishing-targets.js');
+  const sync = targets.match(/function syncBlogNextSiteHostingOptions\(type\) \{[\s\S]*?\n\}/)?.[0] || '';
+  assert.match(sync, /const topicEditor = typeof blogNextEditingRowIndex !== 'undefined' && blogNextEditingRowIndex !== null/);
+  assert.match(sync, /if \(!topicEditor && selected && status\?\.value === 'schedule'\)/);
+  assert.match(sync, /if \(schedule\) schedule\.disabled = selected \|\| unresolvedImages/);
 });

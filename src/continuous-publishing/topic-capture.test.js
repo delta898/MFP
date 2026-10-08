@@ -171,3 +171,38 @@ test('selected Naver trend rejects a missing or impossible trend date', () => {
     assert.equal(impossible.valid, false);
     assert.equal(impossible.errors[0].code, 'TREND_DATE_INVALID');
 });
+
+test('saved site topic stores stable site identity and only Vault folder destinations', () => {
+    const blog = buildTopicSheetRow({
+        subject: '블로그형 사이트 글감',
+        platforms: ['site-hosting'],
+        siteTarget: { project_id: 'project-1', site_id: 'site-1', kind: 'blog', listing_route: '/blog/' }
+    });
+    const vault = buildTopicSheetRow({
+        subject: 'DG 글감',
+        platforms: ['site-hosting'],
+        siteTarget: { project_id: 'project-2', site_id: 'dg-1', kind: 'vault', destination_path: 'travel/jeju' }
+    });
+
+    assert.deepEqual(blog.options.platforms, ['site-hosting']);
+    assert.deepEqual(blog.options.site_target, { project_id: 'project-1', site_id: 'site-1', kind: 'blog' });
+    assert.deepEqual(vault.options.site_target, {
+        project_id: 'project-2', site_id: 'dg-1', kind: 'vault', destination_path: 'travel/jeju'
+    });
+    assert.equal(Object.hasOwn(blog.options.site_target, 'listing_route'), false);
+});
+
+test('site targets are stored for saved ideas but not accepted into the queue before the runner exists', () => {
+    const saved = validateTopicCapture({
+        subject: '보관할 사이트 글감', platforms: ['site-hosting'],
+        siteTarget: { project_id: 'project-1', site_id: 'site-1', kind: 'blog' }
+    }, { ready: false });
+    const queued = validateTopicCapture({
+        subject: '대기열로 보낼 사이트 글감', platforms: ['site-hosting'],
+        siteTarget: { project_id: 'project-1', site_id: 'site-1', kind: 'blog' }, postStatus: 'draft'
+    }, { ready: true });
+
+    assert.equal(saved.valid, true);
+    assert.equal(queued.valid, false);
+    assert.equal(queued.errors.some(({ code }) => code === 'PUBLISH_TARGET_UNSUPPORTED'), true);
+});

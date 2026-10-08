@@ -409,7 +409,7 @@ async function loadBlogNextVaultFolders({ preserveSelection = true } = {}) {
   }
 }
 
-async function loadBlogNextSiteHostingTargets({ preserveSelection = true } = {}) {
+async function loadBlogNextSiteHostingTargets({ preserveSelection = true, selectedTarget = null } = {}) {
   const option = getBlogNextSettingsElement('blog-next-target-site-hosting-option');
   const input = blogNextDraftField('paste', 'target-site-hosting');
   const field = getBlogNextSettingsElement('blog-next-site-hosting-field');
@@ -417,8 +417,10 @@ async function loadBlogNextSiteHostingTargets({ preserveSelection = true } = {})
   const retry = getBlogNextSettingsElement('blog-next-site-hosting-retry');
   if (!option || !input || !field || !select) return [];
   const previous = select.selectedOptions?.[0];
-  const previousProjectId = preserveSelection ? previous?.dataset.projectId || '' : '';
-  const previousSiteId = preserveSelection ? previous?.dataset.siteId || '' : '';
+  const previousProjectId = selectedTarget?.project_id || selectedTarget?.projectId
+    || (preserveSelection ? previous?.dataset.projectId || '' : '');
+  const previousSiteId = selectedTarget?.site_id || selectedTarget?.siteId
+    || (preserveSelection ? previous?.dataset.siteId || '' : '');
   input.disabled = true;
   select.disabled = true;
   if (retry) {
@@ -455,6 +457,15 @@ async function loadBlogNextSiteHostingTargets({ preserveSelection = true } = {})
     const selected = Array.from(select.options).find((candidate) =>
       candidate.dataset.projectId === previousProjectId && candidate.dataset.siteId === previousSiteId && !candidate.disabled);
     if (selected) selected.selected = true;
+    if (!selected && selectedTarget && previousProjectId && previousSiteId) {
+      const retained = new Option(`${previousSiteId} · 다시 선택 필요`, `retained:${previousSiteId}`);
+      retained.dataset.projectId = previousProjectId;
+      retained.dataset.siteId = previousSiteId;
+      retained.dataset.siteKind = String(selectedTarget.kind || selectedTarget.site_kind || '');
+      retained.disabled = true;
+      select.add(retained);
+      retained.selected = true;
+    }
     const hadSelection = Boolean(previousProjectId && previousSiteId);
     const selectionLost = hadSelection && !selected;
     const eligibleCount = sites.filter((site) => site.posting_target?.eligible === true).length;
@@ -479,6 +490,14 @@ async function loadBlogNextSiteHostingTargets({ preserveSelection = true } = {})
   } catch (error) {
     console.warn('[Blog Beta] Site Hosting 대상 조회 실패:', error);
     select.dataset.loadFailed = 'true';
+    if (selectedTarget && previousProjectId && previousSiteId) {
+      const retained = new Option(`${previousSiteId} · 목록 확인 필요`, `retained:${previousSiteId}`, true, true);
+      retained.dataset.projectId = previousProjectId;
+      retained.dataset.siteId = previousSiteId;
+      retained.dataset.siteKind = String(selectedTarget.kind || selectedTarget.site_kind || '');
+      retained.disabled = true;
+      select.replaceChildren(new Option('사이트 목록 확인 실패', ''), retained);
+    }
     setBlogNextSiteHostingMessage('사이트 목록을 불러오지 못했습니다. 다시 시도해 주세요.', 'error');
     return null;
   } finally {
@@ -497,6 +516,7 @@ async function loadBlogNextSiteHostingTargets({ preserveSelection = true } = {})
 }
 
 function syncBlogNextSiteHostingOptions(type) {
+  const topicEditor = typeof blogNextEditingRowIndex !== 'undefined' && blogNextEditingRowIndex !== null;
   const selected = isBlogNextSiteHostingTarget(type);
   const schedule = blogNextDraftField(type, 'post-status')?.querySelector('option[value="schedule"]');
   const preview = blogNextDraftState[type]?.preview;
@@ -504,7 +524,7 @@ function syncBlogNextSiteHostingOptions(type) {
     && preview.images.some((image) => !image.excluded && !image.exists && String(image.prompt || '').trim());
   if (schedule) schedule.disabled = selected || unresolvedImages;
   const status = blogNextDraftField(type, 'post-status');
-  if (selected && status?.value === 'schedule') {
+  if (!topicEditor && selected && status?.value === 'schedule') {
     status.value = 'publish';
     captureBlogNextPublishingTargetSettings(type);
   }

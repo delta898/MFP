@@ -74,7 +74,14 @@ function bindBlogNextEditorSettingsInstance(editor) {
     const id = event.target?.dataset.blogNextSettingKey || '';
     if (['blog-next-target-naver', 'blog-next-target-wordpress', 'blog-next-target-site-hosting'].includes(id)) {
       syncBlogNextProviderDependentFields();
+      if (id === 'blog-next-target-site-hosting' && event.target.checked) {
+        const select = getBlogNextSettingsElement('blog-next-site-hosting-select');
+        if (!select || select.options.length <= 1 || select.dataset.loadFailed === 'true') {
+          void loadBlogNextSiteHostingTargets({ preserveSelection: true });
+        }
+      }
     }
+    if (id === 'blog-next-site-hosting-select') syncBlogNextDraftProviderFields('ai');
     if (id === 'blog-next-post-status') syncBlogNextScheduleField();
     if (id === 'blog-next-category' && typeof captureBlogNextPublishingTargetSettings === 'function') {
       captureBlogNextPublishingTargetSettings('ai');
@@ -109,8 +116,6 @@ function bindBlogNextEditorSettingsInstance(editor) {
       document.getElementById('blog-next-title-recommend')?.click();
     } else if (id === 'blog-next-writing-settings-open') {
       void navigateTo('settings-next', 'writing');
-    } else if (id === 'blog-next-site-hosting-retry') {
-      void loadBlogNextSiteHostingTargets({ preserveSelection: true });
     }
   });
 }
