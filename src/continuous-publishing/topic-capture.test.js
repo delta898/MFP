@@ -39,6 +39,30 @@ test('scheduled ready topic requires a parseable platform schedule date', () => 
     assert.equal(invalid.errors[0].code, 'SCHEDULE_DATE_REQUIRED');
 });
 
+test('scheduled ready topic rejects a reservation at or before the current time', () => {
+    const past = validateTopicCapture({
+        subject: '지난 예약 글', platforms: ['naver'], postStatus: 'schedule', scheduleDate: '2026-10-08T10:00'
+    }, { ready: true, now: new Date('2026-10-08T10:00:00').getTime() });
+    const future = validateTopicCapture({
+        subject: '미래 예약 글', platforms: ['naver'], postStatus: 'schedule', scheduleDate: '2026-10-08T10:01'
+    }, { ready: true, now: new Date('2026-10-08T10:00:00').getTime() });
+
+    assert.equal(past.valid, false);
+    assert.equal(past.errors[0].code, 'SCHEDULE_DATE_PAST');
+    assert.equal(future.valid, true);
+});
+
+test('waiting topic may omit a schedule but cannot preserve an expired schedule', () => {
+    const omitted = validateTopicCapture({ subject: '보관 글', postStatus: 'schedule' }, { ready: false });
+    const expired = validateTopicCapture({
+        subject: '보관 글', postStatus: 'schedule', scheduleDate: '2026-10-07T10:00'
+    }, { ready: false, now: new Date('2026-10-08T10:00:00').getTime() });
+
+    assert.equal(omitted.valid, true);
+    assert.equal(expired.valid, false);
+    assert.equal(expired.errors[0].code, 'SCHEDULE_DATE_PAST');
+});
+
 test('topic capture rejects a non-http reference URL', () => {
     const result = validateTopicCapture({ referenceUrl: 'not-a-url' }, { ready: false });
 
@@ -66,8 +90,8 @@ test('ready row keeps the topic-owned delivery plan in sheet options', () => {
         imageMode: 'none',
         externalReference: false,
         postStatus: 'schedule',
-        scheduleDate: '2026-09-01T10:30'
-    }, { ready: true });
+        scheduleDate: '2026-10-09T10:30'
+    }, { ready: true, now: new Date('2026-10-08T10:30').getTime() });
 
     assert.equal(row.status, TOPIC_STATUS.READY);
     assert.deepEqual(row.keywords, ['제주', '아침 산책']);
@@ -85,7 +109,7 @@ test('ready row keeps the topic-owned delivery plan in sheet options', () => {
     assert.equal(row.options.image_mode, 'none');
     assert.equal(row.options.external_reference, false);
     assert.equal(row.options.post_status, 'schedule');
-    assert.equal(row.options.schedule_date, '2026-09-01T10:30');
+    assert.equal(row.options.schedule_date, '2026-10-09T10:30');
 });
 
 test('topic capture requires legacy multi-target rows to be resolved explicitly', () => {

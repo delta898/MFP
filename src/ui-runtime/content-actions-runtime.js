@@ -7,6 +7,7 @@ const {
 const { parseImageCount } = require('../content/blog-image-plan');
 const { parseBlogImageMode, generatesBlogImages } = require('../content/blog-image-mode');
 const { normalizePublishTargets } = require('../content/single-publish-target');
+const { getScheduleDateIssue } = require('../continuous-publishing/topic-capture');
 const {
     LIVE_PUBLISH_BLOCKED_CODE,
     LIVE_PUBLISH_BLOCKED_MESSAGE,
@@ -346,6 +347,14 @@ function createContentActionsRuntime(deps = {}) {
             emitProgress('발행 처리 시작...');
             const publishRes = await processMultiPlatformPublish(publishParams, {
                 onProgress: emitProgress,
+                beforePlatformPost: effectivePostStatus === 'schedule'
+                    ? async ({ target } = {}) => {
+                        const issue = getScheduleDateIssue(effectiveScheduleDate);
+                        if (!issue) return { success: true };
+                        emitProgress(`예약 시각이 지나 ${target && target !== 'preflight' ? `${target} ` : ''}포스팅을 건너뜁니다.`);
+                        return { success: false, code: issue.code, message: '예약 시각이 지나 포스팅하지 않았습니다. 예약 설정을 수정해 주세요.' };
+                    }
+                    : undefined,
                 isLast: options.isLast === true,
                 source: options.isAutoCycle === true ? 'auto-publish' : 'sheet-publish',
                 stableKey: `topics-row-${rowIndex}`,

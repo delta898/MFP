@@ -570,6 +570,27 @@ test('multi-platform publish does not call platforms when quota reserve fails', 
     assert.deepEqual(calls, ['quota:reserve']);
 });
 
+test('scheduled publish rechecks its deadline after generation and releases quota when it expires', async () => {
+    const { runtime, calls } = createPublishLifecycleRuntime({ naverSuccess: true, wordpressSuccess: true });
+    let checks = 0;
+    const params = createPublishParams();
+    params.context.postStatus = 'schedule';
+    params.context.scheduleDate = '2099-01-01T00:00:00.000Z';
+    const result = await runtime.processMultiPlatformPublish(params, {
+        operationId: 'schedule-expired-during-generation',
+        beforePlatformPost: async ({ target }) => {
+            checks += 1;
+            return target === 'preflight'
+                ? { success: true }
+                : { success: false, code: 'SCHEDULE_DATE_PAST', message: '예약 시각이 지났습니다.' };
+        }
+    });
+
+    assert.equal(result.success, false);
+    assert.equal(result.code, 'SCHEDULE_DATE_PAST');
+    assert.deepEqual(calls, ['quota:reserve', 'quota:release']);
+});
+
 test('multi-platform retry skips targets already committed in the operation ledger', async () => {
     const { runtime, calls, lifecycleCalls } = createPublishLifecycleRuntime({
         naverSuccess: true,

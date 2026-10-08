@@ -3,7 +3,7 @@
 - Branch: `codex/blog-topic-settings-reuse-main`
 - Base branch: `codex/static-site-builder-main`
 - Start date: 2026-10-08
-- Status: Settings-instance redesign implemented; focused verification passed; UI acceptance pending
+- Status: Settings-instance redesign and scheduled-time validation implemented; focused verification passed; UI acceptance pending
 
 ## User need
 
@@ -226,7 +226,7 @@ Stages are ordered to make each transition reviewable. Keep the feature limited 
 - Focused contract verification and syntax checks are recorded after the latest saved-idea button-flow update.
 - `node --check` passed for the changed Blog Beta scripts; `git diff --check` passed.
 - Browser smoke and hands-on visual acceptance are deferred to the user's later combined review.
-- Stage 5 still needs server-side parity for past-date rejection at save/update and execution time, plus safe skip/recovery behavior for due scheduled items. The current UI prevents adding an already-past scheduled item, but the API contract does not yet reject past dates.
+- Stage 5 scheduled-time validation is implemented in the follow-up below. Broader API/execution contract review and UI acceptance remain part of the later combined validation.
 
 ### Settings instance redesign — current implementation
 
@@ -249,3 +249,11 @@ Stages are ordered to make each transition reviewable. Keep the feature limited 
 - The shared editor's static footer contains only `취소` and `저장`. The screen-owned queue-management flow creates a separate `대기열로 이동` action only when editing a saved idea that can be promoted; no promotion button exists in the ready queue-item editor.
 - The terminology change from `발행` to `포스팅` is explicitly deferred and not part of this adjustment.
 - Focused verification: quick-flow contract tests, syntax check, and `git diff --check` pass. Visual acceptance remains pending.
+
+### Follow-up — scheduled-time validation
+
+- The capture/update API now rejects scheduled items whose requested time is missing, invalid, or at/before the current time when the item is queue-ready. Saved ideas may omit a schedule; if they carry an explicit schedule, it must still be in the future.
+- A manually selected overdue queue item is left in the queue and surfaced as `needs_attention`; it is not sent to the publishing executor. Automatic selection skips overdue scheduled items and continues to the next runnable item. If all candidates are overdue, the run ends without changing those rows.
+- The runner checks again before invoking the Blog lifecycle adapter. The content execution path checks after manuscript/image generation and again at the platform-post boundary, so a deadline that passes during generation does not result in a late post. The expired run reports `SCHEDULE_DATE_PAST`, preserves the ready row for correction, and does not attempt to automatically reschedule it.
+- The UI already blocks selecting a past date; this change adds server and execution protection. No labels were changed, and the app was not launched for visual acceptance.
+- Focused verification: topic-capture, continuous-publishing service, content-actions runtime, and publish-actions runtime tests pass (95 total); changed JavaScript passes `node --check`; `git diff --check` passes. Broader suites and user UI acceptance remain pending.

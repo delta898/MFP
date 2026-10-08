@@ -33,6 +33,22 @@ function isValidYmd(value) {
     return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
+function getScheduleDateIssue(scheduleDate, now = Date.now()) {
+    const value = normalizeText(scheduleDate);
+    const scheduleMs = Date.parse(value);
+    if (!value || !Number.isFinite(scheduleMs)) {
+        return { code: 'SCHEDULE_DATE_REQUIRED', message: '예약 발행 일시를 입력해 주세요.' };
+    }
+    const numericNow = Number(now);
+    const nowMs = now instanceof Date
+        ? now.getTime()
+        : (Number.isFinite(numericNow) ? numericNow : (Date.parse(now) || Date.now()));
+    if (Number.isFinite(nowMs) && scheduleMs <= nowMs) {
+        return { code: 'SCHEDULE_DATE_PAST', message: '예약 일시는 현재 시각 이후로 선택해 주세요.' };
+    }
+    return null;
+}
+
 function hasIdeaSeed(topic = {}) {
     return Boolean(
         topic.subject
@@ -95,11 +111,9 @@ function validateTopicCapture(input = {}, options = {}) {
         errors.push({ field: 'platforms', code: 'MULTIPLE_PUBLISH_TARGETS', message: '하나의 글감에는 발행 대상을 하나만 선택할 수 있습니다.' });
     }
 
-    if (ready && topic.postStatus === 'schedule') {
-        const scheduleMs = Date.parse(topic.scheduleDate);
-        if (!topic.scheduleDate || Number.isNaN(scheduleMs)) {
-            errors.push({ field: 'scheduleDate', code: 'SCHEDULE_DATE_REQUIRED', message: '예약 발행 일시를 입력해 주세요.' });
-        }
+    if (topic.postStatus === 'schedule' && (ready || topic.scheduleDate)) {
+        const issue = getScheduleDateIssue(topic.scheduleDate, options.now);
+        if (issue) errors.push({ field: 'scheduleDate', ...issue });
     }
 
     return { valid: errors.length === 0, errors, topic };
@@ -107,7 +121,7 @@ function validateTopicCapture(input = {}, options = {}) {
 
 function buildTopicSheetRow(input = {}, options = {}) {
     const ready = options.ready === true;
-    const validation = validateTopicCapture(input, { ready });
+    const validation = validateTopicCapture(input, { ready, now: options.now });
     if (!validation.valid) {
         const error = new Error(validation.errors[0].message);
         error.code = validation.errors[0].code;
@@ -164,6 +178,7 @@ module.exports = {
     READY_POST_STATUSES,
     WRITING_STRATEGIES,
     buildTopicSheetRow,
+    getScheduleDateIssue,
     normalizeTopicCaptureInput,
     validateTopicCapture
 };

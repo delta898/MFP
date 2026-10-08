@@ -306,6 +306,15 @@ function createPublishActionsRuntime(deps = {}) {
             stableKey: options.stableKey || '',
             postStatus: context.postStatus
         });
+        const ensurePlatformPostAllowed = async (target) => {
+            if (typeof options.beforePlatformPost !== 'function') return;
+            const gate = await options.beforePlatformPost({ target });
+            if (gate?.success === false) {
+                const error = new Error(gate.message || '예약 시각이 지나 포스팅을 건너뛰었습니다.');
+                error.code = gate.code || 'SCHEDULE_DATE_PAST';
+                throw error;
+            }
+        };
         const requestedSubject = String(context.subject || '').trim() || '제목 미지정';
         await recordBlogSelection({
             operationId,
@@ -318,6 +327,12 @@ function createPublishActionsRuntime(deps = {}) {
         const generated = await buildMultiPlatformGeneratedContent(params, options);
         if (!generated.success) {
             return generated;
+        }
+
+        try {
+            await ensurePlatformPostAllowed('preflight');
+        } catch (error) {
+            return { success: false, code: error.code || 'PUBLISH_PREFLIGHT_FAILED', message: error.message };
         }
 
         const results = generated.results || {
@@ -354,6 +369,7 @@ function createPublishActionsRuntime(deps = {}) {
             const executionTargets = applyPreviouslySuccessfulTargets(results, targets, reservation);
 
             if (executionTargets.includes('naver') && results.naver.targetDir) {
+                await ensurePlatformPostAllowed('naver');
                 emitProgress('네이버 발행 중...');
                 const naverActionLabel = getPostActionLabel(context.postStatus);
                 const naverCompletionLabel = getPlatformCompletionLabel('네이버', context.postStatus);
@@ -376,6 +392,7 @@ function createPublishActionsRuntime(deps = {}) {
             }
 
             if (executionTargets.includes('wordpress') && results.wordpress.targetDir) {
+                await ensurePlatformPostAllowed('wordpress');
                 emitProgress('워드프레스 발행 중...');
                 const wpActionLabel = getPostActionLabel(context.postStatus);
                 const wpCompletionLabel = getPlatformCompletionLabel('워드프레스', context.postStatus);

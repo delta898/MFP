@@ -1,6 +1,6 @@
 const { createApiError } = require('../errors');
 const { TOPIC_STATUS } = require('../../continuous-publishing/contract');
-const { buildTopicSheetRow } = require('../../continuous-publishing/topic-capture');
+const { buildTopicSheetRow, getScheduleDateIssue } = require('../../continuous-publishing/topic-capture');
 const { buildShoppingTopicSheetRow } = require('../../continuous-publishing/shopping-topic-capture');
 const {
     createAutomationSettingsRepository,
@@ -146,6 +146,19 @@ function createContinuousPublishingService(deps = {}) {
 
     function topicPostStatus(topic = {}) {
         return String(topic.postStatus || topic.options?.post_status || 'publish').trim().toLowerCase();
+    }
+
+    function currentTimeMs() {
+        const value = typeof now === 'function' ? now() : new Date();
+        const time = value instanceof Date
+            ? value.getTime()
+            : (typeof value === 'number' ? value : Date.parse(value));
+        return Number.isFinite(time) ? time : Date.now();
+    }
+
+    function topicHasPastSchedule(topic = {}, at = currentTimeMs()) {
+        if (topicPostStatus(topic) !== 'schedule') return false;
+        return getScheduleDateIssue(topic.scheduleDate || topic.options?.schedule_date, at)?.code === 'SCHEDULE_DATE_PAST';
     }
 
     function escapeNotificationText(value) {
@@ -323,12 +336,23 @@ function createContinuousPublishingService(deps = {}) {
                     Utils.clearSheetCache('topics');
                     const queue = await Utils.readGoogleSheetTopicsAll({
                         status: TOPIC_STATUS.READY,
-                        limit: 1,
+                        limit: 100000,
                         offset: 0,
                         sortBy: 'rowNumber',
                         sortDir: 'asc'
                     });
-                    topic = Array.isArray(queue?.items) ? queue.items[0] : null;
+                    const readyItems = Array.isArray(queue?.items) ? queue.items : [];
+                    const pastScheduledItems = readyItems.filter((item) => topicHasPastSchedule(item));
+                    topic = readyItems.find((item) => !topicHasPastSchedule(item)) || null;
+                    if (!topic && pastScheduledItems.length > 0) {
+                        updateRunnerState({
+                            state: 'empty',
+                            message: '예약 시각이 지난 글감은 건너뛰었습니다. 실행 가능한 글감이 없습니다.',
+                            resultStatus: 'SCHEDULED_ITEMS_SKIPPED',
+                            finishedAt: new Date(currentTimeMs()).toISOString()
+                        });
+                        return;
+                    }
                 }
                 if (!topic || !Number.isInteger(Number(topic.rowIndex))) {
                     updateRunnerState({
@@ -341,6 +365,19 @@ function createContinuousPublishingService(deps = {}) {
 
                 const rowIndex = Number(topic.rowIndex);
                 const postStatus = topicPostStatus(topic);
+                if (topicHasPastSchedule(topic)) {
+                    updateRunnerState({
+                        state: 'needs_attention',
+                        message: '예약 시각이 지난 글감은 포스팅하지 않았습니다. 예약 설정을 수정해 주세요.',
+                        progressStage: '',
+                        rowIndex,
+                        rowNumber: Number(topic.rowNumber || rowIndex + 2),
+                        subject: String(topic.subject || topic.keywordsRaw || '제목 없는 글감'),
+                        resultStatus: 'SCHEDULE_DATE_PAST',
+                        finishedAt: new Date(currentTimeMs()).toISOString()
+                    });
+                    return;
+                }
                 updateRunnerState({
                     state: 'running',
                     message: execution.simulation === true ? 'Local에서 예정 동작을 확인하고 있습니다.' : '글감을 생성하고 발행하고 있습니다.',
@@ -369,6 +406,17 @@ function createContinuousPublishingService(deps = {}) {
                     return;
                 }
 
+                if (topicHasPastSchedule(topic)) {
+                    updateRunnerState({
+                        state: 'needs_attention',
+                        message: '실행 직전에 예약 시각이 지났습니다. 포스팅하지 않았으니 예약 설정을 수정해 주세요.',
+                        progressStage: '',
+                        resultStatus: 'SCHEDULE_DATE_PAST',
+                        finishedAt: new Date(currentTimeMs()).toISOString()
+                    });
+                    return;
+                }
+
                 const result = await blogLifecycleAdapter.execute({
                     rowIndex,
                     plan: topic,
@@ -385,6 +433,16 @@ function createContinuousPublishingService(deps = {}) {
                 });
                 Utils.clearSheetCache('topics');
                 if (!result?.success) {
+                    if (result?.code === 'SCHEDULE_DATE_PAST') {
+                        updateRunnerState({
+                            state: 'needs_attention',
+                            message: '원고 준비 중 예약 시각이 지났습니다. 포스팅하지 않았으니 예약 설정을 수정해 주세요.',
+                            progressStage: '',
+                            resultStatus: result.code,
+                            finishedAt: new Date(currentTimeMs()).toISOString()
+                        });
+                        return;
+                    }
                     updateRunnerState({
                         state: 'failed',
                         message: result?.message || '글감 실행에 실패했습니다.',
@@ -589,7 +647,7 @@ function createContinuousPublishingService(deps = {}) {
             const ready = action === 'enqueue';
             let row;
             try {
-                row = buildTopicSheetRow(requestBody, { ready });
+                row = buildTopicSheetRow(requestBody, { ready, now: currentTimeMs() });
             } catch (error) {
                 throw createApiError(400, error.code || 'TOPIC_CAPTURE_INVALID', error.message, error.details);
             }
@@ -736,7 +794,7 @@ function createContinuousPublishingService(deps = {}) {
             const ready = sourceStatus === TOPIC_STATUS.READY || action === 'enqueue';
             let row;
             try {
-                row = buildTopicSheetRow(requestBody, { ready });
+                row = buildTopicSheetRow(requestBody, { ready, now: currentTimeMs() });
             } catch (error) {
                 throw createApiError(400, error.code || 'TOPIC_UPDATE_INVALID', error.message);
             }

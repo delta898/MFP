@@ -490,6 +490,21 @@ test('enqueue rejects an incomplete delivery plan before touching the sheet', as
     assert.equal(state.appendedRows, undefined);
 });
 
+test('enqueue API rejects an expired schedule before writing to the sheet', async () => {
+    const state = { now: () => new Date('2026-10-08T10:00:00') };
+    const service = createService(state);
+
+    await assert.rejects(
+        () => service.captureTopic({
+            action: 'enqueue', subject: '지난 예약 글', platforms: ['naver'],
+            postStatus: 'schedule', scheduleDate: '2026-10-08T09:59'
+        }),
+        error => error.apiCode === 'SCHEDULE_DATE_PAST' && error.status === 400
+    );
+    assert.equal(state.preflightCalls, undefined);
+    assert.equal(state.appendedRows, undefined);
+});
+
 test('capture rejects an unknown action before touching the sheet', async () => {
     const state = {};
     const service = createService(state);
@@ -719,6 +734,125 @@ test('ready topic save validates content and preserves row identity and queue lo
     assert.equal(state.clearedPrefix, 'topics');
 });
 
+test('ready topic update API rejects an expired schedule without mutating the Sheet', async () => {
+    const state = { now: () => new Date('2026-10-08T10:00:00') };
+    const service = createService(state);
+
+    await assert.rejects(
+        () => service.updateReadyTopic({
+            rowIndex: 2, subject: '지난 예약 글', platforms: ['naver'],
+            postStatus: 'schedule', scheduleDate: '2026-10-08T09:59'
+        }),
+        error => error.apiCode === 'SCHEDULE_DATE_PAST' && error.status === 400
+    );
+    assert.equal(state.updatedFields, undefined);
+});
+
+test('manual runner skips an explicitly selected topic whose scheduled time has passed', async () => {
+    const state = {
+        now: () => new Date('2026-10-08T10:01:00'),
+        readItems: [{
+            rowIndex: 8, rowNumber: 10, status: '발행 준비 완료', subject: '지난 예약 글',
+            postStatus: 'schedule', scheduleDate: '2026-10-08T10:00',
+            options: { post_status: 'schedule', schedule_date: '2026-10-08T10:00' }
+        }]
+    };
+    const service = createService(state);
+
+    service.startNextReadyTopic({ rowIndex: 8 });
+    const result = await waitForRunner(service);
+
+    assert.equal(state.runnerRequest, undefined);
+    assert.equal(result.state, 'needs_attention');
+    assert.equal(result.resultStatus, 'SCHEDULE_DATE_PAST');
+    assert.match(result.message, /예약 시각이 지난 글감은 포스팅하지 않았습니다/);
+    assert.equal(state.statusUpdate, undefined);
+});
+
+test('runner rechecks the scheduled time immediately before posting', async () => {
+    let nowCalls = 0;
+    const state = {
+        now: () => new Date(++nowCalls === 1 ? '2026-10-08T09:59:59' : '2026-10-08T10:00:01'),
+        readItems: [{
+            rowIndex: 8, rowNumber: 10, status: '발행 준비 완료', subject: '곧 만료될 예약 글',
+            postStatus: 'schedule', scheduleDate: '2026-10-08T10:00',
+            options: { post_status: 'schedule', schedule_date: '2026-10-08T10:00' }
+        }]
+    };
+    const service = createService(state);
+
+    service.startNextReadyTopic({ rowIndex: 8 });
+    const result = await waitForRunner(service);
+
+    assert.equal(nowCalls, 3);
+    assert.equal(state.runnerRequest, undefined);
+    assert.equal(result.resultStatus, 'SCHEDULE_DATE_PAST');
+});
+
+test('runner keeps a scheduled item in attention when its deadline expires during generation', async () => {
+    const state = {
+        now: () => new Date('2026-10-08T10:00:00'),
+        readItems: [{
+            rowIndex: 8, rowNumber: 10, status: '발행 준비 완료', subject: '생성 중 만료된 예약 글',
+            postStatus: 'schedule', scheduleDate: '2026-10-08T10:01',
+            options: { post_status: 'schedule', schedule_date: '2026-10-08T10:01' }
+        }],
+        async executeRunner() {
+            return { success: false, code: 'SCHEDULE_DATE_PAST', message: '예약 시각이 지나 포스팅하지 않았습니다.' };
+        }
+    };
+    const service = createService(state);
+
+    service.startNextReadyTopic();
+    const result = await waitForRunner(service);
+
+    assert.equal(result.state, 'needs_attention');
+    assert.equal(result.resultStatus, 'SCHEDULE_DATE_PAST');
+    assert.equal(state.statusUpdate, undefined);
+});
+
+test('automatic queue selection skips expired scheduled topics and processes the next runnable topic', async () => {
+    const state = {
+        now: () => new Date('2026-10-08T10:01:00'),
+        readItems: [
+            {
+                rowIndex: 8, rowNumber: 10, status: '발행 준비 완료', subject: '지난 예약 글',
+                postStatus: 'schedule', scheduleDate: '2026-10-08T10:00',
+                options: { post_status: 'schedule', schedule_date: '2026-10-08T10:00' }
+            },
+            { rowIndex: 9, rowNumber: 11, status: '발행 준비 완료', subject: '실행 가능한 글', postStatus: 'draft', options: { post_status: 'draft' } }
+        ]
+    };
+    const service = createService(state);
+
+    service.startNextReadyTopic();
+    const result = await waitForRunner(service);
+
+    assert.equal(state.runnerRequest.rowIndex, 9);
+    assert.equal(result.state, 'completed');
+    assert.equal(state.statusUpdate, undefined);
+});
+
+test('automatic queue selection leaves overdue scheduled topics untouched when nothing else is runnable', async () => {
+    const state = {
+        now: () => new Date('2026-10-08T10:01:00'),
+        readItems: [{
+            rowIndex: 8, rowNumber: 10, status: '발행 준비 완료', subject: '지난 예약 글',
+            postStatus: 'schedule', scheduleDate: '2026-10-08T10:00',
+            options: { post_status: 'schedule', schedule_date: '2026-10-08T10:00' }
+        }]
+    };
+    const service = createService(state);
+
+    service.startNextReadyTopic();
+    const result = await waitForRunner(service);
+
+    assert.equal(state.runnerRequest, undefined);
+    assert.equal(result.state, 'empty');
+    assert.equal(result.resultStatus, 'SCHEDULED_ITEMS_SKIPPED');
+    assert.equal(state.statusUpdate, undefined);
+});
+
 test('saved topic can be updated in place or promoted to the ready queue', async () => {
     const state = {
         readItems: [{ rowIndex: 2, rowNumber: 4, status: '대기', subject: '보관한 글감' }]
@@ -847,7 +981,7 @@ test('single-item runner selects the top ready topic without overriding its plan
 
     assert.equal(accepted.accepted, true);
     assert.deepEqual(state.readOptions, {
-        status: '발행 준비 완료', limit: 1, offset: 0, sortBy: 'rowNumber', sortDir: 'asc'
+        status: '발행 준비 완료', limit: 100000, offset: 0, sortBy: 'rowNumber', sortDir: 'asc'
     });
     assert.deepEqual(state.runnerRequest, {
         action: 'batch', rowIndex: 7, headless: false, requireReadyStatus: true

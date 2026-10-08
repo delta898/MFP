@@ -110,6 +110,58 @@ test('development continuous automation admits draft rows but still blocks publi
     assert.equal(licenseCalls, 1);
 });
 
+test('scheduled blog rows revalidate the requested time at the platform-post boundary', async () => {
+    let platformPostGate;
+    const runtime = createContentActionsRuntime({
+        CONFIG: {},
+        path,
+        parseIntSafe: (value) => Number(value),
+        Utils: {
+            async readGoogleSheetTopicsAll() {
+                return {
+                    items: [{
+                        rowIndex: 0,
+                        status: '발행 준비 완료',
+                        subject: '예약 글',
+                        postStatus: 'schedule',
+                        scheduleDate: '2000-01-01T00:00:00.000Z',
+                        options: { platforms: ['naver'], post_status: 'schedule', schedule_date: '2000-01-01T00:00:00.000Z' }
+                    }]
+                };
+            },
+            async updateGoogleSheetStatus() { }
+        },
+        Core: {
+            async generateContent() { return { targetDir: '/tmp/generated', finalSubject: '예약 글' }; },
+            async prepareImages() { }
+        },
+        License: {
+            async checkLicenseStatus() { return { success: true, features: { cmd_batch: true } }; }
+        },
+        checkAuthSessionValid: async () => ({ ok: true }),
+        toFeatureMap,
+        isCommandEnabled,
+        getFeatureBool: () => false,
+        getBlogAutoSettingsSnapshot: () => ({ BLOG_AUTO_HEADLESS: true }),
+        processMultiPlatformPublish: async (_params, options) => {
+            platformPostGate = await options.beforePlatformPost({ target: 'naver' });
+            return platformPostGate;
+        }
+    });
+
+    const result = await runtime.executeBlogRowAction(
+        { action: 'batch', rowIndex: 0, requireReadyStatus: true },
+        { manualTrigger: true }
+    );
+
+    assert.deepEqual(platformPostGate, {
+        success: false,
+        code: 'SCHEDULE_DATE_PAST',
+        message: '예약 시각이 지나 포스팅하지 않았습니다. 예약 설정을 수정해 주세요.'
+    });
+    assert.equal(result.code, 'SCHEDULE_DATE_PAST');
+});
+
 test('shopping batch requires both shopping and batch capabilities', async () => {
     const runtime = createContentActionsRuntime({
         async ensureSheetsReadyForUi() { },
