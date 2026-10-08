@@ -1,9 +1,10 @@
 const CONTENT_LIFECYCLE_KIND = Object.freeze({
     BLOG: 'blog',
-    SHOPPING: 'shopping'
+    SHOPPING: 'shopping',
+    SITE_HOSTING: 'site-hosting'
 });
 
-const LIFECYCLE_TARGETS = Object.freeze(['naver', 'wordpress']);
+const LIFECYCLE_TARGETS = Object.freeze(['naver', 'wordpress', 'site-hosting']);
 const LIFECYCLE_POST_STATUSES = Object.freeze(['publish', 'draft', 'schedule']);
 
 function normalizeText(value) {
@@ -89,13 +90,28 @@ function createAdapter(kind, executor) {
         });
     }
 
+    if (kind === CONTENT_LIFECYCLE_KIND.SITE_HOSTING) {
+        return Object.freeze({
+            kind,
+            async execute({ rowIndex, plan, execution = {} }) {
+                return executor({
+                    rowIndex,
+                    topic: plan,
+                    postStatus: resolveDeliveryPlan(plan).postStatus,
+                    execution
+                });
+            }
+        });
+    }
+
     return null;
 }
 
 function createContentLifecycleAdapterRegistry(deps = {}) {
     const adapters = new Map([
         [CONTENT_LIFECYCLE_KIND.BLOG, createAdapter(CONTENT_LIFECYCLE_KIND.BLOG, deps.executeBlogRowAction)],
-        [CONTENT_LIFECYCLE_KIND.SHOPPING, createAdapter(CONTENT_LIFECYCLE_KIND.SHOPPING, deps.executeShoppingBatchRowsAction)]
+        [CONTENT_LIFECYCLE_KIND.SHOPPING, createAdapter(CONTENT_LIFECYCLE_KIND.SHOPPING, deps.executeShoppingBatchRowsAction)],
+        [CONTENT_LIFECYCLE_KIND.SITE_HOSTING, createAdapter(CONTENT_LIFECYCLE_KIND.SITE_HOSTING, deps.executeSiteHostingQueueRowAction)]
     ].filter(([, adapter]) => adapter));
 
     return Object.freeze({

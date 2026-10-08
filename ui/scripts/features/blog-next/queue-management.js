@@ -107,8 +107,9 @@ function populateBlogNextTopicForm(item = {}, sourceStatus) {
   const initialSnapshot = snapshotBlogNextEditingPayload();
   blogNextEditingInitialSnapshot = initialSnapshot;
   syncBlogNextTopicActionAvailability();
+  let siteTargetHydration = Promise.resolve(null);
   if (singlePlatform === 'site-hosting') {
-    void loadBlogNextSiteHostingTargets({ preserveSelection: false, selectedTarget: siteTarget }).then(() => {
+    siteTargetHydration = loadBlogNextSiteHostingTargets({ preserveSelection: false, selectedTarget: siteTarget }).then(() => {
       const normalizeHydratedSiteTarget = (snapshot) => {
         try {
           const payload = JSON.parse(snapshot);
@@ -128,6 +129,7 @@ function populateBlogNextTopicForm(item = {}, sourceStatus) {
     ? '기존 글감에 포스팅 대상이 여러 개 저장되어 있습니다. 하나를 선택한 뒤 저장해 주세요.'
     : '', platforms.length > 1 ? 'error' : '');
   getBlogNextSettingsElement('blog-next-subject')?.focus();
+  return siteTargetHydration;
 }
 
 function setBlogNextQueueActionsBusy(busy) {
@@ -292,21 +294,17 @@ async function addBlogNextSavedItemToQueue(item = {}, button) {
   const rowIndex = Number(item.rowIndex);
   if (!Number.isInteger(rowIndex)) return;
   setBlogNextQueueOperationBusy(true);
-  if (button) button.textContent = '설정 확인 중...';
+  if (button) button.textContent = '이동 중...';
   try {
-    populateBlogNextTopicForm(item, '대기');
-    if (blogNextEditingRowIndex !== rowIndex) return;
-    setBlogNextQueueOperationBusy(false);
-    if (!showBlogNextQueueReadinessIssues()) {
-      if (button?.isConnected) button.textContent = '대기열로 이동';
-      return;
-    }
-    setBlogNextTopicResult('');
+    await postJson('/api/v1/continuous-publishing/queue/add', { rowIndex });
+    showUiToast({ level: 'success', title: '대기열로 이동 완료', message: '글감을 포스팅 대기열로 옮겼습니다.' });
+    await loadBlogNextQueue({ force: true, showRefreshProgress: false });
   } catch (error) {
-    showUiToast({ level: 'error', title: '대기열로 이동 실패', message: error.message || '잠시 후 다시 시도해 주세요.' });
+    await loadBlogNextQueue({ force: true, showRefreshProgress: false }).catch(() => {});
+    showUiToast({ level: 'error', title: '대기열로 이동 실패', message: error.message || '목록을 새로고침한 뒤 다시 확인해 주세요.' });
   } finally {
     setBlogNextQueueOperationBusy(false);
-    if (button?.isConnected && button.textContent === '설정 확인 중...') button.textContent = '대기열로 이동';
+    if (button?.isConnected && button.textContent === '이동 중...') button.textContent = '대기열로 이동';
   }
 }
 

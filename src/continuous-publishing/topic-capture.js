@@ -140,8 +140,8 @@ function validateTopicCapture(input = {}, options = {}) {
         errors.push({ field: 'platforms', code: 'MULTIPLE_PUBLISH_TARGETS', message: '하나의 글감에는 포스팅 대상을 하나만 선택할 수 있습니다.' });
     }
 
-    if (ready && topic.platforms.includes('site-hosting')) {
-        errors.push({ field: 'platforms', code: 'PUBLISH_TARGET_UNSUPPORTED', message: '사이트 포스팅 대기열 실행은 아직 지원하지 않습니다.' });
+    if (ready && topic.platforms.includes('site-hosting') && topic.postStatus === 'schedule') {
+        errors.push({ field: 'postStatus', code: 'SITE_SCHEDULE_UNSUPPORTED', message: '사이트는 예약 발행을 지원하지 않습니다. 임시 저장 또는 즉시 발행을 선택해 주세요.' });
     }
 
     if (topic.postStatus === 'schedule' && (ready || topic.scheduleDate)) {
@@ -210,7 +210,7 @@ function buildTopicSheetRow(input = {}, options = {}) {
 
 module.exports = {
     IMAGE_MODES,
-    READY_PLATFORMS: Object.freeze(['naver', 'wordpress']),
+    READY_PLATFORMS: Object.freeze(['naver', 'wordpress', 'site-hosting']),
     READY_POST_STATUSES,
     WRITING_STRATEGIES,
     buildTopicSheetRow,

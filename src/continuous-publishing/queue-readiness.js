@@ -46,25 +46,47 @@ function diagnoseQueueReadiness(topic = {}, options = {}) {
         if (listedTargets.length > 1) {
             add('platforms', 'MULTIPLE_PUBLISH_TARGETS', '포스팅 대상이 여러 개입니다.');
         }
-        if (listedTargets.includes('site-hosting')) {
-            add('platforms', 'SITE_QUEUE_UNSUPPORTED', '사이트 포스팅은 현재 대기열 실행을 지원하지 않습니다.');
-        }
         const unsupported = listedTargets.filter((target) => target !== 'site-hosting' && !normalizePublishTargets([target]).length);
         if (unsupported.length > 0) {
             add('platforms', 'PUBLISH_TARGET_UNSUPPORTED', `현재 대기열에서 지원하지 않는 포스팅 대상이 있습니다: ${unsupported.join(', ')}.`);
         }
     }
-    const targets = normalizePublishTargets(listedTargets);
+    const siteHostingTarget = listedTargets.includes('site-hosting');
+    const targets = [
+        ...normalizePublishTargets(listedTargets),
+        ...(siteHostingTarget ? ['site-hosting'] : [])
+    ];
+    if (siteHostingTarget) {
+        const siteTarget = topic.options?.site_target;
+        const kind = cleanText(siteTarget?.kind ?? siteTarget?.site_kind ?? siteTarget?.siteKind).toLowerCase();
+        if (!siteTarget || typeof siteTarget !== 'object' || Array.isArray(siteTarget)) {
+            add('siteTarget', 'SITE_TARGET_REQUIRED', '포스팅할 사이트가 선택되지 않았습니다.');
+        } else if (!cleanText(siteTarget.project_id ?? siteTarget.projectId)
+            || !cleanText(siteTarget.site_id ?? siteTarget.siteId)
+            || !['blog', 'vault'].includes(kind)) {
+            add('siteTarget', 'SITE_TARGET_INVALID', '저장된 사이트 정보를 확인할 수 없습니다.');
+        } else if (kind === 'vault') {
+            const destination = cleanText(siteTarget.destination_path ?? siteTarget.destinationPath).replace(/\\/gu, '/');
+            const segments = destination === '.' ? [] : destination.split('/');
+            if (!destination || destination.length > 2000 || destination.startsWith('/')
+                || /^[a-zA-Z]:/u.test(destination)
+                || segments.some((segment) => !segment || segment === '.' || segment === '..' || /[\u0000-\u001f\u007f]/u.test(segment))) {
+                add('siteTarget', 'SITE_DESTINATION_REQUIRED', 'Vault 저장 폴더가 없습니다.');
+            }
+        }
+    }
 
     const postStatus = resolveStoredPostStatus(topic);
     if (!postStatus) {
         add('postStatus', 'POST_STATUS_REQUIRED', '포스팅 방식이 없습니다.');
     } else if (!QUEUE_POST_STATUSES.includes(postStatus)) {
         add('postStatus', 'POST_STATUS_UNSUPPORTED', '지원하지 않는 포스팅 방식입니다.');
+    } else if (siteHostingTarget && postStatus === 'schedule') {
+        add('postStatus', 'SITE_SCHEDULE_UNSUPPORTED', '사이트는 예약 발행을 지원하지 않습니다. 임시 저장 또는 즉시 발행을 선택해 주세요.');
     }
 
     const scheduleDate = cleanText(topic.options?.schedule_date || topic.scheduleDate || topic.schedule_date);
-    if (postStatus === 'schedule') {
+    if (postStatus === 'schedule' && !(siteHostingTarget && issues.some((issue) => issue.code === 'SITE_SCHEDULE_UNSUPPORTED'))) {
         if (!scheduleDate) {
             add('scheduleDate', 'SCHEDULE_DATE_REQUIRED', '예약 일시가 없습니다.');
         } else if (!Number.isFinite(Date.parse(scheduleDate))) {

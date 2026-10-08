@@ -10,7 +10,7 @@ const {
     resolveTopicSheetState
 } = require('./publish-sheet-options');
 
-test('topic sheet state keeps options publish settings as effective source of truth', () => {
+test('topic sheet state keeps options settings while the subject column is canonical', () => {
     const resolved = resolveTopicSheetState({
         subject: '컬럼 제목',
         keywords: ['컬럼 키워드'],
@@ -42,7 +42,7 @@ test('topic sheet state keeps options publish settings as effective source of tr
     });
 
     assert.equal(resolved.title, '선택한 최종 제목');
-    assert.equal(resolved.subject, '옵션 제목');
+    assert.equal(resolved.subject, '컬럼 제목');
     assert.deepEqual(resolved.keywords, ['옵션 키워드']);
     assert.equal(resolved.instruction, '옵션 지시');
     assert.deepEqual(resolved.referenceUrls, ['https://option.example.com']);
@@ -55,6 +55,7 @@ test('topic sheet state keeps options publish settings as effective source of tr
     assert.equal(resolved.externalReference, false);
     assert.equal(resolved.writingStrategy, 'discovery');
     assert.deepEqual(resolved.writingOverrides, { length: 'long', opening: 'direct' });
+    assert.equal(resolveTopicSheetState({ options: JSON.stringify({ subject: '이전 저장값' }) }).subject, '이전 저장값');
 });
 
 test('topic option merge syncs inline edits while preserving unrelated option keys', () => {
@@ -82,7 +83,7 @@ test('topic option merge syncs inline edits while preserving unrelated option ke
 
     assert.equal(merged.custom_flag, 'keep-me');
     assert.equal(merged.title, '새 최종 제목');
-    assert.equal(merged.subject, '새 제목');
+    assert.equal(merged.subject, undefined);
     assert.deepEqual(merged.keywords, ['하나', '둘']);
     assert.equal(merged.instruction, '새 지시');
     assert.deepEqual(merged.reference_urls, ['https://example.com/a', 'https://example.com/b']);

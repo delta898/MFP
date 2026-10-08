@@ -18,6 +18,7 @@ const { createTrendPostingController } = require('../controllers/trend-posting.c
 const { createAccountController } = require('../controllers/account.controller');
 const { createContinuousPublishingController } = require('../controllers/continuous-publishing.controller');
 const { createContinuousPublishingService } = require('../services/continuous-publishing.service');
+const { createSiteHostingQueueExecutor } = require('../../continuous-publishing/site-hosting-queue-executor');
 const { createGoogleDriveSpreadsheets } = require('../../google-drive-spreadsheets');
 const { createAccountOverviewService } = require('../../account/overview-service');
 const { createBlogNextExecutionCoordinator } = require('../../blog-next/execution-coordinator');
@@ -175,11 +176,18 @@ function createLegacyApiRouteHandler(deps = {}) {
         logger: deps.Logger
     });
 
+    const executeSiteHostingQueueRowAction = createSiteHostingQueueExecutor({
+        Utils: deps.Utils,
+        ensureSheetsReadyForUi: deps.ensureSheetsReadyForUi,
+        generateAiManuscriptDraft: contentService.createAiManuscriptDraftForQueue,
+        getSiteHostingSiteService: deps.getSiteHostingSiteService
+    });
     const continuousPublishingService = createContinuousPublishingService({
         Utils: deps.Utils,
         ensureSheetsReadyForUi: deps.ensureSheetsReadyForUi,
         executeBlogRowAction: deps.executeBlogRowAction,
         executeShoppingBatchRowsAction: deps.executeShoppingBatchRowsAction,
+        executeSiteHostingQueueRowAction,
         executeBlogTopicsDelete: deps.executeBlogTopicsDelete,
         CONFIG: deps.CONFIG,
         TelegramService: deps.TelegramService,

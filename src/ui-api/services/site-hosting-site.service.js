@@ -7,7 +7,7 @@ const net = require('node:net');
 const { createSiteHostingProjectRepository } = require('../../site-hosting/project-repository');
 const { createSiteHostingSiteRepository } = require('../../site-hosting/site-repository');
 const { normalizeMenuDestination, normalizeMenuLabel: validateMenuLabel, normalizeNavigationItems, internalPathSegment, internalPathname } = require('../../site-hosting/navigation-contract');
-const { replaceImageBlocks } = require('../../content/image-blocks');
+const { parseImageBlocks, replaceImageBlocks } = require('../../content/image-blocks');
 const { createGitHubSiteTemplateCatalog } = require('../../site-hosting/github-site-template-catalog');
 const { createAstroSiteRuntime } = require('../../site-hosting/astro-site-runtime');
 const { createCloudflareStaticAssetsDeployer } = require('../../site-hosting/cloudflare-static-assets-deployer');
@@ -639,8 +639,6 @@ function createSiteHostingSiteService(deps = {}) {
         const timestamp = now();
         const date = localDate(timestamp);
         const slug = createPostSlug(manuscript.title, date);
-        const publication = postStatus === 'draft' ? 'none' : 'public';
-        const editorialStatus = postStatus === 'draft' ? 'draft' : 'complete';
         const availableImages = new Map();
         for (const entry of publishDraft?.selectedFiles || []) {
             const match = String(entry?.name || '').match(/^(\d{2})_.+\.(?:png|jpe?g|webp|avif)$/iu);
@@ -649,13 +647,22 @@ function createSiteHostingSiteService(deps = {}) {
             if (availableImages.has(index)) throw siteInputError(`이미지 ${index}번이 여러 개 연결되어 있습니다. 원고 미리보기를 새로고침해 주세요.`, 'SITE_HOSTING_IMAGE_MAPPING_AMBIGUOUS', 409);
             availableImages.set(index, entry);
         }
+        const unresolvedImageBlocks = parseImageBlocks(manuscript.body)
+            .filter((block) => !availableImages.has(block.index));
+        // Unresolved prompt blocks are safe in a draft, but must never reach
+        // a public site. Match Naver/WordPress behavior by downgrading the
+        // whole post to a draft when even one image is still missing.
+        const forcedDraft = postStatus === 'publish' && unresolvedImageBlocks.length > 0;
+        const effectivePostStatus = forcedDraft ? 'draft' : postStatus;
+        const publication = effectivePostStatus === 'draft' ? 'none' : 'public';
+        const editorialStatus = effectivePostStatus === 'draft' ? 'draft' : 'complete';
         const imageAssets = new Map();
         let coverImage = null;
         const body = replaceImageBlocks(manuscript.body, (block) => {
             const entry = availableImages.get(block.index);
             if (!entry) {
                 if (publication === 'none') return block.fullTag;
-                throw siteInputError(`이미지 ${block.index}번 파일을 찾지 못했습니다. 이미지가 준비된 뒤 발행해 주세요.`, 'SITE_HOSTING_IMAGE_MISSING', 409);
+                throw siteInputError(`이미지 ${block.index}번 파일을 찾지 못했습니다.`, 'SITE_HOSTING_IMAGE_MISSING', 409);
             }
             const image = decodeDraftImage(entry, block.index);
             if (!image) throw siteInputError(`이미지 ${block.index}번 파일을 읽을 수 없습니다. PNG, JPEG, WebP 또는 AVIF 이미지를 확인해 주세요.`, 'SITE_HOSTING_IMAGE_INVALID', 400);
@@ -756,7 +763,18 @@ function createSiteHostingSiteService(deps = {}) {
         }
 
         if (publication === 'none') {
-            return { status: '사이트에 임시 저장했습니다.', postStatus: 'draft', post_id: slug, publication, date };
+            return {
+                status: forcedDraft ? '이미지가 준비되지 않아 임시 저장했습니다.' : '사이트에 임시 저장했습니다.',
+                postStatus: 'draft',
+                requestedPostStatus: postStatus,
+                ...(forcedDraft ? {
+                    forcedDraft: true,
+                    warning: `이미지 ${unresolvedImageBlocks.map((block) => `${block.index + 1}번`).join(', ')}가 준비되지 않아 공개 발행 대신 임시 저장했습니다.`
+                } : {}),
+                post_id: slug,
+                publication,
+                date
+            };
         }
         try {
             const deployed = await deploy(projectId, siteId, context);

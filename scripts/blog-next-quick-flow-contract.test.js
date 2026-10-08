@@ -103,7 +103,7 @@ test('saved idea editing isolates publication settings and restores quick-writin
   assert.match(read('ui/partials/views/blog-next/editor-modal.html'), /id="blog-next-editor-settings-form"[\s\S]*data-blog-next-editor-settings-slot="topic"[\s\S]*data-blog-next-editor-settings-slot="content"[\s\S]*data-blog-next-editor-settings-slot="publishing"/);
 });
 
-test('saved ideas show queue readiness in the list and only open the shared editor when ready', () => {
+test('saved ideas show queue readiness and the list action directly promotes ready items', () => {
   const management = read('ui/scripts/features/blog-next/queue-management.js');
   const queueUi = read('ui/scripts/features/blog-next/queue-ui.js');
   const queue = read('ui/scripts/features/blog-next/quick-queue.js');
@@ -116,6 +116,9 @@ test('saved ideas show queue readiness in the list and only open the shared edit
   assert.match(queueUi, /querySelectorAll\('\.blog-next-queue-readiness-trigger\[aria-expanded="true"\]'\)[\s\S]*?details\.hidden = true/);
   assert.match(queueUi, /function bindBlogNextQueueReadinessOutsideDismissal\(\)[\s\S]*?document\.addEventListener\('click', \(event\) => \{[\s\S]*?if \(notice\?\.contains\(event\.target\)\) return;[\s\S]*?details\.hidden = true;/);
   assert.match(management, /createBlogNextEditorSettingsInstance\(\);[\s\S]*resetBlogNextEditorSettingsInstance\(\)/);
+  assert.match(management, /siteTargetHydration = loadBlogNextSiteHostingTargets\([\s\S]*?return siteTargetHydration;/);
+  assert.match(management.match(/async function addBlogNextSavedItemToQueue\([\s\S]*?\n\}/)?.[0] || '', /postJson\('\/api\/v1\/continuous-publishing\/queue\/add', \{ rowIndex \}\)[\s\S]*?loadBlogNextQueue\(\{ force: true, showRefreshProgress: false \}\)/);
+  assert.doesNotMatch(management.match(/async function addBlogNextSavedItemToQueue\([\s\S]*?\n\}/)?.[0] || '', /populateBlogNextTopicForm/);
   assert.doesNotMatch(management, /generateAction|saveButton\.hidden|enqueueButton\.hidden/);
   assert.match(queue, /function moveBlogNextTopicFormToQueueEditor\(\{ showPublishSettings = false \} = \{\}\)[\s\S]*createBlogNextEditorSettingsInstance\(\)/);
   assert.match(execution, /if \(options\.editing === true \|\| \(typeof blogNextEditingRowIndex !== 'undefined' && blogNextEditingRowIndex !== null\)\) return/);
@@ -126,7 +129,6 @@ test('saved ideas show queue readiness in the list and only open the shared edit
   assert.doesNotMatch(editor, /원고 만들기|blog-next-publish-now/);
   assert.match(management, /function setBlogNextEditorPromotionAction\(available\)[\s\S]*?if \(!available\) \{\s*existing\?\.remove\(\)/);
   assert.match(management, /setBlogNextEditorPromotionAction\(sourceStatus === '대기'\)/);
-  assert.doesNotMatch(management.match(/async function addBlogNextSavedItemToQueue\([\s\S]*?\n\}/)?.[0] || '', /\/api\/v1\/continuous-publishing\/queue\/add/);
   assert.match(management, /blog-next-editor-actions-slot[\s\S]*closest\('#blog-next-editor-enqueue'\)\) submitBlogNextTopic\('enqueue'\)/);
   assert.match(validity, /if \(editorEnqueue\) editorEnqueue\.disabled = busy \|\| sheetBlocked/);
   assert.doesNotMatch(validity, /editorEnqueue\.hidden/);
@@ -520,7 +522,7 @@ test('quick writing keeps one editable manuscript workspace available before pre
   assert.doesNotMatch(sourceFields, /blog-next-target-(?:naver|wordpress)/);
 });
 
-test('quick writing saves ideas or creates manuscripts; saved-item editor owns queue promotion', () => {
+test('quick writing saves ideas or creates manuscripts; saved items can promote from list or editor', () => {
   const entry = read('ui/partials/views/blog-next/editor-modal.html');
   const view = read('ui/partials/views/blog-next.html');
   const html = readBlogNextView();

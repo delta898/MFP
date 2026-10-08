@@ -78,6 +78,10 @@ function buildCompletionLinks({ postStatus, results, config } = {}) {
         }
         if (url) links.push({ platform, kind: normalizedStatus === 'draft' ? 'home' : 'post', label, url });
     }
+    if (normalizedStatus === 'publish' && source['site-hosting']?.success === true) {
+        const url = safeHttpUrl(source['site-hosting']?.postUrl);
+        if (url) links.push({ platform: 'site-hosting', kind: 'post', label: '사이트 글 보기', url });
+    }
     return links;
 }
 

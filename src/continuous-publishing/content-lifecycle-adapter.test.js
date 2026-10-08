@@ -68,3 +68,28 @@ test('Shopping adapter passes only the stored delivery targets to the existing b
         operationId: 'shopping-4'
     });
 });
+
+test('Site Hosting adapter passes the row and stored post mode to its queue executor', async () => {
+    let request;
+    const registry = createContentLifecycleAdapterRegistry({
+        async executeSiteHostingQueueRowAction(nextRequest) {
+            request = nextRequest;
+            return { success: true };
+        }
+    });
+    const topic = {
+        options: {
+            platforms: ['site-hosting'], post_status: 'draft',
+            site_target: { project_id: 'project-1', site_id: 'site-1', kind: 'vault', destination_path: 'notes' }
+        }
+    };
+
+    const result = await registry.get(CONTENT_LIFECYCLE_KIND.SITE_HOSTING).execute({
+        rowIndex: 9,
+        plan: topic,
+        execution: { automatic: true, operationId: 'site-row-9' }
+    });
+
+    assert.equal(result.success, true);
+    assert.deepEqual(request, { rowIndex: 9, topic, postStatus: 'draft', execution: { automatic: true, operationId: 'site-row-9' } });
+});

@@ -117,6 +117,11 @@ function createService(state = {}) {
                     }]
                 }
             };
+        },
+        async executeSiteHostingQueueRowAction(request) {
+            state.siteQueueRequest = request;
+            if (typeof state.executeSiteQueue === 'function') return state.executeSiteQueue(request);
+            return { success: true, data: { status: '임시 저장 완료', postStatus: request.postStatus, results: { 'site-hosting': { success: true } } } };
         }
     });
 }
@@ -574,7 +579,7 @@ test('ready queue includes live readiness issues without persisting a diagnostic
             },
             {
                 rowIndex: 2, rowNumber: 4, status: '발행 준비 완료', subject: '사이트 글감',
-                options: { platforms: ['site-hosting'], post_status: 'draft' }
+                options: { platforms: ['site-hosting'], post_status: 'draft', site_target: { project_id: 'project-1', site_id: 'site-1', kind: 'blog' } }
             },
             {
                 rowIndex: 3, rowNumber: 5, status: '발행 준비 완료', subject: '기존 글감',
@@ -591,10 +596,10 @@ test('ready queue includes live readiness issues without persisting a diagnostic
 
     const result = await service.getReadyQueue({ searchParams: new URLSearchParams({ limit: '50' }) });
 
-    assert.deepEqual(result.items.map(item => item.queue_readiness.ready), [false, false, false, false]);
+    assert.deepEqual(result.items.map(item => item.queue_readiness.ready), [false, true, false, false]);
     assert.deepEqual(result.items.map(item => item.queue_readiness.issues.map(issue => issue.code)), [
         ['SUBJECT_REQUIRED'],
-        ['SITE_QUEUE_UNSUPPORTED'],
+        [],
         ['POST_STATUS_REQUIRED'],
         ['SCHEDULE_DATE_PAST']
     ]);
@@ -606,19 +611,19 @@ test('ready queue includes live readiness issues without persisting a diagnostic
     assert.equal(Object.hasOwn(state.readItems[0], 'queue_readiness'), false);
 });
 
-test('saved site topics expose the queue execution limitation as a live readiness issue', async () => {
+test('saved site topics expose missing site identity as a live readiness issue', async () => {
     const state = {
         readItems: [{
             rowIndex: 7, rowNumber: 9, status: '대기', subject: '사이트 글감',
-            options: { platforms: ['site-hosting'], post_status: 'draft', site_target: { site_id: 'site-1' } }
+            options: { platforms: ['site-hosting'], post_status: 'draft' }
         }]
     };
     const service = createService(state);
 
     const result = await service.getReadyQueue({ searchParams: new URLSearchParams({ limit: '50' }) });
 
-    assert.deepEqual(result.saved_items[0].queue_readiness.issues.map(issue => issue.code), ['SITE_QUEUE_UNSUPPORTED']);
-    assert.equal(result.saved_items[0].queue_readiness.issues[0].message, '사이트 포스팅은 현재 대기열 실행을 지원하지 않습니다.');
+    assert.deepEqual(result.saved_items[0].queue_readiness.issues.map(issue => issue.code), ['SITE_TARGET_REQUIRED']);
+    assert.equal(result.saved_items[0].queue_readiness.issues[0].message, '포스팅할 사이트가 선택되지 않았습니다.');
     assert.equal(Object.hasOwn(state.readItems[0], 'queue_readiness'), false);
 });
 
@@ -1026,6 +1031,60 @@ test('saved topic with no subject cannot be promoted even when other idea fields
     assert.equal(state.updatedRowIndex, undefined);
 });
 
+test('saved topic update cannot promote a Site Hosting target without its site identity', async () => {
+    const state = {
+        readItems: [{ rowIndex: 2, rowNumber: 4, status: '대기', subject: '기존 사이트 글감' }]
+    };
+    const service = createService(state);
+
+    await assert.rejects(
+        () => service.updateTopic({
+            action: 'enqueue', sourceStatus: '대기', rowIndex: 2,
+            subject: '새 사이트 글감', platforms: ['site-hosting'], postStatus: 'publish'
+        }),
+        error => error.apiCode === 'SITE_TARGET_REQUIRED' && error.status === 400
+    );
+    assert.equal(state.updatedRowIndex, undefined);
+});
+
+test('saved topic promotion uses the shared queue readiness diagnostic before changing status', async () => {
+    const state = {
+        readItems: [{
+            rowIndex: 2, rowNumber: 4, status: '대기', subject: '사이트 글감',
+            options: {
+                post_status: 'publish', platforms: ['site-hosting']
+            }
+        }]
+    };
+    const service = createService(state);
+
+    await assert.rejects(
+        () => service.addSavedTopicToQueue({ rowIndex: 2 }),
+        error => error.apiCode === 'SITE_TARGET_REQUIRED' && error.status === 409
+    );
+    assert.equal(state.statusUpdate, undefined);
+});
+
+test('saved topic promotion succeeds when its stored subject and publishing settings are complete', async () => {
+    const state = {
+        readItems: [{
+            rowIndex: 2, rowNumber: 4, status: '대기', subject: '보관한 글감',
+            options: { post_status: 'draft', platforms: ['naver'] }
+        }]
+    };
+    const service = createService(state);
+
+    const result = await service.addSavedTopicToQueue({ rowIndex: 2 });
+
+    assert.equal(result.status, '발행 준비 완료');
+    assert.deepEqual(state.statusUpdate, {
+        rowIndex: 2,
+        status: '발행 준비 완료',
+        message: '연속 발행 대기열에 추가',
+        options: { throwOnError: true }
+    });
+});
+
 test('saved topic deletion verifies waiting state before deleting the row', async () => {
     const state = {
         readItems: [{ rowIndex: 2, rowNumber: 4, status: '대기', subject: '지울 글감' }]
@@ -1057,7 +1116,10 @@ test('remove returns the same topic to waiting without deleting it', async () =>
 
 test('add moves the same saved topic to the ready queue without rewriting its content', async () => {
     const state = {
-        readItems: [{ rowIndex: 2, rowNumber: 4, status: '대기', subject: '보관한 글감' }]
+        readItems: [{
+            rowIndex: 2, rowNumber: 4, status: '대기', subject: '보관한 글감',
+            options: { post_status: 'draft', platforms: ['naver'] }
+        }]
     };
     const service = createService(state);
 
@@ -1121,6 +1183,25 @@ test('single-item runner selects the top ready topic without overriding its plan
     const globalStatus = await service.getGlobalStatusSummary();
     assert.equal(globalStatus.last_completion_at, result.finishedAt);
     assert.equal(globalStatus.last_result_status, '발행 완료');
+});
+
+test('continuous runner selects the Site Hosting lifecycle adapter for a site topic', async () => {
+    const topic = {
+        rowIndex: 12, rowNumber: 14, status: '발행 준비 완료', subject: '사이트 포스트',
+        options: {
+            platforms: ['site-hosting'], post_status: 'draft',
+            site_target: { project_id: 'project-1', site_id: 'site-1', kind: 'blog' }
+        }
+    };
+    const state = { readItems: [topic] };
+    const service = createService(state);
+
+    service.startNextReadyTopic({ rowIndex: 12 });
+    const result = await waitForRunner(service);
+
+    assert.equal(state.siteQueueRequest.rowIndex, 12);
+    assert.equal(state.siteQueueRequest.postStatus, 'draft');
+    assert.equal(result.state, 'completed');
 });
 
 test('manual runner can execute one explicitly selected ready topic without changing queue order', async () => {

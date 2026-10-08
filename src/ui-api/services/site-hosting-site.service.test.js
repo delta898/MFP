@@ -586,6 +586,55 @@ test('site draft stores its first image block as the optional cover frontmatter 
     }
 });
 
+test('site public publishing falls back to a draft when an image prompt has no generated image', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-unresolved-image-draft-'));
+    try {
+        const siteRoot = path.join(workspaceDir, 'site');
+        fs.mkdirSync(path.join(siteRoot, 'site-data'), { recursive: true });
+        const template = {
+            resource: {
+                spec_version: SITE_HOSTING_CONTRACT_VERSION,
+                family: { content_contract_version: SITE_HOSTING_CONTRACT_VERSION, content_types: [{ kind: 'post', source: 'posts/{slug}/index.md', listing_route: '/blog/', detail_route: '/blog/{slug}/' }] },
+                template: { compatibility: { contract: { version: SITE_HOSTING_CONTRACT_VERSION } } }
+            }
+        };
+        const manuscript = '# 테스트 글\n\n도입 문단\n\n[[IMAGE_0\ntitle: 본문 이미지\nprompt: 생성하지 못한 이미지\n]]\n\n본문';
+        const deployCalls = [];
+        const service = createSiteHostingSiteService({
+            fs, path, workspaceDir,
+            repository: { get: () => ({
+                root_path: siteRoot,
+                template_status: 'available',
+                template: { id: 'template-1' },
+                customization: { navigation: [{ label: '블로그', href: '/blog/' }], publishing: { listing_route: '/blog/', detail_route: '/blog/{slug}/', post_list_navigation_index: 0 } }
+            }) },
+            templates: { get: () => template },
+            cloudflareDeployer: { deploy: async () => { deployCalls.push('deploy'); return { url: 'https://example.com/' }; } },
+            getCloudflareDeploymentCredentials: async () => ({ accessToken: 'test', account: { id: 'a'.repeat(32) } }),
+            createId: () => 'abc12345',
+            now: () => '2026-10-09T12:30:00.000Z',
+            manuscriptDraftService: { buildPublishPayload: () => ({ selectedFiles: [
+                { name: 'contents.md', textContent: manuscript }
+            ] }) }
+        });
+
+        const result = await service.postMarkdown('project-1', 'site-1', { draftId: 'draft-1', revision: 1, postStatus: 'publish' });
+
+        assert.equal(result.postStatus, 'draft');
+        assert.equal(result.publication, 'none');
+        assert.equal(result.forcedDraft, true);
+        assert.match(result.warning, /이미지 1번/);
+        assert.deepEqual(deployCalls, []);
+        const savedMarkdown = fs.readFileSync(path.join(siteRoot, 'site-data', 'posts', result.post_id, 'index.md'), 'utf8');
+        assert.match(savedMarkdown, /^editorial_status: "draft"$/mu);
+        assert.match(savedMarkdown, /^publication: "none"$/mu);
+        assert.doesNotMatch(savedMarkdown, /^published_at:/mu);
+        assert.match(savedMarkdown, /\[\[IMAGE_0\ntitle: 본문 이미지\nprompt: 생성하지 못한 이미지\n\]\]/u);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('site service opens the built output folder and requests preview when it is missing', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-open-build-folder-'));
     try {

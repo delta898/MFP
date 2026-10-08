@@ -1138,6 +1138,12 @@ function createContentService(deps = {}) {
             }, () => generateAiManuscriptDraft(requestBody, imageMode));
         },
 
+        async createAiManuscriptDraftForQueue(requestBody = {}) {
+            const imageMode = validateAiManuscriptRequest(requestBody);
+            // The queue runner already owns the shared Blog Beta execution lease.
+            return generateAiManuscriptDraft(requestBody, imageMode);
+        },
+
         startAiManuscriptDraftOperation(requestBody = {}) {
             const imageMode = validateAiManuscriptRequest(requestBody);
             const selectedTextModel = CONFIG.TEXT_MODEL_CONFIG || {};

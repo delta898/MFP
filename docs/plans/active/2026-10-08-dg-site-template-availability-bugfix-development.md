@@ -3,7 +3,7 @@
 - Branch: `codex/bugfix-dg-site-template-availability`
 - Start date: 2026-10-08
 - Parent branch: `codex/static-site-builder-main`
-- Status: Follow-up implementation in progress; saved-topic site settings are being added before queue execution support
+- Status: Site Hosting queue execution implemented; focused verification passed, awaiting user acceptance
 
 ## User need
 
@@ -79,7 +79,7 @@ Explicit non-goals for this follow-up slice:
 - 2026-10-09: Updated readiness notices so only one reason popover can remain open across the queue and saved-topic lists. Selecting another warning closes the previous one; selecting the open warning closes it. Added a quick-flow contract check.
 - 2026-10-09: Added outside-click dismissal for an open readiness reason popover while keeping clicks inside its trigger/popover from closing it. The focused UI contract covers this behavior; all 82 focused tests pass, along with queue UI syntax and diff checks.
 
-## Original verification and handoff
+## Original stage verification and handoff
 
 - Focused checks passed: `node --test src/site-hosting/site-template-catalog.test.js src/site-hosting/site-repository.test.js src/ui-api/services/site-hosting-site.service.test.js` (31 tests); `git diff --check`.
 - Manual UI confirmation remains for the user: reopen Blog Beta quick-create and confirm DG1 becomes selectable while actually unsupported/missing local templates remain disabled.
@@ -89,5 +89,50 @@ Explicit non-goals for this follow-up slice:
 
 - Current focused verification: `node --test src/continuous-publishing/queue-readiness.test.js src/ui-api/services/continuous-publishing.service.test.js scripts/blog-next-quick-flow-contract.test.js` (82 passing), including saved-site readiness and list action contracts; syntax checks for changed queue UI scripts and `git diff --check` pass.
 - Remaining: inspect final diff and perform user-owned visual confirmation of saving/restoring a normal site and a DG Vault folder in the saved-topic editor.
-- Queue runner integration, browser UI regression, and end-to-end site posting remain future work. Do not describe Site Hosting as queue-supported until that work is complete.
+- At this point in the saved-topic follow-up, queue runner integration had not started. It is now tracked and implemented in the later follow-up below.
 - Commit/merge/push remain pending and unauthorized.
+
+## Follow-up scope: Site Hosting queue execution
+
+The user confirmed that Site Hosting queue items support only draft or immediate publish. Scheduled publishing is unsupported.
+
+In scope:
+
+- Allow complete Site Hosting topic settings to enter the ready queue, except scheduled publishing.
+- Add a Site Hosting lifecycle adapter to the continuous runner.
+- Reuse existing AI manuscript generation and the existing Site Hosting `postMarkdown` service; do not duplicate either publishing engine.
+- Update the Topics row on success/failure and surface the Site Hosting result through the existing runner state.
+- Add focused unit/contract coverage with mocked generation and posting services.
+
+Non-goals:
+
+- Scheduled Site Hosting publishing, live deploys, or actual paid AI generation during automated checks.
+- UI redesign or user-run visual acceptance.
+- Commit, merge, push, or release.
+
+Design notes:
+
+- Site readiness requires one `site-hosting` target, `options.site_target` with project/site IDs and `blog`/`vault` kind, and a relative `destination_path` for Vault sites. A normal blog site's listing route remains informational and is not used as a destination.
+- The same readiness diagnostic rejects `post_status: "schedule"` for Site Hosting.
+- Queue execution generates a platform-neutral manuscript draft through the existing content service, then calls the existing Site Hosting service directly with its draft ID and revision. It does not call its own HTTP endpoint.
+- On successful draft save or immediate publish, update the Topics row to the matching terminal status. On failed execution, mark the row failed; a saved-but-deploy-failed result must not be automatically retried because the post directory already exists.
+
+## Queue execution progress and verification
+
+- 2026-10-09: Added Site Hosting to the shared queue readiness and topic-capture contract. Site target identity is revalidated from saved topic settings; Vault destinations must be safe relative paths. The shared diagnostic rejects scheduled Site Hosting publishing, while draft and immediate publish may proceed.
+- 2026-10-09: Added a Site Hosting lifecycle adapter and queue executor. It rereads the Topics row, rechecks readiness immediately before generation, reuses the existing AI manuscript generation logic and `postMarkdown` service, and updates row status/results. The queue retains ownership of the runner lock; a queue-specific content-service entry calls the same generation logic without reacquiring that lease.
+- 2026-10-09: Wired the executor through the API runtime using a shared lazy Site Hosting service instance. Successful draft/publish operations become `임시 저장 완료`/`발행 완료`; failures become `실패`, while a saved post with failed deployment becomes `확인 필요` to avoid duplicate retry. Successful immediate publishing exposes the returned site URL in the runner completion links.
+- 2026-10-09: Focused verification passed: queue readiness, topic capture, lifecycle adapter, Site Hosting queue executor, presentation, continuous publishing service, content-service execution lease, quick-flow contract, and Site Hosting publisher suites (149 tests). Syntax checks and `git diff --check` passed.
+- 2026-10-09: Matched Site Hosting's image safety behavior to Naver/WordPress. If a requested public post contains any image prompt without a corresponding generated image, preserve that prompt block and save the whole post as a draft without deploying. The queue now records the publisher's effective `draft` result as `DRAFTED` and includes the fallback reason in its status log. Focused Site Hosting publisher and queue-executor tests pass (25 tests).
+
+Remaining user-owned manual review: confirm a normal blog site and DG Vault site can be edited into a ready queue entry; confirm schedule is unavailable/rejected; run a queue item using draft and publish only when intentionally testing with a non-production site and explicit external-side-effect approval. Automated tests do not perform AI generation, post content, or deploy a site.
+
+## Follow-up: canonical subject and readiness consistency
+
+- User confirmed `subject` is the single field name for a saved idea (글감), including the UI's 주제 input. `topic` remains the name for the Topics collection/row and broader domain object; it is not a competing scalar field alias.
+- Audit found the Topics row column and UI/API capture payload already use `subject`. Some existing `options` JSON contains a duplicate `subject`, including the example supplied by the user. Resolution now prefers the Topics `subject` column and retains `options.subject` only as a legacy fallback when the column is empty. Editing a row removes the duplicate from `options` while preserving unrelated keys.
+- Queue readiness now accepts the user's example payload when its canonical subject and Site Hosting target are valid. Saved-topic promotion and ready-row edits both use the shared readiness diagnostic before mutating sheet state.
+- Fixed an editor race: site-target hydration is asynchronous, but enqueue validation previously ran immediately and saw an empty site selector. The editor now awaits hydration before diagnosing readiness, so list warning/action state and the edit flow see the same selected target.
+- Focused verification passed: `node --test src/content/publish-sheet-options.test.js src/continuous-publishing/queue-readiness.test.js src/ui-api/services/continuous-publishing.service.test.js scripts/blog-next-quick-flow-contract.test.js` (96 tests), queue/service syntax checks, and `git diff --check`.
+- Browser smoke was attempted but could not start its local fixture server in this sandbox (`listen EPERM` binding `127.0.0.1`); no browser interaction was exercised. User-owned manual review: open the example saved site idea and confirm the site target is present before readiness validation, its move-to-queue action works, and clearing the target displays the matching readiness issue and leaves the row unchanged.
+- 2026-10-09 follow-up: Investigated the reported “no ! → click queue move → editor with no message → click again to move” sequence. The row diagnostic was correct: the saved item was ready, so no `!` or error message was expected. The inconsistency was that the saved-list action labeled “대기열로 이동” opened the editor rather than promoting the item. Updated it to call the already-guarded queue-add API directly and refresh the list; the subject remains the explicit edit entry point, while the editor still has its own promotion action. Invalid rows remain disabled and show the shared diagnostic reason. Focused quick-flow contract and continuous-publishing service tests pass (82 tests), with syntax and diff checks clean.

@@ -152,7 +152,7 @@ function resolveTopicSheetState(input = {}) {
     return {
         options: parsedOptions,
         title: normalizeString(parsedOptions.title) || normalizeString(input.title),
-        subject: normalizeString(parsedOptions.subject) || normalizeString(input.subject),
+        subject: normalizeString(input.subject) || normalizeString(parsedOptions.subject),
         keywords: Array.isArray(parsedOptions.keywords)
             ? normalizeStringArray(parsedOptions.keywords)
             : normalizeStringArray(input.keywords),
@@ -220,7 +220,9 @@ function mergeTopicSheetOptions(existingOptions = {}, fields = {}) {
     const next = parseSheetOptionsValue(existingOptions);
 
     if (fields.title !== undefined) applyStringOption(next, 'title', fields.title);
-    if (fields.subject !== undefined) applyStringOption(next, 'subject', fields.subject);
+    // The Topics sheet's subject column is canonical. Drop the legacy duplicate
+    // from options whenever a row is edited so the two values cannot drift.
+    delete next.subject;
     if (fields.keywords !== undefined) applyArrayOption(next, 'keywords', fields.keywords);
     if (fields.instruction !== undefined) applyStringOption(next, 'instruction', fields.instruction);
     if (fields.referenceUrls !== undefined) applyArrayOption(next, 'reference_urls', fields.referenceUrls);

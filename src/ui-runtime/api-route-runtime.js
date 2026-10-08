@@ -158,6 +158,7 @@ function createUiApiRouteRuntime(deps = {}) {
     let legacyApiRouteHandler = null;
     let cloudflareConnectionRouteHandler = null;
     let cloudflareConnectionService = null;
+    let siteHostingSiteService = null;
     let siteHostingProjectRouteHandler = null;
     let siteHostingSiteRouteHandler = null;
     let manuscriptDraftService = null;
@@ -419,6 +420,7 @@ function createUiApiRouteRuntime(deps = {}) {
             Updater,
             Utils,
             manuscriptDraftService: getManuscriptDraftService(),
+            getSiteHostingSiteService: getSiteHostingSiteServiceInstance,
             BrowserLauncher,
             fs,
             path,
@@ -551,7 +553,18 @@ function createUiApiRouteRuntime(deps = {}) {
 
     function getSiteHostingSiteRouteHandlerInstance() {
         if (!siteHostingSiteRouteHandler) {
-            const service = createSiteHostingSiteService({
+            siteHostingSiteRouteHandler = createSiteHostingSiteRouteHandler({
+                service: getSiteHostingSiteServiceInstance(),
+                sendSuccess,
+                sendError
+            });
+        }
+        return siteHostingSiteRouteHandler;
+    }
+
+    function getSiteHostingSiteServiceInstance() {
+        if (!siteHostingSiteService) {
+            siteHostingSiteService = createSiteHostingSiteService({
                 Logger,
                 fs,
                 path,
@@ -560,13 +573,8 @@ function createUiApiRouteRuntime(deps = {}) {
                 runtimeEnvironment: CONFIG?.RUNTIME_ENVIRONMENT,
                 getCloudflareDeploymentCredentials: () => getCloudflareConnectionServiceInstance().getDeploymentCredentials()
             });
-            siteHostingSiteRouteHandler = createSiteHostingSiteRouteHandler({
-                service,
-                sendSuccess,
-                sendError
-            });
         }
-        return siteHostingSiteRouteHandler;
+        return siteHostingSiteService;
     }
 
     function getDesignStylesRouteHandlerInstance() {

@@ -43,3 +43,16 @@ test('completion links omit failed targets, unsafe URLs, and scheduled registrat
     }), []);
     assert.deepEqual(buildCompletionLinks({ postStatus: 'schedule', results: { naver: { success: true } } }), []);
 });
+
+test('published Site Hosting queue results expose the returned post link', () => {
+    assert.deepEqual(buildCompletionLinks({
+        postStatus: 'publish',
+        results: { 'site-hosting': { success: true, postUrl: 'https://site.example/blog/entry' } }
+    }), [
+        { platform: 'site-hosting', kind: 'post', label: '사이트 글 보기', url: 'https://site.example/blog/entry' }
+    ]);
+    assert.deepEqual(buildCompletionLinks({
+        postStatus: 'draft',
+        results: { 'site-hosting': { success: true, postUrl: 'https://site.example/draft' } }
+    }), []);
+});

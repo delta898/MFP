@@ -192,7 +192,7 @@ test('saved site topic stores stable site identity and only Vault folder destina
     assert.equal(Object.hasOwn(blog.options.site_target, 'listing_route'), false);
 });
 
-test('site targets are stored for saved ideas but not accepted into the queue before the runner exists', () => {
+test('site targets can enter the ready queue for draft or immediate posting, but not scheduled posting', () => {
     const saved = validateTopicCapture({
         subject: '보관할 사이트 글감', platforms: ['site-hosting'],
         siteTarget: { project_id: 'project-1', site_id: 'site-1', kind: 'blog' }
@@ -201,8 +201,14 @@ test('site targets are stored for saved ideas but not accepted into the queue be
         subject: '대기열로 보낼 사이트 글감', platforms: ['site-hosting'],
         siteTarget: { project_id: 'project-1', site_id: 'site-1', kind: 'blog' }, postStatus: 'draft'
     }, { ready: true });
+    const scheduled = validateTopicCapture({
+        subject: '예약 사이트 글감', platforms: ['site-hosting'],
+        siteTarget: { project_id: 'project-1', site_id: 'site-1', kind: 'blog' },
+        postStatus: 'schedule', scheduleDate: '2026-10-12T10:00'
+    }, { ready: true, now: new Date('2026-10-09T00:00Z') });
 
     assert.equal(saved.valid, true);
-    assert.equal(queued.valid, false);
-    assert.equal(queued.errors.some(({ code }) => code === 'PUBLISH_TARGET_UNSUPPORTED'), true);
+    assert.equal(queued.valid, true);
+    assert.equal(scheduled.valid, false);
+    assert.equal(scheduled.errors.some(({ code }) => code === 'SITE_SCHEDULE_UNSUPPORTED'), true);
 });

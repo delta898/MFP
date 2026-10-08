@@ -508,6 +508,37 @@ test('direct AI manuscript generation preserves none and excludes upstream image
     assert.match(calls[1][1].markdownText, /본문/);
 });
 
+test('queue AI manuscript generation reuses the held runner lease instead of acquiring a second lock', async () => {
+    const coordinator = createBlogNextExecutionCoordinator();
+    const lease = coordinator.acquire({ source: 'continuous_runner', subject: '대기열 실행' });
+    const service = createService(coordinator, async () => ({ success: true }), {
+        TEXT_MODEL: 'fixture-model', TEXT_MODEL_API_KEY: 'fixture-key'
+    }, {
+        manuscriptDraftService: {
+            createAiDraft(input) {
+                return { draftId: 'queue-draft', revision: 1, markdownText: input.markdownText };
+            }
+        },
+        executeQuickPublish: async () => ({
+            success: true,
+            data: {
+                previewId: 'queue-preview', primaryTarget: 'wordpress',
+                previews: { wordpress: { title: '대기열 원고', rawMarkdown: '# 대기열 원고\n\n본문', images: [] } }
+            }
+        }),
+        deleteQuickPublishPreviewSession() {}
+    });
+    try {
+        const draft = await service.createAiManuscriptDraftForQueue({
+            subject: '대기열 주제', imageMode: 'none', targets: ['site-hosting']
+        });
+        assert.equal(draft.draftId, 'queue-draft');
+        assert.equal(coordinator.getStatus().source, 'continuous_runner');
+    } finally {
+        lease.release();
+    }
+});
+
 test('direct AI manuscript generation rejects missing model setup before execution', async () => {
     const coordinator = createBlogNextExecutionCoordinator();
     let executed = false;

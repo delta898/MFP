@@ -27,7 +27,8 @@ function createContinuousPublishingService(deps = {}) {
     const { Utils, ensureSheetsReadyForUi, executeBlogRowAction, executeShoppingBatchRowsAction, executeBlogTopicsDelete, CONFIG = {}, fs, path, now, eventStore } = deps;
     const lifecycleAdapters = deps.lifecycleAdapters || createContentLifecycleAdapterRegistry({
         executeBlogRowAction,
-        executeShoppingBatchRowsAction
+        executeShoppingBatchRowsAction,
+        executeSiteHostingQueueRowAction: deps.executeSiteHostingQueueRowAction
     });
     const pathImpl = path || require('node:path');
     let automationSettingsRepository = deps.automationSettingsRepository || null;
@@ -294,8 +295,11 @@ function createContinuousPublishingService(deps = {}) {
         if (runnerPromise) {
             throw createApiError(409, 'CONTINUOUS_RUNNER_BUSY', '이미 다음 글감을 처리하고 있습니다.');
         }
-        const blogLifecycleAdapter = lifecycleAdapters.get(CONTENT_LIFECYCLE_KIND.BLOG);
-        if (!blogLifecycleAdapter && execution.simulation !== true) {
+        const hasLifecycleAdapter = [
+            CONTENT_LIFECYCLE_KIND.BLOG,
+            CONTENT_LIFECYCLE_KIND.SITE_HOSTING
+        ].some((kind) => lifecycleAdapters.get(kind));
+        if (!hasLifecycleAdapter && execution.simulation !== true) {
             throw createApiError(500, 'CONTINUOUS_RUNNER_UNAVAILABLE', '연속 발행 실행기를 준비하지 못했습니다.');
         }
 
@@ -430,7 +434,21 @@ function createContinuousPublishingService(deps = {}) {
                     return;
                 }
 
-                const result = await blogLifecycleAdapter.execute({
+                const lifecycleKind = readiness.plan.targets.includes('site-hosting')
+                    ? CONTENT_LIFECYCLE_KIND.SITE_HOSTING
+                    : CONTENT_LIFECYCLE_KIND.BLOG;
+                const lifecycleAdapter = lifecycleAdapters.get(lifecycleKind);
+                if (!lifecycleAdapter && execution.simulation !== true) {
+                    updateRunnerState({
+                        state: 'needs_attention',
+                        message: '이 포스팅 대상의 대기열 실행기를 사용할 수 없습니다.',
+                        progressStage: '',
+                        resultStatus: 'LIFECYCLE_ADAPTER_UNAVAILABLE',
+                        finishedAt: new Date(currentTimeMs()).toISOString()
+                    });
+                    return;
+                }
+                const result = await lifecycleAdapter?.execute({
                     rowIndex,
                     plan: topic,
                     execution: {
@@ -831,6 +849,17 @@ function createContinuousPublishingService(deps = {}) {
             } catch (error) {
                 throw createApiError(400, error.code || 'TOPIC_UPDATE_INVALID', error.message);
             }
+            if (ready) {
+                const readiness = diagnoseReadyTopic(row);
+                if (!readiness.ready) {
+                    throw createApiError(
+                        400,
+                        readiness.issues[0]?.code || 'TOPIC_QUEUE_NOT_READY',
+                        readinessMessage(readiness.issues) || '대기열에 추가할 수 없는 글감입니다.',
+                        readiness.issues
+                    );
+                }
+            }
 
             await Utils.updateGoogleSheetTopicEditableFields(rowIndex, {
                 title: row.options.title || '',
@@ -889,7 +918,16 @@ function createContinuousPublishingService(deps = {}) {
         async addSavedTopicToQueue(requestBody = {}) {
             requireRunnerIdle();
             const rowIndex = parseRowIndex(requestBody.rowIndex);
-            await requireTopicInStatus(rowIndex, TOPIC_STATUS.WAITING);
+            const topic = await requireTopicInStatus(rowIndex, TOPIC_STATUS.WAITING);
+            const readiness = diagnoseReadyTopic(topic);
+            if (!readiness.ready) {
+                throw createApiError(
+                    409,
+                    readiness.issues[0]?.code || 'TOPIC_QUEUE_NOT_READY',
+                    readinessMessage(readiness.issues) || '대기열에 추가할 수 없는 글감입니다.',
+                    readiness.issues
+                );
+            }
             await Utils.updateGoogleSheetStatus(
                 rowIndex,
                 TOPIC_STATUS.READY,
