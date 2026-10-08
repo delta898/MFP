@@ -25,7 +25,8 @@ function createSiteTemplateCatalog(options = {}) {
                 return null;
             }
             const sourceRoot = pathApi.resolve(templateRoot, sourceDirectory);
-            if (!sourceRoot.startsWith(`${pathApi.resolve(templateRoot)}${pathApi.sep}`) || !fileSystem.existsSync(sourceRoot)) return null;
+            if (!sourceRoot.startsWith(`${pathApi.resolve(templateRoot)}${pathApi.sep}`)
+                || (descriptor.package_ready !== false && !fileSystem.existsSync(sourceRoot))) return null;
             const familyDataDirectory = String(descriptor.family_data_directory || '').trim();
             if (familyDataDirectory && (pathApi.isAbsolute(familyDataDirectory) || familyDataDirectory.split(/[\\/]/).includes('..'))) return null;
             const familyDataRoot = familyDataDirectory ? pathApi.resolve(templateRoot, familyDataDirectory) : '';
@@ -74,7 +75,7 @@ function createSiteTemplateCatalog(options = {}) {
 
     function copySource(id, destination) {
         const template = readTemplate(id);
-        if (!template) {
+        if (!template || template.package_ready === false || !fileSystem.existsSync(template.source_root)) {
             const error = new Error('선택한 템플릿을 찾을 수 없습니다.');
             error.code = 'SITE_HOSTING_TEMPLATE_NOT_FOUND';
             error.status = 404;

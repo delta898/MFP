@@ -38,6 +38,55 @@ test('site service lists templates and creates a named site without Cloudflare d
     }
 });
 
+test('Blog Beta recognizes an installed Digital Garden as a posting target without a cached template package', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-dg-package-cache-'));
+    const templatesRoot = path.join(workspaceDir, 'template-cache');
+    const templateRoot = path.join(templatesRoot, 'digital-garden-explorer-left');
+    const vaultRoot = path.join(workspaceDir, 'vault');
+    try {
+        const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
+        projectRepository.create({ id: 'project-1', name: '개인 사이트' });
+        fs.mkdirSync(templateRoot, { recursive: true });
+        fs.mkdirSync(path.join(vaultRoot), { recursive: true });
+        const resource = {
+            spec_version: SITE_HOSTING_CONTRACT_VERSION,
+            family: { content_contract_version: SITE_HOSTING_CONTRACT_VERSION, content_types: [] },
+            template: {
+                compatibility: { contract: { version: SITE_HOSTING_CONTRACT_VERSION } },
+                setup_inputs: [
+                    { id: 'knowledge_collection_root', type: 'directory', purpose: 'knowledge_collection' },
+                    { id: 'publication_filter', type: 'frontmatter_match', purpose: 'publication_filter' }
+                ]
+            }
+        };
+        fs.writeFileSync(path.join(templateRoot, 'template.json'), `${JSON.stringify({
+            id: 'digital-garden-explorer-left', version: '0.1.3', name: '디지털 가든',
+            source_directory: 'package/0.1.3/astro', family_data_directory: 'package/0.1.3/site-data',
+            family_id: 'digital-garden', package_ready: false, resource
+        })}\n`);
+
+        const siteRoot = path.join(workspaceDir, 'site-hosting', 'sites', 'dg1');
+        fs.mkdirSync(path.join(siteRoot, '.bloggenius'), { recursive: true });
+        fs.mkdirSync(path.join(siteRoot, 'template', 'astro'), { recursive: true });
+        fs.writeFileSync(path.join(siteRoot, 'template', 'astro', 'package.json'), '{}');
+        fs.writeFileSync(path.join(siteRoot, '.bloggenius', 'site.json'), `${JSON.stringify({
+            schema_version: 1, id: 'dg1', project_id: 'project-1', name: 'DG1',
+            template: { id: 'digital-garden-explorer-left', version: '0.1.3', family_id: 'digital-garden' },
+            setup_inputs: { knowledge_collection_root: vaultRoot, publication_filter: { mode: 'all' } }
+        })}\n`);
+
+        const service = createSiteHostingSiteService({
+            fs, path, workspaceDir, projectRepository,
+            templates: createSiteTemplateCatalog({ fs, path, templatesRoot })
+        });
+        const [site] = await service.list('project-1');
+        assert.equal(site.template_status, 'available');
+        assert.deepEqual(site.posting_target, { eligible: true, kind: 'vault' });
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('site service validates the project, name, and selected template', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-site-validation-'));
     try {

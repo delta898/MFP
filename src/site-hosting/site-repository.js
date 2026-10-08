@@ -63,7 +63,12 @@ function createSiteHostingSiteRepository(options = {}) {
                 throw new Error('Site manifest contract mismatch.');
             }
             const template = templates.get(site.template?.id);
-            if (!template || template.package_ready === false) {
+            const installedTemplatePath = template?.family_id
+                ? pathApi.join(siteRoot, 'template', 'astro')
+                : siteRoot;
+            const installedTemplateReady = Boolean(template
+                && fileSystem.existsSync(pathApi.join(installedTemplatePath, 'package.json')));
+            if (!template || !installedTemplateReady) {
                 site.template_status = 'unavailable';
                 site.template_update_available = false;
                 site.available_template_version = '';
@@ -77,7 +82,8 @@ function createSiteHostingSiteRepository(options = {}) {
                     && SITE_HOSTING_TEMPLATE_UPDATE_POLICY.managed_paths[0] === 'template/astro'
                     && SITE_HOSTING_TEMPLATE_UPDATE_POLICY.preserved_paths.includes('.bloggenius')
                     && SITE_HOSTING_TEMPLATE_UPDATE_POLICY.preserved_paths.includes('site-data');
-                site.template_update_available = Boolean(compareVersions(template.version, site.template?.version) === 1
+                site.template_update_available = Boolean(template.package_ready !== false
+                    && compareVersions(template.version, site.template?.version) === 1
                     && isSupportedSiteHostingContractVersion(template.resource?.spec_version) && updatePolicyReady
                     && site.template?.family_id && template.family_id === site.template.family_id
                     && template.family_data_root && fileSystem.existsSync(targetPath));

@@ -54,6 +54,50 @@ test('site repository rejects unsafe and duplicate IDs without replacing an exis
     }
 });
 
+test('existing family site stays available when its shared template package is not cached', () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-installed-template-'));
+    try {
+        const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
+        projectRepository.create({ id: 'project-1', name: '개인 사이트' });
+        const template = {
+            id: 'digital-garden-explorer-left', version: '0.1.3', name: '디지털 가든',
+            family_id: 'digital-garden', package_ready: true,
+            resource: {
+                spec_version: SITE_HOSTING_CONTRACT_VERSION,
+                family: { content_types: [] },
+                family_seed_site: { displayName: '', navigation: [{ id: 'home', label: '홈', path: '/' }] }
+            },
+            source_root: '', family_data_root: ''
+        };
+        const templates = {
+            get: () => template,
+            copySource: (_id, destination) => {
+                fs.mkdirSync(path.join(destination, 'template', 'astro'), { recursive: true });
+                fs.writeFileSync(path.join(destination, 'template', 'astro', 'package.json'), '{}');
+                fs.mkdirSync(path.join(destination, 'site-data'), { recursive: true });
+                fs.writeFileSync(path.join(destination, 'site-data', 'site.json'), '{"navigation":[{"id":"home","label":"홈","path":"/"}]}');
+                return { id: template.id, version: template.version, source_revision: 'd'.repeat(40) };
+            },
+            copyPreview: () => ''
+        };
+        const repository = createSiteHostingSiteRepository({ fs, path, projectRepository, templates });
+        repository.create('project-1', {
+            id: 'site-1', name: '기존 사이트', template_id: template.id,
+            customization: { navigation: [{ id: 'home', label: '홈', href: '/' }] }
+        });
+
+        template.package_ready = false;
+        const existingSite = repository.get('project-1', 'site-1');
+        assert.equal(existingSite.template_status, 'available');
+        assert.equal(existingSite.template_update_available, false);
+
+        fs.rmSync(path.join(existingSite.root_path, 'template', 'astro'), { recursive: true, force: true });
+        assert.equal(repository.get('project-1', 'site-1').template_status, 'unavailable');
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('site repository archives a site intact and removes it from the active site list', () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-site-archive-'));
     try {
