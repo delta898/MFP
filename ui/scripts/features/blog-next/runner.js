@@ -174,36 +174,38 @@ function presentBlogNextRunnerStatus(status = {}) {
   if (manuscriptGeneration && state === 'failed') return { title: '원고 생성 실패', tone: 'error' };
   if (localPublish && state === 'running') {
     const progressTitles = {
-      preparing: '발행 준비 중', image_generation: 'AI 이미지 생성 중',
+      preparing: '포스팅 준비 중', image_generation: 'AI 이미지 생성 중',
       editor: '에디터 연결 중', body: '원고 입력 중', image: '이미지 업로드 중',
-      link: '링크 추가 중', settings: '저장·발행 설정 중',
+      link: '링크 추가 중', settings: '저장·포스팅 설정 중',
       submitting: status.postStatus === 'draft' ? '임시 저장 중'
-        : status.postStatus === 'schedule' ? '예약 등록 중' : '발행 중',
+        : status.postStatus === 'schedule' ? '예약 발행 중' : '포스팅 중',
       verifying: '완료 확인 중'
     };
     return { title: progressTitles[String(status.progressStage || '')]
       || (status.postStatus === 'draft' ? '임시 저장 중'
-        : status.postStatus === 'schedule' ? '예약 등록 중' : '발행 중'), tone: 'progress' };
+        : status.postStatus === 'schedule' ? '예약 발행 중' : '포스팅 중'), tone: 'progress' };
   }
   if (localPublish && state === 'failed') return { title: status.postStatus === 'draft' ? '임시 저장 실패'
-    : status.postStatus === 'schedule' ? '예약 등록 실패' : '발행 실패', tone: 'error' };
+    : status.postStatus === 'schedule' ? '예약 발행 실패' : '포스팅 실패', tone: 'error' };
   if (state === 'running') {
     const progressTitles = {
       preparing: '준비 중', writing: '글 작성 중', images: '이미지 준비 중',
-      quota: '발행 준비 중', publishing: '발행 중', finalizing: '마무리 중'
+      quota: '포스팅 준비 중', publishing: '포스팅 중', finalizing: '마무리 중'
     };
     return { title: progressTitles[String(status.progressStage || '')] || '처리 중', tone: 'progress' };
   }
   if (state === 'completed') {
-    const safeResult = ['발행 완료', '임시 저장 완료', '예약 발행 완료'].includes(resultStatus)
-      ? resultStatus
-      : '발행 완료';
+    const safeResult = status.postStatus === 'draft' || resultStatus === '임시 저장 완료'
+      ? '임시 저장 완료'
+      : status.postStatus === 'schedule' || resultStatus === '예약 발행 완료'
+        ? '예약 발행 완료'
+        : resultStatus === '발행 완료' ? '발행 완료' : '포스팅 완료';
     return { title: safeResult, tone: 'success' };
   }
   if (state === 'simulated') return { title: '시뮬레이션 완료', tone: 'success' };
   if (state === 'needs_attention') return { title: '확인 필요', tone: 'warning', manage: true };
   if (state === 'blocked') return { title: '실행할 수 없음', tone: 'warning', manage: true };
-  if (state === 'failed') return { title: '발행 실패', tone: 'error', manage: true };
+  if (state === 'failed') return { title: '포스팅 실패', tone: 'error', manage: true };
   if (state === 'empty') return { title: '실행할 글감 없음', tone: 'warning', manage: true };
   return { title: '', tone: '' };
 }
@@ -359,7 +361,7 @@ function renderBlogNextRunnerStatus(status = {}) {
   if (showHelp && helpText) {
     helpText.textContent = showNaverStopHelp
       ? (['submitting', 'verifying'].includes(status.progressStage)
-        ? '최종 저장·발행 요청을 보낸 뒤에는 외부 반영 여부가 불확실해 중지할 수 없습니다.'
+        ? '최종 저장·포스팅 요청을 보낸 뒤에는 외부 반영 여부가 불확실해 중지할 수 없습니다.'
         : '중지하면 네이버 포스팅 자동화를 멈춥니다. 이미 네이버에 저장·발행된 내용은 되돌리지 않습니다.')
       : '중지하면 앱은 생성과 결과 반영을 중단합니다. 이미 처리된 AI 요청에는 비용이 발생할 수 있습니다.'
         + (status.remoteJobPossible ? ' KIE에 접수된 이미지 작업은 원격에서 계속될 수 있습니다.' : '');
@@ -417,7 +419,7 @@ function syncBlogNextExecutionStopButton() {
   if (note) {
     note.hidden = !localStopUnavailable;
     note.textContent = localStopUnavailable
-      ? '최종 저장·발행 요청을 보낸 뒤에는 외부 반영 여부가 불확실해 중지할 수 없습니다.'
+      ? '최종 저장·포스팅 요청을 보낸 뒤에는 외부 반영 여부가 불확실해 중지할 수 없습니다.'
       : '';
   }
   if (continueButton) continueButton.hidden = !confirming;

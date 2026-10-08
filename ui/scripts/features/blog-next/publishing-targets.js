@@ -246,7 +246,7 @@ function syncBlogNextDraftSettingsSummary(type) {
   const settings = readBlogNextDraftSettings(type);
   const statusLabel = settings.postStatus === 'draft' ? '임시 저장'
     : settings.postStatus === 'schedule' ? '예약 발행' : '즉시 발행';
-  let targetLabel = formatBlogPlatformList(settings.targets, ' + ') || '발행 대상 없음';
+  let targetLabel = formatBlogPlatformList(settings.targets, ' + ') || '포스팅 대상 없음';
   let siteSelected = true;
   if (settings.targets.includes('site-hosting')) {
     const siteOption = getBlogNextSettingsElement('blog-next-site-hosting-select')?.selectedOptions?.[0];
@@ -394,7 +394,7 @@ async function loadBlogNextVaultFolders({ preserveSelection = true } = {}) {
     folderSelect.disabled = true;
     syncBlogNextVaultFolderDisplay(folderSelect);
     if (folderPicker) folderPicker.disabled = true;
-    setBlogNextVaultFolderMessage('Vault 폴더 목록을 확인하지 못했습니다. 선택 경로는 보존했으며, 폴더를 다시 고르거나 발행 시 서버에서 확인합니다.', 'error');
+    setBlogNextVaultFolderMessage('Vault 폴더 목록을 확인하지 못했습니다. 선택 경로는 보존했으며, 폴더를 다시 고르거나 포스팅 시 서버에서 확인합니다.', 'error');
     return null;
   } finally {
     if (folderPicker) {
@@ -442,7 +442,7 @@ async function loadBlogNextSiteHostingTargets({ preserveSelection = true } = {})
       const projectName = site.project_name;
       const eligible = site.posting_target?.eligible === true;
       const reason = String(site.posting_target?.reason || '');
-      const optionLabel = `${site.name || '이름 없는 사이트'} · ${projectName}${eligible ? '' : ` — ${reason || '발행 조건 미충족'}`}`;
+      const optionLabel = `${site.name || '이름 없는 사이트'} · ${projectName}${eligible ? '' : ` — ${reason || '포스팅 조건 미충족'}`}`;
       const siteOption = new Option(optionLabel, String(options.length));
       siteOption.dataset.projectId = site.project_id || '';
       siteOption.dataset.siteId = site.id;
@@ -461,14 +461,14 @@ async function loadBlogNextSiteHostingTargets({ preserveSelection = true } = {})
     input.disabled = eligibleCount === 0;
     select.disabled = false;
     if (selectionLost) {
-      setBlogNextSiteHostingMessage('선택한 사이트가 삭제되었거나 발행 조건을 충족하지 않습니다. 다시 선택해 주세요.', 'error');
+      setBlogNextSiteHostingMessage('선택한 사이트가 삭제되었거나 포스팅 조건을 충족하지 않습니다. 다시 선택해 주세요.', 'error');
     } else if (!sites.length) {
       setBlogNextSiteHostingMessage('생성된 사이트가 없습니다. 사이트를 먼저 만들어 주세요.');
     } else {
       const disabledCount = sites.length - eligibleCount;
       setBlogNextSiteHostingMessage(disabledCount
-        ? `발행 가능한 사이트 ${eligibleCount}개 · 발행할 수 없는 사이트 ${disabledCount}개는 사유와 함께 표시됩니다.`
-        : `발행 가능한 사이트 ${eligibleCount}개`);
+        ? `포스팅 가능한 사이트 ${eligibleCount}개 · 포스팅할 수 없는 사이트 ${disabledCount}개는 사유와 함께 표시됩니다.`
+        : `포스팅 가능한 사이트 ${eligibleCount}개`);
     }
     const activeType = BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai';
     if (isBlogNextSiteHostingTarget(activeType)) {

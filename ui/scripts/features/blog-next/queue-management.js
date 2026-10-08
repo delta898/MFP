@@ -17,7 +17,7 @@ function showBlogNextQueueRunnerLockedNotice() {
   showUiToast({
     level: 'warning',
     title: '다른 글감 처리 중',
-    message: '현재 실행이 끝난 뒤 발행 대기열을 변경하거나 다음 글감을 실행해 주세요.'
+    message: '현재 실행이 끝난 뒤 포스팅 대기열을 변경하거나 다음 글감을 실행해 주세요.'
   });
 }
 
@@ -89,7 +89,7 @@ function populateBlogNextTopicForm(item = {}, sourceStatus) {
     const publishSettings = getBlogNextSettingsElement('blog-next-publish-settings');
     if (publishSettings) publishSettings.open = true;
   }
-  if (editorTitle) editorTitle.textContent = sourceStatus === '대기' ? '보관한 글감 수정' : '발행 계획 수정';
+  if (editorTitle) editorTitle.textContent = sourceStatus === '대기' ? '보관한 글감 수정' : '포스팅 설정 수정';
   syncBlogNextScheduleField();
   syncBlogNextTopicClearAction();
   setBlogNextTopicBusy(false);
@@ -97,7 +97,7 @@ function populateBlogNextTopicForm(item = {}, sourceStatus) {
   blogNextEditingInitialSnapshot = snapshotBlogNextEditingPayload();
   syncBlogNextTopicActionAvailability();
   setBlogNextTopicResult(platforms.length > 1
-    ? '기존 글감에 발행 대상이 여러 개 저장되어 있습니다. 하나를 선택한 뒤 저장해 주세요.'
+    ? '기존 글감에 포스팅 대상이 여러 개 저장되어 있습니다. 하나를 선택한 뒤 저장해 주세요.'
     : '', platforms.length > 1 ? 'error' : '');
   getBlogNextSettingsElement('blog-next-subject')?.focus();
 }
@@ -371,7 +371,7 @@ function renderBlogNextQueue(data = {}) {
   savedList.replaceChildren();
   if (savedItems.length === 0) renderBlogNextEmptyState(savedList, '보관한 글감이 없습니다.', '빠른 글 작성에서 떠오른 아이디어를 먼저 보관해 보세요.');
   else savedItems.forEach((item, index) => savedList.appendChild(createBlogNextListItem(item, index, true)));
-  if (readyItems.length === 0) renderBlogNextEmptyState(readyList, '아직 준비된 글감이 없습니다.', '발행 계획을 완성해 대기열에 추가해 보세요.');
+  if (readyItems.length === 0) renderBlogNextEmptyState(readyList, '아직 준비된 글감이 없습니다.', '포스팅 설정을 완성해 대기열에 추가해 보세요.');
   else readyItems.forEach((item, index) => readyList.appendChild(createBlogNextListItem({
     ...item,
     queueSize: readyItems.length
@@ -393,16 +393,13 @@ async function loadBlogNextQueue(options = {}) {
   setBlogNextQueueListsBusy(true);
   if (refreshButton) {
     refreshButton.disabled = true;
-    if (showRefreshProgress) {
-      refreshButton.textContent = '불러오는 중...';
-      refreshButton.setAttribute('aria-busy', 'true');
-    }
+    refreshButton.setAttribute('aria-busy', String(showRefreshProgress));
   }
   try {
     renderBlogNextQueue(await fetchJson('/api/v1/continuous-publishing/queue?limit=50'));
     setBlogNextManagementStatus('ready');
   } catch (error) {
-    const message = error.message || '발행 대기열을 불러오지 못했습니다.';
+    const message = error.message || '포스팅 대기열을 불러오지 못했습니다.';
     if (blogNextQueueHasLoaded) {
       setBlogNextManagementStatus('error', `${message} 기존 목록은 그대로 유지했습니다.`);
     } else {
@@ -414,7 +411,6 @@ async function loadBlogNextQueue(options = {}) {
     setBlogNextQueueListsBusy(false);
     if (refreshButton) {
       refreshButton.disabled = blogNextQueueOperationBusy;
-      refreshButton.textContent = '새로고침';
       refreshButton.setAttribute('aria-busy', 'false');
     }
   }

@@ -291,7 +291,7 @@ test('quick flow summaries update from existing controls and new writing owns in
   assert.match(uiScript, /topicSummary\.textContent = topicParts\.join\(' · '\)/);
   assert.match(html, /class="blog-next-form-result-row" hidden>[\s\S]*id="blog-next-topic-result"/);
   assert.match(script, /function setBlogNextTopicResult\(message, level = ''\)[\s\S]*?result\.closest\('\.blog-next-form-result-row'\)[\s\S]*?row\.hidden = !text\.trim\(\)/);
-  assert.match(uiScript, /formatBlogPlatformList\(platforms, ' \+ '\) \|\| '발행 대상 없음'/);
+  assert.match(uiScript, /formatBlogPlatformList\(platforms, ' \+ '\) \|\| '포스팅 대상 없음'/);
   assert.match(uiScript, /function captureBlogNextClearableContent\(\)/);
   assert.match(read('ui/scripts/features/blog-next/quick-queue.js'), /function restoreBlogNextTopicFormHome\(\)[\s\S]*blog-next-editor-modal[\s\S]*modal\.hidden = true/);
   assert.match(read('ui/partials/views/blog-next/editor-modal.html'), /id="blog-next-editor-settings-form"[\s\S]*blog-next-editor-modal-actions/);
@@ -454,14 +454,14 @@ test('quick writing keeps one editable manuscript workspace available before pre
   assert.match(trendScript, /message: '작성 중인 글감을 선택한 트렌드 키워드로 바꿀까요\?'/);
   assert.match(html, /data-blog-next-ai-idea-actions[\s\S]*>글감 활용<[\s\S]*id="blog-next-save-topic"[\s\S]*>글감 보관/);
   assert.match(html, /class="blog-next-ai-action-row blog-next-ai-actions-row"[\s\S]*id="blog-next-save-topic"[\s\S]*data-blog-next-ai-generate-action[\s\S]*id="blog-next-publish-now"[\s\S]*<svg class="ui-ai-icon" aria-hidden="true"><use href="#ui-icon-ai"><\/use><\/svg><span id="blog-next-publish-now-label">원고 만들기/);
-  assert.doesNotMatch(html, /id="blog-next-enqueue-topic"|발행 대기열에 추가/);
+  assert.doesNotMatch(html, /id="blog-next-enqueue-topic"|포스팅 대기열에 추가/);
   assert.match(html, /id="blog-next-queue-action-hint">글감으로 보관하거나, 지금 원고를 만들 수 있습니다/);
   assert.match(html, /data-blog-next-ai-step="preview">[\s\S]*>미리보기 · 원고 입력</);
   assert.match(html, /<details class="blog-next-disclosure blog-next-preview-disclosure" id="blog-next-ai-preview" open>[\s\S]*data-blog-next-ai-step="preview"[\s\S]*data-ai-editor-rail[\s\S]*data-ai-editor-workspace[\s\S]*data-blog-next-ai-preview-actions[\s\S]*<\/details>/);
   assert.match(html, /data-ai-editor-rail(?![^>]*\shidden)/);
   assert.match(html, /data-ai-editor-workspace(?![^>]*\shidden)/);
   assert.match(read('ui/styles/features/continuous-publishing-drafts.css'), /원고를 입력하거나 붙여넣으세요\./);
-  assert.match(html, /data-blog-next-ai-step="publish">[\s\S]*>포스팅 · 발행</);
+  assert.match(html, /data-blog-next-ai-step="publish">[\s\S]*>포스팅 설정</);
   assert.match(html, /<details class="blog-next-disclosure blog-next-publish-disclosure" id="blog-next-ai-publish" open>[\s\S]*data-blog-next-ai-step="publish"[\s\S]*data-blog-next-publish-settings-slot="ai-publish"[\s\S]*data-blog-next-draft-actions="ai"[\s\S]*<\/details>/);
   assert.doesNotMatch(html, /<details class="blog-next-disclosure blog-next-draft-settings" id="blog-next-publish-settings"[^>]*\sopen/);
   assert.match(html, /data-blog-next-draft-actions="ai">[\s\S]*data-blog-next-draft-publish="ai"[^>]*disabled/);

@@ -166,7 +166,7 @@ function setBlogNextTopicBusy(busy, action = '') {
   }
   if (enqueueButton) {
     const label = blogNextEditingSourceStatus === '대기' ? '대기열로 이동'
-      : editingReady ? '저장' : '발행 대기열에 추가';
+      : editingReady ? '저장' : '포스팅 대기열에 추가';
     enqueueButton.textContent = busy && action === 'enqueue'
       ? (editingReady ? '저장 중...' : '추가 중...')
       : label;
@@ -268,7 +268,7 @@ function moveBlogNextTopicFormToQueueEditor({ showPublishSettings = false } = {}
   createBlogNextEditorSettingsInstance();
   const publishSettings = getBlogNextSettingsElement('blog-next-publish-settings');
   if (publishSettings) publishSettings.open = showPublishSettings;
-  if (typeof setBlogNextPublishSettingsContext === 'function') setBlogNextPublishSettingsContext('ai', '발행 계획');
+  if (typeof setBlogNextPublishSettingsContext === 'function') setBlogNextPublishSettingsContext('ai', '포스팅 설정');
   if (typeof syncBlogNextProviderDependentFields === 'function') syncBlogNextProviderDependentFields();
   if (typeof syncBlogNextScheduleField === 'function') syncBlogNextScheduleField();
   modal.hidden = false;
@@ -358,8 +358,8 @@ async function submitBlogNextTopic(action) {
       : '/api/v1/continuous-publishing/topics', payload);
     const queued = data?.status === '발행 준비 완료';
     const message = editing
-      ? (editingReady ? '발행 계획을 수정했습니다.' : queued ? '글감을 발행 대기열에 추가했습니다.' : '보관한 글감을 수정했습니다.')
-      : (queued ? '발행 계획을 확인해 대기열에 추가했습니다.' : '글감을 보관했습니다. 언제든 계속 작성할 수 있습니다.');
+      ? (editingReady ? '포스팅 설정을 수정했습니다.' : queued ? '글감을 포스팅 대기열에 추가했습니다.' : '보관한 글감을 수정했습니다.')
+      : (queued ? '포스팅 설정을 확인해 대기열에 추가했습니다.' : '글감을 보관했습니다. 언제든 계속 작성할 수 있습니다.');
     if (!editing) rememberBlogNextTopicDefaults();
     if (action !== 'publish-now') {
       if (editing) finishBlogNextTopicEditing();
@@ -386,7 +386,7 @@ async function submitBlogNextTopic(action) {
         setBlogNextTopicResult('바로 포스팅을 시작했습니다.', 'success');
       } catch (error) {
         blogNextPendingImmediateSubmission = null;
-        setBlogNextTopicResult(error.message || '실행을 시작하지 못했습니다. 발행 대기열에서 다시 시도해 주세요.', 'error');
+        setBlogNextTopicResult(error.message || '실행을 시작하지 못했습니다. 포스팅 대기열에서 다시 시도해 주세요.', 'error');
       }
     }
   } catch (error) {
@@ -394,7 +394,7 @@ async function submitBlogNextTopic(action) {
   } finally {
     setBlogNextTopicBusy(false);
     if (focusQuickSubjectAfterSave && typeof revealBlogNextWritingDestination === 'function') {
-      revealBlogNextWritingDestination('blog-next-subject');
+      requestAnimationFrame(() => revealBlogNextWritingDestination('blog-next-subject'));
     }
   }
 }

@@ -71,15 +71,15 @@ function truncateGlobalPublishingSubject(value, limit = 18) {
 
 function presentGlobalPublishingStatus(summary = {}) {
   const state = ['attention', 'running', 'scheduled'].includes(summary.state) ? summary.state : 'idle';
-  if (state === 'attention') return { state, label: '발행 확인 필요', detail: summary.message || '' };
+  if (state === 'attention') return { state, label: '포스팅 확인 필요', detail: summary.message || '' };
   if (state === 'running') {
     const subject = truncateGlobalPublishingSubject(summary.subject);
-    return { state, label: subject ? `발행 중 · ${subject}` : '발행 중', detail: summary.subject || summary.message || '' };
+    return { state, label: subject ? `포스팅 중 · ${subject}` : '포스팅 중', detail: summary.subject || summary.message || '' };
   }
   if (state === 'scheduled') {
     const schedule = formatGlobalPublishingSchedule(summary.next_processing_at);
     return schedule
-      ? { state, label: `다음 처리 ${schedule}`, detail: `연속 발행 다음 처리: ${schedule}` }
+      ? { state, label: `다음 처리 ${schedule}`, detail: `연속 포스팅 다음 처리: ${schedule}` }
       : { state: 'idle', label: '', detail: '' };
   }
   return { state: 'idle', label: '', detail: '' };

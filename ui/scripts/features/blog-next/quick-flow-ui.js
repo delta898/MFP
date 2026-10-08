@@ -3,7 +3,7 @@ function readBlogNextSelectedText(id, fallback = '') {
   return String(select?.selectedOptions?.[0]?.textContent || fallback).trim();
 }
 
-function setBlogNextPublishSettingsContext(type, titleText = '발행 설정') {
+function setBlogNextPublishSettingsContext(type, titleText = '포스팅 설정') {
   const settings = getBlogNextSettingsElement('blog-next-publish-settings');
   const summary = getBlogNextSettingsElement('blog-next-publish-settings-summary');
   const options = settings?.querySelector('.blog-next-draft-options');
@@ -80,7 +80,7 @@ function syncBlogNextQuickFlowSummaries() {
     const siteSelected = Boolean(siteOption?.dataset.projectId && siteOption?.dataset.siteId && !siteOption.disabled);
     const targetLabel = platforms.includes('site-hosting')
       ? siteSelected ? siteOption.textContent.trim() : '사이트 선택 필요'
-      : formatBlogPlatformList(platforms, ' + ') || '발행 대상 없음';
+      : formatBlogPlatformList(platforms, ' + ') || '포스팅 대상 없음';
     const vaultFolder = getBlogNextSettingsElement('blog-next-vault-folder-select');
     const siteKey = siteSelected ? `${siteOption.dataset.projectId}/${siteOption.dataset.siteId}` : '';
     const vaultNeedsFolder = siteSelected && siteOption.dataset.siteKind === 'vault';
@@ -160,9 +160,9 @@ function readBlogNextTopicActionValidity() {
     issues.push({ field: 'blog-next-subject', section: 'topic', label: '주제' });
   }
   if (!referencesValid) issues.push({ field: 'blog-next-reference-url', section: 'content', label: '참고 URL 형식' });
-  if (!hasTarget) issues.push({ field: 'blog-next-target-naver', section: 'publishing', label: '발행 대상' });
+  if (!hasTarget) issues.push({ field: 'blog-next-target-naver', section: 'publishing', label: '포스팅 대상' });
   if (!siteTargetReady) issues.push({ field: 'blog-next-site-hosting-select', section: 'publishing', label: '사이트' });
-  if (!statusValid) issues.push({ field: 'blog-next-post-status', section: 'publishing', label: '발행 방식' });
+  if (!statusValid) issues.push({ field: 'blog-next-post-status', section: 'publishing', label: '포스팅 방식' });
   if (!scheduleValid) issues.push({ field: 'blog-next-schedule-date', section: 'publishing', label: '미래 예약 일시' });
   return {
     ideaValid,
@@ -210,7 +210,7 @@ function syncBlogNextTopicActionAvailability() {
     publish.disabled = busy || runnerActive || (editing && !editingReady) || !ideaValid || siteTargetMissing || aiBlocked || imageAiBlocked;
     if (aiBlocked || imageAiBlocked) publish.title = aiBlocked
       ? 'AI 글쓰기 모델 설정이 필요합니다.' : 'AI 이미지 모델 설정이 필요합니다.';
-    else if (siteTargetMissing) publish.title = '발행하려면 사이트를 선택해 주세요.';
+    else if (siteTargetMissing) publish.title = '포스팅하려면 사이트를 선택해 주세요.';
     else publish.removeAttribute('title');
   }
   if (regenerate) regenerate.disabled = busy || runnerActive || !ideaValid || aiBlocked || imageAiBlocked;
@@ -270,7 +270,7 @@ async function ensureBlogNextTopicStorageReady() {
   if (typeof ensureUiCapabilityReady !== 'function'
     || await ensureUiCapabilityReady('content.sheet')) return true;
   syncBlogNextTopicActionAvailability();
-  setBlogNextTopicResult('글감을 보관하거나 대기열에 추가하려면 Google Spreadsheet를 먼저 연결해 주세요.', 'error');
+  setBlogNextTopicResult('글감을 보관하거나 포스팅 대기열에 추가하려면 Google Spreadsheet를 먼저 연결해 주세요.', 'error');
   document.getElementById('blog-next-sheet-settings-btn')?.focus();
   return false;
 }

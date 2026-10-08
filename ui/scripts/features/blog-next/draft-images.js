@@ -47,7 +47,7 @@ function renderBlogNextDraftImages(type, preview = {}) {
           ? window.BlogGeniusManuscriptImageCard.renderMedia({ ...image, exists: Boolean(imageUrl), imageUrl, generating: imageIsActive })
           : imageUrl
             ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(image.title || `IMAGE_${image.index}`)}" data-manuscript-card-image>`
-            : `<div class="local-markdown-image-card-placeholder"><strong>${excluded ? '원고에서 제외됨' : '이미지 미지정'}</strong><span>${excluded ? '발행 대상에 포함되지 않습니다.' : 'AI로 만들거나 내 이미지로 채울 수 있습니다.'}</span></div>`}
+            : `<div class="local-markdown-image-card-placeholder"><strong>${excluded ? '원고에서 제외됨' : '이미지 미지정'}</strong><span>${excluded ? '포스팅 대상에 포함되지 않습니다.' : 'AI로 만들거나 내 이미지로 채울 수 있습니다.'}</span></div>`}
         ${imageIsActive && imageUrl ? '<div class="local-markdown-image-generating-overlay" role="status"><span class="local-markdown-image-spinner" aria-hidden="true"></span><span>새 이미지 생성 중</span></div>' : ''}
         ${ownsDraft && !excluded && !bulkOperationActive ? `<div class="local-markdown-image-media-actions${exists ? '' : ' is-empty'}">
           <button class="${activeActionButton ? 'ghost ui-danger-action' : exists ? 'secondary' : 'primary'} compact" type="button" data-manuscript-image-action="generate" data-slot-id="${escapeHtml(image.slotId)}"${activeActionButton ? ' data-ai-stop-action' : ''}${imageAiBlocked && !activeActionButton ? ' disabled title="AI 이미지 모델 설정이 필요합니다."' : operationActive && !activeActionButton ? ' disabled title="이미지 작업 중에는 변경할 수 없습니다."' : ''}>${activeActionButton ? (stopRequested ? '중지 요청 중…' : stopConfirming ? '중지 확인' : '중지') : exists ? '이미지 재생성' : '이미지 생성'}</button>

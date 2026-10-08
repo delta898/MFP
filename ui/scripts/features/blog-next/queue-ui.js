@@ -12,10 +12,10 @@ function getBlogNextQueueRunActionCopy(item = {}) {
   }
   if (item.postStatus === 'schedule') {
     return {
-      label: '지금 예약 등록',
-      busyLabel: '예약 등록 중...',
-      confirmTitle: '지금 예약 등록',
-      confirmText: '예약 등록',
+      label: '지금 예약 발행',
+      busyLabel: '예약 발행 중...',
+      confirmTitle: '지금 예약 발행',
+      confirmText: '예약 발행',
       question: '이 글감의 예약 발행을 지금 등록할까요?'
     };
   }
@@ -138,7 +138,7 @@ function createBlogNextListItem(item, position, saved) {
   title.textContent = item.subject || item.keywordsRaw || '제목 없는 글감';
   const meta = document.createElement('span');
   meta.className = 'blog-next-queue-meta';
-  const platforms = formatBlogPlatformList(item.options?.platforms) || '발행 대상 미정';
+  const platforms = formatBlogPlatformList(item.options?.platforms) || '포스팅 대상 미정';
   const postStatus = formatBlogNextPostStatus(item);
   if (saved) meta.textContent = `${platforms} · ${postStatus}`;
   else {

@@ -11,7 +11,7 @@ function getBlogNextDraftPublishCopy(postStatus = 'publish') {
     return {
       buttonLabel: '예약 발행',
       actionLabel: '예약 발행',
-      busyLabel: '예약 등록 중...',
+      busyLabel: '예약 발행 중...',
       completionLabel: '예약 발행을 등록했습니다.'
     };
   }
@@ -124,7 +124,7 @@ function syncBlogNextDraftExecutionState(runnerActive) {
     button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
     const selectedStatus = readBlogNextDraftSettings(type).postStatus;
     const publishCopy = getBlogNextDraftPublishCopy(selectedStatus);
-    const siteActionLabel = selectedStatus === 'draft' ? '사이트에 임시 저장' : '사이트 발행';
+    const siteActionLabel = selectedStatus === 'draft' ? '사이트에 임시 저장' : '사이트 포스팅';
     button.textContent = completed
       ? `${typeSiteTarget ? '내 사이트' : readBlogNextDraftSettings(type).targets[0] === 'wordpress' ? '워드프레스' : '네이버'} 처리 완료`
       : state.publishing
@@ -365,7 +365,7 @@ function arrangeBlogNextAiWorkflow(options = {}) {
     const publishSlot = document.querySelector('[data-blog-next-publish-settings-slot="ai-publish"]');
     if (publishSlot) publishSlot.appendChild(publishSettings);
     if (typeof setBlogNextPublishSettingsContext === 'function') setBlogNextPublishSettingsContext('ai');
-    else if (publishTitle) publishTitle.textContent = '발행 설정';
+    else if (publishTitle) publishTitle.textContent = '포스팅 설정';
   }
 
   if (previewStep) previewStep.hidden = false;
@@ -535,7 +535,7 @@ async function publishBlogNextDraft(type) {
     return;
   }
   if (siteHostingTarget && (!settings.siteProjectId || !settings.siteId)) {
-    setBlogNextDraftValidation(type, { errors: ['발행할 사이트를 선택해 주세요. 선택한 사이트가 없거나 발행 조건을 충족하지 않으면 목록에서 다시 선택해야 합니다.'] }, '', state.preview);
+    setBlogNextDraftValidation(type, { errors: ['포스팅할 사이트를 선택해 주세요. 선택한 사이트가 없거나 포스팅 조건을 충족하지 않으면 목록에서 다시 선택해야 합니다.'] }, '', state.preview);
     focusSitePicker();
     return;
   }
@@ -558,7 +558,7 @@ async function publishBlogNextDraft(type) {
   const publishCopy = siteHostingTarget
     ? settings.postStatus === 'draft'
       ? { buttonLabel: '사이트에 임시 저장', actionLabel: '사이트 임시 저장', busyLabel: '사이트에 임시 저장 중...', completionLabel: '임시 저장했습니다.' }
-      : { buttonLabel: '사이트 발행', actionLabel: '사이트 발행', busyLabel: '사이트 빌드·배포 중...', completionLabel: '발행했습니다.' }
+      : { buttonLabel: '사이트 포스팅', actionLabel: '사이트 포스팅', busyLabel: '사이트 빌드·배포 중...', completionLabel: '사이트를 공개했습니다.' }
     : getBlogNextDraftPublishCopy(settings.postStatus);
   const targetLabel = siteHostingTarget
     ? getBlogNextSettingsElement('blog-next-site-hosting-select')?.selectedOptions?.[0]?.textContent?.trim() || '선택한 사이트'
@@ -587,7 +587,7 @@ async function publishBlogNextDraft(type) {
       subject: state.preview?.title || '',
       message: siteHostingTarget
         ? settings.postStatus === 'draft' ? '사이트에 글을 임시 저장하고 있습니다.' : '사이트를 전체 빌드하고 배포하고 있습니다.'
-        : '원고와 발행 설정을 확인하고 있습니다.',
+        : '원고와 포스팅 설정을 확인하고 있습니다.',
       startedAt: new Date().toISOString()
     });
   }
@@ -603,10 +603,10 @@ async function publishBlogNextDraft(type) {
       const availableSites = await loadBlogNextSiteHostingTargets({ preserveSelection: true });
       settings = readBlogNextDraftSettings(type);
       if (!Array.isArray(availableSites)) {
-        throw new Error('사이트 목록을 다시 확인하지 못했습니다. 다시 불러온 뒤 발행해 주세요.');
+        throw new Error('사이트 목록을 다시 확인하지 못했습니다. 다시 불러온 뒤 포스팅해 주세요.');
       }
       if (settings.siteProjectId !== selectedProjectId || settings.siteId !== selectedSiteId) {
-        throw Object.assign(new Error('선택한 사이트가 삭제되었거나 발행 조건을 충족하지 않습니다. 사이트를 다시 선택해 주세요.'), { code: 'SITE_HOSTING_TARGET_STALE' });
+        throw Object.assign(new Error('선택한 사이트가 삭제되었거나 포스팅 조건을 충족하지 않습니다. 사이트를 다시 선택해 주세요.'), { code: 'SITE_HOSTING_TARGET_STALE' });
       }
     }
     const syncedPreview = await loadBlogNextDraftPreview(type);
@@ -652,7 +652,7 @@ async function publishBlogNextDraft(type) {
           : actualPostStatus === 'schedule' ? '예약 발행 완료' : '발행 완료',
         completionLinks: siteHostingTarget && publishResult?.post_url
           ? [{
-            label: '발행한 글', url: publishResult.post_url, platform: 'site-hosting', kind: 'post',
+            label: '공개한 글', url: publishResult.post_url, platform: 'site-hosting', kind: 'post',
             projectId: settings.siteProjectId,
             siteId: settings.siteId,
             postId: publishResult.post_id

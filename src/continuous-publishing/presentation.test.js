@@ -9,6 +9,9 @@ test('publishing progress translates internal milestones into user-facing stages
     assert.deepEqual(presentPublishingProgress('네이버 발행 중...', { postStatus: 'draft' }), {
         stage: 'publishing', title: '임시 저장 중', message: '네이버 블로그에 임시 저장하고 있습니다.'
     });
+    assert.deepEqual(presentPublishingProgress('네이버 발행 중...', { postStatus: 'schedule' }), {
+        stage: 'publishing', title: '예약 발행 중', message: '네이버 블로그에 예약 발행하고 있습니다.'
+    });
     assert.equal(presentPublishingProgress('시트 상태 반영 중...').title, '마무리 중');
 });
 

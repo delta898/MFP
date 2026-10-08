@@ -101,9 +101,9 @@ function discardBlogNextAutomationChanges() {
 async function confirmDiscardUnsavedBlogNextAutomationSettings() {
   if (!blogNextAutomationDirty) return true;
   const shouldDiscard = await showUiConfirm(
-    '저장되지 않은 연속 발행 설정이 있습니다.\n저장하지 않고 이동하면 변경사항이 사라집니다.',
+    '저장되지 않은 연속 포스팅 설정이 있습니다.\n저장하지 않고 이동하면 변경사항이 사라집니다.',
     {
-      title: '연속 발행 설정 변경사항',
+      title: '연속 포스팅 설정 변경사항',
       confirmText: '저장 안 하고 이동',
       cancelText: '계속 편집'
     }
@@ -181,14 +181,14 @@ async function loadBlogNextAutomationSettings(options = {}) {
   if (blogNextAutomationDirty && options.force !== true) return null;
   blogNextAutomationLoading = true;
   syncBlogNextAutomationSaveState();
-  setBlogNextAutomationFeedback('loading', '연속 발행 설정을 불러오는 중입니다.');
+  setBlogNextAutomationFeedback('loading', '연속 포스팅 설정을 불러오는 중입니다.');
   try {
     const data = await fetchJson('/api/v1/continuous-publishing/automation/settings');
     renderBlogNextAutomationSettings(data);
     setBlogNextAutomationFeedback('ready');
     return data;
   } catch (error) {
-    setBlogNextAutomationFeedback('error', error.message || '연속 발행 설정을 불러오지 못했습니다.');
+    setBlogNextAutomationFeedback('error', error.message || '연속 포스팅 설정을 불러오지 못했습니다.');
     return null;
   } finally {
     blogNextAutomationLoading = false;
@@ -200,12 +200,12 @@ async function saveBlogNextAutomationSettings(event) {
   event?.preventDefault();
   if (blogNextAutomationSaving) return;
   setBlogNextAutomationSaving(true);
-  setBlogNextAutomationFeedback('loading', '연속 발행 설정을 저장하는 중입니다.');
+  setBlogNextAutomationFeedback('loading', '연속 포스팅 설정을 저장하는 중입니다.');
   try {
     const data = await postJson('/api/v1/continuous-publishing/automation/settings', readBlogNextAutomationForm());
     renderBlogNextAutomationSettings(data);
     setBlogNextAutomationFeedback('success', '설정을 저장했습니다.');
-    showUiToast({ level: 'success', title: '연속 발행 설정 저장', message: '설정을 저장했습니다.' });
+    showUiToast({ level: 'success', title: '연속 포스팅 설정 저장', message: '설정을 저장했습니다.' });
   } catch (error) {
     setBlogNextAutomationFeedback('error', error.message || '설정을 저장하지 못했습니다. 입력값을 확인해 주세요.');
     showUiToast({ level: 'error', title: '설정 저장 실패', message: error.message || '입력값을 확인해 주세요.' });

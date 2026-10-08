@@ -34,7 +34,7 @@ test('Blog Beta shell uses its own DOM namespace', () => {
     assert.match(betaView, /data-blog-next-tab="queue"/);
     assert.match(betaView, /data-blog-next-tab="queue">글감 관리/);
     assert.doesNotMatch(betaView, /data-blog-next-tab="automation"/);
-    assert.match(betaView, /data-blog-next-management-tab="automation">연속 발행 설정/);
+    assert.match(betaView, /data-blog-next-management-tab="automation">연속 포스팅 설정/);
     assert.match(betaView, /id="blog-next-management-panel-automation"[\s\S]*?data-blog-next-management-panel="automation"/);
     assert.doesNotMatch(betaView, /\bid="blog-tab-/);
     assert.doesNotMatch(betaScript, /\.blog-tab-btn|\.blog-tab-panel|quick-save-btn|blog-table-body/);
@@ -85,7 +85,7 @@ test('Blog Beta quick writing keeps topic capture and adds the canonical AI manu
     const saveIndex = betaView.indexOf('id="blog-next-save-topic"');
 
     assert.match(betaView, /id="blog-next-save-topic"[^>]*>글감 보관/);
-    assert.doesNotMatch(betaView, /id="blog-next-enqueue-topic"|발행 대기열에 추가/);
+    assert.doesNotMatch(betaView, /id="blog-next-enqueue-topic"|포스팅 대기열에 추가/);
     assert.match(betaView, /class="primary" id="blog-next-publish-now"[^>]*>[\s\S]*?id="blog-next-publish-now-label">원고 만들기/);
     assert.doesNotMatch(betaView, /id="blog-next-clear-topic"|id="blog-next-clear-undo"/);
     assert.match(betaView, /class="ghost blog-next-cancel-action" id="blog-next-cancel-edit"[^>]*hidden>취소/);
@@ -148,11 +148,11 @@ test('continuous automation settings own timing but never topic delivery targets
     assert.match(betaView, /id="blog-next-automation-start-time"/);
     assert.match(betaView, /id="blog-next-automation-end-time"/);
     assert.match(betaView, /id="blog-next-automation-interval"[^>]*min="10"[^>]*max="360"[^>]*step="1"/);
-    assert.match(betaView, />발행 간격</);
+    assert.match(betaView, />포스팅 간격</);
     assert.doesNotMatch(betaView, /글 사이 최소 간격/);
-    assert.match(betaView, />연속 발행 사용</);
+    assert.match(betaView, />연속 포스팅 사용</);
     assert.match(betaView, /id="blog-next-automation-save"[^>]*disabled/);
-    assert.doesNotMatch(betaView, /이 기기|기본값은 꺼짐|글감이 정하는 것|연속 발행이 정하는 것|blog-next-runner-card/);
+    assert.doesNotMatch(betaView, /이 기기|기본값은 꺼짐|글감이 정하는 것|연속 포스팅이 정하는 것|blog-next-runner-card/);
     assert.match(automationScript, /continuous-publishing\/automation\/settings/);
     assert.match(automationScript, /updateBlogNextAutomationDirtyState/);
     assert.match(automationScript, /confirmDiscardUnsavedBlogNextAutomationSettings/);
@@ -183,6 +183,7 @@ test('Stage 8 distinguishes saved ideas, keeps queue editing in context, and reu
     const html = readBlogNextView();
     const queueScript = [
         read('ui/scripts/features/blog-next/publish-preflight.js'),
+        read('ui/scripts/features/blog-next/settings-instance.js'),
         readBlogNextQueueScripts()
     ].join('\n');
     const discoveryScript = read('ui/scripts/features/discovery/quick-discovery.js');
@@ -190,7 +191,7 @@ test('Stage 8 distinguishes saved ideas, keeps queue editing in context, and reu
     assert.match(html, /id="blog-next-saved-count"/);
     assert.match(html, /id="blog-next-queue-count"/);
     assert.match(html, /id="blog-next-editor-modal"[^>]*aria-hidden="true"[^>]*hidden/);
-    assert.match(html, /data-blog-next-management-tab="ready">발행 대기열/);
+    assert.match(html, /data-blog-next-management-tab="ready">포스팅 대기열/);
     assert.match(html, /data-blog-next-management-tab="saved">보관한 글감/);
     assert.doesNotMatch(html, /blog-next-status-flow|blog-next-management-description/);
     assert.doesNotMatch(html, /blog-next-reset-defaults|설정 초기화/);
@@ -227,7 +228,7 @@ test('Stage 8 aligns posting language and external-reference controls with the e
     const css = read('ui/styles/features/continuous-publishing-usability.css');
 
     assert.match(html, /포스팅 대상/);
-    assert.match(html, /포스팅 옵션/);
+    assert.match(html, /포스팅 방식/);
     assert.match(html, /<option value="publish">즉시 발행<\/option>/);
     assert.match(html, /<option value="draft">임시 저장<\/option>/);
     assert.match(html, /<option value="schedule">예약 발행<\/option>/);
@@ -429,6 +430,9 @@ test('global publishing status exposes one prioritized summary in the clock and 
     assert.match(statusScript, /continuous-publishing\/status-summary/);
     assert.match(statusScript, /\['attention', 'running', 'scheduled'\]/);
     assert.match(statusScript, /\['running', 'attention'\]/);
+    assert.match(statusScript, /포스팅 확인 필요/);
+    assert.match(statusScript, /포스팅 중 ·/);
+    assert.match(statusScript, /연속 포스팅 다음 처리/);
     assert.match(statusScript, /다음 처리/);
     assert.match(statusScript, /navigateTo\('blog-next', 'queue'\)/);
     assert.match(statusCss, /\.clock-publishing-status\[data-state="attention"\]/);

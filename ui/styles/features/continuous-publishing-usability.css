@@ -80,10 +80,7 @@
 }
 
 .blog-next-management-refresh {
-  min-height: var(--ui-density-compact-control-min-height);
   margin-left: auto;
-  padding: 8px 14px;
-  white-space: nowrap;
 }
 
 .blog-next-management-actions {

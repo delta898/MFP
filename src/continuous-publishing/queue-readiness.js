@@ -41,23 +41,23 @@ function diagnoseQueueReadiness(topic = {}, options = {}) {
     const rawTargets = targetCandidates.map(asList).find((targets) => targets.length > 0) || [];
     const listedTargets = Array.from(new Set(rawTargets.map((target) => target.toLowerCase())));
     if (listedTargets.length === 0) {
-        add('platforms', 'PUBLISH_TARGET_REQUIRED', '발행 대상이 없습니다.');
+        add('platforms', 'PUBLISH_TARGET_REQUIRED', '포스팅 대상이 없습니다.');
     } else {
         if (listedTargets.length > 1) {
-            add('platforms', 'MULTIPLE_PUBLISH_TARGETS', '발행 대상이 여러 개입니다.');
+            add('platforms', 'MULTIPLE_PUBLISH_TARGETS', '포스팅 대상이 여러 개입니다.');
         }
         const unsupported = listedTargets.filter((target) => !normalizePublishTargets([target]).length);
         if (unsupported.length > 0) {
-            add('platforms', 'PUBLISH_TARGET_UNSUPPORTED', `현재 대기열에서 지원하지 않는 발행 대상이 있습니다: ${unsupported.join(', ')}.`);
+            add('platforms', 'PUBLISH_TARGET_UNSUPPORTED', `현재 대기열에서 지원하지 않는 포스팅 대상이 있습니다: ${unsupported.join(', ')}.`);
         }
     }
     const targets = normalizePublishTargets(listedTargets);
 
     const postStatus = resolveStoredPostStatus(topic);
     if (!postStatus) {
-        add('postStatus', 'POST_STATUS_REQUIRED', '발행 방식이 없습니다.');
+        add('postStatus', 'POST_STATUS_REQUIRED', '포스팅 방식이 없습니다.');
     } else if (!QUEUE_POST_STATUSES.includes(postStatus)) {
-        add('postStatus', 'POST_STATUS_UNSUPPORTED', '지원하지 않는 발행 방식입니다.');
+        add('postStatus', 'POST_STATUS_UNSUPPORTED', '지원하지 않는 포스팅 방식입니다.');
     }
 
     const scheduleDate = cleanText(topic.options?.schedule_date || topic.scheduleDate || topic.schedule_date);

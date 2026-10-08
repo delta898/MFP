@@ -212,6 +212,14 @@ Stages are ordered to make each transition reviewable. Keep the feature limited 
 - Saved ideas may remain incomplete. Queue promotion requires a non-empty subject, one explicit target, a supported post status, and a future date for scheduled publication.
 - Browser smoke and hands-on UI acceptance remain deferred to the later integrated review at the user's request.
 
+### Follow-up — Blog Beta terminology
+
+- User clarified `포스팅` means executing the selected mode (temporary save, immediate, or scheduled), while `발행` means the content is public and visible.
+- Blog Beta UI labels, action feedback, confirmations, and queue labels now use `포스팅` for actions and settings; `발행` remains for actual public outcomes and the existing stored state contract.
+- API values, stored status strings, DOM IDs, and existing identifiers such as `publish` are intentionally unchanged for compatibility. See [Blog posting terminology](../../decisions/2026-10-08-blog-posting-terminology.md).
+- Concrete modes use `임시 저장`, `즉시 발행`, and `예약 발행`; generic in-progress states use `포스팅 중`.
+- The shared header status now follows this distinction. Focused contracts and Blog Beta browser smoke passed; user visual acceptance remains separate.
+
 ### Follow-up — quick writing entry flow
 
 - The quick-writing action row now contains only `글감 보관` and `원고 만들기`. Direct queue entry from this screen and its queue-settings dialog were removed; saved ideas can still be promoted from their editor after the item's publishing settings pass readiness validation.
@@ -220,6 +228,14 @@ Stages are ordered to make each transition reviewable. Keep the feature limited 
 - Focused contract checks and syntax checks are pending this update; manual acceptance should verify the two quick-writing actions, successful save reset/focus, failed save preservation, and saved-item promotion.
 - User UI review found that focus did not visibly return to the topic field. The toast did not steal focus; focus was attempted while submission-busy state had disabled the inputs. The focus call now runs in `finally` after busy state is cleared, and the focused flow contract asserts that ordering.
 - User then identified duplicate success feedback: the quick-save success appeared both inline and as a toast. Quick-save success now uses only the toast; inline result feedback remains available for errors and other relevant flows.
+
+### Follow-up — shared refresh control and integrated verification
+
+- Reused the shared refresh action icon/style for the Blog Beta queue refresh control, retaining the accessible label `글감 관리 목록 새로고침` and shared busy/rotation state.
+- Fixed the post-save subject focus to run after busy controls are restored, and updated the browser smoke to wait for the focus transfer.
+- Corrected browser smoke selectors to inspect the settings instance inside the editor modal, verify save closes the modal, and exercise the saved-topic and ready-queue editor flows. The smoke also returns to the Quick tab before interacting with its mode panel and confirms the existing new-writing dialog.
+- Updated the shared global status copy to use `포스팅 중` and `포스팅 확인 필요`, keeping concrete modes such as `즉시 발행` and `예약 발행` intact.
+- Verification: focused unit/contract batch passed (206 tests); `npm run test:ui-browser` passed (480 fixture requests); `git diff --check` passed. Hands-on visual acceptance remains with the user.
 
 ### Progress
 

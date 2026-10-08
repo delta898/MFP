@@ -106,9 +106,9 @@ function validateTopicCapture(input = {}, options = {}) {
     }
 
     if (ready && topic.platforms.length === 0) {
-        errors.push({ field: 'platforms', code: 'PLATFORM_REQUIRED', message: '발행 대상을 하나 선택해 주세요.' });
+        errors.push({ field: 'platforms', code: 'PLATFORM_REQUIRED', message: '포스팅 대상을 하나 선택해 주세요.' });
     } else if (topic.platforms.length > 1) {
-        errors.push({ field: 'platforms', code: 'MULTIPLE_PUBLISH_TARGETS', message: '하나의 글감에는 발행 대상을 하나만 선택할 수 있습니다.' });
+        errors.push({ field: 'platforms', code: 'MULTIPLE_PUBLISH_TARGETS', message: '하나의 글감에는 포스팅 대상을 하나만 선택할 수 있습니다.' });
     }
 
     if (topic.postStatus === 'schedule' && (ready || topic.scheduleDate)) {

@@ -1,10 +1,10 @@
 const PROGRESS_PRESENTATIONS = Object.freeze({
-    preparing: { title: '준비 중', message: '발행 설정과 연결 상태를 확인하고 있습니다.' },
+    preparing: { title: '준비 중', message: '포스팅 설정과 연결 상태를 확인하고 있습니다.' },
     writing_naver: { title: '글 작성 중', message: '네이버 블로그용 글을 작성하고 있습니다.' },
     writing_wordpress: { title: '글 작성 중', message: '워드프레스용 글을 작성하고 있습니다.' },
     images_naver: { title: '이미지 준비 중', message: '네이버 블로그용 이미지를 준비하고 있습니다.' },
     images_wordpress: { title: '이미지 준비 중', message: '워드프레스용 이미지를 준비하고 있습니다.' },
-    quota: { title: '발행 준비 중', message: '이용 가능 횟수를 확인하고 있습니다.' },
+    quota: { title: '포스팅 준비 중', message: '이용 가능 횟수를 확인하고 있습니다.' },
     finalizing: { title: '마무리 중', message: '완료 결과를 정리하고 있습니다.' }
 });
 
@@ -16,8 +16,8 @@ function normalizePostStatus(value) {
 function getPostingAction(postStatus) {
     const normalized = normalizePostStatus(postStatus);
     if (normalized === 'draft') return '임시 저장';
-    if (normalized === 'schedule') return '예약 등록';
-    return '공개 발행';
+    if (normalized === 'schedule') return '예약 발행';
+    return '포스팅';
 }
 
 function presentPublishingProgress(rawMessage, options = {}) {

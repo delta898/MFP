@@ -206,7 +206,7 @@ test('manuscript summaries expose consequential values without opening settings'
   const script = read('ui/scripts/features/blog-next/publishing-targets.js');
 
   assert.match(script, /function syncBlogNextDraftSettingsSummary\(type\)/);
-  assert.match(script, /formatBlogPlatformList\(settings\.targets, ' \+ '\) \|\| '발행 대상 없음'/);
+  assert.match(script, /formatBlogPlatformList\(settings\.targets, ' \+ '\) \|\| '포스팅 대상 없음'/);
   assert.match(script, /settings\.postStatus === 'draft' \? '임시 저장'/);
   assert.doesNotMatch(script, /settings\.imageMode === 'generate' \? '이미지 생성'/);
   assert.doesNotMatch(readBlogNextView(), /data-draft-field="image-mode"/);
@@ -324,9 +324,9 @@ test('queue management exposes complete local tabs and list-owned async states',
   }
   assert.match(html, /id="blog-next-management-status"[^>]*role="status"[^>]*aria-live="polite"[^>]*hidden/);
   assert.equal((html.match(/class="blog-next-queue-list" data-state="loading" aria-live="polite" aria-busy="true"/g) || []).length, 2);
-  assert.match(html, /data-blog-next-management-tab="automation">연속 발행 설정/);
+  assert.match(html, /data-blog-next-management-tab="automation">연속 포스팅 설정/);
   assert.doesNotMatch(html, /data-blog-next-tab="automation"/);
-  assert.doesNotMatch(html, /발행 대기열을 확인하고 있습니다|보관한 글감을 확인하고 있습니다/);
+  assert.doesNotMatch(html, /포스팅 대기열을 확인하고 있습니다|보관한 글감을 확인하고 있습니다/);
   assert.match(queueScript, /handleUiTabNavigationKeydown/);
   assert.match(tabNavigation, /function handleUiTabNavigationKeydown/);
   assert.match(uiScript, /function setBlogNextManagementStatus\(state, message = ''\)/);
@@ -334,12 +334,12 @@ test('queue management exposes complete local tabs and list-owned async states',
   assert.match(queueScript, /blogNextQueueHasLoaded = true/);
   assert.doesNotMatch(queueScript, /setBlogNextManagementStatus\('loading'/);
   assert.match(queueScript, /const showRefreshProgress = options\.showRefreshProgress !== false/);
-  assert.match(queueScript, /if \(showRefreshProgress\) \{[\s\S]*refreshButton\.textContent = '불러오는 중\.\.\.'/);
+  assert.match(queueScript, /refreshButton\.setAttribute\('aria-busy', String\(showRefreshProgress\)\)/);
   assert.match(queueScript, /loadBlogNextQueue\(\{ force: true, showRefreshProgress: false \}\)/);
   assert.match(queueScript, /setBlogNextManagementStatus\('error'/);
   assert.match(queueScript, /existing list|기존 목록/);
   assert.match(queueScript, /if \(blogNextQueueHasLoaded\) \{[\s\S]*setBlogNextManagementStatus\('error',[\s\S]*\} else \{[\s\S]*setBlogNextManagementStatus\('idle'\);[\s\S]*renderBlogNextQueueInitialError/);
-  assert.doesNotMatch(queueScript, /setBlogNextTopicResult\(error\.message \|\| '발행 대기열/);
+  assert.doesNotMatch(queueScript, /setBlogNextTopicResult\(error\.message \|\| '포스팅 대기열/);
 });
 
 test('queue reserves status surfaces for actionable errors', () => {
@@ -355,7 +355,7 @@ test('queue row actions describe their actual outcomes consistently', () => {
 
   assert.match(queueScript, /function getBlogNextQueueRunActionCopy\(item = \{\}\)/);
   assert.match(queueScript, /label: '지금 임시 저장'[\s\S]*busyLabel: '임시 저장 중\.\.\.'/);
-  assert.match(queueScript, /label: '지금 예약 등록'[\s\S]*busyLabel: '예약 등록 중\.\.\.'/);
+  assert.match(queueScript, /label: '지금 예약 발행'[\s\S]*busyLabel: '예약 발행 중\.\.\.'/);
   assert.match(queueScript, /label: '지금 발행'[\s\S]*busyLabel: '발행 중\.\.\.'/);
   assert.match(queueScript, /enqueueButton\.textContent = '대기열로 이동'/);
   assert.match(queueScript, /archiveButton\.textContent = '보관으로 이동'/);
@@ -390,7 +390,7 @@ test('queue metadata presents platform identifiers in user language', () => {
 test('saved and ready rows share the same base metadata structure', () => {
   const queueScript = readBlogNextQueueScripts();
 
-  assert.match(queueScript, /const platforms = formatBlogPlatformList\(item\.options\?\.platforms\) \|\| '발행 대상 미정'/);
+  assert.match(queueScript, /const platforms = formatBlogPlatformList\(item\.options\?\.platforms\) \|\| '포스팅 대상 미정'/);
   assert.match(queueScript, /const postStatus = formatBlogNextPostStatus\(item\)/);
   assert.match(queueScript, /if \(saved\) meta\.textContent = `\$\{platforms\} · \$\{postStatus\}`/);
   assert.doesNotMatch(queueScript, /아이디어 보관|`키워드 · \$\{item\.keywordsRaw\}`/);
@@ -420,24 +420,22 @@ test('queue rows share one transient hover and keyboard focus surface', () => {
   assert.match(queueCss, /\.blog-next-queue-copy:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--ui-action-primary\)/s);
 });
 
-test('queue editor changes content without owning collection transitions or execution', () => {
+test('queue editor keeps save and queue promotion as separate local actions', () => {
   const queueScript = readBlogNextQueueScripts();
   const flowScript = read('ui/scripts/features/blog-next/quick-flow-ui.js');
   const service = read('src/ui-api/services/continuous-publishing.service.js');
-  const editorCss = read('ui/styles/features/continuous-publishing-usability.css');
+  const editor = read('ui/partials/views/blog-next/editor-modal.html');
 
-  assert.match(queueScript, /if \(recoverableSlot\) recoverableSlot\.hidden = true/);
-  assert.match(queueScript, /if \(saveButton\) \{[\s\S]*saveButton\.hidden = false;[\s\S]*saveButton\.classList\.add\('primary'\)/);
-  assert.match(queueScript, /if \(enqueueButton\) \{\s*enqueueButton\.hidden = true;/);
-  assert.doesNotMatch(queueScript, /publishButton\.hidden\s*=\s*true/);
+  assert.match(queueScript, /function setBlogNextEditorPromotionAction\(available\)[\s\S]*if \(!available\) \{[\s\S]*existing\?\.remove\(\)/);
+  assert.match(queueScript, /setBlogNextEditorPromotionAction\(sourceStatus === '대기'\)/);
+  assert.match(queueScript, /blog-next-editor-save[\s\S]*submitBlogNextTopic\('save'\)/);
+  assert.match(queueScript, /blog-next-editor-enqueue[\s\S]*submitBlogNextTopic\('enqueue'\)/);
   assert.match(flowScript, /const editingChanged = !editing \|\| \([\s\S]*snapshotBlogNextEditingPayload\(\) !== blogNextEditingInitialSnapshot/);
-  assert.match(flowScript, /if \(save\) save\.disabled = busy \|\| sheetBlocked \|\| !editingChanged \|\| \(editingReady \? !readyValid : !ideaValid\)/);
-  assert.match(queueScript, /blogNextEditingInitialSnapshot = snapshotBlogNextEditingPayload\(\);\s*syncBlogNextTopicActionAvailability\(\);/);
+  assert.match(flowScript, /if \(editorSave\) editorSave\.disabled = busy \|\| sheetBlocked \|\| !editingChanged/);
   assert.match(service, /const ready = sourceStatus === TOPIC_STATUS\.READY \|\| action === 'enqueue'/);
-  assert.match(service, /updateReadyTopic\(requestBody = \{\}\) \{\s*return this\.updateTopic\(\{ \.\.\.requestBody, action: 'save', sourceStatus: TOPIC_STATUS\.READY \}\)/);
+  assert.match(service, /updateReadyTopic\(requestBody = \{\}\)[\s\S]*action: 'save', sourceStatus: TOPIC_STATUS\.READY/);
   assert.doesNotMatch(service, /READY_TOPIC_CANNOT_BE_SAVED/);
-  assert.match(editorCss, /\.blog-next-editor-modal-actions \.blog-next-form-actions \.blog-next-cancel-action\s*\{[^}]*margin-inline-end:\s*0;/s);
-  assert.match(editorCss, /\.blog-next-editor-modal-actions \.blog-next-recoverable-action-slot\[hidden\]\s*\{[^}]*display:\s*none;/s);
+  assert.match(editor, /class="blog-next-editor-modal-message"[\s\S]*class="blog-next-editor-modal-action-group"[\s\S]*id="blog-next-editor-cancel"[\s\S]*id="blog-next-editor-save"/);
 });
 
 test('smart comment identifies its model role and preserves results through async states', () => {
@@ -473,7 +471,7 @@ test('continuous publishing disables dependent fields and separates operation fe
   assert.match(script, /function syncBlogNextAutomationDependentFields\(\)/);
   assert.match(script, /fields\.dataset\.dependencyActive = String\(active\)/);
   assert.match(script, /control\.disabled = locked \|\| !active/);
-  assert.match(script, /setBlogNextAutomationFeedback\('loading', '연속 발행 설정을 불러오는 중입니다.'/);
+  assert.match(script, /setBlogNextAutomationFeedback\('loading', '연속 포스팅 설정을 불러오는 중입니다.'/);
   assert.match(script, /setBlogNextAutomationFeedback\('success', '설정을 저장했습니다.'/);
   assert.match(script, /setBlogNextAutomationFeedback\('error'/);
 });

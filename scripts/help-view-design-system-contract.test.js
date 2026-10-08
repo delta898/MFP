@@ -31,7 +31,7 @@ test('help view keeps one primary per card and shared action variants', () => {
   const css = read('ui/styles/features/help.css');
 
   assert.match(html, /<button class="primary[^"]*"[^>]*data-help-nav="blog-next"[^>]*>글 작성 시작하기<\/button>/);
-  assert.match(html, /<button class="secondary[^"]*"[^>]*data-help-nav="blog-next"[^>]*>[\s\S]*?연속 발행 설정/);
+  assert.match(html, /<button class="secondary[^"]*"[^>]*data-help-nav="blog-next"[^>]*>[\s\S]*?연속 포스팅 설정/);
   assert.match(html, /<button class="secondary[^"]*"[^>]*data-help-nav="settings-next"[^>]*>[\s\S]*?연결 설정 확인/);
   assert.match(html, /<a class="[^"]*ui-button-link secondary[^"]*"[^>]*>문의하기/);
   assert.doesNotMatch(html, /help-guide-count/);

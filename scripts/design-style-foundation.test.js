@@ -184,7 +184,7 @@ test('shared action pattern keeps one filled primary and lower-emphasis alternat
   assert.match(blogNext, /id="blog-next-title-recommend" class="secondary blog-next-ai-assist"/);
   assert.match(blogNext, /id="blog-next-trend-query" class="primary"/);
   assert.match(blogNext, /id="blog-next-trend-refresh" class="[^"]*ui-refresh-action-icon[^"]*"[^>]*aria-label="최신 데이터 새로고침"[^>]*title="최신 데이터 새로고침"/);
-  assert.match(blogNext, /class="[^"]*ui-refresh-action-text[^"]*"[\s\S]*?id="blog-next-queue-refresh"[^>]*>새로고침<\/button>/);
+  assert.match(blogNext, /class="[^"]*ui-refresh-action-icon[^"]*"[^>]*id="blog-next-queue-refresh"[^>]*aria-label="글감 관리 목록 새로고침"[^>]*>[\s\S]*?<use href="#ui-icon-refresh"><\/use>/);
   assert.match(actions, /\.ui-refresh-action-icon\s*\{[^}]*--ui-border-default[^}]*--ui-surface[^}]*--ui-text-secondary/s);
   assert.match(actions, /\.ui-refresh-action-icon\.is-loading svg\s*,\s*\.ui-refresh-action-icon\[aria-busy="true"\] svg\s*\{[^}]*ui-refresh-action-spin/s);
   assert.match(selectionControls, /input\[type="checkbox"\][\s\S]*input\[type="radio"\][\s\S]*accent-color:\s*var\(--ui-action-primary\);/);

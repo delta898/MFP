@@ -43,7 +43,7 @@ function normalizeAutomationSettings(input = {}, options = {}) {
         if (strict) {
             throw createSettingsError(
                 'CONTINUOUS_AUTOMATION_INTERVAL_INVALID',
-                `발행 간격은 ${MIN_INTERVAL_MINUTES}~${MAX_INTERVAL_MINUTES}분 사이의 정수로 입력해 주세요.`
+                `포스팅 간격은 ${MIN_INTERVAL_MINUTES}~${MAX_INTERVAL_MINUTES}분 사이의 정수로 입력해 주세요.`
             );
         }
     }
@@ -131,7 +131,7 @@ function createAutomationSettingsRepository(options = {}) {
                     return {
                         document: { ...DEFAULT_AUTOMATION_SETTINGS },
                         source: 'default',
-                        warnings: ['지원하지 않는 연속 발행 설정 버전이라 기본값을 사용합니다.']
+                        warnings: ['지원하지 않는 연속 포스팅 설정 버전이라 기본값을 사용합니다.']
                     };
                 }
                 return { document: normalizeAutomationSettings(parsed), source: 'saved', warnings: [] };
@@ -139,7 +139,7 @@ function createAutomationSettingsRepository(options = {}) {
                 return {
                     document: { ...DEFAULT_AUTOMATION_SETTINGS },
                     source: 'default',
-                    warnings: ['연속 발행 설정을 읽지 못해 기본값을 사용합니다.']
+                    warnings: ['연속 포스팅 설정을 읽지 못해 기본값을 사용합니다.']
                 };
             }
         },

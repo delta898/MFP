@@ -599,7 +599,7 @@ test('ready queue includes live readiness issues without persisting a diagnostic
         ['SCHEDULE_DATE_PAST']
     ]);
     assert.equal(result.items[0].queue_readiness.issues[0].message, '주제가 없습니다.');
-    assert.equal(result.items[2].queue_readiness.issues[0].message, '발행 방식이 없습니다.');
+    assert.equal(result.items[2].queue_readiness.issues[0].message, '포스팅 방식이 없습니다.');
     assert.equal(Object.hasOwn(result.saved_items[0], 'queue_readiness'), false);
     assert.equal(Object.hasOwn(state.readItems[0], 'queue_readiness'), false);
 });
