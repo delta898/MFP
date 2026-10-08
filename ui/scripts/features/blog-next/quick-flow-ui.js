@@ -178,8 +178,6 @@ function syncBlogNextTopicActionAvailability() {
   const aiDraftGenerating = typeof blogNextDraftState !== 'undefined' && blogNextDraftState.ai?.generating === true;
   const busy = (typeof blogNextTopicSubmitting !== 'undefined' && blogNextTopicSubmitting) || aiDraftGenerating;
   const editing = typeof blogNextEditingRowIndex !== 'undefined' && blogNextEditingRowIndex !== null;
-  const editingSavedIdea = editing && typeof blogNextEditingSourceStatus !== 'undefined'
-    && blogNextEditingSourceStatus === '대기';
   const editingReady = typeof blogNextEditingSourceStatus !== 'undefined'
     && blogNextEditingSourceStatus === '발행 준비 완료';
   const editingChanged = !editing || (
@@ -191,7 +189,6 @@ function syncBlogNextTopicActionAvailability() {
   const runnerActive = (typeof blogNextRunnerActive !== 'undefined' && blogNextRunnerActive)
     || (typeof blogNextRunnerRequesting !== 'undefined' && blogNextRunnerRequesting);
   const save = document.getElementById('blog-next-save-topic');
-  const enqueue = document.getElementById('blog-next-enqueue-topic');
   const editorSave = document.getElementById('blog-next-editor-save');
   const editorEnqueue = document.getElementById('blog-next-editor-enqueue');
   const publish = document.getElementById('blog-next-publish-now');
@@ -208,11 +205,6 @@ function syncBlogNextTopicActionAvailability() {
     return;
   }
   if (save) save.disabled = busy || sheetBlocked || !editingChanged || (editingReady ? !readyValid : !ideaValid);
-  if (enqueue) {
-    // New quick-flow queue entries collect their publishing target in the dialog.
-    enqueue.disabled = busy || sheetBlocked || !(editingSavedIdea || (editing ? readyValid : ideaValid));
-    enqueue.removeAttribute('title');
-  }
   if (publish) {
     const siteTargetMissing = getBlogNextSettingsElement('blog-next-target-site-hosting')?.checked === true && !siteTargetReady;
     publish.disabled = busy || runnerActive || (editing && !editingReady) || !ideaValid || siteTargetMissing || aiBlocked || imageAiBlocked;

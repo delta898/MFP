@@ -157,11 +157,8 @@ function setBlogNextTopicBusy(busy, action = '') {
   const runnerActive = typeof blogNextRunnerActive !== 'undefined' && blogNextRunnerActive;
   const aiDraftGenerating = typeof blogNextDraftState !== 'undefined' && blogNextDraftState.ai?.generating === true;
   const saveButton = document.getElementById(blogNextEditingRowIndex !== null ? 'blog-next-editor-save' : 'blog-next-save-topic');
-  const enqueueButton = document.getElementById(blogNextEditingRowIndex !== null ? 'blog-next-editor-enqueue' : 'blog-next-enqueue-topic');
+  const enqueueButton = blogNextEditingRowIndex !== null ? document.getElementById('blog-next-editor-enqueue') : null;
   const publishButton = document.getElementById('blog-next-publish-now');
-  const queueConfirmButton = document.getElementById('blog-next-queue-settings-confirm');
-  const queueCloseButton = document.getElementById('blog-next-queue-settings-close');
-  const queueCancelButton = document.getElementById('blog-next-queue-settings-cancel');
   if (saveButton) {
     saveButton.textContent = busy && action === 'save'
       ? (blogNextEditingRowIndex !== null ? '저장 중...' : '보관 중...')
@@ -178,9 +175,6 @@ function setBlogNextTopicBusy(busy, action = '') {
     syncBlogNextTopicActionAvailability();
     return;
   }
-  if (queueConfirmButton) queueConfirmButton.disabled = busy;
-  if (queueCloseButton) queueCloseButton.disabled = busy;
-  if (queueCancelButton) queueCancelButton.disabled = busy;
   if (publishButton) {
     setUiAiActionButton(publishButton, aiDraftGenerating ? '원고 만드는 중…'
       : runnerActive ? '포스팅 진행 중...'
@@ -337,6 +331,7 @@ async function submitBlogNextTopic(action) {
   if (blogNextTopicSubmitting || !await ensureBlogNextTopicStorageReady()) return;
   if (action === 'enqueue' && blogNextEditingRowIndex !== null && blogNextEditingSourceStatus === '대기'
     && !showBlogNextQueueReadinessIssues()) return;
+  let focusQuickSubjectAfterSave = false;
   setBlogNextTopicBusy(true, action);
   setBlogNextTopicResult('');
   try {
@@ -365,18 +360,16 @@ async function submitBlogNextTopic(action) {
     const message = editing
       ? (editingReady ? '발행 계획을 수정했습니다.' : queued ? '글감을 발행 대기열에 추가했습니다.' : '보관한 글감을 수정했습니다.')
       : (queued ? '발행 계획을 확인해 대기열에 추가했습니다.' : '글감을 보관했습니다. 언제든 계속 작성할 수 있습니다.');
-    if (action === 'enqueue' && typeof endBlogNextQueueSettingsContext === 'function') {
-      endBlogNextQueueSettingsContext();
-    }
     if (!editing) rememberBlogNextTopicDefaults();
     if (action !== 'publish-now') {
       if (editing) finishBlogNextTopicEditing();
       else {
         if (typeof resetBlogNextAiDraftUi === 'function') resetBlogNextAiDraftUi();
         clearBlogNextTopicContent();
+        focusQuickSubjectAfterSave = action === 'save';
       }
     }
-    if (!editing) setBlogNextTopicResult(message, 'success');
+    if (!editing && action !== 'save') setBlogNextTopicResult(message, 'success');
     if (action !== 'publish-now') {
       showUiToast({ level: 'success', title: queued ? '대기열 추가 완료' : '글감 보관 완료', message });
     }
@@ -397,11 +390,11 @@ async function submitBlogNextTopic(action) {
       }
     }
   } catch (error) {
-    if (action === 'enqueue' && typeof isBlogNextQueueSettingsOpen === 'function' && isBlogNextQueueSettingsOpen()) {
-      showBlogNextQueueSettingsResult(error.message || '대기열에 추가하지 못했습니다. 설정을 확인해 주세요.');
-      document.getElementById('blog-next-queue-settings-confirm')?.focus();
-    } else setBlogNextTopicResult(error.message || '글감을 저장하지 못했습니다.', 'error');
+    setBlogNextTopicResult(error.message || '글감을 저장하지 못했습니다.', 'error');
   } finally {
     setBlogNextTopicBusy(false);
+    if (focusQuickSubjectAfterSave && typeof revealBlogNextWritingDestination === 'function') {
+      revealBlogNextWritingDestination('blog-next-subject');
+    }
   }
 }

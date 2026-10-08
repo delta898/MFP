@@ -345,7 +345,6 @@ function arrangeBlogNextAiWorkflow(options = {}) {
   // Queue/editor screens render their own settings instance and own action footer.
   // This workflow arranger only owns the quick-writing form composition.
   if (options.editing === true || (typeof blogNextEditingRowIndex !== 'undefined' && blogNextEditingRowIndex !== null)) return;
-  if (typeof isBlogNextQueueSettingsOpen === 'function' && isBlogNextQueueSettingsOpen()) return;
   const form = document.getElementById('blog-next-topic-form');
   const disclosures = form?.querySelector('.blog-next-disclosures');
   const previewDisclosure = document.getElementById('blog-next-ai-preview');
@@ -355,7 +354,6 @@ function arrangeBlogNextAiWorkflow(options = {}) {
   const previewStep = document.querySelector('[data-blog-next-ai-step="preview"]');
   const publishStep = document.querySelector('[data-blog-next-ai-step="publish"]');
   const save = document.getElementById('blog-next-save-topic');
-  const enqueue = document.getElementById('blog-next-enqueue-topic');
   const prepareActions = document.querySelector('.blog-next-ai-prepare-actions');
   const ideaActions = document.querySelector('[data-blog-next-ai-idea-actions]');
   const previewActions = document.querySelector('[data-blog-next-ai-preview-actions]');
@@ -378,10 +376,6 @@ function arrangeBlogNextAiWorkflow(options = {}) {
   if (previewActions) previewActions.hidden = !hasDraft;
   if (publishActions) publishActions.hidden = false;
   if (save) save.hidden = hasDraft;
-  if (enqueue) {
-    enqueue.hidden = hasDraft;
-    enqueue.setAttribute('aria-expanded', 'false');
-  }
   if (hint) hint.hidden = hasDraft;
 }
 

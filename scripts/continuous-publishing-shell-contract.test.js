@@ -82,20 +82,19 @@ test('Blog Beta quick writing keeps topic capture and adds the canonical AI manu
     const betaView = readBlogNextView();
     const quickQueueScript = readBlogNextQueueScripts();
     const publishIndex = betaView.indexOf('id="blog-next-publish-now"');
-    const enqueueIndex = betaView.indexOf('id="blog-next-enqueue-topic"');
     const saveIndex = betaView.indexOf('id="blog-next-save-topic"');
 
     assert.match(betaView, /id="blog-next-save-topic"[^>]*>글감 보관/);
-    assert.match(betaView, /id="blog-next-enqueue-topic"[^>]*>발행 대기열에 추가/);
+    assert.doesNotMatch(betaView, /id="blog-next-enqueue-topic"|발행 대기열에 추가/);
     assert.match(betaView, /class="primary" id="blog-next-publish-now"[^>]*>[\s\S]*?id="blog-next-publish-now-label">원고 만들기/);
     assert.doesNotMatch(betaView, /id="blog-next-clear-topic"|id="blog-next-clear-undo"/);
     assert.match(betaView, /class="ghost blog-next-cancel-action" id="blog-next-cancel-edit"[^>]*hidden>취소/);
-    assert.equal(saveIndex < enqueueIndex && enqueueIndex < publishIndex, true);
+    assert.equal(saveIndex < publishIndex, true);
     assert.match(betaView, /id="blog-next-queue-list"/);
     assert.match(betaView, /id="blog-next-saved-list"/);
     assert.match(quickQueueScript, /\/api\/v1\/continuous-publishing\/topics/);
     assert.match(quickQueueScript, /\/api\/v1\/continuous-publishing\/queue/);
-    assert.match(quickQueueScript, /getElementById\('blog-next-cancel-edit'\).*closeBlogNextEditor/);
+    assert.match(quickQueueScript, /getElementById\('blog-next-editor-cancel'\).*closeBlogNextEditor/);
     assert.match(quickQueueScript, /generateBlogNextAiDraft\(id === 'blog-next-regenerate-draft' \? 'regenerate' : 'create'\)/);
     assert.doesNotMatch(quickQueueScript, /quick-publish|quick-preview|generateContent|publishBlog|reserveQuota/i);
 });

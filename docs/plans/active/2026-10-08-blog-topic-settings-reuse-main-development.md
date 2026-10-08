@@ -212,6 +212,15 @@ Stages are ordered to make each transition reviewable. Keep the feature limited 
 - Saved ideas may remain incomplete. Queue promotion requires a non-empty subject, one explicit target, a supported post status, and a future date for scheduled publication.
 - Browser smoke and hands-on UI acceptance remain deferred to the later integrated review at the user's request.
 
+### Follow-up — quick writing entry flow
+
+- The quick-writing action row now contains only `글감 보관` and `원고 만들기`. Direct queue entry from this screen and its queue-settings dialog were removed; saved ideas can still be promoted from their editor after the item's publishing settings pass readiness validation.
+- After a successful quick idea save, the form uses the same existing helpers as the keyboard shortcut: `clearBlogNextTopicContent()`, `resetBlogNextAiDraftUi()`, and `revealBlogNextWritingDestination('blog-next-subject')`. Failed saves retain the entered data. This keeps reset and focus behavior composable instead of duplicating it.
+- The browser smoke source flow was updated to save an idea, promote it from the saved list, and set publishing options in that item's editor before checking queue behavior. Browser smoke itself remains deferred to the user's later combined UI review.
+- Focused contract checks and syntax checks are pending this update; manual acceptance should verify the two quick-writing actions, successful save reset/focus, failed save preservation, and saved-item promotion.
+- User UI review found that focus did not visibly return to the topic field. The toast did not steal focus; focus was attempted while submission-busy state had disabled the inputs. The focus call now runs in `finally` after busy state is cleared, and the focused flow contract asserts that ordering.
+- User then identified duplicate success feedback: the quick-save success appeared both inline and as a toast. Quick-save success now uses only the toast; inline result feedback remains available for errors and other relevant flows.
+
 ### Progress
 
 - Initially reused the existing edit form and added an item-edit publishing-state context that snapshots and restores quick-writing controls, target map, active target, disclosure state, and session storage. This was superseded by the instance redesign below because sharing the form tied the editor to quick-writing actions and state.

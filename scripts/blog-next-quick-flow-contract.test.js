@@ -122,8 +122,8 @@ test('saved ideas can be promoted through the shared validated editor without by
   assert.match(management, /function setBlogNextEditorPromotionAction\(available\)[\s\S]*?if \(!available\) \{\s*existing\?\.remove\(\)/);
   assert.match(management, /setBlogNextEditorPromotionAction\(sourceStatus === '대기'\)/);
   assert.doesNotMatch(management.match(/async function addBlogNextSavedItemToQueue\([\s\S]*?\n\}/)?.[0] || '', /\/api\/v1\/continuous-publishing\/queue\/add/);
-  assert.match(management, /if \(blogNextEditingRowIndex !== null && blogNextEditingSourceStatus === '대기'\) \{\s*void submitBlogNextTopic\('enqueue'\);/);
-  assert.match(validity, /editingSavedIdea \|\| \(editing \? readyValid : ideaValid\)/);
+  assert.match(management, /blog-next-editor-actions-slot[\s\S]*closest\('#blog-next-editor-enqueue'\)\) submitBlogNextTopic\('enqueue'\)/);
+  assert.match(validity, /if \(editorEnqueue\) editorEnqueue\.disabled = busy \|\| sheetBlocked/);
   assert.doesNotMatch(validity, /editorEnqueue\.hidden/);
   assert.match(queue, /function showBlogNextQueueReadinessIssues\(\)[\s\S]*?setBlogNextTopicResult\([\s\S]*?'error'[\s\S]*?return false/);
   assert.match(queue, /action === 'enqueue' && blogNextEditingRowIndex !== null && blogNextEditingSourceStatus === '대기'[\s\S]*?showBlogNextQueueReadinessIssues\(\)/);
@@ -297,11 +297,14 @@ test('quick flow summaries update from existing controls and new writing owns in
   assert.match(read('ui/partials/views/blog-next/editor-modal.html'), /id="blog-next-editor-settings-form"[\s\S]*blog-next-editor-modal-actions/);
   assert.match(read('ui/partials/views/blog-next/editor-modal.html'), /blog-next-editor-modal-message[\s\S]*blog-next-editor-modal-action-group[\s\S]*id="blog-next-editor-cancel"[\s\S]*id="blog-next-editor-save"/);
   assert.match(read('ui/scripts/features/blog-next/writing-intent.js'), /clearBlogNextTopicContent\(\);\s*resetBlogNextAiDraftUi\(\)/);
+  const quickQueue = read('ui/scripts/features/blog-next/quick-queue.js');
+  assert.match(quickQueue, /focusQuickSubjectAfterSave = action === 'save';[\s\S]*?finally \{\s*setBlogNextTopicBusy\(false\);\s*if \(focusQuickSubjectAfterSave[\s\S]*?revealBlogNextWritingDestination\('blog-next-subject'\)/);
+  assert.match(quickQueue, /if \(!editing && action !== 'save'\) setBlogNextTopicResult\(message, 'success'\)/);
   assert.match(uiScript, /function syncBlogNextTopicActionAvailability\(\)/);
   assert.match(uiScript, /const ideaValid = Boolean\(subject \|\| keywords \|\| instruction \|\| references\.length\) && referencesValid/);
   assert.match(uiScript, /readyValid: ideaValid && subjectValid && hasTarget && siteTargetReady && statusValid && scheduleValid/);
   assert.match(uiScript, /save\.disabled = busy \|\| sheetBlocked \|\| !editingChanged \|\| \(editingReady \? !readyValid : !ideaValid\)/);
-  assert.match(uiScript, /enqueue\.disabled = busy \|\| sheetBlocked \|\| !\(editingSavedIdea \|\| \(editing \? readyValid : ideaValid\)\)/);
+  assert.doesNotMatch(uiScript, /blog-next-enqueue-topic|enqueue\.disabled/);
   assert.match(uiScript, /publish\.disabled = busy \|\| runnerActive [^;]* \|\| !ideaValid/);
   assert.doesNotMatch(script, /blog-next-clear-topic|blog-next-clear-undo/);
 });
@@ -450,9 +453,9 @@ test('quick writing keeps one editable manuscript workspace available before pre
   assert.match(trendScript, /await applyBlogNextWritingIntent\(\{[\s\S]*?'blog-next-subject': keyword,[\s\S]*?'blog-next-keywords': keyword\s*\}[\s\S]*?blogNextTrendContext = \{/);
   assert.match(trendScript, /message: '작성 중인 글감을 선택한 트렌드 키워드로 바꿀까요\?'/);
   assert.match(html, /data-blog-next-ai-idea-actions[\s\S]*>글감 활용<[\s\S]*id="blog-next-save-topic"[\s\S]*>글감 보관/);
-  assert.match(html, /class="blog-next-ai-action-row blog-next-ai-actions-row"[\s\S]*id="blog-next-save-topic"[\s\S]*id="blog-next-enqueue-topic"[\s\S]*data-blog-next-ai-generate-action[\s\S]*id="blog-next-publish-now"[\s\S]*<svg class="ui-ai-icon" aria-hidden="true"><use href="#ui-icon-ai"><\/use><\/svg><span id="blog-next-publish-now-label">원고 만들기/);
-  assert.match(html, /id="blog-next-enqueue-topic"[\s\S]*>발행 대기열에 추가<\/button>/);
-  assert.match(html, /id="blog-next-queue-action-hint">보관하거나 대기열에 추가할 수 있고, 지금 원고를 만들 수도 있습니다/);
+  assert.match(html, /class="blog-next-ai-action-row blog-next-ai-actions-row"[\s\S]*id="blog-next-save-topic"[\s\S]*data-blog-next-ai-generate-action[\s\S]*id="blog-next-publish-now"[\s\S]*<svg class="ui-ai-icon" aria-hidden="true"><use href="#ui-icon-ai"><\/use><\/svg><span id="blog-next-publish-now-label">원고 만들기/);
+  assert.doesNotMatch(html, /id="blog-next-enqueue-topic"|발행 대기열에 추가/);
+  assert.match(html, /id="blog-next-queue-action-hint">글감으로 보관하거나, 지금 원고를 만들 수 있습니다/);
   assert.match(html, /data-blog-next-ai-step="preview">[\s\S]*>미리보기 · 원고 입력</);
   assert.match(html, /<details class="blog-next-disclosure blog-next-preview-disclosure" id="blog-next-ai-preview" open>[\s\S]*data-blog-next-ai-step="preview"[\s\S]*data-ai-editor-rail[\s\S]*data-ai-editor-workspace[\s\S]*data-blog-next-ai-preview-actions[\s\S]*<\/details>/);
   assert.match(html, /data-ai-editor-rail(?![^>]*\shidden)/);
@@ -465,7 +468,7 @@ test('quick writing keeps one editable manuscript workspace available before pre
   assert.match(execution, /data-blog-next-publish-settings-slot="ai-publish"/);
   assert.match(uiScript, /function mountBlogNextPublishSettings/);
   assert.match(execution, /if \(save\) save\.hidden = hasDraft/);
-  assert.match(execution, /enqueue\.hidden = hasDraft/);
+  assert.doesNotMatch(execution, /blog-next-enqueue-topic/);
   assert.match(execution, /if \(options\.editing === true \|\| \(typeof blogNextEditingRowIndex !== 'undefined' && blogNextEditingRowIndex !== null\)\) return/);
   assert.match(html, /data-blog-next-ai-preview-actions hidden>[\s\S]*id="blog-next-regenerate-draft"[^>]*>[\s\S]*?<span>원고 다시 만들기<\/span>/);
   assert.match(execution, /arrangeBlogNextAiWorkflow\(options = \{\}\)[\s\S]*quick-writing form composition/);
@@ -493,7 +496,7 @@ test('quick writing keeps one editable manuscript workspace available before pre
   assert.match(css, /\.blog-next-preparation-disclosure > form\s*\{\s*padding: 0 var\(--blog-next-stage-content-inset\) var\(--ui-density-page-gap\);/);
   assert.match(inputs, /const hasSource = type === 'ai'[\s\S]*?blog-next-ai-markdown[\s\S]*?value\?\.trim\(\)/);
   assert.match(inputs, /postJson\('\/api\/v1\/blog\/manuscript-drafts\/paste',[\s\S]*?markdownText: aiMarkdownAtRequest/);
-  assert.match(queue, /beginBlogNextQueueSettingsContext()/);
+  assert.match(queue, /if \(action === 'save' && !editing\)[\s\S]*?clearBlogNextTopicContent\(\);[\s\S]*?revealBlogNextWritingDestination\('blog-next-subject'\)/);
   assert.match(queue, /\['blog-next-publish-now', 'blog-next-regenerate-draft'\][\s\S]*generateBlogNextAiDraft\(id === 'blog-next-regenerate-draft' \? 'regenerate' : 'create'\)/);
   assert.match(queue, /setUiAiActionButton\(publishButton, aiDraftGenerating \? '원고 만드는 중…'/);
   assert.match(queue, /bindBlogNextDetachedPublishSettings\(form\)/);
@@ -512,9 +515,9 @@ test('quick writing keeps one editable manuscript workspace available before pre
   assert.doesNotMatch(sourceFields, /blog-next-target-(?:naver|wordpress)/);
 });
 
-test('quick queue entry uses isolated shared publish controls and idea-only save', () => {
+test('quick writing saves ideas or creates manuscripts; saved-item editor owns queue promotion', () => {
   const entry = read('ui/partials/views/blog-next/editor-modal.html');
-  const modal = read('ui/partials/views/blog-next/queue-settings-modal.html');
+  const view = read('ui/partials/views/blog-next.html');
   const html = readBlogNextView();
   const publishing = read('ui/scripts/features/blog-next/publishing-targets.js');
   const queue = read('ui/scripts/features/blog-next/quick-queue.js');
@@ -522,19 +525,15 @@ test('quick queue entry uses isolated shared publish controls and idea-only save
   const flow = read('ui/scripts/features/blog-next/quick-flow-ui.js');
   const execution = read('ui/scripts/features/blog-next/draft-execution.js');
 
-  assert.match(entry, /@include queue-settings-modal\.html/);
-  assert.match(modal, /id="blog-next-queue-settings-modal"[\s\S]*id="blog-next-queue-settings-slot"[\s\S]*id="blog-next-queue-settings-confirm"/);
-  assert.match(modal, /data-blog-next-queue-settings-slot|blog-next-queue-settings-slot/);
-  assert.match(html, /id="blog-next-enqueue-topic" type="button"/);
+  assert.doesNotMatch(entry, /queue-settings-modal/);
+  assert.doesNotMatch(view, /blog-next-queue-settings-modal|blog-next-enqueue-topic/);
+  assert.match(queueManagement, /form\.addEventListener\('submit',[\s\S]*?submitBlogNextTopic\('save'\)/);
+  assert.doesNotMatch(queueManagement, /blog-next-queue-settings-(?:confirm|close|cancel)|beginBlogNextQueueSettingsContext/);
+  assert.doesNotMatch(publishing, /blogNextQueueSettingsContext|beginBlogNextQueueSettingsContext|endBlogNextQueueSettingsContext/);
+  assert.doesNotMatch(execution, /isBlogNextQueueSettingsOpen|blog-next-enqueue-topic/);
   assert.equal((html.match(/id="blog-next-publish-settings"/g) || []).length, 1);
-  assert.match(publishing, /function beginBlogNextQueueSettingsContext()[\s\S]*radioNaver\.checked = false;[\s\S]*status\.value = 'draft'/);
   assert.match(publishing, /map: new Map\(\[\.\.\.blogNextPublishSettingsByTarget\]/);
-  assert.match(publishing, /function endBlogNextQueueSettingsContext\([\s\S]*context\.map\.forEach[\s\S]*sessionStorage/);
-  assert.match(publishing, /function isBlogNextQueueSettingsOpen/);
-  assert.match(queueManagement, /blog-next-queue-settings-confirm[\s\S]*발행 대상을 하나 선택해 주세요[\s\S]*status === 'schedule'[\s\S]*scheduledAt\.getTime\(\) <= Date\.now\(\)/);
   assert.match(queue, /if \(action === 'save' && !editing\) \{\s*payload\.platforms = \[\];[\s\S]*payload\.postStatus = 'draft'/);
-  assert.match(queue, /if \(action === 'enqueue' && typeof endBlogNextQueueSettingsContext === 'function'\)/);
-  assert.match(queue, /showBlogNextQueueSettingsResult\(error\.message/);
   assert.match(queue, /delete settings\.platforms/);
   assert.match(flow, /editorEnqueue\.disabled = busy \|\| sheetBlocked/);
   assert.match(execution, /function arrangeBlogNextAiWorkflow\(options = \{\}\) \{\s*\/\/ Queue\/editor screens render their own settings instance/);
