@@ -3,7 +3,7 @@
 - Branch: `codex/blog-topic-settings-reuse-stage-3`
 - Base/parent branch: `codex/blog-topic-settings-reuse-main`
 - Start date: 2026-10-08
-- Status: Implemented; committed; browser regression and user UI review pending before parent merge
+- Status: Implemented; committed; merged into parent with browser regression and user UI review deferred
 - Parent plan: [Blog Topic Settings Reuse](2026-10-08-blog-topic-settings-reuse-main-development.md)
 
 ## User need and goal
@@ -40,6 +40,6 @@ Separate saving an idea from entering the publishing queue. Saving a new idea mu
 
 - Automated checks: `node --test scripts/blog-next-quick-flow-contract.test.js` (22 passed); `node --test scripts/single-publish-target-contract.test.js scripts/ui-structure-contract.test.js` (11 passed); changed scripts pass `node --check`; `git diff --check` passes.
 - Manual UI review: user performs this; do not launch the app or browser. The user deferred browser smoke verification for this commit.
-- Browser follow-up before parent merge: update the existing browser smoke flow, which still expects the old inline queue action, to exercise the new settings dialog; then run the focused browser regression.
-- Commit/merge: committed on the stage branch; parent merge is deferred until the browser regression and user review are complete.
+- Browser follow-up: update the existing browser smoke flow, which still expects the old inline queue action, to exercise the new settings dialog; then run the focused browser regression during the user's later integrated review.
+- Commit/merge: committed on the stage branch and merged into the parent at the user's explicit direction before browser regression; the user deferred that verification to a later review pass.
 - Remaining risk: Site Hosting queue execution is not supported by the current continuous-publishing adapter and remains disabled in this dialog.
