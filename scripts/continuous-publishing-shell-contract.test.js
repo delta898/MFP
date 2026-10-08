@@ -396,6 +396,24 @@ test('release queue shows processing estimates and refreshes when a runner finis
     assert.doesNotMatch(queueCss, /\.blog-next-queue-running[^}]*!important/s);
 });
 
+test('queue readiness is announced accessibly and blocks running invalid queue entries', () => {
+    const queueScript = readBlogNextQueueScripts();
+    const managementScript = read('ui/scripts/features/blog-next/queue-management.js');
+    const serviceSource = read('src/ui-api/services/continuous-publishing.service.js');
+    const queueCss = read('ui/styles/features/continuous-publishing-queue.css');
+
+    assert.match(serviceSource, /queue_readiness:\s*\{\s*ready:\s*diagnosis\.ready,\s*issues:\s*diagnosis\.issues/s);
+    assert.match(queueScript, /item\.queue_readiness/);
+    assert.match(queueScript, /aria-controls/);
+    assert.match(queueScript, /aria-expanded/);
+    assert.match(queueScript, /blog-next-queue-readiness-popover/);
+    assert.match(queueScript, /포스팅할 수 없는 이유 보기/);
+    assert.match(queueScript, /readinessBlocked \|\|/);
+    assert.match(managementScript, /async function runBlogNextQueueItemNow[\s\S]*?queue_readiness\?\.ready === false/);
+    assert.match(managementScript, /reasons\.join\(' '\)/);
+    assert.match(queueCss, /\.blog-next-queue-readiness-popover\[hidden\]\s*\{\s*display:\s*none;/);
+});
+
 test('global publishing status exposes one prioritized summary in the clock and only urgent sidebar signals', () => {
     const shell = read('ui/index.html');
     const app = read('ui/app.js');

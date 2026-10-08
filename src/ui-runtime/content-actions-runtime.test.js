@@ -85,7 +85,10 @@ test('development continuous automation admits draft rows but still blocks publi
         parseIntSafe: (value) => Number(value),
         Utils: {
             async readGoogleSheetTopicsAll() {
-                return { items: [{ rowIndex: 0, status: '발행 준비 완료', options: { post_status: postStatus } }] };
+                return { items: [{
+                    rowIndex: 0, status: '발행 준비 완료', subject: '실행 검증 글감',
+                    options: { platforms: ['naver'], post_status: postStatus }
+                }] };
             }
         },
         License: {
@@ -154,12 +157,43 @@ test('scheduled blog rows revalidate the requested time at the platform-post bou
         { manualTrigger: true }
     );
 
-    assert.deepEqual(platformPostGate, {
-        success: false,
-        code: 'SCHEDULE_DATE_PAST',
-        message: '예약 시각이 지나 포스팅하지 않았습니다. 예약 설정을 수정해 주세요.'
-    });
+    assert.equal(platformPostGate, undefined);
     assert.equal(result.code, 'SCHEDULE_DATE_PAST');
+});
+
+test('continuous queue execution blocks missing stored publishing fields without defaulting them', async () => {
+    let licenseChecks = 0;
+    let statusUpdates = 0;
+    const runtime = createContentActionsRuntime({
+        CONFIG: {},
+        parseIntSafe: (value) => Number(value),
+        Utils: {
+            async readGoogleSheetTopicsAll() {
+                return { items: [{
+                    rowIndex: 0,
+                    status: '발행 준비 완료',
+                    subject: '',
+                    postStatus: 'publish',
+                    post_status_explicit: false,
+                    options: {}
+                }] };
+            },
+            async updateGoogleSheetStatus() { statusUpdates += 1; }
+        },
+        License: { async checkLicenseStatus() { licenseChecks += 1; return { success: true }; } }
+    });
+
+    const result = await runtime.executeBlogRowAction(
+        { action: 'batch', rowIndex: 0, requireReadyStatus: true },
+        { continuousAutomation: true }
+    );
+
+    assert.equal(result.success, false);
+    assert.deepEqual(result.issues.map(({ code }) => code), [
+        'SUBJECT_REQUIRED', 'PUBLISH_TARGET_REQUIRED', 'POST_STATUS_REQUIRED'
+    ]);
+    assert.equal(licenseChecks, 0);
+    assert.equal(statusUpdates, 0);
 });
 
 test('shopping batch requires both shopping and batch capabilities', async () => {

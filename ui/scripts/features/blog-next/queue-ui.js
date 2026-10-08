@@ -149,6 +149,53 @@ function createBlogNextListItem(item, position, saved) {
     meta.textContent = [platforms, postStatus, schedule].filter(Boolean).join(' · ');
   }
   meta.dataset.planText = meta.textContent;
+  const main = document.createElement('div');
+  main.className = 'blog-next-queue-main';
+  main.appendChild(copy);
+  const readiness = item.queue_readiness;
+  if (!saved && readiness && readiness.ready === false) {
+    const issueMessages = Array.isArray(readiness.issues)
+      ? readiness.issues.map(issue => String(issue?.message || '').trim()).filter(Boolean)
+      : [];
+    const notice = document.createElement('div');
+    notice.className = 'blog-next-queue-readiness';
+    const noticeId = `blog-next-queue-readiness-${Number.isInteger(Number(item.rowIndex)) ? Number(item.rowIndex) : position}`;
+    const noticeButton = document.createElement('button');
+    noticeButton.type = 'button';
+    noticeButton.className = 'blog-next-queue-readiness-trigger';
+    noticeButton.dataset.blogNextQueueReadiness = 'true';
+    noticeButton.setAttribute('aria-label', `포스팅할 수 없는 이유 보기: ${issueMessages.join(' ') || '설정 정보가 부족합니다.'}`);
+    noticeButton.setAttribute('aria-expanded', 'false');
+    noticeButton.setAttribute('aria-controls', noticeId);
+    noticeButton.textContent = '!';
+    const details = document.createElement('div');
+    details.className = 'blog-next-queue-readiness-popover';
+    details.id = noticeId;
+    details.setAttribute('role', 'status');
+    details.hidden = true;
+    const heading = document.createElement('strong');
+    heading.textContent = '포스팅할 수 없습니다';
+    const list = document.createElement('ul');
+    (issueMessages.length ? issueMessages : ['설정 정보가 부족합니다.']).forEach((message) => {
+      const issue = document.createElement('li');
+      issue.textContent = message;
+      list.appendChild(issue);
+    });
+    details.append(heading, list);
+    noticeButton.addEventListener('click', () => {
+      const expanded = noticeButton.getAttribute('aria-expanded') === 'true';
+      noticeButton.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+      details.hidden = expanded;
+    });
+    article.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || details.hidden) return;
+      noticeButton.setAttribute('aria-expanded', 'false');
+      details.hidden = true;
+      noticeButton.focus();
+    });
+    notice.append(noticeButton, details);
+    main.appendChild(notice);
+  }
   const running = document.createElement('span');
   running.className = 'blog-next-queue-running';
   running.hidden = true;
@@ -207,12 +254,18 @@ function createBlogNextListItem(item, position, saved) {
     runButton.type = 'button';
     runButton.className = 'primary';
     runButton.dataset.blogNextRunNow = 'true';
-    runButton.dataset.blogNextQueueDefaultDisabled = 'false';
-    runButton.disabled = typeof blogNextRunnerActive !== 'undefined' && blogNextRunnerActive;
+    const readinessBlocked = item.queue_readiness?.ready === false;
+    runButton.dataset.blogNextQueueDefaultDisabled = readinessBlocked ? 'true' : 'false';
+    if (readinessBlocked) {
+      runButton.disabled = true;
+      runButton.setAttribute('aria-label', '포스팅할 수 없는 설정이 있어 실행할 수 없습니다. 이유는 느낌표 표시에서 확인하세요.');
+      runButton.title = '포스팅할 수 없는 설정이 있습니다. 이유를 확인해 주세요.';
+    }
+    runButton.disabled = readinessBlocked || (typeof blogNextRunnerActive !== 'undefined' && blogNextRunnerActive);
     runButton.textContent = getBlogNextQueueRunActionCopy(item).label;
     runButton.addEventListener('click', () => runBlogNextQueueItemNow(item, runButton));
     actions.append(runButton);
   }
-  article.append(order, copy, actions);
+  article.append(order, main, actions);
   return article;
 }

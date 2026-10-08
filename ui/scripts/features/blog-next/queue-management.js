@@ -282,6 +282,17 @@ async function addBlogNextSavedItemToQueue(item = {}, button) {
 }
 
 async function runBlogNextQueueItemNow(item = {}, button) {
+  if (item.queue_readiness?.ready === false) {
+    const reasons = Array.isArray(item.queue_readiness.issues)
+      ? item.queue_readiness.issues.map(issue => String(issue?.message || '').trim()).filter(Boolean)
+      : [];
+    showUiToast({
+      level: 'warning',
+      title: '포스팅할 수 없습니다',
+      message: reasons.join(' ') || '설정을 확인해 주세요.'
+    });
+    return;
+  }
   if (isBlogNextQueueRunnerLocked()) {
     showBlogNextQueueRunnerLockedNotice();
     return;

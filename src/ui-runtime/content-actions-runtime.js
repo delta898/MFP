@@ -8,6 +8,7 @@ const { parseImageCount } = require('../content/blog-image-plan');
 const { parseBlogImageMode, generatesBlogImages } = require('../content/blog-image-mode');
 const { normalizePublishTargets } = require('../content/single-publish-target');
 const { getScheduleDateIssue } = require('../continuous-publishing/topic-capture');
+const { diagnoseQueueReadiness } = require('../continuous-publishing/queue-readiness');
 const {
     LIVE_PUBLISH_BLOCKED_CODE,
     LIVE_PUBLISH_BLOCKED_MESSAGE,
@@ -182,6 +183,19 @@ function createContentActionsRuntime(deps = {}) {
         }
 
         const rowOptions = topicData.options || {};
+        const requiresQueueReadiness = action === 'batch'
+            && (requestBody?.requireReadyStatus === true || continuousAutomation);
+        const queueReadiness = requiresQueueReadiness
+            ? diagnoseQueueReadiness(topicData)
+            : null;
+        if (queueReadiness && !queueReadiness.ready) {
+            return {
+                success: false,
+                code: queueReadiness.issues[0]?.code || 'QUEUE_ITEM_NOT_READY',
+                message: queueReadiness.issues.map((issue) => issue.message).join(' '),
+                issues: queueReadiness.issues
+            };
+        }
         const postStatus = String(topicData.postStatus || rowOptions.post_status || 'publish').trim().toLowerCase();
         const publishAllowed = continuousAutomation
             ? isContinuousAutomationAllowed(CONFIG, { postStatus })
@@ -206,7 +220,9 @@ function createContentActionsRuntime(deps = {}) {
             return fallback;
         };
 
-        const effectiveTargets = normalizePublishTargets(getVal('platforms', Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver']));
+        const effectiveTargets = queueReadiness
+            ? queueReadiness.plan.targets
+            : normalizePublishTargets(getVal('platforms', Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver']));
         if (effectiveTargets.length !== 1) {
             return {
                 success: false,
@@ -221,7 +237,9 @@ function createContentActionsRuntime(deps = {}) {
         const effectiveRefUrls = getVal('reference_urls', topicData.content_guide?.reference_urls || []);
         const effectiveCategory = getVal('category', topicData.category || '');
         const requestedPostStatus = String(requestBody?.postStatus || '').trim().toLowerCase();
-        const effectivePostStatus = requestedPostStatus || getVal('post_status', topicData.postStatus || 'publish');
+        const effectivePostStatus = queueReadiness
+            ? queueReadiness.plan.postStatus
+            : requestedPostStatus || getVal('post_status', topicData.postStatus || 'publish');
         const effectiveScheduleDate = getVal('schedule_date', topicData.scheduleDate || '');
         const effectiveWritingStrategy = getVal('writing_strategy', topicData.writing_strategy || '');
         const effectiveImageMode = parseBlogImageMode(topicData.image_mode || topicData.image_options?.mode, {
@@ -326,6 +344,18 @@ function createContentActionsRuntime(deps = {}) {
             if (!isCommandEnabled(features, 'batch')) {
                 await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', '플랜 정책으로 발행 불가(cmd_batch=false)');
                 return { success: false, code: 'FEATURE_DISABLED', message: '현재 플랜에서 batch 기능이 비활성화되어 있습니다. (cmd_batch=false)' };
+            }
+
+            if (requiresQueueReadiness) {
+                const finalReadiness = diagnoseQueueReadiness(topicData);
+                if (!finalReadiness.ready) {
+                    return {
+                        success: false,
+                        code: finalReadiness.issues[0]?.code || 'QUEUE_ITEM_NOT_READY',
+                        message: finalReadiness.issues.map((issue) => issue.message).join(' '),
+                        issues: finalReadiness.issues
+                    };
+                }
             }
 
             emitProgress('사전 검증 중...');

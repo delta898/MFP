@@ -1660,6 +1660,7 @@ const Utils = {
                         rowNumber: index + 2,
                         category: resolvedState.category || '',
                         postStatus: resolvedState.postStatus || 'publish',
+                        post_status_explicit: Boolean(postStatus || Object.prototype.hasOwnProperty.call(resolvedState.options || {}, 'post_status')),
                         scheduleDate: resolvedState.scheduleDate || '',
                         title: resolvedState.title || '',
                         subject: resolvedState.subject || '',

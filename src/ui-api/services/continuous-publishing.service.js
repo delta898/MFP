@@ -1,6 +1,7 @@
 const { createApiError } = require('../errors');
 const { TOPIC_STATUS } = require('../../continuous-publishing/contract');
-const { buildTopicSheetRow, getScheduleDateIssue } = require('../../continuous-publishing/topic-capture');
+const { buildTopicSheetRow } = require('../../continuous-publishing/topic-capture');
+const { diagnoseQueueReadiness } = require('../../continuous-publishing/queue-readiness');
 const { buildShoppingTopicSheetRow } = require('../../continuous-publishing/shopping-topic-capture');
 const {
     createAutomationSettingsRepository,
@@ -144,10 +145,6 @@ function createContinuousPublishingService(deps = {}) {
         };
     }
 
-    function topicPostStatus(topic = {}) {
-        return String(topic.postStatus || topic.options?.post_status || 'publish').trim().toLowerCase();
-    }
-
     function currentTimeMs() {
         const value = typeof now === 'function' ? now() : new Date();
         const time = value instanceof Date
@@ -156,9 +153,12 @@ function createContinuousPublishingService(deps = {}) {
         return Number.isFinite(time) ? time : Date.now();
     }
 
-    function topicHasPastSchedule(topic = {}, at = currentTimeMs()) {
-        if (topicPostStatus(topic) !== 'schedule') return false;
-        return getScheduleDateIssue(topic.scheduleDate || topic.options?.schedule_date, at)?.code === 'SCHEDULE_DATE_PAST';
+    function diagnoseReadyTopic(topic = {}) {
+        return diagnoseQueueReadiness(topic, { now: currentTimeMs() });
+    }
+
+    function readinessMessage(issues = []) {
+        return issues.map((issue) => issue.message).filter(Boolean).join(' ');
     }
 
     function escapeNotificationText(value) {
@@ -342,13 +342,19 @@ function createContinuousPublishingService(deps = {}) {
                         sortDir: 'asc'
                     });
                     const readyItems = Array.isArray(queue?.items) ? queue.items : [];
-                    const pastScheduledItems = readyItems.filter((item) => topicHasPastSchedule(item));
-                    topic = readyItems.find((item) => !topicHasPastSchedule(item)) || null;
-                    if (!topic && pastScheduledItems.length > 0) {
+                    const diagnoses = readyItems.map((item) => ({ item, readiness: diagnoseReadyTopic(item) }));
+                    topic = diagnoses.find(({ readiness }) => readiness.ready)?.item || null;
+                    if (!topic && diagnoses.some(({ readiness }) => !readiness.ready)) {
+                        const skipped = diagnoses.filter(({ readiness }) => !readiness.ready);
+                        const skippedCount = skipped.length;
+                        const onlyExpiredSchedules = skipped.every(({ readiness }) => readiness.issues.length === 1
+                            && readiness.issues[0].code === 'SCHEDULE_DATE_PAST');
                         updateRunnerState({
                             state: 'empty',
-                            message: '예약 시각이 지난 글감은 건너뛰었습니다. 실행 가능한 글감이 없습니다.',
-                            resultStatus: 'SCHEDULED_ITEMS_SKIPPED',
+                            message: onlyExpiredSchedules
+                                ? '예약 시각이 지난 글감은 건너뛰었습니다. 실행 가능한 글감이 없습니다.'
+                                : `${skippedCount}개 글감에 포스팅 설정이 없거나 유효하지 않아 건너뛰었습니다. 실행 가능한 글감이 없습니다.`,
+                            resultStatus: onlyExpiredSchedules ? 'SCHEDULED_ITEMS_SKIPPED' : 'QUEUE_ITEMS_SKIPPED',
                             finishedAt: new Date(currentTimeMs()).toISOString()
                         });
                         return;
@@ -364,20 +370,22 @@ function createContinuousPublishingService(deps = {}) {
                 }
 
                 const rowIndex = Number(topic.rowIndex);
-                const postStatus = topicPostStatus(topic);
-                if (topicHasPastSchedule(topic)) {
+                let readiness = diagnoseReadyTopic(topic);
+                if (!readiness.ready) {
+                    const firstIssue = readiness.issues[0];
                     updateRunnerState({
-                        state: 'needs_attention',
-                        message: '예약 시각이 지난 글감은 포스팅하지 않았습니다. 예약 설정을 수정해 주세요.',
+                        state: requestedRowIndex === null ? 'empty' : 'needs_attention',
+                        message: readinessMessage(readiness.issues),
                         progressStage: '',
                         rowIndex,
                         rowNumber: Number(topic.rowNumber || rowIndex + 2),
                         subject: String(topic.subject || topic.keywordsRaw || '제목 없는 글감'),
-                        resultStatus: 'SCHEDULE_DATE_PAST',
+                        resultStatus: firstIssue?.code || 'QUEUE_ITEM_NOT_READY',
                         finishedAt: new Date(currentTimeMs()).toISOString()
                     });
                     return;
                 }
+                const postStatus = readiness.plan.postStatus;
                 updateRunnerState({
                     state: 'running',
                     message: execution.simulation === true ? 'Local에서 예정 동작을 확인하고 있습니다.' : '글감을 생성하고 발행하고 있습니다.',
@@ -406,12 +414,17 @@ function createContinuousPublishingService(deps = {}) {
                     return;
                 }
 
-                if (topicHasPastSchedule(topic)) {
+                readiness = diagnoseReadyTopic(topic);
+                if (!readiness.ready) {
+                    const firstIssue = readiness.issues[0];
                     updateRunnerState({
                         state: 'needs_attention',
-                        message: '실행 직전에 예약 시각이 지났습니다. 포스팅하지 않았으니 예약 설정을 수정해 주세요.',
+                        message: readinessMessage(readiness.issues),
                         progressStage: '',
-                        resultStatus: 'SCHEDULE_DATE_PAST',
+                        rowIndex,
+                        rowNumber: Number(topic.rowNumber || rowIndex + 2),
+                        subject: String(topic.subject || topic.keywordsRaw || '제목 없는 글감'),
+                        resultStatus: firstIssue?.code || 'QUEUE_ITEM_NOT_READY',
                         finishedAt: new Date(currentTimeMs()).toISOString()
                     });
                     return;
@@ -727,9 +740,20 @@ function createContinuousPublishingService(deps = {}) {
                 visibleItems.push({ ...activeItem, processing_estimate_at: null, queue_runtime_state: 'running' });
                 visibleItems.sort((left, right) => Number(left?.rowNumber || 0) - Number(right?.rowNumber || 0));
             }
+            const diagnosticTime = currentTimeMs();
+            const diagnosedItems = visibleItems.map(item => {
+                const diagnosis = diagnoseQueueReadiness(item, { now: diagnosticTime });
+                return {
+                    ...item,
+                    queue_readiness: {
+                        ready: diagnosis.ready,
+                        issues: diagnosis.issues
+                    }
+                };
+            });
             const runningCount = activeItem && !readyItems.some(item => Number(item?.rowIndex) === activeRowIndex) ? 1 : 0;
             return {
-                items: visibleItems.slice(0, limit),
+                items: diagnosedItems.slice(0, limit),
                 saved_items: savedItems.slice(0, limit),
                 total: readyItems.length + runningCount,
                 limit,

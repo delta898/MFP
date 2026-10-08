@@ -4,6 +4,22 @@ const assert = require('node:assert/strict');
 const { createContinuousPublishingService } = require('./continuous-publishing.service');
 const { createBlogNextExecutionCoordinator } = require('../../blog-next/execution-coordinator');
 
+function runnableQueueFixture(item) {
+    const options = item.options && typeof item.options === 'object' ? item.options : {};
+    const postStatus = item.postStatus || options.post_status || 'draft';
+    return {
+        ...item,
+        postStatus,
+        post_status_explicit: true,
+        options: {
+            ...options,
+            platforms: options.platforms || item.targets || ['naver'],
+            post_status: options.post_status || postStatus,
+            schedule_date: options.schedule_date || item.scheduleDate || ''
+        }
+    };
+}
+
 function createService(state = {}) {
     return createContinuousPublishingService({
         CONFIG: state.CONFIG,
@@ -43,10 +59,15 @@ function createService(state = {}) {
                 state.readCalls = (state.readCalls || 0) + 1;
                 state.readOptions = options;
                 if (Array.isArray(state.readItems)) {
-                    return { items: state.readItems, total: state.readItems.length, limit: options.limit, offset: 0 };
+                    const items = state.rawQueueRows === true
+                        ? state.readItems
+                        : state.readItems.map((item) => String(item?.status || '').trim() === '발행 준비 완료'
+                            ? runnableQueueFixture(item)
+                            : item);
+                    return { items, total: items.length, limit: options.limit, offset: 0 };
                 }
                 return {
-                    items: [{ rowIndex: 2, rowNumber: 4, status: '발행 준비 완료', subject: '먼저 쓸 글' }],
+                    items: [{ rowIndex: 2, rowNumber: 4, status: '발행 준비 완료', subject: '먼저 쓸 글', postStatus: 'draft', post_status_explicit: true, options: { platforms: ['naver'], post_status: 'draft' } }],
                     total: 1,
                     limit: options.limit,
                     offset: 0
@@ -542,6 +563,47 @@ test('ready queue follows the physical order of Topics ready rows', async () => 
     });
 });
 
+test('ready queue includes live readiness issues without persisting a diagnostic snapshot', async () => {
+    const state = {
+        rawQueueRows: true,
+        now: () => new Date('2026-10-08T00:00:00.000Z'),
+        readItems: [
+            {
+                rowIndex: 1, rowNumber: 3, status: '발행 준비 완료', subject: '',
+                options: { platforms: ['naver'], post_status: 'draft' }
+            },
+            {
+                rowIndex: 2, rowNumber: 4, status: '발행 준비 완료', subject: '사이트 글감',
+                options: { platforms: ['site-hosting'], post_status: 'draft' }
+            },
+            {
+                rowIndex: 3, rowNumber: 5, status: '발행 준비 완료', subject: '기존 글감',
+                postStatus: 'publish', post_status_explicit: false, options: { platforms: ['naver'] }
+            },
+            {
+                rowIndex: 4, rowNumber: 6, status: '발행 준비 완료', subject: '지난 예약',
+                options: { platforms: ['naver'], post_status: 'schedule', schedule_date: '2020-01-01T00:00:00.000Z' }
+            },
+            { rowIndex: 5, rowNumber: 7, status: '대기', subject: '보관 글감' }
+        ]
+    };
+    const service = createService(state);
+
+    const result = await service.getReadyQueue({ searchParams: new URLSearchParams({ limit: '50' }) });
+
+    assert.deepEqual(result.items.map(item => item.queue_readiness.ready), [false, false, false, false]);
+    assert.deepEqual(result.items.map(item => item.queue_readiness.issues.map(issue => issue.code)), [
+        ['SUBJECT_REQUIRED'],
+        ['PUBLISH_TARGET_UNSUPPORTED'],
+        ['POST_STATUS_REQUIRED'],
+        ['SCHEDULE_DATE_PAST']
+    ]);
+    assert.equal(result.items[0].queue_readiness.issues[0].message, '주제가 없습니다.');
+    assert.equal(result.items[2].queue_readiness.issues[0].message, '발행 방식이 없습니다.');
+    assert.equal(Object.hasOwn(result.saved_items[0], 'queue_readiness'), false);
+    assert.equal(Object.hasOwn(state.readItems[0], 'queue_readiness'), false);
+});
+
 test('dashboard overview uses one Topics snapshot and returns a compact queue projection', async () => {
     const state = {
         now: () => new Date('2026-09-02T03:00:00.000Z'),
@@ -765,8 +827,51 @@ test('manual runner skips an explicitly selected topic whose scheduled time has 
     assert.equal(state.runnerRequest, undefined);
     assert.equal(result.state, 'needs_attention');
     assert.equal(result.resultStatus, 'SCHEDULE_DATE_PAST');
-    assert.match(result.message, /예약 시각이 지난 글감은 포스팅하지 않았습니다/);
+    assert.match(result.message, /예약 시각이 지났습니다/);
     assert.equal(state.statusUpdate, undefined);
+});
+
+test('manual queue execution reports missing saved fields and leaves the item unchanged', async () => {
+    const state = {
+        rawQueueRows: true,
+        readItems: [{
+            rowIndex: 8, rowNumber: 10, status: '발행 준비 완료', subject: '',
+            postStatus: 'publish', post_status_explicit: false, options: {}
+        }]
+    };
+    const service = createService(state);
+
+    service.startNextReadyTopic({ rowIndex: 8 });
+    const result = await waitForRunner(service);
+
+    assert.equal(result.state, 'needs_attention');
+    assert.deepEqual(result.resultStatus, 'SUBJECT_REQUIRED');
+    assert.match(result.message, /주제가 없습니다/);
+    assert.equal(state.runnerRequest, undefined);
+    assert.equal(state.statusUpdate, undefined);
+});
+
+test('automatic queue execution skips incomplete items and continues to the next complete item', async () => {
+    const state = {
+        rawQueueRows: true,
+        readItems: [
+            {
+                rowIndex: 8, rowNumber: 10, status: '발행 준비 완료', subject: '대상 없는 글감',
+                postStatus: 'draft', options: { post_status: 'draft' }
+            },
+            {
+                rowIndex: 9, rowNumber: 11, status: '발행 준비 완료', subject: '실행 가능한 글감',
+                postStatus: 'draft', options: { platforms: ['wordpress'], post_status: 'draft' }
+            }
+        ]
+    };
+    const service = createService(state);
+
+    service.startNextReadyTopic();
+    const result = await waitForRunner(service);
+
+    assert.equal(state.runnerRequest.rowIndex, 9);
+    assert.equal(result.state, 'completed');
 });
 
 test('runner rechecks the scheduled time immediately before posting', async () => {

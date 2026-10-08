@@ -3,7 +3,7 @@
 - Branch: `codex/blog-topic-settings-reuse-main`
 - Base branch: `codex/static-site-builder-main`
 - Start date: 2026-10-08
-- Status: Settings-instance redesign and scheduled-time validation implemented; focused verification passed; UI acceptance pending
+- Status: Settings-instance redesign, scheduled-time validation, shared queue-readiness enforcement, and queue diagnostic UI implemented; focused verification passed; user UI acceptance pending
 
 ## User need
 
@@ -218,6 +218,29 @@ Stages are ordered to make each transition reviewable. Keep the feature limited 
 - Added saved-item promotion entry through the edit modal and client readiness feedback for required queue settings. Ready promotion submits all fields through `/topics/update` with `action: enqueue` rather than the status-only `/queue/add` endpoint.
 - User clarified the saved-idea editor should show all three settings groups and provide `취소`, `저장`, and `대기열로 이동`. `저장` persists the edited idea then closes; `대기열로 이동` validates the settings, leaves the modal open with missing-field feedback in its lower-left message area when incomplete, and otherwise promotes the item, closes the modal, and refreshes the list. The original `원고 만들기` action is removed. Queue-item editing remains unchanged.
 - User reported `원고 만들기` still appeared. Root cause: the hidden attribute was applied only to the button inside a flex-styled wrapper, whose CSS display rule kept the wrapper visible; hide the whole action wrapper and explicitly honor its hidden state in CSS. Restore that wrapper when exiting edit mode.
+
+## Queue readiness diagnostics — implementation increment
+
+### User-confirmed behavior
+
+- Diagnose each ready-queue item from its own stored values; do not infer a target or posting method for legacy rows.
+- Missing values should be stated plainly (for example, “발행 대상이 없습니다.”), without automatically telling the user to edit.
+- Site Hosting remains visible in shared settings, but the current queue runner does not support it. Site Hosting queue execution is deferred.
+- Automatic queue execution skips an item that cannot be posted and continues to the next runnable item. Manual execution of a selected incomplete item stops with its diagnostic reason. Preserve the item for later correction.
+
+### Implementation
+
+- Added `src/continuous-publishing/queue-readiness.js` as the shared pure diagnostic rule. It checks required subject, one supported target, an explicitly stored supported posting method, a valid future schedule time when scheduled, and the existing reference URL/writing-override constraints.
+- The Topics Sheet reader keeps the legacy `postStatus` projection for existing consumers but also records whether the value existed in the Sheet/options. Queue readiness uses that provenance to distinguish a stored value from the reader's synthesized `publish` fallback.
+- The continuous runner applies the shared rule while selecting automatic work, before starting manual work, and again immediately before invoking the Blog lifecycle adapter. Invalid automatic items remain in place and are skipped; selected invalid items enter `needs_attention` without mutating the Sheet.
+- The content-actions runtime reuses the same rule for ready-status batch execution before license/generation work and again before changing the row to `발행 중`. Its queued execution plan comes from the stored target and posting method, with no Naver/`publish` fallback.
+- The list API does not expose diagnostic flags/reasons yet. Those are reserved for the following API/UI increment; no visual warning icon or popover was added in this increment.
+
+### Verification
+
+- `node --test src/continuous-publishing/queue-readiness.test.js src/ui-api/services/continuous-publishing.service.test.js src/ui-runtime/content-actions-runtime.test.js` — 71 passed.
+- `node --check` passed for the new diagnostic module and both modified execution modules; `git diff --check` passed.
+- No browser smoke or manual UI review was performed; this increment has no user-visible UI changes.
 - Saved items without an explicit status now open with the agreed temporary-save default. Saved-item promotion readiness requires an idea seed, one target, a supported status, and a future schedule date when scheduling; malformed reference URLs are identified before submission.
 - Added focused contract assertions for settings isolation, promotion path, and scheduling validation.
 
@@ -257,3 +280,10 @@ Stages are ordered to make each transition reviewable. Keep the feature limited 
 - The runner checks again before invoking the Blog lifecycle adapter. The content execution path checks after manuscript/image generation and again at the platform-post boundary, so a deadline that passes during generation does not result in a late post. The expired run reports `SCHEDULE_DATE_PAST`, preserves the ready row for correction, and does not attempt to automatically reschedule it.
 - The UI already blocks selecting a past date; this change adds server and execution protection. No labels were changed, and the app was not launched for visual acceptance.
 - Focused verification: topic-capture, continuous-publishing service, content-actions runtime, and publish-actions runtime tests pass (95 total); changed JavaScript passes `node --check`; `git diff --check` passes. Broader suites and user UI acceptance remain pending.
+
+### Follow-up — live queue readiness indicators
+
+- The ready-queue API now computes the shared readiness diagnostic for every visible queue item on read and returns only `{ ready, issues }` as `queue_readiness`. It does not persist a readiness snapshot; reasons therefore reflect current time and stored values.
+- Invalid queue entries display a keyboard-operable alert marker. Activating it opens an inline, screen-reader announced reason popover; Escape closes it and returns focus to the marker. The corresponding execution action is disabled, with a second client-side guard against stale/programmatic invocation. The server execution path continues to run the same shared rule immediately before posting.
+- Saved ideas remain unaffected by queue execution diagnostics. Site Hosting appears as an unsupported target reason while queue execution support is deferred.
+- Focused verification: queue readiness and continuous-publishing service tests pass (55 total); the new queue-readiness UI contract passes; changed JavaScript passes syntax checks and `git diff --check` passes. Running the entire shell contract file exposed two unrelated existing failures in quick-flow/editor navigation assertions (`blog-next-cancel-edit` and `settings-next` navigation); the new readiness contract itself passes. Browser smoke and hands-on UI acceptance remain deferred to the user's later combined review.
