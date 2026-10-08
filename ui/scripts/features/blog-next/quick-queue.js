@@ -21,6 +21,7 @@ let blogNextEditingSourceStatus = '';
 let blogNextEditingInitialSnapshot = '';
 let blogNextActiveManagementTab = 'ready';
 let blogNextPendingImmediateSubmission = null;
+let blogNextEditingTrendContext = null;
 const BLOG_NEXT_DISCLOSURE_DEFAULTS = Object.freeze({
   quick: Object.freeze({ preparation: false, topic: true, content: false }),
   queueEditor: Object.freeze({ topic: true, content: false })
@@ -40,17 +41,17 @@ const BLOG_NEXT_CLEARABLE_FIELD_IDS = Object.freeze([
 
 function readBlogNextTopicSettings() {
   const platforms = [];
-  if (document.getElementById('blog-next-target-naver')?.checked) platforms.push('naver');
-  if (document.getElementById('blog-next-target-wordpress')?.checked) platforms.push('wordpress');
+  if (getBlogNextSettingsElement('blog-next-target-naver')?.checked) platforms.push('naver');
+  if (getBlogNextSettingsElement('blog-next-target-wordpress')?.checked) platforms.push('wordpress');
   return {
     platforms,
-    naverCategory: document.getElementById('blog-next-naver-category')?.value || '',
-    wordpressCategory: document.getElementById('blog-next-wordpress-category')?.value || '',
-    writingStrategy: document.getElementById('blog-next-writing-strategy')?.value || 'search',
-    imageMode: document.getElementById('blog-next-image-mode')?.value || 'prompt_only',
-    postStatus: document.getElementById('blog-next-post-status')?.value || 'publish',
-    headless: document.getElementById('blog-next-runner-headless')?.checked !== false,
-    externalReference: document.getElementById('blog-next-external-reference')?.checked === true,
+    naverCategory: getBlogNextSettingsElement('blog-next-naver-category')?.value || '',
+    wordpressCategory: getBlogNextSettingsElement('blog-next-wordpress-category')?.value || '',
+    writingStrategy: getBlogNextSettingsElement('blog-next-writing-strategy')?.value || 'search',
+    imageMode: getBlogNextSettingsElement('blog-next-image-mode')?.value || 'prompt_only',
+    postStatus: getBlogNextSettingsElement('blog-next-post-status')?.value || 'publish',
+    headless: getBlogNextSettingsElement('blog-next-runner-headless')?.checked !== false,
+    externalReference: getBlogNextSettingsElement('blog-next-external-reference')?.checked === true,
     writingOverrides: readBlogNextWritingOverrides()
   };
 }
@@ -87,8 +88,8 @@ function loadBlogNextTopicDefaults() {
 
 function applyBlogNextTopicSettings(settings = BLOG_NEXT_BUILTIN_DEFAULTS) {
   const normalized = normalizeBlogNextTopicDefaults(settings);
-  const naver = document.getElementById('blog-next-target-naver');
-  const wordpress = document.getElementById('blog-next-target-wordpress');
+  const naver = getBlogNextSettingsElement('blog-next-target-naver');
+  const wordpress = getBlogNextSettingsElement('blog-next-target-wordpress');
   if (naver) naver.checked = normalized.platforms.includes('naver');
   if (wordpress) wordpress.checked = normalized.platforms.includes('wordpress');
   Object.entries({
@@ -104,7 +105,7 @@ function applyBlogNextTopicSettings(settings = BLOG_NEXT_BUILTIN_DEFAULTS) {
     if (element.type === 'checkbox') element.checked = value;
     else element.value = value;
   });
-  const externalReference = document.getElementById('blog-next-external-reference');
+  const externalReference = getBlogNextSettingsElement('blog-next-external-reference');
   if (externalReference) externalReference.checked = normalized.externalReference;
   applyBlogNextWritingOverrides(normalized.writingOverrides);
   if (typeof syncBlogNextDraftProviderFields === 'function') syncBlogNextDraftProviderFields('ai');
@@ -133,16 +134,18 @@ function rememberBlogNextTopicDefaultsForSetting(fieldId = '') {
 }
 
 function readBlogNextTopicPayload(action) {
-  const trendContext = typeof blogNextTrendContext !== 'undefined' ? blogNextTrendContext : null;
+  const trendContext = blogNextEditingRowIndex !== null
+    ? blogNextEditingTrendContext
+    : typeof blogNextTrendContext !== 'undefined' ? blogNextTrendContext : null;
   return {
     action,
-    subject: document.getElementById('blog-next-subject')?.value || '',
-    title: document.getElementById('blog-next-title')?.value || '',
-    keywords: document.getElementById('blog-next-keywords')?.value || '',
-    instruction: document.getElementById('blog-next-instruction')?.value || '',
-    referenceUrl: document.getElementById('blog-next-reference-url')?.value || '',
+    subject: getBlogNextSettingsElement('blog-next-subject')?.value || '',
+    title: getBlogNextSettingsElement('blog-next-title')?.value || '',
+    keywords: getBlogNextSettingsElement('blog-next-keywords')?.value || '',
+    instruction: getBlogNextSettingsElement('blog-next-instruction')?.value || '',
+    referenceUrl: getBlogNextSettingsElement('blog-next-reference-url')?.value || '',
     ...readBlogNextTopicSettings(),
-    scheduleDate: document.getElementById('blog-next-schedule-date')?.value || '',
+    scheduleDate: getBlogNextSettingsElement('blog-next-schedule-date')?.value || '',
     source: trendContext?.source || 'blog_next',
     trendDate: trendContext?.trendDate || ''
   };
@@ -153,8 +156,8 @@ function setBlogNextTopicBusy(busy, action = '') {
   const editingReady = blogNextEditingSourceStatus === '발행 준비 완료';
   const runnerActive = typeof blogNextRunnerActive !== 'undefined' && blogNextRunnerActive;
   const aiDraftGenerating = typeof blogNextDraftState !== 'undefined' && blogNextDraftState.ai?.generating === true;
-  const saveButton = document.getElementById('blog-next-save-topic');
-  const enqueueButton = document.getElementById('blog-next-enqueue-topic');
+  const saveButton = document.getElementById(blogNextEditingRowIndex !== null ? 'blog-next-editor-save' : 'blog-next-save-topic');
+  const enqueueButton = document.getElementById(blogNextEditingRowIndex !== null ? 'blog-next-editor-enqueue' : 'blog-next-enqueue-topic');
   const publishButton = document.getElementById('blog-next-publish-now');
   const queueConfirmButton = document.getElementById('blog-next-queue-settings-confirm');
   const queueCloseButton = document.getElementById('blog-next-queue-settings-close');
@@ -165,9 +168,15 @@ function setBlogNextTopicBusy(busy, action = '') {
       : (blogNextEditingRowIndex !== null ? '저장' : '글감 보관');
   }
   if (enqueueButton) {
+    const label = blogNextEditingSourceStatus === '대기' ? '대기열로 이동'
+      : editingReady ? '저장' : '발행 대기열에 추가';
     enqueueButton.textContent = busy && action === 'enqueue'
       ? (editingReady ? '저장 중...' : '추가 중...')
-      : (editingReady ? '저장' : '발행 대기열에 추가');
+      : label;
+  }
+  if (blogNextEditingRowIndex !== null) {
+    syncBlogNextTopicActionAvailability();
+    return;
   }
   if (queueConfirmButton) queueConfirmButton.disabled = busy;
   if (queueCloseButton) queueCloseButton.disabled = busy;
@@ -182,7 +191,9 @@ function setBlogNextTopicBusy(busy, action = '') {
   if (typeof syncBlogNextDraftExecutionState === 'function') syncBlogNextDraftExecutionState();
 }
 function setBlogNextTopicResult(message, level = '') {
-  const result = document.getElementById('blog-next-topic-result');
+  const result = blogNextEditingRowIndex !== null
+    ? document.querySelector('#blog-next-editor-modal [data-blog-next-setting-key="blog-next-topic-result"]')
+    : document.getElementById('blog-next-topic-result');
   if (!result) return;
   const text = String(message || '');
   result.textContent = text;
@@ -191,12 +202,27 @@ function setBlogNextTopicResult(message, level = '') {
   if (row) row.hidden = !text.trim();
 }
 
+function showBlogNextQueueReadinessIssues() {
+  const validity = readBlogNextTopicActionValidity();
+  if (validity.readyValid) return true;
+  const publishSettings = getBlogNextSettingsElement('blog-next-publish-settings');
+  if (publishSettings) publishSettings.open = true;
+  const missing = validity.issues.map((issue) => issue.label);
+  setBlogNextTopicResult(
+    `대기열로 이동할 수 없습니다. 다음 설정을 확인해 주세요${missing.length ? `: ${missing.join(', ')}` : ''}.`,
+    'error'
+  );
+  const firstIssue = validity.issues[0];
+  if (firstIssue) getBlogNextSettingsElement(firstIssue.field)?.focus();
+  return false;
+}
+
 function captureBlogNextDisclosureState(context) {
   const state = blogNextDisclosureState[context];
   if (!state) return;
   const preparation = document.getElementById('blog-next-ai-preparation');
-  const topic = document.getElementById('blog-next-topic-settings');
-  const content = document.getElementById('blog-next-content-settings');
+  const topic = getBlogNextSettingsElement('blog-next-topic-settings');
+  const content = getBlogNextSettingsElement('blog-next-content-settings');
   if (context === 'quick' && preparation) state.preparation = preparation.open;
   if (topic) state.topic = topic.open;
   if (content) state.content = content.open;
@@ -206,91 +232,52 @@ function applyBlogNextDisclosureState(context) {
   const state = blogNextDisclosureState[context];
   if (!state) return;
   const preparation = document.getElementById('blog-next-ai-preparation');
-  const topic = document.getElementById('blog-next-topic-settings');
-  const content = document.getElementById('blog-next-content-settings');
+  const topic = getBlogNextSettingsElement('blog-next-topic-settings');
+  const content = getBlogNextSettingsElement('blog-next-content-settings');
   if (context === 'quick' && preparation) preparation.open = state.preparation;
   if (topic) topic.open = state.topic;
   if (content) content.open = state.content;
 }
 
 function restoreBlogNextTopicFormHome() {
-  const preparation = document.getElementById('blog-next-ai-preparation');
-  const home = document.getElementById('blog-next-topic-form-home');
   const modal = document.getElementById('blog-next-editor-modal');
-  const form = document.getElementById('blog-next-topic-form');
-  const actions = document.querySelector('#blog-next-editor-actions-slot .blog-next-form-actions');
-  if (form?.parentElement === document.getElementById('blog-next-queue-editor-slot')) {
-    captureBlogNextDisclosureState('queueEditor');
-  }
-  if (form && actions) form.appendChild(actions);
-  const destination = preparation || home;
-  if (destination && form && form.parentElement !== destination) destination.appendChild(form);
-  applyBlogNextDisclosureState('quick');
   if (modal) {
     modal.classList.add('hidden');
     modal.setAttribute('aria-hidden', 'true');
     modal.hidden = true;
   }
-  if (typeof arrangeBlogNextAiWorkflow === 'function') arrangeBlogNextAiWorkflow();
 }
 
 function finishBlogNextTopicEditing() {
+  if (typeof setBlogNextEditorPromotionAction === 'function') setBlogNextEditorPromotionAction(false);
+  const editorResult = document.querySelector('#blog-next-editor-modal [data-blog-next-setting-key="blog-next-topic-result"]');
+  if (editorResult) {
+    editorResult.textContent = '';
+    editorResult.dataset.level = '';
+    const row = editorResult.closest('.blog-next-form-result-row');
+    if (row) row.hidden = true;
+  }
   blogNextEditingRowIndex = null;
   blogNextEditingSourceStatus = '';
   blogNextEditingInitialSnapshot = '';
+  blogNextEditingTrendContext = null;
   restoreBlogNextTopicFormHome();
-  if (typeof captureBlogNextPublishingTargetSettings === 'function') {
-    captureBlogNextPublishingTargetSettings('ai');
-  }
-  const publishSettingsSnapshot = new Map(blogNextPublishSettingsByTarget);
-  applyBlogNextTopicSettings(loadBlogNextTopicDefaults());
-  blogNextPublishSettingsByTarget.clear();
-  publishSettingsSnapshot.forEach((value, key) => blogNextPublishSettingsByTarget.set(key, value));
-  try {
-    sessionStorage.setItem(BLOG_NEXT_PUBLISH_SETTINGS_SESSION_KEY, JSON.stringify(Object.fromEntries(blogNextPublishSettingsByTarget)));
-  } catch (_error) {
-    // Session storage may be unavailable; the in-memory target settings remain authoritative.
-  }
-  if (typeof syncBlogNextPublishingTargetSettings === 'function') {
-    syncBlogNextPublishingTargetSettings('ai', { force: true, restoreStored: true });
-  }
-  const saveButton = document.getElementById('blog-next-save-topic');
-  const enqueueButton = document.getElementById('blog-next-enqueue-topic');
-  const publishButton = document.getElementById('blog-next-publish-now');
-  const recoverableSlot = document.querySelector('.blog-next-form-actions .blog-next-recoverable-action-slot');
-  if (recoverableSlot) recoverableSlot.hidden = false;
-  if (saveButton) {
-    saveButton.hidden = false;
-    saveButton.classList.remove('primary');
-    saveButton.classList.add('secondary');
-  }
-  if (enqueueButton) {
-    enqueueButton.hidden = false;
-    enqueueButton.classList.remove('primary');
-    enqueueButton.classList.add('secondary');
-  }
-  if (publishButton) {
-    publishButton.hidden = false;
-    publishButton.classList.remove('secondary');
-    publishButton.classList.add('primary');
-  }
+  if (typeof endBlogNextTopicEditingSettingsContext === 'function') endBlogNextTopicEditingSettingsContext();
   setBlogNextTopicBusy(false);
   syncBlogNextTopicClearAction();
 }
 
-function moveBlogNextTopicFormToQueueEditor() {
+function moveBlogNextTopicFormToQueueEditor({ showPublishSettings = false } = {}) {
   const modal = document.getElementById('blog-next-editor-modal');
-  const slot = document.getElementById('blog-next-queue-editor-slot');
-  const actionsSlot = document.getElementById('blog-next-editor-actions-slot');
-  const form = document.getElementById('blog-next-topic-form');
-  if (!modal || !slot || !actionsSlot || !form) return;
-  if (form.parentElement !== slot) captureBlogNextDisclosureState('quick');
-  if (typeof arrangeBlogNextAiWorkflow === 'function') arrangeBlogNextAiWorkflow({ editing: true });
+  const form = document.getElementById('blog-next-editor-settings-form');
+  if (!modal || !form) return;
+  createBlogNextEditorSettingsInstance();
+  const publishSettings = getBlogNextSettingsElement('blog-next-publish-settings');
+  if (publishSettings) publishSettings.open = showPublishSettings;
+  if (typeof setBlogNextPublishSettingsContext === 'function') setBlogNextPublishSettingsContext('ai', '발행 계획');
+  if (typeof syncBlogNextProviderDependentFields === 'function') syncBlogNextProviderDependentFields();
+  if (typeof syncBlogNextScheduleField === 'function') syncBlogNextScheduleField();
   modal.hidden = false;
-  slot.appendChild(form);
-  const actions = form.querySelector('.blog-next-form-actions');
-  if (actions) actionsSlot.appendChild(actions);
-  applyBlogNextDisclosureState('queueEditor');
   modal.classList.remove('hidden');
   modal.setAttribute('aria-hidden', 'false');
 }
@@ -343,18 +330,19 @@ async function closeBlogNextEditor(options = {}) {
     });
     if (!confirmed) return;
   }
-  clearBlogNextTopicContent();
   finishBlogNextTopicEditing();
-  setBlogNextTopicResult('');
 }
 
 async function submitBlogNextTopic(action) {
   if (blogNextTopicSubmitting || !await ensureBlogNextTopicStorageReady()) return;
+  if (action === 'enqueue' && blogNextEditingRowIndex !== null && blogNextEditingSourceStatus === '대기'
+    && !showBlogNextQueueReadinessIssues()) return;
   setBlogNextTopicBusy(true, action);
   setBlogNextTopicResult('');
   try {
     const editing = blogNextEditingRowIndex !== null;
     const editingReady = blogNextEditingSourceStatus === '발행 준비 완료';
+    const editingSavedIdea = editing && blogNextEditingSourceStatus === '대기';
     const captureAction = action === 'publish-now' ? 'enqueue' : action;
     const payload = readBlogNextTopicPayload(captureAction);
     if (action === 'save' && !editing) {
@@ -382,16 +370,18 @@ async function submitBlogNextTopic(action) {
     }
     if (!editing) rememberBlogNextTopicDefaults();
     if (action !== 'publish-now') {
-      if (typeof resetBlogNextAiDraftUi === 'function') resetBlogNextAiDraftUi();
-      clearBlogNextTopicContent();
-      finishBlogNextTopicEditing();
+      if (editing) finishBlogNextTopicEditing();
+      else {
+        if (typeof resetBlogNextAiDraftUi === 'function') resetBlogNextAiDraftUi();
+        clearBlogNextTopicContent();
+      }
     }
-    setBlogNextTopicResult(message, 'success');
+    if (!editing) setBlogNextTopicResult(message, 'success');
     if (action !== 'publish-now') {
       showUiToast({ level: 'success', title: queued ? '대기열 추가 완료' : '글감 보관 완료', message });
     }
     await loadBlogNextQueue({ force: true, showRefreshProgress: false });
-    if (editing) activateBlogNextTab('queue');
+    if (editing && !editingSavedIdea) activateBlogNextTab('queue');
     if (action === 'publish-now' && Number.isInteger(Number(data?.rowIndex))) {
       rememberBlogNextImmediateSubmission({
         rowIndex: Number(data.rowIndex),

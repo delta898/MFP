@@ -17,7 +17,7 @@ const BLOG_NEXT_WRITING_LABELS = Object.freeze({
 function readBlogNextWritingOverrides() {
   const result = {};
   Object.entries(BLOG_NEXT_WRITING_OVERRIDE_IDS).forEach(([field, id]) => {
-    const value = String(document.getElementById(id)?.value || '').trim();
+    const value = String(getBlogNextSettingsElement(id)?.value || '').trim();
     if (value) result[field] = value;
   });
   return result;
@@ -35,7 +35,7 @@ function normalizeBlogNextWritingOverrides(value = {}) {
 function applyBlogNextWritingOverrides(value = {}) {
   const normalized = normalizeBlogNextWritingOverrides(value);
   Object.entries(BLOG_NEXT_WRITING_OVERRIDE_IDS).forEach(([field, id]) => {
-    const element = document.getElementById(id);
+    const element = getBlogNextSettingsElement(id);
     if (element) element.value = normalized[field] || '';
   });
 }
@@ -43,7 +43,7 @@ function applyBlogNextWritingOverrides(value = {}) {
 function renderBlogNextWritingDefaultOptions() {
   if (!blogNextWritingDefaults) return;
   Object.entries(BLOG_NEXT_WRITING_OVERRIDE_IDS).forEach(([field, id]) => {
-    const select = document.getElementById(id);
+    const select = getBlogNextSettingsElement(id);
     const option = select?.querySelector('option[value=""]');
     if (!select || !option) return;
     option.textContent = `기본값 · ${BLOG_NEXT_WRITING_LABELS[field]?.[blogNextWritingDefaults[field]] || '설정값 사용'}`;

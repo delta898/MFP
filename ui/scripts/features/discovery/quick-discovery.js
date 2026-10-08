@@ -19,7 +19,11 @@ function getQuickDiscoveryInputTarget() {
 
 function getQuickDiscoveryInputElement(field) {
   const id = getQuickDiscoveryInputTarget()[field];
-  return id ? document.getElementById(id) : null;
+  if (!id) return null;
+  if (quickDiscoveryInputTarget === 'blogNext' && typeof getBlogNextSettingsElement === 'function') {
+    return getBlogNextSettingsElement(id);
+  }
+  return document.getElementById(id);
 }
 
 function readQuickDiscoveryInput(field) {
@@ -37,6 +41,7 @@ function getQuickDiscoveryInputValues() {
 
 function activateQuickDiscoveryInputMode() {
   if (quickDiscoveryInputTarget === 'blogNext') {
+    if (typeof blogNextEditingRowIndex !== 'undefined' && blogNextEditingRowIndex !== null) return;
     if (typeof activateBlogNextInputMode === 'function') activateBlogNextInputMode('ai');
     return;
   }

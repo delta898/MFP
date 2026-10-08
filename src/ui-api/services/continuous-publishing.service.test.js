@@ -745,6 +745,27 @@ test('saved topic can be updated in place or promoted to the ready queue', async
     assert.equal(state.updatedFields.status, '발행 준비 완료');
 });
 
+test('saved topic with no subject cannot be promoted even when other idea fields remain', async () => {
+    const state = {
+        readItems: [{ rowIndex: 2, rowNumber: 4, status: '대기', subject: '기존 주제' }]
+    };
+    const service = createService(state);
+
+    await assert.rejects(
+        () => service.updateTopic({
+            action: 'enqueue',
+            sourceStatus: '대기',
+            rowIndex: 2,
+            subject: '',
+            keywords: '다빈치 리졸브',
+            instruction: '사용 경험 중심으로 작성',
+            platforms: ['naver']
+        }),
+        error => error.apiCode === 'SUBJECT_REQUIRED' && error.status === 400
+    );
+    assert.equal(state.updatedRowIndex, undefined);
+});
+
 test('saved topic deletion verifies waiting state before deleting the row', async () => {
     const state = {
         readItems: [{ rowIndex: 2, rowNumber: 4, status: '대기', subject: '지울 글감' }]

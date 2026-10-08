@@ -3,7 +3,7 @@
 - Branch: `codex/blog-topic-settings-reuse-main`
 - Base branch: `codex/static-site-builder-main`
 - Start date: 2026-10-08
-- Status: Planning
+- Status: Settings-instance redesign implemented; focused verification passed; UI acceptance pending
 
 ## User need
 
@@ -30,7 +30,7 @@ The Blog Beta writing flow supports saving an idea to the saved topics list or a
 
 - Topic settings and reference/content settings are currently authored inline in `ui/partials/views/blog-next.html`.
 - Publishing settings are a separate partial at `ui/partials/views/blog-next/publish-settings.html` and are placed in multiple draft-mode slots.
-- Saved-topic and queue editing use the same Blog Beta topic form: `ui/scripts/features/blog-next/quick-queue.js` moves it into `ui/partials/views/blog-next/editor-modal.html`. The edit modal does not contain a copied form.
+- Saved-topic and queue editing use the same settings partials, but a separately instantiated, namespaced editor form in `ui/partials/views/blog-next/editor-modal.html`. Screen actions and live values belong to the editor; the quick-writing form remains mounted and independent.
 - Topic capture already persists publishing fields when supplied, but saved topics do not require a target. Queue capture requires one target and scheduled items require a valid schedule date.
 - The queue editor currently populates the publishing fields from the stored entry. Existing entries with multiple targets are surfaced with a prompt to choose one.
 
@@ -82,7 +82,7 @@ The Blog Beta writing flow supports saving an idea to the saved topics list or a
 
 ## Proposed design
 
-Extract the three settings groups into reusable partials with stable field contracts, and include them from the quick-writing form that is moved between its inline host and the shared edit modal. Keep the form state and serialization in one place. Separate readiness validation by transition: saving an idea permits incomplete publishing settings; entering or remaining in the queue requires settings valid for the selected target and post status; execution performs a final readiness check.
+Keep the three settings groups as reusable partials with stable field contracts. Each screen composes those partials inside its own form instance and owns its own values, serialization context, result feedback, and action controls. Shared partials provide the controls and interaction logic, not shared live state or screen actions. Separate readiness validation by transition: saving an idea permits incomplete publishing settings; entering or remaining in the queue requires settings valid for the selected target and post status; execution performs a final readiness check.
 
 The quick-writing queue action should collect publishing settings in a focused dialog while retaining the topic and composition settings already entered. Saved-topic and queue edit dialogs should expose all three groups through the shared form, with titles and actions reflecting the entry's current state.
 
@@ -107,12 +107,13 @@ Stages are ordered to make each transition reviewable. Keep the feature limited 
 **Purpose:** Make the three settings groups callable from the writing form and its dialogs without duplicated markup.
 
 - Extract topic settings, reference/content composition, and publishing settings into separate partials with documented DOM/data contracts.
-- Keep stable input identifiers or introduce a small, deliberate field-binding mechanism; avoid duplicate IDs when elements move between hosts.
-- Keep one authoritative set of live controls and one serialization path. The quick-writing form and edit dialog should relocate/use the same nodes rather than render parallel copies.
+- Keep stable setting keys while namespacing DOM IDs and radio names for each form instance; preserve label and ARIA references.
+- Share partial markup and setting behavior, while giving each screen an independent form instance and serialization context. Never move the quick-writing form into an editor dialog.
+- Keep action buttons and action state outside the settings partials; each screen composes its own action footer.
 - Preserve existing quick-writing, draft-mode, and edit behavior in this stage; do not yet change queue semantics.
 - Add focused partial composition and DOM contract checks.
 
-**Exit criteria:** All three groups are independent partials; existing quick-writing and edit flows still use the shared controls; no duplicate settings form exists.
+**Exit criteria:** All three groups are independent partials; quick-writing and edit flows render those partials inside separate forms; no IDs, radio groups, values, or actions leak between instances.
 
 **Stage 2 result:** Extracted topic settings and reference/content composition into `topic-settings.html` and `content-settings.html`. Publishing settings were already an independent `publish-settings.html` partial, so they remain the single source for target/status controls. The parent form includes each partial once; field IDs, form ownership, CSS selectors, serialization, and runtime behavior remain unchanged. Queue/edit continues to relocate the same form nodes, so this stage creates reusable markup without creating a second stateful form.
 
@@ -198,3 +199,53 @@ Stages are ordered to make each transition reviewable. Keep the feature limited 
 - Stage 1 was a source and contract audit; Stage 2 verification: `node --test scripts/blog-next-quick-flow-contract.test.js scripts/single-publish-target-contract.test.js scripts/ui-structure-contract.test.js` (32 passed) and `git diff --check`.
 - Stage 3 focused verification: `node --test scripts/blog-next-quick-flow-contract.test.js` (22 passed); `node --test scripts/single-publish-target-contract.test.js scripts/ui-structure-contract.test.js` (11 passed); `node --test src/continuous-publishing/topic-capture.test.js` (10 passed); changed scripts pass `node --check`; `git diff --check` passes.
 - The user deferred browser smoke verification for Stage 3 and then explicitly directed merging it into this parent before that verification. During the later integrated review, update the existing browser smoke flow (which expects the prior inline queue behavior) to cover the new settings modal and run the focused browser regression. The user handles hands-on UI review; Stage 4-6 remain.
+
+## Stage 4 — saved-topic and queue editing
+
+### Scope and decisions
+
+- Reuse the topic, content, and publishing partials for saved-topic and queue-item editing, but mount them in an editor-owned form; do not move the quick-writing form or share its live values.
+- Make a saved topic's `대기열로 이동` action open that item's settings in the shared editor. Incomplete publishing configuration stays in the editor with the missing publishing fields identified; do not change the row status while incomplete.
+- Promote a completed saved item through the validated topic-update action so all three settings groups are persisted together with the status transition. Do not use the legacy status-only queue-add route from this UI path.
+- Isolate the shared publishing controls and target-settings map while editing an item, then restore the quick-writing state when leaving the editor. Item values are populated from that item's own saved row.
+- Keep Site Hosting visibly unavailable in queue-item editing because the queue lifecycle adapter still does not support it; its support is deferred to a later stage.
+- Saved ideas may remain incomplete. Queue promotion requires a non-empty subject, one explicit target, a supported post status, and a future date for scheduled publication.
+- Browser smoke and hands-on UI acceptance remain deferred to the later integrated review at the user's request.
+
+### Progress
+
+- Initially reused the existing edit form and added an item-edit publishing-state context that snapshots and restores quick-writing controls, target map, active target, disclosure state, and session storage. This was superseded by the instance redesign below because sharing the form tied the editor to quick-writing actions and state.
+- Added saved-item promotion entry through the edit modal and client readiness feedback for required queue settings. Ready promotion submits all fields through `/topics/update` with `action: enqueue` rather than the status-only `/queue/add` endpoint.
+- User clarified the saved-idea editor should show all three settings groups and provide `취소`, `저장`, and `대기열로 이동`. `저장` persists the edited idea then closes; `대기열로 이동` validates the settings, leaves the modal open with missing-field feedback in its lower-left message area when incomplete, and otherwise promotes the item, closes the modal, and refreshes the list. The original `원고 만들기` action is removed. Queue-item editing remains unchanged.
+- User reported `원고 만들기` still appeared. Root cause: the hidden attribute was applied only to the button inside a flex-styled wrapper, whose CSS display rule kept the wrapper visible; hide the whole action wrapper and explicitly honor its hidden state in CSS. Restore that wrapper when exiting edit mode.
+- Saved items without an explicit status now open with the agreed temporary-save default. Saved-item promotion readiness requires an idea seed, one target, a supported status, and a future schedule date when scheduling; malformed reference URLs are identified before submission.
+- Added focused contract assertions for settings isolation, promotion path, and scheduling validation.
+
+### Verification and handoff
+
+- Focused contract verification and syntax checks are recorded after the latest saved-idea button-flow update.
+- `node --check` passed for the changed Blog Beta scripts; `git diff --check` passed.
+- Browser smoke and hands-on visual acceptance are deferred to the user's later combined review.
+- Stage 5 still needs server-side parity for past-date rejection at save/update and execution time, plus safe skip/recovery behavior for due scheduled items. The current UI prevents adding an already-past scheduled item, but the API contract does not yet reject past dates.
+
+### Settings instance redesign — current implementation
+
+- The user clarified the intended boundary: the three settings areas are reusable modules; screen-specific action buttons, state, and flows are not part of those modules.
+- `settings-instance.js` clones the three shared setting groups into the editor's own form, namespaces every cloned `id` and radio `name`, retains stable `data-blog-next-setting-key` bindings, and remaps label/ARIA references. It initializes from markup defaults rather than copying current quick-writing values.
+- Shared readers and writers resolve to the active editor instance during edit, and return `null` for missing editor controls instead of falling through to quick-writing controls. The editor owns Cancel, Save, Enqueue, and its inline feedback. The original quick form and its “원고 만들기” action remain separate and are not hidden or reparented.
+- Editor changes update only editor action availability and summaries. The existing publishing-state context continues to snapshot/restore the quick-writing target map/session state while an item is edited.
+- The title-recommendation opener, discovery target, and provider setting interactions are delegated for the cloned instance so those controls remain functional without sharing source element IDs.
+- Focused verification after this correction: the Blog Beta quick-flow, single-publish-target, and UI-structure contract tests pass (35 total); changed JavaScript passes `node --check`; `git diff --check` passes. Hands-on browser visual/interaction acceptance remains with the user; do not launch the app in this stage.
+
+### Follow-up — required subject during queue promotion
+
+- The user found that clearing the required `주제` field and promoting a saved idea still succeeded. Root cause: both UI and API treated keywords, instructions, or a reference URL as a sufficient idea seed, while the field is visibly marked required.
+- Preserve permissive saving in the idea repository, but require a non-empty subject for queue-ready items. The editor now reports the missing subject inline and focuses it; quick queue confirmation reports the same rule; the capture validator rejects invalid promotions before any sheet update.
+- Focused verification: quick-flow, topic-capture, and continuous-publishing service tests pass (75 total); relevant JavaScript syntax checks and `git diff --check` pass. User visual acceptance remains pending.
+
+### Follow-up — queue edit actions
+
+- In a ready queue item's editor, the shared enqueue button was dynamically relabeled `저장`, which made the footer show two Save actions.
+- The shared editor's static footer contains only `취소` and `저장`. The screen-owned queue-management flow creates a separate `대기열로 이동` action only when editing a saved idea that can be promoted; no promotion button exists in the ready queue-item editor.
+- The terminology change from `발행` to `포스팅` is explicitly deferred and not part of this adjustment.
+- Focused verification: quick-flow contract tests, syntax check, and `git diff --check` pass. Visual acceptance remains pending.

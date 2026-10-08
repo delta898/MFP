@@ -18,12 +18,65 @@ try {
 let blogNextActivePublishSettingsKey = '';
 let blogNextQueueSettingsContext = null;
 let blogNextQueueSettingsDraft = null;
+let blogNextTopicEditingSettingsContext = null;
+
+function beginBlogNextTopicEditingSettingsContext() {
+  if (blogNextTopicEditingSettingsContext) return;
+  if (blogNextActivePublishSettingsKey && typeof captureBlogNextPublishingTargetSettings === 'function') {
+    captureBlogNextPublishingTargetSettings('ai');
+  }
+  const controls = ['blog-next-target-naver', 'blog-next-target-wordpress', 'blog-next-target-site-hosting',
+    'blog-next-site-hosting-select', 'blog-next-category', 'blog-next-naver-category', 'blog-next-wordpress-category',
+    'blog-next-vault-folder-select', 'blog-next-post-status', 'blog-next-schedule-date', 'blog-next-runner-headless'];
+  const values = {};
+  controls.forEach((id) => {
+    const element = document.getElementById(id);
+    if (!element) return;
+    values[id] = element.type === 'checkbox' || element.type === 'radio'
+      ? { checked: element.checked, disabled: element.disabled }
+      : { value: element.value, disabled: element.disabled };
+  });
+  blogNextTopicEditingSettingsContext = {
+    values,
+    publishSettingsOpen: getBlogNextSettingsElement('blog-next-publish-settings')?.open ?? false,
+    map: new Map([...blogNextPublishSettingsByTarget].map(([key, value]) => [key, { ...value }])),
+    activeKey: blogNextActivePublishSettingsKey,
+    sessionValue: (() => { try { return sessionStorage.getItem(BLOG_NEXT_PUBLISH_SETTINGS_SESSION_KEY); } catch (_) { return null; } })()
+  };
+  blogNextPublishSettingsByTarget.clear();
+  blogNextActivePublishSettingsKey = '';
+  try { sessionStorage.removeItem(BLOG_NEXT_PUBLISH_SETTINGS_SESSION_KEY); } catch (_) { /* best effort */ }
+}
+
+function endBlogNextTopicEditingSettingsContext() {
+  const context = blogNextTopicEditingSettingsContext;
+  if (!context) return;
+  Object.entries(context.values).forEach(([id, state]) => {
+    const element = document.getElementById(id);
+    if (!element) return;
+    if (Object.hasOwn(state, 'checked')) element.checked = state.checked;
+    if (Object.hasOwn(state, 'value')) element.value = state.value;
+    element.disabled = state.disabled;
+  });
+  const settings = getBlogNextSettingsElement('blog-next-publish-settings');
+  if (settings) settings.open = context.publishSettingsOpen;
+  blogNextPublishSettingsByTarget.clear();
+  context.map.forEach((value, key) => blogNextPublishSettingsByTarget.set(key, { ...value }));
+  blogNextActivePublishSettingsKey = context.activeKey;
+  try {
+    if (context.sessionValue === null) sessionStorage.removeItem(BLOG_NEXT_PUBLISH_SETTINGS_SESSION_KEY);
+    else sessionStorage.setItem(BLOG_NEXT_PUBLISH_SETTINGS_SESSION_KEY, context.sessionValue);
+  } catch (_) { /* in-memory values remain authoritative */ }
+  blogNextTopicEditingSettingsContext = null;
+  if (typeof syncBlogNextDraftSchedule === 'function') syncBlogNextDraftSchedule('ai');
+  if (typeof syncBlogNextDraftSettingsSummary === 'function') syncBlogNextDraftSettingsSummary('ai');
+}
 
 function beginBlogNextQueueSettingsContext() {
   if (blogNextQueueSettingsContext) return true;
   const modal = document.getElementById('blog-next-queue-settings-modal');
   const slot = document.getElementById('blog-next-queue-settings-slot');
-  const settings = document.getElementById('blog-next-publish-settings');
+  const settings = getBlogNextSettingsElement('blog-next-publish-settings');
   const resultRow = document.querySelector('#blog-next-topic-form .blog-next-form-result-row');
   if (!modal || !slot || !settings) return false;
 
@@ -59,21 +112,21 @@ function beginBlogNextQueueSettingsContext() {
     sessionValue: (() => { try { return sessionStorage.getItem(BLOG_NEXT_PUBLISH_SETTINGS_SESSION_KEY); } catch (_) { return null; } })(),
   };
 
-  const radioNaver = document.getElementById('blog-next-target-naver');
-  const radioWordpress = document.getElementById('blog-next-target-wordpress');
-  const radioSite = document.getElementById('blog-next-target-site-hosting');
+  const radioNaver = getBlogNextSettingsElement('blog-next-target-naver');
+  const radioWordpress = getBlogNextSettingsElement('blog-next-target-wordpress');
+  const radioSite = getBlogNextSettingsElement('blog-next-target-site-hosting');
   if (radioNaver) radioNaver.checked = false;
   if (radioWordpress) radioWordpress.checked = false;
   if (radioSite) { radioSite.checked = false; radioSite.disabled = true; }
-  const status = document.getElementById('blog-next-post-status');
+  const status = getBlogNextSettingsElement('blog-next-post-status');
   if (status) status.value = 'draft';
-  const schedule = document.getElementById('blog-next-schedule-date');
+  const schedule = getBlogNextSettingsElement('blog-next-schedule-date');
   if (schedule) schedule.value = '';
-  const category = document.getElementById('blog-next-category');
+  const category = getBlogNextSettingsElement('blog-next-category');
   if (category) category.value = '';
-  const siteSelect = document.getElementById('blog-next-site-hosting-select');
+  const siteSelect = getBlogNextSettingsElement('blog-next-site-hosting-select');
   if (siteSelect) siteSelect.value = '';
-  const folderSelect = document.getElementById('blog-next-vault-folder-select');
+  const folderSelect = getBlogNextSettingsElement('blog-next-vault-folder-select');
   if (folderSelect) folderSelect.value = '';
   if (blogNextQueueSettingsDraft) {
     Object.entries(blogNextQueueSettingsDraft).forEach(([id, value]) => {
@@ -167,8 +220,8 @@ function readBlogNextDraftSettings(type) {
   if (blogNextDraftField(type, 'target-naver')?.checked) targets.push('naver');
   if (blogNextDraftField(type, 'target-wordpress')?.checked) targets.push('wordpress');
   if (blogNextDraftField(type, 'target-site-hosting')?.checked) targets.push('site-hosting');
-  const siteOption = document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0];
-  const vaultFolder = document.getElementById('blog-next-vault-folder-select');
+  const siteOption = getBlogNextSettingsElement('blog-next-site-hosting-select')?.selectedOptions?.[0];
+  const vaultFolder = getBlogNextSettingsElement('blog-next-vault-folder-select');
   const siteKey = siteOption?.dataset.projectId && siteOption?.dataset.siteId
     ? `${siteOption.dataset.projectId}/${siteOption.dataset.siteId}` : '';
   return {
@@ -180,8 +233,8 @@ function readBlogNextDraftSettings(type) {
       && vaultFolder?.dataset.siteKey === siteKey
       && vaultFolder.selectedOptions?.[0]?.value
       ? vaultFolder.value : '',
-    naverCategory: targets.includes('naver') ? document.getElementById('blog-next-category')?.value?.trim() || '' : '',
-    wordpressCategory: targets.includes('wordpress') ? document.getElementById('blog-next-category')?.value?.trim() || '' : '',
+    naverCategory: targets.includes('naver') ? getBlogNextSettingsElement('blog-next-category')?.value?.trim() || '' : '',
+    wordpressCategory: targets.includes('wordpress') ? getBlogNextSettingsElement('blog-next-category')?.value?.trim() || '' : '',
     postStatus: blogNextDraftField(type, 'post-status')?.value || 'publish',
     scheduleDate: blogNextDraftField(type, 'schedule-date')?.value || '',
     headless: targets.includes('naver') && blogNextDraftField(type, 'headless')?.checked !== false,
@@ -190,12 +243,12 @@ function readBlogNextDraftSettings(type) {
 }
 
 function getBlogNextPublishingTargetKey(type) {
-  const settings = document.getElementById('blog-next-publish-settings');
+  const settings = getBlogNextSettingsElement('blog-next-publish-settings');
   const activeType = settings?.dataset.blogNextDraftSettings || type || 'ai';
   if (blogNextDraftField(activeType, 'target-naver')?.checked) return 'naver';
   if (blogNextDraftField(activeType, 'target-wordpress')?.checked) return 'wordpress';
   if (blogNextDraftField(activeType, 'target-site-hosting')?.checked) {
-    const option = document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0];
+    const option = getBlogNextSettingsElement('blog-next-site-hosting-select')?.selectedOptions?.[0];
     return option?.dataset.projectId && option?.dataset.siteId
       ? `site-hosting:${option.dataset.projectId}/${option.dataset.siteId}`
       : 'site-hosting:unselected';
@@ -204,14 +257,14 @@ function getBlogNextPublishingTargetKey(type) {
 }
 
 function getBlogNextSiteCategoryValue() {
-  const option = document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0];
+  const option = getBlogNextSettingsElement('blog-next-site-hosting-select')?.selectedOptions?.[0];
   if (!option?.dataset.siteId) return '';
   return option.dataset.siteKind === 'blog' ? String(option.dataset.listingRoute || '') : '';
 }
 
 function getBlogNextVaultFolderValue() {
-  const siteOption = document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0];
-  const folderSelect = document.getElementById('blog-next-vault-folder-select');
+  const siteOption = getBlogNextSettingsElement('blog-next-site-hosting-select')?.selectedOptions?.[0];
+  const folderSelect = getBlogNextSettingsElement('blog-next-vault-folder-select');
   const siteKey = siteOption?.dataset.projectId && siteOption?.dataset.siteId
     ? `${siteOption.dataset.projectId}/${siteOption.dataset.siteId}` : '';
   return siteOption?.dataset.siteKind === 'vault' && folderSelect?.dataset.siteKey === siteKey
@@ -220,14 +273,14 @@ function getBlogNextVaultFolderValue() {
 
 function captureBlogNextPublishingTargetSettings(type) {
   if (!blogNextActivePublishSettingsKey) return;
-  const category = document.getElementById('blog-next-category');
+  const category = getBlogNextSettingsElement('blog-next-category');
   const status = blogNextDraftField(type, 'post-status');
   const scheduleDate = blogNextDraftField(type, 'schedule-date');
   const current = blogNextPublishSettingsByTarget.get(blogNextActivePublishSettingsKey) || {};
   blogNextPublishSettingsByTarget.set(blogNextActivePublishSettingsKey, {
     ...current,
     category: blogNextActivePublishSettingsKey.startsWith('site-hosting:')
-      ? (document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0]?.dataset.siteKind === 'vault'
+      ? (getBlogNextSettingsElement('blog-next-site-hosting-select')?.selectedOptions?.[0]?.dataset.siteKind === 'vault'
         ? getBlogNextVaultFolderValue() || current.category || '' : getBlogNextSiteCategoryValue())
       : category?.value || '',
     postStatus: status?.value || 'publish',
@@ -241,7 +294,7 @@ function captureBlogNextPublishingTargetSettings(type) {
   const legacyCategory = blogNextActivePublishSettingsKey === 'naver' ? 'blog-next-naver-category'
     : blogNextActivePublishSettingsKey === 'wordpress' ? 'blog-next-wordpress-category' : '';
   if (legacyCategory && category) {
-    const legacy = document.getElementById(legacyCategory);
+      const legacy = getBlogNextSettingsElement(legacyCategory);
     if (legacy) legacy.value = category.value;
   }
 }
@@ -255,19 +308,19 @@ function syncBlogNextPublishingTargetSettings(type, { force = false, restoreStor
   }
   if (!restoreStored) captureBlogNextPublishingTargetSettings(type);
   const stored = blogNextPublishSettingsByTarget.get(nextKey);
-  const category = document.getElementById('blog-next-category');
-  const categoryField = document.getElementById('blog-next-category-field');
-  const categoryLabel = document.getElementById('blog-next-category-label');
-  const vaultControl = document.getElementById('blog-next-vault-folder-control');
-  const vaultSelect = document.getElementById('blog-next-vault-folder-select');
+  const category = getBlogNextSettingsElement('blog-next-category');
+  const categoryField = getBlogNextSettingsElement('blog-next-category-field');
+  const categoryLabel = getBlogNextSettingsElement('blog-next-category-label');
+  const vaultControl = getBlogNextSettingsElement('blog-next-vault-folder-control');
+  const vaultSelect = getBlogNextSettingsElement('blog-next-vault-folder-select');
   const status = blogNextDraftField(type, 'post-status');
   const scheduleDate = blogNextDraftField(type, 'schedule-date');
   const target = nextKey.startsWith('site-hosting:') ? 'site-hosting' : nextKey;
   const legacyCategory = target === 'naver' ? 'blog-next-naver-category'
     : target === 'wordpress' ? 'blog-next-wordpress-category' : '';
-  const defaultCategory = legacyCategory ? document.getElementById(legacyCategory)?.value || '' : '';
+  const defaultCategory = legacyCategory ? getBlogNextSettingsElement(legacyCategory)?.value || '' : '';
   const siteCategory = target === 'site-hosting' ? getBlogNextSiteCategoryValue() : '';
-  const selectedSiteOption = document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0];
+  const selectedSiteOption = getBlogNextSettingsElement('blog-next-site-hosting-select')?.selectedOptions?.[0];
   const isVault = target === 'site-hosting' && selectedSiteOption?.dataset.siteKind === 'vault';
   if (category) {
     category.value = target === 'site-hosting' && !isVault ? siteCategory : stored?.category ?? defaultCategory;
@@ -281,13 +334,13 @@ function syncBlogNextPublishingTargetSettings(type, { force = false, restoreStor
   if (categoryField) categoryField.dataset.vaultTarget = String(isVault);
   if (vaultControl) vaultControl.hidden = !isVault;
   if (categoryLabel) {
-    categoryLabel.htmlFor = isVault ? 'blog-next-vault-folder-choose' : 'blog-next-category';
+    categoryLabel.htmlFor = getBlogNextSettingsElement(isVault ? 'blog-next-vault-folder-choose' : 'blog-next-category')?.id || '';
     categoryLabel.hidden = false;
   }
   if (isVault && vaultSelect) {
     const siteKey = `${selectedSiteOption.dataset.projectId}/${selectedSiteOption.dataset.siteId}`;
     const needsLoad = vaultSelect.dataset.siteKey !== siteKey;
-    const folderPicker = document.getElementById('blog-next-vault-folder-choose');
+    const folderPicker = getBlogNextSettingsElement('blog-next-vault-folder-choose');
     if (needsLoad) {
       vaultSelect.disabled = true;
       if (folderPicker) folderPicker.disabled = true;
@@ -308,7 +361,7 @@ function syncBlogNextPublishingTargetSettings(type, { force = false, restoreStor
   } else if (target === 'site-hosting' && vaultSelect?.dataset.siteKey) {
     Promise.resolve().then(() => loadBlogNextVaultFolders({ preserveSelection: false }));
   }
-  const siteHint = document.getElementById('blog-next-site-category-hint');
+  const siteHint = getBlogNextSettingsElement('blog-next-site-category-hint');
   if (categoryLabel) {
     categoryLabel.innerHTML = target === 'naver' ? '네이버 카테고리 <small>(선택)</small>'
       : target === 'wordpress' ? '워드프레스 카테고리 <small>(선택)</small>'
@@ -333,7 +386,7 @@ function syncBlogNextPublishingTargetSettings(type, { force = false, restoreStor
 }
 
 function syncBlogNextDraftSettingsSummary(type) {
-  const summary = document.getElementById('blog-next-publish-settings-summary');
+  const summary = getBlogNextSettingsElement('blog-next-publish-settings-summary');
   if (!summary) return;
   const settings = readBlogNextDraftSettings(type);
   const statusLabel = settings.postStatus === 'draft' ? '임시 저장'
@@ -341,10 +394,10 @@ function syncBlogNextDraftSettingsSummary(type) {
   let targetLabel = formatBlogPlatformList(settings.targets, ' + ') || '발행 대상 없음';
   let siteSelected = true;
   if (settings.targets.includes('site-hosting')) {
-    const siteOption = document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0];
+    const siteOption = getBlogNextSettingsElement('blog-next-site-hosting-select')?.selectedOptions?.[0];
     siteSelected = Boolean(settings.siteProjectId && settings.siteId && siteOption && !siteOption.disabled);
     if (siteSelected) {
-      const vaultFolder = document.getElementById('blog-next-vault-folder-select');
+      const vaultFolder = getBlogNextSettingsElement('blog-next-vault-folder-select');
       const siteKey = `${settings.siteProjectId}/${settings.siteId}`;
       if (settings.siteKind === 'vault' && (vaultFolder?.dataset.siteKey !== siteKey || !vaultFolder.value)) {
         targetLabel = '저장 폴더 선택 필요';
@@ -370,21 +423,21 @@ function isBlogNextSiteHostingTarget(type) {
 }
 
 function setBlogNextSiteHostingMessage(message, state = '') {
-  const element = document.getElementById('blog-next-site-hosting-message');
+  const element = getBlogNextSettingsElement('blog-next-site-hosting-message');
   if (!element) return;
   element.textContent = message;
   element.dataset.state = state;
 }
 
 function setBlogNextVaultFolderMessage(message, state = '') {
-  const element = document.getElementById('blog-next-site-category-hint');
+  const element = getBlogNextSettingsElement('blog-next-site-category-hint');
   if (!element) return;
   element.textContent = message;
   element.dataset.state = state;
 }
 
 function syncBlogNextVaultFolderDisplay(select) {
-  const display = document.getElementById('blog-next-vault-folder-value');
+  const display = getBlogNextSettingsElement('blog-next-vault-folder-value');
   if (!display || !select) return;
   const selected = select.selectedOptions?.[0];
   const hasValue = Boolean(selected?.value);
@@ -394,10 +447,10 @@ function syncBlogNextVaultFolderDisplay(select) {
 }
 
 async function loadBlogNextVaultFolders({ preserveSelection = true } = {}) {
-  const siteSelect = document.getElementById('blog-next-site-hosting-select');
-  const folderControl = document.getElementById('blog-next-vault-folder-control');
-  const folderSelect = document.getElementById('blog-next-vault-folder-select');
-  const folderPicker = document.getElementById('blog-next-vault-folder-choose');
+  const siteSelect = getBlogNextSettingsElement('blog-next-site-hosting-select');
+  const folderControl = getBlogNextSettingsElement('blog-next-vault-folder-control');
+  const folderSelect = getBlogNextSettingsElement('blog-next-vault-folder-select');
+  const folderPicker = getBlogNextSettingsElement('blog-next-vault-folder-choose');
   const siteOption = siteSelect?.selectedOptions?.[0];
   if (!folderControl || !folderSelect || !siteOption || siteOption.dataset.siteKind !== 'vault') {
     if (folderControl) folderControl.hidden = true;
@@ -469,7 +522,7 @@ async function loadBlogNextVaultFolders({ preserveSelection = true } = {}) {
     }
     folderSelect.disabled = folders.length === 0;
     if (folderPicker) folderPicker.disabled = folders.length === 0
-      || document.getElementById('blog-next-target-site-hosting')?.checked !== true;
+      || getBlogNextSettingsElement('blog-next-target-site-hosting')?.checked !== true;
     if (typeof syncBlogNextDraftExecutionState === 'function') syncBlogNextDraftExecutionState();
     return response;
   } catch (error) {
@@ -490,7 +543,7 @@ async function loadBlogNextVaultFolders({ preserveSelection = true } = {}) {
     return null;
   } finally {
     if (folderPicker) {
-      folderPicker.disabled = document.getElementById('blog-next-target-site-hosting')?.checked !== true;
+      folderPicker.disabled = getBlogNextSettingsElement('blog-next-target-site-hosting')?.checked !== true;
       folderPicker.setAttribute('aria-busy', 'false');
     }
     const type = BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai';
@@ -502,11 +555,11 @@ async function loadBlogNextVaultFolders({ preserveSelection = true } = {}) {
 }
 
 async function loadBlogNextSiteHostingTargets({ preserveSelection = true } = {}) {
-  const option = document.getElementById('blog-next-target-site-hosting-option');
+  const option = getBlogNextSettingsElement('blog-next-target-site-hosting-option');
   const input = blogNextDraftField('paste', 'target-site-hosting');
-  const field = document.getElementById('blog-next-site-hosting-field');
-  const select = document.getElementById('blog-next-site-hosting-select');
-  const retry = document.getElementById('blog-next-site-hosting-retry');
+  const field = getBlogNextSettingsElement('blog-next-site-hosting-field');
+  const select = getBlogNextSettingsElement('blog-next-site-hosting-select');
+  const retry = getBlogNextSettingsElement('blog-next-site-hosting-retry');
   if (!option || !input || !field || !select) return [];
   const previous = select.selectedOptions?.[0];
   const previousProjectId = preserveSelection ? previous?.dataset.projectId || '' : '';
@@ -600,9 +653,9 @@ function syncBlogNextSiteHostingOptions(type) {
     status.value = 'publish';
     captureBlogNextPublishingTargetSettings(type);
   }
-  const category = document.getElementById('blog-next-category');
+  const category = getBlogNextSettingsElement('blog-next-category');
   if (category && selected) {
-    const isVault = document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0]?.dataset.siteKind === 'vault';
+    const isVault = getBlogNextSettingsElement('blog-next-site-hosting-select')?.selectedOptions?.[0]?.dataset.siteKind === 'vault';
     category.value = isVault ? '' : getBlogNextSiteCategoryValue();
     category.hidden = isVault;
     category.readOnly = !isVault;
@@ -612,9 +665,9 @@ function syncBlogNextSiteHostingOptions(type) {
 }
 
 function syncBlogNextDraftSchedule(type) {
-  const field = document.getElementById('blog-next-schedule-field');
+  const field = getBlogNextSettingsElement('blog-next-schedule-field');
   const input = blogNextDraftField(type, 'schedule-date');
-  const requiredIndicator = document.getElementById('blog-next-schedule-required');
+  const requiredIndicator = getBlogNextSettingsElement('blog-next-schedule-required');
   const scheduled = blogNextDraftField(type, 'post-status')?.value === 'schedule';
   if (field) field.dataset.dependencyActive = String(scheduled);
   if (input) {
@@ -625,13 +678,13 @@ function syncBlogNextDraftSchedule(type) {
 }
 
 function syncBlogNextDraftProviderFields(type) {
-  const settings = document.getElementById('blog-next-publish-settings');
+  const settings = getBlogNextSettingsElement('blog-next-publish-settings');
   if (!settings) return;
-  const siteHostingOption = document.getElementById('blog-next-target-site-hosting-option');
+  const siteHostingOption = getBlogNextSettingsElement('blog-next-target-site-hosting-option');
   if (siteHostingOption) siteHostingOption.hidden = false;
   const siteSelected = blogNextDraftField(type, 'target-site-hosting')?.checked === true;
-  const siteSelect = document.getElementById('blog-next-site-hosting-select');
-  const siteRefresh = document.getElementById('blog-next-site-hosting-retry');
+  const siteSelect = getBlogNextSettingsElement('blog-next-site-hosting-select');
+  const siteRefresh = getBlogNextSettingsElement('blog-next-site-hosting-retry');
   const siteTarget = blogNextDraftField(type, 'target-site-hosting');
   const queueUnsupported = typeof isBlogNextQueueSettingsOpen === 'function' && isBlogNextQueueSettingsOpen();
   if (queueUnsupported && siteTarget) siteTarget.disabled = true;
@@ -653,13 +706,13 @@ function syncBlogNextDraftProviderFields(type) {
     });
   });
   const siteActive = blogNextDraftField(type, 'target-site-hosting')?.checked === true;
-  const siteSelectField = document.getElementById('blog-next-site-hosting-select');
+  const siteSelectField = getBlogNextSettingsElement('blog-next-site-hosting-select');
   if (siteSelectField) siteSelectField.disabled = queueUnsupported || siteSelectField.options.length <= 1;
-  const vaultPicker = document.getElementById('blog-next-vault-folder-choose');
-  const vaultSelect = document.getElementById('blog-next-vault-folder-select');
+  const vaultPicker = getBlogNextSettingsElement('blog-next-vault-folder-choose');
+  const vaultSelect = getBlogNextSettingsElement('blog-next-vault-folder-select');
   if (vaultPicker && vaultPicker.getAttribute('aria-busy') !== 'true') {
     vaultPicker.disabled = !siteActive
-      || document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0]?.dataset.siteKind !== 'vault';
+      || getBlogNextSettingsElement('blog-next-site-hosting-select')?.selectedOptions?.[0]?.dataset.siteKind !== 'vault';
   }
   const scheduleOption = blogNextDraftField(type, 'post-status')?.querySelector('option[value="schedule"]');
   if (scheduleOption && siteActive) scheduleOption.disabled = true;

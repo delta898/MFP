@@ -72,6 +72,7 @@
 // @include scripts/features/social/manual-lifecycle.js
 // @include scripts/features/blog-next/shell.js
 // @include scripts/features/blog-next/publish-preflight.js
+// @include scripts/features/blog-next/settings-instance.js
 // @include scripts/features/blog-next/quick-flow-ui.js
 // @include scripts/features/blog-next/queue-ui.js
 // @include scripts/features/blog-next/writing-overrides.js

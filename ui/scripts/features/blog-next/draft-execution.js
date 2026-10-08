@@ -98,6 +98,7 @@ function buildBlogNextDraftPublishConfirmation(settings, targetLabel) {
 }
 
 function syncBlogNextDraftExecutionState(runnerActive) {
+  if (typeof blogNextEditingRowIndex !== 'undefined' && blogNextEditingRowIndex !== null) return;
   const anotherRunnerActive = typeof runnerActive === 'boolean'
     ? runnerActive
     : ((typeof blogNextRunnerActive !== 'undefined' && blogNextRunnerActive)
@@ -341,13 +342,16 @@ async function restoreBlogNextAiDraftGeneration() {
 }
 
 function arrangeBlogNextAiWorkflow(options = {}) {
+  // Queue/editor screens render their own settings instance and own action footer.
+  // This workflow arranger only owns the quick-writing form composition.
+  if (options.editing === true || (typeof blogNextEditingRowIndex !== 'undefined' && blogNextEditingRowIndex !== null)) return;
   if (typeof isBlogNextQueueSettingsOpen === 'function' && isBlogNextQueueSettingsOpen()) return;
   const form = document.getElementById('blog-next-topic-form');
   const disclosures = form?.querySelector('.blog-next-disclosures');
   const previewDisclosure = document.getElementById('blog-next-ai-preview');
   const publishDisclosure = document.getElementById('blog-next-ai-publish');
-  const publishSettings = document.getElementById('blog-next-publish-settings');
-  const publishTitle = document.getElementById('blog-next-publish-settings-title');
+  const publishSettings = getBlogNextSettingsElement('blog-next-publish-settings');
+  const publishTitle = getBlogNextSettingsElement('blog-next-publish-settings-title');
   const previewStep = document.querySelector('[data-blog-next-ai-step="preview"]');
   const publishStep = document.querySelector('[data-blog-next-ai-step="publish"]');
   const save = document.getElementById('blog-next-save-topic');
@@ -358,39 +362,27 @@ function arrangeBlogNextAiWorkflow(options = {}) {
   const publishActions = document.querySelector('[data-blog-next-draft-actions="ai"]');
   const hint = document.getElementById('blog-next-queue-action-hint');
   const hasDraft = Boolean(blogNextDraftState.ai.draftId);
-  const editing = options.editing === true;
-
-  if (editing && previewDisclosure) previewDisclosure.open = true;
-  if (publishDisclosure) publishDisclosure.hidden = editing;
-
-  if (editing) {
-    const queueSlot = document.querySelector('[data-blog-next-publish-settings-slot="ai-queue"]');
-    if (queueSlot && publishSettings) queueSlot.appendChild(publishSettings);
-    if (typeof setBlogNextPublishSettingsContext === 'function') {
-      setBlogNextPublishSettingsContext('ai', '발행 계획');
-    } else if (publishTitle) publishTitle.textContent = '발행 계획';
-  } else if (publishSettings) {
+  if (publishDisclosure) publishDisclosure.hidden = false;
+  if (publishSettings) {
     const publishSlot = document.querySelector('[data-blog-next-publish-settings-slot="ai-publish"]');
     if (publishSlot) publishSlot.appendChild(publishSettings);
     if (typeof setBlogNextPublishSettingsContext === 'function') setBlogNextPublishSettingsContext('ai');
     else if (publishTitle) publishTitle.textContent = '발행 설정';
   }
 
-  if (previewStep) previewStep.hidden = editing;
-  if (publishStep) publishStep.hidden = editing;
-  if (publishSettings) publishSettings.hidden = editing;
-  if (prepareActions) prepareActions.hidden = !editing && hasDraft;
-  if (ideaActions) ideaActions.hidden = !editing && hasDraft;
-  if (previewActions) previewActions.hidden = editing || !hasDraft;
-  if (publishActions) publishActions.hidden = editing;
-  if (!editing) {
-    if (save) save.hidden = hasDraft;
-    if (enqueue) {
-      enqueue.hidden = hasDraft;
-      enqueue.setAttribute('aria-expanded', 'false');
-    }
-    if (hint) hint.hidden = hasDraft;
+  if (previewStep) previewStep.hidden = false;
+  if (publishStep) publishStep.hidden = false;
+  if (publishSettings) publishSettings.hidden = false;
+  if (prepareActions) prepareActions.hidden = hasDraft;
+  if (ideaActions) ideaActions.hidden = hasDraft;
+  if (previewActions) previewActions.hidden = !hasDraft;
+  if (publishActions) publishActions.hidden = false;
+  if (save) save.hidden = hasDraft;
+  if (enqueue) {
+    enqueue.hidden = hasDraft;
+    enqueue.setAttribute('aria-expanded', 'false');
   }
+  if (hint) hint.hidden = hasDraft;
 }
 
 function resetBlogNextAiDraftUi() {
@@ -431,7 +423,7 @@ async function generateBlogNextAiDraft(origin = 'create') {
       document.getElementById('blog-next-ai-settings-btn')?.focus();
       return;
     }
-    if (document.getElementById('blog-next-image-mode')?.value === 'generate'
+    if (getBlogNextSettingsElement('blog-next-image-mode')?.value === 'generate'
       && !await ensureUiCapabilityReady('ai.image')) {
       if (typeof syncBlogNextTopicActionAvailability === 'function') syncBlogNextTopicActionAvailability();
       setBlogNextTopicResult('이미지를 생성하려면 AI 이미지 모델을 먼저 설정해 주세요.', 'error');
@@ -447,7 +439,7 @@ async function generateBlogNextAiDraft(origin = 'create') {
   if (typeof renderBlogNextRunnerStatus === 'function') {
     renderBlogNextRunnerStatus({
       state: 'running', busy: true, source: 'manuscript_generation', progressStage: 'writing',
-      subject: document.getElementById('blog-next-subject')?.value || '바로 생성 원고',
+      subject: getBlogNextSettingsElement('blog-next-subject')?.value || '바로 생성 원고',
       message: 'AI가 원고를 만들고 있습니다.'
     });
   }
@@ -466,7 +458,7 @@ async function generateBlogNextAiDraft(origin = 'create') {
     if (typeof renderBlogNextRunnerStatus === 'function') {
       renderBlogNextRunnerStatus({
         state: 'failed', busy: false, source: 'manuscript_generation',
-        subject: document.getElementById('blog-next-subject')?.value || '바로 생성 원고',
+        subject: getBlogNextSettingsElement('blog-next-subject')?.value || '바로 생성 원고',
         message: error.message || 'AI 원고를 만들지 못했습니다.', finishedAt: new Date().toISOString()
       });
     }
@@ -492,7 +484,7 @@ function markBlogNextAiDraftSourceChanged(fieldId = '') {
 }
 
 function bindBlogNextDetachedPublishSettings(form) {
-  const publishSettings = document.getElementById('blog-next-publish-settings');
+  const publishSettings = getBlogNextSettingsElement('blog-next-publish-settings');
   publishSettings?.addEventListener('change', (event) => {
     const type = BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai';
     if (['blog-next-post-status', 'blog-next-schedule-date', 'blog-next-category'].includes(event.target?.id)) {
@@ -528,10 +520,10 @@ async function publishBlogNextDraft(type) {
   let settings = readBlogNextDraftSettings(type);
   let siteHostingTarget = isBlogNextSiteHostingTarget(type);
   const focusSitePicker = () => {
-    const picker = document.getElementById('blog-next-site-hosting-select');
+    const picker = getBlogNextSettingsElement('blog-next-site-hosting-select');
     const disclosure = picker?.closest('details');
     if (disclosure) disclosure.open = true;
-    document.getElementById('blog-next-site-hosting-field').hidden = false;
+    getBlogNextSettingsElement('blog-next-site-hosting-field').hidden = false;
     picker?.focus();
   };
   if (siteHostingTarget) {
@@ -555,7 +547,7 @@ async function publishBlogNextDraft(type) {
   }
   if (siteHostingTarget && settings.siteKind === 'vault' && !settings.destinationPath) {
     setBlogNextDraftValidation(type, { errors: ['저장할 Vault 폴더를 선택해 주세요.'] }, '', state.preview);
-    document.getElementById('blog-next-vault-folder-select')?.focus();
+    getBlogNextSettingsElement('blog-next-vault-folder-select')?.focus();
     return;
   }
   if (!siteHostingTarget && typeof ensureUiCapabilityReady === 'function') {
@@ -575,7 +567,7 @@ async function publishBlogNextDraft(type) {
       : { buttonLabel: '사이트 발행', actionLabel: '사이트 발행', busyLabel: '사이트 빌드·배포 중...', completionLabel: '발행했습니다.' }
     : getBlogNextDraftPublishCopy(settings.postStatus);
   const targetLabel = siteHostingTarget
-    ? document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0]?.textContent?.trim() || '선택한 사이트'
+    ? getBlogNextSettingsElement('blog-next-site-hosting-select')?.selectedOptions?.[0]?.textContent?.trim() || '선택한 사이트'
     : formatBlogPlatformList(settings.targets, ' + ') || '선택한 블로그';
   const confirmed = await showUiConfirm(
     buildBlogNextDraftPublishConfirmation(settings, targetLabel),

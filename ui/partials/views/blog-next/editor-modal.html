@@ -7,9 +7,23 @@
               <button id="blog-next-editor-close" class="close-btn" type="button" aria-label="닫기">✕</button>
             </div>
             <div class="modal-body blog-next-editor-modal-body">
-              <div id="blog-next-queue-editor-slot"></div>
+              <form id="blog-next-editor-settings-form" class="blog-next-editor-settings-form blog-next-topic-form">
+                <div data-blog-next-editor-settings-slot="topic"></div>
+                <div data-blog-next-editor-settings-slot="content"></div>
+                <div data-blog-next-editor-settings-slot="publishing"></div>
+              </form>
             </div>
-            <div id="blog-next-editor-actions-slot" class="blog-next-editor-modal-actions"></div>
+            <div id="blog-next-editor-actions-slot" class="blog-next-editor-modal-actions">
+              <div class="blog-next-editor-modal-message" aria-live="polite">
+                <div class="blog-next-form-result-row" hidden>
+                  <p class="blog-next-form-result" data-blog-next-setting-key="blog-next-topic-result" role="status" aria-live="polite"></p>
+                </div>
+              </div>
+              <div class="blog-next-editor-modal-action-group">
+                <button class="ghost" id="blog-next-editor-cancel" type="button">취소</button>
+                <button class="secondary" id="blog-next-editor-save" type="button">저장</button>
+              </div>
+            </div>
           </div>
         </div>
         <!-- @include queue-settings-modal.html -->

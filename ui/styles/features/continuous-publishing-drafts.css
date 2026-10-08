@@ -604,7 +604,7 @@
   max-width: 100%;
 }
 
-#blog-next-publish-settings .blog-next-draft-targets {
+.blog-next-draft-settings .blog-next-draft-targets {
   column-gap: 8px;
 }
 

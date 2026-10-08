@@ -265,13 +265,13 @@ function renderBlogNextCompletionLinks(status = {}) {
 function syncBlogNextRunnerTriggerState() {
   const active = blogNextRunnerActive || blogNextRunnerRequesting;
   const startButton = document.getElementById('blog-next-runner-start');
-  const headless = document.getElementById('blog-next-runner-headless');
+  const headless = getBlogNextSettingsElement('blog-next-runner-headless');
   if (startButton) {
     startButton.disabled = active;
     startButton.textContent = active ? '실행 중...' : '다음 1건 실행';
   }
   if (headless) {
-    const naverSelected = document.getElementById('blog-next-target-naver')?.checked === true;
+    const naverSelected = getBlogNextSettingsElement('blog-next-target-naver')?.checked === true;
     headless.disabled = active || !naverSelected;
   }
   document.querySelectorAll('[data-blog-next-run-now]').forEach((button) => {
@@ -475,7 +475,7 @@ async function startBlogNextRunner(options = {}) {
   blogNextRunnerDismissedKey = '';
   const platforms = Array.isArray(options.platforms) ? options.platforms : null;
   const supportsHeadless = platforms === null || platforms.includes('naver');
-  const headless = supportsHeadless && document.getElementById('blog-next-runner-headless')?.checked !== false;
+  const headless = supportsHeadless && getBlogNextSettingsElement('blog-next-runner-headless')?.checked !== false;
   const rowIndex = Number(options.rowIndex);
   const selected = Number.isInteger(rowIndex);
   renderBlogNextRunnerStatus({ state: 'selecting', busy: true, message: selected ? '선택한 글감을 확인하고 있습니다.' : '다음 글감을 확인하고 있습니다.' });

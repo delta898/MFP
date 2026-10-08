@@ -74,7 +74,9 @@ function validateTopicCapture(input = {}, options = {}) {
     const errors = [];
     errors.push(...validateBlogWritingOverrides(input.writingOverrides || input.writing_overrides).errors);
 
-    if (!hasIdeaSeed(topic)) {
+    if (ready && !topic.subject) {
+        errors.push({ field: 'subject', code: 'SUBJECT_REQUIRED', message: '대기열에 추가하려면 주제를 입력해 주세요.' });
+    } else if (!hasIdeaSeed(topic)) {
         errors.push({ field: 'idea', code: 'IDEA_REQUIRED', message: '주제, 키워드, 지시사항 또는 참고 URL 중 하나를 입력해 주세요.' });
     }
 

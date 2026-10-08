@@ -19,11 +19,13 @@ test('waiting topic accepts one idea seed without a delivery target', () => {
 test('ready topic requires an idea seed and at least one supported target', () => {
     const empty = validateTopicCapture({}, { ready: true });
     const missingTarget = validateTopicCapture({ keywords: '제주, 산책' }, { ready: true });
+    const savedKeywordOnly = validateTopicCapture({ keywords: '제주, 산책' }, { ready: false });
 
     assert.equal(empty.valid, false);
-    assert.deepEqual(empty.errors.map((item) => item.code), ['IDEA_REQUIRED', 'PLATFORM_REQUIRED']);
+    assert.deepEqual(empty.errors.map((item) => item.code), ['SUBJECT_REQUIRED', 'PLATFORM_REQUIRED']);
     assert.equal(missingTarget.valid, false);
-    assert.equal(missingTarget.errors[0].code, 'PLATFORM_REQUIRED');
+    assert.deepEqual(missingTarget.errors.map((item) => item.code), ['SUBJECT_REQUIRED', 'PLATFORM_REQUIRED']);
+    assert.equal(savedKeywordOnly.valid, true);
 });
 
 test('scheduled ready topic requires a parseable platform schedule date', () => {

@@ -24,7 +24,7 @@ function blogNextDraftField(type, name) {
     'schedule-date': 'blog-next-schedule-date',
     headless: 'blog-next-runner-headless'
   };
-  return document.getElementById(fieldIds[name] || '') || null;
+  return getBlogNextSettingsElement(fieldIds[name] || '') || null;
 }
 
 function normalizeBlogNextDraftPath(value) {
@@ -95,7 +95,7 @@ function updateBlogNextManuscriptCounts(type, markdown = '') {
   container.querySelector('[data-count-words]').textContent = `${wordCount.toLocaleString()}어절`;
 
   const keywords = type === 'ai'
-    ? String(document.getElementById('blog-next-keywords')?.value || '').split(/[,\n]/u).map(value => value.trim()).filter(Boolean)
+    ? String(getBlogNextSettingsElement('blog-next-keywords')?.value || '').split(/[,\n]/u).map(value => value.trim()).filter(Boolean)
     : [];
   const keywordArea = container.querySelector('[data-count-keywords]');
   if (keywords.length) {
@@ -110,9 +110,9 @@ function updateBlogNextManuscriptCounts(type, markdown = '') {
 function syncBlogNextDraftImageSafety(type, preview = null) {
   const state = blogNextDraftState[type];
   const select = blogNextDraftField(type, 'post-status');
-  const hint = document.getElementById('blog-next-publish-safety-hint');
-  const message = document.getElementById('blog-next-publish-safety-message');
-  const imageAction = document.getElementById('blog-next-publish-image-action');
+  const hint = getBlogNextSettingsElement('blog-next-publish-safety-hint');
+  const message = getBlogNextSettingsElement('blog-next-publish-safety-message');
+  const imageAction = getBlogNextSettingsElement('blog-next-publish-image-action');
   if (!state || !select) return;
   const unresolvedImageCount = Array.isArray(preview?.images)
     ? preview.images.filter((image) => !image.excluded && !image.exists && String(image.prompt || '').trim()).length
@@ -151,7 +151,7 @@ function syncBlogNextDraftImageSafety(type, preview = null) {
 }
 
 function focusBlogNextDraftImages() {
-  const type = document.getElementById('blog-next-publish-settings')?.dataset.blogNextDraftSettings || 'ai';
+  const type = getBlogNextSettingsElement('blog-next-publish-settings')?.dataset.blogNextDraftSettings || 'ai';
   if (type === 'ai') {
     const state = blogNextDraftState.ai;
     if (state.workspaceMode !== 'block') document.querySelector('[data-ai-workspace-mode="block"]')?.click();
@@ -886,16 +886,16 @@ function initBlogNextDraftInputs() {
   const folderInput = document.getElementById('blog-next-folder-input');
   if (!folderInput || folderInput.dataset.bound === 'true') return;
   folderInput.dataset.bound = 'true';
-  document.getElementById('blog-next-site-hosting-retry')?.addEventListener('click', () => {
+  getBlogNextSettingsElement('blog-next-site-hosting-retry')?.addEventListener('click', () => {
     void loadBlogNextSiteHostingTargets({ preserveSelection: true });
   });
-  document.getElementById('blog-next-category')?.addEventListener('input', () => {
+  getBlogNextSettingsElement('blog-next-category')?.addEventListener('input', () => {
     const type = BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai';
     captureBlogNextPublishingTargetSettings(type);
     if (typeof rememberBlogNextTopicDefaultsForSetting === 'function') rememberBlogNextTopicDefaultsForSetting('blog-next-category');
     syncBlogNextDraftSettingsSummary(type);
   });
-  document.getElementById('blog-next-site-hosting-select')?.addEventListener('change', () => {
+  getBlogNextSettingsElement('blog-next-site-hosting-select')?.addEventListener('change', () => {
     const type = BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai';
     syncBlogNextPublishingTargetSettings(type, { force: true });
     if (blogNextDraftState[type]) blogNextDraftState[type].siteHostingPosted = false;
@@ -903,10 +903,10 @@ function initBlogNextDraftInputs() {
     syncBlogNextDraftSettingsSummary(type);
     syncBlogNextDraftExecutionState();
   });
-  document.getElementById('blog-next-vault-folder-choose')?.addEventListener('click', async (event) => {
+  getBlogNextSettingsElement('blog-next-vault-folder-choose')?.addEventListener('click', async (event) => {
     const button = event.currentTarget;
-    const siteOption = document.getElementById('blog-next-site-hosting-select')?.selectedOptions?.[0];
-    const folderSelect = document.getElementById('blog-next-vault-folder-select');
+    const siteOption = getBlogNextSettingsElement('blog-next-site-hosting-select')?.selectedOptions?.[0];
+    const folderSelect = getBlogNextSettingsElement('blog-next-vault-folder-select');
     if (!siteOption?.dataset.projectId || !siteOption?.dataset.siteId || siteOption.dataset.siteKind !== 'vault' || !folderSelect) return;
     const { projectId, siteId } = siteOption.dataset;
     const currentPath = getBlogNextVaultFolderValue()
@@ -943,13 +943,13 @@ function initBlogNextDraftInputs() {
       setBlogNextVaultFolderMessage(error?.message || 'Vault 폴더를 선택하지 못했습니다.', 'error');
     } finally {
       button.setAttribute('aria-busy', 'false');
-      button.disabled = document.getElementById('blog-next-target-site-hosting')?.checked !== true
+      button.disabled = getBlogNextSettingsElement('blog-next-target-site-hosting')?.checked !== true
         || siteOption.dataset.siteKind !== 'vault';
     }
   });
-  document.getElementById('blog-next-vault-folder-select')?.addEventListener('change', () => {
+  getBlogNextSettingsElement('blog-next-vault-folder-select')?.addEventListener('change', () => {
     const type = BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai';
-    syncBlogNextVaultFolderDisplay(document.getElementById('blog-next-vault-folder-select'));
+    syncBlogNextVaultFolderDisplay(getBlogNextSettingsElement('blog-next-vault-folder-select'));
     const key = getBlogNextPublishingTargetKey(type);
     if (key) {
       const current = blogNextPublishSettingsByTarget.get(key) || {};
@@ -962,9 +962,9 @@ function initBlogNextDraftInputs() {
     if (typeof syncBlogNextTopicActionAvailability === 'function') syncBlogNextTopicActionAvailability();
     syncBlogNextDraftExecutionState();
   });
-  document.getElementById('blog-next-publish-image-action')?.addEventListener('click', focusBlogNextDraftImages);
+  getBlogNextSettingsElement('blog-next-publish-image-action')?.addEventListener('click', focusBlogNextDraftImages);
   const aiMarkdown = document.getElementById('blog-next-ai-markdown');
-  document.getElementById('blog-next-keywords')?.addEventListener('input', () => {
+  getBlogNextSettingsElement('blog-next-keywords')?.addEventListener('input', () => {
     updateBlogNextManuscriptCounts('ai', aiMarkdown?.value || '');
   });
   const aiEditorRoot = document.getElementById('blog-next-ai-editor');

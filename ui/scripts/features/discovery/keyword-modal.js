@@ -36,7 +36,7 @@ function initKeywordResearchModal() {
     .map((keyword) => keyword.trim())
     .filter(Boolean);
   const getQuickTitleMode = () => quickDiscoveryInputTarget === 'blogNext'
-    ? (document.getElementById('blog-next-writing-strategy')?.value || currentBlogWritingStrategy)
+    ? (getBlogNextSettingsElement('blog-next-writing-strategy')?.value || currentBlogWritingStrategy)
     : getSelectedSettingsRadioValue('quick-writing-strategy', currentBlogWritingStrategy);
 
   const syncKeywordAnalysisAction = () => {

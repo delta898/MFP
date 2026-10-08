@@ -29,7 +29,7 @@ function isBlogNextWritingTransitionBusy() {
 
 function revealBlogNextWritingDestination(focusFieldId) {
   const preparation = document.getElementById('blog-next-ai-preparation');
-  const topicSettings = document.getElementById('blog-next-topic-settings');
+  const topicSettings = getBlogNextSettingsElement('blog-next-topic-settings');
   if (preparation) {
     preparation.open = true;
     preparation.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
@@ -90,7 +90,7 @@ async function applyBlogNextWritingIntent({
       blogNextDisclosureState.quick.preparation = true;
     }
   }
-  const topicSettings = document.getElementById('blog-next-topic-settings');
+  const topicSettings = getBlogNextSettingsElement('blog-next-topic-settings');
   if (topicSettings) topicSettings.open = true;
   if (typeof blogNextDisclosureState !== 'undefined' && blogNextDisclosureState.quick) {
     blogNextDisclosureState.quick.topic = true;

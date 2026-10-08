@@ -145,6 +145,10 @@
 }
 
 .blog-next-editor-modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--ui-space-3);
   flex: 0 0 auto;
   padding: 14px 24px;
   border-top: 1px solid var(--ui-border-default);
@@ -152,40 +156,20 @@
   box-shadow: var(--ui-sticky-footer-shadow);
 }
 
-.blog-next-editor-modal-actions:empty {
-  display: none;
+.blog-next-editor-modal-message {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
-.blog-next-editor-modal-actions .blog-next-form-actions {
-  position: static;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
+.blog-next-editor-modal-action-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--ui-space-3);
+  flex: 0 0 auto;
 }
 
-.blog-next-editor-modal-actions .blog-next-form-actions .blog-next-cancel-action {
-  margin-inline-end: 0;
-}
-
-.blog-next-editor-modal-actions .blog-next-recoverable-action-slot[hidden] {
-  display: none;
-}
-
-.blog-next-editor-modal-actions #blog-next-save-topic {
-  order: 0;
-}
-
-.blog-next-editor-modal-actions #blog-next-enqueue-topic {
-  order: 1;
-}
-
-.blog-next-editor-modal-actions #blog-next-publish-now {
-  order: 2;
-}
-
-.blog-next-editor-modal-body .blog-next-form-result {
+.blog-next-editor-modal-message .blog-next-form-result {
   margin-bottom: 0;
 }
 
@@ -212,7 +196,7 @@
   overflow: auto;
 }
 
-.blog-next-queue-settings-modal-body #blog-next-publish-settings {
+.blog-next-queue-settings-modal-body .blog-next-draft-settings {
   display: block;
 }
 

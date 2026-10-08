@@ -85,42 +85,51 @@ test('Blog Beta settings groups are sourced from one reusable partial per group'
 
 test('quick writing and saved-idea editing keep independent disclosure state for the session', () => {
   const queueSource = read('ui/scripts/features/blog-next/quick-queue.js');
-  const elements = new Map([
-    ['blog-next-ai-preparation', { open: false }],
-    ['blog-next-topic-settings', { open: true }],
-    ['blog-next-content-settings', { open: false }]
-  ]);
-  const context = vm.createContext({
-    document: { getElementById: (id) => elements.get(id) || null }
-  });
-  vm.runInContext(queueSource, context);
+  const settings = read('ui/scripts/features/blog-next/settings-instance.js');
+  assert.match(settings, /createBlogNextEditorSettingsInstance\(\)[\s\S]*cloneNode\(true\)[\s\S]*namespaceBlogNextSettingsInstance/);
+  assert.match(settings, /Never carry the quick-writing form's current values into the independent editor instance/);
+  assert.match(queueSource, /function moveBlogNextTopicFormToQueueEditor\([^)]*\)[\s\S]*createBlogNextEditorSettingsInstance\(\)[\s\S]*modal\.hidden = false/);
+  assert.doesNotMatch(queueSource, /appendChild\(form\)|appendChild\(settings\)/);
+});
 
-  assert.deepEqual(
-    JSON.parse(JSON.stringify(vm.runInContext('blogNextDisclosureState', context))),
-    { quick: { preparation: false, topic: true, content: false }, queueEditor: { topic: true, content: false } }
-  );
+test('saved idea editing isolates publication settings and restores quick-writing state afterward', () => {
+  const targets = read('ui/scripts/features/blog-next/publishing-targets.js');
+  const queue = read('ui/scripts/features/blog-next/quick-queue.js');
 
-  elements.get('blog-next-ai-preparation').open = true;
-  elements.get('blog-next-topic-settings').open = false;
-  elements.get('blog-next-content-settings').open = true;
-  context.captureBlogNextDisclosureState('quick');
+  assert.match(targets, /function beginBlogNextTopicEditingSettingsContext\(\)[\s\S]*?map: new Map\(\[\.\.\.blogNextPublishSettingsByTarget\][\s\S]*?blogNextPublishSettingsByTarget\.clear\(\)/);
+  assert.match(targets, /function endBlogNextTopicEditingSettingsContext\(\)[\s\S]*?context\.map\.forEach\([\s\S]*?sessionStorage\.setItem/);
+  assert.match(queue, /function finishBlogNextTopicEditing\(\)[\s\S]*?restoreBlogNextTopicFormHome\(\)[\s\S]*?endBlogNextTopicEditingSettingsContext\(\)/);
+  assert.match(read('ui/scripts/features/blog-next/settings-instance.js'), /const instance = source\.cloneNode\(true\)/);
+  assert.match(read('ui/partials/views/blog-next/editor-modal.html'), /id="blog-next-editor-settings-form"[\s\S]*data-blog-next-editor-settings-slot="topic"[\s\S]*data-blog-next-editor-settings-slot="content"[\s\S]*data-blog-next-editor-settings-slot="publishing"/);
+});
 
-  elements.get('blog-next-topic-settings').open = true;
-  elements.get('blog-next-content-settings').open = false;
-  context.applyBlogNextDisclosureState('queueEditor');
-  assert.equal(elements.get('blog-next-topic-settings').open, true);
-  assert.equal(elements.get('blog-next-content-settings').open, false);
+test('saved ideas can be promoted through the shared validated editor without bypassing its settings', () => {
+  const management = read('ui/scripts/features/blog-next/queue-management.js');
+  const queue = read('ui/scripts/features/blog-next/quick-queue.js');
+  const validity = read('ui/scripts/features/blog-next/quick-flow-ui.js');
+  const execution = read('ui/scripts/features/blog-next/draft-execution.js');
 
-  elements.get('blog-next-topic-settings').open = false;
-  elements.get('blog-next-content-settings').open = true;
-  context.captureBlogNextDisclosureState('queueEditor');
-  context.applyBlogNextDisclosureState('quick');
-  assert.equal(elements.get('blog-next-ai-preparation').open, true);
-  assert.equal(elements.get('blog-next-topic-settings').open, false);
-  assert.equal(elements.get('blog-next-content-settings').open, true);
-
-  assert.match(queueSource, /function moveBlogNextTopicFormToQueueEditor\(\)[\s\S]*captureBlogNextDisclosureState\('quick'\)[\s\S]*applyBlogNextDisclosureState\('queueEditor'\)/);
-  assert.match(queueSource, /function restoreBlogNextTopicFormHome\(\)[\s\S]*captureBlogNextDisclosureState\('queueEditor'\)[\s\S]*applyBlogNextDisclosureState\('quick'\)/);
+  assert.match(management, /function addBlogNextSavedItemToQueue\([\s\S]*?populateBlogNextTopicForm\(item, '대기'\)[\s\S]*?showBlogNextQueueReadinessIssues\(\)/);
+  assert.match(management, /createBlogNextEditorSettingsInstance\(\);[\s\S]*resetBlogNextEditorSettingsInstance\(\)/);
+  assert.doesNotMatch(management, /generateAction|saveButton\.hidden|enqueueButton\.hidden/);
+  assert.match(queue, /function moveBlogNextTopicFormToQueueEditor\(\{ showPublishSettings = false \} = \{\}\)[\s\S]*createBlogNextEditorSettingsInstance\(\)/);
+  assert.match(execution, /if \(options\.editing === true \|\| \(typeof blogNextEditingRowIndex !== 'undefined' && blogNextEditingRowIndex !== null\)\) return/);
+  assert.doesNotMatch(read('ui/styles/features/blog-next-quick-flow.css'), /\.blog-next-ai-generate-action\[hidden\]/);
+  const editor = read('ui/partials/views/blog-next/editor-modal.html');
+  assert.match(editor, /id="blog-next-editor-cancel"[\s\S]*id="blog-next-editor-save"/);
+  assert.doesNotMatch(editor, /blog-next-editor-enqueue/);
+  assert.doesNotMatch(editor, /원고 만들기|blog-next-publish-now/);
+  assert.match(management, /function setBlogNextEditorPromotionAction\(available\)[\s\S]*?if \(!available\) \{\s*existing\?\.remove\(\)/);
+  assert.match(management, /setBlogNextEditorPromotionAction\(sourceStatus === '대기'\)/);
+  assert.doesNotMatch(management.match(/async function addBlogNextSavedItemToQueue\([\s\S]*?\n\}/)?.[0] || '', /\/api\/v1\/continuous-publishing\/queue\/add/);
+  assert.match(management, /if \(blogNextEditingRowIndex !== null && blogNextEditingSourceStatus === '대기'\) \{\s*void submitBlogNextTopic\('enqueue'\);/);
+  assert.match(validity, /editingSavedIdea \|\| \(editing \? readyValid : ideaValid\)/);
+  assert.doesNotMatch(validity, /editorEnqueue\.hidden/);
+  assert.match(queue, /function showBlogNextQueueReadinessIssues\(\)[\s\S]*?setBlogNextTopicResult\([\s\S]*?'error'[\s\S]*?return false/);
+  assert.match(queue, /action === 'enqueue' && blogNextEditingRowIndex !== null && blogNextEditingSourceStatus === '대기'[\s\S]*?showBlogNextQueueReadinessIssues\(\)/);
+  assert.match(queue, /if \(editing && !editingSavedIdea\) activateBlogNextTab\('queue'\)/);
+  assert.match(validity, /status === 'schedule'[\s\S]*?scheduleTime > Date\.now\(\)/);
+  assert.match(validity, /if \(!hasTarget\) issues\.push[\s\S]*?if \(!statusValid\) issues\.push[\s\S]*?if \(!scheduleValid\) issues\.push/);
 });
 
 test('reusable generation and publish choices persist without carrying article data or schedule time', () => {
@@ -128,7 +137,7 @@ test('reusable generation and publish choices persist without carrying article d
   const execution = read('ui/scripts/features/blog-next/draft-execution.js');
 
   assert.match(queue, /headless: true/);
-  assert.match(queue, /headless: document\.getElementById\('blog-next-runner-headless'\)\?\.checked !== false/);
+  assert.match(queue, /headless: getBlogNextSettingsElement\('blog-next-runner-headless'\)\?\.checked !== false/);
   assert.match(queue, /'blog-next-writing-length'[\s\S]*?'blog-next-writing-ending'/);
   assert.match(queue, /function rememberBlogNextTopicDefaultsForSetting\(fieldId = ''\)[\s\S]*?BLOG_NEXT_PERSISTED_SETTING_IDS\.has/);
   assert.match(queue, /function rememberBlogNextTopicDefaults\(\) \{\s*if \(blogNextEditingRowIndex !== null\) return;/);
@@ -284,13 +293,15 @@ test('quick flow summaries update from existing controls and new writing owns in
   assert.match(script, /function setBlogNextTopicResult\(message, level = ''\)[\s\S]*?result\.closest\('\.blog-next-form-result-row'\)[\s\S]*?row\.hidden = !text\.trim\(\)/);
   assert.match(uiScript, /formatBlogPlatformList\(platforms, ' \+ '\) \|\| '발행 대상 없음'/);
   assert.match(uiScript, /function captureBlogNextClearableContent\(\)/);
-  assert.match(read('ui/scripts/features/blog-next/quick-queue.js'), /function restoreBlogNextTopicFormHome\(\)[\s\S]*const preparation = document\.getElementById\('blog-next-ai-preparation'\)[\s\S]*const destination = preparation \|\| home[\s\S]*destination\.appendChild\(form\)/);
+  assert.match(read('ui/scripts/features/blog-next/quick-queue.js'), /function restoreBlogNextTopicFormHome\(\)[\s\S]*blog-next-editor-modal[\s\S]*modal\.hidden = true/);
+  assert.match(read('ui/partials/views/blog-next/editor-modal.html'), /id="blog-next-editor-settings-form"[\s\S]*blog-next-editor-modal-actions/);
+  assert.match(read('ui/partials/views/blog-next/editor-modal.html'), /blog-next-editor-modal-message[\s\S]*blog-next-editor-modal-action-group[\s\S]*id="blog-next-editor-cancel"[\s\S]*id="blog-next-editor-save"/);
   assert.match(read('ui/scripts/features/blog-next/writing-intent.js'), /clearBlogNextTopicContent\(\);\s*resetBlogNextAiDraftUi\(\)/);
   assert.match(uiScript, /function syncBlogNextTopicActionAvailability\(\)/);
-  assert.match(uiScript, /ideaValid: Boolean\(subject\) && referencesValid/);
-  assert.match(uiScript, /readyValid: Boolean\(subject\) && referencesValid && hasTarget && siteTargetReady && scheduleValid/);
+  assert.match(uiScript, /const ideaValid = Boolean\(subject \|\| keywords \|\| instruction \|\| references\.length\) && referencesValid/);
+  assert.match(uiScript, /readyValid: ideaValid && subjectValid && hasTarget && siteTargetReady && statusValid && scheduleValid/);
   assert.match(uiScript, /save\.disabled = busy \|\| sheetBlocked \|\| !editingChanged \|\| \(editingReady \? !readyValid : !ideaValid\)/);
-  assert.match(uiScript, /enqueue\.disabled = busy \|\| sheetBlocked \|\| !\(editing \? readyValid : ideaValid\)/);
+  assert.match(uiScript, /enqueue\.disabled = busy \|\| sheetBlocked \|\| !\(editingSavedIdea \|\| \(editing \? readyValid : ideaValid\)\)/);
   assert.match(uiScript, /publish\.disabled = busy \|\| runnerActive [^;]* \|\| !ideaValid/);
   assert.doesNotMatch(script, /blog-next-clear-topic|blog-next-clear-undo/);
 });
@@ -340,6 +351,7 @@ test('shared writing intent leaves work untouched on cancel and resets then appl
     blogNextRunnerActive: false,
     blogNextRunnerRequesting: false,
     document: { getElementById: (id) => fields.get(id) || null },
+    getBlogNextSettingsElement: (id) => fields.get(id) || null,
     showUiConfirm: async () => { confirmationCount += 1; return confirmation; },
     captureBlogNextClearableContent: () => ({
       values: Object.fromEntries(clearableIds.map((id) => [id, fields.get(id)?.value || ''])),
@@ -454,15 +466,9 @@ test('quick writing keeps one editable manuscript workspace available before pre
   assert.match(uiScript, /function mountBlogNextPublishSettings/);
   assert.match(execution, /if \(save\) save\.hidden = hasDraft/);
   assert.match(execution, /enqueue\.hidden = hasDraft/);
-  assert.match(execution, /prepareActions\.hidden = !editing && hasDraft/);
-  assert.match(execution, /ideaActions\.hidden = !editing && hasDraft/);
-  assert.match(execution, /previewActions\.hidden = editing \|\| !hasDraft/);
+  assert.match(execution, /if \(options\.editing === true \|\| \(typeof blogNextEditingRowIndex !== 'undefined' && blogNextEditingRowIndex !== null\)\) return/);
   assert.match(html, /data-blog-next-ai-preview-actions hidden>[\s\S]*id="blog-next-regenerate-draft"[^>]*>[\s\S]*?<span>원고 다시 만들기<\/span>/);
-  assert.match(execution, /publishStep\.hidden = editing/);
-  assert.match(execution, /publishSettings\.hidden = editing/);
-  assert.match(execution, /if \(publishDisclosure\) publishDisclosure\.hidden = editing/);
-  assert.match(execution, /if \(editing && previewDisclosure\) previewDisclosure\.open = true/);
-  assert.match(execution, /if \(publishActions\) publishActions\.hidden = editing/);
+  assert.match(execution, /arrangeBlogNextAiWorkflow\(options = \{\}\)[\s\S]*quick-writing form composition/);
   assert.match(css, /#blog-next-topic-form-home > \.blog-next-preparation-disclosure\s*\{\s*width: 100%;[\s\S]*?border: 0;/);
   assert.match(css, /\.blog-next-preview-disclosure,\s*\.blog-next-publish-disclosure\s*\{\s*overflow: visible;[\s\S]*?border: 0;/);
   assert.match(css, /\.blog-next-workflow-step-head > span,\s*\.blog-next-preparation-step\s*\{[\s\S]*?width: 30px;[\s\S]*?height: 30px;[\s\S]*?background: var\(--ui-action-primary-soft\);[\s\S]*?color: var\(--ui-action-primary\);/);
@@ -530,8 +536,8 @@ test('quick queue entry uses isolated shared publish controls and idea-only save
   assert.match(queue, /if \(action === 'enqueue' && typeof endBlogNextQueueSettingsContext === 'function'\)/);
   assert.match(queue, /showBlogNextQueueSettingsResult\(error\.message/);
   assert.match(queue, /delete settings\.platforms/);
-  assert.match(flow, /enqueue\.disabled = busy \|\| sheetBlocked \|\| !\(editing \? readyValid : ideaValid\)/);
-  assert.match(execution, /function arrangeBlogNextAiWorkflow\(options = \{\}\) \{\s*if \(typeof isBlogNextQueueSettingsOpen === 'function' && isBlogNextQueueSettingsOpen\(\)\) return;/);
+  assert.match(flow, /editorEnqueue\.disabled = busy \|\| sheetBlocked/);
+  assert.match(execution, /function arrangeBlogNextAiWorkflow\(options = \{\}\) \{\s*\/\/ Queue\/editor screens render their own settings instance/);
 });
 
 test('quick flow width and disclosure layout adapt without style-specific selectors', () => {
@@ -543,7 +549,7 @@ test('quick flow width and disclosure layout adapt without style-specific select
   assert.match(css, /#blog-next-mode-panel-ai\s*\{[^}]*--blog-next-stage-content-inset:\s*var\(--ui-space-2\);/s);
   assert.match(css, /\.blog-next-preparation-disclosure > form\s*\{[^}]*padding:\s*0 var\(--blog-next-stage-content-inset\) var\(--ui-density-page-gap\);/s);
   assert.match(css, /\.blog-next-preview-disclosure > :not\(summary\)\s*\{[^}]*margin-inline:\s*var\(--blog-next-stage-content-inset\);/s);
-  assert.match(css, /#blog-next-ai-publish > \[data-blog-next-publish-settings-slot="ai-publish"\] > #blog-next-publish-settings,[\s\S]*?#blog-next-ai-publish > \.blog-next-draft-actions\s*\{\s*margin-inline:\s*var\(--blog-next-stage-content-inset\);/s);
+  assert.match(css, /#blog-next-ai-publish > \[data-blog-next-publish-settings-slot="ai-publish"\] > \.blog-next-draft-settings,[\s\S]*?#blog-next-ai-publish > \.blog-next-draft-actions\s*\{\s*margin-inline:\s*var\(--blog-next-stage-content-inset\);/s);
   assert.match(css, /#blog-next-topic-form-home \.blog-next-ai-prepare-actions\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0, 1fr\);[^}]*width:\s*100%;/s);
   assert.match(css, /\.blog-next-ai-action-row\s*\{[^}]*grid-column:\s*1 \/ -1;[^}]*width:\s*100%;/s);
   assert.match(css, /\[data-blog-next-draft-actions\]\[hidden\]\s*\{[^}]*display:\s*none;/s);
@@ -625,9 +631,9 @@ test('provider-dependent controls align UI, summaries and runner payloads', () =
   assert.match(uiScript, /function syncBlogNextProviderDependentFields\(\)/);
   assert.match(uiScript, /input\.disabled = !naverSelected \|\| runnerBusy;/);
   assert.match(uiScript, /syncBlogNextDraftProviderFields\(draftType\)/);
-  assert.match(uiScript, /const category = document\.getElementById\('blog-next-category'\)/);
+  assert.match(uiScript, /const category = getBlogNextSettingsElement\('blog-next-category'\)/);
   assert.match(uiScript, /if \(category && typeof syncBlogNextDraftProviderFields !== 'function'\) category\.disabled = siteSelected && siteKind !== 'vault'/);
-  assert.match(uiScript, /if \(document\.getElementById\('blog-next-target-naver'\)\?\.checked\)\s*\{\s*summaryParts\.push/s);
+  assert.match(uiScript, /if \(getBlogNextSettingsElement\('blog-next-target-naver'\)\?\.checked\)\s*\{\s*summaryParts\.push/s);
   assert.match(script, /startBlogNextRunner\(\{ rowIndex: Number\(data\.rowIndex\), platforms: payload\.platforms \}\)/);
   assert.match(script, /startBlogNextRunner\(\{ rowIndex, platforms: item\.options\?\.platforms \}\)/);
   assert.match(runnerScript, /const supportsHeadless = platforms === null \|\| platforms\.includes\('naver'\)/);
