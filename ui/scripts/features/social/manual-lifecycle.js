@@ -52,6 +52,7 @@ function initManualSnsComposer() {
       isEligible: (input) => !input.disabled
     });
     persistManualSnsSelectedChannels();
+    syncManualSnsImagePreview();
     syncManualSnsComposerState();
   });
   BufferPublishingControls.setWorkspaceRefresh(workspaceLoad, () => void loadManualSnsWorkspaces());

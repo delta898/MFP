@@ -57,7 +57,7 @@ test('Blog Beta keeps refresh semantics inside the shared panel anatomy', () => 
     const trendScript = read('ui/scripts/features/blog-next/trend-posting.js');
 
     assert.doesNotMatch(betaView, /네이버 트렌드에서 글감 찾기/);
-    assert.match(betaView, /class="trend-posting-head blog-next-trend-head blog-next-panel-lead blog-next-panel-intro"/);
+    assert.match(betaView, /class="trend-posting-head blog-next-trend-head blog-next-panel-lead blog-next-panel-intro ui-panel-heading"/);
     assert.match(betaView, /지금 관심받는 주제로 글 준비/);
     assert.match(betaCss, /\.blog-next-trend-head\s*{[^}]*justify-content:\s*space-between;/s);
     assert.match(betaView, /id="blog-next-trend-refresh"[^>]*aria-label="최신 데이터 새로고침"/);

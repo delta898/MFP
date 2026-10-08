@@ -48,21 +48,24 @@
                     placeholder="오늘의 생각이나 기록을 자유롭게 작성해 보세요."></textarea>
                 </div>
                 <div class="social-editor-footer">
+                  <div id="manual-sns-ai-status" class="social-ai-status" aria-live="polite"></div>
                   <span id="manual-sns-character-count" class="social-character-count">0/1,000자</span>
                 </div>
-                <div id="manual-sns-ai-status" class="social-ai-status" aria-live="polite"></div>
               </section>
 
               <section class="social-composer-section social-composer-image-section" aria-labelledby="manual-sns-image-title">
                 <div class="social-section-heading">
                   <div>
                     <h2 id="manual-sns-image-title">이미지 <span class="social-optional-label">선택</span></h2>
-                    <p id="manual-sns-image-capacity" class="social-image-capacity" aria-live="polite">이미지 0/10장 · 채널별 제한은 발행 시 확인합니다.</p>
                   </div>
                 </div>
                 <div id="manual-sns-image-local-panel" class="social-local-image-panel">
                   <input id="manual-sns-image-file" class="social-local-image-input" type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif">
                   <div id="manual-sns-image-grid" class="social-local-image-grid" aria-live="polite"></div>
+                </div>
+                <div class="social-editor-footer social-image-footer">
+                  <p id="manual-sns-image-capacity" class="social-image-capacity" aria-live="polite">이미지는 최대 10장까지 추가할 수 있습니다.</p>
+                  <span id="manual-sns-image-count" class="social-character-count">0/10장</span>
                 </div>
                 <div id="manual-sns-image-generation-status" class="social-ai-status" aria-live="polite"></div>
               </section>
@@ -99,8 +102,7 @@
                 </div>
               </div>
             </div>
-            <aside class="social-live-preview" aria-labelledby="manual-sns-preview-title">
-              <h2 id="manual-sns-preview-title">미리보기</h2>
+            <aside class="social-live-preview" aria-label="게시물 미리보기">
               <div id="manual-sns-preview-text" class="social-live-preview-text">게시물 내용이 여기에 표시됩니다.</div>
               <div id="manual-sns-preview-media" class="social-live-preview-media is-empty" aria-live="polite">
                 <div class="social-live-preview-empty-state">
@@ -111,8 +113,8 @@
                   </svg>
                   <p class="social-live-preview-empty">이미지를 선택하면 여기에 표시됩니다.</p>
                 </div>
+                <div id="manual-sns-preview-pagination" class="social-live-preview-pagination" role="group" aria-label="미리보기 이미지 선택" hidden></div>
               </div>
-              <div id="manual-sns-preview-pagination" class="social-live-preview-pagination" role="group" aria-label="미리보기 이미지 선택" hidden></div>
             </aside>
           </div>
           <div id="manual-sns-publish-result" class="social-publish-result" aria-live="polite"></div>

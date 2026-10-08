@@ -3,7 +3,7 @@
 - Branch: `codex/sns-composer-usability-01`
 - Start date: 2026-10-07
 - Base/parent branch: `codex/static-site-builder-main`
-- Status: Implemented; awaiting review
+- Status: Implemented; automated checks complete; awaiting user visual review
 
 ## User need and goal
 
@@ -14,7 +14,7 @@ The new FBR SNS composer felt less balanced and less information-dense than neig
 - Align the composer intro-to-first-field spacing with the shared page rhythm.
 - Move the character count outside the textarea so it cannot cover entered text.
 - Improve the composer’s density and grouping using the existing design tokens and established component patterns.
-- Preserve AI icon policy: mark the action that actually calls the AI model (`최적화 적용`); keep the confirmation-only `최적화` entry action unmarked.
+- Use the shared AI icon action presentation for SNS optimization and keep its two-step confirmation flow.
 - Define a shared first-level panel heading with theme-aware inset, minimum height, typography, and title-to-description spacing.
 - Apply the shared heading and surface inset to `내 사이트`, `원고를 준비하고 발행하세요`, `내용 선택`, `상품으로 글 만들기`, `SNS 게시물 작성`, `이용 현황`, and `서비스를 사용하기 위한 연결 준비`.
 
@@ -31,11 +31,11 @@ The new FBR SNS composer felt less balanced and less information-dense than neig
 - Use the shared density section inset at each selected heading surface so theme tokens determine the common start position.
 - Render the character count in a compact footer row below the editor, aligned to the end, with enough separation from help/status text.
 - Use existing density, surface, border, and typography tokens to strengthen grouping and reduce empty visual areas without crowding controls.
-- Reuse the existing AI icon button convention on the confirmed model-call action.
+- Reuse the existing AI icon button convention for optimization entry and confirmation actions, including the in-progress label.
 
 ## Decisions and tradeoffs
 
-- The existing `최적화` button opens an explicit confirmation; it does not itself call the model. The model call occurs from `최적화 적용`, which already has the AI icon. Keep the icon scoped to the actual AI call to match the user’s earlier cost-aware rule.
+- The existing `최적화` button opens an explicit confirmation before the model call. Following the user's later direction to make the AI affordance visible at the entry point, use the shared icon+label helper there and on `최적화 적용`; keep the existing confirmation and cost disclosure.
 - SNS already consumes shared style tokens, but its own layout and nested padding create the sparse appearance; fix those composition-level issues instead of adding another theme contract.
 - The seven headings do not need distinct visual types. A step number, count, or action is optional heading content; it does not change the shared placement, typography, or spacing contract.
 
@@ -55,4 +55,7 @@ The new FBR SNS composer felt less balanced and less information-dense than neig
 - 2026-10-08: Replaced the browser-shaped shimmer skeleton and moving bar with a reusable bordered progress card, short title and supporting message, and a rotating indicator. The common `browser-preview` visual owns this presentation, including its standalone stylesheet fallback; reduced-motion preferences disable the rotation.
 - 2026-10-08: The user screenshot still showed unframed copy without the spinner. Made the standalone fallback unconditional for this visual so partial stylesheet loading cannot suppress the card, typography, or rotation; enlarged the card copy and indicator for visibility.
 - 2026-10-08: Replaced the Account overview's static loading card with the shared compact `region-indeterminate` layer over the tab panel. First loads and explicit refreshes show progress; cached data remains visible during ordinary revisits. Automated syntax/diff checks passed; manual app review remains with the user.
+- 2026-10-08: SNS image guidance now shows the lowest selected channel `max_assets` and updates when channel selection changes; the independent `0/10장` count remains the local upload limit. The optimization entry now uses the shared AI icon button helper with `최적화` / `최적화 중…`; its confirmation action continues to use the same helper. Added the broader page-shell componentization initiative to the product backlog, with SNS as the proposed first validation surface.
+- 2026-10-08: Updated shared UI contract tests to reflect the normalized heading pattern and revised the browser smoke interaction helper to wait for shared dialog animations. The SNS composer intro now uses the same inner inset as Account so their shared heading alignment contract holds.
+- 2026-10-08: Final automated verification: 20 focused shared/SNS contracts and 100 related surface contracts passed; headless browser smoke passed with 452 fixture requests. The full unit runner passed 2,155 of 2,171 tests; the only remaining failure is the existing `src/ui-server.js` line-count limit (1,208 lines in both the feature and parent revisions). `npm run test:unit` also stops at its security audit precheck because dependency advisories exceed the configured threshold. The user owns final visual review and the desktop app was not launched.
 - Manual visual review remains with the user, especially spacing and density at their preferred window size and active theme.

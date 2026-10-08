@@ -88,6 +88,10 @@ function showUiProgress(surface, options = {}) {
 
 function ensureUiProgressBrowserPreviewStyles(ownerDocument) {
   if (ownerDocument.querySelector('style[data-ui-progress-browser-preview-fallback]')) return;
+  const layer = ownerDocument.querySelector('.ui-progress-layer[data-ui-progress-visual="browser-preview"]');
+  const hasSharedVisualStyles = Boolean(layer && ownerDocument.defaultView?.getComputedStyle(layer)
+    .getPropertyValue('--ui-progress-browser-preview').trim() === '1');
+  if (hasSharedVisualStyles) return;
   const style = ownerDocument.createElement('style');
   style.dataset.uiProgressBrowserPreviewFallback = '';
   style.textContent = `

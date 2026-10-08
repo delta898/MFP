@@ -22,11 +22,11 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
     'ui/styles/features/social-surfaces.css'
   ].map(read).join('\n');
 
-  assert.match(view, /class="card social-composer-card"/);
+  assert.match(view, /class="card social-composer-card ui-panel-heading-surface"/);
   assert.match(view, /class="social-tabs ui-top-tabs"[^>]*role="tablist"/);
   assert.match(view, /id="social-tab-button-compose"[^>]*aria-controls="social-tab-compose"[^>]*>직접 작성<\/button>/);
   assert.match(view, /id="social-tab-compose" role="tabpanel"[^>]*aria-labelledby="social-tab-button-compose"/);
-  assert.match(view, /class="social-composer-intro blog-next-panel-lead blog-next-panel-intro"/);
+  assert.match(view, /class="social-composer-intro blog-next-panel-lead blog-next-panel-intro ui-panel-heading"/);
   assert.match(view, /<h2>SNS 게시물 작성<\/h2>/);
   assert.match(view, /메시지와 이미지를 준비한 뒤 발행 대상을 선택해 발행하세요\./);
   assert.doesNotMatch(view, /class="[^"]*blog-next-panel[^"]*social-composer-card/);
@@ -43,7 +43,7 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.ok(view.indexOf('id="manual-sns-channel-list"') < view.indexOf('id="manual-sns-publish-btn"'));
   assert.doesNotMatch(view, /manual-sns-organization-field|manual-sns-workspace-summary|social-workspace-control/);
   assert.match(view, /id="manual-sns-text" class="social-editor" rows="6"/);
-  assert.match(view, /class="social-editor-shell"[\s\S]*id="manual-sns-text"[\s\S]*<\/div>\s*<div class="social-editor-footer">\s*<span id="manual-sns-character-count"/);
+  assert.match(view, /class="social-editor-shell"[\s\S]*id="manual-sns-text"[\s\S]*<\/div>\s*<div class="social-editor-footer">\s*<div id="manual-sns-ai-status" class="social-ai-status"[\s\S]*<span id="manual-sns-character-count"/);
   assert.match(view, /id="manual-sns-image-grid"/);
   assert.match(view, /class="social-composer-layout"/);
   assert.match(view, /class="social-composer-section social-composer-text-section"/);
@@ -61,6 +61,7 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.match(styles, /@media \(hover:\s*none\)[\s\S]*?\.social-live-preview-arrow\s*\{[^}]*visibility:\s*visible/s);
   assert.match(view, /id="manual-sns-ai-confirm-btn"[^>]*>[\s\S]*?<span>최적화 적용<\/span><\/button>/);
   assert.match(view, /id="manual-sns-ai-confirm-btn"[^>]*>\s*<svg class="ui-ai-icon" aria-hidden="true"><use href="#ui-icon-ai"><\/use><\/svg>/);
+  assert.match(composer, /setUiAiActionButton\(optimizeBtn, manualSnsOptimizationInFlight \? '최적화 중…' : '최적화'\)/);
   assert.match(view, /id="manual-sns-ai-cancel-btn"[^>]*>취소<\/button>/);
   assert.match(optimization, /function openManualSnsOptimizationConfirmation\(\)/);
   assert.match(optimization, /현재 본문을 AI가 다듬어 바꿉니다\. 적용할까요\?/);
@@ -77,7 +78,7 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.match(composer, /function getManualSnsAssetLimitExceededChannel\(/);
   assert.match(composer, /manualSnsLocalImages\.length >= 10/);
   assert.match(composer, /gridEl\.prepend\(addTile\)/);
-  assert.match(view, /id="manual-sns-image-capacity"[^>]*>이미지 0\/10장 · 채널별 제한은 발행 시 확인합니다\./);
+  assert.match(view, /class="social-editor-footer social-image-footer">\s*<p id="manual-sns-image-capacity"[^>]*>이미지는 최대 10장까지 추가할 수 있습니다\.<\/p>\s*<span id="manual-sns-image-count" class="social-character-count">0\/10장<\/span>/);
   assert.match(publish, /getManualSnsAssetLimitExceededChannel\(image\.files\)/);
   assert.match(publish, /채널별 이미지 개수 확인/);
   assert.match(publish, /이미지를 줄이거나 해당 채널을 해제한 뒤 다시 발행해 주세요/);
@@ -131,11 +132,12 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.match(lifecycle, /BufferPublishingControls\.setWorkspaceRefresh/);
   assert.match(sharedBufferControls, /syncWorkspace\(/);
   assert.match(sharedBufferControls, /syncChannelSelectAll\(/);
+  assert.match(lifecycle, /selectAllEl\?\.addEventListener\('change', \(\) => \{[\s\S]*?persistManualSnsSelectedChannels\(\);\s*syncManualSnsImagePreview\(\);/);
   assert.match(composer, /if \(listEl && !manualSnsConfig\.configured\)/);
   assert.match(composer, /const snapshot = readManualSnsWorkspaceCache\(\)/);
   assert.match(composer, /refreshStaleSnapshot = !snapshot\.isFresh/);
   assert.match(styles, /\.social-view \.social-composer-card[\s\S]*?var\(--ui-border-default\)/);
-  assert.match(styles, /\.social-view \.social-composer-intro\s*\{[^}]*padding:\s*var\(--ui-space-4\) var\(--ui-space-6\) var\(--ui-space-2\)/s);
+  assert.match(styles, /\.social-view \.social-composer-card\s*\{[^}]*gap:\s*var\(--ui-panel-heading-content-gap, var\(--ui-density-page-gap\)\)/s);
   assert.match(styles, /\.social-view \.social-editor-footer \.social-character-count\s*\{[^}]*var\(--ui-text-muted\)/s);
   assert.match(styles, /\.social-view \.social-composer-section:not\(\.social-composer-channel-section\)\s*\{[^}]*background:\s*var\(--ui-surface-muted\)/s);
   assert.match(styles, /\.social-view \.social-live-preview-media\.is-empty\s*\{[^}]*min-height:\s*clamp\(220px,\s*26vh,\s*340px\)/s);

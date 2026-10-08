@@ -1,11 +1,15 @@
 /* SNS composer — consumes the same surface, form, selection, and action tokens as Blog Beta. */
 .social-view .social-composer-card {
   gap: var(--ui-panel-heading-content-gap, var(--ui-density-page-gap));
-  padding: var(--ui-density-section-padding);
+  padding: 0;
   border: 1px solid var(--ui-border-default);
   border-radius: var(--ui-radius-lg);
   background: var(--ui-surface);
   box-shadow: var(--ui-shadow-sm);
+}
+
+.social-view .social-composer-intro {
+  padding: var(--ui-density-section-padding);
 }
 
 .social-view .social-composer-section {
@@ -13,11 +17,20 @@
   border-color: var(--ui-border-default);
 }
 
+.social-view .social-composer-channel-section {
+  margin-top: var(--ui-space-3);
+  padding: 0;
+}
+
 .social-view .social-composer-text-section {
   padding-top: var(--ui-space-2);
 }
 
 .social-view .social-composer-section:has(.social-editor) {
+  padding-bottom: var(--ui-space-2);
+}
+
+.social-view .social-composer-image-section {
   padding-bottom: var(--ui-space-2);
 }
 

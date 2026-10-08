@@ -14,8 +14,8 @@ test('account view uses the shared design system and provides a structured plan 
   assert.match(html, /class="account-tabs ui-top-tabs"[^>]*role="tablist"/);
   assert.match(html, /id="account-tab-button-overview"[^>]*aria-controls="account-tab-overview"[^>]*>이용 현황<\/button>/);
   assert.match(html, /id="account-tab-overview" class="account-overview-panel" role="tabpanel"[^>]*aria-labelledby="account-tab-button-overview"/);
-  assert.match(html, /class="card account-overview-summary-panel"/);
-  assert.match(html, /class="account-overview-intro blog-next-panel-lead blog-next-panel-intro"/);
+  assert.match(html, /class="card account-overview-summary-panel ui-panel-heading-surface"/);
+  assert.match(html, /class="account-overview-intro blog-next-panel-lead blog-next-panel-intro ui-panel-heading"/);
   assert.match(html, /<h2>이용 현황<\/h2>/);
   assert.match(html, /현재 플랜과 사용량, 서비스 연결 상태를 확인하세요\./);
   assert.match(html, /class="ui-overview-eyebrow">현재 플랜<\/p>/);
@@ -31,7 +31,7 @@ test('account view uses the shared design system and provides a structured plan 
   assert.doesNotMatch(css, /\.account-view\s*\{[^}]*display/);
   assert.match(css, /#view-account\.active\s*\{\s*display:\s*block;/);
   assert.match(css, /\.account-overview-panel\s*\{\s*display:\s*grid;\s*gap:\s*var\(--ui-space-5\);/);
-  assert.match(css, /\.account-overview-summary-panel\s+\.account-overview-intro\s*\{\s*padding:\s*var\(--ui-density-section-padding\);/);
+  assert.match(css, /\.account-overview-summary-panel\s*>\s*\.ui-panel-heading\s*\{\s*padding:\s*var\(--ui-density-section-padding\);/);
   assert.doesNotMatch(html, /account-supporting-region|account-refresh-btn/);
 });
 

@@ -68,6 +68,18 @@ function getManualSnsSelectedChannels() {
     .filter((channel) => selectedIds.has(String(channel.id || '').trim()));
 }
 
+function getManualSnsImageCapacityMessage() {
+  const selectedChannels = getManualSnsSelectedChannels();
+  if (selectedChannels.length === 0) return '이미지는 최대 10장까지 추가할 수 있습니다.';
+
+  const limits = selectedChannels
+    .map((channel) => Number(channel.max_assets))
+    .filter((limit) => Number.isFinite(limit) && limit > 0);
+  if (limits.length === 0) return '선택 채널의 이미지 제한은 발행 시 확인합니다.';
+
+  return `선택 채널 중 가장 낮은 이미지 수 제한은 ${Math.min(...limits)}장입니다.`;
+}
+
 function getManualSnsChannelTextLimit(channel = {}) {
   const limit = Number(channel.limit);
   return Number.isFinite(limit) && limit > 0 ? limit : MANUAL_SNS_DEFAULT_TEXT_LIMIT;
@@ -225,7 +237,9 @@ function syncManualSnsImagePreview() {
   const imageFileEl = document.getElementById('manual-sns-image-file');
   const gridEl = document.getElementById('manual-sns-image-grid');
   const capacityEl = document.getElementById('manual-sns-image-capacity');
-  if (capacityEl) capacityEl.textContent = `이미지 ${manualSnsLocalImages.length}/10장 · 채널별 제한은 발행 시 확인합니다.`;
+  const countEl = document.getElementById('manual-sns-image-count');
+  if (capacityEl) capacityEl.textContent = getManualSnsImageCapacityMessage();
+  if (countEl) countEl.textContent = `${manualSnsLocalImages.length}/10장`;
   syncManualSnsImageSourceUi();
   if (imageFileEl) imageFileEl.disabled = manualSnsPublishingInFlight || manualSnsImageGenerationInFlight || manualSnsConfig.local_media_available !== true || manualSnsLocalImages.length >= 10;
   if (gridEl) {
@@ -536,12 +550,18 @@ function syncManualSnsLivePreview() {
   const mediaEl = document.getElementById('manual-sns-preview-media');
   const paginationEl = document.getElementById('manual-sns-preview-pagination');
   if (!textEl || !mediaEl || !paginationEl) return;
+  const composerLayout = mediaEl.closest('.social-composer-layout');
 
   const text = String(document.getElementById('manual-sns-text')?.value || '').trim();
   textEl.textContent = text || '게시물 내용이 여기에 표시됩니다.';
   textEl.classList.toggle('is-empty', !text);
   mediaEl.replaceChildren();
   paginationEl.replaceChildren();
+  paginationEl.style.removeProperty('bottom');
+  mediaEl.classList.remove('is-portrait');
+  composerLayout?.classList.remove('is-portrait-preview');
+  mediaEl._socialPreviewResizeObserver?.disconnect();
+  mediaEl._socialPreviewResizeObserver = null;
 
   if (manualSnsLocalImages.length === 0) {
     manualSnsPreviewImageIndex = 0;
@@ -572,7 +592,7 @@ function syncManualSnsLivePreview() {
     empty.className = 'social-live-preview-empty';
     empty.textContent = '이미지를 선택하면 여기에 표시됩니다.';
     emptyState.append(icon, empty);
-    mediaEl.appendChild(emptyState);
+    mediaEl.append(emptyState, paginationEl);
     paginationEl.hidden = true;
     return;
   }
@@ -591,7 +611,6 @@ function syncManualSnsLivePreview() {
       button.type = 'button';
       button.className = `social-live-preview-arrow is-${direction}`;
       button.setAttribute('aria-label', direction === 'previous' ? '이전 이미지' : '다음 이미지');
-      button.textContent = direction === 'previous' ? '‹' : '›';
       button.addEventListener('click', () => {
         const offset = direction === 'previous' ? -1 : 1;
         manualSnsPreviewImageIndex = (manualSnsPreviewImageIndex + offset + manualSnsLocalImages.length) % manualSnsLocalImages.length;
@@ -601,27 +620,30 @@ function syncManualSnsLivePreview() {
     };
     mediaEl.append(makeArrow('previous'), makeArrow('next'));
   }
-  const updatePreviewImageFrame = () => {
+  const updatePreviewImageRatio = () => {
     const currentImage = mediaEl.querySelector('img');
     if (!currentImage?.naturalWidth || !currentImage?.naturalHeight) return;
-    const ratio = currentImage.naturalWidth / currentImage.naturalHeight;
-    const maxHeight = Math.min(window.innerHeight * 0.58, 620);
-    const preview = mediaEl.parentElement;
-    const previewStyle = preview ? window.getComputedStyle(preview) : null;
-    const horizontalPadding = previewStyle
-      ? Number.parseFloat(previewStyle.paddingLeft || '0') + Number.parseFloat(previewStyle.paddingRight || '0')
-      : 0;
-    const availableWidth = Math.min(460, Math.max(1, (preview?.clientWidth || 460) - horizontalPadding));
     mediaEl.style.setProperty('--social-preview-ratio', `${currentImage.naturalWidth} / ${currentImage.naturalHeight}`);
-    mediaEl.style.width = `${Math.max(1, Math.min(availableWidth, maxHeight * ratio))}px`;
+    const isPortrait = currentImage.naturalHeight > currentImage.naturalWidth;
+    mediaEl.classList.toggle('is-portrait', isPortrait);
+    composerLayout?.classList.toggle('is-portrait-preview', isPortrait);
+    const mediaWidth = mediaEl.clientWidth;
+    const mediaHeight = mediaEl.clientHeight;
+    if (!mediaWidth || !mediaHeight) return;
+    const imageRatio = currentImage.naturalWidth / currentImage.naturalHeight;
+    const displayedHeight = Math.min(mediaHeight, mediaWidth / imageRatio);
+    const spaceBelowImage = (mediaHeight - displayedHeight) / 2;
+    const paginationHeight = paginationEl.getBoundingClientRect().height || 36;
+    paginationEl.style.bottom = `${spaceBelowImage - paginationHeight - 4}px`;
   };
-  image.addEventListener('load', updatePreviewImageFrame, { once: true });
-  if (image.complete) updatePreviewImageFrame();
-  if (mediaEl.dataset.resizeBound !== 'true') {
-    window.addEventListener('resize', updatePreviewImageFrame);
-    mediaEl.dataset.resizeBound = 'true';
-  }
+  image.addEventListener('load', updatePreviewImageRatio, { once: true });
+  if (image.complete) updatePreviewImageRatio();
+  mediaEl.appendChild(paginationEl);
   paginationEl.hidden = manualSnsLocalImages.length < 2;
+  if (typeof ResizeObserver === 'function') {
+    mediaEl._socialPreviewResizeObserver = new ResizeObserver(updatePreviewImageRatio);
+    mediaEl._socialPreviewResizeObserver.observe(mediaEl);
+  }
 
   if (mediaEl.dataset.swipeBound !== 'true') {
     let pointerStartX = null;
@@ -745,6 +767,7 @@ function syncManualSnsComposerState() {
   }
   if (optimizeBtn) {
     const aiAvailable = manualSnsConfig.ai?.available === true;
+    setUiAiActionButton(optimizeBtn, manualSnsOptimizationInFlight ? '최적화 중…' : '최적화');
     if (optimizeActionEl) optimizeActionEl.hidden = !aiAvailable || manualSnsOptimizationConfirmOpen;
     if (optimizeConfirmActionsEl) optimizeConfirmActionsEl.hidden = !aiAvailable || !manualSnsOptimizationConfirmOpen;
     optimizeBtn.hidden = manualSnsOptimizationConfirmOpen;
@@ -834,6 +857,7 @@ function renderManualSnsChannels() {
     input.checked = !unavailable && savedChannelIds?.has(String(channel.id || '').trim()) === true;
     input.addEventListener('change', () => {
       persistManualSnsSelectedChannels();
+      syncManualSnsImagePreview();
       syncManualSnsComposerState();
     });
     const copy = document.createElement('span');

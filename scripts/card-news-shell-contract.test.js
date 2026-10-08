@@ -57,8 +57,8 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.doesNotMatch(html, /card-news-include-published|card-news-published-toggle/);
     assert.doesNotMatch(script, /includePublished|card-news-include-published/);
     assert.match(script, /카드뉴스 작업 이력이 있는 원문은 만든 카드뉴스에서 확인할 수 있습니다/);
-    assert.match(html, /id="card-news-create-count" class="ui-count-badge"/);
-    assert.match(html, /id="card-news-managed-count" class="ui-count-badge"/);
+    assert.match(html, /id="card-news-create-count" aria-label="새 카드뉴스 개수"/);
+    assert.match(html, /id="card-news-managed-count" aria-label="만든 카드뉴스 개수"/);
     for (const status of ['전체', '작업 중', '발행 대기', '발행 완료', '확인 필요']) {
       assert.match(html, new RegExp(`data-card-news-managed-count-for="${status}"`));
     }
@@ -177,7 +177,7 @@ test('Card News is a top-level source-preview workflow', () => {
     assert.match(html, /id="card-news-feed-list" class="card-news-feed-list card-news-entry-list"/);
     assert.match(html, /id="card-news-managed-list" class="card-news-managed-list card-news-entry-list"/);
     assert.equal((html.match(/card-news-panel-toolbar card-news-entry-toolbar/g) || []).length, 2);
-    assert.match(html, /class="card-news-source-card ui-workflow-card ui-workflow-panel"/);
+    assert.match(html, /class="card-news-source-card ui-workflow-card ui-workflow-panel ui-panel-heading-surface"/);
     assert.match(html, /id="card-news-managed-workspace"[\s\S]*class="card-news-layout"[\s\S]*class="card-news-managed-list-card card-news-source-card ui-workflow-card ui-workflow-panel"/);
     assert.match(workflowStyles, /\.ui-workflow-panel\s*\{[^}]*padding:\s*var\(--ui-space-5\);/s);
     assert.match(workflowStyles, /\.ui-workflow-heading h2\s*\{[^}]*margin:\s*0;[^}]*font-weight:\s*var\(--ui-weight-bold\);/s);

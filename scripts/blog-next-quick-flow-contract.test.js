@@ -25,7 +25,7 @@ test('Blog Beta quick flow keeps essential writing inputs visible', () => {
   const css = read('ui/styles/features/blog-next-quick-flow.css');
   const core = topicSettings;
 
-  assert.match(html, /<section class="card form-card blog-next-panel active" id="blog-next-panel-quick"/);
+  assert.match(html, /<section class="card form-card blog-next-panel active ui-panel-heading-surface" id="blog-next-panel-quick"/);
   assert.doesNotMatch(html, /data-blog-next-input-mode|blog-next-mode-tab-/);
   assert.match(css, /#blog-next-mode-panel-ai\s*\{[^}]*gap: var\(--ui-density-page-gap\);[^}]*padding: 0;[^}]*border: 0;[^}]*background: transparent;/s);
   assert.match(html, /<details class="blog-next-disclosure blog-next-preparation-disclosure" id="blog-next-ai-preparation">/);

@@ -51,7 +51,7 @@ test('Blog Beta panels share one intro slot and keep distinct local roles', () =
     assert.match(view, /blog-next-smart-comment-intro blog-next-panel-lead blog-next-panel-intro/);
     assert.match(view, /data-blog-next-management-tab="automation">연속 발행 설정/);
     assert.match(view, /data-blog-next-management-panel="automation"[\s\S]{0,120}aria-labelledby="blog-next-management-tab-automation"/);
-    assert.match(styles, /\.blog-next-panel-lead\s*\{[^}]*min-height:\s*64px;/s);
+    assert.match(styles, /\.blog-next-panel-lead\s*\{[^}]*min-height:\s*var\(--ui-panel-heading-min-block-size, 64px\);/s);
     assert.match(tabs, /\.ui-segmented-tabs\s*\{/);
     assert.match(tabs, /\.ui-segmented-tab\.active\s*\{[^}]*box-shadow:\s*var\(--ui-segmented-active-shadow\)/s);
     assert.match(tabs, /:hover:not\(\.active\)\s*\{/);
@@ -61,6 +61,7 @@ test('Blog Beta panels share one intro slot and keep distinct local roles', () =
 test('Blog Beta typography hierarchy uses shared semantic roles', () => {
     const shellStyles = read('ui/styles/features/continuous-publishing.css');
     const anatomyStyles = read('ui/styles/features/blog-next-panel-anatomy.css');
+    const sharedHeadingStyles = read('ui/styles/patterns/overview-card.css');
     const usabilityStyles = read('ui/styles/features/continuous-publishing-usability.css');
     const tabStyles = read('ui/styles/patterns/tab-navigation.css');
     const styleEntry = read('ui/styles.css');
@@ -75,12 +76,12 @@ test('Blog Beta typography hierarchy uses shared semantic roles', () => {
         /\.ui-segmented-tab\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);/s
     );
     assert.match(
-        anatomyStyles,
-        /\.blog-next-panel-intro h2\s*\{[^}]*font-size:\s*var\(--ui-type-heading-size\);[^}]*font-weight:\s*var\(--ui-weight-bold\);/s
+        sharedHeadingStyles,
+        /\.ui-panel-heading h2\s*\{[^}]*font-size:\s*var\(--ui-type-heading-size\);[^}]*font-weight:\s*var\(--ui-weight-bold\);/s
     );
     assert.match(
-        anatomyStyles,
-        /\.blog-next-panel-intro p\s*\{[^}]*font-size:\s*var\(--ui-type-body-size\);[^}]*font-weight:\s*var\(--ui-weight-regular\);[^}]*line-height:\s*var\(--ui-line-height-body\);/s
+        sharedHeadingStyles,
+        /\.ui-panel-heading p\s*\{[^}]*font-size:\s*var\(--ui-type-body-size\);[^}]*font-weight:\s*var\(--ui-weight-regular\);[^}]*line-height:\s*var\(--ui-line-height-body\);/s
     );
     assert.match(
         usabilityStyles,

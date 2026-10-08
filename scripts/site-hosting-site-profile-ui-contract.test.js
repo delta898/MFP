@@ -104,7 +104,7 @@ test('site cards own operation messages and template checks refresh on entry and
 
 test('empty Site project explains that the user can create the first Site', () => {
     const runtime = fs.readFileSync(path.join(root, 'ui/scripts/features/site-hosting/project-management.js'), 'utf8');
-    assert.match(runtime, /siteCount === 0 \? '<p>아직 사이트가 없습니다\. 사이트 추가를 눌러 첫 사이트를 만들어 주세요\.<\/p>'/);
+    assert.match(runtime, /siteCount === 0 \? '<p class="site-hosting-empty-hint">아직 사이트가 없습니다\. 사이트 추가를 눌러 첫 사이트를 만들어 주세요\.<\/p>'/);
 });
 
 test('site creation footer places guarded cancel on the left and preview/create on the right', () => {

@@ -228,10 +228,22 @@
 
 .social-editor-footer {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-3);
   min-height: 1.4em;
   margin-top: var(--ui-space-1);
   padding-inline: var(--ui-space-2);
+}
+
+.social-editor-footer .social-ai-status {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-top: 0;
+}
+
+.social-editor-footer .social-character-count {
+  margin-left: auto;
 }
 
 .social-editor:focus,

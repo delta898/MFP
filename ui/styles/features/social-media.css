@@ -327,10 +327,10 @@
 
 .social-local-image-add-actions .social-local-image-plus {
   flex: 0 0 40px;
-  width: 40px;
-  min-width: 40px;
-  height: 40px;
-  min-height: 40px;
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  min-height: 34px;
   padding: 0;
   font-size: 22px; /* type-geometry-exception: plus glyph */
 }
@@ -736,28 +736,49 @@
   background: var(--ui-surface);
 }
 
+.social-live-preview-media:not(.is-empty) {
+  border-color: transparent;
+  overflow: visible;
+}
+
 .social-live-preview-arrow {
   position: absolute;
   z-index: 1;
   top: 50%;
   display: grid;
-  width: 36px;
-  min-width: 36px;
-  height: 48px;
-  min-height: 48px;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
   place-items: center;
   padding: 0;
   transform: translateY(-50%);
-  border: 1px solid color-mix(in srgb, var(--ui-border-strong) 72%, transparent);
-  border-radius: var(--ui-radius-sm);
-  background: color-mix(in srgb, var(--ui-surface) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ui-border-default) 78%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--ui-surface) 84%, transparent);
   color: var(--ui-text-primary);
-  font-size: 30px; /* type-geometry-exception: carousel arrow glyph */
-  line-height: 1;
+  box-shadow: var(--ui-shadow-sm);
   opacity: 0;
   visibility: hidden;
   cursor: pointer;
-  transition: opacity var(--ui-motion-standard), visibility var(--ui-motion-standard), background var(--ui-motion-standard), border-color var(--ui-motion-standard);
+  backdrop-filter: blur(8px);
+  transition: opacity var(--ui-motion-standard), visibility var(--ui-motion-standard), background var(--ui-motion-standard), border-color var(--ui-motion-standard), transform var(--ui-motion-standard), box-shadow var(--ui-motion-standard);
+}
+
+.social-live-preview-arrow::before {
+  width: 7px;
+  height: 7px;
+  border-top: 1.8px solid currentColor;
+  border-right: 1.8px solid currentColor;
+  content: "";
+}
+
+.social-live-preview-arrow.is-previous::before {
+  transform: translateX(2px) rotate(-135deg);
+}
+
+.social-live-preview-arrow.is-next::before {
+  transform: translateX(-2px) rotate(45deg);
 }
 
 .social-live-preview-arrow.is-previous {
@@ -778,7 +799,9 @@
 .social-live-preview-arrow:focus-visible {
   border-color: var(--ui-action-primary);
   background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-md);
   opacity: 1;
+  transform: translateY(-50%) scale(1.06);
 }
 
 @media (hover: none) {
@@ -825,10 +848,24 @@
 }
 
 .social-live-preview-pagination {
+  position: absolute;
+  z-index: 2;
+  right: 0;
+  bottom: var(--ui-space-4);
+  left: 0;
   display: flex;
-  min-height: 16px;
+  width: max-content;
+  min-height: 28px;
   justify-content: center;
+  align-items: center;
   gap: var(--ui-space-2);
+  margin-inline: auto;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .social-live-preview-pagination[hidden] {
@@ -892,7 +929,7 @@
 }
 
 .social-composer-image-section .social-image-capacity {
-  margin: var(--ui-space-1) 0 0;
+  margin: 0;
   color: var(--ui-text-muted);
   font-size: var(--ui-type-caption-size);
   line-height: var(--ui-line-height-body);
@@ -1055,6 +1092,8 @@
 
 .social-live-preview {
   padding: clamp(14px, 1.4vw, 22px);
+  margin-top: 0;
+  margin-right: 0;
   margin-bottom: 0;
   overflow: hidden;
 }
@@ -1124,8 +1163,35 @@
   object-fit: contain;
 }
 
+@media (min-width: 1101px) {
+  .social-composer-layout.is-portrait-preview .social-composer-channel-section {
+    grid-row: 3;
+  }
+
+  .social-live-preview {
+    grid-template-rows: minmax(8em, auto) minmax(320px, 1fr) auto;
+  }
+
+  .social-live-preview-media,
+  .social-live-preview-media.is-empty {
+    align-self: stretch;
+    justify-self: stretch;
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    max-height: none;
+    aspect-ratio: auto;
+  }
+
+  .social-live-preview-media.is-portrait img {
+    grid-row: 1;
+    min-height: 0;
+    border-radius: var(--ui-radius-md);
+  }
+}
+
 @media (max-width: 1100px) {
   .social-live-preview {
-    grid-template-rows: auto minmax(4em, auto) minmax(240px, 1fr) auto;
+    grid-template-rows: minmax(4em, auto) minmax(240px, 1fr) auto;
   }
 }

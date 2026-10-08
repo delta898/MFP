@@ -382,7 +382,7 @@ test('responsive breakpoints use the canonical set', () => {
         assert.deepEqual([...widths].filter((width) => width === '460' || width === '760' || width === '900'), [], file);
     }
     assert.deepEqual([...maxWidths].sort((a, b) => a - b), ['460', '540', '640', '700', '720', '760', '768', '900', '960', '1100', '1240']);
-    assert.deepEqual([...minWidths].sort((a, b) => a - b), ['769', '961']);
+    assert.deepEqual([...minWidths].sort((a, b) => a - b), ['769', '961', '1101']);
 });
 
 test('active surfaces use type and weight tokens', () => {

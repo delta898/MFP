@@ -41,8 +41,12 @@ function instrumentPageActions(page) {
     for (const method of locatorMethods) {
         const original = locatorPrototype[method];
         if (typeof original !== 'function' || original.__uiSmokeInstrumented) continue;
-        const wrapped = function (...args) {
+        const wrapped = async function (...args) {
             mark(`locator.${method} ${this.toString?.() || ''}`);
+            if (method === 'click' && /#ui-dialog-(?:confirm|cancel)/.test(this.toString?.() || '')) {
+                await page.waitForFunction(() => Array.from(document.querySelectorAll('#ui-dialog-backdrop:not(.hidden) .ui-dialog'))
+                    .every((dialog) => dialog.getAnimations().every((animation) => animation.playState !== 'running')));
+            }
             return original.apply(this, args);
         };
         wrapped.__uiSmokeInstrumented = true;
@@ -5988,9 +5992,10 @@ async function run() {
           && document.getElementById('manual-sns-image-instruction') === null);
         assert.deepEqual(manualSnsImageRequest, { text: '수정된 게시물 본문', instruction: '봄 햇살 수채화' });
         assert.notEqual(await page.locator('.social-local-image-tile img').nth(1).getAttribute('src'), firstGeneratedImageSrc);
-        assert.match(await page.locator('#manual-sns-image-capacity').textContent(), /이미지 2\/10장/);
-        assert.match(await page.locator('#manual-sns-image-capacity').textContent(), /발행 시 확인/);
+        assert.match(await page.locator('#manual-sns-image-count').textContent(), /2\/10장/);
+        assert.match(await page.locator('#manual-sns-image-capacity').textContent(), /최대 10장까지 추가/);
         await page.locator('#manual-sns-select-all').check();
+        assert.match(await page.locator('#manual-sns-image-capacity').textContent(), /가장 낮은 이미지 수 제한은 1장/);
         await page.locator('#manual-sns-text').fill('채널 이미지 제한 발행 검증');
         assert.equal(await page.locator('#manual-sns-publish-btn').isDisabled(), false);
         await page.locator('#manual-sns-publish-btn').click();
@@ -6027,7 +6032,7 @@ async function run() {
             buffer: imageFixture
         })));
         await page.waitForFunction(() => document.querySelectorAll('.social-local-image-tile').length === 10);
-        assert.match(await page.locator('#manual-sns-image-capacity').textContent(), /이미지 10\/10장/);
+        assert.match(await page.locator('#manual-sns-image-count').textContent(), /10\/10장/);
         assert.equal(await page.locator('#manual-sns-image-file').isDisabled(), true);
 
         await page.locator('.nav-btn[data-view="account"]').click();
