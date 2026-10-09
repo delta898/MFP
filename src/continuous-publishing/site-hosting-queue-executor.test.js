@@ -26,7 +26,8 @@ function createFixture(overrides = {}) {
         },
         statusUpdates: [],
         generatedInputs: [],
-        postCalls: []
+        postCalls: [],
+        sites: [{ id: 'site-1', posting_target: { eligible: true } }]
     };
     Object.assign(state, overrides);
     const executor = createSiteHostingQueueExecutor({
@@ -44,6 +45,7 @@ function createFixture(overrides = {}) {
         },
         getSiteHostingSiteService() {
             return {
+                async list() { return state.sites; },
                 async postMarkdown(projectId, siteId, payload, context) {
                     state.postCalls.push({ projectId, siteId, payload, context });
                     if (state.postError) throw state.postError;
@@ -77,6 +79,19 @@ test('Site Hosting queue execution reuses manuscript generation and the existing
         context: { requestId: 'queue-row-5' }
     });
     assert.deepEqual(state.statusUpdates.map(({ status }) => status), [TOPIC_STATUS.RUNNING, TOPIC_STATUS.DRAFTED]);
+});
+
+test('Site Hosting queue execution rechecks current eligibility before generating or changing status', async () => {
+    const { state, executor } = createFixture({
+        sites: [{ id: 'site-1', posting_target: { eligible: false, reason: '템플릿을 사용할 수 없음' } }]
+    });
+    const result = await executor({ rowIndex: 5 });
+
+    assert.equal(result.success, false);
+    assert.equal(result.code, 'SITE_POSTING_UNAVAILABLE');
+    assert.match(result.message, /템플릿을 사용할 수 없음/u);
+    assert.deepEqual(state.generatedInputs, []);
+    assert.deepEqual(state.statusUpdates, []);
 });
 
 test('a public queue request that the site publisher downgrades is recorded as a completed draft', async () => {

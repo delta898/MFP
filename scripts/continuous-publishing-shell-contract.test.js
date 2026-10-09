@@ -407,7 +407,7 @@ test('queue readiness is announced accessibly and blocks running invalid queue e
     assert.match(queueScript, /aria-controls/);
     assert.match(queueScript, /aria-expanded/);
     assert.match(queueScript, /blog-next-queue-readiness-popover/);
-    assert.match(queueScript, /포스팅할 수 없는 이유 보기/);
+    assert.match(queueScript, /blockedAction = saved \? '대기열로 이동할 수 없는 이유' : '포스팅할 수 없는 이유'/);
     assert.match(queueScript, /readinessBlocked \|\|/);
     assert.match(managementScript, /async function runBlogNextQueueItemNow[\s\S]*?queue_readiness\?\.ready === false/);
     assert.match(managementScript, /reasons\.join\(' '\)/);

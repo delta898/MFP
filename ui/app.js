@@ -66,6 +66,7 @@
 // @include scripts/shared/buffer-publishing-controls.js
 // @include scripts/features/social/manual-state.js
 // @include scripts/features/social/manual-workspace-cache.js
+// @include scripts/features/social/manual-workspace-loading.js
 // @include scripts/features/social/manual-composer.js
 // @include scripts/features/social/manual-optimization.js
 // @include scripts/features/social/manual-publish.js

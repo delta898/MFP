@@ -9,7 +9,7 @@ const read = (relativePath) => fs.readFileSync(path.join(repoRoot, relativePath)
 const viewHeaders = [
   ['ui/partials/views/dashboard-beta.html', 'Dashboard', '글쓰기 흐름과 다음 발행 계획을 한눈에 확인합니다.'],
   ['ui/partials/views/site-hosting.html', '사이트', '웹사이트를 만들고 관리합니다.'],
-  ['ui/partials/views/blog-next.html', '블로그', '글감을 빠르게 쌓아두고, 준비된 글을 한 건씩 이어서 발행하는 새로운 흐름입니다.'],
+  ['ui/partials/views/blog-next.html', '블로그', '글감을 빠르게 쌓아두고, 준비된 글을 한 건씩 이어서 포스팅하는 새로운 흐름입니다.'],
   ['ui/partials/views/shopping.html', '쇼핑커넥트', '쇼핑 상품 정보를 분석해 콘텐츠를 만들고 발행합니다.'],
   ['ui/partials/views/social.html', 'SNS', '짧은 생각과 기록을 설정된 Buffer 채널에 바로 발행합니다.'],
   ['ui/partials/views/account.html', '내 정보', '사용 중인 플랜, 이용 현황과 서비스 연결 상태를 확인합니다.'],

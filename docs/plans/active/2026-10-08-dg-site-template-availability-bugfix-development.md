@@ -3,7 +3,7 @@
 - Branch: `codex/bugfix-dg-site-template-availability`
 - Start date: 2026-10-08
 - Parent branch: `codex/static-site-builder-main`
-- Status: Site Hosting queue execution implemented; focused verification passed, awaiting user acceptance
+- Status: Implementation and requested verification complete; merge pending
 
 ## User need
 
@@ -34,12 +34,12 @@ In scope:
 - Save a site's stable `project_id`, `site_id`, and `kind` in the topic `options.site_target` object.
 - For Vault sites, also save the selected relative `destination_path`; do not save the normal site's `listing_route` as a publishing destination.
 - Restore the saved target and Vault folder in saved-topic/queue-item editing.
-- Permit saving a site target on a saved idea while continuing to reject moving it into the ready queue until the queue runner supports Site Hosting.
+- Permit saving a site target on a saved idea and promote it when the shared readiness rules pass.
 - Show live queue-readiness reasons on saved-topic list rows and prevent an invalid item from opening the promotion editor. This includes the explicit Site Hosting runner limitation.
 
 Explicit non-goals for this follow-up slice:
 
-- Site Hosting queue execution or scheduler integration.
+- Scheduled Site Hosting publishing.
 - Automatically converting the normal site's `/blog/` listing route into a post destination.
 - Persisting a queue readiness/diagnostic snapshot; readiness remains derived from current settings and capabilities.
 - Commit, merge, push, or release.
@@ -60,7 +60,7 @@ Explicit non-goals for this follow-up slice:
 - A normal blog site's `listing_route` is informational only. Queue settings store stable project/site identity and `kind: "blog"`; they do not treat `/blog/` as a post path.
 - A Vault topic stores its selected folder as a normalized relative `destination_path` under `options.site_target`.
 - Site Hosting does not expose scheduled publishing in its settings UI. When editing a legacy topic that already has `post_status: "schedule"`, keep its stored value until the user changes it, while preventing selection of scheduled publishing for Site Hosting.
-- Saved ideas may retain Site Hosting settings before the queue runner supports them. Promotion to the ready queue remains rejected until the execution path exists, avoiding a ready item that the runner cannot process.
+- Site target selection and posting capability are separate checks: saved identifiers alone do not prove the site still exists or can publish. The same live availability diagnostic is used for list readiness, queue promotion, runner selection, and the Site Hosting executor's final preflight.
 - Saved ideas and already-ready items use the same live diagnostic. The saved-topic list exposes the issue through the existing readiness marker/popover and disables promotion while blocked; clicking an invalid promotion action no longer opens the editor just to reveal the same validation message.
 
 ## Progress log
@@ -78,19 +78,19 @@ Explicit non-goals for this follow-up slice:
 - 2026-10-09: Added the same derived readiness diagnostic to saved-topic list responses. Site Hosting now reports the specific current queue-runner limitation; incomplete saved items show their reasons in the existing list warning popover and have a disabled “대기열로 이동” action. The list action still opens the shared editor for items that are currently ready. Focused readiness, service, and quick-flow contract tests pass (82 tests); syntax checks and `git diff --check` pass.
 - 2026-10-09: Updated readiness notices so only one reason popover can remain open across the queue and saved-topic lists. Selecting another warning closes the previous one; selecting the open warning closes it. Added a quick-flow contract check.
 - 2026-10-09: Added outside-click dismissal for an open readiness reason popover while keeping clicks inside its trigger/popover from closing it. The focused UI contract covers this behavior; all 82 focused tests pass, along with queue UI syntax and diff checks.
+- 2026-10-09: Added live site-availability diagnosis to the same queue readiness path. Missing sites, sites whose current `posting_target.eligible` is false, and site-status lookup failures now produce visible reasons; queue promotion is blocked and the runner skips unavailable sites. The Site Hosting executor repeats the check immediately before manuscript generation, so stale list state cannot publish to a deleted or newly unsupported site.
+- 2026-10-09: Included the related SNS cache refresh/reliability fix, shared Blog tab header spacing adjustments for Trend Posting and Smart Comments, SNS content-bound alignment, and actionable topics/frontmatter backlog notes as part of the user-requested complete branch integration.
 
-## Original stage verification and handoff
+## Original stage verification
 
 - Focused checks passed: `node --test src/site-hosting/site-template-catalog.test.js src/site-hosting/site-repository.test.js src/ui-api/services/site-hosting-site.service.test.js` (31 tests); `git diff --check`.
-- Manual UI confirmation remains for the user: reopen Blog Beta quick-create and confirm DG1 becomes selectable while actually unsupported/missing local templates remain disabled.
-- Commit/merge/push: pending; no push is authorized.
+- Visual acceptance of the site selection UI remains user-owned; automated browser smoke is recorded below.
 
-## Follow-up verification and handoff
+## Follow-up verification
 
 - Current focused verification: `node --test src/continuous-publishing/queue-readiness.test.js src/ui-api/services/continuous-publishing.service.test.js scripts/blog-next-quick-flow-contract.test.js` (82 passing), including saved-site readiness and list action contracts; syntax checks for changed queue UI scripts and `git diff --check` pass.
 - Remaining: inspect final diff and perform user-owned visual confirmation of saving/restoring a normal site and a DG Vault folder in the saved-topic editor.
-- At this point in the saved-topic follow-up, queue runner integration had not started. It is now tracked and implemented in the later follow-up below.
-- Commit/merge/push remain pending and unauthorized.
+- Queue runner integration is completed in the later follow-up below.
 
 ## Follow-up scope: Site Hosting queue execution
 
@@ -107,8 +107,8 @@ In scope:
 Non-goals:
 
 - Scheduled Site Hosting publishing, live deploys, or actual paid AI generation during automated checks.
-- UI redesign or user-run visual acceptance.
-- Commit, merge, push, or release.
+- Scheduled Site Hosting publishing.
+- Push or release.
 
 Design notes:
 
@@ -125,7 +125,13 @@ Design notes:
 - 2026-10-09: Focused verification passed: queue readiness, topic capture, lifecycle adapter, Site Hosting queue executor, presentation, continuous publishing service, content-service execution lease, quick-flow contract, and Site Hosting publisher suites (149 tests). Syntax checks and `git diff --check` passed.
 - 2026-10-09: Matched Site Hosting's image safety behavior to Naver/WordPress. If a requested public post contains any image prompt without a corresponding generated image, preserve that prompt block and save the whole post as a draft without deploying. The queue now records the publisher's effective `draft` result as `DRAFTED` and includes the fallback reason in its status log. Focused Site Hosting publisher and queue-executor tests pass (25 tests).
 
-Remaining user-owned manual review: confirm a normal blog site and DG Vault site can be edited into a ready queue entry; confirm schedule is unavailable/rejected; run a queue item using draft and publish only when intentionally testing with a non-production site and explicit external-side-effect approval. Automated tests do not perform AI generation, post content, or deploy a site.
+## Final verification and integration
+
+- Focused live-site readiness and executor checks pass: `node --test src/ui-api/services/continuous-publishing.service.test.js src/continuous-publishing/site-hosting-queue-executor.test.js` (63 tests).
+- Full unit test body passes: 2,224 tests, 2,209 passed, 0 failures, 15 skipped. `npm run test:unit`'s pretest security audit reports existing dependency advisories (5 high, 2 moderate, 4 low), so the unit runner was also executed directly and passed. No dependency updates are included.
+- Browser UI smoke passes after updating stale assertions for the new saved-topic flow, SNS channel-limit refresh behavior, and header copy. It exercised 482 fixture requests; 2 external font requests were blocked as expected.
+- `git diff --check` passes. Manual visual acceptance remains with the user.
+- Commit, merge into `codex/static-site-builder-main`, and feature-branch deletion are explicitly requested. Push remains unauthorized.
 
 ## Follow-up: canonical subject and readiness consistency
 

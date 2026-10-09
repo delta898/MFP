@@ -1,5 +1,6 @@
 const { TOPIC_STATUS } = require('./contract');
 const { diagnoseQueueReadiness } = require('./queue-readiness');
+const { diagnoseSiteTargetAvailability } = require('./site-target-readiness');
 
 function createSiteHostingQueueExecutor(deps = {}) {
     const { Utils, ensureSheetsReadyForUi, generateAiManuscriptDraft, getSiteHostingSiteService } = deps;
@@ -34,9 +35,11 @@ function createSiteHostingQueueExecutor(deps = {}) {
             }
 
             const readiness = diagnoseQueueReadiness(topic, { now: currentTime() });
-            if (!readiness.ready) {
-                const message = readiness.issues.map((issue) => issue.message).join(' ');
-                return { success: false, code: readiness.issues[0]?.code || 'QUEUE_ITEM_NOT_READY', message, issues: readiness.issues };
+            const siteIssue = await diagnoseSiteTargetAvailability(topic, getSiteHostingSiteService);
+            const issues = siteIssue ? [...readiness.issues, siteIssue] : readiness.issues;
+            if (issues.length > 0 || !readiness.ready) {
+                const message = issues.map((issue) => issue.message).join(' ');
+                return { success: false, code: issues[0]?.code || 'QUEUE_ITEM_NOT_READY', message, issues };
             }
             if (!readiness.plan.targets.includes('site-hosting')) {
                 return { success: false, code: 'SITE_TARGET_REQUIRED', message: '이 글감의 포스팅 대상이 사이트가 아닙니다.' };

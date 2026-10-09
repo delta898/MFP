@@ -41,6 +41,7 @@ function createService(state = {}) {
         TelegramService: state.TelegramService,
         SlackService: state.SlackService,
         eventStore: state.eventStore,
+        getSiteHostingSiteService: state.getSiteHostingSiteService,
         async ensureSheetsReadyForUi() {
             state.preflightCalls = (state.preflightCalls || 0) + 1;
         },
@@ -625,6 +626,67 @@ test('saved site topics expose missing site identity as a live readiness issue',
     assert.deepEqual(result.saved_items[0].queue_readiness.issues.map(issue => issue.code), ['SITE_TARGET_REQUIRED']);
     assert.equal(result.saved_items[0].queue_readiness.issues[0].message, '포스팅할 사이트가 선택되지 않았습니다.');
     assert.equal(Object.hasOwn(state.readItems[0], 'queue_readiness'), false);
+});
+
+test('site readiness uses live posting eligibility in the queue list and blocks promotion', async () => {
+    const state = {
+        readItems: [{
+            rowIndex: 9, rowNumber: 11, status: '대기', subject: '템플릿이 빠진 사이트 글감',
+            options: {
+                platforms: ['site-hosting'], post_status: 'publish',
+                site_target: { project_id: 'project-1', site_id: 'site-1', kind: 'blog' }
+            }
+        }],
+        getSiteHostingSiteService: () => ({
+            async list(projectId) {
+                assert.equal(projectId, 'project-1');
+                return [{ id: 'site-1', posting_target: { eligible: false, reason: '템플릿을 사용할 수 없음' } }];
+            }
+        })
+    };
+    const service = createService(state);
+
+    const listed = await service.getReadyQueue({ searchParams: new URLSearchParams({ limit: '50' }) });
+    assert.equal(listed.saved_items[0].queue_readiness.ready, false);
+    assert.deepEqual(listed.saved_items[0].queue_readiness.issues.map((issue) => issue.code), ['SITE_POSTING_UNAVAILABLE']);
+    assert.match(listed.saved_items[0].queue_readiness.issues[0].message, /템플릿을 사용할 수 없음/u);
+    await assert.rejects(
+        () => service.addSavedTopicToQueue({ rowIndex: 9 }),
+        (error) => error.apiCode === 'SITE_POSTING_UNAVAILABLE'
+    );
+    assert.equal(state.statusUpdate, undefined);
+});
+
+test('site readiness reports a deleted site instead of treating saved identifiers as sufficient', async () => {
+    const state = {
+        readItems: [{
+            rowIndex: 9, rowNumber: 11, status: '대기', subject: '삭제된 사이트 글감',
+            options: {
+                platforms: ['site-hosting'], post_status: 'publish',
+                site_target: { project_id: 'project-1', site_id: 'site-1', kind: 'blog' }
+            }
+        }],
+        getSiteHostingSiteService: () => ({ async list() { return []; } })
+    };
+    const service = createService(state);
+    const listed = await service.getReadyQueue({ searchParams: new URLSearchParams({ limit: '50' }) });
+    assert.deepEqual(listed.saved_items[0].queue_readiness.issues.map((issue) => issue.code), ['SITE_NOT_FOUND']);
+});
+
+test('site readiness asks the user to reselect a target whose site kind changed', async () => {
+    const state = {
+        readItems: [{
+            rowIndex: 9, rowNumber: 11, status: '대기', subject: '유형이 바뀐 사이트 글감',
+            options: {
+                platforms: ['site-hosting'], post_status: 'publish',
+                site_target: { project_id: 'project-1', site_id: 'site-1', kind: 'blog' }
+            }
+        }],
+        getSiteHostingSiteService: () => ({ async list() { return [{ id: 'site-1', posting_target: { eligible: true, kind: 'vault' } }]; } })
+    };
+    const service = createService(state);
+    const listed = await service.getReadyQueue({ searchParams: new URLSearchParams({ limit: '50' }) });
+    assert.deepEqual(listed.saved_items[0].queue_readiness.issues.map((issue) => issue.code), ['SITE_TARGET_CHANGED']);
 });
 
 test('dashboard overview uses one Topics snapshot and returns a compact queue projection', async () => {

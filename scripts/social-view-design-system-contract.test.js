@@ -78,7 +78,7 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.match(composer, /function getManualSnsAssetLimitExceededChannel\(/);
   assert.match(composer, /manualSnsLocalImages\.length >= 10/);
   assert.match(composer, /gridEl\.prepend\(addTile\)/);
-  assert.match(view, /class="social-editor-footer social-image-footer">\s*<p id="manual-sns-image-capacity"[^>]*>이미지는 최대 10장까지 추가할 수 있습니다\.<\/p>\s*<span id="manual-sns-image-count" class="social-character-count">0\/10장<\/span>/);
+  assert.match(view, /class="social-editor-footer social-image-footer">\s*<p id="manual-sns-image-capacity"[^>]*>채널별 이미지 제한은 채널을 선택한 뒤 표시됩니다\. \(앱 첨부 상한 10장\)<\/p>\s*<span id="manual-sns-image-count" class="social-character-count">0\/10장<\/span>/);
   assert.match(publish, /getManualSnsAssetLimitExceededChannel\(image\.files\)/);
   assert.match(publish, /채널별 이미지 개수 확인/);
   assert.match(publish, /이미지를 줄이거나 해당 채널을 해제한 뒤 다시 발행해 주세요/);
@@ -135,7 +135,7 @@ test('SNS composer follows the shared writing flow and selectable-card patterns'
   assert.match(lifecycle, /selectAllEl\?\.addEventListener\('change', \(\) => \{[\s\S]*?persistManualSnsSelectedChannels\(\);\s*syncManualSnsImagePreview\(\);/);
   assert.match(composer, /if \(listEl && !manualSnsConfig\.configured\)/);
   assert.match(composer, /const snapshot = readManualSnsWorkspaceCache\(\)/);
-  assert.match(composer, /refreshStaleSnapshot = !snapshot\.isFresh/);
+  assert.match(composer, /refreshStaleSnapshot = !snapshot \|\| !snapshot\.isFresh/);
   assert.match(styles, /\.social-view \.social-composer-card[\s\S]*?var\(--ui-border-default\)/);
   assert.match(styles, /\.social-view \.social-composer-card\s*\{[^}]*gap:\s*var\(--ui-panel-heading-content-gap, var\(--ui-density-page-gap\)\)/s);
   assert.match(styles, /\.social-view \.social-editor-footer \.social-character-count\s*\{[^}]*var\(--ui-text-muted\)/s);

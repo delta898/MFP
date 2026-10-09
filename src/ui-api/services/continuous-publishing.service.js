@@ -2,6 +2,7 @@ const { createApiError } = require('../errors');
 const { TOPIC_STATUS } = require('../../continuous-publishing/contract');
 const { buildTopicSheetRow } = require('../../continuous-publishing/topic-capture');
 const { diagnoseQueueReadiness } = require('../../continuous-publishing/queue-readiness');
+const { diagnoseSiteTargetAvailability } = require('../../continuous-publishing/site-target-readiness');
 const { buildShoppingTopicSheetRow } = require('../../continuous-publishing/shopping-topic-capture');
 const {
     createAutomationSettingsRepository,
@@ -156,6 +157,16 @@ function createContinuousPublishingService(deps = {}) {
 
     function diagnoseReadyTopic(topic = {}) {
         return diagnoseQueueReadiness(topic, { now: currentTimeMs() });
+    }
+
+    async function diagnoseQueueTopic(topic = {}) {
+        const readiness = diagnoseReadyTopic(topic);
+        if (!readiness.plan.targets.includes('site-hosting')) return readiness;
+        if (typeof deps.getSiteHostingSiteService !== 'function') return readiness;
+        const issue = await diagnoseSiteTargetAvailability(topic, deps.getSiteHostingSiteService);
+        if (!issue) return readiness;
+        const issues = [...readiness.issues, issue];
+        return { ...readiness, ready: false, issues };
     }
 
     function readinessMessage(issues = []) {
@@ -346,7 +357,7 @@ function createContinuousPublishingService(deps = {}) {
                         sortDir: 'asc'
                     });
                     const readyItems = Array.isArray(queue?.items) ? queue.items : [];
-                    const diagnoses = readyItems.map((item) => ({ item, readiness: diagnoseReadyTopic(item) }));
+                    const diagnoses = await Promise.all(readyItems.map(async (item) => ({ item, readiness: await diagnoseQueueTopic(item) })));
                     topic = diagnoses.find(({ readiness }) => readiness.ready)?.item || null;
                     if (!topic && diagnoses.some(({ readiness }) => !readiness.ready)) {
                         const skipped = diagnoses.filter(({ readiness }) => !readiness.ready);
@@ -374,7 +385,7 @@ function createContinuousPublishingService(deps = {}) {
                 }
 
                 const rowIndex = Number(topic.rowIndex);
-                let readiness = diagnoseReadyTopic(topic);
+                let readiness = await diagnoseQueueTopic(topic);
                 if (!readiness.ready) {
                     const firstIssue = readiness.issues[0];
                     updateRunnerState({
@@ -418,7 +429,7 @@ function createContinuousPublishingService(deps = {}) {
                     return;
                 }
 
-                readiness = diagnoseReadyTopic(topic);
+                readiness = await diagnoseQueueTopic(topic);
                 if (!readiness.ready) {
                     const firstIssue = readiness.issues[0];
                     updateRunnerState({
@@ -758,9 +769,8 @@ function createContinuousPublishingService(deps = {}) {
                 visibleItems.push({ ...activeItem, processing_estimate_at: null, queue_runtime_state: 'running' });
                 visibleItems.sort((left, right) => Number(left?.rowNumber || 0) - Number(right?.rowNumber || 0));
             }
-            const diagnosticTime = currentTimeMs();
-            const diagnosedItems = visibleItems.map(item => {
-                const diagnosis = diagnoseQueueReadiness(item, { now: diagnosticTime });
+            const diagnosedItems = await Promise.all(visibleItems.map(async item => {
+                const diagnosis = await diagnoseQueueTopic(item);
                 return {
                     ...item,
                     queue_readiness: {
@@ -768,12 +778,12 @@ function createContinuousPublishingService(deps = {}) {
                         issues: diagnosis.issues
                     }
                 };
-            });
+            }));
             const runningCount = activeItem && !readyItems.some(item => Number(item?.rowIndex) === activeRowIndex) ? 1 : 0;
             return {
                 items: diagnosedItems.slice(0, limit),
-                saved_items: savedItems.slice(0, limit).map(item => {
-                    const diagnosis = diagnoseQueueReadiness(item, { now: diagnosticTime });
+                saved_items: await Promise.all(savedItems.slice(0, limit).map(async item => {
+                    const diagnosis = await diagnoseQueueTopic(item);
                     return {
                         ...item,
                         queue_readiness: {
@@ -781,7 +791,7 @@ function createContinuousPublishingService(deps = {}) {
                             issues: diagnosis.issues
                         }
                     };
-                }),
+                })),
                 total: readyItems.length + runningCount,
                 limit,
                 offset: 0,
@@ -850,7 +860,7 @@ function createContinuousPublishingService(deps = {}) {
                 throw createApiError(400, error.code || 'TOPIC_UPDATE_INVALID', error.message);
             }
             if (ready) {
-                const readiness = diagnoseReadyTopic(row);
+                const readiness = await diagnoseQueueTopic(row);
                 if (!readiness.ready) {
                     throw createApiError(
                         400,
@@ -919,7 +929,7 @@ function createContinuousPublishingService(deps = {}) {
             requireRunnerIdle();
             const rowIndex = parseRowIndex(requestBody.rowIndex);
             const topic = await requireTopicInStatus(rowIndex, TOPIC_STATUS.WAITING);
-            const readiness = diagnoseReadyTopic(topic);
+            const readiness = await diagnoseQueueTopic(topic);
             if (!readiness.ready) {
                 throw createApiError(
                     409,

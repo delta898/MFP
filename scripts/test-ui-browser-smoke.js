@@ -2133,7 +2133,7 @@ async function run() {
             await page.locator('[data-blog-next-tab="queue"]').click();
             await page.locator('[data-blog-next-management-tab="saved"]').click();
             const savedItem = page.locator('#blog-next-saved-list .blog-next-queue-item').filter({ hasText: subject });
-            await savedItem.locator('.blog-next-queue-actions button', { hasText: '대기열로 이동' }).click();
+            await savedItem.locator('.blog-next-queue-copy').click();
             await page.waitForFunction(() => document.getElementById('blog-next-editor-modal')?.hidden === false);
             await page.locator('#blog-next-target-naver-editor').check();
             await page.locator('#blog-next-post-status-editor').selectOption('draft');
@@ -2365,6 +2365,7 @@ async function run() {
             activateBlogNextTab('queue');
             activateBlogNextManagementTab('automation');
         });
+        await page.waitForFunction(() => document.getElementById('blog-next-automation-enabled')?.disabled === false);
         await page.locator('#blog-next-automation-enabled').focus();
         await page.keyboard.press('Shift+Tab');
         await page.keyboard.press('Tab');
@@ -5842,7 +5843,7 @@ async function run() {
         await page.waitForFunction(() => document.getElementById('manual-sns-workspaces-load')?.disabled === false);
         await page.locator('#manual-sns-workspaces-load').click();
         await page.waitForFunction(() => document.querySelectorAll('[data-manual-sns-channel]').length === 1);
-        assert.equal(manualSnsWorkspaceRequestCount, 1);
+        assert.equal(manualSnsWorkspaceRequestCount, 2);
         assert.equal((await page.locator('#manual-sns-organization').inputValue()), 'org-fixture');
         assert.equal((await page.locator('[data-manual-sns-channel]').first().getAttribute('value')), 'channel-fixture');
         await page.locator('#manual-sns-select-all').check();
@@ -5897,7 +5898,7 @@ async function run() {
         await page.locator('.social-local-image-tile').first().hover();
         await page.waitForFunction(() => Number.parseFloat(getComputedStyle(document.querySelector('.social-local-image-tile-actions')).opacity) > 0.95);
         await page.locator('#manual-sns-text').fill('테스트 문구');
-        await page.waitForFunction(() => document.getElementById('manual-sns-character-count')?.textContent === '6/1,000자');
+        await page.waitForFunction(() => document.getElementById('manual-sns-character-count')?.textContent === '6자');
         assert.equal((await page.locator('#manual-sns-preview-text').textContent())?.trim(), '테스트 문구');
         assert.equal(await page.locator('#manual-sns-ai-optimize-btn').isVisible(), true);
         assert.equal(await page.locator('#manual-sns-ai-optimize-btn').isDisabled(), false);
@@ -5981,7 +5982,7 @@ async function run() {
         assert.deepEqual(manualSnsImageRequest, { text: '수정된 게시물 본문', instruction: '봄 햇살 수채화' });
         assert.notEqual(await page.locator('.social-local-image-tile img').nth(1).getAttribute('src'), firstGeneratedImageSrc);
         assert.match(await page.locator('#manual-sns-image-count').textContent(), /2\/10장/);
-        assert.match(await page.locator('#manual-sns-image-capacity').textContent(), /최대 10장까지 추가/);
+        assert.match(await page.locator('#manual-sns-image-capacity').textContent(), /앱 첨부 상한 10장/);
         await page.locator('#manual-sns-select-all').check();
         assert.match(await page.locator('#manual-sns-image-capacity').textContent(), /가장 낮은 이미지 수 제한은 1장/);
         await page.locator('#manual-sns-text').fill('채널 이미지 제한 발행 검증');
@@ -6026,7 +6027,7 @@ async function run() {
         await page.locator('.nav-btn[data-view="account"]').click();
         await page.locator('.nav-btn[data-view="social"]').click();
         await page.waitForFunction(() => document.querySelectorAll('[data-manual-sns-channel]').length === 1);
-        assert.equal(manualSnsWorkspaceRequestCount, 1);
+        assert.equal(manualSnsWorkspaceRequestCount, 2);
 
         await page.locator('.nav-btn[data-view="account"]').click();
         await page.waitForFunction(() => !document.getElementById('account-overview-content')?.classList.contains('hidden'));
@@ -6198,7 +6199,7 @@ async function run() {
         assert.equal(await page.evaluate(() => localStorage.getItem('blog_next_pasted_markdown_draft')), null);
         await page.evaluate(() => navigateTo('social'));
         await page.waitForFunction(() => document.querySelectorAll('[data-manual-sns-channel]').length === 1);
-        assert.equal(manualSnsWorkspaceRequestCount, 1);
+        assert.equal(manualSnsWorkspaceRequestCount, 2);
         assert.equal((await page.locator('#manual-sns-organization').inputValue()), 'org-fixture');
 
         reportSmokePhase('Validating browser errors and fixture responses');

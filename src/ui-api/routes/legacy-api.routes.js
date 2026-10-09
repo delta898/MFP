@@ -188,6 +188,7 @@ function createLegacyApiRouteHandler(deps = {}) {
         executeBlogRowAction: deps.executeBlogRowAction,
         executeShoppingBatchRowsAction: deps.executeShoppingBatchRowsAction,
         executeSiteHostingQueueRowAction,
+        getSiteHostingSiteService: deps.getSiteHostingSiteService,
         executeBlogTopicsDelete: deps.executeBlogTopicsDelete,
         CONFIG: deps.CONFIG,
         TelegramService: deps.TelegramService,

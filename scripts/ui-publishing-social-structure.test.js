@@ -55,6 +55,7 @@ test('temporary feature modules no longer own extracted publishing or social con
 test('manual SNS publishing owns a busy state that locks duplicate actions', () => {
     const stateSource = readScript('features/social/manual-state.js');
     const composerSource = readScript('features/social/manual-composer.js');
+    const workspaceLoadingSource = readScript('features/social/manual-workspace-loading.js');
     const publishSource = readScript('features/social/manual-publish.js');
     const styles = [
         'social.css',
@@ -79,8 +80,8 @@ test('manual SNS publishing owns a busy state that locks duplicate actions', () 
     assert.match(composerSource, /Number\.isFinite\(limit\)\s*&&\s*limit\s*>\s*0\s*\?\s*limit\s*:\s*0/);
     assert.match(composerSource, /shortestLimit\s*=\s*selectedLimits\.length\s*>\s*0\s*\?\s*Math\.min\(\.\.\.selectedLimits\)\s*:\s*0/);
     assert.match(socialView, /id="manual-sns-character-count" class="social-character-count">0자/);
-    assert.match(composerSource, /hasCompleteManualSnsChannelLimits\(channels\)/);
-    assert.match(composerSource, /workspaceReconnectRequired/);
+    assert.match(workspaceLoadingSource, /hasCompleteManualSnsChannelLimits\(channels\)/);
+    assert.match(workspaceLoadingSource, /workspaceReconnectRequired/);
     assert.match(composerSource, /\? '발행 완료'/);
     assert.match(composerSource, /imageFileEl\.disabled\s*=\s*manualSnsPublishingInFlight/);
     assert.match(composerSource, /input\.dataset\.manualSnsUnavailable/);
