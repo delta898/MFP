@@ -1,5 +1,5 @@
 const MANUAL_SNS_WORKSPACE_CACHE_STORAGE_KEY = 'manual_sns_workspace_snapshot_v1';
-const MANUAL_SNS_WORKSPACE_CACHE_VERSION = 3;
+const MANUAL_SNS_WORKSPACE_CACHE_VERSION = 4;
 const MANUAL_SNS_WORKSPACE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 function normalizeManualSnsCachedOrganization(item = {}) {
@@ -25,6 +25,12 @@ function normalizeManualSnsCachedChannel(item = {}) {
   };
 }
 
+function hasCompleteManualSnsChannelLimits(channels) {
+  if (!Array.isArray(channels)) return false;
+  return channels.every((channel) => channel.supported === false || channel.disabled === true
+    || (Number(channel.limit) > 0 && Number(channel.max_assets) > 0));
+}
+
 function normalizeManualSnsWorkspaceSnapshot(input = {}, now = Date.now()) {
   if (!input || typeof input !== 'object' || Number(input.version) !== MANUAL_SNS_WORKSPACE_CACHE_VERSION) return null;
   const fetchedAt = Number(input.fetchedAt);
@@ -37,6 +43,7 @@ function normalizeManualSnsWorkspaceSnapshot(input = {}, now = Date.now()) {
   const channels = (Array.isArray(input.channels) ? input.channels : [])
     .map(normalizeManualSnsCachedChannel)
     .filter((item) => item.id);
+  if (!hasCompleteManualSnsChannelLimits(channels)) return null;
   return {
     version: MANUAL_SNS_WORKSPACE_CACHE_VERSION,
     fetchedAt,

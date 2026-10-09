@@ -75,11 +75,12 @@ test('manual SNS publishing owns a busy state that locks duplicate actions', () 
     assert.match(publishSource, /publishBtn\.disabled\s*\|\|\s*manualSnsPublishingInFlight/);
     assert.match(composerSource, /publishBtn\.classList\.toggle\('is-loading',\s*manualSnsPublishingInFlight\)/);
     assert.match(composerSource, /manualSnsLastPublishedSignature\s*===\s*publishSignature/);
-    assert.match(composerSource, /MANUAL_SNS_DEFAULT_TEXT_LIMIT\s*=\s*1000/);
     assert.match(composerSource, /function getManualSnsChannelTextLimit\(channel = \{\}\)/);
-    assert.match(composerSource, /Number\.isFinite\(limit\)\s*&&\s*limit\s*>\s*0\s*\?\s*limit\s*:\s*MANUAL_SNS_DEFAULT_TEXT_LIMIT/);
-    assert.match(composerSource, /shortestLimit\s*=\s*selectedLimits\.length\s*>\s*0\s*\?\s*Math\.min\(\.\.\.selectedLimits\)\s*:\s*MANUAL_SNS_DEFAULT_TEXT_LIMIT/);
-    assert.match(socialView, /id="manual-sns-character-count" class="social-character-count">0\/1,000자/);
+    assert.match(composerSource, /Number\.isFinite\(limit\)\s*&&\s*limit\s*>\s*0\s*\?\s*limit\s*:\s*0/);
+    assert.match(composerSource, /shortestLimit\s*=\s*selectedLimits\.length\s*>\s*0\s*\?\s*Math\.min\(\.\.\.selectedLimits\)\s*:\s*0/);
+    assert.match(socialView, /id="manual-sns-character-count" class="social-character-count">0자/);
+    assert.match(composerSource, /hasCompleteManualSnsChannelLimits\(channels\)/);
+    assert.match(composerSource, /workspaceReconnectRequired/);
     assert.match(composerSource, /\? '발행 완료'/);
     assert.match(composerSource, /imageFileEl\.disabled\s*=\s*manualSnsPublishingInFlight/);
     assert.match(composerSource, /input\.dataset\.manualSnsUnavailable/);

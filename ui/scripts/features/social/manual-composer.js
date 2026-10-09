@@ -1,6 +1,4 @@
 
-const MANUAL_SNS_DEFAULT_TEXT_LIMIT = 1000;
-
 function loadManualSnsSelectedChannelIds() {
   try {
     const raw = localStorage.getItem(MANUAL_SNS_SELECTED_CHANNELS_STORAGE_KEY);
@@ -70,19 +68,19 @@ function getManualSnsSelectedChannels() {
 
 function getManualSnsImageCapacityMessage() {
   const selectedChannels = getManualSnsSelectedChannels();
-  if (selectedChannels.length === 0) return '이미지는 최대 10장까지 추가할 수 있습니다.';
+  if (selectedChannels.length === 0) return '채널별 이미지 제한은 채널을 선택한 뒤 표시됩니다. (앱 첨부 상한 10장)';
 
   const limits = selectedChannels
     .map((channel) => Number(channel.max_assets))
     .filter((limit) => Number.isFinite(limit) && limit > 0);
-  if (limits.length === 0) return '선택 채널의 이미지 제한은 발행 시 확인합니다.';
+  if (limits.length === 0) return '선택 채널의 이미지 제한 정보를 확인할 수 없습니다. 작업 공간을 다시 불러오세요.';
 
   return `선택 채널 중 가장 낮은 이미지 수 제한은 ${Math.min(...limits)}장입니다.`;
 }
 
 function getManualSnsChannelTextLimit(channel = {}) {
   const limit = Number(channel.limit);
-  return Number.isFinite(limit) && limit > 0 ? limit : MANUAL_SNS_DEFAULT_TEXT_LIMIT;
+  return Number.isFinite(limit) && limit > 0 ? limit : 0;
 }
 
 function getManualSnsAssetLimitExceededChannel(images = manualSnsLocalImages) {
@@ -710,8 +708,13 @@ function syncManualSnsComposerState() {
   if (textEl) textEl.disabled = manualSnsPublishingInFlight;
   if (imageFileEl) imageFileEl.disabled = manualSnsPublishingInFlight || manualSnsImageGenerationInFlight || manualSnsConfig.local_media_available !== true;
 
-  const exceeded = selectedChannels.find((channel) => characterCount > getManualSnsChannelTextLimit(channel));
-  if (exceeded) {
+  const missingLimitChannel = selectedChannels.find((channel) => getManualSnsChannelTextLimit(channel) <= 0
+    || !(Number(channel.max_assets) > 0));
+  const exceeded = selectedChannels.find((channel) => getManualSnsChannelTextLimit(channel) > 0
+    && characterCount > getManualSnsChannelTextLimit(channel));
+  if (missingLimitChannel) {
+    errorMessage = `${missingLimitChannel.name || missingLimitChannel.service} 제한 정보를 확인할 수 없습니다. 작업 공간을 다시 불러오세요.`;
+  } else if (exceeded) {
     const limit = getManualSnsChannelTextLimit(exceeded);
     errorMessage = `${exceeded.name || exceeded.service} 글자 수 제한을 ${characterCount - limit}자 초과했습니다. (${characterCount}/${limit}자)`;
   } else if (!image.valid) {
@@ -724,15 +727,19 @@ function syncManualSnsComposerState() {
   }
 
   const selectedLimits = selectedChannels.map(getManualSnsChannelTextLimit);
-  const shortestLimit = selectedLimits.length > 0 ? Math.min(...selectedLimits) : MANUAL_SNS_DEFAULT_TEXT_LIMIT;
+  const shortestLimit = selectedLimits.length > 0 ? Math.min(...selectedLimits) : 0;
   if (countEl) {
-    countEl.textContent = `${characterCount}/${shortestLimit.toLocaleString('ko-KR')}자`;
+    countEl.textContent = shortestLimit > 0
+      ? `${characterCount}/${shortestLimit.toLocaleString('ko-KR')}자`
+      : `${characterCount.toLocaleString('ko-KR')}자`;
     countEl.classList.toggle('is-over', Boolean(exceeded));
   }
   if (feedbackEl) {
     const feedback = errorMessage || manualSnsAiStatusMessage || (selectedChannels.length > 0
-      ? `선택 채널 중 가장 낮은 글자 수 제한은 ${shortestLimit.toLocaleString('ko-KR')}자입니다.`
-      : '');
+      ? (shortestLimit > 0
+        ? `선택 채널 중 가장 낮은 글자 수 제한은 ${shortestLimit.toLocaleString('ko-KR')}자입니다.`
+        : '선택 채널의 글자 수 제한을 확인할 수 없습니다. 작업 공간을 다시 불러오세요.')
+      : '채널을 선택하면 글자 수 제한이 표시됩니다.');
     feedbackEl.textContent = feedback;
     feedbackEl.classList.toggle('is-error', Boolean(errorMessage || manualSnsAiStatusIsError));
     feedbackEl.classList.toggle('is-visible', Boolean(feedback));
@@ -816,15 +823,16 @@ function renderManualSnsChannels() {
     const emptyEl = document.createElement('div');
     emptyEl.className = 'social-channel-empty ui-empty-state';
     const messageEl = document.createElement('span');
-    messageEl.textContent = !manualSnsConfig.configured
-      ? '설정에서 Buffer 연결을 먼저 완료해 주세요.'
+    messageEl.textContent = manualSnsConfig.workspaceLoadMessage
+      || (!manualSnsConfig.configured
+        ? '설정에서 Buffer 연결을 확인하고 다시 연결해 주세요.'
       : (!manualSnsConfig.workspacesLoaded
         ? '작업 공간 불러오기를 눌러 SNS 채널을 확인해 주세요.'
-        : (!manualSnsConfig.organizationId ? '작업 공간을 선택하면 SNS 채널이 표시됩니다.' : '선택한 작업 공간에 사용할 수 있는 SNS 채널이 없습니다.'));
+        : (!manualSnsConfig.organizationId ? '작업 공간을 선택하면 SNS 채널이 표시됩니다.' : '선택한 작업 공간에 사용할 수 있는 SNS 채널이 없습니다.')));
     const linksEl = document.createElement('div');
     linksEl.className = 'buffer-resource-links social-channel-help-links';
     linksEl.setAttribute('aria-label', 'Buffer 관련 링크');
-    if (!manualSnsConfig.configured) {
+    if (!manualSnsConfig.configured || manualSnsConfig.workspaceReconnectRequired) {
       const settingsButton = document.createElement('button');
       settingsButton.type = 'button';
       settingsButton.className = 'text-btn social-inline-nav-link';
@@ -865,13 +873,20 @@ function renderManualSnsChannels() {
     const name = document.createElement('strong');
     name.textContent = channel.name || channel.service || 'Buffer 채널';
     const detail = document.createElement('span');
+    const textLimit = getManualSnsChannelTextLimit(channel);
     detail.textContent = unavailable
       ? '현재 수동 발행 미지원'
-      : `${channel.service} · 최대 ${getManualSnsChannelTextLimit(channel).toLocaleString('ko-KR')}자 · ${Number(channel.max_assets) > 0 ? `이미지 ${Number(channel.max_assets)}장` : '이미지 제한 발행 시 확인'}${channel.image_required ? ' 필수' : ''}`;
+      : `${channel.service} · ${textLimit > 0 ? `최대 ${textLimit.toLocaleString('ko-KR')}자` : '글자 수 제한 확인 필요'} · ${Number(channel.max_assets) > 0 ? `이미지 ${Number(channel.max_assets)}장` : '이미지 제한 확인 필요'}${channel.image_required ? ' 필수' : ''}`;
     copy.append(name, detail);
     label.append(input, copy);
     listEl.appendChild(label);
   });
+  if (manualSnsConfig.workspaceLoadMessage) {
+    const statusEl = document.createElement('p');
+    statusEl.className = 'muted social-channel-refresh-note';
+    statusEl.textContent = manualSnsConfig.workspaceLoadMessage;
+    listEl.appendChild(statusEl);
+  }
   if (savedChannelIds !== null) persistManualSnsSelectedChannels();
   syncManualSnsComposerState();
 }
@@ -904,32 +919,69 @@ async function loadManualSnsWorkspaces({ background = false } = {}) {
   renderManualSnsWorkspaceControl();
   try {
     const data = await postJson('/api/v1/social/manual/workspaces', { organizationId });
+    const channels = Array.isArray(data?.channels) ? data.channels : [];
+    if (!hasCompleteManualSnsChannelLimits(channels)) {
+      const error = new Error('Buffer에서 채널별 제한 정보를 완전히 받지 못했습니다.');
+      error.code = 'MANUAL_SNS_CHANNEL_LIMITS_INCOMPLETE';
+      throw error;
+    }
     const resolvedOrganizationId = String(data?.organization_id || organizationId).trim();
     const fetchedAt = Date.now();
     manualSnsConfig = {
       ...manualSnsConfig,
       organizations: Array.isArray(data?.organizations) ? data.organizations : [],
       organizationId: resolvedOrganizationId,
-      channels: Array.isArray(data?.channels) ? data.channels : [],
+      channels,
       workspacesLoaded: true,
-      workspaceFetchedAt: fetchedAt
+      workspaceFetchedAt: fetchedAt,
+      workspaceLoadMessage: '',
+      workspaceReconnectRequired: false
     };
     persistManualSnsWorkspaceCache(manualSnsConfig, fetchedAt);
     persistManualSnsOrganizationId();
   } catch (error) {
-    if (shouldInvalidateManualSnsWorkspaceCache(error)) {
+    const reconnectRequired = [401, 403].includes(Number(error?.status)) || error?.code === 'BUFFER_AUTH_INVALID';
+    const invalidSnapshot = shouldInvalidateManualSnsWorkspaceCache(error);
+    const hasUsableSnapshot = manualSnsConfig.workspacesLoaded
+      && hasCompleteManualSnsChannelLimits(manualSnsConfig.channels);
+    if (invalidSnapshot) {
       clearManualSnsWorkspaceCache();
       manualSnsConfig = {
         ...manualSnsConfig,
-        configured: [401, 403].includes(Number(error?.status)) ? false : manualSnsConfig.configured,
+        configured: reconnectRequired ? false : manualSnsConfig.configured,
         channels: [],
         organizations: [],
         organizationId: '',
         workspacesLoaded: false,
-        workspaceFetchedAt: 0
+        workspaceFetchedAt: 0,
+        workspaceReconnectRequired: reconnectRequired,
+        workspaceLoadMessage: reconnectRequired
+          ? 'Buffer 연결 또는 작업 공간 권한을 확인해 주세요. 설정에서 다시 연결할 수 있습니다.'
+          : '작업 공간 정보를 확인할 수 없습니다. 연결 상태를 확인한 뒤 다시 불러오세요.'
       };
     } else if (!background && !manualSnsConfig.workspacesLoaded) {
-      manualSnsConfig = { ...manualSnsConfig, channels: [], workspacesLoaded: false, workspaceFetchedAt: 0 };
+      manualSnsConfig = {
+        ...manualSnsConfig,
+        channels: [],
+        workspacesLoaded: false,
+        workspaceFetchedAt: 0,
+        workspaceLoadMessage: hasUsableSnapshot
+          ? '최신 정보를 가져오지 못했습니다. 이전 채널 정보를 표시합니다.'
+          : '채널 정보를 가져오지 못했습니다. 연결 상태를 확인하고 다시 불러오세요.'
+      };
+    } else if (!hasUsableSnapshot) {
+      manualSnsConfig = {
+        ...manualSnsConfig,
+        channels: [],
+        workspacesLoaded: false,
+        workspaceFetchedAt: 0,
+        workspaceLoadMessage: '채널 정보를 가져오지 못했습니다. 연결 상태를 확인하고 다시 불러오세요.'
+      };
+    } else {
+      manualSnsConfig = {
+        ...manualSnsConfig,
+        workspaceLoadMessage: '최신 정보를 가져오지 못해 이전 채널 정보를 표시합니다. 연결을 확인한 뒤 다시 불러오세요.'
+      };
     }
   } finally {
     manualSnsWorkspaceLoading = false;
@@ -976,8 +1028,8 @@ async function loadManualSnsComposer({ force = false } = {}) {
       const snapshot = readManualSnsWorkspaceCache();
       if (snapshot) {
         applyManualSnsWorkspaceSnapshot(snapshot);
-        refreshStaleSnapshot = !snapshot.isFresh;
       }
+      refreshStaleSnapshot = !snapshot || !snapshot.isFresh;
     } else {
       clearManualSnsWorkspaceCache();
       manualSnsConfig = { ...connectionState, channels: [], organizationId: '', organizations: [], workspacesLoaded: false, workspaceFetchedAt: 0 };
