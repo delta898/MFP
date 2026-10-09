@@ -304,3 +304,10 @@ The BlogGenius publisher is not implemented in this stage. The focused Amade/Ast
 - Extend the common `showUiProgress` foundation API and use one progress bar/message treatment for project and site-list loading/opening, both Site preview flows, and Site create/settings apply. Keep duplicate submission prevention on the preview trigger while the preview region owns its progress message.
 - Document progress semantics, keep blocking scoped to the necessary surface, restore prior busy/inert/focus state afterward, and do not imply cancellation without a real cancellation contract.
 - Action-level work uses the existing common button-loading state; it must not introduce feature-local spinner styles. New layer types require a documented interaction contract, not just a different page or message.
+
+
+### 2026-10-09 — Template Family product direction clarification
+
+- Template Family is catalog/use-case grouping only. Templates in one Family need not be interchangeable; the product makes no cross-template data-preservation promise.
+- The A→B→A proof above is historical experimental evidence for the exact four proof packages, not a supported switching feature or a general Family compatibility guarantee.
+- Current manifests and BlogGenius selection logic still reflect parts of the earlier Family-contract design. Follow-up schema/consumer alignment is tracked in `docs/backlog.md`; it must distinguish shared Site Hosting integration versioning from per-Template data requirements.

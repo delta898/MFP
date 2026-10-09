@@ -286,3 +286,28 @@ The Cloudflare PoC follows the user journey rather than selecting a technology s
 - Amade's `codex/bloggenius-template-contract` is published and fast-forwarded to `main` at `841e62670f24946142aa737782af0b51c6299049`. The old CLI/Compose/config and homepage starter remnants were removed; README now describes the catalog and schemas. Catalog index commit `d927e9755c46ba4de8f1df3a94d9b3bceab6185a` points at immutable template revision `6bf86200290017e82cab1013add3fc2320ca48b1`.
 - BlogGenius's current feature branch `codex/amade-template-catalog` retrieves the external catalog, validates package checksums, caches the selected template, exposes its preview, and records declared customization and source revision on Site creation. Implementation and test details are in [Amade Template Catalog and Site Template Development](2026-10-03-amade-template-catalog-and-site-template-development.md).
 - Focused site-hosting tests pass (18/18); live Amade `main` catalog/package retrieval and the Astro 7.3.5 static build also pass. The desktop app and browser smoke were not run. BlogGenius work is uncommitted and not merged; user review remains.
+
+## 2026-10-09 — Amade Site Hosting Contract 0.2.0-dev1 roles
+
+- User approved `0.2.0-dev1` as the shared development contract version; it is experimental pending implementation and verification. Stable contract version will be decided separately after validation.
+- Amade role split: Family is catalog grouping only; Content Model owns data and publishing semantics; Template owns runnable Astro source, setup declarations, and its seed. Site pins the selected Template and exact Content Model identity/version. Cross-template switching or conversion is not promised.
+- Amade `dev` work adds the three v0.2 schemas, three model manifests, Template-owned `site-data` seeds, updated templates, a synchronized version source/script, and the canonical design document. The v0.1 schemas and legacy Family seed sources are preserved.
+- BlogGenius's catalog resolver validates and loads v0.2 Content Model references and Template seeds while retaining an explicit v0.1 compatibility path. Site materialization pins model identity/version; site service and Astro runtime resolve behavior through the model, and update eligibility uses exact Template/model pins.
+- Focused validation: 40 site-hosting catalog/materialization/service tests pass; Amade contract sync tests and `--check` pass; JSON parsing and `git diff --check` pass. Formal JSON Schema validation against all catalog manifests and seeds, pinned-revision cross-repository integration, and hands-on app UI acceptance remain.
+- No commit, merge, push, or stable-version promotion has been performed. See the canonical [Amade 0.2 role design](../../../Amade/amade/spec/site-hosting-content-model-v0.2-design.md).
+
+## 2026-10-09 — Production template selection
+
+- User approved keeping unselected template files in Amade `main` while hiding them from the production app. Production selection is therefore owned by a curated catalog, not a per-template boolean or repository file deletion.
+- Amade now has `amade/catalog/production-index.json`, intentionally empty until a template is explicitly approved for production. The `dev` `index.json` remains the broad development catalog.
+- BlogGenius's default/production Site Hosting catalog URL now points to `main/amade/catalog/production-index.json`; local/development continues to use `dev/amade/catalog/index.json`. Cache directories are partitioned by environment to prevent development packages from being used as production offline fallback.
+- Amade has a validator that enforces production references as a valid subset of development resources, checks exact Content Model pins and required package inputs, and optionally builds selected packages. A GitHub Actions workflow runs validation plus builds on PRs and pushes to `main`; it does not publish or deploy. Branch protection must separately require this workflow check if merge blocking is desired.
+- The UI Style catalog consumer is unchanged and remains outside this template-selection policy.
+- Focused validation is recorded at handoff. No template was promoted, and no commit, merge, push, or deployment was performed in this stage.
+
+## 2026-10-09 — Production UI Style selection
+
+- User selected all ten development Styles except `remote-test-style` for production.
+- Amade `dev` production catalog now lists those ten Styles; its validator requires every production Style to be an active exact reference in the development catalog.
+- BlogGenius Style catalog now reads `dev/index.json` in local/development and `main/production-index.json` in production. Style cache paths are separated by environment so offline fallback cannot leak development Styles into production.
+- Focused verification: BlogGenius Style catalog tests pass (5/5); Amade production catalog validator tests pass (6/6); the Amade catalog validates as 1 Template and 10 Styles. Amade `main` does not include this latest Style allowlist until the dev changes are promoted, and no commit, merge, push, or deployment was requested or performed for this change.

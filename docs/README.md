@@ -101,7 +101,7 @@
 - `decisions/2026-09-15-sqlite-v2-agent-memory.md`
 - `decisions/2026-09-23-ai-generation-cancellation-contract.md` (구현 전 설계 제안)
 - `decisions/2026-10-03-amade-template-kinds-and-catalog.md` (Site Hosting / BlogGenius Style resource separation and GitHub catalog)
-- `decisions/2026-10-03-amade-template-switching-direction.md` (agreed Template Family / Template terms and same-family conversion promise)
+- `decisions/2026-10-03-amade-template-switching-direction.md` (original template-switching proposal and its 2026-10-09 superseding decision that Family is grouping only)
 - `decisions/2026-10-04-amade-shared-catalog-resource-types.md` (shared Amade catalog for Site Hosting Templates and BlogGenius UI Styles)
 - `decisions/2026-10-04-amade-shared-catalog-resource-types.md` (shared Amade discovery/metadata contract for Site Hosting families and BlogGenius UI Styles, with separate typed package contracts)
 

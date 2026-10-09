@@ -36,7 +36,7 @@ Improve Site Hosting site creation so users can supply the site-wide SEO metadat
 - Add an optional site representative/share image for homepage and template-provided listing pages only. Posts use their own `cover`, and omit image metadata when they have no cover.
 - Add an optional favicon, separate from the visible logo and social image.
 - Add a site-wide search indexing switch, enabled by default. Turning it off emits `noindex, nofollow` across generated pages; it does not restrict access to the deployed site.
-- Keep metadata separate from visible page content. Persist values with shared site profile data and declare them in the Amade family contract so same-family template variants can consume them.
+- Keep metadata separate from visible page content. Persist values with Site profile data and declare the supported fields in Amade. The current manifests place these declarations at Family level, but that does not promise that every Template in the Family is interchangeable; schema ownership needs follow-up.
 - Use shared image read/preview helpers in a small Site Profile module, with the controls structured for reuse by the future Site settings editor.
 - Advance Site Hosting content/template contract to `0.7.2` for the shared site-profile fields; keep the minimum BlogGenius version unchanged.
 

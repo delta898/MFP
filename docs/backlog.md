@@ -315,6 +315,21 @@
      즉시·예약 동작을 대상으로 공통 파서와 adapter 계약 테스트를 추가한다. 이 backlog 등록은 규칙 확정이나
      구현 승인이 아니다.
 
+18. Amade Template / Content Model 0.2 계약 안정화
+   - Family는 catalog/use-case grouping으로만 사용하며 Template 호환성이나 데이터 보존을 약속하지 않는다.
+   - 설계안: 별도 버전이 있는 Content Model이 profile/navigation/media/content types/frontmatter/routes/publish capabilities를 소유하고 Template은 정확한 model ID/version과 자체 seed를 선언한다. Family는 ID/name/description/order 및 grouping 관계만 가진다.
+   - Template은 생성 시 고른 동일 template_id의 업데이트만 허용하며, 다른 Template으로 변경은 변환 계약이 별도 승인될 때까지 지원하지 않는다.
+   - Amade는 `0.2.0-dev1` manifest/schema/model/seed와 계약 동기화 도구를 구현했다. BlogGenius는 명시적 v0.1 legacy resolver를 유지하면서 새 Content Model 및 Template-owned seed를 소비하도록 연결했다.
+   - Amade sync 검사와 BlogGenius catalog/materialization/site-service 관련 집중 테스트 40개가 통과했다. 남은 일: 모든 원격 manifest/seed 참조의 schema 검증, 실제 Amade `dev` 카탈로그와 고정 revision 간 통합 확인, 사용자 UI 확인 후 안정 계약 버전 별도 결정.
+   - 기존 A→B→A 검증은 해당 fixture의 역사적 실험으로만 남기고 제품 호환성 gate로 사용하지 않는다. 개발 진행과 구현 상세는 [parent branch 기록](plans/active/2026-10-01-static-site-builder-main-development.md) 및 Amade의 0.2 설계 문서를 따른다.
+
+19. Amade Site Hosting 운영 템플릿 선별
+   - BlogGenius 운영 앱은 Amade `main`의 `production-index.json`만 읽고, 개발 앱은 `dev`의 전체 `index.json`을 읽는다. 이 정책은 Site Hosting 템플릿과 UI Style 모두에 적용한다.
+   - 운영 템플릿은 사용자가 승인한 `company-atelier`만 포함한다. 운영 Style은 `remote-test-style`을 제외한 나머지 10종을 명시적으로 허용한다.
+   - 저장소 `main`에 테스트/개발 템플릿 소스가 남아 있어도 괜찮으며, 운영 카탈로그에 참조가 없으면 앱에서 숨긴다.
+   - Amade의 검증 스크립트와 GitHub Actions workflow는 운영 카탈로그가 개발 목록의 유효한 부분집합인지 검사하고 선택된 템플릿·스타일을 검증한다. Branch protection에서 해당 check를 required로 설정하는 일은 별도 저장소 관리 작업이다.
+   - Amade `dev`에 운영 Style 10종을 허용하고 BlogGenius가 production catalog를 읽도록 연결했다. Amade 변경을 `main`에 반영한 뒤 실제 운영 앱의 목록 노출 및 개발/운영 캐시 격리를 확인한다. 구현 세부는 [parent branch 기록](plans/active/2026-10-01-static-site-builder-main-development.md) 및 Amade의 [운영 카탈로그 규칙](../../../Amade/amade/spec/site-hosting-production-catalog.md)을 따른다.
+
 ## P2 — 제품 확장과 유지보수
 
 1. BlogAnywhere companion

@@ -320,11 +320,18 @@ function createSiteHostingSiteService(deps = {}) {
             return { eligible: false, reason: '템플릿을 사용할 수 없음' };
         }
         const resource = templates.get(site?.template?.id)?.resource;
-        const family = resource?.family;
-        const postType = (family?.content_types || []).find((item) => item?.kind === 'post');
+        const contentModel = resource?.content_model || resource?.family;
+        const postType = (contentModel?.content_types || []).find((item) => item?.kind === 'post');
         const isVault = Boolean(knowledgeCollectionRoot(site));
         const contractCompatible = isSupportedSiteHostingContractVersion(resource?.spec_version)
-            && family?.content_contract_version === resource.spec_version
+            && (resource?.content_model
+                ? contentModel?.spec_version === resource.spec_version
+                    && contentModel?.model_id === resource?.template?.content_model?.model_id
+                    && contentModel?.model_version === resource?.template?.content_model?.model_version
+                    && site.template?.contract_version === resource.spec_version
+                    && site.template?.content_model?.model_id === contentModel?.model_id
+                    && site.template?.content_model?.model_version === contentModel?.model_version
+                : contentModel?.content_contract_version === resource.spec_version)
             && resource?.template?.compatibility?.contract?.version === resource.spec_version;
         if (isVault && contractCompatible && hasKnowledgeCollectionContract(site)) {
             return { eligible: true, kind: 'vault' };
@@ -496,7 +503,7 @@ function createSiteHostingSiteService(deps = {}) {
             throw siteInputError('배포된 사이트 주소가 없습니다.', 'SITE_HOSTING_ADDRESS_UNAVAILABLE', 409);
         }
         const resource = templates.get(site.template?.id)?.resource;
-        const postType = (resource?.family?.content_types || []).find((item) => item?.kind === 'post');
+        const postType = ((resource?.content_model || resource?.family)?.content_types || []).find((item) => item?.kind === 'post');
         const routeSettings = site.customization?.publishing || {
             listing_route: postType?.listing_route,
             detail_route: postType?.detail_route
@@ -564,12 +571,19 @@ function createSiteHostingSiteService(deps = {}) {
         }
         const template = templates.get(site.template?.id);
         const resource = template?.resource;
-        const family = resource?.family;
-        const postType = (family?.content_types || []).find((item) => item?.kind === 'post');
+        const contentModel = resource?.content_model || resource?.family;
+        const postType = (contentModel?.content_types || []).find((item) => item?.kind === 'post');
         const vaultRootConfigured = knowledgeCollectionRoot(site);
         const isVault = Boolean(vaultRootConfigured);
         const contractCompatible = isSupportedSiteHostingContractVersion(resource?.spec_version)
-            && family?.content_contract_version === resource.spec_version
+            && (resource?.content_model
+                ? contentModel?.spec_version === resource.spec_version
+                    && contentModel?.model_id === resource?.template?.content_model?.model_id
+                    && contentModel?.model_version === resource?.template?.content_model?.model_version
+                    && site.template?.contract_version === resource.spec_version
+                    && site.template?.content_model?.model_id === contentModel?.model_id
+                    && site.template?.content_model?.model_version === contentModel?.model_version
+                : contentModel?.content_contract_version === resource.spec_version)
             && resource?.template?.compatibility?.contract?.version === resource.spec_version;
         if (!contractCompatible || (isVault
             ? !hasKnowledgeCollectionContract(site)
@@ -838,9 +852,10 @@ function createSiteHostingSiteService(deps = {}) {
         return items.map((template) => {
             const resource = templates.get(template.id)?.resource;
             if (isSupportedSiteHostingContractVersion(resource?.spec_version)) {
-                const seedSite = resource.family_seed_site || {};
-                const postType = (resource.family?.content_types || []).find((type) => type.kind === 'post');
-                const pageType = (resource.family?.content_types || []).find((type) => type.kind === 'page');
+                const seedSite = resource.template_seed_site || resource.family_seed_site || {};
+                const contentModel = resource.content_model || resource.family;
+                const postType = (contentModel?.content_types || []).find((type) => type.kind === 'post');
+                const pageType = (contentModel?.content_types || []).find((type) => type.kind === 'page');
                 const publishing = postType?.listing_route && postType?.detail_route
                     ? { routes: { listing: postType.listing_route, detail: postType.detail_route } }
                     : null;
@@ -961,7 +976,8 @@ function createSiteHostingSiteService(deps = {}) {
         const template = templates.get(templateId);
         const customization = normalizeSiteCustomization(template, payload.customization || {});
         const setupInputs = normalizeSetupInputs(template, payload.setup_inputs || {}, { allowMissingRequired: true });
-        const name = requestedName || String(template?.resource?.family_seed_site?.displayName
+        const name = requestedName || String(template?.resource?.template_seed_site?.displayName
+            || template?.resource?.family_seed_site?.displayName
             || template?.resource?.site_hosting?.customization?.fields?.find((field) => field.key === 'site_name')?.default
             || '미리보기').trim();
         const draft = repository.createPreviewDraft(projectId, {
@@ -1054,8 +1070,9 @@ function createSiteHostingSiteService(deps = {}) {
         }
         const siteHosting = template?.resource?.site_hosting;
         if (isSupportedSiteHostingContractVersion(template?.resource?.spec_version)) {
-            const seedSite = template.resource.family_seed_site || {};
-            const profileFields = template.resource.family?.site_profile?.fields || {};
+            const seedSite = template.resource.template_seed_site || template.resource.family_seed_site || {};
+            const contentModel = template.resource.content_model || template.resource.family;
+            const profileFields = contentModel?.site_profile?.fields || {};
             const profileInputKeys = {
                 site_description: 'seoDescription',
                 share_image: 'shareImage',
@@ -1071,7 +1088,7 @@ function createSiteHostingSiteService(deps = {}) {
                 throw siteInputError('사이트 설정에 허용되지 않은 항목이 포함되어 있습니다.', 'SITE_HOSTING_SITE_PROFILE_INVALID');
             }
             const navigationDefaults = Array.isArray(seedSite.navigation) ? seedSite.navigation.map((item) => ({ id: item.id, label: item.label, href: item.path })) : [];
-            const postType = (template.resource.family?.content_types || []).find((type) => type.kind === 'post');
+            const postType = (contentModel?.content_types || []).find((type) => type.kind === 'post');
             const requestedNavigation = Array.isArray(input.navigation) ? input.navigation : navigationDefaults;
             if (!requestedNavigation.length || requestedNavigation.length > 50) throw siteInputError('메뉴는 1개 이상, 50개 이내로 입력해 주세요.', 'SITE_HOSTING_NAVIGATION_INVALID');
             const normalizedInput = requestedNavigation.map((entry, index) => {
@@ -1114,7 +1131,7 @@ function createSiteHostingSiteService(deps = {}) {
                     const slug = `custom-${crypto.createHash('sha256').update(route).digest('hex').slice(0, 32)}`;
                     return { label, path: route, slug };
                 })
-                .filter((page) => ![...defaultPaths, ...(template.resource.family?.content_types || []).map((item) => item.listing_route).filter(Boolean)]
+                .filter((page) => ![...defaultPaths, ...(contentModel?.content_types || []).map((item) => item.listing_route).filter(Boolean)]
                     .some((reservedPath) => internalPathname(reservedPath) === page.path))
                 .filter((page, index, all) => all.findIndex((candidate) => candidate.path === page.path) === index)
                 .slice(0, 20);

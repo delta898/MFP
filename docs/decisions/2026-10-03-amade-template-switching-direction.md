@@ -2,7 +2,7 @@
 
 ## Status
 
-Agreed terminology and compatibility direction; detailed data schema and conversion behavior remain open. No template-switching behavior or data migration is implemented by this decision.
+**Superseded on 2026-10-09.** The earlier proposal below treated Template Family as a compatibility boundary. The user later clarified that Family is catalog/use-case grouping only; templates in one Family do not need to be interchangeable, and Amade/BlogGenius make no cross-template data-preservation promise. Template switching is outside the current product contract. This file is retained as the history of the original proposal; the 2026-10-09 decision at the end is current.
 
 ## Context
 
@@ -12,12 +12,12 @@ Astro provides building blocks for this architecture: reusable layouts and compo
 
 ## Data/render boundary
 
-The user agreed on two terms:
+The initial proposal recorded two terms:
 
-- **Template Family (템플릿 계열):** a coherent site-purpose group that defines the shared site-data contract and the conversion boundary.
-- **Template (템플릿):** one selectable Astro project belonging to a family.
+- **Template Family (템플릿 계열):** a catalog grouping and use-case label. Membership does not define a shared data contract or compatibility.
+- **Template (템플릿):** one independently selectable Astro project with its own inputs, data assumptions, routes, and rendering behavior.
 
-All templates published in the same family promise conversion to every other template in that family, preserving all family-contract data. A family ID is therefore a compatibility guarantee, not only a catalog grouping. Categories and tags are for discovery and do not imply compatibility. Distinct data needs (for example, a personal profile versus linked garden notes) belong in separate families unless the complete data model is shared and supported by every sibling template.
+The 2026-10-09 clarification supersedes the original compatibility proposal: templates may be grouped together without being interchangeable. Categories and tags remain discovery metadata. Do not infer that a template can consume another template’s data from matching Family IDs.
 
 The detailed package schema, data location, and source-edit conflict workflow are not decided yet.
 
@@ -29,7 +29,7 @@ Treat site-owned data and template-owned presentation as separate concerns:
 - **Template presentation:** layouts, components, styling, and rendering behavior that consume the site's data.
 - **Shared content contract:** page/post types, frontmatter fields, media references, listing/detail routes, and route-generation rules that compatible templates agree to consume.
 
-Switching between templates in the same family selects a different presentation implementation and rebuilds the site while retaining the site's family data. Every family template must pass the same conformance fixture; otherwise it cannot be published into that family. Template metadata should eventually identify the family and the specification/data contract needed to validate the conversion.
+The initial proposal considered switching between templates in the same family while retaining shared data. That proposal was superseded on 2026-10-09. A Family groups templates for discovery/use-case organization; each Template owns its own data and rendering requirements. A template update and a switch to a different template are separate operations: the current update contract concerns updating the selected template and does not imply cross-template conversion.
 
 ## Constraints and tradeoffs
 
@@ -39,16 +39,10 @@ Switching between templates in the same family selects a different presentation 
 - Greater freedom to edit the Astro project reduces the guarantees BlogGenius can make about safe automatic template switching. The user must retain control over whether to replace custom source when a conflict is found.
 - The current manifest's customization and publishing declarations are useful foundations, but they do not yet establish a complete separation between durable site data and replaceable presentation.
 
-## Decision and follow-up
+## Current decision (2026-10-09)
 
-Do not implement template switching in the current Site creation and management work. Preserve this as a design constraint for the new Amade specification: avoid making durable family data inseparable from one template's source layout, and prove the shared data/rendering boundary before promising same-family conversion.
+Template Family is a catalog/use-case grouping only. It is not a compatibility boundary. Templates in one Family need not share a schema, routes, or data behavior. There is no supported promise that users can switch between Templates while preserving data. Do not add a template-switching workflow or use same-family conversion as a release gate unless the user makes a new decision.
 
-Before implementing switching, design and validate:
+Updating the currently selected Template is separate and remains governed by that Template's update contract. The earlier design exploration and A→B→A proposal below are historical; any future cross-template switching proposal needs a separate product decision and explicit compatibility/migration design.
 
-1. The canonical location and ownership of family data: identity, navigation, pages, posts, structured family-specific entries, and media.
-2. The complete common data/frontmatter and asset-reference contract for each family.
-3. Route compatibility and behavior when a target template lacks a family page type or uses a different route.
-4. How to handle user edits to template-owned source files and how to preview/revert a same-family switch safely.
-5. A small Astro proof of concept with two templates in one family that preserves all family data and generated public URLs across A → B → A.
-
-This document records agreed terminology and a future compatibility promise, not a finalized Amade schema or a guarantee that every Astro project can switch templates. The full design draft is in [Amade Site Hosting Template Specification 0.1.0](../plans/active/2026-10-03-amade-template-spec-v0.1-design.md).
+The initial proposal is retained here as historical context. See [Amade Site Hosting Template Specification 0.1.0](../plans/active/2026-10-03-amade-template-spec-v0.1-design.md) for the design record and its 2026-10-09 superseding clarification.

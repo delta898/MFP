@@ -63,9 +63,9 @@ function createSiteHostingSiteRepository(options = {}) {
                 throw new Error('Site manifest contract mismatch.');
             }
             const template = templates.get(site.template?.id);
-            const installedTemplatePath = template?.family_id
-                ? pathApi.join(siteRoot, 'template', 'astro')
-                : siteRoot;
+            const nestedTemplatePath = pathApi.join(siteRoot, 'template', 'astro');
+            const installedTemplatePath = fileSystem.existsSync(pathApi.join(nestedTemplatePath, 'package.json'))
+                ? nestedTemplatePath : siteRoot;
             const installedTemplateReady = Boolean(template
                 && fileSystem.existsSync(pathApi.join(installedTemplatePath, 'package.json')));
             if (!template || !installedTemplateReady) {
@@ -82,11 +82,16 @@ function createSiteHostingSiteRepository(options = {}) {
                     && SITE_HOSTING_TEMPLATE_UPDATE_POLICY.managed_paths[0] === 'template/astro'
                     && SITE_HOSTING_TEMPLATE_UPDATE_POLICY.preserved_paths.includes('.bloggenius')
                     && SITE_HOSTING_TEMPLATE_UPDATE_POLICY.preserved_paths.includes('site-data');
+                const currentModel = template.resource?.content_model;
+                const pinnedModel = site.template?.content_model;
+                const sameContentModel = currentModel && pinnedModel
+                    && currentModel.model_id === pinnedModel.model_id
+                    && currentModel.model_version === pinnedModel.model_version
+                    && site.template?.contract_version === template.resource?.spec_version;
                 site.template_update_available = Boolean(template.package_ready !== false
                     && compareVersions(template.version, site.template?.version) === 1
                     && isSupportedSiteHostingContractVersion(template.resource?.spec_version) && updatePolicyReady
-                    && site.template?.family_id && template.family_id === site.template.family_id
-                    && template.family_data_root && fileSystem.existsSync(targetPath));
+                    && sameContentModel && template.template_seed_root && fileSystem.existsSync(targetPath));
                 site.available_template_version = site.template_update_available ? String(template.version || '') : '';
             }
             return { domain: '', ...site, root_path: siteRoot };
@@ -223,6 +228,11 @@ function createSiteHostingSiteRepository(options = {}) {
                 template: {
                     id: template.id,
                     version: templateSnapshot.version,
+                    ...(template.resource?.content_model ? { content_model: {
+                        model_id: template.resource.content_model.model_id,
+                        model_version: template.resource.content_model.model_version
+                    } } : {}),
+                    ...(template.resource?.spec_version ? { contract_version: template.resource.spec_version } : {}),
                     ...(template.family_id ? { family_id: template.family_id } : {}),
                     ...(templateSnapshot.source_revision ? { source_revision: templateSnapshot.source_revision } : {})
                 },
@@ -282,6 +292,11 @@ function createSiteHostingSiteRepository(options = {}) {
                 template: {
                     id: template.id,
                     version: templateSnapshot.version,
+                    ...(template.resource?.content_model ? { content_model: {
+                        model_id: template.resource.content_model.model_id,
+                        model_version: template.resource.content_model.model_version
+                    } } : {}),
+                    ...(template.resource?.spec_version ? { contract_version: template.resource.spec_version } : {}),
                     ...(template.family_id ? { family_id: template.family_id } : {}),
                     ...(templateSnapshot.source_revision ? { source_revision: templateSnapshot.source_revision } : {})
                 },
@@ -314,8 +329,8 @@ function createSiteHostingSiteRepository(options = {}) {
             let siteData;
             try { siteData = JSON.parse(String(fileSystem.readFileSync(siteDataPath, 'utf8') || '')); }
             catch (cause) {
-                const error = new Error('템플릿 family의 초기 site-data/site.json을 읽지 못했습니다.');
-                error.code = 'SITE_HOSTING_TEMPLATE_FAMILY_DATA_INVALID';
+                const error = new Error('템플릿 초기 site-data/site.json을 읽지 못했습니다.');
+                error.code = 'SITE_HOSTING_TEMPLATE_SEED_DATA_INVALID';
                 error.status = 502;
                 error.cause = cause;
                 throw error;
@@ -360,8 +375,8 @@ function createSiteHostingSiteRepository(options = {}) {
             }
             fileSystem.writeFileSync(siteDataPath, `${JSON.stringify(siteData, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
             const postList = site.customization?.publishing;
-            const family = template.resource.family;
-            const postType = (family.content_types || []).find((item) => item.kind === 'post');
+            const contentModel = template.resource.content_model || template.resource.family;
+            const postType = (contentModel.content_types || []).find((item) => item.kind === 'post');
             if (postList) {
                 if (!postType || !Number.isInteger(postList.post_list_navigation_index)
                     || postList.post_list_navigation_index < 0 || postList.post_list_navigation_index >= navigation.length

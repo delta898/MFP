@@ -5,7 +5,8 @@ const path = require('node:path');
 const { DESIGN_STYLE_REQUIRED_TOKENS, DESIGN_STYLE_CONTRACT_VERSION } = require('../../ui/scripts/foundation/design-style-token-contract');
 const { isCompatibleWithBlogGenius } = require('./bloggenius-compatibility');
 
-const DEFAULT_CATALOG_URL = 'https://raw.githubusercontent.com/delta898/Amade/main/amade/catalog/index.json';
+const PRODUCTION_CATALOG_URL = 'https://raw.githubusercontent.com/delta898/Amade/main/amade/catalog/production-index.json';
+const DEFAULT_CATALOG_URL = PRODUCTION_CATALOG_URL;
 const DEVELOPMENT_CATALOG_URL = 'https://raw.githubusercontent.com/delta898/Amade/dev/amade/catalog/index.json';
 const MAX_CATALOG_BYTES = 1024 * 1024;
 const MAX_STYLE_BYTES = 256 * 1024;
@@ -17,13 +18,15 @@ function createGitHubDesignStyleCatalog(options = {}) {
     const pathApi = options.path || path;
     const fetchImpl = options.fetchImpl || globalThis.fetch;
     const workspaceDir = String(options.workspaceDir || '').trim();
-    const cacheFile = options.cacheFile || (workspaceDir ? pathApi.join(workspaceDir, 'site-hosting', 'design-style-cache.json') : '');
     const environment = String(options.environment || process.env.BLOGGENIUS_ENV || '').trim().toLowerCase();
+    const developmentEnvironment = ['local', 'development'].includes(environment);
+    const cacheChannel = developmentEnvironment ? 'development' : 'production';
+    const cacheFile = options.cacheFile || (workspaceDir ? pathApi.join(workspaceDir, 'site-hosting', `design-style-cache-${cacheChannel}.json`) : '');
     const isSupportedByBlogGenius = (compatibility) => isCompatibleWithBlogGenius(
         compatibility,
         options.bloggeniusVersion ? { appVersion: options.bloggeniusVersion } : {}
     );
-    const branchUrl = ['local', 'development'].includes(environment) ? DEVELOPMENT_CATALOG_URL : DEFAULT_CATALOG_URL;
+    const branchUrl = developmentEnvironment ? DEVELOPMENT_CATALOG_URL : DEFAULT_CATALOG_URL;
     const catalogUrl = String(options.catalogUrl || process.env.BLOGGENIUS_UI_STYLE_CATALOG_URL || branchUrl);
     if (typeof fetchImpl !== 'function') throw new Error('HTTPS fetch를 사용할 수 없습니다.');
 
@@ -80,7 +83,10 @@ function createGitHubDesignStyleCatalog(options = {}) {
     }
 
     function validateCatalog(catalog) {
-        if (catalog?.spec_version !== '0.1.0' || catalog.status !== 'experimental' || !Array.isArray(catalog.styles)) {
+        const isValidProductionCatalog = catalog?.catalog_id === 'amade-production' && Array.isArray(catalog.families);
+        const isValidDevelopmentCatalog = catalog?.catalog_id === 'amade-official' && Array.isArray(catalog.families);
+        if (catalog?.spec_version !== '0.1.0' || catalog.status !== 'experimental' || !Array.isArray(catalog.styles)
+            || (developmentEnvironment ? !isValidDevelopmentCatalog : !isValidProductionCatalog)) {
             throw fail('BLOGGENIUS_UI_STYLE_CATALOG_INVALID', 'Amade 0.1 UI Style catalog 형식이 올바르지 않습니다.');
         }
         const seen = new Set();
@@ -193,4 +199,4 @@ function createGitHubDesignStyleCatalog(options = {}) {
     return { list };
 }
 
-module.exports = { DEFAULT_CATALOG_URL, DEVELOPMENT_CATALOG_URL, createGitHubDesignStyleCatalog };
+module.exports = { DEFAULT_CATALOG_URL, PRODUCTION_CATALOG_URL, DEVELOPMENT_CATALOG_URL, createGitHubDesignStyleCatalog };

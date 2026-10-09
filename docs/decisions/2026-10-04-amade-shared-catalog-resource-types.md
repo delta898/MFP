@@ -4,11 +4,13 @@
 
 Accepted for the experimental Amade specification and the current `codex/amade-template-catalog` development branch. The decision extends the Site Hosting Template Family 0.1.0 work; it does not stabilize the contract or promote it to 1.0.0.
 
+**Decision update (2026-10-09):** Template Family is catalog/use-case grouping only, not a compatibility guarantee. Earlier references below to Family-level compatibility describe the then-current manifest design and are superseded as product direction. The current manifests still need a separate schema-alignment proposal.
+
 ## Context
 
 Amade `dev` now publishes Site Hosting Template Families and four Astro presentation templates. BlogGenius also has a mature, code-defined UI Style system under `Settings > App > Appearance`. The user intends Amade to provide both resource kinds and eventually provide a creator ecosystem.
 
-The resources share discovery and stewardship needs, but their technical payloads have different semantics. A Site Hosting Template belongs to a family and renders durable site data. A BlogGenius UI Style supplies values for an application-owned semantic-token contract. Treating them as identical packages would weaken validation and obscure compatibility.
+The resources share discovery and stewardship needs, but their technical payloads have different semantics. A Site Hosting Template is grouped under a Family and renders the data its own contract supports. A BlogGenius UI Style supplies values for an application-owned semantic-token contract. Treating them as identical packages would weaken validation and obscure compatibility.
 
 ## Decision
 
@@ -16,7 +18,7 @@ Use one Amade repository and one immutable-revision-pinned catalog with explicit
 
 - `families[]` contains each Site Hosting family manifest and its ordered `templates[]` references.
 - `styles[]` contains ordered BlogGenius UI Style manifest references.
-- Family manifests define site-data/content compatibility; template manifests define a complete Astro presentation package.
+- The current Family manifest carries shared seed/content declarations and Template manifests define complete Astro presentation packages. Family membership does not imply Template interchangeability; schema ownership is follow-up work.
 - Style manifests define a complete data-only token package.
 
 Both selectable package manifests compose the same common metadata and lifecycle contract:
@@ -54,6 +56,8 @@ Existing Amade 1.x packages remain legacy reference material. They are neither i
 The Amade package shape remains `spec_version: 0.1.0`. The independently versioned current post contract is `0.4.0`, recorded by each family manifest as `content_contract_version`. See [Site Hosting post frontmatter contract](2026-10-04-site-hosting-post-frontmatter-contract.md) for fields, deployment/listing rules, and BlogGenius's later consumer responsibilities.
 
 ## BlogGenius consumption
+
+**Production selection update (2026-10-09):** Development continues to use Amade `dev`'s full `index.json`. Production Site Hosting Templates and UI Styles both use `main`'s curated `production-index.json`. The production catalog currently selects the `company-atelier` Template and all ten Styles except `remote-test-style`. BlogGenius caches these resource lists separately by environment.
 
 The Appearance UI will obtain active Style metadata and previews from Amade. A selected Style's token data is cached locally and applied through the existing style system without package-provided executable code. Bundled BlogGenius styles remain a safe startup/offline fallback. Retrieval/network/contract failures must not prevent app startup or discard the last usable appearance. A successfully retrieved and valid catalog with no active compatible styles is authoritative: clear selectable remote cache and use the bundled registry, rather than resurrecting deprecated or withdrawn remote styles.
 

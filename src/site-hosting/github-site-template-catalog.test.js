@@ -6,17 +6,27 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
-const { DEFAULT_CATALOG_URL, DEVELOPMENT_CATALOG_URL, createGitHubSiteTemplateCatalog } = require('./github-site-template-catalog');
+const { DEFAULT_CATALOG_URL, PRODUCTION_CATALOG_URL, DEVELOPMENT_CATALOG_URL, createGitHubSiteTemplateCatalog } = require('./github-site-template-catalog');
 const { SITE_HOSTING_CONTRACT_VERSION } = require('./bloggenius-compatibility');
 
-test('default Amade catalog points at the GitHub main branch', () => {
-    assert.equal(DEFAULT_CATALOG_URL, 'https://raw.githubusercontent.com/delta898/Amade/main/amade/catalog/index.json');
+test('default Amade template catalog points at the curated production catalog on main', () => {
+    assert.equal(DEFAULT_CATALOG_URL, PRODUCTION_CATALOG_URL);
+    assert.equal(PRODUCTION_CATALOG_URL, 'https://raw.githubusercontent.com/delta898/Amade/main/amade/catalog/production-index.json');
 });
 
 test('development Amade catalog points at the grouped dev branch', () => {
     const catalog = createGitHubSiteTemplateCatalog({ cacheRoot: path.join(os.tmpdir(), 'amade-development-catalog-test'), environment: 'development' });
     assert.equal(catalog.catalogUrl, DEVELOPMENT_CATALOG_URL);
     assert.equal(DEVELOPMENT_CATALOG_URL, 'https://raw.githubusercontent.com/delta898/Amade/dev/amade/catalog/index.json');
+});
+
+test('development and production template caches are isolated', () => {
+    const cacheRoot = path.join(os.tmpdir(), 'amade-channel-cache-test');
+    const development = createGitHubSiteTemplateCatalog({ cacheRoot, environment: 'development' });
+    const production = createGitHubSiteTemplateCatalog({ cacheRoot, environment: 'production' });
+    assert.notEqual(development.cacheRoot, production.cacheRoot);
+    assert.equal(path.basename(development.cacheRoot), 'development');
+    assert.equal(path.basename(production.cacheRoot), 'production');
 });
 
 test('development Amade catalog hides templates without active status', async () => {
@@ -138,7 +148,7 @@ test('GitHub catalog rejects a bad package checksum without replacing prior cach
         const catalog = createGitHubSiteTemplateCatalog({ fs, path, cacheRoot, catalogUrl: fixture.catalogUrl, fetchImpl: fixture.fetchImpl });
         await catalog.list();
         await catalog.prepare('astro-homepage');
-        const before = fs.readFileSync(path.join(cacheRoot, 'astro-homepage', 'package', '1.0.0', 'astro', 'package.json'), 'utf8');
+        const before = fs.readFileSync(path.join(cacheRoot, 'production', 'astro-homepage', 'package', '1.0.0', 'astro', 'package.json'), 'utf8');
         const broken = createFixture('b'.repeat(40));
         broken.fetchImpl = async (url) => {
             if (String(url).endsWith('/astro/package.json')) {
@@ -150,41 +160,46 @@ test('GitHub catalog rejects a bad package checksum without replacing prior cach
         const replacement = createGitHubSiteTemplateCatalog({ fs, path, cacheRoot, catalogUrl: broken.catalogUrl, fetchImpl: broken.fetchImpl });
         await replacement.list();
         await assert.rejects(replacement.prepare('astro-homepage'), { code: 'SITE_HOSTING_TEMPLATE_CHECKSUM_MISMATCH' });
-        assert.equal(fs.readFileSync(path.join(cacheRoot, 'astro-homepage', 'package', '1.0.0', 'astro', 'package.json'), 'utf8'), before);
+        assert.equal(fs.readFileSync(path.join(cacheRoot, 'production', 'astro-homepage', 'package', '1.0.0', 'astro', 'package.json'), 'utf8'), before);
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }
 });
 
-test('Amade 0.1 family catalog groups active templates and materializes Astro source beside family site data', async () => {
+test('Amade 0.2 family catalog groups templates and materializes template-owned seed data', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'github-site-family-template-'));
     try {
         const catalogUrl = 'https://raw.githubusercontent.com/delta898/Amade/test/amade/catalog/index.json';
         const revision = 'c'.repeat(40);
         const familyPath = 'amade/families/personal-homepage/family.json';
         const templatePath = 'amade/templates/personal-post-list/template.json';
+        const modelPath = 'amade/content-models/personal-homepage-content/content-model.json';
         const sourceFiles = {
             'amade/templates/personal-post-list/preview.png': Buffer.from('png-preview'),
             'amade/templates/personal-post-list/astro/package.json': Buffer.from('{"scripts":{"build":"astro build"}}'),
             'amade/templates/personal-post-list/astro/package-lock.json': Buffer.from('{"lockfileVersion":3}'),
             'amade/templates/personal-post-list/astro/src/pages/index.astro': Buffer.from('<h1>home</h1>'),
-            'amade/families/personal-homepage/data/site.json': Buffer.from(JSON.stringify({ displayName: '기본 이름', navigation: [{ id: 'posts', label: '글', path: '/blog/' }] })),
-            'amade/families/personal-homepage/data/data/posts/hello/index.md': Buffer.from('---\nkind: post\n---')
+            'amade/templates/personal-post-list/site-data/site.json': Buffer.from(JSON.stringify({ displayName: '기본 이름', navigation: [{ id: 'posts', label: '글', path: '/blog/' }] })),
+            'amade/templates/personal-post-list/site-data/data/posts/hello/index.md': Buffer.from('---\nkind: post\n---')
         };
-        const family = {
-            spec_version: SITE_HOSTING_CONTRACT_VERSION, content_contract_version: SITE_HOSTING_CONTRACT_VERSION, family_id: 'personal-homepage', name: '개인 홈페이지',
-            site_data_directory: 'data', content_types: [{ kind: 'post', listing_route: '/blog/', detail_route: '/blog/{slug}/' }]
+        const family = { spec_version: SITE_HOSTING_CONTRACT_VERSION, family_id: 'personal-homepage', name: '개인 홈페이지', description: '개인 홈페이지 모음' };
+        const contentModel = {
+            spec_version: SITE_HOSTING_CONTRACT_VERSION, model_id: 'personal-homepage-content', model_version: '0.1.0',
+            name: '개인 콘텐츠', description: '개인 사이트 콘텐츠 규격',
+            content_types: [{ kind: 'post', source: 'data/posts/{slug}/index.md', listing_route: '/blog/', detail_route: '/blog/{slug}/' }]
         };
         const template = {
             spec_version: SITE_HOSTING_CONTRACT_VERSION, template_id: 'personal-post-list', family_id: 'personal-homepage',
             name: '글 목록형', description: '기본 설명', author: 'amadejjs', version: '0.1.0', license: 'MIT',
-            categories: ['Personal Website'], tags: ['List'], status: 'active', astro_project: 'astro', preview: 'preview.png',
+            categories: ['Personal Website'], tags: ['List'], status: 'active', astro_project: 'astro', preview: 'preview.png', site_data_seed: 'site-data',
+            content_model: { model_id: 'personal-homepage-content', model_version: '0.1.0', manifest: modelPath },
             compatibility: { min_bloggenius_version: '0.6.0', contract: { id: 'bloggenius-site-hosting-template', version: SITE_HOSTING_CONTRACT_VERSION } },
             setup_inputs: [
                 { id: 'knowledge_collection_root', type: 'directory', purpose: 'knowledge_collection', label: 'Obsidian Vault root', required: true },
                 { id: 'publication_filter', type: 'frontmatter_match', purpose: 'publication_filter', label: '공개 노트 기준', required: true }
             ]
         };
+        sourceFiles[modelPath] = Buffer.from(JSON.stringify(contentModel));
         const catalogDocument = { spec_version: '0.1.0', status: 'experimental', families: [{
             family_id: 'personal-homepage', manifest: familyPath,
             templates: [{ template_id: 'personal-post-list', manifest: templatePath }]
@@ -196,6 +211,7 @@ test('Amade 0.1 family catalog groups active templates and materializes Astro so
             if (value === catalogUrl || value === `https://raw.githubusercontent.com/delta898/Amade/${revision}/amade/catalog/index.json`) bytes = Buffer.from(JSON.stringify(catalogDocument));
             else if (value === `https://raw.githubusercontent.com/delta898/Amade/${revision}/${familyPath}`) bytes = Buffer.from(JSON.stringify(family));
             else if (value === `https://raw.githubusercontent.com/delta898/Amade/${revision}/${templatePath}`) bytes = Buffer.from(JSON.stringify(template));
+            else if (value === `https://raw.githubusercontent.com/delta898/Amade/${revision}/${modelPath}`) bytes = Buffer.from(JSON.stringify(contentModel));
             else if (value === `https://api.github.com/repos/delta898/Amade/git/trees/${revision}?recursive=1`) bytes = Buffer.from(JSON.stringify({ truncated: false, tree }));
             else {
                 const prefix = `https://raw.githubusercontent.com/delta898/Amade/${revision}/`;
@@ -214,6 +230,7 @@ test('Amade 0.1 family catalog groups active templates and materializes Astro so
         assert.equal(listed[0].family_name, '개인 홈페이지');
         assert.deepEqual(listed[0].tags, ['List']);
         assert.equal(catalog.get('personal-post-list').resource.template.setup_inputs[1].type, 'frontmatter_match');
+        assert.equal(catalog.get('personal-post-list').resource.content_model.model_id, 'personal-homepage-content');
         assert.equal(catalog.getPreview('personal-post-list').contentType, 'image/png');
 
         const olderBlogGenius = createGitHubSiteTemplateCatalog({

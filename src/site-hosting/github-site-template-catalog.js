@@ -4,9 +4,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { createSiteTemplateCatalog } = require('./site-template-catalog');
-const { isCompatibleWithBlogGenius, isSupportedSiteHostingContractVersion } = require('./bloggenius-compatibility');
+const { SITE_HOSTING_CONTRACT_VERSION, isCompatibleWithBlogGenius, isSupportedSiteHostingContractVersion } = require('./bloggenius-compatibility');
 
-const DEFAULT_CATALOG_URL = 'https://raw.githubusercontent.com/delta898/Amade/main/amade/catalog/index.json';
+const PRODUCTION_CATALOG_URL = 'https://raw.githubusercontent.com/delta898/Amade/main/amade/catalog/production-index.json';
+const DEFAULT_CATALOG_URL = PRODUCTION_CATALOG_URL;
 const DEVELOPMENT_CATALOG_URL = 'https://raw.githubusercontent.com/delta898/Amade/dev/amade/catalog/index.json';
 const MAX_CATALOG_BYTES = 1024 * 1024;
 const MAX_RESOURCE_BYTES = 10 * 1024 * 1024;
@@ -19,7 +20,7 @@ function createGitHubSiteTemplateCatalog(options = {}) {
     const pathApi = options.path || path;
     const fetchImpl = options.fetchImpl || globalThis.fetch;
     const requestedCacheRoot = String(options.cacheRoot || '').trim();
-    const cacheRoot = requestedCacheRoot ? pathApi.resolve(requestedCacheRoot) : '';
+    const baseCacheRoot = requestedCacheRoot ? pathApi.resolve(requestedCacheRoot) : '';
     const environment = String(options.environment || process.env.BLOGGENIUS_ENV || '').trim().toLowerCase();
     const isSupportedByBlogGenius = (compatibility) => isCompatibleWithBlogGenius(
         compatibility,
@@ -28,6 +29,8 @@ function createGitHubSiteTemplateCatalog(options = {}) {
     const developmentEnvironment = ['local', 'development'].includes(environment);
     const environmentCatalogUrl = developmentEnvironment ? DEVELOPMENT_CATALOG_URL : DEFAULT_CATALOG_URL;
     const catalogUrl = String(options.catalogUrl || process.env.BLOGGENIUS_SITE_TEMPLATE_CATALOG_URL || environmentCatalogUrl);
+    const cacheChannel = developmentEnvironment ? 'development' : 'production';
+    const cacheRoot = baseCacheRoot ? pathApi.join(baseCacheRoot, cacheChannel) : '';
     if (!cacheRoot) throw new Error('템플릿 catalog cache 폴더가 필요합니다.');
     if (typeof fetchImpl !== 'function') throw new Error('HTTPS fetch를 사용할 수 없습니다.');
 
@@ -165,16 +168,38 @@ function createGitHubSiteTemplateCatalog(options = {}) {
     async function downloadFamilyTemplate(reference, includePackage, revision, tree) {
         const family = await fetchJson(rawUrl(revision, reference.family_manifest));
         const template = await fetchJson(rawUrl(revision, reference.manifest));
+        const isCurrentContract = template.spec_version === SITE_HOSTING_CONTRACT_VERSION;
+        const contentModelManifest = safeRelativePath(template.content_model?.manifest);
+        if (isCurrentContract && (!contentModelManifest?.startsWith('amade/content-models/'))
+            || (isCurrentContract && !/\/content-model\.json$/u.test(contentModelManifest))) {
+            throw fail('SITE_HOSTING_TEMPLATE_MANIFEST_INVALID', 'Template의 Content Model 참조가 올바르지 않습니다.');
+        }
+        const contentModel = isCurrentContract
+            ? await fetchJson(rawUrl(revision, contentModelManifest))
+            : {
+                spec_version: family.spec_version,
+                model_id: `${family.family_id}-legacy`,
+                model_version: family.content_contract_version,
+                ...family
+            };
         const templateRoot = pathApi.posix.dirname(reference.manifest);
         const familyRoot = pathApi.posix.dirname(reference.family_manifest);
         const projectPath = safeRelativePath(template.astro_project);
-        const dataPath = safeRelativePath(family.site_data_directory);
+        const seedPath = safeRelativePath(isCurrentContract ? template.site_data_seed : template.site_data || family.site_data_directory);
+        const seedPrefix = `${isCurrentContract ? templateRoot : familyRoot}/${seedPath}/`;
         const previewPath = safeRelativePath(template.preview);
         const setupInputs = template.setup_inputs === undefined ? [] : template.setup_inputs;
         const setupInputIds = new Set();
-        if (!isSupportedSiteHostingContractVersion(family.spec_version) || family.content_contract_version !== family.spec_version || family.family_id !== reference.family_id
+        if (!isSupportedSiteHostingContractVersion(family.spec_version) || family.family_id !== reference.family_id
             || !isSupportedSiteHostingContractVersion(template.spec_version) || template.template_id !== reference.template_id
-            || template.family_id !== reference.family_id || !projectPath || !dataPath || !previewPath
+            || template.family_id !== reference.family_id || !projectPath || !seedPath || !previewPath
+            || family.spec_version !== template.spec_version
+            || (isCurrentContract && (contentModel?.spec_version !== template.spec_version
+                || contentModel?.model_id !== template.content_model?.model_id
+                || contentModel?.model_version !== template.content_model?.model_version))
+            || (!isCurrentContract && contentModel?.content_contract_version !== template.spec_version)
+            || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(String(contentModel?.model_id || ''))
+            || !/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(String(contentModel?.model_version || ''))
             || !String(template.name || '').trim() || !String(template.description || '').trim()
             || !String(template.author || '').trim() || !/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(String(template.version || ''))
             || !String(template.license || '').trim() || !Array.isArray(template.categories) || !template.categories.length
@@ -200,14 +225,13 @@ function createGitHubSiteTemplateCatalog(options = {}) {
             throw fail('SITE_HOSTING_TEMPLATE_INCOMPATIBLE', '이 BlogGenius 버전에서 지원하지 않는 템플릿 호환성 계약입니다.', 422);
         }
         const projectPrefix = `${templateRoot}/${projectPath}/`;
-        const dataPrefix = `${familyRoot}/${dataPath}/`;
-        const selectedFiles = [...tree.values()].filter((entry) => entry.path.startsWith(projectPrefix) || entry.path.startsWith(dataPrefix));
+        const selectedFiles = [...tree.values()].filter((entry) => entry.path.startsWith(projectPrefix) || entry.path.startsWith(seedPrefix));
         const projectFiles = selectedFiles.filter((entry) => entry.path.startsWith(projectPrefix));
-        const dataFiles = selectedFiles.filter((entry) => entry.path.startsWith(dataPrefix));
+        const seedFiles = selectedFiles.filter((entry) => entry.path.startsWith(seedPrefix));
         if (!projectFiles.some((entry) => entry.path === `${templateRoot}/${projectPath}/package.json`)
             || !projectFiles.some((entry) => entry.path === `${templateRoot}/${projectPath}/package-lock.json`)
-            || !dataFiles.some((entry) => entry.path === `${dataPrefix}site.json`)
-            || projectFiles.length + dataFiles.length > 1000
+            || !seedFiles.some((entry) => entry.path === `${seedPrefix}site.json`)
+            || projectFiles.length + seedFiles.length > 1000
             || selectedFiles.reduce((sum, entry) => sum + entry.size, 0) > MAX_TOTAL_PACKAGE_BYTES) {
             throw fail('SITE_HOSTING_TEMPLATE_SOURCE_TOO_LARGE', '템플릿 패키지가 필수 파일, 파일 수 또는 전체 크기 제한을 통과하지 못했습니다.', 413);
         }
@@ -237,15 +261,15 @@ function createGitHubSiteTemplateCatalog(options = {}) {
         try {
             fileSystem.mkdirSync(pathApi.join(packageRoot, projectPath), { recursive: true });
             fileSystem.mkdirSync(pathApi.join(packageRoot, 'site-data'), { recursive: true });
-            const seedEntry = tree.get(`${dataPrefix}site.json`);
-            const seedBytes = await fetchBytes(rawUrl(revision, `${dataPrefix}site.json`), MAX_RESOURCE_BYTES);
-            if (seedBytes.length !== seedEntry.size) throw fail('SITE_HOSTING_TEMPLATE_CHECKSUM_MISMATCH', 'Family 기본 사이트 설정의 크기가 revision 파일 목록과 일치하지 않습니다.');
-            let familySeedSite;
-            try { familySeedSite = JSON.parse(seedBytes.toString('utf8')); }
-            catch (cause) { throw fail('SITE_HOSTING_TEMPLATE_MANIFEST_INVALID', 'Family 기본 site.json 형식이 올바르지 않습니다.', 502, cause); }
-            if (!String(familySeedSite.displayName || '').trim() || !Array.isArray(familySeedSite.navigation)
-                || familySeedSite.navigation.some((item) => !item || typeof item.label !== 'string' || typeof item.path !== 'string')) {
-                throw fail('SITE_HOSTING_TEMPLATE_MANIFEST_INVALID', 'Family 기본 site.json에 이름 또는 메뉴 규칙이 없습니다.');
+            const seedEntry = tree.get(`${seedPrefix}site.json`);
+            const seedBytes = await fetchBytes(rawUrl(revision, `${seedPrefix}site.json`), MAX_RESOURCE_BYTES);
+            if (seedBytes.length !== seedEntry.size) throw fail('SITE_HOSTING_TEMPLATE_CHECKSUM_MISMATCH', 'Template 기본 사이트 설정의 크기가 revision 파일 목록과 일치하지 않습니다.');
+            let templateSeedSite;
+            try { templateSeedSite = JSON.parse(seedBytes.toString('utf8')); }
+            catch (cause) { throw fail('SITE_HOSTING_TEMPLATE_MANIFEST_INVALID', 'Template 기본 site.json 형식이 올바르지 않습니다.', 502, cause); }
+            if (!String(templateSeedSite.displayName || '').trim() || !Array.isArray(templateSeedSite.navigation)
+                || templateSeedSite.navigation.some((item) => !item || typeof item.label !== 'string' || typeof item.path !== 'string')) {
+                throw fail('SITE_HOSTING_TEMPLATE_MANIFEST_INVALID', 'Template 기본 site.json에 이름 또는 메뉴 규칙이 없습니다.');
             }
             const contentTypes = assets.map((item) => ({ relative: item, path: `${templateRoot}/${item}` }));
             for (const asset of contentTypes) {
@@ -257,9 +281,9 @@ function createGitHubSiteTemplateCatalog(options = {}) {
                 fileSystem.writeFileSync(dest, bytes, { flag: 'wx', mode: 0o600 });
             }
             if (includePackage) {
-                for (const entry of [...projectFiles, ...dataFiles]) {
+                for (const entry of [...projectFiles, ...seedFiles]) {
                     const isProject = entry.path.startsWith(projectPrefix);
-                    const relative = entry.path.slice((isProject ? projectPrefix : dataPrefix).length);
+                    const relative = entry.path.slice((isProject ? projectPrefix : seedPrefix).length);
                     const bytes = await fetchBytes(rawUrl(revision, entry.path), MAX_RESOURCE_BYTES);
                     if (bytes.length !== entry.size) throw fail('SITE_HOSTING_TEMPLATE_CHECKSUM_MISMATCH', '템플릿 파일 크기가 revision 파일 목록과 일치하지 않습니다.');
                     const destination = pathApi.join(packageRoot, isProject ? projectPath : 'site-data', relative);
@@ -270,13 +294,13 @@ function createGitHubSiteTemplateCatalog(options = {}) {
             const descriptor = {
                 id: templateId, version: template.version, name: template.name, description: template.description,
                 source_directory: `package/${template.version}/${projectPath}`,
-                family_data_directory: `package/${template.version}/site-data`,
+                template_seed_directory: `package/${template.version}/site-data`,
                 preview_file: previewPath,
                 source_revision: revision,
                 family_id: family.family_id,
                 family_name: family.name,
                 family_description: family.description || '',
-                resource: { spec_version: template.spec_version, family, template, family_seed_site: familySeedSite },
+                resource: { spec_version: template.spec_version, family, template, content_model: contentModel, template_seed_site: templateSeedSite },
                 package_ready: Boolean(includePackage)
             };
             fileSystem.writeFileSync(pathApi.join(stagingRoot, 'template.json'), `${JSON.stringify(descriptor, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
@@ -556,4 +580,4 @@ function normalizeHomepageUrl(value) {
     }
 }
 
-module.exports = { DEFAULT_CATALOG_URL, DEVELOPMENT_CATALOG_URL, createGitHubSiteTemplateCatalog };
+module.exports = { DEFAULT_CATALOG_URL, PRODUCTION_CATALOG_URL, DEVELOPMENT_CATALOG_URL, createGitHubSiteTemplateCatalog };

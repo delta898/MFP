@@ -100,7 +100,7 @@ function createAstroSiteRuntime(options = {}) {
     function getAstroProjectRoot(site) {
         const siteRoot = pathApi.resolve(site.root_path);
         const nestedRoot = pathApi.join(siteRoot, 'template', 'astro');
-        return site.template?.family_id && fileSystem.existsSync(pathApi.join(nestedRoot, 'package.json')) ? nestedRoot : siteRoot;
+        return fileSystem.existsSync(pathApi.join(nestedRoot, 'package.json')) ? nestedRoot : siteRoot;
     }
 
     function getPublicSiteUrl(site) {
@@ -252,8 +252,9 @@ function createAstroSiteRuntime(options = {}) {
         const selectedRoute = String(site.customization?.publishing?.listing_route || '');
         if (!selectedRoute) return;
         const template = templates.get(site.template?.id);
+        const contentModel = template?.resource?.content_model || template?.resource?.family;
         const defaultRoute = String(template?.resource?.site_hosting?.publishing?.routes?.listing
-            || template?.resource?.family?.content_types?.find((item) => item.kind === 'post')?.listing_route || '');
+            || contentModel?.content_types?.find((item) => item.kind === 'post')?.listing_route || '');
         if (!defaultRoute || selectedRoute === defaultRoute) return;
         const distRoot = pathApi.join(site.root_path, 'dist');
         const sourceDirectory = routeOutputDirectory(distRoot, defaultRoute);

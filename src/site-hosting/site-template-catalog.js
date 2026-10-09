@@ -27,11 +27,11 @@ function createSiteTemplateCatalog(options = {}) {
             const sourceRoot = pathApi.resolve(templateRoot, sourceDirectory);
             if (!sourceRoot.startsWith(`${pathApi.resolve(templateRoot)}${pathApi.sep}`)
                 || (descriptor.package_ready !== false && !fileSystem.existsSync(sourceRoot))) return null;
-            const familyDataDirectory = String(descriptor.family_data_directory || '').trim();
-            if (familyDataDirectory && (pathApi.isAbsolute(familyDataDirectory) || familyDataDirectory.split(/[\\/]/).includes('..'))) return null;
-            const familyDataRoot = familyDataDirectory ? pathApi.resolve(templateRoot, familyDataDirectory) : '';
-            if (familyDataRoot && (!familyDataRoot.startsWith(`${pathApi.resolve(templateRoot)}${pathApi.sep}`)
-                || (descriptor.package_ready !== false && !fileSystem.existsSync(familyDataRoot)))) return null;
+            const seedDirectory = String(descriptor.template_seed_directory || descriptor.family_data_directory || '').trim();
+            if (seedDirectory && (pathApi.isAbsolute(seedDirectory) || seedDirectory.split(/[\\/]/).includes('..'))) return null;
+            const seedRoot = seedDirectory ? pathApi.resolve(templateRoot, seedDirectory) : '';
+            if (seedRoot && (!seedRoot.startsWith(`${pathApi.resolve(templateRoot)}${pathApi.sep}`)
+                || (descriptor.package_ready !== false && !fileSystem.existsSync(seedRoot)))) return null;
             const previewFile = String(descriptor.preview_file || '').trim();
             if (previewFile && (pathApi.isAbsolute(previewFile) || previewFile.split(/[\\/]/).includes('..')
                 || !fileSystem.existsSync(pathApi.resolve(templateRoot, previewFile)))) return null;
@@ -41,7 +41,8 @@ function createSiteTemplateCatalog(options = {}) {
                 name: String(descriptor.name),
                 description: String(descriptor.description || ''),
                 source_root: sourceRoot,
-                family_data_root: familyDataRoot,
+                template_seed_root: seedRoot,
+                family_data_root: seedRoot,
                 preview_file: previewFile ? pathApi.resolve(templateRoot, previewFile) : '',
                 source_revision: String(descriptor.source_revision || ''),
                 kind: String(descriptor.kind || 'site-hosting'),
@@ -104,9 +105,9 @@ function createSiteTemplateCatalog(options = {}) {
             }
         }
 
-        if (template.family_data_root) {
+        if (template.template_seed_root || template.family_data_root) {
             copyDirectory(template.source_root, pathApi.join(destination, 'template', 'astro'));
-            copyDirectory(template.family_data_root, pathApi.join(destination, 'site-data'));
+            copyDirectory(template.template_seed_root || template.family_data_root, pathApi.join(destination, 'site-data'));
         } else {
             copyDirectory(template.source_root, destination);
         }

@@ -185,7 +185,7 @@ test('site repository applies declared template defaults and records the immutab
     }
 });
 
-test('site repository materializes family data separately from replaceable Astro presentation', () => {
+test('site repository materializes template seed separately and pins the selected Content Model', () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-family-materialization-'));
     try {
         const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
@@ -196,8 +196,19 @@ test('site repository materializes family data separately from replaceable Astro
         const template = {
             id: 'personal-post-list', version: '0.1.0', name: '글 목록형', family_id: 'personal-homepage', package_ready: true,
             resource: {
-                spec_version: SITE_HOSTING_CONTRACT_VERSION, family: { content_types: [{ kind: 'post', listing_route: '/blog/', detail_route: '/blog/{slug}/' }] },
-                template: { status: 'active' }, family_seed_site: familySeed
+                spec_version: SITE_HOSTING_CONTRACT_VERSION,
+                family: { family_id: 'personal-homepage', name: '개인 홈페이지' },
+                content_model: {
+                    spec_version: SITE_HOSTING_CONTRACT_VERSION,
+                    model_id: 'personal-homepage-content', model_version: '0.1.0',
+                    site_profile: { fields: { logo: {}, seoDescription: {}, shareImage: {}, favicon: {}, searchEngineIndexing: {} } },
+                    content_types: [{ kind: 'post', listing_route: '/blog/', detail_route: '/blog/{slug}/' }]
+                },
+                template: {
+                    status: 'active',
+                    content_model: { model_id: 'personal-homepage-content', model_version: '0.1.0' }
+                },
+                template_seed_site: familySeed
             }
         };
         const templates = {
@@ -260,6 +271,8 @@ test('site repository materializes family data separately from replaceable Astro
         assert.equal(fs.existsSync(path.join(root, 'site-data', 'data', 'pages', 'custom-https-example-com.md')), false);
         assert.equal(fs.existsSync(path.join(root, 'site-data', 'data', 'posts', 'first.md')), true);
         assert.equal(manifest.template.family_id, 'personal-homepage');
+        assert.equal(manifest.template.contract_version, SITE_HOSTING_CONTRACT_VERSION);
+        assert.deepEqual(manifest.template.content_model, { model_id: 'personal-homepage-content', model_version: '0.1.0' });
         assert.deepEqual(manifest.setup_inputs, {
             knowledge_collection_root: '/Users/test/Vault',
             publication_filter: { field: 'is_public', value: 'true' }
