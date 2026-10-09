@@ -50,6 +50,18 @@
     transform: translateX(0);
   }
 
+  html[data-sidebar-position="right"] .sidebar {
+    left: auto;
+    right: 0;
+    border-right: 0;
+    border-left: 1px solid var(--ui-border-default);
+    transform: translateX(100%);
+  }
+
+  html[data-sidebar-position="right"] .sidebar.open {
+    transform: translateX(0);
+  }
+
   .logo {
     display: none;
     /* Hide desktop logo on mobile to save space */

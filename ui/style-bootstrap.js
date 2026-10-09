@@ -1,5 +1,6 @@
 (() => {
   const storageKey = 'bloggenius.ui.style';
+  const sidebarPositionStorageKey = 'bloggenius.ui.sidebar-position';
   const cacheKey = 'bloggenius.ui.style-catalog-cache';
   const contractVersion = '1.1';
   const isSafeTokenValue = (value) => {
@@ -11,6 +12,10 @@
   };
 
   try {
+    const storedSidebarPosition = String(window.localStorage?.getItem(sidebarPositionStorageKey) || '').trim().toLowerCase();
+    if (storedSidebarPosition === 'left' || storedSidebarPosition === 'right') {
+      document.documentElement.dataset.sidebarPosition = storedSidebarPosition;
+    }
     const storedStyleId = String(window.localStorage?.getItem(storageKey) || '').trim().toLowerCase();
     const styles = JSON.parse(window.localStorage?.getItem(cacheKey) || '[]');
     const style = Array.isArray(styles)

@@ -28,7 +28,7 @@ function read(relativePath) {
 
 test('UI root keeps Warm Editorial as its only bundled baseline while selectable styles come from Amade', () => {
   const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot }).html;
-  assert.match(html, /<html lang="ko" data-style="warm-editorial">/);
+  assert.match(html, /<html lang="ko" data-style="warm-editorial" data-sidebar-position="left">/);
   assert.doesNotMatch(html, /data-theme=/);
 
   const { root, contract } = loadDesignStyleContract({ repoRoot, initialStyle: 'warm-editorial' });
@@ -42,8 +42,8 @@ test('UI root keeps Warm Editorial as its only bundled baseline while selectable
 test('cached remote tokens are applied before stylesheet paint and invalid style ids keep Warm Editorial', () => {
   const html = read('ui/index.html');
   const bootstrap = read('ui/style-bootstrap.js');
-  const bootstrapIndex = html.indexOf('<script src="./style-bootstrap.js?v=3"></script>');
-  const stylesheetIndex = html.indexOf('<link rel="stylesheet" href="./styles.css?v=7">');
+  const bootstrapIndex = html.indexOf('<script src="./style-bootstrap.js?v=4"></script>');
+  const stylesheetIndex = html.indexOf('<link rel="stylesheet" href="./styles.css?v=9">');
   assert.equal(bootstrapIndex >= 0, true);
   assert.equal(stylesheetIndex > bootstrapIndex, true);
 
@@ -63,6 +63,13 @@ test('cached remote tokens are applied before stylesheet paint and invalid style
     window: { localStorage: { getItem: (key) => key === 'bloggenius.ui.style' ? 'unknown-style' : '[]' } }
   });
   assert.equal(baselineRoot.dataset.style, 'warm-editorial');
+
+  const sidebarRoot = { dataset: { style: 'warm-editorial', sidebarPosition: 'left' }, style: { setProperty() {} } };
+  vm.runInNewContext(bootstrap, {
+    document: { documentElement: sidebarRoot },
+    window: { localStorage: { getItem: (key) => key === 'bloggenius.ui.sidebar-position' ? 'right' : '[]' } }
+  });
+  assert.equal(sidebarRoot.dataset.sidebarPosition, 'right');
 });
 
 test('unknown or empty style ids fail safely to Warm Editorial', () => {

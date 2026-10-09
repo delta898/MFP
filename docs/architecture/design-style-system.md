@@ -120,6 +120,7 @@ feature 고유의 계산값이나 layout contract만 허용한다. color나 일�
 
 - feature 기능과 데이터
 - DOM 구조와 navigation hierarchy
+- 앱 전체 메뉴 위치와 같은 개인 화면 배치 설정
 - 버튼 의미와 action priority
 - loading, disabled, error, success의 상태 전이
 - ARIA role, accessible name, keyboard order

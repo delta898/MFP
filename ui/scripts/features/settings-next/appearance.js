@@ -1,4 +1,43 @@
 let settingsNextAppearanceBound = false;
+let settingsNextSidebarPositionBound = false;
+const SETTINGS_NEXT_SIDEBAR_POSITION_STORAGE_KEY = 'bloggenius.ui.sidebar-position';
+
+function getSettingsNextSidebarPosition() {
+  const position = String(document.documentElement?.dataset?.sidebarPosition || '').trim().toLowerCase();
+  return position === 'right' ? 'right' : 'left';
+}
+
+function syncSettingsNextSidebarPosition() {
+  const position = getSettingsNextSidebarPosition();
+  document.querySelectorAll('[data-sidebar-position-option]').forEach((button) => {
+    button.setAttribute('aria-pressed', button.dataset.sidebarPositionOption === position ? 'true' : 'false');
+  });
+}
+
+function applySettingsNextSidebarPosition(candidate) {
+  const position = String(candidate || '').trim().toLowerCase();
+  if (position !== 'left' && position !== 'right') return false;
+  document.documentElement.dataset.sidebarPosition = position;
+  syncSettingsNextSidebarPosition();
+  let persisted = false;
+  try {
+    window.localStorage?.setItem(SETTINGS_NEXT_SIDEBAR_POSITION_STORAGE_KEY, position);
+    persisted = true;
+  } catch (_error) { }
+  const feedback = document.getElementById('settings-next-sidebar-position-feedback');
+  if (feedback) feedback.textContent = persisted ? '' : '메뉴 위치를 바꿨지만 이 기기에 저장하지 못했습니다.';
+  window.dispatchEvent(new Event('resize'));
+  return true;
+}
+
+function initSettingsNextSidebarPosition() {
+  syncSettingsNextSidebarPosition();
+  if (settingsNextSidebarPositionBound) return;
+  settingsNextSidebarPositionBound = true;
+  document.querySelectorAll('[data-sidebar-position-option]').forEach((button) => {
+    button.addEventListener('click', () => applySettingsNextSidebarPosition(button.dataset.sidebarPositionOption));
+  });
+}
 
 function getSettingsNextAppearanceCopy(styleId) {
   const entry = typeof getDesignStyleEntry === 'function' ? getDesignStyleEntry(styleId) : null;
@@ -95,6 +134,7 @@ function initSettingsNextAppearance() {
   const grid = document.getElementById('settings-next-appearance-grid');
   if (!grid) return;
   settingsNextAppearanceBound = true;
+  initSettingsNextSidebarPosition();
   if (typeof refreshRemoteDesignStyles === 'function') {
     void refreshRemoteDesignStyles().finally(() => renderSettingsNextAppearance());
   } else {

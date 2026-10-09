@@ -2604,6 +2604,23 @@ async function run() {
         await page.locator('.nav-btn[data-view="settings-next"]').click();
         await page.waitForFunction(() => document.getElementById('view-settings-next')?.classList.contains('active'));
         await page.waitForFunction(() => document.querySelector('#settings-next-ai-text-form [data-ai-field="name"]')?.value === 'fixture-text');
+        await page.locator('[data-settings-next-tab="app"]').click();
+        await page.locator('#settings-next-app-tab-appearance').click();
+        await page.waitForFunction(() => document.querySelectorAll('#settings-next-appearance-grid [data-appearance-style]').length > 0);
+        await page.locator('[data-sidebar-position-option="right"]').click();
+        assert.equal(await page.locator('html').getAttribute('data-sidebar-position'), 'right');
+        assert.equal(await page.locator('[data-sidebar-position-option="right"]').getAttribute('aria-pressed'), 'true');
+        assert.equal(await page.locator('.app').evaluate((element) => getComputedStyle(element).flexDirection), 'row-reverse');
+        assert.equal(await page.evaluate(() => localStorage.getItem('bloggenius.ui.sidebar-position')), 'right');
+        const rightSidebarBounds = await page.locator('#sidebar').evaluate((element) => ({
+            sidebarRight: element.getBoundingClientRect().right,
+            appRight: document.querySelector('.app').getBoundingClientRect().right
+        }));
+        assert.ok(Math.abs(rightSidebarBounds.sidebarRight - rightSidebarBounds.appRight) <= 1);
+        await page.locator('[data-sidebar-position-option="left"]').click();
+        assert.equal(await page.locator('.app').evaluate((element) => getComputedStyle(element).flexDirection), 'row');
+        assert.equal(await page.evaluate(() => localStorage.getItem('bloggenius.ui.sidebar-position')), 'left');
+        await page.locator('[data-settings-next-tab="ai"]').click();
         await page.locator('input[name="settings-next-ai-chat-source"][value="dedicated"]').check();
         await page.evaluate(() => settingsNextClearScopeDirty('ai-chat'));
         assert.equal(await page.locator('[data-settings-next-ai-fields="chat"]').isHidden(), false);

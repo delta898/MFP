@@ -16,10 +16,16 @@ test('appearance tab renders registry-driven live previews without compatibility
   assert.match(html, /data-settings-next-app-tab="appearance"[^>]*>외모<\/button>/);
   assert.match(html, /id="settings-next-app-panel-appearance"/);
   assert.match(html, /id="settings-next-appearance-grid"/);
+  assert.match(html, /aria-label="앱 메뉴 위치"/);
+  assert.doesNotMatch(html, /settings-next-sidebar-position-label/);
+  assert.match(html, /data-sidebar-position-option="left" aria-label="왼쪽에 메뉴 표시" aria-pressed="true"/);
+  assert.match(html, /data-sidebar-position-option="right" aria-label="오른쪽에 메뉴 표시" aria-pressed="false"/);
   assert.match(appearance, /getSelectableDesignStyles/);
   assert.match(appearance, /data-style/);
   assert.match(appearance, /aria-pressed/);
   assert.match(appearance, /persistDesignStyleId/);
+  assert.match(appearance, /bloggenius\.ui\.sidebar-position/);
+  assert.match(appearance, /applySettingsNextSidebarPosition/);
   assert.match(appearance, /initSettingsNextAppearance/);
   assert.doesNotMatch(appearance, /compatibility/);
   assert.doesNotMatch(appearance, /warm-editorial/);
@@ -54,9 +60,19 @@ test('appearance styles use shared tokens only', () => {
   const manifest = read('ui/styles.css');
 
   assert.match(manifest, /\/\* @include styles\/features\/settings-next-appearance\.css \*\//);
+  assert.match(manifest, /\/\* @include styles\/layout\/shell-navigation\.css \*\//);
   assert.match(css, /\.settings-next-appearance-grid/);
+  assert.match(css, /\.settings-next-sidebar-layout/);
+  assert.match(css, /\.settings-next-sidebar-position-option\[aria-pressed="true"\]/);
   assert.match(css, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
   assert.match(css, /\.appearance-style-card\[aria-pressed="true"\]/);
+  const shell = read('ui/styles/layout/shell-navigation.css');
+  const responsiveShell = read('ui/styles/layout/responsive-shell.css');
+  const responsive = read('ui/styles/layout/responsive.css');
+  assert.match(shell, /html\[data-sidebar-position="right"\] \.app\s*\{\s*flex-direction:\s*row-reverse/s);
+  assert.match(responsiveShell, /html\[data-sidebar-position="right"\] \.sidebar\s*\{[^}]*right:\s*0;[^}]*transform:\s*translateX\(100%\)/s);
+  assert.match(responsiveShell, /html\[data-sidebar-position="right"\] \.sidebar\.open\s*\{\s*transform:\s*translateX\(0\)/s);
+  assert.match(responsive, /html\[data-sidebar-position="right"\] body\.mobile-quick-mode \.sidebar/);
   assert.doesNotMatch(css, /#[0-9a-f]{3,8}/i);
   assert.doesNotMatch(css, /rgba?\(/i);
   assert.doesNotMatch(css, /font-size:\s*\d+px/);

@@ -1,4 +1,17 @@
 .settings-next-appearance-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-space-3); }
+.settings-next-appearance-heading { align-items: flex-start; }
+.settings-next-sidebar-position { display: block; flex: 0 0 auto; }
+.settings-next-sidebar-position-options { display: flex; gap: var(--ui-space-2); }
+.settings-next-sidebar-position-option { display: grid; justify-items: center; gap: var(--ui-space-1); min-width: 66px; padding: var(--ui-space-2); border: 1px solid var(--ui-border-default); border-radius: var(--ui-radius-md); background: var(--ui-surface); color: var(--ui-text-secondary); font: inherit; font-size: var(--ui-type-caption-size); cursor: pointer; transition: border-color var(--ui-motion-fast), background-color var(--ui-motion-fast), box-shadow var(--ui-motion-fast), color var(--ui-motion-fast); }
+.settings-next-sidebar-position-option:hover { border-color: var(--ui-action-primary); }
+.settings-next-sidebar-position-option[aria-pressed="true"] { border-color: var(--ui-action-primary); background: var(--ui-action-primary-soft); color: var(--ui-action-primary); box-shadow: var(--ui-focus-ring); }
+.settings-next-sidebar-position-option:focus-visible { outline: 2px solid var(--ui-action-primary); outline-offset: 2px; }
+.settings-next-sidebar-layout { display: flex; gap: 3px; width: 44px; height: 28px; padding: 3px; border: 1px solid var(--ui-border-strong); border-radius: var(--ui-radius-sm); background: var(--ui-surface); }
+.settings-next-sidebar-position-option[data-sidebar-position-option="right"] .settings-next-sidebar-layout { flex-direction: row-reverse; }
+.settings-next-sidebar-layout-rail { flex: 0 0 9px; border-radius: 2px; background: var(--ui-action-primary); opacity: 0.75; }
+.settings-next-sidebar-layout-content { display: grid; flex: 1; align-content: start; gap: 3px; padding-top: 1px; }
+.settings-next-sidebar-layout-content span { height: 3px; border-radius: 2px; background: var(--ui-border-strong); }
+.settings-next-sidebar-layout-content span:last-child { width: 70%; }
 .appearance-style-card { display: grid; gap: var(--ui-space-3); align-content: start; padding: var(--ui-space-4); border: 1px solid var(--ui-border-default); border-radius: var(--ui-card-radius); background: var(--ui-surface); color: inherit; font: inherit; text-align: left; cursor: pointer; transition: border-color var(--ui-motion-fast), box-shadow var(--ui-motion-fast); }
 .appearance-style-card:hover { border-color: var(--ui-action-primary); }
 .appearance-style-card[aria-pressed="true"] { border-color: var(--ui-action-primary); box-shadow: var(--ui-focus-ring); }

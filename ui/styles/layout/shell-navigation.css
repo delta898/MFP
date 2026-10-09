@@ -6,6 +6,17 @@
   overflow: hidden;
 }
 
+@media (min-width: 961px) {
+  html[data-sidebar-position="right"] .app {
+    flex-direction: row-reverse;
+  }
+
+  html[data-sidebar-position="right"] .sidebar {
+    border-right: 0;
+    border-left: 1px solid var(--ui-border-default);
+  }
+}
+
 .sidebar {
   width: 224px;
   flex-shrink: 0;

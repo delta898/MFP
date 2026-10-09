@@ -416,7 +416,22 @@
           </section>
           <section class="settings-next-app-panel" id="settings-next-app-panel-appearance" role="tabpanel" aria-labelledby="settings-next-app-tab-appearance" hidden>
             <section class="ui-settings-card" aria-busy="false">
-              <div class="ui-settings-card-heading"><div><h3>화면 외모</h3><p>앱 전체에 적용할 시각 스타일을 고릅니다. 바꾸는 즉시 반영되며 진행 중인 작업은 그대로 둡니다.</p></div></div>
+              <div class="ui-settings-card-heading settings-next-appearance-heading">
+                <div><h3>화면 외모</h3><p>앱 전체에 적용할 시각 스타일을 고릅니다. 바꾸는 즉시 반영되며 진행 중인 작업은 그대로 둡니다.</p></div>
+                <div class="settings-next-sidebar-position">
+                  <div class="settings-next-sidebar-position-options" role="group" aria-label="앱 메뉴 위치">
+                    <button class="settings-next-sidebar-position-option" type="button" data-sidebar-position-option="left" aria-label="왼쪽에 메뉴 표시" aria-pressed="true">
+                      <span class="settings-next-sidebar-layout" aria-hidden="true"><span class="settings-next-sidebar-layout-rail"></span><span class="settings-next-sidebar-layout-content"><span></span><span></span></span></span>
+                      <span>왼쪽</span>
+                    </button>
+                    <button class="settings-next-sidebar-position-option" type="button" data-sidebar-position-option="right" aria-label="오른쪽에 메뉴 표시" aria-pressed="false">
+                      <span class="settings-next-sidebar-layout" aria-hidden="true"><span class="settings-next-sidebar-layout-rail"></span><span class="settings-next-sidebar-layout-content"><span></span><span></span></span></span>
+                      <span>오른쪽</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <p id="settings-next-sidebar-position-feedback" class="ui-settings-card-feedback" role="status" aria-live="polite"></p>
               <div id="settings-next-appearance-grid" class="settings-next-appearance-grid"></div>
               <p id="settings-next-appearance-feedback" class="ui-settings-card-feedback" role="status" aria-live="polite"></p>
             </section>

@@ -78,6 +78,13 @@
     border-bottom-right-radius: 24px;
   }
 
+  html[data-sidebar-position="right"] body.mobile-quick-mode .sidebar {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-top-left-radius: 24px;
+    border-bottom-left-radius: 24px;
+  }
+
   body.mobile-quick-mode .sidebar-header {
     margin-bottom: 22px;
     padding: 0 4px;
