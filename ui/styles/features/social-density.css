@@ -12,6 +12,14 @@
   padding: var(--ui-density-section-padding);
 }
 
+.social-view .social-composer-layout {
+  margin-inline: var(--ui-space-6);
+}
+
+.social-view .social-live-preview {
+  margin-inline: 0;
+}
+
 .social-view .social-composer-section {
   padding: var(--ui-density-section-padding);
   border-color: var(--ui-border-default);
