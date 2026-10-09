@@ -1,79 +1,8 @@
 const DESIGN_STYLE_REGISTRY = Object.freeze({
-  compatibility: Object.freeze({
-    id: 'compatibility',
-    label: 'Compatibility',
-    contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
-    selectable: false
-  }),
   'warm-editorial': Object.freeze({
     id: 'warm-editorial',
-    label: '따뜻한 에디토리얼',
-    blurb: '기본 화면. 종이 질감의 따뜻함과 여유로운 밀도입니다.',
     contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
-    selectable: true
-  }),
-  'quiet-sage-studio': Object.freeze({
-    id: 'quiet-sage-studio',
-    label: '고요한 세이지 스튜디오',
-    blurb: '차분한 세이지 색감의 조용한 밀도입니다.',
-    contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
-    selectable: true
-  }),
-  'autumn-night-library': Object.freeze({
-    id: 'autumn-night-library',
-    label: '가을밤 서재',
-    blurb: '짙은 월넛과 구리빛으로 집중감을 높인 어두운 스타일입니다.',
-    contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
-    selectable: true
-  }),
-  'hanji-dancheong': Object.freeze({
-    id: 'hanji-dancheong',
-    label: '한지 위의 단청',
-    blurb: '한지의 여백에 먹색과 절제된 단청색을 더한 반듯한 스타일입니다.',
-    contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
-    selectable: true
-  }),
-  'retro-terminal': Object.freeze({
-    id: 'retro-terminal',
-    label: '레트로 터미널',
-    blurb: '인광빛과 선명한 경계로 자동화 작업의 리듬을 살린 어두운 스타일입니다.',
-    contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
-    selectable: true
-  }),
-  minimalism: Object.freeze({
-    id: 'minimalism',
-    label: '미니멀',
-    blurb: '색과 장식을 걷어낸 가장 단순한 화면입니다.',
-    contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
-    selectable: true
-  }),
-  'cerulean-atelier': Object.freeze({
-    id: 'cerulean-atelier',
-    label: '세룰리안 아틀리에',
-    blurb: '맑은 세룰리안 블루와 차가운 백색으로 완성한 선명한 에디토리얼입니다.',
-    contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
-    selectable: true
-  }),
-  'amethyst-salon': Object.freeze({
-    id: 'amethyst-salon',
-    label: '자수정 살롱',
-    blurb: '플럼빛 다크 바탕에 자수정과 은빛 라일락을 얹은 우아한 스타일입니다.',
-    contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
-    selectable: true
-  }),
-  techwear: Object.freeze({
-    id: 'techwear',
-    label: '테크웨어',
-    blurb: '차콜과 블루그레이, 절제된 빙하 블루 포인트로 완성한 기능적 스타일입니다.',
-    contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
-    selectable: true
-  }),
-  goblincore: Object.freeze({
-    id: 'goblincore',
-    label: '고블린코어',
-    blurb: '이끼·버섯·흙빛과 유기적인 표면 질감에서 영감을 얻은 스타일입니다.',
-    contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
-    selectable: true
+    selectable: false
   })
 });
 
@@ -82,6 +11,7 @@ const DESIGN_STYLE_REMOTE_REGISTRY = new Map();
 const DESIGN_STYLE_APPLIED_TOKENS = new WeakMap();
 let designStyleCatalogPromise = null;
 let designStyleCatalogLoadedAt = 0;
+let designStyleCatalogInitialized = false;
 
 function isSafeDesignStyleTokenValue(value) {
   const normalized = String(value || '').trim();
@@ -123,6 +53,7 @@ function registerRemoteDesignStyles(styles) {
   }
   DESIGN_STYLE_REMOTE_REGISTRY.clear();
   next.forEach((style, id) => DESIGN_STYLE_REMOTE_REGISTRY.set(id, style));
+  designStyleCatalogInitialized = true;
   return true;
 }
 
@@ -134,12 +65,14 @@ function readCachedRemoteDesignStyles() {
   try {
     const raw = window.localStorage?.getItem(DESIGN_STYLE_REMOTE_STORAGE_KEY) || '';
     if (!raw) return false;
-    return registerRemoteDesignStyles(JSON.parse(raw));
+    const registered = registerRemoteDesignStyles(JSON.parse(raw));
+    if (registered) designStyleCatalogLoadedAt = Date.now();
+    return registered;
   } catch (_error) { return false; }
 }
 
 async function refreshRemoteDesignStyles() {
-  if (DESIGN_STYLE_REMOTE_REGISTRY.size && Date.now() - designStyleCatalogLoadedAt < 5 * 60 * 1000) return true;
+  if (designStyleCatalogInitialized && Date.now() - designStyleCatalogLoadedAt < 5 * 60 * 1000) return true;
   if (designStyleCatalogPromise) return designStyleCatalogPromise;
   designStyleCatalogPromise = (async () => {
     if (typeof window.fetch !== 'function') return false;
@@ -149,8 +82,8 @@ async function refreshRemoteDesignStyles() {
     if (!response.ok || body?.success !== true || !Array.isArray(styles) || !registerRemoteDesignStyles(styles)) return false;
     try { window.localStorage?.setItem(DESIGN_STYLE_REMOTE_STORAGE_KEY, JSON.stringify(styles)); } catch (_error) { }
     designStyleCatalogLoadedAt = Date.now();
-    const selected = readStoredDesignStyleId();
-    if (selected) applyDesignStyle(selected);
+    const selected = readStoredDesignStyleId() || DESIGN_STYLE_DEFAULT_ID;
+    applyDesignStyle(selected);
     return true;
   })().catch(() => false).finally(() => { designStyleCatalogPromise = null; });
   return designStyleCatalogPromise;
@@ -158,14 +91,13 @@ async function refreshRemoteDesignStyles() {
 
 function resolveDesignStyleId(candidate) {
   const normalized = String(candidate || '').trim().toLowerCase();
-  return DESIGN_STYLE_REMOTE_REGISTRY.has(normalized) || Object.prototype.hasOwnProperty.call(DESIGN_STYLE_REGISTRY, normalized)
+  return DESIGN_STYLE_REMOTE_REGISTRY.has(normalized) || normalized === DESIGN_STYLE_DEFAULT_ID
     ? normalized
     : DESIGN_STYLE_DEFAULT_ID;
 }
 
 function getSelectableDesignStyles() {
-  if (DESIGN_STYLE_REMOTE_REGISTRY.size) return [...DESIGN_STYLE_REMOTE_REGISTRY.values()];
-  return Object.values(DESIGN_STYLE_REGISTRY).filter((style) => style.selectable === true);
+  return designStyleCatalogInitialized ? [...DESIGN_STYLE_REMOTE_REGISTRY.values()] : [];
 }
 
 function readStoredDesignStyleId() {
@@ -173,7 +105,7 @@ function readStoredDesignStyleId() {
     const stored = String(window.localStorage?.getItem(DESIGN_STYLE_STORAGE_KEY) || '').trim().toLowerCase();
     if (!stored) return '';
     const entry = getDesignStyleEntry(stored);
-    return entry && entry.selectable === true ? stored : '';
+    return stored === DESIGN_STYLE_DEFAULT_ID || (entry && entry.selectable === true) ? stored : '';
   } catch (error) {
     return '';
   }

@@ -26,92 +26,68 @@ function read(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 }
 
-test('UI root selects warm editorial as the main style while compatibility remains the safe fallback', () => {
+test('UI root keeps Warm Editorial as its only bundled baseline while selectable styles come from Amade', () => {
   const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot }).html;
   assert.match(html, /<html lang="ko" data-style="warm-editorial">/);
   assert.doesNotMatch(html, /data-theme=/);
 
   const { root, contract } = loadDesignStyleContract({ repoRoot, initialStyle: 'warm-editorial' });
-  assert.equal(contract.defaultId, 'compatibility');
-  Object.entries(contract.registry).forEach(([styleId, entry]) => {
-    assert.match(styleId, /^[a-z0-9]+(?:-[a-z0-9]+)*$/);
-    assert.equal(entry.id, styleId);
-    assert.equal(entry.contractVersion, DESIGN_STYLE_CONTRACT_VERSION);
-    assert.equal(typeof entry.selectable, 'boolean');
-  });
-  assert.equal(contract.registry.compatibility.selectable, false);
-  assert.equal(contract.registry['warm-editorial'].selectable, true);
+  assert.equal(contract.defaultId, 'warm-editorial');
+  assert.deepEqual(Object.keys(contract.registry), ['warm-editorial']);
+  assert.equal(contract.registry['warm-editorial'].selectable, false);
+  assert.equal(contract.selectableStyles.length, 0);
   assert.equal(root.dataset.style, 'warm-editorial');
 });
 
-test('stored style is applied before the stylesheet can paint the HTML default', () => {
+test('cached remote tokens are applied before stylesheet paint and invalid style ids keep Warm Editorial', () => {
   const html = read('ui/index.html');
   const bootstrap = read('ui/style-bootstrap.js');
-  const bootstrapIndex = html.indexOf('<script src="./style-bootstrap.js?v=2"></script>');
-  const stylesheetIndex = html.indexOf('<link rel="stylesheet" href="./styles.css?v=6">');
-  const { contract } = loadDesignStyleContract({ repoRoot, initialStyle: 'warm-editorial' });
-  const selectableIds = Object.values(contract.registry)
-    .filter((style) => style.selectable === true)
-    .map((style) => style.id);
-  const bootstrapIdsSource = bootstrap.match(/const selectableStyleIds = new Set\(\[([\s\S]*?)\]\);/)?.[1] || '';
-  const bootstrapIds = Array.from(bootstrapIdsSource.matchAll(/'([^']+)'/g), (match) => match[1]);
-
+  const bootstrapIndex = html.indexOf('<script src="./style-bootstrap.js?v=3"></script>');
+  const stylesheetIndex = html.indexOf('<link rel="stylesheet" href="./styles.css?v=7">');
   assert.equal(bootstrapIndex >= 0, true);
   assert.equal(stylesheetIndex > bootstrapIndex, true);
-  assert.deepEqual([...bootstrapIds].sort(), [...selectableIds].sort());
 
-  selectableIds.forEach((styleId) => {
-    const root = { dataset: { style: 'warm-editorial' } };
-    vm.runInNewContext(bootstrap, {
-      document: { documentElement: root },
-      window: { localStorage: { getItem: () => styleId } }
-    });
-    assert.equal(root.dataset.style, styleId);
-  });
-
-  const root = { dataset: { style: 'warm-editorial' } };
+  const styleId = 'remote-forest';
+  const cache = [{ id: styleId, contractVersion: DESIGN_STYLE_CONTRACT_VERSION, selectable: true, tokens: { '--ui-action-primary': '#49675a' } }];
+  const root = { dataset: { style: 'warm-editorial' }, style: { setProperty(name, value) { this[name] = value; } } };
   vm.runInNewContext(bootstrap, {
     document: { documentElement: root },
-    window: { localStorage: { getItem: () => 'unknown-style' } }
+    window: { localStorage: { getItem: (key) => key === 'bloggenius.ui.style' ? styleId : JSON.stringify(cache) } }
   });
-  assert.equal(root.dataset.style, 'warm-editorial');
+  assert.equal(root.dataset.style, styleId);
+  assert.equal(root.style['--ui-action-primary'], '#49675a');
+
+  const baselineRoot = { dataset: { style: 'warm-editorial' }, style: { setProperty() {} } };
+  vm.runInNewContext(bootstrap, {
+    document: { documentElement: baselineRoot },
+    window: { localStorage: { getItem: (key) => key === 'bloggenius.ui.style' ? 'unknown-style' : '[]' } }
+  });
+  assert.equal(baselineRoot.dataset.style, 'warm-editorial');
 });
 
-test('unknown or empty style ids fail safely to compatibility', () => {
+test('unknown or empty style ids fail safely to Warm Editorial', () => {
   const { root, contract } = loadDesignStyleContract({ repoRoot, initialStyle: 'future-unknown-style' });
-  assert.equal(root.dataset.style, 'compatibility');
-  assert.equal(contract.resolveDesignStyleId(''), 'compatibility');
-  assert.equal(contract.resolveDesignStyleId(' Editorial '), 'compatibility');
-
+  assert.equal(root.dataset.style, 'warm-editorial');
+  assert.equal(contract.resolveDesignStyleId(''), 'warm-editorial');
+  assert.equal(contract.resolveDesignStyleId(' Editorial '), 'warm-editorial');
   const anotherRoot = { dataset: {} };
   const applied = contract.applyDesignStyle('not-registered', anotherRoot);
-  assert.equal(applied.id, 'compatibility');
-  assert.equal(anotherRoot.dataset.style, 'compatibility');
+  assert.equal(applied.id, 'warm-editorial');
+  assert.equal(anotherRoot.dataset.style, 'warm-editorial');
 });
 
-test('every registered style supplies every required semantic and component token', () => {
-  const { contract } = loadDesignStyleContract({ repoRoot, initialStyle: 'compatibility' });
+test('Warm Editorial is the only bundled style token module and supplies the full contract', () => {
+  const { contract } = loadDesignStyleContract({ repoRoot, initialStyle: 'warm-editorial' });
   const registeredStyleIds = getRegisteredStyleIds({ repoRoot });
   const styleDirectory = path.join(uiRoot, 'styles', 'styles');
-  const styleFileIds = fs.readdirSync(styleDirectory)
-    .filter((fileName) => fileName.endsWith('.css'))
-    .map((fileName) => path.basename(fileName, '.css'))
-    .sort();
-
+  const styleFileIds = fs.readdirSync(styleDirectory).filter((fileName) => fileName.endsWith('.css')).map((fileName) => path.basename(fileName, '.css')).sort();
   assert.equal(contract.requiredTokens.length, new Set(contract.requiredTokens).size);
-  assert.deepEqual(styleFileIds, [...registeredStyleIds].sort());
+  assert.deepEqual(registeredStyleIds, ['warm-editorial']);
+  assert.deepEqual(styleFileIds, ['warm-editorial']);
   registeredStyleIds.forEach((styleId) => {
-    const stylePath = getStyleRepoPath(styleId);
-    assert.equal(fs.existsSync(path.join(repoRoot, stylePath)), true, stylePath);
-    const css = read(stylePath);
-    const definitions = new Set(
-      Array.from(css.matchAll(/(^|[;{])\s*(--ui-[a-z0-9-]+)\s*:/gm), (match) => match[2])
-    );
-    assert.equal(
-      contract.requiredTokens.filter((token) => !definitions.has(token)).length,
-      0,
-      styleId
-    );
+    const css = read(getStyleRepoPath(styleId));
+    const definitions = new Set(Array.from(css.matchAll(/(^|[;{])\s*(--ui-[a-z0-9-]+)\s*:/gm), (match) => match[2]));
+    assert.equal(contract.requiredTokens.filter((token) => !definitions.has(token)).length, 0, styleId);
     assert.match(css, new RegExp(`\\[data-style="${styleId}"\\]`));
   });
 });
@@ -128,9 +104,9 @@ test('non-target views opt into compatibility containment explicitly', () => {
     assert.match(tag, /data-style-scope="compatibility"/, viewId);
   });
 
-  const compatibility = read('ui/styles/styles/compatibility.css');
+  const warmEditorial = read('ui/styles/styles/warm-editorial.css');
   const aliases = read('ui/styles/tokens/legacy-aliases.css');
-  assert.match(compatibility, /\[data-style-scope="compatibility"\]/);
+  assert.match(warmEditorial, /\[data-style-scope="compatibility"\]/);
   assert.match(aliases, /\[data-style-scope="compatibility"\]/);
   assert.match(html, /id="blog-edit-modal-backdrop"[^>]*data-style-scope="compatibility"/);
   assert.doesNotMatch(html, /id="shopping-edit-modal-backdrop"[^>]*data-style-scope="compatibility"/);
@@ -190,7 +166,7 @@ test('shared action pattern keeps one filled primary and lower-emphasis alternat
   assert.match(selectionControls, /input\[type="checkbox"\][\s\S]*input\[type="radio"\][\s\S]*accent-color:\s*var\(--ui-action-primary\);/);
   assert.match(blogNext, /id="blog-next-automation-test"[\s\S]*id="blog-next-automation-save"/);
   assert.doesNotMatch(autoManualRule, /(?:^|;)\s*(?:border|background|color)\s*:/);
-  assert.match(automationSettings, /\[data-style-scope="compatibility"\] \.auto-manual-row button\s*\{[^}]*background:\s*#475569;/s);
+  assert.match(automationSettings, /\[data-style-scope="compatibility"\] \.auto-manual-row button\s*\{[^}]*background:\s*var\(--ui-button-secondary-background\)/s);
   assert.doesNotMatch(modalBatch, /\n\.modal-footer button\.(?:primary|secondary)(?::hover)?\s*\{/);
   assert.match(modalBatch, /\[data-style-scope="compatibility"\] \.modal-footer button\.secondary\s*\{/);
   const overlays = read('ui/partials/overlays.html');
@@ -258,96 +234,11 @@ test('warm editorial avoids the compatibility blue and dark filled secondary pal
   assert.doesNotMatch(css, /#0ea5e9|#0284c7|#475569|#334155/i);
 });
 
-test('quiet sage varies palette, density, radius and elevation without style-specific component selectors', () => {
-  const css = read('ui/styles/styles/quiet-sage-studio.css');
-  const shared = [
-    read('ui/styles/patterns/actions.css'),
-    read('ui/styles/patterns/selection-controls.css'),
-    read('ui/styles/patterns/transaction-dialog.css'),
-    read('ui/styles/patterns/overview-card.css'),
-    read('ui/styles/features/dashboard-beta.css'),
-    read('ui/styles/features/recommendation-center.css'),
-    read('ui/styles/features/recommendations.css'),
-    read('ui/styles/features/continuous-publishing.css'),
-    read('ui/styles/features/blog-next-smart-comment.css')
-  ].join('\n');
-
-  assert.match(css, /--ui-action-primary:\s*#49675a;/);
-  assert.match(css, /--ui-radius-md:\s*8px;/);
-  assert.match(css, /--ui-space-4:\s*14px;/);
-  assert.match(css, /--ui-card-shadow:\s*none;/);
-  assert.doesNotMatch(css, /#0ea5e9|#0284c7|#475569|#334155/i);
-  assert.doesNotMatch(shared, /quiet-sage-studio/);
-});
-
-test('autumn night library supplies a distinct dark surface without feature-specific branches', () => {
-  const css = read('ui/styles/styles/autumn-night-library.css');
-  const modals = read('ui/styles/components/modals-batch.css');
-  const shared = getDesignSystemStylePaths(CONTRACTS.STRICT_STYLE).map(read).join('\n');
-
-  assert.match(css, /--ui-canvas:\s*linear-gradient\([^;]*#211a16[^;]*#171311/);
-  assert.match(css, /--ui-surface:\s*#2b231e;/);
-  assert.match(css, /--ui-text-primary:\s*#f1e6d5;/);
-  assert.match(css, /--ui-action-primary:\s*#c97845;/);
-  assert.match(css, /--ui-status-success:\s*#8fa273;/);
-  assert.match(css, /--ui-radius-md:\s*8px;/);
-  assert.match(css, /--ui-space-4:\s*14px;/);
-  assert.match(modals, /\.modal-footer\s*\{[^}]*background:\s*var\(--ui-surface-muted\)/s);
-  assert.doesNotMatch(modals.match(/\.modal-footer\s*\{([^}]*)\}/)?.[1] || '', /#[0-9a-f]{3,8}|rgba?\(/i);
-  assert.doesNotMatch(shared, /autumn-night-library/);
-});
-
-test('hanji dancheong supplies a distinct Korean palette and rectilinear rhythm without feature-specific branches', () => {
-  const css = read('ui/styles/styles/hanji-dancheong.css');
-  const shared = getDesignSystemStylePaths(CONTRACTS.STRICT_STYLE).map(read).join('\n');
-
-  assert.match(css, /--ui-canvas:\s*linear-gradient\([^;]*#dbe5e1[^;]*#eee5d4[^;]*#dbe1e8/);
-  assert.match(css, /--ui-surface:\s*#fffaf0;/);
-  assert.match(css, /--ui-surface-muted:\s*#e5eee8;/);
-  assert.match(css, /--ui-text-primary:\s*#1f2928;/);
-  assert.match(css, /--ui-action-primary:\s*#235b73;/);
-  assert.match(css, /--ui-action-secondary:\s*#40544f;/);
-  assert.match(css, /--ui-action-danger:\s*#a13d35;/);
-  assert.match(css, /--ui-status-info:\s*#294c73;/);
-  assert.match(css, /--ui-status-success:\s*#506b4b;/);
-  assert.match(css, /--ui-radius-md:\s*3px;/);
-  assert.match(css, /--ui-space-4:\s*17px;/);
-  assert.match(css, /--ui-card-shadow:\s*none;/);
-  assert.doesNotMatch(shared, /hanji-dancheong/);
-});
-
-test('retro terminal supplies a restrained phosphor surface without feature-specific branches', () => {
-  const css = read('ui/styles/styles/retro-terminal.css');
-  const shared = getDesignSystemStylePaths(CONTRACTS.STRICT_STYLE).map(read).join('\n');
-
-  assert.match(css, /--ui-canvas:\s*linear-gradient\([^;]*#07100b[^;]*#030806/);
-  assert.match(css, /--ui-surface:\s*#0b1510;/);
-  assert.match(css, /--ui-text-primary:\s*#d8f5df;/);
-  assert.match(css, /--ui-action-primary:\s*#d7a84f;/);
-  assert.match(css, /--ui-status-success:\s*#78d99a;/);
-  assert.match(css, /--ui-font-sans:\s*ui-monospace[^;]*'Noto Sans KR'/);
-  assert.match(css, /--ui-radius-md:\s*3px;/);
-  assert.match(css, /--ui-space-4:\s*14px;/);
-  assert.match(css, /--ui-card-hover-transform:\s*none;/);
-  assert.doesNotMatch(css, /animation|filter\s*:/i);
-  assert.doesNotMatch(shared, /retro-terminal/);
-});
-
-test('minimalism supplies a flat monochrome surface without feature-specific branches', () => {
-  const css = read('ui/styles/styles/minimalism.css');
-  const shared = getDesignSystemStylePaths(CONTRACTS.STRICT_STYLE).map(read).join('\n');
-
-  assert.match(css, /\[data-style="minimalism"\]/);
-  assert.match(css, /--ui-canvas:\s*#ffffff;/);
-  assert.match(css, /--ui-text-primary:\s*#111111;/);
-  assert.match(css, /--ui-action-primary:\s*#222222;/);
-  assert.match(css, /--ui-radius-md:\s*4px;/);
-  assert.match(css, /--ui-card-shadow:\s*none;/);
-  assert.match(css, /--ui-shadow-md:\s*none;/);
-  assert.match(css, /--ui-channel-naver:\s*#03C75A;/);
-  assert.match(css, /--ui-channel-wordpress:\s*#21759B;/);
-  assert.doesNotMatch(css, /linear-gradient/);
-  assert.doesNotMatch(shared, /minimalism/);
+test('Warm Editorial also supplies tokens to legacy compatibility scopes', () => {
+  const css = read('ui/styles/styles/warm-editorial.css');
+  assert.match(css, /--ui-action-primary:\s*#b65f42;/);
+  assert.match(css, /--ui-button-secondary-background:\s*#fffdf9;/);
+  assert.match(css, /\[data-style-scope="compatibility"\]/);
 });
 
 test('shared patterns and Blog Beta anchored surfaces consume shared elevation recipes', () => {

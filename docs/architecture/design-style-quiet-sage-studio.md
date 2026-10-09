@@ -4,7 +4,7 @@
 
 - Style ID: `quiet-sage-studio`
 - 사용자 표시 이름: `고요한 세이지 스튜디오`
-- Status: 사용자 시각 승인 및 확장성 검증 완료
+- Status: Amade 원격 selectable package; 앱에는 metadata와 token 값이 번들되지 않음
 - Source stage: `codex/feature/design-system-04-extensibility-validation`
 - 적용 범위: 공통 shell과 `블로그 Beta`의 검증 기준 화면
 
@@ -50,7 +50,7 @@ Warm Editorial의 종이와 잉크 감성에서 벗어나, 차분하고 정돈�
 
 - surface, border와 typography를 먼저 사용해 hierarchy를 만든다.
 - primary와 success를 문구·형태·맥락으로 함께 구분한다.
-- 동일 DOM에서 Warm Editorial과 전환하며 입력·상태 보존을 확인한다.
+- 동일 DOM에서 Warm Editorial fallback 및 다른 원격 스타일과 전환하며 입력·상태 보존을 확인한다.
 - raw blue/slate가 눈에 띄는 경우 의미를 분류한 뒤 필요한 공통 token만 추가한다.
 
 ## Don't

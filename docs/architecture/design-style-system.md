@@ -2,7 +2,7 @@
 
 ## 문서 상태
 
-- Status: 10개 selectable style의 semantic token 계약 유지; Amade 원격 패키지 연동은 0.1 실험 단계
+- Status: 앱은 CSS 규칙과 Warm Editorial fallback만 소유; selectable style metadata와 token은 Amade catalog에서 로드
 - Source stage: `codex/feature/design-system-01-principles`
 - 목적: 여러 style이 같은 기능·component 위에서 안전하게 동작하기 위한 최소 계약을 정의한다.
 
@@ -37,16 +37,16 @@ App Shell and Feature Surfaces
 최종 적용 지점은 document root의 명시적 속성을 기본안으로 한다.
 
 ```html
-<html data-style="compatibility">
+<html data-style="warm-editorial">
 ```
 
-- `data-style`: 등록된 style pack ID
-- 누락되거나 알 수 없는 값은 안전한 기본 style로 fallback
+- `data-style`: Amade catalog에서 검증된 style ID 또는 내장 fallback `warm-editorial`
+- 누락되거나 알 수 없는 값은 `warm-editorial`로 fallback
 - style 전환은 DOM 재생성이나 feature JavaScript 분기를 요구하지 않음
 - 앱 시작 시 `style-bootstrap.js`를 stylesheet보다 먼저 동기 실행해 저장된 선택을 첫 paint 전에 root에 적용함
-- bootstrap은 selectable ID만 허용하고, 저장소 접근 실패나 알 수 없는 값에는 HTML 기본 style을 유지함
+- bootstrap은 저장된 원격 catalog package의 token map을 안전 검증해 첫 paint 전에 적용하고, cache가 없거나 유효하지 않으면 HTML의 Warm Editorial 기본값을 유지함
 
-선택 ID는 기기의 localStorage에 저장한다. Amade에서 내려받은 Style 패키지는 local API 서버가 검증 후 workspace 캐시에 저장하며, renderer는 검증된 token 데이터만 적용한다. 앱은 캐시된 package를 먼저 사용하고 원격 catalog를 갱신한다. 패키지 조회가 실패하거나 호환되지 않으면 기존 bundled registry/CSS를 계속 사용한다.
+선택 ID는 기기의 localStorage에 저장한다. Amade에서 내려받은 Style 패키지는 local API 서버가 검증 후 workspace 캐시에 저장하며, renderer는 검증된 token 데이터만 적용한다. renderer도 마지막 정상 원격 catalog를 localStorage에 캐시해 앱 시작 시 먼저 읽고, 선택된 원격 스타일의 token 값을 stylesheet가 그려지기 전에 안전 검증 후 root에 적용한다. 이후 Amade catalog를 갱신한다. 원격 catalog를 사용할 수 없을 때도 앱은 내장 `warm-editorial` token CSS로 시작한다.
 
 ## Token Layers
 
@@ -136,7 +136,7 @@ Contract 1.1 adds `--ui-form-control-disabled-opacity`, owned by each style pack
 
 The local API fetches the catalog and all Style manifests at one immutable Git revision. It offers only `active` packages whose minimum BlogGenius version is met and whose exact contract ID/version is supported. Incompatible future packages are skipped; malformed compatibility declarations fail validation. It validates IDs, metadata, exact token names, token count, contract version, and each value before writing a local cache. Values that could introduce declarations, rules, imports, or external resources (`;`, braces, `url()`, `@import`, and similar constructs) are rejected. The renderer repeats token allowlist/value validation before calling `CSSStyleDeclaration.setProperty`; packages never become a `<style>` block or stylesheet import.
 
-The Appearance UI uses the active Amade list when available and the built-in registry when no valid remote package is available. A valid remote response with zero active compatible styles is authoritative: clear the remote cache and use the bundled registry, rather than restoring stale cached remote entries. Network, retrieval, or contract validation failures may use the last valid remote cache. The existing per-style CSS modules remain bundled fallback and component-specific refinement; validated remote semantic tokens override the corresponding values at the document root. Appearance preview cards apply the same token map to their isolated preview element. Therefore, Amade dev packages are the source for active style values, while BlogGenius bundled themes provide matching fallback values.
+The Appearance UI lists only active compatible Amade styles; it does not reconstruct selectable style names from an app-bundled list. A valid remote response with zero active compatible styles is authoritative: clear the remote cache and show no remote choices, rather than restoring stale cached packages. Network, retrieval, or contract validation failures may use the last valid remote cache. The app bundle contains only the Warm Editorial baseline token CSS; it is not a selectable package unless Amade independently publishes it. All other style metadata and token values come from Amade and are cached locally. Remote styles provide no CSS modules: validated semantic tokens override the same app-owned CSS rules at the document root. Appearance preview cards apply the same token map to their isolated preview element.
 
 ## File Responsibility
 
@@ -151,7 +151,7 @@ ui/styles/
 └─ features/             feature 고유 layout과 예외
 ```
 
-2단계 foundation은 기존 CSS composition 구조를 보존하면서 `--ui-*` namespace를 semantic contract로 사용한다. `ui/styles/styles/compatibility.css`가 현재 style 값을 공급하고, `ui/styles/tokens/legacy-aliases.css`가 아직 이전되지 않은 surface를 연결한다.
+2단계 foundation은 기존 CSS composition 구조를 보존하면서 `--ui-*` namespace를 semantic contract로 사용한다. `ui/styles/styles/warm-editorial.css`가 오프라인 기본값을 공급하고, `ui/styles/tokens/legacy-aliases.css`가 아직 이전되지 않은 surface를 연결한다.
 
 ## Cascade Layer 계약
 
@@ -183,28 +183,28 @@ reset → tokens → base → components → features → utilities → override
 
 ## Registry와 Fallback
 
-style registry는 최소한 다음 정보를 제공해야 한다.
+Amade 원격 catalog는 선택 가능한 style마다 다음 정보를 제공한다.
 
 - 안정적인 ID와 사용자 표시 이름
 - contract version
 - 선택 가능 여부 또는 실험 상태
 - fallback style
 
-Registry의 style ID와 CSS module은 일대일 naming contract를 따른다. `future-style` ID의 token module은 반드시 `ui/styles/styles/future-style.css`이며, style directory의 CSS도 빠짐없이 registry에 등록한다. 테스트는 runtime registry에서 파일 경로를 파생해 파일 존재, selector, 필수 token, density token과 composition manifest 등록을 자동 확인한다. 따라서 새 style을 추가할 때 기존 테스트의 style 목록이나 파일 map을 수정하지 않는다.
+내장 baseline의 ID는 `warm-editorial`이며, 이 CSS는 앱 시작과 오프라인 상태에서만 안전한 시각 기본값을 공급한다. 원격 selectable style ID는 CSS module과 일대일로 연결하지 않는다. Amade manifest가 표시 이름과 설명, 호환성 선언 및 전체 token map의 source of truth다. 테스트는 내장 CSS가 Warm Editorial 하나뿐인지, 원격 패키지 token 계약이 완전하고 안전한지 확인한다.
 
-새 bundled fallback style 추가 시 변경 지점은 다음 세 곳으로 제한한다.
+Warm Editorial baseline은 앱의 유일한 bundled style이다. 새 selectable style은 BlogGenius 앱 코드/asset에 추가하지 않고 Amade Style package와 적절한 environment catalog에 등록한다. 기본값 CSS 계약을 수정할 때는 다음 위치를 함께 확인한다.
 
-1. `ui/styles/styles/<style-id>.css`에 필수 token을 정의한다.
-2. `DESIGN_STYLE_REGISTRY`에 같은 ID와 사용자 표시 metadata를 등록한다.
-3. `ui/styles.css`의 `bloggenius.tokens` layer에 해당 module을 명시적으로 include한다.
+1. `ui/styles/styles/warm-editorial.css`에 필수 fallback token을 정의한다.
+2. `DESIGN_STYLE_DEFAULT_ID`를 `warm-editorial`로 유지한다.
+3. `ui/styles.css`의 `bloggenius.tokens` layer에서 baseline module을 명시적으로 include한다.
 
-Amade에서 제공하는 Style package는 별도로 Amade의 공통 메타데이터와 token schema를 만족하고 `styles[]` catalog에 등록한다. CSS manifest는 bundled fallback의 cascade 순서에 대한 source of truth이므로 자동 directory scan으로 대체하지 않는다. 설정 Beta의 style 선택 UI는 remote active package 목록을 우선 렌더링하고, 원격 목록이 없을 때 registry의 selectable entry를 표시한다.
+Amade에서 제공하는 Style package는 별도로 Amade의 공통 메타데이터와 token schema를 만족하고 `styles[]` catalog에 등록한다. CSS manifest는 bundled fallback의 cascade 순서에 대한 source of truth이므로 자동 directory scan으로 대체하지 않는다. 설정 Beta의 style 선택 UI는 원격 active package 목록만 렌더링한다. catalog가 아직 로드되지 않았거나 비어 있으면 selectable style을 임의로 채우지 않는다.
 
 알 수 없는 저장값, 제거된 style, 불완전한 style pack이 앱을 깨뜨리면 안 된다. package validation에 실패하면 마지막 정상 캐시 또는 bundled style을 적용하고 기능은 계속 사용할 수 있어야 한다.
 
 ## Migration Rules
 
-1. 기존 외형을 기본 compatibility style로 캡처한다.
+1. 기존 외형을 Warm Editorial fallback으로 캡처한다.
 2. 누락된 기존 변수는 의미를 확인한 뒤 semantic token 또는 명시적인 alias로 연결한다.
 3. 공통 shell과 `블로그 Beta`부터 semantic token을 사용하도록 이전한다.
 4. 이전 중 기능 JavaScript와 DOM contract는 원칙적으로 바꾸지 않는다.
@@ -232,7 +232,7 @@ Amade에서 제공하는 Style package는 별도로 Amade의 공통 메타데이
 
 ## 현재 검증 결과
 
-- Compatibility와 10개 selectable style이 동일한 99-token contract 1.1을 사용한다. Amade는 이들 10개를 각각 공통 metadata, 미리보기, lifecycle, 전체 token map이 있는 실험 패키지로 보관한다. 테스트 fixture인 `remote-test-style`은 별도다.
+- Amade selectable style package와 앱 내장 Warm Editorial baseline은 동일한 99-token contract 1.1을 사용한다. Amade는 선택 가능한 style의 이름, 설명, 버전 및 token map을 보유한다. BlogGenius 앱 번들에는 Warm Editorial fallback token CSS만 있다. 테스트 fixture인 `remote-test-style`은 별도다.
 - 정식 style은 따뜻한 밝은 화면, 차분한 세이지, 어두운 월넛, 한지·청자·쪽빛, 저광량 phosphor 계열로 palette뿐 아니라 spacing/density, radius와 elevation을 달리하면서 동일 DOM·기능·상태·ARIA·keyboard 순서를 유지한다.
 - style ID와 CSS 파일명은 일대일 규칙을 사용하고, 설정의 2열 선택 UI는 selectable registry entry를 자동 렌더링한다. 새 style 추가는 token module, registry metadata와 ordered CSS manifest 등록 세 곳으로 제한한다.
 - `가을밤 서재`는 dark surface의 modal footer와 공통 feedback을 semantic surface token으로 교정했고, `한지 위의 단청`은 일반 secondary와 명시적 negative/danger action의 의미를 style 색상과 분리해 검증했다.

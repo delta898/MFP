@@ -59,6 +59,8 @@ The Amade package shape remains `spec_version: 0.1.0`. The independently version
 
 **Production selection update (2026-10-09):** Development continues to use Amade `dev`'s full `index.json`. Production Site Hosting Templates and UI Styles both use `main`'s curated `production-index.json`. The production catalog currently selects the `company-atelier` Template and all ten Styles except `remote-test-style`. BlogGenius caches these resource lists separately by environment.
 
+**Style bundle ownership update (2026-10-10):** BlogGenius keeps only the non-selectable Warm Editorial token CSS as its first-run/offline baseline. Selectable Style IDs, names, descriptions, versions, and token maps come from the Amade catalog and local validated caches. A valid catalog that omits Warm Editorial does not make the app baseline selectable. Component CSS rules, token names, and token validation remain app-owned.
+
 The Appearance UI will obtain active Style metadata and previews from Amade. A selected Style's token data is cached locally and applied through the existing style system without package-provided executable code. Bundled BlogGenius styles remain a safe startup/offline fallback. Retrieval/network/contract failures must not prevent app startup or discard the last usable appearance. A successfully retrieved and valid catalog with no active compatible styles is authoritative: clear selectable remote cache and use the bundled registry, rather than resurrecting deprecated or withdrawn remote styles.
 
 ## Consequences and tradeoffs

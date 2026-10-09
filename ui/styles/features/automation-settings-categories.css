@@ -229,9 +229,9 @@
 }
 
 [data-style-scope="compatibility"] .auto-manual-row button {
-  border: none;
-  background: #475569;
-  color: #fff;
+  border: 1px solid var(--ui-button-secondary-border);
+  background: var(--ui-button-secondary-background);
+  color: var(--ui-button-secondary-text);
 }
 
 .auto-actions {

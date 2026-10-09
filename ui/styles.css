@@ -2,17 +2,7 @@
 @layer bloggenius.reset, bloggenius.tokens, bloggenius.base, bloggenius.components, bloggenius.features, bloggenius.utilities, bloggenius.overrides, bloggenius.legacy;
 
 @layer bloggenius.tokens {
-/* @include styles/styles/compatibility.css */
 /* @include styles/styles/warm-editorial.css */
-/* @include styles/styles/quiet-sage-studio.css */
-/* @include styles/styles/autumn-night-library.css */
-/* @include styles/styles/hanji-dancheong.css */
-/* @include styles/styles/retro-terminal.css */
-/* @include styles/styles/minimalism.css */
-/* @include styles/styles/cerulean-atelier.css */
-/* @include styles/styles/amethyst-salon.css */
-/* @include styles/styles/techwear.css */
-/* @include styles/styles/goblincore.css */
 /* @include styles/tokens/legacy-aliases.css */
 }
 

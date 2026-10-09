@@ -4,7 +4,7 @@
 
 - Style ID: `warm-editorial`
 - 사용자 표시 이름: `따뜻한 에디토리얼`
-- Status: 사용자 방향 승인, 구현 및 자동 검증 완료
+- Status: 앱의 유일한 built-in fallback; 선택 가능한 Amade package와 별개로 오프라인/첫 실행 외관을 제공
 - Source stage: `codex/feature/design-system-03-first-style`
 - 적용 범위: 공통 shell과 `블로그 Beta`
 
@@ -50,7 +50,7 @@ BlogGenius를 차갑고 기술적인 관리 도구보다 글을 차분하게 준
 - surface, border, typography와 spacing으로 정보 그룹을 만든다.
 - primary action 하나를 명확히 하고 나머지 action의 강도를 낮춘다.
 - 긴 한국어 label과 실제 결과가 들어온 상태를 기준으로 검토한다.
-- compatibility 화면과 나란히 비교해 기능·상태 불변을 확인한다.
+- legacy compatibility scope에도 같은 token 값이 적용되는지 확인한다.
 
 ## Don't
 
@@ -65,4 +65,4 @@ BlogGenius를 차갑고 기술적인 관리 도구보다 글을 차분하게 준
 - `블로그 Beta`: 빠른 글 작성, 원고 입력, trend, queue/management, Smart Comment와 연속 발행 설정
 - desktop 및 좁은 화면의 form action 배치
 - keyboard focus와 disabled/loading/error/success 상태
-- compatibility scope가 지정된 비대상 view의 시각 불변
+- legacy scope가 지정된 비대상 view에서 fallback token이 빠짐없이 적용되는지 확인

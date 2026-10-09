@@ -5,7 +5,7 @@
 - Style ID: `retro-terminal`
 - 사용자 표시 이름: `레트로 터미널`
 - Contract: [다중 Style Contract v1.0](./design-style-system.md)
-- 제공 방식: 설정 Beta의 선택형 정식 style
+- 제공 방식: Amade catalog의 원격 selectable package; BlogGenius 앱에 CSS module은 번들하지 않음
 
 ## 사용자 경험
 
@@ -29,15 +29,15 @@ BlogGenius의 자동화 도구 성격을 짙은 터미널 화면, 선명한 셀 
 
 ## 구현 경계
 
-`ui/styles/styles/retro-terminal.css`가 공통 semantic/component token만 공급한다. 기능 surface는 구체적인
-style ID를 알지 않으며 registry 전환 시 DOM과 진행 중 입력, 마지막 정상 결과를 그대로 유지한다.
+Amade package가 공통 semantic/component token 값만 공급한다. 기능 surface는 구체적인 style ID를 알지 않으며
+원격 catalog에서 검증된 token map을 전환해도 DOM과 진행 중 입력, 마지막 정상 결과를 그대로 유지한다.
 
 새로운 terminal 표현이 필요해도 먼저 공통 token 또는 의미 있는 component variant인지 판단한다. 단순한 장식을 위해
 feature stylesheet에 `retro-terminal` 분기를 추가하지 않는다.
 
 ## 검증 기준
 
-- registry, CSS module과 필수 token의 일대일 계약
+- Amade package의 compatibility 및 필수 token 계약
 - 주요 surface, action, focus, success/warning/error/disabled 상태 대비
 - 좁은 화면의 density와 버튼·label 보존
 - style 전환 및 저장 후에도 입력과 기능 상태 보존

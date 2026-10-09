@@ -11,12 +11,56 @@ const { createHtmlCompositionRuntime } = require('../src/ui-runtime/html-composi
 const { createCssCompositionRuntime } = require('../src/ui-runtime/css-composition-runtime');
 const { createJsCompositionRuntime } = require('../src/ui-runtime/js-composition-runtime');
 const { getDefaultContentWritingProfile, DEFAULT_CONTENT_WRITING_PROFILE_METADATA } = require('../src/content/writing-profile');
+const { DESIGN_STYLE_CONTRACT_VERSION, DESIGN_STYLE_REQUIRED_TOKENS } = require('../ui/scripts/foundation/design-style-token-contract');
 
 const repoRoot = path.resolve(__dirname, '..');
 const uiRoot = path.join(repoRoot, 'ui');
 const MANUSCRIPT_DRAFT_ID = '11111111-1111-4111-8111-111111111111';
 const PASTE_MANUSCRIPT_DRAFT_ID = '22222222-2222-4222-8222-222222222222';
 const smokeProgress = { phase: 'preparing fixtures', phaseStartedAt: Date.now(), pageUrl: '' };
+
+const SMOKE_REMOTE_STYLE_OVERRIDES = Object.freeze({
+    'warm-editorial': {},
+    'quiet-sage-studio': {
+        '--ui-action-primary': '#49675a', '--ui-card-radius': '10px', '--ui-card-shadow': 'none',
+        '--ui-surface': '#fafcfa', '--ui-surface-muted': '#e6eee9', '--ui-text-primary': '#26332c',
+        '--ui-text-secondary': '#49675a', '--ui-focus-ring': '0 0 0 3px rgba(73, 103, 90, 0.24)',
+        '--ui-button-primary-background': '#49675a', '--ui-button-secondary-background': '#fafcfa'
+    },
+    'autumn-night-library': {
+        '--ui-canvas': '#211b17', '--ui-surface': '#2b231e', '--ui-surface-muted': '#352b24',
+        '--ui-card-background': '#2b231e', '--ui-text-primary': '#f1e6d5', '--ui-action-primary': '#c97845'
+    },
+    'hanji-dancheong': {
+        '--ui-surface': '#fffaf0', '--ui-card-background': '#fffaf0', '--ui-text-primary': '#1f2928',
+        '--ui-action-primary': '#235b73', '--ui-radius-lg': '6px', '--ui-card-radius': '6px',
+        '--ui-text-secondary': '#40544f', '--ui-border-strong': '#aebfb6', '--ui-action-danger': '#963929',
+        '--ui-button-secondary-text': '#40544f', '--ui-button-secondary-border': '#aebfb6', '--ui-button-danger-text': '#963929'
+    },
+    'retro-terminal': {
+        '--ui-surface': '#0b1510', '--ui-card-background': '#0b1510', '--ui-text-primary': '#d8f5df',
+        '--ui-action-primary': '#d7a84f', '--ui-radius-lg': '4px', '--ui-card-radius': '4px'
+    },
+    minimalism: { '--ui-action-primary': '#343434' },
+    'cerulean-atelier': { '--ui-action-primary': '#007ba7' },
+    'amethyst-salon': { '--ui-action-primary': '#c39bd7' },
+    techwear: { '--ui-action-primary': '#78b8ca' },
+    goblincore: { '--ui-action-primary': '#586c3e' }
+});
+
+function createRemoteDesignStylesFixture() {
+    const warmCss = fs.readFileSync(path.join(uiRoot, 'styles/styles/warm-editorial.css'), 'utf8');
+    const baseline = Object.fromEntries([...warmCss.matchAll(/(--ui-[\w-]+)\s*:\s*([^;]+);/g)]
+        .map(([, name, value]) => [name, value.trim()]));
+    return Object.entries(SMOKE_REMOTE_STYLE_OVERRIDES).map(([id, overrides]) => ({
+        id,
+        label: id,
+        blurb: `${id} browser smoke fixture`,
+        contractVersion: DESIGN_STYLE_CONTRACT_VERSION,
+        selectable: true,
+        tokens: { ...Object.fromEntries(DESIGN_STYLE_REQUIRED_TOKENS.map((token) => [token, baseline[token]])), ...overrides }
+    }));
+}
 
 function instrumentPageActions(page) {
     const mark = (action) => {
@@ -168,6 +212,7 @@ function getApiFixture(pathname) {
             message: ''
         };
     }
+    if (pathname === '/api/v1/settings/design-styles') return { styles: createRemoteDesignStylesFixture() };
     if (pathname.startsWith('/api/v1/account/overview')) return createAccountOverviewFixture();
     if (pathname === '/api/v1/dashboard/summary') return {};
     if (pathname === '/api/v1/dashboard/logs') return { logs: [] };
@@ -3948,13 +3993,13 @@ async function run() {
         });
         const warmDashboardStyle = await dashboardStyleProbe();
         const warmDashboardCount = await dashboardCountProbe();
-        await page.locator('html').evaluate((element) => { element.dataset.style = 'quiet-sage-studio'; });
+        await page.evaluate(() => applyDesignStyle('quiet-sage-studio'));
         const quietDashboardStyle = await dashboardStyleProbe();
         const quietDashboardCount = await dashboardCountProbe();
         assert.notEqual(quietDashboardStyle.borderRadius, warmDashboardStyle.borderRadius);
         assert.notEqual(quietDashboardStyle.boxShadow, warmDashboardStyle.boxShadow);
         assert.notDeepEqual(quietDashboardCount, warmDashboardCount);
-        await page.locator('html').evaluate((element) => { element.dataset.style = 'autumn-night-library'; });
+        await page.evaluate(() => applyDesignStyle('autumn-night-library'));
         assert.deepEqual(
             await page.locator('#view-dashboard-beta .ui-overview-card').first().evaluate((element) => {
                 const style = getComputedStyle(element);
@@ -3989,7 +4034,7 @@ async function run() {
                 goblincore: '#586c3e'
             };
             return Object.entries(expected).map(([id, primary]) => {
-                document.documentElement.dataset.style = id;
+                applyDesignStyle(id);
                 return {
                     id,
                     registered: getSelectableDesignStyles().some((style) => style.id === id),
@@ -4004,7 +4049,7 @@ async function run() {
             { id: 'techwear', registered: true, primary: '#78b8ca', expected: '#78b8ca' },
             { id: 'goblincore', registered: true, primary: '#586c3e', expected: '#586c3e' }
         ]);
-        await page.locator('html').evaluate((element) => { element.dataset.style = 'hanji-dancheong'; });
+        await page.evaluate(() => applyDesignStyle('hanji-dancheong'));
         assert.deepEqual(
             await page.locator('#view-dashboard-beta .ui-overview-card').first().evaluate((element) => {
                 const style = getComputedStyle(element);
@@ -4040,7 +4085,7 @@ async function run() {
             await page.locator('#view-dashboard-beta .recommendation-dismiss').first().evaluate((element) => getComputedStyle(element).color),
             'rgb(150, 57, 41)'
         );
-        await page.locator('html').evaluate((element) => { element.dataset.style = 'retro-terminal'; });
+        await page.evaluate(() => applyDesignStyle('retro-terminal'));
         assert.deepEqual(
             await page.locator('#view-dashboard-beta .ui-overview-card').first().evaluate((element) => {
                 const style = getComputedStyle(element);
@@ -4065,7 +4110,7 @@ async function run() {
             await page.evaluate(() => getSelectableDesignStyles().some((style) => style.id === 'retro-terminal')),
             true
         );
-        await page.locator('html').evaluate((element) => { element.dataset.style = 'warm-editorial'; });
+        await page.evaluate(() => applyDesignStyle('warm-editorial'));
         assert.equal(
             await page.locator('#blog-next-target-naver').evaluate((element) => getComputedStyle(element).accentColor),
             'rgb(182, 95, 66)'

@@ -2,10 +2,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-function loadDesignStyleContract({ repoRoot, initialStyle = '' }) {
+function loadDesignStyleContract({ repoRoot, initialStyle = '', initialRemoteStyles = [] }) {
   const root = { dataset: { style: initialStyle } };
   const localStorage = {
-    getItem() { return null; },
+    getItem(key) { return key === 'bloggenius.ui.style-catalog-cache' ? JSON.stringify(initialRemoteStyles) : null; },
     setItem() {}
   };
   const context = vm.createContext({

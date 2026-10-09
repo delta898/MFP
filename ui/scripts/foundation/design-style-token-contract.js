@@ -1,5 +1,5 @@
 var DESIGN_STYLE_CONTRACT_VERSION = '1.1';
-var DESIGN_STYLE_DEFAULT_ID = 'compatibility';
+var DESIGN_STYLE_DEFAULT_ID = 'warm-editorial';
 var DESIGN_STYLE_STORAGE_KEY = 'bloggenius.ui.style';
 
 var DESIGN_STYLE_REQUIRED_TOKENS = Object.freeze([

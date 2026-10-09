@@ -143,26 +143,26 @@
 }
 
 [data-style-scope="compatibility"] .modal-footer button.primary {
-  background: var(--brand-primary);
-  color: white;
-  border: none;
-  box-shadow: var(--shadow-sm);
+  background: var(--ui-button-primary-background);
+  color: var(--ui-button-primary-text);
+  border: 1px solid var(--ui-button-primary-border);
+  box-shadow: var(--ui-shadow-sm);
 }
 
 [data-style-scope="compatibility"] .modal-footer button.primary:hover {
-  background: var(--brand-hover);
+  background: var(--ui-button-primary-hover);
   transform: translateY(-1px);
 }
 
 [data-style-scope="compatibility"] .modal-footer button.secondary {
-  background: white;
-  color: var(--text-muted);
-  border: 1px solid var(--line);
+  background: var(--ui-button-secondary-background);
+  color: var(--ui-button-secondary-text);
+  border: 1px solid var(--ui-button-secondary-border);
 }
 
 [data-style-scope="compatibility"] .modal-footer button.secondary:hover {
-  background: #f1f5f9;
-  color: var(--text-main);
+  background: var(--ui-button-secondary-hover);
+  color: var(--ui-button-secondary-text);
 }
 
 /* Redefine/Improve Custom Select for Modal */

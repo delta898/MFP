@@ -1,4 +1,5 @@
-[data-style="warm-editorial"] {
+[data-style="warm-editorial"],
+[data-style-scope="compatibility"] {
   /* Canvas and surfaces */
   --ui-canvas: linear-gradient(135deg, #f5f0e7 0%, #ebe3d7 100%);
   --ui-surface: #fffdf9;

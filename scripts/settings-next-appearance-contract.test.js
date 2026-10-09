@@ -32,39 +32,21 @@ test('appearance tab renders registry-driven live previews without compatibility
   assert.match(system, /readStoredDesignStyleId/);
 });
 
-test('only product styles are selectable', () => {
+test('the local baseline is not selectable and Amade supplies style metadata', () => {
+  const { DESIGN_STYLE_REQUIRED_TOKENS, DESIGN_STYLE_CONTRACT_VERSION } = require('../ui/scripts/foundation/design-style-token-contract');
   const { contract } = loadDesignStyleContract({ repoRoot: root });
-  assert.equal(contract.registry.compatibility.selectable, false);
-  assert.equal(contract.selectableStyles.length > 0, true);
-  assert.equal(contract.selectableStyles.some((style) => style.id === 'compatibility'), false);
-  contract.selectableStyles.forEach((style) => {
-    assert.equal(contract.registry[style.id], style);
-    assert.equal(typeof style.label === 'string' && style.label.trim().length > 0, true, style.id);
-    assert.equal(typeof style.blurb === 'string' && style.blurb.trim().length > 0, true, style.id);
-  });
-  ['cerulean-atelier', 'amethyst-salon', 'techwear', 'goblincore'].forEach((styleId) => {
-    assert.equal(contract.registry[styleId]?.selectable, true, styleId);
-    assert.match(read(`ui/styles/styles/${styleId}.css`), new RegExp(`\\[data-style="${styleId}"\\]`));
-  });
-});
+  assert.deepEqual(Object.keys(contract.registry), ['warm-editorial']);
+  assert.equal(contract.registry['warm-editorial'].selectable, false);
+  assert.equal(contract.selectableStyles.length, 0);
 
-test('the four new style directions have distinct signature palettes and shapes', () => {
-  const cerulean = read('ui/styles/styles/cerulean-atelier.css');
-  const amethyst = read('ui/styles/styles/amethyst-salon.css');
-  const techwear = read('ui/styles/styles/techwear.css');
-  const goblincore = read('ui/styles/styles/goblincore.css');
-
-  assert.match(cerulean, /--ui-action-primary:\s*#007ba7;/);
-  assert.match(amethyst, /--ui-canvas:\s*linear-gradient\([^;]*#211a27/);
-  assert.match(amethyst, /--ui-action-primary:\s*#c39bd7;/);
-  assert.match(techwear, /--ui-canvas:\s*linear-gradient\([^;]*#15191c/);
-  assert.match(techwear, /--ui-action-primary:\s*#78b8ca;/);
-  assert.match(techwear, /--ui-radius-md:\s*4px;/);
-  assert.match(goblincore, /--ui-canvas:\s*radial-gradient\(/);
-  assert.match(goblincore, /--ui-action-primary:\s*#586c3e;/);
-  assert.match(goblincore, /--ui-radius-lg:\s*20px;/);
-  assert.notEqual(cerulean.match(/--ui-action-primary:\s*([^;]+);/)?.[1], goblincore.match(/--ui-action-primary:\s*([^;]+);/)?.[1]);
-  assert.notEqual(amethyst.match(/--ui-canvas:\s*([^;]+);/)?.[1], techwear.match(/--ui-canvas:\s*([^;]+);/)?.[1]);
+  const remote = {
+    id: 'remote-forest', label: '원격 숲', blurb: '원격 카탈로그에서 온 스타일입니다.',
+    contractVersion: DESIGN_STYLE_CONTRACT_VERSION, selectable: true,
+    tokens: Object.fromEntries(DESIGN_STYLE_REQUIRED_TOKENS.map((name) => [name, '#49675a']))
+  };
+  const populated = loadDesignStyleContract({ repoRoot: root, initialRemoteStyles: [remote] }).contract;
+  assert.deepEqual(Array.from(populated.selectableStyles, (style) => style.id), ['remote-forest']);
+  assert.equal(populated.registry['remote-forest'], undefined);
 });
 
 test('appearance styles use shared tokens only', () => {
