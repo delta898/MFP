@@ -57,13 +57,30 @@
                 <div class="site-create-section-heading">
                   <h3 id="site-template-picker-title">템플릿</h3>
                   <span id="site-template-count"></span>
+                  <button id="site-template-detail-close" class="secondary site-template-detail-close" type="button" data-site-template-details-close aria-label="템플릿 상세 정보 닫기" title="닫기" hidden>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+                  </button>
                 </div>
                 <div class="site-template-scroll">
                   <div id="site-template-grid" class="site-template-grid" role="radiogroup" aria-label="사이트 템플릿"></div>
+                  <section id="site-template-detail-view" class="site-template-detail-view" aria-labelledby="site-template-detail-title" hidden>
+                    <div class="site-template-detail-preview">
+                      <img id="site-template-detail-preview-image" alt="" hidden>
+                      <p id="site-template-detail-preview-empty" hidden>템플릿 대표 이미지가 없습니다.</p>
+                    </div>
+                    <div id="site-template-detail-content" class="site-template-detail-content"></div>
+                  </section>
                   <div id="site-settings-current-preview" class="site-settings-current-preview" hidden>
                     <img id="site-settings-current-preview-image" alt="설정 전 사이트 미리보기" hidden>
                     <p id="site-settings-current-preview-empty">저장된 사이트 이미지가 없습니다.</p>
                   </div>
+                  <section id="site-settings-template-summary" class="site-settings-template-summary" aria-label="현재 적용된 템플릿" hidden>
+                    <h4 id="site-settings-template-name"></h4>
+                    <dl>
+                      <div><dt>계열</dt><dd id="site-settings-template-family"></dd></div>
+                      <div><dt>버전</dt><dd id="site-settings-template-version"></dd></div>
+                    </dl>
+                  </section>
                 </div>
                 <input id="site-template-id" name="template_id" type="hidden" required>
               </section>
@@ -185,7 +202,6 @@
                 <iframe id="site-create-preview-frame" title="사이트 미리보기" sandbox="allow-scripts allow-same-origin" hidden></iframe>
                 <div id="site-create-preview-empty" class="site-create-preview-empty">템플릿을 선택하고 미리보기를 눌러<br>설정한 사이트를 확인하세요.</div>
               </div>
-              <section id="site-template-details" class="site-template-details" aria-label="템플릿 정보"></section>
             </div>
           </form>
         </dialog>

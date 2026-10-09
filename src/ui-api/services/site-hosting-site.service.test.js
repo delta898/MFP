@@ -214,12 +214,15 @@ test('site service exposes Amade 0.1 family metadata and normalizes its shared m
     let created;
     const service = createSiteHostingSiteService({
         projectRepository: { get: (id) => id === 'project-1' ? { id } : null },
-        templates: { list: async () => [{ id: template.id, family_id: template.family_id, family_name: template.family_name }], get: () => template, prepare: async () => {} },
+        templates: { list: async () => [{ id: template.id, version: template.version, family_id: template.family_id, family_name: template.family_name }], get: () => template, prepare: async () => {} },
         repository: { create: (_projectId, site) => { created = site; return { ...site, project_id: 'project-1', template: { id: template.id, version: template.version } }; } },
         createId: () => 'site-1'
     });
     const [listed] = await service.listTemplates();
     assert.equal(listed.family_name, '개인 홈페이지');
+    assert.equal(listed.version, '0.1.0');
+    assert.equal(listed.author, 'amadejjs');
+    assert.equal(listed.homepage_url, 'https://www.bloggenius.kr/');
     assert.deepEqual(listed.tags, ['List']);
     assert.deepEqual(listed.customization[0].default, [{ id: 'posts', label: '글', href: '/blog/' }]);
     await service.create('project-1', {

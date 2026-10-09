@@ -396,7 +396,6 @@ async function siteHostingPreviewCreateSite() {
       if (frame) { frame.src = result.url; frame.hidden = false; }
       if (image) image.hidden = true;
       if (empty) empty.hidden = true;
-      document.getElementById('site-template-details')?.setAttribute('hidden', '');
       siteHostingCreatePreviewId = result.id;
       siteHostingCreatePreviewSnapshot = siteHostingCreateMode === 'settings' ? siteHostingCreateFormSnapshot() : '';
       siteHostingUpdateCreateSubmitState();
@@ -489,6 +488,10 @@ function siteHostingBindCreateDialogEvents() {
   document.querySelector('[data-site-create-cancel]')?.addEventListener('click', () => void siteHostingRequestCreateCancel());
   dialog?.addEventListener('cancel', (event) => {
     event.preventDefault();
+    if (siteHostingCreateMode === 'create' && !document.getElementById('site-template-detail-view')?.hidden) {
+      siteHostingCloseTemplateDetails();
+      return;
+    }
     void siteHostingRequestCreateCancel();
   });
   dialog?.addEventListener('input', siteHostingUpdateCreateSubmitState);
@@ -501,6 +504,16 @@ function siteHostingBindCreateDialogEvents() {
     dialog.classList.remove('is-site-settings-mode');
   });
   dialog?.addEventListener('click', (event) => {
+    const closeTemplateDetails = event.target.closest('[data-site-template-details-close]');
+    if (closeTemplateDetails) {
+      siteHostingCloseTemplateDetails();
+      return;
+    }
+    const templateDetails = event.target.closest('[data-site-template-details]');
+    if (templateDetails) {
+      siteHostingOpenTemplateDetails(templateDetails.dataset.siteTemplateDetails);
+      return;
+    }
     const templateChoice = event.target.closest('[data-site-template-select]');
     if (templateChoice) {
       siteHostingSelectedCreateTemplate = templateChoice.dataset.siteTemplateSelect;
@@ -651,7 +664,9 @@ async function siteHostingOpenCreateSiteDialog() {
   dialog.classList.remove('is-site-settings-mode');
   document.getElementById('site-template-picker-title').textContent = '템플릿';
   document.getElementById('site-template-grid').hidden = false;
+  document.getElementById('site-template-detail-view').hidden = true;
   document.getElementById('site-settings-current-preview').hidden = true;
+  document.getElementById('site-settings-template-summary').hidden = true;
   document.getElementById('site-create-title').textContent = '사이트 만들기';
   document.querySelector('#site-create-dialog .ui-transaction-dialog-header p').textContent = '템플릿을 고르고 사이트 정보를 설정하세요. 미리보기에서 결과를 확인할 수 있습니다.';
   if (submit) submit.textContent = '사이트 만들기';
@@ -665,11 +680,12 @@ async function siteHostingOpenCreateSiteDialog() {
   templateGrid.innerHTML = '<div class="site-template-loading" role="status">템플릿을 불러오는 중…</div>';
   siteHostingCreateTemplates = [];
   siteHostingSelectedCreateTemplate = '';
-  document.getElementById('site-template-details').replaceChildren();
+  document.getElementById('site-template-detail-content').replaceChildren();
+  document.getElementById('site-template-detail-view').removeAttribute('data-template-id');
   document.getElementById('site-template-count').textContent = '';
   const templatePreview = document.getElementById('site-create-template-preview');
   if (templatePreview) { templatePreview.removeAttribute('src'); templatePreview.hidden = true; }
-  document.getElementById('site-template-details').hidden = false;
+  document.getElementById('site-template-detail-view').hidden = true;
   siteHostingProfileImages = { logo: '', 'share-image': '', favicon: '' };
   for (const key of Object.keys(SITE_PROFILE_IMAGE_LABELS)) {
     const options = siteHostingProfileImageOptions(key);
@@ -723,6 +739,7 @@ async function siteHostingOpenSiteSettingsDialog(siteId) {
   document.getElementById('site-template-picker-title').textContent = '현재 사이트';
   document.getElementById('site-template-count').textContent = '';
   const currentPreview = document.getElementById('site-settings-current-preview');
+  const templateSummary = document.getElementById('site-settings-template-summary');
   const currentPreviewImage = document.getElementById('site-settings-current-preview-image');
   const currentPreviewEmpty = document.getElementById('site-settings-current-preview-empty');
   const previewUrl = site.screenshot_url
@@ -743,6 +760,7 @@ async function siteHostingOpenSiteSettingsDialog(siteId) {
     };
     currentPreviewImage.src = `${previewUrl}?build=${encodeURIComponent(site.screenshot?.latest_build?.build_id || site.last_build?.build_id || site.updated_at || 'current')}`;
   }
+  if (templateSummary) templateSummary.hidden = true;
   document.getElementById('site-create-title').textContent = '사이트 설정';
   document.querySelector('#site-create-dialog .ui-transaction-dialog-header p').textContent = '설정을 바꾸고 미리보기에서 확인한 뒤 반영하세요. 템플릿은 변경할 수 없습니다.';
   const submit = document.querySelector('#site-create-form [type="submit"]');
@@ -765,13 +783,23 @@ async function siteHostingOpenSiteSettingsDialog(siteId) {
     siteHostingCreateTemplates = Array.isArray(templates) ? templates.filter((item) => item.id === settings.template_id) : [];
     if (!siteHostingCreateTemplates.length) throw new Error('현재 템플릿 설정을 불러오지 못했습니다.');
     siteHostingSelectedCreateTemplate = settings.template_id;
+    const currentTemplate = siteHostingCreateTemplates[0];
+    const summaryName = document.getElementById('site-settings-template-name');
+    const summaryFamily = document.getElementById('site-settings-template-family');
+    const summaryVersion = document.getElementById('site-settings-template-version');
+    if (summaryName) summaryName.textContent = currentTemplate.name || site.template_name || '현재 템플릿';
+    if (summaryFamily) summaryFamily.textContent = currentTemplate.family_name || '—';
+    if (summaryVersion) summaryVersion.textContent = currentTemplate.version || '—';
+    if (templateSummary) templateSummary.hidden = false;
     document.getElementById('site-template-id').value = settings.template_id;
     document.getElementById('site-name').value = settings.name || site.name;
     document.getElementById('site-description').value = settings.customization?.site_description || '';
     document.getElementById('site-search-indexing').checked = settings.customization?.search_engine_indexing !== false;
     document.getElementById('site-template-grid').replaceChildren();
+    document.getElementById('site-template-grid').hidden = true;
+    document.getElementById('site-template-detail-view').hidden = true;
     document.getElementById('site-template-count').textContent = '';
-    document.getElementById('site-template-details').replaceChildren();
+    document.getElementById('site-template-detail-content').replaceChildren();
     const template = siteHostingCreateTemplates[0];
     siteHostingCreateSetupInputs = { ...(settings.setup_inputs || {}) };
     siteHostingRenderCreateSetupInputs();
@@ -823,34 +851,71 @@ function siteHostingRenderCreateTemplates() {
         <span class="site-template-card-preview">${template.preview_url ? `<img src="${siteHostingEscapeHtml(template.preview_url)}" alt="${siteHostingEscapeHtml(template.name)} 미리보기" loading="lazy">` : '<span>미리보기 없음</span>'}</span>
         <span class="site-template-card-copy"><strong>${siteHostingEscapeHtml(template.name)}</strong></span>
       </button>
+      <button type="button" class="site-template-card-zoom" data-site-template-details="${siteHostingEscapeHtml(template.id)}" aria-label="${siteHostingEscapeHtml(template.name)} 크게 보기" title="크게 보기"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5M10.8 7.5v6.6M7.5 10.8h6.6"/></svg></button>
     </article>`);
     while (cards.length % 3) cards.push('<span class="site-template-card-placeholder" aria-hidden="true"></span>');
     return `<section class="site-template-family-group"><h4 class="site-template-family-heading">${siteHostingEscapeHtml(family.name)}</h4>${cards.join('')}</section>`;
   }).join('');
   if (templateInput) templateInput.value = siteHostingSelectedCreateTemplate;
-  siteHostingRenderCreateTemplateDetails();
 }
 
-function siteHostingRenderCreateTemplateDetails() {
-  const template = siteHostingCreateTemplates.find((item) => item.id === siteHostingSelectedCreateTemplate);
-  const details = document.getElementById('site-template-details');
-  const image = document.getElementById('site-create-template-preview');
-  const frame = document.getElementById('site-create-preview-frame');
-  const empty = document.getElementById('site-create-preview-empty');
-  if (!details || !image || !template) return;
-  details.innerHTML = `<div class="site-template-details-heading"><strong>${siteHostingEscapeHtml(template.name)}</strong><span>제작자 · ${siteHostingEscapeHtml(template.author || '정보 없음')}</span></div><p>${siteHostingEscapeHtml(template.description || '')}</p>${template.homepage_url ? `<a href="${siteHostingEscapeHtml(template.homepage_url)}" target="_blank" rel="noopener noreferrer">템플릿 홈페이지 ↗</a>` : ''}`;
-  const hasBuiltPreview = Boolean(siteHostingCreatePreviewId);
-  details.hidden = hasBuiltPreview;
-  image.src = template.preview_url || '';
-  image.alt = `${template.name} 대표 미리보기`;
-  image.hidden = hasBuiltPreview || !template.preview_url;
-  if (frame) {
-    frame.hidden = !hasBuiltPreview;
-    if (!hasBuiltPreview) frame.removeAttribute('src');
+function siteHostingTemplateDetailsMarkup(template) {
+  const metadata = [
+    template.family_name ? `<div><dt>계열</dt><dd>${siteHostingEscapeHtml(template.family_name)}</dd></div>` : '',
+    template.author ? `<div><dt>작성자</dt><dd>${siteHostingEscapeHtml(template.author)}</dd></div>` : '',
+    template.version ? `<div><dt>버전</dt><dd>${siteHostingEscapeHtml(template.version)}</dd></div>` : ''
+  ].filter(Boolean).join('');
+  const capabilities = [];
+  if (template.publishing?.routes?.listing && template.publishing?.routes?.detail) capabilities.push('블로그 글 목록·상세 페이지');
+  if (template.pages) capabilities.push('사이트 메뉴 페이지');
+  for (const input of Array.isArray(template.setup_inputs) ? template.setup_inputs : []) {
+    if (input?.type === 'directory' && input?.purpose === 'knowledge_collection') capabilities.push('Digital Garden Vault 연결');
+    if (input?.type === 'frontmatter_match' && input?.purpose === 'publication_filter') capabilities.push('공개 노트 필터');
   }
-  if (empty) empty.hidden = hasBuiltPreview || Boolean(template.preview_url);
-  const status = document.getElementById('site-create-preview-status');
-  if (status) status.textContent = hasBuiltPreview ? '설정 변경됨 · 이전 미리보기' : '템플릿 대표 화면';
+  return `<div class="site-template-details-heading"><h4 id="site-template-detail-title" tabindex="-1">${siteHostingEscapeHtml(template.name)}</h4></div>
+    ${template.description ? `<p>${siteHostingEscapeHtml(template.description)}</p>` : ''}
+    ${metadata ? `<dl class="site-template-detail-metadata">${metadata}</dl>` : ''}
+    ${capabilities.length ? `<div class="site-template-detail-capabilities"><strong>지원 기능</strong><ul>${capabilities.map((item) => `<li>${siteHostingEscapeHtml(item)}</li>`).join('')}</ul></div>` : ''}
+    ${template.homepage_url ? `<a href="${siteHostingEscapeHtml(template.homepage_url)}" target="_blank" rel="noopener noreferrer">템플릿 홈페이지 ↗</a>` : ''}`;
+}
+
+function siteHostingOpenTemplateDetails(templateId) {
+  const template = siteHostingCreateTemplates.find((item) => item.id === templateId);
+  const details = document.getElementById('site-template-detail-view');
+  const detailsContent = document.getElementById('site-template-detail-content');
+  const image = document.getElementById('site-template-detail-preview-image');
+  const empty = document.getElementById('site-template-detail-preview-empty');
+  const grid = document.getElementById('site-template-grid');
+  if (!template || !details || !detailsContent || !image || !grid || siteHostingCreateMode !== 'create') return;
+  details.dataset.templateId = templateId;
+  detailsContent.innerHTML = siteHostingTemplateDetailsMarkup(template);
+  image.src = template.preview_url || '';
+  image.alt = `${template.name} 대표 화면`;
+  image.hidden = !template.preview_url;
+  if (empty) empty.hidden = Boolean(template.preview_url);
+  grid.hidden = true;
+  details.hidden = false;
+  document.getElementById('site-template-picker-title').textContent = '템플릿 정보';
+  document.getElementById('site-template-detail-close').hidden = false;
+  const count = document.getElementById('site-template-count');
+  if (count) count.textContent = '';
+  document.getElementById('site-template-detail-close')?.focus();
+}
+
+function siteHostingCloseTemplateDetails() {
+  const details = document.getElementById('site-template-detail-view');
+  const grid = document.getElementById('site-template-grid');
+  if (!details || !grid) return;
+  const templateId = details.dataset.templateId;
+  details.hidden = true;
+  grid.hidden = false;
+  document.getElementById('site-template-picker-title').textContent = '템플릿';
+  document.getElementById('site-template-detail-close').hidden = true;
+  delete details.dataset.templateId;
+  const count = document.getElementById('site-template-count');
+  if (count) count.textContent = `${siteHostingCreateTemplates.length}개`;
+  [...grid.querySelectorAll('[data-site-template-details]')]
+    .find((button) => button.dataset.siteTemplateDetails === templateId)?.focus();
 }
 
 function siteHostingRenderCreateSetupInputs() {

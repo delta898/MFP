@@ -746,6 +746,7 @@ function startFixtureServer(requests) {
             res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
             res.end(JSON.stringify({ success: true, data: [{
                 id: 'minimal-homepage', version: '1.3.0', name: '간단한 홈페이지', description: 'Astro 사이트 시작 템플릿',
+                author: 'Amade', homepage_url: 'https://example.com/templates/minimal-homepage', family_name: '회사 홈페이지',
                 customization: [{ key: 'navigation', type: 'navigation', label: '메뉴', default: [{ label: '홈', href: '/' }, { label: '블로그', href: '/blog/' }] }],
                 pages: { max_items: 5 }, publishing: { routes: { listing: '/blog/' } }
             }] }));
@@ -2671,6 +2672,28 @@ async function run() {
                 await page.waitForFunction(() => document.getElementById('site-create-dialog')?.open === false);
                 await page.locator('.site-hosting-add-site-card[data-site-create]').click();
                 await page.locator('[data-site-template-select]').first().waitFor();
+                await page.locator('#site-name').fill('상세 확인 중 이름');
+                await page.getByRole('button', { name: '간단한 홈페이지 크게 보기' }).click();
+                await page.locator('#site-template-detail-view').waitFor({ state: 'visible' });
+                assert.equal(await page.locator('#site-template-grid').isVisible(), false);
+                assert.equal(await page.locator('#site-name').inputValue(), '상세 확인 중 이름');
+                await page.locator('#site-template-detail-content').getByText('1.3.0', { exact: true }).waitFor();
+                await page.locator('#site-template-detail-content').getByText('Amade', { exact: true }).waitFor();
+                await page.locator('#site-template-detail-content').getByRole('link', { name: '템플릿 홈페이지 ↗' }).waitFor();
+                assert.equal(requests.filter((request) => request.method === 'POST' && request.pathname.endsWith('/preview-drafts')).length, 0,
+                    'opening template details must not build a temporary Site preview');
+                await page.keyboard.press('Escape');
+                await page.locator('#site-template-grid').waitFor({ state: 'visible' });
+                assert.equal(await page.locator('#site-template-detail-view').isVisible(), false);
+                assert.equal(await page.locator('#site-create-cancel-dialog').evaluate((dialog) => dialog.open), false,
+                    'Escape from template details returns to the template list without starting cancellation');
+                assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('data-site-template-details')), 'minimal-homepage');
+                assert.equal(await page.locator('#site-name').inputValue(), '상세 확인 중 이름');
+                assert.equal(await page.locator('[data-site-template-select]').first().getAttribute('aria-checked'), 'true');
+                await page.getByRole('button', { name: '간단한 홈페이지 크게 보기' }).click();
+                await page.locator('#site-template-detail-view').waitFor({ state: 'visible' });
+                await page.getByRole('button', { name: '템플릿 상세 정보 닫기' }).click();
+                await page.locator('#site-template-grid').waitFor({ state: 'visible' });
                 await page.locator('#site-description').fill('브라우저 smoke에서 입력한 사이트 설명');
                 await page.locator('#site-search-indexing').uncheck();
                 await page.locator('#site-share-image').setInputFiles({
@@ -2704,6 +2727,10 @@ async function run() {
                 assert.equal(await page.locator('#site-template-picker-title').textContent(), '현재 사이트');
                 assert.equal(await page.locator('#site-settings-current-preview').isVisible(), true);
                 assert.match(await page.locator('#site-settings-current-preview-image').getAttribute('src'), /\/sites\/site-smoke-1\/screenshot\?/);
+                assert.equal(await page.locator('#site-settings-template-summary').isVisible(), true);
+                assert.equal(await page.locator('#site-settings-template-name').textContent(), '간단한 홈페이지');
+                assert.equal(await page.locator('#site-settings-template-family').textContent(), '회사 홈페이지');
+                assert.equal(await page.locator('#site-settings-template-version').textContent(), '1.3.0');
                 await page.locator('#site-name').fill('설정 변경 사이트');
                 await page.locator('#site-description').fill('설정 화면에서 수정한 소개');
                 assert.equal(await page.locator('[data-site-template-select]').count(), 0);

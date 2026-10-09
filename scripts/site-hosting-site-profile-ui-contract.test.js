@@ -51,6 +51,31 @@ test('template-declared Vault and publication settings render after shared Site 
     assert.ok(picker.indexOf('await nativeDialog.showOpenDialog') < picker.indexOf('await templates.prepare?.(templateId)'));
 });
 
+test('template cards switch the picker to an inline detail view with curated metadata', () => {
+    assert.match(creation, /data-site-template-details="\$\{siteHostingEscapeHtml\(template\.id\)\}"/);
+    assert.match(creation, /aria-label="\$\{siteHostingEscapeHtml\(template\.name\)\} 크게 보기"/);
+    assert.match(creation, /siteHostingOpenTemplateDetails\(templateDetails\.dataset\.siteTemplateDetails\)/);
+    assert.match(creation, /siteHostingCloseTemplateDetails\(\)/);
+    assert.match(creation, /siteHostingCreateMode === 'create'[\s\S]*siteHostingCloseTemplateDetails\(\)/);
+    assert.match(creation, /grid\.hidden = true;[\s\S]*details\.hidden = false/);
+    assert.match(creation, /details\.hidden = true;[\s\S]*grid\.hidden = false/);
+    assert.match(creation, /<dt>계열<\/dt>/);
+    assert.match(creation, /<dt>작성자<\/dt>/);
+    assert.match(creation, /<dt>버전<\/dt>/);
+    assert.match(creation, /지원 기능/);
+    assert.match(creation, /Digital Garden Vault 연결/);
+    assert.match(creation, /noopener noreferrer/);
+    assert.match(creationStyles, /\.site-template-card-zoom/);
+    assert.match(creationStyles, /\.site-template-detail-view/);
+    assert.match(creationStyles, /\.site-template-detail-metadata/);
+    const view = fs.readFileSync(path.join(root, 'ui/partials/views/site-hosting.html'), 'utf8');
+    assert.match(view, /id="site-template-detail-view"/);
+    assert.match(view, /id="site-template-detail-close"[\s\S]*aria-label="템플릿 상세 정보 닫기"/);
+    assert.doesNotMatch(view, /템플릿 목록/);
+    assert.doesNotMatch(view, /id="site-template-details"/);
+    assert.doesNotMatch(creation, /site-create-preview-dialog[\s\S]{0,300}site-template-details/);
+});
+
 test('Garden preview displays the Vault conversion summary when available', () => {
     const runtime = fs.readFileSync(path.join(root, 'ui/scripts/features/site-hosting/project-management.js'), 'utf8');
     assert.match(creation, /공개 노트 \$\{collection\.published_note_count\}개/);
@@ -137,7 +162,12 @@ test('site settings reuse the creation preview without exposing template selecti
     assert.match(creation, /submit\.disabled = !siteHostingCreateRequirementsMet\(\) \|\| settingsUnchanged/);
     assert.match(html, /id="site-settings-current-preview"/);
     assert.match(html, /id="site-settings-current-preview-image"/);
+    assert.match(html, /id="site-settings-template-summary"[\s\S]*id="site-settings-template-name"[\s\S]*id="site-settings-template-family"[\s\S]*id="site-settings-template-version"/);
     assert.match(creation, /site\.screenshot_url\s*\|\| `\/api\/v1\/site-hosting\/projects/);
+    assert.match(creation, /currentTemplate\.name \|\| site\.template_name/);
+    assert.match(creation, /currentTemplate\.family_name \|\| '—'/);
+    assert.match(creation, /currentTemplate\.version \|\| '—'/);
+    assert.match(creationStyles, /\.site-settings-template-summary/);
     assert.match(creationStyles, /#site-create-dialog\.is-site-settings-mode \.site-create-workspace \{\s*grid-template-columns: minmax\(0, 1\.05fr\) minmax\(0, 0\.95fr\)/);
     assert.match(creationStyles, /#site-create-dialog\.is-site-settings-mode #site-template-grid \{\s*display: none/);
 });
