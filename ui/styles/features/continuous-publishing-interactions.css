@@ -87,7 +87,7 @@
 }
 
 .blog-next-trend-head {
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 24px;
 }

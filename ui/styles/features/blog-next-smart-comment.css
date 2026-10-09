@@ -13,6 +13,7 @@
 }
 
 .blog-next-smart-comment-intro {
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--ui-density-field-gap);
 }
@@ -37,7 +38,6 @@
 .blog-next-smart-comment-heading h2 {
   color: var(--ui-text-primary);
   font-size: var(--ui-type-heading-size);
-  line-height: 1.35;
 }
 
 .blog-next-smart-comment-heading span {
@@ -58,7 +58,6 @@
 }
 
 .blog-next-smart-comment-intro p {
-  margin-top: 6px;
   line-height: 1.55;
 }
 
