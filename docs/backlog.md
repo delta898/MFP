@@ -1,6 +1,6 @@
 # BlogGenius Backlog
 
-> 현행 기준: 2026-09-29 · 최신 릴리스: `v0.5.4`
+> 현행 기준: 2026-10-09 · 최신 릴리스: `v0.5.4`
 
 이 문서는 현재 실행 가능한 일감만 관리한다. 완료된 구현 과정은 `docs/plans/archive/`, 안정된 현재
 계약은 `docs/architecture/`, `docs/features/`, `docs/decisions/`를 따른다.
@@ -280,6 +280,40 @@
    - 좁은 화면, keyboard focus, disabled/loading/error, reduced-motion과 명도 대비를 style별로 확인한다.
    - 기능 release 전 전체 screenshot 차단 관문으로 확대하지 않는다. style token·공통 component·shell을 바꾼
      변경에만 focused visual regression 또는 명시적 hands-on 검토를 요구한다.
+
+16. 글감 저장 계약 v2와 새 Topics 시트 검토
+   - 현재 Google Spreadsheet의 `topics` 시트는 초기에 만들어진 계약으로, 필드 정의·확장 규칙·저장 책임이
+     충분히 명확하지 않다. 기존 `topics`는 보존하고, 새 시트를 기준으로 계약을 다시 설계할지 검토한다.
+   - 이 일감은 저장소를 SQLite로 전환하는 결정이 아니다. 우선 Google Spreadsheet를 유지하는 전제에서 새 시트와
+     계약을 검토하되, 로컬 SQLite Agent Memory와 사용자 소유 글감 데이터의 책임 경계는 별도로 유지한다.
+   - 모든 값을 `options` 한 칸에 넣거나 기존처럼 모든 값을 개별 열로 늘리는 방식을 미리 선택하지 않는다.
+     목록·검색·정렬·상태 전이에 꼭 필요한 안정 필드와, 글감마다 달라지고 확장되는 포스팅·작성 설정을 구분해
+     열과 구조화 JSON 객체의 경계를 정한다. `subject`는 글감의 단일 이름으로 유지하고 별도 중복 저장하지 않는다.
+   - 현재 시트의 헤더·실데이터·호출부 읽기/쓰기 경로를 조사하고, 누락·중복·레거시 옵션 처리와 per-item 설정
+     보존을 포함한 샘플 변환 규칙을 설계한다. 포스팅 시도와 결과 이력은 현재 설정 행에 계속 덮어쓸지, 별도
+     이력 저장 계약으로 분리할지도 검토한다.
+   - 새 계약의 버전/필수 필드/선택 필드, 검증·진단 규칙, 저장소 경계, 읽기·쓰기 API, 인덱싱·필터 요구,
+     백업·복구와 되돌리기 계획을 문서화한다. 기존 데이터 샘플로 변환 결과와 보관함·대기열·편집·실행 동작을
+     비교하고, 원본 보존과 cutover 조건을 정한다.
+   - 설계·검증 기간에는 기존 `topics`와 새 시트를 동시에 수정 가능한 source of truth로 두지 않는다. 병행 검증이
+     필요하면 쓰기 원본 하나를 명시하고 다른 쪽은 읽기 전용 projection으로 취급한다. 이 항목은 검토 backlog이며,
+     새 시트 생성, 이관, 이중 쓰기, 기존 시트 폐기나 SQLite 전환 승인은 포함하지 않는다.
+
+17. Markdown frontmatter 입력·포스팅 규칙 통일
+   - AI 생성 원고와 직접 입력·붙여넣기·파일 원고에 frontmatter가 있거나 없는 경우를 모두 포함해, 네이버 블로그,
+     WordPress, Site Hosting 블로그형 사이트와 Digital Garden에서 일관된 원고 해석 기준을 정한다.
+   - 현재 플랫폼별 Markdown 파서가 frontmatter를 공통 메타데이터로 해석하지 않아 YAML이 본문에 노출되거나,
+     Site Hosting이 생성한 frontmatter와 입력 frontmatter가 겹칠 수 있다. 먼저 각 경로의 실제 입력·변환·저장
+     계약을 조사하고 재현 가능한 fixture를 만든다.
+   - 공통 원고 경계에서 frontmatter를 한 번 파싱해 제목·본문·선택 메타데이터를 분리하고, 본문에 YAML 구분자와
+     메타데이터가 실수로 섞이지 않게 하는 방향을 우선 검토한다. 플랫폼별로 지원하지 않는 metadata는 임의로
+     적용하거나 조용히 버리지 않고, 필드별 매핑·보존·안내 기준을 정한다.
+   - 같은 의미의 UI 설정과 frontmatter 값이 충돌할 때의 우선순위, 누락 필드의 기본값, Site Hosting 고유 필드와
+     임의 frontmatter 보존 범위, 예약·임시저장·공개 상태 매핑을 명시한다. 기존 Site Hosting frontmatter 계약과
+     네이버·WordPress의 실제 API capability를 함께 고려한다.
+   - frontmatter 유무, 잘못된 YAML, 중복·미지원 필드, UI 값과의 충돌, 이미지 prompt 블록, 플랫폼별 임시저장·
+     즉시·예약 동작을 대상으로 공통 파서와 adapter 계약 테스트를 추가한다. 이 backlog 등록은 규칙 확정이나
+     구현 승인이 아니다.
 
 ## P2 — 제품 확장과 유지보수
 
