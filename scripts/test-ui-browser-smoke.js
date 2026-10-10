@@ -2782,7 +2782,14 @@ async function run() {
                 await page.getByRole('button', { name: '미리보기 닫기' }).click();
                 await page.locator('#site-create-form [type="submit"]').click();
                 await page.getByText('브라우저 검증 사이트', { exact: true }).waitFor();
+                await page.evaluate(() => {
+                    siteHostingSetSiteOperation('site-smoke-1', 'running', '사이트 생성 중…');
+                    siteHostingRenderProjectDetail();
+                    siteHostingSetSiteOperation('site-smoke-1', 'success', '사이트 생성 완료');
+                });
                 await page.locator('.site-hosting-site-more summary').click();
+                assert.equal(await page.locator('[data-site-delete="site-smoke-1"]').isDisabled(), false,
+                    'a delete button rendered during an operation must re-enable when the operation completes');
                 await page.locator('[data-site-settings]').click();
                 await page.locator('#site-create-title').getByText('사이트 설정').waitFor();
                 await page.waitForFunction(() => document.getElementById('site-create-workspace')?.inert === false);

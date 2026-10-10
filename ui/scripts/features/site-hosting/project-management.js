@@ -103,7 +103,7 @@ function siteHostingSiteCard(site) {
               ${site.knowledge_collection ? `<button class="secondary" type="button" data-site-open-vault="${siteId}">Vault 폴더 열기</button>` : ''}
               <button class="secondary" type="button" data-site-open-folder="${siteId}">폴더 열기</button>
               <button class="secondary" type="button" data-site-settings="${siteId}">설정</button>
-              <button class="secondary danger" type="button" data-site-delete="${siteId}" ${siteHostingSiteOperationIsRunning(site.project_id, site.id) ? 'disabled' : ''}>사이트 삭제</button>
+              <button class="secondary danger" type="button" data-site-delete="${siteId}" ${siteHostingSiteOperationIsRunning(site.project_id, site.id) ? 'disabled data-operation-disabled="true"' : ''}>사이트 삭제</button>
             </div>
           </details>
           ${domainConnectOpen ? siteHostingCardDomainActions(site.id, domainConnect) : `<div class="site-hosting-project-actions"><button class="secondary" type="button" data-site-preview="${siteId}">미리보기</button><button class="primary" type="button" data-site-deploy="${siteId}">배포</button></div>`}

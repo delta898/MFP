@@ -175,6 +175,7 @@ test('site settings reuse the creation preview without exposing template selecti
 test('site deletion requires a read-only plan, explicit user confirmation, and shows the archive destination', () => {
     const runtime = fs.readFileSync(path.join(root, 'ui/scripts/features/site-hosting/project-management.js'), 'utf8');
     assert.match(runtime, /data-site-delete="\$\{siteId\}"/);
+    assert.match(runtime, /siteHostingSiteOperationIsRunning\(site\.project_id, site\.id\) \? 'disabled data-operation-disabled="true"'/);
     assert.match(runtime, /async function siteHostingDeleteSite/);
     assert.match(runtime, /\/delete-plan/);
     assert.match(runtime, /\/delete`/);
