@@ -5,7 +5,7 @@
 - Branch: `codex/cloudflare-workers-admin-oauth-scope`
 - Start date: 2026-10-10
 - Base/parent branch: `codex/static-site-builder-main`
-- Status: Ready to merge into parent; implementation and live test complete
+- Status: Complete — merged into `codex/static-site-builder-main` as `666e5725`
 
 ## User need and goal
 
@@ -51,10 +51,10 @@ OAuth scope ownership is in `src/site-hosting/cloudflare-connection.service.js`;
 
 ## Final result
 
-The Local/Development OAuth flow can use the tested Workers Admin scope configuration. Production Client creation and production release configuration remain separate follow-up work.
+The Local/Development OAuth flow supports the tested Workers Admin scope configuration. Focused automated tests passed, and the user confirmed the full test-client Site Hosting lifecycle in BlogGenius. Production Client creation and Production release configuration remain separate follow-up work.
 
 ## Remaining risks and follow-up
 
 - Create a separate production OAuth Client with the proven scope set, then add production-only Client ID configuration to the packaged release path; `.env.oauth` is intentionally excluded from Production.
 - `BlogGeniusScopeTest` has both Admin and Editor; whether Admin alone is sufficient can be tested separately if minimizing scope is desired.
-- Production OAuth Client creation and release configuration are not part of this branch's implementation yet.
+- Production OAuth Client creation and release configuration are not part of this feature.
