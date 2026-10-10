@@ -18,7 +18,7 @@ const {
     createEncryptedCredentialStore
 } = require('../src/site-hosting/cloudflare-connection.service');
 
-app.setName('blog-genius');
+app.setName('BlogGenius');
 
 const DOMAIN_SUFFIX = 'bloggenius.kr';
 const ZONE_NAME = 'bloggenius.kr';

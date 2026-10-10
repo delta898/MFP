@@ -10,6 +10,7 @@ const uiRoot = path.resolve(__dirname, '../../ui');
 const uiIndex = fs.readFileSync(path.join(uiRoot, 'index.html'), 'utf8');
 const rendererGuard = fs.readFileSync(path.join(uiRoot, 'startup-guard.js'), 'utf8');
 const rendererLifecycle = fs.readFileSync(path.join(uiRoot, 'scripts/foundation/lifecycle.js'), 'utf8');
+const packageMetadata = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../package.json'), 'utf8'));
 
 test('bootstrap and fatal handlers are installed before the application graph loads', () => {
     const bootstrapIndex = source.indexOf("require('./startup-bootstrap')");
@@ -19,6 +20,18 @@ test('bootstrap and fatal handlers are installed before the application graph lo
     assert.ok(bootstrapIndex >= 0);
     assert.ok(handlerIndex > bootstrapIndex);
     assert.ok(configIndex > handlerIndex);
+});
+
+test('sets the safeStorage app identity while preserving the existing userData path', () => {
+    const identityIndex = source.indexOf("app.setName('BlogGenius')");
+    const preservedPathIndex = source.indexOf("app.setPath('userData', existingUserDataPath)");
+    const startupBootstrapIndex = source.indexOf("require('./startup-bootstrap')");
+
+    assert.ok(source.indexOf("path.join(app.getPath('appData'), 'blog-genius')") < identityIndex);
+    assert.ok(identityIndex >= 0 && preservedPathIndex > identityIndex);
+    assert.ok(startupBootstrapIndex > preservedPathIndex);
+    assert.equal(packageMetadata.productName, 'BlogGenius');
+    assert.equal(packageMetadata.name, 'blog-genius');
 });
 
 test('runtime network family policy is applied before the application graph loads', () => {

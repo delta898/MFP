@@ -15,7 +15,7 @@ const {
     createEncryptedCredentialStore
 } = require('../src/site-hosting/cloudflare-connection.service');
 
-app.setName('blog-genius');
+app.setName('BlogGenius');
 
 function getArg(name) {
     const prefix = `--${name}=`;

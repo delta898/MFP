@@ -1,6 +1,14 @@
 const { app, BrowserWindow, Menu, dialog, crashReporter } = require('electron');
 const path = require('path');
 const fs = require('fs');
+
+// Electron derives macOS safeStorage's Keychain item name from the app name.
+// Keep the existing userData location before changing the visible app identity
+// so existing settings and credentials remain in place.
+const existingUserDataPath = path.join(app.getPath('appData'), 'blog-genius');
+app.setName('BlogGenius');
+app.setPath('userData', existingUserDataPath);
+
 const { applyRuntimeNetworkPolicy } = require('../network/runtime-network-policy');
 const { createStartupBootstrap } = require('./startup-bootstrap');
 const { buildSafeModeArgs, isSafeMode, isStartupProbe, isShortLivedCommand } = require('./startup-policy');
