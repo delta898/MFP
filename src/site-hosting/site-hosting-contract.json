@@ -1,6 +1,6 @@
 {
-  "version": "0.2.0-dev1",
-  "previous_versions_supported": ["0.1.0-dev4", "0.1.0-dev3"],
+  "version": "0.2.0",
+  "previous_versions_supported": ["0.2.0-dev1", "0.1.0-dev4", "0.1.0-dev3"],
   "template_update_policy": {
     "strategy": "replace-managed-paths",
     "managed_paths": ["template/astro"],

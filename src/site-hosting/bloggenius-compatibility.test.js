@@ -32,6 +32,10 @@ test('package compatibility requires minimum app version and an exact supported 
     }, { appVersion: '0.6.0' }), true);
     assert.equal(isCompatibleWithBlogGenius({
         min_bloggenius_version: '0.6.0',
+        contract: { id: 'bloggenius-site-hosting-template', version: '0.2.0-dev1' }
+    }, { appVersion: '0.6.0' }), true);
+    assert.equal(isCompatibleWithBlogGenius({
+        min_bloggenius_version: '0.6.0',
         contract: { id: 'bloggenius-site-hosting-template', version: '0.5.0' }
     }, { appVersion: '0.6.0' }), false);
     assert.equal(isCompatibleWithBlogGenius({
