@@ -1,5 +1,6 @@
 let settingsNextCloudflareFlowId = '';
 let settingsNextCloudflareBusy = false;
+let settingsNextCloudflareStatusKnown = false;
 
 function settingsNextCloudflareRenderStatus(status = {}) {
   const badge = document.getElementById('settings-next-cloudflare-status');
@@ -7,17 +8,26 @@ function settingsNextCloudflareRenderStatus(status = {}) {
   const connect = document.getElementById('settings-next-cloudflare-connect');
   const disconnect = document.getElementById('settings-next-cloudflare-disconnect');
   const accountList = document.getElementById('settings-next-cloudflare-account-list');
+  const description = document.getElementById('settings-next-cloudflare-description');
   if (!badge || !detail || !connect || !disconnect || !accountList) return;
 
+  settingsNextCloudflareStatusKnown = true;
   const accounts = Array.isArray(status.accounts) ? status.accounts : [];
   const connected = status.connected === true;
   const readiness = document.getElementById('settings-next-cloudflare-readiness');
   const readinessDot = document.getElementById('settings-next-cloudflare-readiness-dot');
-  badge.textContent = connected ? '연결됨' : '연결 안 됨';
-  badge.dataset.state = connected ? 'success' : 'neutral';
-  if (readiness) readiness.textContent = connected ? '연결됨' : '연결 필요';
-  if (readinessDot) readinessDot.dataset.tone = connected ? 'success' : 'danger';
-  detail.textContent = connected ? `접근 가능한 계정 ${accounts.length}개` : '';
+  const hasDeployableAccounts = connected && accounts.length > 0;
+  badge.textContent = hasDeployableAccounts ? '연결됨' : (connected ? '권한 확인 필요' : '연결 필요');
+  badge.dataset.state = hasDeployableAccounts ? 'success' : (connected ? 'warning' : 'neutral');
+  badge.dataset.connected = connected ? 'true' : 'false';
+  if (readiness) readiness.textContent = hasDeployableAccounts ? '연결됨' : (connected ? '권한 확인 필요' : '연결 필요');
+  if (readinessDot) readinessDot.dataset.tone = hasDeployableAccounts ? 'success' : (connected ? 'warning' : 'danger');
+  if (description) description.textContent = hasDeployableAccounts
+    ? '사이트 배포에 사용할 수 있는 Cloudflare 계정입니다.'
+    : (connected
+      ? 'Cloudflare는 연결됐지만 사이트 배포 권한이 확인된 계정이 없습니다. 권한을 확인한 뒤 다시 연결해 주세요.'
+      : '현재 Cloudflare가 연결되어 있지 않습니다. 사이트를 배포하거나 관리하려면 연결해 주세요.');
+  detail.textContent = hasDeployableAccounts ? `접근 가능한 계정 ${accounts.length}개` : '';
   accountList.replaceChildren();
   for (const account of accounts) {
     const item = document.createElement('div');
@@ -30,7 +40,7 @@ function settingsNextCloudflareRenderStatus(status = {}) {
   if (connected && accounts.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'settings-next-cloudflare-empty';
-    empty.textContent = '사이트 배포 권한이 확인된 계정이 없습니다. 권한을 확인한 뒤 Cloudflare를 다시 연결해 주세요.';
+    empty.textContent = '배포 가능한 계정이 없습니다.';
     accountList.append(empty);
   }
   connect.textContent = settingsNextCloudflareFlowId
@@ -47,7 +57,7 @@ function settingsNextCloudflareFeedback(message = '', tone = 'neutral') {
 
 function settingsNextCloudflareCurrentStatus() {
   return {
-    connected: document.getElementById('settings-next-cloudflare-status')?.dataset.state === 'success',
+    connected: document.getElementById('settings-next-cloudflare-status')?.dataset.connected === 'true',
     accounts: [...document.querySelectorAll('.settings-next-cloudflare-account')].map((item) => ({
       name: item.querySelector('strong')?.textContent || ''
     }))
@@ -62,6 +72,19 @@ async function settingsNextSiteHostingRefresh() {
     settingsNextCloudflareRenderStatus(await fetchJson('/api/v1/site-hosting/cloudflare/status'));
     settingsNextCloudflareFeedback('');
   } catch (error) {
+    if (!settingsNextCloudflareStatusKnown) {
+      const badge = document.getElementById('settings-next-cloudflare-status');
+      const readiness = document.getElementById('settings-next-cloudflare-readiness');
+      const readinessDot = document.getElementById('settings-next-cloudflare-readiness-dot');
+      const description = document.getElementById('settings-next-cloudflare-description');
+      if (badge) {
+        badge.textContent = '상태 확인 실패';
+        badge.dataset.state = 'error';
+      }
+      if (readiness) readiness.textContent = '상태 확인 실패';
+      if (readinessDot) readinessDot.dataset.tone = 'danger';
+      if (description) description.textContent = 'Cloudflare 연결 상태를 확인하지 못했습니다. 새로고침 후 다시 시도해 주세요.';
+    }
     settingsNextCloudflareFeedback(error.message || 'Cloudflare 연결 상태를 확인하지 못했습니다.', 'danger');
   } finally {
     card.setAttribute('aria-busy', 'false');

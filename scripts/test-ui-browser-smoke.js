@@ -214,6 +214,7 @@ function getApiFixture(pathname) {
     }
     if (pathname === '/api/v1/settings/design-styles') return { styles: createRemoteDesignStylesFixture() };
     if (pathname.startsWith('/api/v1/account/overview')) return createAccountOverviewFixture();
+    if (pathname === '/api/v1/site-hosting/cloudflare/status') return { connected: true, accounts: [{ id: 'cf-account-1', name: 'BlogGenius fixture' }] };
     if (pathname === '/api/v1/dashboard/summary') return {};
     if (pathname === '/api/v1/dashboard/logs') return { logs: [] };
     if (pathname === '/api/v1/dashboard/activities') return { activities: [] };
@@ -2263,6 +2264,9 @@ async function run() {
         assert.equal((await naverConnectionChip.locator('.dashboard-beta-channel-name').textContent())?.trim(), '네이버 블로그');
         assert.equal(await naverConnectionChip.locator('.dashboard-beta-channel-status').textContent(), '');
         assert.match(await naverConnectionChip.getAttribute('aria-label') || '', /네이버 로그인 확인됨/);
+        const websiteConnectionChip = page.locator('#dashboard-beta-readiness-items [data-dashboard-beta-channel="site-hosting"]');
+        assert.equal((await websiteConnectionChip.locator('.dashboard-beta-channel-name').textContent())?.trim(), '웹사이트');
+        assert.match(await websiteConnectionChip.getAttribute('aria-label') || '', /Cloudflare 연결 확인됨/);
         await naverConnectionChip.focus();
         assert.equal(await naverConnectionChip.evaluate((element) => getComputedStyle(element, '::after').visibility), 'visible');
         await naverConnectionChip.click();
@@ -2357,6 +2361,7 @@ async function run() {
             '대시보드'
         );
         assert.equal(await page.locator('.nav-btn[data-view="dashboard-beta"] .nav-new-badge').count(), 0);
+        assert.equal(await page.locator('.nav-btn[data-view="site-hosting"] .nav-new-badge').textContent(), 'NEW');
         assert.equal((await page.locator('.nav-btn[data-view="help"] .nav-label').textContent()).trim(), '도움말');
         await page.evaluate(() => {
             void showUiDialog({ title: '진행 중인 작업', message: '현재 결정을 먼저 완료해 주세요.' });
@@ -2928,6 +2933,21 @@ async function run() {
                 await page.waitForFunction(() => !document.querySelector('[data-site-settings="site-smoke-1"]'));
             }
         }
+        await page.evaluate(() => navigateTo('dashboard-beta'));
+        await page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active'));
+        await page.locator('#dashboard-beta-readiness-items [data-dashboard-beta-channel="site-hosting"]').click();
+        await page.waitForFunction(() => document.getElementById('view-site-hosting')?.classList.contains('active'));
+        await page.evaluate(() => {
+            navigateTo('dashboard-beta');
+            renderDashboardBetaReadiness({ connections: {}, usage: {} }, { connected: false, accounts: [] });
+        });
+        await page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active'));
+        await page.locator('#dashboard-beta-readiness-items [data-dashboard-beta-channel="site-hosting"]').click();
+        await page.waitForFunction(() => (
+            document.getElementById('view-settings-next')?.classList.contains('active')
+            && document.getElementById('settings-next-core-panel-hosting')?.hidden === false
+        ));
+        await page.evaluate(() => navigateTo('dashboard-beta'));
         await page.evaluate(() => { showUiConfirm = window.__settingsNextSmokeConfirm; });
 
         assert.equal(

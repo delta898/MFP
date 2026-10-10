@@ -31,6 +31,7 @@ function createNode() {
 function createHarness({ postJson, fetchJson } = {}) {
     const badge = createNode();
     badge.dataset.state = 'success';
+    badge.dataset.connected = 'true';
     badge.textContent = '연결됨';
     const detail = createNode();
     const connect = createNode();
@@ -42,12 +43,16 @@ function createHarness({ postJson, fetchJson } = {}) {
     existingAccount.strong = existingName;
     const accountList = createNode();
     accountList.children = [existingAccount];
+    const description = createNode();
     const nodes = new Map([
         ['settings-next-cloudflare-status', badge],
         ['settings-next-cloudflare-detail', detail],
         ['settings-next-cloudflare-connect', connect],
         ['settings-next-cloudflare-disconnect', disconnect],
         ['settings-next-cloudflare-account-list', accountList],
+        ['settings-next-cloudflare-description', description],
+        ['settings-next-cloudflare-readiness', createNode()],
+        ['settings-next-cloudflare-readiness-dot', createNode()],
         ['settings-next-cloudflare-feedback', feedback],
         ['settings-next-cloudflare-card', createNode()]
     ]);
@@ -76,7 +81,7 @@ function createHarness({ postJson, fetchJson } = {}) {
         window: {}
     });
     vm.runInContext(source, context, { filename: 'site-hosting.js' });
-    return { context, badge, detail, accountList, feedback };
+    return { context, badge, detail, accountList, feedback, description };
 }
 
 test('failed Cloudflare reconnect startup preserves the last valid connection display', async () => {
@@ -116,9 +121,16 @@ test('Cloudflare settings displays only the accounts returned as accessible and 
     assert.equal(harness.accountList.children[0].querySelector('strong').textContent, 'Authorized account');
 
     vm.runInContext("settingsNextCloudflareRenderStatus({ connected: true, accounts: [] })", harness.context);
-    assert.equal(harness.detail.textContent, '접근 가능한 계정 0개');
+    assert.equal(harness.detail.textContent, '');
+    assert.equal(harness.badge.textContent, '권한 확인 필요');
+    assert.equal(harness.description.textContent, 'Cloudflare는 연결됐지만 사이트 배포 권한이 확인된 계정이 없습니다. 권한을 확인한 뒤 다시 연결해 주세요.');
     assert.equal(harness.accountList.children.length, 1);
-    assert.match(harness.accountList.children[0].textContent, /배포 권한이 확인된 계정이 없습니다/u);
+    assert.match(harness.accountList.children[0].textContent, /배포 가능한 계정이 없습니다/u);
+
+    vm.runInContext("settingsNextCloudflareRenderStatus({ connected: false, accounts: [] })", harness.context);
+    assert.equal(harness.badge.textContent, '연결 필요');
+    assert.equal(harness.description.textContent, '현재 Cloudflare가 연결되어 있지 않습니다. 사이트를 배포하거나 관리하려면 연결해 주세요.');
+    assert.equal(harness.accountList.children.length, 0);
 });
 
 test('site deployment selects an account only for multiple accessible accounts and submits the selected ID', () => {

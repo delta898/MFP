@@ -72,6 +72,20 @@ const DASHBOARD_BETA_CHANNELS = Object.freeze([
       failed: 'WordPress 연결 실패',
       loading: 'WordPress 확인 중'
     }
+  },
+  {
+    id: 'site-hosting',
+    name: '웹사이트',
+    brand: '',
+    nav: 'site-hosting',
+    icon: '<svg class="dashboard-beta-channel-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 9h18" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="7" cy="6.5" r=".6" fill="currentColor"/><circle cx="10" cy="6.5" r=".6" fill="currentColor"/></svg>',
+    labels: {
+      ready: 'Cloudflare 연결 확인됨',
+      attention: 'Cloudflare 연결 필요',
+      failed: 'Cloudflare 상태 확인 실패',
+      notConnected: 'Cloudflare 연결이 필요합니다',
+      loading: 'Cloudflare 확인 중'
+    }
   }
 ]);
 
@@ -81,10 +95,12 @@ function createDashboardBetaChannelButton(channel, state, label, reason = '', ch
   button.dataset.dashboardBetaState = state;
   button.dataset.dashboardBetaChannel = channel.id;
   if (channel.brand) button.style.setProperty('--channel-brand', channel.brand);
-  button.dataset.dashboardBetaNav = 'settings-next';
-  button.dataset.dashboardBetaTab = 'core';
-  button.dataset.dashboardBetaLocalTab = 'publishing';
-  button.dataset.dashboardBetaTarget = channel.form;
+  button.dataset.dashboardBetaNav = channel.nav || 'settings-next';
+  if (channel.form) {
+    button.dataset.dashboardBetaTab = 'core';
+    button.dataset.dashboardBetaLocalTab = channel.localTab || 'publishing';
+    button.dataset.dashboardBetaTarget = channel.form;
+  }
   const normalizedReason = String(reason || '').trim();
   const normalizedCheckedAt = formatDashboardBetaDateTime(checkedAt);
   const includeDiagnostics = state === 'ready' || state === 'muted';
@@ -215,14 +231,23 @@ function renderDashboardBetaOnboarding(setup = {}) {
   else delete action.dataset.settingsLocalTab;
 }
 
-function renderDashboardBetaReadiness(overview) {
+function renderDashboardBetaReadiness(overview, cloudflareStatus = null, cloudflareFailed = false) {
   const container = document.getElementById('dashboard-beta-readiness-items');
   const error = document.getElementById('dashboard-beta-readiness-error');
   if (!container) return;
   container.innerHTML = '';
   error?.setAttribute('hidden', '');
 
-  const connections = overview?.connections || {};
+  const connections = { ...(overview?.connections || {}) };
+  if (cloudflareFailed) connections['site-hosting'] = { status: 'failed' };
+  else if (cloudflareStatus) {
+    connections['site-hosting'] = {
+      status: cloudflareStatus.connected && cloudflareStatus.accounts?.length ? 'connected' : 'not_connected',
+      message: cloudflareStatus.connected
+        ? `접근 가능한 계정 ${cloudflareStatus.accounts.length}개`
+        : ''
+    };
+  }
   const channelButtons = DASHBOARD_BETA_CHANNELS.map((channel) => {
     const { state, label, reason, checkedAt } = dashboardBetaConnectionState(connections[channel.id], {
       ready: channel.labels.ready,
@@ -230,7 +255,10 @@ function renderDashboardBetaReadiness(overview) {
       notConfigured: channel.labels.notConfigured,
       failed: channel.labels.failed
     });
-    return createDashboardBetaChannelButton(channel, state, label, reason, checkedAt);
+    const destination = channel.id === 'site-hosting' && state !== 'ready'
+      ? { ...channel, nav: 'settings-next', form: 'settings-next-cloudflare-card', localTab: 'hosting' }
+      : channel;
+    return createDashboardBetaChannelButton(destination, state, label, reason, checkedAt);
   });
   const toOptionalNumber = (value) => (
     value === null || value === undefined || value === '' ? Number.NaN : Number(value)
@@ -643,7 +671,9 @@ async function loadDashboardBeta(options = {}) {
   const accountRequest = fetchJson('/api/v1/account/overview?quiet=1')
     .then((overview) => {
       accountOverview = overview;
-      renderDashboardBetaReadiness(overview);
+      return fetchJson('/api/v1/site-hosting/cloudflare/status')
+        .then((cloudflareStatus) => renderDashboardBetaReadiness(overview, cloudflareStatus))
+        .catch(() => renderDashboardBetaReadiness(overview, null, true));
     })
     .catch(renderDashboardBetaReadinessError);
   const operationsRequest = configRequest.then((setup) => {

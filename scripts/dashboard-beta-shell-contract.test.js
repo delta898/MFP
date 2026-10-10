@@ -103,6 +103,11 @@ test('Dashboard Beta channel chips expose brand icons, states, and publish-chann
     assert.match(betaView, /data-dashboard-beta-channel="wordpress"[^>]*data-dashboard-beta-nav="settings-next"[^>]*data-dashboard-beta-target="settings-next-wordpress-form"[^>]*disabled/);
     assert.match(betaView, /class="dashboard-beta-channel-name">네이버 블로그/);
     assert.match(betaView, /class="dashboard-beta-channel-name">WordPress/);
+    assert.match(betaView, /data-dashboard-beta-channel="site-hosting"[^>]*data-dashboard-beta-nav="site-hosting"[^>]*disabled/);
+    assert.match(betaView, /class="dashboard-beta-channel-name">웹사이트/);
+    assert.match(betaScript, /\/api\/v1\/site-hosting\/cloudflare\/status/);
+    assert.match(betaScript, /id: 'site-hosting'[\s\S]*?nav: 'site-hosting'/);
+    assert.match(betaScript, /channel\.id === 'site-hosting' && state !== 'ready'[\s\S]*?nav: 'settings-next'[\s\S]*?localTab: 'hosting'/);
     assert.doesNotMatch(betaView, /data-dashboard-beta-nav="settings"/);
     assert.match(betaView, /dashboard-beta-channel-icon/);
     assert.match(betaStyle, /button\[data-dashboard-beta-channel="wordpress"\] \.dashboard-beta-channel-icon\s*\{[^}]*transform:\s*scale\(1\.12\)/);

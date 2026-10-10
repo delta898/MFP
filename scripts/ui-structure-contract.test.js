@@ -89,7 +89,7 @@ test('primary navigation buttons map one-to-one to UI views', () => {
     assert.equal(sectionViews.length, new Set(sectionViews).size);
 });
 
-test('productized Dashboard and Blog navigation expose compact accessible new badges', () => {
+test('new site hosting navigation exposes a compact accessible new badge', () => {
     const html = readComposedUiShell();
     const navigationCss = readUiFile(path.join(uiRoot, 'styles', 'layout', 'shell-navigation.css'));
 
@@ -101,8 +101,8 @@ test('productized Dashboard and Blog navigation expose compact accessible new ba
         html,
         /data-view="dashboard-beta"[\s\S]*?<span class="nav-label">대시보드<\/span>/
     );
-    assert.doesNotMatch(html, /nav-new-badge/);
-    assert.doesNotMatch(navigationCss, /\.nav-new-badge/);
+    assert.match(html, /data-view="site-hosting"[\s\S]*?<span class="nav-label">사이트<\/span>\s*<span class="nav-new-badge" aria-label="새 기능">NEW<\/span>/);
+    assert.match(navigationCss, /\.nav-new-badge\s*\{/);
     assert.match(html, /id="blog-next-global-nav-status"[^>]*hidden[^>]*aria-hidden="true"/);
     assert.doesNotMatch(html, /id="recommendation-nav-badge"/);
 });
