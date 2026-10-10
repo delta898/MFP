@@ -234,15 +234,36 @@ function getMergedDefinitions() {
 }
 
 function getAiModelCatalog() {
-    const definitions = getMergedDefinitions();
+    // A valid remote snapshot is authoritative for selectable models. Bundled
+    // entries remain the startup/offline fallback and support resolution of
+    // existing saved selections through findModelDefinition.
+    const definitions = remoteSnapshot
+        ? remoteSnapshot.models
+        : normalizeBundledCatalog();
     const providers = getMergedProviders();
+    const providerOrder = new Map(providers.map((provider, index) => [
+        `${provider.kind}:${provider.id}`,
+        index
+    ]));
+    const selectable = definitions
+        .filter((item) => SELECTABLE_STATUSES.has(item.status))
+        .slice()
+        .sort((left, right) => {
+            const providerDelta = Number(providerOrder.get(`${left.kind}:${left.provider}`) ?? 1000)
+                - Number(providerOrder.get(`${right.kind}:${right.provider}`) ?? 1000);
+            if (providerDelta !== 0) return providerDelta;
+            if (left.provider !== right.provider) return left.provider.localeCompare(right.provider);
+            const orderDelta = Number(left.sort_order || 0) - Number(right.sort_order || 0);
+            if (orderDelta !== 0) return orderDelta;
+            return String(left.name || '').localeCompare(String(right.name || ''));
+        });
     return {
         providers: {
             text: providers.filter((item) => item.kind === 'text').map(clone),
             image: providers.filter((item) => item.kind === 'image').map(clone)
         },
-        text: definitions.filter((item) => item.kind === 'text' && SELECTABLE_STATUSES.has(item.status)).map(clone),
-        image: definitions.filter((item) => item.kind === 'image' && SELECTABLE_STATUSES.has(item.status)).map(clone)
+        text: selectable.filter((item) => item.kind === 'text').map(clone),
+        image: selectable.filter((item) => item.kind === 'image').map(clone)
     };
 }
 

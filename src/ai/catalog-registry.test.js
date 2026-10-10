@@ -52,7 +52,61 @@ test('remote catalog can add a model through an allowlisted transport', () => {
     });
 });
 
-test('remote model overrides retain bundled runtime capabilities omitted by an older catalog', () => {
+test('remote catalog accepts Nano Banana 2.1 through the existing Gemini image transport', () => {
+    applyRemoteCatalog({
+        schema_version: 1,
+        version: '2026-10-11.2',
+        models: [
+            {
+                key: 'google:gemini-nano-banana-2.1',
+                kind: 'image',
+                provider: 'google',
+                transport: 'gemini_generate_content',
+                model_id: 'gemini-nano-banana-2.1',
+                display_name: 'Nano Banana 2.1',
+                status: 'active',
+                sort_order: 5,
+                capabilities: { aspect_ratio: true }
+            },
+            {
+                key: 'google:gemini-3.1-flash-image',
+                kind: 'image',
+                provider: 'google',
+                transport: 'gemini_generate_content',
+                model_id: 'gemini-3.1-flash-image',
+                display_name: 'Nano Banana 2',
+                status: 'active',
+                sort_order: 10,
+                capabilities: { aspect_ratio: true }
+            },
+            {
+                key: 'google:gemini-3.1-flash-lite-image',
+                kind: 'image',
+                provider: 'google',
+                transport: 'gemini_generate_content',
+                model_id: 'gemini-3.1-flash-lite-image',
+                display_name: 'Nano Banana 2 Lite',
+                status: 'active',
+                sort_order: 20,
+                capabilities: { aspect_ratio: true, image_size: ['1K'] }
+            }
+        ]
+    }, { appVersion: '0.6.0-dev3' });
+
+    const model = getAiModelCatalog().image.find((item) => item.code === 'gemini-nano-banana-2.1');
+    assert.ok(model);
+    assert.equal(model.name, 'Nano Banana 2.1');
+    assert.equal(model.transport, 'gemini_generate_content');
+    assert.deepEqual(model.capabilities, { aspect_ratio: true });
+    assert.deepEqual(
+        getAiModelCatalog().image
+            .filter((item) => item.provider === 'google')
+            .map((item) => item.code),
+        ['gemini-nano-banana-2.1', 'gemini-3.1-flash-image', 'gemini-3.1-flash-lite-image']
+    );
+});
+
+test('remote snapshot replaces the selectable bundled model list', () => {
     applyRemoteCatalog({
         schema_version: 1,
         version: 'older-gemini-catalog',
@@ -72,10 +126,33 @@ test('remote model overrides retain bundled runtime capabilities omitted by an o
         }]
     }, { appVersion: '0.2.0' });
 
+    const selectable = getAiModelCatalog().text;
+    assert.deepEqual(selectable.map((item) => item.code), ['gemini-3.7-flash']);
+    assert.equal(selectable.some((item) => item.code === 'gpt-5.6-sol'), false);
+    assert.equal(selectable[0].capabilities.thinking_levels, undefined);
     assert.deepEqual(
         findModelDefinition('text', 'google', 'gemini-3.7-flash').capabilities.thinking_levels,
         ['low', 'medium', 'high']
     );
+});
+
+test('bundled definitions remain resolvable for saved models absent from remote selection', () => {
+    applyRemoteCatalog({
+        schema_version: 1,
+        version: 'remote-without-legacy-model',
+        models: [{
+            key: 'openai:gpt-future',
+            kind: 'text',
+            provider: 'openai',
+            transport: 'openai_chat_completions',
+            model_id: 'gpt-future',
+            display_name: 'GPT Future',
+            status: 'active'
+        }]
+    }, { appVersion: '0.2.0' });
+
+    assert.equal(getAiModelCatalog().text.some((item) => item.code === 'gpt-5.6-sol'), false);
+    assert.equal(findModelDefinition('text', 'openai', 'gpt-5.6-sol')?.status, 'active');
 });
 
 test('remote catalog rejects the retired Imagen transport', () => {
@@ -234,7 +311,7 @@ test('provider and model order are controlled by independent sort_order fields',
     ]);
     assert.deepEqual(
         catalog.text.filter((item) => item.provider === 'openai').map((item) => item.code),
-        ['gpt-future-high', 'gpt-6-astra', 'gpt-6.1-sol', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-future-low', 'gpt-5.6-terra', 'gpt-5.6-luna']
+        ['gpt-future-high', 'gpt-future-low']
     );
 });
 

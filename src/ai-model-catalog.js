@@ -408,10 +408,9 @@ const IMAGE_MODEL_PRESETS = Object.freeze([
             quality: ['low', 'medium', 'high', 'auto']
         }
     },
+    { key: 'google:gemini-nano-banana-2.1', name: 'Nano Banana 2.1', code: 'gemini-nano-banana-2.1', provider: 'google', transport: 'gemini_generate_content', base_url: '', status: 'active', sort_order: 5, capabilities: { aspect_ratio: true } },
     { key: 'google:gemini-3.1-flash-image', name: 'Nano Banana 2', code: 'gemini-3.1-flash-image', provider: 'google', transport: 'gemini_generate_content', base_url: '', status: 'active', sort_order: 10, capabilities: { aspect_ratio: true } },
     { key: 'google:gemini-3.1-flash-lite-image', name: 'Nano Banana 2 Lite', code: 'gemini-3.1-flash-lite-image', provider: 'google', transport: 'gemini_generate_content', base_url: '', status: 'active', sort_order: 20, capabilities: { aspect_ratio: true, image_size: ['1K'] } },
-    { key: 'google:gemini-3-pro-image', name: 'Nano Banana Pro', code: 'gemini-3-pro-image', provider: 'google', transport: 'gemini_generate_content', base_url: '', status: 'active', sort_order: 30, capabilities: { aspect_ratio: true } },
-    { key: 'google:gemini-2.5-flash-image', name: 'Nano Banana (Gemini 2.5)', code: 'gemini-2.5-flash-image', provider: 'google', transport: 'gemini_generate_content', base_url: '', status: 'active', sort_order: 40, capabilities: { aspect_ratio: true } },
     {
         key: 'kie:gpt-image-2-5-sunburst-text-to-image',
         name: 'GPT Image 2.5 Sunburst',

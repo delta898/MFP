@@ -40,10 +40,9 @@ test('AI model catalog contains supported Google models and excludes unavailable
         'gemini-3.1-flash-lite'
     ]);
     assert.deepEqual(imageCodes.filter((code) => code.startsWith('gemini-')), [
+        'gemini-nano-banana-2.1',
         'gemini-3.1-flash-image',
-        'gemini-3.1-flash-lite-image',
-        'gemini-3-pro-image',
-        'gemini-2.5-flash-image'
+        'gemini-3.1-flash-lite-image'
     ]);
 
     const obsoleteCodes = [
@@ -53,7 +52,9 @@ test('AI model catalog contains supported Google models and excludes unavailable
         'gemini-2.5-flash-lite',
         'gemini-2.5-pro',
         'gemini-3.1-flash-image-preview',
-        'gemini-3-pro-image-preview'
+        'gemini-3-pro-image-preview',
+        'gemini-3-pro-image',
+        'gemini-2.5-flash-image'
     ];
     const supportedCodes = new Set([...textCodes, ...imageCodes]);
     obsoleteCodes.forEach((code) => assert.equal(supportedCodes.has(code), false));

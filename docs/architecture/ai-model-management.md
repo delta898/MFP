@@ -12,7 +12,9 @@ metadata.
 - `src/ai-model-catalog.js` is the bundled offline/recovery catalog.
 - Supabase `ai_model_catalog_versions` is the operational source of truth for
   published remote catalog snapshots.
-- `src/ai/catalog-registry.js` validates and merges bundled and remote definitions.
+- `src/ai/catalog-registry.js` validates remote snapshots and exposes a valid
+  remote snapshot as the authoritative selectable catalog. The bundled catalog
+  is used for selection only when no valid remote snapshot is available.
 
 User configuration must not contain a copy of the product catalog.
 
@@ -41,6 +43,10 @@ Provider IDs represent the API vendor, not a product or model family. The canoni
 IDs are `openai`, `anthropic`, `google`, `kie`, and `direct`. Product families such
 as GPT, Claude, Gemini, and Nano Banana remain model names under those vendors.
 Google Gemini and Nano Banana models use the `gemini_generate_content` transport.
+The bundled Google Gemini image list contains Nano Banana 2.1
+(`gemini-nano-banana-2.1`), Nano Banana 2 (`gemini-3.1-flash-image`), and
+Nano Banana 2 Lite (`gemini-3.1-flash-lite-image`). Gemini image requests
+currently use the provider's default 1K output size.
 The retired Imagen API is not a supported product transport.
 
 Legacy local selections using `gemini` are normalized to `google` when read. New
@@ -93,9 +99,14 @@ Their Base URL is entered and confirmed by the user rather than supplied remotel
 1. Load the bundled catalog synchronously.
 2. Load `data/cache/ai-model-catalog.json` when it is valid and app-compatible.
 3. Refresh the published catalog through Supabase RPC when major settings load.
-4. Validate the complete remote snapshot before applying it.
+4. Validate the complete remote snapshot before applying it; once applied, it
+   replaces the selectable bundled model list rather than augmenting it.
 5. Cache a successful snapshot using an atomic temp-file rename.
 6. Keep the current cached/bundled snapshot on network, schema, or write failure.
+
+Bundled definitions remain available to resolve existing saved model selections
+that are no longer present in the remote selectable catalog. This does not make
+those models selectable again.
 
 Remote refresh failure does not block app startup, settings, or content generation.
 
