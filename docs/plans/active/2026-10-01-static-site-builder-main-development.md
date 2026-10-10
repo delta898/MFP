@@ -328,3 +328,10 @@ The Cloudflare PoC follows the user journey rather than selecting a technology s
 - BlogGenius's canonical contract source now identifies `0.2.0` as current and continues to support `0.2.0-dev1`, preserving compatibility with existing development sites. Amade's contract source declares the same previous-version support.
 - Amade `dev` declarations and current schemas/docs are synchronized to `0.2.0`; the version synchronizer accepts stable semantic versions as well as `-devN` versions.
 - Cross-repository verification passed before Amade `dev` was merged into `main`. BlogGenius focused contract/catalog verification passed (14 tests); the latest full unit and browser UI smoke gates also pass. The unit runner now supplies a local test environment only when none is provided, so tests that load the shared config boundary run without manual environment setup.
+
+### 2026-10-11 — Cloudflare account selection integration gate
+
+- Integrated the authorized-account discovery and per-Site deployment binding work; the user manually confirmed multi-account deployment and custom-domain connection.
+- The first full unit run exposed a 1,191-line UI module exceeding the 1,120-line structure limit. Split deployment account selection and the Site settings panel into bounded modules, composed through the Site Hosting settings/accounts entry point.
+- Focused UI and script composition checks pass (17 tests). The approved full unit suite passes: 2,230 passed, 0 failed, 15 skipped across 2,245 tests. Localhost-dependent tests ran with sandbox network restrictions lifted.
+- Ready for complete diff review and fast-forward merge into `dev`; no push is included in this request.

@@ -26,7 +26,7 @@ test('JavaScript manifest preserves one explicit classic-script execution order'
     );
 
     // Keep the classic-script order explicit while leaving room for small shared modules.
-    assert.equal(manifest.split('\n').length - 1 <= 125, true);
+    assert.equal(manifest.split('\n').length - 1 <= 126, true);
     assert.deepEqual(includePaths, [
         'scripts/foundation/design-style-token-contract.js',
         'scripts/foundation/style-system.js',
@@ -49,6 +49,7 @@ test('JavaScript manifest preserves one explicit classic-script execution order'
         'scripts/features/settings-next/shell.js',
         'scripts/features/settings-next/site-hosting.js',
         'scripts/features/site-hosting/project-management.js',
+        'scripts/features/site-hosting/site-hosting-settings-and-accounts.js',
         'scripts/features/site-hosting/site-profile-fields.js',
         'scripts/features/site-hosting/domains.js',
         'scripts/features/site-hosting/site-creation-validation.js',

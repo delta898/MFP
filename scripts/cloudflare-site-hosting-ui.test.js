@@ -8,6 +8,8 @@ const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '../ui/scripts/features/settings-next/site-hosting.js'), 'utf8');
 const siteHostingRuntime = fs.readFileSync(path.join(__dirname, '../ui/scripts/features/site-hosting/project-management.js'), 'utf8');
+const siteSettings = fs.readFileSync(path.join(__dirname, '../ui/scripts/features/site-hosting/site-settings.js'), 'utf8');
+const accountSelection = fs.readFileSync(path.join(__dirname, '../ui/scripts/features/site-hosting/cloudflare-account-selection.js'), 'utf8');
 const siteHostingView = fs.readFileSync(path.join(__dirname, '../ui/partials/views/site-hosting.html'), 'utf8');
 
 function createNode() {
@@ -121,14 +123,15 @@ test('Cloudflare settings displays only the accounts returned as accessible and 
 
 test('site deployment selects an account only for multiple accessible accounts and submits the selected ID', () => {
     assert.match(siteHostingView, /id="site-hosting-cloudflare-account-dialog"/u);
-    assert.match(siteHostingRuntime, /if \(accounts\.length === 1\) return String\(accounts\[0\]\.id \|\| ''\);/u);
-    assert.match(siteHostingRuntime, /return siteHostingChooseDeploymentAccount\(accounts\);/u);
+    assert.match(accountSelection, /if \(accounts\.length === 1\) return String\(accounts\[0\]\.id \|\| ''\);/u);
+    assert.match(accountSelection, /return siteHostingChooseDeploymentAccount\(accounts\);/u);
     assert.match(siteHostingRuntime, /accountId \? \{ account_id: accountId \} : \{\}/u);
-    assert.match(siteHostingRuntime, /site\?\.deployment\?\.worker_account_id \|\| site\?\.cloudflare_account\?\.id/u);
+    assert.match(accountSelection, /site\?\.deployment\?\.worker_account_id \|\| site\?\.cloudflare_account\?\.id/u);
+    assert.match(siteHostingRuntime, /siteHostingResolveDeploymentAccount\(siteId\)/u);
 });
 
 test('custom domain settings use the Site deployment account and wait for deployment before listing zones', () => {
-    assert.match(siteHostingRuntime, /이 사이트를 배포한 Cloudflare 계정/u);
-    assert.match(siteHostingRuntime, /siteHostingZoneStatus === 'loading' \|\| !site\.deployment\?\.worker_name/u);
-    assert.doesNotMatch(siteHostingRuntime, /도메인 목록은 확인할 수 있습니다\. 실제 연결은 사이트를 배포한 뒤/u);
+    assert.match(siteSettings, /이 사이트를 배포한 Cloudflare 계정/u);
+    assert.match(siteSettings, /siteHostingZoneStatus === 'loading' \|\| !site\.deployment\?\.worker_name/u);
+    assert.doesNotMatch(siteSettings, /도메인 목록은 확인할 수 있습니다\. 실제 연결은 사이트를 배포한 뒤/u);
 });
