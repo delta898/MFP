@@ -8,6 +8,46 @@ const {
     normalizeRequestedScopes
 } = require('./cloudflare-connection.service');
 
+function createAccountProbeService(accounts, workerStatuses = {}) {
+    return createCloudflareConnectionService({
+        clientId: 'test-client',
+        requestedScopes: 'memberships.read workers-scripts.admin offline_access',
+        credentialStore: { read: async () => 'refresh-token', write: async () => {}, clear: async () => {} },
+        safeStorage: {
+            isEncryptionAvailable: () => true,
+            decryptStringAsync: async () => 'refresh-token'
+        },
+        fetchImpl: async (url) => {
+            if (String(url).includes('/oauth2/token')) {
+                return { ok: true, status: 200, json: async () => ({ access_token: 'access-token', expires_in: 3600 }) };
+            }
+            if (String(url).includes('/memberships')) {
+                return {
+                    ok: true,
+                    status: 200,
+                    json: async () => ({
+                        success: true,
+                        result: accounts.map((account) => ({
+                            account: { id: account.id, name: account.name },
+                            roles: account.roles || ['Administrator']
+                        })),
+                        result_info: { total_pages: 1 }
+                    })
+                };
+            }
+            const accountId = decodeURIComponent(String(url).match(/\/accounts\/([^/]+)\/workers\/scripts/u)?.[1] || '');
+            const status = workerStatuses[accountId] || 200;
+            return {
+                ok: status >= 200 && status < 300,
+                status,
+                json: async () => status === 403
+                    ? { success: false, errors: [{ code: 10000 }] }
+                    : { success: true, result: [] }
+            };
+        }
+    });
+}
+
 test('Cloudflare OAuth scope override is normalized and deduplicated', () => {
     assert.equal(
         normalizeRequestedScopes('memberships.read  workers-scripts.admin memberships.read'),
@@ -96,70 +136,35 @@ test('Cloudflare status decrypts the stored refresh token once and reuses it in 
     assert.equal(credentialReads, 1);
 });
 
-test('Cloudflare connection status returns every account from the authorized memberships', async () => {
+test('Cloudflare connection status filters memberships to accounts with Worker access', async () => {
     const accounts = [
         { id: 'account-first', name: 'First account', roles: ['Administrator'] },
         { id: 'account-second', name: 'Second account', roles: ['Administrator'] }
     ];
-    const service = createCloudflareConnectionService({
-        clientId: 'test-client',
-        requestedScopes: 'memberships.read offline_access',
-        credentialStore: { read: async () => 'refresh-token', write: async () => {}, clear: async () => {} },
-        safeStorage: {
-            isEncryptionAvailable: () => true,
-            decryptStringAsync: async () => 'refresh-token'
-        },
-        fetchImpl: async (url) => {
-            if (String(url).includes('/oauth2/token')) {
-                return { ok: true, json: async () => ({ access_token: 'access-token', expires_in: 3600 }) };
-            }
-            return {
-                ok: true,
-                json: async () => ({
-                    success: true,
-                    result: accounts.map((account) => ({
-                        account: { id: account.id, name: account.name },
-                        roles: account.roles
-                    })),
-                    result_info: { total_pages: 1 }
-                })
-            };
-        }
-    });
+    const service = createAccountProbeService(accounts, { 'account-second': 403 });
 
     const status = await service.getStatus();
     assert.equal(status.connected, true);
-    assert.deepEqual(status.accounts, accounts);
+    assert.deepEqual(status.accounts, [accounts[0]]);
 });
 
-test('Cloudflare deployment credentials currently select the first authorized account', async () => {
-    const service = createCloudflareConnectionService({
-        clientId: 'test-client',
-        requestedScopes: 'memberships.read offline_access',
-        credentialStore: { read: async () => 'refresh-token', write: async () => {}, clear: async () => {} },
-        safeStorage: {
-            isEncryptionAvailable: () => true,
-            decryptStringAsync: async () => 'refresh-token'
-        },
-        fetchImpl: async (url) => {
-            if (String(url).includes('/oauth2/token')) {
-                return { ok: true, json: async () => ({ access_token: 'access-token', expires_in: 3600 }) };
-            }
-            return {
-                ok: true,
-                json: async () => ({
-                    success: true,
-                    result: [
-                        { account: { id: 'account-first', name: 'First account' }, roles: ['Administrator'] },
-                        { account: { id: 'account-second', name: 'Second account' }, roles: ['Administrator'] }
-                    ],
-                    result_info: { total_pages: 1 }
-                })
-            };
-        }
-    });
+test('Cloudflare deployment auto-selects one account and requires an explicit accessible choice for several', async () => {
+    const accounts = [
+        { id: 'account-first', name: 'First account' },
+        { id: 'account-second', name: 'Second account' }
+    ];
+    const singleAccountService = createAccountProbeService(accounts, { 'account-second': 403 });
+    const autoSelected = await singleAccountService.getDeploymentCredentials();
+    assert.equal(autoSelected.account.id, 'account-first');
 
-    const credentials = await service.getDeploymentCredentials();
-    assert.equal(credentials.account.id, 'account-first');
-    assert.equal(credentials.account.name, 'First account');
+    const multiAccountService = createAccountProbeService(accounts);
+    await assert.rejects(multiAccountService.getDeploymentCredentials(), { apiCode: 'CLOUDFLARE_ACCOUNT_SELECTION_REQUIRED' });
+    const selected = await multiAccountService.getDeploymentCredentials('account-second');
+    assert.equal(selected.account.id, 'account-second');
+    await assert.rejects(multiAccountService.getDeploymentCredentials('account-unapproved'), { apiCode: 'CLOUDFLARE_ACCOUNT_NOT_ACCESSIBLE' });
+});
+
+test('Cloudflare status fails closed when account access could not be verified', async () => {
+    const service = createAccountProbeService([{ id: 'account-first', name: 'First account' }], { 'account-first': 500 });
+    await assert.rejects(service.getStatus(), { apiCode: 'CLOUDFLARE_ACCOUNT_ACCESS_CHECK_FAILED' });
 });

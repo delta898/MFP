@@ -7,6 +7,7 @@ const AUTHORIZATION_URL = 'https://dash.cloudflare.com/oauth2/auth';
 const TOKEN_URL = 'https://dash.cloudflare.com/oauth2/token';
 const REVOKE_URL = 'https://dash.cloudflare.com/oauth2/revoke';
 const MEMBERSHIPS_URL = 'https://api.cloudflare.com/client/v4/memberships';
+const WORKER_SCRIPTS_URL = 'https://api.cloudflare.com/client/v4/accounts';
 const CALLBACK_HOST = '127.0.0.1';
 const CALLBACK_PORT = 43127;
 const CALLBACK_PATH = '/oauth/callback';
@@ -212,6 +213,30 @@ function createCloudflareConnectionService(deps = {}) {
         return accounts;
     }
 
+    async function loadAccessibleAccounts(token, didRefreshRetry = false) {
+        const candidates = await loadMemberships(token);
+        const accessible = [];
+        for (const account of candidates) {
+            const url = `${WORKER_SCRIPTS_URL}/${encodeURIComponent(account.id)}/workers/scripts?per_page=1`;
+            const response = await fetchImpl(url, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (response.status === 401 && !didRefreshRetry) {
+                return loadAccessibleAccounts(await getAccessToken({ forceRefresh: true }), true);
+            }
+            if (response.status === 403) continue;
+            if (!response.ok || payload.success !== true) {
+                const error = new Error('Cloudflare에서 계정별 사이트 배포 권한을 확인하지 못했습니다. 연결 상태를 새로고침해 주세요.');
+                error.status = response.status >= 500 ? 502 : (response.status || 502);
+                error.apiCode = 'CLOUDFLARE_ACCOUNT_ACCESS_CHECK_FAILED';
+                throw error;
+            }
+            accessible.push(account);
+        }
+        return accessible;
+    }
+
     function finishFlow(flow, status, result = {}) {
         if (flow.status !== 'pending' && flow.status !== 'exchanging') return;
         flow.status = status;
@@ -237,11 +262,11 @@ function createCloudflareConnectionService(deps = {}) {
             const refreshToken = await readRefreshToken();
             if (!refreshToken) return { connected: false, accounts: [] };
             const token = await getAccessToken({ refreshToken });
-            const accounts = await loadMemberships(token);
+            const accounts = await loadAccessibleAccounts(token);
             return { connected: true, accounts };
         },
 
-        async getDeploymentCredentials() {
+        async getDeploymentCredentials(accountId = '') {
             const refreshToken = await readRefreshToken();
             if (!refreshToken) {
                 const error = new Error('먼저 Cloudflare를 연결해 주세요.');
@@ -250,11 +275,28 @@ function createCloudflareConnectionService(deps = {}) {
                 throw error;
             }
             const token = await getAccessToken({ refreshToken });
-            const accounts = await loadMemberships(token);
+            const accounts = await loadAccessibleAccounts(token);
             if (!accounts.length) {
                 const error = new Error('배포할 수 있는 Cloudflare 계정이 없습니다.');
                 error.status = 409;
                 error.apiCode = 'CLOUDFLARE_ACCOUNT_REQUIRED';
+                throw error;
+            }
+            const requestedAccountId = String(accountId || '').trim();
+            if (requestedAccountId) {
+                const account = accounts.find((candidate) => candidate.id === requestedAccountId);
+                if (!account) {
+                    const error = new Error('선택한 Cloudflare 계정에 사이트 배포 권한이 없습니다. 설정에서 연결 상태를 확인해 주세요.');
+                    error.status = 403;
+                    error.apiCode = 'CLOUDFLARE_ACCOUNT_NOT_ACCESSIBLE';
+                    throw error;
+                }
+                return { accessToken: token, account };
+            }
+            if (accounts.length > 1) {
+                const error = new Error('배포할 Cloudflare 계정을 선택해 주세요.');
+                error.status = 409;
+                error.apiCode = 'CLOUDFLARE_ACCOUNT_SELECTION_REQUIRED';
                 throw error;
             }
             return { accessToken: token, account: accounts[0] };
