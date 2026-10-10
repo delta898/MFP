@@ -5,7 +5,7 @@
 - Branch: `codex/cloudflare-account-selection`
 - Start date: 2026-10-11
 - Base/parent branch: `codex/static-site-builder-main`
-- Status: Implementation complete; user visual review pending
+- Status: Complete; user confirmed the multi-account deployment and custom-domain flow works in hands-on testing
 - The parent worktree initially contained pre-existing edits in the main development record, unit-test runner, and Cloudflare connection tests. The user asked to commit all existing work before feature implementation; this branch record was committed as `641f13c2`, followed by the pre-existing test setup changes as `a453ce73`.
 
 ## User need and goal
@@ -87,4 +87,5 @@ Show only Cloudflare accounts that the current OAuth token can actually use for 
 - Focused verification passed: `site-hosting-site.service.test.js` (23 tests), `site-repository.test.js` (9), `site-hosting-site.routes.test.js` (9), `cloudflare-site-hosting-ui.test.js` (4), and JavaScript syntax plus `git diff --check`.
 - After the custom-domain binding fix, all 46 focused tests across site service, repository, routes, and UI contracts passed. The domain flow asserts that zone lookup, connect, and disconnect request credentials for the persisted deployment account. JavaScript syntax checks and `git diff --check` passed.
 - The full browser UI smoke passed (480 fixture requests; two external Google Fonts requests were blocked as expected by the fixture harness).
-- Settings and the account-selection dialog still need the user's hands-on visual acceptance. The implementation after `a0c19e99` is currently uncommitted; no merge, push, or release has been performed.
+- User hands-on testing confirmed multi-account deployment and custom-domain connection work with the selected account.
+- All feature implementation is committed locally. No push, dev merge, or release has been performed.
