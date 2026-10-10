@@ -4,7 +4,12 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { collectUnitTestFiles } = require('./run-unit-tests');
+const { collectUnitTestFiles, createUnitTestEnvironment } = require('./run-unit-tests');
+
+test('unit tests default to local runtime environment without overriding an explicit selection', () => {
+    assert.equal(createUnitTestEnvironment({ PATH: '/bin' }).BLOGGENIUS_ENV, 'local');
+    assert.equal(createUnitTestEnvironment({ BLOGGENIUS_ENV: 'development' }).BLOGGENIUS_ENV, 'development');
+});
 
 test('unit test discovery includes only sorted *.test.js files from configured roots', () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bloggenius-unit-tests-'));

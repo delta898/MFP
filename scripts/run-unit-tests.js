@@ -29,6 +29,13 @@ function collectUnitTestFiles(repoRoot, roots = DEFAULT_ROOTS) {
     return files.sort((left, right) => left.localeCompare(right));
 }
 
+function createUnitTestEnvironment(env = process.env) {
+    return {
+        ...env,
+        BLOGGENIUS_ENV: String(env.BLOGGENIUS_ENV || 'local').trim() || 'local'
+    };
+}
+
 function runUnitTests(options = {}) {
     const repoRoot = path.resolve(options.repoRoot || path.join(__dirname, '..'));
     const testFiles = collectUnitTestFiles(repoRoot, options.roots || DEFAULT_ROOTS);
@@ -40,7 +47,7 @@ function runUnitTests(options = {}) {
     process.stdout.write(`Running ${testFiles.length} unit test files.\n`);
     const result = spawnSync(process.execPath, ['--test', ...testFiles], {
         cwd: repoRoot,
-        env: process.env,
+        env: createUnitTestEnvironment(options.env || process.env),
         stdio: 'inherit'
     });
     if (result.error) {
@@ -57,5 +64,6 @@ if (require.main === module) {
 module.exports = {
     DEFAULT_ROOTS,
     collectUnitTestFiles,
+    createUnitTestEnvironment,
     runUnitTests
 };

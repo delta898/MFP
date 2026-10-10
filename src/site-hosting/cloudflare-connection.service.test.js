@@ -95,3 +95,71 @@ test('Cloudflare status decrypts the stored refresh token once and reuses it in 
     assert.equal(decryptCalls, 1);
     assert.equal(credentialReads, 1);
 });
+
+test('Cloudflare connection status returns every account from the authorized memberships', async () => {
+    const accounts = [
+        { id: 'account-first', name: 'First account', roles: ['Administrator'] },
+        { id: 'account-second', name: 'Second account', roles: ['Administrator'] }
+    ];
+    const service = createCloudflareConnectionService({
+        clientId: 'test-client',
+        requestedScopes: 'memberships.read offline_access',
+        credentialStore: { read: async () => 'refresh-token', write: async () => {}, clear: async () => {} },
+        safeStorage: {
+            isEncryptionAvailable: () => true,
+            decryptStringAsync: async () => 'refresh-token'
+        },
+        fetchImpl: async (url) => {
+            if (String(url).includes('/oauth2/token')) {
+                return { ok: true, json: async () => ({ access_token: 'access-token', expires_in: 3600 }) };
+            }
+            return {
+                ok: true,
+                json: async () => ({
+                    success: true,
+                    result: accounts.map((account) => ({
+                        account: { id: account.id, name: account.name },
+                        roles: account.roles
+                    })),
+                    result_info: { total_pages: 1 }
+                })
+            };
+        }
+    });
+
+    const status = await service.getStatus();
+    assert.equal(status.connected, true);
+    assert.deepEqual(status.accounts, accounts);
+});
+
+test('Cloudflare deployment credentials currently select the first authorized account', async () => {
+    const service = createCloudflareConnectionService({
+        clientId: 'test-client',
+        requestedScopes: 'memberships.read offline_access',
+        credentialStore: { read: async () => 'refresh-token', write: async () => {}, clear: async () => {} },
+        safeStorage: {
+            isEncryptionAvailable: () => true,
+            decryptStringAsync: async () => 'refresh-token'
+        },
+        fetchImpl: async (url) => {
+            if (String(url).includes('/oauth2/token')) {
+                return { ok: true, json: async () => ({ access_token: 'access-token', expires_in: 3600 }) };
+            }
+            return {
+                ok: true,
+                json: async () => ({
+                    success: true,
+                    result: [
+                        { account: { id: 'account-first', name: 'First account' }, roles: ['Administrator'] },
+                        { account: { id: 'account-second', name: 'Second account' }, roles: ['Administrator'] }
+                    ],
+                    result_info: { total_pages: 1 }
+                })
+            };
+        }
+    });
+
+    const credentials = await service.getDeploymentCredentials();
+    assert.equal(credentials.account.id, 'account-first');
+    assert.equal(credentials.account.name, 'First account');
+});
