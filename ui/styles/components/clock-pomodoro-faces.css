@@ -90,8 +90,9 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.96);
-  color: var(--ui-text-primary);
+  background: var(--ui-surface-emphasis);
+  /* Pair the emphasized surface with its semantic foreground token. */
+  color: var(--ui-text-inverse);
 }
 
 .pomodoro-ring-center .pomodoro-face-time {

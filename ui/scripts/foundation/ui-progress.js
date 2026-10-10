@@ -89,8 +89,17 @@ function showUiProgress(surface, options = {}) {
 function ensureUiProgressBrowserPreviewStyles(ownerDocument) {
   if (ownerDocument.querySelector('style[data-ui-progress-browser-preview-fallback]')) return;
   const layer = ownerDocument.querySelector('.ui-progress-layer[data-ui-progress-visual="browser-preview"]');
-  const hasSharedVisualStyles = Boolean(layer && ownerDocument.defaultView?.getComputedStyle(layer)
-    .getPropertyValue('--ui-progress-browser-preview').trim() === '1');
+  const content = layer?.querySelector('.ui-progress-layer-content');
+  const spinner = content?.querySelector('.ui-progress-spinner');
+  const layerStyle = layer && ownerDocument.defaultView?.getComputedStyle(layer);
+  const contentStyle = content && ownerDocument.defaultView?.getComputedStyle(content);
+  const spinnerStyle = spinner && ownerDocument.defaultView?.getComputedStyle(spinner);
+  const hasSharedVisualStyles = Boolean(
+    layerStyle?.getPropertyValue('--ui-progress-browser-preview').trim() === '1'
+    && contentStyle
+    && Number.parseFloat(contentStyle.borderTopWidth) > 0
+    && spinnerStyle?.display === 'block'
+  );
   if (hasSharedVisualStyles) return;
   const style = ownerDocument.createElement('style');
   style.dataset.uiProgressBrowserPreviewFallback = '';

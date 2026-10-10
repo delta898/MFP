@@ -80,6 +80,7 @@ function createDashboardBetaChannelButton(channel, state, label, reason = '', ch
   button.type = 'button';
   button.dataset.dashboardBetaState = state;
   button.dataset.dashboardBetaChannel = channel.id;
+  if (channel.brand) button.style.setProperty('--channel-brand', channel.brand);
   button.dataset.dashboardBetaNav = 'settings-next';
   button.dataset.dashboardBetaTab = 'core';
   button.dataset.dashboardBetaLocalTab = 'publishing';

@@ -1,6 +1,6 @@
 #view-dashboard-beta {
-  --dashboard-beta-status-ready: var(--ui-channel-naver);
-  --dashboard-beta-status-attention: var(--ui-action-primary);
+  --dashboard-beta-status-ready: var(--ui-status-success);
+  --dashboard-beta-status-attention: var(--ui-status-warning);
   --dashboard-beta-status-failed: var(--ui-status-danger);
   --dashboard-beta-status-muted: var(--ui-text-secondary);
 }
@@ -232,7 +232,7 @@
   border-left: 1px solid var(--ui-border-default);
 }
 
-/* Provider marks retain brand colors; only the adjacent dot communicates state. */
+/* Provider marks retain their channel brand colors; semantic status colors stay theme-owned. */
 .dashboard-beta-channel-icon-wrap {
   display: inline-flex;
   flex: 0 0 auto;
@@ -246,14 +246,6 @@
 .dashboard-beta-channel-icon {
   width: 100%;
   height: 100%;
-}
-
-button[data-dashboard-beta-channel="naver"] {
-  --channel-brand: var(--ui-channel-naver);
-}
-
-button[data-dashboard-beta-channel="wordpress"] {
-  --channel-brand: var(--ui-channel-wordpress);
 }
 
 button[data-dashboard-beta-channel="wordpress"] .dashboard-beta-channel-icon {
