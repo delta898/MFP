@@ -22,22 +22,25 @@ function createEnvironmentFs(options = {}) {
         'BLOGGENIUS_PRODUCTION_SUPABASE_PUBLISHABLE_KEY=production-public-key',
         'BLOGGENIUS_PRODUCTION_TRENDS_API_URL=https://trendapi.example.com'
     ].join('\n');
-    const oauth = options.oauth || [
-        'GOOGLE_OAUTH_CLIENT_ID=production-google-id',
-        'GOOGLE_OAUTH_CLIENT_SECRET=production-google-secret'
-    ].join('\n');
-
     return {
         existsSync(filePath) {
             if (/[.]env[.]production$/.test(filePath)) return options.productionExists !== false;
-            if (/[.]env[.]oauth$/.test(filePath)) return options.oauthExists !== false;
             return false;
         },
         readFileSync(filePath) {
             if (/[.]env[.]production$/.test(filePath)) return production;
-            if (/[.]env[.]oauth$/.test(filePath)) return oauth;
             throw new Error(`unexpected read: ${filePath}`);
         }
+    };
+}
+
+function productionOAuthEnvironment() {
+    return {
+        BLOGGENIUS_OAUTH_ENV: 'production',
+        GOOGLE_OAUTH_CLIENT_ID: 'production-google-id',
+        GOOGLE_OAUTH_CLIENT_SECRET: 'production-google-secret',
+        CLOUDFLARE_OAUTH_CLIENT_ID: 'production-cloudflare-id',
+        CLOUDFLARE_OAUTH_SCOPES: 'memberships.read workers-scripts.admin'
     };
 }
 
@@ -54,7 +57,7 @@ test('Production source environment loads only explicit public targets and share
         repoRoot: '/repo',
         branch: 'main',
         fs: createEnvironmentFs(),
-        env: {}
+        env: productionOAuthEnvironment()
     });
 
     assert.equal(prepared.branch, 'main');
@@ -66,6 +69,9 @@ test('Production source environment loads only explicit public targets and share
     assert.equal(prepared.env.BLOGGENIUS_RUNTIME_ROOT, path.resolve('/repo'));
     assert.equal(prepared.env.GOOGLE_OAUTH_CLIENT_ID, 'production-google-id');
     assert.equal(prepared.env.GOOGLE_OAUTH_CLIENT_SECRET, 'production-google-secret');
+    assert.equal(prepared.env.CLOUDFLARE_OAUTH_CLIENT_ID, 'production-cloudflare-id');
+    assert.equal(prepared.env.CLOUDFLARE_OAUTH_SCOPES, 'memberships.read workers-scripts.admin');
+    assert.equal(prepared.env.BLOGGENIUS_OAUTH_ENV, 'production');
 });
 
 test('Production source environment fails closed for missing, mixed, or secret-bearing config', () => {
@@ -82,6 +88,27 @@ test('Production source environment fails closed for missing, mixed, or secret-b
         () => prepareProductionSourceEnvironment({
             repoRoot: '/repo',
             branch: 'main',
+            fs: createEnvironmentFs(),
+            env: {}
+        }),
+        /Google Desktop OAuth 환경변수가 필요/
+    );
+    assert.throws(
+        () => prepareProductionSourceEnvironment({
+            repoRoot: '/repo',
+            branch: 'main',
+            fs: createEnvironmentFs(),
+            env: {
+                ...productionOAuthEnvironment(),
+                BLOGGENIUS_OAUTH_ENV: 'development'
+            }
+        }),
+        /Production OAuth 설정이 전달되지 않았습니다/
+    );
+    assert.throws(
+        () => prepareProductionSourceEnvironment({
+            repoRoot: '/repo',
+            branch: 'main',
             fs: createEnvironmentFs({
                 production: [
                     'BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_NAME=Production',
@@ -91,7 +118,7 @@ test('Production source environment fails closed for missing, mixed, or secret-b
                     'BLOGGENIUS_PRODUCTION_TRENDS_API_URL=https://trendapi.example.com'
                 ].join('\n')
             }),
-            env: {}
+            env: productionOAuthEnvironment()
         }),
         /project ref와 URL host가 일치하지 않습니다/
     );
@@ -120,7 +147,7 @@ test('Production diagnostic exposes target identity but never credentials', () =
         repoRoot: '/repo',
         branch: 'release/v0.4.0',
         fs: createEnvironmentFs(),
-        env: {}
+        env: productionOAuthEnvironment()
     });
     const output = formatProductionSourceDiagnostic(prepared);
 
@@ -138,7 +165,7 @@ test('Production source launch cancellation stops before Electron', async () => 
         repoRoot: '/repo',
         branch: 'main',
         fs: createEnvironmentFs(),
-        env: {},
+        env: productionOAuthEnvironment(),
         output: { write(value) { output += value; } },
         confirm: async () => false,
         spawn: (...args) => {
@@ -158,7 +185,7 @@ test('Production source launch starts Electron only after explicit confirmation'
         repoRoot: '/repo',
         branch: 'main',
         fs: createEnvironmentFs(),
-        env: {},
+        env: productionOAuthEnvironment(),
         output: { write() {} },
         confirm: async () => true,
         electronCli: '/electron/cli.js',
@@ -186,6 +213,7 @@ test('Production launcher help and repository contract remain safe without confi
     assert.match(help, /main and release\/\*/);
     assert.equal(packageJson.scripts['app:production'], 'node scripts/production-app-launcher.js');
     assert.match(gitignore, /^\.env\.production$/m);
-    assert.match(shell, /npm run app:production -- "\$@"/);
+    assert.match(shell, /run-with-oauth-env[.]js production/);
+    assert.match(shell, /\.env[.]oauth[.]prod/);
     assert.doesNotMatch(sample, /SUPABASE_(?:SECRET|SERVICE_ROLE)|TRENDS_(?:API_TOKEN|READ_TOKEN_SECRET)=/);
 });

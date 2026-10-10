@@ -139,20 +139,14 @@ test('local app launcher starts Supabase and injects its discovered public conne
     assert.equal(env.GOOGLE_OAUTH_CLIENT_SECRET, 'local-google-secret');
 });
 
-test('development app launcher reads the dedicated file and owns environment selection', () => {
+test('development app launcher consumes externally supplied OAuth values and owns environment selection', () => {
     const requestedPaths = [];
     const fs = {
         existsSync(filePath) {
             requestedPaths.push(filePath);
-            return /[.]env[.](development|oauth)$/.test(filePath);
+            return /[.]env[.]development$/.test(filePath);
         },
-        readFileSync(filePath) {
-            if (/[.]env[.]oauth$/.test(filePath)) {
-                return [
-                    'GOOGLE_OAUTH_CLIENT_ID=development-google-id',
-                    'GOOGLE_OAUTH_CLIENT_SECRET=development-google-secret'
-                ].join('\n');
-            }
+        readFileSync() {
             return [
                 'BLOGGENIUS_DEVELOPMENT_SUPABASE_PROJECT_NAME="BlogGenius Development"',
                 'BLOGGENIUS_DEVELOPMENT_SUPABASE_URL=https://development.example.invalid',
@@ -165,7 +159,14 @@ test('development app launcher reads the dedicated file and owns environment sel
         repoRoot: '/repo',
         fs,
         manifest: DEVELOPMENT_MANIFEST,
-        env: { BLOGGENIUS_ENV: 'local' }
+        env: {
+            BLOGGENIUS_ENV: 'local',
+            BLOGGENIUS_OAUTH_ENV: 'development',
+            GOOGLE_OAUTH_CLIENT_ID: 'development-google-id',
+            GOOGLE_OAUTH_CLIENT_SECRET: 'development-google-secret',
+            CLOUDFLARE_OAUTH_CLIENT_ID: 'development-cloudflare-id',
+            CLOUDFLARE_OAUTH_SCOPES: 'memberships.read workers-scripts.admin'
+        }
     });
 
     assert.equal(env.BLOGGENIUS_ENV, 'development');
@@ -176,8 +177,11 @@ test('development app launcher reads the dedicated file and owns environment sel
     );
     assert.equal(env.GOOGLE_OAUTH_CLIENT_ID, 'development-google-id');
     assert.equal(env.GOOGLE_OAUTH_CLIENT_SECRET, 'development-google-secret');
+    assert.equal(env.CLOUDFLARE_OAUTH_CLIENT_ID, 'development-cloudflare-id');
+    assert.equal(env.CLOUDFLARE_OAUTH_SCOPES, 'memberships.read workers-scripts.admin');
+    assert.equal(env.BLOGGENIUS_OAUTH_ENV, 'development');
     assert.equal(requestedPaths.some((value) => /[.]env[.]development$/.test(value)), true);
-    assert.equal(requestedPaths.some((value) => /[.]env[.]oauth$/.test(value)), true);
+    assert.equal(requestedPaths.some((value) => /[.]env[.]oauth[.]/.test(value)), false);
 });
 
 test('development runtime root makes config loading prefer the project over Electron userData', () => {

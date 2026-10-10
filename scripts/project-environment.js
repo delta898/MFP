@@ -10,7 +10,7 @@ const GOOGLE_OAUTH_ENV_KEYS = Object.freeze([
     'GOOGLE_OAUTH_CLIENT_ID',
     'GOOGLE_OAUTH_CLIENT_SECRET'
 ]);
-const DEVELOPMENT_DESKTOP_OAUTH_ENV_KEYS = Object.freeze([
+const DESKTOP_OAUTH_ENV_KEYS = Object.freeze([
     ...GOOGLE_OAUTH_ENV_KEYS,
     'CLOUDFLARE_OAUTH_CLIENT_ID',
     'CLOUDFLARE_OAUTH_SCOPES'
@@ -65,26 +65,20 @@ function loadProductionEnvironment(options = {}) {
     });
 }
 
-function loadOauthEnvironment(options = {}, allowedKeys = GOOGLE_OAUTH_ENV_KEYS) {
-    const loaded = loadProjectEnvironment({
-        ...options,
-        fileName: options.fileName || DEFAULT_GOOGLE_OAUTH_ENV_FILE
-    });
+function loadDevelopmentDesktopOauthEnvironment(options = {}) {
+    const repoRoot = path.resolve(options.repoRoot || path.join(__dirname, '..'));
+    const fsImpl = options.fs || fs;
     const base = options.env || process.env;
+    const filePath = path.join(repoRoot, options.fileName || DEFAULT_GOOGLE_OAUTH_ENV_FILE);
+    const fromFile = fsImpl.existsSync(filePath)
+        ? parseEnvironmentFile(fsImpl.readFileSync(filePath, 'utf8'))
+        : {};
     const selected = {};
-    for (const key of allowedKeys) {
-        if (loaded[key] !== undefined) selected[key] = loaded[key];
+    for (const key of DESKTOP_OAUTH_ENV_KEYS) {
+        if (fromFile[key] !== undefined) selected[key] = fromFile[key];
         if (base[key] !== undefined) selected[key] = base[key];
     }
     return Object.freeze({ ...base, ...selected });
-}
-
-function loadGoogleOauthEnvironment(options = {}) {
-    return loadOauthEnvironment(options, GOOGLE_OAUTH_ENV_KEYS);
-}
-
-function loadDevelopmentDesktopOauthEnvironment(options = {}) {
-    return loadOauthEnvironment(options, DEVELOPMENT_DESKTOP_OAUTH_ENV_KEYS);
 }
 
 module.exports = {
@@ -92,11 +86,10 @@ module.exports = {
     DEFAULT_PRODUCTION_ENV_FILE,
     DEFAULT_GOOGLE_OAUTH_ENV_FILE,
     GOOGLE_OAUTH_ENV_KEYS,
-    DEVELOPMENT_DESKTOP_OAUTH_ENV_KEYS,
+    DESKTOP_OAUTH_ENV_KEYS,
     parseEnvironmentFile,
     loadProjectEnvironment,
     loadDevelopmentEnvironment,
     loadProductionEnvironment,
-    loadGoogleOauthEnvironment,
     loadDevelopmentDesktopOauthEnvironment
 };

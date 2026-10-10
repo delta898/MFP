@@ -9,6 +9,9 @@ const {
 const {
     validatePublicUrl
 } = require('../src/environment/runtime-profile');
+const {
+    resolveOAuthApplicationConfig
+} = require('../src/environment/oauth-config');
 
 function normalizeText(value) {
     return String(value || '').trim();
@@ -19,8 +22,16 @@ function createBuildEnvironmentConfig(input = {}) {
     const supabaseUrl = normalizeText(input.supabaseUrl);
     const publishableKey = normalizeText(input.publishableKey);
     const trendsApiUrl = normalizeText(input.trendsApiUrl);
-    const googleOauthClientId = normalizeText(input.googleOauthClientId);
-    const googleOauthClientSecret = normalizeText(input.googleOauthClientSecret);
+    const oauthConfig = resolveOAuthApplicationConfig({
+        environment,
+        runtimeEnv: {
+            BLOGGENIUS_OAUTH_ENV: environment,
+            GOOGLE_OAUTH_CLIENT_ID: input.googleOauthClientId,
+            GOOGLE_OAUTH_CLIENT_SECRET: input.googleOauthClientSecret,
+            CLOUDFLARE_OAUTH_CLIENT_ID: input.cloudflareOauthClientId,
+            CLOUDFLARE_OAUTH_SCOPES: input.cloudflareOauthScopes
+        }
+    });
     const validatedUrl = validatePublicUrl(environment, supabaseUrl);
     const validatedTrendsApiUrl = validatePublicUrl(environment, trendsApiUrl);
 
@@ -33,8 +44,11 @@ function createBuildEnvironmentConfig(input = {}) {
     if (!validatedTrendsApiUrl.valid) {
         throw new Error(`Invalid ${environment} Trends API URL: ${validatedTrendsApiUrl.reason}`);
     }
-    if (!googleOauthClientId || !googleOauthClientSecret) {
+    if (!oauthConfig.GOOGLE_OAUTH_CLIENT_ID || !oauthConfig.GOOGLE_OAUTH_CLIENT_SECRET) {
         throw new Error(`Missing ${environment} Google OAuth client configuration`);
+    }
+    if (!oauthConfig.CLOUDFLARE_OAUTH_CLIENT_ID) {
+        throw new Error(`Missing ${environment} Cloudflare OAuth client configuration`);
     }
 
     return Object.freeze({
@@ -42,8 +56,10 @@ function createBuildEnvironmentConfig(input = {}) {
         SUPABASE_URL: supabaseUrl,
         SUPABASE_PUBLISHABLE_KEY: publishableKey,
         TRENDS_API_URL: trendsApiUrl.replace(/\/+$/, ''),
-        GOOGLE_OAUTH_CLIENT_ID: googleOauthClientId,
-        GOOGLE_OAUTH_CLIENT_SECRET: googleOauthClientSecret
+        GOOGLE_OAUTH_CLIENT_ID: oauthConfig.GOOGLE_OAUTH_CLIENT_ID,
+        GOOGLE_OAUTH_CLIENT_SECRET: oauthConfig.GOOGLE_OAUTH_CLIENT_SECRET,
+        CLOUDFLARE_OAUTH_CLIENT_ID: oauthConfig.CLOUDFLARE_OAUTH_CLIENT_ID,
+        CLOUDFLARE_OAUTH_SCOPES: oauthConfig.CLOUDFLARE_OAUTH_SCOPES
     });
 }
 
@@ -63,19 +79,22 @@ function writeBuildEnvironmentConfig(outputPath, config, fsImpl = fs) {
 
 function validateBuildEnvironmentConfig(config, expectedEnvironment) {
     const expected = assertEnvironmentName(expectedEnvironment);
+    const actualEnvironment = assertEnvironmentName(config?.BLOGGENIUS_ENV);
+    if (actualEnvironment !== expected) {
+        throw new Error(
+            `Build environment mismatch: expected ${expected}, got ${actualEnvironment}`
+        );
+    }
     const normalized = createBuildEnvironmentConfig({
         environment: config?.BLOGGENIUS_ENV,
         supabaseUrl: config?.SUPABASE_URL,
         publishableKey: config?.SUPABASE_PUBLISHABLE_KEY,
         trendsApiUrl: config?.TRENDS_API_URL,
         googleOauthClientId: config?.GOOGLE_OAUTH_CLIENT_ID,
-        googleOauthClientSecret: config?.GOOGLE_OAUTH_CLIENT_SECRET
+        googleOauthClientSecret: config?.GOOGLE_OAUTH_CLIENT_SECRET,
+        cloudflareOauthClientId: config?.CLOUDFLARE_OAUTH_CLIENT_ID,
+        cloudflareOauthScopes: config?.CLOUDFLARE_OAUTH_SCOPES
     });
-    if (normalized.BLOGGENIUS_ENV !== expected) {
-        throw new Error(
-            `Build environment mismatch: expected ${expected}, got ${normalized.BLOGGENIUS_ENV}`
-        );
-    }
     return normalized;
 }
 
@@ -103,7 +122,9 @@ function runCli(argv = process.argv.slice(2), env = process.env) {
             publishableKey: env.BLOGGENIUS_BUILD_SUPABASE_PUBLISHABLE_KEY,
             trendsApiUrl: env.BLOGGENIUS_BUILD_TRENDS_API_URL,
             googleOauthClientId: env.BLOGGENIUS_BUILD_GOOGLE_OAUTH_CLIENT_ID,
-            googleOauthClientSecret: env.BLOGGENIUS_BUILD_GOOGLE_OAUTH_CLIENT_SECRET
+            googleOauthClientSecret: env.BLOGGENIUS_BUILD_GOOGLE_OAUTH_CLIENT_SECRET,
+            cloudflareOauthClientId: env.BLOGGENIUS_BUILD_CLOUDFLARE_OAUTH_CLIENT_ID,
+            cloudflareOauthScopes: env.BLOGGENIUS_BUILD_CLOUDFLARE_OAUTH_SCOPES
         });
         writeBuildEnvironmentConfig(args.output, config);
         process.stdout.write(`Build environment config created for ${config.BLOGGENIUS_ENV}.\n`);

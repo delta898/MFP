@@ -26,6 +26,9 @@ const {
     resolveRuntimeEnvironmentProfile
 } = require('./environment/runtime-profile');
 const {
+    resolveOAuthApplicationConfig
+} = require('./environment/oauth-config');
+const {
     resolveLicenseKeyStoragePaths,
     loadLicenseKey
 } = require('./config/license-key-storage');
@@ -90,6 +93,11 @@ try {
 
 const runtimeEnvironmentProfile = resolveRuntimeEnvironmentProfile({
     env: process.env,
+    buildConfig: internalSecrets
+});
+const oauthApplicationConfig = resolveOAuthApplicationConfig({
+    environment: runtimeEnvironmentProfile.environment,
+    runtimeEnv: process.env,
     buildConfig: internalSecrets
 });
 
@@ -383,21 +391,10 @@ function resolveRuntimePath(rawPath, options = {}) {
 // 💡 [환경변수 및 동적 경로 처리]
 const googleOauthTokensRaw = String(process.env.GOOGLE_OAUTH_TOKENS_JSON || structuredConfig.general?.google_oauth_tokens_json || '').trim();
 const googleOauthTokensPath = resolveRuntimePath(googleOauthTokensRaw || './config/google_oauth_tokens.json', { mustExist: false });
-const googleOauthClientId = String(
-    process.env.GOOGLE_OAUTH_CLIENT_ID
-    || (IS_PACKAGED ? internalSecrets.GOOGLE_OAUTH_CLIENT_ID : '')
-    || ''
-).trim();
-const googleOauthClientSecret = String(
-    process.env.GOOGLE_OAUTH_CLIENT_SECRET
-    || (IS_PACKAGED ? internalSecrets.GOOGLE_OAUTH_CLIENT_SECRET : '')
-    || ''
-).trim();
-const cloudflareOauthClientId = String(
-    process.env.CLOUDFLARE_OAUTH_CLIENT_ID
-    || ''
-).trim();
-const cloudflareOauthScopes = String(process.env.CLOUDFLARE_OAUTH_SCOPES || '').trim();
+const googleOauthClientId = oauthApplicationConfig.GOOGLE_OAUTH_CLIENT_ID;
+const googleOauthClientSecret = oauthApplicationConfig.GOOGLE_OAUTH_CLIENT_SECRET;
+const cloudflareOauthClientId = oauthApplicationConfig.CLOUDFLARE_OAUTH_CLIENT_ID;
+const cloudflareOauthScopes = oauthApplicationConfig.CLOUDFLARE_OAUTH_SCOPES;
 
 const workspaceRaw = String(structuredConfig.general?.workspace_dir || '').trim();
 const resolvedWorkspaceDir = workspaceRaw

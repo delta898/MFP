@@ -6,7 +6,6 @@ const path = require('node:path');
 const readline = require('node:readline/promises');
 const { spawnSync } = require('node:child_process');
 const {
-    loadGoogleOauthEnvironment,
     loadProductionEnvironment,
     parseEnvironmentFile
 } = require('./project-environment');
@@ -93,11 +92,7 @@ function prepareProductionSourceEnvironment(options = {}) {
         fs: fsImpl,
         env: options.env || process.env
     });
-    const env = loadGoogleOauthEnvironment({
-        repoRoot,
-        fs: fsImpl,
-        env: productionEnv
-    });
+    const env = productionEnv;
     const profile = resolveRuntimeEnvironmentProfile({ env, buildConfig: {} });
 
     if (
@@ -111,7 +106,13 @@ function prepareProductionSourceEnvironment(options = {}) {
         throw new Error(`Production Trends API가 준비되지 않았습니다: ${profile.trendsApi?.reason || 'not_configured'}`);
     }
     if (!normalizeText(env.GOOGLE_OAUTH_CLIENT_ID) || !normalizeText(env.GOOGLE_OAUTH_CLIENT_SECRET)) {
-        throw new Error('Google Desktop OAuth 설정이 필요합니다. .env.oauth을 확인하세요.');
+        throw new Error('Google Desktop OAuth 환경변수가 필요합니다. run_production.sh에서 설정을 전달하세요.');
+    }
+    if (!normalizeText(env.CLOUDFLARE_OAUTH_CLIENT_ID)) {
+        throw new Error('Cloudflare OAuth Client ID 환경변수가 필요합니다. run_production.sh에서 설정을 전달하세요.');
+    }
+    if (env.BLOGGENIUS_OAUTH_ENV !== 'production') {
+        throw new Error('Production OAuth 설정이 전달되지 않았습니다. run_production.sh를 사용하세요.');
     }
 
     const projectName = normalizeText(env.BLOGGENIUS_PRODUCTION_SUPABASE_PROJECT_NAME);

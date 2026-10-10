@@ -101,12 +101,8 @@ test('Google OAuth consumers never fetch app credentials from Runtime Config', (
     assert.doesNotMatch(runtimeConfig, /ensureGoogleOauthClientConfig/);
     assert.doesNotMatch(utils, /ensureGoogleOauthClientConfig/);
     assert.doesNotMatch(contentService, /ensureGoogleOauthClientConfig/);
-    assert.match(
-        configLoader,
-        /IS_PACKAGED\s*\?\s*internalSecrets[.]GOOGLE_OAUTH_CLIENT_ID\s*:\s*''/
-    );
-    assert.match(
-        configLoader,
-        /IS_PACKAGED\s*\?\s*internalSecrets[.]GOOGLE_OAUTH_CLIENT_SECRET\s*:\s*''/
-    );
+    assert.match(configLoader, /resolveOAuthApplicationConfig\(/);
+    assert.match(configLoader, /runtimeEnv:\s*process[.]env/);
+    assert.match(configLoader, /buildConfig:\s*internalSecrets/);
+    assert.doesNotMatch(configLoader, /ensureGoogleOauthClientConfig/);
 });

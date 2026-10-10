@@ -139,6 +139,7 @@ jobs:
           BLOGGENIUS_BUILD_TRENDS_API_URL: ${{ vars.BLOGGENIUS_PRODUCTION_TRENDS_API_URL }}
           BLOGGENIUS_BUILD_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
           BLOGGENIUS_BUILD_GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          BLOGGENIUS_BUILD_CLOUDFLARE_OAUTH_CLIENT_ID: ${{ secrets.CLOUDFLARE_OAUTH_CLIENT_ID }}
         run: |
           node scripts/build-environment-config.js write \
             --target production \

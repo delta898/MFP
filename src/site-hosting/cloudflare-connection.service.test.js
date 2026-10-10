@@ -24,7 +24,6 @@ test('Cloudflare authorization requests the configured Workers Admin scope set',
         requestedScopes: [
             'memberships.read',
             'workers-scripts.admin',
-            'workers-scripts.edit',
             'workers-routes.write',
             'dns.read',
             'zone.read',
@@ -43,12 +42,13 @@ test('Cloudflare authorization requests the configured Workers Admin scope set',
         [
             'memberships.read',
             'workers-scripts.admin',
-            'workers-scripts.edit',
             'workers-routes.write',
             'dns.read',
             'zone.read',
             'offline_access'
         ]
     );
+    assert.ok(DEFAULT_OAUTH_REQUESTED_SCOPES.includes('workers-scripts.admin'));
+    assert.ok(!DEFAULT_OAUTH_REQUESTED_SCOPES.some((scope) => /workers-scripts\.(edit|read|write)/.test(scope)));
     service.cancel(flow.flowId);
 });

@@ -5,7 +5,6 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const {
     loadDevelopmentEnvironment,
-    loadGoogleOauthEnvironment,
     loadDevelopmentDesktopOauthEnvironment
 } = require('./project-environment');
 const {
@@ -129,10 +128,9 @@ function prepareDevelopmentEnvironment(options = {}) {
         fs: options.fs,
         env: options.env || process.env
     });
-    const env = loadDevelopmentDesktopOauthEnvironment({
-        repoRoot,
-        fs: options.fs,
-        env: developmentEnv
+    const env = Object.freeze({
+        ...developmentEnv,
+        BLOGGENIUS_OAUTH_ENV: 'development'
     });
     const manifest = options.manifest || loadManifest(repoRoot, options.fs);
     const readiness = inspectHostedDevelopmentReadiness({

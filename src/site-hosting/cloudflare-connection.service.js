@@ -12,26 +12,14 @@ const CALLBACK_PORT = 43127;
 const CALLBACK_PATH = '/oauth/callback';
 const REDIRECT_URI = `http://${CALLBACK_HOST}:${CALLBACK_PORT}${CALLBACK_PATH}`;
 const FLOW_TTL_MS = 10 * 60 * 1000;
-const DEFAULT_OAUTH_REQUESTED_SCOPES = Object.freeze([
-    'memberships.read',
-    'workers-scripts.edit',
-    'workers-routes.write',
-    'workers-scripts.read',
-    'workers-scripts.write',
-    'zone.read',
-    'dns.read',
-    'offline_access'
-]);
+const {
+    DEFAULT_CLOUDFLARE_OAUTH_SCOPES,
+    normalizeCloudflareOAuthScopes
+} = require('../environment/oauth-config');
+const DEFAULT_OAUTH_REQUESTED_SCOPES = DEFAULT_CLOUDFLARE_OAUTH_SCOPES;
 
 function normalizeRequestedScopes(value) {
-    const scopes = (Array.isArray(value) ? value : String(value || '').split(/\s+/))
-        .map((scope) => String(scope || '').trim())
-        .filter(Boolean);
-    if (scopes.length === 0) return DEFAULT_OAUTH_REQUESTED_SCOPES.join(' ');
-    if (scopes.some((scope) => !/^[a-z][a-z0-9._-]*$/.test(scope))) {
-        throw new Error('Cloudflare OAuth scope 설정 형식이 올바르지 않습니다.');
-    }
-    return [...new Set(scopes)].join(' ');
+    return normalizeCloudflareOAuthScopes(value).join(' ');
 }
 
 function createCloudflareConnectionService(deps = {}) {

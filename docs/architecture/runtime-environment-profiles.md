@@ -45,13 +45,16 @@ Local endpoints must use localhost. Development and production endpoints must us
 
 ## Generated build config
 
-`src/config/secret.js` is no longer a committed source file. It is an ignored build artifact generated from environment-specific CI secrets or an explicit local release-build input.
+`src/config/secret.js` is no longer a committed source file. It is an ignored build artifact generated from environment-specific CI inputs or an explicit local release-build input. For OAuth, Development and Production source runs read `.env.oauth.dev` and `.env.oauth.prod`; packaged Production receives values from GitHub repository Secrets.
 
 The generated module contains only:
 
 - `BLOGGENIUS_ENV`
 - `SUPABASE_URL`
 - `SUPABASE_PUBLISHABLE_KEY`
+- Google and Cloudflare OAuth Client configuration for Production
+
+Cloudflare scope names are public configuration. The default scope set contains `workers-scripts.admin` and omits the legacy Scripts Read/Write and Editor scopes. User OAuth tokens remain on the device and OAuth Client configuration is not loaded from Supabase Runtime Config.
 
 Release build scripts validate that the artifact is a production profile before packaging. Existing GitHub secret names are temporarily mapped at the workflow boundary, but legacy `LICENSE_CHK_*` names do not appear in the generated module.
 

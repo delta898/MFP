@@ -15,18 +15,22 @@ test('production build config requires an explicit remote HTTPS endpoint', () =>
         publishableKey: 'publishable-key',
         trendsApiUrl: 'https://trendapi.example.com',
         googleOauthClientId: 'google-client-id',
-        googleOauthClientSecret: 'google-client-secret'
+        googleOauthClientSecret: 'google-client-secret',
+        cloudflareOauthClientId: 'cloudflare-client-id'
     });
 
     assert.equal(config.BLOGGENIUS_ENV, 'production');
     assert.equal(config.SUPABASE_PUBLISHABLE_KEY, 'publishable-key');
+    assert.equal(config.CLOUDFLARE_OAUTH_CLIENT_ID, 'cloudflare-client-id');
+    assert.equal(config.CLOUDFLARE_OAUTH_SCOPES, 'memberships.read workers-scripts.admin workers-routes.write dns.read zone.read offline_access');
     assert.throws(() => createBuildEnvironmentConfig({
         environment: 'production',
         supabaseUrl: 'http://127.0.0.1:54321',
         publishableKey: 'local-key',
         trendsApiUrl: 'https://trendapi.example.com',
         googleOauthClientId: 'google-client-id',
-        googleOauthClientSecret: 'google-client-secret'
+        googleOauthClientSecret: 'google-client-secret',
+        cloudflareOauthClientId: 'cloudflare-client-id'
     }), /hosted_requires_remote_https/);
 });
 
@@ -58,7 +62,8 @@ test('serialized build config contains the selected environment and no legacy na
         publishableKey: 'development-key',
         trendsApiUrl: 'https://trendapi-dev.example.com',
         googleOauthClientId: 'google-client-id',
-        googleOauthClientSecret: 'google-client-secret'
+        googleOauthClientSecret: 'google-client-secret',
+        cloudflareOauthClientId: 'cloudflare-client-id'
     }));
 
     assert.match(serialized, /BLOGGENIUS_ENV/);
@@ -66,6 +71,9 @@ test('serialized build config contains the selected environment and no legacy na
     assert.match(serialized, /TRENDS_API_URL/);
     assert.match(serialized, /GOOGLE_OAUTH_CLIENT_ID/);
     assert.match(serialized, /GOOGLE_OAUTH_CLIENT_SECRET/);
+    assert.match(serialized, /CLOUDFLARE_OAUTH_CLIENT_ID/);
+    assert.match(serialized, /workers-scripts[.]admin/);
+    assert.doesNotMatch(serialized, /workers-scripts[.](?:edit|read|write)/);
     assert.doesNotMatch(serialized, /LICENSE_CHK_/);
 });
 
@@ -76,6 +84,18 @@ test('build config requires an environment-compatible Trends API URL', () => {
         publishableKey: 'publishable-key',
         trendsApiUrl: 'http://127.0.0.1:4581',
         googleOauthClientId: 'google-client-id',
-        googleOauthClientSecret: 'google-client-secret'
+        googleOauthClientSecret: 'google-client-secret',
+        cloudflareOauthClientId: 'cloudflare-client-id'
     }), /Invalid production Trends API URL/);
+});
+
+test('build config requires Cloudflare OAuth Client ID', () => {
+    assert.throws(() => createBuildEnvironmentConfig({
+        environment: 'production',
+        supabaseUrl: 'https://production-project.supabase.co',
+        publishableKey: 'publishable-key',
+        trendsApiUrl: 'https://trendapi.example.com',
+        googleOauthClientId: 'google-client-id',
+        googleOauthClientSecret: 'google-client-secret'
+    }), /Missing production Cloudflare OAuth client configuration/);
 });

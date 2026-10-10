@@ -51,31 +51,32 @@ preflight가 허용되지 않은 브랜치와 target 조합을 차단한다.
 
 Local은 일상적인 기능 개발, migration 작성, DB reset과 자동 테스트를 위한 기본 환경이다.
 
-### 개발 PC의 OAuth 앱 설정
+### Development·Production source run의 OAuth 앱 설정
 
-Local과 Development 앱은 공통으로 저장소 루트의 Git 제외 파일 `.env.oauth`에서 Desktop OAuth
-앱 설정을 읽는다. `config/google-oauth.env.sample`을 참고해 개발 컴퓨터마다 한 번 준비한다.
+Development와 Production source run은 각 환경의 OAuth 설정 파일을 사용한다. Local 실행은 기존
+`.env.oauth` 경로를 유지하며 이번 변경 범위에서는 다루지 않는다. 필요한 파일은 저장소 루트에 만들고
+Git 제외 상태를 유지한다. 키 형식은 `config/google-oauth.env.sample`을 참고한다.
 
 ```dotenv
 GOOGLE_OAUTH_CLIENT_ID="..."
 GOOGLE_OAUTH_CLIENT_SECRET="..."
 CLOUDFLARE_OAUTH_CLIENT_ID="..."
-# Optional test-client override; when set, this replaces the default scope list.
-# CLOUDFLARE_OAUTH_SCOPES="memberships.read workers-scripts.admin workers-scripts.edit workers-routes.write dns.read zone.read offline_access"
+# Optional. Defaults to the validated Workers Admin scope set.
+# CLOUDFLARE_OAUTH_SCOPES="memberships.read workers-scripts.admin workers-routes.write dns.read zone.read offline_access"
 ```
 
-`./run_dev.sh`는 이 파일의 Cloudflare Client ID를 BlogGenius Development 프로세스에 전달한다.
-Cloudflare 값은 Local/Development용이며 Production launcher는 `.env.oauth`의 해당 값을 읽지
-않는다. 일반 사용자 배포용 Cloudflare OAuth Client 설정은 별도 release configuration 단계에서
-추가한다.
+위 형식의 파일을 Development에는 `.env.oauth.dev`, Production source run에는 `.env.oauth.prod`로
+저장한다. 각 launcher는 자신의 파일만 읽으며 반대 환경 파일을 fallback으로 사용하지 않는다.
+Google과 Cloudflare Client 설정은 Supabase Runtime Config에 저장하지 않는다.
 
 `CLOUDFLARE_OAUTH_SCOPES`는 개발용 OAuth Client의 scope 구성이 기본 목록과 다를 때만 설정한다.
 공백으로 구분한 scope ID 전체 목록이며, 설정하면 기본 목록에 합쳐지지 않고 그대로 요청된다.
-예시의 `workers-scripts.admin`은 새 Worker 생성에 쓰이는 계정 전체 Workers Admin 권한으로 삭제 권한도
-포함하므로, 격리된 테스트 Client와 테스트 Worker에만 사용한다.
+`workers-scripts.admin`은 사용자가 별도 테스트 Client로 사이트 생성, 배포, custom domain 연결, 삭제까지
+검증한 권한이다. 현재 앱 기본 scope는 이 Admin scope를 사용하며 Editor와 legacy Scripts Read/Write를
+요청하지 않는다.
 
-이 파일은 실행 환경이나 Supabase endpoint를 선택하지 않으며 허용 목록에 있는 OAuth key만 로더에
-반영된다. 실제 값은 Git, `config.json`, Runtime Config DB와 문서에 넣지 않는다. 설치형 앱의 Client Secret은
+이 파일은 실행 환경이나 Supabase endpoint를 선택하지 않으며 OAuth key만 로더에 반영된다. 실제 값은 Git,
+`config.json`, Runtime Config DB와 문서에 넣지 않는다. 설치형 앱의 Client Secret은
 배포본에서 추출 가능하다는 전제를 가지며, 공용 provider quota를 보호하는 server secret과 구분한다.
 
 사용자 access/refresh token은 계속 `config/google_oauth_tokens.json`에 저장된다. `.env.oauth`을
@@ -225,10 +226,12 @@ npm run env:development:smoke
 다음 명령은 `.env.development`를 읽고 환경을 `development`로 지정한 뒤 앱을 실행한다.
 
 ```bash
-npm run app:development
-# 또는
 ./run_dev.sh
 ```
+
+이 진입점이 `.env.oauth.dev`를 읽어 선언된 OAuth 환경변수만 주입한 뒤 Development launcher를 실행한다.
+`npm run app:development`을 직접 실행하면 외부에서 OAuth 환경변수를 미리 설정한 경우에만 OAuth 연결이
+구성된다.
 
 시작 로그에서 development host를 확인한다.
 
@@ -277,15 +280,16 @@ BLOGGENIUS_PRODUCTION_SUPABASE_PUBLISHABLE_KEY="..."
 BLOGGENIUS_PRODUCTION_TRENDS_API_URL="https://trendapi.example.com"
 ```
 
-Google Desktop OAuth 설정은 기존 `.env.oauth`을 재사용한다. `.env.production`에는 service-role
+Google과 Cloudflare OAuth 설정은 `.env.oauth.prod`에서 읽는다. `.env.production`에는 service-role
 key, DB password, provider secret, `TRENDS_API_TOKEN`, `TRENDS_READ_TOKEN_SECRET`을 넣지 않는다.
 launcher도 이들 server-only secret이 파일에 있으면 실행을 거부한다.
 
 ```bash
 ./run_production.sh
-# 또는
-npm run app:production
 ```
+
+이 진입점이 `.env.oauth.prod`에서 OAuth 변수를 주입한 뒤 Production launcher를 실행한다. 직접
+`npm run app:production`을 실행할 경우에는 Production OAuth 환경변수를 먼저 전달해야 한다.
 
 launcher는 다음을 순서대로 수행한다.
 
@@ -307,7 +311,7 @@ launcher는 다음을 순서대로 수행한다.
 따라서 source run이 성공해도 release artifact 검증을 생략하지 않는다.
 
 정식 패키지는 release build 과정에서 무시된 `src/config/secret.js`를 생성한다. 이 파일에는
-production 공개 Supabase 연결값과 Google Desktop OAuth 앱 설정이 포함된다.
+production 공개 Supabase 연결값과 Google·Cloudflare OAuth 앱 설정이 포함된다.
 
 ```js
 {
@@ -315,7 +319,9 @@ production 공개 Supabase 연결값과 Google Desktop OAuth 앱 설정이 포�
   SUPABASE_URL: '...',
   SUPABASE_PUBLISHABLE_KEY: '...',
   GOOGLE_OAUTH_CLIENT_ID: '...',
-  GOOGLE_OAUTH_CLIENT_SECRET: '...'
+  GOOGLE_OAUTH_CLIENT_SECRET: '...',
+  CLOUDFLARE_OAUTH_CLIENT_ID: '...',
+  CLOUDFLARE_OAUTH_SCOPES: 'memberships.read workers-scripts.admin workers-routes.write dns.read zone.read offline_access'
 }
 ```
 
@@ -326,10 +332,11 @@ GitHub tag build에는 다음 두 repository secret도 필요하다.
 
 - `GOOGLE_OAUTH_CLIENT_ID`
 - `GOOGLE_OAUTH_CLIENT_SECRET`
+- `CLOUDFLARE_OAUTH_CLIENT_ID`
 
 값이 없거나 한 쌍이 완전하지 않으면 release build config 검증이 실패한다. Client 설정을 바꾼
-경우 새 앱 버전을 배포하고, Google에서 기존 token을 더 이상 인정하지 않으면 사용자에게 다시
-연결하도록 안내한다.
+경우 새 앱 버전을 배포하고, provider가 기존 token을 더 이상 인정하지 않으면 사용자에게 다시 연결하도록
+안내한다. Cloudflare scope 목록은 앱 코드의 검증된 기본값을 사용하며 Actions secret으로 관리하지 않는다.
 
 ## 6. 브랜치별 개발 workflow
 

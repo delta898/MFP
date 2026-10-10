@@ -61,29 +61,29 @@ invalid_scope: The OAuth 2.0 Client is not allowed to request scope 'workers-scr
 CLOUDFLARE_OAUTH_SCOPES="memberships.read workers-scripts.admin workers-scripts.edit workers-routes.write dns.read zone.read offline_access"
 ```
 
-이 구성으로 사용자가 BlogGenius에서 **사이트 생성, 배포, custom domain 연결, 사이트 삭제**까지 성공했다고 확인했다. 이는 조합 전체의 실사용 성공을 입증하지만 Admin 단독으로 충분한지, Editor를 제거할 수 있는지는 분리 실험하지 않았다. 지금은 성공한 조합을 유지한다.
+당시 사용자는 이 구성으로 BlogGenius에서 **사이트 생성, 배포, custom domain 연결, 사이트 삭제**까지 성공했다. 이후 별도 테스트 Client에서 Workers Admin만 사용하고 동일한 전체 흐름을 다시 성공했다고 확인했다. 따라서 앱 기본 scope에서는 Editor와 legacy Scripts Read/Write를 제거하고 Admin-only Workers 권한을 사용한다.
 
 ### 4. API Token과의 관계
 
 Cloudflare 계정의 API Token 목록에 보이는 Workers 권한은 API Token 자체에만 적용된다. 사용자가 공유한 `Cloudflare Agent Token` summary에는 그 token에 Workers Scripts Read가 보였지만, 그것이 OAuth Client에 `workers-scripts.read`를 추가하거나 OAuth 동의를 확장하지는 않는다. OAuth 실패 원인도 API Token이 아니라 Client 허용 scope와 BlogGenius 요청 scope의 불일치였다.
 
-BlogGenius의 이 흐름은 OAuth Client로 발급받은 access/refresh token을 사용한다. 별도 API Token은 OAuth Client 설정이나 `.env.oauth`에 넣지 않는다.
+BlogGenius의 이 흐름은 OAuth Client로 발급받은 access/refresh token을 사용한다. 별도 API Token은 OAuth Client 설정이나 OAuth environment 파일에 넣지 않는다.
 
 ## 현재 BlogGenius 구현 상태
 
-- Local/Development에서만 `.env.oauth`의 `CLOUDFLARE_OAUTH_CLIENT_ID`와 선택적 `CLOUDFLARE_OAUTH_SCOPES`를 읽는다.
+- Development source run은 `.env.oauth.dev`, Production source run은 `.env.oauth.prod`의 `CLOUDFLARE_OAUTH_CLIENT_ID`를 읽는다. Packaged Production은 GitHub repository Secret `CLOUDFLARE_OAUTH_CLIENT_ID`를 build config로 받는다.
 - scope override는 기본 목록에 합쳐지지 않고, 지정한 scope 전체를 authorization 요청에 사용한다. Client가 허용한 목록과 일치시켜야 한다.
-- override를 생략하면 기존 앱 기본 목록을 사용한다. 새 Client에 legacy `workers-scripts.read` 또는 `workers-scripts.write`가 허용되지 않은 상태라면 이번과 같은 `invalid_scope`가 발생할 수 있다.
-- Production 앱은 `.env.oauth`를 읽지 않는다. 운영 OAuth Client 생성 후 별도의 Production release configuration 작업에서 Client ID 및 해당 Client scope 목록을 공급해야 한다.
+- 기본 목록은 `memberships.read workers-scripts.admin workers-routes.write dns.read zone.read offline_access`다. 기본값은 `workers-scripts.edit`, `workers-scripts.read`, `workers-scripts.write`를 요청하지 않는다.
+- OAuth scope는 공개 설정이므로 GitHub secret으로 저장하지 않는다. 실제 Client에 맞춘 예외가 필요할 때만 환경별 OAuth 파일에 `CLOUDFLARE_OAUTH_SCOPES`를 지정한다.
 - Client Secret은 데스크톱 PKCE 앱에 필요하지 않으며 배포 앱에 포함하지 않는다.
 
 현재 구현 검증: `node --test src/site-hosting/cloudflare-connection.service.test.js scripts/project-environment.test.js` 통과 (8 tests). 실계정 full-flow 결과는 위 실험 3에 기록했다.
 
 ## 운영 시 주의점
 
-1. 운영 OAuth Client는 개발용 Client와 별도로 만든다. 공개 전환이 필요하다면 Cloudflare 문서상 Client URL 도메인 검증이 선행되며, 공개 전환은 되돌릴 수 없으므로 URL과 publisher metadata를 확정한 뒤 진행한다.
-2. 운영 Client에 테스트에서 통과한 scope 목록을 반영하되, 현재 확인된 제품 기능 요구와 Cloudflare의 최신 표시를 대조한다.
-3. `workers-scripts.admin`은 넓은 계정 단위 권한이며 Worker 삭제를 포함한다. 사용자가 관리하는 계정 전체에 적용될 수 있으므로 동의 화면과 제품 안내에서 범위를 명확히 설명한다.
+1. Production OAuth Client는 Development Client와 분리한다. 공개 전환이 필요하면 Cloudflare의 Client URL 도메인 검증을 완료한다.
+2. Production Client에는 Admin-only 실테스트에서 성공한 scope 목록을 반영한다.
+3. `workers-scripts.admin`은 Worker 삭제를 포함한다. 동의 화면과 제품 안내에서 이 권한 범위를 명확히 설명한다.
 4. Client의 scope 허용 목록 변경 후에도 기존에 발급한 연결 token이 새 동의를 반영하지 않을 수 있다. 권한이 바뀌면 BlogGenius에서 재인증하고 실제 동작으로 확인한다.
 5. 필요한 경우 Cloudflare `GET /oauth/scopes` registry와 OAuth Client의 상세 scope summary를 모두 확인한다. UI의 중복/변경된 표시명만으로 scope ID를 추측하지 않는다.
 

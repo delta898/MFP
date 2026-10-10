@@ -10,7 +10,6 @@ const {
     loadProjectEnvironment,
     loadDevelopmentEnvironment,
     loadProductionEnvironment,
-    loadGoogleOauthEnvironment,
     loadDevelopmentDesktopOauthEnvironment
 } = require('./project-environment');
 
@@ -121,23 +120,4 @@ test('development desktop OAuth loader reads its allowed keys and preserves ambi
     assert.equal(loaded.CLOUDFLARE_OAUTH_CLIENT_ID, 'file-cloudflare-id');
     assert.equal(loaded.CLOUDFLARE_OAUTH_SCOPES, 'memberships.read workers-scripts.write');
     assert.equal(loaded.BLOGGENIUS_LOCAL_SUPABASE_URL, undefined);
-});
-
-test('Google OAuth loader does not load Cloudflare OAuth settings from the shared file', () => {
-    const loaded = loadGoogleOauthEnvironment({
-        repoRoot: '/repo',
-        fs: {
-            existsSync: () => true,
-            readFileSync: () => [
-                'GOOGLE_OAUTH_CLIENT_ID=google-id',
-                'CLOUDFLARE_OAUTH_CLIENT_ID=cloudflare-id',
-                'CLOUDFLARE_OAUTH_SCOPES=workers-scripts.admin'
-            ].join('\n')
-        },
-        env: {}
-    });
-
-    assert.equal(loaded.GOOGLE_OAUTH_CLIENT_ID, 'google-id');
-    assert.equal(loaded.CLOUDFLARE_OAUTH_CLIENT_ID, undefined);
-    assert.equal(loaded.CLOUDFLARE_OAUTH_SCOPES, undefined);
 });

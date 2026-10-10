@@ -12,7 +12,7 @@
 | --- | --- | --- | --- |
 | Public connection | Supabase URL, publishable key, environment | selected runtime profile | 사용 가능 |
 | Public runtime setting | environment marker, bounded TTL | database/server config | allowlist key만 조회 가능 |
-| Desktop app config | Google OAuth Client ID/Secret | generated dev/build config | 앱에 포함 가능 |
+| Desktop app config | Google OAuth Client ID/Secret, Cloudflare OAuth Client ID/scopes | environment OAuth file or generated Production build config | Client metadata는 앱에 포함 가능 |
 | User authorization | Google tokens, Naver browser session | each user device | 해당 장비에만 저장 |
 | Provider credential | Naver Developers, SearchAd, SerpApi, Brevo | environment server secret store | 원문 접근 금지 |
 | Operator credential | Supabase access token, DB password | operator/CI environment | 앱 접근 금지 |
@@ -27,13 +27,18 @@ Desktop OAuth Client Secret은 이름에 `secret`이 있어도 설치형 앱에�
 
 | Item | Current source | Consumer | Target |
 | --- | --- | --- | --- |
-| Client ID/Secret | ignored `.env.oauth` 또는 generated build config | `src/google-oauth.js` | 현재 구조 유지 |
+| Client ID/Secret | Development `.env.oauth.dev`, Production source `.env.oauth.prod`, packaged Production GitHub repository Secrets | `src/google-oauth.js` / Cloudflare connection service | 환경별 resolver 유지 |
 | access/refresh token | ignored `config/google_oauth_tokens.json` | `src/google-oauth.js` | 파일 유지, 후속 Keychain 검토 |
 | Sheets access token | token refresh 결과 | `src/utils.js` 및 Sheets 기능 | Desktop 직접 Google API 호출 유지 |
 
 Google OAuth는 loopback callback과 PKCE를 사용한다. Edge Function이 Client Secret을 반환하거나
 인증 code/token refresh를 대행하는 broker는 도입하지 않는다.
 Desktop은 Google Client 설정을 Runtime Config RPC에서 조회하지 않는다.
+
+Development와 Production은 동일한 OAuth key schema를 사용하되 각 source launcher는 대응하는 ignored
+`.env.oauth.dev` 또는 `.env.oauth.prod`만 읽는다. Production package는 GitHub repository Secrets를
+generated build config로 받아들인다. Cloudflare scope 이름은 비밀이 아니며, 앱 기본값은 검증된
+`workers-scripts.admin` 권한을 포함한다. Local runtime은 기존 `.env.oauth` 동작을 유지한다.
 
 ### Naver user authorization
 
