@@ -145,6 +145,7 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     assert.match(html, /aria-label="사이트 호스팅 준비 상태"/);
     assert.match(html, /settings-next-cloudflare-readiness/);
     assert.match(html, /data-settings-card-target="settings-next-cloudflare-card"/);
+    assert.match(html, /<a class="ui-text-action" href="https:\/\/bit\.ly\/3TM7hsk" target="_blank" rel="noopener noreferrer">CF 연결 방법 보기/);
     assert.equal((html.match(/data-settings-card-target=/g) || []).length, 14);
     assert.match(html, /data-settings-card-target="settings-next-naver-form"/);
     assert.match(html, /data-settings-card-target="settings-next-wordpress-form"/);
