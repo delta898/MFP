@@ -7,9 +7,15 @@ const test = require('node:test');
 
 const root = path.resolve(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'ui/partials/views/site-hosting.html'), 'utf8');
-const creation = fs.readFileSync(path.join(root, 'ui/scripts/features/site-hosting/site-creation-navigation.js'), 'utf8');
+const creation = [
+    'site-creation-validation.js',
+    'site-creation-navigation.js'
+].map((file) => fs.readFileSync(path.join(root, 'ui/scripts/features/site-hosting', file), 'utf8')).join('\n');
 const profile = fs.readFileSync(path.join(root, 'ui/scripts/features/site-hosting/site-profile-fields.js'), 'utf8');
-const creationStyles = fs.readFileSync(path.join(root, 'ui/styles/features/site-hosting-create.css'), 'utf8');
+const creationStyles = [
+    'site-hosting-create.css',
+    'site-template-details.css'
+].map((file) => fs.readFileSync(path.join(root, 'ui/styles/features', file), 'utf8')).join('\n');
 const siteHostingStyles = fs.readFileSync(path.join(root, 'ui/styles/features/site-hosting.css'), 'utf8');
 
 test('site creation exposes optional site SEO fields with indexing enabled by default', () => {

@@ -203,6 +203,16 @@ The Cloudflare PoC follows the user journey rather than selecting a technology s
 
 ## Progress log
 
+### 2026-10-11 — dev merge readiness review
+
+- User requested release preparation by merging this parent into `dev`, deleting the feature branch, and explicitly required the full test gate. No merge or branch deletion has occurred because the required gates did not pass.
+- The Amade Family contract mismatch was fixed on Amade `dev`, merged into Amade `main`, and both branches were pushed. BlogGenius now declares Site Hosting Contract `0.2.0` as current while continuing to accept `0.2.0-dev1`; the cross-repository verifier passes. The earlier BlogGenius full unit runner passed: 2,220 passed, 15 skipped, 0 failed.
+- `npm run test:unit` also stops at its security precheck. `npm audit --audit-level=high` reports 9 vulnerabilities on this branch, including high advisories in npm 12.2.0's bundled `brace-expansion`, `http-cache-semantics`, and `undici`, plus a high KaTeX advisory that would require a breaking Milkdown downgrade. Compared with `dev`, the new npm package dependency accounts for additional audit findings. `npm audit fix --package-lock-only` did not repair the npm-bundled findings; its incidental lockfile changes were reverted.
+- Browser smoke passed with 478 fixture requests, 2 intentionally blocked external Google Fonts requests, and zero page errors. The focused UI/catalog structure slice passed all 34 tests after making test fixtures explicitly use the production catalog environment and splitting two oversized UI modules to meet structure limits.
+- `getDeploymentCredentials()` still chooses `accounts[0]` in `src/site-hosting/cloudflare-connection.service.js`. This does not implement the documented Project-owned Cloudflare account binding, which is described in this plan's user journey and in the archived Project/Site model decision. The first-account behavior was used in the early PoC, but the broader feature documentation expects a per-Project account choice; release scope needs an explicit resolution before calling this feature complete for users with multiple accounts.
+- Latest verification on 2026-10-11: focused site hosting/UI checks passed (39 tests), the full unit runner passed (2,220 passed, 15 skipped, 0 failed), and browser UI smoke passed (484 fixture requests, 2 external font requests blocked, 0 page errors). The full runner and browser smoke required execution outside the sandbox because their local server tests bind to 127.0.0.1.
+- Merge readiness remains subject to (1) a policy/resolution for the npm audit findings and (2) a decision whether Project-level Cloudflare account binding is required in this release. Amade integration and the latest test gates are complete. Keep this feature record active until these remaining scope/security gates are resolved and the merge is completed.
+
 ### 2026-10-01 — initial discovery and branch setup
 
 - Inspected BlogGenius architecture, workspace layout, runtime credential boundaries, agent runtime, manuscript workspace, and publishing references.
@@ -305,9 +315,16 @@ The Cloudflare PoC follows the user journey rather than selecting a technology s
 - The UI Style catalog consumer is unchanged and remains outside this template-selection policy.
 - Focused validation is recorded at handoff. No template was promoted, and no commit, merge, push, or deployment was performed in this stage.
 
-## 2026-10-09 — Production UI Style selection
+### 2026-10-09 — Production UI Style selection
 
 - User selected all ten development Styles except `remote-test-style` for production.
 - Amade `dev` production catalog now lists those ten Styles; its validator requires every production Style to be an active exact reference in the development catalog.
 - BlogGenius Style catalog now reads `dev/index.json` in local/development and `main/production-index.json` in production. Style cache paths are separated by environment so offline fallback cannot leak development Styles into production.
-- Focused verification: BlogGenius Style catalog tests pass (5/5); Amade production catalog validator tests pass (6/6); the Amade catalog validates as 1 Template and 10 Styles. Amade `main` does not include this latest Style allowlist until the dev changes are promoted, and no commit, merge, push, or deployment was requested or performed for this change.
+- Focused verification: BlogGenius Style catalog tests pass (5/5); Amade production catalog validator tests pass (6/6); the Amade catalog validates as 1 Template and 10 Styles. Amade `dev` and `main` now include the Style allowlist after promotion, and both branches were pushed. No BlogGenius commit, merge, push, or deployment was included in that Amade promotion.
+
+### 2026-10-11 — Site Hosting Contract 0.2.0 stable version alignment
+
+- User selected `0.2.0` as the stable Site Hosting Contract version after the Amade `dev1` contract validation.
+- BlogGenius's canonical contract source now identifies `0.2.0` as current and continues to support `0.2.0-dev1`, preserving compatibility with existing development sites. Amade's contract source declares the same previous-version support.
+- Amade `dev` declarations and current schemas/docs are synchronized to `0.2.0`; the version synchronizer accepts stable semantic versions as well as `-devN` versions.
+- Cross-repository verification passed before Amade `dev` was merged into `main`. BlogGenius focused contract/catalog verification passed (14 tests); the latest full unit and browser UI smoke gates also pass.

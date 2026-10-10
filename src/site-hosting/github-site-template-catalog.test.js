@@ -98,7 +98,7 @@ test('GitHub catalog verifies pinned package files and safely materializes a tem
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'github-site-template-catalog-'));
     try {
         const fixture = createFixture();
-        const catalog = createGitHubSiteTemplateCatalog({ fs, path, cacheRoot: path.join(workspaceDir, 'cache'), catalogUrl: fixture.catalogUrl, fetchImpl: fixture.fetchImpl });
+        const catalog = createGitHubSiteTemplateCatalog({ fs, path, cacheRoot: path.join(workspaceDir, 'cache'), catalogUrl: fixture.catalogUrl, fetchImpl: fixture.fetchImpl, environment: 'production' });
         const entries = await catalog.list();
         assert.equal(entries.length, 1);
         assert.equal(entries[0].id, 'astro-homepage');
@@ -121,7 +121,7 @@ test('GitHub catalog falls back to a cached template when the catalog is unavail
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'github-site-template-fallback-'));
     try {
         const fixture = createFixture();
-        const catalog = createGitHubSiteTemplateCatalog({ fs, path, cacheRoot: path.join(workspaceDir, 'cache'), catalogUrl: fixture.catalogUrl, fetchImpl: fixture.fetchImpl });
+        const catalog = createGitHubSiteTemplateCatalog({ fs, path, cacheRoot: path.join(workspaceDir, 'cache'), catalogUrl: fixture.catalogUrl, fetchImpl: fixture.fetchImpl, environment: 'production' });
         await catalog.list();
         await catalog.prepare('astro-homepage');
         const staleCatalog = createGitHubSiteTemplateCatalog({
@@ -129,6 +129,7 @@ test('GitHub catalog falls back to a cached template when the catalog is unavail
             path,
             cacheRoot: path.join(workspaceDir, 'cache'),
             catalogUrl: fixture.catalogUrl,
+            environment: 'production',
             fetchImpl: async () => ({ ok: false, status: 503, arrayBuffer: async () => new ArrayBuffer(0) })
         });
         const cached = await staleCatalog.list();
@@ -145,7 +146,7 @@ test('GitHub catalog rejects a bad package checksum without replacing prior cach
     try {
         const fixture = createFixture();
         const cacheRoot = path.join(workspaceDir, 'cache');
-        const catalog = createGitHubSiteTemplateCatalog({ fs, path, cacheRoot, catalogUrl: fixture.catalogUrl, fetchImpl: fixture.fetchImpl });
+        const catalog = createGitHubSiteTemplateCatalog({ fs, path, cacheRoot, catalogUrl: fixture.catalogUrl, fetchImpl: fixture.fetchImpl, environment: 'production' });
         await catalog.list();
         await catalog.prepare('astro-homepage');
         const before = fs.readFileSync(path.join(cacheRoot, 'production', 'astro-homepage', 'package', '1.0.0', 'astro', 'package.json'), 'utf8');
@@ -157,7 +158,7 @@ test('GitHub catalog rejects a bad package checksum without replacing prior cach
             if (String(url) === broken.catalogUrl) return { ok: true, status: 200, arrayBuffer: async () => Buffer.from(JSON.stringify(broken.catalog)) };
             return fixture.fetchImpl(String(url).replace(`/${broken.revision}/`, `/${fixture.revision}/`));
         };
-        const replacement = createGitHubSiteTemplateCatalog({ fs, path, cacheRoot, catalogUrl: broken.catalogUrl, fetchImpl: broken.fetchImpl });
+        const replacement = createGitHubSiteTemplateCatalog({ fs, path, cacheRoot, catalogUrl: broken.catalogUrl, fetchImpl: broken.fetchImpl, environment: 'production' });
         await replacement.list();
         await assert.rejects(replacement.prepare('astro-homepage'), { code: 'SITE_HOSTING_TEMPLATE_CHECKSUM_MISMATCH' });
         assert.equal(fs.readFileSync(path.join(cacheRoot, 'production', 'astro-homepage', 'package', '1.0.0', 'astro', 'package.json'), 'utf8'), before);
