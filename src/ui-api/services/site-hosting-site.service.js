@@ -524,19 +524,48 @@ function createSiteHostingSiteService(deps = {}) {
     }
 
     async function deploy(projectId, siteId, context = {}) {
-        const site = repository.get(projectId, siteId);
+        let site = repository.get(projectId, siteId);
         if (!site) {
             const error = new Error('사이트를 찾을 수 없습니다.');
             error.code = 'SITE_HOSTING_SITE_NOT_FOUND';
             error.status = 404;
             throw error;
         }
-        const credentials = await getCloudflareDeploymentCredentials();
+        if (!context || typeof context !== 'object' || Array.isArray(context)
+            || Object.keys(context).some((key) => !['requestId', 'account_id'].includes(key))) {
+            throw siteInputError('Cloudflare 배포 요청 형식이 올바르지 않습니다.', 'SITE_HOSTING_CLOUDFLARE_ACCOUNT_INVALID');
+        }
+        if (context.account_id !== undefined && (typeof context.account_id !== 'string'
+            || context.account_id.trim().length > 128 || /[\u0000-\u001f\u007f]/u.test(context.account_id))) {
+            throw siteInputError('Cloudflare 계정 선택이 올바르지 않습니다.', 'SITE_HOSTING_CLOUDFLARE_ACCOUNT_INVALID');
+        }
+        const requestedAccountId = String(context.account_id || '').trim();
+        const configuredAccountId = String(site.cloudflare_account?.id || '').trim();
+        const deployedAccountId = String(site.deployment?.worker_account_id || '').trim();
+        if (configuredAccountId && deployedAccountId && configuredAccountId !== deployedAccountId) {
+            throw siteInputError('저장된 Cloudflare 계정과 현재 배포 계정이 달라 배포를 중단했습니다. 설정 상태를 확인해 주세요.', 'SITE_HOSTING_CLOUDFLARE_ACCOUNT_BINDING_MISMATCH', 409);
+        }
+        const boundAccountId = deployedAccountId || configuredAccountId;
+        if (boundAccountId && requestedAccountId && boundAccountId !== requestedAccountId) {
+            throw siteInputError('이 사이트는 이미 다른 Cloudflare 계정에 연결되어 있습니다. 기존 계정으로 배포해 주세요.', 'SITE_HOSTING_CLOUDFLARE_ACCOUNT_CHANGE_UNSUPPORTED', 409);
+        }
+        const targetAccountId = boundAccountId || requestedAccountId;
+        const credentials = await getCloudflareDeploymentCredentials(targetAccountId);
+        if (!credentials?.account?.id) {
+            throw siteInputError('Cloudflare 배포 계정 정보를 확인하지 못했습니다.', 'SITE_HOSTING_CLOUDFLARE_ACCOUNT_REQUIRED', 409);
+        }
+        const account = { id: String(credentials.account.id), name: String(credentials.account.name || '이름 없는 계정') };
+        if (targetAccountId && credentials.account.id !== targetAccountId) {
+            throw siteInputError('Cloudflare가 확인한 계정이 선택한 계정과 일치하지 않아 배포를 중단했습니다.', 'SITE_HOSTING_CLOUDFLARE_ACCOUNT_BINDING_MISMATCH', 409);
+        }
+        if (!configuredAccountId || site.cloudflare_account?.name !== account.name) {
+            site = repository.recordCloudflareAccount(projectId, siteId, account, now());
+        }
         const buildResult = await astroRuntime.build(projectId, siteId);
         const deployed = await cloudflareDeployer.deploy(site, credentials, context);
         const deployedAt = now();
         repository.recordDeployment(projectId, siteId, { ...deployed, deployed_at: deployedAt });
-        return { ...deployed, deployed_at: deployedAt, screenshot: buildResult?.screenshot || null, screenshot_error: buildResult?.screenshot_error || '' };
+        return { ...deployed, cloudflare_account: account, deployed_at: deployedAt, screenshot: buildResult?.screenshot || null, screenshot_error: buildResult?.screenshot_error || '' };
     }
 
     async function postMarkdown(projectId, siteId, payload = {}, context = {}) {
@@ -894,11 +923,11 @@ function createSiteHostingSiteService(deps = {}) {
     async function list(projectId) {
         const sites = repository.list(projectId);
         return sites.map((site) => {
-            const { id, project_id, name, template, template_name, template_status, template_update_available, available_template_version, hostname, domain, deployment, custom_domain_binding, screenshot, last_build, created_at, updated_at } = site;
+            const { id, project_id, name, template, template_name, template_status, template_update_available, available_template_version, hostname, domain, deployment, cloudflare_account, custom_domain_binding, screenshot, last_build, created_at, updated_at } = site;
             const root = knowledgeCollectionRoot(site);
             return {
                 id, project_id, name, template, template_name, template_status, template_update_available, available_template_version, hostname, domain: domain || '',
-                custom_domain: formatCustomDomain(hostname, domain), deployment, custom_domain_binding, screenshot, last_build,
+                custom_domain: formatCustomDomain(hostname, domain), deployment, cloudflare_account, custom_domain_binding, screenshot, last_build,
                 posting_target: getPostTargetEligibility(site),
                 knowledge_collection: root ? { name: pathApi.basename(root) || root } : null,
                 screenshot_url: screenshot?.latest_build?.path || screenshot?.template?.path
@@ -1419,11 +1448,21 @@ function createSiteHostingSiteService(deps = {}) {
         return ascii;
     }
 
-    async function getCloudflareAdapter() {
-        const credentials = await getCloudflareDeploymentCredentials();
+    function getSiteCloudflareAccountId(site) {
+        return String(site?.deployment?.worker_account_id || site?.cloudflare_account?.id || '').trim();
+    }
+
+    async function getCloudflareAdapter(accountId) {
+        const credentials = await getCloudflareDeploymentCredentials(accountId);
         if (!credentials?.accessToken || !credentials?.account?.id) {
             const error = new Error('Cloudflare 계정 정보를 확인할 수 없습니다.');
             error.code = 'CLOUDFLARE_ACCOUNT_REQUIRED';
+            error.status = 409;
+            throw error;
+        }
+        if (accountId && String(credentials.account.id) !== String(accountId)) {
+            const error = new Error('현재 연결된 Cloudflare 계정이 이 사이트의 배포 계정과 달라 요청을 중단했습니다.');
+            error.code = 'SITE_HOSTING_WORKER_ACCOUNT_CHANGED';
             error.status = 409;
             throw error;
         }
@@ -1441,7 +1480,7 @@ function createSiteHostingSiteService(deps = {}) {
             error.status = 404;
             throw error;
         }
-        const { credentials, adapter } = await getCloudflareAdapter();
+        const { credentials, adapter } = await getCloudflareAdapter(getSiteCloudflareAccountId(site));
         const accountId = String(credentials.account.id);
         const zones = await adapter.listZones(accountId);
         return zones
@@ -1465,7 +1504,7 @@ function createSiteHostingSiteService(deps = {}) {
             throw error;
         }
         const subdomain = normalizeDnsName(payload.hostname, '호스트 이름');
-        const { credentials, adapter } = await getCloudflareAdapter();
+        const { credentials, adapter } = await getCloudflareAdapter(getSiteCloudflareAccountId(site));
         const accountId = String(credentials.account.id);
         const zones = await adapter.listZones(accountId);
         const zone = zones.find((item) => String(item?.id || '') === String(payload.zone_id || '')
@@ -1526,7 +1565,7 @@ function createSiteHostingSiteService(deps = {}) {
             throw siteInputError('Worker 소유권을 확인할 수 없어 자동 해지하지 않았습니다. Cloudflare 대시보드에서 Worker를 직접 확인하고 해지해 주세요.', 'SITE_HOSTING_WORKER_OWNERSHIP_UNVERIFIED', 409);
         }
 
-        const { credentials, adapter } = await getCloudflareAdapter();
+        const { credentials, adapter } = await getCloudflareAdapter(workerAccountId);
         const accountId = String(credentials.account.id);
         if (accountId !== workerAccountId) {
             throw siteInputError('현재 연결된 Cloudflare 계정이 Worker를 생성한 계정과 달라 해지하지 않았습니다. 원래 계정으로 다시 연결해 주세요.', 'SITE_HOSTING_WORKER_ACCOUNT_CHANGED', 409);
@@ -1635,7 +1674,7 @@ function createSiteHostingSiteService(deps = {}) {
             throw siteInputError('저장된 도메인 연결 정보를 확인할 수 없어 해제하지 않았습니다. 사이트 설정을 확인해 주세요.', 'SITE_HOSTING_CUSTOM_DOMAIN_BINDING_INVALID', 409);
         }
 
-        const { credentials, adapter } = await getCloudflareAdapter();
+        const { credentials, adapter } = await getCloudflareAdapter(getSiteCloudflareAccountId(site));
         const accountId = String(credentials.account.id);
         const fail = (message, code = 'SITE_HOSTING_CUSTOM_DOMAIN_PREFLIGHT_FAILED', status = 409) => {
             const error = new Error(message);
@@ -1769,7 +1808,9 @@ function createSiteHostingSiteService(deps = {}) {
             if (!bindingId || !zoneId || !zoneName || !workerName) {
                 throw blocked('저장된 도메인 연결 정보를 확인할 수 없어 삭제를 멈췄습니다. Cloudflare와 사이트 연결 상태를 확인해 주세요.');
             }
-            const { credentials, adapter } = await getCloudflareAdapter();
+            const targetAccountId = String(deployment.worker_account_id || site.cloudflare_account?.id || '').trim();
+            if (!targetAccountId) throw blocked('사이트의 Cloudflare 배포 계정을 확인할 수 없어 삭제를 멈췄습니다.');
+            const { credentials, adapter } = await getCloudflareAdapter(targetAccountId);
             const accountId = String(credentials.account.id || '');
             if (!accountId || typeof adapter.listZones !== 'function' || typeof adapter.listWorkerDomains !== 'function' || typeof adapter.listDnsRecords !== 'function') {
                 throw blocked('Cloudflare 도메인 및 DNS 상태를 확인할 수 없어 삭제를 진행할 수 없습니다.', 'SITE_HOSTING_DELETE_PREFLIGHT_UNAVAILABLE');
@@ -1796,7 +1837,7 @@ function createSiteHostingSiteService(deps = {}) {
             if (deployment.managed_by_app !== true || !accountId || !createdOn || !deploymentId || !versionId) {
                 throw blocked('Worker 소유권을 확인할 수 없어 사이트 삭제를 멈췄습니다. Cloudflare에서 Worker를 직접 확인해 주세요.', 'SITE_HOSTING_WORKER_OWNERSHIP_UNVERIFIED');
             }
-            const { credentials, adapter } = await getCloudflareAdapter();
+            const { credentials, adapter } = await getCloudflareAdapter(accountId);
             if (String(credentials.account.id || '') !== accountId) throw blocked('Worker를 만든 Cloudflare 계정과 현재 연결된 계정이 달라 삭제를 멈췄습니다.');
             if (typeof adapter.listWorkerScripts !== 'function' || typeof adapter.listWorkerDomains !== 'function' || typeof adapter.listDeployments !== 'function') {
                 throw blocked('Worker 소유권과 연결 상태를 확인할 수 없어 사이트 삭제를 진행할 수 없습니다.', 'SITE_HOSTING_DELETE_PREFLIGHT_UNAVAILABLE');

@@ -22,6 +22,25 @@
           <div class="site-hosting-project-load-placeholder" aria-hidden="true"></div>
         </div>
 
+        <dialog id="site-hosting-cloudflare-account-dialog" class="site-project-dialog ui-transaction-dialog" aria-labelledby="site-hosting-cloudflare-account-title">
+          <form id="site-hosting-cloudflare-account-form" class="ui-transaction-dialog-form">
+            <div class="ui-transaction-dialog-header">
+              <div>
+                <h2 id="site-hosting-cloudflare-account-title">배포 계정 선택</h2>
+                <p>이 사이트를 배포하고 관리할 Cloudflare 계정을 선택하세요.</p>
+              </div>
+            </div>
+            <div id="site-hosting-cloudflare-account-options" class="site-hosting-cloudflare-account-options" role="radiogroup" aria-label="Cloudflare 계정"></div>
+            <p id="site-hosting-cloudflare-account-feedback" class="ui-workflow-feedback" role="status" aria-live="polite"></p>
+            <div class="ui-transaction-dialog-footer">
+              <div class="ui-transaction-dialog-footer-actions">
+                <button class="secondary" type="button" data-site-cloudflare-account-cancel>취소</button>
+                <button class="primary" type="submit">이 계정으로 배포</button>
+              </div>
+            </div>
+          </form>
+        </dialog>
+
         <dialog id="site-project-create-dialog" class="site-project-dialog ui-transaction-dialog" aria-labelledby="site-project-create-title">
           <form id="site-project-create-form" class="ui-transaction-dialog-form">
             <div class="ui-transaction-dialog-header">

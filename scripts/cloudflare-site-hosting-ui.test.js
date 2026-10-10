@@ -7,6 +7,8 @@ const test = require('node:test');
 const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '../ui/scripts/features/settings-next/site-hosting.js'), 'utf8');
+const siteHostingRuntime = fs.readFileSync(path.join(__dirname, '../ui/scripts/features/site-hosting/project-management.js'), 'utf8');
+const siteHostingView = fs.readFileSync(path.join(__dirname, '../ui/partials/views/site-hosting.html'), 'utf8');
 
 function createNode() {
     return {
@@ -102,4 +104,31 @@ test('failed Cloudflare OAuth approval preserves the last valid connection displ
     assert.equal(harness.accountList.children.length, 1);
     assert.equal(harness.accountList.children[0].querySelector('strong').textContent, '기존 Cloudflare 계정');
     assert.equal(harness.feedback.textContent, '승인이 취소되었습니다.');
+});
+
+test('Cloudflare settings displays only the accounts returned as accessible and explains an empty list', () => {
+    const harness = createHarness();
+    vm.runInContext("settingsNextCloudflareRenderStatus({ connected: true, accounts: [{ id: 'account-1', name: 'Authorized account' }] })", harness.context);
+    assert.equal(harness.detail.textContent, '접근 가능한 계정 1개');
+    assert.equal(harness.accountList.children.length, 1);
+    assert.equal(harness.accountList.children[0].querySelector('strong').textContent, 'Authorized account');
+
+    vm.runInContext("settingsNextCloudflareRenderStatus({ connected: true, accounts: [] })", harness.context);
+    assert.equal(harness.detail.textContent, '접근 가능한 계정 0개');
+    assert.equal(harness.accountList.children.length, 1);
+    assert.match(harness.accountList.children[0].textContent, /배포 권한이 확인된 계정이 없습니다/u);
+});
+
+test('site deployment selects an account only for multiple accessible accounts and submits the selected ID', () => {
+    assert.match(siteHostingView, /id="site-hosting-cloudflare-account-dialog"/u);
+    assert.match(siteHostingRuntime, /if \(accounts\.length === 1\) return String\(accounts\[0\]\.id \|\| ''\);/u);
+    assert.match(siteHostingRuntime, /return siteHostingChooseDeploymentAccount\(accounts\);/u);
+    assert.match(siteHostingRuntime, /accountId \? \{ account_id: accountId \} : \{\}/u);
+    assert.match(siteHostingRuntime, /site\?\.deployment\?\.worker_account_id \|\| site\?\.cloudflare_account\?\.id/u);
+});
+
+test('custom domain settings use the Site deployment account and wait for deployment before listing zones', () => {
+    assert.match(siteHostingRuntime, /이 사이트를 배포한 Cloudflare 계정/u);
+    assert.match(siteHostingRuntime, /siteHostingZoneStatus === 'loading' \|\| !site\.deployment\?\.worker_name/u);
+    assert.doesNotMatch(siteHostingRuntime, /도메인 목록은 확인할 수 있습니다\. 실제 연결은 사이트를 배포한 뒤/u);
 });

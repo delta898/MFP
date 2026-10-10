@@ -5,8 +5,8 @@
 - Branch: `codex/cloudflare-account-selection`
 - Start date: 2026-10-11
 - Base/parent branch: `codex/static-site-builder-main`
-- Status: In progress
-- The branch was created while the parent worktree had pre-existing uncommitted edits in the main development record, unit-test runner, and Cloudflare connection tests. Those edits are carried in the worktree and are unrelated to this feature; they must remain out of this feature's commit unless explicitly reconciled with the user.
+- Status: Implementation complete; user visual review pending
+- The parent worktree initially contained pre-existing edits in the main development record, unit-test runner, and Cloudflare connection tests. The user asked to commit all existing work before feature implementation; this branch record was committed as `641f13c2`, followed by the pre-existing test setup changes as `a453ce73`.
 
 ## User need and goal
 
@@ -20,6 +20,7 @@ Show only Cloudflare accounts that the current OAuth token can actually use for 
 - Update the Settings > Site Hosting connection view and its status contract to show only usable accounts, including the zero-account state and refresh/reconnect guidance.
 - At Site deployment, use the sole usable account automatically or request an explicit choice when there are multiple.
 - Persist the selected account with the Site so a failed deployment or later redeploy does not silently switch targets.
+- Reuse the Site's deployment account for custom-domain zone lookup/attach/detach and remote cleanup checks, without asking the user to select the same account again.
 - Preserve deployed Sites' existing Cloudflare account binding and ownership checks; never fall back to another account if the saved/previous account is unavailable.
 - Add focused tests and update current engineering documentation.
 
@@ -57,18 +58,25 @@ Show only Cloudflare accounts that the current OAuth token can actually use for 
 4. Update Site deployment to select/persist an account only when needed, and to retain existing Site account bindings without fallback.
 5. Add and run focused tests for account discovery, selection, persistence, failure behavior, and route/UI contracts. Update the parent feature record and promote any durable account-selection decision to canonical docs if warranted.
 
-## Decisions pending evidence
+## Decisions resolved during implementation
 
-- Whether the Worker Script inventory endpoint alone is sufficient to identify Site Hosting accounts, or whether deployment prerequisites such as `workers.dev` subdomain access require an additional read-only check.
-- The exact API/UI shape for selecting the account at deploy time, using the smallest established interaction pattern.
-- How to represent a selected-but-not-yet-deployed account in the Site repository without conflating it with deployment ownership metadata.
-- Whether Settings refresh should probe all memberships on every refresh or use a bounded cache; retain the last valid list if a transient request fails.
+- The Worker Scripts inventory endpoint is used as a read-only capability check. A `403` excludes that candidate; other API failures fail closed so a transient error cannot make an unverified account appear deployable.
+- Settings displays the verified account list and an empty-state message. Account management itself remains in Cloudflare.
+- The smallest established transaction dialog presents radio choices only when a new Site has multiple eligible accounts.
+- The selected account is stored in the Site manifest as `cloudflare_account`, separate from deployment ownership metadata. Existing `deployment.worker_account_id` remains authoritative for already-deployed Sites.
+- Every Site-scoped Cloudflare operation after deployment is pinned to `deployment.worker_account_id` (or the saved account for a not-yet-deployed Site). Custom-domain setup has no second account picker; its zone list comes from the same account selected for deployment. Zone lookup is disabled until a Site has been deployed and bound.
+- The existing settings refresh fetches a fresh account list; it does not cache a separate copy that could drift from the current OAuth grant.
 
 ## Progress log
 
-- 2026-10-11: Created this feature branch from `codex/static-site-builder-main`. Prior working-tree changes remain present and are unrelated to this feature.
+- 2026-10-11: Created this feature branch from `codex/static-site-builder-main`.
 - 2026-10-11: Reviewed Cloudflare OAuth connection behavior. `getStatus()` returns all `/memberships` rows, and `getDeploymentCredentials()` selects `accounts[0]`; these are the current sources of the settings-listing and deployment-selection issues.
 - 2026-10-11: Prior live, read-only diagnostic after selecting one account found the selected account's Worker Scripts request returned HTTP 200 and the unselected account returned HTTP 403. The diagnostic did not mutate Cloudflare resources and printed no token or account IDs.
+- 2026-10-11: Committed the account-probe and deployment credential contract as `a0c19e99` (`feat: filter Cloudflare accounts by Worker access`). Focused Cloudflare connection tests passed (6 tests).
+- 2026-10-11: Added per-Site account persistence to `.bloggenius/site.json`; the Site API includes the saved account for UI use. Deploy validates the selected or existing account before build, persists it before the build so failures retain the intended target, and refuses a different account when a Site already has a binding.
+- 2026-10-11: Added a multi-account radio dialog to Site deployment. One accessible account is used automatically; a saved Site account or existing deployment account is reused without asking again. Settings shows the verified account list and explains when no account has the required access.
+- 2026-10-11: Updated `docs/architecture/cloudflare-workers-oauth-permissions.md` with account discovery, Settings display, and per-Site binding policy.
+- 2026-10-11: User found that custom-domain flow asked to select a Cloudflare account after deployment had already selected one. Fixed all Site-scoped Cloudflare credential lookups to receive the saved/deployed account ID, added identity mismatch rejection, made custom-domain zone lookup wait for deployment, and clarified which account's zones are shown.
 
 ## Verification and handoff
 
@@ -76,4 +84,7 @@ Show only Cloudflare accounts that the current OAuth token can actually use for 
 - Do not run the full unit suite without explicit user approval. A parent-feature merge into `dev` requires that full-suite approval and successful gate.
 - No live Cloudflare test is needed to verify UI/model logic; if a later live check is needed, use read-only account-scoped API calls and ask before any remote mutation.
 - Final visual acceptance remains with the user. Provide the Settings and multi-account deployment flows for manual review.
-- No changes are committed or merged as part of this feature branch yet.
+- Focused verification passed: `site-hosting-site.service.test.js` (23 tests), `site-repository.test.js` (9), `site-hosting-site.routes.test.js` (9), `cloudflare-site-hosting-ui.test.js` (4), and JavaScript syntax plus `git diff --check`.
+- After the custom-domain binding fix, all 46 focused tests across site service, repository, routes, and UI contracts passed. The domain flow asserts that zone lookup, connect, and disconnect request credentials for the persisted deployment account. JavaScript syntax checks and `git diff --check` passed.
+- The full browser UI smoke passed (480 fixture requests; two external Google Fonts requests were blocked as expected by the fixture harness).
+- Settings and the account-selection dialog still need the user's hands-on visual acceptance. The implementation after `a0c19e99` is currently uncommitted; no merge, push, or release has been performed.

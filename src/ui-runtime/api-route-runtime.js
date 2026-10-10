@@ -572,7 +572,7 @@ function createUiApiRouteRuntime(deps = {}) {
                 manuscriptDraftService: getManuscriptDraftService(),
                 workspaceDir: CONFIG?.WORKSPACE_DIR,
                 runtimeEnvironment: CONFIG?.RUNTIME_ENVIRONMENT,
-                getCloudflareDeploymentCredentials: () => getCloudflareConnectionServiceInstance().getDeploymentCredentials()
+                getCloudflareDeploymentCredentials: (accountId) => getCloudflareConnectionServiceInstance().getDeploymentCredentials(accountId)
             });
         }
         return siteHostingSiteService;

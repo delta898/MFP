@@ -27,6 +27,12 @@ function settingsNextCloudflareRenderStatus(status = {}) {
     item.append(name);
     accountList.append(item);
   }
+  if (connected && accounts.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'settings-next-cloudflare-empty';
+    empty.textContent = '사이트 배포 권한이 확인된 계정이 없습니다. 권한을 확인한 뒤 Cloudflare를 다시 연결해 주세요.';
+    accountList.append(empty);
+  }
   connect.textContent = settingsNextCloudflareFlowId
     ? '인증 취소'
     : (connected ? '다시 연결' : 'Cloudflare 연결');

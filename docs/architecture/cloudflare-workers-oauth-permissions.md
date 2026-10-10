@@ -76,6 +76,11 @@ BlogGenius의 이 흐름은 OAuth Client로 발급받은 access/refresh token을
 - 기본 목록은 `memberships.read workers-scripts.admin workers-routes.write dns.read zone.read offline_access`다. 기본값은 `workers-scripts.edit`, `workers-scripts.read`, `workers-scripts.write`를 요청하지 않는다.
 - OAuth scope는 공개 설정이므로 GitHub secret으로 저장하지 않는다. 실제 Client에 맞춘 예외가 필요할 때만 환경별 OAuth 파일에 `CLOUDFLARE_OAUTH_SCOPES`를 지정한다.
 - Client Secret은 데스크톱 PKCE 앱에 필요하지 않으며 배포 앱에 포함하지 않는다.
+- `/memberships` 결과는 계정 후보 목록이다. BlogGenius는 각 계정에 `GET /accounts/{id}/workers/scripts?per_page=1`을 보내 현재 OAuth access token으로 Worker 목록을 읽을 수 있는 계정만 Site Hosting 사용 가능 목록으로 반환한다. `403`은 해당 계정만 제외하고, 다른 API 오류는 권한 여부를 확인할 수 없는 상태로 처리해 배포를 막는다.
+- 설정의 Cloudflare 화면은 위 검증을 통과한 계정의 목록만 표시한다. BlogGenius에서 Cloudflare 계정을 추가·삭제하는 동작은 제공하지 않으며, 허용 범위는 Cloudflare OAuth 재인증으로 바꾼다.
+- Site 배포 때 접근 가능한 계정이 하나면 자동 선택한다. 여러 개면 사용자에게 선택을 받고, 계정 ID와 표시 이름을 Site의 `.bloggenius/site.json`에 `cloudflare_account`로 저장한다. 다음 배포는 저장된 계정만 사용한다. 기존 배포가 `deployment.worker_account_id`를 갖고 있으면 그 값을 기준으로 삼고, 저장된 계정과 다르면 오류로 중단한다. 기존 binding과 다른 계정으로 자동 이동하지 않는다.
+- custom domain의 Zone 조회·연결·해제와 Worker 삭제/해지 검증도 해당 Site의 `deployment.worker_account_id`를 사용한다. 따라서 도메인 연결 때 별도의 계정 선택은 하지 않는다. 아직 배포하지 않은 Site는 Zone 조회를 시작할 수 없고, 배포 후 해당 계정의 Zone만 표시한다.
+- Project 계정 설정 기능이 아직 없으므로 선택값은 Site마다 저장한다. Project 관리 UI가 생기면 계정 소유 범위를 다시 검토한다.
 
 현재 구현 검증: `node --test src/site-hosting/cloudflare-connection.service.test.js scripts/project-environment.test.js` 통과 (8 tests). 실계정 full-flow 결과는 위 실험 3에 기록했다.
 

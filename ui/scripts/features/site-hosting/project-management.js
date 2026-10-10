@@ -298,6 +298,7 @@ function siteHostingSiteSettingsPanel() {
   const site = siteHostingSites.find((item) => item.id === siteHostingSelectedSiteId);
   if (!site) return '<section class="ui-empty-state" data-state="error"><h3>사이트를 찾을 수 없습니다.</h3></section>';
   const binding = site.custom_domain_binding;
+  const cloudflareAccountName = String(site.cloudflare_account?.name || '').trim();
   const currentZoneId = siteHostingZoneChoices.find((zone) => zone.name.toLowerCase() === String(site.domain || '').toLowerCase())?.id || '';
   const selectedZoneId = document.getElementById('site-settings-zone')?.value || currentZoneId;
   const currentHostnameInput = document.getElementById('site-settings-hostname')?.value ?? site.hostname ?? '';
@@ -312,7 +313,7 @@ function siteHostingSiteSettingsPanel() {
     : siteHostingZoneStatus === 'empty'
       ? `<p class="site-hosting-domain-connection" data-state="warning" role="status">${siteHostingEscapeHtml(siteHostingZoneMessage)}</p><button class="secondary" type="button" data-site-domain-zones="${siteHostingEscapeHtml(site.id)}">다시 조회</button>`
       : siteHostingZoneStatus === 'ready'
-        ? `<label class="site-project-form-field" for="site-settings-zone"><span>Cloudflare 도메인</span><select id="site-settings-zone" ${binding?.hostname ? 'disabled' : ''}><option value="">도메인을 선택하세요</option>${siteHostingZoneChoices.map((zone) => `<option value="${siteHostingEscapeHtml(zone.id)}" ${zone.id === selectedZoneId ? 'selected' : ''}>${siteHostingEscapeHtml(zone.name)}</option>`).join('')}</select></label><label class="site-project-form-field" for="site-settings-hostname"><span>호스트 이름</span><input id="site-settings-hostname" name="hostname" type="text" maxlength="253" value="${siteHostingEscapeHtml(currentHostnameInput)}" placeholder="예: blog" autocomplete="off" ${binding?.hostname ? 'disabled' : ''}></label><p class="site-hosting-domain-preview">주소 미리보기: <strong data-site-custom-domain-preview>${siteHostingEscapeHtml(site.custom_domain || '호스트 이름과 도메인을 선택하세요')}</strong></p><div class="site-hosting-domain-actions"><button class="primary ui-loading-action" type="button" data-site-domain-connect="${siteHostingEscapeHtml(site.id)}" ${!canConnectDomain ? 'disabled' : ''}>연결</button></div>${!site.deployment?.worker_name ? '<p class="site-hosting-domain-note">도메인 목록은 확인할 수 있습니다. 실제 연결은 사이트를 배포한 뒤 진행할 수 있습니다.</p>' : ''}`
+        ? `<label class="site-project-form-field" for="site-settings-zone"><span>Cloudflare 도메인</span><select id="site-settings-zone" ${binding?.hostname ? 'disabled' : ''}><option value="">도메인을 선택하세요</option>${siteHostingZoneChoices.map((zone) => `<option value="${siteHostingEscapeHtml(zone.id)}" ${zone.id === selectedZoneId ? 'selected' : ''}>${siteHostingEscapeHtml(zone.name)}</option>`).join('')}</select></label><label class="site-project-form-field" for="site-settings-hostname"><span>호스트 이름</span><input id="site-settings-hostname" name="hostname" type="text" maxlength="253" value="${siteHostingEscapeHtml(currentHostnameInput)}" placeholder="예: blog" autocomplete="off" ${binding?.hostname ? 'disabled' : ''}></label><p class="site-hosting-domain-preview">주소 미리보기: <strong data-site-custom-domain-preview>${siteHostingEscapeHtml(site.custom_domain || '호스트 이름과 도메인을 선택하세요')}</strong></p><div class="site-hosting-domain-actions"><button class="primary ui-loading-action" type="button" data-site-domain-connect="${siteHostingEscapeHtml(site.id)}" ${!canConnectDomain ? 'disabled' : ''}>연결</button></div>`
         : '';
   return `<section class="site-hosting-site-settings" aria-labelledby="site-hosting-site-settings-title">
     <div class="site-hosting-section-heading"><div><h3 id="site-hosting-site-settings-title">사이트 설정</h3></div></div>
@@ -325,10 +326,10 @@ function siteHostingSiteSettingsPanel() {
       </div>
       <section class="site-hosting-domain-connect" aria-label="Cloudflare 도메인 연결">
         <h4>사용자 도메인</h4>
-        <p class="site-hosting-domain-note">Cloudflare 계정의 활성 도메인 목록에서 선택하고 호스트 이름을 입력하세요. workers.dev 주소도 계속 사용할 수 있습니다.</p>
+        <p class="site-hosting-domain-note">${site.deployment?.worker_name ? `이 사이트를 배포한 Cloudflare 계정${cloudflareAccountName ? `(${siteHostingEscapeHtml(cloudflareAccountName)})` : ''}의 활성 도메인에서 선택하세요.` : '사이트를 배포하면 선택된 Cloudflare 계정의 활성 도메인을 연결할 수 있습니다.'} workers.dev 주소도 계속 사용할 수 있습니다.</p>
         ${domainStatus}
-        ${!binding?.hostname ? `<button class="secondary" type="button" data-site-domain-zones="${siteHostingEscapeHtml(site.id)}" ${siteHostingZoneStatus === 'loading' ? 'disabled' : ''}>${siteHostingZoneStatus === 'ready' ? '도메인 목록 새로고침' : 'Cloudflare 도메인 조회'}</button>` : ''}
-        ${siteHostingZoneStatus === 'idle' && !siteHostingZoneChoices.length ? '<p class="site-hosting-domain-note">Cloudflare 도메인을 조회해 선택 항목을 불러오세요.</p>' : ''}
+        ${!binding?.hostname ? `<button class="secondary" type="button" data-site-domain-zones="${siteHostingEscapeHtml(site.id)}" ${siteHostingZoneStatus === 'loading' || !site.deployment?.worker_name ? 'disabled' : ''}>${siteHostingZoneStatus === 'ready' ? '도메인 목록 새로고침' : 'Cloudflare 도메인 조회'}</button>` : ''}
+        ${siteHostingZoneStatus === 'idle' && !siteHostingZoneChoices.length && site.deployment?.worker_name ? '<p class="site-hosting-domain-note">이 사이트의 배포 계정에서 Cloudflare 도메인 목록을 조회하세요.</p>' : ''}
         ${zonePanel}
       </section>
       <p class="ui-workflow-feedback" data-site-settings-feedback role="status" aria-live="polite" hidden></p>
@@ -682,22 +683,101 @@ async function siteHostingDeploySite(siteId, button) {
   button.textContent = '배포 중…';
   siteHostingSetSiteOperation(siteId, 'running', '사이트를 준비해 Cloudflare에 배포 중…');
   try {
-    const result = await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites/${encodeURIComponent(siteId)}/deploy`, {});
+    const accountId = await siteHostingResolveDeploymentAccount(siteId);
+    if (accountId === null) {
+      siteHostingSetSiteOperation(siteId, 'success', '');
+      return;
+    }
+    const result = await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites/${encodeURIComponent(siteId)}/deploy`, accountId ? { account_id: accountId } : {});
     const site = siteHostingSites.find((item) => item.id === siteId);
     if (site) {
       site.deployment = { ...result, provider: 'cloudflare' };
+      site.cloudflare_account = result.cloudflare_account || { id: result.worker_account_id, name: site.cloudflare_account?.name || '' };
       if (result.screenshot) site.screenshot = { ...(site.screenshot || {}), latest_build: result.screenshot };
     }
     siteHostingRenderProjectDetail();
     const screenshotMessage = result.screenshot_error ? ' (새 스크린샷은 만들지 못했습니다.)' : '';
     siteHostingSetSiteOperation(siteId, 'success', `Cloudflare 배포를 마쳤습니다.${screenshotMessage}`);
   } catch (error) {
+    try {
+      const refreshed = await fetchJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites`);
+      if (siteHostingSelectedProject?.id === project.id && Array.isArray(refreshed)) {
+        siteHostingSites = refreshed;
+        siteHostingRenderProjectDetail();
+      }
+    } catch (_refreshError) { }
     siteHostingSetSiteOperation(siteId, 'error', error.message || 'Cloudflare에 배포하지 못했습니다.');
   } finally {
     if (button.isConnected && button.textContent === '배포 중…') button.textContent = '배포';
     button.disabled = false;
     button.classList.remove('is-loading');
   }
+}
+
+async function siteHostingResolveDeploymentAccount(siteId) {
+  const site = siteHostingSites.find((item) => item.id === siteId);
+  const boundAccountId = String(site?.deployment?.worker_account_id || site?.cloudflare_account?.id || '').trim();
+  if (boundAccountId) return boundAccountId;
+  const status = await fetchJson('/api/v1/site-hosting/cloudflare/status');
+  const accounts = Array.isArray(status?.accounts) ? status.accounts : [];
+  if (status?.connected !== true || !accounts.length) {
+    throw new Error('사이트 배포에 사용할 Cloudflare 계정이 없습니다. 설정에서 연결 상태와 권한을 확인해 주세요.');
+  }
+  if (accounts.length === 1) return String(accounts[0].id || '');
+  return siteHostingChooseDeploymentAccount(accounts);
+}
+
+function siteHostingChooseDeploymentAccount(accounts) {
+  const dialog = document.getElementById('site-hosting-cloudflare-account-dialog');
+  const form = document.getElementById('site-hosting-cloudflare-account-form');
+  const options = document.getElementById('site-hosting-cloudflare-account-options');
+  const feedback = document.getElementById('site-hosting-cloudflare-account-feedback');
+  if (!dialog || !form || !options || typeof dialog.showModal !== 'function') {
+    throw new Error('Cloudflare 계정 선택 창을 열 수 없습니다. 앱을 다시 시작해 주세요.');
+  }
+  options.replaceChildren();
+  if (feedback) feedback.textContent = '';
+  for (const [index, account] of accounts.entries()) {
+    const label = document.createElement('label');
+    label.className = 'site-hosting-cloudflare-account-option';
+    const radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.name = 'cloudflare-account';
+    radio.value = String(account.id || '');
+    radio.required = true;
+    radio.id = `site-hosting-cloudflare-account-${index}`;
+    const name = document.createElement('span');
+    name.textContent = String(account.name || '이름 없는 계정');
+    label.append(radio, name);
+    options.append(label);
+  }
+  const cancel = form.querySelector('[data-site-cloudflare-account-cancel]');
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      form.removeEventListener('submit', handleSubmit);
+      cancel?.removeEventListener('click', handleCancel);
+      dialog.removeEventListener('close', handleClose);
+      resolve(value);
+    };
+    const handleSubmit = (event) => {
+      event.preventDefault();
+      const selected = form.querySelector('input[name="cloudflare-account"]:checked');
+      if (!selected?.value) {
+        if (feedback) feedback.textContent = '배포할 계정을 선택해 주세요.';
+        return;
+      }
+      dialog.close(selected.value);
+    };
+    const handleCancel = () => dialog.close('');
+    const handleClose = () => finish(String(dialog.returnValue || '') || null);
+    form.addEventListener('submit', handleSubmit);
+    cancel?.addEventListener('click', handleCancel);
+    dialog.addEventListener('close', handleClose);
+    dialog.showModal();
+  });
 }
 
 async function siteHostingSaveSiteSettings(event) {

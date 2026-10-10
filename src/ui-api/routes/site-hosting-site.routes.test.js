@@ -98,7 +98,7 @@ test('site routes build, preview, and deploy a site', async () => {
             getBuildStatus: (projectId, siteId) => ({ project_id: projectId, site_id: siteId, status: 'succeeded' }),
             startPreview: async (projectId, siteId) => { calls.push(['startPreview', projectId, siteId]); return { url: 'http://127.0.0.1:43210/' }; },
             stopPreview: async (projectId, siteId) => { calls.push(['stopPreview', projectId, siteId]); return { stopped: true }; },
-            deploy: async (projectId, siteId) => { calls.push(['deploy', projectId, siteId]); return { url: 'https://bg-site.workers.dev/' }; },
+            deploy: async (projectId, siteId, context) => { calls.push(['deploy', projectId, siteId, context]); return { url: 'https://bg-site.workers.dev/' }; },
             openBuildFolder: async (projectId, siteId) => { calls.push(['openBuildFolder', projectId, siteId]); return { opened: true }; }
         },
         sendSuccess: async (_res, _id, data) => responses.push(data),
@@ -110,9 +110,9 @@ test('site routes build, preview, and deploy a site', async () => {
     await handler({ ...base, method: 'GET', pathname: `${path}/build-status` });
     await handler({ ...base, method: 'POST', contentType: 'application/json', pathname: `${path}/preview` });
     await handler({ ...base, method: 'DELETE', pathname: `${path}/preview` });
-    await handler({ ...base, method: 'POST', contentType: 'application/json', pathname: `${path}/deploy` });
+    await handler({ ...base, method: 'POST', contentType: 'application/json', pathname: `${path}/deploy`, requestId: 'request-1', requestBody: { account_id: 'selected-account' } });
     await handler({ ...base, method: 'POST', contentType: 'application/json', pathname: `${path}/open-folder` });
-    assert.deepEqual(calls, [['build', 'project-1', 'site-1'], ['startPreview', 'project-1', 'site-1'], ['stopPreview', 'project-1', 'site-1'], ['deploy', 'project-1', 'site-1'], ['openBuildFolder', 'project-1', 'site-1']]);
+    assert.deepEqual(calls, [['build', 'project-1', 'site-1'], ['startPreview', 'project-1', 'site-1'], ['stopPreview', 'project-1', 'site-1'], ['deploy', 'project-1', 'site-1', { account_id: 'selected-account', requestId: 'request-1' }], ['openBuildFolder', 'project-1', 'site-1']]);
     assert.deepEqual(responses.map((item) => item.status || item.stopped || item.opened || item.url), ['succeeded', 'succeeded', 'http://127.0.0.1:43210/', true, 'https://bg-site.workers.dev/', true]);
 });
 

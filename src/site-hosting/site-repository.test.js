@@ -117,6 +117,22 @@ test('site repository archives a site intact and removes it from the active site
     }
 });
 
+test('site repository persists its selected Cloudflare account independently of deployment state', () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-cloudflare-account-'));
+    try {
+        const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
+        projectRepository.create({ id: 'project-1', name: '개인 사이트' });
+        const repository = createSiteHostingSiteRepository({ fs, path, projectRepository, templates: createSiteTemplateCatalog({ fs, path }) });
+        repository.create('project-1', { id: 'site-1', name: '계정 연결 사이트', template_id: 'minimal-homepage' });
+        const selected = repository.recordCloudflareAccount('project-1', 'site-1', { id: 'account-id', name: 'Blog Account' }, '2026-10-11T00:00:00Z');
+        assert.deepEqual(selected.cloudflare_account, { id: 'account-id', name: 'Blog Account' });
+        assert.equal(selected.deployment, undefined);
+        assert.throws(() => repository.recordCloudflareAccount('project-1', 'site-1', { id: '', name: 'Invalid' }), { code: 'SITE_HOSTING_CLOUDFLARE_ACCOUNT_INVALID' });
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('site repository creates a customized preview draft outside the persistent site list and removes it', () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-draft-preview-'));
     try {

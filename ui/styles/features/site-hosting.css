@@ -3,6 +3,28 @@
   gap: var(--ui-density-page-gap);
 }
 
+.site-hosting-cloudflare-account-options {
+  display: grid;
+  gap: var(--ui-space-2);
+  padding: var(--ui-space-4) var(--ui-space-6);
+}
+
+.site-hosting-cloudflare-account-option {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-3);
+  padding: var(--ui-space-3);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface);
+  color: var(--ui-text-primary);
+  cursor: pointer;
+}
+
+.site-hosting-cloudflare-account-option input {
+  accent-color: var(--ui-action-primary);
+}
+
 .site-hosting-project-detail {
   display: grid;
   gap: var(--ui-panel-heading-content-gap, var(--ui-density-page-gap));

@@ -682,6 +682,71 @@ test('site deploy rebuilds the site and saves the Cloudflare workers.dev result'
         assert.equal(result.url, 'https://bg-site-1.example.workers.dev/');
         assert.equal(result.screenshot.build_id, 'build1');
         assert.equal((await service.list('project-1'))[0].deployment.worker_name, 'bg-site-1');
+        assert.deepEqual((await service.list('project-1'))[0].cloudflare_account, { id: 'a'.repeat(32), name: '이름 없는 계정' });
+        assert.deepEqual(result.cloudflare_account, { id: 'a'.repeat(32), name: '이름 없는 계정' });
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('site deployment validates and saves an explicit Cloudflare account before building, then reuses the binding', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-account-selection-'));
+    try {
+        const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
+        projectRepository.create({ id: 'project-1', name: '개인 사이트' });
+        const repository = createSiteHostingSiteRepository({ fs, path, projectRepository, templates: localTemplates() });
+        const calls = [];
+        const service = createSiteHostingSiteService({
+            fs, path, workspaceDir, projectRepository, repository, templates: localTemplates(), createId: () => 'site-1',
+            astroRuntime: { build: async () => { calls.push('build'); return {}; } },
+            getCloudflareDeploymentCredentials: async (accountId) => {
+                calls.push(['credentials', accountId]);
+                if (!accountId) throw Object.assign(new Error('select an account'), { apiCode: 'CLOUDFLARE_ACCOUNT_SELECTION_REQUIRED' });
+                if (accountId !== 'account-second') throw Object.assign(new Error('not accessible'), { apiCode: 'CLOUDFLARE_ACCOUNT_NOT_ACCESSIBLE' });
+                return { accessToken: 'test-token', account: { id: accountId, name: 'Second account' } };
+            },
+            cloudflareDeployer: { deploy: async (site, credentials) => {
+                calls.push(['deploy', site.cloudflare_account.id]);
+                assert.equal(credentials.account.id, 'account-second');
+                return { worker_name: 'bg-site-1', url: 'https://bg-site-1.example.workers.dev/', worker_account_id: credentials.account.id };
+            } }
+        });
+        await service.create('project-1', { name: '계정 선택 사이트', template_id: 'minimal-homepage' });
+        await assert.rejects(service.deploy('project-1', 'site-1'), { apiCode: 'CLOUDFLARE_ACCOUNT_SELECTION_REQUIRED' });
+        await assert.rejects(service.deploy('project-1', 'site-1', { account_id: 'account-first' }), { apiCode: 'CLOUDFLARE_ACCOUNT_NOT_ACCESSIBLE' });
+        assert.deepEqual(calls, [['credentials', ''], ['credentials', 'account-first']]);
+        assert.deepEqual((await service.list('project-1'))[0].cloudflare_account, undefined);
+
+        await service.deploy('project-1', 'site-1', { account_id: 'account-second' });
+        assert.deepEqual(calls.slice(2), [['credentials', 'account-second'], 'build', ['deploy', 'account-second']]);
+        const site = (await service.list('project-1'))[0];
+        assert.deepEqual(site.cloudflare_account, { id: 'account-second', name: 'Second account' });
+        assert.equal(site.deployment.worker_account_id, 'account-second');
+        await service.deploy('project-1', 'site-1');
+        assert.deepEqual(calls.slice(5), [['credentials', 'account-second'], 'build', ['deploy', 'account-second']]);
+        await assert.rejects(service.deploy('project-1', 'site-1', { account_id: 'account-first' }), { code: 'SITE_HOSTING_CLOUDFLARE_ACCOUNT_CHANGE_UNSUPPORTED' });
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('site deployment keeps the selected Cloudflare account if the local build fails', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-account-build-failure-'));
+    try {
+        const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
+        projectRepository.create({ id: 'project-1', name: '개인 사이트' });
+        const repository = createSiteHostingSiteRepository({ fs, path, projectRepository, templates: localTemplates() });
+        const service = createSiteHostingSiteService({
+            fs, path, workspaceDir, projectRepository, repository, templates: localTemplates(), createId: () => 'site-1',
+            astroRuntime: { build: async () => { throw new Error('local build failed'); } },
+            getCloudflareDeploymentCredentials: async (accountId) => ({ accessToken: 'test-token', account: { id: accountId, name: 'Selected account' } }),
+            cloudflareDeployer: { deploy: async () => assert.fail('Cloudflare must not be called after a failed build') }
+        });
+        await service.create('project-1', { name: '계정 선택 사이트', template_id: 'minimal-homepage' });
+        await assert.rejects(service.deploy('project-1', 'site-1', { account_id: 'selected-account' }), /local build failed/u);
+        const site = (await service.list('project-1'))[0];
+        assert.deepEqual(site.cloudflare_account, { id: 'selected-account', name: 'Selected account' });
+        assert.equal(site.deployment, undefined);
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }
@@ -795,6 +860,7 @@ test('custom domain disconnect verifies the Cloudflare binding and DNS before cl
         let binding = null;
         let dnsRecords = [];
         let detachCalls = 0;
+        const requestedAccountIds = [];
         const adapter = {
             listZones: async () => [{ id: 'zone-1', name: 'example.com', status: 'active' }],
             listWorkerDomains: async () => binding ? [{ ...binding }] : [],
@@ -816,12 +882,17 @@ test('custom domain disconnect verifies the Cloudflare binding and DNS before cl
             createId: () => 'site-1', now: () => '2026-10-06T00:00:00.000Z',
             astroRuntime: { build: async () => ({}) },
             cloudflareDeployer: { deploy: async () => ({ worker_name: 'bg-site-1', url: 'https://bg-site-1.example.workers.dev/' }) },
-            getCloudflareDeploymentCredentials: async () => ({ accessToken: 'test-token', account: { id: 'a'.repeat(32) } }),
+            getCloudflareDeploymentCredentials: async (accountId) => {
+                requestedAccountIds.push(accountId);
+                return { accessToken: 'test-token', account: { id: accountId || 'a'.repeat(32) } };
+            },
             createCloudflareSdkClient: () => ({}), createCloudflareSdkAdapter: () => adapter,
             sleep: async () => {}
         });
         await service.create('project-1', { name: '내 사이트', template_id: 'minimal-homepage' });
         await service.deploy('project-1', 'site-1');
+        requestedAccountIds.length = 0;
+        assert.deepEqual(await service.listCloudflareZones('project-1', 'site-1'), [{ id: 'zone-1', name: 'example.com', status: 'active' }]);
         await service.connectCustomDomain('project-1', 'site-1', { zone_id: 'zone-1', hostname: 'blog' });
         await assert.rejects(service.disconnectCustomDomain('project-1', 'site-1'), { code: 'SITE_HOSTING_CUSTOM_DOMAIN_CONFIRMATION_REQUIRED' });
         assert.ok(binding, 'a missing confirmation must not call Cloudflare');
@@ -839,6 +910,8 @@ test('custom domain disconnect verifies the Cloudflare binding and DNS before cl
         assert.equal(site.deployment.worker_name, 'bg-site-1');
         assert.equal(site.hostname, 'blog');
         assert.equal(site.domain, 'example.com');
+        assert.ok(requestedAccountIds.length >= 4);
+        assert.ok(requestedAccountIds.every((accountId) => accountId === 'a'.repeat(32)), 'zone lookup, connect, and disconnect must stay pinned to the site deployment account');
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }

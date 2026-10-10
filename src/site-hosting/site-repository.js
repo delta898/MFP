@@ -644,6 +644,28 @@ function createSiteHostingSiteRepository(options = {}) {
         return readSite(projectId, siteId);
     }
 
+    function recordCloudflareAccount(projectId, siteId, account, updatedAt = new Date().toISOString()) {
+        const site = readSite(projectId, siteId);
+        if (!site) throw withStatus(new Error('사이트를 찾을 수 없습니다.'), 404, 'SITE_HOSTING_SITE_NOT_FOUND');
+        const id = String(account?.id || '').trim();
+        const name = String(account?.name || '').trim();
+        if (!id || id.length > 128 || /[\u0000-\u001f\u007f]/u.test(id)
+            || !name || name.length > 256 || /[\u0000-\u001f\u007f]/u.test(name)) {
+            throw withStatus(new Error('Cloudflare 계정 정보를 확인할 수 없습니다.'), 400, 'SITE_HOSTING_CLOUDFLARE_ACCOUNT_INVALID');
+        }
+        const manifestPath = pathApi.join(site.root_path, '.bloggenius', 'site.json');
+        const manifest = JSON.parse(String(fileSystem.readFileSync(manifestPath, 'utf8') || ''));
+        const updated = {
+            ...manifest,
+            cloudflare_account: { id, name },
+            updated_at: String(updatedAt || manifest.updated_at || '')
+        };
+        const tempPath = pathApi.join(pathApi.dirname(manifestPath), `.site.json.${process.pid}.${Date.now()}.tmp`);
+        fileSystem.writeFileSync(tempPath, `${JSON.stringify(updated, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+        fileSystem.renameSync(tempPath, manifestPath);
+        return readSite(projectId, siteId);
+    }
+
     function clearDeployment(projectId, siteId, updatedAt = new Date().toISOString()) {
         const site = readSite(projectId, siteId);
         if (!site) throw withStatus(new Error('사이트를 찾을 수 없습니다.'), 404, 'SITE_HOSTING_SITE_NOT_FOUND');
@@ -989,7 +1011,7 @@ function createSiteHostingSiteRepository(options = {}) {
         }
     }
 
-    return { list, get, create, getArchiveTarget, archive, createPreviewDraft, removePreviewDraft, update, updateSettings, setTemplateUpdateTestVersion, applyTemplateUpdate, recordDeployment, clearDeployment, recordBuildResult, recordBuildScreenshot, getScreenshot, recordCustomDomainBinding, clearCustomDomainBinding };
+    return { list, get, create, getArchiveTarget, archive, createPreviewDraft, removePreviewDraft, update, updateSettings, setTemplateUpdateTestVersion, applyTemplateUpdate, recordCloudflareAccount, recordDeployment, clearDeployment, recordBuildResult, recordBuildScreenshot, getScreenshot, recordCustomDomainBinding, clearCustomDomainBinding };
 }
 
 module.exports = { SITE_SCHEMA_VERSION, safeSiteId, createSiteHostingSiteRepository };

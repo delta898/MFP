@@ -109,7 +109,7 @@ function createSiteHostingSiteRouteHandler(deps = {}) {
                     return true;
                 }
                 if (action === 'deploy' && method === 'POST') {
-                    await sendSuccess(res, requestId, await service.deploy(projectId, siteId, { requestId }));
+                    await sendSuccess(res, requestId, await service.deploy(projectId, siteId, { ...(ctx.requestBody || {}), requestId }));
                     return true;
                 }
                 if (action === 'update-template' && method === 'POST') {
