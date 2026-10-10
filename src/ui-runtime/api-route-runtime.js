@@ -518,6 +518,7 @@ function createUiApiRouteRuntime(deps = {}) {
             });
             cloudflareConnectionService = createCloudflareConnectionService({
                 clientId: CONFIG?.CLOUDFLARE_OAUTH_CLIENT_ID,
+                requestedScopes: CONFIG?.CLOUDFLARE_OAUTH_SCOPES,
                 credentialStore
             });
         }

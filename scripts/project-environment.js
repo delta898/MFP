@@ -12,7 +12,8 @@ const GOOGLE_OAUTH_ENV_KEYS = Object.freeze([
 ]);
 const DEVELOPMENT_DESKTOP_OAUTH_ENV_KEYS = Object.freeze([
     ...GOOGLE_OAUTH_ENV_KEYS,
-    'CLOUDFLARE_OAUTH_CLIENT_ID'
+    'CLOUDFLARE_OAUTH_CLIENT_ID',
+    'CLOUDFLARE_OAUTH_SCOPES'
 ]);
 
 function stripQuotes(value) {

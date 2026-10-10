@@ -60,12 +60,19 @@ Local과 Development 앱은 공통으로 저장소 루트의 Git 제외 파일 `
 GOOGLE_OAUTH_CLIENT_ID="..."
 GOOGLE_OAUTH_CLIENT_SECRET="..."
 CLOUDFLARE_OAUTH_CLIENT_ID="..."
+# Optional test-client override; when set, this replaces the default scope list.
+# CLOUDFLARE_OAUTH_SCOPES="memberships.read workers-scripts.admin workers-scripts.edit workers-routes.write dns.read zone.read offline_access"
 ```
 
 `./run_dev.sh`는 이 파일의 Cloudflare Client ID를 BlogGenius Development 프로세스에 전달한다.
 Cloudflare 값은 Local/Development용이며 Production launcher는 `.env.oauth`의 해당 값을 읽지
 않는다. 일반 사용자 배포용 Cloudflare OAuth Client 설정은 별도 release configuration 단계에서
 추가한다.
+
+`CLOUDFLARE_OAUTH_SCOPES`는 개발용 OAuth Client의 scope 구성이 기본 목록과 다를 때만 설정한다.
+공백으로 구분한 scope ID 전체 목록이며, 설정하면 기본 목록에 합쳐지지 않고 그대로 요청된다.
+예시의 `workers-scripts.admin`은 새 Worker 생성에 쓰이는 계정 전체 Workers Admin 권한으로 삭제 권한도
+포함하므로, 격리된 테스트 Client와 테스트 Worker에만 사용한다.
 
 이 파일은 실행 환경이나 Supabase endpoint를 선택하지 않으며 허용 목록에 있는 OAuth key만 로더에
 반영된다. 실제 값은 Git, `config.json`, Runtime Config DB와 문서에 넣지 않는다. 설치형 앱의 Client Secret은

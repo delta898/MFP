@@ -45,6 +45,7 @@
 - `decisions/2026-10-06-site-hosting-teardown-safety.md` (Site Hosting detach/delete reverse lifecycle, Cloudflare dry-run boundary, and archive policy)
 - `architecture/manuscript-workspace.md`
 - `architecture/site-hosting-vault-publishing.md`
+- `architecture/cloudflare-workers-oauth-permissions.md` (Workers OAuth scope experiments, the tested Admin scope set, API Token distinction, and Production follow-up)
 - `architecture/ui-runtime-boundaries.md`
 - `architecture/ai-model-management.md`
 - `architecture/chat-model-role.md`
@@ -110,6 +111,7 @@
 - `plans/active/2026-10-01-static-template-contract-spike-development.md`
 - `plans/active/2026-10-02-cloudflare-static-assets-list-poc-development.md`
 - `plans/active/2026-10-02-cloudflare-static-assets-deploy-poc-development.md`
+- `plans/active/2026-10-10-cloudflare-workers-admin-oauth-scope.md`
 - `plans/active/2026-10-01-static-site-builder-main-development.md` (`main` → `codex/static-site-builder-main` → serial sub-features; the parent may merge into `dev` only by explicit request)
 - `plans/active/2026-10-03-amade-template-catalog-and-site-template-development.md` (current serial sub-feature; Amade catalog and Site Hosting Template Family integration)
 - `plans/active/2026-10-03-amade-template-spec-v0.1-design.md` (experimental Site Hosting 0.1 design extended to share Amade discovery/metadata with BlogGenius UI Styles; existing 1.x resources are legacy)

@@ -12,7 +12,7 @@ const CALLBACK_PORT = 43127;
 const CALLBACK_PATH = '/oauth/callback';
 const REDIRECT_URI = `http://${CALLBACK_HOST}:${CALLBACK_PORT}${CALLBACK_PATH}`;
 const FLOW_TTL_MS = 10 * 60 * 1000;
-const OAUTH_REQUESTED_SCOPES = [
+const DEFAULT_OAUTH_REQUESTED_SCOPES = Object.freeze([
     'memberships.read',
     'workers-scripts.edit',
     'workers-routes.write',
@@ -21,11 +21,23 @@ const OAUTH_REQUESTED_SCOPES = [
     'zone.read',
     'dns.read',
     'offline_access'
-].join(' ');
+]);
+
+function normalizeRequestedScopes(value) {
+    const scopes = (Array.isArray(value) ? value : String(value || '').split(/\s+/))
+        .map((scope) => String(scope || '').trim())
+        .filter(Boolean);
+    if (scopes.length === 0) return DEFAULT_OAUTH_REQUESTED_SCOPES.join(' ');
+    if (scopes.some((scope) => !/^[a-z][a-z0-9._-]*$/.test(scope))) {
+        throw new Error('Cloudflare OAuth scope 설정 형식이 올바르지 않습니다.');
+    }
+    return [...new Set(scopes)].join(' ');
+}
 
 function createCloudflareConnectionService(deps = {}) {
     const {
         clientId = '',
+        requestedScopes = '',
         credentialStore,
         openExternal = async (url) => {
             const electron = require('electron');
@@ -46,6 +58,8 @@ function createCloudflareConnectionService(deps = {}) {
         randomBytes = crypto.randomBytes,
         createHash = crypto.createHash
     } = deps;
+
+    const oauthRequestedScopes = normalizeRequestedScopes(requestedScopes);
 
     const flows = new Map();
     let accessTokenCache = null;
@@ -255,7 +269,7 @@ function createCloudflareConnectionService(deps = {}) {
                 client_id: requireClientId(),
                 redirect_uri: REDIRECT_URI,
                 response_type: 'code',
-                scope: OAUTH_REQUESTED_SCOPES,
+                scope: oauthRequestedScopes,
                 prompt: 'consent',
                 state,
                 code_challenge: challenge,
@@ -388,4 +402,10 @@ function createEncryptedCredentialStore({ filePath, fsImpl = require('node:fs'),
     };
 }
 
-module.exports = { createCloudflareConnectionService, createEncryptedCredentialStore, REDIRECT_URI };
+module.exports = {
+    createCloudflareConnectionService,
+    createEncryptedCredentialStore,
+    DEFAULT_OAUTH_REQUESTED_SCOPES,
+    normalizeRequestedScopes,
+    REDIRECT_URI
+};
