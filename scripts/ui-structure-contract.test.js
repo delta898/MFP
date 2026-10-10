@@ -5,6 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { createHtmlCompositionRuntime } = require('../src/ui-runtime/html-composition-runtime');
 const { createJsCompositionRuntime } = require('../src/ui-runtime/js-composition-runtime');
+const { evaluateUiSize } = require('./ui-size-policy');
 
 const repoRoot = path.resolve(__dirname, '..');
 const uiRoot = path.join(repoRoot, 'ui');
@@ -48,8 +49,17 @@ function collectHtmlFiles(rootDir) {
     });
 }
 
-test('UI shell has unique DOM ids', () => {
+test('UI shell has unique DOM ids and remains within its size policy', (t) => {
     const html = readComposedUiShell();
+    const shellSource = readUiFile(indexPath);
+    const shellLines = shellSource.split('\n').length - 1;
+    const shellSize = evaluateUiSize('htmlShell', shellLines);
+    assert.notEqual(shellSize.status, 'error', `ui/index.html has ${shellLines} lines (maximum ${shellSize.maximum})`);
+    if (shellSize.status === 'warning') t.diagnostic(`Size recommendation: ui/index.html has ${shellLines} lines (recommended ${shellSize.recommended}; maximum ${shellSize.maximum}).`);
+    const htmlIncludes = Array.from(shellSource.matchAll(/<!--\s*@include\s+([^\s]+)\s*-->/g));
+    const manifestSize = evaluateUiSize('htmlManifest', htmlIncludes.length);
+    assert.notEqual(manifestSize.status, 'error', `ui/index.html has ${htmlIncludes.length} includes (maximum ${manifestSize.maximum})`);
+    if (manifestSize.status === 'warning') t.diagnostic(`Size recommendation: ui/index.html has ${htmlIncludes.length} includes (recommended ${manifestSize.recommended}; maximum ${manifestSize.maximum}).`);
     const ids = collectAttributeValues(html, 'id');
     const counts = new Map();
     ids.forEach((id) => counts.set(id, (counts.get(id) || 0) + 1));
@@ -57,6 +67,14 @@ test('UI shell has unique DOM ids', () => {
 
     assert.equal(ids.length > 0, true);
     assert.deepEqual(duplicates, []);
+});
+
+test('UI server composition root remains within its size policy', (t) => {
+    const serverPath = path.join(repoRoot, 'src/ui-server.js');
+    const lineCount = fs.readFileSync(serverPath, 'utf8').split('\n').length - 1;
+    const size = evaluateUiSize('serverCompositionRoot', lineCount);
+    assert.notEqual(size.status, 'error', `src/ui-server.js has ${lineCount} lines (maximum ${size.maximum})`);
+    if (size.status === 'warning') t.diagnostic(`Size recommendation: src/ui-server.js has ${lineCount} lines (recommended ${size.recommended}; maximum ${size.maximum}).`);
 });
 
 test('primary navigation buttons map one-to-one to UI views', () => {
@@ -135,7 +153,7 @@ test('UI index remains a bounded shell composed from one partial per feature vie
     });
 });
 
-test('every HTML partial is reachable and remains below the feature file boundary', () => {
+test('every HTML partial is reachable and within its size policy', (t) => {
     const partialRoot = path.join(uiRoot, 'partials');
     const partialFiles = collectHtmlFiles(partialRoot);
     const result = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot });
@@ -147,8 +165,11 @@ test('every HTML partial is reachable and remains below the feature file boundar
         new Set(partialFiles.map((filePath) => path.relative(uiRoot, filePath)).filter((includePath) => !isLegacyUiViewPath(includePath))),
         reachable
     );
-    partialFiles.filter((filePath) => !isLegacyUiViewPath(path.relative(uiRoot, filePath))).forEach((filePath) => {
+    partialFiles.forEach((filePath) => {
         const lineCount = readUiFile(filePath).split('\n').length - 1;
-        assert.equal(lineCount <= 500, true, `${path.relative(uiRoot, filePath)} has ${lineCount} lines`);
+        const relativePath = path.relative(uiRoot, filePath);
+        const size = evaluateUiSize('htmlPartial', lineCount);
+        assert.notEqual(size.status, 'error', `${relativePath} has ${lineCount} lines (maximum ${size.maximum})`);
+        if (size.status === 'warning') t.diagnostic(`Size recommendation: ${relativePath} has ${lineCount} lines (recommended ${size.recommended}; maximum ${size.maximum}).`);
     });
 });

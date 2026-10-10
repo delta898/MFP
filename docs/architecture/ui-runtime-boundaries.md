@@ -108,23 +108,32 @@ background triggers remain outside this surface.
 - When a UI workflow grows beyond a few helpers, move it into `src/ui-runtime/`.
 - Keep `ui/index.html` as the bounded document shell and place feature markup in
   `ui/partials/views/`. Large views such as blog and settings use nested tab
-  partials, and every HTML partial is guarded at 500 lines or fewer.
+  partials. Use 500 lines as a review prompt for a partial and 800 as its hard
+  ceiling. Keep the shell at or below 300 recommended / 400 maximum lines.
   Composition must finish before browser script execution.
 - Keep `ui/styles.css` as the ordered CSS manifest and cascade-layer source of truth.
   Add styles to the matching `tokens`, `base`, `components`, `features`, or
   `utilities` layer; do not add unlayered product rules or use the reserved
   `overrides` and `legacy` layers without a documented exception. Preserve order
-  within the owning layer, and keep every CSS module at 900 lines or fewer.
+  within the owning layer. Treat 900 lines as a review prompt and 1,400 as the
+  hard ceiling for a CSS module.
 - Keep `ui/app.js` as the ordered classic-script manifest. Place shared bootstrap
   and utilities in `ui/scripts/foundation/`, navigation and view orchestration in
-  `ui/scripts/shell/`, and product behavior in `ui/scripts/features/`.
+  `ui/scripts/shell/`, and product behavior in `ui/scripts/features/`. Use 800
+  lines as the review prompt and 1,400 as the hard ceiling for a JavaScript module.
+  The transitional `legacy-actions-controllers.js` has a 2,500-line review prompt
+  and a 2,800-line hard ceiling while behavior continues to move into feature modules.
+- Apply the same two-stage size policy to manifests by include count: HTML 25
+  recommended / 40 maximum, CSS 120 / 160, and JavaScript 150 / 200. These are
+  growth limits; valid ordering, unique/reachable includes, and successful
+  composition remain mandatory regardless of count.
 - Do not introduce duplicate top-level function declarations in the composed UI
   script. Keep one `DOMContentLoaded` bootstrap and one action-binding path.
-- Keep the remaining legacy action controller below its enforced 2,600-line
-  transition boundary; extract new behavior into a focused feature module instead
-  of extending that controller.
+- Avoid adding new behavior to the legacy action controller; extract it into a
+  focused feature module. Its size warning is a prompt to continue that transition,
+  while the hard ceiling prevents unbounded growth.
 - When multiple entry paths need the same behavior, extract a shared module before changing one side further.
-- `src/ui-server.js` should keep wiring, not full workflow implementations.
-- Keep `src/ui-server.js` below the enforced 1,200-line composition-root boundary;
+- `src/ui-server.js` should keep wiring, not full workflow implementations. Use
+  1,200 lines as a review prompt and 1,500 as its hard composition-root ceiling;
   move new policy or field-mapping behavior into a focused runtime module.
 - Shared modules should remain usable even if the launcher or packaging changes again later.

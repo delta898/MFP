@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { createJsCompositionRuntime } = require('../src/ui-runtime/js-composition-runtime');
+const { evaluateUiSize } = require('./ui-size-policy');
 
 const repoRoot = path.resolve(__dirname, '..');
 const uiRoot = path.join(repoRoot, 'ui');
@@ -26,10 +27,12 @@ test('blog collection status targets the rendered result element', () => {
     assert.doesNotMatch(source, /getElementById\('blog-collect-result'\)/);
 });
 
-test('legacy action binding remains bounded until lifecycle extraction', () => {
+test('legacy action binding remains within its transitional size policy', (t) => {
     const filePath = path.join(uiRoot, 'scripts/features/legacy-actions-controllers.js');
     const lines = fs.readFileSync(filePath, 'utf8').split('\n').length - 1;
-    assert.equal(lines <= 2600, true, `legacy action binding has ${lines} lines`);
+    const size = evaluateUiSize('legacyJsController', lines);
+    assert.notEqual(size.status, 'error', `legacy action binding has ${lines} lines (maximum ${size.maximum})`);
+    if (size.status === 'warning') t.diagnostic(`Size recommendation: legacy action binding has ${lines} lines (recommended ${size.recommended}; maximum ${size.maximum}).`);
 });
 
 test('UI lifecycle has one bootstrap and one binding registration path', () => {

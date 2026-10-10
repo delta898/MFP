@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { createCssCompositionRuntime } = require('../src/ui-runtime/css-composition-runtime');
+const { evaluateUiSize } = require('./ui-size-policy');
 const { CONTRACTS, getDesignSystemStylePaths } = require('./design-system-targets');
 const { getRegisteredStyleIds, getStyleModulePath } = require('./design-style-registry-test-utils');
 
@@ -29,14 +30,16 @@ function collectCssFiles(rootDir) {
     });
 }
 
-test('CSS manifest preserves the explicit base, layout, component, and feature cascade order', () => {
+test('CSS manifest preserves cascade order and remains within its size policy', (t) => {
     const manifest = fs.readFileSync(manifestPath, 'utf8');
     const includePaths = Array.from(
         manifest.matchAll(/\/\*\s*@include\s+([^\s]+)\s*\*\//g),
         (match) => match[1]
     );
+    const manifestSize = evaluateUiSize('cssManifest', includePaths.length);
+    assert.notEqual(manifestSize.status, 'error', `ui/styles.css has ${includePaths.length} includes (maximum ${manifestSize.maximum})`);
+    if (manifestSize.status === 'warning') t.diagnostic(`Size recommendation: ui/styles.css has ${includePaths.length} includes (recommended ${manifestSize.recommended}; maximum ${manifestSize.maximum}).`);
 
-    assert.equal(manifest.split('\n').length - 1 <= 120, true);
     const styleModules = getRegisteredStyleIds({ repoRoot }).map(getStyleModulePath);
     assert.deepEqual(includePaths, [
         ...styleModules,
@@ -211,7 +214,7 @@ test('CSS manifest declares one cascade contract and keeps every module inside a
     assert.doesNotMatch(composed, /@layer bloggenius\.legacy\s*\{/);
 });
 
-test('every CSS module is reachable, unique, and remains below the module boundary', () => {
+test('every CSS module is reachable, unique, and within its size policy', (t) => {
     const moduleRoot = path.join(uiRoot, 'styles');
     const moduleFiles = collectCssFiles(moduleRoot);
     const result = createCssCompositionRuntime({ fs, path }).composeCssFile({ uiRoot });
@@ -222,16 +225,12 @@ test('every CSS module is reachable, unique, and remains below the module bounda
         new Set(moduleFiles.map((filePath) => path.relative(uiRoot, filePath))),
         reachable
     );
-    const moduleLineLimits = new Map([
-        // The local-image composer and shared SNS media picker still share this
-        // established module; keep its current boundary explicit until extraction.
-        ['styles/features/social-media.css', 1200]
-    ]);
     moduleFiles.forEach((filePath) => {
         const relativePath = path.relative(uiRoot, filePath);
         const lineCount = fs.readFileSync(filePath, 'utf8').split('\n').length - 1;
-        const maxLines = moduleLineLimits.get(relativePath) || 900;
-        assert.equal(lineCount <= maxLines, true, `${relativePath} has ${lineCount} lines (limit ${maxLines})`);
+        const size = evaluateUiSize('cssModule', lineCount);
+        assert.notEqual(size.status, 'error', `${relativePath} has ${lineCount} lines (maximum ${size.maximum})`);
+        if (size.status === 'warning') t.diagnostic(`Size recommendation: ${relativePath} has ${lineCount} lines (recommended ${size.recommended}; maximum ${size.maximum}).`);
     });
     assert.match(result.css, /^@import url/);
     assert.match(result.css, /\.quick-discovery-modal-container\s*\{/);

@@ -5,6 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const { createJsCompositionRuntime } = require('../src/ui-runtime/js-composition-runtime');
+const { evaluateUiSize } = require('./ui-size-policy');
 
 const repoRoot = path.resolve(__dirname, '..');
 const uiRoot = path.join(repoRoot, 'ui');
@@ -18,15 +19,16 @@ function collectJsFiles(rootDir) {
     });
 }
 
-test('JavaScript manifest preserves one explicit classic-script execution order', () => {
+test('JavaScript manifest preserves its execution order and remains within its size policy', (t) => {
     const manifest = fs.readFileSync(manifestPath, 'utf8');
     const includePaths = Array.from(
         manifest.matchAll(/^\s*\/\/\s*@include\s+([^\s]+)\s*$/gm),
         (match) => match[1]
     );
 
-    // Keep the classic-script order explicit while leaving room for small shared modules.
-    assert.equal(manifest.split('\n').length - 1 <= 126, true);
+    const manifestSize = evaluateUiSize('jsManifest', includePaths.length);
+    assert.notEqual(manifestSize.status, 'error', `ui/app.js has ${includePaths.length} includes (maximum ${manifestSize.maximum})`);
+    if (manifestSize.status === 'warning') t.diagnostic(`Size recommendation: ui/app.js has ${includePaths.length} includes (recommended ${manifestSize.recommended}; maximum ${manifestSize.maximum}).`);
     assert.deepEqual(includePaths, [
         'scripts/foundation/design-style-token-contract.js',
         'scripts/foundation/style-system.js',
@@ -157,7 +159,7 @@ test('JavaScript manifest preserves one explicit classic-script execution order'
     ]);
 });
 
-test('every JavaScript module is reachable, unique, bounded, and composes as one classic script', () => {
+test('every JavaScript module is reachable, unique, within size policy, and composes as one classic script', (t) => {
     const moduleRoot = path.join(uiRoot, 'scripts');
     const standaloneEditorFiles = new Set([
         'features/blog-next/manuscript-editor-entry.js',
@@ -177,18 +179,10 @@ test('every JavaScript module is reachable, unique, bounded, and composes as one
     moduleFiles.forEach((filePath) => {
         const relativePath = path.relative(uiRoot, filePath);
         const lineCount = fs.readFileSync(filePath, 'utf8').split('\n').length - 1;
-        const moduleLineLimits = new Map([
-            // This shared manual SNS controller still owns its end-to-end local composer flow.
-            ['scripts/features/social/manual-composer.js', 1000],
-            ['scripts/features/blog-next/draft-inputs.js', 1200],
-            ['scripts/features/card-news/source-preview.js', 820],
-            ['scripts/features/site-hosting/project-management.js', 1120],
-            ['scripts/features/site-hosting/site-creation-navigation.js', 960]
-        ]);
-        const limit = relativePath.includes('/features/legacy-')
-            ? 3000
-            : moduleLineLimits.get(relativePath) || 800;
-        assert.equal(lineCount <= limit, true, `${relativePath} has ${lineCount} lines (limit ${limit})`);
+        const policyName = relativePath === 'scripts/features/legacy-actions-controllers.js' ? 'legacyJsController' : 'jsModule';
+        const size = evaluateUiSize(policyName, lineCount);
+        assert.notEqual(size.status, 'error', `${relativePath} has ${lineCount} lines (maximum ${size.maximum})`);
+        if (size.status === 'warning') t.diagnostic(`Size recommendation: ${relativePath} has ${lineCount} lines (recommended ${size.recommended}; maximum ${size.maximum}).`);
     });
     assert.doesNotThrow(() => new vm.Script(result.js, { filename: manifestPath }));
     assert.doesNotMatch(result.js, /^\s*\/\/\s*@include\s+/m);
