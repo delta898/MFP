@@ -27,6 +27,7 @@ function createCloudflareConnectionService(deps = {}) {
         clientId = '',
         requestedScopes = '',
         credentialStore,
+        safeStorage: safeStorageOverride = null,
         openExternal = async (url) => {
             const electron = require('electron');
             if (!electron?.shell?.openExternal) throw new Error('시스템 브라우저를 실행할 수 없습니다.');
@@ -52,6 +53,8 @@ function createCloudflareConnectionService(deps = {}) {
     const flows = new Map();
     let accessTokenCache = null;
     let accessTokenRefreshPromise = null;
+    let refreshTokenCache;
+    let refreshTokenReadPromise = null;
 
     function requireClientId() {
         const value = String(clientId || '').trim();
@@ -65,25 +68,39 @@ function createCloudflareConnectionService(deps = {}) {
     }
 
     function getSafeStorage() {
+        if (safeStorageOverride) return safeStorageOverride;
         const electron = require('electron');
         if (!electron?.safeStorage) throw new Error('OS 보호 저장소를 사용할 수 없습니다.');
         return electron.safeStorage;
     }
 
     async function readRefreshToken() {
-        const encrypted = await credentialStore.read();
-        if (!encrypted) return '';
-        const safeStorage = getSafeStorage();
-        if (typeof safeStorage.decryptStringAsync !== 'function'
-            || typeof safeStorage.isEncryptionAvailable !== 'function'
-            || !safeStorage.isEncryptionAvailable()) {
-            throw new Error('이 기기에서 Cloudflare 연결 정보를 안전하게 읽을 수 없습니다.');
+        if (typeof refreshTokenCache === 'string') return refreshTokenCache;
+        if (refreshTokenReadPromise) return refreshTokenReadPromise;
+        refreshTokenReadPromise = (async () => {
+            const encrypted = await credentialStore.read();
+            if (!encrypted) {
+                refreshTokenCache = '';
+                return '';
+            }
+            const safeStorage = getSafeStorage();
+            if (typeof safeStorage.decryptStringAsync !== 'function'
+                || typeof safeStorage.isEncryptionAvailable !== 'function'
+                || !safeStorage.isEncryptionAvailable()) {
+                throw new Error('이 기기에서 Cloudflare 연결 정보를 안전하게 읽을 수 없습니다.');
+            }
+            const decrypted = await safeStorage.decryptStringAsync(Buffer.from(encrypted, 'base64'));
+            const token = typeof decrypted === 'string' ? decrypted : String(decrypted?.result || '');
+            if (!token) throw new Error('저장된 Cloudflare 연결 정보를 복호화하지 못했습니다.');
+            if (decrypted?.shouldReEncrypt) await saveRefreshToken(token);
+            else refreshTokenCache = token;
+            return token;
+        })();
+        try {
+            return await refreshTokenReadPromise;
+        } finally {
+            refreshTokenReadPromise = null;
         }
-        const decrypted = await safeStorage.decryptStringAsync(Buffer.from(encrypted, 'base64'));
-        const token = typeof decrypted === 'string' ? decrypted : String(decrypted?.result || '');
-        if (!token) throw new Error('저장된 Cloudflare 연결 정보를 복호화하지 못했습니다.');
-        if (decrypted?.shouldReEncrypt) await saveRefreshToken(token);
-        return token;
     }
 
     async function saveRefreshToken(token) {
@@ -95,6 +112,7 @@ function createCloudflareConnectionService(deps = {}) {
         }
         const encrypted = await safeStorage.encryptStringAsync(String(token));
         await credentialStore.write(Buffer.from(encrypted).toString('base64'));
+        refreshTokenCache = String(token);
     }
 
     async function postForm(url, fields) {
@@ -133,13 +151,15 @@ function createCloudflareConnectionService(deps = {}) {
         };
     }
 
-    async function getAccessToken({ forceRefresh = false } = {}) {
+    async function getAccessToken({ forceRefresh = false, refreshToken: knownRefreshToken } = {}) {
         if (!forceRefresh && accessTokenCache && accessTokenCache.expiresAt > now() + 60_000) {
             return accessTokenCache.token;
         }
         if (accessTokenRefreshPromise) return accessTokenRefreshPromise;
         accessTokenRefreshPromise = (async () => {
-            const refreshToken = await readRefreshToken();
+            const refreshToken = typeof knownRefreshToken === 'string'
+                ? knownRefreshToken
+                : await readRefreshToken();
             if (!refreshToken) return '';
             const tokens = await postForm(TOKEN_URL, {
                 grant_type: 'refresh_token',
@@ -216,7 +236,7 @@ function createCloudflareConnectionService(deps = {}) {
         async getStatus() {
             const refreshToken = await readRefreshToken();
             if (!refreshToken) return { connected: false, accounts: [] };
-            const token = await getAccessToken();
+            const token = await getAccessToken({ refreshToken });
             const accounts = await loadMemberships(token);
             return { connected: true, accounts };
         },
@@ -229,7 +249,7 @@ function createCloudflareConnectionService(deps = {}) {
                 error.apiCode = 'CLOUDFLARE_CONNECTION_REQUIRED';
                 throw error;
             }
-            const token = await getAccessToken();
+            const token = await getAccessToken({ refreshToken });
             const accounts = await loadMemberships(token);
             if (!accounts.length) {
                 const error = new Error('배포할 수 있는 Cloudflare 계정이 없습니다.');
@@ -356,6 +376,7 @@ function createCloudflareConnectionService(deps = {}) {
             });
             accessTokenCache = null;
             await credentialStore.clear();
+            refreshTokenCache = '';
             return { disconnected: true };
         }
     };

@@ -52,3 +52,46 @@ test('Cloudflare authorization requests the configured Workers Admin scope set',
     assert.ok(!DEFAULT_OAUTH_REQUESTED_SCOPES.some((scope) => /workers-scripts\.(edit|read|write)/.test(scope)));
     service.cancel(flow.flowId);
 });
+
+test('Cloudflare status decrypts the stored refresh token once and reuses it in memory', async () => {
+    let decryptCalls = 0;
+    let credentialReads = 0;
+    const service = createCloudflareConnectionService({
+        clientId: 'test-client',
+        requestedScopes: 'memberships.read offline_access',
+        credentialStore: {
+            read: async () => {
+                credentialReads += 1;
+                return Buffer.from('encrypted-refresh-token').toString('base64');
+            },
+            write: async () => {},
+            clear: async () => {}
+        },
+        safeStorage: {
+            isEncryptionAvailable: () => true,
+            decryptStringAsync: async () => {
+                decryptCalls += 1;
+                return 'refresh-token';
+            }
+        },
+        fetchImpl: async (url) => {
+            if (String(url).includes('/oauth2/token')) {
+                return {
+                    ok: true,
+                    json: async () => ({ access_token: 'access-token', refresh_token: 'refresh-token', expires_in: 3600 })
+                };
+            }
+            return {
+                ok: true,
+                json: async () => ({ success: true, result: [], result_info: { total_pages: 1 } })
+            };
+        }
+    });
+
+    await Promise.all([service.getStatus(), service.getStatus()]);
+    assert.equal(decryptCalls, 1);
+    assert.equal(credentialReads, 1);
+    await service.getStatus();
+    assert.equal(decryptCalls, 1);
+    assert.equal(credentialReads, 1);
+});
