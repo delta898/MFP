@@ -62,7 +62,7 @@ test('finalize leaves the body untouched when disabled', async () => {
     assert.equal(result.count, 0);
 });
 
-test('finalize includes the section and replaces an existing one without duplication', async () => {
+test('finalize preserves an existing user related section without duplicating or replacing it', async () => {
     const source = '# 제목\n\n본문\n\n## 함께 보면 좋은 글\nhttps://blog.naver.com/old\n';
     const result = await finalizeManuscriptRelatedPosts({
         markdownText: source,
@@ -71,9 +71,11 @@ test('finalize includes the section and replaces an existing one without duplica
         gateway: gateway()
     });
     assert.equal(result.status, RELATED_POSTS_STATUS.INCLUDED);
-    assert.equal(result.count, 2);
-    assert.doesNotMatch(result.markdownText, /blog\.naver\.com\/old/);
+    assert.equal(result.count, 1);
+    assert.match(result.markdownText, /blog\.naver\.com\/old/);
+    assert.doesNotMatch(result.markdownText, /blog\.naver\.com\/fixture\/1/);
     assert.equal(result.markdownText.match(/함께 보면 좋은 글/g).length, 1);
+    assert.equal(result.decision, 'user_managed');
 });
 
 test('finalize reports unavailable when no candidates exist', async () => {

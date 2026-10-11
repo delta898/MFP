@@ -8,6 +8,8 @@ const { requireSinglePublishTarget } = require('./single-publish-target');
 const {
     RELATED_POSTS_STATUS,
     extractManuscriptTitle,
+    findRelatedPostsSections,
+    countRelatedPostLinks,
     finalizeManuscriptRelatedPosts
 } = require('./manuscript-related-posts');
 
@@ -262,11 +264,13 @@ function createManuscriptDraftService(options = {}) {
         }
     }
 
-    function defaultRelatedPostsState(targets) {
+    function defaultRelatedPostsState(targets, markdownText = '') {
+        const existingSections = findRelatedPostsSections(markdownText);
         return {
             enabled: false,
-            status: RELATED_POSTS_STATUS.DISABLED,
-            count: 0,
+            status: existingSections.length > 0 ? RELATED_POSTS_STATUS.INCLUDED : RELATED_POSTS_STATUS.DISABLED,
+            count: existingSections.length > 0 ? countRelatedPostLinks(existingSections[0].text) : 0,
+            decision: existingSections.length > 0 ? 'user_managed' : 'pending',
             targets: Array.isArray(targets) ? targets.slice() : [],
             updated_at: new Date(now()).toISOString()
         };
@@ -484,7 +488,7 @@ function createManuscriptDraftService(options = {}) {
             contentVersion,
             publishedTargets: getPublishedTargets(manifest, contentVersion),
             sourceKind: manifest.source_kind,
-            relatedPosts: manifest.related_posts || defaultRelatedPostsState(manifest.settings?.targets),
+            relatedPosts: manifest.related_posts || defaultRelatedPostsState(manifest.settings?.targets, readContentsMarkdown(locations)),
             createdAt: manifest.created_at,
             updatedAt: manifest.updated_at,
             ...preview
@@ -523,7 +527,7 @@ function createManuscriptDraftService(options = {}) {
                 updated_at: createdAt,
                 lifecycle_status: 'active',
                 settings,
-                related_posts: defaultRelatedPostsState(settings.targets),
+                related_posts: defaultRelatedPostsState(settings.targets, markdownText),
                 image_slots: preview.images.map((image) => ({
                     id: slotIdForImage(image),
                     block_id: image.blockId || '',
@@ -581,7 +585,7 @@ function createManuscriptDraftService(options = {}) {
                 updated_at: createdAt,
                 lifecycle_status: 'active',
                 settings,
-                related_posts: defaultRelatedPostsState(settings.targets),
+                related_posts: defaultRelatedPostsState(settings.targets, markdownText),
                 image_slots: preview.images.map((image) => {
                     const fileName = imageByIndex.get(Number(image.index)) || '';
                     return {
@@ -642,7 +646,7 @@ function createManuscriptDraftService(options = {}) {
                 updated_at: createdAt,
                 lifecycle_status: 'active',
                 settings,
-                related_posts: defaultRelatedPostsState(settings.targets),
+                related_posts: defaultRelatedPostsState(settings.targets, String(markdownSource.textContent || preferredEntry.textContent || '')),
                 image_slots: preview.images.map((image) => ({
                     id: slotIdForImage(image),
                     block_id: image.blockId || '',
@@ -774,7 +778,33 @@ function createManuscriptDraftService(options = {}) {
             if (!['ai', 'paste', 'folder'].includes(manifest.source_kind)) {
                 throw manuscriptError(409, 'MANUSCRIPT_DRAFT_SOURCE_READ_ONLY', '이 원고의 본문은 현재 입력 방식에서 변경할 수 없습니다.');
             }
+            const previousMarkdown = readContentsMarkdown(locations);
             const markdownText = String(input.markdownText || '');
+            const previousRelatedSections = findRelatedPostsSections(previousMarkdown);
+            const nextRelatedSections = findRelatedPostsSections(markdownText);
+            const relatedPosts = manifest.related_posts || defaultRelatedPostsState(manifest.settings?.targets, previousMarkdown);
+            if (previousRelatedSections.length > 0 && nextRelatedSections.length === 0) {
+                relatedPosts.status = RELATED_POSTS_STATUS.REMOVED;
+                relatedPosts.count = 0;
+                relatedPosts.decision = 'user_removed';
+            } else if (nextRelatedSections.length > 0) {
+                const previousSection = previousRelatedSections[0]?.text || '';
+                const nextSection = nextRelatedSections[0].text;
+                if (previousRelatedSections.length === 0 || previousSection !== nextSection) {
+                    relatedPosts.status = RELATED_POSTS_STATUS.INCLUDED;
+                    relatedPosts.count = countRelatedPostLinks(nextSection);
+                    relatedPosts.decision = 'user_managed';
+                }
+            } else if (relatedPosts.enabled === true
+                && relatedPosts.status === RELATED_POSTS_STATUS.INCLUDED
+                && !relatedPosts.decision) {
+                // Drafts created by older versions may have links manually removed
+                // before deletion intent was persisted. Never restore them on upgrade.
+                relatedPosts.status = RELATED_POSTS_STATUS.REMOVED;
+                relatedPosts.count = 0;
+                relatedPosts.decision = 'user_removed';
+            }
+            manifest.related_posts = relatedPosts;
             const settings = normalizeDraftSettings(input, manifest.settings);
             const preview = buildLocalMarkdownPreview({ directoryPath: locations.source, markdownText, folderName: manifest.source_label, ...settings }, { fs: fsImpl, path: pathImpl, Utils });
             const previousByBlockId = new Map(manifest.image_slots.filter((slot) => slot.block_id).map((slot) => [slot.block_id, slot]));
@@ -877,10 +907,40 @@ function createManuscriptDraftService(options = {}) {
             assertRevision(manifest, revision);
             const currentTargets = Array.isArray(manifest.settings?.targets) ? manifest.settings.targets.slice() : [];
             const stored = manifest.related_posts || {};
-            if (input.force !== true && stored.enabled === true) {
+            const raw = readContentsMarkdown(locations);
+            const existingSections = findRelatedPostsSections(raw);
+            if (stored.decision === 'user_removed') {
                 return buildPublicDraft(manifest, locations);
             }
-            const raw = readContentsMarkdown(locations);
+            if (existingSections.length === 0
+                && stored.enabled === true
+                && stored.status === RELATED_POSTS_STATUS.INCLUDED
+                && !stored.decision) {
+                manifest.related_posts = {
+                    ...stored,
+                    status: RELATED_POSTS_STATUS.REMOVED,
+                    count: 0,
+                    decision: 'user_removed',
+                    updated_at: new Date(now()).toISOString()
+                };
+                atomicWriteJson(fsImpl, locations.manifest, manifest);
+                return buildPublicDraft(manifest, locations);
+            }
+            if (existingSections.length > 0 && stored.decision !== 'automatic') {
+                manifest.related_posts = {
+                    ...stored,
+                    enabled: true,
+                    status: RELATED_POSTS_STATUS.INCLUDED,
+                    count: countRelatedPostLinks(existingSections[0].text),
+                    decision: 'user_managed',
+                    updated_at: new Date(now()).toISOString()
+                };
+                atomicWriteJson(fsImpl, locations.manifest, manifest);
+                return buildPublicDraft(manifest, locations);
+            }
+            if (stored.decision === 'automatic') {
+                return buildPublicDraft(manifest, locations);
+            }
             const finalized = await finalizeManuscriptRelatedPosts({
                 markdownText: raw,
                 title: extractManuscriptTitle(raw),
@@ -893,6 +953,7 @@ function createManuscriptDraftService(options = {}) {
                     enabled: true,
                     status: finalized.status,
                     count: finalized.count,
+                    decision: finalized.decision || 'pending',
                     targets: currentTargets.slice(),
                     updated_at: new Date(now()).toISOString()
                 };

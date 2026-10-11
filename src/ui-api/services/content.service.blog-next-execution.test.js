@@ -511,12 +511,18 @@ test('direct AI manuscript generation preserves none and excludes upstream image
 test('queue AI manuscript generation reuses the held runner lease instead of acquiring a second lock', async () => {
     const coordinator = createBlogNextExecutionCoordinator();
     const lease = coordinator.acquire({ source: 'continuous_runner', subject: '대기열 실행' });
+    const relatedCalls = [];
     const service = createService(coordinator, async () => ({ success: true }), {
         TEXT_MODEL: 'fixture-model', TEXT_MODEL_API_KEY: 'fixture-key'
     }, {
+        License: { checkLicenseStatus: async () => ({ success: true, features: { enable_related_posts_auto_link: true } }) },
         manuscriptDraftService: {
             createAiDraft(input) {
                 return { draftId: 'queue-draft', revision: 1, markdownText: input.markdownText };
+            },
+            async refreshDraftRelatedPosts(input) {
+                relatedCalls.push(input);
+                return { draftId: input.draftId, revision: input.revision + 1, relatedPosts: { status: 'included' } };
             }
         },
         executeQuickPublish: async () => ({
@@ -533,6 +539,8 @@ test('queue AI manuscript generation reuses the held runner lease instead of acq
             subject: '대기열 주제', imageMode: 'none', targets: ['site-hosting']
         });
         assert.equal(draft.draftId, 'queue-draft');
+        assert.equal(draft.revision, 2);
+        assert.deepEqual(relatedCalls, [{ draftId: 'queue-draft', revision: 1, enabled: true, force: true }]);
         assert.equal(coordinator.getStatus().source, 'continuous_runner');
     } finally {
         lease.release();

@@ -129,7 +129,7 @@ function createContentService(deps = {}) {
     }
 
     async function refreshManuscriptRelatedPosts(draft, enabled, { force = false } = {}) {
-        if (enabled !== true || !draft?.draftId || draft.settings?.targets?.includes('site-hosting')) return draft;
+        if (enabled !== true || !draft?.draftId) return draft;
         const service = getManuscriptDraftService();
         if (typeof service.refreshDraftRelatedPosts !== 'function') return draft;
         return service.refreshDraftRelatedPosts({

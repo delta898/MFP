@@ -464,6 +464,8 @@ test('quick writing keeps one editable manuscript workspace available before pre
   assert.doesNotMatch(html, /id="blog-next-enqueue-topic"|포스팅 대기열에 추가/);
   assert.match(html, /id="blog-next-queue-action-hint">글감으로 보관하거나, 지금 원고를 만들 수 있습니다/);
   assert.match(html, /data-blog-next-ai-step="preview">[\s\S]*>미리보기 · 원고 입력</);
+  assert.match(inputs, /function mergeCanonicalRelatedPostsMarkdown\([\s\S]*?decision !== 'automatic'[\s\S]*?if \(current === requested\) return canonical;/);
+  assert.match(inputs, /if \(type === 'ai'\) \{[\s\S]*?mergeCanonicalRelatedPostsMarkdown\(currentMarkdown, aiMarkdownAtRequest, canonicalMarkdown, preview\.relatedPosts\?\.decision\)[\s\S]*?state\.editor\?\.setMarkdown\(nextMarkdown\);/);
   assert.match(html, /<details class="blog-next-disclosure blog-next-preview-disclosure" id="blog-next-ai-preview" open>[\s\S]*data-blog-next-ai-step="preview"[\s\S]*data-ai-editor-rail[\s\S]*data-ai-editor-workspace[\s\S]*data-blog-next-ai-preview-actions[\s\S]*<\/details>/);
   assert.match(html, /data-ai-editor-rail(?![^>]*\shidden)/);
   assert.match(html, /data-ai-editor-workspace(?![^>]*\shidden)/);
@@ -520,6 +522,24 @@ test('quick writing keeps one editable manuscript workspace available before pre
   assert.doesNotMatch(css, /#blog-next-topic-form-home \.blog-next-ai-prepare-actions > \.blog-next-recoverable-action-slot/);
   const sourceFields = execution.match(/const sourceFields = new Set\(\[([\s\S]*?)\]\);/)?.[1] || '';
   assert.doesNotMatch(sourceFields, /blog-next-target-(?:naver|wordpress)/);
+});
+
+test('canonical related section syncs into the integrated editor and preserves edits or deletion during a request', () => {
+  const source = read('ui/scripts/features/blog-next/draft-inputs.js');
+  const context = vm.createContext({ document: {}, window: {} });
+  vm.runInContext(source, context);
+  const merge = context.mergeCanonicalRelatedPostsMarkdown;
+  const requested = '# 제목\n\n본문';
+  const canonical = `${requested}\n\n## 함께 보면 좋은 글\n- [관련 글](https://example.com/related)\n`;
+
+  assert.equal(merge(requested, requested, canonical, 'automatic'), canonical);
+  assert.match(merge('# 제목\n\n수정한 본문', requested, canonical, 'automatic'), /수정한 본문[\s\S]*## 함께 보면 좋은 글/);
+
+  const requestedWithSection = canonical;
+  const userRemovedSection = '# 제목\n\n본문 수정';
+  assert.equal(merge(userRemovedSection, requestedWithSection, requestedWithSection, 'automatic'), userRemovedSection);
+  const userManagedSection = `${requested}\n\n## 함께 보면 좋은 글\n- [내가 고른 글](https://example.com/custom)`;
+  assert.equal(merge(userManagedSection, requested, canonical, 'user_managed'), userManagedSection);
 });
 
 test('quick writing saves ideas or creates manuscripts; saved items can promote from list or editor', () => {

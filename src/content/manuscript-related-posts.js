@@ -8,11 +8,38 @@ const RELATED_POSTS_STATUS = Object.freeze({
     INCLUDED: 'included',
     DISABLED: 'disabled',
     UNAVAILABLE: 'unavailable',
-    FAILED: 'failed'
+    FAILED: 'failed',
+    REMOVED: 'removed'
 });
 
 const DEFAULT_HEADING = '함께 보면 좋은 글';
 const MAX_RELATED_POSTS = 3;
+
+const RELATED_HEADING_PATTERN = /^(?:(?:함께|같이|이어서)\s*(?:보면|읽어볼|읽어)\s*(?:좋은|볼만한|유익한|괜찮은)\s*(?:글|포스트|링크|정보|내용|기사|아티클)|관련\s*(?:글|포스팅|링크|포스트)(?:\s*더\s*보기)?|추천\s*(?:포스팅|글|링크)|다른\s*글도\s*확인해\s*보세요|(?:정보|참고|보충|더|또|계속)\s*(?:보면\s*)?좋은\s*(?:글|포스트|링크|정보|내용|기사|아티클)|(?:related|more|interesting|recommended)\s*(?:posts|links|articles|readings|content))$/i;
+
+function findRelatedPostsSections(markdown = '') {
+    const lines = String(markdown || '').split('\n');
+    const sections = [];
+    for (let index = 0; index < lines.length; index += 1) {
+        const heading = lines[index].match(/^#{2,6}\s+(.+?)\s*#*\s*$/);
+        if (!heading || !RELATED_HEADING_PATTERN.test(heading[1].trim())) continue;
+        const level = lines[index].match(/^#+/)[0].length;
+        let end = index + 1;
+        while (end < lines.length) {
+            const nextHeading = lines[end].match(/^(#{1,6})\s+/);
+            if (nextHeading && nextHeading[1].length <= level) break;
+            end += 1;
+        }
+        sections.push({ startLine: index, endLine: end, text: lines.slice(index, end).join('\n') });
+        index = end - 1;
+    }
+    return sections;
+}
+
+function countRelatedPostLinks(section = '') {
+    const urls = String(section || '').match(/https?:\/\/[^\s)]+/gi) || [];
+    return Math.min(urls.length, MAX_RELATED_POSTS);
+}
 
 function extractManuscriptTitle(markdown = '') {
     const match = String(markdown || '').match(/^#\s+(.+)$/m);
@@ -73,6 +100,15 @@ async function finalizeManuscriptRelatedPosts(input = {}) {
     if (input.enabled !== true) {
         return { markdownText: source, status: RELATED_POSTS_STATUS.DISABLED, count: 0 };
     }
+    const existingSections = findRelatedPostsSections(source);
+    if (existingSections.length > 0) {
+        return {
+            markdownText: source,
+            status: RELATED_POSTS_STATUS.INCLUDED,
+            count: countRelatedPostLinks(existingSections[0].text),
+            decision: 'user_managed'
+        };
+    }
     const gateway = input.gateway || {};
     const strip = typeof gateway.stripSection === 'function'
         ? gateway.stripSection
@@ -104,7 +140,8 @@ async function finalizeManuscriptRelatedPosts(input = {}) {
     return {
         markdownText: insertSectionAboveHashtags(stripped, section),
         status: RELATED_POSTS_STATUS.INCLUDED,
-        count: Math.min(posts.length, MAX_RELATED_POSTS)
+        count: Math.min(posts.length, MAX_RELATED_POSTS),
+        decision: 'automatic'
     };
 }
 
@@ -113,6 +150,8 @@ module.exports = {
     DEFAULT_HEADING,
     MAX_RELATED_POSTS,
     extractManuscriptTitle,
+    findRelatedPostsSections,
+    countRelatedPostLinks,
     isHashtagLine,
     insertSectionAboveHashtags,
     buildRelatedSection,

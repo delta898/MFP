@@ -250,6 +250,35 @@ function getBlogNextFolderSyncKey() {
   });
 }
 
+function mergeCanonicalRelatedPostsMarkdown(currentMarkdown, requestedMarkdown, canonicalMarkdown, decision) {
+  const current = String(currentMarkdown || '');
+  const requested = String(requestedMarkdown || '');
+  const canonical = String(canonicalMarkdown || '');
+  if (decision !== 'automatic' || !canonical || canonical === requested) return current;
+  if (current === requested) return canonical;
+
+  const requestedLines = requested.split('\n');
+  const canonicalLines = canonical.split('\n');
+  let prefixLength = 0;
+  while (prefixLength < requestedLines.length
+    && prefixLength < canonicalLines.length
+    && requestedLines[prefixLength] === canonicalLines[prefixLength]) prefixLength += 1;
+  let suffixLength = 0;
+  while (suffixLength < requestedLines.length - prefixLength
+    && suffixLength < canonicalLines.length - prefixLength
+    && requestedLines[requestedLines.length - 1 - suffixLength] === canonicalLines[canonicalLines.length - 1 - suffixLength]) suffixLength += 1;
+  const section = canonicalLines.slice(prefixLength, canonicalLines.length - suffixLength).join('\n').trim();
+  if (!section) return current;
+  if (current.includes(section)) return current;
+  const sectionHeading = section.split('\n').find((line) => /^#{2,6}\s+/.test(line))?.trim();
+  if (sectionHeading && current.split('\n').some((line) => line.trim() === sectionHeading)) return current;
+  const lines = current.replace(/\s+$/, '').split('\n');
+  let insertAt = lines.length;
+  while (insertAt > 0 && /^#[\p{L}\p{N}_]+(?:\s+#[\p{L}\p{N}_]+)*$/u.test(lines[insertAt - 1].trim())) insertAt -= 1;
+  lines.splice(insertAt, 0, ...(insertAt < lines.length ? ['', section, ''] : ['', section]));
+  return lines.join('\n').replace(/\n*$/, '\n');
+}
+
 function summarizeBlogNextDraftWarnings(type, validation = null, preview = null) {
   const warnings = Array.isArray(validation?.warnings) ? validation.warnings : [];
   const notices = warnings.slice();
@@ -570,25 +599,8 @@ async function loadBlogNextDraftPreview(type) {
         const currentMarkdown = pastedInput?.value || '';
         const pasteContentChangedDuringRequest = currentMarkdown !== pasteMarkdownAtRequest;
         const canonicalMarkdown = String(preview.rawMarkdown || '');
-        const relatedHeading = /^## (?:함께 보면 좋은 글|같이 보면 좋은 글|이어서 보면 좋은 글|추천 포스팅|관련 글 더 보기|다른 글도 확인해 보세요)\s*$/m;
         if (pastedInput && canonicalMarkdown && canonicalMarkdown !== pasteMarkdownAtRequest) {
-          let nextMarkdown = currentMarkdown;
-          if (currentMarkdown === pasteMarkdownAtRequest) {
-            nextMarkdown = canonicalMarkdown;
-          } else if (!relatedHeading.test(currentMarkdown)) {
-            const canonicalLines = canonicalMarkdown.split('\n');
-            const headingIndex = canonicalLines.findIndex((line) => relatedHeading.test(line));
-            if (headingIndex >= 0) {
-              let sectionEnd = headingIndex + 1;
-              while (sectionEnd < canonicalLines.length && !/^#[# ]/.test(canonicalLines[sectionEnd])) sectionEnd += 1;
-              const section = canonicalLines.slice(headingIndex, sectionEnd).join('\n').trim();
-              const lines = currentMarkdown.replace(/\s+$/, '').split('\n');
-              let insertAt = lines.length;
-              while (insertAt > 0 && /^#[\p{L}\p{N}_]+(?:\s+#[\p{L}\p{N}_]+)*$/u.test(lines[insertAt - 1].trim())) insertAt -= 1;
-              lines.splice(insertAt, 0, ...(insertAt < lines.length ? ['', section, ''] : ['', section]));
-              nextMarkdown = lines.join('\n').replace(/\n*$/, '\n');
-            }
-          }
+          const nextMarkdown = mergeCanonicalRelatedPostsMarkdown(currentMarkdown, pasteMarkdownAtRequest, canonicalMarkdown, preview.relatedPosts?.decision);
           if (nextMarkdown !== currentMarkdown) {
             pastedInput.value = nextMarkdown;
             state.editor?.setMarkdown(nextMarkdown);
@@ -597,8 +609,18 @@ async function loadBlogNextDraftPreview(type) {
         state.syncedPreviewKey = pasteContentChangedDuringRequest ? pasteSyncKey : getBlogNextPasteSyncKey();
       }
       if (type === 'ai') {
-        state.syncedPreviewKey = aiMarkdownAtRequest !== document.getElementById('blog-next-ai-markdown')?.value
-          ? aiSyncKey : getBlogNextAiSyncKey();
+        const markdownInput = document.getElementById('blog-next-ai-markdown');
+        const currentMarkdown = markdownInput?.value || '';
+        const changedDuringRequest = currentMarkdown !== aiMarkdownAtRequest;
+        const canonicalMarkdown = String(preview.rawMarkdown || '');
+        if (markdownInput && canonicalMarkdown && canonicalMarkdown !== aiMarkdownAtRequest) {
+          const nextMarkdown = mergeCanonicalRelatedPostsMarkdown(currentMarkdown, aiMarkdownAtRequest, canonicalMarkdown, preview.relatedPosts?.decision);
+          if (nextMarkdown !== currentMarkdown) {
+            markdownInput.value = nextMarkdown;
+            state.editor?.setMarkdown(nextMarkdown);
+          }
+        }
+        state.syncedPreviewKey = changedDuringRequest ? aiSyncKey : getBlogNextAiSyncKey();
       }
       if (preview.draftId !== state.preview?.draftId) state.imageOperationNotice = null;
       state.previewSyncFailed = false;

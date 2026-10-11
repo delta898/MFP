@@ -6,6 +6,12 @@ Blog Beta의 `원고 폴더`, `원고 붙여넣기`, `바로 생성`은 입력 �
 하나의 canonical Manuscript Draft 계약을 사용한다. 발행기는 원래 입력을 다시 읽지 않고 사용자가 확인한
 `draft_id + revision` snapshot만 사용한다.
 
+연관글은 별도 발행 후처리물이 아니라 canonical `contents.md`의 일부다. 새 원고를 편집기에 보여주거나
+편집기 없는 사이트 자동 발행을 실행하기 전에 최대 한 번 확정하며, 이미 원고에 있는 연관글 섹션은 그대로
+보존한다. 미리보기와 발행은 같은 Markdown revision을 사용한다. 사용자가 섹션을 편집하거나 삭제하면 Draft
+manifest에 그 결정을 기록해 발행 설정 변경이나 자동 재시도가 원래 링크를 되살리지 않게 한다. 연관글 후보는
+현재 연결된 네이버·WordPress 블로그에서 모으며, 사이트 자체 게시물은 후보 소스에 포함하지 않는다.
+
 ## Storage Ownership
 
 ```text

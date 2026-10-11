@@ -41,7 +41,7 @@ function draftService(calls) {
 test('paste draft creation finalizes related posts for enabled plans', async () => {
     const calls = [];
     const service = createService({ License: licenseFeatures(true), manuscriptDraftService: draftService(calls) });
-    const result = await service.createPasteManuscriptDraft({ markdownText: '# 원고' });
+    const result = await service.createPasteManuscriptDraft({ markdownText: '# 원고', targets: ['site-hosting'] });
     assert.equal(result.revision, 2);
     assert.equal(result.relatedPosts.status, 'included');
     assert.deepEqual(calls[1], ['refresh', { draftId: 'draft-1', revision: 1, enabled: true, force: true }]);
