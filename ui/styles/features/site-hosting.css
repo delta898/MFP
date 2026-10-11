@@ -262,18 +262,35 @@
   color: var(--ui-status-success);
 }
 
+.site-hosting-site-message > .site-hosting-operation-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+  min-width: 0;
+}
+
+.site-hosting-operation-status > .ui-spinner {
+  flex: 0 0 14px;
+}
+
+.site-hosting-site-card[aria-busy="true"] .site-hosting-site-preview,
+.site-hosting-site-card[aria-busy="true"] .site-hosting-site-address-area,
+.site-hosting-site-card[aria-busy="true"] .site-hosting-site-card-footer {
+  opacity: .55;
+}
+
 .site-hosting-site-addresses {
   display: grid;
-  gap: var(--ui-space-1);
+  gap: calc(var(--ui-space-1) / 2);
   box-sizing: border-box;
-  height: 5.25rem;
-  padding: var(--ui-space-2) var(--ui-space-3);
+  height: 4.75rem;
+  padding: var(--ui-space-1) var(--ui-space-3);
   border-radius: var(--ui-radius-sm);
   background: var(--ui-surface-muted);
 }
 
 .site-hosting-site-address-area {
-  height: 5.25rem;
+  height: 4.75rem;
   min-width: 0;
 }
 
@@ -524,6 +541,32 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--ui-space-2);
+}
+
+.site-hosting-site-message > .site-hosting-error-message {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+  min-width: 0;
+}
+
+.site-hosting-error-message > [data-state="error"] {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-hosting-inline-settings-action {
+  flex: 0 0 auto;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--ui-action-primary);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  cursor: pointer;
 }
 
 .site-hosting-card-domain-panel {

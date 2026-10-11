@@ -100,6 +100,7 @@ test('site cards own operation messages and template checks refresh on entry and
     assert.doesNotMatch(html, /id="site-hosting-feedback"/);
     assert.ok(card.indexOf('siteHostingSiteAddresses(site, domainConnect, hasDeploymentAddress, operation)') < card.indexOf('data-site-message=')
         && card.indexOf('data-site-message=') < card.indexOf('site-hosting-site-card-footer'));
+    assert.match(card, /domainConnectOpen \? siteHostingSiteDomainConnectPanel\(site, domainConnect\) : siteHostingSiteAddresses\(site, domainConnect, hasDeploymentAddress, operation\)/);
     assert.match(runtime, /siteHostingSetSiteOperation\(siteId, 'success', '주소를 복사했습니다\.'/);
     assert.match(runtime, /data-site-template-refresh/);
     assert.match(runtime, /siteHostingCheckTemplateUpdates\('', false\)/);
@@ -110,7 +111,7 @@ test('site cards own operation messages and template checks refresh on entry and
     assert.match(runtime, /data-tooltip="기본 연결 해지"/);
     assert.match(runtime, /function siteHostingWorkerDisconnectIsDisabled\(site, operation = null/);
     assert.match(runtime, /managed_by_app !== true[\s\S]*?worker_account_id[\s\S]*?worker_created_on[\s\S]*?operation\?\.phase === 'running'/);
-    assert.match(runtime, /workerDisconnect\.disabled = siteHostingWorkerDisconnectIsDisabled\(site, siteHostingOperationStates\.get\(key\) \|\| null\)/);
+    assert.match(runtime, /workerDisconnect\.disabled = siteHostingWorkerDisconnectIsDisabled\(site, operation\)/);
     assert.match(domains, /async function siteHostingDisconnectWorker/);
     assert.match(domains, /기본 연결 해지 전에 연결 도메인을 먼저 해지해 주세요\./);
     assert.match(domains, /Worker 소유권과 도메인 상태를 확인한 뒤 기본 연결을 해지하고 있습니다/);
@@ -123,11 +124,25 @@ test('site cards own operation messages and template checks refresh on entry and
     assert.match(runtime, /data-tooltip="연결 도메인 열기"/);
     assert.match(runtime, /<span class="site-hosting-address-label">기본 연결<\/span>/);
     assert.match(runtime, /siteHostingUnlinkIcon\(\)[\s\S]*?siteHostingCopyIcon\(\)[\s\S]*?siteHostingExternalLinkIcon\(\)/);
+    const addressRenderer = runtime.slice(runtime.indexOf('function siteHostingSiteAddresses('), runtime.indexOf('function siteHostingAddressTools('));
+    const workerActions = addressRenderer.slice(addressRenderer.indexOf('const workerActions'), addressRenderer.indexOf('const domainActions'));
+    const domainActions = addressRenderer.slice(addressRenderer.indexOf('const domainActions'), addressRenderer.indexOf('return `<div class="site-hosting-site-addresses"'));
+    for (const [platform, actions, disconnectLabel, copyLabel, openLabel] of [
+        ['worker', workerActions, '기본 연결 해지', '기본 주소 복사', '기본 주소 열기'],
+        ['domain', domainActions, '도메인 연결 해지', '연결 도메인 복사', '연결 도메인 열기']
+    ]) {
+        assert.ok(actions.indexOf(disconnectLabel) < actions.indexOf(copyLabel)
+            && actions.indexOf(copyLabel) < actions.indexOf(openLabel), `${platform} address actions should be disconnect, copy, open`);
+    }
     assert.doesNotMatch(runtime, /workerAddress/);
+    assert.match(workerActions, /const workerActions = workerHref[\s\S]*?siteHostingAddressTools\('worker'[\s\S]*?: ''/);
+    assert.match(addressRenderer, /workerHref \? '' : '<span class="site-hosting-address-empty">배포 후 연결됩니다\.<\/span>'/);
     assert.match(runtime, /content\.addEventListener\('pointerover'/);
     assert.match(runtime, /content\.addEventListener\('keydown'/);
     assert.match(runtime, /aria-expanded="false"/);
     assert.match(siteHostingStyles, /\.site-hosting-address-tools\.is-open \.site-hosting-address-reveal/);
+    assert.match(siteHostingStyles, /\.site-hosting-site-addresses \{[\s\S]*?height: 4\.75rem;[\s\S]*?padding: var\(--ui-space-1\) var\(--ui-space-3\);/);
+    assert.match(siteHostingStyles, /\.site-hosting-site-address-area \{\s*height: 4\.75rem;/);
     assert.match(domains, /showUiConfirm\([\s\S]*?title: '도메인 연결 해지'/);
     assert.match(domains, /custom-domain-disconnect`/);
     assert.match(domains, /기본 주소와 Worker는 유지됩니다/);
@@ -178,15 +193,37 @@ test('site settings reuse the creation preview without exposing template selecti
     assert.match(creationStyles, /#site-create-dialog\.is-site-settings-mode #site-template-grid \{\s*display: none/);
 });
 
-test('site deletion requires a read-only plan, explicit user confirmation, and shows the archive destination', () => {
+test('site deletion uses a compact confirmation, locks the card while running, and offers archive path copy', () => {
     const runtime = fs.readFileSync(path.join(root, 'ui/scripts/features/site-hosting/project-management.js'), 'utf8');
     assert.match(runtime, /data-site-delete="\$\{siteId\}"/);
     assert.match(runtime, /siteHostingSiteOperationIsRunning\(site\.project_id, site\.id\) \? 'disabled data-operation-disabled="true"'/);
     assert.match(runtime, /async function siteHostingDeleteSite/);
     assert.match(runtime, /\/delete-plan/);
     assert.match(runtime, /\/delete`/);
-    assert.match(runtime, /confirmed: true, plan_id: plan.id/);
-    assert.match(runtime, /Cloudflare 상태를 다시 확인한 뒤 실행합니다/);
-    assert.match(runtime, /보관 위치: \$\{result.archived_path\}/);
+    assert.match(runtime, /confirmed: true, plan_id: plan\.id/);
+    assert.match(runtime, /connectionSummary[\s\S]*로컬 파일은 영구 삭제하지 않고 보관합니다/);
+    assert.match(runtime, /삭제 중 · 연결 정리 및 파일 보관/);
+    assert.match(runtime, /lockAllActions: true/);
+    assert.match(runtime, /ui-spinner ui-spinner-accent/);
+    assert.match(runtime, /function siteHostingSyncSiteCardOperationState/);
+    assert.match(runtime, /function siteHostingNeedsCloudflareSettings/);
+    assert.match(runtime, /function siteHostingOpenCloudflareSettings[\s\S]*navigateToSettingsNextTarget\('core', 'settings-next-cloudflare-card', 'hosting'\)/);
+    assert.match(runtime, /data-site-cloudflare-settings/);
+    const accountSelection = fs.readFileSync(path.join(root, 'ui/scripts/features/site-hosting/cloudflare-account-selection.js'), 'utf8');
+    assert.match(accountSelection, /CLOUDFLARE_CONNECTION_REQUIRED/);
+    const domains = fs.readFileSync(path.join(root, 'ui/scripts/features/site-hosting/domains.js'), 'utf8');
+    assert.match(runtime, /siteHostingNeedsCloudflareSettings\(operation\)[\s\S]*data-site-cloudflare-settings/);
+    assert.doesNotMatch(domains, /<p data-state="error" role="alert">/);
+    assert.match(domains, /siteHostingSetSiteOperation\(siteId, 'error', state\.message/);
+    assert.match(domains, /siteHostingSetSiteOperation\(siteId, 'error', state\.message, \{ code: error\.code \|\| error\.apiCode \|\| '' \}\)/);
+    assert.match(domains, /siteHostingSetSiteOperation\(siteId, 'error', state\.message[\s\S]*?siteHostingDomainConnectStates\.delete\(key\)/);
+    assert.match(runtime, /content\.querySelectorAll\('\.site-hosting-site-card'\)\.forEach/);
+    assert.match(runtime, /data-site-card-id="\$\{siteId\}"/);
+    assert.match(runtime, /tertiaryText: '경로 복사'/);
+    assert.match(runtime, /navigator\.clipboard\.writeText/);
+    assert.match(runtime, /보관 위치/);
+    assert.match(runtime, /보관 경로를 복사했습니다/);
     assert.match(runtime, /siteHostingSites = siteHostingSites.filter\(\(item\) => item.id !== siteId\)/);
+    assert.match(siteHostingStyles, /\.site-hosting-operation-status[\s\S]*?display: inline-flex;[\s\S]*?align-items: center/);
+    assert.match(siteHostingStyles, /\.site-hosting-site-card\[aria-busy="true"\] \.site-hosting-site-preview,[\s\S]*?opacity: \.55;/);
 });

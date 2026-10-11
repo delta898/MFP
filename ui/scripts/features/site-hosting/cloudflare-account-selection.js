@@ -5,7 +5,11 @@ async function siteHostingResolveDeploymentAccount(siteId) {
   const status = await fetchJson('/api/v1/site-hosting/cloudflare/status');
   const accounts = Array.isArray(status?.accounts) ? status.accounts : [];
   if (status?.connected !== true || !accounts.length) {
-    throw new Error('사이트 배포에 사용할 Cloudflare 계정이 없습니다. 설정에서 연결 상태와 권한을 확인해 주세요.');
+    const error = new Error(status?.connected === true
+      ? '배포 가능한 Cloudflare 계정이 없습니다. 설정에서 계정 권한을 확인해 주세요.'
+      : '먼저 Cloudflare를 연결해 주세요.');
+    error.code = status?.connected === true ? 'CLOUDFLARE_ACCOUNT_REQUIRED' : 'CLOUDFLARE_CONNECTION_REQUIRED';
+    throw error;
   }
   if (accounts.length === 1) return String(accounts[0].id || '');
   return siteHostingChooseDeploymentAccount(accounts);

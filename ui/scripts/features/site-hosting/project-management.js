@@ -82,7 +82,7 @@ function siteHostingSiteCard(site) {
   const screenshot = site.screenshot_url
     ? `<img src="${siteHostingEscapeHtml(site.screenshot_url)}?build=${siteHostingEscapeHtml(site.screenshot?.latest_build?.build_id || site.screenshot?.template?.path || 'template')}" alt="${siteHostingEscapeHtml(site.name)} 미리보기" loading="lazy">`
     : '';
-  return `<article class="site-hosting-site-card${domainConnectOpen ? ' has-open-domain-panel' : ''}" role="listitem">
+  return `<article class="site-hosting-site-card${domainConnectOpen ? ' has-open-domain-panel' : ''}" role="listitem" data-site-card-id="${siteId}" aria-busy="${operation?.phase === 'running' ? 'true' : 'false'}">
     <div class="site-hosting-site-preview" aria-label="사이트 스크린샷">${screenshot}</div>
     <div class="site-hosting-site-card-content">
       <div class="site-hosting-site-heading">
@@ -114,8 +114,13 @@ function siteHostingSiteCard(site) {
 }
 
 function siteHostingSiteMessage(site, operation, domainConnect) {
-  if (operation?.phase === 'running') return `<span data-state="pending">${siteHostingEscapeHtml(operation.message)}</span>`;
-  if (operation?.phase === 'error') return `<span data-state="error">${siteHostingEscapeHtml(operation.message)}</span>`;
+  if (operation?.phase === 'running') return `<span class="site-hosting-operation-status" data-operation-status data-state="pending"><span class="ui-spinner ui-spinner-accent" aria-hidden="true"></span><span>${siteHostingEscapeHtml(operation.message)}</span></span>`;
+  if (operation?.phase === 'error') {
+    const settingsAction = siteHostingNeedsCloudflareSettings(operation)
+      ? '<button class="site-hosting-inline-settings-action" type="button" data-site-cloudflare-settings>Cloudflare 설정</button>'
+      : '';
+    return `<span class="site-hosting-error-message"><span data-state="error">${siteHostingEscapeHtml(operation.message)}</span>${settingsAction}</span>`;
+  }
   if (operation?.phase === 'success' && operation.message) return `<span data-state="success">${siteHostingEscapeHtml(operation.message)}</span>`;
   if (domainConnect?.open && domainConnect.status === 'ready' && domainConnect.zoneId && String(domainConnect.hostname || '').trim()) {
     const zone = domainConnect.zones?.find((item) => item.id === domainConnect.zoneId);
@@ -141,7 +146,9 @@ function siteHostingSiteAddresses(site, domainConnect, hasDeploymentAddress = Bo
     ? siteHostingSafeHttpsUrl(`https://${customDomain}`)
     : '';
   const workerDisconnectDisabled = siteHostingWorkerDisconnectIsDisabled(site, operation, customDomain, workerHref);
-  const workerActions = siteHostingAddressTools('worker', `<span class="site-hosting-address-actions" aria-label="기본 연결 동작"><span class="site-hosting-icon-tooltip" data-tooltip="기본 연결 해지"><button class="site-hosting-icon-button site-hosting-worker-disconnect" type="button" data-site-worker-disconnect="${siteHostingEscapeHtml(site.id)}" aria-label="기본 연결 해지" ${workerDisconnectDisabled ? 'disabled' : ''}>${siteHostingUnlinkIcon()}</button></span><button class="site-hosting-icon-button" type="button" data-site-open-address="${siteHostingEscapeHtml(site.id)}" data-address-type="worker" aria-label="기본 주소 열기" data-tooltip="기본 주소 열기" ${workerHref ? '' : 'disabled'}>${siteHostingExternalLinkIcon()}</button><button class="site-hosting-icon-button" type="button" data-site-copy-address="${siteHostingEscapeHtml(site.id)}" data-address-type="worker" aria-label="기본 주소 복사" data-tooltip="기본 주소 복사" ${workerHref ? '' : 'disabled'}>${siteHostingCopyIcon()}</button></span>`);
+  const workerActions = workerHref
+    ? siteHostingAddressTools('worker', `<span class="site-hosting-address-actions" aria-label="기본 연결 동작"><span class="site-hosting-icon-tooltip" data-tooltip="기본 연결 해지"><button class="site-hosting-icon-button site-hosting-worker-disconnect" type="button" data-site-worker-disconnect="${siteHostingEscapeHtml(site.id)}" aria-label="기본 연결 해지" ${workerDisconnectDisabled ? 'disabled' : ''}>${siteHostingUnlinkIcon()}</button></span><button class="site-hosting-icon-button" type="button" data-site-copy-address="${siteHostingEscapeHtml(site.id)}" data-address-type="worker" aria-label="기본 주소 복사" data-tooltip="기본 주소 복사">${siteHostingCopyIcon()}</button><button class="site-hosting-icon-button" type="button" data-site-open-address="${siteHostingEscapeHtml(site.id)}" data-address-type="worker" aria-label="기본 주소 열기" data-tooltip="기본 주소 열기">${siteHostingExternalLinkIcon()}</button></span>`)
+    : '';
   const domainActions = customDomainHref
     ? siteHostingAddressTools('domain', `<span class="site-hosting-address-actions" aria-label="연결 도메인 동작"><button class="site-hosting-icon-button site-hosting-domain-disconnect" type="button" data-site-domain-disconnect="${siteHostingEscapeHtml(site.id)}" aria-label="도메인 연결 해지" data-tooltip="도메인 연결 해지" ${operation?.phase === 'running' ? 'disabled aria-busy="true"' : ''}>${siteHostingUnlinkIcon()}</button><button class="site-hosting-icon-button" type="button" data-site-copy-address="${siteHostingEscapeHtml(site.id)}" data-address-type="domain" aria-label="연결 도메인 복사" data-tooltip="연결 도메인 복사">${siteHostingCopyIcon()}</button><button class="site-hosting-icon-button" type="button" data-site-open-address="${siteHostingEscapeHtml(site.id)}" data-address-type="domain" aria-label="연결 도메인 열기" data-tooltip="연결 도메인 열기">${siteHostingExternalLinkIcon()}</button></span>`, `<span class="site-hosting-address-value">${siteHostingEscapeHtml(customDomain)}</span>`)
     : hasDeploymentAddress
@@ -249,34 +256,25 @@ async function siteHostingCopyAddress(siteId, addressType, button) {
   }
 }
 
-function siteHostingSetSiteOperation(siteId, phase, message) {
+function siteHostingSetSiteOperation(siteId, phase, message, options = {}) {
   const projectId = siteHostingSelectedProject?.id;
   if (!projectId || !siteId) return;
   const key = `${projectId}:${siteId}`;
+  const previousOperation = siteHostingOperationStates.get(key) || {};
+  const lockAllActions = phase === 'running'
+    ? options.lockAllActions === true || previousOperation.lockAllActions === true
+    : false;
   clearTimeout(siteHostingOperationTimers.get(key));
   siteHostingOperationTimers.delete(key);
   if (phase === 'success' && !message) siteHostingOperationStates.delete(key);
-  else siteHostingOperationStates.set(key, { phase, message });
+  else siteHostingOperationStates.set(key, { phase, message, lockAllActions, code: options.code || '' });
   const site = siteHostingSites.find((item) => item.id === siteId);
   const target = [...document.querySelectorAll('[data-site-message]')].find((element) => element.dataset.siteMessage === siteId);
   if (site && target) {
     target.innerHTML = siteHostingSiteMessage(site, siteHostingOperationStates.get(key) || null);
     target.hidden = !target.innerHTML;
     const card = target.closest('.site-hosting-site-card');
-    card?.querySelectorAll('button').forEach((button) => {
-      if (button.matches('[data-site-card-domain-cancel]')) return;
-      if (phase === 'running' && !button.disabled) {
-        button.dataset.operationDisabled = 'true';
-        button.disabled = true;
-      } else if (phase !== 'running' && button.dataset.operationDisabled === 'true') {
-        delete button.dataset.operationDisabled;
-        button.disabled = false;
-      }
-    });
-    const workerDisconnect = card?.querySelector('[data-site-worker-disconnect]');
-    if (workerDisconnect && phase !== 'running') {
-      workerDisconnect.disabled = siteHostingWorkerDisconnectIsDisabled(site, siteHostingOperationStates.get(key) || null);
-    }
+    siteHostingSyncSiteCardOperationState(card, site, siteHostingOperationStates.get(key) || null);
   }
   if (phase === 'success' && message) {
     siteHostingOperationTimers.set(key, setTimeout(() => {
@@ -287,6 +285,44 @@ function siteHostingSetSiteOperation(siteId, phase, message) {
         if (target) { target.replaceChildren(); target.hidden = true; }
       }
     }, 3000));
+  }
+}
+
+function siteHostingNeedsCloudflareSettings(error) {
+  const code = String(error?.code || error?.apiCode || '');
+  return [
+    'CLOUDFLARE_CONNECTION_REQUIRED',
+    'CLOUDFLARE_ACCOUNT_REQUIRED',
+    'CLOUDFLARE_ACCOUNT_NOT_ACCESSIBLE',
+    'CLOUDFLARE_OAUTH_NOT_CONFIGURED'
+  ].includes(code) || /먼저 Cloudflare를 연결|Cloudflare.*연결.*권한|Cloudflare 계정.*없습니다/.test(String(error?.message || ''));
+}
+
+function siteHostingOpenCloudflareSettings() {
+  if (typeof navigateToSettingsNextTarget === 'function') {
+    return void navigateToSettingsNextTarget('core', 'settings-next-cloudflare-card', 'hosting');
+  }
+  const settingsButton = document.querySelector('[data-view="settings-next"]');
+  settingsButton?.click();
+}
+
+function siteHostingSyncSiteCardOperationState(card, site, operation) {
+  if (!card || !site) return;
+  const running = operation?.phase === 'running';
+  card.setAttribute('aria-busy', String(running));
+  card.querySelectorAll('button').forEach((button) => {
+    if (button.matches('[data-site-card-domain-cancel]') && !operation?.lockAllActions) return;
+    if (running && !button.disabled) {
+      button.dataset.operationDisabled = 'true';
+      button.disabled = true;
+    } else if (!running && button.dataset.operationDisabled === 'true') {
+      delete button.dataset.operationDisabled;
+      button.disabled = false;
+    }
+  });
+  const workerDisconnect = card.querySelector('[data-site-worker-disconnect]');
+  if (workerDisconnect && !running) {
+    workerDisconnect.disabled = siteHostingWorkerDisconnectIsDisabled(site, operation);
   }
 }
 
@@ -568,21 +604,24 @@ async function siteHostingDeleteSite(siteId, button) {
   button.closest('.site-hosting-site-more')?.removeAttribute('open');
   button.disabled = true;
   button.setAttribute('aria-busy', 'true');
-  siteHostingSetSiteOperation(siteId, 'running', '삭제할 연결과 파일 보관 위치를 확인하고 있습니다…');
+  siteHostingSetSiteOperation(siteId, 'running', '삭제할 연결을 확인하고 있습니다…', { lockAllActions: true });
   try {
     const base = `/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites/${encodeURIComponent(siteId)}`;
     const plan = await postJson(`${base}/delete-plan`, {});
     if (!plan?.ready || !plan?.id) throw new Error(plan?.blocked_reason || '사이트 삭제를 안전하게 계획할 수 없습니다.');
-    const steps = (plan.steps || []).map((step) => `• ${step.label}`).join('\n');
+    const connections = (plan.steps || [])
+      .filter((step) => ['custom_domain', 'worker'].includes(step.kind))
+      .map((step) => `• ${step.label}`);
+    const connectionSummary = connections.length ? connections.join('\n') : '• Cloudflare 연결 없음';
     const accepted = await showUiConfirm(
-      `“${plan.site_name || site.name}” 사이트를 삭제할까요?\n\n${steps}\n\nCloudflare 상태를 다시 확인한 뒤 실행합니다. 확인할 수 없는 상태가 발견되면 그 단계에서 멈춥니다. 로컬 파일은 영구 삭제하지 않고 archive로 옮깁니다.`,
+      `“${plan.site_name || site.name}” 사이트를 삭제할까요?\n\n${connectionSummary}\n• 로컬 파일은 영구 삭제하지 않고 보관합니다.`,
       { title: '사이트 삭제', confirmText: '삭제 진행', cancelText: '취소' }
     );
     if (!accepted) {
       siteHostingSetSiteOperation(siteId, 'success', '사이트 삭제를 취소했습니다.');
       return;
     }
-    siteHostingSetSiteOperation(siteId, 'running', '연결을 정리하고 사이트 파일을 보관하고 있습니다…');
+    siteHostingSetSiteOperation(siteId, 'running', '삭제 중 · 연결 정리 및 파일 보관…', { lockAllActions: true });
     const result = await postJson(`${base}/delete`, { confirmed: true, plan_id: plan.id });
     siteHostingOperationStates.delete(`${project.id}:${siteId}`);
     siteHostingDomainConnectStates.delete(`${project.id}:${siteId}`);
@@ -595,12 +634,20 @@ async function siteHostingDeleteSite(siteId, button) {
     }
     siteHostingSelectedProject.site_count = siteHostingSites.length;
     siteHostingRenderProjectDetail();
-    await showUiDialog({
-      title: '사이트를 보관했습니다',
-      message: `연결 정리를 마치고 사이트 파일을 보관했습니다.\n\n보관 위치: ${result.archived_path}\n\narchive 안의 파일은 사용자가 직접 관리해 주세요.`,
-      showCancel: false,
-      confirmText: '확인'
+    const archiveAction = await showUiDialog({
+      title: '사이트 삭제 완료',
+      message: `Cloudflare 연결을 정리하고 사이트 파일을 보관했습니다.\n\n보관 위치\n${result.archived_path}`,
+      confirmText: '확인',
+      tertiaryText: '경로 복사'
     });
+    if (archiveAction === 'tertiary') {
+      try {
+        await navigator.clipboard.writeText(String(result.archived_path || ''));
+        showUiToast({ title: '경로 복사', message: '보관 경로를 복사했습니다.', level: 'success' });
+      } catch (_error) {
+        showUiToast({ title: '경로 복사 실패', message: '클립보드 권한을 확인해 주세요.', level: 'error' });
+      }
+    }
   } catch (error) {
     try {
       const refreshedSites = await fetchJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/sites`);
@@ -662,7 +709,7 @@ async function siteHostingDeploySite(siteId, button) {
         siteHostingRenderProjectDetail();
       }
     } catch (_refreshError) { }
-    siteHostingSetSiteOperation(siteId, 'error', error.message || 'Cloudflare에 배포하지 못했습니다.');
+    siteHostingSetSiteOperation(siteId, 'error', error.message || 'Cloudflare에 배포하지 못했습니다.', { code: error.code || error.apiCode || '' });
   } finally {
     if (button.isConnected && button.textContent === '배포 중…') button.textContent = '배포';
     button.disabled = false;
@@ -747,6 +794,11 @@ function siteHostingRenderProjectDetail() {
     </header>
     ${siteHostingProjectPanel(project, siteHostingProjectView)}
   </div>`;
+  content.querySelectorAll('.site-hosting-site-card').forEach((card) => {
+    const site = siteHostingSites.find((item) => item.id === card.dataset.siteCardId);
+    const operation = siteHostingOperationStates.get(`${project.id}:${card.dataset.siteCardId}`) || null;
+    siteHostingSyncSiteCardOperationState(card, site, operation);
+  });
   const settingsForm = content.querySelector('[data-site-settings-form]');
   settingsForm?.addEventListener('submit', (event) => void siteHostingSaveSiteSettings(event));
 }
@@ -897,6 +949,7 @@ function initSiteHostingProjects() {
       siteHostingSetAddressToolsOpen(tools, false);
     });
     content.addEventListener('click', (event) => {
+      if (event.target.closest('[data-site-cloudflare-settings]')) return siteHostingOpenCloudflareSettings();
       const addressToolsToggle = event.target.closest('[data-site-address-tools-toggle]');
       for (const tools of content.querySelectorAll('[data-site-address-tools].is-open')) {
         if (tools !== addressToolsToggle?.closest('[data-site-address-tools]')) {

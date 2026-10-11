@@ -2925,7 +2925,7 @@ async function run() {
                 const deletionPlanResponse = page.waitForResponse((response) => new URL(response.url()).pathname.endsWith('/sites/site-smoke-1/delete-plan'));
                 await page.locator('[data-site-delete="site-smoke-1"]').click();
                 await deletionPlanResponse;
-                await page.getByRole('heading', { name: '사이트를 보관했습니다' }).waitFor();
+                await page.getByRole('heading', { name: '사이트 삭제 완료' }).waitFor();
                 assert.deepEqual(requests.find((request) => request.method === 'POST' && request.pathname.endsWith('/sites/site-smoke-1/delete'))?.body,
                     { confirmed: true, plan_id: 'site-delete-plan-smoke' });
                 assert.match(await page.locator('#ui-dialog-message').textContent(), /site-hosting\/archive\/site-smoke-1/);

@@ -11,11 +11,7 @@ function siteHostingSiteDomainConnectPanel(site, state) {
     : '';
   const status = state.status === 'loading'
     ? '<p role="status">Cloudflare 도메인을 불러오고 있습니다.</p>'
-    : state.status === 'error'
-      ? `<p data-state="error" role="alert">${siteHostingEscapeHtml(state.message || '도메인 목록을 불러오지 못했습니다.')}</p>`
-      : state.status === 'empty'
-        ? `<p data-state="error" role="alert">${siteHostingEscapeHtml(state.message || 'Cloudflare 계정에서 활성 도메인을 찾지 못했습니다.')}</p>`
-        : '';
+    : '';
   return `<section class="site-hosting-card-domain-panel" aria-label="커스텀 도메인 연결">
     <div class="site-hosting-card-domain-fields">${zoneField}${hostnameField}</div>
     ${status}
@@ -91,6 +87,8 @@ async function siteHostingOpenCardDomainConnection(siteId) {
     siteHostingRenderProjectDetail();
     return;
   }
+  // Keep the card's single feedback area authoritative when switching actions.
+  siteHostingSetSiteOperation(siteId, 'success', '');
   siteHostingDomainConnectStates.set(key, {
     open: true,
     status: 'loading',
@@ -112,12 +110,16 @@ async function siteHostingOpenCardDomainConnection(siteId) {
     } else {
       state.status = 'empty';
       state.message = 'Cloudflare 계정에서 활성 도메인을 찾지 못했습니다.';
+      siteHostingSetSiteOperation(siteId, 'error', state.message);
+      siteHostingDomainConnectStates.delete(key);
     }
   } catch (error) {
     const state = siteHostingDomainConnectStates.get(key);
     if (!state?.open) return;
     state.status = 'error';
     state.message = error.message || 'Cloudflare 도메인 목록을 불러오지 못했습니다.';
+    siteHostingSetSiteOperation(siteId, 'error', state.message, { code: error.code || error.apiCode || '' });
+    siteHostingDomainConnectStates.delete(key);
   }
   siteHostingRenderProjectDetail();
 }
@@ -141,7 +143,7 @@ async function siteHostingConnectCardDomain(siteId, button) {
     siteHostingRenderProjectDetail();
     siteHostingSetSiteOperation(siteId, 'success', '');
   } catch (error) {
-    siteHostingSetSiteOperation(siteId, 'error', error.message || '도메인을 연결하지 못했습니다.');
+    siteHostingSetSiteOperation(siteId, 'error', error.message || '도메인을 연결하지 못했습니다.', { code: error.code || error.apiCode || '' });
   } finally {
     if (button.isConnected) {
       button.disabled = false;
@@ -173,7 +175,7 @@ async function siteHostingDisconnectCustomDomain(siteId, button) {
     siteHostingSetSiteOperation(siteId, 'success', '도메인 연결을 해제했습니다. 기본 주소는 계속 사용할 수 있습니다.');
     siteHostingRenderProjectDetail();
   } catch (error) {
-    siteHostingSetSiteOperation(siteId, 'error', error.message || '도메인 연결을 해제하지 못했습니다.');
+    siteHostingSetSiteOperation(siteId, 'error', error.message || '도메인 연결을 해제하지 못했습니다.', { code: error.code || error.apiCode || '' });
   } finally {
     if (button.isConnected) {
       button.disabled = false;
@@ -212,7 +214,7 @@ async function siteHostingDisconnectWorker(siteId, button) {
     siteHostingSetSiteOperation(siteId, 'success', '기본 연결을 해지했습니다. 로컬 사이트 파일과 설정은 유지됩니다.');
     siteHostingRenderProjectDetail();
   } catch (error) {
-    siteHostingSetSiteOperation(siteId, 'error', error.message || '기본 연결을 해지하지 못했습니다.');
+    siteHostingSetSiteOperation(siteId, 'error', error.message || '기본 연결을 해지하지 못했습니다.', { code: error.code || error.apiCode || '' });
   } finally {
     if (button.isConnected) {
       button.disabled = false;
