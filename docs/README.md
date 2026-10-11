@@ -108,6 +108,7 @@
 
 ## Active Work
 
+- `plans/active/2026-10-11-astro-site-generation-agent-options.md` (product and technical exploration; generation mechanism not selected)
 - `plans/active/2026-10-01-static-template-contract-spike-development.md`
 - `plans/active/2026-10-02-cloudflare-static-assets-list-poc-development.md`
 - `plans/active/2026-10-02-cloudflare-static-assets-deploy-poc-development.md`

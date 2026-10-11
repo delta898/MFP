@@ -330,6 +330,21 @@
    - Amade의 검증 스크립트와 GitHub Actions workflow는 운영 카탈로그가 개발 목록의 유효한 부분집합인지 검사하고 선택된 템플릿·스타일을 검증한다. Branch protection에서 해당 check를 required로 설정하는 일은 별도 저장소 관리 작업이다.
    - Amade `dev`에 운영 Style 10종을 허용하고 BlogGenius가 production catalog를 읽도록 연결했다. Amade 변경을 `main`에 반영한 뒤 실제 운영 앱의 목록 노출 및 개발/운영 캐시 격리를 확인한다. 구현 세부는 [parent branch 기록](plans/active/2026-10-01-static-site-builder-main-development.md) 및 Amade의 [운영 카탈로그 규칙](../../../Amade/amade/spec/site-hosting-production-catalog.md)을 따른다.
 
+20. 사용자 요구 기반 Astro 사이트 생성·발전 기능
+   - 사용자가 원하는 사이트의 needs/wants를 입력하면 Astro 프로젝트를 만들고, BlogGenius 템플릿에서 시작한 사이트도
+     계속 개성에 맞게 수정·발전시킬 수 있게 한다. 생성된 사이트는 기존 BlogGenius 게시·배포 흐름으로 이어진다.
+   - 첫 제품 경로는 외부 도구로 만든 Astro 프로젝트 ZIP을 가져와 바로 Site로 생성하고 배포하는 것이다. 템플릿 등록은
+     같은 프로젝트를 여러 Site의 시작점으로 재사용하려는 사용자에게 선택 기능으로 제공하며, 일반적인 Site 가져오기에
+     템플릿 단계를 요구하지 않는다.
+   - 구현 기술은 미정이다. 로컬 Codex/Claude Code CLI 실행, 사용자 API key로 호출하는 앱 소유 agent loop,
+     공급자가 공식 지원하는 OAuth 사용, 구조화된 사이트 설계와 Astro component 생성 방식을 비교해 제품 요구와
+     보안·비용·배포 조건에 맞는 구조를 결정한다. 이들은 가능한 구현 대안이지 사전 확정된 순서가 아니다.
+   - 요구사항 수집부터 프로젝트 생성, 반복 편집, 미리보기, 사용자 승인, 게시와 배포까지 전체 사용자 여정을 설계한다.
+     생성 결과의 자유도, 재현성, 기존 Site 보존, 비용과 작업 권한 경계를 함께 정한다.
+   - OpenAI Codex/Sign in with ChatGPT와 Anthropic Claude Code의 공식 CLI·인증 인터페이스를 조사 근거로 참고하되,
+     CLI 인증과 BlogGenius의 OAuth 권한은 구분한다. 구독 사용 OAuth는 제공자별 지원 앱 범위와 약관을 확인한 뒤 결정한다.
+   - 설계 배경·대안 비교·조사 근거: `docs/plans/active/2026-10-11-astro-site-generation-agent-options.md`.
+
 ## P2 — 제품 확장과 유지보수
 
 1. BlogAnywhere companion
