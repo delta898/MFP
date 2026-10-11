@@ -706,6 +706,9 @@ function startFixtureServer(requests) {
             revision: pasteManuscriptDraftRevision,
             sourceKind: 'paste',
             source: { type: 'pasted_markdown', folderName: '붙여넣기' },
+            relatedPosts: {
+                decision: pasteManuscriptMarkdown.includes('## 함께 보면 좋은 글') ? 'automatic' : 'user_removed'
+            },
             title: pasteManuscriptMarkdown.match(/^#\s+(.+)$/m)?.[1] || '제목 없음',
             rawMarkdown: pasteManuscriptMarkdown,
             bodyPreview: pasteManuscriptMarkdown,
@@ -881,11 +884,13 @@ function startFixtureServer(requests) {
                 const projectId = decodeURIComponent(siteHostingWorkerDisconnectMatch[1]);
                 const siteId = decodeURIComponent(siteHostingWorkerDisconnectMatch[2]);
                 const site = (siteHostingSites.get(projectId) || []).find((item) => item.id === siteId);
-                if (site && !site.custom_domain_binding?.hostname) site.deployment = null;
-                res.writeHead(site && !site.custom_domain_binding?.hostname ? 200 : 409, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-                res.end(JSON.stringify(site && !site.custom_domain_binding?.hostname
-                    ? { success: true, data: { worker_name: 'bg-site-smoke-1', disconnected: true } }
-                    : { success: false, error: { message: '먼저 연결 도메인을 해지해 주세요.' } }));
+                setTimeout(() => {
+                    if (site && !site.custom_domain_binding?.hostname) site.deployment = null;
+                    res.writeHead(site && !site.custom_domain_binding?.hostname ? 200 : 409, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+                    res.end(JSON.stringify(site && !site.custom_domain_binding?.hostname
+                        ? { success: true, data: { worker_name: 'bg-site-smoke-1', disconnected: true } }
+                        : { success: false, error: { message: '먼저 연결 도메인을 해지해 주세요.' } }));
+                }, 150);
             });
             return;
         }
@@ -2921,6 +2926,7 @@ async function run() {
                 await page.waitForFunction(() => document.querySelector('[data-site-worker-disconnect="site-smoke-1"]')?.disabled === true);
                 assert.deepEqual(requests.find((request) => request.method === 'POST'
                     && request.pathname.endsWith('/sites/site-smoke-1/worker-disconnect'))?.body, { confirmed: true });
+                await page.waitForFunction(() => !document.querySelector('[data-site-worker-disconnect="site-smoke-1"]'));
                 await page.locator('.site-hosting-site-more summary').click();
                 const deletionPlanResponse = page.waitForResponse((response) => new URL(response.url()).pathname.endsWith('/sites/site-smoke-1/delete-plan'));
                 await page.locator('[data-site-delete="site-smoke-1"]').click();
