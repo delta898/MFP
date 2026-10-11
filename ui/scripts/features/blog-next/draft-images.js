@@ -41,6 +41,7 @@ function renderBlogNextDraftImages(type, preview = {}) {
     const displayOrder = imageItems.indexOf(image) + 1;
     const imageIsActive = operationActive && activeSlotId === image.slotId;
     const activeActionButton = operation?.action === 'generate' && imageIsActive;
+    const missingPrompt = !String(image.prompt || '').trim();
     return `<article class="local-markdown-image-card${exists ? '' : ' is-missing'}${excluded ? ' is-excluded' : ''}${imageIsActive ? ' is-generating' : ''}" data-manuscript-image-slot="${escapeHtml(image.slotId || '')}">
       <div class="local-markdown-image-card-preview${exists ? '' : ' is-empty'}${imageIsActive ? ' is-generating' : ''}">
         ${window.BlogGeniusManuscriptImageCard?.renderMedia
@@ -50,7 +51,7 @@ function renderBlogNextDraftImages(type, preview = {}) {
             : `<div class="local-markdown-image-card-placeholder"><strong>${excluded ? '원고에서 제외됨' : '이미지 미지정'}</strong><span>${excluded ? '포스팅 대상에 포함되지 않습니다.' : 'AI로 만들거나 내 이미지로 채울 수 있습니다.'}</span></div>`}
         ${imageIsActive && imageUrl ? '<div class="local-markdown-image-generating-overlay" role="status"><span class="local-markdown-image-spinner" aria-hidden="true"></span><span>새 이미지 생성 중</span></div>' : ''}
         ${ownsDraft && !excluded && !bulkOperationActive ? `<div class="local-markdown-image-media-actions${exists ? '' : ' is-empty'}">
-          <button class="${activeActionButton ? 'ghost ui-danger-action' : exists ? 'secondary' : 'primary'} compact" type="button" data-manuscript-image-action="generate" data-slot-id="${escapeHtml(image.slotId)}"${activeActionButton ? ' data-ai-stop-action' : ''}${imageAiBlocked && !activeActionButton ? ' disabled title="AI 이미지 모델 설정이 필요합니다."' : operationActive && !activeActionButton ? ' disabled title="이미지 작업 중에는 변경할 수 없습니다."' : ''}>${activeActionButton ? (stopRequested ? '중지 요청 중…' : stopConfirming ? '중지 확인' : '중지') : exists ? '이미지 재생성' : '이미지 생성'}</button>
+          <button class="${activeActionButton ? 'ghost ui-danger-action' : exists ? 'secondary' : 'primary'} compact" type="button" data-manuscript-image-action="generate" data-slot-id="${escapeHtml(image.slotId)}"${activeActionButton ? ' data-ai-stop-action' : ''}${!activeActionButton && missingPrompt ? ' disabled title="이미지 프롬프트를 입력해 주세요."' : imageAiBlocked && !activeActionButton ? ' disabled title="AI 이미지 모델 설정이 필요합니다."' : operationActive && !activeActionButton ? ' disabled title="이미지 작업 중에는 변경할 수 없습니다."' : ''}>${activeActionButton ? (stopRequested ? '중지 요청 중…' : stopConfirming ? '중지 확인' : '중지') : exists ? '이미지 재생성' : '이미지 생성'}</button>
           ${activeActionButton
             ? (stopConfirming ? '<button class="ghost compact" type="button" data-manuscript-image-continue>계속 진행</button>' : '')
             : `<button class="secondary compact" type="button" data-manuscript-image-picker data-slot-id="${escapeHtml(image.slotId)}"${operationActive ? ' disabled title="이미지 작업 중에는 변경할 수 없습니다."' : ''}>${exists ? '이미지 교체' : '내 이미지 선택'}</button>${exists ? `<button class="secondary compact" type="button" data-manuscript-image-action="exclude" data-slot-id="${escapeHtml(image.slotId)}" title="원본 파일은 삭제하지 않고 현재 원고에서만 이미지를 제거합니다."${operationActive ? ' disabled' : ''}>원고에서 제거</button>` : ''}`}
@@ -150,13 +151,18 @@ function syncBlogNextImageAiReadiness() {
       operation.action === 'generate-missing' ? button.hasAttribute('data-manuscript-generate-missing')
         : button.dataset.manuscriptImageAction === 'generate' && button.dataset.slotId === operation.slotId
     ));
+    const image = button.dataset.manuscriptImageAction === 'generate'
+      ? state?.preview?.images?.find((item) => item.slotId === button.dataset.slotId)
+      : null;
+    const missingPrompt = Boolean(image && !String(image.prompt || '').trim());
     const operationPending = operation?.state === 'cancel_requested';
     const otherBusy = BLOG_NEXT_DRAFT_TYPES.some((entry) => entry !== type && (
       blogNextDraftState[entry].publishing || blogNextDraftState[entry].generating || blogNextDraftState[entry].imageWorking
     ));
-    button.disabled = operationPending || (!isActiveStopButton && (blocked || otherBusy
+    button.disabled = operationPending || (!isActiveStopButton && (missingPrompt || blocked || otherBusy
       || state?.publishing || state?.generating || state?.imageWorking));
-    if (blocked) button.title = 'AI 이미지 모델 설정이 필요합니다.';
+    if (missingPrompt) button.title = '이미지 프롬프트를 입력해 주세요.';
+    else if (blocked) button.title = 'AI 이미지 모델 설정이 필요합니다.';
     else button.removeAttribute('title');
   });
   const activeType = BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai';
@@ -379,6 +385,11 @@ async function applyBlogNextManuscriptMutation(type, action, slotId, payload = {
 async function runBlogNextManuscriptImageAction(type, action, slotId) {
   if (blogNextDraftState[type].publishing || blogNextDraftState[type].imageWorking) return;
   let image = blogNextDraftState[type].preview?.images?.find((item) => item.slotId === slotId);
+  if (action === 'generate' && !String(image?.prompt || '').trim()) {
+    blogNextDraftState[type].imageOperationNotice = { level: 'error', message: '이미지 생성 프롬프트를 입력해 주세요.' };
+    renderBlogNextDraftPreview(type, blogNextDraftState[type].preview);
+    return;
+  }
   if (action === 'generate' && typeof ensureUiCapabilityReady === 'function'
     && !await ensureUiCapabilityReady('ai.image')) {
     syncBlogNextImageAiReadiness();

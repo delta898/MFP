@@ -686,6 +686,26 @@ function createManuscriptDraftService(options = {}) {
         return buildPublicDraft(manifest, locations);
     }
 
+    function updateGeneratedSlot(id, slotId, expectedPrompt, mutate) {
+        const { locations, manifest } = readManifest(id);
+        assertDraftActive(manifest);
+        const normalizedSlotId = safeSlotId(slotId);
+        const slot = manifest.image_slots.find((item) => item.id === normalizedSlotId);
+        if (!slot) throw manuscriptError(409, 'MANUSCRIPT_IMAGE_SLOT_CHANGED', '이미지 영역이 편집 중 변경되어 생성한 이미지를 적용하지 않았습니다.');
+        if (String(slot.prompt || '').trim() !== String(expectedPrompt || '').trim()) {
+            throw manuscriptError(409, 'MANUSCRIPT_IMAGE_PROMPT_CHANGED', '이미지 프롬프트가 생성 중 변경되어 결과를 적용하지 않았습니다. 최신 프롬프트로 다시 생성해 주세요.');
+        }
+        const previousSlots = manifest.image_slots.map((item) => ({ ...item }));
+        mutate({ locations, manifest, slot });
+        manifest.revision += 1;
+        manifest.updated_at = new Date(now()).toISOString();
+        manifest.lifecycle_status = 'active';
+        delete manifest.completed_at;
+        atomicWriteJson(fsImpl, locations.manifest, manifest);
+        cleanupUnreferencedDraftAssets(previousSlots, manifest.image_slots, locations);
+        return buildPublicDraft(manifest, locations);
+    }
+
     function cleanupUnreferencedDraftAssets(previousSlots = [], nextSlots = [], locations = {}) {
         const referenced = new Set((nextSlots || []).flatMap((slot) => [slot.current_file, slot.original_file]).filter(Boolean));
         const candidates = new Map();
@@ -872,7 +892,7 @@ function createManuscriptDraftService(options = {}) {
         } finally {
             try { if (generatedPath) fsImpl.rmSync(generatedPath, { force: true }); } catch (_) { }
         }
-        return updateSlot(input.draftId, input.revision, input.slotId, ({ locations: latestLocations, slot: latestSlot }) => {
+        return updateGeneratedSlot(input.draftId, input.slotId, slot.prompt, ({ locations: latestLocations, slot: latestSlot }) => {
             replaceSlotFile({ locations: latestLocations, slot: latestSlot, buffer, extension: detected.extension, origin: 'generated' });
             Logger?.info?.(`✅ [ManuscriptDraft] ${latestSlot.id} AI 이미지 적용 완료 (draft=${input.draftId})`);
         });

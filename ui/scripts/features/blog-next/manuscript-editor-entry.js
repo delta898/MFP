@@ -582,7 +582,11 @@ function createImageBlock(onMove, options = {}) {
           continueButton.hidden = !stopConfirming;
           // Keep the active generate/stop control available like the legacy image cards.
           // The stop handler owns the operation-state guard and provides its two-step confirmation.
-          generate.disabled = isBusy && operationState === 'mutating';
+          generate.disabled = isBusy
+            ? operationState === 'mutating'
+            : !String(value.attrs.prompt || '').trim();
+          if (!isBusy && generate.disabled) generate.title = '이미지 프롬프트를 입력하면 생성할 수 있습니다.';
+          else generate.removeAttribute('title');
           pick.disabled = removeImage.disabled = isBusy;
           const topLevelIndex = editor.state.doc.resolve(getPos()).index(0);
           structuralActions.querySelectorAll('.manuscript-image-block-move').forEach((button, index) => {

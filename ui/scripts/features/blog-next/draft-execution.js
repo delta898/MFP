@@ -495,6 +495,7 @@ function bindBlogNextDetachedPublishSettings(form) {
       syncBlogNextSiteHostingOptions(type);
       if (blogNextDraftState[type]) blogNextDraftState[type].siteHostingPosted = false;
     }
+    if (typeof persistBlogNextPublishingDefaults === 'function') persistBlogNextPublishingDefaults(type);
     syncBlogNextDraftSettingsSummary(type);
     syncBlogNextTopicActionAvailability();
     syncBlogNextDraftExecutionState();

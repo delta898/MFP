@@ -924,6 +924,7 @@ function initBlogNextDraftInputs() {
       && event.target?.id !== 'blog-next-site-hosting-select') return;
     const type = BLOG_NEXT_DRAFT_TYPES.includes(blogNextActiveInputMode) ? blogNextActiveInputMode : 'ai';
     syncBlogNextPublishingTargetSettings(type, { force: true });
+    persistBlogNextPublishingDefaults(type, { clearMissingSite: true });
     if (blogNextDraftState[type]) blogNextDraftState[type].siteHostingPosted = false;
     setBlogNextSiteHostingMessage('');
     syncBlogNextDraftSettingsSummary(type);
@@ -985,6 +986,11 @@ function initBlogNextDraftInputs() {
       blogNextPublishSettingsByTarget.set(key, { ...current, category: getBlogNextVaultFolderValue() });
       try { sessionStorage.setItem(BLOG_NEXT_PUBLISH_SETTINGS_SESSION_KEY, JSON.stringify(Object.fromEntries(blogNextPublishSettingsByTarget))); }
       catch (_error) { /* Keep the current values in memory when session storage is unavailable. */ }
+      if (!blogNextTopicEditingSettingsContext && blogNextEditingRowIndex === null) {
+        const persistent = blogNextPersistentPublishSettingsByTarget.get(key) || {};
+        blogNextPersistentPublishSettingsByTarget.set(key, { ...persistent, category: getBlogNextVaultFolderValue() });
+      }
+      persistBlogNextPublishingDefaults(type);
     }
     syncBlogNextDraftSettingsSummary(type);
     if (typeof syncBlogNextQuickFlowSummaries === 'function') syncBlogNextQuickFlowSummaries();

@@ -449,6 +449,7 @@ function initBlogNextQuickQueue() {
   form.dataset.bound = 'true';
   initBlogNextHelpPlacement(form);
   applyBlogNextTopicSettings(loadBlogNextTopicDefaults());
+  if (typeof applyBlogNextPublishingDefaults === 'function') applyBlogNextPublishingDefaults();
   void loadBlogNextWritingDefaults();
   if (typeof syncPlatformUiState === 'function') {
     syncPlatformUiState('naver', typeof uiNaverReady === 'undefined' || uiNaverReady === true);
@@ -473,8 +474,15 @@ function initBlogNextQuickQueue() {
   });
   document.getElementById('blog-next-editor-settings-form')?.addEventListener('submit', (event) => event.preventDefault());
   form.addEventListener('change', (event) => {
-    if (['blog-next-target-naver', 'blog-next-target-wordpress'].includes(event.target?.id)) {
+    if (['blog-next-target-naver', 'blog-next-target-wordpress', 'blog-next-target-site-hosting'].includes(event.target?.id)) {
       syncBlogNextProviderDependentFields();
+    }
+    if (['blog-next-post-status', 'blog-next-category'].includes(event.target?.id)) {
+      captureBlogNextPublishingTargetSettings('ai');
+    }
+    if (['blog-next-target-naver', 'blog-next-target-wordpress', 'blog-next-target-site-hosting',
+      'blog-next-post-status', 'blog-next-runner-headless'].includes(event.target?.id)) {
+      if (typeof persistBlogNextPublishingDefaults === 'function') persistBlogNextPublishingDefaults('ai');
     }
     rememberBlogNextTopicDefaultsForSetting(event.target?.id);
     syncBlogNextQuickFlowSummaries();
