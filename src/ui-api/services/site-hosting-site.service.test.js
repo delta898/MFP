@@ -86,12 +86,15 @@ test('imports an Astro ZIP and builds it to create the Site thumbnail', async ()
         await service.stopDraftPreview('project-1', preview.id);
         assert.equal(fs.existsSync(previewRoot), false);
         assert.ok(secondSelection.selection_token);
+        const largeLogo = Buffer.alloc(3 * 1024 * 1024);
+        Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).copy(largeLogo);
+        const largeLogoData = `data:image/png;base64,${largeLogo.toString('base64')}`;
         const created = await service.importAstroArchive('project-1', {
             name: '담백한 기록', selection_token: selection.selection_token,
             settings: { site_description: '사용자가 수정한 설명', search_engine_indexing: false,
                 navigation: [{ label: '첫 화면', href: '/' }, { label: '기록', href: '/blog/' }, { label: '소개', href: '/about/' }],
                 publishing: { post_list_navigation_index: 1 },
-                logo: 'data:image/png;base64,iVBORw0KGgo=',
+                logo: largeLogoData,
                 share_image: 'data:image/png;base64,iVBORw0KGgo=',
                 favicon: 'data:image/png;base64,iVBORw0KGgo=' }
         });
@@ -104,6 +107,7 @@ test('imports an Astro ZIP and builds it to create the Site thumbnail', async ()
         const importedRoot = path.join(workspaceDir, 'site-hosting', 'sites', created.id);
         assert.equal(fs.readFileSync(path.join(importedRoot, 'src', 'pages', 'index.astro'), 'utf8'), '<title>담백한 기록</title><h1>담백한 기록</h1>');
         assert.equal(fs.existsSync(path.join(importedRoot, '.bloggenius', 'site.json')), true);
+        assert.equal(fs.statSync(path.join(importedRoot, '.bloggenius', 'assets', 'bloggenius-logo.png')).size, 3 * 1024 * 1024);
         const siteMeta = JSON.parse(fs.readFileSync(path.join(importedRoot, '.bloggenius', 'site.json'), 'utf8'));
         assert.deepEqual(siteMeta.customization, {
             site_description: '사용자가 수정한 설명', search_engine_indexing: false,
@@ -113,7 +117,9 @@ test('imports an Astro ZIP and builds it to create the Site thumbnail', async ()
             share_image: '/.bloggenius/assets/bloggenius-share-image.png',
             favicon: '/.bloggenius/assets/bloggenius-favicon.png'
         });
-        assert.equal(fs.readFileSync(path.join(importedRoot, '.bloggenius', 'assets', 'bloggenius-logo.png')).toString('base64'), 'iVBORw0KGgo=');
+        const savedLogo = fs.readFileSync(path.join(importedRoot, '.bloggenius', 'assets', 'bloggenius-logo.png'));
+        assert.equal(savedLogo.length, 3 * 1024 * 1024);
+        assert.deepEqual([...savedLogo.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
         const savedSettings = service.getSettings('project-1', created.id);
         const loadedSettings = service.getSettings('project-1', created.id);
         assert.equal(loadedSettings.id, created.id);
@@ -122,7 +128,7 @@ test('imports an Astro ZIP and builds it to create the Site thumbnail', async ()
             site_description: '사용자가 수정한 설명', search_engine_indexing: false,
             navigation: [{ label: '첫 화면', href: '/' }, { label: '기록', href: '/blog/' }, { label: '소개', href: '/about/' }],
             publishing: { post_list_navigation_index: 1 },
-            logo: 'data:image/png;base64,iVBORw0KGgo=',
+            logo: largeLogoData,
             share_image: 'data:image/png;base64,iVBORw0KGgo=',
             favicon: 'data:image/png;base64,iVBORw0KGgo='
         });

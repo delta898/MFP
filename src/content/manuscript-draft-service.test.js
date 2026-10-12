@@ -5,7 +5,7 @@ const os = require('os');
 const path = require('path');
 
 const Utils = require('../utils');
-const { createManuscriptDraftService, detectImageType } = require('./manuscript-draft-service');
+const { createManuscriptDraftService, detectImageType, validateImageBuffer } = require('./manuscript-draft-service');
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB', 'base64');
 
@@ -339,6 +339,17 @@ test('rejects disguised local image input without changing the draft', () => {
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }
+});
+
+test('accepts manuscript images up to 20MB and rejects larger files', () => {
+    const maxBytes = 20 * 1024 * 1024;
+    const atLimit = Buffer.alloc(maxBytes);
+    PNG.copy(atLimit);
+    assert.deepEqual(validateImageBuffer(atLimit), { extension: '.png', mimeType: 'image/png' });
+
+    const overLimit = Buffer.alloc(maxBytes + 1);
+    PNG.copy(overLimit);
+    assert.throws(() => validateImageBuffer(overLimit), (error) => error.code === 'MANUSCRIPT_IMAGE_TOO_LARGE');
 });
 
 test('publishes an exact revision snapshot and omits excluded images', () => {

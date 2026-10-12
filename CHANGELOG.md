@@ -1,6 +1,15 @@
 # Changelog
 All notable changes to the Naver Auto Blog publishing tool will be documented in this file.
 
+## [0.6.0-dev4] - 2026-10-12
+
+### Added
+- **AI가 준비한 Astro ZIP으로 사이트 만들기**: AI가 생성한 Astro 프로젝트 ZIP을 가져와 사이트 설정과 메뉴 후보를 확인·수정하고, 미리보기한 뒤 사이트로 관리할 수 있습니다.
+
+### Improved
+- **사이트 브랜드 이미지 업로드 확대**: 로고, 대표 이미지와 파비콘을 각 3MB까지 등록할 수 있습니다.
+- **원고 이미지 업로드 확대**: 이미지 한 장당 20MB까지 사용할 수 있으며, 원고 이미지 전체 용량 제한은 없습니다.
+
 ## [0.6.0] - 2026-10-11
 
 ### Added

@@ -5,6 +5,7 @@ const path = require('node:path');
 const os = require('node:os');
 const { normalizeMenuDestination, normalizeNavigationItems, internalPathSegment, internalPathname } = require('./navigation-contract');
 const { SITE_HOSTING_TEMPLATE_UPDATE_POLICY, isSupportedSiteHostingContractVersion, compareVersions } = require('./bloggenius-compatibility');
+const { MAX_SITE_PROFILE_IMAGE_BYTES } = require('./image-limits');
 
 const SITE_SCHEMA_VERSION = 1;
 
@@ -36,7 +37,7 @@ function persistImportedProfileImages(fileSystem, pathApi, siteRoot, customizati
         if (!image || typeof image !== 'object' || Array.isArray(image)) continue;
         const extension = String(image.extension || '');
         const bytes = image.content;
-        if (!['png', 'jpg', 'webp'].includes(extension) || !Buffer.isBuffer(bytes) || bytes.length > 1024 * 1024) {
+        if (!['png', 'jpg', 'webp'].includes(extension) || !Buffer.isBuffer(bytes) || bytes.length > MAX_SITE_PROFILE_IMAGE_BYTES) {
             throw withStatus(new Error('사이트 이미지 설정이 올바르지 않습니다.'), 400, 'SITE_HOSTING_SITE_PROFILE_IMAGE_INVALID');
         }
         fileSystem.mkdirSync(assetsRoot, { recursive: true, mode: 0o700 });
@@ -94,7 +95,7 @@ function applyImportedProjectSettings(fileSystem, pathApi, siteRoot, site, integ
         const extension = String(image.extension || '');
         const bytes = image.content;
         const signatures = { png: Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), jpg: Buffer.from([255, 216, 255]), webp: Buffer.from('RIFF') };
-        if (!Object.hasOwn(signatures, extension) || !Buffer.isBuffer(bytes) || bytes.length > 1024 * 1024
+        if (!Object.hasOwn(signatures, extension) || !Buffer.isBuffer(bytes) || bytes.length > MAX_SITE_PROFILE_IMAGE_BYTES
             || bytes.length < signatures[extension].length || !bytes.subarray(0, signatures[extension].length).equals(signatures[extension])
             || (extension === 'webp' && bytes.toString('ascii', 8, 12) !== 'WEBP')) {
             throw withStatus(new Error('사이트 이미지 형식이 올바르지 않습니다.'), 400, 'SITE_HOSTING_SITE_PROFILE_IMAGE_INVALID');
@@ -500,7 +501,7 @@ function createSiteHostingSiteRepository(options = {}) {
                 const extension = String(image.extension || '');
                 const bytes = image.content;
                 const signatures = { png: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), jpg: Buffer.from([0xff, 0xd8, 0xff]), webp: Buffer.from('RIFF') };
-                if (!Object.hasOwn(signatures, extension) || !Buffer.isBuffer(bytes) || bytes.length > 1024 * 1024
+                if (!Object.hasOwn(signatures, extension) || !Buffer.isBuffer(bytes) || bytes.length > MAX_SITE_PROFILE_IMAGE_BYTES
                     || bytes.length < signatures[extension].length || !bytes.subarray(0, signatures[extension].length).equals(signatures[extension])
                     || (extension === 'webp' && bytes.toString('ascii', 8, 12) !== 'WEBP')) {
                     throw withStatus(new Error(`${imageField.key === 'logo' ? '로고' : imageField.key === 'favicon' ? 'Favicon' : '사이트 대표'} 이미지 형식이 올바르지 않습니다.`), 400, imageField.key === 'logo' ? 'SITE_HOSTING_LOGO_INVALID' : 'SITE_HOSTING_SITE_PROFILE_IMAGE_INVALID');
@@ -592,11 +593,11 @@ function createSiteHostingSiteRepository(options = {}) {
                         webp: Buffer.from('RIFF')
                     };
                     if (!Object.hasOwn(signatures, extension) || !Buffer.isBuffer(content)
-                        || content.length < signatures[extension].length || content.length > 1024 * 1024
+                        || content.length < signatures[extension].length || content.length > MAX_SITE_PROFILE_IMAGE_BYTES
                         || !content.subarray(0, signatures[extension].length).equals(signatures[extension])
                         || (extension === 'webp' && content.toString('ascii', 8, 12) !== 'WEBP')
                         || Object.keys(value).some((key) => !['extension', 'content'].includes(key))) {
-                        throw withStatus(new Error('로고는 확인된 PNG, JPG 또는 WebP 이미지(1MB 이하)만 사용할 수 있습니다.'), 400, 'SITE_HOSTING_LOGO_INVALID');
+                        throw withStatus(new Error('로고는 확인된 PNG, JPG 또는 WebP 이미지(3MB 이하)만 사용할 수 있습니다.'), 400, 'SITE_HOSTING_LOGO_INVALID');
                     }
                     const logoPath = pathApi.join(siteRoot, 'public', `bloggenius-logo.${extension}`);
                     fileSystem.mkdirSync(pathApi.dirname(logoPath), { recursive: true });

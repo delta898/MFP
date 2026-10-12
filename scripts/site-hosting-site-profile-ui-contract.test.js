@@ -28,6 +28,9 @@ test('site creation exposes optional site SEO fields with indexing enabled by de
     assert.match(html, /가로형 권장 \(예: 600×200px\)/);
     assert.match(html, /권장 1200×630px/);
     assert.match(html, /정사각형 512×512px 권장/);
+    assert.equal((html.match(/PNG, JPG, WebP · 3MB 이하/g) || []).length, 6);
+    assert.doesNotMatch(html, /PNG, JPG, WebP · 1MB 이하/);
+    assert.match(profile, /SITE_PROFILE_IMAGE_MAX_BYTES = 3 \* 1024 \* 1024/);
     assert.doesNotMatch(html, /글에는 적용되지 않음|검색 제외 신호를 보냅니다/);
     assert.match(creation, /search_engine_indexing: document\.getElementById\('site-search-indexing'\)\?\.checked !== false/);
     assert.doesNotMatch(creation, /search_indexing:/);

@@ -425,8 +425,8 @@ async function importBlogNextManuscriptImage(type, slotId, input) {
   if (blogNextDraftState[type].publishing || blogNextDraftState[type].imageWorking) return;
   const file = input?.files?.[0];
   if (!file) return;
-  if (file.size > 10 * 1024 * 1024) {
-    setBlogNextDraftValidation(type, { errors: ['이미지는 최대 10MB까지 선택할 수 있습니다.'] }, '', blogNextDraftState[type].preview);
+  if (file.size > 20 * 1024 * 1024) {
+    setBlogNextDraftValidation(type, { errors: ['이미지는 최대 20MB까지 선택할 수 있습니다.'] }, '', blogNextDraftState[type].preview);
     input.value = '';
     return;
   }

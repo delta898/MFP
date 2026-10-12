@@ -41,7 +41,7 @@ function siteHostingCreateRequirementsMet() {
 
   for (const key of Object.keys(SITE_PROFILE_IMAGE_LABELS)) {
     const file = document.getElementById(siteHostingProfileImageOptions(key)?.inputId)?.files?.[0];
-    if (file && (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 1024 * 1024)) return false;
+    if (file && (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > SITE_PROFILE_IMAGE_MAX_BYTES)) return false;
   }
   return true;
 }

@@ -3,6 +3,7 @@
 const fsApi = require('node:fs');
 const pathApi = require('node:path');
 const { normalizeMenuDestination } = require('./navigation-contract');
+const { MAX_SITE_PROFILE_IMAGE_BYTES } = require('./image-limits');
 
 const SOURCE_EXTENSIONS = new Set(['.astro', '.html', '.md', '.mdx']);
 const IGNORED_DIRECTORIES = new Set(['.git', '.astro', 'dist', 'node_modules']);
@@ -63,7 +64,7 @@ function readProjectImagePreview(fileSystem, pathModule, root, value) {
         const assetPath = fileSystem.realpathSync(pathModule.join(publicRoot, ...segments));
         if (!assetPath.startsWith(`${publicRoot}${pathModule.sep}`)) return '';
         const stat = fileSystem.statSync(assetPath);
-        if (!stat.isFile() || stat.size > 1024 * 1024) return '';
+        if (!stat.isFile() || stat.size > MAX_SITE_PROFILE_IMAGE_BYTES) return '';
         return `data:${mime};base64,${fileSystem.readFileSync(assetPath).toString('base64')}`;
     } catch (_error) { return ''; }
 }

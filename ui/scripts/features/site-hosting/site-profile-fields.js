@@ -3,12 +3,13 @@ const SITE_PROFILE_IMAGE_LABELS = Object.freeze({
   'share-image': '사이트 대표 이미지',
   favicon: 'Favicon'
 });
+const SITE_PROFILE_IMAGE_MAX_BYTES = 3 * 1024 * 1024;
 
 function siteHostingReadProfileImage(file, label = '이미지') {
   return new Promise((resolve, reject) => {
     if (!file) return resolve('');
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 1024 * 1024) {
-      return reject(new Error(`PNG, JPG 또는 WebP ${label}를 1MB 이하로 선택해 주세요.`));
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > SITE_PROFILE_IMAGE_MAX_BYTES) {
+      return reject(new Error(`PNG, JPG 또는 WebP ${label}를 3MB 이하로 선택해 주세요.`));
     }
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ''));

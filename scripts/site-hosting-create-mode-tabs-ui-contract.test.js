@@ -9,7 +9,7 @@ const root = path.resolve(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'ui/partials/views/site-hosting.html'), 'utf8');
 const navigation = [
   fs.readFileSync(path.join(root, 'ui/scripts/features/site-hosting/site-creation-navigation.js'), 'utf8'),
-  fs.readFileSync(path.join(root, 'ui/scripts/features/site-hosting/site-import-workflow.js'), 'utf8').replace(/\nasync \nfunction siteHostingShowMenuError/, '\nfunction siteHostingShowMenuError').replace(/\nasync \nfunction siteHostingPreviewImportedSettings/, '\nasync function siteHostingPreviewImportedSettings')
+  fs.readFileSync(path.join(root, 'ui/scripts/features/site-hosting/site-import-workflow.js'), 'utf8')
 ].join('\n');
 const styles = [
   fs.readFileSync(path.join(root, 'ui/styles/features/site-hosting-create.css'), 'utf8'),

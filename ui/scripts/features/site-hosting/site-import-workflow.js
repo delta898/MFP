@@ -240,7 +240,6 @@ async function siteHostingPreviewImportedSettings() {
   }
 }
 
-async 
 function siteHostingShowMenuError(input, message) {
   if (!input) return;
   const row = input.closest('[data-site-menu-row]');
@@ -327,4 +326,3 @@ async function siteHostingCollectImportedEditSettings() {
     }
   };
 }
-

@@ -32,9 +32,10 @@ test('local image drop targets validate one supported file and do not leak edito
     assert.match(source, /addEventListener\('drop'/);
     assert.match(source, /event\.preventDefault\(\);\s*event\.stopPropagation\(\)/);
     assert.match(source, /files\.length !== 1/);
-    assert.match(source, /10 \* 1024 \* 1024/);
     assert.match(source, /new DataTransfer\(\)/);
   }
+  assert.match(editor, /20 \* 1024 \* 1024/);
+  assert.match(cardNews, /10 \* 1024 \* 1024/);
   assert.match(editor, /image\/png,image\/jpeg,image\/webp,image\/avif/);
   assert.match(cardNewsCss, /\.card-news-result-image-wrap\.is-drag-over/);
   assert.match(cardNewsCss, /\.card-news-image-drop-hint/);

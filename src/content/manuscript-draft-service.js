@@ -13,8 +13,7 @@ const {
     finalizeManuscriptRelatedPosts
 } = require('./manuscript-related-posts');
 
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
-const MAX_DRAFT_IMAGE_BYTES = 35 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const DEFAULT_ACTIVE_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 const DEFAULT_COMPLETED_RETENTION_MS = 24 * 60 * 60 * 1000;
 const IMAGE_TYPES = Object.freeze({
@@ -55,7 +54,7 @@ function detectImageType(buffer) {
 
 function validateImageBuffer(buffer) {
     if (buffer.length > MAX_IMAGE_BYTES) {
-        throw manuscriptError(413, 'MANUSCRIPT_IMAGE_TOO_LARGE', '이미지는 한 장당 최대 10MB까지 사용할 수 있습니다.');
+        throw manuscriptError(413, 'MANUSCRIPT_IMAGE_TOO_LARGE', '이미지는 한 장당 최대 20MB까지 사용할 수 있습니다.');
     }
     const type = detectImageType(buffer);
     if (!type) {
@@ -556,16 +555,11 @@ function createManuscriptDraftService(options = {}) {
         try {
             fsImpl.writeFileSync(pathImpl.join(locations.source, 'contents.md'), markdownText, { mode: 0o600 });
             const imageByIndex = new Map();
-            let totalImageBytes = 0;
             for (const image of generatedImages) {
                 const index = Number(image?.index);
                 const buffer = Buffer.isBuffer(image?.buffer) ? image.buffer : null;
                 if (!Number.isInteger(index) || index < 0 || !buffer) continue;
                 const detected = validateImageBuffer(buffer);
-                totalImageBytes += buffer.length;
-                if (totalImageBytes > MAX_DRAFT_IMAGE_BYTES) {
-                    throw manuscriptError(413, 'MANUSCRIPT_DRAFT_IMAGES_TOO_LARGE', '원고 이미지 전체 크기는 최대 35MB까지 가져올 수 있습니다.');
-                }
                 const fileName = `${String(index).padStart(2, '0')}_generated${detected.extension}`;
                 fsImpl.writeFileSync(pathImpl.join(locations.source, fileName), buffer, { mode: 0o600 });
                 fsImpl.writeFileSync(pathImpl.join(locations.originals, fileName), buffer, { mode: 0o600 });
@@ -619,16 +613,11 @@ function createManuscriptDraftService(options = {}) {
         try {
             const markdownSource = sources.get(preferredEntry.relativePath) || {};
             fsImpl.writeFileSync(pathImpl.join(locations.source, 'contents.md'), String(markdownSource.textContent || preferredEntry.textContent || ''), { mode: 0o600 });
-            let totalImageBytes = 0;
             for (const entry of entries.filter((candidate) => /^\d{2}_/.test(candidate.fileName) && !candidate.rootRelativePath.includes('/'))) {
                 const source = sources.get(entry.relativePath) || {};
                 if (!source.base64Data) continue;
                 const buffer = decodeBase64(source.base64Data);
                 validateImageBuffer(buffer);
-                totalImageBytes += buffer.length;
-                if (totalImageBytes > MAX_DRAFT_IMAGE_BYTES) {
-                    throw manuscriptError(413, 'MANUSCRIPT_DRAFT_IMAGES_TOO_LARGE', '원고 이미지 전체 크기는 최대 35MB까지 가져올 수 있습니다.');
-                }
                 const safeName = pathImpl.basename(entry.fileName);
                 fsImpl.writeFileSync(pathImpl.join(locations.source, safeName), buffer, { mode: 0o600 });
                 fsImpl.writeFileSync(pathImpl.join(locations.originals, safeName), buffer, { mode: 0o600 });

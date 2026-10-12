@@ -456,7 +456,7 @@ function createImageBlock(onMove, options = {}) {
           if (type ? !allowedTypes.has(type) : !['png', 'jpg', 'jpeg', 'webp', 'avif'].includes(extension)) {
             return 'PNG, JPEG, WebP 또는 AVIF 이미지를 선택해 주세요.';
           }
-          if (file.size > 10 * 1024 * 1024) return '이미지는 최대 10MB까지 선택할 수 있습니다.';
+          if (file.size > 20 * 1024 * 1024) return '이미지는 최대 20MB까지 선택할 수 있습니다.';
           return '';
         };
         let dragDepth = 0;

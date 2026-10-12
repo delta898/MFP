@@ -13,6 +13,7 @@ const { createAstroSiteRuntime } = require('../../site-hosting/astro-site-runtim
 const { createCloudflareStaticAssetsDeployer } = require('../../site-hosting/cloudflare-static-assets-deployer');
 const { isSupportedSiteHostingContractVersion } = require('../../site-hosting/bloggenius-compatibility');
 const { inspectAstroProject } = require('../../site-hosting/astro-project-inspector');
+const { MAX_SITE_PROFILE_IMAGE_BYTES } = require('../../site-hosting/image-limits');
 
 function createSiteHostingSiteService(deps = {}) {
     const fileSystem = deps.fs || require('node:fs');
@@ -340,7 +341,7 @@ function createSiteHostingSiteService(deps = {}) {
             const assetPath = fileSystem.realpathSync(pathApi.join(publicRoot, ...segments));
             if (!assetPath.startsWith(`${publicRoot}${pathApi.sep}`)) return null;
             const stat = fileSystem.statSync(assetPath);
-            if (!stat.isFile() || stat.size > 1024 * 1024) return null;
+            if (!stat.isFile() || stat.size > MAX_SITE_PROFILE_IMAGE_BYTES) return null;
             const bytes = fileSystem.readFileSync(assetPath);
             return `data:${mime};base64,${bytes.toString('base64')}`;
         } catch (_error) { return null; }
@@ -419,7 +420,7 @@ function createSiteHostingSiteService(deps = {}) {
         const encoded = String(entry?.base64Data || '').replace(/^data:[^;,]+;base64,/iu, '');
         if (!encoded) return null;
         const bytes = Buffer.from(encoded, 'base64');
-        if (!bytes.length || bytes.length > 10 * 1024 * 1024) return null;
+        if (!bytes.length || bytes.length > 20 * 1024 * 1024) return null;
         const signatures = {
             png: bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])),
             jpg: bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff,
@@ -1316,7 +1317,7 @@ function createSiteHostingSiteService(deps = {}) {
                 if (!managed) { delete customization[key]; continue; }
                 try {
                     const bytes = fileSystem.readFileSync(pathApi.join(site.root_path, '.bloggenius', 'assets', managed[1]));
-                    if (bytes.length > 1024 * 1024) { delete customization[key]; continue; }
+                    if (bytes.length > MAX_SITE_PROFILE_IMAGE_BYTES) { delete customization[key]; continue; }
                     const mime = managed[1].endsWith('.png') ? 'image/png' : managed[1].endsWith('.webp') ? 'image/webp' : 'image/jpeg';
                     imageValues[key] = `data:${mime};base64,${bytes.toString('base64')}`;
                 } catch (_error) { delete customization[key]; }
@@ -1348,7 +1349,7 @@ function createSiteHostingSiteService(deps = {}) {
             const assetPath = pathApi.join(site.root_path, 'site-data', 'public', fileName);
             if (!fileSystem.existsSync(assetPath)) { delete customization[key]; continue; }
             const bytes = fileSystem.readFileSync(assetPath);
-            if (bytes.length > 1024 * 1024) { delete customization[key]; continue; }
+            if (bytes.length > MAX_SITE_PROFILE_IMAGE_BYTES) { delete customization[key]; continue; }
             const mime = fileName.endsWith('.png') ? 'image/png' : fileName.endsWith('.webp') ? 'image/webp' : 'image/jpeg';
             customization[key] = `data:${mime};base64,${bytes.toString('base64')}`;
         }
@@ -1640,7 +1641,7 @@ function createSiteHostingSiteService(deps = {}) {
         const errorCode = label === '로고' ? 'SITE_HOSTING_LOGO_INVALID' : 'SITE_HOSTING_SITE_PROFILE_IMAGE_INVALID';
         if (!match) throw siteInputError(`${label}는 PNG, JPG 또는 WebP 이미지로 선택해 주세요.`, errorCode);
         const bytes = Buffer.from(match[2], 'base64');
-        if (!bytes.length || bytes.length > 1024 * 1024) throw siteInputError(`${label}는 1MB 이하로 선택해 주세요.`, `${errorCode}_TOO_LARGE`);
+        if (!bytes.length || bytes.length > MAX_SITE_PROFILE_IMAGE_BYTES) throw siteInputError(`${label}는 3MB 이하로 선택해 주세요.`, `${errorCode}_TOO_LARGE`);
         const signatures = { png: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), jpeg: Buffer.from([0xff, 0xd8, 0xff]), webp: Buffer.from('RIFF') };
         if (!bytes.subarray(0, signatures[match[1]].length).equals(signatures[match[1]])
             || (match[1] === 'webp' && bytes.toString('ascii', 8, 12) !== 'WEBP')) {
