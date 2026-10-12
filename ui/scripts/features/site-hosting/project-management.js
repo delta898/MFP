@@ -23,11 +23,16 @@ let siteHostingCreateTemplates = [];
 let siteHostingSelectedCreateTemplate = '';
 let siteHostingCreateSetupInputs = {};
 let siteHostingProfileImages = { logo: '', 'share-image': '', favicon: '' };
+let siteHostingImportedProfileImages = { logo: '', 'share-image': '', favicon: '' };
+let siteHostingImportedProfileImageClears = new Set();
 let siteHostingCreateInitialSnapshot = '';
 let siteHostingCreatePreviewId = '';
 let siteHostingCreateMode = 'create';
+let siteHostingEditingImportedSite = false;
 let siteHostingEditingSiteId = '';
 let siteHostingCreatePreviewSnapshot = '';
+let siteHostingImportAnalysis = null;
+let siteHostingImportStep = 'upload';
 
 function siteHostingEscapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -727,7 +732,8 @@ async function siteHostingSaveSiteSettings(event) {
   if (!project || !siteId || submit?.disabled) return;
   const site = siteHostingSites.find((item) => item.id === siteId);
   if (!site) return;
-  const payload = { name: String(form.elements.namedItem('name')?.value || '').trim() };
+  const inputName = form.elements.namedItem('name')?.value ?? form.querySelector('[name="name"]')?.value;
+  const payload = { name: String(inputName || '').trim() || site.name };
   submit.disabled = true;
   submit.classList.add('is-loading');
   if (feedback) { feedback.hidden = true; feedback.textContent = ''; }

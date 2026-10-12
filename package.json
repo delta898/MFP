@@ -102,6 +102,7 @@
     "outputPath": "dist"
   },
   "dependencies": {
+    "@electron-internal/extract-zip": "1.0.5",
     "@supabase/supabase-js": "2.117.2",
     "axios": "^1.20.0",
     "chalk": "^4.1.2",

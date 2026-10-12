@@ -37,6 +37,63 @@ test('site repository materializes selected Astro files and keeps BlogGenius met
     }
 });
 
+test('imported Astro settings update the declared shared config and keep project data intact', () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-import-settings-'));
+    try {
+        const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
+        projectRepository.create({ id: 'project-1', name: '개인 사이트' });
+        const sourceRoot = path.join(workspaceDir, 'source');
+        fs.mkdirSync(path.join(sourceRoot, 'site-data'), { recursive: true });
+        fs.mkdirSync(path.join(sourceRoot, 'public'), { recursive: true });
+        fs.writeFileSync(path.join(sourceRoot, 'package.json'), '{"dependencies":{"astro":"^7.3.0"},"scripts":{"build":"astro build"}}');
+        const originalProjectData = { tagline: '프로젝트 소유 문구', about: { paragraphs: ['유지되어야 하는 내용'] } };
+        fs.writeFileSync(path.join(sourceRoot, 'site-data', 'site.json'), JSON.stringify({
+            displayName: '원래 이름', seoDescription: '원래 설명', searchEngineIndexing: true,
+            navigation: [{ id: 'home', label: '홈', path: '/' }, { id: 'posts', label: '기록', path: '/blog/' }],
+            logo: '', shareImage: '', favicon: '', project: originalProjectData
+        }));
+        const integration = {
+            descriptor_valid: true, settings_valid: true,
+            capabilities: { site_identity: true, navigation: true, logo: true, favicon: true, share_image: true }
+        };
+        const repository = createSiteHostingSiteRepository({ fs, path, projectRepository, templates: createSiteTemplateCatalog({ fs, path }) });
+        const imported = repository.importAstroProject('project-1', {
+            id: 'site-1', name: '새 이름', archive_name: 'site.zip', integration,
+            customization: {
+                site_description: '새 설명', search_engine_indexing: false,
+                navigation: [{ id: 'home', label: '처음', href: '/' }, { id: 'posts', label: '소식', href: '/news/' }],
+                logo: { extension: 'png', content: Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]) }
+            }
+        }, sourceRoot);
+        const configPath = path.join(imported.root_path, 'site-data', 'site.json');
+        const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        assert.equal(config.displayName, '새 이름');
+        assert.equal(config.seoDescription, '새 설명');
+        assert.equal(config.searchEngineIndexing, false);
+        assert.deepEqual(config.navigation, [
+            { id: 'home', label: '처음', path: '/' }, { id: 'posts', label: '소식', path: '/news/' }
+        ]);
+        assert.deepEqual(config.project, originalProjectData);
+        assert.equal(config.logo, '/bloggenius-logo.png');
+        assert.equal(fs.existsSync(path.join(imported.root_path, 'public', 'bloggenius-logo.png')), true);
+        assert.deepEqual(imported.integration.capabilities, integration.capabilities);
+
+        repository.updateSettings('project-1', 'site-1', {
+            name: '세 번째 이름', customization: { site_description: '세 번째 설명', search_engine_indexing: true,
+                navigation: [{ id: 'home', label: '홈', href: '/' }, { id: 'posts', label: '뉴스', href: '/news/' }] }
+        });
+        const updated = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        assert.equal(updated.displayName, '세 번째 이름');
+        assert.equal(updated.seoDescription, '세 번째 설명');
+        assert.equal(updated.searchEngineIndexing, true);
+        assert.equal(updated.navigation[1].id, 'posts');
+        assert.equal(updated.navigation[1].path, '/news/');
+        assert.deepEqual(updated.project, originalProjectData);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('site repository rejects unsafe and duplicate IDs without replacing an existing site', () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-site-id-'));
     try {

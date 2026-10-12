@@ -28,6 +28,30 @@ test('site routes expose the local template catalog and create/list sites for a 
     assert.equal(responses.pop().status, 201);
 });
 
+test('site routes select a local Astro ZIP and create an imported Site', async () => {
+    const calls = [];
+    const responses = [];
+    const handler = createSiteHostingSiteRouteHandler({
+        service: {
+            selectImportArchive: async (projectId) => { calls.push(['select', projectId]); return { cancelled: false, selection_token: 'token', name: 'project.zip' }; },
+            inspectImportArchive: async (projectId, payload) => { calls.push(['inspect', projectId, payload]); return { suggested: { navigation: [] } }; },
+            importAstroArchive: async (projectId, payload) => { calls.push(['import', projectId, payload]); return { id: 'site-1', template_status: 'imported' }; }
+        },
+        sendSuccess: async (_res, _id, data, status = 200) => responses.push({ data, status }),
+        sendError: async (_res, _id, status, code) => responses.push({ status, code })
+    });
+    const base = { remoteAddress: '127.0.0.1', host: '127.0.0.1:43127', origin: 'http://127.0.0.1:43127' };
+    assert.equal(await handler({ ...base, method: 'POST', contentType: 'application/json', pathname: '/api/v1/site-hosting/projects/project-1/import-archive/select', requestBody: {} }), true);
+    assert.equal(await handler({ ...base, method: 'POST', contentType: 'application/json', pathname: '/api/v1/site-hosting/projects/project-1/import-archive/inspect', requestBody: { selection_token: 'token' } }), true);
+    assert.equal(await handler({ ...base, method: 'POST', contentType: 'application/json', pathname: '/api/v1/site-hosting/projects/project-1/sites/import-archive', requestBody: { name: '담백한 기록', selection_token: 'token' } }), true);
+    assert.deepEqual(calls, [
+        ['select', 'project-1'],
+        ['inspect', 'project-1', { selection_token: 'token' }],
+        ['import', 'project-1', { name: '담백한 기록', selection_token: 'token' }]
+    ]);
+    assert.equal(responses[2].status, 201);
+});
+
 test('site routes pass explicit custom-domain disconnect confirmation to the service', async () => {
     const calls = [];
     const responses = [];

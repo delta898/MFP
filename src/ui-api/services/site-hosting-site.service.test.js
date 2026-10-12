@@ -38,6 +38,224 @@ test('site service lists templates and creates a named site without Cloudflare d
     }
 });
 
+test('imports an Astro ZIP and builds it to create the Site thumbnail', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-astro-import-'));
+    const sourceRoot = path.join(workspaceDir, 'source');
+    const archivePath = path.join(workspaceDir, 'project.zip');
+    try {
+        const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
+        projectRepository.create({ id: 'project-1', name: '개인 사이트' });
+        fs.mkdirSync(path.join(sourceRoot, 'src', 'pages'), { recursive: true });
+        fs.mkdirSync(path.join(sourceRoot, 'src', 'layouts'), { recursive: true });
+        fs.writeFileSync(path.join(sourceRoot, 'package.json'), JSON.stringify({
+            dependencies: { astro: '^5.0.0' }, scripts: { build: 'astro build' }
+        }));
+        fs.writeFileSync(path.join(sourceRoot, 'package-lock.json'), '{}');
+        fs.writeFileSync(path.join(sourceRoot, 'src', 'pages', 'index.astro'), '<title>담백한 기록</title><h1>담백한 기록</h1>');
+        fs.writeFileSync(path.join(sourceRoot, 'src', 'pages', 'about.astro'), '<h1>소개</h1>');
+        fs.writeFileSync(path.join(sourceRoot, 'src', 'layouts', 'Base.astro'), '<nav><a href="/">홈</a><a href="/about/">소개</a></nav>');
+        fs.writeFileSync(archivePath, 'test archive');
+        const pickerOptions = [];
+        let previewRoot = '';
+        const service = createSiteHostingSiteService({
+            fs, path, workspaceDir, projectRepository, templates: localTemplates(),
+            dialog: { showOpenDialog: async (options) => { pickerOptions.push(options); return { canceled: false, filePaths: [archivePath] }; } },
+            extractZip: async (_archive, { dir }) => fs.cpSync(sourceRoot, dir, { recursive: true }),
+            createId: () => 'imported-site', now: () => '2026-10-11T00:00:00.000Z',
+            astroRuntime: {
+                build: async () => ({ screenshot: { build_id: 'import-build' } }),
+                startDraftPreview: async (draft) => { previewRoot = draft.root_path; return { url: 'http://127.0.0.1:43210/' }; },
+                stopDraftPreview: async () => ({ stopped: true })
+            }
+        });
+        const selection = await service.selectImportArchive('project-1');
+        assert.equal(selection.name, 'project.zip');
+        const secondSelection = await service.selectImportArchive('project-1');
+        assert.equal(pickerOptions[1].defaultPath, workspaceDir, 'the ZIP picker should reopen in the last selected directory');
+        const analysis = await service.inspectImportArchive('project-1', { selection_token: selection.selection_token });
+        assert.equal(analysis.suggested.name, '담백한 기록');
+        assert.deepEqual(analysis.suggested.navigation.map(({ label, href }) => ({ label, href })), [
+            { label: '홈', href: '/' }, { label: '소개', href: '/about/' }
+        ]);
+        const preview = await service.previewDraft('project-1', {
+            name: '담백한 기록', selection_token: selection.selection_token,
+            settings: { navigation: [{ label: '홈', href: '/' }] }
+        });
+        assert.equal(preview.url, 'http://127.0.0.1:43210/');
+        assert.equal(fs.readFileSync(path.join(previewRoot, 'src', 'pages', 'index.astro'), 'utf8'), '<title>담백한 기록</title><h1>담백한 기록</h1>');
+        await service.stopDraftPreview('project-1', preview.id);
+        assert.equal(fs.existsSync(previewRoot), false);
+        assert.ok(secondSelection.selection_token);
+        const created = await service.importAstroArchive('project-1', {
+            name: '담백한 기록', selection_token: selection.selection_token,
+            settings: { site_description: '사용자가 수정한 설명', search_engine_indexing: false,
+                navigation: [{ label: '첫 화면', href: '/' }, { label: '기록', href: '/blog/' }, { label: '소개', href: '/about/' }],
+                publishing: { post_list_navigation_index: 1 },
+                logo: 'data:image/png;base64,iVBORw0KGgo=',
+                share_image: 'data:image/png;base64,iVBORw0KGgo=',
+                favicon: 'data:image/png;base64,iVBORw0KGgo=' }
+        });
+        assert.equal(created.template_status, 'imported');
+        assert.deepEqual(created.screenshot, { build_id: 'import-build' });
+        const [listed] = await service.list('project-1');
+        assert.equal(listed.name, '담백한 기록');
+        assert.equal(listed.template_status, 'imported');
+        assert.deepEqual(listed.posting_target, { eligible: false, reason: 'BlogGenius 글 발행 규격이 없는 Astro 프로젝트' });
+        const importedRoot = path.join(workspaceDir, 'site-hosting', 'sites', created.id);
+        assert.equal(fs.readFileSync(path.join(importedRoot, 'src', 'pages', 'index.astro'), 'utf8'), '<title>담백한 기록</title><h1>담백한 기록</h1>');
+        assert.equal(fs.existsSync(path.join(importedRoot, '.bloggenius', 'site.json')), true);
+        const siteMeta = JSON.parse(fs.readFileSync(path.join(importedRoot, '.bloggenius', 'site.json'), 'utf8'));
+        assert.deepEqual(siteMeta.customization, {
+            site_description: '사용자가 수정한 설명', search_engine_indexing: false,
+            navigation: [{ label: '첫 화면', href: '/' }, { label: '기록', href: '/blog/' }, { label: '소개', href: '/about/' }],
+            publishing: { post_list_navigation_index: 1 },
+            logo: '/.bloggenius/assets/bloggenius-logo.png',
+            share_image: '/.bloggenius/assets/bloggenius-share-image.png',
+            favicon: '/.bloggenius/assets/bloggenius-favicon.png'
+        });
+        assert.equal(fs.readFileSync(path.join(importedRoot, '.bloggenius', 'assets', 'bloggenius-logo.png')).toString('base64'), 'iVBORw0KGgo=');
+        const savedSettings = service.getSettings('project-1', created.id);
+        const loadedSettings = service.getSettings('project-1', created.id);
+        assert.equal(loadedSettings.id, created.id);
+        assert.equal(loadedSettings.source_kind, 'imported-astro');
+        assert.deepEqual(loadedSettings.customization, {
+            site_description: '사용자가 수정한 설명', search_engine_indexing: false,
+            navigation: [{ label: '첫 화면', href: '/' }, { label: '기록', href: '/blog/' }, { label: '소개', href: '/about/' }],
+            publishing: { post_list_navigation_index: 1 },
+            logo: 'data:image/png;base64,iVBORw0KGgo=',
+            share_image: 'data:image/png;base64,iVBORw0KGgo=',
+            favicon: 'data:image/png;base64,iVBORw0KGgo='
+        });
+        assert.equal(savedSettings.customization.publishing.post_list_navigation_index, 1);
+        const updated = await service.applySettings('project-1', created.id, {
+            name: '새 담백한 기록',
+            customization: { site_description: '수정한 소개', search_engine_indexing: true,
+                navigation: [{ label: '기록', href: '/blog/' }] }
+        });
+        assert.equal(updated.name, '새 담백한 기록');
+        assert.equal(updated.source_kind, 'imported-astro');
+        assert.equal(updated.build_error, '');
+        assert.equal(fs.readFileSync(path.join(importedRoot, 'src', 'pages', 'index.astro'), 'utf8'), '<title>담백한 기록</title><h1>담백한 기록</h1>');
+        const updatedMeta = JSON.parse(fs.readFileSync(path.join(importedRoot, '.bloggenius', 'site.json'), 'utf8'));
+        assert.equal(updatedMeta.name, '새 담백한 기록');
+        assert.deepEqual(updatedMeta.customization, {
+            site_description: '수정한 소개', search_engine_indexing: true,
+            navigation: [{ label: '기록', href: '/blog/' }],
+            publishing: { post_list_navigation_index: 0 },
+            logo: '/.bloggenius/assets/bloggenius-logo.png',
+            share_image: '/.bloggenius/assets/bloggenius-share-image.png',
+            favicon: '/.bloggenius/assets/bloggenius-favicon.png'
+        });
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
+test('integrates declared Astro settings in ZIP preview, Site creation, and later settings builds', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-astro-contract-'));
+    const sourceRoot = path.join(workspaceDir, 'source');
+    const archivePath = path.join(workspaceDir, 'project.zip');
+    const siteConfig = () => JSON.parse(fs.readFileSync(path.join(workspaceDir, 'site-hosting', 'sites', 'imported-site', 'site-data', 'site.json'), 'utf8'));
+    let previewConfig;
+    let nextId = 0;
+    try {
+        const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
+        projectRepository.create({ id: 'project-1', name: '개인 사이트' });
+        fs.mkdirSync(path.join(sourceRoot, 'bloggenius'), { recursive: true });
+        fs.mkdirSync(path.join(sourceRoot, 'site-data'), { recursive: true });
+        fs.mkdirSync(path.join(sourceRoot, 'src', 'lib'), { recursive: true });
+        fs.mkdirSync(path.join(sourceRoot, 'src', 'pages'), { recursive: true });
+        fs.mkdirSync(path.join(sourceRoot, 'public', 'images'), { recursive: true });
+        fs.writeFileSync(path.join(sourceRoot, 'package.json'), JSON.stringify({ name: 'contract-site', dependencies: { astro: '^7.3.0' }, scripts: { build: 'astro build' } }));
+        fs.writeFileSync(path.join(sourceRoot, 'package-lock.json'), '{}');
+        fs.writeFileSync(path.join(sourceRoot, 'bloggenius', 'project.json'), JSON.stringify({
+            format: 'bloggenius-astro-project', schema_version: 1,
+            settings_support: { site_identity: true, navigation: true, logo: true, favicon: true, share_image: true }
+        }));
+        fs.writeFileSync(path.join(sourceRoot, 'site-data', 'site.json'), JSON.stringify({
+            displayName: '원본 이름', seoDescription: '원본 설명', searchEngineIndexing: true,
+            navigation: [{ id: 'home', label: '홈', path: '/' }, { id: 'posts', label: '기록', path: '/blog/' }],
+            logo: '/images/brand.png', shareImage: '', favicon: '', project: { tagline: '프로젝트 소유 데이터' }
+        }));
+        fs.writeFileSync(path.join(sourceRoot, 'public', 'images', 'brand.png'), Buffer.from('iVBORw0KGgo=', 'base64'));
+        fs.writeFileSync(path.join(sourceRoot, 'src', 'lib', 'site.ts'), "path.join(process.cwd(), 'site-data', 'site.json')");
+        fs.writeFileSync(path.join(sourceRoot, 'src', 'pages', 'index.astro'), '<h1>원본 이름</h1>');
+        fs.writeFileSync(path.join(sourceRoot, 'src', 'pages', '[...slug].astro'), "getCollection('posts');");
+        fs.writeFileSync(archivePath, 'test archive');
+        const service = createSiteHostingSiteService({
+            fs, path, workspaceDir, projectRepository, templates: localTemplates(),
+            dialog: { showOpenDialog: async () => ({ canceled: false, filePaths: [archivePath] }) },
+            extractZip: async (_archive, { dir }) => fs.cpSync(sourceRoot, dir, { recursive: true }),
+            createId: () => { nextId += 1; return nextId === 2 ? 'imported-site' : `draft-${nextId}`; },
+            astroRuntime: {
+                startDraftPreview: async (draft) => {
+                    previewConfig = JSON.parse(fs.readFileSync(path.join(draft.root_path, 'site-data', 'site.json'), 'utf8'));
+                    return { url: 'http://127.0.0.1:43210/' };
+                },
+                stopDraftPreview: async () => ({ stopped: true }),
+                build: async (_projectId, siteId) => ({ screenshot: { build_id: 'build-1', siteId, displayName: siteConfig().displayName } })
+            }
+        });
+        const selection = await service.selectImportArchive('project-1');
+        const analysis = await service.inspectImportArchive('project-1', { selection_token: selection.selection_token });
+        assert.equal(analysis.suggested.name, '원본 이름');
+        assert.equal(analysis.suggested.post_list_navigation_index, 1);
+        assert.equal(analysis.suggested.logo_preview, 'data:image/png;base64,iVBORw0KGgo=');
+        const draftSettings = {
+            site_description: '미리보기 설명', search_engine_indexing: false,
+            navigation: [{ id: 'home', label: '첫 화면', href: '/' }, { id: 'posts', label: '소식', href: '/news/' }]
+        };
+        const preview = await service.previewDraft('project-1', {
+            name: '미리보기 이름', selection_token: selection.selection_token, settings: draftSettings
+        });
+        assert.equal(preview.url, 'http://127.0.0.1:43210/');
+        assert.equal(previewConfig.displayName, '미리보기 이름');
+        assert.equal(previewConfig.seoDescription, '미리보기 설명');
+        assert.equal(previewConfig.searchEngineIndexing, false);
+        assert.deepEqual(previewConfig.navigation, [
+            { id: 'home', label: '첫 화면', path: '/' }, { id: 'posts', label: '소식', path: '/news/' }
+        ]);
+        assert.equal(previewConfig.project.tagline, '프로젝트 소유 데이터');
+        await service.stopDraftPreview('project-1', preview.id);
+
+        const created = await service.importAstroArchive('project-1', {
+            name: '만든 이름', selection_token: selection.selection_token,
+            settings: { ...draftSettings, navigation: [{ id: 'home', label: '홈', href: '/' }, { id: 'posts', label: '공지', href: '/news/' }] }
+        });
+        assert.equal(created.id, 'imported-site');
+        assert.equal(created.screenshot?.build_id, 'build-1');
+        assert.equal(siteConfig().displayName, '만든 이름');
+        assert.equal(siteConfig().navigation[1].id, 'posts');
+        assert.equal(siteConfig().navigation[1].label, '공지');
+        assert.equal(siteConfig().navigation[1].path, '/news/');
+        const editedPreview = await service.previewDraft('project-1', {
+            site_id: created.id, name: '미리보기 이름',
+            settings: { ...draftSettings, navigation: [{ id: 'home', label: '바뀐 홈', href: '/' }] }
+        });
+        assert.equal(previewConfig.displayName, '미리보기 이름');
+        assert.equal(previewConfig.navigation[0].label, '바뀐 홈');
+        assert.equal(service.getSettings('project-1', created.id).name, '만든 이름', 'preview must not change the saved Site');
+        await service.stopDraftPreview('project-1', editedPreview.id);
+        const settings = service.getSettings('project-1', created.id);
+        assert.equal(settings.integration.capabilities.navigation, true);
+        assert.equal(settings.customization.navigation[1].id, 'posts');
+        assert.equal(settings.customization.logo, 'data:image/png;base64,iVBORw0KGgo=');
+
+        const updated = await service.applySettings('project-1', created.id, {
+            name: '수정된 이름', customization: {
+                site_description: '저장 후 설명', search_engine_indexing: true,
+                navigation: [{ id: 'home', label: '홈', href: '/' }, { id: 'posts', label: '뉴스', href: '/news/' }]
+            }
+        });
+        assert.equal(siteConfig().displayName, '수정된 이름');
+        assert.equal(siteConfig().seoDescription, '저장 후 설명');
+        assert.equal(updated.screenshot.displayName, '수정된 이름');
+        assert.equal(updated.build_error, '');
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('Blog Beta recognizes an installed Digital Garden as a posting target without a cached template package', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-dg-package-cache-'));
     const templatesRoot = path.join(workspaceDir, 'template-cache');

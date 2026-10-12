@@ -26,6 +26,92 @@ function safeSiteId(value) {
     return /^[a-zA-Z0-9_-]{1,100}$/.test(id) ? id : '';
 }
 
+function persistImportedProfileImages(fileSystem, pathApi, siteRoot, customization = {}) {
+    const output = { ...customization };
+    const metadataRoot = pathApi.join(siteRoot, '.bloggenius');
+    const assetsRoot = pathApi.join(metadataRoot, 'assets');
+    for (const [key, fileBase] of [['logo', 'bloggenius-logo'], ['share_image', 'bloggenius-share-image'], ['favicon', 'bloggenius-favicon']]) {
+        const image = output[key];
+        if (image === null) { delete output[key]; continue; }
+        if (!image || typeof image !== 'object' || Array.isArray(image)) continue;
+        const extension = String(image.extension || '');
+        const bytes = image.content;
+        if (!['png', 'jpg', 'webp'].includes(extension) || !Buffer.isBuffer(bytes) || bytes.length > 1024 * 1024) {
+            throw withStatus(new Error('사이트 이미지 설정이 올바르지 않습니다.'), 400, 'SITE_HOSTING_SITE_PROFILE_IMAGE_INVALID');
+        }
+        fileSystem.mkdirSync(assetsRoot, { recursive: true, mode: 0o700 });
+        const filename = `${fileBase}.${extension}`;
+        fileSystem.writeFileSync(pathApi.join(assetsRoot, filename), bytes, { mode: 0o600 });
+        output[key] = `/.bloggenius/assets/${filename}`;
+    }
+    return output;
+}
+
+function applyImportedProjectSettings(fileSystem, pathApi, siteRoot, site, integration) {
+    const capabilities = integration?.capabilities || {};
+    const settingsPath = pathApi.join(siteRoot, 'site-data', 'site.json');
+    if (!integration?.descriptor_valid || !integration?.settings_valid || !fileSystem.existsSync(settingsPath)) {
+        return persistImportedProfileImages(fileSystem, pathApi, siteRoot, site.customization || {});
+    }
+    const settings = JSON.parse(String(fileSystem.readFileSync(settingsPath, 'utf8') || ''));
+    const customization = { ...(site.customization || {}) };
+    if (capabilities.site_identity) {
+        settings.displayName = String(site.name || '').trim();
+        settings.seoDescription = String(customization.site_description || '').trim();
+        settings.searchEngineIndexing = customization.search_engine_indexing !== false;
+    }
+    if (capabilities.navigation && Array.isArray(customization.navigation)) {
+        const previous = Array.isArray(settings.navigation) ? settings.navigation : [];
+        settings.navigation = customization.navigation.map((item, index) => {
+            const match = previous.find((candidate) => candidate.path === item.href)
+                || previous.find((candidate) => candidate.id === item.id) || previous[index];
+            return { ...(match || {}), id: String(item.id || match?.id || `menu-${index + 1}`), label: item.label, path: item.href };
+        });
+    }
+    const imageFields = [
+        { key: 'logo', dataKey: 'logo', fileBase: 'bloggenius-logo', capability: 'logo' },
+        { key: 'share_image', dataKey: 'shareImage', fileBase: 'bloggenius-share-image', capability: 'share_image' },
+        { key: 'favicon', dataKey: 'favicon', fileBase: 'bloggenius-favicon', capability: 'favicon' }
+    ];
+    const publicRoot = pathApi.join(siteRoot, 'public');
+    fileSystem.mkdirSync(publicRoot, { recursive: true });
+    for (const field of imageFields) {
+        if (!capabilities[field.capability]) continue;
+        const image = customization[field.key];
+        const previousPath = String(settings[field.dataKey] || '');
+        if (image === null) {
+            settings[field.dataKey] = '';
+            delete customization[field.key];
+            if (/^\/bloggenius-(?:logo|share-image|favicon)\.(?:png|jpg|webp)$/u.test(previousPath)) {
+                try { fileSystem.rmSync(pathApi.join(publicRoot, previousPath.slice(1)), { force: true }); } catch (_error) { }
+            }
+            continue;
+        }
+        if (!image || typeof image !== 'object' || Array.isArray(image)) {
+            if (previousPath) customization[field.key] = previousPath;
+            continue;
+        }
+        const extension = String(image.extension || '');
+        const bytes = image.content;
+        const signatures = { png: Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), jpg: Buffer.from([255, 216, 255]), webp: Buffer.from('RIFF') };
+        if (!Object.hasOwn(signatures, extension) || !Buffer.isBuffer(bytes) || bytes.length > 1024 * 1024
+            || bytes.length < signatures[extension].length || !bytes.subarray(0, signatures[extension].length).equals(signatures[extension])
+            || (extension === 'webp' && bytes.toString('ascii', 8, 12) !== 'WEBP')) {
+            throw withStatus(new Error('사이트 이미지 형식이 올바르지 않습니다.'), 400, 'SITE_HOSTING_SITE_PROFILE_IMAGE_INVALID');
+        }
+        const filename = `${field.fileBase}.${extension}`;
+        fileSystem.writeFileSync(pathApi.join(publicRoot, filename), bytes, { mode: 0o600 });
+        settings[field.dataKey] = `/${filename}`;
+        customization[field.key] = `/${filename}`;
+        if (previousPath && previousPath !== `/${filename}`
+            && /^\/bloggenius-(?:logo|share-image|favicon)\.(?:png|jpg|webp)$/u.test(previousPath)) {
+            try { fileSystem.rmSync(pathApi.join(publicRoot, previousPath.slice(1)), { force: true }); } catch (_error) { }
+        }
+    }
+    fileSystem.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+    return customization;
+}
+
 function createSiteHostingSiteRepository(options = {}) {
     const fileSystem = options.fs || fs;
     const pathApi = options.path || path;
@@ -63,6 +149,14 @@ function createSiteHostingSiteRepository(options = {}) {
                 throw new Error('Site manifest contract mismatch.');
             }
             const template = templates.get(site.template?.id);
+            if (site.source?.kind === 'imported-astro') {
+                if (!fileSystem.existsSync(pathApi.join(siteRoot, 'package.json'))) throw new Error('Imported Astro project is missing package.json.');
+                site.template_status = 'imported';
+                site.template_name = '가져온 Astro 프로젝트';
+                site.template_update_available = false;
+                site.available_template_version = '';
+                return { domain: '', ...site, root_path: siteRoot };
+            }
             const nestedTemplatePath = pathApi.join(siteRoot, 'template', 'astro');
             const installedTemplatePath = fileSystem.existsSync(pathApi.join(nestedTemplatePath, 'package.json'))
                 ? nestedTemplatePath : siteRoot;
@@ -263,6 +357,48 @@ function createSiteHostingSiteRepository(options = {}) {
             const error = new Error('사이트를 만들지 못했습니다.');
             error.code = cause?.code || 'SITE_HOSTING_SITE_CREATE_FAILED';
             error.status = Number.isInteger(cause?.status) ? cause.status : 500;
+            error.cause = cause;
+            throw error;
+        }
+    }
+
+    function importAstroProject(projectId, site, sourceRoot) {
+        const sitesRoot = getSitesRoot(projectId);
+        const id = safeSiteId(site?.id);
+        if (!id) throw withStatus(new Error('사이트 ID가 올바르지 않습니다.'), 400, 'SITE_HOSTING_SITE_ID_INVALID');
+        if (!fileSystem.existsSync(pathApi.join(sourceRoot, 'package.json'))) {
+            throw withStatus(new Error('ZIP에서 Astro 프로젝트의 package.json을 찾지 못했습니다.'), 400, 'SITE_HOSTING_ASTRO_PROJECT_REQUIRED');
+        }
+        const siteRoot = pathApi.join(sitesRoot, id);
+        fileSystem.mkdirSync(sitesRoot, { recursive: true });
+        try { fileSystem.mkdirSync(siteRoot, { recursive: false }); }
+        catch (cause) {
+            throw withStatus(new Error(cause?.code === 'EEXIST' ? '이미 존재하는 사이트입니다.' : '사이트 폴더를 만들지 못했습니다.'), cause?.code === 'EEXIST' ? 409 : 500, cause?.code === 'EEXIST' ? 'SITE_HOSTING_SITE_ALREADY_EXISTS' : 'SITE_HOSTING_SITE_CREATE_FAILED');
+        }
+        try {
+            fileSystem.cpSync(sourceRoot, siteRoot, { recursive: true, filter: (source) => pathApi.basename(source) !== '.bloggenius' });
+            const metadataRoot = pathApi.join(siteRoot, '.bloggenius');
+            fileSystem.mkdirSync(metadataRoot, { recursive: true });
+            const customization = applyImportedProjectSettings(fileSystem, pathApi, siteRoot, site, site.integration);
+            const timestamp = String(site.created_at || '');
+            const manifest = {
+                schema_version: SITE_SCHEMA_VERSION,
+                id,
+                project_id: projectId,
+                name: String(site.name || '').trim(),
+                source: { kind: 'imported-astro', archive_name: String(site.archive_name || '').slice(0, 255) },
+                ...(site.integration ? { integration: site.integration } : {}),
+                ...(Object.keys(customization).length ? { customization } : {}),
+                hostname: '',
+                domain: '',
+                created_at: timestamp,
+                updated_at: String(site.updated_at || timestamp)
+            };
+            fileSystem.writeFileSync(pathApi.join(metadataRoot, 'site.json'), `${JSON.stringify(manifest, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+            return { ...manifest, template_name: '가져온 Astro 프로젝트', template_status: 'imported', root_path: siteRoot };
+        } catch (cause) {
+            try { fileSystem.rmSync(siteRoot, { recursive: true, force: true }); } catch (_cleanupError) { }
+            const error = withStatus(new Error('Astro 프로젝트를 사이트로 가져오지 못했습니다.'), 500, 'SITE_HOSTING_SITE_IMPORT_FAILED');
             error.cause = cause;
             throw error;
         }
@@ -851,6 +987,17 @@ function createSiteHostingSiteRepository(options = {}) {
     function updateSettings(projectId, siteId, patch = {}) {
         const site = readSite(projectId, siteId);
         if (!site) throw withStatus(new Error('사이트를 찾을 수 없습니다.'), 404, 'SITE_HOSTING_SITE_NOT_FOUND');
+        if (site.source?.kind === 'imported-astro') {
+            const customization = applyImportedProjectSettings(fileSystem, pathApi, site.root_path, {
+                name: patch.name || site.name,
+                customization: patch.customization || site.customization
+            }, site.integration);
+            return update(projectId, siteId, {
+                name: patch.name,
+                customization,
+                updated_at: patch.updated_at
+            });
+        }
         const template = templates.get(site.template?.id);
         if (!isSupportedSiteHostingContractVersion(template?.resource?.spec_version)) {
             throw withStatus(new Error('이 템플릿은 사이트 설정 변경을 지원하지 않습니다.'), 409, 'SITE_HOSTING_SETTINGS_UNAVAILABLE');
@@ -1011,7 +1158,7 @@ function createSiteHostingSiteRepository(options = {}) {
         }
     }
 
-    return { list, get, create, getArchiveTarget, archive, createPreviewDraft, removePreviewDraft, update, updateSettings, setTemplateUpdateTestVersion, applyTemplateUpdate, recordCloudflareAccount, recordDeployment, clearDeployment, recordBuildResult, recordBuildScreenshot, getScreenshot, recordCustomDomainBinding, clearCustomDomainBinding };
+    return { list, get, create, importAstroProject, applyImportedProjectSettings: (siteRoot, site) => applyImportedProjectSettings(fileSystem, pathApi, siteRoot, site, site.integration), getArchiveTarget, archive, createPreviewDraft, removePreviewDraft, update, updateSettings, setTemplateUpdateTestVersion, applyTemplateUpdate, recordCloudflareAccount, recordDeployment, clearDeployment, recordBuildResult, recordBuildScreenshot, getScreenshot, recordCustomDomainBinding, clearCustomDomainBinding };
 }
 
 module.exports = { SITE_SCHEMA_VERSION, safeSiteId, createSiteHostingSiteRepository };

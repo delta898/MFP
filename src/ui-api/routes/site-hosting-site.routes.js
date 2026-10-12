@@ -50,6 +50,21 @@ function createSiteHostingSiteRouteHandler(deps = {}) {
                 ));
                 return true;
             }
+            const importArchiveSelectMatch = pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/import-archive\/select$/);
+            if (importArchiveSelectMatch && method === 'POST' && service.selectImportArchive) {
+                await sendSuccess(res, requestId, await service.selectImportArchive(decodePathPart(importArchiveSelectMatch[1])));
+                return true;
+            }
+            const importArchiveInspectMatch = pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/import-archive\/inspect$/);
+            if (importArchiveInspectMatch && method === 'POST' && service.inspectImportArchive) {
+                await sendSuccess(res, requestId, await service.inspectImportArchive(decodePathPart(importArchiveInspectMatch[1]), ctx.requestBody || {}));
+                return true;
+            }
+            const importArchiveMatch = pathname.match(/^\/api\/v1\/site-hosting\/projects\/([^/]+)\/sites\/import-archive$/);
+            if (importArchiveMatch && method === 'POST' && service.importAstroArchive) {
+                await sendSuccess(res, requestId, await service.importAstroArchive(decodePathPart(importArchiveMatch[1]), ctx.requestBody || {}), 201);
+                return true;
+            }
             const templatePreviewMatch = pathname.match(/^\/api\/v1\/site-hosting\/templates\/([^/]+)\/preview$/);
             if (templatePreviewMatch && method === 'GET') {
                 const preview = service.getTemplatePreview?.(decodePathPart(templatePreviewMatch[1]));

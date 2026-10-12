@@ -1,5 +1,15 @@
 function siteHostingCreateRequirementsMet() {
   const name = String(document.getElementById('site-name')?.value || '').trim();
+  if (siteHostingEditingImportedSite) {
+    if (!name || name.length > 80 || !siteHostingSelectedProject) return false;
+    return [...document.querySelectorAll('#site-navigation-fields [data-site-menu-row]')].every((row) => {
+      const label = String(row.querySelector('[data-site-menu-label]')?.value || '').trim();
+      const href = row.querySelector('[data-site-menu-href]');
+      if (!label || label.length > 30 || /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(label)) return false;
+      try { siteHostingNormalizeMenuPath(href?.value, '', label); return true; }
+      catch (_error) { return false; }
+    });
+  }
   const templateId = String(document.getElementById('site-template-id')?.value || '');
   const template = siteHostingCreateTemplates.find((item) => item.id === templateId);
   if (!name || !template || !siteHostingSelectedProject) return false;
@@ -37,6 +47,13 @@ function siteHostingCreateRequirementsMet() {
 }
 function siteHostingUpdateCreateSubmitState() {
   const submit = document.querySelector('#site-create-form [type="submit"]');
+  const zipPanel = document.getElementById('site-create-zip-panel');
+  if (submit && document.getElementById('site-create-dialog')?.classList.contains('is-zip-import-mode')) {
+    const name = String(document.getElementById('site-import-name')?.value || '').trim();
+    submit.disabled = siteHostingImportStep !== 'settings' || !name || !zipPanel?.dataset.archiveToken || !siteHostingImportAnalysis
+      || !siteHostingSelectedProject || submit.classList.contains('is-loading');
+    return;
+  }
   if (submit && !submit.classList.contains('is-loading')) {
     const settingsUnchanged = siteHostingCreateMode === 'settings'
       && Boolean(siteHostingCreateInitialSnapshot)

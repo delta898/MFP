@@ -79,6 +79,7 @@
 - `features/configurable-sidebar-content.md`
 - `features/personalized-topic-recommendations.md`
 - `features/card-news.md`
+- `features/site-hosting-astro-project-meta-prompt.md` (experimental copyable prompt and candidate ZIP settings contract for Astro project import)
 - `decisions/2026-06-19-license-features-and-publish-quota.md`
 - `decisions/2026-06-27-paid-plans-and-credits.md`
 - `decisions/2026-07-29-sns-entitlement-and-sheet-provisioning.md`
@@ -108,6 +109,7 @@
 
 ## Active Work
 
+- `plans/active/2026-10-11-site-hosting-astro-project-import-development.md` (direct Astro project ZIP import to Site)
 - `plans/active/2026-10-11-astro-site-generation-agent-options.md` (product and technical exploration; generation mechanism not selected)
 - `plans/active/2026-10-01-static-template-contract-spike-development.md`
 - `plans/active/2026-10-02-cloudflare-static-assets-list-poc-development.md`

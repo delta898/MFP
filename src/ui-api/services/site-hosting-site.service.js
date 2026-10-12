@@ -12,12 +12,14 @@ const { createGitHubSiteTemplateCatalog } = require('../../site-hosting/github-s
 const { createAstroSiteRuntime } = require('../../site-hosting/astro-site-runtime');
 const { createCloudflareStaticAssetsDeployer } = require('../../site-hosting/cloudflare-static-assets-deployer');
 const { isSupportedSiteHostingContractVersion } = require('../../site-hosting/bloggenius-compatibility');
+const { inspectAstroProject } = require('../../site-hosting/astro-project-inspector');
 
 function createSiteHostingSiteService(deps = {}) {
     const fileSystem = deps.fs || require('node:fs');
     const pathApi = deps.path || require('node:path');
     const operatingSystem = deps.os || osApi;
     let lastSetupDirectory = '';
+    let lastImportArchiveDirectory = '';
     const projectRepository = deps.projectRepository || createSiteHostingProjectRepository({
         fs: deps.fs,
         path: deps.path,
@@ -79,6 +81,7 @@ function createSiteHostingSiteService(deps = {}) {
     const createId = deps.createId || (() => crypto.randomUUID().replace(/-/g, ''));
     const draftPreviews = new Map();
     const siteDeletionPlans = new Map();
+    const importArchiveSelections = new Map();
 
     function normalizeSetupInputs(template, requested = {}, { allowMissingRequired = false } = {}) {
         if (!requested || typeof requested !== 'object' || Array.isArray(requested)) {
@@ -193,6 +196,194 @@ function createSiteHostingSiteService(deps = {}) {
         const setupInputs = normalizeSetupInputs(template, { [inputId]: result.filePaths[0] }, { allowMissingRequired: true });
         lastSetupDirectory = setupInputs[inputId];
         return { cancelled: false, path: setupInputs[inputId], name: pathApi.basename(setupInputs[inputId]) };
+    }
+
+    async function selectImportArchive(projectId) {
+        if (!projectRepository.get(projectId)) throw siteInputError('프로젝트를 찾을 수 없습니다.', 'SITE_HOSTING_PROJECT_NOT_FOUND', 404);
+        for (const [token, selection] of importArchiveSelections) {
+            if (Date.now() - selection.selected_at > 10 * 60 * 1000) importArchiveSelections.delete(token);
+        }
+        let nativeDialog = deps.dialog;
+        if (!nativeDialog) { try { nativeDialog = require('electron').dialog; } catch (_error) { } }
+        if (typeof nativeDialog?.showOpenDialog !== 'function') throw siteInputError('시스템 파일 선택 창을 사용할 수 없습니다.', 'SITE_HOSTING_ARCHIVE_PICKER_UNAVAILABLE');
+        const result = await nativeDialog.showOpenDialog({
+            title: 'Astro 프로젝트 ZIP 선택',
+            defaultPath: lastImportArchiveDirectory || operatingSystem.homedir(),
+            properties: ['openFile'],
+            filters: [{ name: 'ZIP 파일', extensions: ['zip'] }]
+        });
+        const archivePath = result?.filePaths?.[0];
+        if (result?.canceled || !archivePath) return { cancelled: true };
+        let stats;
+        try { stats = fileSystem.statSync(archivePath); }
+        catch (_error) { throw siteInputError('선택한 ZIP 파일을 찾을 수 없습니다.', 'SITE_HOSTING_ARCHIVE_NOT_FOUND'); }
+        if (!stats.isFile() || pathApi.extname(archivePath).toLowerCase() !== '.zip') throw siteInputError('ZIP 파일을 선택해 주세요.', 'SITE_HOSTING_ARCHIVE_INVALID');
+        lastImportArchiveDirectory = pathApi.dirname(archivePath);
+        const token = crypto.randomUUID();
+        importArchiveSelections.set(token, { project_id: projectId, path: archivePath, name: pathApi.basename(archivePath), selected_at: Date.now() });
+        return { cancelled: false, selection_token: token, name: pathApi.basename(archivePath) };
+    }
+
+    async function withSelectedAstroArchive(projectId, token, callback) {
+        if (!projectRepository.get(projectId)) throw siteInputError('프로젝트를 찾을 수 없습니다.', 'SITE_HOSTING_PROJECT_NOT_FOUND', 404);
+        const selection = importArchiveSelections.get(String(token || ''));
+        if (!selection || selection.project_id !== projectId || Date.now() - selection.selected_at > 10 * 60 * 1000) {
+            throw siteInputError('ZIP 선택이 만료되었습니다. 파일을 다시 선택해 주세요.', 'SITE_HOSTING_ARCHIVE_SELECTION_EXPIRED');
+        }
+        const stagingRoot = fileSystem.mkdtempSync(pathApi.join(operatingSystem.tmpdir(), 'bloggenius-astro-import-'));
+        try {
+            const extractZip = deps.extractZip || (async (zipPath, options) => {
+                const module = await import('@electron-internal/extract-zip');
+                return module.extract(zipPath, options);
+            });
+            await extractZip(selection.path, { dir: stagingRoot });
+            const rootEntries = fileSystem.readdirSync(stagingRoot, { withFileTypes: true });
+            let sourceRoot = stagingRoot;
+            if (!fileSystem.existsSync(pathApi.join(sourceRoot, 'package.json'))) {
+                const directories = rootEntries.filter((entry) => entry.isDirectory() && entry.name !== '__MACOSX');
+                if (directories.length === 1) sourceRoot = pathApi.join(stagingRoot, directories[0].name);
+            }
+            const lockPath = pathApi.join(sourceRoot, 'package-lock.json');
+            if (!fileSystem.existsSync(lockPath)) {
+                throw siteInputError('ZIP 최상위 폴더에서 package.json과 package-lock.json을 찾지 못했습니다.', 'SITE_HOSTING_ASTRO_PROJECT_REQUIRED');
+            }
+            inspectAstroProject({ fs: fileSystem, path: pathApi, root: sourceRoot });
+            return await callback(sourceRoot, selection);
+        } finally {
+            try { fileSystem.rmSync(stagingRoot, { recursive: true, force: true }); } catch (_error) { }
+        }
+    }
+
+    async function inspectImportArchive(projectId, payload = {}) {
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)
+            || Object.keys(payload).some((key) => key !== 'selection_token')) {
+            throw siteInputError('ZIP 분석 요청 형식이 올바르지 않습니다.', 'SITE_HOSTING_IMPORT_INPUT_INVALID');
+        }
+        return withSelectedAstroArchive(projectId, payload.selection_token, (sourceRoot, selection) => {
+            const analysis = inspectAstroProject({ fs: fileSystem, path: pathApi, root: sourceRoot });
+            selection.inspected_at = Date.now();
+            return { archive_name: selection.name, ...analysis };
+        });
+    }
+
+    function normalizeImportedSiteSettings(value = {}) {
+        if (!value || typeof value !== 'object' || Array.isArray(value)
+            || Object.keys(value).some((key) => !['site_description', 'navigation', 'search_engine_indexing', 'publishing', 'logo', 'share_image', 'favicon'].includes(key))) {
+            throw siteInputError('가져온 사이트 설정 형식이 올바르지 않습니다.', 'SITE_HOSTING_SITE_PROFILE_INVALID');
+        }
+        const output = {};
+        if (value.site_description !== undefined) {
+            if (typeof value.site_description !== 'string' || value.site_description.length > 300) throw siteInputError('사이트 설명은 300자 이내로 입력해 주세요.', 'SITE_HOSTING_SITE_DESCRIPTION_INVALID');
+            if (value.site_description.trim()) output.site_description = value.site_description.trim();
+        }
+        if (value.search_engine_indexing !== undefined) {
+            if (typeof value.search_engine_indexing !== 'boolean') throw siteInputError('검색엔진 노출 설정이 올바르지 않습니다.', 'SITE_HOSTING_SITE_PROFILE_INVALID');
+            output.search_engine_indexing = value.search_engine_indexing;
+        }
+        if (value.navigation !== undefined) {
+            try { output.navigation = normalizeNavigationItems(value.navigation, { minItems: 0, maxItems: 50 }); }
+            catch (cause) { throw siteInputError(cause.message, cause.code || 'SITE_HOSTING_NAVIGATION_INVALID'); }
+        }
+        if (value.publishing !== undefined) {
+            const index = value.publishing?.post_list_navigation_index;
+            if (!value.publishing || typeof value.publishing !== 'object' || Array.isArray(value.publishing)
+                || Object.keys(value.publishing).some((key) => key !== 'post_list_navigation_index')
+                || !Number.isInteger(index) || index < 0 || index >= (output.navigation || value.navigation || []).length) {
+                throw siteInputError('글 목록 메뉴 설정이 올바르지 않습니다.', 'SITE_HOSTING_POST_LIST_MENU_INVALID');
+            }
+            output.publishing = { post_list_navigation_index: index };
+        }
+        for (const [key, label] of [['logo', '로고'], ['share_image', '사이트 대표 이미지'], ['favicon', 'Favicon']]) {
+            if (value[key] === undefined || value[key] === '') continue;
+            if (value[key] === null) { output[key] = null; continue; }
+            if (typeof value[key] === 'string' && isImportedPublicImagePath(value[key])) {
+                output[key] = value[key];
+            } else {
+                output[key] = normalizeSiteProfileImage(value[key], label);
+            }
+        }
+        return output;
+    }
+
+    function isImportedPublicImagePath(value) {
+        const assetPath = String(value || '');
+        if (!assetPath.startsWith('/') || assetPath.startsWith('//') || /[?#\\%]/u.test(assetPath)) return false;
+        const segments = assetPath.slice(1).split('/');
+        return segments.every((segment) => segment && segment !== '.' && segment !== '..')
+            && /\.(?:png|jpe?g|webp)$/iu.test(assetPath);
+    }
+
+    function validateImportedSettingsForProject(customization, integration) {
+        if (integration?.capabilities?.navigation !== true || !Array.isArray(customization?.navigation)) return;
+        for (const item of customization.navigation) {
+            const href = String(item.href || '');
+            let parsed;
+            try { parsed = new URL(href, 'https://bloggenius.invalid/'); } catch (_error) { parsed = null; }
+            if (!href.startsWith('/') || href.startsWith('//') || /[?#\\]/u.test(href)
+                || parsed?.origin !== 'https://bloggenius.invalid'
+                || (item.id === 'posts' && href === '/')) {
+                throw siteInputError('이 Astro 프로젝트의 메뉴 연동에는 `/`로 시작하는 내부 페이지 주소가 필요합니다.', 'SITE_HOSTING_NAVIGATION_INVALID');
+            }
+        }
+    }
+
+    function readImportedProjectImage(siteRoot, asset) {
+        const publicPath = String(asset || '');
+        if (!publicPath.startsWith('/') || publicPath.startsWith('//') || /[?#\\%]/u.test(publicPath)) return null;
+        const segments = publicPath.slice(1).split('/');
+        if (segments.some((segment) => !segment || segment === '.' || segment === '..')) return null;
+        const extensions = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' };
+        const mime = extensions[pathApi.extname(publicPath).toLowerCase()];
+        if (!mime) return null;
+        try {
+            const publicRoot = fileSystem.realpathSync(pathApi.join(siteRoot, 'public'));
+            const assetPath = fileSystem.realpathSync(pathApi.join(publicRoot, ...segments));
+            if (!assetPath.startsWith(`${publicRoot}${pathApi.sep}`)) return null;
+            const stat = fileSystem.statSync(assetPath);
+            if (!stat.isFile() || stat.size > 1024 * 1024) return null;
+            const bytes = fileSystem.readFileSync(assetPath);
+            return `data:${mime};base64,${bytes.toString('base64')}`;
+        } catch (_error) { return null; }
+    }
+
+    async function importAstroArchive(projectId, payload = {}) {
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)
+            || Object.keys(payload).some((key) => !['name', 'selection_token', 'settings'].includes(key))) {
+            throw siteInputError('가져오기 요청 형식이 올바르지 않습니다.', 'SITE_HOSTING_IMPORT_INPUT_INVALID');
+        }
+        const name = String(payload.name || '').trim();
+        if (!name) throw siteInputError('사이트 이름을 입력해 주세요.', 'SITE_HOSTING_SITE_NAME_REQUIRED');
+        if (name.length > 80) throw siteInputError('사이트 이름은 80자 이내로 입력해 주세요.', 'SITE_HOSTING_SITE_NAME_TOO_LONG');
+        const requestedSettings = payload.settings === undefined ? null : normalizeImportedSiteSettings(payload.settings);
+        return withSelectedAstroArchive(projectId, payload.selection_token, async (sourceRoot, selection) => {
+            if (!selection.inspected_at) throw siteInputError('사이트 설정을 만들기 전에 ZIP 분석을 먼저 실행해 주세요.', 'SITE_HOSTING_ARCHIVE_INSPECTION_REQUIRED', 409);
+            const analysis = inspectAstroProject({ fs: fileSystem, path: pathApi, root: sourceRoot });
+            const defaults = {
+                ...(analysis.suggested.description ? { site_description: analysis.suggested.description } : {}),
+                search_engine_indexing: analysis.suggested.search_engine_indexing,
+                navigation: analysis.suggested.navigation.map(({ id, label, href }) => ({ ...(id ? { id } : {}), label, href })),
+                ...(Number.isInteger(analysis.suggested.post_list_navigation_index) && analysis.suggested.post_list_navigation_index >= 0
+                    ? { publishing: { post_list_navigation_index: analysis.suggested.post_list_navigation_index } } : {})
+            };
+            const customization = { ...defaults, ...(requestedSettings || {}) };
+            validateImportedSettingsForProject(customization, analysis.integration);
+            const timestamp = now();
+            const created = repository.importAstroProject(projectId, {
+                id: createId(), name, archive_name: selection.name, customization, integration: analysis.integration,
+                created_at: timestamp, updated_at: timestamp
+            }, sourceRoot);
+            importArchiveSelections.delete(String(payload.selection_token || ''));
+            let build = null;
+            let build_error = '';
+            try { build = await astroRuntime.build(projectId, created.id); }
+            catch (error) { build_error = String(error?.message || '가져온 사이트를 빌드하지 못했습니다.'); }
+            return {
+                id: created.id, project_id: created.project_id, name: created.name,
+                template_name: created.template_name, template_status: created.template_status,
+                hostname: '', domain: '', created_at: created.created_at, updated_at: created.updated_at,
+                screenshot: build?.screenshot || null, screenshot_error: build?.screenshot_error || '', build_error
+            };
+        });
     }
 
     function localDate(value) {
@@ -316,6 +507,9 @@ function createSiteHostingSiteService(deps = {}) {
     }
 
     function getPostTargetEligibility(site) {
+        if (site?.source?.kind === 'imported-astro') {
+            return { eligible: false, reason: 'BlogGenius 글 발행 규격이 없는 Astro 프로젝트' };
+        }
         if (site?.template_status !== 'available') {
             return { eligible: false, reason: '템플릿을 사용할 수 없음' };
         }
@@ -989,7 +1183,7 @@ function createSiteHostingSiteService(deps = {}) {
 
     async function previewDraft(projectId, payload = {}) {
         if (!payload || typeof payload !== 'object' || Array.isArray(payload)
-            || Object.keys(payload).some((key) => !['name', 'template_id', 'customization', 'setup_inputs'].includes(key))) {
+            || Object.keys(payload).some((key) => !['name', 'template_id', 'customization', 'setup_inputs', 'selection_token', 'settings', 'site_id'].includes(key))) {
             throw siteInputError('미리보기 요청에 허용되지 않은 항목이 포함되어 있습니다.', 'SITE_HOSTING_CREATE_INPUT_INVALID');
         }
         if (!projectRepository.get(projectId)) {
@@ -1000,6 +1194,70 @@ function createSiteHostingSiteService(deps = {}) {
         }
         const requestedName = String(payload.name || '').trim();
         if (requestedName.length > 80) throw siteInputError('사이트 이름은 80자 이내로 입력해 주세요.', 'SITE_HOSTING_SITE_NAME_TOO_LONG');
+        if (payload.site_id !== undefined) {
+            if (Object.keys(payload).some((key) => !['name', 'site_id', 'settings'].includes(key))) {
+                throw siteInputError('가져온 사이트 미리보기 요청 형식이 올바르지 않습니다.', 'SITE_HOSTING_CREATE_INPUT_INVALID');
+            }
+            const site = repository.get(projectId, String(payload.site_id || ''));
+            if (!site || site.source?.kind !== 'imported-astro') {
+                throw siteInputError('가져온 사이트를 찾을 수 없습니다.', 'SITE_HOSTING_SITE_NOT_FOUND', 404);
+            }
+            const settings = normalizeImportedSiteSettings(payload.settings || {});
+            validateImportedSettingsForProject(settings, site.integration);
+            const id = `draft_${createId()}`;
+            const rootPath = fileSystem.mkdtempSync(pathApi.join(operatingSystem.tmpdir(), 'bloggenius-site-preview-'));
+            const draft = {
+                id, project_id: projectId, name: requestedName || site.name,
+                source: { kind: 'imported-astro' }, customization: settings, root_path: rootPath
+            };
+            try {
+                fileSystem.cpSync(site.root_path, rootPath, { recursive: true });
+                repository.applyImportedProjectSettings(rootPath, {
+                    name: draft.name, customization: settings, integration: site.integration
+                });
+                const preview = await astroRuntime.startDraftPreview(draft);
+                const timeout = setTimeout(() => { void stopDraftPreview(projectId, draft.id); }, 30 * 60 * 1000);
+                timeout.unref?.();
+                draftPreviews.set(draft.id, { project_id: projectId, draft, timeout });
+                return { id: draft.id, url: preview.url, knowledge_collection: preview.knowledge_collection || null };
+            } catch (error) {
+                try { fileSystem.rmSync(rootPath, { recursive: true, force: true }); } catch (_cleanupError) { }
+                throw error;
+            }
+        }
+        if (payload.selection_token !== undefined) {
+            if (Object.keys(payload).some((key) => !['name', 'selection_token', 'settings'].includes(key))) {
+                throw siteInputError('Astro 미리보기 요청 형식이 올바르지 않습니다.', 'SITE_HOSTING_CREATE_INPUT_INVALID');
+            }
+            const settings = normalizeImportedSiteSettings(payload.settings || {});
+            return withSelectedAstroArchive(projectId, payload.selection_token, async (sourceRoot, selection) => {
+                if (!selection.inspected_at) throw siteInputError('미리보기를 만들기 전에 ZIP 설정을 먼저 확인해 주세요.', 'SITE_HOSTING_ARCHIVE_INSPECTION_REQUIRED', 409);
+                const analysis = inspectAstroProject({ fs: fileSystem, path: pathApi, root: sourceRoot });
+                validateImportedSettingsForProject(settings, analysis.integration);
+                const id = `draft_${createId()}`;
+                const rootPath = fileSystem.mkdtempSync(pathApi.join(operatingSystem.tmpdir(), 'bloggenius-site-preview-'));
+                const draft = {
+                    id, project_id: projectId, name: requestedName || 'Astro 사이트 미리보기',
+                    source: { kind: 'imported-astro' }, customization: settings, root_path: rootPath
+                };
+                try {
+                    fileSystem.cpSync(sourceRoot, rootPath, { recursive: true });
+                    repository.applyImportedProjectSettings(rootPath, {
+                        name: draft.name,
+                        customization: settings,
+                        integration: analysis.integration
+                    });
+                    const preview = await astroRuntime.startDraftPreview(draft);
+                    const timeout = setTimeout(() => { void stopDraftPreview(projectId, draft.id); }, 30 * 60 * 1000);
+                    timeout.unref?.();
+                    draftPreviews.set(draft.id, { project_id: projectId, draft, timeout });
+                    return { id: draft.id, url: preview.url, knowledge_collection: preview.knowledge_collection || null };
+                } catch (error) {
+                    try { fileSystem.rmSync(rootPath, { recursive: true, force: true }); } catch (_cleanupError) { }
+                    throw error;
+                }
+            });
+        }
         const templateId = String(payload.template_id || '').trim();
         await templates.prepare?.(templateId);
         const template = templates.get(templateId);
@@ -1031,6 +1289,50 @@ function createSiteHostingSiteService(deps = {}) {
     function getSettings(projectId, siteId) {
         const site = repository.get(projectId, siteId);
         if (!site) throw siteInputError('사이트를 찾을 수 없습니다.', 'SITE_HOSTING_SITE_NOT_FOUND', 404);
+        if (site.source?.kind === 'imported-astro') {
+            const customization = { ...(site.customization || {}) };
+            const integration = site.integration;
+            if (integration?.descriptor_valid && integration?.settings_valid) {
+                try {
+                    const projectSettings = JSON.parse(String(fileSystem.readFileSync(pathApi.join(site.root_path, 'site-data', 'site.json'), 'utf8') || ''));
+                    if (integration.capabilities.site_identity) {
+                        customization.site_description = String(projectSettings.seoDescription || '');
+                        customization.search_engine_indexing = projectSettings.searchEngineIndexing !== false;
+                    }
+                    if (integration.capabilities.navigation) {
+                        customization.navigation = (projectSettings.navigation || []).map(({ id, label, path: href }) => ({ id, label, href }));
+                    }
+                    if (integration.capabilities.logo) customization.logo = projectSettings.logo || '';
+                    if (integration.capabilities.share_image) customization.share_image = projectSettings.shareImage || '';
+                    if (integration.capabilities.favicon) customization.favicon = projectSettings.favicon || '';
+                } catch (_error) { }
+            }
+            const imageValues = {};
+            for (const key of ['logo', 'share_image', 'favicon']) {
+                const asset = customization[key];
+                const projectPublicImage = readImportedProjectImage(site.root_path, asset);
+                if (projectPublicImage) { imageValues[key] = projectPublicImage; continue; }
+                const managed = typeof asset === 'string' ? asset.match(/^\/\.bloggenius\/assets\/(bloggenius-(?:logo|share-image|favicon)\.(?:png|jpg|webp))$/u) : null;
+                if (!managed) { delete customization[key]; continue; }
+                try {
+                    const bytes = fileSystem.readFileSync(pathApi.join(site.root_path, '.bloggenius', 'assets', managed[1]));
+                    if (bytes.length > 1024 * 1024) { delete customization[key]; continue; }
+                    const mime = managed[1].endsWith('.png') ? 'image/png' : managed[1].endsWith('.webp') ? 'image/webp' : 'image/jpeg';
+                    imageValues[key] = `data:${mime};base64,${bytes.toString('base64')}`;
+                } catch (_error) { delete customization[key]; }
+            }
+            for (const key of ['logo', 'share_image', 'favicon']) delete customization[key];
+            const normalizedCustomization = normalizeImportedSiteSettings(customization);
+            return {
+                id: site.id,
+                name: site.name,
+                template_id: '',
+                source_kind: 'imported-astro',
+                integration: site.integration || { capabilities: {} },
+                customization: { ...normalizedCustomization, ...imageValues },
+                setup_inputs: {}
+            };
+        }
         const template = templates.get(site.template?.id);
         if (!isSupportedSiteHostingContractVersion(template?.resource?.spec_version)) {
             throw siteInputError('이 템플릿은 설정 미리보기를 지원하지 않습니다.', 'SITE_HOSTING_SETTINGS_UNAVAILABLE', 409);
@@ -1055,12 +1357,50 @@ function createSiteHostingSiteService(deps = {}) {
     }
 
     async function applySettings(projectId, siteId, payload = {}) {
-        if (!payload || typeof payload !== 'object' || Array.isArray(payload)
-            || Object.keys(payload).some((key) => !['name', 'template_id', 'customization', 'setup_inputs'].includes(key))) {
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
             throw siteInputError('설정 요청에 허용되지 않은 항목이 포함되어 있습니다.', 'SITE_HOSTING_CREATE_INPUT_INVALID');
         }
         const current = repository.get(projectId, siteId);
         if (!current) throw siteInputError('사이트를 찾을 수 없습니다.', 'SITE_HOSTING_SITE_NOT_FOUND', 404);
+        if (current.source?.kind === 'imported-astro') {
+            if (Object.keys(payload).some((key) => !['name', 'customization'].includes(key))) {
+                throw siteInputError('가져온 사이트 설정 요청에 허용되지 않은 항목이 포함되어 있습니다.', 'SITE_HOSTING_CREATE_INPUT_INVALID');
+            }
+            const name = String(payload.name || '').trim();
+            if (!name) throw siteInputError('사이트 이름을 입력해 주세요.', 'SITE_HOSTING_SITE_NAME_REQUIRED');
+            if (name.length > 80) throw siteInputError('사이트 이름은 80자 이내로 입력해 주세요.', 'SITE_HOSTING_SITE_NAME_TOO_LONG');
+            const requestedCustomization = payload.customization === undefined
+                ? current.customization || {}
+                : normalizeImportedSiteSettings(payload.customization);
+            const mergedCustomization = { ...(current.customization || {}), ...requestedCustomization };
+            if (Object.hasOwn(requestedCustomization, 'navigation') && !Object.hasOwn(requestedCustomization, 'publishing')) {
+                const previousIndex = current.customization?.publishing?.post_list_navigation_index;
+                const previousPath = current.customization?.navigation?.[previousIndex]?.href;
+                const nextIndex = previousPath
+                    ? requestedCustomization.navigation.findIndex((item) => item.href === previousPath)
+                    : -1;
+                if (nextIndex < 0) delete mergedCustomization.publishing;
+                else mergedCustomization.publishing = { post_list_navigation_index: nextIndex };
+            }
+            const customization = normalizeImportedSiteSettings(mergedCustomization);
+            validateImportedSettingsForProject(customization, current.integration);
+            const updated = repository.updateSettings(projectId, siteId, { name, customization, updated_at: now() });
+            let build = null;
+            let build_error = '';
+            if (Object.values(current.integration?.capabilities || {}).some(Boolean)) {
+                try { build = await astroRuntime.build(projectId, siteId); }
+                catch (error) { build_error = String(error?.message || '설정을 반영한 사이트 생성에 실패했습니다.'); }
+            }
+            return {
+                id: updated.id, project_id: updated.project_id, name: updated.name,
+                template_name: updated.template_name, template_status: updated.template_status,
+                source_kind: 'imported-astro', screenshot: build?.screenshot || null,
+                screenshot_error: build?.screenshot_error || '', build_error, updated_at: updated.updated_at
+            };
+        }
+        if (Object.keys(payload).some((key) => !['name', 'template_id', 'customization', 'setup_inputs'].includes(key))) {
+            throw siteInputError('설정 요청에 허용되지 않은 항목이 포함되어 있습니다.', 'SITE_HOSTING_CREATE_INPUT_INVALID');
+        }
         if (String(payload.template_id || '') !== String(current.template?.id || '')) {
             throw siteInputError('사이트 템플릿은 설정에서 변경할 수 없습니다.', 'SITE_HOSTING_TEMPLATE_CHANGE_NOT_ALLOWED', 400);
         }
@@ -1920,6 +2260,9 @@ function createSiteHostingSiteService(deps = {}) {
     return {
         listTemplates,
         selectSetupDirectory,
+        selectImportArchive,
+        inspectImportArchive,
+        importAstroArchive,
         getTemplatePreview: (id) => templates.getPreview?.(String(id || '').trim()) || null,
         list,
         getSettings,
