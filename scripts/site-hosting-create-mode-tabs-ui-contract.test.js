@@ -7,8 +7,14 @@ const test = require('node:test');
 
 const root = path.resolve(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'ui/partials/views/site-hosting.html'), 'utf8');
-const navigation = fs.readFileSync(path.join(root, 'ui/scripts/features/site-hosting/site-creation-navigation.js'), 'utf8');
-const styles = fs.readFileSync(path.join(root, 'ui/styles/features/site-hosting-create.css'), 'utf8');
+const navigation = [
+  fs.readFileSync(path.join(root, 'ui/scripts/features/site-hosting/site-creation-navigation.js'), 'utf8'),
+  fs.readFileSync(path.join(root, 'ui/scripts/features/site-hosting/site-import-workflow.js'), 'utf8').replace(/\nasync \nfunction siteHostingShowMenuError/, '\nfunction siteHostingShowMenuError').replace(/\nasync \nfunction siteHostingPreviewImportedSettings/, '\nasync function siteHostingPreviewImportedSettings')
+].join('\n');
+const styles = [
+  fs.readFileSync(path.join(root, 'ui/styles/features/site-hosting-create.css'), 'utf8'),
+  fs.readFileSync(path.join(root, 'ui/styles/features/site-hosting-import.css'), 'utf8')
+].join('\n');
 const projectManagement = fs.readFileSync(path.join(root, 'ui/scripts/features/site-hosting/project-management.js'), 'utf8');
 const service = fs.readFileSync(path.join(root, 'src/ui-api/services/site-hosting-site.service.js'), 'utf8');
 const repository = fs.readFileSync(path.join(root, 'src/site-hosting/site-repository.js'), 'utf8');
@@ -109,7 +115,7 @@ test('site creation separates template selection and Astro ZIP import into acces
   assert.match(styles, /\.site-import-preview\s*\{[^}]*grid-template-rows:\s*auto auto minmax\(320px, 1fr\)/s);
   assert.match(styles, /\.site-import-preview-status\[hidden\]\s*\{\s*display:\s*none;/s);
   assert.match(styles, /\.site-import-preview > \.ui-progress-layer,[\s\S]*?\.site-settings-current-preview > \.ui-progress-layer\s*\{[^}]*place-items:\s*start center;[^}]*padding-top:\s*clamp\(8rem, 18vh, 12rem\);/s);
-  assert.match(navigation, /async function siteHostingPreviewImportedSettings\([\s\S]*?showUiProgress\(preview,[\s\S]*?site-settings-current-preview-frame[\s\S]*?status\.hidden = true; status\.textContent = ''/);
+  assert.match(navigation, /async function siteHostingPreviewImportedSettings\([\s\S]*?site-settings-current-preview-frame[\s\S]*?showUiProgress\(preview,[\s\S]*?status\.hidden = true; status\.textContent = ''/);
   assert.doesNotMatch(navigation, /미리보기를 갱신했습니다/);
   assert.match(navigation, /const inlineSettingsPreview = siteHostingCreateMode === 'settings';[\s\S]*?if \(!inlineSettingsPreview && previewDialog && !previewDialog\.open\) previewDialog\.showModal\(\);[\s\S]*?showUiProgress\(inlineSettingsPreview \? inlinePreview/);
   assert.match(service, /if \(payload\.site_id !== undefined\)/);

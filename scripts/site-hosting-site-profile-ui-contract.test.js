@@ -14,6 +14,7 @@ const creation = [
 const profile = fs.readFileSync(path.join(root, 'ui/scripts/features/site-hosting/site-profile-fields.js'), 'utf8');
 const creationStyles = [
     'site-hosting-create.css',
+    'site-hosting-import.css',
     'site-template-details.css'
 ].map((file) => fs.readFileSync(path.join(root, 'ui/styles/features', file), 'utf8')).join('\n');
 const siteHostingStyles = fs.readFileSync(path.join(root, 'ui/styles/features/site-hosting.css'), 'utf8');

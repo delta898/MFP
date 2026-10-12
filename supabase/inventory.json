@@ -289,6 +289,18 @@
       "classification": "ai_catalog_operator_action"
     },
     {
+      "path": "supabase/operations/ai/2026-10-11_ai_model_catalog_2026-10-11-1_publish.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-10-11_ai_model_catalog_2026-10-11-2_publish.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-10-11_ai_model_catalog_2026-10-11-3_publish.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
       "path": "supabase/operations/content/supabase_surface_content_account_seed.sql",
       "classification": "content_operator_action"
     },

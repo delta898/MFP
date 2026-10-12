@@ -101,6 +101,7 @@ test('CSS manifest preserves cascade order and remains within its size policy', 
         'styles/features/card-news-management.css',
         'styles/features/site-hosting.css',
         'styles/features/site-hosting-create.css',
+        'styles/features/site-hosting-import.css',
         'styles/features/site-template-details.css',
         'styles/features/site-create.css',
         'styles/features/continuous-publishing-interactions.css',
@@ -369,7 +370,9 @@ test('responsive breakpoints use the canonical set', () => {
     const socialWidths = maxWidthsByFile.get('features/social.css');
     assert.deepEqual([...socialWidths], ['900']);
     const siteHostingCreateWidths = maxWidthsByFile.get('features/site-hosting-create.css');
-    assert.deepEqual([...siteHostingCreateWidths].sort((a, b) => a - b), ['720', '960']);
+    assert.deepEqual([...siteHostingCreateWidths].sort((a, b) => a - b), ['720']);
+    const siteHostingImportWidths = maxWidthsByFile.get('features/site-hosting-import.css');
+    assert.deepEqual([...siteHostingImportWidths].sort((a, b) => a - b), ['720', '960']);
     const siteHostingWidths = maxWidthsByFile.get('features/site-hosting.css');
     assert.deepEqual([...siteHostingWidths], ['540']);
     for (const [file, widths] of maxWidthsByFile) {
@@ -377,6 +380,7 @@ test('responsive breakpoints use the canonical set', () => {
             file === 'features/card-news-image-model.css'
             || file === 'features/social.css'
             || file === 'features/site-hosting-create.css'
+            || file === 'features/site-hosting-import.css'
             || file === 'features/site-hosting.css'
         ) continue;
         assert.deepEqual([...widths].filter((width) => width === '460' || width === '760' || width === '900'), [], file);

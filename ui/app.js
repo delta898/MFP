@@ -24,6 +24,7 @@
 // @include scripts/features/site-hosting/domains.js
 // @include scripts/features/site-hosting/site-creation-validation.js
 // @include scripts/features/site-hosting/site-creation-navigation.js
+// @include scripts/features/site-hosting/site-import-workflow.js
 // @include scripts/features/settings-next/spreadsheet-connection.js
 // @include scripts/features/settings-next/save-proceed.js
 // @include scripts/features/settings-next/ai-model-roles.js

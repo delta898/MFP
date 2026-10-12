@@ -56,6 +56,7 @@ test('JavaScript manifest preserves its execution order and remains within its s
         'scripts/features/site-hosting/domains.js',
         'scripts/features/site-hosting/site-creation-validation.js',
         'scripts/features/site-hosting/site-creation-navigation.js',
+        'scripts/features/site-hosting/site-import-workflow.js',
         'scripts/features/settings-next/spreadsheet-connection.js',
         'scripts/features/settings-next/save-proceed.js',
         'scripts/features/settings-next/ai-model-roles.js',
