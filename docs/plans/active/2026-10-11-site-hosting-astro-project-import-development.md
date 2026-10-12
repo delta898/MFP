@@ -207,4 +207,5 @@ Validation on 2026-10-12:
 - Reused the left settings preview pane for both imported Astro and template-backed site settings. The separate large preview dialog remains for the initial template creation flow.
 - Added an inline iframe and status region to the current-site preview, kept the prior screenshot visible until a preview is requested, and changed the browser smoke expectation to verify the inline settings preview.
 - Refined the ZIP upload step with equal-height guide and upload cards, quieter shared card styling, and a centered file selection area with a clear next action.
+- Site creation now uses the shared `region-indeterminate` progress layer while loading the template catalog, replacing the standalone loading text and preserving dialog cancellation. The focused Site creation UI contract test, JavaScript syntax check, and `git diff --check` pass.
 - Focused UI contract tests and browser smoke passed. The browser smoke blocks external Google Fonts requests by design.

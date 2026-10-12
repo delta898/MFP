@@ -1194,6 +1194,7 @@ function siteHostingBindCreateDialogEvents() {
 }
 async function siteHostingOpenCreateSiteDialog() {
   const dialog = document.getElementById('site-create-dialog');
+  const workspace = document.getElementById('site-create-workspace');
   const input = document.getElementById('site-name');
   const templateInput = document.getElementById('site-template-id');
   const templateGrid = document.getElementById('site-template-grid');
@@ -1201,7 +1202,7 @@ async function siteHostingOpenCreateSiteDialog() {
   const submit = document.querySelector('#site-create-form [type="submit"]');
   const previewButton = document.querySelector('[data-site-create-preview]');
   const templatePanel = document.getElementById('site-create-template-panel');
-  if (!dialog || dialog.open || !siteHostingSelectedProject) return;
+  if (!dialog || !workspace || dialog.open || !siteHostingSelectedProject) return;
   siteHostingCreateMode = 'create';
   siteHostingImportStep = 'upload';
   siteHostingEditingImportedSite = false;
@@ -1266,7 +1267,7 @@ async function siteHostingOpenCreateSiteDialog() {
   document.getElementById('site-search-indexing').checked = true;
   feedback.textContent = '';
   templateInput.value = '';
-  templateGrid.innerHTML = '<div class="site-template-loading" role="status">템플릿을 불러오는 중…</div>';
+  templateGrid.replaceChildren();
   siteHostingCreateTemplates = [];
   siteHostingSelectedCreateTemplate = '';
   document.getElementById('site-template-detail-content').replaceChildren();
@@ -1296,6 +1297,10 @@ async function siteHostingOpenCreateSiteDialog() {
     previewButton.disabled = true;
   }
   dialog.showModal();
+  const finishProgress = showUiProgress(workspace, {
+    type: UI_PROGRESS_TYPES.REGION_INDETERMINATE,
+    message: '템플릿을 불러오는 중입니다.'
+  });
   try {
     const templates = await fetchJson('/api/v1/site-hosting/templates');
     siteHostingCreateTemplates = Array.isArray(templates) ? templates : [];
@@ -1314,6 +1319,8 @@ async function siteHostingOpenCreateSiteDialog() {
     if (templatePanel) templatePanel.inert = true;
     templateGrid.innerHTML = '<p class="site-template-loading" role="alert">템플릿을 불러오지 못했습니다.</p>';
     feedback.textContent = error.message || '템플릿을 불러오지 못했습니다.';
+  } finally {
+    finishProgress();
   }
 }
 
