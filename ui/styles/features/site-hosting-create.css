@@ -108,7 +108,7 @@
 
 .site-import-upload-step {
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-  align-items: start;
+  align-items: stretch;
   justify-items: stretch;
 }
 
@@ -132,7 +132,7 @@
   border: 1px solid var(--ui-border-default);
   border-radius: var(--ui-radius-md);
   background: var(--ui-surface);
-  align-self: start;
+  align-self: stretch;
 }
 
 .site-import-guide-heading,
@@ -257,14 +257,53 @@
 .site-import-upload {
   display: flex;
   flex-direction: column;
-  border-style: dashed;
+  gap: var(--ui-space-4);
+}
+
+.site-import-upload-zone {
+  display: grid;
+  flex: 1 1 auto;
+  align-content: center;
+  justify-items: center;
+  gap: var(--ui-space-3);
+  min-height: 188px;
+  padding: var(--ui-space-5);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-sm);
   background: var(--ui-surface-muted);
-  min-height: 21.5rem;
+  text-align: center;
+}
+
+.site-import-upload-icon {
+  width: 44px;
+  height: 44px;
+  fill: none;
+  stroke: var(--ui-action-primary);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.site-import-upload-zone > p {
+  margin: 0;
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-type-caption-size);
 }
 
 .site-import-upload .site-create-zip-picker {
+  display: grid;
+  justify-items: center;
+  gap: var(--ui-space-2);
   width: 100%;
   margin-top: 0;
+}
+
+.site-import-upload .site-create-zip-picker > button {
+  min-height: 44px;
+}
+
+.site-import-upload .site-create-zip-picker > span {
+  text-align: center;
 }
 
 .site-import-upload .site-create-zip-analyze,
@@ -700,6 +739,7 @@
 }
 
 #site-create-dialog.is-site-settings-mode .site-settings-current-preview {
+  position: relative;
   display: grid;
   width: 100%;
   min-height: 180px;
@@ -765,6 +805,39 @@
   object-fit: contain;
 }
 
+.site-settings-current-preview iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--ui-surface);
+}
+
+.site-settings-current-preview iframe[hidden] {
+  display: none;
+}
+
+.site-settings-current-preview-status {
+  position: absolute;
+  z-index: 1;
+  top: var(--ui-space-3);
+  right: var(--ui-space-3);
+  left: var(--ui-space-3);
+  margin: 0;
+  padding: var(--ui-space-2) var(--ui-space-3);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-text-secondary);
+  background: var(--ui-surface-translucent);
+  font-size: var(--ui-type-caption-size);
+  text-align: left;
+}
+
+.site-settings-current-preview-status[hidden] {
+  display: none;
+}
+
 .site-settings-current-preview img[hidden],
 .site-settings-current-preview p[hidden] {
   display: none;
@@ -823,6 +896,10 @@
 
   .site-import-upload {
     min-height: 0;
+  }
+
+  .site-import-upload-zone {
+    min-height: 160px;
   }
 
   .site-import-upload-step > .site-create-zip-intro {
@@ -1359,6 +1436,12 @@
 
 .site-create-preview-empty[hidden] {
   display: none;
+}
+
+.site-import-preview > .ui-progress-layer,
+.site-settings-current-preview > .ui-progress-layer {
+  place-items: start center;
+  padding-top: clamp(8rem, 18vh, 12rem);
 }
 
 .site-create-dialog .site-project-form-field {

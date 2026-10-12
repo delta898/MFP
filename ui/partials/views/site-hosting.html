@@ -96,6 +96,8 @@
                   </section>
                   <div id="site-settings-current-preview" class="site-settings-current-preview" hidden>
                     <img id="site-settings-current-preview-image" alt="설정 전 사이트 미리보기" hidden>
+                    <iframe id="site-settings-current-preview-frame" title="변경한 사이트 설정 미리보기" sandbox="allow-scripts allow-same-origin" hidden></iframe>
+                    <p id="site-settings-current-preview-status" class="site-settings-current-preview-status" role="status" aria-live="polite" hidden></p>
                     <p id="site-settings-current-preview-empty">저장된 사이트 이미지가 없습니다.</p>
                   </div>
                   <section id="site-settings-template-summary" class="site-settings-template-summary" aria-label="현재 적용된 템플릿" hidden>
@@ -193,41 +195,20 @@
                         <span class="site-import-section-step">1</span>
                         <div>
                           <h4 id="site-import-guide-title">AI로 Astro 사이트 준비하기</h4>
-                          <p>프롬프트를 복사해 파일을 만들 수 있는 AI 도구에 붙여넣으세요.</p>
+                          <p>예시 답변을 원하는 사이트에 맞게 바꾼 뒤 프롬프트를 복사하세요.</p>
                         </div>
                       </div>
                       <button class="primary" type="button" data-site-import-prompt-copy>메타 프롬프트 복사</button>
                     </div>
                     <ol class="site-import-guide-steps">
                       <li><strong>프롬프트 복사</strong><span>아래 안내 전체를 클립보드에 복사합니다.</span></li>
-                      <li><strong>사이트 설명을 채워 AI에 전달</strong><span>프롬프트의 대괄호 부분에 원하는 사이트를 적고, 파일을 만들 수 있는 AI 도구에 붙여넣습니다.</span></li>
+                      <li><strong>예시를 내 사이트에 맞게 수정</strong><span>목적, 방문자, 분위기, 메뉴 등 각 항목의 예시를 바꾸고 추가 요청을 적습니다.</span></li>
                       <li><strong>Astro 프로젝트 ZIP 받기</strong><span>AI가 만든 프로젝트를 ZIP으로 준비합니다. 생성된 프로젝트는 아래에서 분석할 수 있습니다.</span></li>
                     </ol>
                     <details class="site-import-prompt-details">
                       <summary>메타 프롬프트 내용 보기</summary>
-                      <label class="site-import-prompt-label" for="site-import-meta-prompt">복사되는 프롬프트</label>
-                      <textarea id="site-import-meta-prompt" data-site-import-meta-prompt readonly spellcheck="false">너는 Astro 기반 웹사이트 프로젝트를 완성하는 웹 개발자다. 아래 요구사항을 바탕으로 실제로 빌드할 수 있는 정적 Astro 사이트를 만들어라.
-
-## 사용자가 원하는 사이트
-[여기에 원하는 사이트를 설명하세요. 목적, 방문자, 분위기, 필요한 페이지와 메뉴, 언어, 원하는 기능을 자유롭게 적습니다.]
-
-## 프로젝트 요구사항
-- Astro와 Node.js/npm을 사용하고, 정적 호스팅에 적합한 프로젝트를 만든다.
-- 사용자가 설명한 목적과 분위기를 반영해 균형 잡힌 시각 디자인과 실제로 읽을 수 있는 콘텐츠를 만든다. 요구사항이 충분하지 않아도 질문으로 멈추지 말고 무리하지 않는 기본값을 정해 완성한다.
-- 모바일과 데스크톱에서 잘 보이게 만들고, 시맨틱 HTML, 키보드 사용, 적절한 색상 대비와 명확한 링크를 고려한다.
-- 프로젝트 루트에 package.json을 두고, Astro 의존성과 `npm run build` 스크립트를 선언한다. `npm install`로 package.json과 일치하는 package-lock.json을 생성한다.
-- 페이지와 필요한 스타일, 컴포넌트, 이미지는 프로젝트 안에 포함한다. 메뉴와 내부 링크가 실제 페이지에 연결되는지 확인한다.
-- 사용자가 제공하지 않은 실존 인물 정보, 연락처, 경력, 후기, 통계, 인증, 주소를 만들어내지 않는다. 필요한 정보가 없으면 생략하거나 쉽게 바꿀 수 있는 중립적인 문구를 쓴다.
-- 데이터베이스, 서버 실행, API 키, 유료 외부 서비스가 필요한 기능은 임의로 추가하지 않는다. 정적 페이지에서 구현할 수 없는 요청은 결과 설명에 밝힌다.
-- BlogGenius 전용 메타 파일이나 블로그 발행 연동은 필요하지 않다. 이 프로젝트는 Astro 사이트 ZIP 가져오기와 정적 사이트 배포를 위한 것이다.
-
-## 빌드와 ZIP 준비
-1. 프로젝트 폴더에서 `npm install`을 실행해 lockfile을 만든 뒤, `npm ci`와 `npm run build`를 실행한다. 오류가 있으면 고친 뒤 다시 확인한다.
-2. ZIP 안에 Astro 프로젝트 파일이 바로 들어가거나, 프로젝트 폴더 하나 안에 파일이 들어가게 압축한다. package.json과 package-lock.json이 프로젝트 루트에 있어야 한다.
-3. ZIP에는 node_modules, dist, .git, 캐시, .env 파일, 비밀키와 인증 정보를 넣지 않는다.
-4. 실제 파일과 ZIP을 만들 수 있는 도구라면 완성된 ZIP을 제공한다. 파일을 만들거나 빌드할 수 없는 환경이라면 그 한계를 분명히 말하고, 실행하지 않은 작업을 완료했다고 주장하지 않는다.
-
-마지막에 사이트의 주요 페이지와 메뉴, 실행한 빌드 명령과 결과, ZIP 파일 위치를 간단히 정리하라.</textarea>
+                      <label class="site-import-prompt-label" for="site-import-meta-prompt">예시를 수정한 뒤 복사해 AI에 전달하세요</label>
+                      <textarea id="site-import-meta-prompt" data-site-import-meta-prompt readonly spellcheck="false"><!-- @include site-hosting-astro-project-meta-prompt.html --></textarea>
                     </details>
                   </section>
                   <section class="site-import-upload" aria-labelledby="site-import-upload-zip-title">
@@ -236,15 +217,22 @@
                         <span class="site-import-section-step">2</span>
                         <div>
                           <h4 id="site-import-upload-zip-title">준비한 Astro ZIP 가져오기</h4>
-                          <p>설정을 누르면 프로젝트를 분석하고 미리보기를 준비합니다.</p>
+                          <p>가져오기를 누르면 프로젝트를 분석하고 미리보기를 준비합니다.</p>
                         </div>
                       </div>
                     </div>
-                    <div class="site-create-zip-picker">
-                      <button class="secondary" type="button" data-site-import-zip>Astro 프로젝트 ZIP 선택</button>
-                      <span data-site-import-zip-name>선택한 ZIP 파일이 없습니다.</span>
+                    <div class="site-import-upload-zone">
+                      <svg class="site-import-upload-icon" viewBox="0 0 48 48" aria-hidden="true">
+                        <path d="M14 5.75h13l9 9v24.5A3.75 3.75 0 0 1 32.25 43h-18.5A3.75 3.75 0 0 1 10 39.25v-29.5A4 4 0 0 1 14 5.75Z" />
+                        <path d="M27 6v10h9M24 34V22m-5 5 5-5 5 5" />
+                      </svg>
+                      <p>준비한 Astro 프로젝트 ZIP 파일을 선택하세요.</p>
+                      <div class="site-create-zip-picker">
+                        <button class="secondary" type="button" data-site-import-zip>Astro 프로젝트 ZIP 가져오기</button>
+                        <span data-site-import-zip-name>선택한 ZIP 파일이 없습니다.</span>
+                      </div>
                     </div>
-                    <button class="primary site-create-zip-settings" type="button" data-site-import-settings disabled>설정</button>
+                    <button class="primary site-create-zip-settings" type="button" data-site-import-settings disabled>가져오기</button>
                   </section>
                 </section>
                 <p class="site-create-zip-status" data-site-import-zip-feedback role="status" aria-live="polite" hidden></p>

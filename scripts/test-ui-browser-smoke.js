@@ -2815,9 +2815,10 @@ async function run() {
                 assert.equal(await page.locator('[data-site-template-select]').count(), 0);
                 assert.equal(await page.locator('#site-create-form [type="submit"]').isDisabled(), false);
                 await page.locator('[data-site-create-preview]').click();
-                await page.locator('#site-create-preview-frame').waitFor({ state: 'visible' });
+                await page.locator('#site-settings-current-preview-frame').waitFor({ state: 'visible' });
+                assert.equal(await page.locator('#site-settings-current-preview-status').isVisible(), false,
+                    'a successful inline preview must not cover the site content with a status message');
                 assert.equal(await page.locator('#site-create-form [type="submit"]').isDisabled(), false);
-                await page.getByRole('button', { name: '미리보기 닫기' }).click();
                 await page.locator('#site-create-form [type="submit"]').click();
                 await page.waitForFunction(() => document.getElementById('site-create-dialog')?.open === false
                     || Boolean(document.getElementById('site-create-feedback')?.textContent), { timeout: 10000 });

@@ -432,6 +432,11 @@ function siteHostingMarkCreatePreviewStale() {
   if (!siteHostingCreatePreviewId) return;
   const status = document.getElementById('site-create-preview-status');
   if (status) status.textContent = '설정 변경됨 · 다시 미리보기 하세요';
+  const settingsPreviewStatus = document.getElementById('site-settings-current-preview-status');
+  if (settingsPreviewStatus) {
+    settingsPreviewStatus.hidden = false;
+    settingsPreviewStatus.textContent = '설정이 변경되었습니다. 다시 미리보기를 눌러 확인하세요.';
+  }
   const importStatus = document.querySelector('[data-site-import-preview-status]');
   if (importStatus) {
     importStatus.hidden = false;
@@ -446,6 +451,10 @@ async function siteHostingClearCreatePreview() {
   siteHostingCreatePreviewSnapshot = '';
   const frame = document.getElementById('site-create-preview-frame');
   if (frame) { frame.hidden = true; frame.removeAttribute('src'); }
+  const settingsFrame = document.getElementById('site-settings-current-preview-frame');
+  if (settingsFrame) { settingsFrame.hidden = true; settingsFrame.removeAttribute('src'); }
+  const settingsStatus = document.getElementById('site-settings-current-preview-status');
+  if (settingsStatus) { settingsStatus.hidden = true; settingsStatus.textContent = ''; }
   const importFrame = document.querySelector('[data-site-import-preview-frame]');
   if (importFrame) { importFrame.hidden = true; importFrame.removeAttribute('src'); }
   if (previewId && project) {
@@ -469,7 +478,7 @@ async function siteHostingPreviewImportedSite() {
   const previousButtonBusy = button.getAttribute('aria-busy');
   button.disabled = true;
   button.setAttribute('aria-busy', 'true');
-  if (status) { status.hidden = false; status.textContent = 'Astro 프로젝트를 빌드하고 미리보기를 준비하고 있습니다.'; }
+  if (status) { status.hidden = true; status.textContent = ''; }
   const finishPreviewProgress = showUiProgress(document.querySelector('.site-import-preview'), {
     type: UI_PROGRESS_TYPES.REGION_INDETERMINATE,
     message: 'Astro 사이트 미리보기를 만드는 중…'
@@ -516,19 +525,18 @@ async function siteHostingPreviewImportedSettings() {
   const siteId = siteHostingEditingSiteId;
   const button = document.querySelector('[data-site-create-preview]');
   const payload = await siteHostingCollectImportedEditSettings();
-  const previewDialog = document.getElementById('site-create-preview-dialog');
-  const frame = document.getElementById('site-create-preview-frame');
-  const image = document.getElementById('site-create-template-preview');
-  const empty = document.getElementById('site-create-preview-empty');
-  const status = document.getElementById('site-create-preview-status');
-  if (!project || !siteId || !payload || !button || button.disabled || !frame) return;
+  const preview = document.getElementById('site-settings-current-preview');
+  const frame = document.getElementById('site-settings-current-preview-frame');
+  const image = document.getElementById('site-settings-current-preview-image');
+  const empty = document.getElementById('site-settings-current-preview-empty');
+  const status = document.getElementById('site-settings-current-preview-status');
+  if (!project || !siteId || !payload || !button || button.disabled || !preview || !frame) return;
   const previewSnapshot = siteHostingCreateFormSnapshot();
   const previousPreviewId = siteHostingCreatePreviewId;
   button.disabled = true;
   button.setAttribute('aria-busy', 'true');
-  if (previewDialog && !previewDialog.open) previewDialog.showModal();
-  if (status) status.textContent = 'Astro 프로젝트를 빌드하고 미리보기를 준비하고 있습니다.';
-  const finishPreviewProgress = showUiProgress(document.querySelector('.site-create-preview-frame'), {
+  if (status) { status.hidden = true; status.textContent = ''; }
+  const finishPreviewProgress = showUiProgress(preview, {
     type: UI_PROGRESS_TYPES.REGION_INDETERMINATE,
     message: 'Astro 사이트 미리보기를 만드는 중…'
   });
@@ -542,12 +550,12 @@ async function siteHostingPreviewImportedSettings() {
     if (empty) empty.hidden = true;
     siteHostingCreatePreviewId = result.id;
     siteHostingCreatePreviewSnapshot = previewSnapshot;
-    if (status) status.textContent = '미리보기를 준비했습니다.';
+    if (status) { status.hidden = true; status.textContent = ''; }
     if (previousPreviewId) {
       try { await deleteJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/preview-drafts/${encodeURIComponent(previousPreviewId)}`); } catch (_error) { }
     }
   } catch (error) {
-    if (status) status.textContent = error.message || '미리보기를 만들지 못했습니다.';
+    if (status) { status.hidden = false; status.textContent = error.message || '미리보기를 만들지 못했습니다.'; }
   } finally {
     finishPreviewProgress();
     button.disabled = false;
@@ -565,20 +573,31 @@ async function siteHostingPreviewCreateSite() {
   const project = siteHostingSelectedProject;
   const button = document.querySelector('[data-site-create-preview]');
   const feedback = document.getElementById('site-create-feedback');
-  const image = document.getElementById('site-create-template-preview');
-  const frame = document.getElementById('site-create-preview-frame');
-  const empty = document.getElementById('site-create-preview-empty');
-  const status = document.getElementById('site-create-preview-status');
+  const inlineSettingsPreview = siteHostingCreateMode === 'settings';
+  const image = inlineSettingsPreview
+    ? document.getElementById('site-settings-current-preview-image')
+    : document.getElementById('site-create-template-preview');
+  const frame = inlineSettingsPreview
+    ? document.getElementById('site-settings-current-preview-frame')
+    : document.getElementById('site-create-preview-frame');
+  const empty = inlineSettingsPreview
+    ? document.getElementById('site-settings-current-preview-empty')
+    : document.getElementById('site-create-preview-empty');
+  const inlinePreview = inlineSettingsPreview ? document.getElementById('site-settings-current-preview') : null;
+  const status = inlineSettingsPreview
+    ? document.getElementById('site-settings-current-preview-status')
+    : document.getElementById('site-create-preview-status');
   if (!project || !button || button.disabled) return;
   const payload = await siteHostingCollectCreatePayload({ allowEmptyName: true, allowMissingSetupInputs: true });
   if (!payload) return;
   const previewDialog = document.getElementById('site-create-preview-dialog');
-  if (previewDialog && !previewDialog.open) previewDialog.showModal();
+  if (!inlineSettingsPreview && previewDialog && !previewDialog.open) previewDialog.showModal();
   const previousPreviewId = siteHostingCreatePreviewId;
   const previousButtonBusy = button.getAttribute('aria-busy');
   button.disabled = true;
   button.setAttribute('aria-busy', 'true');
-  const finishPreviewProgress = showUiProgress(document.querySelector('.site-create-preview-frame'), {
+  if (status && inlineSettingsPreview) { status.hidden = true; status.textContent = ''; }
+  const finishPreviewProgress = showUiProgress(inlineSettingsPreview ? inlinePreview : document.querySelector('.site-create-preview-frame'), {
     type: UI_PROGRESS_TYPES.REGION_INDETERMINATE,
     message: '미리보기를 만드는 중…'
   });
@@ -591,12 +610,20 @@ async function siteHostingPreviewCreateSite() {
       if (image) image.hidden = true;
       if (empty) empty.hidden = true;
       siteHostingCreatePreviewId = result.id;
-      siteHostingCreatePreviewSnapshot = siteHostingCreateMode === 'settings' ? siteHostingCreateFormSnapshot() : '';
+      siteHostingCreatePreviewSnapshot = inlineSettingsPreview ? siteHostingCreateFormSnapshot() : '';
       siteHostingUpdateCreateSubmitState();
       const collection = result.knowledge_collection;
-      if (status) status.textContent = collection && (collection.source_markdown_count || collection.selection_configured)
-        ? `미리보기 완료 · 공개 노트 ${collection.published_note_count}개 · 제외 ${collection.excluded_note_count}개 · 첨부 ${collection.copied_resource_count}개 · 미해결 링크 ${collection.unresolved_link_count}개 · 누락 첨부 ${collection.missing_resource_count}개`
-        : '미리보기 완료';
+      if (status) {
+        if (inlineSettingsPreview) {
+          status.hidden = true;
+          status.textContent = '';
+        } else {
+          status.hidden = false;
+          status.textContent = collection && (collection.source_markdown_count || collection.selection_configured)
+            ? `미리보기 완료 · 공개 노트 ${collection.published_note_count}개 · 제외 ${collection.excluded_note_count}개 · 첨부 ${collection.copied_resource_count}개 · 미해결 링크 ${collection.unresolved_link_count}개 · 누락 첨부 ${collection.missing_resource_count}개`
+            : '미리보기 완료';
+        }
+      }
       if (previousPreviewId) {
         try { await deleteJson(`/api/v1/site-hosting/projects/${encodeURIComponent(project.id)}/preview-drafts/${encodeURIComponent(previousPreviewId)}`); } catch (_error) { }
       }
@@ -605,7 +632,10 @@ async function siteHostingPreviewCreateSite() {
     }
   } catch (error) {
     if (feedback) feedback.textContent = error.message || '미리보기를 만들지 못했습니다.';
-    if (status) status.textContent = siteHostingCreatePreviewId ? '이전 미리보기를 유지합니다.' : '미리보기 실패';
+    if (status) {
+      status.hidden = inlineSettingsPreview ? false : status.hidden;
+      status.textContent = error.message || (siteHostingCreatePreviewId ? '이전 미리보기를 유지합니다.' : '미리보기 실패');
+    }
     if (empty && !siteHostingCreatePreviewId) {
       empty.textContent = '미리보기를 만들지 못했습니다.\n설정을 확인하고 다시 시도하세요.';
       empty.hidden = false;
@@ -827,7 +857,7 @@ function siteHostingBindCreateDialogEvents() {
     try {
       if (!navigator.clipboard?.writeText) throw new Error('클립보드 기능을 사용할 수 없습니다.');
       await navigator.clipboard.writeText(prompt.value);
-      if (feedback) { feedback.hidden = false; feedback.textContent = '메타 프롬프트를 복사했습니다. 대괄호 부분에 원하는 사이트를 적어 AI 도구에 붙여넣으세요.'; }
+      if (feedback) { feedback.hidden = false; feedback.textContent = '메타 프롬프트를 복사했습니다. 예시 답변을 원하는 사이트에 맞게 바꿔 AI 도구에 전달하세요.'; }
     } catch (_error) {
       if (details) details.open = true;
       prompt.focus();

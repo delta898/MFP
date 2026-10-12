@@ -12,6 +12,8 @@ const styles = fs.readFileSync(path.join(root, 'ui/styles/features/site-hosting-
 const projectManagement = fs.readFileSync(path.join(root, 'ui/scripts/features/site-hosting/project-management.js'), 'utf8');
 const service = fs.readFileSync(path.join(root, 'src/ui-api/services/site-hosting-site.service.js'), 'utf8');
 const repository = fs.readFileSync(path.join(root, 'src/site-hosting/site-repository.js'), 'utf8');
+const prompt = fs.readFileSync(path.join(root, 'ui/partials/views/site-hosting-astro-project-meta-prompt.html'), 'utf8').trimEnd();
+const promptDoc = fs.readFileSync(path.join(root, 'docs/features/site-hosting-astro-project-meta-prompt.md'), 'utf8');
 
 test('site creation separates template selection and Astro ZIP import into accessible tabs', () => {
   assert.match(html, /id="site-create-form"[^>]*novalidate/);
@@ -22,15 +24,22 @@ test('site creation separates template selection and Astro ZIP import into acces
   assert.match(html, /id="site-create-zip-panel"[^>]*role="tabpanel"[^>]*hidden/);
   assert.match(html, /id="site-import-name"/);
   assert.match(html, /data-site-import-zip/);
-  assert.match(html, /data-site-import-settings disabled>설정/);
+  assert.match(html, /data-site-import-settings disabled>가져오기/);
   assert.doesNotMatch(html, /data-site-import-(?:analyze|results|settings-open)/);
   assert.match(html, /data-site-import-settings-back/);
   assert.match(html, /data-site-import-prompt-copy/);
   assert.match(html, /id="site-import-meta-prompt"[^>]*readonly/);
+  assert.match(html, /<!-- @include site-hosting-astro-project-meta-prompt\.html -->/);
+  assert.match(html, /예시 답변을 원하는 사이트에 맞게 바꾼 뒤 프롬프트를 복사하세요/);
+  assert.match(html, /Astro 프로젝트 ZIP 가져오기/);
+  assert.match(prompt, /^## 사용자가 원하는 사이트[\s\S]*?- 사이트 종류와 목적:[\s\S]*?- 필요한 페이지와 메뉴: 홈, 뉴스, 소개[\s\S]*?- 추가 요청:/);
+  assert.match(promptDoc, /필요한 페이지와 메뉴: 홈, 뉴스, 소개/);
+  assert.equal(prompt, promptDoc.match(/````text\r?\n([\s\S]*?)\r?\n````/)[1]);
   assert.match(html, /AI로 Astro 사이트 준비하기/);
   assert.match(html, /준비한 Astro ZIP 가져오기/);
-  assert.match(html, /package-lock\.json/);
-  assert.match(html, /npm run build/);
+  assert.match(html, /class="site-import-upload-zone"[\s\S]*?site-import-upload-icon[\s\S]*?data-site-import-zip-name/);
+  assert.match(prompt, /package-lock\.json/);
+  assert.match(prompt, /npm run build/);
   assert.match(navigation, /if \(!navigator\.clipboard\?\.writeText\)/);
   assert.match(navigation, /navigator\.clipboard\.writeText\(prompt\.value\)/);
   assert.match(navigation, /자동 복사에 실패했습니다/);
@@ -70,7 +79,7 @@ test('site creation separates template selection and Astro ZIP import into acces
   assert.match(navigation, /ArrowLeft', 'ArrowRight', 'Home', 'End/);
   assert.match(navigation, /siteHostingSetCreateModeTab\('template'\)/);
   assert.match(styles, /\.site-create-mode-tabs/);
-  assert.match(styles, /\.site-import-guide,\s*\.site-import-upload\s*\{[^}]*align-self:\s*start;/s);
+  assert.match(styles, /\.site-import-guide,\s*\.site-import-upload\s*\{[^}]*align-self:\s*stretch;/s);
   assert.match(styles, /#site-create-dialog\.is-zip-import-mode:not\(\.is-import-settings-step\) \.site-create-footer\s*\{\s*display:\s*none;/);
   assert.match(styles, /#site-create-dialog\.is-zip-import-mode\.is-import-settings-step \.site-create-footer-right\s*\{\s*display:\s*flex;/);
   assert.match(styles, /\.site-create-zip-panel\s*\{[^}]*min-height:\s*0;[^}]*overflow-y:\s*auto;/s);
@@ -78,8 +87,10 @@ test('site creation separates template selection and Astro ZIP import into acces
   assert.match(styles, /\.site-import-upload-step > \.site-create-zip-intro\s*\{[^}]*grid-column:\s*1 \/ -1;/s);
   assert.match(styles, /@media \(max-width: 960px\)[\s\S]*?\.site-import-upload-step\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/);
   assert.match(styles, /\.site-import-settings-step\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1\.05fr\) minmax\(0, 0\.95fr\)/s);
-  assert.match(styles, /\.site-import-upload\s*\{[^}]*min-height:\s*21\.5rem;/s);
+  assert.doesNotMatch(styles, /\.site-import-upload\s*\{[^}]*min-height:\s*21\.5rem;/s);
   assert.match(styles, /\.site-import-upload\s*\{[^}]*display:\s*flex;[^}]*flex-direction:\s*column;/s);
+  assert.match(styles, /\.site-import-upload-step\s*\{[^}]*align-items:\s*stretch;/s);
+  assert.match(styles, /\.site-import-upload-zone\s*\{[^}]*min-height:\s*188px;[^}]*background:\s*var\(--ui-surface-muted\);/s);
   assert.match(styles, /\.site-import-upload \.site-create-zip-settings\s*\{[^}]*margin-top:\s*auto;/s);
   assert.match(styles, /\.site-import-settings-step\s*\{[^}]*align-items:\s*stretch;/s);
   assert.match(styles, /\.site-import-preview\s*\{[^}]*min-height:\s*520px;/s);
@@ -94,8 +105,13 @@ test('site creation separates template selection and Astro ZIP import into acces
   assert.match(projectManagement, /String\(inputName \|\| ''\)\.trim\(\) \|\| site\.name/);
   assert.doesNotMatch(styles, /#site-create-dialog\.is-imported-site-settings-mode \[data-site-create-preview\]/);
   assert.match(html, /class="site-import-preview-toolbar"[\s\S]*?<p class="site-import-preview-status"[^>]*data-site-import-preview-status/);
+  assert.match(html, /id="site-settings-current-preview"[^>]*>[\s\S]*?id="site-settings-current-preview-frame"[^>]*hidden[\s\S]*?id="site-settings-current-preview-status"/);
   assert.match(styles, /\.site-import-preview\s*\{[^}]*grid-template-rows:\s*auto auto minmax\(320px, 1fr\)/s);
   assert.match(styles, /\.site-import-preview-status\[hidden\]\s*\{\s*display:\s*none;/s);
+  assert.match(styles, /\.site-import-preview > \.ui-progress-layer,[\s\S]*?\.site-settings-current-preview > \.ui-progress-layer\s*\{[^}]*place-items:\s*start center;[^}]*padding-top:\s*clamp\(8rem, 18vh, 12rem\);/s);
+  assert.match(navigation, /async function siteHostingPreviewImportedSettings\([\s\S]*?showUiProgress\(preview,[\s\S]*?site-settings-current-preview-frame[\s\S]*?status\.hidden = true; status\.textContent = ''/);
+  assert.doesNotMatch(navigation, /미리보기를 갱신했습니다/);
+  assert.match(navigation, /const inlineSettingsPreview = siteHostingCreateMode === 'settings';[\s\S]*?if \(!inlineSettingsPreview && previewDialog && !previewDialog\.open\) previewDialog\.showModal\(\);[\s\S]*?showUiProgress\(inlineSettingsPreview \? inlinePreview/);
   assert.match(service, /if \(payload\.site_id !== undefined\)/);
   assert.match(service, /build = await astroRuntime\.build\(projectId, created\.id\)/);
   assert.match(navigation, /siteHostingEditingImportedSite\s*\?\s*await siteHostingCollectImportedEditSettings\(\)/);
