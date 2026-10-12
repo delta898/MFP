@@ -285,7 +285,7 @@ test('Stage 11 exposes one shared publish status with a return action and no dup
     assert.match(betaView, /id="blog-next-publish-status-dismiss"[^>]*aria-label="닫기"[^>]*>×/);
     assert.match(betaView, /id="blog-next-runner-headless"[^>]*checked[^>]*> 보이지 않게 실행/);
     assert.match(betaView, /id="blog-next-publish-status-return"[^>]*hidden>↓ 작업 위치로/);
-    assert.match(betaView, /id="blog-next-publish-status-next"[^>]*hidden>다음 글/);
+    assert.match(betaView, /id="blog-next-publish-status-next"[^>]*hidden>새글쓰기/);
     assert.match(betaView, /id="blog-next-publish-status-help"[^>]*hidden/);
     assert.doesNotMatch(betaView, /data-blog-next-runner-status-jump|상태 보기/);
     assert.match(runnerScript, /state === 'completed'/);
