@@ -125,6 +125,7 @@ test('site creation separates template selection and Astro ZIP import into acces
 test('site creation uses shared region loading while fetching the template catalog', () => {
   const opener = navigation.match(/async function siteHostingOpenCreateSiteDialog\(\) \{[\s\S]*?\n\}/)?.[0] || '';
   assert.match(opener, /showUiProgress\(workspace, \{\s*type: UI_PROGRESS_TYPES\.REGION_INDETERMINATE,\s*message: '템플릿을 불러오는 중입니다\.'\s*\}\)/);
-  assert.match(opener, /finally \{\s*finishProgress\(\);\s*\}/);
+  assert.match(opener, /finally \{\s*finishProgress\(\);/);
+  assert.match(opener, /finally \{\s*finishProgress\(\);\s*if \(templatesLoaded && templatePanel\) templatePanel\.inert = false;/);
   assert.doesNotMatch(opener, /템플릿을 불러오는 중…/);
 });

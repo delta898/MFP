@@ -1301,6 +1301,7 @@ async function siteHostingOpenCreateSiteDialog() {
     type: UI_PROGRESS_TYPES.REGION_INDETERMINATE,
     message: '템플릿을 불러오는 중입니다.'
   });
+  let templatesLoaded = false;
   try {
     const templates = await fetchJson('/api/v1/site-hosting/templates');
     siteHostingCreateTemplates = Array.isArray(templates) ? templates : [];
@@ -1310,7 +1311,7 @@ async function siteHostingOpenCreateSiteDialog() {
     siteHostingRenderCreateTemplates();
     siteHostingRenderCreateSetupInputs();
     siteHostingRenderCreateNavigation();
-    if (templatePanel) templatePanel.inert = false;
+    templatesLoaded = true;
     siteHostingCreateInitialSnapshot = siteHostingCreateFormSnapshot();
     siteHostingUpdateCreateSubmitState();
     if (previewButton) previewButton.disabled = false;
@@ -1321,6 +1322,7 @@ async function siteHostingOpenCreateSiteDialog() {
     feedback.textContent = error.message || '템플릿을 불러오지 못했습니다.';
   } finally {
     finishProgress();
+    if (templatesLoaded && templatePanel) templatePanel.inert = false;
   }
 }
 
