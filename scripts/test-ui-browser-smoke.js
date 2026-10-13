@@ -548,7 +548,6 @@ function getApiFixture(pathname) {
     }
     if (pathname === '/api/v1/session/naver') return { status: 'logged_in', valid: true };
     if (pathname === '/api/v1/session/wordpress-verify') return { success: true, message: '연동 성공' };
-    if (pathname === '/api/v1/logs/files') return { files: [] };
     if (pathname === '/api/v1/trends/items') return { items: [], total: 0, limit: 50, offset: 0 };
     if (pathname === '/api/v1/blog/topics') return { items: [], total: 0, limit: 50, offset: 0 };
     if (pathname === '/api/v1/shopping/items') return { items: [], total: 0, limit: 50, offset: 0 };
@@ -2711,7 +2710,7 @@ async function run() {
             showUiConfirm = async () => true;
         });
         reportSmokePhase('Checking current Settings, account, logs, and active-surface navigation');
-        for (const viewName of ['account', 'social', 'settings', 'logs', 'shopping', 'site-hosting', 'dashboard-beta', 'blog-next']) {
+        for (const viewName of ['account', 'social', 'settings', 'shopping', 'site-hosting', 'dashboard-beta', 'blog-next']) {
             const expectedViewName = viewName === 'settings' ? 'settings-next' : viewName;
             const siteTemplateAutoCheck = viewName === 'site-hosting'
                 ? page.waitForResponse((response) => new URL(response.url()).pathname === '/api/v1/site-hosting/templates' && response.request().method() === 'GET')
@@ -5679,13 +5678,8 @@ async function run() {
             true
         );
 
-        await page.locator('.nav-btn[data-view="logs"]').click();
-        await page.locator('.logs-tab-btn[data-logs-tab="system"]').click();
-        await page.waitForFunction(() => getComputedStyle(document.getElementById('logs-tab-system')).display !== 'none');
-        assert.equal(
-            await page.locator('.logs-tab-btn[data-logs-tab="system"]').evaluate((element) => element.classList.contains('active')),
-            true
-        );
+        assert.equal(await page.locator('.nav-btn[data-view="logs"]').count(), 0);
+        assert.equal(await page.locator('#view-logs').count(), 0);
 
         await page.locator('.nav-btn[data-view="dashboard-beta"]').click();
         assert.equal(await page.locator('#update-banner').evaluate((element) => element.classList.contains('hidden')), true);

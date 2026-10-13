@@ -125,11 +125,6 @@
     max-width: calc(100vw - 32px);
   }
 
-  #logs-tab-system .terminal-container {
-    height: 56vh !important;
-    min-height: 420px !important;
-  }
-
   .grid {
     grid-template-columns: 1fr;
   }

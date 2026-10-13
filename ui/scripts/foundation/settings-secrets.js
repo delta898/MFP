@@ -147,15 +147,6 @@ function formatDateTimeAbsolute(value) {
   return `${d.getMonth() + 1}월 ${d.getDate()}일 ${d.getHours()}시 ${pad(d.getMinutes())}분`;
 }
 
-function formatDashboardActivityTime(value) {
-  const raw = String(value || '').trim();
-  if (!raw) return '-';
-  const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return '-';
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 function parseBoolLike(value) {
   if (typeof value === 'boolean') return value;
   const raw = String(value ?? '').trim().toLowerCase();

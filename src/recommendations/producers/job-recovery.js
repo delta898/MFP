@@ -66,11 +66,7 @@ function createJobRecoveryProducer() {
                         strength: 'strong',
                         features: { status: 'failed', job_name: job.job_name }
                     })],
-                    handoff: {
-                        type: 'presentation', label: '시스템 로그 보기',
-                        target: { surface: 'logs.system', view: 'logs', tab: '' },
-                        payload: { job_name: job.job_name }
-                    },
+                    handoff: null,
                     created_at: createdAt,
                     ttl_ms: RECOVERY_WINDOW_MS,
                     metadata: { job_name: job.job_name, latest_status: 'failed' }

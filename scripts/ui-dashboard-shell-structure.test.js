@@ -12,8 +12,6 @@ const shellContracts = Object.freeze({
     'features/shell/update.js': ['checkUpdate', 'applyUpdate'],
     'features/shell/account-overview.js': ['renderAccountOverview', 'loadAccountOverview'],
     'features/shell/account-actions.js': ['bindAccountUpgradeFreeClick', 'bindAccountPlanInfoClick'],
-    'features/shell/activity-logs.js': ['loadDashboardLogs'],
-    'features/shell/system-logs.js': ['loadSystemLog', 'formatSystemLogHtml'],
     'features/shell/celebration.js': ['showAppCelebration', 'showPendingUpdateCelebration', 'showPostingCompletionCelebration', 'flushPendingQuickPostingCelebration'],
     'features/shell/clock.js': ['initClockWidget']
 });

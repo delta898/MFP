@@ -56,7 +56,7 @@ async function showPendingUpdateCelebration() {
       const detail = String(failure.message || '').trim();
       await showUiDialog({
         title: '업데이트 실패',
-        message: `업데이트를 적용하지 못해 기존 버전으로 다시 실행했습니다.${detail ? `\n\n원인: ${detail}` : ''}\n\n로그/이력에서 자세한 내용을 확인한 뒤 다시 시도해 주세요.`,
+        message: `업데이트를 적용하지 못해 기존 버전으로 다시 실행했습니다.${detail ? `\n\n원인: ${detail}` : ''}\n\n잠시 후 다시 시도해 주세요. 문제가 반복되면 진단 자료를 개발자에게 전달해 주세요.`,
         showCancel: false,
         confirmText: '확인'
       });

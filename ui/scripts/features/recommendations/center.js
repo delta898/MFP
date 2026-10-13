@@ -424,8 +424,7 @@ async function openRecommendationPresentation(action = {}) {
     'settings.blog': ['settings-next', 'core'],
     'settings.wordpress': ['settings-next', 'core'],
     'settings.shopping_connect': ['shopping', 'quick'],
-    'settings.ai': ['settings-next', 'ai'],
-    'logs.system': ['logs', 'system']
+    'settings.ai': ['settings-next', 'ai']
   };
   const target = targets[surface];
   if (!target) throw new Error('지원하지 않는 추천 화면입니다.');
@@ -445,9 +444,6 @@ async function openRecommendationPresentation(action = {}) {
     if (!navigated) return;
   } else {
     await navigateTo(target[0], target[1]);
-  }
-  if (surface === 'logs.system') {
-    document.querySelector('.logs-tab-btn[data-logs-tab="system"]')?.click();
   }
   if (surface === 'dashboard.recommendations') {
     scrollToActiveRecommendationCenter();

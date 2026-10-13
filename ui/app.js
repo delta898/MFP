@@ -38,7 +38,6 @@
 // @include scripts/features/content/table-state.js
 // @include scripts/shared/runtime-state.js
 // @include scripts/features/shell/update-state.js
-// @include scripts/features/shell/log-state.js
 // @include scripts/foundation/mobile-state.js
 // @include scripts/features/shell/update.js
 // @include scripts/foundation/progress-state.js
@@ -55,8 +54,6 @@
 // @include scripts/features/shell/account-actions.js
 // @include scripts/features/shell/dashboard-beta.js
 // @include scripts/features/shell/help.js
-// @include scripts/features/shell/activity-logs.js
-// @include scripts/features/shell/system-logs.js
 // @include scripts/features/shell/celebration.js
 // @include scripts/features/shell/clock.js
 // @include scripts/features/shell/global-publishing-status.js

@@ -24,7 +24,7 @@ function context(overrides = {}) {
     return {
         owner_user_id: 'owner-local', observed_at: NOW,
         capabilities: { known: true, ids: ['content.topic.register'] },
-        presentation: { known: true, surfaces: ['settings.general', 'logs.system'] },
+        presentation: { known: true, surfaces: ['settings.general'] },
         license: { known: true, features: { cmd_shopping: true } },
         settings: { known: true, values: { google_sheets_configured: true } },
         quota: { publishing: { known: true, unlimited: false, remaining: 1 } },

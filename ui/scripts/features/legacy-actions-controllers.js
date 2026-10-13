@@ -5,42 +5,6 @@ function bindActions() {
     });
   });
 
-  // Logs 위젯 이벤트 (Pill 탭 전환)
-  const logsTabBtns = Array.from(document.querySelectorAll('.logs-tab-btn'));
-  logsTabBtns.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      logsTabBtns.forEach(b => b.classList.remove('active'));
-      e.target.classList.add('active');
-      const tabName = e.target.getAttribute('data-logs-tab');
-      document.querySelectorAll('.logs-tab-panel').forEach(p => p.style.display = 'none');
-      document.getElementById(`logs-tab-${tabName}`).style.display = 'block';
-      if (tabName === 'system') loadLogFiles();
-      else loadDashboardLogs();
-    });
-  });
-
-  const logsActivityRefreshBtn = document.getElementById('logs-activity-refresh-btn');
-  if (logsActivityRefreshBtn) {
-    logsActivityRefreshBtn.addEventListener('click', () => {
-      loadDashboardLogs();
-      logsActivityRefreshBtn.textContent = '불러오는 중...';
-      setTimeout(() => logsActivityRefreshBtn.textContent = '새로고침', 500);
-    });
-  }
-
-  const logsSystemFileSelect = document.getElementById('logs-system-file-select');
-  const logsSystemRefreshBtn = document.getElementById('logs-system-refresh-btn');
-  if (logsSystemFileSelect) {
-    logsSystemFileSelect.addEventListener('change', loadSystemLog);
-  }
-  if (logsSystemRefreshBtn) {
-    logsSystemRefreshBtn.addEventListener('click', () => {
-      loadSystemLog();
-      logsSystemRefreshBtn.textContent = '불러오는 중...';
-      setTimeout(() => logsSystemRefreshBtn.textContent = '현재 파일 새로고침', 500);
-    });
-  }
-
   const dialogBackdrop = document.getElementById('ui-dialog-backdrop');
   const dialogConfirmBtn = document.getElementById('ui-dialog-confirm');
   const dialogCancelBtn = document.getElementById('ui-dialog-cancel');

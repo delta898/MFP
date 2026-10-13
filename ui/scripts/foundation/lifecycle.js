@@ -258,17 +258,6 @@ try { initKeywordResearchModal(); } catch (e) { console.warn('initKeywordResearc
     }
     checkSetupBanner();
 
-    // 자동 새로고침: 로그/이력 뷰가 활성화되어 있으면 함께 갱신
-    const logsViewEl = document.getElementById('view-logs');
-    if (logsViewEl && logsViewEl.classList.contains('active')) {
-      const activeTab = document.querySelector('.logs-tab-btn.active');
-      const tabName = activeTab ? activeTab.getAttribute('data-logs-tab') : 'activity';
-      if (tabName === 'system') {
-        loadSystemLog();
-      } else {
-        loadDashboardLogs();
-      }
-    }
   }, 30000);
 
 

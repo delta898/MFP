@@ -14,7 +14,6 @@ const viewHeaders = [
   ['ui/partials/views/social.html', 'SNS', '짧은 생각과 기록을 설정된 Buffer 채널에 바로 발행합니다.'],
   ['ui/partials/views/account.html', '내 정보', '사용 중인 플랜, 이용 현황과 서비스 연결 상태를 확인합니다.'],
   ['ui/partials/views/settings-next.html', '설정', '공통 연결과 기본값을 한곳에서 관리하고, 각 기능에서 필요한 설정을 선택해 사용합니다.'],
-  ['ui/partials/views/logs.html', '로그 및 이력', '최근 활동 이력과 시스템 로그를 확인합니다.'],
   ['ui/partials/views/help.html', '도움말', '처음 설정하는 방법부터 글쓰기와 자동화 활용법까지 한곳에서 찾아보세요.']
 ];
 

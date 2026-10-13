@@ -18,7 +18,7 @@ test('newer success resolves an older failure for the same job name', () => {
     assert.deepEqual(failures.map((item) => item.id), ['job-other']);
 });
 
-test('recovery producer excludes old and future failures and emits valid log navigation', async () => {
+test('recovery producer excludes old and future failures and preserves a notice without a log link', async () => {
     const producer = createJobRecoveryProducer();
     const result = await producer.produce({
         owner_user_id: 'owner-local',
@@ -34,7 +34,7 @@ test('recovery producer excludes old and future failures and emits valid log nav
     assert.equal(result.candidates.length, 1);
     const candidate = result.candidates[0];
     assert.equal(candidate.metadata.job_name, 'jobs.blog.publish');
-    assert.equal(candidate.handoff.target.surface, 'logs.system');
+    assert.equal(candidate.handoff, null);
     assert.deepEqual(validateRecommendationCandidate(candidate).errors, []);
     assert.equal(Object.hasOwn(candidate.metadata, 'result'), false);
 });

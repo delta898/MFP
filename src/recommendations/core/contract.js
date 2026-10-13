@@ -83,8 +83,7 @@ const RECOMMENDATION_PRESENTATION_SURFACES = Object.freeze([
     'settings.blog',
     'settings.wordpress',
     'settings.shopping_connect',
-    'settings.ai',
-    'logs.system'
+    'settings.ai'
 ]);
 
 const RECOMMENDATION_SENSITIVE_DATA_KEY_PATTERN = /(?:api[_-]?key|secret|password|authorization|access[_-]?token|refresh[_-]?token|raw[_-]?(?:response|body|payload))/i;
