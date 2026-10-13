@@ -3,7 +3,7 @@
 - Branch: `codex/feat/telegram-conversation-routing`
 - Start date: 2026-10-14
 - Base/parent branch: `codex/fbr/telegram-conversation-enhancement` (`eddc2f5`)
-- Status: 구현 및 parent 통합 완료; 전체 unit/UI 검증 통과; `dev` 통합 준비 완료
+- Status: 구현 및 parent 통합 완료; 전체 unit/UI 검증 통과; `dev`에 병합 완료 (`5e212421`)
 - Parent plan: [Telegram 대화 경험 고도화 FBR](2026-10-13-telegram-conversation-enhancement-fbr.md)
 
 ## 사용자 필요와 목표

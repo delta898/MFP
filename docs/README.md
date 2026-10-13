@@ -109,8 +109,8 @@
 
 ## Active Work
 
-- `plans/active/2026-10-13-telegram-conversation-enhancement-fbr.md` (Telegram route 단일화 FBR; 0.7.0 core/plugin·capability 후속 설계)
-- `plans/active/2026-10-14-telegram-conversation-routing.md` (Telegram 자연어 route 단일화 sub-feature 및 검증 결과)
+- `plans/archive/2026-10-13-telegram-conversation-enhancement-fbr.md` (Telegram route 단일화 FBR; 0.7.0 core/plugin·capability 후속 설계)
+- `plans/archive/2026-10-14-telegram-conversation-routing.md` (Telegram 자연어 route 단일화 sub-feature 및 검증 결과)
 
 - `plans/active/2026-10-11-site-hosting-astro-project-import-development.md` (direct Astro project ZIP import to Site)
 - `plans/active/2026-10-11-astro-site-generation-agent-options.md` (product and technical exploration; generation mechanism not selected)
