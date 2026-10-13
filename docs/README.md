@@ -109,6 +109,8 @@
 
 ## Active Work
 
+- `plans/active/2026-10-13-telegram-conversation-enhancement-fbr.md` (0.6.1 Telegram route 단일화 release slice 및 0.7.0 core/plugin·capability 구조 설계)
+
 - `plans/active/2026-10-11-site-hosting-astro-project-import-development.md` (direct Astro project ZIP import to Site)
 - `plans/active/2026-10-11-astro-site-generation-agent-options.md` (product and technical exploration; generation mechanism not selected)
 - `plans/active/2026-10-01-static-template-contract-spike-development.md`
