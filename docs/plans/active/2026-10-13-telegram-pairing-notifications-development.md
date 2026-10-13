@@ -3,7 +3,7 @@
 - Branch: `codex/telegram-pairing-notification-audit`
 - Base/parent branch: `dev`
 - Start date: 2026-10-13
-- Status: Implementation in progress
+- Status: Pairing and settings guide complete; notification event consolidation deferred
 
 ## User need
 
@@ -18,7 +18,7 @@ The user wants Telegram setup to avoid asking for a Chat ID, which is difficult 
 
 ## Explicit non-goals
 
-- Implement the agreed pairing flow and automatic-publishing notifications.
+- Consolidate notification events across all publishing workflows in this pairing/settings slice.
 - Do not build a general multi-provider notification framework or redesign Telegram agent capabilities.
 - Do not support Telegram groups/channels in the initial pairing proposal unless the user expands scope.
 - Do not migrate existing saved credentials or revoke/recreate a user's Bot Token.
@@ -52,11 +52,11 @@ The user wants Telegram setup to avoid asking for a Chat ID, which is difficult 
 
 ## Planned stages
 
-1. Replace Chat ID entry with Bot Token verification, a deep link to the identified bot, short-lived pairing code entry, and a test message. (Current implementation stage.)
-2. Keep pairing polling exclusive and restore inbound command polling after pairing completes, is cancelled, or expires.
-3. In a later stage, normalize Telegram notification events so manual publishing stays silent and automatic workflows get the agreed result summaries.
-4. Add focused tests for pairing authorization/expiry and the notification event paths as each stage is implemented.
-5. Run focused UI/API/runtime checks; request approval before broad test suites or any external Telegram send.
+1. Complete Bot Token verification, a deep link to the identified bot, short-lived pairing code entry, and a test-message attempt. (Complete.)
+2. Keep pairing polling exclusive and restore inbound command polling after pairing completes, is cancelled, or expires. (Complete.)
+3. Defer normalizing Telegram notification events so manual publishing stays silent and automatic workflows get the agreed result summaries to a follow-up stage.
+4. Add focused tests for pairing authorization and expiry. (Complete; notification event tests belong to the deferred stage.)
+5. Run focused UI/API/runtime checks and the approved full unit suite. (Complete.)
 
 ## Decisions and tradeoffs
 
@@ -79,8 +79,9 @@ The user wants Telegram setup to avoid asking for a Chat ID, which is difficult 
 - 2026-10-13: Moved Telegram result feedback beside its persistent status badge. The shared settings-card foundation now supports opt-in transient feedback; successful verification, pairing, and cancellation notices dismiss after 4.5 seconds, while progress and errors stay visible until the next result. Removed Telegram's bottom feedback/footer slot to eliminate its reserved whitespace. Other cards retain their existing behavior for later review and adoption. Added spacing between the pairing confirmation and cancel actions.
 - 2026-10-13: Adjusted Telegram's header layout to place the guide beside the status badge and transient feedback beneath them. Added the user-provided Telegram guide URL as a direct external link, avoiding the in-app help-catalog navigation used by other guide controls. Wrote a conceptual setup guide draft at `blog-drafts/bloggenius-telegram-connection-guide.md`. Focused Settings UI contract checks passed.
 - 2026-10-13: Telegram/settings UI contract tests (14) and browser UI smoke passed after the inline-feedback change (500 fixture requests; two Google Fonts requests blocked by the harness). JavaScript syntax checks and `git diff --check` passed.
+- 2026-10-13: The user added the guide link to the Telegram card. It now opens the provided article in an external browser instead of navigating to the in-app help catalog. The user confirmed the pairing flow works and approved the full unit suite; final run passed 2,256 tests, with 15 skipped and none failing.
 - Automatic notification event consolidation remains a subsequent stage.
 
 ## Final result
 
-Pairing flow implementation is complete for the first stage; real Telegram UI acceptance and notification consolidation remain pending.
+The private-chat pairing flow, settings experience, and setup guide link are complete and merged as this feature slice. The user confirmed pairing works. Automated validation passed. The agreed cross-workflow notification policy remains a separate follow-up: current publishing paths still have different notification behavior, including some manual paths that may notify before that consolidation is implemented. No real Telegram delivery was part of automated verification.
