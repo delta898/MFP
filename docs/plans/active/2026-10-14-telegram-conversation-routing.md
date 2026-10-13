@@ -3,7 +3,7 @@
 - Branch: `codex/feat/telegram-conversation-routing`
 - Start date: 2026-10-14
 - Base/parent branch: `codex/fbr/telegram-conversation-enhancement` (`eddc2f5`)
-- Status: 구현 완료; focused tests 통과; 사용자 Telegram hands-on에서 단일 route 응답 확인; 0.6.1 release slice로 parent 통합 준비 중
+- Status: 구현 및 parent 통합 완료; 전체 unit/UI 검증 통과; `dev` 통합 준비 완료
 - Parent plan: [Telegram 대화 경험 고도화 FBR](2026-10-13-telegram-conversation-enhancement-fbr.md)
 
 ## 사용자 필요와 목표
@@ -71,7 +71,8 @@ Agent parser 응답은 capability action envelope이며 자유 대화 답변을 
 - 자동화 테스트: parser route contract, legacy content mapper, Telegram renderer focused tests 총 7건 통과. `node --check`와 `git diff --check` 통과.
 - 수동 확인: 사용자는 Telegram에서 인사·요청·글감 등록을 직접 실행했고 응답을 확인했다. 그 과정에서 stale help와 저장/대기열 의미 문제를 발견해 0.7.0 follow-up으로 분류했다. 배포 후보 수락 전에 설정/작업 확인, 조회, `/help` 및 callback도 확인한다.
 - 구현 검증은 parser result contract와 주요 route의 focused unit/contract tests, 관련 UI/browser 흐름에 영향이 있을 때 해당 regression test로 한다.
-- 전체 unit suite는 부모 FBR을 `dev`에 병합하기 전 명시적 승인 후 실행한다.
+- 전체 unit suite: 2,256 통과, 2 skip, 0 실패. 보안 audit은 별도.
+- UI API smoke 2종, UI E2E, 브라우저 smoke 통과 (426 fixture 요청, 페이지 오류 0건).
 - 최종 사용자는 Telegram에서 인사/일반 질문/기능 요청/확인 요청을 직접 확인한다.
 
 ## 남은 위험과 후속
@@ -79,7 +80,7 @@ Agent parser 응답은 capability action envelope이며 자유 대화 답변을 
 - Agent와 legacy parser가 지원하던 capability 차이를 새 parser contract에서 빠짐없이 보존해야 한다.
 - Capability 목록과 help 문구는 현재 parser prompt와 capability 구현에 별도로 존재한다. 제거된 기능 안내가 남을 수 있고, 실제 입력 요구/가용성/부작용과 불일치할 수 있다. 0.7.0 목표 구조에서 capability 자체 설명 계약과 runtime discovery로 다룬다.
 - “글감 저장만”과 “발행 준비 대기열 등록”은 현행 legacy 실행에서 같은 등록 capability를 사용하고 등록 행을 `발행 준비 완료`로 기록한다. 기능 의미를 분리하고 필수 대상 정보가 모호할 때 질문하는 것은 이번 0.6.1 slice에 포함되지 않으며 0.7.0 설계에서 다룬다.
-- 기존 비결정적 자유 대화는 현재 지원되지 않으므로 새 `reply` route의 문구·빈 응답 동작을 검증해야 한다.
+- 기존 비결정적 자유 대화는 새 `reply` route에서 직접 답변한다. 일반 조사 provider가 없으므로 조사한 척하지 않으며, 조사 기능은 이번 범위 밖이다.
 - 일반 조사 provider가 없으므로 조사한 척하지 않으며, 조사 기능은 이번 범위 밖이다.
 - 저장된 `user_insight`와 `last_topic`을 추가로 모델 요청에 넣는 시도는 자동 승인 검토에서 차단되어 적용하지 않았다. 차단 사유는 사용자 성향/최근 주제를 외부 모델에 더 전송하는 데 구체적 승인이 없다는 것이다. 현재 route는 이미 retrieval packet에 포함되는 최근 메시지·기억만 사용하며, 추가 개인 맥락 전송은 별도 사용자 결정이 필요하다.
 - legacy 실행 adapter 제거와 capability registry 통합은 별도 후속 feature다.

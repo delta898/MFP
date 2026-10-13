@@ -3,7 +3,7 @@
 - Branch: `codex/fbr/telegram-conversation-enhancement`
 - Start date: 2026-10-13
 - Base/parent branch: `dev` (`88cee431`)
-- Status: route 단일화 sub-feature parent 통합 완료; `dev` 병합 전 full unit suite 승인 대기; core/plugin 구조와 capability 자기설명 계약은 0.7.0 목표
+- Status: Telegram route 단일화 완료; 전체 unit/UI 검증 통과, `dev` 통합 준비 완료. 앱 core/plugin 구조와 capability 자기설명 계약은 별도 0.7.0 목표
 
 ## 사용자 필요와 목표
 
@@ -148,14 +148,15 @@ Telegram update
 
 ## 다음 단계
 
-1. parent 통합은 완료했다. 사용자 승인 후 full unit suite를 실행하고 `dev`에 병합한 뒤 `v0.6.1` release 후보를 준비한다.
+1. 0.6.1 대상 Telegram route 단일화를 전체 검증했고 `dev` 통합을 준비했다. 버전 변경과 release 준비는 별도 사용자 요청으로 진행한다.
 2. `v0.7.0` 설계는 core 기능과 plugin 확장 경계, capability가 자기 설명·필수 입력·가용 조건·확인/부작용 계약을 함께 제공하는 방식부터 다룬다.
 3. 그 구조를 바탕으로 기능 목록과 실제 실행 가능성의 일치, 정보 부족 시 질문, 사용자 memory/context 적용, 조사·학습 개선을 단계적으로 설계한다. 보존·승격·삭제 수치(90일·3회)는 여전히 미확정 제안값이다.
 
 ## 검증 및 남은 위험
 
-- Routing sub-feature의 parser, legacy mapper, Telegram renderer focused tests 7건과 syntax/diff checks가 통과했다. 상세 결과와 수동 확인 항목은 하위 기록을 참조한다.
-- 전체 unit suite는 parent feature를 `dev`에 통합하기 전 사용자 승인 후 실행한다.
+- 전체 unit suite: 2,256 통과, 2 skip, 0 실패. 테스트 명령은 `node scripts/run-unit-tests.js`이며 보안 audit은 이번 unit/UI 요청 범위에서 제외했다.
+- UI API smoke (`test:ui-blog-auto`, `test:ui-settings`), UI E2E (`test:ui-e2e`), 브라우저 smoke (`test:ui-browser`) 모두 통과했다. 브라우저 smoke는 fixture 요청 426건, 페이지 오류 0건이었다.
+- Routing sub-feature의 parser, legacy mapper, Telegram renderer focused tests 7건과 syntax/diff checks도 통과했다. 상세 진행과 제품 제한은 하위 기록을 참조한다.
 - 0.6.1 범위에서는 runtime capability 설명의 자동 동기화와 불명확 요청의 보완 질문을 완성하지 않는다. 0.7.0 구조 변경에서 해결할 명시적 후속 범위다.
 - 이후 구현은 기존 Telegram parser/planner/runtime/capability/memory contract, pairing의 polling 소유권, 자동 발행 알림 경계와 UI/desktop handoff 영향을 확인한다.
 - 최종 사용자 acceptance는 합의한 Telegram 대화 시나리오를 사용자가 실제 앱에서 확인한다.
