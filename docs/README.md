@@ -109,7 +109,7 @@
 
 ## Active Work
 
-- `plans/active/2026-10-13-retired-surface-removal-development.md` (legacy Dashboard/Blog 제거 완료; Settings, Blog Beta 입력 모드, dev-only logs 검토 진행)
+- `plans/active/2026-10-13-retired-surface-removal-development.md` (legacy Dashboard/Blog/Settings와 구 작성 입력·로그 UI 제거; 전체 통합 검증 완료, dev 병합 전)
 - `plans/active/2026-10-11-site-hosting-astro-project-import-development.md` (direct Astro project ZIP import to Site)
 - `plans/active/2026-10-11-astro-site-generation-agent-options.md` (product and technical exploration; generation mechanism not selected)
 - `plans/active/2026-10-01-static-template-contract-spike-development.md`

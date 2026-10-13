@@ -3,7 +3,7 @@
 - Branch: `codex/feat/remove-legacy-dashboard`
 - Start date: 2026-10-13
 - Base/parent branch: `codex/fbr/retired-surface-removal`
-- Status: 구현 및 focused/browser 검증 완료; 사용자 수동 확인 대기
+- Status: 구현·검증 및 parent 통합 완료; 세부 기록 archive
 
 ## 사용자 필요와 목표
 

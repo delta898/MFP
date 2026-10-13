@@ -26,7 +26,7 @@ test('Markdown-to-block transitions rehydrate existing manuscript image assets',
   const inputs = read('ui/scripts/features/blog-next/draft-inputs.js');
 
   assert.match(inputs, /function restoreBlogNextEditorImages\(state\)\s*\{\s*const preview = state\?\.preview;\s*state\?\.editor\?\.syncImages\?\.\(\s*preview\?\.images \|\| \[\]/);
-  assert.equal((inputs.match(/restoreBlogNextEditorImages\(state\);/g) || []).length, 3);
+  assert.equal((inputs.match(/restoreBlogNextEditorImages\(state\);/g) || []).length, 1);
 });
 
 test('local image drop targets validate one supported file and do not leak editor drop handling', () => {
@@ -66,6 +66,6 @@ test('manuscript editors add image blocks from clipboard and canvas drops throug
   assert.match(images, /async function importBlogNextEditorImage\(type, file, blockId\)/);
   assert.match(images, /preview\.images\?\.find\(\(item\) => item\.blockId === blockId\)/);
   assert.match(images, /applyBlogNextManuscriptMutation\(type, 'import',[\s\S]*?\{ lockAcquired: true \}\)/);
-  assert.equal((inputs.match(/onImageFileDrop\(file, blockId\)/g) || []).length, 3);
+  assert.equal((inputs.match(/onImageFileDrop\(file, blockId\)/g) || []).length, 1);
   assert.match(css, /\.manuscript-editor-canvas\.is-file-drag-over::after/);
 });
