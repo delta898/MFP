@@ -1,6 +1,19 @@
 # Changelog
 All notable changes to the Naver Auto Blog publishing tool will be documented in this file.
 
+## [0.6.1-dev1] - 2026-10-14
+
+### Added
+- **Telegram 연결 간소화**: Bot Token을 확인한 뒤 Telegram 대화에서 받은 연결 코드로 계정을 연결할 수 있습니다. Chat ID를 직접 찾을 필요 없이 연결 상태와 테스트 메시지로 수신 여부를 확인합니다.
+- **Telegram 대화 경로 통합**: 자연어 메시지를 통해 BlogGenius 기능을 요청하고 안내를 받을 수 있습니다. 요청에 따라 관련 작업을 제안하며, 실제 실행 결과를 대화에서 확인할 수 있습니다.
+- **원고 편집기에 이미지 바로 넣기**: PNG, JPEG, WebP, AVIF 이미지를 끌어놓거나 붙여넣어 이미지 블록으로 추가할 수 있습니다.
+
+### Improved
+- **원고 보기 전환 시 이미지 유지**: 블록 편집기와 Markdown 편집기를 오가도 추가한 이미지가 다시 블록 편집기에 표시됩니다.
+
+### 알려진 제한
+- Telegram 대화는 글감 저장과 발행 대기열 추가를 아직 정확히 구분하지 못할 수 있고, 일부 기능 안내가 현재 제공 기능과 맞지 않을 수 있습니다.
+
 ## [0.6.0-dev5] - 2026-10-13
 
 ### Improved

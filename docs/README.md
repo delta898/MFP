@@ -109,8 +109,7 @@
 
 ## Active Work
 
-- `plans/archive/2026-10-13-telegram-conversation-enhancement-fbr.md` (Telegram route 단일화 FBR; 0.7.0 core/plugin·capability 후속 설계)
-- `plans/archive/2026-10-14-telegram-conversation-routing.md` (Telegram 자연어 route 단일화 sub-feature 및 검증 결과)
+- `plans/active/2026-10-14-release-v0.6.1-development.md` (0.6.0 이후 사용자 변경사항 릴리스 준비)
 
 - `plans/active/2026-10-11-site-hosting-astro-project-import-development.md` (direct Astro project ZIP import to Site)
 - `plans/active/2026-10-11-astro-site-generation-agent-options.md` (product and technical exploration; generation mechanism not selected)
@@ -129,6 +128,8 @@
 - `plans/archive/2026-10-02-site-sidebar-navigation-development.md` (completed site sidebar navigation and entry screen slice)
 - `plans/archive/2026-10-13-retired-blog-removal-development.md` (legacy Blog surface and schedules removed; Blog Beta and SNS automation preserved)
 - `plans/archive/2026-10-13-retired-surface-removal-development.md` (legacy Dashboard/Blog/Settings와 구 작성 입력·로그 UI 제거; 전체 통합 검증 후 dev 병합 완료)
+- `plans/archive/2026-10-13-telegram-conversation-enhancement-fbr.md` (Telegram route 단일화 FBR; 0.7.0 core/plugin·capability 후속 설계)
+- `plans/archive/2026-10-14-telegram-conversation-routing.md` (Telegram 자연어 route 단일화 sub-feature 및 검증 결과)
 - `plans/archive/2026-09-30-release-v0.5.5-development.md`
 - `plans/archive/2026-10-01-ai-model-save-without-key-development.md`
 - `plans/archive/2026-09-15-telegram-network-resilience-development.md`
