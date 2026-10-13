@@ -1,6 +1,12 @@
 # Changelog
 All notable changes to the Naver Auto Blog publishing tool will be documented in this file.
 
+## [0.6.0-dev5] - 2026-10-13
+
+### Improved
+- **SNS 자동 공유 동작과 기록 확인**: 개발 환경에서도 블로그 RSS를 자동으로 확인해 SNS 시트에 새 항목을 기록합니다. Buffer 발행은 실행하지 않으며, RSS 확인과 시트 반영 결과를 로그에서 확인할 수 있습니다.
+- **게시 후 새 글 작성**: 게시 완료 화면의 다음 작업을 `새글쓰기`로 표시해 동작을 분명하게 안내합니다.
+
 ## [0.6.0-dev4] - 2026-10-12
 
 ### Added
