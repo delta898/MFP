@@ -1,12 +1,13 @@
-const Logger = require('../logger');
-const Utils = require('../utils');
-
 function buildEnvelope(conversationId, messageId, actions = []) {
     return {
         version: '1.0',
         conversation_id: conversationId,
         message_id: messageId,
-        actions
+        route: actions.length > 0 ? 'agent' : 'unsupported',
+        actions,
+        legacy_actions: [],
+        meta: {},
+        reply: { text: '', suggestion: '' }
     };
 }
 
@@ -182,9 +183,53 @@ function extractFirstJsonObject(raw) {
     return '';
 }
 
-async function parseTelegramAgentEnvelope(messageText, context = {}) {
+const LEGACY_ACTIONS = new Set([
+    'register_topic',
+    'publish_article',
+    'update_config',
+    'run_job',
+    'query_data'
+]);
+const LEGACY_CONFIG_KEYS = new Set([
+    'PUBLISH_AUTO_INTERVAL_MIN',
+    'PUBLISH_AUTO_ENABLED',
+    'PUBLISH_AUTO_HEADLESS',
+    'image_gen',
+    'NAVER_ID',
+    'TYPING_SPEED'
+]);
+const LEGACY_JOB_NAMES = new Set(['trends', 'rss', 'shopping', 'publish']);
+const LEGACY_QUERY_TYPES = new Set(['status', 'system', 'topics', 'shopping', 'stats', 'insight']);
+
+function normalizeLegacyActions(actions) {
+    if (!Array.isArray(actions) || actions.length === 0) return [];
+    return actions.map((item) => {
+        const action = String(item?.action || '').trim();
+        if (!LEGACY_ACTIONS.has(action) || !item?.params || typeof item.params !== 'object' || Array.isArray(item.params)) {
+            return null;
+        }
+        const params = item.params;
+        if (action === 'register_topic' && !String(params.theme || '').trim()) return null;
+        if (action === 'publish_article'
+            && params.target !== undefined
+            && !['all', 'naver', 'wordpress'].includes(String(params.target).trim().toLowerCase())) return null;
+        if (action === 'update_config') {
+            const updates = params.config_updates;
+            if (!updates || typeof updates !== 'object' || Array.isArray(updates)) return null;
+            if (Object.keys(updates).length === 0 || Object.keys(updates).some((key) => !LEGACY_CONFIG_KEYS.has(key))) return null;
+        }
+        if (action === 'run_job' && !LEGACY_JOB_NAMES.has(String(params.job_name || '').trim().toLowerCase())) return null;
+        if (action === 'query_data' && !LEGACY_QUERY_TYPES.has(String(params.query_type || '').trim().toLowerCase())) return null;
+        return { action, params };
+    });
+}
+
+async function routeTelegramMessage(messageText, context = {}) {
     const conversationId = String(context.conversationId || '').trim();
     const messageId = String(context.messageId || '').trim();
+    const logger = context.logger || require('../logger');
+    const utils = context.modelCaller ? null : require('../utils');
+    const modelCaller = context.modelCaller || utils.callTelegramChatModel.bind(utils);
     const deterministic = tryParseDeterministicEnvelope(messageText, context);
     if (deterministic) {
         return deterministic;
@@ -196,8 +241,8 @@ async function parseTelegramAgentEnvelope(messageText, context = {}) {
     const preferences = Array.isArray(context.memory?.preferences) ? context.memory.preferences.slice(0, 5) : [];
     const pendingConfirmations = Array.isArray(context.memory?.pending_confirmations) ? context.memory.pending_confirmations.slice(0, 3) : [];
 
-    const prompt = `당신은 블로그 자동화 시스템의 Agent Control Parser 입니다.
-사용자 메시지를 아래 capability 범위 안에서만 해석해 action envelope JSON으로 반환하세요.
+    const prompt = `당신은 BlogGenius의 Telegram 대화 라우터입니다.
+사용자 메시지에 직접 답하거나, 아래 Agent capability 또는 legacy 호환 작업으로 연결하세요. 키워드만 맞춘 기계적 분기 대신 문맥과 사용자의 의도를 해석하세요.
 
 [허용 capability]
 1. agent.pending.get
@@ -221,6 +266,21 @@ async function parseTelegramAgentEnvelope(messageText, context = {}) {
 19. settings.blog_auto.set_time_window
 20. settings.chat_model.get_summary
 
+[Legacy 호환 작업]
+아래 기능은 기존 사용자의 흐름을 유지하기 위한 실행 경로입니다. 새 권한을 만들지 말고, 요청이 이들 중 하나에 해당할 때만 legacy_actions를 사용하세요.
+1. register_topic: params { theme, keywords?, platforms?, options? }
+2. publish_article: params { target?: "all" | "naver" | "wordpress", targetRowIndices?: number[] }
+3. update_config: params { config_updates: { "PUBLISH_AUTO_INTERVAL_MIN" | "PUBLISH_AUTO_ENABLED" | "PUBLISH_AUTO_HEADLESS" | "image_gen" | "NAVER_ID" | "TYPING_SPEED": value } }; 위 목록 외 설정 키는 사용하지 않습니다.
+4. run_job: params { job_name: "trends" | "rss" | "shopping" | "publish" }
+5. query_data: params { query_type: "status" | "system" | "topics" | "shopping" | "stats" | "insight", query_params?: {} }
+
+[Legacy action 해석 기준]
+- 사용자가 글감/주제를 시트에 저장해 달라고 하면 register_topic을 선택합니다. theme은 사용자가 말한 주제를 보존하고, keywords/platforms/options는 사용자가 명시한 경우에만 채웁니다.
+- 사용자가 특정 행 또는 새 주제를 블로그에 올려 달라고 하면 publish_article을 선택합니다. 새 글을 등록한 뒤 발행까지 명시했다면 register_topic과 publish_article을 함께 반환합니다.
+- “저장만” 요청은 발행을 포함하지 않습니다. 사용자가 직접 말하지 않은 플랫폼, 카테고리, 게시 상태를 임의로 지정하지 않습니다.
+- update_config는 사용자가 설정 변경을 명시했을 때만 사용합니다. 모든 설정 변경은 기존 확인 절차를 거칩니다.
+- run_job과 query_data는 각각 작업 실행과 조회 요청에만 사용하고, 질의형 일반 대화를 작업으로 바꾸지 않습니다.
+
 [액션 매핑 규칙]
 - 확인 대기 요청 조회는 type: "agent.query"
 - 확인 대기 요청 적용/취소는 type: "agent.command"
@@ -230,7 +290,15 @@ async function parseTelegramAgentEnvelope(messageText, context = {}) {
 - 글감 추천은 type: "content.generate"
 - domain / name은 capability 이름에 맞춰 정확히 작성
 - 확인이 필요한 변경은 requires_confirmation 값을 비워도 됨. 시스템이 보정함.
-- 지원 범위를 벗어나면 actions는 빈 배열 [] 로 반환
+- Agent 지원 범위를 벗어나면 actions는 빈 배열 [] 로 반환
+
+[라우트 선택]
+- BlogGenius 기능 실행은 route="agent"와 actions 또는 route="legacy"와 legacy_actions 중 하나로 반환하세요.
+- 사용자의 일반 질문, 인사, 의견 교환, 설명 요청은 route="reply"로 직접 답하세요. 실행 action을 추측하지 마세요.
+- 기능 실행이 불가능하거나 요청이 불명확하면 route="unsupported"로 현재 가능한 범위와 다음 선택지를 자연스럽게 설명하세요.
+- 직접 답변만 있을 때 reply의 text에 답을 넣습니다. 실행 요청에도 도움이 되는 짧은 설명을 붙일 수 있습니다.
+- 요청한 일에 먼저 답한 뒤, 더 나은 방법이 실제로 도움이 될 때만 reply의 suggestion에 이유와 함께 제안을 씁니다. 제안은 실행하지 않으며, 요청을 대체하지 않습니다.
+- legacy 동작을 기존 범위보다 넓히지 마세요. actions와 legacy_actions를 동시에 채우지 마세요.
 
 [파라미터 규칙]
 - 시간은 반드시 "HH:MM"
@@ -276,6 +344,7 @@ ${pendingConfirmations.length > 0 ? pendingConfirmations.map((item) => {
   "version": "1.0",
   "conversation_id": "${conversationId}",
   "message_id": "${messageId}",
+  "route": "agent | legacy | reply | unsupported",
   "actions": [
     {
       "id": "act_1",
@@ -285,31 +354,64 @@ ${pendingConfirmations.length > 0 ? pendingConfirmations.map((item) => {
       "params": {},
       "reason": "간단한 한국어 설명"
     }
-  ]
+  ],
+  "legacy_actions": [
+    { "action": "register_topic | publish_article | update_config | run_job | query_data", "params": {} }
+  ],
+  "meta": { "explicit_params": [] },
+  "reply": { "text": "직접 답변 또는 실행 전 설명", "suggestion": "선택적 제안; 없으면 빈 문자열" }
 }
 
 [사용자 메시지]
 ${messageText}`;
 
-    Logger.debug('🧠 [AgentParser] Telegram agent action parsing...');
-    const rawResult = await Utils.callTelegramChatModel(prompt);
+    logger.debug('🧠 [AgentParser] Telegram unified request parsing...');
+    const rawResult = await modelCaller(prompt);
     if (!rawResult) return buildEnvelope(conversationId, messageId, []);
 
     const jsonText = extractFirstJsonObject(rawResult);
     if (!jsonText) {
-        Logger.debug(`[AgentParser] JSON object not found. raw=${String(rawResult).slice(0, 300)}`);
+        logger.debug(`[AgentParser] JSON object not found. raw=${String(rawResult).slice(0, 300)}`);
         return buildEnvelope(conversationId, messageId, []);
     }
 
     try {
-        return JSON.parse(jsonText);
+        const parsed = JSON.parse(jsonText);
+        const route = ['agent', 'legacy', 'reply', 'unsupported'].includes(parsed?.route)
+            ? parsed.route
+            : (Array.isArray(parsed?.actions) && parsed.actions.length > 0 ? 'agent' : 'unsupported');
+        const actions = Array.isArray(parsed?.actions) ? parsed.actions : [];
+        const legacyActions = normalizeLegacyActions(parsed?.legacy_actions);
+        const reply = parsed?.reply && typeof parsed.reply === 'object' ? parsed.reply : {};
+
+        if (route === 'agent' && actions.length === 0) return buildEnvelope(conversationId, messageId, []);
+        if (route === 'legacy' && legacyActions.length === 0) return buildEnvelope(conversationId, messageId, []);
+        if (route === 'agent' && legacyActions.length > 0) return buildEnvelope(conversationId, messageId, []);
+        if (route === 'legacy' && actions.length > 0) return buildEnvelope(conversationId, messageId, []);
+        if (route === 'legacy' && legacyActions.some((item) => !item)) return buildEnvelope(conversationId, messageId, []);
+        if (route === 'reply' && (actions.length > 0 || legacyActions.length > 0)) return buildEnvelope(conversationId, messageId, []);
+        if (route === 'unsupported' && (actions.length > 0 || legacyActions.length > 0)) return buildEnvelope(conversationId, messageId, []);
+
+        return {
+            version: '1.0',
+            conversation_id: conversationId,
+            message_id: messageId,
+            route,
+            actions: route === 'agent' ? actions : [],
+            legacy_actions: route === 'legacy' ? legacyActions : [],
+            meta: parsed?.meta && typeof parsed.meta === 'object' ? parsed.meta : {},
+            reply: {
+                text: String(reply.text || '').trim(),
+                suggestion: String(reply.suggestion || '').trim()
+            }
+        };
     } catch (error) {
-        Logger.debug(`[AgentParser] JSON parse failed: ${error.message} raw=${jsonText.slice(0, 300)}`);
+        logger.debug(`[AgentParser] JSON parse failed: ${error.message} raw=${jsonText.slice(0, 300)}`);
         return buildEnvelope(conversationId, messageId, []);
     }
 }
 
 module.exports = {
-    parseTelegramAgentEnvelope,
+    routeTelegramMessage,
     tryParseDeterministicEnvelope
 };
