@@ -3,7 +3,7 @@
 - Branch: `codex/fbr/retired-surface-removal`
 - Start date: 2026-10-13
 - Base/parent branch: `dev`
-- Status: Dashboard 및 Blog 단계 구현/검증 완료; Blog parent 통합 대기
+- Status: Dashboard 및 Blog 단계 구현/검증 및 parent 통합 완료; Settings 단계 이후 진행 예정
 
 ## 사용자 필요와 목표
 
@@ -45,7 +45,7 @@ Production에서 숨겨져 더 이상 제품 경로로 쓰이지 않는 구 UI�
 - 2026-10-13: 첫 조사에서 구 Dashboard, Blog, Settings 메뉴가 숨겨져 있고 대응 Beta 메뉴가 보이는 것을 확인했다. Settings legacy route는 `settings-next`로 이동시키며, Blog Beta에는 folder/paste panel이 숨겨진 상태로 markup과 controller가 남아 있다.
 - 2026-10-13: 로그 화면은 Beta 대체 화면이 아니라 local/development에서만 노출되는 진단 surface다. 해당 UI 제거와 shared activity/log API 제거는 동일한 작업으로 간주하지 않는다.
 - Dashboard 단계는 `codex/feat/remove-legacy-dashboard`에서 진행해 `codex/fbr/retired-surface-removal`에 fast-forward 병합했다. 세부 의존성, 결정, 삭제 범위와 검증 상태는 [Dashboard 단계 기록](2026-10-13-retired-dashboard-removal-development.md)에 정리했다.
-- Blog 단계는 `codex/feat/remove-legacy-blog`에서 시작했다. 세부 조사와 삭제 경계는 [Blog 단계 기록](2026-10-13-retired-blog-removal-development.md)에 기록한다.
+- Blog 단계는 `codex/feat/remove-legacy-blog`에서 시작해 parent에 fast-forward 통합했고 하위 브랜치를 삭제했다. 세부 조사와 삭제 경계는 [Blog 단계 기록](../archive/2026-10-13-retired-blog-removal-development.md)에 기록한다.
 - Blog 단계에서 구 Blog UI와 전용 모듈을 제거하고 구 Blog 예약 자동화를 중단했다. Blog Beta 작성/발행/연속 자동화, SNS scheduler, Shopping과 공유하는 글감 기능은 보존했다. 상세 결과는 Blog 단계 기록을 참고한다.
 
 ## 영향 경계 및 검증
@@ -63,4 +63,5 @@ Production에서 숨겨져 더 이상 제품 경로로 쓰이지 않는 구 UI�
 - Dashboard 자동 검증: focused 계약 74건, 브라우저 스모크, 전체 단위 테스트 2,271건(2,259 pass, 12 skipped, 0 fail) 통과.
 - Dashboard 사용자 확인: Beta 준비 상태/운영 현황, 네이버 세션 알림, 블로그 필터/탭, 로그/이력 진입을 확인한다.
 - Blog 자동 검증: focused 계약 및 구조 테스트 39건 통과(2 skipped), 브라우저 스모크 통과(493 fixture 요청, page errors 0).
-- 남은 작업: Blog 단계를 parent에 통합하고, Settings legacy, folder/paste 입력, dev-only logs UI를 각각 별도 하위 단계로 진행한다.
+- Blog 단계 parent 통합: `cc0aaa76`로 완료.
+- 남은 작업: Settings legacy, Blog Beta folder/paste 입력, dev-only logs UI를 각각 별도 하위 단계로 진행한다.

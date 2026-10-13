@@ -3,7 +3,7 @@
 - Branch: `codex/feat/remove-legacy-blog`
 - Start date: 2026-10-13
 - Base/parent branch: `codex/fbr/retired-surface-removal`
-- Status: 구현 및 검증 완료; parent 병합 후보
+- Status: parent 병합 완료 (`cc0aaa76`); 하위 브랜치 삭제
 
 ## 사용자 필요와 목표
 
@@ -48,7 +48,7 @@ Production에서 숨겨진 이전 Blog 화면과 더 이상 사용하지 않는 
 ## 진행 기록
 
 - 2026-10-13: 사용자는 이전 Dashboard 제거 결과를 parent FBR에 병합하고, 각 후속 항목도 하위 브랜치에서 작업한 뒤 parent에 합치는 순서를 정했다.
-- 2026-10-13: 이전 Dashboard 제거를 parent에 fast-forward 병합했다. 이 브랜치는 최신 parent 커밋에서 시작한다.
+- 2026-10-13: 이전 Dashboard 제거를 parent에 fast-forward 병합했다. 이 브랜치는 최신 parent 커밋에서 시작했다.
 - 2026-10-13: 코드 변경 전에 이 기록을 생성했다. 현재는 이전 Blog 화면의 의존성을 조사 중이다.
 - 2026-10-13: 사용자는 구 Blog 예약 자동화도 중단하기로 했다. 저장된 설정값은 파괴적으로 지우지 않고 예약 실행에서 무시하며, 수동 실행 API/capability, SNS 자동 처리, Blog Beta 연속 발행은 유지한다.
 - 2026-10-13: 공유 경계 조사에서 `blog-topics.js`가 Shopping 편집 기능에도 쓰이고, 구 Blog 스마트 댓글과 Blog Beta가 같은 API를 호출하는 것을 확인했다. 이 공유 모듈/API는 보존하고 구 화면 전용 연결부만 제거한다.
@@ -59,5 +59,6 @@ Production에서 숨겨진 이전 Blog 화면과 더 이상 사용하지 않는 
 - 결과: 이전 Blog view/nav 및 그 전용 tab partial과 trend collection/posting, Naver comment draft, batch modules를 제거했다. 구 Blog의 화면 진입/lifecycle 호출과 구 화면 전용 CSS도 걷어냈다.
 - 결과: 구 Blog 예약 자동화 scheduler는 중지했다. 기존 설정값은 보존하고 수동 실행 API/capability, SNS 자동 처리, Blog Beta 연속 포스팅은 유지했다.
 - 자동 검증: 집중 계약 및 구조 테스트 39건 통과, 2건은 후속 Settings 단계 대상으로 skip. UI 브라우저 스모크 통과(493 fixture 요청, page errors 0). 자동화 런타임 계약은 구 Blog schedules stopped / SNS schedule retained를 확인했다.
+- 통합: `codex/feat/remove-legacy-blog`를 `codex/fbr/retired-surface-removal`에 fast-forward 병합했고, feature 브랜치를 삭제했다.
 - 수동 확인: 사용자가 Blog Beta를 실제 앱에서 열어 작성·발행·큐·자동화 설정 및 원고 폴더/붙여넣기를 확인한다.
 - 남은 위험: `legacy-actions-controllers.js`와 `blog-topics.js`/`trend-table.js`에는 Settings 단계 또는 Shopping과 공유되는 동작이 섞여 있어 파일 전체를 제거하지 않았다. 화면 전용 listener의 추가 분리는 해당 공유 경계를 기준으로 후속 정리한다.
