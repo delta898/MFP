@@ -22,6 +22,13 @@ test('manuscript image actions live in the preview and expose accessible empty/p
   assert.match(css, /\.manuscript-image-block\.is-media-expanded \.manuscript-image-block-fields,\s*\.manuscript-image-block\.is-media-expanded \.manuscript-image-block-prompt-generation \{ display: none; \}/);
 });
 
+test('Markdown-to-block transitions rehydrate existing manuscript image assets', () => {
+  const inputs = read('ui/scripts/features/blog-next/draft-inputs.js');
+
+  assert.match(inputs, /function restoreBlogNextEditorImages\(state\)\s*\{\s*const preview = state\?\.preview;\s*state\?\.editor\?\.syncImages\?\.\(\s*preview\?\.images \|\| \[\]/);
+  assert.equal((inputs.match(/restoreBlogNextEditorImages\(state\);/g) || []).length, 3);
+});
+
 test('local image drop targets validate one supported file and do not leak editor drop handling', () => {
   const editor = read('ui/scripts/features/blog-next/manuscript-editor-entry.js');
   const cardNews = read('ui/scripts/features/card-news/generation-workflow.js');

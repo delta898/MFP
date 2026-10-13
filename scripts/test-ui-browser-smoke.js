@@ -5667,6 +5667,10 @@ async function run() {
         await page.locator('[data-paste-workspace-mode="block"]').click();
         await page.locator('#blog-next-paste-editor .manuscript-image-block[data-source-key="0"] input[type="file"]').setInputFiles(manuscriptFixtureImage);
         await page.waitForFunction(() => document.querySelector('#blog-next-paste-editor .manuscript-image-block img'));
+        const importedPasteImageUrl = await page.locator('#blog-next-paste-editor .manuscript-image-block img').getAttribute('src');
+        await page.locator('[data-paste-workspace-mode="markdown"]').click();
+        await page.locator('[data-paste-workspace-mode="block"]').click();
+        await page.waitForFunction((imageUrl) => document.querySelector('#blog-next-paste-editor .manuscript-image-block img')?.getAttribute('src') === imageUrl, importedPasteImageUrl);
         const pasteImageBlock = page.locator('#blog-next-paste-editor .manuscript-image-block[data-source-key="0"]');
         const expandImageButton = pasteImageBlock.locator('.manuscript-image-block-expand');
         assert.equal(await expandImageButton.getAttribute('aria-label'), '이미지 영역 확대');

@@ -760,6 +760,15 @@ function setBlogNextPasteWorkspaceMode(mode, state, editorRoot, pastedInput) {
   });
 }
 
+function restoreBlogNextEditorImages(state) {
+  const preview = state?.preview;
+  state?.editor?.syncImages?.(
+    preview?.images || [],
+    state?.imageOperation || null,
+    state?.imageMutationSlotId || ''
+  );
+}
+
 function setBlogNextAiWorkspaceMode(mode, state, editorRoot, markdownInput) {
   const scrollX = window.scrollX;
   const scrollY = window.scrollY;
@@ -1045,7 +1054,10 @@ function initBlogNextDraftInputs() {
           await loadBlogNextDraftPreview('ai');
           return;
         }
-        if (mode === 'block' && state.workspaceMode === 'markdown') state.editor?.setMarkdown(aiMarkdown.value);
+        if (mode === 'block' && state.workspaceMode === 'markdown') {
+          state.editor?.setMarkdown(aiMarkdown.value);
+          restoreBlogNextEditorImages(state);
+        }
         setBlogNextAiWorkspaceMode(mode, state, aiEditorRoot, aiMarkdown);
       });
     });
@@ -1127,7 +1139,10 @@ function initBlogNextDraftInputs() {
           await loadBlogNextDraftPreview('folder');
           return;
         }
-        if (mode === 'block' && state.workspaceMode === 'markdown') state.editor?.setMarkdown(folderMarkdown.value);
+        if (mode === 'block' && state.workspaceMode === 'markdown') {
+          state.editor?.setMarkdown(folderMarkdown.value);
+          restoreBlogNextEditorImages(state);
+        }
         setBlogNextFolderWorkspaceMode(mode, state, folderEditorRoot, folderMarkdown);
       });
     });
@@ -1202,6 +1217,7 @@ function initBlogNextDraftInputs() {
           }
           if (mode === 'block' && state.workspaceMode === 'markdown') {
             state.editor?.setMarkdown(pastedInput.value);
+            restoreBlogNextEditorImages(state);
           }
           setBlogNextPasteWorkspaceMode(mode, state, editorRoot, pastedInput);
         });
