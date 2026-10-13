@@ -1,3 +1,15 @@
+.blog-filter-grid {
+  grid-template-columns: 220px 1fr;
+}
+
+.blog-tabs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
 .blog-tab-btn {
   border: 1px solid var(--line);
   border-radius: var(--radius-full);

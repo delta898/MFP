@@ -129,60 +129,22 @@
     justify-content: flex-end;
   }
 
-  body.mobile-quick-mode .dash-feed-card {
-    padding: 16px;
-    border-radius: 20px;
-    gap: 12px;
-  }
-
-  body.mobile-quick-mode .dash-feed-header h4 {
-    font-size: var(--ui-type-body-size);
-    font-weight: var(--ui-weight-bold);
-  }
-
-  body.mobile-quick-mode .dash-feed-item {
-    gap: 12px;
-    padding: 10px;
-    border-radius: 16px;
-  }
-
-  body.mobile-quick-mode .dash-feed-thumb {
-    width: 96px;
-    min-width: 96px;
-    height: 72px;
-    border-radius: 12px;
-  }
-
-  body.mobile-quick-mode .dash-feed-title {
-    font-size: var(--ui-type-label-size);
-    line-height: 1.35;
-  }
-
-  body.mobile-quick-mode .dash-feed-summary {
-    font-size: var(--ui-type-caption-size);
-    line-height: 1.45;
-  }
-
   body.mobile-quick-mode .blog-tabs {
     display: none;
   }
 
-  body.mobile-quick-mode #view-dashboard .view-title-row,
   body.mobile-quick-mode #view-blog .view-title-row {
     display: block;
   }
 
-  body.mobile-quick-mode #view-dashboard .page-clock-widget,
   body.mobile-quick-mode #view-blog .page-clock-widget {
     display: none;
   }
 
-  body.mobile-quick-mode #view-dashboard .view-title-block,
   body.mobile-quick-mode #view-blog .view-title-block {
     margin-bottom: 16px;
   }
 
-  body.mobile-quick-mode #view-dashboard h1,
   body.mobile-quick-mode #view-blog h1 {
     font-size: 24px;
     letter-spacing: -0.04em;
@@ -190,60 +152,6 @@
 
   body.mobile-quick-mode #view-blog .view-title-block {
     display: none;
-  }
-
-  body.mobile-quick-mode #view-dashboard .view-title-row {
-    display: none;
-  }
-
-  body.mobile-quick-mode #view-dashboard .view-title-block {
-    margin-bottom: 12px;
-  }
-
-  body.mobile-quick-mode #view-dashboard .dashboard-readiness-bar {
-    width: 100%;
-    margin-top: 14px;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-    padding: 12px 14px;
-  }
-
-  body.mobile-quick-mode #view-dashboard .dashboard-readiness-group,
-  body.mobile-quick-mode #view-dashboard .dashboard-readiness-usage {
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
-
-  body.mobile-quick-mode #view-dashboard .dashboard-readiness-section-divider {
-    width: 100%;
-    height: 1px;
-    flex-basis: 1px;
-  }
-
-  body.mobile-quick-mode #view-dashboard .dashboard-readiness-alerts {
-    flex-wrap: wrap;
-  }
-
-  body.mobile-quick-mode .dash-section-head {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin: 18px 0 12px;
-  }
-
-  body.mobile-quick-mode .dash-section-head h3 {
-    font-size: var(--ui-type-heading-size) !important;
-    font-weight: var(--ui-weight-bold);
-    letter-spacing: -0.02em;
-  }
-
-  body.mobile-quick-mode #dash-content-refresh-btn {
-    min-height: 42px;
-    border-radius: 14px;
-    padding: 0 14px;
-    font-weight: var(--ui-weight-bold);
   }
 
 }

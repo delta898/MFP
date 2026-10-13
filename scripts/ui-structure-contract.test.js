@@ -11,10 +11,10 @@ const repoRoot = path.resolve(__dirname, '..');
 const uiRoot = path.join(repoRoot, 'ui');
 const indexPath = path.join(uiRoot, 'index.html');
 const appPath = path.join(uiRoot, 'app.js');
-const LEGACY_UI_VIEW_NAMES = new Set(['dashboard', 'blog', 'settings']);
+const LEGACY_UI_VIEW_NAMES = new Set(['blog', 'settings']);
 
 function isLegacyUiViewPath(relativePath) {
-    return /^partials\/views\/(?:dashboard\.html|blog(?:\.html|\/)|settings(?:\.html|\/))/.test(relativePath);
+    return /^partials\/views\/(?:blog(?:\.html|\/)|settings(?:\.html|\/))/.test(relativePath);
 }
 
 function readUiFile(filePath) {

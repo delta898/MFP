@@ -238,7 +238,7 @@ async function saveSettingsMajor({ mode = 'manual' } = {}) {
       });
     }
     try {
-      await Promise.all([loadConfigStatus(), loadDashboard({ force: true })]);
+      await loadConfigStatus();
       await loadSettingsSnsRuntimeStatus();
       if (uiConfigReady) {
         await ensureSheetsPreflightUi({ force: true, silent: true });

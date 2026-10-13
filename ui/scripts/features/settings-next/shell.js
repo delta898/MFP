@@ -587,7 +587,6 @@ async function settingsNextSaveScope(scope) {
     settingsNextMajorFields = { ...(data?.fields || {}) };
     settingsNextApplyMajorFields(data);
     uiSheetsReady = false;
-    lastDashboardLoadTime = 0;
     return true;
   } catch (error) {
     settingsNextSetScopeFeedback(scope, error.message || '변경사항을 반영하지 못했습니다.', 'danger');

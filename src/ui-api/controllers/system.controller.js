@@ -182,17 +182,6 @@ function createSystemController(deps = {}) {
             }
         },
 
-        async dashboardSummary({ requestId, method, res }) {
-            if (method !== 'GET') {
-                return sendMethodNotAllowed(sendError, res, requestId);
-            }
-            try {
-                return sendSuccess(res, requestId, await service.getDashboardSummary());
-            } catch (e) {
-                return toErrorResponse(res, requestId, 'DASHBOARD_SUMMARY_ERROR', '대시보드 요약 조회에 실패했습니다.', e);
-            }
-        },
-
         async dashboardLogs({ requestId, method, searchParams, res }) {
             if (method !== 'GET') {
                 return sendMethodNotAllowed(sendError, res, requestId);
@@ -203,32 +192,6 @@ function createSystemController(deps = {}) {
                 }));
             } catch (e) {
                 return toErrorResponse(res, requestId, 'DASHBOARD_LOGS_ERROR', '대시보드 로그 조회에 실패했습니다.', e);
-            }
-        },
-
-        async dashboardActivities({ requestId, method, searchParams, res }) {
-            if (method !== 'GET') {
-                return sendMethodNotAllowed(sendError, res, requestId);
-            }
-            try {
-                return sendSuccess(res, requestId, await service.getDashboardActivities({
-                    limitRaw: searchParams?.get('limit')
-                }));
-            } catch (e) {
-                return toErrorResponse(res, requestId, 'DASHBOARD_ACTIVITIES_ERROR', '대시보드 활동 조회에 실패했습니다.', e);
-            }
-        },
-
-        async dashboardExternalContent({ requestId, method, searchParams, res }) {
-            if (method !== 'GET') {
-                return sendMethodNotAllowed(sendError, res, requestId);
-            }
-            try {
-                return sendSuccess(res, requestId, await service.getDashboardExternalContent({
-                    limitRaw: searchParams?.get('limit')
-                }));
-            } catch (e) {
-                return toErrorResponse(res, requestId, 'DASHBOARD_EXTERNAL_CONTENT_ERROR', '외부 콘텐츠 조회에 실패했습니다.', e);
             }
         },
 

@@ -3,7 +3,7 @@ async function navigateTo(viewName, subTab) {
   const requestedSubTab = String(subTab || '').trim();
   const currentViewName = document.querySelector('.view.active')?.id?.replace(/^view-/, '') || '';
   if (isMobileQuickMode) {
-    if (!['dashboard', 'dashboard-beta', 'blog', 'blog-next', 'card-news', 'social', 'account', 'settings-next', 'site-hosting', 'help'].includes(requestedView)) {
+    if (!['dashboard-beta', 'blog', 'blog-next', 'card-news', 'social', 'account', 'settings-next', 'site-hosting', 'help'].includes(requestedView)) {
       viewName = 'blog-next';
       subTab = 'quick';
     } else if (requestedView === 'blog') {
@@ -39,12 +39,6 @@ async function navigateTo(viewName, subTab) {
   }
   navButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.view === viewName));
   views.forEach(view => view.classList.toggle('active', view.id === `view-${viewName}`));
-  if (viewName === 'dashboard') {
-    void ensureUpdateCheckFresh({ silent: true });
-    void initDashboardDynamicContent();
-    loadDashboard();
-    return;
-  }
   if (viewName === 'dashboard-beta') {
     loadDashboardBeta();
     return;

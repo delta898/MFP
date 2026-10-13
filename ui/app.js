@@ -54,11 +54,9 @@
 // @include scripts/features/discovery/naver-comment-draft.js
 // @include scripts/features/content/tab-navigation.js
 // @include scripts/features/publishing/preview-utils.js
-// @include scripts/features/shell/dashboard-content.js
 // @include scripts/features/recommendations/center.js
 // @include scripts/features/shell/account-overview.js
 // @include scripts/features/shell/account-actions.js
-// @include scripts/features/shell/dashboard.js
 // @include scripts/features/shell/dashboard-beta.js
 // @include scripts/features/shell/help.js
 // @include scripts/features/shell/activity-logs.js

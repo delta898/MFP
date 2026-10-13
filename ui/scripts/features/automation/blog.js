@@ -244,7 +244,6 @@ async function runBlogPublishAutoManual() {
       })
     });
     await Promise.all([
-      loadDashboard(),
       loadBlogTopics({ silent: true })
     ]);
   } catch (e) {

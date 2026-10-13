@@ -97,12 +97,10 @@ test('topic recommendation continuation is explicit and uses user-facing languag
 
 test('older account responses cannot overwrite newer smart usage', () => {
     const accountSource = readScript('features/shell/account-overview.js');
-    const dashboardSource = readScript('features/shell/dashboard.js');
 
     assert.match(accountSource, /function reconcileAccountSmartUsage/);
     assert.match(accountSource, /requestRevision >= smartUsageRevision/);
     assert.match(accountSource, /renderAccountOverview\(overview, \{ smartUsageRevisionAtRequest \}\)/);
-    assert.match(dashboardSource, /renderAccountOverview\(accountOverview, \{ smartUsageRevisionAtRequest \}\)/);
 });
 
 test('quick writing discovery actions are attached to their full-width fields', () => {

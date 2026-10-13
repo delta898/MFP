@@ -398,7 +398,7 @@ test('Blog Beta and Settings Beta compose the same page clock widget partial', (
     const settingsSource = read('ui/partials/views/settings-next.html');
     const widget = read('ui/partials/views/shared/page-clock-widget.html');
     const clockStyles = read('ui/styles/components/clock.css');
-    const dashboardStyles = read('ui/styles/features/dashboard.css');
+    const dashboardStyles = read('ui/styles/features/dashboard-beta.css');
 
     assert.match(widget, /class="page-clock-widget"[\s\S]*?data-clock-display/);
     assert.match(blogSource, /@include shared\/page-clock-widget\.html/);

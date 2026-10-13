@@ -9,12 +9,9 @@ const scriptsRoot = path.join(repoRoot, 'ui', 'scripts');
 const shellContracts = Object.freeze({
     'features/shell/setup-banner.js': ['checkSetupBanner', 'dismissSetupBanner'],
     'features/shell/sidebar.js': ['refreshSidebarDynamicContent', 'initSidebarDynamicContent'],
-    'features/shell/supporting-surfaces.js': ['initDashboardDynamicContent'],
     'features/shell/update.js': ['checkUpdate', 'applyUpdate'],
-    'features/shell/dashboard-content.js': ['renderDashboardAutoSchedule', 'loadDashboardExternalContent'],
     'features/shell/account-overview.js': ['renderAccountOverview', 'loadAccountOverview'],
     'features/shell/account-actions.js': ['bindAccountUpgradeFreeClick', 'bindAccountPlanInfoClick'],
-    'features/shell/dashboard.js': ['loadDashboard'],
     'features/shell/activity-logs.js': ['loadDashboardLogs'],
     'features/shell/system-logs.js': ['loadSystemLog', 'formatSystemLogHtml'],
     'features/shell/celebration.js': ['showAppCelebration', 'showPendingUpdateCelebration', 'showPostingCompletionCelebration', 'flushPendingQuickPostingCelebration'],
@@ -71,7 +68,7 @@ test('temporary feature modules no longer own dashboard shell controllers', () =
 });
 
 test('dashboard refreshes persisted discoveries once per app session without replacing them on failure', () => {
-    const dashboardSource = readScript('features/shell/dashboard.js');
+    const dashboardSource = readScript('features/shell/dashboard-beta.js');
     const centerSource = readScript('features/recommendations/center.js');
 
     assert.match(dashboardSource, /loadRecommendationCenterForDashboard\(\)/);

@@ -1,7 +1,7 @@
 function bindActions() {
   document.querySelectorAll('.app-title').forEach(el => {
     el.addEventListener('click', () => {
-      document.querySelector('.nav-btn[data-view="dashboard"]').click();
+      document.querySelector('.nav-btn[data-view="dashboard-beta"]')?.click();
     });
   });
 
@@ -85,11 +85,7 @@ function bindActions() {
   });
 
   const refreshBtn = document.getElementById('refresh-btn');
-  if (refreshBtn) {
-    refreshBtn.addEventListener('click', () => {
-      loadConfigStatus().finally(() => loadDashboard());
-    });
-  }
+  if (refreshBtn) refreshBtn.addEventListener('click', loadConfigStatus);
 
   const quickModeAiBtn = document.getElementById('quick-mode-ai-btn');
   const quickModeManuscriptBtn = document.getElementById('quick-mode-manuscript-btn');
@@ -613,7 +609,6 @@ function bindActions() {
           : {};
         renderQuickGeneratedPreview(data.previews?.[quickGeneratedPreviewState.activeTarget] || null);
       }
-      await loadDashboard();
     } catch (e) {
       // runWithLiveProgress에서 상세 로그/오류를 이미 표기함
     } finally {
@@ -678,7 +673,6 @@ function bindActions() {
         requestFn: () => postJson('/api/v1/blog/quick-preview/publish', payload)
       });
       if (isQuickPostingCelebrationStatus(payload.postStatus)) showOrQueueQuickPostingCelebration();
-      await loadDashboard();
     } catch (_error) {
       // runWithLiveProgress already renders logs/errors
     } finally {
@@ -1653,7 +1647,7 @@ function bindActions() {
         });
       }
       // Sheet 저장 성공을 먼저 확정해 알리고, 목록 갱신 실패는 저장 성공을 뒤집지 않는다.
-      await Promise.all([loadDashboard(), loadBlogShopping({ silent: true })]).catch(() => {});
+      await loadBlogShopping({ silent: true }).catch(() => {});
     } catch (e) {
       // runWithLiveProgress에서 상세 로그/오류를 이미 표기함
     } finally {

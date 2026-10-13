@@ -1,5 +1,4 @@
 const { createApiError } = require('../errors');
-const { listRecentDashboardActivities } = require('../../activity/dashboard-activity-store');
 const { toSafeRuntimeEnvironmentDiagnostic } = require('../../environment/runtime-profile');
 const { buildSetupReadiness } = require('../../account/setup-readiness');
 const { resolveRuntimeLogDir } = require('../../logging/runtime-log-path');
@@ -7,15 +6,12 @@ const { resolveRuntimeLogDir } = require('../../logging/runtime-log-path');
 function createSystemService(deps = {}) {
     const {
         APP_VERSION,
-        Utils,
         fs,
         path,
         CONFIG,
         parseBoolQuery,
         ensureSheetsReadyForUi,
         Logger,
-        axios,
-        cheerio,
         peekGoogleOauthStatus = () => ({ state: 'disconnected', connected: false })
     } = deps;
     if (typeof Logger?.getRecentLogs !== 'function') {
@@ -24,79 +20,10 @@ function createSystemService(deps = {}) {
         Logger.debug('✅ [System] Dashboard SystemService가 로드되었습니다. (Logger 연동 완료)');
     }
 
-    function getDashboardContentSources() {
-        // [조건 1, 2] 네이버 블로그 설정 확인
-        const naverId = String(CONFIG.NAVER_ID || '').trim();
-        const isNaverConfigured = CONFIG.CONFIG_IS_NAVER_SET === true;
-        const naverFeedUrl = isNaverConfigured
-            ? `https://rss.blog.naver.com/${naverId}.xml`
-            : 'https://rss.blog.naver.com/amadejjs.xml';
-        const naverHomeUrl = isNaverConfigured
-            ? `https://blog.naver.com/${naverId}`
-            : 'https://blog.naver.com/amadejjs';
-
-        // [조건 1, 3] 워드프레스 설정 확인
-        const isWpConfigured = CONFIG.CONFIG_IS_WP_SET === true;
-        const wpFeedUrl = (isWpConfigured && CONFIG.WORDPRESS_URL)
-            ? `${String(CONFIG.WORDPRESS_URL).replace(/\/$/, '')}/feed/`
-            : 'https://noworrybehappy.com/feed/';
-        const wpHomeUrl = (isWpConfigured && CONFIG.WORDPRESS_URL)
-            ? String(CONFIG.WORDPRESS_URL).replace(/\/$/, '')
-            : 'https://noworrybehappy.com';
-
-        return [
-            {
-                key: 'naver',
-                label: '네이버 블로그',
-                feedType: 'rss',
-                rssUrl: naverFeedUrl,
-                homeUrl: naverHomeUrl
-            },
-            {
-                key: 'wordpress',
-                label: '워드프레스',
-                feedType: 'rss',
-                rssUrl: wpFeedUrl,
-                homeUrl: wpHomeUrl
-            },
-            {
-                key: 'itmania', // [조건 5] No Worry Blog를 IT Mania로 변경 및 전진 배치
-                label: 'IT Mania',
-                feedType: 'rss',
-                rssUrl: 'https://itmania.hangadac.com/feed/',
-                homeUrl: 'https://itmania.hangadac.com'
-            },
-            {
-                key: 'smart',
-                label: 'Smart Feed',
-                feedType: 'atom',
-                rssUrl: 'https://www.youtube.com/feeds/videos.xml?channel_id=UC4Sl4m-ZV65knmWTl0UFYkw',
-                homeUrl: 'https://www.youtube.com/channel/UC4Sl4m-ZV65knmWTl0UFYkw'
-            }
-        ];
-    }
-
-    const FEED_FETCH_TIMEOUT_MS = 10000;
-    const FEED_FAILURE_RETRY_COOLDOWN_MS = 30000;
-    const MAX_FEED_ITEMS = 10;
-    const dashboardFeedStateByKey = new Map();
-
-    function clampFeedLimit(raw) {
-        const value = Number(raw);
-        if (!Number.isFinite(value)) return 4;
-        return Math.max(1, Math.min(MAX_FEED_ITEMS, Math.floor(value)));
-    }
-
     function clampDashboardLogLimit(raw) {
         const value = Number(raw);
         if (!Number.isFinite(value)) return 80;
         return Math.max(10, Math.min(200, Math.floor(value)));
-    }
-
-    function clampDashboardActivityLimit(raw) {
-        const value = Number(raw);
-        if (!Number.isFinite(value)) return 40;
-        return Math.max(5, Math.min(100, Math.floor(value)));
     }
 
     function logUiEvent(input = {}) {
@@ -118,40 +45,6 @@ function createSystemService(deps = {}) {
         };
         Logger.info(`✨ [CompletionEffect] 포스팅 완료 효과 ${stageLabels[stage]} (status=${postStatus})`);
         return { logged: true };
-    }
-
-    function getDashboardFeedState(sourceKey) {
-        const key = String(sourceKey || '').trim() || 'unknown';
-        if (!dashboardFeedStateByKey.has(key)) {
-            dashboardFeedStateByKey.set(key, {
-                inFlight: null,
-                failureUntil: 0,
-                lastStateKey: 'idle',
-                lastResult: null
-            });
-        }
-        return dashboardFeedStateByKey.get(key);
-    }
-
-    function cloneFeedResult(result, source, rssUrl) {
-        if (!result || typeof result !== 'object') {
-            return {
-                key: source.key,
-                label: source.label,
-                homeUrl: source.homeUrl,
-                rssUrl,
-                items: []
-            };
-        }
-
-        return {
-            ...result,
-            key: source.key,
-            label: source.label,
-            homeUrl: source.homeUrl,
-            rssUrl,
-            items: Array.isArray(result.items) ? result.items.map((item) => ({ ...item })) : []
-        };
     }
 
     function parseLogLine(line = '') {
@@ -192,274 +85,6 @@ function createSystemService(deps = {}) {
         }
     }
 
-    function collapseText(raw = '') {
-        return String(raw || '').replace(/\s+/g, ' ').trim();
-    }
-
-    function extractFirstImageUrl(rawHtml = '') {
-        const html = String(rawHtml || '').trim();
-        if (!html) return '';
-
-        try {
-            const $ = cheerio.load(html, { xmlMode: false });
-            let found = '';
-
-            // 헬퍼: srcset에서 가장 큰 이미지 URL 추출
-            const getFromSrcset = (srcset = '') => {
-                if (!srcset) return '';
-                const parts = srcset.split(',').map(p => p.trim().split(/\s+/));
-                const largest = parts.sort((a, b) => {
-                    const wa = parseInt(a[1] || '0', 10);
-                    const wb = parseInt(b[1] || '0', 10);
-                    return wb - wa;
-                })[0];
-                return largest ? largest[0] : '';
-            };
-
-            // 1. 퀄리티 순서로 이미지 찾기 (데이터 속성 -> srcset -> src)
-            $('img').each((_, el) => {
-                if (found) return false;
-                const node = $(el);
-                
-                // 다양한 속성 체크
-                const src = String(
-                    node.attr('data-orig-file') || 
-                    node.attr('data-lazy-src') || 
-                    node.attr('data-src') || 
-                    getFromSrcset(node.attr('srcset')) || 
-                    node.attr('src') || 
-                    ''
-                ).trim();
-
-                if (!src || !src.startsWith('http')) return;
-
-                // 크기 체크 (명시된 경우)
-                const w = parseInt(node.attr('width') || '999', 10);
-                const h = parseInt(node.attr('height') || '999', 10);
-                
-                // 본문 이미지로 볼 수 있는 최소 크기 (아이콘/픽셀 제외)
-                if (w >= 40 && h >= 40) {
-                    found = src;
-                }
-            });
-
-            if (found) return found;
-
-            // 2. 완화된 크기 조건으로 다시 찾기
-            $('img').each((_, el) => {
-                if (found) return false;
-                const src = String($(el).attr('src') || '').trim();
-                if (src && src.startsWith('http')) {
-                    found = src;
-                }
-            });
-
-            return found;
-        } catch (_) {
-            return '';
-        }
-    }
-
-    function parseRssItems({ xml, limit, sourceKey }) {
-        const items = [];
-        if (!xml || typeof xml !== 'string') return items;
-        const $ = cheerio.load(xml, { xmlMode: true, decodeEntities: true });
-
-        $('item').each((_, el) => {
-            if (items.length >= limit) return false;
-            const node = $(el);
-            
-            const title = collapseText(node.find('title').first().text());
-            const link = collapseText(node.find('link').first().text());
-            const pubDate = collapseText(node.find('pubDate').first().text());
-            
-            // content:encoded 또는 encoded 태그 찾기 (네임스페이스 대응)
-            const descriptionHtml = node.find('description').first().text() || '';
-            let contentEncodedHtml = '';
-            
-            // Try different ways to find encoded content
-            const encodedNode = node.find('content\\:encoded, encoded, content');
-            encodedNode.each((_, enc) => {
-                const text = $(enc).text();
-                if (text && text.includes('<img')) {
-                    contentEncodedHtml = text;
-                    return false;
-                }
-            });
-            if (!contentEncodedHtml) contentEncodedHtml = encodedNode.first().text();
-
-            const description = collapseText((descriptionHtml || contentEncodedHtml || '').replace(/<[^>]*>/g, ' '));
-
-            let thumbnail = '';
-
-            // Priority 1: media:thumbnail
-            const mediaThumb = node.find('media\\:thumbnail').first();
-            if (mediaThumb.length > 0) {
-                thumbnail = collapseText(mediaThumb.attr('url'));
-            }
-
-            // Priority 2: media:content (image)
-            if (!thumbnail) {
-                node.find('media\\:content').each((_, contentEl) => {
-                    const mNode = $(contentEl);
-                    const type = String(mNode.attr('type') || '');
-                    const medium = String(mNode.attr('medium') || '');
-                    if (type.startsWith('image/') || medium === 'image') {
-                        thumbnail = collapseText(mNode.attr('url'));
-                        return false;
-                    }
-                });
-            }
-
-            // Priority 3: enclosure (image)
-            if (!thumbnail) {
-                node.find('enclosure').each((_, encEl) => {
-                    const eNode = $(encEl);
-                    const type = String(eNode.attr('type') || '');
-                    if (type.startsWith('image/')) {
-                        thumbnail = collapseText(eNode.attr('url'));
-                        return false;
-                    }
-                });
-            }
-
-            // Priority 4: First image in content:encoded
-            if (!thumbnail && contentEncodedHtml) {
-                thumbnail = extractFirstImageUrl(contentEncodedHtml);
-            }
-
-            // Priority 5: First image in description
-            if (!thumbnail && descriptionHtml) {
-                thumbnail = extractFirstImageUrl(descriptionHtml);
-            }
-
-            if (!title || !link) return;
-            items.push({
-                source: sourceKey,
-                title,
-                link,
-                publishedAt: pubDate,
-                summary: description,
-                thumbnail
-            });
-        });
-        return items;
-    }
-
-    function parseYoutubeAtomItems({ xml, limit, sourceKey }) {
-        const items = [];
-        if (!xml || typeof xml !== 'string') return items;
-        const $ = cheerio.load(xml, { xmlMode: true, decodeEntities: true });
-        $('entry').each((_, el) => {
-            if (items.length >= limit) return false;
-            const node = $(el);
-            const title = collapseText(node.find('title').first().text());
-            const linkNode = node.find('link[rel="alternate"]').first();
-            const link = collapseText(linkNode.attr('href') || node.find('link').first().attr('href') || '');
-            const publishedAt = collapseText(node.find('published').first().text() || node.find('updated').first().text());
-            const summary = collapseText(
-                node.find('media\\:group > media\\:description').first().text()
-                || node.find('summary').first().text()
-            );
-            const thumbnail = collapseText(
-                node.find('media\\:group > media\\:thumbnail').first().attr('url')
-                || node.find('media\\:thumbnail').first().attr('url')
-                || ''
-            );
-            if (!title || !link) return;
-            items.push({
-                source: sourceKey,
-                title,
-                link,
-                publishedAt,
-                summary,
-                thumbnail
-            });
-        });
-        return items;
-    }
-
-    async function fetchFeedItems(source, limit) {
-        const sourceKey = String(source.key || '');
-        const url = String(source.rssUrl || '').trim();
-        if (!url) return { ...source, items: [], error: '피드 URL 없음' };
-        const state = getDashboardFeedState(sourceKey);
-        const now = Date.now();
-
-        if (state.inFlight) {
-            return state.inFlight;
-        }
-
-        if (state.failureUntil > now && state.lastResult) {
-            return cloneFeedResult(state.lastResult, source, url);
-        }
-
-        state.inFlight = (async () => {
-            try {
-                const response = await axios.get(url, {
-                    responseType: 'text',
-                    timeout: FEED_FETCH_TIMEOUT_MS,
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-                        'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
-                    },
-                    maxRedirects: 5,
-                    validateStatus: (status) => status >= 200 && status < 400
-                });
-
-                const xml = String(response.data || '');
-                const feedType = String(source.feedType || 'rss').trim().toLowerCase();
-                const items = feedType === 'atom'
-                    ? parseYoutubeAtomItems({ xml, limit, sourceKey: source.key })
-                    : parseRssItems({ xml, limit, sourceKey: source.key });
-
-                const result = {
-                    key: source.key,
-                    label: source.label,
-                    homeUrl: source.homeUrl,
-                    rssUrl: url,
-                    items
-                };
-
-                if (state.lastStateKey !== 'ok' && state.lastStateKey !== 'idle') {
-                    Logger.info(`✅ 대시보드 피드 조회 복구: ${source.label} (URL: ${url})`);
-                }
-
-                state.failureUntil = 0;
-                state.lastStateKey = 'ok';
-                state.lastResult = result;
-
-                return cloneFeedResult(result, source, url);
-            } catch (error) {
-                const errorMessage = String(error?.message || '피드 조회 실패');
-                const statusCode = Number(error?.response?.status);
-                const stateKey = `error:${Number.isFinite(statusCode) ? statusCode : 'unknown'}:${errorMessage}`;
-                const result = {
-                    key: source.key,
-                    label: source.label,
-                    homeUrl: source.homeUrl,
-                    rssUrl: url,
-                    items: [],
-                    error: errorMessage
-                };
-
-                if (state.lastStateKey !== stateKey) {
-                    Logger.warn(`⚠️ 대시보드 피드 조회 실패: ${source.label} (URL: ${url}) - ${errorMessage}`);
-                }
-
-                state.failureUntil = Date.now() + FEED_FAILURE_RETRY_COOLDOWN_MS;
-                state.lastStateKey = stateKey;
-                state.lastResult = result;
-
-                return cloneFeedResult(result, source, url);
-            } finally {
-                state.inFlight = null;
-            }
-        })();
-
-        return state.inFlight;
-    }
-
     return {
         async getHealth() {
             return { status: 'ok', version: APP_VERSION };
@@ -477,10 +102,6 @@ function createSystemService(deps = {}) {
         async applyUpdate({ updater }) {
             await updater.applyUpdate(() => { });
             return { success: true };
-        },
-
-        async getDashboardSummary() {
-            return Utils.getDashboardSummary();
         },
 
         async getDashboardLogs({ limitRaw } = {}) {
@@ -503,13 +124,6 @@ function createSystemService(deps = {}) {
             });
 
             return { logs: merged.slice(0, limit) };
-        },
-
-        async getDashboardActivities({ limitRaw } = {}) {
-            const limit = clampDashboardActivityLimit(limitRaw);
-            return {
-                activities: listRecentDashboardActivities(limit)
-            };
         },
 
         async getLogFiles() {
@@ -573,20 +187,6 @@ function createSystemService(deps = {}) {
                 isNaverSet: CONFIG.CONFIG_IS_NAVER_SET === true,
                 isWpSet: CONFIG.CONFIG_IS_WP_SET === true,
                 setup: buildSetupReadiness({ CONFIG, googleOauth })
-            };
-        },
-
-        async getDashboardExternalContent({ limitRaw }) {
-            const limit = clampFeedLimit(limitRaw);
-            const sources = getDashboardContentSources();
-            const results = await Promise.all(
-                sources.map((source) => fetchFeedItems(source, limit))
-            );
-
-            return {
-                updatedAt: new Date().toISOString(),
-                limit,
-                sources: results
             };
         },
 

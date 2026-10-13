@@ -215,10 +215,7 @@ function getApiFixture(pathname) {
     if (pathname === '/api/v1/settings/design-styles') return { styles: createRemoteDesignStylesFixture() };
     if (pathname.startsWith('/api/v1/account/overview')) return createAccountOverviewFixture();
     if (pathname === '/api/v1/site-hosting/cloudflare/status') return { connected: true, accounts: [{ id: 'cf-account-1', name: 'BlogGenius fixture' }] };
-    if (pathname === '/api/v1/dashboard/summary') return {};
     if (pathname === '/api/v1/dashboard/logs') return { logs: [] };
-    if (pathname === '/api/v1/dashboard/activities') return { activities: [] };
-    if (pathname === '/api/v1/dashboard/external-content') return {};
     if (pathname === '/api/v1/continuous-publishing/dashboard-overview') {
         return {
             schema_version: 2,
@@ -597,8 +594,8 @@ function startFixtureServer(requests) {
     // Browser smoke covers the active product surfaces. Keep the retired views
     // out of the fixture entirely so their markup/scripts cannot be exercised
     // or trigger unrelated external requests (for example the old RSS widget).
-    composedUiShellDocument('#view-dashboard, #view-settings, #view-blog').remove();
-    composedUiShellDocument('.nav-btn[data-view="dashboard"], .nav-btn[data-view="blog"], .nav-btn[data-view="settings"]').remove();
+    composedUiShellDocument('#view-settings, #view-blog').remove();
+    composedUiShellDocument('.nav-btn[data-view="blog"], .nav-btn[data-view="settings"]').remove();
     const composedUiShell = composedUiShellDocument.html();
     const composedUiStyles = createCssCompositionRuntime({ fs, path })
         .composeCssFile({ uiRoot }).css;

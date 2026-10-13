@@ -142,7 +142,7 @@ async function runShoppingManagementItem(item, button) {
           ? '쇼핑 글 예약 발행을 등록했습니다.'
           : '쇼핑 글을 발행했습니다.'
     });
-    await Promise.all([loadBlogShopping({ silent: true }), loadDashboard()]);
+    await loadBlogShopping({ silent: true });
   } catch (_error) {
     // runWithLiveProgress가 상세 오류를 결과 영역에 표시한다.
   } finally {
@@ -374,7 +374,7 @@ async function runShoppingBatchAction() {
       },
       onTick: () => loadBlogShopping({ silent: true })
     });
-    await Promise.all([loadDashboard(), loadBlogShopping()]);
+    await loadBlogShopping();
   } catch (e) {
     // runWithLiveProgress 이미 노출
   } finally {

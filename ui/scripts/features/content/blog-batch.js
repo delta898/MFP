@@ -55,11 +55,10 @@ async function runBlogBatchAction() {
     blogLastBatchResult = data;
     markRecentBatchRows(data?.results || []);
     renderBlogLastBatchResult(blogLastBatchResult);
-    await Promise.all([loadDashboard(), loadBlogTopics()]);
+    await loadBlogTopics();
   } catch (e) {
     // runWithLiveProgress 이미 노출
   } finally {
     resumeDashboardPolling();
   }
 }
-

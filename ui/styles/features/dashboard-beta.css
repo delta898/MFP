@@ -5,6 +5,12 @@
   --dashboard-beta-status-muted: var(--ui-text-secondary);
 }
 
+.dash-clock-widget {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .dashboard-beta-hero {
   position: relative;
   overflow: visible;

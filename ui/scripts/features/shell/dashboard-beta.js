@@ -671,6 +671,22 @@ async function loadDashboardBeta(options = {}) {
   const accountRequest = fetchJson('/api/v1/account/overview?quiet=1')
     .then((overview) => {
       accountOverview = overview;
+      const naverConnection = overview?.connections?.naver || null;
+      const naverStatus = String(naverConnection?.status || '').trim();
+      if (naverConnection && naverStatus !== 'unverified') {
+        const sessionValid = naverStatus === 'connected';
+        const reason = String(naverConnection.reason || '').trim();
+        const sessionStateKey = sessionValid
+          ? 'valid'
+          : `invalid:${reason.toLowerCase() || 'unknown'}`;
+        notifyUiIssueFromStateTransition(
+          'naver-session',
+          sessionStateKey,
+          'NAVER_SESSION_INVALID',
+          { code: 'NAVER_SESSION_INVALID', message: naverConnection.message || '', reason },
+          { source: 'dashboard-beta-session-status', reason }
+        );
+      }
       return fetchJson('/api/v1/site-hosting/cloudflare/status')
         .then((cloudflareStatus) => renderDashboardBetaReadiness(overview, cloudflareStatus))
         .catch(() => renderDashboardBetaReadiness(overview, null, true));

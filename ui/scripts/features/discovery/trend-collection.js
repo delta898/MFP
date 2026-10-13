@@ -159,7 +159,6 @@ async function runBlogTrendsCollect() {
     clearTrendsSelections();
     setPageInfo('trends', { offset: 0 });
     await Promise.all([
-      loadDashboard(),
       loadBlogTrends({ silent: true }),
       loadBlogAutoCategoryCatalog({ force: true, silent: true })
     ]);
@@ -189,4 +188,3 @@ async function runTrendsToTopics() {
     if (resultBox) resultBox.textContent = `오류: ${e.message}`;
   }
 }
-

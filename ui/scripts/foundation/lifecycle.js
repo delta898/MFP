@@ -46,9 +46,6 @@ window.addEventListener('DOMContentLoaded', () => {
       flushPendingQuickPostingCelebration();
       void ensureUpdateCheckFresh({ silent: true });
       void refreshSidebarDynamicContent();
-      if (document.getElementById('view-dashboard')?.classList.contains('active')) {
-        void initDashboardDynamicContent();
-      }
       if (document.getElementById('view-dashboard-beta')?.classList.contains('active')) {
         void loadDashboardBeta({ force: true });
       }
@@ -61,9 +58,6 @@ window.addEventListener('DOMContentLoaded', () => {
     flushPendingQuickPostingCelebration({ windowFocused: true });
     void ensureUpdateCheckFresh({ silent: true });
     void refreshSidebarDynamicContent();
-    if (document.getElementById('view-dashboard')?.classList.contains('active')) {
-      void initDashboardDynamicContent();
-    }
     if (document.getElementById('view-dashboard-beta')?.classList.contains('active')) {
       void loadDashboardBeta({ force: true });
     }
@@ -234,34 +228,6 @@ try { initKeywordResearchModal(); } catch (e) { console.warn('initKeywordResearc
   });
 
   try {
-    const dashLogRefreshBtn = document.getElementById('dash-log-refresh-btn');
-    if (dashLogRefreshBtn) {
-      dashLogRefreshBtn.addEventListener('click', () => {
-        loadDashboardLogs();
-        dashLogRefreshBtn.textContent = '불러오는 중...';
-        setTimeout(() => dashLogRefreshBtn.textContent = '새로고침', 500);
-      });
-    }
-  } catch (e) { console.warn('Dash log refresh init error:', e); }
-
-  try {
-    const dashContentRefreshBtn = document.getElementById('dash-content-refresh-btn');
-    if (dashContentRefreshBtn) {
-      dashContentRefreshBtn.addEventListener('click', async () => {
-        const original = dashContentRefreshBtn.textContent;
-        dashContentRefreshBtn.textContent = '불러오는 중...';
-        dashContentRefreshBtn.disabled = true;
-        try {
-          await loadDashboardExternalContent({ force: true, silent: false });
-        } finally {
-          dashContentRefreshBtn.disabled = false;
-          dashContentRefreshBtn.textContent = original || '새로고침';
-        }
-      });
-    }
-  } catch (e) { console.warn('Dash content refresh init error:', e); }
-
-  try {
     bindNavigation();
     criticalNavigationBound = true;
   } catch (e) { console.warn('bindNavigation error:', e); }
@@ -321,8 +287,6 @@ try { initKeywordResearchModal(); } catch (e) { console.warn('initKeywordResearc
     if (isDashboardPollingPaused()) return;
     if (document.getElementById('view-dashboard-beta')?.classList.contains('active')) {
       loadDashboardBeta({ force: true });
-    } else if (document.getElementById('view-dashboard')?.classList.contains('active')) {
-      loadDashboard();
     }
     checkSetupBanner();
 
@@ -339,10 +303,6 @@ try { initKeywordResearchModal(); } catch (e) { console.warn('initKeywordResearc
     }
   }, 30000);
 
-  // 대시보드 자동발행 "다음 실행"은 분 단위로 상대시간을 갱신
-  setInterval(() => {
-    renderDashboardAutoSchedule();
-  }, 60000);
 
   } catch (error) {
     startupLifecycleError = error;

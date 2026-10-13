@@ -34,7 +34,7 @@ test('shopping tabs expose linked panels and synchronize accessible state', () =
 
 test('legacy shopping tab presentation no longer overrides shared tab tokens', () => {
   const tabs = read('ui/styles/features/content-tabs.css');
-  const dashboard = read('ui/styles/features/dashboard.css');
+  const dashboard = read('ui/styles/features/dashboard-beta.css');
   const responsive = read('ui/styles/layout/responsive.css');
 
   assert.doesNotMatch(tabs, /\.shopping-tab-btn/);

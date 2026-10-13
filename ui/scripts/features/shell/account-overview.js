@@ -1,7 +1,3 @@
-let isDashboardLoading = false;
-let lastDashboardLoadTime = 0;
-let dashboardForceRefreshPending = false;
-
 let isAccountOverviewLoading = false;
 let lastAccountOverview = null;
 
@@ -390,7 +386,6 @@ async function upgradeAccountToFreePlan() {
     await showUiPopup(result?.message || 'Free Plan으로 전환되었습니다.');
     lastAccountOverview = null;
     await loadAccountOverview({ force: true });
-    await loadDashboard();
   } catch (error) {
     await showUiPopup(`전환 실패: ${error.message || '잠시 후 다시 시도해 주세요.'}`);
     await loadAccountOverview({ force: true }).catch(() => {});
@@ -432,7 +427,6 @@ async function registerOrChangeAccountEmail() {
     await showUiPopup(isChange ? '이메일이 변경되었습니다.' : '이메일이 등록되었습니다.');
     lastAccountOverview = null;
     await loadAccountOverview({ force: true });
-    await loadDashboard();
   } catch (error) {
     await showUiPopup(`이메일 처리 실패: ${error.message || '잠시 후 다시 시도해 주세요.'}`);
     await loadAccountOverview({ force: true }).catch(() => {});

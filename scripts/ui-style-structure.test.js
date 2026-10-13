@@ -81,11 +81,9 @@ test('CSS manifest preserves cascade order and remains within its size policy', 
         'styles/features/automation-settings-categories.css',
         'styles/features/automation-settings-help.css',
         'styles/features/automation-settings-images.css',
-        'styles/features/dashboard.css',
         'styles/features/dashboard-beta.css',
         'styles/features/dashboard-beta-responsive.css',
         'styles/features/help.css',
-        'styles/features/dashboard-feeds.css',
         'styles/features/content-tabs.css',
         'styles/features/shopping-connect.css',
         'styles/features/shopping-image-settings.css',
@@ -360,7 +358,7 @@ test('responsive breakpoints use the canonical set', () => {
         }
     }
     const maxWidths = new Set([...maxWidthsByFile.values()].flatMap((widths) => [...widths]));
-    // 1240px stays frozen in the hidden legacy dashboard view. Card News has two
+    // Card News has two
     // intentionally local thresholds: 460px stacks the provider/model fields,
     // while 760px switches its action layout before the general 768px breakpoint.
     // SNS channel settings use 900px to stack columns; site settings use 960px
@@ -385,7 +383,7 @@ test('responsive breakpoints use the canonical set', () => {
         ) continue;
         assert.deepEqual([...widths].filter((width) => width === '460' || width === '760' || width === '900'), [], file);
     }
-    assert.deepEqual([...maxWidths].sort((a, b) => a - b), ['460', '540', '640', '700', '720', '760', '768', '900', '960', '1100', '1240']);
+    assert.deepEqual([...maxWidths].sort((a, b) => a - b), ['460', '540', '640', '700', '720', '760', '768', '900', '960', '1100']);
     assert.deepEqual([...minWidths].sort((a, b) => a - b), ['769', '961', '1101']);
 });
 

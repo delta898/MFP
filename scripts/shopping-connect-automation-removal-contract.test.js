@@ -29,11 +29,3 @@ test('shopping automation cannot be started through runtime or API composition',
   });
   assert.doesNotMatch(runner, /shoppingPublishedToday|scheduleNextShoppingAutoCycle/);
 });
-
-test.skip('legacy Dashboard no longer presents shopping automatic publishing status', () => {
-  const dashboardView = read('ui/partials/views/dashboard.html');
-  const dashboardController = read('ui/scripts/features/shell/dashboard.js');
-
-  assert.doesNotMatch(dashboardView, /dash-auto-shopping|쇼핑 자동발행/);
-  assert.doesNotMatch(dashboardController, /auto\?\.shopping|dash-auto-shopping|navigateTo\('shopping', 'auto'\)/);
-});

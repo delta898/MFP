@@ -192,22 +192,6 @@ async function refreshSupportingSurfaceContent(surface, regionConfigs) {
   }
 }
 
-function initDashboardDynamicContent() {
-  return refreshSupportingSurfaceContent('dashboard', [
-    {
-      region: 'supporting',
-      elementId: 'dashboard-supporting-region',
-      selection: 'daily_rotate'
-    },
-    {
-      region: 'recommendations',
-      elementId: 'dashboard-recommendations-region',
-      visibilityElementId: 'dashboard-recommendations-section',
-      selection: 'daily_cycle'
-    }
-  ]);
-}
-
 function initDashboardBetaDynamicContent() {
   const refresh = refreshSupportingSurfaceContent('dashboard', [{
     region: 'recommendations',
