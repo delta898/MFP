@@ -3,7 +3,7 @@
 - Branch: `codex/feat/remove-legacy-writing-modes`
 - Start date: 2026-10-13
 - Base/parent branch: `codex/fbr/retired-surface-removal`
-- Status: 구현 및 검증 완료, parent 병합 진행 중
+- Status: 구현·검증 및 parent 통합 완료
 
 ## 사용자 필요와 목표
 
@@ -49,4 +49,4 @@
 - 검증: 관련 8개 UI/계약 테스트 파일에서 84 tests passed; `npm run test:ui-browser` passed (430 fixture requests, 2 blocked external font requests); 변경 JS `node --check`와 `git diff --check` 통과.
 - 전체 unit suite는 실행하지 않았다. 이번 단계는 parent branch merge 요청이 아니라서 broad suite approval gate는 적용하지 않았다.
 - 남은 수동 확인: 앱에서 빠른 글쓰기의 AI 원고 생성, 기존 원고 붙여넣기, block/Markdown 전환 후 이미지 블록 표시, 직접 발행 및 Site Hosting Vault 폴더 선택을 확인한다.
-- 기능 구현과 자동 검증은 완료했다. parent 병합 후 이 기록을 `docs/plans/archive/`로 이동한다.
+- `e91545e9`로 parent `codex/fbr/retired-surface-removal`에 fast-forward 통합했다. 앱에서 최종 화면을 확인하는 단계는 사용자 확인으로 남긴다.
