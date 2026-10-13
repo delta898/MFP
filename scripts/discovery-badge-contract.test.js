@@ -28,19 +28,3 @@ test('discovery surfaces use the shared status badge instead of hex palettes', (
     assert.doesNotMatch(source, /keyword-input-badge/);
   }
 });
-
-test.skip('legacy Settings destructive actions share one danger variant', () => {
-  const actions = read('ui/styles/patterns/actions.css');
-  const naverBlog = read('ui/partials/views/settings/naver-blog.html');
-  const writing = read('ui/partials/views/settings/writing.html');
-
-  assert.match(actions, /button\.ui-danger-action/);
-  assert.match(naverBlog, /class="secondary ui-danger-action"/);
-  assert.match(writing, /class="secondary ui-danger-action"/);
-  for (const file of [
-    'ui/styles/features/writing-settings.css',
-    'ui/styles/features/settings-tables.css'
-  ]) {
-    assert.doesNotMatch(read(file), /danger-outline/);
-  }
-});

@@ -339,7 +339,7 @@ async function runShoppingBatchAction() {
   if (document.getElementById('shopping-quick-target-naver')?.checked) targets.push('naver');
   if (document.getElementById('shopping-quick-target-wordpress')?.checked) targets.push('wordpress');
 
-  const preCheck = checkPublishPrerequisites(targets);
+  const preCheck = await checkPublishPrerequisites(targets);
   if (!preCheck.ok) {
     resultBox.textContent = preCheck.message;
     return;

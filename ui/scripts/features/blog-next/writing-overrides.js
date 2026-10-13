@@ -54,6 +54,7 @@ async function loadBlogNextWritingDefaults() {
   try {
     const data = await fetchJson('/api/v1/settings/writing-profile');
     const blog = data?.effective_profile?.channels?.blog || {};
+    currentBlogWritingStrategy = data?.effective_profile?.common?.writing_strategy === 'discovery' ? 'discovery' : 'search';
     blogNextWritingDefaults = {
       length: blog.length?.preset || 'standard',
       opening: blog.structure?.opening || 'contextual',

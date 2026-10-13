@@ -35,21 +35,3 @@ function activateShoppingTab(tabName, options = {}) {
     return;
   }
 }
-
-function activateSettingsTab(tabName, options = {}) {
-  const allowed = ['general', 'mcp', 'writing', 'naver-blog', 'shopping-connect', 'sns', 'card-news', 'notification', 'ai'];
-  const requested = allowed.includes(String(tabName)) ? String(tabName) : 'general';
-  const target = requested === 'mcp' ? 'ai' : requested;
-  settingsActiveTab = target;
-
-  const tabButtons = Array.from(document.querySelectorAll('.settings-tab-btn[data-settings-tab]'));
-  const tabPanels = Array.from(document.querySelectorAll('.settings-tab-panel'));
-  tabButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.settingsTab === target));
-  tabPanels.forEach(panel => panel.classList.toggle('active', panel.id === `settings-tab-${target}`));
-  if (target === 'naver-blog' && options.forceReload !== false) {
-    void loadNaverSessionStatus();
-  }
-  if (target === 'writing' && options.forceReload !== false) {
-    void loadSettingsWritingProfile();
-  }
-}

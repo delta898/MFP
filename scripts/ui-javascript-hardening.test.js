@@ -21,12 +21,6 @@ test('composed UI script has no duplicate top-level function declarations', () =
     assert.deepEqual(duplicates, []);
 });
 
-test('blog collection status targets the rendered result element', () => {
-    const source = fs.readFileSync(path.join(uiRoot, 'scripts/features/automation/blog-collect-ui.js'), 'utf8');
-    assert.match(source, /getElementById\('blog-collect-trends-result'\)/);
-    assert.doesNotMatch(source, /getElementById\('blog-collect-result'\)/);
-});
-
 test('legacy action binding remains within its transitional size policy', (t) => {
     const filePath = path.join(uiRoot, 'scripts/features/legacy-actions-controllers.js');
     const lines = fs.readFileSync(filePath, 'utf8').split('\n').length - 1;

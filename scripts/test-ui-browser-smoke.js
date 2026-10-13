@@ -591,11 +591,8 @@ function startFixtureServer(requests) {
     const composedUiShellSource = createHtmlCompositionRuntime({ fs, path })
         .composeHtmlFile({ uiRoot }).html;
     const composedUiShellDocument = cheerio.load(composedUiShellSource);
-    // Browser smoke covers the active product surfaces. Keep the retired views
-    // out of the fixture entirely so their markup/scripts cannot be exercised
-    // or trigger unrelated external requests (for example the old RSS widget).
-    composedUiShellDocument('#view-settings').remove();
-    composedUiShellDocument('.nav-btn[data-view="settings"]').remove();
+    // Browser smoke uses the same composed shell shipped by the app. Retired
+    // surfaces are excluded by the production composition manifest itself.
     const composedUiShell = composedUiShellDocument.html();
     const composedUiStyles = createCssCompositionRuntime({ fs, path })
         .composeCssFile({ uiRoot }).css;

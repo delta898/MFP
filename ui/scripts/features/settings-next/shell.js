@@ -51,6 +51,16 @@ function settingsNextSetText(id, value) {
 
 const settingsNextSetFeedback = setUiSettingsCardFeedback;
 
+async function pollNaverLoginStatus(maxAttempts = 150, intervalMs = 2000) {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    await new Promise(resolve => setTimeout(resolve, intervalMs));
+    const data = await fetchJson('/api/v1/session/naver-login');
+    const status = String(data?.status || '').trim().toLowerCase();
+    if (status === 'success' || status === 'failed') return data;
+  }
+  return { status: 'failed', message: '로그인 확인 시간이 초과되었습니다.' };
+}
+
 function settingsNextScopeFeedbackId(scope) {
   return {
     content: 'settings-next-content-feedback',

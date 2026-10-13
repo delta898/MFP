@@ -1,5 +1,4 @@
 let shoppingActiveTab = 'quick';
-let settingsActiveTab = 'general';
 let quickInputMode = ['ai', 'manuscript', 'pasted'].includes(localStorage.getItem('quick_input_mode'))
   ? localStorage.getItem('quick_input_mode')
   : 'ai';

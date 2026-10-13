@@ -11,12 +11,6 @@ const repoRoot = path.resolve(__dirname, '..');
 const uiRoot = path.join(repoRoot, 'ui');
 const indexPath = path.join(uiRoot, 'index.html');
 const appPath = path.join(uiRoot, 'app.js');
-const LEGACY_UI_VIEW_NAMES = new Set(['settings']);
-
-function isLegacyUiViewPath(relativePath) {
-    return /^partials\/views\/settings(?:\.html|\/)/.test(relativePath);
-}
-
 function readUiFile(filePath) {
     return fs.readFileSync(filePath, 'utf8');
 }
@@ -79,10 +73,8 @@ test('UI server composition root remains within its size policy', (t) => {
 
 test('primary navigation buttons map one-to-one to UI views', () => {
     const html = readComposedUiShell();
-    const navViews = Array.from(html.matchAll(/class=["'][^"']*\bnav-btn\b[^"']*["'][^>]*data-view=["']([^"']+)["']/g), (match) => match[1])
-        .filter((viewName) => !LEGACY_UI_VIEW_NAMES.has(viewName));
-    const sectionViews = Array.from(html.matchAll(/<section\b[^>]*class=["'][^"']*\bview\b[^"']*["'][^>]*id=["']view-([^"']+)["']/g), (match) => match[1])
-        .filter((viewName) => !LEGACY_UI_VIEW_NAMES.has(viewName));
+    const navViews = Array.from(html.matchAll(/class=["'][^"']*\bnav-btn\b[^"']*["'][^>]*data-view=["']([^"']+)["']/g), (match) => match[1]);
+    const sectionViews = Array.from(html.matchAll(/<section\b[^>]*class=["'][^"']*\bview\b[^"']*["'][^>]*id=["']view-([^"']+)["']/g), (match) => match[1]);
 
     assert.deepEqual(new Set(navViews), new Set(sectionViews));
     assert.equal(navViews.length, new Set(navViews).size);
@@ -95,6 +87,16 @@ test('retired Blog surface is absent from the shell and browser script bundle', 
 
     assert.doesNotMatch(html, /data-view="blog"|id="view-blog"/);
     assert.doesNotMatch(script, /function activateBlogTab\(|function runBlogTrendsCollect\(|function runNaverCommentDraft\(/);
+});
+
+test('retired Settings surface is absent while legacy deep links still route to Settings Beta', () => {
+    const html = readComposedUiShell();
+    const script = readComposedUiScript();
+    const navigation = readUiFile(path.join(uiRoot, 'scripts', 'foundation', 'navigation.js'));
+
+    assert.doesNotMatch(html, /data-view="settings"|id="view-settings"|partials\/views\/settings\.html/);
+    assert.doesNotMatch(script, /function loadSettingsMajor\(|function activateSettingsTab\(/);
+    assert.match(navigation, /if \(requestedView === 'settings'\)[\s\S]*navigateToSettingsNextTarget/);
 });
 
 test('new site hosting navigation exposes a compact accessible new badge', () => {
@@ -165,12 +167,12 @@ test('every HTML partial is reachable and within its size policy', (t) => {
     const partialRoot = path.join(uiRoot, 'partials');
     const partialFiles = collectHtmlFiles(partialRoot);
     const result = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot });
-    const reachable = new Set(result.includedFiles.filter((includePath) => !isLegacyUiViewPath(includePath)));
+    const reachable = new Set(result.includedFiles);
     const duplicateIncludes = result.includedFiles.filter((includePath, index, items) => items.indexOf(includePath) !== index);
 
     assert.deepEqual(new Set(duplicateIncludes), new Set(['partials/views/shared/page-clock-widget.html']));
     assert.deepEqual(
-        new Set(partialFiles.map((filePath) => path.relative(uiRoot, filePath)).filter((includePath) => !isLegacyUiViewPath(includePath))),
+        new Set(partialFiles.map((filePath) => path.relative(uiRoot, filePath))),
         reachable
     );
     partialFiles.forEach((filePath) => {

@@ -250,7 +250,6 @@ async function settingsNextWritingApply({ quiet = false } = {}) {
       custom_profile: { based_on_default_version: basedOnDefaultVersion, ...profile }
     });
     settingsNextWritingApplyResponse(data);
-    settingsWritingProfileResponse = null;
     if (!quiet) showUiToast({ level: 'success', title: '글쓰기 기본값 적용', message: '다음 글부터 이 문체와 구성을 기본으로 사용합니다.', dedupeKey: 'writing-defaults-applied' });
     return true;
   } catch (error) {

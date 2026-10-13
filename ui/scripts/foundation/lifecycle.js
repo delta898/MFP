@@ -4,9 +4,7 @@ window.addEventListener('DOMContentLoaded', () => {
   try {
   window.addEventListener('beforeunload', (event) => {
     if (window.__bloggeniusForceQuit === true) return;
-    if (!settingsMajorHasPendingBasicChanges
-      && !settingsWritingProfileDirty
-      && !hasPendingSettingsNextChanges()
+    if (!hasPendingSettingsNextChanges()
       && !(typeof blogNextSmartCommentDirty !== 'undefined' && blogNextSmartCommentDirty)
       && !(typeof blogNextAutomationDirty !== 'undefined' && blogNextAutomationDirty)) return;
     event.preventDefault();
@@ -14,27 +12,12 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 
   try { initManagedSettingsSecretFields(); } catch (e) { console.warn('initManagedSettingsSecretFields error:', e); }
-  try { initSettingsWritingProfileUi(); } catch (e) { console.warn('initSettingsWritingProfileUi error:', e); }
   try { initSettingsNext(); } catch (e) { console.warn('initSettingsNext error:', e); }
   try { initManualSnsComposer(); } catch (e) { console.warn('initManualSnsComposer error:', e); }
   try { if (typeof initShoppingImageSettings === 'function') initShoppingImageSettings(); } catch (e) { console.warn('initShoppingImageSettings error:', e); }
   try { if (typeof initSettingsNextAppearance === 'function') initSettingsNextAppearance(); } catch (e) { console.warn('initSettingsNextAppearance error:', e); }
   checkSetupBanner();
   void initSidebarDynamicContent();
-  const settingsCheckUpdateBtn = document.getElementById('settings-check-update-btn');
-  if (settingsCheckUpdateBtn) {
-    settingsCheckUpdateBtn.addEventListener('click', () => {
-      checkUpdate(true, false);
-    });
-  }
-
-  const settingsForceUpdateBtn = document.getElementById('settings-force-update-btn');
-  if (settingsForceUpdateBtn) {
-    settingsForceUpdateBtn.addEventListener('click', () => {
-      checkUpdate(true, true);
-    });
-  }
-
   try { initClockWidget(); } catch (e) { console.warn('initClockWidget error:', e); }
   void showPendingUpdateCelebration();
   try { initGlobalPublishingStatus(); } catch (e) { console.warn('initGlobalPublishingStatus error:', e); }
@@ -233,12 +216,6 @@ try { initKeywordResearchModal(); } catch (e) { console.warn('initKeywordResearc
   } catch (e) { console.warn('bindNavigation error:', e); }
   try { initRecommendationCenter(); } catch (e) { console.warn('initRecommendationCenter error:', e); }
   try { bindActions(); } catch (e) { console.warn('bindActions error:', e); }
-  try { playSettingsTypingPreview(); } catch (e) { console.warn('playSettingsTypingPreview error:', e); }
-  try { loadGoogleAuthStatus(); } catch (e) { console.warn('loadGoogleAuthStatus error:', e); }
-
-  // 🚀 설정 초기 로딩 (어느 탭에서든 즉시 발행 가능하도록)
-  loadSettingsMajor();
-
   // 🚀 비동기 병렬 초기화 (블로킹 제거)
   loadConfigStatus().finally(() => {
     console.log('[UI] Initial config status check completed');

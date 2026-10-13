@@ -11,11 +11,6 @@ async function navigateTo(viewName, subTab) {
     }
   }
 
-  if (viewName !== 'settings' && isSettingsViewActive() && settingsMajorHasPendingBasicChanges) {
-    const canLeaveSettings = await confirmDiscardUnsavedSettings();
-    if (!canLeaveSettings) return;
-  }
-
   if (viewName !== 'settings-next' && isSettingsNextViewActive() && hasPendingSettingsNextChanges()) {
     const canLeaveSettingsNext = await confirmDiscardUnsavedSettingsNext();
     if (!canLeaveSettingsNext) return;
@@ -107,7 +102,7 @@ async function navigateTo(viewName, subTab) {
   }
   // Legacy settings surface is retired from navigation: any programmatic
   // request for the legacy view always lands on Settings Beta instead.
-  // Files stay on disk for recovery; no reachable UI may activate view-settings.
+  // Keep old deep links working by routing them to the current Settings surface.
   if (requestedView === 'settings') {
     const legacyTab = String(requestedSubTab || '').trim();
     const betaTarget = {

@@ -77,8 +77,6 @@ function discardAllDirtySettingsNextChanges() {
 
 function isAppQuitDirty() {
   if (typeof hasPendingSettingsNextChanges === 'function' && hasPendingSettingsNextChanges()) return true;
-  if (typeof settingsMajorHasPendingBasicChanges !== 'undefined' && settingsMajorHasPendingBasicChanges) return true;
-  if (typeof settingsWritingProfileDirty !== 'undefined' && settingsWritingProfileDirty) return true;
   if (typeof blogNextSmartCommentDirty !== 'undefined' && blogNextSmartCommentDirty) return true;
   return false;
 }
