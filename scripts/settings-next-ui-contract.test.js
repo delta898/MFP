@@ -227,6 +227,7 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     assert.match(read('ui/scripts/foundation/settings-card.js'), /function setUiSettingsCardFooterDetail/);
     assert.match(read('ui/scripts/foundation/settings-card.js'), /element\.dataset\.tone = tone/);
     assert.match(html, /id="settings-next-buffer-footer-detail" class="ui-settings-card-footer-detail" hidden[\s\S]*?class="ui-settings-card-footer-actions"/);
+    assert.match(html, /class="ui-settings-card-heading-side ui-settings-card-heading-stack"><div class="ui-settings-card-heading-tools"><a class="ui-text-action" href="https:\/\/bit\.ly\/4ySi4R6" target="_blank" rel="noopener noreferrer">가이드 보기 <span aria-hidden="true">↗<\/span><\/a><span id="settings-next-telegram-status"/);
     assert.match(html, /id="settings-next-telegram-feedback" class="ui-settings-card-feedback ui-settings-card-inline-feedback" data-hide-when-empty="true" role="status" aria-live="polite" hidden/);
     assert.doesNotMatch(html, /settings-next-telegram-footer-detail/);
     assert.match(read('ui/scripts/foundation/settings-card.js'), /function setUiSettingsCardTransientFeedback[\s\S]*durationMs = 4500/);
