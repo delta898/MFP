@@ -259,35 +259,6 @@ function buildArtifactKeyboard(results = []) {
     return rows;
 }
 
-function formatCapabilityHelpMessage() {
-    return [
-        'ℹ️ *현재 Agent가 직접 처리할 수 있는 설정 작업*',
-        '',
-        '• 트렌드 수집 시간 조회/변경',
-        '• 트렌드 카테고리 조회/추가/삭제',
-        '• 블로그 자동 포스팅 활성화 조회/변경',
-        '• 블로그 자동 포스팅 허용 시간대 조회/변경',
-        '• Chat Model 설정 요약 조회',
-        '• 확인 대기 중인 설정 변경 요청 조회',
-        '• 누적된 사용자 선호 요약 조회',
-        '• 현재 기준 추천 조회',
-        '• 새로운 글감 추천',
-        '• 트렌드 수집 작업 실행',
-        '',
-        '*예시*',
-        '• `현재 트렌드 수집 시간이 언제야?`',
-        '• `트렌드 수집 시간을 07:00으로 바꿔줘`',
-        '• `트렌드 카테고리 보여줘`',
-        '• `자동 블로그 포스팅 시간대를 09:00~18:00으로 바꿔줘`',
-        '• `현재 Chat Model 설정 요약 보여줘`',
-        '• `지금 바꾸려는 설정이 뭐였지?`',
-        '• `내 성향 알려줘`',
-        '• `지금 기준으로 추천할 것 있어?`',
-        '• `새로운 글감 하나 추천해줄래?`',
-        '• `지금 트렌드 수집 실행해줘`'
-    ].join('\n');
-}
-
 module.exports = {
     escapeMarkdown,
     formatStructuredPreviewLines,
@@ -295,7 +266,6 @@ module.exports = {
     formatContentRequestMessage,
     formatExecutionMessage,
     formatSupersededConfirmationMessage,
-    formatCapabilityHelpMessage,
     buildSuggestionKeyboard,
     buildArtifactKeyboard,
     buildContentRequestKeyboard

@@ -8,7 +8,7 @@ const { createAgentRuntime } = require('./agent/runtime');
 const { createPlanner } = require('./agent/planner');
 const { createCapabilityRegistry } = require('./capabilities');
 const { createMemoryRetrievalService } = require('./memory/retrieval-service');
-const { parseTelegramAgentEnvelope, tryParseDeterministicEnvelope } = require('./agent/telegram-parser');
+const { routeTelegramMessage, tryParseDeterministicEnvelope } = require('./agent/telegram-parser');
 const {
     mapLegacyTelegramContentRequest,
     isCanonicalContentRequestBundle,
@@ -16,7 +16,6 @@ const {
     isPublishExecutionEnabled
 } = require('./agent/content-request-mapper');
 const TelegramAgentRenderer = require('./channels/telegram/renderer');
-const { getSimpleConversationReply } = require('./channels/telegram/conversation-routing');
 const { getInternalUiOrigin } = require('./ui-runtime/internal-ui-origin');
 const { getRuntimeHooks } = require('./runtime-hooks');
 const { getAgentEventStore } = require('./memory/store');
@@ -324,42 +323,7 @@ class TelegramBotService {
         return context;
     }
 
-    static isAgentCapabilityHelpRequest(text) {
-        const normalized = String(text || '').trim().toLowerCase();
-        if (!normalized) return false;
-        return [
-            '네가 할 수 있는 일',
-            '네가 할 수 있는 일 나열',
-            '할 수 있는 일',
-            '할수있는일',
-            '무엇을 할 수 있어',
-            '뭘 할 수 있어',
-            '무슨 일을 할 수 있어',
-            '지원하는 기능',
-            '가능한 명령'
-        ].some((keyword) => normalized.includes(keyword));
-    }
-
-    static formatAgentCapabilityHelpMessage() {
-        return TelegramAgentRenderer.formatCapabilityHelpMessage();
-    }
-
-    static isLegacyPublishRegisterRequest(text) {
-        const normalized = String(text || '').trim();
-        if (!normalized) return false;
-        const hasContentIntent = /(글감|주제|글|포스팅|발행|올려줘|써줘|작성해줘|등록해줘|추가해줘|저장만|저장해줘)/.test(normalized);
-        if (!hasContentIntent) return false;
-        const isMetaOnly = /(사용법|사용 방법|도움말|가이드|넌 누구|너 누구|뭐하는 봇|몇시|현재 시간)/.test(normalized);
-        if (isMetaOnly && !/(글감|주제|발행|등록|추가|저장)/.test(normalized)) return false;
-        return /(글감|주제).*(추가|등록|저장)|((네이버|워드프레스|워프|워드프레스에도|네이버에).*(발행|올려))|((발행|올려).*(해줘|해|해봐))|((글감|주제).*(발행|올려))|((저장만|등록만).*(해줘|해))/.test(normalized);
-    }
-
-    static async tryHandleAgentRequest(chatId, text, msg, options = {}) {
-        if (this.isAgentCapabilityHelpRequest(text)) {
-            await this.bot.sendMessage(chatId, this.formatAgentCapabilityHelpMessage(), { parse_mode: 'Markdown' });
-            return { handled: true };
-        }
-
+    static async handleRoutedTelegramMessage(chatId, text, msg, options = {}) {
         const runtime = this.ensureAgentRuntime();
         const baseContext = this.buildAgentContext(chatId, msg);
         baseContext.messageId = String(msg?.message_id || '').trim();
@@ -403,15 +367,49 @@ class TelegramBotService {
         Logger.info(`⏱️ [TelegramAgent] retrieval ${Date.now() - retrievalStartedAt}ms`);
 
         const parserStartedAt = Date.now();
-        const envelope = earlyDeterministicEnvelope || await parseTelegramAgentEnvelope(text, {
+        const envelope = earlyDeterministicEnvelope || await routeTelegramMessage(text, {
             conversationId: context.conversation.id,
             messageId: context.messageId,
             memory: context.memory
         });
-        Logger.info(`⏱️ [TelegramAgent] parser ${Date.now() - parserStartedAt}ms`);
+        Logger.info(`⏱️ [TelegramRouter] ${Date.now() - parserStartedAt}ms`);
+        const parserNote = [
+            String(envelope?.reply?.text || '').trim(),
+            String(envelope?.reply?.suggestion || '').trim()
+                ? `💡 제안: ${String(envelope.reply.suggestion).trim()}`
+                : ''
+        ].filter(Boolean).join('\n\n').slice(0, 4000);
+
+        if (envelope?.route === 'reply' || envelope?.route === 'unsupported') {
+            const replyText = String(envelope.reply?.text || '').trim()
+                || '요청을 정확히 처리할 방법을 찾지 못했어요. 원하신 결과를 조금 더 설명해 주시거나, 사용 가능한 기능을 물어봐 주세요.';
+            const response = (parserNote || replyText).slice(0, 4000);
+            await this.bot.sendMessage(chatId, response);
+            if (typeof this.agentEventStore?.recordInteractionMessage === 'function') {
+                await this.agentEventStore.recordInteractionMessage(
+                    context,
+                    response,
+                    `CHAT_${envelope.route.toUpperCase()}`,
+                    'AGENT'
+                ).catch(() => { });
+            }
+            return { handled: true };
+        }
+
+        if (envelope?.route === 'legacy') {
+            if (parserNote) await this.bot.sendMessage(chatId, parserNote);
+            return {
+                handled: false,
+                parsedData: {
+                    actions: envelope.legacy_actions,
+                    meta: envelope.meta || {}
+                }
+            };
+        }
 
         if (!Array.isArray(envelope?.actions) || envelope.actions.length === 0) {
-            return { handled: false };
+            await this.bot.sendMessage(chatId, '요청을 처리할 방법을 찾지 못했어요. 원하신 결과를 조금 더 설명해 주시겠어요?');
+            return { handled: true };
         }
 
         const plannerStartedAt = Date.now();
@@ -431,6 +429,8 @@ class TelegramBotService {
             await this.bot.sendMessage(chatId, `❌ 요청을 처리하지 못했습니다.\n\n사유: ${(outcome.errors || []).join('\n')}`);
             return { handled: true };
         }
+
+        if (parserNote) await this.bot.sendMessage(chatId, parserNote);
 
         if (outcome.status === 'confirmation_required') {
             const confirmationId = outcome.confirmation?.id;
@@ -713,58 +713,32 @@ class TelegramBotService {
                 return;
             }
 
-            const simpleReply = getSimpleConversationReply(text);
-            if (simpleReply) {
-                Logger.info('💬 [TelegramBot] 단순 대화 응답 (intent=greeting)');
-                await this.bot.sendMessage(chatId, simpleReply);
-                return;
-            }
-
             // 3. 일반 자연어 메시지 (Phase 2: AI 파싱 및 확인 대기)
             let loadingMsg = null;
             try {
-                const shouldUseLegacyPublishFlow = this.isLegacyPublishRegisterRequest(text);
-                if (shouldUseLegacyPublishFlow) {
-                    Logger.debug('↪️ [TelegramBot] 핵심 등록/발행 요청으로 판단하여 legacy publish/register 경로를 사용합니다.');
-                }
                 const agentContext = {
                     conversationId: `telegram:${String(chatId || '').trim()}`,
                     messageId: String(msg?.message_id || '').trim()
                 };
-                const deterministicEnvelope = shouldUseLegacyPublishFlow ? null : tryParseDeterministicEnvelope(text, agentContext);
-                if (!deterministicEnvelope && !shouldUseLegacyPublishFlow) {
+                const deterministicEnvelope = tryParseDeterministicEnvelope(text, agentContext);
+                if (!deterministicEnvelope) {
                     loadingMsg = await this.startLoadingIndicator(chatId);
                 }
 
-                if (!shouldUseLegacyPublishFlow) {
-                    const agentOutcome = await this.tryHandleAgentRequest(chatId, text, msg, {
-                        preParsedEnvelope: deterministicEnvelope
-                    });
-                    if (agentOutcome.handled) {
-                        await this.stopLoadingIndicator(chatId, loadingMsg);
-                        return;
-                    }
+                const routedOutcome = await this.handleRoutedTelegramMessage(chatId, text, msg, {
+                    preParsedEnvelope: deterministicEnvelope
+                });
+                if (routedOutcome.handled) {
+                    await this.stopLoadingIndicator(chatId, loadingMsg);
+                    return;
                 }
 
-                // AI 파싱 (지능형 메모리 맥락 정보 포함)
-                const Core = require('./core');
-
-                // 1. 과거 인사이트 및 최근 대화 히스토리 로드
-                const userInsight = await this.agentEventStore.getUserInsight(chatId);
-                const chatHistory = await this.agentEventStore.getHistory(chatId, 5); // 최근 5개 대화
-
-                const context = {
-                    last_topic: this.chatContext.get(chatId) || null,
-                    user_insight: userInsight,
-                    history: chatHistory
-                };
-
-                const parsedData = await Core.parseTelegramRequest(text, context);
+                const parsedData = routedOutcome.parsedData || { actions: [], meta: {} };
                 const { actions, meta } = parsedData;
 
                 if (!actions || actions.length === 0) {
                     await this.stopLoadingIndicator(chatId, loadingMsg);
-                    await this.callTelegramApi('sendMessage', [chatId, '😥 의도를 정확히 파악하지 못했습니다. 다시 말씀해 주시겠어요?'], { retries: 1, silent: true });
+                    await this.callTelegramApi('sendMessage', [chatId, '요청을 처리할 방법을 찾지 못했어요. 원하신 결과를 조금 더 설명해 주시겠어요?'], { retries: 1, silent: true });
                     return;
                 }
 
