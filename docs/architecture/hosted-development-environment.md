@@ -109,12 +109,14 @@ Secret을 검사했다고 가장하지 않는다. 누락·오설정은 안전한
 환경 manifest의 `allows_manual_publish`, `allows_automated_draft`와 `allows_automated_publish`는 문서용 표식이 아니라 runtime
 실행 정책이다. `local`과 환경 profile을 해석하지 못한 실행은 모든 외부 발행을 차단한다.
 `development`는 개발자가 직접 확인한 테스트 채널로 보내는 단건 수동 발행과 블로그 연속
-발행의 `임시 저장`만 허용한다. 다음 경로는 계속 차단한다.
+발행의 `임시 저장`만 허용한다. SNS 자동 공유가 켜진 경우에는 블로그 RSS를 주기적으로
+확인해 개발 Spreadsheet의 SNS 시트에 기록할 수 있지만, Buffer 자동 발행은 실행하지 않는다.
+다음 경로는 계속 차단한다.
 
 - 예약 발행
 - 블로그·쇼핑 여러 행 일괄 발행
-- 블로그·쇼핑·SNS 자동 발행 scheduler와 수동 자동-cycle 실행
-- SNS 자동 배포 runner
+- 블로그·쇼핑 자동 발행 scheduler와 수동 자동-cycle 실행
+- SNS 자동 배포와 SNS 자동화 cycle의 Buffer 발행 단계
 - Agent capability를 통한 발행 시작 요청
 
 블로그의 Development timer는 Queue 선두 글감이 공개 또는 예약 계획이면 뒤 항목을 건너뛰지

@@ -138,7 +138,11 @@ function createSnsRssDiscovery(options = {}) {
     }
 
     async function run(trigger = 'auto') {
+        const runLabel = `[SNS][RSS][${trigger}]`;
+        Logger?.info?.(`${runLabel} RSS 확인 요청을 시작합니다.`);
+
         if (CONFIG.SNS_PUBLISH_ENABLED !== true) {
+            Logger?.warn?.(`${runLabel} 중단: SNS 자동 발행이 비활성화되어 있습니다.`);
             return {
                 success: false,
                 code: 'SNS_DISTRIBUTION_DISABLED',
@@ -148,6 +152,7 @@ function createSnsRssDiscovery(options = {}) {
 
         const license = await License.checkLicenseStatus({ quiet: true });
         if (!license?.success) {
+            Logger?.warn?.(`${runLabel} 중단: 라이선스 확인 실패 (${license?.message || '원인 미상'})`);
             return {
                 success: false,
                 code: 'LICENSE_STATUS_FAILED',
@@ -155,6 +160,7 @@ function createSnsRssDiscovery(options = {}) {
             };
         }
         if (!getEnableSnsDistribution(license.features)) {
+            Logger?.warn?.(`${runLabel} 중단: SNS 자동 발행 capability가 비활성화되어 있습니다.`);
             return {
                 success: false,
                 code: 'SNS_CAPABILITY_DISABLED',
@@ -165,6 +171,7 @@ function createSnsRssDiscovery(options = {}) {
         const feedDefinitions = resolveSnsFeedDefinitions(CONFIG);
         const readiness = validateSnsDiscoveryConfig(CONFIG, feedDefinitions);
         if (!readiness.ready) {
+            Logger?.warn?.(`${runLabel} 중단: 설정이 부족합니다 (${readiness.errors.join(', ')})`);
             return {
                 success: false,
                 code: 'SNS_CONFIG_INCOMPLETE',
@@ -173,7 +180,13 @@ function createSnsRssDiscovery(options = {}) {
         }
 
         const selectedSources = new Set(readiness.effectiveSourceBlogs);
-        const existingRows = await store.listRows();
+        let existingRows;
+        try {
+            existingRows = await store.listRows();
+        } catch (error) {
+            Logger?.error?.(`${runLabel} SNS 시트 기존 항목 조회 실패: ${error.message}`);
+            throw error;
+        }
         const trackedEntryKeys = new Set(
             existingRows.map((row) => String(row.entryKey || '').trim()).filter(Boolean)
         );
@@ -183,7 +196,14 @@ function createSnsRssDiscovery(options = {}) {
         let duplicateCount = 0;
 
         for (const feed of feedDefinitions) {
-            const items = await Utils.fetchAndParseRss(feed.url);
+            Logger?.info?.(`${runLabel} 피드 조회 시작: ${feed.sourcePlatform} (${feed.url})`);
+            let items;
+            try {
+                items = await Utils.fetchAndParseRss(feed.url);
+            } catch (error) {
+                Logger?.error?.(`${runLabel} 피드 조회 실패: ${feed.sourcePlatform} (${feed.url}) - ${error.message}`);
+                throw error;
+            }
             discoveredCount += items.length;
             const summary = {
                 sourcePlatform: feed.sourcePlatform,
@@ -191,6 +211,7 @@ function createSnsRssDiscovery(options = {}) {
                 discoveredCount: items.length,
                 newCount: 0
             };
+            Logger?.info?.(`${runLabel} 피드 조회 완료: ${feed.sourcePlatform}, 발견 ${items.length}건`);
 
             for (const item of sortOldestFirst(items)) {
                 const entry = {
@@ -232,10 +253,16 @@ function createSnsRssDiscovery(options = {}) {
             feedSummaries.push(summary);
         }
 
-        const appendResult = await store.appendEntriesDeliveries({
-            entries: descriptors,
-            channels: readiness.channels
-        });
+        let appendResult;
+        try {
+            appendResult = await store.appendEntriesDeliveries({
+                entries: descriptors,
+                channels: readiness.channels
+            });
+        } catch (error) {
+            Logger?.error?.(`${runLabel} SNS 시트 반영 실패: 신규 원문 ${descriptors.length}건, ${error.message}`);
+            throw error;
+        }
         const result = {
             success: true,
             code: 'SNS_DISCOVERY_COMPLETED',
@@ -250,7 +277,7 @@ function createSnsRssDiscovery(options = {}) {
             }
         };
         Logger?.info?.(
-            `✅ [SNS] RSS 확인 완료: 발견 ${discoveredCount}건, 신규 원문 ${result.data.newEntryCount}건, `
+            `✅ ${runLabel} RSS 확인 완료: 피드 ${feedSummaries.length}개, 발견 ${discoveredCount}건, 신규 원문 ${result.data.newEntryCount}건, `
             + `채널별 행 ${result.data.addedDeliveryCount}건, 중복 ${duplicateCount}건`
         );
         return result;

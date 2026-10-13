@@ -414,7 +414,9 @@ function createAutoRunnerRuntime(deps = {}) {
             };
         }
 
-        Logger.info('ℹ️ [SNS] 앱 시작 시 RSS 확인을 실행합니다. Buffer 발행은 예약 주기부터 시작합니다.');
+        Logger.info(String(CONFIG.RUNTIME_ENVIRONMENT_PROFILE?.environment || '').trim().toLowerCase() === 'development'
+            ? 'ℹ️ [SNS] 앱 시작 시 RSS 확인을 실행합니다. 개발 환경에서는 Buffer 자동 발행을 하지 않습니다.'
+            : 'ℹ️ [SNS] 앱 시작 시 RSS 확인을 실행합니다. Buffer 발행은 예약 주기부터 시작합니다.');
         return triggerSnsDiscoveryCycle('startup');
     }
 
@@ -424,6 +426,14 @@ function createAutoRunnerRuntime(deps = {}) {
 
     function triggerSnsAutomationCycle(trigger = 'auto') {
         return triggerSnsHandler('runSnsAutomationCycle', trigger);
+    }
+
+    function triggerSnsScheduledCycle(trigger = 'auto') {
+        if (String(CONFIG.RUNTIME_ENVIRONMENT_PROFILE?.environment || '').trim().toLowerCase() === 'development') {
+            Logger.info('ℹ️ [SNS] 개발 환경: RSS만 확인하고 Buffer 자동 발행은 실행하지 않습니다.');
+            return triggerSnsDiscoveryCycle(trigger);
+        }
+        return triggerSnsAutomationCycle(trigger);
     }
 
     function scheduleNextSnsCycle(delayMs = null) {
@@ -451,7 +461,7 @@ function createAutoRunnerRuntime(deps = {}) {
                 return;
             }
 
-            triggerSnsAutomationCycle('auto')
+            triggerSnsScheduledCycle('auto')
                 .finally(() => {
                     scheduleNextSnsCycle();
                 });
@@ -459,7 +469,9 @@ function createAutoRunnerRuntime(deps = {}) {
     }
 
     function syncSnsRunner() {
-        const isEnabled = isLivePublishAllowed(CONFIG) && CONFIG.SNS_PUBLISH_ENABLED === true;
+        const isDevelopment = String(CONFIG.RUNTIME_ENVIRONMENT_PROFILE?.environment || '').trim().toLowerCase() === 'development';
+        const automatedPublishAllowed = isLivePublishAllowed(CONFIG);
+        const isEnabled = CONFIG.SNS_PUBLISH_ENABLED === true && (automatedPublishAllowed || isDevelopment);
         const intervalMin = Math.max(10, Number.parseInt(CONFIG.SNS_PUBLISH_INTERVAL_MIN, 10) || 10);
         const statusChanged = snsRuntimeState.enabled !== isEnabled;
         const intervalChanged = snsRuntimeState.lastInterval !== intervalMin;
@@ -474,13 +486,18 @@ function createAutoRunnerRuntime(deps = {}) {
         snsRuntimeState.lastInterval = intervalMin;
         clearSnsTimer();
         if (!isEnabled) {
+            if (CONFIG.SNS_PUBLISH_ENABLED === true && !automatedPublishAllowed) {
+                Logger.info(`ℹ️ [SNS] ${CONFIG.RUNTIME_ENVIRONMENT_PROFILE?.environment || '현재'} 환경 정책으로 자동 RSS 확인을 예약하지 않습니다.`);
+            }
             snsRuntimeState.status = 'stopped';
             snsRuntimeState.nextRunAt = null;
             refreshLegacyAutoRuntimeState();
             return;
         }
 
-        Logger.info(`ℹ️ [SNS] RSS 확인 및 자동 발행 활성화 (주기: ${intervalMin}분)`);
+        Logger.info(isDevelopment
+            ? `ℹ️ [SNS] 개발 환경 RSS 자동 확인 활성화 (주기: ${intervalMin}분, Buffer 자동 발행 차단)`
+            : `ℹ️ [SNS] RSS 확인 및 자동 발행 활성화 (주기: ${intervalMin}분)`);
         scheduleNextSnsCycle();
     }
 
@@ -511,6 +528,7 @@ function createAutoRunnerRuntime(deps = {}) {
         triggerSnsStartupDiscovery,
         triggerSnsDistributionCycle,
         triggerSnsAutomationCycle,
+        triggerSnsScheduledCycle,
         scheduleNextSnsCycle,
         syncSnsRunner,
         syncAutoRunnerWithConfig

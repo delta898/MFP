@@ -78,6 +78,7 @@ test('SNS discovery requires both capability and app activation before fetching 
 
 test('SNS discovery registers selected sources as pending and unselected sources as skipped', async () => {
     const appended = [];
+    const logLines = [];
     const feedItems = {
         naver: [
             {
@@ -130,6 +131,11 @@ test('SNS discovery registers selected sources as pending and unselected sources
             }
         },
         getEnableSnsDistribution: (features) => features?.enable_sns_distribution === true,
+        Logger: {
+            info(message) { logLines.push(message); },
+            warn(message) { logLines.push(message); },
+            error(message) { logLines.push(message); }
+        },
         httpClient: {
             async get() {
                 return {
@@ -153,6 +159,43 @@ test('SNS discovery registers selected sources as pending and unselected sources
     assert.equal(appended[2].entry.imageUrl, 'https://blog.example/wp-cover.jpg');
     assert.equal(appended[2].entry.summary, '워드프레스 OG 요약');
     assert.match(appended[2].log, /발행 대상 블로그에서 제외됨/);
+    assert.ok(logLines.some((line) => line.includes('RSS 확인 요청을 시작')));
+    assert.ok(logLines.some((line) => line.includes('피드 조회 시작: naver')));
+    assert.ok(logLines.some((line) => line.includes('피드 조회 완료: naver, 발견 2건')));
+    assert.ok(logLines.some((line) => line.includes('발견 3건, 신규 원문 3건')));
+});
+
+test('SNS discovery logs the feed and reason when RSS fetching fails', async () => {
+    const logLines = [];
+    const discovery = createSnsRssDiscovery({
+        CONFIG: createBaseConfig({ WORDPRESS_URL: '' }),
+        License: {
+            async checkLicenseStatus() {
+                return { success: true, features: { enable_sns_distribution: true } };
+            }
+        },
+        Utils: {
+            async fetchAndParseRss() {
+                throw new Error('upstream timeout');
+            }
+        },
+        store: {
+            async listRows() { return []; },
+            async appendEntriesDeliveries() { return {}; }
+        },
+        getEnableSnsDistribution: (features) => features?.enable_sns_distribution === true,
+        Logger: {
+            info(message) { logLines.push(message); },
+            warn(message) { logLines.push(message); },
+            error(message) { logLines.push(message); }
+        }
+    });
+
+    await assert.rejects(discovery.run('test-auto'), /upstream timeout/);
+
+    assert.ok(logLines.some((line) => line.includes('[SNS][RSS][test-auto] RSS 확인 요청을 시작')));
+    assert.ok(logLines.some((line) => line.includes('피드 조회 시작: naver')));
+    assert.ok(logLines.some((line) => line.includes('피드 조회 실패: naver') && line.includes('upstream timeout')));
 });
 
 test('SNS discovery rejects incomplete selected blog configuration', async () => {

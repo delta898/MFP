@@ -199,7 +199,8 @@ test('SNS startup does not request discovery when app activation is disabled', a
     assert.equal(runtime.snsRuntimeState.lastRunAt, null);
 });
 
-test('development environment keeps every live publishing scheduler stopped', () => {
+test('development environment schedules SNS RSS discovery while keeping publishing schedulers stopped', async () => {
+    const calls = [];
     const CONFIG = {
         RUNTIME_ENVIRONMENT_PROFILE: {
             environment: 'development',
@@ -225,11 +226,28 @@ test('development environment keeps every live publishing scheduler stopped', ()
         publishAutoDefaults: { intervalMin: 60, startTime: '00:00', endTime: '23:59' }
     });
 
+    runtime.setHandlers({
+        runSnsDiscoveryCycle: async (trigger) => {
+            calls.push(`discovery:${trigger}`);
+            return { success: true, code: 'SNS_DISCOVERY_COMPLETED' };
+        },
+        runSnsAutomationCycle: async (trigger) => {
+            calls.push(`automation:${trigger}`);
+            return { success: true, code: 'SNS_AUTOMATION_COMPLETED' };
+        }
+    });
+
     runtime.syncPublishRunner();
     runtime.syncSnsRunner();
 
     assert.equal(runtime.publishRuntimeState.enabled, false);
     assert.equal(runtime.publishRuntimeState.nextRunAt, null);
-    assert.equal(runtime.snsRuntimeState.enabled, false);
-    assert.equal(runtime.snsRuntimeState.nextRunAt, null);
+    assert.equal(runtime.snsRuntimeState.enabled, true);
+    assert.ok(runtime.snsRuntimeState.nextRunAt);
+
+    const result = await runtime.triggerSnsScheduledCycle('test-auto');
+
+    assert.equal(result.code, 'SNS_DISCOVERY_COMPLETED');
+    assert.deepEqual(calls, ['discovery:test-auto']);
+    runtime.clearSnsTimer();
 });
