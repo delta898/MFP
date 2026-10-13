@@ -3,7 +3,7 @@
 - Branch: `codex/fbr/telegram-conversation-enhancement`
 - Start date: 2026-10-13
 - Base/parent branch: `dev` (`88cee431`)
-- Status: 0.6.1 범위의 route 단일화 sub-feature를 통합·배포 준비 중; core/plugin 구조와 capability 자기설명 계약을 0.7.0 목표로 후속 설계
+- Status: route 단일화 sub-feature parent 통합 완료; `dev` 병합 전 full unit suite 승인 대기; core/plugin 구조와 capability 자기설명 계약은 0.7.0 목표
 
 ## 사용자 필요와 목표
 
@@ -148,7 +148,7 @@ Telegram update
 
 ## 다음 단계
 
-1. route sub-feature를 parent에 통합하고, 승인된 full test gate를 통과한 뒤 `v0.6.1` release 후보로 준비한다.
+1. parent 통합은 완료했다. 사용자 승인 후 full unit suite를 실행하고 `dev`에 병합한 뒤 `v0.6.1` release 후보를 준비한다.
 2. `v0.7.0` 설계는 core 기능과 plugin 확장 경계, capability가 자기 설명·필수 입력·가용 조건·확인/부작용 계약을 함께 제공하는 방식부터 다룬다.
 3. 그 구조를 바탕으로 기능 목록과 실제 실행 가능성의 일치, 정보 부족 시 질문, 사용자 memory/context 적용, 조사·학습 개선을 단계적으로 설계한다. 보존·승격·삭제 수치(90일·3회)는 여전히 미확정 제안값이다.
 
