@@ -3,7 +3,7 @@
 - Branch: `codex/feat/manuscript-image-drop-paste`
 - Start date: 2026-10-13
 - Base/parent branch: `dev`
-- Status: 구현 및 자동 검증 완료; 사용자 UI 확인 대기
+- Status: dev 병합 완료; 사용자 UI 확인 대기
 
 ## 사용자 필요와 목표
 
@@ -57,6 +57,7 @@
 
 ## 결과와 검증
 
-- 자동 검증: `npm run build:manuscript-editor`, 변경된 JS의 `node --check`, `node --test src/ui-runtime/http-server-runtime.test.js scripts/manuscript-image-workspace-contract.test.js` (13/13 통과), `npm run test:ui-browser` (전체 통과), `git diff --check`. 브라우저 smoke는 클립보드 이미지 붙여넣기, 편집기 본문 drop, 새 Draft 슬롯 import, 이미지 블록 제거, 기존 미디어 drop 교체 경로를 확인했다.
+- 자동 검증: `npm run build:manuscript-editor`, 변경된 JS의 `node --check`, `node --test src/ui-runtime/http-server-runtime.test.js scripts/manuscript-image-workspace-contract.test.js` (13/13 통과), `npm run test:ui-browser` (전체 통과), `node scripts/run-unit-tests.js` (2,259 통과, 15 건너뜀, 0 실패), `git diff --check`. 브라우저 smoke는 클립보드 이미지 붙여넣기, 편집기 본문 drop, 새 Draft 슬롯 import, 이미지 블록 제거, 기존 미디어 drop 교체 경로를 확인했다.
 - 수동 UI 확인: 실제 macOS에서 PNG/JPEG/WebP/AVIF를 이미지 블록 본문에 drop/paste하고, 이미지 미디어 위 drop 시 기존 이미지가 교체되는지 확인한다. 지원하지 않는 형식, 여러 이미지, 20MB 초과 파일에 안내가 나타나는지도 확인한다.
 - 남은 위험: 캔버스 바깥 여백 drop의 문서 끝 추가와 운영체제/브라우저별 클립보드 파일 제공 방식은 자동 브라우저 smoke에서 직접 검증하지 않았다. 사용자 UI 확인에서 주요 운영체제·브라우저의 파일 드롭 및 붙여넣기 동작을 확인할 수 있다.
+- 2026-10-13: 사용자의 `[cmd]` 요청에 따라 전체 단위 테스트 승인 후 `dev`에 fast-forward 병합했다. feature 변경은 `211a32fd`에 포함됐다.
