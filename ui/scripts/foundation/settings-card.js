@@ -1,12 +1,31 @@
 let uiSettingsCardPatternBound = false;
+const uiSettingsCardFeedbackTimers = new Map();
 
 function setUiSettingsCardFeedback(id, message = '', tone = 'neutral') {
   const element = document.getElementById(id);
   if (!element) return;
+  const timer = uiSettingsCardFeedbackTimers.get(id);
+  if (timer) clearTimeout(timer);
+  uiSettingsCardFeedbackTimers.delete(id);
   const text = String(message || '');
   element.textContent = text;
   element.title = text;
   element.dataset.tone = tone;
+  if (element.dataset.hideWhenEmpty === 'true') element.hidden = !text;
+}
+
+function setUiSettingsCardTransientFeedback(id, message = '', tone = 'success', durationMs = 4500) {
+  setUiSettingsCardFeedback(id, message, tone);
+  const element = document.getElementById(id);
+  if (!element || !String(message || '')) return;
+  element.hidden = false;
+  const timer = setTimeout(() => {
+    element.hidden = true;
+    element.textContent = '';
+    element.title = '';
+    uiSettingsCardFeedbackTimers.delete(id);
+  }, Math.max(1000, Number(durationMs) || 4500));
+  uiSettingsCardFeedbackTimers.set(id, timer);
 }
 
 function setUiSettingsCardFooterDetail(id, message = '', tone = 'neutral') {

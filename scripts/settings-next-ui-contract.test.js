@@ -227,7 +227,10 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     assert.match(read('ui/scripts/foundation/settings-card.js'), /function setUiSettingsCardFooterDetail/);
     assert.match(read('ui/scripts/foundation/settings-card.js'), /element\.dataset\.tone = tone/);
     assert.match(html, /id="settings-next-buffer-footer-detail" class="ui-settings-card-footer-detail" hidden[\s\S]*?class="ui-settings-card-footer-actions"/);
-    assert.match(html, /id="settings-next-telegram-footer-detail" class="ui-settings-card-footer-detail" hidden[\s\S]*?class="ui-settings-card-footer-actions"/);
+    assert.match(html, /id="settings-next-telegram-feedback" class="ui-settings-card-feedback ui-settings-card-inline-feedback" data-hide-when-empty="true" role="status" aria-live="polite" hidden/);
+    assert.doesNotMatch(html, /settings-next-telegram-footer-detail/);
+    assert.match(read('ui/scripts/foundation/settings-card.js'), /function setUiSettingsCardTransientFeedback[\s\S]*durationMs = 4500/);
+    assert.match(read('ui/scripts/features/settings-next/optional-services.js'), /setUiSettingsCardTransientFeedback\('settings-next-telegram-feedback'/);
     assert.match(html, /id="settings-next-slack-footer-detail" class="ui-settings-card-footer-detail" hidden[\s\S]*?class="ui-settings-card-footer-actions"/);
     assert.match(html, /id="settings-next-bitly-footer-detail" class="ui-settings-card-footer-detail" hidden[\s\S]*?class="ui-settings-card-footer-actions"/);
     assert.match(settingsCardStyles, /\.ui-settings-card > \.ui-settings-card-heading \+ \*/);

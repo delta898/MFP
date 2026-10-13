@@ -143,6 +143,23 @@
 .ui-settings-card-feedback[data-tone="warning"] { color: var(--ui-status-warning); }
 .ui-settings-card-feedback[data-tone="danger"] { color: var(--ui-status-danger); }
 
+.ui-settings-card-heading-side .ui-settings-card-inline-feedback {
+  margin-block-start: 0;
+  min-block-size: 0;
+  max-width: min(28rem, 48vw);
+  overflow: hidden;
+  color: var(--ui-status-success);
+  font-size: var(--ui-type-caption-size);
+  font-weight: var(--ui-weight-medium);
+  line-height: var(--ui-line-height-tight);
+  text-align: end;
+  text-overflow: ellipsis;
+}
+
+.ui-settings-card-heading-side .ui-settings-card-inline-feedback[hidden] {
+  display: none;
+}
+
 .ui-settings-field {
   display: flex;
   min-width: 0;
@@ -260,6 +277,16 @@
     flex-direction: column;
   }
 
+  .ui-settings-card-heading-side {
+    align-self: stretch;
+    justify-content: space-between;
+  }
+
+  .ui-settings-card-heading-side .ui-settings-card-inline-feedback {
+    max-width: calc(100% - 6rem);
+    text-align: start;
+  }
+
   .ui-settings-field-grid,
   .ui-field-action {
     grid-template-columns: minmax(0, 1fr);
@@ -283,6 +310,7 @@
   .ui-settings-card-footer-actions > button {
     width: 100%;
   }
+
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -61,6 +61,10 @@ function createHarness() {
             async testOptionalServiceConnection(body) {
                 calls.push(body);
                 return { message: 'ok' };
+            },
+            async manageTelegramPairing(body) {
+                calls.push(body);
+                return { paired: true };
             }
         },
         sendSuccess: (_res, requestId, data) => responses.push({ ok: true, requestId, data }),
@@ -90,6 +94,14 @@ test('optional services route exposes safe reads and scoped connection actions',
     const body = { scope: 'bitly', values: { NOTIFY_BITLY_TOKEN: '' } };
     await harness.handler({ pathname: '/api/v1/settings/optional-services/test', method: 'POST', requestId: 'optional-test', requestBody: body });
     assert.deepEqual(harness.calls, [body]);
+});
+
+test('Telegram pairing route accepts the scoped pairing action', async () => {
+    const harness = createHarness();
+    const body = { action: 'complete', sessionId: 'session', code: 'ABCD2345' };
+    await harness.handler({ pathname: '/api/v1/settings/telegram-pairing', method: 'POST', requestId: 'telegram-pair', requestBody: body });
+    assert.deepEqual(harness.calls, [body]);
+    assert.deepEqual(harness.responses[0].data, { paired: true });
 });
 
 test('external connections route exposes safe reads and scoped saves', async () => {

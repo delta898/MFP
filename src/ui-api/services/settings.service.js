@@ -34,6 +34,7 @@ const {
     normalizeChatModelSource
 } = require('../../ai-model-config');
 const { recordDashboardActivity } = require('../../activity/dashboard-activity-store');
+const TelegramPairingService = require('../../telegram-pairing.service');
 const { isSnsAiMode } = require('../../social/sns-ai-policy');
 const DefaultRemoteModelCatalog = require('../../ai/remote-model-catalog');
 const DefaultModelConnectionTester = require('../../ai/model-connection-tester');
@@ -408,6 +409,7 @@ function createSettingsService(deps = {}) {
         parseConfigValue,
         TelegramService,
         TelegramBotService,
+        telegramPairingService = TelegramPairingService,
         BufferClient,
         Utils,
         axios,
@@ -641,7 +643,7 @@ function createSettingsService(deps = {}) {
                 SNS_PUBLISH_ENABLED: CONFIG.SNS_PUBLISH_ENABLED === true,
                 SNS_SOURCE_BLOGS: Array.isArray(CONFIG.SNS_SOURCE_BLOGS) ? CONFIG.SNS_SOURCE_BLOGS : [],
                 NOTIFY_TELEGRAM_BOT_TOKEN_CONFIGURED: Boolean(String(CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim()),
-                NOTIFY_TELEGRAM_CHAT_ID: String(CONFIG.NOTIFY_TELEGRAM_CHAT_ID || '').trim(),
+                NOTIFY_TELEGRAM_CHAT_PAIRED: Boolean(String(CONFIG.NOTIFY_TELEGRAM_CHAT_ID || '').trim()),
                 NOTIFY_TELEGRAM_DELIVERY_ENABLED: CONFIG.NOTIFY_TELEGRAM_ENABLED === true,
                 NOTIFY_SLACK_WEBHOOK_URL_CONFIGURED: Boolean(String(CONFIG.NOTIFY_SLACK_WEBHOOK_URL || '').trim()),
                 NOTIFY_SLACK_DELIVERY_ENABLED: CONFIG.NOTIFY_SLACK_ENABLED === true,
@@ -913,20 +915,21 @@ function createSettingsService(deps = {}) {
             if (normalized.scope === 'telegram') {
                 const current = structuredConfig.notification.telegram || {};
                 const botToken = fields.NOTIFY_TELEGRAM_BOT_TOKEN || current.bot_token || CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN || '';
-                if (!botToken || !fields.NOTIFY_TELEGRAM_CHAT_ID) throw createApiError(400, 'TELEGRAM_CONNECTION_REQUIRED', 'Bot Token과 Chat ID를 모두 입력해 주세요.');
+                const chatId = fields.NOTIFY_TELEGRAM_CHAT_ID || current.chat_id || CONFIG.NOTIFY_TELEGRAM_CHAT_ID || '';
+                if (!botToken || !chatId) throw createApiError(400, 'TELEGRAM_CONNECTION_REQUIRED', 'Bot Token 확인과 Telegram 연결을 먼저 완료해 주세요.');
                 const deliveryEnabled = fields.NOTIFY_TELEGRAM_DELIVERY_ENABLED === null
                     ? (current.delivery_enabled ?? current.enabled ?? (CONFIG.NOTIFY_TELEGRAM_ENABLED === true))
                     : fields.NOTIFY_TELEGRAM_DELIVERY_ENABLED;
                 telegramRuntimeChanged = String(current.bot_token || '') !== String(botToken)
-                    || String(current.chat_id || '') !== String(fields.NOTIFY_TELEGRAM_CHAT_ID);
+                    || String(current.chat_id || '') !== String(chatId);
                 structuredConfig.notification.telegram = {
                     ...current,
                     enabled: current.enabled === true || (current.enabled === undefined && CONFIG.NOTIFY_TELEGRAM_ENABLED === true),
                     delivery_enabled: deliveryEnabled,
                     bot_token: botToken,
-                    chat_id: fields.NOTIFY_TELEGRAM_CHAT_ID
+                    chat_id: chatId
                 };
-                Object.assign(CONFIG, { NOTIFY_TELEGRAM_BOT_TOKEN: botToken, NOTIFY_TELEGRAM_CHAT_ID: fields.NOTIFY_TELEGRAM_CHAT_ID, NOTIFY_TELEGRAM_ENABLED: deliveryEnabled });
+                Object.assign(CONFIG, { NOTIFY_TELEGRAM_BOT_TOKEN: botToken, NOTIFY_TELEGRAM_CHAT_ID: chatId, NOTIFY_TELEGRAM_ENABLED: deliveryEnabled });
             }
             if (normalized.scope === 'slack') {
                 const current = structuredConfig.notification.slack || {};
@@ -1752,6 +1755,77 @@ function createSettingsService(deps = {}) {
             }
 
             return { message: result.message || '연결됨 · 테스트 메시지를 전송했습니다.' };
+        },
+
+        async manageTelegramPairing(requestBody = {}) {
+            const action = String(requestBody.action || '').trim();
+            if (action === 'cancel') {
+                await telegramPairingService.cancel();
+                return { cancelled: true };
+            }
+            const botToken = String(requestBody.botToken || CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim();
+            if (action === 'verify') {
+                if (!botToken) throw createApiError(400, 'TELEGRAM_TOKEN_REQUIRED', 'Bot Token을 입력해 주세요.');
+                try {
+                    const response = await TelegramService.callBotApi('getMe', {}, { botToken });
+                    const bot = response?.data?.result || {};
+                    if (!bot.is_bot || !bot.username) throw new Error('Telegram 봇 계정 정보를 확인하지 못했습니다.');
+                    return { username: bot.username, firstName: String(bot.first_name || '') };
+                } catch (error) {
+                    const result = TelegramService.failureResult(error, { botToken, stage: 'token' });
+                    throw createApiError(result.category === 'token_invalid' ? 401 : 400, 'TELEGRAM_TOKEN_INVALID', result.message);
+                }
+            }
+            if (action === 'start') {
+                if (!botToken) throw createApiError(400, 'TELEGRAM_TOKEN_REQUIRED', 'Bot Token을 입력해 주세요.');
+                let bot;
+                try {
+                    const response = await TelegramService.callBotApi('getMe', {}, { botToken });
+                    bot = response?.data?.result || {};
+                    if (!bot.is_bot || !bot.username) throw new Error('Telegram 봇 계정 정보를 확인하지 못했습니다.');
+                    const webhookResponse = await TelegramService.callBotApi('getWebhookInfo', {}, { botToken });
+                    if (String(webhookResponse?.data?.result?.url || '').trim()) {
+                        throw createApiError(409, 'TELEGRAM_WEBHOOK_CONFIGURED', '이 봇은 이미 webhook 방식으로 연결되어 있습니다. webhook을 사용하는 서비스를 먼저 종료한 뒤 다시 시도해 주세요.');
+                    }
+                } catch (error) {
+                    if (error.apiCode === 'TELEGRAM_WEBHOOK_CONFIGURED') throw error;
+                    const result = TelegramService.failureResult(error, { botToken, stage: 'token' });
+                    throw createApiError(result.category === 'token_invalid' ? 401 : 400, 'TELEGRAM_TOKEN_INVALID', result.message);
+                }
+                try {
+                    return await telegramPairingService.start({ botToken, username: bot.username });
+                } catch (error) {
+                    throw createApiError(409, 'TELEGRAM_PAIRING_START_FAILED', 'Telegram 연결을 시작하지 못했습니다. 기존 봇 polling이나 webhook이 실행 중인지 확인해 주세요.');
+                }
+            }
+            if (action === 'complete') {
+                let paired;
+                try {
+                    paired = await telegramPairingService.complete({ sessionId: requestBody.sessionId, code: requestBody.code });
+                } catch (error) {
+                    throw createApiError(400, error.code || 'TELEGRAM_PAIRING_FAILED', error.message || '연결 코드를 확인하지 못했습니다.');
+                }
+                await this.saveOptionalServiceSettings({ scope: 'telegram', values: {
+                    NOTIFY_TELEGRAM_BOT_TOKEN: paired.botToken,
+                    NOTIFY_TELEGRAM_CHAT_ID: paired.chatId,
+                    NOTIFY_TELEGRAM_DELIVERY_ENABLED: CONFIG.NOTIFY_TELEGRAM_ENABLED === true
+                } });
+                if (CONFIG.NOTIFY_TELEGRAM_INBOUND_ENABLED === true
+                    && CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN && CONFIG.NOTIFY_TELEGRAM_CHAT_ID) {
+                    TelegramBotService?.init?.();
+                }
+                try {
+                    const tested = await this.testTelegramConnection({ botToken: paired.botToken, chatId: paired.chatId });
+                    return { paired: true, message: tested.message };
+                } catch (error) {
+                    return {
+                        paired: true,
+                        warning: true,
+                        message: `연결은 저장했지만 테스트 메시지를 보내지 못했습니다. ${error.message || 'Telegram 권한을 확인해 주세요.'}`
+                    };
+                }
+            }
+            throw createApiError(400, 'TELEGRAM_PAIRING_ACTION_INVALID', 'Telegram 연결 단계를 확인해 주세요.');
         },
 
         async testAiModelConnection(requestBody = {}) {

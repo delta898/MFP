@@ -490,3 +490,101 @@
   }
 
 }
+
+.settings-next-telegram-fields {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.settings-next-telegram-pairing {
+  display: grid;
+  gap: 0;
+  padding: var(--ui-space-2) var(--ui-space-4);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface-muted);
+}
+
+.settings-next-telegram-pairing[hidden] {
+  display: none;
+}
+
+.settings-next-telegram-step-card {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--ui-space-3);
+  padding-block: var(--ui-space-4);
+}
+
+.settings-next-telegram-step-card + .settings-next-telegram-step-card {
+  border-top: 1px solid var(--ui-border-default);
+}
+
+.settings-next-telegram-step-number {
+  display: grid;
+  place-items: center;
+  inline-size: 30px;
+  block-size: 30px;
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-action-primary-soft);
+  color: var(--ui-action-primary-hover);
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-bold);
+}
+
+.settings-next-telegram-step-content {
+  display: grid;
+  min-width: 0;
+  gap: var(--ui-space-2);
+}
+
+.settings-next-telegram-step-content > .ui-settings-card-footer-actions {
+  justify-content: flex-start;
+  gap: var(--ui-space-3);
+  margin-block-start: var(--ui-space-2);
+  margin-inline-start: 0;
+}
+
+.settings-next-telegram-step-content h4,
+.settings-next-telegram-step-content p {
+  margin: 0;
+}
+
+.settings-next-telegram-step-content h4 {
+  color: var(--ui-text-primary);
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-weight-semibold);
+}
+
+.settings-next-telegram-step-content p {
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-type-caption-size);
+  line-height: var(--ui-line-height-body);
+}
+
+.settings-next-telegram-step-content .settings-next-telegram-bot-identity {
+  color: var(--ui-text-primary);
+  font-weight: var(--ui-weight-semibold);
+}
+
+.settings-next-telegram-pairing input {
+  max-width: 22rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.settings-next-telegram-open {
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .settings-next-telegram-step-card {
+    grid-template-columns: 30px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .settings-next-telegram-open {
+    grid-column: 2;
+    justify-self: start;
+  }
+}

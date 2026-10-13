@@ -6,6 +6,7 @@ const settingsNextOptionalState = {
   bufferConnection: { organizations: [], organizationId: '', channels: [], workspacesLoaded: false },
   snsDistributionSavedSnapshot: null,
   snsDistributionSaveState: 'loading',
+  telegramPairing: { username: '', sessionId: '', deepLink: '' },
   busy: new Set()
 };
 
@@ -46,7 +47,6 @@ function settingsNextOptionalValues(scope) {
   };
   if (scope === 'telegram') return {
     NOTIFY_TELEGRAM_BOT_TOKEN: String(document.getElementById('settings-next-telegram-token')?.value || '').trim(),
-    NOTIFY_TELEGRAM_CHAT_ID: String(document.getElementById('settings-next-telegram-chat-id')?.value || '').trim(),
     NOTIFY_TELEGRAM_DELIVERY_ENABLED: document.getElementById('settings-next-telegram-delivery-enabled')?.checked === true
   };
   if (scope === 'slack') return {
@@ -319,7 +319,7 @@ function settingsNextOptionalRenderStatuses() {
     }[scope];
     const hasSecret = settingsNextOptionalSecretConfigured(scope) || Boolean(String(enteredSecret || '').trim());
     const configured = hasSecret
-      && (scope !== 'telegram' || Boolean(String(document.getElementById('settings-next-telegram-chat-id')?.value || '').trim()));
+      && (scope !== 'telegram' || settingsNextOptionalState.fields.NOTIFY_TELEGRAM_CHAT_PAIRED === true);
     const verified = settingsNextOptionalState.verified[scope];
     if (!hasSecret) settingsNextOptionalSetStatus(scope, '미설정', 'neutral');
     else if (!configured) settingsNextOptionalSetStatus(scope, '확인 필요', 'warning');
@@ -353,10 +353,8 @@ function settingsNextOptionalApply(data = {}) {
     : (bufferVerification?.status === 'connected' && bufferVerification.trusted === true ? true : null);
   setUiSettingsCardFooterDetail('settings-next-buffer-footer-detail', '');
   setUiSettingsCardFooterDetail('settings-next-sns-distribution-footer-detail', '');
-  setUiSettingsCardFooterDetail('settings-next-telegram-footer-detail', '');
   setUiSettingsCardFooterDetail('settings-next-slack-footer-detail', '');
   setUiSettingsCardFooterDetail('settings-next-bitly-footer-detail', '');
-  document.getElementById('settings-next-telegram-chat-id').value = fields.NOTIFY_TELEGRAM_CHAT_ID || '';
   [
     ['telegram', 'NOTIFY_TELEGRAM_DELIVERY_ENABLED'],
     ['slack', 'NOTIFY_SLACK_DELIVERY_ENABLED']
@@ -364,7 +362,7 @@ function settingsNextOptionalApply(data = {}) {
     const input = document.getElementById(`settings-next-${scope}-delivery-enabled`);
     if (!input) return;
     const configured = scope === 'telegram'
-      ? settingsNextOptionalSecretConfigured(scope) && Boolean(String(fields.NOTIFY_TELEGRAM_CHAT_ID || '').trim())
+      ? settingsNextOptionalSecretConfigured(scope) && fields.NOTIFY_TELEGRAM_CHAT_PAIRED === true
       : settingsNextOptionalSecretConfigured(scope);
     input.checked = fields[field] === true;
     input.disabled = !configured;
@@ -427,7 +425,7 @@ function settingsNextOptionalValidate(scope, values) {
     if (!values.BUFFER_CHANNELS.length) return '공유할 SNS 채널을 1개 이상 선택해 주세요.';
     if (!values.SNS_SOURCE_BLOGS.length) return '공유할 블로그를 1개 이상 선택해 주세요.';
   }
-  if (scope === 'telegram' && ((!values.NOTIFY_TELEGRAM_BOT_TOKEN && !settingsNextOptionalSecretConfigured(scope)) || !values.NOTIFY_TELEGRAM_CHAT_ID)) return 'Bot Token과 Chat ID를 모두 입력해 주세요.';
+  if (scope === 'telegram' && (!values.NOTIFY_TELEGRAM_BOT_TOKEN && !settingsNextOptionalSecretConfigured(scope))) return 'Bot Token을 입력해 주세요.';
   if (scope === 'slack' && !values.NOTIFY_SLACK_WEBHOOK_URL && !settingsNextOptionalSecretConfigured(scope)) return 'Webhook URL을 입력해 주세요.';
   if (scope === 'bitly' && !values.NOTIFY_BITLY_TOKEN && !settingsNextOptionalSecretConfigured(scope)) return 'Access Token을 입력해 주세요.';
   return '';
@@ -465,6 +463,7 @@ async function settingsNextOptionalSubmit(event) {
   event.preventDefault();
   const form = event.currentTarget;
   const scope = form.dataset.settingsNextOptionalScope;
+  if (scope === 'telegram') return;
   if (settingsNextOptionalState.busy.has(scope)) return;
   const payload = settingsNextOptionalPayload(scope);
   const errorMessage = settingsNextOptionalValidate(scope, payload.values);
@@ -525,7 +524,7 @@ async function settingsNextOptionalSubmit(event) {
       );
       settingsNextOptionalState.verified.buffer = tested.verification?.status === 'connected';
     }
-    if (scope === 'telegram') setUiSettingsCardFooterDetail('settings-next-telegram-footer-detail', tested?.message || '연결됨 · 테스트 메시지를 전송했습니다.');
+    if (scope === 'telegram') setUiSettingsCardTransientFeedback('settings-next-telegram-feedback', tested?.message || '연결됨 · 테스트 메시지를 전송했습니다.');
     if (scope === 'slack') setUiSettingsCardFooterDetail('settings-next-slack-footer-detail', '테스트 메시지를 전송했습니다.');
     if (scope === 'bitly') setUiSettingsCardFooterDetail('settings-next-bitly-footer-detail', 'Bitly 연결을 확인했습니다.');
     settingsNextOptionalState.verified[scope] = true;
@@ -534,7 +533,9 @@ async function settingsNextOptionalSubmit(event) {
     const message = error.message || '연결을 확인하지 못했습니다.';
     const resultMessage = persisted ? `입력값은 반영됨 · ${message}` : message;
     if (scope === 'sns-distribution') settingsNextOptionalState.snsDistributionSaveState = 'failed';
-    if (['buffer', 'sns-distribution', 'telegram', 'slack', 'bitly'].includes(scope)) {
+    if (scope === 'telegram') {
+      settingsNextSetFeedback('settings-next-telegram-feedback', resultMessage, 'danger');
+    } else if (['buffer', 'sns-distribution', 'slack', 'bitly'].includes(scope)) {
       setUiSettingsCardFooterDetail(`settings-next-${scope}-footer-detail`, resultMessage, 'danger');
     } else {
       settingsNextSetFeedback(`settings-next-${scope}-feedback`, resultMessage, 'danger');
@@ -544,6 +545,82 @@ async function settingsNextOptionalSubmit(event) {
     form.setAttribute('aria-busy', 'false');
     if (button && scope !== 'sns-distribution') { button.disabled = false; button.textContent = actionLabel; }
     settingsNextOptionalRenderStatuses();
+  }
+}
+
+function settingsNextTelegramPairingFeedback(message, tone = '') {
+  if (tone === 'success') {
+    setUiSettingsCardTransientFeedback('settings-next-telegram-feedback', message, tone);
+    return;
+  }
+  settingsNextSetFeedback('settings-next-telegram-feedback', message, tone);
+}
+
+async function settingsNextVerifyTelegramToken() {
+  const button = document.getElementById('settings-next-telegram-verify');
+  const token = String(document.getElementById('settings-next-telegram-token')?.value || '').trim();
+  button.disabled = true;
+  settingsNextTelegramPairingFeedback('Bot Token을 확인하고 Telegram 연결을 준비하고 있습니다.');
+  try {
+    const result = await postJson('/api/v1/settings/telegram-pairing', { action: 'start', botToken: token });
+    settingsNextOptionalState.telegramPairing = { ...result };
+    document.getElementById('settings-next-telegram-pairing').hidden = false;
+    document.getElementById('settings-next-telegram-bot-identity').textContent = `연결할 봇: @${result.username}${result.firstName ? ` · ${result.firstName}` : ''}`;
+    const link = document.getElementById('settings-next-telegram-deep-link');
+    link.href = result.deepLink;
+    link.hidden = false;
+    document.getElementById('settings-next-telegram-pairing-code').hidden = false;
+    document.getElementById('settings-next-telegram-complete-pairing').hidden = false;
+    document.getElementById('settings-next-telegram-cancel-pairing').hidden = false;
+    link.focus({ preventScroll: true });
+    settingsNextTelegramPairingFeedback('봇을 확인했습니다. 연결 코드는 5분 후 만료됩니다.', 'success');
+  } catch (error) {
+    settingsNextTelegramPairingFeedback(error.message || 'Bot Token을 확인하지 못했습니다.', 'danger');
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function settingsNextCompleteTelegramPairing() {
+  const button = document.getElementById('settings-next-telegram-complete-pairing');
+  const code = String(document.getElementById('settings-next-telegram-pairing-code')?.value || '').trim();
+  button.disabled = true;
+  settingsNextTelegramPairingFeedback('연결 코드를 확인하고 테스트 메시지를 보내고 있습니다.');
+  try {
+    const result = await postJson('/api/v1/settings/telegram-pairing', {
+      action: 'complete', sessionId: settingsNextOptionalState.telegramPairing.sessionId, code
+    });
+    settingsNextOptionalApply(await fetchJson('/api/v1/settings/optional-services'));
+    settingsNextOptionalState.verified.telegram = result.warning ? false : true;
+    settingsNextOptionalRenderStatuses();
+    document.getElementById('settings-next-telegram-pairing').hidden = true;
+    settingsNextTelegramPairingFeedback(result.message || 'Telegram 연결과 테스트 메시지 전송을 완료했습니다.', result.warning ? 'danger' : 'success');
+  } catch (error) {
+    settingsNextTelegramPairingFeedback(error.message || '연결 코드를 확인하지 못했습니다.', 'danger');
+    button.disabled = false;
+  }
+}
+
+async function settingsNextCancelTelegramPairing() {
+  const button = document.getElementById('settings-next-telegram-cancel-pairing');
+  button.disabled = true;
+  const completeButton = document.getElementById('settings-next-telegram-complete-pairing');
+  const previousLabel = button.textContent;
+  button.textContent = '취소 중…';
+  if (completeButton) completeButton.disabled = true;
+  try {
+    await postJson('/api/v1/settings/telegram-pairing', { action: 'cancel' });
+    button.disabled = false;
+    button.textContent = previousLabel;
+    document.getElementById('settings-next-telegram-pairing').hidden = true;
+    document.getElementById('settings-next-telegram-pairing-code').value = '';
+    settingsNextOptionalState.telegramPairing = { username: '', sessionId: '', deepLink: '' };
+    settingsNextTelegramPairingFeedback('Telegram 연결을 취소했습니다.', 'success');
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = previousLabel;
+    if (completeButton) completeButton.disabled = false;
+    settingsNextTelegramPairingFeedback(error.message || 'Telegram 연결을 취소하지 못했습니다. 다시 시도해 주세요.', 'danger');
   }
 }
 
@@ -611,6 +688,12 @@ function initSettingsNextOptionalServices() {
   document.getElementById('settings-next-buffer-channel-list')?.addEventListener('change', (event) => {
     if (event.target.matches('input[type="checkbox"]')) settingsNextLimitBufferChannelSelection(event.target);
   });
+  document.getElementById('settings-next-telegram-verify')?.addEventListener('click', () => void settingsNextVerifyTelegramToken());
+  document.getElementById('settings-next-telegram-pairing-code')?.addEventListener('input', (event) => {
+    event.currentTarget.value = event.currentTarget.value.replace(/\s+/g, '').toUpperCase().slice(0, 8);
+  });
+  document.getElementById('settings-next-telegram-complete-pairing')?.addEventListener('click', () => void settingsNextCompleteTelegramPairing());
+  document.getElementById('settings-next-telegram-cancel-pairing')?.addEventListener('click', () => void settingsNextCancelTelegramPairing());
   initOpaqueSettingsSecretToggles(document.getElementById('settings-next-panel-extras'));
   settingsNextActivateExtrasTab('social');
   settingsNextOptionalState.bound = true;

@@ -158,6 +158,12 @@ function createSettingsController(deps = {}) {
             catch (e) { return toErrorResponse(res, requestId, 'OPTIONAL_SERVICE_CONNECTION_FAILED', '부가 서비스 연결을 확인하지 못했습니다.', e); }
         },
 
+        async handleTelegramPairing({ requestId, method, requestBody, res }) {
+            if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
+            try { return sendSuccess(res, requestId, await service.manageTelegramPairing(requestBody || {})); }
+            catch (e) { return toErrorResponse(res, requestId, 'TELEGRAM_PAIRING_FAILED', 'Telegram 연결을 처리하지 못했습니다.', e); }
+        },
+
         async handleAppGeneral({ requestId, method, requestBody, res }) {
             try {
                 if (method === 'GET') return sendSuccess(res, requestId, await service.getAppGeneralSettings());

@@ -69,6 +69,7 @@
       "src/auth-session.js",
       "src/ui-server.js",
       "src/telegram-bot.service.js",
+      "src/telegram-pairing.service.js",
       "src/insight-engine.js",
       "src/config/**/*.js",
       "src/site-hosting/**/*.js",

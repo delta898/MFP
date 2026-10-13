@@ -30,7 +30,7 @@ function createHarness(initial = {}, overrides = {}) {
         SNS_PUBLISH_ENABLED: initial.automation?.publish?.social?.enabled === true,
         SNS_SOURCE_BLOGS: initial.automation?.publish?.social?.source_blogs || [],
         NOTIFY_TELEGRAM_ENABLED: initial.notification?.telegram?.enabled === true,
-        NOTIFY_TELEGRAM_INBOUND_ENABLED: initial.notification?.telegram?.enabled === true,
+        NOTIFY_TELEGRAM_INBOUND_ENABLED: initial.notification?.telegram?.inbound_enabled === true,
         NOTIFY_TELEGRAM_BOT_TOKEN: initial.notification?.telegram?.bot_token || '',
         NOTIFY_TELEGRAM_CHAT_ID: initial.notification?.telegram?.chat_id || '',
         NOTIFY_BITLY_TOKEN: initial.notification?.telegram?.bitly_token || '',
@@ -87,9 +87,11 @@ test('optional service reads expose registration state without returning secrets
     const result = await service.getOptionalServiceSettings();
     assert.equal(result.fields.BUFFER_API_KEY_CONFIGURED, true);
     assert.equal(result.fields.NOTIFY_TELEGRAM_BOT_TOKEN_CONFIGURED, true);
+    assert.equal(result.fields.NOTIFY_TELEGRAM_CHAT_PAIRED, true);
     assert.equal(result.fields.NOTIFY_SLACK_WEBHOOK_URL_CONFIGURED, true);
     assert.equal(result.fields.NOTIFY_BITLY_TOKEN_CONFIGURED, true);
     assert.doesNotMatch(JSON.stringify(result), /buffer-secret|telegram-secret|slack-secret|bitly-secret/);
+    assert.doesNotMatch(JSON.stringify(result), /chat-1/);
 });
 
 test('optional service delivery selection is separate from credential connection and inbound activation', async () => {
@@ -146,7 +148,7 @@ test('scoped optional saves preserve blank secrets and unrelated settings', asyn
 test('Telegram connection updates preserve inbound activation and only reapply an already active runtime', async () => {
     const calls = [];
     const initial = {
-        notification: { telegram: { enabled: true, bot_token: 'old-token', chat_id: 'old-chat' } }
+        notification: { telegram: { enabled: true, inbound_enabled: true, bot_token: 'old-token', chat_id: 'old-chat' } }
     };
     const { CONFIG, configPath, service } = createHarness(initial, {
         TelegramBotService: {
@@ -230,6 +232,62 @@ test('Telegram optional connection test preserves staged corrective guidance', a
         }),
         (error) => error.apiCode === 'TELEGRAM_CHAT_NOT_FOUND' && /\/start/.test(error.message)
     );
+});
+
+test('Telegram pairing persists the destination internally and reports a test-message warning without losing the connection', async () => {
+    const { service, configPath, CONFIG } = createHarness({}, {
+        telegramPairingService: {
+            async complete() { return { botToken: 'paired-token', chatId: 'private-chat' }; },
+            async cancel() {}
+        },
+        TelegramService: {
+            async testConnection() { return { success: false, message: '테스트 메시지를 보내지 못했습니다.' }; }
+        },
+        TelegramBotService: { async stop() {}, init() {} }
+    });
+    const result = await service.manageTelegramPairing({ action: 'complete', sessionId: 'session', code: 'ABCD2345' });
+    const saved = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    assert.equal(result.paired, true);
+    assert.equal(result.warning, true);
+    assert.equal(saved.notification.telegram.bot_token, 'paired-token');
+    assert.equal(saved.notification.telegram.chat_id, 'private-chat');
+    assert.equal(CONFIG.NOTIFY_TELEGRAM_CHAT_ID, 'private-chat');
+});
+
+test('Telegram pairing restarts inbound polling when the paired destination is unchanged', async () => {
+    const calls = [];
+    const { service } = createHarness({ notification: { telegram: {
+        enabled: true, delivery_enabled: true, inbound_enabled: true, bot_token: 'same-token', chat_id: 'same-chat'
+    } } }, {
+        telegramPairingService: { async complete() { return { botToken: 'same-token', chatId: 'same-chat' }; } },
+        TelegramService: { async testConnection() { return { success: true, message: '테스트 메시지를 보냈습니다.' }; } },
+        TelegramBotService: { async stop() {}, init() { calls.push('init'); } }
+    });
+    await service.manageTelegramPairing({ action: 'complete', sessionId: 'session', code: 'ABCD2345' });
+    assert.deepEqual(calls, ['init']);
+});
+
+test('Telegram pairing verifies the bot and rejects a configured webhook before polling begins', async () => {
+    const apiCalls = [];
+    const pairCalls = [];
+    const { service } = createHarness({}, {
+        TelegramService: {
+            async callBotApi(method) {
+                apiCalls.push(method);
+                return { data: { result: method === 'getMe'
+                    ? { is_bot: true, username: 'blog_genius_bot', first_name: 'BlogGenius' }
+                    : { url: 'https://example.com/telegram-webhook' } } };
+            },
+            failureResult() { return { category: 'network', message: 'network error' }; }
+        },
+        telegramPairingService: { async start() { pairCalls.push('start'); } }
+    });
+    await assert.rejects(
+        service.manageTelegramPairing({ action: 'start', botToken: 'token' }),
+        (error) => error.apiCode === 'TELEGRAM_WEBHOOK_CONFIGURED'
+    );
+    assert.deepEqual(apiCalls, ['getMe', 'getWebhookInfo']);
+    assert.deepEqual(pairCalls, []);
 });
 
 test('SNS distribution saves RSS source and Buffer delivery policy without broad major settings', async () => {
