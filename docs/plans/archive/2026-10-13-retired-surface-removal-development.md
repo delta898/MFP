@@ -3,7 +3,7 @@
 - Branch: `codex/fbr/retired-surface-removal`
 - Start date: 2026-10-13
 - Base/parent branch: `dev`
-- Status: 5개 하위 단계 parent 통합 완료; 전체 단위 테스트 및 통합 점검 완료; dev 병합 전 사용자 확인 대기
+- Status: 5개 하위 단계와 통합 점검 완료; 전체 단위 테스트 통과; 2026-10-13 `dev`에 fast-forward 병합 완료
 
 ## 사용자 필요와 목표
 
@@ -69,4 +69,4 @@ Production에서 숨겨져 더 이상 제품 경로로 쓰이지 않는 구 UI�
 - 통합 점검: 현재 Beta 화면, 공용 dashboard log/진단 API, `apps/trends/`, SNS 스케줄 경로가 남아 있고, 구 Dashboard·Blog·Settings 화면과 구 Blog 자동화 UI/스케줄 및 작성 입력 모드 전용 경로는 제거됐다.
 - 통합 테스트: `node scripts/run-unit-tests.js` 통과 (2,259 tests: 2,258 pass, 1 skipped, 0 fail). 처음에는 sandbox loopback 제한으로 일부 서버 테스트가 실패했으며, 승인된 권한으로 재실행해 전체 통과했다.
 - 통합 점검 중 CSS manifest 및 manuscript image contract 테스트가 제거된 Settings 스타일과 구 작성 모드별 callback 수를 계속 기대하던 것을 확인해 현재 구현에 맞게 갱신했다. 해당 focused 테스트 17건 통과.
-- 남은 작업: 사용자가 실제 앱에서 Beta Dashboard/Blog/Settings의 핵심 흐름을 확인한 뒤 parent를 `dev`에 병합한다. 브라우저 스모크는 전체 단계 통합 시점에 통과했으며, 시각적 최종 확인은 사용자 몫이다.
+- 완료: 2026-10-13 `codex/fbr/retired-surface-removal`을 `dev`에 fast-forward 병합하고 feature 브랜치를 삭제했다. push는 요청되지 않아 수행하지 않았다. 브라우저 스모크는 전체 단계 통합 시점에 통과했으며, 시각적 최종 확인은 사용자 몫이다.

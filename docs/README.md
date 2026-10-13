@@ -109,7 +109,6 @@
 
 ## Active Work
 
-- `plans/active/2026-10-13-retired-surface-removal-development.md` (legacy Dashboard/Blog/Settings와 구 작성 입력·로그 UI 제거; 전체 통합 검증 완료, dev 병합 전)
 - `plans/active/2026-10-11-site-hosting-astro-project-import-development.md` (direct Astro project ZIP import to Site)
 - `plans/active/2026-10-11-astro-site-generation-agent-options.md` (product and technical exploration; generation mechanism not selected)
 - `plans/active/2026-10-01-static-template-contract-spike-development.md`
@@ -126,6 +125,7 @@
 - `plans/archive/2026-10-02-project-site-model-and-user-flow-design.md` (completed Project/Site model and user-flow design stage)
 - `plans/archive/2026-10-02-site-sidebar-navigation-development.md` (completed site sidebar navigation and entry screen slice)
 - `plans/archive/2026-10-13-retired-blog-removal-development.md` (legacy Blog surface and schedules removed; Blog Beta and SNS automation preserved)
+- `plans/archive/2026-10-13-retired-surface-removal-development.md` (legacy Dashboard/Blog/Settings와 구 작성 입력·로그 UI 제거; 전체 통합 검증 후 dev 병합 완료)
 - `plans/archive/2026-09-30-release-v0.5.5-development.md`
 - `plans/archive/2026-10-01-ai-model-save-without-key-development.md`
 - `plans/archive/2026-09-15-telegram-network-resilience-development.md`
