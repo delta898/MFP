@@ -344,10 +344,11 @@ async function startBlogNextManuscriptImageOperation(type, action, slotId) {
   }
 }
 
-async function applyBlogNextManuscriptMutation(type, action, slotId, payload = {}) {
+async function applyBlogNextManuscriptMutation(type, action, slotId, payload = {}, options = {}) {
   const state = blogNextDraftState[type];
-  if (!state.draftId || state.imageWorking || state.publishing) return null;
-  state.imageWorking = true;
+  const ownsImageLock = options.lockAcquired !== true;
+  if (!state.draftId || (state.imageWorking && ownsImageLock) || state.publishing) return null;
+  if (ownsImageLock) state.imageWorking = true;
   state.imageMutationSlotId = slotId || '';
   state.imageOperationNotice = null;
   syncBlogNextDraftExecutionState();
@@ -372,7 +373,7 @@ async function applyBlogNextManuscriptMutation(type, action, slotId, payload = {
     failureMessage = error.message || '이미지 작업을 적용하지 못했습니다.';
     return null;
   } finally {
-    state.imageWorking = false;
+    if (ownsImageLock) state.imageWorking = false;
     state.imageMutationSlotId = '';
     imageList?.removeAttribute('aria-busy');
     renderBlogNextDraftPreview(type, state.preview);
@@ -431,6 +432,51 @@ async function importBlogNextManuscriptImage(type, slotId, input) {
     return;
   }
   const base64Data = await readBlogNextFileAsDataUrl(file);
-  await applyBlogNextManuscriptMutation(type, 'import', slotId, { fileName: file.name, mimeType: file.type || '', base64Data });
+  await applyBlogNextManuscriptMutation(type, 'import', slotId, {
+    fileName: file.name || 'clipboard-image', mimeType: file.type || '', base64Data
+  });
   input.value = '';
+}
+
+function getBlogNextEditorImageSyncKey(type) {
+  if (type === 'ai') return getBlogNextAiSyncKey();
+  if (type === 'folder') return getBlogNextFolderSyncKey();
+  return getBlogNextPasteSyncKey();
+}
+
+async function importBlogNextEditorImage(type, file, blockId) {
+  const state = blogNextDraftState[type];
+  if (!file || !blockId) return null;
+  if (state.publishing || state.imageWorking) throw new Error('다른 작업이 끝난 뒤 이미지를 추가해 주세요.');
+  if (file.size > 20 * 1024 * 1024) throw new Error('이미지는 한 장당 최대 20MB까지 사용할 수 있습니다.');
+
+  state.imageWorking = true;
+  syncBlogNextDraftExecutionState();
+  let failureMessage = '';
+  try {
+    let preview = null;
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      preview = await loadBlogNextDraftPreview(type);
+      if (preview && !state.previewSyncFailed && state.syncedPreviewKey === getBlogNextEditorImageSyncKey(type)) break;
+      preview = null;
+    }
+    if (!preview) throw new Error('새 이미지 블록을 저장하지 못했습니다. 원고를 확인한 뒤 다시 시도해 주세요.');
+
+    const image = preview.images?.find((item) => item.blockId === blockId);
+    if (!image?.slotId) throw new Error('이미지 영역을 준비하지 못했습니다. 원고를 확인한 뒤 다시 시도해 주세요.');
+    const base64Data = await readBlogNextFileAsDataUrl(file);
+    const draft = await applyBlogNextManuscriptMutation(type, 'import', image.slotId, {
+      fileName: file.name || 'clipboard-image', mimeType: file.type || '', base64Data
+    }, { lockAcquired: true });
+    if (!draft) throw new Error('이미지를 가져오지 못했습니다. 이미지 블록에 파일을 다시 놓아 주세요.');
+    return draft;
+  } catch (error) {
+    failureMessage = error?.message || '이미지를 가져오지 못했습니다. 이미지 블록에 파일을 다시 놓아 주세요.';
+    setBlogNextDraftValidation(type, { errors: [failureMessage] }, '', state.preview);
+    return null;
+  } finally {
+    state.imageWorking = false;
+    syncBlogNextDraftExecutionState();
+    renderBlogNextDraftPreview(type, state.preview);
+  }
 }

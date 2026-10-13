@@ -1032,7 +1032,10 @@ function initBlogNextDraftInputs() {
           else void runBlogNextManuscriptImageAction('ai', 'generate', slotId);
         } else if (action === 'remove') void applyBlogNextManuscriptMutation('ai', 'remove', slotId);
       },
-      onImageFile(slotId, input) { void importBlogNextManuscriptImage('ai', slotId, input); }
+      onImageFile(slotId, input) { void importBlogNextManuscriptImage('ai', slotId, input); },
+      canImportImage() { return !blogNextDraftState.ai.publishing && !blogNextDraftState.ai.imageWorking; },
+      onImageInputError(message) { setBlogNextDraftValidation('ai', { errors: [message] }, '', blogNextDraftState.ai.preview); },
+      onImageFileDrop(file, blockId) { return importBlogNextEditorImage('ai', file, blockId); }
     });
     aiEditorRoot.addEventListener('paste', () => {
       window.setTimeout(() => {
@@ -1117,7 +1120,10 @@ function initBlogNextDraftInputs() {
           else void runBlogNextManuscriptImageAction('folder', 'generate', slotId);
         } else if (action === 'remove') void applyBlogNextManuscriptMutation('folder', 'remove', slotId);
       },
-      onImageFile(slotId, input) { void importBlogNextManuscriptImage('folder', slotId, input); }
+      onImageFile(slotId, input) { void importBlogNextManuscriptImage('folder', slotId, input); },
+      canImportImage() { return !blogNextDraftState.folder.publishing && !blogNextDraftState.folder.imageWorking; },
+      onImageInputError(message) { setBlogNextDraftValidation('folder', { errors: [message] }, '', blogNextDraftState.folder.preview); },
+      onImageFileDrop(file, blockId) { return importBlogNextEditorImage('folder', file, blockId); }
     });
     folderEditorRoot.addEventListener('paste', () => {
       window.setTimeout(() => {
@@ -1187,7 +1193,10 @@ function initBlogNextDraftInputs() {
         },
         onImageFile(slotId, input) {
           void importBlogNextManuscriptImage('paste', slotId, input);
-        }
+        },
+        canImportImage() { return !blogNextDraftState.paste.publishing && !blogNextDraftState.paste.imageWorking; },
+        onImageInputError(message) { setBlogNextDraftValidation('paste', { errors: [message] }, '', blogNextDraftState.paste.preview); },
+        onImageFileDrop(file, blockId) { return importBlogNextEditorImage('paste', file, blockId); }
       });
       if (pastedInput.value.trim()) blogNextDraftState.paste.editor.setMarkdown(pastedInput.value);
       editorRoot.addEventListener('paste', () => {

@@ -9,6 +9,37 @@ function newBlockId() {
   return `mb-${crypto.randomUUID()}`;
 }
 
+const MANUSCRIPT_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/avif']);
+const MANUSCRIPT_IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'webp', 'avif']);
+
+function isManuscriptImageCandidate(file) {
+  const type = String(file?.type || '').toLowerCase();
+  const extension = String(file?.name || '').split('.').pop().toLowerCase();
+  return type.startsWith('image/') || MANUSCRIPT_IMAGE_EXTENSIONS.has(extension);
+}
+
+function extractManuscriptImageFiles(dataTransfer) {
+  const items = Array.from(dataTransfer?.items || []);
+  const itemFiles = items
+    .filter((item) => item.kind === 'file' && String(item.type || '').toLowerCase().startsWith('image/'))
+    .map((item) => item.getAsFile?.())
+    .filter(Boolean);
+  const files = itemFiles.length > 0 ? itemFiles : Array.from(dataTransfer?.files || []).filter(isManuscriptImageCandidate);
+  const hasImageItem = items.some((item) => item.kind === 'file' && String(item.type || '').toLowerCase().startsWith('image/'));
+  return { files, hasImage: files.length > 0 || hasImageItem };
+}
+
+function validateManuscriptImageFile(file) {
+  if (!file) return '이미지 파일을 선택해 주세요.';
+  const type = String(file.type || '').toLowerCase();
+  const extension = String(file.name || '').split('.').pop().toLowerCase();
+  if (type ? !MANUSCRIPT_IMAGE_TYPES.has(type) : !MANUSCRIPT_IMAGE_EXTENSIONS.has(extension)) {
+    return 'PNG, JPEG, WebP 또는 AVIF 이미지를 선택해 주세요.';
+  }
+  if (file.size > 20 * 1024 * 1024) return '이미지는 최대 20MB까지 선택할 수 있습니다.';
+  return '';
+}
+
 function parseImageFields(raw) {
   const fields = { id: '', title: '', prompt: '' };
   let current = '';
@@ -54,6 +85,30 @@ function insertManuscriptImage(editor, range = null) {
     return editor.chain().focus().insertContentAt({ from: $from.before(), to: $from.after() }, image).run();
   }
   return editor.chain().focus().insertContent(image).run();
+}
+
+function insertManuscriptImageAt(editor, position) {
+  const blockId = newBlockId();
+  const image = {
+    type: 'manuscriptImage',
+    attrs: { sourceKey: nextImageSourceKey(editor), blockId, title: '', prompt: '' }
+  };
+  const resolvedPosition = editor.state.doc.resolve(position);
+  const insertionPosition = resolvedPosition.depth > 0 ? resolvedPosition.after(1) : position;
+  const inserted = editor.chain().focus().insertContentAt(insertionPosition, image).run();
+  return inserted ? blockId : '';
+}
+
+function removeManuscriptImageByBlockId(editor, blockId) {
+  let target = null;
+  editor.state.doc.descendants((node, position) => {
+    if (node.type.name === 'manuscriptImage' && node.attrs.blockId === blockId) {
+      target = { from: position, to: position + node.nodeSize };
+      return false;
+    }
+    return true;
+  });
+  if (target) editor.view.dispatch(editor.state.tr.delete(target.from, target.to));
 }
 
 function filterImageSlashItems(query = '') {
@@ -448,17 +503,6 @@ function createImageBlock(onMove, options = {}) {
         fileInput.type = 'file';
         fileInput.accept = 'image/png,image/jpeg,image/webp,image/avif';
         fileInput.hidden = true;
-        const validateImageFile = (file) => {
-          if (!file) return '이미지 파일을 선택해 주세요.';
-          const allowedTypes = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/avif']);
-          const type = String(file.type || '').toLowerCase();
-          const extension = String(file.name || '').split('.').pop().toLowerCase();
-          if (type ? !allowedTypes.has(type) : !['png', 'jpg', 'jpeg', 'webp', 'avif'].includes(extension)) {
-            return 'PNG, JPEG, WebP 또는 AVIF 이미지를 선택해 주세요.';
-          }
-          if (file.size > 20 * 1024 * 1024) return '이미지는 최대 20MB까지 선택할 수 있습니다.';
-          return '';
-        };
         let dragDepth = 0;
         const hasFiles = (event) => Array.from(event.dataTransfer?.types || []).includes('Files');
         const setMediaFeedback = (message) => {
@@ -466,7 +510,7 @@ function createImageBlock(onMove, options = {}) {
           mediaFeedback.hidden = !message;
         };
         const handleImageFile = (file) => {
-          const error = validateImageFile(file);
+          const error = validateManuscriptImageFile(file);
           if (error) {
             setMediaFeedback(error);
             return false;
@@ -483,7 +527,7 @@ function createImageBlock(onMove, options = {}) {
           return true;
         };
         fileInput.addEventListener('change', () => {
-          const error = validateImageFile(fileInput.files?.[0]);
+          const error = validateManuscriptImageFile(fileInput.files?.[0]);
           if (error) {
             setMediaFeedback(error);
             fileInput.value = '';
@@ -643,13 +687,97 @@ function mount(root, options = {}) {
   const imageNode = createImageBlock(moveTopLevelNode, options);
   const imageSlashCommand = createImageSlashCommand();
   let editor;
+  const reportImageInputError = (message) => options.onImageInputError?.(message);
+  const importImageAt = (file, position) => {
+    const validationError = validateManuscriptImageFile(file);
+    if (validationError) {
+      reportImageInputError(validationError);
+      return;
+    }
+    if (options.canImportImage?.() === false) {
+      reportImageInputError('다른 이미지 작업이 끝난 뒤 다시 시도해 주세요.');
+      return;
+    }
+    const blockId = insertManuscriptImageAt(editor, position);
+    if (!blockId) {
+      reportImageInputError('이미지 블록을 추가하지 못했습니다. 원고를 확인한 뒤 다시 시도해 주세요.');
+      return;
+    }
+    Promise.resolve(options.onImageFileDrop?.(file, blockId)).then((result) => {
+      if (result !== null && result !== false) return;
+      removeManuscriptImageByBlockId(editor, blockId);
+    }).catch((error) => {
+      removeManuscriptImageByBlockId(editor, blockId);
+      reportImageInputError(error?.message || '이미지를 가져오지 못했습니다. 이미지 블록에서 다시 시도해 주세요.');
+    });
+  };
+  const isFileDrag = (event) => Array.from(event.dataTransfer?.types || []).includes('Files');
+  let canvasDragDepth = 0;
+  root.addEventListener('dragenter', (event) => {
+    if (!isFileDrag(event)) return;
+    event.preventDefault();
+    canvasDragDepth += 1;
+    root.classList.add('is-file-drag-over');
+  });
+  root.addEventListener('dragover', (event) => {
+    if (!isFileDrag(event)) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+  });
+  root.addEventListener('dragleave', (event) => {
+    if (!isFileDrag(event)) return;
+    canvasDragDepth = Math.max(0, canvasDragDepth - 1);
+    if (canvasDragDepth === 0) root.classList.remove('is-file-drag-over');
+  });
+  root.addEventListener('drop', (event) => {
+    if (!isFileDrag(event)) return;
+    event.preventDefault();
+    canvasDragDepth = 0;
+    root.classList.remove('is-file-drag-over');
+
+    // Let the image block's own drop target keep its established replace behavior.
+    if (event.target.closest?.('.manuscript-image-block-media')) return;
+
+    const transfer = extractManuscriptImageFiles(event.dataTransfer);
+    if (!transfer.hasImage) return;
+    if (transfer.files.length !== 1) {
+      reportImageInputError(transfer.files.length === 0
+        ? '드롭한 이미지 데이터를 읽지 못했습니다.'
+        : '한 번에 이미지 한 장씩 추가해 주세요.');
+      event.stopPropagation();
+      return;
+    }
+
+    const editorPosition = event.target.closest?.('.ProseMirror')
+      ? editor.view.posAtCoords({ left: event.clientX, top: event.clientY })
+      : null;
+    if (event.target.closest?.('.ProseMirror') && !editorPosition) {
+      reportImageInputError('원고 안에 이미지를 놓아 주세요.');
+      event.stopPropagation();
+      return;
+    }
+    importImageAt(transfer.files[0], editorPosition?.pos ?? editor.state.doc.content.size);
+    event.stopPropagation();
+  }, true);
   editor = new Editor({
     element: root,
-    extensions: [StarterKit.configure({ codeBlock: false }), Markdown, imageNode, imageSlashCommand],
+    extensions: [StarterKit.configure({ codeBlock: false, dropcursor: false }), Markdown, imageNode, imageSlashCommand],
     content: '',
     contentType: 'markdown',
     editorProps: {
       handlePaste(_view, event) {
+        const transfer = extractManuscriptImageFiles(event.clipboardData);
+        if (transfer.hasImage) {
+          event.preventDefault();
+          if (transfer.files.length !== 1) {
+            reportImageInputError(transfer.files.length === 0
+              ? '클립보드에서 이미지 데이터를 읽지 못했습니다.'
+              : '한 번에 이미지 한 장씩 붙여넣어 주세요.');
+            return true;
+          }
+          importImageAt(transfer.files[0], editor.state.selection.from);
+          return true;
+        }
         const markdown = event.clipboardData?.getData('text/plain') || '';
         if (!markdown || !/(^#|\[\[IMAGE|^[-*]\s|^\d+[.)]\s|^>\s)/m.test(markdown)) return false;
         event.preventDefault();

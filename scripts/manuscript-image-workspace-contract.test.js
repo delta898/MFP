@@ -47,3 +47,25 @@ test('local image drop targets validate one supported file and do not leak edito
   assert.match(cardNewsCss, /\.card-news-result-image-wrap\.is-drag-over/);
   assert.match(cardNewsCss, /\.card-news-image-drop-hint/);
 });
+
+test('manuscript editors add image blocks from clipboard and canvas drops through the existing image import flow', () => {
+  const editor = read('ui/scripts/features/blog-next/manuscript-editor-entry.js');
+  const images = read('ui/scripts/features/blog-next/draft-images.js');
+  const inputs = read('ui/scripts/features/blog-next/draft-inputs.js');
+  const css = read('ui/styles/features/continuous-publishing-drafts.css');
+
+  assert.match(editor, /function extractManuscriptImageFiles\(dataTransfer\)/);
+  assert.match(editor, /function insertManuscriptImageAt\(editor, position\)/);
+  assert.match(editor, /function removeManuscriptImageByBlockId\(editor, blockId\)/);
+  assert.match(editor, /StarterKit\.configure\(\{ codeBlock: false, dropcursor: false \}\)/);
+  assert.match(editor, /resolvedPosition\.depth > 0 \? resolvedPosition\.after\(1\) : position/);
+  assert.match(editor, /root\.addEventListener\('drop',[\s\S]*?event\.target\.closest\?\.\('\.manuscript-image-block-media'\)\) return/);
+  assert.match(editor, /event\.target\.closest\?\.\('\.ProseMirror'\)[\s\S]*?editor\.view\.posAtCoords/);
+  assert.match(editor, /editorPosition\?\.pos \?\? editor\.state\.doc\.content\.size/);
+  assert.match(editor, /handlePaste\(_view, event\)[\s\S]*?editor\.state\.selection\.from/);
+  assert.match(images, /async function importBlogNextEditorImage\(type, file, blockId\)/);
+  assert.match(images, /preview\.images\?\.find\(\(item\) => item\.blockId === blockId\)/);
+  assert.match(images, /applyBlogNextManuscriptMutation\(type, 'import',[\s\S]*?\{ lockAcquired: true \}\)/);
+  assert.equal((inputs.match(/onImageFileDrop\(file, blockId\)/g) || []).length, 3);
+  assert.match(css, /\.manuscript-editor-canvas\.is-file-drag-over::after/);
+});

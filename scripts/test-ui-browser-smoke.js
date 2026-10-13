@@ -1531,8 +1531,20 @@ function startFixtureServer(requests) {
             req.on('end', () => {
                 requestRecord.body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
                 pasteManuscriptMarkdown = String(requestRecord.body.markdownText || pasteManuscriptMarkdown);
-                const imageIndexes = new Set(Array.from(pasteManuscriptMarkdown.matchAll(/^\[\[IMAGE_(\d+)/gm), (match) => Number(match[1])));
-                pasteManuscriptDraftImages = pasteManuscriptDraftImages.filter((image) => imageIndexes.has(Number(image.index)));
+                const imageBlocks = Array.from(pasteManuscriptMarkdown.matchAll(/^\[\[IMAGE_(\d+)\s*\n([\s\S]*?)\n\]\]/gm), (match) => {
+                    const fields = Object.fromEntries(Array.from(match[2].matchAll(/^(id|title|prompt):\s*(.*)$/gim), (field) => [field[1].toLowerCase(), field[2]]));
+                    return { index: Number(match[1]), blockId: fields.id || '', title: fields.title || '', prompt: fields.prompt || '' };
+                });
+                const previousPasteImages = new Map(pasteManuscriptDraftImages.map((image) => [Number(image.index), image]));
+                pasteManuscriptDraftImages = imageBlocks.map((block) => ({
+                    ...previousPasteImages.get(block.index),
+                    ...block,
+                    slotId: `image-${block.index}`,
+                    exists: previousPasteImages.get(block.index)?.exists || false,
+                    excluded: previousPasteImages.get(block.index)?.excluded || false,
+                    assetOrigin: previousPasteImages.get(block.index)?.assetOrigin || '',
+                    canRestore: previousPasteImages.get(block.index)?.canRestore || false
+                }));
                 pasteManuscriptDraftPostStatus = requestRecord.body.postStatus || pasteManuscriptDraftPostStatus;
                 pasteManuscriptDraftRevision += 1;
                 requestRecord.responseRevision = pasteManuscriptDraftRevision;
@@ -5486,6 +5498,85 @@ async function run() {
             toolbar.closest('.manuscript-editor-toolbar').compareDocumentPosition(document.querySelector('#blog-next-paste-editor'))
                 & Node.DOCUMENT_POSITION_FOLLOWING
         )), true);
+
+        const pasteEditor = page.locator('#blog-next-paste-editor .ProseMirror');
+        const clipboardImageBytes = Array.from(fs.readFileSync(manuscriptFixtureImage));
+        await pasteEditor.locator('p').first().click();
+        const clipboardImageImport = page.waitForResponse((response) => response.request().method() === 'POST'
+            && response.url().includes(`/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/image-slots/`)
+            && response.url().endsWith('/import'), { timeout: 15000 }).catch((error) => error);
+        const clipboardDispatch = await page.evaluate((bytes) => {
+            const target = document.querySelector('#blog-next-paste-editor .ProseMirror');
+            const transfer = new DataTransfer();
+            transfer.items.add(new File([new Uint8Array(bytes)], 'clipboard-image.png', { type: 'image/png' }));
+            const event = new ClipboardEvent('paste', { bubbles: true, cancelable: true });
+            Object.defineProperty(event, 'clipboardData', { configurable: true, value: transfer });
+            const transferInfo = {
+                types: [...transfer.types],
+                files: transfer.files.length,
+                items: [...transfer.items].map((item) => ({ kind: item.kind, type: item.type, hasFile: Boolean(item.getAsFile?.()) }))
+            };
+            target.dispatchEvent(event);
+            return {
+                prevented: event.defaultPrevented,
+                clipboardDataPresent: Boolean(event.clipboardData),
+                clipboardItems: [...(event.clipboardData?.items || [])].map((item) => ({ kind: item.kind, type: item.type, hasFile: Boolean(item.getAsFile?.()) })),
+                transferInfo
+            };
+        }, clipboardImageBytes);
+        assert.equal(clipboardDispatch.prevented, true, `clipboard image paste should be handled: ${JSON.stringify(clipboardDispatch)}`);
+        await page.waitForFunction(() => document.querySelectorAll('#blog-next-paste-editor .manuscript-image-block').length === 2);
+        const clipboardImportResult = await clipboardImageImport;
+        if (clipboardImportResult instanceof Error) {
+            const recentPasteRequests = requests.filter((request) => request.pathname.includes(PASTE_MANUSCRIPT_DRAFT_ID)).slice(-8);
+            throw new Error(`clipboard image block was added without an import request: ${JSON.stringify(recentPasteRequests)}`);
+        }
+        await page.waitForFunction(() => document.querySelector('#blog-next-paste-editor .manuscript-image-block:not([data-source-key="0"]) img'));
+        assert.equal(await page.locator('#blog-next-paste-editor .manuscript-image-block').count(), 2);
+        assert.match(await pasteEditor.innerText(), /Queue를 거치지 않고 바로 실행합니다\./);
+        const clipboardBlock = page.locator('#blog-next-paste-editor .manuscript-image-block:not([data-source-key="0"])');
+        await clipboardBlock.locator('[aria-label="이미지 블록 삭제"]').click();
+        await page.waitForFunction(() => document.querySelectorAll('#blog-next-paste-editor .manuscript-image-block').length === 1);
+        await page.waitForResponse((response) => response.request().method() === 'POST'
+            && response.url().endsWith(`/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/markdown`)
+            && !response.request().postData()?.includes('[[IMAGE_1'));
+
+        const canvasDropParagraph = pasteEditor.locator('p').first();
+        const canvasDropBounds = await canvasDropParagraph.boundingBox();
+        assert.ok(canvasDropBounds, 'canvas drop paragraph should be visible');
+        const canvasDropImport = page.waitForResponse((response) => response.request().method() === 'POST'
+            && response.url().includes(`/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/image-slots/`)
+            && response.url().endsWith('/import'), { timeout: 15000 }).catch((error) => error);
+        await page.evaluate(({ bytes, bounds }) => {
+            const root = document.querySelector('#blog-next-paste-editor');
+            const target = root.querySelector('.ProseMirror');
+            const transfer = new DataTransfer();
+            transfer.items.add(new File([new Uint8Array(bytes)], 'dropped-image.png', { type: 'image/png' }));
+            const point = { x: bounds.x + 12, y: bounds.y + Math.max(2, bounds.height / 2) };
+            root.dispatchEvent(new DragEvent('dragenter', { dataTransfer: transfer, bubbles: true, cancelable: true }));
+            root.dispatchEvent(new DragEvent('dragover', { dataTransfer: transfer, bubbles: true, cancelable: true }));
+            if (!root.classList.contains('is-file-drag-over')) throw new Error('editor canvas drop affordance did not activate');
+            target.dispatchEvent(new DragEvent('drop', {
+                dataTransfer: transfer, bubbles: true, cancelable: true,
+                clientX: point.x, clientY: point.y
+            }));
+            if (root.classList.contains('is-file-drag-over')) throw new Error('editor canvas drop affordance did not clear');
+        }, { bytes: clipboardImageBytes, bounds: canvasDropBounds });
+        await page.waitForFunction(() => document.querySelectorAll('#blog-next-paste-editor .manuscript-image-block').length === 2);
+        const canvasImportResult = await canvasDropImport;
+        if (canvasImportResult instanceof Error) {
+            const recentPasteRequests = requests.filter((request) => request.pathname.includes(PASTE_MANUSCRIPT_DRAFT_ID)).slice(-8);
+            throw new Error(`canvas image block was added without an import request: ${JSON.stringify(recentPasteRequests)}`);
+        }
+        await page.waitForFunction(() => document.querySelector('#blog-next-paste-editor .manuscript-image-block:not([data-source-key="0"]) img'));
+        assert.equal(await page.locator('#blog-next-paste-editor .manuscript-image-block').count(), 2);
+        assert.match(await pasteEditor.innerText(), /Queue를 거치지 않고 바로 실행합니다\./);
+        await page.locator('#blog-next-paste-editor .manuscript-image-block:not([data-source-key="0"]) [aria-label="이미지 블록 삭제"]').click();
+        await page.waitForFunction(() => document.querySelectorAll('#blog-next-paste-editor .manuscript-image-block').length === 1);
+        await page.waitForResponse((response) => response.request().method() === 'POST'
+            && response.url().endsWith(`/api/v1/blog/manuscript-drafts/${PASTE_MANUSCRIPT_DRAFT_ID}/markdown`)
+            && !response.request().postData()?.includes('[[IMAGE_1'));
+
         const latestPrompt = 'prompt 저장 경합을 검증하는 최신 이미지 설명';
         delayedPasteMarkdownMarker = latestPrompt;
         await page.locator('#blog-next-paste-editor [aria-label="이미지 생성 프롬프트 편집"]').fill(latestPrompt);
@@ -5636,7 +5727,7 @@ async function run() {
         assert.equal((await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-title]').textContent())?.trim(), '붙여넣은 원고');
         assert.equal((await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-body] h2').first().textContent())?.trim(), '미리보기 소제목');
         const pasteImagePromptText = page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-body] .image-caption-prompt');
-        assert.equal((await pasteImagePromptText.textContent())?.trim(), '따뜻한 분위기의 이미지');
+        assert.equal((await pasteImagePromptText.textContent())?.trim(), latestPrompt);
         assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-body] .image-caption-title').count(), 0);
         assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] [data-draft-preview-body] .local-markdown-inline-image-missing').count(), 0);
         assert.equal(await page.locator('[data-blog-next-draft-preview="paste"] [data-manuscript-image-slot]').count(), 0);

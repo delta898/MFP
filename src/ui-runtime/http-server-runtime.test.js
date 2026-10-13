@@ -8,6 +8,7 @@ function createWindowsServerHarness(overrides = {}) {
     const uiRoot = 'C:\\Program Files\\BlogGenius\\resources\\app.asar\\ui';
     let requestHandler = null;
     const logEvents = [];
+    const requestBodyLimits = [];
     const fs = {
         existsSync() { return true; },
         statSync() { return { isFile: () => true, isDirectory: () => true }; },
@@ -53,7 +54,10 @@ function createWindowsServerHarness(overrides = {}) {
         normalizeListenHost: (value, fallback) => value || fallback,
         normalizeListenPort: (value, fallback) => Number(value) || fallback,
         createRequestId: () => 'request-test',
-        readJsonBody: async () => ({}),
+        readJsonBody: async (req, limitBytes) => {
+            requestBodyLimits.push({ method: req.method, url: req.url, limitBytes });
+            return overrides.readJsonBody ? overrides.readJsonBody(req, limitBytes) : {};
+        },
         handleApi: overrides.handleApi || (async () => false),
         sanitizePathname: httpUtils.sanitizePathname,
         shouldServeUiShell: httpUtils.shouldServeUiShell,
@@ -82,16 +86,17 @@ function createWindowsServerHarness(overrides = {}) {
     return {
         lifecycle,
         logEvents,
+        requestBodyLimits,
         async start(options = {}) {
             return runtime.startUiServer(options);
         },
         async reload() {
             await runtime.reloadUiServer('127.0.0.1', 4577);
         },
-        async request(url) {
+        async request(url, method = 'GET') {
             const response = { statusCode: 0, headers: {}, body: null };
             await requestHandler(
-                { method: 'GET', url },
+                { method, url },
                 {
                     headersSent: false,
                     writableEnded: false,
@@ -124,6 +129,23 @@ test('Windows UI server returns composed CSS and JavaScript assets', async () =>
     assert.equal(script.statusCode, 200);
     assert.equal(script.headers['Content-Type'], 'application/javascript; charset=utf-8');
     assert.equal(script.body, 'globalThis.composed = true;');
+});
+
+test('manuscript image import accepts the base64 payload for a 20 MiB source image', async () => {
+    const harness = createWindowsServerHarness({
+        handleApi: async (_requestId, _method, pathname, _searchParams, _body, res) => {
+            if (!pathname.endsWith('/image-slots/image-1/import')) return false;
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end('{"success":true}');
+            return true;
+        }
+    });
+    await harness.start();
+
+    const response = await harness.request('/api/v1/blog/manuscript-drafts/draft-1/image-slots/image-1/import', 'POST');
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(harness.requestBodyLimits.at(-1).limitBytes, 30 * 1024 * 1024);
 });
 
 test('Card News publish and managed-list API requests leave focused diagnostic logs', async () => {

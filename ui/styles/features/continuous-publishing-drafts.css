@@ -229,12 +229,28 @@
 }
 
 .manuscript-editor-canvas {
+  position: relative;
   min-height: 420px;
   padding: 22px;
   border: 1px solid var(--ui-border-default);
   border-radius: var(--ui-radius-md);
   background: var(--ui-surface);
   color: var(--ui-text-primary);
+}
+.manuscript-editor-canvas.is-file-drag-over::after {
+  position: absolute;
+  z-index: 8;
+  inset: var(--ui-space-3);
+  display: grid;
+  place-items: center;
+  border: 2px dashed var(--ui-action-primary);
+  border-radius: var(--ui-radius-md);
+  color: var(--ui-action-primary);
+  background: color-mix(in srgb, var(--ui-surface) 88%, transparent);
+  content: '이미지를 놓아 새 이미지 블록 추가';
+  font-size: var(--ui-type-body-size);
+  font-weight: var(--ui-weight-bold);
+  pointer-events: none;
 }
 
 .manuscript-editor-canvas .ProseMirror { min-height: 370px; outline: none; line-height: 1.75; }

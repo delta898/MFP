@@ -109,10 +109,12 @@ function createUiHttpServerRuntime(deps = {}) {
                     let requestBody = {};
                     if (method === 'POST' || method === 'PUT') {
                         let limitBytes = 1024 * 1024;
-                        if (
+                        if (/\/api\/v1\/blog\/manuscript-drafts\/[^/]+\/image-slots\/[^/]+\/import$/.test(pathname)) {
+                            // A 20 MiB image expands to about 27 MiB when sent as base64 JSON.
+                            limitBytes = 30 * 1024 * 1024;
+                        } else if (
                             pathname === '/api/v1/settings/shopping-image'
                             || pathname === '/api/v1/card-news/images/import'
-                            || /\/api\/v1\/blog\/manuscript-drafts\/[^/]+\/image-slots\/[^/]+\/import$/.test(pathname)
                         ) {
                             limitBytes = 15 * 1024 * 1024;
                         } else if (pathname === '/api/v1/social/manual/publish') {
