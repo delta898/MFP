@@ -14,33 +14,19 @@ function setBlogNextPublishSettingsContext(type, titleText = '포스팅 설정')
   if (title) title.textContent = titleText;
 }
 
-function mountBlogNextPublishSettings(type = 'ai') {
-  const target = BLOG_NEXT_INPUT_MODES.includes(type) ? type : 'ai';
-  if (target === 'ai') {
-    const editing = typeof blogNextEditingRowIndex !== 'undefined' && blogNextEditingRowIndex !== null;
-    if (typeof arrangeBlogNextAiWorkflow === 'function') arrangeBlogNextAiWorkflow({ editing });
-    if (typeof syncBlogNextDraftProviderFields === 'function') syncBlogNextDraftProviderFields(target);
-    if (editing) {
-      syncBlogNextProviderDependentFields();
-      syncBlogNextScheduleField();
-      return;
-    }
-    if (typeof syncBlogNextDraftImageSafety === 'function') {
-      syncBlogNextDraftImageSafety(target, blogNextDraftState?.[target]?.preview || null);
-    }
+function mountBlogNextPublishSettings() {
+  const target = 'ai';
+  const editing = typeof blogNextEditingRowIndex !== 'undefined' && blogNextEditingRowIndex !== null;
+  if (typeof arrangeBlogNextAiWorkflow === 'function') arrangeBlogNextAiWorkflow({ editing });
+  if (typeof syncBlogNextDraftProviderFields === 'function') syncBlogNextDraftProviderFields(target);
+  if (editing) {
     syncBlogNextProviderDependentFields();
     syncBlogNextScheduleField();
     return;
   }
-  const settings = getBlogNextSettingsElement('blog-next-publish-settings');
-  const slot = document.querySelector(`[data-blog-next-publish-settings-slot="${target}"]`);
-  if (slot && settings) slot.appendChild(settings);
-  if (settings) settings.hidden = false;
-  setBlogNextPublishSettingsContext(target);
   if (typeof syncBlogNextDraftImageSafety === 'function') {
     syncBlogNextDraftImageSafety(target, blogNextDraftState?.[target]?.preview || null);
   }
-  if (typeof syncBlogNextDraftProviderFields === 'function') syncBlogNextDraftProviderFields(target);
   syncBlogNextProviderDependentFields();
   syncBlogNextScheduleField();
 }

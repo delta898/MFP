@@ -1,6 +1,4 @@
 const BLOG_NEXT_TABS = Object.freeze(['quick', 'trend-posting', 'queue', 'smart-comment']);
-const BLOG_NEXT_INPUT_MODES = Object.freeze(['ai', 'folder', 'paste']);
-
 let blogNextActiveTab = 'quick';
 let blogNextActiveInputMode = 'ai';
 let blogNextShellBound = false;
@@ -68,24 +66,15 @@ async function requestActivateBlogNextTab(tabName) {
 }
 
 function activateBlogNextInputMode(modeName) {
-  const target = BLOG_NEXT_INPUT_MODES.includes(String(modeName || '').trim())
-    ? String(modeName).trim()
-    : 'ai';
-  blogNextActiveInputMode = target;
-
-  document.querySelectorAll('[data-blog-next-input-mode]').forEach((button) => {
-    const active = button.dataset.blogNextInputMode === target;
-    button.classList.toggle('active', active);
-    button.setAttribute('aria-selected', active ? 'true' : 'false');
-    button.tabIndex = active ? 0 : -1;
-  });
+  if (String(modeName || 'ai').trim() !== 'ai') return false;
+  blogNextActiveInputMode = 'ai';
   document.querySelectorAll('[data-blog-next-mode-panel]').forEach((panel) => {
-    const active = panel.dataset.blogNextModePanel === target;
-    panel.classList.toggle('active', active);
-    panel.hidden = !active;
+    panel.classList.toggle('active', panel.dataset.blogNextModePanel === 'ai');
+    panel.hidden = panel.dataset.blogNextModePanel !== 'ai';
   });
-  if (typeof mountBlogNextPublishSettings === 'function') mountBlogNextPublishSettings(target);
+  if (typeof mountBlogNextPublishSettings === 'function') mountBlogNextPublishSettings('ai');
   if (typeof syncBlogNextDraftExecutionState === 'function') syncBlogNextDraftExecutionState();
+  return true;
 }
 
 function initBlogNextShell() {
@@ -104,17 +93,9 @@ function initBlogNextShell() {
         });
       });
     });
-    document.querySelectorAll('[data-blog-next-input-mode]').forEach((button) => {
-      button.addEventListener('click', () => activateBlogNextInputMode(button.dataset.blogNextInputMode));
-      button.addEventListener('keydown', (event) => void handleUiTabNavigationKeydown(event, {
-        selector: '[data-blog-next-input-mode]',
-        dataKey: 'blogNextInputMode',
-        activate: activateBlogNextInputMode
-      }));
-    });
     blogNextShellBound = true;
   }
 
   activateBlogNextTab(blogNextActiveTab);
-  activateBlogNextInputMode(blogNextActiveInputMode);
+  activateBlogNextInputMode('ai');
 }

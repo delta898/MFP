@@ -54,7 +54,6 @@ test('quick-create generation honors the shared AI gate with recovery UI', () =>
 
 test('Blog Beta gates storage and publishing by their exact capabilities', () => {
   const view = read('ui/partials/views/blog-next.html');
-  const draftModes = read('ui/partials/views/blog-next/quick-draft-modes.html');
   const settings = read('ui/partials/views/blog-next/publish-settings.html');
   const flow = read('ui/scripts/features/blog-next/quick-flow-ui.js');
   const queue = `${read('ui/scripts/features/blog-next/quick-queue.js')}\n${read('ui/scripts/features/blog-next/queue-management.js')}`;
@@ -64,15 +63,13 @@ test('Blog Beta gates storage and publishing by their exact capabilities', () =>
   assert.match(view, /id="blog-next-sheet-readiness"/);
   assert.doesNotMatch(settings, /blog-next-publish-readiness/);
   assert.match(view, /data-blog-next-publish-readiness="ai"/);
-  assert.match(draftModes, /data-blog-next-publish-readiness="folder"/);
-  assert.match(draftModes, /data-blog-next-publish-readiness="paste"/);
-  assert.equal((`${view}\n${draftModes}`.match(/data-blog-next-publish-settings-btn=/g) || []).length, 3);
+  assert.equal((view.match(/data-blog-next-publish-settings-btn=/g) || []).length, 1);
   assert.match(flow, /isUiCapabilityUnavailable\('content\.sheet'\)/);
   assert.match(flow, /ensureUiCapabilityReady\('content\.sheet'\)/);
   assert.match(queue, /ensureBlogNextTopicStorageReady\(\)/);
   assert.match(execution, /getUiPublishCapability\(settings\.targets\)/);
   assert.match(execution, /ensureUiCapabilityReady\(capability\)/);
-  assert.match(shell, /mountBlogNextPublishSettings\(target\);[\s\S]*syncBlogNextDraftExecutionState\(\)/);
+  assert.match(shell, /mountBlogNextPublishSettings\('ai'\);[\s\S]*syncBlogNextDraftExecutionState\(\)/);
 });
 
 test('ShoppingConnect stays enterable and exposes inline capability recovery', () => {

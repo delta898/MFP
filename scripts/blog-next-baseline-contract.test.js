@@ -43,115 +43,26 @@ test('shared Blog Beta form and queue typography uses semantic roles', () => {
   assert.match(queue, /\.blog-next-queue-order\s*\{[^}]*font-size:\s*var\(--ui-type-caption-size\);[^}]*font-weight:\s*var\(--ui-weight-bold\);/s);
   assert.match(queue, /\.blog-next-queue-copy strong\s*\{[^}]*font-size:\s*var\(--ui-type-body-size\);[^}]*font-weight:\s*var\(--ui-weight-semibold\);/s);
   assert.match(queue, /\.blog-next-queue-actions \.primary\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-bold\);/s);
-  assert.match(interactions, /\.blog-next-folder-label > span\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-bold\);/s);
-  assert.match(baseline, /\.blog-next-paste-field-head label\s*\{[^}]*font-size:\s*var\(--ui-type-label-size\);[^}]*font-weight:\s*var\(--ui-weight-bold\);/s);
 });
 
-test('folder and paste modes share one manuscript publishing grammar', () => {
+test('unified writer keeps the manuscript editor and removes retired input modes', () => {
   const html = readBlogNextView();
-
-  for (const type of ['folder', 'paste']) {
-    const panel = html.match(new RegExp(`<div class="blog-next-mode-panel blog-next-draft-mode"[^>]*data-blog-next-mode-panel="${type}"[\\s\\S]*?(?=<div class="blog-next-mode-panel|</section>\\s*<section class="card)`))?.[0] || '';
-    assert.match(panel, /class="blog-next-draft-source"/);
-    assert.match(panel, new RegExp(`data-blog-next-draft-validation="${type}"[^>]*role="status"[^>]*aria-live="polite"`));
-    assert.match(panel, new RegExp(`data-blog-next-draft-preview="${type}"`));
-    assert.match(panel, new RegExp(`data-blog-next-publish-settings-slot="${type}"`));
-    assert.match(panel, new RegExp(`data-blog-next-draft-publish="${type}"`));
-    assert.ok(panel.indexOf(`data-blog-next-draft-preview="${type}"`) < panel.indexOf(`data-blog-next-publish-settings-slot="${type}"`));
-    assert.ok(panel.indexOf(`data-blog-next-publish-settings-slot="${type}"`) < panel.indexOf(`data-blog-next-draft-publish="${type}"`));
-  }
-  assert.equal((html.match(/data-blog-next-publish-settings(?:>|\s)/g) || []).length, 1);
-  assert.match(html, /<fieldset class="blog-next-field blog-next-field-wide blog-next-targets blog-next-draft-targets">/);
-  assert.match(html, /data-draft-schedule-field data-dependency-active="false"/);
-  assert.match(html, /data-draft-field="schedule-date"[^>]*disabled/);
+  const inputs = read('ui/scripts/features/blog-next/draft-inputs.js');
+  assert.match(html, /id="blog-next-mode-panel-ai" role="region"[\s\S]*?data-blog-next-mode-panel="ai"/);
+  assert.match(html, /id="blog-next-ai-editor"[^>]*class="manuscript-editor-canvas"/);
+  assert.doesNotMatch(html, /data-blog-next-mode-panel="(?:folder|paste)"|blog-next-folder-input|blog-next-paste-markdown/);
+  assert.doesNotMatch(inputs, /blogNextDraftState\.(?:folder|paste)|flushBlogNext(?:Folder|Paste)Draft/);
+  assert.match(inputs, /aiEditorRoot\.addEventListener\('paste'/);
 });
 
-test('folder and paste previews share one reading surface and image workspace', () => {
+test('unified writer retains the manuscript preview and image workspace', () => {
   const html = readBlogNextView();
-  const script = `${read('ui/scripts/features/blog-next/publishing-targets.js')}\n${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/shared/manuscript-image-card.js')}\n${read('ui/scripts/features/blog-next/draft-images.js')}\n${read('ui/scripts/features/blog-next/draft-execution.js')}`;
-  const css = [
-    read('ui/styles/features/blog-next-baseline.css'),
-    read('ui/styles/features/blog-next-baseline-responsive.css')
-  ].join('\n');
-
-  for (const type of ['folder', 'paste']) {
-    const panel = html.match(new RegExp(`<div class="blog-next-draft-preview blog-next-manuscript-preview local-markdown-preview-panel"[\\s\\S]*?data-blog-next-draft-preview="${type}"[\\s\\S]*?(?=<details class="blog-next-disclosure)`))?.[0] || '';
-    assert.match(panel, /class="blog-next-draft-preview blog-next-manuscript-preview local-markdown-preview-panel"/);
-    assert.match(panel, new RegExp(`data-blog-next-draft-preview="${type}" hidden`));
-    assert.match(panel, /data-draft-preview-title/);
-    assert.doesNotMatch(panel, /data-draft-preview-meta/);
-    assert.match(panel, /data-draft-preview-body aria-label="본문 미리보기"/);
-    assert.doesNotMatch(panel, /본문 Preview|이미지 매칭/);
-    assert.match(panel, /data-draft-preview-image-details/);
-    assert.match(panel, /<summary><strong>이미지 확인<\/strong><span data-draft-preview-image-summary>/);
-  }
-  assert.match(script, /const ownsDraft = Boolean\(preview\.draftId\)/);
-  assert.match(script, /stats\.imageTargetCount \?\? stats\.imageBlockCount/);
-  assert.match(script, /` · 제외 \$\{stats\.imageExcludedCount\}`/);
-  assert.match(script, /const visibleItems = ownsDraft \? imageItems : imageItems\.filter\(image => !image\.exists\)/);
-  assert.match(script, /manuscript-drafts\/paste/);
-  assert.match(script, /manuscript-drafts\/\$\{encodeURIComponent\(state\.draftId\)\}\/markdown/);
-  assert.match(script, /state\.previewSyncFailed \|\| !state\.preview\?\.validation\?\.ok/);
-  assert.match(script, /if \(!syncedPreview \|\| state\.previewSyncFailed/);
-  assert.match(script, /renderBlogNextDraftPreview\(type, state\.preview\)/);
-  assert.match(script, /const imageHtml = previewUrl[\s\S]*<figure><img src="\$\{escapeHtml\(previewUrl\)\}" alt="\$\{escapeHtml\(imageTitle\)\}"[\s\S]*data-manuscript-preview-image><\/figure>/);
-  assert.match(script, /: prompt\s*\? `<div class="local-markdown-image-source-text"><div class="image-caption-prompt" aria-label="이미지 프롬프트 원문">\$\{escapeHtml\(prompt\)\}<\/div><\/div>`/);
-  assert.doesNotMatch(script.match(/function renderBlogNextDraftBodyHtml[\s\S]*?\n}\n/)?.[0] || '', /class="image-caption-title"/);
-  assert.match(script, /class="local-markdown-image-source-text"/);
-  assert.doesNotMatch(script, /이미지 파일 없음/);
-  assert.match(css, /\.blog-next-manuscript-preview \.local-markdown-body-preview \.image-caption-prompt\s*\{[^}]*white-space:\s*pre-wrap;[^}]*overflow-wrap:\s*anywhere;/s);
-  assert.match(script, /if \(!pastedInput\.value\.trim\(\)\) resetBlogNextPasteDraftConnection\(\)/);
-  assert.match(script, /data-manuscript-image-action="generate"/);
-  assert.match(script, /data-manuscript-image-picker/);
-  assert.match(script, /data-manuscript-image-action="exclude"/);
-  assert.match(script, /data-manuscript-image-action="restore"/);
-  assert.match(script, /원고에서 제거/);
-  assert.match(script, /local-markdown-image-card-placeholder/);
-  assert.match(script, /data-manuscript-card-image/);
-  assert.match(script, /이미지를 불러오지 못했습니다/);
-  assert.match(script, /class="ui-sequence-badge"/);
-  assert.match(script, /class="local-markdown-image-card-title" title=/);
-  assert.match(script, /data-manuscript-prompt-copy/);
-  assert.match(script, /<summary>프롬프트 보기<\/summary>/);
-  assert.match(script, /navigator\.clipboard\.writeText\(prompt\)/);
-  assert.match(script, /image\.replaceWith\(placeholder\)/);
-  assert.match(script, /frame\.classList\.add\('is-load-error'\)/);
-  assert.match(script, /원고에서 제거/);
-  assert.match(script, /이미지 재생성/);
-  assert.match(script, /이미지 생성/);
-  assert.match(script, /내 이미지 선택/);
-  assert.match(script, /사용 안 함/);
-  assert.match(script, /function syncBlogNextDraftImageSafety\(type, preview = null\)/);
-  assert.match(script, /option\.value === 'publish' \|\| option\.value === 'schedule'/);
-  assert.doesNotMatch(script, /changedToDraft|forcedDraft/);
-  assert.match(script, /option\.disabled = imagePreparationRequired \|\| \(option\.value === 'schedule' && isBlogNextSiteHostingTarget\(type\)\)/);
-  assert.match(script, /function getBlogNextDraftPublishCopy\(postStatus = 'publish'\)/);
-  assert.match(script, /buttonLabel: '블로그에 임시 저장'/);
-  assert.match(script, /buttonLabel: '예약 발행'/);
-  assert.match(script, /buttonLabel: '즉시 발행'/);
-  const executionScript = read('ui/scripts/features/blog-next/draft-execution.js');
-  assert.match(executionScript, /buildBlogNextDraftPublishConfirmation\(settings, targetLabel\)/);
-  assert.match(html, /data-blog-next-draft-publish="ai"[^>]*>즉시 발행<\/button>/);
-  assert.match(html, /data-blog-next-draft-publish="folder"[^>]*>즉시 발행<\/button>/);
-  assert.match(html, /data-blog-next-draft-publish="paste"[^>]*>즉시 발행<\/button>/);
-  assert.match(script, /publishResult\?\.postStatus \|\| settings\.postStatus/);
-  assert.match(script, /actualPublishCopy\.completionLabel/);
-  assert.match(script, /showPostingCompletionCelebration\(actualPostStatus\)/);
-  assert.match(html, /data-draft-image-safety-hint/);
-  assert.match(html, /id="blog-next-help-post-status"[^>]*>[\s\S]*공개·예약 발행 전에는 이미지 확인에서 빈 이미지를 먼저 처리해야 합니다/);
-  assert.match(script, /const imagePreparationRequired = BLOG_NEXT_DRAFT_TYPES\.includes\(type\) && unresolvedImageCount > 0/);
-  assert.match(css, /\.local-markdown-image-media-actions\.is-empty\s*\{[\s\S]*?justify-content:\s*center/);
-  assert.match(css, /\.local-markdown-image-media-actions\.is-empty\s*\{[\s\S]*?flex-wrap:\s*nowrap/);
-  assert.match(css, /\.local-markdown-image-card-preview\.is-load-error \.local-markdown-image-media-actions/);
-  assert.match(css, /@container \(max-width: 360px\)[\s\S]*?font-size:\s*var\(--ui-type-caption-size\)/);
-  assert.doesNotMatch(css, /font-size:\s*[0-9.]+(?:px|r?em)/);
-  assert.match(css, /\.local-markdown-image-prompt-section\s*\{[\s\S]*?margin-top:\s*auto/);
-  assert.match(css, /\.local-markdown-image-card-title\s*\{[\s\S]*?min-block-size:\s*calc\(var\(--ui-type-label-size\) \* 2\.5\)/);
-  assert.match(css, /\.local-markdown-image-card-title\s*\{[\s\S]*?-webkit-line-clamp:\s*2/);
-  assert.match(css, /\.blog-next-manuscript-preview \.local-markdown-body-preview[\s\S]*?border: 0;[\s\S]*?background: transparent;/);
-  assert.match(css, /\.blog-next-manuscript-preview \.local-markdown-body-preview figure\s*{[\s\S]*?border: 0;/);
-  assert.match(css, /\.blog-next-manuscript-preview \.local-markdown-body-preview figure img\s*{[\s\S]*?max-height: min\(42vh, 460px\);[\s\S]*?object-fit: contain;/);
-  assert.match(css, /@media \(max-width: 768px\)[\s\S]*?figure img\s*{[\s\S]*?max-height: min\(38vh, 360px\);/);
+  const script = read('ui/scripts/features/blog-next/draft-inputs.js');
+  assert.match(html, /data-blog-next-draft-preview="ai"/);
+  assert.match(html, /id="blog-next-ai-draft-images"[^>]*data-draft-preview-image-details/);
+  assert.doesNotMatch(html, /data-blog-next-draft-preview="(?:folder|paste)"/);
+  assert.match(script, /function renderBlogNextDraftPreview\(type, preview = null\)/);
+  assert.match(script, /state\.editor\?\.syncImages/);
 });
 
 test('manuscript drafts keep idle results quiet and summarize repeated image warnings', () => {
@@ -159,9 +70,7 @@ test('manuscript drafts keep idle results quiet and summarize repeated image war
   const script = read('ui/scripts/features/blog-next/draft-inputs.js');
   const sharedCss = read('ui/styles/features/continuous-publishing-drafts.css');
 
-  for (const type of ['folder', 'paste']) {
-    assert.match(html, new RegExp(`data-blog-next-draft-validation="${type}"[^>]*aria-live="polite" hidden><\\/div>`));
-  }
+  assert.match(html, /data-blog-next-draft-validation="ai"[^>]*aria-live="polite" hidden><\/div>/);
   assert.match(script, /function summarizeBlogNextDraftWarnings\(type, validation = null, preview = null\)/);
   assert.match(script, /!BLOG_NEXT_DRAFT_TYPES\.includes\(type\) \|\| missingCount === 0/);
   assert.match(script, /return notices\.filter\(message => !imageWarningPattern\.test/);
@@ -169,22 +78,17 @@ test('manuscript drafts keep idle results quiet and summarize repeated image war
   assert.match(script, /연결된 블로그에서 함께 보여줄 글을 찾지 못해 연관글을 넣지 않았습니다\./);
   assert.match(script, /연관글을 가져오지 못해 넣지 않았습니다\. 다시 저장하면 시도합니다\./);
   assert.doesNotMatch(script, /검증을 통과했습니다/);
-  assert.match(script, /setBlogNextDraftValidation\('folder'\);/);
-  assert.doesNotMatch(script, /setBlogNextDraftValidation\('folder', null, '원고 폴더를 선택해 주세요\.'\)/);
+  assert.match(script, /setBlogNextDraftValidation\('ai'\);/);
   assert.match(sharedCss, /\.blog-next-draft-validation\[hidden\],[\s\S]*?\.blog-next-draft-preview\[hidden\]\s*\{\s*display: none;/);
 });
 
-test('unified writer hides legacy mode tabs while retaining folder and paste implementations', () => {
+test('unified writer exposes only its integrated AI writing mode', () => {
   const html = readBlogNextView();
   const script = read('ui/scripts/features/blog-next/shell.js');
-
-  assert.doesNotMatch(html, /data-blog-next-input-mode|blog-next-mode-tab-/);
+  assert.doesNotMatch(html, /data-blog-next-input-mode|blog-next-mode-tab-|data-blog-next-mode-panel="(?:folder|paste)"/);
   assert.match(html, /id="blog-next-mode-panel-ai" role="region"[\s\S]*?data-blog-next-mode-panel="ai"/);
-  for (const type of ['folder', 'paste']) {
-    assert.match(html, new RegExp(`id="blog-next-mode-panel-${type}" role="region"[\\s\\S]*?data-blog-next-mode-panel="${type}" hidden`));
-  }
   assert.match(script, /function activateBlogNextInputMode\(modeName\)/);
-  assert.match(script, /data-blog-next-mode-panel/);
+  assert.doesNotMatch(script, /'folder'|'paste'/);
 });
 
 test('manuscript settings preserve dependent values while matching provider and schedule state', () => {
@@ -213,16 +117,13 @@ test('manuscript summaries expose consequential values without opening settings'
   assert.match(script, /if \(settings\.targets\.includes\('naver'\)\)/);
 });
 
-test('pasted manuscripts start empty in each app session', () => {
+test('integrated writer accepts paste input without restoring the retired paste-only draft', () => {
   const html = readBlogNextView();
   const script = read('ui/scripts/features/blog-next/draft-inputs.js');
-
-  assert.match(html, /aria-labelledby="blog-next-paste-source-title"[\s\S]*id="blog-next-paste-source-title">원고 편집 및 보기<\/span>/);
-  assert.match(html, /id="blog-next-paste-markdown"[^>]*hidden/);
-  assert.match(html, /id="blog-next-paste-editor"[^>]*class="manuscript-editor-canvas"/);
-  assert.doesNotMatch(html, /blog-next-paste-clear(?:-undo)?/);
-  assert.match(script, /localStorage\.removeItem\('blog_next_pasted_markdown_draft'\)/);
-  assert.match(script, /pastedInput\.value = ''/);
+  assert.match(html, /id="blog-next-ai-editor"[^>]*class="manuscript-editor-canvas"/);
+  assert.match(html, /id="blog-next-ai-markdown"/);
+  assert.match(script, /aiEditorRoot\.addEventListener\('paste'/);
+  assert.doesNotMatch(script, /blog_next_pasted_markdown_draft|blog-next-paste-markdown/);
 });
 
 test('manuscript baseline styles use semantic tokens and collapse predictably', () => {

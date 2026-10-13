@@ -9,18 +9,17 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
 test('Blog Beta manuscript workspaces expose live counts and keep all formatting actions accessible', () => {
   const ai = read('ui/partials/views/blog-next.html');
-  const quick = read('ui/partials/views/blog-next/quick-draft-modes.html');
   const inputs = read('ui/scripts/features/blog-next/draft-inputs.js');
   const css = read('ui/styles/features/continuous-publishing-drafts.css');
 
-  for (const [source, type] of [[ai, 'ai'], [quick, 'folder'], [quick, 'paste']]) {
+  for (const [source, type] of [[ai, 'ai']]) {
     assert.match(source, new RegExp(`data-manuscript-counts="${type}"`));
     assert.match(source, /data-count-title/);
     assert.match(source, /data-count-body/);
     assert.match(source, /data-count-words/);
     assert.match(source, /data-count-keywords/);
   }
-  for (const source of [ai, quick]) {
+  for (const source of [ai]) {
     const toolbarIndex = source.indexOf('class="manuscript-editor-toolbar"');
     const countsIndex = source.indexOf('class="manuscript-editor-counts"', toolbarIndex);
     const modeIndex = source.indexOf('class="manuscript-editor-mode"', countsIndex);
@@ -32,8 +31,7 @@ test('Blog Beta manuscript workspaces expose live counts and keep all formatting
   assert.ok(inputs.includes(".replace(/^\\s*\\[\\[IMAGE"));
   assert.match(inputs, /function countBlogNextKeywordOccurrences/);
   assert.match(inputs, /updateBlogNextManuscriptCounts\('ai'/);
-  assert.match(inputs, /updateBlogNextManuscriptCounts\('folder'/);
-  assert.match(inputs, /updateBlogNextManuscriptCounts\('paste'/);
+  assert.doesNotMatch(inputs, /updateBlogNextManuscriptCounts\('(folder|paste)'/);
   assert.match(css, /\.manuscript-editor-counts\.has-keywords:hover/);
   assert.match(css, /\.manuscript-editor-counts\.has-keywords:focus-within/);
   assert.match(css, /button\[data-tooltip\]:focus-visible::after/);

@@ -37,7 +37,7 @@ function renderBlogNextDraftImages(type, preview = {}) {
   return readiness + operationStatus + bulkAction + visibleItems.map((image) => {
     const exists = Boolean(image.exists);
     const excluded = image.excluded === true;
-    const imageUrl = exists ? (image.imageUrl || getBlogNextDraftImageUrl(type, image.imagePath)) : '';
+    const imageUrl = exists ? (image.imageUrl || '') : '';
     const displayOrder = imageItems.indexOf(image) + 1;
     const imageIsActive = operationActive && activeSlotId === image.slotId;
     const activeActionButton = operation?.action === 'generate' && imageIsActive;
@@ -403,18 +403,14 @@ async function runBlogNextManuscriptImageAction(type, action, slotId) {
     if (!confirmed) return;
   }
   if (action === 'generate') {
-    if (type === 'ai' && !await flushBlogNextAiDraftBeforeImageGeneration()) return;
-    if (type === 'paste' && !await flushBlogNextPasteDraftBeforeImageGeneration()) return;
-    if (type === 'folder' && !await flushBlogNextFolderDraftBeforeImageGeneration()) return;
-    if (type === 'ai' || type === 'paste' || type === 'folder') {
-      const currentImage = blogNextDraftState[type].preview?.images?.find((item) => (
-        (image?.blockId && item.blockId === image.blockId)
-        || (!image?.blockId && Number(item.index) === Number(image?.index))
-      ));
-      if (currentImage) {
-        image = currentImage;
-        slotId = currentImage.slotId;
-      }
+    if (!await flushBlogNextAiDraftBeforeImageGeneration()) return;
+    const currentImage = blogNextDraftState.ai.preview?.images?.find((item) => (
+      (image?.blockId && item.blockId === image.blockId)
+      || (!image?.blockId && Number(item.index) === Number(image?.index))
+    ));
+    if (currentImage) {
+      image = currentImage;
+      slotId = currentImage.slotId;
     }
     await startBlogNextManuscriptImageOperation(type, action, slotId);
     return;
@@ -439,9 +435,7 @@ async function importBlogNextManuscriptImage(type, slotId, input) {
 }
 
 function getBlogNextEditorImageSyncKey(type) {
-  if (type === 'ai') return getBlogNextAiSyncKey();
-  if (type === 'folder') return getBlogNextFolderSyncKey();
-  return getBlogNextPasteSyncKey();
+  return type === 'ai' ? getBlogNextAiSyncKey() : '';
 }
 
 async function importBlogNextEditorImage(type, file, blockId) {

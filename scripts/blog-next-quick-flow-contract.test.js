@@ -59,7 +59,7 @@ test('optional content and publish settings disclose their current values', () =
   assert.doesNotMatch(html, /<details class="blog-next-disclosure" id="blog-next-content-settings"[^>]*\sopen/);
   assert.match(html, /<details class="blog-next-disclosure blog-next-draft-settings" id="blog-next-publish-settings"[^>]*data-blog-next-publish-settings[^>]*>[\s\S]*id="blog-next-publish-settings-summary"[\s\S]*id="blog-next-target-naver"[\s\S]*id="blog-next-post-status"[\s\S]*id="blog-next-runner-headless"[\s\S]*<\/details>/);
   assert.equal((html.match(/id="blog-next-publish-settings"/g) || []).length, 1);
-  assert.equal((html.match(/data-blog-next-publish-settings-slot="(?:ai-queue|ai-publish|folder|paste)"/g) || []).length, 4);
+  assert.equal((html.match(/data-blog-next-publish-settings-slot="(?:ai-queue|ai-publish)"/g) || []).length, 2);
   assert.match(html, /<details class="blog-next-disclosure blog-next-topic-settings" id="blog-next-topic-settings" open>/);
   assert.doesNotMatch(html, /<details class="blog-next-disclosure blog-next-preparation-disclosure" id="blog-next-ai-preparation"[^>]*\sopen/);
   assert.doesNotMatch(html, /<details class="blog-next-disclosure" id="blog-next-content-settings"[^>]*\sopen/);
@@ -198,9 +198,8 @@ test('unresolved manuscript images can be opened directly from the publish restr
   assert.match(html, /id="blog-next-publish-safety-message"/);
   assert.match(html, /id="blog-next-publish-image-action"[^>]*aria-controls="blog-next-ai-draft-images"[^>]*hidden/);
   assert.match(html, /id="blog-next-ai-draft-images"[^>]*data-draft-preview-image-details/);
-  assert.match(html, /id="blog-next-folder-draft-images"[^>]*data-draft-preview-image-details/);
-  assert.match(html, /id="blog-next-paste-draft-images"[^>]*data-draft-preview-image-details/);
-  assert.match(inputs, /function focusBlogNextDraftImages\(\)[\s\S]*?dataset\.blogNextDraftSettings[\s\S]*?details\.open = true;[\s\S]*?details\.scrollIntoView/);
+  assert.doesNotMatch(html, /id="blog-next-(?:folder|paste)-draft-images"/);
+  assert.match(inputs, /function focusBlogNextDraftImages\(\)[\s\S]*?data-ai-workspace-mode="block"[\s\S]*?firstUnassigned\.scrollIntoView/);
   assert.match(inputs, /imageAction\.hidden = !imagePreparationRequired/);
   assert.match(inputs, /BLOG_NEXT_DRAFT_TYPES\.includes\(type\) && unresolvedImageCount > 0/);
   assert.doesNotMatch(inputs, /supportsBlogNextDraftAutomaticImages/);
@@ -465,7 +464,7 @@ test('quick writing keeps one editable manuscript workspace available before pre
   assert.match(html, /id="blog-next-queue-action-hint">글감으로 보관하거나, 지금 원고를 만들 수 있습니다/);
   assert.match(html, /data-blog-next-ai-step="preview">[\s\S]*>미리보기 · 원고 입력</);
   assert.match(inputs, /function mergeCanonicalRelatedPostsMarkdown\([\s\S]*?decision !== 'automatic'[\s\S]*?if \(current === requested\) return canonical;/);
-  assert.match(inputs, /if \(type === 'ai'\) \{[\s\S]*?mergeCanonicalRelatedPostsMarkdown\(currentMarkdown, aiMarkdownAtRequest, canonicalMarkdown, preview\.relatedPosts\?\.decision\)[\s\S]*?state\.editor\?\.setMarkdown\(nextMarkdown\);/);
+  assert.match(inputs, /const markdownAtRequest = markdownInput\.value;[\s\S]*?mergeCanonicalRelatedPostsMarkdown\(currentMarkdown, markdownAtRequest, canonicalMarkdown, preview\.relatedPosts\?\.decision\)[\s\S]*?state\.editor\?\.setMarkdown\(nextMarkdown\);/);
   assert.match(html, /<details class="blog-next-disclosure blog-next-preview-disclosure" id="blog-next-ai-preview" open>[\s\S]*data-blog-next-ai-step="preview"[\s\S]*data-ai-editor-rail[\s\S]*data-ai-editor-workspace[\s\S]*data-blog-next-ai-preview-actions[\s\S]*<\/details>/);
   assert.match(html, /data-ai-editor-rail(?![^>]*\shidden)/);
   assert.match(html, /data-ai-editor-workspace(?![^>]*\shidden)/);
@@ -503,8 +502,8 @@ test('quick writing keeps one editable manuscript workspace available before pre
   assert.match(css, /\.blog-next-disclosure\.blog-next-preview-disclosure\[open\] > summary,[\s\S]*\.blog-next-disclosure\.blog-next-publish-disclosure\[open\] > summary\s*\{\s*background: transparent;/);
   assert.ok(css.indexOf('.blog-next-disclosure[open] > summary {') < css.indexOf('.blog-next-disclosure.blog-next-preview-disclosure > summary,'));
   assert.match(css, /\.blog-next-preparation-disclosure > form\s*\{\s*padding: 0 var\(--blog-next-stage-content-inset\) var\(--ui-density-page-gap\);/);
-  assert.match(inputs, /const hasSource = type === 'ai'[\s\S]*?blog-next-ai-markdown[\s\S]*?value\?\.trim\(\)/);
-  assert.match(inputs, /postJson\('\/api\/v1\/blog\/manuscript-drafts\/paste',[\s\S]*?markdownText: aiMarkdownAtRequest/);
+  assert.match(inputs, /if \(!markdownInput\?\.value\?\.trim\(\)\) \{/);
+  assert.match(inputs, /postJson\('\/api\/v1\/blog\/manuscript-drafts\/paste',[\s\S]*?markdownText: markdownAtRequest/);
   assert.match(queue, /if \(action === 'save' && !editing\)[\s\S]*?clearBlogNextTopicContent\(\);[\s\S]*?revealBlogNextWritingDestination\('blog-next-subject'\)/);
   assert.match(queue, /\['blog-next-publish-now', 'blog-next-regenerate-draft'\][\s\S]*generateBlogNextAiDraft\(id === 'blog-next-regenerate-draft' \? 'regenerate' : 'create'\)/);
   assert.match(queue, /setUiAiActionButton\(publishButton, aiDraftGenerating \? '원고 만드는 중…'/);

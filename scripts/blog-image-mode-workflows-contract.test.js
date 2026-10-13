@@ -18,7 +18,7 @@ test('sheet adapter keeps canonical mode and legacy boolean compatibility', () =
 });
 
 test('WYSIWYG manuscript publishing owns images in slots and drafts only for actual unresolved targets', () => {
-    const manuscriptView = read('ui/partials/views/blog-next/quick-draft-modes.html');
+    const manuscriptView = read('ui/partials/views/blog-next.html');
     const manuscriptScript = `${read('ui/scripts/features/blog-next/publishing-targets.js')}\n${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-execution.js')}`;
     const core = read('src/core.js');
 
@@ -40,7 +40,7 @@ test('Blog Beta image preview completes only its final grid row with inert decor
     const shared = read('ui/scripts/shared/grid-tail-spacers.js');
     const styles = read('ui/styles/patterns/grid-spacer.css');
 
-    assert.match(script, /UiGridTailSpacers\.sync\(images,[\s\S]*?itemSelector: '\.local-markdown-image-card'/);
+    assert.match(script, /state\.editor\?\.syncImages\?\.\(preview\.images \|\| \[\]/);
     assert.match(shared, /aria-hidden/);
     assert.match(shared, /setAttribute\('inert'/);
     assert.match(styles, /\.ui-grid-tail-spacer/);

@@ -40,12 +40,12 @@ test('Blog Beta shell uses its own DOM namespace', () => {
     assert.doesNotMatch(betaScript, /\.blog-tab-btn|\.blog-tab-panel|quick-save-btn|blog-table-body/);
 });
 
-test('Blog Beta quick shell removes mode tabs while retaining legacy input paths', () => {
+test('Blog Beta quick shell removes retired folder and standalone paste modes', () => {
     const betaView = readBlogNextView();
 
     assert.doesNotMatch(betaView, /data-blog-next-input-mode|blog-next-mode-tab-/);
-    assert.match(betaView, /id="blog-next-mode-panel-folder"[\s\S]*?data-blog-next-mode-panel="folder" hidden/);
-    assert.match(betaView, /id="blog-next-mode-panel-paste"[\s\S]*?data-blog-next-mode-panel="paste" hidden/);
+    assert.doesNotMatch(betaView, /data-blog-next-mode-panel="(?:folder|paste)"|blog-next-folder-input|blog-next-paste-markdown/);
+    assert.match(betaView, /id="blog-next-ai-editor"/);
     assert.doesNotMatch(betaView, /기존 블로그 기능은 그대로 유지됩니다/);
 });
 
@@ -103,11 +103,9 @@ test('completed manuscripts publish directly without entering the continuous que
     const betaView = readBlogNextView();
     const draftInputs = `${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-execution.js')}`;
 
-    assert.match(betaView, /data-blog-next-draft-publish="folder"/);
-    assert.match(betaView, /data-blog-next-draft-publish="paste"/);
+    assert.match(betaView, /data-blog-next-draft-publish="ai"/);
     assert.doesNotMatch(betaView, /Queue에 저장하지 않습니다/);
-    assert.match(betaView, /id="blog-next-folder-select"[^>]*>원고 폴더 선택/);
-    assert.match(betaView, /id="blog-next-paste-markdown"/);
+    assert.doesNotMatch(betaView, /id="blog-next-folder-select"|id="blog-next-paste-markdown"/);
     assert.doesNotMatch(betaView, /blog-next-draft-heading|blog-next-stage-badge/);
     assert.match(draftInputs, /\/api\/v1\/blog\/manuscript-drafts\/paste/);
     assert.match(draftInputs, /\/api\/v1\/blog\/manuscript-drafts\/\$\{encodeURIComponent\(state\.draftId\)\}\/publish/);
@@ -116,8 +114,8 @@ test('completed manuscripts publish directly without entering the continuous que
     assert.match(betaView, /class="local-markdown-image-list" data-draft-preview-images/);
     assert.match(draftInputs, /renderBlogNextDraftBodyHtml/);
     assert.match(draftInputs, /renderInlinePreviewHtml/);
-    assert.match(draftInputs, /local-markdown-image-card/);
-    assert.match(draftInputs, /URL\.createObjectURL/);
+    assert.match(draftInputs, /aiEditorRoot\.addEventListener\('paste'/);
+    assert.doesNotMatch(draftInputs, /blogNextDraftState\.(?:folder|paste)/);
     assert.match(draftInputs, /syncBlogNextDraftExecutionState/);
     assert.match(draftInputs, /renderBlogNextRunnerStatus/);
     assert.doesNotMatch(draftInputs, /continuous-publishing\/(topics|queue|runner)/);

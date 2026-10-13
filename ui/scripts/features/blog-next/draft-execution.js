@@ -616,9 +616,7 @@ async function publishBlogNextDraft(type) {
     }
     const publishResult = siteHostingTarget
       ? await postJson(`/api/v1/site-hosting/projects/${encodeURIComponent(settings.siteProjectId)}/sites/${encodeURIComponent(settings.siteId)}/posts`, {
-        markdownText: (type === 'ai' ? document.getElementById('blog-next-ai-markdown')?.value
-          : type === 'folder' ? document.getElementById('blog-next-folder-markdown')?.value
-            : document.getElementById('blog-next-paste-markdown')?.value) || state.preview.rawMarkdown || '',
+        markdownText: document.getElementById('blog-next-ai-markdown')?.value || state.preview.rawMarkdown || '',
         postStatus: settings.postStatus,
         draftId: state.draftId,
         revision: state.revision,

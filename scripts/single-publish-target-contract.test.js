@@ -13,14 +13,13 @@ function assertRadioPair(source, naverId, wordpressId, groupName) {
 
 test('every writing surface presents Naver and WordPress as one exclusive choice', () => {
   const blogNext = read('ui/partials/views/blog-next.html');
-  const blogNextDrafts = read('ui/partials/views/blog-next/quick-draft-modes.html');
   const blogNextPublishSettings = read('ui/partials/views/blog-next/publish-settings.html');
   const shopping = read('ui/partials/views/shopping.html');
   const overlays = read('ui/partials/overlays.html');
 
   assertRadioPair(blogNextPublishSettings, 'blog-next-target-naver', 'blog-next-target-wordpress', 'blog-next-publish-target');
   assert.equal((blogNext.match(/@include blog-next\/publish-settings\.html/g) || []).length, 1);
-  assert.equal((blogNextDrafts.match(/data-blog-next-publish-settings-slot="(?:folder|paste)"/g) || []).length, 2);
+  assert.doesNotMatch(blogNext, /data-blog-next-publish-settings-slot="(?:folder|paste)"/);
   assertRadioPair(shopping, 'shopping-quick-target-naver', 'shopping-quick-target-wordpress', 'shopping-quick-target');
   assertRadioPair(overlays, 'shopping-edit-target-naver', 'shopping-edit-target-wordpress', 'shopping-edit-target');
 });

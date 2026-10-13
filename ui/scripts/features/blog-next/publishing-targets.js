@@ -492,7 +492,7 @@ async function loadBlogNextVaultFolders({ preserveSelection = true } = {}) {
 
 async function loadBlogNextSiteHostingTargets({ preserveSelection = true, selectedTarget = null } = {}) {
   const option = getBlogNextSettingsElement('blog-next-target-site-hosting-option');
-  const input = blogNextDraftField('paste', 'target-site-hosting');
+  const input = blogNextDraftField('ai', 'target-site-hosting');
   const field = getBlogNextSettingsElement('blog-next-site-hosting-field');
   const select = getBlogNextSettingsElement('blog-next-site-hosting-select');
   const retry = getBlogNextSettingsElement('blog-next-site-hosting-retry');

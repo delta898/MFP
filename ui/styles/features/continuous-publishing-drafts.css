@@ -37,21 +37,6 @@
   line-height: 1.65;
 }
 
-#blog-next-paste-markdown:not([hidden]),
-#blog-next-folder-markdown:not([hidden]) {
-  width: 100%;
-  min-height: 420px;
-  height: auto;
-  max-height: none;
-  overflow-y: hidden;
-  resize: none;
-  padding: 22px;
-  box-sizing: border-box;
-  border-radius: var(--ui-radius-md);
-  background: var(--ui-surface);
-  color: var(--ui-text-primary);
-}
-
 .manuscript-editor-mode,
 .manuscript-editor-toolbar,
 .manuscript-image-block-header,
@@ -571,8 +556,6 @@
   .manuscript-image-block-media-actions button { padding-inline: var(--ui-space-2); }
 }
 
-.blog-next-paste-field-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-
 .blog-next-paste-field .local-markdown-preview-panel.is-expanded .local-markdown-body-preview,
 .blog-next-paste-field .local-markdown-preview-panel.is-compact .local-markdown-body-preview {
   min-height: 120px;
@@ -584,7 +567,6 @@
 @media (max-width: 700px) {
   .manuscript-editor-canvas { min-height: 320px; padding: 14px; }
   .manuscript-editor-canvas .ProseMirror { min-height: 280px; }
-  #blog-next-paste-markdown:not([hidden]) { min-height: 320px; padding: 14px; }
   .manuscript-editor-sticky-rail { align-items: flex-start; flex-wrap: wrap; }
   .manuscript-editor-toolbar { order: 0; flex-basis: 100%; }
   .manuscript-editor-counts { order: 1; margin-inline-start: 0; }
