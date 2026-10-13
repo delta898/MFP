@@ -233,7 +233,6 @@ try { initKeywordResearchModal(); } catch (e) { console.warn('initKeywordResearc
   } catch (e) { console.warn('bindNavigation error:', e); }
   try { initRecommendationCenter(); } catch (e) { console.warn('initRecommendationCenter error:', e); }
   try { bindActions(); } catch (e) { console.warn('bindActions error:', e); }
-  try { syncScopedMajorSaveActions(); } catch (e) { console.warn('syncScopedMajorSaveActions error:', e); }
   try { playSettingsTypingPreview(); } catch (e) { console.warn('playSettingsTypingPreview error:', e); }
   try { loadGoogleAuthStatus(); } catch (e) { console.warn('loadGoogleAuthStatus error:', e); }
 
@@ -274,15 +273,7 @@ try { initKeywordResearchModal(); } catch (e) { console.warn('initKeywordResearc
       });
     }
   }, 2000);
-  loadBlogCollectSettings();
-  loadBlogAutoSettings();
-  renderBlogLastBatchResult(blogLastBatchResult);
-  updateBlogSelectionUi();
-  updateTrendsSelectionUi();
   updateSortableHeadersUi();
-  initTrendPostingStickyStack();
-  renderTrendsPagination();
-  renderTopicsPagination();
   setInterval(() => {
     if (isDashboardPollingPaused()) return;
     if (document.getElementById('view-dashboard-beta')?.classList.contains('active')) {

@@ -3,7 +3,7 @@
 - Branch: `codex/fbr/retired-surface-removal`
 - Start date: 2026-10-13
 - Base/parent branch: `dev`
-- Status: 첫 하위 단계 구현 완료; focused 검증/parent 통합 대기
+- Status: Dashboard 및 Blog 단계 구현/검증 완료; Blog parent 통합 대기
 
 ## 사용자 필요와 목표
 
@@ -44,7 +44,9 @@ Production에서 숨겨져 더 이상 제품 경로로 쓰이지 않는 구 UI�
 - 2026-10-13: 사용자는 Production에서 메뉴가 숨겨져 있는 구 화면·입력 흐름의 코드도 정리하되, 현재 기능을 잘못 삭제하거나 side effect를 만들지 않도록 FBR에서 한 항목씩 확인하길 원했다.
 - 2026-10-13: 첫 조사에서 구 Dashboard, Blog, Settings 메뉴가 숨겨져 있고 대응 Beta 메뉴가 보이는 것을 확인했다. Settings legacy route는 `settings-next`로 이동시키며, Blog Beta에는 folder/paste panel이 숨겨진 상태로 markup과 controller가 남아 있다.
 - 2026-10-13: 로그 화면은 Beta 대체 화면이 아니라 local/development에서만 노출되는 진단 surface다. 해당 UI 제거와 shared activity/log API 제거는 동일한 작업으로 간주하지 않는다.
-- 첫 하위 단계는 `codex/feat/remove-legacy-dashboard`에서 진행했다. 세부 의존성, 결정, 삭제 범위와 검증 상태는 [Dashboard 단계 기록](2026-10-13-retired-dashboard-removal-development.md)에 정리했다.
+- Dashboard 단계는 `codex/feat/remove-legacy-dashboard`에서 진행해 `codex/fbr/retired-surface-removal`에 fast-forward 병합했다. 세부 의존성, 결정, 삭제 범위와 검증 상태는 [Dashboard 단계 기록](2026-10-13-retired-dashboard-removal-development.md)에 정리했다.
+- Blog 단계는 `codex/feat/remove-legacy-blog`에서 시작했다. 세부 조사와 삭제 경계는 [Blog 단계 기록](2026-10-13-retired-blog-removal-development.md)에 기록한다.
+- Blog 단계에서 구 Blog UI와 전용 모듈을 제거하고 구 Blog 예약 자동화를 중단했다. Blog Beta 작성/발행/연속 자동화, SNS scheduler, Shopping과 공유하는 글감 기능은 보존했다. 상세 결과는 Blog 단계 기록을 참고한다.
 
 ## 영향 경계 및 검증
 
@@ -57,7 +59,8 @@ Production에서 숨겨져 더 이상 제품 경로로 쓰이지 않는 구 UI�
 
 ## 결과 및 남은 확인
 
-- 첫 단계에서 이전 Dashboard UI, 전용 코드/API를 제거하고 Beta dashboard와 로그 조회/event 기록 경로를 보존했다.
-- 자동 검증: 아직 실행하지 않았다. 첫 단계 기록의 검증 대기 항목을 parent 통합 전에 처리한다.
-- 사용자 확인: 현재 Dashboard Beta, 블로그 필터/탭, 네이버 세션 상태 알림, 로그/이력 화면의 진입 및 동작을 확인한다.
-- 남은 작업: Blog legacy, Settings legacy, folder/paste 입력, dev-only logs UI를 각각 별도 하위 단계로 조사하고 진행한다. 첫 단계는 focused/browser 검증 후 parent branch에 통합한다.
+- Dashboard 단계에서 이전 Dashboard UI, 전용 코드/API를 제거하고 Beta dashboard와 로그 조회/event 기록 경로를 보존했다. 상세 결과는 Dashboard 단계 기록을 참고한다.
+- Dashboard 자동 검증: focused 계약 74건, 브라우저 스모크, 전체 단위 테스트 2,271건(2,259 pass, 12 skipped, 0 fail) 통과.
+- Dashboard 사용자 확인: Beta 준비 상태/운영 현황, 네이버 세션 알림, 블로그 필터/탭, 로그/이력 진입을 확인한다.
+- Blog 자동 검증: focused 계약 및 구조 테스트 39건 통과(2 skipped), 브라우저 스모크 통과(493 fixture 요청, page errors 0).
+- 남은 작업: Blog 단계를 parent에 통합하고, Settings legacy, folder/paste 입력, dev-only logs UI를 각각 별도 하위 단계로 진행한다.

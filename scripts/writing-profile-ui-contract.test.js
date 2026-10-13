@@ -135,26 +135,3 @@ test.skip('legacy Settings writing profile UI uses its dedicated API and save li
     assert.match(writing, /id="settings-writing-reference-status" class="writing-operation-status"/);
     assert.match(writing, /id="settings-writing-preview-status" class="writing-operation-status"/);
 });
-
-test.skip('legacy Blog writing screens expose one shared three-state image mode', () => {
-    const quick = read('ui/partials/views/blog/quick.html');
-    const controllers = read('ui/scripts/features/legacy-actions-controllers.js');
-    const preferences = read('ui/scripts/features/publishing/shared-preferences.js');
-
-    for (const id of ['quick-image-mode', 'quick-manuscript-image-mode', 'quick-pasted-image-mode']) {
-        assert.match(quick, new RegExp(`<select id="${id}">[\\s\\S]*value="generate"[\\s\\S]*value="prompt_only"[\\s\\S]*value="none"`));
-    }
-    assert.equal((quick.match(/>이미지 처리</g) || []).length, 3);
-    assert.equal((quick.match(/>이미지 생성</g) || []).length, 3);
-    assert.equal((quick.match(/>이미지 프롬프트만 포함</g) || []).length, 3);
-    assert.equal((quick.match(/>이미지 사용 안 함</g) || []).length, 3);
-    assert.match(controllers, /imageMode: \(document\.getElementById\('quick-image-mode'\)\?\.value \|\| 'prompt_only'\)/);
-    assert.match(controllers, /imageMode: \(getEl\('imageMode'\)\?\.value \|\| 'prompt_only'\)/);
-    assert.match(preferences, /key: 'pub_pref_blog_image_mode'/);
-    assert.match(preferences, /default: 'prompt_only'/);
-    const publishingStyles = read('ui/styles/features/publishing.css');
-    const responsiveStyles = read('ui/styles/layout/responsive-blog-quick.css');
-    assert.match(publishingStyles, /\.blog-quick-image-mode select \{[\s\S]*border: 1px solid var\(--line\);[\s\S]*font-size: 13px;/);
-    assert.match(publishingStyles, /\.blog-quick-image-mode select:focus \{[\s\S]*box-shadow: 0 0 0 3px var\(--brand-light\);/);
-    assert.match(responsiveStyles, /body\.mobile-quick-mode \.blog-quick-image-mode \{[\s\S]*grid-column: 1 \/ -1;/);
-});

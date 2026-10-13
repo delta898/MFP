@@ -81,6 +81,34 @@ test('SNS runner schedules only when app activation is enabled and enforces ten 
     assert.equal(runtime.snsRuntimeState.nextRunAt, null);
 });
 
+test('retired Blog schedules stay stopped while the SNS scheduler remains enabled', () => {
+    const runtime = createRuntime({
+        RUNTIME_ENVIRONMENT_PROFILE: {
+            environment: 'production',
+            configured: true,
+            effects: { livePublish: true }
+        },
+        COLLECT_TRENDS_ENABLED: true,
+        COLLECT_RSS_ENABLED: true,
+        COLLECT_RSS_CONFIGS: [{ enabled: true, url: 'https://example.test/feed.xml', interval: 10 }],
+        PUBLISH_AUTO_ENABLED: true,
+        SNS_PUBLISH_ENABLED: true,
+        SNS_PUBLISH_INTERVAL_MIN: 10
+    });
+
+    runtime.syncAutoRunnerWithConfig();
+
+    assert.equal(runtime.trendsRuntimeState.enabled, false);
+    assert.equal(runtime.trendsRuntimeState.nextRunAt, null);
+    assert.equal(runtime.rssRuntimeState.enabled, false);
+    assert.equal(runtime.rssRuntimeState.nextRunAt, null);
+    assert.equal(runtime.publishRuntimeState.enabled, false);
+    assert.equal(runtime.publishRuntimeState.nextRunAt, null);
+    assert.equal(runtime.snsRuntimeState.enabled, true);
+    assert.ok(runtime.snsRuntimeState.nextRunAt);
+    runtime.clearSnsTimer();
+});
+
 test('manual SNS discovery updates the runtime result without changing the next schedule', async () => {
     const CONFIG = {
         SNS_PUBLISH_ENABLED: true,

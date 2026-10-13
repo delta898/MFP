@@ -164,12 +164,6 @@
   width: 100%;
 }
 
-#blog-tab-auto .input-disabled {
-  background: #f1f5f9;
-  color: #64748b;
-  border-color: #d1d9e8;
-}
-
 .auto-toggle-row {
   display: flex;
   align-items: center;

@@ -310,13 +310,11 @@ select.inline-editor {
 }
 
 /* Batch Publish Sticky Header Refinement */
-.blog-tab-panel,
 .shopping-tab-panel {
   display: none;
   flex-direction: column;
 }
 
-.blog-tab-panel.active,
 .shopping-tab-panel.active {
   display: flex !important;
 }

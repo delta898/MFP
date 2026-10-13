@@ -23,7 +23,6 @@
 }
 
 @media (max-width: 960px) {
-  body.mobile-quick-mode .nav-btn[data-view="blog"],
   body.mobile-quick-mode .nav-btn[data-view="shopping"],
   body.mobile-quick-mode .nav-btn[data-view="settings"],
   body.mobile-quick-mode .nav-btn[data-view="logs"] {
@@ -127,31 +126,6 @@
   body.mobile-quick-mode .update-banner-actions {
     width: 100%;
     justify-content: flex-end;
-  }
-
-  body.mobile-quick-mode .blog-tabs {
-    display: none;
-  }
-
-  body.mobile-quick-mode #view-blog .view-title-row {
-    display: block;
-  }
-
-  body.mobile-quick-mode #view-blog .page-clock-widget {
-    display: none;
-  }
-
-  body.mobile-quick-mode #view-blog .view-title-block {
-    margin-bottom: 16px;
-  }
-
-  body.mobile-quick-mode #view-blog h1 {
-    font-size: 24px;
-    letter-spacing: -0.04em;
-  }
-
-  body.mobile-quick-mode #view-blog .view-title-block {
-    display: none;
   }
 
 }

@@ -502,9 +502,26 @@ function createAutoRunnerRuntime(deps = {}) {
     }
 
     function syncAutoRunnerWithConfig() {
-        syncTrendsRunner();
-        syncRssRunner();
-        syncPublishRunner();
+        // Legacy Blog scheduling is retired. Keep manual cycle handlers and
+        // SNS scheduling available, but never reactivate stored Blog schedules.
+        if (trendsRuntimeState.timer) clearInterval(trendsRuntimeState.timer);
+        trendsRuntimeState.timer = null;
+        trendsRuntimeState.enabled = false;
+        trendsRuntimeState.running = false;
+        trendsRuntimeState.status = 'stopped';
+        trendsRuntimeState.nextRunAt = null;
+
+        if (rssRuntimeState.timer) clearInterval(rssRuntimeState.timer);
+        rssRuntimeState.timer = null;
+        rssRuntimeState.enabled = false;
+        rssRuntimeState.running = false;
+        rssRuntimeState.status = 'stopped';
+        rssRuntimeState.nextRunAt = null;
+
+        clearPublishTimer();
+        publishRuntimeState.enabled = false;
+        publishRuntimeState.status = publishRuntimeState.running ? 'running' : 'stopped';
+        publishRuntimeState.nextRunAt = null;
         syncSnsRunner();
         refreshLegacyAutoRuntimeState();
     }

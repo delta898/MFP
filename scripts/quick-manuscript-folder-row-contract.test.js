@@ -7,36 +7,6 @@ const { createHtmlCompositionRuntime } = require('../src/ui-runtime/html-composi
 const repoRoot = path.resolve(__dirname, '..');
 const read = (relativePath) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
-test.skip('legacy Blog quick manuscript folder selection uses one compact labeled row', () => {
-  const html = read('ui/partials/views/blog/quick.html');
-  const row = html.match(/<div class="quick-manuscript-folder-row">([\s\S]*?)<\/div>\s*<input id="quick-manuscript-folder-input"/);
-
-  assert.ok(row, 'quick manuscript folder row must exist');
-  assert.match(html, /<label class="blog-quick-label" for="quick-manuscript-path">선택한 원고 폴더<\/label>/);
-  assert.match(row[1], /id="quick-manuscript-path"[^>]*placeholder="아직 폴더를 선택하지 않았습니다"[^>]*readonly/);
-  assert.match(row[1], /id="quick-manuscript-clear-btn"[^>]*aria-label="선택 지우기"[^>]*hidden>×<\/button>/);
-  assert.match(row[1], /id="quick-manuscript-select-btn"[^>]*>원고 폴더 선택<\/button>/);
-  assert.ok(row[1].indexOf('quick-manuscript-path') < row[1].indexOf('quick-manuscript-select-btn'));
-});
-
-test.skip('legacy Blog quick manuscript clear action follows folder selection state', () => {
-  const script = read('ui/scripts/features/legacy-actions-controllers.js');
-
-  assert.match(script, /if \(config\.hideClearWhenEmpty && clearBtn\) clearBtn\.hidden = true;/);
-  assert.match(script, /if \(config\.hideClearWhenEmpty && clearBtn\) clearBtn\.hidden = false;/);
-  assert.match(script, /scheduleStorageKey: 'quick_manuscript_schedule_date',[\s\S]*?hideClearWhenEmpty: true,/);
-});
-
-test.skip('legacy Blog quick manuscript folder row has desktop and mobile layout rules', () => {
-  const publishingCss = read('ui/styles/features/publishing-manuscript.css');
-  const responsiveCss = read('ui/styles/layout/responsive-blog-quick.css');
-
-  assert.match(publishingCss, /\.quick-manuscript-folder-row\s*{[\s\S]*?display: flex;/);
-  assert.match(publishingCss, /\.quick-manuscript-folder-path\s*{[\s\S]*?position: relative;/);
-  assert.match(publishingCss, /\.quick-manuscript-folder-clear\s*{[\s\S]*?position: absolute;/);
-  assert.match(responsiveCss, /body\.mobile-quick-mode \.quick-manuscript-folder-row\s*{[\s\S]*?grid-template-columns: 1fr;/);
-});
-
 test('Blog Beta manuscript folder selection uses the same compact interaction', () => {
   const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({
     uiRoot: path.join(repoRoot, 'ui'),

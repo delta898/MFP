@@ -33,17 +33,6 @@
     justify-content: flex-start;
   }
 
-  .blog-tabs {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 4px;
-  }
-
-  .blog-tab-btn {
-    white-space: nowrap;
-  }
-
   .status-line {
     flex-direction: column;
     gap: 6px;

@@ -3,10 +3,7 @@ async function navigateTo(viewName, subTab) {
   const requestedSubTab = String(subTab || '').trim();
   const currentViewName = document.querySelector('.view.active')?.id?.replace(/^view-/, '') || '';
   if (isMobileQuickMode) {
-    if (!['dashboard-beta', 'blog', 'blog-next', 'card-news', 'social', 'account', 'settings-next', 'site-hosting', 'help'].includes(requestedView)) {
-      viewName = 'blog-next';
-      subTab = 'quick';
-    } else if (requestedView === 'blog') {
+    if (!['dashboard-beta', 'blog-next', 'card-news', 'social', 'account', 'settings-next', 'site-hosting', 'help'].includes(requestedView)) {
       viewName = 'blog-next';
       subTab = 'quick';
     } else if (requestedView === 'blog-next') {
@@ -66,15 +63,6 @@ async function navigateTo(viewName, subTab) {
   }
   if (viewName === 'social') {
     await loadManualSnsComposer({ force: true });
-    return;
-  }
-  if (viewName === 'blog') {
-    const ready = await ensureSheetsPreflightUi();
-    if (!ready) return;
-    if (subTab) {
-      blogActiveTab = String(subTab).trim() || blogActiveTab;
-    }
-    activateBlogTab(blogActiveTab, { forceReload: true });
     return;
   }
   if (viewName === 'blog-next') {

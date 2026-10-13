@@ -2,42 +2,10 @@
   grid-template-columns: 220px 1fr;
 }
 
-.blog-tabs {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.blog-tab-btn {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-full);
-  background: var(--surface-solid);
-  color: var(--text-muted);
-  padding: 8px 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: var(--transition);
-}
-
-.blog-tab-btn:hover {
-  background: var(--bg-gradient);
-  color: var(--text-main);
-}
-
-.blog-tab-btn.active {
-  border-color: var(--brand-primary);
-  background: var(--brand-light);
-  color: var(--brand-hover);
-}
-
-.blog-tab-panel,
 .shopping-tab-panel {
   display: none;
 }
 
-.blog-tab-panel.active,
 .shopping-tab-panel.active {
   display: flex;
 }

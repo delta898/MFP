@@ -46,12 +46,8 @@
 // @include scripts/foundation/readiness.js
 // @include scripts/shared/capability-readiness.js
 // @include scripts/features/content/trend-table.js
-// @include scripts/features/discovery/trend-collection.js
-// @include scripts/features/content/blog-tabs.js
 // @include scripts/features/discovery/quick-discovery.js
 // @include scripts/features/discovery/keyword-modal.js
-// @include scripts/features/discovery/trend-posting.js
-// @include scripts/features/discovery/naver-comment-draft.js
 // @include scripts/features/content/tab-navigation.js
 // @include scripts/features/publishing/preview-utils.js
 // @include scripts/features/recommendations/center.js
@@ -102,7 +98,6 @@
 // @include scripts/features/content/shopping-quick-preview.js
 // @include scripts/features/content/shopping-items.js
 // @include scripts/features/content/shopping-image-settings.js
-// @include scripts/features/content/blog-batch.js
 // @include scripts/features/settings/writing-preferences.js
 // @include scripts/features/settings/writing-profile-settings.js
 // @include scripts/features/settings/buffer.js

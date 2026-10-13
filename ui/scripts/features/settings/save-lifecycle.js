@@ -33,15 +33,6 @@ function updateSettingsMajorSaveUi() {
   });
 }
 
-function syncScopedMajorSaveActions() {
-  const blogSaveActionsEl = document.getElementById('blog-major-save-actions');
-  if (blogSaveActionsEl) {
-    const shouldShow = ['collect', 'auto'].includes(String(blogActiveTab || ''));
-    blogSaveActionsEl.hidden = !shouldShow;
-    blogSaveActionsEl.style.display = shouldShow ? 'inline-flex' : 'none';
-  }
-}
-
 function setSettingsMajorResultText(message) {
   const resultEls = document.querySelectorAll('.settings-major-result');
   resultEls.forEach(el => el.textContent = String(message || ''));

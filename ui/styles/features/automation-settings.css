@@ -101,40 +101,9 @@
   line-height: 1.5;
 }
 
-#blog-tab-auto label,
-#blog-tab-auto .form-field-block,
-#blog-tab-auto .field-label-text {
-  font-size: 13px;
-  font-weight: 600;
-  color: #334155;
-}
-
-#blog-tab-auto .field-hint {
-  font-size: 12px;
-  font-weight: 500;
-  color: #64748b;
-}
-
-#blog-tab-auto .settings-checkbox-label span {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-#blog-tab-auto .category-option-btn {
-  font-size: 13px;
-  font-weight: 500;
-}
-
 .auto-mode-inline {
   display: flex;
   align-items: center;
-}
-
-#blog-tab-collect .settings-checkbox-label .auto-mode-title,
-#blog-tab-auto .settings-checkbox-label .auto-mode-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  line-height: 1.2;
 }
 
 .auto-section {
@@ -154,20 +123,9 @@
   color: #0f172a;
 }
 
-#blog-tab-auto .field-label-text {
-  font-size: 13px;
-  font-weight: 600;
-}
-
 .settings-checkbox-inline {
   display: inline-flex !important;
   width: auto !important;
   min-height: 0 !important;
   margin: 0;
-}
-
-.blog-tab-gap {
-  display: inline-block;
-  width: 16px;
-  flex: 0 0 16px;
 }

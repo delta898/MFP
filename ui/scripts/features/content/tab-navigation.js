@@ -17,7 +17,6 @@ function activateShoppingTab(tabName, options = {}) {
     panel.classList.toggle('active', active);
     panel.hidden = !active;
   });
-  syncScopedMajorSaveActions();
 
   const forceReload = options.forceReload !== false;
   if (!forceReload) return;

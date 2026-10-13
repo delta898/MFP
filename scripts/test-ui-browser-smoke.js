@@ -594,8 +594,8 @@ function startFixtureServer(requests) {
     // Browser smoke covers the active product surfaces. Keep the retired views
     // out of the fixture entirely so their markup/scripts cannot be exercised
     // or trigger unrelated external requests (for example the old RSS widget).
-    composedUiShellDocument('#view-settings, #view-blog').remove();
-    composedUiShellDocument('.nav-btn[data-view="blog"], .nav-btn[data-view="settings"]').remove();
+    composedUiShellDocument('#view-settings').remove();
+    composedUiShellDocument('.nav-btn[data-view="settings"]').remove();
     const composedUiShell = composedUiShellDocument.html();
     const composedUiStyles = createCssCompositionRuntime({ fs, path })
         .composeCssFile({ uiRoot }).css;

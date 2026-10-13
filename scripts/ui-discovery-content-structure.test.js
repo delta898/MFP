@@ -8,23 +8,14 @@ const scriptsRoot = path.join(repoRoot, 'ui', 'scripts');
 
 const controllerContracts = Object.freeze({
     'features/content/trend-table.js': ['renderBlogTrendsTable', 'loadBlogTrends'],
-    'features/discovery/trend-collection.js': ['runBlogTrendsCollect', 'runTrendsToTopics'],
-    'features/content/blog-tabs.js': ['activateBlogTab'],
     'features/discovery/quick-discovery.js': ['setQuickDiscoveryModalOpen', 'loadQuickKeywordDiscovery', 'loadQuickTopicRecommendations'],
-    'features/discovery/trend-posting.js': ['queryTrendPostingKeywords', 'saveTrendPostingTopic'],
-    'features/discovery/naver-comment-draft.js': ['runNaverCommentDraft', 'redraftNaverCommentDraft'],
     'features/content/tab-navigation.js': ['activateShoppingTab'],
     'features/content/blog-topics.js': ['renderBlogTable', 'loadBlogTopics'],
     'features/content/shopping-items.js': ['renderBlogShoppingTable', 'loadBlogShopping', 'createShoppingManagementItem'],
-    'features/content/blog-batch.js': ['runBlogBatchAction']
 });
 
 function readScript(relativePath) {
     return fs.readFileSync(path.join(scriptsRoot, relativePath), 'utf8');
-}
-
-function readQuickView() {
-    return fs.readFileSync(path.join(repoRoot, 'ui', 'partials', 'views', 'blog', 'quick.html'), 'utf8');
 }
 
 function functionDeclarationPattern(functionName) {
@@ -63,7 +54,6 @@ test('temporary feature modules no longer own discovery and content controllers'
 
 test('WordPress category consumers use the shared lexical cache contract', () => {
     const uiScripts = [
-        readScript('features/content/blog-tabs.js'),
         readScript('features/content/blog-topics.js'),
         readScript('features/publishing/wordpress-controls.js')
     ].join('\n');
@@ -101,19 +91,6 @@ test('older account responses cannot overwrite newer smart usage', () => {
     assert.match(accountSource, /function reconcileAccountSmartUsage/);
     assert.match(accountSource, /requestRevision >= smartUsageRevision/);
     assert.match(accountSource, /renderAccountOverview\(overview, \{ smartUsageRevisionAtRequest \}\)/);
-});
-
-test('quick writing discovery actions are attached to their full-width fields', () => {
-    const view = readQuickView();
-    const controller = readScript('features/legacy-actions-controllers.js');
-
-    assert.doesNotMatch(view, /나를 위한 글감 추천/);
-    assert.match(view, /id="quick-discovery-open-btn"[^>]*>글감 추천</);
-    assert.match(view, /id="quick-keyword-discovery-open-btn"[^>]*>키워드 탐색</);
-    assert.equal((view.match(/blog-quick-input-action-row/g) || []).length, 3);
-    assert.match(controller, /quickKeywordDiscoveryOpenBtn/);
-    assert.match(controller, /quickKeywordDiscoveryQuery\.value = String\(quickKeywordsInput\?\.value \|\| ''\)\.trim\(\)/);
-    assert.match(controller, /setQuickDiscoveryTab\('keyword'\)/);
 });
 
 test('applying discovered keywords preserves an existing quick-writing subject', () => {

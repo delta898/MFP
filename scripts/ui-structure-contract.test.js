@@ -11,10 +11,10 @@ const repoRoot = path.resolve(__dirname, '..');
 const uiRoot = path.join(repoRoot, 'ui');
 const indexPath = path.join(uiRoot, 'index.html');
 const appPath = path.join(uiRoot, 'app.js');
-const LEGACY_UI_VIEW_NAMES = new Set(['blog', 'settings']);
+const LEGACY_UI_VIEW_NAMES = new Set(['settings']);
 
 function isLegacyUiViewPath(relativePath) {
-    return /^partials\/views\/(?:blog(?:\.html|\/)|settings(?:\.html|\/))/.test(relativePath);
+    return /^partials\/views\/settings(?:\.html|\/)/.test(relativePath);
 }
 
 function readUiFile(filePath) {
@@ -87,6 +87,14 @@ test('primary navigation buttons map one-to-one to UI views', () => {
     assert.deepEqual(new Set(navViews), new Set(sectionViews));
     assert.equal(navViews.length, new Set(navViews).size);
     assert.equal(sectionViews.length, new Set(sectionViews).size);
+});
+
+test('retired Blog surface is absent from the shell and browser script bundle', () => {
+    const html = readComposedUiShell();
+    const script = readComposedUiScript();
+
+    assert.doesNotMatch(html, /data-view="blog"|id="view-blog"/);
+    assert.doesNotMatch(script, /function activateBlogTab\(|function runBlogTrendsCollect\(|function runNaverCommentDraft\(/);
 });
 
 test('new site hosting navigation exposes a compact accessible new badge', () => {

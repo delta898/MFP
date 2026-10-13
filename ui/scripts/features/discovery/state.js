@@ -1,4 +1,3 @@
-let blogActiveTab = 'quick';
 let shoppingActiveTab = 'quick';
 let settingsActiveTab = 'general';
 let quickInputMode = ['ai', 'manuscript', 'pasted'].includes(localStorage.getItem('quick_input_mode'))
@@ -45,14 +44,3 @@ const quickKeywordDiscoveryState = {
 };
 let smartUsageRevision = 0;
 const latestSmartUsageByCapability = new Map();
-const trendPostingState = {
-  meta: null,
-  items: [],
-  itemsById: new Map(),
-  savedIds: new Set(),
-  recentTopicKeys: new Set(),
-  recentTopicsLoaded: false,
-  recentTopicsLoading: false,
-  queryRange: null,
-  loading: false
-};
