@@ -16,6 +16,7 @@
 - `codex/feat/application-plugin-composition-pilot`는 commit `849af80c`로 parent에 fast-forward 병합됐다. catalog inventory/factory와 runtime composition의 선택·의존성 wiring을 분리하고, 생성→WordPress 발행 Application으로 검증했다. 세부 결과는 [`2026-10-14-application-plugin-composition-pilot-development.md`](../archive/2026-10-14-application-plugin-composition-pilot-development.md)에 보관한다.
 - `codex/feat/ai-gateway-plugin`은 Card News와 SNS 하위 feature를 순차 통합한 뒤 commit `65d64a33`으로 이 foundation에 fast-forward 병합됐다. Blog Beta 원고 글·이미지 생성과 WordPress 이미지 포함 발행, 카드뉴스 글·이미지 생성, SNS 해시태그·최적화·이미지 생성이 공통 AI Generation service를 사용한다. Gateway와 Application은 model/catalog를 비교하고, provider 자격 증명은 Host transport가 관리한다. 개발 기록은 [`2026-10-14-ai-gateway-plugin-development.md`](../archive/2026-10-14-ai-gateway-plugin-development.md), 하위 기록은 [`2026-10-15-card-news-ai-generation-service.md`](../archive/2026-10-15-card-news-ai-generation-service.md)와 [`2026-10-15-sns-ai-generation-service.md`](../archive/2026-10-15-sns-ai-generation-service.md)에 보관한다.
 - Gateway/Host/Blog 관련 focused 검증 153건과 Card News/SNS 및 구조 계약 focused 검증 142건이 통과했다. 전체 단위 테스트는 사전 `npm audit --audit-level=high` gate에서 의존성 advisory 9건으로 중단됐고, 이전 직접 실행에서 발견된 네 테스트 계약 오류는 수정 후 집중 테스트에서 통과했다. 전체 suite는 수정 후 재실행하지 않았다.
+- 실제 SNS 최적화 로그에서 GPT-6 Luna가 `temperature: 0.35`를 거부한 사례를 확인했다. 공통 AI Generation service가 Catalog에서 해당 모델의 `temperature: false`를 확인하면 옵션을 제거하고, 명시적으로 true이거나 미상인 모델에는 기존 best-effort 요청을 유지하도록 보완했다. 회귀 집중 테스트 18건 통과.
 
 ## 사용자 필요와 목표
 

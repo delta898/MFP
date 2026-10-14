@@ -95,6 +95,15 @@ function createAiGenerationService(options = {}) {
     }
 
     function supportsOption(kind, selection, option, value) {
+        if (kind === 'text' && option === 'temperature') {
+            const provider = String(selection?.provider || '').trim().toLowerCase();
+            const modelId = String(selection?.modelId || selection?.code || '').trim();
+            const model = availableModels(kind).find((item) => item.provider === provider && item.code === modelId);
+            if (!model) return false;
+            return typeof model.capabilities?.temperature === 'boolean'
+                ? model.capabilities.temperature
+                : undefined;
+        }
         if (kind !== 'image' || option !== 'aspectRatio') return false;
         const provider = String(selection?.provider || '').trim().toLowerCase();
         const modelId = String(selection?.modelId || selection?.code || '').trim();
@@ -133,6 +142,10 @@ function createAiGenerationService(options = {}) {
                     : null;
             if (!messages?.length) throw new TypeError('AI text generation requires a prompt or messages.');
             const optionsForRequest = { ...(request.options || {}) };
+            const selectedModel = availableModels('text').find((item) => item.provider === model.provider && item.code === model.modelId);
+            if (selectedModel?.capabilities?.temperature === false) {
+                delete optionsForRequest.temperature;
+            }
             if (request.responseFormat === 'json') {
                 optionsForRequest.responseFormat = 'json';
             }

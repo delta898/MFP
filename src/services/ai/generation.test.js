@@ -73,6 +73,41 @@ test('AI service exposes only the configured direct model identity and routes it
     assert.equal(calls.length, 1);
 });
 
+test('AI service omits temperature only when the selected Catalog model declares it unsupported', async () => {
+    const requests = [];
+    const gateway = {
+        describeSupport: () => ({ routes: [{ kind: 'text', provider: 'openai', transport: 'openai_chat_completions', modelIds: null }] }),
+        async generateText(request) { requests.push(request); return { content: 'ok' }; },
+        async generateImage() { return { images: [] }; }
+    };
+    const catalog = {
+        text: [
+            { provider: 'openai', code: 'fixed-temperature', transport: 'openai_chat_completions', capabilities: { temperature: false } },
+            { provider: 'openai', code: 'adjustable-temperature', transport: 'openai_chat_completions', capabilities: { temperature: true } },
+            { provider: 'openai', code: 'unknown-temperature', transport: 'openai_chat_completions', capabilities: {} }
+        ],
+        image: []
+    };
+    const service = createAiGenerationService({ gateway, getModelCatalog: () => catalog });
+    const request = (modelId) => service.generateText({
+        modelSelection: { provider: 'openai', modelId },
+        prompt: 'SNS optimization',
+        options: { temperature: 0.35, maxOutputTokens: 500 }
+    });
+
+    assert.equal(service.supportsOption('text', { provider: 'openai', modelId: 'fixed-temperature' }, 'temperature'), false);
+    assert.equal(service.supportsOption('text', { provider: 'openai', modelId: 'adjustable-temperature' }, 'temperature'), true);
+    assert.equal(service.supportsOption('text', { provider: 'openai', modelId: 'unknown-temperature' }, 'temperature'), undefined);
+    await request('fixed-temperature');
+    await request('adjustable-temperature');
+    await request('unknown-temperature');
+
+    assert.equal(Object.hasOwn(requests[0].options, 'temperature'), false);
+    assert.equal(requests[0].options.maxOutputTokens, 500);
+    assert.equal(requests[1].options.temperature, 0.35);
+    assert.equal(requests[2].options.temperature, 0.35);
+});
+
 test('AI service logs safe provider error diagnostics without logging the request prompt', async () => {
     const logs = [];
     const prompt = 'private user prompt that must not be logged';
