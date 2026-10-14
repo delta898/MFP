@@ -111,6 +111,7 @@
 ## Active Work
 
 - `plans/active/2026-10-14-plugin-architecture-foundation-fbr.md` (plugin 기반 구조 도입을 위한 현행 구조 조사와 설계 논의)
+- `plans/active/2026-10-14-ai-gateway-plugin-design.md` (공통 Plugin manifest/Host 등록 계약, Core Hello World reference, AI Gateway 계약 설계)
 - `plans/archive/2026-10-14-application-plugin-composition-pilot-development.md` (공통 runtime composition과 생성·발행 Application 통합 pilot; parent 통합 완료)
 - `plans/archive/2026-10-14-core-plugin-registration-development.md` (명시적 Core Plugin 등록부와 런타임 조회 계약 검증; parent 통합 완료)
 - `plans/archive/2026-10-14-wordpress-publisher-plugin-pilot-development.md` (첫 실제 WordPress Plugin 계약과 Kernel/Application 연결 검증; parent 통합 완료)

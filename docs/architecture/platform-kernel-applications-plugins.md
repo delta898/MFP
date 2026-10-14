@@ -176,6 +176,7 @@ src/
 packages/plugins/core/
   wordpress-publisher/          # First independently bounded Plugin package
   content-generator/            # Provider-neutral text generation operation package
+  hello-world/                  # Minimal bundled Core Plugin reference
 ```
 
 The target `src/host/` and `src/adapters/` directories do not exist yet. Existing UI, Telegram, and MCP paths should not be described as already migrated adapters merely because they have adapter-like responsibilities. Likewise, `src/plugins/` is the existing capability-contribution host, while `src/platform/plugin-host.js` is the new Kernel Plugin Host; they are not interchangeable. Do not create empty target directories or relocate current code for appearance alone. Add a target boundary when a real migration slice defines and tests its contract.
@@ -198,32 +199,34 @@ Composition Root wires concrete Applications and Plugins
 
 Directory layout alone does not enforce these rules. Explicit interfaces, composition-root ownership, and contract/dependency tests must enforce them.
 
-## Initial operation contract
+## Plugin manifest and operation contract
 
-The first in-process contract is intentionally small:
+Each bundled package declares `package.json#bloggeniusPlugin`. It contains the manifest version, Plugin ID and display metadata, a SemVer range for the Plugin Host API, and operations with descriptions, JSON Schema input/output contracts, and operation-scoped capability declarations. Package SemVer remains in `package.json#version`.
 
-- Plugin descriptor: `id`, `name`, `version`, and a non-empty map of declared operations.
-- Operation descriptor: a human-readable description, synchronous input/output parsers, and an async-capable executor.
-- Composition selects required Plugin instances from the explicit bundled catalog; the Kernel Host registers that selected set, validates shape, and rejects duplicate plugin identifiers. Selection is explicit rather than implicitly constructing every catalog package. The runtime host does not expose package installation/removal.
-- Dispatch is addressed by `pluginId` and `operationId`; the host validates/normalizes input and output through the declared parsers.
-- `listOperations()` derives the available-operation catalog from registered descriptors and omits disabled or disabling plugins. No separate manually maintained capability list is needed for this foundation.
-- Plugin execution errors pass through to the Application. Contract violations are reported as `PluginContractError`.
-- The executor receives a narrow execution context (`AbortSignal` only at this stage); it does not receive the host's full dependency bag.
+- The pinned schema dialect is JSON Schema 2020-12, validated by Ajv 2020 mode. Host validation does not coerce values or insert schema defaults.
+- Format annotations are not enabled as assertions; schemas should use assertion keywords for Host-enforced rules. Plugin `capabilities` are declarations, not automatic grants or a security boundary.
+- Schema references must be local to the declared schema. Remote reference resolution is rejected so discovery never performs network access.
+- Core catalog discovery reads package metadata and validates manifests without importing Plugin implementation modules. The code-owned bundled catalog is the Core source adapter; Community package scanning is not implemented.
+- The Host loads only the selected package, verifies that the implementation operation IDs exactly match its manifest, and registers the operation executors. The implementation does not repeat descriptions or schemas.
+- The Plugin Host validates each input before execution and each output before returning it. Manifest schemas are the authoritative operation contract; executable `input.parse` / `output.parse` validators are not part of the public Plugin API.
+- Operation dispatch is addressed by `pluginId` and `operationId`. `listOperations()` exposes registered, enabled operations and omits disabled or disabling Plugins.
+- Plugin execution errors pass through to the Application. Schema violations are reported as `PluginContractError`.
+- The executor receives a narrow execution context (`AbortSignal` at this stage); it does not receive the Host's full dependency bag.
 - `setEnabled(false)` blocks new executions immediately and waits for tracked operations to finish. It does not undo an external side effect already performed by an operation.
 
-This is an initial in-process boundary, not a security sandbox. Parser functions are trusted code. The current interface is a foundation contract, not yet a semver-governed third-party SDK.
+This is an in-process boundary, not a security sandbox. Bundled Core code is trusted. Manifest capability declarations describe requested authority; they do not make in-process JavaScript safe to load from an untrusted source.
 
 ## Current implementation and migration boundary
 
-- New foundation code: `src/platform/plugin-contract.js`, `src/platform/plugin-host.js`, the example Application and composition root, and `src/test-fixtures/platform-foundation/`.
+- New foundation code: `src/platform/plugin-contract.js`, `src/platform/plugin-host.js`, manifest-backed Core registry/composition, and the example Application and composition root.
 - Existing `src/plugins/catalog.js` and `src/plugins/core-host.js` remain in use by `src/capabilities/index.js`. They gate current capability contributions. They are not replaced or wrapped by the new Kernel Plugin Host in this stage.
-- The WordPress Publisher pilot lives at `packages/plugins/core/wordpress-publisher/`; it uses injected credentials and `fetch`, with no BlogGenius-private imports. Its REST operations cover media upload, category listing, and post creation.
-- `packages/plugins/core/content-generator/` declares `text.generate` over a provider-neutral injected `generateText({ prompt, signal })` function. It validates prompt/result shape but does not own provider/model selection, credentials, prompt building, retries, or product workflow.
+- The WordPress Publisher package uses injected credentials and `fetch`, with no BlogGenius-private imports. Its REST operations cover media upload, category listing, and post creation. Media bytes cross the JSON operation boundary as base64 and are decoded only by the WordPress adapter.
+- `packages/plugins/core/content-generator/` declares `text.generate` over a provider-neutral injected `generateText({ prompt, signal })` function. The Host validates the public JSON contract; the Plugin owns semantic non-whitespace checks but not provider/model selection, credentials, prompt building, retries, or product workflow.
 - `src/applications/wordpress-publishing.js` composes WordPress operations into a publishing use case. `src/composition/wordpress-publishing.js` wires the package to the Kernel. This pilot does not replace the current WordPress product paths: they still call `Core.publishToWordPress()`.
 - `src/applications/generated-wordpress-publishing.js` composes text generation with the WordPress publishing Application through injected operation and publish interfaces. `src/composition/generated-wordpress-publishing.js` selects both Plugins, creates one Kernel Host, and wires the two Applications together. Its tests use a fake text provider and fake WordPress HTTP responses; it is not connected to a product entrypoint.
 - The Application owns manuscript/asset preparation, category matching, warning collection, and draft fallback. The Plugin owns WordPress authentication and REST request/response behavior. Existing image optimization and FTC/CTA permanent-asset caching remain in the legacy Application/Core path; the pilot accepts already prepared `Buffer` assets and does not yet migrate those product concerns.
-- Both Core Plugin directories have minimal package manifests and public interface READMEs. They have no third-party runtime dependency; descriptor versions come from package manifests. This validates package boundaries, but not semver compatibility policy or separate-repository releases.
-- `src/composition/core-plugin-registry.js` is the explicit bundled Core Plugin catalog and ID-based factory boundary. It lists packages, checks registration, and creates one requested Plugin; it does not choose the Plugin set for a use case.
+- All bundled Core Plugin packages declare the common manifest. `packages/plugins/core/hello-world/` is a small Core Plugin that exercises manifest discovery, operation listing, selection, registration, and invocation without an external service.
+- `src/composition/core-plugin-registry.js` is the explicit bundled Core Plugin source adapter. It reads and validates package manifests without loading implementation modules, then loads the selected package on demand; it does not choose the Plugin set for a use case.
 - `src/composition/core-plugin-runtime.js` joins that static catalog with one in-memory `PluginHost`. A process may inject the same runtime into multiple Application composition roots so registered Plugin instances, lifecycle, and operations have one shared owner. Application composition still selects only the Plugins it needs; discovery does not instantiate every catalog entry.
 - `src/composition/plugin-runtime-composition.js` validates an explicit Plugin ID selection and its dependency map, then asks the catalog to create only those instances. Each Application composition root chooses its required Plugin set and supplies dependencies. The Kernel Plugin Host remains the source of truth for successfully registered runtime Plugins, lifecycle state, and available operations.
 - The WordPress publishing composition selects only `wordpress-publisher`; the generated WordPress composition selects `content-generator` and `wordpress-publisher`. The catalog can list both without requiring every runtime composition to instantiate or configure both.

@@ -10,13 +10,11 @@ class PluginHostError extends Error {
     }
 }
 
-function parseContract(contract, value, label) {
+function validateSchema(validator, value, label) {
     try {
-        const parsed = contract.parse(value);
-        if (parsed && typeof parsed.then === 'function') {
-            throw new TypeError('Contract parsers must be synchronous.');
-        }
-        return parsed;
+        if (validator(value)) return value;
+        const issues = validator.errors?.map((error) => `${error.instancePath || '/'} ${error.message}`).join('; ');
+        throw new TypeError(issues || 'Value did not match the declared schema.');
     } catch (cause) {
         throw new PluginContractError(`${label} did not satisfy its declared contract.`, {
             cause,
@@ -75,7 +73,10 @@ function createPluginHost(options = {}) {
                 operations.push({
                     pluginId: descriptor.id,
                     operationId,
-                    description: operation.description
+                    description: operation.description,
+                    inputSchema: operation.inputSchema,
+                    outputSchema: operation.outputSchema,
+                    capabilities: operation.capabilities
                 });
             });
         });
@@ -101,16 +102,16 @@ function createPluginHost(options = {}) {
         // Count before awaiting so disable prevents new dispatch and drains this call.
         plugin.activeExecutions += 1;
         try {
-            const parsedInput = parseContract(
-                operation.input,
+            const validatedInput = validateSchema(
+                operation.validateInput,
                 input,
                 `Input for ${plugin.descriptor.id}.${operationId}`
             );
-            const result = await operation.execute(parsedInput, Object.freeze({
+            const result = await operation.execute(validatedInput, Object.freeze({
                 signal: executionContext.signal
             }));
-            return parseContract(
-                operation.output,
+            return validateSchema(
+                operation.validateOutput,
                 result,
                 `Output for ${plugin.descriptor.id}.${operationId}`
             );

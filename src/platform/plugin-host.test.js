@@ -7,143 +7,119 @@ const { PluginContractError } = require('./plugin-contract');
 const { createContentPublishingExampleSystem } = require('../composition/content-publishing-example');
 const { createFakeTextGenerator, createFakePublisher } = require('../test-fixtures/platform-foundation/fake-plugins');
 
-function validPlugin(overrides = {}) {
+function makeManifest(overrides = {}) {
     return {
+        manifestVersion: 1,
         id: 'sample-plugin',
         name: 'Sample plugin',
-        version: '1.0.0',
+        hostApi: '^1.0.0',
+        summary: 'A test Plugin.',
         operations: {
             run: {
                 description: 'Run a sample operation.',
-                input: { parse: (value) => value },
-                output: { parse: (value) => value },
-                async execute(input) { return input; }
+                inputSchema: { type: 'object' },
+                outputSchema: { type: 'object' },
+                capabilities: []
             }
         },
         ...overrides
     };
 }
 
-test('host registers plugins with declared operations and reports lifecycle state', () => {
+function validPlugin(overrides = {}) {
+    return {
+        manifest: makeManifest(),
+        version: '1.0.0',
+        operations: { run: { async execute(input) { return input; } } },
+        ...overrides
+    };
+}
+
+test('Host registers manifest operations and reports lifecycle state', () => {
     const host = createPluginHost({ plugins: [validPlugin()] });
 
-    assert.equal('register' in host, false);
+    assert.equal(typeof host.register, 'function');
     assert.deepEqual(host.listPlugins(), [{
-        id: 'sample-plugin',
-        name: 'Sample plugin',
-        version: '1.0.0',
-        state: 'enabled',
-        activeExecutions: 0
+        id: 'sample-plugin', name: 'Sample plugin', version: '1.0.0', state: 'enabled', activeExecutions: 0
     }]);
     assert.deepEqual(host.listOperations(), [{
         pluginId: 'sample-plugin',
         operationId: 'run',
-        description: 'Run a sample operation.'
+        description: 'Run a sample operation.',
+        inputSchema: { type: 'object' },
+        outputSchema: { type: 'object' },
+        capabilities: []
     }]);
 });
 
-test('registration rejects malformed descriptors, operations, and duplicate ids', () => {
-    assert.throws(() => createPluginHost({ plugins: [{ ...validPlugin(), id: 'Bad Id' }] }), PluginContractError);
-    assert.throws(() => createPluginHost({ plugins: [{ ...validPlugin(), operations: {} }] }), /at least one operation/);
-    assert.throws(() => createPluginHost({
-        plugins: [validPlugin({ operations: { run: { description: 'Missing contracts', execute() {} } } })]
-    }), /input.parse/);
+test('registration rejects invalid manifests, schemas, implementations, and duplicate IDs', () => {
+    assert.throws(() => createPluginHost({ plugins: [validPlugin({ manifest: makeManifest({ id: 'Bad Id' }) })] }), PluginContractError);
+    assert.throws(() => createPluginHost({ plugins: [validPlugin({ manifest: makeManifest({ operations: {} }) })] }), /manifest is invalid/i);
     assert.throws(() => createPluginHost({ plugins: [validPlugin({
-        operations: { run: { description: '', input: { parse: (value) => value }, output: { parse: (value) => value }, execute() {} } }
-    })] }), /must provide a description/);
+        manifest: makeManifest({ operations: { run: {
+            description: 'Bad schema', inputSchema: { type: 'made-up' }, outputSchema: { type: 'object' }, capabilities: []
+        } } })
+    })] }), /valid JSON Schema/i);
+    assert.throws(() => createPluginHost({ plugins: [validPlugin({ operations: {} })] }), { code: 'PLUGIN_OPERATION_MISMATCH' });
+    assert.throws(() => createPluginHost({ plugins: [validPlugin({ operations: { run: {} } })] }), /execute\(\)/i);
     assert.throws(() => createPluginHost({ plugins: [validPlugin(), validPlugin()] }), /already registered/);
+    assert.throws(() => createPluginHost({ plugins: [validPlugin({
+        manifest: makeManifest({ hostApi: '^2.0.0' })
+    })] }), { code: 'PLUGIN_HOST_API_INCOMPATIBLE' });
 });
 
-test('contract parsers must be synchronous', async () => {
-    const host = createPluginHost({
-        plugins: [validPlugin({
-            operations: {
-                run: {
-                    description: 'Rejects asynchronous parser test input.',
-                    input: { async parse(value) { return value; } },
-                    output: { parse: (value) => value },
-                    async execute(input) { return input; }
-                }
-            }
-        })]
-    });
+test('Host applies manifest JSON Schemas to operation input and output without mutating values', async () => {
+    const contract = makeManifest({ operations: { run: {
+        description: 'Validates the input and output payload.',
+        inputSchema: {
+            type: 'object', properties: { accepted: { const: true } },
+            required: ['accepted'], additionalProperties: false
+        },
+        outputSchema: {
+            type: 'object', properties: { accepted: { const: true } },
+            required: ['accepted'], additionalProperties: false
+        },
+        capabilities: []
+    } } });
+    const host = createPluginHost({ plugins: [validPlugin({
+        manifest: contract,
+        operations: { run: { async execute(input) { return input; } } }
+    })] });
+    const input = { accepted: true };
 
-    await assert.rejects(host.execute('sample-plugin', 'run', {}), (error) => (
-        error instanceof PluginContractError && /synchronous/.test(error.cause?.message || '')
-    ));
-});
-
-test('execution validates input and output and preserves plugin execution errors', async () => {
-    const host = createPluginHost({
-        plugins: [validPlugin({
-            operations: {
-                run: {
-                    description: 'Validates the input and output payload.',
-                    input: { parse(value) { if (!value?.accepted) throw new Error('bad input'); return value; } },
-                    output: { parse(value) { if (!value?.accepted) throw new Error('bad output'); return value; } },
-                    async execute(input) { return input; }
-                }
-            }
-        })]
-    });
-
+    assert.equal(await host.execute('sample-plugin', 'run', input), input);
     await assert.rejects(host.execute('sample-plugin', 'run', {}), (error) => (
         error instanceof PluginContractError && error.code === 'PLUGIN_OPERATION_CONTRACT_VIOLATION'
     ));
     await assert.rejects(host.execute('sample-plugin', 'missing', {}), (error) => (
         error instanceof PluginHostError && error.code === 'OPERATION_NOT_FOUND'
     ));
-    await assert.rejects(host.execute('missing', 'run', {}), (error) => (
+    await assert.rejects(host.execute('missing', 'run', input), (error) => (
         error instanceof PluginHostError && error.code === 'PLUGIN_NOT_FOUND'
     ));
 
-    const invalidOutputHost = createPluginHost({
-        plugins: [validPlugin({
-            operations: {
-                run: {
-                    description: 'Rejects an invalid output payload.',
-                    input: { parse: (value) => value },
-                    output: { parse(value) { if (!value?.accepted) throw new Error('bad output'); return value; } },
-                    async execute() { return {}; }
-                }
-            }
-        })]
-    });
-    await assert.rejects(invalidOutputHost.execute('sample-plugin', 'run', {}), (error) => (
+    const invalidOutputHost = createPluginHost({ plugins: [validPlugin({
+        manifest: contract,
+        operations: { run: { async execute() { return {}; } } }
+    })] });
+    await assert.rejects(invalidOutputHost.execute('sample-plugin', 'run', input), (error) => (
         error instanceof PluginContractError && error.code === 'PLUGIN_OPERATION_CONTRACT_VIOLATION'
     ));
 
     const failure = new Error('provider failed');
-    const failingHost = createPluginHost({
-        plugins: [validPlugin({
-            operations: {
-                run: {
-                    description: 'Propagates execution failures.',
-                    input: { parse: (value) => value },
-                    output: { parse: (value) => value },
-                    async execute() { throw failure; }
-                }
-            }
-        })]
-    });
-    await assert.rejects(failingHost.execute('sample-plugin', 'run', {}), (error) => error === failure);
+    const failingHost = createPluginHost({ plugins: [validPlugin({
+        manifest: contract,
+        operations: { run: { async execute() { throw failure; } } }
+    })] });
+    await assert.rejects(failingHost.execute('sample-plugin', 'run', input), (error) => error === failure);
 });
 
-test('disable blocks new work and waits for an active operation to drain', async () => {
+test('disable blocks new work and waits for active executions to drain', async () => {
     let finish;
     const active = new Promise((resolve) => { finish = resolve; });
-    const host = createPluginHost({
-        plugins: [validPlugin({
-            operations: {
-                run: {
-                    description: 'Waits for the active sample execution.',
-                    input: { parse: (value) => value },
-                    output: { parse: (value) => value },
-                    async execute() { await active; return { done: true }; }
-                }
-            }
-        })]
-    });
+    const host = createPluginHost({ plugins: [validPlugin({
+        operations: { run: { async execute() { await active; return { done: true }; } } }
+    })] });
 
     const running = host.execute('sample-plugin', 'run', {});
     const disabling = host.setEnabled('sample-plugin', false);
@@ -162,7 +138,7 @@ test('disable blocks new work and waits for an active operation to drain', async
     assert.deepEqual(await host.setEnabled('sample-plugin', true), { id: 'sample-plugin', state: 'enabled' });
 });
 
-test('Application composes generation and publishing through the host contract', async () => {
+test('Application composes generation and publishing through manifest-validated Host operations', async () => {
     const system = createContentPublishingExampleSystem([
         createFakeTextGenerator(),
         createFakePublisher()
@@ -171,14 +147,9 @@ test('Application composes generation and publishing through the host contract',
     await assert.rejects(system.application.publish({ topic: 'missing fields' }), /requires topic, audience, and destination/);
 
     assert.deepEqual(await system.application.publish({
-        topic: 'platform design',
-        audience: 'developers',
-        destination: 'preview'
+        topic: 'platform design', audience: 'developers', destination: 'preview'
     }), {
-        draft: {
-            title: 'platform design for developers',
-            body: 'Sample draft about platform design.'
-        },
+        draft: { title: 'platform design for developers', body: 'Sample draft about platform design.' },
         publication: { url: 'https://example.invalid/preview' }
     });
 });

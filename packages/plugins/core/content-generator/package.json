@@ -9,5 +9,30 @@
   ],
   "engines": {
     "node": ">=20"
+  },
+  "bloggeniusPlugin": {
+    "manifestVersion": 1,
+    "id": "content-generator",
+    "name": "Content Generator",
+    "hostApi": "^1.0.0",
+    "summary": "Provider-neutral text generation operation.",
+    "operations": {
+      "text.generate": {
+        "description": "Generate text from a prompt using the host-selected text generation provider.",
+        "inputSchema": {
+          "type": "object",
+          "properties": { "prompt": { "type": "string", "minLength": 1, "pattern": "\\S" } },
+          "required": ["prompt"],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "properties": { "text": { "type": "string", "minLength": 1, "pattern": "\\S" } },
+          "required": ["text"],
+          "additionalProperties": false
+        },
+        "capabilities": ["ai.transport"]
+      }
+    }
   }
 }

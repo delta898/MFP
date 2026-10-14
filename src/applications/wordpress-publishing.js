@@ -79,7 +79,7 @@ function createWordPressPublishingApplication(options = {}) {
                 try {
                     assertNotAborted(executionContext);
                     const uploaded = await options.executeOperation('wordpress-publisher', 'media.upload', {
-                        bytes: asset.bytes,
+                        bytesBase64: asset.bytes.toString('base64'),
                         filename: asset.filename,
                         mimeType: asset.mimeType,
                         altText: asset.altText

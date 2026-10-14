@@ -1,18 +1,7 @@
 'use strict';
 
-const PLUGIN_ID = 'wordpress-publisher';
-const PACKAGE_VERSION = require('./package.json').version;
-const PLUGIN_METADATA = Object.freeze({
-    id: PLUGIN_ID,
-    name: 'WordPress Publisher',
-    version: PACKAGE_VERSION,
-    summary: 'Publishes posts and uploads media through the WordPress REST API.',
-    operations: Object.freeze([
-        Object.freeze({ id: 'media.upload', description: 'Upload an image asset to the WordPress media library.' }),
-        Object.freeze({ id: 'categories.list', description: 'List WordPress categories, optionally filtered by search text.' }),
-        Object.freeze({ id: 'posts.create', description: 'Create a WordPress post using WordPress REST API fields.' })
-    ])
-});
+const PACKAGE_METADATA = require('./package.json');
+const PACKAGE_VERSION = PACKAGE_METADATA.version;
 
 class WordPressPublisherError extends Error {
     constructor(message, options = {}) {
@@ -39,90 +28,14 @@ function requireWebUrl(value, label) {
     const text = requireText(value, label);
     let parsed;
     try { parsed = new URL(text); }
-    catch (cause) { throw new TypeError(`${label} must be an absolute HTTP(S) URL.`, { cause }); }
-    if (!['http:', 'https:'].includes(parsed.protocol)) throw new TypeError(`${label} must be an absolute HTTP(S) URL.`);
+    catch (cause) { throw new WordPressPublisherError(`${label} was not a valid HTTP(S) URL.`, { cause, code: 'INVALID_RESPONSE' }); }
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+        throw new WordPressPublisherError(`${label} was not a valid HTTP(S) URL.`, { code: 'INVALID_RESPONSE' });
+    }
     return text;
 }
 
-function parseUploadInput(value) {
-    const input = requireObject(value, 'Media upload input');
-    if (!Buffer.isBuffer(input.bytes)) throw new TypeError('Media upload bytes must be a Buffer.');
-    if (input.bytes.length === 0) throw new TypeError('Media upload bytes must not be empty.');
-    const mimeType = requireText(input.mimeType, 'Media MIME type');
-    if (!mimeType.toLowerCase().startsWith('image/')) throw new TypeError('Media MIME type must be an image type.');
-    return Object.freeze({
-        bytes: input.bytes,
-        filename: requireText(input.filename, 'Media filename'),
-        mimeType,
-        altText: typeof input.altText === 'string' ? input.altText : ''
-    });
-}
-
-function parseUploadOutput(value) {
-    const output = requireObject(value, 'Media upload output');
-    if (!(typeof output.id === 'number' && Number.isFinite(output.id)) && typeof output.id !== 'string') {
-        throw new TypeError('Media ID must be a string or number.');
-    }
-    const url = requireWebUrl(output.url, 'Media URL');
-    return Object.freeze({ id: output.id, url });
-}
-
-function parseCategoriesInput(value) {
-    const input = requireObject(value, 'Category list input');
-    const search = input.search == null ? '' : requireText(input.search, 'Category search');
-    return Object.freeze({ search });
-}
-
-function parseCategoriesOutput(value) {
-    if (!Array.isArray(value)) throw new TypeError('Categories output must be an array.');
-    return Object.freeze(value.map((item) => {
-        const category = requireObject(item, 'Category');
-        const id = Number(category.id);
-        if (!Number.isInteger(id) || id <= 0) throw new TypeError('Category ID must be a positive number.');
-        return Object.freeze({
-            id,
-            name: requireText(category.name, 'Category name'),
-            slug: typeof category.slug === 'string' ? category.slug : ''
-        });
-    }));
-}
-
-function parsePostInput(value) {
-    const input = requireObject(value, 'Post creation input');
-    const status = requireText(input.status, 'Post status');
-    if (!['draft', 'publish', 'future', 'pending', 'private'].includes(status)) {
-        throw new TypeError('Post status is not supported.');
-    }
-    const date = input.date == null ? undefined : requireText(input.date, 'Post date');
-    if (status === 'future' && !date) throw new TypeError('Post date is required for future posts.');
-    if (!Array.isArray(input.categories) || input.categories.some((id) => !Number.isInteger(Number(id)) || Number(id) <= 0)) {
-        throw new TypeError('Post categories must be positive numeric IDs.');
-    }
-    const featuredMedia = input.featuredMedia == null ? null : Number(input.featuredMedia);
-    if (featuredMedia !== null && (!Number.isInteger(featuredMedia) || featuredMedia <= 0)) {
-        throw new TypeError('Featured media must be a positive numeric ID.');
-    }
-    return Object.freeze({
-        title: requireText(input.title, 'Post title'),
-        content: typeof input.content === 'string' && input.content.trim()
-            ? input.content
-            : (() => { throw new TypeError('Post content must be a non-empty string.'); })(),
-        status,
-        categories: Object.freeze(input.categories.map(Number)),
-        featuredMedia,
-        date
-    });
-}
-
-function parsePostOutput(value) {
-    const output = requireObject(value, 'Post creation output');
-    if (!(typeof output.id === 'number' && Number.isFinite(output.id)) && typeof output.id !== 'string') {
-        throw new TypeError('Post ID must be a string or number.');
-    }
-    return Object.freeze({ id: output.id, url: requireWebUrl(output.url, 'Post URL') });
-}
-
-function createWordPressPublisherPlugin(options = {}) {
+function createPlugin(options = {}) {
     if (typeof options.getCredentials !== 'function') {
         throw new TypeError('WordPress Plugin requires an injected getCredentials() function.');
     }
@@ -192,18 +105,12 @@ function createWordPressPublisherPlugin(options = {}) {
     }
 
     return Object.freeze({
-        id: PLUGIN_METADATA.id,
-        name: PLUGIN_METADATA.name,
-        version: PLUGIN_METADATA.version,
         operations: Object.freeze({
             'media.upload': Object.freeze({
-                description: PLUGIN_METADATA.operations[0].description,
-                input: Object.freeze({ parse: parseUploadInput }),
-                output: Object.freeze({ parse: parseUploadOutput }),
                 async execute(input, context = {}) {
                     const requestContext = await createRequestContext(context.signal);
                     const form = new FormData();
-                    form.append('file', new Blob([input.bytes], { type: input.mimeType }), input.filename);
+                    form.append('file', new Blob([Buffer.from(input.bytesBase64, 'base64')], { type: input.mimeType }), input.filename);
                     const uploaded = await request(requestContext, '/media', { method: 'POST', body: form });
                     if (!uploaded || uploaded.id == null || !uploaded.source_url) {
                         throw new WordPressPublisherError('WordPress media response omitted required fields.', { code: 'INVALID_RESPONSE' });
@@ -223,28 +130,33 @@ function createWordPressPublisherPlugin(options = {}) {
                             });
                         } catch (_) { /* Metadata is best effort; keep the uploaded media result. */ }
                     }
-                    return { id: uploaded.id, url: uploaded.source_url };
+                    return { id: uploaded.id, url: requireWebUrl(uploaded.source_url, 'WordPress media URL') };
                 }
             }),
             'categories.list': Object.freeze({
-                description: PLUGIN_METADATA.operations[1].description,
-                input: Object.freeze({ parse: parseCategoriesInput }),
-                output: Object.freeze({ parse: parseCategoriesOutput }),
                 async execute(input, context = {}) {
                     const requestContext = await createRequestContext(context.signal);
                     const query = new URLSearchParams({ per_page: '100' });
-                    if (input.search) query.set('search', input.search);
+                    if (input.search?.trim()) query.set('search', input.search.trim());
                     const result = await request(requestContext, `/categories?${query}`, { method: 'GET' });
                     if (!Array.isArray(result)) {
                         throw new WordPressPublisherError('WordPress category response was invalid.', { code: 'INVALID_RESPONSE' });
                     }
-                    return result;
+                    return result.map((item) => {
+                        const category = requireObject(item, 'WordPress category');
+                        const id = Number(category.id);
+                        if (!Number.isInteger(id) || id <= 0) {
+                            throw new WordPressPublisherError('WordPress category response was invalid.', { code: 'INVALID_RESPONSE' });
+                        }
+                        return {
+                            id,
+                            name: requireText(category.name, 'WordPress category name'),
+                            slug: typeof category.slug === 'string' ? category.slug : ''
+                        };
+                    });
                 }
             }),
             'posts.create': Object.freeze({
-                description: PLUGIN_METADATA.operations[2].description,
-                input: Object.freeze({ parse: parsePostInput }),
-                output: Object.freeze({ parse: parsePostOutput }),
                 async execute(input, context = {}) {
                     const requestContext = await createRequestContext(context.signal);
                     const post = {
@@ -263,11 +175,11 @@ function createWordPressPublisherPlugin(options = {}) {
                     if (!result || result.id == null || typeof result.link !== 'string') {
                         throw new WordPressPublisherError('WordPress post response omitted required fields.', { code: 'INVALID_RESPONSE' });
                     }
-                    return { id: result.id, url: result.link };
+                    return { id: result.id, url: requireWebUrl(result.link, 'WordPress post URL') };
                 }
             })
         })
     });
 }
 
-module.exports = { PLUGIN_ID, PACKAGE_VERSION, PLUGIN_METADATA, WordPressPublisherError, createWordPressPublisherPlugin };
+module.exports = { PACKAGE_VERSION, WordPressPublisherError, createPlugin };

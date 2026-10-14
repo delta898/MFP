@@ -5,6 +5,22 @@ const assert = require('node:assert/strict');
 const { createWordPressPublishingSystem } = require('../composition/wordpress-publishing');
 const { createCorePluginRegistry } = require('../composition/core-plugin-registry');
 const { createWordPressPublishingApplication } = require('./wordpress-publishing');
+const wordpressManifest = require('../../packages/plugins/core/wordpress-publisher/package.json').bloggeniusPlugin;
+const wordpressVersion = require('../../packages/plugins/core/wordpress-publisher/package.json').version;
+
+function injectedWordPressRegistration(handlers = {}) {
+    return {
+        manifest: wordpressManifest,
+        version: wordpressVersion,
+        create: () => ({
+            operations: {
+                'media.upload': { async execute(input) { return handlers.upload?.(input) ?? { id: 1, url: 'https://site.test/media/1' }; } },
+                'categories.list': { async execute(input) { return handlers.categories?.(input) ?? []; } },
+                'posts.create': { async execute(input) { return handlers.publish?.(input) ?? { id: 3, url: 'https://site.test/3' }; } }
+            }
+        })
+    };
+}
 
 test('Application composes media, category, and post Plugin operations', async () => {
     const calls = [];
@@ -23,10 +39,10 @@ test('Application composes media, category, and post Plugin operations', async (
             }
         }
     });
-    assert.deepEqual(system.corePluginRegistry.list(), ['wordpress-publisher', 'content-generator']);
+    assert.deepEqual(system.corePluginRegistry.list(), ['wordpress-publisher', 'content-generator', 'hello-world']);
     assert.deepEqual(system.pluginHost.listPlugins().map((item) => item.id), ['wordpress-publisher']);
     assert.deepEqual(system.pluginHost.listOperations().map((item) => item.operationId), [
-        'media.upload', 'categories.list', 'posts.create'
+        'categories.list', 'media.upload', 'posts.create'
     ]);
 
     const result = await system.application.publish({
@@ -55,19 +71,14 @@ test('Application composes media, category, and post Plugin operations', async (
 });
 
 test('Application falls back to draft for media or category issues and removes unresolved asset references', async () => {
-    const plugin = {
-        id: 'wordpress-publisher', name: 'WordPress Publisher', version: 'test',
-        operations: {
-            'media.upload': { description: 'upload', input: { parse: (value) => value }, output: { parse: (value) => value }, async execute() { throw new Error('upload failed'); } },
-            'categories.list': { description: 'categories', input: { parse: (value) => value }, output: { parse: (value) => value }, async execute() { return []; } },
-            'posts.create': { description: 'create', input: { parse: (value) => value }, output: { parse: (value) => value }, async execute(input) { return { id: 3, url: 'https://site.test/3', captured: input }; } }
-        }
-    };
     const { application } = createWordPressPublishingSystem({
-        corePluginRegistry: createCorePluginRegistry([{ id: 'wordpress-publisher', create: () => plugin }])
+        corePluginRegistry: createCorePluginRegistry([injectedWordPressRegistration({
+            upload() { throw new Error('upload failed'); },
+            publish() { return { id: 3, url: 'https://site.test/3' }; }
+        })])
     });
     const result = await application.publish({
-        title: 'Draft fallback', content: '{{asset:missing}}', status: 'publish', category: 'Unknown',
+        title: 'Draft fallback', content: '<p>Keep this text</p>{{asset:missing}}', status: 'publish', category: 'Unknown',
         assets: [{ key: 'missing', bytes: Buffer.from('bad'), filename: 'missing.png', mimeType: 'image/png' }]
     });
 
@@ -78,12 +89,9 @@ test('Application falls back to draft for media or category issues and removes u
 test('Application validates request before dispatch', async () => {
     let dispatched = false;
     const { application } = createWordPressPublishingSystem({
-        corePluginRegistry: createCorePluginRegistry([{ id: 'wordpress-publisher', create: () => ({
-            id: 'wordpress-publisher', name: 'WP', version: 'test',
-            operations: {
-                publish: { description: 'publish', input: { parse: (value) => value }, output: { parse: (value) => value }, async execute() { dispatched = true; } }
-            }
-        }) }])
+        corePluginRegistry: createCorePluginRegistry([injectedWordPressRegistration({
+            publish() { dispatched = true; return { id: 1, url: 'https://site.test/1' }; }
+        })])
     });
     await assert.rejects(application.publish({ title: 'Missing body' }), /Content/);
     await assert.rejects(application.publish({ title: 'Scheduled', content: '<p>Draft</p>', status: 'schedule' }), /Schedule date/);
@@ -101,7 +109,7 @@ test('runtime operation visibility follows Host enable state rather than a separ
     });
 
     await system.pluginHost.setEnabled('wordpress-publisher', false);
-    assert.deepEqual(system.corePluginRegistry.list(), ['wordpress-publisher', 'content-generator']);
+    assert.deepEqual(system.corePluginRegistry.list(), ['wordpress-publisher', 'content-generator', 'hello-world']);
     assert.deepEqual(system.pluginHost.listPlugins().map(({ id, state }) => ({ id, state })), [
         { id: 'wordpress-publisher', state: 'disabled' }
     ]);

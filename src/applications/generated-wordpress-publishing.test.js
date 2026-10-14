@@ -120,12 +120,12 @@ test('composition registers both required Plugins and runs generation through Wo
         }
     });
 
-    assert.deepEqual(system.corePluginRegistry.list(), ['wordpress-publisher', 'content-generator']);
+    assert.deepEqual(system.corePluginRegistry.list(), ['wordpress-publisher', 'content-generator', 'hello-world']);
     assert.deepEqual(system.pluginHost.listPlugins().map(({ id }) => id), ['content-generator', 'wordpress-publisher']);
     assert.deepEqual(system.pluginHost.listOperations().map(({ pluginId, operationId }) => ({ pluginId, operationId })), [
         { pluginId: 'content-generator', operationId: 'text.generate' },
-        { pluginId: 'wordpress-publisher', operationId: 'media.upload' },
         { pluginId: 'wordpress-publisher', operationId: 'categories.list' },
+        { pluginId: 'wordpress-publisher', operationId: 'media.upload' },
         { pluginId: 'wordpress-publisher', operationId: 'posts.create' }
     ]);
 
@@ -173,7 +173,8 @@ test('separate Applications share one process Plugin Host and reuse an already r
     assert.strictEqual(wordpressSystem.pluginHost, generatedSystem.pluginHost);
     assert.deepEqual(sharedRuntime.listPlugins().map(({ id, state }) => ({ id, state })), [
         { id: 'wordpress-publisher', state: 'enabled' },
-        { id: 'content-generator', state: 'enabled' }
+        { id: 'content-generator', state: 'enabled' },
+        { id: 'hello-world', state: 'not_loaded' }
     ]);
     const result = await generatedSystem.application.publish({ prompt: 'Jeju', title: 'Jeju notes' });
     assert.equal(result.publication.postId, 17);

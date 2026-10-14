@@ -2,36 +2,56 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createContentGeneratorPlugin } = require('./index');
+const { createPlugin, PACKAGE_VERSION } = require('./index');
+const PLUGIN_MANIFEST = require('./package.json').bloggeniusPlugin;
+const { createPluginHost } = require('../../../../src/platform/plugin-host');
 
-test('content generator declares a versioned provider-neutral operation', () => {
-    const plugin = createContentGeneratorPlugin({ generateText: async () => 'generated' });
+function createHost(generateText) {
+    const implementation = createPlugin({ generateText });
+    return createPluginHost({ plugins: [{
+        manifest: PLUGIN_MANIFEST,
+        version: PACKAGE_VERSION,
+        operations: implementation.operations
+    }] });
+}
 
-    assert.equal(plugin.id, 'content-generator');
-    assert.equal(plugin.version, '0.1.0');
+test('content generator declares a versioned provider-neutral manifest operation', () => {
+    const plugin = createPlugin({ generateText: async () => 'generated' });
+
+    assert.equal(PLUGIN_MANIFEST.id, 'content-generator');
+    assert.equal(PACKAGE_VERSION, '0.1.0');
     assert.deepEqual(Object.keys(plugin.operations), ['text.generate']);
-    assert.equal(plugin.operations['text.generate'].input.parse({ prompt: '  write this  ' }).prompt, 'write this');
-    assert.deepEqual(plugin.operations['text.generate'].output.parse({ text: '  result  ' }), { text: 'result' });
+    assert.deepEqual(PLUGIN_MANIFEST.operations['text.generate'].capabilities, ['ai.transport']);
 });
 
 test('content generator requires an injected provider function', () => {
-    assert.throws(() => createContentGeneratorPlugin(), /requires an injected generateText/i);
-    assert.throws(() => createContentGeneratorPlugin({ generateText: true }), /requires an injected generateText/i);
+    assert.throws(() => createPlugin(), /requires an injected generateText/i);
+    assert.throws(() => createPlugin({ generateText: true }), /requires an injected generateText/i);
 });
 
-test('content generator validates operation input and output', async () => {
-    const plugin = createContentGeneratorPlugin({ generateText: async () => '   ' });
-    const operation = plugin.operations['text.generate'];
+test('Host schema validates inputs and Plugin normalizes generated text', async () => {
+    let request;
+    const host = createHost(async (input) => {
+        request = input;
+        return '  generated draft  ';
+    });
 
-    assert.throws(() => operation.input.parse(null), /must be an object/i);
-    assert.throws(() => operation.input.parse({ prompt: '  ' }), /non-empty string/i);
-    await assert.rejects(async () => operation.output.parse({ text: '   ' }), /Generated text must be a non-empty string/i);
+    assert.deepEqual(await host.execute('content-generator', 'text.generate', { prompt: '  write this  ' }), {
+        text: 'generated draft'
+    });
+    assert.deepEqual(request, { prompt: 'write this', signal: undefined });
+    await assert.rejects(host.execute('content-generator', 'text.generate', {}), {
+        code: 'PLUGIN_OPERATION_CONTRACT_VIOLATION'
+    });
+    await assert.rejects(host.execute('content-generator', 'text.generate', { prompt: '  ' }), {
+        code: 'PLUGIN_OPERATION_CONTRACT_VIOLATION'
+    });
 });
 
-test('content generator forwards only prompt and cancellation signal to the provider boundary', async () => {
+test('content generator forwards only prompt and cancellation signal to its provider boundary', async () => {
     const controller = new AbortController();
     let request;
-    const plugin = createContentGeneratorPlugin({
+    const plugin = createPlugin({
         async generateText(input) {
             request = input;
             return 'Generated draft';
@@ -50,16 +70,11 @@ test('content generator forwards only prompt and cancellation signal to the prov
 test('content generator preserves provider errors without logging or retrying', async () => {
     const failure = new Error('provider failed');
     let calls = 0;
-    const plugin = createContentGeneratorPlugin({
-        async generateText() {
-            calls += 1;
-            throw failure;
-        }
+    const host = createHost(async () => {
+        calls += 1;
+        throw failure;
     });
 
-    await assert.rejects(
-        plugin.operations['text.generate'].execute({ prompt: 'draft' }),
-        (error) => error === failure
-    );
+    await assert.rejects(host.execute('content-generator', 'text.generate', { prompt: 'draft' }), (error) => error === failure);
     assert.equal(calls, 1);
 });
