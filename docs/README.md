@@ -110,7 +110,7 @@
 
 ## Active Work
 
-- `plans/active/2026-10-14-platform-kernel-application-boundary-development.md` (새 Kernel·Application·Plugin 경계의 코드/테스트 기반)
+- `plans/active/2026-10-14-plugin-architecture-foundation-fbr.md` (plugin 기반 구조 도입을 위한 현행 구조 조사와 설계 논의)
 - `plans/active/2026-10-14-release-v0.6.1-development.md` (0.6.0 이후 사용자 변경사항 릴리스 준비)
 
 - `plans/active/2026-10-11-site-hosting-astro-project-import-development.md` (direct Astro project ZIP import to Site)
@@ -123,6 +123,19 @@
 - `plans/active/2026-10-03-amade-template-spec-v0.1-design.md` (experimental Site Hosting 0.1 design extended to share Amade discovery/metadata with BlogGenius UI Styles; existing 1.x resources are legacy)
 - `plans/active/2026-10-05-digital-garden-template-poc.md` (full-Vault local Astro POC and evidence; no deployment)
 - `plans/active/2026-10-05-knowledge-collection-template-contract-model.md` (proposed Collection/Knowledge Collection contract model and open decisions; discussion draft)
+- `plans/active/2026-09-06-v0.4.3-backlog-current-state-development.md`
+- `plans/active/runtime-credential-security-main-plan.md`
+- `plans/active/serpapi-collection-main-plan.md`
+- `plans/active/serpapi-collection-07-operations-plan.md`
+- `plans/active/agent-redesign-plan.md`
+- `plans/active/internal-api-redesign-plan.md`
+- `plans/active/remote-mcp-server-plan.md`
+- `plans/active/account-subscription-billing-foundation-plan.md`
+- `plans/active/paid-plans-and-credits-plan.md`
+
+## Archived Plans
+
+- `plans/archive/2026-10-14-platform-kernel-application-boundary-development.md` (Platform Kernel/Application/Plugin foundation slice; merged into plugin architecture parent)
 - `plans/archive/2026-10-02-site-creation-development.md` (completed serial sub-feature; Site creation, Astro build/preview, Cloudflare deployment/domain connection, and Site management UI)
 - `plans/archive/2026-10-10-cloudflare-workers-admin-oauth-scope.md` (completed OAuth scope configuration and Workers Admin validation)
 - `plans/archive/2026-10-02-site-management-page-development.md` (completed serial sub-feature; Project list, create, and detail IA)
@@ -135,15 +148,6 @@
 - `plans/archive/2026-09-30-release-v0.5.5-development.md`
 - `plans/archive/2026-10-01-ai-model-save-without-key-development.md`
 - `plans/archive/2026-09-15-telegram-network-resilience-development.md`
-- `plans/active/2026-09-06-v0.4.3-backlog-current-state-development.md`
-- `plans/active/runtime-credential-security-main-plan.md`
-- `plans/active/serpapi-collection-main-plan.md`
-- `plans/active/serpapi-collection-07-operations-plan.md`
-- `plans/active/agent-redesign-plan.md`
-- `plans/active/internal-api-redesign-plan.md`
-- `plans/active/remote-mcp-server-plan.md`
-- `plans/active/account-subscription-billing-foundation-plan.md`
-- `plans/active/paid-plans-and-credits-plan.md`
 
 Completed and superseded implementation plans are retained under
 `plans/archive/` for historical context. They are not current architecture or

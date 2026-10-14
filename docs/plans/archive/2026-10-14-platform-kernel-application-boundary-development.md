@@ -3,7 +3,7 @@
 - Branch: `codex/feat/platform-kernel-application-boundary`
 - Start date: 2026-10-14
 - Base/parent branch: `codex/fbr/plugin-architecture-foundation`
-- Status: implementation complete; focused tests pass; parent review/integration pending
+- Status: complete; merged into `codex/fbr/plugin-architecture-foundation` as `19f670d0`; feature branch deleted
 
 ## User need and long-term goal
 
@@ -123,17 +123,17 @@ The stage is complete only when both the code and tests demonstrate the boundary
 
 The initial WordPress investigation found that current publishing spans `src/core.js`, `src/wordpress-client.js`, runtime call sites, UI/API settings, and Agent capability routing. It relies on BlogGenius-specific Markdown image blocks, work directories, ImageService, FTC/CTA asset caching, and app configuration. Therefore, moving the current `publishToWordPress` function into a package would not create an independent plugin. That investigation remains useful for a later migration stage, but WordPress is no longer the current stage's goal.
 
-## Verification and merge gates
+## Verification and integration result
 
 - During this stage, run focused unit/contract tests for the changed Kernel, Application, and fake Plugin contracts.
 - `node --test src/platform/plugin-host.test.js`: 6 tests passed, covering descriptor/operation validation, runtime operation discovery, input/output contracts, error propagation, disable/drain behavior, and Application composition.
 - `git diff --check`: passed. No browser/UI smoke is applicable because no product UI or entrypoint changed.
 - Do not run the full unit suite without explicit user approval.
-- Before merging this sub-feature to `codex/fbr/plugin-architecture-foundation`, review the complete diff against that parent and run the relevant focused tests. Do not merge, commit, push, or delete branches without the corresponding user instruction.
-- The feature parent must pass the approved full unit suite before integration into `dev`.
+- The complete sub-feature diff was reviewed against `codex/fbr/plugin-architecture-foundation` before integration.
+- The feature commit was fast-forward merged into the parent as `19f670d0`; the sub-feature branch was deleted at the user's request. No push was performed.
+- The full unit suite was not run. Full validation remains a gate before the parent is integrated into `dev` and requires explicit user approval.
 - Current UI flows are not being migrated, so visual/browser acceptance is not a gate for this stage.
 
 ## Remaining work
 
-- Review the complete diff against `codex/fbr/plugin-architecture-foundation` before parent integration.
-- The full unit suite remains pending explicit user approval before the parent feature is integrated into `dev`. No commit, merge, or push has been requested.
+- This stage is complete. The first real product-flow migration, full parent validation, and any later `dev` integration remain tracked by the parent FBR; they are not unfinished work in this stage.
