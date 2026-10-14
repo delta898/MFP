@@ -290,8 +290,36 @@ Core Plugin은 초기에 앱에 번들되며 설치·삭제할 수 없다. 기�
 
 ## 다음 단계
 
-1. 다음 pilot 후보는 Naver Blog Publisher Core Plugin이다. WordPress와 다른 인증·요청 경계를 새 package/Application 계약에서 검증하고, 기존 제품 경로는 이 단계에서 연결하지 않는다. 시작 전 기존 Naver 인증 흐름과 외부 side effect를 조사한 뒤 범위를 사용자와 확정한다.
-2. 각 단계는 focused tests/review를 거쳐 parent에 통합한다. 전체 테스트 및 parent의 dev 통합은 별도 승인과 검증 gate를 거치며 Community package 배포는 후속 단계다.
+1. **제안, 사용자 합의 대기:** 다음 단계는 Naver로 가로 확장하기보다 WordPress 하나의 vertical slice를 UI 진입부터 원고·이미지 생성/편집, 설정 및 Plugin 조회, 새 WordPress Application 발행 결과까지 연결하는 설계·구현으로 잡는다. 실제 제품 경로의 quota, 취소/진행상태, 결과 보관까지 어디에 둘지 포함해 전환 단계를 먼저 합의한다.
+2. Telegram ingress는 Blog Beta의 UI 경로가 같은 Application을 안정적으로 호출한 뒤 후속 sub-feature로 다룬다. 각 sub-feature는 focused tests/review 후 parent에 통합한다. 전체 테스트 및 parent의 dev 통합은 별도 승인과 검증 gate를 거치며 Community package 배포는 후속 단계다.
+
+## WordPress vertical stack 조사 (2026-10-14)
+
+### 현재 제품 경로
+
+1. **설정:** Settings Beta는 텍스트/이미지 AI 모델 설정을 관리한다. WordPress URL, 사용자 ID, Application Password는 기존 config/settings 서비스에서 관리·검증한다. 이 설정들이 새 Plugin composition으로 주입되지는 않는다.
+2. **원고·이미지 생성:** Blog Beta의 manuscript API에서 AI 원고를 만들 때 `content.service.js`가 `executeQuickPublish()`를 호출하고, 생성된 미리보기와 로컬 이미지 파일을 원고 draft로 가져온다. 이미지 블록 생성·가져오기·개별/일괄 생성도 기존 manuscript service/API를 통한다. 이 동작은 `content-generator` Plugin을 호출하지 않고, 별도 image-generation Plugin도 아직 없다.
+3. **편집·발행 요청:** Blog Beta UI는 `/api/v1/blog/manuscript-drafts/:draftId/publish`를 호출한다. 서비스가 원고 스냅샷과 이미지 준비를 수행한 뒤 `executeCompletedLocalMarkdownPublish()` → 기존 `executeLocalMarkdownPublish()` 경로로 넘긴다.
+4. **WordPress 발행:** 기존 경로는 draft workspace의 `contents.md`와 이미지 파일을 읽고 `Core.publishToWordPress()`를 호출한다. 이 함수가 이미지 최적화/업로드, 일부 영구 이미지 URL 재사용, 카테고리 조회, Markdown→HTML 변환, draft 강등 정책을 수행하고 `WordPressClient`로 글을 생성한다. 성공 후 manuscript service가 게시 상태와 로컬 결과 스냅샷을 기록한다.
+
+### 새 구조에서 검증된 경로
+
+`createGeneratedWordPressPublishingSystem()`이 별도 Plugin Host를 만들고 `content-generator`와 `wordpress-publisher`를 선택한다. 테스트용 Application은 prompt → `text.generate` → WordPress publishing Application → `media.upload`/`categories.list`/`posts.create` 순으로 실행한다. WordPress Plugin은 주입된 credentials와 `fetch`로 REST 요청을 보낸다. 이 조합은 fake provider와 fake HTTP 응답만 사용하며 제품 entrypoint에서 호출되지 않는다.
+
+현재 새 WordPress Application은 이미 준비된 원고와 `Buffer` 이미지 자산을 입력으로 받는다. 기존 manuscript draft, 이미지 생성/편집 API, preview workspace에서 새 Application 입력으로 바꾸는 adapter는 없다. 새 WordPress Application의 asset 참조(`{{asset:key}}`)와 legacy Markdown 이미지 블록/파일 형식 간 변환도 연결되어 있지 않다. 또한 새 Application 경로에는 현재 제품의 설정·라이선스/quota·진행상태/취소·결과 보관 경계가 연결되지 않았다.
+
+### Plugin 목록·상태 조회
+
+Core Plugin catalog는 두 package의 factory를 명시적으로 보유하지만, 현재 제품 전역의 live Host는 없다. 두 예제 composition은 호출될 때마다 자체 Host 인스턴스를 만든다. `PluginHost.listPlugins()`와 `listOperations()`는 해당 인스턴스의 등록/활성 상태를 반환할 수 있지만, Settings UI/API 또는 Telegram이 그 인스턴스를 조회하지 않는다. 따라서 지금은 사용자에게 보여줄 앱 전체의 설치·활성 Plugin 목록이나 상세 정보가 아직 없다.
+
+### vertical slice를 완성하기 위해 필요한 연결
+
+- Settings가 관리하는 provider/configuration을 Host composition 경계에서 안전하게 주입하고, 실제로 조립된 Plugin·상태·operation을 앱 공용 조회 경로로 노출한다.
+- Blog Beta 글쓰기·이미지 생성·수정 결과를 새 Application의 명시적 manuscript/assets 입력으로 준비한다. 기존 이미지 생성 경로를 재사용할지, image-generation Plugin으로 먼저 분리할지는 별도 결정이 필요하다.
+- Blog Beta 발행 요청을 새 Application으로 보내고, 기존 draft/schedule 정책, quota, 취소, 진행상태, 결과/스냅샷 기록의 소유자를 정한다. 기존 WordPress 경로와 새 경로가 동시에 실행되지 않도록 전환 경계를 둔다.
+- 같은 Application을 Telegram에서 호출하는 일은 별도 ingress 단계로 검증한다. UI와 Telegram이 발행 로직을 각각 구현하지 않게 한다.
+
+**조사 결론:** 현재 WordPress 새 구조는 Plugin/Application의 내부 계약을 테스트한 단계이며, UI부터 글쓰기·이미지 생성·설정·발행까지의 vertical stack은 아직 아니다. 다음 설계에서는 기존 draft workspace, image assets, 설정/config, quota/cancellation, 결과 보관을 포함해 새 stack의 단일 실행 경계와 단계별 전환을 정해야 한다. Telegram은 UI 경로의 안정화 후 같은 Application을 호출하는 채널 adapter로 둔다.
 
 ## 검증과 남은 위험
 
