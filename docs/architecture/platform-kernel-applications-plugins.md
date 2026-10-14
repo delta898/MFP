@@ -165,10 +165,13 @@ src/
   applications/
     examples/content-publishing.js
     wordpress-publishing.js     # New architecture example/pilot, not product-routed
+    generated-wordpress-publishing.js # Pilot workflow composing generation and publication
   composition/
     content-publishing-example.js
-    core-plugin-registry.js     # Explicit bundled Core Plugin factories; no directory scan
+    core-plugin-registry.js     # Explicit bundled Core Plugin inventory and ID-based factories
+    plugin-runtime-composition.js # Selects and wires the Plugin set for one runtime composition
     wordpress-publishing.js     # Pilot composition root
+    generated-wordpress-publishing.js # Pilot composition root for generation + publication
 
 packages/plugins/core/
   wordpress-publisher/          # First independently bounded Plugin package
@@ -216,15 +219,18 @@ This is an initial in-process boundary, not a security sandbox. Parser functions
 - Existing `src/plugins/catalog.js` and `src/plugins/core-host.js` remain in use by `src/capabilities/index.js`. They gate current capability contributions. They are not replaced or wrapped by the new Kernel Plugin Host in this stage.
 - The WordPress Publisher pilot lives at `packages/plugins/core/wordpress-publisher/`; it uses injected credentials and `fetch`, with no BlogGenius-private imports. Its REST operations cover media upload, category listing, and post creation.
 - `packages/plugins/core/content-generator/` declares `text.generate` over a provider-neutral injected `generateText({ prompt, signal })` function. It validates prompt/result shape but does not own provider/model selection, credentials, prompt building, retries, or product workflow.
-- `src/applications/wordpress-publishing.js` composes those operations into a publishing use case. `src/composition/wordpress-publishing.js` wires the package to the Kernel. This pilot does not replace the current WordPress product paths: they still call `Core.publishToWordPress()`.
+- `src/applications/wordpress-publishing.js` composes WordPress operations into a publishing use case. `src/composition/wordpress-publishing.js` wires the package to the Kernel. This pilot does not replace the current WordPress product paths: they still call `Core.publishToWordPress()`.
+- `src/applications/generated-wordpress-publishing.js` composes text generation with the WordPress publishing Application through injected operation and publish interfaces. `src/composition/generated-wordpress-publishing.js` selects both Plugins, creates one Kernel Host, and wires the two Applications together. Its tests use a fake text provider and fake WordPress HTTP responses; it is not connected to a product entrypoint.
 - The Application owns manuscript/asset preparation, category matching, warning collection, and draft fallback. The Plugin owns WordPress authentication and REST request/response behavior. Existing image optimization and FTC/CTA permanent-asset caching remain in the legacy Application/Core path; the pilot accepts already prepared `Buffer` assets and does not yet migrate those product concerns.
 - Both Core Plugin directories have minimal package manifests and public interface READMEs. They have no third-party runtime dependency; descriptor versions come from package manifests. This validates package boundaries, but not semver compatibility policy or separate-repository releases.
-- `src/composition/core-plugin-registry.js` is the explicit bundled Core Plugin catalog and factory boundary. `list()` describes every bundled factory; `createPlugins({ pluginIds, dependenciesByPluginId })` constructs only a composition's selected instances. It does not scan package directories. The runtime Plugin Host remains the source of truth for successfully registered plugins, current lifecycle state, and available operations. The WordPress publishing composition selects only `wordpress-publisher`, so it does not require the content generator's injected AI dependency.
+- `src/composition/core-plugin-registry.js` is the explicit bundled Core Plugin catalog and ID-based factory boundary. It lists packages, checks registration, and creates one requested Plugin; it does not choose the Plugin set for a use case.
+- `src/composition/plugin-runtime-composition.js` validates an explicit Plugin ID selection and its dependency map, then asks the catalog to create only those instances. Each Application composition root chooses its required Plugin set and supplies dependencies. The Kernel Plugin Host remains the source of truth for successfully registered runtime Plugins, lifecycle state, and available operations.
+- The WordPress publishing composition selects only `wordpress-publisher`; the generated WordPress composition selects `content-generator` and `wordpress-publisher`. The catalog can list both without requiring every runtime composition to instantiate or configure both.
 - The product UI currently lives across `ui/`, `src/ui-runtime/`, `src/ui-api/`, and `src/gui/`. Telegram and MCP also retain their existing roots as shown above. They have not yet been composed through a single new Host App ingress or routed into the new WordPress Application.
 - Existing Naver, generation, SNS, card-news, automation, UI, Telegram, and MCP paths are unchanged.
 
 ## Next migration gate
 
-The WordPress publishing pilot and content generation Plugin validate injected dependencies, composition-specific registration, operation discovery, and runtime execution using fakes/mocks. Neither replaces an existing product flow. A later migration should implement the agreed new Application/Plugin contracts directly; existing manual, scheduled, and batch paths are references only and need not remain compatible. Identify separately owned user data and external side effects before replacing or removing those paths. Add Kernel contract elements only when required by concrete application flows and tests.
+The WordPress publishing pilot, content generation Plugin, and generated WordPress composition validate injected dependencies, catalog lookup, explicit runtime assembly, operation discovery, and a combined generation-and-publishing Application using fakes/mocks. They do not replace existing product flows. A later migration should implement the agreed new Application/Plugin contracts directly; existing manual, scheduled, and batch paths are references only and need not remain compatible. Identify separately owned user data and external side effects before replacing or removing those paths. Add Kernel contract elements only when required by concrete application flows and tests.
 
 Community package loading, skill packaging, multi-host distribution, runtime install/removal, persistent lifecycle state, and process isolation require separate design decisions.

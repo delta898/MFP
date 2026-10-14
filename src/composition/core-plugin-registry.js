@@ -54,57 +54,33 @@ function createCorePluginRegistry(registrations = CORE_PLUGIN_REGISTRATIONS) {
         return Array.from(registrationsById.keys());
     }
 
-    function createPlugins(options = {}) {
-        if (!options || typeof options !== 'object' || Array.isArray(options)) {
-            throw new CorePluginRegistryError('Core Plugin composition options must be an object.');
-        }
-        const pluginIds = options.pluginIds;
-        const dependenciesByPluginId = options.dependenciesByPluginId == null
-            ? {}
-            : options.dependenciesByPluginId;
-        if (!Array.isArray(pluginIds) || pluginIds.some((id) => typeof id !== 'string')) {
-            throw new CorePluginRegistryError('Selected Core Plugin ids must be an array of strings.');
-        }
-        const selectedIds = new Set();
-        for (const id of pluginIds) {
-            if (!registrationsById.has(id)) {
-                throw new CorePluginRegistryError(`Selected Core Plugin is not registered: ${id}`, 'CORE_PLUGIN_NOT_REGISTERED');
-            }
-            if (selectedIds.has(id)) {
-                throw new CorePluginRegistryError(`Core Plugin was selected more than once: ${id}`, 'CORE_PLUGIN_DUPLICATE_SELECTION');
-            }
-            selectedIds.add(id);
-        }
-        if (!dependenciesByPluginId || typeof dependenciesByPluginId !== 'object' || Array.isArray(dependenciesByPluginId)) {
-            throw new CorePluginRegistryError('Core Plugin dependencies must be an object keyed by Plugin id.');
-        }
-        for (const id of Object.keys(dependenciesByPluginId)) {
-            if (!registrationsById.has(id)) {
-                throw new CorePluginRegistryError(`Dependencies were supplied for an unregistered Core Plugin: ${id}`, 'CORE_PLUGIN_NOT_REGISTERED');
-            }
-            if (!selectedIds.has(id)) {
-                throw new CorePluginRegistryError(`Dependencies were supplied for an unselected Core Plugin: ${id}`, 'CORE_PLUGIN_NOT_SELECTED');
-            }
-        }
-
-        return Object.freeze(Array.from(registrationsById.values())
-            .filter((registration) => selectedIds.has(registration.id))
-            .map((registration) => {
-                const plugin = registration.create(dependenciesByPluginId[registration.id] || {});
-                if (!plugin || typeof plugin !== 'object' || Array.isArray(plugin)) {
-                    throw new CorePluginRegistryError(`Core Plugin factory returned no Plugin instance: ${registration.id}`, 'CORE_PLUGIN_INSTANCE_MISSING');
-                }
-                if (plugin.id !== registration.id) {
-                    throw new CorePluginRegistryError(
-                        `Core Plugin factory id mismatch: expected ${registration.id}, received ${String(plugin.id || '') || 'none'}`,
-                        'CORE_PLUGIN_ID_MISMATCH'
-                    );
-                }
-                return plugin;
-            }));
+    function has(pluginId) {
+        return registrationsById.has(String(pluginId || '').trim());
     }
 
-    return Object.freeze({ list, createPlugins });
+    function createPlugin(pluginId, dependencies = {}) {
+        const id = String(pluginId || '').trim();
+        const registration = registrationsById.get(id);
+        if (!registration) {
+            throw new CorePluginRegistryError(`Core Plugin is not registered: ${id}`, 'CORE_PLUGIN_NOT_REGISTERED');
+        }
+        if (!dependencies || typeof dependencies !== 'object' || Array.isArray(dependencies)) {
+            throw new CorePluginRegistryError(`Dependencies for Core Plugin ${id} must be an object.`);
+        }
+        const plugin = registration.create(dependencies);
+        if (!plugin || typeof plugin !== 'object' || Array.isArray(plugin)) {
+            throw new CorePluginRegistryError(`Core Plugin factory returned no Plugin instance: ${id}`, 'CORE_PLUGIN_INSTANCE_MISSING');
+        }
+        if (plugin.id !== id) {
+            throw new CorePluginRegistryError(
+                `Core Plugin factory id mismatch: expected ${id}, received ${String(plugin.id || '') || 'none'}`,
+                'CORE_PLUGIN_ID_MISMATCH'
+            );
+        }
+        return plugin;
+    }
+
+    return Object.freeze({ list, has, createPlugin });
 }
 
 module.exports = {

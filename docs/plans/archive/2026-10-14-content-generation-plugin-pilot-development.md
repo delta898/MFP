@@ -1,9 +1,9 @@
 # Content Generation Plugin Pilot
 
-- Branch: `codex/feat/content-generation-plugin-pilot`
+- Branch: `codex/feat/content-generation-plugin-pilot` (merged and deleted)
 - Start date: 2026-10-14
 - Base/parent branch: `codex/fbr/plugin-architecture-foundation` (`f1aab52a`)
-- Status: implementation complete; focused verification in progress
+- Status: complete; fast-forward merged into `codex/fbr/plugin-architecture-foundation` at `89c1007c`
 
 ## User need and goal
 
@@ -43,7 +43,7 @@ This stage will inspect the current generation/provider boundaries, add one mini
 - The package owns validation and the provider-neutral Plugin descriptor. A host-injected `generateText` function performs provider/model selection and transport; no real provider implementation is copied into this package.
 - The Core Plugin catalog remains the source of truth for which first-party packages are bundled. The Plugin Host remains the source of truth for the actual registered set, enabled state, and available operations.
 - Composition lists the complete bundled catalog but each Application selects only its required Plugin instances. The user approved selective composition; this keeps an unrelated AI dependency out of the WordPress runtime while the Plugin Host reports the actual registered set and operations.
-- **Unresolved ownership decision:** should the selection/assembly logic remain in the Core Plugin registration catalog, or move into a separate shared runtime composition layer? The pilot currently keeps `createPlugins({ pluginIds, dependenciesByPluginId })` on the registry as an initial implementation. This is not an agreed long-term boundary. Revisit when planning the next Application/Plugin integration or before a second Application duplicates selection and dependency-wiring logic.
+- **Resolved in the Application/Plugin composition pilot:** the catalog owns bundle inventory and ID-based factory lookup; shared runtime composition validates the selected Plugin IDs and wires dependencies; each Application composition root declares its Plugin set. See [`2026-10-14-application-plugin-composition-pilot-development.md`](../active/2026-10-14-application-plugin-composition-pilot-development.md).
 - The user approved package version `0.1.0` for the content-generator package manifest.
 
 ## Implementation stages
@@ -51,8 +51,8 @@ This stage will inspect the current generation/provider boundaries, add one mini
 1. Resolve the composition behavior and exact package-version choice with the user. **Complete:** selective composition and version `0.1.0` approved.
 2. Implement the package contract, manifest, public usage guide, and mock-based tests. **Complete.**
 3. Extend explicit catalog/composition in the smallest way that supports multiple bundled Plugin definitions without coupling unrelated Application dependencies. **Complete.**
-4. Verify registration, operation discovery, execution, invalid-input handling, and disabled execution with focused tests. **In progress.**
-5. Update architecture and parent progress records; review the complete sub-feature diff before any parent merge. **In progress.**
+4. Verify registration, operation discovery, execution, invalid-input handling, and disabled execution with focused tests. **Complete.**
+5. Update architecture and parent progress records; review the complete sub-feature diff before parent integration. **Complete.**
 
 ## Verification plan
 
@@ -81,4 +81,4 @@ This stage will inspect the current generation/provider boundaries, add one mini
 - Implemented and contract-tested the first provider-neutral text-generation Core Plugin package at version `0.1.0`.
 - The explicit catalog lists both bundled packages, while WordPress composition registers only its required Plugin. The Kernel Host reports only registered runtime plugins/operations and continues to enforce enable/disable.
 - Existing BlogGenius generation flows remain unchanged and do not use this pilot yet. A later Application integration must decide how existing model/provider selection and async-job/cancellation behavior maps onto the injected function boundary.
-- No commit or merge has been made. Before merging this sub-feature into its parent, review the full diff and run the focused verification again if implementation changes.
+- Commit `89c1007c` (`feat: add content generation core plugin pilot`) was fast-forward merged into the parent; the sub-feature branch was deleted. The parent was not pushed.

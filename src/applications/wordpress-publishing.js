@@ -25,7 +25,7 @@ function assertNotAborted(executionContext) {
     }
 }
 
-function normalizeRequest(request) {
+function normalizeRequest(request, options = {}) {
     if (!request || typeof request !== 'object' || Array.isArray(request)) {
         throw new TypeError('WordPress publishing request must be an object.');
     }
@@ -34,11 +34,13 @@ function normalizeRequest(request) {
     const date = request.date == null ? undefined : requireText(request.date, 'Schedule date');
     if (status === 'schedule' && !date) throw new TypeError('Schedule date is required for scheduled publishing.');
     if (request.assets !== undefined && !Array.isArray(request.assets)) throw new TypeError('Assets must be an array.');
+    const content = typeof request.content === 'string' && request.content.trim()
+        ? request.content
+        : '';
+    if (!options.allowMissingContent && !content) throw new TypeError('Content must be a non-empty string.');
     return {
         title: requireText(request.title, 'Title'),
-        content: typeof request.content === 'string' && request.content.trim()
-            ? request.content
-            : (() => { throw new TypeError('Content must be a non-empty string.'); })(),
+        ...(content ? { content } : {}),
         status,
         date,
         category: typeof request.category === 'string' ? request.category.trim() : '',
@@ -63,6 +65,9 @@ function createWordPressPublishingApplication(options = {}) {
     }
 
     return Object.freeze({
+        validate(request) {
+            return Object.freeze(normalizeRequest(request, { allowMissingContent: true }));
+        },
         async publish(request, executionContext = {}) {
             const input = normalizeRequest(request);
             assertNotAborted(executionContext);
