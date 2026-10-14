@@ -3,7 +3,7 @@
 - Branch: `codex/feat/core-plugin-registry`
 - Start date: 2026-10-14
 - Base/parent branch: `codex/fbr/plugin-architecture-foundation` (`fe7ac003`)
-- Status: implementation complete; ready for parent integration
+- Status: merged into `codex/fbr/plugin-architecture-foundation` at `96cfbacb`; sub-feature branch deleted
 
 ## User need and goal
 

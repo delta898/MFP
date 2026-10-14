@@ -11,7 +11,7 @@
 - 첫 sub-feature `codex/feat/platform-kernel-application-boundary`의 최소 Kernel → Application → Plugin 예제와 계약 테스트가 commit `19f670d0`으로 이 parent에 fast-forward 병합됐다. 이 기반은 제품 entrypoint에 연결되지 않았으며 기존 발행·생성 흐름도 이전하지 않았다.
 - 하위 단계 개발 기록은 `docs/plans/archive/2026-10-14-platform-kernel-application-boundary-development.md`에 보관한다.
 - `codex/feat/wordpress-publisher-plugin-pilot`는 commit `4e1424f6`로 parent에 fast-forward 병합했다. 개발 기록은 [`2026-10-14-wordpress-publisher-plugin-pilot-development.md`](../archive/2026-10-14-wordpress-publisher-plugin-pilot-development.md)에 보관한다. 기존 제품 경로는 아직 새 구조에 연결되지 않았다.
-- 다음 sub-feature `codex/feat/core-plugin-registry`는 명시적 Core Plugin factory catalog와 runtime Host discovery 경계를 구현·검증한다. branch record는 [`2026-10-14-core-plugin-registration-development.md`](2026-10-14-core-plugin-registration-development.md)다.
+- `codex/feat/core-plugin-registry`는 commit `96cfbacb`로 parent에 fast-forward 병합했다. 명시적 Core Plugin factory catalog와 runtime Host discovery 경계를 구현했으며, 개발 기록은 [`2026-10-14-core-plugin-registration-development.md`](../archive/2026-10-14-core-plugin-registration-development.md)에 보관한다.
 
 ## 사용자 필요와 목표
 
@@ -288,14 +288,14 @@ Core Plugin은 초기에 앱에 번들되며 설치·삭제할 수 없다. 기�
 
 ## 다음 단계
 
-1. 현재 sub-feature `codex/feat/core-plugin-registry`에서 explicit bundled Core Plugin catalog와 runtime Host 조회를 검증한다.
-2. 이후 generation plugin 중 하나를 추가해 provider/generation operation도 같은 등록·Host contract를 따르는지 검증한다. 제품 entrypoint 연동과 legacy 경로 제거는 구조 검증 단계 이후 별도 slice로 다룬다.
-3. 각 단계는 focused tests/review를 거쳐 parent에 통합한다. 전체 테스트 및 parent의 dev 통합은 별도 승인과 검증 gate를 거치며 Community package 배포는 후속 단계다.
+1. 이후 generation plugin 중 하나를 추가해 provider/generation operation도 같은 등록·Host contract를 따르는지 검증한다. 제품 entrypoint 연동과 legacy 경로 제거는 구조 검증 단계 이후 별도 slice로 다룬다.
+2. 각 단계는 focused tests/review를 거쳐 parent에 통합한다. 전체 테스트 및 parent의 dev 통합은 별도 승인과 검증 gate를 거치며 Community package 배포는 후속 단계다.
 
 ## 검증과 남은 위험
 
 - Parent에는 최소 실행 기반과 WordPress provider package/Application pilot이 있다. 제품 코드 경로는 새 계층으로 전환되지 않았다. 기존 기능과의 호환성은 구조 재구현의 목표가 아니며, 사용자 데이터와 외부 side effect는 별도 판단한다. 현재 operation parser는 신뢰된 in-process 코드이며, 외부 plugin을 안전하게 실행하는 sandbox나 안정된 독립 SDK는 아니다.
 - 첫 sub-feature 검증: `node --test src/platform/plugin-host.test.js` 6건 통과, `git diff --check` 통과. UI/entrypoint 변경이 없어 browser smoke는 해당되지 않았다. full unit suite는 실행하지 않았다.
 - WordPress pilot 검증: `node --test packages/plugins/core/wordpress-publisher/index.test.js src/applications/wordpress-publishing.test.js src/platform/plugin-host.test.js` 14건 통과; `npm pack --dry-run`과 `git diff --check` 통과. 전체 단위 테스트 및 UI smoke는 실행하지 않았다.
+- Core Plugin registry 검증: focused 23 tests 통과, `git diff --check` 통과; full unit suite와 UI smoke는 실행하지 않았다. catalog는 번들 목록과 factory를 소유하고, runtime 등록·operation·enable 상태는 Host가 소유한다.
 - 결정: 구조 단계에서는 기존 배포 기능의 동작 호환성을 보장하지 않는다. 새 계층의 정확성과 테스트 가능성을 우선하며, 기존 함수/경로는 필요에 따라 교체·삭제할 수 있다. 사용자 데이터와 실행 중인 외부 부작용은 코드 호환성과 별도로 다룬다.
 - 남은 위험: 실제 제품의 credential/readiness/permission, 확인 정책, 예약 작업, 취소·재시도·중복 방지, observability와 data ownership이 초기 contract에 아직 반영되지 않았다. 외부 plugin trust model, 버전 호환성·rollback, 권한 격리, process isolation, 독립 package 경계도 별도 검증이 필요하다.
