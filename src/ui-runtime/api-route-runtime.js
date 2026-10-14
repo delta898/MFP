@@ -175,6 +175,12 @@ function createUiApiRouteRuntime(deps = {}) {
                 Logger,
                 workspaceDir: CONFIG?.WORKSPACE_DIR,
                 callWritingImage: typeof Utils?.callWritingImage === 'function' ? Utils.callWritingImage.bind(Utils) : null,
+                generateGatewayImage: typeof blogWritingApplication?.generateImage === 'function'
+                    ? (prompt, context = {}) => blogWritingApplication.generateImage(prompt, {}, {
+                        signal: context.signal,
+                        reportProgress: context.onProgress
+                    })
+                    : null,
                 relatedPosts: {
                     fetchPosts: typeof Utils?.fetchConfiguredRelatedPosts === 'function'
                         ? ({ title, content }) => Utils.fetchConfiguredRelatedPosts({ title, content, keywords: [] }, 3)

@@ -16,11 +16,11 @@ const { createBlogNextExecutionCoordinator } = require('../../blog-next/executio
 const { presentNaverPublishProgress } = require('../../blog-next/naver-publish-progress');
 const { createAiGenerationOperationManager } = require('../../blog-next/ai-generation-operations');
 const { buildCompletionLinks } = require('../../continuous-publishing/presentation');
-const { createManuscriptDraftService } = require('../../content/manuscript-draft-service');
+const { createManuscriptDraftService, validateImageBuffer } = require('../../content/manuscript-draft-service');
 const { selectManuscriptImagePromptContext } = require('../../content/manuscript-image-prompt-context');
 const { buildSetupReadiness } = require('../../account/setup-readiness');
-const { createTransientPreviewWorkspaceManager } = require('../../content/transient-preview-workspace');
 const { buildBlogGenerationPrompt } = require('../../content/blog-generation-prompt');
+const { validateBlogImageBlocks } = require('../../content/blog-image-plan');
 const { collectBlogReferenceContext } = require('../../content/blog-reference-context');
 const Constants = require('../../constants');
 
@@ -64,7 +64,6 @@ function createContentService(deps = {}) {
         blogWritingApplication,
         executeQuickPreviewPublish,
         getQuickPreviewImagePayload,
-        deleteQuickPublishPreviewSession,
         executeLocalMarkdownPublish,
         executeShoppingQuickPublish,
         sortTopicItems,
@@ -96,6 +95,12 @@ function createContentService(deps = {}) {
                 Logger,
                 workspaceDir: CONFIG?.WORKSPACE_DIR,
                 callWritingImage: typeof Utils?.callWritingImage === 'function' ? Utils.callWritingImage.bind(Utils) : null,
+                generateGatewayImage: typeof blogWritingApplication?.generateImage === 'function'
+                    ? (prompt, context = {}) => blogWritingApplication.generateImage(prompt, {}, {
+                        signal: context.signal,
+                        reportProgress: context.onProgress
+                    })
+                    : null,
                 relatedPosts: {
                     fetchPosts: typeof Utils?.fetchConfiguredRelatedPosts === 'function'
                         ? ({ title, content }) => Utils.fetchConfiguredRelatedPosts({ title, content, keywords: [] }, 3)
@@ -422,67 +427,81 @@ function createContentService(deps = {}) {
     }
 
     async function generateAiManuscriptDraft(requestBody, imageMode, operation = null, textModelConfig = null, imageModelConfig = null) {
+        const manuscriptStartedAt = Date.now();
         operation?.throwIfCanceled();
         operation?.setStage('writing');
         const requestedTargets = Array.isArray(requestBody.targets)
             ? requestBody.targets
             : (Array.isArray(requestBody.platforms) ? requestBody.platforms : []);
         const targets = requestedTargets.length === 1 ? requestedTargets : ['naver'];
-        const useContentGeneratorPlugin = Boolean(blogWritingApplication) && imageMode === 'none';
-        const generationFallbackReason = !blogWritingApplication ? 'application_unavailable'
-            : imageMode !== 'none' ? `image_pipeline_not_in_vertical_slice:${imageMode}` : '';
-        Logger?.info?.(`[Blog Beta][Plugin] content-generator 경로 선택: ${useContentGeneratorPlugin ? 'plugin' : `Core fallback (${generationFallbackReason || 'not_selected'})`}`
-            + ` (requestedTargets=${requestedTargets.join(',') || 'none'}, effectiveTargets=${targets.join(',')}, imageMode=${imageMode})`);
-        if (useContentGeneratorPlugin) {
-            const license = await License.checkLicenseStatus();
-            if (!license?.success) throw createApiError(400, license?.code || 'LICENSE_STATUS_FAILED', license?.message || '라이선스 상태를 확인하지 못했습니다.');
-            const title = String(requestBody.title || '').trim();
-            const subject = String(requestBody.subject || '').trim();
-            const keywords = Array.isArray(requestBody.keywords)
-                ? requestBody.keywords
-                : String(requestBody.keywords || '').split(',').map((item) => item.trim()).filter(Boolean);
-            const referenceUrls = [
-                ...(String(requestBody.referenceUrl || '').trim() ? [String(requestBody.referenceUrl).trim()] : []),
-                ...(Array.isArray(requestBody.referenceUrls) ? requestBody.referenceUrls : [])
-            ];
-            const { referenceContext } = await collectBlogReferenceContext({
-                Utils,
-                Logger,
-                signal: operation?.signal,
-                jobData: {
-                    subject,
-                    keywords,
-                    use_external_ref: requestBody.externalReference === true,
-                    content_guide: {
-                        title,
-                        additional_instructions: requestBody.instruction || '',
-                        reference_urls: referenceUrls
-                    }
-                }
-            });
-            operation?.throwIfCanceled();
-            const resolvedPrompt = buildBlogGenerationPrompt({
-                profile: CONFIG.CONTENT_WRITING_PROFILE,
-                strategy: requestBody.writingStrategy || requestBody.writing_strategy,
-                globalStrategy: CONFIG.BLOG_WRITING_STRATEGY,
-                config: CONFIG,
-                constants: Constants,
-                post: {
-                    subject,
+        if (!blogWritingApplication) {
+            throw createApiError(503, 'AI_GATEWAY_UNAVAILABLE', 'AI Gateway Plugin을 사용할 수 없어 원고를 만들지 않았습니다.');
+        }
+        Logger?.info?.(`[Blog Beta][Plugin] ai-gateway 경로 확정 (plugin=ai-gateway, operations=text.generate${generatesBlogImages(imageMode) ? ',image.generate' : ''}, operationId=${String(operation?.operationId || 'direct')}, requestedTargets=${requestedTargets.join(',') || 'none'}, effectiveTargets=${targets.join(',')}, imageMode=${imageMode})`);
+        const license = await License.checkLicenseStatus();
+        if (!license?.success) throw createApiError(400, license?.code || 'LICENSE_STATUS_FAILED', license?.message || '라이선스 상태를 확인하지 못했습니다.');
+        const title = String(requestBody.title || '').trim();
+        const subject = String(requestBody.subject || '').trim();
+        const keywords = Array.isArray(requestBody.keywords)
+            ? requestBody.keywords
+            : String(requestBody.keywords || '').split(',').map((item) => item.trim()).filter(Boolean);
+        const referenceUrls = [
+            ...(String(requestBody.referenceUrl || '').trim() ? [String(requestBody.referenceUrl).trim()] : []),
+            ...(Array.isArray(requestBody.referenceUrls) ? requestBody.referenceUrls : [])
+        ];
+        const { referenceContext } = await collectBlogReferenceContext({
+            Utils,
+            Logger,
+            signal: operation?.signal,
+            jobData: {
+                subject,
+                keywords,
+                use_external_ref: requestBody.externalReference === true,
+                content_guide: {
                     title,
-                    keywords,
-                    instruction: requestBody.instruction || '',
-                    image_mode: 'none',
-                    image_generate: false,
-                    image_count: 0,
-                    reference_context: referenceContext,
-                    writing_overrides: requestBody.writingOverrides || requestBody.writing_overrides
+                    additional_instructions: requestBody.instruction || '',
+                    reference_urls: referenceUrls
                 }
+            }
+        });
+        operation?.throwIfCanceled();
+        const imageCount = imageMode === 'none' ? 0 : requestBody.imageCount ?? requestBody.image_count;
+        const resolvedPrompt = buildBlogGenerationPrompt({
+            profile: CONFIG.CONTENT_WRITING_PROFILE,
+            strategy: requestBody.writingStrategy || requestBody.writing_strategy,
+            globalStrategy: CONFIG.BLOG_WRITING_STRATEGY,
+            config: CONFIG,
+            constants: Constants,
+            post: {
+                subject,
+                title,
+                keywords,
+                instruction: requestBody.instruction || '',
+                image_mode: imageMode,
+                image_generate: generatesBlogImages(imageMode),
+                image_count: imageCount,
+                reference_context: referenceContext,
+                writing_overrides: requestBody.writingOverrides || requestBody.writing_overrides
+            }
+        });
+        const selectedTextModel = textModelConfig || CONFIG.TEXT_MODEL_CONFIG || {};
+        const selectedImageModel = imageModelConfig || CONFIG.IMAGE_MODEL_CONFIG || {};
+        const formatModel = (model) => `${String(model.name || model.code || 'unknown')}`
+            + ` / provider=${String(model.provider || 'unknown')}`
+            + ` / model=${String(model.code || model.name || 'unknown')}`
+            + ` / transport=${String(model.transport || 'unknown')}`;
+        const textStartedAt = Date.now();
+        Logger?.info?.(`[Blog Beta][Plugin] ai-gateway.text.generate 시작 (model: ${formatModel(selectedTextModel)}, imageMode=${imageMode})`);
+        try {
+            const raw = await blogWritingApplication.generateText(resolvedPrompt.prompt, {
+                signal: operation?.signal,
+                ...(selectedTextModel.provider && (selectedTextModel.code || selectedTextModel.name) ? { modelSelection: {
+                    provider: selectedTextModel.provider,
+                    modelId: selectedTextModel.code || selectedTextModel.name
+                } } : {})
             });
-            Logger?.info?.('[Blog Beta][Plugin] content-generator.text.generate 시작');
-            const raw = await blogWritingApplication.generateText(resolvedPrompt.prompt, { signal: operation?.signal });
             operation?.throwIfCanceled();
-            Logger?.info?.(`[Blog Beta][Plugin] content-generator.text.generate 완료 (응답 ${String(raw || '').length}자)`);
+            Logger?.info?.(`[Blog Beta][Plugin] ai-gateway.text.generate 완료 (model=${String(selectedTextModel.code || selectedTextModel.name || 'unknown')}, elapsed=${Math.max(0, Date.now() - textStartedAt)}ms, response=${String(raw || '').length}자)`);
             let generated;
             try { generated = Utils.parseStructuredJsonResponse(raw); }
             catch (error) { throw createApiError(502, 'BLOG_PLUGIN_GENERATION_INVALID', `AI 원고 응답을 해석하지 못했습니다: ${error.message}`); }
@@ -491,101 +510,65 @@ function createContentService(deps = {}) {
             if (!generatedTitle || !generatedContent) {
                 throw createApiError(502, 'BLOG_PLUGIN_GENERATION_INCOMPLETE', 'AI가 제목이나 본문을 충분히 생성하지 못했습니다. 입력을 보완한 뒤 다시 시도해 주세요.');
             }
+            validateBlogImageBlocks(generatedContent, resolvedPrompt.image_plan);
             const hashtags = Array.isArray(generated.hashtags)
                 ? generated.hashtags.map((tag) => String(tag || '').replace(/^#+/, '').trim()).filter(Boolean).slice(0, 20)
                 : [];
             const markdownText = `# ${generatedTitle}\n\n${generatedContent}${hashtags.length ? `\n\n\n${hashtags.map((tag) => `#${tag}`).join(' ')}` : ''}`;
+            const images = [];
+            if (generatesBlogImages(imageMode)) {
+                operation?.setStage('images');
+                const parsed = Utils.parseMarkdown(markdownText);
+                const imageBlocks = (Array.isArray(parsed?.contents) ? parsed.contents : []).filter((item) => item.type === 'image');
+                if (imageBlocks.length !== resolvedPrompt.image_plan.count) {
+                    throw createApiError(502, 'BLOG_IMAGE_PLAN_MISMATCH', '생성된 이미지 영역을 읽지 못해 원고를 저장하지 않았습니다. 다시 시도해 주세요.');
+                }
+                const imageStyle = String(requestBody.imageStyle || requestBody.image_style || CONFIG.IMAGE_STYLE || 'photorealistic').trim();
+                Logger?.info?.(`[Blog Beta][Plugin] 이미지 생성 시작 (blocks=${imageBlocks.length}, model: ${formatModel(selectedImageModel)}, aspect=4:3, size=1K)`);
+                for (const [index, image] of imageBlocks.entries()) {
+                    operation?.throwIfCanceled();
+                    const prompt = `${String(image.prompt || '').trim()}, ${imageStyle}, high quality, no text`;
+                    const imageStartedAt = Date.now();
+                    Logger?.info?.(`[Blog Beta][Plugin] ai-gateway.image.generate 시작 (${index + 1}/${imageBlocks.length}, IMAGE_${image.index}, model=${String(selectedImageModel.code || selectedImageModel.name || 'unknown')})`);
+                    try {
+                        const generatedImage = await blogWritingApplication.generateImage(prompt, {
+                            aspectRatio: '4:3', size: '1K', count: 1
+                        }, {
+                            signal: operation?.signal,
+                            reportProgress: (event) => Logger?.info?.(`[Blog Beta][Plugin] ai-gateway.image.generate 진행 (${index + 1}/${imageBlocks.length}, phase=${String(event?.phase || 'working')}${Number.isFinite(event?.progress) ? `, progress=${event.progress}%` : ''})`)
+                        });
+                        operation?.throwIfCanceled();
+                        if (!generatedImage || typeof generatedImage.dataBase64 !== 'string') {
+                            throw Object.assign(new Error('AI Gateway가 올바른 이미지 결과를 반환하지 않았습니다.'), { code: 'AI_GATEWAY_INVALID_PROVIDER_RESPONSE' });
+                        }
+                        const buffer = Buffer.from(generatedImage.dataBase64, 'base64');
+                        validateImageBuffer(buffer);
+                        images.push({ index: Number(image.index), buffer });
+                        Logger?.info?.(`[Blog Beta][Plugin] ai-gateway.image.generate 완료 (${index + 1}/${imageBlocks.length}, IMAGE_${image.index}, model=${String(selectedImageModel.code || selectedImageModel.name || 'unknown')}, mime=${String(generatedImage.mimeType || 'unknown')}, bytes=${images.at(-1).buffer.byteLength}, elapsed=${Math.max(0, Date.now() - imageStartedAt)}ms)`);
+                    } catch (error) {
+                        operation?.throwIfCanceled();
+                        if (error?.code === 'AI_GATEWAY_CANCELED' || error?.name === 'AbortError') throw error;
+                        Logger?.warn?.(`[Blog Beta][Plugin] ai-gateway.image.generate 실패 (${index + 1}/${imageBlocks.length}, IMAGE_${image.index}, model=${String(selectedImageModel.code || selectedImageModel.name || 'unknown')}, elapsed=${Math.max(0, Date.now() - imageStartedAt)}ms, code=${String(error?.code || 'AI_GATEWAY_PROVIDER_ERROR')}): ${error?.message || 'unknown error'}; image prompt는 유지합니다.`);
+                    }
+                }
+                Logger?.info?.(`[Blog Beta][Plugin] 이미지 생성 결과 (requested=${imageBlocks.length}, generated=${images.length}, preservedPrompts=${imageBlocks.length - images.length})`);
+            }
+            operation?.throwIfCanceled();
             operation?.beginCommit();
             const draft = getManuscriptDraftService().createAiDraft({
                 ...requestBody,
-                imageMode: 'none',
+                imageMode,
                 targets,
                 markdownText,
-                images: [],
+                images,
                 sourceLabel: generatedTitle,
-                sourceMetadata: { generationPlugin: 'content-generator' }
+                sourceMetadata: { generationPlugin: 'ai-gateway' }
             });
-            Logger?.info?.(`[Blog Beta][Plugin] 원고 저장 완료 (draft ${String(draft?.draftId || '').slice(0, 8)}, targets=${targets.join(',')})`);
+            Logger?.info?.(`[Blog Beta][Plugin] 원고 저장 완료 (draft ${String(draft?.draftId || '').slice(0, 8)}, targets=${targets.join(',')}, plugin=ai-gateway, images=${images.length}/${resolvedPrompt.image_plan.count})`);
             return refreshManuscriptRelatedPosts(draft, await resolveRelatedPostsEnabled(), { force: true });
-        }
-        // The canonical manuscript is platform-neutral. Use the non-browser generation
-        // projection only as a transient workspace and apply the user's platform later.
-        const generationTargets = ['wordpress'];
-        let transientWorkspaceDir = '';
-        let workspaceManager = null;
-        let data = {};
-        try {
-            if (fs?.mkdtempSync && path?.join && typeof Utils?.resolvePlatformWorkspaceDir === 'function') {
-                const platformDir = Utils.resolvePlatformWorkspaceDir('wordpress');
-                transientWorkspaceDir = fs.mkdtempSync(path.join(platformDir, 'ai-draft-'));
-                workspaceManager = createTransientPreviewWorkspaceManager({
-                    fs, path, Logger, workspaceDir: path.dirname(platformDir)
-                });
-                workspaceManager.track({ wordpress: transientWorkspaceDir }, operation?.operationId || '');
-            }
-            const generated = await executeQuickPublish({
-                ...requestBody,
-                imageMode,
-                imageGeneration: generatesBlogImages(imageMode),
-                targets: generationTargets,
-                postStatus: 'draft',
-                scheduleDate: '',
-                publishMode: 'append_and_generate'
-            }, {
-                workspaceDraft: true,
-                ...(transientWorkspaceDir ? { transientWorkspaceDir } : {}),
-                ...(operation ? { signal: operation.signal } : {}),
-                ...(operation ? { onStage: (stage) => operation.setStage(stage) } : {}),
-                ...(textModelConfig ? { textModelConfig } : {}),
-                ...(imageModelConfig ? { imageModelConfig } : {})
-            });
-            data = generated?.data || {};
-            operation?.throwIfCanceled();
-            if (!generated?.success) {
-                throw createApiError(400, generated?.code || 'MANUSCRIPT_AI_GENERATE_FAILED', generated?.message || 'AI 원고를 만들지 못했습니다.');
-            }
-            const primaryTarget = String(data.primaryTarget || generationTargets[0] || '').trim();
-            const preview = data.previews?.[primaryTarget];
-            if (!preview?.rawMarkdown) {
-                throw createApiError(500, 'MANUSCRIPT_AI_PREVIEW_MISSING', '생성된 원고를 작업공간으로 가져오지 못했습니다.');
-            }
-            const images = [];
-            for (const image of Array.isArray(preview.images) ? preview.images : []) {
-                operation?.throwIfCanceled();
-                if (!image?.exists) continue;
-                const payload = getQuickPreviewImagePayload({
-                    previewId: data.previewId,
-                    target: primaryTarget,
-                    index: image.index
-                });
-                if (payload?.binary && Buffer.isBuffer(payload.body)) {
-                    images.push({ index: image.index, buffer: payload.body });
-                }
-            }
-            operation?.beginCommit();
-            const draft = getManuscriptDraftService().createAiDraft({
-                ...requestBody,
-                imageMode,
-                targets,
-                markdownText: imageMode === 'none'
-                    ? stripBlogImagePromptBlocks(preview.rawMarkdown)
-                    : preview.rawMarkdown,
-                images: imageMode === 'none' ? [] : images,
-                sourceLabel: preview.title || requestBody.title || requestBody.subject || '바로 생성 원고',
-                sourceMetadata: { generationProjection: primaryTarget }
-            });
-            return refreshManuscriptRelatedPosts(draft, await resolveRelatedPostsEnabled(), { force: true });
-        } finally {
-            if (typeof deleteQuickPublishPreviewSession === 'function' && data.previewId) {
-                try {
-                    deleteQuickPublishPreviewSession(data.previewId);
-                } catch (error) {
-                    Logger?.warn?.(`AI 원고 임시 미리보기 정리 실패: ${error.message}`);
-                }
-            }
-            if (transientWorkspaceDir) {
-                workspaceManager?.dispose({ wordpress: transientWorkspaceDir });
-            }
+        } catch (error) {
+            Logger?.error?.(`[Blog Beta][Plugin] AI Gateway 원고 생성 실패 (plugin=ai-gateway, imageMode=${imageMode}, elapsed=${Math.max(0, Date.now() - manuscriptStartedAt)}ms, code=${String(error?.code || 'AI_GATEWAY_EXECUTION_FAILED')}): ${error?.message || 'unknown error'}`);
+            throw error;
         }
     }
 
@@ -1288,7 +1271,14 @@ function createContentService(deps = {}) {
                     });
                 }
                 operation.setProgress({ current: 1, total: 1, slotId: String(operationInput.slotId || ''), phase: 'generating' });
-                const result = await getManuscriptDraftService().generateImage({ ...operationInput, signal: operation.signal });
+                const result = await getManuscriptDraftService().generateImage({
+                    ...operationInput,
+                    signal: operation.signal,
+                    onProgress: (event) => operation.setProgress({
+                        current: 1, total: 1, slotId: String(operationInput.slotId || ''), phase: event.phase,
+                        ...(Number.isFinite(event.progress) ? { percent: event.progress } : {})
+                    })
+                });
                 operation.setProgress({ current: 1, total: 1, slotId: String(operationInput.slotId || ''), phase: 'completed' });
                 return result;
             });
@@ -1443,9 +1433,8 @@ function createContentService(deps = {}) {
                 if (target === 'wordpress' && snapshot.settings?.postStatus === 'schedule') {
                     throw createApiError(400, 'WORDPRESS_PLUGIN_STATUS_UNSUPPORTED', '현재 WordPress Plugin 발행 경로는 임시 저장과 즉시 발행만 지원합니다.');
                 }
-                if (target === 'wordpress' && (snapshot.publishPolicy?.unresolvedImageCount > 0
-                    || snapshot.selectedFiles?.some((entry) => String(entry?.contentType || '').startsWith('image/')))) {
-                    throw createApiError(400, 'WORDPRESS_PLUGIN_TEXT_ONLY', '현재 WordPress Plugin 발행 경로는 이미지 없는 원고만 지원합니다. 이미지를 제거한 뒤 다시 시도해 주세요.');
+                if (target === 'wordpress' && snapshot.publishPolicy?.unresolvedImageCount > 0) {
+                    throw createApiError(400, 'WORDPRESS_IMAGE_UNRESOLVED', '아직 이미지가 준비되지 않은 원고입니다. 이미지 생성을 완료하거나 해당 이미지 블록을 제외한 뒤 다시 시도해 주세요.');
                 }
                 if (typeof draftService.assertNotPublished === 'function') {
                     draftService.assertNotPublished({
@@ -1454,7 +1443,8 @@ function createContentService(deps = {}) {
                         target
                     });
                 }
-                const canStopNaver = (Array.isArray(snapshot.settings?.targets) ? snapshot.settings.targets : []).includes('naver');
+                const canStopPublish = target === 'wordpress'
+                    || (Array.isArray(snapshot.settings?.targets) ? snapshot.settings.targets : []).includes('naver');
                 if (target === 'wordpress') {
                     Logger?.info?.(`[Blog Beta][Plugin] WordPress 원고 발행 시작 (상태 ${snapshot.settings?.postStatus || 'publish'})`);
                 }
@@ -1462,10 +1452,10 @@ function createContentService(deps = {}) {
                     ...snapshot.settings,
                     ...snapshot,
                     operationId: requestBody.operationId,
-                    ...(target === 'wordpress' ? { imageMode: 'none', usePluginPublisher: true } : {}),
-                    onPreparationComplete() { lease.setCanStop(canStopNaver); },
+                    ...(target === 'wordpress' ? { usePluginPublisher: true } : {}),
+                    onPreparationComplete() { lease.setCanStop(canStopPublish); },
                     onNaverProgress(progress) {
-                        if (progress?.stage === 'editor') lease.setCanStop(canStopNaver);
+                        if (progress?.stage === 'editor') lease.setCanStop(canStopPublish);
                         const presentation = presentNaverPublishProgress(progress, snapshot.settings.postStatus);
                         if (presentation) lease.updateProgress(presentation);
                     }

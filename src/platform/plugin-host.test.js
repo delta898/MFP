@@ -114,6 +114,40 @@ test('Host applies manifest JSON Schemas to operation input and output without m
     await assert.rejects(failingHost.execute('sample-plugin', 'run', input), (error) => error === failure);
 });
 
+test('Host validates Plugin progress and binds events to the executing operation', async () => {
+    const host = createPluginHost({ plugins: [validPlugin({
+        operations: {
+            run: {
+                async execute(_input, context) {
+                    context.reportProgress({ phase: 'generating', progress: 35 });
+                    return {};
+                }
+            }
+        }
+    })] });
+    const events = [];
+
+    await host.execute('sample-plugin', 'run', {}, { reportProgress: (event) => events.push(event) });
+    assert.deepEqual(events, [{
+        pluginId: 'sample-plugin', operationId: 'run', phase: 'generating', progress: 35
+    }]);
+    await assert.rejects(host.execute('sample-plugin', 'run', {}, { reportProgress: true }), /callback.*function/i);
+
+    const invalidEventHost = createPluginHost({ plugins: [validPlugin({
+        operations: {
+            run: {
+                async execute(_input, context) {
+                    context.reportProgress({ phase: 'generating', progress: 101 });
+                    return {};
+                }
+            }
+        }
+    })] });
+    await assert.rejects(invalidEventHost.execute('sample-plugin', 'run', {}, {
+        reportProgress() {}
+    }), /0 to 100/);
+});
+
 test('disable blocks new work and waits for active executions to drain', async () => {
     let finish;
     const active = new Promise((resolve) => { finish = resolve; });

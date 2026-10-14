@@ -48,7 +48,7 @@ test('Core Plugin registry lists bundled factories and creates a requested Plugi
     assert.equal(actualDependencies, receivedDependencies);
     assert.deepEqual(CORE_PLUGIN_REGISTRATIONS.map((item) => item.id), [
         'wordpress-publisher',
-        'content-generator',
+        'ai-gateway',
         'hello-world'
     ]);
 });

@@ -114,16 +114,16 @@ flowchart TB
 
 In a successful flow, a channel adapter normalizes input, the Agent Runtime identifies the intent and asks for missing decisions when needed, and the Host App selects an Application. The Application owns the business sequence and requests operations through the Kernel contract. The Plugin Host checks registration and lifecycle state, validates and dispatches each operation, and returns results to the Application. The Host App formats the result for the originating channel. A request may stop for clarification or confirmation instead of invoking a Plugin.
 
-The diagram is the agreed target, not a claim that every box or arrow is implemented. In particular, the new WordPress Application is not yet routed from the product UI, Telegram, or MCP. The current Agent/Capability path and the new Plugin Host are parallel systems during this architecture stage.
+The diagram is the agreed target, not a claim that every box or arrow is implemented. Blog Beta's direct manuscript publication path now invokes the WordPress Publishing Application through the Plugin Host. Other UI, Telegram, and MCP paths have not been routed through a shared Host App ingress. The current Agent/Capability path and the new Plugin Host remain parallel systems.
 
-Today, operational product traffic still follows the existing control path:
+Most operational product traffic still follows the existing control path:
 
 ```text
 Existing UI / Telegram / MCP ingress -> Agent Runtime -> Capability Registry -> Execution Layer
                                                        -> Memory and channel-specific response
 ```
 
-The new Kernel/Application path is currently exercised through examples and the WordPress pilot composition root; it does not yet receive normal product requests. For current Agent Runtime, capability, and memory ownership, see [`architecture/overview.md`](overview.md), [`architecture/agent-runtime.md`](agent-runtime.md), and [`architecture/memory-graph.md`](memory-graph.md).
+The new Kernel/Application path is used by Blog Beta's direct AI manuscript generation and WordPress manuscript publication. Other Applications remain examples or pilots. For current Agent Runtime, capability, and memory ownership, see [`architecture/overview.md`](overview.md), [`architecture/agent-runtime.md`](agent-runtime.md), and [`architecture/memory-graph.md`](memory-graph.md).
 
 ## Directory ownership: target and current implementation
 
@@ -164,7 +164,7 @@ src/
   platform/                     # New Kernel Plugin contract and Plugin Host
   applications/
     examples/content-publishing.js
-    wordpress-publishing.js     # New architecture example/pilot, not product-routed
+    wordpress-publishing.js     # Used by Blog Beta direct manuscript publication
     generated-wordpress-publishing.js # Pilot workflow composing generation and publication
   composition/
     content-publishing-example.js
@@ -175,13 +175,13 @@ src/
 
 packages/plugins/core/
   wordpress-publisher/          # First independently bounded Plugin package
-  content-generator/            # Provider-neutral text generation operation package
+  ai-gateway/                   # Provider-neutral text/image generation operations
   hello-world/                  # Minimal bundled Core Plugin reference
 ```
 
 The target `src/host/` and `src/adapters/` directories do not exist yet. Existing UI, Telegram, and MCP paths should not be described as already migrated adapters merely because they have adapter-like responsibilities. Likewise, `src/plugins/` is the existing capability-contribution host, while `src/platform/plugin-host.js` is the new Kernel Plugin Host; they are not interchangeable. Do not create empty target directories or relocate current code for appearance alone. Add a target boundary when a real migration slice defines and tests its contract.
 
-The initial foundation uses `src/applications/examples/`, `src/composition/`, and `src/test-fixtures/`. The WordPress pilot and explicit Core Plugin catalog validate package composition and runtime discovery, but do not migrate an existing product flow.
+The initial foundation uses `src/applications/examples/`, `src/composition/`, and `src/test-fixtures/`. The WordPress Application and explicit Core Plugin catalog now serve Blog Beta direct manuscript publication; other product flows remain outside this migration.
 
 ## Dependency direction
 
@@ -211,7 +211,7 @@ Each bundled package declares `package.json#bloggeniusPlugin`. It contains the m
 - The Plugin Host validates each input before execution and each output before returning it. Manifest schemas are the authoritative operation contract; executable `input.parse` / `output.parse` validators are not part of the public Plugin API.
 - Operation dispatch is addressed by `pluginId` and `operationId`. `listOperations()` exposes registered, enabled operations and omits disabled or disabling Plugins.
 - Plugin execution errors pass through to the Application. Schema violations are reported as `PluginContractError`.
-- The executor receives a narrow execution context (`AbortSignal` at this stage); it does not receive the Host's full dependency bag.
+- The executor receives a narrow execution context (`AbortSignal` and optional Host-mediated progress reporting); it does not receive the Host's full dependency bag.
 - `setEnabled(false)` blocks new executions immediately and waits for tracked operations to finish. It does not undo an external side effect already performed by an operation.
 
 This is an in-process boundary, not a security sandbox. Bundled Core code is trusted. Manifest capability declarations describe requested authority; they do not make in-process JavaScript safe to load from an untrusted source.
@@ -221,21 +221,21 @@ This is an in-process boundary, not a security sandbox. Bundled Core code is tru
 - New foundation code: `src/platform/plugin-contract.js`, `src/platform/plugin-host.js`, manifest-backed Core registry/composition, and the example Application and composition root.
 - Existing `src/plugins/catalog.js` and `src/plugins/core-host.js` remain in use by `src/capabilities/index.js`. They gate current capability contributions. They are not replaced or wrapped by the new Kernel Plugin Host in this stage.
 - The WordPress Publisher package uses injected credentials and `fetch`, with no BlogGenius-private imports. Its REST operations cover media upload, category listing, and post creation. Media bytes cross the JSON operation boundary as base64 and are decoded only by the WordPress adapter.
-- `packages/plugins/core/content-generator/` declares `text.generate` over a provider-neutral injected `generateText({ prompt, signal })` function. The Host validates the public JSON contract; the Plugin owns semantic non-whitespace checks but not provider/model selection, credentials, prompt building, retries, or product workflow.
-- `src/applications/wordpress-publishing.js` composes WordPress operations into a publishing use case. `src/composition/wordpress-publishing.js` wires the package to the Kernel. This pilot does not replace the current WordPress product paths: they still call `Core.publishToWordPress()`.
-- `src/applications/generated-wordpress-publishing.js` composes text generation with the WordPress publishing Application through injected operation and publish interfaces. `src/composition/generated-wordpress-publishing.js` selects both Plugins, creates one Kernel Host, and wires the two Applications together. Its tests use a fake text provider and fake WordPress HTTP responses; it is not connected to a product entrypoint.
-- The Application owns manuscript/asset preparation, category matching, warning collection, and draft fallback. The Plugin owns WordPress authentication and REST request/response behavior. Existing image optimization and FTC/CTA permanent-asset caching remain in the legacy Application/Core path; the pilot accepts already prepared `Buffer` assets and does not yet migrate those product concerns.
+- `packages/plugins/core/ai-gateway/` declares provider-neutral `text.generate` and `image.generate` operations. It reports its supported routes independently of the BlogGenius Model Catalog. BlogGenius Applications intersect both lists; the Host-owned transport resolves credentials and authenticates fixed provider routes without passing keys through Plugin operations. See [AI Gateway Core Plugin](ai-gateway-plugin.md).
+- `src/applications/wordpress-publishing.js` composes WordPress operations into a publishing use case. `src/composition/wordpress-publishing.js` wires the package to the Kernel. Blog Beta manuscript publication uses this Application; other WordPress product paths may still call `Core.publishToWordPress()`.
+- `src/applications/generated-wordpress-publishing.js` composes AI Gateway text generation with the WordPress publishing Application through injected operation and publish interfaces. `src/composition/generated-wordpress-publishing.js` selects both Plugins, creates one Kernel Host, and wires the two Applications together. Its tests use a fake AI transport and fake WordPress HTTP responses; it is not connected to a product entrypoint.
+- BlogGenius' manuscript publication runtime resolves image blocks to prepared local assets and passes their bytes and MIME types to the WordPress Publishing Application. The Application uploads assets, replaces `{{asset:key}}` references with media URLs, handles categories and warnings, and downgrades a requested publication to draft when media or category warnings occur. The Plugin owns WordPress authentication and REST request/response behavior; it does not convert image formats. `src/applications/blog-publishing.js` owns BlogGenius target policy (Naver → WebP, WordPress → AVIF) and `src/media/image-optimization-service.js` performs format conversion. When optimization is disabled, unavailable, or fails, the original image bytes and MIME type are preserved. Site Hosting has no target-format policy in this slice; a future WebP decision remains pending.
 - All bundled Core Plugin packages declare the common manifest. `packages/plugins/core/hello-world/` is a small Core Plugin that exercises manifest discovery, operation listing, selection, registration, and invocation without an external service.
 - `src/composition/core-plugin-registry.js` is the explicit bundled Core Plugin source adapter. It reads and validates package manifests without loading implementation modules, then loads the selected package on demand; it does not choose the Plugin set for a use case.
 - `src/composition/core-plugin-runtime.js` joins that static catalog with one in-memory `PluginHost`. A process may inject the same runtime into multiple Application composition roots so registered Plugin instances, lifecycle, and operations have one shared owner. Application composition still selects only the Plugins it needs; discovery does not instantiate every catalog entry.
 - `src/composition/plugin-runtime-composition.js` validates an explicit Plugin ID selection and its dependency map, then asks the catalog to create only those instances. Each Application composition root chooses its required Plugin set and supplies dependencies. The Kernel Plugin Host remains the source of truth for successfully registered runtime Plugins, lifecycle state, and available operations.
-- The WordPress publishing composition selects only `wordpress-publisher`; the generated WordPress composition selects `content-generator` and `wordpress-publisher`. The catalog can list both without requiring every runtime composition to instantiate or configure both.
-- The product UI currently lives across `ui/`, `src/ui-runtime/`, `src/ui-api/`, and `src/gui/`. Telegram and MCP also retain their existing roots as shown above. They have not yet been composed through a single new Host App ingress or routed into the new WordPress Application.
-- Settings Beta has a read-only Plugin discovery view backed by `GET /api/v1/plugins/core` and `GET /api/v1/plugins/core/:id`. Static bundled metadata comes from the explicit catalog; loaded/enabled state and active execution count come from the shared runtime Host. It does not expose injected dependencies, credentials, or Application-to-Plugin relationships. Community Plugins remain hidden. The UI server creates a shared runtime for the new architecture, but existing publishing product flows have not yet migrated into it; until an Application registers a Plugin there, the UI reports that Plugin as not loaded rather than treating it as an error.
-- Existing Naver, generation, SNS, card-news, automation, UI, Telegram, and MCP paths are unchanged.
+- The WordPress publishing composition selects only `wordpress-publisher`; generated writing compositions select `ai-gateway` and `wordpress-publisher`. The catalog can list both without requiring every runtime composition to instantiate or configure both.
+- The product UI currently lives across `ui/`, `src/ui-runtime/`, `src/ui-api/`, and `src/gui/`. Telegram and MCP also retain their existing roots as shown above. They have not yet been composed through a single new Host App ingress; Blog Beta's direct manuscript publication is the current UI route into the WordPress Application.
+- Settings Beta has a read-only Plugin discovery view backed by `GET /api/v1/plugins/core` and `GET /api/v1/plugins/core/:id`. Static bundled metadata comes from the explicit catalog; loaded/enabled state and active execution count come from the shared runtime Host. It does not expose injected dependencies, credentials, or Application-to-Plugin relationships. Community Plugins remain hidden. The UI server creates a shared runtime for the new architecture; each Application loads its selected Plugins through that runtime.
+- The shared UI-server Core runtime registers `ai-gateway`; Blog Beta AI manuscript generation invokes `text.generate` and, when image generation is selected, `image.generate` for each planned image. Manuscript image actions use the same image operation. Other legacy Naver, shopping, SNS, card-news, automation, Telegram, and MCP paths remain outside this migration slice.
 
 ## Next migration gate
 
-The WordPress publishing pilot, content generation Plugin, and generated WordPress composition validate injected dependencies, catalog lookup, explicit runtime assembly, operation discovery, and a combined generation-and-publishing Application using fakes/mocks. They do not replace existing product flows. A later migration should implement the agreed new Application/Plugin contracts directly; existing manual, scheduled, and batch paths are references only and need not remain compatible. Identify separately owned user data and external side effects before replacing or removing those paths. Add Kernel contract elements only when required by concrete application flows and tests.
+The WordPress publishing flow and AI Gateway composition are exercised both with fake providers/services and in the Blog Beta direct manuscript path. Naver and WordPress UI publishing paths pass through the Blog Publishing Application for target image preparation; other existing manual, scheduled, batch, Telegram, and MCP paths remain migration candidates. Identify separately owned user data and external side effects before replacing or removing those paths. Add Kernel contract elements only when required by concrete application flows and tests.
 
 Community package loading, skill packaging, multi-host distribution, runtime install/removal, persistent lifecycle state, and process isolation require separate design decisions.

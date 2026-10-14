@@ -1,5 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
 const { createPublishActionsRuntime } = require('./publish-actions-runtime');
 const { getFeatureBool, isCommandEnabled, toFeatureMap } = require('../runtime-feature-flags');
@@ -131,9 +134,78 @@ test('WordPress Plugin publisher owns WordPress manuscript creation when the app
     assert.match(calls[0].request.content, /<p>본문입니다\.<\/p>/);
     assert.equal(calls[0].request.status, 'draft');
     assert.equal(calls[0].request.category, '여행');
-    assert.ok(logs.some((message) => message.includes('wordpress-publisher.posts.create 실행')));
-    assert.ok(logs.some((message) => message.includes('wordpress-publisher.posts.create 응답 (success=true)')));
+    assert.ok(logs.some((message) => message.includes('WordPress 발행 Application 실행 (media.upload=0, posts.create=1)')));
+    assert.ok(logs.some((message) => message.includes('WordPress 발행 Application 완료 (success=true, requestedAssets=0, warnings=0)')));
     assert.equal(logs.some((message) => message.includes('본문입니다')), false);
+});
+
+test('WordPress Plugin publisher uploads manuscript images and links them in post content', async (t) => {
+    const calls = [];
+    const logs = [];
+    let tempDir = '';
+    const rawMarkdown = '# 이미지 원고\n\n본문입니다.\n\n[[IMAGE_0\nid: hero\ntitle: 바다 풍경\nprompt: ocean\n]]';
+    const runtime = createPublishActionsRuntime({
+        fs,
+        path,
+        CONFIG: {},
+        Logger: { info(message) { logs.push(message); }, warn() {}, error() {} },
+        Utils: {
+            parseMarkdown(markdown) {
+                assert.equal(markdown, rawMarkdown.replace(/^#\s+.+\n?/, '').trim());
+                return { contents: [{ type: 'image', index: 0, text: '바다 풍경', raw: '[[IMAGE_0\nid: hero\ntitle: 바다 풍경\nprompt: ocean\n]]' }] };
+            },
+            findImageByPrefix(directory, index) {
+                return index === 0 ? path.join(directory, '00_generated.png') : null;
+            }
+        },
+        Core: { async publishToWordPress() { throw new Error('legacy publisher must not run'); } },
+        blogWritingApplication: {
+            async publishWordPress(request, context) {
+                calls.push({ request, context });
+                return { success: true, postId: 903, postUrl: 'https://example.test/903', status: 'draft', warnings: null };
+            }
+        },
+        License: {
+            async checkLicenseStatus() { return { success: true, features: {} }; },
+            async reservePublishQuota() { return { success: true }; },
+            async commitPublishQuota() { return { success: true }; }
+        },
+        toFeatureMap,
+        getFeatureBool,
+        buildLocalMarkdownPreview: () => ({
+            title: '이미지 원고',
+            rawMarkdown,
+            validation: { ok: true, errors: [] },
+            images: [{ index: 0, title: '바다 풍경', exists: true }],
+            source: { fileName: 'contents.md', folderName: '원고' }
+        }),
+        materializeSelectedFilesToWorkspace() {
+            tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bloggenius-wp-plugin-test-'));
+            fs.writeFileSync(path.join(tempDir, '00_generated.png'), Buffer.from('png-bytes'));
+            return { tempDir };
+        },
+        formatActivityTargets: () => '워드프레스',
+        recordUiActivity() {}
+    });
+    t.after(() => { if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true }); });
+
+    const result = await runtime.executeLocalMarkdownPublish({
+        markdownText: rawMarkdown,
+        targets: ['wordpress'],
+        postStatus: 'draft',
+        imageMode: 'prompt_only',
+        usePluginPublisher: true
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(calls.length, 1);
+    assert.deepEqual(calls[0].request.assets.map(({ key, filename, mimeType, altText, bytes }) => ({
+        key, filename, mimeType, altText, bytes: bytes.toString()
+    })), [{ key: 'image-0', filename: '00_generated.png', mimeType: 'image/png', altText: '바다 풍경', bytes: 'png-bytes' }]);
+    assert.equal(calls[0].request.featuredAsset, 'image-0');
+    assert.match(calls[0].request.content, /\{\{asset:image-0}}/);
+    assert.doesNotMatch(calls[0].request.content, /\[\[IMAGE_0/);
+    assert.ok(logs.some((message) => message.includes('wordpress-publisher.media.upload 준비 (1/1, mime=image/png, bytes=9)')));
 });
 
 test('quick publish keeps the user image option independent from legacy license flags', async () => {

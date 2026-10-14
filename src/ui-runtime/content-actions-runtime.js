@@ -25,6 +25,7 @@ function createContentActionsRuntime(deps = {}) {
         CONFIG,
         Utils,
         Core,
+        blogPublishingApplication,
         License,
         ShoppingManager,
         ensureSheetsReadyForUi,
@@ -42,6 +43,18 @@ function createContentActionsRuntime(deps = {}) {
         setShoppingRuntimeLog,
         recordActivityLifecycle = async () => null
     } = deps;
+
+    async function publishNaver(directory, request = {}) {
+        return typeof blogPublishingApplication?.publishNaver === 'function'
+            ? blogPublishingApplication.publishNaver(directory, request)
+            : Core.publishToBlog(directory, request);
+    }
+
+    async function publishWordPressLegacy(directory, request = {}) {
+        return typeof blogPublishingApplication?.publishWordPressLegacy === 'function'
+            ? blogPublishingApplication.publishWordPressLegacy(directory, request)
+            : Core.publishToWordPress(directory, request);
+    }
 
     async function recordShoppingSelection({ operationId, subject, source, rowIndex, targets }) {
         return recordActivityLifecycle({
@@ -751,7 +764,7 @@ function createContentActionsRuntime(deps = {}) {
 
             if (executionTargets.includes('naver') && results.naver.targetDir) {
                 report('네이버 발행 단계 진행 중');
-                const pubRes = await Core.publishToBlog(results.naver.targetDir, {
+                const pubRes = await publishNaver(results.naver.targetDir, {
                     affiliateUrl: shortUrl,
                     requireAffiliateUrl: true,
                     headless: publishHeadless,
@@ -766,7 +779,7 @@ function createContentActionsRuntime(deps = {}) {
 
             if (executionTargets.includes('wordpress') && results.wordpress.targetDir) {
                 report('워드프레스 발행 단계 진행 중');
-                const pubRes = await Core.publishToWordPress(results.wordpress.targetDir, {
+                const pubRes = await publishWordPressLegacy(results.wordpress.targetDir, {
                     category: target.category || 'Shopping',
                     postStatus: target.postStatus || 'publish',
                     wpScheduleDate: target.scheduleDate || null,

@@ -2437,7 +2437,9 @@ ${messageText}
 							await photoBtn.click();
 							const chooser = await fileChooserPromise;
 							const ImageService = require('./image-service');
-							const optimizedFile = await ImageService.optimizeImageForPlatform(file, 'naver');
+							const optimizedFile = typeof options.prepareImageForUpload === 'function'
+								? await options.prepareImageForUpload(file)
+								: await ImageService.optimizeImageForPlatform(file, 'naver');
 							await chooser.setFiles(optimizedFile);
 
 							const uploadWait = CONFIG.WAIT_UPLOAD || Constants.WAIT.UPLOAD;
@@ -2880,7 +2882,9 @@ ${messageText}
 			const fileName = `${trimmedSlug}_${uniqueSuffix}${extension}`;
 
 			const ImageService = require('./image-service');
-			const optimizedFilePath = await ImageService.optimizeImageForPlatform(imagePath, 'wordpress');
+			const optimizedFilePath = typeof options.prepareImageForUpload === 'function'
+				? await options.prepareImageForUpload(imagePath)
+				: await ImageService.optimizeImageForPlatform(imagePath, 'wordpress');
 			const optimizedExt = path.extname(optimizedFilePath).slice(1) || path.extname(fileName).slice(1);
 			const optimizedBuffer = fs.readFileSync(optimizedFilePath);
 

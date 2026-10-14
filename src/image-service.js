@@ -2,11 +2,13 @@ const fs = require('fs');
 const path = require('path');
 const Logger = require('./logger');
 const { loadSharp } = require('./sharp-loader');
+const { createImageOptimizationService } = require('./media/image-optimization-service');
 
 let sharpInstance = null;
 let sharpLoadError = null;
 let sharpLoadLogged = false;
 let sharpLoadSource = '';
+const imageOptimizationService = createImageOptimizationService({ logger: Logger });
 
 function getSharp() {
     if (sharpInstance) {
@@ -104,32 +106,27 @@ const ImageService = {
      * @returns {Promise<{buffer: Buffer, ext: string}>} 최적화된 버퍼와 확장자
      */
     optimizeBufferForPlatform: async function (buffer, platform, options = {}) {
-        const CONFIG = require('./config-loader');
-        if (!CONFIG.IMAGE_OPTIMIZATION_ENABLED || !buffer) {
-            return { buffer, ext: options.fallbackExt || '' };
-        }
-        const sharp = getSharp();
-        if (!sharp) {
-            return { buffer, ext: options.fallbackExt || '' };
-        }
-
         const targetFormat = platform === 'wordpress' ? 'avif' : 'webp';
+        if (!Buffer.isBuffer(buffer) || buffer.length === 0) return { buffer, ext: options.fallbackExt || '' };
+        const CONFIG = require('./config-loader');
+        const result = await imageOptimizationService.optimizeBuffer(buffer, {
+            format: targetFormat,
+            enabled: CONFIG.IMAGE_OPTIMIZATION_ENABLED,
+            quality: options.quality,
+            effort: options.effort,
+            fallbackFormat: options.fallbackExt || ''
+        });
+        return { buffer: result.buffer, ext: result.optimized ? result.format : (options.fallbackExt || '') };
+    },
 
-        try {
-            let pipeline = sharp(buffer);
-
-            if (targetFormat === 'avif') {
-                pipeline = pipeline.avif({ quality: options.quality || 55, effort: 4 });
-            } else {
-                pipeline = pipeline.webp({ quality: options.quality || 85 });
-            }
-
-            const optimizedBuffer = await pipeline.toBuffer();
-            return { buffer: optimizedBuffer, ext: targetFormat };
-        } catch (e) {
-            Logger.warn(`   ⚠️ 이미지 버퍼 최적화 실패: ${e.message}`);
-            return { buffer, ext: options.fallbackExt || '' };
-        }
+    optimizeBufferForFormat: async function (buffer, format, options = {}) {
+        const CONFIG = require('./config-loader');
+        return imageOptimizationService.optimizeBuffer(buffer, {
+            ...options,
+            format,
+            enabled: options.enabled === undefined ? CONFIG.IMAGE_OPTIMIZATION_ENABLED : options.enabled,
+            fallbackFormat: options.fallbackFormat || options.fallbackExt || ''
+        });
     }
 };
 

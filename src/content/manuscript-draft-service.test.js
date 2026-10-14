@@ -612,6 +612,32 @@ test('generates one image from the stored prompt and keeps the prior asset on fa
     }
 });
 
+test('manuscript image generation stores AI Gateway base64 output as a validated generated asset', async () => {
+    const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-draft-gateway-image-'));
+    const calls = [];
+    const service = createManuscriptDraftService({
+        fs,
+        path,
+        Utils,
+        workspaceDir,
+        generateGatewayImage: async (prompt, context) => {
+            calls.push({ prompt, context });
+            return { mimeType: 'image/png', dataBase64: PNG.toString('base64') };
+        }
+    });
+    try {
+        const created = service.createFolderDraft(folderInput());
+        const generated = await service.generateImage({
+            draftId: created.draftId, revision: created.revision, slotId: 'image-2'
+        });
+        assert.equal(calls[0].prompt, '초록 숲');
+        assert.equal(generated.images[1].assetOrigin, 'generated');
+        assert.equal(generated.images[1].exists, true);
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('stopped image generation does not commit a late provider result to the manuscript', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-draft-image-stop-'));
     let finishGeneration;

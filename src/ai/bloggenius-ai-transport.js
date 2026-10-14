@@ -1,0 +1,172 @@
+'use strict';
+
+const dns = require('node:dns/promises');
+const net = require('node:net');
+
+const DEFAULT_TIMEOUT_MS = 120000;
+const PROVIDER_HOSTS = Object.freeze({
+    google: 'https://generativelanguage.googleapis.com',
+    openai: 'https://api.openai.com',
+    anthropic: 'https://api.anthropic.com',
+    kie: 'https://api.kie.ai'
+});
+
+function getProfile(config, kind, provider) {
+    const profile = config?.AI_MODEL_PROFILES?.[kind]?.[provider];
+    if (profile && typeof profile === 'object') return profile;
+    const role = kind === 'image' ? config?.IMAGE_MODEL_CONFIG : config?.TEXT_MODEL_CONFIG;
+    return role?.provider === provider ? role : null;
+}
+
+function normalizePath(path) {
+    const value = String(path || '');
+    if (!value.startsWith('/') || value.startsWith('//') || value.includes('\\') || /[?#]/.test(value)) {
+        throw new TypeError('AI transport path must be an absolute provider-relative path.');
+    }
+    let decoded;
+    try { decoded = decodeURIComponent(value); } catch (_) { throw new TypeError('AI transport path is invalid.'); }
+    if (decoded.split('/').some((part) => part === '..' || part === '.')) throw new TypeError('AI transport path is invalid.');
+    return value;
+}
+
+function isAllowedRoute({ provider, kind, modelId, method, path }) {
+    const normalized = normalizePath(path);
+    const model = encodeURIComponent(String(modelId || ''));
+    const verb = String(method || '').toUpperCase();
+    if (provider === 'google') return kind === 'text' || kind === 'image'
+        ? verb === 'POST' && normalized === `/v1beta/models/${model}:generateContent`
+        : false;
+    if (provider === 'openai') return (kind === 'text' && verb === 'POST' && normalized === '/v1/chat/completions')
+        || (kind === 'image' && verb === 'POST' && normalized === '/v1/images/generations');
+    if (provider === 'anthropic') return kind === 'text' && verb === 'POST' && normalized === '/v1/chat/completions';
+    if (provider === 'kie') return (kind === 'text' && verb === 'POST' && normalized === '/codex/v1/responses')
+        || (kind === 'text' && verb === 'POST' && normalized === `/${model}/v1/chat/completions`)
+        || (kind === 'image' && verb === 'POST' && normalized === '/api/v1/jobs/createTask')
+        || (kind === 'image' && verb === 'GET' && normalized === '/api/v1/jobs/recordInfo');
+    return false;
+}
+
+function createBlogGeniusAiTransport(options = {}) {
+    const config = options.config || {};
+    const fetchImpl = options.fetch || globalThis.fetch;
+    const lookup = options.lookup || dns.lookup;
+    if (typeof fetchImpl !== 'function') throw new TypeError('AI transport requires fetch().');
+    const maxDownloadBytes = Number.isInteger(options.maxDownloadBytes) ? options.maxDownloadBytes : 10 * 1024 * 1024;
+
+    async function request(input = {}) {
+        const provider = String(input.provider || '').trim().toLowerCase();
+        const kind = String(input.kind || '').trim();
+        const modelId = String(input.modelId || '').trim();
+        const method = String(input.method || '').trim().toUpperCase();
+        const path = normalizePath(input.path);
+        const base = PROVIDER_HOSTS[provider];
+        if (!base || !isAllowedRoute({ provider, kind, modelId, method, path })) {
+            throw Object.assign(new Error('AI transport route is not allowed.'), { code: 'AI_GATEWAY_UNSUPPORTED_ROUTE' });
+        }
+        const profile = getProfile(config, kind, provider);
+        const apiKey = String(profile?.api_key || '').trim();
+        if (!apiKey) throw Object.assign(new Error('No credential is configured.'), { code: 'AI_GATEWAY_CREDENTIALS_MISSING' });
+        const headers = { Accept: 'application/json' };
+        if (provider === 'google') headers['x-goog-api-key'] = apiKey;
+        else headers.Authorization = `Bearer ${apiKey}`;
+        if (input.body !== undefined) headers['Content-Type'] = 'application/json';
+        const url = new URL(path, `${base}/`);
+        for (const [key, value] of Object.entries(input.query || {})) {
+            if (!['taskId'].includes(key) || provider !== 'kie') throw new TypeError('AI transport query is not allowed.');
+            url.searchParams.set(key, String(value));
+        }
+        const requestOptions = {
+            method,
+            headers,
+            ...(input.body === undefined ? {} : { body: JSON.stringify(input.body) }),
+            redirect: 'error',
+            signal: combineTimeout(input.signal, input.timeoutMs || DEFAULT_TIMEOUT_MS)
+        };
+        const response = await fetchImpl(url, requestOptions);
+        let body;
+        try { body = await response.json(); } catch (_) { body = null; }
+        return { status: response.status, headers: response.headers, body };
+    }
+
+    async function downloadUrl(input = {}) {
+        const url = new URL(String(input.url || ''));
+        if (url.protocol !== 'https:' || url.username || url.password || net.isIP(url.hostname) || isPrivateAddress(url.hostname)) {
+            throw new TypeError('AI image download URL is not allowed.');
+        }
+        const addresses = await lookup(url.hostname, { all: true, verbatim: true });
+        if (!addresses.length || addresses.some(({ address }) => isPrivateAddress(address))) {
+            throw new TypeError('AI image download host is not publicly routable.');
+        }
+        const response = await fetchImpl(url, { method: 'GET', signal: input.signal, redirect: 'error' });
+        if (!response.ok) throw Object.assign(new Error('AI image download failed.'), { status: response.status });
+        const mimeType = String(response.headers.get('content-type') || 'image/png').split(';')[0].trim();
+        if (!/^image\/[a-z0-9.+-]+$/i.test(mimeType)) throw new TypeError('AI download did not return an image.');
+        const declaredLength = Number(response.headers.get('content-length'));
+        if (Number.isFinite(declaredLength) && declaredLength > maxDownloadBytes) {
+            throw Object.assign(new Error('AI image exceeded the size limit.'), { code: 'AI_GATEWAY_IMAGE_TOO_LARGE' });
+        }
+        const bytes = await readBoundedImageBody(response, maxDownloadBytes);
+        return { bytes, mimeType };
+    }
+
+    return Object.freeze({ request, downloadUrl });
+}
+
+async function readBoundedImageBody(response, maxBytes) {
+    const tooLarge = () => Object.assign(new Error('AI image exceeded the size limit.'), { code: 'AI_GATEWAY_IMAGE_TOO_LARGE' });
+    if (typeof response.body?.getReader !== 'function') {
+        const bytes = Buffer.from(await response.arrayBuffer());
+        if (bytes.byteLength > maxBytes) throw tooLarge();
+        return bytes;
+    }
+    const reader = response.body.getReader();
+    const chunks = [];
+    let total = 0;
+    try {
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const chunk = Buffer.from(value);
+            total += chunk.byteLength;
+            if (total > maxBytes) {
+                await reader.cancel();
+                throw tooLarge();
+            }
+            chunks.push(chunk);
+        }
+    } finally {
+        reader.releaseLock?.();
+    }
+    return Buffer.concat(chunks, total);
+}
+
+function combineTimeout(signal, timeoutMs = DEFAULT_TIMEOUT_MS) {
+    if (typeof AbortSignal?.timeout !== 'function') return signal;
+    const timeout = AbortSignal.timeout(Math.max(1, Number(timeoutMs) || DEFAULT_TIMEOUT_MS));
+    return signal ? AbortSignal.any([signal, timeout]) : timeout;
+}
+
+function isPrivateAddress(hostname) {
+    const host = String(hostname || '').toLowerCase().replace(/^\[|\]$/g, '').replace(/\.$/, '');
+    if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host === '::1' || host === '::') return true;
+    if (net.isIP(host) === 6) {
+        const normalized = host.toLowerCase();
+        return normalized === '::' || normalized === '::1'
+            || normalized.startsWith('fc') || normalized.startsWith('fd')
+            || /^fe[89ab]/.test(normalized) || normalized.startsWith('::ffff:');
+    }
+    const parts = host.split('.').map(Number);
+    if (parts.length === 4 && parts.every((part) => Number.isInteger(part) && part >= 0 && part <= 255)) {
+        return parts[0] === 10 || parts[0] === 127 || parts[0] === 0
+            || (parts[0] === 169 && parts[1] === 254)
+            || (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31)
+            || (parts[0] === 192 && (parts[1] === 168 || parts[1] === 0 || parts[1] === 2))
+            || (parts[0] === 100 && parts[1] >= 64 && parts[1] <= 127)
+            || (parts[0] === 198 && (parts[1] === 18 || parts[1] === 19 || parts[1] === 51))
+            || (parts[0] === 203 && parts[1] === 0)
+            || parts[0] >= 224;
+    }
+    return false;
+}
+
+module.exports = { PROVIDER_HOSTS, createBlogGeniusAiTransport, isAllowedRoute, isPrivateAddress };

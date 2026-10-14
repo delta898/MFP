@@ -2,6 +2,8 @@
 
 const { normalizePluginDescriptor, PluginContractError } = require('./plugin-contract');
 
+const PROGRESS_PHASES = new Set(['submitted', 'waiting', 'generating', 'downloading']);
+
 class PluginHostError extends Error {
     constructor(message, code) {
         super(message);
@@ -21,6 +23,29 @@ function validateSchema(validator, value, label) {
             code: 'PLUGIN_OPERATION_CONTRACT_VIOLATION'
         });
     }
+}
+
+function normalizeProgressEvent(pluginId, operationId, event) {
+    if (!event || typeof event !== 'object' || Array.isArray(event)) {
+        throw new TypeError('Plugin progress event must be an object.');
+    }
+    const keys = Object.keys(event);
+    if (keys.some((key) => !['phase', 'progress'].includes(key))) {
+        throw new TypeError('Plugin progress event contains an unsupported field.');
+    }
+    if (!PROGRESS_PHASES.has(event.phase)) {
+        throw new TypeError('Plugin progress phase is not supported.');
+    }
+    if (event.progress !== undefined
+        && (!Number.isFinite(event.progress) || event.progress < 0 || event.progress > 100)) {
+        throw new TypeError('Plugin progress must be a number from 0 to 100.');
+    }
+    return Object.freeze({
+        pluginId,
+        operationId,
+        phase: event.phase,
+        ...(event.progress === undefined ? {} : { progress: event.progress })
+    });
 }
 
 function createPluginHost(options = {}) {
@@ -87,6 +112,9 @@ function createPluginHost(options = {}) {
         if (!executionContext || typeof executionContext !== 'object' || Array.isArray(executionContext)) {
             throw new TypeError('Plugin execution context must be an object.');
         }
+        if (executionContext.reportProgress !== undefined && typeof executionContext.reportProgress !== 'function') {
+            throw new TypeError('Plugin progress callback must be a function.');
+        }
         const plugin = resolvePlugin(pluginId);
         if (plugin.state !== 'enabled') {
             throw new PluginHostError(`Plugin is not enabled: ${plugin.descriptor.id}`, 'PLUGIN_DISABLED');
@@ -108,7 +136,15 @@ function createPluginHost(options = {}) {
                 `Input for ${plugin.descriptor.id}.${operationId}`
             );
             const result = await operation.execute(validatedInput, Object.freeze({
-                signal: executionContext.signal
+                signal: executionContext.signal,
+                reportProgress(event) {
+                    if (typeof executionContext.reportProgress !== 'function') return;
+                    executionContext.reportProgress(normalizeProgressEvent(
+                        plugin.descriptor.id,
+                        String(operationId || '').trim(),
+                        event
+                    ));
+                }
             }));
             return validateSchema(
                 operation.validateOutput,

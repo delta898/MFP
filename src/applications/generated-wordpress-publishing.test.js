@@ -7,12 +7,23 @@ const { createGeneratedWordPressPublishingSystem } = require('../composition/gen
 const { createWordPressPublishingSystem } = require('../composition/wordpress-publishing');
 const { createCorePluginRuntime } = require('../composition/core-plugin-runtime');
 
+const TEST_MODEL = { provider: 'openai', modelId: 'gpt-6-astra' };
+function testModelOptions() {
+    return { textModel: TEST_MODEL, resolveTextModel: (selection) => selection };
+}
+function testGateway(responseText = 'Generated manuscript') {
+    return { transport: { async request() {
+        return { status: 200, headers: {}, body: { choices: [{ message: { content: responseText } }] } };
+    } } };
+}
+
 test('Application generates text then delegates publication to the WordPress Application', async () => {
     const calls = [];
     const application = createGeneratedWordPressPublishingApplication({
+        ...testModelOptions(),
         async executeOperation(pluginId, operationId, input, context) {
             calls.push({ pluginId, operationId, input, context });
-            return { text: 'Generated manuscript' };
+            return { content: 'Generated manuscript' };
         },
         validatePublicationRequest(request) {
             calls.push({ validate: request });
@@ -43,9 +54,11 @@ test('Application generates text then delegates publication to the WordPress App
         title: 'Jeju walk', content: undefined, status: undefined, date: undefined,
         category: undefined, assets: undefined, featuredAsset: undefined
     });
-    assert.equal(calls[1].pluginId, 'content-generator');
+    assert.equal(calls[1].pluginId, 'ai-gateway');
     assert.equal(calls[1].operationId, 'text.generate');
-    assert.deepEqual(calls[1].input, { prompt: 'Write about Jeju' });
+    assert.deepEqual(calls[1].input, {
+        model: TEST_MODEL, messages: [{ role: 'user', content: 'Write about Jeju' }]
+    });
     assert.deepEqual(calls[2].publish, {
         title: 'Jeju walk', content: 'Generated manuscript', status: 'draft',
         date: undefined, category: '', assets: [], featuredAsset: ''
@@ -58,6 +71,7 @@ test('Application does not publish when text generation fails and preserves publ
     const generationFailure = new Error('generation failed');
     let publishCalls = 0;
     const generationFails = createGeneratedWordPressPublishingApplication({
+        ...testModelOptions(),
         async executeOperation() { throw generationFailure; },
         validatePublicationRequest(request) { return request; },
         async publish() { publishCalls += 1; }
@@ -67,7 +81,8 @@ test('Application does not publish when text generation fails and preserves publ
 
     const publicationFailure = new Error('publication failed');
     const publishingFails = createGeneratedWordPressPublishingApplication({
-        async executeOperation() { return { text: 'Generated manuscript' }; },
+        ...testModelOptions(),
+        async executeOperation() { return { content: 'Generated manuscript' }; },
         validatePublicationRequest(request) { return request; },
         async publish() { throw publicationFailure; }
     });
@@ -78,6 +93,7 @@ test('invalid WordPress publication input is rejected before text generation', a
     let generationCalls = 0;
     const validationFailure = new Error('invalid WordPress request');
     const application = createGeneratedWordPressPublishingApplication({
+        ...testModelOptions(),
         validatePublicationRequest() { throw validationFailure; },
         async executeOperation() { generationCalls += 1; return { text: 'Generated' }; },
         async publish() {}
@@ -90,6 +106,7 @@ test('invalid WordPress publication input is rejected before text generation', a
 test('invalid top-level request is rejected before text generation', async () => {
     let generationCalls = 0;
     const application = createGeneratedWordPressPublishingApplication({
+        ...testModelOptions(),
         validatePublicationRequest(request) { return request; },
         async executeOperation() { generationCalls += 1; return { text: 'Generated' }; },
         async publish() {}
@@ -102,10 +119,9 @@ test('invalid top-level request is rejected before text generation', async () =>
 test('composition registers both required Plugins and runs generation through WordPress REST publication', async () => {
     const requests = [];
     const system = createGeneratedWordPressPublishingSystem({
+        ...testModelOptions(),
         pluginDependencies: {
-            'content-generator': {
-                async generateText({ prompt }) { return `Generated for: ${prompt}`; }
-            },
+            'ai-gateway': testGateway('Generated for: Jeju travel'),
             'wordpress-publisher': {
                 getCredentials: async () => ({ url: 'https://site.test', userId: 'author', appPassword: 'fake-password' }),
                 async fetch(url, init) {
@@ -120,10 +136,11 @@ test('composition registers both required Plugins and runs generation through Wo
         }
     });
 
-    assert.deepEqual(system.corePluginRegistry.list(), ['wordpress-publisher', 'content-generator', 'hello-world']);
-    assert.deepEqual(system.pluginHost.listPlugins().map(({ id }) => id), ['content-generator', 'wordpress-publisher']);
+    assert.deepEqual(system.corePluginRegistry.list(), ['wordpress-publisher', 'ai-gateway', 'hello-world']);
+    assert.deepEqual(system.pluginHost.listPlugins().map(({ id }) => id), ['ai-gateway', 'wordpress-publisher']);
     assert.deepEqual(system.pluginHost.listOperations().map(({ pluginId, operationId }) => ({ pluginId, operationId })), [
-        { pluginId: 'content-generator', operationId: 'text.generate' },
+        { pluginId: 'ai-gateway', operationId: 'image.generate' },
+        { pluginId: 'ai-gateway', operationId: 'text.generate' },
         { pluginId: 'wordpress-publisher', operationId: 'categories.list' },
         { pluginId: 'wordpress-publisher', operationId: 'media.upload' },
         { pluginId: 'wordpress-publisher', operationId: 'posts.create' }
@@ -165,15 +182,16 @@ test('separate Applications share one process Plugin Host and reuse an already r
     const wordpressSystem = createWordPressPublishingSystem({ corePluginRuntime: sharedRuntime, pluginDependencies });
     const generatedSystem = createGeneratedWordPressPublishingSystem({
         corePluginRuntime: sharedRuntime,
+        ...testModelOptions(),
         pluginDependencies: {
-            'content-generator': { async generateText({ prompt }) { return `Generated: ${prompt}`; } }
+            'ai-gateway': testGateway('Generated: Jeju')
         }
     });
 
     assert.strictEqual(wordpressSystem.pluginHost, generatedSystem.pluginHost);
     assert.deepEqual(sharedRuntime.listPlugins().map(({ id, state }) => ({ id, state })), [
         { id: 'wordpress-publisher', state: 'enabled' },
-        { id: 'content-generator', state: 'enabled' },
+        { id: 'ai-gateway', state: 'enabled' },
         { id: 'hello-world', state: 'not_loaded' }
     ]);
     const result = await generatedSystem.application.publish({ prompt: 'Jeju', title: 'Jeju notes' });
@@ -184,8 +202,9 @@ test('disabled Plugins block the corresponding step without reaching WordPress',
     let generationCalls = 0;
     let wordpressCalls = 0;
     const system = createGeneratedWordPressPublishingSystem({
+        ...testModelOptions(),
         pluginDependencies: {
-            'content-generator': { async generateText() { generationCalls += 1; return 'Generated draft'; } },
+            'ai-gateway': { transport: { async request() { generationCalls += 1; return { status: 200, headers: {}, body: { choices: [{ message: { content: 'Generated draft' } }] } }; } } },
             'wordpress-publisher': {
                 getCredentials: async () => ({ url: 'https://site.test', userId: 'author', appPassword: 'fake-password' }),
                 async fetch() { wordpressCalls += 1; throw new Error('Must not publish while disabled.'); }
@@ -193,12 +212,12 @@ test('disabled Plugins block the corresponding step without reaching WordPress',
         }
     });
 
-    await system.pluginHost.setEnabled('content-generator', false);
+    await system.pluginHost.setEnabled('ai-gateway', false);
     await assert.rejects(system.application.publish({ prompt: 'Topic', title: 'Title' }), { code: 'PLUGIN_DISABLED' });
     assert.equal(generationCalls, 0);
     assert.equal(wordpressCalls, 0);
 
-    await system.pluginHost.setEnabled('content-generator', true);
+    await system.pluginHost.setEnabled('ai-gateway', true);
     await system.pluginHost.setEnabled('wordpress-publisher', false);
     await assert.rejects(system.application.publish({ prompt: 'Topic', title: 'Title' }), { code: 'PLUGIN_DISABLED' });
     assert.equal(generationCalls, 1);

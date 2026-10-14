@@ -5,7 +5,7 @@ const { createWordPressPublishingApplication } = require('../applications/wordpr
 const { createCorePluginRegistry } = require('./core-plugin-registry');
 const { createCorePluginRuntime } = require('./core-plugin-runtime');
 
-const REQUIRED_PLUGIN_IDS = Object.freeze(['content-generator', 'wordpress-publisher']);
+const REQUIRED_PLUGIN_IDS = Object.freeze(['ai-gateway', 'wordpress-publisher']);
 
 function createGeneratedWordPressPublishingSystem(options = {}) {
     const corePluginRegistry = options.corePluginRuntime?.registry || options.corePluginRegistry || createCorePluginRegistry();
@@ -14,6 +14,9 @@ function createGeneratedWordPressPublishingSystem(options = {}) {
     const wordpressApplication = createWordPressPublishingApplication({ executeOperation });
     const application = createGeneratedWordPressPublishingApplication({
         executeOperation,
+        getTextModel: options.getTextModel,
+        textModel: options.textModel,
+        resolveTextModel: options.resolveTextModel || ((selection) => selection),
         publish: (request, context) => wordpressApplication.publish(request, context),
         validatePublicationRequest: (request) => wordpressApplication.validate(request)
     });

@@ -1,6 +1,6 @@
 # WordPress Publisher Core Plugin
 
-An in-process WordPress REST API adapter packaged separately from BlogGenius private modules. It exposes an operation implementation that the BlogGenius Plugin Host binds to the package manifest. It does not perform manuscript parsing, image conversion, caching, or publication policy.
+An in-process WordPress REST API adapter packaged separately from BlogGenius private modules. It exposes an operation implementation that the BlogGenius Plugin Host binds to the package manifest. It does not perform manuscript parsing, image conversion, caching, or publication policy. The BlogGenius publishing workflow supplies prepared image bytes and MIME types; this Plugin uploads them and creates the post.
 
 ## Public interface
 
@@ -28,6 +28,8 @@ The package version (`0.1.0`) is the Plugin version source. The `bloggeniusPlugi
 - `media.upload`: accepts `{ bytesBase64, filename, mimeType, altText? }` with an `image/*` MIME type; returns `{ id, url }`. Binary input crosses the JSON Plugin contract as base64 and is decoded only inside the WordPress adapter.
 - `categories.list`: accepts `{ search? }`; returns category `{ id, name, slug }` records.
 - `posts.create`: accepts `{ title, content, status, categories, featuredMedia?, date? }`; returns `{ id, url }`. `status` uses WordPress REST values (`draft`, `publish`, `future`, `pending`, `private`); category IDs must be numeric.
+
+The WordPress Publishing Application uploads each supplied asset with `media.upload`, replaces matching `{{asset:key}}` references in post content with the returned media URL, and can set one uploaded asset as the featured image. Manuscript image-block parsing and asset-reference creation belong to the calling application. The Plugin preserves the caller-provided filename and MIME type; format conversion and its failure policy belong to the calling application.
 
 Credentials are resolved for each operation, so the host controls storage and rotation. The package uses the injected `fetch` and Node's built-in `FormData`, `Blob`, and `Buffer`; it has no BlogGenius-private or third-party package dependency. It makes HTTPS or HTTP WordPress REST requests, uses WordPress Application Password Basic authentication, and does not log credential-bearing request data. Errors are thrown with a stable `code` and optional HTTP `status`; server response bodies are not copied into error messages.
 

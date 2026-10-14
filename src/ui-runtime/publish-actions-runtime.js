@@ -29,6 +29,7 @@ function createPublishActionsRuntime(deps = {}) {
         Logger,
         Utils,
         Core,
+        blogPublishingApplication,
         blogWritingApplication,
         License,
         TelegramBotService,
@@ -60,6 +61,70 @@ function createPublishActionsRuntime(deps = {}) {
         recordActivityLifecycle = async () => null
     } = deps;
     const topicRecommendationLearning = createTopicRecommendationLearningService({ recordActivityLifecycle });
+
+    async function publishNaver(directory, request = {}) {
+        return typeof blogPublishingApplication?.publishNaver === 'function'
+            ? blogPublishingApplication.publishNaver(directory, request)
+            : Core.publishToBlog(directory, request);
+    }
+
+    async function publishWordPressLegacy(directory, request = {}) {
+        return typeof blogPublishingApplication?.publishWordPressLegacy === 'function'
+            ? blogPublishingApplication.publishWordPressLegacy(directory, request)
+            : Core.publishToWordPress(directory, request);
+    }
+
+    function buildWordPressPluginContent(markdown, images, tempDir) {
+        if (!/\[\[IMAGE(?:_\d+)?(?:\s|\]\]|$)/i.test(String(markdown || ''))) {
+            return { contentMarkdown: String(markdown || ''), assets: [] };
+        }
+        const parsedImages = (Utils.parseMarkdown(markdown)?.contents || []).filter((item) => item?.type === 'image');
+        const assets = [];
+        const assetsByIndex = new Map();
+        let imagePosition = 0;
+        const mimeTypes = {
+            '.avif': 'image/avif',
+            '.gif': 'image/gif',
+            '.jpeg': 'image/jpeg',
+            '.jpg': 'image/jpeg',
+            '.png': 'image/png',
+            '.webp': 'image/webp'
+        };
+        const contentMarkdown = String(markdown || '').replace(
+            /^\s*\[\[IMAGE(?:_(\d+))?(?:\s|\]\]|$)[\s\S]*?\]\]\s*$/gm,
+            (block, explicitIndex) => {
+                const parsedImage = parsedImages[imagePosition++];
+                if (!parsedImage) return '';
+                const index = explicitIndex === undefined ? Number(parsedImage.index) : Number(explicitIndex);
+                const key = `image-${index}`;
+                if (assetsByIndex.has(index)) return `{{asset:${key}}}`;
+                const imagePath = Utils.findImageByPrefix(tempDir, index);
+                if (!imagePath || !fs?.existsSync?.(imagePath)) {
+                    const error = new Error(`원고 이미지 ${index + 1}번 파일을 찾을 수 없습니다.`);
+                    error.code = 'WORDPRESS_IMAGE_ASSET_MISSING';
+                    throw error;
+                }
+                const extension = path.extname(imagePath).toLowerCase();
+                const mimeType = mimeTypes[extension];
+                if (!mimeType) {
+                    const error = new Error(`원고 이미지 ${index + 1}번의 파일 형식을 지원하지 않습니다.`);
+                    error.code = 'WORDPRESS_IMAGE_MIME_UNSUPPORTED';
+                    throw error;
+                }
+                const asset = {
+                    key,
+                    bytes: fs.readFileSync(imagePath),
+                    filename: path.basename(imagePath),
+                    mimeType,
+                    altText: String(images?.[imagePosition - 1]?.title || parsedImage.text || '').trim()
+                };
+                assets.push(asset);
+                assetsByIndex.set(index, asset);
+                return `{{asset:${key}}}`;
+            }
+        );
+        return { contentMarkdown, assets };
+    }
 
     async function recordTopicRecommendationOutcome({ requestBody, stage, subject, entityRef, resultRef, platform = '' }) {
         const recommendation = requestBody?.recommendation;
@@ -375,7 +440,7 @@ function createPublishActionsRuntime(deps = {}) {
                 emitProgress('네이버 발행 중...');
                 const naverActionLabel = getPostActionLabel(context.postStatus);
                 const naverCompletionLabel = getPlatformCompletionLabel('네이버', context.postStatus);
-                const naverRes = await Core.publishToBlog(results.naver.targetDir, {
+                const naverRes = await publishNaver(results.naver.targetDir, {
                     headless,
                     category: context.naverCategory || context.category || '',
                     postStatus: context.postStatus || 'publish',
@@ -404,7 +469,7 @@ function createPublishActionsRuntime(deps = {}) {
                     wpScheduleDate: context.scheduleDate || '',
                     imageGeneration: imageGenerationFinal
                 };
-                const pubRes = await Core.publishToWordPress(results.wordpress.targetDir, wpOptions);
+                const pubRes = await publishWordPressLegacy(results.wordpress.targetDir, wpOptions);
                 results.wordpress.success = pubRes.success;
                 results.wordpress.postUrl = pubRes.postUrl;
                 results.wordpress.message = pubRes.message || (pubRes.success ? wpCompletionLabel : `워드프레스 ${wpActionLabel} 실패`);
@@ -576,7 +641,7 @@ function createPublishActionsRuntime(deps = {}) {
             const executionTargets = applyPreviouslySuccessfulTargets(results, selectedTargets, reservation);
             if (executionTargets.includes('naver') && session.targetDirs?.naver) {
                 const naverActionLabel = getPostActionLabel(postStatus);
-                const naverRes = await Core.publishToBlog(session.targetDirs.naver, {
+                const naverRes = await publishNaver(session.targetDirs.naver, {
                     headless,
                     category: requestBody?.naverCategory || '',
                     postStatus,
@@ -596,7 +661,7 @@ function createPublishActionsRuntime(deps = {}) {
 
             if (executionTargets.includes('wordpress') && session.targetDirs?.wordpress) {
                 const wpActionLabel = getPostActionLabel(postStatus);
-                const wpRes = await Core.publishToWordPress(session.targetDirs.wordpress, {
+                const wpRes = await publishWordPressLegacy(session.targetDirs.wordpress, {
                     category: requestBody?.wordpressCategory || '',
                     postStatus,
                     wpScheduleDate: scheduleDate || '',
@@ -1272,7 +1337,7 @@ function createPublishActionsRuntime(deps = {}) {
         const signal = executionOptions.signal;
         const throwIfStopped = () => {
             if (!signal?.aborted) return;
-            const error = new Error('네이버 포스팅을 중지했습니다. 이미 처리된 저장·발행은 되돌리지 않습니다.');
+            const error = new Error('블로그 포스팅을 중지했습니다. 이미 처리된 업로드·발행은 되돌리지 않습니다.');
             error.code = 'BLOG_NEXT_EXECUTION_STOPPED';
             throw error;
         };
@@ -1375,15 +1440,6 @@ function createPublishActionsRuntime(deps = {}) {
         }
 
         if (requestBody?.usePluginPublisher === true) {
-            const sourceMarkdown = [markdownText, ...selectedFiles.map((entry) => entry?.textContent || '')].join('\n');
-            const hasImageAssets = selectedFiles.some((entry) => String(entry?.contentType || '').startsWith('image/'));
-            if (imageMode !== 'none' || hasImageAssets || /\[\[IMAGE_/i.test(sourceMarkdown)) {
-                return {
-                    success: false,
-                    code: 'WORDPRESS_PLUGIN_TEXT_ONLY',
-                    message: '현재 WordPress Plugin 발행 경로는 이미지 없는 원고만 지원합니다. 이미지를 제거하고 이미지 옵션을 미포함으로 설정해 주세요.'
-                };
-            }
             if (!['draft', 'publish'].includes(postStatus)) {
                 return {
                     success: false,
@@ -1477,7 +1533,7 @@ function createPublishActionsRuntime(deps = {}) {
 
             if (executionTargets.includes('naver')) {
                 throwIfStopped();
-                const naverRes = await Core.publishToBlog(workspace.tempDir, {
+                const naverRes = await publishNaver(workspace.tempDir, {
                     headless,
                     category: requestBody?.naverCategory || '',
                     postStatus,
@@ -1502,21 +1558,33 @@ function createPublishActionsRuntime(deps = {}) {
                 let wpRes;
                 if (requestBody?.usePluginPublisher === true) {
                     const bodyMarkdown = String(previewData.rawMarkdown || '').replace(/^#\s+.+\n?/, '').trim();
-                    Logger?.info?.('[Blog Beta][Plugin] wordpress-publisher.posts.create 실행');
+                    const wordpressContent = buildWordPressPluginContent(bodyMarkdown, previewData.images, workspace.tempDir);
+                    const featuredAsset = wordpressContent.assets[0]?.key || '';
+                    if (typeof blogPublishingApplication?.publishWordPressPlugin !== 'function') {
+                        wordpressContent.assets.forEach((asset, index) => {
+                            Logger?.info?.(`[Blog Beta][Plugin] wordpress-publisher.media.upload 준비 (${index + 1}/${wordpressContent.assets.length}, mime=${asset.mimeType}, bytes=${asset.bytes.length})`);
+                        });
+                    }
+                    Logger?.info?.(`[Blog Beta][Plugin] WordPress 발행 Application 실행 (media.upload=${wordpressContent.assets.length}, posts.create=1)`);
                     try {
-                        wpRes = await blogWritingApplication.publishWordPress({
+                        const publishRequest = {
                             title: previewData.title,
-                            content: marked.parse(bodyMarkdown),
+                            content: marked.parse(wordpressContent.contentMarkdown),
                             status: postStatus,
-                            category: requestBody?.wordpressCategory || ''
-                        }, { signal });
+                            category: requestBody?.wordpressCategory || '',
+                            assets: wordpressContent.assets,
+                            ...(featuredAsset ? { featuredAsset } : {})
+                        };
+                        wpRes = typeof blogPublishingApplication?.publishWordPressPlugin === 'function'
+                            ? await blogPublishingApplication.publishWordPressPlugin(publishRequest, { signal })
+                            : await blogWritingApplication.publishWordPress(publishRequest, { signal });
                     } catch (error) {
-                        Logger?.error?.(`[Blog Beta][Plugin] wordpress-publisher.posts.create 예외 (code=${String(error?.code || error?.apiCode || error?.name || 'unknown').slice(0, 80)})`);
+                        Logger?.error?.(`[Blog Beta][Plugin] WordPress 발행 Application 예외 (code=${String(error?.code || error?.apiCode || error?.name || 'unknown').slice(0, 80)})`);
                         throw error;
                     }
-                    Logger?.info?.(`[Blog Beta][Plugin] wordpress-publisher.posts.create 응답 (success=${wpRes?.success === true})`);
+                    Logger?.info?.(`[Blog Beta][Plugin] WordPress 발행 Application 완료 (success=${wpRes?.success === true}, requestedAssets=${wordpressContent.assets.length}, warnings=${Array.isArray(wpRes?.warnings) ? wpRes.warnings.length : 0})`);
                 } else {
-                    wpRes = await Core.publishToWordPress(workspace.tempDir, {
+                    wpRes = await publishWordPressLegacy(workspace.tempDir, {
                         category: requestBody?.wordpressCategory || '',
                         postStatus,
                         wpScheduleDate: scheduleDate || '',
@@ -1626,7 +1694,7 @@ function createPublishActionsRuntime(deps = {}) {
                 await settleQuota(operationId, results, { error: error.message });
             }
             if (signal?.aborted || error.code === 'BLOG_NEXT_EXECUTION_STOPPED') {
-                const message = '네이버 포스팅을 중지했습니다. 이미 처리된 저장·발행은 되돌리지 않습니다.';
+                const message = '블로그 포스팅을 중지했습니다. 이미 처리된 업로드·발행은 되돌리지 않습니다.';
                 recordUiActivity({
                     category: 'publish',
                     type: 'local_markdown_publish_stopped',

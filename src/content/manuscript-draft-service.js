@@ -121,6 +121,7 @@ function createManuscriptDraftService(options = {}) {
     const Utils = options.Utils;
     const Logger = options.Logger;
     const callWritingImage = options.callWritingImage;
+    const generateGatewayImage = options.generateGatewayImage;
     const now = typeof options.now === 'function' ? options.now : () => Date.now();
     const activeRetentionMs = Number.isFinite(Number(options.activeRetentionMs))
         ? Math.max(60 * 60 * 1000, Number(options.activeRetentionMs))
@@ -860,7 +861,7 @@ function createManuscriptDraftService(options = {}) {
     }
 
     async function generateImage(input = {}) {
-        if (typeof callWritingImage !== 'function') throw manuscriptError(503, 'MANUSCRIPT_IMAGE_GENERATOR_UNAVAILABLE', '이미지 AI 기능이 준비되지 않았습니다.');
+        if (typeof generateGatewayImage !== 'function' && typeof callWritingImage !== 'function') throw manuscriptError(503, 'MANUSCRIPT_IMAGE_GENERATOR_UNAVAILABLE', '이미지 AI 기능이 준비되지 않았습니다.');
         const { locations, manifest } = readManifest(input.draftId);
         assertRevision(manifest, input.revision);
         assertDraftActive(manifest);
@@ -874,9 +875,16 @@ function createManuscriptDraftService(options = {}) {
         let buffer;
         let detected;
         try {
-            generatedPath = await callWritingImage(slot.prompt, pendingBase, 2, { useCase: 'blog', signal: input.signal });
-            throwIfCanceled(input.signal);
-            buffer = fsImpl.readFileSync(generatedPath);
+            if (typeof generateGatewayImage === 'function') {
+                const generated = await generateGatewayImage(slot.prompt, { signal: input.signal, onProgress: input.onProgress });
+                throwIfCanceled(input.signal);
+                if (!generated || typeof generated.dataBase64 !== 'string') throw new Error('AI Gateway returned invalid image data.');
+                buffer = Buffer.from(generated.dataBase64, 'base64');
+            } else {
+                generatedPath = await callWritingImage(slot.prompt, pendingBase, 2, { useCase: 'blog', signal: input.signal });
+                throwIfCanceled(input.signal);
+                buffer = fsImpl.readFileSync(generatedPath);
+            }
             detected = validateImageBuffer(buffer);
         } finally {
             try { if (generatedPath) fsImpl.rmSync(generatedPath, { force: true }); } catch (_) { }
@@ -895,7 +903,13 @@ function createManuscriptDraftService(options = {}) {
             throwIfCanceled(input.signal);
             input.onProgress?.({ current: index + 1, total: targets.length, completed: index, slotId: image.slotId, phase: 'generating' });
             try {
-                current = await generateImage({ draftId: input.draftId, revision: current.revision, slotId: image.slotId, signal: input.signal });
+                current = await generateImage({
+                    draftId: input.draftId,
+                    revision: current.revision,
+                    slotId: image.slotId,
+                    signal: input.signal,
+                    onProgress: (event) => input.onProgress?.({ ...event, current: index + 1, total: targets.length, slotId: image.slotId })
+                });
                 input.onProgress?.({ current: index + 1, total: targets.length, completed: index + 1, slotId: image.slotId, phase: 'completed' });
             } catch (error) {
                 if (isCancellation(error, input.signal)) throw error;

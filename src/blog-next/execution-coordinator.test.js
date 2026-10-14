@@ -79,7 +79,7 @@ test('Blog Beta coordinator only stops eligible local Markdown work and retains 
         executionId: 'blog-next-1',
         source: 'local_markdown',
         subject: '원고 포스팅',
-        message: '네이버 포스팅을 중지했습니다. 이미 처리된 저장·발행은 되돌리지 않습니다.',
+        message: '블로그 포스팅을 중지했습니다. 이미 처리된 업로드·발행은 되돌리지 않습니다.',
         startedAt: '2026-09-24T00:00:00.000Z',
         finishedAt: '2026-09-24T00:00:00.000Z'
     });

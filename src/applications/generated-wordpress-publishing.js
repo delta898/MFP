@@ -17,6 +17,7 @@ function createGeneratedWordPressPublishingApplication(options = {}) {
     if (typeof options.validatePublicationRequest !== 'function') {
         throw new TypeError('Generated WordPress Application requires WordPress request validation.');
     }
+    if (typeof options.resolveTextModel !== 'function') throw new TypeError('Generated WordPress Application requires resolveTextModel().');
 
     return Object.freeze({
         async publish(request, executionContext = {}) {
@@ -35,15 +36,17 @@ function createGeneratedWordPressPublishingApplication(options = {}) {
                     featuredAsset: request.featuredAsset
                 })
             };
+            const model = options.resolveTextModel(typeof options.getTextModel === 'function' ? options.getTextModel() : options.textModel);
+            if (!model?.provider || !model?.modelId) throw Object.assign(new Error('Selected text model is not supported by AI Gateway.'), { code: 'AI_GATEWAY_UNSUPPORTED_ROUTE' });
             const generated = await options.executeOperation(
-                'content-generator',
+                'ai-gateway',
                 'text.generate',
-                { prompt: input.prompt },
+                { model, messages: [{ role: 'user', content: input.prompt }] },
                 executionContext
             );
-            const publication = await options.publish({ ...input.publication, content: generated.text }, executionContext);
+            const publication = await options.publish({ ...input.publication, content: generated.content }, executionContext);
 
-            return Object.freeze({ generatedText: generated.text, publication });
+            return Object.freeze({ generatedText: generated.content, publication });
         }
     });
 }

@@ -20,6 +20,8 @@ test('release packaging embeds only safe first-run defaults outside the mutable 
     }
     assert.match(workflow, /[/|]config[/|]Videos/);
     assert.ok(packageJson.pkg.scripts.includes('src/config/**/*.js'));
+    assert.ok(packageJson.pkg.scripts.includes('packages/plugins/core/**/*.js'));
+    assert.ok(packageJson.pkg.assets.includes('packages/plugins/core/**/*'));
 });
 test('config loading falls back to packaged resources and initializes default images', () => {
     const loader = read('src/config-loader.js');

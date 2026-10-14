@@ -75,6 +75,11 @@ const { createPublishActionsRuntime } = require('./ui-runtime/publish-actions-ru
 const { createUiApiRouteRuntime } = require('./ui-runtime/api-route-runtime');
 const { createCorePluginRuntime } = require('./composition/core-plugin-runtime');
 const { createBlogWritingSystem } = require('./composition/blog-writing');
+const { createBlogPublishingApplication } = require('./applications/blog-publishing');
+const ImageService = require('./image-service');
+const { createBlogGeniusAiTransport } = require('./ai/bloggenius-ai-transport');
+const { resolveGatewayModel, supportsGatewayFeature } = require('./ai/gateway-model-resolver');
+const { describeSupport: describeAiGatewaySupport } = require('../packages/plugins/core/ai-gateway');
 const { createUiHttpServerRuntime } = require('./ui-runtime/http-server-runtime');
 const { createHtmlCompositionRuntime } = require('./ui-runtime/html-composition-runtime');
 const { createCssCompositionRuntime } = require('./ui-runtime/css-composition-runtime');
@@ -783,20 +788,15 @@ const {
 const corePluginRuntime = createCorePluginRuntime();
 const blogWritingSystem = createBlogWritingSystem({
     corePluginRuntime,
+    getTextModel: () => ({ provider: CONFIG.TEXT_MODEL_CONFIG?.provider, modelId: CONFIG.TEXT_MODEL_CONFIG?.code }),
+    getImageModel: () => ({ provider: CONFIG.IMAGE_MODEL_CONFIG?.provider, modelId: CONFIG.IMAGE_MODEL_CONFIG?.code }),
+    resolveTextModel: (selection) => resolveGatewayModel('text', selection, getAiModelCatalog(), describeAiGatewaySupport()),
+    resolveImageModel: (selection) => resolveGatewayModel('image', selection, getAiModelCatalog(), describeAiGatewaySupport()),
+    supportsJson: (model) => supportsGatewayFeature(
+        'text', model, 'jsonResponse', describeAiGatewaySupport(), getAiModelCatalog()
+    ),
     pluginDependencies: {
-        'content-generator': {
-            async generateText({ prompt, signal }) {
-                const modelConfig = { ...(CONFIG.TEXT_MODEL_CONFIG || {}) };
-                if (modelConfig.capabilities && typeof modelConfig.capabilities === 'object') {
-                    modelConfig.capabilities = { ...modelConfig.capabilities };
-                }
-                return Utils.callWritingText(prompt, 3, {
-                    responseMimeType: 'application/json',
-                    ...(signal ? { signal } : {}),
-                    modelConfig
-                });
-            }
-        },
+        'ai-gateway': { transport: createBlogGeniusAiTransport({ config: CONFIG }) },
         'wordpress-publisher': {
             getCredentials: async () => ({
                 url: CONFIG.WORDPRESS_URL,
@@ -807,6 +807,16 @@ const blogWritingSystem = createBlogWritingSystem({
     }
 });
 
+const blogPublishingApplication = createBlogPublishingApplication({
+    Core,
+    ImageService,
+    blogWritingApplication: blogWritingSystem.application,
+    CONFIG,
+    Logger,
+    fs,
+    path
+});
+
 const publishActionsRuntime = createPublishActionsRuntime({
     fs,
     path,
@@ -815,6 +825,7 @@ const publishActionsRuntime = createPublishActionsRuntime({
     Logger,
     Utils,
     Core,
+    blogPublishingApplication,
     blogWritingApplication: blogWritingSystem.application,
     License,
     TelegramBotService,
@@ -859,6 +870,7 @@ const contentActionsRuntime = createContentActionsRuntime({
     CONFIG,
     Utils,
     Core,
+    blogPublishingApplication,
     License,
     ShoppingManager,
     ensureSheetsReadyForUi,

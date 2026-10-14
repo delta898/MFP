@@ -72,6 +72,7 @@
       "src/telegram-pairing.service.js",
       "src/insight-engine.js",
       "src/config/**/*.js",
+      "packages/plugins/core/**/*.js",
       "src/site-hosting/**/*.js",
       "src/content/**/*.js",
       "src/environment/**/*.js",
@@ -84,6 +85,7 @@
     ],
     "assets": [
       "package.json",
+      "packages/plugins/core/**/*",
       "ui/**/*",
       "src/config/*.md",
       "src/config/*.json",

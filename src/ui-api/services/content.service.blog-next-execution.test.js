@@ -1,8 +1,5 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
 
 const { createContentService } = require('./content.service');
 const { createBlogNextExecutionCoordinator } = require('../../blog-next/execution-coordinator');
@@ -105,7 +102,7 @@ test('direct Naver publish exposes a stop signal only after local preparation an
     finish({
         success: false,
         code: 'BLOG_NEXT_EXECUTION_STOPPED',
-        message: '네이버 포스팅을 중지했습니다. 이미 처리된 저장·발행은 되돌리지 않습니다.'
+        message: '블로그 포스팅을 중지했습니다. 이미 처리된 업로드·발행은 되돌리지 않습니다.'
     });
     await assert.rejects(publishing, (error) => error.apiCode === 'BLOG_NEXT_EXECUTION_STOPPED');
     assert.equal(coordinator.getStatus().state, 'stopped');
@@ -183,8 +180,11 @@ test('WordPress manuscript publication selects Plugin publisher and preserves th
     const coordinator = createBlogNextExecutionCoordinator();
     const published = [];
     const marked = [];
+    let stopEnabledAfterPreparation = false;
     const service = createService(coordinator, async (input) => {
         published.push(input);
+        input.onPreparationComplete();
+        stopEnabledAfterPreparation = coordinator.getStatus().canStop === true;
         return {
             success: true,
             data: {
@@ -198,8 +198,11 @@ test('WordPress manuscript publication selects Plugin publisher and preserves th
             async preparePublishPayload() {
                 return {
                     folderName: '원고',
-                    selectedFiles: [{ name: 'contents.md', textContent: '# WordPress 원고\n\n본문' }],
-                    settings: { targets: ['wordpress'], postStatus: 'publish', imageMode: 'none' },
+                    selectedFiles: [
+                        { name: 'contents.md', textContent: '# WordPress 원고\n\n본문\n\n[[IMAGE_0\ntitle: 바다\nprompt: ocean\n]]' },
+                        { name: '00_generated.png', contentType: 'image/png', base64Data: Buffer.from('image').toString('base64') }
+                    ],
+                    settings: { targets: ['wordpress'], postStatus: 'publish', imageMode: 'prompt_only' },
                     publishPolicy: { draftRevision: 3, unresolvedImageCount: 0 }
                 };
             },
@@ -212,7 +215,9 @@ test('WordPress manuscript publication selects Plugin publisher and preserves th
 
     assert.equal(published.length, 1);
     assert.equal(published[0].usePluginPublisher, true);
-    assert.equal(published[0].imageMode, 'none');
+    assert.equal(published[0].imageMode, 'prompt_only');
+    assert.equal(published[0].selectedFiles.some((file) => file.contentType === 'image/png'), true);
+    assert.equal(stopEnabledAfterPreparation, true);
     assert.deepEqual(published[0].targets, ['wordpress']);
     assert.deepEqual(marked, [{ draftId: 'draft-1', revision: 3, target: 'wordpress', postStatus: 'publish' }]);
     assert.equal(result.status, '발행 완료');
@@ -384,6 +389,7 @@ test('local manuscript publishing releases the shared lock after failure', async
 test('direct AI manuscript generation stays local until the user publishes and imports one platform result', async () => {
     const coordinator = createBlogNextExecutionCoordinator();
     const calls = [];
+    const imageBuffer = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 1]);
     const manuscriptDraftService = {
         createAiDraft(input) {
             calls.push(['draft', input]);
@@ -392,45 +398,42 @@ test('direct AI manuscript generation stays local until the user publishes and i
     };
     const service = createService(coordinator, async () => ({ success: true, data: {} }), {
         TEXT_MODEL: 'fixture-model',
-        TEXT_MODEL_API_KEY: 'fixture-key'
+        TEXT_MODEL_API_KEY: 'fixture-key',
+        IMAGE_MODEL: 'fixture-image-model',
+        IMAGE_MODEL_API_KEY: 'fixture-image-key'
     }, {
-        manuscriptDraftService,
-        executeQuickPublish: async (input, options) => {
-            calls.push(['generate', input, options]);
-            return {
-                success: true,
-                data: {
-                    previewId: 'preview-1',
-                    primaryTarget: 'wordpress',
-                    targets: ['wordpress'],
-                    previews: {
-                        wordpress: {
-                            title: 'AI 원고',
-                            rawMarkdown: '# AI 원고\n\n[[IMAGE_0\ntitle: 이미지\nprompt: prompt\n]]',
-                            images: [{ index: 0, exists: true }]
-                        }
-                    }
-                }
-            };
+        License: { async checkLicenseStatus() { return { success: true, features: { enable_related_posts_auto_link: false } }; } },
+        Utils: {
+            parseStructuredJsonResponse(value) { return JSON.parse(value); },
+            parseMarkdown() { return { contents: [{ type: 'image', index: 0, prompt: 'prompt' }] }; },
+            async fetchReferenceContent() { return ''; }
         },
-        getQuickPreviewImagePayload: () => ({ binary: true, body: Buffer.from('image') }),
-        deleteQuickPublishPreviewSession: (previewId) => calls.push(['dispose-preview', previewId])
+        manuscriptDraftService,
+        executeQuickPublish: async () => { throw new Error('AI manuscript generation must not use Core'); },
+        blogWritingApplication: {
+            async generateText(_prompt, context) {
+                calls.push(['text', context]);
+                return JSON.stringify({ title: 'AI 원고', content: '본문\n\n[[IMAGE_0\nTITLE: 이미지\nPROMPT: prompt\n]]' });
+            },
+            async generateImage(prompt, options) {
+                calls.push(['image', prompt, options]);
+                return { mimeType: 'image/png', dataBase64: imageBuffer.toString('base64') };
+            }
+        }
     });
 
-    const result = await service.createAiManuscriptDraft({ subject: '주제', platforms: ['wordpress'] });
+    const result = await service.createAiManuscriptDraft({ subject: '주제', imageMode: 'generate', imageCount: 1, platforms: ['wordpress'] });
     assert.deepEqual(result, { draftId: 'draft-ai', revision: 1 });
-    assert.equal(calls[0][1].publishMode, 'append_and_generate');
-    assert.deepEqual(calls[0][1].targets, ['wordpress']);
-    assert.equal(calls[0][1].postStatus, 'draft');
-    assert.deepEqual(calls[0][2], { workspaceDraft: true });
-    assert.deepEqual(calls[1][1].targets, ['wordpress']);
-    assert.deepEqual(calls[1][1].sourceMetadata, { generationProjection: 'wordpress' });
-    assert.equal(calls[1][1].images.length, 1);
-    assert.deepEqual(calls[2], ['dispose-preview', 'preview-1']);
+    assert.equal(calls.filter(([kind]) => kind === 'text').length, 1);
+    assert.equal(calls.filter(([kind]) => kind === 'image').length, 1);
+    const draft = calls.find(([kind]) => kind === 'draft')[1];
+    assert.deepEqual(draft.targets, ['wordpress']);
+    assert.deepEqual(draft.sourceMetadata, { generationPlugin: 'ai-gateway' });
+    assert.equal(draft.images.length, 1);
     assert.deepEqual(coordinator.getStatus(), { busy: false });
 });
 
-test('text-only manuscript generation uses Content Generator Plugin independently of the publish target', async () => {
+test('text-only manuscript generation uses AI Gateway Plugin independently of the publish target', async () => {
     const coordinator = createBlogNextExecutionCoordinator();
     const calls = [];
     const service = createService(coordinator, async () => ({ success: true, data: {} }), {
@@ -472,37 +475,96 @@ test('text-only manuscript generation uses Content Generator Plugin independentl
     assert.equal(draft.imageMode, 'none');
     assert.deepEqual(draft.targets, ['naver']);
     assert.deepEqual(draft.images, []);
-    assert.equal(draft.sourceMetadata.generationPlugin, 'content-generator');
+    assert.equal(draft.sourceMetadata.generationPlugin, 'ai-gateway');
     assert.match(draft.markdownText, /^# 제주 산책/);
     assert.match(draft.markdownText, /#제주/);
-    assert.ok(calls.some(([type, message]) => type === 'log' && /content-generator 경로 선택: plugin/.test(message)));
-    assert.ok(calls.some(([type, message]) => type === 'log' && /content-generator\.text\.generate 완료/.test(message)));
+    assert.ok(calls.some(([type, message]) => type === 'log' && /ai-gateway\.text\.generate 시작 .*provider=/.test(message)));
+    assert.ok(calls.some(([type, message]) => type === 'log' && /ai-gateway\.text\.generate 완료 .*elapsed=/.test(message)));
     assert.deepEqual(coordinator.getStatus(), { busy: false });
+});
+
+test('AI manuscript generation uses AI Gateway for text and every requested image', async () => {
+    const coordinator = createBlogNextExecutionCoordinator();
+    const calls = [];
+    const imageBuffer = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 2]);
+    const service = createService(coordinator, async () => { throw new Error('Core generation must not run'); }, {
+        TEXT_MODEL: 'claude-haiku', TEXT_MODEL_API_KEY: 'text-fixture-key',
+        IMAGE_MODEL: 'gemini-nano-banana-2.1', IMAGE_MODEL_API_KEY: 'image-fixture-key',
+        TEXT_MODEL_CONFIG: { provider: 'anthropic', name: 'Claude Haiku', code: 'claude-haiku', transport: 'anthropic_openai_compat' },
+        IMAGE_MODEL_CONFIG: { provider: 'google', name: 'Nano Banana', code: 'gemini-nano-banana-2.1', transport: 'gemini_generate_content' },
+        CONTENT_WRITING_PROFILE: { channel: { length: { preset: 'short' }, image_plan: { count_mode: 'fixed', fixed_count: 2 } } }
+    }, {
+        License: { async checkLicenseStatus() { return { success: true, features: { enable_related_posts_auto_link: false } }; } },
+        Logger: { info(message) { calls.push(['log', message]); }, warn(message) { calls.push(['warn', message]); }, error(message) { calls.push(['error', message]); } },
+        Utils: {
+            parseStructuredJsonResponse(value) { return JSON.parse(value); },
+            parseMarkdown() { return { contents: [
+                { type: 'image', index: 0, prompt: 'a mountain' },
+                { type: 'image', index: 1, prompt: 'a river' }
+            ] }; },
+            async fetchReferenceContent() { return ''; },
+            async sleep() {}
+        },
+        executeQuickPublish: async () => { throw new Error('Combined manuscript generation must not use Core fallback'); },
+        blogWritingApplication: {
+            async generateText(prompt, context) {
+                calls.push(['text', prompt, context]);
+                return JSON.stringify({
+                    title: '산과 강',
+                    content: '본문입니다.\n\n[[IMAGE_0\nTITLE: 산\nPROMPT: a mountain\n]]\n\n[[IMAGE_1\nTITLE: 강\nPROMPT: a river\n]]'
+                });
+            },
+            async generateImage(prompt, imageOptions, context) {
+                calls.push(['image', prompt, imageOptions, context]);
+                return { mimeType: 'image/png', dataBase64: imageBuffer.toString('base64') };
+            }
+        },
+        manuscriptDraftService: { createAiDraft(input) { calls.push(['draft', input]); return { draftId: 'gateway-images', revision: 1 }; } }
+    });
+
+    const result = await service.createAiManuscriptDraft({ subject: '산과 강', imageMode: 'generate', imageCount: 2, targets: ['wordpress'] });
+
+    assert.deepEqual(result, { draftId: 'gateway-images', revision: 1 });
+    assert.equal(calls.filter(([type]) => type === 'text').length, 1);
+    assert.equal(calls.filter(([type]) => type === 'image').length, 2);
+    assert.deepEqual(calls.filter(([type]) => type === 'image').map(([, prompt, options]) => [prompt, options]), [
+        ['a mountain, photorealistic, high quality, no text', { aspectRatio: '4:3', size: '1K', count: 1 }],
+        ['a river, photorealistic, high quality, no text', { aspectRatio: '4:3', size: '1K', count: 1 }]
+    ]);
+    const draft = calls.find(([type]) => type === 'draft')[1];
+    assert.equal(draft.imageMode, 'generate');
+    assert.equal(draft.sourceMetadata.generationPlugin, 'ai-gateway');
+    assert.deepEqual(draft.images.map(({ index, buffer }) => [index, buffer[8]]), [[0, 2], [1, 2]]);
+    assert.ok(calls.some(([type, message]) => type === 'log' && /ai-gateway.image.generate 시작 \(1\/2, IMAGE_0, model=gemini-nano-banana-2\.1\)/.test(message)));
+    assert.ok(calls.some(([type, message]) => type === 'log' && /ai-gateway 경로 확정 .*operations=text\.generate,image\.generate/.test(message)));
+    assert.ok(calls.some(([type, message]) => type === 'log' && /ai-gateway.image.generate 완료 .*elapsed=/.test(message)));
+    assert.ok(!calls.some(([type]) => type === 'error'));
 });
 
 test('async AI generation cancellation blocks a late Draft and keeps the lease until generation settles', async () => {
     const coordinator = createBlogNextExecutionCoordinator();
     const selectedTextModel = { provider: 'openai', code: 'gpt-6-sol', api_key: 'fixture-key' };
-    const selectedImageModel = { provider: 'kie', code: 'nano-banana-2', api_key: 'fixture-image-key' };
+    const selectedImageModel = { provider: 'google', code: 'gemini-nano-banana-2.1', api_key: 'fixture-image-key' };
     let finishGeneration;
+    let generationContext;
     let draftCalls = 0;
-    const disposed = [];
     const service = createService(coordinator, async () => ({ success: true, data: {} }), {
         TEXT_MODEL: 'fixture-model', TEXT_MODEL_API_KEY: 'fixture-key',
         TEXT_MODEL_CONFIG: selectedTextModel,
         IMAGE_MODEL_CONFIG: selectedImageModel
     }, {
+        License: { async checkLicenseStatus() { return { success: true, features: { enable_related_posts_auto_link: false } }; } },
+        Utils: { async fetchReferenceContent() { return ''; }, async sleep() {} },
         manuscriptDraftService: {
             createAiDraft() { draftCalls += 1; return { draftId: 'should-not-exist' }; }
         },
-        executeQuickPublish: async (_input, options) => {
-            assert.equal(options.workspaceDraft, true);
-            assert.ok(options.signal);
-            assert.equal(options.textModelConfig.code, 'gpt-6-sol');
-            assert.equal(options.imageModelConfig.code, 'nano-banana-2');
-            return new Promise((resolve) => { finishGeneration = resolve; });
-        },
-        deleteQuickPublishPreviewSession: (previewId) => disposed.push(previewId)
+        blogWritingApplication: {
+            generateText(_prompt, context) {
+                generationContext = context;
+                return new Promise((resolve) => { finishGeneration = resolve; });
+            },
+            async generateImage() { throw new Error('Canceled text generation must not start image generation'); }
+        }
     });
 
     const started = service.startAiManuscriptDraftOperation({ subject: '주제', imageMode: 'none' });
@@ -510,16 +572,14 @@ test('async AI generation cancellation blocks a late Draft and keeps the lease u
     selectedImageModel.code = 'changed-after-start';
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(coordinator.getStatus().source, 'manuscript_generation');
+    assert.equal(generationContext.modelSelection.modelId, 'gpt-6-sol');
     assert.equal(service.cancelAiManuscriptDraftOperation({ operationId: started.operationId }).state, 'cancel_requested');
+    assert.equal(generationContext.signal.aborted, true);
     assert.equal(coordinator.getStatus().busy, true);
-    finishGeneration({ success: true, data: {
-        previewId: 'preview-late', primaryTarget: 'wordpress',
-        previews: { wordpress: { rawMarkdown: '# 늦은 원고', images: [] } }
-    } });
+    finishGeneration(JSON.stringify({ title: '늦은 원고', content: '늦은 본문' }));
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(service.getAiManuscriptDraftOperation({ operationId: started.operationId }).state, 'canceled');
     assert.equal(draftCalls, 0);
-    assert.deepEqual(disposed, ['preview-late']);
     assert.deepEqual(coordinator.getStatus(), { busy: false });
 });
 
@@ -562,32 +622,19 @@ test('manuscript image operations use the shared cancellable AI lifecycle', asyn
     assert.deepEqual(coordinator.getStatus(), { busy: false });
 });
 
-test('AI manuscript failure removes only its owned transient workspace', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'blog-ai-cancel-'));
-    const platformDir = path.join(root, 'wp_fixture');
-    fs.mkdirSync(platformDir);
-    const priorDraft = path.join(platformDir, 'existing-draft');
-    fs.mkdirSync(priorDraft);
-    let ownedDir = '';
+test('AI Gateway failure never falls back to the legacy Core generation path', async () => {
+    let legacyCalls = 0;
     const service = createService(createBlogNextExecutionCoordinator(), async () => ({}), {
         TEXT_MODEL: 'fixture-model', TEXT_MODEL_API_KEY: 'fixture-key'
     }, {
-        fs, path, Utils: { resolvePlatformWorkspaceDir: () => platformDir },
-        Logger: { warn() {} },
-        executeQuickPublish: async (_input, options) => {
-            ownedDir = options.transientWorkspaceDir;
-            assert.ok(fs.existsSync(ownedDir));
-            fs.writeFileSync(path.join(ownedDir, 'contents.md'), 'partial');
-            throw new Error('generation failed');
-        }
+        executeQuickPublish: async () => { legacyCalls += 1; },
+        Logger: { info() {}, error() {} }
     });
-    try {
-        await assert.rejects(service.createAiManuscriptDraft({ subject: '주제', imageMode: 'none' }), /generation failed/);
-        assert.equal(fs.existsSync(ownedDir), false);
-        assert.equal(fs.existsSync(priorDraft), true);
-    } finally {
-        fs.rmSync(root, { recursive: true, force: true });
-    }
+    await assert.rejects(
+        service.createAiManuscriptDraft({ subject: '주제', imageMode: 'none' }),
+        (error) => error.status === 503 && error.apiCode === 'AI_GATEWAY_UNAVAILABLE'
+    );
+    assert.equal(legacyCalls, 0);
 });
 
 test('direct AI manuscript generation preserves none and excludes upstream image artifacts', async () => {
@@ -597,41 +644,31 @@ test('direct AI manuscript generation preserves none and excludes upstream image
         TEXT_MODEL: 'fixture-model',
         TEXT_MODEL_API_KEY: 'fixture-key'
     }, {
+        License: { async checkLicenseStatus() { return { success: true, features: { enable_related_posts_auto_link: false } }; } },
+        Utils: { parseStructuredJsonResponse(value) { return JSON.parse(value); }, async fetchReferenceContent() { return ''; } },
         manuscriptDraftService: {
             createAiDraft(input) {
                 calls.push(['draft', input]);
                 return { draftId: 'draft-ai-none', revision: 1 };
             }
         },
-        executeQuickPublish: async (input) => {
-            calls.push(['generate', input]);
-            return {
-                success: true,
-                data: {
-                    previewId: 'preview-none',
-                    primaryTarget: 'wordpress',
-                    previews: {
-                        wordpress: {
-                            title: '이미지 없는 원고',
-                            rawMarkdown: '# 이미지 없는 원고\n\n[[IMAGE_0\ntitle: 제외할 이미지\nprompt: 제외할 프롬프트\n]]\n\n본문',
-                            images: [{ index: 0, exists: true }]
-                        }
-                    }
-                }
-            };
-        },
-        getQuickPreviewImagePayload: () => ({ binary: true, body: Buffer.from('image') }),
-        deleteQuickPublishPreviewSession: () => {}
+        executeQuickPublish: async () => { throw new Error('AI manuscript generation must not use Core'); },
+        blogWritingApplication: {
+            async generateText(_prompt, context) {
+                calls.push(['generate', context]);
+                return JSON.stringify({ title: '이미지 없는 원고', content: '본문' });
+            }
+        }
     });
 
     const result = await service.createAiManuscriptDraft({ subject: '주제', imageMode: 'none', platforms: ['naver'] });
     assert.deepEqual(result, { draftId: 'draft-ai-none', revision: 1 });
-    assert.equal(calls[0][1].imageMode, 'none');
-    assert.equal(calls[0][1].imageGeneration, false);
-    assert.equal(calls[1][1].imageMode, 'none');
-    assert.equal(calls[1][1].images.length, 0);
-    assert.doesNotMatch(calls[1][1].markdownText, /\[\[IMAGE_0/);
-    assert.match(calls[1][1].markdownText, /본문/);
+    const draft = calls.find(([kind]) => kind === 'draft')[1];
+    assert.equal(draft.imageMode, 'none');
+    assert.equal(draft.images.length, 0);
+    assert.doesNotMatch(draft.markdownText, /\[\[IMAGE_0/);
+    assert.match(draft.markdownText, /본문/);
+    assert.equal(draft.sourceMetadata.generationPlugin, 'ai-gateway');
 });
 
 test('queue AI manuscript generation reuses the held runner lease instead of acquiring a second lock', async () => {
@@ -642,6 +679,7 @@ test('queue AI manuscript generation reuses the held runner lease instead of acq
         TEXT_MODEL: 'fixture-model', TEXT_MODEL_API_KEY: 'fixture-key'
     }, {
         License: { checkLicenseStatus: async () => ({ success: true, features: { enable_related_posts_auto_link: true } }) },
+        Utils: { parseStructuredJsonResponse(value) { return JSON.parse(value); }, async fetchReferenceContent() { return ''; } },
         manuscriptDraftService: {
             createAiDraft(input) {
                 return { draftId: 'queue-draft', revision: 1, markdownText: input.markdownText };
@@ -651,14 +689,10 @@ test('queue AI manuscript generation reuses the held runner lease instead of acq
                 return { draftId: input.draftId, revision: input.revision + 1, relatedPosts: { status: 'included' } };
             }
         },
-        executeQuickPublish: async () => ({
-            success: true,
-            data: {
-                previewId: 'queue-preview', primaryTarget: 'wordpress',
-                previews: { wordpress: { title: '대기열 원고', rawMarkdown: '# 대기열 원고\n\n본문', images: [] } }
-            }
-        }),
-        deleteQuickPublishPreviewSession() {}
+        executeQuickPublish: async () => { throw new Error('Queue AI manuscript generation must not use Core'); },
+        blogWritingApplication: {
+            async generateText() { return JSON.stringify({ title: '대기열 원고', content: '본문' }); }
+        }
     });
     try {
         const draft = await service.createAiManuscriptDraftForQueue({

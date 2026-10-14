@@ -83,7 +83,7 @@ function createBlogNextExecutionCoordinator(options = {}) {
                             executionId: active.executionId,
                             source: active.source,
                             subject: active.subject,
-                            message: '네이버 포스팅을 중지했습니다. 이미 처리된 저장·발행은 되돌리지 않습니다.',
+                            message: '블로그 포스팅을 중지했습니다. 이미 처리된 업로드·발행은 되돌리지 않습니다.',
                             startedAt: active.startedAt,
                             finishedAt: now().toISOString(),
                             ...(active.progressStage ? { progressStage: active.progressStage } : {}),
@@ -106,7 +106,7 @@ function createBlogNextExecutionCoordinator(options = {}) {
             }
             active.stopRequested = true;
             active.canStop = false;
-            active.message = '네이버 포스팅 중지를 처리하고 있습니다.';
+            active.message = '블로그 포스팅 중지를 처리하고 있습니다.';
             active.abortController.abort();
             return { accepted: true, status: snapshot() };
         }
