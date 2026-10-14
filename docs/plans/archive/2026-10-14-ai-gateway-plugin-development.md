@@ -3,7 +3,7 @@
 - Branch: `codex/feat/ai-gateway-plugin`
 - Start date: 2026-10-14
 - Base/parent branch: `codex/fbr/plugin-architecture-foundation` (`9a85789b`)
-- Status: AI Gateway and Blog, Card News, and SNS integrations complete; ready for merge into `codex/fbr/plugin-architecture-foundation`; Site Hosting image policy remains future work
+- Status: Merged into `codex/fbr/plugin-architecture-foundation`; AI Gateway and Blog, Card News, and SNS integrations complete; Site Hosting image policy remains future work
 
 ## User need and goal
 
@@ -96,7 +96,7 @@ Replace the thin `content-generator` pilot as the AI integration boundary with o
 - Inline base64 is intentionally capped at 10 MiB per image; large or multiple-image workflows may eventually need a shared Host asset-reference contract.
 - KIE cancellation stops local work but cannot guarantee remote cancellation/refund. Submission cancellation can leave the provider outcome unknown.
 - The in-process Core Plugin boundary trusts bundled code and is not isolation against hostile Plugins; community loading remains deferred.
-- The Card News and SNS sub-features were fast-forward merged into this branch and their feature branches deleted. This branch is ready to fast-forward into `codex/fbr/plugin-architecture-foundation`; no push or release has been performed.
+- The Card News and SNS sub-features were fast-forward merged into this branch and their feature branches deleted. This branch was fast-forward merged into `codex/fbr/plugin-architecture-foundation` at `65d64a33`; the AI Gateway feature branch is deleted after merge. No push or release was performed.
 
 ## Verification and handoff
 

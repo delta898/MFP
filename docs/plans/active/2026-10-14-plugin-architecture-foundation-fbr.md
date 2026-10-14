@@ -3,7 +3,7 @@
 - Branch: `codex/fbr/plugin-architecture-foundation`
 - Start date: 2026-10-14
 - Base/parent branch: `dev` (`9c6c2dda0e9ac8cd2fcfa0d9df12f72920989294`)
-- Status: active; Kernel/Application/Plugin 기반, generation/WordPress package pilot, shared runtime composition, combined generation→publishing Application이 parent에 통합됐다. 제품 경로에는 아직 연결하지 않음
+- Status: active; Kernel/Application/Plugin 기반과 AI Gateway를 Blog Beta·Card News·SNS에 연결했다. foundation 변경은 아직 `dev`에 통합되지 않았으며 Community Plugin과 남은 제품 경로 확장은 후속 단계다.
 
 ## 현재 상태와 구조 기준
 
@@ -14,6 +14,8 @@
 - `codex/feat/core-plugin-registry`는 commit `96cfbacb`로 parent에 fast-forward 병합했다. 명시적 Core Plugin factory catalog와 runtime Host discovery 경계를 구현했으며, 개발 기록은 [`2026-10-14-core-plugin-registration-development.md`](../archive/2026-10-14-core-plugin-registration-development.md)에 보관한다.
 - `codex/feat/content-generation-plugin-pilot`는 `@bloggenius/content-generator`와 선택적 Plugin 조립을 검증해 commit `89c1007c`로 parent에 통합됐다. 개발 기록은 [`2026-10-14-content-generation-plugin-pilot-development.md`](../archive/2026-10-14-content-generation-plugin-pilot-development.md)에 보관한다. 제품 생성 경로에는 아직 연결하지 않았다.
 - `codex/feat/application-plugin-composition-pilot`는 commit `849af80c`로 parent에 fast-forward 병합됐다. catalog inventory/factory와 runtime composition의 선택·의존성 wiring을 분리하고, 생성→WordPress 발행 Application으로 검증했다. 세부 결과는 [`2026-10-14-application-plugin-composition-pilot-development.md`](../archive/2026-10-14-application-plugin-composition-pilot-development.md)에 보관한다.
+- `codex/feat/ai-gateway-plugin`은 Card News와 SNS 하위 feature를 순차 통합한 뒤 commit `65d64a33`으로 이 foundation에 fast-forward 병합됐다. Blog Beta 원고 글·이미지 생성과 WordPress 이미지 포함 발행, 카드뉴스 글·이미지 생성, SNS 해시태그·최적화·이미지 생성이 공통 AI Generation service를 사용한다. Gateway와 Application은 model/catalog를 비교하고, provider 자격 증명은 Host transport가 관리한다. 개발 기록은 [`2026-10-14-ai-gateway-plugin-development.md`](../archive/2026-10-14-ai-gateway-plugin-development.md), 하위 기록은 [`2026-10-15-card-news-ai-generation-service.md`](../archive/2026-10-15-card-news-ai-generation-service.md)와 [`2026-10-15-sns-ai-generation-service.md`](../archive/2026-10-15-sns-ai-generation-service.md)에 보관한다.
+- Gateway/Host/Blog 관련 focused 검증 153건과 Card News/SNS 및 구조 계약 focused 검증 142건이 통과했다. 전체 단위 테스트는 사전 `npm audit --audit-level=high` gate에서 의존성 advisory 9건으로 중단됐고, 이전 직접 실행에서 발견된 네 테스트 계약 오류는 수정 후 집중 테스트에서 통과했다. 전체 suite는 수정 후 재실행하지 않았다.
 
 ## 사용자 필요와 목표
 
