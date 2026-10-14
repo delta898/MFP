@@ -5,15 +5,37 @@ const assert = require('node:assert/strict');
 const { createCorePluginRegistry } = require('./core-plugin-registry');
 const { PluginRuntimeCompositionError, composePlugins } = require('./plugin-runtime-composition');
 
-function plugin(id) {
-    return { id, name: id, version: '1.0.0', operations: { run: {} } };
+function manifest(id) {
+    return {
+        manifestVersion: 1,
+        id,
+        name: id,
+        hostApi: '^1.0.0',
+        summary: `${id} test plugin`,
+        operations: {
+            run: {
+                description: 'Run the test operation.',
+                inputSchema: { type: 'object' },
+                outputSchema: { type: 'object' },
+                capabilities: []
+            }
+        }
+    };
+}
+
+function plugin() {
+    return { operations: { run: { execute: async (input) => input } } };
+}
+
+function registration(id, create) {
+    return { manifest: manifest(id), version: '1.0.0', create };
 }
 
 test('runtime composition creates only the selected Plugins in requested order', () => {
     const created = [];
     const catalog = createCorePluginRegistry([
-        { id: 'publisher', create: () => { created.push('publisher'); return plugin('publisher'); } },
-        { id: 'generator', create: () => { created.push('generator'); return plugin('generator'); } }
+        registration('publisher', () => { created.push('publisher'); return plugin(); }),
+        registration('generator', () => { created.push('generator'); return plugin(); })
     ]);
 
     const selected = composePlugins({
@@ -23,14 +45,14 @@ test('runtime composition creates only the selected Plugins in requested order',
     });
 
     assert.deepEqual(created, ['generator', 'publisher']);
-    assert.deepEqual(selected.map(({ id }) => id), ['generator', 'publisher']);
+    assert.deepEqual(selected.map(({ manifest: pluginManifest }) => pluginManifest.id), ['generator', 'publisher']);
     assert.equal(Object.isFrozen(selected), true);
     assert.deepEqual(catalog.list(), ['publisher', 'generator']);
 });
 
 test('runtime composition rejects invalid selections and dependency mappings before factory calls', () => {
     let factoryCalls = 0;
-    const catalog = createCorePluginRegistry([{ id: 'sample-plugin', create: () => { factoryCalls += 1; return plugin('sample-plugin'); } }]);
+    const catalog = createCorePluginRegistry([registration('sample-plugin', () => { factoryCalls += 1; return plugin(); })]);
 
     assert.throws(() => composePlugins({ catalog }), /Plugin ids/i);
     assert.throws(() => composePlugins({ catalog, pluginIds: ['sample-plugin', 'sample-plugin'] }), (error) => (
