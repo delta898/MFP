@@ -1,0 +1,13 @@
+{
+  "name": "@bloggenius/content-generator",
+  "version": "0.1.0",
+  "description": "Provider-neutral text generation Plugin implementing the BlogGenius Plugin descriptor contract",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  }
+}

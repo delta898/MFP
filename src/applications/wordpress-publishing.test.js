@@ -23,8 +23,8 @@ test('Application composes media, category, and post Plugin operations', async (
             }
         }
     });
-    assert.deepEqual(system.corePluginRegistry.list(), ['wordpress-publisher']);
-    assert.deepEqual(system.pluginHost.listPlugins().map((item) => item.id), system.corePluginRegistry.list());
+    assert.deepEqual(system.corePluginRegistry.list(), ['wordpress-publisher', 'content-generator']);
+    assert.deepEqual(system.pluginHost.listPlugins().map((item) => item.id), ['wordpress-publisher']);
     assert.deepEqual(system.pluginHost.listOperations().map((item) => item.operationId), [
         'media.upload', 'categories.list', 'posts.create'
     ]);
@@ -101,7 +101,7 @@ test('runtime operation visibility follows Host enable state rather than a separ
     });
 
     await system.pluginHost.setEnabled('wordpress-publisher', false);
-    assert.deepEqual(system.corePluginRegistry.list(), ['wordpress-publisher']);
+    assert.deepEqual(system.corePluginRegistry.list(), ['wordpress-publisher', 'content-generator']);
     assert.deepEqual(system.pluginHost.listPlugins().map(({ id, state }) => ({ id, state })), [
         { id: 'wordpress-publisher', state: 'disabled' }
     ]);

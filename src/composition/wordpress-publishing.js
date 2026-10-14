@@ -9,7 +9,13 @@ function createWordPressPublishingSystem(options = {}) {
     if (typeof corePluginRegistry?.createPlugins !== 'function' || typeof corePluginRegistry?.list !== 'function') {
         throw new TypeError('Composition requires a valid Core Plugin registry.');
     }
-    const plugins = corePluginRegistry.createPlugins(options.pluginDependencies || {});
+    if (!corePluginRegistry.list().includes('wordpress-publisher')) {
+        throw new TypeError('WordPress publishing Application requires the wordpress-publisher Core Plugin.');
+    }
+    const plugins = corePluginRegistry.createPlugins({
+        pluginIds: ['wordpress-publisher'],
+        dependenciesByPluginId: options.pluginDependencies || {}
+    });
     if (!plugins.some((plugin) => plugin.id === 'wordpress-publisher')) {
         throw new TypeError('WordPress publishing Application requires the wordpress-publisher Core Plugin.');
     }
