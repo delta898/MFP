@@ -122,6 +122,7 @@ function createLegacyApiRouteHandler(deps = {}) {
         fs: deps.fs,
         path: deps.path,
         manuscriptDraftService: deps.manuscriptDraftService,
+        blogWritingApplication: deps.blogWritingApplication,
         axios: deps.axios,
         RuntimeConfig: deps.RuntimeConfig,
         CONFIG: deps.CONFIG,

@@ -179,6 +179,82 @@ test('manuscript draft publishing resolves one exact snapshot before using the e
     assert.equal(archivedSnapshots[0].files[0].name, 'contents.md');
 });
 
+test('WordPress manuscript publication selects Plugin publisher and preserves the user draft snapshot', async () => {
+    const coordinator = createBlogNextExecutionCoordinator();
+    const published = [];
+    const marked = [];
+    const service = createService(coordinator, async (input) => {
+        published.push(input);
+        return {
+            success: true,
+            data: {
+                status: '발행 완료', postStatus: 'publish',
+                results: { wordpress: { success: true, status: 'publish', postId: 'wp-902', postUrl: 'https://example.test/902' } }
+            }
+        };
+    }, { WORDPRESS_URL: 'https://example.test' }, {
+        manuscriptDraftService: {
+            assertNotPublished() {},
+            async preparePublishPayload() {
+                return {
+                    folderName: '원고',
+                    selectedFiles: [{ name: 'contents.md', textContent: '# WordPress 원고\n\n본문' }],
+                    settings: { targets: ['wordpress'], postStatus: 'publish', imageMode: 'none' },
+                    publishPolicy: { draftRevision: 3, unresolvedImageCount: 0 }
+                };
+            },
+            markPublished(input) { marked.push(input); return { draftId: 'draft-1', revision: 3 }; },
+            persistPublicationSnapshot() { return { success: true, publicationId: 'pub-1' }; }
+        }
+    });
+
+    const result = await service.publishManuscriptDraft({ draftId: 'draft-1', revision: 2 });
+
+    assert.equal(published.length, 1);
+    assert.equal(published[0].usePluginPublisher, true);
+    assert.equal(published[0].imageMode, 'none');
+    assert.deepEqual(published[0].targets, ['wordpress']);
+    assert.deepEqual(marked, [{ draftId: 'draft-1', revision: 3, target: 'wordpress', postStatus: 'publish' }]);
+    assert.equal(result.status, '발행 완료');
+    assert.deepEqual(result.manuscriptPreview, { draftId: 'draft-1', revision: 3 });
+    assert.equal(result.archiveSnapshot.success, true);
+});
+
+test('failed WordPress Plugin publication keeps the editable draft unmarked', async () => {
+    const coordinator = createBlogNextExecutionCoordinator();
+    let marked = 0;
+    let archived = 0;
+    const preservedDraft = { draftId: 'draft-1', revision: 3, lifecycleStatus: 'active' };
+    const service = createService(coordinator, async () => ({
+        success: true,
+        data: {
+            status: '발행 실패', postStatus: 'publish',
+            results: { wordpress: { success: false, status: 'publish', message: '요청 실패' } }
+        }
+    }), {}, {
+        manuscriptDraftService: {
+            assertNotPublished() {},
+            async preparePublishPayload() {
+                return {
+                    selectedFiles: [{ name: 'contents.md', textContent: '# WordPress 원고\n\n본문' }],
+                    settings: { targets: ['wordpress'], postStatus: 'publish', imageMode: 'none' },
+                    publishPolicy: { draftRevision: 3, unresolvedImageCount: 0 }
+                };
+            },
+            markPublished() { marked += 1; throw new Error('failed publication must not be recorded'); },
+            getDraft() { return preservedDraft; },
+            persistPublicationSnapshot() { archived += 1; return { success: true }; }
+        }
+    });
+
+    const result = await service.publishManuscriptDraft({ draftId: 'draft-1', revision: 2 });
+
+    assert.equal(marked, 0);
+    assert.equal(archived, 0);
+    assert.deepEqual(result.manuscriptPreview, preservedDraft);
+    assert.equal(result.archiveSnapshot.success, false);
+});
+
 test('duplicate manuscript-target pair is rejected before the publisher is called', async () => {
     const coordinator = createBlogNextExecutionCoordinator();
     let prepareCount = 0;
@@ -351,6 +427,56 @@ test('direct AI manuscript generation stays local until the user publishes and i
     assert.deepEqual(calls[1][1].sourceMetadata, { generationProjection: 'wordpress' });
     assert.equal(calls[1][1].images.length, 1);
     assert.deepEqual(calls[2], ['dispose-preview', 'preview-1']);
+    assert.deepEqual(coordinator.getStatus(), { busy: false });
+});
+
+test('text-only manuscript generation uses Content Generator Plugin independently of the publish target', async () => {
+    const coordinator = createBlogNextExecutionCoordinator();
+    const calls = [];
+    const service = createService(coordinator, async () => ({ success: true, data: {} }), {
+        TEXT_MODEL: 'fixture-model', TEXT_MODEL_API_KEY: 'fixture-key'
+    }, {
+        License: {
+            async checkLicenseStatus() { return { success: true, features: { enable_related_posts_auto_link: false } }; }
+        },
+        Logger: { info(message) { calls.push(['log', message]); } },
+        Utils: {
+            parseStructuredJsonResponse(value) { return JSON.parse(value); },
+            async fetchReferenceContent() { return ''; },
+            async sleep() {}
+        },
+        blogWritingApplication: {
+            async generateText(prompt, context) {
+                calls.push(['generate', prompt, context]);
+                return JSON.stringify({ title: '제주 산책', content: '제주를 천천히 걷는 이야기입니다.', hashtags: ['제주'] });
+            }
+        },
+        manuscriptDraftService: {
+            createAiDraft(input) {
+                calls.push(['draft', input]);
+                return { draftId: 'draft-wp-plugin', revision: 1 };
+            }
+        },
+        executeQuickPublish: async () => { throw new Error('legacy generation path must not run'); }
+    });
+
+    const result = await service.createAiManuscriptDraft({
+        subject: '제주 산책', keywords: ['제주'], imageMode: 'none', targets: ['naver']
+    });
+
+    assert.deepEqual(result, { draftId: 'draft-wp-plugin', revision: 1 });
+    const generation = calls.find(([type]) => type === 'generate');
+    const draft = calls.find(([type]) => type === 'draft')[1];
+    assert.match(generation[1], /제주 산책/);
+    assert.equal(generation[2].signal, undefined);
+    assert.equal(draft.imageMode, 'none');
+    assert.deepEqual(draft.targets, ['naver']);
+    assert.deepEqual(draft.images, []);
+    assert.equal(draft.sourceMetadata.generationPlugin, 'content-generator');
+    assert.match(draft.markdownText, /^# 제주 산책/);
+    assert.match(draft.markdownText, /#제주/);
+    assert.ok(calls.some(([type, message]) => type === 'log' && /content-generator 경로 선택: plugin/.test(message)));
+    assert.ok(calls.some(([type, message]) => type === 'log' && /content-generator\.text\.generate 완료/.test(message)));
     assert.deepEqual(coordinator.getStatus(), { busy: false });
 });
 

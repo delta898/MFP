@@ -80,6 +80,62 @@ test('local WordPress publish preserves image upload warnings while counting the
     assert.equal(completed.meta.wordpressImageUploadFailures, 1);
 });
 
+test('WordPress Plugin publisher owns WordPress manuscript creation when the application flag is set', async () => {
+    const calls = [];
+    const logs = [];
+    const runtime = createPublishActionsRuntime({
+        CONFIG: {},
+        Logger: { info(message) { logs.push(message); }, warn() {}, error() {} },
+        Utils: {},
+        Core: {
+            async publishToWordPress() { throw new Error('legacy WordPress publisher must not run'); }
+        },
+        blogWritingApplication: {
+            async publishWordPress(request, context) {
+                calls.push({ request, context });
+                return { success: true, postId: 902, postUrl: 'https://example.test/draft/902', status: 'draft', warnings: null };
+            }
+        },
+        License: {
+            async checkLicenseStatus() { return { success: true, features: {} }; },
+            async reservePublishQuota() { return { success: true }; },
+            async commitPublishQuota() { return { success: true }; }
+        },
+        toFeatureMap,
+        getFeatureBool,
+        buildLocalMarkdownPreview: () => ({
+            title: 'Plugin 원고',
+            rawMarkdown: '# Plugin 원고\n\n본문입니다.',
+            validation: { ok: true, errors: [] },
+            images: [],
+            source: { fileName: 'contents.md', folderName: '원고' }
+        }),
+        materializeSelectedFilesToWorkspace: () => ({ tempDir: '' }),
+        formatActivityTargets: () => '워드프레스',
+        recordUiActivity() {}
+    });
+
+    const result = await runtime.executeLocalMarkdownPublish({
+        markdownText: '# Plugin 원고\n\n본문입니다.',
+        targets: ['wordpress'],
+        postStatus: 'draft',
+        imageMode: 'none',
+        wordpressCategory: '여행',
+        usePluginPublisher: true
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(result.data.results.wordpress.postId, '902');
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].request.title, 'Plugin 원고');
+    assert.match(calls[0].request.content, /<p>본문입니다\.<\/p>/);
+    assert.equal(calls[0].request.status, 'draft');
+    assert.equal(calls[0].request.category, '여행');
+    assert.ok(logs.some((message) => message.includes('wordpress-publisher.posts.create 실행')));
+    assert.ok(logs.some((message) => message.includes('wordpress-publisher.posts.create 응답 (success=true)')));
+    assert.equal(logs.some((message) => message.includes('본문입니다')), false);
+});
+
 test('quick publish keeps the user image option independent from legacy license flags', async () => {
     let appendedTopics = [];
     let dedupeInput = null;

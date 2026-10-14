@@ -20,6 +20,9 @@ const { createManuscriptDraftService } = require('../../content/manuscript-draft
 const { selectManuscriptImagePromptContext } = require('../../content/manuscript-image-prompt-context');
 const { buildSetupReadiness } = require('../../account/setup-readiness');
 const { createTransientPreviewWorkspaceManager } = require('../../content/transient-preview-workspace');
+const { buildBlogGenerationPrompt } = require('../../content/blog-generation-prompt');
+const { collectBlogReferenceContext } = require('../../content/blog-reference-context');
+const Constants = require('../../constants');
 
 function createContentService(deps = {}) {
     const {
@@ -58,6 +61,7 @@ function createContentService(deps = {}) {
         buildMajorSettings,
         ensureSheetsReadyForUi,
         executeQuickPublish,
+        blogWritingApplication,
         executeQuickPreviewPublish,
         getQuickPreviewImagePayload,
         deleteQuickPublishPreviewSession,
@@ -424,6 +428,86 @@ function createContentService(deps = {}) {
             ? requestBody.targets
             : (Array.isArray(requestBody.platforms) ? requestBody.platforms : []);
         const targets = requestedTargets.length === 1 ? requestedTargets : ['naver'];
+        const useContentGeneratorPlugin = Boolean(blogWritingApplication) && imageMode === 'none';
+        const generationFallbackReason = !blogWritingApplication ? 'application_unavailable'
+            : imageMode !== 'none' ? `image_pipeline_not_in_vertical_slice:${imageMode}` : '';
+        Logger?.info?.(`[Blog Beta][Plugin] content-generator 경로 선택: ${useContentGeneratorPlugin ? 'plugin' : `Core fallback (${generationFallbackReason || 'not_selected'})`}`
+            + ` (requestedTargets=${requestedTargets.join(',') || 'none'}, effectiveTargets=${targets.join(',')}, imageMode=${imageMode})`);
+        if (useContentGeneratorPlugin) {
+            const license = await License.checkLicenseStatus();
+            if (!license?.success) throw createApiError(400, license?.code || 'LICENSE_STATUS_FAILED', license?.message || '라이선스 상태를 확인하지 못했습니다.');
+            const title = String(requestBody.title || '').trim();
+            const subject = String(requestBody.subject || '').trim();
+            const keywords = Array.isArray(requestBody.keywords)
+                ? requestBody.keywords
+                : String(requestBody.keywords || '').split(',').map((item) => item.trim()).filter(Boolean);
+            const referenceUrls = [
+                ...(String(requestBody.referenceUrl || '').trim() ? [String(requestBody.referenceUrl).trim()] : []),
+                ...(Array.isArray(requestBody.referenceUrls) ? requestBody.referenceUrls : [])
+            ];
+            const { referenceContext } = await collectBlogReferenceContext({
+                Utils,
+                Logger,
+                signal: operation?.signal,
+                jobData: {
+                    subject,
+                    keywords,
+                    use_external_ref: requestBody.externalReference === true,
+                    content_guide: {
+                        title,
+                        additional_instructions: requestBody.instruction || '',
+                        reference_urls: referenceUrls
+                    }
+                }
+            });
+            operation?.throwIfCanceled();
+            const resolvedPrompt = buildBlogGenerationPrompt({
+                profile: CONFIG.CONTENT_WRITING_PROFILE,
+                strategy: requestBody.writingStrategy || requestBody.writing_strategy,
+                globalStrategy: CONFIG.BLOG_WRITING_STRATEGY,
+                config: CONFIG,
+                constants: Constants,
+                post: {
+                    subject,
+                    title,
+                    keywords,
+                    instruction: requestBody.instruction || '',
+                    image_mode: 'none',
+                    image_generate: false,
+                    image_count: 0,
+                    reference_context: referenceContext,
+                    writing_overrides: requestBody.writingOverrides || requestBody.writing_overrides
+                }
+            });
+            Logger?.info?.('[Blog Beta][Plugin] content-generator.text.generate 시작');
+            const raw = await blogWritingApplication.generateText(resolvedPrompt.prompt, { signal: operation?.signal });
+            operation?.throwIfCanceled();
+            Logger?.info?.(`[Blog Beta][Plugin] content-generator.text.generate 완료 (응답 ${String(raw || '').length}자)`);
+            let generated;
+            try { generated = Utils.parseStructuredJsonResponse(raw); }
+            catch (error) { throw createApiError(502, 'BLOG_PLUGIN_GENERATION_INVALID', `AI 원고 응답을 해석하지 못했습니다: ${error.message}`); }
+            const generatedTitle = title || String(generated.title || generated.subject || subject || '').trim();
+            const generatedContent = String(generated.content || '').trim();
+            if (!generatedTitle || !generatedContent) {
+                throw createApiError(502, 'BLOG_PLUGIN_GENERATION_INCOMPLETE', 'AI가 제목이나 본문을 충분히 생성하지 못했습니다. 입력을 보완한 뒤 다시 시도해 주세요.');
+            }
+            const hashtags = Array.isArray(generated.hashtags)
+                ? generated.hashtags.map((tag) => String(tag || '').replace(/^#+/, '').trim()).filter(Boolean).slice(0, 20)
+                : [];
+            const markdownText = `# ${generatedTitle}\n\n${generatedContent}${hashtags.length ? `\n\n\n${hashtags.map((tag) => `#${tag}`).join(' ')}` : ''}`;
+            operation?.beginCommit();
+            const draft = getManuscriptDraftService().createAiDraft({
+                ...requestBody,
+                imageMode: 'none',
+                targets,
+                markdownText,
+                images: [],
+                sourceLabel: generatedTitle,
+                sourceMetadata: { generationPlugin: 'content-generator' }
+            });
+            Logger?.info?.(`[Blog Beta][Plugin] 원고 저장 완료 (draft ${String(draft?.draftId || '').slice(0, 8)}, targets=${targets.join(',')})`);
+            return refreshManuscriptRelatedPosts(draft, await resolveRelatedPostsEnabled(), { force: true });
+        }
         // The canonical manuscript is platform-neutral. Use the non-browser generation
         // projection only as a transient workspace and apply the user's platform later.
         const generationTargets = ['wordpress'];
@@ -1356,6 +1440,13 @@ function createContentService(deps = {}) {
                     }
                 });
                 const target = Array.isArray(snapshot.settings?.targets) ? snapshot.settings.targets[0] : '';
+                if (target === 'wordpress' && snapshot.settings?.postStatus === 'schedule') {
+                    throw createApiError(400, 'WORDPRESS_PLUGIN_STATUS_UNSUPPORTED', '현재 WordPress Plugin 발행 경로는 임시 저장과 즉시 발행만 지원합니다.');
+                }
+                if (target === 'wordpress' && (snapshot.publishPolicy?.unresolvedImageCount > 0
+                    || snapshot.selectedFiles?.some((entry) => String(entry?.contentType || '').startsWith('image/')))) {
+                    throw createApiError(400, 'WORDPRESS_PLUGIN_TEXT_ONLY', '현재 WordPress Plugin 발행 경로는 이미지 없는 원고만 지원합니다. 이미지를 제거한 뒤 다시 시도해 주세요.');
+                }
                 if (typeof draftService.assertNotPublished === 'function') {
                     draftService.assertNotPublished({
                         draftId: requestBody.draftId,
@@ -1364,10 +1455,14 @@ function createContentService(deps = {}) {
                     });
                 }
                 const canStopNaver = (Array.isArray(snapshot.settings?.targets) ? snapshot.settings.targets : []).includes('naver');
+                if (target === 'wordpress') {
+                    Logger?.info?.(`[Blog Beta][Plugin] WordPress 원고 발행 시작 (상태 ${snapshot.settings?.postStatus || 'publish'})`);
+                }
                 const result = await executeCompletedLocalMarkdownPublish({
                     ...snapshot.settings,
                     ...snapshot,
                     operationId: requestBody.operationId,
+                    ...(target === 'wordpress' ? { imageMode: 'none', usePluginPublisher: true } : {}),
                     onPreparationComplete() { lease.setCanStop(canStopNaver); },
                     onNaverProgress(progress) {
                         if (progress?.stage === 'editor') lease.setCanStop(canStopNaver);
@@ -1376,10 +1471,15 @@ function createContentService(deps = {}) {
                     }
                 }, { signal: lease.signal });
                 const platformResult = result.results?.[target];
+                if (target === 'wordpress') {
+                    Logger?.info?.(platformResult?.success === true
+                        ? `[Blog Beta][Plugin] WordPress 원고 발행 완료 (post ${String(platformResult.postId || '').slice(0, 12)})`
+                        : `[Blog Beta][Plugin] WordPress 원고 발행 실패: ${String(platformResult?.message || '응답 상태를 확인할 수 없습니다.').slice(0, 300)}`);
+                }
                 const actualPostStatus = String(platformResult?.status || result.postStatus || snapshot.settings.postStatus || 'publish') === 'future'
                     ? 'schedule'
                     : String(platformResult?.status || result.postStatus || snapshot.settings.postStatus || 'publish');
-                const manuscriptPreview = typeof draftService.markPublished === 'function'
+                const manuscriptPreview = platformResult?.success === true && typeof draftService.markPublished === 'function'
                     ? draftService.markPublished({
                         draftId: requestBody.draftId,
                         revision: snapshot.publishPolicy.draftRevision,
@@ -1554,6 +1654,10 @@ function createContentService(deps = {}) {
         },
 
         async getWordPressCategories() {
+            if (blogWritingApplication) {
+                Logger?.info?.('[Blog Beta][Plugin] wordpress-publisher.categories.list 요청');
+                return blogWritingApplication.listWordPressCategories();
+            }
             const Logger = require('../../logger');
             const WordPressClient = require('../../wordpress-client');
 

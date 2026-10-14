@@ -12,13 +12,13 @@ const { persistAuthSessionState } = require('./auth-session');
 const WordPressClient = require('./wordpress-client');
 const { marked } = require('marked');
 const { buildBlogGenerationPrompt } = require('./content/blog-generation-prompt');
+const { collectBlogReferenceContext } = require('./content/blog-reference-context');
 const { validateBlogImageBlocks } = require('./content/blog-image-plan');
 const { parseImageBlocks } = require('./content/image-blocks');
 const { formatRelatedPostsForNaver } = require('./content/naver-related-posts');
 const { normalizeBlogImageMode, generatesBlogImages } = require('./content/blog-image-mode');
 const { assertDirectPublishAllowed } = require('./environment/runtime-effects');
 const {
-	raceWithCancellation,
 	rethrowIfCanceled,
 	sleepWithCancellation,
 	throwIfCanceled
@@ -1863,77 +1863,12 @@ ${messageText}
 			throw new Error("❌ [Error] 주제, 키워드, 지시사항, URL 중 적어도 하나는 필요합니다.");
 		}
 
-		// 1) 외부 참고 블로그 인기글 수집 (use_external_ref === true일 때)
-		let scrapedContext = "";
-		let refSourceCount = 0;
-		const scrapedTitles = [];
-
-		if (useExternalRef) {
-			// 검색 키워드 결정: keywords 중 첫번째 또는 subject
-			const searchKeyword = (hasKeywords ? jobData.keywords[0] : jobData.subject) || '';
-			if (searchKeyword) {
-				Logger.info(`🔍 [외부 참고] 관련 최신 글 수집 및 분석 시작: '${searchKeyword}'`);
-				const relatedPosts = await raceWithCancellation(() => Utils.fetchNaverBlogTopPosts(searchKeyword), signal);
-				throwIfCanceled(signal);
-
-				for (let i = 0; i < relatedPosts.length; i++) {
-					throwIfCanceled(signal);
-					const post = relatedPosts[i];
-					const text = await Utils.fetchReferenceContent(post.link, { signal });
-					throwIfCanceled(signal);
-					if (text) {
-						refSourceCount++;
-						scrapedContext += `\n[자동 참고글 ${refSourceCount} - ${post.title}]:\n${text}\n`;
-
-						const rawTitle = String(post.title || '').replace(/\s+/g, ' ').trim();
-						const previewTitle = rawTitle.length > 7 ? rawTitle.slice(0, 7) + '...' : rawTitle;
-						scrapedTitles.push(` - ${previewTitle}`);
-					}
-					await sleepWithCancellation(1000, signal, (ms) => Utils.sleep(ms));
-				}
-				Logger.info(`🔍 [외부 참고] 관련 최신 글 스크래핑 완료: ${refSourceCount}건 성공`);
-				if (scrapedTitles.length > 0) {
-					scrapedTitles.forEach(t => Logger.info(t));
-				}
-			}
-		}
-
-		// 2) 수동 참고 URL 스크래핑 (기존 로직 유지)
-		if (hasRef) {
-			const refUrls = jobData.content_guide.reference_urls;
-			Logger.info(`📚 수동 참고 자료(${refUrls.length}개) 분석 중...`);
-			for (let i = 0; i < refUrls.length; i++) {
-				throwIfCanceled(signal);
-				const url = refUrls[i];
-				// 네이버 블로그 URL이면 모바일 변환
-				const convertedUrl = Utils.convertToMobileNaverBlogUrl(url);
-				Logger.info(`   🔗 [참고 자료] URL 분석 중 (${i + 1}/${refUrls.length}): ${convertedUrl}`);
-				const text = await Utils.fetchReferenceContent(convertedUrl, { signal });
-				throwIfCanceled(signal);
-				if (text) {
-					refSourceCount++;
-					scrapedContext += `\n[수동 참고글 ${refSourceCount} - ${convertedUrl}]:\n${text}\n`;
-				}
-				await Utils.sleep(1000);
-			}
-		}
-
-		// 3) 사실 참고 컨텍스트 구성
-		let referenceSection = "(No reference provided)";
-		if (scrapedContext) {
-			referenceSection = `아래는 해당 주제와 관련된 참고 블로그 글의 내용입니다.
-이 자료는 문장을 베끼기 위한 원문이 아니라, 사실관계와 핵심 논지를 추출하기 위한 참고 컨텍스트입니다.
-이 글들의 핵심 인사이트, 정보, 관점을 참고하여 독창적인 글을 작성하세요.
-단, 원문을 그대로 복사하지 말고, 여러 글의 정보를 종합하여 새로운 시각과 가치를 제공하는 글을 작성하세요.
-특히 다음 규칙을 반드시 지키세요.
-- 원문 문장, 문단 순서, 표현을 거의 그대로 옮기지 마세요.
-- 먼저 내용을 충분히 이해한 뒤, 한국어로 자연스럽고 새롭게 재구성해서 다시 쓰세요.
-- 외국어 기사인 경우 직역투를 피하고, 한국 독자가 읽기 쉬운 문장으로 정확하게 풀어쓰세요.
-- 참고자료에 있는 중요한 배경, 변화점, 수치, 사례, 비교 포인트, 주의사항이 있다면 빠뜨리지 말고 본문에 녹여 쓰세요.
-- 내용이 풍부한 원문이라면 글도 충분히 풍성해야 합니다. 핵심 디테일이 빠진 얕은 요약문처럼 쓰지 마세요.
-- 단순 줄거리 요약이 아니라, 핵심 주장과 맥락이 살아 있는 해설형 글처럼 재서술하세요.
-${scrapedContext}`;
-		}
+		const { referenceContext: referenceSection } = await collectBlogReferenceContext({
+			Utils,
+			Logger,
+			signal,
+			jobData
+		});
 
 		const requestedTitle = String(jobData.title || jobData.content_guide?.title || '').trim();
 		const resolvedPrompt = buildBlogGenerationPrompt({

@@ -18,6 +18,7 @@ const {
     assertDirectPublishAllowed
 } = require('../environment/runtime-effects');
 const { rethrowIfCanceled, throwIfCanceled } = require('../ai/cancellation');
+const { marked } = require('marked');
 
 function createPublishActionsRuntime(deps = {}) {
     const {
@@ -28,6 +29,7 @@ function createPublishActionsRuntime(deps = {}) {
         Logger,
         Utils,
         Core,
+        blogWritingApplication,
         License,
         TelegramBotService,
         buildLocalMarkdownPreview,
@@ -1372,6 +1374,28 @@ function createPublishActionsRuntime(deps = {}) {
             };
         }
 
+        if (requestBody?.usePluginPublisher === true) {
+            const sourceMarkdown = [markdownText, ...selectedFiles.map((entry) => entry?.textContent || '')].join('\n');
+            const hasImageAssets = selectedFiles.some((entry) => String(entry?.contentType || '').startsWith('image/'));
+            if (imageMode !== 'none' || hasImageAssets || /\[\[IMAGE_/i.test(sourceMarkdown)) {
+                return {
+                    success: false,
+                    code: 'WORDPRESS_PLUGIN_TEXT_ONLY',
+                    message: '현재 WordPress Plugin 발행 경로는 이미지 없는 원고만 지원합니다. 이미지를 제거하고 이미지 옵션을 미포함으로 설정해 주세요.'
+                };
+            }
+            if (!['draft', 'publish'].includes(postStatus)) {
+                return {
+                    success: false,
+                    code: 'WORDPRESS_PLUGIN_STATUS_UNSUPPORTED',
+                    message: '현재 WordPress Plugin 발행 경로는 임시 저장과 즉시 발행만 지원합니다.'
+                };
+            }
+            if (typeof blogWritingApplication?.publishWordPress !== 'function') {
+                return { success: false, code: 'BLOG_PLUGIN_HOST_UNAVAILABLE', message: 'WordPress Plugin 실행 경로를 준비하지 못했습니다.' };
+            }
+        }
+
         if (hasPastedMarkdown && relatedPostsEnabled) {
             try {
                 Logger.info('🔎 [PastedMarkdown] 관련 글 자동 수집 중...');
@@ -1475,12 +1499,31 @@ function createPublishActionsRuntime(deps = {}) {
             }
 
             if (executionTargets.includes('wordpress')) {
-                const wpRes = await Core.publishToWordPress(workspace.tempDir, {
-                    category: requestBody?.wordpressCategory || '',
-                    postStatus,
-                    wpScheduleDate: scheduleDate || '',
-                    imageGeneration: imageGenerationFinal
-                }) || { success: false, message: '워드프레스 포스팅 응답이 비어 있습니다.' };
+                let wpRes;
+                if (requestBody?.usePluginPublisher === true) {
+                    const bodyMarkdown = String(previewData.rawMarkdown || '').replace(/^#\s+.+\n?/, '').trim();
+                    Logger?.info?.('[Blog Beta][Plugin] wordpress-publisher.posts.create 실행');
+                    try {
+                        wpRes = await blogWritingApplication.publishWordPress({
+                            title: previewData.title,
+                            content: marked.parse(bodyMarkdown),
+                            status: postStatus,
+                            category: requestBody?.wordpressCategory || ''
+                        }, { signal });
+                    } catch (error) {
+                        Logger?.error?.(`[Blog Beta][Plugin] wordpress-publisher.posts.create 예외 (code=${String(error?.code || error?.apiCode || error?.name || 'unknown').slice(0, 80)})`);
+                        throw error;
+                    }
+                    Logger?.info?.(`[Blog Beta][Plugin] wordpress-publisher.posts.create 응답 (success=${wpRes?.success === true})`);
+                } else {
+                    wpRes = await Core.publishToWordPress(workspace.tempDir, {
+                        category: requestBody?.wordpressCategory || '',
+                        postStatus,
+                        wpScheduleDate: scheduleDate || '',
+                        imageGeneration: imageGenerationFinal
+                    });
+                }
+                wpRes = wpRes || { success: false, message: '워드프레스 포스팅 응답이 비어 있습니다.' };
                 results.wordpress = {
                     success: Boolean(wpRes.success),
                     message: wpRes.message || '',

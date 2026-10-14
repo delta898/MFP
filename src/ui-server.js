@@ -74,6 +74,7 @@ const { createTrendActionsRuntime } = require('./ui-runtime/trend-actions-runtim
 const { createPublishActionsRuntime } = require('./ui-runtime/publish-actions-runtime');
 const { createUiApiRouteRuntime } = require('./ui-runtime/api-route-runtime');
 const { createCorePluginRuntime } = require('./composition/core-plugin-runtime');
+const { createBlogWritingSystem } = require('./composition/blog-writing');
 const { createUiHttpServerRuntime } = require('./ui-runtime/http-server-runtime');
 const { createHtmlCompositionRuntime } = require('./ui-runtime/html-composition-runtime');
 const { createCssCompositionRuntime } = require('./ui-runtime/css-composition-runtime');
@@ -779,6 +780,33 @@ const {
 } = uiSettingsFieldsRuntime;
 
 
+const corePluginRuntime = createCorePluginRuntime();
+const blogWritingSystem = createBlogWritingSystem({
+    corePluginRuntime,
+    pluginDependencies: {
+        'content-generator': {
+            async generateText({ prompt, signal }) {
+                const modelConfig = { ...(CONFIG.TEXT_MODEL_CONFIG || {}) };
+                if (modelConfig.capabilities && typeof modelConfig.capabilities === 'object') {
+                    modelConfig.capabilities = { ...modelConfig.capabilities };
+                }
+                return Utils.callWritingText(prompt, 3, {
+                    responseMimeType: 'application/json',
+                    ...(signal ? { signal } : {}),
+                    modelConfig
+                });
+            }
+        },
+        'wordpress-publisher': {
+            getCredentials: async () => ({
+                url: CONFIG.WORDPRESS_URL,
+                userId: CONFIG.WORDPRESS_USER_ID,
+                appPassword: CONFIG.WORDPRESS_APP_PASSWORD
+            })
+        }
+    }
+});
+
 const publishActionsRuntime = createPublishActionsRuntime({
     fs,
     path,
@@ -787,6 +815,7 @@ const publishActionsRuntime = createPublishActionsRuntime({
     Logger,
     Utils,
     Core,
+    blogWritingApplication: blogWritingSystem.application,
     License,
     TelegramBotService,
     buildLocalMarkdownPreview,
@@ -1080,7 +1109,8 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     createSiteHostingSiteService,
     createSiteHostingSiteRouteHandler,
     createApiRouteHub,
-    corePluginRuntime: createCorePluginRuntime(),
+    corePluginRuntime,
+    blogWritingApplication: blogWritingSystem.application,
     UiValidators,
     normalizeYmdToken,
     normalizeListenHost,
