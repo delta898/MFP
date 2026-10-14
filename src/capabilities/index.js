@@ -37,6 +37,8 @@ const { createContentIdeaCapabilities } = require('./content/ideas');
 const { createRegisterTopicCapabilities } = require('./content/register-topic');
 const { createPublishCapabilities } = require('./content/publish');
 const { createKeywordResearchCapabilities } = require('./content/keyword-research');
+const { createCorePluginHost } = require('../plugins/core-host');
+const { CORE_PLUGIN_DEFINITIONS } = require('../plugins/catalog');
 
 function createCapabilityRegistry(deps = {}) {
     const configState = createConfigStateManager(deps);
@@ -136,10 +138,10 @@ function createCapabilityRegistry(deps = {}) {
         ...createChatModelCapabilities(capabilityDeps)
     ];
 
-    const map = new Map();
-    allCapabilities.forEach((capability) => {
-        const id = capability.id || buildCapabilityId(capability.domain, capability.name);
-        map.set(id, capability);
+    const pluginHost = createCorePluginHost({
+        coreCapabilities: allCapabilities,
+        plugins: CORE_PLUGIN_DEFINITIONS,
+        contexts: deps.corePluginContexts
     });
 
     return {
@@ -147,13 +149,19 @@ function createCapabilityRegistry(deps = {}) {
         knowledgeRegistry,
         knowledgeRouting: routing,
         list() {
-            return Array.from(map.values());
+            return pluginHost.listCapabilities();
         },
         get(id) {
-            return map.get(String(id || '').trim()) || null;
+            return pluginHost.getCapability(id);
         },
         has(id) {
-            return map.has(String(id || '').trim());
+            return pluginHost.hasCapability(id);
+        },
+        listPlugins() {
+            return pluginHost.listPlugins();
+        },
+        setPluginEnabled(id, enabled) {
+            return pluginHost.setPluginEnabled(id, enabled);
         },
         async validateAction(action, context = {}) {
             const capability = this.get(buildCapabilityId(action.domain, action.name));
