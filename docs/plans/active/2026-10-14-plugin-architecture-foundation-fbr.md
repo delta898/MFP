@@ -3,7 +3,7 @@
 - Branch: `codex/fbr/plugin-architecture-foundation`
 - Start date: 2026-10-14
 - Base/parent branch: `dev` (`9c6c2dda0e9ac8cd2fcfa0d9df12f72920989294`)
-- Status: active; Kernel/Application/Plugin 기반과 generation/WordPress package pilot이 통합됐으며, 공통 runtime composition 및 combined Application pilot을 진행 중. 제품 경로에는 아직 연결하지 않음
+- Status: active; Kernel/Application/Plugin 기반, generation/WordPress package pilot, shared runtime composition, combined generation→publishing Application이 parent에 통합됐다. 제품 경로에는 아직 연결하지 않음
 
 ## 현재 상태와 구조 기준
 
@@ -13,7 +13,7 @@
 - `codex/feat/wordpress-publisher-plugin-pilot`는 commit `4e1424f6`로 parent에 fast-forward 병합했다. 개발 기록은 [`2026-10-14-wordpress-publisher-plugin-pilot-development.md`](../archive/2026-10-14-wordpress-publisher-plugin-pilot-development.md)에 보관한다. 기존 제품 경로는 아직 새 구조에 연결되지 않았다.
 - `codex/feat/core-plugin-registry`는 commit `96cfbacb`로 parent에 fast-forward 병합했다. 명시적 Core Plugin factory catalog와 runtime Host discovery 경계를 구현했으며, 개발 기록은 [`2026-10-14-core-plugin-registration-development.md`](../archive/2026-10-14-core-plugin-registration-development.md)에 보관한다.
 - `codex/feat/content-generation-plugin-pilot`는 `@bloggenius/content-generator`와 선택적 Plugin 조립을 검증해 commit `89c1007c`로 parent에 통합됐다. 개발 기록은 [`2026-10-14-content-generation-plugin-pilot-development.md`](../archive/2026-10-14-content-generation-plugin-pilot-development.md)에 보관한다. 제품 생성 경로에는 아직 연결하지 않았다.
-- 현재 `codex/feat/application-plugin-composition-pilot`에서 catalog의 Plugin 목록/factory 역할과 공통 runtime composition의 선택·의존성 wiring을 분리하고, 생성→WordPress 발행 Application으로 검증한다. 시작 전에 사용자가 해당 ownership 분리를 승인했다.
+- `codex/feat/application-plugin-composition-pilot`는 commit `849af80c`로 parent에 fast-forward 병합됐다. catalog inventory/factory와 runtime composition의 선택·의존성 wiring을 분리하고, 생성→WordPress 발행 Application으로 검증했다. 세부 결과는 [`2026-10-14-application-plugin-composition-pilot-development.md`](../archive/2026-10-14-application-plugin-composition-pilot-development.md)에 보관한다.
 
 ## 사용자 필요와 목표
 
@@ -290,7 +290,7 @@ Core Plugin은 초기에 앱에 번들되며 설치·삭제할 수 없다. 기�
 
 ## 다음 단계
 
-1. 현재 Application/Plugin composition pilot을 완료해 catalog → runtime composition → Plugin Host 책임과 생성→발행 Application 흐름을 focused tests로 검증한다. 제품 entrypoint 연동과 legacy 경로 제거는 구조 검증 단계 이후 별도 slice로 다룬다.
+1. 다음 pilot 후보는 Naver Blog Publisher Core Plugin이다. WordPress와 다른 인증·요청 경계를 새 package/Application 계약에서 검증하고, 기존 제품 경로는 이 단계에서 연결하지 않는다. 시작 전 기존 Naver 인증 흐름과 외부 side effect를 조사한 뒤 범위를 사용자와 확정한다.
 2. 각 단계는 focused tests/review를 거쳐 parent에 통합한다. 전체 테스트 및 parent의 dev 통합은 별도 승인과 검증 gate를 거치며 Community package 배포는 후속 단계다.
 
 ## 검증과 남은 위험
@@ -301,5 +301,6 @@ Core Plugin은 초기에 앱에 번들되며 설치·삭제할 수 없다. 기�
 - Core Plugin registry 검증: focused 23 tests 통과, `git diff --check` 통과; full unit suite와 UI smoke는 실행하지 않았다. catalog는 번들 목록과 factory를 소유하고, runtime 등록·operation·enable 상태는 Host가 소유한다.
 - Content Generation Plugin pilot: `@bloggenius/content-generator@0.1.0`을 명시 catalog에 등록하고, composition별 Plugin 선택을 추가했다. 생성 operation과 WordPress composition regression을 focused tests로 검증했다; 실제 모델 호출과 기존 제품 글쓰기 경로 이전은 하지 않았다.
 - Content Generation Plugin pilot 이후 선택/의존성 assembly ownership을 사용자가 공통 runtime composition으로 분리하기로 결정했다. catalog는 명시적 bundle inventory와 ID-based factory, Application composition root는 use case별 Plugin 선택, 공통 runtime composition은 선택 검증 및 dependency wiring, Plugin Host는 실제 runtime registration/state/operation discovery를 소유한다.
+- Application/Plugin composition pilot: commit `849af80c`, focused tests 32건 통과, `git diff --check` 통과. 새 경로는 fake text provider와 fake WordPress HTTP만 사용했으며 실제 AI 호출/발행과 full unit suite는 실행하지 않았다.
 - 결정: 구조 단계에서는 기존 배포 기능의 동작 호환성을 보장하지 않는다. 새 계층의 정확성과 테스트 가능성을 우선하며, 기존 함수/경로는 필요에 따라 교체·삭제할 수 있다. 사용자 데이터와 실행 중인 외부 부작용은 코드 호환성과 별도로 다룬다.
 - 남은 위험: 실제 제품의 credential/readiness/permission, 확인 정책, 예약 작업, 취소·재시도·중복 방지, observability와 data ownership이 초기 contract에 아직 반영되지 않았다. 외부 plugin trust model, 버전 호환성·rollback, 권한 격리, process isolation, 독립 package 경계도 별도 검증이 필요하다.
