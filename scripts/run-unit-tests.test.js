@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { collectUnitTestFiles, createUnitTestEnvironment } = require('./run-unit-tests');
+const { DEFAULT_ROOTS, collectUnitTestFiles, createUnitTestEnvironment } = require('./run-unit-tests');
 
 test('unit tests default to local runtime environment without overriding an explicit selection', () => {
     assert.equal(createUnitTestEnvironment({ PATH: '/bin' }).BLOGGENIUS_ENV, 'local');
@@ -28,6 +28,19 @@ test('unit test discovery includes only sorted *.test.js files from configured r
             'src/nested/alpha.test.js',
             'src/zeta.test.js'
         ]);
+    } finally {
+        fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+});
+
+test('unit test discovery includes the bundled Plugin package root by default', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bloggenius-plugin-tests-'));
+    try {
+        fs.mkdirSync(path.join(repoRoot, 'packages', 'plugins', 'core'), { recursive: true });
+        fs.writeFileSync(path.join(repoRoot, 'packages', 'plugins', 'core', 'publisher.test.js'), '');
+
+        assert.equal(DEFAULT_ROOTS.includes('packages'), true);
+        assert.deepEqual(collectUnitTestFiles(repoRoot), ['packages/plugins/core/publisher.test.js']);
     } finally {
         fs.rmSync(repoRoot, { recursive: true, force: true });
     }

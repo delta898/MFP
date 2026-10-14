@@ -4,7 +4,7 @@
 
 BlogGenius is establishing a platform boundary that lets independently owned capabilities be composed into product use cases without placing every business workflow in the Core. This document defines the target direction, the first executable foundation slice, and a first provider Plugin pilot. Existing product application paths have not yet migrated and continue to use their current runtime.
 
-The migration strategy is to build the new boundaries beside the current implementation in this repository, prove them with code and tests, and rebuild/transition product capabilities one at a time. The existing implementation is a source of behavioral requirements, not a constraint on the new directory shape.
+The migration strategy is to establish the new boundaries in this repository and prove them with code and tests. Existing implementation is optional reference material, not a compatibility contract or a constraint on the new structure. Functions and paths may be replaced or removed when the new architecture is ready; separately owned user data and external side effects still require deliberate handling.
 
 ## Layers
 
@@ -99,10 +99,11 @@ This is an initial in-process boundary, not a security sandbox. Parser functions
 - `src/applications/wordpress-publishing.js` composes those operations into a publishing use case. `src/composition/wordpress-publishing.js` wires the package to the Kernel. This pilot does not replace the current WordPress product paths: they still call `Core.publishToWordPress()`.
 - The Application owns manuscript/asset preparation, category matching, warning collection, and draft fallback. The Plugin owns WordPress authentication and REST request/response behavior. Existing image optimization and FTC/CTA permanent-asset caching remain in the legacy Application/Core path; the pilot accepts already prepared `Buffer` assets and does not yet migrate those product concerns.
 - The Plugin directory has its own minimal package manifest and public interface README. The package has no third-party runtime dependency; its descriptor version comes from its package manifest. This validates a package boundary, but not semver compatibility policy or a separate-repository release.
+- `src/composition/core-plugin-registry.js` is the explicit bundled Core Plugin catalog and factory boundary. It decides which first-party packages are composed; it does not scan package directories. The runtime Plugin Host remains the source of truth for successfully registered plugins, current lifecycle state, and available operations.
 - Existing Naver, generation, SNS, card-news, automation, UI, Telegram, and MCP paths are unchanged.
 
 ## Next migration gate
 
-The WordPress pilot validates injected credentials and provider operations with mocked HTTP plus a composed Application. Before adopting it in product entrypoints, compare the new flow against the existing manual, scheduled, and batch behavior, then decide how manuscript parsing, image optimization/caching, status fallback, notifications, and stored credentials move. Add only Kernel contract elements supported by concrete requirements and tests.
+The WordPress pilot and explicit Core Plugin catalog validate injected credentials, provider operations, composition, and runtime discovery with mocked HTTP and tests. The next product-flow stage should implement the agreed new Application/Plugin contracts directly; existing manual, scheduled, and batch paths are references only and need not remain compatible. Identify separately owned user data and external side effects before replacing or removing those paths. Add Kernel contract elements only when required by concrete application flows and tests.
 
 Community package loading, skill packaging, multi-host distribution, runtime install/removal, persistent lifecycle state, and process isolation require separate design decisions.
