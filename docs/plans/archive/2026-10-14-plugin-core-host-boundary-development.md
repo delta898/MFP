@@ -3,7 +3,7 @@
 - Branch: `codex/feat/plugin-core-host-boundary`
 - Start date: 2026-10-14
 - Base/parent branch: `codex/fbr/plugin-architecture-foundation`
-- Status: capability host seam 구현 및 focused verification 완료; sub-feature review 전
+- Status: 완료; `codex/fbr/plugin-architecture-foundation`에 `eac3b631`로 병합됨
 
 ## 사용자 필요와 목표
 
