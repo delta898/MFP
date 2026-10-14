@@ -42,7 +42,7 @@ The SNS Application resolves the configured text, chat, or image model role and 
 - For a Gateway route that explicitly reports a 4:3 image ratio as unsupported, the SNS Application omits that optional ratio and permits the provider default; unknown and supported routes continue receiving the 4:3 preference.
 - Repository placement policy was clarified with the user: application-specific service areas belong under `src/applications/<name>/`; legacy areas such as `src/social/`, `src/card-news/`, and `src/blog-next/` remain in place until one coordinated migration stage. See the source directory layering decision and canonical architecture document.
 - Focused SNS Application, SNS AI, manual SNS, and distribution-runner verification passes: 61 tests, including availability, cancellation propagation, and provider-role selection. During parent-merge preparation, those tests plus the four formerly failing full-suite tests passed again: 77 tests total. `node --check src/ui-server.js` and `git diff --check` pass.
-- No paid AI calls or Buffer publishing calls were made during verification. Changes remain uncommitted on the feature branch.
+- No paid AI calls or Buffer publishing calls were made during verification. SNS implementation, regression-test updates, and this record update are committed on the feature branch.
 
 ## Verification and handoff
 
