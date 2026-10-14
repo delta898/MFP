@@ -4,7 +4,7 @@
 - Start date: 2026-10-14
 - Base/parent branch: `codex/fbr/plugin-architecture-foundation`
 - Base commit: `0ecfed96edc7d7ef158012c0372bce182ad02884`
-- Status: Implementation complete; focused verification passed; awaiting review and parent-merge decision.
+- Status: Complete; fast-forward merged into the parent branch at `9afecd07`.
 
 ## User need and goal
 
@@ -76,4 +76,4 @@ Tradeoff: a single process Host enables consistent inventory and lifecycle contr
 
 ## Final result
 
-- Implemented read-only shared Core Plugin discovery and documented its current host integration boundary. Await the relevant browser regression check, final review, and user decision on merging this sub-feature into its parent FBR.
+- Implemented read-only shared Core Plugin discovery and documented its current host integration boundary. Focused verification and browser smoke passed; merged into `codex/fbr/plugin-architecture-foundation` with commit `9afecd07`.
