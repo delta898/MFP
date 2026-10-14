@@ -3,7 +3,7 @@
 - Branch: `codex/feat/sns-ai-generation-service`
 - Start date: 2026-10-15
 - Base/parent branch: `codex/feat/card-news-ai-generation-service`
-- Status: Implemented; focused and UI verification passed; ready for parent-branch integration
+- Status: Merged into `codex/feat/card-news-ai-generation-service`; focused and UI verification passed
 
 ## User need and goal
 
@@ -50,7 +50,7 @@ The SNS Application resolves the configured text, chat, or image model role and 
 - User-requested full verification: `npm run test:unit` stopped in its `npm audit --audit-level=high` pretest gate with 9 dependency advisories (3 high, 2 moderate, 4 low). The unit runner was then executed directly with localhost access: 2,350 tests total, 2,345 passed, 1 skipped, 4 failed. Failures were `scripts/knowledge-gateway-structure.test.js` (expected legacy Core log text), `scripts/ui-script-structure.test.js` (JavaScript manifest execution-order expectation), and two tests in `src/composition/plugin-runtime-composition.test.js` (test registrations rejected for invalid/missing manifests).
 - UI checks: `test:ui-blog-auto` and `test:ui-settings` passed; `BLOGGENIUS_ENV=local npm run test:ui-e2e` passed; `BLOGGENIUS_ENV=local npm run test:ui-browser` passed with 429 fixture requests and two external font requests blocked by the smoke guard.
 - Manual acceptance can verify manual SNS post optimization, manual SNS image generation, and automatic hashtag generation in the SNS distribution flow. No UI behavior is intended to change.
-- Commits: `76396cc2 feat: route SNS AI through shared generation service`; `68894771 test: align stale contracts with current plugin structure`. No push or release has been performed.
+- Commits: `76396cc2 feat: route SNS AI through shared generation service`; `68894771 test: align stale contracts with current plugin structure`; `d159960e docs: update SNS generation verification record`; `db0c6c60 docs: correct SNS development record status`. Merged into `codex/feat/card-news-ai-generation-service` by fast-forward. No push or release has been performed.
 
 ## Remaining risks and follow-up
 
