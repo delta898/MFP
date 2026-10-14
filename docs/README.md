@@ -32,6 +32,7 @@
 - `CHANGELOG.md` is the source of truth for user-facing release notes.
 
 ## Current Canonical Docs
+- `architecture/platform-kernel-applications-plugins.md` (Platform Kernel, Application, Plugin boundaries, directory ownership, and staged migration)
 - `architecture/overview.md`
 - `architecture/agent-runtime.md`
 - `architecture/memory-graph.md`
@@ -109,6 +110,7 @@
 
 ## Active Work
 
+- `plans/active/2026-10-14-platform-kernel-application-boundary-development.md` (새 Kernel·Application·Plugin 경계의 코드/테스트 기반)
 - `plans/active/2026-10-14-release-v0.6.1-development.md` (0.6.0 이후 사용자 변경사항 릴리스 준비)
 
 - `plans/active/2026-10-11-site-hosting-astro-project-import-development.md` (direct Astro project ZIP import to Site)
