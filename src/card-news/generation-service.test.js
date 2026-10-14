@@ -24,7 +24,7 @@ test('generates a coherent set, persists assets, and exposes safe local URLs', a
                 return () => values.shift();
             })(),
             parseStructuredJsonResponse: JSON.parse,
-            callWritingText: async () => JSON.stringify({
+            generateText: async () => JSON.stringify({
                 set_title: '제주 세트',
                 art_direction: '맑은 여행 잡지',
                 social_caption: '제주의 장면을 카드로 만나보세요.',
@@ -35,7 +35,7 @@ test('generates a coherent set, persists assets, and exposes safe local URLs', a
                     image_prompt: `장면 ${index + 1}`
                 }))
             }),
-            callWritingImage: async (prompt, savePath, retries, options) => {
+            generateImage: async (prompt, savePath, retries, options) => {
                 imageCalls.push({ prompt, savePath, retries, options });
                 const filePath = `${savePath}.png`;
                 fs.writeFileSync(filePath, 'png');
@@ -84,7 +84,7 @@ test('creates a reusable prompt-only composition without calling an image model'
                 return () => values.shift();
             })(),
             parseStructuredJsonResponse: JSON.parse,
-            callWritingText: async (_prompt, _retries, options) => {
+            generateText: async (_prompt, _retries, options) => {
                 textCallOptions = options;
                 return JSON.stringify({
                     set_title: '구성 세트',
@@ -96,7 +96,7 @@ test('creates a reusable prompt-only composition without calling an image model'
                     }))
                 });
             },
-            callWritingImage: async () => { imageCalls += 1; }
+            generateImage: async () => { imageCalls += 1; }
         });
         const result = await service.generate({
             source_snapshot: { title: '제목', text: '본문' },
@@ -129,7 +129,7 @@ test('cancels composition AI before persistence and leaves no incomplete generat
                 return () => values.shift();
             })(),
             parseStructuredJsonResponse: JSON.parse,
-            callWritingText: async (_prompt, _retries, options) => {
+            generateText: async (_prompt, _retries, options) => {
                 receivedSignal = options.signal;
                 return new Promise((_resolve, reject) => {
                     options.signal.addEventListener('abort', () => {
@@ -170,7 +170,7 @@ test('publishes the active card index while sequential image generation is in pr
                 return () => values.shift();
             })(),
             parseStructuredJsonResponse: JSON.parse,
-            callWritingText: async () => JSON.stringify({
+            generateText: async () => JSON.stringify({
                 set_title: '진행 카드',
                 art_direction: '정보형',
                 cards: Array.from({ length: 3 }, (_, index) => ({
@@ -179,7 +179,7 @@ test('publishes the active card index while sequential image generation is in pr
                     image_prompt: `프롬프트 ${index + 1}`
                 }))
             }),
-            callWritingImage: async (_prompt, savePath) => {
+            generateImage: async (_prompt, savePath) => {
                 imageStartedResolve();
                 await imageGate;
                 const imagePath = `${savePath}.png`;
@@ -218,7 +218,7 @@ test('stops image generation without discarding completed cards or marking pendi
                 return () => values.shift();
             })(),
             parseStructuredJsonResponse: JSON.parse,
-            callWritingText: async () => JSON.stringify({
+            generateText: async () => JSON.stringify({
                 set_title: '중지 확인',
                 art_direction: '정보형',
                 cards: Array.from({ length: 3 }, (_, index) => ({
@@ -227,7 +227,7 @@ test('stops image generation without discarding completed cards or marking pendi
                     image_prompt: `프롬프트 ${index + 1}`
                 }))
             }),
-            callWritingImage: async (_prompt, savePath, _retries, options) => {
+            generateImage: async (_prompt, savePath, _retries, options) => {
                 if (savePath.includes('pending-02-')) {
                     assert.equal(options.signal, controller.signal);
                     secondImageStarted();
@@ -274,8 +274,8 @@ test('previews and imports an ordered ZIP as a completed local generation', () =
             createId: () => 'generation-zip-1',
             now: () => '2026-09-05T05:00:00.000Z',
             parseStructuredJsonResponse: JSON.parse,
-            callWritingText: async () => '{}',
-            callWritingImage: async () => ''
+            generateText: async () => '{}',
+            generateImage: async () => ''
         });
         const base64Data = createStoredZip([
             { name: '10.png', data: png },
@@ -310,7 +310,7 @@ test('imports title, source, settings, and card copy from a BlogGenius ZIP manif
             workspaceDir,
             createId: () => 'generation-import-manifest',
             parseStructuredJsonResponse: JSON.parse,
-            callWritingText: async () => '{}'
+            generateText: async () => '{}'
         });
         const metadata = {
             title: '복원된 카드뉴스',
@@ -350,7 +350,7 @@ test('returns the valid composition when later image generation fails', async ()
                 return () => values.shift();
             })(),
             parseStructuredJsonResponse: JSON.parse,
-            callWritingText: async () => JSON.stringify({
+            generateText: async () => JSON.stringify({
                 set_title: '부분 세트',
                 art_direction: '감성형',
                 cards: Array.from({ length: 3 }, (_, index) => ({
@@ -359,7 +359,7 @@ test('returns the valid composition when later image generation fails', async ()
                     image_prompt: `프롬프트 ${index + 1}`
                 }))
             }),
-            callWritingImage: async () => { throw new Error('image rate limited'); }
+            generateImage: async () => { throw new Error('image rate limited'); }
         });
         const result = await service.generate({
             source_snapshot: { title: '제목', text: '본문' },
@@ -391,8 +391,8 @@ test('rejects unsafe asset names and keeps a failed manifest', async () => {
                 return () => values.shift();
             })(),
             parseStructuredJsonResponse: JSON.parse,
-            callWritingText: async () => { throw new Error('rate limited'); },
-            callWritingImage: async () => ''
+            generateText: async () => { throw new Error('rate limited'); },
+            generateImage: async () => ''
         });
         await assert.rejects(() => service.generate({
             source_snapshot: { title: '제목', text: '본문' },
@@ -417,7 +417,7 @@ test('fills only missing image slots and preserves completed cards when a later 
                 return () => values.shift();
             })(),
             parseStructuredJsonResponse: JSON.parse,
-            callWritingText: async () => JSON.stringify({
+            generateText: async () => JSON.stringify({
                 set_title: '채우기 세트',
                 art_direction: '정보형',
                 cards: Array.from({ length: 3 }, (_, index) => ({
@@ -426,7 +426,7 @@ test('fills only missing image slots and preserves completed cards when a later 
                     image_prompt: `프롬프트 ${index + 1}`
                 }))
             }),
-            callWritingImage: async (_prompt, savePath) => {
+            generateImage: async (_prompt, savePath) => {
                 imageCall += 1;
                 if (imageCall === 2) throw new Error('temporary image failure');
                 const filePath = `${savePath}.png`;
@@ -473,7 +473,7 @@ test('replaces one card with a copied local image and validates local image inpu
                 return () => values.shift();
             })(),
             parseStructuredJsonResponse: JSON.parse,
-            callWritingText: async () => JSON.stringify({
+            generateText: async () => JSON.stringify({
                 set_title: '로컬 세트',
                 art_direction: '매거진',
                 cards: Array.from({ length: 3 }, (_, index) => ({
@@ -513,7 +513,7 @@ test('exports every completed card in manifest order with portable names and met
                 return () => values.shift();
             })(),
             parseStructuredJsonResponse: JSON.parse,
-            callWritingText: async () => JSON.stringify({
+            generateText: async () => JSON.stringify({
                 set_title: '내보내기 세트',
                 art_direction: '정보형',
                 cards: Array.from({ length: 3 }, (_, index) => ({
@@ -522,7 +522,7 @@ test('exports every completed card in manifest order with portable names and met
                     image_prompt: `프롬프트 ${index + 1}`
                 }))
             }),
-            callWritingImage: async (_prompt, savePath) => {
+            generateImage: async (_prompt, savePath) => {
                 const filePath = `${savePath}.png`;
                 fs.writeFileSync(filePath, `image:${path.basename(savePath)}`);
                 return filePath;
@@ -564,7 +564,7 @@ test('blocks complete-set export while any card image is missing', async () => {
                 return () => values.shift();
             })(),
             parseStructuredJsonResponse: JSON.parse,
-            callWritingText: async () => JSON.stringify({
+            generateText: async () => JSON.stringify({
                 cards: Array.from({ length: 3 }, (_, index) => ({
                     headline: `제목 ${index + 1}`,
                     body: '본문',

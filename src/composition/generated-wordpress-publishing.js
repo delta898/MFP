@@ -17,6 +17,8 @@ function createGeneratedWordPressPublishingSystem(options = {}) {
         corePluginRuntime,
         pluginDependencies,
         getModelCatalog: options.getModelCatalog,
+        getConfiguredModels: options.getConfiguredModels,
+        logger: options.logger,
         getSupport: options.getGatewaySupport
     });
     const wordpressSystem = createWordPressPublishingSystem({ corePluginRuntime, pluginDependencies });

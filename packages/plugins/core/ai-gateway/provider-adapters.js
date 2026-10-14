@@ -13,6 +13,8 @@ class AiGatewayError extends Error {
         this.code = code;
         this.retryable = options.retryable === true;
         if (Number.isInteger(options.status)) this.status = options.status;
+        if (options.providerCode) this.providerCode = options.providerCode;
+        if (options.providerMessage) this.providerMessage = options.providerMessage;
         if (options.providerRequestId) this.providerRequestId = options.providerRequestId;
         if (options.remoteOutcome) this.remoteOutcome = options.remoteOutcome;
     }
@@ -48,16 +50,30 @@ function sleepWithSignal(ms, signal, sleep) {
 
 function getHeader(headers, key) {
     if (!headers || typeof headers !== 'object') return '';
+    if (typeof headers.get === 'function') return String(headers.get(key) || '').trim();
     const match = Object.keys(headers).find((name) => name.toLowerCase() === key.toLowerCase());
     return match ? String(headers[match] || '').trim() : '';
 }
 
 function normalizeProviderError(error, provider) {
     if (error instanceof AiGatewayError) return error;
+    const providerCode = /^[A-Za-z0-9_.:-]{1,100}$/.test(String(error?.providerCode || ''))
+        ? String(error.providerCode)
+        : '';
+    const providerMessage = String(error?.providerMessage || '').replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 500);
+    const providerRequestId = /^[A-Za-z0-9._:-]{1,256}$/.test(String(error?.providerRequestId || ''))
+        ? String(error.providerRequestId)
+        : '';
+    const details = {
+        ...(Number.isInteger(error?.status) ? { status: error.status } : {}),
+        ...(providerCode ? { providerCode } : {}),
+        ...(providerMessage ? { providerMessage } : {}),
+        ...(providerRequestId ? { providerRequestId } : {})
+    };
     if (typeof error?.code === 'string' && error.code.startsWith('AI_GATEWAY_')) {
         return new AiGatewayError(error.code, error.code === 'AI_GATEWAY_CREDENTIALS_MISSING'
             ? 'No credential is configured for the selected provider.'
-            : 'The AI Gateway could not complete the requested operation.');
+            : 'The AI Gateway could not complete the requested operation.', details);
     }
     if (error?.code === 'AI_GATEWAY_CREDENTIALS_MISSING') {
         return new AiGatewayError('AI_GATEWAY_CREDENTIALS_MISSING', 'No credential is configured for the selected provider.');
@@ -67,18 +83,23 @@ function normalizeProviderError(error, provider) {
     }
     const status = Number(error?.status || error?.response?.status || 0);
     const candidateRequestId = String(error?.providerRequestId || error?.requestId || '').slice(0, 256);
-    const providerRequestId = /^[A-Za-z0-9._:-]+$/.test(candidateRequestId) ? candidateRequestId : '';
+    const normalizedRequestId = /^[A-Za-z0-9._:-]+$/.test(candidateRequestId) ? candidateRequestId : '';
+    const providerDetails = {
+        ...(providerCode ? { providerCode } : {}),
+        ...(providerMessage ? { providerMessage } : {}),
+        ...(normalizedRequestId ? { providerRequestId: normalizedRequestId } : {})
+    };
     if (status === 401 || status === 403) {
-        return new AiGatewayError('AI_GATEWAY_AUTHENTICATION_FAILED', 'The AI provider rejected the configured credential.', { status, providerRequestId });
+        return new AiGatewayError('AI_GATEWAY_AUTHENTICATION_FAILED', 'The AI provider rejected the configured credential.', { status, ...providerDetails });
     }
     if (status === 429) {
-        return new AiGatewayError('AI_GATEWAY_RATE_LIMITED', 'The AI provider rate limit was reached.', { status, retryable: true, providerRequestId });
+        return new AiGatewayError('AI_GATEWAY_RATE_LIMITED', 'The AI provider rate limit was reached.', { status, retryable: true, ...providerDetails });
     }
     if (status >= 500) {
-        return new AiGatewayError('AI_GATEWAY_PROVIDER_UNAVAILABLE', 'The AI provider is temporarily unavailable.', { status, retryable: true, providerRequestId });
+        return new AiGatewayError('AI_GATEWAY_PROVIDER_UNAVAILABLE', 'The AI provider is temporarily unavailable.', { status, retryable: true, ...providerDetails });
     }
     if (status >= 400) {
-        return new AiGatewayError('AI_GATEWAY_PROVIDER_REJECTED_REQUEST', 'The AI provider rejected the generation request.', { status, providerRequestId });
+        return new AiGatewayError('AI_GATEWAY_PROVIDER_REJECTED_REQUEST', 'The AI provider rejected the generation request.', { status, ...providerDetails });
     }
     const timeout = error?.code === 'ETIMEDOUT' || error?.code === 'ECONNABORTED' || /timeout/i.test(String(error?.message || ''));
     return new AiGatewayError(
@@ -95,6 +116,10 @@ function assertResponse(response, provider) {
     error.status = status || 502;
     error.providerRequestId = getHeader(response?.headers, 'x-request-id')
         || getHeader(response?.headers, 'request-id');
+    if (response?.providerError && typeof response.providerError === 'object') {
+        error.providerCode = response.providerError.code;
+        error.providerMessage = response.providerError.message;
+    }
     throw normalizeProviderError(error, provider);
 }
 
@@ -167,10 +192,14 @@ function buildTextRequest(route, modelId, messages, options = {}) {
     if (options.maxOutputTokens) {
         body[route.provider === 'openai' ? 'max_completion_tokens' : 'max_tokens'] = options.maxOutputTokens;
     }
-    if (options.temperature !== undefined) body.temperature = options.temperature;
+    // Anthropic's newer Claude models reject temperature because sampling is
+    // controlled by the model. Keep the shared option for providers that accept it.
+    if (options.temperature !== undefined && route.provider !== 'anthropic') body.temperature = options.temperature;
     if (options.reasoningEffort && route.provider === 'openai') body.reasoning_effort = options.reasoningEffort;
     if (options.responseFormat === 'json' && route.jsonMode) body.response_format = { type: 'json_object' };
-    const path = route.provider === 'kie'
+    const path = route.provider === 'direct'
+        ? '/chat/completions'
+        : route.provider === 'kie'
         ? `/${encodeURIComponent(modelId)}/v1/chat/completions`
         : '/v1/chat/completions';
     return { method: 'POST', path, body };
@@ -418,12 +447,16 @@ async function generateImage(input, context, transport, settings) {
     if (!route) throw new AiGatewayError('AI_GATEWAY_UNSUPPORTED_ROUTE', 'The selected image model is not supported by this Gateway.');
     const count = Number.isInteger(input.options?.count) ? input.options.count : route.limits.defaultCount;
     const requestedSize = String(input.options?.size || '1K').toUpperCase();
-    const supportedSizes = route.supportedSizesByModel?.[input.model.modelId] || [];
+    const supportedSizes = route.supportedSizesByModel?.[input.model.modelId] || route.supportedSizes || [];
+    const requestedAspectRatio = input.options?.aspectRatio;
     if (count < 1 || count > route.limits.maxCount) {
         throw new AiGatewayError('AI_GATEWAY_UNSUPPORTED_CAPABILITY', 'The requested image count exceeds this model route limit.');
     }
-    if (!supportedSizes.includes(requestedSize)) {
+    if (supportedSizes.length > 0 && !supportedSizes.includes(requestedSize)) {
         throw new AiGatewayError('AI_GATEWAY_UNSUPPORTED_CAPABILITY', 'The requested image size is not supported by this model route.');
+    }
+    if (requestedAspectRatio && Array.isArray(route.aspectRatios) && !route.aspectRatios.includes(requestedAspectRatio)) {
+        throw new AiGatewayError('AI_GATEWAY_UNSUPPORTED_CAPABILITY', 'The requested image aspect ratio is not supported by this model route.');
     }
     try {
         throwIfAborted(context.signal);
@@ -453,10 +486,13 @@ async function generateImage(input, context, transport, settings) {
                 prompt: input.input.prompt,
                 n: count
             };
-            if (input.options?.aspectRatio) body.size = imageSize(input.options.aspectRatio, input.options.size);
+            if (route.provider === 'direct') body.response_format = 'b64_json';
+            if (input.options?.aspectRatio) {
+                body.size = imageSize(input.options.aspectRatio, input.options.size);
+            }
             const response = await transport.request({
                 provider: route.provider, kind: 'image', modelId: input.model.modelId,
-                method: 'POST', path: '/v1/images/generations', body,
+                method: 'POST', path: route.provider === 'direct' ? '/images/generations' : '/v1/images/generations', body,
                 timeoutMs: 180000, signal: context.signal
             });
             images = await collectOpenAiImages(assertResponse(response, route.provider), transport, route, input.model.modelId, context.signal);
@@ -476,6 +512,7 @@ function imageSize(aspectRatio, size = '1K') {
     const high = String(size).toUpperCase() === '2K';
     const sizes = {
         '1:1': high ? '2048x2048' : '1024x1024',
+        '4:5': high ? '2048x2560' : '1024x1280',
         '3:2': high ? '2048x1365' : '1536x1024',
         '2:3': high ? '1365x2048' : '1024x1536',
         '4:3': high ? '2048x1536' : '1536x1152',
@@ -483,7 +520,10 @@ function imageSize(aspectRatio, size = '1K') {
         '16:9': high ? '2048x1152' : '1536x864',
         '9:16': high ? '1152x2048' : '864x1536'
     };
-    return sizes[aspectRatio] || sizes['1:1'];
+    if (!sizes[aspectRatio]) {
+        throw new AiGatewayError('AI_GATEWAY_UNSUPPORTED_CAPABILITY', 'The requested image aspect ratio cannot be mapped to an OpenAI-compatible image size.');
+    }
+    return sizes[aspectRatio];
 }
 
 function createGatewayOperations(options = {}) {

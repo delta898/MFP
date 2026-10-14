@@ -491,10 +491,10 @@ test('uses the explicitly selected verified model for subsequent Card News image
         image_model_selection: { provider: 'openai', code: 'gpt-image-1' }
     });
     assert.equal(received.imageModelConfig.provider, 'openai');
-    assert.equal(received.imageModelConfig.api_key, 'other-key');
+    assert.equal(received.imageModelConfig.api_key, undefined);
 });
 
-test('lists the selected provider image catalog and applies a different model with the saved provider key', async () => {
+test('lists the selected provider image catalog and passes only the selected model identity to generation', async () => {
     let received;
     const { service } = createHarness({
         CONFIG: {
@@ -517,7 +517,38 @@ test('lists the selected provider image catalog and applies a different model wi
     });
     assert.equal(received.imageModelConfig.provider, 'openai');
     assert.equal(received.imageModelConfig.code, 'gpt-image-2.5-flare');
-    assert.equal(received.imageModelConfig.api_key, 'openai-key');
+    assert.equal(received.imageModelConfig.api_key, undefined);
+});
+
+test('lists a verified keyless direct image model only when the Gateway advertises its configured route', () => {
+    const direct = {
+        provider: 'direct', code: 'local-image-v1', name: 'Local Image',
+        base_url: 'http://127.0.0.1:1234/v1', api_key: ''
+    };
+    const { service } = createHarness({
+        CONFIG: { IMAGE_MODEL_CONFIG: direct, AI_MODEL_PROFILES: { image: { direct } } },
+        getSupportedImageModels: () => [{ provider: 'direct', code: 'local-image-v1' }],
+        isImageModelVerified: (profile) => profile.provider === 'direct'
+    });
+    const listing = service.listImageModels();
+    assert.deepEqual(listing.providers.map(({ provider, name }) => ({ provider, name })), [
+        { provider: 'direct', name: '직접 입력' }
+    ]);
+    assert.deepEqual(listing.providers[0].models.map(({ provider, code }) => ({ provider, code })), [
+        { provider: 'direct', code: 'local-image-v1' }
+    ]);
+    assert.equal(JSON.stringify(listing).includes('127.0.0.1'), false);
+    assert.equal(JSON.stringify(listing).includes('api_key'), false);
+});
+
+test('does not list a configured direct image model when the Gateway has no matching route', () => {
+    const direct = { provider: 'direct', code: 'local-image-v1', base_url: 'http://127.0.0.1:1234/v1' };
+    const { service } = createHarness({
+        CONFIG: { IMAGE_MODEL_CONFIG: direct, AI_MODEL_PROFILES: { image: { direct } } },
+        getSupportedImageModels: () => [],
+        isImageModelVerified: () => true
+    });
+    assert.deepEqual(service.listImageModels().providers, []);
 });
 
 test('rejects an explicit Card News model selection when its connection is not verified', async () => {
@@ -688,7 +719,7 @@ test('requires the server-issued preview policy token before card-news publishin
     assert.equal(publishCalls, 0);
 });
 
-test('validates configured AI models before generation starts', async () => {
+test('validates configured AI models before generation starts without passing API keys into the generation application', async () => {
     assert.equal(isConfiguredAiModel({ provider: 'google', code: 'model', api_key: 'key' }), true);
     assert.equal(isConfiguredAiModel({ provider: 'direct', code: 'model', base_url: 'http://localhost:1234' }), true);
     assert.equal(isConfiguredAiModel({ provider: 'google', code: 'model' }), false);
@@ -701,7 +732,7 @@ test('validates configured AI models before generation starts', async () => {
         }
     });
     await assert.rejects(() => service.generate({ source_snapshot: { title: '제목', text: '본문' } }), {
-        code: 'CARD_NEWS_IMAGE_MODEL_REQUIRED'
+        code: 'CARD_NEWS_IMAGE_MODEL_UNAVAILABLE'
     });
     const composed = await service.generate({
         source_snapshot: { title: '제목', text: '본문' },

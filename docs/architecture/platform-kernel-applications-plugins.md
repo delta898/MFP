@@ -2,7 +2,7 @@
 
 ## Purpose and status
 
-BlogGenius is establishing a platform boundary that lets independently owned capabilities be composed into product use cases without placing every business workflow in the Core. This document defines the target direction, the first executable foundation slice, and a first provider Plugin pilot. Blog Beta's AI manuscript generation and WordPress manuscript publication now exercise these boundaries; most other product paths remain on their existing runtime.
+BlogGenius is establishing a platform boundary that lets independently owned capabilities be composed into product use cases without placing every business workflow in the Core. This document defines the target direction, the first executable foundation slice, and provider Plugin pilots. Blog Beta's AI manuscript generation and WordPress manuscript publication exercise these boundaries; Card News text and image generation now also uses the shared AI Generation service while retaining its existing Card News workflow and persistence service. Most other product paths remain on their existing runtime.
 
 The migration strategy is to establish the new boundaries in this repository and prove them with code and tests. Existing implementation is optional reference material, not a compatibility contract or a constraint on the new structure. Functions and paths may be replaced or removed when the new architecture is ready; separately owned user data and external side effects still require deliberate handling.
 
@@ -172,11 +172,12 @@ src/
   services/ai/generation.js
   adapters/plugins/ai-gateway.js, wordpress-publisher.js
   adapters/ai/gateway-transport.js
-  applications/blog/writing/gateway-model-resolver.js
-  applications/blog/
-    writing/application.js
-    publishing/application.js, wordpress.js
-    workflows/generated-wordpress-publishing.js
+  applications/
+    blog/writing/gateway-model-resolver.js
+    blog/writing/application.js
+    blog/publishing/application.js, wordpress.js
+    blog/workflows/generated-wordpress-publishing.js
+    card-news/generation/           # Card News Application adapter to shared AI Generation
   utilities/media/image-optimization-service.js
   image-service.js               # Legacy media facade retained for existing Core callers
   ui-runtime/, ui-api/, ui-server.js  # Existing product UI/runtime; gradual migration
@@ -241,7 +242,7 @@ This is an in-process boundary, not a security sandbox. Bundled Core code is tru
 - The WordPress publishing composition selects only `wordpress-publisher`; generated writing compositions select `ai-gateway` and `wordpress-publisher`. The catalog can list both without requiring every runtime composition to instantiate or configure both.
 - The product UI currently lives across `ui/`, `src/ui-runtime/`, `src/ui-api/`, and `src/gui/`. Telegram and MCP also retain their existing roots as shown above. They have not yet been composed through a single new Host App ingress; Blog Beta's direct manuscript publication is the current UI route into the WordPress Application.
 - Settings Beta has a read-only Plugin discovery view backed by `GET /api/v1/plugins/core` and `GET /api/v1/plugins/core/:id`. Static bundled metadata comes from the explicit catalog; loaded/enabled state and active execution count come from the shared runtime Host. It does not expose injected dependencies, credentials, or Application-to-Plugin relationships. Community Plugins remain hidden. The UI server creates a shared runtime for the new architecture; each Application loads its selected Plugins through that runtime.
-- The shared UI-server Core runtime composes the AI Generation service and WordPress Publishing Application. Blog Beta AI manuscript generation invokes the shared service for text and planned images; manuscript image actions use the same service. Blog Beta WordPress media/post publication passes through the WordPress Publishing Application. Other legacy Naver, shopping, SNS, card-news, automation, Telegram, and MCP paths remain outside this migration slice.
+- The shared UI-server Core runtime composes the AI Generation service and WordPress Publishing Application. Blog Beta AI manuscript generation invokes the shared service for text and planned images; manuscript image actions use the same service. Card News generation is composed in `src/composition/card-news-generation.js` and routes its text plan and each image through the shared AI Generation service, while `src/card-news/generation-service.js` retains Card News-specific prompts, local persistence, partial-result handling, and cancellation state. Card News validates the requested image ratio before text generation when the selected Gateway route declares known ratio support; the Gateway rejects known unsupported ratios before provider dispatch. Blog Beta WordPress media/post publication passes through the WordPress Publishing Application. Other legacy Naver, shopping, SNS, automation, Telegram, and MCP paths remain outside this migration slice.
 
 ## Next migration gate
 

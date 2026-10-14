@@ -137,16 +137,24 @@ function createCardNewsGenerationService(options = {}) {
     const fileSystem = options.fs || fs;
     const pathApi = options.path || path;
     const workspaceDir = String(options.workspaceDir || '').trim();
-    const callWritingText = options.callWritingText;
-    const callWritingImage = options.callWritingImage;
+    const generateText = options.generateText;
+    const generateImage = options.generateImage;
     const parseStructuredJsonResponse = options.parseStructuredJsonResponse;
     const logger = options.logger;
     const now = options.now || (() => new Date().toISOString());
     const createId = options.createId || (() => crypto.randomUUID());
 
     if (!workspaceDir) throw new Error('카드뉴스 결과 workspace 경로가 필요합니다.');
-    if (typeof callWritingText !== 'function' || typeof parseStructuredJsonResponse !== 'function') {
+    if (typeof generateText !== 'function' || typeof parseStructuredJsonResponse !== 'function') {
         throw new Error('카드뉴스 AI 생성 의존성이 올바르지 않습니다.');
+    }
+
+    function requestText(prompt, retries, requestOptions) {
+        return generateText(prompt, retries, requestOptions);
+    }
+
+    function requestImage(prompt, savePath, retries, requestOptions) {
+        return generateImage(prompt, savePath, retries, requestOptions);
     }
 
     const exportRoot = pathApi.join(workspaceDir, 'card-news', 'exports');
@@ -278,7 +286,7 @@ function createCardNewsGenerationService(options = {}) {
         try {
             logger?.info?.(`🎴 [CardNews] 카드 구성 생성 시작 (${settings.slide_count}장, ${settings.aspect_ratio})`);
             throwIfCanceled(input.signal);
-            const planRaw = await callWritingText(
+            const planRaw = await requestText(
                 buildCardPlanPrompt(snapshot, settings, variation),
                 2,
                 {
@@ -292,7 +300,7 @@ function createCardNewsGenerationService(options = {}) {
             );
             throwIfCanceled(input.signal);
             const plan = normalizeCardPlan(parseStructuredJsonResponse(planRaw), settings);
-            input.beginCommit?.();
+            throwIfCanceled(input.signal);
             generation.title = plan.set_title || snapshot.title;
             generation.art_direction = plan.art_direction;
             generation.publishing_copy = plan.publishing_copy;
@@ -304,6 +312,7 @@ function createCardNewsGenerationService(options = {}) {
                 image_prompt: buildSlideImagePrompt(card, plan, settings, variation),
                 file_name: ''
             }));
+            if (imageMode === 'prompt_only') input.beginCommit?.();
             fileSystem.mkdirSync(outputDir, { recursive: true });
             writeJsonAtomic(fileSystem, pathApi, manifestPath, generation);
 
@@ -315,22 +324,35 @@ function createCardNewsGenerationService(options = {}) {
                 return toPublicGenerationResult(generation);
             }
 
-            if (typeof callWritingImage !== 'function') {
+            if (typeof generateImage !== 'function') {
                 const error = new Error('카드 이미지를 만들 이미지 AI 기능이 준비되지 않았습니다.');
                 error.code = 'CARD_NEWS_IMAGE_GENERATOR_UNAVAILABLE';
                 throw error;
             }
 
             for (const card of plan.cards) {
+                generation.current_image_index = Number(card.index);
+                writeJsonAtomic(fileSystem, pathApi, manifestPath, generation);
                 logger?.info?.(`🎨 [CardNews] ${card.index}/${settings.slide_count} 카드 이미지 생성 중`);
+                let generatedPath = '';
                 try {
+                    throwIfCanceled(input.signal);
                     const baseName = `card-${String(card.index).padStart(2, '0')}`;
-                    const generatedPath = await callWritingImage(
+                    generatedPath = await requestImage(
                         generation.cards[card.index - 1].image_prompt,
                         pathApi.join(outputDir, baseName),
                         2,
-                        { aspectRatio: settings.aspect_ratio, imageSize: '1K', useCase: 'card_news', modelConfig: input.imageModelConfig }
+                        {
+                            aspectRatio: settings.aspect_ratio,
+                            imageSize: '1K',
+                            useCase: 'card_news',
+                            modelConfig: input.imageModelConfig,
+                            signal: input.signal,
+                            cardIndex: card.index,
+                            reportProgress: input.reportProgress
+                        }
                     );
+                    throwIfCanceled(input.signal);
                     const fileName = pathApi.basename(String(generatedPath || ''));
                     if (!safeAssetName(fileName) || !fileSystem.existsSync(generatedPath)) {
                         const error = new Error(`${card.index}번째 카드 이미지를 저장하지 못했습니다.`);
@@ -341,7 +363,21 @@ function createCardNewsGenerationService(options = {}) {
                     writeJsonAtomic(fileSystem, pathApi, manifestPath, generation);
                     logger?.info?.(`✅ [CardNews] ${card.index}번 카드 이미지 적용 완료`);
                 } catch (error) {
+                    if (isCancellation(error, input.signal)) {
+                        const resolvedGeneratedPath = pathApi.resolve(String(generatedPath || ''));
+                        if (pathApi.dirname(resolvedGeneratedPath) === pathApi.resolve(outputDir)) {
+                            try { if (fileSystem.existsSync(resolvedGeneratedPath)) fileSystem.unlinkSync(resolvedGeneratedPath); } catch (_) { }
+                        }
+                        generation.status = deriveGenerationStatus(generation.cards);
+                        generation.current_image_index = 0;
+                        generation.completed_at = now();
+                        delete generation.error;
+                        writeJsonAtomic(fileSystem, pathApi, manifestPath, generation);
+                        logger?.info?.(`⏹️ [CardNews] 이미지 생성을 중지했습니다 (${generation.cards.filter((item) => item.file_name).length}/${generation.cards.length}장 완료)`);
+                        throw createCanceledError();
+                    }
                     generation.status = 'partial';
+                    generation.current_image_index = 0;
                     generation.completed_at = now();
                     generation.error = {
                         code: String(error?.code || 'CARD_NEWS_IMAGE_GENERATION_FAILED'),
@@ -357,6 +393,8 @@ function createCardNewsGenerationService(options = {}) {
                 }
             }
 
+            throwIfCanceled(input.signal);
+            input.beginCommit?.();
             generation.status = 'completed';
             generation.completed_at = now();
             writeJsonAtomic(fileSystem, pathApi, manifestPath, generation);
@@ -364,6 +402,13 @@ function createCardNewsGenerationService(options = {}) {
             return toPublicGenerationResult(generation);
         } catch (error) {
             if (isCancellation(error, input.signal)) {
+                if (fileSystem.existsSync(manifestPath)) {
+                    generation.status = deriveGenerationStatus(generation.cards);
+                    generation.current_image_index = 0;
+                    generation.completed_at = now();
+                    delete generation.error;
+                    writeJsonAtomic(fileSystem, pathApi, manifestPath, generation);
+                }
                 throw createCanceledError();
             }
             generation.status = 'failed';
@@ -379,7 +424,7 @@ function createCardNewsGenerationService(options = {}) {
     }
 
     async function generateImages(input = {}) {
-        if (typeof callWritingImage !== 'function') {
+        if (typeof generateImage !== 'function') {
             const error = new Error('카드 이미지를 만들 이미지 AI 기능이 준비되지 않았습니다.');
             error.code = 'CARD_NEWS_IMAGE_GENERATOR_UNAVAILABLE';
             throw error;
@@ -406,11 +451,19 @@ function createCardNewsGenerationService(options = {}) {
             try {
                 throwIfCanceled(signal);
                 const temporaryBase = pathApi.join(outputDir, `pending-${String(card.index).padStart(2, '0')}-${crypto.randomUUID().slice(0, 8)}`);
-                generatedPath = await callWritingImage(
+                generatedPath = await requestImage(
                     card.image_prompt,
                     temporaryBase,
                     2,
-                    { aspectRatio: generation.settings?.aspect_ratio || '4:5', imageSize: '1K', useCase: 'card_news', signal, modelConfig: input.imageModelConfig }
+                    {
+                        aspectRatio: generation.settings?.aspect_ratio || '4:5',
+                        imageSize: '1K',
+                        useCase: 'card_news',
+                        signal,
+                        modelConfig: input.imageModelConfig,
+                        cardIndex: card.index,
+                        reportProgress: input.reportProgress
+                    }
                 );
                 throwIfCanceled(signal);
                 saveGeneratedImage({ generation, outputDir, manifestPath, card, generatedPath });

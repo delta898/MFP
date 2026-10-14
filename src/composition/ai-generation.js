@@ -18,7 +18,12 @@ function createAiGenerationSystem(options = {}) {
         ...(dependencies['ai-gateway'] ? { 'ai-gateway': dependencies['ai-gateway'] } : {})
     });
     const gateway = createAiGatewayAdapter({ executeOperation, getSupport: options.getSupport });
-    const service = createAiGenerationService({ gateway, getModelCatalog: options.getModelCatalog });
+    const service = createAiGenerationService({
+        gateway,
+        getModelCatalog: options.getModelCatalog,
+        getConfiguredModels: options.getConfiguredModels,
+        logger: options.logger
+    });
     return Object.freeze({ corePluginRegistry, corePluginRuntime, pluginHost: corePluginRuntime.host, gateway, service });
 }
 

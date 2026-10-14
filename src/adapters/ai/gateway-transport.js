@@ -38,12 +38,86 @@ function isAllowedRoute({ provider, kind, modelId, method, path }) {
         : false;
     if (provider === 'openai') return (kind === 'text' && verb === 'POST' && normalized === '/v1/chat/completions')
         || (kind === 'image' && verb === 'POST' && normalized === '/v1/images/generations');
+    if (provider === 'direct') return (kind === 'text' && verb === 'POST' && normalized === '/chat/completions')
+        || (kind === 'image' && verb === 'POST' && normalized === '/images/generations');
     if (provider === 'anthropic') return kind === 'text' && verb === 'POST' && normalized === '/v1/chat/completions';
     if (provider === 'kie') return (kind === 'text' && verb === 'POST' && normalized === '/codex/v1/responses')
         || (kind === 'text' && verb === 'POST' && normalized === `/${model}/v1/chat/completions`)
         || (kind === 'image' && verb === 'POST' && normalized === '/api/v1/jobs/createTask')
         || (kind === 'image' && verb === 'GET' && normalized === '/api/v1/jobs/recordInfo');
     return false;
+}
+
+function resolveDirectEndpoint(profile, path) {
+    const rawBase = String(profile?.base_url || '').trim();
+    let base;
+    try { base = new URL(rawBase); } catch (_) { throw new TypeError('Direct AI Base URL is invalid.'); }
+    if (base.username || base.password || base.search || base.hash || !base.hostname) {
+        throw new TypeError('Direct AI Base URL cannot contain credentials, query, or fragment.');
+    }
+    const localHttp = base.protocol === 'http:' && isPrivateAddress(base.hostname);
+    if (base.protocol !== 'https:' && !localHttp) {
+        throw new TypeError('Direct AI Base URL must use HTTPS, except for local or private HTTP endpoints.');
+    }
+    let decodedBasePath;
+    try { decodedBasePath = decodeURIComponent(base.pathname); } catch (_) { throw new TypeError('Direct AI Base URL path is invalid.'); }
+    if (decodedBasePath.split('/').some((part) => part === '.' || part === '..') || base.pathname.includes('\\')) {
+        throw new TypeError('Direct AI Base URL path is invalid.');
+    }
+    return new URL(`${base.origin}${base.pathname.replace(/\/+$/, '')}${path}`);
+}
+
+function collectRequestText(value, result = []) {
+    if (Array.isArray(value)) {
+        value.forEach((item) => collectRequestText(item, result));
+        return result;
+    }
+    if (!value || typeof value !== 'object') return result;
+    for (const [key, nested] of Object.entries(value)) {
+        if (['content', 'prompt', 'input'].includes(key) && typeof nested === 'string' && nested.length >= 12) result.push(nested);
+        else if (nested && typeof nested === 'object') collectRequestText(nested, result);
+    }
+    return result;
+}
+
+function sanitizeProviderDiagnostic(value, { apiKey = '', requestBody } = {}) {
+    let text = String(value || '');
+    const requestText = collectRequestText(requestBody).sort((a, b) => b.length - a.length);
+    for (const sensitive of requestText) {
+        if (sensitive.length >= 32) {
+            const width = Math.min(64, sensitive.length);
+            for (let offset = 0; offset + width <= sensitive.length; offset += Math.max(16, Math.floor(width / 2))) {
+                if (text.includes(sensitive.slice(offset, offset + width))) {
+                    return 'Provider error message redacted because it echoed request content.';
+                }
+            }
+        } else if (sensitive.length >= 12 && text.includes(sensitive)) {
+            return 'Provider error message redacted because it echoed request content.';
+        }
+    }
+    for (const sensitive of [apiKey, ...requestText]) {
+        if (sensitive) text = text.split(sensitive).join('[redacted]');
+    }
+    return text
+        .replace(/\bBearer\s+[^\s,;]+/gi, 'Bearer [redacted]')
+        .replace(/\b(?:sk|rk|pk|AIza|gh[pousr]_|xox[baprs]-)[A-Za-z0-9_-]{8,}\b/gi, '[redacted-token]')
+        .replace(/https?:\/\/[^\s"'<>]+/gi, '[url]')
+        .replace(/([?&][^=\s]+=)[^&\s]+/g, '$1[redacted]')
+        .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 500);
+}
+
+function extractProviderError(body, options = {}) {
+    const error = body?.error && typeof body.error === 'object' ? body.error : body;
+    const rawCode = error?.code || error?.type || body?.error_code || body?.code || '';
+    const code = /^[A-Za-z0-9_.:-]{1,100}$/.test(String(rawCode)) ? String(rawCode) : '';
+    const message = sanitizeProviderDiagnostic(error?.message || error?.detail || body?.error_description || body?.message, options);
+    return {
+        ...(code ? { code } : {}),
+        ...(message ? { message } : {})
+    };
 }
 
 function createBlogGeniusAiTransport(options = {}) {
@@ -60,17 +134,24 @@ function createBlogGeniusAiTransport(options = {}) {
         const method = String(input.method || '').trim().toUpperCase();
         const path = normalizePath(input.path);
         const base = PROVIDER_HOSTS[provider];
-        if (!base || !isAllowedRoute({ provider, kind, modelId, method, path })) {
+        if (!isAllowedRoute({ provider, kind, modelId, method, path }) || (provider !== 'direct' && !base)) {
             throw Object.assign(new Error('AI transport route is not allowed.'), { code: 'AI_GATEWAY_UNSUPPORTED_ROUTE' });
         }
         const profile = getProfile(config, kind, provider);
+        if (provider === 'direct' && String(profile?.code || '').trim() !== modelId) {
+            throw Object.assign(new Error('The selected direct model is not the Host-configured model.'), { code: 'AI_GATEWAY_UNSUPPORTED_ROUTE' });
+        }
         const apiKey = String(profile?.api_key || '').trim();
-        if (!apiKey) throw Object.assign(new Error('No credential is configured.'), { code: 'AI_GATEWAY_CREDENTIALS_MISSING' });
+        if (!profile || (provider !== 'direct' && !apiKey)) {
+            throw Object.assign(new Error('No credential is configured.'), { code: 'AI_GATEWAY_CREDENTIALS_MISSING' });
+        }
         const headers = { Accept: 'application/json' };
         if (provider === 'google') headers['x-goog-api-key'] = apiKey;
-        else headers.Authorization = `Bearer ${apiKey}`;
+        else if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
         if (input.body !== undefined) headers['Content-Type'] = 'application/json';
-        const url = new URL(path, `${base}/`);
+        const url = provider === 'direct'
+            ? resolveDirectEndpoint(profile, path)
+            : new URL(path, `${base}/`);
         for (const [key, value] of Object.entries(input.query || {})) {
             if (!['taskId'].includes(key) || provider !== 'kie') throw new TypeError('AI transport query is not allowed.');
             url.searchParams.set(key, String(value));
@@ -85,7 +166,15 @@ function createBlogGeniusAiTransport(options = {}) {
         const response = await fetchImpl(url, requestOptions);
         let body;
         try { body = await response.json(); } catch (_) { body = null; }
-        return { status: response.status, headers: response.headers, body };
+        const providerError = Number(response.status) >= 400
+            ? extractProviderError(body, { apiKey, requestBody: input.body })
+            : null;
+        return {
+            status: response.status,
+            headers: response.headers,
+            body,
+            ...(providerError && Object.keys(providerError).length ? { providerError } : {})
+        };
     }
 
     async function downloadUrl(input = {}) {
@@ -169,4 +258,12 @@ function isPrivateAddress(hostname) {
     return false;
 }
 
-module.exports = { PROVIDER_HOSTS, createBlogGeniusAiTransport, isAllowedRoute, isPrivateAddress };
+module.exports = {
+    PROVIDER_HOSTS,
+    createBlogGeniusAiTransport,
+    extractProviderError,
+    isAllowedRoute,
+    isPrivateAddress,
+    resolveDirectEndpoint,
+    sanitizeProviderDiagnostic
+};

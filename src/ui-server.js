@@ -74,6 +74,7 @@ const { createTrendActionsRuntime } = require('./ui-runtime/trend-actions-runtim
 const { createPublishActionsRuntime } = require('./ui-runtime/publish-actions-runtime');
 const { createUiApiRouteRuntime } = require('./ui-runtime/api-route-runtime');
 const { createBlogBetaRuntimeComposition } = require('./composition/blog-beta-runtime');
+const { createCardNewsGenerationSystem } = require('./composition/card-news-generation');
 const { createUiHttpServerRuntime } = require('./ui-runtime/http-server-runtime');
 const { createHtmlCompositionRuntime } = require('./ui-runtime/html-composition-runtime');
 const { createCssCompositionRuntime } = require('./ui-runtime/css-composition-runtime');
@@ -788,6 +789,17 @@ const blogBetaComposition = createBlogBetaRuntimeComposition({
     getAiModelCatalog
 });
 const { corePluginRuntime, blogWritingSystem, blogPublishingApplication, aiGenerationSystem } = blogBetaComposition;
+const cardNewsGenerationSystem = createCardNewsGenerationSystem({
+    aiGeneration: aiGenerationSystem.service,
+    getTextModel: () => CONFIG.TEXT_MODEL_CONFIG,
+    getImageModel: () => CONFIG.IMAGE_MODEL_CONFIG,
+    getModelCatalog: getAiModelCatalog,
+    fs,
+    path,
+    workspaceDir: CONFIG.PATHS?.workspace,
+    logger: Logger,
+    parseStructuredJsonResponse: Utils.parseStructuredJsonResponse.bind(Utils)
+});
 
 const publishActionsRuntime = createPublishActionsRuntime({
     fs,
@@ -1057,6 +1069,7 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     createManualSnsController,
     createManualSnsRouteHandler,
     createCardNewsService,
+    cardNewsGenerationService: cardNewsGenerationSystem.application,
     createCardNewsController,
     createCardNewsRouteHandler,
     createSurfaceContentService,

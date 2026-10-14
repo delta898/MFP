@@ -24,12 +24,14 @@ const KIE_IMAGE_SIZES = Object.freeze(Object.fromEntries(KIE_IMAGE_MODELS.map((m
 const ROUTES = Object.freeze([
     { kind: 'text', provider: 'google', transport: 'gemini_generate_content', modelIds: null, jsonMode: true },
     { kind: 'text', provider: 'openai', transport: 'openai_chat_completions', modelIds: null, jsonMode: true },
+    { kind: 'text', provider: 'direct', transport: 'openai_chat_completions', modelIds: null, jsonMode: false },
     { kind: 'text', provider: 'anthropic', transport: 'anthropic_openai_compat', modelIds: null, jsonMode: false },
     { kind: 'text', provider: 'kie', transport: 'kie_responses', modelIds: KIE_TEXT_RESPONSES, jsonMode: false },
     { kind: 'text', provider: 'kie', transport: 'kie_openai_chat', modelIds: KIE_TEXT_CHAT, jsonMode: false },
     {
         kind: 'image', provider: 'google', transport: 'gemini_generate_content',
         modelIds: Object.freeze(['gemini-nano-banana-2.1', 'gemini-3.1-flash-image', 'gemini-3.1-flash-lite-image']),
+        aspectRatios: Object.freeze(['1:1', '4:5', '9:16']),
         supportedSizesByModel: Object.freeze({
             'gemini-nano-banana-2.1': Object.freeze(['1K']),
             'gemini-3.1-flash-image': Object.freeze(['1K']),
@@ -40,11 +42,16 @@ const ROUTES = Object.freeze([
     {
         kind: 'image', provider: 'openai', transport: 'openai_images',
         modelIds: Object.freeze(['gpt-image-2.5-sunburst', 'gpt-image-2.5-flare', 'gpt-image-2']),
+        aspectRatios: Object.freeze(['1:1', '3:2', '2:3', '4:3', '3:4', '16:9', '9:16']),
         supportedSizesByModel: Object.freeze({
             'gpt-image-2.5-sunburst': Object.freeze(['1K', '2K']),
             'gpt-image-2.5-flare': Object.freeze(['1K', '2K']),
             'gpt-image-2': Object.freeze(['1K', '2K'])
         }),
+        limits: Object.freeze({ defaultCount: 1, maxCount: 4, maxImageBytes: 10485760 })
+    },
+    {
+        kind: 'image', provider: 'direct', transport: 'openai_images', modelIds: null,
         limits: Object.freeze({ defaultCount: 1, maxCount: 4, maxImageBytes: 10485760 })
     },
     {
@@ -60,6 +67,7 @@ function describeSupport() {
         routes: Object.freeze(ROUTES.map((route) => Object.freeze({
             ...route,
             ...(route.modelIds ? { modelIds: Object.freeze([...route.modelIds]) } : {}),
+            ...(route.aspectRatios ? { aspectRatios: Object.freeze([...route.aspectRatios]) } : {}),
             ...(route.supportedSizesByModel ? { supportedSizesByModel: Object.freeze(Object.fromEntries(
                 Object.entries(route.supportedSizesByModel).map(([modelId, sizes]) => [modelId, Object.freeze([...sizes])])
             )) } : {}),
