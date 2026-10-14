@@ -2,7 +2,7 @@
 
 ## Purpose and status
 
-BlogGenius is establishing a platform boundary that lets independently owned capabilities be composed into product use cases without placing every business workflow in the Core. This document defines the target direction and the first executable foundation slice. Existing application paths have not yet migrated and continue to use their current runtime.
+BlogGenius is establishing a platform boundary that lets independently owned capabilities be composed into product use cases without placing every business workflow in the Core. This document defines the target direction, the first executable foundation slice, and a first provider Plugin pilot. Existing product application paths have not yet migrated and continue to use their current runtime.
 
 The migration strategy is to build the new boundaries beside the current implementation in this repository, prove them with code and tests, and rebuild/transition product capabilities one at a time. The existing implementation is a source of behavioral requirements, not a constraint on the new directory shape.
 
@@ -58,7 +58,7 @@ packages/
     core/                       # Bundled first-party plugin packages
 ```
 
-The initial vertical slice uses `src/applications/examples/`, `src/composition/`, and `src/test-fixtures/` to prove composition without migrating a product flow. Future plugin packages may live under `packages/plugins/core/` when their contracts and packaging are ready. Do not create empty directories or move legacy modules solely to make the tree look complete.
+The initial foundation vertical slice uses `src/applications/examples/`, `src/composition/`, and `src/test-fixtures/` to prove composition without migrating a product flow. The WordPress pilot now proves the package location under `packages/plugins/core/`; it does not move a legacy product path. Do not create empty directories or move legacy modules solely to make the tree look complete.
 
 ## Dependency direction
 
@@ -95,11 +95,14 @@ This is an initial in-process boundary, not a security sandbox. Parser functions
 
 - New foundation code: `src/platform/plugin-contract.js`, `src/platform/plugin-host.js`, the example Application and composition root, and `src/test-fixtures/platform-foundation/`.
 - Existing `src/plugins/core-host.js` remains in use by `src/capabilities/index.js`. It gates current capability contributions. It is not replaced or wrapped by the new host in this stage.
-- Existing WordPress, Naver, generation, SNS, card-news, automation, UI, Telegram, and MCP paths are unchanged.
-- A later feature stage will choose one real capability and decide how to move it across this boundary. WordPress may be a pilot, but it is no longer a prerequisite or the goal of the foundation stage.
+- The WordPress Publisher pilot lives at `packages/plugins/core/wordpress-publisher/`; it uses injected credentials and `fetch`, with no BlogGenius-private imports. Its REST operations cover media upload, category listing, and post creation.
+- `src/applications/wordpress-publishing.js` composes those operations into a publishing use case. `src/composition/wordpress-publishing.js` wires the package to the Kernel. This pilot does not replace the current WordPress product paths: they still call `Core.publishToWordPress()`.
+- The Application owns manuscript/asset preparation, category matching, warning collection, and draft fallback. The Plugin owns WordPress authentication and REST request/response behavior. Existing image optimization and FTC/CTA permanent-asset caching remain in the legacy Application/Core path; the pilot accepts already prepared `Buffer` assets and does not yet migrate those product concerns.
+- The Plugin directory has its own minimal package manifest and public interface README. The package has no third-party runtime dependency; its descriptor version comes from its package manifest. This validates a package boundary, but not semver compatibility policy or a separate-repository release.
+- Existing Naver, generation, SNS, card-news, automation, UI, Telegram, and MCP paths are unchanged.
 
 ## Next migration gate
 
-Before adopting the foundation for a real feature, review whether the contract handles that feature's actual needs: credentials, provider configuration, cancellation, effects/confirmation, observability, idempotency, long-running jobs, and disable behavior. Add only the contract elements supported by concrete requirements and tests. Then migrate a small vertical path and compare its behavior to the existing product before removing the old path.
+The WordPress pilot validates injected credentials and provider operations with mocked HTTP plus a composed Application. Before adopting it in product entrypoints, compare the new flow against the existing manual, scheduled, and batch behavior, then decide how manuscript parsing, image optimization/caching, status fallback, notifications, and stored credentials move. Add only Kernel contract elements supported by concrete requirements and tests.
 
 Community package loading, skill packaging, multi-host distribution, runtime install/removal, persistent lifecycle state, and process isolation require separate design decisions.

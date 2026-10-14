@@ -111,6 +111,7 @@
 ## Active Work
 
 - `plans/active/2026-10-14-plugin-architecture-foundation-fbr.md` (plugin 기반 구조 도입을 위한 현행 구조 조사와 설계 논의)
+- `plans/active/2026-10-14-wordpress-publisher-plugin-pilot-development.md` (첫 실제 WordPress Plugin 계약과 Kernel/Application 연결 검증)
 - `plans/active/2026-10-14-release-v0.6.1-development.md` (0.6.0 이후 사용자 변경사항 릴리스 준비)
 
 - `plans/active/2026-10-11-site-hosting-astro-project-import-development.md` (direct Astro project ZIP import to Site)

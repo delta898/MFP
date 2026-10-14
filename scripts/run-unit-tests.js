@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const DEFAULT_ROOTS = Object.freeze(['apps', 'bin', 'scripts', 'shared', 'src']);
+const DEFAULT_ROOTS = Object.freeze(['apps', 'bin', 'packages', 'scripts', 'shared', 'src']);
 
 function collectUnitTestFiles(repoRoot, roots = DEFAULT_ROOTS) {
     const files = [];

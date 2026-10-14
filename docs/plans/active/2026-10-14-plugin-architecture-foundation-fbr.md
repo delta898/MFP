@@ -3,14 +3,14 @@
 - Branch: `codex/fbr/plugin-architecture-foundation`
 - Start date: 2026-10-14
 - Base/parent branch: `dev` (`9c6c2dda0e9ac8cd2fcfa0d9df12f72920989294`)
-- Status: active; Platform Kernel/Application/Plugin 경계와 최소 실행 기반을 parent에 통합 완료. 첫 실제 제품 기능 이행 범위는 후속 sub-feature에서 구체화 예정
+- Status: active; Platform Kernel/Application/Plugin 경계와 최소 실행 기반은 통합 완료. WordPress Publisher package/Application pilot은 `codex/feat/wordpress-publisher-plugin-pilot`에서 구현 및 focused verification 완료, 제품 경로에는 아직 연결하지 않음
 
 ## 현재 상태와 구조 기준
 
 - 이 parent FBR은 조사·설계에서 실행 가능한 기반 구축 단계로 진행됐다. 현재 합의된 계층과 의존 방향의 기준 문서는 [`docs/architecture/platform-kernel-applications-plugins.md`](../../architecture/platform-kernel-applications-plugins.md)다.
 - 첫 sub-feature `codex/feat/platform-kernel-application-boundary`의 최소 Kernel → Application → Plugin 예제와 계약 테스트가 commit `19f670d0`으로 이 parent에 fast-forward 병합됐다. 이 기반은 제품 entrypoint에 연결되지 않았으며 기존 발행·생성 흐름도 이전하지 않았다.
 - 하위 단계 개발 기록은 `docs/plans/archive/2026-10-14-platform-kernel-application-boundary-development.md`에 보관한다.
-- 다음 작업은 실제 제품 흐름 하나를 고르고 그에 필요한 설정·credential·부작용·작업 lifecycle 계약을 검증하는 것이다. WordPress publisher는 후보로 논의됐지만, 실제 범위와 경계는 구체 흐름을 조사한 뒤 확정한다.
+- 다음 sub-feature `codex/feat/wordpress-publisher-plugin-pilot`는 실제 WordPress REST adapter를 독립 패키지 경계로 구현하고 Application이 provider operations를 조합하는 계약을 검증한다. 기존 제품의 수동·예약·일괄 발행 경로는 계속 구 구현을 사용한다.
 
 ## 사용자 필요와 목표
 
@@ -89,7 +89,7 @@ BlogGenius의 기능이 커지면서 네이버 블로그 발행, WordPress 발�
 | UI/API shell, navigation, route registration | 앱 shell, 공통 UI/API/router, plugin 관리·설정 호스트 | 플러그인별 화면, 메뉴, API handler 기여 | contribution은 등록 가능하되 임의 코드/route 권한 제한 필요 |
 | Blog 작성기, 원고, 이미지 생성 | 범용 editor/runtime·artifact 계약은 Core 공유 자산 후보 | AI 글쓰기, 발행 준비, Blog Beta 화면/기능은 작성/게시 plugin 후보 | 현재 Blog UI가 작성·다중 발행 흐름을 함께 포함해 추가 분해 필요 |
 | Naver Blog 로그인/발행 | 공통 credential·세션 보관 interface와 실행 정책 | Naver 인증 adapter, 임시저장/발행·RSS/결과 처리, Naver 전용 설정 | Naver API/browser/session 세부는 Core에 두지 않음 |
-| WordPress 발행 | 공통 publishing contract와 결과/event 모델 | WordPress adapter, 콘텐츠 변환, 연결·발행 기능 | 다른 publisher와 같은 output/side effect 계약을 구현 |
+| WordPress 발행 | 공통 publishing contract와 결과/event 모델 | WordPress 인증·REST adapter 및 WordPress 전용 API 동작 | Application이 manuscript/content/image 준비와 category/status policy를 조합하고 Plugin은 WordPress API 세부를 소유 |
 | SNS/Buffer 공유 | 공통 delivery job, retry/dedupe/confirmation primitive | Buffer adapter, 플랫폼별 formatting·RSS discovery·distribution workflow | SNS provider와 배포 workflow를 host scheduler에서 분리 |
 | 카드뉴스 | 공통 plugin lifecycle, job 실행/취소/결과 저장 primitive | source intake, 카드 생성·편집·ledger·publish UI 및 capability | 카드뉴스는 자체 데이터/화면/작업 흐름이 있는 독립 제품 plugin 후보 |
 | Site Hosting/Astro/Cloudflare | 공통 credential/HTTP/job/preview contract | Astro project/site 생성·관리, Cloudflare deploy/domain 연결과 UI | hosting 제품 경험은 plugin, Cloudflare API adapter는 그 기능의 provider 기여 후보 |
@@ -283,16 +283,17 @@ Core Plugin은 초기에 앱에 번들되며 설치·삭제할 수 없다. 기�
 - 2026-10-14: 계층을 **Platform Kernel → Application → Plugin**으로 정리했다. Kernel은 실행·계약·lifecycle을 통제하고, Application은 제품 사용 흐름을 조합하며, Plugin은 경계가 있는 기능 operation을 제공한다. 채널은 공통 Agent Runtime을 통해 요청을 전달한다.
 - 2026-10-14: 첫 수직 슬라이스의 범위로 최소 실행 가능한 host, 예시 Application, fake generator/publisher, focused contract tests를 승인했다. 실제 제품 기능 이전과 외부 서비스 호출은 이 단계에서 제외했다.
 - 2026-10-14: 첫 수직 슬라이스는 `codex/feat/platform-kernel-application-boundary`에서 구현해 `19f670d0`으로 parent에 병합했다. `node --test src/platform/plugin-host.test.js` 6건과 `git diff --check`가 통과했다. 전체 단위 테스트는 실행하지 않았다.
+- 2026-10-14: WordPress pilot sub-feature는 [`2026-10-14-wordpress-publisher-plugin-pilot-development.md`](2026-10-14-wordpress-publisher-plugin-pilot-development.md)에서 추적한다. 기존 `Core.publishToWordPress()` 호출은 수동/빠른 발행, 예약/미리보기 확정, 콘텐츠 일괄 발행에서 사용된다. 새 package는 인증 및 media/category/post REST operation을 소유하고, Application은 준비된 content/assets, category matching, status fallback과 결과 조립을 소유한다. 기존 제품 경로는 변경하지 않는다.
 
 ## 다음 단계
 
-1. 첫 실제 제품 흐름 후보를 조사해 기존 동작, 호출 경로, state/data owner, credentials, 사용자 확인, 외부 부작용, 비동기 작업 및 실패 복구를 추적한다. WordPress publishing은 후보 중 하나이며, 이를 자동으로 확정하지 않는다.
-2. 조사 결과에 근거해 첫 Application과 Plugin의 책임, 이행 범위, 기존 경로와의 공존·전환 방식을 사용자와 합의하고 sub-feature 개발 기록을 작성한다.
-3. 선택한 한 흐름에 필요한 Kernel 계약만 보강하고, fake/contract 테스트를 먼저 만든 뒤 외부 부작용 없는 범위부터 수직으로 이행한다. 각 하위 단계는 focused tests 및 필요한 UI regression과 review를 마친 뒤 parent에 통합한다.
-4. 더 넓은 기능 이행, 전체 테스트, parent의 dev 통합은 별도 승인과 검증 gate를 거친다. Community package 배포는 이후 별도 단계다.
+1. WordPress pilot 결과를 사용자 검토 후 parent에 통합한다. package/API, credential injection, mocked REST 계약, Application 조합은 child branch에서 focused verification을 통과했다.
+2. 제품 manuscript/image/settings와 이 새 package 사이의 실제 adapter 요구를 정리한다. 기존 이미지 최적화 및 영구 자산 캐시는 현재 Core/config 책임에 엮여 있어 이행 설계가 필요하다.
+3. pilot이 통과한 뒤 별도 sub-feature에서 제품의 한 진입 경로를 새 Application으로 연결하고 기존 경로와 비교한다. 수동·예약·일괄 발행을 한 번에 옮기지 않는다.
+4. 각 단계는 focused tests/review를 거쳐 parent에 통합한다. 전체 테스트 및 parent의 dev 통합은 별도 승인과 검증 gate를 거치며 Community package 배포는 후속 단계다.
 
 ## 검증과 남은 위험
 
-- Parent에 최소 실행 기반은 추가됐지만 제품 코드 경로는 아직 새 계층으로 전환되지 않았다. 현재 operation parser는 신뢰된 in-process 코드이며, 외부 plugin을 안전하게 실행하는 sandbox나 독립 SDK가 아니다.
+- Parent에 최소 실행 기반이 추가됐고 WordPress package pilot이 진행 중이다. 제품 코드 경로는 새 계층으로 전환되지 않았다. 현재 operation parser는 신뢰된 in-process 코드이며, 외부 plugin을 안전하게 실행하는 sandbox나 안정된 독립 SDK는 아니다.
 - 첫 sub-feature 검증: `node --test src/platform/plugin-host.test.js` 6건 통과, `git diff --check` 통과. UI/entrypoint 변경이 없어 browser smoke는 해당되지 않았다. full unit suite는 실행하지 않았다.
 - 남은 위험: 실제 제품의 credential/readiness/permission, 확인 정책, 예약 작업, 취소·재시도·중복 방지, observability와 data ownership이 초기 contract에 아직 반영되지 않았다. 외부 plugin trust model, 버전 호환성·rollback, 권한 격리, process isolation, 독립 package 경계도 별도 검증이 필요하다.

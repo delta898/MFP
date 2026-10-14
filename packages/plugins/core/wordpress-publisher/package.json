@@ -1,0 +1,13 @@
+{
+  "name": "@bloggenius/wordpress-publisher",
+  "version": "0.1.0",
+  "description": "WordPress REST API adapter implementing the BlogGenius Plugin descriptor contract",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  }
+}
