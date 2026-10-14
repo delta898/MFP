@@ -10,7 +10,7 @@ const FORMAT_EXTENSIONS = Object.freeze({
 });
 
 function createBlogPublishingApplication(options = {}) {
-    const { Core, ImageService, blogWritingApplication, CONFIG, Logger, fs } = options;
+    const { Core, ImageService, wordpressPublishingApplication, CONFIG, Logger, fs } = options;
     const path = options.path || pathDefault;
     if (!Core || typeof Core.publishToBlog !== 'function' || typeof Core.publishToWordPress !== 'function') {
         throw new TypeError('Blog Publishing Application requires Naver and WordPress publishers.');
@@ -75,7 +75,7 @@ function createBlogPublishingApplication(options = {}) {
     }
 
     async function publishWordPressPlugin(request = {}, executionContext = {}) {
-        if (typeof blogWritingApplication?.publishWordPress !== 'function') {
+        if (typeof wordpressPublishingApplication?.publish !== 'function') {
             throw new TypeError('WordPress Publishing Application is unavailable.');
         }
         const assets = [];
@@ -83,13 +83,19 @@ function createBlogPublishingApplication(options = {}) {
             assets.push(await prepareImageAsset('wordpress', asset));
         }
         assets.forEach((asset, index) => {
-            Logger?.info?.(`[BlogGenius][Plugin] wordpress-publisher.media.upload 준비 (${index + 1}/${assets.length}, mime=${asset.mimeType}, bytes=${asset.bytes.length})`);
+            Logger?.info?.(`[Blog Publishing] 이미지 업로드 준비 (${index + 1}/${assets.length}, mime=${asset.mimeType}, bytes=${asset.bytes.length})`);
         });
-        Logger?.info?.(`[BlogGenius][Plugin] WordPress 발행 Application 실행 (media.upload=${assets.length}, posts.create=1)`);
-        return blogWritingApplication.publishWordPress({ ...request, assets }, executionContext);
+        Logger?.info?.(`[Blog Publishing] WordPress 발행 준비 (assets=${assets.length})`);
+        return wordpressPublishingApplication.publish({ ...request, assets }, executionContext);
     }
 
     return Object.freeze({
+        listWordPressCategories(search = '', executionContext = {}) {
+            if (typeof wordpressPublishingApplication?.listCategories !== 'function') {
+                throw new TypeError('WordPress Publishing Application is unavailable.');
+            }
+            return wordpressPublishingApplication.listCategories(search, executionContext);
+        },
         prepareImageAsset,
         prepareImageFile,
         publishNaver,

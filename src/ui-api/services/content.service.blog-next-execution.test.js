@@ -428,7 +428,7 @@ test('direct AI manuscript generation stays local until the user publishes and i
     assert.equal(calls.filter(([kind]) => kind === 'image').length, 1);
     const draft = calls.find(([kind]) => kind === 'draft')[1];
     assert.deepEqual(draft.targets, ['wordpress']);
-    assert.deepEqual(draft.sourceMetadata, { generationPlugin: 'ai-gateway' });
+    assert.deepEqual(draft.sourceMetadata, { generationSource: 'configured-ai' });
     assert.equal(draft.images.length, 1);
     assert.deepEqual(coordinator.getStatus(), { busy: false });
 });
@@ -475,11 +475,11 @@ test('text-only manuscript generation uses AI Gateway Plugin independently of th
     assert.equal(draft.imageMode, 'none');
     assert.deepEqual(draft.targets, ['naver']);
     assert.deepEqual(draft.images, []);
-    assert.equal(draft.sourceMetadata.generationPlugin, 'ai-gateway');
+    assert.equal(draft.sourceMetadata.generationSource, 'configured-ai');
     assert.match(draft.markdownText, /^# 제주 산책/);
     assert.match(draft.markdownText, /#제주/);
-    assert.ok(calls.some(([type, message]) => type === 'log' && /ai-gateway\.text\.generate 시작 .*provider=/.test(message)));
-    assert.ok(calls.some(([type, message]) => type === 'log' && /ai-gateway\.text\.generate 완료 .*elapsed=/.test(message)));
+    assert.ok(calls.some(([type, message]) => type === 'log' && /\[AI\] text\.generate 시작 .*provider=/.test(message)));
+    assert.ok(calls.some(([type, message]) => type === 'log' && /\[AI\] text\.generate 완료 .*elapsed=/.test(message)));
     assert.deepEqual(coordinator.getStatus(), { busy: false });
 });
 
@@ -533,11 +533,11 @@ test('AI manuscript generation uses AI Gateway for text and every requested imag
     ]);
     const draft = calls.find(([type]) => type === 'draft')[1];
     assert.equal(draft.imageMode, 'generate');
-    assert.equal(draft.sourceMetadata.generationPlugin, 'ai-gateway');
+    assert.equal(draft.sourceMetadata.generationSource, 'configured-ai');
     assert.deepEqual(draft.images.map(({ index, buffer }) => [index, buffer[8]]), [[0, 2], [1, 2]]);
-    assert.ok(calls.some(([type, message]) => type === 'log' && /ai-gateway.image.generate 시작 \(1\/2, IMAGE_0, model=gemini-nano-banana-2\.1\)/.test(message)));
-    assert.ok(calls.some(([type, message]) => type === 'log' && /ai-gateway 경로 확정 .*operations=text\.generate,image\.generate/.test(message)));
-    assert.ok(calls.some(([type, message]) => type === 'log' && /ai-gateway.image.generate 완료 .*elapsed=/.test(message)));
+    assert.ok(calls.some(([type, message]) => type === 'log' && /\[AI\] image.generate 시작 \(1\/2, IMAGE_0, model=gemini-nano-banana-2\.1\)/.test(message)));
+    assert.ok(calls.some(([type, message]) => type === 'log' && /\[AI\] 생성 경로 준비 .*text\+image/.test(message)));
+    assert.ok(calls.some(([type, message]) => type === 'log' && /\[AI\] image.generate 완료 .*elapsed=/.test(message)));
     assert.ok(!calls.some(([type]) => type === 'error'));
 });
 
@@ -668,7 +668,7 @@ test('direct AI manuscript generation preserves none and excludes upstream image
     assert.equal(draft.images.length, 0);
     assert.doesNotMatch(draft.markdownText, /\[\[IMAGE_0/);
     assert.match(draft.markdownText, /본문/);
-    assert.equal(draft.sourceMetadata.generationPlugin, 'ai-gateway');
+    assert.equal(draft.sourceMetadata.generationSource, 'configured-ai');
 });
 
 test('queue AI manuscript generation reuses the held runner lease instead of acquiring a second lock', async () => {

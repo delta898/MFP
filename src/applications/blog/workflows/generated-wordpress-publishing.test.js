@@ -8,9 +8,7 @@ const { createWordPressPublishingSystem } = require('../../../composition/wordpr
 const { createCorePluginRuntime } = require('../../../composition/core-plugin-runtime');
 
 const TEST_MODEL = { provider: 'openai', modelId: 'gpt-6-astra' };
-function testModelOptions() {
-    return { textModel: TEST_MODEL, resolveTextModel: (selection) => selection };
-}
+function testModelOptions() { return { textModel: TEST_MODEL }; }
 function testGateway(responseText = 'Generated manuscript') {
     return { transport: { async request() {
         return { status: 200, headers: {}, body: { choices: [{ message: { content: responseText } }] } };
@@ -21,10 +19,7 @@ test('Application generates text then delegates publication to the WordPress App
     const calls = [];
     const application = createGeneratedWordPressPublishingApplication({
         ...testModelOptions(),
-        async executeOperation(pluginId, operationId, input, context) {
-            calls.push({ pluginId, operationId, input, context });
-            return { content: 'Generated manuscript' };
-        },
+        aiGeneration: { async generateText(request, context) { calls.push({ kind: 'generation', request, context }); return { content: 'Generated manuscript' }; } },
         validatePublicationRequest(request) {
             calls.push({ validate: request });
             return {
@@ -54,11 +49,8 @@ test('Application generates text then delegates publication to the WordPress App
         title: 'Jeju walk', content: undefined, status: undefined, date: undefined,
         category: undefined, assets: undefined, featuredAsset: undefined
     });
-    assert.equal(calls[1].pluginId, 'ai-gateway');
-    assert.equal(calls[1].operationId, 'text.generate');
-    assert.deepEqual(calls[1].input, {
-        model: TEST_MODEL, messages: [{ role: 'user', content: 'Write about Jeju' }]
-    });
+    assert.equal(calls[1].kind, 'generation');
+    assert.deepEqual(calls[1].request, { modelSelection: TEST_MODEL, prompt: 'Write about Jeju' });
     assert.deepEqual(calls[2].publish, {
         title: 'Jeju walk', content: 'Generated manuscript', status: 'draft',
         date: undefined, category: '', assets: [], featuredAsset: ''
@@ -72,7 +64,7 @@ test('Application does not publish when text generation fails and preserves publ
     let publishCalls = 0;
     const generationFails = createGeneratedWordPressPublishingApplication({
         ...testModelOptions(),
-        async executeOperation() { throw generationFailure; },
+        aiGeneration: { async generateText() { throw generationFailure; } },
         validatePublicationRequest(request) { return request; },
         async publish() { publishCalls += 1; }
     });
@@ -82,7 +74,7 @@ test('Application does not publish when text generation fails and preserves publ
     const publicationFailure = new Error('publication failed');
     const publishingFails = createGeneratedWordPressPublishingApplication({
         ...testModelOptions(),
-        async executeOperation() { return { content: 'Generated manuscript' }; },
+        aiGeneration: { async generateText() { return { content: 'Generated manuscript' }; } },
         validatePublicationRequest(request) { return request; },
         async publish() { throw publicationFailure; }
     });
@@ -95,7 +87,7 @@ test('invalid WordPress publication input is rejected before text generation', a
     const application = createGeneratedWordPressPublishingApplication({
         ...testModelOptions(),
         validatePublicationRequest() { throw validationFailure; },
-        async executeOperation() { generationCalls += 1; return { text: 'Generated' }; },
+        aiGeneration: { async generateText() { generationCalls += 1; return { content: 'Generated' }; } },
         async publish() {}
     });
 
@@ -108,7 +100,7 @@ test('invalid top-level request is rejected before text generation', async () =>
     const application = createGeneratedWordPressPublishingApplication({
         ...testModelOptions(),
         validatePublicationRequest(request) { return request; },
-        async executeOperation() { generationCalls += 1; return { text: 'Generated' }; },
+        aiGeneration: { async generateText() { generationCalls += 1; return { content: 'Generated' }; } },
         async publish() {}
     });
 
@@ -120,6 +112,7 @@ test('composition registers both required Plugins and runs generation through Wo
     const requests = [];
     const system = createGeneratedWordPressPublishingSystem({
         ...testModelOptions(),
+        getModelCatalog: () => ({ text: [{ provider: 'openai', code: 'gpt-6-astra', transport: 'openai_chat_completions' }], image: [] }),
         pluginDependencies: {
             'ai-gateway': testGateway('Generated for: Jeju travel'),
             'wordpress-publisher': {
@@ -183,6 +176,7 @@ test('separate Applications share one process Plugin Host and reuse an already r
     const generatedSystem = createGeneratedWordPressPublishingSystem({
         corePluginRuntime: sharedRuntime,
         ...testModelOptions(),
+        getModelCatalog: () => ({ text: [{ provider: 'openai', code: 'gpt-6-astra', transport: 'openai_chat_completions' }], image: [] }),
         pluginDependencies: {
             'ai-gateway': testGateway('Generated: Jeju')
         }
@@ -203,6 +197,7 @@ test('disabled Plugins block the corresponding step without reaching WordPress',
     let wordpressCalls = 0;
     const system = createGeneratedWordPressPublishingSystem({
         ...testModelOptions(),
+        getModelCatalog: () => ({ text: [{ provider: 'openai', code: 'gpt-6-astra', transport: 'openai_chat_completions' }], image: [] }),
         pluginDependencies: {
             'ai-gateway': { transport: { async request() { generationCalls += 1; return { status: 200, headers: {}, body: { choices: [{ message: { content: 'Generated draft' } }] } }; } } },
             'wordpress-publisher': {

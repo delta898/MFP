@@ -93,8 +93,8 @@ test('WordPress Plugin publisher owns WordPress manuscript creation when the app
         Core: {
             async publishToWordPress() { throw new Error('legacy WordPress publisher must not run'); }
         },
-        blogWritingApplication: {
-            async publishWordPress(request, context) {
+        blogPublishingApplication: {
+            async publishWordPressPlugin(request, context) {
                 calls.push({ request, context });
                 return { success: true, postId: 902, postUrl: 'https://example.test/draft/902', status: 'draft', warnings: null };
             }
@@ -134,8 +134,8 @@ test('WordPress Plugin publisher owns WordPress manuscript creation when the app
     assert.match(calls[0].request.content, /<p>본문입니다\.<\/p>/);
     assert.equal(calls[0].request.status, 'draft');
     assert.equal(calls[0].request.category, '여행');
-    assert.ok(logs.some((message) => message.includes('WordPress 발행 Application 실행 (media.upload=0, posts.create=1)')));
-    assert.ok(logs.some((message) => message.includes('WordPress 발행 Application 완료 (success=true, requestedAssets=0, warnings=0)')));
+    assert.ok(logs.some((message) => message.includes('WordPress 발행 시작 (assets=0)')));
+    assert.ok(logs.some((message) => message.includes('WordPress 발행 완료 (success=true, requestedAssets=0, warnings=0)')));
     assert.equal(logs.some((message) => message.includes('본문입니다')), false);
 });
 
@@ -159,8 +159,8 @@ test('WordPress Plugin publisher uploads manuscript images and links them in pos
             }
         },
         Core: { async publishToWordPress() { throw new Error('legacy publisher must not run'); } },
-        blogWritingApplication: {
-            async publishWordPress(request, context) {
+        blogPublishingApplication: {
+            async publishWordPressPlugin(request, context) {
                 calls.push({ request, context });
                 return { success: true, postId: 903, postUrl: 'https://example.test/903', status: 'draft', warnings: null };
             }
@@ -205,7 +205,6 @@ test('WordPress Plugin publisher uploads manuscript images and links them in pos
     assert.equal(calls[0].request.featuredAsset, 'image-0');
     assert.match(calls[0].request.content, /\{\{asset:image-0}}/);
     assert.doesNotMatch(calls[0].request.content, /\[\[IMAGE_0/);
-    assert.ok(logs.some((message) => message.includes('wordpress-publisher.media.upload 준비 (1/1, mime=image/png, bytes=9)')));
 });
 
 test('quick publish keeps the user image option independent from legacy license flags', async () => {

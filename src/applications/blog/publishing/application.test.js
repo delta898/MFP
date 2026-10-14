@@ -22,7 +22,7 @@ function createApplication(options = {}) {
                     : { buffer: Buffer.from(`${format}:${bytes.toString()}`), format, optimized: true };
             }
         },
-        blogWritingApplication: { async publishWordPress(request, context) { calls.push({ operation: 'plugin', request, context }); return { success: true }; } },
+        wordpressPublishingApplication: { async publish(request, context) { calls.push({ operation: 'plugin', request, context }); return { success: true }; } },
         CONFIG: { IMAGE_OPTIMIZATION_ENABLED: true },
         Logger: { info() {} },
         fs,

@@ -60,13 +60,18 @@ function normalizeRequest(request, options = {}) {
 }
 
 function createWordPressPublishingApplication(options = {}) {
-    if (typeof options.executeOperation !== 'function') {
-        throw new TypeError('WordPress publishing Application requires executeOperation().');
+    const publisher = options.publisher;
+    if (!publisher || typeof publisher.uploadMedia !== 'function'
+        || typeof publisher.listCategories !== 'function' || typeof publisher.createPost !== 'function') {
+        throw new TypeError('WordPress publishing Application requires a Publisher capability.');
     }
 
     return Object.freeze({
         validate(request) {
             return Object.freeze(normalizeRequest(request, { allowMissingContent: true }));
+        },
+        listCategories(search = '', executionContext = {}) {
+            return publisher.listCategories(search, executionContext);
         },
         async publish(request, executionContext = {}) {
             const input = normalizeRequest(request);
@@ -78,12 +83,7 @@ function createWordPressPublishingApplication(options = {}) {
             for (const asset of input.assets) {
                 try {
                     assertNotAborted(executionContext);
-                    const uploaded = await options.executeOperation('wordpress-publisher', 'media.upload', {
-                        bytesBase64: asset.bytes.toString('base64'),
-                        filename: asset.filename,
-                        mimeType: asset.mimeType,
-                        altText: asset.altText
-                    }, executionContext);
+                    const uploaded = await publisher.uploadMedia(asset, executionContext);
                     uploadedAssets.set(asset.key, uploaded);
                     if (input.featuredAsset === asset.key && featuredMedia === null) featuredMedia = uploaded.id;
                 } catch (error) {
@@ -96,7 +96,7 @@ function createWordPressPublishingApplication(options = {}) {
             if (input.category) {
                 try {
                     assertNotAborted(executionContext);
-                    const found = await options.executeOperation('wordpress-publisher', 'categories.list', { search: input.category }, executionContext);
+                    const found = await publisher.listCategories(input.category, executionContext);
                     const target = input.category.toLowerCase();
                     const match = found.find((category) => (
                         String(category.id).toLowerCase() === target
@@ -121,7 +121,7 @@ function createWordPressPublishingApplication(options = {}) {
             let finalStatus = input.status === 'schedule' ? 'future' : input.status;
             if (warnings.length && finalStatus !== 'draft') finalStatus = 'draft';
             assertNotAborted(executionContext);
-            const post = await options.executeOperation('wordpress-publisher', 'posts.create', {
+            const post = await publisher.createPost({
                 title: input.title,
                 content,
                 status: finalStatus,

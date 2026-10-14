@@ -23,6 +23,11 @@ packages/plugins/core/<plugin-id>/
 - For agent/knowledge work, follow the `kind + transport + config` model.
 - Prefer explicit capability-based control over raw config mutation.
 
+## Application and Plugin Boundaries
+- Product Applications must not call Plugin Host operations or depend on Plugin IDs/operation IDs. Route reusable cross-application features through a `src/services/<domain>/` contract, and translate service calls at `src/adapters/plugins/`; wire concrete adapters and services in `src/composition/`.
+- Keep product policy/workflows in `src/applications/<product>/`. UI/API runtimes are channel/presentation boundaries and should call Application/service ports, not Plugins directly.
+- Plugin Host and provider credentials/network transport remain Platform/Host concerns. Never pass provider API keys through Application or Plugin operation inputs when Host-owned transport can authenticate the request.
+
 ## Software Engineering Principles
 Apply these principles to every change. The later sections define the project-specific workflow and exceptions.
 

@@ -1,27 +1,41 @@
 'use strict';
 
 const { createGeneratedWordPressPublishingApplication } = require('../applications/blog/workflows/generated-wordpress-publishing');
-const { createWordPressPublishingApplication } = require('../applications/blog/publishing/wordpress');
+const { createWordPressPublishingSystem } = require('./wordpress-publishing');
+const { createAiGenerationSystem } = require('./ai-generation');
 const { createCorePluginRegistry } = require('./core-plugin-registry');
 const { createCorePluginRuntime } = require('./core-plugin-runtime');
 
-const REQUIRED_PLUGIN_IDS = Object.freeze(['ai-gateway', 'wordpress-publisher']);
-
 function createGeneratedWordPressPublishingSystem(options = {}) {
+    if (typeof options.getModelCatalog !== 'function') {
+        throw new TypeError('Generated WordPress composition requires getModelCatalog().');
+    }
     const corePluginRegistry = options.corePluginRuntime?.registry || options.corePluginRegistry || createCorePluginRegistry();
     const corePluginRuntime = options.corePluginRuntime || createCorePluginRuntime({ registry: corePluginRegistry });
-    const { executeOperation } = corePluginRuntime.ensurePlugins(REQUIRED_PLUGIN_IDS, options.pluginDependencies || {});
-    const wordpressApplication = createWordPressPublishingApplication({ executeOperation });
+    const pluginDependencies = options.pluginDependencies || {};
+    const aiGenerationSystem = createAiGenerationSystem({
+        corePluginRuntime,
+        pluginDependencies,
+        getModelCatalog: options.getModelCatalog,
+        getSupport: options.getGatewaySupport
+    });
+    const wordpressSystem = createWordPressPublishingSystem({ corePluginRuntime, pluginDependencies });
     const application = createGeneratedWordPressPublishingApplication({
-        executeOperation,
+        aiGeneration: aiGenerationSystem.service,
         getTextModel: options.getTextModel,
         textModel: options.textModel,
-        resolveTextModel: options.resolveTextModel || ((selection) => selection),
-        publish: (request, context) => wordpressApplication.publish(request, context),
-        validatePublicationRequest: (request) => wordpressApplication.validate(request)
+        publish: (request, context) => wordpressSystem.application.publish(request, context),
+        validatePublicationRequest: (request) => wordpressSystem.application.validate(request)
     });
 
-    return Object.freeze({ corePluginRegistry, corePluginRuntime, pluginHost: corePluginRuntime.host, application });
+    return Object.freeze({
+        corePluginRegistry,
+        corePluginRuntime,
+        pluginHost: corePluginRuntime.host,
+        aiGenerationSystem,
+        wordpressSystem,
+        application
+    });
 }
 
-module.exports = { REQUIRED_PLUGIN_IDS, createGeneratedWordPressPublishingSystem };
+module.exports = { createGeneratedWordPressPublishingSystem };

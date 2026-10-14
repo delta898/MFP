@@ -76,6 +76,7 @@
       "src/applications/**/*.js",
       "src/composition/**/*.js",
       "src/platform/**/*.js",
+      "src/services/**/*.js",
       "packages/plugins/core/**/*.js",
       "src/site-hosting/**/*.js",
       "src/content/**/*.js",

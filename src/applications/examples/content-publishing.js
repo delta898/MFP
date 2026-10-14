@@ -1,8 +1,8 @@
 'use strict';
 
 function createContentPublishingExample(options = {}) {
-    if (typeof options.executeOperation !== 'function') {
-        throw new TypeError('Application requires an executeOperation function.');
+    if (typeof options.textGeneration?.generate !== 'function' || typeof options.publication?.publish !== 'function') {
+        throw new TypeError('Application requires textGeneration and publication capabilities.');
     }
 
     return Object.freeze({
@@ -13,16 +13,8 @@ function createContentPublishingExample(options = {}) {
                 || typeof request.destination !== 'string' || !request.destination.trim()) {
                 throw new TypeError('Publishing example requires topic, audience, and destination.');
             }
-            const draft = await options.executeOperation(
-                'sample-text-generator',
-                'generate',
-                { topic: request.topic, audience: request.audience }
-            );
-            const publication = await options.executeOperation(
-                'sample-publisher',
-                'publish',
-                { draft, destination: request.destination }
-            );
+            const draft = await options.textGeneration.generate({ topic: request.topic, audience: request.audience });
+            const publication = await options.publication.publish({ draft, destination: request.destination });
             return { draft, publication };
         }
     });

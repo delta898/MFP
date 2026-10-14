@@ -13,8 +13,10 @@ src/
   host/
   adapters/
     ai/                         # Host-owned provider protocol/authentication adapters
+    plugins/                    # Host operation ↔ shared service-port translation
   platform/
   composition/
+  services/<domain>/            # Cross-application reusable domain contracts
   applications/<application-name>/
   utilities/<capability>/
 packages/plugins/core/<plugin-id>/
@@ -28,7 +30,9 @@ Blog workflows live under `src/applications/blog/`. Other products follow the sa
 - Adapters translate channel or external protocol formats, not business behavior. Host-owned AI provider authentication and transport are adapters; model availability/selection remains Application policy.
 - Platform owns the shared Plugin contract, discovery/validation rules, lifecycle, and operation dispatch.
 - Composition wires concrete Plugins and host dependencies into Applications.
+- Services expose reusable cross-application contracts; they do not own product workflows or Plugin IDs.
 - Applications own product workflows and policies.
+- Plugin adapters are the only Application-facing layer that knows concrete Plugin and operation IDs; UI/API callers use Application/service ports.
 - Utilities own reusable technical operations without product-specific policy.
 - Plugin packages own bounded external integration behavior and follow the shared manifest contract.
 

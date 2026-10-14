@@ -133,6 +133,8 @@ function createUiApiRouteRuntime(deps = {}) {
         createApiRouteHub,
         corePluginRuntime,
         blogWritingApplication,
+        aiGenerationService,
+        blogPublishingApplication,
         UiValidators,
         normalizeYmdToken,
         normalizeListenHost,
@@ -175,11 +177,15 @@ function createUiApiRouteRuntime(deps = {}) {
                 Logger,
                 workspaceDir: CONFIG?.WORKSPACE_DIR,
                 callWritingImage: typeof Utils?.callWritingImage === 'function' ? Utils.callWritingImage.bind(Utils) : null,
-                generateGatewayImage: typeof blogWritingApplication?.generateImage === 'function'
-                    ? (prompt, context = {}) => blogWritingApplication.generateImage(prompt, {}, {
-                        signal: context.signal,
-                        reportProgress: context.onProgress
-                    })
+                generateGatewayImage: typeof aiGenerationService?.generateImage === 'function'
+                    ? async (prompt, context = {}) => {
+                        const result = await aiGenerationService.generateImage({
+                            modelSelection: CONFIG?.IMAGE_MODEL_CONFIG,
+                            prompt,
+                            options: {}
+                        }, { signal: context.signal, reportProgress: context.onProgress });
+                        return result?.images?.[0] || null;
+                    }
                     : null,
                 relatedPosts: {
                     fetchPosts: typeof Utils?.fetchConfiguredRelatedPosts === 'function'
@@ -431,6 +437,8 @@ function createUiApiRouteRuntime(deps = {}) {
             Utils,
             manuscriptDraftService: getManuscriptDraftService(),
             blogWritingApplication,
+            aiGenerationService,
+            blogPublishingApplication,
             getSiteHostingSiteService: getSiteHostingSiteServiceInstance,
             BrowserLauncher,
             fs,

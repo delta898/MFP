@@ -129,12 +129,16 @@ test('Application stops the workflow when the execution signal is aborted', asyn
     const calls = [];
     const controller = new AbortController();
     const application = createWordPressPublishingApplication({
-        async executeOperation(pluginId, operationId) {
-            calls.push(operationId);
+        publisher: {
+          async uploadMedia() {
+            calls.push('media.upload');
             controller.abort();
             const error = new Error('cancelled');
             error.code = 'ABORTED';
             throw error;
+          },
+          async listCategories() {},
+          async createPost() { calls.push('posts.create'); }
         }
     });
 

@@ -30,7 +30,6 @@ function createPublishActionsRuntime(deps = {}) {
         Utils,
         Core,
         blogPublishingApplication,
-        blogWritingApplication,
         License,
         TelegramBotService,
         buildLocalMarkdownPreview,
@@ -1447,7 +1446,7 @@ function createPublishActionsRuntime(deps = {}) {
                     message: '현재 WordPress Plugin 발행 경로는 임시 저장과 즉시 발행만 지원합니다.'
                 };
             }
-            if (typeof blogWritingApplication?.publishWordPress !== 'function') {
+            if (typeof blogPublishingApplication?.publishWordPressPlugin !== 'function') {
                 return { success: false, code: 'BLOG_PLUGIN_HOST_UNAVAILABLE', message: 'WordPress Plugin 실행 경로를 준비하지 못했습니다.' };
             }
         }
@@ -1562,10 +1561,10 @@ function createPublishActionsRuntime(deps = {}) {
                     const featuredAsset = wordpressContent.assets[0]?.key || '';
                     if (typeof blogPublishingApplication?.publishWordPressPlugin !== 'function') {
                         wordpressContent.assets.forEach((asset, index) => {
-                            Logger?.info?.(`[Blog Beta][Plugin] wordpress-publisher.media.upload 준비 (${index + 1}/${wordpressContent.assets.length}, mime=${asset.mimeType}, bytes=${asset.bytes.length})`);
+                            Logger?.info?.(`[Blog Beta][Publishing] 이미지 업로드 준비 (${index + 1}/${wordpressContent.assets.length}, mime=${asset.mimeType}, bytes=${asset.bytes.length})`);
                         });
                     }
-                    Logger?.info?.(`[Blog Beta][Plugin] WordPress 발행 Application 실행 (media.upload=${wordpressContent.assets.length}, posts.create=1)`);
+                    Logger?.info?.(`[Blog Beta][Publishing] WordPress 발행 시작 (assets=${wordpressContent.assets.length})`);
                     try {
                         const publishRequest = {
                             title: previewData.title,
@@ -1575,14 +1574,12 @@ function createPublishActionsRuntime(deps = {}) {
                             assets: wordpressContent.assets,
                             ...(featuredAsset ? { featuredAsset } : {})
                         };
-                        wpRes = typeof blogPublishingApplication?.publishWordPressPlugin === 'function'
-                            ? await blogPublishingApplication.publishWordPressPlugin(publishRequest, { signal })
-                            : await blogWritingApplication.publishWordPress(publishRequest, { signal });
+                        wpRes = await blogPublishingApplication.publishWordPressPlugin(publishRequest, { signal });
                     } catch (error) {
-                        Logger?.error?.(`[Blog Beta][Plugin] WordPress 발행 Application 예외 (code=${String(error?.code || error?.apiCode || error?.name || 'unknown').slice(0, 80)})`);
+                        Logger?.error?.(`[Blog Beta][Publishing] WordPress 발행 실패 (code=${String(error?.code || error?.apiCode || error?.name || 'unknown').slice(0, 80)})`);
                         throw error;
                     }
-                    Logger?.info?.(`[Blog Beta][Plugin] WordPress 발행 Application 완료 (success=${wpRes?.success === true}, requestedAssets=${wordpressContent.assets.length}, warnings=${Array.isArray(wpRes?.warnings) ? wpRes.warnings.length : 0})`);
+                    Logger?.info?.(`[Blog Beta][Publishing] WordPress 발행 완료 (success=${wpRes?.success === true}, requestedAssets=${wordpressContent.assets.length}, warnings=${Array.isArray(wpRes?.warnings) ? wpRes.warnings.length : 0})`);
                 } else {
                     wpRes = await publishWordPressLegacy(workspace.tempDir, {
                         category: requestBody?.wordpressCategory || '',

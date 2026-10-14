@@ -110,3 +110,14 @@ Replace the thin `content-generator` pilot as the AI integration boundary with o
 - Recorded the mandatory layer and placement rules in `AGENTS.md`, the canonical Plugin architecture document, and the source-directory decision record.
 
 - Extracted the Blog Beta Plugin and Application wiring from `ui-server.js` into `src/composition/blog-beta-runtime.js`; the existing UI server now supplies dependencies and receives the composed runtime.
+
+
+## Cross-Application Service and Plugin Adapter follow-up (2026-10-15)
+
+- Added `src/services/ai/generation.js` as a reusable provider-neutral service port. It intersects the BlogGenius Model Catalog with Gateway routes, checks supported model features, validates selections, and delegates text/image generation without exposing Plugin IDs to product Applications.
+- Added `src/adapters/plugins/ai-gateway.js` and `wordpress-publisher.js` as the concrete operation translation boundary; `src/composition/ai-generation.js` and the existing publishing compositions inject those adapters into their Application/service ports.
+- Blog Beta composition now registers the two Plugins separately. The WordPress publishing Application and Blog Publishing Application call one another through an injected Application port; the Blog Writing Application calls only the shared AI service. Provider credentials continue to be read inside Host-owned Plugin dependencies/transport.
+- UI/API generation logs identify AI operation, selected model, provider, transport, elapsed time, progress, and image output without binding user-facing logs or manuscript metadata to a Plugin ID. Manuscript image actions use the shared generation service and unwrap its normalized image result.
+- Added focused adapter and AI service contract tests; updated writing, generated WordPress, Blog runtime, and publishing tests to the port-based wiring.
+- Follow-up migration of card-news, SNS, shopping, legacy Naver publishing, and full business workflow extraction from existing UI API services remains outside this slice; these callers can adopt the shared service as they migrate.
+- Verification for this boundary follow-up: `BLOGGENIUS_ENV=local node --test` over Plugin adapters, AI service, Blog/WordPress compositions and Applications, manuscript generation/cancellation, Plugin-backed image publication, and Plugin Host contracts passed 74 tests. Runtime files passed `node -c`; `git diff --check` passed. No live AI or WordPress calls were made. Changes remain uncommitted.

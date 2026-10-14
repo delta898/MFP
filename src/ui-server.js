@@ -787,7 +787,7 @@ const blogBetaComposition = createBlogBetaRuntimeComposition({
     path,
     getAiModelCatalog
 });
-const { corePluginRuntime, blogWritingSystem, blogPublishingApplication } = blogBetaComposition;
+const { corePluginRuntime, blogWritingSystem, blogPublishingApplication, aiGenerationSystem } = blogBetaComposition;
 
 const publishActionsRuntime = createPublishActionsRuntime({
     fs,
@@ -798,7 +798,6 @@ const publishActionsRuntime = createPublishActionsRuntime({
     Utils,
     Core,
     blogPublishingApplication,
-    blogWritingApplication: blogWritingSystem.application,
     License,
     TelegramBotService,
     buildLocalMarkdownPreview,
@@ -1095,6 +1094,8 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     createApiRouteHub,
     corePluginRuntime,
     blogWritingApplication: blogWritingSystem.application,
+    aiGenerationService: aiGenerationSystem.service,
+    blogPublishingApplication,
     UiValidators,
     normalizeYmdToken,
     normalizeListenHost,

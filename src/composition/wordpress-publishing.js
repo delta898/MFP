@@ -1,6 +1,7 @@
 'use strict';
 
 const { createWordPressPublishingApplication } = require('../applications/blog/publishing/wordpress');
+const { createWordPressPublisherAdapter } = require('../adapters/plugins/wordpress-publisher');
 const { createCorePluginRegistry } = require('./core-plugin-registry');
 const { createCorePluginRuntime } = require('./core-plugin-runtime');
 
@@ -13,11 +14,13 @@ function createWordPressPublishingSystem(options = {}) {
     if (!corePluginRegistry.has('wordpress-publisher')) {
         throw new TypeError('WordPress publishing Application requires the wordpress-publisher Core Plugin.');
     }
-    const { executeOperation } = corePluginRuntime.ensurePlugins(['wordpress-publisher'], options.pluginDependencies || {});
-    const application = createWordPressPublishingApplication({
-        executeOperation
+    const dependencies = options.pluginDependencies || {};
+    const { executeOperation } = corePluginRuntime.ensurePlugins(['wordpress-publisher'], {
+        ...(dependencies['wordpress-publisher'] ? { 'wordpress-publisher': dependencies['wordpress-publisher'] } : {})
     });
-    return Object.freeze({ corePluginRegistry, corePluginRuntime, pluginHost: corePluginRuntime.host, application });
+    const publisher = createWordPressPublisherAdapter({ executeOperation });
+    const application = createWordPressPublishingApplication({ publisher });
+    return Object.freeze({ corePluginRegistry, corePluginRuntime, pluginHost: corePluginRuntime.host, publisher, application });
 }
 
 module.exports = { createWordPressPublishingSystem };

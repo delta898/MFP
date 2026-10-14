@@ -4,11 +4,11 @@ const fsDefault = require('node:fs');
 const pathDefault = require('node:path');
 const ImageServiceDefault = require('../image-service');
 const { createCorePluginRuntime } = require('./core-plugin-runtime');
+const { createAiGenerationSystem } = require('./ai-generation');
 const { createBlogWritingSystem } = require('./blog-writing');
+const { createWordPressPublishingSystem } = require('./wordpress-publishing');
 const { createBlogPublishingApplication } = require('../applications/blog/publishing/application');
 const { createBlogGeniusAiTransport } = require('../adapters/ai/gateway-transport');
-const { resolveGatewayModel, supportsGatewayFeature } = require('../applications/blog/writing/gateway-model-resolver');
-const { describeSupport } = require('../../packages/plugins/core/ai-gateway');
 
 function createBlogBetaRuntimeComposition(options = {}) {
     const { CONFIG, Logger, getAiModelCatalog } = options;
@@ -19,40 +19,46 @@ function createBlogBetaRuntimeComposition(options = {}) {
     const path = options.path || pathDefault;
     const ImageService = options.ImageService || ImageServiceDefault;
     const corePluginRuntime = options.corePluginRuntime || createCorePluginRuntime();
-    const getGatewaySupport = options.getGatewaySupport || describeSupport;
-    const getModelCatalog = () => getAiModelCatalog();
-    const getSupport = () => getGatewaySupport();
-
-    const blogWritingSystem = createBlogWritingSystem({
-        corePluginRuntime,
-        getTextModel: () => ({ provider: CONFIG.TEXT_MODEL_CONFIG?.provider, modelId: CONFIG.TEXT_MODEL_CONFIG?.code }),
-        getImageModel: () => ({ provider: CONFIG.IMAGE_MODEL_CONFIG?.provider, modelId: CONFIG.IMAGE_MODEL_CONFIG?.code }),
-        resolveTextModel: (selection) => resolveGatewayModel('text', selection, getModelCatalog(), getSupport()),
-        resolveImageModel: (selection) => resolveGatewayModel('image', selection, getModelCatalog(), getSupport()),
-        supportsJson: (model) => supportsGatewayFeature('text', model, 'jsonResponse', getSupport(), getModelCatalog()),
-        pluginDependencies: {
-            'ai-gateway': { transport: createBlogGeniusAiTransport({ config: CONFIG, fetch: options.fetch, lookup: options.lookup }) },
-            'wordpress-publisher': {
-                getCredentials: async () => ({
-                    url: CONFIG.WORDPRESS_URL,
-                    userId: CONFIG.WORDPRESS_USER_ID,
-                    appPassword: CONFIG.WORDPRESS_APP_PASSWORD
-                })
-            }
+    const pluginDependencies = {
+        'ai-gateway': { transport: createBlogGeniusAiTransport({ config: CONFIG, fetch: options.fetch, lookup: options.lookup }) },
+        'wordpress-publisher': {
+            getCredentials: async () => ({
+                url: CONFIG.WORDPRESS_URL,
+                userId: CONFIG.WORDPRESS_USER_ID,
+                appPassword: CONFIG.WORDPRESS_APP_PASSWORD
+            })
         }
+    };
+    const aiGenerationSystem = createAiGenerationSystem({
+        corePluginRuntime,
+        pluginDependencies,
+        getModelCatalog: getAiModelCatalog,
+        getSupport: options.getGatewaySupport
+    });
+    const wordpressPublishingSystem = createWordPressPublishingSystem({ corePluginRuntime, pluginDependencies });
+    const blogWritingSystem = createBlogWritingSystem({
+        aiGeneration: aiGenerationSystem.service,
+        getTextModel: () => ({ provider: CONFIG.TEXT_MODEL_CONFIG?.provider, modelId: CONFIG.TEXT_MODEL_CONFIG?.code }),
+        getImageModel: () => ({ provider: CONFIG.IMAGE_MODEL_CONFIG?.provider, modelId: CONFIG.IMAGE_MODEL_CONFIG?.code })
     });
 
     const blogPublishingApplication = createBlogPublishingApplication({
         Core: options.Core,
         ImageService,
-        blogWritingApplication: blogWritingSystem.application,
+        wordpressPublishingApplication: wordpressPublishingSystem.application,
         CONFIG,
         Logger,
         fs,
         path
     });
 
-    return Object.freeze({ corePluginRuntime, blogWritingSystem, blogPublishingApplication });
+    return Object.freeze({
+        corePluginRuntime,
+        aiGenerationSystem,
+        wordpressPublishingSystem,
+        blogWritingSystem,
+        blogPublishingApplication
+    });
 }
 
 module.exports = { createBlogBetaRuntimeComposition };

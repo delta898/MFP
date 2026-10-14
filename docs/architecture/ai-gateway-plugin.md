@@ -4,6 +4,8 @@
 
 `packages/plugins/core/ai-gateway/` is a provider-neutral, in-process Core Plugin for text and image generation. BlogGenius remains the Platform: its Model Catalog controls product-visible and selectable models, its Applications choose a model, and its Host owns provider credentials and network transport. The Gateway reports the routes and execution limits it implements, normalizes provider requests and responses, and owns provider-specific asynchronous job mechanics.
 
+BlogGenius product Applications do not call the Plugin Host or depend on Gateway operation IDs. They use the shared `src/services/ai/generation.js` contract for Catalog/Gateway route intersection and provider-neutral `generateText` / `generateImage`. `src/adapters/plugins/ai-gateway.js` translates that contract to Host operations. `src/adapters/ai/gateway-transport.js` remains the Host-owned transport and credential boundary. This keeps provider credentials outside the Plugin request surface and lets Blog, Card News, and SNS share the same generation service.
+
 The Gateway is not a REST service. Other Hosts can use the package by implementing the narrow transport dependency accepted by `createPlugin({ transport })`; that transport is not part of the public operation payload.
 
 ## Public operation contract
