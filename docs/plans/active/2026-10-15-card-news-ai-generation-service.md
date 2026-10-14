@@ -3,7 +3,7 @@
 - Branch: `codex/feat/card-news-ai-generation-service`
 - Start date: 2026-10-15
 - Base/parent branch: `codex/feat/ai-gateway-plugin`
-- Status: Implemented; direct OpenAI-compatible endpoint extension and best-effort image request behavior passed focused verification; awaiting review and parent-branch integration
+- Status: Implemented; direct OpenAI-compatible endpoint extension and best-effort image request behavior passed focused verification; ready for parent-branch integration
 
 ## User need and goal
 
@@ -44,9 +44,10 @@ Use Card News as the second BlogGenius Application to validate the shared provid
 
 ## Verification and handoff
 
-- Focused verification passed: 55 tests across Card News Application, generation service, API service, shared AI Generation service, and AI Gateway Plugin. Changed runtime files passed Node syntax checks, the Gateway package manifest parsed, and `git diff --check` passed.
+- Focused verification passed: 142 tests across Card News, SNS, AI Generation, AI Gateway, affected structure contracts, and plugin composition. Changed runtime files passed Node syntax checks and `git diff --check` passed. One initial run lacked `BLOGGENIUS_ENV` and failed while loading the Blog composition test; the full focused set passed after setting `BLOGGENIUS_ENV=local`.
 - Manual UI acceptance remains with the user; no UI behavior is intentionally changed.
-- No commit, merge, push, or release has been performed.
+- The SNS AI Generation sub-feature was fast-forward merged from `codex/feat/sns-ai-generation-service` into this branch at `db0c6c60`; its branch was deleted after merge. This branch is ready to fast-forward into `codex/feat/ai-gateway-plugin`.
+- No push or release has been performed.
 
 ## Remaining risks and follow-up
 
