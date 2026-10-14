@@ -3,6 +3,7 @@
 const { createGitHubDesignStyleCatalog } = require('../site-hosting/github-design-style-catalog');
 const { createDesignStylesRouteHandler } = require('../ui-api/routes/design-styles.routes');
 const { createManuscriptDraftService } = require('../content/manuscript-draft-service');
+const { createCorePluginsRouteHandler } = require('../ui-api/routes/core-plugins.routes');
 
 function createUiApiRouteRuntime(deps = {}) {
     const {
@@ -130,6 +131,7 @@ function createUiApiRouteRuntime(deps = {}) {
         createSiteHostingSiteService,
         createSiteHostingSiteRouteHandler,
         createApiRouteHub,
+        corePluginRuntime,
         UiValidators,
         normalizeYmdToken,
         normalizeListenHost,
@@ -190,6 +192,7 @@ function createUiApiRouteRuntime(deps = {}) {
         return manuscriptDraftService;
     }
     let designStylesRouteHandler = null;
+    let corePluginsRouteHandler = null;
     let apiRouteHub = null;
     let smartUsageService = null;
 
@@ -591,6 +594,13 @@ function createUiApiRouteRuntime(deps = {}) {
         return designStylesRouteHandler;
     }
 
+    function getCorePluginsRouteHandlerInstance() {
+        if (!corePluginsRouteHandler) {
+            corePluginsRouteHandler = createCorePluginsRouteHandler({ corePluginRuntime, sendSuccess, sendError });
+        }
+        return corePluginsRouteHandler;
+    }
+
     function getApiRouteHubInstance() {
         if (!apiRouteHub) {
             apiRouteHub = createApiRouteHub([
@@ -606,6 +616,7 @@ function createUiApiRouteRuntime(deps = {}) {
                 getCloudflareConnectionRouteHandlerInstance(),
                 getSiteHostingProjectRouteHandlerInstance(),
                 getSiteHostingSiteRouteHandlerInstance(),
+                getCorePluginsRouteHandlerInstance(),
                 getDesignStylesRouteHandlerInstance(),
                 getLegacyApiRouteHandlerInstance()
             ]);
@@ -635,6 +646,7 @@ function createUiApiRouteRuntime(deps = {}) {
         getBlogAutoRouteHandler: getBlogAutoRouteHandlerInstance,
         getLegacyApiRouteHandler: getLegacyApiRouteHandlerInstance,
         getSettingsRouteHandler: getSettingsRouteHandlerInstance,
+        getCorePluginsRouteHandler: getCorePluginsRouteHandlerInstance,
         getManualSnsRouteHandler: getManualSnsRouteHandlerInstance,
         getCardNewsRouteHandler: getCardNewsRouteHandlerInstance,
         getSurfaceContentRouteHandler: getSurfaceContentRouteHandlerInstance,

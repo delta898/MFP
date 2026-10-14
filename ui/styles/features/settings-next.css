@@ -43,6 +43,95 @@
   gap: var(--ui-action-group-gap);
 }
 
+.settings-next-plugin-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-4);
+}
+
+.settings-next-plugin-browser {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.8fr) minmax(0, 1.6fr);
+  align-items: start;
+  gap: var(--ui-space-4);
+}
+
+.settings-next-plugin-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-2);
+  padding: var(--ui-space-3);
+}
+
+.settings-next-plugin-choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-3);
+  width: 100%;
+  padding: var(--ui-space-3);
+  border: 1px solid var(--ui-border-default);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface-muted);
+  color: var(--ui-text-primary);
+  text-align: start;
+  cursor: pointer;
+}
+
+.settings-next-plugin-choice[aria-pressed="true"] {
+  border-color: var(--ui-border-focus);
+  background: var(--ui-surface-hover);
+}
+
+.settings-next-plugin-choice-copy {
+  display: grid;
+  gap: var(--ui-space-1);
+  min-width: 0;
+}
+
+.settings-next-plugin-choice-copy small {
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-type-caption-size);
+}
+
+.settings-next-plugin-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-3);
+  min-height: 240px;
+}
+
+.settings-next-plugin-detail .ui-settings-card-heading h3,
+.settings-next-plugin-detail .ui-settings-card-heading p {
+  margin: 0;
+}
+
+.settings-next-plugin-section-title {
+  margin: var(--ui-space-2) 0 0;
+  color: var(--ui-text-primary);
+  font-size: var(--ui-type-label-size);
+}
+
+.settings-next-plugin-operations {
+  display: grid;
+  gap: var(--ui-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.settings-next-plugin-operations li {
+  padding: var(--ui-space-3);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface-muted);
+}
+
+.settings-next-plugin-operations p,
+.settings-next-plugin-runtime-note {
+  margin: var(--ui-space-1) 0 0;
+  color: var(--ui-text-secondary);
+}
+
 .settings-next-cloudflare-account-list {
   display: grid;
   gap: var(--ui-space-2);
@@ -449,7 +538,8 @@
   }
 
   .settings-next-readiness,
-  .settings-next-sns-channel-list {
+  .settings-next-sns-channel-list,
+  .settings-next-plugin-browser {
     grid-template-columns: minmax(0, 1fr);
   }
 

@@ -1,7 +1,7 @@
 'use strict';
 
-const { createWordPressPublisherPlugin } = require('../../packages/plugins/core/wordpress-publisher');
-const { createContentGeneratorPlugin } = require('../../packages/plugins/core/content-generator');
+const { createWordPressPublisherPlugin, PLUGIN_METADATA: WORDPRESS_PUBLISHER_METADATA } = require('../../packages/plugins/core/wordpress-publisher');
+const { createContentGeneratorPlugin, PLUGIN_METADATA: CONTENT_GENERATOR_METADATA } = require('../../packages/plugins/core/content-generator');
 
 class CorePluginRegistryError extends Error {
     constructor(message, code = 'CORE_PLUGIN_REGISTRY_INVALID') {
@@ -14,10 +14,12 @@ class CorePluginRegistryError extends Error {
 const CORE_PLUGIN_REGISTRATIONS = Object.freeze([
     Object.freeze({
         id: 'wordpress-publisher',
+        metadata: WORDPRESS_PUBLISHER_METADATA,
         create: (dependencies) => createWordPressPublisherPlugin(dependencies)
     }),
     Object.freeze({
         id: 'content-generator',
+        metadata: CONTENT_GENERATOR_METADATA,
         create: (dependencies) => createContentGeneratorPlugin(dependencies)
     })
 ]);
@@ -38,10 +40,43 @@ function validateRegistrations(registrations) {
         if (typeof registration.create !== 'function') {
             throw new CorePluginRegistryError(`Core Plugin ${registration.id} must provide create().`);
         }
+        const metadataDeclared = Boolean(registration.metadata);
+        const metadata = registration.metadata || Object.freeze({
+            id: registration.id,
+            name: registration.id,
+            version: '',
+            summary: '',
+            operations: Object.freeze([])
+        });
+        if (!metadata || metadata.id !== registration.id || typeof metadata.name !== 'string'
+            || typeof metadata.version !== 'string' || typeof metadata.summary !== 'string'
+            || !Array.isArray(metadata.operations)
+            || metadata.operations.some((operation) => !operation || typeof operation.id !== 'string'
+                || !operation.id.trim() || typeof operation.description !== 'string')) {
+            throw new CorePluginRegistryError(`Core Plugin ${registration.id} has invalid discovery metadata.`);
+        }
+        if (new Set(metadata.operations.map((operation) => operation.id)).size !== metadata.operations.length) {
+            throw new CorePluginRegistryError(`Core Plugin ${registration.id} has duplicate operation metadata.`);
+        }
+        const safeMetadata = Object.freeze({
+            id: metadata.id,
+            name: metadata.name,
+            version: metadata.version,
+            summary: metadata.summary,
+            operations: Object.freeze(metadata.operations.map((operation) => Object.freeze({
+                id: operation.id,
+                description: operation.description
+            })))
+        });
         if (byId.has(registration.id)) {
             throw new CorePluginRegistryError(`Core Plugin is registered more than once: ${registration.id}`, 'CORE_PLUGIN_DUPLICATE');
         }
-        byId.set(registration.id, Object.freeze({ id: registration.id, create: registration.create }));
+        byId.set(registration.id, Object.freeze({
+            id: registration.id,
+            metadata: safeMetadata,
+            metadataDeclared,
+            create: registration.create
+        }));
     });
 
     return byId;
@@ -52,6 +87,14 @@ function createCorePluginRegistry(registrations = CORE_PLUGIN_REGISTRATIONS) {
 
     function list() {
         return Array.from(registrationsById.keys());
+    }
+
+    function listMetadata() {
+        return Array.from(registrationsById.values(), ({ metadata }) => metadata);
+    }
+
+    function getMetadata(pluginId) {
+        return registrationsById.get(String(pluginId || '').trim())?.metadata || null;
     }
 
     function has(pluginId) {
@@ -77,10 +120,18 @@ function createCorePluginRegistry(registrations = CORE_PLUGIN_REGISTRATIONS) {
                 'CORE_PLUGIN_ID_MISMATCH'
             );
         }
+        if (registration.metadataDeclared) {
+            const operationMetadata = Object.entries(plugin.operations || {})
+                .map(([operationId, operation]) => ({ id: operationId, description: operation.description }));
+            if (plugin.name !== registration.metadata.name || plugin.version !== registration.metadata.version
+                || JSON.stringify(operationMetadata) !== JSON.stringify(registration.metadata.operations)) {
+                throw new CorePluginRegistryError(`Core Plugin instance does not match its discovery metadata: ${id}`, 'CORE_PLUGIN_METADATA_MISMATCH');
+            }
+        }
         return plugin;
     }
 
-    return Object.freeze({ list, has, createPlugin });
+    return Object.freeze({ list, listMetadata, getMetadata, has, createPlugin });
 }
 
 module.exports = {

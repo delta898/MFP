@@ -2,24 +2,15 @@
 
 const { createGeneratedWordPressPublishingApplication } = require('../applications/generated-wordpress-publishing');
 const { createWordPressPublishingApplication } = require('../applications/wordpress-publishing');
-const { createPluginHost } = require('../platform/plugin-host');
 const { createCorePluginRegistry } = require('./core-plugin-registry');
-const { composePlugins } = require('./plugin-runtime-composition');
+const { createCorePluginRuntime } = require('./core-plugin-runtime');
 
 const REQUIRED_PLUGIN_IDS = Object.freeze(['content-generator', 'wordpress-publisher']);
 
 function createGeneratedWordPressPublishingSystem(options = {}) {
-    const corePluginRegistry = options.corePluginRegistry || createCorePluginRegistry();
-    const dependenciesByPluginId = options.pluginDependencies || {};
-    const plugins = composePlugins({
-        catalog: corePluginRegistry,
-        pluginIds: REQUIRED_PLUGIN_IDS,
-        dependenciesByPluginId
-    });
-    const pluginHost = createPluginHost({ plugins });
-    const executeOperation = (pluginId, operationId, input, context) => (
-        pluginHost.execute(pluginId, operationId, input, context)
-    );
+    const corePluginRegistry = options.corePluginRuntime?.registry || options.corePluginRegistry || createCorePluginRegistry();
+    const corePluginRuntime = options.corePluginRuntime || createCorePluginRuntime({ registry: corePluginRegistry });
+    const { executeOperation } = corePluginRuntime.ensurePlugins(REQUIRED_PLUGIN_IDS, options.pluginDependencies || {});
     const wordpressApplication = createWordPressPublishingApplication({ executeOperation });
     const application = createGeneratedWordPressPublishingApplication({
         executeOperation,
@@ -27,7 +18,7 @@ function createGeneratedWordPressPublishingSystem(options = {}) {
         validatePublicationRequest: (request) => wordpressApplication.validate(request)
     });
 
-    return Object.freeze({ corePluginRegistry, pluginHost, application });
+    return Object.freeze({ corePluginRegistry, corePluginRuntime, pluginHost: corePluginRuntime.host, application });
 }
 
 module.exports = { REQUIRED_PLUGIN_IDS, createGeneratedWordPressPublishingSystem };

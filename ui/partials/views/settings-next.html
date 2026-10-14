@@ -22,6 +22,8 @@
             aria-selected="false" aria-controls="settings-next-panel-extras" tabindex="-1" data-settings-next-tab="extras">부가 서비스</button>
           <button class="settings-next-tab ui-top-tab" id="settings-next-tab-app" type="button" role="tab"
             aria-selected="false" aria-controls="settings-next-panel-app" tabindex="-1" data-settings-next-tab="app">앱</button>
+          <button class="settings-next-tab ui-top-tab" id="settings-next-tab-plugins" type="button" role="tab"
+            aria-selected="false" aria-controls="settings-next-panel-plugins" tabindex="-1" data-settings-next-tab="plugins">플러그인</button>
         </div>
 
         <div class="card form-card settings-next-panel active ui-panel-heading-surface" id="settings-next-panel-core" role="tabpanel"
@@ -443,6 +445,27 @@
               <div id="settings-next-appearance-grid" class="settings-next-appearance-grid"></div>
               <p id="settings-next-appearance-feedback" class="ui-settings-card-feedback" role="status" aria-live="polite"></p>
             </section>
+          </section>
+        </div>
+        <div class="card form-card settings-next-panel" id="settings-next-panel-plugins" role="tabpanel" aria-labelledby="settings-next-tab-plugins" hidden>
+          <div class="settings-next-panel-lead settings-next-panel-intro">
+            <div><h2>플러그인</h2><p>BlogGenius에 포함된 Core Plugin과 공용 Host 상태, 제공 operation을 조회합니다.</p></div>
+          </div>
+          <div class="settings-next-local-nav-row">
+            <div class="settings-next-local-nav ui-segmented-tabs" role="tablist" aria-label="플러그인 분류">
+              <button class="settings-next-local-tab ui-segmented-tab active" id="settings-next-plugins-tab-core" type="button" role="tab"
+                aria-selected="true" aria-controls="settings-next-plugins-panel-core" tabindex="0" data-settings-next-plugin-tab="core">Core</button>
+            </div>
+            <button class="ui-refresh-action-icon" type="button" data-settings-next-plugins-refresh aria-label="Core Plugin 목록 새로고침" title="Core Plugin 목록 새로고침"><svg aria-hidden="true"><use href="#ui-icon-refresh"></use></svg></button>
+          </div>
+          <section class="settings-next-plugin-panel active" id="settings-next-plugins-panel-core" role="tabpanel" aria-labelledby="settings-next-plugins-tab-core">
+            <p id="settings-next-plugins-feedback" class="ui-settings-card-feedback" role="status" aria-live="polite"></p>
+            <div class="settings-next-plugin-browser" aria-busy="false">
+              <nav class="ui-settings-card settings-next-plugin-list" aria-label="Core Plugin 목록" id="settings-next-plugin-list"></nav>
+              <article class="ui-settings-card settings-next-plugin-detail" id="settings-next-plugin-detail" aria-live="polite">
+                <p class="ui-settings-card-detail">목록에서 Plugin을 선택하면 상세 정보와 제공 operation을 보여줍니다.</p>
+              </article>
+            </div>
           </section>
         </div>
       </section>

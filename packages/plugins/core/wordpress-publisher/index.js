@@ -2,6 +2,17 @@
 
 const PLUGIN_ID = 'wordpress-publisher';
 const PACKAGE_VERSION = require('./package.json').version;
+const PLUGIN_METADATA = Object.freeze({
+    id: PLUGIN_ID,
+    name: 'WordPress Publisher',
+    version: PACKAGE_VERSION,
+    summary: 'Publishes posts and uploads media through the WordPress REST API.',
+    operations: Object.freeze([
+        Object.freeze({ id: 'media.upload', description: 'Upload an image asset to the WordPress media library.' }),
+        Object.freeze({ id: 'categories.list', description: 'List WordPress categories, optionally filtered by search text.' }),
+        Object.freeze({ id: 'posts.create', description: 'Create a WordPress post using WordPress REST API fields.' })
+    ])
+});
 
 class WordPressPublisherError extends Error {
     constructor(message, options = {}) {
@@ -181,12 +192,12 @@ function createWordPressPublisherPlugin(options = {}) {
     }
 
     return Object.freeze({
-        id: PLUGIN_ID,
-        name: 'WordPress Publisher',
-        version: PACKAGE_VERSION,
+        id: PLUGIN_METADATA.id,
+        name: PLUGIN_METADATA.name,
+        version: PLUGIN_METADATA.version,
         operations: Object.freeze({
             'media.upload': Object.freeze({
-                description: 'Upload an image asset to the WordPress media library.',
+                description: PLUGIN_METADATA.operations[0].description,
                 input: Object.freeze({ parse: parseUploadInput }),
                 output: Object.freeze({ parse: parseUploadOutput }),
                 async execute(input, context = {}) {
@@ -216,7 +227,7 @@ function createWordPressPublisherPlugin(options = {}) {
                 }
             }),
             'categories.list': Object.freeze({
-                description: 'List WordPress categories, optionally filtered by search text.',
+                description: PLUGIN_METADATA.operations[1].description,
                 input: Object.freeze({ parse: parseCategoriesInput }),
                 output: Object.freeze({ parse: parseCategoriesOutput }),
                 async execute(input, context = {}) {
@@ -231,7 +242,7 @@ function createWordPressPublisherPlugin(options = {}) {
                 }
             }),
             'posts.create': Object.freeze({
-                description: 'Create a WordPress post using WordPress REST API fields.',
+                description: PLUGIN_METADATA.operations[2].description,
                 input: Object.freeze({ parse: parsePostInput }),
                 output: Object.freeze({ parse: parsePostOutput }),
                 async execute(input, context = {}) {
@@ -259,4 +270,4 @@ function createWordPressPublisherPlugin(options = {}) {
     });
 }
 
-module.exports = { PLUGIN_ID, PACKAGE_VERSION, WordPressPublisherError, createWordPressPublisherPlugin };
+module.exports = { PLUGIN_ID, PACKAGE_VERSION, PLUGIN_METADATA, WordPressPublisherError, createWordPressPublisherPlugin };

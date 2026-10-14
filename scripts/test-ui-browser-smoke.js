@@ -216,6 +216,28 @@ function getApiFixture(pathname) {
     if (pathname.startsWith('/api/v1/account/overview')) return createAccountOverviewFixture();
     if (pathname === '/api/v1/site-hosting/cloudflare/status') return { connected: true, accounts: [{ id: 'cf-account-1', name: 'BlogGenius fixture' }] };
     if (pathname === '/api/v1/dashboard/logs') return { logs: [] };
+    if (pathname === '/api/v1/plugins/core') return { plugins: [
+        {
+            id: 'wordpress-publisher', name: 'WordPress Publisher', version: '0.1.0',
+            summary: 'Publishes posts and uploads media through the WordPress REST API.',
+            operations: [
+                { id: 'media.upload', description: 'Upload an image asset to the WordPress media library.' },
+                { id: 'categories.list', description: 'List WordPress categories, optionally filtered by search text.' },
+                { id: 'posts.create', description: 'Create a WordPress post using WordPress REST API fields.' }
+            ], state: 'not_loaded', activeExecutions: 0
+        },
+        {
+            id: 'content-generator', name: 'Content Generator', version: '0.1.0',
+            summary: 'Provider-neutral text generation operation.',
+            operations: [{ id: 'text.generate', description: 'Generate text using the host-selected provider.' }],
+            state: 'not_loaded', activeExecutions: 0
+        }
+    ] };
+    const corePluginMatch = pathname.match(/^\/api\/v1\/plugins\/core\/([^/]+)$/);
+    if (corePluginMatch) {
+        const plugins = getApiFixture('/api/v1/plugins/core').plugins;
+        return { plugin: plugins.find((plugin) => plugin.id === decodeURIComponent(corePluginMatch[1])) || null };
+    }
     if (pathname === '/api/v1/continuous-publishing/dashboard-overview') {
         return {
             schema_version: 2,
@@ -2721,6 +2743,19 @@ async function run() {
                 await page.evaluate((name) => navigateTo(name), viewName);
             }
             await page.waitForFunction((name) => document.getElementById(`view-${name}`)?.classList.contains('active'), expectedViewName);
+            if (viewName === 'settings') {
+                await page.locator('[data-settings-next-tab="plugins"]').click();
+                await page.waitForFunction(() => document.querySelectorAll('#settings-next-plugin-list [data-plugin-id]').length === 2);
+                await page.locator('#settings-next-plugin-list [data-plugin-id="wordpress-publisher"]').click();
+                await page.getByRole('heading', { name: 'WordPress Publisher' }).waitFor();
+                await page.getByText('posts.create', { exact: true }).waitFor();
+                assert.equal(
+                    (await page.locator('#settings-next-plugin-detail').innerText()).includes('현재 공용 Host에 아직 등록되지 않았습니다.'),
+                    true
+                );
+                assert.equal(await page.locator('#settings-next-plugin-list [data-plugin-id]').count(), 2);
+                assert.equal(requests.some((request) => request.method !== 'GET' && request.pathname.startsWith('/api/v1/plugins/core')), false);
+            }
             if (viewName === 'site-hosting') {
                 await siteTemplateAutoCheck;
                 await page.getByRole('heading', { name: '아직 프로젝트가 없습니다.' }).waitFor();

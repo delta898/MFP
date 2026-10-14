@@ -2,6 +2,15 @@
 
 const PLUGIN_ID = 'content-generator';
 const PACKAGE_VERSION = require('./package.json').version;
+const PLUGIN_METADATA = Object.freeze({
+    id: PLUGIN_ID,
+    name: 'Content Generator',
+    version: PACKAGE_VERSION,
+    summary: 'Provider-neutral text generation operation.',
+    operations: Object.freeze([
+        Object.freeze({ id: 'text.generate', description: 'Generate text from a prompt using the host-selected text generation provider.' })
+    ])
+});
 
 function requireObject(value, label) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -32,12 +41,12 @@ function createContentGeneratorPlugin(options = {}) {
     }
 
     return Object.freeze({
-        id: PLUGIN_ID,
-        name: 'Content Generator',
-        version: PACKAGE_VERSION,
+        id: PLUGIN_METADATA.id,
+        name: PLUGIN_METADATA.name,
+        version: PLUGIN_METADATA.version,
         operations: Object.freeze({
             'text.generate': Object.freeze({
-                description: 'Generate text from a prompt using the host-selected text generation provider.',
+                description: PLUGIN_METADATA.operations[0].description,
                 input: Object.freeze({ parse: parseGenerateInput }),
                 output: Object.freeze({ parse: parseGenerateOutput }),
                 async execute(input, context = {}) {
@@ -52,4 +61,4 @@ function createContentGeneratorPlugin(options = {}) {
     });
 }
 
-module.exports = { createContentGeneratorPlugin };
+module.exports = { PLUGIN_ID, PACKAGE_VERSION, PLUGIN_METADATA, createContentGeneratorPlugin };

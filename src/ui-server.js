@@ -73,6 +73,7 @@ const { createContentActionsRuntime } = require('./ui-runtime/content-actions-ru
 const { createTrendActionsRuntime } = require('./ui-runtime/trend-actions-runtime');
 const { createPublishActionsRuntime } = require('./ui-runtime/publish-actions-runtime');
 const { createUiApiRouteRuntime } = require('./ui-runtime/api-route-runtime');
+const { createCorePluginRuntime } = require('./composition/core-plugin-runtime');
 const { createUiHttpServerRuntime } = require('./ui-runtime/http-server-runtime');
 const { createHtmlCompositionRuntime } = require('./ui-runtime/html-composition-runtime');
 const { createCssCompositionRuntime } = require('./ui-runtime/css-composition-runtime');
@@ -1079,6 +1080,7 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     createSiteHostingSiteService,
     createSiteHostingSiteRouteHandler,
     createApiRouteHub,
+    corePluginRuntime: createCorePluginRuntime(),
     UiValidators,
     normalizeYmdToken,
     normalizeListenHost,

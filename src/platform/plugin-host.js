@@ -53,6 +53,10 @@ function createPluginHost(options = {}) {
         return plugin;
     }
 
+    function hasPlugin(pluginId) {
+        return plugins.has(String(pluginId || '').trim());
+    }
+
     function listPlugins() {
         return Array.from(plugins.values(), ({ descriptor, state, activeExecutions }) => ({
             id: descriptor.id,
@@ -154,7 +158,7 @@ function createPluginHost(options = {}) {
 
     (Array.isArray(options.plugins) ? options.plugins : []).forEach(register);
 
-    return Object.freeze({ listPlugins, listOperations, execute, setEnabled });
+    return Object.freeze({ register, hasPlugin, listPlugins, listOperations, execute, setEnabled });
 }
 
 module.exports = {

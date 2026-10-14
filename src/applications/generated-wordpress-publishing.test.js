@@ -4,6 +4,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createGeneratedWordPressPublishingApplication } = require('./generated-wordpress-publishing');
 const { createGeneratedWordPressPublishingSystem } = require('../composition/generated-wordpress-publishing');
+const { createWordPressPublishingSystem } = require('../composition/wordpress-publishing');
+const { createCorePluginRuntime } = require('../composition/core-plugin-runtime');
 
 test('Application generates text then delegates publication to the WordPress Application', async () => {
     const calls = [];
@@ -148,6 +150,33 @@ test('composition registers both required Plugins and runs generation through Wo
         categories: [],
         featured_media: 0
     });
+});
+
+test('separate Applications share one process Plugin Host and reuse an already registered Plugin', async () => {
+    const sharedRuntime = createCorePluginRuntime();
+    const pluginDependencies = {
+        'wordpress-publisher': {
+            getCredentials: async () => ({ url: 'https://site.test', userId: 'author', appPassword: 'fake-password' }),
+            async fetch() {
+                return { ok: true, status: 201, async json() { return { id: 17, link: 'https://site.test/post/17' }; } };
+            }
+        }
+    };
+    const wordpressSystem = createWordPressPublishingSystem({ corePluginRuntime: sharedRuntime, pluginDependencies });
+    const generatedSystem = createGeneratedWordPressPublishingSystem({
+        corePluginRuntime: sharedRuntime,
+        pluginDependencies: {
+            'content-generator': { async generateText({ prompt }) { return `Generated: ${prompt}`; } }
+        }
+    });
+
+    assert.strictEqual(wordpressSystem.pluginHost, generatedSystem.pluginHost);
+    assert.deepEqual(sharedRuntime.listPlugins().map(({ id, state }) => ({ id, state })), [
+        { id: 'wordpress-publisher', state: 'enabled' },
+        { id: 'content-generator', state: 'enabled' }
+    ]);
+    const result = await generatedSystem.application.publish({ prompt: 'Jeju', title: 'Jeju notes' });
+    assert.equal(result.publication.postId, 17);
 });
 
 test('disabled Plugins block the corresponding step without reaching WordPress', async () => {

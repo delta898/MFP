@@ -18,6 +18,7 @@
 // @include scripts/features/content/state-core.js
 // @include scripts/features/discovery/state.js
 // @include scripts/features/settings-next/shell.js
+// @include scripts/features/settings-next/plugins.js
 // @include scripts/features/settings-next/site-hosting.js
 // @include scripts/features/site-hosting/project-management.js
 // @include scripts/features/site-hosting/site-hosting-settings-and-accounts.js

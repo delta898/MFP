@@ -64,7 +64,8 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
         ['ai', 'AI'],
         ['writing', '글쓰기'],
         ['extras', '부가 서비스'],
-        ['app', '앱']
+        ['app', '앱'],
+        ['plugins', '플러그인']
     ]);
     assert.deepEqual(coreTabs, [
         ['content', '콘텐츠 공간'],
@@ -81,12 +82,14 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
         ['general', '일반'],
         ['appearance', '외모']
     ]);
-    assert.equal((html.match(/role="tab"/g) || []).length, 15);
-    assert.equal((html.match(/aria-controls="settings-next-/g) || []).length, 15);
+    assert.equal((html.match(/role="tab"/g) || []).length, 17);
+    assert.equal((html.match(/aria-controls="settings-next-/g) || []).length, 17);
     assert.match(html, /class="settings-next-tabs ui-top-tabs"/);
-    assert.equal((html.match(/settings-next-tab ui-top-tab/g) || []).length, 5);
+    assert.equal((html.match(/settings-next-tab ui-top-tab/g) || []).length, 6);
     assert.match(html, /class="settings-next-local-nav ui-segmented-tabs"/);
-    assert.equal((html.match(/settings-next-local-tab ui-segmented-tab/g) || []).length, 10);
+    assert.equal((html.match(/settings-next-local-tab ui-segmented-tab/g) || []).length, 11);
+    assert.match(html, /id="settings-next-panel-plugins"[\s\S]*?data-settings-next-plugin-tab="core">Core/);
+    assert.match(html, /id="settings-next-plugin-list"[\s\S]*id="settings-next-plugin-detail"/);
     assert.doesNotMatch(html, /settings-next-tab-publishing|settings-next-panel-publishing/);
     assert.match(html, /id="settings-next-panel-app"[\s\S]*?aria-label="앱 설정"/);
     assert.doesNotMatch(html, /settings-next-app-panel-notifications|settings-next-app-notification-form/);
@@ -431,7 +434,7 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
     assert.doesNotMatch(featureStyles, /settings-next-save-status/);
     assert.doesNotMatch(html, />[^<]*저장하고[^<]*<\/button>/);
     assert.doesNotMatch(html, /저장됨/);
-    assert.equal((html.match(/class="ui-settings-card(?:\s|")/g) || []).length, 23);
+    assert.equal((html.match(/class="ui-settings-card(?:\s|")/g) || []).length, 25);
     assert.equal((html.match(/class="ui-settings-readiness-card"/g) || []).length, 9);
     assert.equal((html.match(/class="ui-settings-summary-card"/g) || []).length, 3);
     assert.match(cardStyles, /\.ui-settings-card\s*\{/);
@@ -464,7 +467,7 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
     assert.equal((html.match(/data-settings-next-refresh/g) || []).length, 3);
     assert.equal((html.match(/class="ui-refresh-action-icon settings-next-refresh"/g) || []).length, 3);
     assert.doesNotMatch(html, />상태 새로고침<\/button>/);
-    assert.equal((html.match(/aria-busy="false"/g) || []).length, 22);
+    assert.equal((html.match(/aria-busy="false"/g) || []).length, 23);
     assert.match(html, /id="settings-next-load-feedback"[^>]*role="status"[^>]*aria-live="polite"/);
 });
 

@@ -1,4 +1,4 @@
-const SETTINGS_NEXT_TABS = Object.freeze(['core', 'ai', 'writing', 'extras', 'app']);
+const SETTINGS_NEXT_TABS = Object.freeze(['core', 'ai', 'writing', 'extras', 'app', 'plugins']);
 const SETTINGS_NEXT_CORE_TABS = Object.freeze(['content', 'publishing', 'hosting']);
 const SETTINGS_NEXT_APP_TABS = Object.freeze(['external', 'input', 'general', 'appearance']);
 
@@ -112,6 +112,9 @@ function settingsNextActivateTab(tabName) {
     panel.classList.toggle('active', active);
     panel.hidden = !active;
   });
+  if (target === 'plugins' && typeof settingsNextPluginsLoad === 'function') {
+    void settingsNextPluginsLoad();
+  }
 }
 
 function settingsNextActivateCoreTab(tabName) {
@@ -748,6 +751,7 @@ function initSettingsNext() {
     initSettingsNextExternalConnections();
     initSettingsNextSiteHosting();
     initSettingsNextAppEnvironment();
+    if (typeof initSettingsNextPlugins === 'function') initSettingsNextPlugins();
     const scopedInputs = {
       content: ['settings-next-google-sheet-url'],
       naver: ['settings-next-naver-id'],
