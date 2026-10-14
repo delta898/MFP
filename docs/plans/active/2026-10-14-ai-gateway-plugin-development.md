@@ -3,7 +3,7 @@
 - Branch: `codex/feat/ai-gateway-plugin`
 - Start date: 2026-10-14
 - Base/parent branch: `codex/fbr/plugin-architecture-foundation` (`9a85789b`)
-- Status: Blog Beta AI manuscript Gateway integration, WordPress image manuscript publication, and Naver/WordPress target image conversion complete; Site Hosting policy remains future work
+- Status: AI Gateway and Blog, Card News, and SNS integrations complete; ready for merge into `codex/fbr/plugin-architecture-foundation`; Site Hosting image policy remains future work
 
 ## User need and goal
 
@@ -25,11 +25,11 @@ Replace the thin `content-generator` pilot as the AI integration boundary with o
 ## Explicit non-goals
 
 - Remote REST service or a separately deployed gateway server.
-- User-defined OpenAI-compatible endpoints, arbitrary provider URLs, or user-supplied transport code.
+- Arbitrary provider URLs or user-supplied transport code. The explicitly configured OpenAI-compatible “direct input” profile is handled through the bounded Host transport described below.
 - Moving BlogGenius prompts, business workflows, quotas, or model selection policy into the reusable Gateway module.
 - Reworking unrelated AI UI, product catalog release workflows, or model verification UX unless required to connect the agreed Gateway boundary.
 - Community Plugin scanning, loading, approval, or process isolation.
-- Version bumps, commits, parent merges, pushes, or releases without a separate user instruction.
+- Version bumps, pushes, or releases without a separate user instruction. Commits and the stacked parent merges are authorized by the user's current `[cmd]` request.
 
 ## Design decisions carried forward
 
@@ -41,7 +41,7 @@ Replace the thin `content-generator` pilot as the AI integration boundary with o
 - KIE image generation is asynchronous. The Plugin Host supports cancellation via `AbortSignal`; progress is reported through an optional validated Host callback, not in JSON input/output.
 - Stable normalized `AI_GATEWAY_*` error codes expose retryability and optional provider request IDs while omitting prompts, credentials, and raw provider response bodies.
 - JSON response mode is available only on routes that advertise it; Application owns business-schema validation. Constrained JSON Schema output is outside v1.
-- User-defined OpenAI-compatible endpoints are outside v1.
+- Advanced users may use a configured OpenAI-compatible direct profile. Catalog identity and endpoint configuration remain Host-owned; the Gateway receives only `{ provider: 'direct', modelId }`, with fixed compatible operation paths and Host-side endpoint/key validation.
 
 ## Implementation stages
 
@@ -75,7 +75,8 @@ Replace the thin `content-generator` pilot as the AI integration boundary with o
 - Added `src/utilities/media/image-optimization-service.js` as the generic buffer conversion service. The WordPress Plugin still receives prepared bytes and MIME types and owns no conversion behavior. Disabled, unavailable, and failed conversion preserves the source bytes/MIME; converted legacy assets are written as sibling files so source images remain intact.
 - Site Hosting remains outside this implementation. No WebP policy or conversion behavior was added to its publishing path; it can be considered in a later stage.
 - Added the canonical [AI Gateway architecture document](../../architecture/ai-gateway-plugin.md) and updated the Plugin architecture overview.
-- Preserved other existing `Utils`/`Core` AI consumers outside the Blog Beta AI manuscript flow as a follow-up migration boundary; this stage does not claim every AI call in BlogGenius uses the Gateway yet.
+- Migrated Card News text/image generation and SNS hashtag, manual optimization, and image generation through the shared AI Generation service in stacked sub-features. Other AI entrypoints, including shopping, continuous publishing, and legacy Naver publishing, remain follow-up migration work.
+- Extended the Host-owned transport for the advanced-user direct OpenAI-compatible profile. Endpoint and optional key remain in Host configuration; fixed paths, HTTPS/private-local validation, redirects, bounded diagnostics, and prompt/key redaction are enforced before data reaches logs.
 
 ## Verification completed
 
@@ -85,15 +86,17 @@ Replace the thin `content-generator` pilot as the AI integration boundary with o
 - No paid provider calls were made. Tests that load environment-dependent application modules were run with `BLOGGENIUS_ENV=local`.
 - `node --check` passed for the changed runtime modules before the focused test run.
 - Earlier focused runs without `BLOGGENIUS_ENV=local` failed during test module initialization because `config-loader` requires an explicit environment; the same tests passed when run with the required environment.
+- Stacked Card News and SNS verification passed 142 tests with `BLOGGENIUS_ENV=local`; Gateway, Host, Blog/WordPress, manuscript, and image-policy verification passed 153 tests with the same environment. The four stale full-suite test failures were updated and pass in focused verification.
+- The earlier user-requested direct full-suite run reported 2,350 tests (2,345 passed, 1 skipped, 4 stale contract failures). Those four failures now pass in focused verification; the full suite has not been rerun. `npm run test:unit` remains blocked before unit execution by `npm audit --audit-level=high` reporting 9 advisories (3 high, 2 moderate, 4 low).
 
 ## Remaining risks and follow-up
 
-- Other AI entrypoints, including shopping, card-news, SNS, and continuous publishing, still call `Utils`/`Core`; migrate them in separately reviewable slices after matching their prompt, retry, asset, and cancellation behavior against Gateway operations.
+- Other AI entrypoints, including shopping, continuous publishing, and legacy Naver publishing, still call `Utils`/`Core`; migrate them in separately reviewable slices after matching their prompt, retry, asset, and cancellation behavior against Gateway operations.
 - Site Hosting does not yet optimize images. Decide whether and how it should adopt WebP in a later publication-policy stage.
 - Inline base64 is intentionally capped at 10 MiB per image; large or multiple-image workflows may eventually need a shared Host asset-reference contract.
 - KIE cancellation stops local work but cannot guarantee remote cancellation/refund. Submission cancellation can leave the provider outcome unknown.
 - The in-process Core Plugin boundary trusts bundled code and is not isolation against hostile Plugins; community loading remains deferred.
-- No commit, merge, push, or release has been performed.
+- The Card News and SNS sub-features were fast-forward merged into this branch and their feature branches deleted. This branch is ready to fast-forward into `codex/fbr/plugin-architecture-foundation`; no push or release has been performed.
 
 ## Verification and handoff
 
@@ -119,5 +122,5 @@ Replace the thin `content-generator` pilot as the AI integration boundary with o
 - Blog Beta composition now registers the two Plugins separately. The WordPress publishing Application and Blog Publishing Application call one another through an injected Application port; the Blog Writing Application calls only the shared AI service. Provider credentials continue to be read inside Host-owned Plugin dependencies/transport.
 - UI/API generation logs identify AI operation, selected model, provider, transport, elapsed time, progress, and image output without binding user-facing logs or manuscript metadata to a Plugin ID. Manuscript image actions use the shared generation service and unwrap its normalized image result.
 - Added focused adapter and AI service contract tests; updated writing, generated WordPress, Blog runtime, and publishing tests to the port-based wiring.
-- Follow-up migration of card-news, SNS, shopping, legacy Naver publishing, and full business workflow extraction from existing UI API services remains outside this slice; these callers can adopt the shared service as they migrate.
-- Verification for this boundary follow-up: `BLOGGENIUS_ENV=local node --test` over Plugin adapters, AI service, Blog/WordPress compositions and Applications, manuscript generation/cancellation, Plugin-backed image publication, and Plugin Host contracts passed 74 tests. Runtime files passed `node -c`; `git diff --check` passed. No live AI or WordPress calls were made. Changes remain uncommitted.
+- At the time of this boundary follow-up, Card News, SNS, shopping, legacy Naver publishing, and full business workflow extraction remained separate migration work. Card News and SNS have since been migrated in stacked sub-features; shopping, continuous publishing, and legacy Naver publishing remain follow-up work.
+- Verification for this boundary follow-up: `BLOGGENIUS_ENV=local node --test` over Plugin adapters, AI service, Blog/WordPress compositions and Applications, manuscript generation/cancellation, Plugin-backed image publication, and Plugin Host contracts passed 74 tests. Runtime files passed `node -c`; `git diff --check` passed. No live AI or WordPress calls were made.
