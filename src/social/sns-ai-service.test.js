@@ -11,7 +11,21 @@ const {
     detectGeneratedImageMime,
     createSnsAiService
 } = require('./sns-ai-service');
-const fs = require('node:fs');
+
+function createGenerationApplication(options = {}) {
+    return {
+        getTextAvailability() { return { available: true, model_name: options.textModelName || 'Test text model' }; },
+        getImageAvailability() { return { available: true, model_name: options.imageModelName || 'Test image model' }; },
+        async generateText(input, context) {
+            options.onText?.(input, context);
+            return options.textResponse || '';
+        },
+        async generateImage(input, context) {
+            options.onImage?.(input, context);
+            return options.image || { mimeType: 'image/png', dataBase64: Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0]).toString('base64') };
+        }
+    };
+}
 
 test('manual SNS optimization availability follows the resolved Chat Model config', () => {
     assert.equal(isManualOptimizationAvailable({}), false);
@@ -44,31 +58,22 @@ test('generated SNS image bytes are identified only when they match a supported 
     assert.equal(detectGeneratedImageMime(Buffer.from('not-an-image')), '');
 });
 
-test('manual SNS image generation uses the image model and returns a temporary generated file payload', async () => {
+test('manual SNS image generation uses the image model and returns normalized image bytes', async () => {
     const calls = [];
     const service = createSnsAiService({
         CONFIG: { IMAGE_MODEL_CONFIG: { provider: 'google', name: 'Image Model', code: 'image-model', api_key: 'secret' } },
-        Utils: {
-            async callWritingText() { return ''; },
-            async callChatText() { return ''; },
-            async callWritingImage(prompt, savePath, retries, options) {
-                calls.push({ prompt, savePath, retries, options });
-                const output = `${savePath}.png`;
-                fs.writeFileSync(output, Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0]));
-                return output;
-            }
-        }
+        generationApplication: createGenerationApplication({
+            imageModelName: 'Image Model',
+            onImage(input, context) { calls.push({ input, context }); }
+        })
     });
     const result = await service.generateManualPostImage({ text: '오늘 SNS 게시물', instruction: '파스텔 톤' });
     assert.equal(result.success, true);
     assert.equal(result.model_name, 'Image Model');
     assert.equal(result.mime_type, 'image/png');
     assert.equal(Buffer.from(result.base64_data, 'base64').length, 12);
-    assert.match(calls[0].prompt, /오늘 SNS 게시물/);
-    assert.match(calls[0].prompt, /파스텔 톤/);
-    assert.equal(calls[0].retries, 1);
-    assert.equal(calls[0].options.useCase, 'sns');
-    assert.equal(fs.existsSync(require('node:path').dirname(calls[0].savePath)), false);
+    assert.match(calls[0].input.prompt, /오늘 SNS 게시물/);
+    assert.match(calls[0].input.prompt, /파스텔 톤/);
 });
 
 test('manual SNS optimization parser separates structured hashtags and tolerates legacy text', () => {
@@ -114,33 +119,29 @@ test('SNS AI service uses only the explicitly selected model role', async () => 
     const calls = [];
     const service = createSnsAiService({
         CONFIG: { SNS_AI_MODE: 'blog_text' },
-        Utils: {
-            async callWritingText(_prompt, retries) {
-                calls.push(['blog_text', retries]);
-                return '{"hashtags":["#하나","#둘"]}';
-            },
-            async callChatText() {
-                calls.push(['chat']);
-                return '';
-            }
-        }
+        generationApplication: createGenerationApplication({
+            textResponse: '{"hashtags":["#하나","#둘"]}',
+            onText(input) { calls.push([input.role, input.options.maxOutputTokens]); }
+        })
     });
 
     const result = await service.generateHashtags({ title: '글', summary: '요약' });
 
     assert.deepEqual(result.hashtags, ['#하나', '#둘']);
-    assert.deepEqual(calls, [['blog_text', 1]]);
+    assert.deepEqual(calls, [['writing', 160]]);
 });
 
 test('SNS AI service does not fall back or fail publishing when the selected model fails', async () => {
     let chatCalls = 0;
     const service = createSnsAiService({
         CONFIG: { SNS_AI_MODE: 'blog_text' },
-        Utils: {
-            async callWritingText() {
+        generationApplication: {
+            getTextAvailability() { return { available: true, model_name: 'Writer' }; },
+            async generateText() {
                 throw new Error('text model unavailable');
             },
-            async callChatText() {
+            async generateImage() {},
+            async generateChatText() {
                 chatCalls += 1;
                 return '#fallback';
             }
@@ -166,14 +167,13 @@ test('manual SNS optimization uses the common Chat Model once and returns editab
                 api_key: 'secret'
             }
         },
-        Utils: {
-            async callWritingText() {
-                throw new Error('writing model must not run');
-            },
-            async callChatText(prompt, retries, options) {
-                calls.push({ prompt, retries, options });
+        generationApplication: {
+            getTextAvailability() { return { available: true, model_name: 'Gemini Chat' }; },
+            async generateText(input) {
+                calls.push(input);
                 return '{"body":"더 읽기 좋은 글입니다.","hashtags":["#기록","#일상"]}';
-            }
+            },
+            async generateImage() {},
         }
     });
 
@@ -190,7 +190,7 @@ test('manual SNS optimization uses the common Chat Model once and returns editab
     assert.equal(result.model_name, 'Gemini Chat');
     assert.equal(result.within_limit, true);
     assert.equal(calls.length, 1);
-    assert.equal(calls[0].retries, 1);
-    assert.equal(calls[0].options.usageLabel, 'SNS 글 AI 최적화');
+    assert.equal(calls[0].role, 'chat');
+    assert.equal(calls[0].options.maxOutputTokens, 560);
     assert.match(calls[0].prompt, /280자 이하/);
 });

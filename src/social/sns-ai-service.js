@@ -1,9 +1,5 @@
 const { normalizeSnsAiMode } = require('./sns-ai-policy');
 const { normalizeHashtagTokens } = require('./sns-content-formatter');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
-const crypto = require('node:crypto');
 
 const MAX_MANUAL_SNS_TEXT_LENGTH = 10000;
 
@@ -142,10 +138,10 @@ function detectGeneratedImageMime(buffer) {
 }
 
 function createSnsAiService(options = {}) {
-    const { CONFIG, Utils, Logger } = options;
-    if (!CONFIG || !Utils
-        || typeof Utils.callWritingText !== 'function'
-        || typeof Utils.callChatText !== 'function') {
+    const { CONFIG, generationApplication, Logger } = options;
+    if (!CONFIG || !generationApplication
+        || typeof generationApplication.generateText !== 'function'
+        || typeof generationApplication.generateImage !== 'function') {
         throw new Error('SNS AI Service 의존성이 올바르지 않습니다.');
     }
 
@@ -157,17 +153,11 @@ function createSnsAiService(options = {}) {
 
         const prompt = buildHashtagPrompt(input);
         try {
-            const response = mode === 'blog_text'
-                ? await Utils.callWritingText(prompt, 1, {
-                    usageLabel: 'SNS 콘텐츠 AI',
-                    maxTokens: 160,
-                    temperature: 0.2
-                })
-                : await Utils.callChatText(prompt, 1, {
-                    usageLabel: 'SNS 콘텐츠 AI',
-                    maxTokens: 160,
-                    temperature: 0.2
-                });
+            const response = await generationApplication.generateText({
+                role: mode === 'blog_text' ? 'writing' : 'chat',
+                prompt,
+                options: { maxOutputTokens: 160, temperature: 0.2 }
+            });
             const hashtags = parseHashtagResponse(response);
             return {
                 success: true,
@@ -189,23 +179,25 @@ function createSnsAiService(options = {}) {
 
     function getManualOptimizationAvailability() {
         const model = CONFIG.CHAT_MODEL_CONFIG || CONFIG.TEXT_MODEL_CONFIG || {};
+        const gatewayModel = generationApplication.getTextAvailability?.('chat');
         return {
-            available: isManualOptimizationAvailable(CONFIG),
-            model_name: String(model.name || model.code || '').trim()
+            available: isManualOptimizationAvailable(CONFIG) && gatewayModel?.available === true,
+            model_name: String(gatewayModel?.model_name || model.name || model.code || '').trim()
         };
     }
 
     function getManualImageGenerationAvailability() {
         const model = CONFIG.IMAGE_MODEL_CONFIG || {};
+        const gatewayModel = generationApplication.getImageAvailability?.();
         return {
-            available: isManualImageGenerationAvailable(CONFIG),
-            model_name: String(model.name || model.code || '').trim()
+            available: isManualImageGenerationAvailable(CONFIG) && gatewayModel?.available === true,
+            model_name: String(gatewayModel?.model_name || model.name || model.code || '').trim()
         };
     }
 
     async function generateManualPostImage(input = {}) {
         const availability = getManualImageGenerationAvailability();
-        if (!availability.available || typeof Utils.callWritingImage !== 'function') {
+        if (!availability.available) {
             const error = new Error('AI 이미지 모델을 설정에서 먼저 구성해 주세요.');
             error.code = 'IMAGE_MODEL_UNAVAILABLE';
             throw error;
@@ -223,29 +215,21 @@ function createSnsAiService(options = {}) {
         }
         const instruction = String(input.instruction || '').trim().slice(0, 1000);
         const prompt = buildManualPostImagePrompt({ text, instruction });
-        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bloggenius-sns-image-'));
-        try {
-            const generatedPath = await Utils.callWritingImage(prompt, path.join(tempDir, 'sns-image'), 1, {
-                useCase: 'sns',
-                signal: input.signal
-            });
-            const buffer = fs.readFileSync(generatedPath);
-            const mimeType = detectGeneratedImageMime(buffer);
-            if (!mimeType) {
-                const error = new Error('생성된 이미지의 파일 형식을 확인할 수 없습니다.');
-                error.code = 'MANUAL_SNS_IMAGE_FORMAT_UNSUPPORTED';
-                throw error;
-            }
-            return {
-                success: true,
-                file_name: `sns-image-${Date.now()}.${mimeType.split('/')[1].replace('jpeg', 'jpg')}`,
-                mime_type: mimeType,
-                base64_data: buffer.toString('base64'),
-                model_name: availability.model_name
-            };
-        } finally {
-            fs.rmSync(tempDir, { recursive: true, force: true });
+        const image = await generationApplication.generateImage({ prompt }, { signal: input.signal });
+        const buffer = Buffer.from(String(image?.dataBase64 || ''), 'base64');
+        const mimeType = detectGeneratedImageMime(buffer);
+        if (!mimeType || mimeType !== String(image?.mimeType || '').toLowerCase()) {
+            const error = new Error('생성된 이미지의 파일 형식을 확인할 수 없습니다.');
+            error.code = 'MANUAL_SNS_IMAGE_FORMAT_UNSUPPORTED';
+            throw error;
         }
+        return {
+            success: true,
+            file_name: `sns-image-${Date.now()}.${mimeType.split('/')[1].replace('jpeg', 'jpg')}`,
+            mime_type: mimeType,
+            base64_data: buffer.toString('base64'),
+            model_name: availability.model_name
+        };
     }
 
     async function optimizeManualPost(input = {}) {
@@ -274,10 +258,10 @@ function createSnsAiService(options = {}) {
             maxLength,
             services: input.services
         });
-        const response = await Utils.callChatText(prompt, 1, {
-            usageLabel: 'SNS 글 AI 최적화',
-            maxTokens: Math.min(1600, Math.max(320, maxLength * 2)),
-            temperature: 0.35
+        const response = await generationApplication.generateText({
+            role: 'chat',
+            prompt,
+            options: { maxOutputTokens: Math.min(1600, Math.max(320, maxLength * 2)), temperature: 0.35 }
         });
         const optimizedPost = parseOptimizedPostResponse(response);
         if (!optimizedPost?.body && optimizedPost?.hashtags?.length === 0) {

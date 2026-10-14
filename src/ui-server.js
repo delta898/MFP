@@ -75,6 +75,7 @@ const { createPublishActionsRuntime } = require('./ui-runtime/publish-actions-ru
 const { createUiApiRouteRuntime } = require('./ui-runtime/api-route-runtime');
 const { createBlogBetaRuntimeComposition } = require('./composition/blog-beta-runtime');
 const { createCardNewsGenerationSystem } = require('./composition/card-news-generation');
+const { createSnsGenerationSystem } = require('./composition/sns-generation');
 const { createUiHttpServerRuntime } = require('./ui-runtime/http-server-runtime');
 const { createHtmlCompositionRuntime } = require('./ui-runtime/html-composition-runtime');
 const { createCssCompositionRuntime } = require('./ui-runtime/css-composition-runtime');
@@ -312,6 +313,22 @@ const cardNewsRssIntakeScheduler = createCardNewsRssIntakeScheduler({
     intake: cardNewsRssIntake,
     logger: Logger
 });
+const blogBetaComposition = createBlogBetaRuntimeComposition({
+    CONFIG,
+    Logger,
+    Core,
+    fs,
+    path,
+    getAiModelCatalog
+});
+const { corePluginRuntime, blogWritingSystem, blogPublishingApplication, aiGenerationSystem } = blogBetaComposition;
+const snsGenerationSystem = createSnsGenerationSystem({
+    aiGeneration: aiGenerationSystem.service,
+    getWritingModel: () => CONFIG.TEXT_MODEL_CONFIG,
+    getChatModel: () => CONFIG.CHAT_MODEL_CONFIG || CONFIG.TEXT_MODEL_CONFIG,
+    getImageModel: () => CONFIG.IMAGE_MODEL_CONFIG,
+    logger: Logger
+});
 const snsRssDiscovery = createSnsRssDiscovery({
     CONFIG,
     License,
@@ -323,7 +340,7 @@ const snsRssDiscovery = createSnsRssDiscovery({
 });
 const snsAiService = createSnsAiService({
     CONFIG,
-    Utils,
+    generationApplication: snsGenerationSystem.application,
     Logger
 });
 const recordActivityLifecycle = createActivityLifecycleRecorder({
@@ -780,15 +797,6 @@ const {
 } = uiSettingsFieldsRuntime;
 
 
-const blogBetaComposition = createBlogBetaRuntimeComposition({
-    CONFIG,
-    Logger,
-    Core,
-    fs,
-    path,
-    getAiModelCatalog
-});
-const { corePluginRuntime, blogWritingSystem, blogPublishingApplication, aiGenerationSystem } = blogBetaComposition;
 const cardNewsGenerationSystem = createCardNewsGenerationSystem({
     aiGeneration: aiGenerationSystem.service,
     getTextModel: () => CONFIG.TEXT_MODEL_CONFIG,
