@@ -3,7 +3,7 @@
 - Branch: `codex/feat/wordpress-publisher-plugin-pilot`
 - Start date: 2026-10-14
 - Base/parent branch: `codex/fbr/plugin-architecture-foundation` (`eaec0151`)
-- Status: implementation and focused verification complete; user authorized parent merge
+- Status: merged into `codex/fbr/plugin-architecture-foundation` as `4e1424f6`; sub-feature branch deleted
 
 ## User need and goal
 
@@ -27,7 +27,7 @@ The goal is a testable WordPress Plugin contract and implementation connected to
 - Publishing to a real WordPress site or calling paid/external services in tests.
 - Migrating Naver, text/image generation, SNS, card-news, Site Hosting, or other workflows.
 - Installing/removing plugins at runtime, implementing Community Plugin trust/isolation, or publishing a package/repository.
-- Changing release version, committing, merging, pushing, or tagging without a separate user request.
+- Changing the app release version, pushing, tagging, or publishing a package.
 
 ## Initial design direction
 
@@ -45,7 +45,7 @@ The goal is a testable WordPress Plugin contract and implementation connected to
 3. Define the package entrypoint, operations, contracts, injected credentials, error/result semantics, and dependency rules. **Implemented:** three operations, injected credentials/fetch, no BlogGenius-private imports.
 4. Implement the package and a small Application/Kernel composition example using fake HTTP responses. **Implemented.**
 5. Add focused tests for request mapping, auth/config boundaries, malformed inputs, API failures, and composition. **12 focused tests pass.** No product UI or invocation path changed, so UI/browser tests do not apply.
-6. Finish documentation and review the complete branch diff against the parent before merge. **Complete:** focused tests and package dry-run pass; the missing scheduled-date validation found during review is covered by regression assertions.
+6. Finish documentation and review the complete branch diff against the parent before merge. **Complete:** focused tests and package dry-run pass; the missing scheduled-date validation found during review is covered by regression assertions. Merged to parent as `4e1424f6` after review.
 
 ## Decisions and tradeoffs
 
