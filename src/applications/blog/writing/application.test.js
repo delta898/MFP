@@ -2,8 +2,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createBlogWritingSystem } = require('../composition/blog-writing');
-const { createCorePluginRuntime } = require('../composition/core-plugin-runtime');
+const { createBlogWritingSystem } = require('../../../composition/blog-writing');
+const { createCorePluginRuntime } = require('../../../composition/core-plugin-runtime');
 
 test('Blog Writing Application generates through AI Gateway and publishes through WordPress operations', async () => {
     const calls = [];

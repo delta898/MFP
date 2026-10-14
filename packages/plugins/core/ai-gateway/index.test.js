@@ -3,25 +3,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createPlugin, describeSupport } = require('./index');
-const { resolveGatewayModels } = require('../../../../src/ai/gateway-model-resolver');
 const { createCorePluginRegistry } = require('../../../../src/composition/core-plugin-registry');
 const { createPluginHost } = require('../../../../src/platform/plugin-host');
-
-test('Gateway discovers only Catalog models with matching supported provider and transport', () => {
-    const catalog = {
-        text: [
-            { provider: 'openai', code: 'gpt-6-astra', transport: 'openai_chat_completions' },
-            { provider: 'kie', code: 'unknown', transport: 'kie_responses' },
-            { provider: 'direct', code: 'custom', transport: 'openai_chat_completions' }
-        ],
-        image: [{ provider: 'kie', code: 'nano-banana-pro', transport: 'kie_market_image_jobs' }]
-    };
-    const text = resolveGatewayModels('text', catalog);
-    assert.equal(text.length, 1);
-    assert.equal(text[0].code, 'gpt-6-astra');
-    assert.equal(resolveGatewayModels('image', catalog).length, 1);
-    assert.ok(Object.isFrozen(describeSupport().routes));
-});
 
 test('text operation normalizes a supported provider response and never accepts credentials in input', async () => {
     const requests = [];

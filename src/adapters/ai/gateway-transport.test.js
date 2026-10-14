@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createBlogGeniusAiTransport, isAllowedRoute, isPrivateAddress } = require('./bloggenius-ai-transport');
+const { createBlogGeniusAiTransport, isAllowedRoute, isPrivateAddress } = require('./gateway-transport');
 
 test('Host transport resolves the configured key internally and restricts provider routes', async () => {
     const calls = [];

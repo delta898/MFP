@@ -15,7 +15,7 @@ The package manifest declares two operations with Host-validated JSON Schema 202
 
 The operation input does not contain an API key, endpoint, connection reference, authorization header, or BlogGenius configuration. Images are inline base64 with a 10 MiB decoded per-image limit. The Host validates output size and shape before returning results to the Application. A future Host-managed asset-reference contract can replace inline media when a concrete shared asset lifecycle exists.
 
-`describeSupport()` is the Gateway-owned support inventory. BlogGenius Applications intersect its `kind + provider + transport + modelIds` routes with selectable entries from `getAiModelCatalog()` before dispatch. The Catalog describes BlogGenius product availability; it does not grant Gateway execution support. The Gateway inventory does not make a model selectable in BlogGenius.
+`describeSupport()` is the Gateway-owned support inventory. The Blog Writing Application intersects its `kind + provider + transport + modelIds` routes with selectable entries from `getAiModelCatalog()` before dispatch. The resolver accepts both inventories as inputs and does not import the concrete Gateway package. The Catalog describes BlogGenius product availability; it does not grant Gateway execution support. The Gateway inventory does not make a model selectable in BlogGenius.
 
 ## Supported routes in this release
 
@@ -26,7 +26,7 @@ The operation input does not contain an API key, endpoint, connection reference,
 
 ## Credential and transport boundary
 
-`src/ai/bloggenius-ai-transport.js` is the BlogGenius Host adapter. It resolves the configured key from Host-owned `AI_MODEL_PROFILES` (with the active role configuration as fallback), adds provider authentication internally, and uses fixed provider hosts plus operation-specific path allowlists. No secret enters the Plugin operation input, result, progress event, or error. User-defined endpoints and transport headers are not accepted.
+`src/adapters/ai/gateway-transport.js` is the BlogGenius Host adapter. It resolves the configured key from Host-owned `AI_MODEL_PROFILES` (with the active role configuration as fallback), adds provider authentication internally, and uses fixed provider hosts plus operation-specific path allowlists. No secret enters the Plugin operation input, result, progress event, or error. User-defined endpoints and transport headers are not accepted.
 
 Image result downloads use HTTPS, reject literal/private destinations, check DNS results, disable redirects, require image content types, and enforce the 10 MiB limit. This in-process Plugin boundary is not a sandbox against malicious Core code; future Community Plugin execution needs a separate trust and isolation design.
 
@@ -40,6 +40,6 @@ Public failures use stable `AI_GATEWAY_*` error codes, a retryability indicator 
 
 ## BlogGenius integration and migration boundary
 
-The shared Core runtime registers AI Gateway with the WordPress Publisher. The Blog Writing Application invokes the Gateway for text generation and image generation, after resolving the selected `{ provider, modelId }` against the Catalog/support intersection. Blog Beta's AI manuscript generation routes text and every requested generated image through these operations regardless of image mode; manuscript draft image actions use the same image operation. Core no longer silently handles the combined AI manuscript path when image generation is enabled. Other product entrypoints that compose text and images through `Utils`/`Core` remain migration follow-up; this Plugin does not move BlogGenius prompts, licensing, manuscript state, or publication workflows into the reusable package.
+`src/composition/blog-beta-runtime.js` is the current Blog Beta composition root: it assembles the shared Core runtime, AI transport, Blog Writing Application, and Blog Publishing Application. `ui-server.js` supplies existing product dependencies and passes the composed services to UI runtimes. The shared Core runtime registers AI Gateway with the WordPress Publisher. The Blog Writing Application invokes the Gateway for text generation and image generation, after resolving the selected `{ provider, modelId }` against the Catalog/support intersection. Blog Beta's AI manuscript generation routes text and every requested generated image through these operations regardless of image mode; manuscript draft image actions use the same image operation. Core no longer silently handles the combined AI manuscript path when image generation is enabled. Other product entrypoints that compose text and images through `Utils`/`Core` remain migration follow-up; this Plugin does not move BlogGenius prompts, licensing, manuscript state, or publication workflows into the reusable package.
 
 Focused tests use fake transport responses and verify model intersection, normalized text, KIE async polling/progress/cancellation, image limits, Host credential injection, and route restrictions. No paid AI calls are part of the test suite.

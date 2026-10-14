@@ -1,5 +1,22 @@
 # Project Working Rules
 
+## Source Directory Placement (Required)
+
+New code must follow the repository's architecture layers and product-area grouping. Treat this as a required placement rule during implementation and review, not an optional example:
+
+```text
+src/{host,adapters,platform,composition}/
+src/applications/<application-name>/
+src/utilities/<capability>/
+packages/plugins/core/<plugin-id>/
+```
+
+- `host/` owns process/bootstrap and request routing; `adapters/` translates channel and external protocol input/output; `platform/` owns shared Plugin contracts and runtime; `composition/` wires concrete dependencies; `applications/<name>/` owns product workflows and policy; `utilities/<capability>/` owns reusable technical operations; `packages/plugins/core/<id>/` owns a bundled Plugin implementation.
+- BlogGenius business flows belong under `src/applications/blog/`; future product applications use the same `applications/<name>/` pattern. Reusable image/media processing belongs under `src/utilities/media/` and must not own target-specific publishing policy.
+- Keep legacy code in place until it is deliberately migrated. Do not put new code in a legacy folder just to match an old caller; connect through a small adapter or composition seam in the correct target layer.
+- Do not create empty directories, premature sublayers, or Community Plugin runtime structure before their contracts are designed.
+- Before adding or moving files, check the canonical ownership map in `docs/architecture/platform-kernel-applications-plugins.md`. Update it and `docs/decisions/2026-10-15-source-directory-layering.md` when a boundary changes.
+
 ## Core Direction
 - Prefer architecture and system structure over UI polish.
 - Keep the system extensible. Avoid one-off shortcuts that block future provider, memory, or agent expansion.

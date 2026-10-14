@@ -1,6 +1,6 @@
 'use strict';
 
-const { createBlogWritingApplication } = require('../applications/blog-writing');
+const { createBlogWritingApplication } = require('../applications/blog/writing/application');
 const { createCorePluginRegistry } = require('./core-plugin-registry');
 const { createCorePluginRuntime } = require('./core-plugin-runtime');
 

@@ -2,11 +2,11 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createWordPressPublishingSystem } = require('../composition/wordpress-publishing');
-const { createCorePluginRegistry } = require('../composition/core-plugin-registry');
-const { createWordPressPublishingApplication } = require('./wordpress-publishing');
-const wordpressManifest = require('../../packages/plugins/core/wordpress-publisher/package.json').bloggeniusPlugin;
-const wordpressVersion = require('../../packages/plugins/core/wordpress-publisher/package.json').version;
+const { createWordPressPublishingSystem } = require('../../../composition/wordpress-publishing');
+const { createCorePluginRegistry } = require('../../../composition/core-plugin-registry');
+const { createWordPressPublishingApplication } = require('./wordpress');
+const wordpressManifest = require('../../../../packages/plugins/core/wordpress-publisher/package.json').bloggeniusPlugin;
+const wordpressVersion = require('../../../../packages/plugins/core/wordpress-publisher/package.json').version;
 
 function injectedWordPressRegistration(handlers = {}) {
     return {

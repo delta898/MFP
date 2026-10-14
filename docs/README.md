@@ -33,6 +33,7 @@
 
 ## Current Canonical Docs
 - `architecture/platform-kernel-applications-plugins.md` (Platform Kernel, Application, Plugin boundaries, directory ownership, and staged migration)
+- `decisions/2026-10-15-source-directory-layering.md` (required top-level code placement boundaries and gradual migration policy)
 - `architecture/ai-gateway-plugin.md` (AI Gateway Core Plugin operations, provider support, credential boundary, and cancellation)
 - `architecture/overview.md`
 - `architecture/agent-runtime.md`

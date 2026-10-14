@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { createBlogPublishingApplication } = require('./blog-publishing');
+const { createBlogPublishingApplication } = require('./application');
 
 function createApplication(options = {}) {
     const calls = [];

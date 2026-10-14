@@ -1,6 +1,6 @@
 'use strict';
 
-const { createWordPressPublishingApplication } = require('./wordpress-publishing');
+const { createWordPressPublishingApplication } = require('../publishing/wordpress');
 
 function createBlogWritingApplication(options = {}) {
     if (typeof options.executeOperation !== 'function') {

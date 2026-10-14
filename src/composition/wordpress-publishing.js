@@ -1,6 +1,6 @@
 'use strict';
 
-const { createWordPressPublishingApplication } = require('../applications/wordpress-publishing');
+const { createWordPressPublishingApplication } = require('../applications/blog/publishing/wordpress');
 const { createCorePluginRegistry } = require('./core-plugin-registry');
 const { createCorePluginRuntime } = require('./core-plugin-runtime');
 

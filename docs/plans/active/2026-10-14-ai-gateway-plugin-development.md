@@ -64,15 +64,15 @@ Replace the thin `content-generator` pilot as the AI integration boundary with o
 ## Implementation progress
 
 - Added `packages/plugins/core/ai-gateway/` as a manifest-backed Core Plugin with `text.generate`, `image.generate`, a separate immutable support inventory, provider request/response normalization, stable sanitized errors, KIE asynchronous job polling, bounded safe retries, and normalized progress events.
-- Added `src/ai/bloggenius-ai-transport.js` as a BlogGenius-owned Host transport. It reads credentials from Host configuration, applies provider authentication internally, restricts provider hosts and operation paths, and keeps keys out of Gateway inputs/results/errors. Provider endpoints and raw headers are not Plugin inputs.
-- Added Catalog × Gateway route intersection in `src/ai/gateway-model-resolver.js`; the Blog Writing Application receives only `{ provider, modelId }` after resolution.
+- Added `src/adapters/ai/gateway-transport.js` as a BlogGenius-owned Host transport. It reads credentials from Host configuration, applies provider authentication internally, restricts provider hosts and operation paths, and keeps keys out of Gateway inputs/results/errors. Provider endpoints and raw headers are not Plugin inputs.
+- Added Catalog × Gateway route intersection in `src/applications/blog/writing/gateway-model-resolver.js`; the Blog Writing Application receives only `{ provider, modelId }` after resolution.
 - Added optional progress reporting to Plugin Host context with Host-bound plugin/operation IDs and phase/value validation. Cancellation continues through the existing `AbortSignal` path.
 - Registered AI Gateway as a Core Plugin in place of the thin Content Generator pilot. Migrated Blog Beta AI manuscript text generation for all image modes, every requested image generation in that same flow, manual manuscript image generation, and the generated WordPress pilot to Gateway operations. The combined manuscript path no longer falls back to Core when image generation is enabled. Added Gateway package files to the packaged application inputs.
 - Added truthful per-operation logs for the selected text/image model (display name, provider, model ID, and transport), call duration, image block index, progress phase, result MIME/byte count, partial image failures, and final generated/prompt-only counts. Logs do not include prompts or credentials.
 - Completed the Blog Beta WordPress manuscript path for image-bearing drafts: the manuscript runtime maps `[[IMAGE_N]]` blocks to prepared local image bytes, preserves the source MIME/extension, and passes keyed assets to the WordPress Publishing Application. The Application's existing `media.upload` operation uploads each asset, replaces the content reference with the returned media URL, and uses the first asset as the featured image.
 - Removed the text-only gates from both the manuscript service and publication runtime while retaining the guard for unresolved image prompts. WordPress manuscript uploads now expose the existing cancellation signal during publication; stop status copy reflects that already-uploaded media cannot be rolled back.
-- Added `src/applications/blog-publishing.js` as the BlogGenius publication coordinator for Naver and WordPress image preparation, with explicit target policy (Naver → WebP, WordPress → AVIF). It routes both legacy publishers and the WordPress Plugin publication path through the same preparation rules.
-- Added `src/media/image-optimization-service.js` as the generic buffer conversion service. The WordPress Plugin still receives prepared bytes and MIME types and owns no conversion behavior. Disabled, unavailable, and failed conversion preserves the source bytes/MIME; converted legacy assets are written as sibling files so source images remain intact.
+- Added `src/applications/blog/publishing/application.js` as the BlogGenius publication coordinator for Naver and WordPress image preparation, with explicit target policy (Naver → WebP, WordPress → AVIF). It routes both legacy publishers and the WordPress Plugin publication path through the same preparation rules.
+- Added `src/utilities/media/image-optimization-service.js` as the generic buffer conversion service. The WordPress Plugin still receives prepared bytes and MIME types and owns no conversion behavior. Disabled, unavailable, and failed conversion preserves the source bytes/MIME; converted legacy assets are written as sibling files so source images remain intact.
 - Site Hosting remains outside this implementation. No WebP policy or conversion behavior was added to its publishing path; it can be considered in a later stage.
 - Added the canonical [AI Gateway architecture document](../../architecture/ai-gateway-plugin.md) and updated the Plugin architecture overview.
 - Preserved other existing `Utils`/`Core` AI consumers outside the Blog Beta AI manuscript flow as a follow-up migration boundary; this stage does not claim every AI call in BlogGenius uses the Gateway yet.
@@ -102,3 +102,11 @@ Replace the thin `content-generator` pilot as the AI integration boundary with o
 - Run the full unit suite only with explicit user approval before the parent feature is merged to `dev`.
 - Before parent merge: focused tests and complete code review against `codex/fbr/plugin-architecture-foundation`; full suite remains the required gate for a later parent-to-`dev` merge.
 - Final report includes implementation boundaries, focused verification, any manual UI flows, and commit/merge state.
+
+## Directory architecture follow-up (2026-10-15)
+
+- Grouped Blog Applications under `src/applications/blog/` with writing, publishing, and composed workflow subdirectories; moved the shared image conversion service under `src/utilities/media/`, the Host-owned AI transport to `src/adapters/ai/`, and the Catalog/support resolver into the Blog Writing Application.
+- Updated imports and the packaged source manifest for the new architecture-layer paths.
+- Recorded the mandatory layer and placement rules in `AGENTS.md`, the canonical Plugin architecture document, and the source-directory decision record.
+
+- Extracted the Blog Beta Plugin and Application wiring from `ui-server.js` into `src/composition/blog-beta-runtime.js`; the existing UI server now supplies dependencies and receives the composed runtime.

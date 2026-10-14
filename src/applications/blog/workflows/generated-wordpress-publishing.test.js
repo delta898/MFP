@@ -3,9 +3,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createGeneratedWordPressPublishingApplication } = require('./generated-wordpress-publishing');
-const { createGeneratedWordPressPublishingSystem } = require('../composition/generated-wordpress-publishing');
-const { createWordPressPublishingSystem } = require('../composition/wordpress-publishing');
-const { createCorePluginRuntime } = require('../composition/core-plugin-runtime');
+const { createGeneratedWordPressPublishingSystem } = require('../../../composition/generated-wordpress-publishing');
+const { createWordPressPublishingSystem } = require('../../../composition/wordpress-publishing');
+const { createCorePluginRuntime } = require('../../../composition/core-plugin-runtime');
 
 const TEST_MODEL = { provider: 'openai', modelId: 'gpt-6-astra' };
 function testModelOptions() {

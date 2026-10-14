@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const Logger = require('./logger');
 const { loadSharp } = require('./sharp-loader');
-const { createImageOptimizationService } = require('./media/image-optimization-service');
+const { createImageOptimizationService } = require('./utilities/media/image-optimization-service');
 
 let sharpInstance = null;
 let sharpLoadError = null;
