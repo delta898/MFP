@@ -30,7 +30,7 @@ test('text operation normalizes a supported provider response and never accepts 
     assert.equal(Object.hasOwn(requests[0], 'headers'), false);
 });
 
-test('Anthropic text requests omit deprecated temperature while preserving shared generation options', async () => {
+test('Anthropic OpenAI-compatible requests forward caller options for provider runtime validation', async () => {
     let request;
     const plugin = createPlugin({ transport: { async request(input) {
         request = input;
@@ -39,11 +39,12 @@ test('Anthropic text requests omit deprecated temperature while preserving share
     await plugin.operations['text.generate'].execute({
         model: { provider: 'anthropic', modelId: 'claude-haiku-5-5' },
         messages: [{ role: 'user', content: 'hi' }],
-        options: { temperature: 0.8, maxOutputTokens: 600 }
+        options: { temperature: 0.8, maxOutputTokens: 600, responseFormat: 'json' }
     });
     assert.equal(request.path, '/v1/chat/completions');
-    assert.equal(Object.hasOwn(request.body, 'temperature'), false);
+    assert.equal(request.body.temperature, 0.8);
     assert.equal(request.body.max_tokens, 600);
+    assert.deepEqual(request.body.response_format, { type: 'json_object' });
 });
 
 test('direct compatible text and image operations use bounded OpenAI-compatible paths', async () => {
@@ -139,27 +140,72 @@ test('KIE image operation reports async progress, polls and downloads a bounded 
     });
 });
 
-test('image operation rejects a size that the selected model cannot execute', async () => {
-    const plugin = createPlugin({ transport: { async request() { throw new Error('should not execute'); } } });
+test('image operation forwards model size and returns the provider rejection', async () => {
+    const requests = [];
+    const plugin = createPlugin({ transport: { async request(input) {
+        requests.push(input);
+        return {
+            status: 400,
+            providerError: { code: 'unsupported_value', message: 'image size is not supported' },
+            body: { error: { message: 'image size is not supported' } }
+        };
+    } } });
     await assert.rejects(plugin.operations['image.generate'].execute({
         model: { provider: 'kie', modelId: 'nano-banana-2-lite' },
         input: { prompt: 'a tree' }, options: { size: '2K' }
-    }), (error) => error.code === 'AI_GATEWAY_UNSUPPORTED_CAPABILITY');
+    }), (error) => error.code === 'AI_GATEWAY_PROVIDER_REJECTED_REQUEST'
+        && error.providerCode === 'unsupported_value'
+        && error.providerMessage === 'image size is not supported');
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].body.input.resolution, '2K');
 });
 
-test('image support describes model aspect ratios and rejects unsupported ratios before provider dispatch', async () => {
+test('image operation reports its own output-count limit separately from provider capabilities', async () => {
     let requests = 0;
-    const plugin = createPlugin({ transport: { async request() { requests += 1; throw new Error('should not execute'); } } });
+    const plugin = createPlugin({ transport: { async request() { requests += 1; } } });
+    await assert.rejects(plugin.operations['image.generate'].execute({
+        model: { provider: 'google', modelId: 'gemini-nano-banana-2.1' },
+        input: { prompt: 'a tree' }, options: { count: 2 }
+    }), { code: 'AI_GATEWAY_IMAGE_COUNT_LIMIT_EXCEEDED' });
+    assert.equal(requests, 0);
+});
+
+test('image support lists are advisory and unknown ratios reach the provider for runtime validation', async () => {
+    const requests = [];
+    const plugin = createPlugin({ transport: { async request(input) {
+        requests.push(input);
+        if (input.provider === 'openai') {
+            return { status: 200, body: { data: [{ b64_json: Buffer.from('generated-openai-image').toString('base64') }] } };
+        }
+        return { status: 200, body: { candidates: [{ content: { parts: [
+            { inlineData: { mimeType: 'image/png', data: Buffer.from('generated-image').toString('base64') } }
+        ] } }] } };
+    } } });
     const support = describeSupport();
     const google = support.routes.find((route) => route.provider === 'google' && route.kind === 'image');
     const openai = support.routes.find((route) => route.provider === 'openai' && route.kind === 'image');
     assert.ok(google.aspectRatios.includes('4:5'));
+    assert.ok(google.aspectRatiosByModel['gemini-nano-banana-2.1'].includes('4:3'));
     assert.ok(!openai.aspectRatios.includes('4:5'));
-    await assert.rejects(plugin.operations['image.generate'].execute({
+    const generated = await plugin.operations['image.generate'].execute({
+        model: { provider: 'google', modelId: 'gemini-nano-banana-2.1' },
+        input: { prompt: 'landscape image' }, options: { aspectRatio: '4:3', size: '1K' }
+    });
+    assert.deepEqual(requests[0].body.generationConfig.imageConfig, { aspectRatio: '4:3', imageSize: '1K' });
+    assert.equal(Buffer.from(generated.images[0].dataBase64, 'base64').toString(), 'generated-image');
+    await plugin.operations['image.generate'].execute({
         model: { provider: 'openai', modelId: 'gpt-image-2' },
         input: { prompt: 'portrait card' }, options: { aspectRatio: '4:5', size: '1K' }
-    }), { code: 'AI_GATEWAY_UNSUPPORTED_CAPABILITY' });
-    assert.equal(requests, 0);
+    });
+    assert.equal(requests.length, 2);
+    assert.equal(requests[1].body.size, '1024x1280');
+    await plugin.operations['image.generate'].execute({
+        model: { provider: 'openai', modelId: 'gpt-image-2' },
+        input: { prompt: 'panoramic card' }, options: { aspectRatio: '4:1', size: '1K' }
+    });
+    assert.equal(requests.length, 3);
+    assert.equal(Object.hasOwn(requests[2].body, 'size'), false);
+    assert.equal(requests[2].body.aspect_ratio, '4:1');
 });
 
 test('Gateway honors cancellation and uses stable provider errors', async () => {

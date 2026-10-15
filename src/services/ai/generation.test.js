@@ -20,7 +20,7 @@ test('AI service intersects Catalog and Gateway routes and rejects unsupported s
     const gateway = {
         describeSupport: () => ({ routes: [
             { kind: 'text', provider: 'openai', transport: 'openai', modelIds: ['text-v1'], jsonMode: true },
-            { kind: 'image', provider: 'google', transport: 'gemini', modelIds: ['image-v1'], aspectRatios: ['1:1', '4:5'] },
+            { kind: 'image', provider: 'google', transport: 'gemini', modelIds: ['image-v1'], aspectRatios: ['1:1'], aspectRatiosByModel: { 'image-v1': ['1:1', '4:3', '4:5'] } },
             { kind: 'image', provider: 'openai', transport: 'openai', modelIds: ['image-v2'], aspectRatios: ['1:1', '3:2'] },
             { kind: 'image', provider: 'kie', transport: 'kie', modelIds: ['image-v3'] }
         ] }),
@@ -31,7 +31,8 @@ test('AI service intersects Catalog and Gateway routes and rejects unsupported s
     assert.deepEqual(service.getSupportedModels('text').map(({ code }) => code), ['text-v1']);
     assert.equal(service.supportsFeature('text', { provider: 'openai', modelId: 'text-v1' }, 'jsonResponse'), true);
     assert.equal(service.supportsOption('image', { provider: 'google', modelId: 'image-v1' }, 'aspectRatio', '4:5'), true);
-    assert.equal(service.supportsOption('image', { provider: 'openai', modelId: 'image-v2' }, 'aspectRatio', '4:5'), false);
+    assert.equal(service.supportsOption('image', { provider: 'google', modelId: 'image-v1' }, 'aspectRatio', '4:3'), true);
+    assert.equal(service.supportsOption('image', { provider: 'openai', modelId: 'image-v2' }, 'aspectRatio', '4:5'), undefined);
     assert.equal(service.supportsOption('image', { provider: 'kie', modelId: 'image-v3' }, 'aspectRatio', '4:5'), undefined);
     const context = { signal: new AbortController().signal };
     await service.generateText({ modelSelection: { provider: 'openai', modelId: 'text-v1' }, prompt: 'Hello', responseFormat: 'json' }, context);

@@ -70,9 +70,10 @@ test('Card News uses the shared AI service with safe model identities and persis
     }
 });
 
-test('Card News rejects an image ratio the selected Gateway route does not support before text generation', async () => {
+test('Card News sends an unlisted image ratio to the provider and returns its runtime rejection', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-ai-capability-'));
     let textCalls = 0;
+    let imageCalls = 0;
     const app = createCardNewsGenerationApplication({
         workspaceDir,
         getTextModel: () => ({ provider: 'google', code: 'text-model' }),
@@ -80,24 +81,30 @@ test('Card News rejects an image ratio the selected Gateway route does not suppo
         aiGeneration: {
             supportsOption: () => false,
             async generateText() { textCalls += 1; return { content: createPlan() }; },
-            async generateImage() { throw new Error('should not execute'); }
+            async generateImage() {
+                imageCalls += 1;
+                throw Object.assign(new Error('provider rejected ratio'), { code: 'AI_GATEWAY_PROVIDER_REJECTED_REQUEST' });
+            }
         },
         parseStructuredJsonResponse: JSON.parse
     });
     try {
-        await assert.rejects(app.generate({
+        const result = await app.generate({
             source_snapshot: { title: '원문 제목', text: '원문 내용' },
             settings: { slide_count: 3, aspect_ratio: '4:5' },
             image_mode: 'generate',
             imageModelConfig: { provider: 'openai', code: 'image-model' }
-        }), { code: 'AI_GATEWAY_UNSUPPORTED_CAPABILITY' });
-        assert.equal(textCalls, 0);
+        });
+        assert.equal(textCalls, 1);
+        assert.equal(imageCalls, 1);
+        assert.equal(result.status, 'partial');
+        assert.match(result.message, /다음 단계에서 다시 채울/);
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }
 });
 
-test('Card News image regeneration checks the saved composition ratio instead of assuming the default', async () => {
+test('Card News image regeneration sends the saved composition ratio without local capability rejection', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-ai-saved-ratio-'));
     const checkedRatios = [];
     const app = createCardNewsGenerationApplication({
@@ -124,7 +131,7 @@ test('Card News image regeneration checks the saved composition ratio instead of
         });
         const result = await app.generateImages({ generation_id: composition.id, mode: 'single', card_index: 1 });
         assert.equal(result.cards[0].image_url.endsWith('.png'), true);
-        assert.deepEqual(checkedRatios, ['1:1']);
+        assert.deepEqual(checkedRatios, []);
     } finally {
         fs.rmSync(workspaceDir, { recursive: true, force: true });
     }

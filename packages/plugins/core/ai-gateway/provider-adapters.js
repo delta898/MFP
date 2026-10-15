@@ -184,7 +184,8 @@ function buildTextRequest(route, modelId, messages, options = {}) {
                 model: modelId,
                 stream: false,
                 input: text,
-                reasoning: { effort: options.reasoningEffort || 'low' }
+                reasoning: { effort: options.reasoningEffort || 'low' },
+                ...(options.responseFormat === 'json' ? { text: { format: { type: 'json_object' } } } : {})
             }
         };
     }
@@ -192,11 +193,9 @@ function buildTextRequest(route, modelId, messages, options = {}) {
     if (options.maxOutputTokens) {
         body[route.provider === 'openai' ? 'max_completion_tokens' : 'max_tokens'] = options.maxOutputTokens;
     }
-    // Anthropic's newer Claude models reject temperature because sampling is
-    // controlled by the model. Keep the shared option for providers that accept it.
-    if (options.temperature !== undefined && route.provider !== 'anthropic') body.temperature = options.temperature;
+    if (options.temperature !== undefined) body.temperature = options.temperature;
     if (options.reasoningEffort && route.provider === 'openai') body.reasoning_effort = options.reasoningEffort;
-    if (options.responseFormat === 'json' && route.jsonMode) body.response_format = { type: 'json_object' };
+    if (options.responseFormat === 'json') body.response_format = { type: 'json_object' };
     const path = route.provider === 'direct'
         ? '/chat/completions'
         : route.provider === 'kie'
@@ -219,9 +218,6 @@ function parseKieResponsesText(body) {
 async function generateText(input, context, transport) {
     const route = resolveRoute('text', input.model);
     if (!route) throw new AiGatewayError('AI_GATEWAY_UNSUPPORTED_ROUTE', 'The selected text model is not supported by this Gateway.');
-    if (input.options?.responseFormat === 'json' && !route.jsonMode) {
-        throw new AiGatewayError('AI_GATEWAY_UNSUPPORTED_CAPABILITY', 'JSON response mode is not supported for the selected model.');
-    }
     try {
         throwIfAborted(context.signal);
         const request = buildTextRequest(route, input.model.modelId, input.messages, input.options);
@@ -252,20 +248,21 @@ async function generateText(input, context, transport) {
 
 function buildKieImageRequest(modelId, prompt, options = {}) {
     const aspectRatio = options.aspectRatio || '4:3';
-    const high = String(options.size || '1K').toUpperCase() === '2K';
+    const size = String(options.size || '1K').toUpperCase();
+    const high = size === '2K';
     const input = { prompt, aspect_ratio: aspectRatio };
     if (modelId === 'nano-banana-2' || modelId === 'nano-banana-pro') {
-        Object.assign(input, { image_input: [], resolution: high ? '2K' : '1K', output_format: 'png' });
+        Object.assign(input, { image_input: [], resolution: size, output_format: 'png' });
     } else if (modelId === 'nano-banana-2-lite') {
-        Object.assign(input, { image_input: [], output_format: 'png' });
+        Object.assign(input, { image_input: [], resolution: String(options.size || '1K').toUpperCase(), output_format: 'png' });
     } else if (modelId === 'seedream/5-pro-text-to-image') {
         Object.assign(input, { quality: high ? 'high' : 'basic', output_format: 'png', nsfw_checker: true });
     } else if (modelId === 'seedream/4.5-text-to-image') {
         Object.assign(input, { quality: high ? 'high' : 'basic', nsfw_checker: false });
     } else if (modelId === 'gpt-image-2-text-to-image') {
-        input.resolution = high ? '2K' : '1K';
+        input.resolution = size;
     } else if (modelId === 'gpt-image-2-5-sunburst-text-to-image' || modelId === 'gpt-image-2-5-flare-text-to-image') {
-        Object.assign(input, { resolution: high ? '2K' : '1K', background: 'opaque' });
+        Object.assign(input, { resolution: size, background: 'opaque' });
     } else {
         throw new AiGatewayError('AI_GATEWAY_UNSUPPORTED_ROUTE', 'The selected KIE image route is not supported.');
     }
@@ -447,16 +444,8 @@ async function generateImage(input, context, transport, settings) {
     if (!route) throw new AiGatewayError('AI_GATEWAY_UNSUPPORTED_ROUTE', 'The selected image model is not supported by this Gateway.');
     const count = Number.isInteger(input.options?.count) ? input.options.count : route.limits.defaultCount;
     const requestedSize = String(input.options?.size || '1K').toUpperCase();
-    const supportedSizes = route.supportedSizesByModel?.[input.model.modelId] || route.supportedSizes || [];
-    const requestedAspectRatio = input.options?.aspectRatio;
     if (count < 1 || count > route.limits.maxCount) {
-        throw new AiGatewayError('AI_GATEWAY_UNSUPPORTED_CAPABILITY', 'The requested image count exceeds this model route limit.');
-    }
-    if (supportedSizes.length > 0 && !supportedSizes.includes(requestedSize)) {
-        throw new AiGatewayError('AI_GATEWAY_UNSUPPORTED_CAPABILITY', 'The requested image size is not supported by this model route.');
-    }
-    if (requestedAspectRatio && Array.isArray(route.aspectRatios) && !route.aspectRatios.includes(requestedAspectRatio)) {
-        throw new AiGatewayError('AI_GATEWAY_UNSUPPORTED_CAPABILITY', 'The requested image aspect ratio is not supported by this model route.');
+        throw new AiGatewayError('AI_GATEWAY_IMAGE_COUNT_LIMIT_EXCEEDED', 'The requested image count exceeds this Gateway operation limit.');
     }
     try {
         throwIfAborted(context.signal);
@@ -469,8 +458,11 @@ async function generateImage(input, context, transport, settings) {
                 contents: [{ parts: [{ text: input.input.prompt }] }],
                 generationConfig: {
                     responseModalities: ['IMAGE'],
-                    imageConfig: input.options?.aspectRatio
-                        ? { aspectRatio: input.options.aspectRatio }
+                    imageConfig: input.options?.aspectRatio || input.options?.size
+                        ? {
+                            ...(input.options?.aspectRatio ? { aspectRatio: input.options.aspectRatio } : {}),
+                            ...(input.options?.size ? { imageSize: requestedSize } : {})
+                        }
                         : undefined
                 }
             };
@@ -488,7 +480,13 @@ async function generateImage(input, context, transport, settings) {
             };
             if (route.provider === 'direct') body.response_format = 'b64_json';
             if (input.options?.aspectRatio) {
-                body.size = imageSize(input.options.aspectRatio, input.options.size);
+                // OpenAI-compatible image APIs take a finite set of pixel sizes,
+                // not arbitrary ratios. Map what this adapter can represent;
+                // otherwise forward the requested ratio as best effort so the
+                // provider can accept or reject it at runtime.
+                const mappedSize = imageSize(input.options.aspectRatio, input.options.size);
+                if (mappedSize) body.size = mappedSize;
+                else body.aspect_ratio = input.options.aspectRatio;
             }
             const response = await transport.request({
                 provider: route.provider, kind: 'image', modelId: input.model.modelId,
@@ -520,10 +518,7 @@ function imageSize(aspectRatio, size = '1K') {
         '16:9': high ? '2048x1152' : '1536x864',
         '9:16': high ? '1152x2048' : '864x1536'
     };
-    if (!sizes[aspectRatio]) {
-        throw new AiGatewayError('AI_GATEWAY_UNSUPPORTED_CAPABILITY', 'The requested image aspect ratio cannot be mapped to an OpenAI-compatible image size.');
-    }
-    return sizes[aspectRatio];
+    return sizes[aspectRatio] || undefined;
 }
 
 function createGatewayOperations(options = {}) {

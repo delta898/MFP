@@ -30,10 +30,17 @@ const textOperation = plugin.operations['text.generate'];
 ```
 
 Model names, visibility, and product eligibility remain the Application's
-catalog concern. Gateway support lists executable provider/transport routes
-and route limits. An image result is JSON-safe inline base64 with a 10 MiB
-decoded limit per image; Hosts can later replace this mapping with scoped
-asset handles without changing provider adapters.
+catalog concern. `describeSupport()` is discovery metadata: its documented
+model options are hints, not a runtime capability verdict. The Gateway does
+not reject a model request merely because an option is absent from those lists;
+it forwards provider-native options and returns the Provider's runtime error.
+Where an adapter cannot map an option to its standard field (for example, an
+arbitrary ratio to an OpenAI-compatible pixel size), it forwards the requested
+ratio in best-effort form so the Provider can accept or reject it. Route
+availability and Gateway-owned payload limits remain enforceable by the
+Gateway. An image result is JSON-safe inline
+base64 with a 10 MiB decoded limit per image; Hosts can later replace this
+mapping with scoped asset handles without changing provider adapters.
 
 KIE image generation is asynchronous. The Gateway submits once, polls with
 bounded safe retries, downloads the completed result, reports coarse progress

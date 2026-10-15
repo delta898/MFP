@@ -20,6 +20,14 @@ const KIE_IMAGE_SIZES = Object.freeze(Object.fromEntries(KIE_IMAGE_MODELS.map((m
     modelId,
     Object.freeze(modelId === 'nano-banana-2-lite' ? ['1K'] : ['1K', '2K'])
 ])));
+// Option inventories below are discovery hints from maintained references.
+// Runtime compatibility must be decided by the selected Provider response.
+const GEMINI_IMAGE_ASPECT_RATIOS = Object.freeze([
+    '1:1', '1:4', '1:8', '2:3', '3:2', '3:4', '4:1', '4:3', '4:5', '5:4', '8:1', '9:16', '16:9', '21:9'
+]);
+const GEMINI_FLASH_LITE_IMAGE_ASPECT_RATIOS = Object.freeze([
+    '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'
+]);
 
 const ROUTES = Object.freeze([
     { kind: 'text', provider: 'google', transport: 'gemini_generate_content', modelIds: null, jsonMode: true },
@@ -31,7 +39,12 @@ const ROUTES = Object.freeze([
     {
         kind: 'image', provider: 'google', transport: 'gemini_generate_content',
         modelIds: Object.freeze(['gemini-nano-banana-2.1', 'gemini-3.1-flash-image', 'gemini-3.1-flash-lite-image']),
-        aspectRatios: Object.freeze(['1:1', '4:5', '9:16']),
+        aspectRatios: GEMINI_FLASH_LITE_IMAGE_ASPECT_RATIOS,
+        aspectRatiosByModel: Object.freeze({
+            'gemini-nano-banana-2.1': GEMINI_IMAGE_ASPECT_RATIOS,
+            'gemini-3.1-flash-image': GEMINI_IMAGE_ASPECT_RATIOS,
+            'gemini-3.1-flash-lite-image': GEMINI_FLASH_LITE_IMAGE_ASPECT_RATIOS
+        }),
         supportedSizesByModel: Object.freeze({
             'gemini-nano-banana-2.1': Object.freeze(['1K']),
             'gemini-3.1-flash-image': Object.freeze(['1K']),
@@ -68,6 +81,9 @@ function describeSupport() {
             ...route,
             ...(route.modelIds ? { modelIds: Object.freeze([...route.modelIds]) } : {}),
             ...(route.aspectRatios ? { aspectRatios: Object.freeze([...route.aspectRatios]) } : {}),
+            ...(route.aspectRatiosByModel ? { aspectRatiosByModel: Object.freeze(Object.fromEntries(
+                Object.entries(route.aspectRatiosByModel).map(([modelId, ratios]) => [modelId, Object.freeze([...ratios])])
+            )) } : {}),
             ...(route.supportedSizesByModel ? { supportedSizesByModel: Object.freeze(Object.fromEntries(
                 Object.entries(route.supportedSizesByModel).map(([modelId, sizes]) => [modelId, Object.freeze([...sizes])])
             )) } : {}),

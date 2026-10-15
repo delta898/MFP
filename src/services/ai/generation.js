@@ -112,8 +112,12 @@ function createAiGenerationService(options = {}) {
             && (!item.transport || item.transport === model?.transport)
             && (!Array.isArray(item.modelIds) || item.modelIds.includes(modelId)));
         if (!route || !model) return false;
-        if (!Array.isArray(route.aspectRatios)) return undefined;
-        return route.aspectRatios.includes(value);
+        const supportedAspectRatios = route.aspectRatiosByModel?.[modelId] || route.aspectRatios;
+        if (!Array.isArray(supportedAspectRatios)) return undefined;
+        // Static/documented support is discovery metadata, not a runtime
+        // rejection contract. Only a provider response can reject a model
+        // option, so unknown (or absent) values remain best-effort requests.
+        return supportedAspectRatios.includes(value) ? true : undefined;
     }
 
     function resolveSelection(kind, selection) {

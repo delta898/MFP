@@ -3,7 +3,6 @@
 const fsDefault = require('node:fs');
 const pathDefault = require('node:path');
 const { createCardNewsGenerationService } = require('../../../card-news/generation-service');
-const { normalizeGenerationSettings, normalizeImageMode } = require('../../../card-news/generation');
 const { throwIfCanceled } = require('../../../ai/cancellation');
 
 const MIME_EXTENSIONS = Object.freeze({
@@ -21,8 +20,7 @@ function safeModelSelection(model = {}) {
 
 function createCardNewsGenerationApplication(options = {}) {
     const aiGeneration = options.aiGeneration;
-    if (!aiGeneration || typeof aiGeneration.generateText !== 'function' || typeof aiGeneration.generateImage !== 'function'
-        || typeof aiGeneration.supportsOption !== 'function') {
+    if (!aiGeneration || typeof aiGeneration.generateText !== 'function' || typeof aiGeneration.generateImage !== 'function') {
         throw new TypeError('Card News Generation Application requires the shared AI Generation service.');
     }
     const fileSystem = options.fs || fsDefault;
@@ -122,29 +120,11 @@ function createCardNewsGenerationApplication(options = {}) {
     });
 
     async function generate(input) {
-        assertAspectRatioSupported(input);
         return generationService.generate(input);
     }
 
     async function generateImages(input) {
-        const storedGeneration = generationService.getGeneration(input?.generation_id);
-        assertAspectRatioSupported({
-            ...input,
-            settings: input?.settings || storedGeneration.settings,
-            image_mode: 'generate'
-        });
         return generationService.generateImages(input);
-    }
-
-    function assertAspectRatioSupported(input = {}) {
-        if (normalizeImageMode(input.image_mode) !== 'generate') return;
-        const aspectRatio = normalizeGenerationSettings(input.settings).aspect_ratio;
-        const selection = safeModelSelection(input.imageModelConfig || getImageModel() || {});
-        if (selection && aiGeneration.supportsOption('image', selection, 'aspectRatio', aspectRatio) === false) {
-            throw Object.assign(new Error(`선택한 이미지 모델은 ${aspectRatio} 비율을 지원하지 않습니다.`), {
-                code: 'AI_GATEWAY_UNSUPPORTED_CAPABILITY'
-            });
-        }
     }
 }
 
