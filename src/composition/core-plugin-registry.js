@@ -35,6 +35,7 @@ function bundledPackage(directory) {
 }
 
 const CORE_PLUGIN_REGISTRATIONS = Object.freeze([
+    bundledPackage('naver-publisher'),
     bundledPackage('wordpress-publisher'),
     bundledPackage('ai-gateway'),
     bundledPackage('hello-world')

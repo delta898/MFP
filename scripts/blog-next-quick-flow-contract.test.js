@@ -163,6 +163,15 @@ test('WordPress image upload warnings remain visible after a successful draft sa
   assert.match(publishRuntime, /이미지 \$\{wordpressImageUploadFailures\}개 업로드 실패/);
 });
 
+test('manuscript publishing sends the selected status and schedule date to the publish boundary', () => {
+  const execution = read('ui/scripts/features/blog-next/draft-execution.js');
+  const drafts = read('src/content/manuscript-draft-service.js');
+
+  assert.match(execution, /manuscript-drafts\/\$\{encodeURIComponent\(state\.draftId\)\}\/publish`, \{[\s\S]*?postStatus: settings\.postStatus,[\s\S]*?scheduleDate: settings\.scheduleDate/);
+  assert.match(drafts, /Object\.hasOwn\(input, 'postStatus'\)[\s\S]*?normalizePostStatus\(input\.postStatus\)[\s\S]*?MANUSCRIPT_POST_STATUS_INVALID/);
+  assert.match(drafts, /settings: \{[\s\S]*?postStatus: forcedDraft \? 'draft' : requestedPostStatus/);
+});
+
 test('AI image generation exposes per-action stop controls and sends cancellation to the active server operation', () => {
   const inputs = `${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-images.js')}`;
   const operations = read('src/blog-next/ai-generation-operations.js');

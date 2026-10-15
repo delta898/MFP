@@ -29,15 +29,24 @@ test('Blog Beta composition wires AI Gateway, WordPress publisher, and Blog Publ
         ] }),
         Core: { async publishToBlog() {}, async publishToWordPress() {} },
         ImageService: { async optimizeBufferForFormat(bytes) { return { buffer: bytes, optimized: false }; } },
+        BrowserLauncher: {},
+        AuthSession: {},
+        naverPublisherDependencies: {
+            getSettings: () => ({ writeUrl: 'https://blog.naver.com/writer/postwrite', headless: true }),
+            async createAuthenticatedNaverSession() { throw new Error('not executed in composition test'); }
+        },
         Logger: { info() {} }
     });
 
     assert.equal(composition.corePluginRuntime, corePluginRuntime);
     assert.equal(typeof composition.blogWritingSystem.application.generateText, 'function');
     assert.equal(typeof composition.blogPublishingApplication.publishWordPressPlugin, 'function');
-    assert.deepEqual(registrations.map(({ ids }) => ids), [['ai-gateway'], ['wordpress-publisher']]);
+    assert.deepEqual(registrations.map(({ ids }) => ids), [['ai-gateway'], ['wordpress-publisher'], ['naver-publisher']]);
     assert.equal(typeof registrations[0].dependencies['ai-gateway'].transport.request, 'function');
     assert.equal(typeof registrations[1].dependencies['wordpress-publisher'].getCredentials, 'function');
+    assert.equal(typeof composition.naverPublishingSystem.publisher.publish, 'function');
+    assert.equal(typeof registrations[2].dependencies['naver-publisher'].getSettings, 'function');
+    assert.equal(typeof registrations[2].dependencies['naver-publisher'].createAuthenticatedNaverSession, 'function');
     assert.deepEqual(composition.aiGenerationSystem.service.getSupportedModels('text').map(({ provider, code }) => ({ provider, code })), [
         { provider: 'direct', code: 'saved-text' },
         { provider: 'direct', code: 'local-text' }

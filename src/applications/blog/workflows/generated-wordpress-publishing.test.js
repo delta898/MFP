@@ -129,7 +129,7 @@ test('composition registers both required Plugins and runs generation through Wo
         }
     });
 
-    assert.deepEqual(system.corePluginRegistry.list(), ['wordpress-publisher', 'ai-gateway', 'hello-world']);
+    assert.deepEqual(system.corePluginRegistry.list(), ['naver-publisher', 'wordpress-publisher', 'ai-gateway', 'hello-world']);
     assert.deepEqual(system.pluginHost.listPlugins().map(({ id }) => id), ['ai-gateway', 'wordpress-publisher']);
     assert.deepEqual(system.pluginHost.listOperations().map(({ pluginId, operationId }) => ({ pluginId, operationId })), [
         { pluginId: 'ai-gateway', operationId: 'image.generate' },
@@ -184,6 +184,7 @@ test('separate Applications share one process Plugin Host and reuse an already r
 
     assert.strictEqual(wordpressSystem.pluginHost, generatedSystem.pluginHost);
     assert.deepEqual(sharedRuntime.listPlugins().map(({ id, state }) => ({ id, state })), [
+        { id: 'naver-publisher', state: 'not_loaded' },
         { id: 'wordpress-publisher', state: 'enabled' },
         { id: 'ai-gateway', state: 'enabled' },
         { id: 'hello-world', state: 'not_loaded' }

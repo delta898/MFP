@@ -317,6 +317,7 @@ const blogBetaComposition = createBlogBetaRuntimeComposition({
     CONFIG,
     Logger,
     Core,
+    Utils,
     fs,
     path,
     getAiModelCatalog

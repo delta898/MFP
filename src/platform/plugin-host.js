@@ -2,7 +2,10 @@
 
 const { normalizePluginDescriptor, PluginContractError } = require('./plugin-contract');
 
-const PROGRESS_PHASES = new Set(['submitted', 'waiting', 'generating', 'downloading']);
+const PROGRESS_PHASES = new Set([
+    'submitted', 'waiting', 'generating', 'downloading',
+    'preparing', 'working', 'uploading', 'finalizing'
+]);
 
 class PluginHostError extends Error {
     constructor(message, code) {
@@ -30,7 +33,7 @@ function normalizeProgressEvent(pluginId, operationId, event) {
         throw new TypeError('Plugin progress event must be an object.');
     }
     const keys = Object.keys(event);
-    if (keys.some((key) => !['phase', 'progress'].includes(key))) {
+    if (keys.some((key) => !['phase', 'progress', 'stage', 'current', 'total'].includes(key))) {
         throw new TypeError('Plugin progress event contains an unsupported field.');
     }
     if (!PROGRESS_PHASES.has(event.phase)) {
@@ -40,11 +43,26 @@ function normalizeProgressEvent(pluginId, operationId, event) {
         && (!Number.isFinite(event.progress) || event.progress < 0 || event.progress > 100)) {
         throw new TypeError('Plugin progress must be a number from 0 to 100.');
     }
+    if (event.stage !== undefined
+        && (typeof event.stage !== 'string' || !/^[a-z][a-z0-9_]{0,39}$/.test(event.stage))) {
+        throw new TypeError('Plugin progress stage must be a short lowercase identifier.');
+    }
+    const hasCurrent = event.current !== undefined;
+    const hasTotal = event.total !== undefined;
+    if (hasCurrent !== hasTotal) {
+        throw new TypeError('Plugin progress current and total must be provided together.');
+    }
+    if (hasCurrent && (!Number.isInteger(event.current) || event.current < 0
+        || !Number.isInteger(event.total) || event.total < 0 || event.current > event.total)) {
+        throw new TypeError('Plugin progress current and total must be non-negative integers with current at most total.');
+    }
     return Object.freeze({
         pluginId,
         operationId,
         phase: event.phase,
-        ...(event.progress === undefined ? {} : { progress: event.progress })
+        ...(event.progress === undefined ? {} : { progress: event.progress }),
+        ...(event.stage === undefined ? {} : { stage: event.stage }),
+        ...(hasCurrent ? { current: event.current, total: event.total } : {})
     });
 }
 

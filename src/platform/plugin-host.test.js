@@ -148,6 +148,42 @@ test('Host validates Plugin progress and binds events to the executing operation
     }), /0 to 100/);
 });
 
+test('Host validates generic staged progress and forwards counters for long-running operations', async () => {
+    const host = createPluginHost({ plugins: [validPlugin({
+        operations: {
+            run: {
+                async execute(_input, context) {
+                    context.reportProgress({ phase: 'uploading', stage: 'image', current: 2, total: 4, progress: 50 });
+                    return {};
+                }
+            }
+        }
+    })] });
+    const events = [];
+
+    await host.execute('sample-plugin', 'run', {}, { reportProgress: (event) => events.push(event) });
+    assert.deepEqual(events, [{
+        pluginId: 'sample-plugin', operationId: 'run', phase: 'uploading', progress: 50,
+        stage: 'image', current: 2, total: 4
+    }]);
+});
+
+test('Host rejects malformed generic progress stages and counters', async () => {
+    for (const event of [
+        { phase: 'working', stage: 'Image' },
+        { phase: 'working', current: 1 },
+        { phase: 'working', current: 3, total: 2 },
+        { phase: 'working', current: 1.5, total: 2 }
+    ]) {
+        const host = createPluginHost({ plugins: [validPlugin({
+            operations: {
+                run: { async execute(_input, context) { context.reportProgress(event); return {}; } }
+            }
+        })] });
+        await assert.rejects(host.execute('sample-plugin', 'run', {}, { reportProgress() {} }), /progress/i);
+    }
+});
+
 test('disable blocks new work and waits for active executions to drain', async () => {
     let finish;
     const active = new Promise((resolve) => { finish = resolve; });

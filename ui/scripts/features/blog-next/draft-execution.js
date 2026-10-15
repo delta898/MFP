@@ -622,7 +622,12 @@ async function publishBlogNextDraft(type) {
         revision: state.revision,
         ...(settings.siteKind === 'vault' ? { destinationPath: settings.destinationPath } : {})
       })
-      : await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/publish`, { draftId: state.draftId, revision: state.revision });
+      : await postJson(`/api/v1/blog/manuscript-drafts/${encodeURIComponent(state.draftId)}/publish`, {
+        draftId: state.draftId,
+        revision: state.revision,
+        postStatus: settings.postStatus,
+        scheduleDate: settings.scheduleDate
+      });
     if (siteHostingTarget) state.siteHostingPosted = true;
     if (Number.isInteger(Number(publishResult?.revision))) state.revision = Number(publishResult.revision);
     if (!siteHostingTarget && publishResult?.manuscriptPreview) renderBlogNextDraftPreview(type, publishResult.manuscriptPreview);

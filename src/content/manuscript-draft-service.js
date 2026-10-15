@@ -1023,7 +1023,12 @@ function createManuscriptDraftService(options = {}) {
                 Logger?.warn?.(`⚠️ [ManuscriptDraft] 발행 전 이미지 자동 생성 실패 (draft=${input.draftId}, slot=${image.slotId}): ${error.message}`);
             }
         }
-        const payload = buildPublishPayload({ draftId: input.draftId, revision: current.revision });
+        const payload = buildPublishPayload({
+            draftId: input.draftId,
+            revision: current.revision,
+            ...(Object.hasOwn(input, 'postStatus') ? { postStatus: input.postStatus } : {}),
+            ...(Object.hasOwn(input, 'scheduleDate') ? { scheduleDate: input.scheduleDate } : {})
+        });
         payload.publishPolicy = {
             ...payload.publishPolicy,
             draftRevision: current.revision,
@@ -1078,13 +1083,29 @@ function createManuscriptDraftService(options = {}) {
             && String(slot.prompt || '').trim()
             && (!slot.current_file || !fsImpl.existsSync(currentFileForSlot(locations, slot)))
         )).length;
-        const requestedPostStatus = String(manifest.settings.postStatus || 'publish');
+        const requestedPostStatus = Object.hasOwn(input, 'postStatus')
+            ? normalizePostStatus(input.postStatus)
+            : normalizePostStatus(manifest.settings.postStatus);
+        if (!['publish', 'draft', 'schedule'].includes(requestedPostStatus)) {
+            throw manuscriptError(400, 'MANUSCRIPT_POST_STATUS_INVALID', '게시 방식이 올바르지 않습니다.');
+        }
+        const scheduleDate = Object.hasOwn(input, 'scheduleDate')
+            ? String(input.scheduleDate || '').trim()
+            : String(manifest.settings.scheduleDate || '').trim();
+        if (requestedPostStatus === 'schedule' && !scheduleDate) {
+            throw manuscriptError(400, 'MANUSCRIPT_SCHEDULE_DATE_REQUIRED', '예약 발행 일시를 입력해 주세요.');
+        }
         const forcedDraft = unresolvedCount > 0 && requestedPostStatus !== 'draft';
         return {
             sourceKind: manifest.source_kind,
             folderName: manifest.source_label,
             selectedFiles: selectedFiles.map((entry) => ({ ...entry, relativePath: `draft-${manifest.id}/${entry.name}` })),
-            settings: { ...manifest.settings, imageMode: 'prompt_only', postStatus: forcedDraft ? 'draft' : requestedPostStatus },
+            settings: {
+                ...manifest.settings,
+                imageMode: 'prompt_only',
+                postStatus: forcedDraft ? 'draft' : requestedPostStatus,
+                scheduleDate
+            },
             publishPolicy: { requestedPostStatus, effectivePostStatus: forcedDraft ? 'draft' : requestedPostStatus, unresolvedImageCount: unresolvedCount, forcedDraft }
         };
     }

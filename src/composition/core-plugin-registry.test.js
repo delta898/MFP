@@ -47,6 +47,7 @@ test('Core Plugin registry lists bundled factories and creates a requested Plugi
     assert.deepEqual(Object.keys(createdPlugin.operations), ['run']);
     assert.equal(actualDependencies, receivedDependencies);
     assert.deepEqual(CORE_PLUGIN_REGISTRATIONS.map((item) => item.id), [
+        'naver-publisher',
         'wordpress-publisher',
         'ai-gateway',
         'hello-world'

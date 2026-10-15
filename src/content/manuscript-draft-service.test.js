@@ -71,6 +71,40 @@ test('creates and publishes pasted Markdown through the canonical draft', () => 
     }
 });
 
+test('uses the current publish request status without mutating the manuscript defaults', async () => {
+    const { workspaceDir, service } = fixture();
+    try {
+        const created = service.createPasteDraft({
+            markdownText: '# 임시 저장 원고\n\n본문',
+            targets: ['naver'],
+            postStatus: 'publish'
+        });
+
+        const publishPayload = await service.preparePublishPayload({
+            draftId: created.draftId,
+            revision: created.revision,
+            postStatus: 'draft',
+            scheduleDate: ''
+        });
+        const defaultPayload = service.buildPublishPayload({
+            draftId: created.draftId,
+            revision: created.revision
+        });
+
+        assert.equal(publishPayload.settings.postStatus, 'draft');
+        assert.equal(publishPayload.publishPolicy.requestedPostStatus, 'draft');
+        assert.equal(publishPayload.settings.scheduleDate, '');
+        assert.equal(defaultPayload.settings.postStatus, 'publish');
+        assert.throws(() => service.buildPublishPayload({
+            draftId: created.draftId,
+            revision: created.revision,
+            postStatus: 'public'
+        }), (error) => error.code === 'MANUSCRIPT_POST_STATUS_INVALID');
+    } finally {
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+});
+
 test('keeps image asset identity attached to its stable block id after Markdown reorder', () => {
     const { workspaceDir, service } = fixture();
     const firstId = 'mb-11111111-1111-4111-8111-111111111111';

@@ -1,0 +1,97 @@
+{
+  "name": "@bloggenius/naver-publisher",
+  "version": "0.1.0",
+  "description": "Naver Blog browser publisher implementing the BlogGenius Plugin contract",
+  "main": "index.js",
+  "files": ["index.js", "README.md"],
+  "engines": { "node": ">=20" },
+  "bloggeniusPlugin": {
+    "manifestVersion": 1,
+    "id": "naver-publisher",
+    "name": "Naver Publisher",
+    "hostApi": "^1.0.0",
+    "summary": "Publishes prepared content through the authenticated Naver Blog editor.",
+    "operations": {
+      "posts.publish": {
+        "description": "Save or publish a prepared post through the Naver Blog editor.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "title": { "type": "string", "minLength": 1, "maxLength": 300, "pattern": "\\S" },
+            "blocks": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1000,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "type": { "enum": ["paragraph", "heading", "quote", "list-item", "separator", "newline", "image"] },
+                  "text": { "type": "string", "maxLength": 20000 },
+                  "level": { "enum": [2, 3] },
+                  "listType": { "enum": ["ordered", "unordered"] },
+                  "assetKey": { "type": "string", "maxLength": 100, "pattern": "\\S" },
+                  "boldRanges": {
+                    "type": "array",
+                    "maxItems": 100,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "start": { "type": "integer", "minimum": 0, "maximum": 20000 },
+                        "end": { "type": "integer", "minimum": 1, "maximum": 20000 }
+                      },
+                      "required": ["start", "end"],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": ["type"],
+                "additionalProperties": false
+              }
+            },
+            "assets": {
+              "type": "array",
+              "maxItems": 50,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": { "type": "string", "minLength": 1, "maxLength": 100, "pattern": "\\S" },
+                  "filename": { "type": "string", "minLength": 1, "maxLength": 255, "pattern": "\\S" },
+                  "mimeType": { "type": "string", "pattern": "^image/(?:png|jpeg|webp|gif|avif)$" },
+                  "bytesBase64": { "type": "string", "minLength": 4, "maxLength": 30000000, "contentEncoding": "base64" },
+                  "altText": { "type": "string", "maxLength": 500 }
+                },
+                "required": ["key", "filename", "mimeType", "bytesBase64"],
+                "additionalProperties": false
+              }
+            },
+            "category": { "type": "string", "maxLength": 200 },
+            "status": { "enum": ["draft", "publish", "schedule"] },
+            "scheduleDate": { "type": "string", "maxLength": 100 },
+            "affiliateUrl": { "type": "string", "maxLength": 2048 },
+            "headless": { "type": "boolean" },
+            "isLast": { "type": "boolean" }
+          },
+          "required": ["title", "blocks", "assets", "status"],
+          "allOf": [
+            {
+              "if": { "properties": { "status": { "const": "schedule" } }, "required": ["status"] },
+              "then": { "required": ["scheduleDate"] }
+            }
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "properties": {
+            "status": { "enum": ["draft", "publish", "schedule"] },
+            "postUrl": { "type": "string", "pattern": "^https?://" },
+            "warnings": { "type": "array", "items": { "type": "string", "maxLength": 500 }, "maxItems": 50 }
+          },
+          "required": ["status", "warnings"],
+          "additionalProperties": false
+        },
+        "capabilities": ["naver.authenticated-session", "browser.naver-blog"]
+      }
+    }
+  }
+}

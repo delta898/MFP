@@ -7,6 +7,7 @@ const { createCorePluginRuntime } = require('./core-plugin-runtime');
 const { createAiGenerationSystem } = require('./ai-generation');
 const { createBlogWritingSystem } = require('./blog-writing');
 const { createWordPressPublishingSystem } = require('./wordpress-publishing');
+const { createNaverPublishingSystem } = require('./naver-publishing');
 const { createBlogPublishingApplication } = require('../applications/blog/publishing/application');
 const { createBlogGeniusAiTransport } = require('../adapters/ai/gateway-transport');
 const { inferTransport } = require('../ai/transport-registry');
@@ -57,6 +58,16 @@ function createBlogBetaRuntimeComposition(options = {}) {
         getSupport: options.getGatewaySupport
     });
     const wordpressPublishingSystem = createWordPressPublishingSystem({ corePluginRuntime, pluginDependencies });
+    const naverPublishingSystem = createNaverPublishingSystem({
+        corePluginRuntime,
+        CONFIG,
+        Constants: options.Constants || require('../constants'),
+        Logger,
+        fs,
+        ...(options.BrowserLauncher ? { BrowserLauncher: options.BrowserLauncher } : {}),
+        ...(options.AuthSession ? { AuthSession: options.AuthSession } : {}),
+        ...(options.naverPublisherDependencies ? { pluginDependencies: { 'naver-publisher': options.naverPublisherDependencies } } : {})
+    });
     const blogWritingSystem = createBlogWritingSystem({
         aiGeneration: aiGenerationSystem.service,
         getTextModel: () => ({ provider: CONFIG.TEXT_MODEL_CONFIG?.provider, modelId: CONFIG.TEXT_MODEL_CONFIG?.code }),
@@ -66,7 +77,14 @@ function createBlogBetaRuntimeComposition(options = {}) {
     const blogPublishingApplication = createBlogPublishingApplication({
         Core: options.Core,
         ImageService,
+        naverPublisher: naverPublishingSystem.publisher,
+        legacyNaverPublisher: {
+            publish(directory, request) {
+                return options.Core.publishToBlog(directory, request);
+            }
+        },
         wordpressPublishingApplication: wordpressPublishingSystem.application,
+        Utils: options.Utils,
         CONFIG,
         Logger,
         fs,
@@ -77,6 +95,7 @@ function createBlogBetaRuntimeComposition(options = {}) {
         corePluginRuntime,
         aiGenerationSystem,
         wordpressPublishingSystem,
+        naverPublishingSystem,
         blogWritingSystem,
         blogPublishingApplication
     });
