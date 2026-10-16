@@ -65,14 +65,11 @@ test('an unresolved runtime profile fails closed with a stable error code', () =
     );
 });
 
-test('direct development publishing allows immediate posts but rejects schedules', () => {
+test('direct development publishing allows manual immediate and scheduled posts', () => {
     const development = configFor('development', true, { manualPublish: true });
     assert.doesNotThrow(() => assertDirectPublishAllowed(development, { postStatus: 'publish' }));
     assert.doesNotThrow(() => assertDirectPublishAllowed(development, { postStatus: 'draft' }));
-    assert.throws(
-        () => assertDirectPublishAllowed(development, { postStatus: 'schedule' }),
-        (error) => error.code === LIVE_PUBLISH_BLOCKED_CODE
-    );
+    assert.doesNotThrow(() => assertDirectPublishAllowed(development, { postStatus: 'schedule' }));
 });
 
 test('isolated legacy dependency injection remains compatible when no profile exists', () => {

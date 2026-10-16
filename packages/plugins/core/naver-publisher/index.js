@@ -948,30 +948,235 @@ function createPlugin(options = {}) {
         return false;
     }
 
+    async function findScheduleCombobox(page, accessibleName) {
+        const byRole = typeof page.getByRole === 'function'
+            ? page.getByRole('combobox', { name: accessibleName }).filter({ visible: true }).first()
+            : null;
+        if (byRole && await byRole.count().catch(() => 0)) return byRole;
+
+        // Keep a semantic fallback for Playwright-compatible page adapters
+        // that do not expose getByRole; do not couple this to generated CSS.
+        const selects = page.locator('select');
+        const metadata = await selects.evaluateAll((elements) => elements.map((element, index) => ({
+            index,
+            visible: Boolean(element.getClientRects().length),
+            accessibleName: [
+                element.getAttribute('aria-label'),
+                element.getAttribute('title'),
+                ...Array.from(element.labels || []).map((label) => label.textContent)
+            ].filter(Boolean).join(' ')
+        })));
+        const match = metadata.find((item) => item.visible && accessibleName.test(item.accessibleName));
+        if (match) return selects.nth(match.index);
+
+        throw new NaverPublisherError(`네이버 예약 설정에서 ${accessibleName.source} 콤보박스를 찾지 못했습니다.`, {
+            code: 'NAVER_SCHEDULE_CONTROL_NOT_FOUND'
+        });
+    }
+
     async function setSchedule(page, scheduleDate) {
         const schedule = page.locator('label:has-text("예약"), label[for="radio_time2"], input[value="schedule"]').first();
         await schedule.waitFor({ state: 'visible', timeout: 5000 });
         await schedule.click({ force: true });
-        if (!scheduleDate) return;
-        const dateMatch = scheduleDate.match(/\d{4}\.\s*\d{2}\.\s*\d{2}\./);
-        const isoDateMatch = scheduleDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
-        const dateText = dateMatch ? dateMatch[0]
-            : isoDateMatch ? `${isoDateMatch[1]}.${isoDateMatch[2]}.${isoDateMatch[3]}.`
-                : scheduleDate.split(' ')[0];
-        const dateInput = page.locator('input.input_date__QmA0s, input[aria-label="날짜 입력"], .input_date__S9V_r').first();
-        if (await dateInput.count() && await dateInput.isVisible()) {
-            await dateInput.fill(dateText);
-            await editorPress(page, 'Enter', 'schedule-date');
+        if (!scheduleDate) {
+            logger.info?.('[Naver Publisher] Scheduled time not provided; keeping Naver default schedule time');
+            return;
         }
-        const timeMatch = scheduleDate.match(/(\d{1,2}):(\d{2})/);
-        if (timeMatch) {
-            const hour = timeMatch[1].padStart(2, '0');
-            const minute = String(Math.floor(Number(timeMatch[2]) / 10) * 10).padStart(2, '0');
-            const hourInput = page.locator('select.hour_option__J_heO').first();
-            const minuteInput = page.locator('select.minute_option__Vb3xB').first();
-            if (await hourInput.count() && await hourInput.isVisible()) await hourInput.selectOption(hour);
-            if (await minuteInput.count() && await minuteInput.isVisible()) await minuteInput.selectOption(minute);
+        const dateParts = scheduleDate.match(/^(\d{4})-(\d{2})-(\d{2})[T ]/)
+            || scheduleDate.match(/^(\d{4})\.\s*(\d{2})\.\s*(\d{2})\./);
+        const timeMatch = scheduleDate.match(/[T ](\d{1,2}):(\d{2})/)
+            || scheduleDate.match(/(\d{1,2}):(\d{2})/);
+        if (!dateParts || !timeMatch) {
+            throw new NaverPublisherError(`예약 일시 형식을 확인할 수 없습니다: ${scheduleDate}`, {
+                code: 'NAVER_SCHEDULE_DATE_INVALID'
+            });
         }
+        const requestedDateText = `${dateParts[1]}. ${dateParts[2]}. ${dateParts[3]}.`;
+        const requestedHour = Number(timeMatch[1]);
+        const requestedMinute = Number(timeMatch[2]);
+        if (requestedHour > 23 || requestedMinute > 59) {
+            throw new NaverPublisherError(`예약 시각 범위를 확인해 주세요: ${scheduleDate}`, {
+                code: 'NAVER_SCHEDULE_DATE_INVALID'
+            });
+        }
+        // Naver accepts 10-minute intervals. Round upward so a requested time
+        // is never scheduled earlier than the user selected. Carry across the
+        // hour/day boundary (for example, 23:57 becomes 00:00 next day).
+        const roundedTotalMinutes = Math.ceil((requestedHour * 60 + requestedMinute) / 10) * 10;
+        const requestedDate = new Date(Date.UTC(
+            Number(dateParts[1]), Number(dateParts[2]) - 1, Number(dateParts[3]), 0, roundedTotalMinutes
+        ));
+        const selectedHourTarget = requestedDate.getUTCHours();
+        const selectedMinuteTarget = requestedDate.getUTCMinutes();
+        const targetDateParts = [
+            String(requestedDate.getUTCFullYear()).padStart(4, '0'),
+            String(requestedDate.getUTCMonth() + 1).padStart(2, '0'),
+            String(requestedDate.getUTCDate()).padStart(2, '0')
+        ];
+        const dateText = `${targetDateParts[0]}. ${targetDateParts[1]}. ${targetDateParts[2]}.`;
+        const requestedClock = `${String(requestedHour).padStart(2, '0')}:${String(requestedMinute).padStart(2, '0')}`;
+        const selectedClockTarget = `${String(selectedHourTarget).padStart(2, '0')}:${String(selectedMinuteTarget).padStart(2, '0')}`;
+        logger.info?.(`[Naver Publisher] Applying requested schedule (requested=${requestedDateText} ${requestedClock}, Naver time=${dateText} ${selectedClockTarget})`);
+        const allInputs = page.locator('input');
+        const inputMetadata = await allInputs.evaluateAll((inputs) => inputs.map((element, index) => ({
+            index,
+            value: element.value || '',
+            ariaLabel: element.getAttribute('aria-label') || '',
+            placeholder: element.getAttribute('placeholder') || '',
+            className: typeof element.className === 'string' ? element.className : '',
+            readOnly: Boolean(element.readOnly),
+            visible: Boolean(element.getClientRects().length)
+        })));
+        const dateMeta = inputMetadata.find((input) => input.visible
+            && (/^\d{4}\.\s*\d{2}\.\s*\d{2}\.?$/.test(input.value)
+                || /날짜/.test(`${input.ariaLabel} ${input.placeholder}`)
+                || (input.readOnly && /^\d{4}[.\-/ ]/.test(input.value))));
+        const dateInput = dateMeta
+            ? allInputs.nth(dateMeta.index)
+            : page.locator('input[readonly]').filter({ visible: true }).first();
+        await dateInput.waitFor({ state: 'visible', timeout: 5000 });
+        const existingDate = String(await dateInput.inputValue()).replace(/\D/g, '');
+        if (existingDate === targetDateParts.join('')) {
+            logger.info?.(`[Naver Publisher] Schedule date already matches requested date (${dateText}); leaving the read-only date field unchanged`);
+        } else {
+            // Naver exposes the date as a read-only textbox that opens a
+            // calendar. Use its accessible calendar controls rather than
+            // trying to fill it or relying on generated CSS-module classes.
+            await dateInput.click();
+            const targetYear = Number(targetDateParts[0]);
+            const targetMonth = Number(targetDateParts[1]);
+            const targetDay = Number(targetDateParts[2]);
+            for (let attempt = 0; attempt < 24; attempt++) {
+                const headings = page.getByText(/\d{4}\s*년\s*\d{1,2}\s*월/).filter({ visible: true });
+                const headingCount = await headings.count().catch(() => 0);
+                let calendarHeading = null;
+                let currentMonth;
+                for (let index = 0; index < headingCount; index++) {
+                    const candidate = headings.nth(index);
+                    const match = normalizeEditorText(await readText(candidate)).match(/(\d{4})\s*년\s*(\d{1,2})\s*월/);
+                    if (match) {
+                        calendarHeading = candidate;
+                        currentMonth = { year: Number(match[1]), month: Number(match[2]) };
+                        break;
+                    }
+                }
+                if (!calendarHeading) break;
+                const currentMonthIndex = currentMonth.year * 12 + currentMonth.month - 1;
+                const targetMonthIndex = targetYear * 12 + targetMonth - 1;
+                if (currentMonthIndex === targetMonthIndex) break;
+
+                const direction = currentMonthIndex < targetMonthIndex ? 1 : -1;
+                const directionName = direction > 0 ? /다음\s*(달|월)|next\s*month/i : /이전\s*(달|월)|prev(ious)?\s*month/i;
+                let navigationButton = page.getByRole('button', { name: directionName }).filter({ visible: true }).first();
+                if (!(await navigationButton.count().catch(() => 0))) {
+                    // Naver's calendar arrows may have no accessible label.
+                    // Identify the two visible header buttons by their position
+                    // relative to the month heading, not by CSS module names.
+                    const headingBox = await calendarHeading.boundingBox().catch(() => null);
+                    const buttons = page.getByRole('button').filter({ visible: true });
+                    const buttonCount = await buttons.count().catch(() => 0);
+                    const nearby = [];
+                    for (let index = 0; headingBox && index < buttonCount; index++) {
+                        const button = buttons.nth(index);
+                        const box = await button.boundingBox().catch(() => null);
+                        if (box && Math.abs((box.y + box.height / 2) - (headingBox.y + headingBox.height / 2)) <= 18) {
+                            nearby.push({ index, x: box.x + box.width / 2 });
+                        }
+                    }
+                    nearby.sort((left, right) => left.x - right.x);
+                    const selected = direction > 0 ? nearby[nearby.length - 1] : nearby[0];
+                    if (!selected || nearby.length < 2) {
+                        throw new NaverPublisherError('네이버 날짜 선택기에서 월 이동 버튼을 찾지 못했습니다.', {
+                            code: 'NAVER_SCHEDULE_CALENDAR_NAVIGATION_NOT_FOUND'
+                        });
+                    }
+                    navigationButton = buttons.nth(selected.index);
+                }
+                await navigationButton.click();
+                await sleep(100);
+            }
+
+            const targetDateName = new RegExp(`^${targetYear}\\s*년\\s*${targetMonth}\\s*월\\s*${targetDay}일?$`);
+            let targetDateButton = page.getByRole('button', { name: targetDateName }).filter({ visible: true }).first();
+            if (!(await targetDateButton.count().catch(() => 0))) {
+                const dayButtons = page.getByRole('button', { name: new RegExp(`^${targetDay}(일)?$`) }).filter({ visible: true });
+                const dayCount = await dayButtons.count().catch(() => 0);
+                for (let index = 0; index < dayCount; index++) {
+                    const candidate = dayButtons.nth(index);
+                    if (await candidate.isEnabled().catch(() => false)) {
+                        targetDateButton = candidate;
+                        break;
+                    }
+                }
+            }
+            if (!(await targetDateButton.count().catch(() => 0))) {
+                // Some calendar implementations expose grid cells rather than
+                // buttons. Match the day label semantically within the open UI.
+                const dayText = page.getByText(new RegExp(`^${targetDay}$`)).filter({ visible: true }).first();
+                if (!(await dayText.count().catch(() => 0))) {
+                    throw new NaverPublisherError(`네이버 날짜 선택기에서 ${dateText} 날짜를 찾지 못했습니다.`, {
+                        code: 'NAVER_SCHEDULE_DATE_NOT_FOUND'
+                    });
+                }
+                await dayText.click();
+            } else {
+                await targetDateButton.click();
+            }
+            await sleep(150);
+            const appliedDate = String(await dateInput.inputValue()).replace(/\s/g, '');
+            if (appliedDate.replace(/\D/g, '') !== targetDateParts.join('')) {
+                throw new NaverPublisherError(`네이버 예약 날짜 입력을 확인하지 못했습니다 (requested=${dateText}, actual=${await dateInput.inputValue()})`, {
+                    code: 'NAVER_SCHEDULE_DATE_NOT_APPLIED'
+                });
+            }
+        }
+
+        const hourInput = await findScheduleCombobox(page, /예약\s*발행\s*시간\s*선택|시간\s*선택/);
+        const minuteInput = await findScheduleCombobox(page, /예약\s*발행\s*분\s*선택|분\s*선택/);
+        const hourOptions = await hourInput.locator('option').evaluateAll((options) => options.map((option) => ({
+            value: option.value,
+            label: (option.label || option.textContent || '').trim()
+        })));
+        const hourOption = hourOptions.find((option) => Number(option.value) === selectedHourTarget
+            || Number(option.label.match(/\d+/)?.[0]) === selectedHourTarget);
+        if (!hourOption) {
+            throw new NaverPublisherError(`네이버 예약 시간 목록에 ${selectedHourTarget}시가 없습니다.`, {
+                code: 'NAVER_SCHEDULE_HOUR_UNAVAILABLE'
+            });
+        }
+        await hourInput.selectOption(hourOption.value);
+
+        const minuteOptions = await minuteInput.locator('option').evaluateAll((options) => options.map((option) => ({
+            value: option.value,
+            label: (option.label || option.textContent || '').trim(),
+            minute: Number((option.label || option.textContent || '').match(/\d+/)?.[0] ?? option.value)
+        })).filter((option) => Number.isFinite(option.minute)));
+        const minuteOption = minuteOptions.find((option) => option.minute === selectedMinuteTarget);
+        if (!minuteOption) {
+            throw new NaverPublisherError(`네이버 예약 분 목록에 ${selectedMinuteTarget}분이 없습니다.`, {
+                code: 'NAVER_SCHEDULE_MINUTE_UNAVAILABLE'
+            });
+        }
+        await minuteInput.selectOption(minuteOption.value);
+        const selectedHour = String(await hourInput.inputValue());
+        const selectedMinute = String(await minuteInput.inputValue());
+        const actualHour = hourOptions.find((option) => option.value === selectedHour)?.label.match(/\d+/)?.[0] ?? selectedHour;
+        const actualMinute = minuteOptions.find((option) => option.value === selectedMinute)?.minute ?? Number(selectedMinute);
+        if (Number(actualHour) !== selectedHourTarget || Number(actualMinute) !== selectedMinuteTarget) {
+            throw new NaverPublisherError(`네이버 예약 시각 입력을 확인하지 못했습니다 (requested=${requestedHour}:${String(requestedMinute).padStart(2, '0')}, selected=${selectedHour}:${selectedMinute})`, {
+                code: 'NAVER_SCHEDULE_TIME_NOT_APPLIED'
+            });
+        }
+        const selectedClock = `${String(Number(actualHour)).padStart(2, '0')}:${String(Number(actualMinute)).padStart(2, '0')}`;
+        if (selectedClock !== selectedClockTarget) {
+            throw new NaverPublisherError(`네이버 예약 시각이 올바르게 적용되지 않았습니다 (requested=${selectedClockTarget}, actual=${selectedClock})`, {
+                code: 'NAVER_SCHEDULE_TIME_NOT_APPLIED'
+            });
+        }
+        if (selectedClock !== requestedClock || dateText !== requestedDateText) {
+            logger.info?.(`[Naver Publisher] Schedule rounded up to Naver's 10-minute interval (requested=${requestedDateText} ${requestedClock}, applied=${dateText} ${selectedClock})`);
+        }
+        logger.info?.(`[Naver Publisher] Schedule inputs applied (requested=${requestedDateText} ${requestedClock}, selected=${await dateInput.inputValue()} ${selectedClock})`);
     }
 
     async function execute(input, context = {}) {

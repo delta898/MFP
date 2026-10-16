@@ -144,3 +144,12 @@ Core Plugin routing and focused automated verification are implemented. Blog Bet
 - Retained operational Naver logs for publish request, image upload, warnings, category, and final save/publish behavior.
 - Added server log entries matching the user-facing manuscript generation and publish progress messages. Repeated identical progress messages are deduplicated during each Naver publish operation.
 - Focused automated tests were not run for this follow-up; syntax and diff checks are the planned verification.
+
+### Development scheduled publishing test access (2026-10-16)
+
+- User requested that manual scheduled publishing be testable in Development.
+- Direct publish operations now use the existing `manualPublish` effect for all statuses, including `schedule`. Automated and queue-based publication continue to require the separate `automatedPublish` effect; Development automation remains draft-only.
+- Updated Development safety documentation to describe the single, user-initiated scheduled-post exception. Use a test blog and a future schedule date during manual validation.
+- Verification: `node --check` for the runtime policy and its focused test file, plus `git diff --check`, passed. Automated tests and a real scheduled-post action were not run.
+- 2026-10-16: Live scheduled-post logs and DevTools screenshots showed the Naver publish panel uses a read-only date textbox and accessible time/minute comboboxes (`예약 발행 시간 선택`, `예약 발행 분 선택`). The Plugin had tried to fill the read-only date and relied on obsolete generated CSS class names for the comboboxes. It now leaves an already-correct displayed date untouched, resolves time/minute controls by accessible role/name with a semantic `<select>` metadata fallback, and selects different dates through the visible calendar UI. Calendar month navigation uses accessible button names when available and otherwise the two buttons geometrically adjacent to the visible month heading, avoiding generated CSS-module classes. Naver-only 10-minute upward rounding remains in place.
+- Verification: `node --check packages/plugins/core/naver-publisher/index.js` and `git diff --check` passed. Live Naver verification is still required for same-month and cross-month date selection plus the 10-minute rounding boundaries.

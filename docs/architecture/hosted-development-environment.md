@@ -108,12 +108,12 @@ Secret을 검사했다고 가장하지 않는다. 누락·오설정은 안전한
 
 환경 manifest의 `allows_manual_publish`, `allows_automated_draft`와 `allows_automated_publish`는 문서용 표식이 아니라 runtime
 실행 정책이다. `local`과 환경 profile을 해석하지 못한 실행은 모든 외부 발행을 차단한다.
-`development`는 개발자가 직접 확인한 테스트 채널로 보내는 단건 수동 발행과 블로그 연속
-발행의 `임시 저장`만 허용한다. SNS 자동 공유가 켜진 경우에는 블로그 RSS를 주기적으로
+`development`는 개발자가 직접 확인한 테스트 채널로 보내는 단건 수동 발행과 예약 발행,
+블로그 연속 발행의 `임시 저장`을 허용한다. 예약 발행은 명시적 사용자 동작으로 시작한
+단건 작업만 해당하며 자동 실행에는 적용되지 않는다. SNS 자동 공유가 켜진 경우에는 블로그 RSS를 주기적으로
 확인해 개발 Spreadsheet의 SNS 시트에 기록할 수 있지만, Buffer 자동 발행은 실행하지 않는다.
 다음 경로는 계속 차단한다.
 
-- 예약 발행
 - 블로그·쇼핑 여러 행 일괄 발행
 - 블로그·쇼핑 자동 발행 scheduler와 수동 자동-cycle 실행
 - SNS 자동 배포와 SNS 자동화 cycle의 Buffer 발행 단계
@@ -123,7 +123,7 @@ Secret을 검사했다고 가장하지 않는다. 누락·오설정은 안전한
 않고 `확인 필요`로 멈춘다. Local timer는 Queue 선두와 예정 동작만 시뮬레이션하며 AI, Topics Sheet와
 외부 플랫폼을 변경하지 않는다.
 
-명시적으로 준비된 `production` profile만 수동·예약·일괄·자동 발행을 모두 허용한다. 기존
+명시적으로 준비된 `production` profile은 Development에서 차단된 자동·일괄 발행까지 허용한다. 기존
 `livePublish` 값은 자동화 경계의 호환 alias로 유지된다. 의존성을 직접 주입하는 기존 단위 테스트는
 profile 자체가 없을 때만 호환 모드로 동작하며, 애플리케이션 `CONFIG`에는 항상 해석된 profile이
 존재하므로 환경 경계가 우회되지 않는다.

@@ -190,7 +190,8 @@ Supabase 공개 연결 정보만 `.env.development`에서 읽는다.
 - 실제 서버와 유사한 DB·Edge Function 통합 검증
 - DB reset 금지
 - 지정한 테스트 채널로 단건 수동 발행 허용
-- 예약·일괄·자동 발행과 실제 결제 차단
+- 사용자가 직접 실행하는 단건 예약 발행 허용(개발용 테스트 채널만 사용)
+- 자동·일괄 발행과 실제 결제 차단
 - 알림은 sink 또는 명시적 allowlist만 허용
 - 유료 provider 호출과 Cron 활성화는 별도 승인 범위
 
@@ -239,7 +240,9 @@ npm run env:development:smoke
 [Runtime Environment] development / <development-project>.supabase.co
 ```
 
-Development에서 자동·예약·일괄 발행은 공통 runtime guard가 다음 코드로 차단한다.
+Development에서 자동·일괄 발행은 공통 runtime guard가 다음 코드로 차단한다. 예약 발행은
+사용자가 직접 요청한 단건 작업에 한해 허용되며, 지정한 테스트 블로그와 미래 공개 시각을
+사용한다.
 
 ```text
 LIVE_PUBLISH_BLOCKED_BY_ENVIRONMENT

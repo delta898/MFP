@@ -85,9 +85,10 @@ function assertManualPublishAllowed(config = {}) {
     if (!isManualPublishAllowed(config)) throw createManualPublishBlockedError(config);
 }
 
-function assertDirectPublishAllowed(config = {}, options = {}) {
-    const postStatus = String(options.postStatus || options.post_status || '').trim().toLowerCase();
-    if (postStatus === 'schedule') return assertLivePublishAllowed(config);
+function assertDirectPublishAllowed(config = {}) {
+    // A direct user action is governed by the manual-publish capability for all
+    // supported statuses, including scheduling. Automated callers remain behind
+    // isContinuousAutomationAllowed()/assertLivePublishAllowed().
     return assertManualPublishAllowed(config);
 }
 
