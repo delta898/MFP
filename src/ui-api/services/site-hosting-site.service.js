@@ -9,8 +9,7 @@ const { createSiteHostingSiteRepository } = require('../../site-hosting/site-rep
 const { normalizeMenuDestination, normalizeMenuLabel: validateMenuLabel, normalizeNavigationItems, internalPathSegment, internalPathname } = require('../../site-hosting/navigation-contract');
 const { parseImageBlocks, replaceImageBlocks } = require('../../content/image-blocks');
 const { createGitHubSiteTemplateCatalog } = require('../../site-hosting/github-site-template-catalog');
-const { createAstroSiteRuntime } = require('../../site-hosting/astro-site-runtime');
-const { createCloudflareStaticAssetsDeployer } = require('../../site-hosting/cloudflare-static-assets-deployer');
+const { createAstroSiteHostingSystem } = require('../../composition/astro-site-hosting');
 const { isSupportedSiteHostingContractVersion } = require('../../site-hosting/bloggenius-compatibility');
 const { inspectAstroProject } = require('../../site-hosting/astro-project-inspector');
 const { MAX_SITE_PROFILE_IMAGE_BYTES } = require('../../site-hosting/image-limits');
@@ -51,9 +50,17 @@ function createSiteHostingSiteService(deps = {}) {
         if (!electron?.shell?.openExternal) throw new Error('시스템 브라우저를 실행할 수 없습니다.');
         await electron.shell.openExternal(url);
     });
-    const astroRuntime = deps.astroRuntime || createAstroSiteRuntime({
+    const siteHostingSystem = createAstroSiteHostingSystem({
+        corePluginRuntime: deps.corePluginRuntime,
+        astroRuntime: deps.astroRuntime,
+        cloudflareDeployer: deps.cloudflareDeployer,
         fs: deps.fs,
         path: deps.path,
+        getCloudflareDeploymentCredentials,
+        createCloudflareSdkClient: deps.createCloudflareSdkClient,
+        createCloudflareSdkAdapter: deps.createCloudflareSdkAdapter,
+        fetchImpl: deps.fetchImpl,
+        Logger: deps.Logger,
         workspaceDir: deps.workspaceDir,
         templatesRoot: deps.templatesRoot,
         projectRepository,
@@ -63,21 +70,8 @@ function createSiteHostingSiteService(deps = {}) {
         spawn: deps.spawn,
         cacheRoot: deps.cacheRoot
     });
-    const cloudflareDeployer = deps.cloudflareDeployer || createCloudflareStaticAssetsDeployer({
-        fs: deps.fs,
-        path: deps.path,
-        getCredentials: getCloudflareDeploymentCredentials,
-        createClient: deps.createCloudflareSdkClient,
-        createAdapter: deps.createCloudflareSdkAdapter,
-        fetchImpl: deps.fetchImpl,
-        logger: deps.Logger
-    });
+    const astroRuntime = siteHostingSystem.siteHosting;
     const manuscriptDraftService = deps.manuscriptDraftService || null;
-    const createCloudflareClient = deps.createCloudflareSdkClient || ((accessToken) => {
-        const Cloudflare = require('cloudflare');
-        return new Cloudflare({ apiToken: accessToken, maxRetries: 1 });
-    });
-    const createCloudflareAdapter = deps.createCloudflareSdkAdapter || require('../../site-hosting/cloudflare-static-assets-deployer').createCloudflareSdkAdapter;
     const now = deps.now || (() => new Date().toISOString());
     const createId = deps.createId || (() => crypto.randomUUID().replace(/-/g, ''));
     const draftPreviews = new Map();
@@ -756,11 +750,10 @@ function createSiteHostingSiteService(deps = {}) {
         if (!configuredAccountId || site.cloudflare_account?.name !== account.name) {
             site = repository.recordCloudflareAccount(projectId, siteId, account, now());
         }
-        const buildResult = await astroRuntime.build(projectId, siteId);
-        const deployed = await cloudflareDeployer.deploy(site, credentials, context);
+        const deployed = await astroRuntime.deploy(site, credentials, context);
         const deployedAt = now();
         repository.recordDeployment(projectId, siteId, { ...deployed, deployed_at: deployedAt });
-        return { ...deployed, cloudflare_account: account, deployed_at: deployedAt, screenshot: buildResult?.screenshot || null, screenshot_error: buildResult?.screenshot_error || '' };
+        return { ...deployed, cloudflare_account: account, deployed_at: deployedAt };
     }
 
     async function postMarkdown(projectId, siteId, payload = {}, context = {}) {
@@ -1794,23 +1787,25 @@ function createSiteHostingSiteService(deps = {}) {
     }
 
     async function getCloudflareAdapter(accountId) {
-        const credentials = await getCloudflareDeploymentCredentials(accountId);
-        if (!credentials?.accessToken || !credentials?.account?.id) {
+        let account;
+        try { account = (await astroRuntime.providerCall('account.resolve', accountId, {}))?.account; }
+        catch (error) {
+            if (accountId && error?.code === 'HOSTING_ACCOUNT_MISMATCH') error.code = 'SITE_HOSTING_WORKER_ACCOUNT_CHANGED';
+            throw error;
+        }
+        if (!account?.id) {
             const error = new Error('Cloudflare 계정 정보를 확인할 수 없습니다.');
             error.code = 'CLOUDFLARE_ACCOUNT_REQUIRED';
             error.status = 409;
             throw error;
         }
-        if (accountId && String(credentials.account.id) !== String(accountId)) {
+        if (accountId && String(account.id) !== String(accountId)) {
             const error = new Error('현재 연결된 Cloudflare 계정이 이 사이트의 배포 계정과 달라 요청을 중단했습니다.');
             error.code = 'SITE_HOSTING_WORKER_ACCOUNT_CHANGED';
             error.status = 409;
             throw error;
         }
-        return {
-            credentials,
-            adapter: createCloudflareAdapter({ client: createCloudflareClient(credentials.accessToken), fetchImpl: deps.fetchImpl })
-        };
+        return { credentials: { account }, adapter: astroRuntime.forAccount(String(account.id)) };
     }
 
     async function listCloudflareZones(projectId, siteId) {
@@ -1823,7 +1818,7 @@ function createSiteHostingSiteService(deps = {}) {
         }
         const { credentials, adapter } = await getCloudflareAdapter(getSiteCloudflareAccountId(site));
         const accountId = String(credentials.account.id);
-        const zones = await adapter.listZones(accountId);
+        const zones = await adapter.listDomains(accountId);
         return zones
             .map((zone) => ({ id: String(zone.id || ''), name: String(zone.name || ''), status: String(zone.status || '') }))
             .filter((zone) => zone.id && zone.name && String(zone.status || '').toLowerCase() === 'active')
@@ -1847,7 +1842,7 @@ function createSiteHostingSiteService(deps = {}) {
         const subdomain = normalizeDnsName(payload.hostname, '호스트 이름');
         const { credentials, adapter } = await getCloudflareAdapter(getSiteCloudflareAccountId(site));
         const accountId = String(credentials.account.id);
-        const zones = await adapter.listZones(accountId);
+        const zones = await adapter.listDomains(accountId);
         const zone = zones.find((item) => String(item?.id || '') === String(payload.zone_id || '')
             && String(item?.status || '').toLowerCase() === 'active');
         if (!zone) {
@@ -1859,7 +1854,7 @@ function createSiteHostingSiteService(deps = {}) {
         const domain = String(zone.name || '').toLowerCase();
         const hostname = formatCustomDomain(subdomain, domain);
         try {
-            const binding = await adapter.attachWorkerDomain({
+            const binding = await adapter.bindSiteDomain({
                 accountId,
                 hostname,
                 workerName: site.deployment.worker_name,
@@ -1913,19 +1908,19 @@ function createSiteHostingSiteService(deps = {}) {
         }
         const fail = (message, code = 'SITE_HOSTING_WORKER_DISCONNECT_PREFLIGHT_FAILED', status = 409) => siteInputError(message, code, status);
         const readSnapshot = async () => {
-            if (typeof adapter.listWorkerScripts !== 'function'
-                || typeof adapter.listWorkerDomains !== 'function'
-                || typeof adapter.listDeployments !== 'function') {
+            if (typeof adapter.listSiteResources !== 'function'
+                || typeof adapter.listSiteDomainBindings !== 'function'
+                || typeof adapter.listSiteDeployments !== 'function') {
                 throw fail('Cloudflare Worker 상태를 확인할 수 없어 해지하지 않았습니다. 앱을 업데이트한 뒤 다시 시도해 주세요.', 'SITE_HOSTING_WORKER_DISCONNECT_PREFLIGHT_UNAVAILABLE', 503);
             }
-            const scripts = (await adapter.listWorkerScripts(accountId))
+            const scripts = (await adapter.listSiteResources(accountId))
                 .filter((item) => String(item?.id || item?.name || '') === workerName);
             if (scripts.length > 1) throw fail('같은 이름의 Worker가 여러 개 확인되어 해지하지 않았습니다. Cloudflare에서 직접 확인해 주세요.');
             const worker = scripts[0] || null;
             if (worker && String(worker.created_on || '') !== workerCreatedOn) {
                 throw fail('Cloudflare Worker의 생성 정보가 저장된 정보와 달라 소유권을 확인할 수 없습니다. Cloudflare에서 직접 확인해 주세요.', 'SITE_HOSTING_WORKER_OWNERSHIP_CHANGED');
             }
-            const bindings = (await adapter.listWorkerDomains({ accountId }))
+            const bindings = (await adapter.listSiteDomainBindings({ accountId }))
                 .filter((item) => String(item?.service || '').trim() === workerName)
                 .map((item) => ({
                     id: String(item.id || ''), hostname: String(item.hostname || '').trim().toLowerCase(),
@@ -1934,7 +1929,7 @@ function createSiteHostingSiteService(deps = {}) {
                 .sort((left, right) => `${left.hostname}:${left.id}`.localeCompare(`${right.hostname}:${right.id}`));
             if (bindings.length) throw fail('이 Worker에 연결된 도메인이 있어 기본 연결을 해지하지 않았습니다. 연결 도메인을 먼저 해지해 주세요.', 'SITE_HOSTING_CUSTOM_DOMAIN_MUST_BE_DISCONNECTED');
             if (!worker) return { worker: null, bindings, deployment: null };
-            const deployments = await adapter.listDeployments({ accountId, workerName });
+            const deployments = await adapter.listSiteDeployments({ accountId, workerName });
             const activeDeployment = deployments.find((item) => String(item?.id || '') === deploymentId);
             const versionIsActive = activeDeployment?.versions?.some((item) => String(item?.version_id || '') === versionId
                 && Number(item?.percentage) === 100) === true;
@@ -1959,10 +1954,10 @@ function createSiteHostingSiteService(deps = {}) {
                 const updated = repository.clearDeployment(projectId, siteId, now());
                 return { worker_name: workerName, deployment: updated.deployment || null, disconnected: true, already_absent: true };
             }
-            if (typeof adapter.deleteWorker !== 'function') {
+            if (typeof adapter.deleteSiteResource !== 'function') {
                 throw fail('Cloudflare Worker 삭제 기능을 사용할 수 없어 해지하지 않았습니다. 앱을 업데이트한 뒤 다시 시도해 주세요.', 'SITE_HOSTING_WORKER_DELETE_UNAVAILABLE', 503);
             }
-            await adapter.deleteWorker({ accountId, workerName });
+            await adapter.deleteSiteResource({ accountId, workerName });
         } catch (cause) {
             if (cause?.code?.startsWith?.('SITE_HOSTING_')) throw cause;
             const status = Number(cause?.status);
@@ -1975,9 +1970,9 @@ function createSiteHostingSiteService(deps = {}) {
         let after = null;
         for (let attempt = 0; attempt < 5; attempt += 1) {
             try {
-                const scripts = (await adapter.listWorkerScripts(accountId))
+                const scripts = (await adapter.listSiteResources(accountId))
                     .filter((item) => String(item?.id || item?.name || '') === workerName);
-                const bindings = (await adapter.listWorkerDomains({ accountId }))
+                const bindings = (await adapter.listSiteDomainBindings({ accountId }))
                     .filter((item) => String(item?.service || '').trim() === workerName);
                 after = { worker_count: scripts.length, binding_count: bindings.length };
                 if (after.worker_count === 0 && after.binding_count === 0) break;
@@ -2024,16 +2019,16 @@ function createSiteHostingSiteService(deps = {}) {
             return error;
         };
         const listSnapshot = async () => {
-            if (typeof adapter.listWorkerDomains !== 'function' || typeof adapter.listDnsRecords !== 'function') {
+            if (typeof adapter.listSiteDomainBindings !== 'function' || typeof adapter.listSiteDomainRecords !== 'function') {
                 throw fail('Cloudflare 도메인과 DNS 상태를 확인할 수 없어 해제하지 않았습니다. 앱을 업데이트하고 다시 시도해 주세요.', 'SITE_HOSTING_CUSTOM_DOMAIN_PREFLIGHT_UNAVAILABLE', 503);
             }
-            const zones = await adapter.listZones(accountId);
+            const zones = await adapter.listDomains(accountId);
             const zone = zones.find((item) => String(item?.id || '') === zoneId
                 && String(item?.name || '').trim().toLowerCase() === zoneName
                 && String(item?.status || '').toLowerCase() === 'active');
             if (!zone) throw fail('Cloudflare 도메인 영역이 활성 상태가 아니거나 저장된 정보와 달라 해제하지 않았습니다.');
 
-            const bindings = (await adapter.listWorkerDomains({ accountId, hostname }))
+            const bindings = (await adapter.listSiteDomainBindings({ accountId, hostname }))
                 .filter((item) => String(item?.hostname || '').trim().toLowerCase() === hostname);
             if (bindings.length > 1) throw fail('Cloudflare 연결 상태가 예상과 달라 안전하게 해제할 수 없습니다. 연결 상태를 새로고침해 주세요.');
             if (bindings.length === 1) {
@@ -2045,7 +2040,7 @@ function createSiteHostingSiteService(deps = {}) {
                 }
             }
 
-            const records = (await adapter.listDnsRecords({ zoneId, hostname }))
+            const records = (await adapter.listSiteDomainRecords({ zoneId, hostname }))
                 .filter((record) => String(record?.name || '').trim().replace(/\.$/, '').toLowerCase() === hostname)
                 .map((record) => ({
                     id: String(record.id || ''), type: String(record.type || '').toUpperCase(),
@@ -2072,7 +2067,7 @@ function createSiteHostingSiteService(deps = {}) {
                 const updated = repository.clearCustomDomainBinding(projectId, siteId, now());
                 return { hostname, custom_domain_binding: updated.custom_domain_binding || null, disconnected: true, already_detached: true };
             }
-            await adapter.detachWorkerDomain({ accountId, bindingId });
+            await adapter.unbindSiteDomain({ accountId, bindingId });
         } catch (cause) {
             if (cause?.code?.startsWith?.('SITE_HOSTING_')) throw cause;
             const error = new Error(Number(cause?.status) === 401 || Number(cause?.status) === 403
@@ -2153,17 +2148,17 @@ function createSiteHostingSiteService(deps = {}) {
             if (!targetAccountId) throw blocked('사이트의 Cloudflare 배포 계정을 확인할 수 없어 삭제를 멈췄습니다.');
             const { credentials, adapter } = await getCloudflareAdapter(targetAccountId);
             const accountId = String(credentials.account.id || '');
-            if (!accountId || typeof adapter.listZones !== 'function' || typeof adapter.listWorkerDomains !== 'function' || typeof adapter.listDnsRecords !== 'function') {
+            if (!accountId || typeof adapter.listDomains !== 'function' || typeof adapter.listSiteDomainBindings !== 'function' || typeof adapter.listSiteDomainRecords !== 'function') {
                 throw blocked('Cloudflare 도메인 및 DNS 상태를 확인할 수 없어 삭제를 진행할 수 없습니다.', 'SITE_HOSTING_DELETE_PREFLIGHT_UNAVAILABLE');
             }
-            const zones = await adapter.listZones(accountId);
+            const zones = await adapter.listDomains(accountId);
             const zone = zones.find((item) => String(item?.id || '') === zoneId && String(item?.name || '').toLowerCase() === zoneName && String(item?.status || '').toLowerCase() === 'active');
             if (!zone) throw blocked('연결 도메인의 활성 상태를 확인하지 못했습니다. Cloudflare에서 직접 확인해 주세요.');
-            const bindings = (await adapter.listWorkerDomains({ accountId, hostname })).filter((item) => String(item?.hostname || '').toLowerCase() === hostname);
+            const bindings = (await adapter.listSiteDomainBindings({ accountId, hostname })).filter((item) => String(item?.hostname || '').toLowerCase() === hostname);
             if (bindings.length !== 1 || String(bindings[0]?.id || '') !== bindingId || String(bindings[0]?.service || '') !== workerName || String(bindings[0]?.zone_id || '') !== zoneId) {
                 throw blocked('Cloudflare 도메인 연결이 저장된 정보와 달라 삭제를 멈췄습니다. Cloudflare 상태를 확인해 주세요.');
             }
-            const records = (await adapter.listDnsRecords({ zoneId, hostname })).filter((record) => String(record?.name || '').replace(/\.$/u, '').toLowerCase() === hostname)
+            const records = (await adapter.listSiteDomainRecords({ zoneId, hostname })).filter((record) => String(record?.name || '').replace(/\.$/u, '').toLowerCase() === hostname)
                 .map((record) => ({ id: String(record.id || ''), type: String(record.type || '').toUpperCase(), name: String(record.name || '').replace(/\.$/u, '').toLowerCase(), content: String(record.content || ''), proxied: record.proxied === true, ttl: Number(record.ttl) || 0 }))
                 .sort((a, b) => a.id.localeCompare(b.id));
             cloudflareSnapshot = { accountId, bindings, records };
@@ -2180,18 +2175,18 @@ function createSiteHostingSiteService(deps = {}) {
             }
             const { credentials, adapter } = await getCloudflareAdapter(accountId);
             if (String(credentials.account.id || '') !== accountId) throw blocked('Worker를 만든 Cloudflare 계정과 현재 연결된 계정이 달라 삭제를 멈췄습니다.');
-            if (typeof adapter.listWorkerScripts !== 'function' || typeof adapter.listWorkerDomains !== 'function' || typeof adapter.listDeployments !== 'function') {
+            if (typeof adapter.listSiteResources !== 'function' || typeof adapter.listSiteDomainBindings !== 'function' || typeof adapter.listSiteDeployments !== 'function') {
                 throw blocked('Worker 소유권과 연결 상태를 확인할 수 없어 사이트 삭제를 진행할 수 없습니다.', 'SITE_HOSTING_DELETE_PREFLIGHT_UNAVAILABLE');
             }
-            const scripts = (await adapter.listWorkerScripts(accountId)).filter((item) => String(item?.id || item?.name || '') === workerName);
+            const scripts = (await adapter.listSiteResources(accountId)).filter((item) => String(item?.id || item?.name || '') === workerName);
             if (scripts.length > 1 || (scripts.length === 1 && String(scripts[0].created_on || '') !== createdOn)) throw blocked('Cloudflare Worker의 생성 정보가 달라 소유권을 확인하지 못했습니다.');
-            const workerBindings = (await adapter.listWorkerDomains({ accountId })).filter((item) => String(item?.service || '').trim() === workerName);
+            const workerBindings = (await adapter.listSiteDomainBindings({ accountId })).filter((item) => String(item?.service || '').trim() === workerName);
             const expectedBinding = hostname ? workerBindings.filter((item) => String(item?.id || '') === String(binding.id || '')
                 && String(item?.hostname || '').toLowerCase() === hostname && String(item?.zone_id || '') === String(binding.zone_id || '')) : [];
             const unexpectedBindings = workerBindings.filter((item) => !expectedBinding.includes(item));
             if (unexpectedBindings.length || (hostname && expectedBinding.length !== 1)) throw blocked('사이트에서 기록하지 않은 도메인 연결이 Worker에 있어 삭제를 멈췄습니다. Cloudflare 상태를 확인해 주세요.');
             if (scripts.length) {
-                const deployments = await adapter.listDeployments({ accountId, workerName });
+                const deployments = await adapter.listSiteDeployments({ accountId, workerName });
                 const active = deployments.find((item) => String(item?.id || '') === deploymentId)?.versions?.some((item) => String(item?.version_id || '') === versionId && Number(item?.percentage) === 100);
                 if (!active) throw blocked('Worker의 현재 배포 상태가 저장된 정보와 달라 삭제를 멈췄습니다.');
             }

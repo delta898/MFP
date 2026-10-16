@@ -50,6 +50,7 @@ test('Core Plugin registry lists bundled factories and creates a requested Plugi
         'naver-publisher',
         'wordpress-publisher',
         'ai-gateway',
+        'astro-site-hosting',
         'hello-world'
     ]);
 });

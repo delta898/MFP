@@ -2,6 +2,8 @@
 
 ## Scope
 
+Astro build/preview and hosting-provider API work use the bundled `astro-site-hosting` Core Plugin. The Site Hosting service retains Site eligibility, frontmatter/path-containment checks, publish-vs-draft policy, deletion preflight, and local repository state transitions. Cloudflare OAuth credentials are resolved by the Host and supplied only to the requested Plugin operation.
+
 Blog Beta can publish a manuscript to a Digital Garden (DG) Site backed by a local Vault. The destination picker exposes only folders under the root configured for that Site. The browser keeps the chosen relative path in the current tab session; the server resolves and validates it again when publishing.
 
 ## Destination contract
@@ -21,6 +23,6 @@ Blog Beta can publish a manuscript to a Digital Garden (DG) Site backed by a loc
 
 ## Ownership and validation
 
-The UI owns selection and session-scoped target settings. It never sends absolute Vault paths. The Site Hosting service owns root resolution, folder enumeration, containment checks, post writing, and deployment. The Knowledge Collection builder owns inclusion and exclusion during collection generation.
+The UI owns selection and session-scoped target settings. It never sends absolute Vault paths. The Site Hosting service owns root resolution, folder enumeration, containment checks, and post writing. Astro build/preview and hosting-provider deployment run through the `astro-site-hosting` Plugin. The Knowledge Collection builder owns inclusion and exclusion during collection generation.
 
 No compatibility migration is needed: destination selection is a current UI request field and generated posts live in user-selected Vault folders.

@@ -1,0 +1,47 @@
+{
+  "name": "@bloggenius/astro-site-hosting",
+  "version": "0.1.0",
+  "description": "Astro site runtime and deployment capabilities for BlogGenius",
+  "main": "index.js",
+  "files": ["index.js", "README.md"],
+  "engines": { "node": ">=20" },
+  "bloggeniusPlugin": {
+    "manifestVersion": 1,
+    "id": "astro-site-hosting",
+    "name": "Astro Site Hosting",
+    "hostApi": "^1.0.0",
+    "summary": "Builds and previews Astro sites and invokes hosting-provider operations.",
+    "operations": {
+      "astro.build": {
+        "description": "Build an Astro site and capture its preview screenshot.",
+        "inputSchema": { "type": "object", "properties": { "projectId": { "type": "string", "minLength": 1 }, "siteId": { "type": "string", "minLength": 1 } }, "required": ["projectId", "siteId"], "additionalProperties": false },
+        "outputSchema": { "type": "object", "additionalProperties": true },
+        "capabilities": ["site.astro.build"]
+      },
+      "astro.build-status": {
+        "description": "Read the current build state for an Astro site.",
+        "inputSchema": { "type": "object", "properties": { "projectId": { "type": "string", "minLength": 1 }, "siteId": { "type": "string", "minLength": 1 } }, "required": ["projectId", "siteId"], "additionalProperties": false },
+        "outputSchema": { "type": "object", "additionalProperties": true },
+        "capabilities": ["site.astro.build-status"]
+      },
+      "astro.preview": {
+        "description": "Start or stop an Astro site or temporary draft preview.",
+        "inputSchema": { "type": "object", "properties": { "action": { "enum": ["start", "stop", "start-draft", "stop-draft"] }, "projectId": { "type": "string" }, "siteId": { "type": "string" }, "draftId": { "type": "string" }, "draft": { "type": "object", "additionalProperties": true } }, "required": ["action"], "additionalProperties": false },
+        "outputSchema": {},
+        "capabilities": ["site.astro.preview"]
+      },
+      "hosting.deploy": {
+        "description": "Build an Astro site and deploy the output through the configured hosting provider.",
+        "inputSchema": { "type": "object", "properties": { "site": { "type": "object", "additionalProperties": true }, "credentials": { "type": "object", "additionalProperties": true }, "context": { "type": "object", "additionalProperties": true } }, "required": ["site", "credentials"], "additionalProperties": false },
+        "outputSchema": { "type": "object", "additionalProperties": true },
+        "capabilities": ["site.deploy"]
+      },
+      "provider.call": {
+        "description": "Call a normalized hosting-provider operation used by site lifecycle workflows.",
+        "inputSchema": { "type": "object", "properties": { "action": { "enum": ["account.resolve", "domains.list", "site-resources.list", "site-domain-bindings.list", "site-domain-records.list", "site-domain.bind", "site-domain.unbind", "site-resource.delete", "site-deployments.list"] }, "accountId": { "type": "string" }, "input": { "type": "object", "additionalProperties": true } }, "required": ["action", "input"], "additionalProperties": false },
+        "outputSchema": {},
+        "capabilities": ["site.provider.operations"]
+      }
+    }
+  }
+}

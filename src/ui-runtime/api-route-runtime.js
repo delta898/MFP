@@ -591,6 +591,7 @@ function createUiApiRouteRuntime(deps = {}) {
                 manuscriptDraftService: getManuscriptDraftService(),
                 workspaceDir: CONFIG?.WORKSPACE_DIR,
                 runtimeEnvironment: CONFIG?.RUNTIME_ENVIRONMENT,
+                corePluginRuntime,
                 getCloudflareDeploymentCredentials: (accountId) => getCloudflareConnectionServiceInstance().getDeploymentCredentials(accountId)
             });
         }
