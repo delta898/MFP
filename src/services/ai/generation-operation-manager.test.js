@@ -97,6 +97,21 @@ test('failure is retained briefly and a different operation cannot be canceled',
     assert.throws(() => manager.get(started.operationId), (error) => error.status === 404);
 });
 
+test('operation callers can preserve their fallback failure code for uncoded errors', async () => {
+    const coordinator = createBlogExecutionCoordinator();
+    const manager = createAiGenerationOperationManager({ coordinator });
+    const started = manager.start({ failureCode: 'CALLER_FAILURE_CODE' }, async () => {
+        throw new Error('uncoded failure');
+    });
+
+    await settled();
+
+    assert.deepEqual(manager.get(started.operationId).error, {
+        code: 'CALLER_FAILURE_CODE',
+        message: 'uncoded failure'
+    });
+});
+
 test('shared coordinator rejects a generation while another Blog Beta task holds the lease', () => {
     const coordinator = createBlogExecutionCoordinator();
     const other = coordinator.acquire({ source: 'continuous_runner' });

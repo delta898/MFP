@@ -26,7 +26,7 @@ changing publishing or API behavior.
 - Changing publishing behavior, public API response contracts, persisted data,
   Plugin contracts, or UI.
 - Migrating other legacy product directories.
-- Committing, merging, pushing, releasing, or changing the parent branch.
+- Pushing, releasing, or changing unrelated parent-branch work.
 
 ## Design and decisions
 
@@ -65,18 +65,24 @@ paths, not user-visible publishing behavior.
   `src/applications/blog/execution/`; moved the AI operation manager and tests to
   `src/services/ai/`; moved Naver progress presentation and tests to
   `src/adapters/ui/`. Updated imports/callers and removed `src/blog-next/`.
+- 2026-10-16: Review caught a fallback failure-code difference in the moved AI
+  operation manager. The manager now accepts a caller-specific fallback code,
+  and existing Blog, Card News, and SNS callers preserve their prior
+  `MANUSCRIPT_AI_GENERATE_FAILED` response code.
 - 2026-10-16: `BLOGGENIUS_ENV=local node --test` for the migrated modules,
   content-service execution/related-post tests, continuous publishing, manual
-  SNS, and legacy API routes passed: 131 tests.
-- A separate full `card-news.service.test.js` run passed shared-operation tests
-  but had five failures in image-model profile/catalog assertions. Those catalog
-  paths were not changed in this slice; the suite is not reported as passing.
-- `git diff --check` and a repository search for imports from `src/blog-next/`
-  are the final checks before handoff.
+  SNS, and legacy API routes passed: 132 tests. `git diff --check` and a source
+  search for imports from `src/blog-next/` also passed.
+- A separate full `card-news.service.test.js` run had five image-model profile/
+  catalog failures. Their baseline status was not compared against the parent;
+  they remain unresolved and the suite is not reported as passing.
+- 2026-10-16: Complete change-set review found no remaining actionable findings.
+- 2026-10-16: Initial implementation committed as `7829f648`; compatibility
+  follow-up is ready for commit before parent integration.
 
 ## Remaining risks and manual checks
 
-- The five Card News catalog assertions need separate diagnosis; determine whether
-  they were already failing on the parent before attributing them to this change.
+- The five Card News catalog assertions need separate diagnosis; compare them on
+  the parent before attributing them to this change.
 - No visual UI change was made, so no manual UI acceptance is needed for this
   migration.

@@ -1257,6 +1257,8 @@ function createContentService(deps = {}) {
             Logger?.info?.('[Blog Beta][Progress] 원고 생성을 준비하고 있습니다.');
             return aiGenerationOperations.start({
                 source: 'manuscript_generation',
+                message: 'AI로 원고를 만들고 있습니다.',
+                failureCode: 'MANUSCRIPT_AI_GENERATE_FAILED',
                 subject: String(requestBody.subject || requestBody.title || '바로 생성 원고').trim(),
                 remoteJobPossible: generatesBlogImages(imageMode)
                     && String(imageModelConfig.transport || '') === 'kie_market_image_jobs'
@@ -1291,6 +1293,7 @@ function createContentService(deps = {}) {
             const operationInput = { ...requestBody, draftId };
             return aiGenerationOperations.start({
                 source: 'manuscript_image_generation',
+                failureCode: 'MANUSCRIPT_AI_GENERATE_FAILED',
                 subject: action === 'generate-missing' ? '이미지 일괄 생성' : '이미지 생성',
                 message: '원고 이미지 생성 중',
                 remoteJobPossible

@@ -472,6 +472,7 @@ function createCardNewsService(deps = {}) {
             : {};
         return generationOperationManager.start({
             source: 'card_news_composition_generation',
+            failureCode: 'MANUSCRIPT_AI_GENERATE_FAILED',
             subject: String(input.source_snapshot?.title || '카드뉴스 구성').trim().slice(0, 120),
             message: '카드뉴스 구성 생성 중',
             remoteJobPossible: normalizeImageMode(input.image_mode) === 'generate'
@@ -507,6 +508,7 @@ function createCardNewsService(deps = {}) {
         const generation = generationService.getGeneration?.(input.generation_id);
         return generationOperationManager.start({
             source: 'card_news_image_generation',
+            failureCode: 'MANUSCRIPT_AI_GENERATE_FAILED',
             subject: String(generation?.title || '카드뉴스 이미지'),
             message: '카드뉴스 이미지 생성 중',
             remoteJobPossible: String(imageModelConfig?.transport || '').includes('kie')

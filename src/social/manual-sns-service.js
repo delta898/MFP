@@ -183,6 +183,7 @@ function createManualSnsService(deps = {}) {
         const model = CONFIG.IMAGE_MODEL_CONFIG || {};
         return imageOperationManager.start({
             source: 'manual_sns_image_generation',
+            failureCode: 'MANUSCRIPT_AI_GENERATE_FAILED',
             subject: 'SNS 이미지',
             message: 'SNS 이미지 생성 중',
             remoteJobPossible: String(model.transport || '').toLowerCase().includes('kie')

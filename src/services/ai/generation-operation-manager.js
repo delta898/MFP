@@ -90,7 +90,7 @@ function createAiGenerationOperationManager(options = {}) {
             message: String(input.message || 'AI 생성 작업을 진행하고 있습니다.')
         });
         if (!lease) {
-            throw makeError(409, 'BLOG_NEXT_EXECUTION_BUSY', '다른 생성 작업을 처리하고 있습니다. 현재 실행이 끝난 뒤 다시 시도해 주세요.');
+            throw makeError(409, 'BLOG_NEXT_EXECUTION_BUSY', '다른 블로그 작업을 처리하고 있습니다. 현재 실행이 끝난 뒤 다시 시도해 주세요.');
         }
         const controller = new AbortController();
         let operationId;
@@ -117,6 +117,7 @@ function createAiGenerationOperationManager(options = {}) {
             result: null,
             error: null,
             progress: null,
+            failureCode: String(input.failureCode || 'AI_GENERATION_OPERATION_FAILED'),
             controller,
             commitStarted: false
         };
@@ -163,7 +164,7 @@ function createAiGenerationOperationManager(options = {}) {
             } else {
                 operation.state = 'failed';
                 operation.error = {
-                    code: String(error?.apiCode || error?.code || 'AI_GENERATION_OPERATION_FAILED'),
+                    code: String(error?.apiCode || error?.code || operation.failureCode),
                     message: String(error?.message || 'AI 생성 작업을 완료하지 못했습니다.')
                 };
             }
