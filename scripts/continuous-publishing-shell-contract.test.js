@@ -295,8 +295,8 @@ test('Stage 11 exposes one shared publish status with a return action and no dup
     assert.match(runnerScript, /localStopUnavailable \? '마무리 중…'/);
     assert.match(runnerScript, /최종 요청 처리 중\. 외부 반영 여부가 불확실해 중지할 수 없습니다\./);
     assert.match(runnerScript, /startBlogNextLocalPublishProgress\(getSubject\)/);
-    assert.match(runnerScript, /editor: '에디터 연결 중'/);
-    assert.match(runnerScript, /body: '원고 입력 중'/);
+    assert.match(runnerScript, /editor: '네이버 에디터 연결 중'/);
+    assert.match(runnerScript, /body: '본문 입력 중'/);
     assert.match(runnerScript, /image: '이미지 업로드 중'/);
     assert.match(runnerScript, /renderBlogNextCompletionLinks\(status\)/);
     assert.match(runnerScript, /noopener noreferrer/);
@@ -312,15 +312,13 @@ test('Stage 11 exposes one shared publish status with a return action and no dup
 });
 
 test('Naver browser milestones cross the publishing engine as structured progress', () => {
-    const core = read('src/core.js');
     const publishRuntime = read('src/ui-runtime/publish-actions-runtime.js');
     const contentService = read('src/ui-api/services/content.service.js');
-    assert.match(core, /options\.onProgress\(\{ stage, current, total, postStatus:/);
-    assert.match(core, /reportPublishProgress\('body', sectionCurrent, sectionTotal\)/);
-    assert.match(core, /reportPublishProgress\('image', imageCurrent, imageTotal\)/);
-    assert.match(core, /reportPublishProgress\('link', linkCurrent, linkTotal\)/);
+    const naverPlugin = read('packages/plugins/core/naver-publisher/index.js');
+    assert.match(naverPlugin, /report\(context, 'working', 'body', bodyDone, bodyTotal\)/);
+    assert.match(naverPlugin, /report\(context, 'uploading', 'image', imageDone, imageIndexes\.length\)/);
     assert.match(publishRuntime, /onProgress: requestBody\?\.onNaverProgress/);
-    assert.match(contentService, /presentNaverPublishProgress\(progress, snapshot\.settings\.postStatus\)/);
+    assert.match(contentService, /presentNaverPublishProgress\(progress, fallbackPostStatus\)/);
 });
 
 test('immediate publishing preflights selected connections and preserves the form until terminal success', () => {

@@ -72,7 +72,7 @@ test('Naver browser milestones reach the shared status while direct publish is r
     const publishing = service.localMarkdownPublish({ markdownText: '# 원고', postStatus: 'draft' });
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(coordinator.getStatus().progressStage, 'body');
-    assert.equal(coordinator.getStatus().message, '본문 2/5 구간을 입력하고 있습니다.');
+    assert.equal(coordinator.getStatus().message, '본문을 입력하고 있습니다. (2/5)');
     finish({ success: true, data: { postStatus: 'draft' } });
     await publishing;
     assert.deepEqual(coordinator.getStatus(), { busy: false });

@@ -337,7 +337,7 @@ test('Naver Publisher leaves generic editor popovers and toolbar focus untouched
     assert.equal(messages.some((message) => message.includes('overlays dismissed')), false);
 });
 
-test('Naver Publisher progress counts article sections, not every normalized body block', async () => {
+test('Naver Publisher progress advances for each non-image body block', async () => {
     const page = fakePage();
     const events = [];
     const plugin = createPlugin({
@@ -359,7 +359,7 @@ test('Naver Publisher progress counts article sections, not every normalized bod
     }, { reportProgress: (event) => events.push(event) });
 
     assert.deepEqual(events.filter((event) => event.stage === 'body').map(({ current, total }) => [current, total]), [
-        [1, 2], [1, 2], [1, 2], [2, 2], [2, 2]
+        [1, 4], [2, 4], [3, 4], [4, 4]
     ]);
 });
 

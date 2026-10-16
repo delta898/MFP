@@ -4972,7 +4972,7 @@ async function run() {
         await page.locator('[data-blog-next-tab="queue"]').click();
         await page.locator('[data-blog-next-tab="quick"]').click();
         assert.equal(await page.locator('#blog-next-publish-status-cancel').isVisible(), true);
-        await page.waitForFunction(() => document.getElementById('blog-next-publish-status-message')?.textContent?.includes('이미지를 준비'));
+        await page.waitForFunction(() => document.getElementById('blog-next-publish-status-message')?.textContent?.includes('이미지를 만들고 있습니다.'));
         await page.locator('#blog-next-publish-status-cancel').click();
         assert.equal((await page.locator('#blog-next-publish-status-cancel').textContent())?.trim(), '중지 확인');
         assert.equal(await page.locator('#blog-next-publish-status-continue').isVisible(), true);

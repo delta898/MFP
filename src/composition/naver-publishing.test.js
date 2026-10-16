@@ -40,6 +40,7 @@ test('Naver publishing composition loads the bundled Plugin through the Host and
                                         return selector.includes('publish_btn') ? '발행' : '';
                                     },
                                     async textContent() { return this.innerText(); },
+                                    async evaluate() { return selector.includes('se-documentTitle') && titleFocused; },
                                     async scrollIntoViewIfNeeded() {}
                                 };
                             },
