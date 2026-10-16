@@ -7,12 +7,13 @@ const path = require('node:path');
 const test = require('node:test');
 const { createSiteHostingProjectRepository } = require('../../site-hosting/project-repository');
 const { createSiteHostingSiteRepository } = require('../../site-hosting/site-repository');
+const { createFixtureSiteTemplateCatalog } = require('../../../test/fixtures/site-hosting/template-catalog');
 const { createSiteTemplateCatalog } = require('../../site-hosting/site-template-catalog');
 const { SITE_HOSTING_CONTRACT_VERSION } = require('../../site-hosting/bloggenius-compatibility');
 const { createSiteHostingSiteService } = require('./site-hosting-site.service');
 
 function localTemplates() {
-    return createSiteTemplateCatalog({ fs, path });
+    return createFixtureSiteTemplateCatalog({ fs, path });
 }
 
 test('site service lists templates and creates a named site without Cloudflare details', async () => {

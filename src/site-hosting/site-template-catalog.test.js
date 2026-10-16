@@ -6,9 +6,10 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 const { createSiteTemplateCatalog } = require('./site-template-catalog');
+const { templatesRoot } = require('../../test/fixtures/site-hosting/template-catalog');
 
 test('temporary homepage template is listed as metadata and copied from its Astro source folder', () => {
-    const catalog = createSiteTemplateCatalog({ fs, path });
+    const catalog = createSiteTemplateCatalog({ fs, path, templatesRoot });
     const templates = catalog.list();
     assert.deepEqual(templates.map(({ id, version, name }) => ({ id, version, name })), [
         { id: 'minimal-homepage', version: '0.1.0', name: '간단한 홈페이지' }
@@ -31,7 +32,7 @@ test('temporary homepage template is listed as metadata and copied from its Astr
 });
 
 test('template catalog rejects path-like IDs and reports an unknown template', () => {
-    const catalog = createSiteTemplateCatalog({ fs, path });
+    const catalog = createSiteTemplateCatalog({ fs, path, templatesRoot });
     assert.equal(catalog.get('../minimal-homepage'), null);
     assert.throws(() => catalog.copySource('missing-template', os.tmpdir()), { code: 'SITE_HOSTING_TEMPLATE_NOT_FOUND' });
 });

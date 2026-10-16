@@ -95,7 +95,6 @@
       "ui/**/*",
       "src/config/*.md",
       "src/config/*.json",
-      "src/site-hosting/templates/**/*",
       "node_modules/playwright-core/lib/**/*.js",
       "node_modules/playwright-core/package.json",
       "node_modules/axios/dist/node/axios.cjs",

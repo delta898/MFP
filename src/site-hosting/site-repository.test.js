@@ -7,8 +7,8 @@ const path = require('node:path');
 const test = require('node:test');
 const { createSiteHostingProjectRepository } = require('./project-repository');
 const { createSiteHostingSiteRepository } = require('./site-repository');
-const { createSiteTemplateCatalog } = require('./site-template-catalog');
 const { SITE_HOSTING_CONTRACT_VERSION } = require('./bloggenius-compatibility');
+const { createFixtureSiteTemplateCatalog } = require('../../test/fixtures/site-hosting/template-catalog');
 
 test('site repository materializes selected Astro files and keeps BlogGenius metadata separate', () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-hosting-site-'));
@@ -16,7 +16,7 @@ test('site repository materializes selected Astro files and keeps BlogGenius met
         const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
         projectRepository.create({ id: 'project-1', name: '개인 사이트' });
         const repository = createSiteHostingSiteRepository({
-            fs, path, projectRepository, templates: createSiteTemplateCatalog({ fs, path })
+            fs, path, projectRepository, templates: createFixtureSiteTemplateCatalog({ fs, path })
         });
         const site = repository.create('project-1', {
             id: 'site-1', name: '개인 블로그', template_id: 'minimal-homepage',
@@ -56,7 +56,7 @@ test('imported Astro settings update the declared shared config and keep project
             descriptor_valid: true, settings_valid: true,
             capabilities: { site_identity: true, navigation: true, logo: true, favicon: true, share_image: true }
         };
-        const repository = createSiteHostingSiteRepository({ fs, path, projectRepository, templates: createSiteTemplateCatalog({ fs, path }) });
+        const repository = createSiteHostingSiteRepository({ fs, path, projectRepository, templates: createFixtureSiteTemplateCatalog({ fs, path }) });
         const imported = repository.importAstroProject('project-1', {
             id: 'site-1', name: '새 이름', archive_name: 'site.zip', integration,
             customization: {
@@ -100,7 +100,7 @@ test('site repository rejects unsafe and duplicate IDs without replacing an exis
         const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
         projectRepository.create({ id: 'project-1', name: '개인 사이트' });
         const repository = createSiteHostingSiteRepository({
-            fs, path, projectRepository, templates: createSiteTemplateCatalog({ fs, path })
+            fs, path, projectRepository, templates: createFixtureSiteTemplateCatalog({ fs, path })
         });
         assert.throws(() => repository.create('project-1', { id: '../outside', name: '잘못된 ID', template_id: 'minimal-homepage' }), { code: 'SITE_HOSTING_SITE_ID_INVALID' });
         repository.create('project-1', { id: 'site-1', name: '첫 사이트', template_id: 'minimal-homepage' });
@@ -160,7 +160,7 @@ test('site repository archives a site intact and removes it from the active site
     try {
         const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
         projectRepository.create({ id: 'project-1', name: '개인 사이트' });
-        const repository = createSiteHostingSiteRepository({ fs, path, projectRepository, templates: createSiteTemplateCatalog({ fs, path }) });
+        const repository = createSiteHostingSiteRepository({ fs, path, projectRepository, templates: createFixtureSiteTemplateCatalog({ fs, path }) });
         repository.create('project-1', { id: 'site-1', name: '보관할 사이트', template_id: 'minimal-homepage' });
         const archived = repository.archive('project-1', 'site-1', '2026-10-06T12:00:00.000Z');
         assert.equal(archived.archived, true);
@@ -179,7 +179,7 @@ test('site repository persists its selected Cloudflare account independently of 
     try {
         const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
         projectRepository.create({ id: 'project-1', name: '개인 사이트' });
-        const repository = createSiteHostingSiteRepository({ fs, path, projectRepository, templates: createSiteTemplateCatalog({ fs, path }) });
+        const repository = createSiteHostingSiteRepository({ fs, path, projectRepository, templates: createFixtureSiteTemplateCatalog({ fs, path }) });
         repository.create('project-1', { id: 'site-1', name: '계정 연결 사이트', template_id: 'minimal-homepage' });
         const selected = repository.recordCloudflareAccount('project-1', 'site-1', { id: 'account-id', name: 'Blog Account' }, '2026-10-11T00:00:00Z');
         assert.deepEqual(selected.cloudflare_account, { id: 'account-id', name: 'Blog Account' });
@@ -196,7 +196,7 @@ test('site repository creates a customized preview draft outside the persistent 
         const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
         projectRepository.create({ id: 'project-1', name: '개인 사이트' });
         const repository = createSiteHostingSiteRepository({
-            fs, path, projectRepository, templates: createSiteTemplateCatalog({ fs, path }), temporaryRoot: workspaceDir
+            fs, path, projectRepository, templates: createFixtureSiteTemplateCatalog({ fs, path }), temporaryRoot: workspaceDir
         });
         const draft = repository.createPreviewDraft('project-1', {
             id: 'draft-one', name: '임시 사이트', template_id: 'minimal-homepage',

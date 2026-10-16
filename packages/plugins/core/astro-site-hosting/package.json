@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "description": "Astro site runtime and deployment capabilities for BlogGenius",
   "main": "index.js",
-  "files": ["index.js", "README.md"],
+  "files": ["index.js", "runtime/astro-site-runtime.js", "cloudflare-static-assets-deployer.js", "README.md"],
+  "dependencies": { "cloudflare": "7.2.0" },
   "engines": { "node": ">=20" },
   "bloggeniusPlugin": {
     "manifestVersion": 1,

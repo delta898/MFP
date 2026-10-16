@@ -6,14 +6,8 @@ const os = require('node:os');
 const crypto = require('node:crypto');
 const http = require('node:http');
 const { spawn } = require('node:child_process');
-const { createSiteHostingProjectRepository } = require('./project-repository');
-const { createSiteHostingSiteRepository } = require('./site-repository');
-const { createSiteTemplateCatalog } = require('./site-template-catalog');
-const { normalizeMenuDestination } = require('./navigation-contract');
-const { captureSiteScreenshot, VIEWPORT } = require('./electron-site-screenshot');
-const { createKnowledgeCollectionBuilder } = require('./knowledge-collection-builder');
-
 const BUILD_TIMEOUT_MS = 10 * 60 * 1000;
+const VIEWPORT = Object.freeze({ width: 1200, height: 675 });
 const CONTENT_TYPES = {
     '.css': 'text/css; charset=utf-8',
     '.avif': 'image/avif',
@@ -54,24 +48,23 @@ function replaceFile(fileSystem, tempPath, targetPath, backupPath) {
 function createAstroSiteRuntime(options = {}) {
     const fileSystem = options.fs || fs;
     const pathApi = options.path || path;
-    const projectRepository = options.projectRepository || createSiteHostingProjectRepository(options);
-    const templates = options.templates || createSiteTemplateCatalog({
-        fs: fileSystem,
-        path: pathApi,
-        templatesRoot: options.templatesRoot
-    });
-    const siteRepository = options.siteRepository || createSiteHostingSiteRepository({
-        ...options,
-        projectRepository,
-        templates
-    });
+    const projectRepository = options.projectRepository;
+    const templates = options.templates;
+    const siteRepository = options.siteRepository;
+    if (!projectRepository || !templates || !siteRepository) {
+        throw new TypeError('Astro Site Hosting Plugin requires project, site, and template ports.');
+    }
+    if (typeof options.normalizeMenuDestination !== 'function') {
+        throw new TypeError('Astro Site Hosting Plugin requires the site navigation contract port.');
+    }
     const spawnProcess = options.spawn || spawn;
     const buildJobs = new Map();
     const previewServers = new Map();
-    const knowledgeCollectionBuilder = options.knowledgeCollectionBuilder || createKnowledgeCollectionBuilder({ fs: fileSystem, path: pathApi });
+    const knowledgeCollectionBuilder = options.knowledgeCollectionBuilder;
+    const normalizeMenuDestination = options.normalizeMenuDestination;
     const npmCliPath = options.npmCliPath || pathApi.join(pathApi.dirname(require.resolve('npm/package.json')), 'bin', 'npm-cli.js');
     const cacheRoot = options.cacheRoot || pathApi.join(os.tmpdir(), 'bloggenius-site-npm-cache');
-    const captureScreenshot = options.captureScreenshot || captureSiteScreenshot;
+    const captureScreenshot = options.captureScreenshot || (async () => { throw new Error('Site screenshot capture is unavailable.'); });
 
     function ensureNodeShim() {
         const binRoot = pathApi.join(cacheRoot, 'runtime-bin');
@@ -123,6 +116,9 @@ function createAstroSiteRuntime(options = {}) {
         const rootInput = declared.find((item) => item.type === 'directory' && item.purpose === 'knowledge_collection');
         const filterInput = declared.find((item) => item.type === 'frontmatter_match' && item.purpose === 'publication_filter');
         if (!rootInput || !filterInput) return null;
+        if (!knowledgeCollectionBuilder || typeof knowledgeCollectionBuilder.build !== 'function') {
+            throw new TypeError('Astro Site Hosting Plugin requires the knowledge-collection builder for this template.');
+        }
         return knowledgeCollectionBuilder.build({
             vaultRoot: site?.setup_inputs?.[rootInput.id],
             publicationFilter: site?.setup_inputs?.[filterInput.id],

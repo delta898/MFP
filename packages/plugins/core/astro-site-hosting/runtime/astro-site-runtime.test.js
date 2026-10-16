@@ -8,15 +8,17 @@ const os = require('node:os');
 const path = require('node:path');
 const { PassThrough } = require('node:stream');
 const test = require('node:test');
-const { createSiteHostingProjectRepository } = require('./project-repository');
-const { createSiteHostingSiteRepository } = require('./site-repository');
-const { createSiteTemplateCatalog } = require('./site-template-catalog');
+const { createSiteHostingProjectRepository } = require('../../../../../src/site-hosting/project-repository');
+const { createSiteHostingSiteRepository } = require('../../../../../src/site-hosting/site-repository');
+const { createFixtureSiteTemplateCatalog } = require('../../../../../test/fixtures/site-hosting/template-catalog');
+const { normalizeMenuDestination } = require('../../../../../src/site-hosting/navigation-contract');
+const { createKnowledgeCollectionBuilder } = require('../../../../../src/site-hosting/knowledge-collection-builder');
 const { createAstroSiteRuntime } = require('./astro-site-runtime');
 
 function createFixture() {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bg-astro-runtime-'));
     const projectRepository = createSiteHostingProjectRepository({ fs, path, workspaceDir });
-    const templates = createSiteTemplateCatalog({ fs, path });
+    const templates = createFixtureSiteTemplateCatalog({ fs, path });
     projectRepository.create({ id: 'project-1', name: 'Test Project' });
     const siteRepository = createSiteHostingSiteRepository({ fs, path, projectRepository, templates });
     const site = siteRepository.create('project-1', {
@@ -24,6 +26,18 @@ function createFixture() {
         created_at: '2026-10-02T00:00:00.000Z', updated_at: '2026-10-02T00:00:00.000Z'
     });
     return { workspaceDir, projectRepository, siteRepository, templates, site };
+}
+
+function createRuntime(fixture, options = {}) {
+    return createAstroSiteRuntime({
+        fs, path,
+        projectRepository: fixture.projectRepository,
+        siteRepository: fixture.siteRepository,
+        templates: fixture.templates,
+        normalizeMenuDestination,
+        knowledgeCollectionBuilder: createKnowledgeCollectionBuilder({ fs, path }),
+        ...options
+    });
 }
 
 function fakeNpmSpawn(calls) {
@@ -63,13 +77,11 @@ test('Astro runtime installs locked site dependencies, builds, and serves dist o
         const calls = [];
         let screenshotCount = 0;
         const metadataRoot = path.join(fixture.site.root_path, '.bloggenius');
-        const runtime = createAstroSiteRuntime({
-            fs, path, projectRepository: fixture.projectRepository,
-            siteRepository: fixture.siteRepository, templates: fixture.templates,
+        const runtime = createRuntime(fixture, {
             npmCliPath: '/app/node_modules/npm/bin/npm-cli.js',
             cacheRoot: path.join(fixture.workspaceDir, '.cache'),
             spawn: fakeNpmSpawn(calls),
-            captureScreenshot: async () => ({ buffer: Buffer.from(`fake-jpeg-${++screenshotCount}`), viewport: { width: 1200, height: 675 } })
+        captureScreenshot: async () => ({ buffer: Buffer.from(`fake-jpeg-${++screenshotCount}`), viewport: { width: 1200, height: 675 } }),
         });
         const result = await runtime.build('project-1', 'site-1');
         assert.equal(result.status, 'succeeded');
@@ -135,9 +147,7 @@ test('Astro runtime builds family templates from template/astro and keeps dist a
         manifest.template.family_id = 'personal-homepage';
         fs.writeFileSync(manifestPath, JSON.stringify(manifest));
         const calls = [];
-        const runtime = createAstroSiteRuntime({
-            fs, path, projectRepository: fixture.projectRepository,
-            siteRepository: fixture.siteRepository, templates: fixture.templates,
+        const runtime = createRuntime(fixture, {
             npmCliPath: '/app/node_modules/npm/bin/npm-cli.js',
             cacheRoot: path.join(fixture.workspaceDir, '.cache'),
             spawn: fakeNpmSpawn(calls),
@@ -155,9 +165,7 @@ test('Astro runtime builds family templates from template/astro and keeps dist a
 test('Astro build remains successful and preserves the template image when capture fails', async () => {
     const fixture = createFixture();
     try {
-        const runtime = createAstroSiteRuntime({
-            fs, path, projectRepository: fixture.projectRepository,
-            siteRepository: fixture.siteRepository, templates: fixture.templates,
+        const runtime = createRuntime(fixture, {
             npmCliPath: '/app/node_modules/npm/bin/npm-cli.js',
             cacheRoot: path.join(fixture.workspaceDir, '.cache'),
             spawn: fakeNpmSpawn([]),
@@ -190,9 +198,7 @@ test('Astro build moves the publishing listing to the selected menu route and re
                 resource: { site_hosting: { publishing: { routes: { listing: '/blog/', detail: '/blog/{slug}/' } } } }
             })
         };
-        const runtime = createAstroSiteRuntime({
-            fs, path, projectRepository: fixture.projectRepository,
-            siteRepository: fixture.siteRepository, templates,
+        const runtime = createRuntime({ ...fixture, templates }, {
             npmCliPath: '/app/node_modules/npm/bin/npm-cli.js',
             cacheRoot: path.join(fixture.workspaceDir, '.cache'),
             spawn: (_executable, args, options) => {
@@ -243,9 +249,7 @@ test('Astro build preserves an existing site-builder route and still succeeds', 
                 resource: { site_hosting: { publishing: { routes: { listing: '/blog/', detail: '/blog/{slug}/' } } } }
             })
         };
-        const runtime = createAstroSiteRuntime({
-            fs, path, projectRepository: fixture.projectRepository,
-            siteRepository: fixture.siteRepository, templates,
+        const runtime = createRuntime({ ...fixture, templates }, {
             npmCliPath: '/app/node_modules/npm/bin/npm-cli.js',
             cacheRoot: path.join(fixture.workspaceDir, '.cache'),
             spawn: (_executable, args, options) => {
@@ -283,9 +287,7 @@ test('Astro build preserves an existing site-builder route and still succeeds', 
 test('Astro runtime builds a site before starting preview when no output exists', async () => {
     const fixture = createFixture();
     try {
-        const runtime = createAstroSiteRuntime({
-            fs, path, projectRepository: fixture.projectRepository,
-            siteRepository: fixture.siteRepository, templates: fixture.templates,
+        const runtime = createRuntime(fixture, {
             npmCliPath: '/app/node_modules/npm/bin/npm-cli.js',
             cacheRoot: path.join(fixture.workspaceDir, '.cache'),
             spawn: fakeNpmSpawn([]),
@@ -311,9 +313,7 @@ test('Astro runtime builds and serves a draft preview without recording a persis
         draft = fixture.siteRepository.createPreviewDraft('project-1', {
             id: 'draft-preview-one', name: 'Draft Preview', template_id: 'minimal-homepage', customization: {}
         });
-        const runtime = createAstroSiteRuntime({
-            fs, path, projectRepository: fixture.projectRepository,
-            siteRepository: fixture.siteRepository, templates: fixture.templates,
+        const runtime = createRuntime(fixture, {
             npmCliPath: '/app/node_modules/npm/bin/npm-cli.js',
             cacheRoot: path.join(fixture.workspaceDir, '.cache'),
             spawn: fakeNpmSpawn([])
@@ -358,9 +358,7 @@ test('Garden build filters notes using the template-declared publication input a
             publication_filter: { field: 'publication', value: 'public' }
         };
         fs.writeFileSync(manifestPath, JSON.stringify(manifest));
-        const runtime = createAstroSiteRuntime({
-            fs, path, projectRepository: fixture.projectRepository,
-            siteRepository: fixture.siteRepository, templates,
+        const runtime = createRuntime({ ...fixture, templates }, {
             npmCliPath: '/app/node_modules/npm/bin/npm-cli.js',
             cacheRoot: path.join(fixture.workspaceDir, '.cache'),
             spawn: fakeNpmSpawn([]),

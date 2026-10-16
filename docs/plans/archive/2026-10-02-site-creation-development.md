@@ -28,7 +28,7 @@ Project는 이름만으로 생성한다. Site 생성은 template 종류와 표�
 - 배포 대상 이름은 Site ID에서 자동 생성해 재배포 시 같은 Worker를 갱신한다. 이번 PoC는 Cloudflare Workers Static Assets 구현에 한정하고 Cloudflare Worker라는 용어를 Site 개념이나 생성 입력으로 노출하지 않는다.
 - Site의 `이름`과 선택 template이 요구하는 사이트 제목/title 설정이 중복될 수 있다. 화면에서 이름이 어떤 용도인지 구분하고, template 필수 입력이 있을 때만 추가 질문한다.
 - 외부 template repository는 BlogGenius와 별도 소유다. 기존 template contract spike는 후보일 뿐 합의된 사양이 아니므로 근거 없이 표준으로 채택하지 않는다.
-- 사용자 승인: 이번 흐름을 실물로 검증할 수 있게 BlogGenius 내부 `src/site-hosting/templates/minimal-homepage`에 새로 만든 간단한 임시 template 하나를 둔다. 이는 별도 template project의 canonical catalog/spec으로 채택하지 않으며, 외부 catalog가 준비되면 catalog 공급 경계를 확장/교체한다.
+- 사용자 승인: 당시 흐름을 실물로 검증하기 위해 BlogGenius 내부에 간단한 임시 template을 두었다. 이는 별도 template project의 canonical catalog/spec으로 채택하지 않았으며, 외부 catalog 도입 후에는 앱에서 제거하고 테스트 전용 fixture로 이동했다.
 - 임시 Astro source는 Site 폴더의 최상위에 복사하고 BlogGenius metadata는 `.bloggenius/site.json`에 저장한다. manifest에는 안정적인 내부 Site ID, Project ID, 화면 표시 이름, template ID/version, 선택적 hostname, 생성/수정 시각을 기록한다.
 - Site는 BlogGenius 관리 개념과 표준 Astro 프로젝트를 하나의 디렉터리에서 함께 보유한다. `.bloggenius/site.json`은 BG 전용이고, Astro 프로젝트 파일은 루트에 둔다. `node_modules`와 `dist`는 재생성 가능한 산출물로 본다. export/import가 구현되면 둘은 제외하고, `package.json`과 lock 파일로 복원한다.
 - 현재 임시 template은 Astro 정적 홈페이지 한 페이지와 기본 `package.json`/`astro.config.mjs`로 제한한다. 일반 설정 언어, 변환 엔진, 사용자별 template 옵션은 만들지 않는다.
@@ -89,7 +89,7 @@ Project는 이름만으로 생성한다. Site 생성은 template 종류와 표�
 ## 구현 결과 및 검증
 
 - Project 상세를 Site 목록 중심으로 바꾸고 `개요`/`사이트` 탭을 제거했다. Project 진입 즉시 Site 목록을 읽으며, 상단 및 빈 상태에서 `사이트 만들기`로 추가할 수 있다. Project 설정은 보조 화면으로 이동할 수 있다. 현재 선택지는 새로 만든 `간단한 홈페이지` 하나이며 Cloudflare 연결을 요구하지 않는다.
-- 임시 starter는 `src/site-hosting/templates/minimal-homepage/`에 있다. standard Astro static project (`package.json`, `astro.config.mjs`, `src/pages/index.astro`)를 Site 폴더 루트에 복사한다. 이 fixture와 catalog reader는 외부 template repository를 대신하는 정식 규격이 아니며 공급 위치를 바꿀 수 있도록 분리했다.
+- 당시 임시 starter는 `src/site-hosting/templates/minimal-homepage/`에 있었으며, Amade 원격 카탈로그가 운영 source가 된 뒤 `test/fixtures/site-hosting/templates/`로 옮겼다. Amade 카탈로그의 원격 조회와 checksum 검증은 GitHub 카탈로그 테스트에서 별도로 검증한다.
 - Site 폴더는 `workspace/site-hosting/projects/{project_id}/sites/{site_id}/`다. 표준 Astro source는 이 경로의 루트에, BlogGenius metadata는 `.bloggenius/site.json`에 저장한다. metadata는 안정적인 Site ID와 Project ID, 사용자 표시 이름, 선택 template ID/version, hostname, 생성/수정 시각을 담는다.
 - 사이트 목록은 Site 표시 이름과 template 표시명만 노출한다. Site ID, 경로, Cloudflare worker name은 이번 UI에서 노출하지 않는다.
 - Template catalog/site repository/service/local route와 UI flow에 focused 테스트를 추가했다. 다음 테스트 결과를 확인했다: 28 tests, 26 pass, 2 기존 skip.

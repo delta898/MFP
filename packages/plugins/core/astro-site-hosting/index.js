@@ -2,9 +2,34 @@
 
 const PACKAGE_VERSION = require('./package.json').version;
 const manifest = require('./package.json').bloggeniusPlugin;
+const { createAstroSiteRuntime } = require('./runtime/astro-site-runtime');
+const { createCloudflareStaticAssetsDeployer, createCloudflareSdkAdapter } = require('./cloudflare-static-assets-deployer');
 
 function createPlugin(deps = {}) {
-    const { astroRuntime, cloudflareDeployer, getCredentials, createCloudflareAdapter } = deps;
+    const astroRuntime = deps.astroRuntime || createAstroSiteRuntime(deps);
+    const getCredentials = deps.getCredentials || (async () => {
+        const error = new Error('Hosting provider credentials are unavailable.');
+        error.code = 'HOSTING_CREDENTIALS_REQUIRED';
+        error.status = 409;
+        throw error;
+    });
+    const cloudflareDeployer = deps.cloudflareDeployer || createCloudflareStaticAssetsDeployer({
+        fs: deps.fs,
+        path: deps.path,
+        getCredentials,
+        createClient: deps.createCloudflareSdkClient,
+        createAdapter: deps.createCloudflareSdkAdapter,
+        fetchImpl: deps.fetchImpl,
+        logger: deps.logger
+    });
+    const createCloudflareAdapter = deps.createCloudflareAdapter || (async ({ accessToken }) => {
+        const Cloudflare = deps.createCloudflareSdkClient ? null : require('cloudflare');
+        const client = deps.createCloudflareSdkClient
+            ? deps.createCloudflareSdkClient(accessToken)
+            : new Cloudflare({ apiToken: accessToken, maxRetries: 1 });
+        const adapterFactory = deps.createCloudflareSdkAdapter || createCloudflareSdkAdapter;
+        return adapterFactory({ client, fetchImpl: deps.fetchImpl });
+    });
     if (!astroRuntime || typeof astroRuntime !== 'object') throw new TypeError('Astro Site Hosting requires astroRuntime.');
     if (!cloudflareDeployer || typeof cloudflareDeployer.deploy !== 'function') throw new TypeError('Astro Site Hosting requires a deployment provider.');
     if (typeof getCredentials !== 'function' || typeof createCloudflareAdapter !== 'function') {
@@ -43,7 +68,7 @@ function createPlugin(deps = {}) {
             const resolvedAccountId = String(credentials.account.id);
             if (accountId && resolvedAccountId !== String(accountId)) throw Object.assign(new Error('The connected provider account does not match this site.'), { code: 'HOSTING_ACCOUNT_MISMATCH' });
             if (action === 'account.resolve') return { account: { id: resolvedAccountId, name: String(credentials.account.name || '') } };
-            const adapter = createCloudflareAdapter({ accessToken: credentials.accessToken });
+            const adapter = await createCloudflareAdapter({ accessToken: credentials.accessToken });
             const invoke = providerActions[action];
             if (!invoke) throw new TypeError('Unsupported hosting-provider action.');
             return invoke(adapter, resolvedAccountId, input);
