@@ -17,6 +17,7 @@
 - `codex/feat/ai-gateway-plugin`은 Card News와 SNS 하위 feature를 순차 통합한 뒤 commit `65d64a33`으로 이 foundation에 fast-forward 병합됐다. Blog Beta 원고 글·이미지 생성과 WordPress 이미지 포함 발행, 카드뉴스 글·이미지 생성, SNS 해시태그·최적화·이미지 생성이 공통 AI Generation service를 사용한다. Gateway와 Application은 model/catalog를 비교하고, provider 자격 증명은 Host transport가 관리한다. 개발 기록은 [`2026-10-14-ai-gateway-plugin-development.md`](../archive/2026-10-14-ai-gateway-plugin-development.md), 하위 기록은 [`2026-10-15-card-news-ai-generation-service.md`](../archive/2026-10-15-card-news-ai-generation-service.md)와 [`2026-10-15-sns-ai-generation-service.md`](../archive/2026-10-15-sns-ai-generation-service.md)에 보관한다.
 - Gateway/Host/Blog 관련 focused 검증 153건과 Card News/SNS 및 구조 계약 focused 검증 142건이 통과했다. 전체 단위 테스트는 사전 `npm audit --audit-level=high` gate에서 의존성 advisory 9건으로 중단됐고, 이전 직접 실행에서 발견된 네 테스트 계약 오류는 수정 후 집중 테스트에서 통과했다. 전체 suite는 수정 후 재실행하지 않았다.
 - 실제 SNS 최적화 로그에서 GPT-6 Luna가 `temperature: 0.35`를 거부한 사례를 확인했다. 공통 AI Generation service가 Catalog에서 해당 모델의 `temperature: false`를 확인하면 옵션을 제거하고, 명시적으로 true이거나 미상인 모델에는 기존 best-effort 요청을 유지하도록 보완했다. 회귀 집중 테스트 18건 통과.
+- 2026-10-16: Blog Beta AI 흐름을 실제 UI 진입 기준으로 확인하고 남은 경로를 보완했다. 새 원고·이미지 프롬프트·개별/일괄 이미지 생성, 글감 추천, 글쓰기 설정 미리보기/참고 문체 분석, 제목 추천을 Blog Writing Application → AI Generation service → AI Gateway Plugin 경로로 연결했다. 연속 포스팅 대기열은 기존 `executeBlogRowAction`에서 `Core.generateContent()`/`Core.prepareImages()`를 직접 호출하고 있어, `Blog Posting Application.preparePost()`를 추가해 대기열 생성과 연속 발행의 원고·이미지 준비를 이 상위 entry point로 모았다. Application이 기존 Core 콘텐츠 조립 작업을 수행하되 AI 요청은 Blog Writing Application으로 전달한다. 단일 원고의 누락 이미지 생성도 Blog Writing Application을 사용한다. 키워드 탐색은 현재 검색 지표·트렌드 기반이며 AI 호출이 없음을 확인했다. 카드뉴스·쇼핑은 범위에서 제외했다.
 
 ## 사용자 필요와 목표
 
@@ -325,6 +326,12 @@ Core Plugin catalog는 두 package의 factory를 명시적으로 보유하지만
 **조사 결론:** 현재 WordPress 새 구조는 Plugin/Application의 내부 계약을 테스트한 단계이며, UI부터 글쓰기·이미지 생성·설정·발행까지의 vertical stack은 아직 아니다. 다음 설계에서는 기존 draft workspace, image assets, 설정/config, quota/cancellation, 결과 보관을 포함해 새 stack의 단일 실행 경계와 단계별 전환을 정해야 한다. Telegram은 UI 경로의 안정화 후 같은 Application을 호출하는 채널 adapter로 둔다.
 
 ## 검증과 남은 위험
+
+- 2026-10-16 Blog AI 호출 연결 보완: Blog Writing Application의 새 원고·이미지 프롬프트·이미지 생성 경로를 확인하고, 레거시 Blog Core/빠른 발행/글감 행 생성 경로를 같은 Application으로 연결했다. 글쓰기 설정의 Blog 미리보기·참고 문체 분석과 키워드 제목 생성도 Blog Writing Application을 사용하도록 연결했다. 글감 추천의 AI 문구 생성은 기존 `Utils.callChatText` 우회 호출을 Blog Writing Application의 Chat 모델 경로로 연결했다. 블로그 키워드 탐색은 현재 검색 지표·트렌드 기반이며 AI 호출을 하지 않는 것을 확인했다. Shopping 미리보기와 Shopping 생성 경로는 범위 밖으로 유지했다. 집중 검증 `BLOGGENIUS_ENV=local node --test ...` 통과. 실제 유료 AI 호출과 게시 테스트는 하지 않았다.
+- 2026-10-16 연속 포스팅 상위 경로 연결: 대기열/자동 주기 실행이 행 실행 API에서 구형 Core 생성 함수를 직접 조합하던 경로를 `Blog Posting Application.preparePost()`로 이동했다. 빠른 미리보기와 다중 플랫폼 준비도 동일한 entry point를 사용한다. 앱 내부의 기존 `Core.generateContent()`/`Core.prepareImages()` 콘텐츠 조립은 유지하며 AI 텍스트·이미지 요청은 Blog Writing Application에 위임한다. 구형 AI callback adapter는 중복 역할이 되어 제거했다. 검증은 posting Application 계약, composition, content/publish runtime 집중 테스트로 수행한다.
+- 2026-10-16 Blog 이미지 진행 이벤트 통합: `Core.prepareImages()`가 이미지마다 current/total/state 이벤트와 동일한 수량 로그를 내보내고, Posting Application을 통해 빠른 생성과 대기열 발행의 공통 progress callback까지 전달한다. `src/adapters/ui/blog-posting-progress.js`가 사용자 문구를 한 번 형식화한다. 두 UI 경로가 각자 이미지 진행률을 재구현하지 않게 했다.
+- 2026-10-16 대기열 네이버 발행 진행 연동 보완: 대기열의 batch 발행은 기존 Naver Publisher를 사용하지만 structured `onProgress`를 넘기지 않아 빠른 원고 발행의 본문/이미지/설정 단계 메시지를 받지 못했다. 같은 `presentNaverPublishProgress` 계약으로 publisher 이벤트를 화면 콜백과 `[Blog Beta][Progress]` 로그에 전달하고, 대기열 presentation이 같은 단계 식별자와 메시지를 유지하도록 보완했다.
+- 2026-10-16 레이어 위치 정리: 대기열 진행 문구와 완료 링크 변환은 화면/API 응답 표현 책임이므로 `src/adapters/ui/blog-publishing-presentation.js`로 이동했다. 대기열 도메인 계약·스케줄링·업무 흐름은 이번 이동에 포함하지 않았다.
 
 - Parent에는 최소 실행 기반과 WordPress provider package/Application pilot이 있다. 제품 코드 경로는 새 계층으로 전환되지 않았다. 기존 기능과의 호환성은 구조 재구현의 목표가 아니며, 사용자 데이터와 외부 side effect는 별도 판단한다. 현재 operation parser는 신뢰된 in-process 코드이며, 외부 plugin을 안전하게 실행하는 sandbox나 안정된 독립 SDK는 아니다.
 - 첫 sub-feature 검증: `node --test src/platform/plugin-host.test.js` 6건 통과, `git diff --check` 통과. UI/entrypoint 변경이 없어 browser smoke는 해당되지 않았다. full unit suite는 실행하지 않았다.

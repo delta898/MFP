@@ -178,16 +178,11 @@ function createUiApiRouteRuntime(deps = {}) {
                 Utils,
                 Logger,
                 workspaceDir: CONFIG?.WORKSPACE_DIR,
-                callWritingImage: typeof Utils?.callWritingImage === 'function' ? Utils.callWritingImage.bind(Utils) : null,
-                generateGatewayImage: typeof aiGenerationService?.generateImage === 'function'
-                    ? async (prompt, context = {}) => {
-                        const result = await aiGenerationService.generateImage({
-                            modelSelection: CONFIG?.IMAGE_MODEL_CONFIG,
-                            prompt,
-                            options: {}
-                        }, { signal: context.signal, reportProgress: context.onProgress });
-                        return result?.images?.[0] || null;
-                    }
+                generateAiImage: typeof blogWritingApplication?.generateImage === 'function'
+                    ? (prompt, context = {}) => blogWritingApplication.generateImage(prompt, {}, {
+                        signal: context.signal,
+                        reportProgress: context.onProgress
+                    })
                     : null,
                 relatedPosts: {
                     fetchPosts: typeof Utils?.fetchConfiguredRelatedPosts === 'function'
@@ -283,6 +278,7 @@ function createUiApiRouteRuntime(deps = {}) {
                 Utils,
                 axios,
                 cheerio,
+                blogWritingApplication,
                 aiGateway
             });
             const controller = createSettingsController({
@@ -401,7 +397,7 @@ function createUiApiRouteRuntime(deps = {}) {
     function getKeywordsRouteHandlerInstance() {
         if (!keywordsRouteHandler && typeof createKeywordsRouteHandler === 'function') {
             const service = typeof createKeywordsService === 'function'
-                ? createKeywordsService({ CONFIG, Utils, Logger, smartUsageService: getSmartUsageServiceInstance() })
+                ? createKeywordsService({ CONFIG, Utils, Logger, blogWritingApplication, smartUsageService: getSmartUsageServiceInstance() })
                 : null;
             const controller = typeof createKeywordsController === 'function'
                 ? createKeywordsController({ service, sendSuccess, sendError })

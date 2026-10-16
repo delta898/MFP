@@ -4,6 +4,8 @@ const {
     settlePublishQuota
 } = require('../publish-quota');
 const { normalizeWritingStrategyOverride } = require('../content/writing-strategy');
+const { presentBlogImageGenerationProgress } = require('../adapters/ui/blog-posting-progress');
+const { presentNaverPublishProgress } = require('../adapters/ui/naver-publish-progress');
 const { parseImageCount } = require('../content/blog-image-plan');
 const {
     parseBlogImageMode,
@@ -29,6 +31,8 @@ function createPublishActionsRuntime(deps = {}) {
         Logger,
         Utils,
         Core,
+        blogPostingApplication,
+        blogWritingApplication,
         blogPublishingApplication,
         License,
         TelegramBotService,
@@ -296,25 +300,28 @@ function createPublishActionsRuntime(deps = {}) {
                         count: context.imageOptions?.count
                     }
                 };
-                const naverResult = await Core.generateContent(naverTopic, options.transientWorkspaceDir || null, {
+                const naverResult = await blogPostingApplication.preparePost(naverTopic, {
+                    workspaceDir: options.transientWorkspaceDir || null,
                     enableRelatedPostsAutoLink,
                     platform: 'naver',
                     signal,
                     textModelConfig: options.textModelConfig,
-                    imageModelConfig: options.imageModelConfig
+                    imageModelConfig: options.imageModelConfig,
+                    imageGenerationEnabled: imageGenerationFinal,
+                    onImageProgress(progress) {
+                        const message = presentBlogImageGenerationProgress(progress, 'naver');
+                        if (message) emitProgress(message);
+                    },
+                    onStage(stage) {
+                        if (stage === 'images') {
+                            emitProgress('네이버 이미지 준비 중...');
+                            if (imageGenerationFinal) options.onStage?.('images');
+                        }
+                    }
                 });
                 throwIfCanceled(signal);
                 results.naver.targetDir = naverResult.targetDir;
                 results.finalSubject = naverResult.finalSubject;
-
-                emitProgress('네이버 이미지 준비 중...');
-                if (imageGenerationFinal) options.onStage?.('images');
-                await Core.prepareImages(naverResult.targetDir, naverTopic, {
-                    imageGenerationEnabled: imageGenerationFinal,
-                    signal,
-                    imageModelConfig: options.imageModelConfig
-                });
-                throwIfCanceled(signal);
             }
 
             if (targets.includes('wordpress')) {
@@ -333,25 +340,28 @@ function createPublishActionsRuntime(deps = {}) {
                         count: context.imageOptions?.count
                     }
                 };
-                const wpResult = await Core.generateContent(wpTopic, options.transientWorkspaceDir || null, {
+                const wpResult = await blogPostingApplication.preparePost(wpTopic, {
+                    workspaceDir: options.transientWorkspaceDir || null,
                     enableRelatedPostsAutoLink,
                     platform: 'wordpress',
                     signal,
                     textModelConfig: options.textModelConfig,
-                    imageModelConfig: options.imageModelConfig
+                    imageModelConfig: options.imageModelConfig,
+                    imageGenerationEnabled: imageGenerationFinal,
+                    onImageProgress(progress) {
+                        const message = presentBlogImageGenerationProgress(progress, 'wordpress');
+                        if (message) emitProgress(message);
+                    },
+                    onStage(stage) {
+                        if (stage === 'images') {
+                            emitProgress('워드프레스 이미지 준비 중...');
+                            if (imageGenerationFinal) options.onStage?.('images');
+                        }
+                    }
                 });
                 throwIfCanceled(signal);
                 results.wordpress.targetDir = wpResult.targetDir;
                 if (!results.finalSubject) results.finalSubject = wpResult.finalSubject;
-
-                emitProgress('워드프레스 이미지 준비 중...');
-                if (imageGenerationFinal) options.onStage?.('images');
-                await Core.prepareImages(wpResult.targetDir, wpTopic, {
-                    imageGenerationEnabled: imageGenerationFinal,
-                    signal,
-                    imageModelConfig: options.imageModelConfig
-                });
-                throwIfCanceled(signal);
             }
 
             return { success: true, results };
@@ -439,12 +449,19 @@ function createPublishActionsRuntime(deps = {}) {
                 emitProgress('네이버 발행 중...');
                 const naverActionLabel = getPostActionLabel(context.postStatus);
                 const naverCompletionLabel = getPlatformCompletionLabel('네이버', context.postStatus);
+                const reportNaverProgress = (event) => {
+                    const progress = presentNaverPublishProgress(event, context.postStatus || 'publish');
+                    if (!progress) return;
+                    Logger?.info?.(`[Blog Beta][Progress] ${progress.message}`);
+                    emitProgress(progress.message);
+                };
                 const naverRes = await publishNaver(results.naver.targetDir, {
                     headless,
                     category: context.naverCategory || context.category || '',
                     postStatus: context.postStatus || 'publish',
                     scheduleDate: context.scheduleDate || '',
-                    isLast: options.isLast === true
+                    isLast: options.isLast === true,
+                    onProgress: reportNaverProgress
                 }) || { success: false, message: 'Naver publish returned no response' };
                 results.naver.success = naverRes.success;
                 results.naver.postUrl = naverRes.postUrl;
@@ -1319,12 +1336,15 @@ function createPublishActionsRuntime(deps = {}) {
 
             Logger.info(`   🎨 [LocalMarkdown] 누락 이미지 생성 중 (Index ${image.index})`);
             try {
-                await Utils.callWritingImage(
-                    prompt,
-                    path.join(tempDir, `${String(image.index).padStart(2, '0')}_image`),
-                    3,
-                    { useCase: 'blog' }
-                );
+                const generated = await blogWritingApplication.generateImage(prompt, {}, {
+                    ...(runtimeOptions.signal ? { signal: runtimeOptions.signal } : {})
+                });
+                if (typeof generated?.dataBase64 !== 'string' || !generated.dataBase64.trim()) {
+                    throw Object.assign(new Error('AI Gateway가 올바른 이미지 결과를 반환하지 않았습니다.'), { code: 'AI_GATEWAY_INVALID_PROVIDER_RESPONSE' });
+                }
+                const imageBuffer = Buffer.from(generated.dataBase64, 'base64');
+                if (imageBuffer.length === 0) throw Object.assign(new Error('AI Gateway 이미지 결과가 비어 있습니다.'), { code: 'AI_GATEWAY_INVALID_PROVIDER_RESPONSE' });
+                fs.writeFileSync(path.join(tempDir, `${String(image.index).padStart(2, '0')}_image.png`), imageBuffer);
             } catch (imageError) {
                 Logger.warn(`⚠️ [LocalMarkdown] 누락 이미지 생성 실패 (Index ${image.index}): ${imageError.message}`);
             }
@@ -1520,7 +1540,8 @@ function createPublishActionsRuntime(deps = {}) {
             }, { fs, path });
             throwIfStopped();
             await prepareMissingImagesForLocalMarkdown(workspace.tempDir, previewData, {
-                imageGenerationEnabled: imageGenerationFinal
+                imageGenerationEnabled: imageGenerationFinal,
+                signal
             });
 
             throwIfStopped();

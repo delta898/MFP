@@ -208,7 +208,8 @@ function applyArtifactFeedback(ideas = [], context = {}) {
     }));
 }
 
-function createAiMemoryContentIdeaProvider() {
+function createAiMemoryContentIdeaProvider(options = {}) {
+    const generateText = options.generateText;
     return {
         id: 'ai-memory-content-ideas',
 
@@ -247,7 +248,7 @@ ${selectedCandidates.length > 0 ? selectedCandidates.map((item) => `- id=${item.
 
             try {
                 // Interactive recommendations should fall back quickly when the provider is rate-limited.
-                const raw = await Utils.callChatText(prompt, 1, {
+                const modelOptions = {
                     usageLabel: 'Agent Content Idea AI',
                     maxTokens: 1024,
                     temperature: 0.4,
@@ -255,7 +256,10 @@ ${selectedCandidates.length > 0 ? selectedCandidates.map((item) => `- id=${item.
                     responseJsonSchema: responseSchema,
                     reasoningEffort: 'minimal',
                     logTokenUsage: true
-                });
+                };
+                const raw = typeof generateText === 'function'
+                    ? await generateText(prompt, modelOptions)
+                    : await Utils.callChatText(prompt, 1, modelOptions);
                 const jsonText = extractFirstJsonObject(raw);
                 if (!jsonText) {
                     return buildFallbackResult('JSON 응답 없음');

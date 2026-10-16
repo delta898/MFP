@@ -24,22 +24,28 @@ function createHarness(options = {}) {
     const service = createSettingsService({
         fs, path, CONFIG,
         Utils: options.Utils,
+        blogWritingApplication: options.blogWritingApplication,
         styleReferenceAnalyzer: options.styleReferenceAnalyzer,
         writingProfilePreviewService: options.writingProfilePreviewService
     });
     return { CONFIG, service };
 }
 
-test('settings reference analyzer records the actual configured Writing Model', async () => {
+test('settings reference analyzer routes text generation through Blog Writing Application', async () => {
+    const calls = [];
     const { CONFIG, service } = createHarness({
-        Utils: {
-            callWritingText: async () => JSON.stringify({
+        Utils: { callWritingText: async () => { throw new Error('legacy text route must not be used'); } },
+        blogWritingApplication: {
+            generateText: async (prompt, context) => {
+                calls.push({ prompt, context });
+                return JSON.stringify({
                 surface: { writing_mode: 'written', speech_level: 'polite', tone: 'calm', information_density: 'balanced' },
                 settings: { length_preset: 'standard', opening: 'contextual', development: 'explanatory', ending: 'summary', heading_density: 'balanced' },
                 structure: { opening_pattern: 'short_context_then_topic', section_flow: ['information'], paragraph_length: 'medium', ending_pattern: 'short_summary' },
                 voice: { sentence_rhythm: 'medium', warmth: 'neutral', vocabulary: 'balanced', rhetorical_devices: [] },
                 avoid: []
-            })
+                });
+            }
         }
     });
     CONFIG.TEXT_MODEL_CONFIG = {
@@ -49,7 +55,31 @@ test('settings reference analyzer records the actual configured Writing Model', 
     const result = await service.analyzeWritingProfileReferences({ sample_text: '분석할 참고 문장', blog_urls: [] });
 
     assert.deepEqual(result.analyzer_model, CONFIG.TEXT_MODEL_CONFIG);
+    assert.equal(calls.length, 1);
+    assert.deepEqual(calls[0].context.modelSelection, { provider: 'google', modelId: 'gemini-3.6-flash' });
+    assert.equal(calls[0].context.generationOptions.temperature, 0.1);
     assert.match(result.fingerprint.summary, /설명형으로 전개/);
+});
+
+test('blog profile preview uses Blog Writing Application while shopping keeps legacy route', async () => {
+    const calls = [];
+    const { service, CONFIG } = createHarness({
+        Utils: { callWritingText: async (...args) => { calls.push({ route: 'legacy', args }); return '{}'; } },
+        blogWritingApplication: {
+            generateText: async (prompt, context) => {
+                calls.push({ route: 'gateway', prompt, context });
+                return JSON.stringify({
+                    outline: { opening: '도입', sections: [{ heading: '기준', role: '설명' }], ending: '정리' },
+                    sample: '가'.repeat(450)
+                });
+            }
+        }
+    });
+    CONFIG.TEXT_MODEL_CONFIG = { provider: 'google', code: 'gemini-3.6-flash' };
+    await service.previewWritingProfile({ kind: 'blog', profile: getDefaultContentWritingProfile() });
+    assert.equal(calls[0].route, 'gateway');
+    assert.deepEqual(calls[0].context.modelSelection, { provider: 'google', modelId: 'gemini-3.6-flash' });
+    assert.equal(calls[0].context.generationOptions.temperature, 0.3);
 });
 
 function createCustomProfile() {

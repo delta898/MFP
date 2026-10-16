@@ -5,11 +5,30 @@ const os = require('os');
 const path = require('path');
 
 const { createPublishActionsRuntime } = require('./publish-actions-runtime');
+const { createBlogPostingApplication } = require('../applications/blog/posting/application');
 const { getFeatureBool, isCommandEnabled, toFeatureMap } = require('../runtime-feature-flags');
+
+const createTestPublishActionsRuntime = (deps = {}) => {
+    if (deps.blogPostingApplication || typeof deps.Core?.generateContent !== 'function') {
+        return createPublishActionsRuntime(deps);
+    }
+    const Core = { ...deps.Core, prepareImages: deps.Core.prepareImages || (async () => {}) };
+    return createPublishActionsRuntime({
+        ...deps,
+        Core,
+        blogPostingApplication: createBlogPostingApplication({
+            Core,
+            blogWritingApplication: deps.blogWritingApplication || {
+                async generateText() { return ''; },
+                async generateImage() { return { dataBase64: '', mimeType: 'image/png' }; }
+            }
+        })
+    });
+};
 
 test('local environment blocks direct manuscript publishing before license or file work', async () => {
     let licenseChecks = 0;
-    const runtime = createPublishActionsRuntime({
+    const runtime = createTestPublishActionsRuntime({
         CONFIG: {
             RUNTIME_ENVIRONMENT_PROFILE: {
                 environment: 'local',
@@ -39,7 +58,7 @@ test('local environment blocks direct manuscript publishing before license or fi
 test('local WordPress publish preserves image upload warnings while counting the draft save as successful', async () => {
     const activities = [];
     const warnings = ['이미지 1번 업로드 실패'];
-    const runtime = createPublishActionsRuntime({
+    const runtime = createTestPublishActionsRuntime({
         CONFIG: {},
         Logger: { info() {}, warn() {}, error() {} },
         Utils: {},
@@ -86,7 +105,7 @@ test('local WordPress publish preserves image upload warnings while counting the
 test('WordPress Plugin publisher owns WordPress manuscript creation when the application flag is set', async () => {
     const calls = [];
     const logs = [];
-    const runtime = createPublishActionsRuntime({
+    const runtime = createTestPublishActionsRuntime({
         CONFIG: {},
         Logger: { info(message) { logs.push(message); }, warn() {}, error() {} },
         Utils: {},
@@ -144,7 +163,7 @@ test('WordPress Plugin publisher uploads manuscript images and links them in pos
     const logs = [];
     let tempDir = '';
     const rawMarkdown = '# 이미지 원고\n\n본문입니다.\n\n[[IMAGE_0\nid: hero\ntitle: 바다 풍경\nprompt: ocean\n]]';
-    const runtime = createPublishActionsRuntime({
+    const runtime = createTestPublishActionsRuntime({
         fs,
         path,
         CONFIG: {},
@@ -210,7 +229,7 @@ test('WordPress Plugin publisher uploads manuscript images and links them in pos
 test('quick publish keeps the user image option independent from legacy license flags', async () => {
     let appendedTopics = [];
     let dedupeInput = null;
-    const runtime = createPublishActionsRuntime({
+    const runtime = createTestPublishActionsRuntime({
         CONFIG: { GOOGLE_TOPICS_SHEET: 'topics' },
         Logger: { info() { }, warn() { }, error() { } },
         Utils: {
@@ -276,7 +295,7 @@ test('quick publish keeps the user image option independent from legacy license 
 });
 
 test('quick publish rejects an out-of-range per-post image count before external work', async () => {
-    const runtime = createPublishActionsRuntime({
+    const runtime = createTestPublishActionsRuntime({
         CONFIG: {},
         normalizeKeywords: () => [],
         normalizeBool: (value, fallback) => typeof value === 'boolean' ? value : fallback,
@@ -296,7 +315,7 @@ test('quick publish rejects an out-of-range per-post image count before external
 test('quick publish preserves trend provenance in the topics row and dedupe input', async () => {
     let appendedTopic;
     let dedupeInput;
-    const runtime = createPublishActionsRuntime({
+    const runtime = createTestPublishActionsRuntime({
         CONFIG: { GOOGLE_TOPICS_SHEET: 'topics' },
         Logger: { info() {}, warn() {}, error() {} },
         Utils: {
@@ -342,7 +361,7 @@ test('quick publish preserves trend provenance in the topics row and dedupe inpu
 test('quick publish records a grounded recommendation as saved after topics append', async () => {
     const lifecycleCalls = [];
     let appendedTopic;
-    const runtime = createPublishActionsRuntime({
+    const runtime = createTestPublishActionsRuntime({
         CONFIG: { GOOGLE_TOPICS_SHEET: 'topics' },
         Logger: { info() {}, warn() {}, error() {} },
         Utils: {
@@ -392,7 +411,7 @@ test('quick publish records a grounded recommendation as saved after topics appe
 
 test('quick preview generation failure records the effective text model without credentials', async () => {
     const activities = [];
-    const runtime = createPublishActionsRuntime({
+    const runtime = createTestPublishActionsRuntime({
         CONFIG: {
             GOOGLE_TOPICS_SHEET: 'topics',
             TEXT_MODEL_CONFIG: {
@@ -452,7 +471,7 @@ test('quick preview generation failure records the effective text model without 
 });
 
 test('shopping quick publish rejects an overlong instruction before external work', async () => {
-    const runtime = createPublishActionsRuntime({
+    const runtime = createTestPublishActionsRuntime({
         CONFIG: {},
         normalizePublishMode: (value) => value
     });
@@ -469,7 +488,7 @@ test('shopping quick publish rejects an overlong instruction before external wor
 
 test('shopping quick save carries the selected writing strategy into the sheet item', async () => {
     let appendedItem;
-    const runtime = createPublishActionsRuntime({
+    const runtime = createTestPublishActionsRuntime({
         CONFIG: { GOOGLE_SHOPPING_SHEET: 'shopping' },
         Logger: { info() { }, warn() { }, error() { } },
         Utils: {
@@ -505,7 +524,7 @@ test('shopping quick save carries the selected writing strategy into the sheet i
 });
 
 test('shopping quick save rejects an unknown writing strategy before external work', async () => {
-    const runtime = createPublishActionsRuntime({
+    const runtime = createTestPublishActionsRuntime({
         CONFIG: {},
         normalizePublishMode: (value) => value
     });
@@ -521,7 +540,7 @@ test('shopping quick save rejects an unknown writing strategy before external wo
 });
 
 test('shopping quick save rejects an unknown content focus before external work', async () => {
-    const runtime = createPublishActionsRuntime({ CONFIG: {}, normalizePublishMode: (value) => value });
+    const runtime = createTestPublishActionsRuntime({ CONFIG: {}, normalizePublishMode: (value) => value });
     const result = await runtime.executeShoppingQuickPublish({
         shortUrl: 'https://naver.me/example',
         contentFocus: 'review_claim',
@@ -535,7 +554,7 @@ test('shopping quick save rejects an unknown content focus before external work'
 function createPublishLifecycleRuntime({ naverSuccess, wordpressSuccess, reserveSuccess = true, reservationMetadata } = {}) {
     const calls = [];
     const lifecycleCalls = [];
-    const runtime = createPublishActionsRuntime({
+    const runtime = createTestPublishActionsRuntime({
         CONFIG: {},
         Logger: { info() { }, warn() { }, error() { } },
         Core: {
@@ -587,7 +606,7 @@ function createPublishParams() {
 
 test('Naver and WordPress generation receive the same per-post profile overrides', async () => {
     const generated = [];
-    const runtime = createPublishActionsRuntime({
+    const runtime = createTestPublishActionsRuntime({
         CONFIG: {},
         Logger: { info() { }, warn() { }, error() { } },
         Core: {
@@ -625,11 +644,59 @@ test('Naver and WordPress generation receive the same per-post profile overrides
     assert.deepEqual(generated.map((item) => item.topic.category), ['네이버 분류', '워드프레스 분류']);
 });
 
+test('legacy Blog generation routes Core text and image callbacks through Blog Writing Application', async () => {
+    const calls = [];
+    const blogWritingApplication = {
+        async generateText(prompt, context) {
+            calls.push({ kind: 'text', prompt, context });
+            return '{"title":"제목","content":"본문"}';
+        },
+        async generateImage(prompt, options, context) {
+            calls.push({ kind: 'image', prompt, options, context });
+            return { dataBase64: Buffer.from('image bytes').toString('base64'), mimeType: 'image/png' };
+        }
+    };
+    const runtime = createTestPublishActionsRuntime({
+        CONFIG: {},
+        Logger: { info() {}, warn() {}, error() {} },
+        blogWritingApplication,
+        Core: {
+            async generateContent(_topic, _unused, options) {
+                await options.generateText('legacy text prompt', {
+                    signal: options.signal,
+                    modelConfig: { provider: 'google', code: 'text-model' }
+                });
+                return { targetDir: '/tmp/blog-plugin-generation', finalSubject: '블로그' };
+            },
+            async prepareImages(_dir, _topic, options) {
+                await options.generateImage('legacy image prompt', {
+                    signal: options.signal,
+                    modelConfig: { provider: 'openai', code: 'image-model' }
+                });
+            }
+        },
+        checkAuthSessionValid: async () => ({ ok: true })
+    });
+
+    const result = await runtime.buildMultiPlatformGeneratedContent({
+        context: { subject: '블로그', imageOptions: { mode: 'generate', generate: true, count: 1 } },
+        targets: ['wordpress'],
+        features: {},
+        enableRelatedPostsAutoLink: false
+    });
+
+    assert.equal(result.success, true);
+    assert.deepEqual(calls.map(({ kind }) => kind), ['text', 'image']);
+    assert.deepEqual(calls[0].context.modelSelection, { provider: 'google', modelId: 'text-model' });
+    assert.deepEqual(calls[1].context.modelSelection, { provider: 'openai', modelId: 'image-model' });
+    assert.equal(calls[1].options.aspectRatio, '4:3');
+});
+
 test('generation passes the operation signal and model snapshot to Core and does not convert cancellation to ordinary failure', async () => {
     const controller = new AbortController();
     const textModelConfig = { provider: 'openai', code: 'gpt-6-sol' };
     const calls = [];
-    const runtime = createPublishActionsRuntime({
+    const runtime = createTestPublishActionsRuntime({
         CONFIG: {},
         Logger: { info() {}, warn() {}, error() {} },
         Core: {
@@ -653,24 +720,34 @@ test('generation passes the operation signal and model snapshot to Core and does
 test('generation passes image model snapshot and owned workspace to image preparation', async () => {
     const imageModelConfig = { provider: 'kie', code: 'nano-banana-2' };
     const calls = [];
-    const runtime = createPublishActionsRuntime({
+    const runtime = createTestPublishActionsRuntime({
         CONFIG: {}, Logger: { info() {}, warn() {}, error() {} },
         Core: {
             async generateContent(_topic, customDir) {
                 calls.push(['generate', customDir]);
                 return { targetDir: customDir, finalSubject: 'subject' };
             },
-            async prepareImages(_dir, _topic, options) { calls.push(['images', options]); }
+            async prepareImages(_dir, _topic, options) {
+                calls.push(['images', options]);
+                options.onImageProgress?.({ current: 1, total: 3, state: 'started' });
+            }
         }
     });
+    const progress = [];
     const result = await runtime.buildMultiPlatformGeneratedContent({
         context: { subject: 'subject', imageOptions: { mode: 'generate', generate: true } },
         targets: ['wordpress'], features: {}, enableRelatedPostsAutoLink: false
-    }, { imageModelConfig, transientWorkspaceDir: '/fixture/owned', onStage: (stage) => calls.push(['stage', stage]) });
+    }, {
+        imageModelConfig,
+        transientWorkspaceDir: '/fixture/owned',
+        onStage: (stage) => calls.push(['stage', stage]),
+        onProgress: (message) => progress.push(message)
+    });
     assert.equal(result.success, true);
     assert.deepEqual(calls[0], ['generate', '/fixture/owned']);
     assert.deepEqual(calls[1], ['stage', 'images']);
     assert.equal(calls[2][1].imageModelConfig, imageModelConfig);
+    assert.equal(progress.at(-1), '워드프레스용 이미지 생성 중 (1/3)');
 });
 
 test('multi-platform publish commits one quota unit after partial success', async () => {
@@ -679,6 +756,44 @@ test('multi-platform publish commits one quota unit after partial success', asyn
 
     assert.equal(result.success, true);
     assert.deepEqual(calls, ['quota:reserve', 'publish:naver', 'publish:wordpress', 'quota:commit']);
+});
+
+test('Naver publishing progress is forwarded and logged through the shared progress contract', async () => {
+    const progressMessages = [];
+    const logs = [];
+    const runtime = createTestPublishActionsRuntime({
+        CONFIG: {},
+        Logger: { info(message) { logs.push(message); }, warn() {}, error() {} },
+        Core: {
+            async generateContent(_topic, _dir, options) { return { targetDir: `/tmp/${options.platform}`, finalSubject: '진행 확인' }; },
+            async prepareImages() {}
+        },
+        blogPublishingApplication: {
+            async publishNaver(_directory, request) {
+                request.onProgress?.({ stage: 'body', current: 2, total: 14 });
+                return { success: true, postUrl: 'https://blog.naver.com/example/1' };
+            }
+        },
+        License: {
+            async reservePublishQuota() { return { success: true }; },
+            async commitPublishQuota() { return { success: true }; },
+            async releasePublishQuota() { return { success: true }; }
+        },
+        TelegramBotService: { async sendNotification() {} },
+        checkAuthSessionValid: async () => ({ ok: true }),
+        formatActivityTargets: () => '',
+        recordUiActivity() {},
+        async recordActivityLifecycle(input) { return input; }
+    });
+
+    const result = await runtime.processMultiPlatformPublish({
+        context: { subject: '진행 확인', postStatus: 'draft', imageOptions: { generate: false } },
+        targets: ['naver'], features: {}, enableRelatedPostsAutoLink: false
+    }, { onProgress: (message) => progressMessages.push(message) });
+
+    assert.equal(result.success, true);
+    assert.ok(progressMessages.includes('본문을 입력하고 있습니다. (2/14)'));
+    assert.ok(logs.includes('[Blog Beta][Progress] 본문을 입력하고 있습니다. (2/14)'));
 });
 
 test('multi-platform publish releases quota when every platform fails', async () => {

@@ -1814,7 +1814,10 @@ ${messageText}
 		return (result || '').trim();
 	},
 	/**
-	 * 1. 콘텐츠 생성 (Generate)
+	 * @deprecated Blog Posting Application currently calls this only as a legacy
+	 * markdown/file-system materializer while injecting AI calls through the
+	 * Blog Writing Application. Move manuscript assembly and persistence out of
+	 * Core before removing this method; see applications/blog/posting/application.js.
 	 */
 	generateContent: async function (jobData, customDir = null, runtimeOptions = {}) {
 		const signal = runtimeOptions.signal;
@@ -1894,15 +1897,14 @@ ${messageText}
 
 		// 4) 공통 계약 + 전략 + 선택 프로필 + 글별 입력으로 조합한 프롬프트 호출
 		Logger.info("📝 AI에게 글 작성을 요청합니다...");
-		const rawResult = await Utils.callWritingText(
-			resolvedPrompt.prompt,
-			3,
-			{
-				responseMimeType: 'application/json',
-				...(signal ? { signal } : {}),
-				...(runtimeOptions.textModelConfig ? { modelConfig: runtimeOptions.textModelConfig } : {})
-			}
-		);
+		if (typeof runtimeOptions.generateText !== 'function') {
+			throw Object.assign(new Error('AI Gateway Plugin을 사용할 수 없어 블로그 원고를 만들지 않았습니다.'), { code: 'AI_GATEWAY_UNAVAILABLE' });
+		}
+		const rawResult = await runtimeOptions.generateText(resolvedPrompt.prompt, {
+			...(signal ? { signal } : {}),
+			...(runtimeOptions.textModelConfig ? { modelConfig: runtimeOptions.textModelConfig } : {}),
+			responseMimeType: 'application/json'
+		});
 		throwIfCanceled(signal);
 		if (!rawResult) throw new Error("API 응답이 비어있습니다.");
 
@@ -1995,7 +1997,10 @@ ${messageText}
 	},
 
 	/**
-	 * 2. 이미지 준비 (Prepare)
+	 * @deprecated Blog Posting Application currently calls this only as a legacy
+	 * markdown image-block parser/file writer while injecting image generation
+	 * through the Blog Writing Application. Move this preparation/persistence
+	 * responsibility out of Core before removal; see applications/blog/posting/application.js.
 	 */
 	prepareImages: async function (dirPath, jobData, runtimeOptions = {}) {
 		const signal = runtimeOptions.signal;
@@ -2018,11 +2023,23 @@ ${messageText}
 		if (!fs.existsSync(contentFile)) return;
 
 		const { contents } = Utils.parseMarkdown(fs.readFileSync(contentFile, 'utf-8'));
+		const imageItems = contents.filter((item) => item.type === 'image');
+		if (imageItems.length > 0 && typeof runtimeOptions.generateImage !== 'function') {
+			throw Object.assign(new Error('AI Gateway Plugin을 사용할 수 없어 블로그 이미지를 만들지 않았습니다.'), { code: 'AI_GATEWAY_UNAVAILABLE' });
+		}
+		const reportImageProgress = (progress) => {
+			if (typeof runtimeOptions.onImageProgress !== 'function') return;
+			try {
+				runtimeOptions.onImageProgress(progress);
+			} catch (progressError) {
+				Logger.debug(`⚠️ [Core] 이미지 진행 상태 전달 실패: ${progressError.message}`);
+			}
+		};
 		let lastCall = 0;
 
-		for (const item of contents) {
+		for (let imagePosition = 0; imagePosition < imageItems.length; imagePosition++) {
+			const item = imageItems[imagePosition];
 			throwIfCanceled(signal);
-			if (item.type !== 'image') continue;
 
 			const prefix = String(item.index).padStart(2, '0');
 			const now = Date.now();
@@ -2030,26 +2047,32 @@ ${messageText}
 				await sleepWithCancellation(1000, signal, (ms) => Utils.sleep(ms));
 			}
 
-			Logger.info(`   🎨 이미지 생성 중 (Index ${item.index})`);
+			const imageProgress = { current: imagePosition + 1, total: imageItems.length, imageIndex: item.index };
+			Logger.info(`   🎨 이미지 생성 중 (${imageProgress.current}/${imageProgress.total})`);
+			reportImageProgress({ ...imageProgress, state: 'started' });
 
 			// Priority: 1.작업파일 > 2.Config > 3.Default
 			const style = jobData.image_options?.style || CONFIG.IMAGE_STYLE || 'photorealistic';
 			const prompt = `${item.prompt}, ${style}, high quality, no text`;
 
 			try {
-                await Utils.callWritingImage(
-                    prompt,
-                    path.join(dirPath, `${prefix}_image`),
-                    3,
-                    {
-                        useCase: 'blog',
-                        signal,
-                        modelConfig: runtimeOptions.imageModelConfig
-                    }
-                );
+				const generated = await runtimeOptions.generateImage(prompt, {
+					aspectRatio: '4:3',
+					size: '1K',
+					signal,
+					modelConfig: runtimeOptions.imageModelConfig
+				});
+				if (typeof generated?.dataBase64 !== 'string' || !generated.dataBase64.trim()) {
+					throw Object.assign(new Error('AI Gateway가 올바른 이미지 결과를 반환하지 않았습니다.'), { code: 'AI_GATEWAY_INVALID_PROVIDER_RESPONSE' });
+				}
+				const imageBuffer = Buffer.from(generated.dataBase64, 'base64');
+				if (imageBuffer.length === 0) throw Object.assign(new Error('AI Gateway 이미지 결과가 비어 있습니다.'), { code: 'AI_GATEWAY_INVALID_PROVIDER_RESPONSE' });
+				fs.writeFileSync(path.join(dirPath, `${prefix}_image.png`), imageBuffer);
+				reportImageProgress({ ...imageProgress, state: 'completed' });
             } catch (imageErr) {
 				rethrowIfCanceled(imageErr, signal);
                 Logger.warn(`⚠️ 이미지 생성 실패 (Index ${item.index}): ${imageErr.message}. 백업 프롬프트를 유지하고 다음으로 넘어갑니다.`);
+				reportImageProgress({ ...imageProgress, state: 'failed' });
             }
 			lastCall = Date.now();
 		}

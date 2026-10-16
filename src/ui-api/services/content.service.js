@@ -109,16 +109,11 @@ function createContentService(deps = {}) {
                 Utils,
                 Logger,
                 workspaceDir: CONFIG?.WORKSPACE_DIR,
-                callWritingImage: typeof Utils?.callWritingImage === 'function' ? Utils.callWritingImage.bind(Utils) : null,
-                generateGatewayImage: typeof aiGenerationService?.generateImage === 'function'
-                    ? async (prompt, context = {}) => {
-                        const result = await aiGenerationService.generateImage({
-                            modelSelection: CONFIG?.IMAGE_MODEL_CONFIG,
-                            prompt,
-                            options: {}
-                        }, { signal: context.signal, reportProgress: context.onProgress });
-                        return result?.images?.[0] || null;
-                    }
+                generateAiImage: typeof blogWritingApplication?.generateImage === 'function'
+                    ? (prompt, context = {}) => blogWritingApplication.generateImage(prompt, {}, {
+                        signal: context.signal,
+                        reportProgress: context.onProgress
+                    })
                     : null,
                 relatedPosts: {
                     fetchPosts: typeof Utils?.fetchConfiguredRelatedPosts === 'function'
@@ -1394,8 +1389,16 @@ function createContentService(deps = {}) {
                 + `매칭 ${selectedContext.matchedBy}, IMAGE_${selectedContext.sourceImageIndex}, `
                 + `문맥 ${selectedContext.context.section.length}/${selectedContext.context.before.length}/${selectedContext.context.after.length}자, `
                 + `현재 title/prompt ${title.length}/${currentPrompt.length}자, 추가 요청 ${instruction.length}자)`);
-            const raw = await Utils.callWritingText(prompt, 1, {
-                usageLabel: '원고 이미지 프롬프트 생성', maxTokens: 900, temperature: 0.4
+            if (typeof blogWritingApplication?.generateText !== 'function') {
+                throw createApiError(503, 'AI_GATEWAY_UNAVAILABLE', 'AI Gateway Plugin을 사용할 수 없어 이미지 프롬프트를 만들지 않았습니다.');
+            }
+            const textModel = CONFIG?.TEXT_MODEL_CONFIG || {};
+            const raw = await blogWritingApplication.generateText(prompt, {
+                modelSelection: {
+                    provider: textModel.provider,
+                    modelId: textModel.modelId || textModel.code || textModel.name
+                },
+                generationOptions: { maxOutputTokens: 900, temperature: 0.4 }
             });
             let result;
             try {

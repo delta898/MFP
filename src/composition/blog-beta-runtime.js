@@ -9,6 +9,7 @@ const { createBlogWritingSystem } = require('./blog-writing');
 const { createWordPressPublishingSystem } = require('./wordpress-publishing');
 const { createNaverPublishingSystem } = require('./naver-publishing');
 const { createBlogPublishingApplication } = require('../applications/blog/publishing/application');
+const { createBlogPostingApplication } = require('../applications/blog/posting/application');
 const { createBlogGeniusAiTransport } = require('../adapters/ai/gateway-transport');
 const { inferTransport } = require('../ai/transport-registry');
 const { createSupabaseModelCatalogPort } = require('../ai/remote-model-catalog');
@@ -61,7 +62,11 @@ function createBlogBetaRuntimeComposition(options = {}) {
         getConfiguredModels: (kind) => {
             const profiles = CONFIG.AI_MODEL_PROFILES?.[kind] || {};
             const role = kind === 'image' ? CONFIG.IMAGE_MODEL_CONFIG : CONFIG.TEXT_MODEL_CONFIG;
-            const candidates = [...Object.values(profiles), ...(role?.provider === 'direct' ? [role] : [])];
+            const candidates = [
+                ...Object.values(profiles),
+                ...(role?.provider === 'direct' ? [role] : []),
+                ...(kind === 'text' && CONFIG.CHAT_MODEL_CONFIG?.provider === 'direct' ? [CONFIG.CHAT_MODEL_CONFIG] : [])
+            ];
             const seen = new Set();
             return candidates.filter((profile) => {
                 if (profile?.provider !== 'direct' || !String(profile.code || '').trim() || !String(profile.base_url || '').trim()) return false;
@@ -93,7 +98,15 @@ function createBlogBetaRuntimeComposition(options = {}) {
     const blogWritingSystem = createBlogWritingSystem({
         aiGeneration: aiGenerationSystem.service,
         getTextModel: () => ({ provider: CONFIG.TEXT_MODEL_CONFIG?.provider, modelId: CONFIG.TEXT_MODEL_CONFIG?.code }),
+        getChatModel: () => {
+            const model = CONFIG.CHAT_MODEL_CONFIG || CONFIG.TEXT_MODEL_CONFIG;
+            return model ? { provider: model.provider, modelId: model.code } : undefined;
+        },
         getImageModel: () => ({ provider: CONFIG.IMAGE_MODEL_CONFIG?.provider, modelId: CONFIG.IMAGE_MODEL_CONFIG?.code })
+    });
+    const blogPostingApplication = createBlogPostingApplication({
+        Core: options.Core,
+        blogWritingApplication: blogWritingSystem.application
     });
 
     const blogPublishingApplication = createBlogPublishingApplication({
@@ -120,6 +133,7 @@ function createBlogBetaRuntimeComposition(options = {}) {
         wordpressPublishingSystem,
         naverPublishingSystem,
         blogWritingSystem,
+        blogPostingApplication,
         blogPublishingApplication
     });
 }

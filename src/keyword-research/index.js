@@ -19,7 +19,20 @@ function createKeywordResearchService(options = {}) {
 
     const titleGenerator = options.titleGenerator || createTitleGenerator({
         Utils: utils,
-        Logger: logger
+        Logger: logger,
+        generateText: typeof options.blogWritingApplication?.generateText === 'function'
+            ? (prompt, modelOptions = {}) => {
+                const provider = String(config.TEXT_MODEL_CONFIG?.provider || '').trim().toLowerCase();
+                const modelId = String(config.TEXT_MODEL_CONFIG?.code || '').trim();
+                return options.blogWritingApplication.generateText(prompt, {
+                    ...(provider && modelId ? { modelSelection: { provider, modelId } } : {}),
+                    generationOptions: {
+                        ...(typeof modelOptions.temperature === 'number' ? { temperature: modelOptions.temperature } : {}),
+                        ...(typeof modelOptions.maxTokens === 'number' ? { maxOutputTokens: modelOptions.maxTokens } : {})
+                    }
+                });
+            }
+            : undefined
     });
     let supabaseClient = options.supabaseClient || null;
 

@@ -253,11 +253,11 @@ function buildAnalysisRepairPrompt(prompt, raw, error) {
 function createStyleReferenceAnalyzer(options = {}) {
     const {
         fetchStyleReference,
-        callWritingText,
+        generateText,
         getWritingModelInfo = () => null,
         now = () => new Date().toISOString()
     } = options;
-    if (typeof fetchStyleReference !== 'function' || typeof callWritingText !== 'function') {
+    if (typeof fetchStyleReference !== 'function' || typeof generateText !== 'function') {
         throw new Error('style reference analyzer dependencies are required.');
     }
 
@@ -302,14 +302,13 @@ function createStyleReferenceAnalyzer(options = {}) {
             throw error;
         }
         const prompt = buildAnalysisPrompt(sources);
-        const raw = await callWritingText(prompt, 1, buildAnalysisModelOptions('참고 글 분석'));
+        const raw = await generateText(prompt, buildAnalysisModelOptions('참고 글 분석'));
         let parsed;
         try {
             parsed = parseJsonObject(raw);
         } catch (error) {
-            const repairedRaw = await callWritingText(
+            const repairedRaw = await generateText(
                 buildAnalysisRepairPrompt(prompt, raw, error),
-                1,
                 buildAnalysisModelOptions('참고 글 분석 형식 보정')
             );
             parsed = parseJsonObject(repairedRaw);

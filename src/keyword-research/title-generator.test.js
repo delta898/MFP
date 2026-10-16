@@ -147,3 +147,23 @@ test('createTitleGenerator requests concise structured output and returns at mos
     assert.equal(receivedOptions.responseMimeType, 'application/json');
     assert.equal(receivedOptions.responseJsonSchema.properties.titles.maxItems, 3);
 });
+
+test('title generator uses injected Blog Writing Application text route when available', async () => {
+    let received = null;
+    const generator = createTitleGenerator({
+        Utils: { callChatText: async () => { throw new Error('legacy route must not be used'); } },
+        generateText: async (prompt, options) => {
+            received = { prompt, options };
+            return JSON.stringify({ titles: [
+                { role: 'search', title: '제주 여행 가이드', seo_reason: '검색어 포함', click_reason: '정보 명확', tradeoff: '간결함' }
+            ] });
+        }
+    });
+
+    const result = await generator.suggestTitles({ keyword: '제주 여행', count: 1 });
+
+    assert.equal(result.titles.length, 1);
+    assert.match(received.prompt, /제주 여행/);
+    assert.equal(received.options.temperature, 0.4);
+    assert.equal(received.options.maxTokens, 1024);
+});

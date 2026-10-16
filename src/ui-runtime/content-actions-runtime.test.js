@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const path = require('path');
 
 const { createContentActionsRuntime } = require('./content-actions-runtime');
+const { createBlogPostingApplication } = require('../applications/blog/posting/application');
 const { isCommandEnabled, toFeatureMap } = require('../runtime-feature-flags');
 
 const DEVELOPMENT_CONFIG = Object.freeze({
@@ -516,6 +517,21 @@ test('single row generation passes the stored image mode to generation and image
                 calls.push(['prepare', topic.image_options]);
             }
         },
+        blogPostingApplication: createBlogPostingApplication({
+            Core: {
+                async generateContent(topic) {
+                    calls.push(['generate', topic.image_options]);
+                    return { targetDir: '/tmp/mode-topic' };
+                },
+                async prepareImages(_dir, topic) {
+                    calls.push(['prepare', topic.image_options]);
+                }
+            },
+            blogWritingApplication: {
+                async generateText() { return 'unused'; },
+                async generateImage() { return { dataBase64: 'unused' }; }
+            }
+        }),
         parseIntSafe: (value, fallback, min) => {
             const parsed = Number.parseInt(value, 10);
             return Number.isInteger(parsed) && parsed >= min ? parsed : fallback;

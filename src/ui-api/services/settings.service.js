@@ -122,6 +122,16 @@ function redactAiProviderProfiles(rawProfiles = {}) {
     ]));
 }
 
+function toWritingModelSelection(model = {}) {
+    const provider = String(model.provider || '').trim().toLowerCase();
+    const modelId = String(model.code || '').trim();
+    return provider && modelId ? { provider, modelId } : undefined;
+}
+
+function pickGatewayGenerationOptions(options = {}) {
+    return typeof options.temperature === 'number' ? { temperature: options.temperature } : undefined;
+}
+
 function normalizeCoreConnectionSettings(requestBody = {}) {
     const scope = String(requestBody.scope || '').trim().toLowerCase();
     const values = requestBody.values && typeof requestBody.values === 'object'
@@ -415,6 +425,7 @@ function createSettingsService(deps = {}) {
         cheerio,
         styleReferenceAnalyzer,
         writingProfilePreviewService,
+        blogWritingApplication,
         dashboardActivityRecorder = recordDashboardActivity,
         ModelConnectionTester = DefaultModelConnectionTester,
         aiGateway = null
@@ -443,10 +454,15 @@ function createSettingsService(deps = {}) {
         if (writingReferenceAnalyzer) return writingReferenceAnalyzer;
         const runtimeAxios = axios || require('axios');
         const runtimeCheerio = cheerio || require('cheerio');
-        const runtimeUtils = Utils || require('../../utils');
+        if (typeof blogWritingApplication?.generateText !== 'function') {
+            throw new Error('Blog Writing Application is required for style reference analysis.');
+        }
         writingReferenceAnalyzer = createStyleReferenceAnalyzer({
             fetchStyleReference: createStyleReferenceFetcher({ axios: runtimeAxios, cheerio: runtimeCheerio }),
-            callWritingText: runtimeUtils.callWritingText.bind(runtimeUtils),
+            generateText: (prompt, modelOptions = {}) => blogWritingApplication.generateText(prompt, {
+                modelSelection: toWritingModelSelection((CONFIG || {}).TEXT_MODEL_CONFIG),
+                generationOptions: pickGatewayGenerationOptions(modelOptions)
+            }),
             getWritingModelInfo: () => {
                 const model = (CONFIG || {}).TEXT_MODEL_CONFIG || {};
                 return { provider: model.provider, code: model.code, name: model.name };
@@ -459,7 +475,16 @@ function createSettingsService(deps = {}) {
         if (writingPreviewService) return writingPreviewService;
         const runtimeUtils = Utils || require('../../utils');
         writingPreviewService = createWritingProfilePreviewService({
-            callWritingText: runtimeUtils.callWritingText.bind(runtimeUtils),
+            generateBlogText: (prompt, modelOptions = {}) => {
+                if (typeof blogWritingApplication?.generateText !== 'function') {
+                    throw new Error('Blog Writing Application is required for blog writing preview.');
+                }
+                return blogWritingApplication.generateText(prompt, {
+                    modelSelection: toWritingModelSelection((CONFIG || {}).TEXT_MODEL_CONFIG),
+                    generationOptions: pickGatewayGenerationOptions(modelOptions)
+                });
+            },
+            callShoppingText: runtimeUtils.callWritingText.bind(runtimeUtils),
             config: CONFIG || {}
         });
         return writingPreviewService;

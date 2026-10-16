@@ -12,8 +12,14 @@ test('image prompt generation sends nearby manuscript context and current user i
             TEXT_MODEL_API_KEY: 'test-key'
         },
         Utils: {
-            async callWritingText(prompt) {
+            parseMarkdown() {},
+            findImageByPrefix() {}
+        },
+        blogWritingApplication: {
+            async generateText(prompt, context) {
                 modelPrompt = prompt;
+                assert.deepEqual(context.modelSelection, { provider: 'google', modelId: 'test-model' });
+                assert.deepEqual(context.generationOptions, { maxOutputTokens: 900, temperature: 0.4 });
                 return JSON.stringify({ title: '동해가 보이는 객실', prompt: '동해의 푸른 바다를 담은 호텔 객실' });
             }
         },

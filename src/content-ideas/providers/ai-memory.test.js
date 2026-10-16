@@ -72,3 +72,26 @@ test('AI output is constrained to selected candidates and fills omitted candidat
         Utils.callChatText = originalCallChatText;
     }
 });
+
+test('AI idea provider uses injected Blog Writing Application text generation', async () => {
+    let received;
+    const provider = createAiMemoryContentIdeaProvider({
+        generateText: async (prompt, options) => {
+            received = { prompt, options };
+            return JSON.stringify({ ideas: [{
+                candidate_id: 'candidate-a',
+                title: '프로그램이 고른 후보를 자연스럽게 표현',
+                summary: '요약',
+                keywords: ['후보']
+            }] });
+        }
+    });
+    const result = await provider.generate({ limit: 1 }, {
+        recommendationCandidates: [{ id: 'candidate-a', topic_seed: '후보 주제', explanation: '근거' }]
+    });
+
+    assert.equal(result.ideas[0].candidate_id, 'candidate-a');
+    assert.match(received.prompt, /후보 주제/);
+    assert.equal(received.options.temperature, 0.4);
+    assert.equal(received.options.maxTokens, 1024);
+});

@@ -225,8 +225,10 @@ function buildShoppingPreviewPrompt(input = {}, options = {}) {
 }
 
 function createWritingProfilePreviewService(options = {}) {
-    const { callWritingText, config = {}, constants = Constants } = options;
-    if (typeof callWritingText !== 'function') throw new Error('writing profile preview model dependency is required.');
+    const { generateBlogText, callShoppingText, config = {}, constants = Constants } = options;
+    if (typeof generateBlogText !== 'function' || typeof callShoppingText !== 'function') {
+        throw new Error('writing profile preview model dependencies are required.');
+    }
     return async function generateWritingProfilePreview(input = {}) {
         const kind = String(input.kind || '').trim().toLowerCase();
         const composed = kind === 'blog'
@@ -236,16 +238,18 @@ function createWritingProfilePreviewService(options = {}) {
                 : null);
         if (!composed) throw createPreviewError('WRITING_PREVIEW_KIND_INVALID', '미리보기 종류는 blog 또는 shopping이어야 합니다.');
         const usageLabel = kind === 'blog' ? '블로그 글쓰기 프로필 미리보기' : '쇼핑 글쓰기 프로필 미리보기';
-        const raw = await callWritingText(composed.prompt, 1, buildPreviewModelOptions(usageLabel));
+        const generate = (prompt, label) => kind === 'blog'
+            ? generateBlogText(prompt, buildPreviewModelOptions(label))
+            : callShoppingText(prompt, 1, buildPreviewModelOptions(label));
+        const raw = await generate(composed.prompt, usageLabel);
         let parsed;
         try {
             parsed = parsePreviewJson(raw);
         } catch (error) {
             if (!['WRITING_PREVIEW_INVALID_RESPONSE', 'WRITING_PREVIEW_CONTRACT_MISMATCH'].includes(error?.code)) throw error;
-            const repairedRaw = await callWritingText(
+            const repairedRaw = await generate(
                 buildPreviewRepairPrompt(composed, raw, error),
-                1,
-                buildPreviewModelOptions(`${usageLabel} 형식 보정`)
+                `${usageLabel} 형식 보정`
             );
             parsed = parsePreviewJson(repairedRaw);
         }

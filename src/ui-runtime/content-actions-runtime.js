@@ -9,6 +9,7 @@ const { parseBlogImageMode, generatesBlogImages } = require('../content/blog-ima
 const { normalizePublishTargets } = require('../content/single-publish-target');
 const { getScheduleDateIssue } = require('../continuous-publishing/topic-capture');
 const { diagnoseQueueReadiness } = require('../continuous-publishing/queue-readiness');
+const { presentBlogImageGenerationProgress } = require('../adapters/ui/blog-posting-progress');
 const {
     LIVE_PUBLISH_BLOCKED_CODE,
     LIVE_PUBLISH_BLOCKED_MESSAGE,
@@ -25,6 +26,7 @@ function createContentActionsRuntime(deps = {}) {
         CONFIG,
         Utils,
         Core,
+        blogPostingApplication,
         blogPublishingApplication,
         License,
         ShoppingManager,
@@ -316,7 +318,7 @@ function createContentActionsRuntime(deps = {}) {
 
         try {
             if (action === 'gen') {
-                emitProgress('콘텐츠 생성 중...');
+                emitProgress('원고 작성 중...');
                 const targetPlatform = Array.isArray(effectiveTargets) && effectiveTargets.length > 0 ? effectiveTargets[0] : 'naver';
                 const topic = {
                     ...publishParams.context,
@@ -331,13 +333,18 @@ function createContentActionsRuntime(deps = {}) {
                         count: publishParams.context.imageOptions?.count
                     }
                 };
-                const result = await Core.generateContent(topic, null, {
+                const result = await blogPostingApplication.preparePost(topic, {
+                    workspaceDir: null,
                     enableRelatedPostsAutoLink,
-                    platform: targetPlatform
-                });
-                emitProgress('이미지 준비 중...');
-                await Core.prepareImages(result.targetDir, topic, {
-                    imageGenerationEnabled: effectiveImgGen
+                    platform: targetPlatform,
+                    imageGenerationEnabled: effectiveImgGen,
+                    onImageProgress(progress) {
+                        const message = presentBlogImageGenerationProgress(progress, targetPlatform);
+                        if (message) emitProgress(message);
+                    },
+                    onStage(stage) {
+                        if (stage === 'images') emitProgress('이미지 준비 중...');
+                    }
                 });
 
                 emitProgress('시트 상태 반영 중...');

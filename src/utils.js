@@ -4054,6 +4054,12 @@ const Utils = {
         }
     },
 
+    /**
+     * @deprecated Compatibility bridge for callers that still select a model
+     * via application mode and read provider credentials from CONFIG. Blog AI
+     * features should use Blog Writing Application; remove this bridge after
+     * remaining non-blog callers (for example smart comments) are migrated.
+     */
     callTextModelByMode: async function (mode, prompt, retries = 3, options = {}) {
         const normalizedMode = String(mode || 'default').trim().toLowerCase();
         if (normalizedMode === 'custom' || normalizedMode === 'chat') {
@@ -4173,6 +4179,11 @@ const Utils = {
         });
     },
 
+    /**
+     * @deprecated CONFIG-backed compatibility entry point. Blog writing uses
+     * Blog Writing Application; this remains for Shopping and other legacy
+     * consumers. Remove only after those callers use their capability layer.
+     */
     callWritingText: async function (prompt, retries = 3, options = {}) {
         const { modelConfig, ...callOptions } = options || {};
         return this.callTextByConfig(modelConfig || CONFIG.TEXT_MODEL_CONFIG || {}, prompt, retries, {
@@ -4181,6 +4192,11 @@ const Utils = {
         });
     },
 
+    /**
+     * @deprecated CONFIG-backed compatibility entry point. Keep while Agent
+     * Memory, smart comments, and other legacy consumers still depend on it;
+     * migrate those callers before removing this method.
+     */
     callChatText: async function (prompt, retries = 3, options = {}) {
         return this.callTextByConfig(CONFIG.CHAT_MODEL_CONFIG || CONFIG.TEXT_MODEL_CONFIG || {}, prompt, retries, {
             ...withAutomaticReasoningEffort(options, 'chat'),
@@ -4368,6 +4384,13 @@ const Utils = {
         return fullPath;
     },
 
+    /**
+     * @deprecated Legacy file-writing image entry point. Blog image generation
+     * now goes through Blog Writing Application; remove this wrapper once any
+     * remaining non-blog integrations are confirmed absent or migrated.
+     * Keep callGeminiImage and the provider transport implementations until
+     * their active transport callers are migrated separately.
+     */
     callWritingImage: async function (prompt, savePath, retries = 3, options = {}) {
         throwIfCanceled(options.signal);
         const modelConfig = options.modelConfig || CONFIG.IMAGE_MODEL_CONFIG || {};

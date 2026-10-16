@@ -17,17 +17,26 @@ test('Blog Writing Application delegates text and image generation to shared AI 
         getTextModel: () => ({ provider: 'openai', modelId: 'text-v1' }),
         getImageModel: () => ({ provider: 'google', modelId: 'image-v1' })
     });
-    const text = await application.generateText('  Write a post  ', { signal });
+    const text = await application.generateText('  Write a post  ', {
+        signal,
+        generationOptions: { maxOutputTokens: 900, temperature: 0.4 }
+    });
     const image = await application.generateImage(' tree \,', { aspectRatio: '4:3' }, { signal });
+    const selectedImage = await application.generateImage(' selected model ', {}, {
+        modelSelection: { provider: 'openai', modelId: 'image-override' }
+    });
 
     assert.equal(text, 'structured text');
     assert.equal(Buffer.from(image.dataBase64, 'base64').toString(), 'image');
-    assert.deepEqual(calls.map(({ kind }) => kind), ['text', 'image']);
+    assert.deepEqual(calls.map(({ kind }) => kind), ['text', 'image', 'image']);
     assert.equal(calls[0].request.prompt, 'Write a post');
     assert.equal(calls[0].request.responseFormat, 'json');
+    assert.deepEqual(calls[0].request.options, { maxOutputTokens: 900, temperature: 0.4 });
     assert.equal(calls[0].context.signal, signal);
     assert.equal(calls[1].request.modelSelection.modelId, 'image-v1');
     assert.equal(calls[1].request.options.aspectRatio, '4:3');
+    assert.equal(calls[2].request.modelSelection.modelId, 'image-override');
+    assert.equal(Buffer.from(selectedImage.dataBase64, 'base64').toString(), 'image');
 });
 
 test('Blog Writing Application validates prompts and preserves the execution context', async () => {
@@ -43,4 +52,20 @@ test('Blog Writing Application validates prompts and preserves the execution con
     await assert.rejects(application.generateText('  '), /prompt must be a non-empty string/);
     assert.equal(await application.generateText('prompt', { signal }), 'prompt');
     assert.equal(context.signal, signal);
+});
+
+test('Blog Writing Application routes chat-role text through AI Generation with the configured chat model', async () => {
+    let received;
+    const application = createBlogWritingApplication({
+        getTextModel: () => ({ provider: 'google', modelId: 'writer-model' }),
+        getChatModel: () => ({ provider: 'openai', modelId: 'chat-model' }),
+        aiGeneration: {
+            async generateText(request) { received = request; return { content: 'ideas' }; },
+            async generateImage() { return { images: [] }; }
+        }
+    });
+
+    assert.equal(await application.generateChatText('recommend'), 'ideas');
+    assert.deepEqual(received.modelSelection, { provider: 'openai', modelId: 'chat-model' });
+    assert.equal(received.prompt, 'recommend');
 });

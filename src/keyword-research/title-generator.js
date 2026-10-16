@@ -132,7 +132,7 @@ function parseTitleResponse(value) {
 }
 
 function createTitleGenerator(options = {}) {
-    const { Utils, Logger } = options;
+    const { Utils, Logger, generateText } = options;
     const logger = Logger || console;
 
     async function suggestTitles(input = {}) {
@@ -145,14 +145,16 @@ function createTitleGenerator(options = {}) {
 
         const prompt = buildTitlePrompt(input);
 
-        if (!Utils || (typeof Utils.callChatText !== 'function' && typeof Utils.callWritingText !== 'function')) {
+        const legacyCall = typeof Utils?.callChatText === 'function'
+            ? Utils.callChatText.bind(Utils)
+            : (typeof Utils?.callWritingText === 'function' ? Utils.callWritingText.bind(Utils) : null);
+        if (typeof generateText !== 'function' && !legacyCall) {
             throw new Error('AI 모델 호출을 위한 Utils 의존성이 올바르지 않습니다.');
         }
 
         try {
             const requestedCount = Math.max(1, Math.min(3, Number(input.count) || 3));
-            const callAi = typeof Utils.callChatText === 'function' ? Utils.callChatText.bind(Utils) : Utils.callWritingText.bind(Utils);
-            const responseText = await callAi(prompt, 2, {
+            const modelOptions = {
                 usageLabel: '키워드 및 SEO 제목 생성',
                 maxTokens: 1024,
                 temperature: 0.4,
@@ -180,7 +182,10 @@ function createTitleGenerator(options = {}) {
                         }
                     }
                 }
-            });
+            };
+            const responseText = typeof generateText === 'function'
+                ? await generateText(prompt, modelOptions)
+                : await legacyCall(prompt, 2, modelOptions);
 
             const titles = parseTitleResponse(responseText).slice(0, requestedCount);
             return {

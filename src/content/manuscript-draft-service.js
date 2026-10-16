@@ -120,8 +120,7 @@ function createManuscriptDraftService(options = {}) {
     const cryptoImpl = options.crypto || crypto;
     const Utils = options.Utils;
     const Logger = options.Logger;
-    const callWritingImage = options.callWritingImage;
-    const generateGatewayImage = options.generateGatewayImage;
+    const generateAiImage = options.generateAiImage;
     const now = typeof options.now === 'function' ? options.now : () => Date.now();
     const activeRetentionMs = Number.isFinite(Number(options.activeRetentionMs))
         ? Math.max(60 * 60 * 1000, Number(options.activeRetentionMs))
@@ -861,34 +860,21 @@ function createManuscriptDraftService(options = {}) {
     }
 
     async function generateImage(input = {}) {
-        if (typeof generateGatewayImage !== 'function' && typeof callWritingImage !== 'function') throw manuscriptError(503, 'MANUSCRIPT_IMAGE_GENERATOR_UNAVAILABLE', '이미지 AI 기능이 준비되지 않았습니다.');
+        if (typeof generateAiImage !== 'function') throw manuscriptError(503, 'MANUSCRIPT_IMAGE_GENERATOR_UNAVAILABLE', 'AI Gateway Plugin을 사용할 수 없어 이미지를 만들지 않았습니다.');
         const { locations, manifest } = readManifest(input.draftId);
         assertRevision(manifest, input.revision);
         assertDraftActive(manifest);
         const slot = manifest.image_slots.find((item) => item.id === safeSlotId(input.slotId));
         if (!slot) throw manuscriptError(404, 'MANUSCRIPT_IMAGE_SLOT_NOT_FOUND', '이미지 영역을 찾지 못했습니다.');
         if (!String(slot.prompt || '').trim()) throw manuscriptError(400, 'MANUSCRIPT_IMAGE_PROMPT_REQUIRED', 'AI 이미지를 만들 프롬프트가 없습니다.');
-        const pendingBase = pathImpl.join(locations.assets, `pending-${slot.id}-${cryptoImpl.randomUUID().slice(0, 8)}`);
         Logger?.info?.(`🎨 [ManuscriptDraft] ${slot.id} AI 이미지 생성 중 (draft=${input.draftId})`);
         throwIfCanceled(input.signal);
-        let generatedPath = '';
         let buffer;
-        let detected;
-        try {
-            if (typeof generateGatewayImage === 'function') {
-                const generated = await generateGatewayImage(slot.prompt, { signal: input.signal, onProgress: input.onProgress });
-                throwIfCanceled(input.signal);
-                if (!generated || typeof generated.dataBase64 !== 'string') throw new Error('AI Gateway returned invalid image data.');
-                buffer = Buffer.from(generated.dataBase64, 'base64');
-            } else {
-                generatedPath = await callWritingImage(slot.prompt, pendingBase, 2, { useCase: 'blog', signal: input.signal });
-                throwIfCanceled(input.signal);
-                buffer = fsImpl.readFileSync(generatedPath);
-            }
-            detected = validateImageBuffer(buffer);
-        } finally {
-            try { if (generatedPath) fsImpl.rmSync(generatedPath, { force: true }); } catch (_) { }
-        }
+        const generated = await generateAiImage(slot.prompt, { signal: input.signal, onProgress: input.onProgress });
+        throwIfCanceled(input.signal);
+        if (!generated || typeof generated.dataBase64 !== 'string') throw new Error('AI Gateway returned invalid image data.');
+        buffer = Buffer.from(generated.dataBase64, 'base64');
+        const detected = validateImageBuffer(buffer);
         return updateGeneratedSlot(input.draftId, input.slotId, slot.prompt, ({ locations: latestLocations, slot: latestSlot }) => {
             replaceSlotFile({ locations: latestLocations, slot: latestSlot, buffer, extension: detected.extension, origin: 'generated' });
             Logger?.info?.(`✅ [ManuscriptDraft] ${latestSlot.id} AI 이미지 적용 완료 (draft=${input.draftId})`);

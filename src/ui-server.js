@@ -322,7 +322,7 @@ const blogBetaComposition = createBlogBetaRuntimeComposition({
     path,
     getAiModelCatalog
 });
-const { corePluginRuntime, blogWritingSystem, blogPublishingApplication, aiGenerationSystem } = blogBetaComposition;
+const { corePluginRuntime, blogWritingSystem, blogPostingApplication, blogPublishingApplication, aiGenerationSystem } = blogBetaComposition;
 const snsGenerationSystem = createSnsGenerationSystem({
     aiGeneration: aiGenerationSystem.service,
     getWritingModel: () => CONFIG.TEXT_MODEL_CONFIG,
@@ -353,6 +353,7 @@ const topicRecommendationCapabilityRegistry = createCapabilityRegistry({
     CONFIG,
     Logger,
     Utils,
+    blogWritingApplication: blogWritingSystem.application,
     License,
     axios,
     eventStore: topicRecommendationEventStore
@@ -818,6 +819,8 @@ const publishActionsRuntime = createPublishActionsRuntime({
     Logger,
     Utils,
     Core,
+    blogWritingApplication: blogWritingSystem.application,
+    blogPostingApplication,
     blogPublishingApplication,
     License,
     TelegramBotService,
@@ -862,6 +865,8 @@ const contentActionsRuntime = createContentActionsRuntime({
     CONFIG,
     Utils,
     Core,
+    blogPostingApplication,
+    blogWritingApplication: blogWritingSystem.application,
     blogPublishingApplication,
     License,
     ShoppingManager,

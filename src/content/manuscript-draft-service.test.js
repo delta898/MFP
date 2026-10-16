@@ -450,11 +450,9 @@ test('does not generate prompt-backed folder images during posting and keeps the
         path,
         Utils,
         workspaceDir,
-        callWritingImage: async (prompt, savePath) => {
+        generateAiImage: async (prompt) => {
             generatedPrompts.push(prompt);
-            const output = `${savePath}.png`;
-            fs.writeFileSync(output, PNG);
-            return output;
+            return { dataBase64: PNG.toString('base64'), mimeType: 'image/png' };
         }
     });
     try {
@@ -489,7 +487,7 @@ test('does not generate unresolved AI draft images during posting and keeps the 
         path,
         Utils,
         workspaceDir,
-        callWritingImage: async () => { generationCalls += 1; }
+        generateAiImage: async () => { generationCalls += 1; return { dataBase64: PNG.toString('base64') }; }
     });
     try {
         const created = service.createAiDraft({
@@ -528,7 +526,7 @@ test('does not generate unresolved pasted images during posting and preserves th
         path,
         Utils,
         workspaceDir,
-        callWritingImage: async (prompt) => { attempts.push(prompt); }
+        generateAiImage: async (prompt) => { attempts.push(prompt); return { dataBase64: PNG.toString('base64') }; }
     });
     try {
         const created = service.createPasteDraft({
@@ -564,7 +562,7 @@ test('publishes without an image when a missing slot has no prompt intent', asyn
         path,
         Utils,
         workspaceDir,
-        callWritingImage: async () => { generationCalls += 1; }
+        generateAiImage: async () => { generationCalls += 1; return { dataBase64: PNG.toString('base64') }; }
     });
     try {
         const created = service.createPasteDraft({
@@ -591,7 +589,7 @@ test('publishes an image-free AI draft without invoking image generation', async
         path,
         Utils,
         workspaceDir,
-        callWritingImage: async () => { generationCalls += 1; }
+        generateAiImage: async () => { generationCalls += 1; return { dataBase64: PNG.toString('base64') }; }
     });
     try {
         const created = service.createAiDraft({
@@ -620,11 +618,9 @@ test('generates one image from the stored prompt and keeps the prior asset on fa
         path,
         Utils,
         workspaceDir,
-        callWritingImage: async (_prompt, savePath) => {
+        generateAiImage: async () => {
             if (fail) throw new Error('provider unavailable');
-            const output = `${savePath}.png`;
-            fs.writeFileSync(output, PNG);
-            return output;
+            return { dataBase64: PNG.toString('base64'), mimeType: 'image/png' };
         }
     });
     const input = folderInput();
@@ -654,7 +650,7 @@ test('manuscript image generation stores AI Gateway base64 output as a validated
         path,
         Utils,
         workspaceDir,
-        generateGatewayImage: async (prompt, context) => {
+        generateAiImage: async (prompt, context) => {
             calls.push({ prompt, context });
             return { mimeType: 'image/png', dataBase64: PNG.toString('base64') };
         }
@@ -681,12 +677,10 @@ test('stopped image generation does not commit a late provider result to the man
         path,
         Utils,
         workspaceDir,
-        callWritingImage: async (_prompt, savePath, _retries, options) => {
+        generateAiImage: async (_prompt, options) => {
             receivedSignal = options.signal;
             return new Promise((resolve) => { finishGeneration = () => {
-                const output = `${savePath}.png`;
-                fs.writeFileSync(output, PNG);
-                resolve(output);
+                resolve({ dataBase64: PNG.toString('base64'), mimeType: 'image/png' });
             }; });
         }
     });
@@ -717,12 +711,10 @@ test('bulk image generation returns the successful partial revision after a late
         path,
         Utils,
         workspaceDir,
-        callWritingImage: async (_prompt, savePath) => {
+        generateAiImage: async () => {
             calls += 1;
             if (calls === 2) throw new Error('rate limited');
-            const output = `${savePath}.png`;
-            fs.writeFileSync(output, PNG);
-            return output;
+            return { dataBase64: PNG.toString('base64'), mimeType: 'image/png' };
         }
     });
     const input = folderInput();

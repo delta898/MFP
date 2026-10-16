@@ -118,7 +118,17 @@ function createCapabilityRegistry(deps = {}) {
     const contentIdeaEngine = deps.contentIdeaEngine || createContentIdeaEngine({
         knowledgeRegistry,
         providers: [
-            createAiMemoryContentIdeaProvider()
+            createAiMemoryContentIdeaProvider({
+                generateText: typeof deps.blogWritingApplication?.generateChatText === 'function'
+                    ? (prompt, modelOptions = {}) => deps.blogWritingApplication.generateChatText(prompt, {
+                        generationOptions: {
+                            ...(typeof modelOptions.temperature === 'number' ? { temperature: modelOptions.temperature } : {}),
+                            ...(typeof modelOptions.maxTokens === 'number' ? { maxOutputTokens: modelOptions.maxTokens } : {}),
+                            responseFormat: 'json'
+                        }
+                    })
+                    : undefined
+            })
         ]
     });
     const capabilityDeps = { ...deps, configState, knowledgeRegistry, suggestionEngine, contentIdeaEngine, recommendationMaterializer };
