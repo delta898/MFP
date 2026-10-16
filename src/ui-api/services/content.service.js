@@ -24,6 +24,19 @@ const { validateBlogImageBlocks } = require('../../content/blog-image-plan');
 const { collectBlogReferenceContext } = require('../../content/blog-reference-context');
 const Constants = require('../../constants');
 
+function createNaverPublishProgressReporter({ lease, fallbackPostStatus, logger }) {
+    let lastMessage = '';
+    return (progress) => {
+        const presentation = presentNaverPublishProgress(progress, fallbackPostStatus);
+        if (!presentation) return;
+        lease.updateProgress(presentation);
+        if (presentation.message !== lastMessage) {
+            logger?.info?.(`[Blog Beta][Progress] ${presentation.message}`);
+            lastMessage = presentation.message;
+        }
+    };
+}
+
 function createContentService(deps = {}) {
     const {
         Utils,
@@ -436,6 +449,7 @@ function createContentService(deps = {}) {
         const manuscriptStartedAt = Date.now();
         operation?.throwIfCanceled();
         operation?.setStage('writing');
+        Logger?.info?.('[Blog Beta][Progress] 원고 내용을 작성하고 있습니다.');
         const requestedTargets = Array.isArray(requestBody.targets)
             ? requestBody.targets
             : (Array.isArray(requestBody.platforms) ? requestBody.platforms : []);
@@ -535,13 +549,23 @@ function createContentService(deps = {}) {
                     operation?.throwIfCanceled();
                     const prompt = `${String(image.prompt || '').trim()}, ${imageStyle}, high quality, no text`;
                     const imageStartedAt = Date.now();
+                    Logger?.info?.(`[Blog Beta][Progress] 이미지를 만들고 있습니다. (${index + 1}/${imageBlocks.length})`);
                     Logger?.info?.(`[Blog Beta][AI] image.generate 시작 (${index + 1}/${imageBlocks.length}, IMAGE_${image.index}, model=${String(selectedImageModel.code || selectedImageModel.name || 'unknown')})`);
+                    operation?.setProgress({ current: index + 1, total: imageBlocks.length, phase: 'generating' });
                     try {
                         const generatedImage = await blogWritingApplication.generateImage(prompt, {
                             aspectRatio: '4:3', size: '1K', count: 1
                         }, {
                             signal: operation?.signal,
-                            reportProgress: (event) => Logger?.info?.(`[Blog Beta][AI] image.generate 진행 (${index + 1}/${imageBlocks.length}, phase=${String(event?.phase || 'working')}${Number.isFinite(event?.progress) ? `, progress=${event.progress}%` : ''})`)
+                            reportProgress: (event) => {
+                                operation?.setProgress({
+                                    current: index + 1,
+                                    total: imageBlocks.length,
+                                    phase: String(event?.phase || 'generating'),
+                                    ...(Number.isFinite(event?.progress) ? { percent: event.progress } : {})
+                                });
+                                Logger?.info?.(`[Blog Beta][AI] image.generate 진행 (${index + 1}/${imageBlocks.length}, phase=${String(event?.phase || 'working')}${Number.isFinite(event?.progress) ? `, progress=${event.progress}%` : ''})`);
+                            }
                         });
                         operation?.throwIfCanceled();
                         if (!generatedImage || typeof generatedImage.dataBase64 !== 'string') {
@@ -560,6 +584,7 @@ function createContentService(deps = {}) {
                 Logger?.info?.(`[Blog Beta][Plugin] 이미지 생성 결과 (requested=${imageBlocks.length}, generated=${images.length}, preservedPrompts=${imageBlocks.length - images.length})`);
             }
             operation?.throwIfCanceled();
+            Logger?.info?.('[Blog Beta][Progress] 원고와 이미지를 저장하고 있습니다.');
             operation?.beginCommit();
             const draft = getManuscriptDraftService().createAiDraft({
                 ...requestBody,
@@ -1229,6 +1254,7 @@ function createContentService(deps = {}) {
             if (selectedImageModel.capabilities && typeof selectedImageModel.capabilities === 'object') {
                 imageModelConfig.capabilities = { ...selectedImageModel.capabilities };
             }
+            Logger?.info?.('[Blog Beta][Progress] 원고 생성을 준비하고 있습니다.');
             return aiGenerationOperations.start({
                 subject: String(requestBody.subject || requestBody.title || '바로 생성 원고').trim(),
                 remoteJobPossible: generatesBlogImages(imageMode)
@@ -1413,6 +1439,7 @@ function createContentService(deps = {}) {
         },
 
         async publishManuscriptDraft(requestBody = {}) {
+            Logger?.info?.('[Blog Beta][Progress] 원고 포스팅을 준비하고 있습니다.');
             return runBlogNextExecution({
                 source: 'local_markdown',
                 subject: '원고 포스팅',
@@ -1428,12 +1455,16 @@ function createContentService(deps = {}) {
                 const snapshot = await draftService.preparePublishPayload({
                     ...requestBody,
                     onProgress(progress) {
+                        Logger?.info?.(`[Blog Beta][Progress] AI 이미지 ${progress.current}/${progress.total}개를 생성하고 있습니다.`);
                         lease.updateProgress({
                             stage: 'image_generation',
                             message: `AI 이미지 ${progress.current}/${progress.total}개를 생성하고 있습니다.`,
                             postStatus: ''
                         });
                     }
+                });
+                const reportNaverProgress = createNaverPublishProgressReporter({
+                    lease, fallbackPostStatus: snapshot.settings?.postStatus, logger: Logger
                 });
                 const target = Array.isArray(snapshot.settings?.targets) ? snapshot.settings.targets[0] : '';
                 if (target === 'wordpress' && snapshot.settings?.postStatus === 'schedule') {
@@ -1462,8 +1493,7 @@ function createContentService(deps = {}) {
                     onPreparationComplete() { lease.setCanStop(canStopPublish); },
                     onNaverProgress(progress) {
                         if (progress?.stage === 'editor') lease.setCanStop(canStopPublish);
-                        const presentation = presentNaverPublishProgress(progress, snapshot.settings.postStatus);
-                        if (presentation) lease.updateProgress(presentation);
+                        reportNaverProgress(progress);
                     }
                 }, { signal: lease.signal });
                 const platformResult = result.results?.[target];
@@ -1523,12 +1553,16 @@ function createContentService(deps = {}) {
         async localMarkdownPublish(requestBody = {}) {
             const pasted = Object.prototype.hasOwnProperty.call(requestBody || {}, 'markdownText');
             const generated = requestBody?.sourceKind === 'ai';
+            Logger?.info?.('[Blog Beta][Progress] 원고 포스팅을 준비하고 있습니다.');
             return runBlogNextExecution({
                 source: 'local_markdown',
                 subject: generated ? '바로 생성 원고' : (pasted ? '원고 붙여넣기' : '원고 폴더'),
                 message: '원고 포스팅을 준비하고 있습니다.',
                 canStop: false
             }, async (lease) => {
+                const reportNaverProgress = createNaverPublishProgressReporter({
+                    lease, fallbackPostStatus: requestBody.postStatus, logger: Logger
+                });
                 return executeCompletedLocalMarkdownPublish({
                     ...requestBody,
                     onPreparationComplete() {
@@ -1536,8 +1570,7 @@ function createContentService(deps = {}) {
                     },
                     onNaverProgress(progress) {
                         if (progress?.stage === 'editor') lease.setCanStop((Array.isArray(requestBody.targets) ? requestBody.targets : []).includes('naver'));
-                        const presentation = presentNaverPublishProgress(progress, requestBody.postStatus);
-                        if (presentation) lease.updateProgress(presentation);
+                        reportNaverProgress(progress);
                     }
                 }, { signal: lease.signal });
             });

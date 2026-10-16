@@ -10,7 +10,7 @@ Body `newline` blocks preserve authored line boundaries in order. The first newl
 
 The Plugin reports Host-mediated progress with generic phases and stable stage identifiers. The Host supplies the operation `AbortSignal`. Cancellation closes the browser session; it cannot undo a draft save or publication Naver already accepted.
 
-For editor troubleshooting, `[Naver Publisher][EditorInput]` logs each keyboard action, focus target, and content block. Typed title, caption, and body text are recorded verbatim in these logs; treat application logs as containing draft content.
+The Plugin logs publishing phase progress and recoverable editor warnings. It does not log individual keyboard events or manuscript text.
 
 ## Host dependencies
 

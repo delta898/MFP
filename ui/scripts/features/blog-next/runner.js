@@ -175,8 +175,8 @@ function presentBlogNextRunnerStatus(status = {}) {
   if (localPublish && state === 'running') {
     const progressTitles = {
       preparing: '포스팅 준비 중', image_generation: 'AI 이미지 생성 중',
-      editor: '에디터 연결 중', body: '원고 입력 중', image: '이미지 업로드 중',
-      link: '링크 추가 중', settings: '저장·포스팅 설정 중',
+      editor: '네이버 에디터 연결 중', body: '본문 입력 중', image: '이미지 업로드 중',
+      link: '관련 링크 추가 중', settings: '저장·포스팅 설정 중',
       submitting: status.postStatus === 'draft' ? '임시 저장 중'
         : status.postStatus === 'schedule' ? '예약 발행 중' : '포스팅 중',
       verifying: '완료 확인 중'
@@ -189,7 +189,7 @@ function presentBlogNextRunnerStatus(status = {}) {
     : status.postStatus === 'schedule' ? '예약 발행 실패' : '포스팅 실패', tone: 'error' };
   if (state === 'running') {
     const progressTitles = {
-      preparing: '준비 중', writing: '글 작성 중', images: '이미지 준비 중',
+      preparing: '원고 생성 준비 중', writing: '원고 작성 중', images: '이미지 생성 중',
       quota: '포스팅 준비 중', publishing: '포스팅 중', finalizing: '마무리 중'
     };
     return { title: progressTitles[String(status.progressStage || '')] || '처리 중', tone: 'progress' };

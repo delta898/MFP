@@ -135,3 +135,12 @@ Core Plugin routing and focused automated verification are implemented. Blog Bet
 - Verification: focused Naver Plugin, publishing adapter, and Markdown parsing tests passed (41 tests) with `BLOGGENIUS_ENV=local`; `git diff --check` passed. New Naver draft visual confirmation remains pending.
 - 2026-10-16: User confirmed the editor now follows manuscript spacing, then identified excess whitespace where a paragraph is followed by an image block. Updated both the active shared output contract and legacy common prompt to require the image block immediately on the next line, while retaining one blank line after the image block. Added prompt contract assertions.
 - Verification: focused prompt contract and prompt composition tests passed; `git diff --check` passed.
+
+- 2026-10-16: User asked for progress messages that make ongoing work legible. AI manuscript generation now reports the current image number while creating images, independent of the selected publishing target. Naver progress now advances through each body content block instead of only H2 sections and reports the current image upload; editor connection, links, settings, submission, and result confirmation remain distinct phases.
+
+### Progress visibility and log cleanup (2026-10-16)
+
+- Removed per-keystroke, per-click, and per-block `[EditorInput]` logs from the Naver Publisher. Those traces included manuscript text and obscured useful progress logs.
+- Retained operational Naver logs for publish request, image upload, warnings, category, and final save/publish behavior.
+- Added server log entries matching the user-facing manuscript generation and publish progress messages. Repeated identical progress messages are deduplicated during each Naver publish operation.
+- Focused automated tests were not run for this follow-up; syntax and diff checks are the planned verification.

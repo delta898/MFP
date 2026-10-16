@@ -213,9 +213,18 @@ function blogNextAiOperationMessage(status) {
   if (status.state === 'canceled') return '원고 생성을 중지했습니다.';
   if (status.state === 'failed') return status.error?.message || '원고를 만들지 못했습니다.';
   if (status.state === 'completed') return '원고와 미리보기를 준비했습니다.';
-  if (status.stage === 'images') return '이미지를 준비하고 있습니다.';
-  if (status.stage === 'finalizing') return '원고 미리보기를 마무리하고 있습니다.';
-  return 'AI가 원고를 만들고 있습니다.';
+  if (status.stage === 'preparing') return '원고 생성을 준비하고 있습니다.';
+  if (status.stage === 'writing') return '원고 내용을 작성하고 있습니다.';
+  if (status.stage === 'images') {
+    const current = Number(status.progress?.current);
+    const total = Number(status.progress?.total);
+    if (Number.isInteger(current) && Number.isInteger(total) && total > 0 && current > 0 && current <= total) {
+      return `이미지를 만들고 있습니다. (${current}/${total})`;
+    }
+    return '이미지를 만들고 있습니다.';
+  }
+  if (status.stage === 'finalizing') return '원고와 이미지를 저장하고 있습니다.';
+  return '원고 생성을 준비하고 있습니다.';
 }
 
 function clearBlogNextAiOperation() {
@@ -434,7 +443,7 @@ async function generateBlogNextAiDraft(origin = 'create') {
     renderBlogNextRunnerStatus({
       state: 'running', busy: true, source: 'manuscript_generation', progressStage: 'writing',
       subject: getBlogNextSettingsElement('blog-next-subject')?.value || '바로 생성 원고',
-      message: 'AI가 원고를 만들고 있습니다.'
+      message: '원고 생성을 준비하고 있습니다.'
     });
   }
   try {

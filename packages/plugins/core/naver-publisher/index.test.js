@@ -427,18 +427,8 @@ test('Naver Publisher detects the inserted image across editor DOM variants and 
         && kind === 'click' && selector.includes('.se-component-content img, .se-module-image img, .se-image-resource img')), false);
     assert.equal(page.calls.some(([kind, selector], index) => index > captionType
         && kind === 'click' && selector.includes('.se-canvas-bottom')), false);
-    const captionLog = logs.findIndex((message) => message.includes('[EditorInput] type target=image-caption')
-        && message.includes('Image title caption'));
-    const enterLog = logs.findIndex((message) => message.includes('[EditorInput] key target=image-caption value="Enter"'));
-    const followingBodyLog = logs.findIndex((message) => message.includes('[EditorInput] type target=paragraph')
-        && message.includes('Following body text'));
-    assert.ok(captionLog >= 0 && enterLog > captionLog && followingBodyLog > enterLog);
-    assert.ok(logs.slice(captionLog + 1, enterLog).some((message) => message.includes('type completed target=image-caption')),
-        'caption typing completion should be logged before Enter');
-    assert.ok(logs.slice(captionLog + 1, enterLog).some((message) => message.includes('type completed target=image-caption')),
-        'caption typing completion should be logged before Enter');
-    assert.equal(logs.slice(captionLog + 1, enterLog).some((message) => message.includes('caption verification')),
-        false, 'caption DOM verification must not block Enter');
+    assert.equal(logs.some((message) => message.includes('[EditorInput]')), false,
+        'low-level keyboard, typing, and block event traces should not be logged');
 });
 
 test('Naver Publisher exits the quote footer before typing the following body block', async () => {

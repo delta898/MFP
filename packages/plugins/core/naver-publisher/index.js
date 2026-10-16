@@ -37,20 +37,12 @@ function createPlugin(options = {}) {
     }
 
     async function editorPress(page, key, target = 'editor') {
-        const startedAt = Date.now();
-        logger.info?.(`[Naver Publisher][EditorInput] key target=${target} value=${JSON.stringify(String(key))}`);
-        const result = await page.keyboard.press(key);
-        logger.info?.(`[Naver Publisher][EditorInput] key completed target=${target} value=${JSON.stringify(String(key))} elapsed=${Date.now() - startedAt}ms`);
-        return result;
+        return page.keyboard.press(key);
     }
 
     async function editorType(page, value, options = {}, target = 'editor') {
         const text = String(value);
-        const startedAt = Date.now();
-        logger.info?.(`[Naver Publisher][EditorInput] type target=${target} characters=${text.length} value=${JSON.stringify(text)}`);
-        const result = await page.keyboard.type(text, options);
-        logger.info?.(`[Naver Publisher][EditorInput] type completed target=${target} characters=${text.length} elapsed=${Date.now() - startedAt}ms`);
-        return result;
+        return page.keyboard.type(text, options);
     }
 
     async function visible(page, selector) {
@@ -204,7 +196,6 @@ function createPlugin(options = {}) {
             await dismissEditorPopups(page);
             await editorPress(page, 'Escape', 'title').catch(() => {});
             try { await titleArea.scrollIntoViewIfNeeded(); } catch (_) { /* Older editor builds may not support scrolling. */ }
-            logger.info?.('[Naver Publisher][EditorInput] click target=title');
             await titleArea.click({ force: true });
             await sleep(80);
             const titleHasFocus = await titleArea.evaluate((element) => {
@@ -571,7 +562,6 @@ function createPlugin(options = {}) {
                 // classes: image count confirms insertion, then focus the last
                 // image in the insertion flow and resolve its own section.
                 const latestImage = editorImages.nth(imageCount - 1);
-                logger.info?.('[Naver Publisher][EditorInput] click target=uploaded-image fallback=last-insertion');
                 try { await latestImage.click({ force: true }); } catch (_) { /* Keep upload success if focus is unavailable. */ }
                 imageSection = latestImage.locator('xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " se-section ")][1]');
             }
@@ -703,7 +693,6 @@ function createPlugin(options = {}) {
                 code: 'NAVER_IMAGE_CAPTION_FOCUS_FAILED'
             });
         }
-        logger.info?.(`[Naver Publisher][EditorInput] click target=image-caption position=${clickTarget.position.x},${clickTarget.position.y}`);
         await captionArea.click({ force: true, position: clickTarget.position });
         await sleep(80);
         const captionFocused = await captionModule.evaluate((element) => {
@@ -718,7 +707,6 @@ function createPlugin(options = {}) {
                 code: 'NAVER_IMAGE_CAPTION_FOCUS_FAILED'
             });
         }
-        logger.info?.('[Naver Publisher][EditorInput] focus verified target=image-caption');
         await editorType(page, caption, { delay: Number(settings.typingDelayMs) || 12 }, 'image-caption');
         logger.info?.(`[Naver Publisher] Image caption typing completed (characters=${caption.length}); advancing without DOM text verification`);
         // Keep this Enter inside the caption workflow: focus is still in the
@@ -1008,20 +996,18 @@ function createPlugin(options = {}) {
             const assets = new Map(input.assets.map((asset) => [asset.key, asset]));
             const warnings = [];
             let representativeImageSet = false;
-            const sectionTotal = Math.max(1, input.blocks.filter((block) =>
-                block.type === 'heading' && block.level !== 3).length);
-            let currentSection = 0;
+            const bodyTotal = input.blocks.filter((block) => !['image', 'newline'].includes(block.type)).length;
+            let bodyDone = 0;
             const imageIndexes = input.blocks.map((block, index) => block.type === 'image' ? index : -1).filter((index) => index >= 0);
             let imageDone = 0;
             for (let index = 0; index < input.blocks.length; index++) {
                 throwIfAborted(context.signal);
                 const block = input.blocks[index];
-                logger.info?.(`[Naver Publisher][EditorInput] block start index=${index + 1}/${input.blocks.length} type=${block.type}`);
                 if (block.type === 'image') {
                     imageDone += 1;
                     const asset = assets.get(block.assetKey);
                     if (!asset) throw new NaverPublisherError(`이미지 자산을 찾지 못했습니다: ${block.assetKey}`, { code: 'NAVER_IMAGE_ASSET_NOT_FOUND' });
-                    report(context, 'uploading', 'image', imageDone - 1, imageIndexes.length);
+                    report(context, 'uploading', 'image', imageDone, imageIndexes.length);
                     await uploadImage(page, asset, context.signal, settings, {
                         caption: block.caption,
                         affiliateUrl: input.affiliateUrl,
@@ -1029,14 +1015,13 @@ function createPlugin(options = {}) {
                         onRepresentativeImageSet() { representativeImageSet = true; },
                         onWarning(warning) { warnings.push(warning); }
                     });
-                    report(context, 'uploading', 'image', imageDone, imageIndexes.length);
                 } else {
-                    const isSectionHeading = block.type === 'heading' && block.level !== 3;
-                    if (isSectionHeading) currentSection += 1;
-                    report(context, 'working', 'body', Math.max(1, currentSection), sectionTotal);
+                    if (block.type !== 'newline') {
+                        bodyDone += 1;
+                        report(context, 'working', 'body', bodyDone, bodyTotal);
+                    }
                     await enterTextBlock(page, block, context.signal, settings, warnings);
                 }
-                logger.info?.(`[Naver Publisher][EditorInput] block complete index=${index + 1}/${input.blocks.length} type=${block.type}`);
             }
 
             report(context, 'finalizing', 'settings', 0, 1);
