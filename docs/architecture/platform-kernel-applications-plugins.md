@@ -176,7 +176,7 @@ src/
   services/ai/generation-operation-manager.js
   adapters/plugins/ai-gateway.js, wordpress-publisher.js, naver-publisher.js
   adapters/ai/gateway-transport.js
-  adapters/ui/naver-publish-progress.js
+  adapters/ui/naver-publish-progress.js, blog-posting-progress.js, blog-publishing-presentation.js
   applications/
     blog/execution/execution-coordinator.js
     blog/writing/gateway-model-resolver.js

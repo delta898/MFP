@@ -16,7 +16,7 @@ const { resolveReadyQueueMove } = require('../../continuous-publishing/queue-ord
 const { createBlogExecutionCoordinator } = require('../../applications/blog/execution/execution-coordinator');
 const { buildDashboardBlogOperationsOverview } = require('../../dashboard/blog-operations-read-model');
 const { buildDashboardBlogResultStats } = require('../../dashboard/blog-result-stats-read-model');
-const { presentPublishingProgress, buildCompletionLinks } = require('../../continuous-publishing/presentation');
+const { presentPublishingProgress, buildCompletionLinks } = require('../../adapters/ui/blog-publishing-presentation');
 const {
     CONTENT_LIFECYCLE_KIND,
     createContentLifecycleAdapterRegistry,

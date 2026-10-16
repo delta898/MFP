@@ -15,7 +15,7 @@ const {
 const { createBlogExecutionCoordinator } = require('../../applications/blog/execution/execution-coordinator');
 const { presentNaverPublishProgress } = require('../../adapters/ui/naver-publish-progress');
 const { createAiGenerationOperationManager } = require('../../services/ai/generation-operation-manager');
-const { buildCompletionLinks } = require('../../continuous-publishing/presentation');
+const { buildCompletionLinks } = require('../../adapters/ui/blog-publishing-presentation');
 const { createManuscriptDraftService, validateImageBuffer } = require('../../content/manuscript-draft-service');
 const { selectManuscriptImagePromptContext } = require('../../content/manuscript-image-prompt-context');
 const { buildSetupReadiness } = require('../../account/setup-readiness');

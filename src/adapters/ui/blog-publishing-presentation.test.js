@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { presentPublishingProgress, buildCompletionLinks } = require('./presentation');
+const { presentPublishingProgress, buildCompletionLinks } = require('./blog-publishing-presentation');
 
 test('publishing progress translates internal milestones into user-facing stages', () => {
     assert.deepEqual(presentPublishingProgress('네이버 콘텐츠 생성 중...', { postStatus: 'draft' }), {
@@ -11,6 +11,21 @@ test('publishing progress translates internal milestones into user-facing stages
     });
     assert.deepEqual(presentPublishingProgress('네이버 발행 중...', { postStatus: 'schedule' }), {
         stage: 'publishing', title: '예약 발행 중', message: '네이버 블로그에 예약 발행하고 있습니다.'
+    });
+    assert.deepEqual(presentPublishingProgress('네이버 블로그용 이미지 생성 중 (1/4)'), {
+        stage: 'images', title: '이미지 준비 중', message: '네이버 블로그용 이미지 생성 중 (1/4)'
+    });
+    assert.deepEqual(presentPublishingProgress('본문을 입력하고 있습니다. (2/14)', { postStatus: 'draft' }), {
+        stage: 'body', title: '본문 입력 중', message: '본문을 입력하고 있습니다. (2/14)'
+    });
+    assert.deepEqual(presentPublishingProgress('이미지를 업로드하고 있습니다. (1/3)', { postStatus: 'draft' }), {
+        stage: 'image', title: '이미지 업로드 중', message: '이미지를 업로드하고 있습니다. (1/3)'
+    });
+    assert.deepEqual(presentPublishingProgress('임시 저장 설정을 적용하고 있습니다.', { postStatus: 'draft' }), {
+        stage: 'settings', title: '발행 설정 적용 중', message: '임시 저장 설정을 적용하고 있습니다.'
+    });
+    assert.deepEqual(presentPublishingProgress('네이버 블로그에 임시 저장을 요청하고 있습니다.', { postStatus: 'draft' }), {
+        stage: 'submitting', title: '발행 요청 중', message: '네이버 블로그에 임시 저장을 요청하고 있습니다.'
     });
     assert.equal(presentPublishingProgress('시트 상태 반영 중...').title, '마무리 중');
 });
