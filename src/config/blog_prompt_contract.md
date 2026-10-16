@@ -42,13 +42,14 @@
 [IMAGE 블록 계약]
 - 이미지 영역 수와 배치는 별도로 전달되는 이미지 계획을 따르세요.
 - 이미지 번호는 0부터 순차 증가하고 중복하거나 건너뛰지 마세요.
+- 본문 문단 바로 뒤에 이미지 블록을 배치할 때는 두 항목 사이에 빈 줄을 넣지 말고, 문단 다음 줄에서 이미지 블록을 시작하세요.
 - 출력 형식:
 [[IMAGE_N
 title: 이미지 핵심 내용을 한국어로 짧게 설명
 prompt: A professional high-quality [style] of [description]. highly detailed, strictly no text, no letters, no watermark, 4:3 AR.
 ]]
 - title과 prompt에는 HTML을 사용하지 마세요.
-- IMAGE 블록 다음에는 반드시 빈 줄 하나를 넣으세요.
+- IMAGE 블록 다음에는 빈 줄 하나를 넣으세요.
 - prompt의 스타일은 입력 스타일이 있으면 우선 적용하고 없으면 문맥에 맞게 결정하세요.
 - 인물의 성별, 연령, 국적, 시대와 스타일은 본문 근거와 일치해야 합니다.
 - 본문 근거가 없으면 인물 속성을 임의로 구체화하지 말고 장면과 사물 중심으로 구성하세요.

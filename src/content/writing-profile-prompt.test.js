@@ -88,6 +88,8 @@ test('blog prompt contract contains immutable output and safety rules without pr
     assert.match(contract, /공백을 포함한 독자 가독 본문/);
     assert.match(contract, /이미지 블록 전체의 title·prompt·구분 문자는 글자 수에서 제외/);
     assert.match(contract, /이미지 영역 수와 배치는 별도로 전달되는 이미지 계획/);
+    assert.match(contract, /본문 문단 바로 뒤에 이미지 블록.*빈 줄을 넣지 말고, 문단 다음 줄에서 이미지 블록을 시작/);
+    assert.match(contract, /IMAGE 블록 다음에는 빈 줄 하나/);
     assert.doesNotMatch(contract, /1,?500~1,?800자/);
     assert.doesNotMatch(contract, /4~5개/);
     assert.doesNotMatch(contract, /구어체|문어체|존댓말|평어/);

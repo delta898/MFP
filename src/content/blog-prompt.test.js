@@ -31,6 +31,8 @@ test('search and discovery prompts share the output and image contracts', () => 
         assert.match(prompt, /"content"/);
         assert.match(prompt, /\[\[IMAGE_N/);
         assert.match(prompt, /4:3 AR/);
+        assert.match(prompt, /본문 문단 바로 뒤에 이미지 블록.*빈 줄을 넣지 말고, 문단 다음 줄에서 이미지 블록을 시작/);
+        assert.match(prompt, /IMAGE 블록 다음에는 빈 줄 하나/);
         assert.doesNotMatch(prompt, /분량은 1500~1800자/);
         assert.doesNotMatch(prompt, /이미지 블록은 4~5개/);
     }
