@@ -30,6 +30,7 @@
                   "level": { "enum": [2, 3] },
                   "listType": { "enum": ["ordered", "unordered"] },
                   "assetKey": { "type": "string", "maxLength": 100, "pattern": "\\S" },
+                  "caption": { "type": "string", "maxLength": 500 },
                   "boldRanges": {
                     "type": "array",
                     "maxItems": 100,

@@ -36,6 +36,23 @@ function createPlugin(options = {}) {
         context?.reportProgress?.({ phase, stage, current, total });
     }
 
+    async function editorPress(page, key, target = 'editor') {
+        const startedAt = Date.now();
+        logger.info?.(`[Naver Publisher][EditorInput] key target=${target} value=${JSON.stringify(String(key))}`);
+        const result = await page.keyboard.press(key);
+        logger.info?.(`[Naver Publisher][EditorInput] key completed target=${target} value=${JSON.stringify(String(key))} elapsed=${Date.now() - startedAt}ms`);
+        return result;
+    }
+
+    async function editorType(page, value, options = {}, target = 'editor') {
+        const text = String(value);
+        const startedAt = Date.now();
+        logger.info?.(`[Naver Publisher][EditorInput] type target=${target} characters=${text.length} value=${JSON.stringify(text)}`);
+        const result = await page.keyboard.type(text, options);
+        logger.info?.(`[Naver Publisher][EditorInput] type completed target=${target} characters=${text.length} elapsed=${Date.now() - startedAt}ms`);
+        return result;
+    }
+
     async function visible(page, selector) {
         try {
             const element = page.locator(selector).first();
@@ -44,48 +61,70 @@ function createPlugin(options = {}) {
     }
 
     async function dismissEditorPopups(page) {
-        let dismissed = 0;
-        const helpSelectors = [
+        const helpCloseSelectors = [
             'button.se-help-panel-close-button',
             '.se-help-panel button[aria-label*="닫기"]',
             '.se-help-panel button[title*="닫기"]',
-            '.se-help-panel button:has-text("닫기")',
-            'button[aria-label*="도움"]',
-            'button[title*="도움"]'
+            '.se-help-panel button:has-text("닫기")'
         ];
-        const cancelSelectors = [
-            '.se-popup-button-cancel', '.se-popup button:has-text("취소")',
-            '.se-popup-container button:has-text("취소")', '.se-popover button:has-text("취소")',
-            '[role="dialog"] button:has-text("취소")', '.se-popup button:has-text("아니오")',
-            '.se-popup-container button:has-text("아니오")', '.se-popover button:has-text("아니오")',
-            '[role="dialog"] button:has-text("아니오")', '.se-popup button:has-text("불러오지 않기")',
-            '.se-popup-container button:has-text("불러오지 않기")', '.se-popover button:has-text("불러오지 않기")'
+        const previousPostPromptSelectors = [
+            'text=작성 중인 글이 있습니다',
+            'text=이전 글이 있습니다'
         ];
-        for (let round = 0; round < 8; round++) {
-            let clicked = await clickFirstVisible(page, helpSelectors);
-            if (!clicked) clicked = await clickFirstVisible(page, cancelSelectors);
-            if (!clicked) {
-                let overlayVisible = false;
-                for (const selector of ['.se-help-panel', '.se-popup', '.se-popup-container', '.se-popover', '[role="dialog"]']) {
-                    if (await visible(page, selector)) { overlayVisible = true; break; }
-                }
-                if (overlayVisible) {
-                    await page.keyboard.press('Escape').catch(() => {});
-                    await sleep(120);
-                    clicked = true;
-                }
-            }
-            if (!clicked) break;
-            dismissed += 1;
-            await sleep(300);
+        const previousPostCancelSelectors = [
+            '.se-popup-button-cancel',
+            '.se-popup button:has-text("취소")',
+            '.se-popup-container button:has-text("취소")',
+            '.se-popover button:has-text("취소")',
+            '[role="dialog"] button:has-text("취소")',
+            '[role="alertdialog"] button:has-text("취소")',
+            '.se-popup button:has-text("아니오")',
+            '.se-popup-container button:has-text("아니오")',
+            '.se-popover button:has-text("아니오")',
+            '[role="dialog"] button:has-text("아니오")',
+            '[role="alertdialog"] button:has-text("아니오")',
+            '.se-popup button:has-text("불러오지 않기")',
+            '.se-popup-container button:has-text("불러오지 않기")'
+        ];
+
+        // Only close known startup UI. Generic editor popovers include formatting
+        // menus and toolbars; Escape/global Cancel can alter the user's formatting
+        // state or move focus while body text is being entered.
+        if (await clickFirstVisible(page, helpCloseSelectors)) {
+            await sleep(150);
+            logger.info?.('[Naver Publisher] Help panel closed');
         }
-        if (dismissed) logger.info?.(`[Naver Publisher] Editor overlays dismissed (rounds=${dismissed})`);
-        return dismissed;
+
+        let promptVisible = false;
+        for (const selector of previousPostPromptSelectors) {
+            if (await visible(page, selector)) { promptVisible = true; break; }
+        }
+        if (!promptVisible) return 0;
+
+        let dismissed = await clickFirstVisible(page, previousPostCancelSelectors);
+        if (!dismissed) {
+            // Escape is a last resort only while the explicit previous-draft
+            // prompt is visible, never for arbitrary editor overlays.
+            await editorPress(page, 'Escape', 'previous-draft-prompt').catch(() => {});
+            await sleep(150);
+        }
+        for (const selector of previousPostPromptSelectors) {
+            if (await visible(page, selector)) return 0;
+        }
+        logger.info?.('[Naver Publisher] Previous-draft prompt dismissed');
+        return 1;
     }
 
     async function waitForEditor(page, settings, signal) {
         const timeoutMs = Number(settings.editorReadyTimeoutMs) || 45000;
         const started = Date.now();
+        let readyRounds = 0;
+        let popupSince = 0;
+        let readinessChecks = 0;
+        const overlaySelectors = [
+            '.se-help-panel', 'button.se-help-panel-close-button',
+            'text=작성 중인 글이 있습니다', 'text=이전 글이 있습니다'
+        ];
         while (Date.now() - started < timeoutMs) {
             throwIfAborted(signal);
             const url = String(page.url() || '');
@@ -94,9 +133,43 @@ function createPlugin(options = {}) {
                     code: 'NAVER_SESSION_EXPIRED'
                 });
             }
-            const titleReady = await visible(page, '.se-documentTitle, .se-section-documentTitle .se-text-paragraph');
-            const bodyReady = await visible(page, '.se-main-container, .se-container, .se-canvas-bottom');
-            if (titleReady && bodyReady) return;
+            const titleReady = await visible(page,
+                '.se-component.se-documentTitle .se-text-paragraph, .se-section-documentTitle .se-text-paragraph, '
+                + '.se-documentTitle .se-text-paragraph, .se-component.se-documentTitle .se-placeholder, '
+                + '.se-section-documentTitle .se-placeholder, .se-documentTitle .se-placeholder, .se-documentTitle');
+            const bodyReady = await visible(page,
+                '.se-main-container, .se-container, .se-component.se-text .se-text-paragraph, '
+                + '.se-component-content.se-component-content-normal .se-text-paragraph, .se-component-content, .se-module-text, .se-canvas-bottom');
+            const loading = await visible(page, '.se-progressbar, .se-loading, .se-spinner, .u_loading, .ly_loading');
+            const now = Date.now();
+            if (titleReady && bodyReady && !loading) {
+                readyRounds += 1;
+            } else {
+                readyRounds = 0;
+            }
+
+            // The previous-draft prompt may appear after the title and editor
+            // elements are already visible. Keep dismissing it during a short
+            // stabilization window before any keystrokes reach the editor.
+            if (readinessChecks % 2 === 0) await dismissEditorPopups(page);
+            readinessChecks += 1;
+
+            let overlayVisible = false;
+            for (const selector of overlaySelectors) {
+                if (await visible(page, selector)) { overlayVisible = true; break; }
+            }
+            if (overlayVisible) {
+                if (!popupSince) popupSince = now;
+                if (now - popupSince >= 5000) {
+                    throw new NaverPublisherError('네이버 에디터의 이전 글/도움말 팝업을 닫지 못했습니다. 발행을 중단했습니다.', {
+                        code: 'NAVER_EDITOR_POPUP_BLOCKED'
+                    });
+                }
+                readyRounds = 0;
+            } else {
+                popupSince = 0;
+                if (readyRounds >= 8) return;
+            }
             await sleep(250);
         }
         throw new NaverPublisherError('네이버 블로그 에디터가 준비되지 않았습니다.', { code: 'NAVER_EDITOR_NOT_READY' });
@@ -111,6 +184,7 @@ function createPlugin(options = {}) {
             try { return await locator.textContent(); } catch (_) { return ''; }
         }
     }
+
 
     async function enterTitle(page, title, signal, settings) {
         const selector = [
@@ -127,18 +201,32 @@ function createPlugin(options = {}) {
         const attempts = Math.max(1, Math.min(5, Number(settings.titleInputAttempts) || 3));
         for (let attempt = 1; attempt <= attempts; attempt++) {
             throwIfAborted(signal);
-            await page.keyboard.press('Escape').catch(() => {});
+            await dismissEditorPopups(page);
+            await editorPress(page, 'Escape', 'title').catch(() => {});
             try { await titleArea.scrollIntoViewIfNeeded(); } catch (_) { /* Older editor builds may not support scrolling. */ }
+            logger.info?.('[Naver Publisher][EditorInput] click target=title');
             await titleArea.click({ force: true });
             await sleep(80);
-            await page.keyboard.press(`${settings.commandKey || 'Meta'}+A`).catch(() => {});
-            await page.keyboard.press('Backspace').catch(() => {});
-            await page.keyboard.press('Delete').catch(() => {});
-            await page.keyboard.type(title, { delay: Number(settings.typingDelayMs) || 12 });
+            const titleHasFocus = await titleArea.evaluate((element) => {
+                const titleRegion = element.closest('.se-component.se-documentTitle, .se-section-documentTitle, .se-documentTitle') || element;
+                const active = document.activeElement;
+                const selection = window.getSelection?.();
+                return Boolean((active && (active === titleRegion || titleRegion.contains(active)))
+                    || (selection?.anchorNode && titleRegion.contains(selection.anchorNode)));
+            }).catch(() => false);
+            if (!titleHasFocus) {
+                throw new NaverPublisherError('네이버 제목 입력란에 포커스가 없어 본문을 안전하게 보존하려고 입력을 중단했습니다.', {
+                    code: 'NAVER_TITLE_FOCUS_FAILED'
+                });
+            }
+            await editorPress(page, `${settings.commandKey || 'Meta'}+A`, 'title').catch(() => {});
+            await editorPress(page, 'Backspace', 'title').catch(() => {});
+            await editorPress(page, 'Delete', 'title').catch(() => {});
+            await editorType(page, title, { delay: Number(settings.typingDelayMs) || 12 }, 'title');
             await sleep(180);
             const actual = normalizeEditorText(await readText(titleArea));
             if (actual === expected || actual.includes(expected)) {
-                await page.keyboard.press('Enter');
+                await editorPress(page, 'Enter', 'title');
                 return;
             }
             if (attempt < attempts) await sleep(220);
@@ -195,7 +283,7 @@ function createPlugin(options = {}) {
             await sleep(180);
             if (clicked && await labelMatches()) return true;
         }
-        await page.keyboard.press('Escape').catch(() => {});
+        await editorPress(page, 'Escape', 'text-format').catch(() => {});
         return false;
     }
 
@@ -216,11 +304,63 @@ function createPlugin(options = {}) {
         }
     }
 
+    async function isCaretInsideQuoteBlock(page) {
+        try {
+            return await page.evaluate(() => {
+                const selection = window.getSelection?.();
+                if (!selection || selection.rangeCount === 0) return false;
+                const node = selection.getRangeAt(0).startContainer;
+                const element = node instanceof Element ? node : node?.parentElement;
+                return Boolean(element?.closest('blockquote, [class*="quotation"], [class*="quote"], .se-quotation, .se-module-quotation, .se-text-quotation'));
+            });
+        } catch (_) {
+            return false;
+        }
+    }
+
+    async function leaveQuoteBlock(page) {
+        // Match the proven legacy Naver editor gesture: ArrowDown twice moves
+        // from the quotation text through its source/footer and out of the block.
+        await sleep(100);
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            await editorPress(page, 'ArrowDown', 'quote-exit');
+            await sleep(70);
+            await editorPress(page, 'ArrowDown', 'quote-exit');
+            await sleep(70);
+            await collapseEditorSelectionToCaretEnd(page);
+            await sleep(100);
+            if (!(await isCaretInsideQuoteBlock(page))) {
+                logger.info?.(`[Naver Publisher] Quote block exited (method=ArrowDownx2, attempt=${attempt})`);
+                await editorPress(page, 'Enter', 'quote-exit');
+                await sleep(80);
+                await collapseEditorSelectionToCaretEnd(page);
+                return true;
+            }
+        }
+
+        // Legacy fallback puts focus on the document bottom and nudges the
+        // caret down without creating a line inside the quotation.
+        for (let attempt = 1; attempt <= 4; attempt++) {
+            await focusEditorBottom(page);
+            if (!(await isCaretInsideQuoteBlock(page))) {
+                await editorPress(page, 'Enter', 'quote-exit-fallback');
+                await sleep(80);
+                await collapseEditorSelectionToCaretEnd(page);
+                logger.info?.(`[Naver Publisher] Quote block exited (method=document-bottom, attempt=${attempt})`);
+                return true;
+            }
+            await editorPress(page, 'ArrowDown', 'quote-exit-fallback');
+            await sleep(90);
+        }
+        logger.warn?.('[Naver Publisher] Quote caret remains inside quotation after legacy exit attempts');
+        return false;
+    }
+
     async function enterTextBlock(page, block, signal, settings, warnings = []) {
         throwIfAborted(signal);
         const text = String(block.text || '');
         if (block.type === 'newline') {
-            await page.keyboard.press('Enter');
+            await editorPress(page, 'Enter', 'newline-block');
             return;
         }
         if (block.type === 'separator') {
@@ -228,29 +368,29 @@ function createPlugin(options = {}) {
             if (await separator.count() && await separator.isVisible()) {
                 await separator.click({ force: true });
             } else {
-                await page.keyboard.type('────────────', { delay: Number(settings.typingDelayMs) || 12 });
-                await page.keyboard.press('Enter');
+                await editorType(page, '────────────', { delay: Number(settings.typingDelayMs) || 12 }, 'separator');
+                await editorPress(page, 'Enter', 'separator');
             }
             return;
         }
         if (block.type === 'list-item') {
             const marker = block.listType === 'ordered' ? '1. ' : '- ';
-            await page.keyboard.type(marker, { delay: Number(settings.typingDelayMs) || 12 });
-            await typeWithBoldRanges(page, text, block.boldRanges, settings);
-            await page.keyboard.press('Enter');
+            await editorType(page, marker, { delay: Number(settings.typingDelayMs) || 12 }, 'list-marker');
+            await typeWithBoldRanges(page, text, block.boldRanges, settings, 'list-item');
+            await editorPress(page, 'Enter', 'list-item');
             return;
         }
         if (block.type === 'paragraph' && /^https?:\/\/\S+$/i.test(text.trim())) {
             if (await insertOglinkCard(page, text.trim(), warnings)) return;
         }
-        if (text) await typeWithBoldRanges(page, text, block.boldRanges, settings);
+        if (text) await typeWithBoldRanges(page, text, block.boldRanges, settings, block.type);
         let requiredFormat = null;
         if (block.type === 'heading') requiredFormat = block.level === 3 ? '인용구' : '소제목';
         if (block.type === 'quote') requiredFormat = '인용구';
         if (block.type === 'heading') await sleep(300);
         if (requiredFormat && !(await applyTextFormat(page, requiredFormat))) {
             // Recover once by selecting the current line, as the legacy editor path does.
-            await page.keyboard.press('Shift+Home').catch(() => {});
+            await editorPress(page, 'Shift+Home', 'format-recovery').catch(() => {});
             const recovered = await applyTextFormat(page, requiredFormat);
             if (!recovered) warnings.push(`${requiredFormat} 서식을 적용하지 못했습니다: ${text}`);
         }
@@ -258,20 +398,34 @@ function createPlugin(options = {}) {
             // Naver may keep the heading text selected after applying a format.
             // Mirror the legacy editor flow: move to the text end, collapse the
             // actual DOM selection, then let Enter create the following body paragraph.
-            await page.keyboard.press('ArrowRight').catch(() => {});
+            await editorPress(page, 'ArrowRight', 'format-recovery').catch(() => {});
             await collapseEditorSelectionToCaretEnd(page);
             await sleep(80);
             const editorText = normalizeEditorText(await readText(page.locator('.se-main-container, .se-container').first()));
             if (text && editorText && !editorText.includes(normalizeEditorText(text))) {
                 warnings.push(`${requiredFormat} 텍스트가 에디터에서 확인되지 않습니다: ${text}`);
                 await focusEditorBottom(page);
-                await page.keyboard.type(text, { delay: Number(settings.typingDelayMs) || 12 });
+                await editorType(page, text, { delay: Number(settings.typingDelayMs) || 12 }, 'format-recovery');
             }
         }
-        await page.keyboard.press('Enter');
+        if (requiredFormat === '인용구') {
+            const quoteExited = await leaveQuoteBlock(page);
+            if (!quoteExited) {
+                throw new NaverPublisherError('네이버 에디터의 인용구 영역을 벗어나지 못해 본문 입력을 중단했습니다.', {
+                    code: 'NAVER_QUOTE_EXIT_FAILED'
+                });
+            }
+            return;
+        }
+        if (block.type === 'heading') {
+            // The next manuscript newline block owns the move into the next
+            // editor paragraph. Do not add an implicit Enter here.
+            return;
+        }
+        await editorPress(page, 'Enter', block.type);
     }
 
-    async function typeWithBoldRanges(page, text, ranges, settings) {
+    async function typeWithBoldRanges(page, text, ranges, settings, target = 'body') {
         const validRanges = (Array.isArray(ranges) ? ranges : [])
             .map((range) => ({ start: Number(range?.start), end: Number(range?.end) }))
             .filter((range) => Number.isInteger(range.start) && Number.isInteger(range.end)
@@ -282,13 +436,13 @@ function createPlugin(options = {}) {
         let cursor = 0;
         for (const range of validRanges) {
             if (range.start < cursor) continue;
-            if (range.start > cursor) await page.keyboard.type(text.slice(cursor, range.start), { delay });
-            await page.keyboard.press(shortcut);
-            await page.keyboard.type(text.slice(range.start, range.end), { delay });
-            await page.keyboard.press(shortcut);
+            if (range.start > cursor) await editorType(page, text.slice(cursor, range.start), { delay }, target);
+            await editorPress(page, shortcut, `${target}-bold`);
+            await editorType(page, text.slice(range.start, range.end), { delay }, target);
+            await editorPress(page, shortcut, `${target}-bold`);
             cursor = range.end;
         }
-        if (cursor < text.length) await page.keyboard.type(text.slice(cursor), { delay });
+        if (cursor < text.length) await editorType(page, text.slice(cursor), { delay }, target);
     }
 
     async function insertOglinkCard(page, url, warnings = []) {
@@ -338,7 +492,7 @@ function createPlugin(options = {}) {
                 await sleep(150);
             }
             if (!closed) {
-                await page.keyboard.press('Escape').catch(() => {});
+                await editorPress(page, 'Escape', 'oglink-dialog').catch(() => {});
                 try { await popup.waitFor({ state: 'hidden', timeout: 1200 }); closed = true; } catch (_) { /* Plain-URL fallback below. */ }
             }
             if (!closed) return false;
@@ -361,13 +515,23 @@ function createPlugin(options = {}) {
             }
             return confirmAttempted;
         } catch (_) {
-            await page.keyboard.press('Escape').catch(() => {});
+            await editorPress(page, 'Escape', 'oglink-dialog').catch(() => {});
             return false;
         }
     }
 
     async function uploadImage(page, asset, signal, settings, imageOptions = {}) {
         throwIfAborted(signal);
+        const editorImageSelector = [
+            '.se-component-content img', '.se-module-image img', '.se-image-resource img',
+            '.se-section img', '.se-component img', '.se-main-container img', '.se-container img'
+        ].join(', ');
+        const editorImages = page.locator(editorImageSelector);
+        const imageCountBefore = await editorImages.count().catch(() => 0);
+        const activeSectionBefore = await selectedImageSection(page);
+        const activeSectionIdentityBefore = activeSectionBefore
+            ? await activeSectionBefore.getAttribute('id').catch(() => null)
+            : null;
         const photoButton = page.locator('button.se-image-toolbar-button, button:has-text("사진")').first();
         await photoButton.waitFor({ state: 'visible', timeout: 10000 });
         const chooserPromise = page.waitForEvent('filechooser');
@@ -380,11 +544,42 @@ function createPlugin(options = {}) {
         });
         await sleep(Number(settings.waitUploadMs) || 3000);
         throwIfAborted(signal);
-        const editorImages = page.locator('.se-component-content img, .se-module-image img, .se-image-resource img');
-        const imageCount = await editorImages.count();
-        if (imageCount > 0) {
-            const latestImage = editorImages.nth(imageCount - 1);
-            try { await latestImage.click({ force: true }); } catch (_) { /* Keep upload success even if image focus is unavailable. */ }
+        let imageCount = await editorImages.count().catch(() => 0);
+        for (let attempt = 0; imageCount <= imageCountBefore && attempt < 20; attempt++) {
+            await sleep(120);
+            throwIfAborted(signal);
+            imageCount = await editorImages.count().catch(() => 0);
+        }
+        logger.info?.(`[Naver Publisher] Image upload reflected in editor (before=${imageCountBefore}, after=${imageCount})`);
+        if (imageCount > imageCountBefore) {
+            let imageSection = null;
+            for (let attempt = 0; attempt < 15; attempt++) {
+                const selectedSection = await selectedImageSection(page);
+                const selectedIdentity = selectedSection
+                    ? await selectedSection.getAttribute('id').catch(() => null)
+                    : null;
+                if (selectedSection && selectedIdentity !== activeSectionIdentityBefore) {
+                    imageSection = selectedSection;
+                    break;
+                }
+                if (attempt < 14) await sleep(100);
+            }
+            if (imageSection) {
+                logger.info?.('[Naver Publisher] Current insertion image selected by editor (source=active-image-section)');
+            } else {
+                // Fallback for editor builds that do not expose selected-state
+                // classes: image count confirms insertion, then focus the last
+                // image in the insertion flow and resolve its own section.
+                const latestImage = editorImages.nth(imageCount - 1);
+                logger.info?.('[Naver Publisher][EditorInput] click target=uploaded-image fallback=last-insertion');
+                try { await latestImage.click({ force: true }); } catch (_) { /* Keep upload success if focus is unavailable. */ }
+                imageSection = latestImage.locator('xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " se-section ")][1]');
+            }
+            const sectionReady = await imageSection?.count().catch(() => 0);
+            if (!sectionReady) {
+                logger.warn?.(`[Naver Publisher] Inserted image section unavailable (uploadCount=${imageCountBefore}->${imageCount}, activeSection=${Boolean(imageSection)})`);
+                throw new NaverPublisherError('삽입한 이미지의 편집 영역을 찾지 못했습니다.', { code: 'NAVER_IMAGE_SECTION_NOT_FOUND' });
+            }
             await sleep(120);
             const specialImage = /_(?:ftc_disclosure|cta_image)/i.test(asset.filename);
             if (specialImage) await applyImageAlignment(page, 'center');
@@ -395,8 +590,157 @@ function createPlugin(options = {}) {
                 const linked = await applyAffiliateImageLink(page, imageOptions.affiliateUrl);
                 if (!linked) imageOptions.onWarning?.('제휴 CTA 이미지에 링크를 적용하지 못했습니다.');
             }
+            if (String(imageOptions.caption || '').trim()) {
+                await enterImageCaption(page, String(imageOptions.caption).trim(), settings, imageSection);
+            } else {
+                await advanceAfterImage(page, 'none');
+            }
+        } else {
+            throw new NaverPublisherError('이미지 업로드 후 네이버 에디터에서 새 이미지 블록을 확인하지 못했습니다.', {
+                code: 'NAVER_IMAGE_INSERT_FAILED'
+            });
         }
-        await page.keyboard.press('Enter').catch(() => {});
+    }
+
+    async function advanceAfterImage(page, captionState) {
+        try {
+            await editorPress(page, 'Enter', captionState === 'entered' ? 'image-caption' : 'image');
+            await sleep(70);
+            logger.info?.(`[Naver Publisher] Next body position prepared after image (caption=${captionState}, method=Enter)`);
+        } catch (error) {
+            throw new NaverPublisherError('이미지 다음 본문 입력 위치로 이동하지 못했습니다.', {
+                code: 'NAVER_IMAGE_NEXT_BLOCK_FOCUS_FAILED',
+                cause: error
+            });
+        }
+    }
+
+    async function enterImageCaption(page, caption, settings, insertedImage) {
+        // The current insertion's active image section is supplied by uploadImage;
+        // do not rescan the document and accidentally bind to a previous image.
+        const section = insertedImage;
+        const sectionCount = await section?.count().catch(() => 0);
+        if (!sectionCount) {
+            logger.warn?.('[Naver Publisher] Current insertion image section not found (source=active-image-section)');
+            throw new NaverPublisherError('삽입한 이미지의 설명 영역을 찾지 못했습니다.', {
+                code: 'NAVER_IMAGE_CAPTION_NOT_FOUND'
+            });
+        }
+        // `se-is-on-caption` is an editor interaction state, not a stable
+        // structural marker. It can be absent while Naver is still activating
+        // the image after upload. Prefer the actual empty caption placeholder
+        // and retry briefly for the editor's asynchronous render.
+        let captionModule = section.locator('.se-module.se-module-text').filter({
+            hasText: '사진 설명을 입력하세요'
+        }).last();
+        let captionArea;
+        for (let attempt = 0; attempt < 20; attempt++) {
+            const moduleReady = await captionModule.count().catch(() => 0)
+                && await captionModule.isVisible().catch(() => false);
+            if (moduleReady) {
+                captionArea = captionModule.locator('.se-text-paragraph').last();
+                if (await captionArea.count().catch(() => 0)
+                    && await captionArea.isVisible().catch(() => false)) break;
+            }
+            captionArea = null;
+            if (attempt < 19) await sleep(100);
+        }
+        if (!captionArea) {
+            logger.warn?.('[Naver Publisher] Image caption placeholder not found after image activation (section=.se-section, module=.se-module-text:has-text("사진 설명을 입력하세요"))');
+            throw new NaverPublisherError('네이버 에디터에서 이미지 설명 입력 위치를 찾지 못했습니다.', {
+                code: 'NAVER_IMAGE_CAPTION_NOT_FOUND'
+            });
+        }
+
+        // Captions can start below the viewport after a tall image upload. Scroll
+        // them into view first, then hit-test several points so the fixed 글감
+        // search bar or a floating toolbar never receives the caption keystrokes.
+        let clickTarget = null;
+        let lastCaptionGeometry = null;
+        for (let attempt = 0; attempt < 3 && !clickTarget; attempt++) {
+            try { await captionArea.scrollIntoViewIfNeeded(); } catch (_) { /* DOM scroll fallback below. */ }
+            if (attempt > 0) {
+                await captionArea.evaluate((element) => element.scrollIntoView({ block: 'center', inline: 'nearest' })).catch(() => {});
+            }
+            await sleep(100);
+            const hitTest = await captionArea.evaluate((element) => {
+                const rect = element.getBoundingClientRect();
+                const candidates = [
+                    { x: rect.left + 3, y: rect.top + rect.height / 2 },
+                    { x: rect.right - 3, y: rect.top + rect.height / 2 },
+                    { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 },
+                    { x: rect.left + 3, y: rect.top + 3 },
+                    { x: rect.right - 3, y: rect.bottom - 3 }
+                ];
+                const geometry = {
+                    top: Math.round(rect.top), bottom: Math.round(rect.bottom),
+                    left: Math.round(rect.left), right: Math.round(rect.right),
+                    viewportHeight: window.innerHeight
+                };
+                for (const point of candidates) {
+                    if (point.x < 0 || point.y < 0 || point.x >= window.innerWidth || point.y >= window.innerHeight) continue;
+                    const hit = document.elementFromPoint(point.x, point.y);
+                    if (hit && (hit === element || element.contains(hit))) {
+                        return { position: { x: point.x - rect.left, y: point.y - rect.top }, geometry };
+                    }
+                }
+                const visiblePoint = candidates.find((point) => point.x >= 0 && point.y >= 0
+                    && point.x < window.innerWidth && point.y < window.innerHeight);
+                const obstruction = visiblePoint ? document.elementFromPoint(visiblePoint.x, visiblePoint.y) : null;
+                return {
+                    position: null,
+                    geometry,
+                    obstruction: obstruction ? `${obstruction.tagName.toLowerCase()}.${String(obstruction.className || '').toString().trim().replace(/\s+/g, '.')}` : 'outside-viewport'
+                };
+            }).catch(() => null);
+            if (hitTest?.position) clickTarget = hitTest;
+            else if (hitTest) lastCaptionGeometry = hitTest;
+        }
+        if (!clickTarget) {
+            const geometry = lastCaptionGeometry?.geometry;
+            logger.warn?.(`[Naver Publisher] Caption click target still obscured after scroll (rect=${geometry ? `${geometry.left},${geometry.top}-${geometry.right},${geometry.bottom}` : 'unavailable'}, viewportHeight=${geometry?.viewportHeight ?? 'unknown'}, obstruction=${lastCaptionGeometry?.obstruction || 'unknown'})`);
+            throw new NaverPublisherError('네이버 이미지 설명 위치가 화면에 나타나지 않아 입력을 중단했습니다.', {
+                code: 'NAVER_IMAGE_CAPTION_FOCUS_FAILED'
+            });
+        }
+        logger.info?.(`[Naver Publisher][EditorInput] click target=image-caption position=${clickTarget.position.x},${clickTarget.position.y}`);
+        await captionArea.click({ force: true, position: clickTarget.position });
+        await sleep(80);
+        const captionFocused = await captionModule.evaluate((element) => {
+            const active = document.activeElement;
+            const selection = window.getSelection?.();
+            return Boolean(active && element.contains(active))
+                || Boolean(selection?.anchorNode && element.contains(selection.anchorNode))
+                || Boolean(element.querySelector('[class*="placeholder-focused"]'));
+        }).catch(() => false);
+        if (!captionFocused) {
+            throw new NaverPublisherError('네이버 이미지 설명 입력란에 포커스가 없어 입력을 중단했습니다.', {
+                code: 'NAVER_IMAGE_CAPTION_FOCUS_FAILED'
+            });
+        }
+        logger.info?.('[Naver Publisher][EditorInput] focus verified target=image-caption');
+        await editorType(page, caption, { delay: Number(settings.typingDelayMs) || 12 }, 'image-caption');
+        logger.info?.(`[Naver Publisher] Image caption typing completed (characters=${caption.length}); advancing without DOM text verification`);
+        // Keep this Enter inside the caption workflow: focus is still in the
+        // caption paragraph, so this is the exact transition to the next block.
+        await advanceAfterImage(page, 'entered');
+    }
+
+    async function selectedImageSection(page) {
+        const selectors = [
+            '.se-section.se-section-image.se-is-selected',
+            '.se-section.se-section-image.se-is-activated',
+            '.se-section.se-is-selected:has(.se-module-image img, .se-image-resource img)',
+            '.se-section.se-is-activated:has(.se-module-image img, .se-image-resource img)'
+        ];
+        for (const selector of selectors) {
+            const candidates = page.locator(selector);
+            for (let index = await candidates.count() - 1; index >= 0; index--) {
+                const candidate = candidates.nth(index);
+                if (await candidate.isVisible().catch(() => false)) return candidate;
+            }
+        }
+        return null;
     }
 
     async function clickFirstVisible(page, selectors) {
@@ -557,7 +901,7 @@ function createPlugin(options = {}) {
                     '.se-popover button:has-text("적용")', '.se-popup button:has-text("적용")',
                     '.se-popover button:has-text("확인")', '.se-popup button:has-text("확인")'
                 ]);
-                if (!applied) await page.keyboard.press('Enter');
+                if (!applied) await editorPress(page, 'Enter', 'image-link');
                 return true;
             } catch (_) { return false; }
         }
@@ -598,7 +942,7 @@ function createPlugin(options = {}) {
                 if (matched) break;
             }
             if (!matched) {
-                await page.keyboard.press('Escape').catch(() => {});
+                await editorPress(page, 'Escape', 'category-dialog').catch(() => {});
                 return false;
             }
             try { await matched.scrollIntoViewIfNeeded(); } catch (_) { /* Optional. */ }
@@ -629,7 +973,7 @@ function createPlugin(options = {}) {
         const dateInput = page.locator('input.input_date__QmA0s, input[aria-label="날짜 입력"], .input_date__S9V_r').first();
         if (await dateInput.count() && await dateInput.isVisible()) {
             await dateInput.fill(dateText);
-            await page.keyboard.press('Enter');
+            await editorPress(page, 'Enter', 'schedule-date');
         }
         const timeMatch = scheduleDate.match(/(\d{1,2}):(\d{2})/);
         if (timeMatch) {
@@ -664,19 +1008,22 @@ function createPlugin(options = {}) {
             const assets = new Map(input.assets.map((asset) => [asset.key, asset]));
             const warnings = [];
             let representativeImageSet = false;
-            const totalBlocks = input.blocks.length;
-            let completedBlocks = 0;
+            const sectionTotal = Math.max(1, input.blocks.filter((block) =>
+                block.type === 'heading' && block.level !== 3).length);
+            let currentSection = 0;
             const imageIndexes = input.blocks.map((block, index) => block.type === 'image' ? index : -1).filter((index) => index >= 0);
             let imageDone = 0;
-            for (let index = 0; index < totalBlocks; index++) {
+            for (let index = 0; index < input.blocks.length; index++) {
                 throwIfAborted(context.signal);
                 const block = input.blocks[index];
+                logger.info?.(`[Naver Publisher][EditorInput] block start index=${index + 1}/${input.blocks.length} type=${block.type}`);
                 if (block.type === 'image') {
                     imageDone += 1;
                     const asset = assets.get(block.assetKey);
                     if (!asset) throw new NaverPublisherError(`이미지 자산을 찾지 못했습니다: ${block.assetKey}`, { code: 'NAVER_IMAGE_ASSET_NOT_FOUND' });
                     report(context, 'uploading', 'image', imageDone - 1, imageIndexes.length);
                     await uploadImage(page, asset, context.signal, settings, {
+                        caption: block.caption,
                         affiliateUrl: input.affiliateUrl,
                         representativeImageSet,
                         onRepresentativeImageSet() { representativeImageSet = true; },
@@ -684,11 +1031,12 @@ function createPlugin(options = {}) {
                     });
                     report(context, 'uploading', 'image', imageDone, imageIndexes.length);
                 } else {
-                    report(context, 'working', 'body', completedBlocks, totalBlocks);
-                    await dismissEditorPopups(page);
+                    const isSectionHeading = block.type === 'heading' && block.level !== 3;
+                    if (isSectionHeading) currentSection += 1;
+                    report(context, 'working', 'body', Math.max(1, currentSection), sectionTotal);
                     await enterTextBlock(page, block, context.signal, settings, warnings);
                 }
-                completedBlocks += 1;
+                logger.info?.(`[Naver Publisher][EditorInput] block complete index=${index + 1}/${input.blocks.length} type=${block.type}`);
             }
 
             report(context, 'finalizing', 'settings', 0, 1);
@@ -725,7 +1073,7 @@ function createPlugin(options = {}) {
             report(context, 'finalizing', 'submitting', 0, 1);
             if (finalStatus === 'draft') {
                 logger.info?.('[Naver Publisher] Final action: save draft; publish button will not be clicked.');
-                await page.keyboard.press('Escape').catch(() => {});
+                await editorPress(page, 'Escape', 'publish-dialog').catch(() => {});
                 const settingsSubmitButtons = page.locator(finalButtonSelector);
                 let submitButtonStillVisible = false;
                 for (let attempt = 0; attempt < 50; attempt++) {

@@ -97,6 +97,7 @@ test('Naver publishing prepares typed Markdown blocks and WebP assets before cal
         Utils: {
             parseMarkdown() {
                 return { title: 'Naver title', contents: [
+                    { type: 'newline' },
                     { type: 'header-h2', text: 'Heading' },
                     { type: 'paragraph', text: 'Body', boldRanges: [{ start: 0, end: 2 }] },
                     { type: 'image', index: 0, text: 'Hero' },
@@ -123,8 +124,9 @@ test('Naver publishing prepares typed Markdown blocks and WebP assets before cal
     const published = calls.find((call) => call.operation === 'naver-plugin');
     assert.deepEqual(published.request.blocks, [
         { type: 'heading', level: 2, text: 'Heading' },
+        { type: 'newline' },
         { type: 'paragraph', text: 'Body', boldRanges: [{ start: 0, end: 2 }] },
-        { type: 'image', assetKey: 'image-0' },
+        { type: 'image', assetKey: 'image-0', caption: 'Hero' },
         { type: 'list-item', text: 'Item', listType: 'unordered' }
     ]);
     assert.equal(published.request.assets[0].filename, '00_hero.webp');
@@ -135,6 +137,42 @@ test('Naver publishing prepares typed Markdown blocks and WebP assets before cal
     published.context.reportProgress({ phase: 'working', stage: 'body', current: 1, total: 4 });
     assert.deepEqual(progress, [{ stage: 'body', current: 1, total: 4, postStatus: 'publish' }]);
     assert.equal(result.success, true);
+});
+
+test('Naver publishing uses one title transition and preserves additional authored newlines', async (t) => {
+    const calls = [];
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'naver-plugin-newlines-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    fs.writeFileSync(path.join(directory, 'contents.md'), '# Naver title');
+    const app = createApplication({
+        naverPublisher: { async publish(request) { calls.push(request); return { status: request.status, warnings: [] }; } },
+        Utils: {
+            parseMarkdown() {
+                return { title: 'Naver title', contents: [
+                    { type: 'newline' },
+                    { type: 'newline' },
+                    { type: 'paragraph', text: 'First paragraph' },
+                    { type: 'newline' },
+                    { type: 'newline' },
+                    { type: 'header-h2', text: 'A heading' },
+                    { type: 'paragraph', text: 'Following paragraph' }
+                ] };
+            },
+            findImageByPrefix() { return null; }
+        }
+    }).app;
+
+    await app.publishNaver(directory, { postStatus: 'draft' });
+
+    assert.deepEqual(calls[0].blocks, [
+        { type: 'newline' },
+        { type: 'paragraph', text: 'First paragraph' },
+        { type: 'newline' },
+        { type: 'newline' },
+        { type: 'heading', level: 2, text: 'A heading' },
+        { type: 'newline' },
+        { type: 'paragraph', text: 'Following paragraph' }
+    ]);
 });
 
 test('Naver missing image blocks are preserved and force an otherwise live post to draft', async (t) => {

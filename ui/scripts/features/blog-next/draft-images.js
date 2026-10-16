@@ -1,5 +1,14 @@
 // Blog Beta manuscript image rendering, editing, and generation operations.
 
+function readBlogNextFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error(`${file?.name || '파일'}을 읽지 못했습니다.`));
+    reader.readAsDataURL(file);
+  });
+}
+
 function renderBlogNextDraftImages(type, preview = {}) {
   const imageItems = Array.isArray(preview.images) ? preview.images : [];
   if (imageItems.length === 0) return '<div class="local-markdown-empty">이미지 블록이 없습니다.</div>';
@@ -427,11 +436,16 @@ async function importBlogNextManuscriptImage(type, slotId, input) {
     input.value = '';
     return;
   }
-  const base64Data = await readBlogNextFileAsDataUrl(file);
-  await applyBlogNextManuscriptMutation(type, 'import', slotId, {
-    fileName: file.name || 'clipboard-image', mimeType: file.type || '', base64Data
-  });
-  input.value = '';
+  try {
+    const base64Data = await readBlogNextFileAsDataUrl(file);
+    await applyBlogNextManuscriptMutation(type, 'import', slotId, {
+      fileName: file.name || 'clipboard-image', mimeType: file.type || '', base64Data
+    });
+  } catch (error) {
+    setBlogNextDraftValidation(type, { errors: [error?.message || '이미지 파일을 읽지 못했습니다.'] }, '', blogNextDraftState[type].preview);
+  } finally {
+    input.value = '';
+  }
 }
 
 function getBlogNextEditorImageSyncKey(type) {

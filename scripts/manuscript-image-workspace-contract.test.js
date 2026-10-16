@@ -2,9 +2,27 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
+
+test('manuscript image file reader resolves the browser data URL', async () => {
+  class FakeBlob {
+    constructor(dataUrl) { this.dataUrl = dataUrl; }
+  }
+  class FakeFileReader {
+    readAsDataURL(file) {
+      this.result = file.dataUrl;
+      queueMicrotask(() => this.onload?.());
+    }
+  }
+  const context = { Blob: FakeBlob, FileReader: FakeFileReader };
+  vm.createContext(context);
+  vm.runInContext(`${read('ui/scripts/features/blog-next/draft-images.js')}\nglobalThis.__readFile = readBlogNextFileAsDataUrl;`, context);
+
+  assert.equal(await context.__readFile(new FakeBlob('data:image/png;base64,aGVsbG8=')), 'data:image/png;base64,aGVsbG8=');
+});
 
 test('manuscript image actions live in the preview and expose accessible empty/present states', () => {
   const editor = read('ui/scripts/features/blog-next/manuscript-editor-entry.js');
@@ -64,6 +82,8 @@ test('manuscript editors add image blocks from clipboard and canvas drops throug
   assert.match(editor, /editorPosition\?\.pos \?\? editor\.state\.doc\.content\.size/);
   assert.match(editor, /handlePaste\(_view, event\)[\s\S]*?editor\.state\.selection\.from/);
   assert.match(images, /async function importBlogNextEditorImage\(type, file, blockId\)/);
+  assert.match(images, /function readBlogNextFileAsDataUrl\(file\)[\s\S]*?reader\.readAsDataURL\(file\)/);
+  assert.match(images, /async function importBlogNextManuscriptImage\(type, slotId, input\)[\s\S]*?catch \(error\)[\s\S]*?setBlogNextDraftValidation/);
   assert.match(images, /preview\.images\?\.find\(\(item\) => item\.blockId === blockId\)/);
   assert.match(images, /applyBlogNextManuscriptMutation\(type, 'import',[\s\S]*?\{ lockAcquired: true \}\)/);
   assert.equal((inputs.match(/onImageFileDrop\(file, blockId\)/g) || []).length, 1);

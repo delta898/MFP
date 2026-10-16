@@ -83,6 +83,16 @@ test('parseMarkdown keeps H2, H3, and quote blocks distinct', () => {
     ]);
 });
 
+test('parseMarkdown preserves heading and following content as distinct source blocks', () => {
+    const parsed = Utils.parseMarkdown('# 제목\n\n## 소제목\n본문 문단');
+
+    assert.deepEqual(parsed.contents, [
+        { type: 'newline' },
+        { type: 'header-h2', text: '소제목' },
+        { type: 'paragraph', text: '본문 문단' }
+    ]);
+});
+
 test('parseMarkdown accepts optional image marker numbers and allocates unused indexes', () => {
     const parsed = Utils.parseMarkdown([
         '# 제목',

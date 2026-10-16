@@ -88,7 +88,15 @@ function createBlogPublishingApplication(options = {}) {
             '.avif': 'image/avif', '.gif': 'image/gif', '.jpeg': 'image/jpeg',
             '.jpg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp'
         };
-        for (const item of parsed.contents || []) {
+        const parsedContents = parsed.contents || [];
+        // The first newline after the Markdown title is the title-to-body
+        // transition already performed by enterTitle(). Any additional leading
+        // newline is authored spacing and must remain a body block.
+        let firstBodyItem = 0;
+        if (parsedContents[firstBodyItem]?.type === 'newline') firstBodyItem += 1;
+        const bodyItems = parsedContents.slice(firstBodyItem);
+        for (let itemIndex = 0; itemIndex < bodyItems.length; itemIndex += 1) {
+            const item = bodyItems[itemIndex];
             if (item.type === 'image') {
                 const imagePath = Utils.findImageByPrefix(directory, item.index);
                 if (!imagePath || !fs.existsSync(imagePath)) {
@@ -110,11 +118,19 @@ function createBlogPublishingApplication(options = {}) {
                 });
                 const preparedMime = mimeTypes[path.extname(prepared.filename).toLowerCase()] || prepared.mimeType;
                 assets.push({ ...prepared, mimeType: preparedMime });
-                blocks.push({ type: 'image', assetKey: key });
+                const caption = String(item.text || '').trim();
+                blocks.push({ type: 'image', assetKey: key, ...(caption ? { caption } : {}) });
                 continue;
             }
             if (item.type === 'header-h2' || item.type === 'header-h3') {
                 blocks.push({ type: 'heading', level: item.type === 'header-h3' ? 3 : 2, text: item.text || '', ...(item.boldRanges ? { boldRanges: item.boldRanges } : {}) });
+                // A direct next line after a Markdown heading has a source
+                // newline, but parseMarkdown only materializes blank lines.
+                // Preserve that boundary for the Plugin to process explicitly.
+                if (item.type === 'header-h2' && bodyItems[itemIndex + 1]
+                    && bodyItems[itemIndex + 1].type !== 'newline') {
+                    blocks.push({ type: 'newline' });
+                }
             } else if (item.type === 'paragraph' || item.type === 'quote' || item.type === 'list-item') {
                 blocks.push({ type: item.type, text: item.text || '', ...(item.listType ? { listType: item.listType } : {}), ...(item.boldRanges ? { boldRanges: item.boldRanges } : {}) });
             } else if (item.type === 'separator' || item.type === 'newline') {
