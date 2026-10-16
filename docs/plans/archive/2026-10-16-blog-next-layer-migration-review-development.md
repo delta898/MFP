@@ -3,7 +3,7 @@
 - Branch: `codex/feat/blog-next-layer-migration-review`
 - Start date: 2026-10-16
 - Base/parent branch: `codex/fbr/plugin-architecture-foundation`
-- Status: implementation complete; focused regressions pass, with unrelated Card News catalog test failures noted below
+- Status: merged into `codex/fbr/plugin-architecture-foundation` at `76377261`; focused regressions pass, with unresolved Card News catalog test failures noted below
 
 ## User need and goal
 
@@ -77,8 +77,9 @@ paths, not user-visible publishing behavior.
   catalog failures. Their baseline status was not compared against the parent;
   they remain unresolved and the suite is not reported as passing.
 - 2026-10-16: Complete change-set review found no remaining actionable findings.
-- 2026-10-16: Initial implementation committed as `7829f648`; compatibility
-  follow-up is ready for commit before parent integration.
+- 2026-10-16: Committed implementation as `7829f648` and compatibility follow-up
+  as `76377261`; fast-forward merged both into the parent branch.
+- 2026-10-16: Archived this development record after successful parent merge.
 
 ## Remaining risks and manual checks
 
