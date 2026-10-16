@@ -2,19 +2,32 @@
 
 ## Ownership
 
-AI model support is split between trusted executable behavior and replaceable model
-metadata.
+AI model support separates trusted executable behavior from centrally managed
+model metadata. Supabase is the sole source of catalogued provider/model
+availability and metadata; BlogGenius and the AI Gateway do not maintain separate
+model allowlists.
 
-- `src/ai/transport-registry.js` owns supported HTTP transport routes and provider
-  base URLs.
+- `packages/plugins/core/ai-gateway/` owns the catalog operation, catalog
+  refresh/cache lifecycle, and provider-neutral generation operations. Its
+  `describeSupport()` declaration defines implemented `kind + provider +
+  transport` routes, not model IDs.
+- `src/adapters/ai/gateway-transport.js` owns Host-side provider authentication,
+  endpoint resolution, and network transport.
+- Supabase `ai_model_catalog_versions` is the only source of catalogued model and
+  provider availability/metadata. The Gateway filters catalog entries to routes
+  implemented by its support declaration before exposing them.
+- `src/ai/transport-registry.js` describes the Host's trusted transport
+  configuration used for model validation and dispatch; it is not a second
+  model-availability catalog.
 - `src/ai/model-runtime-policy.js` translates model capabilities into safe request
   parameters.
-- `src/ai-model-catalog.js` is the bundled offline/recovery catalog.
-- Supabase `ai_model_catalog_versions` is the operational source of truth for
-  published remote catalog snapshots.
-- `src/ai/catalog-registry.js` validates remote snapshots and exposes a valid
-  remote snapshot as the authoritative selectable catalog. The bundled catalog
-  is used for selection only when no valid remote snapshot is available.
+- `src/ai/catalog-registry.js` validates and applies remote snapshots to the
+  synchronous Host registry consumed by the Gateway and existing runtime
+  configuration. It does not merge in a bundled selectable-model list.
+- `src/ai/remote-model-catalog.js` provides the Host-owned Supabase RPC and local
+  cache I/O ports injected into the Gateway.
+- `src/ai-model-catalog.js` remains a legacy compatibility module; it is not an
+  availability fallback or source for current model choices.
 
 User configuration must not contain a copy of the product catalog.
 
@@ -96,19 +109,28 @@ Their Base URL is entered and confirmed by the user rather than supplied remotel
 
 ## Catalog Loading
 
-1. Load the bundled catalog synchronously.
-2. Load `data/cache/ai-model-catalog.json` when it is valid and app-compatible.
-3. Refresh the published catalog through Supabase RPC when major settings load.
-4. Validate the complete remote snapshot before applying it; once applied, it
-   replaces the selectable bundled model list rather than augmenting it.
-5. Cache a successful snapshot using an atomic temp-file rename.
-6. Keep the current cached/bundled snapshot on network, schema, or write failure.
+The AI Gateway owns refresh coordination, TTL, in-flight request coalescing, and
+last-known-good behavior. In BlogGenius, Composition injects the Host-owned
+Supabase RPC and local-cache ports, plus snapshot validation/application and the
+synchronous registry reader:
 
-Bundled definitions remain available to resolve existing saved model selections
-that are no longer present in the remote selectable catalog. This does not make
-those models selectable again.
+1. The Gateway hydrates the last-known-good disk snapshot when its catalog is
+   first read.
+2. `models.list` refreshes from the Supabase `get_ai_model_catalog` RPC when the
+   refresh TTL has elapsed, or when a caller explicitly requests a refresh.
+3. The Host validates the complete snapshot and applies it to its synchronous
+   registry. The Gateway exposes that snapshot after filtering it to routes
+   implemented by the Gateway.
+4. A valid fetched snapshot is cached. If refresh fails, the Gateway retains the
+   previously applied cached snapshot; if no valid snapshot exists, the catalog
+   is unavailable rather than silently falling back to a bundled model list.
 
-Remote refresh failure does not block app startup, settings, or content generation.
+Settings obtains selectable model choices through the AI Gateway. Runtime
+selection resolution reads the same Host registry snapshot; the Application does
+not maintain a second inventory and does not compute an intersection between an
+independent app catalog and Gateway model IDs. Supabase remains the unique source
+for catalogued model availability, while Gateway support declarations remain the
+trusted protocol-capability boundary.
 
 ## Lifecycle
 

@@ -29,7 +29,7 @@ Blog workflows live under `src/applications/blog/`. Every product follows the sa
 ## Ownership rules
 
 - Host owns product bootstrap and routing, not workflows.
-- Adapters translate channel or external protocol formats, not business behavior. Host-owned AI provider authentication and transport are adapters; model availability/selection remains Application policy.
+- Adapters translate channel or external protocol formats, not business behavior. Host-owned AI provider authentication and transport are adapters. Supabase is the sole source of catalogued AI model availability and metadata; the AI Gateway filters that catalog against its implemented `kind + provider + transport` routes, and Applications resolve user selections from the resulting shared snapshot rather than maintaining a second model inventory.
 - Platform owns the shared Plugin contract, discovery/validation rules, lifecycle, and operation dispatch.
 - Composition wires concrete Plugins and host dependencies into Applications.
 - Services expose reusable cross-application contracts; they do not own product workflows or Plugin IDs.
