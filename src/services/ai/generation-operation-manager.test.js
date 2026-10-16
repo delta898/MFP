@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createBlogNextExecutionCoordinator } = require('./execution-coordinator');
-const { createAiGenerationOperationManager } = require('./ai-generation-operations');
+const { createBlogExecutionCoordinator } = require('../../applications/blog/execution/execution-coordinator');
+const { createAiGenerationOperationManager } = require('./generation-operation-manager');
 
 function deferred() {
     let resolve;
@@ -15,7 +15,7 @@ function settled() {
 }
 
 test('cancellation keeps the shared lease until the actual task settles and discards its late result', async () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     const manager = createAiGenerationOperationManager({ coordinator, createId: () => 'operation-1' });
     const pending = deferred();
     const started = manager.start({ subject: '주제', remoteJobPossible: true }, async (context) => {
@@ -45,7 +45,7 @@ test('cancellation keeps the shared lease until the actual task settles and disc
 });
 
 test('cancel before detached task starts prevents task execution', async () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     const manager = createAiGenerationOperationManager({ coordinator });
     let calls = 0;
     const started = manager.start({}, async () => { calls += 1; });
@@ -57,7 +57,7 @@ test('cancel before detached task starts prevents task execution', async () => {
 });
 
 test('commit boundary rejects late cancellation while keeping final result', async () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     const manager = createAiGenerationOperationManager({ coordinator });
     const pending = deferred();
     const started = manager.start({}, async (context) => {
@@ -76,7 +76,7 @@ test('commit boundary rejects late cancellation while keeping final result', asy
 
 test('failure is retained briefly and a different operation cannot be canceled', async () => {
     let currentTime = new Date('2026-09-23T00:00:00.000Z');
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     const manager = createAiGenerationOperationManager({
         coordinator,
         now: () => currentTime,
@@ -98,7 +98,7 @@ test('failure is retained briefly and a different operation cannot be canceled',
 });
 
 test('shared coordinator rejects a generation while another Blog Beta task holds the lease', () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     const other = coordinator.acquire({ source: 'continuous_runner' });
     const manager = createAiGenerationOperationManager({ coordinator });
     assert.throws(() => manager.start({}, async () => null), (error) => error.status === 409);
@@ -106,7 +106,7 @@ test('shared coordinator rejects a generation while another Blog Beta task holds
 });
 
 test('operation manager exposes a dedicated source and progress for other cancellable AI work', async () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     const manager = createAiGenerationOperationManager({ coordinator });
     const pending = deferred();
     const started = manager.start({ source: 'manuscript_image_generation', subject: '이미지 일괄 생성' }, async (operation) => {

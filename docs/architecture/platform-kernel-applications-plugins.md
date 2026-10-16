@@ -134,6 +134,7 @@ src/
   host/                         # BlogGenius process/bootstrap and channel-to-Application routing
   adapters/                     # Channel and external protocol translation (UI, Telegram, MCP, AI transport)
     ai/                          # Host-owned provider authentication/transport adapters
+    ui/                          # UI/API input, output, and progress presentation adapters
   platform/                     # Plugin contracts, Plugin Host, validation, lifecycle, dispatch
   composition/                  # Concrete Plugin/service wiring for runtime and Applications
   applications/                 # Product workflows, orchestration, and app-specific services/policy
@@ -155,6 +156,7 @@ The layer rules are mandatory for new code:
 
 - `host/` starts the product runtime and routes normalized channel requests. It does not own business workflows or Plugin implementations.
 - `adapters/` translates channel or external-protocol input/output to internal contracts. Host-owned AI provider authentication/transport belongs here; adapters do not own product workflows or model-selection policy.
+- `adapters/ui/` is the UI/API boundary around Applications: it maps surface inputs to Application calls and maps results or structured progress into surface-specific presentation. UI/API adapters call Applications; Applications do not call UI adapters. Presentation text and response shapes stay out of Application policy. Screen rendering remains the responsibility of the UI runtime.
 - `platform/` owns the shared Plugin contract, discovery/validation rules, registration and runtime lifecycle, operation validation, and dispatch. It does not choose a product workflow.
 - `composition/` selects concrete Plugins and injects host-owned services/configuration into an Application runtime. Product decisions stay in Applications.
 - `applications/<name>/` owns that product area's workflows and policies. For example, `applications/blog/` owns blog generation and publication coordination; target-specific image format policy belongs to publication, not the generic media utility or publisher Plugin.
@@ -162,7 +164,7 @@ The layer rules are mandatory for new code:
 - `utilities/<capability>/` owns reusable technical operations. `utilities/media/` performs requested image conversion but does not decide whether WordPress should use AVIF or Naver should use WebP.
 - `packages/plugins/core/` holds independent bundled Plugin implementations. Plugins follow manifest contracts and do not import BlogGenius-private Application modules.
 
-Do not add new Application business logic to legacy top-level product directories such as `src/social/`, `src/card-news/`, or `src/blog-next/` merely because an older caller lives there. Their To-Be Application homes are `src/applications/sns/`, `src/applications/card-news/`, and `src/applications/blog/`, respectively. This is a responsibility-based target, not a wholesale directory rename: UI/channel entrypoints, external-system adapters, and genuinely shared services/utilities belong in their own layers. Keep existing legacy files where they are until a coordinated migration stage; do not move product directories piecemeal for appearance. When connecting legacy callers to a new boundary, add a small adapter or composition seam in the target layer. Do not create empty placeholder directories. Community Plugin scanning, trust, permissions, distribution, and isolation are future design work; the directory name above reserves no runtime contract.
+Do not add new Application business logic to legacy top-level product directories such as `src/social/`, `src/card-news/`, or `src/blog-next/` merely because an older caller lives there. Their To-Be Application homes are `src/applications/sns/`, `src/applications/card-news/`, and `src/applications/blog/`, respectively. This is a responsibility-based target, not a wholesale directory rename: UI/channel entrypoints, external-system adapters, and genuinely shared services/utilities belong in their own layers. Migrate existing files in scoped, coordinated slices: trace callers, classify each file, move it to its owning layer, and update imports/tests/docs together. Preserve existing external contracts unless an intentional contract change is in scope. When connecting legacy callers to a new boundary, add a small adapter or composition seam in the target layer. Do not create empty placeholder directories. Community Plugin scanning, trust, permissions, distribution, and isolation are future design work; the directory name above reserves no runtime contract.
 
 Current implementation follows the target in these slices:
 
@@ -171,9 +173,12 @@ src/
   platform/plugin-contract.js, plugin-host.js
   composition/core-plugin-registry.js, core-plugin-runtime.js, blog-writing.js, wordpress-publishing.js, naver-publishing.js, blog-beta-runtime.js
   services/ai/generation.js
+  services/ai/generation-operation-manager.js
   adapters/plugins/ai-gateway.js, wordpress-publisher.js, naver-publisher.js
   adapters/ai/gateway-transport.js
+  adapters/ui/naver-publish-progress.js
   applications/
+    blog/execution/execution-coordinator.js
     blog/writing/gateway-model-resolver.js
     blog/writing/application.js
     blog/publishing/application.js, wordpress.js
@@ -196,7 +201,7 @@ The AI Gateway, WordPress Publisher, and Naver Publisher implementations are Cor
 ## Dependency direction
 
 ```text
-Channel Adapter -> Agent Runtime -> Application -> Service Port -> Plugin Adapter -> Kernel -> Plugin
+UI/API Adapter -> Application -> Service Port -> Plugin Adapter -> Kernel -> Plugin
                                   ^                                                  ^
                       Composition Root wires concrete services, adapters and Plugins
 ```

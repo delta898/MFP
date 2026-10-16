@@ -1,6 +1,13 @@
 const crypto = require('crypto');
-const { createApiError } = require('../ui-api/errors');
-const { createCanceledError } = require('../ai/cancellation');
+const { createCanceledError } = require('../../ai/cancellation');
+
+function createOperationError(status, code, message) {
+    const error = new Error(message);
+    error.status = status;
+    error.apiCode = code;
+    error.code = code;
+    return error;
+}
 
 const DEFAULT_RETENTION_MS = 10 * 60 * 1000;
 const DEFAULT_MAX_RETAINED = 20;
@@ -17,6 +24,7 @@ function createAiGenerationOperationManager(options = {}) {
     const maxRetained = Number.isInteger(options.maxRetained)
         ? Math.max(1, options.maxRetained) : DEFAULT_MAX_RETAINED;
     const operations = new Map();
+    const makeError = typeof options.createError === 'function' ? options.createError : createOperationError;
 
     function timestamp() {
         return now().toISOString();
@@ -66,7 +74,7 @@ function createAiGenerationOperationManager(options = {}) {
         prune();
         const operation = operations.get(String(operationId || '').trim());
         if (!operation) {
-            throw createApiError(404, 'AI_GENERATION_OPERATION_NOT_FOUND', 'AI 원고 생성 작업을 찾지 못했습니다.');
+            throw makeError(404, 'AI_GENERATION_OPERATION_NOT_FOUND', 'AI 생성 작업을 찾지 못했습니다.');
         }
         return operation;
     }
@@ -74,15 +82,15 @@ function createAiGenerationOperationManager(options = {}) {
     function start(input = {}, task) {
         if (typeof task !== 'function') throw new TypeError('AI 생성 실행 함수가 필요합니다.');
         prune();
-        const subject = String(input.subject || '바로 생성 원고').trim().slice(0, 120);
-        const source = String(input.source || 'manuscript_generation').trim() || 'manuscript_generation';
+        const subject = String(input.subject || 'AI 생성 작업').trim().slice(0, 120);
+        const source = String(input.source || 'ai_generation').trim() || 'ai_generation';
         const lease = coordinator.acquire({
             source,
             subject,
-            message: String(input.message || 'AI로 원고를 만들고 있습니다.')
+            message: String(input.message || 'AI 생성 작업을 진행하고 있습니다.')
         });
         if (!lease) {
-            throw createApiError(409, 'BLOG_NEXT_EXECUTION_BUSY', '다른 블로그 작업을 처리하고 있습니다. 현재 실행이 끝난 뒤 다시 시도해 주세요.');
+            throw makeError(409, 'BLOG_NEXT_EXECUTION_BUSY', '다른 생성 작업을 처리하고 있습니다. 현재 실행이 끝난 뒤 다시 시도해 주세요.');
         }
         const controller = new AbortController();
         let operationId;
@@ -155,8 +163,8 @@ function createAiGenerationOperationManager(options = {}) {
             } else {
                 operation.state = 'failed';
                 operation.error = {
-                    code: String(error?.apiCode || error?.code || 'MANUSCRIPT_AI_GENERATE_FAILED'),
-                    message: String(error?.message || 'AI 원고를 만들지 못했습니다.')
+                    code: String(error?.apiCode || error?.code || 'AI_GENERATION_OPERATION_FAILED'),
+                    message: String(error?.message || 'AI 생성 작업을 완료하지 못했습니다.')
                 };
             }
         }).finally(() => {

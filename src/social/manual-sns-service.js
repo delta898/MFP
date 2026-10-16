@@ -8,7 +8,7 @@ const {
     measurePost
 } = require('./sns-content-formatter');
 const { assertManualPublishAllowed } = require('../environment/runtime-effects');
-const { createAiGenerationOperationManager } = require('../blog-next/ai-generation-operations');
+const { createAiGenerationOperationManager } = require('../services/ai/generation-operation-manager');
 
 const MAX_CHANNELS = 3;
 const MAX_TEXT_LENGTH = 1000;
@@ -128,7 +128,8 @@ function createManualSnsService(deps = {}) {
                     }
                 };
             }
-        }
+        },
+        createError: (status, code, message) => createManualSnsError(status, code, message)
     });
 
     function getChannels() {

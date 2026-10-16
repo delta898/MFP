@@ -21,7 +21,7 @@ const { createContinuousPublishingService } = require('../services/continuous-pu
 const { createSiteHostingQueueExecutor } = require('../../continuous-publishing/site-hosting-queue-executor');
 const { createGoogleDriveSpreadsheets } = require('../../google-drive-spreadsheets');
 const { createAccountOverviewService } = require('../../account/overview-service');
-const { createBlogNextExecutionCoordinator } = require('../../blog-next/execution-coordinator');
+const { createBlogExecutionCoordinator } = require('../../applications/blog/execution/execution-coordinator');
 const WordPressClient = require('../../wordpress-client');
 const { createConnectionReadinessService } = require('../../connections/readiness-service');
 const {
@@ -50,7 +50,7 @@ function createLegacyApiRouteHandler(deps = {}) {
         ensureSheetsExist: (spreadsheetId) => deps.Utils.ensureAllSheetsExistStrict(spreadsheetId)
     });
     const blogNextExecutionCoordinator = deps.blogNextExecutionCoordinator
-        || createBlogNextExecutionCoordinator();
+        || createBlogExecutionCoordinator();
     const systemService = createSystemService({
         APP_VERSION: deps.APP_VERSION,
         Utils: deps.Utils,

@@ -1,10 +1,10 @@
-const ALLOWED_SOURCES = new Set(['continuous_runner', 'shopping_continuous_runner', 'local_markdown', 'manuscript_generation', 'manuscript_image_generation']);
+const ALLOWED_SOURCES = new Set(['continuous_runner', 'shopping_continuous_runner', 'local_markdown', 'manuscript_generation', 'manuscript_image_generation', 'ai_generation']);
 
 function normalizeText(value, maxLength = 120) {
     return String(value || '').trim().slice(0, maxLength);
 }
 
-function createBlogNextExecutionCoordinator(options = {}) {
+function createBlogExecutionCoordinator(options = {}) {
     const now = typeof options.now === 'function' ? options.now : () => new Date();
     let sequence = 0;
     let active = null;
@@ -114,5 +114,5 @@ function createBlogNextExecutionCoordinator(options = {}) {
 }
 
 module.exports = {
-    createBlogNextExecutionCoordinator
+    createBlogExecutionCoordinator
 };

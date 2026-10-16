@@ -1,10 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { createBlogNextExecutionCoordinator } = require('./execution-coordinator');
+const { createBlogExecutionCoordinator } = require('./execution-coordinator');
 
 test('Blog Beta coordinator admits one execution and exposes only bounded public status', () => {
-    const coordinator = createBlogNextExecutionCoordinator({
+    const coordinator = createBlogExecutionCoordinator({
         now: () => new Date('2026-09-02T00:00:00.000Z')
     });
 
@@ -29,7 +29,7 @@ test('Blog Beta coordinator admits one execution and exposes only bounded public
 });
 
 test('Blog Beta coordinator releases idempotently and admits the next execution', () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     const first = coordinator.acquire({ source: 'continuous_runner' });
 
     assert.equal(first.release(), true);
@@ -39,7 +39,7 @@ test('Blog Beta coordinator releases idempotently and admits the next execution'
 });
 
 test('Blog Beta coordinator rejects unknown execution sources', () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
 
     assert.throws(
         () => coordinator.acquire({ source: 'legacy_blog' }),
@@ -48,7 +48,7 @@ test('Blog Beta coordinator rejects unknown execution sources', () => {
 });
 
 test('Blog Beta coordinator reports only the current execution progress', () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     const first = coordinator.acquire({ source: 'local_markdown', message: '준비 중' });
     assert.equal(first.updateProgress({ stage: 'body', message: '원고 2/5구간을 입력하고 있습니다.', postStatus: 'draft' }), true);
     assert.equal(coordinator.getStatus().progressStage, 'body');
@@ -63,7 +63,7 @@ test('Blog Beta coordinator reports only the current execution progress', () => 
 });
 
 test('Blog Beta coordinator only stops eligible local Markdown work and retains its terminal status', () => {
-    const coordinator = createBlogNextExecutionCoordinator({
+    const coordinator = createBlogExecutionCoordinator({
         now: () => new Date('2026-09-24T00:00:00.000Z')
     });
     const lease = coordinator.acquire({ source: 'local_markdown', canStop: true, message: '네이버 포스팅 중' });
@@ -86,7 +86,7 @@ test('Blog Beta coordinator only stops eligible local Markdown work and retains 
 });
 
 test('Blog Beta coordinator does not allow stopping other or non-stoppable executions', () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     const lease = coordinator.acquire({ source: 'local_markdown', canStop: false });
     assert.equal(coordinator.requestStop().accepted, false);
     lease.release();
@@ -96,7 +96,7 @@ test('Blog Beta coordinator does not allow stopping other or non-stoppable execu
 });
 
 test('Blog Beta coordinator closes the stop window before the final request', () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     const lease = coordinator.acquire({ source: 'local_markdown' });
     lease.setCanStop(true);
     assert.equal(coordinator.getStatus().canStop, true);

@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { createContinuousPublishingService } = require('./continuous-publishing.service');
-const { createBlogNextExecutionCoordinator } = require('../../blog-next/execution-coordinator');
+const { createBlogExecutionCoordinator } = require('../../applications/blog/execution/execution-coordinator');
 
 function runnableQueueFixture(item) {
     const options = item.options && typeof item.options === 'object' ? item.options : {};
@@ -1368,7 +1368,7 @@ test('single-item runner rejects duplicate starts while one run is active', asyn
 });
 
 test('continuous runner and queue mutations respect a shared Blog Beta manuscript execution', async () => {
-    const coordinator = createBlogNextExecutionCoordinator({
+    const coordinator = createBlogExecutionCoordinator({
         now: () => new Date('2026-09-02T00:00:00.000Z')
     });
     const lease = coordinator.acquire({

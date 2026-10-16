@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { createContentService } = require('./content.service');
-const { createBlogNextExecutionCoordinator } = require('../../blog-next/execution-coordinator');
+const { createBlogExecutionCoordinator } = require('../../applications/blog/execution/execution-coordinator');
 
 function createService(coordinator, executeLocalMarkdownPublish, CONFIG = {}, extras = {}) {
     return createContentService({
@@ -14,7 +14,7 @@ function createService(coordinator, executeLocalMarkdownPublish, CONFIG = {}, ex
 }
 
 test('local manuscript publishing owns the shared Blog Beta lock until it settles', async () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     let finish;
     let calls = 0;
     const service = createService(coordinator, async () => {
@@ -38,7 +38,7 @@ test('local manuscript publishing owns the shared Blog Beta lock until it settle
 });
 
 test('direct publish rejects concurrent settings and image changes before touching the draft', async () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     let finish;
     let mutations = 0;
     const manuscriptDraftService = {
@@ -63,7 +63,7 @@ test('direct publish rejects concurrent settings and image changes before touchi
 });
 
 test('Naver browser milestones reach the shared status while direct publish is running', async () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     let finish;
     const service = createService(coordinator, async (input) => {
         input.onNaverProgress({ stage: 'body', current: 2, total: 5, postStatus: 'draft' });
@@ -79,7 +79,7 @@ test('Naver browser milestones reach the shared status while direct publish is r
 });
 
 test('direct Naver publish exposes a stop signal only after local preparation and settles as stopped', async () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     let publishInput;
     let publishSignal;
     let finish;
@@ -109,7 +109,7 @@ test('direct Naver publish exposes a stop signal only after local preparation an
 });
 
 test('manuscript draft publishing resolves one exact snapshot before using the existing publisher', async () => {
-  const coordinator = createBlogNextExecutionCoordinator();
+  const coordinator = createBlogExecutionCoordinator();
   const published = [];
   const publicationChecks = [];
   const publicationRecords = [];
@@ -177,7 +177,7 @@ test('manuscript draft publishing resolves one exact snapshot before using the e
 });
 
 test('WordPress manuscript publication selects Plugin publisher and preserves the user draft snapshot', async () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     const published = [];
     const marked = [];
     let stopEnabledAfterPreparation = false;
@@ -226,7 +226,7 @@ test('WordPress manuscript publication selects Plugin publisher and preserves th
 });
 
 test('failed WordPress Plugin publication keeps the editable draft unmarked', async () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     let marked = 0;
     let archived = 0;
     const preservedDraft = { draftId: 'draft-1', revision: 3, lifecycleStatus: 'active' };
@@ -261,7 +261,7 @@ test('failed WordPress Plugin publication keeps the editable draft unmarked', as
 });
 
 test('duplicate manuscript-target pair is rejected before the publisher is called', async () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     let prepareCount = 0;
     let publishCount = 0;
     const manuscriptDraftService = {
@@ -290,7 +290,7 @@ test('duplicate manuscript-target pair is rejected before the publisher is calle
 });
 
 test('manuscript image auto-resolution stays inside the shared Blog Beta execution lock', async () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     let finishPreparation;
     const manuscriptDraftService = {
         preparePublishPayload: async (input) => {
@@ -323,7 +323,7 @@ test('manuscript image auto-resolution stays inside the shared Blog Beta executi
 });
 
 test('keeps successful remote publication when local snapshot persistence fails', async () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     let recorded = 0;
     const manuscriptDraftService = {
         assertNotPublished() {},
@@ -352,7 +352,7 @@ test('keeps successful remote publication when local snapshot persistence fails'
 });
 
 test('local manuscript publishing returns the successful channel completion destination', async () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     const service = createService(coordinator, async () => ({
         success: true,
         data: {
@@ -373,7 +373,7 @@ test('local manuscript publishing returns the successful channel completion dest
 });
 
 test('local manuscript publishing releases the shared lock after failure', async () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     let calls = 0;
     const service = createService(coordinator, async () => {
         calls += 1;
@@ -387,7 +387,7 @@ test('local manuscript publishing releases the shared lock after failure', async
 });
 
 test('direct AI manuscript generation stays local until the user publishes and imports one platform result', async () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     const calls = [];
     const imageBuffer = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 1]);
     const manuscriptDraftService = {
@@ -434,7 +434,7 @@ test('direct AI manuscript generation stays local until the user publishes and i
 });
 
 test('text-only manuscript generation uses AI Gateway Plugin independently of the publish target', async () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     const calls = [];
     const service = createService(coordinator, async () => ({ success: true, data: {} }), {
         TEXT_MODEL: 'fixture-model', TEXT_MODEL_API_KEY: 'fixture-key'
@@ -484,7 +484,7 @@ test('text-only manuscript generation uses AI Gateway Plugin independently of th
 });
 
 test('AI manuscript generation uses AI Gateway for text and every requested image', async () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     const calls = [];
     const imageBuffer = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 2]);
     const service = createService(coordinator, async () => { throw new Error('Core generation must not run'); }, {
@@ -542,7 +542,7 @@ test('AI manuscript generation uses AI Gateway for text and every requested imag
 });
 
 test('async AI generation cancellation blocks a late Draft and keeps the lease until generation settles', async () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     const selectedTextModel = { provider: 'openai', code: 'gpt-6-sol', api_key: 'fixture-key' };
     const selectedImageModel = { provider: 'google', code: 'gemini-nano-banana-2.1', api_key: 'fixture-image-key' };
     let finishGeneration;
@@ -584,7 +584,7 @@ test('async AI generation cancellation blocks a late Draft and keeps the lease u
 });
 
 test('manuscript image operations use the shared cancellable AI lifecycle', async () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     let finishGeneration;
     let generationInput;
     const logMessages = [];
@@ -624,7 +624,7 @@ test('manuscript image operations use the shared cancellable AI lifecycle', asyn
 
 test('AI Gateway failure never falls back to the legacy Core generation path', async () => {
     let legacyCalls = 0;
-    const service = createService(createBlogNextExecutionCoordinator(), async () => ({}), {
+    const service = createService(createBlogExecutionCoordinator(), async () => ({}), {
         TEXT_MODEL: 'fixture-model', TEXT_MODEL_API_KEY: 'fixture-key'
     }, {
         executeQuickPublish: async () => { legacyCalls += 1; },
@@ -638,7 +638,7 @@ test('AI Gateway failure never falls back to the legacy Core generation path', a
 });
 
 test('direct AI manuscript generation preserves none and excludes upstream image artifacts', async () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     const calls = [];
     const service = createService(coordinator, async () => ({ success: true, data: {} }), {
         TEXT_MODEL: 'fixture-model',
@@ -672,7 +672,7 @@ test('direct AI manuscript generation preserves none and excludes upstream image
 });
 
 test('queue AI manuscript generation reuses the held runner lease instead of acquiring a second lock', async () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     const lease = coordinator.acquire({ source: 'continuous_runner', subject: '대기열 실행' });
     const relatedCalls = [];
     const service = createService(coordinator, async () => ({ success: true }), {
@@ -708,7 +708,7 @@ test('queue AI manuscript generation reuses the held runner lease instead of acq
 });
 
 test('direct AI manuscript generation rejects missing model setup before execution', async () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     let executed = false;
     const service = createService(coordinator, async () => ({ success: true }), {}, {
         executeQuickPublish: async () => { executed = true; }
@@ -723,7 +723,7 @@ test('direct AI manuscript generation rejects missing model setup before executi
 });
 
 test('manual AI image actions reject missing image model before draft mutation', async () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     let generated = false;
     const service = createService(coordinator, async () => ({ success: true }), {}, {
         manuscriptDraftService: {
@@ -744,7 +744,7 @@ test('manual AI image actions reject missing image model before draft mutation',
 });
 
 test('direct AI manuscript generation requires an image model only for image generation mode', async () => {
-    const coordinator = createBlogNextExecutionCoordinator();
+    const coordinator = createBlogExecutionCoordinator();
     let executed = false;
     const service = createService(coordinator, async () => ({ success: true }), {
         TEXT_MODEL: 'fixture-model',

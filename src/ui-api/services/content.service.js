@@ -12,9 +12,9 @@ const {
     generateSmartCommentDraftBatch,
     generateSmartCommentDrafts
 } = require('../../naver/smart-comment-draft-generator');
-const { createBlogNextExecutionCoordinator } = require('../../blog-next/execution-coordinator');
-const { presentNaverPublishProgress } = require('../../blog-next/naver-publish-progress');
-const { createAiGenerationOperationManager } = require('../../blog-next/ai-generation-operations');
+const { createBlogExecutionCoordinator } = require('../../applications/blog/execution/execution-coordinator');
+const { presentNaverPublishProgress } = require('../../adapters/ui/naver-publish-progress');
+const { createAiGenerationOperationManager } = require('../../services/ai/generation-operation-manager');
 const { buildCompletionLinks } = require('../../continuous-publishing/presentation');
 const { createManuscriptDraftService, validateImageBuffer } = require('../../content/manuscript-draft-service');
 const { selectManuscriptImagePromptContext } = require('../../content/manuscript-image-prompt-context');
@@ -97,9 +97,9 @@ function createContentService(deps = {}) {
     } = deps;
     const googleOauthFlows = new Map();
     const blogNextExecutionCoordinator = deps.blogNextExecutionCoordinator
-        || createBlogNextExecutionCoordinator();
+        || createBlogExecutionCoordinator();
     const aiGenerationOperations = deps.aiGenerationOperations
-        || createAiGenerationOperationManager({ coordinator: blogNextExecutionCoordinator });
+        || createAiGenerationOperationManager({ coordinator: blogNextExecutionCoordinator, createError: createApiError });
     let manuscriptDraftService = deps.manuscriptDraftService || null;
     function getManuscriptDraftService() {
         if (!manuscriptDraftService) {
@@ -1256,6 +1256,7 @@ function createContentService(deps = {}) {
             }
             Logger?.info?.('[Blog Beta][Progress] 원고 생성을 준비하고 있습니다.');
             return aiGenerationOperations.start({
+                source: 'manuscript_generation',
                 subject: String(requestBody.subject || requestBody.title || '바로 생성 원고').trim(),
                 remoteJobPossible: generatesBlogImages(imageMode)
                     && String(imageModelConfig.transport || '') === 'kie_market_image_jobs'

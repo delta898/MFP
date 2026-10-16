@@ -9,7 +9,7 @@ const { createCardNewsFeedFetcher } = require('../../card-news/feed-fetcher');
 const { normalizeImageMode, validateSourceSnapshot } = require('../../card-news/generation');
 const { createStyleReferenceFetcher } = require('../../content/style-reference-fetcher');
 const { deriveCardNewsManagementState, toCardNewsManagementFields } = require('../../card-news/management-status');
-const { createAiGenerationOperationManager } = require('../../blog-next/ai-generation-operations');
+const { createAiGenerationOperationManager } = require('../../services/ai/generation-operation-manager');
 const { createCardNewsOutgoingImageService } = require('../../card-news/outgoing-image-service');
 const { getAiModelCatalog, resolveAiModelConfig, resolveStoredModelProfiles } = require('../../ai-model-config');
 const { getTrustedAiModelVerification } = require('../../ai/model-verification');
@@ -303,6 +303,7 @@ function createCardNewsService(deps = {}) {
                 };
             }
         },
+        createError: (status, code, message) => createApiError(code, message, status),
         now: () => new Date(now())
     });
 

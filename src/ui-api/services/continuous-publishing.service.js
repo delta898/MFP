@@ -13,7 +13,7 @@ const {
 const { resolveRuntimeEffectPolicy } = require('../../environment/runtime-effects');
 const { createContinuousPublishingScheduler } = require('../../continuous-publishing/scheduler');
 const { resolveReadyQueueMove } = require('../../continuous-publishing/queue-order');
-const { createBlogNextExecutionCoordinator } = require('../../blog-next/execution-coordinator');
+const { createBlogExecutionCoordinator } = require('../../applications/blog/execution/execution-coordinator');
 const { buildDashboardBlogOperationsOverview } = require('../../dashboard/blog-operations-read-model');
 const { buildDashboardBlogResultStats } = require('../../dashboard/blog-result-stats-read-model');
 const { presentPublishingProgress, buildCompletionLinks } = require('../../continuous-publishing/presentation');
@@ -35,7 +35,7 @@ function createContinuousPublishingService(deps = {}) {
     let automationSettingsRepository = deps.automationSettingsRepository || null;
     let automationScheduler = deps.automationScheduler || null;
     const blogNextExecutionCoordinator = deps.blogNextExecutionCoordinator
-        || createBlogNextExecutionCoordinator({ now });
+        || createBlogExecutionCoordinator({ now });
     let runnerPromise = null;
     let externalExecutionObserved = false;
     let runnerState = {

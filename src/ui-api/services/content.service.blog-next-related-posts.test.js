@@ -2,12 +2,12 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { createContentService } = require('./content.service');
-const { createBlogNextExecutionCoordinator } = require('../../blog-next/execution-coordinator');
+const { createBlogExecutionCoordinator } = require('../../applications/blog/execution/execution-coordinator');
 
 function createService(extras = {}) {
     return createContentService({
         CONFIG: {},
-        blogNextExecutionCoordinator: createBlogNextExecutionCoordinator(),
+        blogNextExecutionCoordinator: createBlogExecutionCoordinator(),
         executeLocalMarkdownPublish: async () => ({ success: true, data: {} }),
         ...extras
     });
