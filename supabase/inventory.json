@@ -301,6 +301,22 @@
       "classification": "ai_catalog_operator_action"
     },
     {
+      "path": "supabase/operations/ai/2026-10-16_gemini-4-argon_dev_publish.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-10-16_gemini-4-argon_dev_rollback.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-10-16_gemini-4-argon_prod_publish.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
+      "path": "supabase/operations/ai/2026-10-16_gemini-4-argon_prod_rollback.sql",
+      "classification": "ai_catalog_operator_action"
+    },
+    {
       "path": "supabase/operations/content/supabase_surface_content_account_seed.sql",
       "classification": "content_operator_action"
     },
