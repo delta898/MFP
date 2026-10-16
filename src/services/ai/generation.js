@@ -13,11 +13,7 @@ function resolveModels(kind, catalog, support, configuredModels = []) {
         ...(Array.isArray(catalog?.[kind]) ? catalog[kind] : []),
         ...(Array.isArray(configuredModels) ? configuredModels.filter((model) => model?.provider === 'direct') : [])
     ];
-    const routes = Array.isArray(support?.routes) ? support.routes : [];
-    return models.filter((model) => routes.some((route) => route.kind === kind
-        && route.provider === model.provider
-        && route.transport === model.transport
-        && (!Array.isArray(route.modelIds) || route.modelIds.includes(model.code))));
+    return models;
 }
 
 function resolveModel(kind, selection, catalog, support, configuredModels = []) {
@@ -87,8 +83,7 @@ function createAiGenerationService(options = {}) {
         const provider = String(selection?.provider || '').trim().toLowerCase();
         const modelId = String(selection?.modelId || selection?.code || '').trim();
         const route = getSupport().routes?.find((item) => item.kind === kind && item.provider === provider
-            && (!item.transport || item.transport === getCatalog()?.[kind]?.find((model) => model.provider === provider && model.code === modelId)?.transport)
-            && (!Array.isArray(item.modelIds) || item.modelIds.includes(modelId)));
+            && (!item.transport || item.transport === getCatalog()?.[kind]?.find((model) => model.provider === provider && model.code === modelId)?.transport));
         if (route?.jsonMode !== true) return false;
         const model = availableModels(kind).find((item) => item.provider === provider && item.code === modelId);
         return !model || model.capabilities?.structured_output !== false;
@@ -109,8 +104,7 @@ function createAiGenerationService(options = {}) {
         const modelId = String(selection?.modelId || selection?.code || '').trim();
         const model = availableModels(kind).find((item) => item.provider === provider && item.code === modelId);
         const route = getSupport().routes?.find((item) => item.kind === kind && item.provider === provider
-            && (!item.transport || item.transport === model?.transport)
-            && (!Array.isArray(item.modelIds) || item.modelIds.includes(modelId)));
+            && (!item.transport || item.transport === model?.transport));
         if (!route || !model) return false;
         const supportedAspectRatios = route.aspectRatiosByModel?.[modelId] || route.aspectRatios;
         if (!Array.isArray(supportedAspectRatios)) return undefined;

@@ -36,7 +36,6 @@ const {
 const { recordDashboardActivity } = require('../../activity/dashboard-activity-store');
 const TelegramPairingService = require('../../telegram-pairing.service');
 const { isSnsAiMode } = require('../../social/sns-ai-policy');
-const DefaultRemoteModelCatalog = require('../../ai/remote-model-catalog');
 const DefaultModelConnectionTester = require('../../ai/model-connection-tester');
 const {
     createConnectionSignature,
@@ -417,8 +416,8 @@ function createSettingsService(deps = {}) {
         styleReferenceAnalyzer,
         writingProfilePreviewService,
         dashboardActivityRecorder = recordDashboardActivity,
-        RemoteModelCatalog = DefaultRemoteModelCatalog,
-        ModelConnectionTester = DefaultModelConnectionTester
+        ModelConnectionTester = DefaultModelConnectionTester,
+        aiGateway = null
     } = deps;
 
     let writingProfileRepository = null;
@@ -566,15 +565,17 @@ function createSettingsService(deps = {}) {
         },
 
         async getMajorSettings() {
-            const aiCatalogStatus = typeof RemoteModelCatalog?.refresh === 'function'
-                ? await RemoteModelCatalog.refresh()
+            const gatewayCatalog = typeof aiGateway?.getModelCatalog === 'function'
+                ? await aiGateway.getModelCatalog({ forceRefresh: true })
                 : null;
+            const aiCatalogStatus = gatewayCatalog?.status || null;
             ensureRuntimeRemoteMcpConfig(CONFIG);
             const configSource = {
                 path: CONFIG.CONFIG_SOURCE_PATH || resolveWritableConfigPath(),
                 sourceType: CONFIG.CONFIG_SOURCE_TYPE
             };
             const data = redactMajorSecretFields(buildMajorSettings(null, configSource));
+            if (gatewayCatalog) data.aiPresets = gatewayCatalog;
             const savedTokenExists = (() => {
                 try {
                     const configPath = configSource.path || resolveWritableConfigPath();
@@ -616,13 +617,16 @@ function createSettingsService(deps = {}) {
         },
 
         async getAiRoleSettings() {
+            const gatewayCatalog = typeof aiGateway?.getModelCatalog === 'function'
+                ? await aiGateway.getModelCatalog()
+                : null;
             const settings = redactAiRoleSecretFields(buildMajorSettings(null, {
                 path: CONFIG.CONFIG_SOURCE_PATH || resolveWritableConfigPath(),
                 sourceType: CONFIG.CONFIG_SOURCE_TYPE
             }));
             return {
                 fields: settings.fields,
-                aiPresets: getAiModelCatalog(),
+                aiPresets: gatewayCatalog || getAiModelCatalog(),
                 aiProviderProfiles: redactAiProviderProfiles(CONFIG.AI_MODEL_PROFILES),
                 verification: {
                     text: { ...aiRoleVerification('text', CONFIG.TEXT_MODEL_CONFIG), history: aiRoleVerificationHistory('text') },

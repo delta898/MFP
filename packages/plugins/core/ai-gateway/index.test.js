@@ -30,6 +30,49 @@ test('text operation normalizes a supported provider response and never accepts 
     assert.equal(Object.hasOwn(requests[0], 'headers'), false);
 });
 
+test('models.list delegates catalog refresh and only exposes routes implemented by this Gateway', async () => {
+    const calls = [];
+    const plugin = createPlugin({
+        transport: { async request() { throw new Error('not used'); } },
+        catalog: {
+            async refresh(force) { calls.push(['refresh', force]); },
+            async getCatalog() {
+                calls.push(['getCatalog']);
+                return {
+                    providers: { text: [{ id: 'openai' }], image: [] },
+                    text: [
+                        { provider: 'openai', code: 'new-model', transport: 'openai_chat_completions' },
+                        { provider: 'unknown', code: 'bad-model', transport: 'unknown' }
+                    ],
+                    image: []
+                };
+            },
+            getStatus() { return { source: 'remote', version: 'catalog-2' }; }
+        }
+    });
+
+    const catalog = await plugin.operations['models.list'].execute({ forceRefresh: true });
+    assert.deepEqual(calls, [['refresh', true], ['getCatalog']]);
+    assert.deepEqual(catalog.text.map(({ code }) => code), ['new-model']);
+    assert.equal(catalog.status.version, 'catalog-2');
+});
+
+test('KIE image route accepts newly catalogued model IDs using the shared job protocol', async () => {
+    const requests = [];
+    const plugin = createPlugin({ transport: { async request(input) {
+        requests.push(input);
+        if (input.path.endsWith('createTask')) return { status: 200, body: { data: { taskId: 'new-model-task' } } };
+        return { status: 200, body: { data: { state: 'success', resultUrls: ['https://image.example/new.png'] } } };
+    }, async downloadUrl() { return { bytes: Buffer.from('image'), mimeType: 'image/png' }; } }, sleep: async () => {} });
+    const result = await plugin.operations['image.generate'].execute({
+        model: { provider: 'kie', modelId: 'new-kie-image-model' },
+        input: { prompt: 'test' }, options: {}
+    });
+    assert.equal(result.model.modelId, 'new-kie-image-model');
+    assert.equal(requests[0].body.model, 'new-kie-image-model');
+    assert.deepEqual(requests[0].body.input, { prompt: 'test', aspect_ratio: '4:3' });
+});
+
 test('Anthropic OpenAI-compatible requests forward caller options for provider runtime validation', async () => {
     let request;
     const plugin = createPlugin({ transport: { async request(input) {
@@ -185,7 +228,7 @@ test('image support lists are advisory and unknown ratios reach the provider for
     const google = support.routes.find((route) => route.provider === 'google' && route.kind === 'image');
     const openai = support.routes.find((route) => route.provider === 'openai' && route.kind === 'image');
     assert.ok(google.aspectRatios.includes('4:5'));
-    assert.ok(google.aspectRatiosByModel['gemini-nano-banana-2.1'].includes('4:3'));
+    assert.ok(google.aspectRatios.includes('4:3'));
     assert.ok(!openai.aspectRatios.includes('4:5'));
     const generated = await plugin.operations['image.generate'].execute({
         model: { provider: 'google', modelId: 'gemini-nano-banana-2.1' },

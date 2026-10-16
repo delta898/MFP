@@ -43,17 +43,7 @@ const TRANSPORTS = Object.freeze({
         providers: Object.freeze(['kie']),
         kinds: Object.freeze(['image']),
         base_url: KIE_BASE_URL,
-        verification_scope: 'provider',
-        model_ids: Object.freeze([
-            'gpt-image-2-5-sunburst-text-to-image',
-            'gpt-image-2-5-flare-text-to-image',
-            'gpt-image-2-text-to-image',
-            'nano-banana-2-lite',
-            'nano-banana-2',
-            'nano-banana-pro',
-            'seedream/4.5-text-to-image',
-            'seedream/5-pro-text-to-image'
-        ])
+        verification_scope: 'provider'
     }),
     openai_images: Object.freeze({
         id: 'openai_images',
@@ -90,13 +80,6 @@ function getCanonicalTransportEndpoint(transport, configuredBaseUrl = '') {
     return String(configuredBaseUrl || '').trim().replace(/\/+$/, '');
 }
 
-function isSupportedTransportModel(transport, modelCode) {
-    const definition = getTransportDefinition(transport);
-    if (!definition) return false;
-    if (!Array.isArray(definition.model_ids)) return true;
-    return definition.model_ids.includes(String(modelCode || '').trim());
-}
-
 function isSupportedProviderKind(kind, provider) {
     const normalizedKind = String(kind || '').trim();
     const normalizedProvider = String(provider || '').trim().toLowerCase();
@@ -128,6 +111,5 @@ module.exports = {
     getCanonicalTransportEndpoint,
     inferTransport,
     isSupportedProviderKind,
-    isSupportedTransportModel,
     isSupportedTransportRoute
 };

@@ -16,22 +16,29 @@ in-process Plugin system is not a sandbox for untrusted code.
 
 ## Contract
 
-`package.json#bloggeniusPlugin` declares `text.generate` and `image.generate`
-with JSON Schema 2020-12 inputs and outputs. Applications can query the
-separate, immutable `describeSupport()` inventory and intersect it with their
-own model catalog before invocation:
+`package.json#bloggeniusPlugin` declares `models.list`, `text.generate`, and
+`image.generate` with JSON Schema 2020-12 inputs and outputs. The Host supplies
+the Gateway-owned catalog service, backed by Host-owned Supabase/cache I/O.
+Consumers obtain the current route-filtered catalog through the Gateway rather
+than maintaining a second model inventory:
 
 ```js
 const { createPlugin, describeSupport } = require('@bloggenius/ai-gateway');
 
 const support = describeSupport();
-const plugin = createPlugin({ transport: hostAiTransport });
+const plugin = createPlugin({ transport: hostAiTransport, catalog: hostCatalogService });
+const catalogOperation = plugin.operations['models.list'];
 const textOperation = plugin.operations['text.generate'];
 ```
 
-Model names, visibility, and product eligibility remain the Application's
-catalog concern. `describeSupport()` is discovery metadata: its documented
-model options are hints, not a runtime capability verdict. The Gateway does
+Supabase is the authoritative source for catalogued models and their metadata.
+The Gateway owns catalog access and filters entries by implemented
+`kind + provider + transport` routes; its `models.list` operation delegates
+refresh and snapshot access to the Host-provided catalog service. The Host retains
+the Supabase credentials, RPC transport, and local cache I/O. A catalog entry
+cannot add a provider protocol, endpoint, or credential. `describeSupport()` is
+discovery metadata: documented model options are hints, not a runtime
+capability verdict. The Gateway does
 not reject a model request merely because an option is absent from those lists;
 it forwards provider-native options and returns the Provider's runtime error.
 Where an adapter cannot map an option to its standard field (for example, an

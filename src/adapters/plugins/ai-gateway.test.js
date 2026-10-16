@@ -25,3 +25,14 @@ test('AI Gateway adapter maps neutral requests to Host operations and preserves 
     assert.strictEqual(calls[0][3], context);
     assert.strictEqual(calls[1][3], context);
 });
+
+test('AI Gateway adapter reads the catalog through the declared operation', async () => {
+    const calls = [];
+    const adapter = createAiGatewayAdapter({ async executeOperation(...args) {
+        calls.push(args);
+        return { text: [], image: [], providers: { text: [], image: [] } };
+    } });
+    const result = await adapter.getModelCatalog({ forceRefresh: true });
+    assert.deepEqual(result.text, []);
+    assert.deepEqual(calls, [['ai-gateway', 'models.list', { forceRefresh: true }]]);
+});

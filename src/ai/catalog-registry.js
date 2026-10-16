@@ -1,10 +1,10 @@
-const { getBundledAiModelCatalog } = require('../ai-model-catalog');
-const {
-    getTransportBaseUrl,
-    isSupportedProviderKind,
-    isSupportedTransportModel,
-    isSupportedTransportRoute
-} = require('./transport-registry');
+const { getTransportBaseUrl } = require('./transport-registry');
+const { describeSupport } = require('../../packages/plugins/core/ai-gateway');
+
+function isSupportedRoute({ kind, provider, transport } = {}) {
+    return describeSupport().routes.some((route) => route.kind === kind
+        && route.provider === provider && route.transport === transport);
+}
 
 const CATALOG_SCHEMA_VERSION = 1;
 const MODEL_KINDS = new Set(['text', 'image']);
@@ -80,8 +80,7 @@ function normalizeRemoteModel(raw, appVersion) {
     if (!MODEL_KINDS.has(kind) || !provider || !code || !name || !key) return null;
     if (key !== `${provider}:${code}`) return null;
     if (!MODEL_STATUSES.has(status)) return null;
-    if (!isSupportedTransportRoute({ kind, provider, transport })) return null;
-    if (!isSupportedTransportModel(transport, code)) return null;
+    if (!isSupportedRoute({ kind, provider, transport })) return null;
     if (minimumAppVersion && compareVersions(appVersion, minimumAppVersion) < 0) return null;
 
     return {
@@ -106,7 +105,7 @@ function normalizeRemoteProvider(raw) {
     const name = String(raw.display_name || raw.name || '').trim();
     const sortOrder = Number(raw.sort_order);
     if (!MODEL_KINDS.has(kind) || !id || !name || !Number.isFinite(sortOrder)) return null;
-    if (!isSupportedProviderKind(kind, id)) return null;
+    if (!describeSupport().routes.some((route) => route.kind === kind && route.provider === id)) return null;
     return {
         kind,
         id,
@@ -164,31 +163,8 @@ function validateRemoteCatalog(payload, options = {}) {
     };
 }
 
-function normalizeBundledProviders() {
-    const bundled = getBundledAiModelCatalog();
-    return ['text', 'image'].flatMap((kind) => (
-        Array.isArray(bundled.providers?.[kind]) ? bundled.providers[kind] : []
-    ).map((provider, index) => ({
-        ...clone(provider),
-        kind,
-        sort_order: Number.isFinite(Number(provider.sort_order)) ? Number(provider.sort_order) : index
-    })));
-}
-
-function normalizeBundledCatalog() {
-    const bundled = getBundledAiModelCatalog();
-    return ['text', 'image'].flatMap((kind) => bundled[kind].map((model, index) => ({
-        ...clone(model),
-        kind,
-        sort_order: Number.isFinite(Number(model.sort_order)) ? Number(model.sort_order) : index
-    })));
-}
-
 function getMergedProviders() {
     const merged = new Map();
-    for (const provider of normalizeBundledProviders()) {
-        merged.set(`${provider.kind}:${provider.id}`, provider);
-    }
     for (const provider of remoteSnapshot?.providers || []) {
         merged.set(`${provider.kind}:${provider.id}`, clone(provider));
     }
@@ -202,19 +178,11 @@ function getMergedProviders() {
 
 function getMergedDefinitions() {
     const merged = new Map();
-    for (const model of normalizeBundledCatalog()) {
-        merged.set(`${model.kind}:${model.key}`, model);
-    }
     for (const model of remoteSnapshot?.models || []) {
         const modelKey = `${model.kind}:${model.key}`;
-        const bundled = merged.get(modelKey);
         merged.set(modelKey, {
-            ...(bundled || {}),
             ...clone(model),
-            capabilities: {
-                ...(bundled?.capabilities || {}),
-                ...(model.capabilities || {})
-            }
+            capabilities: { ...(model.capabilities || {}) }
         });
     }
     const providerOrder = new Map(getMergedProviders().map((provider) => [
@@ -234,12 +202,9 @@ function getMergedDefinitions() {
 }
 
 function getAiModelCatalog() {
-    // A valid remote snapshot is authoritative for selectable models. Bundled
-    // entries remain the startup/offline fallback and support resolution of
-    // existing saved selections through findModelDefinition.
-    const definitions = remoteSnapshot
-        ? remoteSnapshot.models
-        : normalizeBundledCatalog();
+    // Supabase is the only catalog source. The remote service may load the
+    // last-known-good Supabase snapshot from disk before this getter is used.
+    const definitions = remoteSnapshot?.models || [];
     const providers = getMergedProviders();
     const providerOrder = new Map(providers.map((provider, index) => [
         `${provider.kind}:${provider.id}`,
@@ -289,8 +254,8 @@ function clearRemoteCatalog() {
 
 function getCatalogStatus() {
     return {
-        source: remoteSnapshot ? 'remote' : 'bundled',
-        version: remoteSnapshot?.version || 'bundled',
+        source: remoteSnapshot ? 'remote' : 'unavailable',
+        version: remoteSnapshot?.version || '',
         schema_version: CATALOG_SCHEMA_VERSION,
         remote_model_count: remoteSnapshot?.models?.length || 0,
         remote_provider_count: remoteSnapshot?.providers?.length || 0

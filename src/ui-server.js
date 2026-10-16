@@ -1117,6 +1117,7 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     corePluginRuntime,
     blogWritingApplication: blogWritingSystem.application,
     aiGenerationService: aiGenerationSystem.service,
+    aiGateway: aiGenerationSystem.gateway,
     blogPublishingApplication,
     UiValidators,
     normalizeYmdToken,

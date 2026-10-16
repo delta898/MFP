@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Provider-neutral text and image generation Gateway for BlogGenius and compatible Hosts.",
   "main": "index.js",
-  "files": ["index.js", "support.js", "provider-adapters.js", "README.md"],
+  "files": ["index.js", "support.js", "provider-adapters.js", "catalog.js", "README.md"],
   "engines": { "node": ">=20" },
   "bloggeniusPlugin": {
     "manifestVersion": 1,
@@ -12,6 +12,26 @@
     "hostApi": "^1.0.0",
     "summary": "Provider-neutral text and image generation across Host-approved AI routes.",
     "operations": {
+      "models.list": {
+        "description": "List the current Host-approved AI model catalog, optionally refreshing it.",
+        "inputSchema": {
+          "type": "object",
+          "properties": { "forceRefresh": { "type": "boolean" } },
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "properties": {
+            "providers": { "type": "object" },
+            "text": { "type": "array" },
+            "image": { "type": "array" },
+            "status": { "type": "object" }
+          },
+          "required": ["providers", "text", "image"],
+          "additionalProperties": false
+        },
+        "capabilities": ["ai.catalog.read"]
+      },
       "text.generate": {
         "description": "Generate text from a role-based message list.",
         "inputSchema": {

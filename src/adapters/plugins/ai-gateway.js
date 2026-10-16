@@ -10,6 +10,9 @@ function createAiGatewayAdapter(options = {}) {
 
     return Object.freeze({
         describeSupport: () => getSupport(),
+        getModelCatalog(request = {}) {
+            return options.executeOperation('ai-gateway', 'models.list', { forceRefresh: request.forceRefresh === true });
+        },
         generateText(request, executionContext = {}) {
             if (!request || !request.model || !Array.isArray(request.messages)) {
                 throw new TypeError('AI Gateway text request requires a model and messages.');

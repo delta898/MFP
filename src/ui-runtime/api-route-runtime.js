@@ -135,6 +135,7 @@ function createUiApiRouteRuntime(deps = {}) {
         corePluginRuntime,
         blogWritingApplication,
         aiGenerationService,
+        aiGateway,
         blogPublishingApplication,
         UiValidators,
         normalizeYmdToken,
@@ -281,7 +282,8 @@ function createUiApiRouteRuntime(deps = {}) {
                 BufferClient,
                 Utils,
                 axios,
-                cheerio
+                cheerio,
+                aiGateway
             });
             const controller = createSettingsController({
                 service,

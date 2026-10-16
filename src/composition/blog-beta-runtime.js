@@ -11,6 +11,10 @@ const { createNaverPublishingSystem } = require('./naver-publishing');
 const { createBlogPublishingApplication } = require('../applications/blog/publishing/application');
 const { createBlogGeniusAiTransport } = require('../adapters/ai/gateway-transport');
 const { inferTransport } = require('../ai/transport-registry');
+const { createSupabaseModelCatalogPort } = require('../ai/remote-model-catalog');
+const { createModelCatalogService } = require('../../packages/plugins/core/ai-gateway');
+const { applyRemoteCatalog, getCatalogStatus } = require('../ai/catalog-registry');
+const { APP_VERSION } = require('../constants');
 
 function createBlogBetaRuntimeComposition(options = {}) {
     const { CONFIG, Logger, getAiModelCatalog } = options;
@@ -21,8 +25,26 @@ function createBlogBetaRuntimeComposition(options = {}) {
     const path = options.path || pathDefault;
     const ImageService = options.ImageService || ImageServiceDefault;
     const corePluginRuntime = options.corePluginRuntime || createCorePluginRuntime();
+    const catalogPort = createSupabaseModelCatalogPort({
+        config: CONFIG,
+        ...(options.fetchCatalog ? { fetchCatalog: options.fetchCatalog } : {}),
+        ...(options.catalogFs ? { fsImpl: options.catalogFs } : {}),
+        appVersion: APP_VERSION
+    });
+    const catalogService = createModelCatalogService({
+        fetchCatalog: catalogPort.fetchCatalog,
+        loadCachedCatalog: catalogPort.loadCachedCatalog,
+        saveCachedCatalog: catalogPort.saveCachedCatalog,
+        applySnapshot: (payload) => applyRemoteCatalog(payload, { appVersion: APP_VERSION }),
+        getSnapshot: getAiModelCatalog,
+        getStatus: getCatalogStatus,
+        logger: Logger
+    });
     const pluginDependencies = {
-        'ai-gateway': { transport: createBlogGeniusAiTransport({ config: CONFIG, fetch: options.fetch, lookup: options.lookup }) },
+        'ai-gateway': {
+            transport: createBlogGeniusAiTransport({ config: CONFIG, fetch: options.fetch, lookup: options.lookup }),
+            catalog: catalogService
+        },
         'wordpress-publisher': {
             getCredentials: async () => ({
                 url: CONFIG.WORDPRESS_URL,
@@ -93,6 +115,7 @@ function createBlogBetaRuntimeComposition(options = {}) {
 
     return Object.freeze({
         corePluginRuntime,
+        catalogService,
         aiGenerationSystem,
         wordpressPublishingSystem,
         naverPublishingSystem,

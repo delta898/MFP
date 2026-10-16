@@ -106,7 +106,7 @@ test('remote catalog accepts Nano Banana 2.1 through the existing Gemini image t
     );
 });
 
-test('remote snapshot replaces the selectable bundled model list', () => {
+test('Supabase snapshot is the only selectable model source', () => {
     applyRemoteCatalog({
         schema_version: 1,
         version: 'older-gemini-catalog',
@@ -130,13 +130,10 @@ test('remote snapshot replaces the selectable bundled model list', () => {
     assert.deepEqual(selectable.map((item) => item.code), ['gemini-3.7-flash']);
     assert.equal(selectable.some((item) => item.code === 'gpt-5.6-sol'), false);
     assert.equal(selectable[0].capabilities.thinking_levels, undefined);
-    assert.deepEqual(
-        findModelDefinition('text', 'google', 'gemini-3.7-flash').capabilities.thinking_levels,
-        ['low', 'medium', 'high']
-    );
+    assert.equal(findModelDefinition('text', 'google', 'gemini-3.7-flash').capabilities.thinking_levels, undefined);
 });
 
-test('bundled definitions remain resolvable for saved models absent from remote selection', () => {
+test('models absent from Supabase are not present in the catalog', () => {
     applyRemoteCatalog({
         schema_version: 1,
         version: 'remote-without-legacy-model',
@@ -152,7 +149,7 @@ test('bundled definitions remain resolvable for saved models absent from remote 
     }, { appVersion: '0.2.0' });
 
     assert.equal(getAiModelCatalog().text.some((item) => item.code === 'gpt-5.6-sol'), false);
-    assert.equal(findModelDefinition('text', 'openai', 'gpt-5.6-sol')?.status, 'active');
+    assert.equal(findModelDefinition('text', 'openai', 'gpt-5.6-sol'), null);
 });
 
 test('remote catalog rejects the retired Imagen transport', () => {
@@ -253,10 +250,10 @@ test('remote catalog can activate a shipped KIE image profile only through the t
     assert.equal(model.transport, 'kie_market_image_jobs');
 });
 
-test('remote catalog cannot expose a KIE image without a shipped local request profile', () => {
-    assert.throws(() => validateRemoteCatalog({
+test('remote catalog can add a KIE image model on an existing job transport', () => {
+    const catalog = validateRemoteCatalog({
         schema_version: 1,
-        version: 'unsupported-kie-image',
+        version: 'new-kie-image',
         models: [{
             key: 'kie:future-image',
             kind: 'image',
@@ -266,7 +263,9 @@ test('remote catalog cannot expose a KIE image without a shipped local request p
             display_name: 'Future Image',
             status: 'active'
         }]
-    }, { appVersion: '0.1.15' }), /호환 가능한 AI model catalog 항목이 없습니다/);
+    }, { appVersion: '0.1.15' });
+    assert.equal(catalog.models[0].code, 'future-image');
+    assert.equal(catalog.models[0].transport, 'kie_market_image_jobs');
 });
 
 test('provider and model order are controlled by independent sort_order fields', () => {
@@ -306,8 +305,7 @@ test('provider and model order are controlled by independent sort_order fields',
     assert.deepEqual(catalog.providers.text.map((item) => item.id), [
         'openai',
         'anthropic',
-        'google',
-        'kie'
+        'google'
     ]);
     assert.deepEqual(
         catalog.text.filter((item) => item.provider === 'openai').map((item) => item.code),

@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createAiGenerationService } = require('./generation');
 
-test('AI service intersects Catalog and Gateway routes and rejects unsupported selections before execution', async () => {
+test('AI service uses the Gateway catalog snapshot without maintaining a second model allowlist', async () => {
     const calls = [];
     const catalog = {
         text: [
@@ -28,7 +28,7 @@ test('AI service intersects Catalog and Gateway routes and rejects unsupported s
         async generateImage(request, context) { calls.push({ kind: 'image', request, context }); return { images: ['image'] }; }
     };
     const service = createAiGenerationService({ gateway, getModelCatalog: () => catalog });
-    assert.deepEqual(service.getSupportedModels('text').map(({ code }) => code), ['text-v1']);
+    assert.deepEqual(service.getSupportedModels('text').map(({ code }) => code), ['text-v1', 'text-v2']);
     assert.equal(service.supportsFeature('text', { provider: 'openai', modelId: 'text-v1' }, 'jsonResponse'), true);
     assert.equal(service.supportsOption('image', { provider: 'google', modelId: 'image-v1' }, 'aspectRatio', '4:5'), true);
     assert.equal(service.supportsOption('image', { provider: 'google', modelId: 'image-v1' }, 'aspectRatio', '4:3'), true);
@@ -41,8 +41,8 @@ test('AI service intersects Catalog and Gateway routes and rejects unsupported s
     assert.equal(calls[0].request.options.responseFormat, 'json');
     assert.strictEqual(calls[0].context, context);
     assert.equal(calls[1].request.model.modelId, 'image-v1');
-    await assert.rejects(service.generateText({ modelSelection: { provider: 'google', modelId: 'text-v2' }, prompt: 'No route' }), { code: 'AI_GATEWAY_UNSUPPORTED_ROUTE' });
-    assert.equal(calls.length, 2);
+    await service.generateText({ modelSelection: { provider: 'google', modelId: 'text-v2' }, prompt: 'Gateway validates this route' });
+    assert.equal(calls.length, 3);
 });
 
 test('AI service exposes only the configured direct model identity and routes it through Gateway', async () => {

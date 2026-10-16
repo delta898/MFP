@@ -264,7 +264,10 @@ function buildKieImageRequest(modelId, prompt, options = {}) {
     } else if (modelId === 'gpt-image-2-5-sunburst-text-to-image' || modelId === 'gpt-image-2-5-flare-text-to-image') {
         Object.assign(input, { resolution: size, background: 'opaque' });
     } else {
-        throw new AiGatewayError('AI_GATEWAY_UNSUPPORTED_ROUTE', 'The selected KIE image route is not supported.');
+        // Catalog records determine which model IDs are available. The route
+        // owns only the shared KIE task protocol; new catalog entries use its
+        // generic prompt/aspect-ratio request shape unless a future protocol
+        // contract requires an explicit adapter.
     }
     return { model: modelId, input };
 }
@@ -531,7 +534,30 @@ function createGatewayOperations(options = {}) {
         sleep: typeof options.sleep === 'function' ? options.sleep : (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
         jobTimeoutMs: Number.isFinite(options.jobTimeoutMs) ? Math.max(1000, options.jobTimeoutMs) : DEFAULT_JOB_TIMEOUT_MS
     };
+    const catalog = options.catalog;
+    const listModels = async (input = {}) => {
+        if (!catalog || typeof catalog.getCatalog !== 'function') {
+            throw new AiGatewayError('AI_GATEWAY_CATALOG_UNAVAILABLE', 'The AI model catalog is not configured.');
+        }
+        if (typeof catalog.refresh === 'function') await catalog.refresh(input.forceRefresh === true);
+        const snapshot = await catalog.getCatalog();
+        if (!snapshot || typeof snapshot !== 'object' || !Array.isArray(snapshot.text) || !Array.isArray(snapshot.image)) {
+            throw new AiGatewayError('AI_GATEWAY_CATALOG_INVALID', 'The AI model catalog returned an invalid snapshot.');
+        }
+        return {
+            providers: {
+                text: Array.isArray(snapshot.providers?.text) ? snapshot.providers.text : [],
+                image: Array.isArray(snapshot.providers?.image) ? snapshot.providers.image : []
+            },
+            text: snapshot.text.filter((model) => resolveRoute('text', { provider: model.provider, modelId: model.code })
+                ?.transport === model.transport),
+            image: snapshot.image.filter((model) => resolveRoute('image', { provider: model.provider, modelId: model.code })
+                ?.transport === model.transport),
+            ...(typeof catalog.getStatus === 'function' ? { status: catalog.getStatus() } : {})
+        };
+    };
     return Object.freeze({
+        'models.list': Object.freeze({ execute: listModels }),
         'text.generate': Object.freeze({ execute: (input, context = {}) => generateText(input, context, transport) }),
         'image.generate': Object.freeze({ execute: (input, context = {}) => generateImage(input, context, transport, settings) })
     });

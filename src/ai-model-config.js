@@ -2,7 +2,6 @@ const {
     CLAUDE_OPENAI_BASE_URL,
     KIE_BASE_URL,
     OPENAI_BASE_URL,
-    DEFAULT_MODEL_CODES
 } = require('./ai-model-catalog');
 const {
     findModelDefinition,
@@ -62,8 +61,7 @@ function findPresetByCode(presets = [], code = '', provider = '') {
 }
 
 function getDefaultPreset(kind, presets = []) {
-    const fallbackCode = DEFAULT_MODEL_CODES[kind] || '';
-    return findPresetByCode(presets, fallbackCode) || presets[0] || null;
+    return presets[0] || null;
 }
 
 function normalizeChatModelSource(value, fallback = 'writing') {

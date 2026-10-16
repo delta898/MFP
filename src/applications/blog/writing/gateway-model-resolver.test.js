@@ -16,17 +16,19 @@ const catalog = {
     image: [{ provider: 'openai', code: 'image-a', transport: 'openai_images' }]
 };
 const support = { routes: [
-    { kind: 'text', provider: 'openai', transport: 'openai_chat', modelIds: ['model-a'], jsonMode: true },
-    { kind: 'text', provider: 'google', transport: 'different_transport', modelIds: ['model-b'], jsonMode: true },
-    { kind: 'image', provider: 'openai', transport: 'openai_images', modelIds: ['image-a'] }
+    { kind: 'text', provider: 'openai', transport: 'openai_chat', jsonMode: true },
+    { kind: 'text', provider: 'google', transport: 'different_transport', jsonMode: true },
+    { kind: 'image', provider: 'openai', transport: 'openai_images' }
 ] };
 
-test('Blog Writing model resolver selects only the Catalog and Gateway support intersection', () => {
-    assert.deepEqual(resolveGatewayModels('text', catalog, support), [catalog.text[0]]);
+test('Blog Writing trusts the Gateway-filtered catalog as the model availability source', () => {
+    assert.deepEqual(resolveGatewayModels('text', catalog, support), catalog.text);
     assert.deepEqual(resolveGatewayModel('text', { provider: 'openai', code: 'model-a' }, catalog, support), {
         provider: 'openai', modelId: 'model-a'
     });
-    assert.equal(resolveGatewayModel('text', { provider: 'google', code: 'model-b' }, catalog, support), null);
+    assert.deepEqual(resolveGatewayModel('text', { provider: 'google', code: 'model-b' }, catalog, support), {
+        provider: 'google', modelId: 'model-b'
+    });
     assert.equal(resolveGatewayModel('image', { provider: 'openai', code: 'model-a' }, catalog, support), null);
 });
 

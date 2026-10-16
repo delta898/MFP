@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { applyRemoteCatalog, clearRemoteCatalog } = require('./ai/catalog-registry');
 
 const {
     getAiModelCatalog,
@@ -13,7 +14,60 @@ const {
     mergeActiveSelectionsIntoProfiles
 } = require('./ai-model-config');
 
-test('AI model catalog is code-owned and returned as an isolated copy', () => {
+const providerSort = { openai: 10, anthropic: 20, google: 30, kie: 40 };
+const modelSets = [
+    ['text', 'google', 'gemini_generate_content', [
+        ['gemini-3.8-flash', 5], ['gemini-3.7-flash', 10], ['gemini-3.6-flash', 20],
+        ['gemini-3.1-pro-preview', 30], ['gemini-3.1-flash-lite', 40]
+    ]],
+    ['text', 'openai', 'openai_chat_completions', [
+        ['gpt-6-astra', 5], ['gpt-6.1-sol', 10], ['gpt-6-sol', 15], ['gpt-6-luna', 20],
+        ['gpt-5.6-sol', 30], ['gpt-5.6-terra', 40], ['gpt-5.6-luna', 50]
+    ]],
+    ['text', 'anthropic', 'anthropic_openai_compat', [
+        ['claude-fable-5-1', 5], ['claude-opus-5', 10], ['claude-sonnet-5', 20], ['claude-haiku-4-5', 30]
+    ]],
+    ['text', 'kie', 'kie_responses', [
+        ['gpt-6-astra', 5], ['gpt-5-6-sol', 10], ['gpt-5-6-terra', 20], ['gpt-5-6-luna', 30], ['gemini-3.1-pro', 70]
+    ]],
+    ['text', 'kie', 'kie_openai_chat', [
+        ['gemini-3-8-flash-openai', 40], ['gemini-3-6-flash-openai', 50]
+    ]],
+    ['image', 'google', 'gemini_generate_content', [
+        ['gemini-nano-banana-2.1', 5], ['gemini-3.1-flash-image', 10], ['gemini-3.1-flash-lite-image', 20]
+    ]],
+    ['image', 'openai', 'openai_images', [
+        ['gpt-image-2.5-sunburst', 5], ['gpt-image-2.5-flare', 10], ['gpt-image-2', 20]
+    ]],
+    ['image', 'kie', 'kie_market_image_jobs', [
+        ['gpt-image-2-5-sunburst-text-to-image', 5], ['gpt-image-2-5-flare-text-to-image', 10],
+        ['gpt-image-2-text-to-image', 20], ['nano-banana-2-lite', 30], ['nano-banana-2', 40],
+        ['nano-banana-pro', 50], ['seedream/5-pro-text-to-image', 70], ['seedream/4.5-text-to-image', 80]
+    ]]
+];
+
+function seedCatalog() {
+    const providers = ['text', 'image'].flatMap((kind) => Object.entries(providerSort)
+        .filter(([id]) => modelSets.some(([modelKind, provider]) => modelKind === kind && provider === id))
+        .map(([id, sortOrder]) => ({ kind, id, display_name: ({ openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google', kie: 'KIE.ai' })[id], sort_order: sortOrder })));
+    const models = modelSets.flatMap(([kind, provider, transport, models]) => models.map(([code, sortOrder]) => ({
+        key: `${provider}:${code}`, kind, provider, transport, model_id: code,
+        display_name: code === 'gpt-6.1-sol' ? 'GPT-6.1 Sol'
+            : code === 'claude-sonnet-5' ? 'Claude Sonnet 5'
+                : code === 'gemini-3.1-flash-lite' ? 'Gemini 3.1 Flash-Lite'
+                : code.replace(/-/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()),
+        status: 'active', sort_order: sortOrder,
+        ...(code === 'gpt-6.1-sol' || code.startsWith('gpt-6-') ? { capabilities: { reasoning_efforts: ['low', 'medium', 'high', 'xhigh', 'max'] } } : {}),
+        ...(provider === 'anthropic' && code === 'claude-sonnet-5' ? { capabilities: { temperature: false } } : {}),
+        ...(kind === 'image' && provider === 'kie' ? { capabilities: { image_size: ['1K', '2K'] } } : {})
+    })));
+    applyRemoteCatalog({ schema_version: 1, version: 'test-catalog', providers, models }, { appVersion: '99.0.0' });
+}
+
+test.beforeEach(seedCatalog);
+test.afterEach(clearRemoteCatalog);
+
+test('remote model catalog is returned as an isolated copy', () => {
     const first = getAiModelCatalog();
     const second = getAiModelCatalog();
 
@@ -24,7 +78,7 @@ test('AI model catalog is code-owned and returned as an isolated copy', () => {
     assert.notEqual(second.text[0].name, 'changed');
 });
 
-test('AI model catalog contains supported Google models and excludes unavailable selections', () => {
+test('AI model catalog uses the Supabase snapshot and excludes models absent from it', () => {
     const catalog = getAiModelCatalog();
     const textCodes = catalog.text.map((item) => item.code);
     const googleTextCodes = catalog.text
@@ -60,7 +114,7 @@ test('AI model catalog contains supported Google models and excludes unavailable
     obsoleteCodes.forEach((code) => assert.equal(supportedCodes.has(code), false));
 });
 
-test('provider and model presets follow explicit product sort order', () => {
+test('provider and model order follows the Supabase snapshot sort order', () => {
     const catalog = getAiModelCatalog();
 
     assert.deepEqual(catalog.providers.text.map((item) => item.id), [
@@ -129,7 +183,7 @@ test('provider and model presets follow explicit product sort order', () => {
     );
 });
 
-test('AI model catalog contains current models with trusted transports', () => {
+test('AI model catalog preserves trusted transport metadata from the validated snapshot', () => {
     const catalog = getAiModelCatalog();
     const findModel = (provider, code) => [...catalog.text, ...catalog.image]
         .find((item) => item.provider === provider && item.code === code);
@@ -173,7 +227,7 @@ test('AI model catalog contains current models with trusted transports', () => {
     assert.equal(findModel('kie', 'seedream/4.5-text-to-image').transport, 'kie_market_image_jobs');
 });
 
-test('legacy ai_presets config cannot override the product catalog', () => {
+test('legacy ai_presets config cannot override the Supabase catalog snapshot', () => {
     const resolved = resolveAiModelConfig({
         ai_presets: {
             text: [
