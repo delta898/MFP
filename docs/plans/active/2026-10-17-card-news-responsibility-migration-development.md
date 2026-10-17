@@ -5,7 +5,7 @@
 - Branch: `codex/fbr/card-news-responsibility-migration`
 - Start date: 2026-10-17
 - Base/parent branch: `codex/fbr/plugin-architecture-foundation`
-- Status: Implementation complete; focused verification passed
+- Status: Implementation and verification complete; ready to merge into parent
 
 ## User Need and Goal
 
@@ -27,7 +27,7 @@ The Card News vertical still has most implementation files under the legacy `src
 - Do not change persisted project, generation, or Google Sheets ledger formats unless required to preserve the existing contract during relocation.
 - Do not change model catalog or provider behavior, Social Publisher/Buffer semantics, or product limits.
 - Do not deploy, publish externally, or migrate user data.
-- Do not merge this feature into its parent, commit, push, or release without a later explicit request.
+- Do not push or release this feature as part of this branch task.
 
 ## Proposed Ownership
 
@@ -73,4 +73,5 @@ The Card News vertical still has most implementation files under the legacy `src
 - Moved ledger identity normalization into the Card News domain so storage adapters do not depend on Application workflow modules.
 - Updated architecture ownership documentation, package file selection, and shell contract fixtures that asserted old source paths.
 - Focused checks passed: 145 tests across Card News Applications/adapters; 90 Application/publishing/source/generation tests; and 45 UI API/runtime/shell-contract tests. `git diff --check` passed.
-- Full unit suite and browser smoke were not run; this is a structure-only change with focused unit/API contracts. Final visual acceptance remains with the user; existing UI behavior and routes are intended to remain unchanged.
+- 2026-10-17: Full unit suite passed: 2,409 passed, 0 failed, 1 skipped (2,410 total). Initial sandbox execution blocked five loopback-listen tests; rerunning in an environment permitting `127.0.0.1` listeners passed. The `npm run test:unit` wrapper stopped at its pre-test `npm audit` gate, which reported 9 dependency advisories, so the repository unit runner was invoked directly. No dependency changes were made.
+- Browser smoke was not run because this is a structure migration and existing UI behavior/routes are intended to remain unchanged. Final visual acceptance remains with the user.
