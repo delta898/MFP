@@ -5,7 +5,7 @@
 - Branch: `codex/fbr/dashboard-responsibility-migration`
 - Start date: 2026-10-17
 - Base/parent branch: `codex/fbr/plugin-architecture-foundation`
-- Status: Verified; ready for parent merge
+- Status: Complete; merged into `codex/fbr/plugin-architecture-foundation` as `3e84ebe1`
 
 ## User Need and Goal
 
