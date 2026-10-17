@@ -200,7 +200,6 @@ function createContentService(deps = {}) {
         }
     }
 
-    let wordpressCategoryConfigLogState = '';
     let smartCommentCollector = deps.smartCommentCollector || null;
     let smartCommentProgress = {
         state: 'idle',
@@ -1668,52 +1667,11 @@ function createContentService(deps = {}) {
         },
 
         async getWordPressCategories() {
-            if (typeof blogPublishingApplication?.listWordPressCategories === 'function') {
-                Logger?.info?.('[Blog Beta][Publishing] WordPress categories.list 요청');
-                return blogPublishingApplication.listWordPressCategories();
+            if (typeof blogPublishingApplication?.listWordPressCategories !== 'function') {
+                throw createApiError(503, 'BLOG_PUBLISHING_APPLICATION_UNAVAILABLE', 'WordPress 발행 기능을 사용할 수 없습니다.');
             }
-            const Logger = require('../../utilities/logging/logger');
-            const WordPressClient = require('../../wordpress-client');
-
-            // config 파일에서 최신값을 직접 읽어 사용 (메모리 캐시 우회)
-            let wpUrl = String(CONFIG.WORDPRESS_URL || '').trim();
-            let wpUserId = String(CONFIG.WORDPRESS_USER_ID || '').trim();
-            let wpAppPassword = String(CONFIG.WORDPRESS_APP_PASSWORD || '').trim();
-            try {
-                const configSource = tryResolveReadableConfigSource();
-                if (configSource) {
-                    const raw = readConfigRaw(configSource);
-                    wpUrl = parseConfigValue(raw, 'WORDPRESS_URL') || wpUrl;
-                    wpUserId = parseConfigValue(raw, 'WORDPRESS_USER_ID') || wpUserId;
-                    wpAppPassword = parseConfigValue(raw, 'WORDPRESS_APP_PASSWORD') || wpAppPassword;
-                }
-            } catch (readErr) {
-                Logger.warn(`⚠️ WordPress 카테고리: config 파일 읽기 실패, 메모리 설정 사용 (${readErr.message})`);
-            }
-
-            const wpClient = new WordPressClient({
-                url: wpUrl,
-                userId: wpUserId,
-                appPassword: wpAppPassword
-            });
-
-            if (!wpClient.isConfigured()) {
-                if (CONFIG.CONFIG_IS_ESSENTIAL_SET) {
-                    const nextLogState = `missing:${wpUrl}|${wpUserId}`;
-                    if (wordpressCategoryConfigLogState !== nextLogState) {
-                        Logger.info(`WordPress 설정 미비: URL="${wpUrl}", User="${wpUserId}" (필요 시 [설정 > 블로그] 탭에서 입력 가능)`);
-                        wordpressCategoryConfigLogState = nextLogState;
-                    }
-                }
-                throw createApiError(400, 'WP_NOT_CONFIGURED', '워드프레스 설정이 필요합니다. 설정 > 블로그 탭에서 저장 후 다시 시도해 주세요.');
-            }
-
-            wordpressCategoryConfigLogState = 'ready';
-            const categories = await wpClient.listCategories();
-            if (categories === null) {
-                throw createApiError(500, 'WP_API_ERROR', '워드프레스 API 호출 중 오류가 발생했습니다. 터미널 로그를 확인해 주세요.');
-            }
-            return categories;
+            Logger?.info?.('[Blog Beta][Publishing] WordPress categories.list 요청');
+            return blogPublishingApplication.listWordPressCategories();
         }
     };
 }
