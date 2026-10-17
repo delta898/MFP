@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { loadSharp } = require('../../../sharp-loader');
+const { loadSharp } = require('../../../utilities/media/sharp-loader');
 const { createCardNewsOutgoingImageService, createWatermarkSvg, estimateSignatureTextWidthEm } = require('./outgoing-image-service');
 
 test('watermark is applied only for a verified Free plan', async () => {

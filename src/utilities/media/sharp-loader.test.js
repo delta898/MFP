@@ -70,6 +70,11 @@ test('listCandidateResourcesPaths deduplicates equivalent resource directories',
     }
 });
 
+test('listCandidateResourcesPaths keeps the loader package-root fallback after relocation', () => {
+    const candidates = listCandidateResourcesPaths('', '');
+    assert.ok(candidates.includes(path.resolve(__dirname, '../../..')));
+});
+
 test('resolvePackagedModuleDir returns empty string when unpacked module is missing', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sharp-loader-missing-'));
     try {
