@@ -32,10 +32,10 @@ Applications depend on domain/service ports and do not import concrete Plugin im
 
 A Plugin provides one or more bounded operations, for example text generation, image generation, WordPress publishing, or Naver publishing. “Plugin” describes the implementation/package form. “Core Plugin” and “Community Plugin” describe ownership and distribution:
 
-- Core Plugins are first-party and bundled with BlogGenius. The host can enable/disable them at runtime; this does not imply exposing a toggle for every plugin. They are not individually installed or removed by users.
-- Community Plugins are a later extension stage. Runtime package install/removal, trust, permissions, isolation, updates, and rollback are not part of this foundation.
+- Native Core Plugins are first-party operation packages bundled with BlogGenius. The host can enable/disable them at runtime; this does not imply exposing a toggle for every plugin. They are not individually installed or removed by users. Static Widget Plugins have their separate package and installation contract below.
+- Native Community Plugins with executable Host operations remain a later extension stage because their operation permissions, trust, lifecycle, and isolation require additional design. Static Widget Plugins are a separate, narrower extension contract described below: they package their own UI and behavior, are discovered from the user-data plugin directory at startup, and run with no Host API or network access in sandboxed iframes.
 
-Long-term, a Plugin package should be independently usable through an explicit public interface and must not import BlogGenius private modules. The foundation does not yet claim a stable external SDK or package compatibility guarantee.
+Plugin packages own the complete implementation of their declared capability. They may use documented Host contracts for generic facilities such as credentials, transport, or lifecycle, but must not delegate core behavior back to BlogGenius-private Application or legacy code. A wrapper around an app-owned implementation is not a completed Plugin migration. “Independently distributable” means packageable and loadable through the documented Plugin Host contract; it does not promise a stable external SDK or compatibility guarantee.
 
 ### Agent Runtime and Channels
 
@@ -148,8 +148,7 @@ src/
 
 packages/
   plugins/
-    core/                       # Bundled first-party Plugins following the shared manifest
-    community/                  # Future distribution area; not implemented or specified yet
+    core/                       # Bundled native Plugin and static Widget Plugin packages
 ```
 
 The layer rules are mandatory for new code:
@@ -171,12 +170,14 @@ Current implementation follows the target in these slices:
 ```text
 src/
   platform/plugin-contract.js, plugin-host.js
+  platform/widget-plugin-catalog.js
   composition/core-plugin-registry.js, core-plugin-runtime.js, blog-writing.js, wordpress-publishing.js, naver-publishing.js, astro-site-hosting.js, blog-beta-runtime.js
   services/ai/generation.js
   services/ai/generation-operation-manager.js
   adapters/plugins/ai-gateway.js, wordpress-publisher.js, naver-publisher.js, astro-site-hosting.js
   adapters/ai/gateway-transport.js
   adapters/ui/naver-publish-progress.js, blog-posting-progress.js, blog-publishing-presentation.js
+  adapters/ui/widget-plugins.routes.js
   applications/
     blog/execution/execution-coordinator.js
     blog/writing/gateway-model-resolver.js
@@ -192,9 +193,17 @@ src/
 packages/plugins/core/
   ai-gateway/
   astro-site-hosting/
+  focus-clock/                     # Self-contained static clock/timer widget package
   hello-world/
   naver-publisher/
   wordpress-publisher/
+```
+
+```text
+ui/
+  scripts/foundation/widget-slot-host.js # Generic static widget slot host
+  partials/views/shared/page-widget-area.html # Application-owned slot and adjacent status control
+  styles/components/widget-slot.css
 ```
 
 The AI Gateway, WordPress Publisher, Naver Publisher, and Astro Site Hosting implementations are Core Plugin packages. Blog Beta AI manuscript and WordPress manuscript flows compose AI Gateway and WordPress Publisher through Applications and the shared Plugin Host. Blog Beta's standard Naver manuscript publication path now uses Naver Publisher through the Blog Publishing Application; affiliate-required Shopping publication remains on its legacy Core path. Supabase is the sole source of catalogued AI model availability and metadata. The AI Gateway reads that catalog through Host-injected Supabase/cache ports and filters entries against its implemented `kind + provider + transport` support declaration. Settings requests model choices through the Gateway; runtime resolution uses the same validated snapshot, with no second Application model-ID inventory or Catalog/Gateway intersection. `adapters/ai/` owns provider authentication and network transport. Site Hosting service policy dispatches Astro build/preview, deployment, and normalized domain/resource operations through the Astro Site Hosting Plugin. Site content-contract validation, Vault path checks, and local manuscript writes remain in the Site Hosting service. Cloudflare OAuth and credential persistence remain Host-owned; scoped credentials are supplied to operations, and Cloudflare-specific API operations are mapped inside the Plugin. `ui-server.js` remains the existing bootstrap/composition caller until Host bootstrap migration is designed. Existing channel, agent, capability, and UI source directories remain in place; their names do not override the target boundaries for new code.
@@ -216,9 +225,17 @@ UI/API Adapter -> Application -> Service Port -> Plugin Adapter -> Kernel -> Plu
 
 Directory layout alone does not enforce these rules. Explicit interfaces, composition-root ownership, and contract/dependency tests must enforce them.
 
+## Static Widget Plugins
+
+Static Widget Plugins contribute a complete, self-contained widget to an application-provided named slot. The application declares generic slots such as `app.header.trailing`; it does not import or name a specific widget. A Widget Plugin manifest (`package.json#bloggeniusWidget`) declares its package identity, widget slot, HTML entry point, dimensions, and explicit asset allowlist. Bundled packages live under `packages/plugins/core/<id>/`; separately installed packages are placed under `<configDir>/plugins/<id>/` and discovered at application startup. User-installed packages take precedence over bundled packages with the same ID. Invalid packages are skipped and logged so one broken install does not prevent the application from starting. Multiple contributions flow within the available slot area and wrap when they run out of room.
+
+The shared UI slot host (`ui/scripts/foundation/widget-slot-host.js`) requests available contributions through `src/adapters/ui/widget-plugins.routes.js` and mounts the active view's contribution in a sandboxed iframe. Only scripts are enabled; the frame has no same-origin access, application DOM access, top-level navigation, Host operations, or network access. Package assets are served only when declared by the validated manifest and resolved inside that package directory. A widget that later needs a host capability must use a separately designed permissioned bridge; direct application APIs are not implicitly exposed. Independent application controls can live beside the slot; the global publishing-status shortcut is one such app-owned control.
+
+Widget-owned presentation, styles, session-only preferences, and self-contained behavior stay in the package. The application owns slot placement, the generic renderer, and any separate application controls beside the slot. This contract is suitable for static independent widgets, not arbitrary native plugins that need privileged filesystem, network, or application operations. When a capability is migrated from legacy code, move its implementation and callers to the owning boundary and remove the superseded implementation after verifying no active production path depends on it; retain legacy code only for a documented compatibility need.
+
 ## Plugin manifest and operation contract
 
-Each bundled package declares `package.json#bloggeniusPlugin`. It contains the manifest version, Plugin ID and display metadata, a SemVer range for the Plugin Host API, and operations with descriptions, JSON Schema input/output contracts, and operation-scoped capability declarations. Package SemVer remains in `package.json#version`.
+Each bundled native operation package declares `package.json#bloggeniusPlugin`. It contains the manifest version, Plugin ID and display metadata, a SemVer range for the Plugin Host API, and operations with descriptions, JSON Schema input/output contracts, and operation-scoped capability declarations. Package SemVer remains in `package.json#version`. Static Widget Plugins instead declare `package.json#bloggeniusWidget`; this UI package contract is validated by `src/platform/widget-plugin-catalog.js` and does not register operations with the native Plugin Host.
 
 - The pinned schema dialect is JSON Schema 2020-12, validated by Ajv 2020 mode. Host validation does not coerce values or insert schema defaults.
 - Format annotations are not enabled as assertions; schemas should use assertion keywords for Host-enforced rules. Plugin `capabilities` are declarations, not automatic grants or a security boundary.
@@ -245,8 +262,9 @@ This is an in-process boundary, not a security sandbox. Bundled Core code is tru
 - `src/applications/blog/publishing/wordpress.js` composes WordPress operations into a publishing use case. `src/composition/wordpress-publishing.js` wires the package to the Kernel. Blog Beta manuscript publication uses this Application; other WordPress product paths may still call `Core.publishToWordPress()`.
 - `src/applications/blog/workflows/generated-wordpress-publishing.js` composes shared AI text generation with the WordPress publishing Application through injected service and publish interfaces. `src/composition/generated-wordpress-publishing.js` selects both Plugins, creates one Kernel Host, and wires the two Applications together. Its tests use a fake AI transport and fake WordPress HTTP responses; it is not connected to a product entrypoint.
 - BlogGenius' manuscript publication runtime resolves image blocks to prepared local assets and passes their bytes and MIME types to the WordPress Publishing Application. The Application uploads assets, replaces `{{asset:key}}` references with media URLs, handles categories and warnings, and downgrades a requested publication to draft when media or category warnings occur. The Plugin owns WordPress authentication and REST request/response behavior; it does not convert image formats. `src/applications/blog/publishing/application.js` owns BlogGenius target policy (Naver → WebP, WordPress → AVIF) and `src/utilities/media/image-optimization-service.js` performs format conversion. When optimization is disabled, unavailable, or fails, the original image bytes and MIME type are preserved. Site Hosting has no target-format policy in this slice; a future WebP decision remains pending.
-- All bundled Core Plugin packages declare the common manifest. `packages/plugins/core/hello-world/` is a small Core Plugin that exercises manifest discovery, operation listing, selection, registration, and invocation without an external service. `packages/plugins/core/naver-publisher/` declares `posts.publish`, runs through an injected Host-authenticated browser session, and reports validated staged progress. Blog Beta's Blog Publishing Application parses manuscript Markdown, applies Naver WebP policy, prepares image bytes, and calls this operation through the Naver publisher port. Affiliate-required Shopping publication remains on the legacy Core path.
+- All bundled native operation Plugin packages declare the common `bloggeniusPlugin` manifest. `packages/plugins/core/hello-world/` is a small Core Plugin that exercises manifest discovery, operation listing, selection, registration, and invocation without an external service. `packages/plugins/core/naver-publisher/` declares `posts.publish`, runs through an injected Host-authenticated browser session, and reports validated staged progress. Blog Beta's Blog Publishing Application parses manuscript Markdown, applies Naver WebP policy, prepares image bytes, and calls this operation through the Naver publisher port. Affiliate-required Shopping publication remains on the legacy Core path.
 - `packages/plugins/core/astro-site-hosting/` owns Astro build/status/preview execution and Cloudflare deployment/provider API adapters, exposing provider-neutral domain/resource operations. `src/composition/astro-site-hosting.js` supplies Host-owned credentials and application-owned site/template, screenshot, and knowledge-collection ports; it no longer constructs or owns the build/deploy implementations. Site Hosting operations reach the Plugin through `src/adapters/plugins/astro-site-hosting.js` and the shared Plugin Host. Local content-contract validation, Vault containment, post serialization/writes, and destructive-operation preflight remain in the Site Hosting service. The manifest stays provider-neutral while Cloudflare is the bundled implementation.
+- Focus Clock is a static Widget Plugin in `packages/plugins/core/focus-clock/`. Its package owns the clock/timer UI, styling, timer transitions, sound, completion feedback, and session-only preferences. The application provides generic `app.header.trailing` slot declarations; `src/platform/widget-plugin-catalog.js` validates bundled and user-installed packages, and the generic UI host loads their allowlisted assets in an isolated iframe. Widgets can request a transient expanded state through the host contract; the host bounds the requested iframe height by the manifest so an in-flow popover can render below the widget. There is no Focus Clock Application, operation adapter, or clock-specific API route; clock preferences and timer state are not persisted.
 - `src/composition/core-plugin-registry.js` is the explicit bundled Core Plugin source adapter. It reads and validates package manifests without loading implementation modules, then loads the selected package on demand; it does not choose the Plugin set for a use case.
 - `src/composition/core-plugin-runtime.js` joins that static catalog with one in-memory `PluginHost`. A process may inject the same runtime into multiple Application composition roots so registered Plugin instances, lifecycle, and operations have one shared owner. Application composition still selects only the Plugins it needs; discovery does not instantiate every catalog entry.
 - `src/composition/plugin-runtime-composition.js` validates an explicit Plugin ID selection and its dependency map, then asks the catalog to create only those instances. Each Application composition root chooses its required Plugin set and supplies dependencies. The Kernel Plugin Host remains the source of truth for successfully registered runtime Plugins, lifecycle state, and available operations.
