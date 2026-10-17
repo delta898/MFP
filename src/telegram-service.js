@@ -5,7 +5,7 @@ const {
     describeTelegramError,
     formatTelegramDiagnostic,
     shouldRetryTelegramWithIpv4
-} = require('./telegram-network-policy');
+} = require('./adapters/messaging/telegram/network-policy');
 
 /**
  * 텔레그램 알림 서비스

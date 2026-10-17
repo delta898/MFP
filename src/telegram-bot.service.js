@@ -25,7 +25,7 @@ const {
     calculateTelegramPollingBackoffMs,
     describeTelegramError,
     formatTelegramDiagnostic
-} = require('./telegram-network-policy');
+} = require('./adapters/messaging/telegram/network-policy');
 
 class TelegramBotService {
     static bot = null;

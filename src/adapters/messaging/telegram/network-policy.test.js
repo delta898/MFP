@@ -7,7 +7,7 @@ const {
     describeTelegramError,
     formatTelegramDiagnostic,
     shouldRetryTelegramWithIpv4
-} = require('./telegram-network-policy');
+} = require('./network-policy');
 
 test('polling backoff grows exponentially and stays bounded', () => {
     assert.deepEqual(
