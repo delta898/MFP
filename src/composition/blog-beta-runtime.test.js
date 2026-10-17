@@ -29,8 +29,7 @@ test('Blog Beta composition wires AI Gateway, WordPress publisher, and Blog Publ
             { kind: 'text', provider: 'direct', transport: 'openai_chat_completions', modelIds: null }
         ] }),
         Core: {
-            async publishToBlog() {},
-            async publishToWordPress() {}
+            async publishToBlog() {}
         },
         ImageService: { async optimizeBufferForFormat(bytes) { return { buffer: bytes, optimized: false }; } },
         BrowserLauncher: {},
@@ -47,6 +46,7 @@ test('Blog Beta composition wires AI Gateway, WordPress publisher, and Blog Publ
     assert.equal(typeof composition.blogWritingSystem.application.generateChatText, 'function');
     assert.equal(typeof composition.blogPostingApplication.preparePost, 'function');
     assert.equal(typeof composition.blogPublishingApplication.publishWordPressPlugin, 'function');
+    assert.equal(typeof composition.blogPublishingApplication.publishWordPressManuscript, 'function');
     assert.deepEqual(registrations.map(({ ids }) => ids), [['ai-gateway'], ['wordpress-publisher'], ['naver-publisher']]);
     assert.equal(typeof registrations[0].dependencies['ai-gateway'].transport.request, 'function');
     assert.equal(typeof registrations[1].dependencies['wordpress-publisher'].getCredentials, 'function');

@@ -69,10 +69,11 @@ function createPublishActionsRuntime(deps = {}) {
             : Core.publishToBlog(directory, request);
     }
 
-    async function publishWordPressLegacy(directory, request = {}) {
-        return typeof blogPublishingApplication?.publishWordPressLegacy === 'function'
-            ? blogPublishingApplication.publishWordPressLegacy(directory, request)
-            : Core.publishToWordPress(directory, request);
+    async function publishWordPressManuscript(directory, request = {}) {
+        if (typeof blogPublishingApplication?.publishWordPressManuscript !== 'function') {
+            throw new TypeError('Blog Publishing Application does not provide WordPress manuscript publishing.');
+        }
+        return blogPublishingApplication.publishWordPressManuscript(directory, request);
     }
 
     function buildWordPressPluginContent(markdown, images, tempDir) {
@@ -467,7 +468,7 @@ function createPublishActionsRuntime(deps = {}) {
                     wpScheduleDate: context.scheduleDate || '',
                     imageGeneration: imageGenerationFinal
                 };
-                const pubRes = await publishWordPressLegacy(results.wordpress.targetDir, wpOptions);
+                const pubRes = await publishWordPressManuscript(results.wordpress.targetDir, wpOptions);
                 results.wordpress.success = pubRes.success;
                 results.wordpress.postUrl = pubRes.postUrl;
                 results.wordpress.message = pubRes.message || (pubRes.success ? wpCompletionLabel : `워드프레스 ${wpActionLabel} 실패`);
@@ -633,7 +634,7 @@ function createPublishActionsRuntime(deps = {}) {
 
             if (executionTargets.includes('wordpress') && session.targetDirs?.wordpress) {
                 const wpActionLabel = getPostActionLabel(postStatus);
-                const wpRes = await publishWordPressLegacy(session.targetDirs.wordpress, {
+                const wpRes = await publishWordPressManuscript(session.targetDirs.wordpress, {
                     category: requestBody?.wordpressCategory || '',
                     postStatus,
                     wpScheduleDate: scheduleDate || '',
@@ -1523,7 +1524,7 @@ function createPublishActionsRuntime(deps = {}) {
                     }
                     Logger?.info?.(`[Blog Beta][Publishing] WordPress 발행 완료 (success=${wpRes?.success === true}, requestedAssets=${wordpressContent.assets.length}, warnings=${Array.isArray(wpRes?.warnings) ? wpRes.warnings.length : 0})`);
                 } else {
-                    wpRes = await publishWordPressLegacy(workspace.tempDir, {
+                    wpRes = await publishWordPressManuscript(workspace.tempDir, {
                         category: requestBody?.wordpressCategory || '',
                         postStatus,
                         wpScheduleDate: scheduleDate || '',

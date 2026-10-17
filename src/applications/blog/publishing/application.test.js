@@ -11,8 +11,7 @@ function createApplication(options = {}) {
     const calls = [];
     const app = createBlogPublishingApplication({
         Core: {
-            async publishToBlog(directory, request) { calls.push({ operation: 'naver', directory, request }); return { success: true }; },
-            async publishToWordPress(directory, request) { calls.push({ operation: 'wordpress', directory, request }); return { success: true }; }
+            async publishToBlog(directory, request) { calls.push({ operation: 'naver', directory, request }); return { success: true }; }
         },
         legacyNaverPublisher: {
             async publish(directory, request) { calls.push({ operation: 'naver', directory, request }); return { success: true }; }
@@ -25,7 +24,12 @@ function createApplication(options = {}) {
                     : { buffer: Buffer.from(`${format}:${bytes.toString()}`), format, optimized: true };
             }
         },
-        wordpressPublishingApplication: { async publish(request, context) { calls.push({ operation: 'plugin', request, context }); return { success: true }; } },
+        wordpressPublishingApplication: {
+            async publish(request, context) {
+                calls.push({ operation: 'plugin', request, context });
+                return { success: true, status: request.status === 'schedule' ? 'future' : request.status };
+            }
+        },
         CONFIG: { IMAGE_OPTIMIZATION_ENABLED: true },
         Logger: { info() {} },
         fs,
@@ -84,6 +88,47 @@ test('Blog Publishing Application injects its target policy into legacy publishe
     assert.equal(plugin.request.assets[0].filename, 'hero.avif');
     assert.equal(plugin.request.assets[0].mimeType, 'image/avif');
     assert.equal(plugin.context.signal, signal);
+});
+
+test('WordPress manuscript publication assembles local image blocks into the Plugin publishing request', async (t) => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'wordpress-manuscript-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    fs.writeFileSync(path.join(directory, 'contents.md'), '# Trip\n\nA walk.\n\n[[IMAGE_0\ntitle: Coast\nprompt: ocean\n]]');
+    fs.writeFileSync(path.join(directory, '00_coast.png'), Buffer.from('pixels'));
+    const { app, calls } = createApplication({
+        CONFIG: { RUNTIME_ENVIRONMENT_PROFILE: undefined },
+        Utils: {
+            parseMarkdown() { return { title: 'Trip' }; },
+            findImageByPrefix(folder, index) { return index === 0 ? path.join(folder, '00_coast.png') : null; }
+        }
+    });
+
+    const result = await app.publishWordPressManuscript(directory, { postStatus: 'schedule', wpScheduleDate: '2026-11-01T09:00:00' });
+    const plugin = calls.find((call) => call.operation === 'plugin');
+
+    assert.equal(plugin.request.title, 'Trip');
+    assert.match(plugin.request.content, /A walk/);
+    assert.match(plugin.request.content, /\{\{asset:image-0}}/);
+    assert.equal(plugin.request.status, 'schedule');
+    assert.equal(plugin.request.date, '2026-11-01T09:00:00');
+    assert.equal(plugin.request.featuredAsset, 'image-0');
+    assert.equal(plugin.request.assets[0].mimeType, 'image/avif');
+    assert.equal(result.status, 'schedule');
+});
+
+test('missing WordPress manuscript images force a draft and preserve the warning', async (t) => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'wordpress-missing-image-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    fs.writeFileSync(path.join(directory, 'contents.md'), '# Trip\n\n[[IMAGE_2\ntitle: Coast\nprompt: ocean\n]]');
+    const { app, calls } = createApplication({
+        Utils: { parseMarkdown() { return { title: 'Trip' }; }, findImageByPrefix() { return null; } }
+    });
+
+    const result = await app.publishWordPressManuscript(directory, { postStatus: 'publish' });
+    const plugin = calls.find((call) => call.operation === 'plugin');
+
+    assert.equal(plugin.request.status, 'draft');
+    assert.match(result.warnings[0], /이미지 2번 누락/);
 });
 
 test('Naver publishing prepares typed Markdown blocks and WebP assets before calling the publisher port', async (t) => {

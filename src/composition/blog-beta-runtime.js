@@ -115,7 +115,6 @@ function createBlogBetaRuntimeComposition(options = {}) {
     });
 
     const blogPublishingApplication = createBlogPublishingApplication({
-        Core: options.Core,
         ImageService,
         naverPublisher: naverPublishingSystem.publisher,
         legacyNaverPublisher: {

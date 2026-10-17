@@ -84,8 +84,8 @@ test('local WordPress publish preserves image upload warnings while counting the
         CONFIG: {},
         Logger: { info() {}, warn() {}, error() {} },
         Utils: {},
-        Core: {
-            async publishToWordPress() {
+        blogPublishingApplication: {
+            async publishWordPressManuscript() {
                 return { success: true, postId: 456, postUrl: 'https://example.test/draft', status: 'draft', warnings };
             }
         },
@@ -126,10 +126,8 @@ test('WordPress Plugin publisher owns WordPress manuscript creation when the app
         CONFIG: {},
         Logger: { info(message) { logs.push(message); }, warn() {}, error() {} },
         Utils: {},
-        Core: {
-            async publishToWordPress() { throw new Error('legacy WordPress publisher must not run'); }
-        },
         blogPublishingApplication: {
+            async publishWordPressManuscript() { throw new Error('directory manuscript path must not run'); },
             async publishWordPressPlugin(request, context) {
                 calls.push({ request, context });
                 return { success: true, postId: 902, postUrl: 'https://example.test/draft/902', status: 'draft', warnings: null };
@@ -192,8 +190,8 @@ test('WordPress Plugin publisher uploads manuscript images and links them in pos
                 return index === 0 ? path.join(directory, '00_generated.png') : null;
             }
         },
-        Core: { async publishToWordPress() { throw new Error('legacy publisher must not run'); } },
         blogPublishingApplication: {
+            async publishWordPressManuscript() { throw new Error('directory manuscript path must not run'); },
             async publishWordPressPlugin(request, context) {
                 calls.push({ request, context });
                 return { success: true, postId: 903, postUrl: 'https://example.test/903', status: 'draft', warnings: null };
@@ -564,7 +562,9 @@ function createPublishLifecycleRuntime({ naverSuccess, wordpressSuccess, reserve
                 calls.push('publish:naver');
                 return { success: naverSuccess, message: naverSuccess ? 'ok' : 'failed' };
             },
-            async publishToWordPress() {
+        },
+        blogPublishingApplication: {
+            async publishWordPressManuscript() {
                 calls.push('publish:wordpress');
                 return { success: wordpressSuccess, message: wordpressSuccess ? 'ok' : 'failed' };
             }

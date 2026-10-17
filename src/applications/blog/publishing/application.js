@@ -1,7 +1,10 @@
 'use strict';
 
 const pathDefault = require('path');
+const { marked } = require('marked');
 const { formatRelatedPostsForNaver } = require('../../../content/naver-related-posts');
+const { parseImageBlocks } = require('../../../content/image-blocks');
+const { assertDirectPublishAllowed } = require('../../../environment/runtime-effects');
 
 const TARGET_FORMATS = Object.freeze({ naver: 'webp', wordpress: 'avif' });
 const MIME_TYPES = Object.freeze({ avif: 'image/avif', webp: 'image/webp' });
@@ -11,11 +14,10 @@ const FORMAT_EXTENSIONS = Object.freeze({
 });
 
 function createBlogPublishingApplication(options = {}) {
-    const { Core, ImageService, naverPublisher, legacyNaverPublisher, wordpressPublishingApplication, CONFIG, Logger, fs, Utils } = options;
+    const { ImageService, naverPublisher, legacyNaverPublisher, wordpressPublishingApplication, CONFIG, Logger, fs, Utils } = options;
     const path = options.path || pathDefault;
-    if (!Core || typeof Core.publishToWordPress !== 'function'
-        || (typeof legacyNaverPublisher?.publish !== 'function' && typeof naverPublisher?.publish !== 'function')) {
-        throw new TypeError('Blog Publishing Application requires Naver and WordPress publishers.');
+    if (typeof legacyNaverPublisher?.publish !== 'function' && typeof naverPublisher?.publish !== 'function') {
+        throw new TypeError('Blog Publishing Application requires a Naver publisher.');
     }
     if (!ImageService || typeof ImageService.optimizeBufferForFormat !== 'function') {
         throw new TypeError('Blog Publishing Application requires an image optimization service.');
@@ -191,11 +193,102 @@ function createBlogPublishingApplication(options = {}) {
         };
     }
 
-    async function publishWordPressLegacy(directory, request = {}) {
-        return Core.publishToWordPress(directory, {
-            ...request,
-            prepareImageForUpload: (filePath) => prepareImageFile('wordpress', filePath)
+    async function publishWordPressManuscript(directory, request = {}, executionContext = {}) {
+        assertDirectPublishAllowed(CONFIG, request);
+        if (typeof wordpressPublishingApplication?.publish !== 'function') {
+            throw new TypeError('WordPress Publishing Application is unavailable.');
+        }
+        const contentFile = path.join(directory, 'contents.md');
+        if (!fs.existsSync(contentFile)) throw new Error('콘텐츠 파일 없음: contents.md');
+        const markdownRaw = fs.readFileSync(contentFile, 'utf8');
+        const parsed = Utils?.parseMarkdown?.(markdownRaw) || {};
+        const title = String(parsed.title || '').trim();
+        if (!title) throw new Error('WordPress 원고에 제목이 없습니다.');
+
+        let markdown = markdownRaw;
+        const warnings = [];
+        const assets = [];
+        const permanentAssets = new Map();
+        let featuredAsset = '';
+        for (const block of parseImageBlocks(markdownRaw)) {
+            const promptUrl = String(block.prompt || '').trim();
+            const permanentKey = promptUrl && promptUrl === String(CONFIG?.FTC_DISCLOSURE_IMAGE_URL || '').trim()
+                ? 'WP_PERMANENT_FTC_URL'
+                : promptUrl && promptUrl === String(CONFIG?.SHOPPING_CTA_IMAGE_URL1 || '').trim()
+                    ? 'WP_PERMANENT_CTA_URL1'
+                    : promptUrl && promptUrl === String(CONFIG?.SHOPPING_CTA_IMAGE_URL2 || '').trim()
+                        ? 'WP_PERMANENT_CTA_URL2'
+                        : promptUrl && promptUrl === String(CONFIG?.SHOPPING_CTA_IMAGE_URL3 || '').trim()
+                            ? 'WP_PERMANENT_CTA_URL3'
+                            : '';
+            const permanentUrl = permanentKey ? String(CONFIG?.[permanentKey] || '').trim() : '';
+            if (permanentUrl) {
+                markdown = markdown.replace(block.fullTag, `![${block.title}](${permanentUrl})`);
+                continue;
+            }
+
+            const imagePath = Utils?.findImageByPrefix?.(directory, block.index);
+            if (!imagePath || !fs.existsSync(imagePath)) {
+                warnings.push(`이미지 ${block.index}번 누락`);
+                continue;
+            }
+            const preparedPath = typeof request.prepareImageForUpload === 'function'
+                ? await request.prepareImageForUpload(imagePath)
+                : imagePath;
+            const sourceBytes = fs.readFileSync(preparedPath);
+            const extension = path.extname(preparedPath);
+            const uniqueSuffix = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+            const slug = block.title.normalize('NFC')
+                .replace(/[a-zA-Z0-9]+/g, (match) => match.toLowerCase())
+                .replace(/[^a-zA-Z0-9]+/g, '_').replace(/_{2,}/g, '_').replace(/^_|_$/g, '') || 'image';
+            const fileName = `${slug.slice(0, 100 - uniqueSuffix.length - extension.length - 1)}_${uniqueSuffix}${extension}`;
+            const sourceAsset = {
+                key: `image-${block.index}`,
+                bytes: sourceBytes,
+                filename: fileName,
+                mimeType: ({ '.avif': 'image/avif', '.gif': 'image/gif', '.jpeg': 'image/jpeg', '.jpg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' })[extension.toLowerCase()],
+                altText: block.title
+            };
+            if (!sourceAsset.mimeType) throw new Error(`지원하지 않는 WordPress 이미지 형식입니다: ${extension || '(확장자 없음)'}`);
+            const asset = await prepareImageAsset('wordpress', sourceAsset);
+            if (asset.bytes !== sourceBytes) {
+                const savedName = `${path.basename(imagePath, path.extname(imagePath))}${path.extname(asset.filename)}`;
+                const savedPath = path.join(directory, savedName);
+                if (!fs.existsSync(savedPath)) fs.writeFileSync(savedPath, asset.bytes);
+            }
+            assets.push(asset);
+            if (!featuredAsset) featuredAsset = asset.key;
+            if (permanentKey) permanentAssets.set(asset.key, permanentKey);
+            markdown = markdown.replace(block.fullTag, `{{asset:${asset.key}}}`);
+        }
+
+        const requestedStatus = request.postStatus || 'draft';
+        if (!['draft', 'publish', 'schedule'].includes(requestedStatus)) throw new TypeError('Unsupported WordPress publication status.');
+        if (requestedStatus === 'schedule' && !String(request.wpScheduleDate || '').trim()) throw new TypeError('Schedule date is required.');
+        const bodyMarkdown = markdown.replace(/^#\s+.+\n?/, '').trim();
+        const result = await wordpressPublishingApplication.publish({
+            title,
+            content: marked(bodyMarkdown),
+            status: warnings.length ? 'draft' : requestedStatus,
+            ...(requestedStatus === 'schedule' && !warnings.length ? { date: request.wpScheduleDate } : {}),
+            category: request.category || '',
+            featuredAsset,
+            assets
+        }, {
+            ...executionContext,
+            ...(typeof executionContext.onAssetUploaded === 'function' ? {} : {
+                onAssetUploaded: ({ key, url }) => {
+                    const configKey = permanentAssets.get(key);
+                    if (configKey && typeof Utils?.updateConfigValue === 'function') Utils.updateConfigValue(configKey, url);
+                }
+            })
         });
+        const combinedWarnings = [...warnings, ...(Array.isArray(result.warnings) ? result.warnings : [])];
+        return {
+            ...result,
+            status: result.status === 'future' ? 'schedule' : result.status,
+            warnings: combinedWarnings.length ? combinedWarnings : null
+        };
     }
 
     async function publishWordPressPlugin(request = {}, executionContext = {}) {
@@ -229,7 +322,7 @@ function createBlogPublishingApplication(options = {}) {
         prepareImageAsset,
         prepareImageFile,
         publishNaver,
-        publishWordPressLegacy,
+        publishWordPressManuscript,
         publishWordPressPlugin
     });
 }

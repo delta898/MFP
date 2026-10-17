@@ -52,10 +52,11 @@ function createContentActionsRuntime(deps = {}) {
             : Core.publishToBlog(directory, request);
     }
 
-    async function publishWordPressLegacy(directory, request = {}) {
-        return typeof blogPublishingApplication?.publishWordPressLegacy === 'function'
-            ? blogPublishingApplication.publishWordPressLegacy(directory, request)
-            : Core.publishToWordPress(directory, request);
+    async function publishWordPressManuscript(directory, request = {}) {
+        if (typeof blogPublishingApplication?.publishWordPressManuscript !== 'function') {
+            throw new TypeError('Blog Publishing Application does not provide WordPress manuscript publishing.');
+        }
+        return blogPublishingApplication.publishWordPressManuscript(directory, request);
     }
 
     async function recordShoppingSelection({ operationId, subject, source, rowIndex, targets }) {
@@ -786,7 +787,7 @@ function createContentActionsRuntime(deps = {}) {
 
             if (executionTargets.includes('wordpress') && results.wordpress.targetDir) {
                 report('워드프레스 발행 단계 진행 중');
-                const pubRes = await publishWordPressLegacy(results.wordpress.targetDir, {
+                const pubRes = await publishWordPressManuscript(results.wordpress.targetDir, {
                     category: target.category || 'Shopping',
                     postStatus: target.postStatus || 'publish',
                     wpScheduleDate: target.scheduleDate || null,

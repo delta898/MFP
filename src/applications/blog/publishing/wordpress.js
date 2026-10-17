@@ -89,6 +89,9 @@ function createWordPressPublishingApplication(options = {}) {
                     const uploaded = await publisher.uploadMedia(asset, executionContext);
                     uploadedAssets.set(asset.key, uploaded);
                     if (input.featuredAsset === asset.key && featuredMedia === null) featuredMedia = uploaded.id;
+                    if (typeof executionContext?.onAssetUploaded === 'function') {
+                        await executionContext.onAssetUploaded({ key: asset.key, id: uploaded.id, url: uploaded.url });
+                    }
                 } catch (error) {
                     if (executionContext?.signal?.aborted || error?.code === 'ABORTED') throw error;
                     warnings.push(`이미지 '${asset.key}' 업로드 실패`);
