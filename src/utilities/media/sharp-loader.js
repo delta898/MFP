@@ -44,7 +44,8 @@ function listCandidateResourcesPaths(resourcesPath = process.resourcesPath, exec
     }
 
     if (__dirname) {
-        addCandidate(path.resolve(__dirname, '..'));
+        // Preserve the prior root-level loader's fallback (repository/package root).
+        addCandidate(path.resolve(__dirname, '../../..'));
     }
 
     return candidates;

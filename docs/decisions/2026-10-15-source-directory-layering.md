@@ -35,7 +35,7 @@ business sequencing, persistence, or the actual screen rendering. Existing
 `src/ui-api/` and `src/ui-runtime/` remain legacy UI/API infrastructure and may
 call narrow adapters during gradual migration.
 
-`src/services/<domain>/` is reserved for capabilities/contracts reused across multiple Applications. It is not the place for an application's top-level service layer. Shared media operations live under `src/utilities/media/`. The Blog Application owns publication choices such as target image format; the media utility performs the requested conversion. Provider/platform Plugins remain independently bounded under `packages/plugins/core/`.
+`src/services/<domain>/` is reserved for capabilities/contracts reused across multiple Applications. It is not the place for an application's top-level service layer. Shared media operations, including optional native image-processing module loading, live under `src/utilities/media/`. The Blog Application owns publication choices such as target image format; the media utility performs the requested conversion. Provider/platform Plugins remain independently bounded under `packages/plugins/core/`.
 
 ## Ownership rules
 

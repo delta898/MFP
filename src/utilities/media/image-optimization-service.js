@@ -1,6 +1,6 @@
 'use strict';
 
-const { loadSharp } = require('../../sharp-loader');
+const { loadSharp } = require('./sharp-loader');
 
 const SUPPORTED_FORMATS = new Set(['avif', 'webp']);
 
