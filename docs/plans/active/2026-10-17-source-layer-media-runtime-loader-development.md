@@ -66,10 +66,12 @@ publishing, and Card News publishing.
 
 ## Verification and Remaining Work
 
-- Focused verification passed: 18 tests across the Sharp loader, shared image
+- Focused verification passed: 19 tests across the Sharp loader, shared image
   optimization service, and Card News outgoing-image service.
 - `node --check` passed for all changed runtime modules; `git diff --check`
   passed. An active-path search found no import of the old root-level loader.
+- Added a regression assertion that the relocated loader still searches the
+  same repository/package-root fallback.
 - Packaged-app launch was not repeated; package lookup behavior and packaging
   configuration were not changed beyond preserving the loader's existing
   `__dirname` fallback root.
