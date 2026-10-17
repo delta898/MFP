@@ -124,7 +124,7 @@ test('an unchanged RSS source set is registered only once per app session', asyn
 test('cached RSS annotations follow generation and publishing updates in the same app session', async () => {
     const source = { kind: 'feed_item', item_key: 'rss-1', canonical_url: 'https://example.com/1' };
     let row = {
-        entryKey: require('./ledger-sheet-store').buildEntryKey(source),
+        entryKey: require('../domain/ledger-identity').buildEntryKey(source),
         workflowStatus: '후보', publishingStatus: '미발행', generationId: ''
     };
     const service = createCardNewsLedgerSyncService({

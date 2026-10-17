@@ -1,5 +1,5 @@
-const { normalizeCardNewsSource, createCardNewsContractError } = require('./contract');
-const { sortOldestFirst } = require('../utilities/feeds/configured-blog-feeds');
+const { normalizeCardNewsSource, createCardNewsContractError } = require('../domain/contract');
+const { sortOldestFirst } = require('../../../utilities/feeds/configured-blog-feeds');
 const { resolveCardNewsFeedDefinitions } = require('./feed-sources');
 
 function compact(value, maxLength = 50000) {

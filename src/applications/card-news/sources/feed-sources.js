@@ -1,5 +1,5 @@
 const crypto = require('node:crypto');
-const { resolveConfiguredBlogFeedDefinitions } = require('../utilities/feeds/configured-blog-feeds');
+const { resolveConfiguredBlogFeedDefinitions } = require('../../../utilities/feeds/configured-blog-feeds');
 
 const CARD_NEWS_CUSTOM_RSS_SOURCE_LIMIT = 3;
 const CARD_NEWS_BUILTIN_SOURCE_IDS = ['naver', 'wordpress'];

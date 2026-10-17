@@ -5,24 +5,47 @@ const os = require('os');
 const path = require('path');
 
 const { createPublishActionsRuntime } = require('./publish-actions-runtime');
-const { createBlogPostingApplication } = require('../applications/blog/posting/application');
 const { getFeatureBool, isCommandEnabled, toFeatureMap } = require('../runtime-feature-flags');
 
 const createTestPublishActionsRuntime = (deps = {}) => {
     if (deps.blogPostingApplication || typeof deps.Core?.generateContent !== 'function') {
         return createPublishActionsRuntime(deps);
     }
-    const Core = { ...deps.Core, prepareImages: deps.Core.prepareImages || (async () => {}) };
     return createPublishActionsRuntime({
         ...deps,
-        Core,
-        blogPostingApplication: createBlogPostingApplication({
-            Core,
-            blogWritingApplication: deps.blogWritingApplication || {
-                async generateText() { return ''; },
-                async generateImage() { return { dataBase64: '', mimeType: 'image/png' }; }
+        blogPostingApplication: {
+            async preparePost(topic, settings = {}) {
+                const writing = deps.blogWritingApplication || {
+                    async generateText() { return ''; },
+                    async generateImage() { return { dataBase64: '', mimeType: 'image/png' }; }
+                };
+                const generated = await deps.Core.generateContent(topic, settings.workspaceDir || null, {
+                    ...settings,
+                    generateText(prompt, modelOptions = {}) {
+                        const selection = modelOptions.modelConfig;
+                        return writing.generateText(prompt, {
+                            ...(modelOptions.signal ? { signal: modelOptions.signal } : {}),
+                            ...(selection ? { modelSelection: { provider: selection.provider, modelId: selection.code || selection.modelId } } : {})
+                        });
+                    }
+                });
+                if (typeof deps.Core.prepareImages === 'function') {
+                    settings.onStage?.('images');
+                    await deps.Core.prepareImages(generated.targetDir, topic, {
+                        ...settings,
+                        imageGenerationEnabled: settings.imageGenerationEnabled !== false,
+                        generateImage(prompt, imageOptions = {}) {
+                            const selection = imageOptions.modelConfig;
+                            return writing.generateImage(prompt, { aspectRatio: '4:3', size: '1K', count: 1 }, {
+                                ...(imageOptions.signal ? { signal: imageOptions.signal } : {}),
+                                ...(selection ? { modelSelection: { provider: selection.provider, modelId: selection.code || selection.modelId } } : {})
+                            });
+                        }
+                    });
+                }
+                return generated;
             }
-        })
+        }
     });
 };
 

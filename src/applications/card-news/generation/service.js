@@ -10,10 +10,10 @@ const {
     buildCardPlanPrompt,
     normalizeCardPlan,
     buildSlideImagePrompt
-} = require('./generation');
-const { createStoredZip } = require('./zip-bundle');
-const { parseCardNewsZip, toZipPreview } = require('./zip-import');
-const { createCanceledError, isCancellation, throwIfCanceled } = require('../ai/cancellation');
+} = require('./plan');
+const { createStoredZip } = require('../assets/zip-bundle');
+const { parseCardNewsZip, toZipPreview } = require('../assets/zip-import');
+const { createCanceledError, isCancellation, throwIfCanceled } = require('../../../ai/cancellation');
 
 function safeGenerationId(value) {
     const normalized = String(value || '').trim();

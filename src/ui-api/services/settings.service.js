@@ -59,7 +59,7 @@ const { createWritingProfilePreviewService } = require('../../content/writing-pr
 const {
     normalizeCardNewsBuiltinSources,
     normalizeCardNewsRssSources
-} = require('../../card-news/feed-sources');
+} = require('../../applications/card-news/sources/feed-sources');
 
 function removeManagedKeywordCredentials(structuredConfig = {}) {
     for (const key of [

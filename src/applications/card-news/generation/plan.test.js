@@ -9,7 +9,7 @@ const {
     normalizeHashtags,
     normalizeCardPlan,
     buildSlideImagePrompt
-} = require('./generation');
+} = require('./plan');
 
 test('normalizes the deliberately small card-news setting surface', () => {
     assert.deepEqual(normalizeGenerationSettings({}), {

@@ -1,4 +1,4 @@
-const { loadSharp } = require('../sharp-loader');
+const { loadSharp } = require('../../../sharp-loader');
 const crypto = require('node:crypto');
 
 const DEFAULT_SIGNATURE = 'BlogGenius.kr';

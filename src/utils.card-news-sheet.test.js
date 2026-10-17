@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Utils = require('./utils');
-const { CARD_NEWS_SHEET_HEADERS } = require('./card-news/ledger-sheet-schema');
+const { CARD_NEWS_SHEET_HEADERS } = require('./adapters/storage/card-news/ledger-sheet-schema');
 
 test('cardnews sheet preparation creates, repairs, and validates the canonical tab', async () => {
     const calls = [];

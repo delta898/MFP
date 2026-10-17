@@ -4,7 +4,7 @@ const {
     CARD_NEWS_MANAGEMENT_STATES,
     deriveCardNewsManagementState,
     toCardNewsManagementFields
-} = require('./management-status');
+} = require('./status');
 
 test('derives one user-facing state from workflow and publishing facts', () => {
     assert.equal(deriveCardNewsManagementState({ workflowStatus: '제작 중' }), CARD_NEWS_MANAGEMENT_STATES.IN_PROGRESS);

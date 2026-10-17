@@ -6,7 +6,7 @@ const {
     normalizeCardNewsAssets,
     assessCardNewsDelivery
 } = require('./contract');
-const { DEFAULT_SCOPES: GOOGLE_DEFAULT_SCOPES } = require('../google-oauth');
+const { DEFAULT_SCOPES: GOOGLE_DEFAULT_SCOPES } = require('../../../google-oauth');
 
 test('feed source keeps RSS identity separate from the current public article URL', () => {
     assert.deepEqual(normalizeCardNewsSource({

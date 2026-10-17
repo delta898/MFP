@@ -292,7 +292,7 @@ test('Card News owns a focused source manager without coupling source changes to
 });
 
 test('Card News preview uses fetched page text for a fuller, non-RSS preview', () => {
-    const sourceService = fs.readFileSync(path.join(repoRoot, 'src/card-news/source-service.js'), 'utf8');
+    const sourceService = fs.readFileSync(path.join(repoRoot, 'src/applications/card-news/sources/service.js'), 'utf8');
     assert.match(sourceService, /document\?\.text \|\| document\?\.excerpt \|\| source\.preview_text/);
     assert.match(sourceService, /CARD_NEWS_PREVIEW_TEXT_LIMIT = 1400/);
     assert.match(sourceService, /(?:더 읽기\|read more)/);
@@ -351,7 +351,7 @@ test('Card News keeps workflow stages inline with shared panel headings', () => 
 
 test('Card News states use shared semantic badge tokens', () => {
     const css = fs.readFileSync(path.join(uiRoot, 'styles/components/feedback.css'), 'utf8');
-    const status = fs.readFileSync(path.join(repoRoot, 'src/card-news/management-status.js'), 'utf8');
+    const status = fs.readFileSync(path.join(repoRoot, 'src/applications/card-news/management/status.js'), 'utf8');
     assert.match(css, /\.ui-status-badge:is\(\[data-state="pending"\], \[data-state="action"\]\)[^}]*var\(--ui-action-primary-soft\)[^}]*var\(--ui-action-primary-hover\)/s);
     assert.match(status, /label: '작업 중', tone: 'neutral'/);
     assert.match(status, /label: '발행 대기', tone: 'pending'/);

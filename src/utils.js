@@ -35,7 +35,7 @@ const {
     CARD_NEWS_SHEET_NAME,
     CARD_NEWS_SHEET_HEADERS,
     buildCardNewsStatusValidationRequests
-} = require('./card-news/ledger-sheet-schema');
+} = require('./adapters/storage/card-news/ledger-sheet-schema');
 const { buildTopicRowMoveRequest } = require('./continuous-publishing/queue-order');
 const { parseFeedXml } = require('./utilities/feeds/feed-entry');
 const {

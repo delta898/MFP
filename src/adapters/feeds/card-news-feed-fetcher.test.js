@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createCardNewsFeedFetcher } = require('./feed-fetcher');
+const { createCardNewsFeedFetcher } = require('./card-news-feed-fetcher');
 
 test('card news feed fetcher applies bounded RSS request options and parses entries', async () => {
     const calls = [];

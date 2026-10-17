@@ -1,5 +1,5 @@
-const { buildEntryKey, normalizeOriginalUrl } = require('./ledger-sheet-store');
-const { toCardNewsManagementFields } = require('./management-status');
+const { buildEntryKey, normalizeOriginalUrl } = require('../domain/ledger-identity');
+const { toCardNewsManagementFields } = require('./status');
 
 function compact(value, maxLength = 4000) {
     return String(value || '').trim().slice(0, maxLength);

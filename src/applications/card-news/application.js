@@ -1,16 +1,12 @@
 const crypto = require('node:crypto');
 const fileSystem = require('node:fs');
-const { createCardNewsSourceService } = require('../../card-news/source-service');
-const { createCardNewsProject } = require('../../card-news/project');
-const { createCardNewsProjectRepository } = require('../../card-news/project-repository');
-const { createCardNewsPublishingService } = require('../../card-news/publishing-service');
-const { createCardNewsLedgerSyncService } = require('../../card-news/ledger-sync-service');
-const { createCardNewsFeedFetcher } = require('../../card-news/feed-fetcher');
-const { normalizeImageMode, validateSourceSnapshot } = require('../../card-news/generation');
-const { createStyleReferenceFetcher } = require('../../content/style-reference-fetcher');
-const { deriveCardNewsManagementState, toCardNewsManagementFields } = require('../../card-news/management-status');
+const { createCardNewsProject } = require('./projects/project');
+const { createCardNewsPublishingService } = require('./publishing/service');
+const { createCardNewsLedgerSyncService } = require('./management/ledger-sync-service');
+const { normalizeImageMode, validateSourceSnapshot } = require('./generation/plan');
+const { deriveCardNewsManagementState, toCardNewsManagementFields } = require('./management/status');
 const { createAiGenerationOperationManager } = require('../../services/ai/generation-operation-manager');
-const { createCardNewsOutgoingImageService } = require('../../card-news/outgoing-image-service');
+const { createCardNewsOutgoingImageService } = require('./publishing/outgoing-image-service');
 const { getAiModelCatalog, resolveAiModelConfig, resolveStoredModelProfiles } = require('../../ai-model-config');
 const { getTrustedAiModelVerification } = require('../../ai/model-verification');
 
@@ -144,8 +140,6 @@ function createCardNewsService(deps = {}) {
     const {
         CONFIG = {},
         License,
-        axios,
-        cheerio,
         fs,
         path,
         logger,
@@ -162,24 +156,16 @@ function createCardNewsService(deps = {}) {
         logger
     });
 
-    const fetchFeed = deps.fetchFeed || (axios
-        ? createCardNewsFeedFetcher({ httpClient: axios })
-        : async () => { throw createApiError('CARD_NEWS_FEED_UNAVAILABLE', '블로그 글 목록 조회 기능이 준비되지 않았습니다.', 500); });
-
-    let sourceService = deps.sourceService;
-    if (!sourceService) {
-        const fetchReference = deps.fetchPublicDocument || createStyleReferenceFetcher({ axios, cheerio });
-        sourceService = createCardNewsSourceService({
-            fetchFeed,
-            fetchPublicDocument: fetchReference,
-            now
-        });
+    const sourceService = deps.sourceService;
+    const repository = deps.repository;
+    if (!sourceService || typeof sourceService.discoverConfiguredArticles !== 'function'
+        || typeof sourceService.resolveSourceSnapshot !== 'function') {
+        throw new TypeError('Card News Application requires the configured source service.');
     }
-    const repository = deps.repository || createCardNewsProjectRepository({
-        fs,
-        path,
-        workspaceDir: CONFIG.PATHS?.workspace
-    });
+    if (!repository || typeof repository.get !== 'function' || typeof repository.save !== 'function'
+        || typeof repository.list !== 'function') {
+        throw new TypeError('Card News Application requires the project repository.');
+    }
 
     function getSelectableImageProviders() {
         const profiles = resolveStoredModelProfiles({

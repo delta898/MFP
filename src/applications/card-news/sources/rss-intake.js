@@ -1,4 +1,4 @@
-const { buildLedgerCandidate } = require('./ledger-sync-service');
+const { buildLedgerCandidate } = require('../management/ledger-sync-service');
 
 function createCardNewsRssIntake(options = {}) {
     const CONFIG = options.CONFIG || {};

@@ -29,8 +29,6 @@ test('Blog Beta composition wires AI Gateway, WordPress publisher, and Blog Publ
             { kind: 'text', provider: 'direct', transport: 'openai_chat_completions', modelIds: null }
         ] }),
         Core: {
-            async generateContent() { return { targetDir: '/tmp/post', finalSubject: '제목' }; },
-            async prepareImages() {},
             async publishToBlog() {},
             async publishToWordPress() {}
         },

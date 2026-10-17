@@ -49,14 +49,16 @@ const { normalizeWritingStrategy } = require('./content/writing-strategy');
 const WordPressClient = require('./wordpress-client');
 const { createSnsSheetStore } = require('./applications/sns/distribution/sns-sheet-store');
 const { createGoogleSheetsSnsGateway } = require('./adapters/storage/google-sheets-sns-gateway');
-const { createCardNewsLedgerGateway } = require('./card-news/google-sheets-ledger-gateway');
-const { createCardNewsLedgerStore } = require('./card-news/ledger-sheet-store');
-const { createCardNewsFeedFetcher } = require('./card-news/feed-fetcher');
-const { createCardNewsSourceService } = require('./card-news/source-service');
-const { createCardNewsRssIntake } = require('./card-news/rss-intake');
-const { createCardNewsRssIntakeScheduler } = require('./card-news/rss-intake-scheduler');
+const { createCardNewsLedgerGateway } = require('./adapters/storage/card-news/google-sheets-ledger-gateway');
+const { createCardNewsLedgerStore } = require('./adapters/storage/card-news/ledger-sheet-store');
+const { createCardNewsProjectRepository } = require('./adapters/storage/card-news/project-repository');
+const { createCardNewsFeedFetcher } = require('./adapters/feeds/card-news-feed-fetcher');
+const { createCardNewsSourceService } = require('./applications/card-news/sources/service');
+const { createCardNewsRssIntake } = require('./applications/card-news/sources/rss-intake');
+const { createCardNewsRssIntakeScheduler } = require('./applications/card-news/sources/rss-intake-scheduler');
+const { createStyleReferenceFetcher } = require('./content/style-reference-fetcher');
 const { createGoogleDrivePublicMediaTransport } = require('./adapters/media/google-drive-public-media-transport');
-const { normalizeCardNewsBuiltinSources, normalizeCardNewsRssSources } = require('./card-news/feed-sources');
+const { normalizeCardNewsBuiltinSources, normalizeCardNewsRssSources } = require('./applications/card-news/sources/feed-sources');
 const { createSnsRssDiscovery } = require('./applications/sns/distribution/sns-rss-discovery');
 const { createSnsDistributionRunner } = require('./applications/sns/distribution/sns-distribution-runner');
 const { createSnsAiService } = require('./applications/sns/generation/sns-ai-service');
@@ -107,7 +109,7 @@ const { createSettingsController } = require('./ui-api/controllers/settings.cont
 const { createSettingsRouteHandler } = require('./ui-api/routes/settings.routes');
 const { createManualSnsController } = require('./ui-api/controllers/manual-sns.controller');
 const { createManualSnsRouteHandler } = require('./ui-api/routes/manual-sns.routes');
-const { createCardNewsService } = require('./ui-api/services/card-news.service');
+const { createCardNewsService } = require('./applications/card-news/application');
 const { createCardNewsController } = require('./ui-api/controllers/card-news.controller');
 const { createCardNewsRouteHandler } = require('./ui-api/routes/card-news.routes');
 const { createSurfaceContentService } = require('./surface-content/service');
@@ -294,6 +296,11 @@ const cardNewsLedgerGateway = createCardNewsLedgerGateway({
 const cardNewsLedgerStore = createCardNewsLedgerStore({
     gateway: cardNewsLedgerGateway
 });
+const cardNewsProjectRepository = createCardNewsProjectRepository({
+    fs,
+    path,
+    workspaceDir: CONFIG.PATHS?.workspace
+});
 const cardNewsMediaTransport = createGoogleDrivePublicMediaTransport({
     httpClient: axios,
     getAccessToken: (scopes) => Utils.getGoogleAccessToken(scopes),
@@ -302,7 +309,8 @@ const cardNewsMediaTransport = createGoogleDrivePublicMediaTransport({
 });
 const cardNewsFeedFetcher = createCardNewsFeedFetcher({ httpClient: axios });
 const cardNewsSourceService = createCardNewsSourceService({
-    fetchFeed: cardNewsFeedFetcher
+    fetchFeed: cardNewsFeedFetcher,
+    fetchPublicDocument: createStyleReferenceFetcher({ axios, cheerio })
 });
 const cardNewsRssIntake = createCardNewsRssIntake({
     CONFIG,
@@ -1016,6 +1024,8 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     SlackService,
     snsAiService,
     cardNewsLedgerStore,
+    cardNewsProjectRepository,
+    cardNewsSourceService,
     cardNewsMediaTransport,
     socialPublisher: socialPublisher,
     urlShorteningService,

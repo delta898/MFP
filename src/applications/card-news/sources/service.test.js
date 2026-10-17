@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createCardNewsSourceService } = require('./source-service');
+const { createCardNewsSourceService } = require('./service');
 
 test('configured feeds expose public articles while isolating a failing feed', async () => {
     const service = createCardNewsSourceService({

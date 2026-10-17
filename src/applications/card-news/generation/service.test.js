@@ -9,8 +9,8 @@ const {
     safeExportTitle,
     cardPlanMaxTokens,
     decodeLocalImage
-} = require('./generation-service');
-const { createStoredZip } = require('./zip-bundle');
+} = require('./service');
+const { createStoredZip } = require('../assets/zip-bundle');
 
 test('generates a coherent set, persists assets, and exposes safe local URLs', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-generation-'));

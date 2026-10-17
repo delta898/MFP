@@ -105,7 +105,12 @@ function createBlogBetaRuntimeComposition(options = {}) {
         getImageModel: () => ({ provider: CONFIG.IMAGE_MODEL_CONFIG?.provider, modelId: CONFIG.IMAGE_MODEL_CONFIG?.code })
     });
     const blogPostingApplication = createBlogPostingApplication({
-        Core: options.Core,
+        Utils: options.Utils || require('../utils'),
+        CONFIG,
+        Constants: options.Constants || require('../constants'),
+        Logger,
+        fs,
+        path,
         blogWritingApplication: blogWritingSystem.application
     });
 

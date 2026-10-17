@@ -1,6 +1,6 @@
 const axios = require('axios');
 const { CARD_NEWS_SHEET_NAME } = require('./ledger-sheet-schema');
-const { toA1Column, parseUpdatedRowNumbers } = require('../google-sheets/sheet-gateway-utils');
+const { toA1Column, parseUpdatedRowNumbers } = require('../../../google-sheets/sheet-gateway-utils');
 
 function createCardNewsLedgerGateway(options = {}) {
     const Utils = options.Utils;

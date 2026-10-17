@@ -2,7 +2,7 @@
 
 const fsDefault = require('node:fs');
 const pathDefault = require('node:path');
-const { createCardNewsGenerationService } = require('../../../card-news/generation-service');
+const { createCardNewsGenerationService } = require('./service');
 const { throwIfCanceled } = require('../../../ai/cancellation');
 
 const MIME_EXTENSIONS = Object.freeze({

@@ -1,12 +1,12 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { assertManualPublishAllowed } = require('../environment/runtime-effects');
+const { assertManualPublishAllowed } = require('../../../environment/runtime-effects');
 const {
     SNS_SERVICE_POLICIES,
     SNS_SERVICE_ASSET_LIMITS,
     normalizeSnsService,
     measurePost
-} = require('../services/social/publishing-content');
+} = require('../../../services/social/publishing-content');
 
 const CARD_NEWS_CHANNEL_LIMITS = SNS_SERVICE_ASSET_LIMITS;
 const MAX_CHANNELS = 3;

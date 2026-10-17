@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createCardNewsPublishingService, normalizeChannel, buildDefaultPublishText, replaceExactSourceUrl } = require('./publishing-service');
+const { createCardNewsPublishingService, normalizeChannel, buildDefaultPublishText, replaceExactSourceUrl } = require('./service');
 
 function fixture() {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'card-news-publishing-'));
