@@ -275,8 +275,8 @@ test('shared feedback and Blog Beta trend surfaces do not retain the compatibili
   assert.match(blogNext, /\.blog-next-view \.category-option-btn\.active\s*\{[^}]*--ui-action-primary[^}]*--ui-text-inverse/s);
 });
 
-test('clock shell follows the product style while seasonal color remains a local accent', () => {
-  const clock = read('ui/styles/components/clock.css');
+test('Focus Clock widget package follows the product style while seasonal color remains local', () => {
+  const clock = read('packages/plugins/core/focus-clock/ui/styles.css');
 
   assert.match(clock, /\.clock-widget-main\s*\{[^}]*border:\s*1px solid var\(--ui-border-default\);[^}]*border-radius:\s*var\(--ui-radius-lg\);[^}]*background:\s*var\(--ui-surface-translucent\);[^}]*box-shadow:\s*var\(--ui-shadow-md\);/s);
   assert.match(clock, /\.clock-season-dot\s*\{[^}]*background:\s*var\(--clock-season\);/s);
@@ -349,7 +349,7 @@ test('design-system feature styles do not bypass the style contract', () => {
 });
 
 test('celebration message keeps readable text on its fixed light surface in every theme', () => {
-  const celebration = read('ui/styles/components/clock-celebration.css');
+  const celebration = read('ui/styles/components/posting-completion-celebration.css');
   const message = celebration.match(/\.app-celebration-message\s*\{([^}]+)\}/)?.[1] || '';
   const supportingText = celebration.match(/\.app-celebration-message span\s*\{([^}]+)\}/)?.[1] || '';
 

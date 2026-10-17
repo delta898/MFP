@@ -5,7 +5,7 @@
   --dashboard-beta-status-muted: var(--ui-text-secondary);
 }
 
-.dash-clock-widget {
+.dash-widget-slot {
   display: flex;
   align-items: center;
   gap: 12px;

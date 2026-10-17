@@ -1,10 +1,3 @@
-let clockInterval = null;
-const CLOCK_STYLE_STORAGE_KEY = 'blog_genius_clock_style_v1';
-const CLOCK_MODE_STORAGE_KEY = 'blog_genius_clock_mode_v1';
-const POMODORO_STYLE_STORAGE_KEY = 'blog_genius_pomodoro_style_v1';
-const POMODORO_STATE_STORAGE_KEY = 'blog_genius_pomodoro_state_v1';
-const POMODORO_SOUND_STORAGE_KEY = 'blog_genius_pomodoro_sound_v1';
-const POMODORO_DURATIONS = Object.freeze({ focus: 25 * 60 * 1000, break: 5 * 60 * 1000 });
 const QUICK_POSTING_CELEBRATION_MAX_WAIT_MS = 10 * 60 * 1000;
 let celebrationCleanupTimer = null;
 let pendingQuickPostingCelebrationAt = 0;

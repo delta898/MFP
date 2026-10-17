@@ -20,6 +20,31 @@ const {
     extractKieResponsesText
 } = require('./kie-responses');
 const { resolveGeminiThinkingConfig } = require('./gemini-response');
+const { applyRemoteCatalog, clearRemoteCatalog } = require('./catalog-registry');
+
+const MODEL_FIXTURES = [
+    ['text', 'google', 'gemini-3.7-flash', 'gemini_generate_content', 'Gemini 3.7 Flash', { temperature: false, thinking_levels: ['low', 'medium', 'high'] }],
+    ['text', 'google', 'gemini-3.6-flash', 'gemini_generate_content', 'Gemini 3.6 Flash', { temperature: false, thinking_levels: ['minimal', 'low', 'medium', 'high'] }],
+    ['text', 'google', 'gemini-3.5-flash', 'gemini_generate_content', 'Gemini 3.5 Flash', { temperature: true }],
+    ['text', 'openai', 'gpt-5.6-terra', 'openai_chat_completions', 'GPT-5.6 Terra', { structured_output: true }],
+    ['text', 'openai', 'gpt-6-astra', 'openai_chat_completions', 'GPT-6 Astra', { reasoning_efforts: ['low', 'medium', 'high', 'xhigh'] }],
+    ['text', 'anthropic', 'claude-sonnet-5', 'anthropic_openai_compat', 'Claude Sonnet 5', { temperature: false }],
+    ['text', 'kie', 'gpt-5-6-terra', 'kie_responses', 'GPT-5.6 Terra', {}],
+    ['image', 'openai', 'gpt-image-2.5-sunburst', 'openai_images', 'GPT Image 2.5 Sunburst', { arbitrary_size: true, quality: ['auto'], response_format: false }],
+    ['image', 'openai', 'gpt-image-2', 'openai_images', 'GPT Image 2', { arbitrary_size: true, quality: ['auto'], response_format: false }]
+];
+
+test.beforeEach(() => {
+    applyRemoteCatalog({
+        schema_version: 1,
+        version: 'model-runtime-policy-fixtures',
+        models: MODEL_FIXTURES.map(([kind, provider, code, transport, name, capabilities]) => ({
+            key: `${provider}:${code}`, kind, provider, model_id: code, transport,
+            display_name: name, status: 'active', capabilities
+        }))
+    }, { appVersion: '99.0.0' });
+});
+test.afterEach(clearRemoteCatalog);
 
 test('current Gemini Flash models strip deprecated temperature while older Gemini keeps it', () => {
     const newest = applyTextRuntimePolicy({
@@ -93,6 +118,7 @@ test('OpenAI chat policy uses current token and structured-output fields', () =>
         model: 'gpt-5.6-terra',
         messages: [{ role: 'user', content: 'Return JSON' }],
         max_completion_tokens: 500,
+        temperature: 0.4,
         response_format: { type: 'json_object' }
     });
 });
@@ -127,6 +153,7 @@ test('direct OpenAI sends reasoning effort and safely downgrades unsupported lev
     assert.deepEqual(request.body, {
         model: 'gpt-6-astra',
         messages: [{ role: 'user', content: 'Write' }],
+        temperature: 0.4,
         reasoning_effort: 'low'
     });
     assert.equal(

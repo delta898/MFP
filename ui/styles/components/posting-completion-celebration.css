@@ -16,7 +16,7 @@
   background: var(--confetti-color);
   opacity: 0;
   transform: translate3d(var(--confetti-x), -10vh, 0) rotate(0deg);
-  animation: pomodoroConfettiFall var(--confetti-duration) cubic-bezier(0.18, 0.72, 0.28, 1) var(--confetti-delay) forwards;
+  animation: postingConfettiFall var(--confetti-duration) cubic-bezier(0.18, 0.72, 0.28, 1) var(--confetti-delay) forwards;
 }
 
 .app-celebration > i:nth-child(3n) {
@@ -49,7 +49,7 @@
   text-align: center;
   backdrop-filter: blur(14px);
   transform: translate(-50%, -50%);
-  animation: pomodoroCelebrationMessage 3.25s ease forwards;
+  animation: postingCompletionMessage 3.25s ease forwards;
 }
 
 .app-celebration-message strong {
@@ -63,7 +63,7 @@
   font-weight: 700;
 }
 
-@keyframes pomodoroConfettiFall {
+@keyframes postingConfettiFall {
   8% { opacity: 1; }
   100% {
     opacity: 0.94;
@@ -71,7 +71,7 @@
   }
 }
 
-@keyframes pomodoroCelebrationMessage {
+@keyframes postingCompletionMessage {
   0% { opacity: 0; transform: translate(-50%, -44%) scale(0.88); }
   12%, 78% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   100% { opacity: 0; transform: translate(-50%, -55%) scale(0.96); }

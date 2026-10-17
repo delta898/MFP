@@ -13,7 +13,7 @@ test('sidebar Help opens the internal guide view and preserves external contact 
   assert.match(shell, /class="nav-btn nav-help-link"[^>]*data-view="help"/);
   assert.doesNotMatch(shell, /nav-help-link[^>]*href=/);
   assert.match(view, /id="view-help"/);
-  assert.match(view, /class="page-clock-widget">\s*<div class="clock-display" data-clock-display/);
+  assert.match(view, /@include shared\/page-widget-area\.html/);
   assert.match(view, /class="ui-button-link secondary"[^>]*href="https:\/\/open\.kakao\.com\/o\/gZWL25Zh"/);
 });
 

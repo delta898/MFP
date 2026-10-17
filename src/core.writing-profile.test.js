@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
+process.env.BLOGGENIUS_ENV = process.env.BLOGGENIUS_ENV || 'local';
 const CONFIG = require('./config-loader');
 const Core = require('./core');
 const Utils = require('./utils');
@@ -13,7 +14,6 @@ test('Core.generateContent uses the selected blog profile composer for the share
     const targetDir = fs.mkdtempSync(path.join(os.tmpdir(), 'core-writing-profile-'));
     const previousProfile = CONFIG.CONTENT_WRITING_PROFILE;
     const previousStrategy = CONFIG.BLOG_WRITING_STRATEGY;
-    const previousCallWritingText = Utils.callWritingText;
     let capturedPrompt = '';
 
     const profile = getDefaultContentWritingProfile();
@@ -24,7 +24,7 @@ test('Core.generateContent uses the selected blog profile composer for the share
 
     CONFIG.CONTENT_WRITING_PROFILE = profile;
     CONFIG.BLOG_WRITING_STRATEGY = 'search';
-    Utils.callWritingText = async (prompt) => {
+    const generateText = async (prompt) => {
         capturedPrompt = prompt;
         return JSON.stringify({
             title: '프로필 연결 테스트',
@@ -48,7 +48,8 @@ test('Core.generateContent uses the selected blog profile composer for the share
             image_options: { generate: false, count: 2 }
         }, targetDir, {
             platform: 'wordpress',
-            enableRelatedPostsAutoLink: false
+            enableRelatedPostsAutoLink: false,
+            generateText
         });
 
         assert.equal(result.finalSubject, '프로필 연결 테스트');
@@ -65,18 +66,16 @@ test('Core.generateContent uses the selected blog profile composer for the share
     } finally {
         CONFIG.CONTENT_WRITING_PROFILE = previousProfile;
         CONFIG.BLOG_WRITING_STRATEGY = previousStrategy;
-        Utils.callWritingText = previousCallWritingText;
         fs.rmSync(targetDir, { recursive: true, force: true });
     }
 });
 
 test('Core does not write contents.md when generation is canceled after the model responds', async () => {
     const targetDir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'core-canceled-text-')), 'generated');
-    const previousCallWritingText = Utils.callWritingText;
     const controller = new AbortController();
     const selectedModel = { provider: 'openai', code: 'gpt-6-sol' };
     let seenOptions;
-    Utils.callWritingText = async (_prompt, _retries, options) => {
+    const generateText = async (_prompt, options) => {
         seenOptions = options;
         controller.abort();
         return JSON.stringify({ title: '늦은 원고', content: '본문' });
@@ -85,7 +84,7 @@ test('Core does not write contents.md when generation is canceled after the mode
         await assert.rejects(
             Core.generateContent({ subject: '취소 테스트', image_options: { mode: 'none' } }, targetDir, {
                 platform: 'wordpress', enableRelatedPostsAutoLink: false,
-                signal: controller.signal, textModelConfig: selectedModel
+                signal: controller.signal, textModelConfig: selectedModel, generateText
             }),
             (error) => error.code === 'AI_GENERATION_CANCELED'
         );
@@ -93,7 +92,6 @@ test('Core does not write contents.md when generation is canceled after the mode
         assert.equal(seenOptions.modelConfig, selectedModel);
         assert.equal(fs.existsSync(targetDir), false);
     } finally {
-        Utils.callWritingText = previousCallWritingText;
         fs.rmSync(path.dirname(targetDir), { recursive: true, force: true });
     }
 });

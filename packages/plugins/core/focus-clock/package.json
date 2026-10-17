@@ -1,0 +1,22 @@
+{
+  "name": "@bloggenius/focus-clock-widget",
+  "version": "0.1.0",
+  "description": "A self-contained clock and focus timer widget for Widget Plugin slots.",
+  "files": ["package.json", "README.md", "ui/index.html", "ui/clock.js", "ui/styles.css"],
+  "bloggeniusWidget": {
+    "manifestVersion": 1,
+    "id": "focus-clock",
+    "name": "Focus Clock",
+    "summary": "Displays a clock and provides a session-only focus timer.",
+    "widgets": [{
+      "id": "focus-clock",
+      "name": "Focus Clock",
+      "slot": "app.header.trailing",
+      "entry": "ui/index.html",
+      "assets": ["ui/index.html", "ui/clock.js", "ui/styles.css"],
+      "width": 400,
+      "height": 190,
+      "maxHeight": 680
+    }]
+  }
+}

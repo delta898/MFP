@@ -1,3 +1,11 @@
+let focusClockSessionPreferences = {
+  preferredStyle: 'random',
+  displayMode: 'clock',
+  timerStyle: 'tomato',
+  completionSoundEnabled: true
+};
+let focusClockRenderInterval = null;
+
 function initClockWidget() {
   const displays = Array.from(document.querySelectorAll('[data-clock-display]'));
   if (!displays.length) return;
@@ -20,46 +28,23 @@ function initClockWidget() {
     { value: 'soft', label: '소프트', icon: '●' }
   ];
   const timerStyles = timerStyleOptions.map((option) => option.value);
-  const randomStyle = () => styles[Math.floor(Math.random() * styles.length)] || 'digital';
-  let preferredStyle = 'random';
-  let displayMode = 'clock';
-  let timerStyle = 'tomato';
-  let completionSoundEnabled = true;
+  const randomStyle = (excludedStyle = '') => {
+    const candidates = styles.filter((style) => style !== excludedStyle);
+    const options = candidates.length ? candidates : styles;
+    return options[Math.floor(Math.random() * options.length)] || 'digital';
+  };
+  let preferredStyle = focusClockSessionPreferences.preferredStyle;
+  let displayMode = focusClockSessionPreferences.displayMode;
+  let timerStyle = focusClockSessionPreferences.timerStyle;
+  let completionSoundEnabled = focusClockSessionPreferences.completionSoundEnabled;
   let timerState = {
     phase: 'focus',
     status: 'idle',
-    remainingMs: POMODORO_DURATIONS.focus,
+    remainingMs: 25 * 60 * 1000,
     endsAt: null,
     completionId: null
   };
-  try {
-    const savedStyle = localStorage.getItem(CLOCK_STYLE_STORAGE_KEY);
-    if (savedStyle === 'random' || styles.includes(savedStyle)) preferredStyle = savedStyle;
-    const savedMode = localStorage.getItem(CLOCK_MODE_STORAGE_KEY);
-    if (savedMode === 'clock' || savedMode === 'timer') displayMode = savedMode;
-    const savedTimerStyle = localStorage.getItem(POMODORO_STYLE_STORAGE_KEY);
-    if (timerStyles.includes(savedTimerStyle)) timerStyle = savedTimerStyle;
-    completionSoundEnabled = localStorage.getItem(POMODORO_SOUND_STORAGE_KEY) !== 'off';
-    const savedTimerState = JSON.parse(localStorage.getItem(POMODORO_STATE_STORAGE_KEY) || 'null');
-    if (savedTimerState && POMODORO_DURATIONS[savedTimerState.phase]) {
-      const status = ['idle', 'running', 'paused', 'completed'].includes(savedTimerState.status)
-        ? savedTimerState.status
-        : 'idle';
-      timerState = {
-        phase: savedTimerState.phase,
-        status,
-        remainingMs: Number.isFinite(Number(savedTimerState.remainingMs))
-          ? Math.max(0, Number(savedTimerState.remainingMs))
-          : POMODORO_DURATIONS[savedTimerState.phase],
-        endsAt: status === 'running' && Number.isFinite(Number(savedTimerState.endsAt))
-          ? Number(savedTimerState.endsAt)
-          : null,
-        completionId: typeof savedTimerState.completionId === 'string' ? savedTimerState.completionId : null
-      };
-    }
-  } catch (_) {
-    preferredStyle = 'random';
-  }
+  let timerDurationMs = 25 * 60 * 1000;
   let currentStyle = preferredStyle === 'random' ? randomStyle() : preferredStyle;
   let previousValue = null;
   let timerCompletionPulseUntil = 0;
@@ -67,6 +52,26 @@ function initClockWidget() {
   let lastHandledCompletionId = timerState.completionId;
   let completionAudioContext = null;
   const widgetUnits = [];
+
+  function reportWidgetOverlayState(isOpen) {
+    const request = { type: 'widget:overlay-state', open: isOpen };
+    if (isOpen) {
+      const menu = widgetUnits.find(({ unit }) => unit.classList.contains('clock-style-menu-open'))?.menu;
+      if (menu) {
+        const menuHeight = Math.min(menu.scrollHeight, 440);
+        request.height = Math.ceil(menu.getBoundingClientRect().top + menuHeight + 12);
+      }
+    }
+    window.parent.postMessage(request, '*');
+  }
+
+  const overlayResizeObserver = typeof ResizeObserver === 'function'
+    ? new ResizeObserver(() => {
+      if (widgetUnits.some(({ unit }) => unit.classList.contains('clock-style-menu-open'))) {
+        reportWidgetOverlayState(true);
+      }
+    })
+    : null;
 
   function getCompletionAudioContext() {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -112,10 +117,17 @@ function initClockWidget() {
   }
 
   function showFocusCelebration() {
-    showAppCelebration({
-      title: '집중 완료! 🎉',
-      message: '잘 해냈어요. 5분 쉬어갈까요?'
-    });
+    let notice = document.querySelector('.focus-clock-completion');
+    if (!notice) {
+      notice = document.createElement('div');
+      notice.className = 'focus-clock-completion';
+      notice.setAttribute('role', 'status');
+      document.body.appendChild(notice);
+    }
+    notice.textContent = '집중 완료! 잘 해냈어요. 5분 쉬어갈까요? 🎉';
+    notice.hidden = false;
+    window.clearTimeout(notice.hideTimer);
+    notice.hideTimer = window.setTimeout(() => { notice.hidden = true; }, 3600);
   }
 
   function handleTimerCompletion(phase, completionId) {
@@ -127,14 +139,6 @@ function initClockWidget() {
     if (phase === 'focus') showFocusCelebration();
   }
 
-  function persistTimerState() {
-    try {
-      localStorage.setItem(POMODORO_STATE_STORAGE_KEY, JSON.stringify(timerState));
-    } catch (_) {
-      // 저장소를 사용할 수 없어도 현재 실행 중 타이머는 유지합니다.
-    }
-  }
-
   function getTimerSnapshot(nowMs = Date.now()) {
     let remainingMs = timerState.remainingMs;
     if (timerState.status === 'running') {
@@ -142,11 +146,11 @@ function initClockWidget() {
       if (remainingMs <= 0) {
         const completionId = `${timerState.phase}:${timerState.endsAt}`;
         timerState = { ...timerState, status: 'completed', remainingMs: 0, endsAt: null, completionId };
-        persistTimerState();
         handleTimerCompletion(timerState.phase, completionId);
+        remainingMs = 0;
       }
     }
-    const durationMs = POMODORO_DURATIONS[timerState.phase];
+    const durationMs = timerDurationMs;
     return {
       ...timerState,
       durationMs,
@@ -164,21 +168,17 @@ function initClockWidget() {
 
   function saveDisplayMode(mode) {
     displayMode = mode;
-    try { localStorage.setItem(CLOCK_MODE_STORAGE_KEY, mode); } catch (_) { /* noop */ }
+    focusClockSessionPreferences.displayMode = mode;
   }
 
   function saveTimerStyle(style) {
     timerStyle = style;
-    try { localStorage.setItem(POMODORO_STYLE_STORAGE_KEY, style); } catch (_) { /* noop */ }
+    focusClockSessionPreferences.timerStyle = style;
   }
 
   function toggleCompletionSound() {
     completionSoundEnabled = !completionSoundEnabled;
-    try {
-      localStorage.setItem(POMODORO_SOUND_STORAGE_KEY, completionSoundEnabled ? 'on' : 'off');
-    } catch (_) {
-      // 저장하지 못해도 현재 실행 중 설정은 유지합니다.
-    }
+    focusClockSessionPreferences.completionSoundEnabled = completionSoundEnabled;
     if (completionSoundEnabled) getCompletionAudioContext();
     refreshStyleMenus();
   }
@@ -215,20 +215,20 @@ function initClockWidget() {
   }
 
   function closeStyleMenus(exceptUnit = null) {
-    widgetUnits.forEach(({ unit, button }) => {
+    let closedMenu = false;
+    widgetUnits.forEach(({ unit, button, menu }) => {
       if (unit === exceptUnit) return;
+      closedMenu = closedMenu || unit.classList.contains('clock-style-menu-open');
       unit.classList.remove('clock-style-menu-open');
+      menu.hidden = true;
       button.setAttribute('aria-expanded', 'false');
     });
+    if (closedMenu) reportWidgetOverlayState(false);
   }
 
   function savePreferredStyle(style) {
     preferredStyle = style;
-    try {
-      localStorage.setItem(CLOCK_STYLE_STORAGE_KEY, style);
-    } catch (_) {
-      // 저장소를 사용할 수 없어도 현재 실행 중 선택은 유지합니다.
-    }
+    focusClockSessionPreferences.preferredStyle = style;
   }
 
   function refreshStyleMenus() {
@@ -292,10 +292,9 @@ function initClockWidget() {
   function selectStyle(style) {
     if (style !== 'random' && !styles.includes(style)) return;
     savePreferredStyle(style);
-    currentStyle = style === 'random' ? randomStyle() : style;
+    currentStyle = style === 'random' ? randomStyle(currentStyle) : style;
     previousValue = null;
     refreshStyleMenus();
-    closeStyleMenus();
     displays.forEach((item) => {
       item.classList.remove('clock-display-pulse');
       void item.offsetWidth;
@@ -320,18 +319,11 @@ function initClockWidget() {
   }
 
   function startTimer(phase) {
-    const durationMs = POMODORO_DURATIONS[phase];
-    if (!durationMs) return;
-    timerState = {
-      phase,
-      status: 'running',
-      remainingMs: durationMs,
-      endsAt: Date.now() + durationMs,
-      completionId: null
-    };
+    const durationMs = phase === 'focus' ? 25 * 60 * 1000 : 5 * 60 * 1000;
+    timerState = { phase, status: 'running', remainingMs: durationMs, endsAt: Date.now() + durationMs, completionId: null };
+    timerDurationMs = durationMs;
     timerCompletionPhase = null;
     getCompletionAudioContext();
-    persistTimerState();
     renderClock();
   }
 
@@ -341,23 +333,14 @@ function initClockWidget() {
       timerState = { ...timerState, status: 'paused', remainingMs: snapshot.remainingMs, endsAt: null };
     } else if (snapshot.status === 'paused') {
       timerState = { ...timerState, status: 'running', endsAt: Date.now() + snapshot.remainingMs };
-    } else {
-      return;
     }
-    persistTimerState();
     renderClock();
   }
 
   function stopTimer() {
-    timerState = {
-      phase: 'focus',
-      status: 'idle',
-      remainingMs: POMODORO_DURATIONS.focus,
-      endsAt: null,
-      completionId: null
-    };
+    timerState = { phase: 'focus', status: 'idle', remainingMs: 25 * 60 * 1000, endsAt: null, completionId: null };
+    timerDurationMs = 25 * 60 * 1000;
     timerCompletionPhase = null;
-    persistTimerState();
     renderClock();
   }
 
@@ -388,15 +371,10 @@ function initClockWidget() {
     meta.setAttribute('aria-live', 'polite');
     const metaCopy = document.createElement('span');
     metaCopy.className = 'clock-ambient-copy';
-    const publishingStatus = document.createElement('button');
-    publishingStatus.type = 'button';
-    publishingStatus.className = 'clock-publishing-status';
-    publishingStatus.dataset.globalPublishingStatus = '';
-    publishingStatus.hidden = true;
-    publishingStatus.innerHTML = '<span class="clock-publishing-status-indicator" aria-hidden="true"></span><span data-global-publishing-status-label></span>';
-    meta.append(metaCopy, publishingStatus);
+    meta.append(metaCopy);
     const menu = document.createElement('div');
     menu.className = 'clock-style-menu';
+    menu.hidden = true;
     menu.setAttribute('role', 'dialog');
     menu.setAttribute('aria-label', '시계와 집중 타이머');
     menu.innerHTML = `
@@ -446,18 +424,6 @@ function initClockWidget() {
       </div>
     `;
 
-    const serverControl = display.closest('.dash-clock-widget')?.querySelector('#server-control');
-    if (serverControl) {
-      const serverControlLabel = document.createElement('span');
-      serverControlLabel.className = 'clock-server-control-label';
-      serverControlLabel.textContent = '앱 제어';
-      serverControl.classList.add('clock-server-control');
-      serverControl.setAttribute('aria-label', '앱 제어');
-      serverControl.prepend(serverControlLabel);
-      menu.appendChild(serverControl);
-      serverControl.hidden = false;
-    }
-
     display.parentNode.insertBefore(unit, display);
     unit.appendChild(main);
     main.appendChild(display);
@@ -467,13 +433,16 @@ function initClockWidget() {
     main.appendChild(meta);
     unit.appendChild(menu);
     widgetUnits.push({ unit, button, inlineActions, metaCopy, menu });
+    overlayResizeObserver?.observe(menu);
 
     button.addEventListener('click', (event) => {
       event.stopPropagation();
       const willOpen = !unit.classList.contains('clock-style-menu-open');
       closeStyleMenus();
       unit.classList.toggle('clock-style-menu-open', willOpen);
+      menu.hidden = !willOpen;
       button.setAttribute('aria-expanded', String(willOpen));
+      reportWidgetOverlayState(willOpen);
     });
     menu.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -520,6 +489,10 @@ function initClockWidget() {
   document.addEventListener('click', () => closeStyleMenus());
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') closeStyleMenus();
+  });
+  window.addEventListener('message', (event) => {
+    if (event.source !== window.parent || event.data?.type !== 'widget:host-close-overlay') return;
+    closeStyleMenus();
   });
 
   function renderTimerFace(snapshot) {
@@ -635,14 +608,14 @@ function initClockWidget() {
       }
       let metaHtml = '';
       if (displayMode === 'timer') {
-        metaHtml = `<span class="clock-season-dot" aria-hidden="true"></span><span>현재 시각 ${h}:${m}:${s}</span><span class="clock-ambient-message">${mood.text}</span>`;
+        metaHtml = `<span class="clock-season-dot" aria-hidden="true"></span><span>현재 시각 ${h}:${m}:${s}</span><span class="clock-ambient-separator" aria-hidden="true">·</span><span class="clock-ambient-message">${mood.text}</span>`;
       } else {
         const timerStatus = timerSnapshot.status === 'paused'
           ? ' · 일시정지'
           : timerSnapshot.status === 'completed'
             ? ' 완료!'
             : '';
-        metaHtml = `<span class="clock-season-dot" aria-hidden="true"></span><span>${mood.text}</span><span class="clock-ambient-message">${mood.message}</span><span class="clock-sub-timer ${timerSnapshot.status}">${timerPhaseIcon} ${timerPhaseLabel} ${timerSnapshot.status === 'completed' ? '' : timerValue.text}${timerStatus}</span>`;
+        metaHtml = `<span class="clock-season-dot" aria-hidden="true"></span><span>${mood.text}</span><span class="clock-ambient-separator" aria-hidden="true">·</span><span class="clock-ambient-message">${mood.message}</span><span class="clock-sub-timer ${timerSnapshot.status}">${timerPhaseIcon} ${timerPhaseLabel} ${timerSnapshot.status === 'completed' ? '' : timerValue.text}${timerStatus}</span>`;
       }
       const moodKey = `${displayMode}|${mood.season}|${metaHtml}`;
       if (metaCopy.dataset.clockMoodKey !== moodKey) {
@@ -766,8 +739,10 @@ function initClockWidget() {
     previousValue = { h, m, s };
   }
 
-  if (clockInterval) clearInterval(clockInterval);
+  if (focusClockRenderInterval) clearInterval(focusClockRenderInterval);
   refreshStyleMenus();
   renderClock();
-  clockInterval = setInterval(renderClock, 1000);
+  focusClockRenderInterval = setInterval(renderClock, 1000);
 }
+
+initClockWidget();

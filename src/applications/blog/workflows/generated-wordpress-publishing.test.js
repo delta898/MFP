@@ -129,10 +129,11 @@ test('composition registers both required Plugins and runs generation through Wo
         }
     });
 
-    assert.deepEqual(system.corePluginRegistry.list(), ['naver-publisher', 'wordpress-publisher', 'ai-gateway', 'hello-world']);
+    assert.deepEqual(system.corePluginRegistry.list(), ['naver-publisher', 'wordpress-publisher', 'ai-gateway', 'astro-site-hosting', 'hello-world']);
     assert.deepEqual(system.pluginHost.listPlugins().map(({ id }) => id), ['ai-gateway', 'wordpress-publisher']);
     assert.deepEqual(system.pluginHost.listOperations().map(({ pluginId, operationId }) => ({ pluginId, operationId })), [
         { pluginId: 'ai-gateway', operationId: 'image.generate' },
+        { pluginId: 'ai-gateway', operationId: 'models.list' },
         { pluginId: 'ai-gateway', operationId: 'text.generate' },
         { pluginId: 'wordpress-publisher', operationId: 'categories.list' },
         { pluginId: 'wordpress-publisher', operationId: 'media.upload' },
@@ -187,6 +188,7 @@ test('separate Applications share one process Plugin Host and reuse an already r
         { id: 'naver-publisher', state: 'not_loaded' },
         { id: 'wordpress-publisher', state: 'enabled' },
         { id: 'ai-gateway', state: 'enabled' },
+        { id: 'astro-site-hosting', state: 'not_loaded' },
         { id: 'hello-world', state: 'not_loaded' }
     ]);
     const result = await generatedSystem.application.publish({ prompt: 'Jeju', title: 'Jeju notes' });

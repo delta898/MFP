@@ -85,6 +85,7 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     assert.equal((html.match(/role="tab"/g) || []).length, 17);
     assert.equal((html.match(/aria-controls="settings-next-/g) || []).length, 17);
     assert.match(html, /class="settings-next-tabs ui-top-tabs"/);
+    assert.match(html, /class="page-widget-area"/);
     assert.equal((html.match(/settings-next-tab ui-top-tab/g) || []).length, 6);
     assert.match(html, /class="settings-next-local-nav ui-segmented-tabs"/);
     assert.equal((html.match(/settings-next-local-tab ui-segmented-tab/g) || []).length, 11);
@@ -109,7 +110,7 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     assert.match(html, /data-settings-next-update-action="force"/);
     assert.match(html, /id="settings-next-telegram-delivery-enabled"[^>]*data-settings-next-delivery-toggle="telegram"/);
     assert.match(html, /id="settings-next-slack-delivery-enabled"[^>]*data-settings-next-delivery-toggle="slack"/);
-    assert.match(html, /class="page-clock-widget"[\s\S]*?data-clock-display/);
+    assert.match(html, /class="page-widget-area"/);
     assert.match(
         html,
         /settings-next-panel-lead[\s\S]*?settings-next-local-nav-row[\s\S]*?settings-next-core-panel-content/
@@ -396,21 +397,23 @@ test('Blog Beta and Settings Beta use one shared keyboard tab controller', () =>
     assert.doesNotMatch(settings, /function settingsNextHandleTabKeydown/);
 });
 
-test('Blog Beta and Settings Beta compose the same page clock widget partial', () => {
+test('Blog Beta and Settings Beta compose the same generic widget slot partial', () => {
     const blogSource = read('ui/partials/views/blog-next.html');
     const settingsSource = read('ui/partials/views/settings-next.html');
-    const widget = read('ui/partials/views/shared/page-clock-widget.html');
-    const clockStyles = read('ui/styles/components/clock.css');
+    const widget = read('ui/partials/views/shared/page-widget-area.html');
+    const widgetStyles = read('ui/styles/components/widget-slot.css');
+    const widgetPackageStyles = read('packages/plugins/core/focus-clock/ui/styles.css');
     const dashboardStyles = read('ui/styles/features/dashboard-beta.css');
 
-    assert.match(widget, /class="page-clock-widget"[\s\S]*?data-clock-display/);
-    assert.match(blogSource, /@include shared\/page-clock-widget\.html/);
-    assert.match(settingsSource, /@include shared\/page-clock-widget\.html/);
-    assert.doesNotMatch(blogSource, /<div class="page-clock-widget">/);
-    assert.doesNotMatch(settingsSource, /<div class="page-clock-widget">/);
-    assert.match(clockStyles, /\.page-clock-widget\s*\{/);
-    assert.match(clockStyles, /\.clock-display\s*\{/);
-    assert.doesNotMatch(dashboardStyles, /\.page-clock-widget\s*\{/);
+    assert.match(widget, /class="page-widget-slot" data-widget-slot="app\.header\.trailing"/);
+    assert.match(widget, /data-global-publishing-status/);
+    assert.match(blogSource, /@include shared\/page-widget-area\.html/);
+    assert.match(settingsSource, /@include shared\/page-widget-area\.html/);
+    assert.doesNotMatch(blogSource, /<div class="page-widget-slot"/);
+    assert.doesNotMatch(settingsSource, /<div class="page-widget-slot"/);
+    assert.match(widgetStyles, /\.page-widget-slot\s*\{/);
+    assert.match(widgetPackageStyles, /\.clock-display\s*\{/);
+    assert.doesNotMatch(dashboardStyles, /\.page-widget-slot\s*\{/);
     assert.doesNotMatch(dashboardStyles, /(^|\n)\.clock-display\s*\{/);
 });
 

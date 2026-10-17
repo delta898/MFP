@@ -18,7 +18,7 @@ window.addEventListener('DOMContentLoaded', () => {
   try { if (typeof initSettingsNextAppearance === 'function') initSettingsNextAppearance(); } catch (e) { console.warn('initSettingsNextAppearance error:', e); }
   checkSetupBanner();
   void initSidebarDynamicContent();
-  try { initClockWidget(); } catch (e) { console.warn('initClockWidget error:', e); }
+  try { initWidgetSlotHost(); } catch (e) { console.warn('initWidgetSlotHost error:', e); }
   void showPendingUpdateCelebration();
   try { initGlobalPublishingStatus(); } catch (e) { console.warn('initGlobalPublishingStatus error:', e); }
   try { ensureUpdateCheckFresh({ silent: true }); } catch (e) { console.warn('checkUpdate error:', e); }

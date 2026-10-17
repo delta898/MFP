@@ -169,7 +169,7 @@ test('every HTML partial is reachable and within its size policy', (t) => {
     const reachable = new Set(result.includedFiles);
     const duplicateIncludes = result.includedFiles.filter((includePath, index, items) => items.indexOf(includePath) !== index);
 
-    assert.deepEqual(new Set(duplicateIncludes), new Set(['partials/views/shared/page-clock-widget.html']));
+    assert.deepEqual(new Set(duplicateIncludes), new Set(['partials/views/shared/page-widget-area.html']));
     assert.deepEqual(
         new Set(partialFiles.map((filePath) => path.relative(uiRoot, filePath))),
         reachable

@@ -56,7 +56,7 @@
 // @include scripts/features/shell/dashboard-beta.js
 // @include scripts/features/shell/help.js
 // @include scripts/features/shell/celebration.js
-// @include scripts/features/shell/clock.js
+// @include scripts/foundation/widget-slot-host.js
 // @include scripts/features/shell/global-publishing-status.js
 // @include scripts/shared/buffer-publishing-controls.js
 // @include scripts/features/social/manual-state.js

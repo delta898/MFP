@@ -410,10 +410,11 @@ test('queue readiness is announced accessibly and blocks running invalid queue e
     assert.match(queueCss, /\.blog-next-queue-readiness-popover\[hidden\]\s*\{\s*display:\s*none;/);
 });
 
-test('global publishing status exposes one prioritized summary in the clock and only urgent sidebar signals', () => {
+test('global publishing status exposes one prioritized summary beside the widget slot and urgent sidebar signals', () => {
     const shell = read('ui/index.html');
     const app = read('ui/app.js');
-    const clockScript = read('ui/scripts/features/shell/clock.js');
+    const widgetArea = read('ui/partials/views/shared/page-widget-area.html');
+    const dashboard = read('ui/partials/views/dashboard-beta.html');
     const statusScript = read('ui/scripts/features/shell/global-publishing-status.js');
     const statusCss = read('ui/styles/components/global-publishing-status.css');
     const routeSource = read('src/ui-api/routes/continuous-publishing.routes.js');
@@ -422,7 +423,8 @@ test('global publishing status exposes one prioritized summary in the clock and 
     assert.match(shell, /id="blog-next-global-nav-status"[^>]*hidden/);
     assert.doesNotMatch(shell, /id="recommendation-nav-badge"/);
     assert.match(app, /scripts\/features\/shell\/global-publishing-status\.js/);
-    assert.match(clockScript, /data-global-publishing-status/);
+    assert.match(widgetArea, /data-global-publishing-status/);
+    assert.match(dashboard, /data-global-publishing-status/);
     assert.match(statusScript, /continuous-publishing\/status-summary/);
     assert.match(statusScript, /\['attention', 'running', 'scheduled'\]/);
     assert.match(statusScript, /\['running', 'attention'\]/);
@@ -431,7 +433,7 @@ test('global publishing status exposes one prioritized summary in the clock and 
     assert.match(statusScript, /연속 포스팅 다음 처리/);
     assert.match(statusScript, /다음 처리/);
     assert.match(statusScript, /navigateTo\('blog-next', 'queue'\)/);
-    assert.match(statusCss, /\.clock-publishing-status\[data-state="attention"\]/);
+    assert.match(statusCss, /\.global-publishing-status\[data-state="attention"\]/);
     assert.match(statusCss, /\.blog-next-global-nav-status\[data-state="running"\]/);
     assert.match(statusCss, /\.nav-btn\.active \.blog-next-global-nav-status\[data-state="running"\]\s*\{[^}]*background:\s*var\(--ui-surface\);/s);
     assert.match(routeSource, /\/api\/v1\/continuous-publishing\/status-summary/);

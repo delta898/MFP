@@ -16,6 +16,7 @@ function createUiHttpServerRuntime(deps = {}) {
         createRequestId,
         readJsonBody,
         handleApi,
+        handleWidgetPluginAsset,
         sanitizePathname,
         shouldServeUiShell,
         sendError,
@@ -92,6 +93,13 @@ function createUiHttpServerRuntime(deps = {}) {
             const pathname = url.pathname;
 
             try {
+                if (pathname.startsWith('/widget-plugins/')) {
+                    const handled = typeof handleWidgetPluginAsset === 'function'
+                        ? handleWidgetPluginAsset(requestId, method, pathname, res)
+                        : false;
+                    if (handled) return;
+                }
+
                 if (pathname === '/oauth/google/callback') {
                     const handled = await handleGoogleOAuthCallback({ url, res });
                     if (handled) return;

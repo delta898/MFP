@@ -10,6 +10,36 @@ const {
     resetConnectionVerificationState
 } = require('../../connections/verification-state');
 const { createAiModelVerificationSignature } = require('../../ai/model-verification');
+const { applyRemoteCatalog, clearRemoteCatalog } = require('../../ai/catalog-registry');
+
+const CARD_NEWS_IMAGE_MODELS = [
+    ['google', 'gemini-3.1-flash-image', 'Gemini 3.1 Flash Image'],
+    ['google', 'gemini-3.1-flash-lite-image', 'Gemini 3.1 Flash Lite Image'],
+    ['openai', 'gpt-image-1', 'GPT Image 1'],
+    ['openai', 'gpt-image-2.5-sunburst', 'GPT Image 2.5 Sunburst'],
+    ['openai', 'gpt-image-2.5-flare', 'GPT Image 2.5 Flare'],
+    ['openai', 'gpt-image-2', 'GPT Image 2']
+];
+
+test.beforeEach(() => {
+    applyRemoteCatalog({
+        schema_version: 1,
+        version: 'card-news-image-fixtures',
+        providers: [
+            { kind: 'image', id: 'google', display_name: 'Google', sort_order: 1 },
+            { kind: 'image', id: 'openai', display_name: 'OpenAI', sort_order: 2 }
+        ],
+        models: CARD_NEWS_IMAGE_MODELS.map(([provider, code, name]) => ({
+            key: `${provider}:${code}`, kind: 'image', provider, model_id: code,
+            transport: provider === 'google' ? 'gemini_generate_content' : 'openai_images',
+            display_name: name, status: 'active',
+            capabilities: provider === 'google'
+                ? { aspect_ratio: true }
+                : { arbitrary_size: true, quality: ['auto'], response_format: false }
+        }))
+    }, { appVersion: '99.0.0' });
+});
+test.afterEach(clearRemoteCatalog);
 
 function createHarness(overrides = {}) {
     const saved = [];

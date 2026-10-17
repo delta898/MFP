@@ -76,6 +76,7 @@ const { createUiApiRouteRuntime } = require('./ui-runtime/api-route-runtime');
 const { createBlogBetaRuntimeComposition } = require('./composition/blog-beta-runtime');
 const { createCardNewsGenerationSystem } = require('./composition/card-news-generation');
 const { createSnsGenerationSystem } = require('./composition/sns-generation');
+const { createBundledWidgetPluginCatalog } = require('./composition/widget-plugins');
 const { createUiHttpServerRuntime } = require('./ui-runtime/http-server-runtime');
 const { createHtmlCompositionRuntime } = require('./ui-runtime/html-composition-runtime');
 const { createCssCompositionRuntime } = require('./ui-runtime/css-composition-runtime');
@@ -323,6 +324,7 @@ const blogBetaComposition = createBlogBetaRuntimeComposition({
     getAiModelCatalog
 });
 const { corePluginRuntime, blogWritingSystem, blogPostingApplication, blogPublishingApplication, aiGenerationSystem } = blogBetaComposition;
+const widgetPluginCatalog = createBundledWidgetPluginCatalog({ fs, path, logger: Logger, configDir: CONFIG.PATHS.configDir });
 const snsGenerationSystem = createSnsGenerationSystem({
     aiGeneration: aiGenerationSystem.service,
     getWritingModel: () => CONFIG.TEXT_MODEL_CONFIG,
@@ -1120,6 +1122,7 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     createSiteHostingSiteRouteHandler,
     createApiRouteHub,
     corePluginRuntime,
+    widgetPluginCatalog,
     blogWritingApplication: blogWritingSystem.application,
     aiGenerationService: aiGenerationSystem.service,
     aiGateway: aiGenerationSystem.gateway,
@@ -1139,7 +1142,7 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     sendSuccess,
     sendError
 });
-const { handleApi } = uiApiRouteRuntime;
+const { handleApi, handleWidgetPluginAsset } = uiApiRouteRuntime;
 
 setAutoRunnerHandlers({
     runTrendCollectCycle,
@@ -1188,6 +1191,7 @@ const uiHttpServerRuntime = createUiHttpServerRuntime({
     createRequestId,
     readJsonBody,
     handleApi,
+    handleWidgetPluginAsset,
     sanitizePathname,
     shouldServeUiShell,
     sendError,

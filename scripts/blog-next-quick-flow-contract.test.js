@@ -174,7 +174,7 @@ test('manuscript publishing sends the selected status and schedule date to the p
 
 test('AI image generation exposes per-action stop controls and sends cancellation to the active server operation', () => {
   const inputs = `${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-images.js')}`;
-  const operations = read('src/blog-next/ai-generation-operations.js');
+  const operations = read('src/services/ai/generation-operation-manager.js');
   const drafts = read('src/content/manuscript-draft-service.js');
   const execution = read('ui/scripts/features/blog-next/draft-execution.js');
   const routes = read('src/ui-api/routes/content.routes.js');
@@ -194,7 +194,7 @@ test('AI image generation exposes per-action stop controls and sends cancellatio
   assert.match(inputs, /image-operations\/\$\{encodeURIComponent\(operation\.operationId\)\}\/cancel/);
   assert.match(operations, /signal: controller\.signal/);
   assert.match(operations, /setProgress\(progress\)/);
-  assert.match(drafts, /callWritingImage\(slot\.prompt, pendingBase, 2, \{ useCase: 'blog', signal: input\.signal \}\)/);
+  assert.match(drafts, /generateAiImage\(slot\.prompt, \{ signal: input\.signal, onProgress: input\.onProgress \}\)/);
   assert.match(routes, /manuscript-drafts\/image-operations/);
   assert.match(css, /local-markdown-image-spinner[\s\S]*?ui-refresh-action-spin/);
   assert.match(css, /image-card-preview\.is-generating \.local-markdown-image-media-actions\.is-empty/);

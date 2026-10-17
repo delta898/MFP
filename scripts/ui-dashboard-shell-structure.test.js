@@ -13,7 +13,7 @@ const shellContracts = Object.freeze({
     'features/shell/account-overview.js': ['renderAccountOverview', 'loadAccountOverview'],
     'features/shell/account-actions.js': ['bindAccountUpgradeFreeClick', 'bindAccountPlanInfoClick'],
     'features/shell/celebration.js': ['showAppCelebration', 'showPendingUpdateCelebration', 'showPostingCompletionCelebration', 'flushPendingQuickPostingCelebration'],
-    'features/shell/clock.js': ['initClockWidget']
+    'foundation/widget-slot-host.js': ['initWidgetSlotHost']
 });
 
 function readScript(relativePath) {

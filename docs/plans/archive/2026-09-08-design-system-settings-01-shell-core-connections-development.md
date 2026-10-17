@@ -86,7 +86,7 @@ top menu
 - 2026-09-08: `content`, `naver`, `wordpress`만 부분 저장하는 `/api/v1/settings/core-connections`를 추가했다. 기존 AI·자동화·알림 등 다른 JSON 값은 보존하고 손상된 JSON은 덮어쓰지 않는다.
 - 2026-09-08: surface 전용 dirty scope와 이탈 확인을 추가하고 기존 Settings controller 및 DOM ID와 분리했다.
 - 2026-09-08: 첫 사용자 UI 검토에서 Settings Beta 헤더의 Timer Widget 누락과 Blog Beta와 다른 top/local navigation anatomy를 확인했다.
-- 2026-09-08: Blog Beta와 Settings Beta가 같은 `partials/views/shared/page-clock-widget.html`, 공통 clock component style과 초기화 코드를 조합하도록 Timer Widget을 공용화했다. 함께 사용하는 `ui-top-*`, `ui-segmented-*` navigation pattern도 추출하고, 기본 연결 panel을 `intro → local navigation + tool → status → content` 순서의 공통 content frame으로 교정했다.
+- 2026-09-08: Blog Beta와 Settings Beta가 같은 `partials/views/shared/page-widget-area.html`, 공통 clock component style과 초기화 코드를 조합하도록 Timer Widget을 공용화했다. 함께 사용하는 `ui-top-*`, `ui-segmented-*` navigation pattern도 추출하고, 기본 연결 panel을 `intro → local navigation + tool → status → content` 순서의 공통 content frame으로 교정했다.
 - 2026-09-08: Blog Beta feature CSS에 남아 있던 공통 tab 시각 규칙을 제거해 navigation pattern의 단일 소유권을 확립하고, danger action도 공통 `.ui-danger-action` variant로 통일했다.
 - 2026-09-09: Blog Beta와 Settings Beta에 중복되어 있던 방향키·Home/End 탭 계산을 공통 `handleUiTabNavigationKeydown` controller로 통합했다. 각 feature는 이탈 확인과 panel load 같은 업무 activation만 소유한다.
 - 2026-09-09: 사용자 디자인 검토에 따라 connection card footer를 `danger start / 저장 상태 + completion end`로 통일하고 불필요한 세로 간격을 줄였다. 블로그 발행 채널의 단일 합산 summary를 네이버 블로그·워드프레스 1:1 readiness card로 교체해 두 provider의 동등한 제품 위계를 명시했다.

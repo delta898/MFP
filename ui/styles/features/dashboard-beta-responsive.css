@@ -10,7 +10,7 @@
     flex-direction: column;
   }
 
-  .dashboard-beta-hero .dash-clock-widget {
+  .dashboard-beta-hero .dash-widget-slot {
     justify-content: flex-start;
   }
 

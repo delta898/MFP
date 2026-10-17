@@ -92,39 +92,6 @@
     justify-content: flex-start;
   }
 
-  .clock-display {
-    min-width: 120px;
-  }
-
-  .clock-widget-main {
-    width: min(100%, calc(100vw - 40px));
-    min-width: 286px;
-    min-height: 108px;
-    padding: 10px 10px 8px 13px;
-  }
-
-  .clock-widget-main .clock-display {
-    min-height: 88px;
-  }
-
-  .pomodoro-face-shell {
-    min-width: 238px;
-  }
-
-  .pomodoro-face-tomato,
-  .pomodoro-face-soft,
-  .pomodoro-face-flip {
-    width: 238px;
-  }
-
-  .clock-ambient-message {
-    display: none;
-  }
-
-  .clock-style-menu {
-    max-width: calc(100vw - 32px);
-  }
-
   .grid {
     grid-template-columns: 1fr;
   }

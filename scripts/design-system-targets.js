@@ -53,21 +53,10 @@ const DESIGN_SYSTEM_STYLE_TARGETS = Object.freeze([
   target('ui/styles/layout/responsive-footer.css', [CONTRACTS.LEGACY_TOKEN_FREE], {
     strictStyleExclusion: 'This module still contains frozen compatibility-only footer rules.'
   }),
-  target('ui/styles/components/clock.css', [CONTRACTS.LEGACY_TOKEN_FREE], {
-    strictStyleExclusion: 'Seasonal, Pomodoro, and clock identity colors are intentional local accents.'
-  }),
-  target('ui/styles/components/clock-pomodoro-controls.css', [CONTRACTS.LEGACY_TOKEN_FREE], {
-    strictStyleExclusion: 'Pomodoro controls retain intentional local identity colors.'
-  }),
-  target('ui/styles/components/clock-pomodoro-faces.css', [CONTRACTS.LEGACY_TOKEN_FREE], {
-    strictStyleExclusion: 'Pomodoro faces retain intentional local identity colors and shadow recipes.'
-  }),
-  target('ui/styles/components/clock-celebration.css', [CONTRACTS.LEGACY_TOKEN_FREE], {
+  target('ui/styles/components/posting-completion-celebration.css', [CONTRACTS.LEGACY_TOKEN_FREE], {
     strictStyleExclusion: 'Celebration feedback retains intentional transient accent colors.'
   }),
-  target('ui/styles/components/clock-status.css', [CONTRACTS.LEGACY_TOKEN_FREE], {
-    strictStyleExclusion: 'Clock status and split displays retain intentional local identity styling.'
-  }),
+  target('ui/styles/components/widget-slot.css', PRODUCT_CONTRACTS),
   target('ui/styles/components/app-chrome.css', [CONTRACTS.LEGACY_TOKEN_FREE, CONTRACTS.TYPOGRAPHY, CONTRACTS.MOTION], {
     strictStyleExclusion: 'The global update banner still owns one legacy shadow and visibility override.'
   }),

@@ -10,6 +10,7 @@ const { chromium } = require('playwright');
 const { createHtmlCompositionRuntime } = require('../src/ui-runtime/html-composition-runtime');
 const { createCssCompositionRuntime } = require('../src/ui-runtime/css-composition-runtime');
 const { createJsCompositionRuntime } = require('../src/ui-runtime/js-composition-runtime');
+const { createBundledWidgetPluginCatalog } = require('../src/composition/widget-plugins');
 const { getDefaultContentWritingProfile, DEFAULT_CONTENT_WRITING_PROFILE_METADATA } = require('../src/content/writing-profile');
 const { DESIGN_STYLE_CONTRACT_VERSION, DESIGN_STYLE_REQUIRED_TOKENS } = require('../ui/scripts/foundation/design-style-token-contract');
 
@@ -609,6 +610,11 @@ function getApiFixture(pathname) {
 }
 
 function startFixtureServer(requests) {
+    const widgetPluginCatalog = createBundledWidgetPluginCatalog({
+        fs,
+        path,
+        configDir: path.join(os.tmpdir(), 'bloggenius-ui-smoke-config')
+    });
     const composedUiShellSource = createHtmlCompositionRuntime({ fs, path })
         .composeHtmlFile({ uiRoot }).html;
     const composedUiShellDocument = cheerio.load(composedUiShellSource);
@@ -782,6 +788,28 @@ function startFixtureServer(requests) {
         const url = new URL(req.url || '/', 'http://127.0.0.1');
         const requestRecord = { method: req.method || 'GET', pathname: url.pathname };
         requests.push(requestRecord);
+
+        if (url.pathname === '/api/v1/widget-plugins' && req.method === 'GET') {
+            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+            res.end(JSON.stringify({ success: true, data: { widgets: widgetPluginCatalog.list(url.searchParams.get('slot') || '') } }));
+            return;
+        }
+        if (url.pathname.startsWith('/widget-plugins/') && req.method === 'GET') {
+            const [, , pluginId, widgetId, ...assetParts] = url.pathname.split('/');
+            const assetPath = widgetPluginCatalog.resolveAsset(
+                decodeURIComponent(pluginId || ''),
+                decodeURIComponent(widgetId || ''),
+                assetParts.map((part) => decodeURIComponent(part)).join('/')
+            );
+            if (!assetPath) {
+                res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+                res.end('Not found');
+                return;
+            }
+            res.writeHead(200, { 'Content-Type': getContentType(assetPath), 'Cache-Control': 'no-store' });
+            res.end(fs.readFileSync(assetPath));
+            return;
+        }
 
         if (url.pathname === '/api/v1/site-hosting/projects' && req.method === 'GET') {
             res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -2025,10 +2053,11 @@ async function createUiOverviewDemoVideo(browser, baseUrl, outputPath) {
         await page.locator('#sidebar-toggle-btn').click(); await wait(650);
 
         await caption('02 · FOCUS', '집중 타이머로 리듬을 만들고', '대시보드에서 바로 실행');
-        const dashboardClock = page.locator('#view-dashboard-beta .clock-style-button');
+        const dashboardWidget = page.frameLocator('#view-dashboard-beta iframe.widget-plugin-frame');
+        const dashboardClock = dashboardWidget.locator('.clock-style-button');
         await dashboardClock.click(); await wait(300);
-        await page.locator('#view-dashboard-beta .clock-style-menu').locator('[data-clock-mode="timer"]').click(); await wait(300);
-        await page.locator('#view-dashboard-beta .clock-style-menu').locator('[data-timer-action="start-focus"]').click(); await wait(1000);
+        await dashboardWidget.locator('.clock-style-menu').locator('[data-clock-mode="timer"]').click(); await wait(300);
+        await dashboardWidget.locator('.clock-style-menu').locator('[data-timer-action="start-focus"]').click(); await wait(1000);
 
         await caption('03 · YOUR SPACE', '취향에 맞게 분위기를 바꾸고', '스타일은 화면마다 자연스럽게 이어집니다');
         await go('settings-next');
@@ -2491,8 +2520,10 @@ async function run() {
         await page.locator('[data-dashboard-beta-period="today"]').click();
         await page.locator('#dashboard-beta-tips-section [data-dashboard-beta-nav="help"]').click();
         assert.equal(await page.locator('#view-help').evaluate(element => element.classList.contains('active')), true);
-        assert.equal(await page.locator('#view-help [data-clock-display]').count(), 1);
-        assert.notEqual((await page.locator('#view-help [data-clock-display]').innerHTML()).trim(), '');
+        const helpWidget = page.frameLocator('#view-help iframe.widget-plugin-frame');
+        await helpWidget.locator('[data-clock-display]').waitFor();
+        assert.equal(await helpWidget.locator('[data-clock-display]').count(), 1);
+        assert.notEqual((await helpWidget.locator('[data-clock-display]').innerHTML()).trim(), '');
         await page.waitForFunction(() => document.querySelector('#help-getting-started-region strong')?.textContent === '원격 설치 가이드');
         assert.equal(await page.locator('#view-help .help-start-list a').count(), 1);
         assert.equal(await page.locator('#view-help .help-topic-card').count(), 2);
@@ -2568,7 +2599,7 @@ async function run() {
 
         await page.locator('.nav-btn[data-view="settings-next"]').click();
         await page.waitForFunction(() => document.getElementById('view-settings-next')?.classList.contains('active'));
-        await page.waitForFunction(() => document.querySelector('#view-settings-next [data-clock-display]')?.children.length > 0);
+        await page.frameLocator('#view-settings-next iframe.widget-plugin-frame').locator('[data-clock-display]').waitFor();
         await page.locator('[data-settings-next-core-tab="content"]').click();
         assert.equal(await page.locator('#settings-next-content-status').textContent(), '연결됨');
         assert.equal(await page.locator('#settings-next-sheet-readiness').textContent(), '연결됨');
@@ -4216,7 +4247,7 @@ async function run() {
             /^rgb\((?:254|255), 253, 249\)$/
         );
         assert.deepEqual(
-            await page.locator('#view-blog-next .clock-widget-main').evaluate((element) => {
+            await page.frameLocator('#view-blog-next iframe.widget-plugin-frame').locator('.clock-widget-main').evaluate((element) => {
                 const style = getComputedStyle(element);
                 return {
                     background: style.backgroundColor,
@@ -4224,7 +4255,7 @@ async function run() {
                     borderRadius: style.borderTopLeftRadius
                 };
             }),
-            { background: 'rgba(255, 253, 249, 0.92)', borderColor: 'rgb(222, 213, 200)', borderRadius: '16px' }
+            { background: 'rgba(255, 255, 255, 0.92)', borderColor: 'rgb(228, 219, 207)', borderRadius: '16px' }
         );
         await page.locator('.app-footer-link').nth(1).focus();
         await page.keyboard.press('Tab');
@@ -5709,7 +5740,7 @@ async function run() {
         assert.equal((await page.locator('.account-overview-intro h2').textContent())?.trim(), '이용 현황');
         assert.equal((await page.locator('#account-plan-name').textContent())?.trim(), 'Free');
         assert.equal(
-            await page.locator('#view-account [data-clock-display]').evaluate((element) => element.children.length > 0),
+            await page.frameLocator('#view-account iframe.widget-plugin-frame').locator('[data-clock-display]').evaluate((element) => element.children.length > 0),
             true
         );
 

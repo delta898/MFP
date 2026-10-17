@@ -4,6 +4,7 @@ const { createGitHubDesignStyleCatalog } = require('../site-hosting/github-desig
 const { createDesignStylesRouteHandler } = require('../ui-api/routes/design-styles.routes');
 const { createManuscriptDraftService } = require('../content/manuscript-draft-service');
 const { createCorePluginsRouteHandler } = require('../ui-api/routes/core-plugins.routes');
+const { createWidgetPluginsRouteHandler } = require('../adapters/ui/widget-plugins.routes');
 
 function createUiApiRouteRuntime(deps = {}) {
     const {
@@ -133,6 +134,7 @@ function createUiApiRouteRuntime(deps = {}) {
         createSiteHostingSiteRouteHandler,
         createApiRouteHub,
         corePluginRuntime,
+        widgetPluginCatalog,
         blogWritingApplication,
         aiGenerationService,
         aiGateway,
@@ -203,6 +205,7 @@ function createUiApiRouteRuntime(deps = {}) {
     }
     let designStylesRouteHandler = null;
     let corePluginsRouteHandler = null;
+    let widgetPluginsRouteHandler = null;
     let apiRouteHub = null;
     let smartUsageService = null;
 
@@ -618,6 +621,19 @@ function createUiApiRouteRuntime(deps = {}) {
         return corePluginsRouteHandler;
     }
 
+    function getWidgetPluginsRouteHandlerInstance() {
+        if (!widgetPluginsRouteHandler) {
+            widgetPluginsRouteHandler = createWidgetPluginsRouteHandler({
+                catalog: widgetPluginCatalog,
+                fs,
+                sendSuccess,
+                sendError,
+                getContentType
+            });
+        }
+        return widgetPluginsRouteHandler;
+    }
+
     function getApiRouteHubInstance() {
         if (!apiRouteHub) {
             apiRouteHub = createApiRouteHub([
@@ -633,6 +649,7 @@ function createUiApiRouteRuntime(deps = {}) {
                 getCloudflareConnectionRouteHandlerInstance(),
                 getSiteHostingProjectRouteHandlerInstance(),
                 getSiteHostingSiteRouteHandlerInstance(),
+                getWidgetPluginsRouteHandlerInstance().tryHandleRoute,
                 getCorePluginsRouteHandlerInstance(),
                 getDesignStylesRouteHandlerInstance(),
                 getLegacyApiRouteHandlerInstance()
@@ -657,6 +674,10 @@ function createUiApiRouteRuntime(deps = {}) {
         return routed === true;
     }
 
+    function handleWidgetPluginAsset(requestId, method, pathname, res) {
+        return getWidgetPluginsRouteHandlerInstance().tryHandleAsset({ requestId, method, pathname, res });
+    }
+
     return {
         createLegacyApiDeps,
         getApiRouteHub: getApiRouteHubInstance,
@@ -664,6 +685,7 @@ function createUiApiRouteRuntime(deps = {}) {
         getLegacyApiRouteHandler: getLegacyApiRouteHandlerInstance,
         getSettingsRouteHandler: getSettingsRouteHandlerInstance,
         getCorePluginsRouteHandler: getCorePluginsRouteHandlerInstance,
+        getWidgetPluginsRouteHandler: getWidgetPluginsRouteHandlerInstance,
         getManualSnsRouteHandler: getManualSnsRouteHandlerInstance,
         getCardNewsRouteHandler: getCardNewsRouteHandlerInstance,
         getSurfaceContentRouteHandler: getSurfaceContentRouteHandlerInstance,
@@ -671,7 +693,8 @@ function createUiApiRouteRuntime(deps = {}) {
         getRecommendationCenterRouteHandler: getRecommendationCenterRouteHandlerInstance,
         getKeywordDiscoveryRouteHandler: getKeywordDiscoveryRouteHandlerInstance,
         getKeywordsRouteHandler: getKeywordsRouteHandlerInstance,
-        handleApi
+        handleApi,
+        handleWidgetPluginAsset
     };
 }
 
