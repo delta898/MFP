@@ -1617,7 +1617,8 @@ async function insertHorizontalSeparatorAtCursor(page) {
 }
 
 const relatedPostsMarkdown = require('./applications/blog/posting/related-posts-markdown');
-const buildRelatedPostsSectionMarkdown = (...args) => relatedPostsMarkdown.buildRelatedPostsSectionMarkdown(...args, Utils);
+const buildRelatedPostsSectionMarkdown = (relatedPosts, heading, includeHeading = true) =>
+	relatedPostsMarkdown.buildRelatedPostsSectionMarkdown(relatedPosts, heading, includeHeading, Utils);
 const stripAiRelatedPostsSection = relatedPostsMarkdown.stripAiRelatedPostsSection;
 
 

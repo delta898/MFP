@@ -49,15 +49,7 @@ const { normalizeWritingStrategy } = require('./content/writing-strategy');
 const WordPressClient = require('./wordpress-client');
 const { createSnsSheetStore } = require('./applications/sns/distribution/sns-sheet-store');
 const { createGoogleSheetsSnsGateway } = require('./adapters/storage/google-sheets-sns-gateway');
-const { createCardNewsLedgerGateway } = require('./adapters/storage/card-news/google-sheets-ledger-gateway');
-const { createCardNewsLedgerStore } = require('./adapters/storage/card-news/ledger-sheet-store');
-const { createCardNewsProjectRepository } = require('./adapters/storage/card-news/project-repository');
-const { createCardNewsFeedFetcher } = require('./adapters/feeds/card-news-feed-fetcher');
-const { createCardNewsSourceService } = require('./applications/card-news/sources/service');
-const { createCardNewsRssIntake } = require('./applications/card-news/sources/rss-intake');
-const { createCardNewsRssIntakeScheduler } = require('./applications/card-news/sources/rss-intake-scheduler');
-const { createStyleReferenceFetcher } = require('./content/style-reference-fetcher');
-const { createGoogleDrivePublicMediaTransport } = require('./adapters/media/google-drive-public-media-transport');
+const { createCardNewsRuntime } = require('./composition/card-news-runtime');
 const { normalizeCardNewsBuiltinSources, normalizeCardNewsRssSources } = require('./applications/card-news/sources/feed-sources');
 const { createSnsRssDiscovery } = require('./applications/sns/distribution/sns-rss-discovery');
 const { createSnsDistributionRunner } = require('./applications/sns/distribution/sns-distribution-runner');
@@ -288,40 +280,24 @@ const snsSheetGateway = createGoogleSheetsSnsGateway({
 const snsSheetStore = createSnsSheetStore({
     gateway: snsSheetGateway
 });
-const cardNewsLedgerGateway = createCardNewsLedgerGateway({
+const cardNewsRuntime = createCardNewsRuntime({
     Utils,
     CONFIG,
-    httpClient: axios
-});
-const cardNewsLedgerStore = createCardNewsLedgerStore({
-    gateway: cardNewsLedgerGateway
-});
-const cardNewsProjectRepository = createCardNewsProjectRepository({
+    httpClient: axios,
     fs,
     path,
-    workspaceDir: CONFIG.PATHS?.workspace
+    GoogleOAuth,
+    logger: Logger,
+    cheerio
 });
-const cardNewsMediaTransport = createGoogleDrivePublicMediaTransport({
-    httpClient: axios,
-    getAccessToken: (scopes) => Utils.getGoogleAccessToken(scopes),
-    peekStatus: GoogleOAuth.peekStatus,
-    logger: Logger
-});
-const cardNewsFeedFetcher = createCardNewsFeedFetcher({ httpClient: axios });
-const cardNewsSourceService = createCardNewsSourceService({
-    fetchFeed: cardNewsFeedFetcher,
-    fetchPublicDocument: createStyleReferenceFetcher({ axios, cheerio })
-});
-const cardNewsRssIntake = createCardNewsRssIntake({
-    CONFIG,
-    discoverConfiguredArticles: (config) => cardNewsSourceService.discoverConfiguredArticles(config),
-    ledgerStore: cardNewsLedgerStore,
-    logger: Logger
-});
-const cardNewsRssIntakeScheduler = createCardNewsRssIntakeScheduler({
-    intake: cardNewsRssIntake,
-    logger: Logger
-});
+const {
+    cardNewsLedgerStore,
+    cardNewsProjectRepository,
+    cardNewsMediaTransport,
+    cardNewsSourceService,
+    cardNewsRssIntake,
+    cardNewsRssIntakeScheduler
+} = cardNewsRuntime;
 const blogBetaComposition = createBlogBetaRuntimeComposition({
     CONFIG,
     Logger,
