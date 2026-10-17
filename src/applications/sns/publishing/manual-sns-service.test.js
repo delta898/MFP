@@ -637,7 +637,7 @@ test('Buffer request timeout recovers matching recent posts and completes media 
         localImage: { fileName: 'photo.png', mimeType: 'image/png', base64Data: 'ignored' }
     });
 
-    assert.equal(calls.recovery.organizationId, 'organization-1');
+    assert.equal(calls.recovery.workspaceId, 'organization-1');
     assert.deepEqual(calls.recovery.channelIds, ['threads-1']);
     assert.deepEqual(calls.remove, [91]);
     assert.equal(result.success, true);

@@ -5,7 +5,7 @@
 - Branch: `codex/fbr/sns-buffer-plugin`
 - Start date: 2026-10-17
 - Base/parent branch: `codex/fbr/plugin-architecture-foundation`
-- Status: SNS responsibility migration implemented; final verification in progress
+- Status: Complete; ready for integration into the parent feature branch
 
 ## User Need and Goal
 
@@ -66,10 +66,10 @@ SNS and shared social-publishing code had accumulated in the legacy `src/social/
 - After the final capability-port and workspace terminology adjustment, a focused regression rerun passed 80 tests, including all directly affected Plugin, adapter, SNS, Card News publishing, registry, and Host cases.
 - After separating the Application's three-channel policy from provider request handling, the focused Social Publisher and SNS publishing suite passed 46 tests; added coverage confirms the Plugin accepts more than three publication/status items, SNS workspace discovery returns all available channels, and the Application still rejects a fourth selected channel before Plugin invocation.
 - UI server boundary/settings checks passed 2 tests. Syntax checks passed for relocated modules and changed runtime entrypoints; `git diff --check` passed; no source imports reference the removed `src/social/` directory.
+- Final parent-merge review found and fixed one legacy field name in manual-publish timeout recovery: it now sends `workspaceId` through the Social Publisher port. The focused plugin, SNS, Card News publishing, registry, and settings suite passed 102 tests after this correction.
 
 ## Verification and Remaining Work
 
-- Run final syntax and diff checks; confirm no source imports still point at the removed `src/social/` tree.
-- Confirm no production source/test import still references `src/social/` and the directory remains absent.
-- No manual UI acceptance or external publishing has been performed.
+- `src/social/` is removed and no source imports point at it.
+- No manual UI acceptance or external publishing was performed; the changes are service and architecture migrations without UI changes.
 - Review whether Buffer-specific config/persistence identifiers should remain as provider-owned compatibility details or move behind a more generic workspace contract in a future separately scoped change.

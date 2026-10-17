@@ -108,7 +108,7 @@ function createManualSnsService(deps = {}) {
         recordActivityLifecycle = async () => null
     } = deps;
     if (!socialPublisher || typeof socialPublisher.publishMany !== 'function') {
-        throw new Error('Manual SNS Service에는 BufferClient가 필요합니다.');
+        throw new Error('Manual SNS Service에는 Social Publisher가 필요합니다.');
     }
 
     let imageGenerationActive = false;
@@ -396,7 +396,7 @@ function createManualSnsService(deps = {}) {
         for (let attempt = 1; attempt <= attempts; attempt += 1) {
             try {
                 const posts = await socialPublisher.listRecentPublications({
-                    organizationId,
+                    workspaceId: organizationId,
                     channelIds: selectedChannels.map((channel) => channel.id),
                     startDate,
                     first: 50
