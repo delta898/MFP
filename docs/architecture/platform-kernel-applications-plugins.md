@@ -136,9 +136,12 @@ src/
     electron/                   # Electron startup, lifecycle, and recovery
   adapters/                     # Channel and external protocol translation (UI, Telegram, MCP, AI transport)
     ai/                          # Host-owned provider authentication/transport adapters
+    url-shortening/              # URL shortener provider protocol adapters
     ui/                          # UI/API input, output, and progress presentation adapters
   platform/                     # Plugin contracts, Plugin Host, validation, lifecycle, dispatch
   composition/                  # Concrete Plugin/service wiring for runtime and Applications
+  services/                     # Shared cross-Application capabilities/contracts
+    url-shortening/              # Provider-neutral URL shortening behavior
   applications/                 # Product workflows, orchestration, and app-specific services/policy
     blog/                       # Blog writing and publication use cases
     card-news/                  # Card-news workflows

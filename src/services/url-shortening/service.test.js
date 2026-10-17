@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createUrlShorteningService, createDefaultUrlShorteningService } = require('./url-shortening-service');
+const { createUrlShorteningService } = require('./service');
 
 test('URL shortening capability resolves the configured provider behind a provider-neutral contract', async () => {
     let configuration = { provider: 'bitly', credential: 'secret' };
@@ -36,21 +36,4 @@ test('URL shortening capability keeps the original URL when a provider fails', a
 
     assert.equal(await service.shorten('https://long.example/article'), 'https://long.example/article');
     assert.match(warnings[0], /URL Shortening/);
-});
-
-test('default runtime composition keeps the current provider adapter behind the generic contract', async () => {
-    const calls = [];
-    const service = createDefaultUrlShorteningService({
-        CONFIG: { NOTIFY_BITLY_TOKEN: 'runtime-secret' },
-        urlService: {
-            async shorten(url, credential) {
-                calls.push({ url, credential });
-                return 'https://short.example/runtime';
-            }
-        }
-    });
-
-    assert.equal(service.isConfigured(), true);
-    assert.equal(await service.shorten('https://long.example/runtime'), 'https://short.example/runtime');
-    assert.deepEqual(calls, [{ url: 'https://long.example/runtime', credential: 'runtime-secret' }]);
 });

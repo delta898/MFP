@@ -34,15 +34,4 @@ function createUrlShorteningService(options = {}) {
     return { isConfigured, shorten };
 }
 
-function createDefaultUrlShorteningService(options = {}) {
-    const { CONFIG = {}, urlService, logger } = options;
-    return createUrlShorteningService({
-        resolveConfiguration: () => ({ provider: 'bitly', credential: CONFIG.NOTIFY_BITLY_TOKEN }),
-        providers: {
-            bitly: { shorten: (url, providerOptions = {}) => urlService.shorten(url, providerOptions.credential) }
-        },
-        logger
-    });
-}
-
-module.exports = { createUrlShorteningService, createDefaultUrlShorteningService };
+module.exports = { createUrlShorteningService };

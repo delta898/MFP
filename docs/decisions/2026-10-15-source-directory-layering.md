@@ -13,11 +13,13 @@ src/
   host/
   adapters/
     ai/                         # Host-owned provider protocol/authentication adapters
+    url-shortening/             # URL shortening provider protocols
     ui/                         # UI/API request-response and progress presentation adapters
     plugins/                    # Host operation ↔ shared service-port translation
   platform/
   composition/
   services/<domain>/            # Cross-application reusable domain contracts
+    url-shortening/             # Provider-neutral URL shortening behavior
   applications/<application-name>/ # Application workflows and app-specific domain services
   utilities/<capability>/
     logging/                    # Shared logging mechanics and runtime log paths
