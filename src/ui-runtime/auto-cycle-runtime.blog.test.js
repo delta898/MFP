@@ -29,7 +29,6 @@ test('blog auto cycle applies the configured posting option to every selected ro
                 };
             }
         },
-        recordUiActivity() { },
         normalizeNonNegativeInt: (value, fallback) => {
             const parsed = Number.parseInt(value, 10);
             return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;

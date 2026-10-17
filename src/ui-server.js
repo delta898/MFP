@@ -16,7 +16,6 @@ const Logger = require('./logger');
 const urlShorteningService = createDefaultUrlShorteningService({ CONFIG, urlService: UrlService, logger: Logger });
 const GoogleOAuth = require('./google-oauth');
 Logger.debug(`Application version: ${APP_VERSION}`);
-const { recordDashboardActivity } = require('./activity/dashboard-activity-store');
 const { checkAuthSessionValid, peekAuthSessionState, clearAuthSession } = require('./auth-session');
 const Utils = require('./utils');
 const Core = require('./core');
@@ -226,15 +225,11 @@ const cssCompositionRuntime = createCssCompositionRuntime({ fs, path });
 const composeUiStyles = (uiRoot) => cssCompositionRuntime.composeCssFile({ uiRoot }).css;
 const jsCompositionRuntime = createJsCompositionRuntime({ fs, path });
 const composeUiScript = (uiRoot) => jsCompositionRuntime.composeJsFile({ uiRoot }).js;
-const uiHelpersRuntime = createUiHelpersRuntime({
-    recordDashboardActivity
-});
+const uiHelpersRuntime = createUiHelpersRuntime();
 const {
-    formatActivityTargets,
     normalizeSortDir,
     parseBoolQuery,
     parseIntSafe,
-    recordUiActivity,
     sortShoppingItems,
     sortTopicItems
 } = uiHelpersRuntime;
@@ -815,8 +810,6 @@ const publishActionsRuntime = createPublishActionsRuntime({
     buildLocalMarkdownPreview,
     materializeSelectedFilesToWorkspace,
     appendRelatedPostsToPastedMarkdown,
-    formatActivityTargets,
-    recordUiActivity,
     getContentType,
     normalizeKeywords,
     normalizeBool,
@@ -890,7 +883,6 @@ const trendActionsRuntime = createTrendActionsRuntime({
     License,
     TrendManager,
     ensureSheetsReadyForUi,
-    recordUiActivity,
     parseIntSafe,
     checkAuthSessionValid,
     toFeatureMap,
@@ -929,7 +921,6 @@ const autoCycleRuntime = createAutoCycleRuntime({
     SlackService,
     ensureSheetsReadyForUi,
     checkAuthSessionValid,
-    recordUiActivity,
     normalizeYmdToken,
     toBoolLike,
     parseCsvTokens,
@@ -1190,7 +1181,6 @@ const uiHttpServerRuntime = createUiHttpServerRuntime({
     stopCardNewsRssIntake: () => cardNewsRssIntakeScheduler.stop(),
     startRecommendationDelivery: () => recommendationDeliveryScheduler.start(),
     stopRecommendationDelivery: () => recommendationDeliveryScheduler.stop(),
-    recordUiActivity,
     handleGoogleOAuthCallback,
     initTelegramBotService: async () => {
         const TelegramBotService = require('./telegram-bot.service');

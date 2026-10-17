@@ -14,8 +14,8 @@ const { resolveRuntimeEffectPolicy } = require('../../environment/runtime-effect
 const { createContinuousPublishingScheduler } = require('../../continuous-publishing/scheduler');
 const { resolveReadyQueueMove } = require('../../continuous-publishing/queue-order');
 const { createBlogExecutionCoordinator } = require('../../applications/blog/execution/execution-coordinator');
-const { buildDashboardBlogOperationsOverview } = require('../../dashboard/blog-operations-read-model');
-const { buildDashboardBlogResultStats } = require('../../dashboard/blog-result-stats-read-model');
+const { buildDashboardBlogOperationsOverview } = require('../../applications/blog/dashboard/blog-operations-read-model');
+const { buildDashboardBlogResultStats } = require('../../applications/blog/dashboard/blog-result-stats-read-model');
 const { presentPublishingProgress, buildCompletionLinks } = require('../../adapters/ui/blog-publishing-presentation');
 const {
     CONTENT_LIFECYCLE_KIND,

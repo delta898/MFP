@@ -53,7 +53,7 @@
 // @include scripts/features/recommendations/center.js
 // @include scripts/features/shell/account-overview.js
 // @include scripts/features/shell/account-actions.js
-// @include scripts/features/shell/dashboard-beta.js
+// @include scripts/features/dashboard/dashboard-beta.js
 // @include scripts/features/shell/help.js
 // @include scripts/features/shell/celebration.js
 // @include scripts/foundation/widget-slot-host.js

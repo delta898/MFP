@@ -85,7 +85,7 @@ test('JavaScript manifest preserves its execution order and remains within its s
         'scripts/features/recommendations/center.js',
         'scripts/features/shell/account-overview.js',
         'scripts/features/shell/account-actions.js',
-        'scripts/features/shell/dashboard-beta.js',
+        'scripts/features/dashboard/dashboard-beta.js',
         'scripts/features/shell/help.js',
         'scripts/features/shell/celebration.js',
         'scripts/foundation/widget-slot-host.js',

@@ -66,7 +66,7 @@ test('temporary feature modules no longer own dashboard shell controllers', () =
 });
 
 test('dashboard refreshes persisted discoveries once per app session without replacing them on failure', () => {
-    const dashboardSource = readScript('features/shell/dashboard-beta.js');
+    const dashboardSource = readScript('features/dashboard/dashboard-beta.js');
     const centerSource = readScript('features/recommendations/center.js');
 
     assert.match(dashboardSource, /loadRecommendationCenterForDashboard\(\)/);

@@ -54,7 +54,7 @@ This document captures the current runtime boundaries after the CLI-removal refa
   - Automation schedule, trend/publish option, reuse-history, and shopping policy
     normalization shared by the UI runners.
 - `src/ui-runtime/ui-helpers-runtime.js`
-  - UI-focused sort/query/activity utilities.
+  - UI-focused sort and query utilities.
 - `src/ui-runtime/quick-publish-runtime.js`
   - Quick publish dedupe cache and preview session state.
 - `src/ui-runtime/publish-actions-runtime.js`
@@ -67,6 +67,12 @@ This document captures the current runtime boundaries after the CLI-removal refa
   - Long-lived scheduler state and next-run scheduling.
 - `src/ui-runtime/auto-cycle-runtime.js`
   - Blog/shopping auto-cycle execution, RSS collection, auto publish orchestration.
+
+## Dashboard Composition Boundary
+
+Dashboard is a UI screen that composes read models from feature-owned APIs; it does not own the underlying queue, account, site-hosting, recommendation, or publishing state. Dashboard markup stays in `ui/partials/views/`, styles in `ui/styles/features/`, and its browser controller in `ui/scripts/features/dashboard/`. Blog-specific dashboard projections belong to `src/applications/blog/dashboard/`, even when a UI API service requests them. Keep those projections limited to Dashboard-facing read DTOs and leave their source state with the Blog Application and other owning capabilities.
+
+The former `dashboard-activities.json` recorder was not read by Dashboard or Agent Memory. Its writer, store, and call sites are removed. Existing files are preserved as inert user data; separate Agent Memory event and lifecycle records remain independent.
 
 ## UI-First Boundary
 There is no user-facing CLI command surface anymore. Login, license, publishing, and automation flows are expected to run through the app UI.

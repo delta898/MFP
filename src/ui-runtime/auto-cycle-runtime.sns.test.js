@@ -2,12 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createAutoCycleRuntime } = require('./auto-cycle-runtime');
 
-test('SNS discovery cycle records activity and returns the discovery result', async () => {
-    const activities = [];
+test('SNS discovery cycle returns the discovery result', async () => {
     const runtime = createAutoCycleRuntime({
-        recordUiActivity(activity) {
-            activities.push(activity);
-        },
         snsRssDiscovery: {
             async run(trigger) {
                 return {
@@ -27,15 +23,11 @@ test('SNS discovery cycle records activity and returns the discovery result', as
 
     assert.equal(result.success, true);
     assert.equal(result.data.trigger, 'test-manual');
-    assert.equal(activities[0].type, 'sns_discovery_completed');
-    assert.match(activities[0].detail, /신규 원문 2건/);
-    assert.match(activities[0].detail, /채널별 행 4건/);
 });
 
 test('SNS automation cycle discovers entries before publishing one entry group', async () => {
     const calls = [];
     const runtime = createAutoCycleRuntime({
-        recordUiActivity() {},
         snsRssDiscovery: {
             async run(trigger) {
                 calls.push(`discover:${trigger}`);

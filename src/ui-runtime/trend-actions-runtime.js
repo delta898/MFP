@@ -8,7 +8,6 @@ function createTrendActionsRuntime(deps = {}) {
         License,
         TrendManager,
         ensureSheetsReadyForUi,
-        recordUiActivity,
         parseIntSafe,
         checkAuthSessionValid,
         toFeatureMap,
@@ -287,12 +286,6 @@ function createTrendActionsRuntime(deps = {}) {
     }
 
     async function executeTrendCollectAction(requestBody = {}) {
-        recordUiActivity({
-            category: 'collection',
-            type: 'trends_collect_started',
-            title: '트렌드 수집 시작',
-            detail: String(requestBody?.date || requestBody?.trendDate || '').trim() || '최근 데이터 기준'
-        });
         try {
             await ensureSheetsReadyForUi();
         } catch (error) {
@@ -354,12 +347,6 @@ function createTrendActionsRuntime(deps = {}) {
             const dupCount = Number(mapResult?.duplicateCount || 0);
             const reuseCount = Number(mapResult?.reuseBlockedCount || 0);
             const addedCount = Number(mapResult?.appendedCount || 0);
-            recordUiActivity({
-                category: 'collection',
-                type: 'trends_collect_completed',
-                title: '트렌드 수집 완료',
-                detail: `수집 ${trendKeywords.length}건 · 토픽 추가 ${addedCount}건`
-            });
 
             return {
                 success: true,
@@ -375,13 +362,6 @@ function createTrendActionsRuntime(deps = {}) {
             };
         } catch (error) {
             Logger.error(`❌ [AUTO][Producer] trends->topics 직접 이관 실패: ${error.message}`);
-            recordUiActivity({
-                category: 'collection',
-                type: 'trends_collect_failed',
-                level: 'error',
-                title: '트렌드 수집 실패',
-                detail: error.message || '알 수 없는 오류'
-            });
             return { success: false, code: 'TRENDS_DIRECT_APPEND_FAILED', message: `topics 직접 추가에 실패했습니다: ${error.message}` };
         }
     }

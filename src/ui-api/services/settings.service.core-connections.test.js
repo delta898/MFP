@@ -25,7 +25,6 @@ function createHarness(initialConfig = {}) {
         WORDPRESS_APP_PASSWORD: initialConfig.platforms?.wordpress?.app_password || '',
         ...initialConfig
     };
-    const activities = [];
     const service = createSettingsService({
         fs,
         path,
@@ -40,9 +39,8 @@ function createHarness(initialConfig = {}) {
                 WORDPRESS_APP_PASSWORD: CONFIG.WORDPRESS_APP_PASSWORD
             }
         }),
-        dashboardActivityRecorder: (activity) => activities.push(activity)
     });
-    return { CONFIG, activities, configPath, service };
+    return { CONFIG, configPath, service };
 }
 
 test('core connection normalization validates each independently saved scope', () => {
@@ -130,15 +128,13 @@ test('AI role scope preserves unrelated configuration while updating the selecte
     };
     fs.writeFileSync(configPath, JSON.stringify(initial, null, 2));
     const CONFIG = {};
-    const activities = [];
     const service = createSettingsService({
         fs, path, CONFIG, resolveWritableConfigPath: () => configPath,
         buildMajorSettings: () => ({ fields: {
             TEXT_MODEL_PROVIDER: 'direct', TEXT_MODEL_NAME: 'old', TEXT_MODEL_BASE_URL: 'https://old.example/v1', TEXT_MODEL_API_KEY: 'old-key',
             IMAGE_MODEL_PROVIDER: 'direct', IMAGE_MODEL_NAME: 'image', IMAGE_MODEL_BASE_URL: 'https://image.example/v1', IMAGE_MODEL_API_KEY: 'image-key',
             CHAT_MODEL_SOURCE: 'writing', CHAT_MODEL_PROVIDER: 'direct', CHAT_MODEL_NAME: 'old', CHAT_MODEL_BASE_URL: 'https://old.example/v1', CHAT_MODEL_API_KEY: 'old-key'
-        } }),
-        dashboardActivityRecorder: (activity) => activities.push(activity)
+        } })
     });
     await service.saveAiRoleSettings({ scope: 'text', values: {
         provider: 'direct', name: 'new-text', baseUrl: 'https://new.example/v1', apiKey: 'new-key'
@@ -147,20 +143,6 @@ test('AI role scope preserves unrelated configuration while updating the selecte
     assert.equal(saved.ai_settings.TEXT_MODEL.name, 'new-text');
     assert.equal(saved.ai_settings.TEXT_MODEL.base_url, 'https://new.example/v1');
     assert.deepEqual(saved.platforms, initial.platforms);
-    assert.deepEqual(activities, [{
-        category: 'settings',
-        type: 'ai_model_role_saved',
-        title: 'AI 모델 역할 반영',
-        detail: '글쓰기 텍스트: new-text · direct',
-        meta: {
-            scope: 'text',
-            source: 'dedicated',
-            provider: 'direct',
-            model_name: 'new-text',
-            model_code: 'new-text',
-            transport: 'openai_chat_completions'
-        }
-    }]);
 });
 
 test('AI role scope reuses the selected provider profile key when the user leaves the key input blank', async () => {
@@ -181,8 +163,7 @@ test('AI role scope reuses the selected provider profile key when the user leave
             TEXT_MODEL_PROVIDER: 'google', TEXT_MODEL_PRESET_CODE: 'gemini-3.1-flash-lite', TEXT_MODEL_API_KEY: 'google-secret',
             IMAGE_MODEL_PROVIDER: 'direct', IMAGE_MODEL_NAME: 'image', IMAGE_MODEL_BASE_URL: 'https://image.example/v1', IMAGE_MODEL_API_KEY: 'image-key',
             CHAT_MODEL_SOURCE: 'writing', CHAT_MODEL_PROVIDER: 'google', CHAT_MODEL_PRESET_CODE: 'gemini-3.1-flash-lite', CHAT_MODEL_API_KEY: 'google-secret'
-        } }),
-        dashboardActivityRecorder: () => {}
+        } })
     });
     await service.saveAiRoleSettings({ scope: 'text', values: {
         provider: 'openai', presetCode: 'gpt-5.6-sol', apiKey: ''
@@ -203,7 +184,6 @@ test('AI role scope saves a valid catalog model before its API Key is configured
         buildMajorSettings: () => ({ fields: {
             TEXT_MODEL_PROVIDER: 'openai', TEXT_MODEL_PRESET_CODE: '', TEXT_MODEL_API_KEY: ''
         } }),
-        dashboardActivityRecorder: () => {}
     });
 
     await service.saveAiRoleSettings({ scope: 'text', values: {
@@ -228,7 +208,7 @@ test('content scope preserves unrelated settings and updates runtime sheet alias
         NAVER_SEARCHAD_API_KEY: 'preserve-unrelated-value',
         platforms: { naver: { user_id: 'keep-naver', typing_speed: 'NORMAL' } }
     };
-    const { CONFIG, activities, configPath, service } = createHarness(initial);
+    const { CONFIG, configPath, service } = createHarness(initial);
     const nextUrl = 'https://docs.google.com/spreadsheets/d/new-sheet-id_987654/edit?usp=sharing#gid=0';
     const canonicalUrl = 'https://docs.google.com/spreadsheets/d/new-sheet-id_987654';
 
@@ -255,7 +235,6 @@ test('content scope preserves unrelated settings and updates runtime sheet alias
     assert.equal(CONFIG.general.google_sheet_title, 'Test Spreadsheet');
     assert.equal(result.scope, 'content');
     assert.equal(result.fields.GOOGLE_SHEET_URL, canonicalUrl);
-    assert.equal(activities[0].type, 'core_connection_saved');
 });
 
 test('naver and wordpress scopes update only their own provider fields', async () => {

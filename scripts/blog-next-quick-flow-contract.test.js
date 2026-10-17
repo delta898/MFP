@@ -160,7 +160,6 @@ test('WordPress image upload warnings remain visible after a successful draft sa
   assert.match(publishRuntime, /warnings: Array\.isArray\(wpRes\.warnings\)/);
   assert.match(execution, /results\?\.wordpress\?\.warnings/);
   assert.match(execution, /이미지 \$\{wordpressImageUploadFailures\}개를 올리지 못했습니다\. 워드프레스에서 확인해 주세요\./);
-  assert.match(publishRuntime, /이미지 \$\{wordpressImageUploadFailures\}개 업로드 실패/);
 });
 
 test('manuscript publishing sends the selected status and schedule date to the publish boundary', () => {

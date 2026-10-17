@@ -25,7 +25,6 @@ function createRuntime(features, state = {}) {
             }
         },
         async ensureSheetsReadyForUi() { },
-        recordUiActivity() { },
         async checkAuthSessionValid() { return { ok: true }; },
         toFeatureMap,
         isCommandEnabled

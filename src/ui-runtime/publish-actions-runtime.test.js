@@ -79,7 +79,6 @@ test('local environment blocks direct manuscript publishing before license or fi
 });
 
 test('local WordPress publish preserves image upload warnings while counting the draft save as successful', async () => {
-    const activities = [];
     const warnings = ['이미지 1번 업로드 실패'];
     const runtime = createTestPublishActionsRuntime({
         CONFIG: {},
@@ -105,8 +104,6 @@ test('local WordPress publish preserves image upload warnings while counting the
             source: { fileName: 'contents.md', folderName: '붙여넣기' }
         }),
         materializeSelectedFilesToWorkspace: () => ({ tempDir: '' }),
-        formatActivityTargets: () => '워드프레스',
-        recordUiActivity(activity) { activities.push(activity); }
     });
 
     const result = await runtime.executeLocalMarkdownPublish({
@@ -120,9 +117,6 @@ test('local WordPress publish preserves image upload warnings while counting the
     assert.equal(result.data.results.wordpress.success, true);
     assert.equal(result.data.results.wordpress.postId, '456');
     assert.deepEqual(result.data.results.wordpress.warnings, warnings);
-    const completed = activities.find((activity) => activity.type === 'local_markdown_publish_completed');
-    assert.match(completed.detail, /이미지 1개 업로드 실패/);
-    assert.equal(completed.meta.wordpressImageUploadFailures, 1);
 });
 
 test('WordPress Plugin publisher owns WordPress manuscript creation when the application flag is set', async () => {
@@ -156,8 +150,6 @@ test('WordPress Plugin publisher owns WordPress manuscript creation when the app
             source: { fileName: 'contents.md', folderName: '원고' }
         }),
         materializeSelectedFilesToWorkspace: () => ({ tempDir: '' }),
-        formatActivityTargets: () => '워드프레스',
-        recordUiActivity() {}
     });
 
     const result = await runtime.executeLocalMarkdownPublish({
@@ -226,8 +218,6 @@ test('WordPress Plugin publisher uploads manuscript images and links them in pos
             fs.writeFileSync(path.join(tempDir, '00_generated.png'), Buffer.from('png-bytes'));
             return { tempDir };
         },
-        formatActivityTargets: () => '워드프레스',
-        recordUiActivity() {}
     });
     t.after(() => { if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true }); });
 
@@ -291,7 +281,6 @@ test('quick publish keeps the user image option independent from legacy license 
         cleanupQuickPublishDedupeCache() { },
         getQuickPublishRecentEntry: () => null,
         setQuickPublishRecentEntry() { },
-        recordUiActivity() { }
     });
 
     const result = await runtime.executeQuickPublish({
@@ -362,7 +351,6 @@ test('quick publish preserves trend provenance in the topics row and dedupe inpu
         cleanupQuickPublishDedupeCache() {},
         getQuickPublishRecentEntry: () => null,
         setQuickPublishRecentEntry() {},
-        recordUiActivity() {}
     });
 
     const result = await runtime.executeQuickPublish({
@@ -406,7 +394,6 @@ test('quick publish records a grounded recommendation as saved after topics appe
         cleanupQuickPublishDedupeCache() {},
         getQuickPublishRecentEntry: () => null,
         setQuickPublishRecentEntry() {},
-        recordUiActivity() {},
         async recordActivityLifecycle(input) {
             lifecycleCalls.push(input);
             return input;
@@ -432,8 +419,7 @@ test('quick publish records a grounded recommendation as saved after topics appe
     assert.equal(lifecycleCalls[0].metadata.recommendation.candidate_id, 'candidate-1');
 });
 
-test('quick preview generation failure records the effective text model without credentials', async () => {
-    const activities = [];
+test('quick preview generation failure does not leak credentials', async () => {
     const runtime = createTestPublishActionsRuntime({
         CONFIG: {
             GOOGLE_TOPICS_SHEET: 'topics',
@@ -470,7 +456,6 @@ test('quick preview generation failure records the effective text model without 
         cleanupQuickPublishDedupeCache() {},
         getQuickPublishRecentEntry: () => null,
         setQuickPublishRecentEntry() {},
-        recordUiActivity(activity) { activities.push(activity); }
     });
 
     const result = await runtime.executeQuickPublish({
@@ -481,16 +466,7 @@ test('quick preview generation failure records the effective text model without 
 
     assert.equal(result.success, false);
     assert.equal(result.code, 'GENERATE_FAILED');
-    const failure = activities.find((activity) => activity.type === 'quick_preview_generate_failed');
-    assert.ok(failure);
-    assert.match(failure.detail, /요청 주소:/);
-    assert.deepEqual(failure.meta, {
-        provider: 'google',
-        model_name: 'Gemini 3 Flash',
-        model_code: 'gemini-3-flash',
-        transport: 'gemini_generate_content'
-    });
-    assert.doesNotMatch(JSON.stringify(failure), /must-not-escape/);
+    assert.doesNotMatch(JSON.stringify(result), /must-not-escape/);
 });
 
 test('shopping quick publish rejects an overlong instruction before external work', async () => {
@@ -527,7 +503,6 @@ test('shopping quick save carries the selected writing strategy into the sheet i
         normalizePublishMode: (value) => value,
         toFeatureMap,
         isCommandEnabled,
-        formatActivityTargets: () => ''
     });
 
     const result = await runtime.executeShoppingQuickPublish({
@@ -604,8 +579,6 @@ function createPublishLifecycleRuntime({ naverSuccess, wordpressSuccess, reserve
         },
         TelegramBotService: { async sendNotification() { } },
         checkAuthSessionValid: async () => ({ ok: true }),
-        formatActivityTargets: () => '',
-        recordUiActivity() { },
         async recordActivityLifecycle(input) {
             lifecycleCalls.push(input);
             return input;
@@ -804,8 +777,6 @@ test('Naver publishing progress is forwarded and logged through the shared progr
         },
         TelegramBotService: { async sendNotification() {} },
         checkAuthSessionValid: async () => ({ ok: true }),
-        formatActivityTargets: () => '',
-        recordUiActivity() {},
         async recordActivityLifecycle(input) { return input; }
     });
 

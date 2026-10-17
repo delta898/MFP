@@ -34,9 +34,7 @@ function getShoppingSortValue(item, key) {
     return Number(item.rowNumber || 0);
 }
 
-function createUiHelpersRuntime(deps = {}) {
-    const { recordDashboardActivity } = deps;
-
+function createUiHelpersRuntime() {
     function parseIntSafe(input, fallback = null, min = null) {
         const parsed = parseInt(input, 10);
         if (Number.isNaN(parsed)) return fallback;
@@ -47,24 +45,6 @@ function createUiHelpersRuntime(deps = {}) {
     function parseBoolQuery(input) {
         const value = String(input || '').trim().toLowerCase();
         return ['1', 'true', 'yes', 'y', 'on'].includes(value);
-    }
-
-    function formatActivityTargets(targets = []) {
-        return (Array.isArray(targets) ? targets : [])
-            .map((target) => {
-                if (target === 'naver') return '네이버 블로그';
-                if (target === 'wordpress') return '워드프레스';
-                if (target === 'shopping') return '쇼핑커넥트';
-                return String(target || '').trim();
-            })
-            .filter(Boolean)
-            .join(', ');
-    }
-
-    function recordUiActivity(input = {}) {
-        try {
-            recordDashboardActivity(input);
-        } catch (_error) { }
     }
 
     function normalizeSortDir(input, fallback = 'desc') {
@@ -103,11 +83,9 @@ function createUiHelpersRuntime(deps = {}) {
     }
 
     return {
-        formatActivityTargets,
         normalizeSortDir,
         parseBoolQuery,
         parseIntSafe,
-        recordUiActivity,
         sortShoppingItems,
         sortTopicItems
     };

@@ -33,7 +33,6 @@ const {
     normalizeStoredModelProfiles,
     normalizeChatModelSource
 } = require('../../ai-model-config');
-const { recordDashboardActivity } = require('../../activity/dashboard-activity-store');
 const TelegramPairingService = require('../../telegram-pairing.service');
 const { isSnsAiMode } = require('../../services/sns/ai-policy');
 const DefaultModelConnectionTester = require('../../ai/model-connection-tester');
@@ -426,7 +425,6 @@ function createSettingsService(deps = {}) {
         styleReferenceAnalyzer,
         writingProfilePreviewService,
         blogWritingApplication,
-        dashboardActivityRecorder = recordDashboardActivity,
         ModelConnectionTester = DefaultModelConnectionTester,
         aiGateway = null
     } = deps;
@@ -753,12 +751,6 @@ function createSettingsService(deps = {}) {
             if (!CONFIG.content.card_news || typeof CONFIG.content.card_news !== 'object') CONFIG.content.card_news = {};
             CONFIG.content.card_news.builtin_sources = builtinSources;
             CONFIG.content.card_news.rss_sources = rssSources;
-            dashboardActivityRecorder({
-                category: 'settings',
-                type: 'card_news_sources_saved',
-                title: '카드뉴스 소스 적용',
-                detail: `기본 ${builtinSources.length}개 · RSS ${rssSources.length}개`
-            });
             return {
                 fields: {
                     CARD_NEWS_BUILTIN_SOURCES: builtinSources,
@@ -785,12 +777,6 @@ function createSettingsService(deps = {}) {
             if (!CONFIG.platforms || typeof CONFIG.platforms !== 'object') CONFIG.platforms = {};
             if (!CONFIG.platforms.naver || typeof CONFIG.platforms.naver !== 'object') CONFIG.platforms.naver = {};
             CONFIG.platforms.naver.typing_speed = fields.TYPING_SPEED;
-            dashboardActivityRecorder({
-                category: 'settings',
-                type: 'app_input_saved',
-                title: '네이버 입력 속도 적용',
-                detail: fields.TYPING_SPEED
-            });
             return { fields, message: '네이버 입력 속도를 적용했습니다.' };
         },
 
@@ -818,12 +804,6 @@ function createSettingsService(deps = {}) {
             CONFIG.general.listen_port = fields.LISTEN_PORT;
             const requiresRestart = fields.LISTEN_HOST !== previousHost || fields.LISTEN_PORT !== previousPort;
             if (requiresRestart) scheduleUiReload(fields.LISTEN_HOST, fields.LISTEN_PORT);
-            dashboardActivityRecorder({
-                category: 'settings',
-                type: 'app_general_saved',
-                title: '앱 접속 설정 적용',
-                detail: `${fields.LISTEN_HOST}:${fields.LISTEN_PORT}`
-            });
             return {
                 fields,
                 requiresRestart,
@@ -999,7 +979,6 @@ function createSettingsService(deps = {}) {
                     console.error('Failed to apply Telegram runtime settings:', error);
                 }
             }
-            dashboardActivityRecorder({ category: 'settings', type: 'optional_service_saved', title: '부가 서비스 설정 반영 완료', detail: normalized.scope });
             return { scope: normalized.scope, ...(await this.getOptionalServiceSettings()) };
         },
 
@@ -1091,12 +1070,6 @@ function createSettingsService(deps = {}) {
             CONFIG.CONFIG_SOURCE_PATH = writablePath;
             CONFIG.CONFIG_ERROR_MESSAGE = '';
 
-            dashboardActivityRecorder({
-                category: 'settings',
-                type: 'core_connection_saved',
-                title: '기본 연결 설정 저장 완료',
-                detail: normalized.scope
-            });
             return {
                 scope: normalized.scope,
                 message: '기본 연결 설정을 저장했습니다.',
@@ -1182,20 +1155,6 @@ function createSettingsService(deps = {}) {
             const modelName = String(savedModel?.name || savedModel?.code || '모델 미지정').trim();
             const provider = String(savedModel?.provider || 'unknown').trim();
             const modelCode = String(savedModel?.code || '').trim();
-            dashboardActivityRecorder({
-                category: 'settings',
-                type: 'ai_model_role_saved',
-                title: 'AI 모델 역할 반영',
-                detail: `${roleLabel}: ${modelName}${modelCode && modelCode !== modelName ? ` (${modelCode})` : ''} · ${provider}`,
-                meta: {
-                    scope: normalized.scope,
-                    source: normalized.scope === 'chat' ? chatSource : 'dedicated',
-                    provider,
-                    model_name: modelName,
-                    model_code: modelCode,
-                    transport: String(savedModel?.transport || '').trim()
-                }
-            });
             return { scope: normalized.scope, ...(await this.getAiRoleSettings()) };
         },
 
@@ -1585,22 +1544,7 @@ function createSettingsService(deps = {}) {
             const remoteMcpStatus = typeof getRemoteServiceStatus === 'function'
                 ? getRemoteServiceStatus()
                 : null;
-            const detailParts = [];
-            if (requiresRestart) {
-                detailParts.push(`UI 서버 재시작 예정: ${fields.LISTEN_HOST}:${normalizeListenPort(fields.LISTEN_PORT, DEFAULT_PORT)}`);
-            }
-            if (telegramSettingsChanged) {
-                detailParts.push(`텔레그램 ${fields.NOTIFY_TELEGRAM_ENABLED ? '재적용' : '비활성화'}`);
-            }
-            if (mcpSettingsChanged) {
-                detailParts.push(`MCP ${fields.MCP_REMOTE_ENABLED ? '적용' : '비활성화'}`);
-            }
-            recordDashboardActivity({
-                category: 'settings',
-                type: 'major_settings_saved',
-                title: '설정 저장 완료',
-                detail: detailParts.join(' · ') || '주요 설정이 저장되었습니다.'
-            });
+
 
             return {
                 requiresRestart,
@@ -1741,12 +1685,6 @@ function createSettingsService(deps = {}) {
             CONFIG.CONFIG_SOURCE_PATH = writablePath;
             CONFIG.CONFIG_ERROR_MESSAGE = '';
             const revision = createConfigRevision(content);
-            recordDashboardActivity({
-                category: 'settings',
-                type: 'advanced_settings_saved',
-                title: '고급 설정 저장 완료',
-                detail: path.basename(writablePath)
-            });
             return {
                 configPath: writablePath,
                 configSourceType: 'config',

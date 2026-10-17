@@ -39,8 +39,6 @@ function createPublishActionsRuntime(deps = {}) {
         buildLocalMarkdownPreview,
         materializeSelectedFilesToWorkspace,
         appendRelatedPostsToPastedMarkdown,
-        formatActivityTargets,
-        recordUiActivity,
         getContentType,
         normalizeKeywords,
         normalizeBool,
@@ -417,24 +415,8 @@ function createPublishActionsRuntime(deps = {}) {
         };
         const imageGenerationFinal = context.imageOptions?.generate === true;
         const subjectLabel = String(results.finalSubject || context.subject || '').trim() || '제목 미지정';
-        const targetLabel = formatActivityTargets(targets);
-        const publishLabel = context.postStatus === 'draft'
-            ? '임시 저장'
-            : (context.postStatus === 'schedule' ? '예약 포스팅' : '포스팅');
-
         let quotaReserved = false;
         try {
-            recordUiActivity({
-                category: 'publish',
-                type: 'blog_publish_started',
-                title: `${publishLabel} 시작`,
-                detail: `${subjectLabel}${targetLabel ? ` · ${targetLabel}` : ''}`,
-                meta: {
-                    source: options.source || 'blog',
-                    postStatus: context.postStatus || 'publish',
-                    targets: Array.isArray(targets) ? targets.slice() : []
-                }
-            });
             emitProgress('라이선스 사용량 예약 중...');
             const reservation = await reserveQuota(operationId, {
                 source: options.source || 'blog',
@@ -510,20 +492,6 @@ function createPublishActionsRuntime(deps = {}) {
                 postStatus: context.postStatus || 'publish',
                 results
             });
-            const failedTargets = targets.filter((target) => results?.[target]?.success === false);
-            recordUiActivity({
-                category: 'publish',
-                type: failedTargets.length > 0 ? 'blog_publish_completed_with_failures' : 'blog_publish_completed',
-                level: failedTargets.length > 0 ? 'warn' : 'info',
-                title: failedTargets.length > 0 ? `${publishLabel} 일부 실패` : `${publishLabel} 완료`,
-                detail: `${subjectLabel}${targetLabel ? ` · ${targetLabel}` : ''}`,
-                meta: {
-                    source: options.source || 'blog',
-                    postStatus: context.postStatus || 'publish',
-                    targets: Array.isArray(targets) ? targets.slice() : [],
-                    failedTargets
-                }
-            });
             return {
                 success: hasSuccessfulPlatformResult(results),
                 results,
@@ -535,18 +503,6 @@ function createPublishActionsRuntime(deps = {}) {
                 await settleQuota(operationId, results, { error: error.message });
             }
             Logger.error(`❌ [CommonPublish] 오류: ${error.message}`);
-            recordUiActivity({
-                category: 'publish',
-                type: 'blog_publish_failed',
-                level: 'error',
-                title: `${publishLabel} 실패`,
-                detail: `${subjectLabel}${targetLabel ? ` · ${targetLabel}` : ''}${error.message ? ` · ${error.message}` : ''}`,
-                meta: {
-                    source: options.source || 'blog',
-                    postStatus: context.postStatus || 'publish',
-                    targets: Array.isArray(targets) ? targets.slice() : []
-                }
-            });
             return { success: false, code: error.code || 'PUBLISH_FAILED', message: error.message, results, operationId };
         }
     }
@@ -1093,19 +1049,6 @@ function createPublishActionsRuntime(deps = {}) {
                 if (Number.isInteger(rowIndex)) {
                     await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', generated.message || '생성 실패');
                 }
-                recordUiActivity({
-                    category: 'publish',
-                    type: 'quick_preview_generate_failed',
-                    level: 'error',
-                    title: '빠른 포스팅 미리보기 생성 실패',
-                    detail: generated.message || finalSubject,
-                    meta: {
-                        provider: String(CONFIG.TEXT_MODEL_CONFIG?.provider || '').trim(),
-                        model_name: String(CONFIG.TEXT_MODEL_CONFIG?.name || '').trim(),
-                        model_code: String(CONFIG.TEXT_MODEL_CONFIG?.code || '').trim(),
-                        transport: String(CONFIG.TEXT_MODEL_CONFIG?.transport || '').trim()
-                    }
-                });
                 if (!workspaceDraft) {
                     setQuickPublishRecentEntry(dedupeKey, {
                         rowNumber,
@@ -1203,12 +1146,6 @@ function createPublishActionsRuntime(deps = {}) {
                 await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', `생성 완료 (${primaryTarget}): ${path.basename(primaryTargetDir)}`);
             }
 
-            recordUiActivity({
-                category: 'publish',
-                type: 'quick_preview_generated',
-                title: '빠른 포스팅 미리보기 생성 완료',
-                detail: `${finalSubject} · ${formatActivityTargets(targets)}`
-            });
 
             return {
                 success: true,
@@ -1415,11 +1352,6 @@ function createPublishActionsRuntime(deps = {}) {
         const sourceLabel = hasPastedMarkdown
             ? '붙여넣은 원고'
             : (String(requestBody?.folderName || '').trim() || '원고 폴더');
-        const targetLabel = formatActivityTargets(targets);
-        const publishLabel = postStatus === 'draft'
-            ? '임시 저장'
-            : (postStatus === 'schedule' ? '예약 포스팅' : '포스팅');
-
         let effectiveMarkdownText = imageMode === 'none'
             ? stripBlogImagePromptBlocks(markdownText)
             : markdownText;
@@ -1522,17 +1454,6 @@ function createPublishActionsRuntime(deps = {}) {
                 source: sourceType,
                 targets,
                 entityRef: previewData?.source?.fileName || operationId
-            });
-            recordUiActivity({
-                category: 'publish',
-                type: 'local_markdown_publish_started',
-                title: `원고 ${publishLabel} 시작`,
-                detail: `${sourceLabel}${targetLabel ? ` · ${targetLabel}` : ''}`,
-                meta: {
-                    source: sourceType,
-                    postStatus,
-                    targets: Array.isArray(targets) ? targets.slice() : []
-                }
             });
             workspace = materializeSelectedFilesToWorkspace({
                 selectedFiles: effectiveSelectedFiles,
@@ -1640,18 +1561,6 @@ function createPublishActionsRuntime(deps = {}) {
                 .map(([platform, value]) => `${platform}: ${value.message || '실패'}`);
 
             if (failedTargets.length > 0) {
-                recordUiActivity({
-                    category: 'publish',
-                    type: 'local_markdown_publish_failed',
-                    level: 'error',
-                    title: `원고 ${publishLabel} 실패`,
-                    detail: `${sourceLabel}${targetLabel ? ` · ${targetLabel}` : ''} · ${failedTargets.join(' / ')}`,
-                    meta: {
-                        source: sourceType,
-                        postStatus,
-                        targets: Array.isArray(targets) ? targets.slice() : []
-                    }
-                });
                 return {
                     success: false,
                     code: 'LOCAL_MARKDOWN_PUBLISH_FAILED',
@@ -1674,23 +1583,6 @@ function createPublishActionsRuntime(deps = {}) {
             const safetyAdjustedTargets = Object.entries(results)
                 .filter(([, result]) => result?.success && result.status === 'draft' && postStatus !== 'draft')
                 .map(([target]) => target);
-            const wordpressImageUploadFailures = (results.wordpress?.warnings || [])
-                .filter((warning) => /^이미지 \d+번 업로드 실패$/.test(warning)).length;
-            const completionDetail = `${sourceLabel}${targetLabel ? ` · ${targetLabel}` : ''}${wordpressImageUploadFailures > 0
-                ? ` · 이미지 ${wordpressImageUploadFailures}개 업로드 실패`
-                : ''}`;
-            recordUiActivity({
-                category: 'publish',
-                type: 'local_markdown_publish_completed',
-                title: `원고 ${publishLabel} 완료`,
-                detail: completionDetail,
-                meta: {
-                    source: sourceType,
-                    postStatus,
-                    targets: Array.isArray(targets) ? targets.slice() : [],
-                    ...(wordpressImageUploadFailures > 0 ? { wordpressImageUploadFailures } : {})
-                }
-            });
             return {
                 success: true,
                 data: {
@@ -1713,29 +1605,9 @@ function createPublishActionsRuntime(deps = {}) {
             }
             if (signal?.aborted || error.code === 'BLOG_NEXT_EXECUTION_STOPPED') {
                 const message = '블로그 포스팅을 중지했습니다. 이미 처리된 업로드·발행은 되돌리지 않습니다.';
-                recordUiActivity({
-                    category: 'publish',
-                    type: 'local_markdown_publish_stopped',
-                    level: 'warning',
-                    title: `원고 ${publishLabel} 중지`,
-                    detail: `${sourceLabel}${targetLabel ? ` · ${targetLabel}` : ''} · ${message}`,
-                    meta: { source: sourceType, postStatus, targets: targets.slice() }
-                });
                 return { success: false, code: 'BLOG_NEXT_EXECUTION_STOPPED', message };
             }
             Logger.error(`❌ [LocalMarkdownPublish] 오류: ${error.message}`);
-            recordUiActivity({
-                category: 'publish',
-                type: 'local_markdown_publish_failed',
-                level: 'error',
-                title: `원고 ${publishLabel} 실패`,
-                detail: `${sourceLabel}${targetLabel ? ` · ${targetLabel}` : ''}${error.message ? ` · ${error.message}` : ''}`,
-                meta: {
-                    source: sourceType,
-                    postStatus,
-                    targets: Array.isArray(targets) ? targets.slice() : []
-                }
-            });
             return { success: false, code: 'LOCAL_MARKDOWN_PUBLISH_FAILED', message: error.message || '원고 포스팅에 실패했습니다.' };
         } finally {
             if (workspace?.tempDir) {
@@ -1800,8 +1672,6 @@ function createPublishActionsRuntime(deps = {}) {
 
         await Utils.ensureAllSheetsExist();
         const appendStatus = publishMode === 'append_and_publish' ? '발행 준비 완료' : '준비';
-        const targetLabel = formatActivityTargets(targets);
-        const productLabel = product || shortUrl || '쇼핑 포스팅';
         const naverCategory = String(requestBody?.naverCategory || '').trim();
         const wordpressCategory = String(requestBody?.wordpressCategory || requestBody?.category || '').trim();
         let categoryField = '';
@@ -1882,31 +1752,7 @@ function createPublishActionsRuntime(deps = {}) {
         );
 
         if (!result.success) {
-            recordUiActivity({
-                category: 'publish',
-                type: 'shopping_publish_failed',
-                level: 'error',
-                title: '쇼핑 포스팅 실패',
-                detail: `${productLabel}${targetLabel ? ` · ${targetLabel}` : ''}${result.message ? ` · ${result.message}` : ''}`,
-                meta: {
-                    source: 'shopping_quick',
-                    targets: Array.isArray(targets) ? targets.slice() : []
-                }
-            });
             return result;
-        }
-
-        if (publishMode === 'append_and_publish') {
-            recordUiActivity({
-                category: 'publish',
-                type: 'shopping_publish_completed',
-                title: '쇼핑 포스팅 완료',
-                detail: `${productLabel}${targetLabel ? ` · ${targetLabel}` : ''}`,
-                meta: {
-                    source: 'shopping_quick',
-                    targets: Array.isArray(targets) ? targets.slice() : []
-                }
-            });
         }
 
         return {

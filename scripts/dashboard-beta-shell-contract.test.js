@@ -12,7 +12,7 @@ function read(relativePath) {
 test('Dashboard Beta uses its own current view and controller', () => {
     const index = read('ui/index.html');
     const betaView = read('ui/partials/views/dashboard-beta.html');
-    const betaScript = read('ui/scripts/features/shell/dashboard-beta.js');
+    const betaScript = read('ui/scripts/features/dashboard/dashboard-beta.js');
 
     assert.match(index, /class="nav-btn active" data-view="dashboard-beta"/);
     assert.match(index, /data-view="dashboard-beta"[\s\S]*?<span class="nav-label">대시보드<\/span>/);
@@ -26,7 +26,7 @@ test('Dashboard Beta uses its own current view and controller', () => {
 });
 
 test('Dashboard Beta loads independent readiness, operations, and result stats read models', () => {
-    const betaScript = read('ui/scripts/features/shell/dashboard-beta.js');
+    const betaScript = read('ui/scripts/features/dashboard/dashboard-beta.js');
     const navigation = read('ui/scripts/foundation/navigation.js');
     const lifecycle = read('ui/scripts/foundation/lifecycle.js');
 
@@ -41,7 +41,7 @@ test('Dashboard Beta loads independent readiness, operations, and result stats r
 
 test('Dashboard guides incomplete setup inline and routes the next action to the exact setting', () => {
     const betaView = read('ui/partials/views/dashboard-beta.html');
-    const betaScript = read('ui/scripts/features/shell/dashboard-beta.js');
+    const betaScript = read('ui/scripts/features/dashboard/dashboard-beta.js');
     const betaStyle = read('ui/styles/features/dashboard-beta.css');
 
     assert.match(betaView, /id="dashboard-beta-onboarding"[^>]*hidden/);
@@ -76,7 +76,7 @@ test('Dashboard guides incomplete setup inline and routes the next action to the
 });
 
 test('Dashboard Beta channel chips expose brand icons, states, and publish-channel deep links', () => {
-    const betaScript = read('ui/scripts/features/shell/dashboard-beta.js');
+    const betaScript = read('ui/scripts/features/dashboard/dashboard-beta.js');
     const betaView = read('ui/partials/views/dashboard-beta.html');
     const betaStyle = read('ui/styles/features/dashboard-beta.css');
 
@@ -129,7 +129,7 @@ test('Dashboard Beta channel chips expose brand icons, states, and publish-chann
 
 test('Dashboard Beta distinguishes processed and public results across today and week', () => {
     const betaView = read('ui/partials/views/dashboard-beta.html');
-    const betaScript = read('ui/scripts/features/shell/dashboard-beta.js');
+    const betaScript = read('ui/scripts/features/dashboard/dashboard-beta.js');
 
     assert.match(betaView, /data-dashboard-beta-period="today"[^>]*>오늘/);
     assert.match(betaView, /data-dashboard-beta-period="week"[^>]*>이번 주/);
@@ -153,7 +153,7 @@ test('Dashboard Beta distinguishes processed and public results across today and
 
 test('Dashboard Beta presents flow state once through the shared status badge', () => {
     const betaView = read('ui/partials/views/dashboard-beta.html');
-    const betaScript = read('ui/scripts/features/shell/dashboard-beta.js');
+    const betaScript = read('ui/scripts/features/dashboard/dashboard-beta.js');
     const betaStyle = read('ui/styles/features/dashboard-beta.css');
 
     assert.match(betaView, /id="dashboard-beta-flow-badge" class="dashboard-beta-flow-badge ui-status-badge"/);
@@ -164,7 +164,7 @@ test('Dashboard Beta presents flow state once through the shared status badge', 
 
 test('Dashboard Beta exposes direct paths to queue and automation without legacy controls', () => {
     const betaView = read('ui/partials/views/dashboard-beta.html');
-    const betaScript = read('ui/scripts/features/shell/dashboard-beta.js');
+    const betaScript = read('ui/scripts/features/dashboard/dashboard-beta.js');
     const betaStyle = read('ui/styles/features/dashboard-beta.css');
     const betaResponsiveStyle = read('ui/styles/features/dashboard-beta-responsive.css');
 
@@ -208,7 +208,7 @@ test('Dashboard strengthens its visual hierarchy and the native File menu opens 
 
 test('Dashboard Beta restores the shared new discovery center without blocking operations', () => {
     const betaView = read('ui/partials/views/dashboard-beta.html');
-    const betaScript = read('ui/scripts/features/shell/dashboard-beta.js');
+    const betaScript = read('ui/scripts/features/dashboard/dashboard-beta.js');
     const centerScript = read('ui/scripts/features/recommendations/center.js');
 
     assert.match(betaView, /id="dashboard-beta-discovery"[^>]*data-recommendation-center/);
@@ -237,7 +237,7 @@ test('Blog Beta is the productized Blog destination on desktop and mobile', () =
 
 test('the productized Dashboard shows one remote BlogGenius tip and hides an empty region', () => {
     const betaView = read('ui/partials/views/dashboard-beta.html');
-    const betaScript = read('ui/scripts/features/shell/dashboard-beta.js');
+    const betaScript = read('ui/scripts/features/dashboard/dashboard-beta.js');
     const supportingScript = read('ui/scripts/features/shell/supporting-surfaces.js');
 
     assert.match(betaView, /id="dashboard-beta-tips-section"[^>]*hidden/);
@@ -256,7 +256,7 @@ test('the productized Dashboard shows one remote BlogGenius tip and hides an emp
 
 test('Dashboard Beta shows the remote support teaser rarely and suppresses it during priority work', () => {
     const betaView = read('ui/partials/views/dashboard-beta.html');
-    const betaScript = read('ui/scripts/features/shell/dashboard-beta.js');
+    const betaScript = read('ui/scripts/features/dashboard/dashboard-beta.js');
     const supportingScript = read('ui/scripts/features/shell/supporting-surfaces.js');
 
     assert.match(betaView, /id="dashboard-beta-support-teaser"[^>]*[\s\S]*?hidden>/);

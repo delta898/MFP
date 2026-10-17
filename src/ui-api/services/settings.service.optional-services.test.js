@@ -45,7 +45,6 @@ function createHarness(initial = {}, overrides = {}) {
     const service = createSettingsService({
         fs, path, CONFIG,
         resolveWritableConfigPath: () => configPath,
-        dashboardActivityRecorder: () => {},
         ...overrides
     });
     return { CONFIG, configPath, service };

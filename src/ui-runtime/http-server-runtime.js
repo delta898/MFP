@@ -27,7 +27,6 @@ function createUiHttpServerRuntime(deps = {}) {
         stopCardNewsRssIntake,
         startRecommendationDelivery,
         stopRecommendationDelivery,
-        recordUiActivity,
         handleGoogleOAuthCallback,
         initTelegramBotService,
         stopTelegramBotService
@@ -212,16 +211,6 @@ function createUiHttpServerRuntime(deps = {}) {
 
         const openHost = host === '0.0.0.0' ? '127.0.0.1' : host;
         Logger.info(`✅ UI 서버가 성공적으로 시작되었습니다: http://${openHost}:${boundPort}`);
-        try {
-            recordUiActivity({
-                category: 'system',
-                type: 'ui_server_started',
-                title: 'UI 서버 시작',
-                detail: `http://${openHost}:${boundPort}`
-            });
-        } catch (error) {
-            Logger.warn(`⚠️ [UI] 시작 활동 기록을 건너뜁니다: ${error.message}`);
-        }
 
         const startOptional = () => startOptionalServices({ safeMode });
         if (options.deferOptionalStartup !== true) await startOptional();
@@ -245,12 +234,6 @@ function createUiHttpServerRuntime(deps = {}) {
 
         const started = await startUiServer({ host: newHost, port: newPort });
         Logger.info(`✅ UI 서버 재시작 완료: http://${started.openHost}:${started.port}`);
-        recordUiActivity({
-            category: 'system',
-            type: 'ui_server_restarted',
-            title: 'UI 서버 재시작 완료',
-            detail: `http://${started.openHost}:${started.port}`
-        });
         return started;
     }
 

@@ -77,7 +77,6 @@ function createWindowsServerHarness(overrides = {}) {
         stopCardNewsRssIntake() { lifecycle.cardNewsStops += 1; },
         startRecommendationDelivery: null,
         stopRecommendationDelivery() {},
-        recordUiActivity() {},
         handleGoogleOAuthCallback: async () => false,
         initTelegramBotService: async () => { lifecycle.telegramStarts += 1; },
         stopTelegramBotService: async () => {}

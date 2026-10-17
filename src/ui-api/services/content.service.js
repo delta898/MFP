@@ -5,7 +5,6 @@ const {
     generatesBlogImages,
     stripBlogImagePromptBlocks
 } = require('../../content/blog-image-mode');
-const { recordDashboardActivity } = require('../../activity/dashboard-activity-store');
 const { isCommandEnabled, getEnableRelatedPostsAutoLink } = require('../../runtime-feature-flags');
 const { createNaverSmartCommentCollector } = require('../../naver/smart-comment-candidate-collector');
 const {
@@ -1188,28 +1187,7 @@ function createContentService(deps = {}) {
         },
 
         async previewLocalMarkdown(requestBody = {}) {
-            try {
-                const preview = buildLocalMarkdownPreviewPayload(requestBody);
-                recordDashboardActivity({
-                    category: 'publish',
-                    type: 'local_markdown_preview_generated',
-                    title: '원고 포스팅 미리보기 생성 완료',
-                    detail: [
-                        String(preview?.title || '').trim(),
-                        String(preview?.selectedMarkdown?.name || '').trim()
-                    ].filter(Boolean).join(' · ') || '원고 미리보기를 생성했습니다.'
-                });
-                return preview;
-            } catch (error) {
-                recordDashboardActivity({
-                    category: 'publish',
-                    type: 'local_markdown_preview_failed',
-                    level: 'error',
-                    title: '원고 포스팅 미리보기 생성 실패',
-                    detail: error.message || '원고 미리보기를 생성하지 못했습니다.'
-                });
-                throw error;
-            }
+            return buildLocalMarkdownPreviewPayload(requestBody);
         },
 
         async createFolderManuscriptDraft(requestBody = {}) {

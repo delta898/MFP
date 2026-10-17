@@ -12,7 +12,6 @@ function createAutoCycleRuntime(deps = {}) {
         SlackService,
         ensureSheetsReadyForUi,
         checkAuthSessionValid,
-        recordUiActivity,
         normalizeYmdToken,
         toBoolLike,
         parseCsvTokens,
@@ -423,12 +422,6 @@ function createAutoCycleRuntime(deps = {}) {
         if (!precheck.success) return { success: false, message: `라이선스 오류: ${precheck.message}` };
         const feedUrls = enabledConfigs.map((config) => String(config.url || '').trim()).filter(Boolean);
         Logger.info(`🚀 [AUTO][Producer] RSS 수집 시작 (Trigger: ${trigger}, Feeds: ${enabledConfigs.length}개)`);
-        recordUiActivity({
-            category: 'collection',
-            type: 'rss_collect_started',
-            title: 'RSS 수집 시작',
-            detail: `피드 ${enabledConfigs.length}개`
-        });
         if (feedUrls.length > 0) {
             Logger.info(`   📝 수집 대상 피드: ${feedUrls.join(', ')}`);
         } else if (isManual) {
@@ -532,12 +525,6 @@ function createAutoCycleRuntime(deps = {}) {
             } else {
                 Logger.info('ℹ️ [AUTO][Producer] RSS 수집 완료: 새로운 항목이 없습니다.');
             }
-            recordUiActivity({
-                category: 'collection',
-                type: 'rss_collect_completed',
-                title: 'RSS 수집 완료',
-                detail: `수집 ${totalRssCollected}건 · 토픽 추가 ${totalRssToTopics}건`
-            });
 
             return {
                 success: true,
@@ -548,13 +535,6 @@ function createAutoCycleRuntime(deps = {}) {
             };
         } catch (error) {
             Logger.error(`❌ [AUTO][Producer] RSS 수집 중 시스템 오류: ${error.message}`);
-            recordUiActivity({
-                category: 'collection',
-                type: 'rss_collect_failed',
-                level: 'error',
-                title: 'RSS 수집 실패',
-                detail: error.message || '알 수 없는 오류'
-            });
             return { success: false, message: `RSS 수집 실패: ${error.message}` };
         }
     }
@@ -568,18 +548,7 @@ function createAutoCycleRuntime(deps = {}) {
             };
         }
 
-        const result = await snsRssDiscovery.run(trigger);
-        const data = result?.data || {};
-        recordUiActivity({
-            category: 'collection',
-            type: result?.success ? 'sns_discovery_completed' : 'sns_discovery_skipped',
-            level: result?.success ? 'info' : 'warning',
-            title: result?.success ? 'SNS RSS 확인 완료' : 'SNS RSS 확인 건너뜀',
-            detail: result?.success
-                ? `신규 원문 ${Number(data.newEntryCount || 0)}건 · 채널별 행 ${Number(data.addedDeliveryCount || 0)}건`
-                : String(result?.message || '실행 조건을 충족하지 못했습니다.')
-        });
-        return result;
+        return snsRssDiscovery.run(trigger);
     }
 
     async function runSnsDistributionCycle(trigger = 'manual') {
@@ -591,18 +560,7 @@ function createAutoCycleRuntime(deps = {}) {
             };
         }
 
-        const result = await snsDistributionRunner.run(trigger);
-        const data = result?.data || {};
-        recordUiActivity({
-            category: 'publish',
-            type: result?.success ? 'sns_distribution_completed' : 'sns_distribution_failed',
-            level: result?.success ? 'info' : 'warning',
-            title: result?.success ? 'SNS 원문 글 발행 완료' : 'SNS 원문 글 발행 확인 필요',
-            detail: result?.code === 'SNS_DISTRIBUTION_EMPTY'
-                ? '발행 대기 중인 원문 글이 없습니다.'
-                : `성공 ${Number(data.completedCount || 0)}건 · 실패 ${Number(data.failedCount || 0)}건 · 건너뜀 ${Number(data.skippedCount || 0)}건`
-        });
-        return result;
+        return snsDistributionRunner.run(trigger);
     }
 
     async function runSnsAutomationCycle(trigger = 'auto') {
@@ -646,12 +604,6 @@ function createAutoCycleRuntime(deps = {}) {
         }
 
         Logger.info(`🚀 [AUTO][Consumer] 자동 발행 시작 (Trigger: ${trigger})`);
-        recordUiActivity({
-            category: 'publish',
-            type: 'auto_publish_started',
-            title: '자동 포스팅 시작',
-            detail: String(trigger || '').trim() || 'manual'
-        });
 
         try {
             const topicsRes = await Utils.readGoogleSheetTopicsAll({
@@ -737,13 +689,6 @@ function createAutoCycleRuntime(deps = {}) {
             const finalFailCount = Number(blogResult?.data?.failCount || 0);
 
             Logger.info(`✅ [AUTO][Consumer] 자동 발행 완료: 성공 ${finalSuccessCount}건, 실패 ${finalFailCount}건`);
-            recordUiActivity({
-                category: 'publish',
-                type: finalFailCount > 0 ? 'auto_publish_completed_with_failures' : 'auto_publish_completed',
-                level: finalFailCount > 0 ? 'warn' : 'info',
-                title: finalFailCount > 0 ? '자동 포스팅 일부 실패' : '자동 포스팅 완료',
-                detail: `성공 ${finalSuccessCount}건 · 실패 ${finalFailCount}건`
-            });
 
             const shouldSendSummary = (successCount + failCount) > 1 || failCount > 0;
 
@@ -804,13 +749,6 @@ function createAutoCycleRuntime(deps = {}) {
             };
         } catch (error) {
             Logger.error(`❌ [AUTO][Consumer] 자동 발행 실패: ${error.message}`);
-            recordUiActivity({
-                category: 'publish',
-                type: 'auto_publish_failed',
-                level: 'error',
-                title: '자동 포스팅 실패',
-                detail: error.message || '알 수 없는 오류'
-            });
             return { success: false, message: `자동 발행 실행 오류: ${error.message}` };
         }
     }
