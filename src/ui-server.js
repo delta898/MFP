@@ -6,7 +6,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 
 const License = require('./license');
-const TelegramService = require('./telegram-service');
+const TelegramService = require('./adapters/messaging/telegram/service');
 const SlackService = require('./slack-service');
 const { createUrlShorteningSystem } = require('./composition/url-shortening');
 const { APP_VERSION } = require('./constants');

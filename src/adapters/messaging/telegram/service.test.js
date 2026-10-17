@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const axios = require('axios');
-const TelegramService = require('./telegram-service');
+const TelegramService = require('./service');
 
 test('Telegram connection failures provide safe corrective guidance', async () => {
     const originalPost = axios.post;

@@ -1,11 +1,11 @@
 const axios = require('axios');
-const Logger = require('./utilities/logging/logger');
+const Logger = require('../../../utilities/logging/logger');
 const {
     createTelegramIpv4Agent,
     describeTelegramError,
     formatTelegramDiagnostic,
     shouldRetryTelegramWithIpv4
-} = require('./adapters/messaging/telegram/network-policy');
+} = require('./network-policy');
 
 /**
  * 텔레그램 알림 서비스
