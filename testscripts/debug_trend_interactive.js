@@ -1,6 +1,6 @@
 const path = require('path');
 const fs = require('fs');
-const { launchBrowser } = require('../src/browser-launcher'); // Import launchBrowser
+const { launchBrowser } = require('../src/utilities/browser/browser-launcher'); // Import launchBrowser
 const CONFIG = require('../src/config-loader');
 const Logger = require('../src/utilities/logging/logger');
 
@@ -11,7 +11,7 @@ const Logger = require('../src/utilities/logging/logger');
     const NAVER_ID = CONFIG.NAVER_ID;
     console.log(`\n👉 설정된 NAVER_ID: ${NAVER_ID}`);
 
-    // src/browser-launcher.js의 launchBrowser 사용 (환경 통일)
+    // shared browser utility의 launchBrowser 사용 (환경 통일)
     // 단, 디버깅을 위해 headless: false 강제 적용을 위해 CONFIG를 잠시 조작하거나, 
     // launchBrowser가 인자를 받도록 수정하는게 좋겠지만, 
     // 여기서는 CONFIG를 런타임에 잠시 수정합니다.

@@ -1,4 +1,4 @@
-const { launchBrowser } = require('./browser-launcher');
+const { launchBrowser } = require('./utilities/browser/browser-launcher');
 const { persistAuthSessionState } = require('./auth-session');
 const CONFIG = require('./config-loader');
 const Logger = require('./utilities/logging/logger');

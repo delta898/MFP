@@ -1,6 +1,6 @@
-// src/browser-launcher.js
+// src/utilities/browser/browser-launcher.js
 // 💡 config-loader를 통해 config/config.json 값을 로딩합니다.
-const CONFIG = require('./config-loader');
+const CONFIG = require('../../config-loader');
 
 const DEFAULT_BROWSER_ARGS = ['--no-sandbox', '--disable-setuid-sandbox'];
 

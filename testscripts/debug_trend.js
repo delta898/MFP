@@ -1,7 +1,7 @@
 
 const path = require('path');
 const fs = require('fs');
-const { launchBrowser } = require('../src/browser-launcher');
+const { launchBrowser } = require('../src/utilities/browser/browser-launcher');
 const CONFIG = require('../src/config-loader');
 const Logger = require('../src/utilities/logging/logger');
 

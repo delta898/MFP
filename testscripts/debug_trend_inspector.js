@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const BrowserLauncher = require('../src/browser-launcher');
+const BrowserLauncher = require('../src/utilities/browser/browser-launcher');
 const CONFIG = require('../src/config-loader');
 
 (async () => {

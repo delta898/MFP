@@ -38,7 +38,7 @@ business sequencing, persistence, or the actual screen rendering. Existing
 `src/ui-api/` and `src/ui-runtime/` remain legacy UI/API infrastructure and may
 call narrow adapters during gradual migration.
 
-`src/services/<domain>/` is reserved for capabilities/contracts reused across multiple Applications. It is not the place for an application's top-level service layer. Shared media operations, including optional native image-processing module loading, live under `src/utilities/media/`; shared logging mechanics and runtime log-path behavior live under `src/utilities/logging/`. The Blog Application owns publication choices such as target image format; the media utility performs the requested conversion. Provider/platform Plugins remain independently bounded under `packages/plugins/core/`.
+`src/services/<domain>/` is reserved for capabilities/contracts reused across multiple Applications. It is not the place for an application's top-level service layer. Shared technical operations live under `src/utilities/<capability>/`: media operations and optional native image-processing loading in `media/`, logging mechanics and runtime log paths in `logging/`, and local Playwright browser startup/options in `browser/`. These utilities do not own product or provider authentication workflows. The Blog Application owns publication choices such as target image format; the media utility performs the requested conversion. Provider/platform Plugins remain independently bounded under `packages/plugins/core/`.
 
 ## Ownership rules
 
