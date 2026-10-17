@@ -1,6 +1,6 @@
 const { TelegramBot } = require('node-telegram-bot-api');
 const CONFIG = require('./config-loader');
-const Logger = require('./logger');
+const Logger = require('./utilities/logging/logger');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');

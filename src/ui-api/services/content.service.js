@@ -1672,7 +1672,7 @@ function createContentService(deps = {}) {
                 Logger?.info?.('[Blog Beta][Publishing] WordPress categories.list 요청');
                 return blogPublishingApplication.listWordPressCategories();
             }
-            const Logger = require('../../logger');
+            const Logger = require('../../utilities/logging/logger');
             const WordPressClient = require('../../wordpress-client');
 
             // config 파일에서 최신값을 직접 읽어 사용 (메모리 캐시 우회)

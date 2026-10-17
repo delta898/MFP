@@ -12,7 +12,7 @@ const UrlService = require('./url-service');
 const { createDefaultUrlShorteningService } = require('./url-shortening-service');
 const { APP_VERSION } = require('./constants');
 const CONFIG = require('./config-loader');
-const Logger = require('./logger');
+const Logger = require('./utilities/logging/logger');
 const urlShorteningService = createDefaultUrlShorteningService({ CONFIG, urlService: UrlService, logger: Logger });
 const GoogleOAuth = require('./google-oauth');
 Logger.debug(`Application version: ${APP_VERSION}`);

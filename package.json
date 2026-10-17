@@ -64,7 +64,6 @@
       "src/keyword-manager.js",
       "src/trend-manager.js",
       "src/shopping-manager.js",
-      "src/logger.js",
       "src/constants.js",
       "src/auth-session.js",
       "src/ui-server.js",

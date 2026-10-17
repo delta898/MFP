@@ -1,5 +1,5 @@
 const axios = require('axios');
-const Logger = require('./logger');
+const Logger = require('./utilities/logging/logger');
 
 /**
  * WordPress REST API Client

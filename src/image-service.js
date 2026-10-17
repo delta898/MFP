@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const Logger = require('./logger');
+const Logger = require('./utilities/logging/logger');
 const { loadSharp } = require('./utilities/media/sharp-loader');
 const { createImageOptimizationService } = require('./utilities/media/image-optimization-service');
 

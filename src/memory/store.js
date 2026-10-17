@@ -1,4 +1,4 @@
-const Logger = require('../logger');
+const Logger = require('../utilities/logging/logger');
 const CONFIG = require('../config-loader');
 const { createVolatileRecommendationStore } = require('../recommendations/lifecycle-store');
 const { SQLiteEventStore } = require('./sqlite-event-store');

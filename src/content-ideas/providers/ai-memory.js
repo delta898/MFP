@@ -1,5 +1,5 @@
 const Utils = require('../../utils');
-const Logger = require('../../logger');
+const Logger = require('../../utilities/logging/logger');
 
 function stripCodeFence(raw) {
     return String(raw || '')

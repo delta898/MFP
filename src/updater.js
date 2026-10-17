@@ -4,7 +4,7 @@ const axios = require('axios');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
 const CONFIG = require('./config-loader');
-const Logger = require('./logger');
+const Logger = require('./utilities/logging/logger');
 const { APP_VERSION } = require('./constants');
 
 /**

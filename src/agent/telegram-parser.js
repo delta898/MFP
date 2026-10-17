@@ -227,7 +227,7 @@ function normalizeLegacyActions(actions) {
 async function routeTelegramMessage(messageText, context = {}) {
     const conversationId = String(context.conversationId || '').trim();
     const messageId = String(context.messageId || '').trim();
-    const logger = context.logger || require('../logger');
+    const logger = context.logger || require('../utilities/logging/logger');
     const utils = context.modelCaller ? null : require('../utils');
     const modelCaller = context.modelCaller || utils.callTelegramChatModel.bind(utils);
     const deterministic = tryParseDeterministicEnvelope(messageText, context);

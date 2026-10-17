@@ -4,7 +4,7 @@ const {
     createRecommendationRunId,
     buildRecommendationContext
 } = require('../recommendations/topic-recommendation-learning');
-const Logger = require('../logger');
+const Logger = require('../utilities/logging/logger');
 
 function compactLog(value, maxLength = 180) {
     return String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, maxLength);

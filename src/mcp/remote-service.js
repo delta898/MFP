@@ -1,4 +1,4 @@
-const Logger = require('../logger');
+const Logger = require('../utilities/logging/logger');
 const CONFIG = require('../config-loader');
 const { startHttpMcpServer, resolveRemoteMcpConfig } = require('./http-server');
 const { ensureRuntimeRemoteMcpConfig } = require('./remote-config');

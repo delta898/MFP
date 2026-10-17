@@ -4,7 +4,7 @@ const path = require('path');
 const CONFIG = require('./config-loader');
 const BrowserLauncher = require('./browser-launcher');
 const Utils = require('./utils');
-const Logger = require('./logger');
+const Logger = require('./utilities/logging/logger');
 
 const NAVER_LOGIN_URL = 'https://nid.naver.com/nidlogin.login';
 const NAVER_DEFAULT_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';

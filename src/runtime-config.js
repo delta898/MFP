@@ -1,6 +1,6 @@
 const { createClient } = require('@supabase/supabase-js');
 const CONFIG = require('./config-loader');
-const Logger = require('./logger');
+const Logger = require('./utilities/logging/logger');
 const { resolveSupabasePublicConnection } = require('./environment/runtime-profile');
 
 const PUBLIC_RUNTIME_CONFIG_KEYS = Object.freeze([

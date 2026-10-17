@@ -2,7 +2,7 @@ const http = require('http');
 const crypto = require('crypto');
 
 const CONFIG = require('../config-loader');
-const Logger = require('../logger');
+const Logger = require('../utilities/logging/logger');
 const { createMcpPrototypeRuntime } = require('./runtime-factory');
 const { ensureRuntimeRemoteMcpConfig } = require('./remote-config');
 const {

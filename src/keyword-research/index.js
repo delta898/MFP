@@ -15,7 +15,7 @@ const { resolveSupabasePublicConnection } = require('../environment/runtime-prof
 function createKeywordResearchService(options = {}) {
     const config = options.CONFIG || require('../config-loader');
     const utils = options.Utils || require('../utils');
-    const logger = options.Logger || require('../logger');
+    const logger = options.Logger || require('../utilities/logging/logger');
 
     const titleGenerator = options.titleGenerator || createTitleGenerator({
         Utils: utils,

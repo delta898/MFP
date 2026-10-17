@@ -40,7 +40,7 @@ process.emitWarning = (warning, ...args) => {
 };
 
 const { spawn } = require('child_process');
-const Logger = require('../logger');
+const Logger = require('../utilities/logging/logger');
 const CONFIG = require('../config-loader');
 const { logRuntimeEnvironmentStatus } = require('../environment/runtime-profile');
 const { startUiServer } = require('../ui-server');

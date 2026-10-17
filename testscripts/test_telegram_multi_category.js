@@ -4,7 +4,7 @@
 const Core = require('../src/core');
 const TelegramBotService = require('../src/telegram-bot.service');
 const Utils = require('../src/utils');
-const Logger = require('../src/logger');
+const Logger = require('../src/utilities/logging/logger');
 
 async function test() {
     Logger.info("🧪 [Test] 텔레그램 멀티 카테고리 고도화 테스트 시작");

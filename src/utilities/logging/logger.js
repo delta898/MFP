@@ -1,8 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const moment = require('moment'); // 날짜 포맷팅용 (없으면 npm install moment)
-const CONFIG = require('./config-loader');
-const { resolveRuntimeLogDir } = require('./logging/runtime-log-path');
+const CONFIG = require('../../config-loader');
+const { resolveRuntimeLogDir } = require('./runtime-log-path');
 
 // 로그 레벨 정의 (숫자가 클수록 중요함)
 const LEVELS = {

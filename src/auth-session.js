@@ -3,7 +3,7 @@ const path = require('path');
 const CONFIG = require('./config-loader');
 const BrowserLauncher = require('./browser-launcher');
 const Utils = require('./utils');
-const Logger = require('./logger');
+const Logger = require('./utilities/logging/logger');
 const { NAVER_DEFAULT_USER_AGENT } = require('./naver-auth-flow');
 
 let cachedSession = null;

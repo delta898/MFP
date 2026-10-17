@@ -1,5 +1,5 @@
 const { getAgentEventStore } = require('./memory/store');
-const Logger = require('./logger');
+const Logger = require('./utilities/logging/logger');
 
 class InsightEngine {
     /**

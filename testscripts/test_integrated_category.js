@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const Core = require('../src/core');
 const Utils = require('../src/utils');
-const Logger = require('../src/logger');
+const Logger = require('../src/utilities/logging/logger');
 
 async function testIntegratedNaverFlow() {
     Logger.info("🚀 Naver Blog Integrated Category & Schedule Test Started");

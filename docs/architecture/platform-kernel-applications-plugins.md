@@ -146,6 +146,7 @@ src/
     <application-name>/         # Future product Applications follow the same grouping
   utilities/                    # Reusable technical behavior without product policy
     media/                      # Image/media transformation and format-level operations
+    logging/                    # Shared logging and runtime log-path behavior
   ...                           # Legacy areas migrate only as their boundary is redesigned
 
 packages/
@@ -166,7 +167,7 @@ The layer rules are mandatory for new code:
 - `composition/` selects concrete Plugins and injects host-owned services/configuration into an Application runtime. Product decisions stay in Applications.
 - `applications/<name>/` owns that product area's workflows and policies. For example, `applications/blog/` owns blog generation and publication coordination; target-specific image format policy belongs to publication, not the generic media utility or publisher Plugin.
 - App-specific top-level services also belong under `applications/<name>/`, grouped by real workflow/capability (for example `generation/`, `publishing/`, or `services/` where a distinct internal boundary exists). `src/services/<domain>/` is reserved for reusable contracts/capabilities shared across Applications; it is not a generic home for every product's service layer.
-- `utilities/<capability>/` owns reusable technical operations. `utilities/media/` performs requested image conversion but does not decide whether WordPress should use AVIF or Naver should use WebP.
+- `utilities/<capability>/` owns reusable technical operations. `utilities/media/` performs requested image conversion but does not decide whether WordPress should use AVIF or Naver should use WebP; `utilities/logging/` owns shared logging mechanics without product-specific policy.
 - `packages/plugins/core/` holds independent bundled Plugin implementations. Plugins follow manifest contracts and do not import BlogGenius-private Application modules.
 
 Do not add new Application business logic to legacy top-level product directories such as `src/card-news/` or `src/blog-next/` merely because an older caller lives there. Their To-Be Application homes are `src/applications/card-news/` and `src/applications/blog/`, respectively. SNS workflows have already moved under `src/applications/sns/`; shared social publishing rules, feed utilities, and external adapters are placed in their owning layers. This is a responsibility-based target, not a wholesale directory rename: UI/channel entrypoints, external-system adapters, and genuinely shared services/utilities belong in their own layers. Migrate existing files in scoped, coordinated slices: trace callers, classify each file, move it to its owning layer, and update imports/tests/docs together. Preserve existing external contracts unless an intentional contract change is in scope. When connecting legacy callers to a new boundary, add a small adapter or composition seam in the target layer. Do not create empty placeholder directories. Community Plugin scanning, trust, permissions, distribution, and isolation are future design work; the directory name above reserves no runtime contract.
