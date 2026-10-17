@@ -5,7 +5,7 @@
 - Branch: `codex/fbr/source-layer-reorganization`
 - Start date: 2026-10-17
 - Base/parent branch: `codex/fbr/plugin-architecture-foundation`
-- Status: Root inventory complete; logger slice in progress
+- Status: Root inventory and logger slice complete; ongoing reorganization continues on this parent branch
 
 ## User Need and Goal
 
@@ -66,6 +66,6 @@ Stages 2–4 may be reordered or split further based on the inventory and depend
 ## Verification and Remaining Work
 
 - The root ownership map is complete for direct-root files and tests. Host bootstrap passed focused automated checks and the user's manual Dashboard launch/exit check. The media-loader slice passed its focused tests and is integrated into this parent branch.
-- In progress: [logger ownership slice](2026-10-17-source-layer-logging-development.md) is ready to commit and merge from child branch `codex/fbr/source-layer-logging` into this parent.
-- Workflow decision (2026-10-17): after logger is integrated, continue all remaining source reorganization stages directly on `codex/fbr/source-layer-reorganization`, committing each completed stage there. Do not create further child feature branches for this effort.
+- 2026-10-17: Completed and merged the [shared logging layer migration](../archive/2026-10-17-source-layer-logging-development.md) from child `codex/fbr/source-layer-logging` at commit `95bac52c`. Logger, runtime log-path helper, and tests now live under `src/utilities/logging/`; focused verification passed (77/77).
+- Workflow decision (2026-10-17): continue all remaining source reorganization stages directly on `codex/fbr/source-layer-reorganization`, committing each completed stage there. Do not create further child feature branches for this effort.
 - Remaining: migrate root modules in small, reviewable stages, changing call paths and deleting legacy roots after verification. Consult the user at any product/data/compatibility boundary. Full unit suite remains a parent-to-`dev` gate and requires explicit user approval.
