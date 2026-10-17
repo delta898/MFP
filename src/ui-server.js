@@ -22,7 +22,7 @@ const TelegramBotService = require('./telegram-bot.service');
 const BrowserLauncher = require('./utilities/browser/browser-launcher');
 const TrendManager = require('./trend-manager');
 const ShoppingManager = require('./shopping-manager');
-const Updater = require('./updater');
+const Updater = require('./host/updater');
 const RuntimeConfig = require('./runtime-config');
 const { registerRuntimeHooks } = require('./runtime-hooks');
 const {
