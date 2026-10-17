@@ -3,11 +3,11 @@
 process.env.TZ = 'Asia/Seoul';
 process.env.NODE_NO_WARNINGS = '1';
 
-const { applyRuntimeNetworkPolicy } = require('./network/runtime-network-policy');
+const { applyRuntimeNetworkPolicy } = require('../network/runtime-network-policy');
 applyRuntimeNetworkPolicy();
 
 if (typeof process.versions.electron !== 'undefined' && process.argv.length <= 2) {
-    eval('require')('./gui/electron-main');
+    eval('require')('./electron/electron-main');
     return;
 }
 
@@ -40,11 +40,11 @@ process.emitWarning = (warning, ...args) => {
 };
 
 const { spawn } = require('child_process');
-const Logger = require('./logger');
-const CONFIG = require('./config-loader');
-const { logRuntimeEnvironmentStatus } = require('./environment/runtime-profile');
-const { startUiServer } = require('./ui-server');
-const { startRemoteMcpService, stopRemoteMcpService } = require('./mcp/remote-service');
+const Logger = require('../logger');
+const CONFIG = require('../config-loader');
+const { logRuntimeEnvironmentStatus } = require('../environment/runtime-profile');
+const { startUiServer } = require('../ui-server');
+const { startRemoteMcpService, stopRemoteMcpService } = require('../mcp/remote-service');
 
 logRuntimeEnvironmentStatus(Logger, CONFIG.RUNTIME_ENVIRONMENT_PROFILE);
 

@@ -9,7 +9,7 @@ const existingUserDataPath = path.join(app.getPath('appData'), 'blog-genius');
 app.setName('BlogGenius');
 app.setPath('userData', existingUserDataPath);
 
-const { applyRuntimeNetworkPolicy } = require('../network/runtime-network-policy');
+const { applyRuntimeNetworkPolicy } = require('../../network/runtime-network-policy');
 const { createStartupBootstrap } = require('./startup-bootstrap');
 const { buildSafeModeArgs, isSafeMode, isStartupProbe, isShortLivedCommand } = require('./startup-policy');
 
@@ -200,12 +200,12 @@ if (!primaryInstance) {
     // Portable 설정 및 전체 애플리케이션 그래프는 정상 모드에서만 로드합니다.
     const moduleLoadStartedAt = Date.now();
     startup.write('APPLICATION_MODULES_LOADING');
-    CONFIG = loadStartupModule('config-loader', () => require('../config-loader'));
+    CONFIG = loadStartupModule('config-loader', () => require('../../config-loader'));
     startup.write('CONFIG_LOADED', { rootDir: CONFIG.ROOT_DIR || '' });
-    ({ closeAgentMemory, startUiServer } = loadStartupModule('ui-server', () => require('../ui-server')));
-    ({ startRemoteMcpService, stopRemoteMcpService } = loadStartupModule('remote-mcp-service', () => require('../mcp/remote-service')));
-    Logger = loadStartupModule('logger', () => require('../logger'));
-    const { logRuntimeEnvironmentStatus } = loadStartupModule('runtime-profile', () => require('../environment/runtime-profile'));
+    ({ closeAgentMemory, startUiServer } = loadStartupModule('ui-server', () => require('../../ui-server')));
+    ({ startRemoteMcpService, stopRemoteMcpService } = loadStartupModule('remote-mcp-service', () => require('../../mcp/remote-service')));
+    Logger = loadStartupModule('logger', () => require('../../logger'));
+    const { logRuntimeEnvironmentStatus } = loadStartupModule('runtime-profile', () => require('../../environment/runtime-profile'));
     logRuntimeEnvironmentStatus(Logger, CONFIG.RUNTIME_ENVIRONMENT_PROFILE);
     startup.write('APPLICATION_MODULES_LOADED', { durationMs: Date.now() - moduleLoadStartedAt });
 }
@@ -503,7 +503,7 @@ async function createWindow() {
         }
     }
 
-    const iconPath = path.join(__dirname, '../../assets/icons/icon.png');
+    const iconPath = path.join(__dirname, '../../../assets/icons/icon.png');
     const nativeWindowTitle = process.platform === 'darwin' ? '' : 'BlogGenius';
 
     // 2. 브라우저 창 생성

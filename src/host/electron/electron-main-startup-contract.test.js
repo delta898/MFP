@@ -6,16 +6,16 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const source = fs.readFileSync(path.join(__dirname, 'electron-main.js'), 'utf8');
-const uiRoot = path.resolve(__dirname, '../../ui');
+const uiRoot = path.resolve(__dirname, '../../../ui');
 const uiIndex = fs.readFileSync(path.join(uiRoot, 'index.html'), 'utf8');
 const rendererGuard = fs.readFileSync(path.join(uiRoot, 'startup-guard.js'), 'utf8');
 const rendererLifecycle = fs.readFileSync(path.join(uiRoot, 'scripts/foundation/lifecycle.js'), 'utf8');
-const packageMetadata = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../package.json'), 'utf8'));
+const packageMetadata = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../package.json'), 'utf8'));
 
 test('bootstrap and fatal handlers are installed before the application graph loads', () => {
     const bootstrapIndex = source.indexOf("require('./startup-bootstrap')");
     const handlerIndex = source.indexOf("process.on('uncaughtException'");
-    const configIndex = source.indexOf("require('../config-loader')");
+    const configIndex = source.indexOf("require('../../config-loader')");
 
     assert.ok(bootstrapIndex >= 0);
     assert.ok(handlerIndex > bootstrapIndex);
@@ -34,9 +34,17 @@ test('sets the safeStorage app identity while preserving the existing userData p
     assert.equal(packageMetadata.name, 'blog-genius');
 });
 
+test('package and Node launchers point to the Host-owned entrypoints', () => {
+    const launcher = fs.readFileSync(path.resolve(__dirname, '../launcher.js'), 'utf8');
+    assert.equal(packageMetadata.main, 'src/host/electron/electron-main.js');
+    assert.match(packageMetadata.scripts.ui, /node src\/host\/launcher\.js/);
+    assert.ok(packageMetadata.pkg.scripts.includes('src/host/**/*.js'));
+    assert.match(launcher, /eval\('require'\)\('\.\/electron\/electron-main'\)/);
+});
+
 test('runtime network family policy is applied before the application graph loads', () => {
     const policyIndex = source.indexOf('applyRuntimeNetworkPolicy()');
-    const configIndex = source.indexOf("require('../config-loader')");
+    const configIndex = source.indexOf("require('../../config-loader')");
     assert.ok(policyIndex >= 0);
     assert.ok(configIndex > policyIndex);
     assert.match(source, /NETWORK_POLICY_READY/);
@@ -111,7 +119,7 @@ test('a second app launch focuses the primary window instead of creating a port-
 
 test('normal shutdown closes SQLite memory while safe mode keeps a no-op boundary', () => {
     assert.match(source, /closeAgentMemory = \(\) => \{\}/);
-    assert.match(source, /loadStartupModule\('ui-server', \(\) => require\('\.\.\/ui-server'\)\)/);
+    assert.match(source, /loadStartupModule\('ui-server', \(\) => require\('\.\.\/\.\.\/ui-server'\)\)/);
     assert.match(source, /app[.]on\('will-quit',[\s\S]{0,2000}closeAgentMemory[?][.]\(\)/);
     assert.match(source, /GUI: Shutdown active handles/);
     assert.match(source, /GUI: UI server closed\./);

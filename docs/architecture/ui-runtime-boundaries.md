@@ -1,12 +1,14 @@
 # UI Runtime Boundaries
 
 ## Purpose
-This document captures the current runtime boundaries after the CLI-removal refactor work. The UI/Electron path is the primary product surface, and shared business/runtime logic should live outside `src/main.js` and `src/ui-server.js`.
+This document captures the current runtime boundaries after the CLI-removal refactor work. The UI/Electron path is the primary product surface, and shared business/runtime logic should live outside the Host entrypoints and `src/ui-server.js`.
 
 ## Entry Points
-- `src/main.js`
+- `src/host/launcher.js`
   - Node-side UI launcher bootstrap.
   - Starts the web UI server and opens the browser when used outside Electron.
+- `src/host/electron/`
+  - Electron process startup, safe-mode recovery, diagnostics, and lifecycle.
 - `src/ui-server.js`
   - UI runtime composition root.
   - Wires shared runtimes, API handlers, and HTTP server lifecycle.
@@ -84,7 +86,7 @@ There is no user-facing CLI command surface anymore. Login, license, publishing,
 
 The desired direction is:
 
-`main/ui-server -> runtime modules -> services/utils/core`
+`host entrypoints -> ui-server/runtime modules -> services and Applications`
 
 Not:
 

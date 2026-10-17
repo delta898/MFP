@@ -190,7 +190,7 @@ test('Dashboard strengthens its visual hierarchy and the native File menu opens 
     const betaView = read('ui/partials/views/dashboard-beta.html');
     const betaStyle = read('ui/styles/features/dashboard-beta.css');
     const navigation = read('ui/scripts/foundation/navigation.js');
-    const electronMain = read('src/gui/electron-main.js');
+    const electronMain = read('src/host/electron/electron-main.js');
 
     assert.match(betaView, /class="view-title-block dashboard-beta-hero"/);
     assert.doesNotMatch(betaView, /dashboard-beta-quick-create|data-dashboard-beta-action="quick-create"/);

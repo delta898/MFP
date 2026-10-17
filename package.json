@@ -3,7 +3,7 @@
   "productName": "BlogGenius",
   "version": "0.6.1",
   "description": "Google Gemini AI 기반 네이버 블로그 자동 포스팅 솔루션",
-  "main": "src/gui/electron-main.js",
+  "main": "src/host/electron/electron-main.js",
   "scripts": {
     "start": "electron .",
     "editor:prototype": "vite --config prototypes/manuscript-editor/vite.config.mjs --host 127.0.0.1",
@@ -14,7 +14,7 @@
     "app:development": "node scripts/app-environment-launcher.js development",
     "app:production": "node scripts/production-app-launcher.js",
     "env:status": "node scripts/environment-status.js",
-    "ui": "node src/main.js",
+    "ui": "node src/host/launcher.js",
     "test:ui-blog-auto": "node scripts/test-ui-blog-auto.js",
     "test:ui-settings": "node scripts/test-ui-settings.js",
     "test:ui-e2e": "node scripts/test-ui-e2e.js",
@@ -55,7 +55,7 @@
   },
   "pkg": {
     "scripts": [
-      "src/main.js",
+      "src/host/**/*.js",
       "src/config-loader.js",
       "src/license.js",
       "src/core.js",
