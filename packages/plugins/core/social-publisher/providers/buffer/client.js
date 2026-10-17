@@ -9,6 +9,7 @@ class BufferApiError extends Error {
         this.code = String(options.code || 'BUFFER_API_ERROR');
         this.status = Number(options.status) || 0;
         this.details = options.details || null;
+        this.retryable = options.retryable === undefined ? isTransientBufferError(this) : options.retryable === true;
     }
 }
 
@@ -311,46 +312,29 @@ class BufferClient {
             .map((value) => String(value || '').trim())
             .filter(Boolean))];
         if (normalizedIds.length === 0) return [];
-        if (normalizedIds.length > 3) {
-            throw new BufferApiError('Buffer 게시물 상태는 한 번에 최대 3개까지 확인합니다.', {
-                code: 'BUFFER_POST_QUERY_LIMIT_EXCEEDED'
-            });
-        }
-
-        const variableDefinitions = normalizedIds
-            .map((_, index) => `$input${index}: PostInput!`)
-            .join(', ');
-        const queryFields = normalizedIds
-            .map((_, index) => `
-                post${index}: post(input: $input${index}) {
-                    id
-                    channelId
-                    text
-                    status
-                    createdAt
-                    sentAt
-                    externalLink
-                    error {
-                        message
-                        supportUrl
+        const posts = [];
+        for (const postId of normalizedIds) {
+            const data = await this.request(apiKey, `
+                query GetPostById($input: PostInput!) {
+                    post(input: $input) {
+                        id
+                        channelId
+                        text
+                        status
+                        createdAt
+                        sentAt
+                        externalLink
+                        error {
+                            message
+                            supportUrl
+                        }
                     }
                 }
-            `)
-            .join('\n');
-        const variables = {};
-        normalizedIds.forEach((postId, index) => {
-            variables[`input${index}`] = { id: postId };
-        });
-
-        const data = await this.request(apiKey, `
-            query GetPostsByIds(${variableDefinitions}) {
-                ${queryFields}
-            }
-        `, variables);
-
-        return normalizedIds
-            .map((_, index) => normalizePost(data?.[`post${index}`]))
-            .filter((post) => post.id);
+            `, { input: { id: postId } });
+            const post = normalizePost(data?.post);
+            if (post.id) posts.push(post);
+        }
+        return posts;
     }
 
     async shareNowMany(apiKey, deliveries = []) {
@@ -359,74 +343,59 @@ class BufferClient {
         if (normalized.length === 0) {
             return [];
         }
-        if (normalized.length > 3) {
-            throw new BufferApiError('Buffer 즉시 발행은 한 원문당 최대 3개 채널까지 지원합니다.', {
-                code: 'BUFFER_CHANNEL_LIMIT_EXCEEDED'
-            });
-        }
 
-        const variableDefinitions = normalized
-            .map((_, index) => `$input${index}: CreatePostInput!`)
-            .join(', ');
-        const mutationFields = normalized
-            .map((_, index) => `
-                delivery${index}: createPost(input: $input${index}) {
-                    __typename
-                    ... on PostActionSuccess {
-                        post {
-                            id
-                            channelId
+        const results = [];
+        for (const delivery of normalized) {
+            const data = await this.request(apiKey, `
+                mutation ShareNow($input: CreatePostInput!) {
+                    createPost(input: $input) {
+                        __typename
+                        ... on PostActionSuccess {
+                            post {
+                                id
+                                channelId
+                            }
+                        }
+                        ... on MutationError {
+                            message
                         }
                     }
-                    ... on MutationError {
-                        message
-                    }
                 }
-            `)
-            .join('\n');
-        const variables = {};
-        normalized.forEach((delivery, index) => {
-            variables[`input${index}`] = {
-                text: delivery.text,
-                channelId: delivery.channelId,
-                schedulingType: 'automatic',
-                mode: 'shareNow',
-                ...(delivery.imageUrls.length > 0
-                    ? { assets: delivery.imageUrls.map((url) => ({ image: { url } })) }
-                    : {})
-            };
-        });
+            `, {
+                input: {
+                    text: delivery.text,
+                    channelId: delivery.channelId,
+                    schedulingType: 'automatic',
+                    mode: 'shareNow',
+                    ...(delivery.imageUrls.length > 0
+                        ? { assets: delivery.imageUrls.map((url) => ({ image: { url } })) }
+                        : {})
+                }
+            }, {
+                timeoutMs: delivery.imageUrls.length > 0 ? this.mediaTimeoutMs : this.timeoutMs
+            });
 
-        const data = await this.request(apiKey, `
-            mutation ShareNowMany(${variableDefinitions}) {
-                ${mutationFields}
-            }
-        `, variables, {
-            timeoutMs: normalized.some((delivery) => delivery.imageUrls.length > 0)
-                ? this.mediaTimeoutMs
-                : this.timeoutMs
-        });
-
-        return normalized.map((delivery, index) => {
-            const payload = data?.[`delivery${index}`] || {};
+            const payload = data?.createPost || {};
             const bufferPostId = String(payload?.post?.id || '').trim();
             if (bufferPostId) {
-                return {
+                results.push({
                     success: true,
                     deliveryKey: delivery.deliveryKey,
                     channelId: delivery.channelId,
                     bufferPostId
-                };
+                });
+                continue;
             }
-            return {
+            results.push({
                 success: false,
                 deliveryKey: delivery.deliveryKey,
                 channelId: delivery.channelId,
                 code: 'BUFFER_POST_REJECTED',
                 message: String(payload?.message || 'Buffer가 발행 요청을 거부했습니다.').trim(),
                 retriable: false
-            };
-        });
+            });
+        }
+        return results;
     }
 }
 

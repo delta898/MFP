@@ -151,6 +151,10 @@ packages/
     core/                       # Bundled native Plugin and static Widget Plugin packages
 ```
 
+The SNS and Card News verticals use a shared capability-named `social-publisher` Plugin. Its provider implementation is currently Buffer and lives under `packages/plugins/core/social-publisher/providers/buffer/`; Applications depend on the `src/adapters/plugins/social-publisher.js` port and do not name the current provider in that boundary. SNS workflows live under `src/applications/sns/`, while shared publishing rules, feed utilities, and external storage/media adapters live in `src/services/`, `src/utilities/`, and `src/adapters/` according to ownership.
+
+Channel-selection counts are Application policies: SNS and Card News currently allow up to three selected channels. The Social Publisher Plugin contract must not encode that product limit. The Buffer provider issues one `createPost` operation per delivery and one post lookup per ID; Buffer's request quotas are provider limits and are handled as API responses, not as a fixed channel-count cap. Buffer plan allowances such as the number of connected channels are account constraints, not a batch-size limit for this Plugin.
+
 The layer rules are mandatory for new code:
 
 - `host/` starts the product runtime and routes normalized channel requests. It does not own business workflows or Plugin implementations.
@@ -163,7 +167,7 @@ The layer rules are mandatory for new code:
 - `utilities/<capability>/` owns reusable technical operations. `utilities/media/` performs requested image conversion but does not decide whether WordPress should use AVIF or Naver should use WebP.
 - `packages/plugins/core/` holds independent bundled Plugin implementations. Plugins follow manifest contracts and do not import BlogGenius-private Application modules.
 
-Do not add new Application business logic to legacy top-level product directories such as `src/social/`, `src/card-news/`, or `src/blog-next/` merely because an older caller lives there. Their To-Be Application homes are `src/applications/sns/`, `src/applications/card-news/`, and `src/applications/blog/`, respectively. This is a responsibility-based target, not a wholesale directory rename: UI/channel entrypoints, external-system adapters, and genuinely shared services/utilities belong in their own layers. Migrate existing files in scoped, coordinated slices: trace callers, classify each file, move it to its owning layer, and update imports/tests/docs together. Preserve existing external contracts unless an intentional contract change is in scope. When connecting legacy callers to a new boundary, add a small adapter or composition seam in the target layer. Do not create empty placeholder directories. Community Plugin scanning, trust, permissions, distribution, and isolation are future design work; the directory name above reserves no runtime contract.
+Do not add new Application business logic to legacy top-level product directories such as `src/card-news/` or `src/blog-next/` merely because an older caller lives there. Their To-Be Application homes are `src/applications/card-news/` and `src/applications/blog/`, respectively. SNS workflows have already moved under `src/applications/sns/`; shared social publishing rules, feed utilities, and external adapters are placed in their owning layers. This is a responsibility-based target, not a wholesale directory rename: UI/channel entrypoints, external-system adapters, and genuinely shared services/utilities belong in their own layers. Migrate existing files in scoped, coordinated slices: trace callers, classify each file, move it to its owning layer, and update imports/tests/docs together. Preserve existing external contracts unless an intentional contract change is in scope. When connecting legacy callers to a new boundary, add a small adapter or composition seam in the target layer. Do not create empty placeholder directories. Community Plugin scanning, trust, permissions, distribution, and isolation are future design work; the directory name above reserves no runtime contract.
 
 Current implementation follows the target in these slices:
 
@@ -179,6 +183,7 @@ src/
   adapters/ui/naver-publish-progress.js, blog-posting-progress.js, blog-publishing-presentation.js
   adapters/ui/widget-plugins.routes.js
   applications/
+    sns/distribution/, sns/generation/, sns/publishing/
     blog/execution/execution-coordinator.js
     blog/writing/gateway-model-resolver.js
     blog/writing/application.js

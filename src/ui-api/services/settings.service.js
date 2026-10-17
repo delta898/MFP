@@ -35,7 +35,7 @@ const {
 } = require('../../ai-model-config');
 const { recordDashboardActivity } = require('../../activity/dashboard-activity-store');
 const TelegramPairingService = require('../../telegram-pairing.service');
-const { isSnsAiMode } = require('../../social/sns-ai-policy');
+const { isSnsAiMode } = require('../../services/sns/ai-policy');
 const DefaultModelConnectionTester = require('../../ai/model-connection-tester');
 const {
     createConnectionSignature,
@@ -419,7 +419,7 @@ function createSettingsService(deps = {}) {
         TelegramService,
         TelegramBotService,
         telegramPairingService = TelegramPairingService,
-        BufferClient,
+        socialPublisher,
         Utils,
         axios,
         cheerio,
@@ -1621,8 +1621,8 @@ function createSettingsService(deps = {}) {
         },
 
         async inspectBufferConnection(requestBody = {}) {
-            if (typeof BufferClient !== 'function') {
-                throw createApiError(500, 'BUFFER_CLIENT_UNAVAILABLE', 'Buffer 연결 모듈을 사용할 수 없습니다.');
+            if (typeof socialPublisher?.inspectConnection !== 'function') {
+                throw createApiError(500, 'BUFFER_PUBLISHER_UNAVAILABLE', 'Buffer 연결 기능을 사용할 수 없습니다.');
             }
             const apiKey = String(requestBody.apiKey || requestBody.BUFFER_API_KEY || '').trim();
             const organizationId = String(requestBody.organizationId || requestBody.BUFFER_ORGANIZATION_ID || '').trim();
@@ -1631,8 +1631,7 @@ function createSettingsService(deps = {}) {
             }
 
             try {
-                const client = new BufferClient();
-                return await client.inspectConnection(apiKey, organizationId);
+                return await socialPublisher.inspectConnection(apiKey, organizationId);
             } catch (error) {
                 throw createApiError(
                     error?.code === 'BUFFER_AUTH_INVALID' ? 401 : 400,

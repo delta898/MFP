@@ -1,5 +1,5 @@
 const crypto = require('node:crypto');
-const { resolveSnsFeedDefinitions } = require('../social/sns-rss-discovery');
+const { resolveConfiguredBlogFeedDefinitions } = require('../utilities/feeds/configured-blog-feeds');
 
 const CARD_NEWS_CUSTOM_RSS_SOURCE_LIMIT = 3;
 const CARD_NEWS_BUILTIN_SOURCE_IDS = ['naver', 'wordpress'];
@@ -65,7 +65,7 @@ function normalizeCardNewsBuiltinSources(value) {
 
 function resolveCardNewsFeedDefinitions(config = {}) {
     const enabledBuiltinSources = new Set(normalizeCardNewsBuiltinSources(config.CARD_NEWS_BUILTIN_SOURCES));
-    const configured = resolveSnsFeedDefinitions(config).filter((feed) => enabledBuiltinSources.has(feed.sourcePlatform)).map((feed) => ({
+    const configured = resolveConfiguredBlogFeedDefinitions(config).filter((feed) => enabledBuiltinSources.has(feed.sourcePlatform)).map((feed) => ({
         id: feed.sourcePlatform,
         label: feed.sourcePlatform === 'naver' ? '네이버' : 'WordPress',
         sourcePlatform: feed.sourcePlatform,

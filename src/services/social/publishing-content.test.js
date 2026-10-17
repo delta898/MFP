@@ -8,7 +8,7 @@ const {
     normalizeHashtagTokens,
     measurePost,
     formatSnsPost
-} = require('./sns-content-formatter');
+} = require('./publishing-content');
 
 test('SNS service policy normalizes aliases and excludes video-only channels', () => {
     assert.equal(normalizeSnsService('X/Twitter'), 'twitter');

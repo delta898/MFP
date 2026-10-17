@@ -167,28 +167,28 @@ test('Telegram connection updates preserve inbound activation and only reapply a
 
 test('optional connection tests reuse stored secrets when the new input is blank', async () => {
     const calls = [];
-    class BufferClient {
+    const socialPublisher = {
         async inspectConnection(apiKey, organizationId) {
             calls.push({ apiKey, organizationId });
             return { organizations: [], channels: [] };
         }
-    }
-    const { service } = createHarness({ integrations: { buffer: { api_key: 'stored-key', organization_id: 'stored-org' } } }, { BufferClient });
+    };
+    const { service } = createHarness({ integrations: { buffer: { api_key: 'stored-key', organization_id: 'stored-org' } } }, { socialPublisher });
     await service.testOptionalServiceConnection({ scope: 'buffer', values: { BUFFER_API_KEY: '' } });
     assert.deepEqual(calls, [{ apiKey: 'stored-key', organizationId: 'stored-org' }]);
 });
 
 test('Buffer connection verification persists across settings reloads and is tied to the saved credentials', async () => {
-    class BufferClient {
+    const socialPublisher = {
         async inspectConnection(apiKey, organizationId) {
             assert.equal(apiKey, 'stored-key');
             assert.equal(organizationId, 'stored-org');
             return { organizations: [{ id: 'stored-org', name: 'Workspace' }], channels: [] };
         }
-    }
+    };
     const { CONFIG, configPath, service } = createHarness({
         integrations: { buffer: { api_key: 'stored-key', organization_id: 'stored-org' } }
-    }, { BufferClient });
+    }, { socialPublisher });
 
     const tested = await service.testOptionalServiceConnection({ scope: 'buffer', values: { BUFFER_API_KEY: '' } });
     assert.equal(tested.verification.status, 'connected');

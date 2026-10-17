@@ -1,16 +1,15 @@
-const { isTransientBufferError } = require('./gateways/buffer-client');
 const {
     LIVE_PUBLISH_BLOCKED_CODE,
     LIVE_PUBLISH_BLOCKED_MESSAGE,
     isLivePublishAllowed
-} = require('../environment/runtime-effects');
+} = require('../../../environment/runtime-effects');
 const {
     formatSnsPost,
     isSnsServiceSupported,
     isSnsServiceDisabled,
     normalizeHashtagTokens,
     requiresImageAsset
-} = require('./sns-content-formatter');
+} = require('../../../services/social/publishing-content');
 
 function normalizeTokens(value) {
     return [...new Set((Array.isArray(value) ? value : [])
@@ -79,7 +78,7 @@ function createSnsDistributionRunner(options = {}) {
         CONFIG,
         License,
         store,
-        bufferClient,
+        socialPublisher,
         aiService,
         urlService,
         notificationService,
@@ -100,9 +99,9 @@ function createSnsDistributionRunner(options = {}) {
         || typeof store.markGroupProcessing !== 'function'
         || typeof store.applyDeliveryResults !== 'function'
         || typeof store.saveEntryHashtags !== 'function'
-        || !bufferClient
-        || typeof bufferClient.shareNowMany !== 'function'
-        || typeof bufferClient.listRecentPosts !== 'function'
+        || !socialPublisher
+        || typeof socialPublisher.publishMany !== 'function'
+        || typeof socialPublisher.listRecentPublications !== 'function'
         || !aiService
         || typeof aiService.generateHashtags !== 'function'
         || !urlService
@@ -113,7 +112,7 @@ function createSnsDistributionRunner(options = {}) {
         throw new Error('SNS Distribution Runner 의존성이 올바르지 않습니다.');
     }
 
-    async function reconcilePublishedDeliveries(apiKey, deliveries, startedAt) {
+    async function reconcilePublishedDeliveries(deliveries, startedAt) {
         const targets = Array.isArray(deliveries) ? deliveries : [];
         if (targets.length === 0) {
             return { success: true, matches: new Map(), posts: [] };
@@ -123,8 +122,8 @@ function createSnsDistributionRunner(options = {}) {
             (Number.isFinite(startedAtMs) ? startedAtMs : Date.now()) - (5 * 60 * 1000)
         ).toISOString();
         try {
-            const posts = await bufferClient.listRecentPosts(apiKey, {
-                organizationId: CONFIG.BUFFER_ORGANIZATION_ID,
+            const posts = await socialPublisher.listRecentPublications({
+                workspaceId: CONFIG.BUFFER_ORGANIZATION_ID,
                 channelIds: targets.map((delivery) => delivery.channelId),
                 startDate,
                 first: Math.max(20, targets.length * 10)
@@ -422,7 +421,7 @@ function createSnsDistributionRunner(options = {}) {
                 attempts += 1;
                 try {
                     const attemptDeliveries = [...pendingDeliveries];
-                    const publishResults = await bufferClient.shareNowMany(apiKey, attemptDeliveries);
+                    const publishResults = await socialPublisher.publishMany(attemptDeliveries);
                     const deliveriesByKey = new Map(
                         attemptDeliveries.map((delivery) => [delivery.deliveryKey, delivery])
                     );
@@ -453,7 +452,6 @@ function createSnsDistributionRunner(options = {}) {
 
                     if (duplicateDeliveries.length > 0) {
                         const reconciliation = await reconcilePublishedDeliveries(
-                            apiKey,
                             duplicateDeliveries,
                             publishStartedAt
                         );
@@ -484,15 +482,14 @@ function createSnsDistributionRunner(options = {}) {
                     break;
                 } catch (error) {
                     finalError = error;
-                    const canRetry = isTransientBufferError(error) && attempts < maxAttempts;
+                    const canRetry = error?.retryable === true && attempts < maxAttempts;
                     Logger?.warn?.(
                         `⚠️ [SNS] Buffer 묶음 발행 ${attempts}차 실패`
                         + `${canRetry ? `, ${Math.round(retryDelayMs / 1000)}초 후 재시도` : ''}: ${error.message}`
                     );
-                    if (isTransientBufferError(error)) {
+                    if (error?.retryable === true) {
                         await sleep(retryDelayMs);
                         const reconciliation = await reconcilePublishedDeliveries(
-                            apiKey,
                             pendingDeliveries,
                             publishStartedAt
                         );
@@ -579,7 +576,7 @@ function createSnsDistributionRunner(options = {}) {
                 deliveryResults.push({
                     rowNumber: row.rowNumber,
                     status: '실패',
-                    log: isTransientBufferError(finalError)
+                    log: finalError?.retryable === true
                         ? `Buffer 발행 여부 확인 실패 (${attempts}회 시도, 자동 재시도 중단): ${finalError.message}`
                         : `Buffer 발행 실패 (${attempts}회 시도): ${finalError?.message || '알 수 없는 오류'}`
                 });

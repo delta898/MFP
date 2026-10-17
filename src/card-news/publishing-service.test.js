@@ -53,7 +53,7 @@ test('publishing config reports channel-specific carousel compatibility', async 
         const service = createCardNewsPublishingService({
             CONFIG: config(),
             generationService: { resolveCompleteAssets: () => data },
-            bufferClient: { shareNowMany: async () => [] },
+            socialPublisher: { publishMany: async () => [] },
             mediaTransport: transport()
         });
         const result = await service.getConfig('generation-123');
@@ -79,7 +79,7 @@ test('publishing config distinguishes a connected Buffer account from missing se
         const service = createCardNewsPublishingService({
             CONFIG: config({ BUFFER_CHANNELS: [] }),
             generationService: { resolveCompleteAssets: () => data },
-            bufferClient: { shareNowMany: async () => [] },
+            socialPublisher: { publishMany: async () => [] },
             mediaTransport: transport()
         });
         const result = await service.getConfig('generation-123');
@@ -99,8 +99,8 @@ test('publishing config lists workspaces and limits channels to the selected wor
         const service = createCardNewsPublishingService({
             CONFIG: config(),
             generationService: { resolveCompleteAssets: () => data },
-            bufferClient: {
-                async inspectConnection(_key, organizationId) {
+            socialPublisher: {
+                async inspectConnection(_apiKey, organizationId) {
                     inspected.push(organizationId);
                     return {
                         organizations: [{ id: 'org-1', name: 'Main' }, { id: 'org-2', name: 'Campaigns' }],
@@ -110,7 +110,7 @@ test('publishing config lists workspaces and limits channels to the selected wor
                             : []
                     };
                 },
-                shareNowMany: async () => []
+                publishMany: async () => []
             },
             mediaTransport: transport()
         });
@@ -131,8 +131,8 @@ test('publishing rejects a channel from a different workspace before uploading m
         const service = createCardNewsPublishingService({
             CONFIG: config(),
             generationService: { resolveCompleteAssets: () => data },
-            bufferClient: {
-                async inspectConnection(_key, organizationId) {
+            socialPublisher: {
+                async inspectConnection(_apiKey, organizationId) {
                     return {
                         organizations: [{ id: 'org-1' }, { id: 'org-2' }],
                         organization_id: organizationId,
@@ -141,7 +141,7 @@ test('publishing rejects a channel from a different workspace before uploading m
                             : [{ id: 'channel-org-1', name: 'Instagram', service: 'instagram' }]
                     };
                 },
-                shareNowMany: async () => []
+                publishMany: async () => []
             },
             mediaTransport: transport({ async upload() { uploadCalled = true; } })
         });
@@ -165,7 +165,7 @@ test('a stale signature preview blocks SNS media uploads', async () => {
         const service = createCardNewsPublishingService({
             CONFIG: config(),
             generationService: { resolveCompleteAssets: () => data },
-            bufferClient: { shareNowMany: async () => [] },
+            socialPublisher: { publishMany: async () => [] },
             mediaTransport: transport({ async upload() { uploadCalled = true; } }),
             async prepareAssets(_assets, _signature, expectedSignature) {
                 assert.equal(expectedSignature, 'My Brand');
@@ -189,7 +189,7 @@ test('publishing config and execution require Google public media without WordPr
         const service = createCardNewsPublishingService({
             CONFIG: config(),
             generationService: { resolveCompleteAssets: () => data },
-            bufferClient: { shareNowMany: async () => [] },
+            socialPublisher: { publishMany: async () => [] },
             mediaTransport: transport({ isAvailable: () => false })
         });
         assert.equal((await service.getConfig('generation-123')).media_transport, '');
@@ -239,12 +239,12 @@ test('publish uploads images to public media in order, sends an ordered Buffer a
         const service = createCardNewsPublishingService({
             CONFIG: config(),
             generationService: { resolveCompleteAssets: () => data },
-            bufferClient: {
-                async shareNowMany(_key, input) {
+            socialPublisher: {
+                async publishMany(input) {
                     deliveries.push(...input);
                     return input.map((item, index) => ({ success: true, channelId: item.channelId, bufferPostId: `post-${index + 1}` }));
                 },
-                async getPostsByIds(_key, ids) {
+                async getPublicationStatuses(ids) {
                     return ids.map((id, index) => ({ id, status: 'sent', externalLink: `https://social.example/${index + 1}` }));
                 }
             },
@@ -296,7 +296,7 @@ test('publish rejects channels whose image limit is below the card count before 
         const service = createCardNewsPublishingService({
             CONFIG: config(),
             generationService: { resolveCompleteAssets: () => data },
-            bufferClient: { shareNowMany: async () => [] },
+            socialPublisher: { publishMany: async () => [] },
             mediaTransport: transport({ async upload() { uploadCalled = true; } })
         });
         await assert.rejects(
@@ -317,12 +317,12 @@ test('Bluesky validation counts the verified source URL using its fixed link len
         const service = createCardNewsPublishingService({
             CONFIG: config(),
             generationService: { resolveCompleteAssets: () => data },
-            bufferClient: {
-                async shareNowMany(_key, input) {
+            socialPublisher: {
+                async publishMany(input) {
                     deliveries.push(...input);
                     return [{ success: true, channelId: 'bluesky-1', bufferPostId: 'post-1' }];
                 },
-                async getPostsByIds() {
+                async getPublicationStatuses() {
                     return [{ id: 'post-1', status: 'sent', externalLink: 'https://bsky.app/post/1' }];
                 }
             },
@@ -351,7 +351,7 @@ test('partial public-media upload failure removes images already uploaded', asyn
         const service = createCardNewsPublishingService({
             CONFIG: config(),
             generationService: { resolveCompleteAssets: () => data },
-            bufferClient: { shareNowMany: async () => [] },
+            socialPublisher: { publishMany: async () => [] },
             mediaTransport: transport({
                 async upload() {
                     uploadCount += 1;
@@ -378,8 +378,8 @@ test('ambiguous Buffer timeout retains temporary media to avoid breaking a deliv
         const service = createCardNewsPublishingService({
             CONFIG: config(),
             generationService: { resolveCompleteAssets: () => data },
-            bufferClient: {
-                async shareNowMany() {
+            socialPublisher: {
+                async publishMany() {
                     const error = new Error('timeout');
                     error.code = 'BUFFER_REQUEST_TIMEOUT';
                     throw error;
@@ -411,8 +411,8 @@ test('configured Bitly shortens the canonical source once and reuses it for ever
         const service = createCardNewsPublishingService({
             CONFIG: config({ NOTIFY_BITLY_TOKEN: 'bitly-token' }),
             generationService: { resolveCompleteAssets: () => data },
-            bufferClient: {
-                async shareNowMany(_key, input) {
+            socialPublisher: {
+                async publishMany(input) {
                     deliveries.push(...input);
                     return input.map((item) => ({ success: true, channelId: item.channelId }));
                 }
@@ -457,8 +457,8 @@ test('Bitly is skipped when the canonical source is absent and leaves user-enter
         const service = createCardNewsPublishingService({
             CONFIG: config({ NOTIFY_BITLY_TOKEN: 'bitly-token' }),
             generationService: { resolveCompleteAssets: () => data },
-            bufferClient: {
-                async shareNowMany(_key, input) {
+            socialPublisher: {
+                async publishMany(input) {
                     deliveredText = input[0].text;
                     return [{ success: true, channelId: input[0].channelId }];
                 }
@@ -489,8 +489,8 @@ test('Bitly failure falls back to the original source URL without blocking publi
         const service = createCardNewsPublishingService({
             CONFIG: config({ NOTIFY_BITLY_TOKEN: 'bitly-token' }),
             generationService: { resolveCompleteAssets: () => data },
-            bufferClient: {
-                async shareNowMany(_key, input) {
+            socialPublisher: {
+                async publishMany(input) {
                     deliveredText = input[0].text;
                     return [{ success: true, channelId: input[0].channelId }];
                 }
@@ -528,7 +528,7 @@ test('publishing config rejects unsupported remote formats and Instagram story r
         const service = createCardNewsPublishingService({
             CONFIG: config(),
             generationService: { resolveCompleteAssets: () => data },
-            bufferClient: { shareNowMany: async () => [] },
+            socialPublisher: { publishMany: async () => [] },
             mediaTransport: transport()
         });
         const result = await service.getConfig('generation-123');

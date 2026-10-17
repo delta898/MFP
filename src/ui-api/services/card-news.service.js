@@ -257,12 +257,12 @@ function createCardNewsService(deps = {}) {
     const generationService = deps.generationService || null;
     const publishingService = deps.publishingService || (
         generationService
-        && deps.bufferClient
+        && deps.socialPublisher
         && deps.mediaTransport
             ? createCardNewsPublishingService({
                 CONFIG,
                 generationService,
-                bufferClient: deps.bufferClient,
+                socialPublisher: deps.socialPublisher,
                 mediaTransport: deps.mediaTransport,
                 urlService: deps.urlService,
                 prepareAssets: (assets, signature, expectedSignature, previewToken) => outgoingImageService.prepareAssets(

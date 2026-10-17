@@ -27,6 +27,7 @@ function createUiApiRouteRuntime(deps = {}) {
         snsAiService,
         cardNewsLedgerStore,
         cardNewsMediaTransport,
+        socialPublisher,
         urlShorteningService,
         recordActivityLifecycle,
         DEFAULT_HOST,
@@ -148,7 +149,6 @@ function createUiApiRouteRuntime(deps = {}) {
         scheduleUiReload,
         restartRemoteMcpService,
         getRemoteServiceStatus,
-        BufferClient,
         WordPressClient,
         createConfigRevision,
         sendSuccess,
@@ -277,7 +277,7 @@ function createUiApiRouteRuntime(deps = {}) {
                 parseConfigValue,
                 TelegramService,
                 TelegramBotService,
-                BufferClient,
+                socialPublisher,
                 Utils,
                 axios,
                 cheerio,
@@ -298,7 +298,7 @@ function createUiApiRouteRuntime(deps = {}) {
         if (!manualSnsRouteHandler) {
             const service = createManualSnsService({
                 CONFIG,
-                bufferClient: new BufferClient({ axios }),
+                socialPublisher: socialPublisher,
                 aiService: snsAiService,
                 parseImagePayload: parseBase64ImagePayload,
                 mediaTransport: cardNewsMediaTransport,
@@ -328,7 +328,7 @@ function createUiApiRouteRuntime(deps = {}) {
                 generationService: cardNewsGenerationService,
                 getSupportedImageModels: () => cardNewsGenerationService.getSupportedModels?.('image') || [],
                 ledgerStore: cardNewsLedgerStore,
-                bufferClient: new BufferClient({ axios }),
+                socialPublisher: socialPublisher,
                 mediaTransport: cardNewsMediaTransport,
                 urlService: urlShorteningService
             });

@@ -6,9 +6,9 @@ const {
     isSnsServiceDisabled,
     requiresImageAsset,
     measurePost
-} = require('./sns-content-formatter');
-const { assertManualPublishAllowed } = require('../environment/runtime-effects');
-const { createAiGenerationOperationManager } = require('../services/ai/generation-operation-manager');
+} = require('../../../services/social/publishing-content');
+const { assertManualPublishAllowed } = require('../../../environment/runtime-effects');
+const { createAiGenerationOperationManager } = require('../../../services/ai/generation-operation-manager');
 
 const MAX_CHANNELS = 3;
 const MAX_TEXT_LENGTH = 1000;
@@ -61,8 +61,7 @@ function normalizeConfiguredChannels(value) {
             if (!channel.id || seen.has(channel.id)) return false;
             seen.add(channel.id);
             return true;
-        })
-        .slice(0, MAX_CHANNELS);
+        });
 }
 
 function normalizeSelectedChannelIds(value) {
@@ -95,7 +94,7 @@ function normalizeLocalImages(input = {}) {
 function createManualSnsService(deps = {}) {
     const {
         CONFIG = {},
-        bufferClient,
+        socialPublisher,
         aiService,
         Logger,
         parseImagePayload,
@@ -108,7 +107,7 @@ function createManualSnsService(deps = {}) {
         recoveryIntervalMs = BUFFER_RECOVERY_INTERVAL_MS,
         recordActivityLifecycle = async () => null
     } = deps;
-    if (!bufferClient || typeof bufferClient.shareNowMany !== 'function') {
+    if (!socialPublisher || typeof socialPublisher.publishMany !== 'function') {
         throw new Error('Manual SNS Service에는 BufferClient가 필요합니다.');
     }
 
@@ -201,10 +200,10 @@ function createManualSnsService(deps = {}) {
     async function loadWorkspaceOptions(input = {}) {
         const apiKey = String(CONFIG.BUFFER_API_KEY || '').trim();
         if (!apiKey) throw createManualSnsError(400, 'BUFFER_API_KEY_REQUIRED', '설정에서 Buffer 연결을 먼저 완료해 주세요.');
-        if (typeof bufferClient.inspectConnection !== 'function') {
+        if (typeof socialPublisher.inspectConnection !== 'function') {
             throw createManualSnsError(500, 'BUFFER_WORKSPACE_UNAVAILABLE', 'Buffer 작업 공간을 불러올 수 없습니다.');
         }
-        const result = await bufferClient.inspectConnection(apiKey, String(input.organizationId || input.organization_id || '').trim());
+        const result = await socialPublisher.inspectConnection(apiKey, String(input.organizationId || input.organization_id || '').trim());
         return {
             organizations: Array.isArray(result?.organizations) ? result.organizations : [],
             organization_id: String(result?.organization_id || '').trim(),
@@ -215,10 +214,10 @@ function createManualSnsService(deps = {}) {
     async function resolveSelectedChannels(input = {}) {
         const organizationId = String(
             input.organizationId || input.organization_id
-            || (typeof bufferClient.inspectConnection !== 'function' ? CONFIG.BUFFER_ORGANIZATION_ID : '')
+            || (typeof socialPublisher.inspectConnection !== 'function' ? CONFIG.BUFFER_ORGANIZATION_ID : '')
         ).trim();
         if (!organizationId) throw createManualSnsError(400, 'MANUAL_SNS_ORGANIZATION_REQUIRED', 'Buffer 작업 공간을 선택해 주세요.');
-        const discovered = typeof bufferClient.inspectConnection === 'function'
+        const discovered = typeof socialPublisher.inspectConnection === 'function'
             ? await loadWorkspaceOptions({ organizationId })
             : { organization_id: organizationId, channels: getChannels() };
         const configuredChannels = discovered.channels;
@@ -304,13 +303,13 @@ function createManualSnsService(deps = {}) {
         }
     }
 
-    async function waitForTerminalPosts(apiKey, publishResults) {
+    async function waitForTerminalPosts(publishResults) {
         const accepted = (Array.isArray(publishResults) ? publishResults : [])
             .filter((result) => result?.success === true && String(result.bufferPostId || '').trim());
         if (accepted.length === 0) {
             return { results: publishResults, allTerminal: true };
         }
-        if (typeof bufferClient.getPostsByIds !== 'function') {
+        if (typeof socialPublisher.getPublicationStatuses !== 'function') {
             return { results: publishResults, allTerminal: false };
         }
 
@@ -320,7 +319,7 @@ function createManualSnsService(deps = {}) {
 
         while (true) {
             try {
-                const posts = await bufferClient.getPostsByIds(apiKey, postIds);
+                const posts = await socialPublisher.getPublicationStatuses(postIds);
                 (Array.isArray(posts) ? posts : []).forEach((post) => {
                     const id = String(post?.id || '').trim();
                     if (id) postById.set(id, post);
@@ -386,8 +385,8 @@ function createManualSnsService(deps = {}) {
         };
     }
 
-    async function recoverTimedOutPublish(apiKey, organizationId, selectedChannels, text, startedAt) {
-        if (!organizationId || typeof bufferClient.listRecentPosts !== 'function') return null;
+    async function recoverTimedOutPublish(organizationId, selectedChannels, text, startedAt) {
+        if (!organizationId || typeof socialPublisher.listRecentPublications !== 'function') return null;
 
         const startedAtMs = Date.parse(String(startedAt || ''));
         const startDate = new Date(
@@ -396,7 +395,7 @@ function createManualSnsService(deps = {}) {
         const attempts = Math.max(1, Number.parseInt(recoveryMaxAttempts, 10) || 1);
         for (let attempt = 1; attempt <= attempts; attempt += 1) {
             try {
-                const posts = await bufferClient.listRecentPosts(apiKey, {
+                const posts = await socialPublisher.listRecentPublications({
                     organizationId,
                     channelIds: selectedChannels.map((channel) => channel.id),
                     startDate,
@@ -560,7 +559,7 @@ function createManualSnsService(deps = {}) {
         let publishResults;
         const publishStartedAt = new Date(now()).toISOString();
         try {
-            publishResults = await bufferClient.shareNowMany(apiKey, selectedChannels.map((channel) => ({
+            publishResults = await socialPublisher.publishMany(selectedChannels.map((channel) => ({
                 deliveryKey: channel.id,
                 channelId: channel.id,
                 text,
@@ -570,7 +569,7 @@ function createManualSnsService(deps = {}) {
         } catch (error) {
             const requestTimedOut = String(error?.code || '').trim() === 'BUFFER_REQUEST_TIMEOUT';
             if (requestTimedOut) {
-                publishResults = await recoverTimedOutPublish(apiKey, organizationId, selectedChannels, text, publishStartedAt);
+                publishResults = await recoverTimedOutPublish(organizationId, selectedChannels, text, publishStartedAt);
             }
             if (publishResults) {
                 Logger?.info?.('✅ [MANUAL_SNS] Buffer 응답 유실 게시물을 최근 게시물 조회로 복구했습니다.');
@@ -593,7 +592,7 @@ function createManualSnsService(deps = {}) {
         let allTerminal = true;
         let cleanupSucceeded = false;
         if (temporaryMedia.length > 0) {
-            const reconciliation = await waitForTerminalPosts(apiKey, publishResults);
+            const reconciliation = await waitForTerminalPosts(publishResults);
             publishResults = reconciliation.results;
             allTerminal = reconciliation.allTerminal;
             if (allTerminal) {

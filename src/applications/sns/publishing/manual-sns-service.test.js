@@ -19,7 +19,7 @@ function createConfig(overrides = {}) {
 test('composer config exposes Buffer readiness but not persisted channel targets or secrets', () => {
     const service = createManualSnsService({
         CONFIG: createConfig(),
-        bufferClient: { async shareNowMany() { return []; } }
+        socialPublisher: { async publishMany() { return []; } }
     });
     const result = service.getComposerConfig();
 
@@ -35,7 +35,7 @@ test('composer config exposes Buffer readiness but not persisted channel targets
 test('composer config enables local media when Google public media is ready', () => {
     const service = createManualSnsService({
         CONFIG: createConfig(),
-        bufferClient: { async shareNowMany() { return []; } },
+        socialPublisher: { async publishMany() { return []; } },
         parseImagePayload() {},
         mediaTransport: { isAvailable: () => true, upload: async () => ({}), remove: async () => true }
     });
@@ -47,14 +47,19 @@ test('manual SNS loads workspace channels from Buffer without reading auto-share
     const calls = [];
     const service = createManualSnsService({
         CONFIG: createConfig({ BUFFER_CHANNELS: [] }),
-        bufferClient: {
-            async shareNowMany() { return []; },
+        socialPublisher: {
+            async publishMany() { return []; },
             async inspectConnection(apiKey, organizationId) {
                 calls.push({ apiKey, organizationId });
                 return {
                     organizations: [{ id: 'org-2', name: 'Brand two' }],
                     organization_id: 'org-2',
-                    channels: [{ id: 'threads-2', displayName: '@brandtwo', service: 'threads' }]
+                    channels: [
+                        { id: 'threads-2', displayName: '@brandtwo', service: 'threads' },
+                        { id: 'threads-3', displayName: '@brandthree', service: 'threads' },
+                        { id: 'threads-4', displayName: '@brandfour', service: 'threads' },
+                        { id: 'threads-5', displayName: '@brandfive', service: 'threads' }
+                    ]
                 };
             }
         }
@@ -62,13 +67,13 @@ test('manual SNS loads workspace channels from Buffer without reading auto-share
     const result = await service.loadWorkspaceOptions({ organizationId: 'org-2' });
     assert.deepEqual(calls, [{ apiKey: 'buffer-secret', organizationId: 'org-2' }]);
     assert.equal(result.organization_id, 'org-2');
-    assert.deepEqual(result.channels.map((channel) => channel.id), ['threads-2']);
+    assert.deepEqual(result.channels.map((channel) => channel.id), ['threads-2', 'threads-3', 'threads-4', 'threads-5']);
 });
 
 test('composer config exposes only public Chat Model availability', () => {
     const service = createManualSnsService({
         CONFIG: createConfig(),
-        bufferClient: { async shareNowMany() { return []; } },
+        socialPublisher: { async publishMany() { return []; } },
         aiService: {
             getManualOptimizationAvailability() {
                 return { available: true, model_name: 'Chat Model' };
@@ -84,7 +89,7 @@ test('composer config exposes only public Chat Model availability', () => {
 test('composer config exposes configured SNS image model readiness without secrets', () => {
     const service = createManualSnsService({
         CONFIG: createConfig(),
-        bufferClient: { async shareNowMany() { return []; } },
+        socialPublisher: { async publishMany() { return []; } },
         aiService: {
             getManualImageGenerationAvailability() {
                 return { available: true, model_name: 'Image Model' };
@@ -99,7 +104,7 @@ test('manual SNS image generation delegates content and optional instruction to 
     const inputs = [];
     const service = createManualSnsService({
         CONFIG: createConfig(),
-        bufferClient: { async shareNowMany() { return []; } },
+        socialPublisher: { async publishMany() { return []; } },
         aiService: {
             async generateManualPostImage(input) {
                 inputs.push(input);
@@ -116,7 +121,7 @@ test('manual SNS image generation operation can be canceled and reports remote j
     const receivedSignals = [];
     const service = createManualSnsService({
         CONFIG: createConfig({ IMAGE_MODEL_CONFIG: { transport: 'kie_async' } }),
-        bufferClient: { async shareNowMany() { return []; } },
+        socialPublisher: { async publishMany() { return []; } },
         aiService: {
             async generateManualPostImage(input) {
                 receivedSignals.push(input.signal);
@@ -154,7 +159,7 @@ test('manual optimization delegates to Chat Model with the shortest selected cha
     const calls = [];
     const service = createManualSnsService({
         CONFIG: createConfig(),
-        bufferClient: { async shareNowMany() { return []; } },
+        socialPublisher: { async publishMany() { return []; } },
         aiService: {
             getManualOptimizationAvailability() {
                 return { available: true, model_name: 'Chat Model' };
@@ -190,7 +195,7 @@ test('manual optimization works before a publishing channel is selected', async 
     const calls = [];
     const service = createManualSnsService({
         CONFIG: createConfig(),
-        bufferClient: { async shareNowMany() { return []; } },
+        socialPublisher: { async publishMany() { return []; } },
         aiService: {
             async optimizeManualPost(input) {
                 calls.push(input);
@@ -219,9 +224,9 @@ test('manual publish works in development while SNS automation is disabled', asy
                 effects: { manualPublish: true, automatedPublish: false, livePublish: false }
             }
         }),
-        bufferClient: {
-            async shareNowMany(apiKey, deliveries) {
-                calls.push({ apiKey, deliveries });
+        socialPublisher: {
+            async publishMany(deliveries) {
+                calls.push({ deliveries });
                 return deliveries.map((delivery) => ({
                     success: true,
                     channelId: delivery.channelId,
@@ -238,7 +243,6 @@ test('manual publish works in development while SNS automation is disabled', asy
 
     assert.equal(result.success, true);
     assert.equal(result.success_count, 2);
-    assert.equal(calls[0].apiKey, 'buffer-secret');
     assert.deepEqual(calls[0].deliveries.map((item) => item.channelId), ['threads-1', 'x-1']);
 });
 
@@ -252,8 +256,8 @@ test('manual SNS publish is blocked before Buffer access in local', async () => 
                 effects: { manualPublish: false, automatedPublish: false, livePublish: false }
             }
         }),
-        bufferClient: {
-            async shareNowMany() {
+        socialPublisher: {
+            async publishMany() {
                 publishCount += 1;
                 return [];
             }
@@ -270,7 +274,7 @@ test('manual SNS publish is blocked before Buffer access in local', async () => 
 test('manual publish rejects a channel that is not in saved Buffer settings', async () => {
     const service = createManualSnsService({
         CONFIG: createConfig(),
-        bufferClient: { async shareNowMany() { throw new Error('must not run'); } }
+        socialPublisher: { async publishMany() { throw new Error('must not run'); } }
     });
 
     await assert.rejects(
@@ -279,10 +283,41 @@ test('manual publish rejects a channel that is not in saved Buffer settings', as
     );
 });
 
+test('manual SNS Application keeps its three-channel product policy', async () => {
+    let publishCalled = false;
+    const service = createManualSnsService({
+        CONFIG: createConfig({
+            BUFFER_CHANNELS: [
+                { id: 'threads-1', service: 'threads' },
+                { id: 'instagram-1', service: 'instagram' },
+                { id: 'x-1', service: 'twitter' },
+                { id: 'linkedin-1', service: 'linkedin' }
+            ],
+            RUNTIME_ENVIRONMENT_PROFILE: {
+                environment: 'development',
+                configured: true,
+                effects: { manualPublish: true, automatedPublish: false, livePublish: false }
+            }
+        }),
+        socialPublisher: {
+            async publishMany() {
+                publishCalled = true;
+                return [];
+            }
+        }
+    });
+
+    await assert.rejects(
+        () => service.publish({ channelIds: ['threads-1', 'instagram-1', 'x-1', 'linkedin-1'], text: '게시물' }),
+        (error) => error.apiCode === 'BUFFER_CHANNEL_LIMIT_EXCEEDED'
+    );
+    assert.equal(publishCalled, false);
+});
+
 test('manual publish validates per-channel text limit without truncating', async () => {
     const service = createManualSnsService({
         CONFIG: createConfig(),
-        bufferClient: { async shareNowMany() { throw new Error('must not run'); } }
+        socialPublisher: { async publishMany() { throw new Error('must not run'); } }
     });
 
     await assert.rejects(
@@ -295,8 +330,8 @@ test('Instagram requires an image and HTTPS image is forwarded to Buffer', async
     const deliveries = [];
     const service = createManualSnsService({
         CONFIG: createConfig(),
-        bufferClient: {
-            async shareNowMany(_apiKey, input) {
+        socialPublisher: {
+            async publishMany(input) {
                 deliveries.push(...input);
                 return [{ success: true, channelId: 'instagram-1', bufferPostId: 'post-1' }];
             }
@@ -326,8 +361,8 @@ test('image URL accepts only public-style HTTPS URLs without credentials', () =>
 test('manual publish preserves partial Buffer results per channel', async () => {
     const service = createManualSnsService({
         CONFIG: createConfig(),
-        bufferClient: {
-            async shareNowMany() {
+        socialPublisher: {
+            async publishMany() {
                 return [
                     { success: true, channelId: 'threads-1', bufferPostId: 'post-1' },
                     { success: false, channelId: 'x-1', code: 'BUFFER_POST_REJECTED', message: 'rejected' }
@@ -372,8 +407,8 @@ function createLocalMediaDeps(overrides = {}) {
             return { buffer: Buffer.from(String(input.fileName || 'local-image')), ext: '.png' };
         },
         mediaTransport,
-        bufferClient: {
-            async shareNowMany(_apiKey, deliveries) {
+        socialPublisher: {
+            async publishMany(deliveries) {
                 calls.share.push(deliveries);
                 return deliveries.map((delivery) => ({
                     success: true,
@@ -381,7 +416,7 @@ function createLocalMediaDeps(overrides = {}) {
                     bufferPostId: `post-${delivery.channelId}`
                 }));
             },
-            async getPostsByIds(_apiKey, postIds) {
+            async getPublicationStatuses(postIds) {
                 calls.query.push(postIds);
                 return postIds.map((postId) => ({
                     id: postId,
@@ -510,7 +545,7 @@ test('partial Google Drive upload failure cleans up every image already uploaded
 
 test('Buffer terminal error still deletes temporary Google Drive media', async () => {
     const { deps, calls } = createLocalMediaDeps();
-    deps.bufferClient.getPostsByIds = async (_apiKey, postIds) => postIds.map((postId) => ({
+    deps.socialPublisher.getPublicationStatuses = async (postIds) => postIds.map((postId) => ({
         id: postId,
         status: 'error',
         error: { message: 'Buffer could not fetch the image' }
@@ -530,7 +565,7 @@ test('Buffer terminal error still deletes temporary Google Drive media', async (
 
 test('Buffer request failure deletes temporary Google Drive media before returning the error', async () => {
     const { deps, calls } = createLocalMediaDeps();
-    deps.bufferClient.shareNowMany = async () => {
+    deps.socialPublisher.publishMany = async () => {
         const error = new Error('Buffer unavailable');
         error.code = 'BUFFER_CONNECTION_FAILED';
         throw error;
@@ -553,7 +588,7 @@ test('Buffer request failure deletes temporary Google Drive media before returni
 
 test('Buffer request timeout retains temporary Google Drive media because delivery is ambiguous', async () => {
     const { deps, calls } = createLocalMediaDeps();
-    deps.bufferClient.shareNowMany = async () => {
+    deps.socialPublisher.publishMany = async () => {
         const error = new Error('Buffer가 60초 안에 응답하지 않았습니다.');
         error.code = 'BUFFER_REQUEST_TIMEOUT';
         throw error;
@@ -579,12 +614,12 @@ test('Buffer request timeout retains temporary Google Drive media because delive
 
 test('Buffer request timeout recovers matching recent posts and completes media cleanup', async () => {
     const { deps, calls } = createLocalMediaDeps();
-    deps.bufferClient.shareNowMany = async () => {
+    deps.socialPublisher.publishMany = async () => {
         const error = new Error('Buffer가 60초 안에 응답하지 않았습니다.');
         error.code = 'BUFFER_REQUEST_TIMEOUT';
         throw error;
     };
-    deps.bufferClient.listRecentPosts = async (_apiKey, input) => {
+    deps.socialPublisher.listRecentPublications = async (input) => {
         calls.recovery = input;
         return [{
             id: 'recovered-post',
@@ -619,13 +654,13 @@ test('Buffer request timeout retries recent-post recovery without resending the 
         recoveryIntervalMs: 5000,
         async sleep(ms) { sleeps.push(ms); }
     });
-    deps.bufferClient.shareNowMany = async () => {
+    deps.socialPublisher.publishMany = async () => {
         publishCalls += 1;
         const error = new Error('Buffer가 60초 안에 응답하지 않았습니다.');
         error.code = 'BUFFER_REQUEST_TIMEOUT';
         throw error;
     };
-    deps.bufferClient.listRecentPosts = async () => {
+    deps.socialPublisher.listRecentPublications = async () => {
         recoveryCalls += 1;
         if (recoveryCalls === 1) return [];
         return [{
@@ -671,7 +706,7 @@ test('Google Drive upload failure stops before Buffer publishing', async () => {
 
 test('Buffer status timeout retains temporary Google Drive media without a recovery job', async () => {
     const { deps, calls } = createLocalMediaDeps({ pollTimeoutMs: 0 });
-    deps.bufferClient.getPostsByIds = async (_apiKey, postIds) => postIds.map((postId) => ({
+    deps.socialPublisher.getPublicationStatuses = async (postIds) => postIds.map((postId) => ({
         id: postId,
         status: 'sending'
     }));

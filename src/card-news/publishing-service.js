@@ -6,7 +6,7 @@ const {
     SNS_SERVICE_ASSET_LIMITS,
     normalizeSnsService,
     measurePost
-} = require('../social/sns-content-formatter');
+} = require('../services/social/publishing-content');
 
 const CARD_NEWS_CHANNEL_LIMITS = SNS_SERVICE_ASSET_LIMITS;
 const MAX_CHANNELS = 3;
@@ -90,7 +90,7 @@ function createCardNewsPublishingService(options = {}) {
     const {
         CONFIG = {},
         generationService,
-        bufferClient,
+        socialPublisher,
         mediaTransport,
         prepareAssets,
         urlService,
@@ -103,7 +103,7 @@ function createCardNewsPublishingService(options = {}) {
         pollIntervalMs = STATUS_POLL_INTERVAL_MS
     } = options;
     if (!generationService?.resolveCompleteAssets) throw new Error('카드뉴스 결과 조회 기능이 필요합니다.');
-    if (!bufferClient?.shareNowMany) throw new Error('Buffer 발행 기능이 필요합니다.');
+    if (!socialPublisher?.publishMany) throw new Error('소셜 채널 발행 기능이 필요합니다.');
 
     function configuredChannels(channels = CONFIG.BUFFER_CHANNELS) {
         return (Array.isArray(channels) ? channels : [])
@@ -114,8 +114,8 @@ function createCardNewsPublishingService(options = {}) {
     async function inspectBufferWorkspace(organizationId = '') {
         const apiKey = String(CONFIG.BUFFER_API_KEY || '').trim();
         if (!apiKey) return { organizations: [], organization_id: '', channels: [] };
-        if (typeof bufferClient.inspectConnection === 'function') {
-            const result = await bufferClient.inspectConnection(apiKey, String(organizationId || '').trim());
+        if (typeof socialPublisher.inspectConnection === 'function') {
+            const result = await socialPublisher.inspectConnection(apiKey, String(organizationId || '').trim());
             return {
                 organizations: Array.isArray(result?.organizations) ? result.organizations : [],
                 organization_id: String(result?.organization_id || '').trim(),
@@ -243,14 +243,14 @@ function createCardNewsPublishingService(options = {}) {
 
     async function waitForTerminal(apiKey, results) {
         const accepted = results.filter((result) => result?.success && result.bufferPostId);
-        if (!accepted.length || typeof bufferClient.getPostsByIds !== 'function') {
+        if (!accepted.length || typeof socialPublisher.getPublicationStatuses !== 'function') {
             return { all_terminal: accepted.length === 0, results };
         }
         const deadline = now() + Math.max(0, Number(pollTimeoutMs) || 0);
         const byId = new Map();
         while (true) {
             try {
-                const posts = await bufferClient.getPostsByIds(apiKey, accepted.map((item) => item.bufferPostId));
+                const posts = await socialPublisher.getPublicationStatuses(accepted.map((item) => item.bufferPostId));
                 posts.forEach((post) => byId.set(String(post.id), post));
             } catch (error) {
                 logger?.warn?.(`⚠️ [CardNews] Buffer 발행 상태 확인 재시도: ${error.message}`);
@@ -280,7 +280,7 @@ function createCardNewsPublishingService(options = {}) {
 
         const { generation, assets } = generationService.resolveCompleteAssets(input.generation_id || input.generationId);
         const organizationId = String(input.organization_id || input.organizationId
-            || (typeof bufferClient.inspectConnection !== 'function' ? CONFIG.BUFFER_ORGANIZATION_ID : '') || '').trim();
+            || (typeof socialPublisher.inspectConnection !== 'function' ? CONFIG.BUFFER_ORGANIZATION_ID : '') || '').trim();
         const channels = await selectChannels(input.channel_ids || input.channelIds, assets.length, organizationId);
         const unsupportedAsset = assets.find((asset) => !['image/png', 'image/jpeg', 'image/webp'].includes(asset.mime_type));
         if (unsupportedAsset) throw createPublishingError(400, 'CARD_NEWS_ASSET_FORMAT_UNSUPPORTED', 'Buffer 발행은 PNG, JPG 또는 WebP 카드만 지원합니다.');
@@ -322,7 +322,7 @@ function createCardNewsPublishingService(options = {}) {
         const imageUrls = uploaded.map((item) => item.url);
         let results;
         try {
-            results = await bufferClient.shareNowMany(apiKey, channels.map((channel) => ({
+            results = await socialPublisher.publishMany(channels.map((channel) => ({
                 deliveryKey: channel.id,
                 channelId: channel.id,
                 text,

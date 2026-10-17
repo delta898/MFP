@@ -16,7 +16,7 @@ const {
 const {
     DEFAULT_CONTENT_WRITING_PROFILE_METADATA
 } = require('./content/writing-profile');
-const { normalizeSnsAiMode } = require('./social/sns-ai-policy');
+const { normalizeSnsAiMode } = require('./services/sns/ai-policy');
 const { normalizeCardNewsBuiltinSources, normalizeCardNewsRssSources } = require('./card-news/feed-sources');
 const {
     copyMissingDefaultImages,

@@ -30,14 +30,14 @@ const {
     SNS_SHEET_NAME,
     SNS_SHEET_HEADERS,
     buildSnsStatusValidationRequest
-} = require('./social/sns-sheet-schema');
+} = require('./services/sns/sheet-schema');
 const {
     CARD_NEWS_SHEET_NAME,
     CARD_NEWS_SHEET_HEADERS,
     buildCardNewsStatusValidationRequests
 } = require('./card-news/ledger-sheet-schema');
 const { buildTopicRowMoveRequest } = require('./continuous-publishing/queue-order');
-const { parseFeedXml } = require('./social/feed-entry');
+const { parseFeedXml } = require('./utilities/feeds/feed-entry');
 const {
     applyTextRuntimePolicy,
     buildOpenAiChatRequest,

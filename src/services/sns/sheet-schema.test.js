@@ -5,7 +5,7 @@ const {
     SNS_SHEET_HEADERS,
     SNS_DELIVERY_STATUSES,
     buildSnsStatusValidationRequest
-} = require('./sns-sheet-schema');
+} = require('./sheet-schema');
 
 test('SNS sheet schema uses the canonical uppercase tab name and stable headers', () => {
     assert.equal(SNS_SHEET_NAME, 'SNS');

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { BufferApiError } = require('./gateways/buffer-client');
+const { BufferApiError } = require('../../../../packages/plugins/core/social-publisher/providers/buffer/client');
 const {
     buildSnsFailureNotification,
     composeSnsPostText,
@@ -66,11 +66,11 @@ function createRunner(options = {}) {
             }
         },
         store: options.store,
-        bufferClient: {
-            async listRecentPosts() {
+        socialPublisher: {
+            async listRecentPublications() {
                 return [];
             },
-            ...(options.bufferClient || {})
+            ...(options.socialPublisher || {})
         },
         aiService: options.aiService || {
             async generateHashtags() {
@@ -124,12 +124,12 @@ test('SNS distribution stops before license and Buffer work in development', asy
             }
         }),
         store: createStore([]),
-        bufferClient: {
-            async shareNowMany() {
+        socialPublisher: {
+            async publishMany() {
                 bufferCallCount += 1;
                 return [];
             },
-            async listRecentPosts() {
+            async listRecentPublications() {
                 bufferCallCount += 1;
                 return [];
             }
@@ -183,8 +183,8 @@ test('distribution runner processes one entry group and records per-channel part
     const calls = [];
     const runner = createRunner({
         store,
-        bufferClient: {
-            async shareNowMany(_apiKey, deliveries) {
+        socialPublisher: {
+            async publishMany(deliveries) {
                 calls.push(deliveries);
                 return [
                     {
@@ -274,8 +274,8 @@ test('distribution runner shortens URL once, generates hashtags once, and saves 
                 return 'https://bit.ly/short';
             }
         },
-        bufferClient: {
-            async shareNowMany(_apiKey, deliveries) {
+        socialPublisher: {
+            async publishMany(deliveries) {
                 events.push('buffer');
                 assert.equal(deliveries.length, 2);
                 assert.match(deliveries[0].text, /https:\/\/bit\.ly\/short/);
@@ -322,8 +322,8 @@ test('distribution runner reuses stored hashtags without calling AI', async () =
                 return { hashtags: ['#AI'] };
             }
         },
-        bufferClient: {
-            async shareNowMany(_apiKey, deliveries) {
+        socialPublisher: {
+            async publishMany(deliveries) {
                 assert.match(deliveries[0].text, /#직접입력/);
                 return [{
                     success: true,
@@ -377,8 +377,8 @@ test('distribution runner does not call Buffer when generated hashtags cannot be
                 return { success: true };
             }
         },
-        bufferClient: {
-            async shareNowMany() {
+        socialPublisher: {
+            async publishMany() {
                 bufferCalled = true;
                 return [];
             }
@@ -409,8 +409,8 @@ test('distribution runner retries transient batch failures up to success', async
     const runner = createRunner({
         store,
         sleep: async () => { sleepCount += 1; },
-        bufferClient: {
-            async shareNowMany() {
+        socialPublisher: {
+            async publishMany() {
                 callCount += 1;
                 if (callCount < 3) {
                     throw new BufferApiError('temporary', {
@@ -451,16 +451,16 @@ test('distribution runner reconciles a post accepted before a transient response
     let reconcileCalls = 0;
     const runner = createRunner({
         store,
-        bufferClient: {
-            async shareNowMany() {
+        socialPublisher: {
+            async publishMany() {
                 publishCalls += 1;
                 throw new BufferApiError('timeout', {
                     code: 'BUFFER_CONNECTION_FAILED'
                 });
             },
-            async listRecentPosts(_apiKey, input) {
+            async listRecentPublications(input) {
                 reconcileCalls += 1;
-                assert.equal(input.organizationId, 'org-1');
+                assert.equal(input.workspaceId, 'org-1');
                 assert.deepEqual(input.channelIds, ['channel-1']);
                 return [{
                     id: 'post-reconciled',
@@ -496,8 +496,8 @@ test('distribution runner reconciles Buffer duplicate rejection as completed', a
     }]);
     const runner = createRunner({
         store,
-        bufferClient: {
-            async shareNowMany() {
+        socialPublisher: {
+            async publishMany() {
                 return [{
                     success: false,
                     deliveryKey: 'delivery-1',
@@ -505,7 +505,7 @@ test('distribution runner reconciles Buffer duplicate rejection as completed', a
                     message: "Invalid post: Whoops, it looks like you've already got this one scheduled or posted around the same time."
                 }];
             },
-            async listRecentPosts() {
+            async listRecentPublications() {
                 return [{
                     id: 'post-existing',
                     channelId: 'channel-1',
@@ -539,8 +539,8 @@ test('distribution runner treats an explicit Buffer duplicate rejection as compl
     }]);
     const runner = createRunner({
         store,
-        bufferClient: {
-            async shareNowMany() {
+        socialPublisher: {
+            async publishMany() {
                 return [{
                     success: false,
                     deliveryKey: 'delivery-1',
@@ -548,7 +548,7 @@ test('distribution runner treats an explicit Buffer duplicate rejection as compl
                     message: "Invalid post: Whoops, it looks like you've already got this one scheduled or posted around the same time."
                 }];
             },
-            async listRecentPosts() {
+            async listRecentPublications() {
                 return [];
             }
         }
@@ -577,8 +577,8 @@ test('distribution runner treats an explicit Buffer duplicate rejection as compl
     }]);
     const runner = createRunner({
         store,
-        bufferClient: {
-            async shareNowMany() {
+        socialPublisher: {
+            async publishMany() {
                 return [{
                     success: false,
                     deliveryKey: 'delivery-1',
@@ -586,7 +586,7 @@ test('distribution runner treats an explicit Buffer duplicate rejection as compl
                     message: "Invalid post: Whoops, it looks like you've already got this one scheduled or posted around the same time."
                 }];
             },
-            async listRecentPosts() {
+            async listRecentPublications() {
                 throw new BufferApiError('lookup unavailable', {
                     code: 'BUFFER_CONNECTION_FAILED'
                 });
@@ -630,8 +630,8 @@ test('distribution runner retries only channels not found during reconciliation'
     const publishBatches = [];
     const runner = createRunner({
         store,
-        bufferClient: {
-            async shareNowMany(_apiKey, deliveries) {
+        socialPublisher: {
+            async publishMany(deliveries) {
                 publishBatches.push(deliveries.map((delivery) => delivery.deliveryKey));
                 if (publishBatches.length === 1) {
                     throw new BufferApiError('timeout', {
@@ -645,7 +645,7 @@ test('distribution runner retries only channels not found during reconciliation'
                     bufferPostId: 'post-2'
                 }];
             },
-            async listRecentPosts() {
+            async listRecentPublications() {
                 return [{
                     id: 'post-1',
                     channelId: 'channel-1',
@@ -686,8 +686,8 @@ test('distribution runner retries after reconciliation lookup failure and accept
     const runner = createRunner({
         store,
         sleep: async () => { sleepCalls += 1; },
-        bufferClient: {
-            async shareNowMany() {
+        socialPublisher: {
+            async publishMany() {
                 publishCalls += 1;
                 if (publishCalls === 2) {
                     return [{
@@ -701,7 +701,7 @@ test('distribution runner retries after reconciliation lookup failure and accept
                     code: 'BUFFER_CONNECTION_FAILED'
                 });
             },
-            async listRecentPosts() {
+            async listRecentPublications() {
                 throw new BufferApiError('lookup unavailable', {
                     code: 'BUFFER_CONNECTION_FAILED'
                 });
@@ -732,14 +732,14 @@ test('distribution runner records failure after all ambiguous retries and reconc
     let publishCalls = 0;
     const runner = createRunner({
         store,
-        bufferClient: {
-            async shareNowMany() {
+        socialPublisher: {
+            async publishMany() {
                 publishCalls += 1;
                 throw new BufferApiError('timeout', {
                     code: 'BUFFER_CONNECTION_FAILED'
                 });
             },
-            async listRecentPosts() {
+            async listRecentPublications() {
                 throw new BufferApiError('lookup unavailable', {
                     code: 'BUFFER_CONNECTION_FAILED'
                 });
@@ -761,8 +761,8 @@ test('distribution runner reports an empty queue without calling Buffer', async 
     let called = false;
     const runner = createRunner({
         store,
-        bufferClient: {
-            async shareNowMany() {
+        socialPublisher: {
+            async publishMany() {
                 called = true;
                 return [];
             }
@@ -801,8 +801,8 @@ test('distribution runner sends one Telegram alert only after final channel fail
                 return { success: true };
             }
         },
-        bufferClient: {
-            async shareNowMany() {
+        socialPublisher: {
+            async publishMany() {
                 return [{
                     success: false,
                     deliveryKey: 'delivery-1',

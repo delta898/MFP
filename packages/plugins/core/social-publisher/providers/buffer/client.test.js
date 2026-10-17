@@ -4,7 +4,7 @@ const {
     BufferClient,
     BufferApiError,
     isTransientBufferError
-} = require('./buffer-client');
+} = require('./client');
 
 function createAxiosMock(responses = []) {
     const calls = [];
@@ -111,22 +111,31 @@ test('request converts GraphQL authorization errors to a stable error code', asy
     );
 });
 
-test('shareNowMany sends channel posts as aliased mutations and preserves per-channel results', async () => {
-    const axios = createAxiosMock([{
-        status: 200,
-        data: {
+test('shareNowMany publishes each channel with a separate Buffer API call and preserves per-channel results', async () => {
+    const axios = createAxiosMock([
+        {
+            status: 200,
             data: {
-                delivery0: {
-                    __typename: 'PostActionSuccess',
-                    post: { id: 'post-1', channelId: 'channel-1' }
-                },
-                delivery1: {
-                    __typename: 'MutationError',
-                    message: 'Channel is disconnected'
+                data: {
+                    createPost: {
+                        __typename: 'PostActionSuccess',
+                        post: { id: 'post-1', channelId: 'channel-1' }
+                    }
+                }
+            }
+        },
+        {
+            status: 200,
+            data: {
+                data: {
+                    createPost: {
+                        __typename: 'MutationError',
+                        message: 'Channel is disconnected'
+                    }
                 }
             }
         }
-    }]);
+    ]);
     const client = new BufferClient({ axios });
 
     const result = await client.shareNowMany('secret-key', [
@@ -143,14 +152,14 @@ test('shareNowMany sends channel posts as aliased mutations and preserves per-ch
         }
     ]);
 
-    assert.equal(axios.calls.length, 1);
-    assert.match(axios.calls[0].body.query, /delivery0: createPost/);
-    assert.match(axios.calls[0].body.query, /delivery1: createPost/);
-    assert.equal(axios.calls[0].body.variables.input0.mode, 'shareNow');
-    assert.deepEqual(axios.calls[0].body.variables.input0.assets, [{
+    assert.equal(axios.calls.length, 2);
+    assert.match(axios.calls[0].body.query, /createPost\(input: \$input\)/);
+    assert.doesNotMatch(axios.calls[0].body.query, /delivery1: createPost/);
+    assert.equal(axios.calls[0].body.variables.input.mode, 'shareNow');
+    assert.deepEqual(axios.calls[0].body.variables.input.assets, [{
         image: { url: 'https://blog.example/image.jpg' }
     }]);
-    assert.equal(axios.calls[0].body.variables.input1.assets, undefined);
+    assert.equal(axios.calls[1].body.variables.input.assets, undefined);
     assert.equal(axios.calls[0].options.timeout, 60000);
     assert.deepEqual(result, [
         {
@@ -168,6 +177,21 @@ test('shareNowMany sends channel posts as aliased mutations and preserves per-ch
             retriable: false
         }
     ]);
+});
+
+test('shareNowMany has no application-specific three-channel cap', async () => {
+    const axios = createAxiosMock(Array.from({ length: 4 }, (_, index) => ({
+        status: 200,
+        data: { data: { createPost: { post: { id: `post-${index + 1}`, channelId: `channel-${index + 1}` } } } }
+    })));
+    const client = new BufferClient({ axios });
+    const results = await client.shareNowMany('secret-key', Array.from({ length: 4 }, (_, index) => ({
+        channelId: `channel-${index + 1}`,
+        text: '게시물'
+    })));
+
+    assert.equal(axios.calls.length, 4);
+    assert.equal(results.length, 4);
 });
 
 test('shareNowMany keeps the short timeout for text-only posts', async () => {
@@ -213,7 +237,7 @@ test('shareNowMany preserves ordered image assets for a carousel post', async ()
         ]
     }]);
 
-    assert.deepEqual(axios.calls[0].body.variables.input0.assets, [
+    assert.deepEqual(axios.calls[0].body.variables.input.assets, [
         { image: { url: 'https://blog.example/card-01.png' } },
         { image: { url: 'https://blog.example/card-02.png' } },
         { image: { url: 'https://blog.example/card-03.png' } }
@@ -301,39 +325,59 @@ test('listRecentPosts queries recent posts without the unreliable API startDate 
     }]);
 });
 
-test('getPostsByIds fetches terminal post state and publishing errors in one query', async () => {
-    const axios = createAxiosMock([{
-        status: 200,
-        data: {
+test('getPostsByIds fetches each post status separately without an application batch cap', async () => {
+    const axios = createAxiosMock([
+        {
+            status: 200,
             data: {
-                post0: {
-                    id: 'post-1',
-                    channelId: 'channel-1',
-                    status: 'sent',
-                    sentAt: '2026-08-03T01:02:03.000Z',
-                    externalLink: 'https://social.example/1'
-                },
-                post1: {
-                    id: 'post-2',
-                    channelId: 'channel-2',
-                    status: 'error',
-                    error: { message: 'Image fetch failed', supportUrl: 'https://support.buffer.com/help' }
+                data: {
+                    post: {
+                        id: 'post-1',
+                        channelId: 'channel-1',
+                        status: 'sent',
+                        sentAt: '2026-08-03T01:02:03.000Z',
+                        externalLink: 'https://social.example/1'
+                    }
+                }
+            }
+        },
+        {
+            status: 200,
+            data: {
+                data: {
+                    post: {
+                        id: 'post-2',
+                        channelId: 'channel-2',
+                        status: 'error',
+                        error: { message: 'Image fetch failed', supportUrl: 'https://support.buffer.com/help' }
+                    }
                 }
             }
         }
-    }]);
+    ]);
     const client = new BufferClient({ axios });
 
     const result = await client.getPostsByIds('secret-key', ['post-1', 'post-2']);
 
-    assert.match(axios.calls[0].body.query, /post0: post\(input: \$input0\)/);
-    assert.deepEqual(axios.calls[0].body.variables, {
-        input0: { id: 'post-1' },
-        input1: { id: 'post-2' }
-    });
+    assert.equal(axios.calls.length, 2);
+    assert.match(axios.calls[0].body.query, /post\(input: \$input\)/);
+    assert.deepEqual(axios.calls[0].body.variables, { input: { id: 'post-1' } });
+    assert.deepEqual(axios.calls[1].body.variables, { input: { id: 'post-2' } });
     assert.equal(result[0].status, 'sent');
     assert.equal(result[1].status, 'error');
     assert.equal(result[1].error.message, 'Image fetch failed');
+});
+
+test('getPostsByIds has no application-specific three-id cap', async () => {
+    const axios = createAxiosMock(Array.from({ length: 4 }, (_, index) => ({
+        status: 200,
+        data: { data: { post: { id: `post-${index + 1}`, status: 'sent' } } }
+    })));
+    const client = new BufferClient({ axios });
+    const posts = await client.getPostsByIds('secret-key', ['post-1', 'post-2', 'post-3', 'post-4']);
+
+    assert.equal(axios.calls.length, 4);
+    assert.equal(posts.length, 4);
 });
 
 test('transient Buffer errors include connection, rate limit, and server failures', () => {

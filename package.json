@@ -19,7 +19,7 @@
     "test:ui-settings": "node scripts/test-ui-settings.js",
     "test:ui-e2e": "node scripts/test-ui-e2e.js",
     "test:ui-browser": "node scripts/test-ui-browser-smoke.js",
-    "test:chat-model": "node --test src/utils.chat-model.test.js src/ai-model-config.test.js src/capabilities/settings/chat-model.test.js src/social/sns-ai-service.test.js",
+    "test:chat-model": "node --test src/utils.chat-model.test.js src/ai-model-config.test.js src/capabilities/settings/chat-model.test.js src/applications/sns/generation/sns-ai-service.test.js",
     "test:security": "npm audit --audit-level=high",
     "verify:site-hosting-contract": "node scripts/verify-site-hosting-contract.js",
     "pretest:unit": "npm run test:security",
@@ -84,7 +84,6 @@
       "src/naver/**/*.js",
       "src/ai/**/*.js",
       "src/utilities/**/*.js",
-      "src/social/**/*.js",
       "src/card-news/**/*.js",
       "src/keyword-discovery/**/*.js",
       "src/ui-api/**/*.js"

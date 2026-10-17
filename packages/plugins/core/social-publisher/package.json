@@ -1,0 +1,82 @@
+{
+  "name": "@bloggenius/social-publisher",
+  "version": "0.1.0",
+  "description": "Social channel and publication capabilities for BlogGenius",
+  "main": "index.js",
+  "files": ["index.js", "providers/buffer/client.js", "README.md"],
+  "dependencies": { "axios": "^1.20.0" },
+  "engines": { "node": ">=20" },
+  "bloggeniusPlugin": {
+    "manifestVersion": 1,
+    "id": "social-publisher",
+    "name": "Social Publisher",
+    "hostApi": "^1.0.0",
+    "summary": "Discovers social workspaces and channels, publishes posts, and reads publication status.",
+    "operations": {
+      "connection.inspect": {
+        "description": "Verify provider credentials and inspect workspaces and channels.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "workspaceId": { "type": "string", "maxLength": 200 },
+            "apiKey": { "type": "string", "maxLength": 4096 }
+          },
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "properties": {
+            "organizations": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+            "organization_id": { "type": "string" },
+            "channels": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+          },
+          "required": ["organizations", "organization_id", "channels"],
+          "additionalProperties": false
+        },
+        "capabilities": ["social.connection.inspect"]
+      },
+      "publications.list-recent": {
+        "description": "List recent publications for channels to reconcile publishing outcomes.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "workspaceId": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "channelIds": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 200 }, "maxItems": 50 },
+            "startDate": { "type": "string", "maxLength": 100 },
+            "first": { "type": "integer", "minimum": 1, "maximum": 50 }
+          },
+          "required": ["workspaceId", "channelIds"],
+          "additionalProperties": false
+        },
+        "outputSchema": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+        "capabilities": ["social.publications.read"]
+      },
+      "publications.get-by-ids": {
+        "description": "Read publication status for post IDs.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "postIds": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 200 } }
+          },
+          "required": ["postIds"],
+          "additionalProperties": false
+        },
+        "outputSchema": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+        "capabilities": ["social.publications.read"]
+      },
+      "publications.publish": {
+        "description": "Publish posts to multiple social channels immediately.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "deliveries": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+          },
+          "required": ["deliveries"],
+          "additionalProperties": false
+        },
+        "outputSchema": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+        "capabilities": ["social.publications.publish"]
+      }
+    }
+  }
+}

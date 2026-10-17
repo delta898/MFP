@@ -4,7 +4,7 @@ const {
     SNS_AI_MODES,
     isSnsAiMode,
     normalizeSnsAiMode
-} = require('./sns-ai-policy');
+} = require('./ai-policy');
 
 test('SNS AI policy exposes only the supported model roles', () => {
     assert.deepEqual(SNS_AI_MODES, ['none', 'blog_text', 'chat']);

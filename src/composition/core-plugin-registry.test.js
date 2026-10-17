@@ -49,6 +49,7 @@ test('Core Plugin registry lists bundled factories and creates a requested Plugi
     assert.deepEqual(CORE_PLUGIN_REGISTRATIONS.map((item) => item.id), [
         'naver-publisher',
         'wordpress-publisher',
+        'social-publisher',
         'ai-gateway',
         'astro-site-hosting',
         'hello-world'

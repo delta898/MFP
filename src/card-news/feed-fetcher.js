@@ -1,4 +1,4 @@
-const { parseFeedXml } = require('../social/feed-entry');
+const { parseFeedXml } = require('../utilities/feeds/feed-entry');
 
 function createCardNewsFeedFetcher(options = {}) {
     const httpClient = options.httpClient;

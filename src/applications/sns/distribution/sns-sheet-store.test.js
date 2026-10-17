@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { SNS_SHEET_HEADERS } = require('./sns-sheet-schema');
+const { SNS_SHEET_HEADERS } = require('../../../services/sns/sheet-schema');
 const {
     normalizeOriginalUrl,
     buildEntryKey,

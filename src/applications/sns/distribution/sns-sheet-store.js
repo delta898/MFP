@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const {
     SNS_SHEET_HEADERS,
     SNS_DELIVERY_STATUSES
-} = require('./sns-sheet-schema');
+} = require('../../../services/sns/sheet-schema');
 
 const FIELD_TO_HEADER = Object.freeze({
     deliveryKey: 'delivery_key',

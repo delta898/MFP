@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Utils = require('./utils');
-const { SNS_SHEET_HEADERS } = require('./social/sns-sheet-schema');
+const { SNS_SHEET_HEADERS } = require('./services/sns/sheet-schema');
 
 test('SNS sheet preparation creates the canonical sheet and applies validation', async () => {
     const calls = [];

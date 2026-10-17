@@ -46,23 +46,22 @@ const {
 } = require('./ai-model-config');
 const { normalizeWritingStyle } = require('./content/writing-style');
 const { normalizeWritingStrategy } = require('./content/writing-strategy');
-const { BufferClient } = require('./social/gateways/buffer-client');
 const WordPressClient = require('./wordpress-client');
-const { createSnsSheetStore } = require('./social/sns-sheet-store');
-const { createGoogleSheetsSnsGateway } = require('./social/google-sheets-sns-gateway');
+const { createSnsSheetStore } = require('./applications/sns/distribution/sns-sheet-store');
+const { createGoogleSheetsSnsGateway } = require('./adapters/storage/google-sheets-sns-gateway');
 const { createCardNewsLedgerGateway } = require('./card-news/google-sheets-ledger-gateway');
 const { createCardNewsLedgerStore } = require('./card-news/ledger-sheet-store');
 const { createCardNewsFeedFetcher } = require('./card-news/feed-fetcher');
 const { createCardNewsSourceService } = require('./card-news/source-service');
 const { createCardNewsRssIntake } = require('./card-news/rss-intake');
 const { createCardNewsRssIntakeScheduler } = require('./card-news/rss-intake-scheduler');
-const { createGoogleDrivePublicMediaTransport } = require('./social/google-drive-public-media-transport');
+const { createGoogleDrivePublicMediaTransport } = require('./adapters/media/google-drive-public-media-transport');
 const { normalizeCardNewsBuiltinSources, normalizeCardNewsRssSources } = require('./card-news/feed-sources');
-const { createSnsRssDiscovery } = require('./social/sns-rss-discovery');
-const { createSnsDistributionRunner } = require('./social/sns-distribution-runner');
-const { createSnsAiService } = require('./social/sns-ai-service');
-const { createManualSnsService } = require('./social/manual-sns-service');
-const { normalizeSnsAiMode } = require('./social/sns-ai-policy');
+const { createSnsRssDiscovery } = require('./applications/sns/distribution/sns-rss-discovery');
+const { createSnsDistributionRunner } = require('./applications/sns/distribution/sns-distribution-runner');
+const { createSnsAiService } = require('./applications/sns/generation/sns-ai-service');
+const { createManualSnsService } = require('./applications/sns/publishing/manual-sns-service');
+const { normalizeSnsAiMode } = require('./services/sns/ai-policy');
 const { runInteractiveNaverLoginFlow } = require('./naver-auth-flow');
 const { createUiSessionRuntime } = require('./ui-runtime/session-runtime');
 const { createUiHttpUtils } = require('./ui-runtime/http-utils');
@@ -74,6 +73,7 @@ const { createTrendActionsRuntime } = require('./ui-runtime/trend-actions-runtim
 const { createPublishActionsRuntime } = require('./ui-runtime/publish-actions-runtime');
 const { createUiApiRouteRuntime } = require('./ui-runtime/api-route-runtime');
 const { createBlogBetaRuntimeComposition } = require('./composition/blog-beta-runtime');
+const { createSocialPublishingSystem } = require('./composition/social-publishing');
 const { createCardNewsGenerationSystem } = require('./composition/card-news-generation');
 const { createSnsGenerationSystem } = require('./composition/sns-generation');
 const { createBundledWidgetPluginCatalog } = require('./composition/widget-plugins');
@@ -324,6 +324,8 @@ const blogBetaComposition = createBlogBetaRuntimeComposition({
     getAiModelCatalog
 });
 const { corePluginRuntime, blogWritingSystem, blogPostingApplication, blogPublishingApplication, aiGenerationSystem } = blogBetaComposition;
+const socialPublishingSystem = createSocialPublishingSystem({ corePluginRuntime, CONFIG, axios });
+const socialPublisher = socialPublishingSystem.publisher;
 const widgetPluginCatalog = createBundledWidgetPluginCatalog({ fs, path, logger: Logger, configDir: CONFIG.PATHS.configDir });
 const snsGenerationSystem = createSnsGenerationSystem({
     aiGeneration: aiGenerationSystem.service,
@@ -389,7 +391,7 @@ const snsDistributionRunner = createSnsDistributionRunner({
     CONFIG,
     License,
     store: snsSheetStore,
-    bufferClient: new BufferClient({ axios }),
+    socialPublisher: socialPublisher,
     aiService: snsAiService,
     urlService: urlShorteningService,
     notificationService: TelegramService,
@@ -1015,6 +1017,7 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     snsAiService,
     cardNewsLedgerStore,
     cardNewsMediaTransport,
+    socialPublisher: socialPublisher,
     urlShorteningService,
     recordActivityLifecycle,
     DEFAULT_HOST,
@@ -1136,7 +1139,6 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     scheduleUiReload,
     restartRemoteMcpService,
     getRemoteServiceStatus,
-    BufferClient,
     WordPressClient,
     createConfigRevision,
     sendSuccess,

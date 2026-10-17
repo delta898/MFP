@@ -1,5 +1,5 @@
-const { normalizeSnsAiMode } = require('./sns-ai-policy');
-const { normalizeHashtagTokens } = require('./sns-content-formatter');
+const { normalizeSnsAiMode } = require('../../../services/sns/ai-policy');
+const { normalizeHashtagTokens } = require('../../../services/social/publishing-content');
 
 const MAX_MANUAL_SNS_TEXT_LENGTH = 10000;
 

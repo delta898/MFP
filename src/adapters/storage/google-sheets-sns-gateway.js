@@ -1,6 +1,6 @@
 const axios = require('axios');
-const { SNS_SHEET_NAME } = require('./sns-sheet-schema');
-const { toA1Column, parseUpdatedRowNumbers } = require('../google-sheets/sheet-gateway-utils');
+const { SNS_SHEET_NAME } = require('../../services/sns/sheet-schema');
+const { toA1Column, parseUpdatedRowNumbers } = require('../../google-sheets/sheet-gateway-utils');
 
 function createGoogleSheetsSnsGateway(options = {}) {
     const Utils = options.Utils;
