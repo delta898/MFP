@@ -67,6 +67,65 @@ should keep a legacy module alive solely because it imports that module; replace
 the test against the new owner and remove the old implementation when its
 production callers are gone.
 
+## Direct-root file inventory
+
+This inventory records production responsibilities and representative direct
+callers found by source search. Caller examples are not an exhaustive call graph:
+some dependencies are passed through runtime factories, loaded conditionally,
+or referenced by scripts and contract tests. Before deleting a module, repeat
+the search for static imports, dynamic `require()`/`import()`, package/build
+inclusion, tests, and runtime injection paths. `package.json` still packages
+several root modules explicitly, so relocation also requires updating that
+packaging list.
+
+| Root files | Current responsibility and observed callers | Target ownership / deletion gate |
+| --- | --- | --- |
+| `ai-model-catalog.js`, `ai-model-config.js` | Bundled model catalog bridge and model selection/profile normalization. Used by AI transport/catalog modules, `config-loader.js`, Card News Application, settings services, and UI server. | Consolidate under the existing AI service/config boundary after settings and configuration consumers depend on that contract; remove root compatibility imports. Keep the catalog's single source of truth. |
+| `auth-session.js`, `browser-launcher.js`, `naver-auth-flow.js` | Browser launch policy, Naver authentication-session checks/state, and interactive login flow. Used by `core.js`, Shopping, trend collection, UI server, and Naver publishing composition. | Split browser and provider authentication adapters from Application-level login workflows; move callers first. Preserve shared browser lifecycle, credential paths, and session persistence. |
+| `config-loader.js`, `constants.js`, `runtime-config.js`, `runtime-feature-flags.js` | Configuration loading/defaults, package version constants, remotely fetched runtime configuration, and feature-policy normalization. These cross into AI, content profiles, Card News, environment, MCP, UI, publishing, and Utilities. | Decompose between Host configuration composition, environment/config adapters, and capability/Application policy. Do not relocate the loader wholesale; preserve startup order, packaged defaults, secret boundaries, and remote-config cache behavior. |
+| `core.js` | Mixed 2,900-line legacy facade: browser-driven Naver and WordPress publishing, editor interactions, related-post helpers, Telegram request parsing, and insight generation. Still used by `ui-server.js`, Blog runtime composition and UI-runtime fallbacks, Blog publishing Application, and `insight-engine.js`. | Split by Blog Application workflow, publishing adapters, channel parsing, and Agent capability. Remove each legacy function only after its replacement contract has production callers and tests; do not move the facade wholesale. |
+| `google-drive-spreadsheets.js`, `google-oauth.js` | Google Drive spreadsheet discovery/creation and OAuth/PKCE/token lifecycle. Drive helper is reached from legacy API routes; OAuth is used by UI/API routes and `utils.js`. | Place external protocol work in storage/identity adapters and inject it through Application/UI ports. Preserve token storage, OAuth callback, and spreadsheet creation behavior. |
+| `image-service.js` | Blog/platform image optimization policy (`optimizeImageForPlatform` and format conversion); now consumes generic Sharp loading and transformation from `utilities/media/`. Used by Blog composition, `core.js`, and `utils.js`. | Move Blog-specific format policy behind Blog Application/publishing contracts; keep only provider-neutral transformations in `utilities/media/`. Delete this facade after all three caller paths move. |
+| `insight-engine.js` | Agent insight summarization, currently calling `Core.generateSimpleInsight`; used by Telegram Bot service. | Move orchestration under Agent/insight capability and route model generation through the AI capability contract; remove the Core dependency. |
+| `keyword-manager.js`, `trend-manager.js` | Legacy keyword processing and a Naver trend collector assembled from browser/auth/config/logger dependencies. UI server injects TrendManager into `ui-runtime/trend-actions-runtime`; KeywordManager is imported by keyword research and Utility paths. | Move user workflows into the owning keyword/trend Application; put Naver/browser transport behind adapters and compose dependencies outside the UI runtime. Verify scheduled/CLI entrypoints before deleting either facade. |
+| `license-feature-policy.js`, `license.js`, `publish-quota.js` | License feature validation and Supabase-backed registration/status/usage operations; publish quota operation IDs and settlement policy. Used by UI/API, Telegram, Shopping, Utilities, keyword research, and publish runtimes. | Separate licensing/usage contracts and provider adapters from Application policy. Keep quota semantics and idempotency stable; remove direct provider access from consumers before deleting the facade. |
+| `logger.js` | Shared logging facade and runtime log-level/directory behavior; imported across Host, Applications, adapters, and legacy modules. It already delegates path resolution to `logging/runtime-log-path.js`. | Complete logging ownership under `logging/` and inject/configure it at composition boundaries. Preserve startup-time configuration and redact-sensitive logging behavior. |
+| `runtime-hooks.js` | Mutable process-wide hook registry consumed by MCP runtime, Telegram Bot service, and UI server. | Replace global mutation with explicit composition dependencies at the owning Host/runtime boundary; remove the singleton only when all registration and retrieval sites are migrated. |
+| `shopping-manager.js` | Large Shopping Connect workflow: product URL scraping, product/media processing, AI copy generation, and post composition. UI server, content service, and UI runtime call its methods; it still calls `Utils.callWritingText`. | Decompose into Shopping Application use cases plus injected product, AI, storage, and publishing ports. Preserve spreadsheet and posting contracts; migrate the remaining legacy AI path before deleting this module. |
+| `slack-service.js`, `telegram-service.js`, `telegram-network-policy.js` | Outbound Slack/Telegram protocol clients and Telegram error handling, retry, IPv4 fallback, and polling policy. UI server uses the clients; Telegram Bot service also uses Telegram transport policy. | Put protocol clients and transport-specific policy under `adapters/messaging/` (or existing provider adapter homes); keep message intent and Agent behavior above the adapter. |
+| `telegram-bot.service.js`, `telegram-pairing.service.js` | Telegram inbound bot lifecycle, channel request/response coordination, pairing state, and integration with Agent, Capabilities, Memory, and recommendations. Used by UI server/settings service and by the pairing service. | Separate channel ingress/rendering from Agent/Application orchestration and pairing transport. Preserve pairing expiry and polling lifecycle; migrate runtime composition before deleting root modules. |
+| Root tests: `ai-model-config.test.js`, `auth-session.test.js`, `browser-launcher.test.js`, `google-drive-spreadsheets.test.js`, `google-oauth-config.test.js`, `license-feature-policy.test.js`, `logger-startup-contract.test.js`, `publish-quota.test.js`, `runtime-config.test.js`, `runtime-feature-flags.test.js`, `shopping-manager.test.js`, `telegram-bot-network-contract.test.js`, `telegram-network-policy.test.js`, `telegram-pairing.service.test.js`, `telegram-service.test.js`, `ui-server.boundary.test.js`, `ui-server.settings.test.js`, `updater.test.js`, `updater.windows.integration.test.js`, `url-shortening-service.test.js`, `utils.card-news-sheet.test.js`, `utils.chat-model.test.js`, `utils.gemini-call.test.js`, `utils.sns-sheet.test.js`, `utils.text-cancellation.test.js`, `wordpress-client.test.js` | Root tests verify module-specific behavior, compatibility contracts, or legacy source structure. Some behavior-focused tests already verify extracted Application/adapter contracts but remain at root because the root facade/test relocation is unfinished. | Move tests alongside their new owner or contract. Replace source-text tests with contract tests when responsibility moves; do not retain a dead facade just to preserve a legacy test path. |
+| `ui-server.js` | UI HTTP server, broad dependency composition, OAuth callback, settings normalization, service construction, API wiring, and shutdown. It imports most root facades and many Application/API modules; `host/electron/electron-main.js`, `host/launcher.js`, and UI E2E scripts start it. | Reduce to a Host-facing UI ingress/composition boundary. Move protocol translation to `adapters/ui/`, dependency assembly to `composition/`, and product workflows to Applications; preserve routes and lifecycle while callers migrate. |
+| `updater.js` | Desktop update checking, download/apply flow, Windows backup/restore logic, and restart orchestration. Used by UI server and a Windows updater fixture/test. | Keep update lifecycle in Host and isolate OS/update transport behind adapters where needed. Preserve rollback/restart semantics and package resources. |
+| `url-service.js`, `url-shortening-service.js`, `wordpress-client.js` | URL validation/metadata, default short-link provider adapter, and WordPress REST client. UI server and Blog publishing runtimes call these directly or through API services. | Keep HTTP/provider clients under external adapters; define Blog/use-case ports at Application boundaries. Delete root entrypoints after production callers use composed adapters. |
+| `utils.js` | Mixed 4,700-line compatibility facade for AI text/image generation, Google Sheets, workspace/file handling, parsing, related posts, feeds, memory, and publishing helpers. Imported by Core, auth, Shopping, keyword research, Applications, and settings services; `ShoppingManager` still calls `callWritingText`. | Inventory and migrate method-by-method into AI adapters/services, storage adapters, the owning Application, or `utilities/`. Remove each facade method and its tests after all direct and injected callers move; never relocate the whole file. |
+
+### Migration order and gates from the root inventory
+
+1. Preserve the completed Host bootstrap and media-loader slices. For every
+   subsequent move, update `package.json` packaged-file lists as well as source
+   imports and tests; that list currently names 15 root modules explicitly.
+2. Start with an unambiguous shared capability whose target directory already
+   exists: move the logger implementation into `logging/`, update every direct
+   caller and packaged-file reference, then remove the root facade. This is a
+   small structural slice with a clear owner. The Naver trend collector is a
+   later candidate; its UI runtime caller must first invoke an Application-
+   owned use case, and scheduled/CLI callers must be checked before deletion.
+3. Migrate provider-facing services (Google, messaging, WordPress, URL) by
+   changing composition and Application call paths, not by changing filenames
+   alone. Preserve credentials, callbacks, retries, and external payloads.
+4. Decompose Shopping and Blog facades by workflow. `core.js`, `utils.js`, and
+   `config-loader.js` are late-stage removals because each mixes multiple
+   responsibilities and has broad caller graphs.
+5. Treat `ui-server.js` as an orchestration reduction project after service
+   contracts are injectable; do not shift product policy into Host merely to
+   shrink the file.
+
+The inventory is a migration guide, not an automatic move list. Each next slice
+must re-run caller and packaging searches, update its own development record,
+and pause for user input if the change would alter persistence, product policy,
+or an external contract.
+
 ## Migration sequence
 
 1. Complete the file-level caller/dependency and dynamic-load audit for the

@@ -5,7 +5,7 @@
 - Branch: `codex/fbr/source-layer-reorganization`
 - Start date: 2026-10-17
 - Base/parent branch: `codex/fbr/plugin-architecture-foundation`
-- Status: Inventory in progress; Host and media-loader slices merged
+- Status: Root inventory complete; logger slice in progress
 
 ## User Need and Goal
 
@@ -56,12 +56,15 @@ Stages 2–4 may be reordered or split further based on the inventory and depend
 
 - 2026-10-17: Created this parent feature branch from `codex/fbr/plugin-architecture-foundation` with a clean working tree.
 - 2026-10-17: Added the initial `src/README.md` with the root invariant, links to normative architecture, a first-pass inventory, and migration gates. Ambiguous rows are explicitly left open rather than assigned by name alone.
-- 2026-10-17: Caller search confirms `core.js` is still active in Blog publishing/application composition and legacy UI runtimes; it is also imported by related-post tests and `insight-engine.js`. `utils.js` is imported by configuration, authentication, Blog/Shopping/SNS runtime and keyword-research paths. Neither facade can be safely relocated or deleted as one step.
-- 2026-10-17: First-pass inventory confirms the target layers already coexist with legacy directories. Callsites, dynamic loading, data ownership, and external contract implications still need to be traced for each migration slice.
+- 2026-10-17: Caller search confirms `core.js` is still active in Blog publishing/Application composition and legacy UI runtimes; UI-runtime fallbacks call `Core.publishToBlog` and `Core.publishToWordPress`, Blog Publishing Application still calls Core for WordPress, and `insight-engine.js` calls `Core.generateSimpleInsight`. `utils.js` is imported across configuration, authentication, Blog/Shopping/SNS runtime, keyword research, and Applications; Shopping still calls `Utils.callWritingText`. Neither facade can be safely relocated or deleted as one step.
+- 2026-10-17: Completed the file-level root inventory in [`src/README.md`](../../../src/README.md), including every direct-root production module and test, representative callers, ownership targets, package inclusion (15 root modules named explicitly in `package.json`), and deletion gates. See the [Root Ownership Inventory development record](../archive/2026-10-17-source-layer-root-inventory-development.md). Static source search does not prove the absence of dynamic loads or injection; each code slice must repeat those checks.
+- 2026-10-17: Began the next contained migration, logger ownership. `logger.js` has a clear shared logging responsibility, and `src/logging/` already owns runtime log-path behavior. The child will relocate the implementation, update direct callers and packaged-file references, and remove the root path without changing logging behavior.
+- 2026-10-17: The Naver trend collector remains a later candidate. Its UI path is `ui-server.js` → `ui-runtime/trend-actions-runtime.js` → injected `TrendManager.fetchTrends()`, while a separate collector implementation is used under `apps/trends`. The migration must invoke an Application-owned action and keep provider collection behind composition; verify any additional callers before removing the root wrapper.
 - 2026-10-17: Completed manual confirmation of the first independently reviewable slice, [`Host Bootstrap Layer Migration`](2026-10-17-source-layer-host-bootstrap-development.md): the Dashboard launches and exits normally after moving process launch and Electron lifecycle under `src/host/`.
 - 2026-10-17: Merged the independently reviewed [`Media Runtime Loader Layer Migration`](2026-10-17-source-layer-media-runtime-loader-development.md) into the parent. Sharp loading and its tests now belong to `utilities/media/`; shared media optimization, Card News publishing, and the legacy Blog image facade use the new path. Focused verification passed (19/19).
 
 ## Verification and Remaining Work
 
-- The first inventory and root ownership map are in place. Host bootstrap passed focused automated checks and the user's manual Dashboard launch/exit check. The media-loader slice passed its focused tests and is integrated into this parent branch.
-- Remaining: deepen the caller/dependency inventory and sequence the next code slice, consulting the user at any product/data/compatibility boundary.
+- The root ownership map is complete for direct-root files and tests. Host bootstrap passed focused automated checks and the user's manual Dashboard launch/exit check. The media-loader slice passed its focused tests and is integrated into this parent branch.
+- In progress: logger ownership slice in child branch `codex/fbr/source-layer-logging`.
+- Remaining: migrate root modules in small child branches, changing call paths and deleting legacy roots after verification. Consult the user at any product/data/compatibility boundary. Full unit suite remains a parent-to-`dev` gate and requires explicit user approval.
