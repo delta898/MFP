@@ -5,7 +5,7 @@
 - Branch: `codex/fbr/source-layer-reorganization`
 - Start date: 2026-10-17
 - Base/parent branch: `codex/fbr/plugin-architecture-foundation`
-- Status: Inventory in progress; first Host bootstrap slice verified
+- Status: Inventory in progress; Host and media-loader slices merged
 
 ## User Need and Goal
 
@@ -59,8 +59,9 @@ Stages 2–4 may be reordered or split further based on the inventory and depend
 - 2026-10-17: Caller search confirms `core.js` is still active in Blog publishing/application composition and legacy UI runtimes; it is also imported by related-post tests and `insight-engine.js`. `utils.js` is imported by configuration, authentication, Blog/Shopping/SNS runtime and keyword-research paths. Neither facade can be safely relocated or deleted as one step.
 - 2026-10-17: First-pass inventory confirms the target layers already coexist with legacy directories. Callsites, dynamic loading, data ownership, and external contract implications still need to be traced for each migration slice.
 - 2026-10-17: Completed manual confirmation of the first independently reviewable slice, [`Host Bootstrap Layer Migration`](2026-10-17-source-layer-host-bootstrap-development.md): the Dashboard launches and exits normally after moving process launch and Electron lifecycle under `src/host/`.
+- 2026-10-17: Merged the independently reviewed [`Media Runtime Loader Layer Migration`](2026-10-17-source-layer-media-runtime-loader-development.md) into the parent. Sharp loading and its tests now belong to `utilities/media/`; shared media optimization, Card News publishing, and the legacy Blog image facade use the new path. Focused verification passed (19/19).
 
 ## Verification and Remaining Work
 
-- The first inventory and root ownership map are in place. The Host bootstrap slice has passed focused automated checks and the user's manual Dashboard launch/exit check.
+- The first inventory and root ownership map are in place. Host bootstrap passed focused automated checks and the user's manual Dashboard launch/exit check. The media-loader slice passed its focused tests and is integrated into this parent branch.
 - Remaining: deepen the caller/dependency inventory and sequence the next code slice, consulting the user at any product/data/compatibility boundary.
