@@ -6,6 +6,9 @@ function createWordPressPublisherAdapter(options = {}) {
     }
     const executeOperation = options.executeOperation;
     return Object.freeze({
+        inspectConnection(input = {}, executionContext = {}) {
+            return executeOperation('wordpress-publisher', 'connection.inspect', input, executionContext);
+        },
         uploadMedia(asset, executionContext = {}) {
             return executeOperation('wordpress-publisher', 'media.upload', {
                 bytesBase64: asset.bytes.toString('base64'),

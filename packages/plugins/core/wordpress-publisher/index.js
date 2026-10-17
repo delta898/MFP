@@ -42,9 +42,9 @@ function createPlugin(options = {}) {
     const fetchImpl = options.fetch || globalThis.fetch;
     if (typeof fetchImpl !== 'function') throw new TypeError('WordPress Plugin requires fetch().');
 
-    async function createRequestContext(signal) {
+    async function createRequestContext(signal, credentialsOverride = null) {
         let suppliedCredentials;
-        try { suppliedCredentials = await options.getCredentials(); }
+        try { suppliedCredentials = credentialsOverride || await options.getCredentials(); }
         catch (_) {
             throw new WordPressPublisherError('WordPress credentials could not be loaded.', {
                 code: 'CREDENTIALS_UNAVAILABLE'
@@ -104,8 +104,68 @@ function createPlugin(options = {}) {
         }
     }
 
+    async function inspectConnection(input, context = {}) {
+        let credentials = input.credentials || null;
+        if (!credentials) {
+            try { credentials = await options.getCredentials(); }
+            catch (_) {
+                return { success: false, configured: false, connected: false, canEdit: false, canPublish: false, message: '워드프레스 설정을 불러오지 못했습니다.' };
+            }
+        }
+        if (!credentials?.url || !credentials?.userId || !credentials?.appPassword) {
+            return { success: false, configured: false, connected: false, canEdit: false, canPublish: false, message: '워드프레스 설정(URL, 사용자 ID, 앱 비밀번호)이 누락되었습니다.' };
+        }
+        let requestContext;
+        try { requestContext = await createRequestContext(context.signal, credentials); }
+        catch (error) {
+            return { success: false, configured: false, connected: false, canEdit: false, canPublish: false, message: `워드프레스 설정을 확인해 주세요: ${String(error?.message || error)}` };
+        }
+        let user;
+        try {
+            user = await request(requestContext, '/users/me?context=edit', { method: 'GET' });
+        } catch (error) {
+            if (error?.code === 'ABORTED') throw error;
+            return {
+                success: false,
+                configured: true,
+                connected: false,
+                canEdit: false,
+                canPublish: false,
+                message: `연동 실패: ${String(error?.message || error).replace(/<[^>]*>?/gm, '')}`
+            };
+        }
+        const capabilities = user?.capabilities || {};
+        const roles = Array.isArray(user?.roles)
+            ? user.roles.map((role) => String(role || '').trim().toLowerCase())
+            : [];
+        const canEdit = capabilities.edit_posts === true || capabilities.publish_posts === true
+            || roles.some((role) => ['administrator', 'editor', 'author', 'contributor'].includes(role));
+        const canPublish = capabilities.publish_posts === true
+            || roles.some((role) => ['administrator', 'editor', 'author'].includes(role));
+        const hasRequiredPermission = input.requirePublish === true
+            ? canPublish
+            : (input.requireEdit === true ? canEdit : true);
+        const name = String(user?.name || user?.slug || '');
+        return {
+            success: hasRequiredPermission,
+            configured: true,
+            connected: true,
+            canEdit,
+            canPublish,
+            message: hasRequiredPermission
+                ? (input.requireEdit === true || input.requirePublish === true
+                    ? `연동 및 글쓰기 권한 확인! 사용자: ${name}`
+                    : `연동 성공! 사용자: ${name}`)
+                : (input.requirePublish === true
+                    ? `워드프레스에 연결했지만 글 게시 권한이 없습니다. (사용자: ${name})`
+                    : `워드프레스에 연결했지만 글쓰기 권한이 없습니다. (사용자: ${name})`),
+            user: { id: user.id, name: String(user.name || ''), roles: Array.isArray(user.roles) ? user.roles.map(String) : [] }
+        };
+    }
+
     return Object.freeze({
         operations: Object.freeze({
+            'connection.inspect': Object.freeze({ execute: inspectConnection }),
             'media.upload': Object.freeze({
                 async execute(input, context = {}) {
                     const requestContext = await createRequestContext(context.signal);

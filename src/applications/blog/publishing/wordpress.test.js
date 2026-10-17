@@ -14,6 +14,7 @@ function injectedWordPressRegistration(handlers = {}) {
         version: wordpressVersion,
         create: () => ({
             operations: {
+                'connection.inspect': { async execute(input) { return handlers.inspect?.(input) ?? { success: true, configured: true, connected: true, canEdit: true, canPublish: true, message: 'connected' }; } },
                 'media.upload': { async execute(input) { return handlers.upload?.(input) ?? { id: 1, url: 'https://site.test/media/1' }; } },
                 'categories.list': { async execute(input) { return handlers.categories?.(input) ?? []; } },
                 'posts.create': { async execute(input) { return handlers.publish?.(input) ?? { id: 3, url: 'https://site.test/3' }; } }
@@ -42,7 +43,7 @@ test('Application composes media, category, and post Plugin operations', async (
     assert.deepEqual(system.corePluginRegistry.list(), ['naver-publisher', 'wordpress-publisher', 'social-publisher', 'ai-gateway', 'astro-site-hosting', 'hello-world']);
     assert.deepEqual(system.pluginHost.listPlugins().map((item) => item.id), ['wordpress-publisher']);
     assert.deepEqual(system.pluginHost.listOperations().map((item) => item.operationId), [
-        'categories.list', 'media.upload', 'posts.create'
+        'categories.list', 'connection.inspect', 'media.upload', 'posts.create'
     ]);
 
     const result = await system.application.publish({
@@ -68,6 +69,28 @@ test('Application composes media, category, and post Plugin operations', async (
     assert.deepEqual(postPayload.categories, [5]);
     assert.equal(postPayload.featured_media, 8);
     assert.equal(postPayload.date, '2026-11-01T09:00:00');
+});
+
+test('Application delegates WordPress connection inspection to its Plugin capability', async () => {
+    const candidate = { url: 'https://candidate.test', userId: 'author', appPassword: 'temporary-secret' };
+    const { application } = createWordPressPublishingSystem({
+        pluginDependencies: {
+            'wordpress-publisher': {
+                getCredentials: async () => ({ url: 'https://saved.test', userId: 'saved', appPassword: 'saved-secret' }),
+                async fetch(url, init) {
+                    assert.equal(url, 'https://candidate.test/wp-json/wp/v2/users/me?context=edit');
+                    assert.match(init.headers.Authorization, /^Basic /);
+                    return { ok: true, status: 200, async json() { return { id: 4, name: 'Author', roles: ['author'], capabilities: {} }; } };
+                }
+            }
+        }
+    });
+
+    const result = await application.inspectConnection({ requirePublish: true, credentials: candidate });
+
+    assert.equal(result.success, true);
+    assert.equal(result.canPublish, true);
+    assert.equal(JSON.stringify(result).includes(candidate.appPassword), false);
 });
 
 test('Application falls back to draft for media or category issues and removes unresolved asset references', async () => {

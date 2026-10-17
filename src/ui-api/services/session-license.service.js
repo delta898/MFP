@@ -11,7 +11,7 @@ function createSessionLicenseService(deps = {}) {
         getNaverLoginState,
         setNaverLoginState,
         runNaverLoginFlowForUi,
-        WordPressClient,
+        blogPublishingApplication,
         CONFIG,
         recordWordPressVerification = () => null
     } = deps;
@@ -149,15 +149,26 @@ function createSessionLicenseService(deps = {}) {
             const url = String(requestBody.wordpressUrl || CONFIG.WORDPRESS_URL || '').trim();
             const userId = String(requestBody.wordpressUserId || CONFIG.WORDPRESS_USER_ID || '').trim();
             const appPassword = String(requestBody.wordpressAppPassword || CONFIG.WORDPRESS_APP_PASSWORD || '').trim();
-            const wpClient = new WordPressClient({
-                url,
-                userId,
-                appPassword
-            });
+            if (typeof blogPublishingApplication?.inspectWordPressConnection !== 'function') {
+                throw createApiError(503, 'BLOG_PUBLISHING_APPLICATION_UNAVAILABLE', 'WordPress 연결 확인 기능을 사용할 수 없습니다.');
+            }
+            if (!url || !userId || !appPassword) {
+                const result = {
+                    success: false,
+                    configured: false,
+                    connected: false,
+                    canEdit: false,
+                    canPublish: false,
+                    message: '워드프레스 설정(URL, 사용자 ID, 앱 비밀번호)이 누락되었습니다.'
+                };
+                recordWordPressVerification({ url, userId, appPassword }, result);
+                return result;
+            }
             const postStatus = String(requestBody.postStatus || '').trim().toLowerCase();
-            const result = await wpClient.verifyAuth({
+            const result = await blogPublishingApplication.inspectWordPressConnection({
                 requirePublish: ['publish', 'schedule'].includes(postStatus),
-                requireEdit: postStatus === 'draft'
+                requireEdit: postStatus === 'draft',
+                credentials: { url, userId, appPassword }
             });
             recordWordPressVerification({ url, userId, appPassword }, result);
             return result;

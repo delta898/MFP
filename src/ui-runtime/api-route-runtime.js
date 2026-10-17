@@ -151,7 +151,6 @@ function createUiApiRouteRuntime(deps = {}) {
         scheduleUiReload,
         restartRemoteMcpService,
         getRemoteServiceStatus,
-        WordPressClient,
         createConfigRevision,
         sendSuccess,
         sendError

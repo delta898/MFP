@@ -220,6 +220,12 @@ function createBlogPublishingApplication(options = {}) {
             }
             return wordpressPublishingApplication.listCategories(search, executionContext);
         },
+        inspectWordPressConnection(input = {}, executionContext = {}) {
+            if (typeof wordpressPublishingApplication?.inspectConnection !== 'function') {
+                throw new TypeError('WordPress Publishing Application is unavailable.');
+            }
+            return wordpressPublishingApplication.inspectConnection(input, executionContext);
+        },
         prepareImageAsset,
         prepareImageFile,
         publishNaver,

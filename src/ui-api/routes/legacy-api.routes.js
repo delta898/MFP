@@ -22,7 +22,6 @@ const { createSiteHostingQueueExecutor } = require('../../continuous-publishing/
 const { createGoogleDriveSpreadsheets } = require('../../google-drive-spreadsheets');
 const { createAccountOverviewService } = require('../../account/overview-service');
 const { createBlogExecutionCoordinator } = require('../../applications/blog/execution/execution-coordinator');
-const WordPressClient = require('../../wordpress-client');
 const { createConnectionReadinessService } = require('../../connections/readiness-service');
 const {
     recordWordPressVerification,
@@ -82,7 +81,7 @@ function createLegacyApiRouteHandler(deps = {}) {
         getNaverLoginState: deps.getNaverLoginState,
         setNaverLoginState: deps.setNaverLoginState,
         runNaverLoginFlowForUi: deps.runNaverLoginFlowForUi,
-        WordPressClient,
+        blogPublishingApplication: deps.blogPublishingApplication,
         CONFIG: deps.CONFIG,
         recordWordPressVerification
     });
@@ -96,7 +95,7 @@ function createLegacyApiRouteHandler(deps = {}) {
     const connectionReadinessService = createConnectionReadinessService({
         CONFIG: deps.CONFIG,
         checkNaverSessionForUi: deps.checkNaverSessionForUi,
-        WordPressClient,
+        blogPublishingApplication: deps.blogPublishingApplication,
         getWordPressVerification,
         recordWordPressVerification
     });

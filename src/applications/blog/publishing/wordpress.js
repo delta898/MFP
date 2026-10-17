@@ -73,6 +73,9 @@ function createWordPressPublishingApplication(options = {}) {
         listCategories(search = '', executionContext = {}) {
             return publisher.listCategories(search, executionContext);
         },
+        inspectConnection(input = {}, executionContext = {}) {
+            return publisher.inspectConnection(input, executionContext);
+        },
         async publish(request, executionContext = {}) {
             const input = normalizeRequest(request);
             assertNotAborted(executionContext);

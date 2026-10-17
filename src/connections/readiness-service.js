@@ -4,7 +4,7 @@ function createConnectionReadinessService(deps = {}) {
     const {
         CONFIG = {},
         checkNaverSessionForUi,
-        WordPressClient,
+        blogPublishingApplication,
         getWordPressVerification = () => null,
         recordWordPressVerification = () => null,
         wordpressCheckTtlMs = 120000,
@@ -54,10 +54,12 @@ function createConnectionReadinessService(deps = {}) {
             return wordpressCheckInFlight;
         }
 
-        const client = new WordPressClient(config);
         wordpressCheckSignature = requestKey;
         wordpressCheckInFlight = (async () => {
-            const result = await client.verifyAuth();
+            if (typeof blogPublishingApplication?.inspectWordPressConnection !== 'function') {
+                throw new TypeError('Blog Publishing Application does not provide WordPress connection inspection.');
+            }
+            const result = await blogPublishingApplication.inspectWordPressConnection();
             return recordWordPressVerification(config, result) || {
                 status: result?.success === true ? 'connected' : 'failed',
                 connected: result?.connected === true,

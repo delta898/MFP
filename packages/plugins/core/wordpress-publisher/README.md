@@ -26,6 +26,7 @@ const pluginHost = createPluginHost({ plugins: [{
 The package version (`0.1.0`) is the Plugin version source. The `bloggeniusPlugin` field in `package.json` is the source of truth for identity, Host API compatibility, operation descriptions, JSON Schema 2020-12 inputs/outputs, and requested capabilities. The Host validates those schemas before calling operation code and again before returning results. The descriptor id is `wordpress-publisher` and it declares:
 
 - `media.upload`: accepts `{ bytesBase64, filename, mimeType, altText? }` with an `image/*` MIME type; returns `{ id, url }`. Binary input crosses the JSON Plugin contract as base64 and is decoded only inside the WordPress adapter.
+- `connection.inspect`: verifies the configured credentials or an explicit one-time candidate `{ url, userId, appPassword }`, then reports connection, edit, and publish permissions. Candidate credentials are used only for this request and are never returned or persisted by the Plugin.
 - `categories.list`: accepts `{ search? }`; returns category `{ id, name, slug }` records.
 - `posts.create`: accepts `{ title, content, status, categories, featuredMedia?, date? }`; returns `{ id, url }`. `status` uses WordPress REST values (`draft`, `publish`, `future`, `pending`, `private`); category IDs must be numeric.
 

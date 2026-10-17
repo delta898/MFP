@@ -17,6 +17,51 @@
     "hostApi": "^1.0.0",
     "summary": "Publishes posts and uploads media through the WordPress REST API.",
     "operations": {
+      "connection.inspect": {
+        "description": "Verify WordPress credentials and inspect the user's edit and publish permissions.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "requireEdit": { "type": "boolean" },
+            "requirePublish": { "type": "boolean" },
+            "credentials": {
+              "type": "object",
+              "properties": {
+                "url": { "type": "string", "minLength": 1, "pattern": "\\S" },
+                "userId": { "type": "string", "minLength": 1, "pattern": "\\S" },
+                "appPassword": { "type": "string", "minLength": 1, "pattern": "\\S" }
+              },
+              "required": ["url", "userId", "appPassword"],
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "configured": { "type": "boolean" },
+            "connected": { "type": "boolean" },
+            "canEdit": { "type": "boolean" },
+            "canPublish": { "type": "boolean" },
+            "message": { "type": "string" },
+            "user": {
+              "type": "object",
+              "properties": {
+                "id": { "type": ["integer", "string"] },
+                "name": { "type": "string" },
+                "roles": { "type": "array", "items": { "type": "string" } }
+              },
+              "required": ["id", "name", "roles"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["success", "configured", "connected", "canEdit", "canPublish", "message"],
+          "additionalProperties": false
+        },
+        "capabilities": ["wordpress.credentials", "network.wordpress"]
+      },
       "media.upload": {
         "description": "Upload an image asset to the WordPress media library.",
         "inputSchema": {

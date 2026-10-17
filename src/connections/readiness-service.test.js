@@ -14,8 +14,8 @@ function createService(overrides = {}) {
         async checkNaverSessionForUi() {
             return { ok: true };
         },
-        WordPressClient: class {
-            async verifyAuth() {
+        blogPublishingApplication: {
+            async inspectWordPressConnection() {
                 return { success: true, connected: true, message: '연동 성공' };
             }
         },
@@ -43,8 +43,8 @@ test('readiness actively restores Naver and WordPress status after process start
             calls.push(['naver', options]);
             return { ok: true };
         },
-        WordPressClient: class {
-            async verifyAuth() {
+        blogPublishingApplication: {
+            async inspectWordPressConnection() {
                 calls.push(['wordpress']);
                 return { success: true, connected: true, message: '연동 성공' };
             }
@@ -73,8 +73,8 @@ test('WordPress readiness reuses a recent verification result', async () => {
         getWordPressVerification() {
             return recent;
         },
-        WordPressClient: class {
-            async verifyAuth() {
+        blogPublishingApplication: {
+            async inspectWordPressConnection() {
                 verifyCount += 1;
                 return { success: true, connected: true };
             }
@@ -92,8 +92,8 @@ test('concurrent WordPress readiness requests share one external verification', 
     let resolveVerification;
     const verification = new Promise((resolve) => { resolveVerification = resolve; });
     const service = createService({
-        WordPressClient: class {
-            async verifyAuth() {
+        blogPublishingApplication: {
+            async inspectWordPressConnection() {
                 verifyCount += 1;
                 return verification;
             }
@@ -114,8 +114,8 @@ test('WordPress readiness skips external access when settings are incomplete', a
     let verifyCount = 0;
     const service = createService({
         CONFIG: { WORDPRESS_URL: '' },
-        WordPressClient: class {
-            async verifyAuth() {
+        blogPublishingApplication: {
+            async inspectWordPressConnection() {
                 verifyCount += 1;
                 return { success: true };
             }

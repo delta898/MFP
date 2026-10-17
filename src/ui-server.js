@@ -44,7 +44,6 @@ const {
 } = require('./ai-model-config');
 const { normalizeWritingStyle } = require('./content/writing-style');
 const { normalizeWritingStrategy } = require('./content/writing-strategy');
-const WordPressClient = require('./wordpress-client');
 const { createSnsSheetStore } = require('./applications/sns/distribution/sns-sheet-store');
 const { createGoogleSheetsSnsGateway } = require('./adapters/storage/google-sheets-sns-gateway');
 const { createCardNewsRuntime } = require('./composition/card-news-runtime');
@@ -1115,7 +1114,6 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     scheduleUiReload,
     restartRemoteMcpService,
     getRemoteServiceStatus,
-    WordPressClient,
     createConfigRevision,
     sendSuccess,
     sendError

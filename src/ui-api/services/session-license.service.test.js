@@ -27,7 +27,7 @@ function createService(overrides = {}) {
         },
         setNaverLoginState() {},
         async runNaverLoginFlowForUi() {},
-        WordPressClient: class {},
+        blogPublishingApplication: { async inspectWordPressConnection() { return { success: true }; } },
         CONFIG: {},
         recordWordPressVerification() {},
         ...overrides
@@ -67,8 +67,8 @@ test('session service returns an idempotent Naver logout result', async () => {
 test('WordPress verification requires publish permission for public or scheduled posts', async () => {
     const received = [];
     const service = createService({
-        WordPressClient: class {
-            async verifyAuth(options) {
+        blogPublishingApplication: {
+            async inspectWordPressConnection(options) {
                 received.push(options);
                 return { success: true };
             }
@@ -84,18 +84,21 @@ test('WordPress verification requires publish permission for public or scheduled
     await service.verifyWordPressAuth({ postStatus: 'publish' });
     await service.verifyWordPressAuth({ postStatus: 'schedule' });
 
-    assert.deepEqual(received, [
+    assert.deepEqual(received.map(({ requirePublish, requireEdit }) => ({ requirePublish, requireEdit })), [
         { requirePublish: false, requireEdit: true },
         { requirePublish: true, requireEdit: false },
         { requirePublish: true, requireEdit: false }
     ]);
+    assert.ok(received.every((item) => item.credentials?.appPassword === 'app-password'));
 });
 
 test('WordPress verification records the checked candidate settings and result', async () => {
     let recorded = null;
+    let inspected = null;
     const service = createService({
-        WordPressClient: class {
-            async verifyAuth() {
+        blogPublishingApplication: {
+            async inspectWordPressConnection(options) {
+                inspected = options;
                 return { success: false, connected: false, message: '인증 실패' };
             }
         },
@@ -119,6 +122,28 @@ test('WordPress verification records the checked candidate settings and result',
         },
         result: { success: false, connected: false, message: '인증 실패' }
     });
+    assert.deepEqual(inspected.credentials, {
+        url: 'https://blog.example', userId: 'editor', appPassword: 'wrong-password'
+    });
+});
+
+test('WordPress verification rejects incomplete candidate credentials without invoking the Plugin', async () => {
+    let inspectCalls = 0;
+    const service = createService({
+        CONFIG: {},
+        blogPublishingApplication: {
+            async inspectWordPressConnection() {
+                inspectCalls += 1;
+                return { success: true };
+            }
+        }
+    });
+
+    const result = await service.verifyWordPressAuth({ wordpressUrl: 'https://blog.example' });
+
+    assert.equal(result.success, false);
+    assert.equal(result.configured, false);
+    assert.equal(inspectCalls, 0);
 });
 
 test('session route exposes Naver logout as a POST operation', async () => {
