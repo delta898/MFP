@@ -18,7 +18,7 @@ test('explicit batch publishing applies the configured posting option to every s
                 return { success: true, remaining: -1, features: { cmd_batch: true } };
             }
         },
-        Utils: {
+        GoogleSheets: {
             async readGoogleSheetTopicsAll() {
                 return {
                     items: [

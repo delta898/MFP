@@ -93,14 +93,14 @@ test('sheets preflight records verification for restart-safe status', async () =
     const signature = createConnectionSignature(['sheet-id']);
 
     const runtime = createRuntime({
-        Utils: { ensureAllSheetsExist: async () => ({ success: true, spreadsheetId: 'sheet-id' }) }
+        GoogleSheets: { ensureAllSheetsExist: async () => ({ success: true, spreadsheetId: 'sheet-id' }) }
     });
     const result = await runtime.ensureSheetsReadyForUi({ force: true });
     assert.equal(result.ok, true);
     assert.equal(readConnectionVerification('sheets', signature).status, 'connected');
 
     const failing = createRuntime({
-        Utils: { ensureAllSheetsExist: async () => ({ success: false, message: 'access denied' }) }
+        GoogleSheets: { ensureAllSheetsExist: async () => ({ success: false, message: 'access denied' }) }
     });
     await assert.rejects(failing.ensureSheetsReadyForUi({ force: true }));
     const failed = readConnectionVerification('sheets', signature);

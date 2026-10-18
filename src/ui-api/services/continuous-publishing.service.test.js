@@ -45,7 +45,7 @@ function createService(state = {}) {
         async ensureSheetsReadyForUi() {
             state.preflightCalls = (state.preflightCalls || 0) + 1;
         },
-        Utils: {
+        GoogleSheets: {
             async appendGoogleSheetTopics(rows, options) {
                 state.appendedRows = rows;
                 state.appendOptions = options;

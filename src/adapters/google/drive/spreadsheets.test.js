@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createGoogleDriveSpreadsheets, localDateStamp } = require('./google-drive-spreadsheets');
+const { createGoogleDriveSpreadsheets, localDateStamp } = require('./spreadsheets');
 
 test('daily file naming uses the computer local calendar date', () => {
     assert.equal(localDateStamp(new Date(2026, 8, 29, 23, 59)), '20260929');

@@ -1,12 +1,11 @@
-const axios = require('axios');
 const { CARD_NEWS_SHEET_NAME } = require('./ledger-sheet-schema');
-const { toA1Column, parseUpdatedRowNumbers } = require('../../../google-sheets/sheet-gateway-utils');
+const { toA1Column, parseUpdatedRowNumbers } = require('../../google/sheets/gateway-utils');
 
 function createCardNewsLedgerGateway(options = {}) {
-    const Utils = options.Utils;
+    const GoogleSheets = options.GoogleSheets;
+    const googleSheetsClient = options.googleSheetsClient;
     const CONFIG = options.CONFIG;
-    const httpClient = options.httpClient || axios;
-    if (!Utils || !CONFIG) throw new Error('Card News Sheets gateway에는 Utils와 CONFIG가 필요합니다.');
+    if (!GoogleSheets || !googleSheetsClient || !CONFIG) throw new Error('Card News Sheets gateway에는 Sheets port, client, CONFIG가 필요합니다.');
     let preparePromise = null;
 
     function resolveSpreadsheetId() {
@@ -15,20 +14,10 @@ function createCardNewsLedgerGateway(options = {}) {
         return spreadsheetId;
     }
 
-    async function requestWithToken(method, url, data) {
-        const accessToken = await Utils.getGoogleAccessToken();
-        return Utils.callWithRetry(() => httpClient.request({
-            method,
-            url,
-            data,
-            headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
-        }));
-    }
-
     return {
         async prepare() {
             if (!preparePromise) {
-                preparePromise = Utils.ensureCardNewsSheetReadyStrict(resolveSpreadsheetId())
+                preparePromise = GoogleSheets.ensureCardNewsSheetReadyStrict(resolveSpreadsheetId())
                     .catch((error) => {
                         preparePromise = null;
                         throw error;
@@ -39,17 +28,17 @@ function createCardNewsLedgerGateway(options = {}) {
         async readAll() {
             const spreadsheetId = resolveSpreadsheetId();
             const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(CARD_NEWS_SHEET_NAME)}`;
-            const response = await requestWithToken('GET', url);
+            const response = await googleSheetsClient.request({ method: 'GET', url });
             return Array.isArray(response?.data?.values) ? response.data.values : [];
         },
         async appendRows(rows) {
             const spreadsheetId = resolveSpreadsheetId();
             const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(CARD_NEWS_SHEET_NAME)}:append?valueInputOption=RAW`;
-            const response = await requestWithToken('POST', url, {
+            const response = await googleSheetsClient.request({ method: 'POST', url, data: {
                 range: CARD_NEWS_SHEET_NAME,
                 majorDimension: 'ROWS',
                 values: rows
-            });
+            } });
             return { rowNumbers: parseUpdatedRowNumbers(response?.data?.updates?.updatedRange) };
         },
         async updateCells(updates) {
@@ -61,7 +50,7 @@ function createCardNewsLedgerGateway(options = {}) {
             if (data.length === 0) return { updatedCount: 0 };
             const spreadsheetId = resolveSpreadsheetId();
             const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`;
-            await requestWithToken('POST', url, { valueInputOption: 'RAW', data });
+            await googleSheetsClient.request({ method: 'POST', url, data: { valueInputOption: 'RAW', data } });
             return { updatedCount: data.length };
         }
     };

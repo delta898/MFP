@@ -3,7 +3,7 @@ const { diagnoseQueueReadiness } = require('../applications/blog/queue-managemen
 const { diagnoseSiteTargetAvailability } = require('./site-target-readiness');
 
 function createSiteHostingQueueExecutor(deps = {}) {
-    const { Utils, ensureSheetsReadyForUi, generateAiManuscriptDraft, getSiteHostingSiteService } = deps;
+    const { Utils, GoogleSheets, ensureSheetsReadyForUi, generateAiManuscriptDraft, getSiteHostingSiteService } = deps;
     const now = typeof deps.now === 'function' ? deps.now : () => new Date();
 
     function currentTime() {
@@ -12,8 +12,8 @@ function createSiteHostingQueueExecutor(deps = {}) {
     }
 
     async function setTopicStatus(rowIndex, status, message) {
-        await Utils.updateGoogleSheetStatus(rowIndex, status, message);
-        Utils.clearSheetCache?.('topics');
+        await GoogleSheets.updateGoogleSheetStatus(rowIndex, status, message);
+        GoogleSheets.clearSheetCache?.('topics');
     }
 
     return async function executeSiteHostingQueueRowAction(input = {}) {
@@ -26,8 +26,8 @@ function createSiteHostingQueueExecutor(deps = {}) {
         let started = false;
         try {
             await ensureSheetsReadyForUi();
-            Utils.clearSheetCache?.('topics');
-            const sheet = await Utils.readGoogleSheetTopicsAll({ limit: 100000, offset: 0, sortBy: 'rowNumber', sortDir: 'asc' });
+            GoogleSheets.clearSheetCache?.('topics');
+            const sheet = await GoogleSheets.readGoogleSheetTopicsAll({ limit: 100000, offset: 0, sortBy: 'rowNumber', sortDir: 'asc' });
             topic = (Array.isArray(sheet?.items) ? sheet.items : []).find((item) => Number(item.rowIndex) === rowIndex);
             if (!topic) return { success: false, code: 'TOPIC_NOT_FOUND', message: '대기열 글감을 찾을 수 없습니다.' };
             if (String(topic.status || '').trim() !== TOPIC_STATUS.READY) {

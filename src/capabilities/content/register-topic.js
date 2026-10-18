@@ -164,10 +164,12 @@ function createRegisterTopicCapabilities(deps = {}) {
                 const rows = buildRowsFromParams(normalizedParams, context);
                 const appendGoogleSheetTopics = typeof deps.appendGoogleSheetTopics === 'function'
                     ? deps.appendGoogleSheetTopics
-                    : ((topics, options) => {
-                        const Utils = require('../../utils');
-                        return Utils.appendGoogleSheetTopics(topics, options);
-                    });
+                    : (typeof deps.GoogleSheets?.appendGoogleSheetTopics === 'function'
+                        ? (topics, options) => deps.GoogleSheets.appendGoogleSheetTopics(topics, options)
+                        : null);
+                if (!appendGoogleSheetTopics) {
+                    throw new Error('Google Sheets topic store가 capability composition에 연결되지 않았습니다.');
+                }
                 const appendRes = await appendGoogleSheetTopics(rows, {
                     defaultStatus: '발행 준비 완료',
                     memoryProvenance: provenanceFromRuntimeContext(context)

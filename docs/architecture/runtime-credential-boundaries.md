@@ -27,9 +27,9 @@ Desktop OAuth Client Secret은 이름에 `secret`이 있어도 설치형 앱에�
 
 | Item | Current source | Consumer | Target |
 | --- | --- | --- | --- |
-| Client ID/Secret | Development `.env.oauth.dev`, Production source `.env.oauth.prod`, packaged Production GitHub repository Secrets | `src/google-oauth.js` / Cloudflare connection service | 환경별 resolver 유지 |
-| access/refresh token | ignored `config/google_oauth_tokens.json` | `src/google-oauth.js` | 파일 유지, 후속 Keychain 검토 |
-| Sheets access token | token refresh 결과 | `src/utils.js` 및 Sheets 기능 | Desktop 직접 Google API 호출 유지 |
+| Client ID/Secret | Development `.env.oauth.dev`, Production source `.env.oauth.prod`, packaged Production GitHub repository Secrets | `src/adapters/google/auth/google-oauth.js` / Cloudflare connection service | 환경별 resolver 유지 |
+| access/refresh token | ignored `config/google_oauth_tokens.json` | `src/adapters/google/auth/google-oauth.js` | 파일 유지, 후속 Keychain 검토 |
+| Sheets access token | token refresh 결과 | `src/adapters/storage/google-sheets/` operations and injected storage port | Desktop directly calls Google API through the provider adapter |
 
 Google OAuth는 loopback callback과 PKCE를 사용한다. Edge Function이 Client Secret을 반환하거나
 인증 code/token refresh를 대행하는 broker는 도입하지 않는다.

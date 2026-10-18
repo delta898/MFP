@@ -245,6 +245,8 @@ test('quick publish keeps the user image option independent from legacy license 
         Logger: { info() { }, warn() { }, error() { } },
         Utils: {
             convertToMobileNaverBlogUrl: (value) => value,
+        },
+        GoogleSheets: {
             async ensureAllSheetsExist() { },
             async appendGoogleSheetTopics(topics) {
                 appendedTopics = topics;
@@ -330,6 +332,8 @@ test('quick publish preserves trend provenance in the topics row and dedupe inpu
         Logger: { info() {}, warn() {}, error() {} },
         Utils: {
             convertToMobileNaverBlogUrl: (value) => value,
+        },
+        GoogleSheets: {
             async ensureAllSheetsExist() {},
             async appendGoogleSheetTopics(topics) {
                 [appendedTopic] = topics;
@@ -375,6 +379,8 @@ test('quick publish records a grounded recommendation as saved after topics appe
         Logger: { info() {}, warn() {}, error() {} },
         Utils: {
             convertToMobileNaverBlogUrl: (value) => value,
+        },
+        GoogleSheets: {
             async ensureAllSheetsExist() {},
             async appendGoogleSheetTopics(topics) {
                 [appendedTopic] = topics;
@@ -437,6 +443,8 @@ test('quick preview generation failure does not leak credentials', async () => {
         },
         Utils: {
             convertToMobileNaverBlogUrl: (value) => value,
+        },
+        GoogleSheets: {
             async ensureAllSheetsExist() {},
             async appendGoogleSheetTopics() {
                 return { success: true, rowNumbers: [2], rowIndices: [0] };
@@ -488,7 +496,7 @@ test('shopping quick save carries the selected writing strategy into the sheet i
     const runtime = createTestPublishActionsRuntime({
         CONFIG: { GOOGLE_SHOPPING_SHEET: 'shopping' },
         Logger: { info() { }, warn() { }, error() { } },
-        Utils: {
+        GoogleSheets: {
             async ensureAllSheetsExist() { },
             async appendGoogleSheetShopping(items) {
                 [appendedItem] = items;

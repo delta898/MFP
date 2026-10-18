@@ -25,6 +25,7 @@ function createContentActionsRuntime(deps = {}) {
         path,
         CONFIG,
         Utils,
+        GoogleSheets,
         Core,
         blogPostingApplication,
         shoppingGenerationApplication,
@@ -125,7 +126,7 @@ function createContentActionsRuntime(deps = {}) {
     async function deleteSheetRows(rowIndices, sheetName) {
         const sortedIndices = [...rowIndices].sort((a, b) => b - a);
         const spreadsheetId = CONFIG.GOOGLE_SHEET_ID;
-        const sheetId = await Utils.getSheetIdByName(spreadsheetId, sheetName);
+        const sheetId = await GoogleSheets.getSheetIdByName(spreadsheetId, sheetName);
 
         if (sheetId === null) {
             return { success: false, code: 'SHEET_NOT_FOUND', message: `대상 시트(${sheetName})를 찾지 못했습니다.` };
@@ -143,7 +144,7 @@ function createContentActionsRuntime(deps = {}) {
         }));
 
         const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`;
-        const response = await Utils.googleSheetPost(updateUrl, { requests });
+        const response = await GoogleSheets.googleSheetPost(updateUrl, { requests });
         if (!response.spreadsheetId) {
             throw new Error('시트 삭제 응답이 유효하지 않습니다.');
         }
@@ -186,7 +187,7 @@ function createContentActionsRuntime(deps = {}) {
             return { success: false, code: 'INVALID_ROW_INDEX', message: 'rowIndex는 0 이상의 정수여야 합니다.' };
         }
 
-        const topics = await Utils.readGoogleSheetTopicsAll({ limit: 100000, offset: 0 });
+        const topics = await GoogleSheets.readGoogleSheetTopicsAll({ limit: 100000, offset: 0 });
         const topicData = (topics.items || []).find((item) => item.rowIndex === rowIndex);
         if (!topicData) {
             return { success: false, code: 'TOPIC_NOT_FOUND', message: `대상 rowIndex(${rowIndex})를 찾지 못했습니다.` };
@@ -350,7 +351,7 @@ function createContentActionsRuntime(deps = {}) {
                 });
 
                 emitProgress('시트 상태 반영 중...');
-                await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', `생성 완료 (${targetPlatform}): ${path.basename(result.targetDir)}`);
+                await GoogleSheets.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', `생성 완료 (${targetPlatform}): ${path.basename(result.targetDir)}`);
                 return {
                     success: true,
                     data: {
@@ -364,7 +365,7 @@ function createContentActionsRuntime(deps = {}) {
             }
 
             if (!isCommandEnabled(features, 'batch')) {
-                await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', '플랜 정책으로 발행 불가(cmd_batch=false)');
+                await GoogleSheets.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', '플랜 정책으로 발행 불가(cmd_batch=false)');
                 return { success: false, code: 'FEATURE_DISABLED', message: '현재 플랜에서 batch 기능이 비활성화되어 있습니다. (cmd_batch=false)' };
             }
 
@@ -381,13 +382,13 @@ function createContentActionsRuntime(deps = {}) {
             }
 
             emitProgress('사전 검증 중...');
-            await Utils.updateGoogleSheetStatus(rowIndex, '발행 중', '프로세스 시작');
+            await GoogleSheets.updateGoogleSheetStatus(rowIndex, '발행 중', '프로세스 시작');
 
             const requiresNaverSession = Array.isArray(effectiveTargets) && effectiveTargets.includes('naver');
             if (requiresNaverSession) {
                 const session = await checkAuthSessionValid();
                 if (!session.ok) {
-                    await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', '네이버 세션 만료');
+                    await GoogleSheets.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', '네이버 세션 만료');
                     return {
                         success: false,
                         code: 'NAVER_SESSION_INVALID',
@@ -414,7 +415,7 @@ function createContentActionsRuntime(deps = {}) {
             });
 
             if (!publishRes.success) {
-                await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', publishRes.message || '발행 실패');
+                await GoogleSheets.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', publishRes.message || '발행 실패');
                 return { success: false, code: publishRes.code || 'PUBLISH_FAILED', message: publishRes.message };
             }
 
@@ -435,7 +436,7 @@ function createContentActionsRuntime(deps = {}) {
 
             const finalStatus = (naverPubSuccess || wpPubSuccess) ? getCompletionStatusLabel(effectivePostStatus) : '실패';
             const finalLog = logArr.length > 0 ? logArr.join('/') : (publishRes.message || '실패');
-            await Utils.updateGoogleSheetStatus(rowIndex, finalStatus, finalLog);
+            await GoogleSheets.updateGoogleSheetStatus(rowIndex, finalStatus, finalLog);
 
             emitProgress('완료');
             return {
@@ -452,7 +453,7 @@ function createContentActionsRuntime(deps = {}) {
                 }
             };
         } catch (error) {
-            await Utils.updateGoogleSheetStatus(rowIndex, '실패', error.message);
+            await GoogleSheets.updateGoogleSheetStatus(rowIndex, '실패', error.message);
             return { success: false, code: 'BLOG_ACTION_FAILED', message: error.message };
         }
     }
@@ -489,7 +490,7 @@ function createContentActionsRuntime(deps = {}) {
             await ensureSheetsReadyForUi();
             const result = await deleteSheetRows(rowIndices, CONFIG.GOOGLE_SHOPPING_SHEET || 'shopping');
             if (!result.success) return result;
-            Utils.clearSheetCache?.('shopping');
+            GoogleSheets.clearSheetCache?.('shopping');
             return {
                 success: true,
                 data: {
@@ -669,7 +670,7 @@ function createContentActionsRuntime(deps = {}) {
         let quotaReserved = false;
 
         try {
-            const shoppingResult = await Utils.readGoogleSheetShoppingAll({ limit: 100000, offset: 0 });
+            const shoppingResult = await GoogleSheets.readGoogleSheetShoppingAll({ limit: 100000, offset: 0 });
             const allItems = Array.isArray(shoppingResult.items) ? shoppingResult.items : [];
             const target = allItems.find((item) => item.rowIndex === rowIndex);
             if (!target) {
@@ -700,7 +701,7 @@ function createContentActionsRuntime(deps = {}) {
             });
 
             report('상태 업데이트: 발행 중');
-            await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 중', false);
+            await GoogleSheets.updateGoogleSheetShoppingStatus(rowIndex, '발행 중', false);
 
             const blogAutoSettings = getBlogAutoSettingsSnapshot();
             const publishHeadless = typeof requestBody?.headless === 'boolean'
@@ -758,7 +759,7 @@ function createContentActionsRuntime(deps = {}) {
                 targets
             });
             if (!reservation.success) {
-                await Utils.updateGoogleSheetShoppingStatus(rowIndex, '발행 준비 완료');
+                await GoogleSheets.updateGoogleSheetShoppingStatus(rowIndex, '발행 준비 완료');
                 return { success: false, code: reservation.code || 'QUOTA_RESERVE_FAILED', message: reservation.message };
             }
             quotaReserved = true;
@@ -826,7 +827,7 @@ function createContentActionsRuntime(deps = {}) {
             if (targets.includes('naver') && results.naver.success) logArr.push('네이버 완료');
             if (targets.includes('wordpress') && results.wordpress.success) logArr.push('워드프레스 완료');
             const finalLog = logArr.length > 0 ? logArr.join('/') : '발행 실패';
-            await Utils.updateGoogleSheetShoppingStatus(rowIndex, finalStatus, false, finalLog);
+            await GoogleSheets.updateGoogleSheetShoppingStatus(rowIndex, finalStatus, false, finalLog);
 
             return {
                 success: anySuccess,
@@ -846,7 +847,7 @@ function createContentActionsRuntime(deps = {}) {
             if (quotaReserved) {
                 await settlePublishQuota({ License, operationId, results, metadata: { error: error.message } });
             }
-            await Utils.updateGoogleSheetShoppingStatus(rowIndex, '실패');
+            await GoogleSheets.updateGoogleSheetShoppingStatus(rowIndex, '실패');
             return { success: false, code: 'SHOPPING_ACTION_FAILED', message: error.message };
         }
     }
@@ -1039,7 +1040,7 @@ function createContentActionsRuntime(deps = {}) {
         }
 
         try {
-            await Utils.updateGoogleSheetShoppingEditableFields(rowIndex, {
+            await GoogleSheets.updateGoogleSheetShoppingEditableFields(rowIndex, {
                 product,
                 shortUrl,
                 instruction,
@@ -1126,7 +1127,7 @@ function createContentActionsRuntime(deps = {}) {
                 fallback: 'prompt_only'
             });
 
-            await Utils.updateGoogleSheetTopicEditableFields(rowIndex, {
+            await GoogleSheets.updateGoogleSheetTopicEditableFields(rowIndex, {
                 category: finalCategory,
                 postStatus: postStatusRaw,
                 scheduleDate: String(requestBody?.scheduleDate || '').trim(),

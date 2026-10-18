@@ -29,6 +29,7 @@ const {
 } = require('./adapters/messaging/telegram/network-policy');
 
 class TelegramBotService {
+    static GoogleSheets = null;
     static bot = null;
     static isInitialized = false;
     static pendingRequests = new Map(); // 사용자 확인 대기 중인 파싱 데이터 관리
@@ -253,6 +254,7 @@ class TelegramBotService {
             Logger,
             CONFIG,
             License,
+            GoogleSheets: this.GoogleSheets,
             eventStore: this.agentEventStore,
             resolveWritableConfigPath,
             buildDefaultConfigTemplate,
@@ -880,7 +882,6 @@ class TelegramBotService {
                         return;
                     }
 
-                    const Utils = require('./utils');
                     const axios = require('axios');
                     const CONFIG = require('./config-loader');
 
@@ -937,7 +938,7 @@ class TelegramBotService {
                                     }
                                 });
                             }
-                            const appendRes = await Utils.appendGoogleSheetTopics(newTopics, { defaultStatus: '발행 준비 완료' });
+                            const appendRes = await TelegramBotService.GoogleSheets.appendGoogleSheetTopics(newTopics, { defaultStatus: '발행 준비 완료' });
                             registerResult = {
                                 success: true,
                                 data: {

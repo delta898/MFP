@@ -7,6 +7,7 @@ function createAutoCycleRuntime(deps = {}) {
         Logger,
         License,
         Utils,
+        GoogleSheets,
         urlShorteningService,
         TelegramService,
         SlackService,
@@ -88,7 +89,7 @@ function createAutoCycleRuntime(deps = {}) {
         Logger.info(`🚀 [Blog][BatchPublish] 선택 글감 발행 시작 (Trigger: ${trigger})`);
 
         try {
-            const topicsRes = await Utils.readGoogleSheetTopicsAll({
+            const topicsRes = await GoogleSheets.readGoogleSheetTopicsAll({
                 status: '',
                 limit: 100000,
                 sortBy: 'rowNumber',

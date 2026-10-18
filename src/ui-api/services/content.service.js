@@ -42,6 +42,7 @@ function createNaverPublishProgressReporter({ lease, fallbackPostStatus, logger 
 function createContentService(deps = {}) {
     const {
         Utils,
+        GoogleSheets,
         fs,
         path,
         axios,
@@ -287,7 +288,7 @@ function createContentService(deps = {}) {
             const existing = new Set(items.map(item => item.rowIndex));
             const missingRuntimeRowIndices = Array.from(runtimeLogMap.keys()).filter(rowIndex => !existing.has(rowIndex));
             if (missingRuntimeRowIndices.length > 0) {
-                const allTopics = await Utils.readGoogleSheetTopicsAll({ limit: 100000, offset: 0, sortBy, sortDir });
+                const allTopics = await GoogleSheets.readGoogleSheetTopicsAll({ limit: 100000, offset: 0, sortBy, sortDir });
                 const allItems = Array.isArray(allTopics.items) ? allTopics.items : [];
                 const byRowIndex = new Map(allItems.map(item => [item.rowIndex, item]));
                 for (const rowIndex of missingRuntimeRowIndices) {
@@ -317,7 +318,7 @@ function createContentService(deps = {}) {
             topicStore: {
                 async list(query = {}) {
                     await ensureSheetsReadyForUi();
-                    const result = await Utils.readGoogleSheetTopicsAll(query);
+                    const result = await GoogleSheets.readGoogleSheetTopicsAll(query);
                     return { result, sortBy: query.sortBy || 'rowNumber', sortDir: query.sortDir || 'desc' };
                 }
             }
@@ -332,7 +333,7 @@ function createContentService(deps = {}) {
             const existing = new Set(items.map(item => item.rowIndex));
             const missingRuntimeRowIndices = Array.from(runtimeLogMap.keys()).filter(rowIndex => !existing.has(rowIndex));
             if (missingRuntimeRowIndices.length > 0) {
-                const allShopping = await Utils.readGoogleSheetShoppingAll({ limit: 100000, offset: 0, sortBy, sortDir });
+                const allShopping = await GoogleSheets.readGoogleSheetShoppingAll({ limit: 100000, offset: 0, sortBy, sortDir });
                 const allItems = Array.isArray(allShopping.items) ? allShopping.items : [];
                 const byRowIndex = new Map(allItems.map(item => [item.rowIndex, item]));
                 for (const rowIndex of missingRuntimeRowIndices) {
@@ -683,7 +684,7 @@ function createContentService(deps = {}) {
                         return;
                     }
                     const tokens = await GoogleOAuth.exchangeCode(code, state);
-                    Utils.clearGoogleAuthCache();
+                    GoogleSheets.clearGoogleAuthCache();
                     flow.status = 'success';
                     flow.result = {
                         email: String(tokens.connected_email || ''),
@@ -799,7 +800,7 @@ function createContentService(deps = {}) {
 
         async disconnectGoogleOauth() {
             GoogleOAuth.deleteTokens();
-            Utils.clearGoogleAuthCache();
+            GoogleSheets.clearGoogleAuthCache();
             return {
                 message: 'Google 계정 연결을 해제했습니다.'
             };
@@ -825,7 +826,7 @@ function createContentService(deps = {}) {
                 throw createApiError(400, 'INVALID_SHEET_URL', '스프레드시트 주소를 다시 확인해 주세요.');
             }
 
-            const accessToken = await Utils.getGoogleAccessToken(['https://www.googleapis.com/auth/drive.file']);
+            const accessToken = await GoogleSheets.getGoogleAccessToken(['https://www.googleapis.com/auth/drive.file']);
             const response = await axios.get(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=spreadsheetId,properties.title`, {
                 headers: {
                     Authorization: `Bearer ${accessToken}`
@@ -1330,7 +1331,7 @@ function createContentService(deps = {}) {
             const query = { status, q, limit, offset, sortBy, sortDir };
             if (blogQueueManagementApplication?.listTopics) return blogQueueManagementApplication.listTopics(query);
             await ensureSheetsReadyForUi();
-            const result = await Utils.readGoogleSheetTopicsAll(query);
+            const result = await GoogleSheets.readGoogleSheetTopicsAll(query);
             return hydrateTopicItemsWithRuntimeLogs(result, sortBy, sortDir);
         },
 
@@ -1342,7 +1343,7 @@ function createContentService(deps = {}) {
             const offset = parseIntSafe(searchParams.get('offset'), 0, 0) || 0;
             const sortBy = String(searchParams.get('sortBy') || 'rowNumber').trim();
             const sortDir = normalizeSortDir(searchParams.get('sortDir'), 'desc');
-            const result = await Utils.readGoogleSheetShoppingAll({ status, q, limit, offset, sortBy, sortDir });
+            const result = await GoogleSheets.readGoogleSheetShoppingAll({ status, q, limit, offset, sortBy, sortDir });
             return hydrateShoppingItemsWithRuntimeLogs(result, sortBy, sortDir);
         },
 
@@ -1400,7 +1401,7 @@ function createContentService(deps = {}) {
                 throw createApiError(400, result.code || 'TOPIC_UPDATE_FAILED', result.message || '토픽 수정에 실패했습니다.');
             }
             // 서버 캐시 무효화: 다음 조회 시 Google Sheets에서 최신 데이터를 읽어옴
-            Utils.clearSheetCache('topics');
+            GoogleSheets.clearSheetCache('topics');
             return result.data;
         },
 

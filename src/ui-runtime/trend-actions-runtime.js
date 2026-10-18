@@ -5,6 +5,7 @@ function createTrendActionsRuntime(deps = {}) {
         Logger,
         CONFIG,
         Utils,
+        GoogleSheets,
         ensureSheetsReadyForUi,
         parseIntSafe,
         getBlogAutoSettingsSnapshot,
@@ -215,7 +216,7 @@ function createTrendActionsRuntime(deps = {}) {
             return { appendedCount: 0, candidates: 0, rowIndices: [], filteredCount: 0, duplicateCount: 0, reuseBlockedCount: 0 };
         }
 
-        const existingTopicsRes = await Utils.readGoogleSheetTopicsAll({ q: '', limit: 100000, offset: 0, sortBy: 'rowNumber', sortDir: 'desc' });
+        const existingTopicsRes = await GoogleSheets.readGoogleSheetTopicsAll({ q: '', limit: 100000, offset: 0, sortBy: 'rowNumber', sortDir: 'desc' });
         const existingTopics = Array.isArray(existingTopicsRes.items) ? existingTopicsRes.items : [];
         const recentReuseKeySet = getRecentTopicKeys(existingTopics, keywordReuseGapDays, targetTrendDateYmd);
         const inBatchKeySet = new Set();
@@ -261,7 +262,7 @@ function createTrendActionsRuntime(deps = {}) {
 
         let appendedRowIndices = [];
         if (topicsToAppend.length > 0) {
-            const appendResult = await Utils.appendGoogleSheetTopics(topicsToAppend, { defaultStatus: '발행 준비 완료' });
+            const appendResult = await GoogleSheets.appendGoogleSheetTopics(topicsToAppend, { defaultStatus: '발행 준비 완료' });
             if (!appendResult?.success) {
                 throw new Error(appendResult?.message || 'AUTO direct trends→topics append 실패');
             }
@@ -292,7 +293,7 @@ function createTrendActionsRuntime(deps = {}) {
             return { success: false, code: 'INVALID_ROW_INDICES', message: '선택된 trends 행이 없습니다.' };
         }
 
-        const trendsResult = await Utils.readGoogleSheetTrendsAll({ limit: 100000, offset: 0 });
+        const trendsResult = await GoogleSheets.readGoogleSheetTrendsAll({ limit: 100000, offset: 0 });
         const allItems = Array.isArray(trendsResult.items) ? trendsResult.items : [];
         const byRowIndex = new Map(allItems.map((item) => [item.rowIndex, item]));
         const selected = rowIndices.map((index) => byRowIndex.get(index)).filter(Boolean);
@@ -312,7 +313,7 @@ function createTrendActionsRuntime(deps = {}) {
 
         const selectedBaseYmd = normalizeYmdToken(requestBody?.trendDate || requestBody?.date || '')
             || normalizeYmdToken(selected[0]?.date || '');
-        const existingTopicsRes = await Utils.readGoogleSheetTopicsAll({ q: '', limit: 100000, offset: 0, sortBy: 'rowNumber', sortDir: 'desc' });
+        const existingTopicsRes = await GoogleSheets.readGoogleSheetTopicsAll({ q: '', limit: 100000, offset: 0, sortBy: 'rowNumber', sortDir: 'desc' });
         const existingTopics = Array.isArray(existingTopicsRes.items) ? existingTopicsRes.items : [];
         const recentReuseKeySet = getRecentTopicKeys(existingTopics, keywordReuseGapDays, selectedBaseYmd);
         const inBatchKeySet = new Set();
@@ -366,13 +367,13 @@ function createTrendActionsRuntime(deps = {}) {
             };
         }
 
-        const appendResult = await Utils.appendGoogleSheetTopics(topics, { defaultStatus: '대기' });
+        const appendResult = await GoogleSheets.appendGoogleSheetTopics(topics, { defaultStatus: '대기' });
         if (!appendResult?.success) {
             return { success: false, code: 'TOPICS_APPEND_FAILED', message: appendResult?.message || 'topics 추가에 실패했습니다.' };
         }
 
         for (const rowIndex of rowIndices) {
-            await Utils.updateGoogleSheetTrendStatus(rowIndex, '키워드 목록 추가 완료');
+            await GoogleSheets.updateGoogleSheetTrendStatus(rowIndex, '키워드 목록 추가 완료');
         }
 
         return {
@@ -400,7 +401,7 @@ function createTrendActionsRuntime(deps = {}) {
             return { success: false, code: 'INVALID_ROW_INDICES', message: '선택된 keywords 행이 없습니다.' };
         }
 
-        const keywordsResult = await Utils.readGoogleSheetKeywordsAll({ limit: 100000, offset: 0 });
+        const keywordsResult = await GoogleSheets.readGoogleSheetKeywordsAll({ limit: 100000, offset: 0 });
         const allItems = Array.isArray(keywordsResult.items) ? keywordsResult.items : [];
         const byRowIndex = new Map(allItems.map((item) => [item.rowIndex, item]));
         const selected = rowIndices.map((index) => byRowIndex.get(index)).filter(Boolean);
@@ -431,13 +432,13 @@ function createTrendActionsRuntime(deps = {}) {
             return { success: false, code: 'EMPTY_TOPICS', message: '선택된 행에서 토픽 생성이 가능한 데이터가 없습니다.' };
         }
 
-        const appendResult = await Utils.appendGoogleSheetTopics(topics, { defaultStatus: '대기' });
+        const appendResult = await GoogleSheets.appendGoogleSheetTopics(topics, { defaultStatus: '대기' });
         if (!appendResult?.success) {
             return { success: false, code: 'TOPICS_APPEND_FAILED', message: appendResult?.message || 'topics 추가에 실패했습니다.' };
         }
 
         for (const rowIndex of rowIndices) {
-            await Utils.updateGoogleSheetKeywordStatus(rowIndex, '연관검색어 조사 완료');
+            await GoogleSheets.updateGoogleSheetKeywordStatus(rowIndex, '연관검색어 조사 완료');
         }
 
         return {

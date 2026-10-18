@@ -21,7 +21,7 @@ const { createAccountController } = require('../../adapters/ui/account/controlle
 const { createContinuousPublishingController } = require('../controllers/continuous-publishing.controller');
 const { createContinuousPublishingService } = require('../services/continuous-publishing.service');
 const { createSiteHostingQueueExecutor } = require('../../continuous-publishing/site-hosting-queue-executor');
-const { createGoogleDriveSpreadsheets } = require('../../google-drive-spreadsheets');
+const { createGoogleDriveSpreadsheets } = require('../../adapters/google/drive/spreadsheets');
 const { createAccountOverviewService } = require('../../applications/account/overview/application');
 const { createBlogExecutionCoordinator } = require('../../applications/blog/execution/execution-coordinator');
 const { createBlogTrendPosting } = require('../../composition/blog-trend-posting');
@@ -48,11 +48,11 @@ function createLegacyApiRouteHandler(deps = {}) {
     } catch (_) {
         // Best-effort: verification persistence must never break route setup.
     }
-    const GoogleOAuth = require('../../google-oauth');
+    const GoogleOAuth = require('../../adapters/google/auth/google-oauth');
     const GoogleDriveSpreadsheets = createGoogleDriveSpreadsheets({
         axios: deps.axios,
-        getAccessToken: (scopes) => deps.Utils.getGoogleAccessToken(scopes),
-        ensureSheetsExist: (spreadsheetId) => deps.Utils.ensureAllSheetsExistStrict(spreadsheetId)
+        getAccessToken: (scopes) => deps.GoogleSheets.getGoogleAccessToken(scopes),
+        ensureSheetsExist: (spreadsheetId) => deps.GoogleSheets.ensureAllSheetsExistStrict(spreadsheetId)
     });
     const blogNextExecutionCoordinator = deps.blogNextExecutionCoordinator
         || createBlogExecutionCoordinator();
@@ -195,6 +195,7 @@ function createLegacyApiRouteHandler(deps = {}) {
 
     const executeSiteHostingQueueRowAction = createSiteHostingQueueExecutor({
         Utils: deps.Utils,
+        GoogleSheets: deps.GoogleSheets,
         ensureSheetsReadyForUi: deps.ensureSheetsReadyForUi,
         generateAiManuscriptDraft: contentService.createAiManuscriptDraftForQueue,
         getSiteHostingSiteService: deps.getSiteHostingSiteService
@@ -241,7 +242,7 @@ function createLegacyApiRouteHandler(deps = {}) {
 
     const trendPosting = createBlogTrendPosting({
         License: deps.License,
-        Utils: deps.Utils,
+        GoogleSheets: deps.GoogleSheets,
         Logger: deps.Logger,
         axios: deps.axios,
         baseUrl: deps.CONFIG?.TRENDS_API_PUBLIC_CONFIG?.url

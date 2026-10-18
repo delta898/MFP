@@ -17,7 +17,7 @@ test('Google Sheets SNS gateway converts columns and append ranges', () => {
 test('Google Sheets SNS gateway prepares strictly and writes values as RAW', async () => {
     const requests = [];
     const preparedIds = [];
-    const Utils = {
+    const GoogleSheets = {
         async ensureSnsSheetReadyStrict(spreadsheetId) {
             preparedIds.push(spreadsheetId);
         },
@@ -28,7 +28,7 @@ test('Google Sheets SNS gateway prepares strictly and writes values as RAW', asy
             return fn();
         }
     };
-    const httpClient = {
+    const googleSheetsClient = {
         async request(request) {
             requests.push(request);
             if (request.url.includes(':append')) {
@@ -38,9 +38,9 @@ test('Google Sheets SNS gateway prepares strictly and writes values as RAW', asy
         }
     };
     const gateway = createGoogleSheetsSnsGateway({
-        Utils,
+        GoogleSheets,
+        googleSheetsClient,
         CONFIG: { GOOGLE_SHEET_ID: 'spreadsheet-id' },
-        httpClient
     });
 
     await gateway.prepare();

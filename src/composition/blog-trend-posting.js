@@ -4,7 +4,7 @@ const { createBlogTrendPostingApplication } = require('../applications/blog/tren
 
 function createBlogTrendPosting(deps = {}) {
     const License = deps.License;
-    const Utils = deps.Utils;
+    const GoogleSheets = deps.GoogleSheets;
     if (!License || typeof License.issueTrendsAccessToken !== 'function') throw new Error('License.issueTrendsAccessToken is required');
     const tokenCache = deps.tokenCache || createAccessTokenCache({ issueToken: () => License.issueTrendsAccessToken() });
     let remoteClient = deps.remoteClient || null;
@@ -17,11 +17,11 @@ function createBlogTrendPosting(deps = {}) {
         return remoteClient;
     }
     const topicStore = deps.topicStore || {};
-    if (!deps.topicStore && typeof Utils?.readGoogleSheetTopicsAll === 'function') {
-        topicStore.listAll = (options) => Utils.readGoogleSheetTopicsAll(options);
+    if (!deps.topicStore && typeof GoogleSheets?.readGoogleSheetTopicsAll === 'function') {
+        topicStore.listAll = (options) => GoogleSheets.readGoogleSheetTopicsAll(options);
     }
-    if (!deps.topicStore && typeof Utils?.appendGoogleSheetTopics === 'function') {
-        topicStore.append = (rows, options) => Utils.appendGoogleSheetTopics(rows, options);
+    if (!deps.topicStore && typeof GoogleSheets?.appendGoogleSheetTopics === 'function') {
+        topicStore.append = (rows, options) => GoogleSheets.appendGoogleSheetTopics(rows, options);
     }
     return {
         application: createBlogTrendPostingApplication({

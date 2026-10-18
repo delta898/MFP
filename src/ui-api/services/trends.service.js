@@ -3,6 +3,7 @@ const { createApiError } = require('../errors');
 function createTrendsService(deps = {}) {
     const {
         Utils,
+        GoogleSheets,
         Logger,
         ensureSheetsReadyForUi,
         parseIntSafe,
@@ -20,7 +21,7 @@ function createTrendsService(deps = {}) {
             const offset = parseIntSafe(searchParams.get('offset'), 0, 0) || 0;
             const sortBy = String(searchParams.get('sortBy') || 'rowNumber').trim();
             const sortDir = normalizeSortDir(searchParams.get('sortDir'), 'desc');
-            return Utils.readGoogleSheetTrendsAll({ status, q, limit, offset, sortBy, sortDir });
+            return GoogleSheets.readGoogleSheetTrendsAll({ status, q, limit, offset, sortBy, sortDir });
         },
 
         async getKeywordsItems({ searchParams }) {
@@ -29,7 +30,7 @@ function createTrendsService(deps = {}) {
             const q = String(searchParams.get('q') || '').trim();
             const limit = parseIntSafe(searchParams.get('limit'), 100, 1) || 100;
             const offset = parseIntSafe(searchParams.get('offset'), 0, 0) || 0;
-            return Utils.readGoogleSheetKeywordsAll({ status, q, limit, offset });
+            return GoogleSheets.readGoogleSheetKeywordsAll({ status, q, limit, offset });
         },
 
         async trendsToTopics(requestBody = {}) {

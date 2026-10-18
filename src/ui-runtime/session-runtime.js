@@ -7,6 +7,7 @@ function createUiSessionRuntime(deps = {}) {
     const {
         CONFIG,
         Utils,
+        GoogleSheets,
         Logger,
         checkAuthSessionValid,
         peekAuthSessionState,
@@ -103,7 +104,7 @@ function createUiSessionRuntime(deps = {}) {
         uiSheetsPreflightState.lastError = '';
 
         uiSheetsPreflightState.inFlight = (async () => {
-            const ensured = await Utils.ensureAllSheetsExist();
+            const ensured = await GoogleSheets.ensureAllSheetsExist();
             if (!ensured?.success) {
                 throw new Error(ensured?.message || '필수 시트 준비에 실패했습니다.');
             }

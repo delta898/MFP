@@ -11,8 +11,8 @@ const { createGoogleDrivePublicMediaTransport } = require('../adapters/media/goo
 const { createStyleReferenceFetcher } = require('../content/style-reference-fetcher');
 
 function createCardNewsRuntime(options = {}) {
-    const { Utils, CONFIG, httpClient, fs, path, GoogleOAuth, logger, cheerio } = options;
-    const cardNewsLedgerGateway = createCardNewsLedgerGateway({ Utils, CONFIG, httpClient });
+    const { GoogleSheets, CONFIG, httpClient, fs, path, GoogleOAuth, googleSheetsClient, logger, cheerio } = options;
+    const cardNewsLedgerGateway = createCardNewsLedgerGateway({ GoogleSheets, CONFIG, googleSheetsClient });
     const cardNewsLedgerStore = createCardNewsLedgerStore({ gateway: cardNewsLedgerGateway });
     const cardNewsProjectRepository = createCardNewsProjectRepository({
         fs,
@@ -21,7 +21,7 @@ function createCardNewsRuntime(options = {}) {
     });
     const cardNewsMediaTransport = createGoogleDrivePublicMediaTransport({
         httpClient,
-        getAccessToken: (scopes) => Utils.getGoogleAccessToken(scopes),
+        getAccessToken: (scopes) => GoogleSheets.getGoogleAccessToken(scopes),
         peekStatus: GoogleOAuth.peekStatus,
         logger
     });

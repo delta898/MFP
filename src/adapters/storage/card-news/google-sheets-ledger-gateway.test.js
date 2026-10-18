@@ -4,18 +4,16 @@ const { createCardNewsLedgerGateway } = require('./google-sheets-ledger-gateway'
 
 test('cardnews gateway prepares the strict ledger and uses canonical tab ranges', async () => {
     const calls = [];
-    const Utils = {
+    const GoogleSheets = {
         async ensureCardNewsSheetReadyStrict(id) { calls.push(['prepare', id]); },
-        async getGoogleAccessToken() { return 'token'; },
-        async callWithRetry(work) { return work(); }
     };
-    const httpClient = {
+    const googleSheetsClient = {
         async request(request) {
             calls.push([request.method, request.url, request.data]);
             return { data: request.method === 'GET' ? { values: [['header']] } : { updates: { updatedRange: 'cardnews!A2:P2' } } };
         }
     };
-    const gateway = createCardNewsLedgerGateway({ Utils, CONFIG: { GOOGLE_SHEET_ID: 'sheet-1' }, httpClient });
+    const gateway = createCardNewsLedgerGateway({ GoogleSheets, googleSheetsClient, CONFIG: { GOOGLE_SHEET_ID: 'sheet-1' } });
     await gateway.prepare();
     await gateway.prepare();
     assert.deepEqual(await gateway.readAll(), [['header']]);

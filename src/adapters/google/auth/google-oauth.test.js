@@ -7,7 +7,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const REPO_ROOT = path.resolve(__dirname, '..');
+const REPO_ROOT = path.resolve(__dirname, '../../../../');
 
 function inspectConfiguration(envPatch = {}) {
     const env = { ...process.env };
@@ -20,7 +20,7 @@ function inspectConfiguration(envPatch = {}) {
         BLOGGENIUS_LOCAL_SUPABASE_PUBLISHABLE_KEY: 'local-public-key'
     }, envPatch);
     const result = spawnSync(process.execPath, ['-e', [
-        "const oauth = require('./src/google-oauth');",
+        "const oauth = require('./src/adapters/google/auth/google-oauth');",
         'process.stdout.write(JSON.stringify(oauth.getConfigurationStatus()));'
     ].join(' ')], {
         cwd: REPO_ROOT,
@@ -57,7 +57,7 @@ test('default Google OAuth authorization is limited to drive.file', () => {
         GOOGLE_OAUTH_TOKENS_JSON_PATH: path.join(os.tmpdir(), 'google-default-scope-test-tokens.json')
     });
     const result = spawnSync(process.execPath, ['-e', [
-        "const oauth = require('./src/google-oauth');",
+        "const oauth = require('./src/adapters/google/auth/google-oauth');",
         "process.stdout.write(oauth.buildAuthUrl({ redirectUri: 'http://127.0.0.1:43127/callback' }).authUrl);"
     ].join(' ')], { cwd: REPO_ROOT, env, encoding: 'utf8' });
     assert.equal(result.status, 0, result.stderr);
@@ -76,7 +76,7 @@ test('Picker OAuth requests only drive.file and enables spreadsheet selection', 
         GOOGLE_OAUTH_TOKENS_JSON_PATH: path.join(os.tmpdir(), 'google-picker-test-tokens.json')
     });
     const result = spawnSync(process.execPath, ['-e', [
-        "const oauth = require('./src/google-oauth');",
+        "const oauth = require('./src/adapters/google/auth/google-oauth');",
         "const auth = oauth.buildAuthUrl({ redirectUri: 'http://127.0.0.1:43127/callback', scopes: ['https://www.googleapis.com/auth/drive.file'], picker: true, includeGrantedScopes: false });",
         'process.stdout.write(auth.authUrl);'
     ].join(' ')], { cwd: REPO_ROOT, env, encoding: 'utf8' });

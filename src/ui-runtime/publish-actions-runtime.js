@@ -30,6 +30,7 @@ function createPublishActionsRuntime(deps = {}) {
         CONFIG,
         Logger,
         Utils,
+        GoogleSheets,
         Core,
         blogPostingApplication,
         blogWritingApplication,
@@ -675,7 +676,7 @@ function createPublishActionsRuntime(deps = {}) {
 
             if (Number.isInteger(session.rowIndex)) {
                 if (failedTargets.length > 0) {
-                    await Utils.updateGoogleSheetStatus(session.rowIndex, '발행 준비 완료', failedTargets.join(' / '));
+                    await GoogleSheets.updateGoogleSheetStatus(session.rowIndex, '발행 준비 완료', failedTargets.join(' / '));
                 } else {
                     const completionStatus = getCompletionStatusLabel(postStatus);
                     const logArr = [];
@@ -685,7 +686,7 @@ function createPublishActionsRuntime(deps = {}) {
                     if (results.wordpress?.success) {
                         logArr.push(results.wordpress.postUrl ? `워드프레스 완료(${results.wordpress.postUrl})` : '워드프레스 완료');
                     }
-                    await Utils.updateGoogleSheetStatus(session.rowIndex, completionStatus, logArr.join('/') || completionStatus);
+                    await GoogleSheets.updateGoogleSheetStatus(session.rowIndex, completionStatus, logArr.join('/') || completionStatus);
                 }
             }
 
@@ -735,7 +736,7 @@ function createPublishActionsRuntime(deps = {}) {
             }
             Logger.error(`❌ [QuickPreviewPublish] 오류: ${error.message}`);
             if (Number.isInteger(session.rowIndex)) {
-                await Utils.updateGoogleSheetStatus(session.rowIndex, '발행 준비 완료', error.message || '포스팅 실패');
+                await GoogleSheets.updateGoogleSheetStatus(session.rowIndex, '발행 준비 완료', error.message || '포스팅 실패');
             }
             return { success: false, code: 'QUICK_PREVIEW_PUBLISH_FAILED', message: error.message || '빠른 포스팅 실행에 실패했습니다.' };
         }
@@ -882,7 +883,7 @@ function createPublishActionsRuntime(deps = {}) {
         });
         const existingEntry = getQuickPublishRecentEntry(dedupeKey) || null;
 
-        if (!workspaceDraft) await Utils.ensureAllSheetsExist();
+        if (!workspaceDraft) await GoogleSheets.ensureAllSheetsExist();
 
         let appendStatus = (publishMode === 'append_and_generate' || publishMode === 'publish') ? '발행 준비 완료' : '대기';
         let rowNumber = null;
@@ -923,7 +924,7 @@ function createPublishActionsRuntime(deps = {}) {
             if ((publishMode === 'append_and_generate' || publishMode === 'publish')
                 && appendStatus !== '발행 준비 완료'
                 && Number.isInteger(rowIndex)) {
-                await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', '기존 글감 재사용');
+                await GoogleSheets.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', '기존 글감 재사용');
                 appendStatus = '발행 준비 완료';
             }
             setQuickPublishRecentEntry(dedupeKey, {
@@ -932,7 +933,7 @@ function createPublishActionsRuntime(deps = {}) {
                 updatedAtMs: nowMs
             });
         } else {
-            const appendResult = await Utils.appendGoogleSheetTopics([{
+            const appendResult = await GoogleSheets.appendGoogleSheetTopics([{
                 subject,
                 title: finalTitle,
                 keywords,
@@ -1048,7 +1049,7 @@ function createPublishActionsRuntime(deps = {}) {
             throwIfCanceled(signal);
             if (!generated.success) {
                 if (Number.isInteger(rowIndex)) {
-                    await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', generated.message || '생성 실패');
+                    await GoogleSheets.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', generated.message || '생성 실패');
                 }
                 if (!workspaceDraft) {
                     setQuickPublishRecentEntry(dedupeKey, {
@@ -1144,7 +1145,7 @@ function createPublishActionsRuntime(deps = {}) {
             }
 
             if (!workspaceDraft && Number.isInteger(rowIndex)) {
-                await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', `생성 완료 (${primaryTarget}): ${path.basename(primaryTargetDir)}`);
+                await GoogleSheets.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', `생성 완료 (${primaryTarget}): ${path.basename(primaryTargetDir)}`);
             }
 
 
@@ -1174,7 +1175,7 @@ function createPublishActionsRuntime(deps = {}) {
 
             if (!publishRes.success) {
                 if (Number.isInteger(rowIndex)) {
-                    await Utils.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', publishRes.message || '발행 실패');
+                    await GoogleSheets.updateGoogleSheetStatus(rowIndex, '발행 준비 완료', publishRes.message || '발행 실패');
                 }
                 setQuickPublishRecentEntry(dedupeKey, {
                     rowNumber,
@@ -1199,7 +1200,7 @@ function createPublishActionsRuntime(deps = {}) {
 
                 const finalStatusStr = (naverPubSuccess || wpPubSuccess) ? getCompletionStatusLabel(postStatus) : '실패';
                 const finalLogStr = logArr.length > 0 ? logArr.join('/') : (publishRes.message || '실패');
-                await Utils.updateGoogleSheetStatus(rowIndex, finalStatusStr, finalLogStr);
+                await GoogleSheets.updateGoogleSheetStatus(rowIndex, finalStatusStr, finalLogStr);
             }
 
             const summaryStatus = (naverPubSuccess || wpPubSuccess) ? getCompletionStatusLabel(postStatus) : '발행 실패';
@@ -1236,7 +1237,7 @@ function createPublishActionsRuntime(deps = {}) {
             };
         } catch (error) {
             if (Number.isInteger(rowIndex)) {
-                await Utils.updateGoogleSheetStatus(rowIndex, '실패', error.message);
+                await GoogleSheets.updateGoogleSheetStatus(rowIndex, '실패', error.message);
             }
             setQuickPublishRecentEntry(dedupeKey, {
                 rowNumber,
@@ -1671,7 +1672,7 @@ function createPublishActionsRuntime(deps = {}) {
             return { success: false, code: 'FEATURE_DISABLED', message: '현재 플랜에서 shopping 기능이 비활성화되어 있습니다. (cmd_shopping=false)' };
         }
 
-        await Utils.ensureAllSheetsExist();
+        await GoogleSheets.ensureAllSheetsExist();
         const appendStatus = publishMode === 'append_and_publish' ? '발행 준비 완료' : '준비';
         const naverCategory = String(requestBody?.naverCategory || '').trim();
         const wordpressCategory = String(requestBody?.wordpressCategory || requestBody?.category || '').trim();
@@ -1679,7 +1680,7 @@ function createPublishActionsRuntime(deps = {}) {
         if (naverCategory || wordpressCategory) {
             categoryField = `N:${naverCategory}, W:${wordpressCategory}`;
         }
-        const appendResult = await Utils.appendGoogleSheetShopping([{
+        const appendResult = await GoogleSheets.appendGoogleSheetShopping([{
             shortUrl,
             product,
             instruction,

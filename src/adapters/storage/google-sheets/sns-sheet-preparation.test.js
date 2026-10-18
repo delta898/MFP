@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const Utils = require('./utils');
-const { SNS_SHEET_HEADERS } = require('./services/sns/sheet-schema');
+const GoogleSheets = require('./operations');
+const { SNS_SHEET_HEADERS } = require('../../../services/sns/sheet-schema');
 
 test('SNS sheet preparation creates the canonical sheet and applies validation', async () => {
     const calls = [];
@@ -15,7 +15,7 @@ test('SNS sheet preparation creates the canonical sheet and applies validation',
         ensureSnsSheetValidation: async (...args) => calls.push(['validation', ...args])
     };
 
-    const result = await Utils._ensureSnsSheetReady.call(context, 'token', 'spreadsheet-id', {
+    const result = await GoogleSheets._ensureSnsSheetReady.call(context, 'token', 'spreadsheet-id', {
         suppressError: false
     });
 
@@ -40,7 +40,7 @@ test('SNS sheet preparation does not supplement missing columns in an existing s
         ensureSnsSheetValidation: async (...args) => calls.push(['validation', ...args])
     };
 
-    const result = await Utils._ensureSnsSheetReady.call(context, 'token', 'spreadsheet-id', {
+    const result = await GoogleSheets._ensureSnsSheetReady.call(context, 'token', 'spreadsheet-id', {
         suppressError: false
     });
 
@@ -58,7 +58,7 @@ test('SNS sheet validation rejects an existing sheet with missing canonical colu
     };
 
     await assert.rejects(
-        Utils.ensureSnsSheetValidation.call(
+        GoogleSheets.ensureSnsSheetValidation.call(
             context,
             'token',
             'spreadsheet-id',
@@ -77,7 +77,7 @@ test('SNS sheet preparation isolates failures during common initialization', asy
         }
     };
 
-    const result = await Utils._ensureSnsSheetReady.call(context, 'token', 'spreadsheet-id', {
+    const result = await GoogleSheets._ensureSnsSheetReady.call(context, 'token', 'spreadsheet-id', {
         suppressError: true
     });
 
@@ -94,7 +94,7 @@ test('SNS sheet strict preparation propagates failures to the SNS caller', async
     };
 
     await assert.rejects(
-        Utils._ensureSnsSheetReady.call(context, 'token', 'spreadsheet-id', {
+        GoogleSheets._ensureSnsSheetReady.call(context, 'token', 'spreadsheet-id', {
             suppressError: false
         }),
         /SNS unavailable/

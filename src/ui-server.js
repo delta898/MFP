@@ -13,12 +13,15 @@ const { APP_VERSION } = require('./constants');
 const CONFIG = require('./config-loader');
 const Logger = require('./utilities/logging/logger');
 const { service: urlShorteningService } = createUrlShorteningSystem({ CONFIG, logger: Logger });
-const GoogleOAuth = require('./google-oauth');
+const GoogleOAuth = require('./adapters/google/auth/google-oauth');
+const { createGoogleSheetsClient } = require('./adapters/google/sheets/client');
+const GoogleSheets = require('./adapters/storage/google-sheets/operations');
 Logger.debug(`Application version: ${APP_VERSION}`);
 const { checkAuthSessionValid, peekAuthSessionState, clearAuthSession } = require('./adapters/naver/auth-session');
 const Utils = require('./utils');
 const Core = require('./core');
 const TelegramBotService = require('./telegram-bot.service');
+TelegramBotService.GoogleSheets = GoogleSheets;
 const BrowserLauncher = require('./utilities/browser/browser-launcher');
 const ShoppingManager = require('./shopping-manager');
 const Updater = require('./host/updater');
@@ -172,6 +175,7 @@ const ALLOWED_IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif']);
 const uiSessionRuntime = createUiSessionRuntime({
     CONFIG,
     Utils,
+    GoogleSheets,
     Logger,
     checkAuthSessionValid,
     peekAuthSessionState,
@@ -255,21 +259,27 @@ const {
     selectPreviewTarget: selectQuickPublishPreviewTarget,
     trackPreviewDirs: trackQuickPublishPreviewDirs
 } = quickPublishRuntime;
+const googleSheetsClient = createGoogleSheetsClient({
+    getAccessToken: async (scopes) => (await GoogleOAuth.getAccessToken(scopes)).accessToken,
+    httpClient: axios,
+    logger: Logger
+});
 const snsSheetGateway = createGoogleSheetsSnsGateway({
-    Utils,
-    CONFIG,
-    httpClient: axios
+    GoogleSheets,
+    googleSheetsClient,
+    CONFIG
 });
 const snsSheetStore = createSnsSheetStore({
     gateway: snsSheetGateway
 });
 const cardNewsRuntime = createCardNewsRuntime({
-    Utils,
+    GoogleSheets,
     CONFIG,
     httpClient: axios,
     fs,
     path,
     GoogleOAuth,
+    googleSheetsClient,
     logger: Logger,
     cheerio
 });
@@ -324,6 +334,7 @@ const topicRecommendationCapabilityRegistry = createCapabilityRegistry({
     CONFIG,
     Logger,
     Utils,
+    GoogleSheets,
     blogWritingApplication: blogWritingSystem.application,
     License,
     axios,
@@ -752,6 +763,7 @@ const publishActionsRuntime = createPublishActionsRuntime({
     CONFIG,
     Logger,
     Utils,
+    GoogleSheets,
     Core,
     blogWritingApplication: blogWritingSystem.application,
     blogPostingApplication,
@@ -796,6 +808,7 @@ const contentActionsRuntime = createContentActionsRuntime({
     path,
     CONFIG,
     Utils,
+    GoogleSheets,
     Core,
     blogPostingApplication,
     blogWritingApplication: blogWritingSystem.application,
@@ -832,6 +845,7 @@ const trendActionsRuntime = createTrendActionsRuntime({
     Logger,
     CONFIG,
     Utils,
+    GoogleSheets,
     ensureSheetsReadyForUi,
     parseIntSafe,
     getBlogAutoSettingsSnapshot: () => getBlogAutoSettingsSnapshot(),
@@ -860,6 +874,7 @@ const autoCycleRuntime = createAutoCycleRuntime({
     Logger,
     License,
     Utils,
+    GoogleSheets,
     urlShorteningService,
     TelegramService,
     SlackService,
@@ -912,6 +927,7 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     Logger,
     Updater,
     Utils,
+    GoogleSheets,
     BrowserLauncher,
     fs,
     path,
@@ -1067,7 +1083,7 @@ async function handleGoogleOAuthCallback({ url, res }) {
             return true;
         }
         const tokens = await GoogleOAuth.exchangeCode(code, state);
-        Utils.clearGoogleAuthCache();
+        GoogleSheets.clearGoogleAuthCache();
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
         res.end(GoogleOAuth.renderCallbackHtml({ success: true, email: String(tokens.connected_email || '') }));
         return true;

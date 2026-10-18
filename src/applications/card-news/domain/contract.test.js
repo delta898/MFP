@@ -6,7 +6,6 @@ const {
     normalizeCardNewsAssets,
     assessCardNewsDelivery
 } = require('./contract');
-const { DEFAULT_SCOPES: GOOGLE_DEFAULT_SCOPES } = require('../../../google-oauth');
 
 test('feed source keeps RSS identity separate from the current public article URL', () => {
     assert.deepEqual(normalizeCardNewsSource({
@@ -101,9 +100,4 @@ test('delivery validation uses injected channel limits instead of provider branc
     });
     assert.equal(result.ready, false);
     assert.deepEqual(result.issues, ['CARD_NEWS_DELIVERY_TOO_MANY_ASSETS']);
-});
-
-test('the existing Google connection can manage files created by BlogGenius without broad Drive access', () => {
-    assert.equal(GOOGLE_DEFAULT_SCOPES.includes('https://www.googleapis.com/auth/drive.file'), true);
-    assert.equal(GOOGLE_DEFAULT_SCOPES.includes('https://www.googleapis.com/auth/drive'), false);
 });

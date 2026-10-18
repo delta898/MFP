@@ -68,7 +68,7 @@ test('development blocks blog batch before sheet access', async () => {
     const runtime = createContentActionsRuntime({
         CONFIG: DEVELOPMENT_CONFIG,
         parseIntSafe: (value) => Number(value),
-        Utils: { async readGoogleSheetTopicsAll() { sheetRead += 1; return { items: [] }; } }
+        GoogleSheets: { async readGoogleSheetTopicsAll() { sheetRead += 1; return { items: [] }; } }
     });
 
     const result = await runtime.executeBlogRowAction({ action: 'batch', rowIndex: 0 });
@@ -83,7 +83,7 @@ test('development continuous automation admits draft rows but still blocks publi
     const createRuntime = (postStatus) => createContentActionsRuntime({
         CONFIG: DEVELOPMENT_CONFIG,
         parseIntSafe: (value) => Number(value),
-        Utils: {
+        GoogleSheets: {
             async readGoogleSheetTopicsAll() {
                 return { items: [{
                     rowIndex: 0, status: '발행 준비 완료', subject: '실행 검증 글감',
@@ -119,7 +119,7 @@ test('scheduled blog rows revalidate the requested time at the platform-post bou
         CONFIG: {},
         path,
         parseIntSafe: (value) => Number(value),
-        Utils: {
+        GoogleSheets: {
             async readGoogleSheetTopicsAll() {
                 return {
                     items: [{
@@ -167,7 +167,7 @@ test('continuous queue execution blocks missing stored publishing fields without
     const runtime = createContentActionsRuntime({
         CONFIG: {},
         parseIntSafe: (value) => Number(value),
-        Utils: {
+        GoogleSheets: {
             async readGoogleSheetTopicsAll() {
                 return { items: [{
                     rowIndex: 0,
@@ -272,7 +272,7 @@ test('shopping row update rejects an overlong instruction before sheet mutation'
             const parsed = Number.parseInt(value, 10);
             return Number.isInteger(parsed) && parsed >= min ? parsed : fallback;
         },
-        Utils: {
+        GoogleSheets: {
             async updateGoogleSheetShoppingEditableFields() { updated = true; }
         }
     });
@@ -294,7 +294,7 @@ test('shopping row update forwards normalized posting targets to the sheet optio
             const parsed = Number.parseInt(value, 10);
             return Number.isInteger(parsed) && parsed >= min ? parsed : fallback;
         },
-        Utils: {
+        GoogleSheets: {
             async updateGoogleSheetShoppingEditableFields(_rowIndex, fields) { received = fields; }
         }
     });
@@ -321,7 +321,7 @@ test('shopping topic deletion invalidates every cached shopping list variant', a
             const parsed = Number.parseInt(value, 10);
             return Number.isInteger(parsed) && parsed >= min ? parsed : fallback;
         },
-        Utils: {
+        GoogleSheets: {
             async getSheetIdByName() { return 1; },
             async googleSheetPost() { return { spreadsheetId: 'sheet-id' }; },
             clearSheetCache(prefix) { cleared.push(prefix); }
@@ -344,7 +344,7 @@ test('shopping row generation forwards the stored writing strategy to the conten
             const parsed = Number.parseInt(value, 10);
             return Number.isInteger(parsed) && parsed >= min ? parsed : fallback;
         },
-        Utils: {
+        GoogleSheets: {
             async readGoogleSheetShoppingAll() {
                 return {
                     items: [{
@@ -416,7 +416,7 @@ test('blog batch preflight executes only rows covered by remaining quota', async
                 };
             }
         },
-        Utils: {
+        GoogleSheets: {
             async readGoogleSheetTopicsAll() { return { items: topics }; },
             async updateGoogleSheetStatus() { }
         },
@@ -506,7 +506,7 @@ test('single row generation passes the stored image mode to generation and image
         path,
         CONFIG: {},
         License: { async checkLicenseStatus() { return { success: true, features: {} }; } },
-        Utils: {
+        GoogleSheets: {
             async readGoogleSheetTopicsAll() { return { items: [topicRow] }; },
             async updateGoogleSheetStatus() {}
         },
@@ -554,7 +554,7 @@ test('continuous runner refuses a topic whose ready state changed before executi
                 return { success: true, features: { cmd_batch: true } };
             }
         },
-        Utils: {
+        GoogleSheets: {
             async readGoogleSheetTopicsAll() {
                 return { items: [{ rowIndex: 3, status: '대기', subject: '다시 대기로 돌아간 글' }] };
             }
@@ -588,7 +588,7 @@ test('WordPress-only continuous publishing does not require a Naver session', as
                 return { success: true, features: { cmd_batch: true } };
             }
         },
-        Utils: {
+        GoogleSheets: {
             async readGoogleSheetTopicsAll() {
                 return {
                     items: [{

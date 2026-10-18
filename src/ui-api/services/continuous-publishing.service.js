@@ -24,7 +24,7 @@ const {
 } = require('../../continuous-publishing/content-lifecycle-adapter');
 
 function createContinuousPublishingService(deps = {}) {
-    const { Utils, ensureSheetsReadyForUi, executeBlogRowAction, executeShoppingBatchRowsAction, executeBlogTopicsDelete, CONFIG = {}, fs, path, now, eventStore } = deps;
+    const { Utils, GoogleSheets, ensureSheetsReadyForUi, executeBlogRowAction, executeShoppingBatchRowsAction, executeBlogTopicsDelete, CONFIG = {}, fs, path, now, eventStore } = deps;
     const lifecycleAdapters = deps.lifecycleAdapters || createContentLifecycleAdapterRegistry({
         executeBlogRowAction,
         executeShoppingBatchRowsAction,
@@ -201,8 +201,8 @@ function createContinuousPublishingService(deps = {}) {
 
     async function requireTopicInStatus(rowIndex, expectedStatus) {
         await ensureSheetsReadyForUi();
-        Utils.clearSheetCache('topics');
-        const result = await Utils.readGoogleSheetTopicsAll({
+        GoogleSheets.clearSheetCache('topics');
+        const result = await GoogleSheets.readGoogleSheetTopicsAll({
             status: expectedStatus,
             limit: 10000,
             offset: 0,
@@ -230,8 +230,8 @@ function createContinuousPublishingService(deps = {}) {
 
     async function requireShoppingTopicInStatus(rowIndex, expectedStatus) {
         await ensureSheetsReadyForUi();
-        Utils.clearSheetCache('shopping');
-        const result = await Utils.readGoogleSheetShoppingAll({
+        GoogleSheets.clearSheetCache('shopping');
+        const result = await GoogleSheets.readGoogleSheetShoppingAll({
             limit: 100000,
             offset: 0,
             sortBy: 'rowNumber',
@@ -262,49 +262,49 @@ function createContinuousPublishingService(deps = {}) {
         topicStore: {
             async prepareRead() {
                 await ensureSheetsReadyForUi();
-                Utils.clearSheetCache('topics');
+                GoogleSheets.clearSheetCache('topics');
             },
             async readByStatus(status, options = {}) {
                 await ensureSheetsReadyForUi();
-                Utils.clearSheetCache('topics');
-                return Utils.readGoogleSheetTopicsAll({ ...options, status });
+                GoogleSheets.clearSheetCache('topics');
+                return GoogleSheets.readGoogleSheetTopicsAll({ ...options, status });
             },
             async readAll(options = {}) {
                 await ensureSheetsReadyForUi();
-                Utils.clearSheetCache('topics');
-                return Utils.readGoogleSheetTopicsAll(options);
+                GoogleSheets.clearSheetCache('topics');
+                return GoogleSheets.readGoogleSheetTopicsAll(options);
             },
             async list(query = {}) {
                 await ensureSheetsReadyForUi();
-                Utils.clearSheetCache('topics');
-                const result = await Utils.readGoogleSheetTopicsAll(query);
+                GoogleSheets.clearSheetCache('topics');
+                const result = await GoogleSheets.readGoogleSheetTopicsAll(query);
                 return { result, sortBy: query.sortBy || 'rowNumber', sortDir: query.sortDir || 'desc' };
             },
             async append(rows, options) {
                 await ensureSheetsReadyForUi();
-                const result = await Utils.appendGoogleSheetTopics(rows, options);
-                if (result?.success) Utils.clearSheetCache('topics');
+                const result = await GoogleSheets.appendGoogleSheetTopics(rows, options);
+                if (result?.success) GoogleSheets.clearSheetCache('topics');
                 return result;
             },
             async updateEditableFields(rowIndex, fields) {
-                await Utils.updateGoogleSheetTopicEditableFields(rowIndex, fields);
-                Utils.clearSheetCache('topics');
+                await GoogleSheets.updateGoogleSheetTopicEditableFields(rowIndex, fields);
+                GoogleSheets.clearSheetCache('topics');
             },
             async updateStatus(rowIndex, status, reason) {
-                await Utils.updateGoogleSheetStatus(rowIndex, status, reason, { throwOnError: true });
-                Utils.clearSheetCache('topics');
+                await GoogleSheets.updateGoogleSheetStatus(rowIndex, status, reason, { throwOnError: true });
+                GoogleSheets.clearSheetCache('topics');
             },
             async deleteRows(rowIndices) {
                 const result = await executeBlogTopicsDelete({ rowIndices });
-                if (result?.success) Utils.clearSheetCache('topics');
+                if (result?.success) GoogleSheets.clearSheetCache('topics');
                 return result;
             },
             async moveRow(move) {
-                if (typeof Utils.moveGoogleSheetTopicRow !== 'function') {
+                if (typeof GoogleSheets.moveGoogleSheetTopicRow !== 'function') {
                     throw createApiError(500, 'QUEUE_MOVE_UNAVAILABLE', '대기열 순서 변경 기능을 준비하지 못했습니다.');
                 }
-                await Utils.moveGoogleSheetTopicRow(move);
-                Utils.clearSheetCache('topics');
+                await GoogleSheets.moveGoogleSheetTopicRow(move);
+                GoogleSheets.clearSheetCache('topics');
             }
         }
     });
@@ -343,7 +343,7 @@ function createContinuousPublishingService(deps = {}) {
                     operationId: `continuous-publishing:shopping-row-${rowIndex}`
                 }
             });
-            Utils.clearSheetCache('shopping');
+            GoogleSheets.clearSheetCache('shopping');
             if (!result?.success) {
                 throw createApiError(400, result?.code || 'SHOPPING_LIFECYCLE_EXECUTION_FAILED', result?.message || '쇼핑 글감 실행에 실패했습니다.');
             }
@@ -405,8 +405,8 @@ function createContinuousPublishingService(deps = {}) {
                     topic = await requireReadyQueueItem(requestedRowIndex);
                 } else {
                     await ensureSheetsReadyForUi();
-                    Utils.clearSheetCache('topics');
-                    const queue = await Utils.readGoogleSheetTopicsAll({
+                    GoogleSheets.clearSheetCache('topics');
+                    const queue = await GoogleSheets.readGoogleSheetTopicsAll({
                         status: TOPIC_STATUS.READY,
                         limit: 100000,
                         offset: 0,
@@ -530,7 +530,7 @@ function createContinuousPublishingService(deps = {}) {
                         }
                     }
                 });
-                Utils.clearSheetCache('topics');
+                GoogleSheets.clearSheetCache('topics');
                 if (!result?.success) {
                     if (result?.code === 'SCHEDULE_DATE_PAST') {
                         updateRunnerState({
@@ -647,7 +647,7 @@ function createContinuousPublishingService(deps = {}) {
 
     async function hasReadyTopic() {
         await ensureSheetsReadyForUi();
-        const result = await Utils.readGoogleSheetTopicsAll({
+        const result = await GoogleSheets.readGoogleSheetTopicsAll({
             status: TOPIC_STATUS.READY,
             limit: 1,
             offset: 0,
@@ -758,7 +758,7 @@ function createContinuousPublishingService(deps = {}) {
             }
             if (action === 'enqueue') row.status = '발행 준비 완료';
             await ensureSheetsReadyForUi();
-            const result = await Utils.appendGoogleSheetShopping([row], {
+            const result = await GoogleSheets.appendGoogleSheetShopping([row], {
                 defaultStatus: row.status
             });
             if (!result?.success) {
