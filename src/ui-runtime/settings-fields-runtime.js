@@ -138,7 +138,6 @@ function createUiSettingsFieldsRuntime(deps = {}) {
             IMAGE_MODEL_API_KEY: CONFIG.IMAGE_MODEL_CONFIG?.api_key || '',
 
             // Automation - Trends
-            COLLECT_TRENDS_ENABLED: CONFIG.COLLECT_TRENDS_ENABLED,
             COLLECT_TRENDS_CATEGORIES: CONFIG.COLLECT_TRENDS_CATEGORIES,
             COLLECT_TRENDS_FILTER_MIN_INCR: CONFIG.COLLECT_TRENDS_FILTER_MIN_INCR,
             COLLECT_TRENDS_FILTER_INCLUDE_NEW: CONFIG.COLLECT_TRENDS_FILTER_INCLUDE_NEW,
@@ -147,13 +146,10 @@ function createUiSettingsFieldsRuntime(deps = {}) {
             COLLECT_TRENDS_FILTER_TYPE: CONFIG.COLLECT_TRENDS_FILTER_TYPE,
             COLLECT_TRENDS_FILTER_TOP_N: CONFIG.COLLECT_TRENDS_FILTER_TOP_N,
             COLLECT_TRENDS_REUSE_GAP_DAYS: CONFIG.COLLECT_TRENDS_REUSE_GAP_DAYS,
-            COLLECT_TRENDS_TIME: CONFIG.COLLECT_TRENDS_TIME,
             COLLECT_TRENDS_NAVER_CATEGORY: CONFIG.COLLECT_TRENDS_NAVER_CATEGORY,
             COLLECT_TRENDS_WP_CATEGORY: CONFIG.COLLECT_TRENDS_WP_CATEGORY,
 
             // Automation - RSS
-            COLLECT_RSS_ENABLED: CONFIG.COLLECT_RSS_ENABLED,
-            COLLECT_RSS_CONFIGS: CONFIG.COLLECT_RSS_CONFIGS || [],
             CARD_NEWS_RSS_SOURCES: normalizeCardNewsRssSources(CONFIG.CARD_NEWS_RSS_SOURCES),
             CARD_NEWS_BUILTIN_SOURCES: normalizeCardNewsBuiltinSources(CONFIG.CARD_NEWS_BUILTIN_SOURCES),
 
@@ -168,15 +164,11 @@ function createUiSettingsFieldsRuntime(deps = {}) {
             SNS_SOURCE_BLOGS: normalizeSnsSourceBlogs(CONFIG.SNS_SOURCE_BLOGS),
 
             // Automation - Publish
-            PUBLISH_AUTO_ENABLED: CONFIG.PUBLISH_AUTO_ENABLED,
-            PUBLISH_AUTO_INTERVAL_MIN: CONFIG.PUBLISH_AUTO_INTERVAL_MIN,
             PUBLISH_AUTO_BATCH_SIZE: CONFIG.PUBLISH_AUTO_BATCH_SIZE,
             PUBLISH_AUTO_POST_STATUS: CONFIG.PUBLISH_AUTO_POST_STATUS === 'draft' ? 'draft' : 'publish',
             PUBLISH_AUTO_TARGET_CHANNELS: CONFIG.PUBLISH_AUTO_TARGET_CHANNELS,
             PUBLISH_AUTO_HEADLESS: CONFIG.PUBLISH_AUTO_HEADLESS,
             PUBLISH_AUTO_NOTIFY_ENABLED: CONFIG.PUBLISH_AUTO_NOTIFY_ENABLED,
-            PUBLISH_AUTO_START_TIME: CONFIG.PUBLISH_AUTO_START_TIME,
-            PUBLISH_AUTO_END_TIME: CONFIG.PUBLISH_AUTO_END_TIME,
             PUBLISH_AUTO_IMAGE_MODE: CONFIG.PUBLISH_AUTO_IMAGE_MODE || 'generate',
 
             // Automation - Shopping
@@ -305,7 +297,6 @@ function createUiSettingsFieldsRuntime(deps = {}) {
         CONFIG.SHOPPING_CTA_IMAGE_URL2 = ctaImageUrl2;
         CONFIG.SHOPPING_CTA_IMAGE_URL3 = ctaImageUrl3;
 
-        CONFIG.COLLECT_TRENDS_ENABLED = normalizeBool(fields.COLLECT_TRENDS_ENABLED, false);
         CONFIG.COLLECT_TRENDS_CATEGORIES = String(fields.COLLECT_TRENDS_CATEGORIES || '').trim();
         CONFIG.COLLECT_TRENDS_FILTER_MIN_INCR = normalizeIntegerOrBlank(fields.COLLECT_TRENDS_FILTER_MIN_INCR, 50);
         CONFIG.COLLECT_TRENDS_FILTER_INCLUDE_NEW = normalizeBool(fields.COLLECT_TRENDS_FILTER_INCLUDE_NEW, false);
@@ -314,7 +305,6 @@ function createUiSettingsFieldsRuntime(deps = {}) {
         CONFIG.COLLECT_TRENDS_FILTER_TYPE = String(fields.COLLECT_TRENDS_FILTER_TYPE || 'min').trim();
         CONFIG.COLLECT_TRENDS_FILTER_TOP_N = normalizeIntegerOrBlank(fields.COLLECT_TRENDS_FILTER_TOP_N, 5);
         CONFIG.COLLECT_TRENDS_REUSE_GAP_DAYS = normalizeNonNegativeInt(fields.COLLECT_TRENDS_REUSE_GAP_DAYS, 15);
-        CONFIG.COLLECT_TRENDS_TIME = normalizeTimeHHmm(fields.COLLECT_TRENDS_TIME, '07:30');
         CONFIG.COLLECT_TRENDS_NAVER_CATEGORY = String(fields.COLLECT_TRENDS_NAVER_CATEGORY || '').trim();
         CONFIG.COLLECT_TRENDS_WP_CATEGORY = String(fields.COLLECT_TRENDS_WP_CATEGORY || '').trim();
 
@@ -328,28 +318,15 @@ function createUiSettingsFieldsRuntime(deps = {}) {
         CONFIG.SNS_SHEET_NAME = 'SNS';
         CONFIG.SNS_SOURCE_BLOGS = normalizeSnsSourceBlogs(fields.SNS_SOURCE_BLOGS);
 
-        CONFIG.PUBLISH_AUTO_ENABLED = normalizeBool(fields.PUBLISH_AUTO_ENABLED, false);
         CONFIG.PUBLISH_AUTO_BATCH_SIZE = normalizePositiveInt(fields.PUBLISH_AUTO_BATCH_SIZE, 1);
-        CONFIG.PUBLISH_AUTO_INTERVAL_MIN = normalizeNonNegativeInt(fields.PUBLISH_AUTO_INTERVAL_MIN, 60);
         CONFIG.PUBLISH_AUTO_TARGET_CHANNELS = autoSettings.PUBLISH_AUTO_TARGET_CHANNELS;
         CONFIG.PUBLISH_AUTO_HEADLESS = normalizeBool(fields.PUBLISH_AUTO_HEADLESS, true);
         CONFIG.PUBLISH_AUTO_NOTIFY_ENABLED = normalizeBool(fields.PUBLISH_AUTO_NOTIFY_ENABLED, false);
-        CONFIG.PUBLISH_AUTO_START_TIME = autoSettings.PUBLISH_AUTO_START_TIME;
-        CONFIG.PUBLISH_AUTO_END_TIME = autoSettings.PUBLISH_AUTO_END_TIME;
         CONFIG.PUBLISH_AUTO_IMAGE_MODE = autoSettings.PUBLISH_AUTO_IMAGE_MODE;
 
-        try {
-            const rawRss = String(fields.COLLECT_RSS_CONFIGS || '').trim();
-            CONFIG.COLLECT_RSS_CONFIGS = rawRss ? JSON.parse(rawRss) : [];
-            if (!Array.isArray(CONFIG.COLLECT_RSS_CONFIGS)) CONFIG.COLLECT_RSS_CONFIGS = [];
-        } catch {
-            CONFIG.COLLECT_RSS_CONFIGS = [];
-        }
         CONFIG.CARD_NEWS_RSS_SOURCES = normalizeCardNewsRssSources(fields.CARD_NEWS_RSS_SOURCES);
         CONFIG.CARD_NEWS_BUILTIN_SOURCES = normalizeCardNewsBuiltinSources(fields.CARD_NEWS_BUILTIN_SOURCES);
 
-        CONFIG.PUBLISH_AUTO_ENABLED = normalizeBool(fields.PUBLISH_AUTO_ENABLED, false);
-        CONFIG.PUBLISH_AUTO_INTERVAL_MIN = normalizeNonNegativeInt(fields.PUBLISH_AUTO_INTERVAL_MIN, 60);
         CONFIG.PUBLISH_AUTO_BATCH_SIZE = normalizeNonNegativeInt(fields.PUBLISH_AUTO_BATCH_SIZE, 1);
 
         // Telegram Notify
@@ -401,32 +378,6 @@ function createUiSettingsFieldsRuntime(deps = {}) {
 
         // Reorganized Namespaces
         const collectTrendsSettings = normalizeCollectTrendsSettings(requestBody);
-        const rssConfigs = (() => {
-            let configs = [];
-            const raw = requestBody.COLLECT_RSS_CONFIGS;
-            if (Array.isArray(raw)) {
-                configs = raw;
-            } else if (typeof raw === 'string' && raw.trim()) {
-                try { configs = JSON.parse(raw); } catch (e) { configs = []; }
-            }
-
-            return configs.map(config => {
-                const includeKeywords = Array.isArray(config.includeKeywords)
-                    ? config.includeKeywords
-                    : String(config.includeKeywords || '').split(',').map(s => s.trim()).filter(Boolean);
-
-                const excludeKeywords = Array.isArray(config.excludeKeywords)
-                    ? config.excludeKeywords
-                    : String(config.excludeKeywords || '').split(',').map(s => s.trim()).filter(Boolean);
-
-                return {
-                    ...config,
-                    includeKeywords,
-                    excludeKeywords
-                };
-            });
-        })();
-        const collectRssEnabled = normalizeBool(requestBody.COLLECT_RSS_ENABLED, false);
         const cardNewsRssSources = normalizeCardNewsRssSources(requestBody.CARD_NEWS_RSS_SOURCES, { strict: true });
         const cardNewsBuiltinSources = normalizeCardNewsBuiltinSources(requestBody.CARD_NEWS_BUILTIN_SOURCES);
         const imageOptimizationEnabled = normalizeBool(requestBody.IMAGE_OPTIMIZATION_ENABLED, true);
@@ -487,8 +438,6 @@ function createUiSettingsFieldsRuntime(deps = {}) {
             SHOPPING_CTA_IMAGE_URL3: ctaImageUrl3,
 
             ...collectTrendsSettings,
-            COLLECT_RSS_ENABLED: collectRssEnabled,
-            COLLECT_RSS_CONFIGS: rssConfigs,
             CARD_NEWS_RSS_SOURCES: cardNewsRssSources,
             CARD_NEWS_BUILTIN_SOURCES: cardNewsBuiltinSources,
 

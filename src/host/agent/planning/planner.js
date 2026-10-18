@@ -1,4 +1,4 @@
-const { validateActionEnvelope } = require('./action-schema');
+const { validateActionEnvelope } = require('../contracts/action-schema');
 const { buildPlanFromActions } = require('./planner-rules');
 
 function createPlanner(options = {}) {

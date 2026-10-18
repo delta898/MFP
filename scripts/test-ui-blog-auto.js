@@ -3,25 +3,6 @@ const assert = require('assert');
 const { createBlogAutoService } = require('../src/ui-api/services/blog-auto.service');
 const { createBlogAutoController } = require('../src/ui-api/controllers/blog-auto.controller');
 const { createBlogAutoRouteHandler } = require('../src/ui-api/routes/blog-auto.routes');
-const UiValidators = require('../src/ui-api/middleware/validate');
-
-function normalizeYmdToken(value) {
-    const raw = String(value || '').trim();
-    if (!raw) return '';
-
-    const compact = raw.match(/^(\d{4})(\d{2})(\d{2})$/);
-    if (compact) return `${compact[1]}-${compact[2]}-${compact[3]}`;
-
-    const dashed = raw.match(/^(\d{4})[.\-/\s]+(\d{1,2})[.\-/\s]+(\d{1,2})$/);
-    if (dashed) {
-        const y = dashed[1];
-        const m = String(parseInt(dashed[2], 10)).padStart(2, '0');
-        const d = String(parseInt(dashed[3], 10)).padStart(2, '0');
-        return `${y}-${m}-${d}`;
-    }
-    return '';
-}
-
 function createHarness(overrides = {}) {
     const events = [];
     const Logger = {
@@ -33,24 +14,10 @@ function createHarness(overrides = {}) {
     const service = createBlogAutoService({
         Logger,
         getAutoStatusPayload: overrides.getAutoStatusPayload || (() => ({ enabled: true, status: 'waiting' })),
-        ensureSheetsReadyForUi: overrides.ensureSheetsReadyForUi || (async () => ({ ok: true })),
-        resolveNaverAutoCategoryCatalog: overrides.resolveNaverAutoCategoryCatalog || (async ({ force }) => ({
-            categories: ['드라마', '영화'],
-            force
-        })),
-        runAutoCycle: overrides.runAutoCycle || (async (_trigger, options) => ({
-            success: true,
-            data: {
-                trendDate: options?.trendDate || '',
-                summary: {
-                    trendsCollected: 1,
-                    trendsToTopics: 1,
-                    blogAttempted: 1,
-                    blogSuccess: 1,
-                    skipped: []
-                }
-            }
-        }))
+        triggerSnsDiscoveryCycle: overrides.triggerSnsDiscoveryCycle || (async () => ({ success: true, data: { discoveredCount: 1 } })),
+        triggerSnsDistributionCycle: overrides.triggerSnsDistributionCycle || (async () => ({ success: true, data: { completedCount: 1 } })),
+        runAutoPublishCycle: overrides.runAutoPublishCycle || (async () => ({ success: true, data: { completedCount: 1 } })),
+        triggerAutoPublishCycle: overrides.triggerAutoPublishCycle || (async () => ({ success: true, data: { started: true } }))
     });
 
     let lastResponse = null;
@@ -68,11 +35,7 @@ function createHarness(overrides = {}) {
         sendSuccess,
         sendError,
         Logger,
-        validators: {
-            parseForceQuery: UiValidators.parseForceQuery,
-            validateBlogAutoManualRunPayload: (payload) => UiValidators.validateBlogAutoManualRunPayload(payload, normalizeYmdToken),
-            isValidationError: UiValidators.isValidationError
-        }
+        validators: {}
     });
 
     const routeHandler = createBlogAutoRouteHandler({ controller });
@@ -105,51 +68,17 @@ async function run() {
     }
 
     {
-        const { handled, response } = await h.call('/api/v1/blog/auto/categories', 'GET', { search: 'force=true' });
-        assert.strictEqual(handled, true);
-        assert.strictEqual(response.ok, true);
-        assert.deepStrictEqual(response.data.categories, ['드라마', '영화']);
-        assert.strictEqual(response.data.force, true);
-    }
-
-    {
-        const { handled, response } = await h.call('/api/v1/blog/auto/categories', 'GET', { search: 'force=abc' });
-        assert.strictEqual(handled, true);
-        assert.strictEqual(response.ok, false);
-        assert.strictEqual(response.status, 400);
-        assert.strictEqual(response.code, 'INVALID_BOOLEAN');
-    }
-
-    {
-        const { handled, response } = await h.call('/api/v1/blog/auto/run-manual', 'POST', {
-            body: { trendDate: 'not-a-date' }
-        });
-        assert.strictEqual(handled, true);
-        assert.strictEqual(response.ok, false);
-        assert.strictEqual(response.status, 400);
-        assert.strictEqual(response.code, 'INVALID_TREND_DATE');
-    }
-
-    {
-        const { handled, response } = await h.call('/api/v1/blog/auto/run-manual', 'POST', {
-            body: {
-                trendDate: '20260224',
-                skipTrends: 'true',
-                settingsOverrides: { BLOG_AUTO_MODE: true }
-            }
-        });
-        assert.strictEqual(handled, true);
-        assert.strictEqual(response.ok, true);
-        assert.strictEqual(response.data.trendDate, '2026-02-24');
-        assert.strictEqual(response.data.skipTrends, true);
-    }
-
-    {
-        const { handled, response } = await h.call('/api/v1/auto/start', 'POST');
-        assert.strictEqual(handled, true);
-        assert.strictEqual(response.ok, false);
-        assert.strictEqual(response.status, 409);
-        assert.strictEqual(response.code, 'AUTO_POC_ONLY');
+        const retiredRoutes = [
+            '/api/v1/blog/auto/categories',
+            '/api/v1/blog/auto/run-manual',
+            '/api/v1/auto/start',
+            '/api/v1/auto/collect/trends/run',
+            '/api/v1/auto/collect/rss/run'
+        ];
+        for (const pathname of retiredRoutes) {
+            const { handled } = await h.call(pathname, 'POST');
+            assert.strictEqual(handled, false, `${pathname} should be removed`);
+        }
     }
 
     {

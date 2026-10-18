@@ -2,11 +2,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createAutoCycleRuntime } = require('./auto-cycle-runtime');
 
-test('blog auto cycle applies the configured posting option to every selected row', async () => {
+test('explicit batch publishing applies the configured posting option to every selected row', async () => {
     const batchRequests = [];
     const runtime = createAutoCycleRuntime({
         CONFIG: {
-            PUBLISH_AUTO_ENABLED: true,
             PUBLISH_AUTO_BATCH_SIZE: 2,
             PUBLISH_AUTO_POST_STATUS: 'draft',
             PUBLISH_AUTO_TARGET_CHANNELS: 'naver',
@@ -41,7 +40,7 @@ test('blog auto cycle applies the configured posting option to every selected ro
         }
     });
 
-    const result = await runtime.runAutoPublishCycle('auto');
+    const result = await runtime.runAutoPublishCycle('ui-manual');
 
     assert.equal(result.success, true);
     assert.equal(batchRequests.length, 2);

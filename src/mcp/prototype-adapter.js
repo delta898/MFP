@@ -1,4 +1,4 @@
-const { normalizeRuntimeContext, buildClarificationResult } = require('../agent/runtime-contract');
+const { normalizeRuntimeContext, buildClarificationResult } = require('../host/agent/contracts/runtime-contract');
 const { buildConfirmationToken, resolveConfirmationId } = require('../internal-api/confirmation-schema');
 const { validateContentRequestBundle } = require('../internal-api/content-request-schema');
 const {

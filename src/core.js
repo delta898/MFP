@@ -1653,9 +1653,9 @@ const Core = {
 2. publish_article 파라미터:
    - target: "all" 또는 특정 플랫폼 ("naver", "wordpress"). (단순히 "발행"만 언급 시 빈 객체도 가능)
 3. update_config 파라미터 (config_updates 객체 구성):
-   - PUBLISH_AUTO_INTERVAL_MIN, PUBLISH_AUTO_ENABLED, PUBLISH_AUTO_HEADLESS, image_gen, NAVER_ID, TYPING_SPEED 등.
+   - PUBLISH_AUTO_HEADLESS, image_gen, NAVER_ID, TYPING_SPEED 등.
 4. run_job 파라미터:
-   - job_name: "trends", "rss", "shopping" 등.
+   - job_name: "shopping", "publish" 등.
 5. query_data 파라미터:
    - query_type: ("status", "logs", "topics", "shopping", "stats", "insight")
    - query_params: 조회 필터 (예: {"category": "기술", "limit": 5})

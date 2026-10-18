@@ -1,6 +1,6 @@
 'use strict';
 
-const { buildCapabilityId } = require('../agent/action-schema');
+const { buildCapabilityId } = require('../capabilities/capability-id');
 
 function normalizePlugin(plugin, context) {
     if (!plugin || typeof plugin !== 'object') {

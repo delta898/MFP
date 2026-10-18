@@ -1,7 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { createAgentRuntime } = require('../agent/runtime');
+const { createAgentRuntime } = require('../host/agent/runtime');
+const { ConfirmationStore } = require('../adapters/storage/confirmations/confirmation-store');
 const { createMcpPrototypeAdapter } = require('./prototype-adapter');
 const { normalizeRegisterTopicParams, buildTopicRegistrationPreview } = require('../capabilities/content/register-topic');
 const { normalizePublishParams, buildPublishRequestPreview } = require('../capabilities/content/publish');
@@ -69,7 +70,7 @@ function createStubCapabilityRegistry() {
 
 test('mcp prototype adapter prepares bundle and returns confirmation token', async () => {
     const capabilityRegistry = createStubCapabilityRegistry();
-    const runtime = createAgentRuntime({ capabilityRegistry });
+    const runtime = createAgentRuntime({ capabilityRegistry, confirmationStore: new ConfirmationStore() });
     const adapter = createMcpPrototypeAdapter({ capabilityRegistry, runtime });
 
     const result = await adapter.callTool({
@@ -113,7 +114,7 @@ test('mcp prototype adapter prepares bundle and returns confirmation token', asy
 
 test('mcp prototype adapter exposes host-friendly top-level tool schemas', async () => {
     const capabilityRegistry = createStubCapabilityRegistry();
-    const runtime = createAgentRuntime({ capabilityRegistry });
+    const runtime = createAgentRuntime({ capabilityRegistry, confirmationStore: new ConfirmationStore() });
     const adapter = createMcpPrototypeAdapter({ capabilityRegistry, runtime });
 
     const tools = adapter.listTools();
@@ -129,7 +130,7 @@ test('mcp prototype adapter exposes host-friendly top-level tool schemas', async
 
 test('mcp prototype adapter executes approved confirmation with only enabled actions', async () => {
     const capabilityRegistry = createStubCapabilityRegistry();
-    const runtime = createAgentRuntime({ capabilityRegistry });
+    const runtime = createAgentRuntime({ capabilityRegistry, confirmationStore: new ConfirmationStore() });
     const adapter = createMcpPrototypeAdapter({ capabilityRegistry, runtime });
 
     const prepared = await adapter.callTool({
@@ -175,7 +176,7 @@ test('mcp prototype adapter executes approved confirmation with only enabled act
 
 test('mcp prototype adapter infers request wrappers when host omits intent and payload keys', async () => {
     const capabilityRegistry = createStubCapabilityRegistry();
-    const runtime = createAgentRuntime({ capabilityRegistry });
+    const runtime = createAgentRuntime({ capabilityRegistry, confirmationStore: new ConfirmationStore() });
     const adapter = createMcpPrototypeAdapter({ capabilityRegistry, runtime });
 
     const result = await adapter.callTool({
@@ -210,7 +211,7 @@ test('mcp prototype adapter infers request wrappers when host omits intent and p
 
 test('mcp prototype adapter accepts simplified top-level fields for core register flow', async () => {
     const capabilityRegistry = createStubCapabilityRegistry();
-    const runtime = createAgentRuntime({ capabilityRegistry });
+    const runtime = createAgentRuntime({ capabilityRegistry, confirmationStore: new ConfirmationStore() });
     const adapter = createMcpPrototypeAdapter({ capabilityRegistry, runtime });
 
     const result = await adapter.callTool({
@@ -239,7 +240,7 @@ test('mcp prototype adapter accepts simplified top-level fields for core registe
 
 test('mcp prototype adapter requests clarification when topic is missing', async () => {
     const capabilityRegistry = createStubCapabilityRegistry();
-    const runtime = createAgentRuntime({ capabilityRegistry });
+    const runtime = createAgentRuntime({ capabilityRegistry, confirmationStore: new ConfirmationStore() });
     const adapter = createMcpPrototypeAdapter({ capabilityRegistry, runtime });
 
     const result = await adapter.callTool({
@@ -257,7 +258,7 @@ test('mcp prototype adapter requests clarification when topic is missing', async
 
 test('mcp prototype adapter resolves latest pending confirmation when host omits confirmation id', async () => {
     const capabilityRegistry = createStubCapabilityRegistry();
-    const runtime = createAgentRuntime({ capabilityRegistry });
+    const runtime = createAgentRuntime({ capabilityRegistry, confirmationStore: new ConfirmationStore() });
     const adapter = createMcpPrototypeAdapter({ capabilityRegistry, runtime });
 
     await adapter.callTool({
@@ -288,7 +289,7 @@ test('mcp prototype adapter resolves latest pending confirmation when host omits
 
 test('mcp prototype adapter falls back to latest global pending when host sends mismatched user and conversation ids', async () => {
     const capabilityRegistry = createStubCapabilityRegistry();
-    const runtime = createAgentRuntime({ capabilityRegistry });
+    const runtime = createAgentRuntime({ capabilityRegistry, confirmationStore: new ConfirmationStore() });
     const adapter = createMcpPrototypeAdapter({ capabilityRegistry, runtime });
 
     await adapter.callTool({

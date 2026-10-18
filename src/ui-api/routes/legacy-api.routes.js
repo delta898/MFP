@@ -230,7 +230,6 @@ function createLegacyApiRouteHandler(deps = {}) {
         ensureSheetsReadyForUi: deps.ensureSheetsReadyForUi,
         parseIntSafe: deps.parseIntSafe,
         normalizeSortDir: deps.normalizeSortDir,
-        executeTrendCollectAction: deps.executeTrendCollectAction,
         executeTrendsToTopicsAction: deps.executeTrendsToTopicsAction,
         executeKeywordsToTopicsAction: deps.executeKeywordsToTopicsAction
     });

@@ -78,14 +78,9 @@ function createUiApiRouteRuntime(deps = {}) {
         executeBlogTopicUpdate,
         executeBlogTopicsDelete,
         executeShoppingTopicsDelete,
-        executeTrendCollectAction,
         executeTrendsToTopicsAction,
         executeKeywordsToTopicsAction,
         getAutoStatusPayload,
-        resolveNaverAutoCategoryCatalog,
-        runAutoCycle,
-        runTrendCollectCycle,
-        runRssCollectCycle,
         triggerSnsDiscoveryCycle,
         triggerSnsDistributionCycle,
         runAutoPublishCycle,
@@ -142,8 +137,6 @@ function createUiApiRouteRuntime(deps = {}) {
         aiGenerationService,
         aiGateway,
         blogPublishingApplication,
-        UiValidators,
-        normalizeYmdToken,
         normalizeListenHost,
         normalizeListenPort,
         isAllowedImageSourceValue,
@@ -222,27 +215,16 @@ function createUiApiRouteRuntime(deps = {}) {
             const service = createBlogAutoService({
                 Logger,
                 getAutoStatusPayload,
-                ensureSheetsReadyForUi,
-                resolveNaverAutoCategoryCatalog,
-                runAutoCycle,
-                runTrendCollectCycle,
-                runRssCollectCycle,
                 triggerSnsDiscoveryCycle,
                 triggerSnsDistributionCycle,
                 runAutoPublishCycle,
                 triggerAutoPublishCycle
             });
-            const validators = {
-                parseForceQuery: UiValidators.parseForceQuery,
-                validateBlogAutoManualRunPayload: (payload) => UiValidators.validateBlogAutoManualRunPayload(payload, normalizeYmdToken),
-                isValidationError: UiValidators.isValidationError
-            };
             const controller = createBlogAutoController({
                 service,
                 sendSuccess,
                 sendError,
-                Logger,
-                validators
+                Logger
             });
             blogAutoRouteHandler = createBlogAutoRouteHandler({ controller });
         }
@@ -510,7 +492,6 @@ function createUiApiRouteRuntime(deps = {}) {
             executeBlogTopicUpdate,
             executeBlogTopicsDelete,
             executeShoppingTopicsDelete,
-            executeTrendCollectAction,
             executeTrendsToTopicsAction,
             executeKeywordsToTopicsAction
         };

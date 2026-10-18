@@ -67,7 +67,6 @@ function buildFallbackIdeas(input = {}, context = {}) {
         });
     }
 
-    const trendsTimePref = preferences.find((item) => item.name === 'preferred_trends_collect_time');
     if (query && ideas.length === 0) {
         ideas.push({
             title: `${query} 관점에서 바로 써볼 수 있는 글`,
@@ -77,15 +76,7 @@ function buildFallbackIdeas(input = {}, context = {}) {
             source: 'fallback'
         });
     }
-    if (trendsTimePref?.value?.time) {
-        ideas.push({
-            title: `${trendsTimePref.value.time} 트렌드 수집 결과를 엮은 요약형 글`,
-            summary: '최근 선호 시간대의 트렌드 수집 결과를 바탕으로 핵심 이슈를 정리하는 글감입니다.',
-            reason: '저장된 트렌드 수집 선호 시간을 반영했습니다.',
-            keywords: ['트렌드', trendsTimePref.value.time],
-            source: 'fallback'
-        });
-    }
+
 
     if (ideas.length === 0) {
         ideas.push({

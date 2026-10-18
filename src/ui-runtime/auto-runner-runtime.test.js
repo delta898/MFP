@@ -62,7 +62,6 @@ test('SNS runner schedules only when app activation is enabled and enforces ten 
     const CONFIG = {
         SNS_PUBLISH_ENABLED: true,
         SNS_PUBLISH_INTERVAL_MIN: 3,
-        COLLECT_RSS_CONFIGS: []
     };
     const runtime = createRuntime(CONFIG);
 
@@ -81,27 +80,19 @@ test('SNS runner schedules only when app activation is enabled and enforces ten 
     assert.equal(runtime.snsRuntimeState.nextRunAt, null);
 });
 
-test('retired Blog schedules stay stopped while the SNS scheduler remains enabled', () => {
+test('only SNS automation is scheduled by the legacy automation runtime', () => {
     const runtime = createRuntime({
         RUNTIME_ENVIRONMENT_PROFILE: {
             environment: 'production',
             configured: true,
             effects: { livePublish: true }
         },
-        COLLECT_TRENDS_ENABLED: true,
-        COLLECT_RSS_ENABLED: true,
-        COLLECT_RSS_CONFIGS: [{ enabled: true, url: 'https://example.test/feed.xml', interval: 10 }],
-        PUBLISH_AUTO_ENABLED: true,
         SNS_PUBLISH_ENABLED: true,
         SNS_PUBLISH_INTERVAL_MIN: 10
     });
 
     runtime.syncAutoRunnerWithConfig();
 
-    assert.equal(runtime.trendsRuntimeState.enabled, false);
-    assert.equal(runtime.trendsRuntimeState.nextRunAt, null);
-    assert.equal(runtime.rssRuntimeState.enabled, false);
-    assert.equal(runtime.rssRuntimeState.nextRunAt, null);
     assert.equal(runtime.publishRuntimeState.enabled, false);
     assert.equal(runtime.publishRuntimeState.nextRunAt, null);
     assert.equal(runtime.snsRuntimeState.enabled, true);
@@ -113,7 +104,6 @@ test('manual SNS discovery updates the runtime result without changing the next 
     const CONFIG = {
         SNS_PUBLISH_ENABLED: true,
         SNS_PUBLISH_INTERVAL_MIN: 10,
-        COLLECT_RSS_CONFIGS: []
     };
     const runtime = createRuntime(CONFIG);
     runtime.setHandlers({
@@ -148,7 +138,6 @@ test('manual SNS publishing uses the shared SNS runtime guard', async () => {
     const runtime = createRuntime({
         SNS_PUBLISH_ENABLED: true,
         SNS_PUBLISH_INTERVAL_MIN: 10,
-        COLLECT_RSS_CONFIGS: []
     });
     runtime.setHandlers({
         runSnsDistributionCycle: async (trigger) => ({
@@ -172,7 +161,6 @@ test('SNS startup runs discovery once without advancing or publishing the schedu
     const runtime = createRuntime({
         SNS_PUBLISH_ENABLED: true,
         SNS_PUBLISH_INTERVAL_MIN: 10,
-        COLLECT_RSS_CONFIGS: []
     });
     const triggers = [];
     let publishCount = 0;
@@ -209,7 +197,6 @@ test('SNS startup does not request discovery when app activation is disabled', a
     const runtime = createRuntime({
         SNS_PUBLISH_ENABLED: false,
         SNS_PUBLISH_INTERVAL_MIN: 10,
-        COLLECT_RSS_CONFIGS: []
     });
     let discoveryCount = 0;
     runtime.setHandlers({
@@ -235,7 +222,6 @@ test('development environment schedules SNS RSS discovery while keeping publishi
             configured: true,
             effects: { livePublish: false }
         },
-        PUBLISH_AUTO_ENABLED: true,
         SNS_PUBLISH_ENABLED: true,
         SNS_PUBLISH_INTERVAL_MIN: 10
     };

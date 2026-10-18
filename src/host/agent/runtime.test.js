@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { createAgentRuntime } = require('./runtime');
+const { ConfirmationStore } = require('../../adapters/storage/confirmations/confirmation-store');
 
 function createStubCapabilityRegistry() {
     const executedActions = [];
@@ -53,7 +54,7 @@ function createStubCapabilityRegistry() {
 
 test('agent runtime forwards newly added row indices to publish action on approval', async () => {
     const capabilityRegistry = createStubCapabilityRegistry();
-    const runtime = createAgentRuntime({ capabilityRegistry });
+    const runtime = createAgentRuntime({ capabilityRegistry, confirmationStore: new ConfirmationStore() });
 
     const prepared = await runtime.handlePlan({
         plan_id: 'plan-1',
@@ -117,7 +118,7 @@ test('agent runtime forwards newly added row indices to publish action on approv
 
 test('agent runtime keeps explicit publish row targets when they are already present', async () => {
     const capabilityRegistry = createStubCapabilityRegistry();
-    const runtime = createAgentRuntime({ capabilityRegistry });
+    const runtime = createAgentRuntime({ capabilityRegistry, confirmationStore: new ConfirmationStore() });
 
     const prepared = await runtime.handlePlan({
         plan_id: 'plan-2',

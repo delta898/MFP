@@ -7,20 +7,11 @@ function createTrendsService(deps = {}) {
         ensureSheetsReadyForUi,
         parseIntSafe,
         normalizeSortDir,
-        executeTrendCollectAction,
         executeTrendsToTopicsAction,
         executeKeywordsToTopicsAction
     } = deps;
 
     return {
-        async collectTrends(requestBody = {}) {
-            const result = await executeTrendCollectAction(requestBody || {});
-            if (!result.success) {
-                throw createApiError(400, result.code || 'TRENDS_COLLECT_FAILED', result.message || '트렌드 수집에 실패했습니다.');
-            }
-            return result.data;
-        },
-
         async getTrendsItems({ searchParams }) {
             await ensureSheetsReadyForUi();
             const status = String(searchParams.get('status') || '').trim();

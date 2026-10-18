@@ -5,17 +5,6 @@ function createTrendsController(deps = {}) {
     const toErrorResponse = createControllerErrorResponder(sendError, { defaultStatus: 400 });
 
     return {
-        async collectTrends({ requestId, method, requestBody, res }) {
-            if (method !== 'POST') {
-                return sendMethodNotAllowed(sendError, res, requestId);
-            }
-            try {
-                return sendSuccess(res, requestId, await service.collectTrends(requestBody || {}));
-            } catch (e) {
-                return toErrorResponse(res, requestId, 'TRENDS_COLLECT_FAILED', '트렌드 수집에 실패했습니다.', e);
-            }
-        },
-
         async trendsItems({ requestId, method, searchParams, res }) {
             if (method !== 'GET') {
                 return sendMethodNotAllowed(sendError, res, requestId);

@@ -68,7 +68,7 @@ This document captures the current runtime boundaries after the CLI-removal refa
 - `src/ui-runtime/content-actions-runtime.js`
   - Blog/shopping row actions, topic/shopping batch operations.
 - `src/ui-runtime/trend-actions-runtime.js`
-  - Trend collection, trends-to-topics, keywords-to-topics workflows.
+  - Imported trends-to-topics and keywords-to-topics workflows. Trend scraping/collection is not part of the desktop application's feature set.
 - `src/ui-runtime/auto-runner-runtime.js`
   - Long-lived scheduler state and next-run scheduling.
 - `src/ui-runtime/auto-cycle-runtime.js`

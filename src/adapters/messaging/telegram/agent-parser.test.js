@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const {
     routeTelegramMessage,
     tryParseDeterministicEnvelope
-} = require('./telegram-parser');
+} = require('./agent-parser');
 
 test('Telegram natural language is classified into one unified route contract', async () => {
     const responses = [

@@ -1,13 +1,10 @@
-const { buildCapabilityId } = require('../agent/action-schema');
+const { buildCapabilityId } = require('./capability-id');
 const { createConfigStateManager } = require('./config-state');
-const { createTrendsCapabilities } = require('./settings/trends');
-const { createBlogAutoCapabilities } = require('./settings/blog-auto');
 const { createChatModelCapabilities } = require('./settings/chat-model');
 const { createAgentPendingCapabilities } = require('./agent/pending');
 const { createAgentMetaCapabilities } = require('./agent/meta');
 const { createAgentPreferenceCapabilities } = require('./agent/preferences');
 const { createAgentSuggestionCapabilities } = require('./agent/suggestions');
-const { createTrendJobCapabilities } = require('./jobs/trends');
 const { createKnowledgeRegistry } = require('../knowledge/registry');
 const { createBuiltinApiTransport } = require('../knowledge/transports/builtin-api');
 const { createMcpToolTransport } = require('../knowledge/transports/mcp-tool');
@@ -142,9 +139,6 @@ function createCapabilityRegistry(deps = {}) {
         ...createPublishCapabilities(capabilityDeps),
         ...createContentIdeaCapabilities(capabilityDeps),
         ...createKeywordResearchCapabilities(capabilityDeps),
-        ...createTrendJobCapabilities(capabilityDeps),
-        ...createTrendsCapabilities(capabilityDeps),
-        ...createBlogAutoCapabilities(capabilityDeps),
         ...createChatModelCapabilities(capabilityDeps)
     ];
 

@@ -2,12 +2,12 @@ const {
     cloneContentRequestBundle,
     normalizeExplicitParams,
     validateContentRequestBundle
-} = require('../internal-api/content-request-schema');
+} = require('../../../internal-api/content-request-schema');
 const {
     prepareContentRequestBundle,
     rebuildContentRequestBundle,
     isPublishExecutionEnabled
-} = require('../internal-api/content-request-builder');
+} = require('../../../internal-api/content-request-builder');
 
 function isCanonicalContentRequestBundle(value) {
     const validation = validateContentRequestBundle(value);

@@ -4,38 +4,21 @@ function createAutoRunnerRuntime(deps = {}) {
     const {
         CONFIG,
         Logger,
-        parseConfigBool,
-        normalizeNonNegativeInt,
-        normalizeTimeHHmm,
-        computeNextWindowedRunAt,
-        getBlogAutoSettingsSnapshot,
-        publishAutoDefaults
+        getBlogAutoSettingsSnapshot
     } = deps;
 
     const autoRuntimeState = {
         enabled: false,
         running: false,
         status: 'stopped',
-        message: '블로그 자동 모드 비활성화 (레거시)',
+        message: '실행 중인 작업이 없습니다.',
         startedAt: null,
         lastRunAt: null,
         nextRunAt: null,
         lastSummary: null,
-        cycleCount: 0,
-        timer: null,
-        lastPublishAtMs: 0
+        cycleCount: 0
     };
 
-    const trendsRuntimeState = { enabled: false, running: false, status: 'stopped', nextRunAt: null, timer: null, lastTime: null };
-    const rssRuntimeState = {
-        enabled: false,
-        running: false,
-        status: 'stopped',
-        nextRunAt: null,
-        timer: null,
-        lastConfigsJson: null,
-        lastRunTimes: {}
-    };
     const snsRuntimeState = {
         enabled: false,
         running: false,
@@ -46,14 +29,11 @@ function createAutoRunnerRuntime(deps = {}) {
         lastRunAt: null,
         lastResult: null
     };
-    const publishRuntimeState = { enabled: false, running: false, status: 'stopped', nextRunAt: null, timer: null, lastInterval: null, lastStartTime: null, lastEndTime: null };
+    const publishRuntimeState = { enabled: false, running: false, status: 'stopped', nextRunAt: null, message: '', lastSummary: null };
     const handlers = {
-        runTrendCollectCycle: null,
-        runRssCollectCycle: null,
         runSnsDiscoveryCycle: null,
         runSnsDistributionCycle: null,
-        runSnsAutomationCycle: null,
-        runAutoPublishCycle: null
+        runSnsAutomationCycle: null
     };
     let snsStartupDiscoveryRequested = false;
 
@@ -100,257 +80,11 @@ function createAutoRunnerRuntime(deps = {}) {
     }
 
     function refreshLegacyAutoRuntimeState() {
-        autoRuntimeState.enabled = trendsRuntimeState.enabled || publishRuntimeState.enabled || rssRuntimeState.enabled || snsRuntimeState.enabled;
-        autoRuntimeState.running = trendsRuntimeState.running || publishRuntimeState.running || rssRuntimeState.running || snsRuntimeState.running;
-        autoRuntimeState.message = `Trends: ${trendsRuntimeState.status} | RSS: ${rssRuntimeState.status} | Publish: ${publishRuntimeState.status} | SNS: ${snsRuntimeState.status}`;
+        autoRuntimeState.enabled = snsRuntimeState.enabled;
+        autoRuntimeState.running = publishRuntimeState.running || snsRuntimeState.running;
+        autoRuntimeState.message = publishRuntimeState.message || (autoRuntimeState.running ? '작업을 처리 중입니다.' : '실행 중인 작업이 없습니다.');
         autoRuntimeState.status = autoRuntimeState.running ? 'running' : (autoRuntimeState.enabled ? 'waiting' : 'stopped');
-        autoRuntimeState.nextRunAt = publishRuntimeState.nextRunAt || snsRuntimeState.nextRunAt || trendsRuntimeState.nextRunAt || null;
-    }
-
-    function syncTrendsRunner() {
-        const isEnabled = Boolean(CONFIG.COLLECT_TRENDS_ENABLED);
-        const targetTime = String(CONFIG.COLLECT_TRENDS_TIME || '07:30').trim();
-
-        if (trendsRuntimeState.enabled === isEnabled &&
-            trendsRuntimeState.lastTime === targetTime &&
-            trendsRuntimeState.nextRunAt) {
-            trendsRuntimeState.status = trendsRuntimeState.running ? 'running' : 'waiting';
-            return;
-        }
-
-        if (trendsRuntimeState.timer) clearInterval(trendsRuntimeState.timer);
-        trendsRuntimeState.enabled = isEnabled;
-        trendsRuntimeState.lastTime = targetTime;
-
-        if (!isEnabled) {
-            trendsRuntimeState.status = 'stopped';
-            trendsRuntimeState.nextRunAt = null;
-            return;
-        }
-
-        trendsRuntimeState.status = trendsRuntimeState.running ? 'running' : 'waiting';
-        const timeStr = targetTime.split(':');
-        const targetHour = parseInt(timeStr[0] || '7', 10);
-        const targetMin = parseInt(timeStr[1] || '30', 10);
-
-        const scheduleTrends = () => {
-            const now = new Date();
-            const target = new Date(now);
-            target.setHours(targetHour, targetMin, 0, 0);
-            if (target.getTime() <= now.getTime()) target.setDate(target.getDate() + 1);
-
-            const waitMs = Math.max(1000, target.getTime() - now.getTime());
-            trendsRuntimeState.nextRunAt = new Date(Date.now() + waitMs).toISOString();
-            Logger.info(`ℹ️ [AUTO][Producer] 트렌드 자동 수집 예약: ${new Date(trendsRuntimeState.nextRunAt).toLocaleString()} (설정시간: ${CONFIG.COLLECT_TRENDS_TIME || '07:30'})`);
-
-            if (trendsRuntimeState.timer) clearInterval(trendsRuntimeState.timer);
-            trendsRuntimeState.timer = setInterval(() => {
-                if (!trendsRuntimeState.enabled || trendsRuntimeState.running) return;
-                if (Date.now() >= new Date(trendsRuntimeState.nextRunAt).getTime()) {
-                    trendsRuntimeState.running = true;
-                    trendsRuntimeState.status = 'running';
-                    requireHandler('runTrendCollectCycle')('auto').finally(() => {
-                        trendsRuntimeState.running = false;
-                        scheduleTrends();
-                    });
-                }
-            }, 10000);
-        };
-        scheduleTrends();
-    }
-
-    function syncRssRunner() {
-        const rssConfigs = Array.isArray(CONFIG.COLLECT_RSS_CONFIGS) ? CONFIG.COLLECT_RSS_CONFIGS : [];
-        const isGlobalEnabled = parseConfigBool(CONFIG.COLLECT_RSS_ENABLED, false);
-        const configsJson = JSON.stringify(rssConfigs);
-        const isEnabled = isGlobalEnabled && rssConfigs.some(rc => rc.enabled);
-
-        if (rssRuntimeState.enabled === isEnabled &&
-            rssRuntimeState.lastConfigsJson === configsJson &&
-            rssRuntimeState.timer) {
-            rssRuntimeState.status = rssRuntimeState.running ? 'running' : 'waiting';
-            return;
-        }
-
-        if (rssRuntimeState.timer) clearInterval(rssRuntimeState.timer);
-        rssRuntimeState.enabled = isEnabled;
-        rssRuntimeState.lastConfigsJson = configsJson;
-
-        if (!rssRuntimeState.enabled) {
-            rssRuntimeState.status = 'stopped';
-            rssRuntimeState.nextRunAt = null;
-            return;
-        }
-
-        rssRuntimeState.status = rssRuntimeState.running ? 'running' : 'waiting';
-
-        const now = Date.now();
-        const enabledConfigs = rssConfigs.filter(rc => rc.enabled);
-        enabledConfigs.forEach(rc => {
-            const url = String(rc.url || '').trim();
-            if (!url) return;
-            if (!rssRuntimeState.lastRunTimes[url]) {
-                rssRuntimeState.lastRunTimes[url] = now;
-            }
-
-            const intervalMin = parseInt(rc.interval, 10) || 60;
-            const lastRun = rssRuntimeState.lastRunTimes[url];
-            const nextRunAt = lastRun + (intervalMin * 60 * 1000);
-            const remainingMs = Math.max(0, nextRunAt - now);
-
-            Logger.info(`ℹ️ [AUTO][Producer] RSS 수집 예약: ${new Date(nextRunAt).toLocaleString()} (피드: ${url}, 주기: ${intervalMin}분, 남은시간: ${Math.round(remainingMs / 1000 / 60)}분)`);
-        });
-
-        const scheduleRss = () => {
-            const checkIntervalMs = 60 * 1000;
-            if (rssRuntimeState.timer) clearInterval(rssRuntimeState.timer);
-
-            rssRuntimeState.timer = setInterval(async () => {
-                if (!rssRuntimeState.enabled || rssRuntimeState.running) return;
-
-                const currentNow = Date.now();
-                const configsToRun = [];
-
-                enabledConfigs.forEach(rc => {
-                    const url = String(rc.url || '').trim();
-                    if (!url) return;
-
-                    const intervalMin = parseInt(rc.interval, 10) || 60;
-                    const intervalMs = intervalMin * 60 * 1000;
-                    const lastRun = rssRuntimeState.lastRunTimes[url] || currentNow;
-
-                    if (currentNow - lastRun >= intervalMs) {
-                        configsToRun.push(rc);
-                    }
-                });
-
-                if (configsToRun.length > 0) {
-                    rssRuntimeState.running = true;
-                    rssRuntimeState.status = 'running';
-
-                    configsToRun.forEach(rc => {
-                        rssRuntimeState.lastRunTimes[String(rc.url || '').trim()] = currentNow;
-                    });
-
-                    Logger.info(`ℹ️ [AUTO][Producer] RSS 개별 주기 도달 (${configsToRun.length}개 피드 실행)`);
-                    requireHandler('runRssCollectCycle')('auto', {
-                        settingsOverrides: { COLLECT_RSS_CONFIGS: configsToRun }
-                    }).finally(() => {
-                        rssRuntimeState.running = false;
-                        rssRuntimeState.status = 'waiting';
-                    });
-                }
-            }, checkIntervalMs);
-        };
-        scheduleRss();
-    }
-
-    function clearPublishTimer() {
-        if (publishRuntimeState.timer) {
-            clearTimeout(publishRuntimeState.timer);
-            publishRuntimeState.timer = null;
-        }
-    }
-
-    function scheduleNextPublishCycle(delayMs = null, options = {}) {
-        clearPublishTimer();
-        if (!publishRuntimeState.enabled) {
-            publishRuntimeState.nextRunAt = null;
-            refreshLegacyAutoRuntimeState();
-            return;
-        }
-
-        const intervalMin = Math.max(1, normalizeNonNegativeInt(CONFIG.PUBLISH_AUTO_INTERVAL_MIN, publishAutoDefaults.intervalMin));
-        const intervalMs = intervalMin * 60 * 1000;
-        const startTime = normalizeTimeHHmm(CONFIG.PUBLISH_AUTO_START_TIME, publishAutoDefaults.startTime);
-        const endTime = normalizeTimeHHmm(CONFIG.PUBLISH_AUTO_END_TIME, publishAutoDefaults.endTime);
-        const parsedDelay = (delayMs === null || delayMs === undefined || delayMs === '')
-            ? null
-            : Math.max(500, parseInt(delayMs, 10) || 0);
-        const nextSchedule = computeNextWindowedRunAt({
-            delayMs: parsedDelay,
-            intervalMs,
-            startTime,
-            endTime,
-            preferWindowStartIfBaseOutside: options.preferWindowStartIfBaseOutside === true
-        });
-        const waitMs = Math.max(500, nextSchedule.runAt.getTime() - Date.now());
-
-        publishRuntimeState.nextRunAt = nextSchedule.runAt.toISOString();
-        publishRuntimeState.status = publishRuntimeState.running ? 'running' : 'waiting';
-        refreshLegacyAutoRuntimeState();
-
-        if (nextSchedule.adjustedByWindow) {
-            Logger.info(
-                `ℹ️ [AUTO][Consumer] 자동 발행 예약이 허용 시간대에 맞춰 조정되었습니다: `
-                + `${nextSchedule.runAt.toLocaleString()} `
-                + `(원래 후보: ${nextSchedule.candidateAt.toLocaleString()}, 허용시간: ${startTime}~${endTime})`
-            );
-        } else {
-            Logger.info(`ℹ️ [AUTO][Consumer] 자동 발행 예약: ${nextSchedule.runAt.toLocaleString()} (간격: ${intervalMin}분)`);
-        }
-
-        publishRuntimeState.timer = setTimeout(() => {
-            publishRuntimeState.timer = null;
-            if (!publishRuntimeState.enabled || publishRuntimeState.running) return;
-
-            publishRuntimeState.running = true;
-            publishRuntimeState.status = 'running';
-            refreshLegacyAutoRuntimeState();
-            requireHandler('runAutoPublishCycle')('auto').finally(() => {
-                publishRuntimeState.running = false;
-                scheduleNextPublishCycle();
-            });
-        }, waitMs);
-    }
-
-    function syncPublishRunner() {
-        const isEnabled = isLivePublishAllowed(CONFIG) && Boolean(CONFIG.PUBLISH_AUTO_ENABLED);
-        let intervalMin = normalizeNonNegativeInt(CONFIG.PUBLISH_AUTO_INTERVAL_MIN, 60);
-        if (intervalMin < 1) intervalMin = 60;
-        const startTime = normalizeTimeHHmm(CONFIG.PUBLISH_AUTO_START_TIME, publishAutoDefaults.startTime);
-        const endTime = normalizeTimeHHmm(CONFIG.PUBLISH_AUTO_END_TIME, publishAutoDefaults.endTime);
-
-        const isIntervalChanged = publishRuntimeState.lastInterval !== intervalMin;
-        const isStatusChanged = publishRuntimeState.enabled !== isEnabled;
-        const isTimeRangeChanged = publishRuntimeState.lastStartTime !== startTime || publishRuntimeState.lastEndTime !== endTime;
-
-        if (!isStatusChanged && !isIntervalChanged && !isTimeRangeChanged && publishRuntimeState.nextRunAt) {
-            publishRuntimeState.status = publishRuntimeState.running ? 'running' : 'waiting';
-            refreshLegacyAutoRuntimeState();
-            return;
-        }
-
-        const wasEnabled = publishRuntimeState.enabled;
-        const oldInterval = publishRuntimeState.lastInterval;
-        const oldStartTime = publishRuntimeState.lastStartTime;
-        const oldEndTime = publishRuntimeState.lastEndTime;
-
-        publishRuntimeState.enabled = isEnabled;
-        publishRuntimeState.lastInterval = intervalMin;
-        publishRuntimeState.lastStartTime = startTime;
-        publishRuntimeState.lastEndTime = endTime;
-
-        clearPublishTimer();
-
-        if (!isEnabled) {
-            if (wasEnabled) Logger.info('ℹ️ [AUTO][Consumer] 자동 발행 시스템이 OFF 되었습니다. (기존 예약 취소)');
-            publishRuntimeState.status = 'stopped';
-            publishRuntimeState.nextRunAt = null;
-            refreshLegacyAutoRuntimeState();
-            return;
-        }
-
-        if (!wasEnabled) {
-            Logger.info('ℹ️ [AUTO][Consumer] 자동 발행 시스템이 ON 되었습니다.');
-        } else if (isIntervalChanged) {
-            Logger.info(`ℹ️ [AUTO][Consumer] 자동 발행 주기가 변경되어 예약을 갱신합니다. (${oldInterval}분 -> ${intervalMin}분)`);
-        } else if (isTimeRangeChanged) {
-            Logger.info(`ℹ️ [AUTO][Consumer] 자동 발행 허용 시간대가 변경되어 예약을 다시 계산합니다. (${oldStartTime}~${oldEndTime} -> ${startTime}~${endTime})`);
-        }
-
-        publishRuntimeState.status = publishRuntimeState.running ? 'running' : 'waiting';
-        scheduleNextPublishCycle(null, { preferWindowStartIfBaseOutside: true });
+        autoRuntimeState.nextRunAt = snsRuntimeState.nextRunAt || null;
     }
 
     function clearSnsTimer() {
@@ -502,23 +236,7 @@ function createAutoRunnerRuntime(deps = {}) {
     }
 
     function syncAutoRunnerWithConfig() {
-        // Legacy Blog scheduling is retired. Keep manual cycle handlers and
-        // SNS scheduling available, but never reactivate stored Blog schedules.
-        if (trendsRuntimeState.timer) clearInterval(trendsRuntimeState.timer);
-        trendsRuntimeState.timer = null;
-        trendsRuntimeState.enabled = false;
-        trendsRuntimeState.running = false;
-        trendsRuntimeState.status = 'stopped';
-        trendsRuntimeState.nextRunAt = null;
-
-        if (rssRuntimeState.timer) clearInterval(rssRuntimeState.timer);
-        rssRuntimeState.timer = null;
-        rssRuntimeState.enabled = false;
-        rssRuntimeState.running = false;
-        rssRuntimeState.status = 'stopped';
-        rssRuntimeState.nextRunAt = null;
-
-        clearPublishTimer();
+        // Blog publishing is scheduled by its application; this runtime owns SNS only.
         publishRuntimeState.enabled = false;
         publishRuntimeState.status = publishRuntimeState.running ? 'running' : 'stopped';
         publishRuntimeState.nextRunAt = null;
@@ -528,18 +246,11 @@ function createAutoRunnerRuntime(deps = {}) {
 
     return {
         autoRuntimeState,
-        trendsRuntimeState,
-        rssRuntimeState,
         snsRuntimeState,
         publishRuntimeState,
         setHandlers,
         getAutoStatusPayload,
         refreshLegacyAutoRuntimeState,
-        syncTrendsRunner,
-        syncRssRunner,
-        clearPublishTimer,
-        scheduleNextPublishCycle,
-        syncPublishRunner,
         clearSnsTimer,
         triggerSnsDiscoveryCycle,
         triggerSnsStartupDiscovery,

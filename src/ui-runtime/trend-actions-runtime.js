@@ -5,13 +5,8 @@ function createTrendActionsRuntime(deps = {}) {
         Logger,
         CONFIG,
         Utils,
-        License,
-        TrendManager,
         ensureSheetsReadyForUi,
         parseIntSafe,
-        checkAuthSessionValid,
-        toFeatureMap,
-        isCommandEnabled,
         getBlogAutoSettingsSnapshot,
         normalizeYmdToken,
         toBoolLike,
@@ -285,87 +280,6 @@ function createTrendActionsRuntime(deps = {}) {
         };
     }
 
-    async function executeTrendCollectAction(requestBody = {}) {
-        try {
-            await ensureSheetsReadyForUi();
-        } catch (error) {
-            Logger.error(`❌ [AUTO][Producer] 필수 시트 준비 실패: ${error.message}`);
-            return { success: false, code: 'SHEETS_NOT_READY', message: `필수 시트 준비 실패: ${error.message}` };
-        }
-
-        const precheck = await License.checkLicenseStatus();
-        if (!precheck.success) {
-            Logger.error(`❌ [AUTO][Producer] 라이선스 상태 확인 실패: ${precheck.message}`);
-            return { success: false, code: 'LICENSE_STATUS_FAILED', message: precheck.message };
-        }
-        const features = toFeatureMap(precheck.features);
-        if (!isCommandEnabled(features, 'trends')) {
-            return { success: false, code: 'FEATURE_DISABLED', message: '현재 플랜에서 trends 기능이 비활성화되어 있습니다. (cmd_trends=false)' };
-        }
-
-        const dateInput = String(requestBody?.date || requestBody?.trendDate || '').trim();
-
-        const session = await checkAuthSessionValid();
-        if (!session.ok) {
-            Logger.error(`❌ [AUTO][Producer] 네이버 인증 세션 유효하지 않음 (${session.reason}): ${session.message || '인증 정보가 없거나 만료되었습니다.'}`);
-            return { success: false, code: 'NAVER_SESSION_INVALID', message: '네이버 로그인 세션이 유효하지 않습니다. 먼저 로그인해 주세요.' };
-        }
-
-        const headless = typeof requestBody?.headless === 'boolean'
-            ? requestBody.headless
-            : Boolean(CONFIG.HEADLESS);
-
-        const trendResult = await TrendManager.fetchTrends({
-            date: dateInput || undefined,
-            headless
-        });
-        const trendKeywords = Array.isArray(trendResult?.keywords) ? trendResult.keywords : [];
-        if (trendKeywords.length === 0) {
-            return {
-                success: true,
-                data: {
-                    collectedCount: 0,
-                    rawCollectedCount: 0,
-                    date: trendResult?.date || null,
-                    appendedCount: 0,
-                    message: '수집된 트렌드가 없습니다.'
-                }
-            };
-        }
-
-        const trendsWithDate = trendKeywords.map((item, index) => ({
-            ...item,
-            date: trendResult?.date || null,
-            rowIndex: index
-        }));
-
-        try {
-            const snapshot = getBlogAutoSettingsSnapshot();
-            const settingsToUse = { ...snapshot, ...(requestBody?.settings || {}) };
-            const mapResult = await processAndAppendTrendsToTopics(trendsWithDate, settingsToUse);
-
-            const dupCount = Number(mapResult?.duplicateCount || 0);
-            const reuseCount = Number(mapResult?.reuseBlockedCount || 0);
-            const addedCount = Number(mapResult?.appendedCount || 0);
-
-            return {
-                success: true,
-                data: {
-                    collectedCount: mapResult?.candidates || 0,
-                    rawCollectedCount: trendKeywords.length,
-                    appendedCount: addedCount,
-                    duplicateCount: dupCount,
-                    reuseBlockedCount: reuseCount,
-                    date: trendResult?.date || null,
-                    message: '트렌드 수집 및 토픽 직접 추가 완료'
-                }
-            };
-        } catch (error) {
-            Logger.error(`❌ [AUTO][Producer] trends->topics 직접 이관 실패: ${error.message}`);
-            return { success: false, code: 'TRENDS_DIRECT_APPEND_FAILED', message: `topics 직접 추가에 실패했습니다: ${error.message}` };
-        }
-    }
-
     async function executeTrendsToTopicsAction(requestBody = {}) {
         try {
             await ensureSheetsReadyForUi();
@@ -537,62 +451,8 @@ function createTrendActionsRuntime(deps = {}) {
         };
     }
 
-    function waitMs(delay) {
-        const ms = Math.max(0, Number(delay) || 0);
-        return new Promise((resolve) => setTimeout(resolve, ms));
-    }
-
-    async function executeTrendCollectWithRetry(options = {}) {
-        const date = String(options?.date || '').trim();
-        const categories = options?.categories;
-        const headless = options?.headless;
-        const maxRetries = normalizeNonNegativeInt(options?.maxRetries, collectTrendsDefaults.trendsMaxRetries || 3);
-        const retryWaitMs = normalizeNonNegativeInt(options?.retryWaitMs, collectTrendsDefaults.trendsRetryWaitMs || 300000);
-        const maxAttempts = maxRetries + 1;
-        Logger.info(`   ⏳ [AUTO] 트렌드 수집 시도 시작 (최대 ${maxAttempts}회 시도)`);
-        let lastError = 'unknown';
-
-        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-            try {
-                const trendsResult = await executeTrendCollectAction({
-                    ...(date ? { date } : {}),
-                    ...(categories !== undefined ? { categories } : {}),
-                    ...(typeof headless === 'boolean' ? { headless } : {}),
-                    settings: options?.settings
-                });
-                if (trendsResult?.success) {
-                    return {
-                        success: true,
-                        data: trendsResult.data,
-                        collected: Number(trendsResult?.data?.appendedCount || trendsResult?.data?.collectedCount || 0),
-                        attempt,
-                        maxAttempts
-                    };
-                }
-                lastError = String(trendsResult?.message || trendsResult?.code || 'unknown');
-            } catch (error) {
-                lastError = String(error?.message || error || 'unknown');
-            }
-
-            if (attempt < maxAttempts) {
-                Logger.warn(`⚠️ [AUTO] 트렌드 수집 실패 (${attempt}/${maxAttempts}): ${lastError}`);
-                const waitMin = Math.max(1, Math.round(retryWaitMs / 60000));
-                Logger.info(`   ⏳ [AUTO] ${waitMin}분 후 트렌드 수집을 재시도합니다...`);
-                await waitMs(retryWaitMs);
-            }
-        }
-
-        return {
-            success: false,
-            message: lastError,
-            maxRetries
-        };
-    }
-
     return {
         executeKeywordsToTopicsAction,
-        executeTrendCollectAction,
-        executeTrendCollectWithRetry,
         executeTrendsToTopicsAction,
         filterAutoTopicCandidates,
         processAndAppendTrendsToTopics

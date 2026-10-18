@@ -85,10 +85,12 @@ Apply these principles to every change. The later sections define the project-sp
 - Treat Telegram as a channel adapter, not as the place where business logic should grow.
 - Keep `Agent Runtime -> Capability Registry -> Memory` as the primary control path.
 - Before extending behavior, check whether the change belongs in:
-  - `src/agent/`
+  - `src/host/agent/` for Host orchestration and channel-neutral request planning
+  - `src/adapters/messaging/<channel>/` for channel-specific parsing and translation
   - `src/capabilities/`
   - `src/memory/`
   - `src/knowledge/`
+- Do not create or restore a `src/agent/` feature-root. Place each responsibility under its architecture layer; the Agent Runtime is Host orchestration, not a separate top-level layer.
 - Preserve event-first memory design. Record facts first, derive preferences/suggestions second.
 
 ## Knowledge Provider Rules

@@ -3,6 +3,12 @@
 ## Responsibility
 The agent runtime turns channel input into validated actions, manages confirmation, executes capabilities, and records events.
 
+## Layer Ownership
+- Host orchestration and channel-neutral action/plan contracts live in `src/host/agent/`.
+- Telegram-specific deterministic and model-assisted interpretation lives in `src/adapters/messaging/telegram/`.
+- Confirmation state and its JSON persistence implementation live in `src/adapters/storage/confirmations/`; Host runtime receives the store through composition.
+- Capability ID construction lives with the Capability Registry in `src/capabilities/capability-id.js`.
+
 ## Current Runtime Path
 1. Channel adapter receives message.
 2. Retrieval service builds a context packet.

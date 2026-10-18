@@ -1,4 +1,4 @@
-const { ConfirmationStore } = require('../agent/confirmation-store');
+const { ConfirmationStore } = require('../adapters/storage/confirmations/confirmation-store');
 const { createMemoryRetrievalService } = require('../memory/retrieval-service');
 const { createRecommendationMaterializer } = require('../recommendations/adapters/recommendation-materializer');
 const { createRecommendationDeliveryScheduler } = require('../recommendations/delivery/scheduler');
@@ -17,7 +17,7 @@ const { createRecommendationRefreshService } = require('../ui-api/services/recom
 
 function createUiRecommendationRuntime(options = {}) {
     const { CONFIG, License, Logger, eventStore, capabilityRegistry, fs, path } = options;
-    const confirmationStore = new ConfirmationStore({
+    const confirmationStore = options.confirmationStore || new ConfirmationStore({
         persistPath: path.join(CONFIG.ROOT_DIR || process.cwd(), 'data', 'recommendation-confirmations.json')
     });
     const handoffService = createRecommendationHandoffService({

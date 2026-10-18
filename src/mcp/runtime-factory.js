@@ -4,8 +4,8 @@ const axios = require('axios');
 
 const CONFIG = require('../config-loader');
 const License = require('../license');
-const { createAgentRuntime } = require('../agent/runtime');
-const { ConfirmationStore } = require('../agent/confirmation-store');
+const { createAgentRuntime } = require('../host/agent/runtime');
+const { ConfirmationStore } = require('../adapters/storage/confirmations/confirmation-store');
 const { createCapabilityRegistry } = require('../capabilities');
 const { getRuntimeHooks } = require('../runtime-hooks');
 const { createMcpPrototypeAdapter } = require('./prototype-adapter');

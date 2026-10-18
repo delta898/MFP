@@ -20,7 +20,6 @@ const Utils = require('./utils');
 const Core = require('./core');
 const TelegramBotService = require('./telegram-bot.service');
 const BrowserLauncher = require('./utilities/browser/browser-launcher');
-const TrendManager = require('./trend-manager');
 const ShoppingManager = require('./shopping-manager');
 const Updater = require('./host/updater');
 const RuntimeConfig = require('./runtime-config');
@@ -75,7 +74,8 @@ const { createJsCompositionRuntime } = require('./ui-runtime/js-composition-runt
 const { closeAgentMemory, getAgentEventStore, initializeAgentMemory } = require('./memory/store');
 const { createActivityLifecycleRecorder } = require('./memory/activity-lifecycle');
 const { createCapabilityRegistry } = require('./capabilities');
-const { createAgentRuntime } = require('./agent/runtime');
+const { createAgentRuntime } = require('./host/agent/runtime');
+const { ConfirmationStore } = require('./adapters/storage/confirmations/confirmation-store');
 const { createTopicRecommendationLearningService } = require('./recommendations/topic-recommendation-learning');
 const { recordRecommendationFeedback } = require('./recommendations/adapters/recommendation-feedback-adapter');
 const { createUiRecommendationRuntime } = require('./ui-runtime/recommendation-runtime');
@@ -126,7 +126,6 @@ const { createSiteHostingProjectRouteHandler } = require('./ui-api/routes/site-h
 const { createSiteHostingSiteService } = require('./ui-api/services/site-hosting-site.service');
 const { createSiteHostingSiteRouteHandler } = require('./ui-api/routes/site-hosting-site.routes');
 const { createApiRouteHub } = require('./ui-api/routes');
-const UiValidators = require('./ui-api/middleware/validate');
 
 const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PORT = 4577;
@@ -136,23 +135,17 @@ const blogRuntimeLogs = new Map();
 const shoppingRuntimeLogs = new Map();
 const ALLOWED_TYPING_SPEEDS = ['QUICK', 'FAST', 'NORMAL', 'HUMAN'];
 const COLLECT_TRENDS_DEFAULTS = {
-    enabled: false,
     categories: '',
-    time: '07:30',
     reuseGapDays: 15,
     filterMinIncr: 50,
     filterIncludeNew: false,
     filterIncludeDash: false,
     filterIncludeNumber: true,
     filterType: 'min',
-    filterTopN: 5,
-    trendsMaxRetries: 3,
-    trendsRetryWaitMs: 5 * 60 * 1000
+    filterTopN: 5
 };
 
 const PUBLISH_AUTO_DEFAULTS = {
-    enabled: false,
-    intervalMin: 60,
     batchSize: 1,
     postStatus: 'publish',
     notifyEnabled: false,
@@ -160,11 +153,8 @@ const PUBLISH_AUTO_DEFAULTS = {
     headless: true,
     imageMode: 'generate',
     imageGeneration: true,
-    externalReference: false,
-    startTime: '00:00',
-    endTime: '23:59'
+    externalReference: false
 };
-const BLOG_AUTO_CATEGORY_MASTER_KEYS = ['NAVER_AUTO_CATEGORIES_MASTER', 'BLOG_AUTO_CATEGORIES_MASTER', 'blog_auto_categories_master', 'naver_auto_categories_master'];
 const SHOPPING_IMAGE_SLOT_MAP = {
     ftc: { key: 'FTC_DISCLOSURE_IMAGE_URL', fileBase: 'ftc_disclosure', label: '공정위 이미지', required: true },
     cta1: { key: 'SHOPPING_CTA_IMAGE_URL1', fileBase: 'shopping_cta_1', label: '구매 독려 이미지 1', required: true },
@@ -341,6 +331,9 @@ const topicRecommendationCapabilityRegistry = createCapabilityRegistry({
 });
 const topicRecommendationAgentRuntime = createAgentRuntime({
     capabilityRegistry: topicRecommendationCapabilityRegistry,
+    confirmationStore: new ConfirmationStore({
+        persistPath: path.join(CONFIG.ROOT_DIR || process.cwd(), 'data', 'recommendation-confirmations.json')
+    }),
     eventStore: topicRecommendationEventStore
 });
 const {
@@ -354,6 +347,7 @@ const {
     Logger,
     eventStore: topicRecommendationEventStore,
     capabilityRegistry: topicRecommendationCapabilityRegistry,
+    confirmationStore: topicRecommendationAgentRuntime.confirmationStore,
     fs,
     path
 });
@@ -671,47 +665,6 @@ function parseCategoryListRaw(rawValue) {
     );
 }
 
-async function resolveNaverAutoCategoryCatalog(options = {}) {
-    const force = Boolean(options.force);
-    let runtimeCategories = [];
-    let trendCategories = [];
-    let configCategories = [];
-
-    try {
-        const runtimeMap = await RuntimeConfig.fetchRuntimeConfig(BLOG_AUTO_CATEGORY_MASTER_KEYS, force);
-        const masterValue = String(
-            runtimeMap?.NAVER_AUTO_CATEGORIES_MASTER
-            || runtimeMap?.naver_auto_categories_master
-            || runtimeMap?.BLOG_AUTO_CATEGORIES_MASTER
-            || runtimeMap?.blog_auto_categories_master
-            || ''
-        ).trim();
-        runtimeCategories = parseCategoryListRaw(masterValue);
-    } catch (_e) {
-        Logger.error(`🔍 [resolveNaverAutoCategoryCatalog] Supabase Fetch ERROR:`, _e);
-    }
-
-    try {
-        const fromConfig = normalizeBlogAutoSettings({});
-        // Use COLLECT_TRENDS_CATEGORIES as it is the normalized key
-        configCategories = parseCategoryListRaw(fromConfig?.COLLECT_TRENDS_CATEGORIES || '');
-    } catch (_e) { }
-
-    const categories = dedupeOrderedStrings([
-        ...runtimeCategories,
-        ...trendCategories,
-        ...configCategories
-    ]);
-
-    return {
-        categories,
-        runtimeCategories,
-        trendCategories,
-        configCategories,
-        updatedAt: new Date().toISOString()
-    };
-}
-
 function toBoolLike(input, fallback = false) {
     if (typeof input === 'boolean') return input;
     if (typeof input === 'number') return input !== 0;
@@ -879,14 +832,8 @@ const trendActionsRuntime = createTrendActionsRuntime({
     Logger,
     CONFIG,
     Utils,
-    License,
-    TrendManager,
     ensureSheetsReadyForUi,
     parseIntSafe,
-    checkAuthSessionValid,
-    toFeatureMap,
-    isCommandEnabled,
-    getFeatureBool,
     getBlogAutoSettingsSnapshot: () => getBlogAutoSettingsSnapshot(),
     normalizeYmdToken,
     toBoolLike,
@@ -903,8 +850,6 @@ const trendActionsRuntime = createTrendActionsRuntime({
 });
 const {
     executeKeywordsToTopicsAction,
-    executeTrendCollectAction,
-    executeTrendCollectWithRetry,
     executeTrendsToTopicsAction,
     filterAutoTopicCandidates,
     processAndAppendTrendsToTopics
@@ -919,34 +864,18 @@ const autoCycleRuntime = createAutoCycleRuntime({
     TelegramService,
     SlackService,
     ensureSheetsReadyForUi,
-    checkAuthSessionValid,
-    normalizeYmdToken,
-    toBoolLike,
     parseCsvTokens,
     normalizeNonNegativeInt,
     parseConfigBool,
-    normalizeBlogAutoSettings,
-    getBlogAutoSettingsSnapshot: () => getBlogAutoSettingsSnapshot(),
-    toFeatureMap,
-    isCommandEnabled,
-    parseMaxPosts,
-    collectTrendsDefaults: COLLECT_TRENDS_DEFAULTS,
-    blogAutoDefaults: PUBLISH_AUTO_DEFAULTS,
     autoRuntimeState,
     publishRuntimeState,
     refreshLegacyAutoRuntimeState,
     syncAutoRunnerWithConfig,
-    executeTrendCollectWithRetry,
-    processAndAppendTrendsToTopics,
-    filterAutoTopicCandidates,
     executeBlogBatchRowsAction,
     snsRssDiscovery,
     snsDistributionRunner
 });
 const {
-    runAutoCycle,
-    runTrendCollectCycle,
-    runRssCollectCycle,
     runSnsDiscoveryCycle,
     runSnsDistributionCycle,
     runSnsAutomationCycle,
@@ -962,7 +891,6 @@ registerRuntimeHooks({
     resolveWritableConfigPath,
     buildDefaultConfigTemplate,
     syncAutoRunnerWithConfig,
-    resolveNaverAutoCategoryCatalog
 });
 
 function scheduleUiReload(host, port) {
@@ -1042,14 +970,9 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     executeBlogTopicUpdate,
     executeBlogTopicsDelete,
     executeShoppingTopicsDelete,
-    executeTrendCollectAction,
     executeTrendsToTopicsAction,
     executeKeywordsToTopicsAction,
     getAutoStatusPayload,
-    resolveNaverAutoCategoryCatalog,
-    runAutoCycle,
-    runTrendCollectCycle,
-    runRssCollectCycle,
     triggerSnsDiscoveryCycle,
     triggerSnsDistributionCycle,
     runAutoPublishCycle,
@@ -1106,7 +1029,6 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     aiGenerationService: aiGenerationSystem.service,
     aiGateway: aiGenerationSystem.gateway,
     blogPublishingApplication,
-    UiValidators,
     normalizeYmdToken,
     normalizeListenHost,
     normalizeListenPort,
@@ -1122,12 +1044,9 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
 const { handleApi, handleWidgetPluginAsset } = uiApiRouteRuntime;
 
 setAutoRunnerHandlers({
-    runTrendCollectCycle,
-    runRssCollectCycle,
     runSnsDiscoveryCycle,
     runSnsDistributionCycle,
     runSnsAutomationCycle,
-    runAutoPublishCycle
 });
 
 async function handleGoogleOAuthCallback({ url, res }) {

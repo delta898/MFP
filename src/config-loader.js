@@ -520,8 +520,6 @@ const CONFIG = {
     SHOPPING_CTA_IMAGE_URL3: structuredConfig.platforms.naver.assets.cta_images?.[2] || '',
 
     // Automation - Trends
-    COLLECT_TRENDS_ENABLED: structuredConfig.automation.collect?.blog?.trends?.enabled,
-    COLLECT_TRENDS_TIME: structuredConfig.automation.collect?.blog?.trends?.time,
     COLLECT_TRENDS_CATEGORIES: structuredConfig.automation.collect?.blog?.trends?.categories,
     COLLECT_TRENDS_NAVER_CATEGORY: structuredConfig.automation.collect?.blog?.trends?.naver_category,
     COLLECT_TRENDS_WP_CATEGORY: structuredConfig.automation.collect?.blog?.trends?.wordpress_category,
@@ -534,8 +532,6 @@ const CONFIG = {
     COLLECT_TRENDS_FILTER_TOP_N: structuredConfig.automation.collect?.blog?.trends?.filters?.top_n,
 
     // Automation - RSS
-    COLLECT_RSS_ENABLED: structuredConfig.automation.collect?.blog?.rss?.enabled,
-    COLLECT_RSS_CONFIGS: structuredConfig.automation.collect?.blog?.rss?.feeds,
     CARD_NEWS_RSS_SOURCES: normalizeCardNewsRssSources(structuredConfig.content?.card_news?.rss_sources),
     CARD_NEWS_BUILTIN_SOURCES: normalizeCardNewsBuiltinSources(structuredConfig.content?.card_news?.builtin_sources),
 
@@ -564,15 +560,11 @@ const CONFIG = {
     IMAGE_OPTIMIZATION_ENABLED: structuredConfig.publish?.image_optimization_enabled !== false,
 
     // Automation - Publish (Blog)
-    PUBLISH_AUTO_ENABLED: structuredConfig.automation.publish.blog.enabled,
-    PUBLISH_AUTO_INTERVAL_MIN: structuredConfig.automation.publish.blog.interval_min,
     PUBLISH_AUTO_BATCH_SIZE: structuredConfig.automation.publish.blog.batch_size,
     PUBLISH_AUTO_POST_STATUS: structuredConfig.automation.publish.blog.post_status === 'draft' ? 'draft' : 'publish',
     PUBLISH_AUTO_TARGET_CHANNELS: Array.isArray(structuredConfig.automation.publish.blog.target_channels) ? structuredConfig.automation.publish.blog.target_channels : [structuredConfig.automation.publish.blog.target_channels || 'naver'],
     PUBLISH_AUTO_HEADLESS: structuredConfig.automation.publish.blog.headless,
     PUBLISH_AUTO_NOTIFY_ENABLED: structuredConfig.automation.publish.blog.notify_enabled,
-    PUBLISH_AUTO_START_TIME: structuredConfig.automation.publish.blog.start_time,
-    PUBLISH_AUTO_END_TIME: structuredConfig.automation.publish.blog.end_time,
     PUBLISH_AUTO_IMAGE_MODE: structuredConfig.automation.publish.blog.image_mode || 'generate',
 
     // System & Constants

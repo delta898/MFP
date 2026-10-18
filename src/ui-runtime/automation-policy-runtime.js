@@ -201,14 +201,6 @@ function createAutomationPolicyRuntime(deps = {}) {
             ?? CONFIG.BLOG_AUTO_CATEGORIES
             ?? collectTrendsDefaults.categories
         ).trim();
-        const enabled = toBoolLike(
-            input.COLLECT_TRENDS_ENABLED,
-            toBoolLike(CONFIG.COLLECT_TRENDS_ENABLED, collectTrendsDefaults.enabled)
-        );
-        const time = normalizeTimeHHmm(
-            input.COLLECT_TRENDS_TIME,
-            normalizeTimeHHmm(CONFIG.COLLECT_TRENDS_TIME, collectTrendsDefaults.time)
-        );
         const reuseGapDays = normalizeNonNegativeInt(
             input.COLLECT_TRENDS_REUSE_GAP_DAYS ?? CONFIG.COLLECT_TRENDS_REUSE_GAP_DAYS ?? collectTrendsDefaults.reuseGapDays,
             collectTrendsDefaults.reuseGapDays
@@ -238,12 +230,10 @@ function createAutomationPolicyRuntime(deps = {}) {
         );
 
         return {
-            COLLECT_TRENDS_ENABLED: enabled,
             COLLECT_TRENDS_CATEGORIES: categories,
             BLOG_AUTO_CATEGORIES: categories,
             COLLECT_TRENDS_NAVER_CATEGORY: String(input.COLLECT_TRENDS_NAVER_CATEGORY || CONFIG.COLLECT_TRENDS_NAVER_CATEGORY || '').trim(),
             COLLECT_TRENDS_WP_CATEGORY: String(input.COLLECT_TRENDS_WP_CATEGORY || CONFIG.COLLECT_TRENDS_WP_CATEGORY || '').trim(),
-            COLLECT_TRENDS_TIME: time,
             COLLECT_TRENDS_REUSE_GAP_DAYS: reuseGapDays,
             COLLECT_TRENDS_FILTER_MIN_INCR: filterMinIncr,
             COLLECT_TRENDS_FILTER_INCLUDE_NEW: filterIncludeNew,
@@ -255,14 +245,6 @@ function createAutomationPolicyRuntime(deps = {}) {
     }
 
     function normalizePublishAutoSettings(input = {}) {
-        const enabled = toBoolLike(
-            input.PUBLISH_AUTO_ENABLED,
-            toBoolLike(CONFIG.PUBLISH_AUTO_ENABLED, publishAutoDefaults.enabled)
-        );
-        const intervalMin = normalizeNonNegativeInt(
-            input.PUBLISH_AUTO_INTERVAL_MIN ?? CONFIG.PUBLISH_AUTO_INTERVAL_MIN ?? publishAutoDefaults.intervalMin,
-            publishAutoDefaults.intervalMin
-        );
         const batchSize = normalizePositiveInt(
             input.PUBLISH_AUTO_BATCH_SIZE ?? CONFIG.PUBLISH_AUTO_BATCH_SIZE ?? publishAutoDefaults.batchSize,
             publishAutoDefaults.batchSize
@@ -284,14 +266,6 @@ function createAutomationPolicyRuntime(deps = {}) {
             input.PUBLISH_AUTO_HEADLESS ?? CONFIG.PUBLISH_AUTO_HEADLESS,
             publishAutoDefaults.headless
         );
-        const startTime = normalizeTimeHHmm(
-            input.PUBLISH_AUTO_START_TIME ?? CONFIG.PUBLISH_AUTO_START_TIME,
-            publishAutoDefaults.startTime
-        );
-        const endTime = normalizeTimeHHmm(
-            input.PUBLISH_AUTO_END_TIME ?? CONFIG.PUBLISH_AUTO_END_TIME,
-            publishAutoDefaults.endTime
-        );
         const imageMode = normalizeBlogImageMode(
             input.PUBLISH_AUTO_IMAGE_MODE ?? CONFIG.PUBLISH_AUTO_IMAGE_MODE,
             {
@@ -305,15 +279,11 @@ function createAutomationPolicyRuntime(deps = {}) {
         );
 
         return {
-            PUBLISH_AUTO_ENABLED: enabled,
-            PUBLISH_AUTO_INTERVAL_MIN: intervalMin,
             PUBLISH_AUTO_BATCH_SIZE: batchSize,
             PUBLISH_AUTO_POST_STATUS: postStatus,
             PUBLISH_AUTO_NOTIFY_ENABLED: notifyEnabled,
             PUBLISH_AUTO_TARGET_CHANNELS: targetChannelsArray,
             PUBLISH_AUTO_HEADLESS: headless,
-            PUBLISH_AUTO_START_TIME: startTime,
-            PUBLISH_AUTO_END_TIME: endTime,
             PUBLISH_AUTO_IMAGE_MODE: imageMode
         };
     }

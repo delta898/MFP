@@ -775,20 +775,18 @@ function createSettingsService(deps = {}) {
             // Old collect (flat) -> collect.blog
             if (structuredConfig.automation.collect.trends && !structuredConfig.automation.collect.blog) {
                 const trends = structuredConfig.automation.collect.trends;
-                const rss = structuredConfig.automation.collect.rss;
-                structuredConfig.automation.collect.blog = { trends, rss };
+                structuredConfig.automation.collect.blog = { trends };
                 delete structuredConfig.automation.collect.trends;
                 delete structuredConfig.automation.collect.rss;
             }
 
             if (!structuredConfig.automation.collect.blog) structuredConfig.automation.collect.blog = {};
             if (!structuredConfig.automation.collect.blog.trends) structuredConfig.automation.collect.blog.trends = {};
+            delete structuredConfig.automation.collect.blog.rss;
 
-            structuredConfig.automation.collect.blog.trends.enabled = fields.COLLECT_TRENDS_ENABLED;
             structuredConfig.automation.collect.blog.trends.categories = fields.COLLECT_TRENDS_CATEGORIES;
             structuredConfig.automation.collect.blog.trends.naver_category = String(fields.COLLECT_TRENDS_NAVER_CATEGORY || '').trim();
             structuredConfig.automation.collect.blog.trends.wordpress_category = String(fields.COLLECT_TRENDS_WP_CATEGORY || '').trim();
-            structuredConfig.automation.collect.blog.trends.time = fields.COLLECT_TRENDS_TIME;
             structuredConfig.automation.collect.blog.trends.reuse_gap_days = Number(fields.COLLECT_TRENDS_REUSE_GAP_DAYS);
 
             if (!structuredConfig.automation.collect.blog.trends.filters) structuredConfig.automation.collect.blog.trends.filters = {};
@@ -799,10 +797,6 @@ function createSettingsService(deps = {}) {
             structuredConfig.automation.collect.blog.trends.filters.type = fields.COLLECT_TRENDS_FILTER_TYPE;
             structuredConfig.automation.collect.blog.trends.filters.top_n = Number(fields.COLLECT_TRENDS_FILTER_TOP_N);
 
-            if (!structuredConfig.automation.collect.blog.rss) structuredConfig.automation.collect.blog.rss = {};
-            structuredConfig.automation.collect.blog.rss.enabled = fields.COLLECT_RSS_ENABLED;
-            structuredConfig.automation.collect.blog.rss.feeds = Array.isArray(fields.COLLECT_RSS_CONFIGS) ? fields.COLLECT_RSS_CONFIGS : [];
-
             if (!structuredConfig.publish) structuredConfig.publish = {};
             structuredConfig.publish.image_optimization_enabled = fields.IMAGE_OPTIMIZATION_ENABLED !== false;
             if (structuredConfig.automation && Object.prototype.hasOwnProperty.call(structuredConfig.automation, 'image_optimization_enabled')) {
@@ -812,15 +806,15 @@ function createSettingsService(deps = {}) {
             // Publish
             if (!structuredConfig.automation.publish) structuredConfig.automation.publish = {};
             if (!structuredConfig.automation.publish.blog) structuredConfig.automation.publish.blog = {};
-            structuredConfig.automation.publish.blog.enabled = fields.PUBLISH_AUTO_ENABLED;
-            structuredConfig.automation.publish.blog.interval_min = Number(fields.PUBLISH_AUTO_INTERVAL_MIN);
             structuredConfig.automation.publish.blog.batch_size = Number(fields.PUBLISH_AUTO_BATCH_SIZE);
             structuredConfig.automation.publish.blog.post_status = fields.PUBLISH_AUTO_POST_STATUS === 'draft' ? 'draft' : 'publish';
             structuredConfig.automation.publish.blog.notify_enabled = fields.PUBLISH_AUTO_NOTIFY_ENABLED;
             structuredConfig.automation.publish.blog.target_channels = fields.PUBLISH_AUTO_TARGET_CHANNELS || ['naver'];
             structuredConfig.automation.publish.blog.headless = fields.PUBLISH_AUTO_HEADLESS;
-            structuredConfig.automation.publish.blog.start_time = fields.PUBLISH_AUTO_START_TIME || "00:00";
-            structuredConfig.automation.publish.blog.end_time = fields.PUBLISH_AUTO_END_TIME || "23:59";
+            delete structuredConfig.automation.publish.blog.enabled;
+            delete structuredConfig.automation.publish.blog.interval_min;
+            delete structuredConfig.automation.publish.blog.start_time;
+            delete structuredConfig.automation.publish.blog.end_time;
             structuredConfig.automation.publish.blog.image_mode = fields.PUBLISH_AUTO_IMAGE_MODE || 'generate';
 
             if (!structuredConfig.automation.publish.social) structuredConfig.automation.publish.social = {};
@@ -1052,18 +1046,13 @@ function createSettingsService(deps = {}) {
                 WORDPRESS_URL: parseConfigValue(content, 'WORDPRESS_URL') || CONFIG.WORDPRESS_URL,
                 WORDPRESS_USER_ID: parseConfigValue(content, 'WORDPRESS_USER_ID') || CONFIG.WORDPRESS_USER_ID,
                 WORDPRESS_APP_PASSWORD: parseConfigValue(content, 'WORDPRESS_APP_PASSWORD') || CONFIG.WORDPRESS_APP_PASSWORD,
-                COLLECT_TRENDS_ENABLED: parseConfigValue(content, 'COLLECT_TRENDS_ENABLED'),
                 COLLECT_TRENDS_CATEGORIES: parseConfigValue(content, 'COLLECT_TRENDS_CATEGORIES'),
                 COLLECT_TRENDS_FILTER_MIN_INCR: parseConfigValue(content, 'COLLECT_TRENDS_FILTER_MIN_INCR'),
                 COLLECT_TRENDS_REUSE_GAP_DAYS: parseConfigValue(content, 'COLLECT_TRENDS_REUSE_GAP_DAYS'),
-                COLLECT_TRENDS_TIME: parseConfigValue(content, 'COLLECT_TRENDS_TIME'),
                 COLLECT_TRENDS_NAVER_CATEGORY: parseConfigValue(content, 'COLLECT_TRENDS_NAVER_CATEGORY'),
                 COLLECT_TRENDS_WP_CATEGORY: parseConfigValue(content, 'COLLECT_TRENDS_WP_CATEGORY'),
-                COLLECT_RSS_CONFIGS: parseConfigValue(content, 'COLLECT_RSS_CONFIGS'),
                 CARD_NEWS_RSS_SOURCES: parseConfigValue(content, 'CARD_NEWS_RSS_SOURCES'),
                 CARD_NEWS_BUILTIN_SOURCES: parseConfigValue(content, 'CARD_NEWS_BUILTIN_SOURCES'),
-                PUBLISH_AUTO_ENABLED: parseConfigValue(content, 'PUBLISH_AUTO_ENABLED'),
-                PUBLISH_AUTO_INTERVAL_MIN: parseConfigValue(content, 'PUBLISH_AUTO_INTERVAL_MIN'),
                 PUBLISH_AUTO_BATCH_SIZE: parseConfigValue(content, 'PUBLISH_AUTO_BATCH_SIZE'),
                 PUBLISH_AUTO_POST_STATUS: parseConfigValue(content, 'PUBLISH_AUTO_POST_STATUS')
             });

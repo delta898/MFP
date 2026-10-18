@@ -592,7 +592,6 @@ function getApiFixture(pathname) {
             }
         };
     }
-    if (pathname === '/api/v1/blog/auto/categories') return { categories: [] };
     if (pathname === '/api/v1/trend-posting/meta') {
         return { categories: ['여행'], dateRange: { min: '2026-08-20', max: '2026-08-30' } };
     }

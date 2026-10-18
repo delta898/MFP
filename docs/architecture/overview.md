@@ -21,8 +21,8 @@ The target path is being introduced alongside the current control path. Product 
 - `src/channels/`
   - Channel-specific adapters and renderers.
   - Telegram is an adapter, not the place where business logic should grow.
-- `src/agent/`
-  - Action schema, parser, runtime contract, confirmation handling.
+- `src/host/agent/`
+  - Host-side agent runtime, action/plan contracts, and request planning. Telegram-language parsing is owned by the Telegram adapter; confirmation persistence is owned by the storage adapter.
 - `src/capabilities/`
   - The only layer allowed to read or mutate operational state.
 - `src/plugins/`

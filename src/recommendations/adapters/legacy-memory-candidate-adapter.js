@@ -86,20 +86,6 @@ function createMemoryBasedSuggestionProvider(options = {}) {
                 actionable: false
             }] : [];
 
-            const preference = preferences.find((item) => item.name === 'preferred_trends_collect_time');
-            const prefKey = 'workflow_hint.preferred_trends_collect_time';
-            if (preference?.value?.time && shouldInclude(feedbackMap, prefKey)) {
-                const createdAt = new Date(currentTime).toISOString();
-                const observedAt = iso(preference.updated_at, currentTime);
-                candidates.push(buildCandidate({
-                    ownerUserId, kind: 'workflow_hint', legacyType: 'workflow_hint', source: 'preference', feedbackKey: prefKey,
-                    title: '트렌드 수집 시간 활용 안내',
-                    summary: `트렌드 수집 선호 시간 ${preference.value.time}을 다음 자동화 계획에 활용해 보세요.`,
-                    explanation: '저장된 트렌드 수집 시간 설정을 근거로 한 운영 안내입니다.',
-                    sourceRef: { kind: 'setting', id: `preferred_trends_collect_time:${preference.value.time}`, label: '트렌드 수집 시간', provider_id: '', transport: '', url: '', timestamp: observedAt },
-                    evidenceKind: 'system_state', strength: 'medium', createdAt, ttlMs: 7 * DAY_MS
-                }));
-            }
 
             const failedJob = recentJobs.find((item) => String(item?.status || '').toLowerCase() === 'failed');
             const jobKey = 'recovery_hint.failed_job';

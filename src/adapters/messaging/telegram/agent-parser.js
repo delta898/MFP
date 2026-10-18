@@ -15,26 +15,8 @@ function normalizeText(raw) {
     return String(raw || '').trim();
 }
 
-function extractStrictTime(raw) {
-    const text = normalizeText(raw);
-    const match = text.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
-    if (!match) return '';
-    return `${String(match[1]).padStart(2, '0')}:${match[2]}`;
-}
-
-function extractStrictTimeWindow(raw) {
-    const text = normalizeText(raw);
-    const match = text.match(/([01]?\d|2[0-3]):([0-5]\d)\s*[~\-]\s*([01]?\d|2[0-3]):([0-5]\d)/);
-    if (!match) return null;
-    return {
-        start_time: `${String(match[1]).padStart(2, '0')}:${match[2]}`,
-        end_time: `${String(match[3]).padStart(2, '0')}:${match[4]}`
-    };
-}
-
 function tryParseDeterministicEnvelope(messageText, context = {}) {
     const text = normalizeText(messageText);
-    const lower = text.toLowerCase();
     const conversationId = String(context.conversationId || '').trim();
     const messageId = String(context.messageId || '').trim();
     const pendingConfirmations = Array.isArray(context.memory?.pending_confirmations) ? context.memory.pending_confirmations : [];
@@ -89,8 +71,7 @@ function tryParseDeterministicEnvelope(messageText, context = {}) {
         }]);
     }
 
-    if ((/(지금|현재)/.test(text) && /(몇시|시간)/.test(text))
-        && !/트렌드 수집 시간|트렌드 수집시간|자동 블로그 포스팅 시간대|블로그 자동 포스팅 시간대/.test(text)) {
+    if ((/(지금|현재)/.test(text) && /(몇시|시간)/.test(text))) {
         return buildEnvelope(conversationId, messageId, [{
             id: 'act_1',
             type: 'agent.query',
@@ -99,36 +80,6 @@ function tryParseDeterministicEnvelope(messageText, context = {}) {
             params: {},
             reason: '현재 시각 확인'
         }]);
-    }
-
-    if ((lower.includes('트렌드 수집 시간') || lower.includes('트렌드 수집시간'))
-        && /(바꿔|변경|설정)/.test(text)) {
-        const time = extractStrictTime(text);
-        if (time) {
-            return buildEnvelope(conversationId, messageId, [{
-                id: 'act_1',
-                type: 'setting.update',
-                domain: 'settings.trends',
-                name: 'set_time',
-                params: { time },
-                reason: `트렌드 수집 시간을 ${time}로 변경`
-            }]);
-        }
-    }
-
-    if ((lower.includes('자동 블로그 포스팅 시간대') || lower.includes('블로그 자동 포스팅 시간대') || lower.includes('블로그 자동 포스팅 시간대를'))
-        && /(바꿔|변경|설정)/.test(text)) {
-        const window = extractStrictTimeWindow(text);
-        if (window) {
-            return buildEnvelope(conversationId, messageId, [{
-                id: 'act_1',
-                type: 'setting.update',
-                domain: 'settings.blog_auto',
-                name: 'set_time_window',
-                params: window,
-                reason: `블로그 자동 포스팅 허용 시간대를 ${window.start_time}~${window.end_time}로 변경`
-            }]);
-        }
     }
 
     return null;
@@ -191,14 +142,12 @@ const LEGACY_ACTIONS = new Set([
     'query_data'
 ]);
 const LEGACY_CONFIG_KEYS = new Set([
-    'PUBLISH_AUTO_INTERVAL_MIN',
-    'PUBLISH_AUTO_ENABLED',
     'PUBLISH_AUTO_HEADLESS',
     'image_gen',
     'NAVER_ID',
     'TYPING_SPEED'
 ]);
-const LEGACY_JOB_NAMES = new Set(['trends', 'rss', 'shopping', 'publish']);
+const LEGACY_JOB_NAMES = new Set(['shopping', 'publish']);
 const LEGACY_QUERY_TYPES = new Set(['status', 'system', 'topics', 'shopping', 'stats', 'insight']);
 
 function normalizeLegacyActions(actions) {
@@ -227,8 +176,8 @@ function normalizeLegacyActions(actions) {
 async function routeTelegramMessage(messageText, context = {}) {
     const conversationId = String(context.conversationId || '').trim();
     const messageId = String(context.messageId || '').trim();
-    const logger = context.logger || require('../utilities/logging/logger');
-    const utils = context.modelCaller ? null : require('../utils');
+    const logger = context.logger || require('../../../utilities/logging/logger');
+    const utils = context.modelCaller ? null : require('../../../utils');
     const modelCaller = context.modelCaller || utils.callTelegramChatModel.bind(utils);
     const deterministic = tryParseDeterministicEnvelope(messageText, context);
     if (deterministic) {
@@ -254,24 +203,14 @@ async function routeTelegramMessage(messageText, context = {}) {
 7. agent.preferences.get_summary
 8. agent.suggestions.get
 9. content.idea.suggest
-10. jobs.trends.run_collect
-11. settings.trends.get_time
-12. settings.trends.set_time
-13. settings.trends.get_categories
-14. settings.trends.add_category
-15. settings.trends.remove_category
-16. settings.blog_auto.get_enabled
-17. settings.blog_auto.set_enabled
-18. settings.blog_auto.get_time_window
-19. settings.blog_auto.set_time_window
-20. settings.chat_model.get_summary
+10. settings.chat_model.get_summary
 
 [Legacy 호환 작업]
 아래 기능은 기존 사용자의 흐름을 유지하기 위한 실행 경로입니다. 새 권한을 만들지 말고, 요청이 이들 중 하나에 해당할 때만 legacy_actions를 사용하세요.
 1. register_topic: params { theme, keywords?, platforms?, options? }
 2. publish_article: params { target?: "all" | "naver" | "wordpress", targetRowIndices?: number[] }
-3. update_config: params { config_updates: { "PUBLISH_AUTO_INTERVAL_MIN" | "PUBLISH_AUTO_ENABLED" | "PUBLISH_AUTO_HEADLESS" | "image_gen" | "NAVER_ID" | "TYPING_SPEED": value } }; 위 목록 외 설정 키는 사용하지 않습니다.
-4. run_job: params { job_name: "trends" | "rss" | "shopping" | "publish" }
+3. update_config: params { config_updates: { "PUBLISH_AUTO_HEADLESS" | "image_gen" | "NAVER_ID" | "TYPING_SPEED": value } }; 위 목록 외 설정 키는 사용하지 않습니다.
+4. run_job: params { job_name: "shopping" | "publish" }
 5. query_data: params { query_type: "status" | "system" | "topics" | "shopping" | "stats" | "insight", query_params?: {} }
 
 [Legacy action 해석 기준]
@@ -312,7 +251,6 @@ async function routeTelegramMessage(messageText, context = {}) {
 - "추천해줘", "지금 기준으로 추천할 것 있어?", "다음에 뭘 하면 좋을까?" 같은 질의는 agent.suggestions.get 으로 해석
 - "글감 추천해줘", "새로운 글감 하나 추천해줄래?", "주제 아이디어 줘", "콘텐츠 아이디어 추천해줘" 같은 질의는 content.idea.suggest 로 해석
 - 글감 추천은 params에 { "limit": 1~5, "query": "사용자 요청에서 추출한 주제나 원문" } 형태로 작성
-- "트렌드 수집 시작해줘", "지금 트렌드 수집 실행해", "트렌드 지금 수집해줘" 같은 질의는 jobs.trends.run_collect 로 해석
 
 [최근 메모리]
 ${recentEvents.length > 0 ? recentEvents.map((item) => {
@@ -349,8 +287,8 @@ ${pendingConfirmations.length > 0 ? pendingConfirmations.map((item) => {
     {
       "id": "act_1",
       "type": "agent.query | agent.command | setting.query | setting.update | job.run | content.generate",
-      "domain": "agent.pending | agent.meta | agent.preferences | agent.suggestions | content.idea | jobs.trends | settings.trends | settings.blog_auto | settings.chat_model",
-      "name": "get | apply_latest | reject_latest | get_help | get_identity | get_current_time | get_summary | suggest | run_collect | get_time | set_time | get_categories | add_category | remove_category | get_enabled | set_enabled | get_time_window | set_time_window",
+      "domain": "agent.pending | agent.meta | agent.preferences | agent.suggestions | content.idea | settings.chat_model",
+      "name": "get | apply_latest | reject_latest | get_help | get_identity | get_current_time | get_summary | suggest",
       "params": {},
       "reason": "간단한 한국어 설명"
     }

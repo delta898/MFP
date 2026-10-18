@@ -9,7 +9,6 @@ const { buildOwnerActivitySignalSummary } = require('./owner-activity-signals');
 const { buildOwnerProfileProjection } = require('./owner-profile');
 const { buildMemoryCollectionAudit } = require('./collection-audit');
 const { resolveArtifactFeedbackTarget } = require('./feedback-target');
-const { buildPreferenceUpdatesFromEvent } = require('./extractors/preferences');
 const { RecommendationLifecycleStore } = require('../recommendations/lifecycle-store');
 const { SQLiteDatabase } = require('./sqlite-database');
 const { SQLiteRecommendationRepository } = require('./sqlite-recommendation-repository');
@@ -470,12 +469,6 @@ class SQLiteEventStore extends MemoryPayloadCodec {
                     domain: String(action.domain || ''), setting_key: `${action.domain || ''}.${action.name || ''}`,
                     before_json: '{}', after_json: JSON.stringify(payload.result?.data || {}), occurred_at: iso(event.timestamp)
                 });
-            }
-            if (action.type === 'setting.update' && action.domain === 'settings.trends' && action.name === 'add_category' && action.params?.category) {
-                this._upsertDomainKnowledge({ domain: 'trends.category', canonical_value: action.params.category, confidenceDelta: 0.1, evidenceDelta: 1 }, event.timestamp);
-            }
-            for (const preference of buildPreferenceUpdatesFromEvent(event)) {
-                this._upsertPreference(preference, { userId: String(event.actor_id || ''), timestamp: event.timestamp });
             }
             if (action.type === 'content.generate') {
                 for (const idea of Array.isArray(payload.result?.data?.ideas) ? payload.result.data.ideas : []) {

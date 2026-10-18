@@ -1,3 +1,5 @@
+const { buildCapabilityId } = require('../../../capabilities/capability-id');
+
 const MAX_ACTIONS_PER_MESSAGE = 3;
 
 const ALLOWED_ACTION_TYPES = new Set([
@@ -10,10 +12,6 @@ const ALLOWED_ACTION_TYPES = new Set([
     'content.publish',
     'content.generate'
 ]);
-
-function buildCapabilityId(domain, name) {
-    return `${String(domain || '').trim()}.${String(name || '').trim()}`;
-}
 
 function normalizeAction(action = {}) {
     return {
@@ -97,7 +95,6 @@ function validateActionEnvelope(envelope = {}, capabilityRegistry) {
 module.exports = {
     MAX_ACTIONS_PER_MESSAGE,
     ALLOWED_ACTION_TYPES,
-    buildCapabilityId,
     normalizeAction,
     normalizeEnvelope,
     validateActionEnvelope

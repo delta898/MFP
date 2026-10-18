@@ -4,17 +4,18 @@ const Logger = require('./utilities/logging/logger');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
-const { createAgentRuntime } = require('./agent/runtime');
-const { createPlanner } = require('./agent/planner');
+const { createAgentRuntime } = require('./host/agent/runtime');
+const { createPlanner } = require('./host/agent/planning/planner');
+const { ConfirmationStore } = require('./adapters/storage/confirmations/confirmation-store');
 const { createCapabilityRegistry } = require('./capabilities');
 const { createMemoryRetrievalService } = require('./memory/retrieval-service');
-const { routeTelegramMessage, tryParseDeterministicEnvelope } = require('./agent/telegram-parser');
+const { routeTelegramMessage, tryParseDeterministicEnvelope } = require('./adapters/messaging/telegram/agent-parser');
 const {
     mapLegacyTelegramContentRequest,
     isCanonicalContentRequestBundle,
     applyContentRequestToggle,
     isPublishExecutionEnabled
-} = require('./agent/content-request-mapper');
+} = require('./adapters/messaging/telegram/content-request-mapper');
 const TelegramAgentRenderer = require('./channels/telegram/renderer');
 const { getInternalUiOrigin } = require('./ui-runtime/internal-ui-origin');
 const { getRuntimeHooks } = require('./runtime-hooks');
@@ -261,6 +262,7 @@ class TelegramBotService {
 
         this.agentRuntime = createAgentRuntime({
             capabilityRegistry,
+            confirmationStore: new ConfirmationStore(),
             eventStore: this.agentEventStore
         });
         this.agentCapabilityRegistry = capabilityRegistry;
@@ -785,7 +787,7 @@ class TelegramBotService {
                     await this.stopLoadingIndicator(chatId, loadingMsg);
 
                 } else if (hasJob) {
-                    // 작업 실행 (예: 트렌드 수집)
+                    // 요청된 에이전트 작업 실행
                     const jobAction = actions.find(a => a.action === 'run_job');
                     const jobName = jobAction.params?.job_name || '알 수 없는 작업';
                     const confirmMsg = `🚀 *시스템 작업을 실행할까요?*\n\n작업: \`${jobName}\`\n\n(완료 후 알림을 보내드릴게요)`;
@@ -1063,9 +1065,7 @@ class TelegramBotService {
                     const jobName = parsedData.data.job_name.toLowerCase();
 
                     let endpoint = '';
-                    if (jobName.includes('trend')) endpoint = '/api/v1/auto/collect/trends/run';
-                    else if (jobName.includes('rss')) endpoint = '/api/v1/auto/collect/rss/run';
-                    else if (jobName.includes('publish') || jobName.includes('shopping')) endpoint = '/api/v1/auto/publish/run';
+                    if (jobName.includes('publish') || jobName.includes('shopping')) endpoint = '/api/v1/auto/publish/run';
 
                     if (!endpoint) {
                         await this.bot.sendMessage(chatId, `❌ 알 수 없는 작업입니다: ${jobName}`);
@@ -1107,8 +1107,7 @@ class TelegramBotService {
                     `💬 _"경주 맛집에 대해 블로그 글 하나 써줘"_\n` +
                     `💬 _"아까 그 주제로 워드프레스에도 올려줄래?"_\n\n` +
                     `⚙️ *시스템 제어*\n` +
-                    `💬 _"발행 주기를 30분으로 변경해줘"_\n` +
-                    `💬 _"지금 트렌드 수집 시작해줘"_\n\n` +
+                    `💬 _"발행 브라우저를 보이게 실행해줘"_\n\n` +
                     `📊 *상태 조회*\n` +
                     `💬 _"지금 시스템 상태 어때?"_\n` +
                     `💬 _"대기 중인 글감 몇 개인지 알려줘"_\n\n` +
@@ -1147,10 +1146,11 @@ class TelegramBotService {
             if (queryType === 'status' || queryType === 'system') {
                 const res = await axios.get(`${internalUiOrigin}/api/v1/auto/status`);
                 const s = res.data?.data;
-                const statusMsg = `📊 *자동발행 예약 현황*\n\n` +
-                    `• *상태:* ${s.status === 'running' ? '🟢 실행 중' : (s.status === 'waiting' ? '🟡 대기 중' : '⚪️ 정지')}\n` +
-                    `• *다음 발행:* ${this.escapeMarkdown(s.nextRunAt || '없음')}\n` +
-                    `• *오늘 발행량:* ${s.cycleCount || 0}건\n` +
+                const statusMsg = `📊 *자동 작업 현황*\n\n` +
+                    `• *블로그 글감 발행:* ${s.blog?.running ? '🟢 실행 중' : '⚪️ 정지'}\n` +
+                    `• *SNS 자동 처리:* ${s.sns?.status === 'running' ? '🟢 실행 중' : (s.sns?.status === 'waiting' ? '🟡 대기 중' : '⚪️ 정지')}\n` +
+                    `• *다음 SNS 처리:* ${this.escapeMarkdown(s.sns?.nextRunAt || '없음')}\n` +
+                    `• *블로그 글감 발행 실행:* ${s.blog?.cycleCount || 0}회\n` +
                     `• *메시지:* ${this.escapeMarkdown(s.message || '정상')}`;
                 await this.bot.sendMessage(chatId, statusMsg, { parse_mode: 'Markdown' });
 

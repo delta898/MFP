@@ -82,23 +82,18 @@ test('automation policy handles missing topic history as an empty collection', (
     assert.deepEqual(runtime.getRecentTopicKeys(undefined, 15, '2026-08-22'), new Set());
 });
 
-test('automation policy keeps trend and publish normalization contracts', () => {
-    const runtime = createRuntime({
-        COLLECT_TRENDS_ENABLED: false,
-        PUBLISH_AUTO_ENABLED: false
-    });
+test('automation policy normalizes imported trend filters and explicit batch publish options', () => {
+    const runtime = createRuntime();
     const settings = runtime.normalizeBlogAutoSettings({
-        COLLECT_TRENDS_ENABLED: true,
         COLLECT_TRENDS_CATEGORIES: '여행,맛집',
-        PUBLISH_AUTO_ENABLED: true,
         PUBLISH_AUTO_POST_STATUS: 'draft',
         PUBLISH_AUTO_TARGET_CHANNELS: 'naver,wordpress',
         PUBLISH_AUTO_IMAGE_MODE: 'none'
     });
 
-    assert.equal(settings.COLLECT_TRENDS_ENABLED, true);
+    assert.equal(Object.hasOwn(settings, 'COLLECT_TRENDS_ENABLED'), false);
     assert.equal(settings.COLLECT_TRENDS_CATEGORIES, '여행,맛집');
-    assert.equal(settings.PUBLISH_AUTO_ENABLED, true);
+    assert.equal(Object.hasOwn(settings, 'PUBLISH_AUTO_ENABLED'), false);
     assert.equal(settings.PUBLISH_AUTO_POST_STATUS, 'draft');
     assert.deepEqual(settings.PUBLISH_AUTO_TARGET_CHANNELS, ['naver', 'wordpress']);
     assert.equal(settings.PUBLISH_AUTO_IMAGE_MODE, 'none');

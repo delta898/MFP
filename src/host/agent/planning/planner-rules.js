@@ -23,82 +23,6 @@ function dedupeActions(actions = []) {
     return deduped;
 }
 
-function buildPreflightQueryAction(action = {}) {
-    const domain = String(action.domain || '').trim();
-    const name = String(action.name || '').trim();
-
-    if (domain === 'settings.trends' && name === 'set_time') {
-        return {
-            id: `${action.id}_precheck`,
-            type: 'setting.query',
-            domain,
-            name: 'get_time',
-            params: {},
-            requires_confirmation: false,
-            reason: '현재 트렌드 수집 시간을 먼저 조회'
-        };
-    }
-
-    if (domain === 'settings.trends' && (name === 'add_category' || name === 'remove_category')) {
-        return {
-            id: `${action.id}_precheck`,
-            type: 'setting.query',
-            domain,
-            name: 'get_categories',
-            params: {},
-            requires_confirmation: false,
-            reason: '현재 트렌드 수집 카테고리를 먼저 조회'
-        };
-    }
-
-    if (domain === 'settings.blog_auto' && name === 'set_enabled') {
-        return {
-            id: `${action.id}_precheck`,
-            type: 'setting.query',
-            domain,
-            name: 'get_enabled',
-            params: {},
-            requires_confirmation: false,
-            reason: '현재 블로그 자동 포스팅 활성화 상태를 먼저 조회'
-        };
-    }
-
-    if (domain === 'settings.blog_auto' && name === 'set_time_window') {
-        return {
-            id: `${action.id}_precheck`,
-            type: 'setting.query',
-            domain,
-            name: 'get_time_window',
-            params: {},
-            requires_confirmation: false,
-            reason: '현재 블로그 자동 포스팅 허용 시간대를 먼저 조회'
-        };
-    }
-
-    return null;
-}
-
-function expandActions(actions = []) {
-    const expanded = [];
-    const existingFingerprints = new Set((Array.isArray(actions) ? actions : []).map(buildActionFingerprint));
-
-    for (const action of Array.isArray(actions) ? actions : []) {
-        if (String(action.type || '').trim() === 'setting.update') {
-            const preflight = buildPreflightQueryAction(action);
-            if (preflight) {
-                const fingerprint = buildActionFingerprint(preflight);
-                if (!existingFingerprints.has(fingerprint)) {
-                    expanded.push(preflight);
-                    existingFingerprints.add(fingerprint);
-                }
-            }
-        }
-        expanded.push(action);
-    }
-
-    return expanded;
-}
-
 function getActionPriority(action = {}) {
     const type = String(action.type || '').trim();
     switch (type) {
@@ -142,9 +66,6 @@ function buildGoal(actions = []) {
 
 function buildPreconditions(action = {}, envelope = {}) {
     const preconditions = [];
-    const domain = String(action.domain || '').trim();
-    const name = String(action.name || '').trim();
-    const params = action.params && typeof action.params === 'object' ? action.params : {};
 
     if (domain === 'content.idea' && name === 'suggest') {
         const routing = envelope.routing && typeof envelope.routing === 'object' ? envelope.routing : {};
@@ -168,13 +89,6 @@ function buildPreconditions(action = {}, envelope = {}) {
                 provider_ids: suggestionProviders
             });
         }
-    }
-
-    if (domain === 'settings.trends' && (name === 'add_category' || name === 'remove_category')) {
-        preconditions.push({
-            type: 'trend_category_catalog_available',
-            category: String(params.category || '').trim()
-        });
     }
 
     return preconditions;
@@ -205,8 +119,7 @@ function findSupersededConfirmationId(actions = [], envelope = {}) {
 }
 
 function buildPlanFromActions(envelope = {}) {
-    const expanded = expandActions(envelope.actions || []);
-    const deduped = dedupeActions(expanded);
+    const deduped = dedupeActions(envelope.actions || []);
     const ordered = orderActions(deduped);
     const goal = buildGoal(ordered);
     const supersedesConfirmationId = findSupersededConfirmationId(ordered, envelope);

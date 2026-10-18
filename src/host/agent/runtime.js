@@ -1,21 +1,24 @@
-const { buildCapabilityId, validateActionEnvelope } = require('./action-schema');
-const { ConfirmationStore } = require('./confirmation-store');
+const { buildCapabilityId } = require('../../capabilities/capability-id');
+const { validateActionEnvelope } = require('./contracts/action-schema');
 const {
     normalizeRuntimeContext,
     buildInvalidResult,
     buildCompletedResult,
     buildConfirmationResult
-} = require('./runtime-contract');
-const { validatePlan } = require('./planner-contract');
-const { buildPlanFromActions } = require('./planner-rules');
+} = require('./contracts/runtime-contract');
+const { validatePlan } = require('./planning/planner-contract');
+const { buildPlanFromActions } = require('./planning/planner-rules');
 
 function createAgentRuntime(options = {}) {
     const capabilityRegistry = options.capabilityRegistry;
-    const confirmationStore = options.confirmationStore || new ConfirmationStore();
+    const confirmationStore = options.confirmationStore;
     const eventStore = options.eventStore || null;
 
     if (!capabilityRegistry) {
         throw new Error('capabilityRegistry is required');
+    }
+    if (!confirmationStore) {
+        throw new Error('confirmationStore is required');
     }
 
     async function recordEvent(event) {

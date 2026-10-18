@@ -299,7 +299,7 @@ Planner는 **해석된 intent를 실행 가능한 계획(plan)으로 바꾸는 �
 ## 권장 파일 구조
 
 ```text
-src/agent/
+src/host/agent/planning/
   planner.js
   planner-contract.js
   planner-rules.js
@@ -890,13 +890,15 @@ AI에게 Kuzu 전체를 그대로 넘기지 않는다. 현재 요청에 필요�
 ## 12. 권장 파일 구조
 
 ```text
-src/agent/
+src/host/agent/
   runtime.js
-  intent-parser.js
-  planner.js
-  responder.js
+  contracts/
+  planning/
+src/adapters/messaging/telegram/
+  agent-parser.js
+  content-request-mapper.js
+src/adapters/storage/confirmations/
   confirmation-store.js
-  context-builder.js
 
 src/capabilities/
   index.js
@@ -1772,19 +1774,18 @@ Agent Runtime이 intent parsing 전에 memory에서 받아오는 context의 형�
 
 Phase 1에서 새로 만들 파일은 아래를 우선한다.
 
-### `src/agent/runtime.js`
+### `src/host/agent/runtime.js`
 - request entrypoint
 - context build
-- parse
 - validate
 - confirm or execute
 - response build
 
-### `src/agent/confirmation-store.js`
+### `src/adapters/storage/confirmations/confirmation-store.js`
 - in-memory pending confirmation store
 - create / get / accept / reject / expire
 
-### `src/agent/action-schema.js`
+### `src/host/agent/contracts/action-schema.js`
 - action schema validator
 - type/domain/name allowlist
 
@@ -1825,9 +1826,9 @@ Phase 1에서 새로 만들 파일은 아래를 우선한다.
 ### `src/memory/retrieval.js`
 - build context packet
 
-### `src/channels/telegram/adapter.js`
+### `src/adapters/messaging/telegram/agent-parser.js`
 - Telegram incoming message to agent request
-- callback -> confirmation handling
+- channel-specific parsing and legacy request translation
 
 ---
 
