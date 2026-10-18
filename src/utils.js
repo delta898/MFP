@@ -5,7 +5,6 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const CONFIG = require('./config-loader');
 const Logger = require('./utilities/logging/logger');
-const RuntimeConfig = require('./runtime-config');
 const License = require('./license');
 const {
     createReferenceSearchGateway,

@@ -32,6 +32,7 @@ const {
     resolveOAuthApplicationConfig
 } = require('./environment/oauth-config');
 const { loadLicenseKey } = require('./adapters/storage/license-keys/license-key-storage');
+const { extractGoogleSheetId } = require('./adapters/google/sheets/spreadsheet-reference');
 const { APP_VERSION } = Constants;
 
 // =========================================================
@@ -94,23 +95,6 @@ const structuredConfig = loadUserConfig({
     fsImpl: fs,
     pathImpl: path
 });
-
-function extractGoogleSheetId(input) {
-    const raw = String(input || '').trim();
-    if (!raw) return '';
-    const idPattern = /^[a-zA-Z0-9-_]{20,}$/;
-    if (idPattern.test(raw)) return raw;
-
-    try {
-        const u = new URL(raw);
-        if (!/docs\.google\.com$/i.test(u.hostname) && !/googleusercontent\.com$/i.test(u.hostname)) return '';
-        const byPath = u.pathname.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/i);
-        if (byPath?.[1]) return byPath[1];
-        const byQuery = u.searchParams.get('id');
-        if (byQuery && idPattern.test(byQuery)) return byQuery;
-    } catch (e) { }
-    return '';
-}
 
 // 사용자 설정 로드
 const configSourcePath = structuredConfig.__CONFIG_SOURCE_PATH;
@@ -217,7 +201,7 @@ const productionLicenseEnvironmentOverride = runtimeEnvironmentProfile.environme
     : '';
 
 const userSheetUrl = String(structuredConfig.general?.google_sheet_url || '').trim();
-const resolvedSheetId = extractGoogleSheetId(userSheetUrl);
+const resolvedSheetId = extractGoogleSheetId(userSheetUrl, { allowForeignUrlHost: false });
 const resolvedSheetUrl = resolvedSheetId
     ? `https://docs.google.com/spreadsheets/d/${resolvedSheetId}`
     : userSheetUrl;

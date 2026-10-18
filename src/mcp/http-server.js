@@ -1,7 +1,6 @@
 const http = require('http');
 const crypto = require('crypto');
 
-const CONFIG = require('../config-loader');
 const Logger = require('../utilities/logging/logger');
 const { createMcpPrototypeRuntime } = require('./runtime-factory');
 const { ensureRuntimeRemoteMcpConfig } = require('./remote-config');
@@ -83,8 +82,8 @@ function parseRequestHostname(request = {}) {
     return hostHeader.split(':')[0].trim().toLowerCase();
 }
 
-function resolveRemoteMcpConfig(overrides = {}) {
-    const runtimeConfig = ensureRuntimeRemoteMcpConfig(CONFIG, {
+function resolveRemoteMcpConfig(overrides = {}, sourceConfig = {}) {
+    const runtimeConfig = ensureRuntimeRemoteMcpConfig(sourceConfig, {
         enabled: overrides.enabled,
         host: overrides.host || process.env.MCP_REMOTE_HOST,
         port: overrides.port || process.env.MCP_REMOTE_PORT,
@@ -100,7 +99,7 @@ function resolveRemoteMcpConfig(overrides = {}) {
         path: normalizePathname(runtimeConfig.path || DEFAULT_HTTP_PATH),
         authMode: normalizeAuthMode(runtimeConfig.authMode, runtimeConfig.authToken),
         authToken: String(runtimeConfig.authToken || '').trim(),
-        allowedOrigins: normalizeAllowedOrigins(overrides.allowedOrigins ?? CONFIG.mcp?.remote?.allowed_origins),
+        allowedOrigins: normalizeAllowedOrigins(overrides.allowedOrigins ?? sourceConfig.mcp?.remote?.allowed_origins),
         debug: normalizeBoolean(overrides.debug ?? process.env.DEBUG_MCP, false)
     };
 }
@@ -285,8 +284,9 @@ function buildBaseResponseHeaders(request, config, extraHeaders = {}) {
 }
 
 function createHttpMcpHandler(options = {}) {
-    const config = resolveRemoteMcpConfig(options.config || options);
-    const services = options.services || createMcpPrototypeRuntime();
+    const sourceConfig = options.config || {};
+    const config = resolveRemoteMcpConfig(options, sourceConfig);
+    const services = options.services || createMcpPrototypeRuntime({ config: sourceConfig });
     const sessionStore = createSessionStore();
     const traceMcp = buildTraceWriter({
         debug: config.debug || options.debug === true,

@@ -1,6 +1,4 @@
 // src/utilities/browser/browser-launcher.js
-// 💡 config-loader를 통해 config/config.json 값을 로딩합니다.
-const CONFIG = require('../../config-loader');
 
 const DEFAULT_BROWSER_ARGS = ['--no-sandbox', '--disable-setuid-sandbox'];
 
@@ -30,7 +28,7 @@ function buildBrowserLaunchOptions(overrides = {}) {
     }
 
     return {
-        headless: typeof overrides.headless === 'boolean' ? overrides.headless : CONFIG.HEADLESS,
+        headless: typeof overrides.headless === 'boolean' ? overrides.headless : true,
         args: filteredArgs
     };
 }
@@ -39,8 +37,9 @@ async function launchBrowser(overrides = {}) {
     // Browser automation is not needed to render the application shell. Keep the
     // large optional dependency outside the initial UI-server module graph.
     const { chromium } = require('playwright');
-    // 사용자가 설정한 값 가져오기 (없으면 기본값 'chrome')
-    const channel = overrides.channel || CONFIG.BROWSER_CHANNEL || 'chrome';
+    // Product configuration is supplied by the caller; the utility owns only
+    // the provider-neutral launch mechanics and fallback order.
+    const channel = overrides.channel || 'chrome';
 
     const launchOptions = buildBrowserLaunchOptions(overrides);
 

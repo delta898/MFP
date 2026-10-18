@@ -49,9 +49,7 @@ const ImageService = {
      * @returns {Promise<string>} 변환된 파일 경로 (실패 시 원본 경로)
      */
     optimizeImageForPlatform: async function (filePath, platform, options = {}) {
-        // config-loader를 여기서 require하여 순환 참조 방지 및 동적 로드
-        const CONFIG = require('./config-loader');
-        if (!CONFIG.IMAGE_OPTIMIZATION_ENABLED) return filePath;
+        if (options.enabled === false) return filePath;
         if (!filePath || !fs.existsSync(filePath)) return filePath;
         const sharp = getSharp();
         if (!sharp) return filePath;
@@ -108,10 +106,9 @@ const ImageService = {
     optimizeBufferForPlatform: async function (buffer, platform, options = {}) {
         const targetFormat = platform === 'wordpress' ? 'avif' : 'webp';
         if (!Buffer.isBuffer(buffer) || buffer.length === 0) return { buffer, ext: options.fallbackExt || '' };
-        const CONFIG = require('./config-loader');
         const result = await imageOptimizationService.optimizeBuffer(buffer, {
             format: targetFormat,
-            enabled: CONFIG.IMAGE_OPTIMIZATION_ENABLED,
+            enabled: options.enabled !== false,
             quality: options.quality,
             effort: options.effort,
             fallbackFormat: options.fallbackExt || ''
@@ -120,11 +117,10 @@ const ImageService = {
     },
 
     optimizeBufferForFormat: async function (buffer, format, options = {}) {
-        const CONFIG = require('./config-loader');
         return imageOptimizationService.optimizeBuffer(buffer, {
             ...options,
             format,
-            enabled: options.enabled === undefined ? CONFIG.IMAGE_OPTIMIZATION_ENABLED : options.enabled,
+            enabled: options.enabled !== false,
             fallbackFormat: options.fallbackFormat || options.fallbackExt || ''
         });
     }

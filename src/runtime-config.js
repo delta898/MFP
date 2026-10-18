@@ -1,5 +1,4 @@
 const { createClient } = require('@supabase/supabase-js');
-const CONFIG = require('./config-loader');
 const Logger = require('./utilities/logging/logger');
 const { resolveSupabasePublicConnection } = require('./environment/runtime-profile');
 
@@ -24,7 +23,10 @@ function normalizePublicRuntimeConfigKeys(keys) {
 }
 
 function createRuntimeConfigApi(options = {}) {
-    const config = options.config || CONFIG;
+    const config = options.config;
+    if (!config || typeof config !== 'object') {
+        throw new TypeError('runtime config API requires an injected configuration object.');
+    }
     const logger = options.logger || Logger;
     const createClientImpl = options.createClientImpl || createClient;
     const cacheTtlMs = Number.isFinite(options.cacheTtlMs) ? options.cacheTtlMs : 10 * 60 * 1000;
@@ -113,10 +115,7 @@ function createRuntimeConfigApi(options = {}) {
     };
 }
 
-const runtimeConfigApi = createRuntimeConfigApi();
-
 module.exports = {
-    ...runtimeConfigApi,
     PUBLIC_RUNTIME_CONFIG_KEYS,
     normalizePublicRuntimeConfigKeys,
     createRuntimeConfigApi

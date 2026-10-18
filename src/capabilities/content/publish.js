@@ -116,7 +116,7 @@ function createPublishCapabilities(deps = {}) {
             async execute(params = {}) {
                 const normalizedParams = normalizePublishParams(params);
                 const axios = deps.axios || require('axios');
-                const CONFIG = deps.CONFIG || require('../../config-loader');
+                const CONFIG = deps.CONFIG || {};
                 if (!isLivePublishAllowed(CONFIG)) {
                     return {
                         success: false,

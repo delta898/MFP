@@ -13,7 +13,10 @@ const { createKeywordResearchSupabaseClient } = require('./supabase-client');
 const { resolveSupabasePublicConnection } = require('../environment/runtime-profile');
 
 function createKeywordResearchService(options = {}) {
-    const config = options.CONFIG || require('../config-loader');
+    const config = options.CONFIG;
+    if (!config || typeof config !== 'object') {
+        throw new TypeError('Keyword research service requires injected application configuration.');
+    }
     const logger = options.Logger || require('../utilities/logging/logger');
 
     const titleGenerator = options.titleGenerator || createTitleGenerator({

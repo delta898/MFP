@@ -12,12 +12,23 @@ const { createUrlShorteningSystem } = require('./composition/url-shortening');
 const { APP_VERSION } = require('./constants');
 const CONFIG = require('./config-loader');
 const Logger = require('./utilities/logging/logger');
+Logger.configureRuntime({ logLevel: CONFIG.LOG_LEVEL, rootDir: CONFIG.ROOT_DIR });
 const { service: urlShorteningService } = createUrlShorteningSystem({ CONFIG, logger: Logger });
 const GoogleOAuth = require('./adapters/google/auth/google-oauth');
 const { createGoogleSheetsClient } = require('./adapters/google/sheets/client');
+const { extractGoogleSheetId, normalizeGoogleSheetUrl } = require('./adapters/google/sheets/spreadsheet-reference');
 const GoogleSheets = require('./adapters/storage/google-sheets/operations');
 Logger.debug(`Application version: ${APP_VERSION}`);
-const { checkAuthSessionValid, peekAuthSessionState, clearAuthSession } = require('./adapters/naver/auth-session');
+const NaverAuthSession = require('./adapters/naver/auth-session');
+const naverAuthConfiguration = Object.freeze({
+    authPath: CONFIG.AUTH_FILE_PATH,
+    naverId: CONFIG.NAVER_ID,
+    writeUrl: CONFIG.WRITE_URL,
+    browserChannel: CONFIG.BROWSER_CHANNEL
+});
+const checkAuthSessionValid = (options = {}) => NaverAuthSession.checkAuthSessionValid({ ...naverAuthConfiguration, ...options });
+const peekAuthSessionState = (options = {}) => NaverAuthSession.peekAuthSessionState({ ...naverAuthConfiguration, ...options });
+const clearAuthSession = (options = {}) => NaverAuthSession.clearAuthSession({ ...naverAuthConfiguration, ...options });
 const Utils = require('./utils');
 const Core = require('./core');
 const TelegramBotService = require('./telegram-bot.service');
@@ -25,7 +36,9 @@ TelegramBotService.GoogleSheets = GoogleSheets;
 const BrowserLauncher = require('./utilities/browser/browser-launcher');
 const ShoppingManager = require('./applications/shopping/content-preparation/application');
 const Updater = require('./host/updater');
-const RuntimeConfig = require('./runtime-config');
+Updater.configure(CONFIG);
+const { createRuntimeConfigApi } = require('./runtime-config');
+const RuntimeConfig = createRuntimeConfigApi({ config: CONFIG, logger: Logger });
 const { registerRuntimeHooks } = require('./runtime-hooks');
 const {
     ensureRuntimeRemoteMcpConfig,
@@ -179,7 +192,11 @@ const uiSessionRuntime = createUiSessionRuntime({
     checkAuthSessionValid,
     peekAuthSessionState,
     clearAuthSession,
-    runInteractiveNaverLoginFlow,
+    runInteractiveNaverLoginFlow: (options = {}) => runInteractiveNaverLoginFlow({
+        authPath: CONFIG.AUTH_FILE_PATH,
+        browserChannel: CONFIG.BROWSER_CHANNEL,
+        ...options
+    }),
     sessionCheckTtlMs: UI_SESSION_CHECK_TTL_MS,
     sheetsPreflightTtlMs: UI_SHEETS_PREFLIGHT_TTL_MS
 });
@@ -325,10 +342,10 @@ const snsAiService = createSnsAiService({
     Logger
 });
 const recordActivityLifecycle = createActivityLifecycleRecorder({
-    eventStore: getAgentEventStore(),
+    eventStore: getAgentEventStore({ baseDir: CONFIG.ROOT_DIR }),
     Logger
 });
-const topicRecommendationEventStore = getAgentEventStore();
+const topicRecommendationEventStore = getAgentEventStore({ baseDir: CONFIG.ROOT_DIR });
 const topicRecommendationCapabilityRegistry = createCapabilityRegistry({
     CONFIG,
     Logger,
@@ -510,34 +527,6 @@ function normalizeListenPort(input, fallback = DEFAULT_PORT) {
     const parsed = parseInt(String(input || ''), 10);
     if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535) return fallback;
     return parsed;
-}
-
-function extractGoogleSheetId(input) {
-    const raw = String(input || '').trim();
-    if (!raw) return '';
-    if (/^[a-zA-Z0-9-_]{20,}$/.test(raw)) return raw;
-    try {
-        const u = new URL(raw);
-        const byPath = u.pathname.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/i);
-        if (byPath?.[1]) return byPath[1];
-        const byQuery = u.searchParams.get('id');
-        if (byQuery && /^[a-zA-Z0-9-_]{20,}$/.test(byQuery)) return byQuery;
-    } catch (e) { }
-    return '';
-}
-
-function normalizeGoogleSheetUrl(rawUrl, fallbackId = '') {
-    const input = String(rawUrl || '').trim();
-    if (input) {
-        const fromInputId = extractGoogleSheetId(input);
-        if (fromInputId) {
-            return `https://docs.google.com/spreadsheets/d/${fromInputId}`;
-        }
-        if (/^https?:\/\//i.test(input)) return input;
-    }
-    const id = extractGoogleSheetId(fallbackId);
-    if (!id) return '';
-    return `https://docs.google.com/spreadsheets/d/${id}`;
 }
 
 function parseConfigBool(rawValue, fallback = false) {
@@ -1135,7 +1124,7 @@ const { startUiServer: startUiServerRuntime, reloadUiServer } = uiHttpServerRunt
 async function startUiServer(options = {}) {
     const deferred = options.safeMode !== true && options.deferOptionalStartup === true;
     if (options.safeMode !== true && !deferred) {
-        await initializeAgentMemory();
+        await initializeAgentMemory({ baseDir: CONFIG.ROOT_DIR });
     } else {
         Logger.warn(options.safeMode === true
             ? '⚠️ [AgentMemory] 안전 모드에서 지능형 메모리 초기화를 건너뜁니다.'
@@ -1147,7 +1136,7 @@ async function startUiServer(options = {}) {
         ...started,
         startDeferredServices: async () => {
             const memory = Promise.resolve()
-                .then(() => initializeAgentMemory())
+                .then(() => initializeAgentMemory({ baseDir: CONFIG.ROOT_DIR }))
                 .catch((error) => {
                     Logger.error(`❌ [AgentMemory] 지연 초기화 실패: ${error.message}`, error);
                     return false;

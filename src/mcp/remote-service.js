@@ -85,6 +85,7 @@ async function startRemoteMcpService(overrides = {}) {
 
     const server = await startHttpMcpServer({
         ...options,
+        config: CONFIG,
         logger: Logger
     });
 

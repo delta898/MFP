@@ -1,6 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const CONFIG = require('../../config-loader');
 const BrowserLauncher = require('../../utilities/browser/browser-launcher');
 const Utils = require('../../utils');
 const Logger = require('../../utilities/logging/logger');
@@ -17,20 +16,21 @@ function cloneSessionResult(result) {
     return result ? { ...result } : result;
 }
 
-function getSessionConfigKey() {
+function getSessionConfigKey(options = {}) {
     return [
-        String(CONFIG.AUTH_FILE_PATH || '').trim(),
-        String(CONFIG.NAVER_ID || '').trim().toLowerCase(),
-        String(CONFIG.WRITE_URL || '').trim()
+        String(options.authPath || '').trim(),
+        String(options.naverId || '').trim().toLowerCase(),
+        String(options.writeUrl || '').trim(),
+        String(options.browserChannel || '').trim()
     ].join('\u0000');
 }
 
-function peekAuthSessionState() {
-    const authPath = String(CONFIG.AUTH_FILE_PATH || '').trim();
+function peekAuthSessionState(options = {}) {
+    const authPath = String(options.authPath || '').trim();
     if (!authPath || !fs.existsSync(authPath)) {
         return { ok: false, reason: 'missing_auth', checked: true };
     }
-    if (cachedSession && cachedSessionConfigKey === getSessionConfigKey()) {
+    if (cachedSession && cachedSessionConfigKey === getSessionConfigKey(options)) {
         return { ...cloneSessionResult(cachedSession), checked: true, checkedAt: cachedAtMs || null };
     }
     return { ok: false, reason: 'not_checked', checked: false };
@@ -80,7 +80,7 @@ function logSessionStateTransition(result) {
 }
 
 async function persistAuthSessionState(context, options = {}) {
-    const authPath = String(options.authPath || CONFIG.AUTH_FILE_PATH || '').trim();
+    const authPath = String(options.authPath || '').trim();
     if (!context || !authPath) return false;
 
     try {
@@ -95,7 +95,7 @@ async function persistAuthSessionState(context, options = {}) {
 }
 
 async function performAuthSessionCheck(options = {}) {
-    const authPath = CONFIG.AUTH_FILE_PATH;
+    const authPath = String(options.authPath || '').trim();
     if (!authPath || !fs.existsSync(authPath)) {
         return { ok: false, reason: 'missing_auth' };
     }
@@ -104,13 +104,13 @@ async function performAuthSessionCheck(options = {}) {
     let context = null;
     Logger.debug("📡 네이버 로그인 세션 유효성 확인 중...");
     try {
-        browser = await BrowserLauncher.launchBrowser({ headless: true });
+        browser = await BrowserLauncher.launchBrowser({ headless: true, channel: options.browserChannel });
         context = await browser.newContext({
             storageState: authPath,
             userAgent: NAVER_DEFAULT_USER_AGENT
         });
         const page = await context.newPage();
-        const checkUrl = CONFIG.WRITE_URL || `https://blog.naver.com/${CONFIG.NAVER_ID}/postwrite`;
+        const checkUrl = options.writeUrl || `https://blog.naver.com/${options.naverId || ''}/postwrite`;
 
         await page.goto(checkUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
         await Utils.sleep(400);
@@ -134,7 +134,7 @@ async function checkAuthSessionValid(options = {}) {
     const forceRefresh = options.forceRefresh === true;
     const now = Date.now();
 
-    const sessionConfigKey = getSessionConfigKey();
+    const sessionConfigKey = getSessionConfigKey(options);
     if (!forceRefresh && cacheTtlMs > 0 && cachedSession
         && cachedSessionConfigKey === sessionConfigKey
         && (now - cachedAtMs) < cacheTtlMs) {
@@ -170,7 +170,7 @@ async function checkAuthSessionValid(options = {}) {
 }
 
 async function clearAuthSession(options = {}) {
-    const authPath = String(options.authPath || CONFIG.AUTH_FILE_PATH || '').trim();
+    const authPath = String(options.authPath || '').trim();
     if (!authPath) {
         throw new Error('네이버 인증 파일 경로가 설정되어 있지 않습니다.');
     }
@@ -191,7 +191,7 @@ async function clearAuthSession(options = {}) {
     sessionCheckInFlight = null;
     cachedSession = { ok: false, reason: 'missing_auth' };
     cachedAtMs = Date.now();
-    cachedSessionConfigKey = getSessionConfigKey();
+    cachedSessionConfigKey = getSessionConfigKey(options);
     logSessionStateTransition(cachedSession);
 
     return { ok: true, removed };

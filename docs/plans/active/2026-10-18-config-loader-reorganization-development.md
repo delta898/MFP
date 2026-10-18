@@ -1,0 +1,64 @@
+# Config Loader Reorganization
+
+## Branch
+
+- Branch: `codex/fbr/config-loader-reorganization`
+- Start date: 2026-10-18
+- Base/parent branch: `codex/fbr/source-layer-reorganization`
+- Status: In progress
+
+## User need and goal
+
+`src/config-loader.js` remains a root-level, broad compatibility module after the previous configuration-asset migration. Reorganize its responsibilities by architecture layer and product Application, migrate callers to owned contracts, and remove the root loader when no production callers depend on it.
+
+## Scope
+
+- Inventory the loader's returned settings, startup side effects, direct imports, field-level consumers, tests, and packaging/build references.
+- Keep filesystem/bootstrap configuration and runtime path selection in `src/host/configuration/`.
+- Move environment selection to `src/environment/`, shared policy to the appropriate `src/services/`, and product-specific settings/workflow policy to `src/applications/<product>/`.
+- Route UI and channel access through Application/service ports and composition; avoid introducing Application-to-Host dependencies.
+- Preserve startup ordering, persisted config shape, defaults, environment/secret behavior, and current user-visible behavior.
+- Remove `src/config-loader.js` and obsolete compatibility projections after production callers and tests migrate.
+- Keep the canonical architecture document and `src/README.md` aligned with each completed slice.
+
+## Explicit non-goals
+
+- No config schema or default changes without a separate user decision.
+- No changes to persisted user configuration, credential ownership, provider integrations, product UX, or publishing behavior.
+- No unrelated configuration cleanup, version changes, merge, push, or release work.
+
+## Design and stages
+
+1. Map every exported configuration field to its owner and every consumer to its entry boundary. Identify side effects and dynamic/package references.
+2. Define the Host configuration loading contract and the Application/service configuration ports needed by active callers.
+3. Extract one responsibility group at a time, migrate composition and callers in the same slice, and remove duplicate compatibility logic as each group is verified.
+4. Verify startup and focused contracts for each slice; search for direct imports and stale root references.
+5. Remove the root loader only after production callers, tests, and packaged startup paths use the new contracts. Update architecture/source maps and finalize this record.
+
+## Decisions and tradeoffs
+
+- 2026-10-18: User asked for this work on a separate feature branch. The branch is based on the current `codex/fbr/source-layer-reorganization` tip.
+- 2026-10-18: The loader must not be moved wholesale into Host because it currently combines Host bootstrap, environment values, shared service configuration, and product/Application policy. Caller paths must follow ownership rather than merely point to a new facade.
+- Preserve existing behavior and config shape while relocating ownership. Ask the user before a change that materially alters product behavior, persistence, compatibility, or secret handling.
+
+## Progress
+
+- 2026-10-18: Created this branch from `codex/fbr/source-layer-reorganization` at `2ba5d8ed` with a clean working tree.
+- 2026-10-18: Initial scan found that `config-loader.js` exports the parsed structured config plus a broad flat projection. It has direct production imports across Host, adapters, services, Applications, UI runtimes/API, and channel runtimes; consumers read many distinct fields. The previous configuration slice already extracted runtime path/config-file loading, packaged default assets, environment profiles, OAuth policy, and license-key storage. Further migration must account for the remaining mixed ownership and broad caller graph.
+- 2026-10-18: Caller audit confirms that simple relocation would create an Application-to-Host dependency: the Shopping content-preparation Application directly reads credentials, writing profile, prompt paths, and product insertion limits, while provider adapters read Naver/Google credentials and Host modules read listener, updater, and process paths. UI runtime also passes a large set of `CONFIG` fields through a compatibility-oriented composition path. Keep these consumer groups separate and migrate Application-facing values through explicit injected configuration/service ports; provider credentials and runtime paths stay behind their owning boundaries.
+- 2026-10-18: Began implementation with the logging utility's configuration dependency. `utilities/logging/logger.js` no longer imports the global loader; Host launcher and UI-server startup now inject the configured log level and root. Logging defaults and the explicit `BLOG_GENIUS_LOG_DIR` override remain supported. This is the first small caller migration, not completion of the loader decomposition.
+- 2026-10-18: Moved Google Sheets ID extraction and URL normalization out of `config-loader.js` and `ui-server.js` into `adapters/google/sheets/spreadsheet-reference.js`. The loader keeps its Google-host validation, while UI settings retain their prior acceptance of arbitrary HTTP(S) URLs and ID extraction behavior.
+- 2026-10-18: Removed the logger's, browser launch utility's, updater's, and runtime-config API's hidden configuration-loader dependencies. Host/UI composition supplies logging and updater configuration; browser launch callers supply effective headless/channel options; the runtime-config API now requires an injected config object. Updater tests now pass mutable configuration to each instance instead of mutating the process-wide loader object.
+- 2026-10-18: Removed the image service's hidden loader dependency; optimization enablement is now an explicit option supplied by the Blog/Core caller. Keyword Research now requires its Application configuration at creation, and the publish capability uses only its injected config with a fail-safe empty default. These changes remove hidden loader reads while retaining the existing config object as a transitional composition value.
+- 2026-10-18: Agent Memory no longer loads the global config facade. Its storage root is supplied when the UI runtime first obtains the shared store; unspecified roots retain the existing current-directory fallback for standalone use.
+- 2026-10-18: Naver authentication adapters no longer load the global config facade. The UI composition supplies authentication path, account ID, write URL, and browser channel through explicit adapter options; the single-flight session test now uses its own injected configuration fixture.
+- 2026-10-18: The Supabase AI model catalog adapter now requires configuration from its composition caller instead of falling back to `config-loader.js`. MCP HTTP/runtime modules likewise receive config through server/runtime options; stdio MCP keeps its explicit executable bootstrap import for now, and the remote service still needs conversion to an injected Host lifecycle boundary.
+- 2026-10-18: Remaining production imports still include broad modules (`ui-server.js`, `core.js`, `utils.js`, Shopping preparation, Google Sheets storage/OAuth, Telegram bot/pairing, license, Host launchers, MCP remote/stdio, and package metadata). This confirms the root loader is not yet removable; each group needs an owning config contract rather than a renamed global object.
+- 2026-10-18: Continue the field-to-owner and caller-to-port inventory before extracting broader configuration groups. Avoid replacing the root module with a differently named global singleton, which would preserve the same coupling.
+
+## Verification and handoff
+
+- Focused tests and startup/module-load checks will be selected after each responsibility group is mapped and migrated.
+- Full unit suite remains subject to the repository's explicit approval gate before integration into `dev`.
+- Manual startup/UI validation remains with the user unless explicitly requested.
+- Final status, verification, remaining risks, and commit state will be recorded here before branch integration.

@@ -1,7 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 const moment = require('moment'); // 날짜 포맷팅용 (없으면 npm install moment)
-const CONFIG = require('../../config-loader');
 const { resolveRuntimeLogDir } = require('./runtime-log-path');
 
 // 로그 레벨 정의 (숫자가 클수록 중요함)
@@ -12,31 +11,31 @@ const LEVELS = {
     error: 3
 };
 
-// 현재 설정된 레벨 가져오기 (설정 없으면 info가 기본값)
-const currentLevelName = (CONFIG.LOG_LEVEL || 'info').toLowerCase();
-const currentLevel = LEVELS[currentLevelName] ?? LEVELS.info;
 const MAX_DAILY_LOG_BYTES = 10 * 1024 * 1024;
+let currentLevel = LEVELS.info;
+let logDir = resolveRuntimeLogDir({ rootDir: process.cwd(), pathImpl: path });
 
-// 로그 저장 폴더 결정
-// 🚀 [Portable Mode Support]
-// Electron bootstrap이 지정한 쓰기 가능한 공용 로그 폴더를 최우선으로 사용합니다.
-// CLI 및 이전 배포 경로는 기존 ROOT_DIR 규칙을 유지합니다.
-const logDir = resolveRuntimeLogDir({ rootDir: CONFIG.ROOT_DIR, pathImpl: path });
-
-// 폴더 생성 (이미 있으면 통과)
-try {
-    if (!fs.existsSync(logDir)) {
-        fs.mkdirSync(logDir, { recursive: true });
+function ensureLogDirectory() {
+    try {
+        if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+    } catch (error) {
+        // EROFS 등 권한 문제 발생 시 콘솔에만 출력하고 진행
+        console.error(`⚠️ 로그 폴더 생성 실패 (${logDir}): ${error.message}`);
     }
-} catch (e) {
-    // EROFS 등 권한 문제 발생 시 콘솔에만 출력하고 진행
-    console.error(`⚠️ 로그 폴더 생성 실패 (${logDir}): ${e.message}`);
 }
 
 class Logger {
     static _recentLogs = [];
     static _maxRecentLogs = 200;
     static _fileWriteFailureReported = false;
+
+    static configureRuntime({ logLevel = 'info', rootDir = process.cwd(), env = process.env } = {}) {
+        const normalizedLevel = String(logLevel || 'info').trim().toLowerCase();
+        currentLevel = LEVELS[normalizedLevel] ?? LEVELS.info;
+        logDir = resolveRuntimeLogDir({ rootDir, env, pathImpl: path });
+        ensureLogDirectory();
+        return logDir;
+    }
 
     static _write(level, message) {
         // 1. 레벨 체크: 설정된 레벨보다 낮은 중요도의 로그는 무시
@@ -64,6 +63,7 @@ class Logger {
 
         // 3. 파일 저장 (오늘 날짜 파일에 이어쓰기)
         try {
+            ensureLogDirectory();
             const logFile = path.join(logDir, `${dateStr}.log`);
             if (fs.existsSync(logFile) && fs.statSync(logFile).size > MAX_DAILY_LOG_BYTES) {
                 const previous = path.join(logDir, `${dateStr}.previous.log`);

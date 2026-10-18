@@ -3,7 +3,6 @@ const path = require('path');
 const axios = require('axios');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
-const CONFIG = require('../config-loader');
 const Logger = require('../utilities/logging/logger');
 const { APP_VERSION } = require('../constants');
 
@@ -14,8 +13,10 @@ const { APP_VERSION } = require('../constants');
 class Updater {
     constructor(options = {}) {
         this.currentVersion = APP_VERSION;
-        this.appRootDir = options.appRootDir || CONFIG.APP_ROOT_DIR;
-        this.tempDir = path.join(this.appRootDir, CONFIG.UPDATE_TEMP_DIR || 'tmp_update');
+        this.config = options.config || {};
+        this.hasExplicitAppRootDir = Boolean(options.appRootDir);
+        this.appRootDir = options.appRootDir || this.config.APP_ROOT_DIR || process.cwd();
+        this.tempDir = path.join(this.appRootDir, this.config.UPDATE_TEMP_DIR || 'tmp_update');
         this.platform = options.platform || process.platform;
         this.arch = options.arch || process.arch;
         this.spawnProcess = options.spawnProcess || spawn;
@@ -58,12 +59,21 @@ class Updater {
         this._pendingExternalRestart = null;
     }
 
+    configure(config = {}) {
+        this.config = config && typeof config === 'object' ? config : {};
+        if (!this.hasExplicitAppRootDir) {
+            this.appRootDir = this.config.APP_ROOT_DIR || process.cwd();
+            this.tempDir = path.join(this.appRootDir, this.config.UPDATE_TEMP_DIR || 'tmp_update');
+        }
+        return this;
+    }
+
     getUpdateServerType() {
-        return String(CONFIG.UPDATE_SERVER_TYPE || 'github').trim() === 'custom' ? 'custom' : 'github';
+        return String(this.config.UPDATE_SERVER_TYPE || 'github').trim() === 'custom' ? 'custom' : 'github';
     }
 
     getUpdateMirrorRepo() {
-        return String(CONFIG.UPDATE_MIRROR_REPO || CONFIG.DEFAULT_UPDATE_MIRROR_REPO || '').trim();
+        return String(this.config.UPDATE_MIRROR_REPO || this.config.DEFAULT_UPDATE_MIRROR_REPO || '').trim();
     }
 
     normalizeUpdateDetails(release = {}) {
@@ -101,7 +111,7 @@ class Updater {
     }
 
     getCustomManifestUrl() {
-        const raw = String(CONFIG.CUSTOM_UPDATE_CHECK_URL || '').trim();
+        const raw = String(this.config.CUSTOM_UPDATE_CHECK_URL || '').trim();
         if (!raw) return '';
         if (/\.json(\?.*)?$/i.test(raw)) return raw;
         return `${raw.replace(/\/+$/, '')}/update.json`;
@@ -112,8 +122,8 @@ class Updater {
             type: this.getUpdateServerType(),
             manifestUrl: this.getCustomManifestUrl(),
             repo: this.getUpdateMirrorRepo(),
-            channel: String(CONFIG.UPDATE_CHANNEL || '').trim().toLowerCase(),
-            role: String(CONFIG.USER_ROLE || '').trim().toLowerCase()
+            channel: String(this.config.UPDATE_CHANNEL || '').trim().toLowerCase(),
+            role: String(this.config.USER_ROLE || '').trim().toLowerCase()
         });
     }
 
@@ -184,7 +194,7 @@ class Updater {
 
         const sorted = [...releases].sort((a, b) => this.compareVersions(b.tag_name, a.tag_name));
 
-        let channel = String(CONFIG.UPDATE_CHANNEL || '').trim().toLowerCase();
+        let channel = String(this.config.UPDATE_CHANNEL || '').trim().toLowerCase();
         if (!channel) {
             const role = String(userRole || 'User').trim().toLowerCase();
             if (role === 'developer') channel = 'dev';
@@ -249,7 +259,7 @@ class Updater {
 
         // 강제 업데이트도 현재 설치본이 아니라 선택된 채널의 최신 릴리즈를 대상으로 한다.
         // force는 버전 비교와 최근 조회 cache를 무시하는 의미다.
-        const latest = await this.getLatestRelease(CONFIG.USER_ROLE);
+        const latest = await this.getLatestRelease(this.config.USER_ROLE);
 
         if (!latest) return null;
 

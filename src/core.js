@@ -1772,6 +1772,7 @@ ${messageText}
 		const viewport = headless ? resolvePublishViewport() : null;
 		const browser = await BrowserLauncher.launchBrowser({
 			headless,
+			channel: CONFIG.BROWSER_CHANNEL,
 			windowSize: headless ? null : resolvePublishWindowSize()
 		});
 		if (signal?.aborted) {
@@ -2104,7 +2105,9 @@ ${messageText}
 							const ImageService = require('./image-service');
 							const optimizedFile = typeof options.prepareImageForUpload === 'function'
 								? await options.prepareImageForUpload(file)
-								: await ImageService.optimizeImageForPlatform(file, 'naver');
+								: await ImageService.optimizeImageForPlatform(file, 'naver', {
+									enabled: CONFIG.IMAGE_OPTIMIZATION_ENABLED !== false
+								});
 							await chooser.setFiles(optimizedFile);
 
 							const uploadWait = CONFIG.WAIT_UPLOAD || Constants.WAIT.UPLOAD;

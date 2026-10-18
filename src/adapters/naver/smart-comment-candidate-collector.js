@@ -183,7 +183,10 @@ function createNaverSmartCommentCollector(deps = {}) {
             let context = null;
             try {
                 Logger.info(`🧭 [NaverCommentDraft] 이웃새글 후보 수집 시작 (최대 ${limit}건)`);
-                browser = await BrowserLauncher.launchBrowser({ headless: Boolean(headless) });
+                browser = await BrowserLauncher.launchBrowser({
+                    headless: Boolean(headless),
+                    channel: CONFIG.BROWSER_CHANNEL
+                });
                 context = await browser.newContext({
                     storageState: CONFIG.AUTH_FILE_PATH,
                     userAgent: NAVER_DEFAULT_USER_AGENT

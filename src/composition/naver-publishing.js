@@ -44,6 +44,7 @@ function createNaverPublishingSystem(options = {}) {
                 }
                 const browser = await BrowserLauncher.launchBrowser({
                     headless: typeof headless === 'boolean' ? headless : CONFIG.HEADLESS,
+                    channel: CONFIG.BROWSER_CHANNEL,
                     ...(headless ? { windowSize: { width: 1280, height: 800 } } : {})
                 });
                 let context;

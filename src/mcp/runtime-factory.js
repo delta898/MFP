@@ -2,7 +2,6 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 
-const CONFIG = require('../config-loader');
 const License = require('../license');
 const { createAgentRuntime } = require('../host/agent/runtime');
 const { ConfirmationStore } = require('../adapters/storage/confirmations/confirmation-store');
@@ -17,7 +16,8 @@ const NullLogger = {
     error() { }
 };
 
-function createMcpPrototypeRuntime() {
+function createMcpPrototypeRuntime(options = {}) {
+    const CONFIG = options.config || {};
     const confirmationPersistPath = process.env.MCP_CONFIRMATION_STORE_PATH
         || path.resolve(__dirname, '..', '..', '.tmp', 'mcp-confirmations.json');
     const hooks = getRuntimeHooks();

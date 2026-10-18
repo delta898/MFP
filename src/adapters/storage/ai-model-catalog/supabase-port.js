@@ -3,7 +3,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { createClient } = require('@supabase/supabase-js');
-const CONFIG = require('../../../config-loader');
 const { resolveSupabasePublicConnection } = require('../../../environment/runtime-profile');
 
 function extractCatalogPayload(data) {
@@ -19,7 +18,10 @@ function extractCatalogPayload(data) {
 }
 
 function createSupabaseModelCatalogPort(options = {}) {
-    const config = options.config || CONFIG;
+    const config = options.config;
+    if (!config || typeof config !== 'object') {
+        throw new TypeError('Supabase model catalog port requires injected runtime configuration.');
+    }
     const fsImpl = options.fsImpl || fs;
     const pathImpl = options.pathImpl || path;
     const createClientImpl = options.createClientImpl || createClient;

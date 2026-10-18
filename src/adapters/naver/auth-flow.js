@@ -1,7 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 
-const CONFIG = require('../../config-loader');
 const BrowserLauncher = require('../../utilities/browser/browser-launcher');
 const Utils = require('../../utils');
 const Logger = require('../../utilities/logging/logger');
@@ -68,7 +67,7 @@ async function closeBrowserResources(context, browser) {
     try { if (browser) await browser.close(); } catch (e) { }
 }
 
-async function saveAuthStorageState(context, authPath = CONFIG.AUTH_FILE_PATH) {
+async function saveAuthStorageState(context, authPath = '') {
     const targetPath = String(authPath || '').trim();
     if (!context || !targetPath) {
         throw new Error('인증 저장 경로가 비어 있습니다.');
@@ -80,7 +79,7 @@ async function saveAuthStorageState(context, authPath = CONFIG.AUTH_FILE_PATH) {
 
 async function runInteractiveNaverLoginFlow(options = {}) {
     const timeoutMs = Number.isFinite(Number(options.timeoutMs)) ? Math.max(1000, parseInt(options.timeoutMs, 10)) : 300000;
-    const authPath = String(options.authPath || CONFIG.AUTH_FILE_PATH || '').trim();
+    const authPath = String(options.authPath || '').trim();
     const onStateChange = typeof options.onStateChange === 'function' ? options.onStateChange : null;
 
     let browser = null;
@@ -88,7 +87,7 @@ async function runInteractiveNaverLoginFlow(options = {}) {
 
     try {
         emitFlowState(onStateChange, { phase: 'launching_browser', message: '브라우저 실행 중...' });
-        browser = await BrowserLauncher.launchBrowser({ headless: false });
+        browser = await BrowserLauncher.launchBrowser({ headless: false, channel: options.browserChannel });
         Logger.info('🔐 네이버 로그인 브라우저 실행 완료');
 
         context = await browser.newContext({

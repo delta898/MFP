@@ -3166,7 +3166,7 @@ async function resolveCandidateUrl(url) {
 async function resolveCandidateUrlWithBrowser(url, headless = true, options = {}) {
     let browser;
     try {
-        browser = await BrowserLauncher.launchBrowser({ headless });
+        browser = await BrowserLauncher.launchBrowser({ headless, channel: CONFIG.BROWSER_CHANNEL });
 
         const contextOptions = { userAgent: USER_AGENT };
         if (CONFIG.AUTH_FILE_PATH && fs.existsSync(CONFIG.AUTH_FILE_PATH)) {
@@ -3210,7 +3210,7 @@ async function resolveCandidateUrlWithBrowser(url, headless = true, options = {}
 async function resolveFinalUrlWithBrowser(url, referer = '', headless = true) {
     let browser;
     try {
-        browser = await BrowserLauncher.launchBrowser({ headless });
+        browser = await BrowserLauncher.launchBrowser({ headless, channel: CONFIG.BROWSER_CHANNEL });
 
         const contextOptions = { userAgent: USER_AGENT };
         if (referer) contextOptions.extraHTTPHeaders = { Referer: referer };
@@ -3235,7 +3235,7 @@ async function resolveFinalUrlWithBrowser(url, referer = '', headless = true) {
 async function resolveReviewRichHtmlWithBrowser(url, headless = true) {
     let browser;
     try {
-        browser = await BrowserLauncher.launchBrowser({ headless });
+        browser = await BrowserLauncher.launchBrowser({ headless, channel: CONFIG.BROWSER_CHANNEL });
 
         const contextOptions = { userAgent: USER_AGENT };
         if (CONFIG.AUTH_FILE_PATH && fs.existsSync(CONFIG.AUTH_FILE_PATH)) {

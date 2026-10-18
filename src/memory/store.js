@@ -1,5 +1,4 @@
 const Logger = require('../utilities/logging/logger');
-const CONFIG = require('../config-loader');
 const { createVolatileRecommendationStore } = require('../recommendations/lifecycle-store');
 const { SQLiteEventStore } = require('./sqlite-event-store');
 const {
@@ -118,7 +117,7 @@ function buildDisabledEventStore(reason, logger = Logger) {
 
 function createAgentMemoryController(options = {}) {
     const logger = options.Logger || Logger;
-    const baseDir = String(options.baseDir || CONFIG.ROOT_DIR || CONFIG.APP_ROOT_DIR || process.cwd());
+    const baseDir = String(options.baseDir || process.cwd());
     const createStore = options.createStore || (() => new SQLiteEventStore({ Logger: logger, baseDir }));
     const lifecycle = {
         cleanupLegacyMemory: options.cleanupLegacyMemory || cleanupLegacyMemory,
@@ -264,21 +263,22 @@ function createAgentMemoryController(options = {}) {
 
 let controller = null;
 
-function getController() {
+function getController(options = {}) {
     if (!controller) {
         controller = createAgentMemoryController({
+            ...options,
             safeMode: String(process.env.BLOG_GENIUS_SAFE_MODE || '').toLowerCase() === 'true'
         });
     }
     return controller;
 }
 
-function getAgentEventStore() {
-    return getController().facade;
+function getAgentEventStore(options = {}) {
+    return getController(options).facade;
 }
 
-async function initializeAgentMemory() {
-    return getController().initialize();
+async function initializeAgentMemory(options = {}) {
+    return getController(options).initialize();
 }
 
 function closeAgentMemory() {
