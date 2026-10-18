@@ -11,7 +11,7 @@ const {
 } = require('./project-environment');
 const {
     resolveRuntimeEnvironmentProfile
-} = require('../src/environment/runtime-profile');
+} = require('../src/host/configuration/environment/runtime-profile');
 
 const PRODUCTION_ENV_FILE = '.env.production';
 const ALLOWED_BRANCH_PATTERN = /^(?:main|release\/.+)$/;

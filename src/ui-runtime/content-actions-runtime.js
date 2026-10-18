@@ -18,7 +18,7 @@ const {
     isLivePublishAllowed,
     isManualPublishAllowed,
     isContinuousAutomationAllowed
-} = require('../environment/runtime-effects');
+} = require('../services/runtime-environment/effects');
 
 function createContentActionsRuntime(deps = {}) {
     const {

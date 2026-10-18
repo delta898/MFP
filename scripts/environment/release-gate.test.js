@@ -5,8 +5,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createReleaseArtifact } = require('../src/environment/release-artifact');
-const { run } = require('./environment-release-gate');
+const { createReleaseArtifact } = require('./release-artifact');
+const { run } = require('./release-gate');
 
 const REVISION = 'c'.repeat(40);
 

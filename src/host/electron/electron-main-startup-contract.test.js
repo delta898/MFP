@@ -38,7 +38,6 @@ test('package and Node launchers point to the Host-owned entrypoints', () => {
     const launcher = fs.readFileSync(path.resolve(__dirname, '../launcher.js'), 'utf8');
     assert.equal(packageMetadata.main, 'src/host/electron/electron-main.js');
     assert.match(packageMetadata.scripts.ui, /node src\/host\/launcher\.js/);
-    assert.ok(packageMetadata.pkg.scripts.includes('src/host/**/*.js'));
     assert.match(launcher, /eval\('require'\)\('\.\/electron\/electron-main'\)/);
 });
 

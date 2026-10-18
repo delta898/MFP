@@ -205,7 +205,7 @@ if (!primaryInstance) {
     ({ closeAgentMemory, startUiServer } = loadStartupModule('ui-server', () => require('../../ui-server')));
     ({ startRemoteMcpService, stopRemoteMcpService } = loadStartupModule('remote-mcp-service', () => require('../../mcp/remote-service')));
     Logger = loadStartupModule('logger', () => require('../../utilities/logging/logger'));
-    const { logRuntimeEnvironmentStatus } = loadStartupModule('runtime-profile', () => require('../../environment/runtime-profile'));
+    const { logRuntimeEnvironmentStatus } = loadStartupModule('runtime-profile', () => require('../configuration/environment/runtime-profile'));
     logRuntimeEnvironmentStatus(Logger, CONFIG.RUNTIME_ENVIRONMENT_PROFILE);
     startup.write('APPLICATION_MODULES_LOADED', { durationMs: Date.now() - moduleLoadStartedAt });
 }

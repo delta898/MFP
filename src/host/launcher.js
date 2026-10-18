@@ -43,7 +43,7 @@ const { spawn } = require('child_process');
 const Logger = require('../utilities/logging/logger');
 const CONFIG = require('../config-loader');
 Logger.configureRuntime({ logLevel: CONFIG.LOG_LEVEL, rootDir: CONFIG.ROOT_DIR });
-const { logRuntimeEnvironmentStatus } = require('../environment/runtime-profile');
+const { logRuntimeEnvironmentStatus } = require('./configuration/environment/runtime-profile');
 const { startUiServer } = require('../ui-server');
 const { startRemoteMcpService, stopRemoteMcpService } = require('../mcp/remote-service');
 

@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { assertManualPublishAllowed } = require('../../../environment/runtime-effects');
+const { assertManualPublishAllowed } = require('../../../services/runtime-environment/effects');
 const {
     SNS_SERVICE_POLICIES,
     SNS_SERVICE_ASSET_LIMITS,

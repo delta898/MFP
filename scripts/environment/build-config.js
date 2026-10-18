@@ -5,13 +5,13 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {
     assertEnvironmentName
-} = require('../src/environment/contract');
+} = require('../../src/host/configuration/environment/contract');
 const {
     validatePublicUrl
-} = require('../src/environment/runtime-profile');
+} = require('../../src/host/configuration/environment/runtime-profile');
 const {
     resolveOAuthApplicationConfig
-} = require('../src/environment/oauth-config');
+} = require('../../src/host/configuration/environment/oauth-config');
 
 function normalizeText(value) {
     return String(value || '').trim();

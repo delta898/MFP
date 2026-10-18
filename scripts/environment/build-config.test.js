@@ -6,7 +6,7 @@ const {
     createBuildEnvironmentConfig,
     serializeBuildEnvironmentConfig,
     validateBuildEnvironmentConfig
-} = require('./build-environment-config');
+} = require('./build-config');
 
 test('production build config requires an explicit remote HTTPS endpoint', () => {
     const config = createBuildEnvironmentConfig({

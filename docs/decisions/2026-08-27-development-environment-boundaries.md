@@ -30,7 +30,7 @@ BlogGenius uses exactly these initial environment names:
 - No branch selects an environment by itself.
 - Production still requires an explicit target, preflight, and user-approved release action.
 
-The canonical code contract lives in `src/environment/contract.js`. It expresses eligibility only; deployment authorization remains a separate control added by the deployment guard stage.
+The canonical code contract lives in `src/host/configuration/environment/contract.js`. It defines canonical environment names; branch eligibility and deployment authorization remain separate controls implemented by `scripts/environment/branch-target-policy.js` and `scripts/environment/deployment-guard.js`.
 
 ### Environment configuration
 

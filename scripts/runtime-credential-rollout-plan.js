@@ -4,8 +4,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { evaluateDeploymentPreflight } = require('../src/environment/deployment-guard');
-const { resolveCurrentBranch } = require('./environment-preflight');
+const { evaluateDeploymentPreflight } = require('./environment/deployment-guard');
+const { resolveCurrentBranch } = require('./environment/preflight');
 const { loadDevelopmentEnvironment } = require('./project-environment');
 
 const ROLLOUT_MANIFEST = 'supabase/runtime-credential-security-rollout.json';

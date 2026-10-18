@@ -1,6 +1,6 @@
 const { createClient } = require('@supabase/supabase-js');
 const Logger = require('./utilities/logging/logger');
-const { resolveSupabasePublicConnection } = require('./environment/runtime-profile');
+const { resolveSupabasePublicConnection } = require('./adapters/supabase/public-connection');
 
 const PUBLIC_RUNTIME_CONFIG_KEYS = Object.freeze([
     'NAVER_AUTO_CATEGORIES_MASTER',

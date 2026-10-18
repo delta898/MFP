@@ -94,7 +94,7 @@ License precheck, v2, and v3 are retained as historical implementation inputs. T
 | Storage | surface content SQL | bucket and policy migration verification |
 | Auth | no committed project config found | explicit environment checklist before hosted deployment |
 | Secrets | build injection and Supabase secret store | per-environment secret names and no desktop leakage |
-| Desktop release | GitHub workflow, `build.sh`, `build.bat` | generated production profile validated before packaging |
+| Desktop release | GitHub Actions release workflow | generated production profile validated before packaging |
 
 ## Production baseline procedure
 

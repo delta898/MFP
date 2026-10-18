@@ -11,16 +11,12 @@ test('runtime and package manifests use SQLite V2 without shipping Kuzu', () => 
     const packageLock = read('package-lock.json');
     const store = read('src/host/memory/runtime.js');
     const workflow = read('.github/workflows/build.yml');
-    const buildSh = read('build.sh');
-    const buildBat = read('build.bat');
 
     assert.equal(packageJson.dependencies?.kuzu, undefined);
     assert.doesNotMatch(packageLock, /node_modules[/\\]kuzu|registry[.]npmjs[.]org[/\\]kuzu/);
     assert.match(store, /SQLiteEventStore/);
     assert.doesNotMatch(store, /KuzuEventStore|loadKuzu/);
-    for (const source of [workflow, buildSh, buildBat]) {
-        assert.doesNotMatch(source, /node_modules[/\\]kuzu|kuzu-source/);
-    }
+    assert.doesNotMatch(workflow, /node_modules[/\\]kuzu|kuzu-source/);
 });
 
 test('retired Kuzu runtime and manual reset entrypoints are absent', () => {

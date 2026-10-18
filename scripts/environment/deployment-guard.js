@@ -1,12 +1,12 @@
 'use strict';
 
-const manifest = require('./manifest');
+const manifest = require('../../src/host/configuration/environment/manifest');
 const {
     ENVIRONMENTS,
     ENVIRONMENT_NAMES,
-    assertEnvironmentName,
-    evaluateBranchTarget
-} = require('./contract');
+    assertEnvironmentName
+} = require('../../src/host/configuration/environment/contract');
+const { evaluateBranchTarget } = require('./branch-target-policy');
 
 const DEPLOYMENT_OPERATIONS = Object.freeze({
     'schema-audit': Object.freeze({

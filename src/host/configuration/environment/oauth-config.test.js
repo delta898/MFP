@@ -2,11 +2,11 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
+const { resolveOAuthApplicationConfig } = require('./oauth-config');
 const {
     DEFAULT_CLOUDFLARE_OAUTH_SCOPES,
-    normalizeCloudflareOAuthScopes,
-    resolveOAuthApplicationConfig
-} = require('./oauth-config');
+    normalizeCloudflareOAuthScopes
+} = require('../../cloudflare/oauth-scopes');
 
 test('Cloudflare OAuth defaults to the validated Admin scope set', () => {
     assert.deepEqual(DEFAULT_CLOUDFLARE_OAUTH_SCOPES, [

@@ -32,14 +32,12 @@ test('release uploads use the Node 24 compatible GitHub Release action', () => {
     assert.equal((workflow.match(/softprops\/action-gh-release@v3/g) || []).length, 9);
 });
 
-test('local Windows packaging excludes retired Kuzu and invokes the shared runtime bundler', () => {
-    const buildBat = read('build.bat');
+test('Windows release packaging invokes the shared runtime bundler', () => {
+    const workflow = read('.github/workflows/build.yml');
     const installer = read('scripts/windows/BlogGeniusSetup.iss');
 
-    assert.doesNotMatch(buildBat, /node_modules[/\\]kuzu/);
-    assert.match(buildBat, /copy-vc-runtime[.]ps1/);
-    assert.match(buildBat, /install-startup-launcher[.]ps1/);
-    assert.match(buildBat, /PackageDir\s+"%ROOT_OUT%"/);
+    assert.match(workflow, /copy-vc-runtime[.]ps1 -PackageDir/);
+    assert.match(workflow, /install-startup-launcher[.]ps1 -PackageDir/);
     assert.match(installer, /DefaultDirName=\{localappdata\}\\Programs\\\{#MyAppName\}/);
     assert.match(installer, /PrivilegesRequired=lowest/);
 });

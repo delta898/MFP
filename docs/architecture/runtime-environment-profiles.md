@@ -18,12 +18,12 @@ The selector is `BLOGGENIUS_ENV`. `dev` is intentionally not accepted as an alia
 
 ```text
 process environment or generated build config
-  -> Environment Resolver
+  -> Host Environment Resolver (`src/host/configuration/environment/`)
       -> environment manifest lookup
       -> public URL/key source selection
       -> local/hosted URL validation
       -> immutable Runtime Environment Profile
-  -> shared Supabase public connection boundary
+  -> Supabase connection normalization (`src/adapters/supabase/`)
   -> License / Runtime Config / AI Catalog / Keyword / Knowledge / Surface Content
 ```
 
@@ -45,9 +45,9 @@ Local endpoints must use localhost. Development and production endpoints must us
 
 ## Generated build config
 
-`src/environment/secret.js` is no longer a committed source file. It is an ignored build artifact generated from environment-specific CI inputs or an explicit local release-build input. For OAuth, Development and Production source runs read `.env.oauth.dev` and `.env.oauth.prod`; packaged Production receives values from GitHub repository Secrets.
+`src/host/configuration/environment/secret.js` is not a committed source file. It is an ignored build artifact generated from environment-specific CI inputs or an explicit local release-build input. For OAuth, Development and Production source runs read `.env.oauth.dev` and `.env.oauth.prod`; packaged Production receives values from GitHub repository Secrets.
 
-The generated module contains only:
+The generated module is built by `scripts/environment/build-config.js` and contains only:
 
 - `BLOGGENIUS_ENV`
 - `SUPABASE_URL`
@@ -85,6 +85,8 @@ Startup logs and the config-status API expose only:
 - selection source.
 
 They never expose a publishable key, full URL, server secret, or project data.
+
+Environment effect policy is shared by `src/services/runtime-environment/effects.js`. Deployment branch/target policy, release artifact verification, and schema auditing are operator tooling under `scripts/environment/`; the desktop runtime does not import those tools.
 
 ## Compatibility boundary
 

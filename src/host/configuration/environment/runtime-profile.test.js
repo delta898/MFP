@@ -5,8 +5,6 @@ const assert = require('node:assert/strict');
 const {
     STATUS,
     resolveRuntimeEnvironmentProfile,
-    resolveSupabasePublicConnection,
-    resolveTrendsApiPublicConnection,
     toSafeRuntimeEnvironmentDiagnostic,
     validatePublicUrl
 } = require('./runtime-profile');
@@ -146,27 +144,7 @@ test('safe diagnostics never include public keys or full URLs', () => {
     assert.equal(serialized.includes('https://'), false);
 });
 
-test('connection helper prefers the resolved runtime profile', () => {
-    const connection = resolveSupabasePublicConnection({
-        RUNTIME_ENVIRONMENT_PROFILE: {
-            configured: true,
-            environment: 'development',
-            supabase: {
-                url: DEV_URL,
-                publishableKey: 'development-key',
-                endpointHost: 'development-project.supabase.co'
-            }
-        },
-        LICENSE_CHK_URL: PROD_URL,
-        LICENSE_CHK_KEY: 'legacy-key'
-    });
-
-    assert.equal(connection.environment, 'development');
-    assert.equal(connection.url, DEV_URL);
-    assert.equal(connection.publishableKey, 'development-key');
-});
-
-test('Trends API connection follows the selected environment without Production fallback', () => {
+test('runtime profile follows the selected Trends environment without Production fallback', () => {
     const local = resolveRuntimeEnvironmentProfile({
         env: {
             BLOGGENIUS_ENV: 'local',
@@ -185,13 +163,8 @@ test('Trends API connection follows the selected environment without Production 
         }
     });
 
-    assert.deepEqual(resolveTrendsApiPublicConnection({ RUNTIME_ENVIRONMENT_PROFILE: local }), {
-        environment: 'local',
-        configured: true,
-        url: 'http://127.0.0.1:4581',
-        endpointHost: '127.0.0.1:4581',
-        reason: ''
-    });
+    assert.equal(local.trendsApi.configured, true);
+    assert.equal(local.trendsApi.url, 'http://127.0.0.1:4581');
     assert.equal(missingDevelopment.status, STATUS.READY);
     assert.equal(missingDevelopment.trendsApi.configured, false);
     assert.equal(missingDevelopment.trendsApi.url, '');

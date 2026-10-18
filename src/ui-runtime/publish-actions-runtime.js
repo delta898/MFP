@@ -18,7 +18,7 @@ const { normalizePublishTargets } = require('../content/single-publish-target');
 const {
     MANUAL_PUBLISH_BLOCKED_CODE,
     assertDirectPublishAllowed
-} = require('../environment/runtime-effects');
+} = require('../services/runtime-environment/effects');
 const { rethrowIfCanceled, throwIfCanceled } = require('../utilities/async/cancellation');
 const { marked } = require('marked');
 

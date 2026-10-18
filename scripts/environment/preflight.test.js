@@ -7,7 +7,7 @@ const {
     resolveCurrentBranch,
     formatPreflightText,
     runCli
-} = require('./environment-preflight');
+} = require('./preflight');
 
 test('preflight CLI requires an explicit target and operation', () => {
     assert.throws(() => parseArgs(['check']), /--target is required/);

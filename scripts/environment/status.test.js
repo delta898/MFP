@@ -6,7 +6,7 @@ const {
     inspectLocalEnvironment,
     inspectDevelopmentEnvironment,
     formatEnvironmentStatus
-} = require('./environment-status');
+} = require('./status');
 
 const DEVELOPMENT_MANIFEST = Object.freeze({
     target: 'development',

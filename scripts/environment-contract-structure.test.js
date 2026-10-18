@@ -7,8 +7,8 @@ const path = require('node:path');
 const {
     ENVIRONMENT_SCHEMA_VERSION,
     ENVIRONMENT_NAMES
-} = require('../src/environment/contract');
-const runtimeManifest = require('../src/environment/manifest');
+} = require('../src/host/configuration/environment/contract');
+const runtimeManifest = require('../src/host/configuration/environment/manifest');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 
@@ -186,12 +186,10 @@ test('desktop Supabase clients resolve public connections through one environmen
 
 test('build environment config is generated, ignored, and validated explicitly', () => {
     const gitignore = fs.readFileSync(path.join(REPO_ROOT, '.gitignore'), 'utf8');
-    const sample = fs.readFileSync(path.join(REPO_ROOT, 'src/environment/secret.js.sample'), 'utf8');
+    const sample = fs.readFileSync(path.join(REPO_ROOT, 'src/host/configuration/environment/secret.js.sample'), 'utf8');
     const workflow = fs.readFileSync(path.join(REPO_ROOT, '.github/workflows/build.yml'), 'utf8');
-    const buildSh = fs.readFileSync(path.join(REPO_ROOT, 'build.sh'), 'utf8');
-    const buildBat = fs.readFileSync(path.join(REPO_ROOT, 'build.bat'), 'utf8');
 
-    assert.match(gitignore, /^src\/environment\/secret\.js$/m);
+    assert.match(gitignore, /^src\/host\/configuration\/environment\/secret\.js$/m);
     assert.match(sample, /BLOGGENIUS_ENV/);
     assert.match(sample, /SUPABASE_PUBLISHABLE_KEY/);
     assert.match(sample, /GOOGLE_OAUTH_CLIENT_ID/);
@@ -199,20 +197,21 @@ test('build environment config is generated, ignored, and validated explicitly',
     assert.match(sample, /CLOUDFLARE_OAUTH_CLIENT_ID/);
     assert.match(sample, /CLOUDFLARE_OAUTH_SCOPES/);
     assert.doesNotMatch(sample, /hocfjolcthvtgfaxjmse/);
-    assert.match(workflow, /build-environment-config\.js write/);
+    assert.match(workflow, /environment\/build-config\.js write/);
     assert.match(workflow, /BLOGGENIUS_BUILD_GOOGLE_OAUTH_CLIENT_ID/);
     assert.match(workflow, /BLOGGENIUS_BUILD_GOOGLE_OAUTH_CLIENT_SECRET/);
     assert.match(workflow, /BLOGGENIUS_BUILD_CLOUDFLARE_OAUTH_CLIENT_ID/);
     assert.match(workflow, /secrets[.]CLOUDFLARE_OAUTH_CLIENT_ID/);
     assert.match(workflow, /--target production/);
     assert.doesNotMatch(workflow, /echo "module\.exports/);
-    assert.match(buildSh, /build-environment-config\.js validate --target production/);
-    assert.match(buildBat, /build-environment-config\.js validate --target production/);
 });
 
-test('packaging includes the runtime environment implementation', () => {
+test('local shell build entrypoints and package script are retired', () => {
     const packageJson = readJson('package.json');
-    assert.ok(packageJson.pkg.scripts.includes('src/environment/**/*.js'));
+    assert.equal(fs.existsSync(path.join(REPO_ROOT, 'build.sh')), false);
+    assert.equal(fs.existsSync(path.join(REPO_ROOT, 'build.bat')), false);
+    assert.equal(packageJson.scripts.build, undefined);
+    assert.equal(packageJson.pkg, undefined);
 });
 
 test('target-aware deployment workflows are routed through the dry-run preflight boundary', () => {
@@ -220,14 +219,15 @@ test('target-aware deployment workflows are routed through the dry-run preflight
     const packageJson = readJson('package.json');
     const safety = inventory.deployment_safety;
 
-    assert.equal(safety.policy, 'src/environment/deployment-guard.js');
-    assert.equal(safety.preflight_cli, 'scripts/environment-preflight.js');
+    assert.equal(safety.policy, 'scripts/environment/deployment-guard.js');
+    assert.equal(safety.branch_target_policy, 'scripts/environment/branch-target-policy.js');
+    assert.equal(safety.preflight_cli, 'scripts/environment/preflight.js');
     assert.equal(safety.hosted_development_plan, 'scripts/hosted-development-plan.js');
     assert.equal(safety.hosted_development_execution_owner, 'supabase_environment_provider');
     assert.equal(safety.execution_mode, 'external_operator_handoff');
     assert.equal(
         packageJson.scripts['env:preflight'],
-        'node scripts/environment-preflight.js check'
+        'node scripts/environment/preflight.js check'
     );
     assert.equal(fs.existsSync(path.join(REPO_ROOT, safety.policy)), true);
     assert.equal(fs.existsSync(path.join(REPO_ROOT, safety.preflight_cli)), true);
@@ -251,6 +251,10 @@ test('production schema audit keeps only a sanitized report in the repository', 
 
 test('config loading and diagnostics expose only the resolved environment boundary', () => {
     const configLoader = fs.readFileSync(path.join(REPO_ROOT, 'src/config-loader.js'), 'utf8');
+    const supabaseAdapter = fs.readFileSync(
+        path.join(REPO_ROOT, 'src/adapters/supabase/public-connection.js'),
+        'utf8'
+    );
     const systemService = fs.readFileSync(
         path.join(REPO_ROOT, 'src/ui-api/services/system.service.js'),
         'utf8'
@@ -261,5 +265,6 @@ test('config loading and diagnostics expose only the resolved environment bounda
     assert.doesNotMatch(configLoader, /LICENSE_CHK_URL: internalSecrets\.LICENSE_CHK_URL/);
     assert.doesNotMatch(configLoader, /LICENSE_CHK_KEY: internalSecrets\.LICENSE_CHK_KEY/);
     assert.match(systemService, /toSafeRuntimeEnvironmentDiagnostic/);
+    assert.match(supabaseAdapter, /function resolveSupabasePublicConnection/);
     assert.doesNotMatch(systemService, /publishableKey/);
 });

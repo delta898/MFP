@@ -10,7 +10,7 @@ const {
 } = require('../../adapters/storage/license-keys/license-key-storage');
 const {
     resolveRuntimeEnvironmentProfile
-} = require('../../environment/runtime-profile');
+} = require('./environment/runtime-profile');
 
 const LICENSE_FILE_NAMES = Object.freeze({
     local: 'license.local.key',

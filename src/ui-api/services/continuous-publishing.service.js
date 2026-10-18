@@ -11,7 +11,7 @@ const {
     computeQueueRunProjections
 } = require('../../applications/blog/automation/settings-policy');
 const { createAutomationSettingsRepository, resolveAutomationSettingsPath } = require('../../adapters/storage/blog/automation-settings');
-const { resolveRuntimeEffectPolicy } = require('../../environment/runtime-effects');
+const { resolveRuntimeEffectPolicy } = require('../../services/runtime-environment/effects');
 const { createContinuousPublishingScheduler } = require('../../applications/blog/automation/scheduler');
 const { createBlogQueueManagementApplication } = require('../../applications/blog/queue-management/application');
 const { createBlogExecutionCoordinator } = require('../../applications/blog/execution/execution-coordinator');

@@ -2,7 +2,7 @@ const {
     LIVE_PUBLISH_BLOCKED_CODE,
     LIVE_PUBLISH_BLOCKED_MESSAGE,
     isLivePublishAllowed
-} = require('../../../environment/runtime-effects');
+} = require('../../../services/runtime-environment/effects');
 const {
     formatSnsPost,
     isSnsServiceSupported,

@@ -141,12 +141,12 @@ jobs:
           BLOGGENIUS_BUILD_GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
           BLOGGENIUS_BUILD_CLOUDFLARE_OAUTH_CLIENT_ID: ${{ secrets.CLOUDFLARE_OAUTH_CLIENT_ID }}
         run: |
-          node scripts/build-environment-config.js write \
+          node scripts/environment/build-config.js write \
             --target production \
-            --output src/environment/secret.js
-          node scripts/build-environment-config.js validate \
+            --output src/host/configuration/environment/secret.js
+          node scripts/environment/build-config.js validate \
             --target production \
-            --input src/environment/secret.js
+            --input src/host/configuration/environment/secret.js
 
       - name: Build Manuscript Editor UI
         run: npm run build:manuscript-editor

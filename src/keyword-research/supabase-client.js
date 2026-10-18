@@ -1,5 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
-const { resolveSupabasePublicConnection } = require('../environment/runtime-profile');
+const { resolveSupabasePublicConnection } = require('../adapters/supabase/public-connection');
 
 const DEFAULT_TIMEOUT_MS = 60000;
 

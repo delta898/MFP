@@ -187,7 +187,7 @@ Apply these principles to every change. The later sections define the project-sp
 - If internal work materially changes user-visible reliability, performance, privacy, or safety, describe only that observable outcome in user language and omit the implementation mechanism.
 - Do not turn implementation stages, development records, or raw commit history into release-note bullets. Consolidate related work into a smaller number of meaningful user outcomes and omit maintenance work that has no direct release value for users.
 - Before final release approval, verify version consistency, release notes, relevant automated tests, build inputs, and the final Git diff. Tagging, pushing, packaging, and publication remain separate explicit actions.
-- Future `build.sh` / `update.json` release metadata should be generated from `CHANGELOG.md`, not directly from raw commit messages.
+- Future `update.json` release metadata should be generated from `CHANGELOG.md`, not directly from raw commit messages.
 
 ## Documentation Rule
 - `docs/` is a maintained engineering asset, not a scratchpad. Keep it in sync with code.

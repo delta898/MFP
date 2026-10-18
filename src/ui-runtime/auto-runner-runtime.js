@@ -1,4 +1,4 @@
-const { isLivePublishAllowed } = require('../environment/runtime-effects');
+const { isLivePublishAllowed } = require('../services/runtime-environment/effects');
 
 function createAutoRunnerRuntime(deps = {}) {
     const {

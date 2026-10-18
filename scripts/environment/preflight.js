@@ -6,7 +6,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const {
     evaluateDeploymentPreflight
-} = require('../src/environment/deployment-guard');
+} = require('./deployment-guard');
 
 const DEFAULT_LINK_METADATA_PATH = 'supabase/.temp/linked-project.json';
 

@@ -9,7 +9,7 @@ const {
     verifyReleaseArtifact,
     verifyDevelopmentAttestation,
     createProductionPromotionChecklist
-} = require('../src/environment/release-artifact');
+} = require('./release-artifact');
 
 function valueAfter(args, flag) {
     const index = args.indexOf(flag);

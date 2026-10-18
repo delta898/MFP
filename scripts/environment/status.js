@@ -3,12 +3,12 @@
 
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { parseLocalSupabaseStatus } = require('./app-environment-launcher');
-const { loadDevelopmentEnvironment } = require('./project-environment');
+const { parseLocalSupabaseStatus } = require('../app-environment-launcher');
+const { loadDevelopmentEnvironment } = require('../project-environment');
 const {
     loadManifest,
     inspectHostedDevelopmentReadiness
-} = require('./hosted-development-readiness');
+} = require('../hosted-development-readiness');
 
 function safeHost(rawUrl) {
     try {
@@ -19,7 +19,7 @@ function safeHost(rawUrl) {
 }
 
 function inspectLocalEnvironment(options = {}) {
-    const repoRoot = path.resolve(options.repoRoot || path.join(__dirname, '..'));
+    const repoRoot = path.resolve(options.repoRoot || path.join(__dirname, '../..'));
     const spawn = options.spawn || spawnSync;
     const result = spawn('supabase', ['status', '--output', 'json'], {
         cwd: repoRoot,
@@ -58,7 +58,7 @@ function inspectLocalEnvironment(options = {}) {
 }
 
 function inspectDevelopmentEnvironment(options = {}) {
-    const repoRoot = path.resolve(options.repoRoot || path.join(__dirname, '..'));
+    const repoRoot = path.resolve(options.repoRoot || path.join(__dirname, '../..'));
     const env = loadDevelopmentEnvironment({
         repoRoot,
         fs: options.fs,

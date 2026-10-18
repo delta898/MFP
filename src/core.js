@@ -13,7 +13,7 @@ const { persistAuthSessionState } = require('./adapters/naver/auth-session');
 const { marked } = require('marked');
 const { parseImageBlocks } = require('./content/image-blocks');
 const { formatRelatedPostsForNaver } = require('./content/naver-related-posts');
-const { assertDirectPublishAllowed } = require('./environment/runtime-effects');
+const { assertDirectPublishAllowed } = require('./services/runtime-environment/effects');
 
 const IS_MAC = process.platform === 'darwin';
 const CMD_KEY = IS_MAC ? 'Meta' : 'Control';

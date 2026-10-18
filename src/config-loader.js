@@ -30,10 +30,10 @@ const {
 } = require('./host/configuration/user-config-store');
 const {
     resolveRuntimeEnvironmentProfile
-} = require('./environment/runtime-profile');
+} = require('./host/configuration/environment/runtime-profile');
 const {
     resolveOAuthApplicationConfig
-} = require('./environment/oauth-config');
+} = require('./host/configuration/environment/oauth-config');
 const { loadLicenseKey } = require('./adapters/storage/license-keys/license-key-storage');
 const { extractGoogleSheetId } = require('./adapters/google/sheets/spreadsheet-reference');
 const DefaultRuntimePaths = getDefaultRuntimePaths();
@@ -45,14 +45,9 @@ let internalSecrets = {};
 try {
     // Release build 시 환경별 public 연결값과 Desktop OAuth 앱 설정을 담아 생성된다.
     // 설치형 OAuth Client Secret은 앱에서 추출 가능하며 server secret으로 취급하지 않는다.
-    internalSecrets = require('./environment/secret');
+    internalSecrets = require('./host/configuration/environment/secret');
 } catch (_error) {
-    try {
-        // Read an existing local build artifact from the previous source location during migration.
-        internalSecrets = require('./config/secret');
-    } catch (_legacyError) {
-        internalSecrets = {};
-    }
+    internalSecrets = {};
 }
 
 const runtimeEnvironmentProfile = resolveRuntimeEnvironmentProfile({

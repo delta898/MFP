@@ -331,7 +331,7 @@ test('package scripts expose safe environment-specific launch shortcuts', () => 
         packageJson.scripts['app:development'],
         'node scripts/app-environment-launcher.js development'
     );
-    assert.equal(packageJson.scripts['env:status'], 'node scripts/environment-status.js');
+    assert.equal(packageJson.scripts['env:status'], 'node scripts/environment/status.js');
     assert.equal(
         packageJson.scripts['app:production'],
         'node scripts/production-app-launcher.js'

@@ -10,7 +10,7 @@ const {
     assertLivePublishAllowed,
     assertManualPublishAllowed,
     resolveRuntimeEffectPolicy
-} = require('./runtime-effects');
+} = require('./effects');
 
 function configFor(environment, configured, { manualPublish = false, automatedDraft = false, automatedPublish = false } = {}) {
     return {

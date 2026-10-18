@@ -7,7 +7,7 @@ const {
     requiresImageAsset,
     measurePost
 } = require('../../../services/social/publishing-content');
-const { assertManualPublishAllowed } = require('../../../environment/runtime-effects');
+const { assertManualPublishAllowed } = require('../../../services/runtime-environment/effects');
 const { createAiGenerationOperationManager } = require('../../../services/ai/generation-operation-manager');
 
 const MAX_CHANNELS = 3;

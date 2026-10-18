@@ -389,19 +389,18 @@
     "auth_configuration": [],
     "desktop_release_injection": [
       ".github/workflows/build.yml",
-      "build.sh",
-      "build.bat",
-      "scripts/build-environment-config.js",
-      "src/environment/secret.js.sample",
+      "scripts/environment/build-config.js",
+      "src/host/configuration/environment/secret.js.sample",
       "src/config-loader.js"
     ],
-    "generated_desktop_build_artifact": "src/environment/secret.js"
+    "generated_desktop_build_artifact": "src/host/configuration/environment/secret.js"
   },
   "deployment_safety": {
-    "policy": "src/environment/deployment-guard.js",
-    "preflight_cli": "scripts/environment-preflight.js",
-    "release_artifact": "src/environment/release-artifact.js",
-    "release_gate_cli": "scripts/environment-release-gate.js",
+    "policy": "scripts/environment/deployment-guard.js",
+    "branch_target_policy": "scripts/environment/branch-target-policy.js",
+    "preflight_cli": "scripts/environment/preflight.js",
+    "release_artifact": "scripts/environment/release-artifact.js",
+    "release_gate_cli": "scripts/environment/release-gate.js",
     "development_evidence_cli": "scripts/development-deployment-evidence.js",
     "validation_workflow": ".github/workflows/environment-validation.yml",
     "hosted_development_plan": "scripts/hosted-development-plan.js",
@@ -410,7 +409,7 @@
     "execution_mode": "external_operator_handoff"
   },
   "production_schema_audit": {
-    "analyzer": "src/environment/schema-audit.js",
+    "analyzer": "scripts/environment/schema-audit.js",
     "sanitized_report": "docs/architecture/production-schema-audit-2026-08-27.md",
     "raw_schema_committed": false,
     "row_data_collected": false

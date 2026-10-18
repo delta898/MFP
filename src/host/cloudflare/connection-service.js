@@ -16,7 +16,7 @@ const FLOW_TTL_MS = 10 * 60 * 1000;
 const {
     DEFAULT_CLOUDFLARE_OAUTH_SCOPES,
     normalizeCloudflareOAuthScopes
-} = require('../../environment/oauth-config');
+} = require('./oauth-scopes');
 const DEFAULT_OAUTH_REQUESTED_SCOPES = DEFAULT_CLOUDFLARE_OAUTH_SCOPES;
 
 function normalizeRequestedScopes(value) {

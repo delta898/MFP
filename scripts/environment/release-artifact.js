@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { spawnSync } = require('node:child_process');
-const { getBranchTargetPolicy } = require('./contract');
+const { getBranchTargetPolicy } = require('./branch-target-policy');
 
 const ARTIFACT_SCHEMA_VERSION = 1;
 const ATTESTATION_SCHEMA_VERSION = 1;

@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { createClient } = require('@supabase/supabase-js');
-const { resolveSupabasePublicConnection } = require('../../../environment/runtime-profile');
+const { resolveSupabasePublicConnection } = require('../../supabase/public-connection');
 
 function extractCatalogPayload(data) {
     if (!data || typeof data !== 'object' || Array.isArray(data)) return null;

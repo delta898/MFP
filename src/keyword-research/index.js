@@ -10,7 +10,7 @@ const {
 const { createTitleGenerator, normalizeTitleMode } = require('./title-generator');
 const { createQuickPublishRecommendationService } = require('./quick-publish-recommendations');
 const { createKeywordResearchSupabaseClient } = require('./supabase-client');
-const { resolveSupabasePublicConnection } = require('../environment/runtime-profile');
+const { resolveSupabasePublicConnection } = require('../adapters/supabase/public-connection');
 
 function createKeywordResearchService(options = {}) {
     const config = options.CONFIG;
