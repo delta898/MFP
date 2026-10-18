@@ -40,7 +40,7 @@
 - 생성 완료 시 AI Markdown을 editor에 반영하고 블록 모드에서 편집을 시작하도록 했다. 모드 전환, 원고 편집 후 저장, 이미지 생성 전 저장이 canonical draft의 revision 흐름을 따르도록 했다.
 - 개발 기록과 browser fixture를 AI 원고의 이미지 marker 및 Markdown 수정 흐름에 맞게 갱신했다.
 - 기준 구현 검증 통과: `node --check`, `git diff --check`, `node --test src/content/manuscript-draft-service.test.js` (26/26), `npm run test:ui-browser` (513 fixture requests).
-- 이번 legacy UI 비활성화 변경은 `node --check ui/scripts/features/blog-next/draft-inputs.js`, `node --check scripts/test-ui-browser-smoke.js`, `git diff --check` 통과. 업데이트된 브라우저 시나리오는 fixture 기대값에서 실패하여 재시도하지 않았고, 변경 후 전체 UI 회귀는 아직 확인되지 않았다.
+- 이번 legacy UI 비활성화 변경은 `node --check ui/scripts/features/blog/draft-inputs.js`, `node --check scripts/test-ui-browser-smoke.js`, `git diff --check` 통과. 업데이트된 브라우저 시나리오는 fixture 기대값에서 실패하여 재시도하지 않았고, 변경 후 전체 UI 회귀는 아직 확인되지 않았다.
 - 후속 브라우저 시나리오 점검에서 AI Markdown fixture가 동일한 원고의 재동기화에도 content version을 올려, 순차 발행된 대상 이력을 잘못 초기화하는 원인을 확인했다. fixture는 원고 Markdown이 실제로 달라질 때만 content version을 올리도록 수정했다. 재검증은 sandbox의 localhost 제약 및 승인 후 Chromium 기동 timeout으로 완료하지 못했다.
 - 전체 unit suite는 실행하지 않았다. 부모 feature branch의 `dev` 병합 gate에서 사용자 승인 후 진행한다.
 

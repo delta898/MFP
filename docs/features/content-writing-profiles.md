@@ -105,6 +105,7 @@ The Writing settings screen offers an explicit AI preview button. It sends the u
 - Both target a 400–600-character sample. Short samples are shown as returned, while long samples are trimmed to at most 600 characters with a sentence boundary preferred. Length alone never triggers another model call; only malformed JSON, a missing outline or an empty sample is repaired.
 - The sample uses two or three short paragraphs separated by blank lines. Blog preview shows one representative image block in the real multiline manuscript syntax instead of forcing the full article's image count into a short sample.
 - The same normalizer, kind projection, strategy adapter and prompt components used by generation are reused.
+- Both Blog and Shopping preview requests use the shared AI Generation service directly from the Settings feature; they do not go through either product's manuscript-generation Application. Shopping-specific prompt policy remains in the Shopping prompt module.
 - A malformed or incorrectly sized model result gets one bounded format-repair attempt.
 - Preview failure never changes the stored profile or runtime effective profile.
 
@@ -122,7 +123,8 @@ Primary code owners:
 - `src/content/writing-profile-repository.js`: selection, migration and atomic persistence
 - `src/content/writing-profile-projection.js`: blog/shopping capability allowlists
 - `src/content/blog-generation-prompt.js`: ordinary blog composition
-- `src/content/shopping-writing-profile-prompt.js`: shopping profile adapter
+- `src/applications/shopping/generation/writing-profile-prompt.js`: shopping profile prompt policy
+- `src/applications/shopping/generation/application.js`: Shopping text generation through the shared AI Generation service
 - `src/content/style-reference-*`: safe reference fetching and fingerprint analysis
 - `src/content/writing-profile-preview.js`: draft preview composition and validation
 - Settings service/controller/routes: API boundary and runtime activation

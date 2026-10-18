@@ -1,7 +1,6 @@
 const { createApiError } = require('../errors');
 const { TOPIC_STATUS } = require('../../continuous-publishing/contract');
-const { buildTopicSheetRow } = require('../../continuous-publishing/topic-capture');
-const { diagnoseQueueReadiness } = require('../../continuous-publishing/queue-readiness');
+const { diagnoseQueueReadiness } = require('../../applications/blog/queue-management/queue-readiness');
 const { diagnoseSiteTargetAvailability } = require('../../continuous-publishing/site-target-readiness');
 const { buildShoppingTopicSheetRow } = require('../../continuous-publishing/shopping-topic-capture');
 const {
@@ -12,10 +11,10 @@ const {
 } = require('../../continuous-publishing/automation-settings');
 const { resolveRuntimeEffectPolicy } = require('../../environment/runtime-effects');
 const { createContinuousPublishingScheduler } = require('../../continuous-publishing/scheduler');
-const { resolveReadyQueueMove } = require('../../continuous-publishing/queue-order');
+const { createBlogQueueManagementApplication } = require('../../applications/blog/queue-management/application');
 const { createBlogExecutionCoordinator } = require('../../applications/blog/execution/execution-coordinator');
-const { buildDashboardBlogOperationsOverview } = require('../../applications/blog/dashboard/blog-operations-read-model');
-const { buildDashboardBlogResultStats } = require('../../applications/blog/dashboard/blog-result-stats-read-model');
+const { buildBlogOperationsOverview } = require('../../applications/blog/operations-reporting/operations-overview-read-model');
+const { buildBlogPublishingResultStats } = require('../../applications/blog/operations-reporting/publishing-result-stats-read-model');
 const { presentPublishingProgress, buildCompletionLinks } = require('../../adapters/ui/blog-publishing-presentation');
 const {
     CONTENT_LIFECYCLE_KIND,
@@ -32,6 +31,7 @@ function createContinuousPublishingService(deps = {}) {
         executeSiteHostingQueueRowAction: deps.executeSiteHostingQueueRowAction
     });
     const pathImpl = path || require('node:path');
+    let serviceApi = null;
     let automationSettingsRepository = deps.automationSettingsRepository || null;
     let automationScheduler = deps.automationScheduler || null;
     const blogNextExecutionCoordinator = deps.blogNextExecutionCoordinator
@@ -251,6 +251,63 @@ function createContinuousPublishingService(deps = {}) {
             throw createApiError(409, 'CONTINUOUS_RUNNER_BUSY', '다른 글감을 처리하는 동안에는 발행 대기열을 변경하거나 추가 실행할 수 없습니다.');
         }
     }
+
+    const blogQueueManagementApplication = deps.blogQueueManagementApplication || createBlogQueueManagementApplication({
+        now: currentTimeMs,
+        isBusy: () => blogNextExecutionCoordinator.getStatus().busy,
+        diagnoseTopic: diagnoseQueueTopic,
+        getReadyQueue: (options) => serviceApi.getReadyQueue(options),
+        addQueueSchedule,
+        getActiveRowIndex: () => runnerPromise && Number.isInteger(Number(runnerState.rowIndex)) ? Number(runnerState.rowIndex) : null,
+        topicStore: {
+            async prepareRead() {
+                await ensureSheetsReadyForUi();
+                Utils.clearSheetCache('topics');
+            },
+            async readByStatus(status, options = {}) {
+                await ensureSheetsReadyForUi();
+                Utils.clearSheetCache('topics');
+                return Utils.readGoogleSheetTopicsAll({ ...options, status });
+            },
+            async readAll(options = {}) {
+                await ensureSheetsReadyForUi();
+                Utils.clearSheetCache('topics');
+                return Utils.readGoogleSheetTopicsAll(options);
+            },
+            async list(query = {}) {
+                await ensureSheetsReadyForUi();
+                Utils.clearSheetCache('topics');
+                const result = await Utils.readGoogleSheetTopicsAll(query);
+                return { result, sortBy: query.sortBy || 'rowNumber', sortDir: query.sortDir || 'desc' };
+            },
+            async append(rows, options) {
+                await ensureSheetsReadyForUi();
+                const result = await Utils.appendGoogleSheetTopics(rows, options);
+                if (result?.success) Utils.clearSheetCache('topics');
+                return result;
+            },
+            async updateEditableFields(rowIndex, fields) {
+                await Utils.updateGoogleSheetTopicEditableFields(rowIndex, fields);
+                Utils.clearSheetCache('topics');
+            },
+            async updateStatus(rowIndex, status, reason) {
+                await Utils.updateGoogleSheetStatus(rowIndex, status, reason, { throwOnError: true });
+                Utils.clearSheetCache('topics');
+            },
+            async deleteRows(rowIndices) {
+                const result = await executeBlogTopicsDelete({ rowIndices });
+                if (result?.success) Utils.clearSheetCache('topics');
+                return result;
+            },
+            async moveRow(move) {
+                if (typeof Utils.moveGoogleSheetTopicRow !== 'function') {
+                    throw createApiError(500, 'QUEUE_MOVE_UNAVAILABLE', '대기열 순서 변경 기능을 준비하지 못했습니다.');
+                }
+                await Utils.moveGoogleSheetTopicRow(move);
+                Utils.clearSheetCache('topics');
+            }
+        }
+    });
 
     async function startShoppingReadyTopic(requestBody = {}) {
         const rowIndex = parseRowIndex(requestBody.rowIndex);
@@ -656,7 +713,7 @@ function createContinuousPublishingService(deps = {}) {
         };
     }
 
-    return {
+    serviceApi = {
         startAutomationScheduler() {
             return getAutomationScheduler().start();
         },
@@ -682,33 +739,7 @@ function createContinuousPublishingService(deps = {}) {
         },
 
         async captureTopic(requestBody = {}) {
-            const action = String(requestBody.action || '').trim();
-            if (!['save', 'enqueue'].includes(action)) {
-                throw createApiError(400, 'TOPIC_CAPTURE_ACTION_INVALID', '글감 저장 방식을 확인해 주세요.');
-            }
-            const ready = action === 'enqueue';
-            let row;
-            try {
-                row = buildTopicSheetRow(requestBody, { ready, now: currentTimeMs() });
-            } catch (error) {
-                throw createApiError(400, error.code || 'TOPIC_CAPTURE_INVALID', error.message, error.details);
-            }
-
-            await ensureSheetsReadyForUi();
-            const result = await Utils.appendGoogleSheetTopics([row], {
-                defaultStatus: row.status,
-                postAppendDelayMs: 0
-            });
-            if (!result?.success) {
-                throw createApiError(400, 'TOPIC_CAPTURE_FAILED', result?.message || '글감을 저장하지 못했습니다.');
-            }
-
-            return {
-                action,
-                status: row.status,
-                rowNumber: Array.isArray(result.rowNumbers) ? result.rowNumbers[0] ?? null : null,
-                rowIndex: Array.isArray(result.rowIndices) ? result.rowIndices[0] ?? null : null
-            };
+            return blogQueueManagementApplication.captureTopic(requestBody || {});
         },
 
         async captureShoppingTopic(requestBody = {}) {
@@ -742,71 +773,14 @@ function createContinuousPublishingService(deps = {}) {
         },
 
         async getReadyQueue({ searchParams } = {}) {
-            await ensureSheetsReadyForUi();
-            Utils.clearSheetCache('topics');
             const requestedLimit = Number.parseInt(String(searchParams?.get('limit') || '50'), 10);
             const limit = Number.isInteger(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 100) : 50;
-            const topics = await Utils.readGoogleSheetTopicsAll({
-                limit: 100000,
-                offset: 0,
-                sortBy: 'rowNumber',
-                sortDir: 'asc'
-            });
-            const allItems = Array.isArray(topics?.items) ? topics.items : [];
-            const readyItems = allItems.filter(item => String(item?.status || '').trim() === TOPIC_STATUS.READY);
-            const savedItems = allItems.filter(item => String(item?.status || '').trim() === TOPIC_STATUS.WAITING);
-            const activeRowIndex = runnerPromise && Number.isInteger(Number(runnerState.rowIndex))
-                ? Number(runnerState.rowIndex)
-                : null;
-            const activeItem = activeRowIndex === null
-                ? null
-                : allItems.find(item => Number(item?.rowIndex) === activeRowIndex) || null;
-            const scheduledQueue = addQueueSchedule(readyItems);
-            const visibleItems = scheduledQueue.items.map(item => Number(item?.rowIndex) === activeRowIndex
-                ? { ...item, processing_estimate_at: null, queue_runtime_state: 'running' }
-                : item);
-            if (activeItem && !visibleItems.some(item => Number(item?.rowIndex) === activeRowIndex)) {
-                visibleItems.push({ ...activeItem, processing_estimate_at: null, queue_runtime_state: 'running' });
-                visibleItems.sort((left, right) => Number(left?.rowNumber || 0) - Number(right?.rowNumber || 0));
-            }
-            const diagnosedItems = await Promise.all(visibleItems.map(async item => {
-                const diagnosis = await diagnoseQueueTopic(item);
-                return {
-                    ...item,
-                    queue_readiness: {
-                        ready: diagnosis.ready,
-                        issues: diagnosis.issues
-                    }
-                };
-            }));
-            const runningCount = activeItem && !readyItems.some(item => Number(item?.rowIndex) === activeRowIndex) ? 1 : 0;
-            return {
-                items: diagnosedItems.slice(0, limit),
-                saved_items: await Promise.all(savedItems.slice(0, limit).map(async item => {
-                    const diagnosis = await diagnoseQueueTopic(item);
-                    return {
-                        ...item,
-                        queue_readiness: {
-                            ready: diagnosis.ready,
-                            issues: diagnosis.issues
-                        }
-                    };
-                })),
-                total: readyItems.length + runningCount,
-                limit,
-                offset: 0,
-                automation_schedule: scheduledQueue.automation_schedule,
-                status_summary: {
-                    saved: savedItems.length,
-                    ready: readyItems.length,
-                    running: runningCount
-                }
-            };
+            return blogQueueManagementApplication.getReadyQueue({ limit });
         },
 
         async getDashboardOverview() {
             const queue = await this.getReadyQueue({ searchParams: new URLSearchParams({ limit: '4' }) });
-            return buildDashboardBlogOperationsOverview({
+            return buildBlogOperationsOverview({
                 queue,
                 runner: getRunnerStatusSnapshot(),
                 generatedAt: typeof now === 'function' ? now() : new Date()
@@ -829,7 +803,7 @@ function createContinuousPublishingService(deps = {}) {
             const wordpressUrl = CONFIG.CONFIG_IS_WP_SET === true
                 ? String(CONFIG.WORDPRESS_URL || '').trim().replace(/\/$/, '')
                 : '';
-            return buildDashboardBlogResultStats({
+            return buildBlogPublishingResultStats({
                 events,
                 available,
                 generatedAt,
@@ -841,56 +815,7 @@ function createContinuousPublishingService(deps = {}) {
         },
 
         async updateTopic(requestBody = {}) {
-            const rowIndex = parseRowIndex(requestBody.rowIndex);
-            const action = String(requestBody.action || 'enqueue').trim();
-            if (!['save', 'enqueue'].includes(action)) {
-                throw createApiError(400, 'TOPIC_UPDATE_ACTION_INVALID', '글감 저장 방식을 확인해 주세요.');
-            }
-            const sourceStatus = String(requestBody.sourceStatus || TOPIC_STATUS.READY).trim();
-            if (![TOPIC_STATUS.WAITING, TOPIC_STATUS.READY].includes(sourceStatus)) {
-                throw createApiError(400, 'TOPIC_SOURCE_STATUS_INVALID', '수정할 글감 상태를 확인해 주세요.');
-            }
-            if (sourceStatus === TOPIC_STATUS.READY) requireRunnerIdle();
-            await requireTopicInStatus(rowIndex, sourceStatus);
-            const ready = sourceStatus === TOPIC_STATUS.READY || action === 'enqueue';
-            let row;
-            try {
-                row = buildTopicSheetRow(requestBody, { ready, now: currentTimeMs() });
-            } catch (error) {
-                throw createApiError(400, error.code || 'TOPIC_UPDATE_INVALID', error.message);
-            }
-            if (ready) {
-                const readiness = await diagnoseQueueTopic(row);
-                if (!readiness.ready) {
-                    throw createApiError(
-                        400,
-                        readiness.issues[0]?.code || 'TOPIC_QUEUE_NOT_READY',
-                        readinessMessage(readiness.issues) || '대기열에 추가할 수 없는 글감입니다.',
-                        readiness.issues
-                    );
-                }
-            }
-
-            await Utils.updateGoogleSheetTopicEditableFields(rowIndex, {
-                title: row.options.title || '',
-                category: row.category,
-                postStatus: row.postStatus,
-                scheduleDate: row.scheduleDate,
-                subject: row.subject,
-                keywords: row.keywords,
-                instruction: row.content_guide.additional_instructions,
-                referenceUrl: row.content_guide.reference_urls,
-                status: row.status,
-                imageMode: row.image_options.mode,
-                imageGeneration: row.image_options.generate,
-                externalReference: row.use_external_ref,
-                writingStrategy: row.writing_strategy,
-                writingOverrides: row.content_guide.writing_overrides,
-                platforms: row.targets,
-                siteTarget: row.options.site_target || null
-            });
-            Utils.clearSheetCache('topics');
-            return { action, rowIndex, rowNumber: rowIndex + 2, status: row.status };
+            return blogQueueManagementApplication.updateTopic(requestBody || {});
         },
 
         updateReadyTopic(requestBody = {}) {
@@ -898,88 +823,22 @@ function createContinuousPublishingService(deps = {}) {
         },
 
         async deleteSavedTopic(requestBody = {}) {
-            const rowIndex = parseRowIndex(requestBody.rowIndex);
-            await requireTopicInStatus(rowIndex, TOPIC_STATUS.WAITING);
             if (typeof executeBlogTopicsDelete !== 'function') {
                 throw createApiError(500, 'SAVED_TOPIC_DELETE_UNAVAILABLE', '보관한 글감 삭제 기능을 준비하지 못했습니다.');
             }
-            const result = await executeBlogTopicsDelete({ rowIndices: [rowIndex] });
-            if (!result?.success) {
-                throw createApiError(400, result?.code || 'SAVED_TOPIC_DELETE_FAILED', result?.message || '보관한 글감을 삭제하지 못했습니다.');
-            }
-            Utils.clearSheetCache('topics');
-            return { rowIndex, rowNumber: rowIndex + 2, deleted: true };
+            return blogQueueManagementApplication.deleteSavedTopic(requestBody || {});
         },
 
         async removeReadyTopic(requestBody = {}) {
-            requireRunnerIdle();
-            const rowIndex = parseRowIndex(requestBody.rowIndex);
-            await requireReadyQueueItem(rowIndex);
-            await Utils.updateGoogleSheetStatus(
-                rowIndex,
-                TOPIC_STATUS.WAITING,
-                '연속 발행 대기열에서 제외',
-                { throwOnError: true }
-            );
-            Utils.clearSheetCache('topics');
-            return { rowIndex, rowNumber: rowIndex + 2, status: TOPIC_STATUS.WAITING };
+            return blogQueueManagementApplication.removeReadyTopic(requestBody || {});
         },
 
         async addSavedTopicToQueue(requestBody = {}) {
-            requireRunnerIdle();
-            const rowIndex = parseRowIndex(requestBody.rowIndex);
-            const topic = await requireTopicInStatus(rowIndex, TOPIC_STATUS.WAITING);
-            const readiness = await diagnoseQueueTopic(topic);
-            if (!readiness.ready) {
-                throw createApiError(
-                    409,
-                    readiness.issues[0]?.code || 'TOPIC_QUEUE_NOT_READY',
-                    readinessMessage(readiness.issues) || '대기열에 추가할 수 없는 글감입니다.',
-                    readiness.issues
-                );
-            }
-            await Utils.updateGoogleSheetStatus(
-                rowIndex,
-                TOPIC_STATUS.READY,
-                '연속 발행 대기열에 추가',
-                { throwOnError: true }
-            );
-            Utils.clearSheetCache('topics');
-            return { rowIndex, rowNumber: rowIndex + 2, status: TOPIC_STATUS.READY };
+            return blogQueueManagementApplication.addSavedTopicToQueue(requestBody || {});
         },
 
         async reorderReadyTopic(requestBody = {}) {
-            requireRunnerIdle();
-            const rowIndex = parseRowIndex(requestBody.rowIndex);
-            await ensureSheetsReadyForUi();
-            Utils.clearSheetCache('topics');
-            const topics = await Utils.readGoogleSheetTopicsAll({
-                limit: 100000,
-                offset: 0,
-                sortBy: 'rowNumber',
-                sortDir: 'asc'
-            });
-            let move;
-            try {
-                move = resolveReadyQueueMove(topics?.items, rowIndex, requestBody.direction);
-            } catch (error) {
-                throw createApiError(error.code === 'QUEUE_MOVE_BOUNDARY' ? 409 : 400, error.code || 'QUEUE_MOVE_INVALID', error.message);
-            }
-            if (typeof Utils.moveGoogleSheetTopicRow !== 'function') {
-                throw createApiError(500, 'QUEUE_MOVE_UNAVAILABLE', '대기열 순서 변경 기능을 준비하지 못했습니다.');
-            }
-            await Utils.moveGoogleSheetTopicRow(move);
-            Utils.clearSheetCache('topics');
-            const queue = await this.getReadyQueue({ searchParams: new URLSearchParams('limit=50') });
-            return {
-                ...queue,
-                moved: {
-                    direction: move.direction,
-                    subject: move.source.subject || '',
-                    previousRowIndex: Number(move.source.rowIndex),
-                    adjacentRowIndex: Number(move.target.rowIndex)
-                }
-            };
+            return blogQueueManagementApplication.reorderReadyTopic(requestBody || {});
         },
 
         startNextReadyTopic(requestBody = {}) {
@@ -1006,6 +865,7 @@ function createContinuousPublishingService(deps = {}) {
             return getGlobalStatusSummary();
         }
     };
+    return serviceApi;
 }
 
 module.exports = {

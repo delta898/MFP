@@ -2,8 +2,8 @@ const Constants = require('../constants');
 const { normalizeWritingProfile, validateWritingProfile } = require('./writing-profile');
 const { projectWritingProfile } = require('./writing-profile-projection');
 const { buildBlogGenerationPrompt } = require('./blog-generation-prompt');
-const { buildShoppingWritingProfilePromptFromProjection } = require('./shopping-writing-profile-prompt');
-const { buildShoppingEditorialPlanPrompt } = require('./shopping-editorial-plan-prompt');
+const { buildShoppingWritingProfilePromptFromProjection } = require('../applications/shopping/generation/writing-profile-prompt');
+const { buildShoppingEditorialPlanPrompt } = require('../applications/shopping/generation/editorial-plan');
 const { resolveWritingStrategy, buildShoppingWritingStrategyPrompt } = require('./writing-strategy');
 
 const DEFAULT_BLOG_PREVIEW_TOPIC = '일상에서 디지털 메모 습관을 만드는 방법';
@@ -225,9 +225,9 @@ function buildShoppingPreviewPrompt(input = {}, options = {}) {
 }
 
 function createWritingProfilePreviewService(options = {}) {
-    const { generateBlogText, callShoppingText, config = {}, constants = Constants } = options;
-    if (typeof generateBlogText !== 'function' || typeof callShoppingText !== 'function') {
-        throw new Error('writing profile preview model dependencies are required.');
+    const { generateText, config = {}, constants = Constants } = options;
+    if (typeof generateText !== 'function') {
+        throw new Error('writing profile preview text generation dependency is required.');
     }
     return async function generateWritingProfilePreview(input = {}) {
         const kind = String(input.kind || '').trim().toLowerCase();
@@ -238,9 +238,7 @@ function createWritingProfilePreviewService(options = {}) {
                 : null);
         if (!composed) throw createPreviewError('WRITING_PREVIEW_KIND_INVALID', '미리보기 종류는 blog 또는 shopping이어야 합니다.');
         const usageLabel = kind === 'blog' ? '블로그 글쓰기 프로필 미리보기' : '쇼핑 글쓰기 프로필 미리보기';
-        const generate = (prompt, label) => kind === 'blog'
-            ? generateBlogText(prompt, buildPreviewModelOptions(label))
-            : callShoppingText(prompt, 1, buildPreviewModelOptions(label));
+        const generate = (prompt, label) => generateText(prompt, buildPreviewModelOptions(label));
         const raw = await generate(composed.prompt, usageLabel);
         let parsed;
         try {

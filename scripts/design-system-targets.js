@@ -1,7 +1,7 @@
 const DESIGN_SYSTEM_VIEW_IDS = Object.freeze([
   'view-blog-next',
   'view-settings-next',
-  'view-dashboard-beta',
+  'view-dashboard',
   'view-card-news',
   'view-shopping',
   'view-social',
@@ -81,8 +81,8 @@ const DESIGN_SYSTEM_STYLE_TARGETS = Object.freeze([
   target('ui/styles/features/social-actions.css', PRODUCT_CONTRACTS),
   target('ui/styles/features/social-density.css', PRODUCT_CONTRACTS),
   target('ui/styles/features/social-surfaces.css', PRODUCT_CONTRACTS),
-  target('ui/styles/features/dashboard-beta.css', PRODUCT_CONTRACTS),
-  target('ui/styles/features/dashboard-beta-responsive.css', PRODUCT_CONTRACTS),
+  target('ui/styles/features/dashboard.css', PRODUCT_CONTRACTS),
+  target('ui/styles/features/dashboard-responsive.css', PRODUCT_CONTRACTS),
   target('ui/styles/features/help.css', PRODUCT_CONTRACTS),
   target('ui/styles/features/shopping-connect.css', [CONTRACTS.TYPOGRAPHY, CONTRACTS.MOTION], {
     strictStyleExclusion: 'The preview hidden-state utility intentionally overrides composed display rules.'

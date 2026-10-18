@@ -11,7 +11,7 @@ const uiRoot = path.join(repoRoot, 'ui');
 
 test('Card News is a top-level source-preview workflow', () => {
     const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot }).html;
-    const navigation = fs.readFileSync(path.join(uiRoot, 'scripts/foundation/navigation.js'), 'utf8');
+    const navigation = fs.readFileSync(path.join(uiRoot, 'scripts/shell/navigation.js'), 'utf8');
     const script = [
         'scripts/shared/buffer-publishing-controls.js',
         'scripts/shared/grid-tail-spacers.js',

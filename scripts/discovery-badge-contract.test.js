@@ -7,8 +7,8 @@ const root = path.resolve(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
 test('discovery surfaces use the shared status badge instead of hex palettes', () => {
-  const quickDiscovery = read('ui/scripts/features/discovery/quick-discovery.js');
-  const keywordModal = read('ui/scripts/features/discovery/keyword-modal.js');
+  const quickDiscovery = read('ui/scripts/features/blog/discovery/quick-discovery.js');
+  const keywordModal = read('ui/scripts/features/blog/discovery/keyword-modal.js');
   const modalCss = [
     'ui/styles/features/discovery-modal.css',
     'ui/styles/features/discovery-keyword-research.css',

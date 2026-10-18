@@ -72,7 +72,7 @@ This document captures the current runtime boundaries after the CLI-removal refa
 
 ## Dashboard Composition Boundary
 
-Dashboard is a UI screen that composes read models from feature-owned APIs; it does not own the underlying queue, account, site-hosting, recommendation, or publishing state. Dashboard markup stays in `ui/partials/views/`, styles in `ui/styles/features/`, and its browser controller in `ui/scripts/features/dashboard/`. Blog-specific dashboard projections belong to `src/applications/blog/dashboard/`, even when a UI API service requests them. Keep those projections limited to Dashboard-facing read DTOs and leave their source state with the Blog Application and other owning capabilities.
+Dashboard is a UI screen that composes read models from feature-owned APIs; it does not own the underlying queue, account, site-hosting, recommendation, or publishing state. Its markup is `ui/partials/views/dashboard.html`, its browser controller is `ui/scripts/features/dashboard/dashboard.js`, and its styles are `ui/styles/features/dashboard.css` and `dashboard-responsive.css`. Keep this presentation and navigation behavior in the UI layer. Blog's operations overview and publishing result statistics are assembled in `src/applications/blog/operations-reporting/`, even when a UI API service requests them. Keep these projections limited to read DTOs and leave their source state with the Blog Application and other owning capabilities.
 
 The former `dashboard-activities.json` recorder was not read by Dashboard or Agent Memory. Its writer, store, and call sites are removed. Existing files are preserved as inert user data; separate Agent Memory event and lifecycle records remain independent.
 
@@ -126,11 +126,23 @@ background triggers remain outside this surface.
   within the owning layer. Treat 900 lines as a review prompt and 1,400 as the
   hard ceiling for a CSS module.
 - Keep `ui/app.js` as the ordered classic-script manifest. Place shared bootstrap
-  and utilities in `ui/scripts/foundation/`, navigation and view orchestration in
-  `ui/scripts/shell/`, and product behavior in `ui/scripts/features/`. Use 800
-  lines as the review prompt and 1,400 as the hard ceiling for a JavaScript module.
+  and browser primitives in `ui/scripts/foundation/`, application-wide shell,
+  navigation, and lifecycle behavior in `ui/scripts/shell/`, reusable UI behavior
+  in `ui/scripts/shared/`, and screen behavior in `ui/scripts/features/<vertical>/`.
+  Use product names such as `blog/`, `shopping/`, `card-news/`, `sns/`, and
+  `settings/`; keep Dashboard presentation under `features/dashboard/`. A browser
+  controller that reads or updates the DOM stays in `ui/`, not in
+  `src/applications/<name>/`; Applications own the corresponding business flow
+  and read-model composition. Use 800 lines as the review prompt and 1,400 as
+  the hard ceiling for a JavaScript module.
   The transitional `legacy-actions-controllers.js` has a 2,500-line review prompt
   and a 2,800-line hard ceiling while behavior continues to move into feature modules.
+- Keep `ui/scripts/features/content-workspace/` only for the legacy combined
+  Blog/Shopping content screen whose modules still mix both verticals. Do not put
+  new behavior there; split a module by responsibility when its callers and shared
+  state can be migrated together. Keep genuinely reusable publishing controls in
+  `ui/scripts/shared/publishing/`; product-specific controls belong with their
+  product UI. Keep third-party browser code in `ui/scripts/vendor/`.
 - Apply the same two-stage size policy to manifests by include count: HTML 25
   recommended / 40 maximum, CSS 120 / 160, and JavaScript 150 / 200. These are
   growth limits; valid ordering, unique/reachable includes, and successful

@@ -117,48 +117,11 @@ function buildOpenAiChatRequest(modelConfig = {}, prompt = '', options = {}) {
     return { definition, body };
 }
 
-function resolveOpenAiImageRequest(modelConfig = {}, options = {}) {
-    const definition = getModelRuntimeDefinition('image', modelConfig);
-    const aspectRatio = String(options.aspectRatio || '').trim();
-    const imageSize = String(options.imageSize || '').trim().toUpperCase();
-    const supportsArbitrarySize = definition.capabilities.arbitrary_size === true;
-
-    let size = '1024x1024';
-    if (supportsArbitrarySize) {
-        if (aspectRatio === '4:3') {
-            size = imageSize === '2K' ? '2048x1536' : '1536x1152';
-        } else if (aspectRatio === '3:4') {
-            size = imageSize === '2K' ? '1536x2048' : '1152x1536';
-        } else if (aspectRatio === '16:9') {
-            size = imageSize === '2K' ? '2048x1152' : '1536x864';
-        } else if (aspectRatio === '9:16') {
-            size = imageSize === '2K' ? '1152x2048' : '864x1536';
-        } else if (imageSize === '2K') {
-            size = '2048x2048';
-        }
-    }
-
-    const body = {
-        model: String(modelConfig.code || '').trim(),
-        prompt: String(options.prompt || '')
-    };
-    if (size) body.size = size;
-    if (definition.capabilities.response_format !== false) {
-        body.response_format = 'b64_json';
-    }
-    if (Array.isArray(definition.capabilities.quality) && definition.capabilities.quality.includes('auto')) {
-        body.quality = 'auto';
-    }
-
-    return { definition, body };
-}
-
 module.exports = {
     applyTextRuntimePolicy,
     buildOpenAiChatRequest,
     getModelRuntimeDefinition,
     normalizeReasoningEffort,
     resolveSupportedReasoningEffort,
-    withAutomaticReasoningEffort,
-    resolveOpenAiImageRequest
+    withAutomaticReasoningEffort
 };

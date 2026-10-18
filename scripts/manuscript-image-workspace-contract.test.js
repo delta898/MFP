@@ -19,13 +19,13 @@ test('manuscript image file reader resolves the browser data URL', async () => {
   }
   const context = { Blob: FakeBlob, FileReader: FakeFileReader };
   vm.createContext(context);
-  vm.runInContext(`${read('ui/scripts/features/blog-next/draft-images.js')}\nglobalThis.__readFile = readBlogNextFileAsDataUrl;`, context);
+  vm.runInContext(`${read('ui/scripts/features/blog/draft-images.js')}\nglobalThis.__readFile = readBlogNextFileAsDataUrl;`, context);
 
   assert.equal(await context.__readFile(new FakeBlob('data:image/png;base64,aGVsbG8=')), 'data:image/png;base64,aGVsbG8=');
 });
 
 test('manuscript image actions live in the preview and expose accessible empty/present states', () => {
-  const editor = read('ui/scripts/features/blog-next/manuscript-editor-entry.js');
+  const editor = read('ui/scripts/features/blog/manuscript-editor-entry.js');
   const css = read('ui/styles/features/continuous-publishing-drafts.css');
 
   assert.match(editor, /media\.append\(artwork, mediaStatus, dropHint, mediaFeedback, mediaActions, expand, fileInput\)/);
@@ -41,14 +41,14 @@ test('manuscript image actions live in the preview and expose accessible empty/p
 });
 
 test('Markdown-to-block transitions rehydrate existing manuscript image assets', () => {
-  const inputs = read('ui/scripts/features/blog-next/draft-inputs.js');
+  const inputs = read('ui/scripts/features/blog/draft-inputs.js');
 
   assert.match(inputs, /function restoreBlogNextEditorImages\(state\)\s*\{\s*const preview = state\?\.preview;\s*state\?\.editor\?\.syncImages\?\.\(\s*preview\?\.images \|\| \[\]/);
   assert.equal((inputs.match(/restoreBlogNextEditorImages\(state\);/g) || []).length, 1);
 });
 
 test('local image drop targets validate one supported file and do not leak editor drop handling', () => {
-  const editor = read('ui/scripts/features/blog-next/manuscript-editor-entry.js');
+  const editor = read('ui/scripts/features/blog/manuscript-editor-entry.js');
   const cardNews = read('ui/scripts/features/card-news/generation-workflow.js');
   const cardNewsCss = read('ui/styles/features/card-news-results.css');
 
@@ -67,9 +67,9 @@ test('local image drop targets validate one supported file and do not leak edito
 });
 
 test('manuscript editors add image blocks from clipboard and canvas drops through the existing image import flow', () => {
-  const editor = read('ui/scripts/features/blog-next/manuscript-editor-entry.js');
-  const images = read('ui/scripts/features/blog-next/draft-images.js');
-  const inputs = read('ui/scripts/features/blog-next/draft-inputs.js');
+  const editor = read('ui/scripts/features/blog/manuscript-editor-entry.js');
+  const images = read('ui/scripts/features/blog/draft-images.js');
+  const inputs = read('ui/scripts/features/blog/draft-inputs.js');
   const css = read('ui/styles/features/continuous-publishing-drafts.css');
 
   assert.match(editor, /function extractManuscriptImageFiles\(dataTransfer\)/);

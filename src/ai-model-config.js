@@ -2,7 +2,7 @@ const {
     CLAUDE_OPENAI_BASE_URL,
     KIE_BASE_URL,
     OPENAI_BASE_URL,
-} = require('./ai-model-catalog');
+} = require('../packages/plugins/core/ai-gateway/provider-endpoints');
 const {
     findModelDefinition,
     getAiModelCatalog

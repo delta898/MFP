@@ -1,15 +1,16 @@
 const {
     CLAUDE_OPENAI_BASE_URL,
     KIE_BASE_URL,
-    OPENAI_BASE_URL
-} = require('../ai-model-catalog');
+    OPENAI_BASE_URL,
+    PROVIDER_ENDPOINTS
+} = require('../../packages/plugins/core/ai-gateway/provider-endpoints');
 
 const TRANSPORTS = Object.freeze({
     gemini_generate_content: Object.freeze({
         id: 'gemini_generate_content',
         providers: Object.freeze(['google']),
         kinds: Object.freeze(['text', 'image']),
-        base_url: 'https://generativelanguage.googleapis.com/v1beta',
+        base_url: `${PROVIDER_ENDPOINTS.google}/v1beta`,
         endpoint_mode: 'fixed'
     }),
     openai_chat_completions: Object.freeze({

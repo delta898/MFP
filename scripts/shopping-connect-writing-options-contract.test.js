@@ -51,7 +51,7 @@ test('shopping quick writing styles use semantic tokens for the new controls', (
 
 test('shopping quick writing copy describes user actions instead of internal confirmation steps', () => {
   const view = read('ui/partials/views/shopping.html');
-  const previewController = read('ui/scripts/features/content/shopping-quick-preview.js');
+  const previewController = read('ui/scripts/features/shopping/quick-preview.js');
 
   assert.match(view, />상품으로 글 만들기</);
   assert.match(view, />상품 불러오기<\/button>/);
@@ -64,7 +64,7 @@ test('shopping quick writing copy describes user actions instead of internal con
 
 test('shopping quick save mirrors Blog Beta busy feedback and completion toast', () => {
   const controller = read('ui/scripts/features/legacy-actions-controllers.js');
-  const blogQueue = `${read('ui/scripts/features/blog-next/quick-queue.js')}\n${read('ui/scripts/features/blog-next/queue-management.js')}`;
+  const blogQueue = `${read('ui/scripts/features/blog/quick-queue.js')}\n${read('ui/scripts/features/blog/queue-management.js')}`;
   const saveStart = controller.indexOf('const saveShoppingQuickTopic');
   const publishStart = controller.indexOf('const runShoppingQuickPublish');
   const saveHandler = controller.slice(saveStart, publishStart);
@@ -99,7 +99,7 @@ test('shopping quick writing hides deferred storage actions until management ret
 
 test('shopping quick actions stay disabled until their saved input plan is actionable', () => {
   const source = read('ui/scripts/features/legacy-actions-controllers.js');
-  const preview = read('ui/scripts/features/content/shopping-quick-preview.js');
+  const preview = read('ui/scripts/features/shopping/quick-preview.js');
   const actionStyles = read('ui/styles/patterns/actions.css');
 
   assert.match(source, /window\.updateShoppingQuickActionAvailability/);

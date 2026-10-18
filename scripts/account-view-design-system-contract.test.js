@@ -37,8 +37,8 @@ test('account view uses the shared design system and provides a structured plan 
 
 test('account connection shortcuts navigate to Settings Beta targets', () => {
   const html = read('ui/partials/views/account.html');
-  const lifecycle = read('ui/scripts/foundation/lifecycle.js');
-  const setupBanner = read('ui/scripts/features/shell/setup-banner.js');
+  const lifecycle = read('ui/scripts/shell/lifecycle.js');
+  const setupBanner = read('ui/scripts/shell/setup-banner.js');
   const capability = read('ui/scripts/shared/capability-readiness.js');
 
   assert.match(html, /data-account-settings-next-tab="core" data-account-settings-next-target="settings-next-naver-form"/);
@@ -56,7 +56,7 @@ test('account connection shortcuts navigate to Settings Beta targets', () => {
   assert.match(setupBanner, /navigateTo\('settings-next', tabName\)/);
   assert.match(setupBanner, /const scrollToTarget = \(\) =>/);
   assert.match(setupBanner, /scrollUiSettingsTargetIntoView\(target, \{ highlight: true, activeViewId: 'view-settings-next' \}\)/);
-  assert.match(read('ui/scripts/foundation/settings-card.js'), /if \(activeViewId && document\.getElementById\(activeViewId\)\?\.classList\.contains\('active'\) !== true\)/);
+  assert.match(read('ui/scripts/features/settings/card.js'), /if \(activeViewId && document\.getElementById\(activeViewId\)\?\.classList\.contains\('active'\) !== true\)/);
   assert.match(capability, /PUBLISH_NAVER\]: \['core', 'settings-next-naver-form', 'publishing'\]/);
   assert.match(capability, /PUBLISH_WORDPRESS\]: \['core', 'settings-next-wordpress-form', 'publishing'\]/);
   assert.match(capability, /CONTENT_SHEET\]: \['core', 'settings-next-content-form'\]/);
@@ -64,7 +64,7 @@ test('account connection shortcuts navigate to Settings Beta targets', () => {
 
 test('account overview retains its loading and data contract', () => {
   const html = read('ui/partials/views/account.html');
-  const script = read('ui/scripts/features/shell/account-overview.js');
+  const script = read('ui/scripts/shell/account-overview.js');
 
   ['account-plan-name', 'account-usage-used', 'account-credit-balance', 'account-total-available', 'account-register-email-btn'].forEach((id) => {
     assert.match(html, new RegExp(`id="${id}"`));

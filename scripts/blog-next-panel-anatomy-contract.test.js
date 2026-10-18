@@ -104,7 +104,7 @@ test('Blog Beta quick modes share the same content start inset', () => {
 });
 
 test('Blog Beta tab interaction separates selection and keyboard focus', () => {
-    const shell = read('ui/scripts/features/blog-next/shell.js');
+    const shell = read('ui/scripts/features/blog/shell.js');
     const styles = read('ui/styles/features/blog-next-panel-anatomy.css');
     const tabs = read('ui/styles/patterns/tab-navigation.css');
     const tabNavigation = read('ui/scripts/foundation/tab-navigation.js');

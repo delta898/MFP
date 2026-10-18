@@ -7,8 +7,8 @@ const {
 const { parseImageCount } = require('../content/blog-image-plan');
 const { parseBlogImageMode, generatesBlogImages } = require('../content/blog-image-mode');
 const { normalizePublishTargets } = require('../content/single-publish-target');
-const { getScheduleDateIssue } = require('../continuous-publishing/topic-capture');
-const { diagnoseQueueReadiness } = require('../continuous-publishing/queue-readiness');
+const { getScheduleDateIssue } = require('../applications/blog/queue-management/topic-capture');
+const { diagnoseQueueReadiness } = require('../applications/blog/queue-management/queue-readiness');
 const { presentBlogImageGenerationProgress } = require('../adapters/ui/blog-posting-progress');
 const {
     LIVE_PUBLISH_BLOCKED_CODE,
@@ -27,6 +27,7 @@ function createContentActionsRuntime(deps = {}) {
         Utils,
         Core,
         blogPostingApplication,
+        shoppingGenerationApplication,
         blogPublishingApplication,
         License,
         ShoppingManager,
@@ -720,6 +721,7 @@ function createContentActionsRuntime(deps = {}) {
             if (targets.includes('naver')) {
                 report('네이버 쇼핑 콘텐츠 생성 중');
                 const naverBuildResult = await ShoppingManager.buildPostFromShortUrl(shortUrl, {
+                    shoppingGenerationApplication,
                     enableRelatedPostsAutoLink,
                     platform: 'naver',
                     headless: publishHeadless,
@@ -735,6 +737,7 @@ function createContentActionsRuntime(deps = {}) {
             if (targets.includes('wordpress')) {
                 report('워드프레스 쇼핑 콘텐츠 생성 중');
                 const wpBuildResult = await ShoppingManager.buildPostFromShortUrl(shortUrl, {
+                    shoppingGenerationApplication,
                     enableRelatedPostsAutoLink,
                     platform: 'wordpress',
                     headless: publishHeadless,

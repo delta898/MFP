@@ -25,8 +25,8 @@ test('every writing surface presents Naver and WordPress as one exclusive choice
 });
 
 test('single-target UI and API boundaries reject silent multi-platform publishing', () => {
-  const draftUi = `${read('ui/scripts/features/blog-next/publishing-targets.js')}\n${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-execution.js')}`;
-  const topicUi = read('ui/scripts/features/content/blog-topics.js');
+  const draftUi = `${read('ui/scripts/features/blog/publishing-targets.js')}\n${read('ui/scripts/features/blog/draft-inputs.js')}\n${read('ui/scripts/features/blog/draft-execution.js')}`;
+  const topicUi = read('ui/scripts/features/content-workspace/blog-topics.js');
   const requestSchema = read('src/internal-api/content-request-schema.js');
   const mcpAdapter = read('src/mcp/prototype-adapter.js');
 
@@ -38,8 +38,8 @@ test('single-target UI and API boundaries reject silent multi-platform publishin
 
 test('direct AI writing creates a canonical draft before publishing', () => {
   const html = read('ui/partials/views/blog-next.html');
-  const draftUi = `${read('ui/scripts/features/blog-next/publishing-targets.js')}\n${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-execution.js')}`;
-  const quickQueue = `${read('ui/scripts/features/blog-next/quick-queue.js')}\n${read('ui/scripts/features/blog-next/queue-management.js')}`;
+  const draftUi = `${read('ui/scripts/features/blog/publishing-targets.js')}\n${read('ui/scripts/features/blog/draft-inputs.js')}\n${read('ui/scripts/features/blog/draft-execution.js')}`;
+  const quickQueue = `${read('ui/scripts/features/blog/quick-queue.js')}\n${read('ui/scripts/features/blog/queue-management.js')}`;
 
   assert.match(html, /id="blog-next-publish-now"[^>]*>[\s\S]*?id="blog-next-publish-now-label">원고 만들기/);
   assert.match(html, /data-blog-next-draft-preview="ai"/);

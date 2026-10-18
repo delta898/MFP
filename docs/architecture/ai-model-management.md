@@ -11,14 +11,17 @@ model allowlists.
   refresh/cache lifecycle, and provider-neutral generation operations. Its
   `describeSupport()` declaration defines implemented `kind + provider +
   transport` routes, not model IDs.
-- `src/adapters/ai/gateway-transport.js` owns Host-side provider authentication,
-  endpoint resolution, and network transport.
+- `packages/plugins/core/ai-gateway/provider-transport.js` owns provider
+  authentication, endpoint resolution, and network transport. The Host supplies
+  a narrow credential/profile resolver; it does not implement the provider
+  transport.
 - Supabase `ai_model_catalog_versions` is the only source of catalogued model and
   provider availability/metadata. The Gateway filters catalog entries to routes
   implemented by its support declaration before exposing them.
-- `src/ai/transport-registry.js` describes the Host's trusted transport
-  configuration used for model validation and dispatch; it is not a second
-  model-availability catalog.
+- `src/ai/transport-registry.js` currently supplies legacy Host model
+  normalization and connection-signature metadata. Provider endpoint constants
+  come from the Gateway package; the remaining route metadata is a migration
+  candidate for the shared Gateway support declaration, not a catalog.
 - `src/ai/model-runtime-policy.js` translates model capabilities into safe request
   parameters.
 - `src/ai/catalog-registry.js` validates and applies remote snapshots to the
@@ -26,8 +29,9 @@ model allowlists.
   configuration. It does not merge in a bundled selectable-model list.
 - `src/ai/remote-model-catalog.js` provides the Host-owned Supabase RPC and local
   cache I/O ports injected into the Gateway.
-- `src/ai-model-catalog.js` remains a legacy compatibility module; it is not an
-  availability fallback or source for current model choices.
+- `packages/plugins/core/ai-gateway/provider-endpoints.js` contains the fixed
+  provider API base URLs used by the Gateway transport. These URLs are not a
+  model-availability fallback or source for current model choices.
 
 User configuration must not contain a copy of the product catalog.
 
@@ -149,8 +153,11 @@ the model is hidden.
 
 The AI settings screen can check the currently entered selection before it is
 saved without generating text or images. The settings API resolves the same
-catalog selection used by normal runtime configuration and delegates the request to
-`src/ai/model-connection-tester.js`.
+catalog selection used by normal runtime configuration and delegates to the
+AI Gateway Plugin's `models.verify` operation through
+`src/adapters/plugins/ai-gateway.js`. Unsaved credentials are held in a
+short-lived in-memory Host profile and referenced by an opaque UUID for this
+operation; they are never placed in the operation payload.
 
 - OpenAI models use the model metadata endpoint.
 - Google Gemini and Nano Banana models use the Gemini model metadata endpoint and
@@ -160,7 +167,7 @@ catalog selection used by normal runtime configuration and delegates the request
 - KIE.ai uses its account credit endpoint because it does not expose a free
   per-model metadata endpoint. The result confirms provider account connectivity
   and returns the remaining credit; it does not claim selected-model verification.
-- The checker dispatches by the trusted catalog provider/transport boundary, not
+- The Plugin dispatches by the trusted catalog provider/transport boundary, not
   by arbitrary remote URLs.
 - API keys are used only in the outbound request and are never included in the
   check result.

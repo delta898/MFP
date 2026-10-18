@@ -44,7 +44,7 @@
 
 ## 진행 및 검증
 
-- 조사 결과 이미지 블록 전용 node view는 `ui/scripts/features/blog-next/manuscript-editor-entry.js`에 있고, 현재 구조는
+- 조사 결과 이미지 블록 전용 node view는 `ui/scripts/features/blog/manuscript-editor-entry.js`에 있고, 현재 구조는
   헤더 제어 → 좌우 미디어/필드 → 프롬프트 지시 입력과 작업 버튼이다. 스타일은
   `ui/styles/features/continuous-publishing-drafts.css`에서 관리한다.
 - dotted/unfinished outer treatment를 테마 card surface로 정리하고 헤더 구분선, 더 균형 잡힌 미디어/필드 비율,

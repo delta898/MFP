@@ -13,7 +13,7 @@ test('Blog Beta no longer renders the retired manuscript-folder selector', () =>
     uiRoot,
     entryFile: 'partials/views/blog-next.html'
   }).html;
-  const inputs = read('ui/scripts/features/blog-next/draft-inputs.js');
+  const inputs = read('ui/scripts/features/blog/draft-inputs.js');
   const styles = read('ui/styles/features/continuous-publishing-interactions.css');
 
   assert.doesNotMatch(html, /blog-next-folder-input|blog-next-folder-row|blog-next-folder-clear/);

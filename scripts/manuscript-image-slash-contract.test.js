@@ -5,7 +5,7 @@ const test = require('node:test');
 
 const projectRoot = path.resolve(__dirname, '..');
 const editorSource = fs.readFileSync(
-    path.join(projectRoot, 'ui/scripts/features/blog-next/manuscript-editor-entry.js'),
+    path.join(projectRoot, 'ui/scripts/features/blog/manuscript-editor-entry.js'),
     'utf8'
 );
 const packageJson = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8'));

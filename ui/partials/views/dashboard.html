@@ -1,0 +1,236 @@
+      <section class="view active" id="view-dashboard">
+        <div class="view-title-block dashboard-hero">
+          <div class="view-title-row">
+            <div class="view-title-copy">
+              <div class="view-title-heading">
+                <h1>Dashboard</h1>
+              </div>
+              <p>글쓰기 흐름과 다음 발행 계획을 한눈에 확인합니다.</p>
+            </div>
+            <div class="page-widget-area dash-widget-area" aria-label="앱 위젯">
+              <div class="page-widget-slot dash-widget-slot" data-widget-slot="app.header.trailing"></div>
+              <button type="button" class="global-publishing-status" data-global-publishing-status hidden>
+                <span class="global-publishing-status-indicator" aria-hidden="true"></span>
+                <span data-global-publishing-status-label></span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <section class="dashboard-readiness ui-overview-card" aria-labelledby="dashboard-readiness-title">
+          <div class="dashboard-section-heading ui-overview-heading">
+            <div>
+              <span class="dashboard-eyebrow ui-overview-eyebrow">사용 준비</span>
+              <h2 id="dashboard-readiness-title">연결 상태</h2>
+            </div>
+            <button id="dashboard-refresh" class="ui-refresh-action-icon" type="button" aria-label="대시보드 새로고침" title="새로고침" aria-busy="false">
+              <svg aria-hidden="true"><use href="#ui-icon-refresh"></use></svg>
+            </button>
+          </div>
+          <div id="dashboard-readiness-items" class="dashboard-readiness-items" aria-live="polite">
+            <button type="button" data-dashboard-state="loading" data-dashboard-channel="naver" data-dashboard-nav="settings-next" data-dashboard-tab="core" data-dashboard-local-tab="publishing" data-dashboard-target="settings-next-naver-form" disabled aria-label="네이버 블로그, 연결 상태 확인 중">
+              <span class="dashboard-channel-icon-wrap" aria-hidden="true"><svg class="dashboard-channel-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 4h3.2L16 14.5V4H19v16h-3.2L8 9.5V20H5z"/></svg></span>
+              <span class="dashboard-channel-name">네이버 블로그</span>
+              <span class="dashboard-channel-status" data-state="loading" aria-hidden="true"><span class="dashboard-state-dot"></span></span>
+            </button>
+            <button type="button" data-dashboard-state="loading" data-dashboard-channel="wordpress" data-dashboard-nav="settings-next" data-dashboard-tab="core" data-dashboard-local-tab="publishing" data-dashboard-target="settings-next-wordpress-form" disabled aria-label="WordPress, 연결 상태 확인 중">
+              <span class="dashboard-channel-icon-wrap" aria-hidden="true"><svg class="dashboard-channel-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M7.5 9.5 10 15l2-4.5L14 15l2.5-5.5"/></svg></span>
+              <span class="dashboard-channel-name">WordPress</span>
+              <span class="dashboard-channel-status" data-state="loading" aria-hidden="true"><span class="dashboard-state-dot"></span></span>
+            </button>
+            <button type="button" data-dashboard-state="loading" data-dashboard-channel="site-hosting" data-dashboard-nav="site-hosting" disabled aria-label="웹사이트, 연결 상태 확인 중">
+              <span class="dashboard-channel-icon-wrap" aria-hidden="true"><svg class="dashboard-channel-icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 9h18" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="7" cy="6.5" r=".6" fill="currentColor"/><circle cx="10" cy="6.5" r=".6" fill="currentColor"/></svg></span>
+              <span class="dashboard-channel-name">웹사이트</span>
+              <span class="dashboard-channel-status" data-state="loading" aria-hidden="true"><span class="dashboard-state-dot"></span></span>
+            </button>
+            <button type="button" data-dashboard-state="loading" data-dashboard-nav="account" disabled aria-label="이용 가능 횟수, 확인 중">
+              <span class="dashboard-state-dot" aria-hidden="true"></span>
+              <span>이용 가능 횟수 확인 중</span>
+            </button>
+          </div>
+          <p id="dashboard-readiness-error" class="dashboard-inline-error" hidden>연결 상태를 불러오지 못했습니다.</p>
+        </section>
+
+        <section id="dashboard-onboarding" class="dashboard-onboarding ui-overview-card" aria-labelledby="dashboard-onboarding-title" hidden>
+          <div class="dashboard-onboarding-head ui-overview-heading">
+            <div>
+              <span class="dashboard-eyebrow ui-overview-eyebrow">시작 안내</span>
+              <h2 id="dashboard-onboarding-title">사용 준비를 마쳐볼까요?</h2>
+              <p>필요한 항목만 차례로 연결하면 바로 글쓰기를 시작할 수 있습니다.</p>
+            </div>
+            <span id="dashboard-onboarding-progress" class="dashboard-onboarding-progress ui-status-badge">0/3 준비됨</span>
+          </div>
+          <div class="dashboard-onboarding-steps">
+            <div class="dashboard-onboarding-step" data-dashboard-setup-step="ai" data-state="pending"
+              data-settings-tab="ai" data-settings-target="settings-next-ai-text-form" title="AI 설정 열기">
+              <span class="dashboard-onboarding-step-mark" aria-hidden="true">1</span>
+              <div><strong>AI 글쓰기 모델</strong><span>글을 만들 AI 모델과 필요한 연결 정보를 설정합니다.</span></div>
+            </div>
+            <div class="dashboard-onboarding-step" data-dashboard-setup-step="google" data-state="pending"
+              data-settings-tab="core" data-settings-target="settings-next-content-form" title="Google Spreadsheet 설정 열기">
+              <span class="dashboard-onboarding-step-mark" aria-hidden="true">2</span>
+              <div>
+                <div class="dashboard-onboarding-step-title">
+                  <strong>Google Spreadsheet</strong>
+                  <span class="dashboard-onboarding-step-badge" hidden>전환 필요</span>
+                </div>
+                <span>콘텐츠를 저장할 Spreadsheet를 연결합니다.</span>
+              </div>
+            </div>
+            <div class="dashboard-onboarding-step" data-dashboard-setup-step="channel" data-state="pending"
+              data-settings-tab="core" data-settings-target="settings-next-naver-form" data-settings-local-tab="publishing" title="발행 채널 설정 열기">
+              <span class="dashboard-onboarding-step-mark" aria-hidden="true">3</span>
+              <div><strong>발행 채널</strong><span>네이버 또는 WordPress 중 하나를 준비합니다.</span></div>
+            </div>
+          </div>
+          <div class="dashboard-onboarding-action-row">
+            <span id="dashboard-onboarding-next-copy">다음 설정을 확인하고 있습니다.</span>
+            <button id="dashboard-onboarding-action" class="primary" type="button">설정하기</button>
+          </div>
+        </section>
+
+        <div class="dashboard-overview-grid">
+          <section class="dashboard-flow-card ui-overview-card" aria-labelledby="dashboard-flow-title">
+            <div class="dashboard-section-heading ui-overview-heading">
+              <div>
+                <span class="dashboard-eyebrow ui-overview-eyebrow">지금</span>
+                <h2 id="dashboard-flow-title">발행 흐름</h2>
+              </div>
+              <span id="dashboard-flow-badge" class="dashboard-flow-badge ui-status-badge" data-state="loading">확인 중</span>
+            </div>
+            <div class="dashboard-flow-body" aria-live="polite">
+              <div>
+                <strong id="dashboard-flow-subject">운영 상태를 불러오는 중입니다.</strong>
+                <p id="dashboard-flow-message">잠시만 기다려 주세요.</p>
+              </div>
+            </div>
+            <div class="dashboard-flow-actions">
+              <button class="primary" type="button" data-dashboard-nav="blog-next" data-dashboard-tab="queue">글감 관리</button>
+            </div>
+          </section>
+
+          <section class="dashboard-next-card ui-overview-card" aria-labelledby="dashboard-next-title">
+            <div class="dashboard-section-heading ui-overview-heading">
+              <div>
+                <span class="dashboard-eyebrow ui-overview-eyebrow">다음</span>
+                <h2 id="dashboard-next-title">연속 발행</h2>
+              </div>
+              <span id="dashboard-automation-badge" class="dashboard-automation-badge ui-status-badge" data-state="loading">확인 중</span>
+            </div>
+            <strong id="dashboard-next-time" class="dashboard-next-time">일정을 불러오는 중입니다.</strong>
+            <p id="dashboard-next-copy" class="dashboard-next-copy">연속 발행 설정과 대기열을 확인하고 있습니다.</p>
+            <div class="dashboard-counts" aria-label="글감 현황">
+              <button type="button" data-dashboard-nav="blog-next" data-dashboard-tab="queue">
+                <span>발행 대기</span><strong id="dashboard-ready-count">-</strong>
+              </button>
+              <button type="button" data-dashboard-nav="blog-next" data-dashboard-tab="queue">
+                <span>보관한 글감</span><strong id="dashboard-saved-count">-</strong>
+              </button>
+              <div>
+                <span>실행 중</span><strong id="dashboard-running-count">-</strong>
+              </div>
+            </div>
+            <div class="dashboard-next-actions">
+              <button id="dashboard-automation-action" class="secondary" type="button"
+                data-dashboard-nav="blog-next" data-dashboard-tab="automation">연속 발행 설정</button>
+            </div>
+          </section>
+        </div>
+
+        <section class="dashboard-results-card ui-overview-card" aria-labelledby="dashboard-results-title">
+          <div class="dashboard-section-heading ui-overview-heading">
+            <div>
+              <span class="dashboard-eyebrow ui-overview-eyebrow">활동</span>
+              <h2 id="dashboard-results-title">발행 성과</h2>
+            </div>
+            <div class="dashboard-period-tabs ui-segmented-tabs" role="group" aria-label="통계 기간">
+              <button type="button" class="ui-segmented-tab active" data-dashboard-period="today" aria-pressed="true">오늘</button>
+              <button type="button" class="ui-segmented-tab" data-dashboard-period="week" aria-pressed="false">이번 주</button>
+              <button type="button" class="ui-segmented-tab" data-dashboard-period="month" aria-pressed="false">최근 30일</button>
+            </div>
+          </div>
+          <div class="dashboard-results-grid">
+            <div class="dashboard-stat-column" aria-labelledby="dashboard-stat-summary-title">
+              <h3 id="dashboard-stat-summary-title" class="ui-overview-subheading">요약</h3>
+              <div class="dashboard-stat-summary" aria-live="polite">
+                <div class="dashboard-stat-card">
+                  <span>처리 완료</span>
+                  <strong id="dashboard-processed-count">-</strong>
+                  <p>임시 저장·예약·공개 발행</p>
+                </div>
+                <div class="dashboard-stat-card">
+                  <span>공개 발행</span>
+                  <strong id="dashboard-published-count">-</strong>
+                  <p>실제 공개된 글</p>
+                </div>
+              </div>
+            </div>
+            <div class="dashboard-recent-results">
+              <h3 id="dashboard-recent-results-title" class="ui-overview-subheading">발행 내역</h3>
+              <div id="dashboard-recent-results-list" class="dashboard-recent-results-list" aria-live="polite">
+                <p class="dashboard-empty">최근 결과를 불러오는 중입니다.</p>
+              </div>
+            </div>
+          </div>
+          <div id="dashboard-trend" class="dashboard-trend" hidden>
+            <div class="dashboard-trend-heading">
+              <h3 id="dashboard-trend-title">최근 30일 일별 추이</h3>
+              <span><i data-series="processed"></i>처리 완료 <i data-series="published"></i>공개 발행</span>
+            </div>
+            <div id="dashboard-trend-bars" class="dashboard-trend-bars" role="img" aria-label="최근 30일 발행 활동 추이"></div>
+          </div>
+          <p id="dashboard-stats-error" class="dashboard-inline-error" hidden>발행 통계를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</p>
+        </section>
+
+        <section class="dashboard-queue-card ui-overview-card" aria-labelledby="dashboard-queue-title">
+          <div class="dashboard-section-heading ui-overview-heading">
+            <div>
+              <span class="dashboard-eyebrow ui-overview-eyebrow">대기열</span>
+              <h2 id="dashboard-queue-title">다가오는 글</h2>
+            </div>
+            <button class="ui-text-action" type="button" data-dashboard-nav="blog-next" data-dashboard-tab="queue">전체 대기열 보기</button>
+          </div>
+          <div id="dashboard-queue-list" class="dashboard-queue-list" aria-live="polite">
+            <p class="dashboard-empty">다음 글감을 불러오는 중입니다.</p>
+          </div>
+          <p id="dashboard-operations-error" class="dashboard-inline-error" hidden>발행 현황을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</p>
+        </section>
+
+        <section id="dashboard-discovery" class="dashboard-discovery-card ui-overview-card recommendation-center"
+          data-recommendation-center aria-labelledby="dashboard-discovery-title">
+          <div class="recommendation-center-head">
+            <div>
+              <span class="dashboard-eyebrow ui-overview-eyebrow">글감</span>
+              <div class="recommendation-center-title-row">
+                <h2 id="dashboard-discovery-title">새로운 발견</h2>
+                <span id="dashboard-discovery-count" class="recommendation-center-count ui-count-badge" data-recommendation-count hidden>0</span>
+              </div>
+              <p>뉴스와 트렌드, 이전 글에서 다음에 써볼 소재를 발견합니다.</p>
+            </div>
+            <button id="dashboard-discovery-refresh" class="secondary compact ui-loading-action" type="button"
+              data-recommendation-refresh data-idle-label="새 소재 찾기">새 소재 찾기</button>
+          </div>
+          <div id="dashboard-discovery-status" class="recommendation-center-status" data-recommendation-status role="status">새로운 소재를 준비하고 있습니다.</div>
+          <div id="dashboard-discovery-list" class="recommendation-center-list" data-recommendation-list aria-live="polite"></div>
+        </section>
+
+        <section id="dashboard-tips-section" class="dashboard-tips-card ui-overview-card" aria-labelledby="dashboard-tips-title" hidden>
+          <div class="dashboard-section-heading ui-overview-heading">
+            <div>
+              <span class="dashboard-eyebrow ui-overview-eyebrow">30분마다 새롭게</span>
+              <h2 id="dashboard-tips-title">BlogGenius 활용 팁</h2>
+            </div>
+            <button class="ui-text-action" type="button" data-dashboard-nav="help">전체 가이드 보기</button>
+          </div>
+          <p class="dashboard-tips-copy">글쓰기와 콘텐츠 운영에 도움이 되는 자료를 선별해 소개합니다.</p>
+          <div id="dashboard-tips-region" class="dashboard-tips-region"></div>
+        </section>
+
+        <section id="dashboard-support-teaser" class="dashboard-support-teaser"
+          aria-label="가끔 만나는 개발자 이야기" hidden>
+          <div class="dashboard-support-teaser-meta">
+            <span>가끔 만나는 이야기</span>
+          </div>
+          <div id="dashboard-support-teaser-region"></div>
+        </section>
+      </section>

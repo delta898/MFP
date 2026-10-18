@@ -19,7 +19,7 @@ test('UI URL paths remain canonical relative paths on Windows and POSIX', () => 
         const utils = createUtils(pathImpl);
         assert.equal(utils.sanitizePathname('/styles.css'), 'styles.css');
         assert.equal(utils.sanitizePathname('/app.js'), 'app.js');
-        assert.equal(utils.sanitizePathname('/styles/features/dashboard-beta.css'), 'styles/features/dashboard-beta.css');
+        assert.equal(utils.sanitizePathname('/styles/features/dashboard.css'), 'styles/features/dashboard.css');
     }
 });
 test('UI URL path normalization cannot escape the UI root', () => {

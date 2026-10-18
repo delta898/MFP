@@ -1,7 +1,7 @@
 const crypto = require('crypto');
-const { createAccessTokenCache } = require('../../trend-posting/access-token-cache');
-const { createTrendPostingRemoteClient } = require('../../trend-posting/remote-client');
-const { aggregateTrendKeywords } = require('../../trend-posting/query');
+const { createAccessTokenCache } = require('../../adapters/trends/access-token-cache');
+const { createTrendPostingRemoteClient } = require('../../adapters/trends/remote-client');
+const { aggregateTrendKeywords } = require('../../applications/blog/trend-posting/query');
 
 const DEFAULT_PROVIDER_ID = 'naver-trends';
 const DEFAULT_VENDOR = 'naver_trend_posting';

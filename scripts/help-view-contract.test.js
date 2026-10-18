@@ -38,8 +38,8 @@ test('Help foundation exposes the agreed guide groups and safe official links', 
 });
 
 test('Help navigation initializes once, refreshes its catalog, and remains available in mobile quick mode', () => {
-  const helpScript = read('ui/scripts/features/shell/help.js');
-  const navigation = read('ui/scripts/foundation/navigation.js');
+  const helpScript = read('ui/scripts/shell/help.js');
+  const navigation = read('ui/scripts/shell/navigation.js');
   const responsive = read('ui/styles/layout/responsive.css');
 
   assert.match(helpScript, /view\.dataset\.initialized !== 'true'/);
@@ -62,8 +62,8 @@ test('Buffer guidance uses one contextual Help action across SNS publishing surf
   const social = read('ui/partials/views/social.html');
   const cardNews = read('ui/partials/views/card-news.html');
   const appChrome = read('ui/styles/components/app-chrome.css');
-  const navigation = read('ui/scripts/foundation/navigation.js');
-  const manualComposer = read('ui/scripts/features/social/manual-composer.js');
+  const navigation = read('ui/scripts/shell/navigation.js');
+  const manualComposer = read('ui/scripts/features/sns/manual-composer.js');
   const catalog = read('supabase/operations/content/supabase_surface_content_help_catalog.sql');
   const guideUrl = 'https://m.blog.naver.com/amadejjs/223940980574';
 

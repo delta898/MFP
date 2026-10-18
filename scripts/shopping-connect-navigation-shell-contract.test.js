@@ -19,7 +19,7 @@ test('shopping connect uses the shared product navigation shell', () => {
 
 test('shopping tabs expose linked panels and synchronize accessible state', () => {
   const view = read('ui/partials/views/shopping.html');
-  const navigation = read('ui/scripts/features/content/tab-navigation.js');
+  const navigation = read('ui/scripts/features/shopping/tab-navigation.js');
   const controllers = read('ui/scripts/features/legacy-actions-controllers.js');
 
   assert.match(view, /id="shopping-tab-button-quick"[\s\S]*aria-controls="shopping-tab-quick"/);
@@ -34,7 +34,7 @@ test('shopping tabs expose linked panels and synchronize accessible state', () =
 
 test('legacy shopping tab presentation no longer overrides shared tab tokens', () => {
   const tabs = read('ui/styles/features/content-tabs.css');
-  const dashboard = read('ui/styles/features/dashboard-beta.css');
+  const dashboard = read('ui/styles/features/dashboard.css');
   const responsive = read('ui/styles/layout/responsive.css');
 
   assert.doesNotMatch(tabs, /\.shopping-tab-btn/);

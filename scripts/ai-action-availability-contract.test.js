@@ -24,8 +24,8 @@ test('shared capability readiness blocks only explicit unavailability and reuses
 
 test('all Blog Beta manuscript modes gate only AI image generation actions', () => {
   const view = read('ui/partials/views/blog-next.html');
-  const drafts = `${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-images.js')}`;
-  const execution = read('ui/scripts/features/blog-next/draft-execution.js');
+  const drafts = `${read('ui/scripts/features/blog/draft-inputs.js')}\n${read('ui/scripts/features/blog/draft-images.js')}`;
+  const execution = read('ui/scripts/features/blog/draft-execution.js');
   const service = read('src/ui-api/services/content.service.js');
 
   assert.match(view, /id="blog-next-ai-image-readiness"/);
@@ -40,8 +40,8 @@ test('all Blog Beta manuscript modes gate only AI image generation actions', () 
 
 test('quick-create generation honors the shared AI gate with recovery UI', () => {
   const view = read('ui/partials/views/blog-next.html');
-  const flow = read('ui/scripts/features/blog-next/quick-flow-ui.js');
-  const navigation = read('ui/scripts/foundation/navigation.js');
+  const flow = read('ui/scripts/features/blog/quick-flow-ui.js');
+  const navigation = read('ui/scripts/shell/navigation.js');
 
   assert.match(view, /id="blog-next-ai-readiness"/);
   assert.match(view, /id="blog-next-ai-settings-btn"/);
@@ -55,10 +55,10 @@ test('quick-create generation honors the shared AI gate with recovery UI', () =>
 test('Blog Beta gates storage and publishing by their exact capabilities', () => {
   const view = read('ui/partials/views/blog-next.html');
   const settings = read('ui/partials/views/blog-next/publish-settings.html');
-  const flow = read('ui/scripts/features/blog-next/quick-flow-ui.js');
-  const queue = `${read('ui/scripts/features/blog-next/quick-queue.js')}\n${read('ui/scripts/features/blog-next/queue-management.js')}`;
-  const execution = read('ui/scripts/features/blog-next/draft-execution.js');
-  const shell = read('ui/scripts/features/blog-next/shell.js');
+  const flow = read('ui/scripts/features/blog/quick-flow-ui.js');
+  const queue = `${read('ui/scripts/features/blog/quick-queue.js')}\n${read('ui/scripts/features/blog/queue-management.js')}`;
+  const execution = read('ui/scripts/features/blog/draft-execution.js');
+  const shell = read('ui/scripts/features/blog/shell.js');
 
   assert.match(view, /id="blog-next-sheet-readiness"/);
   assert.doesNotMatch(settings, /blog-next-publish-readiness/);
@@ -74,7 +74,7 @@ test('Blog Beta gates storage and publishing by their exact capabilities', () =>
 
 test('ShoppingConnect stays enterable and exposes inline capability recovery', () => {
   const view = read('ui/partials/views/shopping.html');
-  const navigation = read('ui/scripts/foundation/navigation.js');
+  const navigation = read('ui/scripts/shell/navigation.js');
   const actions = read('ui/scripts/features/legacy-actions-controllers.js');
 
   assert.doesNotMatch(view, /id="shopping-readiness-panel"/);
@@ -90,7 +90,7 @@ test('ShoppingConnect stays enterable and exposes inline capability recovery', (
 });
 
 test('keyword title recommendation conforms to the shared AI gate', () => {
-  const lifecycle = read('ui/scripts/features/discovery/keyword-modal.js');
+  const lifecycle = read('ui/scripts/features/blog/discovery/keyword-modal.js');
 
   assert.match(lifecycle, /refreshAiTextReadiness\(\)/);
   assert.match(lifecycle, /keywordModalState\.aiConfigured === false/);

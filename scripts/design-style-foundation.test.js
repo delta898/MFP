@@ -185,9 +185,9 @@ test('overview cards share style-driven surfaces, headings, status badges, and r
   const overview = read('ui/styles/patterns/overview-card.css');
   const feedback = read('ui/styles/components/feedback.css');
   const actions = read('ui/styles/patterns/actions.css');
-  const dashboard = read('ui/partials/views/dashboard-beta.html');
-  const dashboardStyle = read('ui/styles/features/dashboard-beta.css');
-  const dashboardResponsiveStyle = read('ui/styles/features/dashboard-beta-responsive.css');
+  const dashboard = read('ui/partials/views/dashboard.html');
+  const dashboardStyle = read('ui/styles/features/dashboard.css');
+  const dashboardResponsiveStyle = read('ui/styles/features/dashboard-responsive.css');
   const recommendationCenterStyle = read('ui/styles/features/recommendation-center.css');
 
   assert.match(overview, /\.ui-overview-card,\s*\.ui-workflow-card\s*\{[^}]*var\(--ui-card-border\)[^}]*var\(--ui-card-radius\)[^}]*var\(--ui-card-background\)[^}]*var\(--ui-card-shadow\)/s);
@@ -198,18 +198,18 @@ test('overview cards share style-driven surfaces, headings, status badges, and r
   assert.match(overview, /\.ui-count-badge\s*\{[^}]*var\(--ui-surface-muted\)[^}]*var\(--ui-text-secondary\)/s);
   assert.match(actions, /\.ui-refresh-action-icon svg\s*\{[^}]*stroke:\s*currentColor/s);
   assert.match(actions, /\.ui-text-action\s*\{[^}]*background:\s*transparent[^}]*var\(--ui-action-primary\)/s);
-  assert.match(dashboard, /class="dashboard-beta-readiness ui-overview-card"/);
-  assert.match(dashboard, /class="dashboard-beta-section-heading ui-overview-heading"/);
+  assert.match(dashboard, /class="dashboard-readiness ui-overview-card"/);
+  assert.match(dashboard, /class="dashboard-section-heading ui-overview-heading"/);
   assert.match(dashboard, /class="ui-overview-subheading">요약/);
   assert.match(dashboard, /class="ui-overview-subheading">발행 내역/);
-  assert.match(dashboard, /class="dashboard-beta-flow-badge ui-status-badge"/);
-  assert.match(dashboard, /id="dashboard-beta-refresh" class="ui-refresh-action-icon"/);
-  assert.match(dashboard, /id="dashboard-beta-discovery-count" class="recommendation-center-count ui-count-badge"/);
-  assert.doesNotMatch(dashboardStyle, /\.dashboard-beta-section-heading\s*\{/);
-  assert.doesNotMatch(dashboardStyle, /\.dashboard-beta-recent-results h3\s*\{/);
-  assert.doesNotMatch(dashboardStyle, /\.dashboard-beta-icon-button/);
-  assert.doesNotMatch(dashboardStyle, /\.dashboard-beta-flow-badge\s*,/);
-  assert.doesNotMatch(dashboard, /dashboard-beta-flow-indicator|\sstyle=/);
+  assert.match(dashboard, /class="dashboard-flow-badge ui-status-badge"/);
+  assert.match(dashboard, /id="dashboard-refresh" class="ui-refresh-action-icon"/);
+  assert.match(dashboard, /id="dashboard-discovery-count" class="recommendation-center-count ui-count-badge"/);
+  assert.doesNotMatch(dashboardStyle, /\.dashboard-section-heading\s*\{/);
+  assert.doesNotMatch(dashboardStyle, /\.dashboard-recent-results h3\s*\{/);
+  assert.doesNotMatch(dashboardStyle, /\.dashboard-icon-button/);
+  assert.doesNotMatch(dashboardStyle, /\.dashboard-flow-badge\s*,/);
+  assert.doesNotMatch(dashboard, /dashboard-flow-indicator|\sstyle=/);
   [dashboardStyle, dashboardResponsiveStyle, recommendationCenterStyle].forEach((css) => {
     assert.doesNotMatch(css, /font-size:\s*[0-9.]+(?:px|rem)\b/);
     assert.doesNotMatch(css, /font-weight:\s*[0-9]{3}\b/);

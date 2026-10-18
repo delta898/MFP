@@ -1,6 +1,6 @@
 'use strict';
 
-const { resolveRoute } = require('./support');
+const { describeSupport, resolveRoute } = require('./support');
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const DEFAULT_JOB_TIMEOUT_MS = 15 * 60 * 1000;
@@ -524,16 +524,110 @@ function imageSize(aspectRatio, size = '1K') {
     return sizes[aspectRatio] || undefined;
 }
 
+function connectionCheckError(message, status) {
+    return new AiGatewayError('AI_MODEL_CONNECTION_CHECK_FAILED', message, {
+        ...(Number.isInteger(status) && status > 0 ? { status } : {})
+    });
+}
+
+function assertVerifiedModelId(body, requestedId, allowAnthropicDatedAlias = false) {
+    const returnedId = String(body?.id || body?.name || '').replace(/^models\//, '').trim();
+    const datedAlias = allowAnthropicDatedAlias
+        && /^claude-[a-z]+-\d+-\d+$/.test(requestedId)
+        && returnedId.startsWith(`${requestedId}-`)
+        && /^\d{8}$/.test(returnedId.slice(requestedId.length + 1));
+    if (returnedId && returnedId !== requestedId && !datedAlias) {
+        throw connectionCheckError(`서버가 다른 모델 정보를 반환했습니다: ${returnedId}`);
+    }
+}
+
+async function verifyModel(input, context, transport, now) {
+    const kind = String(input.kind || '').trim();
+    const model = input.model || {};
+    const provider = String(model.provider || '').trim().toLowerCase();
+    const modelId = String(model.modelId || '').trim();
+    const route = resolveRoute(kind, model);
+    if (!['text', 'image'].includes(kind)) throw connectionCheckError('지원하지 않는 AI 모델 종류입니다.');
+    if (!modelId) throw connectionCheckError('확인할 모델을 선택해 주세요.');
+    if (!route) throw new AiGatewayError('AI_GATEWAY_UNSUPPORTED_ROUTE', 'The selected model is not supported by this Gateway.');
+    if (model.transport && !describeSupport().routes.some((candidate) => candidate.kind === kind
+        && candidate.provider === provider && candidate.transport === model.transport)) {
+        throw new AiGatewayError('AI_GATEWAY_UNSUPPORTED_ROUTE', 'The selected model transport is not supported by this Gateway.');
+    }
+    if (typeof transport.inspectModel !== 'function') {
+        throw new AiGatewayError('AI_GATEWAY_OPERATION_UNAVAILABLE', 'Model verification is unavailable in this Gateway transport.');
+    }
+    const startedAt = now();
+    try {
+        const response = await transport.inspectModel({
+            kind, provider, modelId,
+            ...(input.profileRef ? { profileRef: input.profileRef } : {}),
+            signal: context.signal,
+            timeoutMs: 15000
+        });
+        const body = assertResponse(response, provider);
+        let creditBalance;
+        let checkType = 'metadata';
+        if (provider === 'kie') {
+            const responseCode = Number(body?.code);
+            if (Number.isFinite(responseCode) && responseCode !== 200) {
+                throw connectionCheckError(String(body?.msg || 'KIE.ai 계정 정보를 확인하지 못했습니다.'));
+            }
+            const raw = body?.data;
+            creditBalance = Number(raw);
+            if (raw === null || raw === undefined || String(raw).trim() === '' || !Number.isFinite(creditBalance)) {
+                throw connectionCheckError('KIE.ai 잔여 크레딧 응답을 확인하지 못했습니다.');
+            }
+            checkType = 'account_credit';
+        } else if (provider === 'direct') {
+            const models = Array.isArray(body?.data) ? body.data
+                : (Array.isArray(body?.models) ? body.models : (Array.isArray(body) ? body : []));
+            if (!models.some((entry) => String(entry?.id || entry?.name || '').trim() === modelId)) {
+                throw connectionCheckError(`${modelId} 모델을 서버의 /models 목록에서 찾지 못했습니다.`);
+            }
+        } else {
+            assertVerifiedModelId(body, modelId, provider === 'anthropic');
+            if (provider === 'google') {
+                const methods = [
+                    ...(Array.isArray(body?.supportedGenerationMethods) ? body.supportedGenerationMethods : []),
+                    ...(Array.isArray(body?.supportedActions) ? body.supportedActions : [])
+                ];
+                if (methods.length && !methods.includes('generateContent')) {
+                    throw connectionCheckError(`${modelId} 모델이 generateContent 기능을 지원하지 않습니다.`);
+                }
+            }
+        }
+        return {
+            success: true,
+            check_type: checkType,
+            generation_performed: false,
+            kind,
+            provider,
+            model: modelId,
+            transport: String(model.transport || route.transport),
+            latency_ms: Math.max(0, now() - startedAt),
+            ...(creditBalance === undefined ? {} : { credit_balance: creditBalance })
+        };
+    } catch (error) {
+        if (error instanceof AiGatewayError && error.code === 'AI_MODEL_CONNECTION_CHECK_FAILED') throw error;
+        const status = Number(error?.status || error?.response?.status || 0);
+        if (error instanceof AiGatewayError && !status) throw error;
+        const detail = String(error?.providerMessage || error?.message || '알 수 없는 오류').trim();
+        throw connectionCheckError(`${status ? `HTTP ${status}: ` : ''}${detail}`, status);
+    }
+}
+
 function createGatewayOperations(options = {}) {
     const transport = options.transport;
     if (!transport || typeof transport.request !== 'function') {
-        throw new TypeError('AI Gateway Plugin requires a Host-owned AI transport.');
+        throw new TypeError('AI Gateway Plugin requires its provider transport.');
     }
     const settings = {
         now: typeof options.now === 'function' ? options.now : Date.now,
         sleep: typeof options.sleep === 'function' ? options.sleep : (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
         jobTimeoutMs: Number.isFinite(options.jobTimeoutMs) ? Math.max(1000, options.jobTimeoutMs) : DEFAULT_JOB_TIMEOUT_MS
     };
+    const verify = (input, context = {}) => verifyModel(input, context, transport, settings.now);
     const catalog = options.catalog;
     const listModels = async (input = {}) => {
         if (!catalog || typeof catalog.getCatalog !== 'function') {
@@ -558,6 +652,7 @@ function createGatewayOperations(options = {}) {
     };
     return Object.freeze({
         'models.list': Object.freeze({ execute: listModels }),
+        'models.verify': Object.freeze({ execute: verify }),
         'text.generate': Object.freeze({ execute: (input, context = {}) => generateText(input, context, transport) }),
         'image.generate': Object.freeze({ execute: (input, context = {}) => generateImage(input, context, transport, settings) })
     });

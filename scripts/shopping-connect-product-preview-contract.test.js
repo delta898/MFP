@@ -8,7 +8,7 @@ const repoRoot = path.resolve(__dirname, '..');
 const read = (relativePath) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
 function loadPreviewContract() {
-  const source = read('ui/scripts/features/content/shopping-quick-preview.js');
+  const source = read('ui/scripts/features/shopping/quick-preview.js');
   const context = vm.createContext({ URL, URLSearchParams });
   vm.runInContext(`${source}\n;globalThis.__previewContract = { isShoppingQuickPreviewUrl, normalizeShoppingQuickPreview };`, context);
   return context.__previewContract;
@@ -29,9 +29,9 @@ test('shopping quick writing starts with URL analysis and reveals product correc
 
 test('shopping preview uses the existing read-only endpoint and resets stale product state when URL changes', () => {
   const app = read('ui/app.js');
-  const source = read('ui/scripts/features/content/shopping-quick-preview.js');
+  const source = read('ui/scripts/features/shopping/quick-preview.js');
 
-  assert.match(app, /@include scripts\/features\/content\/shopping-quick-preview\.js/);
+  assert.match(app, /@include scripts\/features\/shopping\/quick-preview\.js/);
   assert.match(source, /fetchJson\(`\/api\/v1\/shopping\/preview\?\$\{query\.toString\(\)\}`\)/);
   assert.doesNotMatch(source, /postJson\(['"]\/api\/v1\/shopping\/preview/);
   assert.match(source, /urlInput\.addEventListener\('input', resetShoppingQuickPreview\)/);

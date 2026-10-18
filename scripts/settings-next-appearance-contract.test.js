@@ -9,7 +9,7 @@ const { loadDesignStyleContract } = require('./design-style-registry-test-utils'
 
 test('appearance tab renders registry-driven live previews without compatibility', () => {
   const html = read('ui/partials/views/settings-next.html');
-  const appearance = read('ui/scripts/features/settings-next/appearance.js');
+  const appearance = read('ui/scripts/features/settings/appearance.js');
   const system = read('ui/scripts/foundation/style-system.js');
   const contract = read('ui/scripts/foundation/design-style-token-contract.js');
 

@@ -300,7 +300,7 @@ const blogBetaComposition = createBlogBetaRuntimeComposition({
     path,
     getAiModelCatalog
 });
-const { corePluginRuntime, blogWritingSystem, blogPostingApplication, blogPublishingApplication, aiGenerationSystem } = blogBetaComposition;
+const { corePluginRuntime, blogWritingSystem, shoppingGenerationApplication, blogPostingApplication, blogPublishingApplication, aiGenerationSystem } = blogBetaComposition;
 const socialPublishingSystem = createSocialPublishingSystem({ corePluginRuntime, CONFIG, axios });
 const socialPublisher = socialPublishingSystem.publisher;
 const widgetPluginCatalog = createBundledWidgetPluginCatalog({ fs, path, logger: Logger, configDir: CONFIG.PATHS.configDir });
@@ -846,6 +846,7 @@ const contentActionsRuntime = createContentActionsRuntime({
     Core,
     blogPostingApplication,
     blogWritingApplication: blogWritingSystem.application,
+    shoppingGenerationApplication,
     blogPublishingApplication,
     License,
     ShoppingManager,

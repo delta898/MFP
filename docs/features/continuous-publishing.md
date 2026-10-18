@@ -84,7 +84,7 @@ Queue 등록 자체는 AI 호출을 발생시키지 않는다.
 - 사용자 표시: `블로그`
 - 내부 view: `blog-next`
 - DOM·CSS namespace: `blog-next-*`
-- UI module: `ui/scripts/features/blog-next/`
+- UI module: `ui/scripts/features/blog/`
 - domain contract: `src/continuous-publishing/`
 - application API: `/api/v1/continuous-publishing/topics`, `/api/v1/continuous-publishing/queue`
 - 글감·Queue mutation API: `/api/v1/continuous-publishing/topics/update`, `/api/v1/continuous-publishing/topics/delete`, `/api/v1/continuous-publishing/queue/remove`, `/api/v1/continuous-publishing/queue/reorder`

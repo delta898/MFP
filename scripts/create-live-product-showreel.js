@@ -57,7 +57,7 @@ async function main() {
   try {
     await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => typeof window.navigateTo === 'function');
-    await waitForView('dashboard-beta');
+    await waitForView('dashboard');
     await sleep(900);
 
     // Dashboard: reveal the page depth, then collapse and reopen navigation.
@@ -83,7 +83,7 @@ async function main() {
     await page.locator('#settings-next-app-tab-appearance').click();
     await page.waitForFunction(() => document.getElementById('settings-next-app-panel-appearance')?.hidden === false);
     const styleIds = ['quiet-sage-studio', 'autumn-night-library', 'hanji-dancheong'];
-    const destinations = ['dashboard-beta', 'blog-next', 'card-news'];
+    const destinations = ['dashboard', 'blog-next', 'card-news'];
     for (let index = 0; index < styleIds.length; index += 1) {
       await page.locator(`[data-appearance-style="${styleIds[index]}"]`).click();
       await page.waitForFunction((id) => document.documentElement.dataset.style === id, styleIds[index]);

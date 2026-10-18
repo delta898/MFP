@@ -15,7 +15,7 @@ function read(relativePath) {
 
 test('Settings Beta owns the Settings navigation destination', () => {
     const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({ uiRoot }).html;
-    const navigation = read('ui/scripts/foundation/navigation.js');
+    const navigation = read('ui/scripts/shell/navigation.js');
 
     assert.match(html, /class="nav-btn" data-view="settings-next"/);
     assert.match(html, /id="view-settings-next"/);
@@ -29,8 +29,8 @@ test('Settings Beta owns the Settings navigation destination', () => {
 });
 
 test('Settings loads saved models separately from cached connection status checks', () => {
-    const script = read('ui/scripts/features/settings-next/shell.js');
-    const navigation = read('ui/scripts/foundation/navigation.js');
+    const script = read('ui/scripts/features/settings/shell.js');
+    const navigation = read('ui/scripts/shell/navigation.js');
 
     assert.match(navigation, /await loadSettingsNext\(\)/);
     assert.doesNotMatch(navigation, /loadSettingsNext\(\{ force: true \}\)/);
@@ -44,7 +44,7 @@ test('Settings loads saved models separately from cached connection status check
 });
 
 test('Settings Beta exposes the agreed top IA and core connection submenus as accessible tabs', () => {
-    const script = read('ui/scripts/features/settings-next/shell.js');
+    const script = read('ui/scripts/features/settings/shell.js');
     const style = read('ui/styles/features/settings-next.css');
     const html = createHtmlCompositionRuntime({ fs, path }).composeHtmlFile({
         uiRoot,
@@ -192,11 +192,11 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     assert.match(html, /id="settings-next-sns-source-naver"/);
     assert.match(html, /id="settings-next-sns-source-wordpress"/);
     assert.doesNotMatch(html, /settings-next-telegram-enabled|settings-next-slack-enabled/);
-    const secrets = read('ui/scripts/foundation/settings-secrets.js');
-    const optionalServices = read('ui/scripts/features/settings-next/optional-services.js');
-    const externalConnections = read('ui/scripts/features/settings-next/external-connections.js');
-    const appGeneral = read('ui/scripts/features/settings-next/app-general.js');
-    const appInput = read('ui/scripts/features/settings-next/app-input.js');
+    const secrets = read('ui/scripts/features/settings/secrets.js');
+    const optionalServices = read('ui/scripts/features/settings/optional-services.js');
+    const externalConnections = read('ui/scripts/features/settings/external-connections.js');
+    const appGeneral = read('ui/scripts/features/settings/app-general.js');
+    const appInput = read('ui/scripts/features/settings/app-input.js');
     const settingsCardStyles = read('ui/styles/patterns/settings-card.css');
     const settingsNextStyles = read('ui/styles/features/settings-next.css');
     assert.match(secrets, /function syncSettingsNextSecretRegistration/);
@@ -228,14 +228,14 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
     assert.match(appGeneral, /postJson\('\/api\/v1\/settings\/app-general'/);
     assert.match(appGeneral, /setUiSettingsCardFooterDetail\('settings-next-app-general-footer-detail'/);
     assert.match(appGeneral, /checkUpdate\(true, force\)/);
-    assert.match(read('ui/scripts/foundation/settings-card.js'), /function setUiSettingsCardFooterDetail/);
-    assert.match(read('ui/scripts/foundation/settings-card.js'), /element\.dataset\.tone = tone/);
+    assert.match(read('ui/scripts/features/settings/card.js'), /function setUiSettingsCardFooterDetail/);
+    assert.match(read('ui/scripts/features/settings/card.js'), /element\.dataset\.tone = tone/);
     assert.match(html, /id="settings-next-buffer-footer-detail" class="ui-settings-card-footer-detail" hidden[\s\S]*?class="ui-settings-card-footer-actions"/);
     assert.match(html, /class="ui-settings-card-heading-side ui-settings-card-heading-stack"><div class="ui-settings-card-heading-tools"><a class="ui-text-action" href="https:\/\/bit\.ly\/4ySi4R6" target="_blank" rel="noopener noreferrer">가이드 보기 <span aria-hidden="true">↗<\/span><\/a><span id="settings-next-telegram-status"/);
     assert.match(html, /id="settings-next-telegram-feedback" class="ui-settings-card-feedback ui-settings-card-inline-feedback" data-hide-when-empty="true" role="status" aria-live="polite" hidden/);
     assert.doesNotMatch(html, /settings-next-telegram-footer-detail/);
-    assert.match(read('ui/scripts/foundation/settings-card.js'), /function setUiSettingsCardTransientFeedback[\s\S]*durationMs = 4500/);
-    assert.match(read('ui/scripts/features/settings-next/optional-services.js'), /setUiSettingsCardTransientFeedback\('settings-next-telegram-feedback'/);
+    assert.match(read('ui/scripts/features/settings/card.js'), /function setUiSettingsCardTransientFeedback[\s\S]*durationMs = 4500/);
+    assert.match(read('ui/scripts/features/settings/optional-services.js'), /setUiSettingsCardTransientFeedback\('settings-next-telegram-feedback'/);
     assert.match(html, /id="settings-next-slack-footer-detail" class="ui-settings-card-footer-detail" hidden[\s\S]*?class="ui-settings-card-footer-actions"/);
     assert.match(html, /id="settings-next-bitly-footer-detail" class="ui-settings-card-footer-detail" hidden[\s\S]*?class="ui-settings-card-footer-actions"/);
     assert.match(settingsCardStyles, /\.ui-settings-card > \.ui-settings-card-heading \+ \*/);
@@ -245,16 +245,16 @@ test('Settings Beta exposes the agreed top IA and core connection submenus as ac
 });
 
 test('Settings Beta controller applies scoped changes seamlessly and protects pending local changes', () => {
-    const script = read('ui/scripts/features/settings-next/shell.js');
-    const spreadsheetConnection = read('ui/scripts/features/settings-next/spreadsheet-connection.js');
+    const script = read('ui/scripts/features/settings/shell.js');
+    const spreadsheetConnection = read('ui/scripts/features/settings/spreadsheet-connection.js');
     const spreadsheetScript = `${script}\n${spreadsheetConnection}`;
-    const aiScript = read('ui/scripts/features/settings-next/ai-model-roles.js');
-    const writingScript = read('ui/scripts/features/settings-next/writing-defaults.js');
-    const appInputScript = read('ui/scripts/features/settings-next/app-input.js');
-    const optionalServices = read('ui/scripts/features/settings-next/optional-services.js');
+    const aiScript = read('ui/scripts/features/settings/ai-model-roles.js');
+    const writingScript = read('ui/scripts/features/settings/writing-defaults.js');
+    const appInputScript = read('ui/scripts/features/settings/app-input.js');
+    const optionalServices = read('ui/scripts/features/settings/optional-services.js');
     const tabNavigation = read('ui/scripts/foundation/tab-navigation.js');
-    const navigation = read('ui/scripts/foundation/navigation.js');
-    const lifecycle = read('ui/scripts/foundation/lifecycle.js');
+    const navigation = read('ui/scripts/shell/navigation.js');
+    const lifecycle = read('ui/scripts/shell/lifecycle.js');
     const composed = createJsCompositionRuntime({ fs, path }).composeJsFile({ uiRoot }).js;
 
     assert.match(script, /postJson\('\/api\/v1\/settings\/core-connections', \{ scope, values \}\)/);
@@ -316,7 +316,7 @@ test('Settings Beta controller applies scoped changes seamlessly and protects pe
     assert.match(aiScript, /role === 'text'[\s\S]*settingsNextAiSyncChatSource\(\)/);
     assert.match(aiScript, /settingsNextMarkScopeDirty\(`ai-\$\{role\}`\)/);
     assert.match(aiScript, /settingsNextClearScopeDirty\(`ai-\$\{role\}`\)/);
-    const saveProceed = read('ui/scripts/features/settings-next/save-proceed.js');
+    const saveProceed = read('ui/scripts/features/settings/save-proceed.js');
     assert.match(saveProceed, /'ai-text': '글쓰기 모델'/);
     assert.match(saveProceed, /function saveAllDirtySettingsNext\(\)/);
     assert.match(saveProceed, /function discardAllDirtySettingsNextChanges\(\)/);
@@ -386,9 +386,9 @@ test('Blog Beta and Settings Beta use the same shared tab patterns', () => {
 test('Blog Beta and Settings Beta use one shared keyboard tab controller', () => {
     const app = read('ui/app.js');
     const shared = read('ui/scripts/foundation/tab-navigation.js');
-    const blogShell = read('ui/scripts/features/blog-next/shell.js');
-    const blogQueue = `${read('ui/scripts/features/blog-next/quick-queue.js')}\n${read('ui/scripts/features/blog-next/queue-management.js')}`;
-    const settings = read('ui/scripts/features/settings-next/shell.js');
+    const blogShell = read('ui/scripts/features/blog/shell.js');
+    const blogQueue = `${read('ui/scripts/features/blog/quick-queue.js')}\n${read('ui/scripts/features/blog/queue-management.js')}`;
+    const settings = read('ui/scripts/features/settings/shell.js');
 
     assert.match(app, /@include scripts\/foundation\/tab-navigation\.js/);
     assert.match(shared, /function handleUiTabNavigationKeydown/);
@@ -403,7 +403,7 @@ test('Blog Beta and Settings Beta compose the same generic widget slot partial',
     const widget = read('ui/partials/views/shared/page-widget-area.html');
     const widgetStyles = read('ui/styles/components/widget-slot.css');
     const widgetPackageStyles = read('packages/plugins/core/focus-clock/ui/styles.css');
-    const dashboardStyles = read('ui/styles/features/dashboard-beta.css');
+    const dashboardStyles = read('ui/styles/features/dashboard.css');
 
     assert.match(widget, /class="page-widget-slot" data-widget-slot="app\.header\.trailing"/);
     assert.match(widget, /data-global-publishing-status/);
@@ -422,7 +422,7 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
     const actions = read('ui/styles/patterns/actions.css');
     const featureStyles = read('ui/styles/features/settings-next.css');
     const cardStyles = read('ui/styles/patterns/settings-card.css');
-    const aiScript = read('ui/scripts/features/settings-next/ai-model-roles.js');
+    const aiScript = read('ui/scripts/features/settings/ai-model-roles.js');
 
     assert.match(actions, /button\.ui-danger-action/);
     assert.doesNotMatch(html, /settings-next-google-disconnect" class="ghost ui-danger-action"/);
@@ -475,9 +475,9 @@ test('Settings Beta cards use one status, one feedback surface, and action-only 
 });
 
 test('Settings Beta shows operation loading only on the initiating action', () => {
-    const script = read('ui/scripts/features/settings-next/shell.js');
+    const script = read('ui/scripts/features/settings/shell.js');
     const styles = read('ui/styles/patterns/settings-card.css');
-    const shared = read('ui/scripts/foundation/settings-card.js');
+    const shared = read('ui/scripts/features/settings/card.js');
     const app = read('ui/app.js');
 
     assert.match(script, /button\.textContent = busy \? '연결 확인 중\.\.\.' : '연결 확인'/);
@@ -487,9 +487,9 @@ test('Settings Beta shows operation loading only on the initiating action', () =
     assert.doesNotMatch(script, /SetFeedback\('settings-next-wordpress-feedback',\s*'[^']*확인하고 있습니다/);
     assert.doesNotMatch(script, /연결을 확인했습니다\.|로그인했습니다\.|로그아웃했습니다\.|연동 성공/);
     assert.match(styles, /\.ui-settings-card-feedback\s*\{[\s\S]*min-block-size[\s\S]*white-space: nowrap/);
-    assert.match(read('ui/scripts/foundation/settings-secrets.js'), /function initOpaqueSettingsSecretToggles/);
-    assert.match(app, /@include scripts\/foundation\/settings-card\.js/);
-    assert.match(app, /@include scripts\/features\/settings-next\/optional-services\.js/);
+    assert.match(read('ui/scripts/features/settings/secrets.js'), /function initOpaqueSettingsSecretToggles/);
+    assert.match(app, /@include scripts\/features\/settings\/card\.js/);
+    assert.match(app, /@include scripts\/features\/settings\/optional-services\.js/);
     assert.match(shared, /function initUiSettingsCardPattern/);
     assert.match(shared, /data-settings-card-target/);
     assert.match(shared, /function scrollUiSettingsTargetIntoView/);

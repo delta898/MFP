@@ -258,7 +258,7 @@ function getApiFixture(pathname) {
                 next_items: [{
                     row_index: 1,
                     row_number: 3,
-                    subject: 'Dashboard Beta 다음 글감',
+                    subject: 'Dashboard 다음 글감',
                     targets: ['naver'],
                     post_status: 'draft',
                     processing_estimate_at: '2026-09-02T01:30:00.000Z'
@@ -1935,7 +1935,7 @@ async function createUiDemoVideo(browser, baseUrl, outputPath) {
     const page = await context.newPage();
     try {
         await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
-        await page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active'));
+        await page.waitForFunction(() => document.getElementById('view-dashboard')?.classList.contains('active'));
         await page.waitForTimeout(900);
         await page.locator('#sidebar-toggle-btn').click();
         await page.waitForFunction(() => document.getElementById('sidebar')?.classList.contains('collapsed'));
@@ -2041,7 +2041,7 @@ async function createUiOverviewDemoVideo(browser, baseUrl, outputPath) {
             body: JSON.stringify({ success: true, data: { operationId: 'overview-demo-image', state: 'completed', canCancel: false, remoteJobPossible: false, result: { file_name: 'demo-sns-image.png', mime_type: 'image/png', base64_data: demoArtworkBase64, model_name: 'Demo Image Model' } } })
         }));
         await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
-        await page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active'));
+        await page.waitForFunction(() => document.getElementById('view-dashboard')?.classList.contains('active'));
         demoArtworkBase64 = await makeDemoArtwork();
         await page.locator('.ui-toast-close').evaluateAll((buttons) => buttons.forEach((button) => button.click()));
         await caption('BlogGenius · QUICK TOUR', '아이디어에서 발행까지', '블로그·카드뉴스·SNS를 한 흐름으로');
@@ -2053,7 +2053,7 @@ async function createUiOverviewDemoVideo(browser, baseUrl, outputPath) {
         await page.locator('#sidebar-toggle-btn').click(); await wait(650);
 
         await caption('02 · FOCUS', '집중 타이머로 리듬을 만들고', '대시보드에서 바로 실행');
-        const dashboardWidget = page.frameLocator('#view-dashboard-beta iframe.widget-plugin-frame');
+        const dashboardWidget = page.frameLocator('#view-dashboard iframe.widget-plugin-frame');
         const dashboardClock = dashboardWidget.locator('.clock-style-button');
         await dashboardClock.click(); await wait(300);
         await dashboardWidget.locator('.clock-style-menu').locator('[data-clock-mode="timer"]').click(); await wait(300);
@@ -2064,7 +2064,7 @@ async function createUiOverviewDemoVideo(browser, baseUrl, outputPath) {
         await page.locator('[data-settings-next-tab="app"]').click();
         await page.locator('#settings-next-app-tab-appearance').click();
         await page.locator('[data-appearance-style="quiet-sage-studio"]').click(); await wait(450);
-        await go('dashboard-beta'); await wait(450);
+        await go('dashboard'); await wait(450);
         await caption('STYLE A · DASHBOARD', '차분한 대시보드', '스타일 A'); await wait(950);
         await go('settings-next'); await page.locator('[data-settings-next-tab="app"]').click(); await page.locator('#settings-next-app-tab-appearance').click();
         await page.locator('[data-appearance-style="autumn-night-library"]').click(); await wait(400);
@@ -2268,8 +2268,8 @@ async function run() {
         await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
         smokeProgress.pageUrl = page.url();
         await awaitSmokeCheck('Waiting for app navigation API', page.waitForFunction(() => typeof window.navigateTo === 'function'));
-        await awaitSmokeCheck('Waiting for Dashboard Beta activation', page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active')));
-        await awaitSmokeCheck('Waiting for Dashboard Beta initial flow state', page.waitForFunction(() => document.getElementById('dashboard-beta-flow-subject')?.textContent === '현재 실행 중인 글이 없습니다.'));
+        await awaitSmokeCheck('Waiting for Dashboard activation', page.waitForFunction(() => document.getElementById('view-dashboard')?.classList.contains('active')));
+        await awaitSmokeCheck('Waiting for Dashboard initial flow state', page.waitForFunction(() => document.getElementById('dashboard-flow-subject')?.textContent === '현재 실행 중인 글이 없습니다.'));
         if (process.env.UI_BROWSER_DEMO_VIDEO_PATH) {
             const scenario = process.env.UI_BROWSER_DEMO_SCENARIO || 'sidebar-style';
             if (scenario === 'overview-a-to-z') {
@@ -2316,17 +2316,17 @@ async function run() {
         await page.locator('#sidebar-toggle-btn').click();
         await page.waitForFunction(() => !document.getElementById('sidebar')?.classList.contains('collapsed'));
         assert.equal(await page.locator('#sidebar-menu-tooltip').evaluate((element) => element.hidden), true);
-        assert.equal(await page.locator('#dashboard-beta-ready-count').textContent(), '2건');
-        await page.waitForFunction(() => document.getElementById('dashboard-beta-processed-count')?.textContent === '3건');
-        assert.equal(await page.locator('#dashboard-beta-published-count').textContent(), '1건');
-        assert.equal((await page.locator('#dashboard-beta-recent-results-list').textContent()).includes('오늘 발행 결과'), true);
-        assert.equal((await page.locator('#dashboard-beta-readiness-items').textContent()).includes('Free · 이번 달 2/10회 사용 · 8회 남음'), true);
-        const naverConnectionChip = page.locator('#dashboard-beta-readiness-items [data-dashboard-beta-channel="naver"]');
-        assert.equal((await naverConnectionChip.locator('.dashboard-beta-channel-name').textContent())?.trim(), '네이버 블로그');
-        assert.equal(await naverConnectionChip.locator('.dashboard-beta-channel-status').textContent(), '');
+        assert.equal(await page.locator('#dashboard-ready-count').textContent(), '2건');
+        await page.waitForFunction(() => document.getElementById('dashboard-processed-count')?.textContent === '3건');
+        assert.equal(await page.locator('#dashboard-published-count').textContent(), '1건');
+        assert.equal((await page.locator('#dashboard-recent-results-list').textContent()).includes('오늘 발행 결과'), true);
+        assert.equal((await page.locator('#dashboard-readiness-items').textContent()).includes('Free · 이번 달 2/10회 사용 · 8회 남음'), true);
+        const naverConnectionChip = page.locator('#dashboard-readiness-items [data-dashboard-channel="naver"]');
+        assert.equal((await naverConnectionChip.locator('.dashboard-channel-name').textContent())?.trim(), '네이버 블로그');
+        assert.equal(await naverConnectionChip.locator('.dashboard-channel-status').textContent(), '');
         assert.match(await naverConnectionChip.getAttribute('aria-label') || '', /네이버 로그인 확인됨/);
-        const websiteConnectionChip = page.locator('#dashboard-beta-readiness-items [data-dashboard-beta-channel="site-hosting"]');
-        assert.equal((await websiteConnectionChip.locator('.dashboard-beta-channel-name').textContent())?.trim(), '웹사이트');
+        const websiteConnectionChip = page.locator('#dashboard-readiness-items [data-dashboard-channel="site-hosting"]');
+        assert.equal((await websiteConnectionChip.locator('.dashboard-channel-name').textContent())?.trim(), '웹사이트');
         assert.match(await websiteConnectionChip.getAttribute('aria-label') || '', /Cloudflare 연결 확인됨/);
         await naverConnectionChip.focus();
         assert.equal(await naverConnectionChip.evaluate((element) => getComputedStyle(element, '::after').visibility), 'visible');
@@ -2336,9 +2336,9 @@ async function run() {
             && document.getElementById('settings-next-core-panel-publishing')?.hidden === false
             && document.getElementById('settings-next-naver-form')?.getBoundingClientRect().height > 0
         ));
-        await page.evaluate(() => navigateTo('dashboard-beta'));
-        await page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active'));
-        assert.equal(await page.locator('#dashboard-beta-onboarding').evaluate(element => element.hidden), true);
+        await page.evaluate(() => navigateTo('dashboard'));
+        await page.waitForFunction(() => document.getElementById('view-dashboard')?.classList.contains('active'));
+        assert.equal(await page.locator('#dashboard-onboarding').evaluate(element => element.hidden), true);
         const operationsRequestCountBeforeSetupCheck = requests.filter((request) => (
             request.pathname === '/api/v1/continuous-publishing/dashboard-overview'
         )).length;
@@ -2366,11 +2366,11 @@ async function run() {
         });
         await page.route('**/api/v1/account/overview?quiet=1', accountFailureRoute);
         await page.route('**/api/v1/config/status', setupRequiredRoute);
-        await page.evaluate(() => loadDashboardBeta({ force: true }));
-        assert.equal(await page.locator('#dashboard-beta-onboarding').evaluate(element => element.hidden), false);
-        assert.equal((await page.locator('#dashboard-beta-onboarding-progress').textContent()).trim(), '1/3 준비됨');
-        assert.equal((await page.locator('#dashboard-beta-onboarding-action').textContent()).trim(), 'Google 연결하기');
-        assert.equal((await page.locator('#dashboard-beta-flow-subject').textContent()).trim(), 'Google 연결 후 발행 현황을 확인할 수 있습니다.');
+        await page.evaluate(() => loadDashboard({ force: true }));
+        assert.equal(await page.locator('#dashboard-onboarding').evaluate(element => element.hidden), false);
+        assert.equal((await page.locator('#dashboard-onboarding-progress').textContent()).trim(), '1/3 준비됨');
+        assert.equal((await page.locator('#dashboard-onboarding-action').textContent()).trim(), 'Google 연결하기');
+        assert.equal((await page.locator('#dashboard-flow-subject').textContent()).trim(), 'Google 연결 후 발행 현황을 확인할 수 있습니다.');
         assert.equal(requests.filter((request) => (
             request.pathname === '/api/v1/continuous-publishing/dashboard-overview'
         )).length, operationsRequestCountBeforeSetupCheck);
@@ -2378,50 +2378,50 @@ async function run() {
         for (let index = consoleErrors.length - 1; index >= 0; index -= 1) {
             if (consoleErrors[index].includes('/api/v1/account/overview?quiet=1')) consoleErrors.splice(index, 1);
         }
-        await page.locator('#dashboard-beta-onboarding-action').click();
+        await page.locator('#dashboard-onboarding-action').click();
         await page.waitForFunction(() => document.getElementById('view-settings-next')?.classList.contains('active'));
         assert.equal(await page.locator('#settings-next-tab-core').getAttribute('aria-selected'), 'true');
         await page.waitForFunction(() => document.getElementById('settings-next-content-form')?.classList.contains('settings-navigation-target'));
         await page.unroute('**/api/v1/account/overview?quiet=1', accountFailureRoute);
         await page.unroute('**/api/v1/config/status', setupRequiredRoute);
-        await page.evaluate(() => navigateTo('dashboard-beta'));
-        await page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active'));
-        await page.evaluate(() => loadDashboardBeta({ force: true }));
-        await page.waitForFunction(() => document.getElementById('dashboard-beta-onboarding')?.hidden === true);
-        await page.locator('[data-dashboard-beta-period="week"]').click();
-        assert.equal(await page.locator('#dashboard-beta-processed-count').textContent(), '8건');
-        assert.equal(await page.locator('#dashboard-beta-published-count').textContent(), '4건');
-        assert.equal((await page.locator('#dashboard-beta-recent-results-list').textContent()).includes('이번 주 임시 저장 결과'), true);
-        assert.equal(await page.locator('#dashboard-beta-recent-results-list a').textContent(), '블로그 열기');
-        assert.equal(await page.locator('#dashboard-beta-trend-bars .dashboard-beta-trend-day').count(), 7);
-        await page.locator('[data-dashboard-beta-period="month"]').click();
-        assert.equal(await page.locator('#dashboard-beta-processed-count').textContent(), '19건');
-        assert.equal(await page.locator('#dashboard-beta-published-count').textContent(), '9건');
-        assert.equal((await page.locator('#dashboard-beta-recent-results-list').textContent()).includes('30일 발행 결과'), true);
-        assert.equal(await page.locator('#dashboard-beta-trend').evaluate(element => element.hidden), false);
-        assert.equal(await page.locator('#dashboard-beta-trend-bars .dashboard-beta-trend-day').count(), 30);
-        const monthAxisLabels = (await page.locator('#dashboard-beta-trend-bars small').allTextContents()).filter(Boolean);
+        await page.evaluate(() => navigateTo('dashboard'));
+        await page.waitForFunction(() => document.getElementById('view-dashboard')?.classList.contains('active'));
+        await page.evaluate(() => loadDashboard({ force: true }));
+        await page.waitForFunction(() => document.getElementById('dashboard-onboarding')?.hidden === true);
+        await page.locator('[data-dashboard-period="week"]').click();
+        assert.equal(await page.locator('#dashboard-processed-count').textContent(), '8건');
+        assert.equal(await page.locator('#dashboard-published-count').textContent(), '4건');
+        assert.equal((await page.locator('#dashboard-recent-results-list').textContent()).includes('이번 주 임시 저장 결과'), true);
+        assert.equal(await page.locator('#dashboard-recent-results-list a').textContent(), '블로그 열기');
+        assert.equal(await page.locator('#dashboard-trend-bars .dashboard-trend-day').count(), 7);
+        await page.locator('[data-dashboard-period="month"]').click();
+        assert.equal(await page.locator('#dashboard-processed-count').textContent(), '19건');
+        assert.equal(await page.locator('#dashboard-published-count').textContent(), '9건');
+        assert.equal((await page.locator('#dashboard-recent-results-list').textContent()).includes('30일 발행 결과'), true);
+        assert.equal(await page.locator('#dashboard-trend').evaluate(element => element.hidden), false);
+        assert.equal(await page.locator('#dashboard-trend-bars .dashboard-trend-day').count(), 30);
+        const monthAxisLabels = (await page.locator('#dashboard-trend-bars small').allTextContents()).filter(Boolean);
         assert.equal(monthAxisLabels.length, 5);
         assert.equal(monthAxisLabels.every(label => /^\d+일$/.test(label)), true);
-        assert.equal(await page.locator('#dashboard-beta-tips-section').evaluate(element => element.hidden), false);
-        assert.equal((await page.locator('#dashboard-beta-tips-region').textContent()).includes('BlogGenius로 꾸준한 글쓰기 흐름 만들기'), true);
-        assert.equal(await page.locator('#dashboard-beta-tips-region a').getAttribute('href'), 'https://example.com/bloggenius-tip');
-        await page.waitForFunction(() => document.querySelector('#dashboard-beta-support-teaser-region .surface-supporting-card-support'));
-        assert.equal(await page.locator('#dashboard-beta-support-teaser').evaluate(element => element.hidden), false);
-        assert.equal((await page.locator('#dashboard-beta-support-teaser-region').textContent()).includes('개발자 응원하기'), true);
-        assert.equal(await page.locator('#dashboard-beta-support-teaser-region a').getAttribute('href'), 'https://example.com/support');
-        await page.evaluate(() => initDashboardBetaSupportTeaser({ operationallyEligible: true }));
-        assert.equal(await page.locator('#dashboard-beta-support-teaser').evaluate(element => element.hidden), false);
-        await page.waitForFunction(() => document.querySelector('#dashboard-beta-discovery-list .recommendation-card h3')?.textContent?.trim() === '로컬 여행');
-        assert.equal((await page.locator('#dashboard-beta-discovery-title').textContent())?.trim(), '새로운 발견');
-        assert.equal((await page.locator('#dashboard-beta-discovery-count').textContent())?.trim(), '1');
-        assert.equal((await page.locator('#dashboard-beta-discovery-refresh').textContent())?.trim(), '새 소재 찾기');
-        assert.equal(await page.locator('#dashboard-beta-discovery-list .recommendation-card').count(), 1);
+        assert.equal(await page.locator('#dashboard-tips-section').evaluate(element => element.hidden), false);
+        assert.equal((await page.locator('#dashboard-tips-region').textContent()).includes('BlogGenius로 꾸준한 글쓰기 흐름 만들기'), true);
+        assert.equal(await page.locator('#dashboard-tips-region a').getAttribute('href'), 'https://example.com/bloggenius-tip');
+        await page.waitForFunction(() => document.querySelector('#dashboard-support-teaser-region .surface-supporting-card-support'));
+        assert.equal(await page.locator('#dashboard-support-teaser').evaluate(element => element.hidden), false);
+        assert.equal((await page.locator('#dashboard-support-teaser-region').textContent()).includes('개발자 응원하기'), true);
+        assert.equal(await page.locator('#dashboard-support-teaser-region a').getAttribute('href'), 'https://example.com/support');
+        await page.evaluate(() => initDashboardSupportTeaser({ operationallyEligible: true }));
+        assert.equal(await page.locator('#dashboard-support-teaser').evaluate(element => element.hidden), false);
+        await page.waitForFunction(() => document.querySelector('#dashboard-discovery-list .recommendation-card h3')?.textContent?.trim() === '로컬 여행');
+        assert.equal((await page.locator('#dashboard-discovery-title').textContent())?.trim(), '새로운 발견');
+        assert.equal((await page.locator('#dashboard-discovery-count').textContent())?.trim(), '1');
+        assert.equal((await page.locator('#dashboard-discovery-refresh').textContent())?.trim(), '새 소재 찾기');
+        assert.equal(await page.locator('#dashboard-discovery-list .recommendation-card').count(), 1);
         assert.equal(
-            await page.locator('.nav-btn[data-view="dashboard-beta"] .nav-label').evaluate((element) => element.childNodes[0]?.textContent?.trim()),
+            await page.locator('.nav-btn[data-view="dashboard"] .nav-label').evaluate((element) => element.childNodes[0]?.textContent?.trim()),
             '대시보드'
         );
-        assert.equal(await page.locator('.nav-btn[data-view="dashboard-beta"] .nav-new-badge').count(), 0);
+        assert.equal(await page.locator('.nav-btn[data-view="dashboard"] .nav-new-badge').count(), 0);
         assert.equal(await page.locator('.nav-btn[data-view="site-hosting"] .nav-new-badge').textContent(), 'NEW');
         assert.equal((await page.locator('.nav-btn[data-view="help"] .nav-label').textContent()).trim(), '도움말');
         await page.evaluate(() => {
@@ -2429,7 +2429,7 @@ async function run() {
         });
         await page.waitForFunction(() => document.getElementById('ui-dialog-backdrop')?.getAttribute('aria-hidden') === 'false');
         assert.equal(await page.evaluate(() => navigateToBlogQuickCreate()), false);
-        assert.equal(await page.locator('#view-dashboard-beta').evaluate((element) => element.classList.contains('active')), true);
+        assert.equal(await page.locator('#view-dashboard').evaluate((element) => element.classList.contains('active')), true);
         await page.locator('#ui-dialog-confirm').click();
         await page.evaluate(() => navigateToBlogQuickCreate());
         await page.waitForFunction(() => document.getElementById('view-blog-next')?.classList.contains('active'));
@@ -2497,28 +2497,28 @@ async function run() {
         });
         assert.equal(scrollAfterTabSwitch, scrollBeforeTabSwitch);
         await page.evaluate(() => activateBlogNextTab('quick'));
-        await page.evaluate(() => navigateTo('dashboard-beta'));
-        await page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active'));
-        assert.equal(await page.locator('#dashboard-beta-queue-list').textContent().then(text => text.includes('Dashboard Beta 다음 글감')), true);
-        await page.locator('[data-dashboard-beta-period="today"]').click();
-        await page.waitForFunction(() => document.getElementById('dashboard-beta-trend-title')?.textContent === '오늘 시간대별 추이');
-        assert.equal(await page.locator('#dashboard-beta-trend').evaluate(element => element.hidden), false);
-        assert.equal(await page.locator('#dashboard-beta-trend-bars .dashboard-beta-trend-day').count(), 11);
+        await page.evaluate(() => navigateTo('dashboard'));
+        await page.waitForFunction(() => document.getElementById('view-dashboard')?.classList.contains('active'));
+        assert.equal(await page.locator('#dashboard-queue-list').textContent().then(text => text.includes('Dashboard 다음 글감')), true);
+        await page.locator('[data-dashboard-period="today"]').click();
+        await page.waitForFunction(() => document.getElementById('dashboard-trend-title')?.textContent === '오늘 시간대별 추이');
+        assert.equal(await page.locator('#dashboard-trend').evaluate(element => element.hidden), false);
+        assert.equal(await page.locator('#dashboard-trend-bars .dashboard-trend-day').count(), 11);
         assert.deepEqual(
-            (await page.locator('#dashboard-beta-trend-bars small').allTextContents()).filter(Boolean),
+            (await page.locator('#dashboard-trend-bars small').allTextContents()).filter(Boolean),
             ['0시', '3시', '6시', '9시']
         );
-        assert.equal(await page.locator('#dashboard-beta-trend-bars small').evaluateAll((labels) => (
+        assert.equal(await page.locator('#dashboard-trend-bars small').evaluateAll((labels) => (
             new Set(labels.map(label => label.getBoundingClientRect().height)).size
         )), 1);
-        assert.equal(await page.locator('#dashboard-beta-trend-bars .dashboard-beta-trend-bar-pair').evaluateAll((bars) => (
+        assert.equal(await page.locator('#dashboard-trend-bars .dashboard-trend-bar-pair').evaluateAll((bars) => (
             new Set(bars.map(bar => Math.round(bar.getBoundingClientRect().bottom))).size
         )), 1);
-        await page.locator('[data-dashboard-beta-period="week"]').click();
-        assert.equal(await page.locator('#dashboard-beta-trend-title').textContent(), '이번 주 일별 추이');
-        assert.equal(await page.locator('#dashboard-beta-trend-bars .dashboard-beta-trend-day').count(), 7);
-        await page.locator('[data-dashboard-beta-period="today"]').click();
-        await page.locator('#dashboard-beta-tips-section [data-dashboard-beta-nav="help"]').click();
+        await page.locator('[data-dashboard-period="week"]').click();
+        assert.equal(await page.locator('#dashboard-trend-title').textContent(), '이번 주 일별 추이');
+        assert.equal(await page.locator('#dashboard-trend-bars .dashboard-trend-day').count(), 7);
+        await page.locator('[data-dashboard-period="today"]').click();
+        await page.locator('#dashboard-tips-section [data-dashboard-nav="help"]').click();
         assert.equal(await page.locator('#view-help').evaluate(element => element.classList.contains('active')), true);
         const helpWidget = page.frameLocator('#view-help iframe.widget-plugin-frame');
         await helpWidget.locator('[data-clock-display]').waitFor();
@@ -2656,12 +2656,12 @@ async function run() {
         const aiRoleLoadsBeforeDiscard = requests.filter((request) => (
             request.method === 'GET' && request.pathname === '/api/v1/settings/ai-roles'
         )).length;
-        const settingsNextDiscardNavigation = page.evaluate(() => navigateTo('dashboard-beta'));
+        const settingsNextDiscardNavigation = page.evaluate(() => navigateTo('dashboard'));
         await page.waitForFunction(() => document.getElementById('ui-dialog-backdrop')?.getAttribute('aria-hidden') === 'false');
         assert.equal((await page.locator('#ui-dialog-message').textContent())?.includes('글쓰기 모델'), true);
         await page.locator('#ui-dialog-tertiary').click();
         await settingsNextDiscardNavigation;
-        await page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active'));
+        await page.waitForFunction(() => document.getElementById('view-dashboard')?.classList.contains('active'));
         assert.equal(await page.evaluate(() => hasPendingSettingsNextChanges()), false);
         assert.equal(await page.locator('#settings-next-ai-text-form [data-ai-field="name"]').inputValue(), 'fixture-text');
         assert.equal(requests.filter((request) => (
@@ -2706,7 +2706,7 @@ async function run() {
         assert.equal((await page.locator('#settings-next-writing-voice-summary').textContent())?.includes('문어체'), true);
         assert.equal((await page.locator('#settings-next-writing-structure-summary').textContent())?.includes('길게'), true);
         assert.equal(await page.locator('#settings-next-writing-apply').isEnabled(), true);
-        const writingStayNavigation = page.evaluate(() => navigateTo('dashboard-beta'));
+        const writingStayNavigation = page.evaluate(() => navigateTo('dashboard'));
         await page.waitForFunction(() => document.getElementById('ui-dialog-backdrop')?.getAttribute('aria-hidden') === 'false');
         assert.equal((await page.locator('#ui-dialog-message').textContent())?.includes('글쓰기 기본값'), true);
         await page.locator('#ui-dialog-cancel').click();
@@ -2763,7 +2763,7 @@ async function run() {
             showUiConfirm = async () => true;
         });
         reportSmokePhase('Checking current Settings, account, logs, and active-surface navigation');
-        for (const viewName of ['account', 'social', 'settings', 'shopping', 'site-hosting', 'dashboard-beta', 'blog-next']) {
+        for (const viewName of ['account', 'social', 'settings', 'shopping', 'site-hosting', 'dashboard', 'blog-next']) {
             const expectedViewName = viewName === 'settings' ? 'settings-next' : viewName;
             const siteTemplateAutoCheck = viewName === 'site-hosting'
                 ? page.waitForResponse((response) => new URL(response.url()).pathname === '/api/v1/site-hosting/templates' && response.request().method() === 'GET')
@@ -3009,21 +3009,21 @@ async function run() {
                 await page.waitForFunction(() => !document.querySelector('[data-site-settings="site-smoke-1"]'));
             }
         }
-        await page.evaluate(() => navigateTo('dashboard-beta'));
-        await page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active'));
-        await page.locator('#dashboard-beta-readiness-items [data-dashboard-beta-channel="site-hosting"]').click();
+        await page.evaluate(() => navigateTo('dashboard'));
+        await page.waitForFunction(() => document.getElementById('view-dashboard')?.classList.contains('active'));
+        await page.locator('#dashboard-readiness-items [data-dashboard-channel="site-hosting"]').click();
         await page.waitForFunction(() => document.getElementById('view-site-hosting')?.classList.contains('active'));
         await page.evaluate(() => {
-            navigateTo('dashboard-beta');
-            renderDashboardBetaReadiness({ connections: {}, usage: {} }, { connected: false, accounts: [] });
+            navigateTo('dashboard');
+            renderDashboardReadiness({ connections: {}, usage: {} }, { connected: false, accounts: [] });
         });
-        await page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active'));
-        await page.locator('#dashboard-beta-readiness-items [data-dashboard-beta-channel="site-hosting"]').click();
+        await page.waitForFunction(() => document.getElementById('view-dashboard')?.classList.contains('active'));
+        await page.locator('#dashboard-readiness-items [data-dashboard-channel="site-hosting"]').click();
         await page.waitForFunction(() => (
             document.getElementById('view-settings-next')?.classList.contains('active')
             && document.getElementById('settings-next-core-panel-hosting')?.hidden === false
         ));
-        await page.evaluate(() => navigateTo('dashboard-beta'));
+        await page.evaluate(() => navigateTo('dashboard'));
         await page.evaluate(() => { showUiConfirm = window.__settingsNextSmokeConfirm; });
 
         assert.equal(
@@ -4101,13 +4101,13 @@ async function run() {
         await page.waitForFunction(() => document.getElementById('view-blog-next')?.classList.contains('active'));
         assert.equal(await page.locator('#blog-next-panel-quick').evaluate((element) => element.hidden), false);
         assert.equal(await page.locator('html').getAttribute('data-style'), 'warm-editorial');
-        assert.equal(await page.locator('#view-dashboard-beta').getAttribute('data-style-scope'), null);
+        assert.equal(await page.locator('#view-dashboard').getAttribute('data-style-scope'), null);
         assert.equal(await page.locator('#view-blog-next').getAttribute('data-style-scope'), null);
-        const dashboardStyleProbe = async () => page.locator('#view-dashboard-beta .ui-overview-card').first().evaluate((element) => {
+        const dashboardStyleProbe = async () => page.locator('#view-dashboard .ui-overview-card').first().evaluate((element) => {
             const style = getComputedStyle(element);
             return { borderRadius: style.borderRadius, boxShadow: style.boxShadow };
         });
-        const dashboardCountProbe = async () => page.locator('#dashboard-beta-discovery-count').evaluate((element) => {
+        const dashboardCountProbe = async () => page.locator('#dashboard-discovery-count').evaluate((element) => {
             const style = getComputedStyle(element);
             return { background: style.backgroundColor, color: style.color };
         });
@@ -4121,7 +4121,7 @@ async function run() {
         assert.notDeepEqual(quietDashboardCount, warmDashboardCount);
         await page.evaluate(() => applyDesignStyle('autumn-night-library'));
         assert.deepEqual(
-            await page.locator('#view-dashboard-beta .ui-overview-card').first().evaluate((element) => {
+            await page.locator('#view-dashboard .ui-overview-card').first().evaluate((element) => {
                 const style = getComputedStyle(element);
                 const root = getComputedStyle(document.documentElement);
                 return {
@@ -4171,7 +4171,7 @@ async function run() {
         ]);
         await page.evaluate(() => applyDesignStyle('hanji-dancheong'));
         assert.deepEqual(
-            await page.locator('#view-dashboard-beta .ui-overview-card').first().evaluate((element) => {
+            await page.locator('#view-dashboard .ui-overview-card').first().evaluate((element) => {
                 const style = getComputedStyle(element);
                 const root = getComputedStyle(document.documentElement);
                 return {
@@ -4195,19 +4195,19 @@ async function run() {
             10
         );
         assert.deepEqual(
-            await page.locator('#dashboard-beta-discovery-refresh').evaluate((element) => {
+            await page.locator('#dashboard-discovery-refresh').evaluate((element) => {
                 const style = getComputedStyle(element);
                 return { color: style.color, borderColor: style.borderColor };
             }),
             { color: 'rgb(64, 84, 79)', borderColor: 'rgb(174, 191, 182)' }
         );
         assert.equal(
-            await page.locator('#view-dashboard-beta .recommendation-dismiss').first().evaluate((element) => getComputedStyle(element).color),
+            await page.locator('#view-dashboard .recommendation-dismiss').first().evaluate((element) => getComputedStyle(element).color),
             'rgb(150, 57, 41)'
         );
         await page.evaluate(() => applyDesignStyle('retro-terminal'));
         assert.deepEqual(
-            await page.locator('#view-dashboard-beta .ui-overview-card').first().evaluate((element) => {
+            await page.locator('#view-dashboard .ui-overview-card').first().evaluate((element) => {
                 const style = getComputedStyle(element);
                 const root = getComputedStyle(document.documentElement);
                 return {
@@ -5287,7 +5287,7 @@ async function run() {
         await page.waitForFunction(() => document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
         assert.equal(await page.locator('#blog-next-management-panel-automation').evaluate((element) => element.hidden), false);
         assert.equal(await page.locator('#blog-next-automation-interval').inputValue(), '61');
-        await page.locator('.nav-btn[data-view="dashboard-beta"]').click();
+        await page.locator('.nav-btn[data-view="dashboard"]').click();
         await page.waitForFunction(() => !document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
         await page.locator('#ui-dialog-cancel').click();
         await page.waitForFunction(() => document.getElementById('ui-dialog-backdrop')?.classList.contains('hidden'));
@@ -5747,7 +5747,7 @@ async function run() {
         assert.equal(await page.locator('.nav-btn[data-view="logs"]').count(), 0);
         assert.equal(await page.locator('#view-logs').count(), 0);
 
-        await page.locator('.nav-btn[data-view="dashboard-beta"]').click();
+        await page.locator('.nav-btn[data-view="dashboard"]').click();
         assert.equal(await page.locator('#update-banner').evaluate((element) => element.classList.contains('hidden')), true);
         await page.evaluate(() => navigateTo('blog-next', 'quick'));
 
@@ -5778,12 +5778,12 @@ async function run() {
         assert.equal(blogNextNarrowLayout.modeChecks.every(({ left, right, width }) => left >= 0 && right <= 391 && width > 0), true);
         assert.equal(await page.locator('.nav-btn[data-view="blog-next"]').isVisible(), true);
         assert.equal(await page.locator('.mobile-topbar').evaluate((element) => getComputedStyle(element).display), 'flex');
-        await page.evaluate(() => navigateTo('dashboard-beta'));
-        await page.waitForFunction(() => document.getElementById('view-dashboard-beta')?.classList.contains('active'));
-        const centerBox = await page.locator('#dashboard-beta-discovery').boundingBox();
+        await page.evaluate(() => navigateTo('dashboard'));
+        await page.waitForFunction(() => document.getElementById('view-dashboard')?.classList.contains('active'));
+        const centerBox = await page.locator('#dashboard-discovery').boundingBox();
         assert.equal(Boolean(centerBox && centerBox.width <= 390), true);
         assert.equal(
-            await page.locator('#dashboard-beta-discovery-list').evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length),
+            await page.locator('#dashboard-discovery-list').evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length),
             1
         );
         await page.locator('#mobile-menu-btn').click();

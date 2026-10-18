@@ -1,0 +1,75 @@
+@media (max-width: 1100px) {
+  .dashboard-overview-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-hero .view-title-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dashboard-hero .dash-widget-slot {
+    justify-content: flex-start;
+  }
+
+  .dashboard-readiness,
+  .dashboard-onboarding,
+  .dashboard-flow-card,
+  .dashboard-next-card,
+  .dashboard-results-card,
+  .dashboard-queue-card,
+  .dashboard-discovery-card,
+  .dashboard-tips-card {
+    padding: var(--ui-space-5);
+  }
+
+  .dashboard-onboarding-head,
+  .dashboard-onboarding-action-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dashboard-onboarding-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-onboarding-action-row button {
+    width: 100%;
+  }
+
+  .dashboard-readiness-items {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dashboard-readiness-items [data-dashboard-nav="account"] {
+    margin-left: 0;
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .dashboard-counts {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-results-grid,
+  .dashboard-stat-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-flow-actions {
+    justify-content: flex-start;
+  }
+
+  .dashboard-period-tabs.ui-segmented-tabs {
+    align-items: center;
+    flex-direction: row;
+    width: fit-content;
+  }
+
+  .dashboard-next-actions {
+    justify-content: flex-start;
+  }
+}

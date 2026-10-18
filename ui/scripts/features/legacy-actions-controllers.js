@@ -1,7 +1,7 @@
 function bindActions() {
   document.querySelectorAll('.app-title').forEach(el => {
     el.addEventListener('click', () => {
-      document.querySelector('.nav-btn[data-view="dashboard-beta"]')?.click();
+      document.querySelector('.nav-btn[data-view="dashboard"]')?.click();
     });
   });
 

@@ -6,7 +6,7 @@ const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
 
-const source = fs.readFileSync(path.join(__dirname, '../ui/scripts/features/settings-next/site-hosting.js'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, '../ui/scripts/features/settings/site-hosting.js'), 'utf8');
 const siteHostingRuntime = fs.readFileSync(path.join(__dirname, '../ui/scripts/features/site-hosting/project-management.js'), 'utf8');
 const siteSettings = fs.readFileSync(path.join(__dirname, '../ui/scripts/features/site-hosting/site-settings.js'), 'utf8');
 const accountSelection = fs.readFileSync(path.join(__dirname, '../ui/scripts/features/site-hosting/cloudflare-account-selection.js'), 'utf8');

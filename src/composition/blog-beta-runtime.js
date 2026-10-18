@@ -2,6 +2,7 @@
 
 const fsDefault = require('node:fs');
 const pathDefault = require('node:path');
+const { randomUUID } = require('node:crypto');
 const ImageServiceDefault = require('../image-service');
 const { createCorePluginRuntime } = require('./core-plugin-runtime');
 const { createAiGenerationSystem } = require('./ai-generation');
@@ -10,7 +11,7 @@ const { createWordPressPublishingSystem } = require('./wordpress-publishing');
 const { createNaverPublishingSystem } = require('./naver-publishing');
 const { createBlogPublishingApplication } = require('../applications/blog/publishing/application');
 const { createBlogPostingApplication } = require('../applications/blog/posting/application');
-const { createBlogGeniusAiTransport } = require('../adapters/ai/gateway-transport');
+const { createShoppingGenerationApplication } = require('../applications/shopping/generation/application');
 const { inferTransport } = require('../ai/transport-registry');
 const { createSupabaseModelCatalogPort } = require('../ai/remote-model-catalog');
 const { createModelCatalogService } = require('../../packages/plugins/core/ai-gateway');
@@ -41,9 +42,34 @@ function createBlogBetaRuntimeComposition(options = {}) {
         getStatus: getCatalogStatus,
         logger: Logger
     });
+    const verificationProfiles = new Map();
+    const registerVerificationProfile = (kind, profile) => {
+        const profileRef = randomUUID();
+        verificationProfiles.set(profileRef, {
+            kind: String(kind || '').trim(),
+            provider: String(profile?.provider || '').trim(),
+            modelId: String(profile?.code || '').trim(),
+            profile
+        });
+        return profileRef;
+    };
+    const releaseVerificationProfile = (profileRef) => verificationProfiles.delete(String(profileRef || ''));
     const pluginDependencies = {
         'ai-gateway': {
-            transport: createBlogGeniusAiTransport({ config: CONFIG, fetch: options.fetch, lookup: options.lookup }),
+            getProviderProfile: ({ kind, provider, modelId, profileRef }) => {
+                if (profileRef) {
+                    const candidate = verificationProfiles.get(profileRef);
+                    if (candidate && candidate.kind === kind && candidate.provider === provider
+                        && candidate.modelId === modelId) return candidate.profile;
+                    return null;
+                }
+                const profile = CONFIG.AI_MODEL_PROFILES?.[kind]?.[provider];
+                if (profile && typeof profile === 'object') return profile;
+                const role = kind === 'image' ? CONFIG.IMAGE_MODEL_CONFIG : CONFIG.TEXT_MODEL_CONFIG;
+                return role?.provider === provider ? role : null;
+            },
+            ...(options.fetch ? { fetch: options.fetch } : {}),
+            ...(options.lookup ? { lookup: options.lookup } : {}),
             catalog: catalogService
         },
         'wordpress-publisher': {
@@ -57,6 +83,8 @@ function createBlogBetaRuntimeComposition(options = {}) {
     const aiGenerationSystem = createAiGenerationSystem({
         corePluginRuntime,
         pluginDependencies,
+        registerVerificationProfile,
+        releaseVerificationProfile,
         getModelCatalog: getAiModelCatalog,
         logger: Logger,
         getConfiguredModels: (kind) => {
@@ -104,6 +132,11 @@ function createBlogBetaRuntimeComposition(options = {}) {
         },
         getImageModel: () => ({ provider: CONFIG.IMAGE_MODEL_CONFIG?.provider, modelId: CONFIG.IMAGE_MODEL_CONFIG?.code })
     });
+    const shoppingGenerationApplication = createShoppingGenerationApplication({
+        aiGeneration: aiGenerationSystem.service,
+        getTextModel: () => CONFIG.TEXT_MODEL_CONFIG,
+        logger: Logger
+    });
     const blogPostingApplication = createBlogPostingApplication({
         Utils: options.Utils || require('../utils'),
         CONFIG,
@@ -137,6 +170,7 @@ function createBlogBetaRuntimeComposition(options = {}) {
         wordpressPublishingSystem,
         naverPublishingSystem,
         blogWritingSystem,
+        shoppingGenerationApplication,
         blogPostingApplication,
         blogPublishingApplication
     });

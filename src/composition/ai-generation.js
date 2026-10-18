@@ -17,7 +17,12 @@ function createAiGenerationSystem(options = {}) {
     const { executeOperation } = corePluginRuntime.ensurePlugins(['ai-gateway'], {
         ...(dependencies['ai-gateway'] ? { 'ai-gateway': dependencies['ai-gateway'] } : {})
     });
-    const gateway = createAiGatewayAdapter({ executeOperation, getSupport: options.getSupport });
+    const gateway = createAiGatewayAdapter({
+        executeOperation,
+        getSupport: options.getSupport,
+        registerVerificationProfile: options.registerVerificationProfile,
+        releaseVerificationProfile: options.releaseVerificationProfile
+    });
     const service = createAiGenerationService({
         gateway,
         getModelCatalog: options.getModelCatalog,

@@ -7,12 +7,12 @@ const repoRoot = path.resolve(__dirname, '..');
 const scriptsRoot = path.join(repoRoot, 'ui', 'scripts');
 
 const shellContracts = Object.freeze({
-    'features/shell/setup-banner.js': ['checkSetupBanner', 'dismissSetupBanner'],
-    'features/shell/sidebar.js': ['refreshSidebarDynamicContent', 'initSidebarDynamicContent'],
-    'features/shell/update.js': ['checkUpdate', 'applyUpdate'],
-    'features/shell/account-overview.js': ['renderAccountOverview', 'loadAccountOverview'],
-    'features/shell/account-actions.js': ['bindAccountUpgradeFreeClick', 'bindAccountPlanInfoClick'],
-    'features/shell/celebration.js': ['showAppCelebration', 'showPendingUpdateCelebration', 'showPostingCompletionCelebration', 'flushPendingQuickPostingCelebration'],
+    'shell/setup-banner.js': ['checkSetupBanner', 'dismissSetupBanner'],
+    'shell/sidebar.js': ['refreshSidebarDynamicContent', 'initSidebarDynamicContent'],
+    'shell/update.js': ['checkUpdate', 'applyUpdate'],
+    'shell/account-overview.js': ['renderAccountOverview', 'loadAccountOverview'],
+    'shell/account-actions.js': ['bindAccountUpgradeFreeClick', 'bindAccountPlanInfoClick'],
+    'shell/celebration.js': ['showAppCelebration', 'showPendingUpdateCelebration', 'showPostingCompletionCelebration', 'flushPendingQuickPostingCelebration'],
     'foundation/widget-slot-host.js': ['initWidgetSlotHost']
 });
 
@@ -43,8 +43,8 @@ test('dashboard shell responsibilities have one explicit feature owner', () => {
 });
 
 test('self-update completion uses the shared celebration and acknowledges it after display', () => {
-    const celebrationSource = readScript('features/shell/celebration.js');
-    const lifecycleSource = readScript('foundation/lifecycle.js');
+    const celebrationSource = readScript('shell/celebration.js');
+    const lifecycleSource = readScript('shell/lifecycle.js');
 
     assert.match(celebrationSource, /fetchJson\('\/api\/v1\/system\/update\/completion'\)/);
     assert.match(celebrationSource, /showAppCelebration\(\{/);
@@ -66,8 +66,8 @@ test('temporary feature modules no longer own dashboard shell controllers', () =
 });
 
 test('dashboard refreshes persisted discoveries once per app session without replacing them on failure', () => {
-    const dashboardSource = readScript('features/dashboard/dashboard-beta.js');
-    const centerSource = readScript('features/recommendations/center.js');
+    const dashboardSource = readScript('features/dashboard/dashboard.js');
+    const centerSource = readScript('features/dashboard/recommendations.js');
 
     assert.match(dashboardSource, /loadRecommendationCenterForDashboard\(\)/);
     assert.match(centerSource, /recommendationCenterStartupRefreshCompleted/);
@@ -80,7 +80,7 @@ test('dashboard refreshes persisted discoveries once per app session without rep
 });
 
 test('manual discovery reports progress through the refresh button', () => {
-    const centerSource = readScript('features/recommendations/center.js');
+    const centerSource = readScript('features/dashboard/recommendations.js');
 
     assert.match(centerSource, /function startRecommendationCenterProgress\(button\)/);
     assert.match(centerSource, /button\.classList\.add\('is-loading'\)/);
@@ -94,7 +94,7 @@ test('manual discovery reports progress through the refresh button', () => {
 });
 
 test('dashboard cards expose only the latest recommendation evidence', () => {
-    const centerSource = readScript('features/recommendations/center.js');
+    const centerSource = readScript('features/dashboard/recommendations.js');
 
     assert.match(centerSource, /function recommendationCenterLatestEvidence\(item\)/);
     assert.match(centerSource, /evidence\?\.observed_at \|\| evidence\?\.source\?\.timestamp/);

@@ -30,6 +30,29 @@ test('text operation normalizes a supported provider response and never accepts 
     assert.equal(Object.hasOwn(requests[0], 'headers'), false);
 });
 
+test('Gateway package owns built-in provider URL and transport; Host provides only the private profile resolver', async () => {
+    let requestedUrl = '';
+    const plugin = createPlugin({
+        getProviderProfile: async ({ kind, provider }) => (kind === 'text' && provider === 'openai'
+            ? { api_key: 'private-key' }
+            : null),
+        fetch: async (url) => {
+            requestedUrl = String(url);
+            return {
+                status: 200,
+                headers: {},
+                async json() { return { choices: [{ message: { content: 'gateway-owned transport' } }] }; }
+            };
+        }
+    });
+    const result = await plugin.operations['text.generate'].execute({
+        model: { provider: 'openai', modelId: 'gpt-6-astra' },
+        messages: [{ role: 'user', content: 'hello' }]
+    });
+    assert.equal(requestedUrl, 'https://api.openai.com/v1/chat/completions');
+    assert.equal(result.content, 'gateway-owned transport');
+});
+
 test('models.list delegates catalog refresh and only exposes routes implemented by this Gateway', async () => {
     const calls = [];
     const plugin = createPlugin({
@@ -145,6 +168,9 @@ test('manifest Host contract rejects credentials in operation input before provi
         apiKey: 'must-not-cross-the-plugin-boundary'
     }), { code: 'PLUGIN_OPERATION_CONTRACT_VIOLATION' });
     assert.equal(requests, 0);
+    await assert.rejects(host.execute('ai-gateway', 'models.verify', {
+        kind: 'text', model: { provider: 'openai', modelId: 'gpt-6-astra' }, apiKey: 'must-not-cross-the-plugin-boundary'
+    }), { code: 'PLUGIN_OPERATION_CONTRACT_VIOLATION' });
 });
 
 test('KIE image operation reports async progress, polls and downloads a bounded image', async () => {

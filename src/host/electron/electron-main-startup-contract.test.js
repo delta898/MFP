@@ -9,7 +9,7 @@ const source = fs.readFileSync(path.join(__dirname, 'electron-main.js'), 'utf8')
 const uiRoot = path.resolve(__dirname, '../../../ui');
 const uiIndex = fs.readFileSync(path.join(uiRoot, 'index.html'), 'utf8');
 const rendererGuard = fs.readFileSync(path.join(uiRoot, 'startup-guard.js'), 'utf8');
-const rendererLifecycle = fs.readFileSync(path.join(uiRoot, 'scripts/foundation/lifecycle.js'), 'utf8');
+const rendererLifecycle = fs.readFileSync(path.join(uiRoot, 'scripts/shell/lifecycle.js'), 'utf8');
 const packageMetadata = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../package.json'), 'utf8'));
 
 test('bootstrap and fatal handlers are installed before the application graph loads', () => {

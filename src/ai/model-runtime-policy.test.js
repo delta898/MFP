@@ -7,8 +7,7 @@ const {
     getModelRuntimeDefinition,
     normalizeReasoningEffort,
     resolveSupportedReasoningEffort,
-    withAutomaticReasoningEffort,
-    resolveOpenAiImageRequest
+    withAutomaticReasoningEffort
 } = require('./model-runtime-policy');
 const {
     extractKieOpenAiChatContent,
@@ -29,9 +28,7 @@ const MODEL_FIXTURES = [
     ['text', 'openai', 'gpt-5.6-terra', 'openai_chat_completions', 'GPT-5.6 Terra', { structured_output: true }],
     ['text', 'openai', 'gpt-6-astra', 'openai_chat_completions', 'GPT-6 Astra', { reasoning_efforts: ['low', 'medium', 'high', 'xhigh'] }],
     ['text', 'anthropic', 'claude-sonnet-5', 'anthropic_openai_compat', 'Claude Sonnet 5', { temperature: false }],
-    ['text', 'kie', 'gpt-5-6-terra', 'kie_responses', 'GPT-5.6 Terra', {}],
-    ['image', 'openai', 'gpt-image-2.5-sunburst', 'openai_images', 'GPT Image 2.5 Sunburst', { arbitrary_size: true, quality: ['auto'], response_format: false }],
-    ['image', 'openai', 'gpt-image-2', 'openai_images', 'GPT Image 2', { arbitrary_size: true, quality: ['auto'], response_format: false }]
+    ['text', 'kie', 'gpt-5-6-terra', 'kie_responses', 'GPT-5.6 Terra', {}]
 ];
 
 test.beforeEach(() => {
@@ -179,24 +176,6 @@ test('Anthropic compatibility removes unsupported Sonnet 5 temperature', () => {
     });
 });
 
-test('GPT Image 2.5 uses native image policy within the supported 1K/2K product range', () => {
-    const request = resolveOpenAiImageRequest({
-        provider: 'openai',
-        code: 'gpt-image-2.5-sunburst'
-    }, {
-        prompt: 'blog hero',
-        aspectRatio: '16:9',
-        imageSize: '2K'
-    });
-
-    assert.deepEqual(request.body, {
-        model: 'gpt-image-2.5-sunburst',
-        prompt: 'blog hero',
-        size: '2048x1152',
-        quality: 'auto'
-    });
-});
-
 test('KIE OpenAI chat uses its route-selected model contract', () => {
     const request = buildOpenAiChatRequest({
         provider: 'kie',
@@ -301,45 +280,4 @@ test('direct OpenAI-compatible text keeps max_tokens and removed presets remain 
         max_tokens: 300
     });
     assert.equal(request.definition.status, '');
-});
-
-test('GPT Image 2 uses native image policy and preserves aspect ratio', () => {
-    const request = resolveOpenAiImageRequest({
-        provider: 'openai',
-        code: 'gpt-image-2'
-    }, {
-        prompt: 'blog hero',
-        aspectRatio: '4:3',
-        imageSize: '2K'
-    });
-
-    assert.equal(request.definition.transport, 'openai_images');
-    assert.deepEqual(request.body, {
-        model: 'gpt-image-2',
-        prompt: 'blog hero',
-        size: '2048x1536',
-        quality: 'auto'
-    });
-});
-
-test('direct image models retain conservative OpenAI-compatible request fields', () => {
-    const request = resolveOpenAiImageRequest({
-        provider: 'direct',
-        code: 'local-image'
-    }, {
-        prompt: 'square',
-        aspectRatio: '4:3',
-        imageSize: '2K'
-    });
-
-    assert.deepEqual(request.body, {
-        model: 'local-image',
-        prompt: 'square',
-        size: '1024x1024',
-        response_format: 'b64_json'
-    });
-    assert.equal(getModelRuntimeDefinition('image', {
-        provider: 'direct',
-        code: 'local-image'
-    }).transport, 'openai_images');
 });

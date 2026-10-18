@@ -1,4 +1,4 @@
-const { KIE_BASE_URL } = require('../ai-model-catalog');
+const { KIE_BASE_URL } = require('../../packages/plugins/core/ai-gateway/provider-endpoints');
 const {
     applyTextRuntimePolicy,
     resolveSupportedReasoningEffort

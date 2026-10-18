@@ -1,7 +1,7 @@
 const { normalizeWritingStrategyOverride } = require('./writing-strategy');
 const { normalizeBlogImageMode } = require('./blog-image-mode');
 const { normalizeBlogWritingOverrides } = require('./blog-writing-overrides');
-const { normalizeShoppingContentFocus } = require('./shopping-editorial-plan-prompt');
+const { normalizeShoppingContentFocus } = require('../applications/shopping/generation/editorial-plan');
 
 const SHEET_IMAGE_MODE_LABELS = Object.freeze({
     generate: '이미지 생성',

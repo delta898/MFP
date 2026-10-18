@@ -86,11 +86,10 @@ test('valid preview calls the writing model once with kind-specific usage and ne
     const service = createWritingProfilePreviewService({
         config: { ...promptConfig, BLOG_WRITING_STRATEGY: 'search' },
         constants: Constants,
-        generateBlogText: async (prompt, options) => {
+        generateText: async (prompt, options) => {
             calls.push({ prompt, options });
             return previewResponse();
-        },
-        callShoppingText: async () => previewResponse()
+        }
     });
     const result = await service({ kind: 'blog', topic: '동일 주제', profile: getDefaultContentWritingProfile() });
     assert.equal(calls.length, 1);
@@ -109,11 +108,10 @@ test('a moderately long preview is trimmed without a repair call', async () => {
     const service = createWritingProfilePreviewService({
         config: { ...promptConfig, BLOG_WRITING_STRATEGY: 'search' },
         constants: Constants,
-        generateBlogText: async (...args) => {
+        generateText: async (...args) => {
             calls.push(args);
             return previewResponse('가'.repeat(706));
-        },
-        callShoppingText: async () => previewResponse()
+        }
     });
 
     const result = await service({ kind: 'blog', profile: getDefaultContentWritingProfile() });
@@ -131,11 +129,10 @@ test('broken preview receives one bounded format repair attempt', async () => {
     const service = createWritingProfilePreviewService({
         config: { ...promptConfig, BLOG_WRITING_STRATEGY: 'search' },
         constants: Constants,
-        generateBlogText: async (prompt, options) => {
+        generateText: async (prompt, options) => {
             calls.push({ prompt, options });
             return calls.length === 1 ? '{broken' : previewResponse('나'.repeat(500));
-        },
-        callShoppingText: async () => previewResponse()
+        }
     });
     const result = await service({ kind: 'blog', profile: getDefaultContentWritingProfile() });
     assert.equal(calls.length, 2);

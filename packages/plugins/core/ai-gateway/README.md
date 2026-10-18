@@ -7,17 +7,21 @@ BlogGenius manifest contract.
 
 ## Security boundary
 
-The Gateway never accepts an API key, provider endpoint, authorization header,
-or BlogGenius configuration object. The Host injects a narrow transport with
-fixed provider endpoints and resolves credentials internally. The Plugin sees
-only `{ provider, modelId }`, request/response data, and its cancellation and
-progress context. This protects credentials from normal operation inputs; the
-in-process Plugin system is not a sandbox for untrusted code.
+The public operations never accept an API key, provider endpoint,
+authorization header, or BlogGenius configuration object. The Plugin owns
+provider endpoints, authentication policy, and HTTP transport. The Host injects
+`getProviderProfile({ kind, provider, modelId, profileRef? })` to resolve stored
+credentials, user-configured direct-model endpoints, or a short-lived
+verification candidate. The Plugin sees the profile only inside its transport;
+keys and Base URLs do not enter operation inputs, results, progress events, or
+public errors. This protects credentials
+from normal operation inputs; the in-process Plugin system is not a sandbox for
+untrusted code.
 
 ## Contract
 
-`package.json#bloggeniusPlugin` declares `models.list`, `text.generate`, and
-`image.generate` with JSON Schema 2020-12 inputs and outputs. The Host supplies
+`package.json#bloggeniusPlugin` declares `models.list`, `models.verify`,
+`text.generate`, and `image.generate` with JSON Schema 2020-12 inputs and outputs. The Host supplies
 the Gateway-owned catalog service, backed by Host-owned Supabase/cache I/O.
 Consumers obtain the current route-filtered catalog through the Gateway rather
 than maintaining a second model inventory:
@@ -26,10 +30,17 @@ than maintaining a second model inventory:
 const { createPlugin, describeSupport } = require('@bloggenius/ai-gateway');
 
 const support = describeSupport();
-const plugin = createPlugin({ transport: hostAiTransport, catalog: hostCatalogService });
+const plugin = createPlugin({ getProviderProfile, catalog: hostCatalogService });
 const catalogOperation = plugin.operations['models.list'];
+const verifyOperation = plugin.operations['models.verify'];
 const textOperation = plugin.operations['text.generate'];
 ```
+
+`models.verify` checks provider/model connectivity without generating content.
+It receives only model identity and an optional opaque `profileRef`; the Host
+resolves that reference to the unsaved credential candidate in memory for this
+call and releases it afterward. Credential values and endpoints never enter the
+Plugin operation payload.
 
 Supabase is the authoritative source for catalogued models and their metadata.
 The Gateway owns catalog access and filters entries by implemented
@@ -57,6 +68,8 @@ Generation submissions are not retried automatically. Public errors use
 stable `AI_GATEWAY_*` codes and omit provider response bodies, prompt text, and
 credentials.
 
-The package has no BlogGenius-private or third-party runtime imports. Its Host
-transport interface is an explicit constructor dependency and can be replaced
-by another compatible Host implementation.
+The package has no BlogGenius-private or third-party runtime imports. It uses
+Node built-ins for HTTP, DNS, and network-address safety. Consumers do not need
+to implement provider transport; they supply their catalog and credential
+resolver. A transport override remains available for isolated tests and custom
+integrations.

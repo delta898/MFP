@@ -40,7 +40,7 @@
   HTML escaping 후 텍스트로 표시하며, 줄바꿈 보존을 위해 `white-space: pre-wrap`을 적용한다. title과 누락 placeholder는
   보기 결과에서 숨긴다.
 - 검증: `node --test scripts/blog-next-baseline-contract.test.js scripts/manuscript-image-workspace-contract.test.js`
-  23/23 통과, `node --check ui/scripts/features/blog-next/draft-inputs.js`, `git diff --check` 통과.
+  23/23 통과, `node --check ui/scripts/features/blog/draft-inputs.js`, `git diff --check` 통과.
 - `npm run test:ui-browser`는 보강한 prompt-only/image-only browser assertion을 통과하고 Legacy Blog/Shopping 단계까지
   진행했으나 기존 fixture 요청 순서 assertion에서 예상한 `POST /api/v1/google-oauth/test`가 없어 실패했다
   (`scripts/test-ui-browser-smoke.js:5412`).

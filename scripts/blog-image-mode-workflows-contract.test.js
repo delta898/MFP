@@ -19,7 +19,7 @@ test('sheet adapter keeps canonical mode and legacy boolean compatibility', () =
 
 test('WYSIWYG manuscript publishing owns images in slots and drafts only for actual unresolved targets', () => {
     const manuscriptView = read('ui/partials/views/blog-next.html');
-    const manuscriptScript = `${read('ui/scripts/features/blog-next/publishing-targets.js')}\n${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-execution.js')}`;
+    const manuscriptScript = `${read('ui/scripts/features/blog/publishing-targets.js')}\n${read('ui/scripts/features/blog/draft-inputs.js')}\n${read('ui/scripts/features/blog/draft-execution.js')}`;
     const core = read('src/core.js');
 
     assert.doesNotMatch(manuscriptView, /data-draft-field="image-mode"/);
@@ -36,7 +36,7 @@ test('WYSIWYG manuscript publishing owns images in slots and drafts only for act
 });
 
 test('Blog Beta image preview completes only its final grid row with inert decorative cells', () => {
-    const script = read('ui/scripts/features/blog-next/draft-inputs.js');
+    const script = read('ui/scripts/features/blog/draft-inputs.js');
     const shared = read('ui/scripts/shared/grid-tail-spacers.js');
     const styles = read('ui/styles/patterns/grid-spacer.css');
 

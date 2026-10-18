@@ -84,8 +84,8 @@ test('Blog Beta settings groups are sourced from one reusable partial per group'
 });
 
 test('quick writing and saved-idea editing keep independent disclosure state for the session', () => {
-  const queueSource = read('ui/scripts/features/blog-next/quick-queue.js');
-  const settings = read('ui/scripts/features/blog-next/settings-instance.js');
+  const queueSource = read('ui/scripts/features/blog/quick-queue.js');
+  const settings = read('ui/scripts/features/blog/settings-instance.js');
   assert.match(settings, /createBlogNextEditorSettingsInstance\(\)[\s\S]*cloneNode\(true\)[\s\S]*namespaceBlogNextSettingsInstance/);
   assert.match(settings, /Never carry the quick-writing form's current values into the independent editor instance/);
   assert.match(queueSource, /function moveBlogNextTopicFormToQueueEditor\([^)]*\)[\s\S]*createBlogNextEditorSettingsInstance\(\)[\s\S]*modal\.hidden = false/);
@@ -93,22 +93,22 @@ test('quick writing and saved-idea editing keep independent disclosure state for
 });
 
 test('saved idea editing isolates publication settings and restores quick-writing state afterward', () => {
-  const targets = read('ui/scripts/features/blog-next/publishing-targets.js');
-  const queue = read('ui/scripts/features/blog-next/quick-queue.js');
+  const targets = read('ui/scripts/features/blog/publishing-targets.js');
+  const queue = read('ui/scripts/features/blog/quick-queue.js');
 
   assert.match(targets, /function beginBlogNextTopicEditingSettingsContext\(\)[\s\S]*?map: new Map\(\[\.\.\.blogNextPublishSettingsByTarget\][\s\S]*?blogNextPublishSettingsByTarget\.clear\(\)/);
   assert.match(targets, /function endBlogNextTopicEditingSettingsContext\(\)[\s\S]*?context\.map\.forEach\([\s\S]*?sessionStorage\.setItem/);
   assert.match(queue, /function finishBlogNextTopicEditing\(\)[\s\S]*?restoreBlogNextTopicFormHome\(\)[\s\S]*?endBlogNextTopicEditingSettingsContext\(\)/);
-  assert.match(read('ui/scripts/features/blog-next/settings-instance.js'), /const instance = source\.cloneNode\(true\)/);
+  assert.match(read('ui/scripts/features/blog/settings-instance.js'), /const instance = source\.cloneNode\(true\)/);
   assert.match(read('ui/partials/views/blog-next/editor-modal.html'), /id="blog-next-editor-settings-form"[\s\S]*data-blog-next-editor-settings-slot="topic"[\s\S]*data-blog-next-editor-settings-slot="content"[\s\S]*data-blog-next-editor-settings-slot="publishing"/);
 });
 
 test('saved ideas show queue readiness and the list action directly promotes ready items', () => {
-  const management = read('ui/scripts/features/blog-next/queue-management.js');
-  const queueUi = read('ui/scripts/features/blog-next/queue-ui.js');
-  const queue = read('ui/scripts/features/blog-next/quick-queue.js');
-  const validity = read('ui/scripts/features/blog-next/quick-flow-ui.js');
-  const execution = read('ui/scripts/features/blog-next/draft-execution.js');
+  const management = read('ui/scripts/features/blog/queue-management.js');
+  const queueUi = read('ui/scripts/features/blog/queue-ui.js');
+  const queue = read('ui/scripts/features/blog/quick-queue.js');
+  const validity = read('ui/scripts/features/blog/quick-flow-ui.js');
+  const execution = read('ui/scripts/features/blog/draft-execution.js');
 
   assert.match(management, /async function addBlogNextSavedItemToQueue\(item = \{\}, button\)\s*\{\s*if \(item\.queue_readiness\?\.ready === false\) return;/);
   assert.match(queueUi, /if \(readiness && readiness\.ready === false\) \{[\s\S]*?saved \? '대기열로 이동할 수 없는 이유' : '포스팅할 수 없는 이유'/);
@@ -140,8 +140,8 @@ test('saved ideas show queue readiness and the list action directly promotes rea
 });
 
 test('reusable generation and publish choices persist without carrying article data or schedule time', () => {
-  const queue = `${read('ui/scripts/features/blog-next/quick-queue.js')}\n${read('ui/scripts/features/blog-next/queue-management.js')}`;
-  const execution = read('ui/scripts/features/blog-next/draft-execution.js');
+  const queue = `${read('ui/scripts/features/blog/quick-queue.js')}\n${read('ui/scripts/features/blog/queue-management.js')}`;
+  const execution = read('ui/scripts/features/blog/draft-execution.js');
 
   assert.match(queue, /headless: true/);
   assert.match(queue, /headless: getBlogNextSettingsElement\('blog-next-runner-headless'\)\?\.checked !== false/);
@@ -154,7 +154,7 @@ test('reusable generation and publish choices persist without carrying article d
 });
 
 test('WordPress image upload warnings remain visible after a successful draft save', () => {
-  const execution = read('ui/scripts/features/blog-next/draft-execution.js');
+  const execution = read('ui/scripts/features/blog/draft-execution.js');
   const publishRuntime = read('src/ui-runtime/publish-actions-runtime.js');
 
   assert.match(publishRuntime, /warnings: Array\.isArray\(wpRes\.warnings\)/);
@@ -163,7 +163,7 @@ test('WordPress image upload warnings remain visible after a successful draft sa
 });
 
 test('manuscript publishing sends the selected status and schedule date to the publish boundary', () => {
-  const execution = read('ui/scripts/features/blog-next/draft-execution.js');
+  const execution = read('ui/scripts/features/blog/draft-execution.js');
   const drafts = read('src/content/manuscript-draft-service.js');
 
   assert.match(execution, /manuscript-drafts\/\$\{encodeURIComponent\(state\.draftId\)\}\/publish`, \{[\s\S]*?postStatus: settings\.postStatus,[\s\S]*?scheduleDate: settings\.scheduleDate/);
@@ -172,10 +172,10 @@ test('manuscript publishing sends the selected status and schedule date to the p
 });
 
 test('AI image generation exposes per-action stop controls and sends cancellation to the active server operation', () => {
-  const inputs = `${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-images.js')}`;
+  const inputs = `${read('ui/scripts/features/blog/draft-inputs.js')}\n${read('ui/scripts/features/blog/draft-images.js')}`;
   const operations = read('src/services/ai/generation-operation-manager.js');
   const drafts = read('src/content/manuscript-draft-service.js');
-  const execution = read('ui/scripts/features/blog-next/draft-execution.js');
+  const execution = read('ui/scripts/features/blog/draft-execution.js');
   const routes = read('src/ui-api/routes/content.routes.js');
   const css = read('ui/styles/features/blog-next-baseline.css');
 
@@ -201,7 +201,7 @@ test('AI image generation exposes per-action stop controls and sends cancellatio
 
 test('unresolved manuscript images can be opened directly from the publish restriction', () => {
   const html = readBlogNextView();
-  const inputs = `${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-images.js')}`;
+  const inputs = `${read('ui/scripts/features/blog/draft-inputs.js')}\n${read('ui/scripts/features/blog/draft-images.js')}`;
 
   assert.match(html, /id="blog-next-publish-safety-message"/);
   assert.match(html, /id="blog-next-publish-image-action"[^>]*aria-controls="blog-next-ai-draft-images"[^>]*hidden/);
@@ -227,7 +227,7 @@ test('AI assists have one distinct pattern without becoming primary actions', ()
 test('AI manuscript cancellation stays in the shared execution status', () => {
   const html = readBlogNextView();
   const status = read('ui/partials/views/blog-next/publish-status.html');
-  const execution = read('ui/scripts/features/blog-next/draft-execution.js');
+  const execution = read('ui/scripts/features/blog/draft-execution.js');
   assert.match(status, /id="blog-next-publish-status-stop-control"[^>]*hidden/);
   assert.match(status, /id="blog-next-publish-status-cancel"[\s\S]*?data-blog-next-execution-stop/);
   assert.match(status, /data-blog-next-execution-continue hidden>계속 진행/);
@@ -235,16 +235,16 @@ test('AI manuscript cancellation stays in the shared execution status', () => {
   assert.match(execution, /manuscript-drafts\/ai\/operations/);
   assert.match(execution, /state === 'cancel_requested'/);
   assert.match(execution, /state === 'canceled'/);
-  assert.match(read('ui/scripts/features/blog-next/runner.js'), /async function stopBlogNextLocalMarkdownPublish/);
+  assert.match(read('ui/scripts/features/blog/runner.js'), /async function stopBlogNextLocalMarkdownPublish/);
   assert.match(read('src/ui-api/routes/continuous-publishing.routes.js'), /runner\/stop/);
-  assert.match(read('ui/scripts/features/blog-next/runner.js'), /6000\)/);
+  assert.match(read('ui/scripts/features/blog/runner.js'), /6000\)/);
   assert.match(read('ui/styles/features/continuous-publishing.css'), /\.blog-next-publish-status-stop-control\[data-disabled="true"\]:hover/);
   assert.match(read('src/core.js'), /reportPublishProgress\('submitting'\);[\s\S]*?await btn\.click\(\)/);
 });
 
 test('quick flow keeps results independent from edited inputs and scopes duplicate posts by platform', () => {
-  const execution = read('ui/scripts/features/blog-next/draft-execution.js');
-  const inputs = `${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-images.js')}`;
+  const execution = read('ui/scripts/features/blog/draft-execution.js');
+  const inputs = `${read('ui/scripts/features/blog/draft-inputs.js')}\n${read('ui/scripts/features/blog/draft-images.js')}`;
   const service = read('src/content/manuscript-draft-service.js');
   const html = readBlogNextView();
 
@@ -260,7 +260,7 @@ test('quick flow keeps results independent from edited inputs and scopes duplica
 });
 
 test('AI cancellation copy stays concise with or without a previous manuscript', () => {
-  const execution = read('ui/scripts/features/blog-next/draft-execution.js');
+  const execution = read('ui/scripts/features/blog/draft-execution.js');
   const source = execution.match(/function blogNextAiOperationMessage\(status\) \{[\s\S]*?\n\}/)?.[0];
   assert.ok(source, 'AI operation message function is missing');
   const draftState = { ai: { draftId: '', preview: null } };
@@ -281,7 +281,7 @@ test('AI cancellation copy stays concise with or without a previous manuscript',
 });
 
 test('direct publishing confirmation names only destination, mode, and schedule', () => {
-  const execution = read('ui/scripts/features/blog-next/draft-execution.js');
+  const execution = read('ui/scripts/features/blog/draft-execution.js');
   const scheduleSource = execution.match(/function formatBlogNextDraftScheduleDate\(value\) \{[\s\S]*?\n\}/)?.[0];
   const confirmationSource = execution.match(/function buildBlogNextDraftPublishConfirmation\(settings, targetLabel\) \{[\s\S]*?\n\}/)?.[0];
   assert.ok(scheduleSource && confirmationSource, 'confirmation copy helpers are missing');
@@ -296,8 +296,8 @@ test('direct publishing confirmation names only destination, mode, and schedule'
 
 test('quick flow summaries update from existing controls and new writing owns input reset', () => {
   const html = readBlogNextView();
-  const script = `${read('ui/scripts/features/blog-next/quick-queue.js')}\n${read('ui/scripts/features/blog-next/queue-management.js')}`;
-  const uiScript = read('ui/scripts/features/blog-next/quick-flow-ui.js');
+  const script = `${read('ui/scripts/features/blog/quick-queue.js')}\n${read('ui/scripts/features/blog/queue-management.js')}`;
+  const uiScript = read('ui/scripts/features/blog/quick-flow-ui.js');
 
   assert.doesNotMatch(html, /id="blog-next-clear-topic"|id="blog-next-clear-undo"/);
   assert.match(uiScript, /function syncBlogNextQuickFlowSummaries\(\)/);
@@ -307,11 +307,11 @@ test('quick flow summaries update from existing controls and new writing owns in
   assert.match(script, /function setBlogNextTopicResult\(message, level = ''\)[\s\S]*?result\.closest\('\.blog-next-form-result-row'\)[\s\S]*?row\.hidden = !text\.trim\(\)/);
   assert.match(uiScript, /formatBlogPlatformList\(platforms, ' \+ '\) \|\| '포스팅 대상 없음'/);
   assert.match(uiScript, /function captureBlogNextClearableContent\(\)/);
-  assert.match(read('ui/scripts/features/blog-next/quick-queue.js'), /function restoreBlogNextTopicFormHome\(\)[\s\S]*blog-next-editor-modal[\s\S]*modal\.hidden = true/);
+  assert.match(read('ui/scripts/features/blog/quick-queue.js'), /function restoreBlogNextTopicFormHome\(\)[\s\S]*blog-next-editor-modal[\s\S]*modal\.hidden = true/);
   assert.match(read('ui/partials/views/blog-next/editor-modal.html'), /id="blog-next-editor-settings-form"[\s\S]*blog-next-editor-modal-actions/);
   assert.match(read('ui/partials/views/blog-next/editor-modal.html'), /blog-next-editor-modal-message[\s\S]*blog-next-editor-modal-action-group[\s\S]*id="blog-next-editor-cancel"[\s\S]*id="blog-next-editor-save"/);
-  assert.match(read('ui/scripts/features/blog-next/writing-intent.js'), /clearBlogNextTopicContent\(\);\s*resetBlogNextAiDraftUi\(\)/);
-  const quickQueue = read('ui/scripts/features/blog-next/quick-queue.js');
+  assert.match(read('ui/scripts/features/blog/writing-intent.js'), /clearBlogNextTopicContent\(\);\s*resetBlogNextAiDraftUi\(\)/);
+  const quickQueue = read('ui/scripts/features/blog/quick-queue.js');
   assert.match(quickQueue, /focusQuickSubjectAfterSave = action === 'save';[\s\S]*?finally \{\s*setBlogNextTopicBusy\(false\);\s*if \(focusQuickSubjectAfterSave[\s\S]*?revealBlogNextWritingDestination\('blog-next-subject'\)/);
   assert.match(quickQueue, /if \(!editing && action !== 'save'\) setBlogNextTopicResult\(message, 'success'\)/);
   assert.match(uiScript, /function syncBlogNextTopicActionAvailability\(\)/);
@@ -386,7 +386,7 @@ test('shared writing intent leaves work untouched on cancel and resets then appl
     syncBlogNextDraftExecutionState: () => { executionSynced = true; },
     requestAnimationFrame: (callback) => { focusScheduled += 1; animationFrames.push(callback); }
   });
-  vm.runInContext(read('ui/scripts/features/blog-next/writing-intent.js'), context);
+  vm.runInContext(read('ui/scripts/features/blog/writing-intent.js'), context);
   const existingValues = Object.fromEntries(clearableIds.map((id) => [id, fields.get(id).value]));
   const applyOptions = {
     values: { 'blog-next-subject': '제주 가을 여행', 'blog-next-keywords': '제주 가을 여행' },
@@ -451,12 +451,12 @@ test('shared writing intent leaves work untouched on cancel and resets then appl
 test('quick writing keeps one editable manuscript workspace available before preparation', () => {
   const html = readBlogNextView();
   const css = read('ui/styles/features/blog-next-quick-flow.css');
-  const execution = read('ui/scripts/features/blog-next/draft-execution.js');
-  const queue = `${read('ui/scripts/features/blog-next/quick-queue.js')}\n${read('ui/scripts/features/blog-next/queue-management.js')}`;
-  const inputs = read('ui/scripts/features/blog-next/draft-inputs.js');
-  const uiScript = read('ui/scripts/features/blog-next/quick-flow-ui.js');
-  const writingIntent = read('ui/scripts/features/blog-next/writing-intent.js');
-  const trendScript = read('ui/scripts/features/blog-next/trend-posting.js');
+  const execution = read('ui/scripts/features/blog/draft-execution.js');
+  const queue = `${read('ui/scripts/features/blog/quick-queue.js')}\n${read('ui/scripts/features/blog/queue-management.js')}`;
+  const inputs = read('ui/scripts/features/blog/draft-inputs.js');
+  const uiScript = read('ui/scripts/features/blog/quick-flow-ui.js');
+  const writingIntent = read('ui/scripts/features/blog/writing-intent.js');
+  const trendScript = read('ui/scripts/features/blog/trend-posting.js');
 
   assert.match(html, /<details class="blog-next-disclosure blog-next-preparation-disclosure" id="blog-next-ai-preparation">[\s\S]*>원고 준비<[\s\S]*data-blog-next-ai-idea-actions/);
   assert.match(writingIntent, /async function applyBlogNextWritingIntent\([\s\S]*?if \(isBlogNextWritingTransitionBusy\(\)\) return false;[\s\S]*?if \(hasBlogNextWritingWork\(\)\)[\s\S]*?await showUiConfirm\([\s\S]*?if \(!confirmed\) return false;/);
@@ -532,7 +532,7 @@ test('quick writing keeps one editable manuscript workspace available before pre
 });
 
 test('canonical related section syncs into the integrated editor and preserves edits or deletion during a request', () => {
-  const source = read('ui/scripts/features/blog-next/draft-inputs.js');
+  const source = read('ui/scripts/features/blog/draft-inputs.js');
   const context = vm.createContext({ document: {}, window: {} });
   vm.runInContext(source, context);
   const merge = context.mergeCanonicalRelatedPostsMarkdown;
@@ -553,11 +553,11 @@ test('quick writing saves ideas or creates manuscripts; saved items can promote 
   const entry = read('ui/partials/views/blog-next/editor-modal.html');
   const view = read('ui/partials/views/blog-next.html');
   const html = readBlogNextView();
-  const publishing = read('ui/scripts/features/blog-next/publishing-targets.js');
-  const queue = read('ui/scripts/features/blog-next/quick-queue.js');
-  const queueManagement = read('ui/scripts/features/blog-next/queue-management.js');
-  const flow = read('ui/scripts/features/blog-next/quick-flow-ui.js');
-  const execution = read('ui/scripts/features/blog-next/draft-execution.js');
+  const publishing = read('ui/scripts/features/blog/publishing-targets.js');
+  const queue = read('ui/scripts/features/blog/quick-queue.js');
+  const queueManagement = read('ui/scripts/features/blog/queue-management.js');
+  const flow = read('ui/scripts/features/blog/quick-flow-ui.js');
+  const execution = read('ui/scripts/features/blog/draft-execution.js');
 
   assert.doesNotMatch(entry, /queue-settings-modal/);
   assert.doesNotMatch(view, /blog-next-queue-settings-modal|blog-next-enqueue-topic/);
@@ -610,7 +610,7 @@ test('quick flow uses user language and separates publishing targets', () => {
 test('surface fills communicate state and help follows the active style', () => {
   const html = readBlogNextView();
   const css = read('ui/styles/features/blog-next-quick-flow.css');
-  const script = `${read('ui/scripts/features/blog-next/quick-queue.js')}\n${read('ui/scripts/features/blog-next/queue-management.js')}`;
+  const script = `${read('ui/scripts/features/blog/quick-queue.js')}\n${read('ui/scripts/features/blog/queue-management.js')}`;
 
   assert.match(css, /\.blog-next-disclosure > summary:hover\s*\{[^}]*background:\s*var\(--ui-surface-hover\)/s);
   assert.match(css, /\.blog-next-disclosure\[open\] > summary\s*\{[^}]*background:\s*var\(--ui-surface-muted\)/s);
@@ -627,7 +627,7 @@ test('collision-aware help placement and dependent schedule field follow their e
   const html = readBlogNextView();
   const foundationCss = read('ui/styles/base/foundation.css');
   const css = read('ui/styles/features/blog-next-quick-flow.css');
-  const script = read('ui/scripts/features/blog-next/quick-flow-ui.js');
+  const script = read('ui/scripts/features/blog/quick-flow-ui.js');
 
   assert.doesNotMatch(html, /blog-next-help-trigger-(?:start|end)/);
   assert.match(css, /\.blog-next-topic-form \.blog-next-help-trigger\[data-help-placement="start"\] \.tooltip-text\s*\{[^}]*left:\s*0[^}]*transform:\s*none/s);
@@ -652,9 +652,9 @@ test('collision-aware help placement and dependent schedule field follow their e
 test('provider-dependent controls align UI, summaries and runner payloads', () => {
   const html = readBlogNextView();
   const css = read('ui/styles/features/blog-next-quick-flow.css');
-  const script = `${read('ui/scripts/features/blog-next/quick-queue.js')}\n${read('ui/scripts/features/blog-next/queue-management.js')}`;
-  const uiScript = read('ui/scripts/features/blog-next/quick-flow-ui.js');
-  const runnerScript = read('ui/scripts/features/blog-next/runner.js');
+  const script = `${read('ui/scripts/features/blog/quick-queue.js')}\n${read('ui/scripts/features/blog/queue-management.js')}`;
+  const uiScript = read('ui/scripts/features/blog/quick-flow-ui.js');
+  const runnerScript = read('ui/scripts/features/blog/runner.js');
 
   assert.match(html, /id="blog-next-headless-field"[^>]*data-dependency-active="true"/);
   assert.match(html, /id="blog-next-category-field"/);
@@ -674,14 +674,14 @@ test('provider-dependent controls align UI, summaries and runner payloads', () =
 });
 
 test('Site Hosting cannot select scheduled publishing in quick writing or saved-topic editing', () => {
-  const targets = read('ui/scripts/features/blog-next/publishing-targets.js');
+  const targets = read('ui/scripts/features/blog/publishing-targets.js');
   assert.match(targets, /if \(schedule\) schedule\.disabled = selected \|\| unresolvedImages/);
   assert.match(targets, /if \(scheduleOption && siteActive\) scheduleOption\.disabled = true/);
   assert.doesNotMatch(targets, /scheduleOption\.disabled = !topicEditor/);
 });
 
 test('Site Hosting schedule restrictions retain the editor guard used by publish-setting sync', () => {
-  const targets = read('ui/scripts/features/blog-next/publishing-targets.js');
+  const targets = read('ui/scripts/features/blog/publishing-targets.js');
   const sync = targets.match(/function syncBlogNextSiteHostingOptions\(type\) \{[\s\S]*?\n\}/)?.[0] || '';
   assert.match(sync, /const topicEditor = typeof blogNextEditingRowIndex !== 'undefined' && blogNextEditingRowIndex !== null/);
   assert.match(sync, /if \(!topicEditor && selected && status\?\.value === 'schedule'\)/);

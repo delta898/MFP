@@ -43,10 +43,10 @@ test('optional image slots can be cleared while required slots cannot', () => {
 });
 
 test('shopping image settings is a fresh module without legacy settings coupling', () => {
-  const script = read('ui/scripts/features/content/shopping-image-settings.js');
+  const script = read('ui/scripts/features/shopping/image-settings.js');
   const manifest = read('ui/app.js');
 
-  assert.match(manifest, /\/\/ @include scripts\/features\/content\/shopping-image-settings\.js/);
+  assert.match(manifest, /\/\/ @include scripts\/features\/shopping\/image-settings\.js/);
   assert.match(script, /function initShoppingImageSettings\(\)/);
   assert.match(script, /\/api\/v1\/settings\/shopping-image'/);
   assert.match(script, /\/api\/v1\/settings\/shopping-image\/preview/);

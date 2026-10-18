@@ -78,8 +78,8 @@ test('CSS manifest preserves cascade order and remains within its size policy', 
         'styles/features/automation-settings-categories.css',
         'styles/features/automation-settings-help.css',
         'styles/features/automation-settings-images.css',
-        'styles/features/dashboard-beta.css',
-        'styles/features/dashboard-beta-responsive.css',
+        'styles/features/dashboard.css',
+        'styles/features/dashboard-responsive.css',
         'styles/features/help.css',
         'styles/features/content-tabs.css',
         'styles/features/shopping-connect.css',
@@ -133,11 +133,11 @@ test('shared app shell narrows only the desktop gutter and preserves responsive 
 });
 
 test('dashboard and card-news reduce only their own large layout gaps', () => {
-    const dashboard = fs.readFileSync(path.join(uiRoot, 'styles/features/dashboard-beta.css'), 'utf8');
+    const dashboard = fs.readFileSync(path.join(uiRoot, 'styles/features/dashboard.css'), 'utf8');
     const cardNews = fs.readFileSync(path.join(uiRoot, 'styles/features/card-news.css'), 'utf8');
 
-    assert.match(dashboard, /\.dashboard-beta-readiness\s*\{[^}]*margin-bottom:\s*var\(--ui-space-4\);/s);
-    assert.match(dashboard, /\.dashboard-beta-overview-grid\s*\{[^}]*gap:\s*var\(--ui-space-4\);/s);
+    assert.match(dashboard, /\.dashboard-readiness\s*\{[^}]*margin-bottom:\s*var\(--ui-space-4\);/s);
+    assert.match(dashboard, /\.dashboard-overview-grid\s*\{[^}]*gap:\s*var\(--ui-space-4\);/s);
     assert.match(cardNews, /\.card-news-layout\s*\{[^}]*gap:\s*var\(--ui-space-4\);/s);
 });
 

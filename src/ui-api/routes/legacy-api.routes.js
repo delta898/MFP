@@ -22,6 +22,7 @@ const { createSiteHostingQueueExecutor } = require('../../continuous-publishing/
 const { createGoogleDriveSpreadsheets } = require('../../google-drive-spreadsheets');
 const { createAccountOverviewService } = require('../../account/overview-service');
 const { createBlogExecutionCoordinator } = require('../../applications/blog/execution/execution-coordinator');
+const { createBlogTrendPosting } = require('../../composition/blog-trend-posting');
 const { createConnectionReadinessService } = require('../../connections/readiness-service');
 const {
     recordWordPressVerification,
@@ -224,12 +225,17 @@ function createLegacyApiRouteHandler(deps = {}) {
         sendError: deps.sendError
     });
 
-    const trendPostingService = createTrendPostingService({
+    const trendPosting = createBlogTrendPosting({
         License: deps.License,
         Utils: deps.Utils,
         Logger: deps.Logger,
         axios: deps.axios,
         baseUrl: deps.CONFIG?.TRENDS_API_PUBLIC_CONFIG?.url
+    });
+    const trendPostingService = createTrendPostingService({
+        application: trendPosting.application,
+        clearAccessToken: trendPosting.clearAccessToken,
+        Logger: deps.Logger
     });
     const trendPostingController = createTrendPostingController({
         service: trendPostingService,

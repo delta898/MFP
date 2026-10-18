@@ -9,8 +9,8 @@ function readUiModules(paths) {
 
 function readBlogNextQueueScripts() {
   return readUiModules([
-    'ui/scripts/features/blog-next/quick-queue.js',
-    'ui/scripts/features/blog-next/queue-management.js'
+    'ui/scripts/features/blog/quick-queue.js',
+    'ui/scripts/features/blog/queue-management.js'
   ]);
 }
 

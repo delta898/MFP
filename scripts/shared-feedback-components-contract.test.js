@@ -11,7 +11,7 @@ test('status and release badges have separate shared semantic contracts', () => 
   const feedback = read('ui/styles/components/feedback.css');
   const settings = read('ui/partials/views/settings-next.html');
   const settingsStyle = read('ui/styles/features/settings-next.css');
-  const settingsRuntime = `${read('ui/scripts/features/settings-next/shell.js')}\n${read('ui/scripts/features/settings-next/ai-model-roles.js')}`;
+  const settingsRuntime = `${read('ui/scripts/features/settings/shell.js')}\n${read('ui/scripts/features/settings/ai-model-roles.js')}`;
 
   assert.doesNotMatch(settings, /class="ui-release-badge">Beta<\/span>/);
   assert.doesNotMatch(settings, /settings-next-beta-badge|class="settings-next-status"/);
@@ -30,7 +30,7 @@ test('active surfaces use shared loading action and standalone spinner primitive
   const social = read('ui/partials/views/social.html');
   const shopping = read('ui/partials/views/shopping.html');
   const cardNews = read('ui/partials/views/card-news.html');
-  const dashboard = read('ui/partials/views/dashboard-beta.html');
+  const dashboard = read('ui/partials/views/dashboard.html');
   const cardNewsRuntime = readCardNewsPreviewScripts();
   const featureStyles = [
     'ui/styles/features/social.css',
@@ -59,10 +59,10 @@ test('active surfaces use shared loading action and standalone spinner primitive
 test('full empty states share one anatomy while transient placeholders stay contextual', () => {
   const feedback = read('ui/styles/components/feedback.css');
   const blogView = read('ui/partials/views/blog-next.html');
-  const blogQueue = read('ui/scripts/features/blog-next/queue-ui.js');
+  const blogQueue = read('ui/scripts/features/blog/queue-ui.js');
   const cardView = read('ui/partials/views/card-news.html');
   const cardManagement = read('ui/scripts/features/card-news/management.js');
-  const socialRuntime = read('ui/scripts/features/social/manual-composer.js');
+  const socialRuntime = read('ui/scripts/features/sns/manual-composer.js');
   const blogStyle = read('ui/styles/features/continuous-publishing.css');
   const cardStyle = read('ui/styles/features/card-news.css');
   const socialStyle = [

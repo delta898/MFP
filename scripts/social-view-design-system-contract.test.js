@@ -8,10 +8,10 @@ const read = (relativePath) => fs.readFileSync(path.join(repoRoot, relativePath)
 
 test('SNS composer follows the shared writing flow and selectable-card patterns', () => {
   const view = read('ui/partials/views/social.html');
-  const composer = read('ui/scripts/features/social/manual-composer.js');
-  const publish = read('ui/scripts/features/social/manual-publish.js');
-  const lifecycle = read('ui/scripts/features/social/manual-lifecycle.js');
-  const optimization = read('ui/scripts/features/social/manual-optimization.js');
+  const composer = read('ui/scripts/features/sns/manual-composer.js');
+  const publish = read('ui/scripts/features/sns/manual-publish.js');
+  const lifecycle = read('ui/scripts/features/sns/manual-lifecycle.js');
+  const optimization = read('ui/scripts/features/sns/manual-optimization.js');
   const sharedBufferControls = read('ui/scripts/shared/buffer-publishing-controls.js');
   const styles = [
     'ui/styles/patterns/buffer-publishing-controls.css',

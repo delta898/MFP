@@ -283,6 +283,7 @@ function createUiApiRouteRuntime(deps = {}) {
                 axios,
                 cheerio,
                 blogWritingApplication,
+                aiGenerationService,
                 aiGateway
             });
             const controller = createSettingsController({

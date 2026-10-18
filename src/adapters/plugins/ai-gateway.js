@@ -32,6 +32,30 @@ function createAiGatewayAdapter(options = {}) {
                 input: { prompt: request.prompt.trim() },
                 ...(request.options ? { options: request.options } : {})
             }, executionContext);
+        },
+        async verifyModelConnection(request = {}) {
+            if (!['text', 'image'].includes(request.kind) || !request.modelConfig) {
+                throw new TypeError('AI Gateway verification requires a model kind and model configuration.');
+            }
+            if (typeof options.registerVerificationProfile !== 'function'
+                || typeof options.releaseVerificationProfile !== 'function') {
+                throw new Error('AI Gateway verification profile lifecycle is not configured.');
+            }
+            const modelConfig = request.modelConfig;
+            const profileRef = options.registerVerificationProfile(request.kind, modelConfig);
+            try {
+                return await options.executeOperation('ai-gateway', 'models.verify', {
+                    kind: request.kind,
+                    model: {
+                        provider: modelConfig.provider,
+                        modelId: modelConfig.code,
+                        ...(modelConfig.transport ? { transport: modelConfig.transport } : {})
+                    },
+                    profileRef
+                });
+            } finally {
+                options.releaseVerificationProfile(profileRef);
+            }
         }
     });
 }

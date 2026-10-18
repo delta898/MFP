@@ -7,11 +7,11 @@ const repoRoot = path.resolve(__dirname, '..');
 const scriptsRoot = path.join(repoRoot, 'ui', 'scripts');
 
 const controllerContracts = Object.freeze({
-    'features/content/trend-table.js': ['renderBlogTrendsTable', 'loadBlogTrends'],
-    'features/discovery/quick-discovery.js': ['setQuickDiscoveryModalOpen', 'loadQuickKeywordDiscovery', 'loadQuickTopicRecommendations'],
-    'features/content/tab-navigation.js': ['activateShoppingTab'],
-    'features/content/blog-topics.js': ['renderBlogTable', 'loadBlogTopics'],
-    'features/content/shopping-items.js': ['renderBlogShoppingTable', 'loadBlogShopping', 'createShoppingManagementItem'],
+    'features/content-workspace/trend-table.js': ['renderBlogTrendsTable', 'loadBlogTrends'],
+    'features/blog/discovery/quick-discovery.js': ['setQuickDiscoveryModalOpen', 'loadQuickKeywordDiscovery', 'loadQuickTopicRecommendations'],
+    'features/shopping/tab-navigation.js': ['activateShoppingTab'],
+    'features/content-workspace/blog-topics.js': ['renderBlogTable', 'loadBlogTopics'],
+    'features/shopping/items.js': ['renderBlogShoppingTable', 'loadBlogShopping', 'createShoppingManagementItem'],
 });
 
 function readScript(relativePath) {
@@ -54,8 +54,8 @@ test('temporary feature modules no longer own discovery and content controllers'
 
 test('WordPress category consumers use the shared lexical cache contract', () => {
     const uiScripts = [
-        readScript('features/content/blog-topics.js'),
-        readScript('features/publishing/wordpress-controls.js')
+        readScript('features/content-workspace/blog-topics.js'),
+        readScript('shared/publishing/wordpress-controls.js')
     ].join('\n');
 
     assert.doesNotMatch(uiScripts, /\bglobalWpCategoryCache\b/);
@@ -63,7 +63,7 @@ test('WordPress category consumers use the shared lexical cache contract', () =>
 });
 
 test('topic recommendation labels never guess that unknown evidence came from user writing', () => {
-    const source = readScript('features/discovery/quick-discovery.js');
+    const source = readScript('features/blog/discovery/quick-discovery.js');
     assert.match(source, /topic_facet/);
     assert.match(source, /저장한 관심 주제/);
     assert.match(source, /근거 확인 필요/);
@@ -71,8 +71,8 @@ test('topic recommendation labels never guess that unknown evidence came from us
 });
 
 test('topic recommendation continuation is explicit and uses user-facing language', () => {
-    const source = readScript('features/discovery/quick-discovery.js');
-    const stateSource = readScript('features/discovery/state.js');
+    const source = readScript('features/blog/discovery/quick-discovery.js');
+    const stateSource = readScript('features/blog/discovery/state.js');
     const modalFunction = source.match(/function setQuickDiscoveryModalOpen[\s\S]*?\n}\n/)?.[0] || '';
 
     assert.match(stateSource, /smartUsage:\s*null/);
@@ -86,7 +86,7 @@ test('topic recommendation continuation is explicit and uses user-facing languag
 });
 
 test('older account responses cannot overwrite newer smart usage', () => {
-    const accountSource = readScript('features/shell/account-overview.js');
+    const accountSource = readScript('shell/account-overview.js');
 
     assert.match(accountSource, /function reconcileAccountSmartUsage/);
     assert.match(accountSource, /requestRevision >= smartUsageRevision/);
@@ -94,7 +94,7 @@ test('older account responses cannot overwrite newer smart usage', () => {
 });
 
 test('applying discovered keywords preserves an existing quick-writing subject', () => {
-    const source = readScript('features/discovery/quick-discovery.js');
+    const source = readScript('features/blog/discovery/quick-discovery.js');
     const applyFunction = source.match(/async function applyQuickKeywordDiscovery[\s\S]*?\n}\n/)?.[0] || '';
 
     assert.match(applyFunction, /const subjectInput = getQuickDiscoveryInputElement\('subject'\)/);

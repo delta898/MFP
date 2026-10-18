@@ -43,8 +43,8 @@ A-to-Z overview와 분리된, 실제 BlogGenius Prod 데스크톱 앱의 핵심 
 
 ## 확인한 구현 근거
 
-- 강제 업데이트 확인 및 최신 버전 재설치 안내: `ui/partials/views/settings-next.html`, `ui/scripts/features/shell/update.js`
+- 강제 업데이트 확인 및 최신 버전 재설치 안내: `ui/partials/views/settings-next.html`, `ui/scripts/shell/update.js`
 - 같은 버전에서도 강제 업데이트가 가능한 버전 비교 분기: `src/updater.js`
-- 업데이트 재시작 후 완료 축하 표시: `ui/scripts/features/shell/celebration.js`
-- 네이버 임시 저장/브라우저 표시 실행 설정: `ui/scripts/features/blog-next/draft-inputs.js`, `ui/scripts/features/blog-next/runner.js`
-- 블록 에디터 이미지 작업: `ui/scripts/features/blog-next/draft-images.js`
+- 업데이트 재시작 후 완료 축하 표시: `ui/scripts/shell/celebration.js`
+- 네이버 임시 저장/브라우저 표시 실행 설정: `ui/scripts/features/blog/draft-inputs.js`, `ui/scripts/features/blog/runner.js`
+- 블록 에디터 이미지 작업: `ui/scripts/features/blog/draft-images.js`

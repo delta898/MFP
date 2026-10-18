@@ -17,9 +17,9 @@ function readBlogNextView() {
 
 function readBlogNextQueueScripts() {
   return [
-    read('ui/scripts/features/blog-next/queue-ui.js'),
-    read('ui/scripts/features/blog-next/quick-queue.js'),
-    read('ui/scripts/features/blog-next/queue-management.js')
+    read('ui/scripts/features/blog/queue-ui.js'),
+    read('ui/scripts/features/blog/quick-queue.js'),
+    read('ui/scripts/features/blog/queue-management.js')
   ].join('\n');
 }
 
@@ -47,7 +47,7 @@ test('shared Blog Beta form and queue typography uses semantic roles', () => {
 
 test('unified writer keeps the manuscript editor and removes retired input modes', () => {
   const html = readBlogNextView();
-  const inputs = read('ui/scripts/features/blog-next/draft-inputs.js');
+  const inputs = read('ui/scripts/features/blog/draft-inputs.js');
   assert.match(html, /id="blog-next-mode-panel-ai" role="region"[\s\S]*?data-blog-next-mode-panel="ai"/);
   assert.match(html, /id="blog-next-ai-editor"[^>]*class="manuscript-editor-canvas"/);
   assert.doesNotMatch(html, /data-blog-next-mode-panel="(?:folder|paste)"|blog-next-folder-input|blog-next-paste-markdown/);
@@ -57,7 +57,7 @@ test('unified writer keeps the manuscript editor and removes retired input modes
 
 test('unified writer retains the manuscript preview and image workspace', () => {
   const html = readBlogNextView();
-  const script = read('ui/scripts/features/blog-next/draft-inputs.js');
+  const script = read('ui/scripts/features/blog/draft-inputs.js');
   assert.match(html, /data-blog-next-draft-preview="ai"/);
   assert.match(html, /id="blog-next-ai-draft-images"[^>]*data-draft-preview-image-details/);
   assert.doesNotMatch(html, /data-blog-next-draft-preview="(?:folder|paste)"/);
@@ -67,7 +67,7 @@ test('unified writer retains the manuscript preview and image workspace', () => 
 
 test('manuscript drafts keep idle results quiet and summarize repeated image warnings', () => {
   const html = readBlogNextView();
-  const script = read('ui/scripts/features/blog-next/draft-inputs.js');
+  const script = read('ui/scripts/features/blog/draft-inputs.js');
   const sharedCss = read('ui/styles/features/continuous-publishing-drafts.css');
 
   assert.match(html, /data-blog-next-draft-validation="ai"[^>]*aria-live="polite" hidden><\/div>/);
@@ -84,7 +84,7 @@ test('manuscript drafts keep idle results quiet and summarize repeated image war
 
 test('unified writer exposes only its integrated AI writing mode', () => {
   const html = readBlogNextView();
-  const script = read('ui/scripts/features/blog-next/shell.js');
+  const script = read('ui/scripts/features/blog/shell.js');
   assert.doesNotMatch(html, /data-blog-next-input-mode|blog-next-mode-tab-|data-blog-next-mode-panel="(?:folder|paste)"/);
   assert.match(html, /id="blog-next-mode-panel-ai" role="region"[\s\S]*?data-blog-next-mode-panel="ai"/);
   assert.match(script, /function activateBlogNextInputMode\(modeName\)/);
@@ -92,7 +92,7 @@ test('unified writer exposes only its integrated AI writing mode', () => {
 });
 
 test('manuscript settings preserve dependent values while matching provider and schedule state', () => {
-  const script = read('ui/scripts/features/blog-next/publishing-targets.js');
+  const script = read('ui/scripts/features/blog/publishing-targets.js');
 
   assert.match(script, /function syncBlogNextDraftSchedule\(type\)/);
   assert.match(script, /field\.dataset\.dependencyActive = String\(scheduled\)/);
@@ -107,7 +107,7 @@ test('manuscript settings preserve dependent values while matching provider and 
 });
 
 test('manuscript summaries expose consequential values without opening settings', () => {
-  const script = read('ui/scripts/features/blog-next/publishing-targets.js');
+  const script = read('ui/scripts/features/blog/publishing-targets.js');
 
   assert.match(script, /function syncBlogNextDraftSettingsSummary\(type\)/);
   assert.match(script, /formatBlogPlatformList\(settings\.targets, ' \+ '\) \|\| '포스팅 대상 없음'/);
@@ -119,7 +119,7 @@ test('manuscript summaries expose consequential values without opening settings'
 
 test('integrated writer accepts paste input without restoring the retired paste-only draft', () => {
   const html = readBlogNextView();
-  const script = read('ui/scripts/features/blog-next/draft-inputs.js');
+  const script = read('ui/scripts/features/blog/draft-inputs.js');
   assert.match(html, /id="blog-next-ai-editor"[^>]*class="manuscript-editor-canvas"/);
   assert.match(html, /id="blog-next-ai-markdown"/);
   assert.match(script, /aiEditorRoot\.addEventListener\('paste'/);
@@ -146,7 +146,7 @@ test('manuscript baseline styles use semantic tokens and collapse predictably', 
 
 test('trend posting exposes explicit idle, loading, empty, error and result state boundaries', () => {
   const html = readBlogNextView();
-  const script = read('ui/scripts/features/blog-next/trend-posting.js');
+  const script = read('ui/scripts/features/blog/trend-posting.js');
 
   assert.match(html, /id="blog-next-trend-status"[^>]*data-state="idle"[^>]*role="status"[^>]*aria-live="polite"[^>]*hidden/);
   assert.match(html, /id="blog-next-trend-results-workspace"[^>]*hidden/);
@@ -215,7 +215,7 @@ test('trend posting state styling remains semantic and style-independent', () =>
 
 test('queue management exposes complete local tabs and list-owned async states', () => {
   const html = readBlogNextView();
-  const uiScript = read('ui/scripts/features/blog-next/queue-ui.js');
+  const uiScript = read('ui/scripts/features/blog/queue-ui.js');
   const queueScript = readBlogNextQueueScripts();
   const tabNavigation = read('ui/scripts/foundation/tab-navigation.js');
 
@@ -275,8 +275,8 @@ test('queue row actions describe their actual outcomes consistently', () => {
 test('queue metadata presents platform identifiers in user language', () => {
   const html = readBlogNextView();
   const queueScript = readBlogNextQueueScripts();
-  const flowScript = read('ui/scripts/features/blog-next/quick-flow-ui.js');
-  const draftScript = read('ui/scripts/features/blog-next/publishing-targets.js');
+  const flowScript = read('ui/scripts/features/blog/quick-flow-ui.js');
+  const draftScript = read('ui/scripts/features/blog/publishing-targets.js');
   const presentationScript = read('ui/scripts/foundation/presentation.js');
 
   assert.match(presentationScript, /const BLOG_PLATFORM_LABELS = Object\.freeze\(\{[\s\S]*naver: '네이버 블로그',[\s\S]*wordpress: '워드프레스'/);
@@ -323,7 +323,7 @@ test('queue rows share one transient hover and keyboard focus surface', () => {
 
 test('queue editor keeps save and queue promotion as separate local actions', () => {
   const queueScript = readBlogNextQueueScripts();
-  const flowScript = read('ui/scripts/features/blog-next/quick-flow-ui.js');
+  const flowScript = read('ui/scripts/features/blog/quick-flow-ui.js');
   const service = read('src/ui-api/services/continuous-publishing.service.js');
   const editor = read('ui/partials/views/blog-next/editor-modal.html');
 
@@ -341,7 +341,7 @@ test('queue editor keeps save and queue promotion as separate local actions', ()
 
 test('smart comment identifies its model role and preserves results through async states', () => {
   const html = readBlogNextView();
-  const script = read('ui/scripts/features/blog-next/smart-comment.js');
+  const script = read('ui/scripts/features/blog/smart-comment.js');
 
   assert.match(html, /id="blog-next-smart-comment-settings-summary">글쓰기 모델 사용/);
   assert.doesNotMatch(html, /id="blog-next-smart-comment-model-role"/);
@@ -363,7 +363,7 @@ test('smart comment identifies its model role and preserves results through asyn
 
 test('continuous publishing disables dependent fields and separates operation feedback from schedule summary', () => {
   const html = readBlogNextView();
-  const script = read('ui/scripts/features/blog-next/automation-settings.js');
+  const script = read('ui/scripts/features/blog/automation-settings.js');
 
   assert.match(html, /class="blog-next-automation-fields blog-next-dependent-field" data-dependency-active="false"/);
   assert.equal((html.match(/id="blog-next-automation-(?:start-time|end-time|interval|notify)"[^>]*disabled/g) || []).length, 4);

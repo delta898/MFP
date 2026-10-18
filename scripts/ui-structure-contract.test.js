@@ -109,7 +109,7 @@ test('new site hosting navigation exposes a compact accessible new badge', () =>
     );
     assert.match(
         html,
-        /data-view="dashboard-beta"[\s\S]*?<span class="nav-label">대시보드<\/span>/
+        /data-view="dashboard"[\s\S]*?<span class="nav-label">대시보드<\/span>/
     );
     assert.match(html, /data-view="site-hosting"[\s\S]*?<span class="nav-label">사이트<\/span>\s*<span class="nav-new-badge" aria-label="새 기능">NEW<\/span>/);
     assert.match(navigationCss, /\.nav-new-badge\s*\{/);
@@ -145,7 +145,7 @@ test('UI index remains a bounded shell composed from one partial per feature vie
 
     assert.equal(shell.split('\n').length - 1 <= 250, true);
     const activeIncludePaths = [
-        'partials/views/dashboard-beta.html',
+        'partials/views/dashboard.html',
         'partials/views/blog-next.html',
         'partials/views/card-news.html',
         'partials/views/shopping.html',

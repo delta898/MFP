@@ -52,7 +52,7 @@ test('help topic cards use no decorative icons', () => {
 
 test('help dynamic catalog hooks remain intact', () => {
   const html = read('ui/partials/views/help.html');
-  const script = read('ui/scripts/features/shell/help.js');
+  const script = read('ui/scripts/shell/help.js');
   const css = read('ui/styles/features/help.css');
 
   ['help-getting-started-region', 'help-writing-region', 'help-automation-region', 'help-supporting-region', 'help-supporting-section'].forEach((id) => {

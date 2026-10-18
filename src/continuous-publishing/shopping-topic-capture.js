@@ -1,5 +1,5 @@
 const { normalizeWritingStrategyOverride } = require('../content/writing-strategy');
-const { normalizeShoppingContentFocus } = require('../content/shopping-editorial-plan-prompt');
+const { normalizeShoppingContentFocus } = require('../applications/shopping/generation/editorial-plan');
 const { requireSinglePublishTarget } = require('../content/single-publish-target');
 const {
     LIFECYCLE_POST_STATUSES,

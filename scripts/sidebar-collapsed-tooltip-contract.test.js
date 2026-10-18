@@ -7,8 +7,8 @@ const root = path.resolve(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
 test('collapsed desktop sidebar renders menu-name tooltips and preserves accessible names', () => {
-  const sidebar = read('ui/scripts/features/shell/sidebar.js');
-  const lifecycle = read('ui/scripts/foundation/lifecycle.js');
+  const sidebar = read('ui/scripts/shell/sidebar.js');
+  const lifecycle = read('ui/scripts/shell/lifecycle.js');
   const styles = read('ui/styles/layout/shell-navigation.css');
 
   assert.match(sidebar, /function syncCollapsedSidebarTooltips\(\)/);
@@ -27,7 +27,7 @@ test('collapsed desktop sidebar renders menu-name tooltips and preserves accessi
 });
 
 test('dynamic sidebar links share the collapsed tooltip policy instead of retaining a native title', () => {
-  const sidebar = read('ui/scripts/features/shell/sidebar.js');
+  const sidebar = read('ui/scripts/shell/sidebar.js');
 
   assert.doesNotMatch(sidebar, /link\.title\s*=/);
   assert.match(sidebar, /sidebarDynamicContentSignature = nextSignature;\s*syncCollapsedSidebarTooltips\(\);/);

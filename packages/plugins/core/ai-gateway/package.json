@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "description": "Provider-neutral text and image generation Gateway for BlogGenius and compatible Hosts.",
   "main": "index.js",
-  "files": ["index.js", "support.js", "provider-adapters.js", "catalog.js", "README.md"],
+  "files": ["index.js", "support.js", "provider-adapters.js", "provider-transport.js", "provider-endpoints.js", "catalog.js", "README.md"],
   "engines": { "node": ">=20" },
   "bloggeniusPlugin": {
     "manifestVersion": 1,
     "id": "ai-gateway",
     "name": "AI Gateway",
     "hostApi": "^1.0.0",
-    "summary": "Provider-neutral text and image generation across Host-approved AI routes.",
+    "summary": "Provider-neutral AI model catalog, connection verification, and text/image generation across Host-approved routes.",
     "operations": {
       "models.list": {
         "description": "List the current Host-approved AI model catalog, optionally refreshing it.",
@@ -31,6 +31,45 @@
           "additionalProperties": false
         },
         "capabilities": ["ai.catalog.read"]
+      },
+      "models.verify": {
+        "description": "Verify a Host-approved model connection without generating content.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "kind": { "enum": ["text", "image"] },
+            "model": {
+              "type": "object",
+              "properties": {
+                "provider": { "type": "string", "minLength": 1, "pattern": "^[a-z][a-z0-9-]*$" },
+                "modelId": { "type": "string", "minLength": 1, "pattern": "\\S" },
+                "transport": { "type": "string", "minLength": 1, "pattern": "^[a-z][a-z0-9_]*$" }
+              },
+              "required": ["provider", "modelId"],
+              "additionalProperties": false
+            },
+            "profileRef": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F-]{36}$" }
+          },
+          "required": ["kind", "model"],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "properties": {
+            "success": { "const": true },
+            "check_type": { "enum": ["metadata", "account_credit"] },
+            "generation_performed": { "const": false },
+            "kind": { "enum": ["text", "image"] },
+            "provider": { "type": "string" },
+            "model": { "type": "string" },
+            "transport": { "type": "string" },
+            "latency_ms": { "type": "integer", "minimum": 0 },
+            "credit_balance": { "type": "number", "minimum": 0 }
+          },
+          "required": ["success", "check_type", "generation_performed", "kind", "provider", "model", "transport", "latency_ms"],
+          "additionalProperties": false
+        },
+        "capabilities": ["ai.connection.verify"]
       },
       "text.generate": {
         "description": "Generate text from a role-based message list.",

@@ -7,15 +7,15 @@ const repoRoot = path.resolve(__dirname, '..');
 const scriptsRoot = path.join(repoRoot, 'ui', 'scripts');
 
 const controllerContracts = Object.freeze({
-    'features/publishing/preview-utils.js': ['renderInlinePreviewHtml', 'setLocalMarkdownPreviewDensity'],
-    'features/publishing/wordpress-controls.js': ['initWpCategorySelector'],
-    'features/publishing/shared-preferences.js': ['initGlobalPublishSettingsSync'],
-    'features/publishing/shopping-controls.js': ['initShoppingQuickCategoryPersistence'],
-    'features/social/manual-workspace-cache.js': ['readManualSnsWorkspaceCache', 'persistManualSnsWorkspaceCache', 'clearManualSnsWorkspaceCache'],
-    'features/social/manual-composer.js': ['syncManualSnsComposerState', 'loadManualSnsComposer'],
-    'features/social/manual-optimization.js': ['optimizeManualSnsText', 'undoManualSnsOptimization'],
-    'features/social/manual-publish.js': ['publishManualSns'],
-    'features/social/manual-lifecycle.js': ['initManualSnsComposer']
+    'shared/publishing/preview-utils.js': ['renderInlinePreviewHtml', 'setLocalMarkdownPreviewDensity'],
+    'shared/publishing/wordpress-controls.js': ['initWpCategorySelector'],
+    'shared/publishing/shared-preferences.js': ['initGlobalPublishSettingsSync'],
+    'features/shopping/publishing-controls.js': ['initShoppingQuickCategoryPersistence'],
+    'features/sns/manual-workspace-cache.js': ['readManualSnsWorkspaceCache', 'persistManualSnsWorkspaceCache', 'clearManualSnsWorkspaceCache'],
+    'features/sns/manual-composer.js': ['syncManualSnsComposerState', 'loadManualSnsComposer'],
+    'features/sns/manual-optimization.js': ['optimizeManualSnsText', 'undoManualSnsOptimization'],
+    'features/sns/manual-publish.js': ['publishManualSns'],
+    'features/sns/manual-lifecycle.js': ['initManualSnsComposer']
 });
 
 function readScript(relativePath) {
@@ -53,10 +53,10 @@ test('temporary feature modules no longer own extracted publishing or social con
 });
 
 test('manual SNS publishing owns a busy state that locks duplicate actions', () => {
-    const stateSource = readScript('features/social/manual-state.js');
-    const composerSource = readScript('features/social/manual-composer.js');
-    const workspaceLoadingSource = readScript('features/social/manual-workspace-loading.js');
-    const publishSource = readScript('features/social/manual-publish.js');
+    const stateSource = readScript('features/sns/manual-state.js');
+    const composerSource = readScript('features/sns/manual-composer.js');
+    const workspaceLoadingSource = readScript('features/sns/manual-workspace-loading.js');
+    const publishSource = readScript('features/sns/manual-publish.js');
     const styles = [
         'social.css',
         'social-media.css',

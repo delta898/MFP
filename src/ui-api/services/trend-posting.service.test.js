@@ -2,27 +2,18 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { createTrendPostingService } = require('./trend-posting.service');
+const { createBlogTrendPosting } = require('../../composition/blog-trend-posting');
 
-function createService(remoteClient) {
-    return createTrendPostingService({
-        License: { async issueTrendsAccessToken() { throw new Error('not used'); } },
-        tokenCache: { clear() {} },
-        remoteClient,
-        Logger: { warn() {} }
+function createService(remoteClient, Utils = {}) {
+    const trendPosting = createBlogTrendPosting({
+        License: { async issueTrendsAccessToken() { throw new Error('not used'); }, async checkLicenseStatus() { return { success: true }; } },
+        tokenCache: { clear() {} }, remoteClient, Utils, Logger: { warn() {} }
     });
+    return createTrendPostingService({ application: trendPosting.application, Logger: { warn() {} } });
 }
 
 function createWritableService(Utils) {
-    return createTrendPostingService({
-        License: {
-            async issueTrendsAccessToken() { throw new Error('not used'); },
-            async checkLicenseStatus() { return { success: true }; }
-        },
-        tokenCache: { clear() {} },
-        remoteClient: {},
-        Utils,
-        Logger: { warn() {} }
-    });
+    return createService({}, Utils);
 }
 
 test('trend posting service exposes only the metadata required by the UI', async () => {
@@ -112,15 +103,18 @@ test('trend posting service maps invalid filters and upstream rate limits', asyn
 });
 
 test('trend posting service reports a missing environment endpoint without Production fallback', async () => {
-    const service = createTrendPostingService({
+    const trendPosting = createBlogTrendPosting({
         License: {
             async issueTrendsAccessToken() {
                 throw new Error('token issuance must not run without an endpoint');
             }
         },
         axios: { async get() { throw new Error('network must not run'); } },
+        Utils: {},
+        baseUrl: '',
         Logger: { warn() {} }
     });
+    const service = createTrendPostingService({ application: trendPosting.application, Logger: { warn() {} } });
 
     await assert.rejects(
         () => service.getMeta(),
@@ -234,7 +228,7 @@ test('trend posting service rejects missing keywords and impossible dates before
 
 test('trend posting service checks the active license before saving', async () => {
     let appendCalls = 0;
-    const service = createTrendPostingService({
+    const trendPosting = createBlogTrendPosting({
         License: {
             async issueTrendsAccessToken() { throw new Error('not used'); },
             async checkLicenseStatus() { return { success: false, message: '만료됨' }; }
@@ -246,6 +240,7 @@ test('trend posting service checks the active license before saving', async () =
         },
         Logger: { warn() {} }
     });
+    const service = createTrendPostingService({ application: trendPosting.application, Logger: { warn() {} } });
 
     await assert.rejects(
         service.saveTopic({ body: { keyword: '성수 맛집', trendDate: '2026-08-11' } }),

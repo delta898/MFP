@@ -35,7 +35,6 @@ const {
 } = require('../../ai-model-config');
 const TelegramPairingService = require('../../telegram-pairing.service');
 const { isSnsAiMode } = require('../../services/sns/ai-policy');
-const DefaultModelConnectionTester = require('../../ai/model-connection-tester');
 const {
     createConnectionSignature,
     readConnectionVerification,
@@ -425,7 +424,7 @@ function createSettingsService(deps = {}) {
         styleReferenceAnalyzer,
         writingProfilePreviewService,
         blogWritingApplication,
-        ModelConnectionTester = DefaultModelConnectionTester,
+        aiGenerationService,
         aiGateway = null
     } = deps;
 
@@ -471,18 +470,32 @@ function createSettingsService(deps = {}) {
 
     function getWritingPreviewService() {
         if (writingPreviewService) return writingPreviewService;
-        const runtimeUtils = Utils || require('../../utils');
         writingPreviewService = createWritingProfilePreviewService({
-            generateBlogText: (prompt, modelOptions = {}) => {
-                if (typeof blogWritingApplication?.generateText !== 'function') {
-                    throw new Error('Blog Writing Application is required for blog writing preview.');
+            generateText: async (prompt, modelOptions = {}) => {
+                if (typeof aiGenerationService?.generateText !== 'function'
+                    || typeof aiGenerationService?.resolveModel !== 'function') {
+                    throw new Error('AI Generation service is required for writing profile preview.');
                 }
-                return blogWritingApplication.generateText(prompt, {
-                    modelSelection: toWritingModelSelection((CONFIG || {}).TEXT_MODEL_CONFIG),
-                    generationOptions: pickGatewayGenerationOptions(modelOptions)
-                });
+                const modelSelection = aiGenerationService.resolveModel(
+                    'text',
+                    toWritingModelSelection((CONFIG || {}).TEXT_MODEL_CONFIG)
+                );
+                if (!modelSelection) {
+                    throw Object.assign(new Error('설정된 글쓰기 모델을 AI Gateway에서 사용할 수 없습니다.'), {
+                        code: 'AI_GATEWAY_UNSUPPORTED_ROUTE'
+                    });
+                }
+                const generationOptions = pickGatewayGenerationOptions(modelOptions);
+                const result = await aiGenerationService.generateText({
+                    modelSelection,
+                    prompt,
+                    ...(generationOptions ? { options: generationOptions } : {}),
+                    ...(aiGenerationService.supportsFeature?.('text', modelSelection, 'jsonResponse')
+                        ? { responseFormat: 'json' }
+                        : {})
+                }, modelOptions.signal ? { signal: modelOptions.signal } : {});
+                return result?.content;
             },
-            callShoppingText: runtimeUtils.callWritingText.bind(runtimeUtils),
             config: CONFIG || {}
         });
         return writingPreviewService;
@@ -1168,7 +1181,7 @@ function createSettingsService(deps = {}) {
                 ? CONFIG.IMAGE_MODEL_CONFIG
                 : (scope === 'chat' ? CONFIG.CHAT_MODEL_CONFIG : CONFIG.TEXT_MODEL_CONFIG);
             try {
-                const result = await ModelConnectionTester.testModelConnection({ kind, modelConfig });
+                const result = await aiGateway.verifyModelConnection({ kind, modelConfig });
                 try {
                     // chat-source "writing" tests the shared writing (text) config:
                     // record under the effective scope so trust survives provider switches.
@@ -1811,10 +1824,7 @@ function createSettingsService(deps = {}) {
             const modelConfig = buildModelSelectionFromFields(kind, fields, getAiModelCatalog());
 
             try {
-                const result = await ModelConnectionTester.testModelConnection({
-                    kind,
-                    modelConfig
-                });
+                const result = await aiGateway.verifyModelConnection({ kind, modelConfig });
                 try {
                     recordAiRoleVerification(kind, modelConfig, { success: true, connected: true });
                 } catch (_) { }

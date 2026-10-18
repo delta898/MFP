@@ -27,7 +27,7 @@ async function run() {
         const shellResponse = await fetch(`${baseUrl}/`);
         const shellHtml = await shellResponse.text();
         assert.strictEqual(shellResponse.status, 200);
-        assert.match(shellHtml, /id="view-dashboard-beta"/);
+        assert.match(shellHtml, /id="view-dashboard"/);
         assert.match(shellHtml, /id="view-settings-next"/);
         assert.match(shellHtml, /id="view-blog-next"/);
         assert.doesNotMatch(shellHtml, /<!--\s*@include\s+/);

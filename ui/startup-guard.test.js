@@ -39,9 +39,9 @@ test('renderer startup guard captures early errors before readiness', () => {
 });
 test('renderer startup guard exposes one immutable ready handshake', () => {
     const guard = executeGuard();
-    assert.equal(guard.state.markReady({ surface: 'view-dashboard-beta' }), true);
+    assert.equal(guard.state.markReady({ surface: 'view-dashboard' }), true);
     assert.equal(guard.state.markReady({ surface: 'other' }), false);
     assert.equal(guard.state.ready, true);
-    assert.equal(guard.state.details.surface, 'view-dashboard-beta');
+    assert.equal(guard.state.details.surface, 'view-dashboard');
     assert.match(guard.messages[0].message, /BLOGGENIUS_RENDERER_READY/);
 });

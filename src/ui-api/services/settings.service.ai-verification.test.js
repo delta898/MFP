@@ -21,7 +21,7 @@ function configureStore() {
     return filePath;
 }
 
-function createService(tester, configOverrides = {}) {
+function createService(gateway, configOverrides = {}) {
     const CONFIG = {
         TEXT_MODEL_CONFIG: { ...TEXT_CONFIG },
         IMAGE_MODEL_CONFIG: { provider: 'kie', code: 'nano-banana-pro', api_key: 'key-2' },
@@ -32,20 +32,20 @@ function createService(tester, configOverrides = {}) {
         CONFIG,
         buildMajorSettings: () => ({ fields: {} }),
         resolveWritableConfigPath: () => path.join(os.tmpdir(), 'ai-verify-config.json'),
-        ModelConnectionTester: tester
+        aiGateway: gateway
     });
     return { CONFIG, service };
 }
 
-const successTester = {
-    async testModelConnection() {
+const successGateway = {
+    async verifyModelConnection() {
         return { success: true, connected: true };
     }
 };
 
 test('ai role checks persist per-model verification', async () => {
     configureStore();
-    const { service } = createService(successTester);
+    const { service } = createService(successGateway);
     const result = await service.testAiRoleConnection({ scope: 'text' });
     assert.equal(result.success, true);
 
@@ -56,7 +56,7 @@ test('ai role checks persist per-model verification', async () => {
 
 test('ai role settings expose trusted verification for unchanged models', async () => {
     configureStore();
-    const { service } = createService(successTester);
+    const { service } = createService(successGateway);
     await service.testAiRoleConnection({ scope: 'text' });
 
     const settings = await service.getAiRoleSettings();
@@ -69,7 +69,7 @@ test('ai role settings expose trusted verification for unchanged models', async 
 
 test('changed api keys invalidate persisted ai verification', async () => {
     configureStore();
-    const { CONFIG, service } = createService(successTester);
+    const { CONFIG, service } = createService(successGateway);
     await service.testAiRoleConnection({ scope: 'text' });
     CONFIG.TEXT_MODEL_CONFIG = { ...TEXT_CONFIG, api_key: 'key-2' };
 
@@ -83,7 +83,7 @@ test('changed api keys invalidate persisted ai verification', async () => {
 test('failed ai role checks persist the failure', async () => {
     configureStore();
     const { service } = createService({
-        async testModelConnection() {
+        async verifyModelConnection() {
             const error = new Error('invalid key');
             error.code = 'AI_MODEL_CONNECTION_CHECK_FAILED';
             throw error;
@@ -100,7 +100,7 @@ test('failed ai role checks persist the failure', async () => {
 test('ai role check reports a safe model mismatch instead of blaming the API key', async () => {
     configureStore();
     const { service } = createService({
-        async testModelConnection() {
+        async verifyModelConnection() {
             const error = new Error('서버가 다른 모델 정보를 반환했습니다: claude-sonnet-4-5-20250929');
             error.code = 'AI_MODEL_CONNECTION_CHECK_FAILED';
             throw error;
@@ -119,7 +119,7 @@ test('ai role check reports a safe model mismatch instead of blaming the API key
 test('ai role check does not expose untrusted remote error text', async () => {
     configureStore();
     const { service } = createService({
-        async testModelConnection() {
+        async verifyModelConnection() {
             const error = new Error('secret-token-in-remote-error');
             error.code = 'AI_MODEL_CONNECTION_CHECK_FAILED';
             throw error;
@@ -137,7 +137,7 @@ test('ai role check does not expose untrusted remote error text', async () => {
 
 test('unsaved model checks record under the requested values', async () => {
     const filePath = configureStore();
-    const { service } = createService(successTester);
+    const { service } = createService(successGateway);
     await service.testAiModelConnection({ kind: 'text', provider: 'openai', presetCode: 'gpt-5.6-terra', apiKey: 'unsaved-secret', name: 'GPT-5.6 Terra' });
     const stored = JSON.parse(fs.readFileSync(filePath, 'utf8'));
     const entries = Object.entries(stored).filter(([key]) => key.startsWith('ai-role:'));
@@ -145,9 +145,49 @@ test('unsaved model checks record under the requested values', async () => {
     assert.equal(entries[0][1].status, 'connected');
 });
 
+test('settings resolves an unsaved catalog model before delegating verification to the Gateway', async () => {
+    let received = null;
+    const { service } = createService({
+        async verifyModelConnection(request) {
+            received = request;
+            return {
+                success: true, check_type: 'metadata', generation_performed: false,
+                kind: request.kind, provider: request.modelConfig.provider,
+                model: request.modelConfig.code, transport: request.modelConfig.transport, latency_ms: 12
+            };
+        }
+    });
+    const result = await service.testAiModelConnection({
+        kind: 'text', provider: 'openai', presetCode: 'gpt-5.6-terra', apiKey: 'unsaved-secret'
+    });
+    assert.equal(received.modelConfig.name, 'GPT-5.6 Terra');
+    assert.equal(received.modelConfig.api_key, 'unsaved-secret');
+    assert.equal(result.display_name, 'GPT-5.6 Terra');
+    assert.equal(result.generation_performed, false);
+});
+
+test('settings labels KIE verification as account credit inspection', async () => {
+    const { service } = createService({
+        async verifyModelConnection(request) {
+            return {
+                success: true, check_type: 'account_credit', generation_performed: false,
+                kind: request.kind, provider: request.modelConfig.provider,
+                model: request.modelConfig.code, transport: request.modelConfig.transport,
+                credit_balance: 88, latency_ms: 9
+            };
+        }
+    });
+    const result = await service.testAiModelConnection({
+        kind: 'text', provider: 'kie', presetCode: 'gemini-3-6-flash-openai', apiKey: 'unsaved-kie-secret'
+    });
+    assert.equal(result.display_name, 'KIE.ai');
+    assert.equal(result.check_type, 'account_credit');
+    assert.equal(result.credit_balance, 88);
+});
+
 test('ai role settings expose trusted history across providers', async () => {
     configureStore();
-    const { service } = createService(successTester);
+    const { service } = createService(successGateway);
     await service.testAiRoleConnection({ scope: 'text' });
     await service.testAiModelConnection({ kind: 'text', provider: 'google', presetCode: 'gemini-3-flash', apiKey: 'key-g', name: 'Gemini 3 Flash' });
 
@@ -163,7 +203,7 @@ test('ai role settings expose trusted history across providers', async () => {
 
 test('kie trust is provider-level: switching models keeps verification', async () => {
     configureStore();
-    const { CONFIG, service } = createService(successTester);
+    const { CONFIG, service } = createService(successGateway);
     CONFIG.TEXT_MODEL_CONFIG = { provider: 'kie', code: 'model-a', api_key: 'kie-key' };
     await service.testAiRoleConnection({ scope: 'text' });
     CONFIG.TEXT_MODEL_CONFIG = { provider: 'kie', code: 'model-b', api_key: 'kie-key' };

@@ -8,7 +8,7 @@ const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'u
 
 test('shopping connect exposes only the available manual quick workflow', () => {
   const view = read('ui/partials/views/shopping.html');
-  const navigation = read('ui/scripts/features/content/tab-navigation.js');
+  const navigation = read('ui/scripts/features/shopping/tab-navigation.js');
   const app = read('ui/app.js');
 
   assert.doesNotMatch(view, /data-shopping-tab="auto"|shopping-tab-auto|shopping-publish-auto/);

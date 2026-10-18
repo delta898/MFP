@@ -336,8 +336,10 @@ test('shopping topic deletion invalidates every cached shopping list variant', a
 
 test('shopping row generation forwards the stored writing strategy to the content builder', async () => {
     const buildOptions = [];
+    const shoppingGenerationApplication = { async generateText() { return 'generated'; } };
     const runtime = createContentActionsRuntime({
         CONFIG: {},
+        shoppingGenerationApplication,
         parseIntSafe: (value, fallback, min) => {
             const parsed = Number.parseInt(value, 10);
             return Number.isInteger(parsed) && parsed >= min ? parsed : fallback;
@@ -381,6 +383,7 @@ test('shopping row generation forwards the stored writing strategy to the conten
     assert.equal(buildOptions.length, 1);
     assert.equal(buildOptions[0].writingStrategy, 'discovery');
     assert.equal(buildOptions[0].contentFocus, 'usage');
+    assert.equal(buildOptions[0].shoppingGenerationApplication, shoppingGenerationApplication);
 });
 
 test('blog batch preflight executes only rows covered by remaining quota', async () => {

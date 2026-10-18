@@ -42,8 +42,7 @@ const {
     applyTextRuntimePolicy,
     buildOpenAiChatRequest,
     getModelRuntimeDefinition,
-    withAutomaticReasoningEffort,
-    resolveOpenAiImageRequest
+    withAutomaticReasoningEffort
 } = require('./ai/model-runtime-policy');
 const {
     extractKieOpenAiChatContent,
@@ -66,15 +65,6 @@ const {
     buildKieResponsesRequest,
     extractKieResponsesText
 } = require('./ai/kie-responses');
-const { createAsyncJobStore } = require('./ai/async-job-store');
-const {
-    createKieMarketImageClient,
-    createKieMarketImageProgressReporter
-} = require('./ai/kie-market-image');
-
-const asyncAiJobStore = createAsyncJobStore({
-    filePath: path.join(CONFIG.APP_ROOT_DIR || process.cwd(), 'data', 'async-ai-jobs.json')
-});
 const referenceSearchGateway = createReferenceSearchGateway({ config: CONFIG, License });
 
 const REFERENCE_FETCH_MAX_CHARS = 2400;
@@ -222,41 +212,12 @@ function extractOpenAIChatContent(data) {
         .trim();
 }
 
-function extractOpenAIImageBuffer(data) {
-    const item = Array.isArray(data?.data) ? data.data[0] : null;
-    if (!item) return null;
-    if (typeof item.b64_json === 'string' && item.b64_json.trim()) {
-        return Buffer.from(item.b64_json, 'base64');
-    }
-    return null;
-}
-
 function normalizeTextWhitespace(value) {
     return String(value || '')
         .replace(/\u00a0/g, ' ')
         .replace(/[ \t\r\f\v]+/g, ' ')
         .replace(/\n{3,}/g, '\n\n')
         .trim();
-}
-
-function normalizeAspectRatio(value) {
-    const raw = String(value || '').trim();
-    return /^[0-9]+:[0-9]+$/.test(raw) ? raw : '';
-}
-
-function resolveWritingImageAspectRatio(options = {}) {
-    const explicit = normalizeAspectRatio(options.aspectRatio);
-    if (explicit) return explicit;
-
-    const useCase = String(options.useCase || '').trim().toLowerCase();
-    if (useCase === 'shopping') return '1:1';
-    return '4:3';
-}
-
-function resolveWritingImageSize(options = {}) {
-    const raw = String(options.imageSize || '').trim().toUpperCase();
-    if (raw === '2K') return '2K';
-    return '1K';
 }
 
 function truncateText(value, maxLength) {
@@ -4180,9 +4141,9 @@ const Utils = {
     },
 
     /**
-     * @deprecated CONFIG-backed compatibility entry point. Blog writing uses
-     * Blog Writing Application; this remains for Shopping and other legacy
-     * consumers. Remove only after those callers use their capability layer.
+     * @deprecated CONFIG-backed compatibility entry point. Blog and Shopping
+     * writing use their Applications; remove after remaining legacy consumers
+     * (currently including keyword research) migrate to their capability layer.
      */
     callWritingText: async function (prompt, retries = 3, options = {}) {
         const { modelConfig, ...callOptions } = options || {};
@@ -4217,225 +4178,6 @@ const Utils = {
     },
 
     parseStructuredJsonResponse,
-
-    // 🔧 [Fixed] 이미지 생성 API 재시도 로직 추가
-    callGeminiImage: async function (prompt, savePath, retries = 3, options = {}) {
-        const signal = options.signal;
-        throwIfCanceled(signal);
-        const apiKey = String(options?.apiKey || '').trim();
-        if (!apiKey) throw new Error('API Key 누락');
-        const modelCode = String(options?.modelCode || '').trim();
-        let endpoint;
-        try {
-            endpoint = resolveGeminiEndpointFromConfig({
-                provider: options?.provider,
-                baseUrl: options?.baseUrl,
-                code: modelCode
-            });
-        } catch (error) {
-            throw new Error('이미지 모델 호출에 필요한 모델 주소 정보가 없습니다. 설정에서 모델을 다시 선택해 주세요.');
-        }
-        const imageTimeoutMs = Math.max(1000, Number(CONFIG.GEMINI_IMAGE_TIMEOUT_MS) || 180000);
-        const aspectRatio = resolveWritingImageAspectRatio(options);
-        const endpointForLog = describeGeminiEndpoint(endpoint);
-
-        for (let attempt = 1; attempt <= retries; attempt++) {
-            throwIfCanceled(signal);
-            try {
-                const response = await this.runWithHeartbeat(
-                    `(시도 ${attempt})`,
-                    () => axios.post(`${endpoint}?key=${apiKey}`,
-                        {
-                            contents: [{ parts: [{ text: prompt }] }],
-                            generationConfig: {
-                                responseModalities: ['IMAGE'],
-                                imageConfig: aspectRatio ? { aspectRatio } : undefined
-                            }
-                        },
-                        { headers: { 'Content-Type': 'application/json' }, timeout: imageTimeoutMs, signal }
-                    )
-                );
-                const candidates = response.data.candidates;
-                if (!candidates || candidates.length === 0) throw new Error("No candidates returned");
-                const imagePart = candidates[0].content.parts.find(part => part.inlineData);
-                if (!imagePart) throw new Error('No inlineData found');
-
-                const fullPath = `${savePath}.png`;
-                throwIfCanceled(signal);
-                fs.writeFileSync(fullPath, Buffer.from(imagePart.inlineData.data, 'base64'));
-                Logger.debug(`🛠️ Gemini 이미지 결과 파일 저장: ${path.basename(fullPath)}`);
-
-                // 🎨 플랫폼별 최적의 포맷으로 자동 변환 연동
-                try {
-                    const ImageService = require('./image-service');
-                    // jobData에서 플랫폼 정보를 가져오는 로직이 필요할 수 있으나, 
-                    // 기본적으로 Naver(WebP)를 시도하고 WP 배포 시 WP에 맞춰 변환됨.
-                    // 현재 jobData는 core.js의 prepareImages에서 넘겨줌. 
-                    // 여기서는 일단 WebP로 변환해두거나 (호환성), 호출자가 처리하게 둘 수 있음.
-                    // 하지만 사용자 요청은 "생성한 파일이든 동일해"이므로 변환 시도.
-                    // (일단 WebP를 기본으로 하되, WP 호출 시 AVIF로 변환되는 흐름 권장)
-
-                    // TODO: 더 정확한 플랫폼 판별을 위해 인자 추가 고려
-                } catch (ignore) { }
-
-                return fullPath;
-            } catch (e) {
-                rethrowIfCanceled(e, signal);
-                const readableError = formatReadableErrorMessage(e);
-                const invalidUrl = e?.code === 'ERR_INVALID_URL' || /invalid url/i.test(readableError);
-                const failureDetail = invalidUrl
-                    ? `${readableError} (요청 주소: ${endpointForLog})`
-                    : readableError;
-                Logger.warn(`⚠️ Gemini Image API 호출 실패 (시도 ${attempt}/${retries}, 요청 주소=${endpointForLog}): ${readableError}`);
-
-                if (attempt === retries) {
-                    Logger.error(`❌ 이미지 생성 최대 재시도 횟수 초과`);
-                    const finalError = new Error(failureDetail);
-                    finalError.code = e?.code;
-                    finalError.cause = e;
-                    throw finalError;
-                }
-
-                // 지수 백오프
-                const waitTime = 1000 * Math.pow(2, attempt - 1);
-                Logger.info(`   ⏳ ${waitTime / 1000}초 후 재시도...`);
-                await sleepWithCancellation(waitTime, signal, (ms) => this.sleep(ms));
-            }
-        }
-    },
-
-    callOpenAiCompatibleImageByConfig: async function (modelConfig = {}, prompt, savePath, retries = 3, options = {}) {
-        const signal = options.signal;
-        throwIfCanceled(signal);
-        const baseUrl = normalizeOpenAiCompatibleBaseUrl(modelConfig.base_url);
-        const model = String(modelConfig.code || '').trim();
-        const apiKey = String(modelConfig.api_key || '').trim();
-        const imageTimeoutMs = Math.max(1000, Number(CONFIG.GEMINI_IMAGE_TIMEOUT_MS) || 180000);
-        if (!baseUrl || !model) throw new Error('이미지 모델 설정에 Base URL과 Model Code가 필요합니다.');
-
-        const headers = { 'Content-Type': 'application/json' };
-        if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
-
-        for (let attempt = 1; attempt <= retries; attempt++) {
-            throwIfCanceled(signal);
-            try {
-                const imageRequest = resolveOpenAiImageRequest(modelConfig, {
-                    ...options,
-                    prompt
-                });
-                const response = await this.runWithHeartbeat(
-                    `(시도 ${attempt})`,
-                    () => axios.post(`${baseUrl}/images/generations`, imageRequest.body, {
-                        headers,
-                        timeout: imageTimeoutMs,
-                        signal
-                    })
-                );
-                let imageBuffer = extractOpenAIImageBuffer(response.data);
-                if (!imageBuffer) {
-                    const imageUrl = String(response.data?.data?.[0]?.url || '').trim();
-                    if (imageUrl) {
-                        const downloaded = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: imageTimeoutMs, signal });
-                        imageBuffer = Buffer.from(downloaded.data);
-                    }
-                }
-                if (!imageBuffer) throw new Error('OpenAI-compatible 이미지 응답에서 b64_json 또는 url을 찾지 못했습니다.');
-                const fullPath = `${savePath}.png`;
-                throwIfCanceled(signal);
-                fs.writeFileSync(fullPath, imageBuffer);
-                Logger.debug(`🛠️ OpenAI-compatible 이미지 결과 파일 저장: ${path.basename(fullPath)}`);
-                return fullPath;
-            } catch (e) {
-                rethrowIfCanceled(e, signal);
-                Logger.warn(`⚠️ OpenAI-compatible Image API 호출 실패 (시도 ${attempt}/${retries}): ${formatReadableErrorMessage(e)}`);
-                if (attempt === retries) {
-                    Logger.error(`❌ 이미지 생성 최대 재시도 횟수 초과`);
-                    throw e;
-                }
-                const waitTime = 1000 * Math.pow(2, attempt - 1);
-                Logger.info(`   ⏳ ${waitTime / 1000}초 후 재시도...`);
-                await sleepWithCancellation(waitTime, signal, (ms) => this.sleep(ms));
-            }
-        }
-    },
-
-    callKieMarketImageByConfig: async function (modelConfig = {}, prompt, savePath, options = {}) {
-        const reportProgress = createKieMarketImageProgressReporter({
-            logInfo: (message) => Logger.info(message),
-            logWarn: (message) => Logger.warn(message)
-        });
-        const client = createKieMarketImageClient({
-            jobStore: asyncAiJobStore,
-            onProgress: reportProgress
-        });
-        const result = await client.generate({
-            modelConfig,
-            prompt,
-            options
-        });
-        throwIfCanceled(options.signal);
-        const fullPath = `${savePath}.png`;
-        fs.writeFileSync(fullPath, result.imageBuffer);
-        const credit = Number.isFinite(Number(result.creditsConsumed))
-            ? ` · ${Number(result.creditsConsumed)} credits`
-            : '';
-        Logger.debug(`🛠️ KIE 이미지 결과 파일 저장: ${path.basename(fullPath)}`);
-        Logger.info(`   ✅ KIE 이미지 결과 수신 완료${credit}`);
-        return fullPath;
-    },
-
-    /**
-     * @deprecated Legacy file-writing image entry point. Blog image generation
-     * now goes through Blog Writing Application; remove this wrapper once any
-     * remaining non-blog integrations are confirmed absent or migrated.
-     * Keep callGeminiImage and the provider transport implementations until
-     * their active transport callers are migrated separately.
-     */
-    callWritingImage: async function (prompt, savePath, retries = 3, options = {}) {
-        throwIfCanceled(options.signal);
-        const modelConfig = options.modelConfig || CONFIG.IMAGE_MODEL_CONFIG || {};
-        const provider = String(modelConfig.provider || '').trim().toLowerCase();
-        const modelCode = String(modelConfig.code || '').trim();
-        const aspectRatio = resolveWritingImageAspectRatio(options);
-        const imageSize = resolveWritingImageSize(options);
-        const runtimeDefinition = getModelRuntimeDefinition('image', modelConfig);
-        const modelName = String(runtimeDefinition.name || '').trim() || '알 수 없는 모델';
-        const transport = runtimeDefinition.transport;
-        const startedAt = Date.now();
-        Logger.info(`🎨 [Writing Image] 이미지 모델: ${modelName}${modelCode ? ` (${modelCode})` : ''} / provider=${provider || 'unknown'} / transport=${transport || 'unknown'} / aspect=${aspectRatio || 'default'}`);
-        if (runtimeDefinition.status === 'unavailable') {
-            throw new Error(`${modelName} 모델은 현재 사용할 수 없습니다. 설정에서 다른 모델을 선택해 주세요.`);
-        }
-        let resultPath;
-        if (transport === 'gemini_generate_content') {
-            resultPath = await this.callGeminiImage(prompt, savePath, retries, {
-                apiKey: String(modelConfig.api_key || '').trim(),
-                baseUrl: String(modelConfig.base_url || '').trim(),
-                provider: String(modelConfig.provider || '').trim(),
-                modelCode,
-                aspectRatio,
-                useCase: options.useCase,
-                signal: options.signal
-            });
-        } else if (transport === 'kie_market_image_jobs') {
-            resultPath = await this.callKieMarketImageByConfig(modelConfig, prompt, savePath, {
-                aspectRatio,
-                imageSize,
-                useCase: options.useCase,
-                signal: options.signal
-            });
-        } else {
-            resultPath = await this.callOpenAiCompatibleImageByConfig(modelConfig, prompt, savePath, retries, {
-                aspectRatio,
-                imageSize,
-                useCase: options.useCase,
-                signal: options.signal
-            });
-        }
-        const elapsedSeconds = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
-        Logger.info(`✅ [Writing Image] 이미지 생성 완료 · ${elapsedSeconds}초`);
-        return resultPath;
-    },
 
     parseMarkdown: function (raw) {
         const lines = raw.split('\n');

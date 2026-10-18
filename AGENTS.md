@@ -2,22 +2,7 @@
 
 ## Source Directory Placement (Required)
 
-New code must follow the repository's architecture layers and product-area grouping. Treat this as a required placement rule during implementation and review, not an optional example:
-
-```text
-src/{host,adapters,platform,composition}/
-src/applications/<application-name>/
-src/utilities/<capability>/
-packages/plugins/core/<plugin-id>/
-```
-
-- `host/` owns process/bootstrap and request routing; `adapters/` translates channel and external protocol input/output; `platform/` owns shared Plugin contracts and runtime; `composition/` wires concrete dependencies; `applications/<name>/` owns product workflows and policy; `utilities/<capability>/` owns reusable technical operations; `packages/plugins/core/<id>/` owns a bundled Plugin implementation.
-- BlogGenius business flows belong under `src/applications/blog/`; future product applications use the same `applications/<name>/` pattern. Reusable image/media processing belongs under `src/utilities/media/` and must not own target-specific publishing policy.
-- Keep legacy code in place until it is deliberately migrated. Do not put new code in a legacy folder just to match an old caller; connect through a small adapter or composition seam in the correct target layer.
-- When migrating a legacy responsibility, move it to the layer that owns it, update its callers and focused tests, then remove the old implementation in that same scoped migration once no active path depends on it. Do not leave parallel legacy and Plugin implementations or keep the old implementation behind a Plugin wrapper. Retain compatibility code only for a named, verified compatibility need.
-- A Plugin package must own a complete implementation of its declared capability and be packageable/distributable independently within the documented Plugin Host contract. It may use explicit host-provided ports for generic capabilities such as credentials or transport, but must not call back into BlogGenius-private Application or legacy code to perform its core behavior. A thin wrapper around app-owned implementation is not a completed Plugin migration.
-- Do not create empty directories, premature sublayers, or Community Plugin runtime structure before their contracts are designed.
-- Before adding or moving files, check the canonical ownership map in `docs/architecture/platform-kernel-applications-plugins.md`. Update it and `docs/decisions/2026-10-15-source-directory-layering.md` when a boundary changes.
+Follow [`docs/architecture/platform-kernel-applications-plugins.md`](docs/architecture/platform-kernel-applications-plugins.md) as the single canonical source for layer ownership, product/Application grouping, Plugin completeness, and migration rules. Before creating or moving source files, trace their callers and classify each responsibility by layer; migrate callers and remove superseded code in the same verified slice. Keep this instruction brief and update the canonical architecture document when a boundary changes.
 
 ## Core Direction
 - Prefer architecture and system structure over UI polish.

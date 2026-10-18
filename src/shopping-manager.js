@@ -12,15 +12,15 @@ const { persistAuthSessionState } = require('./auth-session');
 const {
     createShoppingProductGateway,
     recoverOptionalProduct
-} = require('./content/shopping-product-gateway');
+} = require('./adapters/commerce/shopping-product-gateway');
 const { normalizeWritingStrategy, buildShoppingWritingStrategyPrompt } = require('./content/writing-strategy');
 const { projectWritingProfile } = require('./content/writing-profile-projection');
-const { buildShoppingWritingProfilePromptFromProjection } = require('./content/shopping-writing-profile-prompt');
+const { buildShoppingWritingProfilePromptFromProjection } = require('./applications/shopping/generation/writing-profile-prompt');
 const {
     normalizeShoppingContentFocus,
     selectShoppingEditorialPlan,
     buildShoppingEditorialPlanPrompt
-} = require('./content/shopping-editorial-plan-prompt');
+} = require('./applications/shopping/generation/editorial-plan');
 
 const DEFAULT_LINK_INSERT_COUNT = 3;
 const DEFAULT_IMAGE_MAX_COUNT = 12;
@@ -4358,9 +4358,11 @@ const ShoppingManager = {
             instruction: runtimeOptions.instruction
         });
         Logger.info(`📝 [Shopping/${platform}] AI에게 글 작성을 요청합니다...`);
-        const aiRaw = await Utils.callWritingText(aiPrompt, 3, {
-            usageLabel: `Shopping/${platform}`
-        });
+        const generation = runtimeOptions.shoppingGenerationApplication;
+        if (typeof generation?.generateText !== 'function') {
+            throw new TypeError('Shopping Generation Application is required to generate shopping manuscripts.');
+        }
+        const aiRaw = await generation.generateText(aiPrompt, runtimeOptions.signal ? { signal: runtimeOptions.signal } : {});
         const aiData = parseAiJson(aiRaw, titleBase);
         const blockCountBefore = Array.isArray(aiData.blocks) ? aiData.blocks.length : 0;
         enrichShoppingAiData(aiData, titleBase, productData.commerceData, productData.reviewData);

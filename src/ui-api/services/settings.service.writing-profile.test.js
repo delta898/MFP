@@ -25,6 +25,7 @@ function createHarness(options = {}) {
         fs, path, CONFIG,
         Utils: options.Utils,
         blogWritingApplication: options.blogWritingApplication,
+        aiGenerationService: options.aiGenerationService,
         styleReferenceAnalyzer: options.styleReferenceAnalyzer,
         writingProfilePreviewService: options.writingProfilePreviewService
     });
@@ -61,25 +62,32 @@ test('settings reference analyzer routes text generation through Blog Writing Ap
     assert.match(result.fingerprint.summary, /설명형으로 전개/);
 });
 
-test('blog profile preview uses Blog Writing Application while shopping keeps legacy route', async () => {
+test('shared writing profile previews use AI Generation directly', async () => {
     const calls = [];
     const { service, CONFIG } = createHarness({
         Utils: { callWritingText: async (...args) => { calls.push({ route: 'legacy', args }); return '{}'; } },
-        blogWritingApplication: {
-            generateText: async (prompt, context) => {
-                calls.push({ route: 'gateway', prompt, context });
-                return JSON.stringify({
+        aiGenerationService: {
+            resolveModel: (kind, selection) => kind === 'text' ? selection : null,
+            supportsFeature: (_kind, _selection, feature) => feature === 'jsonResponse',
+            generateText: async (request, context) => {
+                calls.push({ route: 'ai-generation', request, context });
+                return { content: JSON.stringify({
                     outline: { opening: '도입', sections: [{ heading: '기준', role: '설명' }], ending: '정리' },
                     sample: '가'.repeat(450)
-                });
+                }) };
             }
-        }
+        },
     });
     CONFIG.TEXT_MODEL_CONFIG = { provider: 'google', code: 'gemini-3.6-flash' };
     await service.previewWritingProfile({ kind: 'blog', profile: getDefaultContentWritingProfile() });
-    assert.equal(calls[0].route, 'gateway');
-    assert.deepEqual(calls[0].context.modelSelection, { provider: 'google', modelId: 'gemini-3.6-flash' });
-    assert.equal(calls[0].context.generationOptions.temperature, 0.3);
+    assert.equal(calls[0].route, 'ai-generation');
+    assert.deepEqual(calls[0].request.modelSelection, { provider: 'google', modelId: 'gemini-3.6-flash' });
+    assert.equal(calls[0].request.options.temperature, 0.3);
+    assert.equal(calls[0].request.responseFormat, 'json');
+    await service.previewWritingProfile({ kind: 'shopping', profile: getDefaultContentWritingProfile() });
+    assert.equal(calls[1].route, 'ai-generation');
+    assert.equal(calls[1].request.options.temperature, 0.3);
+    assert.equal(calls.some((call) => call.route === 'legacy'), false);
 });
 
 function createCustomProfile() {

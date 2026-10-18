@@ -11,7 +11,7 @@ function read(relativePath) {
 
 test('Blog Beta exposes Smart Comment as an isolated tab and panel', () => {
     const view = read('ui/partials/views/blog-next.html');
-    const shell = read('ui/scripts/features/blog-next/shell.js');
+    const shell = read('ui/scripts/features/blog/shell.js');
     const app = read('ui/app.js');
 
     assert.match(view, /data-blog-next-tab="smart-comment"[^>]*>스마트 댓글</);
@@ -30,11 +30,11 @@ test('Blog Beta exposes Smart Comment as an isolated tab and panel', () => {
     assert.match(view, /설정 저장[\s\S]*댓글 초안 만들기/);
     assert.match(shell, /'smart-comment'/);
     assert.match(shell, /confirmDiscardUnsavedBlogNextSmartCommentSettings/);
-    assert.match(app, /@include scripts\/features\/blog-next\/smart-comment\.js/);
+    assert.match(app, /@include scripts\/features\/blog\/smart-comment\.js/);
 });
 
 test('Smart Comment keeps results on failures and presents friendly progress states', () => {
-    const script = read('ui/scripts/features/blog-next/smart-comment.js');
+    const script = read('ui/scripts/features/blog/smart-comment.js');
 
     assert.match(script, /blogNextSmartCommentEnvironment === 'production'/);
     assert.match(script, /AI 사용 한도 대기 중/);

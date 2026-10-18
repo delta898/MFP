@@ -36,3 +36,46 @@ test('AI Gateway adapter reads the catalog through the declared operation', asyn
     assert.deepEqual(result.text, []);
     assert.deepEqual(calls, [['ai-gateway', 'models.list', { forceRefresh: true }]]);
 });
+
+test('AI Gateway verifies with a transient reference and never puts credentials in operation input', async () => {
+    const calls = [];
+    const released = [];
+    const adapter = createAiGatewayAdapter({
+        registerVerificationProfile(kind, profile) {
+            assert.equal(kind, 'text');
+            assert.equal(profile.api_key, 'temporary-secret');
+            return 'e146f0f2-078b-492a-b94c-4ab31eaa4bb4';
+        },
+        releaseVerificationProfile(reference) { released.push(reference); },
+        async executeOperation(...args) {
+            calls.push(args);
+            return { success: true, check_type: 'metadata', generation_performed: false };
+        }
+    });
+    await adapter.verifyModelConnection({
+        kind: 'text',
+        modelConfig: { provider: 'openai', code: 'gpt-6-sol', transport: 'openai_chat_completions', api_key: 'temporary-secret' }
+    });
+    assert.deepEqual(calls, [[
+        'ai-gateway', 'models.verify', {
+            kind: 'text',
+            model: { provider: 'openai', modelId: 'gpt-6-sol', transport: 'openai_chat_completions' },
+            profileRef: 'e146f0f2-078b-492a-b94c-4ab31eaa4bb4'
+        }
+    ]]);
+    assert.equal(JSON.stringify(calls).includes('temporary-secret'), false);
+    assert.deepEqual(released, ['e146f0f2-078b-492a-b94c-4ab31eaa4bb4']);
+});
+
+test('AI Gateway releases a transient profile when the verification operation fails', async () => {
+    const released = [];
+    const adapter = createAiGatewayAdapter({
+        registerVerificationProfile: () => 'e146f0f2-078b-492a-b94c-4ab31eaa4bb4',
+        releaseVerificationProfile(reference) { released.push(reference); },
+        async executeOperation() { throw new Error('verification failed'); }
+    });
+    await assert.rejects(adapter.verifyModelConnection({
+        kind: 'image', modelConfig: { provider: 'kie', code: 'nano-banana-pro', api_key: 'secret' }
+    }), /verification failed/);
+    assert.equal(released.length, 1);
+});

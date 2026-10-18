@@ -39,8 +39,8 @@ The Blog Beta writing flow supports saving an idea to the saved topics list or a
 ### Data and UI path
 
 1. `ui/partials/views/blog-next.html` owns the quick-writing form and currently contains topic and reference/content settings inline.
-2. `ui/partials/views/blog-next/publish-settings.html` is included once and moved among quick-writing modes by `ui/scripts/features/blog-next/draft-execution.js` / `quick-flow-ui.js`.
-3. Queue and saved-topic editing in `ui/scripts/features/blog-next/queue-management.js` fills that same form and `quick-queue.js` moves the form into `ui/partials/views/blog-next/editor-modal.html`. The edit popup is not a duplicated settings form.
+2. `ui/partials/views/blog-next/publish-settings.html` is included once and moved among quick-writing modes by `ui/scripts/features/blog/draft-execution.js` / `quick-flow-ui.js`.
+3. Queue and saved-topic editing in `ui/scripts/features/blog/queue-management.js` fills that same form and `quick-queue.js` moves the form into `ui/partials/views/blog-next/editor-modal.html`. The edit popup is not a duplicated settings form.
 4. `readBlogNextTopicPayload()` serializes all settings for both save and enqueue. `submitBlogNextTopic()` calls the same capture/update APIs with a different action.
 5. `src/continuous-publishing/topic-capture.js` normalizes and writes target, per-target categories, post status, schedule date, writing strategy, image mode, and external-reference preference into the Topics row/options.
 

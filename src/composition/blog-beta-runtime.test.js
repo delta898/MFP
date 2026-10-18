@@ -44,11 +44,13 @@ test('Blog Beta composition wires AI Gateway, WordPress publisher, and Blog Publ
     assert.equal(composition.corePluginRuntime, corePluginRuntime);
     assert.equal(typeof composition.blogWritingSystem.application.generateText, 'function');
     assert.equal(typeof composition.blogWritingSystem.application.generateChatText, 'function');
+    assert.equal(typeof composition.shoppingGenerationApplication.generateText, 'function');
     assert.equal(typeof composition.blogPostingApplication.preparePost, 'function');
     assert.equal(typeof composition.blogPublishingApplication.publishWordPressPlugin, 'function');
     assert.equal(typeof composition.blogPublishingApplication.publishWordPressManuscript, 'function');
     assert.deepEqual(registrations.map(({ ids }) => ids), [['ai-gateway'], ['wordpress-publisher'], ['naver-publisher']]);
-    assert.equal(typeof registrations[0].dependencies['ai-gateway'].transport.request, 'function');
+    assert.equal(typeof registrations[0].dependencies['ai-gateway'].getProviderProfile, 'function');
+    assert.equal(registrations[0].dependencies['ai-gateway'].getProviderProfile({ kind: 'text', provider: 'direct' }).code, 'saved-text');
     assert.equal(typeof registrations[1].dependencies['wordpress-publisher'].getCredentials, 'function');
     assert.equal(typeof composition.naverPublishingSystem.publisher.publish, 'function');
     assert.equal(typeof registrations[2].dependencies['naver-publisher'].getSettings, 'function');

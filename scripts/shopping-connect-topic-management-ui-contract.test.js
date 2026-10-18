@@ -37,7 +37,7 @@ test('shopping management replaces the legacy table with two queue lists', () =>
   assert.doesNotMatch(html, /id="shopping-table"/);
   assert.doesNotMatch(html, /id="shopping-status-filter"/);
   assert.doesNotMatch(html, /id="shopping-q-filter"/);
-  assert.doesNotMatch(read('ui/scripts/features/content/shopping-items.js'), /shopping-batch-(?:target|headless|result)/);
+  assert.doesNotMatch(read('ui/scripts/features/shopping/items.js'), /shopping-batch-(?:target|headless|result)/);
 });
 
 test('shopping management removes local inline layout and uses semantic tokens', () => {
@@ -52,7 +52,7 @@ test('shopping management removes local inline layout and uses semantic tokens',
 });
 
 test('shopping management uses item actions matching the Blog Beta lifecycle', () => {
-  const source = read('ui/scripts/features/content/shopping-items.js');
+  const source = read('ui/scripts/features/shopping/items.js');
   assert.match(source, /createShoppingManagementItem/);
   assert.match(source, /대기열로 이동/);
   assert.match(source, /보관으로 이동/);
@@ -67,12 +67,12 @@ test('shopping management uses item actions matching the Blog Beta lifecycle', (
   assert.match(source, /readyItems\.length}\uAC74/);
   assert.match(source, /savedItems\.length}\uAC74/);
   assert.doesNotMatch(source, /startShoppingInlineEdit|shoppingInlineEditState/);
-  assert.doesNotMatch(read('ui/scripts/features/content/trend-table.js'), /renderShoppingPagination|updateShoppingSelectionUi|shopping-row-selector/);
+  assert.doesNotMatch(read('ui/scripts/features/content-workspace/trend-table.js'), /renderShoppingPagination|updateShoppingSelectionUi|shopping-row-selector/);
 });
 
 test('shopping editor saves the posting targets used by the management queue', () => {
   const overlays = read('ui/partials/overlays.html');
-  const editor = read('ui/scripts/features/content/blog-topics.js');
+  const editor = read('ui/scripts/features/content-workspace/blog-topics.js');
 
   assert.match(overlays, /id="shopping-edit-target-naver"/);
   assert.match(overlays, /id="shopping-edit-target-wordpress"/);

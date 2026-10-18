@@ -19,15 +19,15 @@ function readBlogNextView() {
 
 function readBlogNextQueueScripts() {
     return [
-        read('ui/scripts/features/blog-next/queue-ui.js'),
-        read('ui/scripts/features/blog-next/quick-queue.js'),
-        read('ui/scripts/features/blog-next/queue-management.js')
+        read('ui/scripts/features/blog/queue-ui.js'),
+        read('ui/scripts/features/blog/quick-queue.js'),
+        read('ui/scripts/features/blog/queue-management.js')
     ].join('\n');
 }
 
 test('Blog Beta shell uses its own DOM namespace', () => {
     const betaView = readBlogNextView();
-    const betaScript = read('ui/scripts/features/blog-next/shell.js');
+    const betaScript = read('ui/scripts/features/blog/shell.js');
 
     assert.match(betaView, /id="view-blog-next"/);
     assert.match(betaView, /data-blog-next-tab="quick"/);
@@ -54,7 +54,7 @@ test('Blog Beta keeps refresh semantics inside the shared panel anatomy', () => 
     const usabilityCss = read('ui/styles/features/continuous-publishing-usability.css');
     const betaCss = read('ui/styles/features/continuous-publishing-interactions.css');
     const actionCss = read('ui/styles/patterns/actions.css');
-    const trendScript = read('ui/scripts/features/blog-next/trend-posting.js');
+    const trendScript = read('ui/scripts/features/blog/trend-posting.js');
 
     assert.doesNotMatch(betaView, /네이버 트렌드에서 글감 찾기/);
     assert.match(betaView, /class="trend-posting-head blog-next-trend-head blog-next-panel-lead blog-next-panel-intro ui-panel-heading"/);
@@ -73,7 +73,7 @@ test('Blog Beta keeps refresh semantics inside the shared panel anatomy', () => 
 });
 
 test('Blog Beta shell does not call data, AI, or publishing APIs during Stage 1', () => {
-    const betaScript = read('ui/scripts/features/blog-next/shell.js');
+    const betaScript = read('ui/scripts/features/blog/shell.js');
 
     assert.doesNotMatch(betaScript, /fetchJson|postJson|fetch\s*\(|appendGoogleSheet|generate/i);
 });
@@ -101,7 +101,7 @@ test('Blog Beta quick writing keeps topic capture and adds the canonical AI manu
 
 test('completed manuscripts publish directly without entering the continuous queue', () => {
     const betaView = readBlogNextView();
-    const draftInputs = `${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-execution.js')}`;
+    const draftInputs = `${read('ui/scripts/features/blog/draft-inputs.js')}\n${read('ui/scripts/features/blog/draft-execution.js')}`;
 
     assert.match(betaView, /data-blog-next-draft-publish="ai"/);
     assert.doesNotMatch(betaView, /Queue에 저장하지 않습니다/);
@@ -136,10 +136,10 @@ test('Blog Beta execution paths share one server-side coordinator without wideni
 
 test('continuous automation settings own timing but never topic delivery targets', () => {
     const betaView = readBlogNextView();
-    const automationScript = read('ui/scripts/features/blog-next/automation-settings.js');
-    const shellScript = read('ui/scripts/features/blog-next/shell.js');
-    const navigationScript = read('ui/scripts/foundation/navigation.js');
-    const lifecycleScript = read('ui/scripts/foundation/lifecycle.js');
+    const automationScript = read('ui/scripts/features/blog/automation-settings.js');
+    const shellScript = read('ui/scripts/features/blog/shell.js');
+    const navigationScript = read('ui/scripts/shell/navigation.js');
+    const lifecycleScript = read('ui/scripts/shell/lifecycle.js');
     const interactionCss = read('ui/styles/features/continuous-publishing-interactions.css');
 
     assert.match(betaView, /id="blog-next-automation-enabled"/);
@@ -156,7 +156,7 @@ test('continuous automation settings own timing but never topic delivery targets
     assert.match(automationScript, /confirmDiscardUnsavedBlogNextAutomationSettings/);
     assert.match(shellScript, /requestActivateBlogNextTab/);
     assert.match(shellScript, /blogNextActiveManagementTab === 'automation'/);
-    assert.match(read('ui/scripts/features/blog-next/queue-ui.js'), /requestActivateBlogNextManagementTab/);
+    assert.match(read('ui/scripts/features/blog/queue-ui.js'), /requestActivateBlogNextManagementTab/);
     assert.match(navigationScript, /confirmDiscardUnsavedBlogNextAutomationSettings/);
     assert.match(navigationScript, /requestedSubTab === 'automation'[\s\S]*requestActivateBlogNextTab\('queue'\)[\s\S]*requestActivateBlogNextManagementTab\('automation'\)/);
     assert.match(lifecycleScript, /blogNextAutomationDirty/);
@@ -166,7 +166,7 @@ test('continuous automation settings own timing but never topic delivery targets
 
 test('safe timer UI exposes a development-only 30 second test without multi-device lease controls', () => {
     const html = readBlogNextView();
-    const script = read('ui/scripts/features/blog-next/automation-settings.js');
+    const script = read('ui/scripts/features/blog/automation-settings.js');
     const css = read('ui/styles/features/continuous-publishing-interactions.css');
     assert.match(html, /id="blog-next-automation-test"/);
     assert.match(css, /\.blog-next-queue-actions button:disabled/);
@@ -180,11 +180,11 @@ test('safe timer UI exposes a development-only 30 second test without multi-devi
 test('Stage 8 distinguishes saved ideas, keeps queue editing in context, and reuses recommendation surfaces', () => {
     const html = readBlogNextView();
     const queueScript = [
-        read('ui/scripts/features/blog-next/publish-preflight.js'),
-        read('ui/scripts/features/blog-next/settings-instance.js'),
+        read('ui/scripts/features/blog/publish-preflight.js'),
+        read('ui/scripts/features/blog/settings-instance.js'),
         readBlogNextQueueScripts()
     ].join('\n');
-    const discoveryScript = read('ui/scripts/features/discovery/quick-discovery.js');
+    const discoveryScript = read('ui/scripts/features/blog/discovery/quick-discovery.js');
 
     assert.match(html, /id="blog-next-saved-count"/);
     assert.match(html, /id="blog-next-queue-count"/);
@@ -252,7 +252,7 @@ test('Stage 9 exposes adjacent queue movement without drag, lease, or synthetic 
 
 test('Stage 10 keeps trend discovery manual and hands one selection to quick writing', () => {
     const betaView = readBlogNextView();
-    const trendScript = read('ui/scripts/features/blog-next/trend-posting.js');
+    const trendScript = read('ui/scripts/features/blog/trend-posting.js');
     const quickQueueScript = readBlogNextQueueScripts();
 
     assert.match(betaView, /data-blog-next-tab="trend-posting">트렌드 포스팅/);
@@ -273,8 +273,8 @@ test('Stage 10 keeps trend discovery manual and hands one selection to quick wri
 
 test('Stage 11 exposes one shared publish status with a return action and no duplicate shortcut', () => {
     const betaView = readBlogNextView();
-    const runnerScript = read('ui/scripts/features/blog-next/runner.js');
-    const publishPreferences = read('ui/scripts/features/publishing/shared-preferences.js');
+    const runnerScript = read('ui/scripts/features/blog/runner.js');
+    const publishPreferences = read('ui/scripts/shared/publishing/shared-preferences.js');
 
     assert.match(betaView, /id="blog-next-publish-status"[^>]*role="status"[^>]*tabindex="-1"[^>]*hidden/);
     assert.match(betaView, /id="blog-next-publish-status-title"/);
@@ -323,11 +323,11 @@ test('Naver browser milestones cross the publishing engine as structured progres
 
 test('immediate publishing preflights selected connections and preserves the form until terminal success', () => {
     const queueScript = [
-        read('ui/scripts/features/blog-next/publish-preflight.js'),
-        read('ui/scripts/features/blog-next/quick-queue.js'),
-        read('ui/scripts/features/blog-next/queue-management.js')
+        read('ui/scripts/features/blog/publish-preflight.js'),
+        read('ui/scripts/features/blog/quick-queue.js'),
+        read('ui/scripts/features/blog/queue-management.js')
     ].join('\n');
-    const runnerScript = read('ui/scripts/features/blog-next/runner.js');
+    const runnerScript = read('ui/scripts/features/blog/runner.js');
     const readinessScript = read('ui/scripts/foundation/readiness.js');
 
     assert.match(queueScript, /preflightBlogNextPublishTargets\(payload\)/);
@@ -343,11 +343,11 @@ test('immediate publishing preflights selected connections and preserves the for
 });
 
 test('Blog Beta celebrates each newly observed successful publish or draft completion', () => {
-    const runnerScript = read('ui/scripts/features/blog-next/runner.js');
-    const globalStatusScript = read('ui/scripts/features/shell/global-publishing-status.js');
-    const draftScript = `${read('ui/scripts/features/blog-next/draft-inputs.js')}\n${read('ui/scripts/features/blog-next/draft-execution.js')}`;
-    const celebrationScript = read('ui/scripts/features/shell/celebration.js');
-    const lifecycleScript = read('ui/scripts/foundation/lifecycle.js');
+    const runnerScript = read('ui/scripts/features/blog/runner.js');
+    const globalStatusScript = read('ui/scripts/shell/global-publishing-status.js');
+    const draftScript = `${read('ui/scripts/features/blog/draft-inputs.js')}\n${read('ui/scripts/features/blog/draft-execution.js')}`;
+    const celebrationScript = read('ui/scripts/shell/celebration.js');
+    const lifecycleScript = read('ui/scripts/shell/lifecycle.js');
     const systemRoute = read('src/ui-api/routes/system.routes.js');
     const systemController = read('src/ui-api/controllers/system.controller.js');
     const systemService = read('src/ui-api/services/system.service.js');
@@ -370,7 +370,7 @@ test('Blog Beta celebrates each newly observed successful publish or draft compl
 
 test('release queue shows processing estimates and refreshes when a runner finishes', () => {
     const queueScript = readBlogNextQueueScripts();
-    const runnerScript = read('ui/scripts/features/blog-next/runner.js');
+    const runnerScript = read('ui/scripts/features/blog/runner.js');
     const serviceSource = read('src/ui-api/services/continuous-publishing.service.js');
     const queueCss = read('ui/styles/features/continuous-publishing-interactions.css');
 
@@ -394,7 +394,7 @@ test('release queue shows processing estimates and refreshes when a runner finis
 
 test('queue readiness is announced accessibly and blocks running invalid queue entries', () => {
     const queueScript = readBlogNextQueueScripts();
-    const managementScript = read('ui/scripts/features/blog-next/queue-management.js');
+    const managementScript = read('ui/scripts/features/blog/queue-management.js');
     const serviceSource = read('src/ui-api/services/continuous-publishing.service.js');
     const queueCss = read('ui/styles/features/continuous-publishing-queue.css');
 
@@ -414,15 +414,15 @@ test('global publishing status exposes one prioritized summary beside the widget
     const shell = read('ui/index.html');
     const app = read('ui/app.js');
     const widgetArea = read('ui/partials/views/shared/page-widget-area.html');
-    const dashboard = read('ui/partials/views/dashboard-beta.html');
-    const statusScript = read('ui/scripts/features/shell/global-publishing-status.js');
+    const dashboard = read('ui/partials/views/dashboard.html');
+    const statusScript = read('ui/scripts/shell/global-publishing-status.js');
     const statusCss = read('ui/styles/components/global-publishing-status.css');
     const routeSource = read('src/ui-api/routes/continuous-publishing.routes.js');
     const serviceSource = read('src/ui-api/services/continuous-publishing.service.js');
 
     assert.match(shell, /id="blog-next-global-nav-status"[^>]*hidden/);
     assert.doesNotMatch(shell, /id="recommendation-nav-badge"/);
-    assert.match(app, /scripts\/features\/shell\/global-publishing-status\.js/);
+    assert.match(app, /scripts\/shell\/global-publishing-status\.js/);
     assert.match(widgetArea, /data-global-publishing-status/);
     assert.match(dashboard, /data-global-publishing-status/);
     assert.match(statusScript, /continuous-publishing\/status-summary/);
