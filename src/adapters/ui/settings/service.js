@@ -36,12 +36,11 @@ const {
 const TelegramPairingService = require('../../../telegram-pairing.service');
 const { isSnsAiMode } = require('../../../services/sns/ai-policy');
 const {
-    createConnectionSignature,
     readConnectionVerification,
     recordConnectionVerification,
-    listConnectionVerifications,
-    isVerificationTrusted
-} = require('../../../connections/verification-state');
+    listConnectionVerifications
+} = require('../../storage/connection-verifications/state-store');
+const { createConnectionSignature, isVerificationTrusted } = require('../../../services/connection-verification/policy');
 const { createAiModelVerificationSignature } = require('../../../services/ai/model-verification');
 const { createSettingsWritingProfileApplication } = require('../../../applications/settings/writing-profile/application');
 const {

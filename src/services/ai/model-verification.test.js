@@ -7,7 +7,7 @@ const {
     configureConnectionVerificationState,
     recordConnectionVerification,
     resetConnectionVerificationState
-} = require('../../connections/verification-state');
+} = require('../../adapters/storage/connection-verifications/state-store');
 const {
     createAiModelVerificationSignature,
     getTrustedAiModelVerification

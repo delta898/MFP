@@ -1,4 +1,4 @@
-const crypto = require('crypto');
+const { createWordPressSignature } = require('../../../services/connection-verification/policy');
 
 function createConnectionReadinessService(deps = {}) {
     const {
@@ -27,9 +27,7 @@ function createConnectionReadinessService(deps = {}) {
     }
 
     function getWordPressRequestKey(config = {}) {
-        const value = [config.url.replace(/\/+$/, '').toLowerCase(), config.userId.toLowerCase(), config.appPassword]
-            .join('\u0000');
-        return crypto.createHash('sha256').update(value).digest('hex');
+        return createWordPressSignature(config);
     }
 
     function isFreshVerification(state = {}) {

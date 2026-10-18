@@ -1,4 +1,4 @@
-const crypto = require('crypto');
+const { createWordPressSignature } = require('../../../services/connection-verification/policy');
 
 const verificationState = new Map();
 
@@ -27,7 +27,7 @@ function defaultFilePath() {
         const os = require('os');
         return defaultPath().join(os.tmpdir(), `bloggenius-connection-verification-test-${process.pid}.json`);
     }
-    return defaultPath().join(__dirname, '..', '..', 'config', 'connection_verification.json');
+    return defaultPath().join(__dirname, '..', '..', '..', '..', 'config', 'connection_verification.json');
 }
 
 function configureConnectionVerificationState(options = {}) {
@@ -92,16 +92,6 @@ function normalize(value) {
     return String(value || '').trim();
 }
 
-function createWordPressSignature(config = {}) {
-    const values = [
-        normalize(config.url || config.wordpressUrl || config.WORDPRESS_URL).replace(/\/+$/, '').toLowerCase(),
-        normalize(config.userId || config.wordpressUserId || config.WORDPRESS_USER_ID).toLowerCase(),
-        normalize(config.appPassword || config.wordpressAppPassword || config.WORDPRESS_APP_PASSWORD)
-    ];
-    if (values.some((value) => !value)) return '';
-    return crypto.createHash('sha256').update(values.join('\u0000')).digest('hex');
-}
-
 function recordWordPressVerification(config = {}, result = {}) {
     const signature = createWordPressSignature(config);
     if (!signature) return null;
@@ -128,20 +118,6 @@ function resetConnectionVerificationState(options = {}) {
     } catch (_) {
         // Best-effort.
     }
-}
-
-// UI trust windows per connection kind: how long a persisted "verified" result
-// counts as connected for display. Live operations still verify at use time.
-const CONNECTION_TRUST_TTL_MS = Object.freeze({
-    sheets: 24 * 60 * 60 * 1000,
-    'ai-role': 7 * 24 * 60 * 60 * 1000,
-    buffer: 24 * 60 * 60 * 1000
-});
-
-function createConnectionSignature(parts = []) {
-    const values = (Array.isArray(parts) ? parts : [parts]).map((part) => normalize(part));
-    if (values.some((value) => !value)) return '';
-    return crypto.createHash('sha256').update(values.join('\u0000')).digest('hex');
 }
 
 function recordConnectionVerification(kind, signature, result = {}, meta = {}) {
@@ -174,15 +150,6 @@ function readConnectionVerification(kind, signature) {
     return state ? { ...state } : null;
 }
 
-function isVerificationTrusted(kind, state, nowMs = Date.now()) {
-    if (!state || state.status !== 'connected') return false;
-    const ttl = CONNECTION_TRUST_TTL_MS[String(kind || '').trim()];
-    if (!Number.isFinite(ttl)) return false;
-    const checkedAtMs = new Date(state.checked_at || '').getTime();
-    if (!Number.isFinite(checkedAtMs)) return false;
-    return (nowMs - checkedAtMs) < ttl;
-}
-
 function listConnectionVerifications(kind) {
     if (verificationLoadedForPath === '') loadVerificationFile();
     const prefix = `${String(kind || '').trim()}:`;
@@ -195,10 +162,6 @@ function listConnectionVerifications(kind) {
 }
 
 module.exports = {
-    createWordPressSignature,
-    createConnectionSignature,
-    CONNECTION_TRUST_TTL_MS,
-    isVerificationTrusted,
     recordConnectionVerification,
     readConnectionVerification,
     listConnectionVerifications,

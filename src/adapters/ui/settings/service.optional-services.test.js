@@ -6,7 +6,7 @@ const path = require('node:path');
 const {
     configureConnectionVerificationState,
     resetConnectionVerificationState
-} = require('../../../connections/verification-state');
+} = require('../../storage/connection-verifications/state-store');
 
 const {
     createSettingsService,

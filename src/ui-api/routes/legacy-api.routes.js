@@ -25,15 +25,14 @@ const { createGoogleDriveSpreadsheets } = require('../../adapters/google/drive/s
 const { createAccountOverviewService } = require('../../applications/account/overview/application');
 const { createBlogExecutionCoordinator } = require('../../applications/blog/execution/execution-coordinator');
 const { createBlogTrendPosting } = require('../../composition/blog-trend-posting');
-const { createConnectionReadinessService } = require('../../connections/readiness-service');
+const { createConnectionReadinessService } = require('../../applications/account/overview/connection-readiness');
 const {
-    createConnectionSignature,
     readConnectionVerification,
-    isVerificationTrusted,
     recordWordPressVerification,
     getWordPressVerification,
     configureConnectionVerificationState
-} = require('../../connections/verification-state');
+} = require('../../adapters/storage/connection-verifications/state-store');
+const { createConnectionSignature, isVerificationTrusted } = require('../../services/connection-verification/policy');
 
 function createLegacyApiRouteHandler(deps = {}) {
     try {

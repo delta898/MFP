@@ -1,4 +1,5 @@
-const { createConnectionSignature, readConnectionVerification, isVerificationTrusted } = require('../../connections/verification-state');
+const { readConnectionVerification } = require('../../adapters/storage/connection-verifications/state-store');
+const { createConnectionSignature, isVerificationTrusted } = require('../connection-verification/policy');
 const {
     getCanonicalTransportEndpoint,
     getTransportVerificationScope,

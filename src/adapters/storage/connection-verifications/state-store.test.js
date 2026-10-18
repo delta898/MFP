@@ -4,7 +4,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const MODULE_PATH = './verification-state';
+const MODULE_PATH = './state-store';
+const { createConnectionSignature, isVerificationTrusted } = require('../../../services/connection-verification/policy');
 
 function freshModule() {
     delete require.cache[require.resolve(MODULE_PATH)];
@@ -96,17 +97,17 @@ test('generic kinds persist with trust windows', () => {
     const filePath = tempFile();
     const store = freshModule();
     store.configureConnectionVerificationState({ fs, path, filePath });
-    const signature = store.createConnectionSignature(['text', 'openai', 'gpt-5', 'key-1']);
+    const signature = createConnectionSignature(['text', 'openai', 'gpt-5', 'key-1']);
     assert.ok(signature);
-    assert.equal(store.createConnectionSignature(['text', 'openai', 'gpt-5', '']), '');
+    assert.equal(createConnectionSignature(['text', 'openai', 'gpt-5', '']), '');
     store.recordConnectionVerification('ai-role', signature, { success: true, connected: true });
     const read = store.readConnectionVerification('ai-role', signature);
     assert.equal(read.status, 'connected');
-    assert.equal(store.isVerificationTrusted('ai-role', read), true);
-    assert.equal(store.isVerificationTrusted('ai-role', { ...read, status: 'failed' }), false);
+    assert.equal(isVerificationTrusted('ai-role', read), true);
+    assert.equal(isVerificationTrusted('ai-role', { ...read, status: 'failed' }), false);
     const aged = { ...read, checked_at: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString() };
-    assert.equal(store.isVerificationTrusted('ai-role', aged), false);
-    assert.equal(store.isVerificationTrusted('unknown-kind', read), false);
+    assert.equal(isVerificationTrusted('ai-role', aged), false);
+    assert.equal(isVerificationTrusted('unknown-kind', read), false);
     assert.equal(store.readConnectionVerification('ai-role', 'nope'), null);
 });
 
@@ -114,8 +115,8 @@ test('verification meta survives restarts and lists by kind', () => {
     const filePath = tempFile();
     let store = freshModule();
     store.configureConnectionVerificationState({ fs, path, filePath });
-    const sigA = store.createConnectionSignature(['text', 'openai', 'gpt-5', 'key-1']);
-    const sigB = store.createConnectionSignature(['text', 'google', 'gemini-3-flash', 'key-2']);
+    const sigA = createConnectionSignature(['text', 'openai', 'gpt-5', 'key-1']);
+    const sigB = createConnectionSignature(['text', 'google', 'gemini-3-flash', 'key-2']);
     store.recordConnectionVerification('ai-role', sigA, { success: true, connected: true }, { scope: 'text', provider: 'openai', code: 'gpt-5' });
     store.recordConnectionVerification('ai-role', sigB, { success: true, connected: true }, { scope: 'text', provider: 'google', code: 'gemini-3-flash', base_url: '', api_key: 'key-2' });
 

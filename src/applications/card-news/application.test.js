@@ -8,7 +8,7 @@ const {
     configureConnectionVerificationState,
     recordConnectionVerification,
     resetConnectionVerificationState
-} = require('../../connections/verification-state');
+} = require('../../adapters/storage/connection-verifications/state-store');
 const { createAiModelVerificationSignature } = require('../../services/ai/model-verification');
 const { applyRemoteCatalog, clearRemoteCatalog } = require('../../../packages/plugins/core/ai-gateway/catalog-registry');
 

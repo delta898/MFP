@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { createConnectionReadinessService } = require('./readiness-service');
+const { createConnectionReadinessService } = require('./connection-readiness');
 
 function createService(overrides = {}) {
     const records = new Map();
