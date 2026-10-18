@@ -181,6 +181,7 @@ Channel-selection counts are Application policies: SNS and Card News currently a
 The layer rules are mandatory for new code:
 
 - `host/` starts the product runtime and routes normalized channel requests. It does not own business workflows or Plugin implementations.
+- `host/network/` owns process-wide Node network startup policy, such as dual-stack address-family retry timing. Provider HTTP transport remains with its adapter or Plugin.
 - `adapters/` translates channel or external-protocol input/output to internal contracts, including Plugin operation ports. AI provider endpoint/authentication/HTTP transport belongs to the AI Gateway Plugin; the Host adapter resolves credentials and short-lived profile references. Adapters do not own product workflows or model-selection policy.
 - `adapters/ui/` is the UI/API boundary around Applications: it maps surface inputs to Application calls and maps results or structured progress into surface-specific presentation. UI/API adapters call Applications; Applications do not call UI adapters. Presentation text and response shapes stay out of Application policy. Screen rendering remains the responsibility of the UI runtime.
 - `platform/` owns the shared Plugin contract, discovery/validation rules, registration and runtime lifecycle, operation validation, and dispatch. It does not choose a product workflow.

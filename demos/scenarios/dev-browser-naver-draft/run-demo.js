@@ -70,7 +70,7 @@ async function main() {
   const naverVideoDir = path.join(tempDir, 'naver');
   fs.mkdirSync(naverVideoDir, { recursive: true });
 
-  const { applyRuntimeNetworkPolicy } = require(path.join(ROOT, 'src/network/runtime-network-policy'));
+  const { applyRuntimeNetworkPolicy } = require(path.join(ROOT, 'src/host/network/runtime-network-policy'));
   applyRuntimeNetworkPolicy();
 
   const BrowserLauncher = require(path.join(ROOT, 'src/browser-launcher'));

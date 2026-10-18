@@ -9,7 +9,7 @@ const existingUserDataPath = path.join(app.getPath('appData'), 'blog-genius');
 app.setName('BlogGenius');
 app.setPath('userData', existingUserDataPath);
 
-const { applyRuntimeNetworkPolicy } = require('../../network/runtime-network-policy');
+const { applyRuntimeNetworkPolicy } = require('../network/runtime-network-policy');
 const { createStartupBootstrap } = require('./startup-bootstrap');
 const { buildSafeModeArgs, isSafeMode, isStartupProbe, isShortLivedCommand } = require('./startup-policy');
 

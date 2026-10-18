@@ -3,7 +3,7 @@
 process.env.TZ = 'Asia/Seoul';
 process.env.NODE_NO_WARNINGS = '1';
 
-const { applyRuntimeNetworkPolicy } = require('../network/runtime-network-policy');
+const { applyRuntimeNetworkPolicy } = require('./network/runtime-network-policy');
 applyRuntimeNetworkPolicy();
 
 if (typeof process.versions.electron !== 'undefined' && process.argv.length <= 2) {
