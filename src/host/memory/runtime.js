@@ -1,6 +1,8 @@
-const Logger = require('../utilities/logging/logger');
-const { createVolatileRecommendationStore } = require('../services/recommendations/lifecycle-store');
-const { SQLiteEventStore } = require('./sqlite-event-store');
+const Logger = require('../../utilities/logging/logger');
+const { createVolatileRecommendationStore, RecommendationLifecycleStore } = require('../../services/recommendations/lifecycle-store');
+const { resolveArtifactFeedbackTarget } = require('../../services/recommendations/feedback-target');
+const { SQLiteEventStore } = require('../../adapters/storage/memory/sqlite-event-store');
+const { SQLiteRecommendationRepository } = require('../../adapters/storage/recommendations/sqlite-repository');
 const {
     MEMORY_SIZE_THRESHOLDS,
     cleanupLegacyMemory,
@@ -8,14 +10,22 @@ const {
     totalDatabaseBytes,
     verifySQLiteStore,
     writeHealthMarker
-} = require('./sqlite-lifecycle');
+} = require('../../adapters/storage/memory/sqlite-lifecycle');
 
 const MAINTENANCE_INITIAL_DELAY_MS = 5000;
 const MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const RECOMMENDATION_STORE_METHODS = new Set([
+    'createRecommendation',
+    'transitionRecommendation',
+    'getRecommendation',
+    'findActiveByDedupeKey',
+    'listAvailableRecommendations',
+    'listRecommendations',
+    'reconcileDueRecommendations'
+]);
 
 function buildDisabledEventStore(reason, logger = Logger) {
     const message = String(reason?.message || 'unknown error');
-    const recommendationStore = createVolatileRecommendationStore({ reason: message });
     logger.warn(`⚠️ [AgentMemory] SQLite V2 메모리를 사용할 수 없어 이번 실행에서는 지능형 메모리를 제한합니다: ${message}`);
     if (process.platform === 'win32') {
         logger.warn('ℹ️ [AgentMemory] Dashboard와 작성·발행 기능은 계속 사용할 수 있습니다. 앱을 재시작하면 새 메모리 저장소 준비를 다시 시도합니다.');
@@ -102,14 +112,6 @@ function buildDisabledEventStore(reason, logger = Logger) {
                 truncated: false
             };
         },
-        createRecommendation: recommendationStore.createRecommendation.bind(recommendationStore),
-        transitionRecommendation: recommendationStore.transitionRecommendation.bind(recommendationStore),
-        getRecommendation: recommendationStore.getRecommendation.bind(recommendationStore),
-        findActiveByDedupeKey: recommendationStore.findActiveByDedupeKey.bind(recommendationStore),
-        listAvailableRecommendations: recommendationStore.listAvailableRecommendations.bind(recommendationStore),
-        listRecommendations: recommendationStore.listRecommendations.bind(recommendationStore),
-        reconcileDueRecommendations: recommendationStore.reconcileDueRecommendations.bind(recommendationStore),
-        getRecommendationStoreStatus: recommendationStore.getRecommendationStoreStatus.bind(recommendationStore),
         async runMaintenance() { return null; },
         close() { }
     };
@@ -128,6 +130,7 @@ function createAgentMemoryController(options = {}) {
     const safeMode = options.safeMode === true;
     const scheduleMaintenance = options.scheduleMaintenance !== false;
     let backend = safeMode ? buildDisabledEventStore(new Error('safe mode'), logger) : createStore();
+    let recommendationStore = createVolatileRecommendationStore({ reason: backend.disabledReason || 'initializing' });
     let initPromise = null;
     let initializationReported = false;
     let maintenanceTimer = null;
@@ -135,12 +138,30 @@ function createAgentMemoryController(options = {}) {
 
     const facade = new Proxy({}, {
         get(_target, property) {
+            if (property === 'getRecommendationStoreStatus') {
+                return () => recommendationStore.getRecommendationStoreStatus();
+            }
+            if (RECOMMENDATION_STORE_METHODS.has(property)) {
+                return async (...args) => {
+                    if (!ready && !backend.disabled) await initialize();
+                    return recommendationStore[property](...args);
+                };
+            }
+            if (property === 'getFeedbackTarget') {
+                return async (kind = '', targetId = '') => {
+                    if (String(kind || '').trim().toLowerCase() !== 'artifact') return null;
+                    if (!ready && !backend.disabled) await initialize();
+                    if (backend.disabled || typeof backend.getArtifactById !== 'function') return null;
+                    return resolveArtifactFeedbackTarget(await backend.getArtifactById(targetId));
+                };
+            }
             const value = backend[property];
             if (typeof value !== 'function') return value;
             if (property === 'getLocalOwnerIdentity' || property === 'getRecommendationStoreStatus') {
                 return value.bind(backend);
             }
             if (property === 'close') return close;
+            if (property === 'runMaintenance') return runMaintenance;
             return async (...args) => {
                 if (!ready && !backend.disabled) await initialize();
                 const current = backend[property];
@@ -152,6 +173,7 @@ function createAgentMemoryController(options = {}) {
 
     function replaceWithFreshStore() {
         backend = createStore();
+        recommendationStore = createVolatileRecommendationStore({ reason: 'persistent store is initializing' });
         return backend;
     }
 
@@ -170,13 +192,26 @@ function createAgentMemoryController(options = {}) {
             quarantineCurrentStore(new Error('SQLite V2가 재생성 기준 크기를 초과했습니다.'));
             await backend.initialize();
         }
+        if (options.createRecommendationStore) {
+            recommendationStore = options.createRecommendationStore(backend);
+        } else if (backend.database && typeof backend.ensureOwner === 'function') {
+            const repository = new SQLiteRecommendationRepository({
+                database: backend.database,
+                ensureOwner: async (owner) => backend.ensureOwner(owner)
+            });
+            repository.initializeSchema();
+            recommendationStore = new RecommendationLifecycleStore({ repository });
+        } else {
+            recommendationStore = createVolatileRecommendationStore({ reason: 'persistent recommendation storage is unavailable' });
+        }
         return lifecycle.verifySQLiteStore(backend);
     }
 
-    async function runMaintenance() {
+    async function runMaintenance(options = {}) {
         if (backend.disabled || typeof backend.runMaintenance !== 'function') return;
         try {
-            const result = await backend.runMaintenance();
+            const result = await backend.runMaintenance(options);
+            result.recommendations = await recommendationStore.repository?.prune?.(options) || null;
             const bytes = totalDatabaseBytes(result?.after || {});
             if (bytes >= MEMORY_SIZE_THRESHOLDS.rebuild_bytes) {
                 logger.warn('⚠️ [AgentMemory] SQLite V2가 512MB를 초과했습니다. 다음 시작 때 안전하게 재생성합니다.');
@@ -187,6 +222,7 @@ function createAgentMemoryController(options = {}) {
             } else if (bytes >= MEMORY_SIZE_THRESHOLDS.warning_bytes) {
                 logger.warn(`⚠️ [AgentMemory] SQLite V2 크기가 ${Math.ceil(bytes / 1024 / 1024)}MB 입니다. 자동 보존 정책으로 관리합니다.`);
             }
+            return result;
         } catch (error) {
             logger.warn(`⚠️ [AgentMemory] 백그라운드 정리를 다음 주기로 미룹니다: ${error.message}`);
         }
@@ -217,6 +253,7 @@ function createAgentMemoryController(options = {}) {
                 } catch (recoveryError) {
                     logger.warn(`⚠️ [AgentMemory] SQLite V2 재생성에도 실패했습니다. UI는 계속 실행합니다: ${recoveryError.message}`);
                     backend = buildDisabledEventStore(recoveryError, logger);
+                    recommendationStore = createVolatileRecommendationStore({ reason: recoveryError.message });
                     ready = false;
                     return false;
                 }

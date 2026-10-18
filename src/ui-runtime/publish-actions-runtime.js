@@ -13,7 +13,7 @@ const {
     stripBlogImagePromptBlocks
 } = require('../content/blog-image-mode');
 const { createTopicRecommendationLearningService } = require('../services/recommendations/topic-recommendation-learning');
-const { buildBlogPublishResultEvidence } = require('../memory/blog-publish-result');
+const { buildBlogPublishResultEvidence } = require('../applications/blog/operations-reporting/blog-publish-result');
 const { normalizePublishTargets } = require('../content/single-publish-target');
 const {
     MANUAL_PUBLISH_BLOCKED_CODE,

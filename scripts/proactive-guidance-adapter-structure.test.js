@@ -6,25 +6,23 @@ const path = require('node:path');
 const ROOT = path.join(__dirname, '..');
 
 test('generic Agent suggestion results do not materialize suggestion rows', () => {
-    const source = fs.readFileSync(path.join(ROOT, 'src/memory/sqlite-event-store.js'), 'utf8');
-    assert.doesNotMatch(source, /action\.domain[^\n]+agent\.suggestions[\s\S]{0,1200}_upsertSuggestion/);
-    assert.match(source, /agent\.confirmation\.requested[\s\S]{0,1200}_upsertSuggestion/);
+    const source = fs.readFileSync(path.join(ROOT, 'src/adapters/storage/memory/sqlite-event-store.js'), 'utf8');
+    assert.doesNotMatch(source, /agent\.suggestions|_upsertSuggestion/);
+    assert.match(source, /agent\.confirmation\.requested[\s\S]{0,1200}_upsertConfirmation/);
 });
 
-test('legacy suggestions provider remains a thin compatibility facade', () => {
-    const source = fs.readFileSync(path.join(ROOT, 'src/suggestions/providers/memory-based.js'), 'utf8');
-    assert.equal(source.trim().split(/\r?\n/).length <= 3, true);
-    assert.doesNotMatch(source, /Date\.now|dedupe_key|policy_id/);
+test('retired suggestions feature root stays removed', () => {
+    assert.equal(fs.existsSync(path.join(ROOT, 'src/suggestions')), false);
 });
 
-test('Telegram keeps historic feedback callbacks beside canonical callbacks', () => {
+test('Telegram routes recommendation feedback through the canonical callback only', () => {
     const source = fs.readFileSync(path.join(ROOT, 'src/telegram-bot.service.js'), 'utf8');
     assert.match(source, /verb === 'rec_fb'/);
-    assert.match(source, /verb === 'suggest_feedback'/);
+    assert.doesNotMatch(source, /suggest_feedback/);
 });
 
 test('producer runtime stays independent from policy, lifecycle, legacy suggestions and UI', () => {
-    const source = fs.readFileSync(path.join(ROOT, 'src/recommendations/producers/runtime.js'), 'utf8');
+    const source = fs.readFileSync(path.join(ROOT, 'src/services/recommendations/producers/runtime.js'), 'utf8');
     assert.match(source, /validateRecommendationCandidate/);
     assert.doesNotMatch(source, /topic-ranking-policy|recommendation-materializer|lifecycle-store/);
     assert.doesNotMatch(source, /src\/suggestions|telegram|ui-server|ui\//i);
@@ -33,9 +31,9 @@ test('producer runtime stays independent from policy, lifecycle, legacy suggesti
 
 test('content producer stays on canonical Knowledge and candidate boundaries', () => {
     const files = [
-        'src/recommendations/producers/content-query-plan.js',
-        'src/recommendations/producers/content-knowledge-collector.js',
-        'src/recommendations/producers/content-opportunity.js'
+        'src/services/recommendations/producers/content-query-plan.js',
+        'src/services/recommendations/producers/content-knowledge-collector.js',
+        'src/services/recommendations/producers/content-opportunity.js'
     ];
     const source = files.map((file) => fs.readFileSync(path.join(ROOT, file), 'utf8')).join('\n');
     assert.match(source, /normalizeKnowledgeSnapshot/);
@@ -47,11 +45,11 @@ test('content producer stays on canonical Knowledge and candidate boundaries', (
 
 test('operational producers use sanitized state without policy, lifecycle or channel coupling', () => {
     const files = [
-        'src/recommendations/producers/operational-state-collector.js',
-        'src/recommendations/producers/operational-candidate.js',
-        'src/recommendations/producers/setup-guidance.js',
-        'src/recommendations/producers/job-recovery.js',
-        'src/recommendations/producers/pending-workflow.js'
+        'src/services/recommendations/producers/operational-state-collector.js',
+        'src/services/recommendations/producers/operational-candidate.js',
+        'src/services/recommendations/producers/setup-guidance.js',
+        'src/services/recommendations/producers/job-recovery.js',
+        'src/services/recommendations/producers/pending-workflow.js'
     ];
     const source = files.map((file) => fs.readFileSync(path.join(ROOT, file), 'utf8')).join('\n');
     assert.doesNotMatch(source, /require\(['"]\.\.\/\.\.\/config-loader/);
@@ -63,8 +61,8 @@ test('operational producers use sanitized state without policy, lifecycle or cha
 
 test('commerce producer uses canonical Knowledge and owner activity without policy or provider coupling', () => {
     const files = [
-        'src/recommendations/producers/commerce-grounding.js',
-        'src/recommendations/producers/commerce-opportunity.js'
+        'src/services/recommendations/producers/commerce-grounding.js',
+        'src/services/recommendations/producers/commerce-opportunity.js'
     ];
     const source = files.map((file) => fs.readFileSync(path.join(ROOT, file), 'utf8')).join('\n');
     assert.match(source, /normalizeKnowledgeSnapshot/);
@@ -77,12 +75,12 @@ test('commerce producer uses canonical Knowledge and owner activity without poli
 
 test('recommendation policy reads sanitized injected facts without UI, provider or singleton coupling', () => {
     const files = [
-        'src/recommendations/policy/context.js',
-        'src/recommendations/policy/requirements.js',
-        'src/recommendations/policy/eligibility.js',
-        'src/recommendations/policy/scoring.js',
-        'src/recommendations/policy/diversity.js',
-        'src/recommendations/policy/ranking.js'
+        'src/services/recommendations/policy/context.js',
+        'src/services/recommendations/policy/requirements.js',
+        'src/services/recommendations/policy/eligibility.js',
+        'src/services/recommendations/policy/scoring.js',
+        'src/services/recommendations/policy/diversity.js',
+        'src/services/recommendations/policy/ranking.js'
     ];
     const source = files.map((file) => fs.readFileSync(path.join(ROOT, file), 'utf8')).join('\n');
     assert.doesNotMatch(source, /require\(['"]\.\.\/\.\.\/config-loader/);
@@ -93,7 +91,7 @@ test('recommendation policy reads sanitized injected facts without UI, provider 
 });
 
 test('policy evaluator is the only policy layer allowed to call the existing materializer', () => {
-    const source = fs.readFileSync(path.join(ROOT, 'src/recommendations/policy/evaluator.js'), 'utf8');
+    const source = fs.readFileSync(path.join(ROOT, 'src/services/recommendations/policy/evaluator.js'), 'utf8');
     assert.match(source, /materializer\.materialize/);
     assert.doesNotMatch(source, /recommendation\.created|transitionRecommendation|saveEventAndProjection/);
     assert.doesNotMatch(source, /config-loader|require\(['"]\.\.\/\.\.\/license['"]\)/);
@@ -101,7 +99,7 @@ test('policy evaluator is the only policy layer allowed to call the existing mat
 });
 
 test('trusted handoff resolves stored recommendation actions without client or channel authority', () => {
-    const source = fs.readFileSync(path.join(ROOT, 'src/recommendations/handoff/service.js'), 'utf8');
+    const source = fs.readFileSync(path.join(ROOT, 'src/services/recommendations/handoff/service.js'), 'utf8');
     assert.match(source, /recommendationStore\.getRecommendation/);
     assert.match(source, /capabilityRegistry\.validateAction/);
     assert.match(source, /capabilityRegistry\.executeAction/);

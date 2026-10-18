@@ -1,9 +1,14 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createCapabilityRegistry } = require('../capabilities');
+const { createCapabilityRegistry } = require('./index');
+const { createKnowledgeRuntime } = require('../composition/knowledge-runtime');
+
+function createRegistry(deps = {}) {
+    return createCapabilityRegistry({ ...createKnowledgeRuntime(deps), ...deps });
+}
 
 test('registers Naver news as a server gateway provider without enabling Stage 6 routing', async () => {
-    const registry = createCapabilityRegistry({
+    const registry = createRegistry({
         CONFIG: {
             knowledge: { providers: [], routing: { content_ideas: [] } }
         },
@@ -25,7 +30,7 @@ test('registers Naver news as a server gateway provider without enabling Stage 6
 
 test('Naver news server gateway definition can consume a strict snapshot', async () => {
     const requests = [];
-    const registry = createCapabilityRegistry({
+    const registry = createRegistry({
         CONFIG: { knowledge: { providers: [], routing: {} } },
         Logger: { info() {}, warn() {} },
         serverGatewayClient: {
@@ -70,7 +75,7 @@ test('Naver news server gateway definition can consume a strict snapshot', async
 
 test('SerpApi corpus is registered on a dormant serendipity route', async () => {
     const requests = [];
-    const registry = createCapabilityRegistry({
+    const registry = createRegistry({
         CONFIG: { knowledge: { providers: [], routing: {} } },
         Logger: { info() {}, warn() {} },
         serverGatewayClient: {
@@ -111,7 +116,7 @@ test('SerpApi corpus is registered on a dormant serendipity route', async () => 
 });
 
 test('an explicit disabled Naver news provider overrides the built-in default', () => {
-    const registry = createCapabilityRegistry({
+    const registry = createRegistry({
         CONFIG: {
             knowledge: {
                 providers: [{

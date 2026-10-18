@@ -20,12 +20,13 @@
 - Preserve startup ordering, persisted config shape, defaults, environment/secret behavior, and current user-visible behavior.
 - Remove `src/config-loader.js` and obsolete compatibility projections after production callers and tests migrate.
 - Keep the canonical architecture document and `src/README.md` aligned with each completed slice.
+- User-approved scope extension on 2026-10-19: continue the broader source-layer reorganization on this branch by separating Knowledge and Memory responsibilities into their owning service, adapter, storage, Host, and composition layers. Do not merge the two domains.
 
 ## Explicit non-goals
 
 - No config schema or default changes without a separate user decision.
 - No changes to persisted user configuration, credential ownership, provider integrations, product UX, or publishing behavior.
-- No unrelated configuration cleanup, version changes, merge, push, or release work.
+- No other unrelated cleanup, version changes, merge, push, or release work.
 
 ## Design and stages
 
@@ -34,6 +35,7 @@
 3. Extract one responsibility group at a time, migrate composition and callers in the same slice, and remove duplicate compatibility logic as each group is verified.
 4. Verify startup and focused contracts for each slice; search for direct imports and stale root references.
 5. Remove the root loader only after production callers, tests, and packaged startup paths use the new contracts. Update architecture/source maps and finalize this record.
+6. For the approved Knowledge/Memory stage, migrate callers and tests alongside files, keep Recommendation lifecycle/policy separate, update the canonical architecture and source ownership map, and run focused contracts without starting the full suite.
 
 ## Decisions and tradeoffs
 
@@ -55,6 +57,8 @@
 - 2026-10-18: The Supabase AI model catalog adapter now requires configuration from its composition caller instead of falling back to `config-loader.js`. MCP HTTP/runtime modules likewise receive config through server/runtime options; stdio MCP keeps its explicit executable bootstrap import for now, and the remote service still needs conversion to an injected Host lifecycle boundary.
 - 2026-10-18: Remaining production imports still include broad modules (`ui-server.js`, `core.js`, `utils.js`, Shopping preparation, Google Sheets storage/OAuth, Telegram bot/pairing, license, Host launchers, MCP remote/stdio, and package metadata). This confirms the root loader is not yet removable; each group needs an owning config contract rather than a renamed global object.
 - 2026-10-18: Continue the field-to-owner and caller-to-port inventory before extracting broader configuration groups. Avoid replacing the root module with a differently named global singleton, which would preserve the same coupling.
+- 2026-10-19: At the user's request, expanded this branch's scope to the next source-layer stage: Knowledge and Memory remain independent domains. Knowledge contracts/registry live under `services/knowledge`, provider and transport implementations under `adapters/knowledge`, and concrete registry wiring under `composition/knowledge-runtime.js`. Memory semantics/retrieval live under `services/memory`, SQLite persistence under `adapters/storage/memory`, Recommendation persistence under its own adapter, and process lifecycle under `host/memory`. Removed Memory's reverse dependency on Recommendation provenance by moving feedback-target interpretation to the Recommendation service and moved Recommendation persistence composition out of the SQLite Memory adapter.
+- 2026-10-19: Final focused verification passed: 75 Knowledge, Memory, Recommendation storage/learning, Host lifecycle, and structural tests. `git diff --check` passed. A relative-import scan reports five pre-existing unresolved paths in Google OAuth tests and `config-loader.js`, outside this stage.
 
 ## Verification and handoff
 

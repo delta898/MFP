@@ -1,5 +1,3 @@
-const { normalizeRecommendationContext } = require('../services/recommendations/topic-recommendation-learning');
-
 class MemoryPayloadCodec {
     _compactString(value, maxLength = 400) {
         const text = String(value ?? '');
@@ -46,7 +44,16 @@ class MemoryPayloadCodec {
     }
 
     _summarizeArtifactPayload(payload = {}) {
-        const recommendation = normalizeRecommendationContext(payload?.recommendation);
+        const rawRecommendation = payload?.recommendation && typeof payload.recommendation === 'object' && !Array.isArray(payload.recommendation)
+            ? payload.recommendation
+            : {};
+        const recommendation = Object.fromEntries([
+            'schema_version', 'run_id', 'recommendation_id', 'candidate_id', 'candidate_type', 'basis',
+            'topic_seed', 'policy_id', 'policy_version', 'rank', 'score', 'breakdown', 'source_refs'
+        ].filter((key) => rawRecommendation[key] !== undefined).map((key) => [
+            key,
+            this._compactValue(rawRecommendation[key], { maxDepth: 2, maxArray: 12, maxString: 240 })
+        ]));
         return { title: this._compactString(payload?.title || '', 180), summary: this._compactString(payload?.summary || '', 260), reason: this._compactString(payload?.reason || '', 220), keywords: Array.isArray(payload?.keywords) ? payload.keywords.slice(0, 8).map((item) => this._compactString(item, 60)).filter(Boolean) : [], source: String(payload?.source || '').trim(), feedback_key: String(payload?.feedback_key || '').trim(), recommendation: recommendation.run_id || recommendation.candidate_id ? recommendation : null };
     }
 

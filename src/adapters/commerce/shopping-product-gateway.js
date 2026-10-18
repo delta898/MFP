@@ -1,6 +1,6 @@
 'use strict';
 
-const { createKnowledgeServerGatewayClient } = require('../../knowledge/server-gateway-client');
+const { createKnowledgeServerGatewayClient } = require('../knowledge/server-gateway-client');
 
 const SHOPPING_KIND = 'shopping_product';
 const SHOPPING_PURPOSE = 'product_recovery';

@@ -23,7 +23,7 @@ The project ref is intentionally resolved from target-specific configuration dur
 | Runtime settings | `src/runtime-config.js` | remotely managed runtime values |
 | AI model catalog | `src/adapters/storage/ai-model-catalog/supabase-port.js` | server-managed model catalog |
 | Keyword research | `src/keyword-research/supabase-client.js` | keyword Edge Function gateway |
-| Knowledge gateway | `src/knowledge/server-gateway-client.js` | news and managed provider snapshots |
+| Knowledge gateway | `src/adapters/knowledge/server-gateway-client.js` | news and managed provider snapshots |
 | Surface content | `src/surface-content/supabase-provider.js` | configurable app content and assets |
 
 These consumers now obtain an immutable public connection through `resolveSupabasePublicConnection`. The config loader retains `LICENSE_CHK_URL` and `LICENSE_CHK_KEY` only as temporary internal aliases populated by the selected environment profile; client owners no longer read those aliases directly.

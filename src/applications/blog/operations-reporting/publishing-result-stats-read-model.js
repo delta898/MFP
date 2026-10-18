@@ -1,4 +1,4 @@
-const { classifyBlogPublishResultEvent } = require('../../../memory/blog-publish-result');
+const { classifyBlogPublishResultEvent } = require('./blog-publish-result');
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;

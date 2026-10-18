@@ -1,5 +1,26 @@
 # Memory Graph
 
+## Code Ownership
+
+The domain is deliberately distributed by layer rather than collected under a
+top-level `src/memory/` feature directory:
+
+- `src/services/memory/` owns event and provenance semantics, retrieval, and
+  owner-scoped projections.
+- `src/adapters/storage/memory/` owns SQLite schema, event persistence, payload
+  encoding, and storage health/cleanup mechanics.
+- `src/host/memory/` owns process startup, recovery, maintenance scheduling, and
+  shutdown for the memory runtime.
+- Recommendation policy and lifecycle remain separate under
+  `src/services/recommendations/`; their persistence adapter is under
+  `src/adapters/storage/recommendations/`.
+
+Knowledge providers are another independent domain: provider-neutral contracts
+and registry behavior live in `src/services/knowledge/`, while provider and
+transport implementations live in `src/adapters/knowledge/`. A Knowledge
+snapshot is external evidence, not a Memory event unless a user action records
+it as such.
+
 ## Principle
 Memory is event-first. Facts are stored first; preferences, recommendations, aliases, and domain knowledge are derived later.
 

@@ -88,8 +88,8 @@ Apply these principles to every change. The later sections define the project-sp
   - `src/host/agent/` for Host orchestration and channel-neutral request planning
   - `src/adapters/messaging/<channel>/` for channel-specific parsing and translation
   - `src/capabilities/`
-  - `src/memory/`
-  - `src/knowledge/`
+  - `src/services/memory/` and `src/adapters/storage/memory/`
+  - `src/services/knowledge/` and `src/adapters/knowledge/`
 - Do not create or restore a `src/agent/` feature-root. Place each responsibility under its architecture layer; the Agent Runtime is Host orchestration, not a separate top-level layer.
 - Preserve event-first memory design. Record facts first, derive preferences/suggestions second.
 

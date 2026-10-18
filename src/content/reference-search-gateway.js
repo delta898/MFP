@@ -1,6 +1,6 @@
 'use strict';
 
-const { createKnowledgeServerGatewayClient } = require('../knowledge/server-gateway-client');
+const { createKnowledgeServerGatewayClient } = require('../adapters/knowledge/server-gateway-client');
 
 const REFERENCE_KIND = 'blog_reference';
 const REFERENCE_PURPOSE = 'writing_reference';

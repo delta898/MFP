@@ -9,7 +9,7 @@ const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'u
 test('runtime and package manifests use SQLite V2 without shipping Kuzu', () => {
     const packageJson = JSON.parse(read('package.json'));
     const packageLock = read('package-lock.json');
-    const store = read('src/memory/store.js');
+    const store = read('src/host/memory/runtime.js');
     const workflow = read('.github/workflows/build.yml');
     const buildSh = read('build.sh');
     const buildBat = read('build.bat');

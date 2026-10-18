@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeKnowledgeSnapshot } = require('../src/knowledge/contracts/snapshot');
+const { normalizeKnowledgeSnapshot } = require('../src/services/knowledge/contracts/snapshot');
 
 const contractPromise = import('../supabase/functions/_shared/serpapi-collection-contract.ts');
 

@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { SQLiteEventStore } = require('./sqlite-event-store');
-const { createMemoryRetrievalService } = require('./retrieval-service');
+const { createMemoryRetrievalService } = require('../../../services/memory/retrieval-service');
 
 test('owner JobRun query follows owned event relations and never returns result_json', async () => {
     const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bloggenius-owner-jobs-'));

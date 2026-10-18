@@ -8,7 +8,8 @@ const { createAgentRuntime } = require('./host/agent/runtime');
 const { createPlanner } = require('./host/agent/planning/planner');
 const { ConfirmationStore } = require('./adapters/storage/confirmations/confirmation-store');
 const { createCapabilityRegistry } = require('./capabilities');
-const { createMemoryRetrievalService } = require('./memory/retrieval-service');
+const { createKnowledgeRuntime } = require('./composition/knowledge-runtime');
+const { createMemoryRetrievalService } = require('./services/memory/retrieval-service');
 const { routeTelegramMessage, tryParseDeterministicEnvelope } = require('./adapters/messaging/telegram/agent-parser');
 const {
     mapLegacyTelegramContentRequest,
@@ -19,7 +20,7 @@ const {
 const TelegramAgentRenderer = require('./adapters/messaging/telegram/agent-renderer');
 const { getInternalUiOrigin } = require('./ui-runtime/internal-ui-origin');
 const { getRuntimeHooks } = require('./runtime-hooks');
-const { getAgentEventStore } = require('./memory/store');
+const { getAgentEventStore } = require('./host/memory/runtime');
 const License = require('./license');
 const { recordRecommendationFeedback } = require('./services/recommendations/adapters/recommendation-feedback-adapter');
 const {
@@ -247,7 +248,9 @@ class TelegramBotService {
         const syncAutoRunnerWithConfig = hooks.syncAutoRunnerWithConfig || (() => { });
         const resolveNaverAutoCategoryCatalog = hooks.resolveNaverAutoCategoryCatalog || null;
 
+        const knowledgeRuntime = createKnowledgeRuntime({ CONFIG, License, Logger, axios });
         const capabilityRegistry = createCapabilityRegistry({
+            ...knowledgeRuntime,
             fs,
             path,
             axios,

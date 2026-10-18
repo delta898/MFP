@@ -1,5 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
-const { resolveSupabasePublicConnection } = require('../environment/runtime-profile');
+const { resolveSupabasePublicConnection } = require('../../environment/runtime-profile');
 
 const KNOWLEDGE_GATEWAY_FUNCTION = 'knowledge-gateway';
 const DEFAULT_TIMEOUT_MS = 30000;

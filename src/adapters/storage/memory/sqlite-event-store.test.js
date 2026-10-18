@@ -3,18 +3,21 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createRecommendation } = require('../services/recommendations/core/test-fixtures');
-const { createRecommendationCenterService } = require('../ui-api/services/recommendation-center.service');
-const { SQLiteEventStore, SQLITE_MEMORY_FILENAME } = require('./sqlite-event-store');
+const { SQLITE_MEMORY_FILENAME } = require('./sqlite-event-store');
+const { createRecommendation } = require('../../../services/recommendations/core/test-fixtures');
+const { resolveArtifactFeedbackTarget } = require('../../../services/recommendations/feedback-target');
+const { createRecommendationCenterService } = require('../../../ui-api/services/recommendation-center.service');
+const { createAgentMemoryController } = require('../../../host/memory/runtime');
 
 function fixture() {
     const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bloggenius-sqlite-memory-'));
-    const store = new SQLiteEventStore({ baseDir, Logger: { info() {}, warn() {} } });
+    const controller = createAgentMemoryController({ baseDir, Logger: { info() {}, warn() {} }, scheduleMaintenance: false });
     return {
         baseDir,
-        store,
+        store: controller.facade,
+        get backend() { return controller.testing.getBackend(); },
         close() {
-            store.close();
+            controller.close();
             fs.rmSync(baseDir, { recursive: true, force: true });
         }
     };
@@ -25,9 +28,9 @@ test('SQLite V2는 owner identity와 storage generation을 준비한다', async 
     try {
         assert.equal(await f.store.initialize(), true);
         assert.match(f.store.getLocalOwnerIdentity().owner_user_id, /^local:/);
-        assert.equal(f.store.database.get("SELECT value FROM memory_meta WHERE key = 'storage_generation'").value, '2');
+        assert.equal(f.backend.database.get("SELECT value FROM memory_meta WHERE key = 'storage_generation'").value, '2');
         assert.equal(fs.existsSync(path.join(f.baseDir, 'data', SQLITE_MEMORY_FILENAME)), true);
-        assert.equal(f.store.database.quickCheck().ok, true);
+        assert.equal(f.backend.database.quickCheck().ok, true);
     } finally { f.close(); }
 });
 
@@ -135,9 +138,9 @@ test('반복 recommendation 상태 전환은 immutable JSON storage를 증폭시
                 occurred_at: '2026-08-25T11:00:00.000Z'
             });
         }
-        f.store.database.checkpoint('TRUNCATE');
-        const diagnostics = f.store.database.diagnostics();
-        assert.equal(f.store.database.get('SELECT count(*) AS count FROM recommendation_events').count, 600);
+        f.backend.database.checkpoint('TRUNCATE');
+        const diagnostics = f.backend.database.diagnostics();
+        assert.equal(f.backend.database.get('SELECT count(*) AS count FROM recommendation_events').count, 600);
         assert.equal(diagnostics.file_bytes < 8 * 1024 * 1024, true, `unexpected SQLite growth: ${diagnostics.file_bytes}`);
     } finally { f.close(); }
 });
@@ -228,7 +231,7 @@ test('content.generate 결과는 글감 artifact와 feedback target으로 이어
         const artifacts = await f.store.listRecentArtifacts('blog-next:writer', 'content_idea');
         assert.equal(artifacts.length, 1);
         assert.equal(artifacts[0].payload.feedback_key, 'sqlite-memory');
-        const target = await f.store.getFeedbackTarget('artifact', 'idea:sqlite-memory');
+        const target = resolveArtifactFeedbackTarget(await f.store.getArtifactById('idea:sqlite-memory'));
         assert.equal(target.domain, 'blog');
         assert.equal(target.entity_ref, 'idea:sqlite-memory');
         assert.equal(target.subject, 'SQLite 메모리 전환기');
@@ -254,8 +257,8 @@ test('확인 요청 상태는 Recommendation 데이터와 분리해 보관한다
             payload: { confirmation_id: 'confirmation:sqlite' }
         });
 
-        assert.equal(f.store.database.get('SELECT status FROM confirmations WHERE id = :id', { id: 'confirmation:sqlite' }).status, 'accepted');
-        assert.equal(f.store.database.get("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'suggestions'"), undefined);
+        assert.equal(f.backend.database.get('SELECT status FROM confirmations WHERE id = :id', { id: 'confirmation:sqlite' }).status, 'accepted');
+        assert.equal(f.backend.database.get("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'suggestions'"), undefined);
     } finally { f.close(); }
 });
 
@@ -265,6 +268,6 @@ test('빈 interaction message와 insight는 저장하지 않는다', async () =>
         assert.equal(await f.store.recordInteractionMessage({ channel: 'local' }, '   '), null);
         assert.equal(await f.store.updateUserInsight('writer', '   '), null);
         await f.store.initialize();
-        assert.equal(f.store.database.get('SELECT count(*) AS count FROM events').count, 0);
+        assert.equal(f.backend.database.get('SELECT count(*) AS count FROM events').count, 0);
     } finally { f.close(); }
 });

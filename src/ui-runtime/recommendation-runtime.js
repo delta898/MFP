@@ -1,5 +1,5 @@
 const { ConfirmationStore } = require('../adapters/storage/confirmations/confirmation-store');
-const { createMemoryRetrievalService } = require('../memory/retrieval-service');
+const { createMemoryRetrievalService } = require('../services/memory/retrieval-service');
 const { createRecommendationMaterializer } = require('../services/recommendations/adapters/recommendation-materializer');
 const { createRecommendationDeliveryScheduler } = require('../services/recommendations/delivery/scheduler');
 const { createRecommendationHandoffService } = require('../services/recommendations/handoff/service');

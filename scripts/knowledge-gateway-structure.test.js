@@ -32,8 +32,8 @@ test('gateway registers upstream Naver news and stored SerpApi corpus without de
     const naverBlogReference = read('supabase/functions/_shared/knowledge-provider-naver-blog-reference.ts');
     const naverShoppingProduct = read('supabase/functions/_shared/knowledge-provider-naver-shopping-product.ts');
     const serpApiCorpus = read('supabase/functions/_shared/knowledge-provider-serpapi-corpus.ts');
-    const transport = read('src/knowledge/transports/server-gateway.js');
-    const client = read('src/knowledge/server-gateway-client.js');
+    const transport = read('src/adapters/knowledge/transports/server-gateway.js');
+    const client = read('src/adapters/knowledge/server-gateway-client.js');
     assert.match(providers, /createNaverNewsRoute/);
     assert.match(providers, /createNaverBlogReferenceRoute/);
     assert.match(providers, /createNaverShoppingProductRoute/);

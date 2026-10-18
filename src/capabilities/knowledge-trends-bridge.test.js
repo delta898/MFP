@@ -1,10 +1,15 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createCapabilityRegistry } = require('../capabilities');
+const { createCapabilityRegistry } = require('./index');
+const { createKnowledgeRuntime } = require('../composition/knowledge-runtime');
+
+function createRegistry(deps = {}) {
+    return createCapabilityRegistry({ ...createKnowledgeRuntime(deps), ...deps });
+}
 
 test('adds the built-in Naver provider to content idea routing', async () => {
     const requests = [];
-    const registry = createCapabilityRegistry({
+    const registry = createRegistry({
         CONFIG: {
             TRENDS_API_PUBLIC_CONFIG: {
                 environment: 'development',
@@ -65,7 +70,7 @@ test('adds the built-in Naver provider to content idea routing', async () => {
 });
 
 test('an explicit disabled Naver provider overrides the built-in default', async () => {
-    const registry = createCapabilityRegistry({
+    const registry = createRegistry({
         CONFIG: {
             knowledge: {
                 providers: [{

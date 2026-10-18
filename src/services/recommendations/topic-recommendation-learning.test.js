@@ -6,9 +6,9 @@ const {
     stableOutcomeEvidenceId,
     createTopicRecommendationLearningService
 } = require('./topic-recommendation-learning');
-const { resolveArtifactFeedbackTarget } = require('../../memory/feedback-target');
-const { collectFeedback } = require('../../memory/owner-profile');
-const { MemoryPayloadCodec } = require('../../memory/payload-codec');
+const { resolveArtifactFeedbackTarget } = require('./feedback-target');
+const { collectFeedback } = require('../memory/owner-profile');
+const { MemoryPayloadCodec } = require('../../adapters/storage/memory/payload-codec');
 
 const recommendation = buildRecommendationContext({
     run_id: 'run-1',

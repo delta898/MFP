@@ -25,6 +25,6 @@ const {
     buildCardNewsStatusValidationRequests
 } = require('../card-news/ledger-sheet-schema');
 const { buildTopicRowMoveRequest } = require('./topic-queue-order');
-const { getAgentEventStore } = require('../../../memory/store');
+const { getAgentEventStore } = require('../../../host/memory/runtime');
 
 module.exports = { fs, axios, CONFIG, Logger, GoogleOAuth, formatSheetImageModeValue, mergeShoppingSheetOptions, mergeTopicSheetOptions, parseSheetImageModeValue, resolveShoppingSheetState, resolveTopicSheetState, stringifySheetOptionsValue, SNS_SHEET_NAME, SNS_SHEET_HEADERS, buildSnsStatusValidationRequest, CARD_NEWS_SHEET_NAME, CARD_NEWS_SHEET_HEADERS, buildCardNewsStatusValidationRequests, buildTopicRowMoveRequest, getAgentEventStore };

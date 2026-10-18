@@ -27,10 +27,10 @@ The target path is being introduced alongside the current control path. Product 
   - The only layer allowed to read or mutate operational state.
 - `src/plugins/`
   - Existing Core Plugin host. It owns first-party plugin registration and gates contributed capabilities by runtime enablement. It remains separate from the new `src/platform/` foundation until a real feature migration proves the replacement path.
-- `src/memory/`
-  - SQLite-backed event-first memory, retrieval, preferences, and domain knowledge.
-- `src/knowledge/`
-  - External/internal knowledge provider framework.
+- `src/services/memory/`
+  - Event-first memory semantics, retrieval contracts, owner projections, and activity lifecycle policies. SQLite schema and persistence live in `src/adapters/storage/memory/`; process startup, recovery, maintenance, and shutdown live in `src/host/memory/`.
+- `src/services/knowledge/`
+  - Provider-neutral knowledge contracts, snapshot normalization, and registry composition. Provider implementations and transport adapters live in `src/adapters/knowledge/`.
 - `src/services/recommendations/`
   - Shared cross-Application recommendation lifecycle, producers, policy, persistence adapters, and delivery.
 - `src/content-ideas/`

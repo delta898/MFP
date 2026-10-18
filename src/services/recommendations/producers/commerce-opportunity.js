@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { normalizeKnowledgeSnapshot } = require('../../../knowledge/contracts/snapshot');
+const { normalizeKnowledgeSnapshot } = require('../../knowledge/contracts/snapshot');
 const {
     collectCommerceAnchors,
     normalizeProductIdentity,

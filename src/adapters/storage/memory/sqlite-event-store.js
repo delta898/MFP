@@ -1,17 +1,14 @@
 const crypto = require('node:crypto');
 const path = require('node:path');
 const { MemoryPayloadCodec } = require('./payload-codec');
-const { LocalOwnerIdentity } = require('../identity/local-owner-identity');
-const { normalizeInteractionProvenance } = require('./interaction-provenance');
-const { normalizeActivityEvidence } = require('./activity-lifecycle');
-const { TOPIC_FACET_KINDS, TOPIC_FACET_SCOPES, buildTopicFacets } = require('./topic-semantics');
-const { buildOwnerActivitySignalSummary } = require('./owner-activity-signals');
-const { buildOwnerProfileProjection } = require('./owner-profile');
-const { buildMemoryCollectionAudit } = require('./collection-audit');
-const { resolveArtifactFeedbackTarget } = require('./feedback-target');
-const { RecommendationLifecycleStore } = require('../services/recommendations/lifecycle-store');
+const { LocalOwnerIdentity } = require('./local-owner-identity');
+const { normalizeInteractionProvenance } = require('../../../services/memory/interaction-provenance');
+const { normalizeActivityEvidence } = require('../../../services/memory/activity-lifecycle');
+const { TOPIC_FACET_KINDS, TOPIC_FACET_SCOPES, buildTopicFacets } = require('../../../services/memory/topic-semantics');
+const { buildOwnerActivitySignalSummary } = require('../../../services/memory/owner-activity-signals');
+const { buildOwnerProfileProjection } = require('../../../services/memory/owner-profile');
+const { buildMemoryCollectionAudit } = require('../../../services/memory/collection-audit');
 const { SQLiteDatabase } = require('./sqlite-database');
-const { SQLiteRecommendationRepository } = require('./sqlite-recommendation-repository');
 
 const SQLITE_MEMORY_GENERATION = 2;
 const SQLITE_MEMORY_FILENAME = 'agent_memory_v2.sqlite3';
@@ -43,7 +40,6 @@ class SQLiteEventStore extends MemoryPayloadCodec {
         this.owner = null;
         this.isInitialized = false;
         this.initPromise = null;
-        this.recommendationStore = null;
     }
 
     async initialize() {
@@ -56,12 +52,6 @@ class SQLiteEventStore extends MemoryPayloadCodec {
             if (!check.ok) throw new Error(`SQLite quick_check 실패: ${check.result || 'unknown'}`);
             this.owner = this.ownerIdentity.resolve();
             this._ensureOwner(this.owner);
-            const repository = new SQLiteRecommendationRepository({
-                database: this.database,
-                ensureOwner: async (owner) => this._ensureOwner(owner)
-            });
-            repository.initializeSchema();
-            this.recommendationStore = new RecommendationLifecycleStore({ repository });
             this.isInitialized = true;
             return true;
         }).catch((error) => {
@@ -213,6 +203,11 @@ class SQLiteEventStore extends MemoryPayloadCodec {
             created_at: iso(owner.created_at)
         });
         return id;
+    }
+
+    async ensureOwner(owner = {}) {
+        await this.initialize();
+        return this._ensureOwner(owner);
     }
 
     async ensureUser(user = {}) {
@@ -700,11 +695,10 @@ class SQLiteEventStore extends MemoryPayloadCodec {
             WHERE e.actor_id = :id AND a.artifact_type = 'user_insight' ORDER BY a.occurred_at DESC LIMIT 1`, { id: String(chatId || '') })?.summary || '');
     }
 
-    async getFeedbackTarget(kind = '', targetId = '') {
-        if (String(kind || '').trim().toLowerCase() !== 'artifact') return null;
+    async getArtifactById(targetId = '') {
         await this.initialize();
         const row = this.database.get('SELECT * FROM artifacts WHERE id = :id LIMIT 1', { id: String(targetId || '') });
-        return row ? resolveArtifactFeedbackTarget(this._artifact(row)) : null;
+        return row ? this._artifact(row) : null;
     }
 
     async recordTopic(chatId, topicData = {}, provenanceInput = {}) {
@@ -773,18 +767,8 @@ class SQLiteEventStore extends MemoryPayloadCodec {
         return buildMemoryCollectionAudit({ owner_user_id: owner, events, artifacts, stats: await this.getOwnerMemoryStats(owner), truncated: events.length >= limit || artifacts.length >= limit });
     }
 
-    async createRecommendation(recommendation, context = {}) { await this.initialize(); return this.recommendationStore.createRecommendation(recommendation, context); }
-    async transitionRecommendation(command = {}) { await this.initialize(); return this.recommendationStore.transitionRecommendation(command); }
-    async getRecommendation(ownerUserId, recommendationId) { await this.initialize(); return this.recommendationStore.getRecommendation(ownerUserId, recommendationId); }
-    async findActiveByDedupeKey(ownerUserId, dedupeKey, now) { await this.initialize(); return this.recommendationStore.findActiveByDedupeKey(ownerUserId, dedupeKey, now); }
-    async listAvailableRecommendations(ownerUserId, options = {}) { await this.initialize(); return this.recommendationStore.listAvailableRecommendations(ownerUserId, options); }
-    async listRecommendations(ownerUserId, options = {}) { await this.initialize(); return this.recommendationStore.listRecommendations(ownerUserId, options); }
-    async reconcileDueRecommendations(ownerUserId, options = {}) { await this.initialize(); return this.recommendationStore.reconcileDueRecommendations(ownerUserId, options); }
-    getRecommendationStoreStatus() { return this.recommendationStore?.getRecommendationStoreStatus?.() || { mode: 'unavailable', reason: 'not_initialized' }; }
-
     async runMaintenance(options = {}) {
         await this.initialize();
-        const prune = this.recommendationStore.repository?.prune?.(options) || null;
         const now = new Date(options.now || Date.now());
         const cutoff = (days) => new Date(now.getTime() - days * 86400000).toISOString();
         const batchSize = Math.max(1, Math.min(500, Number.parseInt(options.batchSize, 10) || 200));
@@ -834,7 +818,7 @@ class SQLiteEventStore extends MemoryPayloadCodec {
         this.database.checkpoint('PASSIVE');
         const before = this.database.diagnostics();
         if (before.free_pages > 256) this.database.incrementalVacuum(Math.min(before.free_pages, 1024));
-        return { recommendations: prune, memory, before, after: this.database.diagnostics() };
+        return { memory, before, after: this.database.diagnostics() };
     }
 
     close() {

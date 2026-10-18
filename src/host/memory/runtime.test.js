@@ -3,8 +3,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createAgentMemoryController } = require('./store');
-const { resolveMemoryPaths } = require('./sqlite-lifecycle');
+const { createAgentMemoryController } = require('./runtime');
+const { resolveMemoryPaths } = require('../../adapters/storage/memory/sqlite-lifecycle');
 
 function logger() {
     const messages = [];
@@ -56,6 +56,10 @@ test('startup 이전 facade 비동기 호출도 health gate를 먼저 통과한�
         Logger: logger(),
         baseDir: '/test',
         createStore: () => store,
+        createRecommendationStore: () => ({
+            async listRecommendations() { calls.push('read'); return []; },
+            getRecommendationStoreStatus() { return { mode: 'persistent', reason: '' }; }
+        }),
         verifySQLiteStore: () => { calls.push('verify'); return { owner_user_id: 'owner', storage_generation: 2 }; },
         writeHealthMarker: () => calls.push('marker'),
         cleanupLegacyMemory: () => ({ removed: [], failed: [] }),

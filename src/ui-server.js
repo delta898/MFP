@@ -87,9 +87,10 @@ const { createUiHttpServerRuntime } = require('./ui-runtime/http-server-runtime'
 const { createHtmlCompositionRuntime } = require('./ui-runtime/html-composition-runtime');
 const { createCssCompositionRuntime } = require('./ui-runtime/css-composition-runtime');
 const { createJsCompositionRuntime } = require('./ui-runtime/js-composition-runtime');
-const { closeAgentMemory, getAgentEventStore, initializeAgentMemory } = require('./memory/store');
-const { createActivityLifecycleRecorder } = require('./memory/activity-lifecycle');
+const { closeAgentMemory, getAgentEventStore, initializeAgentMemory } = require('./host/memory/runtime');
+const { createActivityLifecycleRecorder } = require('./services/memory/activity-lifecycle');
 const { createCapabilityRegistry } = require('./capabilities');
+const { createKnowledgeRuntime } = require('./composition/knowledge-runtime');
 const { createAgentRuntime } = require('./host/agent/runtime');
 const { ConfirmationStore } = require('./adapters/storage/confirmations/confirmation-store');
 const { createTopicRecommendationLearningService } = require('./services/recommendations/topic-recommendation-learning');
@@ -346,7 +347,9 @@ const recordActivityLifecycle = createActivityLifecycleRecorder({
     Logger
 });
 const topicRecommendationEventStore = getAgentEventStore({ baseDir: CONFIG.ROOT_DIR });
+const topicRecommendationKnowledgeRuntime = createKnowledgeRuntime({ CONFIG, Logger, License, axios });
 const topicRecommendationCapabilityRegistry = createCapabilityRegistry({
+    ...topicRecommendationKnowledgeRuntime,
     CONFIG,
     Logger,
     Utils,

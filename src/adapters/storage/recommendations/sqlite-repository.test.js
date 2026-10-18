@@ -3,10 +3,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createRecommendation } = require('../services/recommendations/core/test-fixtures');
-const { RecommendationLifecycleStore } = require('../services/recommendations/lifecycle-store');
-const { SQLiteDatabase } = require('./sqlite-database');
-const { SQLiteRecommendationRepository } = require('./sqlite-recommendation-repository');
+const { createRecommendation } = require('../../../services/recommendations/core/test-fixtures');
+const { RecommendationLifecycleStore } = require('../../../services/recommendations/lifecycle-store');
+const { SQLiteDatabase } = require('../memory/sqlite-database');
+const { SQLiteRecommendationRepository } = require('./sqlite-repository');
 
 function fixture() {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'bloggenius-sqlite-recommendation-'));

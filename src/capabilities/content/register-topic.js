@@ -1,4 +1,4 @@
-const { provenanceFromRuntimeContext } = require('../../memory/interaction-provenance');
+const { provenanceFromRuntimeContext } = require('../../services/memory/interaction-provenance');
 
 function normalizeString(value) {
     return String(value || '').trim();

@@ -1,4 +1,4 @@
-const { normalizeRecommendationContext } = require('../services/recommendations/topic-recommendation-learning');
+const { normalizeRecommendationContext } = require('../recommendations/topic-recommendation-learning');
 
 const ARTIFACT_FEEDBACK_DOMAIN = Object.freeze({
     content_idea: 'blog',
@@ -7,6 +7,7 @@ const ARTIFACT_FEEDBACK_DOMAIN = Object.freeze({
 });
 
 function resolveArtifactFeedbackTarget(artifact = {}) {
+    artifact = artifact && typeof artifact === 'object' && !Array.isArray(artifact) ? artifact : {};
     const artifactType = String(artifact.artifact_type || artifact.artifactType || '').trim().toLowerCase();
     const domain = ARTIFACT_FEEDBACK_DOMAIN[artifactType] || '';
     if (!domain) return null;
