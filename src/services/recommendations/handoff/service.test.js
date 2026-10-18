@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { ConfirmationStore } = require('../../adapters/storage/confirmations/confirmation-store');
+const { ConfirmationStore } = require('../../../adapters/storage/confirmations/confirmation-store');
 const { createRecommendation } = require('../core/test-fixtures');
 const { createVolatileRecommendationStore } = require('../lifecycle-store');
 const { createRecommendationHandoffService } = require('./service');

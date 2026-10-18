@@ -41,10 +41,10 @@ function createKeywordsController(deps = {}) {
             }
         },
 
-        async quickPublishSuggestions({ requestId, method, requestBody, res }) {
+        async quickPublishRecommendations({ requestId, method, requestBody, res }) {
             if (method !== 'POST') return sendMethodNotAllowed(sendError, res, requestId);
             try {
-                return sendSuccess(res, requestId, await service.quickPublishSuggestions(requestBody || {}));
+                return sendSuccess(res, requestId, await service.quickPublishRecommendations(requestBody || {}));
             } catch (error) {
                 return toErrorResponse(res, requestId, 'QUICK_PUBLISH_SMART_SUGGESTION_FAILED', '빠른 포스팅 스마트 추천을 만들지 못했습니다.', error, 400);
             }

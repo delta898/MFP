@@ -1,4 +1,4 @@
-const { normalizeRecommendationContext } = require('../recommendations/topic-recommendation-learning');
+const { normalizeRecommendationContext } = require('../services/recommendations/topic-recommendation-learning');
 
 const ARTIFACT_FEEDBACK_DOMAIN = Object.freeze({
     content_idea: 'blog',

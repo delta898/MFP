@@ -1,4 +1,4 @@
-const { normalizeRecommendationContext } = require('../recommendations/topic-recommendation-learning');
+const { normalizeRecommendationContext } = require('../services/recommendations/topic-recommendation-learning');
 
 class MemoryPayloadCodec {
     _compactString(value, maxLength = 400) {
@@ -35,8 +35,8 @@ class MemoryPayloadCodec {
     _summarizeResult(result = {}) {
         const data = result && typeof result.data === 'object' ? result.data : {};
         const ideas = Array.isArray(data.ideas) ? data.ideas : [];
-        const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
-        return { success: result?.success !== false, message: this._compactString(result?.message || '', 240), data: { ...Object.fromEntries(Object.entries(this._compactValue(data, { maxDepth: 2, maxArray: 6, maxString: 180 }) || {}).filter(([key]) => !['ideas', 'suggestions'].includes(key))), ideas_count: ideas.length, idea_titles: ideas.slice(0, 5).map((item) => this._compactString(item?.title || '', 120)).filter(Boolean), suggestions_count: suggestions.length, suggestion_summaries: suggestions.slice(0, 5).map((item) => this._compactString(item?.summary || '', 140)).filter(Boolean) } };
+        const recommendations = Array.isArray(data.recommendations) ? data.recommendations : [];
+        return { success: result?.success !== false, message: this._compactString(result?.message || '', 240), data: { ...Object.fromEntries(Object.entries(this._compactValue(data, { maxDepth: 2, maxArray: 6, maxString: 180 }) || {}).filter(([key]) => !['ideas', 'recommendations'].includes(key))), ideas_count: ideas.length, idea_titles: ideas.slice(0, 5).map((item) => this._compactString(item?.title || '', 120)).filter(Boolean), recommendations_count: recommendations.length, recommendation_summaries: recommendations.slice(0, 5).map((item) => this._compactString(item?.summary || '', 140)).filter(Boolean) } };
     }
 
     _summarizeConfirmationPayload(payload = {}) {
@@ -61,7 +61,6 @@ class MemoryPayloadCodec {
         if (eventType === 'memory.insight.updated') return { summary: this._compactString(payload.summary || '', 260) };
         if (eventType === 'content.topic.registered') return { subject: this._compactString(payload.subject || '', 180), category: this._compactString(payload.category || '', 80), platform: this._compactString(payload.platform || '', 80), keywords: this._compactString(payload.keywords || '', 200), instruction: this._compactString(payload.instruction || '', 240), source: this._compactString(payload.source || '', 80), request_id: this._compactString(payload.request_id || '', 300) };
         if (eventType === 'shopping.item.recorded') return { name: this._compactString(payload.name || '', 180), price: this._compactString(payload.price || '', 80), mall: this._compactString(payload.mall || '', 120), source: this._compactString(payload.source || '', 80), request_id: this._compactString(payload.request_id || '', 300) };
-        if (eventType.startsWith('suggestion.')) return { suggestion_id: String(payload.suggestion_id || '').trim(), type: String(payload.type || '').trim(), summary: this._compactString(payload.summary || '', 200), feedback_key: String(payload.feedback_key || '').trim() };
         if (eventType.startsWith('artifact.')) return { artifact_id: String(payload.artifact_id || '').trim() };
         if (eventType === 'domain.alias.accepted') return { domain: String(payload.domain || '').trim(), raw_input: this._compactString(payload.raw_input || '', 120), canonical_value: this._compactString(payload.canonical_value || '', 120) };
         return compact;

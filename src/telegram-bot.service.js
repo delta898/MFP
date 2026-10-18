@@ -21,7 +21,7 @@ const { getInternalUiOrigin } = require('./ui-runtime/internal-ui-origin');
 const { getRuntimeHooks } = require('./runtime-hooks');
 const { getAgentEventStore } = require('./memory/store');
 const License = require('./license');
-const { recordRecommendationFeedback } = require('./recommendations/adapters/recommendation-feedback-adapter');
+const { recordRecommendationFeedback } = require('./services/recommendations/adapters/recommendation-feedback-adapter');
 const {
     calculateTelegramPollingBackoffMs,
     describeTelegramError,
@@ -366,8 +366,8 @@ class TelegramBotService {
         Logger.info(`⏱️ [TelegramRouter] ${Date.now() - parserStartedAt}ms`);
         const parserNote = [
             String(envelope?.reply?.text || '').trim(),
-            String(envelope?.reply?.suggestion || '').trim()
-                ? `💡 제안: ${String(envelope.reply.suggestion).trim()}`
+            String(envelope?.reply?.recommendation || '').trim()
+                ? `💡 추천: ${String(envelope.reply.recommendation).trim()}`
                 : ''
         ].filter(Boolean).join('\n\n').slice(0, 4000);
 
@@ -466,12 +466,12 @@ class TelegramBotService {
         }
 
         if (outcome.status === 'completed') {
-            const suggestionKeyboard = TelegramAgentRenderer.buildSuggestionKeyboard(outcome.results);
+            const recommendationKeyboard = TelegramAgentRenderer.buildRecommendationKeyboard(outcome.results);
             const artifactKeyboard = TelegramAgentRenderer.buildArtifactKeyboard(outcome.results);
             const options = {
                 parse_mode: 'Markdown'
             };
-            const inlineKeyboard = [...suggestionKeyboard, ...artifactKeyboard];
+            const inlineKeyboard = [...recommendationKeyboard, ...artifactKeyboard];
             if (inlineKeyboard.length > 0) {
                 options.reply_markup = JSON.stringify({ inline_keyboard: inlineKeyboard });
             }
@@ -512,43 +512,6 @@ class TelegramBotService {
                     : feedback === 'helpful'
                         ? '도움됨으로 기록했습니다.'
                         : '이 추천을 숨기고 별로로 기록했습니다.'
-            });
-            return true;
-        }
-
-        if (verb === 'suggest_feedback') {
-            const context = this.buildAgentContext(chatId, query?.message || {});
-            context.messageId = String(messageId || '').trim();
-            const feedback = String(parts[1] || '').trim();
-            const eventType = feedback === 'accepted'
-                ? 'suggestion.accepted'
-                : feedback === 'rejected'
-                    ? 'suggestion.rejected'
-                    : feedback === 'helpful'
-                        ? 'suggestion.helpful'
-                        : 'suggestion.not_helpful';
-            await this.agentEventStore.appendEvent({
-                id: query?.id ? `telegram_feedback_${String(query.id).trim()}` : undefined,
-                event_type: eventType,
-                actor_type: 'user',
-                actor_id: context.user.id,
-                conversation_id: context.conversation.id,
-                message_id: context.messageId,
-                payload: {
-                    suggestion_id: targetId
-                },
-                user: context.user,
-                conversation: context.conversation
-            }).catch(() => { });
-
-            await this.bot.answerCallbackQuery(query.id, {
-                text: feedback === 'accepted'
-                    ? '추천을 수락했습니다.'
-                    : feedback === 'rejected'
-                        ? '추천을 거절했습니다.'
-                        : feedback === 'helpful'
-                            ? '도움됨으로 기록했습니다.'
-                            : '별로로 기록했습니다.'
             });
             return true;
         }

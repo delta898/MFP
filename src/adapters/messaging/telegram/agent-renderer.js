@@ -212,34 +212,21 @@ function formatSupersededConfirmationMessage() {
     return 'ℹ️ 이 확인 요청은 더 최신 설정 변경 요청으로 대체되었습니다.\n\n최신 요청 카드에서 계속 진행하세요.';
 }
 
-function buildSuggestionKeyboard(results = []) {
-    const suggestionRows = [];
+function buildRecommendationKeyboard(results = []) {
+    const recommendationRows = [];
     results.forEach((item, index) => {
-        const suggestions = Array.isArray(item?.result?.data?.suggestions) ? item.result.data.suggestions : [];
-        suggestions.forEach((suggestion, suggestionIndex) => {
-            const id = String(suggestion?.id || '').trim();
-            if (!id || suggestion?.feedback_enabled === false) return;
-            const labelIndex = `${index + 1}.${suggestionIndex + 1}`;
-            if (suggestion?.feedback_transport === 'recommendation') {
-                suggestionRows.push([
-                    { text: `👍 도움됨 ${labelIndex}`, callback_data: `rec_fb:h:${id}` },
-                    { text: `👎 별로 ${labelIndex}`, callback_data: `rec_fb:n:${id}` }
-                ]);
-                return;
-            }
-            const type = String(suggestion?.type || '').trim();
-            const isActionProposal = type === 'action_proposal' || type === 'next_action';
-            const positiveLabel = isActionProposal ? `✅ 수락 ${labelIndex}` : `👍 도움됨 ${labelIndex}`;
-            const negativeLabel = isActionProposal ? `❌ 거절 ${labelIndex}` : `👎 별로 ${labelIndex}`;
-            const positiveValue = isActionProposal ? 'accepted' : 'helpful';
-            const negativeValue = isActionProposal ? 'rejected' : 'not_helpful';
-            suggestionRows.push([
-                { text: positiveLabel, callback_data: `suggest_feedback:${positiveValue}:${id}` },
-                { text: negativeLabel, callback_data: `suggest_feedback:${negativeValue}:${id}` }
+        const recommendations = Array.isArray(item?.result?.data?.recommendations) ? item.result.data.recommendations : [];
+        recommendations.forEach((recommendation, recommendationIndex) => {
+            const id = String(recommendation?.recommendation_id || '').trim();
+            if (!id || recommendation?.feedback_enabled === false) return;
+            const labelIndex = `${index + 1}.${recommendationIndex + 1}`;
+            recommendationRows.push([
+                { text: `👍 도움됨 ${labelIndex}`, callback_data: `rec_fb:h:${id}` },
+                { text: `👎 별로 ${labelIndex}`, callback_data: `rec_fb:n:${id}` }
             ]);
         });
     });
-    return suggestionRows;
+    return recommendationRows;
 }
 
 function buildArtifactKeyboard(results = []) {
@@ -266,7 +253,7 @@ module.exports = {
     formatContentRequestMessage,
     formatExecutionMessage,
     formatSupersededConfirmationMessage,
-    buildSuggestionKeyboard,
+    buildRecommendationKeyboard,
     buildArtifactKeyboard,
     buildContentRequestKeyboard
 };

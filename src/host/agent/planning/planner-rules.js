@@ -81,14 +81,14 @@ function buildPreconditions(action = {}, envelope = {}) {
         }
     }
 
-    if (domain === 'agent.suggestions' && name === 'get') {
+    if (domain === 'agent.recommendations' && name === 'get') {
         const routing = envelope.routing && typeof envelope.routing === 'object' ? envelope.routing : {};
-        const suggestionProviders = Array.isArray(routing.suggestions) ? routing.suggestions : [];
-        if (suggestionProviders.length > 0) {
+        const recommendationProviders = Array.isArray(routing.recommendations) ? routing.recommendations : [];
+        if (recommendationProviders.length > 0) {
             preconditions.push({
                 type: 'knowledge_provider_available',
-                route: 'suggestions',
-                provider_ids: suggestionProviders
+                route: 'recommendations',
+                provider_ids: recommendationProviders
             });
         }
     }

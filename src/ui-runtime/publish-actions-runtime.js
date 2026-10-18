@@ -12,7 +12,7 @@ const {
     generatesBlogImages,
     stripBlogImagePromptBlocks
 } = require('../content/blog-image-mode');
-const { createTopicRecommendationLearningService } = require('../recommendations/topic-recommendation-learning');
+const { createTopicRecommendationLearningService } = require('../services/recommendations/topic-recommendation-learning');
 const { buildBlogPublishResultEvidence } = require('../memory/blog-publish-result');
 const { normalizePublishTargets } = require('../content/single-publish-target');
 const {

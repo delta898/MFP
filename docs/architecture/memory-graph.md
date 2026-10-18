@@ -1,7 +1,7 @@
 # Memory Graph
 
 ## Principle
-Memory is event-first. Facts are stored first; preferences, suggestions, aliases, and domain knowledge are derived later.
+Memory is event-first. Facts are stored first; preferences, recommendations, aliases, and domain knowledge are derived later.
 
 The memory graph is a reusable intelligence foundation, not a recommendation
 database. Its layers are intentionally separated:
@@ -34,14 +34,14 @@ application contract to a graph database engine.
 - `owners`, `users`, `conversations`, `events`, and `messages`
 - `actions`, `setting_changes`, and `job_runs`
 - `artifacts`, `topic_facets`, and `artifact_topic_facets`
-- `suggestions` and `suggestion_actions`
+- `confirmations` and `confirmation_actions`
 - `recommendations` and immutable `recommendation_events`
 - `preferences`, `domain_knowledge`, and `owner_topic_affinity`
 
 ## Current Roles
 - Working memory: recent messages, actions, pending confirmations, recent artifacts.
 - Preference memory: accumulated user tendencies from accepted actions and feedback.
-- Suggestion memory: suggested items and their user feedback.
+- Confirmation state: pending user decisions linked to planned actions.
 - Recommendation lifecycle: owner-scoped, actionable product opportunities with event-backed current state.
 - Domain knowledge: canonical values and learned aliases.
 - Owner identity: durable ownership across UI, automation, Telegram, and future channels while preserving each actor separately.
@@ -120,7 +120,7 @@ Current write paths are:
 - Telegram Agent conversations
   - incoming and outgoing messages
   - parsed actions, plans, confirmations, and capability results
-  - setting changes, job runs, generated content ideas, suggestions, and feedback
+  - setting changes, job runs, generated content ideas, recommendations, and feedback
 - Successful Google Sheets appends
   - topic rows become `content.topic.registered` events and `topic` artifacts
   - shopping rows become `shopping.item.recorded` events and `shopping_item` artifacts
@@ -142,7 +142,7 @@ Current write paths are:
 - Derived memory
   - selected setting actions update preference nodes
   - accepted aliases update domain knowledge
-  - suggestion and content-idea feedback update preference nodes
+  - artifact feedback updates preference nodes; Recommendation feedback updates its lifecycle
 
 Collection happens after a successful row append for topics and shopping items.
 It does not currently backfill existing Sheets rows or track later row edits.
@@ -248,10 +248,9 @@ trusting mutable display text or caller-provided boolean flags.
 
 Feedback becomes lifecycle evidence only when its target carries a controlled
 content domain. Content ideas and topics map to blog feedback; shopping item
-artifacts map to shopping feedback. Generic workflow suggestions and ordinary
-confirmation decisions remain outside content lifecycle scoring. Telegram
-callback identity makes repeated delivery idempotent while preserving the
-existing suggestion/artifact preference projections.
+artifacts map to shopping feedback. Recommendations and confirmation decisions
+remain outside content lifecycle scoring. Telegram callback identity makes
+repeated delivery idempotent while preserving recommendation and artifact feedback.
 
 Topic registration preserves subject, category, platform, keywords, instruction,
 and source in compact event/artifact payloads. Migration `003_topic_semantics`
@@ -278,11 +277,9 @@ reconciliation command records explicit `recommendation.reactivated` and `recomm
 events. Each command requires an operation identity and commits its event and
 projection in one SQLite transaction.
 
-Legacy Agent and topic paths enter this lifecycle through adapters. New generic
-`agent.suggestions` results are not materialized as suggestion rows; the bounded
-suggestion projection remains only for Agent confirmation and historic feedback
-compatibility. Existing `suggestion_feedback.*` preferences can temporarily
-suppress adapted legacy signals but are never copied into recommendation rows.
+Agent-requested and proactive product recommendations share this lifecycle and
+public Recommendation contract. Agent confirmations are stored separately in
+the bounded confirmation projection and do not become Recommendations.
 
 Canonical recommendation feedback is an observational `recommendation.feedback_recorded` fact with
 the strict values `helpful` and `not_helpful`. Negative feedback is followed by an explicit dismiss
@@ -422,7 +419,7 @@ lifecycle identity, transaction and volatile fallback behavior remain centralize
 - Local owner identity remains independent in `data/identity/owner.json` and survives memory reseeding.
 - Messages expire after 30 days and are capped at 500 per conversation.
 - Raw events expire after 90 days and are capped at 10,000 per owner.
-- Artifacts and suggestions expire after 180 days and are capped per owner.
+- Artifacts and confirmations expire after 180 days and are capped per owner.
 - Terminal recommendations expire after 30 days and are capped at 500 per owner; lifecycle events are capped at 2,000 per owner.
 - Topic affinity is compact, decayed over time, and removed only after becoming both old and insignificant.
 - Maintenance is bounded, starts outside the critical UI startup path, and repeats every six hours while the app runs.

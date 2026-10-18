@@ -31,10 +31,10 @@ The target path is being introduced alongside the current control path. Product 
   - SQLite-backed event-first memory, retrieval, preferences, and domain knowledge.
 - `src/knowledge/`
   - External/internal knowledge provider framework.
-- `src/suggestions/`
-  - Recommendation engine based on memory and knowledge providers.
+- `src/services/recommendations/`
+  - Shared cross-Application recommendation lifecycle, producers, policy, persistence adapters, and delivery.
 - `src/content-ideas/`
-  - Content idea generation lane separated from operational suggestions.
+  - Blog content-idea generation, distinct from the cross-Application Recommendation lifecycle.
 
 ## Design Principles
 - Capability-based control over raw config mutation.

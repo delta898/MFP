@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createRecommendation } = require('../../recommendations/core/test-fixtures');
-const { createVolatileRecommendationStore } = require('../../recommendations/lifecycle-store');
+const { createRecommendation } = require('../../services/recommendations/core/test-fixtures');
+const { createVolatileRecommendationStore } = require('../../services/recommendations/lifecycle-store');
 const { createRecommendationCenterService, SNOOZE_MS } = require('./recommendation-center.service');
 
 const NOW = '2026-08-23T03:00:00.000Z';

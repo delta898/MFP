@@ -7,9 +7,9 @@ const ROOT = path.resolve(__dirname, '../../..');
 const AI_FREE_RUNTIME_FILES = [
     'src/ui-runtime/recommendation-runtime.js',
     'src/ui-api/services/recommendation-refresh.service.js',
-    'src/recommendations/delivery/scheduler.js',
-    'src/recommendations/producers/content-knowledge-collector.js',
-    'src/recommendations/producers/content-opportunity.js'
+    'src/services/recommendations/delivery/scheduler.js',
+    'src/services/recommendations/producers/content-knowledge-collector.js',
+    'src/services/recommendations/producers/content-opportunity.js'
 ];
 
 test('proactive discovery runtime has no generative AI dependency or invocation', () => {

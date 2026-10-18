@@ -60,8 +60,8 @@ function createKeywordsService(deps = {}) {
             }));
         },
 
-        async quickPublishSuggestions(requestBody = {}) {
-            return keywordResearchService.suggestQuickPublish(requestBody);
+        async quickPublishRecommendations(requestBody = {}) {
+            return keywordResearchService.recommendQuickPublish(requestBody);
         }
     };
 }

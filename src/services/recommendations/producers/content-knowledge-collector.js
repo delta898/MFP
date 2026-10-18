@@ -1,4 +1,4 @@
-const { normalizeKnowledgeSnapshot } = require('../../knowledge/contracts/snapshot');
+const { normalizeKnowledgeSnapshot } = require('../../../knowledge/contracts/snapshot');
 const { buildContentNewsQueryPlan } = require('./content-query-plan');
 
 const MAX_NEWS_QUERIES = 3;

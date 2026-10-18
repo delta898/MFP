@@ -1,13 +1,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { validateRecommendationCandidate } = require('../core/validators');
-const { createMemoryBasedSuggestionProvider } = require('./legacy-memory-candidate-adapter');
+const { createMemoryContextRecommendationProducer } = require('../producers/memory-context');
 const { createRecommendationMaterializer } = require('./recommendation-materializer');
 const { createVolatileRecommendationStore } = require('../lifecycle-store');
 
 async function candidateFixture() {
-    const provider = createMemoryBasedSuggestionProvider({ now: () => Date.parse('2026-08-23T06:00:00.000Z') });
-    const result = await provider.generate({}, {
+    const producer = createMemoryContextRecommendationProducer({ now: () => Date.parse('2026-08-23T06:00:00.000Z') });
+    const result = await producer.produce({}, {
         memory: { owner_memory: { owner_user_id: 'owner-local' }, preferences: [], pending_confirmations: [], recent_job_runs: [{ id: 'job-1', job_name: 'trends', status: 'failed' }] },
         knowledge: []
     });
@@ -25,7 +25,7 @@ test('materializer uses stable recommendation and operation identities', async (
     };
     const candidate = await candidateFixture();
     const materializer = createRecommendationMaterializer({ eventStore, now: () => Date.parse(candidate.created_at) });
-    const policy = { policy_id: 'legacy-suggestion-compat-v1', policy_version: 1, eligible: true, suppression_reasons: [], score: 1, rank: 1, breakdown: {}, decided_at: candidate.created_at };
+    const policy = { policy_id: 'request-context-v1', policy_version: 1, eligible: true, suppression_reasons: [], score: 1, rank: 1, breakdown: {}, decided_at: candidate.created_at };
     const first = await materializer.materialize(candidate, policy, { opportunity_key: candidate.dedupe_key });
     const second = await materializer.materialize(candidate, policy, { opportunity_key: candidate.dedupe_key });
     assert.equal(first.recommendation.recommendation_id, second.recommendation.recommendation_id);
@@ -40,7 +40,7 @@ test('materialization failure returns safe non-persistent canonical output', asy
         Logger: { warn: (message) => warnings.push(message) }, now: () => Date.parse(candidate.created_at)
     });
     const result = await materializer.materialize(candidate, {
-        policy_id: 'legacy-suggestion-compat-v1', policy_version: 1, eligible: true,
+        policy_id: 'request-context-v1', policy_version: 1, eligible: true,
         suppression_reasons: [], score: 1, rank: 1, breakdown: {}, decided_at: candidate.created_at
     }, { opportunity_key: candidate.dedupe_key });
     assert.equal(result.persisted, false);
@@ -61,7 +61,7 @@ test('a terminal candidate can be delivered again as a new recommendation instan
         now: () => Date.parse(candidate.created_at)
     });
     const policy = {
-        policy_id: 'legacy-suggestion-compat-v1', policy_version: 1, eligible: true,
+        policy_id: 'request-context-v1', policy_version: 1, eligible: true,
         suppression_reasons: [], score: 1, rank: 1, breakdown: {}, decided_at: candidate.created_at
     };
     const first = await materializer.materialize(candidate, policy, {

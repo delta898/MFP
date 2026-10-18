@@ -7,7 +7,7 @@ function createKeywordsRouteHandler(deps = {}) {
             '/api/v1/keywords/analyze': controller.analyze,
             '/api/v1/keywords/suggest-titles': controller.suggestTitles,
             '/api/v1/keywords/pipeline': controller.pipeline,
-            '/api/v1/blog/quick-publish/smart-suggestions': controller.quickPublishSuggestions
+            '/api/v1/blog/quick-publish/recommendations': controller.quickPublishRecommendations
         };
         const handler = handlers[ctx.pathname];
         if (!handler) return false;

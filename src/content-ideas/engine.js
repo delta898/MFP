@@ -1,9 +1,9 @@
-const { createTopicCandidateGenerator } = require('../recommendations/topic-candidate-generator');
-const { rankTopicCandidates } = require('../recommendations/topic-ranking-policy');
+const { createTopicCandidateGenerator } = require('../services/recommendations/topic-candidate-generator');
+const { rankTopicCandidates } = require('../services/recommendations/topic-ranking-policy');
 const {
     createRecommendationRunId,
     buildRecommendationContext
-} = require('../recommendations/topic-recommendation-learning');
+} = require('../services/recommendations/topic-recommendation-learning');
 const Logger = require('../utilities/logging/logger');
 
 function compactLog(value, maxLength = 180) {

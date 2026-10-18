@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const {
     formatContentRequestMessage,
     buildContentRequestKeyboard,
-    buildSuggestionKeyboard
+    buildRecommendationKeyboard
 } = require('./agent-renderer');
 
 test('renderer keeps register-only UI simple and hides publish controls', () => {
@@ -49,13 +49,12 @@ test('renderer keeps register-only UI simple and hides publish controls', () => 
 });
 
 test('renderer uses bounded recommendation feedback callbacks and skips pending confirmations', () => {
-    const rows = buildSuggestionKeyboard([{ result: { data: { suggestions: [
-        { id: 'confirm-1', type: 'next_action', feedback_enabled: false },
-        { id: 'rec_1234567890abcdef', feedback_transport: 'recommendation', feedback_enabled: true }
+    const rows = buildRecommendationKeyboard([{ result: { data: { recommendations: [
+        { recommendation_id: 'rec_1234567890abcdef', feedback_enabled: true }
     ] } } }]);
     assert.deepEqual(rows, [[
-        { text: '👍 도움됨 1.2', callback_data: 'rec_fb:h:rec_1234567890abcdef' },
-        { text: '👎 별로 1.2', callback_data: 'rec_fb:n:rec_1234567890abcdef' }
+        { text: '👍 도움됨 1.1', callback_data: 'rec_fb:h:rec_1234567890abcdef' },
+        { text: '👎 별로 1.1', callback_data: 'rec_fb:n:rec_1234567890abcdef' }
     ]]);
     rows.flat().forEach((button) => assert.equal(Buffer.byteLength(button.callback_data) <= 64, true));
 });

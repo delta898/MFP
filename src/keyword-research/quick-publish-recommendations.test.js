@@ -1,10 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-    buildQuickPublishSuggestionResponse,
-    createQuickPublishSuggestionService,
+    buildQuickPublishRecommendationResponse,
+    createQuickPublishRecommendationService,
     normalizeQuickPublishInput
-} = require('./quick-publish-suggestion');
+} = require('./quick-publish-recommendations');
 
 test('normalizeQuickPublishInput resolves subject, keywords, and title mode', () => {
     const input = normalizeQuickPublishInput({
@@ -27,8 +27,8 @@ test('normalizeQuickPublishInput falls back from keyword to subject', () => {
     assert.deepEqual(input.keywords, ['AI 글쓰기']);
 });
 
-test('buildQuickPublishSuggestionResponse returns reviewable apply payloads', () => {
-    const response = buildQuickPublishSuggestionResponse(
+test('buildQuickPublishRecommendationResponse returns reviewable apply payloads', () => {
+    const response = buildQuickPublishRecommendationResponse(
         {
             subject: '블로그 자동화 시작법',
             keywords: ['블로그 자동화'],
@@ -60,18 +60,18 @@ test('buildQuickPublishSuggestionResponse returns reviewable apply payloads', ()
     );
 
     assert.equal(response.mode, 'review');
-    assert.equal(response.suggestions.length, 1);
-    assert.equal(response.suggestions[0].keyword, '네이버 블로그 자동화');
-    assert.equal(response.suggestions[0].metrics.weekly_new_blog_documents.count, 12);
-    assert.equal(response.suggestions[0].title_candidates.length, 1);
-    assert.equal(response.suggestions[0].title_candidates[0].apply_payload.subject, '네이버 블로그 자동화 시작 전 확인할 기본 설정');
-    assert.deepEqual(response.suggestions[0].title_candidates[0].apply_payload.keywords, ['네이버 블로그 자동화']);
+    assert.equal(response.recommendations.length, 1);
+    assert.equal(response.recommendations[0].keyword, '네이버 블로그 자동화');
+    assert.equal(response.recommendations[0].metrics.weekly_new_blog_documents.count, 12);
+    assert.equal(response.recommendations[0].title_candidates.length, 1);
+    assert.equal(response.recommendations[0].title_candidates[0].apply_payload.subject, '네이버 블로그 자동화 시작 전 확인할 기본 설정');
+    assert.deepEqual(response.recommendations[0].title_candidates[0].apply_payload.keywords, ['네이버 블로그 자동화']);
     assert.equal(response.fallback.apply_payload.subject, '블로그 자동화 시작법');
 });
 
-test('createQuickPublishSuggestionService delegates to keyword pipeline', async () => {
+test('createQuickPublishRecommendationService delegates to keyword pipeline', async () => {
     const calls = [];
-    const service = createQuickPublishSuggestionService({
+    const service = createQuickPublishRecommendationService({
         keywordResearchService: {
             async researchAndSuggestTitles(input) {
                 calls.push(input);
@@ -87,7 +87,7 @@ test('createQuickPublishSuggestionService delegates to keyword pipeline', async 
         }
     });
 
-    const result = await service.suggest({
+    const result = await service.recommend({
         subject: 'AI로 블로그 글 쓰기',
         keywords: 'AI 글쓰기',
         writingStrategy: 'search'
@@ -96,5 +96,5 @@ test('createQuickPublishSuggestionService delegates to keyword pipeline', async 
     assert.equal(calls.length, 1);
     assert.deepEqual(calls[0].keywords, ['AI 글쓰기']);
     assert.equal(calls[0].title_mode, 'search');
-    assert.equal(result.suggestions[0].title_candidates[0].title, 'AI 블로그 글쓰기 초보자가 먼저 정할 것');
+    assert.equal(result.recommendations[0].title_candidates[0].title, 'AI 블로그 글쓰기 초보자가 먼저 정할 것');
 });

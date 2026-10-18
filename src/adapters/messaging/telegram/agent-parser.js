@@ -7,7 +7,7 @@ function buildEnvelope(conversationId, messageId, actions = []) {
         actions,
         legacy_actions: [],
         meta: {},
-        reply: { text: '', suggestion: '' }
+        reply: { text: '', recommendation: '' }
     };
 }
 
@@ -201,7 +201,7 @@ async function routeTelegramMessage(messageText, context = {}) {
 5. agent.meta.get_identity
 6. agent.meta.get_current_time
 7. agent.preferences.get_summary
-8. agent.suggestions.get
+8. agent.recommendations.get
 9. content.idea.suggest
 10. settings.chat_model.get_summary
 
@@ -236,7 +236,7 @@ async function routeTelegramMessage(messageText, context = {}) {
 - 사용자의 일반 질문, 인사, 의견 교환, 설명 요청은 route="reply"로 직접 답하세요. 실행 action을 추측하지 마세요.
 - 기능 실행이 불가능하거나 요청이 불명확하면 route="unsupported"로 현재 가능한 범위와 다음 선택지를 자연스럽게 설명하세요.
 - 직접 답변만 있을 때 reply의 text에 답을 넣습니다. 실행 요청에도 도움이 되는 짧은 설명을 붙일 수 있습니다.
-- 요청한 일에 먼저 답한 뒤, 더 나은 방법이 실제로 도움이 될 때만 reply의 suggestion에 이유와 함께 제안을 씁니다. 제안은 실행하지 않으며, 요청을 대체하지 않습니다.
+- 요청한 일에 먼저 답한 뒤, 도움이 될 추천이 있을 때만 reply의 recommendation에 이유와 함께 씁니다. 추천은 실행하지 않으며, 요청을 대체하지 않습니다.
 - legacy 동작을 기존 범위보다 넓히지 마세요. actions와 legacy_actions를 동시에 채우지 마세요.
 
 [파라미터 규칙]
@@ -248,7 +248,7 @@ async function routeTelegramMessage(messageText, context = {}) {
 - "그거 적용해", "그거 취소해", "아까 그거 적용", "방금 대기 중인 거 취소" 같은 질의는 agent.pending.apply_latest / agent.pending.reject_latest 로 해석
 - "넌 누구니", "너 뭐하는 봇이야", "사용법이 어떻게 돼", "어떻게 써?", "지금 몇시야?" 같은 질의는 agent.meta.get_identity / agent.meta.get_help / agent.meta.get_current_time 로 해석
 - "내 성향 알려줘", "내 선호 요약 보여줘", "내가 어떤 설정을 선호하는지 알려줘" 같은 질의는 agent.preferences.get_summary 로 해석
-- "추천해줘", "지금 기준으로 추천할 것 있어?", "다음에 뭘 하면 좋을까?" 같은 질의는 agent.suggestions.get 으로 해석
+- "추천해줘", "지금 기준으로 추천할 것 있어?", "다음에 뭘 하면 좋을까?" 같은 질의는 agent.recommendations.get 으로 해석
 - "글감 추천해줘", "새로운 글감 하나 추천해줄래?", "주제 아이디어 줘", "콘텐츠 아이디어 추천해줘" 같은 질의는 content.idea.suggest 로 해석
 - 글감 추천은 params에 { "limit": 1~5, "query": "사용자 요청에서 추출한 주제나 원문" } 형태로 작성
 
@@ -287,7 +287,7 @@ ${pendingConfirmations.length > 0 ? pendingConfirmations.map((item) => {
     {
       "id": "act_1",
       "type": "agent.query | agent.command | setting.query | setting.update | job.run | content.generate",
-      "domain": "agent.pending | agent.meta | agent.preferences | agent.suggestions | content.idea | settings.chat_model",
+      "domain": "agent.pending | agent.meta | agent.preferences | agent.recommendations | content.idea | settings.chat_model",
       "name": "get | apply_latest | reject_latest | get_help | get_identity | get_current_time | get_summary | suggest",
       "params": {},
       "reason": "간단한 한국어 설명"
@@ -297,7 +297,7 @@ ${pendingConfirmations.length > 0 ? pendingConfirmations.map((item) => {
     { "action": "register_topic | publish_article | update_config | run_job | query_data", "params": {} }
   ],
   "meta": { "explicit_params": [] },
-  "reply": { "text": "직접 답변 또는 실행 전 설명", "suggestion": "선택적 제안; 없으면 빈 문자열" }
+  "reply": { "text": "직접 답변 또는 실행 전 설명", "recommendation": "선택적 추천; 없으면 빈 문자열" }
 }
 
 [사용자 메시지]
@@ -340,7 +340,7 @@ ${messageText}`;
             meta: parsed?.meta && typeof parsed.meta === 'object' ? parsed.meta : {},
             reply: {
                 text: String(reply.text || '').trim(),
-                suggestion: String(reply.suggestion || '').trim()
+                recommendation: String(reply.recommendation || '').trim()
             }
         };
     } catch (error) {

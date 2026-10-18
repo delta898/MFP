@@ -1,5 +1,5 @@
 const Logger = require('../utilities/logging/logger');
-const { createVolatileRecommendationStore } = require('../recommendations/lifecycle-store');
+const { createVolatileRecommendationStore } = require('../services/recommendations/lifecycle-store');
 const { SQLiteEventStore } = require('./sqlite-event-store');
 const {
     MEMORY_SIZE_THRESHOLDS,

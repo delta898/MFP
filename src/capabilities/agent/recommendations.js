@@ -1,11 +1,11 @@
-function createAgentSuggestionCapabilities(deps = {}) {
-    const { suggestionEngine } = deps;
+function createAgentRecommendationCapabilities(deps = {}) {
+    const { recommendationRequestService } = deps;
 
     return [
         {
-            id: 'agent.suggestions.get',
+            id: 'agent.recommendations.get',
             type: 'agent.query',
-            domain: 'agent.suggestions',
+            domain: 'agent.recommendations',
             confirmPolicy: 'never',
             validate(params = {}) {
                 const limit = Number.isFinite(Number(params.limit)) ? Math.max(1, Math.min(5, Number(params.limit))) : 3;
@@ -19,35 +19,35 @@ function createAgentSuggestionCapabilities(deps = {}) {
                 };
             },
             async execute(params = {}, context = {}) {
-                if (!suggestionEngine || typeof suggestionEngine.generateSuggestions !== 'function') {
+                if (!recommendationRequestService || typeof recommendationRequestService.getRecommendations !== 'function') {
                     return {
                         success: true,
                         message: '현재 추천 엔진이 준비되지 않았습니다.',
-                        data: { suggestions: [] },
+                        data: { recommendations: [] },
                         sideEffects: []
                     };
                 }
 
-                const result = await suggestionEngine.generateSuggestions({
+                const result = await recommendationRequestService.getRecommendations({
                     limit: params.limit || 3
                 }, context);
 
-                const suggestions = Array.isArray(result?.suggestions) ? result.suggestions : [];
-                if (suggestions.length === 0) {
+                const recommendations = Array.isArray(result?.recommendations) ? result.recommendations : [];
+                if (recommendations.length === 0) {
                     return {
                         success: true,
                         message: '현재 바로 드릴 추천이 없습니다.',
-                        data: { suggestions: [], knowledge: result?.knowledge || [] },
+                        data: { recommendations: [], knowledge: result?.knowledge || [] },
                         sideEffects: []
                     };
                 }
 
-                const lines = suggestions.map((item, index) => `${index + 1}. ${item.summary}`);
+                const lines = recommendations.map((item, index) => `${index + 1}. ${item.summary}`);
                 return {
                     success: true,
                     message: `현재 기준 추천입니다.\n${lines.join('\n')}`,
                     data: {
-                        suggestions,
+                        recommendations,
                         knowledge: result?.knowledge || []
                     },
                     sideEffects: []
@@ -58,5 +58,5 @@ function createAgentSuggestionCapabilities(deps = {}) {
 }
 
 module.exports = {
-    createAgentSuggestionCapabilities
+    createAgentRecommendationCapabilities
 };

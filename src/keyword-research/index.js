@@ -8,7 +8,7 @@ const {
     prepareKeywordPlan
 } = require('./keyword-metrics-engine');
 const { createTitleGenerator, normalizeTitleMode } = require('./title-generator');
-const { createQuickPublishSuggestionService } = require('./quick-publish-suggestion');
+const { createQuickPublishRecommendationService } = require('./quick-publish-recommendations');
 const { createKeywordResearchSupabaseClient } = require('./supabase-client');
 const { resolveSupabasePublicConnection } = require('../environment/runtime-profile');
 
@@ -48,7 +48,7 @@ function createKeywordResearchService(options = {}) {
         });
         return supabaseClient;
     }
-    const quickPublishSuggestionService = options.quickPublishSuggestionService || createQuickPublishSuggestionService({
+    const quickPublishRecommendationService = options.quickPublishRecommendationService || createQuickPublishRecommendationService({
         keywordResearchService: {
             researchAndSuggestTitles
         }
@@ -133,14 +133,14 @@ function createKeywordResearchService(options = {}) {
         analyze,
         suggestTitles,
         researchAndSuggestTitles,
-        suggestQuickPublish: quickPublishSuggestionService.suggest,
+        recommendQuickPublish: quickPublishRecommendationService.recommend,
         titleGenerator
     };
 }
 
 module.exports = {
     createTitleGenerator,
-    createQuickPublishSuggestionService,
+    createQuickPublishRecommendationService,
     createKeywordResearchSupabaseClient,
     prepareKeywordPlan,
     buildKeywordAnalysis,

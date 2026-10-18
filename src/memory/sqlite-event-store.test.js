@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createRecommendation } = require('../recommendations/core/test-fixtures');
+const { createRecommendation } = require('../services/recommendations/core/test-fixtures');
 const { createRecommendationCenterService } = require('../ui-api/services/recommendation-center.service');
 const { SQLiteEventStore, SQLITE_MEMORY_FILENAME } = require('./sqlite-event-store');
 
@@ -238,33 +238,24 @@ test('content.generate 결과는 글감 artifact와 feedback target으로 이어
     } finally { f.close(); }
 });
 
-test('제안 feedback은 이전 event의 feedback key를 재사용해 preference를 누적한다', async () => {
+test('확인 요청 상태는 Recommendation 데이터와 분리해 보관한다', async () => {
     const f = fixture();
     try {
         await f.store.appendEvent({
-            event_type: 'suggestion.accepted',
-            actor_type: 'user',
-            actor_id: 'writer',
-            payload: {
-                suggestion_id: 'suggestion:sqlite',
-                type: 'content_idea',
-                summary: 'SQLite 글감',
-                feedback_key: 'sqlite-memory'
-            }
+            event_type: 'agent.confirmation.requested',
+            actor_type: 'agent',
+            actor_id: 'agent',
+            payload: { id: 'confirmation:sqlite', actions: [], previews: [{ preview: { summary: '설정 변경' } }] }
         });
         await f.store.appendEvent({
-            event_type: 'suggestion.helpful',
+            event_type: 'agent.confirmation.accepted',
             actor_type: 'user',
             actor_id: 'writer',
-            payload: { suggestion_id: 'suggestion:sqlite' }
+            payload: { confirmation_id: 'confirmation:sqlite' }
         });
 
-        const [preference] = await f.store.listUserPreferences('writer');
-        assert.equal(preference.name, 'suggestion_feedback.sqlite-memory');
-        assert.equal(preference.value.accepted_count, 1);
-        assert.equal(preference.value.helpful_count, 1);
-        assert.equal(preference.evidence_count, 2);
-        assert.equal(f.store.database.get('SELECT status FROM suggestions WHERE id = :id', { id: 'suggestion:sqlite' }).status, 'helpful');
+        assert.equal(f.store.database.get('SELECT status FROM confirmations WHERE id = :id', { id: 'confirmation:sqlite' }).status, 'accepted');
+        assert.equal(f.store.database.get("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'suggestions'"), undefined);
     } finally { f.close(); }
 });
 

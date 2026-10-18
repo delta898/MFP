@@ -1,4 +1,4 @@
-const { flattenTrendKnowledge, normalizeKey } = require('../recommendations/topic-candidate-generator');
+const { flattenTrendKnowledge, normalizeKey } = require('../services/recommendations/topic-candidate-generator');
 
 function compact(value, maxLength = 120) {
     return String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, maxLength);

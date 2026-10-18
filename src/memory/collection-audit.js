@@ -9,7 +9,7 @@ function logicalEventKey(event = {}) {
         provenance.request_id
         || payload.evidence_id
         || payload.artifact_id
-        || payload.suggestion_id
+        || payload.recommendation_id
         || event.message_id
     );
     return reference ? `${text(event.event_type)}:${reference}` : '';

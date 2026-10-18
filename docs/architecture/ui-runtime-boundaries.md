@@ -49,7 +49,7 @@ This document captures the current runtime boundaries after the CLI-removal refa
 - `src/ui-api/services/recommendation-refresh.service.js`
   - Composes Memory, operational state, bounded Knowledge, producers and policy evaluation for an on-demand refresh.
   - Coalesces concurrent refreshes and applies a 15-minute process-local TTL; it does not own background scheduling.
-- `src/recommendations/delivery/scheduler.js`
+- `src/services/recommendations/delivery/scheduler.js`
   - Starts the same refresh pipeline after HTTP listen and owns periodic timing, persisted next-run state,
     single catch-up, concurrent-run coalescing and provider-failure backoff.
   - It never imports UI modules or reimplements producer/policy decisions.
@@ -113,7 +113,7 @@ When `관심 없음` succeeds, the interaction response may contain one server-s
 The browser replaces only that card in place and cannot request a provider or inject a source. If no
 grounded replacement is created, it falls back to the normal owner-scoped list read.
 The UI API derives the installation-local owner, records lifecycle interactions and passes only that
-owner plus Recommendation id to `src/recommendations/handoff/service.js`. Presentation targets are
+owner plus Recommendation id to `src/services/recommendations/handoff/service.js`. Presentation targets are
 allowlisted again in the browser before navigation. An empty first read may invoke one bounded,
 server-side evaluation so the center is usable before proactive scheduling exists. App-start and
 background triggers remain outside this surface.

@@ -9,7 +9,7 @@ const { buildOwnerActivitySignalSummary } = require('./owner-activity-signals');
 const { buildOwnerProfileProjection } = require('./owner-profile');
 const { buildMemoryCollectionAudit } = require('./collection-audit');
 const { resolveArtifactFeedbackTarget } = require('./feedback-target');
-const { RecommendationLifecycleStore } = require('../recommendations/lifecycle-store');
+const { RecommendationLifecycleStore } = require('../services/recommendations/lifecycle-store');
 const { SQLiteDatabase } = require('./sqlite-database');
 const { SQLiteRecommendationRepository } = require('./sqlite-recommendation-repository');
 
@@ -136,18 +136,18 @@ class SQLiteEventStore extends MemoryPayloadCodec {
                 FOREIGN KEY(action_id) REFERENCES actions(id) ON DELETE SET NULL
             ) STRICT;
             CREATE INDEX IF NOT EXISTS idx_artifacts_owner_type_time ON artifacts(owner_id, artifact_type, occurred_at DESC);
-            CREATE TABLE IF NOT EXISTS suggestions (
+            CREATE TABLE IF NOT EXISTS confirmations (
                 id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, event_id TEXT,
                 type TEXT NOT NULL, summary TEXT NOT NULL, payload_json TEXT NOT NULL,
                 status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
                 FOREIGN KEY(owner_id) REFERENCES owners(id) ON DELETE CASCADE,
                 FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE SET NULL
             ) STRICT;
-            CREATE INDEX IF NOT EXISTS idx_suggestions_owner_time ON suggestions(owner_id, updated_at DESC);
-            CREATE TABLE IF NOT EXISTS suggestion_actions (
-                suggestion_id TEXT NOT NULL, action_id TEXT NOT NULL,
-                PRIMARY KEY(suggestion_id, action_id),
-                FOREIGN KEY(suggestion_id) REFERENCES suggestions(id) ON DELETE CASCADE,
+            CREATE INDEX IF NOT EXISTS idx_confirmations_owner_time ON confirmations(owner_id, updated_at DESC);
+            CREATE TABLE IF NOT EXISTS confirmation_actions (
+                confirmation_id TEXT NOT NULL, action_id TEXT NOT NULL,
+                PRIMARY KEY(confirmation_id, action_id),
+                FOREIGN KEY(confirmation_id) REFERENCES confirmations(id) ON DELETE CASCADE,
                 FOREIGN KEY(action_id) REFERENCES actions(id) ON DELETE CASCADE
             ) STRICT;
             CREATE TABLE IF NOT EXISTS topic_facets (
@@ -182,6 +182,25 @@ class SQLiteEventStore extends MemoryPayloadCodec {
             ) STRICT;
             CREATE INDEX IF NOT EXISTS idx_domain_knowledge_domain_time ON domain_knowledge(domain, updated_at DESC);
         `);
+        this._migrateLegacySuggestionTables();
+    }
+
+    _migrateLegacySuggestionTables() {
+        const hasSuggestions = this.database.get("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'suggestions'");
+        if (!hasSuggestions) return;
+        this.database.transaction(() => {
+            this.database.run(`INSERT OR IGNORE INTO confirmations(
+                id, owner_id, event_id, type, summary, payload_json, status, created_at, updated_at
+            ) SELECT id, owner_id, event_id, type, summary, payload_json, status, created_at, updated_at FROM suggestions WHERE type = 'confirmation'`);
+            const hasActions = this.database.get("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'suggestion_actions'");
+            if (hasActions) {
+                this.database.run(`INSERT OR IGNORE INTO confirmation_actions(confirmation_id, action_id)
+                    SELECT suggestion_id, action_id FROM suggestion_actions
+                    WHERE suggestion_id IN (SELECT id FROM suggestions WHERE type = 'confirmation')`);
+                this.database.exec('DROP TABLE suggestion_actions');
+            }
+            this.database.exec('DROP TABLE suggestions');
+        });
     }
 
     _ensureOwner(owner = {}) {
@@ -332,15 +351,15 @@ class SQLiteEventStore extends MemoryPayloadCodec {
         return this._upsertPreference({ name, value, absoluteConfidence: total ? positive / total : 0, evidenceDelta: 1 }, { userId: actor, timestamp });
     }
 
-    _upsertSuggestion(suggestion = {}, meta = {}) {
-        const id = String(suggestion.id || '').trim();
+    _upsertConfirmation(confirmation = {}, meta = {}) {
+        const id = String(confirmation.id || '').trim();
         if (!id) return null;
-        const existing = this.database.get('SELECT created_at, payload_json FROM suggestions WHERE id = :id', { id });
-        const payload = suggestion.payload && typeof suggestion.payload === 'object'
-            ? suggestion.payload
+        const existing = this.database.get('SELECT created_at, payload_json FROM confirmations WHERE id = :id', { id });
+        const payload = confirmation.payload && typeof confirmation.payload === 'object'
+            ? confirmation.payload
             : json(existing?.payload_json);
         const timestamp = iso(meta.timestamp);
-        this.database.run(`INSERT INTO suggestions(
+        this.database.run(`INSERT INTO confirmations(
             id, owner_id, event_id, type, summary, payload_json, status, created_at, updated_at
         ) VALUES (:id, :owner_id, :event_id, :type, :summary, :payload_json, :status, :created_at, :updated_at)
         ON CONFLICT(id) DO UPDATE SET
@@ -349,18 +368,18 @@ class SQLiteEventStore extends MemoryPayloadCodec {
             id,
             owner_id: meta.ownerId,
             event_id: meta.eventId || null,
-            type: String(suggestion.type || 'recommendation'),
-            summary: String(suggestion.summary || ''),
+            type: String(confirmation.type || 'confirmation'),
+            summary: String(confirmation.summary || ''),
             payload_json: JSON.stringify(payload || {}),
-            status: String(suggestion.status || 'proposed'),
+            status: String(confirmation.status || 'pending'),
             created_at: existing?.created_at || timestamp,
             updated_at: timestamp
         });
         for (const actionId of Array.isArray(meta.actionIds) ? meta.actionIds : []) {
             if (!String(actionId || '').trim()) continue;
             if (!this.database.get('SELECT 1 FROM actions WHERE id = :id', { id: String(actionId).trim() })) continue;
-            this.database.run('INSERT OR IGNORE INTO suggestion_actions(suggestion_id, action_id) VALUES (:suggestion_id, :action_id)', {
-                suggestion_id: id,
+            this.database.run('INSERT OR IGNORE INTO confirmation_actions(confirmation_id, action_id) VALUES (:confirmation_id, :action_id)', {
+                confirmation_id: id,
                 action_id: String(actionId).trim()
             });
         }
@@ -406,7 +425,7 @@ class SQLiteEventStore extends MemoryPayloadCodec {
             }, event.timestamp);
         }
         if (type === 'agent.confirmation.requested' && payload.id) {
-            this._upsertSuggestion({
+            this._upsertConfirmation({
                 id: payload.id,
                 type: 'confirmation',
                 summary: Array.isArray(payload.previews) && payload.previews[0]
@@ -422,7 +441,7 @@ class SQLiteEventStore extends MemoryPayloadCodec {
             });
         }
         if (['agent.confirmation.accepted', 'agent.confirmation.rejected'].includes(type) && payload.confirmation_id) {
-            this._upsertSuggestion({
+            this._upsertConfirmation({
                 id: payload.confirmation_id,
                 type: 'confirmation',
                 summary: '확인 요청',
@@ -433,26 +452,6 @@ class SQLiteEventStore extends MemoryPayloadCodec {
             const artifact = this.database.get('SELECT title, payload_json FROM artifacts WHERE id = :id', { id: String(payload.artifact_id) });
             const artifactPayload = json(artifact?.payload_json);
             this._recordFeedbackPreference('artifact', artifactPayload.feedback_key || artifact?.title, type.endsWith('helpful') && !type.endsWith('not_helpful') ? 'helpful' : 'not_helpful', event.actor_id, event.timestamp);
-        }
-        if (['suggestion.accepted', 'suggestion.rejected', 'suggestion.helpful', 'suggestion.not_helpful'].includes(type) && payload.suggestion_id) {
-            const existing = this.database.get('SELECT type, summary, payload_json FROM suggestions WHERE id = :id', {
-                id: String(payload.suggestion_id)
-            });
-            const existingPayload = json(existing?.payload_json);
-            const feedback = type.split('.').pop();
-            const feedbackKey = String(payload.feedback_key || existingPayload.feedback_key || '').trim();
-            const suggestionPayload = payload.payload && typeof payload.payload === 'object'
-                ? this._summarizeSuggestionPayload(payload.payload)
-                : existingPayload;
-            if (feedbackKey) suggestionPayload.feedback_key = feedbackKey;
-            this._upsertSuggestion({
-                id: payload.suggestion_id,
-                type: payload.type || existing?.type || 'recommendation',
-                summary: payload.summary || existing?.summary || '',
-                payload: suggestionPayload,
-                status: feedback
-            }, { ownerId: meta.ownerId, eventId: meta.eventId, timestamp: event.timestamp });
-            this._recordFeedbackPreference('suggestion', feedbackKey, feedback, event.actor_id, event.timestamp);
         }
         if (type === 'agent.intent.parsed' && Array.isArray(payload.envelope?.actions)) {
             for (const action of payload.envelope.actions) {
@@ -804,11 +803,11 @@ class SQLiteEventStore extends MemoryPayloadCodec {
                 SELECT id FROM (SELECT id, row_number() OVER (PARTITION BY owner_id ORDER BY occurred_at DESC, id DESC) AS position FROM artifacts)
                 WHERE position > 2000 LIMIT :limit
             )`, { limit: batchSize });
-            const suggestions = this.database.run(`DELETE FROM suggestions WHERE id IN (
-                SELECT id FROM suggestions WHERE updated_at < :cutoff ORDER BY updated_at ASC LIMIT :limit
+            const confirmations = this.database.run(`DELETE FROM confirmations WHERE id IN (
+                SELECT id FROM confirmations WHERE updated_at < :cutoff ORDER BY updated_at ASC LIMIT :limit
             )`, { cutoff: cutoff(180), limit: batchSize });
-            const suggestionCap = this.database.run(`DELETE FROM suggestions WHERE id IN (
-                SELECT id FROM (SELECT id, row_number() OVER (PARTITION BY owner_id ORDER BY updated_at DESC, id DESC) AS position FROM suggestions)
+            const confirmationCap = this.database.run(`DELETE FROM confirmations WHERE id IN (
+                SELECT id FROM (SELECT id, row_number() OVER (PARTITION BY owner_id ORDER BY updated_at DESC, id DESC) AS position FROM confirmations)
                 WHERE position > 1000 LIMIT :limit
             )`, { limit: batchSize });
             const events = this.database.run(`DELETE FROM events WHERE id IN (
@@ -826,7 +825,7 @@ class SQLiteEventStore extends MemoryPayloadCodec {
             return {
                 messages: Number(messages.changes || 0) + Number(messageCap.changes || 0),
                 artifacts: Number(artifacts.changes || 0) + Number(artifactCap.changes || 0),
-                suggestions: Number(suggestions.changes || 0) + Number(suggestionCap.changes || 0),
+                confirmations: Number(confirmations.changes || 0) + Number(confirmationCap.changes || 0),
                 events: Number(events.changes || 0) + Number(eventCap.changes || 0),
                 orphan_facets: Number(facets.changes || 0),
                 expired_insights: Number(insights.changes || 0)

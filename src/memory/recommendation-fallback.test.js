@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { SQLiteEventStore } = require('./sqlite-event-store');
 const { buildDisabledEventStore } = require('./store');
-const { createRecommendation } = require('../recommendations/core/test-fixtures');
+const { createRecommendation } = require('../services/recommendations/core/test-fixtures');
 
 test('SQLite 재생성 실패 때 recommendation store가 bounded volatile mode로 시작한다', async () => {
     const warnings = [];

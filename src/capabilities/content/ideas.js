@@ -1,6 +1,6 @@
 function createContentIdeaCapabilities(deps = {}) {
     const { contentIdeaEngine, recommendationMaterializer } = deps;
-    const { materializeTopicIdeas } = require('../../recommendations/adapters/topic-canonical-adapter');
+    const { materializeTopicIdeas } = require('../../services/recommendations/adapters/topic-canonical-adapter');
 
     return [
         {

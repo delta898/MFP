@@ -1,4 +1,4 @@
-const { OBSERVATIONAL_EVENTS } = require('../recommendations/core/lifecycle');
+const { OBSERVATIONAL_EVENTS } = require('../services/recommendations/core/lifecycle');
 
 const SQLITE_RECOMMENDATION_SCHEMA_VERSION = 1;
 

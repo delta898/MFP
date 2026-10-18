@@ -164,29 +164,7 @@ test('requires owner consistency and snooze invariants for materialized recommen
     assert.equal(result.errors.some((error) => error.includes('snoozed_until')), true);
 });
 
-test('can represent legacy workflow and grounded topic fixtures without historic backfill', () => {
-    const legacyWorkflow = validateRecommendationCandidate(createCandidate({
-        candidate_id: 'legacy-suggestion:pending-confirmations',
-        kind: 'workflow_hint',
-        producer_id: 'legacy-suggestion-adapter-v1',
-        title: '확인 대기 요청이 있습니다',
-        summary: '기존 generic suggestion을 호환 후보로 표현합니다.',
-        explanation: '기존 pending confirmation 사실에서 생성되었습니다.',
-        evidence: [{
-            evidence_id: 'legacy-event:confirmation-1',
-            kind: 'system_state',
-            stage: 'observed',
-            strength: 'weak',
-            summary: '확인 대기 요청 1건',
-            observed_at: '2026-08-23T00:00:00.000Z',
-            source_ref: { kind: 'event', id: 'confirmation-1' },
-            features: {}
-        }],
-        handoff: null,
-        dedupe_key: 'workflow:pending-confirmations',
-        created_at: '2026-08-23T00:00:00.000Z',
-        expires_at: '2026-08-24T00:00:00.000Z'
-    }));
+test('Recommendation contracts can represent grounded topic fixtures', () => {
     const topicRecommendation = validateRecommendationCandidate(createCandidate({
         candidate_id: 'topic_candidate_abc123',
         producer_id: 'topic-recommendation-adapter-v1',
@@ -201,6 +179,5 @@ test('can represent legacy workflow and grounded topic fixtures without historic
             features: { evidence_count: 1 }
         }]
     }));
-    assert.equal(legacyWorkflow.ok, true);
     assert.equal(topicRecommendation.ok, true);
 });

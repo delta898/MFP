@@ -9,7 +9,7 @@ test('keywords route handles analysis, title, pipeline, and quick publish sugges
         analyze: async (ctx) => calls.push(['analyze', ctx.pathname]),
         suggestTitles: async (ctx) => calls.push(['suggestTitles', ctx.pathname]),
         pipeline: async (ctx) => calls.push(['pipeline', ctx.pathname]),
-        quickPublishSuggestions: async (ctx) => calls.push(['quickPublishSuggestions', ctx.pathname])
+        quickPublishRecommendations: async (ctx) => calls.push(['quickPublishRecommendations', ctx.pathname])
     };
     const handler = createKeywordsRouteHandler({ controller });
 
@@ -17,13 +17,13 @@ test('keywords route handles analysis, title, pipeline, and quick publish sugges
     assert.equal(await handler({ pathname: '/api/v1/keywords/analyze' }), true);
     assert.equal(await handler({ pathname: '/api/v1/keywords/suggest-titles' }), true);
     assert.equal(await handler({ pathname: '/api/v1/keywords/pipeline' }), true);
-    assert.equal(await handler({ pathname: '/api/v1/blog/quick-publish/smart-suggestions' }), true);
+    assert.equal(await handler({ pathname: '/api/v1/blog/quick-publish/recommendations' }), true);
     assert.equal(await handler({ pathname: '/api/v1/unknown' }), false);
     assert.deepEqual(calls.map((item) => item[0]), [
         'status',
         'analyze',
         'suggestTitles',
         'pipeline',
-        'quickPublishSuggestions'
+        'quickPublishRecommendations'
     ]);
 });

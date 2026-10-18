@@ -1,5 +1,5 @@
-const { ACTIVE_STATES } = require('../../recommendations/core/lifecycle');
-const { DEFAULT_COOLDOWNS_MS, isWithinCooldown } = require('../../recommendations/policy/eligibility');
+const { ACTIVE_STATES } = require('../../services/recommendations/core/lifecycle');
+const { DEFAULT_COOLDOWNS_MS, isWithinCooldown } = require('../../services/recommendations/policy/eligibility');
 
 const DEFAULT_REFRESH_TTL_MS = 15 * 60 * 1000;
 

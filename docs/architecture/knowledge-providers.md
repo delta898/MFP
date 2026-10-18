@@ -55,7 +55,7 @@ An explicit provider definition with the default id can override or disable the
 built-in default.
 
 ## Consumer Rule
-Suggestion and content idea engines should consume normalized provider results and must not depend on vendor-specific response shapes.
+Recommendation and content idea engines should consume normalized provider results and must not depend on vendor-specific response shapes.
 
 ## Knowledge Snapshot Boundary
 

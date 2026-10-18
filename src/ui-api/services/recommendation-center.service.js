@@ -1,6 +1,6 @@
 const crypto = require('node:crypto');
-const { toPublicRecommendationDto } = require('../../recommendations/core/contract');
-const { IDENTIFIER_PATTERN } = require('../../recommendations/core/validators');
+const { toPublicRecommendationDto } = require('../../services/recommendations/core/contract');
+const { IDENTIFIER_PATTERN } = require('../../services/recommendations/core/validators');
 const { discoverySourcePreference } = require('./recommendation-refresh.service');
 const { createApiError } = require('../errors');
 

@@ -4,7 +4,7 @@ const { createChatModelCapabilities } = require('./settings/chat-model');
 const { createAgentPendingCapabilities } = require('./agent/pending');
 const { createAgentMetaCapabilities } = require('./agent/meta');
 const { createAgentPreferenceCapabilities } = require('./agent/preferences');
-const { createAgentSuggestionCapabilities } = require('./agent/suggestions');
+const { createAgentRecommendationCapabilities } = require('./agent/recommendations');
 const { createKnowledgeRegistry } = require('../knowledge/registry');
 const { createBuiltinApiTransport } = require('../knowledge/transports/builtin-api');
 const { createMcpToolTransport } = require('../knowledge/transports/mcp-tool');
@@ -25,9 +25,9 @@ const {
     createDefaultNaverTrendsDefinition,
     createNaverTrendsProvider
 } = require('../knowledge/providers/trends-naver');
-const { createSuggestionEngine } = require('../suggestions/engine');
-const { createMemoryBasedSuggestionProvider } = require('../suggestions/providers/memory-based');
-const { createRecommendationMaterializer } = require('../recommendations/adapters/recommendation-materializer');
+const { createRecommendationRequestService } = require('../services/recommendations/request-service');
+const { createMemoryContextRecommendationProducer } = require('../services/recommendations/producers/memory-context');
+const { createRecommendationMaterializer } = require('../services/recommendations/adapters/recommendation-materializer');
 const { createContentIdeaEngine } = require('../content-ideas/engine');
 const { createAiMemoryContentIdeaProvider } = require('../content-ideas/providers/ai-memory');
 const { createContentIdeaCapabilities } = require('./content/ideas');
@@ -104,12 +104,12 @@ function createCapabilityRegistry(deps = {}) {
         eventStore: deps.eventStore,
         Logger: deps.Logger
     });
-    const suggestionEngine = deps.suggestionEngine || createSuggestionEngine({
+    const recommendationRequestService = deps.recommendationRequestService || createRecommendationRequestService({
         knowledgeRegistry,
         recommendationMaterializer,
         Logger: deps.Logger,
         providers: [
-            createMemoryBasedSuggestionProvider()
+            createMemoryContextRecommendationProducer()
         ]
     });
     const contentIdeaEngine = deps.contentIdeaEngine || createContentIdeaEngine({
@@ -128,13 +128,13 @@ function createCapabilityRegistry(deps = {}) {
             })
         ]
     });
-    const capabilityDeps = { ...deps, configState, knowledgeRegistry, suggestionEngine, contentIdeaEngine, recommendationMaterializer };
+    const capabilityDeps = { ...deps, configState, knowledgeRegistry, recommendationRequestService, contentIdeaEngine, recommendationMaterializer };
 
     const allCapabilities = [
         ...createAgentMetaCapabilities(capabilityDeps),
         ...createAgentPendingCapabilities(capabilityDeps),
         ...createAgentPreferenceCapabilities(capabilityDeps),
-        ...createAgentSuggestionCapabilities(capabilityDeps),
+        ...createAgentRecommendationCapabilities(capabilityDeps),
         ...createRegisterTopicCapabilities(capabilityDeps),
         ...createPublishCapabilities(capabilityDeps),
         ...createContentIdeaCapabilities(capabilityDeps),

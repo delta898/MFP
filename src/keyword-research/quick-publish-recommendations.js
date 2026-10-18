@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const { parseKeywords } = require('./input');
 const { normalizeTitleMode } = require('./title-generator');
 
-const QUICK_PUBLISH_SUGGESTION_SCHEMA_VERSION = 1;
+const QUICK_PUBLISH_RECOMMENDATION_SCHEMA_VERSION = 1;
 
 function compact(value, maxLength = 240) {
     return String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, maxLength);
@@ -57,14 +57,14 @@ function findSelectedCandidate(analysis = null, selectedKeyword = '') {
     )) || candidates[0] || null;
 }
 
-function normalizeTitleCandidates(titles = [], suggestion = {}) {
+function normalizeTitleCandidates(titles = [], recommendation = {}) {
     return (Array.isArray(titles) ? titles : [])
         .filter((item) => compact(item?.title, 180))
         .slice(0, 3)
         .map((item, index) => {
             const title = compact(item.title, 180);
             return {
-                id: stableId('title_candidate', `${suggestion.keyword}:${title}:${index}`),
+                id: stableId('title_candidate', `${recommendation.keyword}:${title}:${index}`),
                 rank: index + 1,
                 role: compact(item.role || '추천 제목', 40),
                 title,
@@ -73,24 +73,24 @@ function normalizeTitleCandidates(titles = [], suggestion = {}) {
                 tradeoff: compact(item.tradeoff || '', 240),
                 apply_payload: {
                     subject: title,
-                    keywords: suggestion.keyword ? [suggestion.keyword] : suggestion.keywords,
+                    keywords: recommendation.keyword ? [recommendation.keyword] : recommendation.keywords,
                     recommendation: {
-                        source: 'quick-publish-smart-suggestion',
-                        suggestion_id: suggestion.id,
-                        title_candidate_id: stableId('title_candidate', `${suggestion.keyword}:${title}:${index}`),
-                        keyword: suggestion.keyword,
-                        topic: suggestion.topic
+                        source: 'quick-publish-recommendation',
+                        recommendation_id: recommendation.id,
+                        title_candidate_id: stableId('title_candidate', `${recommendation.keyword}:${title}:${index}`),
+                        keyword: recommendation.keyword,
+                        topic: recommendation.topic
                     }
                 }
             };
         });
 }
 
-function buildQuickPublishSuggestionResponse(original = {}, pipelineResult = {}) {
+function buildQuickPublishRecommendationResponse(original = {}, pipelineResult = {}) {
     const selectedKeyword = compact(pipelineResult.input_keyword || original.keywords?.[0] || original.subject, 120);
     const selectedCandidate = findSelectedCandidate(pipelineResult.analysis, selectedKeyword);
-    const suggestion = {
-        id: stableId('quick_suggestion', `${original.subject}:${selectedKeyword}:${pipelineResult.title_mode || original.title_mode}`),
+    const recommendation = {
+        id: stableId('quick_recommendation', `${original.subject}:${selectedKeyword}:${pipelineResult.title_mode || original.title_mode}`),
         rank: 1,
         topic: compact(pipelineResult.subject || original.subject, 180),
         keyword: selectedKeyword,
@@ -99,10 +99,10 @@ function buildQuickPublishSuggestionResponse(original = {}, pipelineResult = {})
         analysis_note: compact(pipelineResult.analysis_note || '', 260),
         metrics: summarizeKeywordMetrics(selectedCandidate)
     };
-    suggestion.title_candidates = normalizeTitleCandidates(pipelineResult.titles, suggestion);
+    recommendation.title_candidates = normalizeTitleCandidates(pipelineResult.titles, recommendation);
 
     return {
-        schema_version: QUICK_PUBLISH_SUGGESTION_SCHEMA_VERSION,
+        schema_version: QUICK_PUBLISH_RECOMMENDATION_SCHEMA_VERSION,
         mode: 'review',
         original: {
             subject: original.subject,
@@ -110,7 +110,7 @@ function buildQuickPublishSuggestionResponse(original = {}, pipelineResult = {})
             instruction: original.instruction,
             title_mode: original.title_mode
         },
-        suggestions: [suggestion],
+        recommendations: [recommendation],
         fallback: {
             label: '원래 입력으로 생성',
             apply_payload: {
@@ -121,14 +121,14 @@ function buildQuickPublishSuggestionResponse(original = {}, pipelineResult = {})
     };
 }
 
-function createQuickPublishSuggestionService(options = {}) {
+function createQuickPublishRecommendationService(options = {}) {
     const keywordResearchService = options.keywordResearchService;
     if (!keywordResearchService || typeof keywordResearchService.researchAndSuggestTitles !== 'function') {
         throw new Error('keywordResearchService is required');
     }
 
     return {
-        async suggest(input = {}) {
+        async recommend(input = {}) {
             const original = normalizeQuickPublishInput(input);
             const pipelineResult = await keywordResearchService.researchAndSuggestTitles({
                 keywords: original.keywords,
@@ -138,14 +138,14 @@ function createQuickPublishSuggestionService(options = {}) {
                 title_mode: original.title_mode,
                 count: input.count ?? 3
             });
-            return buildQuickPublishSuggestionResponse(original, pipelineResult);
+            return buildQuickPublishRecommendationResponse(original, pipelineResult);
         }
     };
 }
 
 module.exports = {
-    QUICK_PUBLISH_SUGGESTION_SCHEMA_VERSION,
-    buildQuickPublishSuggestionResponse,
-    createQuickPublishSuggestionService,
+    QUICK_PUBLISH_RECOMMENDATION_SCHEMA_VERSION,
+    buildQuickPublishRecommendationResponse,
+    createQuickPublishRecommendationService,
     normalizeQuickPublishInput
 };
