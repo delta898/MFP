@@ -10,6 +10,7 @@ const { ConfirmationStore } = require('./adapters/storage/confirmations/confirma
 const { createCapabilityRegistry } = require('./capabilities');
 const { createKnowledgeRuntime } = require('./composition/knowledge-runtime');
 const { createMemoryRetrievalService } = require('./services/memory/retrieval-service');
+const { generateUserInsight } = require('./services/memory/insight-generation');
 const { routeTelegramMessage, tryParseDeterministicEnvelope } = require('./adapters/messaging/telegram/agent-parser');
 const {
     mapLegacyTelegramContentRequest,
@@ -922,8 +923,11 @@ class TelegramBotService {
                             this.chatContext.set(chatId, pData.theme);
                             Logger.info(`💾 [TelegramBot] 맥락 저장 완료 (${chatId}): ${pData.theme}`);
 
-                            const InsightEngine = require('./insight-engine');
-                            InsightEngine.generateInsight(chatId, { generateText: getRuntimeHooks().generateChatText }).catch(() => { });
+                            void generateUserInsight(chatId, {
+                                eventStore: this.agentEventStore,
+                                generateText: getRuntimeHooks().generateChatText,
+                                logger: Logger
+                            });
                         }
                     }
 

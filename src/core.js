@@ -1671,9 +1671,6 @@ const Core = {
 ${(() => {
 				let contextStr = '';
 				if (context) {
-					if (context.user_insight) {
-						contextStr += `* 사용자 성향 인사이트: "${context.user_insight}"\n`;
-					}
 					if (context.last_topic) {
 						contextStr += `* 직전 발행 주제: "${context.last_topic}"\n`;
 					}
