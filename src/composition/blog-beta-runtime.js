@@ -11,6 +11,7 @@ const { createWordPressPublishingSystem } = require('./wordpress-publishing');
 const { createNaverPublishingSystem } = require('./naver-publishing');
 const { createBlogPublishingApplication } = require('../applications/blog/publishing/application');
 const { createBlogPostingApplication } = require('../applications/blog/posting/application');
+const { createReferenceSearchGateway } = require('../content/reference-search-gateway');
 const { createShoppingGenerationApplication } = require('../applications/shopping/generation/application');
 const { inferTransport } = require('../../packages/plugins/core/ai-gateway/transport-registry');
 const { createSupabaseModelCatalogPort } = require('../adapters/storage/ai-model-catalog/supabase-port');
@@ -144,7 +145,8 @@ function createBlogBetaRuntimeComposition(options = {}) {
         Logger,
         fs,
         path,
-        blogWritingApplication: blogWritingSystem.application
+        blogWritingApplication: blogWritingSystem.application,
+        referenceSearchGateway: createReferenceSearchGateway({ config: CONFIG, License: options.License })
     });
 
     const blogPublishingApplication = createBlogPublishingApplication({

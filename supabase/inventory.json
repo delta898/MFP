@@ -4,11 +4,11 @@
   "linked_project_classification": "production",
   "linked_project_metadata_path": "supabase/.temp/linked-project.json",
   "desktop_consumers": [
-    "src/license.js",
+    "src/composition/licensing.js",
     "src/runtime-config.js",
     "src/adapters/storage/ai-model-catalog/supabase-port.js",
     "src/keyword-research/supabase-client.js",
-    "src/knowledge/server-gateway-client.js",
+    "src/adapters/knowledge/server-gateway-client.js",
     "src/surface-content/supabase-provider.js"
   ],
   "operator_service_consumers": [

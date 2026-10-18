@@ -53,7 +53,7 @@ generated build config로 받아들인다. Cloudflare scope 이름은 비밀이 
 
 | Feature | Current consumer | Current location | Target |
 | --- | --- | --- | --- |
-| External blog reference | `fetchNaverBlogTopPosts` | `knowledge-gateway`의 제한형 `blog_reference:writing_reference` route | 현재 구조 유지 |
+| External blog reference | Blog Posting Application의 `referenceSearchGateway` port | `knowledge-gateway`의 제한형 `blog_reference:writing_reference` route | License 인증과 gateway client는 Composition/Adapter에서 조립하고 Utilities는 라이선스 런타임에 의존하지 않음 |
 | Shopping product recovery | `resolveViaShoppingSearchGateway` | `knowledge-gateway`의 제한형 `shopping_product:product_recovery` route | 현재 구조 유지 |
 | Recommendation news | Naver news Knowledge provider | Edge Function | 유지 |
 | Single blog search helper | `fetchNaverBlogSearchResults` | no caller found | 제거 후보 |

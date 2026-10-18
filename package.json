@@ -57,7 +57,6 @@
     "scripts": [
       "src/host/**/*.js",
       "src/config-loader.js",
-      "src/license.js",
       "src/core.js",
       "src/utils.js",
       "src/constants.js",

@@ -76,16 +76,14 @@ test('desktop external-reference flow uses the fixed gateway and has no direct p
     const utils = read('src/utils.js');
     const postingApplication = read('src/applications/blog/posting/application.js');
     const referenceContext = read('src/content/blog-reference-context.js');
+    const composition = read('src/composition/blog-beta-runtime.js');
     assert.match(gateway, /kind: REFERENCE_KIND/);
     assert.match(gateway, /purpose: REFERENCE_PURPOSE/);
     assert.doesNotMatch(gateway, /NAVER_CLIENT_(?:ID|SECRET)|openapi\.naver\.com/);
-    const topPostsStart = utils.indexOf('fetchNaverBlogTopPosts:');
-    const topPostsEnd = utils.indexOf('_resolveOwnBlogId:', topPostsStart);
-    const topPosts = utils.slice(topPostsStart, topPostsEnd);
-    assert.match(topPosts, /searchOptionalReferences/);
-    assert.doesNotMatch(topPosts, /NAVER_CLIENT_(?:ID|SECRET)|openapi\.naver\.com/);
+    assert.doesNotMatch(utils, /fetchNaverBlogTopPosts|require\(['"]\.\/license['"]\)/);
     assert.match(postingApplication, /collectBlogReferenceContext/);
     assert.match(referenceContext, /관련 최신 글 수집 및 분석 시작/);
+    assert.match(composition, /referenceSearchGateway: createReferenceSearchGateway/);
 });
 
 test('desktop shopping fallback uses the fixed gateway and has no direct provider credential access', () => {

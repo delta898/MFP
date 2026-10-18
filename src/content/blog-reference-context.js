@@ -1,6 +1,7 @@
 'use strict';
 
 const { raceWithCancellation, sleepWithCancellation, throwIfCanceled } = require('../utilities/async/cancellation');
+const { searchOptionalReferences } = require('./reference-search-gateway');
 
 function buildReferenceSection(scrapedContext) {
     if (!scrapedContext) return '(No reference provided)';
@@ -19,7 +20,7 @@ ${scrapedContext}`;
 }
 
 async function collectBlogReferenceContext(input = {}) {
-    const { Utils, Logger, signal } = input;
+    const { Utils, Logger, signal, referenceSearchGateway } = input;
     const jobData = input.jobData || {};
     if (!Utils || typeof Utils.fetchReferenceContent !== 'function') {
         throw new TypeError('Blog reference context requires fetchReferenceContent().');
@@ -31,9 +32,24 @@ async function collectBlogReferenceContext(input = {}) {
     if (jobData.use_external_ref === true) {
         const searchKeyword = (hasKeywords ? jobData.keywords[0] : jobData.subject) || '';
         if (searchKeyword) {
+            if (typeof referenceSearchGateway?.searchLatestReferences !== 'function') {
+                throw new TypeError('Blog reference context requires referenceSearchGateway.searchLatestReferences().');
+            }
             Logger?.info?.(`🔍 [외부 참고] 관련 최신 글 수집 및 분석 시작: '${searchKeyword}'`);
             const relatedPosts = await raceWithCancellation(
-                () => Utils.fetchNaverBlogTopPosts(searchKeyword),
+                async () => {
+                    const posts = await searchOptionalReferences(
+                        referenceSearchGateway,
+                        { topic: searchKeyword },
+                        (error) => Logger?.debug?.(`🔍 [외부 참고] 관련 최신 글 수집 실패 (${searchKeyword}): ${error.message}`)
+                    );
+                    return posts.map((post) => ({
+                        ...post,
+                        link: typeof Utils.convertToMobileNaverBlogUrl === 'function'
+                            ? Utils.convertToMobileNaverBlogUrl(post.link)
+                            : post.link
+                    }));
+                },
                 signal
             );
             throwIfCanceled(signal);

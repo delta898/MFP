@@ -164,15 +164,15 @@ test('Blog Posting Application stops before text generation when optional refere
     let textCalls = 0;
     const Utils = {
         ...require('../../../utils'),
-        resolvePlatformWorkspaceDir: () => root,
-        async fetchNaverBlogTopPosts() { return new Promise(() => {}); }
+        resolvePlatformWorkspaceDir: () => root
     };
     const application = createApplication({
         utils: Utils,
         writing: {
             async generateText() { textCalls += 1; return '{}'; },
             async generateImage() { throw new Error('not used'); }
-        }
+        },
+        referenceSearchGateway: { searchLatestReferences() { return new Promise(() => {}); } }
     });
     try {
         const pending = application.preparePost({

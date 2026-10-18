@@ -8,10 +8,15 @@ test('reference context collects automatic and manually selected sources for the
     const fetched = [];
     const result = await collectBlogReferenceContext({
         Utils: {
-            async fetchNaverBlogTopPosts(keyword) { assert.equal(keyword, '제주'); return [{ title: '자동 자료', link: 'https://auto.test' }]; },
             convertToMobileNaverBlogUrl(url) { return `${url}?mobile=1`; },
             async fetchReferenceContent(url) { fetched.push(url); return `본문: ${url}`; },
             async sleep() {}
+        },
+        referenceSearchGateway: {
+            async searchLatestReferences({ topic }) {
+                assert.equal(topic, '제주');
+                return [{ title: '자동 자료', link: 'https://auto.test' }];
+            }
         },
         jobData: {
             subject: '제주 산책', keywords: ['제주'], use_external_ref: true,
@@ -19,7 +24,7 @@ test('reference context collects automatic and manually selected sources for the
         }
     });
 
-    assert.deepEqual(fetched, ['https://auto.test', 'https://manual.test?mobile=1']);
+    assert.deepEqual(fetched, ['https://auto.test?mobile=1', 'https://manual.test?mobile=1']);
     assert.equal(result.referenceCount, 2);
     assert.match(result.referenceContext, /자동 참고글 1/);
     assert.match(result.referenceContext, /수동 참고글 2/);
@@ -41,13 +46,25 @@ test('reference discovery can be canceled while the external search is pending',
     const controller = new AbortController();
     const service = collectBlogReferenceContext({
         Utils: {
-            fetchNaverBlogTopPosts() { return new Promise(() => {}); },
             async fetchReferenceContent() { throw new Error('must not continue after cancellation'); },
             async sleep() {}
         },
+        referenceSearchGateway: { searchLatestReferences() { return new Promise(() => {}); } },
         signal: controller.signal,
         jobData: { subject: '제주', use_external_ref: true }
     });
     controller.abort();
     await assert.rejects(service, (error) => error.code === 'AI_GENERATION_CANCELED');
+});
+
+test('reference search failure stays optional and does not block manuscript preparation', async () => {
+    const result = await collectBlogReferenceContext({
+        Utils: { async fetchReferenceContent() { throw new Error('not used'); }, async sleep() {} },
+        Logger: { debug() {} },
+        referenceSearchGateway: { async searchLatestReferences() { throw new Error('gateway unavailable'); } },
+        jobData: { subject: '제주', use_external_ref: true }
+    });
+
+    assert.equal(result.referenceCount, 0);
+    assert.equal(result.referenceContext, '(No reference provided)');
 });

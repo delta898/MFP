@@ -6,6 +6,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 
 const { License } = require('./composition/licensing');
+const { createShoppingContentPreparationRuntime } = require('./composition/shopping-content-preparation');
 const TelegramService = require('./adapters/messaging/telegram/service');
 const SlackService = require('./slack-service');
 const { createUrlShorteningSystem } = require('./composition/url-shortening');
@@ -35,7 +36,7 @@ const TelegramBotService = require('./telegram-bot.service');
 TelegramBotService.GoogleSheets = GoogleSheets;
 TelegramBotService.License = License;
 const BrowserLauncher = require('./utilities/browser/browser-launcher');
-const ShoppingManager = require('./applications/shopping/content-preparation/application');
+const ShoppingManager = createShoppingContentPreparationRuntime({ config: CONFIG, License });
 const Updater = require('./host/updater');
 Updater.configure(CONFIG);
 const { createRuntimeConfigApi } = require('./runtime-config');
@@ -314,6 +315,7 @@ const blogBetaComposition = createBlogBetaRuntimeComposition({
     Logger,
     Core,
     Utils,
+    License,
     fs,
     path,
     getAiModelCatalog

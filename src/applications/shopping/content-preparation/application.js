@@ -7,12 +7,8 @@ const CONFIG = require('../../../config-loader');
 const Utils = require('../../../utils');
 const Logger = require('../../../utilities/logging/logger');
 const BrowserLauncher = require('../../../utilities/browser/browser-launcher');
-const License = require('../../../license');
 const { persistAuthSessionState } = require('../../../adapters/naver/auth-session');
-const {
-    createShoppingProductGateway,
-    recoverOptionalProduct
-} = require('../../../adapters/commerce/shopping-product-gateway');
+const { recoverOptionalProduct } = require('../../../adapters/commerce/shopping-product-gateway');
 const { normalizeWritingStrategy, buildShoppingWritingStrategyPrompt } = require('../../../content/writing-strategy');
 const { projectWritingProfile } = require('../../../content/writing-profile-projection');
 const { buildShoppingWritingProfilePromptFromProjection } = require('../generation/writing-profile-prompt');
@@ -25,8 +21,6 @@ const {
 const DEFAULT_LINK_INSERT_COUNT = 3;
 const DEFAULT_IMAGE_MAX_COUNT = 12;
 const DEFAULT_CTA_IMAGE_INSERT_COUNT = 2;
-const shoppingProductGateway = createShoppingProductGateway({ config: CONFIG, License });
-
 const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
 function clampInt(value, min, max, fallback) {
@@ -3271,7 +3265,8 @@ async function resolveReviewRichHtmlWithBrowser(url, headless = true) {
     }
 }
 
-async function resolveViaShoppingSearchGateway(channelProductNo, productName = '', gateway = shoppingProductGateway) {
+async function resolveViaShoppingSearchGateway(channelProductNo, productName = '', gateway) {
+    if (!gateway) return null;
     return await recoverOptionalProduct(
         gateway,
         { productId: channelProductNo, productName },
@@ -3413,7 +3408,9 @@ async function resolveProductDataFromChannelNo(channelProductNo, baseData, sourc
         }
     }
 
-    const searchFallback = await resolveViaShoppingSearchGateway(channelProductNo, options.productName);
+    const searchFallback = options.shoppingProductGateway
+        ? await resolveViaShoppingSearchGateway(channelProductNo, options.productName, options.shoppingProductGateway)
+        : null;
     if (searchFallback) {
         const merged = mergeProductData(baseData, {
             title: searchFallback.title,
@@ -3982,7 +3979,7 @@ function composeMarkdown({
 }
 
 const ShoppingManager = {
-    previewFromShortUrl: async function (shortUrl) {
+    previewFromShortUrl: async function (shortUrl, runtimeOptions = {}) {
         if (!shortUrl) throw new Error('쇼핑 URL이 비어 있습니다.');
 
         Logger.info(`🛍️ [Shopping] 미리보기 URL 분석 시작: ${shortUrl}`);
@@ -4031,7 +4028,10 @@ const ShoppingManager = {
         }
 
         if (isLikelyInvalidLanding(productData, finalUrl) && channelProductNo) {
-            const fallback = await resolveProductDataFromChannelNo(channelProductNo, productData, sourceHtml, { allowBrowserFallback: false });
+            const fallback = await resolveProductDataFromChannelNo(channelProductNo, productData, sourceHtml, {
+                allowBrowserFallback: false,
+                shoppingProductGateway: runtimeOptions.shoppingProductGateway
+            });
             if (fallback) {
                 finalUrl = fallback.finalUrl;
                 productData = fallback.productData;
@@ -4108,7 +4108,8 @@ const ShoppingManager = {
         if (isLikelyInvalidLanding(productData, finalUrl)) {
             if (channelProductNo) {
                 const fallback = await resolveProductDataFromChannelNo(channelProductNo, productData, sourceHtml, {
-                    productName: productNameHint
+                    productName: productNameHint,
+                    shoppingProductGateway: runtimeOptions.shoppingProductGateway
                 });
                 if (fallback) {
                     finalUrl = fallback.finalUrl;

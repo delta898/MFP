@@ -19,7 +19,7 @@ The project ref is intentionally resolved from target-specific configuration dur
 
 | Area | Current path | Responsibility |
 | --- | --- | --- |
-| License and quota | `src/license.js` | license registration, recovery, quota, plan and usage RPCs |
+| License and quota | `src/composition/licensing.js`, `src/services/licensing/`, `src/adapters/licensing/supabase/license-api.js` | license workflow assembly, provider-neutral policy and service contracts, Supabase RPC/Edge Function transport |
 | Runtime settings | `src/runtime-config.js` | remotely managed runtime values |
 | AI model catalog | `src/adapters/storage/ai-model-catalog/supabase-port.js` | server-managed model catalog |
 | Keyword research | `src/keyword-research/supabase-client.js` | keyword Edge Function gateway |

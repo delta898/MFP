@@ -72,7 +72,13 @@ function createBlogPostingApplication(options = {}) {
             throw new Error('❌ [Error] 주제, 키워드, 지시사항, URL 중 적어도 하나는 필요합니다.');
         }
 
-        const { referenceContext } = await collectBlogReferenceContext({ Utils, Logger, signal, jobData });
+        const { referenceContext } = await collectBlogReferenceContext({
+            Utils,
+            Logger,
+            signal,
+            jobData,
+            referenceSearchGateway: options.referenceSearchGateway
+        });
         const requestedTitle = String(jobData.title || jobData.content_guide?.title || '').trim();
         const resolvedPrompt = buildBlogGenerationPrompt({
             profile: CONFIG.CONTENT_WRITING_PROFILE,

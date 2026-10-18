@@ -5,11 +5,6 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const CONFIG = require('./config-loader');
 const Logger = require('./utilities/logging/logger');
-const License = require('./license');
-const {
-    createReferenceSearchGateway,
-    searchOptionalReferences
-} = require('./content/reference-search-gateway');
 const {
     buildRelatedPostContext,
     selectRelatedPosts
@@ -20,7 +15,6 @@ const {
     sleepWithCancellation,
     throwIfCanceled
 } = require('./utilities/async/cancellation');
-const referenceSearchGateway = createReferenceSearchGateway({ config: CONFIG, License });
 
 const REFERENCE_FETCH_MAX_CHARS = 2400;
 const REFERENCE_FETCH_MAX_BLOCKS = 20;
@@ -510,28 +504,6 @@ const Utils = {
             Logger.warn(`⚠️ 연관검색어 추출 실패 (${keyword}): ${e.message}`);
             return [];
         }
-    },
-
-    /**
-     * 1-5-1. 네이버 블로그 인기글 상위 N개 URL 수집 (최신순)
-     * - 외부 참고 여부가 Yes인 경우 batch 실행 시 호출
-     * - 모든 로그는 DEBUG 레벨에서만 출력
-     */
-    fetchNaverBlogTopPosts: async function (keyword, count) {
-        const Constants = require('./constants');
-        const blogCount = count || Constants.REFERENCE_BLOG_COUNT || 3;
-
-        const posts = await searchOptionalReferences(
-            referenceSearchGateway,
-            { topic: keyword, limit: blogCount },
-            (error) => Logger.debug(`🔍 [외부 참고] 관련 최신 글 수집 실패 (${keyword}): ${error.message}`)
-        );
-        const normalized = posts.map((post) => ({
-            ...post,
-            link: this.convertToMobileNaverBlogUrl(post.link)
-        }));
-        Logger.debug(`🔍 [외부 참고] '${keyword}' 관련 최신 글 ${normalized.length}개 수집 완료`);
-        return normalized;
     },
 
     _resolveOwnBlogId: function () {
