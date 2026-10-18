@@ -1,5 +1,5 @@
 const { TOPIC_STATUS } = require('./contract');
-const { diagnoseQueueReadiness } = require('./queue-readiness');
+const { diagnoseQueueReadiness } = require('../applications/blog/queue-management/queue-readiness');
 const { diagnoseSiteTargetAvailability } = require('./site-target-readiness');
 
 function createSiteHostingQueueExecutor(deps = {}) {
