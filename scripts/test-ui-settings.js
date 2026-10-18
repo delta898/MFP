@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 const assert = require('assert');
-const { createSettingsController } = require('../src/ui-api/controllers/settings.controller');
-const { createSettingsRouteHandler } = require('../src/ui-api/routes/settings.routes');
+const { createSettingsController } = require('../src/adapters/ui/settings/controller');
+const { createSettingsRouteHandler } = require('../src/adapters/ui/settings/routes');
 
 function createHarness(overrides = {}) {
     const service = {

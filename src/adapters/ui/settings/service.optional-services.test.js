@@ -6,14 +6,14 @@ const path = require('node:path');
 const {
     configureConnectionVerificationState,
     resetConnectionVerificationState
-} = require('../../connections/verification-state');
+} = require('../../../connections/verification-state');
 
 const {
     createSettingsService,
     normalizeOptionalServiceSettings,
     normalizeExternalConnectionSettings,
     normalizeAppGeneralSettings
-} = require('./settings.service');
+} = require('./service');
 
 function createHarness(initial = {}, overrides = {}) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'settings-optional-services-'));

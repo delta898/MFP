@@ -23,7 +23,7 @@ function describeAiModelConnectionFailure(error) {
 const {
     ensureRuntimeRemoteMcpConfig,
     generateRemoteMcpBearerToken
-} = require('../../mcp/remote-config');
+} = require('../../../mcp/remote-config');
 const {
     getAiModelCatalog,
     buildModelSelectionFromFields,
@@ -32,32 +32,51 @@ const {
     mergeActiveSelectionsIntoProfiles,
     normalizeStoredModelProfiles,
     normalizeChatModelSource
-} = require('../../ai-model-config');
-const TelegramPairingService = require('../../telegram-pairing.service');
-const { isSnsAiMode } = require('../../services/sns/ai-policy');
+} = require('../../../ai-model-config');
+const TelegramPairingService = require('../../../telegram-pairing.service');
+const { isSnsAiMode } = require('../../../services/sns/ai-policy');
 const {
     createConnectionSignature,
     readConnectionVerification,
     recordConnectionVerification,
     listConnectionVerifications,
     isVerificationTrusted
-} = require('../../connections/verification-state');
-const { createAiModelVerificationSignature } = require('../../ai/model-verification');
+} = require('../../../connections/verification-state');
+const { createAiModelVerificationSignature } = require('../../../ai/model-verification');
+const { createSettingsWritingProfileApplication } = require('../../../applications/settings/writing-profile/application');
 const {
-    createWritingProfileRepository,
-    applyWritingProfileRuntimeAliases
-} = require('../../content/writing-profile-repository');
+    createSettingsAiModelsApplication,
+    normalizeAiRoleSettings: normalizeAiRoleSettingsForApplication,
+    redactAiRoleSecretFields,
+    redactAiProviderProfiles: redactAiProviderProfilesForApplication
+} = require('../../../applications/settings/ai-models/application');
 const {
-    DEFAULT_CONTENT_WRITING_PROFILE_METADATA,
-    getDefaultContentWritingProfile
-} = require('../../content/writing-profile');
-const { createStyleReferenceFetcher } = require('../../content/style-reference-fetcher');
-const { createStyleReferenceAnalyzer } = require('../../content/style-reference-analyzer');
-const { createWritingProfilePreviewService } = require('../../content/writing-profile-preview');
+    createSettingsAppPreferencesApplication,
+    normalizeAppGeneralSettings: normalizeAppGeneralSettingsForApplication,
+    normalizeAppInputSettings: normalizeAppInputSettingsForApplication
+} = require('../../../applications/settings/app-preferences/application');
+const {
+    createSettingsCoreConnectionsApplication,
+    normalizeCoreConnectionSettings: normalizeCoreConnectionSettingsForApplication,
+    applyCoreConnectionSettings
+} = require('../../../applications/settings/core-connections/application');
+const {
+    createSnsDistributionSettingsApplication,
+    normalizeSnsDistributionSettings
+} = require('../../../applications/sns/distribution/settings-application');
+const {
+    createSettingsOptionalServicesApplication,
+    normalizeOptionalServiceSettings: normalizeOptionalServiceSettingsForApplication
+} = require('../../../applications/settings/optional-services/application');
+const {
+    createSettingsExternalConnectionsApplication,
+    normalizeExternalConnectionSettings: normalizeExternalConnectionSettingsForApplication
+} = require('../../../applications/settings/external-connections/application');
+const { createCardNewsSourceSettingsApplication } = require('../../../applications/card-news/source-settings/application');
 const {
     normalizeCardNewsBuiltinSources,
     normalizeCardNewsRssSources
-} = require('../../applications/card-news/sources/feed-sources');
+} = require('../../../applications/card-news/sources/feed-sources');
 
 function removeManagedKeywordCredentials(structuredConfig = {}) {
     for (const key of [
@@ -83,11 +102,6 @@ function removeManagedKeywordCredentials(structuredConfig = {}) {
     return structuredConfig;
 }
 
-function extractSpreadsheetId(value) {
-    const match = String(value || '').trim().match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/i);
-    return match?.[1] || '';
-}
-
 function redactMajorSecretFields(settings = {}) {
     const fields = { ...(settings?.fields || {}) };
     const wordpressPassword = String(fields.WORDPRESS_APP_PASSWORD || '').trim();
@@ -96,241 +110,43 @@ function redactMajorSecretFields(settings = {}) {
     return { ...settings, fields };
 }
 
-function redactAiRoleSecretFields(settings = {}) {
-    const fields = { ...(settings?.fields || settings || {}) };
-    ['TEXT', 'IMAGE', 'CHAT'].forEach((prefix) => {
-        const key = `${prefix}_MODEL_API_KEY`;
-        fields[`${key}_CONFIGURED`] = Boolean(String(fields[key] || '').trim());
-        delete fields[key];
-    });
-    return { ...(settings?.fields ? settings : {}), fields };
-}
-
-function redactAiProviderProfiles(rawProfiles = {}) {
-    const profiles = normalizeStoredModelProfiles(rawProfiles, getAiModelCatalog());
-    return Object.fromEntries(Object.entries(profiles).map(([role, roleProfiles]) => [
-        role,
-        Object.fromEntries(Object.entries(roleProfiles).map(([provider, profile]) => [provider, {
-            provider: String(profile?.provider || provider),
-            code: String(profile?.code || ''),
-            name: String(profile?.name || ''),
-            base_url: String(profile?.base_url || ''),
-            api_key_configured: Boolean(String(profile?.api_key || '').trim())
-        }]))
-    ]));
-}
-
-function toWritingModelSelection(model = {}) {
-    const provider = String(model.provider || '').trim().toLowerCase();
-    const modelId = String(model.code || '').trim();
-    return provider && modelId ? { provider, modelId } : undefined;
-}
-
-function pickGatewayGenerationOptions(options = {}) {
-    return typeof options.temperature === 'number' ? { temperature: options.temperature } : undefined;
-}
-
 function normalizeCoreConnectionSettings(requestBody = {}) {
-    const scope = String(requestBody.scope || '').trim().toLowerCase();
-    const values = requestBody.values && typeof requestBody.values === 'object'
-        ? requestBody.values
-        : {};
-
-    if (!['content', 'naver', 'wordpress'].includes(scope)) {
-        throw createApiError(400, 'CORE_CONNECTION_SCOPE_INVALID', '저장할 기본 연결 항목을 확인해 주세요.');
-    }
-
-    if (scope === 'content') {
-        const GOOGLE_SHEET_URL = String(values.GOOGLE_SHEET_URL || '').trim();
-        const GOOGLE_SHEET_TITLE = String(values.GOOGLE_SHEET_TITLE || '').trim().slice(0, 200);
-        const GOOGLE_SHEET_AUTHORIZED_FILE_ID = String(values.GOOGLE_SHEET_AUTHORIZED_FILE_ID || '').trim().slice(0, 200);
-        let parsedUrl;
-        try {
-            parsedUrl = new URL(GOOGLE_SHEET_URL);
-        } catch (_error) {
-            throw createApiError(400, 'GOOGLE_SHEET_URL_INVALID', '올바른 Google Spreadsheet 주소를 입력해 주세요.');
-        }
-        const spreadsheetId = extractSpreadsheetId(GOOGLE_SHEET_URL);
-        if (parsedUrl.protocol !== 'https:' || parsedUrl.hostname !== 'docs.google.com' || !spreadsheetId) {
-            throw createApiError(400, 'GOOGLE_SHEET_URL_INVALID', 'Google Spreadsheet의 HTTPS 주소를 입력해 주세요.');
-        }
-        if (GOOGLE_SHEET_AUTHORIZED_FILE_ID && GOOGLE_SHEET_AUTHORIZED_FILE_ID !== spreadsheetId) {
-            throw createApiError(400, 'GOOGLE_SHEET_AUTHORIZATION_MISMATCH', '선택한 Spreadsheet와 연결 주소가 일치하지 않습니다. 파일을 다시 선택해 주세요.');
-        }
-        return {
-            scope,
-            fields: {
-                GOOGLE_SHEET_URL: `https://docs.google.com/spreadsheets/d/${spreadsheetId}`,
-                GOOGLE_SHEET_ID: spreadsheetId,
-                GOOGLE_SHEET_TITLE,
-                GOOGLE_SHEET_AUTHORIZED_FILE_ID
-            }
-        };
-    }
-
-    if (scope === 'naver') {
-        const NAVER_ID = String(values.NAVER_ID || '').trim();
-        if (!NAVER_ID) {
-            throw createApiError(400, 'NAVER_ID_REQUIRED', '네이버 아이디를 입력해 주세요.');
-        }
-        return { scope, fields: { NAVER_ID } };
-    }
-
-    const WORDPRESS_URL = String(values.WORDPRESS_URL || '').trim();
-    const WORDPRESS_USER_ID = String(values.WORDPRESS_USER_ID || '').trim();
-    const WORDPRESS_APP_PASSWORD = String(values.WORDPRESS_APP_PASSWORD || '').trim();
-    if (!WORDPRESS_URL || !WORDPRESS_USER_ID) {
-        throw createApiError(
-            400,
-            'WORDPRESS_CONNECTION_REQUIRED',
-            '사이트 주소, 사용자 ID와 애플리케이션 비밀번호를 모두 입력해 주세요.'
-        );
-    }
-    try {
-        const parsedUrl = new URL(WORDPRESS_URL);
-        if (!['http:', 'https:'].includes(parsedUrl.protocol)) throw new Error('unsupported protocol');
-    } catch (_error) {
-        throw createApiError(400, 'WORDPRESS_URL_INVALID', '올바른 워드프레스 사이트 주소를 입력해 주세요.');
-    }
-    return {
-        scope,
-        fields: { WORDPRESS_URL, WORDPRESS_USER_ID, WORDPRESS_APP_PASSWORD }
-    };
+    try { return normalizeCoreConnectionSettingsForApplication(requestBody); }
+    catch (error) { throw createApiError(error.status || 400, error.code, error.message); }
 }
 
 function normalizeAiRoleSettings(requestBody = {}) {
-    const scope = String(requestBody.scope || '').trim().toLowerCase();
-    const values = requestBody.values && typeof requestBody.values === 'object' ? requestBody.values : {};
-    if (!['text', 'image', 'chat'].includes(scope)) {
-        throw createApiError(400, 'AI_ROLE_SCOPE_INVALID', '설정할 AI 역할을 확인해 주세요.');
-    }
-    const source = scope === 'chat' ? normalizeChatModelSource(values.CHAT_MODEL_SOURCE) : '';
-    const prefix = scope === 'text' ? 'TEXT' : (scope === 'image' ? 'IMAGE' : 'CHAT');
-    const fields = {
-        [`${prefix}_MODEL_PROVIDER`]: String(values.provider || '').trim(),
-        [`${prefix}_MODEL_PRESET_CODE`]: String(values.presetCode || '').trim(),
-        [`${prefix}_MODEL_NAME`]: String(values.name || '').trim(),
-        [`${prefix}_MODEL_BASE_URL`]: String(values.baseUrl || '').trim(),
-        [`${prefix}_MODEL_API_KEY`]: String(values.apiKey || '').trim()
-    };
-    if (scope === 'chat') fields.CHAT_MODEL_SOURCE = source;
-    return { scope, source, fields };
+    try { return normalizeAiRoleSettingsForApplication(requestBody, normalizeChatModelSource); }
+    catch (error) { throw createApiError(400, error.code, error.message); }
+}
+
+function redactAiProviderProfiles(rawProfiles = {}) {
+    return redactAiProviderProfilesForApplication(rawProfiles, normalizeStoredModelProfiles, getAiModelCatalog);
 }
 
 function normalizeOptionalServiceSettings(requestBody = {}) {
     const scope = String(requestBody.scope || '').trim().toLowerCase();
-    const values = requestBody.values && typeof requestBody.values === 'object' ? requestBody.values : {};
-    if (!['buffer', 'sns-distribution', 'telegram', 'slack', 'bitly'].includes(scope)) {
-        throw createApiError(400, 'OPTIONAL_SERVICE_SCOPE_INVALID', '설정할 부가 서비스를 확인해 주세요.');
-    }
-    if (scope === 'buffer') return { scope, fields: {
-        BUFFER_API_KEY: String(values.BUFFER_API_KEY || '').trim(),
-        BUFFER_ORGANIZATION_ID: String(values.BUFFER_ORGANIZATION_ID || '').trim()
-    } };
     if (scope === 'sns-distribution') {
-        const sourceBlogs = Array.isArray(values.SNS_SOURCE_BLOGS)
-            ? values.SNS_SOURCE_BLOGS.map((value) => String(value || '').trim().toLowerCase()).filter((value) => ['naver', 'wordpress'].includes(value))
-            : [];
-        const channels = Array.isArray(values.BUFFER_CHANNELS)
-            ? values.BUFFER_CHANNELS.map((channel) => ({
-                id: String(channel?.id || channel?.channelId || '').trim(),
-                name: String(channel?.name || channel?.displayName || channel?.display_name || '').trim(),
-                displayName: String(channel?.displayName || channel?.display_name || channel?.name || '').trim(),
-                service: String(channel?.service || '').trim().toLowerCase()
-            })).filter((channel) => channel.id)
-            : [];
-        const uniqueChannels = Array.from(new Map(channels.map((channel) => [channel.id, channel])).values());
-        if (uniqueChannels.length > 3) {
-            throw createApiError(400, 'BUFFER_CHANNEL_LIMIT_EXCEEDED', 'Buffer 채널은 최대 3개까지 선택할 수 있습니다.');
-        }
-        return { scope, fields: {
-            SNS_PUBLISH_ENABLED: values.SNS_PUBLISH_ENABLED === true,
-            SNS_SOURCE_BLOGS: Array.from(new Set(sourceBlogs)),
-            BUFFER_ORGANIZATION_ID: String(values.BUFFER_ORGANIZATION_ID || '').trim(),
-            BUFFER_CHANNELS: uniqueChannels
-        } };
+        try { return normalizeSnsDistributionSettings(requestBody); }
+        catch (error) { throw createApiError(400, error.code, error.message); }
     }
-    if (scope === 'telegram') {
-        return { scope, fields: {
-            NOTIFY_TELEGRAM_BOT_TOKEN: String(values.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim(),
-            NOTIFY_TELEGRAM_CHAT_ID: String(values.NOTIFY_TELEGRAM_CHAT_ID || '').trim(),
-            NOTIFY_TELEGRAM_DELIVERY_ENABLED: typeof values.NOTIFY_TELEGRAM_DELIVERY_ENABLED === 'boolean'
-                ? values.NOTIFY_TELEGRAM_DELIVERY_ENABLED : null
-        } };
-    }
-    if (scope === 'slack') {
-        return { scope, fields: {
-            NOTIFY_SLACK_WEBHOOK_URL: String(values.NOTIFY_SLACK_WEBHOOK_URL || '').trim(),
-            NOTIFY_SLACK_DELIVERY_ENABLED: typeof values.NOTIFY_SLACK_DELIVERY_ENABLED === 'boolean'
-                ? values.NOTIFY_SLACK_DELIVERY_ENABLED : null
-        } };
-    }
-    return { scope, fields: { NOTIFY_BITLY_TOKEN: String(values.NOTIFY_BITLY_TOKEN || '').trim() } };
+    try { return normalizeOptionalServiceSettingsForApplication(requestBody); }
+    catch (error) { throw createApiError(error.status || 400, error.code, error.message); }
 }
 
 function normalizeExternalConnectionSettings(requestBody = {}) {
-    const scope = String(requestBody.scope || '').trim();
-    const values = requestBody.values || {};
-    if (scope === 'telegram') return { scope, fields: { TELEGRAM_INBOUND_ENABLED: values.TELEGRAM_INBOUND_ENABLED === true } };
-    if (scope === 'mcp') return { scope, fields: {
-        MCP_REMOTE_ENABLED: values.MCP_REMOTE_ENABLED === true,
-        MCP_REMOTE_HOST: String(values.MCP_REMOTE_HOST || '').trim(),
-        MCP_REMOTE_PORT: String(values.MCP_REMOTE_PORT || '').trim(),
-        MCP_REMOTE_PATH: String(values.MCP_REMOTE_PATH || '').trim(),
-        MCP_REMOTE_AUTH_TOKEN: String(values.MCP_REMOTE_AUTH_TOKEN || '').trim()
-    } };
-    throw createApiError(400, 'EXTERNAL_CONNECTION_SCOPE_INVALID', '외부 연결 항목을 확인해 주세요.');
+    try { return normalizeExternalConnectionSettingsForApplication(requestBody); }
+    catch (error) { throw createApiError(error.status || 400, error.code, error.message); }
 }
 
 function normalizeAppGeneralSettings(requestBody = {}) {
-    const values = requestBody.values && typeof requestBody.values === 'object' ? requestBody.values : {};
-    const LISTEN_HOST = String(values.LISTEN_HOST || '').trim();
-    const LISTEN_PORT = Number(values.LISTEN_PORT);
-    if (!['127.0.0.1', '0.0.0.0'].includes(LISTEN_HOST)) {
-        throw createApiError(400, 'LISTEN_HOST_INVALID', '접속 주소를 확인해 주세요.');
-    }
-    if (!Number.isInteger(LISTEN_PORT) || LISTEN_PORT < 1 || LISTEN_PORT > 65535) {
-        throw createApiError(400, 'LISTEN_PORT_INVALID', '1~65535 사이의 포트 번호를 입력해 주세요.');
-    }
-    return { fields: { LISTEN_HOST, LISTEN_PORT } };
+    try { return normalizeAppGeneralSettingsForApplication(requestBody); }
+    catch (error) { throw createApiError(400, error.code, error.message); }
 }
 
 function normalizeAppInputSettings(requestBody = {}) {
-    const values = requestBody.values && typeof requestBody.values === 'object' ? requestBody.values : {};
-    const TYPING_SPEED = String(values.TYPING_SPEED || '').trim().toUpperCase();
-    if (!['QUICK', 'FAST', 'NORMAL', 'HUMAN'].includes(TYPING_SPEED)) {
-        throw createApiError(400, 'TYPING_SPEED_INVALID', '네이버 입력 속도를 확인해 주세요.');
-    }
-    return { fields: { TYPING_SPEED } };
-}
-
-function applyCoreConnectionSettings(structuredConfig = {}, normalized = {}) {
-    const { scope, fields = {} } = normalized;
-    if (scope === 'content') {
-        if (!structuredConfig.general || typeof structuredConfig.general !== 'object') structuredConfig.general = {};
-        structuredConfig.general.google_sheet_url = fields.GOOGLE_SHEET_URL;
-        structuredConfig.general.google_sheet_title = fields.GOOGLE_SHEET_TITLE || '';
-        structuredConfig.general.google_sheet_authorized_file_id = fields.GOOGLE_SHEET_AUTHORIZED_FILE_ID || '';
-    }
-    if (scope === 'naver') {
-        if (!structuredConfig.platforms || typeof structuredConfig.platforms !== 'object') structuredConfig.platforms = {};
-        if (!structuredConfig.platforms.naver || typeof structuredConfig.platforms.naver !== 'object') {
-            structuredConfig.platforms.naver = {};
-        }
-        structuredConfig.platforms.naver.user_id = fields.NAVER_ID;
-    }
-    if (scope === 'wordpress') {
-        if (!structuredConfig.platforms || typeof structuredConfig.platforms !== 'object') structuredConfig.platforms = {};
-        if (!structuredConfig.platforms.wordpress || typeof structuredConfig.platforms.wordpress !== 'object') {
-            structuredConfig.platforms.wordpress = {};
-        }
-        structuredConfig.platforms.wordpress.url = fields.WORDPRESS_URL;
-        structuredConfig.platforms.wordpress.user_id = fields.WORDPRESS_USER_ID;
-        if (fields.WORDPRESS_APP_PASSWORD) {
-            structuredConfig.platforms.wordpress.app_password = fields.WORDPRESS_APP_PASSWORD;
-        }
-    }
-    return structuredConfig;
+    try { return normalizeAppInputSettingsForApplication(requestBody); }
+    catch (error) { throw createApiError(400, error.code, error.message); }
 }
 
 function aiVerificationSignature(scope, modelConfig = {}) {
@@ -420,7 +236,6 @@ function createSettingsService(deps = {}) {
         socialPublisher,
         Utils,
         axios,
-        cheerio,
         styleReferenceAnalyzer,
         writingProfilePreviewService,
         blogWritingApplication,
@@ -428,100 +243,114 @@ function createSettingsService(deps = {}) {
         aiGateway = null
     } = deps;
 
-    let writingProfileRepository = null;
-    let writingReferenceAnalyzer = styleReferenceAnalyzer || null;
-    let writingPreviewService = writingProfilePreviewService || null;
+    const writingProfileApplication = createSettingsWritingProfileApplication({
+        fs,
+        path,
+        config: CONFIG || {},
+        axios,
+        cheerio: deps.cheerio,
+        blogWritingApplication,
+        aiGenerationService,
+        styleReferenceAnalyzer,
+        writingProfilePreviewService
+    });
 
-    function getWritingProfileRepository() {
-        if (writingProfileRepository) return writingProfileRepository;
-        const runtimeFs = fs || require('node:fs');
-        const runtimePath = path || require('node:path');
-        const runtimeConfig = CONFIG || {};
-        writingProfileRepository = createWritingProfileRepository({
-            fs: runtimeFs,
-            path: runtimePath,
-            filePath: runtimeConfig.WRITING_PROFILE_PATH
-                || runtimePath.join(runtimeConfig.CONFIG_DIR || process.cwd(), 'config', 'writing_profile.json'),
-            legacyContentConfig: runtimeConfig.content
-        });
-        return writingProfileRepository;
-    }
-
-    function getWritingReferenceAnalyzer() {
-        if (writingReferenceAnalyzer) return writingReferenceAnalyzer;
-        const runtimeAxios = axios || require('axios');
-        const runtimeCheerio = cheerio || require('cheerio');
-        if (typeof blogWritingApplication?.generateText !== 'function') {
-            throw new Error('Blog Writing Application is required for style reference analysis.');
-        }
-        writingReferenceAnalyzer = createStyleReferenceAnalyzer({
-            fetchStyleReference: createStyleReferenceFetcher({ axios: runtimeAxios, cheerio: runtimeCheerio }),
-            generateText: (prompt, modelOptions = {}) => blogWritingApplication.generateText(prompt, {
-                modelSelection: toWritingModelSelection((CONFIG || {}).TEXT_MODEL_CONFIG),
-                generationOptions: pickGatewayGenerationOptions(modelOptions)
-            }),
-            getWritingModelInfo: () => {
-                const model = (CONFIG || {}).TEXT_MODEL_CONFIG || {};
-                return { provider: model.provider, code: model.code, name: model.name };
+    const settingsConfigRepository = {
+        resolvePath() {
+            return resolveWritableConfigPath();
+        },
+        read() {
+            const writablePath = resolveWritableConfigPath();
+            let document = {};
+            if (fs.existsSync(writablePath)) {
+                try { document = JSON.parse(fs.readFileSync(writablePath, 'utf8')); }
+                catch (_error) {
+                    throw createApiError(409, 'CONFIG_JSON_INVALID', '현재 설정 파일을 읽을 수 없어 안전하게 반영하지 못했습니다.');
+                }
             }
-        });
-        return writingReferenceAnalyzer;
-    }
+            return { path: writablePath, document };
+        },
+        write(writablePath, document) {
+            fs.mkdirSync(path.dirname(writablePath), { recursive: true });
+            fs.writeFileSync(writablePath, JSON.stringify(document, null, 2), 'utf8');
+        }
+    };
 
-    function getWritingPreviewService() {
-        if (writingPreviewService) return writingPreviewService;
-        writingPreviewService = createWritingProfilePreviewService({
-            generateText: async (prompt, modelOptions = {}) => {
-                if (typeof aiGenerationService?.generateText !== 'function'
-                    || typeof aiGenerationService?.resolveModel !== 'function') {
-                    throw new Error('AI Generation service is required for writing profile preview.');
-                }
-                const modelSelection = aiGenerationService.resolveModel(
-                    'text',
-                    toWritingModelSelection((CONFIG || {}).TEXT_MODEL_CONFIG)
-                );
-                if (!modelSelection) {
-                    throw Object.assign(new Error('설정된 글쓰기 모델을 AI Gateway에서 사용할 수 없습니다.'), {
-                        code: 'AI_GATEWAY_UNSUPPORTED_ROUTE'
-                    });
-                }
-                const generationOptions = pickGatewayGenerationOptions(modelOptions);
-                const result = await aiGenerationService.generateText({
-                    modelSelection,
-                    prompt,
-                    ...(generationOptions ? { options: generationOptions } : {}),
-                    ...(aiGenerationService.supportsFeature?.('text', modelSelection, 'jsonResponse')
-                        ? { responseFormat: 'json' }
-                        : {})
-                }, modelOptions.signal ? { signal: modelOptions.signal } : {});
-                return result?.content;
-            },
-            config: CONFIG || {}
-        });
-        return writingPreviewService;
-    }
+    const appPreferencesApplication = createSettingsAppPreferencesApplication({
+        config: CONFIG || {},
+        configRepository: settingsConfigRepository,
+        defaultHost: DEFAULT_HOST,
+        defaultPort: DEFAULT_PORT,
+        normalizeListenHost,
+        normalizeListenPort,
+        scheduleUiReload
+    });
 
-    function toWritingProfileResponse(result) {
-        return {
-            schema_version: result.document.schema_version,
-            active_profile: result.document.active_profile,
-            default_profile_overrides: result.document.default_profile_overrides,
-            custom_profile: result.document.custom_profile,
-            effective_profile: result.effective_profile,
-            default_profile: getDefaultContentWritingProfile(),
-            default_profile_metadata: { ...DEFAULT_CONTENT_WRITING_PROFILE_METADATA },
-            source: result.source,
-            warnings: result.warnings,
-            updated_at: result.document.updated_at
-        };
-    }
+    const coreConnectionsApplication = createSettingsCoreConnectionsApplication({
+        config: CONFIG || {},
+        configRepository: settingsConfigRepository,
+        buildMajorSettings
+    });
 
-    function applyWritingProfileResult(result) {
-        if (!CONFIG) return;
-        applyWritingProfileRuntimeAliases(CONFIG, result.effective_profile);
-        CONFIG.CONTENT_WRITING_PROFILE_SOURCE = result.source;
-        CONFIG.CONTENT_WRITING_PROFILE_WARNINGS = result.warnings;
-    }
+    const snsDistributionSettingsApplication = createSnsDistributionSettingsApplication({
+        config: CONFIG || {},
+        configRepository: settingsConfigRepository,
+        syncAutoRunnerWithConfig
+    });
+
+    const optionalServicesApplication = createSettingsOptionalServicesApplication({
+        config: CONFIG || {},
+        configRepository: settingsConfigRepository,
+        getBufferConnectionVerification: bufferConnectionVerification,
+        async reapplyTelegramRuntime() {
+            if (!TelegramBotService) return;
+            try {
+                if (typeof TelegramBotService.stop === 'function') await TelegramBotService.stop();
+                if (CONFIG.NOTIFY_TELEGRAM_INBOUND_ENABLED && typeof TelegramBotService.init === 'function') TelegramBotService.init();
+            } catch (error) {
+                console.error('Failed to apply Telegram runtime settings:', error);
+            }
+        }
+    });
+
+    const externalConnectionsApplication = createSettingsExternalConnectionsApplication({
+        config: CONFIG || {},
+        configRepository: settingsConfigRepository,
+        getTelegramStatus: () => TelegramBotService?.getStatus?.() || {},
+        getRemoteServiceStatus,
+        ensureRuntimeRemoteMcpConfig,
+        restartRemoteMcpService,
+        telegramBotService: TelegramBotService
+    });
+
+    const cardNewsSourceSettingsApplication = createCardNewsSourceSettingsApplication({
+        config: CONFIG || {},
+        configRepository: settingsConfigRepository,
+        normalizeBuiltinSources: normalizeCardNewsBuiltinSources,
+        normalizeRssSources: normalizeCardNewsRssSources
+    });
+
+    const aiModelsApplication = createSettingsAiModelsApplication({
+        config: CONFIG || {},
+        configRepository: settingsConfigRepository,
+        aiGateway,
+        getModelCatalog: getAiModelCatalog,
+        buildMajorSettings,
+        modelConfig: {
+            buildModelSelectionFromFields,
+            toStoredModelSelection,
+            toStoredChatModelSettings,
+            mergeActiveSelectionsIntoProfiles,
+            normalizeStoredModelProfiles,
+            normalizeChatModelSource
+        },
+        verification: {
+            get: aiRoleVerification,
+            history: aiRoleVerificationHistory,
+            record: recordAiRoleVerification
+        },
+        describeConnectionFailure: describeAiModelConnectionFailure
+    });
 
     function toWritingProfileApiError(error) {
         if (error?.code !== 'INVALID_WRITING_PROFILE') return error;
@@ -533,33 +362,24 @@ function createSettingsService(deps = {}) {
 
     return {
         async getWritingProfile() {
-            const result = getWritingProfileRepository().read();
-            applyWritingProfileResult(result);
-            return toWritingProfileResponse(result);
+            return writingProfileApplication.getWritingProfile();
         },
 
         async saveWritingProfile(requestBody = {}) {
             try {
-                const result = getWritingProfileRepository().save(requestBody);
-                applyWritingProfileResult(result);
-                return toWritingProfileResponse(result);
+                return writingProfileApplication.saveWritingProfile(requestBody);
             } catch (error) {
                 throw toWritingProfileApiError(error);
             }
         },
 
         async useDefaultWritingProfile() {
-            const result = getWritingProfileRepository().useDefault();
-            applyWritingProfileResult(result);
-            return toWritingProfileResponse(result);
+            return writingProfileApplication.useDefaultWritingProfile();
         },
 
         async analyzeWritingProfileReferences(requestBody = {}) {
             try {
-                return await getWritingReferenceAnalyzer()({
-                    sample_text: requestBody.sample_text,
-                    blog_urls: requestBody.blog_urls
-                });
+                return await writingProfileApplication.analyzeWritingProfileReferences(requestBody);
             } catch (error) {
                 if (String(error?.code || '').startsWith('STYLE_REFERENCE_')) {
                     throw createApiError(400, error.code, error.message);
@@ -569,29 +389,12 @@ function createSettingsService(deps = {}) {
         },
 
         async deleteWritingProfileReferences() {
-            const current = getWritingProfileRepository().read();
-            if (!current.document.custom_profile) return toWritingProfileResponse(current);
-            const customProfile = JSON.parse(JSON.stringify(current.document.custom_profile));
-            customProfile.channels.blog.style_references = {
-                sample_text: { value: '', status: 'empty' },
-                blog_urls: [],
-                fingerprint: null,
-                fingerprint_input_hash: null,
-                analyzed_at: null,
-                analyzer_version: null,
-                analyzer_model: null
-            };
-            const result = getWritingProfileRepository().save({
-                active_profile: current.document.active_profile,
-                custom_profile: customProfile
-            });
-            applyWritingProfileResult(result);
-            return toWritingProfileResponse(result);
+            return writingProfileApplication.deleteWritingProfileReferences();
         },
 
         async previewWritingProfile(requestBody = {}) {
             try {
-                return await getWritingPreviewService()(requestBody);
+                return await writingProfileApplication.previewWritingProfile(requestBody);
             } catch (error) {
                 if (String(error?.code || '').startsWith('WRITING_PREVIEW_')) {
                     throw createApiError(error.status || 400, error.code, error.message);
@@ -634,365 +437,89 @@ function createSettingsService(deps = {}) {
         },
 
         async getCoreConnectionSettings() {
-            const major = redactMajorSecretFields(buildMajorSettings(null, {
-                path: CONFIG.CONFIG_SOURCE_PATH || resolveWritableConfigPath(),
-                sourceType: CONFIG.CONFIG_SOURCE_TYPE
-            }));
-            const source = major.fields || {};
-            return {
-                fields: {
-                    GOOGLE_SHEET_URL: source.GOOGLE_SHEET_URL || '',
-                    GOOGLE_SHEET_TITLE: String(CONFIG.general?.google_sheet_title || ''),
-                    GOOGLE_SHEET_AUTHORIZED_FILE_ID: String(CONFIG.general?.google_sheet_authorized_file_id || ''),
-                    NAVER_ID: source.NAVER_ID || '',
-                    WORDPRESS_URL: source.WORDPRESS_URL || '',
-                    WORDPRESS_USER_ID: source.WORDPRESS_USER_ID || '',
-                    WORDPRESS_APP_PASSWORD_CONFIGURED: source.WORDPRESS_APP_PASSWORD_CONFIGURED === true
-                }
-            };
+            return coreConnectionsApplication.getSettings();
         },
 
         async getAiRoleSettings() {
-            const gatewayCatalog = typeof aiGateway?.getModelCatalog === 'function'
-                ? await aiGateway.getModelCatalog()
-                : null;
-            const settings = redactAiRoleSecretFields(buildMajorSettings(null, {
-                path: CONFIG.CONFIG_SOURCE_PATH || resolveWritableConfigPath(),
-                sourceType: CONFIG.CONFIG_SOURCE_TYPE
-            }));
-            return {
-                fields: settings.fields,
-                aiPresets: gatewayCatalog || getAiModelCatalog(),
-                aiProviderProfiles: redactAiProviderProfiles(CONFIG.AI_MODEL_PROFILES),
-                verification: {
-                    text: { ...aiRoleVerification('text', CONFIG.TEXT_MODEL_CONFIG), history: aiRoleVerificationHistory('text') },
-                    image: { ...aiRoleVerification('image', CONFIG.IMAGE_MODEL_CONFIG), history: aiRoleVerificationHistory('image') },
-                    chat: { ...aiRoleVerification('chat', CONFIG.CHAT_MODEL_CONFIG), history: aiRoleVerificationHistory('chat') }
-                }
-            };
+            return aiModelsApplication.getSettings();
         },
 
         async getOptionalServiceSettings() {
-            const bufferApiKey = String(CONFIG.BUFFER_API_KEY || '').trim();
-            const bufferOrganizationId = String(CONFIG.BUFFER_ORGANIZATION_ID || '').trim();
-            return { fields: {
-                BUFFER_API_KEY_CONFIGURED: Boolean(bufferApiKey),
-                BUFFER_ORGANIZATION_ID: bufferOrganizationId,
-                BUFFER_CONNECTION_VERIFICATION: bufferConnectionVerification(bufferApiKey, bufferOrganizationId),
-                BUFFER_CHANNELS: Array.isArray(CONFIG.BUFFER_CHANNELS) ? CONFIG.BUFFER_CHANNELS : [],
-                SNS_PUBLISH_ENABLED: CONFIG.SNS_PUBLISH_ENABLED === true,
-                SNS_SOURCE_BLOGS: Array.isArray(CONFIG.SNS_SOURCE_BLOGS) ? CONFIG.SNS_SOURCE_BLOGS : [],
-                NOTIFY_TELEGRAM_BOT_TOKEN_CONFIGURED: Boolean(String(CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim()),
-                NOTIFY_TELEGRAM_CHAT_PAIRED: Boolean(String(CONFIG.NOTIFY_TELEGRAM_CHAT_ID || '').trim()),
-                NOTIFY_TELEGRAM_DELIVERY_ENABLED: CONFIG.NOTIFY_TELEGRAM_ENABLED === true,
-                NOTIFY_SLACK_WEBHOOK_URL_CONFIGURED: Boolean(String(CONFIG.NOTIFY_SLACK_WEBHOOK_URL || '').trim()),
-                NOTIFY_SLACK_DELIVERY_ENABLED: CONFIG.NOTIFY_SLACK_ENABLED === true,
-                NOTIFY_BITLY_TOKEN_CONFIGURED: Boolean(String(CONFIG.NOTIFY_BITLY_TOKEN || '').trim())
-            } };
+            const [optionalSettings, distributionSettings] = await Promise.all([
+                optionalServicesApplication.getSettings(),
+                snsDistributionSettingsApplication.getSettings()
+            ]);
+            return { fields: { ...optionalSettings.fields, ...distributionSettings.fields } };
         },
 
         async getExternalConnectionSettings() {
-            const mcpStatus = typeof getRemoteServiceStatus === 'function' ? getRemoteServiceStatus() : {};
-            const telegramStatus = typeof TelegramBotService?.getStatus === 'function'
-                ? TelegramBotService.getStatus()
-                : {};
-            return { fields: {
-                TELEGRAM_INBOUND_CONFIGURED: Boolean(String(CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim() && String(CONFIG.NOTIFY_TELEGRAM_CHAT_ID || '').trim()),
-                TELEGRAM_INBOUND_ENABLED: CONFIG.NOTIFY_TELEGRAM_INBOUND_ENABLED === true,
-                TELEGRAM_INBOUND_RUNNING: telegramStatus.running === true,
-                TELEGRAM_INBOUND_LAST_ERROR_CATEGORY: String(telegramStatus.lastErrorCategory || ''),
-                TELEGRAM_INBOUND_LAST_ERROR_MESSAGE: String(telegramStatus.lastErrorMessage || ''),
-                TELEGRAM_INBOUND_LAST_ERROR_AT: String(telegramStatus.lastErrorAt || ''),
-                MCP_REMOTE_ENABLED: CONFIG.MCP_REMOTE_ENABLED === true,
-                MCP_REMOTE_RUNNING: mcpStatus.running === true,
-                MCP_REMOTE_HOST: CONFIG.MCP_REMOTE_HOST || '127.0.0.1',
-                MCP_REMOTE_PORT: CONFIG.MCP_REMOTE_PORT || 4578,
-                MCP_REMOTE_PATH: CONFIG.MCP_REMOTE_PATH || '/mcp',
-                MCP_REMOTE_AUTH_TOKEN_CONFIGURED: Boolean(String(CONFIG.MCP_REMOTE_AUTH_TOKEN || '').trim())
-            } };
+            return externalConnectionsApplication.getSettings();
         },
 
         async getAppGeneralSettings() {
-            return { fields: {
-                LISTEN_HOST: normalizeListenHost(CONFIG.LISTEN_HOST, DEFAULT_HOST),
-                LISTEN_PORT: normalizeListenPort(CONFIG.LISTEN_PORT, DEFAULT_PORT)
-            } };
+            return appPreferencesApplication.getAppGeneralSettings();
         },
 
         async getAppInputSettings() {
-            return { fields: { TYPING_SPEED: String(CONFIG.TYPING_SPEED || 'NORMAL').trim().toUpperCase() } };
+            return appPreferencesApplication.getAppInputSettings();
         },
 
         async getCardNewsSourceSettings() {
-            return { fields: {
-                CARD_NEWS_BUILTIN_SOURCES: normalizeCardNewsBuiltinSources(CONFIG.CARD_NEWS_BUILTIN_SOURCES),
-                CARD_NEWS_RSS_SOURCES: normalizeCardNewsRssSources(CONFIG.CARD_NEWS_RSS_SOURCES)
-            } };
+            return cardNewsSourceSettingsApplication.getSettings();
         },
 
         async saveCardNewsSourceSettings(requestBody = {}) {
-            const values = requestBody.values && typeof requestBody.values === 'object'
-                ? requestBody.values
-                : {};
-            let builtinSources;
-            let rssSources;
-            try {
-                builtinSources = normalizeCardNewsBuiltinSources(values.CARD_NEWS_BUILTIN_SOURCES);
-                rssSources = normalizeCardNewsRssSources(values.CARD_NEWS_RSS_SOURCES, { strict: true });
-            } catch (error) {
+            try { return cardNewsSourceSettingsApplication.saveSettings(requestBody); }
+            catch (error) {
+                if (error?.code === 'CONFIG_JSON_INVALID' || error?.apiCode) throw error;
                 throw createApiError(400, 'CARD_NEWS_SOURCE_INVALID', error.message);
             }
-
-            const writablePath = resolveWritableConfigPath();
-            let structuredConfig = {};
-            if (fs.existsSync(writablePath)) {
-                try { structuredConfig = JSON.parse(fs.readFileSync(writablePath, 'utf8')); }
-                catch (_error) { throw createApiError(409, 'CONFIG_JSON_INVALID', '현재 설정 파일을 읽을 수 없어 안전하게 반영하지 못했습니다.'); }
-            }
-            if (!structuredConfig.content || typeof structuredConfig.content !== 'object') structuredConfig.content = {};
-            if (!structuredConfig.content.card_news || typeof structuredConfig.content.card_news !== 'object') {
-                structuredConfig.content.card_news = {};
-            }
-            structuredConfig.content.card_news.builtin_sources = builtinSources;
-            structuredConfig.content.card_news.rss_sources = rssSources;
-            fs.mkdirSync(path.dirname(writablePath), { recursive: true });
-            fs.writeFileSync(writablePath, JSON.stringify(structuredConfig, null, 2), 'utf8');
-
-            CONFIG.CARD_NEWS_BUILTIN_SOURCES = builtinSources;
-            CONFIG.CARD_NEWS_RSS_SOURCES = rssSources;
-            if (!CONFIG.content || typeof CONFIG.content !== 'object') CONFIG.content = {};
-            if (!CONFIG.content.card_news || typeof CONFIG.content.card_news !== 'object') CONFIG.content.card_news = {};
-            CONFIG.content.card_news.builtin_sources = builtinSources;
-            CONFIG.content.card_news.rss_sources = rssSources;
-            return {
-                fields: {
-                    CARD_NEWS_BUILTIN_SOURCES: builtinSources,
-                    CARD_NEWS_RSS_SOURCES: rssSources
-                },
-                message: '카드뉴스 소스를 적용했습니다.'
-            };
         },
 
         async saveAppInputSettings(requestBody = {}) {
-            const { fields } = normalizeAppInputSettings(requestBody);
-            const writablePath = resolveWritableConfigPath();
-            let structuredConfig = {};
-            if (fs.existsSync(writablePath)) {
-                try { structuredConfig = JSON.parse(fs.readFileSync(writablePath, 'utf8')); }
-                catch (_error) { throw createApiError(409, 'CONFIG_JSON_INVALID', '현재 설정 파일을 읽을 수 없어 안전하게 반영하지 못했습니다.'); }
+            try { return appPreferencesApplication.saveAppInputSettings(requestBody); }
+            catch (error) {
+                if (error?.code === 'TYPING_SPEED_INVALID') throw createApiError(400, error.code, error.message);
+                throw error;
             }
-            if (!structuredConfig.platforms || typeof structuredConfig.platforms !== 'object') structuredConfig.platforms = {};
-            if (!structuredConfig.platforms.naver || typeof structuredConfig.platforms.naver !== 'object') structuredConfig.platforms.naver = {};
-            structuredConfig.platforms.naver.typing_speed = fields.TYPING_SPEED;
-            fs.mkdirSync(path.dirname(writablePath), { recursive: true });
-            fs.writeFileSync(writablePath, JSON.stringify(structuredConfig, null, 2), 'utf8');
-            CONFIG.TYPING_SPEED = fields.TYPING_SPEED;
-            if (!CONFIG.platforms || typeof CONFIG.platforms !== 'object') CONFIG.platforms = {};
-            if (!CONFIG.platforms.naver || typeof CONFIG.platforms.naver !== 'object') CONFIG.platforms.naver = {};
-            CONFIG.platforms.naver.typing_speed = fields.TYPING_SPEED;
-            return { fields, message: '네이버 입력 속도를 적용했습니다.' };
         },
 
         async saveAppGeneralSettings(requestBody = {}) {
-            const { fields } = normalizeAppGeneralSettings(requestBody);
-            const writablePath = resolveWritableConfigPath();
-            let structuredConfig = {};
-            if (fs.existsSync(writablePath)) {
-                try { structuredConfig = JSON.parse(fs.readFileSync(writablePath, 'utf8')); }
-                catch (_error) { throw createApiError(409, 'CONFIG_JSON_INVALID', '현재 설정 파일을 읽을 수 없어 안전하게 반영하지 못했습니다.'); }
+            try { return appPreferencesApplication.saveAppGeneralSettings(requestBody); }
+            catch (error) {
+                if (['LISTEN_HOST_INVALID', 'LISTEN_PORT_INVALID'].includes(error?.code)) {
+                    throw createApiError(400, error.code, error.message);
+                }
+                throw error;
             }
-            const previousHost = normalizeListenHost(CONFIG.LISTEN_HOST, DEFAULT_HOST);
-            const previousPort = normalizeListenPort(CONFIG.LISTEN_PORT, DEFAULT_PORT);
-            structuredConfig.general = structuredConfig.general && typeof structuredConfig.general === 'object'
-                ? structuredConfig.general
-                : {};
-            structuredConfig.general.listen_host = fields.LISTEN_HOST;
-            structuredConfig.general.listen_port = fields.LISTEN_PORT;
-            fs.mkdirSync(path.dirname(writablePath), { recursive: true });
-            fs.writeFileSync(writablePath, JSON.stringify(structuredConfig, null, 2), 'utf8');
-            CONFIG.LISTEN_HOST = fields.LISTEN_HOST;
-            CONFIG.LISTEN_PORT = fields.LISTEN_PORT;
-            if (!CONFIG.general || typeof CONFIG.general !== 'object') CONFIG.general = {};
-            CONFIG.general.listen_host = fields.LISTEN_HOST;
-            CONFIG.general.listen_port = fields.LISTEN_PORT;
-            const requiresRestart = fields.LISTEN_HOST !== previousHost || fields.LISTEN_PORT !== previousPort;
-            if (requiresRestart) scheduleUiReload(fields.LISTEN_HOST, fields.LISTEN_PORT);
-            return {
-                fields,
-                requiresRestart,
-                message: requiresRestart
-                    ? '접속 설정을 적용했습니다. 앱 서버를 새 주소로 다시 시작합니다.'
-                    : '접속 설정이 이미 적용되어 있습니다.'
-            };
         },
         async saveExternalConnectionSettings(requestBody = {}) {
-            const normalized = normalizeExternalConnectionSettings(requestBody);
-            const writablePath = resolveWritableConfigPath();
-            let config = {};
-            if (fs.existsSync(writablePath)) {
-                try { config = JSON.parse(fs.readFileSync(writablePath, 'utf8')); }
-                catch (_error) { throw createApiError(409, 'CONFIG_JSON_INVALID', '현재 설정 파일을 읽을 수 없어 안전하게 반영하지 못했습니다.'); }
+            try { return await externalConnectionsApplication.save(requestBody); }
+            catch (error) {
+                if (error?.apiCode) throw error;
+                throw createApiError(error?.status || 400, error?.code || 'EXTERNAL_CONNECTION_SAVE_FAILED', error?.message);
             }
-            config.notification = config.notification || {};
-            config.notification.telegram = config.notification.telegram || {};
-            config.mcp = config.mcp || {};
-            config.mcp.remote = config.mcp.remote || {};
-            config.mcp.remote.auth = config.mcp.remote.auth || {};
-            if (normalized.scope === 'telegram') {
-                if (normalized.fields.TELEGRAM_INBOUND_ENABLED && !(CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN && CONFIG.NOTIFY_TELEGRAM_CHAT_ID)) {
-                    throw createApiError(400, 'TELEGRAM_CONNECTION_REQUIRED', '부가 서비스에서 Telegram 연결을 먼저 완료해 주세요.');
-                }
-                config.notification.telegram.inbound_enabled = normalized.fields.TELEGRAM_INBOUND_ENABLED;
-                CONFIG.NOTIFY_TELEGRAM_INBOUND_ENABLED = normalized.fields.TELEGRAM_INBOUND_ENABLED;
-                if (TelegramBotService) {
-                    await TelegramBotService.stop?.();
-                    if (CONFIG.NOTIFY_TELEGRAM_INBOUND_ENABLED) TelegramBotService.init?.();
-                }
-            } else {
-                const currentToken = config.mcp.remote.auth.bearer_token || CONFIG.MCP_REMOTE_AUTH_TOKEN || '';
-                const token = normalized.fields.MCP_REMOTE_AUTH_TOKEN || currentToken;
-                if (normalized.fields.MCP_REMOTE_ENABLED && !token) {
-                    throw createApiError(400, 'MCP_TOKEN_REQUIRED', '원격 MCP를 사용하려면 Bearer Token을 입력해 주세요.');
-                }
-                const resolved = ensureRuntimeRemoteMcpConfig(CONFIG, {
-                    enabled: normalized.fields.MCP_REMOTE_ENABLED,
-                    host: normalized.fields.MCP_REMOTE_HOST,
-                    port: normalized.fields.MCP_REMOTE_PORT,
-                    path: normalized.fields.MCP_REMOTE_PATH,
-                    authToken: token
-                });
-                config.mcp.remote = {
-                    ...config.mcp.remote,
-                    enabled: resolved.enabled,
-                    host: resolved.host,
-                    port: resolved.port,
-                    path: resolved.path,
-                    auth: { ...config.mcp.remote.auth, bearer_token: resolved.authToken }
-                };
-                await restartRemoteMcpService?.(resolved);
-            }
-            fs.writeFileSync(writablePath, JSON.stringify(config, null, 2), 'utf8');
-            return this.getExternalConnectionSettings();
         },
 
         async saveOptionalServiceSettings(requestBody = {}) {
             const normalized = normalizeOptionalServiceSettings(requestBody);
-            const writablePath = resolveWritableConfigPath();
-            let structuredConfig = {};
-            if (fs.existsSync(writablePath)) {
-                try { structuredConfig = JSON.parse(fs.readFileSync(writablePath, 'utf8')); }
-                catch (_error) { throw createApiError(409, 'CONFIG_JSON_INVALID', '현재 설정 파일을 읽을 수 없어 안전하게 반영하지 못했습니다.'); }
-            }
-            structuredConfig.integrations = structuredConfig.integrations && typeof structuredConfig.integrations === 'object' ? structuredConfig.integrations : {};
-            structuredConfig.notification = structuredConfig.notification && typeof structuredConfig.notification === 'object' ? structuredConfig.notification : {};
-            const fields = normalized.fields;
-            if (normalized.scope === 'buffer') {
-                const current = structuredConfig.integrations.buffer || {};
-                const apiKey = fields.BUFFER_API_KEY || current.api_key || CONFIG.BUFFER_API_KEY || '';
-                if (!apiKey) throw createApiError(400, 'BUFFER_API_KEY_REQUIRED', 'Buffer API Key를 입력해 주세요.');
-                structuredConfig.integrations.buffer = { ...current, api_key: apiKey };
-                CONFIG.BUFFER_API_KEY = apiKey;
-            }
             if (normalized.scope === 'sns-distribution') {
-                const current = structuredConfig.integrations.buffer || {};
-                const apiKey = current.api_key || CONFIG.BUFFER_API_KEY || '';
-                const enabled = fields.SNS_PUBLISH_ENABLED === true;
-                if (enabled && !apiKey) {
-                    throw createApiError(400, 'BUFFER_CONNECTION_REQUIRED', 'Buffer 연결을 먼저 완료해 주세요.');
-                }
-                if (enabled && !fields.BUFFER_ORGANIZATION_ID) {
-                    throw createApiError(400, 'BUFFER_ORGANIZATION_REQUIRED', 'Buffer 작업 공간을 선택해 주세요.');
-                }
-                if (enabled && fields.BUFFER_CHANNELS.length === 0) {
-                    throw createApiError(400, 'BUFFER_CHANNEL_REQUIRED', '공유할 SNS 채널을 1개 이상 선택해 주세요.');
-                }
-                if (enabled && fields.SNS_SOURCE_BLOGS.length === 0) {
-                    throw createApiError(400, 'SNS_SOURCE_BLOG_REQUIRED', '공유할 블로그를 1개 이상 선택해 주세요.');
-                }
-                structuredConfig.integrations.buffer = {
-                    ...current,
-                    organization_id: fields.BUFFER_ORGANIZATION_ID,
-                    channels: fields.BUFFER_CHANNELS
-                };
-                structuredConfig.automation = structuredConfig.automation && typeof structuredConfig.automation === 'object'
-                    ? structuredConfig.automation
-                    : {};
-                structuredConfig.automation.publish = structuredConfig.automation.publish && typeof structuredConfig.automation.publish === 'object'
-                    ? structuredConfig.automation.publish
-                    : {};
-                const currentSocial = structuredConfig.automation.publish.social && typeof structuredConfig.automation.publish.social === 'object'
-                    ? structuredConfig.automation.publish.social
-                    : {};
-                structuredConfig.automation.publish.social = {
-                    ...currentSocial,
-                    enabled,
-                    source_blogs: fields.SNS_SOURCE_BLOGS
-                };
-                CONFIG.BUFFER_ORGANIZATION_ID = fields.BUFFER_ORGANIZATION_ID;
-                CONFIG.BUFFER_CHANNELS = fields.BUFFER_CHANNELS;
-                CONFIG.SNS_PUBLISH_ENABLED = enabled;
-                CONFIG.SNS_SOURCE_BLOGS = fields.SNS_SOURCE_BLOGS;
-            }
-            let telegramRuntimeChanged = false;
-            if (normalized.scope === 'telegram') {
-                const current = structuredConfig.notification.telegram || {};
-                const botToken = fields.NOTIFY_TELEGRAM_BOT_TOKEN || current.bot_token || CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN || '';
-                const chatId = fields.NOTIFY_TELEGRAM_CHAT_ID || current.chat_id || CONFIG.NOTIFY_TELEGRAM_CHAT_ID || '';
-                if (!botToken || !chatId) throw createApiError(400, 'TELEGRAM_CONNECTION_REQUIRED', 'Bot Token 확인과 Telegram 연결을 먼저 완료해 주세요.');
-                const deliveryEnabled = fields.NOTIFY_TELEGRAM_DELIVERY_ENABLED === null
-                    ? (current.delivery_enabled ?? current.enabled ?? (CONFIG.NOTIFY_TELEGRAM_ENABLED === true))
-                    : fields.NOTIFY_TELEGRAM_DELIVERY_ENABLED;
-                telegramRuntimeChanged = String(current.bot_token || '') !== String(botToken)
-                    || String(current.chat_id || '') !== String(chatId);
-                structuredConfig.notification.telegram = {
-                    ...current,
-                    enabled: current.enabled === true || (current.enabled === undefined && CONFIG.NOTIFY_TELEGRAM_ENABLED === true),
-                    delivery_enabled: deliveryEnabled,
-                    bot_token: botToken,
-                    chat_id: chatId
-                };
-                Object.assign(CONFIG, { NOTIFY_TELEGRAM_BOT_TOKEN: botToken, NOTIFY_TELEGRAM_CHAT_ID: chatId, NOTIFY_TELEGRAM_ENABLED: deliveryEnabled });
-            }
-            if (normalized.scope === 'slack') {
-                const current = structuredConfig.notification.slack || {};
-                const webhookUrl = fields.NOTIFY_SLACK_WEBHOOK_URL || current.webhook_url || CONFIG.NOTIFY_SLACK_WEBHOOK_URL || '';
-                if (!webhookUrl) throw createApiError(400, 'SLACK_WEBHOOK_REQUIRED', 'Slack Webhook URL을 입력해 주세요.');
-                const deliveryEnabled = fields.NOTIFY_SLACK_DELIVERY_ENABLED === null
-                    ? (current.delivery_enabled ?? current.enabled ?? (CONFIG.NOTIFY_SLACK_ENABLED === true))
-                    : fields.NOTIFY_SLACK_DELIVERY_ENABLED;
-                structuredConfig.notification.slack = {
-                    ...current,
-                    enabled: current.enabled === true || (current.enabled === undefined && CONFIG.NOTIFY_SLACK_ENABLED === true),
-                    delivery_enabled: deliveryEnabled,
-                    webhook_url: webhookUrl
-                };
-                CONFIG.NOTIFY_SLACK_WEBHOOK_URL = webhookUrl;
-                CONFIG.NOTIFY_SLACK_ENABLED = deliveryEnabled;
-            }
-            if (normalized.scope === 'bitly') {
-                const current = structuredConfig.notification.telegram || {};
-                const token = fields.NOTIFY_BITLY_TOKEN || current.bitly_token || CONFIG.NOTIFY_BITLY_TOKEN || '';
-                if (!token) throw createApiError(400, 'BITLY_TOKEN_REQUIRED', 'Bitly Access Token을 입력해 주세요.');
-                structuredConfig.notification.telegram = { ...current, bitly_token: token };
-                CONFIG.NOTIFY_BITLY_TOKEN = token;
-            }
-            fs.mkdirSync(path.dirname(writablePath), { recursive: true });
-            fs.writeFileSync(writablePath, JSON.stringify(structuredConfig, null, 2), 'utf8');
-            CONFIG.CONFIG_READY = true;
-            CONFIG.CONFIG_SOURCE_TYPE = 'json';
-            CONFIG.CONFIG_SOURCE_PATH = writablePath;
-            if (normalized.scope === 'sns-distribution') {
-                await syncAutoRunnerWithConfig?.();
-            }
-            if (telegramRuntimeChanged && TelegramBotService) {
                 try {
-                    if (typeof TelegramBotService.stop === 'function') await TelegramBotService.stop();
-                    if (CONFIG.NOTIFY_TELEGRAM_INBOUND_ENABLED && typeof TelegramBotService.init === 'function') TelegramBotService.init();
+                    await snsDistributionSettingsApplication.save(requestBody);
+                    return { scope: normalized.scope, ...(await this.getOptionalServiceSettings()) };
                 } catch (error) {
-                    console.error('Failed to apply Telegram runtime settings:', error);
+                    if (error?.apiCode) throw error;
+                    throw createApiError(error?.status || 400, error?.code || 'SNS_DISTRIBUTION_SETTINGS_FAILED', error?.message);
                 }
             }
-            return { scope: normalized.scope, ...(await this.getOptionalServiceSettings()) };
+            try {
+                await optionalServicesApplication.save(requestBody);
+                return { scope: normalized.scope, ...(await this.getOptionalServiceSettings()) };
+            }
+            catch (error) {
+                if (error?.apiCode) throw error;
+                throw createApiError(error?.status || 400, error?.code || 'OPTIONAL_SERVICE_SAVE_FAILED', error?.message);
+            }
         },
 
         async testOptionalServiceConnection(requestBody = {}) {
@@ -1024,177 +551,26 @@ function createSettingsService(deps = {}) {
         },
 
         async saveCoreConnectionSettings(requestBody = {}) {
-            const normalized = normalizeCoreConnectionSettings(requestBody);
-            const writablePath = resolveWritableConfigPath();
-            let structuredConfig = {};
-            if (fs.existsSync(writablePath)) {
-                try {
-                    structuredConfig = JSON.parse(fs.readFileSync(writablePath, 'utf8'));
-                } catch (_error) {
-                    throw createApiError(
-                        409,
-                        'CONFIG_JSON_INVALID',
-                        '현재 설정 파일을 읽을 수 없어 안전하게 저장하지 못했습니다.'
-                    );
-                }
+            try { return coreConnectionsApplication.saveSettings(requestBody); }
+            catch (error) {
+                if (error?.apiCode) throw error;
+                throw createApiError(error?.status || 400, error?.code || 'CORE_CONNECTION_SAVE_FAILED', error?.message);
             }
-
-            const existingWordpressPassword = String(
-                structuredConfig?.platforms?.wordpress?.app_password || CONFIG.WORDPRESS_APP_PASSWORD || ''
-            ).trim();
-            if (normalized.scope === 'wordpress' && !normalized.fields.WORDPRESS_APP_PASSWORD && !existingWordpressPassword) {
-                throw createApiError(
-                    400,
-                    'WORDPRESS_CONNECTION_REQUIRED',
-                    '사이트 주소, 사용자 ID와 애플리케이션 비밀번호를 모두 입력해 주세요.'
-                );
-            }
-
-            applyCoreConnectionSettings(structuredConfig, normalized);
-            fs.mkdirSync(path.dirname(writablePath), { recursive: true });
-            fs.writeFileSync(writablePath, JSON.stringify(structuredConfig, null, 2), 'utf8');
-
-            const runtimeFields = normalized.scope === 'wordpress' && !normalized.fields.WORDPRESS_APP_PASSWORD
-                ? { ...normalized.fields, WORDPRESS_APP_PASSWORD: existingWordpressPassword }
-                : normalized.fields;
-            Object.assign(CONFIG, runtimeFields);
-            if (normalized.scope === 'content') {
-                if (!CONFIG.general || typeof CONFIG.general !== 'object') CONFIG.general = {};
-                CONFIG.general.google_sheet_url = normalized.fields.GOOGLE_SHEET_URL;
-                CONFIG.general.google_sheet_title = normalized.fields.GOOGLE_SHEET_TITLE || '';
-                CONFIG.general.google_sheet_authorized_file_id = normalized.fields.GOOGLE_SHEET_AUTHORIZED_FILE_ID || '';
-            }
-            if (normalized.scope === 'naver') {
-                if (!CONFIG.platforms || typeof CONFIG.platforms !== 'object') CONFIG.platforms = {};
-                if (!CONFIG.platforms.naver || typeof CONFIG.platforms.naver !== 'object') CONFIG.platforms.naver = {};
-                CONFIG.platforms.naver.user_id = normalized.fields.NAVER_ID;
-            }
-            if (normalized.scope === 'wordpress') {
-                if (!CONFIG.platforms || typeof CONFIG.platforms !== 'object') CONFIG.platforms = {};
-                if (!CONFIG.platforms.wordpress || typeof CONFIG.platforms.wordpress !== 'object') CONFIG.platforms.wordpress = {};
-                CONFIG.platforms.wordpress.url = normalized.fields.WORDPRESS_URL;
-                CONFIG.platforms.wordpress.user_id = normalized.fields.WORDPRESS_USER_ID;
-                if (normalized.fields.WORDPRESS_APP_PASSWORD) {
-                    CONFIG.platforms.wordpress.app_password = normalized.fields.WORDPRESS_APP_PASSWORD;
-                }
-            }
-            CONFIG.CONFIG_READY = true;
-            CONFIG.CONFIG_SOURCE_TYPE = 'json';
-            CONFIG.CONFIG_SOURCE_PATH = writablePath;
-            CONFIG.CONFIG_ERROR_MESSAGE = '';
-
-            return {
-                scope: normalized.scope,
-                message: '기본 연결 설정을 저장했습니다.',
-                fields: redactMajorSecretFields(buildMajorSettings(null, { path: writablePath, sourceType: 'json' })).fields
-            };
         },
 
         async saveAiRoleSettings(requestBody = {}) {
-            const normalized = normalizeAiRoleSettings(requestBody);
-            const writablePath = resolveWritableConfigPath();
-            let structuredConfig = {};
-            if (fs.existsSync(writablePath)) {
-                try {
-                    structuredConfig = JSON.parse(fs.readFileSync(writablePath, 'utf8'));
-                } catch (_error) {
-                    throw createApiError(409, 'CONFIG_JSON_INVALID', '현재 설정 파일을 읽을 수 없어 안전하게 반영하지 못했습니다.');
-                }
+            try { return await aiModelsApplication.saveRole(requestBody); }
+            catch (error) {
+                if (error?.apiCode) throw error;
+                throw createApiError(error?.status || 400, error?.code || 'AI_SETTINGS_FAILED', error?.message);
             }
-            const current = buildMajorSettings(null, { path: writablePath, sourceType: 'json' }).fields || {};
-            const fields = { ...current, ...normalized.fields };
-            const selectedPrefix = normalized.scope === 'text' ? 'TEXT' : (normalized.scope === 'image' ? 'IMAGE' : 'CHAT');
-            const selectedApiKey = `${selectedPrefix}_MODEL_API_KEY`;
-            const catalog = getAiModelCatalog();
-            const storedProfiles = normalizeStoredModelProfiles(
-                structuredConfig?.ai_settings?.MODEL_PROFILES || CONFIG.AI_MODEL_PROFILES || {},
-                catalog
-            );
-            const selectedKind = normalized.scope === 'image' ? 'image' : (normalized.scope === 'chat' ? 'chat' : 'text');
-            const candidate = buildModelSelectionFromFields(selectedKind, {
-                ...fields,
-                [selectedApiKey]: ''
-            }, catalog);
-            if (!String(normalized.fields[selectedApiKey] || '').trim()) {
-                const activeCandidate = buildModelSelectionFromFields(selectedKind, current, catalog);
-                fields[selectedApiKey] = String(
-                    storedProfiles?.[normalized.scope]?.[candidate.provider]?.api_key
-                    || (activeCandidate.provider === candidate.provider ? current[selectedApiKey] : '')
-                    || ''
-                ).trim();
-            }
-            const text = buildModelSelectionFromFields('text', fields, catalog);
-            const image = buildModelSelectionFromFields('image', fields, catalog);
-            const chatSelection = buildModelSelectionFromFields('chat', fields, catalog);
-            const chatSource = normalizeChatModelSource(fields.CHAT_MODEL_SOURCE);
-            const selected = normalized.scope === 'text' ? text : (normalized.scope === 'image' ? image : chatSelection);
-            if (normalized.scope !== 'chat' || chatSource === 'dedicated') {
-                if (!String(selected.code || '').trim()) throw createApiError(400, 'AI_MODEL_REQUIRED', '사용할 AI 모델을 선택해 주세요.');
-                if (selected.provider === 'direct' && (!String(selected.name || '').trim() || !String(selected.base_url || '').trim())) {
-                    throw createApiError(400, 'AI_MODEL_DIRECT_CONFIG_REQUIRED', '직접 입력 모델은 모델 이름과 Base URL이 필요합니다.');
-                }
-            }
-            if (!structuredConfig.ai_settings || typeof structuredConfig.ai_settings !== 'object') structuredConfig.ai_settings = {};
-            structuredConfig.ai_settings.TEXT_MODEL = toStoredModelSelection(text, catalog);
-            structuredConfig.ai_settings.IMAGE_MODEL = toStoredModelSelection(image, catalog);
-            structuredConfig.ai_settings.CHAT_MODEL = toStoredChatModelSettings(chatSource, chatSelection, catalog);
-            structuredConfig.ai_settings.MODEL_PROFILES = mergeActiveSelectionsIntoProfiles(
-                storedProfiles,
-                { text, image, chat: chatSelection },
-                catalog
-            );
-            fs.mkdirSync(path.dirname(writablePath), { recursive: true });
-            fs.writeFileSync(writablePath, JSON.stringify(structuredConfig, null, 2), 'utf8');
-            CONFIG.TEXT_MODEL_CONFIG = text;
-            CONFIG.IMAGE_MODEL_CONFIG = image;
-            CONFIG.TEXT_MODEL_API_KEY = text.api_key;
-            CONFIG.IMAGE_MODEL_API_KEY = image.api_key;
-            CONFIG.CHAT_MODEL_SOURCE = chatSource;
-            CONFIG.CHAT_MODEL_SELECTION_CONFIG = chatSelection;
-            CONFIG.CHAT_MODEL_CONFIG = chatSource === 'writing' ? text : chatSelection;
-            CONFIG.AI_MODEL_PROFILES = structuredConfig.ai_settings.MODEL_PROFILES;
-            CONFIG.CONFIG_READY = true;
-            CONFIG.CONFIG_SOURCE_TYPE = 'json';
-            CONFIG.CONFIG_SOURCE_PATH = writablePath;
-            CONFIG.CONFIG_ERROR_MESSAGE = '';
-            const savedModel = normalized.scope === 'text'
-                ? text
-                : (normalized.scope === 'image'
-                    ? image
-                    : (chatSource === 'writing' ? text : chatSelection));
-            const roleLabel = normalized.scope === 'text'
-                ? '글쓰기 텍스트'
-                : (normalized.scope === 'image' ? '글쓰기 이미지' : 'Chat');
-            const modelName = String(savedModel?.name || savedModel?.code || '모델 미지정').trim();
-            const provider = String(savedModel?.provider || 'unknown').trim();
-            const modelCode = String(savedModel?.code || '').trim();
-            return { scope: normalized.scope, ...(await this.getAiRoleSettings()) };
         },
 
         async testAiRoleConnection(requestBody = {}) {
-            const scope = String(requestBody.scope || '').trim().toLowerCase();
-            if (!['text', 'image', 'chat'].includes(scope)) {
-                throw createApiError(400, 'AI_ROLE_SCOPE_INVALID', '확인할 AI 역할을 선택해 주세요.');
-            }
-            const kind = scope === 'image' ? 'image' : 'text';
-            const modelConfig = scope === 'image'
-                ? CONFIG.IMAGE_MODEL_CONFIG
-                : (scope === 'chat' ? CONFIG.CHAT_MODEL_CONFIG : CONFIG.TEXT_MODEL_CONFIG);
-            try {
-                const result = await aiGateway.verifyModelConnection({ kind, modelConfig });
-                try {
-                    // chat-source "writing" tests the shared writing (text) config:
-                    // record under the effective scope so trust survives provider switches.
-                    const effectiveScope = (scope === 'chat' && CONFIG.CHAT_MODEL_SOURCE !== 'dedicated') ? 'text' : scope;
-                    recordAiRoleVerification(effectiveScope, modelConfig, { success: true, connected: true });
-                } catch (_) { }
-                return { ...result, display_name: modelConfig?.name || modelConfig?.code || 'AI 모델' };
-            } catch (error) {
-                try {
-                    const effectiveScope = (scope === 'chat' && CONFIG.CHAT_MODEL_SOURCE !== 'dedicated') ? 'text' : scope;
-                    recordAiRoleVerification(effectiveScope, modelConfig, { success: false, connected: false, message: error.message });
-                } catch (_) { }
-                throw createApiError(400, 'AI_MODEL_CONNECTION_CHECK_FAILED', describeAiModelConnectionFailure(error));
+            try { return await aiModelsApplication.testRole(requestBody); }
+            catch (error) {
+                if (error?.apiCode) throw error;
+                throw createApiError(error?.status || 400, error?.code || 'AI_MODEL_CONNECTION_CHECK_FAILED', error?.message);
             }
         },
 
@@ -1527,7 +903,7 @@ function createSettingsService(deps = {}) {
 
             if (telegramSettingsChanged) {
                 try {
-                    const TelegramBotService = require('../../telegram-bot.service');
+                    const TelegramBotService = require('../../../telegram-bot.service');
                     await TelegramBotService.stop(); // 기존 인스턴스가 완전히 중지될 때까지 대기
                     if (CONFIG.NOTIFY_TELEGRAM_ENABLED && CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN) {
                         TelegramBotService.init(); // 새 설정으로 다시 시작
@@ -1856,7 +1232,7 @@ function createSettingsService(deps = {}) {
                 throw createApiError(400, 'MISSING_PARAMS', 'Webhook URL을 입력해주세요.');
             }
 
-            const SlackService = require('../../slack-service');
+            const SlackService = require('../../../slack-service');
             const result = await SlackService.testConnection(webhookUrl);
             if (!result.success) {
                 throw createApiError(400, 'TEST_FAILED', result.message || 'Slack 메시지 전송에 실패했습니다.');

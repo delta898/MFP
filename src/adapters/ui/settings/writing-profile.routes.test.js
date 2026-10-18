@@ -1,8 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { createSettingsController } = require('../controllers/settings.controller');
-const { createSettingsRouteHandler } = require('./settings.routes');
+const { createSettingsController } = require('./controller');
+const { createSettingsRouteHandler } = require('./routes');
 
 function createHarness() {
     const calls = [];

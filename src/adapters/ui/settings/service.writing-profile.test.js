@@ -4,13 +4,13 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { createSettingsService } = require('./settings.service');
+const { createSettingsService } = require('./service');
 const {
     DEFAULT_CONTENT_WRITING_PROFILE_METADATA,
     getDefaultContentWritingProfile
-} = require('../../content/writing-profile');
-const Constants = require('../../constants');
-const { buildBlogGenerationPrompt } = require('../../content/blog-generation-prompt');
+} = require('../../../content/writing-profile');
+const Constants = require('../../../constants');
+const { buildBlogGenerationPrompt } = require('../../../content/blog-generation-prompt');
 
 function createHarness(options = {}) {
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'settings-profile-'));

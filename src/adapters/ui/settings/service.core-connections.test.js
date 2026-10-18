@@ -11,7 +11,7 @@ const {
     normalizeAppInputSettings,
     redactAiRoleSecretFields,
     redactAiProviderProfiles
-} = require('./settings.service');
+} = require('./service');
 
 function createHarness(initialConfig = {}) {
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'settings-core-connections-'));

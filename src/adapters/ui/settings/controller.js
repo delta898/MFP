@@ -1,4 +1,4 @@
-const { createControllerErrorResponder, sendMethodNotAllowed } = require('./controller-common');
+const { createControllerErrorResponder, sendMethodNotAllowed } = require('../../../ui-api/controllers/controller-common');
 
 function createSettingsController(deps = {}) {
     const { service, sendSuccess, sendError } = deps;

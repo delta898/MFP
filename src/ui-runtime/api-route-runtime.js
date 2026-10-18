@@ -3,7 +3,7 @@
 const { createGitHubDesignStyleCatalog } = require('../site-hosting/github-design-style-catalog');
 const { createDesignStylesRouteHandler } = require('../ui-api/routes/design-styles.routes');
 const { createManuscriptDraftService } = require('../content/manuscript-draft-service');
-const { createCorePluginsRouteHandler } = require('../ui-api/routes/core-plugins.routes');
+const { createCorePluginsRouteHandler } = require('../adapters/ui/plugins/core-plugins.routes');
 const { createWidgetPluginsRouteHandler } = require('../adapters/ui/widget-plugins.routes');
 
 function createUiApiRouteRuntime(deps = {}) {

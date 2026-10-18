@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { removeManagedKeywordCredentials } = require('./settings.service');
+const { removeManagedKeywordCredentials } = require('./service');
 
 test('removeManagedKeywordCredentials removes legacy user-managed Naver API secrets', () => {
     const config = {

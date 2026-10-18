@@ -4,13 +4,13 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { createSettingsService } = require('./settings.service');
+const { createSettingsService } = require('./service');
 const {
     configureConnectionVerificationState,
     createConnectionSignature,
     readConnectionVerification,
     resetConnectionVerificationState
-} = require('../../connections/verification-state');
+} = require('../../../connections/verification-state');
 
 const TEXT_CONFIG = { provider: 'openai', code: 'gpt-5.6-terra', name: 'GPT-5.6 Terra', api_key: 'key-1' };
 
