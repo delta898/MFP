@@ -19,65 +19,20 @@ const {
 const { normalizeSnsAiMode } = require('./services/sns/ai-policy');
 const { normalizeCardNewsBuiltinSources, normalizeCardNewsRssSources } = require('./applications/card-news/sources/feed-sources');
 const {
-    copyMissingDefaultImages,
-    resolvePackagedDefaultAssets
-} = require('./config/packaged-default-assets');
+    createRuntimePathConfiguration
+} = require('./host/configuration/runtime-paths');
+const {
+    loadUserConfig,
+    readDefaultStructuredConfig
+} = require('./host/configuration/user-config-store');
 const {
     resolveRuntimeEnvironmentProfile
 } = require('./environment/runtime-profile');
 const {
     resolveOAuthApplicationConfig
 } = require('./environment/oauth-config');
-const {
-    resolveLicenseKeyStoragePaths,
-    loadLicenseKey
-} = require('./config/license-key-storage');
+const { loadLicenseKey } = require('./adapters/storage/license-keys/license-key-storage');
 const { APP_VERSION } = Constants;
-
-// 💡 [경로 기준점 고도화]
-// 1. 실행 파일의 실제 위치 파악
-const EXEC_PATH = process.execPath || '';
-// 🚀 [IS_PACKAGED Check] 더 정밀하게 패키징 여부를 확인합니다.
-const IS_PACKAGED = (() => {
-    // 1. pkg로 빌드된 경우
-    if (process.pkg) return true;
-    // 2. macOS .app 번들인 경우
-    if (process.platform === 'darwin' && EXEC_PATH.includes('.app/Contents/MacOS/')) return true;
-    // 3. 실행 파일이 'node'가 아닌 경우 (단, 개발 환경의 node_modules는 제외)
-    const execName = path.basename(EXEC_PATH).toLowerCase();
-    const isNode = execName === 'node' || execName === 'node.exe';
-    if (!isNode && !EXEC_PATH.includes('node_modules')) return true;
-    return false;
-})();
-
-const ACTIVE_ROOT = (() => {
-    // A. macOS .app 번들 내부에서 실행되는 경우
-    if (process.platform === 'darwin' && EXEC_PATH.includes('.app/Contents/MacOS/')) {
-        return path.resolve(path.dirname(EXEC_PATH), '../../..');
-    }
-    // B. 패키징된 바이너리인 경우 (실행 파일 위치 기준)
-    if (IS_PACKAGED) {
-        return path.dirname(EXEC_PATH);
-    }
-    // C. 개발 환경 (node src/host/launcher.js UI launcher 등 - 현재 작업 디렉토리 기준)
-    return process.cwd();
-})();
-
-// 🚀 [Portable First] 프로그램 폴더 내의 config/ 폴더가 존재하면 포터블 모드로 간주
-const LOCAL_CONFIG_DIR = path.join(ACTIVE_ROOT, 'config');
-const HAS_LOCAL_CONFIG = fs.existsSync(LOCAL_CONFIG_DIR);
-
-// GUI 모드일 때 권한이 없는 특수 상황을 대비해 userData를 남겨두지만, 
-// 포터블 모드(로컬 config 존재)일 경우 ACTIVE_ROOT를 최우선으로 사용합니다.
-const BLOG_GENIUS_USER_DATA = process.env.BLOG_GENIUS_USER_DATA;
-// 개발 런처는 Electron 실행 파일(node_modules/electron)을 기준으로 설정 경로가
-// 잘못 결정되지 않도록 프로젝트 루트를 명시한다. 배포본은 이 값을 주입하지 않아
-// 기존 portable config / Electron userData 선택 규칙을 그대로 따른다.
-const EXPLICIT_RUNTIME_ROOT = String(process.env.BLOGGENIUS_RUNTIME_ROOT || '').trim();
-const ROOT_DIR = EXPLICIT_RUNTIME_ROOT
-    ? path.resolve(EXPLICIT_RUNTIME_ROOT)
-    : ((HAS_LOCAL_CONFIG || !BLOG_GENIUS_USER_DATA) ? ACTIVE_ROOT : BLOG_GENIUS_USER_DATA);
-const EXEC_DIR = ACTIVE_ROOT;
 
 // =========================================================
 // 1. 🔒 [비밀 키 로딩] 
@@ -86,179 +41,59 @@ let internalSecrets = {};
 try {
     // Release build 시 환경별 public 연결값과 Desktop OAuth 앱 설정을 담아 생성된다.
     // 설치형 OAuth Client Secret은 앱에서 추출 가능하며 server secret으로 취급하지 않는다.
-    internalSecrets = require('./config/secret');
+    internalSecrets = require('./environment/secret');
 } catch (_error) {
-    internalSecrets = {};
+    try {
+        // Read an existing local build artifact from the previous source location during migration.
+        internalSecrets = require('./config/secret');
+    } catch (_legacyError) {
+        internalSecrets = {};
+    }
 }
 
 const runtimeEnvironmentProfile = resolveRuntimeEnvironmentProfile({
     env: process.env,
     buildConfig: internalSecrets
 });
+const runtimePathConfiguration = createRuntimePathConfiguration({ environmentProfile: runtimeEnvironmentProfile });
+const {
+    rootDir: ROOT_DIR,
+    execDir: EXEC_DIR,
+    activeConfigDir: initialActiveConfigDir,
+    paths: PATHS,
+    resolveRuntimePath: initialResolveRuntimePath,
+    licenseKeyStoragePaths
+} = runtimePathConfiguration;
 const oauthApplicationConfig = resolveOAuthApplicationConfig({
     environment: runtimeEnvironmentProfile.environment,
     runtimeEnv: process.env,
     buildConfig: internalSecrets
 });
 
-const LICENSE_FILE_NAMES = Object.freeze({
-    local: 'license.local.key',
-    development: 'license.development.key',
-    production: 'license.key'
-});
-const activeLicenseFileName = LICENSE_FILE_NAMES[runtimeEnvironmentProfile.environment] || '';
-const licenseKeyStoragePaths = resolveLicenseKeyStoragePaths({
-    fileName: activeLicenseFileName,
-    userDataDir: BLOG_GENIUS_USER_DATA,
-    rootDir: ROOT_DIR,
-    execDir: EXEC_DIR,
-    pathImpl: path
-});
-
 // =========================================================
-// 2. 📂 [경로 정의]
+// 2. 📂 [기본 설정 파일 로딩]
 // =========================================================
-// 🚀 [App Bundle Support] 앱 번들(ASAR) 내부의 원본 경로
-const BUNDLE_DIR = path.join(__dirname, '..');
-const PACKAGED_DEFAULT_ASSETS = resolvePackagedDefaultAssets(process.resourcesPath, path);
-
-const PATHS = {
-    // 실제 설정 파일 (쓰기 가능한 ROOT_DIR 또는 EXEC_DIR 우선)
-    configJson: path.join(ROOT_DIR, 'config', 'config.json'),
-    configJsonFromExec: path.join(EXEC_DIR, 'config', 'config.json'),
-
-    // 샘플 파일 (앱 번들 내부 ASAR 경로 추가)
-    configJsonSample: path.join(ROOT_DIR, 'config', 'config.json.sample'),
-    configJsonSampleFromExec: path.join(EXEC_DIR, 'config', 'config.json.sample'),
-    configJsonSampleFromBundle: path.join(BUNDLE_DIR, 'config', 'config.json.sample'),
-    configJsonSampleFromResources: PACKAGED_DEFAULT_ASSETS.configSample,
-    configImagesFromResources: PACKAGED_DEFAULT_ASSETS.imagesDir,
-
-    licenseKeyFile: licenseKeyStoragePaths.primaryPath,
-    licenseKeyFileFromExec: activeLicenseFileName
-        ? path.join(EXEC_DIR, 'config', activeLicenseFileName)
-        : '',
-    legacyLicenseKeyFiles: licenseKeyStoragePaths.legacyPaths,
-    auth: path.join(ROOT_DIR, 'config', 'naver_auth.json'),
-    blogPromptOverride: path.join(ROOT_DIR, 'src', 'config', 'blog_prompt.md'),
-    blogPromptOverrideFromExec: path.join(EXEC_DIR, 'src', 'config', 'blog_prompt.md'),
-    shoppingPromptOverride: path.join(ROOT_DIR, 'src', 'config', 'shopping_prompt.md'),
-    shoppingPromptOverrideFromExec: path.join(EXEC_DIR, 'src', 'config', 'shopping_prompt.md'),
-    defaultBlogPrompt: path.join(BUNDLE_DIR, 'src', 'config', 'blog_prompt.md'),
-    defaultShoppingPrompt: path.join(BUNDLE_DIR, 'src', 'config', 'shopping_prompt.md'),
-    workspace: path.join(ROOT_DIR, 'workspace')
-};
-
-function readDefaultStructuredConfig() {
-    const sampleCandidates = [
-        PATHS.configJsonSample,
-        PATHS.configJsonSampleFromExec,
-        PATHS.configJsonSampleFromBundle,
-        PATHS.configJsonSampleFromResources
-    ];
-
-    for (const samplePath of sampleCandidates) {
-        try {
-            if (!fs.existsSync(samplePath)) continue;
-            return JSON.parse(fs.readFileSync(samplePath, 'utf8'));
-        } catch (_ignore) { }
-    }
-    return {};
-}
-
-function mergeStructuredDefaults(target, defaults) {
-    if (Array.isArray(defaults)) {
-        return Array.isArray(target) ? target : defaults.slice();
-    }
-
-    if (!defaults || typeof defaults !== 'object') {
-        return target === undefined ? defaults : target;
-    }
-
-    const result = target && typeof target === 'object' && !Array.isArray(target)
-        ? { ...target }
-        : {};
-
-    Object.keys(defaults).forEach((key) => {
-        result[key] = mergeStructuredDefaults(result[key], defaults[key]);
-    });
-
-    return result;
-}
-
-const DEFAULT_STRUCTURED_CONFIG = readDefaultStructuredConfig();
-
-function ensureConfigJsonFromSample() {
-    const pairs = [
+const DEFAULT_STRUCTURED_CONFIG = readDefaultStructuredConfig([
+    PATHS.configJsonSample,
+    PATHS.configJsonSampleFromExec,
+    PATHS.configJsonSampleFromBundle,
+    PATHS.configJsonSampleFromResources
+], fs);
+const structuredConfig = loadUserConfig({
+    configPath: PATHS.configJson,
+    defaultConfig: DEFAULT_STRUCTURED_CONFIG,
+    samplePairs: [
         {
             config: PATHS.configJson,
-            samples: [
-                PATHS.configJsonSample,
-                PATHS.configJsonSampleFromBundle,
-                PATHS.configJsonSampleFromResources
-            ]
+            samples: [PATHS.configJsonSample, PATHS.configJsonSampleFromBundle, PATHS.configJsonSampleFromResources]
         },
         { config: PATHS.configJsonFromExec, samples: [PATHS.configJsonSampleFromExec] }
-    ];
-
-    for (const pair of pairs) {
-        try {
-            if (fs.existsSync(pair.config)) return pair.config;
-
-            // 사용 가능한 샘플 찾기
-            const samplePath = pair.samples.find(p => fs.existsSync(p));
-            if (!samplePath) continue;
-
-            fs.mkdirSync(path.dirname(pair.config), { recursive: true });
-            fs.copyFileSync(samplePath, pair.config);
-            console.info(`✅ config.json 자동 생성 완료: ${pair.config} (from ${samplePath})`);
-            return pair.config;
-        } catch (e) {
-            console.warn(`⚠️ config.json 자동 생성 실패: ${pair.config} (${e.message})`);
-        }
-    }
-    return '';
-}
-
-function loadUserConfig() {
-    // 💡 [JSON First] config.json이 있으면 최우선으로 사용, 없으면 샘플로부터 생성 시도
-    ensureConfigJsonFromSample();
-    try {
-        copyMissingDefaultImages({
-            sourceDir: PATHS.configImagesFromResources,
-            targetDir: path.join(ROOT_DIR, 'config', 'images'),
-            fsImpl: fs,
-            pathImpl: path
-        });
-    } catch (error) {
-        console.warn(`⚠️ 기본 이미지 초기화 실패: ${error.message}`);
-    }
-
-    const jsonPath = PATHS.configJson;
-    if (fs.existsSync(jsonPath)) {
-        try {
-            const json = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-            return {
-                ...mergeStructuredDefaults(json, DEFAULT_STRUCTURED_CONFIG),
-                __CONFIG_SOURCE_PATH: jsonPath,
-                __CONFIG_SOURCE_TYPE: 'json',
-                __CONFIG_READY: true,
-                __CONFIG_ERROR_MESSAGE: ''
-            };
-        } catch (e) {
-            console.error(`❌ config.json 파싱 실패: ${e.message}`);
-        }
-    }
-
-    // 샘플 파일 로드 (최상위 fallback)
-    return {
-        ...DEFAULT_STRUCTURED_CONFIG,
-        __CONFIG_SOURCE_PATH: jsonPath,
-        __CONFIG_SOURCE_TYPE: 'generated',
-        __CONFIG_READY: false,
-        __CONFIG_ERROR_MESSAGE: '설정 파일이 없습니다. 기본값으로 시작합니다.'
-    };
-}
+    ],
+    imagesSourceDir: PATHS.configImagesFromResources,
+    imagesTargetDir: path.join(ROOT_DIR, 'config', 'images'),
+    fsImpl: fs,
+    pathImpl: path
+});
 
 function extractGoogleSheetId(input) {
     const raw = String(input || '').trim();
@@ -278,7 +113,6 @@ function extractGoogleSheetId(input) {
 }
 
 // 사용자 설정 로드
-const structuredConfig = loadUserConfig();
 const configSourcePath = structuredConfig.__CONFIG_SOURCE_PATH;
 const configSourceType = structuredConfig.__CONFIG_SOURCE_TYPE;
 const configReady = structuredConfig.__CONFIG_READY === true;
@@ -288,6 +122,22 @@ delete structuredConfig.__CONFIG_SOURCE_PATH;
 delete structuredConfig.__CONFIG_SOURCE_TYPE;
 delete structuredConfig.__CONFIG_READY;
 delete structuredConfig.__CONFIG_ERROR_MESSAGE;
+
+const activeConfigDir = (() => {
+    if (configReady && configSourcePath) return path.dirname(configSourcePath);
+    const execConfigDir = path.join(EXEC_DIR, 'config');
+    if (fs.existsSync(execConfigDir)) return execConfigDir;
+    return path.join(ROOT_DIR, 'config');
+})();
+const activeAppRoot = path.basename(activeConfigDir).toLowerCase() === 'config'
+    ? path.dirname(activeConfigDir)
+    : activeConfigDir;
+const resolveRuntimePath = activeConfigDir === initialActiveConfigDir
+    ? initialResolveRuntimePath
+    : createRuntimePathConfiguration({
+        environmentProfile: runtimeEnvironmentProfile,
+        activeConfigDir
+    }).resolveRuntimePath;
 
 try {
     const cachedCatalogPath = path.join(ROOT_DIR, 'data', 'cache', 'ai-model-catalog.json');
@@ -322,13 +172,6 @@ if (licenseKeyInfo.migrationError) {
     console.warn(`⚠️ 라이선스 정보 이전 실패: ${licenseKeyInfo.migrationError}`);
 }
 
-const activeConfigDir = (() => {
-    if (configReady && configSourcePath) return path.dirname(configSourcePath);
-    const execConfigDir = path.join(EXEC_DIR, 'config');
-    if (fs.existsSync(execConfigDir)) return execConfigDir;
-    return path.join(ROOT_DIR, 'config');
-})();
-
 const writingProfilePath = path.join(activeConfigDir, 'writing_profile.json');
 const writingProfileRepository = createWritingProfileRepository({
     fs,
@@ -340,53 +183,6 @@ const writingProfileLoadResult = writingProfileRepository.read();
 const resolvedContentWritingProfile = writingProfileLoadResult.effective_profile;
 const resolvedContentWritingVoice = resolvedContentWritingProfile.common.voice;
 const resolvedBlogWritingStrategy = resolvedContentWritingProfile.common.writing_strategy || legacyContentWritingStrategy;
-
-const activeAppRoot = path.basename(activeConfigDir).toLowerCase() === 'config'
-    ? path.dirname(activeConfigDir)
-    : activeConfigDir;
-
-function decodeFileUriPath(raw) {
-    const input = String(raw || '').trim();
-    if (!/^file:\/\//i.test(input)) return input;
-    try {
-        const parsed = new URL(input);
-        if (parsed.protocol !== 'file:') return input;
-        const host = decodeURIComponent(parsed.hostname || '');
-        let localPath = decodeURIComponent(parsed.pathname || '');
-        if (host === '.') localPath = `.${localPath}`;
-        else if (host && host !== 'localhost') localPath = `//${host}${localPath}`;
-        if (process.platform === 'win32' && /^[\/\\][A-Za-z]:/.test(localPath)) localPath = localPath.slice(1);
-        return localPath || input;
-    } catch (e) {
-        return input.replace(/^file:\/\//i, '');
-    }
-}
-
-function resolveRuntimePath(rawPath, options = {}) {
-    const { mustExist = false } = options || {};
-    const input = decodeFileUriPath(String(rawPath || '').trim());
-    if (!input) return '';
-    if (/^https?:\/\//i.test(input)) return input;
-
-    const candidates = [];
-    if (path.isAbsolute(input)) {
-        candidates.push(input);
-    } else {
-        candidates.push(path.resolve(activeAppRoot, input));
-        candidates.push(path.resolve(activeConfigDir, input));
-        candidates.push(path.resolve(EXEC_DIR, input));
-        candidates.push(path.resolve(ROOT_DIR, input));
-        candidates.push(path.resolve(BUNDLE_DIR, input));
-    }
-
-    if (!mustExist) return candidates[0] || '';
-    for (const candidate of candidates) {
-        try {
-            if (fs.existsSync(candidate)) return candidate;
-        } catch (e) { }
-    }
-    return candidates[0] || '';
-}
 
 // 💡 [환경변수 및 동적 경로 처리]
 const googleOauthTokensRaw = String(process.env.GOOGLE_OAUTH_TOKENS_JSON || structuredConfig.general?.google_oauth_tokens_json || '').trim();
@@ -576,13 +372,13 @@ const CONFIG = {
     // 기존 내부 호출 경계를 위한 별칭. 값은 Environment Resolver에서만 공급한다.
     LICENSE_CHK_URL: runtimeEnvironmentProfile.supabase.url,
     LICENSE_CHK_KEY: runtimeEnvironmentProfile.supabase.publishableKey,
-    BLOG_PROMPT_CONTRACT_PATH: resolveRuntimePath('src/config/blog_prompt_contract.md', { mustExist: true }),
-    BLOG_PROMPT_COMMON_PATH: resolveRuntimePath('src/config/blog_prompt.md', { mustExist: true }),
-    BLOG_PROMPT_SEARCH_PATH: resolveRuntimePath('src/config/blog_prompt_search.md', { mustExist: true }),
-    BLOG_PROMPT_DISCOVERY_PATH: resolveRuntimePath('src/config/blog_prompt_discovery.md', { mustExist: true }),
+    BLOG_PROMPT_CONTRACT_PATH: resolveRuntimePath('src/content/prompts/blog/contract.md', { mustExist: true }),
+    BLOG_PROMPT_COMMON_PATH: resolveRuntimePath('src/content/prompts/blog/common.md', { mustExist: true }),
+    BLOG_PROMPT_SEARCH_PATH: resolveRuntimePath('src/content/prompts/blog/search.md', { mustExist: true }),
+    BLOG_PROMPT_DISCOVERY_PATH: resolveRuntimePath('src/content/prompts/blog/discovery.md', { mustExist: true }),
     // 이전 내부 참조를 위한 공통 프롬프트 별칭
-    BLOG_PROMPT_PATH: resolveRuntimePath('src/config/blog_prompt.md', { mustExist: true }),
-    SHOPPING_PROMPT_PATH: resolveRuntimePath('src/config/shopping_prompt.md', { mustExist: true }),
+    BLOG_PROMPT_PATH: resolveRuntimePath('src/content/prompts/blog/common.md', { mustExist: true }),
+    SHOPPING_PROMPT_PATH: resolveRuntimePath('src/applications/shopping/generation/prompts/default.md', { mustExist: true }),
 
     // 🔧 [Paths]
     PATHS: {

@@ -313,7 +313,7 @@ launcher는 다음을 순서대로 수행한다.
 
 따라서 source run이 성공해도 release artifact 검증을 생략하지 않는다.
 
-정식 패키지는 release build 과정에서 무시된 `src/config/secret.js`를 생성한다. 이 파일에는
+정식 패키지는 release build 과정에서 무시된 `src/environment/secret.js`를 생성한다. 이 파일에는
 production 공개 Supabase 연결값과 Google·Cloudflare OAuth 앱 설정이 포함된다.
 
 ```js

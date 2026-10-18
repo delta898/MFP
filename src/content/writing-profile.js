@@ -1,4 +1,4 @@
-const defaultProfileDocument = require('../config/default_content_writing_profile.json');
+const defaultProfileDocument = require('./writing-profile/default-profile.json');
 
 const CONTENT_WRITING_PROFILE_SCHEMA_VERSION = 4;
 

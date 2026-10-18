@@ -45,7 +45,7 @@ Local endpoints must use localhost. Development and production endpoints must us
 
 ## Generated build config
 
-`src/config/secret.js` is no longer a committed source file. It is an ignored build artifact generated from environment-specific CI inputs or an explicit local release-build input. For OAuth, Development and Production source runs read `.env.oauth.dev` and `.env.oauth.prod`; packaged Production receives values from GitHub repository Secrets.
+`src/environment/secret.js` is no longer a committed source file. It is an ignored build artifact generated from environment-specific CI inputs or an explicit local release-build input. For OAuth, Development and Production source runs read `.env.oauth.dev` and `.env.oauth.prod`; packaged Production receives values from GitHub repository Secrets.
 
 The generated module contains only:
 

@@ -392,10 +392,10 @@
       "build.sh",
       "build.bat",
       "scripts/build-environment-config.js",
-      "src/config/secret.js.sample",
+      "src/environment/secret.js.sample",
       "src/config-loader.js"
     ],
-    "generated_desktop_build_artifact": "src/config/secret.js"
+    "generated_desktop_build_artifact": "src/environment/secret.js"
   },
   "deployment_safety": {
     "policy": "src/environment/deployment-guard.js",

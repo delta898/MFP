@@ -6,7 +6,7 @@ const CONFIG = require('./config-loader');
 const Logger = require('./utilities/logging/logger');
 const { validateLicenseFeaturePolicy } = require('./license-feature-policy');
 const { resolveSupabasePublicConnection } = require('./environment/runtime-profile');
-const { writeLicenseKey } = require('./config/license-key-storage');
+const { writeLicenseKey } = require('./adapters/storage/license-keys/license-key-storage');
 
 // Supabase 클라이언트 초기화 (설정 누락 시 null 처리하여 안전하게 기동)
 let supabase = null;

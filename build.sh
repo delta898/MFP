@@ -59,17 +59,17 @@ fi
 # ---------------------------------------------------
 # 2. Production build environment 확인
 # ---------------------------------------------------
-if [ ! -f "src/config/secret.js" ]; then
+if [ ! -f "src/environment/secret.js" ]; then
     echo ""
     echo "🚨 [Error] 치명적인 문제 발생!"
-    echo "   'src/config/secret.js' 파일이 없습니다."
+    echo "   'src/environment/secret.js' 파일이 없습니다."
     echo "   Git에는 보안상 이 파일이 올라가지 않습니다."
-    echo "   👉 src/config/secret.js.sample 형식으로 Production build 설정을 생성해 주세요."
+    echo "   👉 src/environment/secret.js.sample 형식으로 Production build 설정을 생성해 주세요."
     echo ""
     exit 1
 fi
 
-if ! node scripts/build-environment-config.js validate --target production --input src/config/secret.js; then
+if ! node scripts/build-environment-config.js validate --target production --input src/environment/secret.js; then
     echo "🚨 [Error] Production build 환경 설정이 올바르지 않습니다."
     exit 1
 fi

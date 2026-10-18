@@ -143,10 +143,10 @@ jobs:
         run: |
           node scripts/build-environment-config.js write \
             --target production \
-            --output src/config/secret.js
+            --output src/environment/secret.js
           node scripts/build-environment-config.js validate \
             --target production \
-            --input src/config/secret.js
+            --input src/environment/secret.js
 
       - name: Build Manuscript Editor UI
         run: npm run build:manuscript-editor

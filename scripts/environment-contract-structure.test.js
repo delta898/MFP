@@ -186,12 +186,12 @@ test('desktop Supabase clients resolve public connections through one environmen
 
 test('build environment config is generated, ignored, and validated explicitly', () => {
     const gitignore = fs.readFileSync(path.join(REPO_ROOT, '.gitignore'), 'utf8');
-    const sample = fs.readFileSync(path.join(REPO_ROOT, 'src/config/secret.js.sample'), 'utf8');
+    const sample = fs.readFileSync(path.join(REPO_ROOT, 'src/environment/secret.js.sample'), 'utf8');
     const workflow = fs.readFileSync(path.join(REPO_ROOT, '.github/workflows/build.yml'), 'utf8');
     const buildSh = fs.readFileSync(path.join(REPO_ROOT, 'build.sh'), 'utf8');
     const buildBat = fs.readFileSync(path.join(REPO_ROOT, 'build.bat'), 'utf8');
 
-    assert.match(gitignore, /^src\/config\/secret\.js$/m);
+    assert.match(gitignore, /^src\/environment\/secret\.js$/m);
     assert.match(sample, /BLOGGENIUS_ENV/);
     assert.match(sample, /SUPABASE_PUBLISHABLE_KEY/);
     assert.match(sample, /GOOGLE_OAUTH_CLIENT_ID/);

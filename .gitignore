@@ -14,8 +14,10 @@ apps/trends/.env.trends-api.production
 apps/trends/trends-api/docker/deployment/development/.env.trends-api.development
 apps/trends/trends-api/docker/deployment/production/.env.trends-api.production
 .env.oauth
+src/environment/secret.js
+!src/environment/secret.js.sample
+# Ignore pre-reorganization local build output as well.
 src/config/secret.js
-!src/config/secret.js.sample
 config/*.txt
 config/*.json
 config/*.json.*

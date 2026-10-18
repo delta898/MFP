@@ -2626,7 +2626,7 @@ function buildAiPrompt(product, platform = 'naver', writingPreferences = {}) {
         ? '짧은 문단과 명확한 소제목으로 정보를 구조화하고 워드프레스에서 읽기 쉬운 흐름을 유지하세요.'
         : '모바일에서 읽기 쉬운 문단과 소제목으로 정보를 구조화하세요.';
 
-    const promptPath = CONFIG.SHOPPING_PROMPT_PATH || path.join(__dirname, 'config', 'shopping_prompt.md');
+    const promptPath = CONFIG.SHOPPING_PROMPT_PATH || path.join(__dirname, '..', 'generation', 'prompts', 'default.md');
     if (!promptPath || !fs.existsSync(promptPath)) {
         throw new Error(`쇼핑 프롬프트 파일이 없습니다: ${promptPath}`);
     }

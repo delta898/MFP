@@ -34,13 +34,13 @@ if not exist node_modules (
     echo    ✅ 라이브러리가 이미 설치되어 있습니다.
 )
 
-if not exist src\config\secret.js (
+if not exist src\environment\secret.js (
     echo.
-    echo 🚨 [Error] 'src\config\secret.js' 파일이 없습니다.
+    echo 🚨 [Error] 'src\environment\secret.js' 파일이 없습니다.
     exit /b 1
 )
 
-call node scripts\build-environment-config.js validate --target production --input src\config\secret.js
+call node scripts\build-environment-config.js validate --target production --input src\environment\secret.js
 if errorlevel 1 (
     echo 🚨 [Error] Production build 환경 설정이 올바르지 않습니다.
     exit /b 1

@@ -19,14 +19,18 @@ test('release packaging embeds only safe first-run defaults outside the mutable 
         assert.match(source, /--extra-resource=["']?config[/\\]images/);
     }
     assert.match(workflow, /[/|]config[/|]Videos/);
-    assert.ok(packageJson.pkg.scripts.includes('src/config/**/*.js'));
+    assert.ok(packageJson.pkg.scripts.includes('src/host/**/*.js'));
     assert.ok(packageJson.pkg.scripts.includes('packages/plugins/core/**/*.js'));
     assert.ok(packageJson.pkg.assets.includes('packages/plugins/core/**/*'));
+    assert.ok(packageJson.pkg.assets.includes('src/content/prompts/blog/*.md'));
+    assert.ok(packageJson.pkg.assets.includes('src/content/writing-profile/*.json'));
+    assert.ok(packageJson.pkg.assets.includes('src/applications/shopping/generation/prompts/*.md'));
 });
 test('config loading falls back to packaged resources and initializes default images', () => {
-    const loader = read('src/config-loader.js');
+    const paths = read('src/host/configuration/runtime-paths.js');
+    const configStore = read('src/host/configuration/user-config-store.js');
 
-    assert.match(loader, /configJsonSampleFromResources:\s*PACKAGED_DEFAULT_ASSETS[.]configSample/);
-    assert.match(loader, /configImagesFromResources:\s*PACKAGED_DEFAULT_ASSETS[.]imagesDir/);
-    assert.match(loader, /copyMissingDefaultImages\(\{/);
+    assert.match(paths, /configJsonSampleFromResources:\s*packagedAssets[.]configSample/);
+    assert.match(paths, /configImagesFromResources:\s*packagedAssets[.]imagesDir/);
+    assert.match(configStore, /copyMissingDefaultImages\(\{/);
 });
