@@ -62,7 +62,7 @@ RPC가 민감값을 Desktop에 대신 반환한다.
 | 기능 | 현재 호출 위치 | 현재 동작 |
 | --- | --- | --- |
 | 외부 참고 글 검색 | `src/core.js`, `src/utils.js` | Desktop이 Naver Blog Search API 직접 호출 |
-| 쇼핑 상품 fallback | `src/shopping-manager.js` | Desktop이 Naver Shopping Search API 직접 호출 |
+| 쇼핑 상품 fallback | `src/applications/shopping/content-preparation/application.js` | Desktop이 Naver Shopping Search API 직접 호출 |
 | Naver 뉴스 | `knowledge-gateway` provider | Edge Function이 Naver News Search API 호출 |
 | 미사용 단건 블로그 검색 | `src/utils.js` | 정의만 있고 호출자 없음 |
 

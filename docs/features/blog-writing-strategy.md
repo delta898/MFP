@@ -81,5 +81,5 @@ BlogGenius의 AI 블로그 글은 플랫폼과 관계없이 두 가지 작성 �
 - `src/content/publish-sheet-options.js`: 글별 명시적 오버라이드 저장·복원
 - `src/config-loader.js`: 선택 프로필 로드와 런타임 호환 별칭 노출
 - `src/core.js`: 최종 전략 해석 및 공통·전략·문체·입력 프롬프트 조합
-- `src/shopping-manager.js`: 공통 프로필 값을 쇼핑 전용 문체·전략 규칙으로 변환
+- `src/applications/shopping/content-preparation/application.js`: 공통 프로필 값을 쇼핑 전용 문체·전략 규칙으로 변환. 상품 수집·이미지 처리 구현도 아직 함께 있어 후속 분해 대상이다.
 - Writing-profile service/repository: 프로필 영속화, 기존 전역값 마이그레이션 및 실행 중 설정 반영

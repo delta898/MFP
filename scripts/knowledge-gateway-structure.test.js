@@ -89,8 +89,8 @@ test('desktop external-reference flow uses the fixed gateway and has no direct p
 });
 
 test('desktop shopping fallback uses the fixed gateway and has no direct provider credential access', () => {
-    const gateway = read('src/content/shopping-product-gateway.js');
-    const shoppingManager = read('src/shopping-manager.js');
+    const gateway = read('src/adapters/commerce/shopping-product-gateway.js');
+    const shoppingManager = read('src/applications/shopping/content-preparation/application.js');
     assert.match(gateway, /kind: SHOPPING_KIND/);
     assert.match(gateway, /purpose: SHOPPING_PURPOSE/);
     assert.doesNotMatch(gateway, /NAVER_CLIENT_(?:ID|SECRET)|openapi\.naver\.com/);

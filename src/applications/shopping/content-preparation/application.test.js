@@ -1,9 +1,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const CONFIG = require('./config-loader');
-const ShoppingManager = require('./shopping-manager');
-const { getDefaultContentWritingProfile } = require('./content/writing-profile');
+const CONFIG = require('../../../config-loader');
+const ShoppingManager = require('./application');
+const { getDefaultContentWritingProfile } = require('../../../content/writing-profile');
 
 const {
     extractProductData,

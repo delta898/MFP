@@ -24,7 +24,7 @@ test('shopping writing choices are carried from UI request through storage into 
   const publishRuntime = read('src/ui-runtime/publish-actions-runtime.js');
   const sheetOptions = read('src/content/publish-sheet-options.js');
   const contentRuntime = read('src/ui-runtime/content-actions-runtime.js');
-  const shoppingManager = read('src/shopping-manager.js');
+  const shoppingManager = read('src/applications/shopping/content-preparation/application.js');
 
   assert.match(controller, /writingStrategy:\s*\(document\.getElementById\('shopping-quick-writing-strategy'\)/);
   assert.match(controller, /contentFocus:\s*\(document\.getElementById\('shopping-quick-content-focus'\)/);

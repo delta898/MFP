@@ -76,7 +76,7 @@ Blog Beta keeps the most recent successful new-topic choices in browser localSto
 
 Shopping keeps its independent product facts, reviews, anti-fabrication rules, output blocks and product/FTC/CTA image policy. The resolved common voice and single global writing principle are adapted into this contract. Product-specific instructions override global writing preferences only for that product and cannot create unsupported price, delivery, review or personal-experience claims.
 
-Quick, batch and automatic shopping all converge on `ShoppingManager.buildPostFromShortUrl`.
+Quick, batch and automatic shopping all converge on `ShoppingManager.buildPostFromShortUrl` in `src/applications/shopping/content-preparation/application.js`.
 
 ## Style References
 

@@ -3,24 +3,24 @@ const path = require('path');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const moment = require('moment-timezone');
-const CONFIG = require('./config-loader');
-const Utils = require('./utils');
-const Logger = require('./utilities/logging/logger');
-const BrowserLauncher = require('./utilities/browser/browser-launcher');
-const License = require('./license');
-const { persistAuthSessionState } = require('./adapters/naver/auth-session');
+const CONFIG = require('../../../config-loader');
+const Utils = require('../../../utils');
+const Logger = require('../../../utilities/logging/logger');
+const BrowserLauncher = require('../../../utilities/browser/browser-launcher');
+const License = require('../../../license');
+const { persistAuthSessionState } = require('../../../adapters/naver/auth-session');
 const {
     createShoppingProductGateway,
     recoverOptionalProduct
-} = require('./adapters/commerce/shopping-product-gateway');
-const { normalizeWritingStrategy, buildShoppingWritingStrategyPrompt } = require('./content/writing-strategy');
-const { projectWritingProfile } = require('./content/writing-profile-projection');
-const { buildShoppingWritingProfilePromptFromProjection } = require('./applications/shopping/generation/writing-profile-prompt');
+} = require('../../../adapters/commerce/shopping-product-gateway');
+const { normalizeWritingStrategy, buildShoppingWritingStrategyPrompt } = require('../../../content/writing-strategy');
+const { projectWritingProfile } = require('../../../content/writing-profile-projection');
+const { buildShoppingWritingProfilePromptFromProjection } = require('../generation/writing-profile-prompt');
 const {
     normalizeShoppingContentFocus,
     selectShoppingEditorialPlan,
     buildShoppingEditorialPlanPrompt
-} = require('./applications/shopping/generation/editorial-plan');
+} = require('../generation/editorial-plan');
 
 const DEFAULT_LINK_INSERT_COUNT = 3;
 const DEFAULT_IMAGE_MAX_COUNT = 12;
