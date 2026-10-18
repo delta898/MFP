@@ -7,8 +7,8 @@ const {
     SITE_HOSTING_CONTRACT_VERSION,
     compareVersions,
     isCompatibleWithBlogGenius
-} = require('./bloggenius-compatibility');
-const { DESIGN_STYLE_CONTRACT_VERSION } = require('../../ui/scripts/foundation/design-style-token-contract');
+} = require('./compatibility');
+const { DESIGN_STYLE_CONTRACT_VERSION } = require('../../../../ui/scripts/foundation/design-style-token-contract');
 
 test('BlogGenius compatibility compares stable application release versions', () => {
     assert.equal(compareVersions('0.6.0', '0.5.5'), 1);

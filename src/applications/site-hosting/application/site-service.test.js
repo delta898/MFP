@@ -5,12 +5,16 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
-const { createSiteHostingProjectRepository } = require('../../site-hosting/project-repository');
-const { createSiteHostingSiteRepository } = require('../../site-hosting/site-repository');
-const { createFixtureSiteTemplateCatalog } = require('../../../test/fixtures/site-hosting/template-catalog');
-const { createSiteTemplateCatalog } = require('../../site-hosting/site-template-catalog');
-const { SITE_HOSTING_CONTRACT_VERSION } = require('../../site-hosting/bloggenius-compatibility');
-const { createSiteHostingSiteService } = require('./site-hosting-site.service');
+const { createSiteHostingProjectRepository } = require('../../../adapters/storage/site-hosting/project-repository');
+const { createSiteHostingSiteRepository } = require('../../../adapters/storage/site-hosting/site-repository');
+const { createFixtureSiteTemplateCatalog } = require('../../../../test/fixtures/site-hosting/template-catalog');
+const { createSiteTemplateCatalog } = require('../../../adapters/catalogs/amade/cached-template-catalog');
+const { SITE_HOSTING_CONTRACT_VERSION } = require('../domain/compatibility');
+const { createSiteHostingApplication } = require('../../../composition/site-hosting-application');
+
+function createSiteHostingSiteService(options = {}) {
+    return createSiteHostingApplication(options).siteService;
+}
 
 function localTemplates() {
     return createFixtureSiteTemplateCatalog({ fs, path });

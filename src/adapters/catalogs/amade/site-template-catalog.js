@@ -3,8 +3,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { createSiteTemplateCatalog } = require('./site-template-catalog');
-const { SITE_HOSTING_CONTRACT_VERSION, isCompatibleWithBlogGenius, isSupportedSiteHostingContractVersion } = require('./bloggenius-compatibility');
+const { createSiteTemplateCatalog } = require('./cached-template-catalog');
+const { SITE_HOSTING_CONTRACT_VERSION, isCompatibleWithBlogGenius, isSupportedSiteHostingContractVersion } = require('../../../applications/site-hosting/domain/compatibility');
 
 const PRODUCTION_CATALOG_URL = 'https://raw.githubusercontent.com/delta898/Amade/main/amade/catalog/production-index.json';
 const DEFAULT_CATALOG_URL = PRODUCTION_CATALOG_URL;

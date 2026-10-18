@@ -1,14 +1,10 @@
 'use strict';
 
 const crypto = require('node:crypto');
-const { createSiteHostingProjectRepository } = require('../../site-hosting/project-repository');
 
 function createSiteHostingProjectService(deps = {}) {
-    const repository = deps.repository || createSiteHostingProjectRepository({
-        fs: deps.fs,
-        path: deps.path,
-        workspaceDir: deps.workspaceDir
-    });
+    const repository = deps.repository;
+    if (!repository) throw new TypeError('Site Hosting project repository port is required.');
     const now = deps.now || (() => new Date().toISOString());
     const createId = deps.createId || (() => crypto.randomUUID().replace(/-/g, ''));
 

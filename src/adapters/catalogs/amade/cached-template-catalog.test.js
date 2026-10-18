@@ -5,8 +5,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
-const { createSiteTemplateCatalog } = require('./site-template-catalog');
-const { templatesRoot } = require('../../test/fixtures/site-hosting/template-catalog');
+const { createSiteTemplateCatalog } = require('./cached-template-catalog');
+const { templatesRoot } = require('../../../../test/fixtures/site-hosting/template-catalog');
 
 test('temporary homepage template is listed as metadata and copied from its Astro source folder', () => {
     const catalog = createSiteTemplateCatalog({ fs, path, templatesRoot });

@@ -2,8 +2,8 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { DESIGN_STYLE_REQUIRED_TOKENS, DESIGN_STYLE_CONTRACT_VERSION } = require('../../ui/scripts/foundation/design-style-token-contract');
-const { isCompatibleWithBlogGenius } = require('./bloggenius-compatibility');
+const { DESIGN_STYLE_REQUIRED_TOKENS, DESIGN_STYLE_CONTRACT_VERSION } = require('../../../../ui/scripts/foundation/design-style-token-contract');
+const { isCompatibleWithBlogGenius } = require('../../../applications/site-hosting/domain/compatibility');
 
 const PRODUCTION_CATALOG_URL = 'https://raw.githubusercontent.com/delta898/Amade/main/amade/catalog/production-index.json';
 const DEFAULT_CATALOG_URL = PRODUCTION_CATALOG_URL;

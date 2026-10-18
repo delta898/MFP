@@ -2,7 +2,7 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { createSiteHostingProjectService } = require('./site-hosting-project.service');
+const { createSiteHostingProjectService } = require('./project-service');
 
 test('site hosting project service creates, lists, and opens projects', () => {
     const projects = new Map();

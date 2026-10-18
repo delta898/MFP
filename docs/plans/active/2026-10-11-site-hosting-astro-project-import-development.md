@@ -123,7 +123,7 @@ Implemented one importer integration path across inspection, temporary preview, 
 Validation on 2026-10-12:
 
 - Extracted `/Users/delta898/Downloads/mentivenus-site_codex.zip` to a temporary directory and ran the real inspector. It reported valid descriptor/settings, all five declared capabilities (`site_identity`, `navigation`, `logo`, `favicon`, `share_image`), four navigation entries, and selected the `posts` menu (`/blog/`) at index 2.
-- Focused checks passed: `node --test src/site-hosting/astro-project-inspector.test.js src/site-hosting/site-repository.test.js src/ui-api/services/site-hosting-site.service.test.js scripts/site-hosting-create-mode-tabs-ui-contract.test.js` (39 tests), `node --check` for the changed JavaScript modules, and `git diff --check`.
+- Focused checks passed: `node --test src/applications/site-hosting/domain/astro-project-inspector.test.js src/adapters/storage/site-hosting/site-repository.test.js src/ui-api/services/site-hosting-site.service.test.js scripts/site-hosting-create-mode-tabs-ui-contract.test.js` (39 tests), `node --check` for the changed JavaScript modules, and `git diff --check`.
 - Static structural checks cannot prove arbitrary Astro source fully honors a declared capability. The actual ZIP still needs a live preview/build and user visual acceptance. Detailed archive limits and hostile ZIP handling remain follow-up hardening, outside this settings-integration slice.
 
 ## Design constraints and initial assumptions

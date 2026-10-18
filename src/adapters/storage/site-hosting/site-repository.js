@@ -3,9 +3,9 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
-const { normalizeMenuDestination, normalizeNavigationItems, internalPathSegment, internalPathname } = require('./navigation-contract');
-const { SITE_HOSTING_TEMPLATE_UPDATE_POLICY, isSupportedSiteHostingContractVersion, compareVersions } = require('./bloggenius-compatibility');
-const { MAX_SITE_PROFILE_IMAGE_BYTES } = require('./image-limits');
+const { normalizeMenuDestination, normalizeNavigationItems, internalPathSegment, internalPathname } = require('../../../applications/site-hosting/domain/navigation-contract');
+const { SITE_HOSTING_TEMPLATE_UPDATE_POLICY, isSupportedSiteHostingContractVersion, compareVersions } = require('../../../applications/site-hosting/domain/compatibility');
+const { MAX_SITE_PROFILE_IMAGE_BYTES } = require('../../../applications/site-hosting/domain/image-limits');
 
 const SITE_SCHEMA_VERSION = 1;
 

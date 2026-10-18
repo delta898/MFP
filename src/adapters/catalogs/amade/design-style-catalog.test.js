@@ -5,8 +5,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { DESIGN_STYLE_REQUIRED_TOKENS, DESIGN_STYLE_CONTRACT_VERSION } = require('../../ui/scripts/foundation/design-style-token-contract');
-const { DEFAULT_CATALOG_URL, PRODUCTION_CATALOG_URL, DEVELOPMENT_CATALOG_URL, createGitHubDesignStyleCatalog } = require('./github-design-style-catalog');
+const { DESIGN_STYLE_REQUIRED_TOKENS, DESIGN_STYLE_CONTRACT_VERSION } = require('../../../../ui/scripts/foundation/design-style-token-contract');
+const { DEFAULT_CATALOG_URL, PRODUCTION_CATALOG_URL, DEVELOPMENT_CATALOG_URL, createGitHubDesignStyleCatalog } = require('./design-style-catalog');
 
 const REVISION = 'a'.repeat(40);
 

@@ -1,6 +1,6 @@
 'use strict';
 
-const { createGitHubDesignStyleCatalog } = require('../site-hosting/github-design-style-catalog');
+const { createGitHubDesignStyleCatalog } = require('../adapters/catalogs/amade/design-style-catalog');
 const { createDesignStylesRouteHandler } = require('../ui-api/routes/design-styles.routes');
 const { createManuscriptDraftService } = require('../content/manuscript-draft-service');
 const { createCorePluginsRouteHandler } = require('../adapters/ui/plugins/core-plugins.routes');
@@ -127,9 +127,8 @@ function createUiApiRouteRuntime(deps = {}) {
         createCloudflareConnectionService,
         createEncryptedCredentialStore,
         createCloudflareConnectionRouteHandler,
-        createSiteHostingProjectService,
+        createSiteHostingApplication,
         createSiteHostingProjectRouteHandler,
-        createSiteHostingSiteService,
         createSiteHostingSiteRouteHandler,
         createApiRouteHub,
         corePluginRuntime,
@@ -162,6 +161,7 @@ function createUiApiRouteRuntime(deps = {}) {
     let legacyApiRouteHandler = null;
     let cloudflareConnectionRouteHandler = null;
     let cloudflareConnectionService = null;
+    let siteHostingApplication = null;
     let siteHostingSiteService = null;
     let siteHostingProjectRouteHandler = null;
     let siteHostingSiteRouteHandler = null;
@@ -545,13 +545,8 @@ function createUiApiRouteRuntime(deps = {}) {
 
     function getSiteHostingProjectRouteHandlerInstance() {
         if (!siteHostingProjectRouteHandler) {
-            const service = createSiteHostingProjectService({
-                fs,
-                path,
-                workspaceDir: CONFIG?.WORKSPACE_DIR
-            });
             siteHostingProjectRouteHandler = createSiteHostingProjectRouteHandler({
-                service,
+                service: getSiteHostingApplicationInstance().projectService,
                 sendSuccess,
                 sendError
             });
@@ -571,8 +566,13 @@ function createUiApiRouteRuntime(deps = {}) {
     }
 
     function getSiteHostingSiteServiceInstance() {
-        if (!siteHostingSiteService) {
-            siteHostingSiteService = createSiteHostingSiteService({
+        if (!siteHostingSiteService) siteHostingSiteService = getSiteHostingApplicationInstance().siteService;
+        return siteHostingSiteService;
+    }
+
+    function getSiteHostingApplicationInstance() {
+        if (!siteHostingApplication) {
+            siteHostingApplication = createSiteHostingApplication({
                 Logger,
                 fs,
                 path,
@@ -583,7 +583,7 @@ function createUiApiRouteRuntime(deps = {}) {
                 getCloudflareDeploymentCredentials: (accountId) => getCloudflareConnectionServiceInstance().getDeploymentCredentials(accountId)
             });
         }
-        return siteHostingSiteService;
+        return siteHostingApplication;
     }
 
     function getDesignStylesRouteHandlerInstance() {

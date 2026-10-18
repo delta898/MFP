@@ -122,11 +122,10 @@ const { createKeywordsController } = require('./ui-api/controllers/keywords.cont
 const { createKeywordsRouteHandler } = require('./ui-api/routes/keywords.routes');
 const { createSmartUsageService } = require('./smart-usage');
 const { createLegacyApiRouteHandler } = require('./ui-api/routes/legacy-api.routes');
-const { createCloudflareConnectionService, createEncryptedCredentialStore } = require('./site-hosting/cloudflare-connection.service');
+const { createCloudflareConnectionService, createEncryptedCredentialStore } = require('./host/cloudflare/connection-service');
 const { createCloudflareConnectionRouteHandler } = require('./ui-api/routes/cloudflare-connection.routes');
-const { createSiteHostingProjectService } = require('./ui-api/services/site-hosting-project.service');
+const { createSiteHostingApplication } = require('./composition/site-hosting-application');
 const { createSiteHostingProjectRouteHandler } = require('./ui-api/routes/site-hosting-project.routes');
-const { createSiteHostingSiteService } = require('./ui-api/services/site-hosting-site.service');
 const { createSiteHostingSiteRouteHandler } = require('./ui-api/routes/site-hosting-site.routes');
 const { createApiRouteHub } = require('./ui-api/routes');
 
@@ -1042,9 +1041,8 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     createCloudflareConnectionService,
     createEncryptedCredentialStore,
     createCloudflareConnectionRouteHandler,
-    createSiteHostingProjectService,
+    createSiteHostingApplication,
     createSiteHostingProjectRouteHandler,
-    createSiteHostingSiteService,
     createSiteHostingSiteRouteHandler,
     createApiRouteHub,
     corePluginRuntime,

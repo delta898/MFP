@@ -57,7 +57,7 @@ test('template-declared Vault and publication settings render after shared Site 
     assert.match(creation, /siteHostingCreateSetupInputs\[inputId\] = String\(result\?\.path \|\| ''\)/);
     assert.match(creation, /site-template-setup-input-path\$\{selectedPath \? ' is-selected' : ''\}/);
     assert.match(creation, /\.\.\.\(Object\.keys\(setupInputs\)\.length \? \{ setup_inputs: setupInputs \} : \{\}\)/);
-    const picker = fs.readFileSync(path.join(root, 'src/ui-api/services/site-hosting-site.service.js'), 'utf8');
+    const picker = fs.readFileSync(path.join(root, 'src/applications/site-hosting/application/site-service.js'), 'utf8');
     assert.ok(picker.indexOf('await nativeDialog.showOpenDialog') < picker.indexOf('await templates.prepare?.(templateId)'));
 });
 

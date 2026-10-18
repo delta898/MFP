@@ -6,8 +6,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
-const { DEFAULT_CATALOG_URL, PRODUCTION_CATALOG_URL, DEVELOPMENT_CATALOG_URL, createGitHubSiteTemplateCatalog } = require('./github-site-template-catalog');
-const { SITE_HOSTING_CONTRACT_VERSION } = require('./bloggenius-compatibility');
+const { DEFAULT_CATALOG_URL, PRODUCTION_CATALOG_URL, DEVELOPMENT_CATALOG_URL, createGitHubSiteTemplateCatalog } = require('./site-template-catalog');
+const { SITE_HOSTING_CONTRACT_VERSION } = require('../../../applications/site-hosting/domain/compatibility');
 
 test('default Amade template catalog points at the curated production catalog on main', () => {
     assert.equal(DEFAULT_CATALOG_URL, PRODUCTION_CATALOG_URL);

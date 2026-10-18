@@ -16,8 +16,8 @@ const styles = [
   fs.readFileSync(path.join(root, 'ui/styles/features/site-hosting-import.css'), 'utf8')
 ].join('\n');
 const projectManagement = fs.readFileSync(path.join(root, 'ui/scripts/features/site-hosting/project-management.js'), 'utf8');
-const service = fs.readFileSync(path.join(root, 'src/ui-api/services/site-hosting-site.service.js'), 'utf8');
-const repository = fs.readFileSync(path.join(root, 'src/site-hosting/site-repository.js'), 'utf8');
+const service = fs.readFileSync(path.join(root, 'src/applications/site-hosting/application/site-service.js'), 'utf8');
+const repository = fs.readFileSync(path.join(root, 'src/adapters/storage/site-hosting/site-repository.js'), 'utf8');
 const prompt = fs.readFileSync(path.join(root, 'ui/partials/views/site-hosting-astro-project-meta-prompt.html'), 'utf8').trimEnd();
 const promptDoc = fs.readFileSync(path.join(root, 'docs/features/site-hosting-astro-project-meta-prompt.md'), 'utf8');
 

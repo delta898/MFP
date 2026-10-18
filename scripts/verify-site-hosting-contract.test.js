@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
-const bloggeniusContract = require('../src/site-hosting/site-hosting-contract.json');
+const bloggeniusContract = require('../src/applications/site-hosting/domain/site-hosting-contract.json');
 const { verifySiteHostingContract } = require('./verify-site-hosting-contract');
 
 test('Amade catalog versions must match its source and BlogGenius supported contract', () => {

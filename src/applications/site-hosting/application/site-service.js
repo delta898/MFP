@@ -4,15 +4,11 @@ const crypto = require('node:crypto');
 const osApi = require('node:os');
 const { domainToASCII } = require('node:url');
 const net = require('node:net');
-const { createSiteHostingProjectRepository } = require('../../site-hosting/project-repository');
-const { createSiteHostingSiteRepository } = require('../../site-hosting/site-repository');
-const { normalizeMenuDestination, normalizeMenuLabel: validateMenuLabel, normalizeNavigationItems, internalPathSegment, internalPathname } = require('../../site-hosting/navigation-contract');
-const { parseImageBlocks, replaceImageBlocks } = require('../../content/image-blocks');
-const { createGitHubSiteTemplateCatalog } = require('../../site-hosting/github-site-template-catalog');
-const { createAstroSiteHostingSystem } = require('../../composition/astro-site-hosting');
-const { isSupportedSiteHostingContractVersion } = require('../../site-hosting/bloggenius-compatibility');
-const { inspectAstroProject } = require('../../site-hosting/astro-project-inspector');
-const { MAX_SITE_PROFILE_IMAGE_BYTES } = require('../../site-hosting/image-limits');
+const { normalizeMenuDestination, normalizeMenuLabel: validateMenuLabel, normalizeNavigationItems, internalPathSegment, internalPathname } = require('../domain/navigation-contract');
+const { parseImageBlocks, replaceImageBlocks } = require('../../../content/image-blocks');
+const { isSupportedSiteHostingContractVersion } = require('../domain/compatibility');
+const { inspectAstroProject } = require('../domain/astro-project-inspector');
+const { MAX_SITE_PROFILE_IMAGE_BYTES } = require('../domain/image-limits');
 
 function createSiteHostingSiteService(deps = {}) {
     const fileSystem = deps.fs || require('node:fs');
@@ -20,57 +16,24 @@ function createSiteHostingSiteService(deps = {}) {
     const operatingSystem = deps.os || osApi;
     let lastSetupDirectory = '';
     let lastImportArchiveDirectory = '';
-    const projectRepository = deps.projectRepository || createSiteHostingProjectRepository({
-        fs: deps.fs,
-        path: deps.path,
-        workspaceDir: deps.workspaceDir
-    });
-    const templates = deps.templates || createGitHubSiteTemplateCatalog({
-        fs: deps.fs,
-        path: deps.path,
-        cacheRoot: deps.templateCacheRoot || pathApi.join(String(deps.workspaceDir || ''), 'site-hosting', 'template-cache'),
-        catalogUrl: deps.templateCatalogUrl,
-        environment: deps.runtimeEnvironment,
-        fetchImpl: deps.fetchImpl
-    });
-    const repository = deps.repository || createSiteHostingSiteRepository({
-        fs: deps.fs,
-        path: deps.path,
-        projectRepository,
-        templates
-    });
+    const projectRepository = deps.projectRepository;
+    const templates = deps.templates;
+    const repository = deps.repository;
+    if (!projectRepository || !templates || !repository) {
+        throw new TypeError('Site Hosting repository and catalog ports are required.');
+    }
     const getCloudflareDeploymentCredentials = deps.getCloudflareDeploymentCredentials || (async () => {
         const error = new Error('Cloudflare 배포 연결을 사용할 수 없습니다.');
         error.code = 'CLOUDFLARE_CONNECTION_REQUIRED';
         error.status = 409;
         throw error;
     });
-    const openExternal = deps.openExternal || (async (url) => {
-        const electron = require('electron');
-        if (!electron?.shell?.openExternal) throw new Error('시스템 브라우저를 실행할 수 없습니다.');
-        await electron.shell.openExternal(url);
+    const desktop = deps.desktop || {};
+    const openExternal = deps.openExternal || desktop.openExternal || (async () => {
+        throw new Error('시스템 브라우저를 실행할 수 없습니다.');
     });
-    const siteHostingSystem = createAstroSiteHostingSystem({
-        corePluginRuntime: deps.corePluginRuntime,
-        astroRuntime: deps.astroRuntime,
-        cloudflareDeployer: deps.cloudflareDeployer,
-        fs: deps.fs,
-        path: deps.path,
-        getCloudflareDeploymentCredentials,
-        createCloudflareSdkClient: deps.createCloudflareSdkClient,
-        createCloudflareSdkAdapter: deps.createCloudflareSdkAdapter,
-        fetchImpl: deps.fetchImpl,
-        Logger: deps.Logger,
-        workspaceDir: deps.workspaceDir,
-        templatesRoot: deps.templatesRoot,
-        projectRepository,
-        siteRepository: repository,
-        templates,
-        npmCliPath: deps.npmCliPath,
-        spawn: deps.spawn,
-        cacheRoot: deps.cacheRoot
-    });
-    const astroRuntime = siteHostingSystem.siteHosting;
+    const astroRuntime = deps.astroRuntime;
+    if (!astroRuntime) throw new TypeError('Site Hosting runtime port is required.');
     const manuscriptDraftService = deps.manuscriptDraftService || null;
     const now = deps.now || (() => new Date().toISOString());
     const createId = deps.createId || (() => crypto.randomUUID().replace(/-/g, ''));
@@ -163,10 +126,7 @@ function createSiteHostingSiteService(deps = {}) {
         if (setupInput && (setupInput.type !== 'directory' || setupInput.purpose !== 'knowledge_collection')) {
             throw siteInputError('선택한 템플릿은 이 폴더 입력을 요청하지 않습니다.', 'SITE_HOSTING_SETUP_INPUT_UNSUPPORTED');
         }
-        let nativeDialog = deps.dialog;
-        if (!nativeDialog) {
-            try { nativeDialog = require('electron').dialog; } catch (_error) { }
-        }
+        const nativeDialog = deps.dialog || desktop.dialog;
         if (typeof nativeDialog?.showOpenDialog !== 'function') {
             throw siteInputError('시스템 폴더 선택 창을 사용할 수 없습니다.', 'SITE_HOSTING_DIRECTORY_PICKER_UNAVAILABLE');
         }
@@ -198,8 +158,7 @@ function createSiteHostingSiteService(deps = {}) {
         for (const [token, selection] of importArchiveSelections) {
             if (Date.now() - selection.selected_at > 10 * 60 * 1000) importArchiveSelections.delete(token);
         }
-        let nativeDialog = deps.dialog;
-        if (!nativeDialog) { try { nativeDialog = require('electron').dialog; } catch (_error) { } }
+        const nativeDialog = deps.dialog || desktop.dialog;
         if (typeof nativeDialog?.showOpenDialog !== 'function') throw siteInputError('시스템 파일 선택 창을 사용할 수 없습니다.', 'SITE_HOSTING_ARCHIVE_PICKER_UNAVAILABLE');
         const result = await nativeDialog.showOpenDialog({
             title: 'Astro 프로젝트 ZIP 선택',
@@ -227,10 +186,8 @@ function createSiteHostingSiteService(deps = {}) {
         }
         const stagingRoot = fileSystem.mkdtempSync(pathApi.join(operatingSystem.tmpdir(), 'bloggenius-astro-import-'));
         try {
-            const extractZip = deps.extractZip || (async (zipPath, options) => {
-                const module = await import('@electron-internal/extract-zip');
-                return module.extract(zipPath, options);
-            });
+            const extractZip = deps.extractZip || desktop.extractZip;
+            if (typeof extractZip !== 'function') throw siteInputError('ZIP 압축 해제 기능을 사용할 수 없습니다.', 'SITE_HOSTING_ARCHIVE_EXTRACTOR_UNAVAILABLE');
             await extractZip(selection.path, { dir: stagingRoot });
             const rootEntries = fileSystem.readdirSync(stagingRoot, { withFileTypes: true });
             let sourceRoot = stagingRoot;
@@ -442,9 +399,8 @@ function createSiteHostingSiteService(deps = {}) {
     }
 
     async function openPath(targetPath) {
-        const electron = require('electron');
-        if (!electron?.shell?.openPath) throw new Error('시스템 파일 탐색기를 실행할 수 없습니다.');
-        return electron.shell.openPath(targetPath);
+        if (typeof desktop.openPath !== 'function') throw new Error('시스템 파일 탐색기를 실행할 수 없습니다.');
+        return desktop.openPath(targetPath);
     }
 
     async function openSiteAddress(projectId, siteId, addressType) {
@@ -635,10 +591,7 @@ function createSiteHostingSiteService(deps = {}) {
             startPathReset = currentPath !== '.';
         }
 
-        let nativeDialog = deps.dialog;
-        if (!nativeDialog) {
-            try { nativeDialog = require('electron').dialog; } catch (_error) { }
-        }
+        const nativeDialog = deps.dialog || desktop.dialog;
         if (typeof nativeDialog?.showOpenDialog !== 'function') {
             throw siteInputError('시스템 폴더 선택 창을 사용할 수 없습니다.', 'SITE_HOSTING_DIRECTORY_PICKER_UNAVAILABLE');
         }

@@ -13,7 +13,7 @@ const Cloudflare = require('cloudflare');
 const {
     createCloudflareConnectionService,
     createEncryptedCredentialStore
-} = require('../src/site-hosting/cloudflare-connection.service');
+} = require('../src/host/cloudflare/connection-service');
 
 app.setName('BlogGenius');
 

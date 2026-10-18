@@ -1,9 +1,9 @@
 'use strict';
 
 const { createAstroSiteHostingAdapter } = require('../adapters/plugins/astro-site-hosting');
-const { normalizeMenuDestination } = require('../site-hosting/navigation-contract');
-const { captureSiteScreenshot } = require('../site-hosting/electron-site-screenshot');
-const { createKnowledgeCollectionBuilder } = require('../site-hosting/knowledge-collection-builder');
+const { normalizeMenuDestination } = require('../applications/site-hosting/domain/navigation-contract');
+const { captureSiteScreenshot } = require('../host/electron/site-screenshot');
+const { createKnowledgeCollectionBuilder } = require('../applications/site-hosting/domain/knowledge-collection-builder');
 
 function createAstroSiteHostingSystem(options = {}) {
     const corePluginRuntime = options.corePluginRuntime || require('./core-plugin-runtime').createCorePluginRuntime();

@@ -6,7 +6,7 @@ const {
     createCloudflareConnectionService,
     DEFAULT_OAUTH_REQUESTED_SCOPES,
     normalizeRequestedScopes
-} = require('./cloudflare-connection.service');
+} = require('./connection-service');
 
 function createAccountProbeService(accounts, workerStatuses = {}) {
     return createCloudflareConnectionService({

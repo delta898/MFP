@@ -1,8 +1,8 @@
 'use strict';
 
-const BLOGGENIUS_VERSION = require('../../package.json').version;
-const SITE_HOSTING_CONTRACT = require('./site-hosting-contract.json');
-const { DESIGN_STYLE_CONTRACT_VERSION } = require('../../ui/scripts/foundation/design-style-token-contract');
+const BLOGGENIUS_VERSION = require('../../../../package.json').version;
+const SITE_HOSTING_CONTRACT = require('./site-hosting-contract');
+const { DESIGN_STYLE_CONTRACT_VERSION } = require('../../../../ui/scripts/foundation/design-style-token-contract');
 const SITE_HOSTING_CONTRACT_VERSION = SITE_HOSTING_CONTRACT.version;
 const SITE_HOSTING_SUPPORTED_CONTRACT_VERSIONS = Object.freeze([
     SITE_HOSTING_CONTRACT_VERSION,

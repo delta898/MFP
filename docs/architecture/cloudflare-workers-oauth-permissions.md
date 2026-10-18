@@ -82,7 +82,7 @@ BlogGenius의 이 흐름은 OAuth Client로 발급받은 access/refresh token을
 - custom domain의 Zone 조회·연결·해제와 Worker 삭제/해지 검증도 해당 Site의 `deployment.worker_account_id`를 사용한다. 따라서 도메인 연결 때 별도의 계정 선택은 하지 않는다. 아직 배포하지 않은 Site는 Zone 조회를 시작할 수 없고, 배포 후 해당 계정의 Zone만 표시한다.
 - Project 계정 설정 기능이 아직 없으므로 선택값은 Site마다 저장한다. Project 관리 UI가 생기면 계정 소유 범위를 다시 검토한다.
 
-현재 구현 검증: `node --test src/site-hosting/cloudflare-connection.service.test.js scripts/project-environment.test.js` 통과 (8 tests). 실계정 full-flow 결과는 위 실험 3에 기록했다.
+현재 구현 검증: `node --test src/host/cloudflare/connection-service.test.js scripts/project-environment.test.js` 통과 (8 tests). 실계정 full-flow 결과는 위 실험 3에 기록했다.
 
 ## 운영 시 주의점
 
