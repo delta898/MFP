@@ -34,6 +34,7 @@ redirectConsoleToStderr();
 
 const pkg = require('../../package.json');
 const CONFIG = require('../config-loader');
+const { License } = require('../composition/licensing');
 const { createMcpPrototypeRuntime } = require('./runtime-factory');
 const {
     SUPPORTED_PROTOCOL_VERSION,
@@ -89,7 +90,7 @@ async function handleRequest(message = {}, runtimeState = {}, services = {}) {
 }
 
 async function startServer() {
-    const services = createMcpPrototypeRuntime({ config: CONFIG });
+    const services = createMcpPrototypeRuntime({ config: CONFIG, License });
     const runtimeState = createServerState();
     const reader = readline.createInterface({
         input: process.stdin,

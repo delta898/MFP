@@ -21,7 +21,6 @@ const TelegramAgentRenderer = require('./adapters/messaging/telegram/agent-rende
 const { getInternalUiOrigin } = require('./ui-runtime/internal-ui-origin');
 const { getRuntimeHooks } = require('./runtime-hooks');
 const { getAgentEventStore } = require('./host/memory/runtime');
-const License = require('./license');
 const { recordRecommendationFeedback } = require('./services/recommendations/adapters/recommendation-feedback-adapter');
 const {
     calculateTelegramPollingBackoffMs,
@@ -31,6 +30,7 @@ const {
 
 class TelegramBotService {
     static GoogleSheets = null;
+    static License = null;
     static bot = null;
     static isInitialized = false;
     static pendingRequests = new Map(); // 사용자 확인 대기 중인 파싱 데이터 관리
@@ -248,6 +248,8 @@ class TelegramBotService {
         const syncAutoRunnerWithConfig = hooks.syncAutoRunnerWithConfig || (() => { });
         const resolveNaverAutoCategoryCatalog = hooks.resolveNaverAutoCategoryCatalog || null;
 
+        const License = TelegramBotService.License;
+        if (!License) throw new Error('Telegram runtime requires an injected licensing port.');
         const knowledgeRuntime = createKnowledgeRuntime({ CONFIG, License, Logger, axios });
         const capabilityRegistry = createCapabilityRegistry({
             ...knowledgeRuntime,

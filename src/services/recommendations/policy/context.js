@@ -1,7 +1,7 @@
 const { buildCapabilityId } = require('../../../capabilities/capability-id');
 const { RECOMMENDATION_PRESENTATION_SURFACES, RECOMMENDATION_STATES } = require('../core/contract');
 const { IDENTIFIER_PATTERN } = require('../core/validators');
-const { validateLicenseFeaturePolicy } = require('../../../license-feature-policy');
+const { validateLicenseFeaturePolicy } = require('../../licensing/feature-policy');
 
 const POLICY_CONTEXT_SCHEMA_VERSION = 1;
 const MAX_HISTORY = 200;

@@ -2,6 +2,7 @@ const http = require('http');
 const crypto = require('crypto');
 
 const Logger = require('../utilities/logging/logger');
+const { License } = require('../composition/licensing');
 const { createMcpPrototypeRuntime } = require('./runtime-factory');
 const { ensureRuntimeRemoteMcpConfig } = require('./remote-config');
 const {
@@ -286,7 +287,7 @@ function buildBaseResponseHeaders(request, config, extraHeaders = {}) {
 function createHttpMcpHandler(options = {}) {
     const sourceConfig = options.config || {};
     const config = resolveRemoteMcpConfig(options, sourceConfig);
-    const services = options.services || createMcpPrototypeRuntime({ config: sourceConfig });
+    const services = options.services || createMcpPrototypeRuntime({ config: sourceConfig, License });
     const sessionStore = createSessionStore();
     const traceMcp = buildTraceWriter({
         debug: config.debug || options.debug === true,

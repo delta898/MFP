@@ -2,7 +2,6 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 
-const License = require('../license');
 const { createAgentRuntime } = require('../host/agent/runtime');
 const { ConfirmationStore } = require('../adapters/storage/confirmations/confirmation-store');
 const { createCapabilityRegistry } = require('../capabilities');
@@ -19,6 +18,8 @@ const NullLogger = {
 
 function createMcpPrototypeRuntime(options = {}) {
     const CONFIG = options.config || {};
+    const License = options.License;
+    if (!License) throw new Error('MCP runtime requires an injected licensing port.');
     const confirmationPersistPath = process.env.MCP_CONFIRMATION_STORE_PATH
         || path.resolve(__dirname, '..', '..', '.tmp', 'mcp-confirmations.json');
     const hooks = getRuntimeHooks();

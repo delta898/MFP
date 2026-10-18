@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const {
     REQUIRED_LICENSE_FEATURE_KEYS,
     validateLicenseFeaturePolicy
-} = require('./license-feature-policy');
+} = require('./feature-policy');
 
 test('license feature policy accepts required booleans and ignores legacy keys', () => {
     const result = validateLicenseFeaturePolicy({

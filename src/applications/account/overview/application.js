@@ -1,4 +1,4 @@
-const { normalizeSmartUsageItems } = require('../../../smart-usage');
+const { normalizeSmartUsageItems } = require('../../../services/licensing/smart-usage');
 const { buildSetupReadiness } = require('../../../services/configuration-readiness/service');
 
 const FEATURE_LABELS = {

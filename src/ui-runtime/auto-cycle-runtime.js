@@ -1,4 +1,4 @@
-const { buildPublishQuotaPreflight } = require('../publish-quota');
+const { buildPublishQuotaPreflight } = require('../services/licensing/publish-quota');
 const { normalizeBlogImageMode, generatesBlogImages } = require('../content/blog-image-mode');
 
 function createAutoCycleRuntime(deps = {}) {

@@ -2,7 +2,7 @@ const {
     createPublishOperationId,
     hasSuccessfulPlatformResult,
     settlePublishQuota
-} = require('../publish-quota');
+} = require('../services/licensing/publish-quota');
 const { normalizeWritingStrategyOverride } = require('../content/writing-strategy');
 const { presentBlogImageGenerationProgress } = require('../adapters/ui/blog-posting-progress');
 const { presentNaverPublishProgress } = require('../adapters/ui/naver-publish-progress');

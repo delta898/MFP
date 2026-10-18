@@ -21,6 +21,7 @@
 - Remove `src/config-loader.js` and obsolete compatibility projections after production callers and tests migrate.
 - Keep the canonical architecture document and `src/README.md` aligned with each completed slice.
 - User-approved scope extension on 2026-10-19: continue the broader source-layer reorganization on this branch by separating Knowledge and Memory responsibilities into their owning service, adapter, storage, Host, and composition layers. Do not merge the two domains.
+- User-approved scope extension on 2026-10-19: reorganize `license.js`, `license-feature-policy.js`, `publish-quota.js`, and `smart-usage/` by responsibility. Preserve entitlement and usage behavior while separating provider-neutral licensing policy/contracts, Supabase transport, Host-owned identity/credential access, and Application callers; remove the legacy facade after callers migrate.
 
 ## Explicit non-goals
 
@@ -36,11 +37,13 @@
 4. Verify startup and focused contracts for each slice; search for direct imports and stale root references.
 5. Remove the root loader only after production callers, tests, and packaged startup paths use the new contracts. Update architecture/source maps and finalize this record.
 6. For the approved Knowledge/Memory stage, migrate callers and tests alongside files, keep Recommendation lifecycle/policy separate, update the canonical architecture and source ownership map, and run focused contracts without starting the full suite.
+7. For the approved Licensing stage, first relocate provider-neutral feature/quota/smart-usage contracts and tests into `services/licensing/`, then split the Supabase protocol adapter from licensing orchestration and Host credential resolution. Migrate all static and injected callers, preserve key-storage paths and RPC semantics, remove `src/license.js` and root-level licensing modules after production imports are gone, and update packaging/docs.
 
 ## Decisions and tradeoffs
 
 - 2026-10-18: User asked for this work on a separate feature branch. The branch is based on the current `codex/fbr/source-layer-reorganization` tip.
 - 2026-10-18: The loader must not be moved wholesale into Host because it currently combines Host bootstrap, environment values, shared service configuration, and product/Application policy. Caller paths must follow ownership rather than merely point to a new facade.
+- 2026-10-19: Licensing will not be moved wholesale into `applications/account/` or left as a renamed provider facade. Shared entitlement/quota/usage policy belongs in `services/licensing/`, Supabase protocol in an adapter, key persistence in the existing storage adapter, and device identity/credential resolution at the Host boundary. Keep the current License method behavior as an injected port until all callers are migrated.
 - Preserve existing behavior and config shape while relocating ownership. Ask the user before a change that materially alters product behavior, persistence, compatibility, or secret handling.
 
 ## Progress
@@ -61,6 +64,8 @@
 - 2026-10-19: Final focused verification passed: 75 Knowledge, Memory, Recommendation storage/learning, Host lifecycle, and structural tests. `git diff --check` passed. A relative-import scan reports five pre-existing unresolved paths in Google OAuth tests and `config-loader.js`, outside this stage.
 - 2026-10-19: Follow-up logs identified the concrete failure: `createContinuousPublishingService()` was composed without `GoogleSheets`, so its Topics read failed at `GoogleSheets.clearSheetCache`. Wired `deps.GoogleSheets` into the service, retained request-ID-scoped logging for queue/dashboard reads, and made initial queue errors show the returned API message. Added a structural regression assertion for the composition boundary. Verification passed: continuous-publishing service tests (59), targeted route/composition tests (3), and `git diff --check`. An earlier broad contract run also surfaced an unrelated existing assertion mismatch in `queue editor keeps save and queue promotion as separate local actions`; no related implementation was changed for it.
 - 2026-10-19: Moved the process-wide Node network family retry policy and its unit tests from the obsolete `src/network/` root to `src/host/network/`. Updated Node launcher, Electron startup, and the development browser demo imports; documented Host ownership and removed the stale root-directory inventory entry.
+- 2026-10-19: Began licensing ownership migration after auditing the former `license.js` and all production consumers. Moved feature validation, publish quota settlement, smart usage, and the license workflow factory into `services/licensing/`; moved Supabase RPC/Edge Function protocol calls into `adapters/licensing/supabase/license-api.js` with allowlisted quota and smart-usage operations; moved local device identity lookup into `host/licensing/`; and wired runtime dependencies through `composition/licensing.js`. Migrated UI, Telegram, MCP, and Keyword Research away from direct imports. The root `license.js` is now only a temporary compatibility export; Utilities and Shopping content preparation still import it directly and must migrate before the shim can be deleted.
+- 2026-10-19: Focused verification passed: 78 tests covering licensing adapter mapping, service credential injection/bootstrap, feature policy, quota settlement, smart usage, Account overview, recommendation policy, and affected UI publishing runtimes; another 24 MCP, Keyword Research, and Telegram tests; and 7 Keyword API/UI-server boundary tests. The composed compatibility entrypoint loaded successfully under `BLOGGENIUS_ENV=local`; `git diff --check` passed. No full suite or live Supabase calls were run.
 
 ## Verification and handoff
 

@@ -41,7 +41,10 @@ function createKeywordResearchService(options = {}) {
 
     function getSupabaseClient() {
         if (supabaseClient) return supabaseClient;
-        const License = options.License || require('../license');
+        const License = options.License;
+        if (!License || typeof License.resolveAuthenticatedServerContext !== 'function') {
+            throw new Error('Keyword research requires an injected licensing port.');
+        }
         supabaseClient = createKeywordResearchSupabaseClient({
             config,
             License

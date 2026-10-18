@@ -385,7 +385,7 @@ function createUiApiRouteRuntime(deps = {}) {
     function getKeywordsRouteHandlerInstance() {
         if (!keywordsRouteHandler && typeof createKeywordsRouteHandler === 'function') {
             const service = typeof createKeywordsService === 'function'
-                ? createKeywordsService({ CONFIG, Utils, Logger, blogWritingApplication, smartUsageService: getSmartUsageServiceInstance() })
+                ? createKeywordsService({ CONFIG, Utils, Logger, License, blogWritingApplication, smartUsageService: getSmartUsageServiceInstance() })
                 : null;
             const controller = typeof createKeywordsController === 'function'
                 ? createKeywordsController({ service, sendSuccess, sendError })

@@ -3,7 +3,7 @@ const {
     createPublishOperationId,
     hasSuccessfulPlatformResult,
     settlePublishQuota
-} = require('../publish-quota');
+} = require('../services/licensing/publish-quota');
 const { parseImageCount } = require('../content/blog-image-plan');
 const { parseBlogImageMode, generatesBlogImages } = require('../content/blog-image-mode');
 const { normalizePublishTargets } = require('../content/single-publish-target');
