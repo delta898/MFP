@@ -18,8 +18,8 @@ The target path is being introduced alongside the current control path. Product 
   - New home for product use cases that compose Plugin operations. The current example is architecture-only and is not connected to product entry points.
 - `src/composition/`
   - Composition roots wire concrete Applications and Plugins. The initial example is a testable foundation slice, not a production app bootstrap.
-- `src/channels/`
-  - Channel-specific adapters and renderers.
+- `src/adapters/messaging/`
+  - Channel-specific request parsing, protocol translation, response rendering, and transport clients.
   - Telegram is an adapter, not the place where business logic should grow.
 - `src/host/agent/`
   - Host-side agent runtime, action/plan contracts, and request planning. Telegram-language parsing is owned by the Telegram adapter; confirmation persistence is owned by the storage adapter.

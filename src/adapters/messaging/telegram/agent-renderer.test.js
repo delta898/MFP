@@ -5,7 +5,7 @@ const {
     formatContentRequestMessage,
     buildContentRequestKeyboard,
     buildSuggestionKeyboard
-} = require('./renderer');
+} = require('./agent-renderer');
 
 test('renderer keeps register-only UI simple and hides publish controls', () => {
     const bundle = {

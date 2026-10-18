@@ -16,7 +16,7 @@ const {
     applyContentRequestToggle,
     isPublishExecutionEnabled
 } = require('./adapters/messaging/telegram/content-request-mapper');
-const TelegramAgentRenderer = require('./channels/telegram/renderer');
+const TelegramAgentRenderer = require('./adapters/messaging/telegram/agent-renderer');
 const { getInternalUiOrigin } = require('./ui-runtime/internal-ui-origin');
 const { getRuntimeHooks } = require('./runtime-hooks');
 const { getAgentEventStore } = require('./memory/store');
