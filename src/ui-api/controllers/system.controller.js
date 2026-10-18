@@ -1,4 +1,4 @@
-const { createControllerErrorResponder, sendMethodNotAllowed } = require('./controller-common');
+const { createControllerErrorResponder, sendMethodNotAllowed } = require('../../adapters/ui/controller-common');
 
 function createSystemController(deps = {}) {
     const { service, sendSuccess, sendError, logger, updater } = deps;

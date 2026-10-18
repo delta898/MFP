@@ -1,9 +1,11 @@
+const os = require('os');
+const { machineIdSync } = require('node-machine-id');
 const { createSystemRouteHandler } = require('./system.routes');
 const { createSessionLicenseRouteHandler } = require('./session-license.routes');
 const { createContentRouteHandler } = require('./content.routes');
 const { createTrendsRouteHandler } = require('./trends.routes');
 const { createTrendPostingRouteHandler } = require('./trend-posting.routes');
-const { createAccountRouteHandler } = require('./account.routes');
+const { createAccountRouteHandler } = require('../../adapters/ui/account/routes');
 const { createContinuousPublishingRouteHandler } = require('./continuous-publishing.routes');
 const { createSystemService } = require('../services/system.service');
 const { createSessionLicenseService } = require('../services/session-license.service');
@@ -15,16 +17,19 @@ const { createSessionLicenseController } = require('../controllers/session-licen
 const { createContentController } = require('../controllers/content.controller');
 const { createTrendsController } = require('../controllers/trends.controller');
 const { createTrendPostingController } = require('../controllers/trend-posting.controller');
-const { createAccountController } = require('../controllers/account.controller');
+const { createAccountController } = require('../../adapters/ui/account/controller');
 const { createContinuousPublishingController } = require('../controllers/continuous-publishing.controller');
 const { createContinuousPublishingService } = require('../services/continuous-publishing.service');
 const { createSiteHostingQueueExecutor } = require('../../continuous-publishing/site-hosting-queue-executor');
 const { createGoogleDriveSpreadsheets } = require('../../google-drive-spreadsheets');
-const { createAccountOverviewService } = require('../../account/overview-service');
+const { createAccountOverviewService } = require('../../applications/account/overview/application');
 const { createBlogExecutionCoordinator } = require('../../applications/blog/execution/execution-coordinator');
 const { createBlogTrendPosting } = require('../../composition/blog-trend-posting');
 const { createConnectionReadinessService } = require('../../connections/readiness-service');
 const {
+    createConnectionSignature,
+    readConnectionVerification,
+    isVerificationTrusted,
     recordWordPressVerification,
     getWordPressVerification,
     configureConnectionVerificationState
@@ -109,7 +114,17 @@ function createLegacyApiRouteHandler(deps = {}) {
         peekNaverSessionForUi: deps.peekNaverSessionForUi,
         peekGoogleOauthStatus: GoogleOAuth.peekStatus,
         getWordPressVerification,
-        getConnectionReadiness: connectionReadinessService.getReadiness
+        getConnectionReadiness: connectionReadinessService.getReadiness,
+        resolveMachineId: () => machineIdSync({ original: true }),
+        runtimeVersions: process.versions,
+        platform: process.platform,
+        architecture: process.arch,
+        osRelease: () => os.release(),
+        getSheetVerification: (spreadsheetId) => {
+            const record = readConnectionVerification('sheets', createConnectionSignature([spreadsheetId]));
+            if (!record || record.status === 'failed') return record;
+            return isVerificationTrusted('sheets', record) ? record : null;
+        }
     });
     const accountController = createAccountController({
         service: accountService,

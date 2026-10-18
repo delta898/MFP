@@ -15,6 +15,10 @@ This document captures the current runtime boundaries after the CLI-removal refa
   - Should not keep large business workflows inline.
 
 ## Shared Runtime Modules
+- `src/adapters/ui/controller-common.js`
+  - Shared HTTP controller error-response and method-allowlist translation used by UI API adapters.
+- `src/adapters/ui/account/`
+  - Account overview endpoint translation; account/license overview assembly belongs to `src/applications/account/overview/`.
 - `src/naver-auth-flow.js`
   - Single implementation path for interactive Naver login flow.
 - `src/runtime-feature-flags.js`

@@ -5,7 +5,7 @@ const {
     maskHardwareId,
     maskEmail,
     createAccountOverviewService
-} = require('./overview-service');
+} = require('./application');
 
 function createService(overrides = {}) {
     return createAccountOverviewService({
@@ -115,6 +115,26 @@ test('account overview exposes subscription, usage, device, and connection read 
     assert.equal(overview.actions.find((item) => item.id === 'purchase_credits').enabled, false);
     assert.equal(overview.actions.find((item) => item.id === 'register_email').label, '이메일 등록');
     assert.equal(overview.actions.find((item) => item.id === 'register_email').enabled, true);
+});
+
+test('account overview receives trusted spreadsheet verification through its injected port', async () => {
+    const service = createService({
+        CONFIG: {
+            GOOGLE_SHEET_URL: 'https://docs.google.com/spreadsheets/d/example',
+            GOOGLE_SHEET_ID: 'example',
+            GOOGLE_SHEET_AUTHORIZED_FILE_ID: 'example'
+        },
+        getSheetVerification: (spreadsheetId) => {
+            assert.equal(spreadsheetId, 'example');
+            return { status: 'connected', checked_at: '2026-10-18T00:00:00.000Z' };
+        }
+    });
+
+    const overview = await service.getOverview();
+    assert.deepEqual(overview.connections.google_sheets, {
+        status: 'connected',
+        checked_at: '2026-10-18T00:00:00.000Z'
+    });
 });
 
 test('account overview identifies the next setup gaps without active Google network access', async () => {

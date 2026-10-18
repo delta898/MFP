@@ -1,6 +1,6 @@
 const { createApiError } = require('../errors');
 const { toSafeRuntimeEnvironmentDiagnostic } = require('../../environment/runtime-profile');
-const { buildSetupReadiness } = require('../../account/setup-readiness');
+const { buildSetupReadiness } = require('../../services/configuration-readiness/service');
 const { resolveRuntimeLogDir } = require('../../utilities/logging/runtime-log-path');
 
 function createSystemService(deps = {}) {

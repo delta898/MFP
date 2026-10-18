@@ -1,12 +1,5 @@
-const os = require('os');
-const { machineIdSync } = require('node-machine-id');
-const { normalizeSmartUsageItems } = require('../smart-usage');
-const { buildSetupReadiness } = require('./setup-readiness');
-const {
-    createConnectionSignature,
-    readConnectionVerification,
-    isVerificationTrusted
-} = require('../connections/verification-state');
+const { normalizeSmartUsageItems } = require('../../../smart-usage');
+const { buildSetupReadiness } = require('../../../services/configuration-readiness/service');
 
 const FEATURE_LABELS = {
     cmd_batch: '일괄·자동 발행',
@@ -146,11 +139,12 @@ function createAccountOverviewService(deps = {}) {
         peekGoogleOauthStatus = () => ({ state: 'disconnected', connected: false }),
         getWordPressVerification = () => null,
         getConnectionReadiness = null,
-        resolveMachineId = () => machineIdSync({ original: true }),
-        runtimeVersions = process.versions,
-        platform = process.platform,
-        architecture = process.arch,
-        osRelease = () => os.release()
+        resolveMachineId = () => '',
+        runtimeVersions = {},
+        platform = '',
+        architecture = '',
+        osRelease = () => '',
+        getSheetVerification = () => null
     } = deps;
 
     if (!License || typeof License.checkLicenseStatus !== 'function') {
@@ -217,10 +211,10 @@ function createAccountOverviewService(deps = {}) {
         const sheetVerification = (() => {
             const sheetId = String(CONFIG.GOOGLE_SHEET_ID || '').trim();
             if (!googleConfigured || !sheetId) return null;
-            const record = readConnectionVerification('sheets', createConnectionSignature([sheetId]));
+            const record = getSheetVerification(sheetId);
             if (!record) return null;
             if (record.status === 'failed') return record;
-            return isVerificationTrusted('sheets', record) ? record : null;
+            return record;
         })();
 
         return {

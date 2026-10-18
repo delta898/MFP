@@ -1,4 +1,4 @@
-const { createControllerErrorResponder, sendMethodNotAllowed } = require('./controller-common');
+const { createControllerErrorResponder, sendMethodNotAllowed } = require('../controller-common');
 
 function createAccountController(deps = {}) {
     const { service, sendSuccess, sendError } = deps;
