@@ -224,7 +224,6 @@ src/
                                     # Card News use cases and product-specific policies
     sns/generation/                 # SNS Application adapter to shared AI Generation
   utilities/media/image-optimization-service.js
-  image-service.js               # Legacy media facade retained for existing Core callers
   ui-runtime/, ui-api/, ui-server.js  # Existing product UI/runtime; gradual migration
 
 packages/plugins/core/

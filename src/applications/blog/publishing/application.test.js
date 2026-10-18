@@ -16,8 +16,9 @@ function createApplication(options = {}) {
         legacyNaverPublisher: {
             async publish(directory, request) { calls.push({ operation: 'naver', directory, request }); return { success: true }; }
         },
-        ImageService: {
-            async optimizeBufferForFormat(bytes, format, settings) {
+        imageOptimizationService: {
+            async optimizeBuffer(bytes, settings) {
+                const { format } = settings;
                 calls.push({ operation: 'optimize', bytes, format, settings });
                 return settings.enabled === false
                     ? { buffer: bytes, format: settings.fallbackFormat, optimized: false }
@@ -62,7 +63,7 @@ test('Blog Publishing Application preserves source assets when optimization is d
     assert.equal(await disabled.app.prepareImageAsset('wordpress', source), source);
 
     const failed = createApplication({
-        ImageService: { async optimizeBufferForFormat(bytes, _format, settings) { return { buffer: bytes, format: settings.fallbackFormat, optimized: false }; } }
+        imageOptimizationService: { async optimizeBuffer(bytes, settings) { return { buffer: bytes, format: settings.fallbackFormat, optimized: false }; } }
     });
     assert.equal(await failed.app.prepareImageAsset('naver', source), source);
 });

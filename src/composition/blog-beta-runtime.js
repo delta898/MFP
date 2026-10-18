@@ -3,7 +3,7 @@
 const fsDefault = require('node:fs');
 const pathDefault = require('node:path');
 const { randomUUID } = require('node:crypto');
-const ImageServiceDefault = require('../image-service');
+const { createImageOptimizationService } = require('../utilities/media/image-optimization-service');
 const { createCorePluginRuntime } = require('./core-plugin-runtime');
 const { createAiGenerationSystem } = require('./ai-generation');
 const { createBlogWritingSystem } = require('./blog-writing');
@@ -26,7 +26,7 @@ function createBlogBetaRuntimeComposition(options = {}) {
     }
     const fs = options.fs || fsDefault;
     const path = options.path || pathDefault;
-    const ImageService = options.ImageService || ImageServiceDefault;
+    const imageOptimizationService = options.imageOptimizationService || createImageOptimizationService({ logger: Logger });
     const corePluginRuntime = options.corePluginRuntime || createCorePluginRuntime();
     const catalogPort = createSupabaseModelCatalogPort({
         config: CONFIG,
@@ -150,7 +150,7 @@ function createBlogBetaRuntimeComposition(options = {}) {
     });
 
     const blogPublishingApplication = createBlogPublishingApplication({
-        ImageService,
+        imageOptimizationService,
         naverPublisher: naverPublishingSystem.publisher,
         legacyNaverPublisher: {
             publish(directory, request) {

@@ -31,7 +31,7 @@ test('Blog Beta composition wires AI Gateway, WordPress publisher, and Blog Publ
         Core: {
             async publishToBlog() {}
         },
-        ImageService: { async optimizeBufferForFormat(bytes) { return { buffer: bytes, optimized: false }; } },
+        imageOptimizationService: { async optimizeBuffer(bytes) { return { buffer: bytes, optimized: false }; } },
         BrowserLauncher: {},
         AuthSession: {},
         naverPublisherDependencies: {

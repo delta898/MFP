@@ -14,12 +14,12 @@ const FORMAT_EXTENSIONS = Object.freeze({
 });
 
 function createBlogPublishingApplication(options = {}) {
-    const { ImageService, naverPublisher, legacyNaverPublisher, wordpressPublishingApplication, CONFIG, Logger, fs, Utils } = options;
+    const { imageOptimizationService, naverPublisher, legacyNaverPublisher, wordpressPublishingApplication, CONFIG, Logger, fs, Utils } = options;
     const path = options.path || pathDefault;
     if (typeof legacyNaverPublisher?.publish !== 'function' && typeof naverPublisher?.publish !== 'function') {
         throw new TypeError('Blog Publishing Application requires a Naver publisher.');
     }
-    if (!ImageService || typeof ImageService.optimizeBufferForFormat !== 'function') {
+    if (!imageOptimizationService || typeof imageOptimizationService.optimizeBuffer !== 'function') {
         throw new TypeError('Blog Publishing Application requires an image optimization service.');
     }
     if (!fs || typeof fs.readFileSync !== 'function' || typeof fs.writeFileSync !== 'function') {
@@ -37,7 +37,8 @@ function createBlogPublishingApplication(options = {}) {
         if (FORMAT_EXTENSIONS[format].has(currentExtension)) {
             return { ...asset, mimeType: MIME_TYPES[format] };
         }
-        const result = await ImageService.optimizeBufferForFormat(asset.bytes, format, {
+        const result = await imageOptimizationService.optimizeBuffer(asset.bytes, {
+            format,
             enabled: isOptimizationEnabled(),
             fallbackFormat: currentExtension.replace(/^\./, '')
         });

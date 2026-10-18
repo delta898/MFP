@@ -2102,12 +2102,9 @@ ${messageText}
 							const imageCountBefore = await getEditorImageCount(page);
 							await photoBtn.click();
 							const chooser = await fileChooserPromise;
-							const ImageService = require('./image-service');
 							const optimizedFile = typeof options.prepareImageForUpload === 'function'
 								? await options.prepareImageForUpload(file)
-								: await ImageService.optimizeImageForPlatform(file, 'naver', {
-									enabled: CONFIG.IMAGE_OPTIMIZATION_ENABLED !== false
-								});
+								: file;
 							await chooser.setFiles(optimizedFile);
 
 							const uploadWait = CONFIG.WAIT_UPLOAD || Constants.WAIT.UPLOAD;
