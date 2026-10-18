@@ -240,6 +240,7 @@ test('queue management exposes complete local tabs and list-owned async states',
   assert.match(queueScript, /setBlogNextManagementStatus\('error'/);
   assert.match(queueScript, /existing list|기존 목록/);
   assert.match(queueScript, /if \(blogNextQueueHasLoaded\) \{[\s\S]*setBlogNextManagementStatus\('error',[\s\S]*\} else \{[\s\S]*setBlogNextManagementStatus\('idle'\);[\s\S]*renderBlogNextQueueInitialError/);
+  assert.match(queueScript, /renderBlogNextQueueInitialError\(`\$\{message\} 새로고침으로 다시 시도해 주세요\.`\);/);
   assert.doesNotMatch(queueScript, /setBlogNextTopicResult\(error\.message \|\| '포스팅 대기열/);
 });
 

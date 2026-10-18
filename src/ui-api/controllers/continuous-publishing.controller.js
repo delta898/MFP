@@ -1,8 +1,14 @@
 const { createControllerErrorResponder, sendMethodNotAllowed } = require('../../adapters/ui/controller-common');
 
 function createContinuousPublishingController(deps = {}) {
-    const { service, sendSuccess, sendError } = deps;
+    const { service, sendSuccess, sendError, logger = console } = deps;
     const toErrorResponse = createControllerErrorResponder(sendError, { defaultStatus: 400 });
+
+    function logReadFailure(operation, requestId, error) {
+        const id = String(requestId || 'unknown');
+        const message = String(error?.message || 'unknown error');
+        logger.error(`[ContinuousPublishing] ${operation} failed (requestId=${id}): ${message}`, error);
+    }
 
     return {
         async automationSettings({ requestId, method, requestBody, res }) {
@@ -60,6 +66,7 @@ function createContinuousPublishingController(deps = {}) {
             try {
                 return sendSuccess(res, requestId, await service.getReadyQueue({ searchParams }));
             } catch (error) {
+                logReadFailure('queue read', requestId, error);
                 return toErrorResponse(res, requestId, 'CONTINUOUS_QUEUE_READ_FAILED', '발행 대기열을 불러오지 못했습니다.', error);
             }
         },
@@ -69,6 +76,7 @@ function createContinuousPublishingController(deps = {}) {
             try {
                 return sendSuccess(res, requestId, await service.getDashboardOverview());
             } catch (error) {
+                logReadFailure('dashboard overview read', requestId, error);
                 return toErrorResponse(res, requestId, 'CONTINUOUS_DASHBOARD_OVERVIEW_FAILED', '블로그 운영 현황을 불러오지 못했습니다.', error);
             }
         },

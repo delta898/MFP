@@ -431,7 +431,7 @@ async function loadBlogNextQueue(options = {}) {
       setBlogNextManagementStatus('error', `${message} 기존 목록은 그대로 유지했습니다.`);
     } else {
       setBlogNextManagementStatus('idle');
-      renderBlogNextQueueInitialError('새로고침으로 다시 시도해 주세요.');
+      renderBlogNextQueueInitialError(`${message} 새로고침으로 다시 시도해 주세요.`);
     }
   } finally {
     blogNextQueueLoading = false;

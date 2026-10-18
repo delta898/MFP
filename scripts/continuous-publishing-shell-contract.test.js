@@ -134,6 +134,13 @@ test('Blog Beta execution paths share one server-side coordinator without wideni
     assert.doesNotMatch(contentService, /shoppingQuickPublish[\s\S]{0,300}runBlogNextExecution/);
 });
 
+test('legacy API composition injects Google Sheets into continuous publishing reads', () => {
+    const routes = read('src/ui-api/routes/legacy-api.routes.js');
+    const serviceWiring = routes.match(/const continuousPublishingService = createContinuousPublishingService\(\{([\s\S]*?)\n    \}\);/)?.[1] || '';
+
+    assert.match(serviceWiring, /GoogleSheets:\s*deps\.GoogleSheets/);
+});
+
 test('continuous automation settings own timing but never topic delivery targets', () => {
     const betaView = readBlogNextView();
     const automationScript = read('ui/scripts/features/blog/automation-settings.js');

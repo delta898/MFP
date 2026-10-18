@@ -4,12 +4,19 @@ const assert = require('node:assert/strict');
 const { createContinuousPublishingController } = require('../controllers/continuous-publishing.controller');
 const { createContinuousPublishingRouteHandler } = require('./continuous-publishing.routes');
 
-function createHarness() {
+function createHarness(options = {}) {
     const calls = [];
     const responses = [];
+    const errors = [];
     const service = {
+        async getReadyQueue() {
+            calls.push('queue');
+            if (options.queueError) throw options.queueError;
+            return { items: [], saved_items: [] };
+        },
         async getDashboardOverview() {
             calls.push('overview');
+            if (options.overviewError) throw options.overviewError;
             return { schema_version: 1, queue: { ready_count: 2 } };
         },
         async getDashboardResultStats() {
@@ -38,10 +45,39 @@ function createHarness() {
         sendError: (_res, requestId, status, code, message) => {
             responses.push({ ok: false, requestId, status, code, message });
             return true;
-        }
+        },
+        logger: { error: (...args) => errors.push(args) }
     });
-    return { calls, responses, handler: createContinuousPublishingRouteHandler({ controller }) };
+    return { calls, responses, errors, handler: createContinuousPublishingRouteHandler({ controller }) };
 }
+
+test('queue read failure is logged with request id and returned to the caller', async () => {
+    const harness = createHarness({ queueError: new Error('Google Sheets read timed out') });
+    await harness.handler({
+        pathname: '/api/v1/continuous-publishing/queue',
+        method: 'GET',
+        requestId: 'queue-read-1',
+        searchParams: new URLSearchParams('limit=50')
+    });
+
+    assert.equal(harness.responses[0].code, 'CONTINUOUS_QUEUE_READ_FAILED');
+    assert.equal(harness.responses[0].message, 'Google Sheets read timed out');
+    assert.match(harness.errors[0][0], /queue read failed \(requestId=queue-read-1\)/);
+    assert.equal(harness.errors[0][1].message, 'Google Sheets read timed out');
+});
+
+test('dashboard overview failure is logged with request id', async () => {
+    const harness = createHarness({ overviewError: new Error('Topics sheet unavailable') });
+    await harness.handler({
+        pathname: '/api/v1/continuous-publishing/dashboard-overview',
+        method: 'GET',
+        requestId: 'overview-read-2'
+    });
+
+    assert.equal(harness.responses[0].code, 'CONTINUOUS_DASHBOARD_OVERVIEW_FAILED');
+    assert.equal(harness.responses[0].message, 'Topics sheet unavailable');
+    assert.match(harness.errors[0][0], /dashboard overview read failed \(requestId=overview-read-2\)/);
+});
 
 test('dashboard overview route exposes the continuous publishing read model', async () => {
     const harness = createHarness();

@@ -207,6 +207,7 @@ function createLegacyApiRouteHandler(deps = {}) {
     });
     const continuousPublishingService = createContinuousPublishingService({
         Utils: deps.Utils,
+        GoogleSheets: deps.GoogleSheets,
         ensureSheetsReadyForUi: deps.ensureSheetsReadyForUi,
         executeBlogRowAction: deps.executeBlogRowAction,
         executeShoppingBatchRowsAction: deps.executeShoppingBatchRowsAction,
@@ -228,7 +229,8 @@ function createLegacyApiRouteHandler(deps = {}) {
     const continuousPublishingController = createContinuousPublishingController({
         service: continuousPublishingService,
         sendSuccess: deps.sendSuccess,
-        sendError: deps.sendError
+        sendError: deps.sendError,
+        logger: deps.Logger
     });
 
     const trendsService = createTrendsService({
