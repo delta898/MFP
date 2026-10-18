@@ -3,9 +3,9 @@ const assert = require('node:assert/strict');
 
 const {
     CONTENT_LIFECYCLE_KIND,
-    createContentLifecycleAdapterRegistry,
-    resolveDeliveryPlan
-} = require('./content-lifecycle-adapter');
+    createContentLifecycleAdapterRegistry
+} = require('./content-lifecycle-adapters');
+const { resolveDeliveryPlan } = require('../services/content-delivery/contract');
 
 test('delivery plan normalizes the persisted row plan without accepting unknown targets', () => {
     assert.deepEqual(resolveDeliveryPlan({

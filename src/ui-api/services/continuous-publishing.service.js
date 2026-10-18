@@ -1,16 +1,18 @@
 const { createApiError } = require('../errors');
-const { TOPIC_STATUS } = require('../../continuous-publishing/contract');
+const { TOPIC_STATUS } = require('../../services/topics/contract');
 const { diagnoseQueueReadiness } = require('../../applications/blog/queue-management/queue-readiness');
-const { diagnoseSiteTargetAvailability } = require('../../continuous-publishing/site-target-readiness');
-const { buildShoppingTopicSheetRow } = require('../../continuous-publishing/shopping-topic-capture');
+const { diagnoseSiteTargetAvailability } = require('../../applications/blog/queue-execution/site-target-readiness');
+const { buildShoppingTopicSheetRow } = require('../../applications/shopping/content-preparation/topic-capture');
 const {
-    createAutomationSettingsRepository,
-    resolveAutomationSettingsPath,
+    AUTOMATION_SETTINGS_SCHEMA_VERSION,
+    DEFAULT_AUTOMATION_SETTINGS,
+    normalizeAutomationSettings,
     computeNextRunPreview,
     computeQueueRunProjections
-} = require('../../continuous-publishing/automation-settings');
+} = require('../../applications/blog/automation/settings-policy');
+const { createAutomationSettingsRepository, resolveAutomationSettingsPath } = require('../../adapters/storage/blog/automation-settings');
 const { resolveRuntimeEffectPolicy } = require('../../environment/runtime-effects');
-const { createContinuousPublishingScheduler } = require('../../continuous-publishing/scheduler');
+const { createContinuousPublishingScheduler } = require('../../applications/blog/automation/scheduler');
 const { createBlogQueueManagementApplication } = require('../../applications/blog/queue-management/application');
 const { createBlogExecutionCoordinator } = require('../../applications/blog/execution/execution-coordinator');
 const { buildBlogOperationsOverview } = require('../../applications/blog/operations-reporting/operations-overview-read-model');
@@ -18,18 +20,13 @@ const { buildBlogPublishingResultStats } = require('../../applications/blog/oper
 const { presentPublishingProgress, buildCompletionLinks } = require('../../adapters/ui/blog-publishing-presentation');
 const {
     CONTENT_LIFECYCLE_KIND,
-    createContentLifecycleAdapterRegistry,
     normalizeTargets,
     resolveDeliveryPlan
-} = require('../../continuous-publishing/content-lifecycle-adapter');
+} = require('../../services/content-delivery/contract');
 
 function createContinuousPublishingService(deps = {}) {
     const { Utils, GoogleSheets, ensureSheetsReadyForUi, executeBlogRowAction, executeShoppingBatchRowsAction, executeBlogTopicsDelete, CONFIG = {}, fs, path, now, eventStore } = deps;
-    const lifecycleAdapters = deps.lifecycleAdapters || createContentLifecycleAdapterRegistry({
-        executeBlogRowAction,
-        executeShoppingBatchRowsAction,
-        executeSiteHostingQueueRowAction: deps.executeSiteHostingQueueRowAction
-    });
+    const lifecycleAdapters = deps.lifecycleAdapters || { get: () => null };
     const pathImpl = path || require('node:path');
     let serviceApi = null;
     let automationSettingsRepository = deps.automationSettingsRepository || null;
@@ -69,7 +66,10 @@ function createContinuousPublishingService(deps = {}) {
         automationSettingsRepository = createAutomationSettingsRepository({
             fs,
             path: pathImpl,
-            filePath: resolveAutomationSettingsPath(CONFIG, pathImpl)
+            filePath: resolveAutomationSettingsPath(CONFIG, pathImpl),
+            schemaVersion: AUTOMATION_SETTINGS_SCHEMA_VERSION,
+            defaultDocument: DEFAULT_AUTOMATION_SETTINGS,
+            normalizeDocument: normalizeAutomationSettings
         });
         return automationSettingsRepository;
     }

@@ -1,5 +1,5 @@
-const { TOPIC_STATUS } = require('./contract');
-const { diagnoseQueueReadiness } = require('../applications/blog/queue-management/queue-readiness');
+const { TOPIC_STATUS } = require('../../../services/topics/contract');
+const { diagnoseQueueReadiness } = require('../queue-management/queue-readiness');
 const { diagnoseSiteTargetAvailability } = require('./site-target-readiness');
 
 function createSiteHostingQueueExecutor(deps = {}) {
@@ -35,6 +35,10 @@ function createSiteHostingQueueExecutor(deps = {}) {
             }
 
             const readiness = diagnoseQueueReadiness(topic, { now: currentTime() });
+            if (readiness.issues.some((issue) => issue.code === 'SITE_SCHEDULE_UNSUPPORTED')) {
+                const issue = readiness.issues.find((item) => item.code === 'SITE_SCHEDULE_UNSUPPORTED');
+                return { success: false, code: issue.code, message: issue.message, issues: readiness.issues };
+            }
             const siteIssue = await diagnoseSiteTargetAvailability(topic, getSiteHostingSiteService);
             const issues = siteIssue ? [...readiness.issues, siteIssue] : readiness.issues;
             if (issues.length > 0 || !readiness.ready) {

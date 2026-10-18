@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const {
     SHOPPING_TOPIC_STATUS,
     buildShoppingTopicSheetRow
-} = require('./shopping-topic-capture');
+} = require('./topic-capture');
 
 test('shopping capture builds a saved Sheet row without publishing dependencies', () => {
     const row = buildShoppingTopicSheetRow({

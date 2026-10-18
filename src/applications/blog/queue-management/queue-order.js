@@ -1,4 +1,4 @@
-const { TOPIC_STATUS } = require('./contract');
+const { TOPIC_STATUS } = require('../../../services/topics/contract');
 
 const QUEUE_MOVE_DIRECTIONS = Object.freeze({
     UP: 'up',
@@ -63,27 +63,8 @@ function resolveReadyQueueMove(items = [], rowIndexValue, directionValue) {
     };
 }
 
-function buildTopicRowMoveRequest(sheetId, move = {}) {
-    const normalizedSheetId = Number(sheetId);
-    if (!Number.isInteger(normalizedSheetId)) {
-        throw new Error('Topics Sheet ID를 확인하지 못했습니다.');
-    }
-    return {
-        moveDimension: {
-            source: {
-                sheetId: normalizedSheetId,
-                dimension: 'ROWS',
-                startIndex: move.sourceStartIndex,
-                endIndex: move.sourceEndIndex
-            },
-            destinationIndex: move.destinationIndex
-        }
-    };
-}
-
 module.exports = {
     QUEUE_MOVE_DIRECTIONS,
     normalizeReadyQueue,
-    resolveReadyQueueMove,
-    buildTopicRowMoveRequest
+    resolveReadyQueueMove
 };

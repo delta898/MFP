@@ -1,7 +1,7 @@
-const { TOPIC_STATUS } = require('../../../continuous-publishing/contract');
+const { TOPIC_STATUS } = require('../../../services/topics/contract');
 const { buildTopicSheetRow } = require('./topic-capture');
 const { diagnoseQueueReadiness } = require('./queue-readiness');
-const { resolveReadyQueueMove } = require('../../../continuous-publishing/queue-order');
+const { resolveReadyQueueMove } = require('./queue-order');
 
 function appError(status, apiCode, message, details) {
     const error = new Error(message);

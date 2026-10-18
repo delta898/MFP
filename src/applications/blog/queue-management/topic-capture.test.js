@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { TOPIC_STATUS } = require('../../../continuous-publishing/contract');
+const { TOPIC_STATUS } = require('../../../services/topics/contract');
 const {
     buildTopicSheetRow,
     normalizeTopicCaptureInput,

@@ -4,11 +4,11 @@ const assert = require('node:assert/strict');
 const {
     TOPIC_STATUS,
     TOPIC_OWNED_FIELDS,
-    AUTOMATION_OWNED_FIELDS,
     TERMINAL_TOPIC_STATUSES,
     isQueueReadyStatus,
     isTerminalTopicStatus
 } = require('./contract');
+const { AUTOMATION_OWNED_FIELDS } = require('../../applications/blog/automation/settings-policy');
 
 test('continuous publishing keeps topic and automation ownership disjoint', () => {
     const overlap = TOPIC_OWNED_FIELDS.filter((field) => AUTOMATION_OWNED_FIELDS.includes(field));

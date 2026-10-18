@@ -1,4 +1,4 @@
-const { TOPIC_STATUS } = require('../../../continuous-publishing/contract');
+const { TOPIC_STATUS } = require('../../../services/topics/contract');
 const { validateBlogWritingOverrides } = require('../../../content/blog-writing-overrides');
 const { requireSinglePublishTarget } = require('../../../content/single-publish-target');
 

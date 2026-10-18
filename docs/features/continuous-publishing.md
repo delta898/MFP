@@ -79,13 +79,24 @@ Queue 등록 자체는 AI 호출을 발생시키지 않는다.
 
 연속 포스팅기는 글감 소유 값을 전역 설정으로 덮어쓰지 않는다.
 
+`글감 관리`와 연속 포스팅은 역할이 겹치지 않는다. `queue-management`는 Topics 행의 저장·수정,
+보관/발행 준비 상태 전환, 준비 목록의 순서를 관리한다. 자동화는 그 목록에서 실행 가능한 글감을
+읽어 허용 시간과 간격에 맞춰 한 건씩 실행하고 결과를 보고한다. 자동화는 별도의 Queue를 만들거나
+글감의 발행 계획을 덮어쓰지 않는다.
+
 ## UI와 코드 경계
 
 - 사용자 표시: `블로그`
 - 내부 view: `blog-next`
 - DOM·CSS namespace: `blog-next-*`
 - UI module: `ui/scripts/features/blog/`
-- domain contract: `src/continuous-publishing/`
+- Blog queue policy and prepared-topic lifecycle: `src/applications/blog/queue-management/`
+- Blog recurring-publishing settings and scheduler policy: `src/applications/blog/automation/`
+- Blog queue execution and Site Hosting target readiness: `src/applications/blog/queue-execution/`
+- shared topic status and delivery-plan contracts: `src/services/topics/` and `src/services/content-delivery/`
+- device settings persistence: `src/adapters/storage/blog/automation-settings.js`
+- Google Sheets row movement mapping: `src/adapters/storage/google-sheets/topic-queue-order.js`
+- Blog/Shopping/Site Hosting execution wiring: `src/composition/content-lifecycle-adapters.js`
 - application API: `/api/v1/continuous-publishing/topics`, `/api/v1/continuous-publishing/queue`
 - 글감·Queue mutation API: `/api/v1/continuous-publishing/topics/update`, `/api/v1/continuous-publishing/topics/delete`, `/api/v1/continuous-publishing/queue/remove`, `/api/v1/continuous-publishing/queue/reorder`
 - 단건 runner API: `/api/v1/continuous-publishing/runner/start`, `/api/v1/continuous-publishing/runner/status`

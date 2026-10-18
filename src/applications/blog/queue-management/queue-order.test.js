@@ -3,8 +3,7 @@ const assert = require('node:assert/strict');
 
 const {
     normalizeReadyQueue,
-    resolveReadyQueueMove,
-    buildTopicRowMoveRequest
+    resolveReadyQueueMove
 } = require('./queue-order');
 
 const READY = '발행 준비 완료';
@@ -19,7 +18,6 @@ test('ready queue follows physical Spreadsheet row order', () => {
 
     assert.deepEqual(result.map(item => item.subject), ['첫째', '둘째', '셋째']);
 });
-
 test('moving up places the source row before the previous ready row', () => {
     const move = resolveReadyQueueMove([
         { rowIndex: 1, rowNumber: 3, status: READY },
@@ -54,22 +52,4 @@ test('queue movement rejects boundaries and rows that are no longer ready', () =
     assert.throws(() => resolveReadyQueueMove(items, 1, 'up'), error => error.code === 'QUEUE_MOVE_BOUNDARY');
     assert.throws(() => resolveReadyQueueMove(items, 5, 'down'), error => error.code === 'QUEUE_MOVE_BOUNDARY');
     assert.throws(() => resolveReadyQueueMove(items, 8, 'up'), error => error.code === 'QUEUE_READY_TOPIC_NOT_FOUND');
-});
-
-test('move request moves one complete Spreadsheet row', () => {
-    assert.deepEqual(buildTopicRowMoveRequest(91, {
-        sourceStartIndex: 6,
-        sourceEndIndex: 7,
-        destinationIndex: 2
-    }), {
-        moveDimension: {
-            source: {
-                sheetId: 91,
-                dimension: 'ROWS',
-                startIndex: 6,
-                endIndex: 7
-            },
-            destinationIndex: 2
-        }
-    });
 });

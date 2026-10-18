@@ -1,6 +1,6 @@
 'use strict';
 
-const { computeNextRunPreview } = require('./automation-settings');
+const { computeNextRunPreview } = require('./settings-policy');
 
 const TEST_DELAY_MS = 30 * 1000;
 

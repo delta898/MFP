@@ -20,14 +20,6 @@ const TOPIC_OWNED_FIELDS = Object.freeze([
     'schedule_date'
 ]);
 
-const AUTOMATION_OWNED_FIELDS = Object.freeze([
-    'enabled',
-    'allowed_start_time',
-    'allowed_end_time',
-    'interval_minutes',
-    'notification_enabled'
-]);
-
 const TERMINAL_TOPIC_STATUSES = Object.freeze([
     TOPIC_STATUS.PUBLISHED,
     TOPIC_STATUS.DRAFTED,
@@ -45,7 +37,6 @@ function isTerminalTopicStatus(status) {
 module.exports = {
     TOPIC_STATUS,
     TOPIC_OWNED_FIELDS,
-    AUTOMATION_OWNED_FIELDS,
     TERMINAL_TOPIC_STATUSES,
     isQueueReadyStatus,
     isTerminalTopicStatus

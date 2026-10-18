@@ -1,11 +1,11 @@
-const { normalizeWritingStrategyOverride } = require('../content/writing-strategy');
-const { normalizeShoppingContentFocus } = require('../applications/shopping/generation/editorial-plan');
-const { requireSinglePublishTarget } = require('../content/single-publish-target');
+const { normalizeWritingStrategyOverride } = require('../../../content/writing-strategy');
+const { normalizeShoppingContentFocus } = require('../generation/editorial-plan');
+const { requireSinglePublishTarget } = require('../../../content/single-publish-target');
 const {
     LIFECYCLE_POST_STATUSES,
     LIFECYCLE_TARGETS,
     normalizeTargets
-} = require('./content-lifecycle-adapter');
+} = require('../../../services/content-delivery/contract');
 
 const SHOPPING_TOPIC_STATUS = Object.freeze({
     SAVED: '준비'

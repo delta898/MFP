@@ -239,7 +239,7 @@ test('Stage 8 aligns posting language and external-reference controls with the e
 test('Stage 9 exposes adjacent queue movement without drag, lease, or synthetic order fields', () => {
     const queueScript = readBlogNextQueueScripts();
     const routeSource = read('src/ui-api/routes/continuous-publishing.routes.js');
-    const orderSource = read('src/continuous-publishing/queue-order.js');
+    const orderSource = read('src/adapters/storage/google-sheets/topic-queue-order.js');
 
     assert.match(queueScript, /dataset\.blogNextQueueMove/);
     assert.match(queueScript, /symbol: '↑'/);
@@ -372,6 +372,7 @@ test('release queue shows processing estimates and refreshes when a runner finis
     const queueScript = readBlogNextQueueScripts();
     const runnerScript = read('ui/scripts/features/blog/runner.js');
     const serviceSource = read('src/ui-api/services/continuous-publishing.service.js');
+    const queueManagementSource = read('src/applications/blog/queue-management/application.js');
     const queueCss = read('ui/styles/features/continuous-publishing-interactions.css');
 
     assert.match(queueScript, /processing_estimate_at/);
@@ -385,7 +386,7 @@ test('release queue shows processing estimates and refreshes when a runner finis
     assert.match(queueScript, /syncBlogNextQueueRunnerState/);
     assert.match(queueScript, /aria-busy/);
     assert.match(queueScript, /queue_runtime_state/);
-    assert.match(serviceSource, /queue_runtime_state: 'running'/);
+    assert.match(queueManagementSource, /queue_runtime_state: 'running'/);
     assert.match(queueCss, /\.blog-next-queue-item\.is-running/);
     assert.match(queueCss, /blog-next-queue-running-indicator/);
     assert.match(queueCss, /\.blog-next-queue-copy \.blog-next-queue-running\s*\{[^}]*color:\s*var\(--ui-action-primary-hover\);/s);
@@ -396,9 +397,10 @@ test('queue readiness is announced accessibly and blocks running invalid queue e
     const queueScript = readBlogNextQueueScripts();
     const managementScript = read('ui/scripts/features/blog/queue-management.js');
     const serviceSource = read('src/ui-api/services/continuous-publishing.service.js');
+    const queueManagementSource = read('src/applications/blog/queue-management/application.js');
     const queueCss = read('ui/styles/features/continuous-publishing-queue.css');
 
-    assert.match(serviceSource, /queue_readiness:\s*\{\s*ready:\s*diagnosis\.ready,\s*issues:\s*diagnosis\.issues/s);
+    assert.match(queueManagementSource, /queue_readiness:\s*\{\s*ready:\s*diagnosis\.ready,\s*issues:\s*diagnosis\.issues/s);
     assert.match(queueScript, /item\.queue_readiness/);
     assert.match(queueScript, /aria-controls/);
     assert.match(queueScript, /aria-expanded/);

@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 
 const { createContinuousPublishingService } = require('./continuous-publishing.service');
 const { createBlogExecutionCoordinator } = require('../../applications/blog/execution/execution-coordinator');
+const { createContentLifecycleAdapterRegistry } = require('../../composition/content-lifecycle-adapters');
 
 function runnableQueueFixture(item) {
     const options = item.options && typeof item.options === 'object' ? item.options : {};
@@ -21,7 +22,7 @@ function runnableQueueFixture(item) {
 }
 
 function createService(state = {}) {
-    return createContinuousPublishingService({
+    const deps = {
         CONFIG: state.CONFIG,
         automationSettingsRepository: state.automationSettingsRepository || {
             read() {
@@ -124,7 +125,13 @@ function createService(state = {}) {
             if (typeof state.executeSiteQueue === 'function') return state.executeSiteQueue(request);
             return { success: true, data: { status: '임시 저장 완료', postStatus: request.postStatus, results: { 'site-hosting': { success: true } } } };
         }
+    };
+    deps.lifecycleAdapters = createContentLifecycleAdapterRegistry({
+        executeBlogRowAction: deps.executeBlogRowAction,
+        executeShoppingBatchRowsAction: deps.executeShoppingBatchRowsAction,
+        executeSiteHostingQueueRowAction: deps.executeSiteHostingQueueRowAction
     });
+    return createContinuousPublishingService(deps);
 }
 
 test('shopping topic capture uses the same lifecycle service boundary and always saves first', async () => {

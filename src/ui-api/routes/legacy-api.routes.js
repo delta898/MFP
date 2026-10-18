@@ -20,7 +20,8 @@ const { createTrendPostingController } = require('../controllers/trend-posting.c
 const { createAccountController } = require('../../adapters/ui/account/controller');
 const { createContinuousPublishingController } = require('../controllers/continuous-publishing.controller');
 const { createContinuousPublishingService } = require('../services/continuous-publishing.service');
-const { createSiteHostingQueueExecutor } = require('../../continuous-publishing/site-hosting-queue-executor');
+const { createSiteHostingQueueExecutor } = require('../../applications/blog/queue-execution/site-hosting-executor');
+const { createContentLifecycleAdapterRegistry } = require('../../composition/content-lifecycle-adapters');
 const { createGoogleDriveSpreadsheets } = require('../../adapters/google/drive/spreadsheets');
 const { createAccountOverviewService } = require('../../applications/account/overview/application');
 const { createBlogExecutionCoordinator } = require('../../applications/blog/execution/execution-coordinator');
@@ -199,12 +200,18 @@ function createLegacyApiRouteHandler(deps = {}) {
         generateAiManuscriptDraft: contentService.createAiManuscriptDraftForQueue,
         getSiteHostingSiteService: deps.getSiteHostingSiteService
     });
+    const lifecycleAdapters = createContentLifecycleAdapterRegistry({
+        executeBlogRowAction: deps.executeBlogRowAction,
+        executeShoppingBatchRowsAction: deps.executeShoppingBatchRowsAction,
+        executeSiteHostingQueueRowAction
+    });
     const continuousPublishingService = createContinuousPublishingService({
         Utils: deps.Utils,
         ensureSheetsReadyForUi: deps.ensureSheetsReadyForUi,
         executeBlogRowAction: deps.executeBlogRowAction,
         executeShoppingBatchRowsAction: deps.executeShoppingBatchRowsAction,
         executeSiteHostingQueueRowAction,
+        lifecycleAdapters,
         getSiteHostingSiteService: deps.getSiteHostingSiteService,
         executeBlogTopicsDelete: deps.executeBlogTopicsDelete,
         CONFIG: deps.CONFIG,

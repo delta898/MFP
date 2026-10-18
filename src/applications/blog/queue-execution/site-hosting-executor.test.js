@@ -1,8 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { TOPIC_STATUS } = require('./contract');
-const { createSiteHostingQueueExecutor } = require('./site-hosting-queue-executor');
+const { TOPIC_STATUS } = require('../../../services/topics/contract');
+const { createSiteHostingQueueExecutor } = require('./site-hosting-executor');
 
 function createFixture(overrides = {}) {
     const state = {
@@ -32,6 +32,13 @@ function createFixture(overrides = {}) {
     Object.assign(state, overrides);
     const executor = createSiteHostingQueueExecutor({
         Utils: {
+            async readGoogleSheetTopicsAll() { return { items: [state.topic] }; },
+            async updateGoogleSheetStatus(rowIndex, status, message) {
+                state.statusUpdates.push({ rowIndex, status, message });
+            },
+            clearSheetCache() {}
+        },
+        GoogleSheets: {
             async readGoogleSheetTopicsAll() { return { items: [state.topic] }; },
             async updateGoogleSheetStatus(rowIndex, status, message) {
                 state.statusUpdates.push({ rowIndex, status, message });
