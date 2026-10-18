@@ -1,13 +1,16 @@
 'use strict';
 
 const fsDefault = require('node:fs');
+const NaverPublishingDefaults = require('../adapters/naver/publishing-defaults');
+const { getDefaultRuntimePaths } = require('../host/configuration/default-runtime-paths');
 const { createNaverPublisherAdapter } = require('../adapters/plugins/naver-publisher');
 const { createCorePluginRegistry } = require('./core-plugin-registry');
 const { createCorePluginRuntime } = require('./core-plugin-runtime');
 
 function createNaverPublishingSystem(options = {}) {
-    const { CONFIG, Constants, Logger } = options;
-    if (!CONFIG || !Constants) throw new TypeError('Naver publishing composition requires CONFIG and Constants.');
+    const { CONFIG, Logger } = options;
+    if (!CONFIG) throw new TypeError('Naver publishing composition requires CONFIG.');
+    const defaultRuntimePaths = getDefaultRuntimePaths();
     const registry = options.corePluginRuntime?.registry || options.corePluginRegistry || createCorePluginRegistry();
     const runtime = options.corePluginRuntime || createCorePluginRuntime({ registry });
     if (!registry.has('naver-publisher')) {
@@ -23,12 +26,12 @@ function createNaverPublishingSystem(options = {}) {
         'naver-publisher': {
             getSettings: suppliedNaverDependencies.getSettings || (() => {
                 const speed = String(CONFIG.TYPING_SPEED || 'NORMAL').trim().toUpperCase();
-                const preset = Constants.TYPING_PRESETS?.[speed] || Constants.TYPING_PRESETS?.NORMAL || { MIN: 1, MAX: 1 };
+                const preset = NaverPublishingDefaults.TYPING_PRESETS[speed] || NaverPublishingDefaults.TYPING_PRESETS.NORMAL;
                 return {
                     writeUrl: CONFIG.WRITE_URL || `https://blog.naver.com/${CONFIG.NAVER_ID}/postwrite`,
                     headless: CONFIG.HEADLESS,
                     editorReadyTimeoutMs: 45000,
-                    waitUploadMs: CONFIG.WAIT_UPLOAD || Constants.WAIT?.UPLOAD || 1500,
+                    waitUploadMs: CONFIG.WAIT_UPLOAD || NaverPublishingDefaults.WAIT.UPLOAD,
                     typingDelayMs: Math.max(1, Math.round((Number(preset.MIN || 1) + Number(preset.MAX || 1)) / 2)),
                     commandKey: process.platform === 'darwin' ? 'Meta' : 'Control',
                     safeSaveWaitMs: 2000,
@@ -36,7 +39,7 @@ function createNaverPublishingSystem(options = {}) {
                 };
             }),
             createAuthenticatedNaverSession: suppliedNaverDependencies.createAuthenticatedNaverSession || (async ({ headless, signal }) => {
-                const authPath = String(CONFIG.AUTH_FILE_PATH || Constants.AUTH_FILE_PATH || '').trim();
+                const authPath = String(CONFIG.AUTH_FILE_PATH || defaultRuntimePaths.AUTH_FILE_PATH).trim();
                 if (!authPath || !fs.existsSync(authPath)) {
                     const error = new Error('네이버 로그인 세션 파일을 찾을 수 없습니다. 설정에서 다시 로그인해 주세요.');
                     error.code = 'NAVER_SESSION_MISSING';

@@ -59,7 +59,7 @@ function createSupabaseModelCatalogPort(options = {}) {
         if (!supabase) throw new Error('Supabase client 설정이 없습니다.');
         const rpcCall = supabase.rpc('get_ai_model_catalog', {
             p_channel: String(config.UPDATE_CHANNEL || 'stable').trim().toLowerCase() || 'stable',
-            p_app_version: String(options.appVersion || require('../../../constants').APP_VERSION || '0.0.0')
+            p_app_version: String(options.appVersion || require('../../../host/application-metadata').APP_VERSION || '0.0.0')
         });
         let timeoutId = null;
         const timeout = new Promise((_, reject) => {

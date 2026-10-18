@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const Constants = require('../constants');
+const BlogPromptPaths = require('./prompts/blog/paths');
 const { getDefaultContentWritingProfile } = require('./writing-profile');
 const {
     SHOPPING_PREVIEW_FIXTURE,
@@ -12,9 +12,9 @@ const {
 } = require('./writing-profile-preview');
 
 const promptConfig = {
-    BLOG_PROMPT_CONTRACT_PATH: Constants.BLOG_PROMPT_CONTRACT_FILE,
-    BLOG_PROMPT_SEARCH_PATH: Constants.BLOG_PROMPT_SEARCH_FILE,
-    BLOG_PROMPT_DISCOVERY_PATH: Constants.BLOG_PROMPT_DISCOVERY_FILE
+    BLOG_PROMPT_CONTRACT_PATH: BlogPromptPaths.BLOG_PROMPT_CONTRACT_FILE,
+    BLOG_PROMPT_SEARCH_PATH: BlogPromptPaths.BLOG_PROMPT_SEARCH_FILE,
+    BLOG_PROMPT_DISCOVERY_PATH: BlogPromptPaths.BLOG_PROMPT_DISCOVERY_FILE
 };
 
 function previewResponse(sample = '가'.repeat(450)) {
@@ -39,7 +39,7 @@ test('blog preview reuses normalized blog projection and excludes raw style sour
         voice: { sentence_rhythm: 'short', warmth: 'warm', vocabulary: 'everyday', rhetorical_devices: [] },
         avoid: [], summary: '짧은 문단과 일상적인 어휘를 사용하는 따뜻한 문체'
     };
-    const result = buildBlogPreviewPrompt({ profile, strategy: 'discovery', topic: '같은 주제' }, { config: promptConfig, constants: Constants });
+    const result = buildBlogPreviewPrompt({ profile, strategy: 'discovery', topic: '같은 주제' }, { config: promptConfig, promptPaths: BlogPromptPaths });
     assert.equal(result.kind, 'blog');
     assert.equal(result.strategy, 'discovery');
     assert.match(result.prompt, /약 2,200~2,800자/);
@@ -75,7 +75,7 @@ test('preview uses final settings even while optional reference input awaits ana
     const profile = getDefaultContentWritingProfile();
     profile.channels.blog.style_references.sample_text = { value: '새 참고 글', status: 'pending' };
 
-    const result = buildBlogPreviewPrompt({ profile, topic: '같은 주제' }, { config: promptConfig, constants: Constants });
+    const result = buildBlogPreviewPrompt({ profile, topic: '같은 주제' }, { config: promptConfig, promptPaths: BlogPromptPaths });
 
     assert.equal(result.projection.channel.style_references.fingerprint, null);
     assert.match(result.prompt, /약 1,500~1,800자/);
@@ -85,7 +85,7 @@ test('valid preview calls the writing model once with kind-specific usage and ne
     const calls = [];
     const service = createWritingProfilePreviewService({
         config: { ...promptConfig, BLOG_WRITING_STRATEGY: 'search' },
-        constants: Constants,
+        promptPaths: BlogPromptPaths,
         generateText: async (prompt, options) => {
             calls.push({ prompt, options });
             return previewResponse();
@@ -107,7 +107,7 @@ test('a moderately long preview is trimmed without a repair call', async () => {
     const calls = [];
     const service = createWritingProfilePreviewService({
         config: { ...promptConfig, BLOG_WRITING_STRATEGY: 'search' },
-        constants: Constants,
+        promptPaths: BlogPromptPaths,
         generateText: async (...args) => {
             calls.push(args);
             return previewResponse('가'.repeat(706));
@@ -128,7 +128,7 @@ test('broken preview receives one bounded format repair attempt', async () => {
     const calls = [];
     const service = createWritingProfilePreviewService({
         config: { ...promptConfig, BLOG_WRITING_STRATEGY: 'search' },
-        constants: Constants,
+        promptPaths: BlogPromptPaths,
         generateText: async (prompt, options) => {
             calls.push({ prompt, options });
             return calls.length === 1 ? '{broken' : previewResponse('나'.repeat(500));

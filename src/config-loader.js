@@ -1,6 +1,9 @@
 const fs = require('fs');
 const path = require('path');
-const Constants = require('./constants');
+const { APP_VERSION } = require('./host/application-metadata');
+const { getDefaultRuntimePaths } = require('./host/configuration/default-runtime-paths');
+const { TYPING_PRESETS, WAIT } = require('./adapters/naver/publishing-defaults');
+const UpdateDefaults = require('./host/update-defaults');
 const { ensureRuntimeRemoteMcpConfig } = require('./mcp/remote-config');
 const {
     getAiModelCatalog,
@@ -33,7 +36,7 @@ const {
 } = require('./environment/oauth-config');
 const { loadLicenseKey } = require('./adapters/storage/license-keys/license-key-storage');
 const { extractGoogleSheetId } = require('./adapters/google/sheets/spreadsheet-reference');
-const { APP_VERSION } = Constants;
+const DefaultRuntimePaths = getDefaultRuntimePaths();
 
 // =========================================================
 // 1. 🔒 [비밀 키 로딩] 
@@ -207,8 +210,8 @@ const resolvedSheetUrl = resolvedSheetId
     : userSheetUrl;
 // 타이핑 속도 변환
 const typingModeRaw = String(structuredConfig.platforms.naver.typing_speed || 'NORMAL').trim().toUpperCase();
-const typingMode = Constants.TYPING_PRESETS[typingModeRaw] ? typingModeRaw : 'NORMAL';
-const typingDelay = Constants.TYPING_PRESETS[typingMode];
+const typingMode = TYPING_PRESETS[typingModeRaw] ? typingModeRaw : 'NORMAL';
+const typingDelay = TYPING_PRESETS[typingMode];
 
 // 💡 [최종 CONFIG 객체 구성]
 const CONFIG = {
@@ -252,7 +255,7 @@ const CONFIG = {
     GOOGLE_SHEET_AUTHORIZED_FILE_ID: String(structuredConfig.general?.google_sheet_authorized_file_id || ''),
     LISTEN_HOST: structuredConfig.general?.listen_host || '127.0.0.1',
     LISTEN_PORT: structuredConfig.general?.listen_port || 4577,
-    WORKSPACE_DIR: resolvedWorkspaceDir,
+    WORKSPACE_DIR: resolvedWorkspaceDir || DefaultRuntimePaths.WORKSPACE_DIR,
     LICENSE_KEY: productionLicenseEnvironmentOverride || licenseKeyInfo.value || '',
     LICENSE_KEY_FILE_PATH: resolvedLicenseKeyPath,
     LICENSE_KEY_USES_ENV_OVERRIDE: Boolean(productionLicenseEnvironmentOverride),
@@ -274,7 +277,7 @@ const CONFIG = {
     CONTENT_WRITING_PROFILE_WARNINGS: writingProfileLoadResult.warnings,
     CONTENT_WRITING_PROFILE_METADATA: DEFAULT_CONTENT_WRITING_PROFILE_METADATA,
     WRITING_PROFILE_PATH: writingProfilePath,
-    AUTH_FILE_PATH: resolvedAuthPath,
+    AUTH_FILE_PATH: resolvedAuthPath || DefaultRuntimePaths.AUTH_FILE_PATH,
     APP_ROOT_DIR: activeAppRoot,
     CONFIG_DIR: activeConfigDir,
 
@@ -347,12 +350,12 @@ const CONFIG = {
     PUBLISH_AUTO_NOTIFY_ENABLED: structuredConfig.automation.publish.blog.notify_enabled,
     PUBLISH_AUTO_IMAGE_MODE: structuredConfig.automation.publish.blog.image_mode || 'generate',
 
-    // System & Constants
+    // System defaults
     UPDATE_CHANNEL: structuredConfig.system.update_channel,
     HEADLESS: structuredConfig.automation.publish.blog.headless, // Global fallback
     CLOSE_DELAY_SECONDS: structuredConfig.platforms.naver.close_delay_seconds,
-    WAIT_LOAD: Constants.WAIT.LOAD,
-    WAIT_UPLOAD: Constants.WAIT.UPLOAD,
+    WAIT_LOAD: WAIT.LOAD,
+    WAIT_UPLOAD: WAIT.UPLOAD,
     // 기존 내부 호출 경계를 위한 별칭. 값은 Environment Resolver에서만 공급한다.
     LICENSE_CHK_URL: runtimeEnvironmentProfile.supabase.url,
     LICENSE_CHK_KEY: runtimeEnvironmentProfile.supabase.publishableKey,
@@ -381,9 +384,9 @@ const CONFIG = {
     BROWSER_CHANNEL: structuredConfig.platforms.naver.browser_channel === 'auto' ? undefined : structuredConfig.platforms.naver.browser_channel,
 
     // 🔧 [System]
-    UPDATE_SERVER_TYPE: structuredConfig.system.update_server_type || Constants.DEFAULT_UPDATE_SERVER_TYPE || 'github',
+    UPDATE_SERVER_TYPE: structuredConfig.system.update_server_type || UpdateDefaults.DEFAULT_UPDATE_SERVER_TYPE,
     CUSTOM_UPDATE_CHECK_URL: structuredConfig.system.custom_update_check_url || '',
-    UPDATE_MIRROR_REPO: structuredConfig.system.update_mirror_repo || Constants.DEFAULT_UPDATE_MIRROR_REPO,
+    UPDATE_MIRROR_REPO: structuredConfig.system.update_mirror_repo || UpdateDefaults.DEFAULT_UPDATE_MIRROR_REPO,
     NOTIFY_TELEGRAM_ENABLED: structuredConfig.notification?.telegram?.delivery_enabled ?? structuredConfig.notification?.telegram?.enabled ?? false,
     NOTIFY_TELEGRAM_INBOUND_ENABLED: structuredConfig.notification?.telegram?.inbound_enabled ?? structuredConfig.notification?.telegram?.enabled ?? false,
     NOTIFY_TELEGRAM_BOT_TOKEN: structuredConfig.notification?.telegram?.bot_token || '',

@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const Constants = require('../constants');
+const BlogPromptPaths = require('./prompts/blog/paths');
 const { buildBlogWritingProfilePrompt } = require('./writing-profile-prompt');
 
 test('blog profile prompt renders common and blog choices without shopping instructions', () => {
@@ -76,7 +76,7 @@ test('blog length presets provide explicit reader-visible length and H2 guides',
 });
 
 test('blog prompt contract contains immutable output and safety rules without profile defaults', () => {
-    const contract = fs.readFileSync(Constants.BLOG_PROMPT_CONTRACT_FILE, 'utf8');
+    const contract = fs.readFileSync(BlogPromptPaths.BLOG_PROMPT_CONTRACT_FILE, 'utf8');
 
     assert.match(contract, /순수 JSON 문자열만 출력/);
     assert.match(contract, /"title"/);

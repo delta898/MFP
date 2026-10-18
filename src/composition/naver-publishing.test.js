@@ -11,7 +11,6 @@ test('Naver publishing composition loads the bundled Plugin through the Host and
     let publishSettingsOpen = false;
     const system = createNaverPublishingSystem({
         CONFIG: {},
-        Constants: {},
         BrowserLauncher: {},
         AuthSession: {},
         pluginDependencies: {

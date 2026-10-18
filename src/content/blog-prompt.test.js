@@ -1,26 +1,26 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const Constants = require('../constants');
+const BlogPromptPaths = require('./prompts/blog/paths');
 const { buildBlogSystemPrompt, resolvePromptPaths } = require('./blog-prompt');
 
 const promptConfig = {
-    BLOG_PROMPT_CONTRACT_PATH: Constants.BLOG_PROMPT_CONTRACT_FILE,
-    BLOG_PROMPT_COMMON_PATH: Constants.BLOG_PROMPT_COMMON_FILE,
-    BLOG_PROMPT_SEARCH_PATH: Constants.BLOG_PROMPT_SEARCH_FILE,
-    BLOG_PROMPT_DISCOVERY_PATH: Constants.BLOG_PROMPT_DISCOVERY_FILE
+    BLOG_PROMPT_CONTRACT_PATH: BlogPromptPaths.BLOG_PROMPT_CONTRACT_FILE,
+    BLOG_PROMPT_COMMON_PATH: BlogPromptPaths.BLOG_PROMPT_COMMON_FILE,
+    BLOG_PROMPT_SEARCH_PATH: BlogPromptPaths.BLOG_PROMPT_SEARCH_FILE,
+    BLOG_PROMPT_DISCOVERY_PATH: BlogPromptPaths.BLOG_PROMPT_DISCOVERY_FILE
 };
 
 test('search and discovery prompts share the output and image contracts', () => {
     const searchPrompt = buildBlogSystemPrompt({
         strategy: 'search',
         config: promptConfig,
-        constants: Constants
+        promptPaths: BlogPromptPaths
     });
     const discoveryPrompt = buildBlogSystemPrompt({
         strategy: 'discovery',
         config: promptConfig,
-        constants: Constants
+        promptPaths: BlogPromptPaths
     });
 
     for (const prompt of [searchPrompt, discoveryPrompt]) {
@@ -42,12 +42,12 @@ test('each strategy selects only its own writing rules', () => {
     const searchPrompt = buildBlogSystemPrompt({
         strategy: 'search',
         config: promptConfig,
-        constants: Constants
+        promptPaths: BlogPromptPaths
     });
     const discoveryPrompt = buildBlogSystemPrompt({
         strategy: 'discovery',
         config: promptConfig,
-        constants: Constants
+        promptPaths: BlogPromptPaths
     });
 
     assert.match(searchPrompt, /전략: 검색 중심/);
@@ -77,12 +77,12 @@ test('both strategies create an honest curiosity gap and require the body to clo
     const searchPrompt = buildBlogSystemPrompt({
         strategy: 'search',
         config: promptConfig,
-        constants: Constants
+        promptPaths: BlogPromptPaths
     });
     const discoveryPrompt = buildBlogSystemPrompt({
         strategy: 'discovery',
         config: promptConfig,
-        constants: Constants
+        promptPaths: BlogPromptPaths
     });
 
     for (const prompt of [searchPrompt, discoveryPrompt]) {
@@ -103,11 +103,11 @@ test('invalid strategies safely select the search prompt', () => {
     const paths = resolvePromptPaths({
         strategy: 'invalid',
         config: promptConfig,
-        constants: Constants
+        promptPaths: BlogPromptPaths
     });
 
     assert.equal(paths.normalizedStrategy, 'search');
-    assert.equal(paths.strategyPath, Constants.BLOG_PROMPT_SEARCH_FILE);
+    assert.equal(paths.strategyPath, BlogPromptPaths.BLOG_PROMPT_SEARCH_FILE);
 });
 
 test('missing prompt files fail with a clear contract error', () => {
@@ -118,7 +118,7 @@ test('missing prompt files fail with a clear contract error', () => {
                 BLOG_PROMPT_COMMON_PATH: '/missing/common.md',
                 BLOG_PROMPT_SEARCH_PATH: '/missing/search.md'
             },
-            constants: {},
+            promptPaths: {},
             fileSystem: {
                 existsSync: () => false,
                 readFileSync: () => ''

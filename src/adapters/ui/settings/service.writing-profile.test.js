@@ -9,7 +9,7 @@ const {
     DEFAULT_CONTENT_WRITING_PROFILE_METADATA,
     getDefaultContentWritingProfile
 } = require('../../../content/writing-profile');
-const Constants = require('../../../constants');
+const BlogPromptPaths = require('../../../content/prompts/blog/paths');
 const { buildBlogGenerationPrompt } = require('../../../content/blog-generation-prompt');
 
 function createHarness(options = {}) {
@@ -149,11 +149,11 @@ test('saved writing defaults become the profile used by blog generation', async 
         profile: saved.effective_profile,
         strategy: 'search',
         config: {
-            BLOG_PROMPT_CONTRACT_PATH: Constants.BLOG_PROMPT_CONTRACT_FILE,
-            BLOG_PROMPT_SEARCH_PATH: Constants.BLOG_PROMPT_SEARCH_FILE,
-            BLOG_PROMPT_DISCOVERY_PATH: Constants.BLOG_PROMPT_DISCOVERY_FILE
+            BLOG_PROMPT_CONTRACT_PATH: BlogPromptPaths.BLOG_PROMPT_CONTRACT_FILE,
+            BLOG_PROMPT_SEARCH_PATH: BlogPromptPaths.BLOG_PROMPT_SEARCH_FILE,
+            BLOG_PROMPT_DISCOVERY_PATH: BlogPromptPaths.BLOG_PROMPT_DISCOVERY_FILE
         },
-        constants: Constants,
+        promptPaths: BlogPromptPaths,
         post: { subject: '설정 기본값 반영 확인' }
     });
 

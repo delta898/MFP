@@ -4,7 +4,8 @@ const axios = require('axios');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
 const Logger = require('../utilities/logging/logger');
-const { APP_VERSION } = require('../constants');
+const { APP_VERSION } = require('./application-metadata');
+const UpdateDefaults = require('./update-defaults');
 
 /**
  * Updater Module
@@ -16,7 +17,7 @@ class Updater {
         this.config = options.config || {};
         this.hasExplicitAppRootDir = Boolean(options.appRootDir);
         this.appRootDir = options.appRootDir || this.config.APP_ROOT_DIR || process.cwd();
-        this.tempDir = path.join(this.appRootDir, this.config.UPDATE_TEMP_DIR || 'tmp_update');
+        this.tempDir = path.join(this.appRootDir, this.config.UPDATE_TEMP_DIR || UpdateDefaults.UPDATE_TEMP_DIR);
         this.platform = options.platform || process.platform;
         this.arch = options.arch || process.arch;
         this.spawnProcess = options.spawnProcess || spawn;
@@ -63,13 +64,13 @@ class Updater {
         this.config = config && typeof config === 'object' ? config : {};
         if (!this.hasExplicitAppRootDir) {
             this.appRootDir = this.config.APP_ROOT_DIR || process.cwd();
-            this.tempDir = path.join(this.appRootDir, this.config.UPDATE_TEMP_DIR || 'tmp_update');
+            this.tempDir = path.join(this.appRootDir, this.config.UPDATE_TEMP_DIR || UpdateDefaults.UPDATE_TEMP_DIR);
         }
         return this;
     }
 
     getUpdateServerType() {
-        return String(this.config.UPDATE_SERVER_TYPE || 'github').trim() === 'custom' ? 'custom' : 'github';
+        return String(this.config.UPDATE_SERVER_TYPE || UpdateDefaults.DEFAULT_UPDATE_SERVER_TYPE).trim() === 'custom' ? 'custom' : UpdateDefaults.DEFAULT_UPDATE_SERVER_TYPE;
     }
 
     getUpdateMirrorRepo() {

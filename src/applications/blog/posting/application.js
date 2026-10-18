@@ -3,6 +3,7 @@
 const fsDefault = require('node:fs');
 const pathDefault = require('node:path');
 const momentDefault = require('moment-timezone');
+const blogPromptPaths = require('../../../content/prompts/blog/paths');
 const { buildBlogGenerationPrompt } = require('../../../content/blog-generation-prompt');
 const { collectBlogReferenceContext } = require('../../../content/blog-reference-context');
 const { validateBlogImageBlocks } = require('../../../content/blog-image-plan');
@@ -33,7 +34,7 @@ function createBlogPostingApplication(options = {}) {
     const writing = options.blogWritingApplication;
     const Utils = options.Utils;
     const CONFIG = options.CONFIG || {};
-    const Constants = options.Constants || {};
+    const promptPaths = options.blogPromptPaths || blogPromptPaths;
     const Logger = options.Logger || console;
     const fs = options.fs || fsDefault;
     const path = options.path || pathDefault;
@@ -85,7 +86,7 @@ function createBlogPostingApplication(options = {}) {
             strategy: jobData.writing_strategy || jobData.writingStrategy || jobData.options?.writing_strategy,
             globalStrategy: CONFIG.BLOG_WRITING_STRATEGY,
             config: CONFIG,
-            constants: Constants,
+            promptPaths: promptPaths,
             post: {
                 subject: jobData.subject,
                 title: requestedTitle,

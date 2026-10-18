@@ -3,7 +3,9 @@ const path = require('path');
 
 // ✅ 모듈 불러오기
 const CONFIG = require('./config-loader');   // 사용자 설정
-const Constants = require('./constants');    // 🔥 [필수] 기본 설정 상수 (이게 있어야 우선순위 로직 작동)
+const NaverPublishingDefaults = require('./adapters/naver/publishing-defaults');
+const { getDefaultRuntimePaths } = require('./host/configuration/default-runtime-paths');
+const DefaultRuntimePaths = getDefaultRuntimePaths();
 const Utils = require('./utils');
 const Logger = require('./utilities/logging/logger');
 const BrowserLauncher = require('./utilities/browser/browser-launcher');
@@ -1735,7 +1737,7 @@ ${messageText}
 		throwIfPublishStopped();
 		Logger.info(`🚀 [Step 5] 발행 시작: ${path.basename(dirPath)}`);
 
-		const authPath = CONFIG.AUTH_FILE_PATH || Constants.AUTH_FILE_PATH;
+		const authPath = CONFIG.AUTH_FILE_PATH || DefaultRuntimePaths.AUTH_FILE_PATH;
 		if (!fs.existsSync(authPath)) throw new Error('naver_auth.json 없음');
 
 		const contentFile = path.join(dirPath, 'contents.md');
@@ -1763,9 +1765,9 @@ ${messageText}
 			throw new Error('스프레드시트 URL이 비어있거나 형식이 올바르지 않아 작업을 중단합니다.');
 		}
 
-		// Config 우선순위 적용 (Constants 필수)
+		// Config 우선순위 적용
 		const speedKey = String(CONFIG.TYPING_SPEED || 'NORMAL').trim().toUpperCase();
-		const typingPreset = Constants.TYPING_PRESETS[speedKey] || Constants.TYPING_PRESETS.NORMAL;
+		const typingPreset = NaverPublishingDefaults.TYPING_PRESETS[speedKey] || NaverPublishingDefaults.TYPING_PRESETS.NORMAL;
 
 		const headless = typeof options.headless === 'boolean' ? options.headless : CONFIG.HEADLESS;
 		reportPublishProgress('editor');
@@ -1833,7 +1835,7 @@ ${messageText}
 			Logger.info(`   🔗 접속 URL: ${writeUrl}`);
 			await page.goto(writeUrl, { waitUntil: 'domcontentloaded' });
 
-			const loadWait = CONFIG.WAIT_LOAD || Constants.WAIT.LOAD;
+			const loadWait = CONFIG.WAIT_LOAD || NaverPublishingDefaults.WAIT.LOAD;
 			await Utils.sleep(loadWait);
 
 			// 🔧 [Fixed] 세션 만료 처리 개선 (더 명확한 안내)
@@ -2107,7 +2109,7 @@ ${messageText}
 								: file;
 							await chooser.setFiles(optimizedFile);
 
-							const uploadWait = CONFIG.WAIT_UPLOAD || Constants.WAIT.UPLOAD;
+							const uploadWait = CONFIG.WAIT_UPLOAD || NaverPublishingDefaults.WAIT.UPLOAD;
 							await Utils.sleep(uploadWait);
 
 							// 큰 이미지 업로드 시 렌더 반영이 느릴 수 있어 슬롯 증가와 포커스를 재시도한다.

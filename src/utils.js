@@ -998,8 +998,7 @@ const Utils = {
      * @returns {string} 플랫폼별 하위 디렉토리를 포함한 워크스페이스 절대 경로
      */
     resolvePlatformWorkspaceDir: function (platformHint = 'naver') {
-        const Constants = require('./constants');
-        const wsBase = CONFIG.WORKSPACE_DIR || Constants.WORKSPACE_DIR || path.join(process.cwd(), 'workspace');
+        const wsBase = CONFIG.WORKSPACE_DIR || path.join(process.cwd(), 'workspace');
         const platform = String(platformHint || 'naver').toLowerCase();
 
         let platformDir;

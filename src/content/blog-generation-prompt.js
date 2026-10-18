@@ -53,13 +53,13 @@ function buildBlogGenerationPrompt(options = {}) {
     const contractAndStrategyPrompt = buildBlogSystemPrompt({
         strategy,
         config: options.config,
-        constants: options.constants,
+        promptPaths: options.promptPaths,
         fileSystem: options.fileSystem
     });
     const strategyPrompt = buildBlogStrategyPrompt({
         strategy,
         config: options.config,
-        constants: options.constants,
+        promptPaths: options.promptPaths,
         fileSystem: options.fileSystem
     });
     const profilePrompt = buildBlogWritingProfilePromptFromProjection(projection);

@@ -17,7 +17,7 @@ const { inferTransport } = require('../../packages/plugins/core/ai-gateway/trans
 const { createSupabaseModelCatalogPort } = require('../adapters/storage/ai-model-catalog/supabase-port');
 const { createModelCatalogService } = require('../../packages/plugins/core/ai-gateway');
 const { applyRemoteCatalog, getCatalogStatus } = require('../../packages/plugins/core/ai-gateway/catalog-registry');
-const { APP_VERSION } = require('../constants');
+const { APP_VERSION } = require('../host/application-metadata');
 
 function createBlogBetaRuntimeComposition(options = {}) {
     const { CONFIG, Logger, getAiModelCatalog } = options;
@@ -117,7 +117,6 @@ function createBlogBetaRuntimeComposition(options = {}) {
     const naverPublishingSystem = createNaverPublishingSystem({
         corePluginRuntime,
         CONFIG,
-        Constants: options.Constants || require('../constants'),
         Logger,
         fs,
         ...(options.BrowserLauncher ? { BrowserLauncher: options.BrowserLauncher } : {}),
@@ -141,7 +140,6 @@ function createBlogBetaRuntimeComposition(options = {}) {
     const blogPostingApplication = createBlogPostingApplication({
         Utils: options.Utils || require('../utils'),
         CONFIG,
-        Constants: options.Constants || require('../constants'),
         Logger,
         fs,
         path,

@@ -142,8 +142,12 @@ src/
   host/                         # BlogGenius process/bootstrap and channel-to-Application routing
     launcher.js                 # Node-side UI launcher
     electron/                   # Electron startup, lifecycle, and recovery
+    application-metadata.js     # Package-derived application version
+    update-defaults.js          # Desktop update defaults
+    configuration/              # Runtime paths and user configuration
     updater.js                  # Desktop update lifecycle and restart
   adapters/                     # Channel and external protocol translation (UI, Telegram, MCP, Plugin ports)
+    naver/publishing-defaults.js # Naver editor timing and typing defaults
     url-shortening/              # URL shortener provider protocol adapters
     ui/                          # UI/API input, output, and progress presentation adapters
   platform/                     # Plugin contracts, Plugin Host, validation, lifecycle, dispatch

@@ -1,4 +1,5 @@
 const fs = require('fs');
+const BLOG_PROMPT_PATHS = require('./prompts/blog/paths');
 
 const { normalizeWritingStrategy } = require('./writing-strategy');
 
@@ -14,17 +15,16 @@ function readPromptFile(filePath, label, fileSystem = fs) {
     return content;
 }
 
-function resolvePromptPaths({ strategy, config = {}, constants = {} }) {
+function resolvePromptPaths({ strategy, config = {}, promptPaths = BLOG_PROMPT_PATHS }) {
     const normalizedStrategy = normalizeWritingStrategy(strategy);
     const contractPath = config.BLOG_PROMPT_CONTRACT_PATH
-        || constants.BLOG_PROMPT_CONTRACT_FILE
+        || promptPaths.BLOG_PROMPT_CONTRACT_FILE
         || config.BLOG_PROMPT_COMMON_PATH
         || config.BLOG_PROMPT_PATH
-        || constants.BLOG_PROMPT_COMMON_FILE
-        || constants.PROMPT_FILE;
+        || promptPaths.BLOG_PROMPT_COMMON_FILE;
     const strategyPath = normalizedStrategy === 'discovery'
-        ? (config.BLOG_PROMPT_DISCOVERY_PATH || constants.BLOG_PROMPT_DISCOVERY_FILE)
-        : (config.BLOG_PROMPT_SEARCH_PATH || constants.BLOG_PROMPT_SEARCH_FILE);
+        ? (config.BLOG_PROMPT_DISCOVERY_PATH || promptPaths.BLOG_PROMPT_DISCOVERY_FILE)
+        : (config.BLOG_PROMPT_SEARCH_PATH || promptPaths.BLOG_PROMPT_SEARCH_FILE);
 
     return { normalizedStrategy, contractPath, commonPath: contractPath, strategyPath };
 }
@@ -33,19 +33,19 @@ function buildBlogSystemPrompt(options = {}) {
     const {
         strategy,
         config = {},
-        constants = {},
+        promptPaths = BLOG_PROMPT_PATHS,
         fileSystem = fs
     } = options;
-    const paths = resolvePromptPaths({ strategy, config, constants });
+    const paths = resolvePromptPaths({ strategy, config, promptPaths });
     const contractPrompt = readPromptFile(paths.contractPath, '블로그 출력·사실성 계약', fileSystem);
-    const strategyPrompt = buildBlogStrategyPrompt({ strategy, config, constants, fileSystem });
+    const strategyPrompt = buildBlogStrategyPrompt({ strategy, config, promptPaths, fileSystem });
 
     return `${contractPrompt}\n\n${strategyPrompt}`;
 }
 
 function buildBlogStrategyPrompt(options = {}) {
-    const { strategy, config = {}, constants = {}, fileSystem = fs } = options;
-    const paths = resolvePromptPaths({ strategy, config, constants });
+    const { strategy, config = {}, promptPaths = BLOG_PROMPT_PATHS, fileSystem = fs } = options;
+    const paths = resolvePromptPaths({ strategy, config, promptPaths });
     const strategyLabel = paths.normalizedStrategy === 'discovery' ? '발견 중심' : '검색 중심';
     return readPromptFile(paths.strategyPath, strategyLabel, fileSystem);
 }

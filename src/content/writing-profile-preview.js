@@ -1,4 +1,4 @@
-const Constants = require('../constants');
+const BLOG_PROMPT_PATHS = require('./prompts/blog/paths');
 const { normalizeWritingProfile, validateWritingProfile } = require('./writing-profile');
 const { projectWritingProfile } = require('./writing-profile-projection');
 const { buildBlogGenerationPrompt } = require('./blog-generation-prompt');
@@ -179,7 +179,7 @@ function buildBlogPreviewPrompt(input = {}, options = {}) {
         strategy: input.strategy,
         globalStrategy: options.globalStrategy,
         config: options.config,
-        constants: options.constants || Constants,
+        promptPaths: options.promptPaths || BLOG_PROMPT_PATHS,
         post: { subject: topic }
     });
     return {
@@ -225,14 +225,14 @@ function buildShoppingPreviewPrompt(input = {}, options = {}) {
 }
 
 function createWritingProfilePreviewService(options = {}) {
-    const { generateText, config = {}, constants = Constants } = options;
+    const { generateText, config = {}, promptPaths = BLOG_PROMPT_PATHS } = options;
     if (typeof generateText !== 'function') {
         throw new Error('writing profile preview text generation dependency is required.');
     }
     return async function generateWritingProfilePreview(input = {}) {
         const kind = String(input.kind || '').trim().toLowerCase();
         const composed = kind === 'blog'
-            ? buildBlogPreviewPrompt(input, { config, constants, globalStrategy: config.BLOG_WRITING_STRATEGY })
+            ? buildBlogPreviewPrompt(input, { config, promptPaths, globalStrategy: config.BLOG_WRITING_STRATEGY })
             : (kind === 'shopping'
                 ? buildShoppingPreviewPrompt(input, { globalStrategy: config.BLOG_WRITING_STRATEGY })
                 : null);

@@ -1,14 +1,14 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const Constants = require('../constants');
+const BlogPromptPaths = require('./prompts/blog/paths');
 const { getDefaultContentWritingProfile } = require('./writing-profile');
 const { buildBlogPostInputPrompt, buildBlogGenerationPrompt } = require('./blog-generation-prompt');
 
 const promptConfig = {
-    BLOG_PROMPT_CONTRACT_PATH: Constants.BLOG_PROMPT_CONTRACT_FILE,
-    BLOG_PROMPT_SEARCH_PATH: Constants.BLOG_PROMPT_SEARCH_FILE,
-    BLOG_PROMPT_DISCOVERY_PATH: Constants.BLOG_PROMPT_DISCOVERY_FILE
+    BLOG_PROMPT_CONTRACT_PATH: BlogPromptPaths.BLOG_PROMPT_CONTRACT_FILE,
+    BLOG_PROMPT_SEARCH_PATH: BlogPromptPaths.BLOG_PROMPT_SEARCH_FILE,
+    BLOG_PROMPT_DISCOVERY_PATH: BlogPromptPaths.BLOG_PROMPT_DISCOVERY_FILE
 };
 
 function createCustomProfile() {
@@ -54,7 +54,7 @@ test('blog generation composer keeps contract, strategy, profile and post input 
         strategy: 'discovery',
         globalStrategy: 'search',
         config: promptConfig,
-        constants: Constants,
+        promptPaths: BlogPromptPaths,
         post: {
             subject: '장기 운영 도구 선택',
             title: '오래 운영할 도구를 고르는 기준',
@@ -105,7 +105,7 @@ test('blog generation composer applies only explicit per-post composition overri
         profile,
         strategy: 'search',
         config: promptConfig,
-        constants: Constants,
+        promptPaths: BlogPromptPaths,
         post: {
             subject: '이번 글 구성 테스트',
             writing_overrides: { length: 'short', opening: 'direct' }
@@ -126,7 +126,7 @@ test('blog composer excludes shopping fields and raw style-reference sources', (
         profile: createCustomProfile(),
         strategy: 'search',
         config: promptConfig,
-        constants: Constants,
+        promptPaths: BlogPromptPaths,
         post: { subject: '테스트' }
     });
 
@@ -144,7 +144,7 @@ test('blog composer uses the profile strategy when the post has no override', ()
         profile,
         globalStrategy: 'search',
         config: promptConfig,
-        constants: Constants,
+        promptPaths: BlogPromptPaths,
         post: { subject: '프로필 전략 테스트' }
     });
 
@@ -159,7 +159,7 @@ test('stale reference analysis is preserved in profile but excluded from generat
         profile,
         strategy: 'search',
         config: promptConfig,
-        constants: Constants,
+        promptPaths: BlogPromptPaths,
         post: { subject: '테스트' }
     });
     assert.ok(profile.channels.blog.style_references.fingerprint);
@@ -187,14 +187,14 @@ test('default and custom profiles produce different blog profile sections withou
         profile: getDefaultContentWritingProfile(),
         strategy: 'search',
         config: promptConfig,
-        constants: Constants,
+        promptPaths: BlogPromptPaths,
         post: { subject: '같은 주제' }
     });
     const customResult = buildBlogGenerationPrompt({
         profile: createCustomProfile(),
         strategy: 'search',
         config: promptConfig,
-        constants: Constants,
+        promptPaths: BlogPromptPaths,
         post: { subject: '같은 주제' }
     });
 

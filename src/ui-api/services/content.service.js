@@ -24,7 +24,7 @@ const { buildSetupReadiness } = require('../../services/configuration-readiness/
 const { buildBlogGenerationPrompt } = require('../../content/blog-generation-prompt');
 const { validateBlogImageBlocks } = require('../../content/blog-image-plan');
 const { collectBlogReferenceContext } = require('../../content/blog-reference-context');
-const Constants = require('../../constants');
+const BLOG_PROMPT_PATHS = require('../../content/prompts/blog/paths');
 
 function createNaverPublishProgressReporter({ lease, fallbackPostStatus, logger }) {
     let lastMessage = '';
@@ -421,7 +421,7 @@ function createContentService(deps = {}) {
             strategy: requestBody.writingStrategy || requestBody.writing_strategy,
             globalStrategy: CONFIG.BLOG_WRITING_STRATEGY,
             config: CONFIG,
-            constants: Constants,
+            promptPaths: BLOG_PROMPT_PATHS,
             post: {
                 subject,
                 title,

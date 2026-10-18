@@ -10,7 +10,7 @@ const { createShoppingContentPreparationRuntime } = require('./composition/shopp
 const TelegramService = require('./adapters/messaging/telegram/service');
 const SlackService = require('./slack-service');
 const { createUrlShorteningSystem } = require('./composition/url-shortening');
-const { APP_VERSION } = require('./constants');
+const { APP_VERSION } = require('./host/application-metadata');
 const CONFIG = require('./config-loader');
 const Logger = require('./utilities/logging/logger');
 Logger.configureRuntime({ logLevel: CONFIG.LOG_LEVEL, rootDir: CONFIG.ROOT_DIR });

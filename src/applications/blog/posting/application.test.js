@@ -14,7 +14,7 @@ function createApplication({ writing, utils = Utils, config = CONFIG, ...depende
     return createBlogPostingApplication({
         Utils: utils,
         CONFIG: config,
-        Constants: require('../../../constants'),
+        blogPromptPaths: require('../../../content/prompts/blog/paths'),
         Logger: { info() {}, warn() {}, error() {}, debug() {} },
         fs,
         path,
