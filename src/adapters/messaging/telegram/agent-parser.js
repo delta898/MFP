@@ -177,12 +177,12 @@ async function routeTelegramMessage(messageText, context = {}) {
     const conversationId = String(context.conversationId || '').trim();
     const messageId = String(context.messageId || '').trim();
     const logger = context.logger || require('../../../utilities/logging/logger');
-    const utils = context.modelCaller ? null : require('../../../utils');
-    const modelCaller = context.modelCaller || utils.callTelegramChatModel.bind(utils);
     const deterministic = tryParseDeterministicEnvelope(messageText, context);
     if (deterministic) {
         return deterministic;
     }
+    const modelCaller = context.modelCaller;
+    if (typeof modelCaller !== 'function') throw new Error('AI Gateway text generation is unavailable for Telegram routing.');
     const recentEvents = Array.isArray(context.memory?.recent_events) ? context.memory.recent_events.slice(0, 6) : [];
     const recentMessages = Array.isArray(context.memory?.recent_messages) ? context.memory.recent_messages.slice(0, 4) : [];
     const recentActions = Array.isArray(context.memory?.recent_actions) ? context.memory.recent_actions.slice(0, 4) : [];

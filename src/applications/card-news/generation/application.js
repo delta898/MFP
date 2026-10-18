@@ -3,7 +3,7 @@
 const fsDefault = require('node:fs');
 const pathDefault = require('node:path');
 const { createCardNewsGenerationService } = require('./service');
-const { throwIfCanceled } = require('../../../ai/cancellation');
+const { throwIfCanceled } = require('../../../utilities/async/cancellation');
 
 const MIME_EXTENSIONS = Object.freeze({
     'image/png': '.png',

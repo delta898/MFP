@@ -32,7 +32,7 @@ const {
     mergeActiveSelectionsIntoProfiles,
     normalizeStoredModelProfiles,
     normalizeChatModelSource
-} = require('../../../ai-model-config');
+} = require('../../../services/ai/model-configuration');
 const TelegramPairingService = require('../../../telegram-pairing.service');
 const { isSnsAiMode } = require('../../../services/sns/ai-policy');
 const {
@@ -42,7 +42,7 @@ const {
     listConnectionVerifications,
     isVerificationTrusted
 } = require('../../../connections/verification-state');
-const { createAiModelVerificationSignature } = require('../../../ai/model-verification');
+const { createAiModelVerificationSignature } = require('../../../services/ai/model-verification');
 const { createSettingsWritingProfileApplication } = require('../../../applications/settings/writing-profile/application');
 const {
     createSettingsAiModelsApplication,

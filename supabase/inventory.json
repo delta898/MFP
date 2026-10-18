@@ -6,7 +6,7 @@
   "desktop_consumers": [
     "src/license.js",
     "src/runtime-config.js",
-    "src/ai/remote-model-catalog.js",
+    "src/adapters/storage/ai-model-catalog/supabase-port.js",
     "src/keyword-research/supabase-client.js",
     "src/knowledge/server-gateway-client.js",
     "src/surface-content/supabase-provider.js"

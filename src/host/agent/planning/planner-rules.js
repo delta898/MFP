@@ -66,6 +66,8 @@ function buildGoal(actions = []) {
 
 function buildPreconditions(action = {}, envelope = {}) {
     const preconditions = [];
+    const domain = String(action.domain || '').trim();
+    const name = String(action.name || '').trim();
 
     if (domain === 'content.idea' && name === 'suggest') {
         const routing = envelope.routing && typeof envelope.routing === 'object' ? envelope.routing : {};
@@ -143,8 +145,6 @@ function buildPlanFromActions(envelope = {}) {
 
 module.exports = {
     buildActionFingerprint,
-    buildPreflightQueryAction,
-    expandActions,
     dedupeActions,
     orderActions,
     resolveConfirmationMode,

@@ -9,8 +9,8 @@ const {
     recordConnectionVerification,
     resetConnectionVerificationState
 } = require('../../connections/verification-state');
-const { createAiModelVerificationSignature } = require('../../ai/model-verification');
-const { applyRemoteCatalog, clearRemoteCatalog } = require('../../ai/catalog-registry');
+const { createAiModelVerificationSignature } = require('../../services/ai/model-verification');
+const { applyRemoteCatalog, clearRemoteCatalog } = require('../../../packages/plugins/core/ai-gateway/catalog-registry');
 
 const CARD_NEWS_IMAGE_MODELS = [
     ['google', 'gemini-3.1-flash-image', 'Gemini 3.1 Flash Image'],

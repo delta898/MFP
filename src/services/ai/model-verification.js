@@ -1,9 +1,9 @@
-const { createConnectionSignature, readConnectionVerification, isVerificationTrusted } = require('../connections/verification-state');
+const { createConnectionSignature, readConnectionVerification, isVerificationTrusted } = require('../../connections/verification-state');
 const {
     getCanonicalTransportEndpoint,
     getTransportVerificationScope,
     inferTransport
-} = require('./transport-registry');
+} = require('../../../packages/plugins/core/ai-gateway/transport-registry');
 
 function createAiModelVerificationSignature(scope, modelConfig = {}) {
     const normalizedScope = String(scope || '').trim();

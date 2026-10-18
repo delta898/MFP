@@ -12,10 +12,10 @@ const { createNaverPublishingSystem } = require('./naver-publishing');
 const { createBlogPublishingApplication } = require('../applications/blog/publishing/application');
 const { createBlogPostingApplication } = require('../applications/blog/posting/application');
 const { createShoppingGenerationApplication } = require('../applications/shopping/generation/application');
-const { inferTransport } = require('../ai/transport-registry');
-const { createSupabaseModelCatalogPort } = require('../ai/remote-model-catalog');
+const { inferTransport } = require('../../packages/plugins/core/ai-gateway/transport-registry');
+const { createSupabaseModelCatalogPort } = require('../adapters/storage/ai-model-catalog/supabase-port');
 const { createModelCatalogService } = require('../../packages/plugins/core/ai-gateway');
-const { applyRemoteCatalog, getCatalogStatus } = require('../ai/catalog-registry');
+const { applyRemoteCatalog, getCatalogStatus } = require('../../packages/plugins/core/ai-gateway/catalog-registry');
 const { APP_VERSION } = require('../constants');
 
 function createBlogBetaRuntimeComposition(options = {}) {

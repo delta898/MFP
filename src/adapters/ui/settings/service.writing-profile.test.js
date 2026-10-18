@@ -35,7 +35,6 @@ function createHarness(options = {}) {
 test('settings reference analyzer routes text generation through Blog Writing Application', async () => {
     const calls = [];
     const { CONFIG, service } = createHarness({
-        Utils: { callWritingText: async () => { throw new Error('legacy text route must not be used'); } },
         blogWritingApplication: {
             generateText: async (prompt, context) => {
                 calls.push({ prompt, context });
@@ -65,7 +64,6 @@ test('settings reference analyzer routes text generation through Blog Writing Ap
 test('shared writing profile previews use AI Generation directly', async () => {
     const calls = [];
     const { service, CONFIG } = createHarness({
-        Utils: { callWritingText: async (...args) => { calls.push({ route: 'legacy', args }); return '{}'; } },
         aiGenerationService: {
             resolveModel: (kind, selection) => kind === 'text' ? selection : null,
             supportsFeature: (_kind, _selection, feature) => feature === 'jsonResponse',

@@ -7,12 +7,12 @@ const {
     configureConnectionVerificationState,
     recordConnectionVerification,
     resetConnectionVerificationState
-} = require('../connections/verification-state');
+} = require('../../connections/verification-state');
 const {
     createAiModelVerificationSignature,
     getTrustedAiModelVerification
 } = require('./model-verification');
-const { getTransportBaseUrl } = require('./transport-registry');
+const { getTransportBaseUrl } = require('../../../packages/plugins/core/ai-gateway/transport-registry');
 
 const GOOGLE_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta';
 

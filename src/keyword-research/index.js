@@ -14,11 +14,9 @@ const { resolveSupabasePublicConnection } = require('../environment/runtime-prof
 
 function createKeywordResearchService(options = {}) {
     const config = options.CONFIG || require('../config-loader');
-    const utils = options.Utils || require('../utils');
     const logger = options.Logger || require('../utilities/logging/logger');
 
     const titleGenerator = options.titleGenerator || createTitleGenerator({
-        Utils: utils,
         Logger: logger,
         generateText: typeof options.blogWritingApplication?.generateText === 'function'
             ? (prompt, modelOptions = {}) => {
@@ -28,7 +26,9 @@ function createKeywordResearchService(options = {}) {
                     ...(provider && modelId ? { modelSelection: { provider, modelId } } : {}),
                     generationOptions: {
                         ...(typeof modelOptions.temperature === 'number' ? { temperature: modelOptions.temperature } : {}),
-                        ...(typeof modelOptions.maxTokens === 'number' ? { maxOutputTokens: modelOptions.maxTokens } : {})
+                        ...(typeof modelOptions.maxTokens === 'number' ? { maxOutputTokens: modelOptions.maxTokens } : {}),
+                        ...(modelOptions.reasoningEffort ? { reasoningEffort: modelOptions.reasoningEffort } : {}),
+                        responseFormat: 'json'
                     }
                 });
             }

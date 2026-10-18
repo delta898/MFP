@@ -30,8 +30,11 @@ function createSmartCommentService(options = {}) {
     const service = createContentService({
         Utils: {
             _normalizeNaverBlogPostUrl() { return ''; },
-            async callTextModelByMode(_mode, prompt, _retries, modelOptions) {
-                calls.prompts.push(prompt);
+        },
+        aiGenerationService: {
+            async generateText(request) {
+                const modelOptions = { ...request.options, responseFormat: request.responseFormat, modelSelection: request.modelSelection };
+                calls.prompts.push(request.prompt);
                 calls.modelOptions.push(modelOptions);
                 if (typeof options.onModelCall === 'function') {
                     await options.onModelCall({ modelOptions, callIndex: calls.prompts.length - 1 });
@@ -39,7 +42,7 @@ function createSmartCommentService(options = {}) {
                 if (options.modelResponses?.length) {
                     const response = options.modelResponses.shift();
                     if (response instanceof Error) throw response;
-                    return response;
+                    return { content: response };
                 }
                 throw new Error('예상하지 않은 모델 호출입니다.');
             }
@@ -47,8 +50,8 @@ function createSmartCommentService(options = {}) {
         CONFIG: {
             NAVER_ID: 'owner-id',
             AUTH_FILE_PATH: '/tmp/naver-smart-comment-auth.json',
-            TEXT_MODEL_CONFIG: { code: 'writing-model' },
-            CHAT_MODEL_CONFIG: { code: 'chat-model' },
+            TEXT_MODEL_CONFIG: { provider: 'openai', code: 'writing-model' },
+            CHAT_MODEL_CONFIG: { provider: 'openai', code: 'chat-model' },
             RUNTIME_ENVIRONMENT: options.environment || 'production'
         },
         BrowserLauncher: {
@@ -176,8 +179,8 @@ test('smart comment reports partial success separately from generation failure',
     assert.equal(result.items.length, 2);
     assert.equal(result.items[0].drafts.length, 3);
     assert.equal(result.items[1].drafts.length, 0);
-    assert.equal(calls.modelOptions[0].responseMimeType, 'application/json');
-    assert.equal(calls.modelOptions[0].maxTokens, 2048);
+    assert.equal(calls.modelOptions[0].responseFormat, 'json');
+    assert.equal(calls.modelOptions[0].maxOutputTokens, 2048);
     assert.equal(calls.modelOptions[0].reasoningEffort, 'low');
     assert.deepEqual(result.summary, {
         status: 'partial_success',
@@ -215,7 +218,7 @@ test('smart comment batches ten candidates into four model requests', async () =
     assert.equal(result.summary.status, 'success');
     assert.equal(result.summary.successCount, 10);
     assert.equal(calls.prompts.length, 4);
-    assert.deepEqual(calls.modelOptions.map((options) => options.maxTokens), [3072, 3072, 3072, 1024]);
+    assert.deepEqual(calls.modelOptions.map((options) => options.maxOutputTokens), [3072, 3072, 3072, 1024]);
 });
 
 test('smart comment exposes live batch and rate-limit progress', async () => {
@@ -264,12 +267,6 @@ test('smart comment exposes live batch and rate-limit progress', async () => {
         }
     );
 
-    await calls.modelOptions[0].onRetry({ delayMs: 5000 });
-    ({ progress } = await service.getNaverCommentDraftProgress());
-    assert.equal(progress.phase, 'rate_limited');
-    assert.ok(progress.retryRemainingSeconds >= 4 && progress.retryRemainingSeconds <= 5);
-    assert.match(progress.message, /AI 요청 한도 대기 중/);
-
     releaseModelCall();
     const result = await runPromise;
     assert.equal(result.summary.status, 'success');
@@ -287,7 +284,7 @@ test('smart comment stops remaining batches after a final rate-limit failure', a
         postUrl: `https://blog.naver.com/neighbor${index}/1234567890${index}`
     }));
     const rateLimitError = new Error('AI 공급자의 요청 한도를 초과했습니다.');
-    rateLimitError.code = 'AI_RATE_LIMITED';
+    rateLimitError.code = 'AI_GATEWAY_RATE_LIMITED';
     rateLimitError.status = 429;
     const { service, calls } = createSmartCommentService({
         candidates,

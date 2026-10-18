@@ -7,8 +7,8 @@ const {
     resolveAiModelConfig,
     resolveChatModelSettings,
     resolveStoredModelProfiles
-} = require('./ai-model-config');
-const { applyRemoteCatalog } = require('./ai/catalog-registry');
+} = require('./services/ai/model-configuration');
+const { applyRemoteCatalog } = require('../packages/plugins/core/ai-gateway/catalog-registry');
 const { resolveContentWritingPreferences } = require('./content/writing-preferences');
 const {
     createWritingProfileRepository

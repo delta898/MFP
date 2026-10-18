@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createSupabaseModelCatalogPort, extractCatalogPayload } = require('./remote-model-catalog');
+const { createSupabaseModelCatalogPort, extractCatalogPayload } = require('./supabase-port');
 
 function createMemoryFs(initial = {}) {
     const files = new Map(Object.entries(initial));

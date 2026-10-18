@@ -206,20 +206,24 @@ function createContentService(deps = {}) {
 
     let smartCommentApplication;
     function callCommentDraftModel(mode, prompt, maxTokens = 768) {
-        return Utils.callTextModelByMode(mode, prompt, 3, {
-            usageLabel: mode === 'custom' ? 'Chat Model' : '글쓰기 모델',
-            maxTokens,
-            temperature: 0.6,
-            responseMimeType: 'application/json',
-            reasoningEffort: 'low',
-            logStart: false,
-            onRetry: ({ delayMs = 0 } = {}) => {
-                smartCommentApplication.updateProgress({
-                    phase: 'rate_limited',
-                    retryAt: new Date(Date.now() + Math.max(0, Number(delayMs) || 0)).toISOString()
-                });
-            }
-        });
+        if (typeof aiGenerationService?.generateText !== 'function') {
+            throw new Error('AI Gateway 기반 AI Generation 서비스를 사용할 수 없습니다.');
+        }
+        const configured = mode === 'custom' ? CONFIG.CHAT_MODEL_CONFIG : CONFIG.TEXT_MODEL_CONFIG;
+        const modelSelection = {
+            provider: String(configured?.provider || '').trim().toLowerCase(),
+            modelId: String(configured?.code || '').trim()
+        };
+        return aiGenerationService.generateText({
+            modelSelection,
+            prompt,
+            options: {
+                maxOutputTokens: maxTokens,
+                temperature: 0.6,
+                reasoningEffort: 'low'
+            },
+            responseFormat: 'json'
+        }).then((result) => result?.content ?? result);
     }
 
     let smartCommentCollector = deps.smartCommentCollector || null;

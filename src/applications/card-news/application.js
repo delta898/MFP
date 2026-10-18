@@ -7,8 +7,8 @@ const { normalizeImageMode, validateSourceSnapshot } = require('./generation/pla
 const { deriveCardNewsManagementState, toCardNewsManagementFields } = require('./management/status');
 const { createAiGenerationOperationManager } = require('../../services/ai/generation-operation-manager');
 const { createCardNewsOutgoingImageService } = require('./publishing/outgoing-image-service');
-const { getAiModelCatalog, resolveAiModelConfig, resolveStoredModelProfiles } = require('../../ai-model-config');
-const { getTrustedAiModelVerification } = require('../../ai/model-verification');
+const { getAiModelCatalog, resolveAiModelConfig, resolveStoredModelProfiles } = require('../../services/ai/model-configuration');
+const { getTrustedAiModelVerification } = require('../../services/ai/model-verification');
 
 const CARD_NEWS_SOURCE_LIMIT = 30;
 const CARD_NEWS_LEDGER_REGISTRATION_TIMEOUT_MS = 3000;

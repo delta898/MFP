@@ -7,7 +7,7 @@ const { buildBlogGenerationPrompt } = require('../../../content/blog-generation-
 const { collectBlogReferenceContext } = require('../../../content/blog-reference-context');
 const { validateBlogImageBlocks } = require('../../../content/blog-image-plan');
 const { normalizeBlogImageMode, generatesBlogImages } = require('../../../content/blog-image-mode');
-const { rethrowIfCanceled, sleepWithCancellation, throwIfCanceled } = require('../../../ai/cancellation');
+const { rethrowIfCanceled, sleepWithCancellation, throwIfCanceled } = require('../../../utilities/async/cancellation');
 const { buildRelatedPostsSectionMarkdown, stripAiRelatedPostsSection } = require('./related-posts-markdown');
 
 function normalizeHashtagTokens(rawHashtags, maxCount = 20) {

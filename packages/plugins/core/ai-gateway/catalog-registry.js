@@ -1,5 +1,5 @@
 const { getTransportBaseUrl } = require('./transport-registry');
-const { describeSupport } = require('../../packages/plugins/core/ai-gateway');
+const { describeSupport } = require('./support');
 
 function isSupportedRoute({ kind, provider, transport } = {}) {
     return describeSupport().routes.some((route) => route.kind === kind

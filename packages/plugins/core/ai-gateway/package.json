@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Provider-neutral text and image generation Gateway for BlogGenius and compatible Hosts.",
   "main": "index.js",
-  "files": ["index.js", "support.js", "provider-adapters.js", "provider-transport.js", "provider-endpoints.js", "catalog.js", "README.md"],
+  "files": ["index.js", "support.js", "provider-adapters.js", "provider-transport.js", "provider-endpoints.js", "transport-registry.js", "catalog-registry.js", "catalog.js", "README.md"],
   "engines": { "node": ">=20" },
   "bloggeniusPlugin": {
     "manifestVersion": 1,

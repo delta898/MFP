@@ -19,7 +19,7 @@ const {
     MANUAL_PUBLISH_BLOCKED_CODE,
     assertDirectPublishAllowed
 } = require('../environment/runtime-effects');
-const { rethrowIfCanceled, throwIfCanceled } = require('../ai/cancellation');
+const { rethrowIfCanceled, throwIfCanceled } = require('../utilities/async/cancellation');
 const { marked } = require('marked');
 
 function createPublishActionsRuntime(deps = {}) {

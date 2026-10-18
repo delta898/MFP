@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { validateRemoteCatalog } = require('../src/ai/catalog-registry');
+const { validateRemoteCatalog } = require('../packages/plugins/core/ai-gateway/catalog-registry');
 
 const repoRoot = path.resolve(__dirname, '..');
 const operationsRoot = path.join(repoRoot, 'supabase', 'operations', 'ai');

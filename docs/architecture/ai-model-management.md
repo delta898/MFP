@@ -18,17 +18,18 @@ model allowlists.
 - Supabase `ai_model_catalog_versions` is the only source of catalogued model and
   provider availability/metadata. The Gateway filters catalog entries to routes
   implemented by its support declaration before exposing them.
-- `src/ai/transport-registry.js` currently supplies legacy Host model
-  normalization and connection-signature metadata. Provider endpoint constants
-  come from the Gateway package; the remaining route metadata is a migration
-  candidate for the shared Gateway support declaration, not a catalog.
-- `src/ai/model-runtime-policy.js` translates model capabilities into safe request
-  parameters.
-- `src/ai/catalog-registry.js` validates and applies remote snapshots to the
-  synchronous Host registry consumed by the Gateway and existing runtime
-  configuration. It does not merge in a bundled selectable-model list.
-- `src/ai/remote-model-catalog.js` provides the Host-owned Supabase RPC and local
-  cache I/O ports injected into the Gateway.
+- `packages/plugins/core/ai-gateway/transport-registry.js` owns trusted
+  `kind + provider + transport` mappings and endpoint/verification metadata.
+  Provider transport and model selection consume this Plugin-owned contract.
+- The AI Gateway Plugin's provider adapters translate catalog capability
+  metadata into provider-specific request parameters at the transport boundary.
+- `packages/plugins/core/ai-gateway/catalog-registry.js` validates catalog
+  snapshots against Gateway support and maintains the synchronous runtime
+  registry. It does not merge in a bundled selectable-model list.
+- `src/adapters/storage/ai-model-catalog/supabase-port.js` provides the
+  Host-owned Supabase RPC and local cache I/O ports injected into the Gateway.
+- `src/services/ai/model-configuration.js` normalizes application configuration
+  and resolves selections against the Gateway catalog and transport contracts.
 - `packages/plugins/core/ai-gateway/provider-endpoints.js` contains the fixed
   provider API base URLs used by the Gateway transport. These URLs are not a
   model-availability fallback or source for current model choices.
@@ -115,8 +116,8 @@ Their Base URL is entered and confirmed by the user rather than supplied remotel
 
 The AI Gateway owns refresh coordination, TTL, in-flight request coalescing, and
 last-known-good behavior. In BlogGenius, Composition injects the Host-owned
-Supabase RPC and local-cache ports, plus snapshot validation/application and the
-synchronous registry reader:
+Supabase RPC and local-cache ports and uses the Plugin catalog registry for
+snapshot validation/application and synchronous reads:
 
 1. The Gateway hydrates the last-known-good disk snapshot when its catalog is
    first read.
@@ -235,8 +236,9 @@ image input remain disabled in the catalog because they were outside that verifi
 contract.
 
 The released catalog path was also verified end to end: catalog `2026-07-31.4`
-loaded from cache after app restart, and BlogGenius `callWritingText` successfully
-dispatched the selected KIE Gemini 3.6 model through `kie_openai_chat`.
+loaded from cache after app restart, and the shared AI Generation service
+successfully dispatched the selected KIE Gemini 3.6 model through
+`kie_openai_chat`.
 
 ## Configuration Boundary
 

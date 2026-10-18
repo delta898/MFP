@@ -50,8 +50,8 @@ Make the Supabase AI Model Catalog the only source of model availability and met
 
 ## Investigation findings
 
-- `src/ai/remote-model-catalog.js` now exposes Host I/O ports for the `get_ai_model_catalog` RPC and local snapshot persistence; refresh TTL/coalescing live in the Gateway service.
-- `src/ai/catalog-registry.js` validates Supabase records and protocol compatibility for the Host's synchronous startup mirror. Bundled provider/model choices and model-ID allowlists have been removed.
+- `src/adapters/storage/ai-model-catalog/supabase-port.js` exposes Host I/O ports for the `get_ai_model_catalog` RPC and local snapshot persistence; refresh TTL/coalescing live in the Gateway service.
+- `packages/plugins/core/ai-gateway/catalog-registry.js` validates Supabase records and protocol compatibility for the synchronous runtime registry. Bundled provider/model choices and model-ID allowlists have been removed. (Ownership relocation recorded 2026-10-18.)
 - `packages/plugins/core/ai-gateway/support.js` describes protocol routes without model inventories.
 - Shared AI Generation and Blog Writing resolve availability from the Gateway-filtered catalog. Protocol support remains Gateway-owned; the app no longer intersects model IDs.
 - Settings reads the catalog through `models.list`; the Host mirror remains available for synchronous config resolution and stale-cache startup behavior.

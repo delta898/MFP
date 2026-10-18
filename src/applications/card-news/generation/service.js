@@ -13,7 +13,7 @@ const {
 } = require('./plan');
 const { createStoredZip } = require('../assets/zip-bundle');
 const { parseCardNewsZip, toZipPreview } = require('../assets/zip-import');
-const { createCanceledError, isCancellation, throwIfCanceled } = require('../../../ai/cancellation');
+const { createCanceledError, isCancellation, throwIfCanceled } = require('../../../utilities/async/cancellation');
 
 function safeGenerationId(value) {
     const normalized = String(value || '').trim();

@@ -2,15 +2,15 @@ const {
     CLAUDE_OPENAI_BASE_URL,
     KIE_BASE_URL,
     OPENAI_BASE_URL,
-} = require('../packages/plugins/core/ai-gateway/provider-endpoints');
+} = require('../../../packages/plugins/core/ai-gateway/provider-endpoints');
 const {
     findModelDefinition,
     getAiModelCatalog
-} = require('./ai/catalog-registry');
+} = require('../../../packages/plugins/core/ai-gateway/catalog-registry');
 const {
     inferTransport
-} = require('./ai/transport-registry');
-const { normalizeProviderId } = require('./ai/provider-id');
+} = require('../../../packages/plugins/core/ai-gateway/transport-registry');
+const { normalizeProviderId } = require('./provider-id');
 
 function normalizeProvider(value) {
     return normalizeProviderId(value, 'google');

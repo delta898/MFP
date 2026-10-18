@@ -358,7 +358,8 @@ class TelegramBotService {
         const envelope = earlyDeterministicEnvelope || await routeTelegramMessage(text, {
             conversationId: context.conversation.id,
             messageId: context.messageId,
-            memory: context.memory
+            memory: context.memory,
+            modelCaller: getRuntimeHooks().generateChatText
         });
         Logger.info(`⏱️ [TelegramRouter] ${Date.now() - parserStartedAt}ms`);
         const parserNote = [
@@ -953,7 +954,7 @@ class TelegramBotService {
                             Logger.info(`💾 [TelegramBot] 맥락 저장 완료 (${chatId}): ${pData.theme}`);
 
                             const InsightEngine = require('./insight-engine');
-                            InsightEngine.generateInsight(chatId).catch(() => { });
+                            InsightEngine.generateInsight(chatId, { generateText: getRuntimeHooks().generateChatText }).catch(() => { });
                         }
                     }
 

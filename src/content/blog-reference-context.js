@@ -1,6 +1,6 @@
 'use strict';
 
-const { raceWithCancellation, sleepWithCancellation, throwIfCanceled } = require('../ai/cancellation');
+const { raceWithCancellation, sleepWithCancellation, throwIfCanceled } = require('../utilities/async/cancellation');
 
 function buildReferenceSection(scrapedContext) {
     if (!scrapedContext) return '(No reference provided)';

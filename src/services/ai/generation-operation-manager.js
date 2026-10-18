@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { createCanceledError } = require('../../ai/cancellation');
+const { createCanceledError } = require('../../utilities/async/cancellation');
 
 function createOperationError(status, code, message) {
     const error = new Error(message);

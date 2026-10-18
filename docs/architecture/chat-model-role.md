@@ -30,9 +30,9 @@ shape is persisted on the next settings save.
 
 ## Runtime Dispatch
 
-`resolveChatModelSettings()` resolves the role. `callChatText()` then passes that
-resolved config to the shared text dispatcher also used by `callWritingText()`.
-Provider transports therefore behave identically in writing and Chat roles.
+`resolveChatModelSettings()` resolves the role and `src/services/ai/generation.js`
+routes requests through the AI Gateway Plugin. Writing and Chat roles use the
+same provider-neutral service contract and Gateway-owned transports.
 
 A failed dedicated Chat Model does not silently fall back to the writing model.
 Changing provider implicitly could change cost, behavior, and data routing.

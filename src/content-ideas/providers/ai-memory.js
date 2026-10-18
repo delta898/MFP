@@ -1,4 +1,3 @@
-const Utils = require('../../utils');
 const Logger = require('../../utilities/logging/logger');
 
 function stripCodeFence(raw) {
@@ -248,9 +247,8 @@ ${selectedCandidates.length > 0 ? selectedCandidates.map((item) => `- id=${item.
                     reasoningEffort: 'minimal',
                     logTokenUsage: true
                 };
-                const raw = typeof generateText === 'function'
-                    ? await generateText(prompt, modelOptions)
-                    : await Utils.callChatText(prompt, 1, modelOptions);
+                if (typeof generateText !== 'function') throw new Error('AI Gateway text generation is unavailable.');
+                const raw = await generateText(prompt, modelOptions);
                 const jsonText = extractFirstJsonObject(raw);
                 if (!jsonText) {
                     return buildFallbackResult('JSON 응답 없음');

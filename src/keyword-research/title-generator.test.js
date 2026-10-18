@@ -108,11 +108,9 @@ test('parseTitleResponse handles code fences and numbered fallback', () => {
 });
 
 test('createTitleGenerator requests concise structured output and returns at most three titles', async () => {
-    let receivedRetries = null;
     let receivedOptions = null;
-    const mockUtils = {
-        callChatText: async (prompt, retries, options) => {
-            receivedRetries = retries;
+    const generator = createTitleGenerator({
+        generateText: async (prompt, options) => {
             receivedOptions = options;
             return JSON.stringify({
                 titles: [
@@ -129,9 +127,7 @@ test('createTitleGenerator requests concise structured output and returns at mos
                 ]
             });
         }
-    };
-
-    const generator = createTitleGenerator({ Utils: mockUtils });
+    });
     const result = await generator.suggestTitles({
         keywords: ['테스트 키워드', '보조 키워드'],
         subject: '테스트 주제'
@@ -140,7 +136,6 @@ test('createTitleGenerator requests concise structured output and returns at mos
     assert.equal(result.success, true);
     assert.equal(result.titles.length, 3);
     assert.equal(result.titles[0].title, '테스트 생성된 완벽한 제목');
-    assert.equal(receivedRetries, 2);
     assert.deepEqual(result.keywords, ['테스트 키워드', '보조 키워드']);
     assert.equal(receivedOptions.maxTokens, 1024);
     assert.equal(receivedOptions.reasoningEffort, 'minimal');
@@ -148,10 +143,9 @@ test('createTitleGenerator requests concise structured output and returns at mos
     assert.equal(receivedOptions.responseJsonSchema.properties.titles.maxItems, 3);
 });
 
-test('title generator uses injected Blog Writing Application text route when available', async () => {
+test('title generator uses injected AI Generation text route', async () => {
     let received = null;
     const generator = createTitleGenerator({
-        Utils: { callChatText: async () => { throw new Error('legacy route must not be used'); } },
         generateText: async (prompt, options) => {
             received = { prompt, options };
             return JSON.stringify({ titles: [

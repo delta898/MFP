@@ -3,7 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const { buildLocalMarkdownPreview, normalizeSelectedFiles, resolveMarkdownEntryFromSelectedFiles } = require('./local-markdown-preview');
-const { isCancellation, throwIfCanceled } = require('../ai/cancellation');
+const { isCancellation, throwIfCanceled } = require('../utilities/async/cancellation');
 const { requireSinglePublishTarget } = require('./single-publish-target');
 const {
     RELATED_POSTS_STATUS,

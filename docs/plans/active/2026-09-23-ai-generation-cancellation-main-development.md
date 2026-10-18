@@ -36,7 +36,7 @@ AI 모델의 응답 지연과 재시도로 생성이 수분간 끝나지 않을 
 - 클라이언트 `ui/scripts/features/blog/draft-execution.js`는 AI draft 요청을 기다리며, 공통 `postJson`은 현재 중단 신호를 받지 않는다.
 - 서버 `src/ui-api/services/content.service.js`는 원고 실행 lease를 획득하고 `finally`에서 해제한다. 요청 연결만 끊는 것은 서버 실행을 멈추는 계약이 아니다.
 - `src/utils.js`의 텍스트·이미지 호출에는 재시도와 대기 단계가 있다. 취소되면 추가 재시도를 하지 않고 대기도 즉시 끝나야 한다.
-- KIE 텍스트는 일반 HTTP 호출이다. KIE 이미지는 `src/ai/kie-market-image.js`와 `src/ai/async-job-runner.js`에서 원격 작업 ID를 받아 폴링한다. 로컬 폴링 중단과 원격 작업 취소는 별개로 표시해야 한다.
+- KIE text requests use the AI Gateway Plugin transport. KIE image generation polls a remote job ID inside the Plugin. Local cancellation and remote job cancellation remain distinct; stopping local work does not imply that the provider canceled its job.
 - 기존 생성 결과·작업공간 임시 자산·실행 잠금은 취소 시점과 늦은 응답에 따라 오염되지 않아야 한다.
 
 ## 단계와 제안 sub-feature 경계

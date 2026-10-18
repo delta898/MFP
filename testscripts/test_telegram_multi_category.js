@@ -9,10 +9,8 @@ const Logger = require('../src/utilities/logging/logger');
 async function test() {
     Logger.info("🧪 [Test] 텔레그램 멀티 카테고리 고도화 테스트 시작");
 
-    // 1. Core.parseTelegramRequest 테스트 (AI 모킹)
-    // 실제 Gemini 호출 대신 모킹을 위해 Utils.callGeminiText 일시적 오버라이드
-    const originalCallGeminiText = Utils.callGeminiText;
-    Utils.callGeminiText = async (prompt) => {
+    // 1. Core.parseTelegramRequest 테스트 (AI Gateway 경계 모킹)
+    const modelCaller = async (prompt) => {
         if (prompt.includes("네이버는 '디지털'")) {
             return JSON.stringify({
                 intent: "PUBLISH",
@@ -30,7 +28,7 @@ async function test() {
         return null;
     };
 
-    const parsed = await Core.parseTelegramRequest("네이버는 '디지털' 카테고리로, 워드프레스는 'Technology' 카테고리로 해서 'AI의 미래'에 대해 글 써줘.");
+    const parsed = await Core.parseTelegramRequest("네이버는 '디지털' 카테고리로, 워드프레스는 'Technology' 카테고리로 해서 'AI의 미래'에 대해 글 써줘.", { modelCaller });
     console.log("✅ [1] AI 파싱 결과:", JSON.stringify(parsed, null, 2));
 
     if (parsed.data.options.naver_category !== '디지털' || parsed.data.options.wordpress_category !== 'Technology') {
@@ -86,7 +84,6 @@ async function test() {
     console.log("\n🎊 모든 테스트 통과!");
 
     // 복구
-    Utils.callGeminiText = originalCallGeminiText;
 }
 
 test().catch(err => {

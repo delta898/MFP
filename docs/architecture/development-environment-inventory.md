@@ -21,7 +21,7 @@ The project ref is intentionally resolved from target-specific configuration dur
 | --- | --- | --- |
 | License and quota | `src/license.js` | license registration, recovery, quota, plan and usage RPCs |
 | Runtime settings | `src/runtime-config.js` | remotely managed runtime values |
-| AI model catalog | `src/ai/remote-model-catalog.js` | server-managed model catalog |
+| AI model catalog | `src/adapters/storage/ai-model-catalog/supabase-port.js` | server-managed model catalog |
 | Keyword research | `src/keyword-research/supabase-client.js` | keyword Edge Function gateway |
 | Knowledge gateway | `src/knowledge/server-gateway-client.js` | news and managed provider snapshots |
 | Surface content | `src/surface-content/supabase-provider.js` | configurable app content and assets |

@@ -1,4 +1,4 @@
-const { resolveChatModelSettings } = require('../../ai-model-config');
+const { resolveChatModelSettings } = require('../../services/ai/model-configuration');
 
 function createChatModelCapabilities(deps = {}) {
     const { configState } = deps;

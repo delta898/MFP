@@ -2,7 +2,8 @@ let runtimeHooks = {
     resolveWritableConfigPath: null,
     buildDefaultConfigTemplate: null,
     syncAutoRunnerWithConfig: null,
-    resolveNaverAutoCategoryCatalog: null
+    resolveNaverAutoCategoryCatalog: null,
+    generateChatText: null
 };
 
 function registerRuntimeHooks(nextHooks = {}) {

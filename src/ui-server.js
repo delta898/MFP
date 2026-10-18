@@ -40,7 +40,7 @@ const {
     normalizeStoredModelProfiles,
     mergeActiveSelectionsIntoProfiles,
     normalizeChatModelSource
-} = require('./ai-model-config');
+} = require('./services/ai/model-configuration');
 const { normalizeWritingStyle } = require('./content/writing-style');
 const { normalizeWritingStrategy } = require('./content/writing-strategy');
 const { createSnsSheetStore } = require('./applications/sns/distribution/sns-sheet-store');
@@ -891,6 +891,14 @@ registerRuntimeHooks({
     resolveWritableConfigPath,
     buildDefaultConfigTemplate,
     syncAutoRunnerWithConfig,
+    generateChatText: (prompt, modelOptions = {}) => blogWritingSystem.application.generateChatText(prompt, {
+        generationOptions: {
+            ...(typeof modelOptions.temperature === 'number' ? { temperature: modelOptions.temperature } : {}),
+            ...(typeof modelOptions.maxTokens === 'number' ? { maxOutputTokens: modelOptions.maxTokens } : {}),
+            ...(modelOptions.responseMimeType === 'application/json' ? { responseFormat: 'json' } : {}),
+            ...(modelOptions.reasoningEffort ? { reasoningEffort: modelOptions.reasoningEffort } : {})
+        }
+    })
 });
 
 function scheduleUiReload(host, port) {

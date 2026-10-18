@@ -3,7 +3,7 @@ const {
     KIE_BASE_URL,
     OPENAI_BASE_URL,
     PROVIDER_ENDPOINTS
-} = require('../../packages/plugins/core/ai-gateway/provider-endpoints');
+} = require('./provider-endpoints');
 
 const TRANSPORTS = Object.freeze({
     gemini_generate_content: Object.freeze({

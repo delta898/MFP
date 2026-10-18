@@ -9,7 +9,6 @@ const {
     getCatalogStatus,
     validateRemoteCatalog
 } = require('./catalog-registry');
-const { toStoredModelSelection } = require('../ai-model-config');
 
 test.afterEach(() => {
     clearRemoteCatalog();
@@ -360,15 +359,6 @@ test('hidden remote override is not selectable but remains resolvable', () => {
 
     assert.equal(getAiModelCatalog().text.some((item) => item.code === 'gpt-5.6-sol'), false);
     assert.equal(findModelDefinition('text', 'openai', 'gpt-5.6-sol').status, 'hidden');
-    assert.deepEqual(toStoredModelSelection({
-        provider: 'openai',
-        code: 'gpt-5.6-sol',
-        api_key: 'secret'
-    }), {
-        provider: 'openai',
-        code: 'gpt-5.6-sol',
-        api_key: 'secret'
-    });
 });
 
 test('catalog and model minimum app versions are enforced', () => {

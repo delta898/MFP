@@ -1706,7 +1706,8 @@ ${messageText}
 }`;
 
 		Logger.info("🧠 [Core] 텔레그램 메시지 AI 분석 요청 중...");
-		const rawResult = await Utils.callTelegramChatModel(prompt);
+		if (typeof context?.modelCaller !== 'function') throw new Error('AI Gateway text generation is unavailable for Telegram parsing.');
+		const rawResult = await context.modelCaller(prompt, { responseMimeType: 'application/json' });
 		if (!rawResult) throw new Error("AI 응답이 비어있습니다.");
 
 		try {
@@ -1719,16 +1720,6 @@ ${messageText}
 			throw new Error("메시지를 정확히 해석하지 못했습니다. (JSON 변환 실패)");
 		}
 	},
-	/**
-	 * 간단한 AI 인사이트 생성 (Agent memory model 활용)
-	 */
-	generateSimpleInsight: async function (prompt) {
-		const Utils = require('./utils');
-		Logger.info("🧠 [Core] Agent memory 인사이트 분석 요청 중...");
-		const result = await Utils.callAgentMemoryModel(prompt);
-		return (result || '').trim();
-	},
-
 	/**
 	* 3. 블로그 발행 (Publish)
 	*/

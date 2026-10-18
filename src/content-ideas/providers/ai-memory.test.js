@@ -1,23 +1,18 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const Utils = require('../../utils');
 const { createAiMemoryContentIdeaProvider } = require('./ai-memory');
 
 test('AI idea provider falls back quickly with natural Korean when Chat Model is rate limited', async () => {
-    const originalCallChatText = Utils.callChatText;
     let calls = 0;
-    Utils.callChatText = async (_prompt, retries, options) => {
+    const provider = createAiMemoryContentIdeaProvider({ generateText: async (_prompt, options) => {
         calls += 1;
-        assert.equal(retries, 1);
         assert.equal(options.maxTokens, 1024);
         assert.equal(options.reasoningEffort, 'minimal');
         assert.equal(options.responseMimeType, 'application/json');
         throw new Error('Request failed with status code 429');
-    };
+    } });
 
-    try {
-        const provider = createAiMemoryContentIdeaProvider();
-        const result = await provider.generate({ limit: 1 }, {
+    const result = await provider.generate({ limit: 1 }, {
             recommendationCandidates: [{
                 id: 'candidate-1',
                 topic_seed: '임지연 다이어트',
@@ -29,16 +24,12 @@ test('AI idea provider falls back quickly with natural Korean when Chat Model is
         assert.equal(result.ideas.length, 1);
         assert.equal(result.ideas[0].source, 'candidate_fallback');
         assert.doesNotMatch(result.ideas[0].title, /을\(를\)/);
-    } finally {
-        Utils.callChatText = originalCallChatText;
-    }
 });
 
 test('AI output is constrained to selected candidates and fills omitted candidates safely', async () => {
-    const originalCallChatText = Utils.callChatText;
     let prompt = '';
     let requestOptions = null;
-    Utils.callChatText = async (receivedPrompt, _retries, options) => {
+    const provider = createAiMemoryContentIdeaProvider({ generateText: async (receivedPrompt, options) => {
         prompt = receivedPrompt;
         requestOptions = options;
         return JSON.stringify({
@@ -47,11 +38,9 @@ test('AI output is constrained to selected candidates and fills omitted candidat
                 { candidate_id: 'invented-candidate', title: 'AI가 임의로 만든 글감' }
             ]
         });
-    };
+    } });
 
-    try {
-        const provider = createAiMemoryContentIdeaProvider();
-        const result = await provider.generate({ limit: 2 }, {
+    const result = await provider.generate({ limit: 2 }, {
             recommendationCandidates: [
                 { id: 'candidate-1', topic_seed: '오디세이', semantic_context: '영화 오디세이와 그리스 로마신화', explanation: '첫 번째 근거' },
                 { id: 'candidate-2', topic_seed: '두 번째 후보', explanation: '두 번째 근거' }
@@ -68,9 +57,6 @@ test('AI output is constrained to selected candidates and fills omitted candidat
         assert.equal(requestOptions.responseJsonSchema.properties.ideas.items.properties.reason, undefined);
         assert.equal(requestOptions.maxTokens, 1024);
         assert.equal(requestOptions.logTokenUsage, true);
-    } finally {
-        Utils.callChatText = originalCallChatText;
-    }
 });
 
 test('AI idea provider uses injected Blog Writing Application text generation', async () => {

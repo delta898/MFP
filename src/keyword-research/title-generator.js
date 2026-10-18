@@ -132,7 +132,7 @@ function parseTitleResponse(value) {
 }
 
 function createTitleGenerator(options = {}) {
-    const { Utils, Logger, generateText } = options;
+    const { Logger, generateText } = options;
     const logger = Logger || console;
 
     async function suggestTitles(input = {}) {
@@ -145,12 +145,7 @@ function createTitleGenerator(options = {}) {
 
         const prompt = buildTitlePrompt(input);
 
-        const legacyCall = typeof Utils?.callChatText === 'function'
-            ? Utils.callChatText.bind(Utils)
-            : (typeof Utils?.callWritingText === 'function' ? Utils.callWritingText.bind(Utils) : null);
-        if (typeof generateText !== 'function' && !legacyCall) {
-            throw new Error('AI 모델 호출을 위한 Utils 의존성이 올바르지 않습니다.');
-        }
+        if (typeof generateText !== 'function') throw new Error('AI Gateway 텍스트 생성 서비스를 사용할 수 없습니다.');
 
         try {
             const requestedCount = Math.max(1, Math.min(3, Number(input.count) || 3));
@@ -183,9 +178,7 @@ function createTitleGenerator(options = {}) {
                     }
                 }
             };
-            const responseText = typeof generateText === 'function'
-                ? await generateText(prompt, modelOptions)
-                : await legacyCall(prompt, 2, modelOptions);
+            const responseText = await generateText(prompt, modelOptions);
 
             const titles = parseTitleResponse(responseText).slice(0, requestedCount);
             return {

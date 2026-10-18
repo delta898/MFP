@@ -5,7 +5,7 @@ class InsightEngine {
     /**
      * 특정 사용자의 대화 기록을 분석하여 인사이트를 생성하고 저장합니다.
      */
-    async generateInsight(chatId) {
+    async generateInsight(chatId, dependencies = {}) {
         try {
             Logger.info(`🔍 [InsightEngine] 사용자(${chatId}) 인사이트 분석 시작...`);
             const agentEventStore = getAgentEventStore();
@@ -18,7 +18,7 @@ class InsightEngine {
             }
 
             // 2. AI 분석 요청
-            const Core = require('./core');
+            if (typeof dependencies.generateText !== 'function') throw new Error('AI Gateway text generation is unavailable.');
             const historyText = history.reverse().map(h => `[${h.intent}] ${h.text}`).join('\n');
 
             const prompt = `당신은 블로그 자동화 시스템의 전략 분석가입니다. 
@@ -31,9 +31,7 @@ ${historyText}
 [출력 형식]
 반드시 한 문장의 한국어로 응답하세요. 예: "테크 관련 최신 트렌드에 관심이 많으며 네이버 블로그에 정보성 글을 주로 발행하는 성향임."`;
 
-            // Core.generateAIText 또는 유사한 기능을 사용 (여기서는 직접 Gemini 호출 기능이 Core에 있다고 가정)
-            // parseTelegramRequest 내부에서 사용하는 AI 호출 로직을 재활용하거나 간단한 래퍼를 사용
-            const summary = await Core.generateSimpleInsight(prompt);
+            const summary = await dependencies.generateText(prompt, { maxTokens: 512, temperature: 0.3 });
 
             if (summary) {
                 Logger.info(`✨ [InsightEngine] 신규 인사이트 도출: ${summary}`);
