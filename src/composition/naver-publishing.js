@@ -14,7 +14,7 @@ function createNaverPublishingSystem(options = {}) {
         throw new TypeError('Naver publishing requires the naver-publisher Core Plugin.');
     }
     const BrowserLauncher = options.BrowserLauncher || require('../utilities/browser/browser-launcher');
-    const AuthSession = options.AuthSession || require('../auth-session');
+    const AuthSession = options.AuthSession || require('../adapters/naver/auth-session');
     const fs = options.fs || fsDefault;
     const dependencies = options.pluginDependencies || {};
     const suppliedNaverDependencies = dependencies['naver-publisher'] || {};

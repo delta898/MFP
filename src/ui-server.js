@@ -15,7 +15,7 @@ const Logger = require('./utilities/logging/logger');
 const { service: urlShorteningService } = createUrlShorteningSystem({ CONFIG, logger: Logger });
 const GoogleOAuth = require('./google-oauth');
 Logger.debug(`Application version: ${APP_VERSION}`);
-const { checkAuthSessionValid, peekAuthSessionState, clearAuthSession } = require('./auth-session');
+const { checkAuthSessionValid, peekAuthSessionState, clearAuthSession } = require('./adapters/naver/auth-session');
 const Utils = require('./utils');
 const Core = require('./core');
 const TelegramBotService = require('./telegram-bot.service');
@@ -52,7 +52,7 @@ const { createSnsDistributionRunner } = require('./applications/sns/distribution
 const { createSnsAiService } = require('./applications/sns/generation/sns-ai-service');
 const { createManualSnsService } = require('./applications/sns/publishing/manual-sns-service');
 const { normalizeSnsAiMode } = require('./services/sns/ai-policy');
-const { runInteractiveNaverLoginFlow } = require('./naver-auth-flow');
+const { runInteractiveNaverLoginFlow } = require('./adapters/naver/auth-flow');
 const { createUiSessionRuntime } = require('./ui-runtime/session-runtime');
 const { createUiHttpUtils } = require('./ui-runtime/http-utils');
 const { createQuickPublishRuntime } = require('./ui-runtime/quick-publish-runtime');

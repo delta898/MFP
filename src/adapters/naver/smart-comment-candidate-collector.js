@@ -1,4 +1,4 @@
-const { NAVER_DEFAULT_USER_AGENT } = require('../../naver-auth-flow');
+const { NAVER_DEFAULT_USER_AGENT } = require('./auth-flow');
 
 const DEFAULT_EXCERPT_MAX_CHARS = 400;
 

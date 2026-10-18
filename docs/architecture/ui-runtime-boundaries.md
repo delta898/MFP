@@ -19,12 +19,14 @@ This document captures the current runtime boundaries after the CLI-removal refa
   - Shared HTTP controller error-response and method-allowlist translation used by UI API adapters.
 - `src/adapters/ui/account/`
   - Account overview endpoint translation; account/license overview assembly belongs to `src/applications/account/overview/`.
-- `src/naver-auth-flow.js`
-  - Single implementation path for interactive Naver login flow.
+- `src/adapters/naver/auth-flow.js`
+  - Single implementation path for interactive Naver login protocol and credential-state capture.
+- `src/adapters/naver/auth-session.js`
+  - Naver session verification, process-local check cache, session-state persistence, and logout cleanup shared by UI, Blog, Shopping, and Naver publishing composition.
 - `src/runtime-feature-flags.js`
   - Plan/feature flag normalization and limits.
 - `src/ui-runtime/session-runtime.js`
-  - UI session state, cached auth checks, Google Sheets preflight state.
+  - UI login-flow progress state and Google Sheets preflight state. Naver session verification and its process-local cache live in the Naver adapter.
 - `src/ui-runtime/http-utils.js`
   - Generic request/response/static file helpers.
 - `src/ui-runtime/http-server-runtime.js`

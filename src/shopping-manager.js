@@ -8,7 +8,7 @@ const Utils = require('./utils');
 const Logger = require('./utilities/logging/logger');
 const BrowserLauncher = require('./utilities/browser/browser-launcher');
 const License = require('./license');
-const { persistAuthSessionState } = require('./auth-session');
+const { persistAuthSessionState } = require('./adapters/naver/auth-session');
 const {
     createShoppingProductGateway,
     recoverOptionalProduct

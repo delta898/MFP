@@ -4,9 +4,9 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const CONFIG = require('./config-loader');
-const BrowserLauncher = require('./utilities/browser/browser-launcher');
-const Utils = require('./utils');
+const CONFIG = require('../../config-loader');
+const BrowserLauncher = require('../../utilities/browser/browser-launcher');
+const Utils = require('../../utils');
 const { checkAuthSessionValid } = require('./auth-session');
 
 test('forced concurrent Naver session checks share one browser verification', async () => {
