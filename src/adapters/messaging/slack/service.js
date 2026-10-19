@@ -1,5 +1,5 @@
 const axios = require('axios');
-const Logger = require('./utilities/logging/logger');
+const Logger = require('../../../utilities/logging/logger');
 
 /**
  * Slack Webhook 알림 서비스

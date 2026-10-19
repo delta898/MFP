@@ -2,7 +2,7 @@
 
 const crypto = require('node:crypto');
 const { TelegramBot } = require('node-telegram-bot-api');
-const TelegramBotService = require('./telegram-bot.service');
+const TelegramBotService = require('./bot-service');
 
 const PAIRING_TTL_MS = 5 * 60 * 1000;
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';

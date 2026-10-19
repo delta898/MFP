@@ -8,7 +8,7 @@ const cheerio = require('cheerio');
 const { createLicensingRuntime } = require('./licensing');
 const { createShoppingContentPreparationRuntime } = require('./shopping-content-preparation');
 const TelegramService = require('../adapters/messaging/telegram/service');
-const SlackService = require('../slack-service');
+const SlackService = require('../adapters/messaging/slack/service');
 const { createUrlShorteningSystem } = require('./url-shortening');
 const { APP_VERSION } = require('../host/application-metadata');
 const CONFIG = require('../host/configuration/runtime-config');
@@ -35,10 +35,12 @@ const clearAuthSession = (options = {}) => NaverAuthSession.clearAuthSession({ .
 const { createPlatformWorkspaceResolver } = require('../adapters/storage/workspaces/platform-workspace');
 const { createManuscriptImageFileReader } = require('../adapters/storage/manuscript-drafts/image-file-reader');
 const { parseStructuredJsonResponse } = require('../utilities/text/structured-json-response');
-const TelegramBotService = require('../telegram-bot.service');
+const TelegramBotService = require('../adapters/messaging/telegram/bot-service');
+const { createTelegramPairingService } = require('../adapters/messaging/telegram/pairing-service');
 TelegramBotService.GoogleSheets = GoogleSheets;
 TelegramBotService.License = License;
 TelegramBotService.CONFIG = CONFIG;
+const telegramPairingService = createTelegramPairingService({ CONFIG, TelegramBotService });
 const BrowserLauncher = require('../utilities/browser/browser-launcher');
 const resolvePlatformWorkspaceDir = createPlatformWorkspaceResolver({ config: CONFIG, fs, path, logger: Logger });
 const findImageByPrefix = createManuscriptImageFileReader({ fs, path, logger: Logger });
@@ -960,6 +962,7 @@ const uiApiRouteRuntime = createUiApiRuntime({
     TelegramService,
     TelegramBotService,
     SlackService,
+    telegramPairingService,
     snsAiService,
     cardNewsLedgerStore,
     cardNewsProjectRepository,
@@ -1129,11 +1132,11 @@ const uiHttpServerRuntime = createUiHttpServerRuntime({
     stopRecommendationDelivery: () => recommendationDeliveryScheduler.stop(),
     handleGoogleOAuthCallback,
     initTelegramBotService: async () => {
-        const TelegramBotService = require('../telegram-bot.service');
+        const TelegramBotService = require('../adapters/messaging/telegram/bot-service');
         TelegramBotService.init();
     },
     stopTelegramBotService: async () => {
-        const TelegramBotService = require('../telegram-bot.service');
+        const TelegramBotService = require('../adapters/messaging/telegram/bot-service');
         await TelegramBotService.stop();
     }
 });

@@ -16,7 +16,7 @@ test('retired suggestions feature root stays removed', () => {
 });
 
 test('Telegram routes recommendation feedback through the canonical callback only', () => {
-    const source = fs.readFileSync(path.join(ROOT, 'src/telegram-bot.service.js'), 'utf8');
+    const source = fs.readFileSync(path.join(ROOT, 'src/adapters/messaging/telegram/bot-service.js'), 'utf8');
     assert.match(source, /verb === 'rec_fb'/);
     assert.doesNotMatch(source, /suggest_feedback/);
 });

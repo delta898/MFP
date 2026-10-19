@@ -29,7 +29,6 @@ const {
     normalizeStoredModelProfiles,
     normalizeChatModelSource
 } = require('../../../services/ai/model-configuration');
-const { createTelegramPairingService } = require('../../../telegram-pairing.service');
 const { isSnsAiMode } = require('../../../services/sns/ai-policy');
 const {
     readConnectionVerification,
@@ -229,6 +228,7 @@ function createSettingsService(deps = {}) {
         parseConfigValue,
         TelegramService,
         TelegramBotService,
+        SlackService,
         telegramPairingService: providedTelegramPairingService,
         socialPublisher,
         axios,
@@ -238,8 +238,7 @@ function createSettingsService(deps = {}) {
         aiGenerationService,
         aiGateway = null
     } = deps;
-    const telegramPairingService = providedTelegramPairingService
-        || createTelegramPairingService({ CONFIG, TelegramBotService });
+    const telegramPairingService = providedTelegramPairingService;
 
     const writingProfileApplication = createSettingsWritingProfileRuntime({
         fs,
@@ -895,7 +894,6 @@ function createSettingsService(deps = {}) {
 
             if (telegramSettingsChanged) {
                 try {
-                    const TelegramBotService = require('../../../telegram-bot.service');
                     await TelegramBotService.stop(); // 기존 인스턴스가 완전히 중지될 때까지 대기
                     if (CONFIG.NOTIFY_TELEGRAM_ENABLED && CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN) {
                         TelegramBotService.init(); // 새 설정으로 다시 시작
@@ -1219,7 +1217,6 @@ function createSettingsService(deps = {}) {
                 throw createApiError(400, 'MISSING_PARAMS', 'Webhook URL을 입력해주세요.');
             }
 
-            const SlackService = require('../../../slack-service');
             const result = await SlackService.testConnection(webhookUrl);
             if (!result.success) {
                 throw createApiError(400, 'TEST_FAILED', result.message || 'Slack 메시지 전송에 실패했습니다.');

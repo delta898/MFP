@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const source = fs.readFileSync(path.join(__dirname, 'telegram-bot.service.js'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, 'bot-service.js'), 'utf8');
 
 test('Telegram inbound polling uses IPv4 compatibility and delayed auto-start', () => {
     assert.match(source, /request:\s*\{ family: 4 \}/);

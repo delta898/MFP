@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
-const { createTelegramPairingService } = require('./telegram-pairing.service');
+const { createTelegramPairingService } = require('./pairing-service');
 
 class FakeBot extends EventEmitter {
     static instances = [];

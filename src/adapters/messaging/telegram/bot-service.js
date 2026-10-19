@@ -1,31 +1,31 @@
 const { TelegramBot } = require('node-telegram-bot-api');
-const Logger = require('./utilities/logging/logger');
+const Logger = require('../../../utilities/logging/logger');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
-const { createAgentRuntime } = require('./host/agent/runtime');
-const { createPlanner } = require('./host/agent/planning/planner');
-const { ConfirmationStore } = require('./adapters/storage/confirmations/confirmation-store');
-const { createCapabilityRuntime } = require('./composition/capability-runtime');
-const { createKnowledgeRuntime } = require('./composition/knowledge-runtime');
-const { createMemoryRetrievalService } = require('./services/memory/retrieval-service');
-const { generateUserInsight } = require('./services/memory/insight-generation');
-const { routeTelegramMessage, tryParseDeterministicEnvelope } = require('./adapters/messaging/telegram/agent-parser');
+const { createAgentRuntime } = require('../../../host/agent/runtime');
+const { createPlanner } = require('../../../host/agent/planning/planner');
+const { ConfirmationStore } = require('../../storage/confirmations/confirmation-store');
+const { createCapabilityRuntime } = require('../../../composition/capability-runtime');
+const { createKnowledgeRuntime } = require('../../../composition/knowledge-runtime');
+const { createMemoryRetrievalService } = require('../../../services/memory/retrieval-service');
+const { generateUserInsight } = require('../../../services/memory/insight-generation');
+const { routeTelegramMessage, tryParseDeterministicEnvelope } = require('./agent-parser');
 const {
     mapLegacyTelegramContentRequest,
     isCanonicalContentRequestBundle,
     applyContentRequestToggle,
     isPublishExecutionEnabled
-} = require('./adapters/messaging/telegram/content-request-mapper');
-const TelegramAgentRenderer = require('./adapters/messaging/telegram/agent-renderer');
-const { getInternalUiOrigin } = require('./utilities/network/internal-ui-origin');
-const { getAgentEventStore } = require('./host/memory/runtime');
-const { recordRecommendationFeedback } = require('./services/recommendations/adapters/recommendation-feedback-adapter');
+} = require('./content-request-mapper');
+const TelegramAgentRenderer = require('./agent-renderer');
+const { getInternalUiOrigin } = require('../../../utilities/network/internal-ui-origin');
+const { getAgentEventStore } = require('../../../host/memory/runtime');
+const { recordRecommendationFeedback } = require('../../../services/recommendations/adapters/recommendation-feedback-adapter');
 const {
     calculateTelegramPollingBackoffMs,
     describeTelegramError,
     formatTelegramDiagnostic
-} = require('./adapters/messaging/telegram/network-policy');
+} = require('./network-policy');
 
 class TelegramBotService {
     static CONFIG = {};
@@ -874,56 +874,16 @@ class TelegramBotService {
                             query.message,
                             requestBundle.register_request
                         );
-                        let registerResult = null;
-
-                        if (this.agentCapabilityRegistry) {
-                            registerResult = await this.agentCapabilityRegistry.executeAction({
-                                id: `${requestBundle.register_request.request_id}:execute`,
-                                type: 'content.register',
-                                domain: 'content.register_topic',
-                                name: 'execute',
-                                params: pData
-                            }, registerContext);
-                        } else {
-                            const newTopics = [];
-                            const platforms = pData.platforms || ['naver'];
-                            for (const p of platforms) {
-                                const isWP = String(p || '').toLowerCase().includes('wordpress');
-                                const platformCategory = isWP
-                                    ? (pData.options?.wordpress_category || pData.options?.category || '')
-                                    : (pData.options?.naver_category || pData.options?.category || '');
-
-                                newTopics.push({
-                                    subject: pData.theme || '주제 없음',
-                                    keywords: pData.keywords || [],
-                                    category: platformCategory,
-                                    image_generation: pData.options?.image_gen === true,
-                                    use_external_ref: pData.options?.external_reference !== false,
-                                    post_status: pData.options?.post_status || '',
-                                    options: {
-                                        ...(pData.options || {})
-                                    },
-                                    source: 'telegram',
-                                    chatId: chatId,
-                                    memory_provenance: {
-                                        channel: registerContext.channel,
-                                        actor_type: 'user',
-                                        actor_id: registerContext.user.id,
-                                        conversation_id: registerContext.conversation.id,
-                                        message_id: registerContext.messageId,
-                                        request_id: registerContext.metadata.request_id
-                                    }
-                                });
-                            }
-                            const appendRes = await TelegramBotService.GoogleSheets.appendGoogleSheetTopics(newTopics, { defaultStatus: '발행 준비 완료' });
-                            registerResult = {
-                                success: true,
-                                data: {
-                                    theme: pData.theme || '',
-                                    rowIndices: appendRes?.rowIndices || []
-                                }
-                            };
+                        if (!this.agentCapabilityRegistry) {
+                            throw new Error('Telegram Agent capability registry is not initialized.');
                         }
+                        const registerResult = await this.agentCapabilityRegistry.executeAction({
+                            id: `${requestBundle.register_request.request_id}:execute`,
+                            type: 'content.register',
+                            domain: 'content.register_topic',
+                            name: 'execute',
+                            params: pData
+                        }, registerContext);
 
                         addedRowIndices = registerResult?.data?.rowIndices || [];
 
