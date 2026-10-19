@@ -80,24 +80,24 @@ const { createSnsAiService } = require('./applications/sns/generation/sns-ai-ser
 const { createManualSnsService } = require('./applications/sns/publishing/manual-sns-service');
 const { normalizeSnsAiMode } = require('./services/sns/ai-policy');
 const { runInteractiveNaverLoginFlow } = require('./adapters/naver/auth-flow');
-const { createUiSessionRuntime } = require('./ui-runtime/session-runtime');
-const { createUiHttpUtils } = require('./ui-runtime/http-utils');
+const { createUiSessionRuntime } = require('./adapters/ui/account/session/session-runtime');
+const { createUiHttpUtils } = require('./adapters/ui/http/http-utils');
 const { createQuickPublishRuntime } = require('./composition/quick-publish-runtime');
 const { createAutoRunnerRuntime } = require('./ui-runtime/auto-runner-runtime');
 const { createAutoCycleRuntime } = require('./ui-runtime/auto-cycle-runtime');
 const { createContentActionsRuntime } = require('./ui-runtime/content-actions-runtime');
 const { createTrendActionsRuntime } = require('./ui-runtime/trend-actions-runtime');
 const { createPublishActionsRuntime } = require('./ui-runtime/publish-actions-runtime');
-const { createUiApiRouteRuntime } = require('./ui-runtime/api-route-runtime');
+const { createUiApiRuntime } = require('./composition/api/ui-api-runtime');
 const { createBlogBetaRuntimeComposition } = require('./composition/blog-beta-runtime');
 const { createSocialPublishingSystem } = require('./composition/social-publishing');
 const { createCardNewsGenerationSystem } = require('./composition/card-news-generation');
 const { createSnsGenerationSystem } = require('./composition/sns-generation');
 const { createBundledWidgetPluginCatalog } = require('./composition/widget-plugins');
-const { createUiHttpServerRuntime } = require('./ui-runtime/http-server-runtime');
-const { createHtmlCompositionRuntime } = require('./ui-runtime/html-composition-runtime');
-const { createCssCompositionRuntime } = require('./ui-runtime/css-composition-runtime');
-const { createJsCompositionRuntime } = require('./ui-runtime/js-composition-runtime');
+const { createUiHttpServerRuntime } = require('./host/ui/http-server-runtime');
+const { createHtmlCompositionRuntime } = require('./adapters/ui/assets/composition/html-composition');
+const { createCssCompositionRuntime } = require('./adapters/ui/assets/composition/css-composition');
+const { createJsCompositionRuntime } = require('./adapters/ui/assets/composition/js-composition');
 const { closeAgentMemory, getAgentEventStore, initializeAgentMemory } = require('./host/memory/runtime');
 const { createActivityLifecycleRecorder } = require('./services/memory/activity-lifecycle');
 const { createCapabilityRuntime } = require('./composition/capability-runtime');
@@ -106,11 +106,12 @@ const { createAgentRuntime } = require('./host/agent/runtime');
 const { ConfirmationStore } = require('./adapters/storage/confirmations/confirmation-store');
 const { createTopicRecommendationLearningService } = require('./services/recommendations/topic-recommendation-learning');
 const { recordRecommendationFeedback } = require('./services/recommendations/adapters/recommendation-feedback-adapter');
-const { createUiRecommendationRuntime } = require('./ui-runtime/recommendation-runtime');
-const { createUiHelpersRuntime } = require('./ui-runtime/ui-helpers-runtime');
-const { createUiConfigFileRuntime } = require('./ui-runtime/config-file-runtime');
-const { createAutomationPolicyRuntime } = require('./ui-runtime/automation-policy-runtime');
-const { createUiSettingsFieldsRuntime } = require('./ui-runtime/settings-fields-runtime');
+const { createRecommendationRuntime } = require('./composition/recommendations/runtime');
+const { parseIntSafe, parseBoolQuery, normalizeSortDir } = require('./adapters/ui/http/query-values');
+const { sortShoppingItems, sortTopicItems } = require('./adapters/ui/content/content-api/sorting');
+const { createConfigFileRuntime } = require('./host/configuration/ui-config-file');
+const { createAutoPublishPolicy } = require('./applications/blog/automation/auto-publish-policy');
+const { createSettingsFields } = require('./adapters/ui/settings/settings-fields');
 const {
     toFeatureMap,
     getFeatureBool,
@@ -246,15 +247,7 @@ const cssCompositionRuntime = createCssCompositionRuntime({ fs, path });
 const composeUiStyles = (uiRoot) => cssCompositionRuntime.composeCssFile({ uiRoot }).css;
 const jsCompositionRuntime = createJsCompositionRuntime({ fs, path });
 const composeUiScript = (uiRoot) => jsCompositionRuntime.composeJsFile({ uiRoot }).js;
-const uiHelpersRuntime = createUiHelpersRuntime();
-const {
-    normalizeSortDir,
-    parseBoolQuery,
-    parseIntSafe,
-    sortShoppingItems,
-    sortTopicItems
-} = uiHelpersRuntime;
-const uiConfigFileRuntime = createUiConfigFileRuntime({
+const uiConfigFileRuntime = createConfigFileRuntime({
     fs,
     crypto,
     CONFIG,
@@ -389,7 +382,7 @@ const {
     retrievalService: topicRecommendationRetrievalService,
     refreshService: recommendationCenterRefreshService,
     deliveryScheduler: recommendationDeliveryScheduler
-} = createUiRecommendationRuntime({
+} = createRecommendationRuntime({
     CONFIG,
     License,
     Logger,
@@ -418,7 +411,7 @@ const snsDistributionRunner = createSnsDistributionRunner({
     Logger,
     recordActivityLifecycle
 });
-const automationPolicyRuntime = createAutomationPolicyRuntime({
+const autoPublishPolicy = createAutoPublishPolicy({
     CONFIG,
     Logger,
     toBoolLike,
@@ -440,7 +433,7 @@ const {
     normalizeCollectTrendsSettings,
     normalizePublishAutoSettings,
     normalizeBlogAutoSettings
-} = automationPolicyRuntime;
+} = autoPublishPolicy;
 const autoRunnerRuntime = createAutoRunnerRuntime({
     CONFIG,
     Logger,
@@ -696,7 +689,7 @@ function toBoolLike(input, fallback = false) {
     return fallback;
 }
 
-const uiSettingsFieldsRuntime = createUiSettingsFieldsRuntime({
+const uiSettingsFieldsRuntime = createSettingsFields({
     fs,
     path,
     CONFIG,
@@ -929,7 +922,7 @@ function scheduleUiReload(host, port) {
         await reloadUiServer(host, port);
     }, 500);
 }
-const uiApiRouteRuntime = createUiApiRouteRuntime({
+const uiApiRouteRuntime = createUiApiRuntime({
     APP_VERSION,
     Logger,
     Updater,

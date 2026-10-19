@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { createJsCompositionRuntime } = require('../src/ui-runtime/js-composition-runtime');
+const { createJsCompositionRuntime } = require('../src/adapters/ui/assets/composition/js-composition');
 const { evaluateUiSize } = require('./ui-size-policy');
 
 const repoRoot = path.resolve(__dirname, '..');

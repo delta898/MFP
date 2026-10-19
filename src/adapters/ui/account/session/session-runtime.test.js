@@ -7,8 +7,8 @@ const { createUiSessionRuntime } = require('./session-runtime');
 const {
     configureConnectionVerificationState,
     readConnectionVerification
-} = require('../adapters/storage/connection-verifications/state-store');
-const { createConnectionSignature } = require('../services/connection-verification/policy');
+} = require('../../../../adapters/storage/connection-verifications/state-store');
+const { createConnectionSignature } = require('../../../../services/connection-verification/policy');
 
 function createRuntime(overrides = {}) {
     return createUiSessionRuntime({

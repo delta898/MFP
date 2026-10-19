@@ -1,21 +1,21 @@
-const { ConfirmationStore } = require('../adapters/storage/confirmations/confirmation-store');
-const { createMemoryRetrievalService } = require('../services/memory/retrieval-service');
-const { createRecommendationMaterializer } = require('../services/recommendations/adapters/recommendation-materializer');
-const { createRecommendationDeliveryScheduler } = require('../services/recommendations/delivery/scheduler');
-const { createRecommendationHandoffService } = require('../services/recommendations/handoff/service');
-const { createPolicyContextCollector } = require('../services/recommendations/policy/context');
-const { createRecommendationPolicyEvaluator } = require('../services/recommendations/policy/evaluator');
-const { createCommerceOpportunityProducer } = require('../services/recommendations/producers/commerce-opportunity');
-const { createContentKnowledgeCollector } = require('../services/recommendations/producers/content-knowledge-collector');
-const { createContentOpportunityProducer } = require('../services/recommendations/producers/content-opportunity');
-const { createJobRecoveryProducer } = require('../services/recommendations/producers/job-recovery');
-const { createOperationalStateCollector } = require('../services/recommendations/producers/operational-state-collector');
-const { createPendingWorkflowProducer } = require('../services/recommendations/producers/pending-workflow');
-const { createRecommendationProducerRunner } = require('../services/recommendations/producers/runtime');
-const { createSetupGuidanceProducer } = require('../services/recommendations/producers/setup-guidance');
-const { createRecommendationRefreshService } = require('../services/recommendations/delivery/refresh-service');
+const { ConfirmationStore } = require('../../adapters/storage/confirmations/confirmation-store');
+const { createMemoryRetrievalService } = require('../../services/memory/retrieval-service');
+const { createRecommendationMaterializer } = require('../../services/recommendations/adapters/recommendation-materializer');
+const { createRecommendationDeliveryScheduler } = require('../../services/recommendations/delivery/scheduler');
+const { createRecommendationHandoffService } = require('../../services/recommendations/handoff/service');
+const { createPolicyContextCollector } = require('../../services/recommendations/policy/context');
+const { createRecommendationPolicyEvaluator } = require('../../services/recommendations/policy/evaluator');
+const { createCommerceOpportunityProducer } = require('../../services/recommendations/producers/commerce-opportunity');
+const { createContentKnowledgeCollector } = require('../../services/recommendations/producers/content-knowledge-collector');
+const { createContentOpportunityProducer } = require('../../services/recommendations/producers/content-opportunity');
+const { createJobRecoveryProducer } = require('../../services/recommendations/producers/job-recovery');
+const { createOperationalStateCollector } = require('../../services/recommendations/producers/operational-state-collector');
+const { createPendingWorkflowProducer } = require('../../services/recommendations/producers/pending-workflow');
+const { createRecommendationProducerRunner } = require('../../services/recommendations/producers/runtime');
+const { createSetupGuidanceProducer } = require('../../services/recommendations/producers/setup-guidance');
+const { createRecommendationRefreshService } = require('../../services/recommendations/delivery/refresh-service');
 
-function createUiRecommendationRuntime(options = {}) {
+function createRecommendationRuntime(options = {}) {
     const { CONFIG, License, Logger, eventStore, capabilityRegistry, fs, path } = options;
     const confirmationStore = options.confirmationStore || new ConfirmationStore({
         persistPath: path.join(CONFIG.ROOT_DIR || process.cwd(), 'data', 'recommendation-confirmations.json')
@@ -81,4 +81,4 @@ function createUiRecommendationRuntime(options = {}) {
     };
 }
 
-module.exports = { createUiRecommendationRuntime };
+module.exports = { createRecommendationRuntime };

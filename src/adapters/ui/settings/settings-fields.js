@@ -1,4 +1,4 @@
-function createUiSettingsFieldsRuntime(deps = {}) {
+function createSettingsFields(deps = {}) {
     const {
         fs,
         path,
@@ -673,5 +673,5 @@ function createUiSettingsFieldsRuntime(deps = {}) {
 }
 
 module.exports = {
-    createUiSettingsFieldsRuntime
+    createSettingsFields
 };

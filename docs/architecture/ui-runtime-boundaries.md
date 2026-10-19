@@ -39,23 +39,27 @@ This document captures the current runtime boundaries after the CLI-removal refa
   - Naver session verification, process-local check cache, session-state persistence, and logout cleanup shared by UI, Blog, Shopping, and Naver publishing composition.
 - `src/runtime-feature-flags.js`
   - Plan/feature flag normalization and limits.
-- `src/ui-runtime/session-runtime.js`
-  - UI login-flow progress state and Google Sheets preflight state. Naver session verification and its process-local cache live in the Naver adapter.
-- `src/ui-runtime/http-utils.js`
-  - Generic request/response/static file helpers.
-- `src/ui-runtime/http-server-runtime.js`
-  - HTTP server lifecycle and request dispatch bootstrap.
-- `src/ui-runtime/html-composition-runtime.js`
+- `src/adapters/ui/account/session/session-runtime.js`
+  - UI login-flow progress state and Google Sheets preflight response mapping. Naver session verification and its process-local cache live in the Naver adapter.
+- `src/adapters/ui/http/http-utils.js`
+  - UI request/response, static path, MIME, and JSON body transport helpers.
+- `src/host/ui/http-server-runtime.js`
+  - UI HTTP server lifecycle and request dispatch bootstrap.
+- `src/adapters/ui/assets/composition/html-composition.js`
   - Synchronous, fail-fast composition of the UI shell and feature HTML partials.
   - Rejects missing, escaping, non-HTML, and cyclic include paths before the server listens.
-- `src/ui-runtime/css-composition-runtime.js`
+- `src/adapters/ui/assets/composition/css-composition.js`
   - Synchronous composition of ordered base, layout, component, and feature CSS modules.
-- `src/ui-runtime/js-composition-runtime.js`
+- `src/adapters/ui/assets/composition/js-composition.js`
   - Synchronous, ordered composition of foundation, shell, and feature JavaScript modules.
   - Rejects invalid, escaping, missing, non-JavaScript, and cyclic include paths.
-- `src/ui-runtime/text-composition-runtime.js`
+- `src/adapters/ui/assets/composition/text-composition.js`
   - Shared safe path, extension, missing-file, and cycle enforcement for UI text assets.
-- `src/ui-runtime/api-route-runtime.js`
+- `src/adapters/ui/http/query-values.js`
+  - Shared UI query value parsing; product DTO sorting stays in the Content API adapter.
+- `src/adapters/ui/content/content-api/sorting.js`
+  - Blog topic and Shopping content list sorting for the existing Content API response.
+- `src/composition/api/ui-api-runtime.js`
   - API route assembly, handler caching, and request context wiring.
 - `src/applications/recommendations/center/application.js`
   - Owns owner-scoped Recommendation listing and explicit open/snooze/dismiss/discovery/confirmation workflows.
@@ -68,18 +72,18 @@ This document captures the current runtime boundaries after the CLI-removal refa
   - Starts the same refresh pipeline after HTTP listen and owns periodic timing, persisted next-run state,
     single catch-up, concurrent-run coalescing and provider-failure backoff.
   - It never imports UI modules or reimplements producer/policy decisions.
-- `src/ui-runtime/config-file-runtime.js`
-  - Config file source resolution, read/write helpers, revision helpers.
-- `src/ui-runtime/settings-fields-runtime.js`
-  - Major settings field projection, request parsing, runtime config application,
-    and shopping image/config persistence policy.
-- `src/ui-runtime/automation-policy-runtime.js`
-  - Automation schedule, trend/publish option, reuse-history, and shopping policy
-    normalization shared by the UI runners.
-- `src/ui-runtime/ui-helpers-runtime.js`
-  - UI-focused sort and query utilities.
-- `src/ui-runtime/quick-publish-runtime.js`
-  - Quick publish dedupe cache and preview session state.
+- `src/composition/recommendations/runtime.js`
+  - Wires recommendation stores, producers, policy, refresh workflow and scheduler at the application composition boundary.
+- `src/host/configuration/ui-config-file.js`
+  - Runtime config source resolution, raw file reads, revision hashing, and default template generation.
+- `src/adapters/ui/settings/settings-fields.js`
+  - UI settings field projection/request parsing and Shopping image request helpers; it is a transitional UI adapter consumed through composition.
+- `src/applications/blog/automation/auto-publish-policy.js`
+  - Blog auto-publish configuration normalization and validation used by the UI boundary.
+- `src/adapters/ui/http/query-values.js` and `src/adapters/ui/content/content-api/sorting.js`
+  - Shared UI query parsing and content-list sorting mechanics.
+- `src/applications/blog/publishing/quick-publish-state.js`
+  - Blog quick-publish dedupe and preview session state; receives transient workspace lifecycle through an injected adapter.
 - `src/ui-runtime/publish-actions-runtime.js`
   - Quick publish, local markdown publish, multi-platform publish orchestration.
 - `src/ui-runtime/content-actions-runtime.js`
@@ -90,6 +94,8 @@ This document captures the current runtime boundaries after the CLI-removal refa
   - Long-lived scheduler state and next-run scheduling.
 - `src/ui-runtime/auto-cycle-runtime.js`
   - Blog/shopping auto-cycle execution, RSS collection, auto publish orchestration.
+- `src/utilities/network/internal-ui-origin.js`
+  - Shared normalization for internal loopback calls into the UI server.
 
 ## Dashboard Composition Boundary
 
@@ -107,7 +113,7 @@ There is no user-facing CLI command surface anymore. Login, license, publishing,
 
 The desired direction is:
 
-`host entrypoints -> ui-server/runtime modules -> services and Applications`
+`host entrypoints -> composition -> UI adapters and Host services -> product Applications and shared services`
 
 Not:
 
@@ -134,7 +140,7 @@ server-side evaluation so the center is usable before proactive scheduling exist
 background triggers remain outside this surface.
 
 ## Practical Rules
-- When a UI workflow grows beyond a few helpers, move it into `src/ui-runtime/`.
+- Keep UI transport and endpoint translation under `src/adapters/ui/`; keep server lifecycle under `src/host/ui/`; keep screen workflows in their owning `src/applications/<product>/` directory. `src/ui-runtime/` is a migration-only directory and must not receive new modules.
 - Keep `ui/index.html` as the bounded document shell and place feature markup in
   `ui/partials/views/`. Large views such as blog and settings use nested tab
   partials. Use 500 lines as a review prompt for a partial and 800 as its hard

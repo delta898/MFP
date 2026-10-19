@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const { createCssCompositionRuntime } = require('../src/ui-runtime/css-composition-runtime');
+const { createCssCompositionRuntime } = require('../src/adapters/ui/assets/composition/css-composition');
 const {
   getRegisteredStyleIds,
   getStyleRepoPath,
@@ -16,7 +16,7 @@ const {
   DESIGN_SYSTEM_STYLE_TARGETS,
   getDesignSystemStylePaths
 } = require('./design-system-targets');
-const { createHtmlCompositionRuntime } = require('../src/ui-runtime/html-composition-runtime');
+const { createHtmlCompositionRuntime } = require('../src/adapters/ui/assets/composition/html-composition');
 const { DESIGN_STYLE_CONTRACT_VERSION } = require('../ui/scripts/foundation/design-style-token-contract');
 
 const repoRoot = path.resolve(__dirname, '..');

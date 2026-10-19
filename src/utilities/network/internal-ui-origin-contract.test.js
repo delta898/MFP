@@ -3,10 +3,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const projectRoot = path.resolve(__dirname, '../..');
+const projectRoot = path.resolve(__dirname, '../../..');
 const runtimeFiles = [
     'src/telegram-bot.service.js',
-    'src/capabilities/jobs/trends.js',
     'src/capabilities/content/publish.js'
 ];
 

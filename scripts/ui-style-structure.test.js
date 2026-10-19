@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { createCssCompositionRuntime } = require('../src/ui-runtime/css-composition-runtime');
+const { createCssCompositionRuntime } = require('../src/adapters/ui/assets/composition/css-composition');
 const { evaluateUiSize } = require('./ui-size-policy');
 const { CONTRACTS, getDesignSystemStylePaths } = require('./design-system-targets');
 const { getRegisteredStyleIds, getStyleModulePath } = require('./design-style-registry-test-utils');

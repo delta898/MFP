@@ -1,4 +1,4 @@
-function createUiConfigFileRuntime(deps = {}) {
+function createConfigFileRuntime(deps = {}) {
     const {
         fs,
         crypto,
@@ -104,5 +104,5 @@ function createUiConfigFileRuntime(deps = {}) {
 }
 
 module.exports = {
-    createUiConfigFileRuntime
+    createConfigFileRuntime
 };

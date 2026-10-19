@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const { createUiHttpUtils } = require('./http-utils');
+const { createUiHttpUtils } = require('../../adapters/ui/http/http-utils');
 const { createUiHttpServerRuntime } = require('./http-server-runtime');
 
 function createWindowsServerHarness(overrides = {}) {

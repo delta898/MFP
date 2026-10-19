@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { createCssCompositionRuntime } = require('./css-composition-runtime');
+const { createCssCompositionRuntime } = require('./css-composition');
 
 function withFixture(files, callback) {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bloggenius-ui-css-'));

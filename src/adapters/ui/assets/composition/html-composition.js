@@ -1,4 +1,4 @@
-const { createTextCompositionRuntime } = require('./text-composition-runtime');
+const { createTextCompositionRuntime } = require('./text-composition');
 
 function createHtmlCompositionRuntime(deps = {}) {
     const textRuntime = createTextCompositionRuntime(deps);

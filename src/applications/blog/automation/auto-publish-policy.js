@@ -1,6 +1,6 @@
-const { normalizeBlogImageMode } = require('../applications/blog/writing/blog-image-mode');
+const { normalizeBlogImageMode } = require('../writing/blog-image-mode');
 
-function createAutomationPolicyRuntime(deps = {}) {
+function createAutoPublishPolicy(deps = {}) {
     const {
         CONFIG,
         Logger,
@@ -317,5 +317,5 @@ function createAutomationPolicyRuntime(deps = {}) {
 }
 
 module.exports = {
-    createAutomationPolicyRuntime
+    createAutoPublishPolicy
 };

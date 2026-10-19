@@ -2,8 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { createHtmlCompositionRuntime } = require('../src/ui-runtime/html-composition-runtime');
-const { createCssCompositionRuntime } = require('../src/ui-runtime/css-composition-runtime');
+const { createHtmlCompositionRuntime } = require('../src/adapters/ui/assets/composition/html-composition');
+const { createCssCompositionRuntime } = require('../src/adapters/ui/assets/composition/css-composition');
 const { readCardNewsPreviewScripts } = require('./helpers/ui-feature-scripts');
 
 const repoRoot = path.resolve(__dirname, '..');
@@ -23,7 +23,7 @@ test('Card News is a top-level source-preview workflow', () => {
         'scripts/features/card-news/management.js',
         'scripts/features/card-news/source-manager.js'
     ].map((file) => fs.readFileSync(path.join(uiRoot, file), 'utf8')).join('\n');
-    const httpServerRuntime = fs.readFileSync(path.join(repoRoot, 'src/ui-runtime/http-server-runtime.js'), 'utf8');
+    const httpServerRuntime = fs.readFileSync(path.join(repoRoot, 'src/host/ui/http-server-runtime.js'), 'utf8');
     const workflowStyles = fs.readFileSync(path.join(uiRoot, 'styles/patterns/overview-card.css'), 'utf8');
     const cardNewsStyles = fs.readFileSync(path.join(uiRoot, 'styles/features/card-news.css'), 'utf8');
 

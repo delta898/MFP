@@ -1,6 +1,6 @@
 'use strict';
 
-const { createQuickPublishRuntime: createQuickPublishRuntimeState } = require('../ui-runtime/quick-publish-runtime');
+const { createQuickPublishRuntime: createQuickPublishRuntimeState } = require('../applications/blog/publishing/quick-publish-state');
 const { createTransientPreviewWorkspaceManager } = require('../adapters/storage/manuscript-drafts/transient-preview-workspace');
 
 function createQuickPublishRuntime(options = {}) {

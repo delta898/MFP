@@ -1,12 +1,12 @@
 'use strict';
 
-const { createGitHubDesignStyleCatalog } = require('../adapters/catalogs/amade/design-style-catalog');
-const { createDesignStylesRouteHandler } = require('../adapters/ui/site-hosting/design-styles/routes');
-const { createManuscriptDraftService } = require('../applications/blog/manuscript-drafts/application');
-const { createCorePluginsRouteHandler } = require('../adapters/ui/plugins/core-plugins.routes');
-const { createWidgetPluginsRouteHandler } = require('../adapters/ui/widget-plugins.routes');
+const { createGitHubDesignStyleCatalog } = require('../../adapters/catalogs/amade/design-style-catalog');
+const { createDesignStylesRouteHandler } = require('../../adapters/ui/site-hosting/design-styles/routes');
+const { createManuscriptDraftService } = require('../../applications/blog/manuscript-drafts/application');
+const { createCorePluginsRouteHandler } = require('../../adapters/ui/plugins/core-plugins.routes');
+const { createWidgetPluginsRouteHandler } = require('../../adapters/ui/widget-plugins.routes');
 
-function createUiApiRouteRuntime(deps = {}) {
+function createUiApiRuntime(deps = {}) {
     const {
         APP_VERSION,
         Logger,
@@ -686,5 +686,5 @@ function createUiApiRouteRuntime(deps = {}) {
 }
 
 module.exports = {
-    createUiApiRouteRuntime
+    createUiApiRuntime
 };

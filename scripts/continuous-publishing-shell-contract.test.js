@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { createHtmlCompositionRuntime } = require('../src/ui-runtime/html-composition-runtime');
+const { createHtmlCompositionRuntime } = require('../src/adapters/ui/assets/composition/html-composition');
 
 const repoRoot = path.resolve(__dirname, '..');
 

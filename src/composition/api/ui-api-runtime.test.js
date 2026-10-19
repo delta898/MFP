@@ -3,14 +3,14 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
-const { createUiApiRouteRuntime } = require('./api-route-runtime');
+const { createUiApiRuntime } = require('./ui-api-runtime');
 
 test('settings route receives remote MCP configuration dependencies', () => {
     const ensureRuntimeRemoteMcpConfig = () => ({ enabled: false });
     const generateRemoteMcpBearerToken = () => 'token';
     let serviceDependencies;
 
-    const runtime = createUiApiRouteRuntime({
+    const runtime = createUiApiRuntime({
         createSettingsService(dependencies) {
             serviceDependencies = dependencies;
             return {};

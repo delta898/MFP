@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { createContentApiService } = require('./service');
-const { createUiSettingsFieldsRuntime } = require('../../../../ui-runtime/settings-fields-runtime');
+const { createSettingsFields } = require('../../settings/settings-fields');
 
 test('shopping image upload persists structured config and updates runtime state', async () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bloggenius-shopping-image-'));
@@ -25,7 +25,7 @@ test('shopping image upload persists structured config and updates runtime state
     const slotMap = {
         cta2: { key: 'SHOPPING_CTA_IMAGE_URL2', fileBase: 'shopping_cta_2', label: 'CTA 2', required: false }
     };
-    const settingsRuntime = createUiSettingsFieldsRuntime({
+    const settingsRuntime = createSettingsFields({
         path,
         shoppingImageSlotMap: slotMap,
         defaultShoppingImageSources: {},

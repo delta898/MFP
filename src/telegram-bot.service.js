@@ -19,7 +19,7 @@ const {
     isPublishExecutionEnabled
 } = require('./adapters/messaging/telegram/content-request-mapper');
 const TelegramAgentRenderer = require('./adapters/messaging/telegram/agent-renderer');
-const { getInternalUiOrigin } = require('./ui-runtime/internal-ui-origin');
+const { getInternalUiOrigin } = require('./utilities/network/internal-ui-origin');
 const { getRuntimeHooks } = require('./runtime-hooks');
 const { getAgentEventStore } = require('./host/memory/runtime');
 const { recordRecommendationFeedback } = require('./services/recommendations/adapters/recommendation-feedback-adapter');

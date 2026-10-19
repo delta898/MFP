@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { createAutomationPolicyRuntime } = require('./automation-policy-runtime');
+const { createAutoPublishPolicy } = require('./auto-publish-policy');
 
 function normalizeBool(value, fallback = false) {
     if (typeof value === 'boolean') return value;
@@ -16,7 +16,7 @@ function normalizeInteger(value, fallback, { minimum = 0 } = {}) {
 }
 
 function createRuntime(CONFIG = {}) {
-    return createAutomationPolicyRuntime({
+    return createAutoPublishPolicy({
         CONFIG,
         Logger: { info() {}, debug() {} },
         toBoolLike: normalizeBool,

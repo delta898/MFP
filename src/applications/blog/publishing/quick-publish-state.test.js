@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { createQuickPublishRuntime } = require('./quick-publish-runtime');
+const { createQuickPublishRuntime } = require('./quick-publish-state');
 
 test('disposing a preview session also releases its owned generated workspace', () => {
     const disposed = [];

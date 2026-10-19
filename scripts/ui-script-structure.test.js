@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const { createJsCompositionRuntime } = require('../src/ui-runtime/js-composition-runtime');
+const { createJsCompositionRuntime } = require('../src/adapters/ui/assets/composition/js-composition');
 const { evaluateUiSize } = require('./ui-size-policy');
 
 const repoRoot = path.resolve(__dirname, '..');

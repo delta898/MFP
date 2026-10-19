@@ -1,7 +1,7 @@
 const {
     recordConnectionVerification
-} = require('../adapters/storage/connection-verifications/state-store');
-const { createConnectionSignature } = require('../services/connection-verification/policy');
+} = require('../../../../adapters/storage/connection-verifications/state-store');
+const { createConnectionSignature } = require('../../../../services/connection-verification/policy');
 
 function createUiSessionRuntime(deps = {}) {
     const {

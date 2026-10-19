@@ -26,5 +26,5 @@ test('ui-server remains a bounded composition root', () => {
     }
 
     assert.match(source, /createAutomationPolicyRuntime/);
-    assert.match(source, /createUiSettingsFieldsRuntime/);
+    assert.match(source, /createSettingsFields/);
 });

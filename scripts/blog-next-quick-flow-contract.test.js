@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const { createHtmlCompositionRuntime } = require('../src/ui-runtime/html-composition-runtime');
+const { createHtmlCompositionRuntime } = require('../src/adapters/ui/assets/composition/html-composition');
 
 const repoRoot = path.resolve(__dirname, '..');
 const uiRoot = path.join(repoRoot, 'ui');
