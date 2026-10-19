@@ -89,4 +89,3 @@ function resetTableSort(tableName) {
   state.direction = 'desc';
   updateSortableHeadersUi();
 }
-

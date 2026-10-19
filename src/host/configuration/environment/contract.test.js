@@ -23,4 +23,3 @@ test('environment names are strict and do not silently alias dev to development'
     assert.throws(() => assertEnvironmentName('dev'), /Unknown BlogGenius environment/);
     assert.throws(() => assertEnvironmentName(''), /\(empty\)/);
 });
-
