@@ -72,7 +72,7 @@ test('buildQuickPublishRecommendationResponse returns reviewable apply payloads'
 test('createQuickPublishRecommendationService delegates to keyword pipeline', async () => {
     const calls = [];
     const service = createQuickPublishRecommendationService({
-        keywordResearchService: {
+        keywordResearchApplication: {
             async researchAndSuggestTitles(input) {
                 calls.push(input);
                 return {

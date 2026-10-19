@@ -1,6 +1,7 @@
 const { createCapabilityRegistry } = require('../capabilities');
 const { createBlogTopicRecommendationsApplication } = require('../applications/blog/topic-recommendations/application');
 const { createAiMemoryContentIdeaProvider } = require('../applications/blog/topic-recommendations/ai-memory-provider');
+const { createBlogKeywordResearchRuntime } = require('./blog-keyword-research');
 
 function createCapabilityRuntime(deps = {}) {
     const topicRecommendationsApplication = deps.topicRecommendationsApplication
@@ -23,7 +24,10 @@ function createCapabilityRuntime(deps = {}) {
             ]
         });
 
-    return createCapabilityRegistry({ ...deps, topicRecommendationsApplication });
+    const keywordResearchApplication = deps.keywordResearchApplication
+        || createBlogKeywordResearchRuntime(deps);
+
+    return createCapabilityRegistry({ ...deps, topicRecommendationsApplication, keywordResearchApplication });
 }
 
 module.exports = { createCapabilityRuntime };

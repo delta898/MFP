@@ -5,7 +5,7 @@ const { createKeywordsService } = require('./service');
 test('passes up to three selected title keywords to the keyword research service', async () => {
     let received = null;
     const service = createKeywordsService({
-        keywordResearchService: {
+        keywordResearchApplication: {
             isConfigured: () => true,
             suggestTitles: async (input) => {
                 received = input;
@@ -27,7 +27,7 @@ test('passes up to three selected title keywords to the keyword research service
 test('uses the title recommendation capability only for AI title generation', async () => {
     let usageInput = null;
     const service = createKeywordsService({
-        keywordResearchService: {
+        keywordResearchApplication: {
             isConfigured: () => true,
             suggestTitles: async () => ({ success: true, titles: [] })
         },

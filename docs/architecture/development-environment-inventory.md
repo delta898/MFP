@@ -22,7 +22,7 @@ The project ref is intentionally resolved from target-specific configuration dur
 | License and quota | `src/composition/licensing.js`, `src/services/licensing/`, `src/adapters/licensing/supabase/license-api.js` | license workflow assembly, provider-neutral policy and service contracts, Supabase RPC/Edge Function transport |
 | Runtime settings | `src/runtime-config.js` | remotely managed runtime values |
 | AI model catalog | `src/adapters/storage/ai-model-catalog/supabase-port.js` | server-managed model catalog |
-| Keyword research | `src/keyword-research/supabase-client.js` | keyword Edge Function gateway |
+| Keyword research | `src/adapters/supabase/functions/keyword-research-client.js` | Supabase Edge Function gateway, composed into the Blog keyword-research Application |
 | Knowledge gateway | `src/adapters/knowledge/server-gateway-client.js` | news and managed provider snapshots |
 | Surface content | `src/surface-content/supabase-provider.js` | configurable app content and assets |
 

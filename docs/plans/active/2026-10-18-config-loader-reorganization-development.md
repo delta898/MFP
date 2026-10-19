@@ -37,6 +37,14 @@
 - Updated the canonical architecture guide, source inventory, and Blog writing strategy feature document. Corrected the moved module's packaged secret-config relative path.
 - Verification for this slice: `node --check` passed for changed JavaScript files, the new Host runtime config module passed syntax validation, and `git diff --check` passed. A production source scan found no imports of the removed root loader. Automated test suites and application startup were not run. No manual UI validation is applicable.
 
+### Blog keyword discovery and research ownership migration (2026-10-19)
+
+- Removed the two ambiguous top-level roots. Blog discovery seed selection and research/metrics/title workflows now live in separate `applications/blog/keyword-discovery/` and `applications/blog/keyword-research/` use cases.
+- Moved Supabase Edge Function invocation and license-context translation to `adapters/supabase/functions/keyword-research-client.js`; Composition wires this adapter to the Blog research Application and injects that Application into UI/API and capability boundaries.
+- Moved keyword-list parsing to `utilities/text/keyword-input.js`, the sole shared responsibility between the two Blog Applications.
+- No Plugin or Edge Function behavior change was intended. The existing Edge Function name, request operations, response calculations, UI endpoints, and product limits remain unchanged.
+- Verification: syntax checks passed for all 64 JavaScript files under the moved/affected feature and composition paths; relative import-path scan passed across those files; `git diff --check` passed; both old root directories are absent and production source contains no imports from them. Automated test suites and app startup were not run.
+
 ## Explicit non-goals
 
 - No config schema or default changes without a separate user decision.

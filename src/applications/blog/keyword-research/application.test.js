@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createKeywordResearchService } = require('./index');
+const { createBlogKeywordResearchApplication } = require('./application');
 
 function createGatewayStub() {
     return {
@@ -19,9 +19,8 @@ function createGatewayStub() {
 }
 
 test('BlogGenius combines gateway observations without selecting a representative keyword', async () => {
-    const service = createKeywordResearchService({
-        CONFIG: { LICENSE_CHK_URL: 'https://example.supabase.co', LICENSE_CHK_KEY: 'publishable-key' },
-        supabaseClient: createGatewayStub()
+    const service = createBlogKeywordResearchApplication({
+        keywordGateway: createGatewayStub()
     });
 
     const analysis = await service.analyze({
@@ -38,9 +37,8 @@ test('BlogGenius combines gateway observations without selecting a representativ
 
 test('title generation uses the first input keyword without requesting keyword analysis', async () => {
     let analysisRequested = false;
-    const service = createKeywordResearchService({
-        CONFIG: { LICENSE_CHK_URL: 'https://example.supabase.co', LICENSE_CHK_KEY: 'publishable-key' },
-        supabaseClient: {
+    const service = createBlogKeywordResearchApplication({
+        keywordGateway: {
             fetchSearchAdCandidates: async () => {
                 analysisRequested = true;
                 return [];

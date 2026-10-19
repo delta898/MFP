@@ -1,7 +1,6 @@
-const { createKeywordResearchService } = require('../../keyword-research');
-
 function createKeywordResearchCapabilities(deps = {}) {
-    const keywordResearchService = deps.keywordResearchService || createKeywordResearchService(deps);
+    const keywordResearchApplication = deps.keywordResearchApplication;
+    if (!keywordResearchApplication) return [];
 
     return [
         {
@@ -38,7 +37,7 @@ function createKeywordResearchCapabilities(deps = {}) {
                 };
             },
             async execute(params = {}) {
-                const result = await keywordResearchService.analyze(params);
+                const result = await keywordResearchApplication.analyze(params);
                 const inputInfo = (result.input_keywords || []).map((k) => {
                     const recent = k.weekly_new_blog_documents?.count;
                     const recentLabel = recent === null || recent === undefined
@@ -89,7 +88,7 @@ function createKeywordResearchCapabilities(deps = {}) {
                 };
             },
             async execute(params = {}) {
-                const result = await keywordResearchService.suggestTitles(params);
+                const result = await keywordResearchApplication.suggestTitles(params);
                 const titles = result.titles || [];
                 const lines = titles.map((item, idx) => `${idx + 1}. [${item.role}] ${item.title}\n   - SEO: ${item.seo_reason}\n   - 클릭: ${item.click_reason}\n   - 트레이드오프: ${item.tradeoff}`);
 

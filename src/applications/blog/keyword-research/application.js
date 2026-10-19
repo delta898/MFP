@@ -1,4 +1,4 @@
-const { parseKeywords } = require('./input');
+const { parseKeywords } = require('../../../utilities/text/keyword-input');
 const {
     buildKeywordAnalysis,
     collectWeeklyDocumentKeywords,
@@ -9,56 +9,23 @@ const {
 } = require('./keyword-metrics-engine');
 const { createTitleGenerator, normalizeTitleMode } = require('./title-generator');
 const { createQuickPublishRecommendationService } = require('./quick-publish-recommendations');
-const { createKeywordResearchSupabaseClient } = require('./supabase-client');
-const { resolveSupabasePublicConnection } = require('../adapters/supabase/public-connection');
 
-function createKeywordResearchService(options = {}) {
-    const config = options.CONFIG;
-    if (!config || typeof config !== 'object') {
-        throw new TypeError('Keyword research service requires injected application configuration.');
+function createBlogKeywordResearchApplication(options = {}) {
+    const logger = options.Logger || require('../../../utilities/logging/logger');
+    const keywordGateway = options.keywordGateway;
+    if (!keywordGateway || typeof keywordGateway.fetchSearchAdCandidates !== 'function'
+        || typeof keywordGateway.fetchWeeklyDocuments !== 'function') {
+        throw new TypeError('Blog keyword research requires an injected keyword gateway.');
     }
-    const logger = options.Logger || require('../utilities/logging/logger');
-
-    const titleGenerator = options.titleGenerator || createTitleGenerator({
-        Logger: logger,
-        generateText: typeof options.blogWritingApplication?.generateText === 'function'
-            ? (prompt, modelOptions = {}) => {
-                const provider = String(config.TEXT_MODEL_CONFIG?.provider || '').trim().toLowerCase();
-                const modelId = String(config.TEXT_MODEL_CONFIG?.code || '').trim();
-                return options.blogWritingApplication.generateText(prompt, {
-                    ...(provider && modelId ? { modelSelection: { provider, modelId } } : {}),
-                    generationOptions: {
-                        ...(typeof modelOptions.temperature === 'number' ? { temperature: modelOptions.temperature } : {}),
-                        ...(typeof modelOptions.maxTokens === 'number' ? { maxOutputTokens: modelOptions.maxTokens } : {}),
-                        ...(modelOptions.reasoningEffort ? { reasoningEffort: modelOptions.reasoningEffort } : {}),
-                        responseFormat: 'json'
-                    }
-                });
-            }
-            : undefined
-    });
-    let supabaseClient = options.supabaseClient || null;
-
-    function getSupabaseClient() {
-        if (supabaseClient) return supabaseClient;
-        const License = options.License;
-        if (!License || typeof License.resolveAuthenticatedServerContext !== 'function') {
-            throw new Error('Keyword research requires an injected licensing port.');
-        }
-        supabaseClient = createKeywordResearchSupabaseClient({
-            config,
-            License
-        });
-        return supabaseClient;
-    }
+    const titleGenerator = options.titleGenerator || createTitleGenerator({ Logger: logger });
     const quickPublishRecommendationService = options.quickPublishRecommendationService || createQuickPublishRecommendationService({
-        keywordResearchService: {
+        keywordResearchApplication: {
             researchAndSuggestTitles
         }
     });
 
     function isConfigured() {
-        return resolveSupabasePublicConnection(config).configured;
+        return typeof keywordGateway.isConfigured === 'function' ? keywordGateway.isConfigured() : true;
     }
 
     async function analyze(request = {}) {
@@ -70,8 +37,7 @@ function createKeywordResearchService(options = {}) {
 
         const relatedAssist = request.related_assist !== false;
         const relatedLimit = request.related_limit ?? DEFAULT_RELATED_LIMIT;
-        const gateway = getSupabaseClient();
-        const searchAd = await gateway.fetchSearchAdCandidates({ keywords });
+        const searchAd = await keywordGateway.fetchSearchAdCandidates({ keywords });
         const rowsByKeyword = new Map(searchAd.map((item) => [
             normalizeKeyword(item?.keyword),
             Array.isArray(item?.rows) ? item.rows : []
@@ -85,7 +51,7 @@ function createKeywordResearchService(options = {}) {
         });
         const weeklyKeywords = collectWeeklyDocumentKeywords(plan);
         const weeklyPayload = weeklyKeywords.length > 0
-            ? await gateway.fetchWeeklyDocuments({ keywords: weeklyKeywords })
+            ? await keywordGateway.fetchWeeklyDocuments({ keywords: weeklyKeywords })
             : [];
         const weeklyDocuments = new Map(weeklyPayload.map((item) => [
             normalizeKeyword(item?.keyword),
@@ -144,8 +110,7 @@ function createKeywordResearchService(options = {}) {
 module.exports = {
     createTitleGenerator,
     createQuickPublishRecommendationService,
-    createKeywordResearchSupabaseClient,
     prepareKeywordPlan,
     buildKeywordAnalysis,
-    createKeywordResearchService
+    createBlogKeywordResearchApplication
 };

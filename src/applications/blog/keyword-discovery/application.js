@@ -1,5 +1,5 @@
-const { parseKeywords } = require('../../../keyword-research/input');
-const { collectKeywordDiscoverySeeds } = require('../../../keyword-discovery/seed-collector');
+const { parseKeywords } = require('../../../utilities/text/keyword-input');
+const { collectKeywordDiscoverySeeds } = require('./seed-collector');
 
 function getOwnerUserId(eventStore) {
     const owner = eventStore && typeof eventStore.getLocalOwnerIdentity === 'function'
@@ -30,7 +30,7 @@ function createBlogKeywordDiscoveryApplication(options = {}) {
         retrievalService,
         eventStore,
         smartUsageService = null,
-        keywordResearchService
+        keywordResearchApplication
     } = options;
 
     if (!knowledgeRegistry || typeof knowledgeRegistry.fetchForRoute !== 'function') {
@@ -39,8 +39,8 @@ function createBlogKeywordDiscoveryApplication(options = {}) {
     if (!retrievalService || typeof retrievalService.buildContextPacket !== 'function') {
         throw new Error('retrievalService is required');
     }
-    if (!keywordResearchService || typeof keywordResearchService.analyze !== 'function') {
-        throw new Error('keywordResearchService is required');
+    if (!keywordResearchApplication || typeof keywordResearchApplication.analyze !== 'function') {
+        throw new Error('keywordResearchApplication is required');
     }
 
     return {
@@ -88,7 +88,7 @@ function createBlogKeywordDiscoveryApplication(options = {}) {
                     discovery_mode: requestedKeywords.length > 0 ? 'search' : 'explore'
                 };
             }
-            const analysis = await keywordResearchService.analyze({
+            const analysis = await keywordResearchApplication.analyze({
                 subject: seeds[0].keyword,
                 keywords: seeds.map((seed) => seed.keyword),
                 related_assist: true

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createKeywordResearchSupabaseClient, readFunctionError } = require('./supabase-client');
+const { createKeywordResearchSupabaseClient, readFunctionError } = require('./keyword-research-client');
 
 test('Supabase keyword gateway adds authenticated context to each observation request', async () => {
     const calls = [];

@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { parseKeywords } = require('./input');
+const { parseKeywords } = require('../../../utilities/text/keyword-input');
 const { normalizeTitleMode } = require('./title-generator');
 
 const QUICK_PUBLISH_RECOMMENDATION_SCHEMA_VERSION = 1;
@@ -122,15 +122,15 @@ function buildQuickPublishRecommendationResponse(original = {}, pipelineResult =
 }
 
 function createQuickPublishRecommendationService(options = {}) {
-    const keywordResearchService = options.keywordResearchService;
-    if (!keywordResearchService || typeof keywordResearchService.researchAndSuggestTitles !== 'function') {
-        throw new Error('keywordResearchService is required');
+    const keywordResearchApplication = options.keywordResearchApplication;
+    if (!keywordResearchApplication || typeof keywordResearchApplication.researchAndSuggestTitles !== 'function') {
+        throw new Error('keywordResearchApplication is required');
     }
 
     return {
         async recommend(input = {}) {
             const original = normalizeQuickPublishInput(input);
-            const pipelineResult = await keywordResearchService.researchAndSuggestTitles({
+            const pipelineResult = await keywordResearchApplication.researchAndSuggestTitles({
                 keywords: original.keywords,
                 subject: original.subject,
                 content: original.instruction,

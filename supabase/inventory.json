@@ -7,7 +7,7 @@
     "src/composition/licensing.js",
     "src/runtime-config.js",
     "src/adapters/storage/ai-model-catalog/supabase-port.js",
-    "src/keyword-research/supabase-client.js",
+    "src/adapters/supabase/functions/keyword-research-client.js",
     "src/adapters/knowledge/server-gateway-client.js",
     "src/surface-content/supabase-provider.js"
   ],

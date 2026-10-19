@@ -26,7 +26,7 @@ test('collects raw discovery seeds before querying the existing keyword research
                 return [{ kind: 'trends', items: [{ title: '최신 트렌드' }] }];
             }
         },
-        keywordResearchService: {
+        keywordResearchApplication: {
             async analyze(input) {
                 received = input;
                 return {
@@ -49,7 +49,7 @@ test('uses direct input as a seed without loading trend or memory candidates', a
     const service = createBlogKeywordDiscoveryApplication({
         knowledgeRegistry: { async fetchForRoute() { throw new Error('should not load trends'); } },
         retrievalService: { async buildContextPacket() { throw new Error('should not load memory'); } },
-        keywordResearchService: {
+        keywordResearchApplication: {
             async analyze(input) {
                 analysisInput = input;
                 return { input_keywords: input.keywords.map((keyword) => ({ keyword })), related_candidates: [] };
@@ -68,7 +68,7 @@ test('records keyword exploration through the keyword discovery smart capability
     const service = createBlogKeywordDiscoveryApplication({
         knowledgeRegistry: { async fetchForRoute() { throw new Error('should not load trends'); } },
         retrievalService: { async buildContextPacket() { throw new Error('should not load memory'); } },
-        keywordResearchService: {
+        keywordResearchApplication: {
             async analyze(input) { return { input_keywords: input.keywords.map((keyword) => ({ keyword })), related_candidates: [] }; }
         },
         smartUsageService: {

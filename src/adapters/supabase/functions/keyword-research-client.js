@@ -1,5 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
-const { resolveSupabasePublicConnection } = require('../adapters/supabase/public-connection');
+const { resolveSupabasePublicConnection } = require('../public-connection');
 
 const DEFAULT_TIMEOUT_MS = 60000;
 
@@ -53,6 +53,10 @@ function createKeywordResearchSupabaseClient(options = {}) {
         return client;
     }
 
+    function isConfigured() {
+        return resolveSupabasePublicConnection(config).configured;
+    }
+
     async function invokeGateway(operation, request = {}) {
             if (!License || typeof License.resolveAuthenticatedServerContext !== 'function') {
                 throw new Error('라이선스 인증 기능을 사용할 수 없습니다.');
@@ -81,6 +85,7 @@ function createKeywordResearchSupabaseClient(options = {}) {
     }
 
     return {
+        isConfigured,
         async fetchSearchAdCandidates(request = {}) {
             const data = await invokeGateway('search_ad', request);
             if (!Array.isArray(data.search_ad)) {

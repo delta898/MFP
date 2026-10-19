@@ -160,7 +160,7 @@ const { createKeywordsService } = require('../adapters/ui/keyword-research/keywo
 const { createKeywordsController } = require('../adapters/ui/keyword-research/keywords/controller');
 const { createKeywordsRouteHandler } = require('../adapters/ui/keyword-research/keywords/routes');
 const { createSmartUsageService } = require('../services/licensing/smart-usage/index');
-const { createKeywordResearchService } = require('../keyword-research');
+const { createBlogKeywordResearchRuntime } = require('./blog-keyword-research');
 const { createProductApiRouteHandler } = require('./ui-api-routes');
 const { createCloudflareConnectionService, createEncryptedCredentialStore } = require('../host/cloudflare/connection-service');
 const { createCloudflareConnectionRouteHandler } = require('../adapters/ui/site-hosting/cloudflare-connection/routes');
@@ -334,7 +334,7 @@ const blogBetaComposition = createBlogBetaRuntimeComposition({
 });
 const { corePluginRuntime, blogWritingSystem, shoppingGenerationApplication, relatedPostsService, fetchReferenceContent, blogPostingApplication, blogPublishingApplication, aiGenerationSystem } = blogBetaComposition;
 ShoppingManager.relatedPostsService = relatedPostsService;
-const keywordResearchService = createKeywordResearchService({
+const keywordResearchApplication = createBlogKeywordResearchRuntime({
     CONFIG,
     Logger,
     License,
@@ -376,6 +376,7 @@ const topicRecommendationCapabilityRegistry = createCapabilityRuntime({
     Logger,
     GoogleSheets,
     blogWritingApplication: blogWritingSystem.application,
+    keywordResearchApplication,
     License,
     axios,
     eventStore: topicRecommendationEventStore
@@ -949,7 +950,7 @@ const uiApiRouteRuntime = createUiApiRuntime({
     path,
     CONFIG,
     License,
-    keywordResearchService,
+    keywordResearchApplication,
     ShoppingManager,
     axios,
     cheerio,
