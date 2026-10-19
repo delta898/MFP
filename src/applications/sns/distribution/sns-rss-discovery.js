@@ -44,13 +44,13 @@ function createSnsRssDiscovery(options = {}) {
     const {
         CONFIG,
         License,
-        Utils,
+        fetchFeed,
         store,
         getEnableSnsDistribution,
         Logger
     } = options;
     const httpClient = options.httpClient || axios;
-    if (!CONFIG || !License || !Utils || !store || typeof getEnableSnsDistribution !== 'function') {
+    if (!CONFIG || !License || typeof fetchFeed !== 'function' || !store || typeof getEnableSnsDistribution !== 'function') {
         throw new Error('SNS RSS Discovery 의존성이 올바르지 않습니다.');
     }
 
@@ -145,7 +145,7 @@ function createSnsRssDiscovery(options = {}) {
             Logger?.info?.(`${runLabel} 피드 조회 시작: ${feed.sourcePlatform} (${feed.url})`);
             let items;
             try {
-                items = await Utils.fetchAndParseRss(feed.url);
+                items = await fetchFeed(feed.url);
             } catch (error) {
                 Logger?.error?.(`${runLabel} 피드 조회 실패: ${feed.sourcePlatform} (${feed.url}) - ${error.message}`);
                 throw error;

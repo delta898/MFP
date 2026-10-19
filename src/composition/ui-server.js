@@ -76,6 +76,7 @@ const { createGoogleSheetsSnsGateway } = require('../adapters/storage/google-she
 const { createCardNewsRuntime } = require('./card-news-runtime');
 const { normalizeCardNewsBuiltinSources, normalizeCardNewsRssSources } = require('../applications/card-news/sources/feed-sources');
 const { createSnsRssDiscovery } = require('../applications/sns/distribution/sns-rss-discovery');
+const { createRssFeedClient } = require('../adapters/web/rss-feed-client');
 const { createSnsDistributionRunner } = require('../applications/sns/distribution/sns-distribution-runner');
 const { createSnsAiService } = require('../applications/sns/generation/sns-ai-service');
 const { createManualSnsService } = require('../applications/sns/publishing/manual-sns-service');
@@ -347,7 +348,7 @@ const snsGenerationSystem = createSnsGenerationSystem({
 const snsRssDiscovery = createSnsRssDiscovery({
     CONFIG,
     License,
-    Utils,
+    fetchFeed: createRssFeedClient({ httpClient: axios, logger: Logger }).fetchAndParse,
     store: snsSheetStore,
     getEnableSnsDistribution,
     Logger,

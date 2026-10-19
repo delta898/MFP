@@ -143,6 +143,8 @@
 - Updated the canonical layer guide and source inventory. `src/utils.js` is still present because active cross-layer callers remain; the next slice must migrate the Blog manuscript parser/image lookup and related-post/feed/reference/config/workspace responsibilities through their owners before its removal.
 - Verification in this slice: `node --check` passed for the changed runtime modules and both new text utilities; `git diff --check` passed; source search found no production `Utils` calls for the migrated helpers. No tests were run. The full Utils removal remains incomplete by design; no user-visible behavior or persistence contract was changed.
 
+- Continued the Utils decomposition without committing: Naver auth flow and session validation now use `src/utilities/async/sleep.js` directly instead of importing the root facade. SNS RSS discovery now receives a feed-fetch port from `src/adapters/web/rss-feed-client.js`; the adapter owns HTTP retrieval, request headers/timeouts, feed parsing invocation, heartbeat logging, and failure logging, while SNS Application retains discovery policy. Removed `fetchAndParseRss` from `src/utils.js` and updated the SNS discovery contract fixtures. RSS result semantics and fallback-to-empty behavior are preserved. The remaining Blog/Shopping/UI callers still use Utils for separate manuscript, reference, workspace, configuration, and related-post responsibilities; deleting the root facade remains pending.
+
 
 ### Final UI Runtime migration slice (2026-10-19)
 

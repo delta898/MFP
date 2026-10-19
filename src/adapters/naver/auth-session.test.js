@@ -5,7 +5,6 @@ const os = require('node:os');
 const path = require('node:path');
 
 const BrowserLauncher = require('../../utilities/browser/browser-launcher');
-const Utils = require('../../utils');
 const { checkAuthSessionValid } = require('./auth-session');
 
 test('forced concurrent Naver session checks share one browser verification', async () => {
@@ -20,8 +19,7 @@ test('forced concurrent Naver session checks share one browser verification', as
         browserChannel: 'chrome'
     };
     const original = {
-        launchBrowser: BrowserLauncher.launchBrowser,
-        sleep: Utils.sleep
+        launchBrowser: BrowserLauncher.launchBrowser
     };
     let launchCount = 0;
     let releaseNavigation;
@@ -41,8 +39,6 @@ test('forced concurrent Naver session checks share one browser verification', as
             close: async () => {}
         };
     };
-    Utils.sleep = async () => {};
-
     try {
         const first = checkAuthSessionValid({ ...authConfig, forceRefresh: true });
         const second = checkAuthSessionValid({ ...authConfig, forceRefresh: true });
@@ -53,7 +49,6 @@ test('forced concurrent Naver session checks share one browser verification', as
         assert.deepEqual(await second, { ok: true });
     } finally {
         BrowserLauncher.launchBrowser = original.launchBrowser;
-        Utils.sleep = original.sleep;
         fs.rmSync(tempDir, { recursive: true, force: true });
     }
 });

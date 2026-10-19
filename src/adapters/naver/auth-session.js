@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const BrowserLauncher = require('../../utilities/browser/browser-launcher');
-const Utils = require('../../utils');
+const { sleep } = require('../../utilities/async/sleep');
 const Logger = require('../../utilities/logging/logger');
 const { NAVER_DEFAULT_USER_AGENT } = require('./auth-flow');
 
@@ -113,7 +113,7 @@ async function performAuthSessionCheck(options = {}) {
         const checkUrl = options.writeUrl || `https://blog.naver.com/${options.naverId || ''}/postwrite`;
 
         await page.goto(checkUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
-        await Utils.sleep(400);
+        await sleep(400);
 
         const currentUrl = String(page.url() || '');
         if (/nid\.naver\.com/i.test(currentUrl) || /nidlogin\.login/i.test(currentUrl)) {

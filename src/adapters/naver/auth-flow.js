@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const BrowserLauncher = require('../../utilities/browser/browser-launcher');
-const Utils = require('../../utils');
+const { sleep } = require('../../utilities/async/sleep');
 const Logger = require('../../utilities/logging/logger');
 
 const NAVER_LOGIN_URL = 'https://nid.naver.com/nidlogin.login';
@@ -50,7 +50,7 @@ async function waitForNaverLoginCompleted(page, context, timeoutMs = 300000) {
                 }
             } catch (e) { }
 
-            await Utils.sleep(pollIntervalMs);
+            await sleep(pollIntervalMs);
         }
         return null;
     })();

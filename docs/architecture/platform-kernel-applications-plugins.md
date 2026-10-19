@@ -182,7 +182,7 @@ packages/
     core/                       # Bundled native Plugin and static Widget Plugin packages
 ```
 
-The SNS and Card News verticals use a shared capability-named `social-publisher` Plugin. Its provider implementation is currently Buffer and lives under `packages/plugins/core/social-publisher/providers/buffer/`; Applications depend on the `src/adapters/plugins/social-publisher.js` port and do not name the current provider in that boundary. SNS workflows live under `src/applications/sns/`, while shared publishing rules, feed utilities, and external storage/media adapters live in `src/services/`, `src/utilities/`, and `src/adapters/` according to ownership.
+The SNS and Card News verticals use a shared capability-named `social-publisher` Plugin. Its provider implementation is currently Buffer and lives under `packages/plugins/core/social-publisher/providers/buffer/`; Applications depend on the `src/adapters/plugins/social-publisher.js` port and do not name the current provider in that boundary. SNS workflows live under `src/applications/sns/`; feed HTTP retrieval is an injected `src/adapters/web/rss-feed-client.js` operation, while feed parsing and normalization remain under `src/utilities/feeds/`.
 
 `src/services/content-delivery/single-publish-target.js` owns the shared Blog/Shopping contract that a manuscript has zero or one publish target. The queue lifecycle contract separately permits `site-hosting`; do not collapse these policies into one target allowlist.
 

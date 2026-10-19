@@ -8,7 +8,6 @@ const {
     buildRelatedPostContext,
     selectRelatedPosts
 } = require('./utilities/text/related-post-selection');
-const { parseFeedXml } = require('./utilities/feeds/feed-entry');
 const {
     rethrowIfCanceled,
     sleepWithCancellation,
@@ -586,30 +585,6 @@ const Utils = {
 
     fetchOwnBlogRandomPosts: async function (count = 3) {
         return this.fetchOwnBlogRelatedPosts({}, count);
-    },
-
-    /**
-     * 🌐 RSS/Atom 피드 수집 및 파싱
-     */
-    fetchAndParseRss: async function (url) {
-        if (!url) return [];
-        try {
-            const res = await this.runWithHeartbeat(
-                `RSS 수집 (${url})`,
-                () => axios.get(url, {
-                    timeout: 10000,
-                    headers: { 'User-Agent': 'Mozilla/5.0' },
-                    validateStatus: () => true
-                })
-            );
-
-            if (res.status >= 200 && res.status < 300 && typeof res.data === 'string') {
-                return parseFeedXml(res.data, { feedUrl: url });
-            }
-        } catch (e) {
-            Logger.warn(`⚠️ RSS 수집 실패 (${url}): ${e.message}`);
-        }
-        return [];
     },
 
     /**

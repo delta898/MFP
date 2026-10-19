@@ -55,11 +55,9 @@ test('SNS discovery requires both capability and app activation before fetching 
                 return { success: true, features: { enable_sns_distribution: capability } };
             }
         },
-        Utils: {
-            async fetchAndParseRss() {
-                fetchCount += 1;
-                return [];
-            }
+        fetchFeed: async () => {
+            fetchCount += 1;
+            return [];
         },
         store: {
             async listRows() { return []; },
@@ -115,11 +113,7 @@ test('SNS discovery registers selected sources as pending and unselected sources
                 return { success: true, features: { enable_sns_distribution: true } };
             }
         },
-        Utils: {
-            async fetchAndParseRss(url) {
-                return url.includes('naver') ? feedItems.naver : feedItems.wordpress;
-            }
-        },
+        fetchFeed: async (url) => url.includes('naver') ? feedItems.naver : feedItems.wordpress,
         store: {
             async listRows() { return []; },
             async appendEntriesDeliveries(input) {
@@ -174,11 +168,7 @@ test('SNS discovery logs the feed and reason when RSS fetching fails', async () 
                 return { success: true, features: { enable_sns_distribution: true } };
             }
         },
-        Utils: {
-            async fetchAndParseRss() {
-                throw new Error('upstream timeout');
-            }
-        },
+        fetchFeed: async () => { throw new Error('upstream timeout'); },
         store: {
             async listRows() { return []; },
             async appendEntriesDeliveries() { return {}; }
@@ -209,7 +199,7 @@ test('SNS discovery rejects incomplete selected blog configuration', async () =>
                 return { success: true, features: { enable_sns_distribution: true } };
             }
         },
-        Utils: { async fetchAndParseRss() { return []; } },
+        fetchFeed: async () => [],
         store: {
             async listRows() { return []; },
             async appendEntriesDeliveries() { return {}; }
@@ -235,11 +225,9 @@ test('SNS discovery continues with the configured selected blog when the other b
                 return { success: true, features: { enable_sns_distribution: true } };
             }
         },
-        Utils: {
-            async fetchAndParseRss(url) {
-                fetchedUrls.push(url);
-                return [];
-            }
+        fetchFeed: async (url) => {
+            fetchedUrls.push(url);
+            return [];
         },
         store: {
             async listRows() { return []; },
