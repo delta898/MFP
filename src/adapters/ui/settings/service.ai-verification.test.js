@@ -5,6 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { createSettingsService } = require('./service');
+const { createAiModelConfiguration } = require('../../../composition/ai-model-configuration');
 const {
     configureConnectionVerificationState,
     readConnectionVerification,
@@ -30,6 +31,7 @@ function createService(gateway, configOverrides = {}) {
         ...configOverrides
     };
     const service = createSettingsService({
+        modelConfiguration: createAiModelConfiguration(),
         CONFIG,
         buildMajorSettings: () => ({ fields: {} }),
         resolveWritableConfigPath: () => path.join(os.tmpdir(), 'ai-verify-config.json'),
@@ -162,9 +164,9 @@ test('settings resolves an unsaved catalog model before delegating verification 
     const result = await service.testAiModelConnection({
         kind: 'text', provider: 'openai', presetCode: 'gpt-5.6-terra', apiKey: 'unsaved-secret'
     });
-    assert.equal(received.modelConfig.name, 'GPT-5.6 Terra');
+    assert.equal(received.modelConfig.name, 'Gpt 5.6 Terra');
     assert.equal(received.modelConfig.api_key, 'unsaved-secret');
-    assert.equal(result.display_name, 'GPT-5.6 Terra');
+    assert.equal(result.display_name, 'Gpt 5.6 Terra');
     assert.equal(result.generation_performed, false);
 });
 

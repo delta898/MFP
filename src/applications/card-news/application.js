@@ -7,7 +7,6 @@ const { normalizeImageMode, validateSourceSnapshot } = require('./generation/pla
 const { deriveCardNewsManagementState, toCardNewsManagementFields } = require('./management/status');
 const { createAiGenerationOperationManager } = require('../../services/ai/generation-operation-manager');
 const { createCardNewsOutgoingImageService } = require('./publishing/outgoing-image-service');
-const { getAiModelCatalog, resolveAiModelConfig, resolveStoredModelProfiles } = require('../../services/ai/model-configuration');
 
 const CARD_NEWS_SOURCE_LIMIT = 30;
 const CARD_NEWS_LEDGER_REGISTRATION_TIMEOUT_MS = 3000;
@@ -149,6 +148,13 @@ function createCardNewsService(deps = {}) {
         throw new TypeError('Card News Application requires an image-model verification port.');
     }
     const isImageModelVerified = deps.isImageModelVerified;
+    const modelConfiguration = deps.modelConfiguration;
+    if (!modelConfiguration || typeof modelConfiguration.getAiModelCatalog !== 'function'
+        || typeof modelConfiguration.resolveAiModelConfig !== 'function'
+        || typeof modelConfiguration.resolveStoredModelProfiles !== 'function') {
+        throw new TypeError('Card News Application requires the AI model configuration service.');
+    }
+    const { getAiModelCatalog, resolveAiModelConfig, resolveStoredModelProfiles } = modelConfiguration;
 
     const outgoingImageService = deps.outgoingImageService || createCardNewsOutgoingImageService({
         License,

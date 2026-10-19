@@ -5,6 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { createSettingsService } = require('./service');
+const { createAiModelConfiguration } = require('../../../composition/ai-model-configuration');
 const {
     DEFAULT_CONTENT_WRITING_PROFILE_METADATA,
     getDefaultContentWritingProfile
@@ -32,6 +33,7 @@ function createHarness(options = {}) {
         writingProfilePreviewService: options.writingProfilePreviewService
     });
     const service = createSettingsService({
+        modelConfiguration: createAiModelConfiguration(),
         fs, path, CONFIG,
         writingProfileApplication,
         Utils: options.Utils,

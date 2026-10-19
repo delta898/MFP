@@ -16,6 +16,7 @@ const {
 } = require('./service');
 const { ensureRuntimeRemoteMcpConfig, generateRemoteMcpBearerToken } = require('../../../host/configuration/mcp-remote-config');
 const { connectionVerification } = require('../../../composition/connection-verification');
+const { createAiModelConfiguration } = require('../../../composition/ai-model-configuration');
 
 function createHarness(initial = {}, overrides = {}) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'settings-optional-services-'));
@@ -45,6 +46,7 @@ function createHarness(initial = {}, overrides = {}) {
         MCP_REMOTE_AUTH_TOKEN: initial.mcp?.remote?.auth?.bearer_token || ''
     };
     const service = createSettingsService({
+        modelConfiguration: createAiModelConfiguration(),
         fs, path, CONFIG,
         ensureRuntimeRemoteMcpConfig,
         generateRemoteMcpBearerToken,

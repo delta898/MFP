@@ -7,6 +7,7 @@ const { ConfirmationStore } = require('../adapters/storage/confirmations/confirm
 const { createCapabilityRuntime } = require('./capability-runtime');
 const { createKnowledgeRuntime } = require('./knowledge-runtime');
 const { createMcpPrototypeAdapter } = require('../adapters/messaging/mcp/prototype-adapter');
+const { createAiModelConfiguration } = require('./ai-model-configuration');
 
 const NullLogger = {
     debug() { },
@@ -41,7 +42,8 @@ function createMcpPrototypeRuntime(options = {}) {
         resolveWritableConfigPath,
         buildDefaultConfigTemplate,
         syncAutoRunnerWithConfig,
-        resolveNaverAutoCategoryCatalog
+        resolveNaverAutoCategoryCatalog,
+        modelConfiguration: capabilityDependencies.modelConfiguration || createAiModelConfiguration()
     });
 
     const runtime = createAgentRuntime({

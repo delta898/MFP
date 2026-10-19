@@ -12,6 +12,26 @@ const {
     redactAiRoleSecretFields,
     redactAiProviderProfiles
 } = require('./service');
+const { createAiModelConfiguration } = require('../../../composition/ai-model-configuration');
+const { connectionVerification } = require('../../../composition/connection-verification');
+const { applyRemoteCatalog, clearRemoteCatalog } = require('../../../../packages/plugins/core/ai-gateway/catalog-registry');
+
+test.before(() => {
+    applyRemoteCatalog({
+        schema_version: 1,
+        version: 'settings-core-fixture',
+        providers: [
+            { kind: 'text', id: 'google', display_name: 'Google', sort_order: 1 },
+            { kind: 'text', id: 'openai', display_name: 'OpenAI', sort_order: 2 }
+        ],
+        models: [
+            { key: 'google:gemini-3.1-flash-lite', kind: 'text', provider: 'google', model_id: 'gemini-3.1-flash-lite', display_name: 'Gemini 3.1 Flash Lite', transport: 'gemini_generate_content', sort_order: 1 },
+            { key: 'openai:gpt-5.6-sol', kind: 'text', provider: 'openai', model_id: 'gpt-5.6-sol', display_name: 'GPT 5.6 Sol', transport: 'openai_chat_completions', sort_order: 1 },
+            { key: 'openai:gpt-6.1-sol', kind: 'text', provider: 'openai', model_id: 'gpt-6.1-sol', display_name: 'GPT 6.1 Sol', transport: 'openai_chat_completions', sort_order: 2 }
+        ]
+    });
+});
+test.after(() => clearRemoteCatalog());
 
 function createHarness(initialConfig = {}) {
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'settings-core-connections-'));
@@ -26,6 +46,10 @@ function createHarness(initialConfig = {}) {
         ...initialConfig
     };
     const service = createSettingsService({
+        modelConfiguration: createAiModelConfiguration(),
+        ensureRuntimeRemoteMcpConfig: () => ({ enabled: false }),
+        generateRemoteMcpBearerToken: () => 'test-token',
+        connectionVerification,
         fs,
         path,
         CONFIG,
@@ -111,11 +135,11 @@ test('AI role reads expose API Key registration only, never the stored secret', 
 test('AI role provider profiles expose their configuration state without API Key values', () => {
     const profiles = redactAiProviderProfiles({
         text: {
-            openai: { provider: 'openai', code: 'gpt-5.6-sol', api_key: 'openai-secret' }
+            direct: { provider: 'direct', name: 'Direct model', code: 'direct-model', base_url: 'https://example.test/v1', api_key: 'openai-secret' }
         }
-    });
-    assert.equal(profiles.text.openai.api_key_configured, true);
-    assert.equal(Object.hasOwn(profiles.text.openai, 'api_key'), false);
+    }, createAiModelConfiguration());
+    assert.equal(profiles.text.direct.api_key_configured, true);
+    assert.equal(Object.hasOwn(profiles.text.direct, 'api_key'), false);
     assert.equal(JSON.stringify(profiles).includes('openai-secret'), false);
 });
 
@@ -129,6 +153,10 @@ test('AI role scope preserves unrelated configuration while updating the selecte
     fs.writeFileSync(configPath, JSON.stringify(initial, null, 2));
     const CONFIG = {};
     const service = createSettingsService({
+        modelConfiguration: createAiModelConfiguration(),
+        ensureRuntimeRemoteMcpConfig: () => ({ enabled: false }),
+        generateRemoteMcpBearerToken: () => 'test-token',
+        connectionVerification,
         fs, path, CONFIG, resolveWritableConfigPath: () => configPath,
         buildMajorSettings: () => ({ fields: {
             TEXT_MODEL_PROVIDER: 'direct', TEXT_MODEL_NAME: 'old', TEXT_MODEL_BASE_URL: 'https://old.example/v1', TEXT_MODEL_API_KEY: 'old-key',
@@ -158,6 +186,10 @@ test('AI role scope reuses the selected provider profile key when the user leave
     fs.writeFileSync(configPath, JSON.stringify(initial, null, 2));
     const CONFIG = {};
     const service = createSettingsService({
+        modelConfiguration: createAiModelConfiguration(),
+        ensureRuntimeRemoteMcpConfig: () => ({ enabled: false }),
+        generateRemoteMcpBearerToken: () => 'test-token',
+        connectionVerification,
         fs, path, CONFIG, resolveWritableConfigPath: () => configPath,
         buildMajorSettings: () => ({ fields: {
             TEXT_MODEL_PROVIDER: 'google', TEXT_MODEL_PRESET_CODE: 'gemini-3.1-flash-lite', TEXT_MODEL_API_KEY: 'google-secret',
@@ -180,6 +212,10 @@ test('AI role scope saves a valid catalog model before its API Key is configured
     fs.writeFileSync(configPath, JSON.stringify({ ai_settings: {} }, null, 2));
     const CONFIG = {};
     const service = createSettingsService({
+        modelConfiguration: createAiModelConfiguration(),
+        ensureRuntimeRemoteMcpConfig: () => ({ enabled: false }),
+        generateRemoteMcpBearerToken: () => 'test-token',
+        connectionVerification,
         fs, path, CONFIG, resolveWritableConfigPath: () => configPath,
         buildMajorSettings: () => ({ fields: {
             TEXT_MODEL_PROVIDER: 'openai', TEXT_MODEL_PRESET_CODE: '', TEXT_MODEL_API_KEY: ''

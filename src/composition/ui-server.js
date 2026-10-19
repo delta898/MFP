@@ -12,6 +12,8 @@ const SlackService = require('../adapters/messaging/slack/service');
 const { createUrlShorteningSystem } = require('./url-shortening');
 const { APP_VERSION } = require('../host/application-metadata');
 const CONFIG = require('../host/configuration/runtime-config');
+const { createAiModelConfiguration } = require('./ai-model-configuration');
+const modelConfiguration = createAiModelConfiguration();
 const { License } = createLicensingRuntime({ config: CONFIG });
 const Logger = require('../utilities/logging/logger');
 Logger.configureRuntime({ logLevel: CONFIG.LOG_LEVEL, rootDir: CONFIG.ROOT_DIR });
@@ -77,7 +79,7 @@ const {
     normalizeStoredModelProfiles,
     mergeActiveSelectionsIntoProfiles,
     normalizeChatModelSource
-} = require('../services/ai/model-configuration');
+} = modelConfiguration;
 const { normalizeWritingStyle } = require('../services/content-writing/writing-style');
 const { normalizeWritingStrategy } = require('../services/content-writing/writing-strategy');
 const { createSnsSheetStore } = require('../applications/sns/distribution/sns-sheet-store');
@@ -376,6 +378,7 @@ const topicRecommendationEventStore = getAgentEventStore({ baseDir: CONFIG.ROOT_
 const topicRecommendationKnowledgeRuntime = createKnowledgeRuntime({ CONFIG, Logger, License, axios });
 const topicRecommendationCapabilityRegistry = createCapabilityRuntime({
     ...topicRecommendationKnowledgeRuntime,
+    modelConfiguration,
     CONFIG,
     Logger,
     GoogleSheets,
@@ -463,6 +466,7 @@ const {
 } = snsAutomationScheduler;
 const syncAutoRunnerWithConfig = syncSnsAutomationWithConfig;
 const mcpCapabilityDependencies = {
+    modelConfiguration,
     resolveWritableConfigPath,
     buildDefaultConfigTemplate,
     syncAutoRunnerWithConfig
@@ -725,8 +729,7 @@ const uiSettingsFieldsRuntime = createSettingsFields({
     normalizeSnsSourceBlogs,
     normalizeCardNewsBuiltinSources,
     normalizeCardNewsRssSources,
-    getAiModelCatalog,
-    normalizeStoredModelProfiles,
+    modelConfiguration,
     getRemoteServiceStatus,
     normalizeListenHost,
     normalizeListenPort,
@@ -734,11 +737,8 @@ const uiSettingsFieldsRuntime = createSettingsFields({
     normalizeGoogleSheetUrl,
     extractGoogleSheetId,
     normalizeTypingSpeed,
-    buildModelSelectionFromFields,
-    normalizeChatModelSource,
     normalizeBlogAutoSettings,
     normalizeBool,
-    mergeActiveSelectionsIntoProfiles,
     normalizeIntegerOrBlank,
     normalizeNonNegativeInt,
     normalizeTimeHHmm,
@@ -1076,6 +1076,7 @@ const uiApiRouteRuntime = createUiApiRuntime({
     blogWritingApplication: blogWritingSystem.application,
     aiGenerationService: aiGenerationSystem.service,
     aiGateway: aiGenerationSystem.gateway,
+    modelConfiguration,
     connectionVerification,
     blogPublishingApplication,
     normalizeYmdToken,

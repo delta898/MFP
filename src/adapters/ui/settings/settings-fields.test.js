@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 
 const { createSettingsFields } = require('./settings-fields');
+const { createAiModelConfiguration } = require('../../../composition/ai-model-configuration');
 const { normalizeCardNewsBuiltinSources, normalizeCardNewsRssSources } = require('../../../applications/card-news/sources/feed-sources');
 
 const slotMap = {
@@ -14,6 +15,7 @@ const slotMap = {
 
 function createRuntime() {
     return createSettingsFields({
+        modelConfiguration: createAiModelConfiguration(),
         path,
         normalizeCardNewsRssSources,
         normalizeCardNewsBuiltinSources,

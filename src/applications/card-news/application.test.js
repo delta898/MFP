@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { createCardNewsService, CARD_NEWS_SOURCE_LIMIT, isConfiguredAiModel } = require('./application');
+const { createAiModelConfiguration } = require('../../composition/ai-model-configuration');
 const {
     configureConnectionVerificationState,
     recordConnectionVerification,
@@ -127,6 +128,7 @@ function createHarness(overrides = {}) {
             now: () => '2026-09-04T00:00:00.000Z',
             generationService,
             isImageModelVerified: () => false,
+            modelConfiguration: createAiModelConfiguration(),
             ...overrides
         })
     };

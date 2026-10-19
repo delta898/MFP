@@ -273,7 +273,8 @@ class TelegramBotService {
             resolveWritableConfigPath,
             buildDefaultConfigTemplate,
             syncAutoRunnerWithConfig,
-            resolveNaverAutoCategoryCatalog
+            resolveNaverAutoCategoryCatalog,
+            modelConfiguration: dependencies.modelConfiguration
         });
 
         this.agentRuntime = createAgentRuntime({

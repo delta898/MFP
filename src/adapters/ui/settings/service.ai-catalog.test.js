@@ -6,12 +6,18 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { createSettingsService } = require('./service');
+const { createAiModelConfiguration } = require('../../../composition/ai-model-configuration');
+const { connectionVerification } = require('../../../composition/connection-verification');
 
 function createService(aiGateway) {
     return createSettingsService({
+        modelConfiguration: createAiModelConfiguration(),
         fs,
         CONFIG: {},
         aiGateway,
+        connectionVerification,
+        ensureRuntimeRemoteMcpConfig: () => ({ enabled: false }),
+        generateRemoteMcpBearerToken: () => 'test-token',
         buildMajorSettings: () => ({ fields: {}, aiPresets: { source: 'host-fallback' } }),
         resolveWritableConfigPath: () => path.join(os.tmpdir(), 'settings-ai-catalog-config.json')
     });

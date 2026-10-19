@@ -5,12 +5,15 @@ const { getDefaultRuntimePaths } = require('./default-runtime-paths');
 const { TYPING_PRESETS, WAIT } = require('../../adapters/naver/publishing-defaults');
 const UpdateDefaults = require('../update-defaults');
 const { ensureRuntimeRemoteMcpConfig } = require('./mcp-remote-config');
+const { createModelConfigurationService } = require('../../services/ai/model-configuration');
+const { createAiGatewayModelMetadata } = require('../../adapters/plugins/ai-gateway/model-metadata');
+const modelConfiguration = createModelConfigurationService(createAiGatewayModelMetadata());
 const {
     getAiModelCatalog,
     resolveAiModelConfig,
     resolveChatModelSettings,
     resolveStoredModelProfiles
-} = require('../../services/ai/model-configuration');
+} = modelConfiguration;
 const { applyRemoteCatalog } = require('../../../packages/plugins/core/ai-gateway/catalog-registry');
 const { resolveContentWritingPreferences } = require('../../services/content-writing/writing-preferences');
 const {

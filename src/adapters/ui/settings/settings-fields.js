@@ -11,8 +11,7 @@ function createSettingsFields(deps = {}) {
         normalizeSnsSourceBlogs,
         normalizeCardNewsBuiltinSources,
         normalizeCardNewsRssSources,
-        getAiModelCatalog,
-        normalizeStoredModelProfiles,
+        modelConfiguration,
         getRemoteServiceStatus,
         normalizeListenHost,
         normalizeListenPort,
@@ -20,11 +19,8 @@ function createSettingsFields(deps = {}) {
         normalizeGoogleSheetUrl,
         extractGoogleSheetId,
         normalizeTypingSpeed,
-        buildModelSelectionFromFields,
-        normalizeChatModelSource,
         normalizeBlogAutoSettings,
         normalizeBool,
-        mergeActiveSelectionsIntoProfiles,
         normalizeIntegerOrBlank,
         normalizeNonNegativeInt,
         normalizeTimeHHmm,
@@ -42,6 +38,14 @@ function createSettingsFields(deps = {}) {
         defaultShoppingImageSources: DEFAULT_SHOPPING_IMAGE_SOURCES,
         allowedImageExts: ALLOWED_IMAGE_EXTS
     } = deps;
+    if (!modelConfiguration) throw new TypeError('Settings fields require the AI model configuration service.');
+    const {
+        getAiModelCatalog,
+        normalizeStoredModelProfiles,
+        buildModelSelectionFromFields,
+        normalizeChatModelSource,
+        mergeActiveSelectionsIntoProfiles
+    } = modelConfiguration;
 
     function applyConfigUpdates(raw, updates = {}) {
         const source = String(raw || '');

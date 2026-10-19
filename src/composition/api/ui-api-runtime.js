@@ -93,6 +93,7 @@ function createUiApiRuntime(deps = {}) {
         createBlogAutoController,
         createBlogAutoRouteHandler,
         createSettingsService,
+        modelConfiguration,
         createSettingsController,
         createSettingsRouteHandler,
         createManualSnsService,
@@ -286,7 +287,8 @@ function createUiApiRuntime(deps = {}) {
                 blogWritingApplication,
                 aiGenerationService,
                 aiGateway,
-                connectionVerification
+                connectionVerification,
+                modelConfiguration
             });
             const controller = createSettingsController({
                 service,
@@ -333,6 +335,7 @@ function createUiApiRuntime(deps = {}) {
                 getSupportedImageModels: () => cardNewsGenerationService.getSupportedModels?.('image') || [],
                 ledgerStore: cardNewsLedgerStore,
                 isImageModelVerified: (model) => Boolean(connectionVerification?.getTrustedAiModelVerification('image', model)),
+                modelConfiguration,
                 socialPublisher: socialPublisher,
                 mediaTransport: cardNewsMediaTransport,
                 urlService: urlShorteningService

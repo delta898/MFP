@@ -20,15 +20,6 @@ function describeAiModelConnectionFailure(error) {
     return 'AI 모델 연결 확인에 실패했습니다. 모델 설정과 네트워크 상태를 확인해 주세요.';
 }
 
-const {
-    getAiModelCatalog,
-    buildModelSelectionFromFields,
-    toStoredModelSelection,
-    toStoredChatModelSettings,
-    mergeActiveSelectionsIntoProfiles,
-    normalizeStoredModelProfiles,
-    normalizeChatModelSource
-} = require('../../../services/ai/model-configuration');
 const { isSnsAiMode } = require('../../../services/sns/ai-policy');
 const {
     createSettingsAiModelsApplication,
@@ -101,13 +92,15 @@ function normalizeCoreConnectionSettings(requestBody = {}) {
     catch (error) { throw createApiError(error.status || 400, error.code, error.message); }
 }
 
-function normalizeAiRoleSettings(requestBody = {}) {
+function normalizeAiRoleSettings(requestBody = {}, normalizeChatModelSource = (value) => (
+    String(value || '').trim().toLowerCase() === 'dedicated' ? 'dedicated' : 'writing'
+)) {
     try { return normalizeAiRoleSettingsForApplication(requestBody, normalizeChatModelSource); }
     catch (error) { throw createApiError(400, error.code, error.message); }
 }
 
-function redactAiProviderProfiles(rawProfiles = {}) {
-    return redactAiProviderProfilesForApplication(rawProfiles, normalizeStoredModelProfiles, getAiModelCatalog);
+function redactAiProviderProfiles(rawProfiles = {}, modelConfiguration) {
+    return redactAiProviderProfilesForApplication(rawProfiles, modelConfiguration.normalizeStoredModelProfiles, modelConfiguration.getAiModelCatalog);
 }
 
 function normalizeOptionalServiceSettings(requestBody = {}) {
@@ -171,8 +164,19 @@ function createSettingsService(deps = {}) {
         axios,
         writingProfileApplication,
         aiGateway = null,
-        connectionVerification
+        connectionVerification,
+        modelConfiguration
     } = deps;
+    if (!modelConfiguration) throw new TypeError('Settings service requires the AI model configuration service.');
+    const {
+        getAiModelCatalog,
+        buildModelSelectionFromFields,
+        toStoredModelSelection,
+        toStoredChatModelSettings,
+        mergeActiveSelectionsIntoProfiles,
+        normalizeStoredModelProfiles,
+        normalizeChatModelSource
+    } = modelConfiguration;
     const telegramPairingService = providedTelegramPairingService;
 
     function requireConnectionVerification() {
@@ -315,14 +319,7 @@ function createSettingsService(deps = {}) {
         aiGateway,
         getModelCatalog: getAiModelCatalog,
         buildMajorSettings,
-        modelConfig: {
-            buildModelSelectionFromFields,
-            toStoredModelSelection,
-            toStoredChatModelSettings,
-            mergeActiveSelectionsIntoProfiles,
-            normalizeStoredModelProfiles,
-            normalizeChatModelSource
-        },
+        modelConfig: modelConfiguration,
         verification: {
             get: aiRoleVerification,
             history: aiRoleVerificationHistory,

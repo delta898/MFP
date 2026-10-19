@@ -2,6 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { applyRemoteCatalog, clearRemoteCatalog } = require('../../../packages/plugins/core/ai-gateway/catalog-registry');
 
+const { createModelConfigurationService } = require('./model-configuration');
+const { createAiGatewayModelMetadata } = require('../../adapters/plugins/ai-gateway/model-metadata');
 const {
     getAiModelCatalog,
     resolveAiModelConfig,
@@ -12,7 +14,7 @@ const {
     normalizeStoredModelProfiles,
     resolveStoredModelProfiles,
     mergeActiveSelectionsIntoProfiles
-} = require('./model-configuration');
+} = createModelConfigurationService(createAiGatewayModelMetadata());
 
 const providerSort = { openai: 10, anthropic: 20, google: 30, kie: 40 };
 const modelSets = [

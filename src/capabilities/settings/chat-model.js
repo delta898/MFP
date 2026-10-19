@@ -1,7 +1,9 @@
-const { resolveChatModelSettings } = require('../../services/ai/model-configuration');
-
 function createChatModelCapabilities(deps = {}) {
-    const { configState } = deps;
+    const { configState, modelConfiguration } = deps;
+    if (typeof modelConfiguration?.resolveChatModelSettings !== 'function') {
+        throw new TypeError('Chat model capability requires the AI model configuration service.');
+    }
+    const { resolveChatModelSettings } = modelConfiguration;
 
     return [
         {
