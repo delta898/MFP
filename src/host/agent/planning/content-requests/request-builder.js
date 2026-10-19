@@ -3,9 +3,9 @@ const {
     cloneContentRequestBundle,
     normalizeExplicitParams,
     validateContentRequestBundle
-} = require('./content-request-schema');
-const { normalizeRegisterTopicParams, buildTopicRegistrationPreview } = require('../capabilities/content/register-topic');
-const { normalizePublishParams, buildPublishRequestPreview } = require('../capabilities/content/publish');
+} = require('./schema');
+const { normalizeRegisterTopicParams, buildTopicRegistrationPreview } = require('../../../../capabilities/content/register-topic');
+const { normalizePublishParams, buildPublishRequestPreview } = require('../../../../capabilities/content/publish');
 
 function normalizeString(value) {
     return String(value || '').trim();

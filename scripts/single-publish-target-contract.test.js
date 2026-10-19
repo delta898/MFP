@@ -27,7 +27,7 @@ test('every writing surface presents Naver and WordPress as one exclusive choice
 test('single-target UI and API boundaries reject silent multi-platform publishing', () => {
   const draftUi = `${read('ui/scripts/features/blog/publishing-targets.js')}\n${read('ui/scripts/features/blog/draft-inputs.js')}\n${read('ui/scripts/features/blog/draft-execution.js')}`;
   const topicUi = read('ui/scripts/features/content-workspace/blog-topics.js');
-  const requestSchema = read('src/internal-api/content-request-schema.js');
+  const requestSchema = read('src/host/agent/planning/content-requests/schema.js');
   const mcpAdapter = read('src/mcp/prototype-adapter.js');
 
   assert.match(draftUi, /const targets = \[\]/);

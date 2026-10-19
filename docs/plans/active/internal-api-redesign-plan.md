@@ -344,6 +344,8 @@ runtime/capability는 채널 독립 결과를 반환한다.
    - 미진행
 
 ## Current Status Summary
+2026-10-19 layer reorganization: the source root `src/internal-api/` has been removed. The channel-neutral content-request bundle schema and capability-backed preparation/action planning live in `src/host/agent/planning/content-requests/`; MCP confirmation-token serialization lives in `src/adapters/messaging/mcp/`. “Internal API” remains a conceptual channel-neutral request direction in this plan, not a source-directory owner. Agent planning and product workflow policy remain separate responsibilities, and each channel owns its protocol representation.
+
 현재 register/publish 경로는 완전한 agent planner path는 아니지만, Telegram 내부 상태와 실행 계약은 이전보다 훨씬 internal API에 가깝게 정리되었다.
 
 - 입력 진입: legacy `Core.parseTelegramRequest` 유지
@@ -356,7 +358,7 @@ runtime/capability는 채널 독립 결과를 반환한다.
 
 ## Next Recommended Steps
 - Telegram callback naming을 `content_request.*` 계열로 정리
-- content request bundle schema/validator를 internal API 공용 모듈로 승격
+- Desktop/BlogAnywhere 등 새 채널이 추가될 때 Host Agent의 canonical request planning contract를 재사용하고 channel-specific mapping만 각 adapter에 둔다.
 - MCP/UI가 같은 canonical content request model을 공유하도록 contract 추출
 - 이후 legacy parser를 planner-compatible parser로 대체할 수 있는지 검토
 

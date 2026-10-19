@@ -1,12 +1,12 @@
 const { normalizeRuntimeContext, buildClarificationResult } = require('../host/agent/contracts/runtime-contract');
-const { buildConfirmationToken, resolveConfirmationId } = require('../internal-api/confirmation-schema');
-const { validateContentRequestBundle } = require('../internal-api/content-request-schema');
+const { buildConfirmationToken, resolveConfirmationId } = require('../adapters/messaging/mcp/confirmation-token');
+const { validateContentRequestBundle } = require('../host/agent/planning/content-requests/schema');
 const {
     prepareContentRequestBundle,
     buildContentExecutionActions,
     buildContentPreviewItems,
     deriveContentRequestGoal
-} = require('../internal-api/content-request-builder');
+} = require('../host/agent/planning/content-requests/request-builder');
 
 function buildMcpToolDefinitions() {
     return [

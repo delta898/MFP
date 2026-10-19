@@ -211,7 +211,7 @@
      provider 목록 전체 노출, 자동 비용 기반 model 선택은 포함하지 않는다.
 
 7. Internal API 통합
-   - canonical content request bundle과 validator를 공용 internal API 계약으로 승격한다.
+   - Host Agent의 canonical content request planning contract를 기준으로 추가 채널 연결을 검토한다. 채널별 입출력 표현은 해당 adapter에 둔다.
    - Desktop, BlogAnywhere, MCP와 Telegram이 같은 query, preview, confirmation, execution과 result 경계를
      사용하게 한다.
    - Telegram은 business logic이 아닌 얇은 channel adapter로 유지한다.
