@@ -2,10 +2,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { marked } = require('marked');
 
-const Utils = require('../../../utils');
+const { parseBlogManuscriptMarkdown } = require('../manuscript-drafts/markdown-parser');
 
 test('parseMarkdown treats a standalone hyphen rule as a separator block', () => {
-    const parsed = Utils.parseMarkdown([
+    const parsed = parseBlogManuscriptMarkdown([
         '# 제목',
         '',
         '첫 문단',
@@ -26,7 +26,7 @@ test('parseMarkdown treats a standalone hyphen rule as a separator block', () =>
 });
 
 test('parseMarkdown keeps inline hyphen runs as paragraph text', () => {
-    const parsed = Utils.parseMarkdown('# 제목\n본문 --- 이어쓰기');
+    const parsed = parseBlogManuscriptMarkdown('# 제목\n본문 --- 이어쓰기');
 
     assert.equal(parsed.contents.length, 1);
     assert.deepEqual(parsed.contents[0], {
@@ -36,7 +36,7 @@ test('parseMarkdown keeps inline hyphen runs as paragraph text', () => {
 });
 
 test('parseMarkdown preserves inline bold ranges while normalizing paragraph text', () => {
-    const parsed = Utils.parseMarkdown('첫 **굵은 글자**와 **두 번째** 문장');
+    const parsed = parseBlogManuscriptMarkdown('첫 **굵은 글자**와 **두 번째** 문장');
 
     assert.deepEqual(parsed.contents[0], {
         type: 'paragraph',
@@ -49,7 +49,7 @@ test('parseMarkdown preserves inline bold ranges while normalizing paragraph tex
 });
 
 test('parseMarkdown preserves inline bold ranges in list items', () => {
-    const parsed = Utils.parseMarkdown('- **중요** 항목');
+    const parsed = parseBlogManuscriptMarkdown('- **중요** 항목');
 
     assert.deepEqual(parsed.contents[0], {
         type: 'list-item',
@@ -60,7 +60,7 @@ test('parseMarkdown preserves inline bold ranges in list items', () => {
 });
 
 test('parseMarkdown preserves Markdown ### headings as dedicated H3 blocks', () => {
-    const parsed = Utils.parseMarkdown('# 제목\n### foobar');
+    const parsed = parseBlogManuscriptMarkdown('# 제목\n### foobar');
 
     assert.deepEqual(parsed.contents, [{
         type: 'header-h3',
@@ -69,7 +69,7 @@ test('parseMarkdown preserves Markdown ### headings as dedicated H3 blocks', () 
 });
 
 test('parseMarkdown keeps H2, H3, and quote blocks distinct', () => {
-    const parsed = Utils.parseMarkdown([
+    const parsed = parseBlogManuscriptMarkdown([
         '# 제목',
         '## H2',
         '### H3',
@@ -84,7 +84,7 @@ test('parseMarkdown keeps H2, H3, and quote blocks distinct', () => {
 });
 
 test('parseMarkdown preserves heading and following content as distinct source blocks', () => {
-    const parsed = Utils.parseMarkdown('# 제목\n\n## 소제목\n본문 문단');
+    const parsed = parseBlogManuscriptMarkdown('# 제목\n\n## 소제목\n본문 문단');
 
     assert.deepEqual(parsed.contents, [
         { type: 'newline' },
@@ -94,7 +94,7 @@ test('parseMarkdown preserves heading and following content as distinct source b
 });
 
 test('parseMarkdown accepts optional image marker numbers and allocates unused indexes', () => {
-    const parsed = Utils.parseMarkdown([
+    const parsed = parseBlogManuscriptMarkdown([
         '# 제목',
         '',
         '[[IMAGE',
@@ -121,7 +121,7 @@ test('parseMarkdown accepts optional image marker numbers and allocates unused i
 
 test('parseMarkdown carries stable image block IDs through the preview contract', () => {
     const blockId = 'mb-55555555-5555-4555-8555-555555555555';
-    const parsed = Utils.parseMarkdown(`# 제목\n\n[[IMAGE_4\nid: ${blockId}\ntitle: 제목\nprompt: 장면\n]]`);
+    const parsed = parseBlogManuscriptMarkdown(`# 제목\n\n[[IMAGE_4\nid: ${blockId}\ntitle: 제목\nprompt: 장면\n]]`);
     assert.equal(parsed.contents.find((item) => item.type === 'image').blockId, blockId);
 });
 

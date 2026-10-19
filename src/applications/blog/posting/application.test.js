@@ -6,13 +6,17 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const CONFIG = require('../../../config-loader');
-const Utils = require('../../../utils');
 const { getDefaultContentWritingProfile } = require('../../../services/content-writing/writing-profile');
 const { createBlogPostingApplication } = require('./application');
 
-function createApplication({ writing, utils = Utils, config = CONFIG, ...dependencies } = {}) {
+function createApplication({ writing, config = CONFIG, ...dependencies } = {}) {
     return createBlogPostingApplication({
-        Utils: utils,
+        relatedPostsService: {
+            async fetchOwnBlogRelatedPosts() { return []; },
+            async fetchWordPressRandomPosts() { return []; },
+            pickHeading() { return '함께 보면 좋은 글'; },
+            shuffle(items) { return items.slice(); }
+        },
         CONFIG: config,
         blogPromptPaths: require('../writing/prompts/paths'),
         Logger: { info() {}, warn() {}, error() {}, debug() {} },
@@ -27,13 +31,6 @@ test('Blog Posting Application owns content assembly and routes text and image g
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'blog-posting-application-'));
     const targetDir = path.join(root, 'post');
     const calls = [];
-    const Utils = {
-        ...require('../../../utils'),
-        resolvePlatformWorkspaceDir: () => root,
-        async fetchReferenceContent() { return ''; },
-        async fetchOwnBlogRelatedPosts() { return []; },
-        parseMarkdown() { return { contents: [{ type: 'image', index: 0, prompt: 'image prompt' }] }; }
-    };
     const writing = {
         async generateText(prompt, context) {
             calls.push(['text', prompt, context]);
@@ -46,7 +43,7 @@ test('Blog Posting Application owns content assembly and routes text and image g
     };
     const progress = [];
     try {
-        const application = createApplication({ writing, utils: Utils, config: { IMAGE_STYLE: 'illustration' } });
+        const application = createApplication({ writing, config: { IMAGE_STYLE: 'illustration' } });
         const result = await application.preparePost({
             subject: '주제',
             image_options: { mode: 'generate', count: 1 }
@@ -94,7 +91,7 @@ test('Blog Posting Application uses the selected writing profile when composing 
                 },
                 async generateImage() { throw new Error('not used'); }
             },
-            utils: { ...Utils, resolvePlatformWorkspaceDir: () => root },
+            resolvePlatformWorkspaceDir: () => root,
             config: CONFIG
         });
         const result = await application.preparePost({
@@ -132,7 +129,7 @@ test('Blog Posting Application does not write a manuscript when generation is ca
     const controller = new AbortController();
     let seenContext;
     const application = createApplication({
-        utils: { ...Utils, resolvePlatformWorkspaceDir: () => root },
+        resolvePlatformWorkspaceDir: () => root,
         writing: {
             async generateText(_prompt, context) {
                 seenContext = context;
@@ -162,12 +159,8 @@ test('Blog Posting Application stops before text generation when optional refere
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'blog-posting-canceled-reference-'));
     const controller = new AbortController();
     let textCalls = 0;
-    const Utils = {
-        ...require('../../../utils'),
-        resolvePlatformWorkspaceDir: () => root
-    };
     const application = createApplication({
-        utils: Utils,
+        resolvePlatformWorkspaceDir: () => root,
         writing: {
             async generateText() { textCalls += 1; return '{}'; },
             async generateImage() { throw new Error('not used'); }

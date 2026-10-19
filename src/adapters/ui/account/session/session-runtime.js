@@ -6,7 +6,6 @@ const { createConnectionSignature } = require('../../../../services/connection-v
 function createUiSessionRuntime(deps = {}) {
     const {
         CONFIG,
-        Utils,
         GoogleSheets,
         Logger,
         checkAuthSessionValid,

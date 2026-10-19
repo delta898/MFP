@@ -23,7 +23,6 @@ function createContentActionHandlers(deps = {}) {
     const {
         path,
         CONFIG,
-        Utils,
         GoogleSheets,
         blogPostingApplication,
         shoppingGenerationApplication,

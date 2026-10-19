@@ -11,6 +11,7 @@ const { createWordPressPublishingSystem } = require('./wordpress-publishing');
 const { createNaverPublishingSystem } = require('./naver-publishing');
 const { createBlogPublishingApplication } = require('../applications/blog/publishing/application');
 const { createBlogPostingApplication } = require('../applications/blog/posting/application');
+const { createBlogReferenceContentFetcher } = require('../adapters/web/blog-reference-content-fetcher');
 const { createReferenceSearchGateway } = require('../adapters/knowledge/blog-reference-search');
 const { createShoppingGenerationApplication } = require('../applications/shopping/generation/application');
 const { inferTransport } = require('../../packages/plugins/core/ai-gateway/transport-registry');
@@ -18,6 +19,14 @@ const { createSupabaseModelCatalogPort } = require('../adapters/storage/ai-model
 const { createModelCatalogService } = require('../../packages/plugins/core/ai-gateway');
 const { applyRemoteCatalog, getCatalogStatus } = require('../../packages/plugins/core/ai-gateway/catalog-registry');
 const { APP_VERSION } = require('../host/application-metadata');
+const { createPlatformWorkspaceResolver } = require('../adapters/storage/workspaces/platform-workspace');
+const { createManuscriptImageFileReader } = require('../adapters/storage/manuscript-drafts/image-file-reader');
+const { createWordPressPublishedAssetSettings } = require('../adapters/storage/config/wordpress-published-assets');
+const { createRelatedPostsService } = require('../services/related-posts/service');
+const { createNaverBlogPostFeed } = require('../adapters/web/related-posts/naver-blog-post-feed');
+const { createWordPressPostFeed } = require('../adapters/web/related-posts/wordpress-post-feed');
+const { runWithHeartbeat } = require('../utilities/async/run-with-heartbeat');
+const { convertToMobileNaverBlogUrl } = require('../utilities/text/naver-blog-url');
 
 function createBlogBetaRuntimeComposition(options = {}) {
     const { CONFIG, Logger, getAiModelCatalog } = options;
@@ -27,6 +36,17 @@ function createBlogBetaRuntimeComposition(options = {}) {
     const fs = options.fs || fsDefault;
     const path = options.path || pathDefault;
     const imageOptimizationService = options.imageOptimizationService || createImageOptimizationService({ logger: Logger });
+    const resolvePlatformWorkspaceDir = createPlatformWorkspaceResolver({ config: CONFIG, fs, path, logger: Logger });
+    const findImageByPrefix = createManuscriptImageFileReader({ fs, path, logger: Logger });
+    const wordpressPublishedAssetSettings = createWordPressPublishedAssetSettings({ config: CONFIG, fs, logger: Logger });
+    const fetchReferenceContent = createBlogReferenceContentFetcher({ config: CONFIG, logger: Logger, axios: options.axios });
+    const withHeartbeat = (label, fn) => runWithHeartbeat(label, fn, { logger: Logger });
+    const relatedPostsService = createRelatedPostsService({
+        config: CONFIG,
+        logger: Logger,
+        fetchNaverCandidates: createNaverBlogPostFeed({ config: CONFIG, logger: Logger, axios: options.axios, withHeartbeat }),
+        fetchWordPressCandidates: createWordPressPostFeed({ logger: Logger, axios: options.axios, withHeartbeat })
+    });
     const corePluginRuntime = options.corePluginRuntime || createCorePluginRuntime();
     const catalogPort = createSupabaseModelCatalogPort({
         config: CONFIG,
@@ -138,12 +158,15 @@ function createBlogBetaRuntimeComposition(options = {}) {
         logger: Logger
     });
     const blogPostingApplication = createBlogPostingApplication({
-        Utils: options.Utils || require('../utils'),
+        relatedPostsService,
+        convertNaverBlogUrl: convertToMobileNaverBlogUrl,
+        fetchReferenceContent,
         CONFIG,
         Logger,
         fs,
         path,
         blogWritingApplication: blogWritingSystem.application,
+        resolvePlatformWorkspaceDir,
         referenceSearchGateway: createReferenceSearchGateway({ config: CONFIG, License: options.License })
     });
 
@@ -151,11 +174,12 @@ function createBlogBetaRuntimeComposition(options = {}) {
         imageOptimizationService,
         naverPublisher: naverPublishingSystem.publisher,
         wordpressPublishingApplication: wordpressPublishingSystem.application,
-        Utils: options.Utils,
         CONFIG,
         Logger,
         fs,
-        path
+        path,
+        findImageByPrefix,
+        persistWordPressAssetUrl: (key, value) => wordpressPublishedAssetSettings.persist(key, value)
     });
 
     return Object.freeze({
@@ -166,6 +190,8 @@ function createBlogBetaRuntimeComposition(options = {}) {
         naverPublishingSystem,
         blogWritingSystem,
         shoppingGenerationApplication,
+        relatedPostsService,
+        fetchReferenceContent,
         blogPostingApplication,
         blogPublishingApplication
     });

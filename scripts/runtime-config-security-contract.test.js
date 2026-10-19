@@ -21,10 +21,8 @@ test('runtime config migration requires explicit public keys and removes credent
 
 test('desktop no longer contains a Naver Runtime Config credential loader or direct helper', () => {
     const runtimeConfig = read('src/runtime-config.js');
-    const utils = read('src/utils.js');
 
     assert.doesNotMatch(runtimeConfig, /ensureNaverSearchCredentials/);
     assert.doesNotMatch(runtimeConfig, /naver_client_secret/i);
-    assert.doesNotMatch(utils, /fetchNaverBlogSearchResults/);
-    assert.doesNotMatch(utils, /openapi\.naver\.com\/v1\/search\/blog\.json/);
+    assert.equal(fs.existsSync(path.join(ROOT, 'src/utils.js')), false);
 });

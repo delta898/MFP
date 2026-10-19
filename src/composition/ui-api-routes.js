@@ -61,7 +61,6 @@ function createProductApiRouteHandler(deps = {}) {
         || createBlogExecutionCoordinator();
     const systemService = createSystemService({
         APP_VERSION: deps.APP_VERSION,
-        Utils: deps.Utils,
         fs: deps.fs,
         path: deps.path,
         CONFIG: deps.CONFIG,
@@ -136,7 +135,9 @@ function createProductApiRouteHandler(deps = {}) {
     });
 
     const contentApiService = createContentApiService({
-        Utils: deps.Utils,
+        relatedPostsService: deps.relatedPostsService,
+        fetchReferenceContent: deps.fetchReferenceContent,
+        findImageByPrefix: deps.findImageByPrefix,
         fs: deps.fs,
         path: deps.path,
         manuscriptDraftService: deps.manuscriptDraftService,
@@ -219,7 +220,6 @@ function createProductApiRouteHandler(deps = {}) {
     });
 
     const executeSiteHostingQueueRowAction = createSiteHostingQueueExecutor({
-        Utils: deps.Utils,
         GoogleSheets: deps.GoogleSheets,
         ensureSheetsReadyForUi: deps.ensureSheetsReadyForUi,
         generateAiManuscriptDraft: contentApiService.createAiManuscriptDraftForQueue,
@@ -231,7 +231,6 @@ function createProductApiRouteHandler(deps = {}) {
         executeSiteHostingQueueRowAction
     });
     const continuousPublishingService = createContinuousPublishingService({
-        Utils: deps.Utils,
         GoogleSheets: deps.GoogleSheets,
         ensureSheetsReadyForUi: deps.ensureSheetsReadyForUi,
         executeBlogRowAction: deps.executeBlogRowAction,

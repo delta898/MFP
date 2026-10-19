@@ -1,6 +1,7 @@
 'use strict';
 
 const { raceWithCancellation, sleepWithCancellation, throwIfCanceled } = require('../../../utilities/async/cancellation');
+const { sleep } = require('../../../utilities/async/sleep');
 
 async function searchOptionalReferences(gateway, input = {}, onFailure = () => {}) {
     try {
@@ -28,9 +29,11 @@ ${scrapedContext}`;
 }
 
 async function collectBlogReferenceContext(input = {}) {
-    const { Utils, Logger, signal, referenceSearchGateway } = input;
+    const { Logger, signal, referenceSearchGateway } = input;
+    const convertNaverBlogUrl = input.convertNaverBlogUrl || ((url) => url);
+    const fetchReferenceContent = input.fetchReferenceContent;
     const jobData = input.jobData || {};
-    if (!Utils || typeof Utils.fetchReferenceContent !== 'function') {
+    if (typeof fetchReferenceContent !== 'function') {
         throw new TypeError('Blog reference context requires fetchReferenceContent().');
     }
     const scrapedParts = [];
@@ -53,9 +56,7 @@ async function collectBlogReferenceContext(input = {}) {
                     );
                     return posts.map((post) => ({
                         ...post,
-                        link: typeof Utils.convertToMobileNaverBlogUrl === 'function'
-                            ? Utils.convertToMobileNaverBlogUrl(post.link)
-                            : post.link
+                        link: convertNaverBlogUrl(post.link)
                     }));
                 },
                 signal
@@ -64,13 +65,13 @@ async function collectBlogReferenceContext(input = {}) {
             for (let index = 0; index < relatedPosts.length; index += 1) {
                 throwIfCanceled(signal);
                 const post = relatedPosts[index];
-                const text = await Utils.fetchReferenceContent(post.link, { signal });
+                const text = await fetchReferenceContent(post.link, { signal });
                 throwIfCanceled(signal);
                 if (text) {
                     sourceCount += 1;
                     scrapedParts.push(`\n[자동 참고글 ${sourceCount} - ${post.title}]:\n${text}\n`);
                 }
-                await sleepWithCancellation(1000, signal, (ms) => Utils.sleep(ms));
+                await sleepWithCancellation(1000, signal, sleep);
             }
             Logger?.info?.(`🔍 [외부 참고] 관련 글 스크래핑 완료: ${sourceCount}건 성공`);
         }
@@ -82,17 +83,15 @@ async function collectBlogReferenceContext(input = {}) {
     for (let index = 0; index < referenceUrls.length; index += 1) {
         throwIfCanceled(signal);
         const originalUrl = referenceUrls[index];
-        const url = typeof Utils.convertToMobileNaverBlogUrl === 'function'
-            ? Utils.convertToMobileNaverBlogUrl(originalUrl)
-            : originalUrl;
+        const url = convertNaverBlogUrl(originalUrl);
         Logger?.info?.(`📚 [수동 참고 자료] URL 분석 중 (${index + 1}/${referenceUrls.length})`);
-        const text = await Utils.fetchReferenceContent(url, { signal });
+        const text = await fetchReferenceContent(url, { signal });
         throwIfCanceled(signal);
         if (text) {
             sourceCount += 1;
             scrapedParts.push(`\n[수동 참고글 ${sourceCount} - ${url}]:\n${text}\n`);
         }
-        await sleepWithCancellation(1000, signal, (ms) => Utils.sleep(ms));
+        await sleepWithCancellation(1000, signal, sleep);
     }
 
     return Object.freeze({

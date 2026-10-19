@@ -13,12 +13,15 @@ const {
 const { createTopicRecommendationLearningService } = require('../../../services/recommendations/topic-recommendation-learning');
 const { buildBlogPublishResultEvidence } = require('../operations-reporting/blog-publish-result');
 const { normalizePublishTargets } = require('../../../services/content-delivery/single-publish-target');
+const { parseBlogManuscriptMarkdown } = require('../manuscript-drafts/markdown-parser');
+const { sleep } = require('../../../utilities/async/sleep');
 const {
     MANUAL_PUBLISH_BLOCKED_CODE,
     assertDirectPublishAllowed
 } = require('../../../services/runtime-environment/effects');
 const { rethrowIfCanceled, throwIfCanceled } = require('../../../utilities/async/cancellation');
 const { marked } = require('marked');
+const { convertToMobileNaverBlogUrl } = require('../../../utilities/text/naver-blog-url');
 
 function createBlogManualPublishingApplication(deps = {}) {
     const {
@@ -27,7 +30,8 @@ function createBlogManualPublishingApplication(deps = {}) {
         crypto,
         CONFIG,
         Logger,
-        Utils,
+        relatedPostsService,
+        findImageByPrefix,
         GoogleSheets,
         blogPostingApplication,
         blogWritingApplication,
@@ -80,7 +84,7 @@ function createBlogManualPublishingApplication(deps = {}) {
         if (!/\[\[IMAGE(?:_\d+)?(?:\s|\]\]|$)/i.test(String(markdown || ''))) {
             return { contentMarkdown: String(markdown || ''), assets: [] };
         }
-        const parsedImages = (Utils.parseMarkdown(markdown)?.contents || []).filter((item) => item?.type === 'image');
+        const parsedImages = (parseBlogManuscriptMarkdown(markdown, Logger)?.contents || []).filter((item) => item?.type === 'image');
         const assets = [];
         const assetsByIndex = new Map();
         let imagePosition = 0;
@@ -100,7 +104,7 @@ function createBlogManualPublishingApplication(deps = {}) {
                 const index = explicitIndex === undefined ? Number(parsedImage.index) : Number(explicitIndex);
                 const key = `image-${index}`;
                 if (assetsByIndex.has(index)) return `{{asset:${key}}}`;
-                const imagePath = Utils.findImageByPrefix(tempDir, index);
+                const imagePath = findImageByPrefix(tempDir, index);
                 if (!imagePath || !fs?.existsSync?.(imagePath)) {
                     const error = new Error(`원고 이미지 ${index + 1}번 파일을 찾을 수 없습니다.`);
                     error.code = 'WORDPRESS_IMAGE_ASSET_MISSING';
@@ -526,7 +530,6 @@ function createBlogManualPublishingApplication(deps = {}) {
         }, {
             fs,
             path,
-            Utils
         });
 
         preview.source = {
@@ -813,7 +816,7 @@ function createBlogManualPublishingApplication(deps = {}) {
         const headless = typeof requestBody?.headless === 'boolean' ? requestBody.headless : Boolean(CONFIG.HEADLESS);
         let referenceUrl = String(requestBody?.referenceUrl || '').trim();
         if (referenceUrl) {
-            referenceUrl = Utils.convertToMobileNaverBlogUrl(referenceUrl);
+            referenceUrl = convertToMobileNaverBlogUrl(referenceUrl);
         }
         const publishMode = normalizePublishMode(requestBody?.publishMode);
         const targets = normalizePublishTargets(Array.isArray(requestBody?.targets) ? requestBody.targets : ['naver']);
@@ -1269,7 +1272,7 @@ function createBlogManualPublishingApplication(deps = {}) {
 
             const now = Date.now();
             if (lastCall > 0 && (now - lastCall) < 1000) {
-                await Utils.sleep(1000);
+                await sleep(1000);
             }
 
             Logger.info(`   🎨 [LocalMarkdown] 누락 이미지 생성 중 (Index ${image.index})`);
@@ -1377,7 +1380,6 @@ function createBlogManualPublishingApplication(deps = {}) {
             }, {
                 fs,
                 path,
-                Utils
             });
         } catch (error) {
             return { success: false, code: 'LOCAL_MARKDOWN_PREVIEW_INVALID', message: error.message || '원고 검증에 실패했습니다.' };
@@ -1407,13 +1409,13 @@ function createBlogManualPublishingApplication(deps = {}) {
         if (hasPastedMarkdown && relatedPostsEnabled) {
             try {
                 Logger.info('🔎 [PastedMarkdown] 관련 글 자동 수집 중...');
-                const relatedPosts = await Utils.fetchOwnBlogRelatedPosts({
+                const relatedPosts = await relatedPostsService.fetchOwnBlogRelatedPosts({
                     title: previewData.title,
                     content: previewData.rawMarkdown,
                     keywords: []
                 }, 3);
                 if (relatedPosts.length > 0) {
-                    const heading = Utils.pickRelatedPostsHeading();
+                    const heading = relatedPostsService.pickHeading();
                     const relatedSection = blogPostingApplication.buildRelatedPostsSectionMarkdown(relatedPosts, heading, true);
                     effectiveMarkdownText = appendRelatedPostsToPastedMarkdown(
                         effectiveMarkdownText,
@@ -1429,7 +1431,6 @@ function createBlogManualPublishingApplication(deps = {}) {
                     }, {
                         fs,
                         path,
-                        Utils
                     });
                     Logger.info(`🔗 [PastedMarkdown] 관련 글 ${relatedPosts.length}개 자동 추가 완료`);
                 } else {

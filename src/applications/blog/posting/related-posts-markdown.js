@@ -1,6 +1,6 @@
 'use strict';
 
-function buildRelatedPostsSectionMarkdown(relatedPosts, heading, includeHeading = true, Utils = {}) {
+function buildRelatedPostsSectionMarkdown(relatedPosts, heading, includeHeading = true, urlTools = {}) {
     const title = String(heading || '함께 보면 좋은 글').trim() || '함께 보면 좋은 글';
     const lines = [];
     if (includeHeading) lines.push(`## ${title}`);
@@ -12,7 +12,7 @@ function buildRelatedPostsSectionMarkdown(relatedPosts, heading, includeHeading 
         return lines.join('\n').trim();
     }
     validPosts.slice(0, 3).forEach((post) => {
-        const postUrl = Utils.toMobileNaverBlogPostUrl(post?.url);
+        const postUrl = (urlTools.toMobileNaverBlogPostUrl || ((url) => url))(post?.url);
         const postTitle = String(post?.title || post?.name || '').replace(/[\r\n]+/g, ' ').trim();
         const label = (postTitle || postUrl).replace(/\\/g, '\\\\').replace(/\[/g, '\\[').replace(/\]/g, '\\]');
         const markdownUrl = postUrl.replace(/\s/g, '%20').replace(/\(/g, '%28').replace(/\)/g, '%29');

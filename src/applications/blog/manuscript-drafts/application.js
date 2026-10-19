@@ -118,7 +118,7 @@ function createManuscriptDraftService(options = {}) {
     const fsImpl = options.fs || fs;
     const pathImpl = options.path || path;
     const cryptoImpl = options.crypto || crypto;
-    const Utils = options.Utils;
+    const findImageByPrefix = options.findImageByPrefix;
     const Logger = options.Logger;
     const generateAiImage = options.generateAiImage;
     const now = typeof options.now === 'function' ? options.now : () => Date.now();
@@ -130,7 +130,7 @@ function createManuscriptDraftService(options = {}) {
         : DEFAULT_COMPLETED_RETENTION_MS;
     const workspaceBase = pathImpl.resolve(String(options.workspaceDir || pathImpl.join(process.cwd(), 'workspace')));
     const workspaceRoot = pathImpl.join(workspaceBase, 'manuscript-drafts');
-    if (!Utils?.parseMarkdown || !Utils?.findImageByPrefix) throw new Error('Manuscript Draft requires markdown utilities.');
+    if (typeof findImageByPrefix !== 'function') throw new Error('Manuscript Draft requires image file lookup.');
     const relatedPostsGateway = options.relatedPosts || null;
 
     function normalizePostStatus(value) {
@@ -433,7 +433,7 @@ function createManuscriptDraftService(options = {}) {
             postStatus: manifest.settings.postStatus,
             scheduleDate: manifest.settings.scheduleDate,
             imageGeneration: false
-        }, { fs: fsImpl, path: pathImpl, Utils });
+        }, { fs: fsImpl, path: pathImpl, findImageByPrefix });
         if (manifest.source_kind === 'paste') {
             preview.source = { ...preview.source, type: 'pasted_markdown', folderName: manifest.source_label };
         } else if (manifest.source_kind === 'folder') {
@@ -513,7 +513,7 @@ function createManuscriptDraftService(options = {}) {
         const { id, locations } = createWorkspace();
         try {
             const settings = normalizeDraftSettings(input);
-            const preview = buildLocalMarkdownPreview({ markdownText, folderName: '붙여넣기', ...settings }, { fs: fsImpl, path: pathImpl, Utils });
+            const preview = buildLocalMarkdownPreview({ markdownText, folderName: '붙여넣기', ...settings }, { fs: fsImpl, path: pathImpl, findImageByPrefix });
             fsImpl.writeFileSync(pathImpl.join(locations.source, 'contents.md'), markdownText, { mode: 0o600 });
             const createdAt = new Date(now()).toISOString();
             const manifest = {
@@ -566,7 +566,7 @@ function createManuscriptDraftService(options = {}) {
                 imageByIndex.set(index, fileName);
             }
             const settings = normalizeDraftSettings(input);
-            const preview = buildLocalMarkdownPreview({ directoryPath: locations.source, ...settings, imageGeneration: false }, { fs: fsImpl, path: pathImpl, Utils });
+            const preview = buildLocalMarkdownPreview({ directoryPath: locations.source, ...settings, imageGeneration: false }, { fs: fsImpl, path: pathImpl, findImageByPrefix });
             const createdAt = new Date(now()).toISOString();
             const manifest = {
                 schema_version: 1,
@@ -623,7 +623,7 @@ function createManuscriptDraftService(options = {}) {
                 fsImpl.writeFileSync(pathImpl.join(locations.originals, safeName), buffer, { mode: 0o600 });
             }
             const settings = normalizeDraftSettings(input);
-            const preview = buildLocalMarkdownPreview({ directoryPath: locations.source, ...settings, imageGeneration: settings.imageMode === 'generate' }, { fs: fsImpl, path: pathImpl, Utils });
+            const preview = buildLocalMarkdownPreview({ directoryPath: locations.source, ...settings, imageGeneration: settings.imageMode === 'generate' }, { fs: fsImpl, path: pathImpl, findImageByPrefix });
             const createdAt = new Date(now()).toISOString();
             const manifest = {
                 schema_version: 1,
@@ -815,7 +815,7 @@ function createManuscriptDraftService(options = {}) {
             }
             manifest.related_posts = relatedPosts;
             const settings = normalizeDraftSettings(input, manifest.settings);
-            const preview = buildLocalMarkdownPreview({ directoryPath: locations.source, markdownText, folderName: manifest.source_label, ...settings }, { fs: fsImpl, path: pathImpl, Utils });
+            const preview = buildLocalMarkdownPreview({ directoryPath: locations.source, markdownText, folderName: manifest.source_label, ...settings }, { fs: fsImpl, path: pathImpl, findImageByPrefix });
             const previousByBlockId = new Map(manifest.image_slots.filter((slot) => slot.block_id).map((slot) => [slot.block_id, slot]));
             const previousByIndex = new Map(manifest.image_slots.map((slot) => [Number(slot.index), slot]));
             manifest.settings = settings;

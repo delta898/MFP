@@ -2,9 +2,6 @@
  * ui-server.js 의 카테고리 오버라이드 로직 테스트
  * (executeBlogRowAction 내부 로직 검증)
  */
-const Utils = require('../src/utils');
-const path = require('path');
-
 // Mock topic data (from spreadsheet)
 const mockTopicData = {
     rowIndex: 0,

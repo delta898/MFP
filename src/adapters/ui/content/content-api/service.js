@@ -20,6 +20,8 @@ const { validateBlogImageBlocks } = require('../../../../applications/blog/writi
 const { collectBlogReferenceContext } = require('../../../../applications/blog/posting/blog-reference-context');
 const BLOG_PROMPT_PATHS = require('../../../../applications/blog/writing/prompts/paths');
 const { parseStructuredJsonResponse } = require('../../../../utilities/text/structured-json-response');
+const { parseBlogManuscriptMarkdown } = require('../../../../applications/blog/manuscript-drafts/markdown-parser');
+const { convertToMobileNaverBlogUrl, toMobileNaverBlogPostUrl } = require('../../../../utilities/text/naver-blog-url');
 
 function createNaverPublishProgressReporter({ lease, fallbackPostStatus, logger }) {
     let lastMessage = '';
@@ -36,7 +38,9 @@ function createNaverPublishProgressReporter({ lease, fallbackPostStatus, logger 
 
 function createContentApiService(deps = {}) {
     const {
-        Utils,
+        relatedPostsService,
+        fetchReferenceContent,
+        findImageByPrefix,
         GoogleSheets,
         fs,
         path,
@@ -102,7 +106,7 @@ function createContentApiService(deps = {}) {
             manuscriptDraftService = createManuscriptDraftService({
                 fs,
                 path,
-                Utils,
+                findImageByPrefix,
                 Logger,
                 workspaceDir: CONFIG?.WORKSPACE_DIR,
                 generateAiImage: typeof blogWritingApplication?.generateImage === 'function'
@@ -112,17 +116,13 @@ function createContentApiService(deps = {}) {
                     })
                     : null,
                 relatedPosts: {
-                    fetchPosts: typeof Utils?.fetchConfiguredRelatedPosts === 'function'
-                        ? ({ title, content }) => Utils.fetchConfiguredRelatedPosts({ title, content, keywords: [] }, 3)
-                        : typeof Utils?.fetchOwnBlogRelatedPosts === 'function'
-                            ? ({ title, content }) => Utils.fetchOwnBlogRelatedPosts({ title, content, keywords: [] }, 3)
-                            : null,
-                    pickHeading: typeof Utils?.pickRelatedPostsHeading === 'function'
-                        ? () => Utils.pickRelatedPostsHeading()
+                    fetchPosts: typeof relatedPostsService?.fetchConfiguredRelatedPosts === 'function'
+                        ? ({ title, content }) => relatedPostsService.fetchConfiguredRelatedPosts({ title, content, keywords: [] }, 3)
                         : null,
-                    toMobileUrl: typeof Utils?.toMobileNaverBlogPostUrl === 'function'
-                        ? (url) => Utils.toMobileNaverBlogPostUrl(url)
-                        : null
+                    pickHeading: typeof relatedPostsService?.pickHeading === 'function'
+                        ? () => relatedPostsService.pickHeading()
+                        : null,
+                    toMobileUrl: toMobileNaverBlogPostUrl
                 }
             });
         }
@@ -227,7 +227,7 @@ function createContentApiService(deps = {}) {
         }, {
             fs,
             path,
-            Utils
+            findImageByPrefix
         });
     }
 
@@ -306,7 +306,7 @@ function createContentApiService(deps = {}) {
         };
     }
 
-    if (!manuscriptDraftService && fs && path && Utils?.parseMarkdown && Utils?.findImageByPrefix) {
+    if (!manuscriptDraftService && fs && path && typeof findImageByPrefix === 'function') {
         getManuscriptDraftService();
     }
 
@@ -351,7 +351,8 @@ function createContentApiService(deps = {}) {
             ...(Array.isArray(requestBody.referenceUrls) ? requestBody.referenceUrls : [])
         ];
         const { referenceContext } = await collectBlogReferenceContext({
-            Utils,
+            convertNaverBlogUrl: convertToMobileNaverBlogUrl,
+            fetchReferenceContent,
             Logger,
             signal: operation?.signal,
             jobData: {
@@ -419,7 +420,7 @@ function createContentApiService(deps = {}) {
             const images = [];
             if (generatesBlogImages(imageMode)) {
                 operation?.setStage('images');
-                const parsed = Utils.parseMarkdown(markdownText);
+                const parsed = parseBlogManuscriptMarkdown(markdownText, Logger);
                 const imageBlocks = (Array.isArray(parsed?.contents) ? parsed.contents : []).filter((item) => item.type === 'image');
                 if (imageBlocks.length !== resolvedPrompt.image_plan.count) {
                     throw createApiError(502, 'BLOG_IMAGE_PLAN_MISMATCH', '생성된 이미지 영역을 읽지 못해 원고를 저장하지 않았습니다. 다시 시도해 주세요.');

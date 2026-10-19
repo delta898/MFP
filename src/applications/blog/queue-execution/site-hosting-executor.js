@@ -3,7 +3,7 @@ const { diagnoseQueueReadiness } = require('../queue-management/queue-readiness'
 const { diagnoseSiteTargetAvailability } = require('./site-target-readiness');
 
 function createSiteHostingQueueExecutor(deps = {}) {
-    const { Utils, GoogleSheets, ensureSheetsReadyForUi, generateAiManuscriptDraft, getSiteHostingSiteService } = deps;
+    const { GoogleSheets, ensureSheetsReadyForUi, generateAiManuscriptDraft, getSiteHostingSiteService } = deps;
     const now = typeof deps.now === 'function' ? deps.now : () => new Date();
 
     function currentTime() {

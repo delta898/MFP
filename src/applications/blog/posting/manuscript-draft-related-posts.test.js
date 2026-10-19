@@ -4,13 +4,13 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const Utils = require('../../../utils');
+const { toMobileNaverBlogPostUrl } = require('../../../utilities/text/naver-blog-url');
 const { buildRelatedPostsSectionMarkdown } = require('./related-posts-markdown');
 const { createManuscriptDraftService } = require('../../../applications/blog/manuscript-drafts/application');
 
 function fixture(gateway) {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-related-'));
-    const service = createManuscriptDraftService({ fs, path, Utils, workspaceDir, relatedPosts: gateway });
+    const service = createManuscriptDraftService({ fs, path, workspaceDir, relatedPosts: gateway });
     return { workspaceDir, service };
 }
 
@@ -28,7 +28,7 @@ function stubGateway(overrides = {}) {
         pickHeading: () => '함께 보면 좋은 글',
         stripSection: (text) => String(text || ''),
         buildSection: (posts, heading) => buildRelatedPostsSectionMarkdown(posts, heading, true),
-        toMobileUrl: (url) => Utils.toMobileNaverBlogPostUrl(url),
+        toMobileUrl: toMobileNaverBlogPostUrl,
         ...overrides
     };
 }

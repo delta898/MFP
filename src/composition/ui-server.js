@@ -30,13 +30,16 @@ const naverAuthConfiguration = Object.freeze({
 const checkAuthSessionValid = (options = {}) => NaverAuthSession.checkAuthSessionValid({ ...naverAuthConfiguration, ...options });
 const peekAuthSessionState = (options = {}) => NaverAuthSession.peekAuthSessionState({ ...naverAuthConfiguration, ...options });
 const clearAuthSession = (options = {}) => NaverAuthSession.clearAuthSession({ ...naverAuthConfiguration, ...options });
-const Utils = require('../utils');
+const { createPlatformWorkspaceResolver } = require('../adapters/storage/workspaces/platform-workspace');
+const { createManuscriptImageFileReader } = require('../adapters/storage/manuscript-drafts/image-file-reader');
 const { parseStructuredJsonResponse } = require('../utilities/text/structured-json-response');
 const TelegramBotService = require('../telegram-bot.service');
 TelegramBotService.GoogleSheets = GoogleSheets;
 TelegramBotService.License = License;
 const BrowserLauncher = require('../utilities/browser/browser-launcher');
-const ShoppingManager = createShoppingContentPreparationRuntime({ config: CONFIG, License });
+const resolvePlatformWorkspaceDir = createPlatformWorkspaceResolver({ config: CONFIG, fs, path, logger: Logger });
+const findImageByPrefix = createManuscriptImageFileReader({ fs, path, logger: Logger });
+const ShoppingManager = createShoppingContentPreparationRuntime({ config: CONFIG, License, resolvePlatformWorkspaceDir });
 const Updater = require('../host/updater');
 Updater.configure(CONFIG);
 const { createRuntimeConfigApi } = require('../runtime-config');
@@ -206,7 +209,6 @@ const ALLOWED_IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif']);
 
 const uiSessionRuntime = createUiSessionRuntime({
     CONFIG,
-    Utils,
     GoogleSheets,
     Logger,
     checkAuthSessionValid,
@@ -322,13 +324,13 @@ const {
 const blogBetaComposition = createBlogBetaRuntimeComposition({
     CONFIG,
     Logger,
-    Utils,
     License,
     fs,
     path,
     getAiModelCatalog
 });
-const { corePluginRuntime, blogWritingSystem, shoppingGenerationApplication, blogPostingApplication, blogPublishingApplication, aiGenerationSystem } = blogBetaComposition;
+const { corePluginRuntime, blogWritingSystem, shoppingGenerationApplication, relatedPostsService, fetchReferenceContent, blogPostingApplication, blogPublishingApplication, aiGenerationSystem } = blogBetaComposition;
+ShoppingManager.relatedPostsService = relatedPostsService;
 const keywordResearchService = createKeywordResearchService({
     CONFIG,
     Logger,
@@ -369,7 +371,6 @@ const topicRecommendationCapabilityRegistry = createCapabilityRuntime({
     ...topicRecommendationKnowledgeRuntime,
     CONFIG,
     Logger,
-    Utils,
     GoogleSheets,
     blogWritingApplication: blogWritingSystem.application,
     License,
@@ -762,7 +763,8 @@ const publishActionsRuntime = createBlogManualPublishingApplication({
     crypto,
     CONFIG,
     Logger,
-    Utils,
+    relatedPostsService,
+    findImageByPrefix,
     GoogleSheets,
     blogWritingApplication: blogWritingSystem.application,
     blogPostingApplication,
@@ -806,7 +808,6 @@ const {
 const contentActionsRuntime = createContentActionHandlers({
     path,
     CONFIG,
-    Utils,
     GoogleSheets,
     blogPostingApplication,
     blogWritingApplication: blogWritingSystem.application,
@@ -936,7 +937,9 @@ const uiApiRouteRuntime = createUiApiRuntime({
     APP_VERSION,
     Logger,
     Updater,
-    Utils,
+    relatedPostsService,
+    fetchReferenceContent,
+    findImageByPrefix,
     GoogleSheets,
     BrowserLauncher,
     fs,

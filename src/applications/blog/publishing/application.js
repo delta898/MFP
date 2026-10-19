@@ -4,6 +4,7 @@ const pathDefault = require('path');
 const { marked } = require('marked');
 const { formatRelatedPostsForNaver } = require('../../../adapters/naver/publishing/related-posts');
 const { parseImageBlocks } = require('../../../utilities/markdown/image-blocks');
+const { parseBlogManuscriptMarkdown } = require('../manuscript-drafts/markdown-parser');
 
 const TARGET_FORMATS = Object.freeze({ naver: 'webp', wordpress: 'avif' });
 const MIME_TYPES = Object.freeze({ avif: 'image/avif', webp: 'image/webp' });
@@ -13,7 +14,9 @@ const FORMAT_EXTENSIONS = Object.freeze({
 });
 
 function createBlogPublishingApplication(options = {}) {
-    const { imageOptimizationService, naverPublisher, wordpressPublishingApplication, CONFIG, Logger, fs, Utils } = options;
+    const { imageOptimizationService, naverPublisher, wordpressPublishingApplication, CONFIG, Logger, fs } = options;
+    const findImageByPrefix = options.findImageByPrefix;
+    const persistWordPressAssetUrl = options.persistWordPressAssetUrl;
     const path = options.path || pathDefault;
     if (typeof naverPublisher?.publish !== 'function') {
         throw new TypeError('Blog Publishing Application requires a Naver publisher.');
@@ -65,13 +68,13 @@ function createBlogPublishingApplication(options = {}) {
     }
 
     async function publishNaver(directory, request = {}) {
-        if (!Utils || typeof Utils.parseMarkdown !== 'function' || typeof Utils.findImageByPrefix !== 'function') {
-            throw new TypeError('Naver Plugin publishing requires Blog Markdown utilities.');
+        if (typeof findImageByPrefix !== 'function') {
+            throw new TypeError('Naver Plugin publishing requires image file lookup.');
         }
         const contentFile = path.join(directory, 'contents.md');
         if (!fs.existsSync(contentFile)) throw new Error('콘텐츠 파일 없음: contents.md');
         const markdown = formatRelatedPostsForNaver(fs.readFileSync(contentFile, 'utf8'));
-        const parsed = Utils.parseMarkdown(markdown);
+        const parsed = parseBlogManuscriptMarkdown(markdown, Logger);
         const title = String(parsed?.title || '').trim();
         if (!title) throw new Error('네이버 발행 원고에 제목이 없습니다.');
 
@@ -93,7 +96,7 @@ function createBlogPublishingApplication(options = {}) {
         for (let itemIndex = 0; itemIndex < bodyItems.length; itemIndex += 1) {
             const item = bodyItems[itemIndex];
             if (item.type === 'image') {
-                const imagePath = Utils.findImageByPrefix(directory, item.index);
+                const imagePath = findImageByPrefix(directory, item.index);
                 if (!imagePath || !fs.existsSync(imagePath)) {
                     missingImage = true;
                     warnings.push(`원고 이미지 ${Number(item.index) + 1}번 파일을 찾지 못해 임시저장했습니다.`);
@@ -194,7 +197,7 @@ function createBlogPublishingApplication(options = {}) {
         const contentFile = path.join(directory, 'contents.md');
         if (!fs.existsSync(contentFile)) throw new Error('콘텐츠 파일 없음: contents.md');
         const markdownRaw = fs.readFileSync(contentFile, 'utf8');
-        const parsed = Utils?.parseMarkdown?.(markdownRaw) || {};
+        const parsed = parseBlogManuscriptMarkdown(markdownRaw, Logger) || {};
         const title = String(parsed.title || '').trim();
         if (!title) throw new Error('WordPress 원고에 제목이 없습니다.');
 
@@ -220,7 +223,7 @@ function createBlogPublishingApplication(options = {}) {
                 continue;
             }
 
-            const imagePath = Utils?.findImageByPrefix?.(directory, block.index);
+            const imagePath = findImageByPrefix?.(directory, block.index);
             if (!imagePath || !fs.existsSync(imagePath)) {
                 warnings.push(`이미지 ${block.index}번 누락`);
                 continue;
@@ -272,7 +275,7 @@ function createBlogPublishingApplication(options = {}) {
             ...(typeof executionContext.onAssetUploaded === 'function' ? {} : {
                 onAssetUploaded: ({ key, url }) => {
                     const configKey = permanentAssets.get(key);
-                    if (configKey && typeof Utils?.updateConfigValue === 'function') Utils.updateConfigValue(configKey, url);
+                    if (configKey && typeof persistWordPressAssetUrl === 'function') persistWordPressAssetUrl(configKey, url);
                 }
             })
         });

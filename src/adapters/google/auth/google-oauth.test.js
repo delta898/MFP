@@ -91,7 +91,6 @@ test('Picker OAuth requests only drive.file and enables spreadsheet selection', 
 test('Google OAuth consumers never fetch app credentials from Runtime Config', () => {
     const configLoader = fs.readFileSync(path.join(REPO_ROOT, 'src/config-loader.js'), 'utf8');
     const runtimeConfig = fs.readFileSync(path.join(REPO_ROOT, 'src/runtime-config.js'), 'utf8');
-    const utils = fs.readFileSync(path.join(REPO_ROOT, 'src/utils.js'), 'utf8');
     const contentService = fs.readFileSync(
         path.join(REPO_ROOT, 'src/adapters/ui/content/content-api/service.js'),
         'utf8'
@@ -99,7 +98,6 @@ test('Google OAuth consumers never fetch app credentials from Runtime Config', (
 
     assert.doesNotMatch(runtimeConfig, /google_oauth_client_(id|secret)/i);
     assert.doesNotMatch(runtimeConfig, /ensureGoogleOauthClientConfig/);
-    assert.doesNotMatch(utils, /ensureGoogleOauthClientConfig/);
     assert.doesNotMatch(contentService, /ensureGoogleOauthClientConfig/);
     assert.match(configLoader, /resolveOAuthApplicationConfig\(/);
     assert.match(configLoader, /runtimeEnv:\s*process[.]env/);

@@ -73,14 +73,14 @@ test('shopping product cache kind is added through an ordered migration', () => 
 
 test('desktop external-reference flow uses the fixed gateway and has no direct provider credential access', () => {
     const gateway = read('src/adapters/knowledge/blog-reference-search.js');
-    const utils = read('src/utils.js');
+    const naverFeed = read('src/adapters/web/related-posts/naver-blog-post-feed.js');
     const postingApplication = read('src/applications/blog/posting/application.js');
     const referenceContext = read('src/applications/blog/posting/blog-reference-context.js');
     const composition = read('src/composition/blog-beta-runtime.js');
     assert.match(gateway, /kind: REFERENCE_KIND/);
     assert.match(gateway, /purpose: REFERENCE_PURPOSE/);
     assert.doesNotMatch(gateway, /NAVER_CLIENT_(?:ID|SECRET)|openapi\.naver\.com/);
-    assert.doesNotMatch(utils, /fetchNaverBlogTopPosts|require\(['"]\.\/license['"]\)/);
+    assert.doesNotMatch(naverFeed, /NAVER_CLIENT_(?:ID|SECRET)|openapi\.naver\.com/);
     assert.match(postingApplication, /collectBlogReferenceContext/);
     assert.match(referenceContext, /관련 최신 글 수집 및 분석 시작/);
     assert.match(composition, /referenceSearchGateway: createReferenceSearchGateway/);

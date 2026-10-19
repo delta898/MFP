@@ -4,6 +4,7 @@ const { createShoppingProductGateway } = require('../adapters/commerce/shopping-
 const ShoppingContentPreparation = require('../applications/shopping/content-preparation/application');
 
 function createShoppingContentPreparationRuntime(options = {}) {
+    const resolvePlatformWorkspaceDir = options.resolvePlatformWorkspaceDir;
     const shoppingProductGateway = createShoppingProductGateway({
         config: options.config,
         License: options.License,
@@ -11,6 +12,16 @@ function createShoppingContentPreparationRuntime(options = {}) {
         ...(options.timeoutMs ? { timeoutMs: options.timeoutMs } : {})
     });
     const application = Object.create(ShoppingContentPreparation);
+
+    application.buildPostFromShortUrl = (shortUrl, runtimeOptions = {}) => (
+        ShoppingContentPreparation.buildPostFromShortUrl.call(application, shortUrl, {
+            ...runtimeOptions,
+            ...(typeof resolvePlatformWorkspaceDir === 'function' ? { resolvePlatformWorkspaceDir } : {}),
+            ...((application.relatedPostsService || options.relatedPostsService)
+                ? { relatedPostsService: application.relatedPostsService || options.relatedPostsService }
+                : {})
+        })
+    );
 
     application.previewFromShortUrl = (shortUrl, runtimeOptions = {}) => (
         ShoppingContentPreparation.previewFromShortUrl.call(application, shortUrl, {

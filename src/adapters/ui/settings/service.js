@@ -231,7 +231,6 @@ function createSettingsService(deps = {}) {
         TelegramBotService,
         telegramPairingService = TelegramPairingService,
         socialPublisher,
-        Utils,
         axios,
         styleReferenceAnalyzer,
         writingProfilePreviewService,

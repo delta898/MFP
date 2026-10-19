@@ -7,6 +7,7 @@ const {
     normalizeString,
     resolveMarkdownEntryFromSelectedFiles
 } = require('../../../utilities/markdown/selected-files');
+const { parseBlogManuscriptMarkdown } = require('./markdown-parser');
 
 function normalizeTargets(value) {
     const list = Array.isArray(value) ? value : [value];
@@ -139,9 +140,9 @@ function findImageEntryByPrefix(entries = [], index) {
 function buildLocalMarkdownPreview(input = {}, deps = {}) {
     const fsImpl = deps.fs || fs;
     const pathImpl = deps.path || path;
-    const utils = deps.Utils;
-    if (!utils || typeof utils.parseMarkdown !== 'function' || typeof utils.findImageByPrefix !== 'function') {
-        throw new Error('Utils.parseMarkdown and Utils.findImageByPrefix are required.');
+    const findImageByPrefix = deps.findImageByPrefix;
+    if (typeof findImageByPrefix !== 'function') {
+        throw new Error('Manuscript preview requires image file lookup.');
     }
 
     const selectedFiles = Array.isArray(input.selectedFiles) ? input.selectedFiles : [];
@@ -197,7 +198,7 @@ function buildLocalMarkdownPreview(input = {}, deps = {}) {
         folderName = pathImpl.basename(directoryPath);
     }
 
-    const parsed = utils.parseMarkdown(rawMarkdown);
+    const parsed = parseBlogManuscriptMarkdown(rawMarkdown, deps.Logger);
     const contents = Array.isArray(parsed?.contents) ? parsed.contents : [];
     const targets = normalizeTargets(input.targets);
     const postStatus = normalizeString(input.postStatus || 'publish') || 'publish';
@@ -217,7 +218,7 @@ function buildLocalMarkdownPreview(input = {}, deps = {}) {
                 ? ''
                 : usingSelectedFiles
                 ? (indexProvided ? normalizeString(selectedImageEntry?.relativePath) : '')
-                : utils.findImageByPrefix(directoryPath, item.index);
+                : findImageByPrefix(directoryPath, item.index);
             const exists = usingSelectedFiles
                 ? Boolean(selectedImageEntry)
                 : !!(imagePath && fsImpl.existsSync(imagePath));

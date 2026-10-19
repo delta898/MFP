@@ -25,7 +25,7 @@ const {
 } = require('../../../../services/content-delivery/contract');
 
 function createContinuousPublishingService(deps = {}) {
-    const { Utils, GoogleSheets, ensureSheetsReadyForUi, executeBlogRowAction, executeShoppingBatchRowsAction, executeBlogTopicsDelete, CONFIG = {}, fs, path, now, eventStore } = deps;
+    const { GoogleSheets, ensureSheetsReadyForUi, executeBlogRowAction, executeShoppingBatchRowsAction, executeBlogTopicsDelete, CONFIG = {}, fs, path, now, eventStore } = deps;
     const lifecycleAdapters = deps.lifecycleAdapters || { get: () => null };
     const pathImpl = path || require('node:path');
     let serviceApi = null;

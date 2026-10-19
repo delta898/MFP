@@ -9,9 +9,12 @@ const { collectBlogReferenceContext } = require('./blog-reference-context');
 const { validateBlogImageBlocks } = require('../writing/blog-image-plan');
 const { normalizeBlogImageMode, generatesBlogImages } = require('../writing/blog-image-mode');
 const { rethrowIfCanceled, sleepWithCancellation, throwIfCanceled } = require('../../../utilities/async/cancellation');
+const { sleep } = require('../../../utilities/async/sleep');
 const { sanitizeFileName } = require('../../../utilities/text/sanitize-file-name');
+const { parseBlogManuscriptMarkdown } = require('../manuscript-drafts/markdown-parser');
 const { parseStructuredJsonResponse } = require('../../../utilities/text/structured-json-response');
 const { buildRelatedPostsSectionMarkdown, stripAiRelatedPostsSection } = require('./related-posts-markdown');
+const { toMobileNaverBlogPostUrl } = require('../../../utilities/text/naver-blog-url');
 
 function normalizeHashtagTokens(rawHashtags, maxCount = 20) {
     const source = Array.isArray(rawHashtags) ? rawHashtags : [rawHashtags];
@@ -34,7 +37,8 @@ function normalizeHashtagTokens(rawHashtags, maxCount = 20) {
 
 function createBlogPostingApplication(options = {}) {
     const writing = options.blogWritingApplication;
-    const Utils = options.Utils;
+    const relatedPostsService = options.relatedPostsService;
+    const resolvePlatformWorkspaceDir = options.resolvePlatformWorkspaceDir;
     const CONFIG = options.CONFIG || {};
     const promptPaths = options.blogPromptPaths || blogPromptPaths;
     const Logger = options.Logger || console;
@@ -43,9 +47,6 @@ function createBlogPostingApplication(options = {}) {
     const moment = options.moment || momentDefault;
     if (typeof writing?.generateText !== 'function' || typeof writing?.generateImage !== 'function') {
         throw new TypeError('Blog Posting Application requires Blog Writing Application.');
-    }
-    if (!Utils || typeof Utils.parseMarkdown !== 'function') {
-        throw new TypeError('Blog Posting Application requires content utilities.');
     }
 
     async function generateContent(jobData, customDir = null, runtimeOptions = {}) {
@@ -76,7 +77,8 @@ function createBlogPostingApplication(options = {}) {
         }
 
         const { referenceContext } = await collectBlogReferenceContext({
-            Utils,
+            convertNaverBlogUrl: options.convertNaverBlogUrl,
+            fetchReferenceContent: options.fetchReferenceContent,
             Logger,
             signal,
             jobData,
@@ -126,13 +128,13 @@ function createBlogPostingApplication(options = {}) {
             if (platform === 'wordpress') {
                 Logger.info('🔎 [WordPress] 하이브리드 관련 글 수집 중...');
                 try {
-                    const wpRandomPosts = await Utils.fetchWordPressRandomPosts(CONFIG.WORDPRESS_URL, 2);
+                    const wpRandomPosts = await relatedPostsService.fetchWordPressRandomPosts(CONFIG.WORDPRESS_URL, 2);
                     throwIfCanceled(signal);
-                    const naverRandomPosts = await Utils.fetchOwnBlogRelatedPosts({ title: finalSubject, content: finalContent, keywords: jobData.keywords || [] }, 2);
+                    const naverRandomPosts = await relatedPostsService.fetchOwnBlogRelatedPosts({ title: finalSubject, content: finalContent, keywords: jobData.keywords || [] }, 2);
                     throwIfCanceled(signal);
-                    const combinedPosts = Utils._shuffleArray([...wpRandomPosts, ...naverRandomPosts]).slice(0, 3);
+                    const combinedPosts = relatedPostsService.shuffle([...wpRandomPosts, ...naverRandomPosts]).slice(0, 3);
                     if (combinedPosts.length > 0) {
-                        relatedPostsMarkdown = Utils.generateRelatedPostsMarkdown(combinedPosts);
+                        relatedPostsMarkdown = `\n\n${buildRelatedPostsSectionMarkdown(combinedPosts, relatedPostsService.pickHeading(), true, { toMobileNaverBlogPostUrl })}`;
                         Logger.info(`🔗 [WordPress] 관련 글 ${combinedPosts.length}개 자동 생성 완료`);
                     }
                 } catch (error) {
@@ -141,10 +143,10 @@ function createBlogPostingApplication(options = {}) {
                 }
             } else {
                 Logger.info('🔎 [Blog] 네이버 관련 글 자동 수집 중...');
-                const relatedPosts = await Utils.fetchOwnBlogRelatedPosts({ title: finalSubject, content: finalContent, keywords: jobData.keywords || [] }, 3);
+                const relatedPosts = await relatedPostsService.fetchOwnBlogRelatedPosts({ title: finalSubject, content: finalContent, keywords: jobData.keywords || [] }, 3);
                 throwIfCanceled(signal);
                 if (relatedPosts.length > 0) {
-                    relatedPostsMarkdown = `\n\n${buildRelatedPostsSectionMarkdown(relatedPosts, Utils.pickRelatedPostsHeading(), true, Utils)}`;
+                    relatedPostsMarkdown = `\n\n${buildRelatedPostsSectionMarkdown(relatedPosts, relatedPostsService.pickHeading(), true, { toMobileNaverBlogPostUrl })}`;
                     Logger.info(`🔗 [Blog] 관련 글 자동 수집 완료 (${relatedPosts.length}건)`);
                 } else Logger.info('ℹ️ [Blog] 관련 글 수집 결과 없음');
             }
@@ -152,9 +154,12 @@ function createBlogPostingApplication(options = {}) {
 
         throwIfCanceled(signal);
         const safeSubject = sanitizeFileName(String(finalSubject));
+        if (!customDir && typeof resolvePlatformWorkspaceDir !== 'function') {
+            throw new TypeError('Blog Posting Application requires a platform workspace resolver.');
+        }
         const targetDir = customDir
             ? path.resolve(customDir)
-            : path.join(Utils.resolvePlatformWorkspaceDir(runtimeOptions.platform), `${moment().tz('Asia/Seoul').format('YYYYMMDD_HHmmss')}_${safeSubject}`);
+            : path.join(resolvePlatformWorkspaceDir(runtimeOptions.platform), `${moment().tz('Asia/Seoul').format('YYYYMMDD_HHmmss')}_${safeSubject}`);
         if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
         let pureContent = String(finalContent).replace(/^#\s+.+\n?/, '').trim();
         pureContent = stripAiRelatedPostsSection(pureContent);
@@ -177,7 +182,7 @@ function createBlogPostingApplication(options = {}) {
         }
         const contentFile = path.join(dirPath, 'contents.md');
         if (!fs.existsSync(contentFile)) return;
-        const { contents } = Utils.parseMarkdown(fs.readFileSync(contentFile, 'utf8'));
+        const { contents } = parseBlogManuscriptMarkdown(fs.readFileSync(contentFile, 'utf8'), Logger);
         const imageItems = contents.filter((item) => item.type === 'image');
         const reportImageProgress = (progress) => {
             try { runtimeOptions.onImageProgress?.(progress); }
@@ -188,7 +193,7 @@ function createBlogPostingApplication(options = {}) {
             const item = imageItems[imagePosition];
             throwIfCanceled(signal);
             if (lastCall > 0 && Date.now() - lastCall < 1000) {
-                await sleepWithCancellation(1000, signal, (ms) => Utils.sleep(ms));
+                await sleepWithCancellation(1000, signal, sleep);
             }
             const imageProgress = { current: imagePosition + 1, total: imageItems.length, imageIndex: item.index };
             Logger.info(`   🎨 이미지 생성 중 (${imageProgress.current}/${imageProgress.total})`);
@@ -224,7 +229,7 @@ function createBlogPostingApplication(options = {}) {
 
     return Object.freeze({
         buildRelatedPostsSectionMarkdown(relatedPosts, heading, includeHeading = true) {
-            return buildRelatedPostsSectionMarkdown(relatedPosts, heading, includeHeading, Utils);
+            return buildRelatedPostsSectionMarkdown(relatedPosts, heading, includeHeading, { toMobileNaverBlogPostUrl });
         },
         stripAiRelatedPostsSection,
         async preparePost(topic, settings = {}) {

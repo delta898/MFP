@@ -11,7 +11,9 @@ function createUiApiRuntime(deps = {}) {
         APP_VERSION,
         Logger,
         Updater,
-        Utils,
+        relatedPostsService,
+        fetchReferenceContent,
+        findImageByPrefix,
         GoogleSheets,
         BrowserLauncher,
         fs,
@@ -175,7 +177,7 @@ function createUiApiRuntime(deps = {}) {
             manuscriptDraftService = createManuscriptDraftService({
                 fs,
                 path,
-                Utils,
+                findImageByPrefix,
                 Logger,
                 workspaceDir: CONFIG?.WORKSPACE_DIR,
                 generateAiImage: typeof blogWritingApplication?.generateImage === 'function'
@@ -185,17 +187,13 @@ function createUiApiRuntime(deps = {}) {
                     })
                     : null,
                 relatedPosts: {
-                    fetchPosts: typeof Utils?.fetchConfiguredRelatedPosts === 'function'
-                        ? ({ title, content }) => Utils.fetchConfiguredRelatedPosts({ title, content, keywords: [] }, 3)
-                        : typeof Utils?.fetchOwnBlogRelatedPosts === 'function'
-                            ? ({ title, content }) => Utils.fetchOwnBlogRelatedPosts({ title, content, keywords: [] }, 3)
-                            : null,
-                    pickHeading: typeof Utils?.pickRelatedPostsHeading === 'function'
-                        ? () => Utils.pickRelatedPostsHeading()
+                    fetchPosts: typeof relatedPostsService?.fetchConfiguredRelatedPosts === 'function'
+                        ? ({ title, content }) => relatedPostsService.fetchConfiguredRelatedPosts({ title, content, keywords: [] }, 3)
                         : null,
-                    toMobileUrl: typeof Utils?.toMobileNaverBlogPostUrl === 'function'
-                        ? (url) => Utils.toMobileNaverBlogPostUrl(url)
-                        : null
+                    pickHeading: typeof relatedPostsService?.pickHeading === 'function'
+                        ? () => relatedPostsService.pickHeading()
+                        : null,
+                    toMobileUrl: require('../../utilities/text/naver-blog-url').toMobileNaverBlogPostUrl
                 }
             });
         }
@@ -269,7 +267,6 @@ function createUiApiRuntime(deps = {}) {
                 TelegramService,
                 TelegramBotService,
                 socialPublisher,
-                Utils,
                 axios,
                 cheerio,
                 blogWritingApplication,
@@ -426,7 +423,9 @@ function createUiApiRuntime(deps = {}) {
             APP_VERSION,
             Logger,
             Updater,
-            Utils,
+            relatedPostsService,
+            fetchReferenceContent,
+            findImageByPrefix,
             GoogleSheets,
             manuscriptDraftService: getManuscriptDraftService(),
             blogWritingApplication,

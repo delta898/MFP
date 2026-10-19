@@ -7,11 +7,8 @@ const { collectBlogReferenceContext } = require('./blog-reference-context');
 test('reference context collects automatic and manually selected sources for the shared writing prompt', async () => {
     const fetched = [];
     const result = await collectBlogReferenceContext({
-        Utils: {
-            convertToMobileNaverBlogUrl(url) { return `${url}?mobile=1`; },
-            async fetchReferenceContent(url) { fetched.push(url); return `본문: ${url}`; },
-            async sleep() {}
-        },
+        convertNaverBlogUrl(url) { return `${url}?mobile=1`; },
+        async fetchReferenceContent(url) { fetched.push(url); return `본문: ${url}`; },
         referenceSearchGateway: {
             async searchLatestReferences({ topic }) {
                 assert.equal(topic, '제주');
@@ -34,7 +31,7 @@ test('reference context collects automatic and manually selected sources for the
 test('reference context avoids network reads when no references are requested', async () => {
     let reads = 0;
     const result = await collectBlogReferenceContext({
-        Utils: { async fetchReferenceContent() { reads += 1; }, async sleep() {} },
+        async fetchReferenceContent() { reads += 1; },
         jobData: { subject: '주제', use_external_ref: false }
     });
     assert.equal(reads, 0);
@@ -45,10 +42,7 @@ test('reference context avoids network reads when no references are requested', 
 test('reference discovery can be canceled while the external search is pending', async () => {
     const controller = new AbortController();
     const service = collectBlogReferenceContext({
-        Utils: {
-            async fetchReferenceContent() { throw new Error('must not continue after cancellation'); },
-            async sleep() {}
-        },
+        async fetchReferenceContent() { throw new Error('must not continue after cancellation'); },
         referenceSearchGateway: { searchLatestReferences() { return new Promise(() => {}); } },
         signal: controller.signal,
         jobData: { subject: '제주', use_external_ref: true }
@@ -59,7 +53,7 @@ test('reference discovery can be canceled while the external search is pending',
 
 test('reference search failure stays optional and does not block manuscript preparation', async () => {
     const result = await collectBlogReferenceContext({
-        Utils: { async fetchReferenceContent() { throw new Error('not used'); }, async sleep() {} },
+        async fetchReferenceContent() { throw new Error('not used'); },
         Logger: { debug() {} },
         referenceSearchGateway: { async searchLatestReferences() { throw new Error('gateway unavailable'); } },
         jobData: { subject: '제주', use_external_ref: true }

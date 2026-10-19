@@ -6,7 +6,7 @@ const {
     scoreRelatedPostCandidate,
     selectRelatedPosts
 } = require('./related-post-selection');
-const Utils = require('../../utils');
+const { createRelatedPostsService } = require('../../services/related-posts/service');
 
 test('related post scoring prefers title and keyword overlap', () => {
     const context = buildRelatedPostContext({
@@ -97,53 +97,35 @@ test('related post selector random fallback mixes available sources and caps at 
 });
 
 test('configured related-post collection is independent of the publishing target', async () => {
-    const originalNaver = Utils.fetchOwnBlogRelatedPostCandidates;
-    const originalWordPress = Utils.fetchWordPressRelatedPostCandidates;
-    const originalShuffle = Utils._shuffleArray;
-    try {
-        Utils.fetchOwnBlogRelatedPostCandidates = async () => [
+    const service = createRelatedPostsService({
+        fetchNaverCandidates: async () => [
             { title: '제주 올레길 봄 코스', url: 'https://naver.example/a', source: 'naver' }
-        ];
-        Utils.fetchWordPressRelatedPostCandidates = async () => [
+        ],
+        fetchWordPressCandidates: async () => [
             { title: '제주 올레길 봄 여행 추천', url: 'https://wp.example/b', source: 'wordpress' }
-        ];
-        Utils._shuffleArray = (items) => items.slice();
-
-        const posts = await Utils.fetchConfiguredRelatedPosts({
+        ],
+        random: () => 0
+    });
+    const posts = await service.fetchConfiguredRelatedPosts({
             title: '제주 올레길 봄 여행',
             keywords: ['제주 올레길']
         }, 3);
-
-        assert.deepEqual(new Set(posts.map((post) => post.source)), new Set(['naver', 'wordpress']));
-    } finally {
-        Utils.fetchOwnBlogRelatedPostCandidates = originalNaver;
-        Utils.fetchWordPressRelatedPostCandidates = originalWordPress;
-        Utils._shuffleArray = originalShuffle;
-    }
+    assert.deepEqual(new Set(posts.map((post) => post.source)), new Set(['naver', 'wordpress']));
 });
 
 test('configured related-post collection only uses sources that return candidates', async () => {
-    const originalNaver = Utils.fetchOwnBlogRelatedPostCandidates;
-    const originalWordPress = Utils.fetchWordPressRelatedPostCandidates;
-    const originalShuffle = Utils._shuffleArray;
-    try {
-        Utils.fetchOwnBlogRelatedPostCandidates = async () => [];
-        Utils.fetchWordPressRelatedPostCandidates = async () => [
+    const service = createRelatedPostsService({
+        fetchNaverCandidates: async () => [],
+        fetchWordPressCandidates: async () => [
             { title: '제주 올레길 봄 여행 안내', url: 'https://wp.example/a', source: 'wordpress' },
             { title: '워드프레스 다른 글', url: 'https://wp.example/b', source: 'wordpress' }
-        ];
-        Utils._shuffleArray = (items) => items.slice();
-
-        const posts = await Utils.fetchConfiguredRelatedPosts({
+        ],
+        random: () => 0
+    });
+    const posts = await service.fetchConfiguredRelatedPosts({
             title: '제주 올레길 봄 여행',
             keywords: ['제주 올레길']
         }, 3);
-
-        assert.ok(posts.length > 0);
-        assert.ok(posts.every((post) => post.source === 'wordpress'));
-    } finally {
-        Utils.fetchOwnBlogRelatedPostCandidates = originalNaver;
-        Utils.fetchWordPressRelatedPostCandidates = originalWordPress;
-        Utils._shuffleArray = originalShuffle;
-    }
+    assert.ok(posts.length > 0);
+    assert.ok(posts.every((post) => post.source === 'wordpress'));
 });

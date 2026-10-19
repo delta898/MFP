@@ -4,7 +4,6 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const moment = require('moment-timezone');
 const CONFIG = require('../../../config-loader');
-const Utils = require('../../../utils');
 const { sanitizeFileName } = require('../../../utilities/text/sanitize-file-name');
 const Logger = require('../../../utilities/logging/logger');
 const BrowserLauncher = require('../../../utilities/browser/browser-launcher');
@@ -4234,7 +4233,11 @@ const ShoppingManager = {
         }
         const titleBase = productTitleResolution.title;
 
-        const wsDir = Utils.resolvePlatformWorkspaceDir(runtimeOptions.platform);
+        const resolvePlatformWorkspaceDir = runtimeOptions.resolvePlatformWorkspaceDir;
+        if (typeof resolvePlatformWorkspaceDir !== 'function') {
+            throw new TypeError('Shopping Content Preparation requires a platform workspace resolver.');
+        }
+        const wsDir = resolvePlatformWorkspaceDir(runtimeOptions.platform);
         const timestamp = moment().tz('Asia/Seoul').format('YYYYMMDD_HHmmss');
         const safeTitle = sanitizeFileName(titleBase);
         const targetDir = path.join(wsDir, `${timestamp}_${safeTitle}`);
@@ -4391,18 +4394,20 @@ const ShoppingManager = {
         const enableRelatedPostsAutoLink = runtimeOptions.enableRelatedPostsAutoLink !== false;
         const shoppingPlatform = String(runtimeOptions.platform || 'naver').toLowerCase();
         let relatedPosts = [];
-        let relatedHeading = Utils.pickRelatedPostsHeading();
+        const relatedPostsService = runtimeOptions.relatedPostsService;
+        if (enableRelatedPostsAutoLink && !relatedPostsService) throw new TypeError('Shopping Content Preparation requires Related Posts Service.');
+        let relatedHeading = relatedPostsService?.pickHeading?.() || '함께 보면 좋은 글';
         if (enableRelatedPostsAutoLink) {
             if (shoppingPlatform === 'wordpress') {
                 Logger.info('🔎 [Shopping/WordPress] 하이브리드 관련 글 수집 중...');
                 try {
-                    const wpPosts = await Utils.fetchWordPressRandomPosts(CONFIG.WORDPRESS_URL, 2);
-                    const naverPosts = await Utils.fetchOwnBlogRelatedPosts({
+                    const wpPosts = await relatedPostsService.fetchWordPressRandomPosts(CONFIG.WORDPRESS_URL, 2);
+                    const naverPosts = await relatedPostsService.fetchOwnBlogRelatedPosts({
                         title: aiData.title || titleBase,
                         content: `${productData.description || ''} ${productData.body || ''}`.trim(),
                         keywords: [seoPlan.mainKeyword, ...(seoPlan.relatedKeywords || [])].filter(Boolean)
                     }, 2);
-                    relatedPosts = Utils._shuffleArray([...wpPosts, ...naverPosts]).slice(0, 3);
+                    relatedPosts = relatedPostsService.shuffle([...wpPosts, ...naverPosts]).slice(0, 3);
                     if (relatedPosts.length > 0) {
                         Logger.info(`🔗 [Shopping/WordPress] 관련 글 ${relatedPosts.length}개 수집 완료`);
                     } else {
@@ -4413,7 +4418,7 @@ const ShoppingManager = {
                 }
             } else {
                 Logger.info('🔎 [Shopping] 네이버 관련 글 자동 수집 중...');
-                relatedPosts = await Utils.fetchOwnBlogRelatedPosts({
+                relatedPosts = await relatedPostsService.fetchOwnBlogRelatedPosts({
                     title: aiData.title || titleBase,
                     content: `${productData.description || ''} ${productData.body || ''}`.trim(),
                     keywords: [seoPlan.mainKeyword, ...(seoPlan.relatedKeywords || [])].filter(Boolean)

@@ -156,12 +156,14 @@ src/
     naver/publishing-defaults.js # Naver editor timing and typing defaults
     naver/publishing/           # Naver editor-specific publication formatting
     url-shortening/              # URL shortener provider protocol adapters
+    web/related-posts/           # Naver and WordPress feed retrieval adapters
     ui/                          # UI/API input, output, and progress presentation adapters
   platform/                     # Plugin contracts, Plugin Host, validation, lifecycle, dispatch
   composition/                  # Concrete Plugin/service wiring for runtime and Applications
   services/                     # Shared cross-Application capabilities/contracts
     url-shortening/              # Provider-neutral URL shortening behavior
     content-writing/             # Shared writing profile, style, strategy, and projection contracts
+    related-posts/                # Shared candidate retrieval and relevance-selection service
   applications/                 # Product workflows, orchestration, and app-specific services/policy
     blog/                       # Blog writing, topic recommendations, and publication use cases
       manuscript-drafts/         # Draft lifecycle and Markdown preview policy
@@ -174,7 +176,7 @@ src/
     logging/                    # Shared logging and runtime log-path behavior
     browser/                    # Shared local Playwright launch mechanics
     markdown/                   # Provider-neutral Markdown parsing and selected-file normalization
-    text/                       # Reusable text matching, related-post ranking, and filename normalization
+    text/                       # Reusable text matching, Naver URL formatting, and filename normalization
   ...                           # Legacy areas migrate only as their boundary is redesigned
 
 packages/
@@ -198,7 +200,7 @@ Naver editor-specific related-post formatting belongs under `src/adapters/naver/
 
 Blog manuscript draft lifecycles and preview validation live under `src/applications/blog/manuscript-drafts/`. Google Sheets persisted option codecs belong in `src/adapters/storage/google-sheets/`, Knowledge reference transport/response validation in `src/adapters/knowledge/`, and reusable selected-file normalization and related-post ranking mechanics in `src/utilities/`. The legacy `src/content/` and `src/content-ideas/` roots have been removed; do not recreate them as feature roots.
 
-Reusable filename normalization and structured JSON response parsing belong in `src/utilities/text/`; Blog manuscript parsing and related-post workflow policy remain with the Blog Application. Do not grow `src/utils.js` as a shared facade: migrate each responsibility and its callers to the owning Application, adapter, service, or utility, then remove the root module when no live caller remains.
+Reusable filename normalization, Naver URL formatting, and structured JSON response parsing belong in `src/utilities/text/`; Blog manuscript parsing and product-specific related-post policy remain with their Applications. Related-post retrieval shared by Blog, Shopping, and manuscript preview is a `src/services/related-posts/` contract. Naver and WordPress feed transport and candidate normalization belong under `src/adapters/web/related-posts/`; relevance selection remains provider-neutral service behavior. Blog and Shopping Applications retain their opt-in, source-mix, and result-count policies. The former root `src/utils.js` facade has been removed; do not recreate it.
 
 Knowledge and Memory are separate reusable domains and must remain distinct. `src/services/knowledge/` owns provider-neutral `kind + transport + config` contracts, normalized snapshot contracts, and registry/selection behavior. `src/adapters/knowledge/` owns provider-specific implementations, gateway clients, and transport protocols. Knowledge retrieval does not itself become user memory or recommendation policy. `src/services/memory/` owns event-first memory semantics, retrieval/context projections, provenance normalization, owner/activity read models, and derived user-insight generation; generation and persistence ports are injected by the runtime. It does not own SQLite or process lifecycle. `src/adapters/storage/memory/` owns Memory schema, event persistence, payload encoding, and SQLite lifecycle mechanics. `src/host/memory/` owns process startup/recovery, health gating, background maintenance scheduling, and shutdown. Recommendation lifecycle storage is separately owned by `src/adapters/storage/recommendations/`, with its policy and lifecycle contract under `src/services/recommendations/`. When Memory facts inform Recommendations, connect them through injected retrieval/service contracts; do not merge the domains or let Memory depend on Recommendation producers or policy.
 

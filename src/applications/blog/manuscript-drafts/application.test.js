@@ -4,7 +4,6 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const Utils = require('../../../utils');
 const { createManuscriptDraftService, detectImageType, validateImageBuffer } = require('./application');
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB', 'base64');
@@ -22,7 +21,7 @@ function folderInput() {
 
 function fixture() {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-draft-'));
-    const service = createManuscriptDraftService({ fs, path, Utils, workspaceDir });
+    const service = createManuscriptDraftService({ fs, path, workspaceDir });
     const input = folderInput();
     return { workspaceDir, service, input };
 }
@@ -448,7 +447,6 @@ test('does not generate prompt-backed folder images during posting and keeps the
     const service = createManuscriptDraftService({
         fs,
         path,
-        Utils,
         workspaceDir,
         generateAiImage: async (prompt) => {
             generatedPrompts.push(prompt);
@@ -485,7 +483,6 @@ test('does not generate unresolved AI draft images during posting and keeps the 
     const service = createManuscriptDraftService({
         fs,
         path,
-        Utils,
         workspaceDir,
         generateAiImage: async () => { generationCalls += 1; return { dataBase64: PNG.toString('base64') }; }
     });
@@ -524,7 +521,6 @@ test('does not generate unresolved pasted images during posting and preserves th
     const service = createManuscriptDraftService({
         fs,
         path,
-        Utils,
         workspaceDir,
         generateAiImage: async (prompt) => { attempts.push(prompt); return { dataBase64: PNG.toString('base64') }; }
     });
@@ -560,7 +556,6 @@ test('publishes without an image when a missing slot has no prompt intent', asyn
     const service = createManuscriptDraftService({
         fs,
         path,
-        Utils,
         workspaceDir,
         generateAiImage: async () => { generationCalls += 1; return { dataBase64: PNG.toString('base64') }; }
     });
@@ -587,7 +582,6 @@ test('publishes an image-free AI draft without invoking image generation', async
     const service = createManuscriptDraftService({
         fs,
         path,
-        Utils,
         workspaceDir,
         generateAiImage: async () => { generationCalls += 1; return { dataBase64: PNG.toString('base64') }; }
     });
@@ -616,7 +610,6 @@ test('generates one image from the stored prompt and keeps the prior asset on fa
     const service = createManuscriptDraftService({
         fs,
         path,
-        Utils,
         workspaceDir,
         generateAiImage: async () => {
             if (fail) throw new Error('provider unavailable');
@@ -648,7 +641,6 @@ test('manuscript image generation stores AI Gateway base64 output as a validated
     const service = createManuscriptDraftService({
         fs,
         path,
-        Utils,
         workspaceDir,
         generateAiImage: async (prompt, context) => {
             calls.push({ prompt, context });
@@ -675,7 +667,6 @@ test('stopped image generation does not commit a late provider result to the man
     const service = createManuscriptDraftService({
         fs,
         path,
-        Utils,
         workspaceDir,
         generateAiImage: async (_prompt, options) => {
             receivedSignal = options.signal;
@@ -709,7 +700,6 @@ test('bulk image generation returns the successful partial revision after a late
     const service = createManuscriptDraftService({
         fs,
         path,
-        Utils,
         workspaceDir,
         generateAiImage: async () => {
             calls += 1;
@@ -884,7 +874,6 @@ test('startup cleanup removes expired drafts while preserving recent work', () =
     const options = {
         fs,
         path,
-        Utils,
         workspaceDir,
         now: () => clock.value,
         activeRetentionMs: 60 * 60 * 1000,
