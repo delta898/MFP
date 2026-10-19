@@ -20,13 +20,12 @@ The project ref is intentionally resolved from target-specific configuration dur
 | Area | Current path | Responsibility |
 | --- | --- | --- |
 | License and quota | `src/composition/licensing.js`, `src/services/licensing/`, `src/adapters/licensing/supabase/license-api.js` | license workflow assembly, provider-neutral policy and service contracts, Supabase RPC/Edge Function transport |
-| Runtime settings | `src/runtime-config.js` | remotely managed runtime values |
 | AI model catalog | `src/adapters/storage/ai-model-catalog/supabase-port.js` | server-managed model catalog |
 | Keyword research | `src/adapters/supabase/functions/keyword-research-client.js` | Supabase Edge Function gateway, composed into the Blog keyword-research Application |
 | Knowledge gateway | `src/adapters/knowledge/server-gateway-client.js` | news and managed provider snapshots |
 | Surface content | `src/surface-content/supabase-provider.js` | configurable app content and assets |
 
-These consumers now obtain an immutable public connection through `resolveSupabasePublicConnection`. The config loader retains `LICENSE_CHK_URL` and `LICENSE_CHK_KEY` only as temporary internal aliases populated by the selected environment profile; client owners no longer read those aliases directly.
+These consumers obtain an immutable public connection through `resolveSupabasePublicConnection`. The desktop no longer calls the Runtime Config RPC; its SQL function and migrations remain inventoried as a deployed server/database contract until the existing old-client rollout policy allows retirement. The config loader retains `LICENSE_CHK_URL` and `LICENSE_CHK_KEY` only as temporary internal aliases populated by the selected environment profile; client owners no longer read those aliases directly.
 
 ## Operator-only service consumer
 

@@ -11,7 +11,7 @@
 | Class | Examples | Owner | Desktop policy |
 | --- | --- | --- | --- |
 | Public connection | Supabase URL, publishable key, environment | selected runtime profile | 사용 가능 |
-| Public runtime setting | environment marker, bounded TTL | database/server config | allowlist key만 조회 가능 |
+| Public runtime setting | environment marker, bounded TTL | database/server config | desktop consumer 없음; RPC는 별도 server/database 계약 |
 | Desktop app config | Google OAuth Client ID/Secret, Cloudflare OAuth Client ID/scopes | environment OAuth file or generated Production build config | Client metadata는 앱에 포함 가능 |
 | User authorization | Google tokens, Naver browser session | each user device | 해당 장비에만 저장 |
 | Provider credential | Naver Developers, SearchAd, SerpApi, Brevo | environment server secret store | 원문 접근 금지 |
@@ -84,8 +84,10 @@ Gateway 실패 시 Desktop은 Naver API를 직접 호출하지 않고 자동 참
 
 ### Runtime Config database
 
-`app_runtime_configs`는 server-side non-secret 설정에 계속 사용한다. Desktop의
-`get_runtime_config` 호출은 코드가 소유한 공개 allowlist로 제한되며 다음 조건을 모두 만족한다.
+`app_runtime_configs`는 server-side non-secret 설정에 계속 사용한다. 현재 Desktop은
+`get_runtime_config` RPC를 호출하지 않는다. RPC와 공개 allowlist는 이미 배포된 클라이언트 및
+server/database 정책과의 경계이므로 별도 rollout 승인 전까지 SQL contract와 migration을 유지한다.
+RPC를 호출하는 경로에는 다음 조건을 계속 적용한다.
 
 - code-owned public allowlist가 존재한다.
 - 요청 key가 반드시 하나 이상 있어야 한다.
@@ -134,7 +136,7 @@ Operator boundary
 - 외부 참고 gateway 실패: 자동 외부 참고만 생략하고 수동 참고와 생성은 유지한다.
 - 쇼핑 gateway 실패: 다른 상품을 대체하지 않고 사용자 상품명 또는 명시적 실패를 사용한다.
 - 뉴스 provider 실패: 기존 Knowledge 부분 실패 계약을 유지한다.
-- Runtime Config 실패: cache된 비민감값만 사용할 수 있으며 production credential로 fallback하지 않는다.
+- Runtime Config RPC는 현재 Desktop 기능 경로가 아니다. DB/RPC의 오류·폐기 정책은 server/database owner가 관리하며 provider credential fallback을 허용하지 않는다.
 
 ## Rotation policy
 

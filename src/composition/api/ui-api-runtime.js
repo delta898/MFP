@@ -23,7 +23,6 @@ function createUiApiRuntime(deps = {}) {
         ShoppingManager,
         axios,
         cheerio,
-        RuntimeConfig,
         TelegramService,
         TelegramBotService,
         SlackService,
@@ -440,7 +439,6 @@ function createUiApiRuntime(deps = {}) {
             ShoppingManager,
             axios,
             cheerio,
-            RuntimeConfig,
             TelegramService,
             SlackService,
             eventStore: topicRecommendationEventStore

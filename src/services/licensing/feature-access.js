@@ -37,17 +37,10 @@ function isCommandEnabled(features, command) {
     return getFeatureBool(features, key, false);
 }
 
-function parseMaxPosts(value, fallback = 10) {
-    const parsed = parseInt(value, 10);
-    if (Number.isNaN(parsed) || parsed < 0) return fallback;
-    return parsed;
-}
-
 module.exports = {
     toFeatureMap,
     getFeatureBool,
     getEnableRelatedPostsAutoLink,
     getEnableSnsDistribution,
-    isCommandEnabled,
-    parseMaxPosts
+    isCommandEnabled
 };

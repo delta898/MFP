@@ -19,7 +19,6 @@ const {
 } = require('./adapters/messaging/telegram/content-request-mapper');
 const TelegramAgentRenderer = require('./adapters/messaging/telegram/agent-renderer');
 const { getInternalUiOrigin } = require('./utilities/network/internal-ui-origin');
-const { getRuntimeHooks } = require('./runtime-hooks');
 const { getAgentEventStore } = require('./host/memory/runtime');
 const { recordRecommendationFeedback } = require('./services/recommendations/adapters/recommendation-feedback-adapter');
 const {
@@ -41,6 +40,7 @@ class TelegramBotService {
     static agentEventStore = null;
     static agentRetrieval = null;
     static agentCapabilityRegistry = null;
+    static runtimeDependencies = Object.freeze({});
     static _pollingErrorCount = 0;
     static _pollingErrorWindowStart = 0;
     static POLLING_ERROR_THRESHOLD = 8;
@@ -137,6 +137,13 @@ class TelegramBotService {
         if (loadingState.messageId) {
             await this.callTelegramApi('deleteMessage', [chatId, loadingState.messageId], { retries: 0, silent: true });
         }
+    }
+
+    static configureRuntimeDependencies(dependencies = {}) {
+        if (this.agentRuntime) {
+            throw new Error('Telegram runtime dependencies must be configured before the Agent runtime starts.');
+        }
+        this.runtimeDependencies = Object.freeze({ ...dependencies });
     }
 
     static init() {
@@ -242,12 +249,12 @@ class TelegramBotService {
 
         this.agentEventStore = getAgentEventStore();
 
-        const hooks = getRuntimeHooks();
-        const resolveWritableConfigPath = hooks.resolveWritableConfigPath
+        const dependencies = this.runtimeDependencies || {};
+        const resolveWritableConfigPath = dependencies.resolveWritableConfigPath
             || (() => this.CONFIG.CONFIG_SOURCE_PATH || this.CONFIG.PATHS?.configFile || path.join(process.cwd(), 'config', 'config.json'));
-        const buildDefaultConfigTemplate = hooks.buildDefaultConfigTemplate || (() => '{}');
-        const syncAutoRunnerWithConfig = hooks.syncAutoRunnerWithConfig || (() => { });
-        const resolveNaverAutoCategoryCatalog = hooks.resolveNaverAutoCategoryCatalog || null;
+        const buildDefaultConfigTemplate = dependencies.buildDefaultConfigTemplate || (() => '{}');
+        const syncAutoRunnerWithConfig = dependencies.syncAutoRunnerWithConfig || (() => { });
+        const resolveNaverAutoCategoryCatalog = dependencies.resolveNaverAutoCategoryCatalog || null;
 
         const License = TelegramBotService.License;
         if (!License) throw new Error('Telegram runtime requires an injected licensing port.');
@@ -368,7 +375,7 @@ class TelegramBotService {
             conversationId: context.conversation.id,
             messageId: context.messageId,
             memory: context.memory,
-            modelCaller: getRuntimeHooks().generateChatText
+            modelCaller: this.runtimeDependencies?.generateChatText
         });
         Logger.info(`⏱️ [TelegramRouter] ${Date.now() - parserStartedAt}ms`);
         const parserNote = [
@@ -926,7 +933,7 @@ class TelegramBotService {
 
                             void generateUserInsight(chatId, {
                                 eventStore: this.agentEventStore,
-                                generateText: getRuntimeHooks().generateChatText,
+                                generateText: this.runtimeDependencies?.generateChatText,
                                 logger: Logger
                             });
                         }

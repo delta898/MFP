@@ -24,7 +24,7 @@ process environment or generated build config
       -> local/hosted URL validation
       -> immutable Runtime Environment Profile
   -> Supabase connection normalization (`src/adapters/supabase/`)
-  -> License / Runtime Config / AI Catalog / Keyword / Knowledge / Surface Content
+  -> License / AI Catalog / Keyword / Knowledge / Surface Content
 ```
 
 ## Source precedence

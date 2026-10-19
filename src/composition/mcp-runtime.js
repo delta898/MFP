@@ -6,7 +6,6 @@ const { createAgentRuntime } = require('../host/agent/runtime');
 const { ConfirmationStore } = require('../adapters/storage/confirmations/confirmation-store');
 const { createCapabilityRuntime } = require('./capability-runtime');
 const { createKnowledgeRuntime } = require('./knowledge-runtime');
-const { getRuntimeHooks } = require('../runtime-hooks');
 const { createMcpPrototypeAdapter } = require('../adapters/messaging/mcp/prototype-adapter');
 
 const NullLogger = {
@@ -22,12 +21,12 @@ function createMcpPrototypeRuntime(options = {}) {
     if (!License) throw new Error('MCP runtime requires an injected licensing port.');
     const confirmationPersistPath = process.env.MCP_CONFIRMATION_STORE_PATH
         || path.resolve(__dirname, '..', '..', '.tmp', 'mcp-confirmations.json');
-    const hooks = getRuntimeHooks();
-    const resolveWritableConfigPath = hooks.resolveWritableConfigPath
+    const capabilityDependencies = options.capabilityDependencies || {};
+    const resolveWritableConfigPath = capabilityDependencies.resolveWritableConfigPath
         || (() => CONFIG.CONFIG_SOURCE_PATH || CONFIG.PATHS?.configFile || path.join(process.cwd(), 'config', 'config.json'));
-    const buildDefaultConfigTemplate = hooks.buildDefaultConfigTemplate || (() => '{}');
-    const syncAutoRunnerWithConfig = hooks.syncAutoRunnerWithConfig || (() => { });
-    const resolveNaverAutoCategoryCatalog = hooks.resolveNaverAutoCategoryCatalog || null;
+    const buildDefaultConfigTemplate = capabilityDependencies.buildDefaultConfigTemplate || (() => '{}');
+    const syncAutoRunnerWithConfig = capabilityDependencies.syncAutoRunnerWithConfig || (() => { });
+    const resolveNaverAutoCategoryCatalog = capabilityDependencies.resolveNaverAutoCategoryCatalog || null;
 
     const knowledgeRuntime = createKnowledgeRuntime({ CONFIG, License, Logger: NullLogger, axios });
     const capabilityRegistry = createCapabilityRuntime({

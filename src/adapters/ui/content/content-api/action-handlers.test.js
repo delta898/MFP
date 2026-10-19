@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 
 const { createContentActionHandlers } = require('./action-handlers');
-const { isCommandEnabled, toFeatureMap } = require('../../../../runtime-feature-flags');
+const { isCommandEnabled, toFeatureMap } = require('../../../../services/licensing/feature-access');
 
 const DEVELOPMENT_CONFIG = Object.freeze({
     RUNTIME_ENVIRONMENT_PROFILE: Object.freeze({

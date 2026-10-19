@@ -5,7 +5,7 @@ const {
     generatesBlogImages,
     stripBlogImagePromptBlocks
 } = require('../../../../applications/blog/writing/blog-image-mode');
-const { isCommandEnabled, getEnableRelatedPostsAutoLink } = require('../../../../runtime-feature-flags');
+const { isCommandEnabled, getEnableRelatedPostsAutoLink } = require('../../../../services/licensing/feature-access');
 const { createBlogExecutionCoordinator } = require('../../../../applications/blog/execution/execution-coordinator');
 const { createBlogQueueManagementApplication } = require('../../../../applications/blog/queue-management/application');
 const { diagnoseQueueReadiness } = require('../../../../applications/blog/queue-management/queue-readiness');

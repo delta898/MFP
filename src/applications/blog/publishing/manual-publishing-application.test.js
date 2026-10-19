@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { createBlogManualPublishingApplication } = require('./manual-publishing-application');
-const { getFeatureBool, isCommandEnabled, toFeatureMap } = require('../../../runtime-feature-flags');
+const { getFeatureBool, isCommandEnabled, toFeatureMap } = require('../../../services/licensing/feature-access');
 
 const createTestPublishActionsRuntime = (deps = {}) => {
     if (deps.blogPostingApplication || typeof deps.generationHarness?.generateContent !== 'function') {

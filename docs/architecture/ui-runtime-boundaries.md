@@ -37,8 +37,8 @@ This document captures the current runtime boundaries after the CLI-removal refa
   - Single implementation path for interactive Naver login protocol and credential-state capture.
 - `src/adapters/naver/auth-session.js`
   - Naver session verification, process-local check cache, session-state persistence, and logout cleanup shared by UI, Blog, Shopping, and Naver publishing composition.
-- `src/runtime-feature-flags.js`
-  - Plan/feature flag normalization and limits.
+- `src/services/licensing/feature-access.js`
+  - Shared license feature normalization and entitlement checks; product limits remain with their Applications.
 - `src/adapters/ui/account/session/session-runtime.js`
   - UI login-flow progress state and Google Sheets preflight response mapping. Naver session verification and its process-local cache live in the Naver adapter.
 - `src/adapters/ui/http/http-utils.js`

@@ -144,7 +144,6 @@ function createProductApiRouteHandler(deps = {}) {
         blogWritingApplication: deps.blogWritingApplication,
         blogPublishingApplication: deps.blogPublishingApplication,
         axios: deps.axios,
-        RuntimeConfig: deps.RuntimeConfig,
         CONFIG: deps.CONFIG,
         License: deps.License,
         GoogleOAuth,

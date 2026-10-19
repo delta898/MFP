@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createShoppingQuickPublishHandler } = require('./quick-publish-handler');
-const { isCommandEnabled, toFeatureMap } = require('../../../../runtime-feature-flags');
+const { isCommandEnabled, toFeatureMap } = require('../../../../services/licensing/feature-access');
 
 test('shopping quick publish rejects an overlong instruction before external work', async () => {
     const runtime = createShoppingQuickPublishHandler({

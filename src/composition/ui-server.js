@@ -45,9 +45,6 @@ const findImageByPrefix = createManuscriptImageFileReader({ fs, path, logger: Lo
 const ShoppingManager = createShoppingContentPreparationRuntime({ config: CONFIG, License, resolvePlatformWorkspaceDir });
 const Updater = require('../host/updater');
 Updater.configure(CONFIG);
-const { createRuntimeConfigApi } = require('../runtime-config');
-const RuntimeConfig = createRuntimeConfigApi({ config: CONFIG, logger: Logger });
-const { registerRuntimeHooks } = require('../runtime-hooks');
 const {
     ensureRuntimeRemoteMcpConfig,
     generateRemoteMcpBearerToken,
@@ -62,7 +59,11 @@ remoteMcpService.configureRemoteMcpService({
     config: CONFIG,
     logger: Logger,
     startServer: startHttpMcpServer,
-    createServices: (config) => createMcpPrototypeRuntime({ config, License })
+    createServices: (config) => createMcpPrototypeRuntime({
+        config,
+        License,
+        capabilityDependencies: mcpCapabilityDependencies
+    })
 });
 const { restartRemoteMcpService, getRemoteServiceStatus } = remoteMcpService;
 const { buildLocalMarkdownPreview } = require('../applications/blog/manuscript-drafts/preview');
@@ -129,9 +130,8 @@ const {
     toFeatureMap,
     getFeatureBool,
     getEnableSnsDistribution,
-    isCommandEnabled,
-    parseMaxPosts
-} = require('../runtime-feature-flags');
+    isCommandEnabled
+} = require('../services/licensing/feature-access');
 const { createBlogAutoService } = require('../adapters/ui/blog/automation/service');
 const { createBlogAutoController } = require('../adapters/ui/blog/automation/controller');
 const { createBlogAutoRouteHandler } = require('../adapters/ui/blog/automation/routes');
@@ -458,6 +458,23 @@ const {
     triggerSnsDistributionCycle
 } = snsAutomationScheduler;
 const syncAutoRunnerWithConfig = syncSnsAutomationWithConfig;
+const mcpCapabilityDependencies = {
+    resolveWritableConfigPath,
+    buildDefaultConfigTemplate,
+    syncAutoRunnerWithConfig
+};
+const agentCapabilityDependencies = {
+    ...mcpCapabilityDependencies,
+    generateChatText: (prompt, modelOptions = {}) => blogWritingSystem.application.generateChatText(prompt, {
+        generationOptions: {
+            ...(typeof modelOptions.temperature === 'number' ? { temperature: modelOptions.temperature } : {}),
+            ...(typeof modelOptions.maxTokens === 'number' ? { maxOutputTokens: modelOptions.maxTokens } : {}),
+            ...(modelOptions.responseMimeType === 'application/json' ? { responseFormat: 'json' } : {}),
+            ...(modelOptions.reasoningEffort ? { reasoningEffort: modelOptions.reasoningEffort } : {})
+        }
+    })
+};
+TelegramBotService.configureRuntimeDependencies(agentCapabilityDependencies);
 
 function setBlogRuntimeLog(rowIndex, message) {
     if (!Number.isInteger(rowIndex) || rowIndex < 0) return;
@@ -917,20 +934,6 @@ function getBlogAutoSettingsSnapshot() {
     return normalizeBlogAutoSettings({});
 }
 
-registerRuntimeHooks({
-    resolveWritableConfigPath,
-    buildDefaultConfigTemplate,
-    syncAutoRunnerWithConfig,
-    generateChatText: (prompt, modelOptions = {}) => blogWritingSystem.application.generateChatText(prompt, {
-        generationOptions: {
-            ...(typeof modelOptions.temperature === 'number' ? { temperature: modelOptions.temperature } : {}),
-            ...(typeof modelOptions.maxTokens === 'number' ? { maxOutputTokens: modelOptions.maxTokens } : {}),
-            ...(modelOptions.responseMimeType === 'application/json' ? { responseFormat: 'json' } : {}),
-            ...(modelOptions.reasoningEffort ? { reasoningEffort: modelOptions.reasoningEffort } : {})
-        }
-    })
-});
-
 let reloadUiServer;
 function scheduleUiReload(host, port) {
     setTimeout(async () => {
@@ -954,7 +957,6 @@ const uiApiRouteRuntime = createUiApiRuntime({
     ShoppingManager,
     axios,
     cheerio,
-    RuntimeConfig,
     TelegramService,
     TelegramBotService,
     SlackService,
