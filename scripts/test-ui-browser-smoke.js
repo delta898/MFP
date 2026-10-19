@@ -11,7 +11,7 @@ const { createHtmlCompositionRuntime } = require('../src/ui-runtime/html-composi
 const { createCssCompositionRuntime } = require('../src/ui-runtime/css-composition-runtime');
 const { createJsCompositionRuntime } = require('../src/ui-runtime/js-composition-runtime');
 const { createBundledWidgetPluginCatalog } = require('../src/composition/widget-plugins');
-const { getDefaultContentWritingProfile, DEFAULT_CONTENT_WRITING_PROFILE_METADATA } = require('../src/content/writing-profile');
+const { getDefaultContentWritingProfile, DEFAULT_CONTENT_WRITING_PROFILE_METADATA } = require('../src/services/content-writing/writing-profile');
 const { DESIGN_STYLE_CONTRACT_VERSION, DESIGN_STYLE_REQUIRED_TOKENS } = require('../ui/scripts/foundation/design-style-token-contract');
 
 const repoRoot = path.resolve(__dirname, '..');

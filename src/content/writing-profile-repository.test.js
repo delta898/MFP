@@ -12,7 +12,7 @@ const {
 const {
     DEFAULT_CONTENT_WRITING_PROFILE_METADATA,
     getDefaultContentWritingProfile
-} = require('./writing-profile');
+} = require('../services/content-writing/writing-profile');
 
 function createTempRepository(options = {}) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'writing-profile-'));

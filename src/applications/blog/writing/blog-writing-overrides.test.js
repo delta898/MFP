@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { getDefaultContentWritingProfile } = require('./writing-profile');
-const { projectWritingProfile } = require('./writing-profile-projection');
+const { getDefaultContentWritingProfile } = require('../../../services/content-writing/writing-profile');
+const { projectWritingProfile } = require('../../../services/content-writing/writing-profile-projection');
 const {
     normalizeBlogWritingOverrides,
     validateBlogWritingOverrides,

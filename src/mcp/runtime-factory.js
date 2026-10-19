@@ -4,7 +4,7 @@ const axios = require('axios');
 
 const { createAgentRuntime } = require('../host/agent/runtime');
 const { ConfirmationStore } = require('../adapters/storage/confirmations/confirmation-store');
-const { createCapabilityRegistry } = require('../capabilities');
+const { createCapabilityRuntime } = require('../composition/capability-runtime');
 const { createKnowledgeRuntime } = require('../composition/knowledge-runtime');
 const { getRuntimeHooks } = require('../runtime-hooks');
 const { createMcpPrototypeAdapter } = require('./prototype-adapter');
@@ -30,7 +30,7 @@ function createMcpPrototypeRuntime(options = {}) {
     const resolveNaverAutoCategoryCatalog = hooks.resolveNaverAutoCategoryCatalog || null;
 
     const knowledgeRuntime = createKnowledgeRuntime({ CONFIG, License, Logger: NullLogger, axios });
-    const capabilityRegistry = createCapabilityRegistry({
+    const capabilityRegistry = createCapabilityRuntime({
         ...knowledgeRuntime,
         fs,
         path,

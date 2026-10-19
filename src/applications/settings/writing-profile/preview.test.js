@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const BlogPromptPaths = require('./prompts/blog/paths');
-const { getDefaultContentWritingProfile } = require('./writing-profile');
+const BlogPromptPaths = require('../../blog/writing/prompts/paths');
+const { getDefaultContentWritingProfile } = require('../../../services/content-writing/writing-profile');
 const {
     SHOPPING_PREVIEW_FIXTURE,
     trimPreviewSample,
@@ -9,7 +9,7 @@ const {
     buildBlogPreviewPrompt,
     buildShoppingPreviewPrompt,
     createWritingProfilePreviewService
-} = require('./writing-profile-preview');
+} = require('./preview');
 
 const promptConfig = {
     BLOG_PROMPT_CONTRACT_PATH: BlogPromptPaths.BLOG_PROMPT_CONTRACT_FILE,

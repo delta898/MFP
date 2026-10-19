@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const BlogPromptPaths = require('./prompts/blog/paths');
+const BlogPromptPaths = require('./prompts/paths');
 const { buildBlogSystemPrompt, resolvePromptPaths } = require('./blog-prompt');
 
 const promptConfig = {

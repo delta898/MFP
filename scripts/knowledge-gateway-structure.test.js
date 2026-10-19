@@ -75,7 +75,7 @@ test('desktop external-reference flow uses the fixed gateway and has no direct p
     const gateway = read('src/content/reference-search-gateway.js');
     const utils = read('src/utils.js');
     const postingApplication = read('src/applications/blog/posting/application.js');
-    const referenceContext = read('src/content/blog-reference-context.js');
+    const referenceContext = read('src/applications/blog/posting/blog-reference-context.js');
     const composition = read('src/composition/blog-beta-runtime.js');
     assert.match(gateway, /kind: REFERENCE_KIND/);
     assert.match(gateway, /purpose: REFERENCE_PURPOSE/);

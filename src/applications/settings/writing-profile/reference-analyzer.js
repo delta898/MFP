@@ -1,5 +1,5 @@
 const crypto = require('node:crypto');
-const { PROFILE_LIMITS, PROFILE_ENUMS } = require('./writing-profile');
+const { PROFILE_LIMITS, PROFILE_ENUMS } = require('../../../services/content-writing/writing-profile');
 
 const STYLE_FINGERPRINT_VERSION = 'blog-style-v4';
 const MAX_ANALYSIS_SOURCE_CHARS = 30000;

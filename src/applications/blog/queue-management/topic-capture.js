@@ -1,6 +1,6 @@
 const { TOPIC_STATUS } = require('../../../services/topics/contract');
-const { validateBlogWritingOverrides } = require('../../../content/blog-writing-overrides');
-const { requireSinglePublishTarget } = require('../../../content/single-publish-target');
+const { validateBlogWritingOverrides } = require('../writing/blog-writing-overrides');
+const { requireSinglePublishTarget } = require('../../../services/content-delivery/single-publish-target');
 
 const READY_POST_STATUSES = Object.freeze(['publish', 'draft', 'schedule']);
 const CAPTURE_PLATFORMS = Object.freeze(['naver', 'wordpress', 'site-hosting']);

@@ -9,8 +9,8 @@ const Logger = require('../../../utilities/logging/logger');
 const BrowserLauncher = require('../../../utilities/browser/browser-launcher');
 const { persistAuthSessionState } = require('../../../adapters/naver/auth-session');
 const { recoverOptionalProduct } = require('../../../adapters/commerce/shopping-product-gateway');
-const { normalizeWritingStrategy, buildShoppingWritingStrategyPrompt } = require('../../../content/writing-strategy');
-const { projectWritingProfile } = require('../../../content/writing-profile-projection');
+const { normalizeWritingStrategy, buildShoppingWritingStrategyPrompt } = require('../../../services/content-writing/writing-strategy');
+const { projectWritingProfile } = require('../../../services/content-writing/writing-profile-projection');
 const { buildShoppingWritingProfilePromptFromProjection } = require('../generation/writing-profile-prompt');
 const {
     normalizeShoppingContentFocus,

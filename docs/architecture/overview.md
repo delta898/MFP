@@ -33,8 +33,8 @@ The target path is being introduced alongside the current control path. Product 
   - Provider-neutral knowledge contracts, snapshot normalization, and registry composition. Provider implementations and transport adapters live in `src/adapters/knowledge/`.
 - `src/services/recommendations/`
   - Shared cross-Application recommendation lifecycle, producers, policy, persistence adapters, and delivery.
-- `src/content-ideas/`
-  - Blog content-idea generation, distinct from the cross-Application Recommendation lifecycle.
+- `src/applications/blog/topic-recommendations/`
+  - Blog-owned topic candidate generation and idea drafting. It consumes imported Knowledge and shared Recommendation services; channel capabilities translate requests into this Application.
 
 ## Design Principles
 - Capability-based control over raw config mutation.

@@ -1,7 +1,7 @@
 const { buildBlogSystemPrompt, buildBlogStrategyPrompt } = require('./blog-prompt');
-const { projectWritingProfile } = require('./writing-profile-projection');
-const { buildBlogWritingProfilePromptFromProjection } = require('./writing-profile-prompt');
-const { resolveWritingStrategy } = require('./writing-strategy');
+const { projectWritingProfile } = require('../../../services/content-writing/writing-profile-projection');
+const { buildBlogWritingProfilePromptFromProjection } = require('../../../services/content-writing/writing-profile-prompt');
+const { resolveWritingStrategy } = require('../../../services/content-writing/writing-strategy');
 const { resolveImagePlan, buildBlogImagePlanPrompt } = require('./blog-image-plan');
 const { applyBlogWritingOverridesToProjection } = require('./blog-writing-overrides');
 

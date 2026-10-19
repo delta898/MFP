@@ -4,9 +4,9 @@ const {
     hasSuccessfulPlatformResult,
     settlePublishQuota
 } = require('../services/licensing/publish-quota');
-const { parseImageCount } = require('../content/blog-image-plan');
-const { parseBlogImageMode, generatesBlogImages } = require('../content/blog-image-mode');
-const { normalizePublishTargets } = require('../content/single-publish-target');
+const { parseImageCount } = require('../applications/blog/writing/blog-image-plan');
+const { parseBlogImageMode, generatesBlogImages } = require('../applications/blog/writing/blog-image-mode');
+const { normalizePublishTargets } = require('../services/content-delivery/single-publish-target');
 const { getScheduleDateIssue } = require('../applications/blog/queue-management/topic-capture');
 const { diagnoseQueueReadiness } = require('../applications/blog/queue-management/queue-readiness');
 const { presentBlogImageGenerationProgress } = require('../adapters/ui/blog-posting-progress');

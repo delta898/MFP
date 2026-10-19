@@ -1,6 +1,6 @@
-const { normalizeWritingStrategyOverride } = require('../../../content/writing-strategy');
+const { normalizeWritingStrategyOverride } = require('../../../services/content-writing/writing-strategy');
 const { normalizeShoppingContentFocus } = require('../generation/editorial-plan');
-const { requireSinglePublishTarget } = require('../../../content/single-publish-target');
+const { requireSinglePublishTarget } = require('../../../services/content-delivery/single-publish-target');
 const {
     LIFECYCLE_POST_STATUSES,
     LIFECYCLE_TARGETS,

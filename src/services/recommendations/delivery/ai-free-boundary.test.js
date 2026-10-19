@@ -16,7 +16,7 @@ test('proactive discovery runtime has no generative AI dependency or invocation'
     const forbidden = [
         /require\([^)]*(?:\/ai\/|gemini|openai|chat-model)/i,
         /generateContent\s*\(/,
-        /contentIdeaEngine/,
+        /topicRecommendationsApplication/,
         /CHAT_MODEL/
     ];
     for (const relativePath of AI_FREE_RUNTIME_FILES) {

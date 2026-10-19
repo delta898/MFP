@@ -11,8 +11,8 @@ const Logger = require('./utilities/logging/logger');
 const BrowserLauncher = require('./utilities/browser/browser-launcher');
 const { persistAuthSessionState } = require('./adapters/naver/auth-session');
 const { marked } = require('marked');
-const { parseImageBlocks } = require('./content/image-blocks');
-const { formatRelatedPostsForNaver } = require('./content/naver-related-posts');
+const { parseImageBlocks } = require('./utilities/markdown/image-blocks');
+const { formatRelatedPostsForNaver } = require('./adapters/naver/publishing/related-posts');
 const { assertDirectPublishAllowed } = require('./services/runtime-environment/effects');
 
 const IS_MAC = process.platform === 'darwin';

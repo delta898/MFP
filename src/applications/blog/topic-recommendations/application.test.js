@@ -1,11 +1,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createContentIdeaEngine } = require('./engine');
+const { createBlogTopicRecommendationsApplication } = require('./application');
 
 test('passes owner/trend candidates to content idea providers', async () => {
     let generatorInput = null;
     let providerContext = null;
-    const engine = createContentIdeaEngine({
+    const engine = createBlogTopicRecommendationsApplication({
         knowledgeRegistry: {
             async fetchForRoute() {
                 return [{ provider_id: 'naver-trends', kind: 'trends', items: [{ title: 'AI 트렌드' }] }];
@@ -55,7 +55,7 @@ test('passes owner/trend candidates to content idea providers', async () => {
 test('keeps the candidate pool broad but sends one recommendation per source to the AI provider', async () => {
     let generatorLimit = 0;
     let providerCandidates = [];
-    const engine = createContentIdeaEngine({
+    const engine = createBlogTopicRecommendationsApplication({
         candidateGenerator: {
             generate(input) {
                 generatorLimit = input.limit;
@@ -119,7 +119,7 @@ test('keeps the candidate pool broad but sends one recommendation per source to 
 
 test('keeps a user topic hint in the AI candidate set before the source-balanced candidates', async () => {
     let providerCandidates = [];
-    const engine = createContentIdeaEngine({
+    const engine = createBlogTopicRecommendationsApplication({
         candidateGenerator: {
             generate() {
                 return {

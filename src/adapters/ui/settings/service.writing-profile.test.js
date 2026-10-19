@@ -8,9 +8,9 @@ const { createSettingsService } = require('./service');
 const {
     DEFAULT_CONTENT_WRITING_PROFILE_METADATA,
     getDefaultContentWritingProfile
-} = require('../../../content/writing-profile');
-const BlogPromptPaths = require('../../../content/prompts/blog/paths');
-const { buildBlogGenerationPrompt } = require('../../../content/blog-generation-prompt');
+} = require('../../../services/content-writing/writing-profile');
+const BlogPromptPaths = require('../../../applications/blog/writing/prompts/paths');
+const { buildBlogGenerationPrompt } = require('../../../applications/blog/writing/blog-generation-prompt');
 
 function createHarness(options = {}) {
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'settings-profile-'));

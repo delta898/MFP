@@ -51,7 +51,7 @@ const {
 const { restartRemoteMcpService, getRemoteServiceStatus } = require('./mcp/remote-service');
 const { buildLocalMarkdownPreview } = require('./content/local-markdown-preview');
 const { materializeSelectedFilesToWorkspace } = require('./content/local-markdown-workspace');
-const { appendRelatedPostsToPastedMarkdown } = require('./content/pasted-markdown-related-posts');
+const { appendRelatedPostsToPastedMarkdown } = require('./applications/blog/posting/pasted-markdown-related-posts');
 const {
     getAiModelCatalog,
     buildModelSelectionFromFields,
@@ -59,8 +59,8 @@ const {
     mergeActiveSelectionsIntoProfiles,
     normalizeChatModelSource
 } = require('./services/ai/model-configuration');
-const { normalizeWritingStyle } = require('./content/writing-style');
-const { normalizeWritingStrategy } = require('./content/writing-strategy');
+const { normalizeWritingStyle } = require('./services/content-writing/writing-style');
+const { normalizeWritingStrategy } = require('./services/content-writing/writing-strategy');
 const { createSnsSheetStore } = require('./applications/sns/distribution/sns-sheet-store');
 const { createGoogleSheetsSnsGateway } = require('./adapters/storage/google-sheets-sns-gateway');
 const { createCardNewsRuntime } = require('./composition/card-news-runtime');
@@ -91,7 +91,7 @@ const { createCssCompositionRuntime } = require('./ui-runtime/css-composition-ru
 const { createJsCompositionRuntime } = require('./ui-runtime/js-composition-runtime');
 const { closeAgentMemory, getAgentEventStore, initializeAgentMemory } = require('./host/memory/runtime');
 const { createActivityLifecycleRecorder } = require('./services/memory/activity-lifecycle');
-const { createCapabilityRegistry } = require('./capabilities');
+const { createCapabilityRuntime } = require('./composition/capability-runtime');
 const { createKnowledgeRuntime } = require('./composition/knowledge-runtime');
 const { createAgentRuntime } = require('./host/agent/runtime');
 const { ConfirmationStore } = require('./adapters/storage/confirmations/confirmation-store');
@@ -351,7 +351,7 @@ const recordActivityLifecycle = createActivityLifecycleRecorder({
 });
 const topicRecommendationEventStore = getAgentEventStore({ baseDir: CONFIG.ROOT_DIR });
 const topicRecommendationKnowledgeRuntime = createKnowledgeRuntime({ CONFIG, Logger, License, axios });
-const topicRecommendationCapabilityRegistry = createCapabilityRegistry({
+const topicRecommendationCapabilityRegistry = createCapabilityRuntime({
     ...topicRecommendationKnowledgeRuntime,
     CONFIG,
     Logger,

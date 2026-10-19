@@ -2,8 +2,8 @@
 
 const pathDefault = require('path');
 const { marked } = require('marked');
-const { formatRelatedPostsForNaver } = require('../../../content/naver-related-posts');
-const { parseImageBlocks } = require('../../../content/image-blocks');
+const { formatRelatedPostsForNaver } = require('../../../adapters/naver/publishing/related-posts');
+const { parseImageBlocks } = require('../../../utilities/markdown/image-blocks');
 const { assertDirectPublishAllowed } = require('../../../services/runtime-environment/effects');
 
 const TARGET_FORMATS = Object.freeze({ naver: 'webp', wordpress: 'avif' });

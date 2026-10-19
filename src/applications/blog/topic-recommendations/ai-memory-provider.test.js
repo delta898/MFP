@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createAiMemoryContentIdeaProvider } = require('./ai-memory');
+const { createAiMemoryContentIdeaProvider } = require('./ai-memory-provider');
 
 test('AI idea provider falls back quickly with natural Korean when Chat Model is rate limited', async () => {
     let calls = 0;

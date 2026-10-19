@@ -12,13 +12,13 @@ const {
     resolveStoredModelProfiles
 } = require('./services/ai/model-configuration');
 const { applyRemoteCatalog } = require('../packages/plugins/core/ai-gateway/catalog-registry');
-const { resolveContentWritingPreferences } = require('./content/writing-preferences');
+const { resolveContentWritingPreferences } = require('./services/content-writing/writing-preferences');
 const {
     createWritingProfileRepository
 } = require('./content/writing-profile-repository');
 const {
     DEFAULT_CONTENT_WRITING_PROFILE_METADATA
-} = require('./content/writing-profile');
+} = require('./services/content-writing/writing-profile');
 const { normalizeSnsAiMode } = require('./services/sns/ai-policy');
 const { normalizeCardNewsBuiltinSources, normalizeCardNewsRssSources } = require('./applications/card-news/sources/feed-sources');
 const {
@@ -354,12 +354,12 @@ const CONFIG = {
     // 기존 내부 호출 경계를 위한 별칭. 값은 Environment Resolver에서만 공급한다.
     LICENSE_CHK_URL: runtimeEnvironmentProfile.supabase.url,
     LICENSE_CHK_KEY: runtimeEnvironmentProfile.supabase.publishableKey,
-    BLOG_PROMPT_CONTRACT_PATH: resolveRuntimePath('src/content/prompts/blog/contract.md', { mustExist: true }),
-    BLOG_PROMPT_COMMON_PATH: resolveRuntimePath('src/content/prompts/blog/common.md', { mustExist: true }),
-    BLOG_PROMPT_SEARCH_PATH: resolveRuntimePath('src/content/prompts/blog/search.md', { mustExist: true }),
-    BLOG_PROMPT_DISCOVERY_PATH: resolveRuntimePath('src/content/prompts/blog/discovery.md', { mustExist: true }),
+    BLOG_PROMPT_CONTRACT_PATH: resolveRuntimePath('src/applications/blog/writing/prompts/contract.md', { mustExist: true }),
+    BLOG_PROMPT_COMMON_PATH: resolveRuntimePath('src/applications/blog/writing/prompts/common.md', { mustExist: true }),
+    BLOG_PROMPT_SEARCH_PATH: resolveRuntimePath('src/applications/blog/writing/prompts/search.md', { mustExist: true }),
+    BLOG_PROMPT_DISCOVERY_PATH: resolveRuntimePath('src/applications/blog/writing/prompts/discovery.md', { mustExist: true }),
     // 이전 내부 참조를 위한 공통 프롬프트 별칭
-    BLOG_PROMPT_PATH: resolveRuntimePath('src/content/prompts/blog/common.md', { mustExist: true }),
+    BLOG_PROMPT_PATH: resolveRuntimePath('src/applications/blog/writing/prompts/common.md', { mustExist: true }),
     SHOPPING_PROMPT_PATH: resolveRuntimePath('src/applications/shopping/generation/prompts/default.md', { mustExist: true }),
 
     // 🔧 [Paths]

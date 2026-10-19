@@ -1,4 +1,4 @@
-const { normalizeBlogImageMode, generatesBlogImages } = require('../content/blog-image-mode');
+const { normalizeBlogImageMode, generatesBlogImages } = require('../applications/blog/writing/blog-image-mode');
 
 function createTrendActionsRuntime(deps = {}) {
     const {

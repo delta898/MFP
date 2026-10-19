@@ -5,7 +5,7 @@ const { createContentIdeaCapabilities } = require('./ideas');
 test('content idea capability keeps response shape and adds canonical recommendation id', async () => {
     const capability = createContentIdeaCapabilities({
         eventStore: { getLocalOwnerIdentity: () => ({ owner_user_id: 'owner-local' }) },
-        contentIdeaEngine: {
+        topicRecommendationsApplication: {
             async generateIdeas() {
                 return {
                     ideas: [{ id: 'idea-1', candidate_id: 'topic_candidate_1', title: 'AI 검색 변화', summary: '검색 변화', reason: '최근 트렌드', recommendation: { run_id: 'run-1', candidate_id: 'topic_candidate_1' } }],

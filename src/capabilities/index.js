@@ -9,8 +9,6 @@ const { createKnowledgeRegistry } = require('../services/knowledge/registry');
 const { createRecommendationRequestService } = require('../services/recommendations/request-service');
 const { createMemoryContextRecommendationProducer } = require('../services/recommendations/producers/memory-context');
 const { createRecommendationMaterializer } = require('../services/recommendations/adapters/recommendation-materializer');
-const { createContentIdeaEngine } = require('../content-ideas/engine');
-const { createAiMemoryContentIdeaProvider } = require('../content-ideas/providers/ai-memory');
 const { createContentIdeaCapabilities } = require('./content/ideas');
 const { createRegisterTopicCapabilities } = require('./content/register-topic');
 const { createPublishCapabilities } = require('./content/publish');
@@ -34,23 +32,7 @@ function createCapabilityRegistry(deps = {}) {
             createMemoryContextRecommendationProducer()
         ]
     });
-    const contentIdeaEngine = deps.contentIdeaEngine || createContentIdeaEngine({
-        knowledgeRegistry,
-        providers: [
-            createAiMemoryContentIdeaProvider({
-                generateText: typeof deps.blogWritingApplication?.generateChatText === 'function'
-                    ? (prompt, modelOptions = {}) => deps.blogWritingApplication.generateChatText(prompt, {
-                        generationOptions: {
-                            ...(typeof modelOptions.temperature === 'number' ? { temperature: modelOptions.temperature } : {}),
-                            ...(typeof modelOptions.maxTokens === 'number' ? { maxOutputTokens: modelOptions.maxTokens } : {}),
-                            responseFormat: 'json'
-                        }
-                    })
-                    : undefined
-            })
-        ]
-    });
-    const capabilityDeps = { ...deps, configState, knowledgeRegistry, recommendationRequestService, contentIdeaEngine, recommendationMaterializer };
+    const capabilityDeps = { ...deps, configState, knowledgeRegistry, recommendationRequestService, recommendationMaterializer };
 
     const allCapabilities = [
         ...createAgentMetaCapabilities(capabilityDeps),

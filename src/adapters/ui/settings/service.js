@@ -42,7 +42,7 @@ const {
 } = require('../../storage/connection-verifications/state-store');
 const { createConnectionSignature, isVerificationTrusted } = require('../../../services/connection-verification/policy');
 const { createAiModelVerificationSignature } = require('../../../services/ai/model-verification');
-const { createSettingsWritingProfileApplication } = require('../../../applications/settings/writing-profile/application');
+const { createSettingsWritingProfileRuntime } = require('../../../composition/settings-writing-profile');
 const {
     createSettingsAiModelsApplication,
     normalizeAiRoleSettings: normalizeAiRoleSettingsForApplication,
@@ -242,7 +242,7 @@ function createSettingsService(deps = {}) {
         aiGateway = null
     } = deps;
 
-    const writingProfileApplication = createSettingsWritingProfileApplication({
+    const writingProfileApplication = createSettingsWritingProfileRuntime({
         fs,
         path,
         config: CONFIG || {},

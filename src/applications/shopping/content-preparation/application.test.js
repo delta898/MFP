@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 
 const CONFIG = require('../../../config-loader');
 const ShoppingManager = require('./application');
-const { getDefaultContentWritingProfile } = require('../../../content/writing-profile');
+const { getDefaultContentWritingProfile } = require('../../../services/content-writing/writing-profile');
 
 const {
     extractProductData,

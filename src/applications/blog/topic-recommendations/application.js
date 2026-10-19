@@ -1,10 +1,10 @@
-const { createTopicCandidateGenerator } = require('../services/recommendations/topic-candidate-generator');
-const { rankTopicCandidates } = require('../services/recommendations/topic-ranking-policy');
+const { createTopicCandidateGenerator } = require('../../../services/recommendations/topic-candidate-generator');
+const { rankTopicCandidates } = require('../../../services/recommendations/topic-ranking-policy');
 const {
     createRecommendationRunId,
     buildRecommendationContext
-} = require('../services/recommendations/topic-recommendation-learning');
-const Logger = require('../utilities/logging/logger');
+} = require('../../../services/recommendations/topic-recommendation-learning');
+const LoggerDefault = require('../../../utilities/logging/logger');
 
 function compactLog(value, maxLength = 180) {
     return String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, maxLength);
@@ -32,11 +32,12 @@ function collectRecentRecommendationCandidateIds(input = {}, artifacts = []) {
     return [...new Set([...explicit, ...recent].map((value) => String(value || '').trim()).filter(Boolean))];
 }
 
-function createContentIdeaEngine(options = {}) {
+function createBlogTopicRecommendationsApplication(options = {}) {
     const providers = Array.isArray(options.providers) ? options.providers.filter(Boolean) : [];
     const knowledgeRegistry = options.knowledgeRegistry || null;
     const candidateGenerator = options.candidateGenerator || createTopicCandidateGenerator();
     const candidateRanker = options.candidateRanker || rankTopicCandidates;
+    const Logger = options.Logger || LoggerDefault;
 
     return {
         async generateIdeas(input = {}, context = {}) {
@@ -156,5 +157,5 @@ function createContentIdeaEngine(options = {}) {
 }
 
 module.exports = {
-    createContentIdeaEngine
+    createBlogTopicRecommendationsApplication
 };

@@ -1,4 +1,4 @@
-const { PROFILE_ENUMS } = require('./writing-profile');
+const { PROFILE_ENUMS } = require('../../../services/content-writing/writing-profile');
 
 const BLOG_WRITING_OVERRIDE_FIELDS = Object.freeze({
     length: Object.freeze({ enumKey: 'lengthPreset', path: ['channel', 'length', 'preset'] }),

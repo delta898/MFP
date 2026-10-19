@@ -1,5 +1,5 @@
-const { normalizePublishTargets } = require('../../../content/single-publish-target');
-const { validateBlogWritingOverrides } = require('../../../content/blog-writing-overrides');
+const { normalizePublishTargets } = require('../../../services/content-delivery/single-publish-target');
+const { validateBlogWritingOverrides } = require('../writing/blog-writing-overrides');
 const { getScheduleDateIssue } = require('./topic-capture');
 
 const QUEUE_POST_STATUSES = Object.freeze(['publish', 'draft', 'schedule']);

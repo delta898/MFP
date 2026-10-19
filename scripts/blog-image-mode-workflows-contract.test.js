@@ -7,12 +7,11 @@ const repoRoot = path.resolve(__dirname, '..');
 const read = (relativePath) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
 test('sheet adapter keeps canonical mode and legacy boolean compatibility', () => {
-    const utils = read('src/utils.js');
     const options = read('src/content/publish-sheet-options.js');
 
-    assert.match(utils, /'이미지 처리'/);
-    assert.match(utils, /'프롬프트 포함'/);
-    assert.match(utils, /formatSheetImageModeValue/);
+    assert.match(options, /이미지 생성/);
+    assert.match(options, /프롬프트 포함/);
+    assert.match(options, /formatSheetImageModeValue/);
     assert.match(options, /image_mode/);
     assert.match(options, /legacyGenerate/);
 });
@@ -32,7 +31,7 @@ test('WYSIWYG manuscript publishing owns images in slots and drafts only for act
     assert.match(manuscriptScript, /buttonLabel: '블로그에 임시 저장'/);
     assert.doesNotMatch(core, /if \(options\.imageGeneration === false\) \{\s*hasImageWarnings = true;/);
     assert.doesNotMatch(core, /이미지 미생성 옵션으로 인해 Draft로 강제 전환/);
-    assert.match(core, /발행 대상으로 남은 이미지의 누락\/업로드 실패 시 Draft 강제/);
+    assert.match(core, /이미지 누락\/미생성 시 Draft 강제 전환/);
 });
 
 test('Blog Beta image preview completes only its final grid row with inert decorative cells', () => {

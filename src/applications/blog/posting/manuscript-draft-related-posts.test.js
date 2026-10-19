@@ -4,9 +4,9 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const Utils = require('../utils');
-const Core = require('../core');
-const { createManuscriptDraftService } = require('./manuscript-draft-service');
+const Utils = require('../../../utils');
+const Core = require('../../../core');
+const { createManuscriptDraftService } = require('../../../content/manuscript-draft-service');
 
 function fixture(gateway) {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-related-'));

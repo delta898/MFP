@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const BlogPromptPaths = require('./prompts/blog/paths');
+const BlogPromptPaths = require('../../applications/blog/writing/prompts/paths');
 const { buildBlogWritingProfilePrompt } = require('./writing-profile-prompt');
 
 test('blog profile prompt renders common and blog choices without shopping instructions', () => {

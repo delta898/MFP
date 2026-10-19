@@ -1,5 +1,5 @@
-const { projectWritingProfile } = require('../../../content/writing-profile-projection');
-const { buildCommonWritingProfilePrompt } = require('../../../content/writing-profile-prompt');
+const { projectWritingProfile } = require('../../../services/content-writing/writing-profile-projection');
+const { buildCommonWritingProfilePrompt } = require('../../../services/content-writing/writing-profile-prompt');
 
 function buildShoppingWritingProfilePromptFromProjection(projection = {}) {
     if (projection.kind !== 'shopping' || !projection.common || !projection.channel) {

@@ -18,7 +18,7 @@ The schema stores one final profile and keeps optional reference-analysis data s
 
 The default-profile UI exposes only the choices expected to vary by user: search/discovery strategy, conversational/written expression and polite/plain speech. Tone, additional writing principle, reference analysis, blog length, flow and image-area count stay on the product defaults and are not shown. The custom-profile UI exposes the full minimal editing surface, including those settings and the optional `참고 글로 자동 설정` tool. There is no direct/reference mode. Author context and channel-specific global instructions remain empty; one-off requirements belong to the post-level instruction.
 
-The product default is loaded from `src/content/writing-profile/default-profile.json`. Storage keeps `default_profile_overrides` containing exactly `writing_strategy`, `writing_mode` and `speech_level`; all other default-profile values continue to follow the current versioned product default. A custom profile is stored separately as a complete snapshot in `config/writing_profile.json` with its `based_on_default_version`. Switching either way preserves both sets of values, so future named profiles can extend the custom side without changing default semantics.
+The product default is loaded from `src/services/content-writing/writing-profile/default-profile.json`. Storage keeps `default_profile_overrides` containing exactly `writing_strategy`, `writing_mode` and `speech_level`; all other default-profile values continue to follow the current versioned product default. A custom profile is stored separately as a complete snapshot in `config/writing_profile.json` with its `based_on_default_version`. Switching either way preserves both sets of values, so future named profiles can extend the custom side without changing default semantics.
 
 Missing or corrupt profile storage fails safely to the product default without overwriting the damaged file. When no profile file exists, the previously supported expression, speech and global strategy settings seed the three default overrides once. Because this feature has not shipped yet, intermediate development schemas are not supported or migrated.
 
@@ -119,12 +119,12 @@ The Writing settings screen offers an explicit AI preview button. It sends the u
 
 Primary code owners:
 
-- `src/content/writing-profile.js`: schema, defaults, normalization and validation
+- `src/services/content-writing/writing-profile.js`: schema, defaults, normalization and validation
 - `src/content/writing-profile-repository.js`: selection, migration and atomic persistence
-- `src/content/writing-profile-projection.js`: blog/shopping capability allowlists
-- `src/content/blog-generation-prompt.js`: ordinary blog composition
+- `src/services/content-writing/writing-profile-projection.js`: blog/shopping capability allowlists
+- `src/applications/blog/writing/blog-generation-prompt.js`: ordinary blog composition
 - `src/applications/shopping/generation/writing-profile-prompt.js`: shopping profile prompt policy
 - `src/applications/shopping/generation/application.js`: Shopping text generation through the shared AI Generation service
-- `src/content/style-reference-*`: safe reference fetching and fingerprint analysis
-- `src/content/writing-profile-preview.js`: draft preview composition and validation
+- `src/content/style-reference-* (transitional)`: safe reference fetching and fingerprint analysis
+- `src/applications/settings/writing-profile/preview.js`: draft preview composition and validation
 - Settings service/controller/routes: API boundary and runtime activation

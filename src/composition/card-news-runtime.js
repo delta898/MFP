@@ -8,7 +8,7 @@ const { createCardNewsSourceService } = require('../applications/card-news/sourc
 const { createCardNewsRssIntake } = require('../applications/card-news/sources/rss-intake');
 const { createCardNewsRssIntakeScheduler } = require('../applications/card-news/sources/rss-intake-scheduler');
 const { createGoogleDrivePublicMediaTransport } = require('../adapters/media/google-drive-public-media-transport');
-const { createStyleReferenceFetcher } = require('../content/style-reference-fetcher');
+const { createStyleReferenceFetcher } = require('../adapters/web/style-reference-fetcher');
 
 function createCardNewsRuntime(options = {}) {
     const { GoogleSheets, CONFIG, httpClient, fs, path, GoogleOAuth, googleSheetsClient, logger, cheerio } = options;

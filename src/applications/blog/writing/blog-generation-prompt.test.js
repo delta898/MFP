@@ -1,8 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const BlogPromptPaths = require('./prompts/blog/paths');
-const { getDefaultContentWritingProfile } = require('./writing-profile');
+const BlogPromptPaths = require('./prompts/paths');
+const { getDefaultContentWritingProfile } = require('../../../services/content-writing/writing-profile');
 const { buildBlogPostInputPrompt, buildBlogGenerationPrompt } = require('./blog-generation-prompt');
 
 const promptConfig = {

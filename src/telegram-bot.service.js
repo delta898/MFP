@@ -7,7 +7,7 @@ const axios = require('axios');
 const { createAgentRuntime } = require('./host/agent/runtime');
 const { createPlanner } = require('./host/agent/planning/planner');
 const { ConfirmationStore } = require('./adapters/storage/confirmations/confirmation-store');
-const { createCapabilityRegistry } = require('./capabilities');
+const { createCapabilityRuntime } = require('./composition/capability-runtime');
 const { createKnowledgeRuntime } = require('./composition/knowledge-runtime');
 const { createMemoryRetrievalService } = require('./services/memory/retrieval-service');
 const { generateUserInsight } = require('./services/memory/insight-generation');
@@ -252,7 +252,7 @@ class TelegramBotService {
         const License = TelegramBotService.License;
         if (!License) throw new Error('Telegram runtime requires an injected licensing port.');
         const knowledgeRuntime = createKnowledgeRuntime({ CONFIG, License, Logger, axios });
-        const capabilityRegistry = createCapabilityRegistry({
+        const capabilityRegistry = createCapabilityRuntime({
             ...knowledgeRuntime,
             fs,
             path,

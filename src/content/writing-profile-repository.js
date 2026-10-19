@@ -5,8 +5,8 @@ const {
     getDefaultContentWritingProfile,
     normalizeWritingProfile,
     validateWritingProfile
-} = require('./writing-profile');
-const { resolveContentWritingPreferences } = require('./writing-preferences');
+} = require('../services/content-writing/writing-profile');
+const { resolveContentWritingPreferences } = require('../services/content-writing/writing-preferences');
 
 const ACTIVE_PROFILE_VALUES = new Set(['default', 'custom']);
 

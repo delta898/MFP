@@ -7,10 +7,9 @@ const {
 const {
     DEFAULT_CONTENT_WRITING_PROFILE_METADATA,
     getDefaultContentWritingProfile
-} = require('../../../content/writing-profile');
-const { createStyleReferenceFetcher } = require('../../../content/style-reference-fetcher');
-const { createStyleReferenceAnalyzer } = require('../../../content/style-reference-analyzer');
-const { createWritingProfilePreviewService } = require('../../../content/writing-profile-preview');
+} = require('../../../services/content-writing/writing-profile');
+const { createStyleReferenceAnalyzer } = require('./reference-analyzer');
+const { createWritingProfilePreviewService } = require('./preview');
 
 function toWritingModelSelection(model = {}) {
     const provider = String(model.provider || '').trim().toLowerCase();
@@ -27,8 +26,7 @@ function createSettingsWritingProfileApplication(deps = {}) {
         fs,
         path,
         config = {},
-        axios,
-        cheerio,
+        fetchStyleReference,
         blogWritingApplication,
         aiGenerationService,
         styleReferenceAnalyzer,
@@ -55,13 +53,14 @@ function createSettingsWritingProfileApplication(deps = {}) {
 
     function getReferenceAnalyzer() {
         if (referenceAnalyzer) return referenceAnalyzer;
-        const runtimeAxios = axios || require('axios');
-        const runtimeCheerio = cheerio || require('cheerio');
         if (typeof blogWritingApplication?.generateText !== 'function') {
             throw new Error('Blog Writing Application is required for style reference analysis.');
         }
+        if (typeof fetchStyleReference !== 'function') {
+            throw new Error('Style reference fetch dependency is required.');
+        }
         referenceAnalyzer = createStyleReferenceAnalyzer({
-            fetchStyleReference: createStyleReferenceFetcher({ axios: runtimeAxios, cheerio: runtimeCheerio }),
+            fetchStyleReference,
             generateText: (prompt, modelOptions = {}) => blogWritingApplication.generateText(prompt, {
                 modelSelection: toWritingModelSelection(config.TEXT_MODEL_CONFIG),
                 generationOptions: pickGatewayGenerationOptions(modelOptions)

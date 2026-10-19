@@ -1,4 +1,4 @@
-const Logger = require('../../utilities/logging/logger');
+const LoggerDefault = require('../../../utilities/logging/logger');
 
 function stripCodeFence(raw) {
     return String(raw || '')
@@ -199,6 +199,7 @@ function applyArtifactFeedback(ideas = [], context = {}) {
 }
 
 function createAiMemoryContentIdeaProvider(options = {}) {
+    const Logger = options.Logger || LoggerDefault;
     const generateText = options.generateText;
     return {
         id: 'ai-memory-content-ideas',

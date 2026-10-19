@@ -1,4 +1,4 @@
-const { normalizeBlogImageMode } = require('../content/blog-image-mode');
+const { normalizeBlogImageMode } = require('../applications/blog/writing/blog-image-mode');
 
 function createAutomationPolicyRuntime(deps = {}) {
     const {

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { formatRelatedPostsForNaver } = require('./naver-related-posts');
+const { formatRelatedPostsForNaver } = require('./related-posts');
 
 test('Naver related-post section becomes unbulleted URL-only paragraphs', () => {
     const source = [

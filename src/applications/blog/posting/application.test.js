@@ -7,14 +7,14 @@ const os = require('node:os');
 const path = require('node:path');
 const CONFIG = require('../../../config-loader');
 const Utils = require('../../../utils');
-const { getDefaultContentWritingProfile } = require('../../../content/writing-profile');
+const { getDefaultContentWritingProfile } = require('../../../services/content-writing/writing-profile');
 const { createBlogPostingApplication } = require('./application');
 
 function createApplication({ writing, utils = Utils, config = CONFIG, ...dependencies } = {}) {
     return createBlogPostingApplication({
         Utils: utils,
         CONFIG: config,
-        blogPromptPaths: require('../../../content/prompts/blog/paths'),
+        blogPromptPaths: require('../writing/prompts/paths'),
         Logger: { info() {}, warn() {}, error() {}, debug() {} },
         fs,
         path,

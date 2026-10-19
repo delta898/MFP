@@ -148,14 +148,16 @@ src/
     updater.js                  # Desktop update lifecycle and restart
   adapters/                     # Channel and external protocol translation (UI, Telegram, MCP, Plugin ports)
     naver/publishing-defaults.js # Naver editor timing and typing defaults
+    naver/publishing/           # Naver editor-specific publication formatting
     url-shortening/              # URL shortener provider protocol adapters
     ui/                          # UI/API input, output, and progress presentation adapters
   platform/                     # Plugin contracts, Plugin Host, validation, lifecycle, dispatch
   composition/                  # Concrete Plugin/service wiring for runtime and Applications
   services/                     # Shared cross-Application capabilities/contracts
     url-shortening/              # Provider-neutral URL shortening behavior
+    content-writing/             # Shared writing profile, style, strategy, and projection contracts
   applications/                 # Product workflows, orchestration, and app-specific services/policy
-    blog/                       # Blog writing and publication use cases
+    blog/                       # Blog writing, topic recommendations, and publication use cases
     card-news/                  # Card-news workflows
     sns/                        # SNS workflows
     <application-name>/         # Future product Applications follow the same grouping
@@ -163,6 +165,7 @@ src/
     media/                      # Image/media transformation and format-level operations
     logging/                    # Shared logging and runtime log-path behavior
     browser/                    # Shared local Playwright launch mechanics
+    markdown/                   # Provider-neutral Markdown parsing helpers
   ...                           # Legacy areas migrate only as their boundary is redesigned
 
 packages/
@@ -172,7 +175,13 @@ packages/
 
 The SNS and Card News verticals use a shared capability-named `social-publisher` Plugin. Its provider implementation is currently Buffer and lives under `packages/plugins/core/social-publisher/providers/buffer/`; Applications depend on the `src/adapters/plugins/social-publisher.js` port and do not name the current provider in that boundary. SNS workflows live under `src/applications/sns/`, while shared publishing rules, feed utilities, and external storage/media adapters live in `src/services/`, `src/utilities/`, and `src/adapters/` according to ownership.
 
-The Settings menu follows the same vertical rule without absorbing every setting implementation. Its shared Blog/Shopping writing-profile management, AI model selection, app-level listen/input preferences, basic connection configuration, optional-service preferences, and external-connection workflows live under `src/applications/settings/`; Card News source settings live with their owning workflow in `src/applications/card-news/source-settings/`, even though the controls are surfaced in Settings. Settings UI stays in `ui/`, while Settings HTTP routes, controller, and transitional service adapter live in `src/adapters/ui/settings/`. Config file access is supplied through a repository port. Reusable profile persistence and analysis remain in their existing content modules, Card News source rules stay in the Card News Application, AI model catalog and provider checks stay behind AI Gateway, and AI Generation is an injected capability. The read-only Core Plugin inventory endpoint is a generic UI adapter under `src/adapters/ui/plugins/`; the Settings screen consumes Platform-owned Plugin Runtime state without a separate Settings Application because it currently has no additional workflow policy. Settings Applications own menu workflows, not provider protocols or generic UI mechanics.
+`src/services/content-delivery/single-publish-target.js` owns the shared Blog/Shopping contract that a manuscript has zero or one publish target. The queue lifecycle contract separately permits `site-hosting`; do not collapse these policies into one target allowlist.
+
+The Settings menu follows the same vertical rule without absorbing every setting implementation. Its shared Blog/Shopping writing-profile management, AI model selection, app-level listen/input preferences, basic connection configuration, optional-service preferences, and external-connection workflows live under `src/applications/settings/`; Card News source settings live with their owning workflow in `src/applications/card-news/source-settings/`, even though the controls are surfaced in Settings. Settings UI stays in `ui/`, while Settings HTTP routes, controller, and transitional service adapter live in `src/adapters/ui/settings/`. Config file access is supplied through a repository port. Shared Blog/Shopping writing-profile schema, style and strategy policies, prompt primitives, and allowlisted projections live under `src/services/content-writing/`; Settings Application owns profile workflows, while repository persistence and reference-analysis transports remain transitional and are being separated, Card News source rules stay in the Card News Application, AI model catalog and provider checks stay behind AI Gateway, and AI Generation is an injected capability. The read-only Core Plugin inventory endpoint is a generic UI adapter under `src/adapters/ui/plugins/`; the Settings screen consumes Platform-owned Plugin Runtime state without a separate Settings Application because it currently has no additional workflow policy. Settings Applications own menu workflows, not provider protocols or generic UI mechanics.
+
+Blog topic recommendations are a Blog Application use case under `src/applications/blog/topic-recommendations/`. It may consume imported Knowledge and the shared Recommendation lifecycle, but it does not own trend collection or cross-Application Recommendation persistence. Agent capabilities and UI/API channel adapters translate their requests into this Application; they must not duplicate candidate generation or ranking policy.
+
+Naver editor-specific related-post formatting belongs under `src/adapters/naver/publishing/`; provider-neutral image-block parsing belongs under `src/utilities/markdown/`. A reusable parser stays technical, while publishing markup stays with its target adapter.
 
 Knowledge and Memory are separate reusable domains and must remain distinct. `src/services/knowledge/` owns provider-neutral `kind + transport + config` contracts, normalized snapshot contracts, and registry/selection behavior. `src/adapters/knowledge/` owns provider-specific implementations, gateway clients, and transport protocols. Knowledge retrieval does not itself become user memory or recommendation policy. `src/services/memory/` owns event-first memory semantics, retrieval/context projections, provenance normalization, owner/activity read models, and derived user-insight generation; generation and persistence ports are injected by the runtime. It does not own SQLite or process lifecycle. `src/adapters/storage/memory/` owns Memory schema, event persistence, payload encoding, and SQLite lifecycle mechanics. `src/host/memory/` owns process startup/recovery, health gating, background maintenance scheduling, and shutdown. Recommendation lifecycle storage is separately owned by `src/adapters/storage/recommendations/`, with its policy and lifecycle contract under `src/services/recommendations/`. When Memory facts inform Recommendations, connect them through injected retrieval/service contracts; do not merge the domains or let Memory depend on Recommendation producers or policy.
 

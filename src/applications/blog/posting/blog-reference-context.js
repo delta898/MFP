@@ -1,7 +1,7 @@
 'use strict';
 
-const { raceWithCancellation, sleepWithCancellation, throwIfCanceled } = require('../utilities/async/cancellation');
-const { searchOptionalReferences } = require('./reference-search-gateway');
+const { raceWithCancellation, sleepWithCancellation, throwIfCanceled } = require('../../../utilities/async/cancellation');
+const { searchOptionalReferences } = require('../../../content/reference-search-gateway');
 
 function buildReferenceSection(scrapedContext) {
     if (!scrapedContext) return '(No reference provided)';

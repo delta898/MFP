@@ -5,7 +5,7 @@ const {
     buildAnalysisPrompt,
     buildAnalysisResponseSchema,
     createStyleReferenceAnalyzer
-} = require('./style-reference-analyzer');
+} = require('./reference-analyzer');
 
 test('style input hash is stable for normalized source inputs', () => {
     assert.equal(

@@ -1,10 +1,10 @@
-const BLOG_PROMPT_PATHS = require('./prompts/blog/paths');
-const { normalizeWritingProfile, validateWritingProfile } = require('./writing-profile');
-const { projectWritingProfile } = require('./writing-profile-projection');
-const { buildBlogGenerationPrompt } = require('./blog-generation-prompt');
-const { buildShoppingWritingProfilePromptFromProjection } = require('../applications/shopping/generation/writing-profile-prompt');
-const { buildShoppingEditorialPlanPrompt } = require('../applications/shopping/generation/editorial-plan');
-const { resolveWritingStrategy, buildShoppingWritingStrategyPrompt } = require('./writing-strategy');
+const BLOG_PROMPT_PATHS = require('../../blog/writing/prompts/paths');
+const { normalizeWritingProfile, validateWritingProfile } = require('../../../services/content-writing/writing-profile');
+const { projectWritingProfile } = require('../../../services/content-writing/writing-profile-projection');
+const { buildBlogGenerationPrompt } = require('../../blog/writing/blog-generation-prompt');
+const { buildShoppingWritingProfilePromptFromProjection } = require('../../shopping/generation/writing-profile-prompt');
+const { buildShoppingEditorialPlanPrompt } = require('../../shopping/generation/editorial-plan');
+const { resolveWritingStrategy, buildShoppingWritingStrategyPrompt } = require('../../../services/content-writing/writing-strategy');
 
 const DEFAULT_BLOG_PREVIEW_TOPIC = '일상에서 디지털 메모 습관을 만드는 방법';
 const PREVIEW_SAMPLE_MAX_LENGTH = 600;

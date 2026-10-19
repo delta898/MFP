@@ -1,5 +1,5 @@
 function createContentIdeaCapabilities(deps = {}) {
-    const { contentIdeaEngine, recommendationMaterializer } = deps;
+    const { topicRecommendationsApplication, recommendationMaterializer } = deps;
     const { materializeTopicIdeas } = require('../../services/recommendations/adapters/topic-canonical-adapter');
 
     return [
@@ -28,7 +28,7 @@ function createContentIdeaCapabilities(deps = {}) {
                 };
             },
             async execute(params = {}, context = {}) {
-                if (!contentIdeaEngine || typeof contentIdeaEngine.generateIdeas !== 'function') {
+                if (!topicRecommendationsApplication || typeof topicRecommendationsApplication.generateIdeas !== 'function') {
                     return {
                         success: true,
                         message: '현재 글감 추천 엔진이 준비되지 않았습니다.',
@@ -37,7 +37,7 @@ function createContentIdeaCapabilities(deps = {}) {
                     };
                 }
 
-                const result = await contentIdeaEngine.generateIdeas({
+                const result = await topicRecommendationsApplication.generateIdeas({
                     limit: params.limit || 3,
                     query: params.query || ''
                 }, context);

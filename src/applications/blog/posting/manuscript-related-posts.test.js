@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const Core = require('../core');
+const Core = require('../../../core');
 const {
     RELATED_POSTS_STATUS,
     extractManuscriptTitle,

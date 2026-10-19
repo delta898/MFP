@@ -58,9 +58,9 @@ BlogGenius의 AI 블로그 글은 플랫폼과 관계없이 두 가지 작성 �
 
 프롬프트 책임은 다음 세 파일로 분리한다.
 
-- `src/content/prompts/blog/contract.md`: 두 전략이 공유하는 JSON 출력, 본문 구조, 참고자료, 인용구와 `[[IMAGE_N ...]]` 이미지 플레이스홀더 계약
-- `src/content/prompts/blog/search.md`: 검색 의도, 제목, 핵심·유사·서브 키워드 배치와 정보 구조를 위한 검색 중심 규칙
-- `src/content/prompts/blog/discovery.md`: 피드 제목, 도입부와 읽기 흐름을 위한 발견 중심 규칙
+- `src/applications/blog/writing/prompts/contract.md`: 두 전략이 공유하는 JSON 출력, 본문 구조, 참고자료, 인용구와 `[[IMAGE_N ...]]` 이미지 플레이스홀더 계약
+- `src/applications/blog/writing/prompts/search.md`: 검색 의도, 제목, 핵심·유사·서브 키워드 배치와 정보 구조를 위한 검색 중심 규칙
+- `src/applications/blog/writing/prompts/discovery.md`: 피드 제목, 도입부와 읽기 흐름을 위한 발견 중심 규칙
 
 런타임은 공통 파일과 선택된 전략 파일 하나만 읽는다. 따라서 발견 중심에도 기존 이미지 프롬프트 규약이 그대로 적용되며, 검색 중심 규칙이 발견 중심에 섞이지 않는다. 문체 설정과 입력 데이터는 그 뒤에 결합한다.
 
@@ -74,10 +74,10 @@ BlogGenius의 AI 블로그 글은 플랫폼과 관계없이 두 가지 작성 �
 
 ## Code Ownership
 
-- `src/content/writing-strategy.js`: 값 정규화, 상속 해석 및 설명
-- `src/content/writing-preferences.js`: 프로필 마이그레이션을 위한 기존 콘텐츠 설정 fallback 해석
-- `src/content/blog-prompt.js`: 공통·전략 프롬프트 경로 선택, 검증 및 조합
-- `src/content/prompts/blog/*.md`: AI가 따르는 공통 계약과 전략별 작성 규칙
+- `src/services/content-writing/writing-strategy.js`: 값 정규화, 상속 해석 및 설명
+- `src/services/content-writing/writing-preferences.js`: 프로필 마이그레이션을 위한 기존 콘텐츠 설정 fallback 해석
+- `src/applications/blog/writing/blog-prompt.js`: 공통·전략 프롬프트 경로 선택, 검증 및 조합
+- `src/applications/blog/writing/prompts/*.md`: AI가 따르는 공통 계약과 전략별 작성 규칙
 - `src/content/publish-sheet-options.js`: 글별 명시적 오버라이드 저장·복원
 - `src/config-loader.js`: 선택 프로필 로드와 런타임 호환 별칭 노출 (분해 진행 중)
 - `src/core.js`: 최종 전략 해석 및 공통·전략·문체·입력 프롬프트 조합

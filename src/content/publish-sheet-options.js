@@ -1,6 +1,6 @@
-const { normalizeWritingStrategyOverride } = require('./writing-strategy');
-const { normalizeBlogImageMode } = require('./blog-image-mode');
-const { normalizeBlogWritingOverrides } = require('./blog-writing-overrides');
+const { normalizeWritingStrategyOverride } = require('../services/content-writing/writing-strategy');
+const { normalizeBlogImageMode } = require('../applications/blog/writing/blog-image-mode');
+const { normalizeBlogWritingOverrides } = require('../applications/blog/writing/blog-writing-overrides');
 const { normalizeShoppingContentFocus } = require('../applications/shopping/generation/editorial-plan');
 
 const SHEET_IMAGE_MODE_LABELS = Object.freeze({

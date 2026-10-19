@@ -3,18 +3,18 @@ const {
     hasSuccessfulPlatformResult,
     settlePublishQuota
 } = require('../services/licensing/publish-quota');
-const { normalizeWritingStrategyOverride } = require('../content/writing-strategy');
+const { normalizeWritingStrategyOverride } = require('../services/content-writing/writing-strategy');
 const { presentBlogImageGenerationProgress } = require('../adapters/ui/blog-posting-progress');
 const { presentNaverPublishProgress } = require('../adapters/ui/naver-publish-progress');
-const { parseImageCount } = require('../content/blog-image-plan');
+const { parseImageCount } = require('../applications/blog/writing/blog-image-plan');
 const {
     parseBlogImageMode,
     generatesBlogImages,
     stripBlogImagePromptBlocks
-} = require('../content/blog-image-mode');
+} = require('../applications/blog/writing/blog-image-mode');
 const { createTopicRecommendationLearningService } = require('../services/recommendations/topic-recommendation-learning');
 const { buildBlogPublishResultEvidence } = require('../applications/blog/operations-reporting/blog-publish-result');
-const { normalizePublishTargets } = require('../content/single-publish-target');
+const { normalizePublishTargets } = require('../services/content-delivery/single-publish-target');
 const {
     MANUAL_PUBLISH_BLOCKED_CODE,
     assertDirectPublishAllowed

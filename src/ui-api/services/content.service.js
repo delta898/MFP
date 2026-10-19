@@ -4,7 +4,7 @@ const {
     parseBlogImageMode,
     generatesBlogImages,
     stripBlogImagePromptBlocks
-} = require('../../content/blog-image-mode');
+} = require('../../applications/blog/writing/blog-image-mode');
 const { isCommandEnabled, getEnableRelatedPostsAutoLink } = require('../../runtime-feature-flags');
 const { createNaverSmartCommentCollector } = require('../../adapters/naver/smart-comment-candidate-collector');
 const {
@@ -19,12 +19,12 @@ const { presentNaverPublishProgress } = require('../../adapters/ui/naver-publish
 const { createAiGenerationOperationManager } = require('../../services/ai/generation-operation-manager');
 const { buildCompletionLinks } = require('../../adapters/ui/blog-publishing-presentation');
 const { createManuscriptDraftService, validateImageBuffer } = require('../../content/manuscript-draft-service');
-const { selectManuscriptImagePromptContext } = require('../../content/manuscript-image-prompt-context');
+const { selectManuscriptImagePromptContext } = require('../../applications/blog/posting/manuscript-image-prompt-context');
 const { buildSetupReadiness } = require('../../services/configuration-readiness/service');
-const { buildBlogGenerationPrompt } = require('../../content/blog-generation-prompt');
-const { validateBlogImageBlocks } = require('../../content/blog-image-plan');
-const { collectBlogReferenceContext } = require('../../content/blog-reference-context');
-const BLOG_PROMPT_PATHS = require('../../content/prompts/blog/paths');
+const { buildBlogGenerationPrompt } = require('../../applications/blog/writing/blog-generation-prompt');
+const { validateBlogImageBlocks } = require('../../applications/blog/writing/blog-image-plan');
+const { collectBlogReferenceContext } = require('../../applications/blog/posting/blog-reference-context');
+const BLOG_PROMPT_PATHS = require('../../applications/blog/writing/prompts/paths');
 
 function createNaverPublishProgressReporter({ lease, fallbackPostStatus, logger }) {
     let lastMessage = '';

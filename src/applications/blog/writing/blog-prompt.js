@@ -1,7 +1,7 @@
 const fs = require('fs');
-const BLOG_PROMPT_PATHS = require('./prompts/blog/paths');
+const BLOG_PROMPT_PATHS = require('./prompts/paths');
 
-const { normalizeWritingStrategy } = require('./writing-strategy');
+const { normalizeWritingStrategy } = require('../../../services/content-writing/writing-strategy');
 
 function readPromptFile(filePath, label, fileSystem = fs) {
     if (!filePath || !fileSystem.existsSync(filePath)) {
