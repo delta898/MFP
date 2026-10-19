@@ -1,5 +1,5 @@
 const { createApiError } = require('../errors');
-const { buildLocalMarkdownPreview } = require('../../content/local-markdown-preview');
+const { buildLocalMarkdownPreview } = require('../../applications/blog/manuscript-drafts/preview');
 const {
     parseBlogImageMode,
     generatesBlogImages,
@@ -18,7 +18,7 @@ const { diagnoseQueueReadiness } = require('../../applications/blog/queue-manage
 const { presentNaverPublishProgress } = require('../../adapters/ui/naver-publish-progress');
 const { createAiGenerationOperationManager } = require('../../services/ai/generation-operation-manager');
 const { buildCompletionLinks } = require('../../adapters/ui/blog-publishing-presentation');
-const { createManuscriptDraftService, validateImageBuffer } = require('../../content/manuscript-draft-service');
+const { createManuscriptDraftService, validateImageBuffer } = require('../../applications/blog/manuscript-drafts/application');
 const { selectManuscriptImagePromptContext } = require('../../applications/blog/posting/manuscript-image-prompt-context');
 const { buildSetupReadiness } = require('../../services/configuration-readiness/service');
 const { buildBlogGenerationPrompt } = require('../../applications/blog/writing/blog-generation-prompt');

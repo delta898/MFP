@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const Utils = require('../utils');
+const Utils = require('../../../utils');
 
 const {
     buildLocalMarkdownPreview,
@@ -8,7 +8,7 @@ const {
     normalizeSelectedFiles,
     resolveMarkdownEntryFromSelectedFiles,
     resolveMarkdownPathFromDirectory
-} = require('./local-markdown-preview');
+} = require('./preview');
 
 function createFsStub(files = {}, directories = []) {
     const directorySet = new Set(directories);

@@ -8,7 +8,7 @@ const {
     parseSheetImageModeValue,
     resolveShoppingSheetState,
     resolveTopicSheetState
-} = require('./publish-sheet-options');
+} = require('./publish-options');
 
 test('topic sheet state keeps options settings while the subject column is canonical', () => {
     const resolved = resolveTopicSheetState({

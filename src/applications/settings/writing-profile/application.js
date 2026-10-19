@@ -1,9 +1,6 @@
 'use strict';
 
-const {
-    createWritingProfileRepository,
-    applyWritingProfileRuntimeAliases
-} = require('../../../content/writing-profile-repository');
+const { applyWritingProfileRuntimeAliases } = require('../../../services/content-writing/runtime-profile');
 const {
     DEFAULT_CONTENT_WRITING_PROFILE_METADATA,
     getDefaultContentWritingProfile
@@ -23,9 +20,8 @@ function pickGatewayGenerationOptions(options = {}) {
 
 function createSettingsWritingProfileApplication(deps = {}) {
     const {
-        fs,
-        path,
         config = {},
+        writingProfileRepository,
         fetchStyleReference,
         blogWritingApplication,
         aiGenerationService,
@@ -33,22 +29,13 @@ function createSettingsWritingProfileApplication(deps = {}) {
         writingProfilePreviewService
     } = deps;
 
-    let repository = null;
+    let repository = writingProfileRepository || null;
     let referenceAnalyzer = styleReferenceAnalyzer || null;
     let previewService = writingProfilePreviewService || null;
 
     function getRepository() {
         if (repository) return repository;
-        const runtimeFs = fs || require('node:fs');
-        const runtimePath = path || require('node:path');
-        repository = createWritingProfileRepository({
-            fs: runtimeFs,
-            path: runtimePath,
-            filePath: config.WRITING_PROFILE_PATH
-                || runtimePath.join(config.CONFIG_DIR || process.cwd(), 'config', 'writing_profile.json'),
-            legacyContentConfig: config.content
-        });
-        return repository;
+        throw new Error('Settings Writing Profile Application requires a writing profile repository.');
     }
 
     function getReferenceAnalyzer() {

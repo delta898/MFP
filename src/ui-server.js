@@ -49,8 +49,8 @@ const {
     normalizeRemoteMcpPort
 } = require('./mcp/remote-config');
 const { restartRemoteMcpService, getRemoteServiceStatus } = require('./mcp/remote-service');
-const { buildLocalMarkdownPreview } = require('./content/local-markdown-preview');
-const { materializeSelectedFilesToWorkspace } = require('./content/local-markdown-workspace');
+const { buildLocalMarkdownPreview } = require('./applications/blog/manuscript-drafts/preview');
+const { materializeSelectedFilesToWorkspace } = require('./adapters/storage/manuscript-drafts/selected-files-workspace');
 const { appendRelatedPostsToPastedMarkdown } = require('./applications/blog/posting/pasted-markdown-related-posts');
 const {
     getAiModelCatalog,
@@ -73,7 +73,7 @@ const { normalizeSnsAiMode } = require('./services/sns/ai-policy');
 const { runInteractiveNaverLoginFlow } = require('./adapters/naver/auth-flow');
 const { createUiSessionRuntime } = require('./ui-runtime/session-runtime');
 const { createUiHttpUtils } = require('./ui-runtime/http-utils');
-const { createQuickPublishRuntime } = require('./ui-runtime/quick-publish-runtime');
+const { createQuickPublishRuntime } = require('./composition/quick-publish-runtime');
 const { createAutoRunnerRuntime } = require('./ui-runtime/auto-runner-runtime');
 const { createAutoCycleRuntime } = require('./ui-runtime/auto-cycle-runtime');
 const { createContentActionsRuntime } = require('./ui-runtime/content-actions-runtime');

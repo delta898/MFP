@@ -2,16 +2,16 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const { buildLocalMarkdownPreview, normalizeSelectedFiles, resolveMarkdownEntryFromSelectedFiles } = require('./local-markdown-preview');
-const { isCancellation, throwIfCanceled } = require('../utilities/async/cancellation');
-const { requireSinglePublishTarget } = require('../services/content-delivery/single-publish-target');
+const { buildLocalMarkdownPreview, normalizeSelectedFiles, resolveMarkdownEntryFromSelectedFiles } = require('./preview');
+const { isCancellation, throwIfCanceled } = require('../../../utilities/async/cancellation');
+const { requireSinglePublishTarget } = require('../../../services/content-delivery/single-publish-target');
 const {
     RELATED_POSTS_STATUS,
     extractManuscriptTitle,
     findRelatedPostsSections,
     countRelatedPostLinks,
     finalizeManuscriptRelatedPosts
-} = require('../applications/blog/posting/manuscript-related-posts');
+} = require('../posting/manuscript-related-posts');
 
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const DEFAULT_ACTIVE_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;

@@ -72,7 +72,7 @@ test('shopping product cache kind is added through an ordered migration', () => 
 });
 
 test('desktop external-reference flow uses the fixed gateway and has no direct provider credential access', () => {
-    const gateway = read('src/content/reference-search-gateway.js');
+    const gateway = read('src/adapters/knowledge/blog-reference-search.js');
     const utils = read('src/utils.js');
     const postingApplication = read('src/applications/blog/posting/application.js');
     const referenceContext = read('src/applications/blog/posting/blog-reference-context.js');

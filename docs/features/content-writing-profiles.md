@@ -120,11 +120,11 @@ The Writing settings screen offers an explicit AI preview button. It sends the u
 Primary code owners:
 
 - `src/services/content-writing/writing-profile.js`: schema, defaults, normalization and validation
-- `src/content/writing-profile-repository.js`: selection, migration and atomic persistence
+- `src/adapters/storage/writing-profiles/repository.js`: profile selection, migration and atomic file persistence
 - `src/services/content-writing/writing-profile-projection.js`: blog/shopping capability allowlists
 - `src/applications/blog/writing/blog-generation-prompt.js`: ordinary blog composition
 - `src/applications/shopping/generation/writing-profile-prompt.js`: shopping profile prompt policy
 - `src/applications/shopping/generation/application.js`: Shopping text generation through the shared AI Generation service
-- `src/content/style-reference-* (transitional)`: safe reference fetching and fingerprint analysis
+- `src/adapters/web/style-reference-fetcher.js` and `src/applications/settings/writing-profile/reference-analyzer.js`: safe reference fetching and fingerprint analysis
 - `src/applications/settings/writing-profile/preview.js`: draft preview composition and validation
 - Settings service/controller/routes: API boundary and runtime activation

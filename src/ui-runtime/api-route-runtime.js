@@ -2,7 +2,7 @@
 
 const { createGitHubDesignStyleCatalog } = require('../adapters/catalogs/amade/design-style-catalog');
 const { createDesignStylesRouteHandler } = require('../ui-api/routes/design-styles.routes');
-const { createManuscriptDraftService } = require('../content/manuscript-draft-service');
+const { createManuscriptDraftService } = require('../applications/blog/manuscript-drafts/application');
 const { createCorePluginsRouteHandler } = require('../adapters/ui/plugins/core-plugins.routes');
 const { createWidgetPluginsRouteHandler } = require('../adapters/ui/widget-plugins.routes');
 

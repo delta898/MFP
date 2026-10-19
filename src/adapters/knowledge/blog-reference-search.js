@@ -1,6 +1,6 @@
 'use strict';
 
-const { createKnowledgeServerGatewayClient } = require('../adapters/knowledge/server-gateway-client');
+const { createKnowledgeServerGatewayClient } = require('./server-gateway-client');
 
 const REFERENCE_KIND = 'blog_reference';
 const REFERENCE_PURPOSE = 'writing_reference';
@@ -87,20 +87,10 @@ function createReferenceSearchGateway(options = {}) {
     };
 }
 
-async function searchOptionalReferences(gateway, input = {}, onFailure = () => {}) {
-    try {
-        return await gateway.searchLatestReferences(input);
-    } catch (error) {
-        onFailure(error);
-        return [];
-    }
-}
-
 module.exports = {
     MAX_REFERENCE_RESULTS,
     REFERENCE_KIND,
     REFERENCE_PURPOSE,
     createReferenceSearchGateway,
-    normalizeReferenceSnapshot,
-    searchOptionalReferences
+    normalizeReferenceSnapshot
 };

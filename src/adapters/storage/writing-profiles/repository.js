@@ -5,8 +5,8 @@ const {
     getDefaultContentWritingProfile,
     normalizeWritingProfile,
     validateWritingProfile
-} = require('../services/content-writing/writing-profile');
-const { resolveContentWritingPreferences } = require('../services/content-writing/writing-preferences');
+} = require('../../../services/content-writing/writing-profile');
+const { resolveContentWritingPreferences } = require('../../../services/content-writing/writing-preferences');
 
 const ACTIVE_PROFILE_VALUES = new Set(['default', 'custom']);
 
@@ -279,19 +279,6 @@ function resolveEffectiveProfile(document) {
     return applyDefaultProfileOverrides(document.default_profile_overrides);
 }
 
-function applyWritingProfileRuntimeAliases(CONFIG, profile) {
-    if (!CONFIG || !profile) return;
-    const effectiveProfile = normalizeWritingProfile(profile);
-    const voice = effectiveProfile.common.voice;
-    CONFIG.BLOG_WRITING_MODE = voice.writing_mode;
-    CONFIG.BLOG_SPEECH_LEVEL = voice.speech_level;
-    CONFIG.CONTENT_WRITING_MODE = voice.writing_mode;
-    CONFIG.CONTENT_SPEECH_LEVEL = voice.speech_level;
-    CONFIG.BLOG_WRITING_STRATEGY = effectiveProfile.common.writing_strategy;
-    CONFIG.CONTENT_WRITING_STRATEGY = effectiveProfile.common.writing_strategy;
-    CONFIG.CONTENT_WRITING_PROFILE = effectiveProfile;
-}
-
 function createWritingProfileRepository(deps = {}) {
     const {
         fs,
@@ -473,6 +460,5 @@ module.exports = {
     getProductDefaultOverrides,
     applyDefaultProfileOverrides,
     buildLegacyDocument,
-    resolveEffectiveProfile,
-    applyWritingProfileRuntimeAliases
+    resolveEffectiveProfile
 };

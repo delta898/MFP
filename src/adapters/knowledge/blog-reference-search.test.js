@@ -5,9 +5,8 @@ const assert = require('node:assert/strict');
 
 const {
     createReferenceSearchGateway,
-    normalizeReferenceSnapshot,
-    searchOptionalReferences
-} = require('./reference-search-gateway');
+    normalizeReferenceSnapshot
+} = require('./blog-reference-search');
 
 function snapshot(items) {
     return { schema_version: 1, kind: 'blog_reference', transport: 'server_gateway', items };
@@ -52,18 +51,4 @@ test('reference snapshot validation rejects unsafe or malformed gateway output',
         { title: '날짜 제외', url: 'https://example.com/2', published_at: 'invalid' },
         { title: '정상', url: 'https://example.com/3', published_at: '2026-08-28T00:00:00Z' }
     ]), 3), [{ title: '정상', link: 'https://example.com/3', postdate: '20260828' }]);
-});
-
-test('optional reference failure returns no automatic references without direct provider fallback', async () => {
-    const failures = [];
-    const result = await searchOptionalReferences({
-        async searchLatestReferences() {
-            const error = new Error('gateway unavailable');
-            error.code = 'UPSTREAM_FAILED';
-            throw error;
-        }
-    }, { topic: '계속 작성할 주제', limit: 3 }, (error) => failures.push(error.code));
-
-    assert.deepEqual(result, []);
-    assert.deepEqual(failures, ['UPSTREAM_FAILED']);
 });

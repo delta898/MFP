@@ -6,7 +6,7 @@ const {
     scoreRelatedPostCandidate,
     selectRelatedPosts
 } = require('./related-post-selection');
-const Utils = require('../utils');
+const Utils = require('../../utils');
 
 test('related post scoring prefers title and keyword overlap', () => {
     const context = buildRelatedPostContext({

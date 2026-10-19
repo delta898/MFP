@@ -4,8 +4,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const Utils = require('../utils');
-const { createManuscriptDraftService, detectImageType, validateImageBuffer } = require('./manuscript-draft-service');
+const Utils = require('../../../utils');
+const { createManuscriptDraftService, detectImageType, validateImageBuffer } = require('./application');
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB', 'base64');
 

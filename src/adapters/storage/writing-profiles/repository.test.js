@@ -6,13 +6,12 @@ const path = require('node:path');
 
 const {
     createWritingProfileRepository,
-    validateCustomProfileSnapshot,
-    applyWritingProfileRuntimeAliases
-} = require('./writing-profile-repository');
+    validateCustomProfileSnapshot
+} = require('./repository');
 const {
     DEFAULT_CONTENT_WRITING_PROFILE_METADATA,
     getDefaultContentWritingProfile
-} = require('../services/content-writing/writing-profile');
+} = require('../../../services/content-writing/writing-profile');
 
 function createTempRepository(options = {}) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'writing-profile-'));
@@ -241,20 +240,4 @@ test('strict save validation rejects incomplete, unknown and cross-channel field
         () => repository.save({ active_profile: 'custom', custom_profile: incomplete }),
         (error) => error.code === 'INVALID_WRITING_PROFILE'
     );
-});
-
-test('runtime aliases expose the selected profile voice and strategy to blog and shopping', () => {
-    const CONFIG = {};
-    const profile = getDefaultContentWritingProfile();
-    profile.common.voice.writing_mode = 'written';
-    profile.common.voice.speech_level = 'plain';
-    profile.common.writing_strategy = 'discovery';
-    applyWritingProfileRuntimeAliases(CONFIG, profile);
-
-    assert.equal(CONFIG.BLOG_WRITING_MODE, 'written');
-    assert.equal(CONFIG.CONTENT_WRITING_MODE, 'written');
-    assert.equal(CONFIG.BLOG_SPEECH_LEVEL, 'plain');
-    assert.equal(CONFIG.CONTENT_SPEECH_LEVEL, 'plain');
-    assert.equal(CONFIG.BLOG_WRITING_STRATEGY, 'discovery');
-    assert.equal(CONFIG.CONTENT_WRITING_STRATEGY, 'discovery');
 });

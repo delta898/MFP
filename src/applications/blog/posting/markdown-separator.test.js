@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { marked } = require('marked');
 
-const Utils = require('../utils');
+const Utils = require('../../../utils');
 
 test('parseMarkdown treats a standalone hyphen rule as a separator block', () => {
     const parsed = Utils.parseMarkdown([

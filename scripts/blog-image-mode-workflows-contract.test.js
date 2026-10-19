@@ -7,7 +7,7 @@ const repoRoot = path.resolve(__dirname, '..');
 const read = (relativePath) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
 test('sheet adapter keeps canonical mode and legacy boolean compatibility', () => {
-    const options = read('src/content/publish-sheet-options.js');
+    const options = read('src/adapters/storage/google-sheets/publish-options.js');
 
     assert.match(options, /이미지 생성/);
     assert.match(options, /프롬프트 포함/);

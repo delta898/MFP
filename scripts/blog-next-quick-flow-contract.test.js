@@ -164,7 +164,7 @@ test('WordPress image upload warnings remain visible after a successful draft sa
 
 test('manuscript publishing sends the selected status and schedule date to the publish boundary', () => {
   const execution = read('ui/scripts/features/blog/draft-execution.js');
-  const drafts = read('src/content/manuscript-draft-service.js');
+  const drafts = read('src/applications/blog/manuscript-drafts/application.js');
 
   assert.match(execution, /manuscript-drafts\/\$\{encodeURIComponent\(state\.draftId\)\}\/publish`, \{[\s\S]*?postStatus: settings\.postStatus,[\s\S]*?scheduleDate: settings\.scheduleDate/);
   assert.match(drafts, /Object\.hasOwn\(input, 'postStatus'\)[\s\S]*?normalizePostStatus\(input\.postStatus\)[\s\S]*?MANUSCRIPT_POST_STATUS_INVALID/);
@@ -174,7 +174,7 @@ test('manuscript publishing sends the selected status and schedule date to the p
 test('AI image generation exposes per-action stop controls and sends cancellation to the active server operation', () => {
   const inputs = `${read('ui/scripts/features/blog/draft-inputs.js')}\n${read('ui/scripts/features/blog/draft-images.js')}`;
   const operations = read('src/services/ai/generation-operation-manager.js');
-  const drafts = read('src/content/manuscript-draft-service.js');
+  const drafts = read('src/applications/blog/manuscript-drafts/application.js');
   const execution = read('ui/scripts/features/blog/draft-execution.js');
   const routes = read('src/ui-api/routes/content.routes.js');
   const css = read('ui/styles/features/blog-next-baseline.css');
@@ -245,7 +245,7 @@ test('AI manuscript cancellation stays in the shared execution status', () => {
 test('quick flow keeps results independent from edited inputs and scopes duplicate posts by platform', () => {
   const execution = read('ui/scripts/features/blog/draft-execution.js');
   const inputs = `${read('ui/scripts/features/blog/draft-inputs.js')}\n${read('ui/scripts/features/blog/draft-images.js')}`;
-  const service = read('src/content/manuscript-draft-service.js');
+  const service = read('src/applications/blog/manuscript-drafts/application.js');
   const html = readBlogNextView();
 
   assert.match(execution, /function isBlogNextDraftPublishCompleted\(type\)[\s\S]*?preview\?\.publishedTargets\?\.includes\(target\)/);

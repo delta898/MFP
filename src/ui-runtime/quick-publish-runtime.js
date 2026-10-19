@@ -1,11 +1,7 @@
 const crypto = require('crypto');
-const { createTransientPreviewWorkspaceManager } = require('../content/transient-preview-workspace');
 
 function createQuickPublishRuntime(options = {}) {
-    const workspaceManager = options.fs && options.path && options.workspaceDir
-        ? createTransientPreviewWorkspaceManager(options)
-        : null;
-    workspaceManager?.cleanupExpired();
+    const workspaceManager = options.workspaceManager || null;
     const dedupeTtlMs = Number.isFinite(Number(options.dedupeTtlMs))
         ? Math.max(1000, parseInt(options.dedupeTtlMs, 10))
         : 90 * 1000;

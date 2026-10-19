@@ -8,7 +8,7 @@ const Logger = require('./utilities/logging/logger');
 const {
     buildRelatedPostContext,
     selectRelatedPosts
-} = require('./content/related-post-selection');
+} = require('./utilities/text/related-post-selection');
 const { parseFeedXml } = require('./utilities/feeds/feed-entry');
 const {
     rethrowIfCanceled,

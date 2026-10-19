@@ -15,7 +15,7 @@ const { applyRemoteCatalog } = require('../packages/plugins/core/ai-gateway/cata
 const { resolveContentWritingPreferences } = require('./services/content-writing/writing-preferences');
 const {
     createWritingProfileRepository
-} = require('./content/writing-profile-repository');
+} = require('./adapters/storage/writing-profiles/repository');
 const {
     DEFAULT_CONTENT_WRITING_PROFILE_METADATA
 } = require('./services/content-writing/writing-profile');

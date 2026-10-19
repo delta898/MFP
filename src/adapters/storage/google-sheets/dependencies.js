@@ -13,7 +13,7 @@ const {
     resolveShoppingSheetState,
     resolveTopicSheetState,
     stringifySheetOptionsValue
-} = require('../../../content/publish-sheet-options');
+} = require('./publish-options');
 const {
     SNS_SHEET_NAME,
     SNS_SHEET_HEADERS,

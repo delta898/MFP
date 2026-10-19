@@ -6,7 +6,7 @@ const path = require('path');
 
 const Utils = require('../../../utils');
 const Core = require('../../../core');
-const { createManuscriptDraftService } = require('../../../content/manuscript-draft-service');
+const { createManuscriptDraftService } = require('../../../applications/blog/manuscript-drafts/application');
 
 function fixture(gateway) {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-related-'));

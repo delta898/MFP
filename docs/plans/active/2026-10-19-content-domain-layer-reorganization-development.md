@@ -5,7 +5,7 @@
 - Branch: `codex/fbr/config-loader-reorganization`
 - Start date: 2026-10-19
 - Base/parent branch: `codex/fbr/source-layer-reorganization`
-- Status: In progress
+- Status: Complete; focused automated tests and manual product verification remain pending
 
 ## User need and goal
 
@@ -51,6 +51,7 @@ The legacy `src/content/` and `src/content-ideas/` roots mix Blog and Shopping w
 - 2026-10-19: Moved profile preview and reference-fingerprint analysis into `applications/settings/writing-profile/`; moved public HTML/DNS-safe reference fetching to `adapters/web/` and wired it through `composition/settings-writing-profile.js`. The Application now receives the fetch port instead of constructing the HTTP adapter. Settings profile and composition focused verification passed 44/44.
 - 2026-10-19: Moved the single manuscript publication-target contract to `services/content-delivery/` and migrated Blog, Shopping, UI runtime, and manuscript callers. Focused target, queue, Shopping content preparation, manuscript, and publish runtime verification passed 130/130.
 - 2026-10-19: Moved Blog manuscript image-prompt context, related-post finalization, and pasted-Markdown related-post handling into `applications/blog/posting/`; updated API and draft callers. Focused posting workflow and Blog UI contract verification passed 28/28.
+- 2026-10-19: Finished the remaining `src/content/` migration by placing Blog manuscript-draft workflow and preview under `applications/blog/manuscript-drafts/`, file-workspace persistence under `adapters/storage/manuscript-drafts/`, Google Sheets option codecs under `adapters/storage/google-sheets/`, writing-profile JSON persistence under `adapters/storage/writing-profiles/`, Knowledge reference transport under `adapters/knowledge/`, and reusable selected-file/related-post mechanics under `utilities/`. Injected the writing-profile repository through Settings composition and moved optional-reference failure policy into Blog Posting. Moved associated tests and updated direct callers and structural checks. Removed `src/content/`; `src/content-ideas/` had already been removed.
 
 ## Verification and handoff
 
@@ -58,15 +59,8 @@ The legacy `src/content/` and `src/content-ideas/` roots mix Blog and Shopping w
 - Do not run the full suite before explicit user approval.
 - User owns final desktop/UI visual validation unless they explicitly ask for assistance.
 
-## Remaining `src/content/` migration inventory
+## Completion notes
 
-The legacy root is intentionally still present. These modules have not been moved because each needs caller and boundary work beyond a path rename:
+Both legacy roots have been removed. `src/content/` no longer owns source files; remaining strings such as `local-markdown-preview-*` are UI class names, and `src/content/posts` in the Amade template contract is a generated site-content destination, not a BlogGenius source module.
 
-- `manuscript-draft-service.js`: split Blog manuscript policies/orchestration into `applications/blog/manuscript-drafts/` and filesystem persistence into `adapters/storage/manuscript-drafts/`; update both UI API service construction paths and composition.
-- `local-markdown-preview.js`, `local-markdown-workspace.js`, and `transient-preview-workspace.js`: separate Markdown interpretation from temporary workspace read/write/retention adapters, then inject storage operations into Blog draft and UI composition.
-- `writing-profile-repository.js`: separate profile resolution/migration policy from atomic JSON persistence; move file access to `adapters/storage/writing-profile/` and keep Settings use cases in `applications/settings/writing-profile/`. `config-loader.js` must consume the same repository boundary.
-- `publish-sheet-options.js`: keep row encoding in `adapters/storage/google-sheets/`; remove its direct imports of Blog and Shopping Application policy by injecting normalizers or defining a neutral persistence contract with each owner.
-- `reference-search-gateway.js`: keep Knowledge transport in `adapters/knowledge/`, Blog reference normalization and optional-failure policy in `applications/blog/posting/`, and concrete gateway construction in `composition/`.
-- `related-post-selection.js`: move selection policy to Blog posting and remove the legacy `Utils` facade dependency rather than making Utilities depend on an Application.
-
-Only after these callers are migrated and the focused tests/documentation/package references are clean should `src/content/` itself be removed. `src/content-ideas/` has already been removed.
+The manuscript-draft Application still performs local draft filesystem operations through its injected filesystem dependency. Its use-case policy now has a product owner and the standalone temporary-workspace operations are adapters, but a deeper repository-port extraction is a separate boundary improvement and is recorded as follow-up rather than hidden by a filename move. Focused tests have not been rerun in this final slice.

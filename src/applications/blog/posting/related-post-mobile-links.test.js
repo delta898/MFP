@@ -1,8 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const Utils = require('../utils');
-const Core = require('../core');
+const Utils = require('../../../utils');
+const Core = require('../../../core');
 
 test('toMobileNaverBlogPostUrl converts supported Naver post URL forms', () => {
     assert.equal(

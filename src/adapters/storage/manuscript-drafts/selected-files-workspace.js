@@ -6,7 +6,7 @@ const {
     isMarkdownFilePath,
     normalizeSelectedFiles,
     resolveMarkdownEntryFromSelectedFiles
-} = require('./local-markdown-preview');
+} = require('../../../utilities/markdown/selected-files');
 
 function normalizeRelativePath(value = '') {
     return String(value || '').trim().replace(/\\/g, '/').replace(/^\/+/, '');
