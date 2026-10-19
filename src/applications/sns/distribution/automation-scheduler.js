@@ -1,23 +1,7 @@
-const { isLivePublishAllowed } = require('../services/runtime-environment/effects');
+const { isLivePublishAllowed } = require('../../../services/runtime-environment/effects');
 
-function createAutoRunnerRuntime(deps = {}) {
-    const {
-        CONFIG,
-        Logger,
-        getBlogAutoSettingsSnapshot
-    } = deps;
-
-    const autoRuntimeState = {
-        enabled: false,
-        running: false,
-        status: 'stopped',
-        message: '실행 중인 작업이 없습니다.',
-        startedAt: null,
-        lastRunAt: null,
-        nextRunAt: null,
-        lastSummary: null,
-        cycleCount: 0
-    };
+function createSnsAutomationScheduler(deps = {}) {
+    const { CONFIG, Logger } = deps;
 
     const snsRuntimeState = {
         enabled: false,
@@ -29,7 +13,6 @@ function createAutoRunnerRuntime(deps = {}) {
         lastRunAt: null,
         lastResult: null
     };
-    const publishRuntimeState = { enabled: false, running: false, status: 'stopped', nextRunAt: null, message: '', lastSummary: null };
     const handlers = {
         runSnsDiscoveryCycle: null,
         runSnsDistributionCycle: null,
@@ -49,42 +32,9 @@ function createAutoRunnerRuntime(deps = {}) {
         Object.assign(handlers, nextHandlers);
     }
 
-    function getAutoStatusPayload() {
-        const blogSettings = getBlogAutoSettingsSnapshot();
-        return {
-            blog: {
-                enabled: publishRuntimeState.enabled,
-                running: publishRuntimeState.running,
-                status: publishRuntimeState.status,
-                message: publishRuntimeState.message || '',
-                startedAt: autoRuntimeState.startedAt,
-                lastRunAt: autoRuntimeState.lastRunAt,
-                nextRunAt: publishRuntimeState.nextRunAt,
-                cycleCount: autoRuntimeState.cycleCount,
-                lastSummary: publishRuntimeState.lastSummary || autoRuntimeState.lastSummary,
-                settings: blogSettings
-            },
-            sns: {
-                enabled: snsRuntimeState.enabled,
-                running: snsRuntimeState.running,
-                status: snsRuntimeState.status,
-                lastRunAt: snsRuntimeState.lastRunAt,
-                nextRunAt: snsRuntimeState.nextRunAt,
-                lastResult: snsRuntimeState.lastResult
-            },
-            enabled: autoRuntimeState.enabled,
-            running: autoRuntimeState.running,
-            status: autoRuntimeState.status,
-            message: autoRuntimeState.message
-        };
-    }
-
-    function refreshLegacyAutoRuntimeState() {
-        autoRuntimeState.enabled = snsRuntimeState.enabled;
-        autoRuntimeState.running = publishRuntimeState.running || snsRuntimeState.running;
-        autoRuntimeState.message = publishRuntimeState.message || (autoRuntimeState.running ? '작업을 처리 중입니다.' : '실행 중인 작업이 없습니다.');
-        autoRuntimeState.status = autoRuntimeState.running ? 'running' : (autoRuntimeState.enabled ? 'waiting' : 'stopped');
-        autoRuntimeState.nextRunAt = snsRuntimeState.nextRunAt || null;
+    function getStatus() {
+        const { timer, ...status } = snsRuntimeState;
+        return { ...status };
     }
 
     function clearSnsTimer() {
@@ -106,7 +56,6 @@ function createAutoRunnerRuntime(deps = {}) {
         snsRuntimeState.running = true;
         snsRuntimeState.status = 'running';
         snsRuntimeState.lastRunAt = new Date().toISOString();
-        refreshLegacyAutoRuntimeState();
         try {
             const result = await requireHandler(handlerName)(trigger);
             snsRuntimeState.lastResult = result || null;
@@ -123,7 +72,6 @@ function createAutoRunnerRuntime(deps = {}) {
         } finally {
             snsRuntimeState.running = false;
             snsRuntimeState.status = snsRuntimeState.enabled ? 'waiting' : 'stopped';
-            refreshLegacyAutoRuntimeState();
         }
     }
 
@@ -174,7 +122,6 @@ function createAutoRunnerRuntime(deps = {}) {
         clearSnsTimer();
         if (!snsRuntimeState.enabled) {
             snsRuntimeState.nextRunAt = null;
-            refreshLegacyAutoRuntimeState();
             return;
         }
 
@@ -184,7 +131,6 @@ function createAutoRunnerRuntime(deps = {}) {
             : Math.max(500, Number.parseInt(delayMs, 10) || 500);
         snsRuntimeState.nextRunAt = new Date(Date.now() + waitMs).toISOString();
         snsRuntimeState.status = snsRuntimeState.running ? 'running' : 'waiting';
-        refreshLegacyAutoRuntimeState();
         Logger.info(`ℹ️ [SNS] 다음 자동 처리 예약: ${new Date(snsRuntimeState.nextRunAt).toLocaleString()} (주기: ${intervalMin}분)`);
 
         snsRuntimeState.timer = setTimeout(() => {
@@ -212,7 +158,6 @@ function createAutoRunnerRuntime(deps = {}) {
 
         if (!statusChanged && !intervalChanged && snsRuntimeState.nextRunAt) {
             snsRuntimeState.status = snsRuntimeState.running ? 'running' : 'waiting';
-            refreshLegacyAutoRuntimeState();
             return;
         }
 
@@ -225,7 +170,6 @@ function createAutoRunnerRuntime(deps = {}) {
             }
             snsRuntimeState.status = 'stopped';
             snsRuntimeState.nextRunAt = null;
-            refreshLegacyAutoRuntimeState();
             return;
         }
 
@@ -235,22 +179,14 @@ function createAutoRunnerRuntime(deps = {}) {
         scheduleNextSnsCycle();
     }
 
-    function syncAutoRunnerWithConfig() {
-        // Blog publishing is scheduled by its application; this runtime owns SNS only.
-        publishRuntimeState.enabled = false;
-        publishRuntimeState.status = publishRuntimeState.running ? 'running' : 'stopped';
-        publishRuntimeState.nextRunAt = null;
+    function syncSnsAutomationWithConfig() {
         syncSnsRunner();
-        refreshLegacyAutoRuntimeState();
     }
 
     return {
-        autoRuntimeState,
         snsRuntimeState,
-        publishRuntimeState,
         setHandlers,
-        getAutoStatusPayload,
-        refreshLegacyAutoRuntimeState,
+        getStatus,
         clearSnsTimer,
         triggerSnsDiscoveryCycle,
         triggerSnsStartupDiscovery,
@@ -259,10 +195,10 @@ function createAutoRunnerRuntime(deps = {}) {
         triggerSnsScheduledCycle,
         scheduleNextSnsCycle,
         syncSnsRunner,
-        syncAutoRunnerWithConfig
+        syncSnsAutomationWithConfig
     };
 }
 
 module.exports = {
-    createAutoRunnerRuntime
+    createSnsAutomationScheduler
 };

@@ -13,11 +13,13 @@ function createHarness(overrides = {}) {
 
     const service = createBlogAutoService({
         Logger,
-        getAutoStatusPayload: overrides.getAutoStatusPayload || (() => ({ enabled: true, status: 'waiting' })),
+        getSnsAutomationStatus: overrides.getSnsAutomationStatus || (() => ({ enabled: true, running: false, status: 'waiting' })),
+        getBlogBatchPublishStatus: overrides.getBlogBatchPublishStatus || (() => ({ running: false, status: 'stopped' })),
+        getBlogAutoSettingsSnapshot: overrides.getBlogAutoSettingsSnapshot || (() => ({})),
         triggerSnsDiscoveryCycle: overrides.triggerSnsDiscoveryCycle || (async () => ({ success: true, data: { discoveredCount: 1 } })),
         triggerSnsDistributionCycle: overrides.triggerSnsDistributionCycle || (async () => ({ success: true, data: { completedCount: 1 } })),
-        runAutoPublishCycle: overrides.runAutoPublishCycle || (async () => ({ success: true, data: { completedCount: 1 } })),
-        triggerAutoPublishCycle: overrides.triggerAutoPublishCycle || (async () => ({ success: true, data: { started: true } }))
+        publishReadyTopicsBatch: overrides.publishReadyTopicsBatch || (async () => ({ success: true, data: { completedCount: 1 } })),
+        startReadyTopicsBatch: overrides.startReadyTopicsBatch || (async () => ({ success: true, data: { started: true } }))
     });
 
     let lastResponse = null;

@@ -45,7 +45,7 @@
 // @include scripts/foundation/dialogs.js
 // @include scripts/foundation/readiness.js
 // @include scripts/shared/capability-readiness.js
-// @include scripts/features/content-workspace/trend-table.js
+// @include scripts/features/content-workspace/workspace-tables.js
 // @include scripts/features/blog/discovery/quick-discovery.js
 // @include scripts/features/blog/discovery/keyword-modal.js
 // @include scripts/features/shopping/tab-navigation.js

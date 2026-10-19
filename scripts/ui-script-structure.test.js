@@ -77,7 +77,7 @@ test('JavaScript manifest preserves its execution order and remains within its s
         'scripts/foundation/dialogs.js',
         'scripts/foundation/readiness.js',
         'scripts/shared/capability-readiness.js',
-        'scripts/features/content-workspace/trend-table.js',
+        'scripts/features/content-workspace/workspace-tables.js',
         'scripts/features/blog/discovery/quick-discovery.js',
         'scripts/features/blog/discovery/keyword-modal.js',
         'scripts/features/shopping/tab-navigation.js',

@@ -1,10 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createAutoCycleRuntime } = require('./auto-cycle-runtime');
+const { createSnsAutomationApplication } = require('./automation-application');
 
 test('SNS discovery cycle returns the discovery result', async () => {
-    const runtime = createAutoCycleRuntime({
-        snsRssDiscovery: {
+    const application = createSnsAutomationApplication({
+        rssDiscovery: {
             async run(trigger) {
                 return {
                     success: true,
@@ -19,7 +19,7 @@ test('SNS discovery cycle returns the discovery result', async () => {
         }
     });
 
-    const result = await runtime.runSnsDiscoveryCycle('test-manual');
+    const result = await application.discover('test-manual');
 
     assert.equal(result.success, true);
     assert.equal(result.data.trigger, 'test-manual');
@@ -27,8 +27,8 @@ test('SNS discovery cycle returns the discovery result', async () => {
 
 test('SNS automation cycle discovers entries before publishing one entry group', async () => {
     const calls = [];
-    const runtime = createAutoCycleRuntime({
-        snsRssDiscovery: {
+    const application = createSnsAutomationApplication({
+        rssDiscovery: {
             async run(trigger) {
                 calls.push(`discover:${trigger}`);
                 return {
@@ -38,7 +38,7 @@ test('SNS automation cycle discovers entries before publishing one entry group',
                 };
             }
         },
-        snsDistributionRunner: {
+        distributionRunner: {
             async run(trigger) {
                 calls.push(`publish:${trigger}`);
                 return {
@@ -55,7 +55,7 @@ test('SNS automation cycle discovers entries before publishing one entry group',
         }
     });
 
-    const result = await runtime.runSnsAutomationCycle('auto');
+    const result = await application.runAutomaticCycle('auto');
 
     assert.equal(result.success, true);
     assert.equal(result.code, 'SNS_AUTOMATION_COMPLETED');

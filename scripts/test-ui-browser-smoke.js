@@ -571,7 +571,6 @@ function getApiFixture(pathname) {
     }
     if (pathname === '/api/v1/session/naver') return { status: 'logged_in', valid: true };
     if (pathname === '/api/v1/session/wordpress-verify') return { success: true, message: '연동 성공' };
-    if (pathname === '/api/v1/trends/items') return { items: [], total: 0, limit: 50, offset: 0 };
     if (pathname === '/api/v1/blog/topics') return { items: [], total: 0, limit: 50, offset: 0 };
     if (pathname === '/api/v1/shopping/items') return { items: [], total: 0, limit: 50, offset: 0 };
     if (pathname === '/api/v1/shopping/preview') {

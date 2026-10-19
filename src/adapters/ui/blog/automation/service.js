@@ -1,16 +1,40 @@
 function createBlogAutoService(deps = {}) {
     const {
         Logger,
-        getAutoStatusPayload,
+        getSnsAutomationStatus,
+        getBlogBatchPublishStatus,
+        getBlogAutoSettingsSnapshot,
         triggerSnsDiscoveryCycle,
         triggerSnsDistributionCycle,
-        runAutoPublishCycle,
-        triggerAutoPublishCycle
+        publishReadyTopicsBatch,
+        startReadyTopicsBatch
     } = deps;
 
     return {
         async getStatus() {
-            return getAutoStatusPayload();
+            const blog = getBlogBatchPublishStatus();
+            const sns = getSnsAutomationStatus();
+            const blogStatus = {
+                enabled: false,
+                running: blog.running,
+                status: blog.status,
+                message: blog.message || '',
+                startedAt: blog.startedAt,
+                lastRunAt: blog.lastRunAt,
+                nextRunAt: null,
+                cycleCount: blog.cycleCount,
+                lastSummary: blog.lastSummary,
+                settings: getBlogAutoSettingsSnapshot()
+            };
+            const running = blog.running || sns.running;
+            return {
+                blog: blogStatus,
+                sns,
+                enabled: sns.enabled,
+                running,
+                status: running ? 'running' : (sns.enabled ? 'waiting' : 'stopped'),
+                message: blog.message || (running ? '작업을 처리 중입니다.' : '실행 중인 작업이 없습니다.')
+            };
         },
 
         async runCollectSns() {
@@ -46,7 +70,7 @@ function createBlogAutoService(deps = {}) {
         async runAutoPublish({ requestBody = {} } = {}) {
             Logger.info('🚀 [UI][AUTO] 블로그 발행 대기열 수동 실행 요청 수신');
             try {
-                const result = await runAutoPublishCycle('ui-manual', {
+                const result = await publishReadyTopicsBatch('ui-manual', {
                     targetRowIndices: requestBody?.targetRowIndices || [],
                     settingsOverrides: requestBody?.settingsOverrides || {}
                 });
@@ -60,7 +84,7 @@ function createBlogAutoService(deps = {}) {
         async startAutoPublish({ requestBody = {} } = {}) {
             Logger.info('🚀 [UI][AUTO] 블로그 발행 대기열 비동기 시작 요청 수신');
             try {
-                const result = await triggerAutoPublishCycle('ui-manual', {
+                const result = await startReadyTopicsBatch('ui-manual', {
                     targetRowIndices: requestBody?.targetRowIndices || [],
                     settingsOverrides: requestBody?.settingsOverrides || {}
                 });

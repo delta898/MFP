@@ -83,10 +83,10 @@ const { runInteractiveNaverLoginFlow } = require('./adapters/naver/auth-flow');
 const { createUiSessionRuntime } = require('./adapters/ui/account/session/session-runtime');
 const { createUiHttpUtils } = require('./adapters/ui/http/http-utils');
 const { createQuickPublishRuntime } = require('./composition/quick-publish-runtime');
-const { createAutoRunnerRuntime } = require('./ui-runtime/auto-runner-runtime');
-const { createAutoCycleRuntime } = require('./ui-runtime/auto-cycle-runtime');
+const { createSnsAutomationScheduler } = require('./applications/sns/distribution/automation-scheduler');
+const { createSelectedTopicBatchPublisher } = require('./applications/blog/publishing/selected-topic-batch-publisher');
+const { createSnsAutomationApplication } = require('./applications/sns/distribution/automation-application');
 const { createContentActionsRuntime } = require('./ui-runtime/content-actions-runtime');
-const { createTrendActionsRuntime } = require('./ui-runtime/trend-actions-runtime');
 const { createPublishActionsRuntime } = require('./ui-runtime/publish-actions-runtime');
 const { createUiApiRuntime } = require('./composition/api/ui-api-runtime');
 const { createBlogBetaRuntimeComposition } = require('./composition/blog-beta-runtime');
@@ -173,7 +173,6 @@ const COLLECT_TRENDS_DEFAULTS = {
     filterType: 'min',
     filterTopN: 5
 };
-
 const PUBLISH_AUTO_DEFAULTS = {
     batchSize: 1,
     postStatus: 'publish',
@@ -434,27 +433,19 @@ const {
     normalizePublishAutoSettings,
     normalizeBlogAutoSettings
 } = autoPublishPolicy;
-const autoRunnerRuntime = createAutoRunnerRuntime({
+const snsAutomationScheduler = createSnsAutomationScheduler({
     CONFIG,
-    Logger,
-    parseConfigBool,
-    normalizeNonNegativeInt,
-    normalizeTimeHHmm,
-    computeNextWindowedRunAt,
-    getBlogAutoSettingsSnapshot: () => getBlogAutoSettingsSnapshot(),
-    publishAutoDefaults: PUBLISH_AUTO_DEFAULTS
+    Logger
 });
 const {
-    autoRuntimeState,
-    publishRuntimeState,
-    setHandlers: setAutoRunnerHandlers,
-    getAutoStatusPayload,
-    refreshLegacyAutoRuntimeState,
-    syncAutoRunnerWithConfig,
+    setHandlers: setSnsAutomationHandlers,
+    getStatus: getSnsAutomationStatus,
+    syncSnsAutomationWithConfig,
     triggerSnsDiscoveryCycle,
     triggerSnsStartupDiscovery,
     triggerSnsDistributionCycle
-} = autoRunnerRuntime;
+} = snsAutomationScheduler;
+const syncAutoRunnerWithConfig = syncSnsAutomationWithConfig;
 
 function setBlogRuntimeLog(rowIndex, message) {
     if (!Number.isInteger(rowIndex) || rowIndex < 0) return;
@@ -841,62 +832,62 @@ const {
     executeShoppingRowUpdate,
     executeShoppingTopicsDelete
 } = contentActionsRuntime;
-const trendActionsRuntime = createTrendActionsRuntime({
-    Logger,
-    CONFIG,
-    Utils,
-    GoogleSheets,
-    ensureSheetsReadyForUi,
-    parseIntSafe,
-    getBlogAutoSettingsSnapshot: () => getBlogAutoSettingsSnapshot(),
-    normalizeYmdToken,
-    toBoolLike,
-    normalizeNonNegativeInt,
-    normalizeIntegerOrBlank,
-    collectTrendsDefaults: COLLECT_TRENDS_DEFAULTS,
-    publishAutoDefaults: PUBLISH_AUTO_DEFAULTS,
-    parseCsvTokens,
-    matchesAnyToken,
-    parseVariationMeta,
-    matchesVariationFilter,
-    getRecentTopicKeys,
-    buildTopicReuseKey
+const snsAutomationApplication = createSnsAutomationApplication({
+    rssDiscovery: snsRssDiscovery,
+    distributionRunner: snsDistributionRunner
 });
-const {
-    executeKeywordsToTopicsAction,
-    executeTrendsToTopicsAction,
-    filterAutoTopicCandidates,
-    processAndAppendTrendsToTopics
-} = trendActionsRuntime;
-
-const autoCycleRuntime = createAutoCycleRuntime({
+const selectedTopicBatchPublisher = createSelectedTopicBatchPublisher({
     CONFIG,
     Logger,
-    License,
-    Utils,
-    GoogleSheets,
-    urlShorteningService,
-    TelegramService,
-    SlackService,
-    ensureSheetsReadyForUi,
-    parseCsvTokens,
+    checkPublishLicense: (options) => License.checkLicenseStatus(options),
+    canBatchPublish: (features) => isCommandEnabled(toFeatureMap(features), 'batch'),
+    readTopics: (options) => GoogleSheets.readGoogleSheetTopicsAll(options),
+    publishRow: (request) => executeBlogBatchRowsAction(request),
     normalizeNonNegativeInt,
-    parseConfigBool,
-    autoRuntimeState,
-    publishRuntimeState,
-    refreshLegacyAutoRuntimeState,
-    syncAutoRunnerWithConfig,
-    executeBlogBatchRowsAction,
-    snsRssDiscovery,
-    snsDistributionRunner
+    notifyPublishSummary: async (summary) => {
+        let detailMsg = '';
+        const displayItems = (summary.results || []).filter((item) => item.success).slice(0, 3);
+        if (displayItems.length > 0) {
+            detailMsg += '\n\n<b>[발행 내역 (최대 3건)]</b>';
+            for (const item of displayItems) {
+                const title = item.data?.title || '제목 없음';
+                const results = item.data?.results || {};
+                const platforms = [];
+                if (results.naver?.success) platforms.push('N');
+                if (results.wordpress?.success) platforms.push('W');
+                const platformIndicator = platforms.length > 0 ? `[${platforms.join('/')}] ` : '';
+                let itemLine = `\n• ${platformIndicator}${title}`;
+                if (results.wordpress?.success && results.wordpress?.postUrl) {
+                    let shortUrl = results.wordpress.postUrl;
+                    if (urlShorteningService?.isConfigured?.()) {
+                        shortUrl = await urlShorteningService.shorten(results.wordpress.postUrl);
+                    }
+                    itemLine += ` (${shortUrl})`;
+                }
+                detailMsg += itemLine;
+            }
+        }
+        const msg = `<b>[블로그 글감 발행 완료]</b>\n- 성공: <b>${summary.successCount}</b>건\n- 실패: <b>${summary.failCount}</b>건${detailMsg}\n- 시각: ${new Date(summary.completedAt || Date.now()).toLocaleString()}`;
+        if (CONFIG.NOTIFY_TELEGRAM_ENABLED) {
+            TelegramService.sendNotification(msg, {
+                botToken: CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN,
+                chatId: CONFIG.NOTIFY_TELEGRAM_CHAT_ID,
+                enabled: CONFIG.NOTIFY_TELEGRAM_ENABLED
+            }).catch((error) => Logger.error(`텔레그램 알림 전송 에러: ${error.message}`));
+        }
+        if (CONFIG.NOTIFY_SLACK_ENABLED) {
+            SlackService.sendNotification(msg, {
+                webhookUrl: CONFIG.NOTIFY_SLACK_WEBHOOK_URL,
+                enabled: CONFIG.NOTIFY_SLACK_ENABLED
+            }).catch((error) => Logger.error(`Slack 알림 전송 에러: ${error.message}`));
+        }
+    }
 });
-const {
-    runSnsDiscoveryCycle,
-    runSnsDistributionCycle,
-    runSnsAutomationCycle,
-    runAutoPublishCycle,
-    triggerAutoPublishCycle
-} = autoCycleRuntime;
+const runSnsDiscoveryCycle = (trigger) => snsAutomationApplication.discover(trigger);
+const runSnsDistributionCycle = (trigger) => snsAutomationApplication.distribute(trigger);
+const runSnsAutomationCycle = (trigger) => snsAutomationApplication.runAutomaticCycle(trigger);
+const publishReadyTopicsBatch = (...args) => selectedTopicBatchPublisher.publishReadyTopicsBatch(...args);
+const startReadyTopicsBatch = (...args) => selectedTopicBatchPublisher.startReadyTopicsBatch(...args);
 
 function getBlogAutoSettingsSnapshot() {
     return normalizeBlogAutoSettings({});
@@ -995,13 +986,13 @@ const uiApiRouteRuntime = createUiApiRuntime({
     executeBlogTopicUpdate,
     executeBlogTopicsDelete,
     executeShoppingTopicsDelete,
-    executeTrendsToTopicsAction,
-    executeKeywordsToTopicsAction,
-    getAutoStatusPayload,
+    getSnsAutomationStatus,
+    getBlogBatchPublishStatus: () => selectedTopicBatchPublisher.getStatus(),
+    getBlogAutoSettingsSnapshot: () => getBlogAutoSettingsSnapshot(),
     triggerSnsDiscoveryCycle,
     triggerSnsDistributionCycle,
-    runAutoPublishCycle,
-    triggerAutoPublishCycle,
+    publishReadyTopicsBatch,
+    startReadyTopicsBatch,
     createBlogAutoService,
     createBlogAutoController,
     createBlogAutoRouteHandler,
@@ -1069,7 +1060,7 @@ const uiApiRouteRuntime = createUiApiRuntime({
 });
 const { handleApi, handleWidgetPluginAsset } = uiApiRouteRuntime;
 
-setAutoRunnerHandlers({
+setSnsAutomationHandlers({
     runSnsDiscoveryCycle,
     runSnsDistributionCycle,
     runSnsAutomationCycle,

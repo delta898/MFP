@@ -7,7 +7,7 @@ const repoRoot = path.resolve(__dirname, '..');
 const scriptsRoot = path.join(repoRoot, 'ui', 'scripts');
 
 const controllerContracts = Object.freeze({
-    'features/content-workspace/trend-table.js': ['renderBlogTrendsTable', 'loadBlogTrends'],
+    'features/content-workspace/workspace-tables.js': ['renderTopicsPagination', 'toggleTableSort'],
     'features/blog/discovery/quick-discovery.js': ['setQuickDiscoveryModalOpen', 'loadQuickKeywordDiscovery', 'loadQuickTopicRecommendations'],
     'features/shopping/tab-navigation.js': ['activateShoppingTab'],
     'features/content-workspace/blog-topics.js': ['renderBlogTable', 'loadBlogTopics'],

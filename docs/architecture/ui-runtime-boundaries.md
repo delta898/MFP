@@ -19,12 +19,12 @@ This document captures the current runtime boundaries after the CLI-removal refa
   - Shared HTTP controller error-response and method-allowlist translation used by UI API adapters.
 - `src/adapters/ui/account/`
   - Account/session/license/system endpoint translation and response projection; account/license overview assembly belongs to `src/applications/account/overview/` and desktop update lifecycle belongs to Host.
-- `src/adapters/ui/blog/trends/service.js`
-  - Parses UI query parameters and delegates imported trend/keyword reads to the injected Sheets adapter; converts trend/keyword-to-topic action failures into HTTP API errors.
 - `src/adapters/ui/keyword-research/keywords/service.js`
   - Maps keyword UI requests and smart-usage session fields to the injected Keyword Research service and returns its API-facing usage metadata.
 - `src/adapters/ui/blog/continuous-publishing/service.js`
   - Active UI endpoint coordinator for queue, runner, automation, shopping capture, and Blog dashboard operations. It reuses the existing Blog queue-management and automation Applications; the remaining workflow orchestration is transitional and should move into those owning Applications in bounded slices.
+- `src/adapters/ui/blog/trend-posting/`
+  - The active Blog trend-query UI path. It reads already-imported Trend API data and exposes metadata, keyword queries, recent topics, and topic saves; it does not collect trends.
 - `src/adapters/ui/blog/smart-comments/`
   - Owns Smart Comment HTTP routing, response translation, and settings request mapping. The Smart Comments Application owns the workflow; `src/composition/blog-smart-comments.js` wires its Naver collector and AI Generation port, while `src/adapters/storage/blog/smart-comment-settings.js` persists its settings.
 - `src/adapters/ui/content/content-api/service.js`
@@ -88,12 +88,14 @@ This document captures the current runtime boundaries after the CLI-removal refa
   - Quick publish, local markdown publish, multi-platform publish orchestration.
 - `src/ui-runtime/content-actions-runtime.js`
   - Blog/shopping row actions, topic/shopping batch operations.
-- `src/ui-runtime/trend-actions-runtime.js`
-  - Imported trends-to-topics and keywords-to-topics workflows. Trend scraping/collection is not part of the desktop application's feature set.
-- `src/ui-runtime/auto-runner-runtime.js`
-  - Long-lived scheduler state and next-run scheduling.
-- `src/ui-runtime/auto-cycle-runtime.js`
-  - Blog/shopping auto-cycle execution, RSS collection, auto publish orchestration.
+- `src/applications/sns/distribution/automation-scheduler.js`
+  - SNS RSS discovery and distribution scheduling plus SNS-owned process-local run state.
+- `src/applications/sns/distribution/automation-application.js`
+  - Coordinates RSS discovery followed by SNS distribution for a scheduled SNS cycle.
+- `src/applications/blog/publishing/selected-topic-batch-publisher.js`
+  - Explicit one-shot selected/ready topic batch publishing used by Agent and Telegram entry points. It is separate from Blog queue auto-publishing, which remains owned by `src/applications/blog/automation/` and `src/applications/blog/queue-management/`.
+- `src/adapters/ui/blog/automation/service.js`
+  - Preserves the current Blog UI/API automation response contract while translating to separate SNS status and Blog batch-publishing ports. It does not own or schedule either workflow.
 - `src/utilities/network/internal-ui-origin.js`
   - Shared normalization for internal loopback calls into the UI server.
 

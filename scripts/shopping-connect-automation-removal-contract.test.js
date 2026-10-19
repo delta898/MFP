@@ -18,13 +18,14 @@ test('shopping connect exposes only the available manual quick workflow', () => 
 });
 
 test('shopping automation cannot be started through runtime or API composition', () => {
-  const runner = read('src/ui-runtime/auto-runner-runtime.js');
-  const cycle = read('src/ui-runtime/auto-cycle-runtime.js');
+  const runner = read('src/applications/sns/distribution/automation-scheduler.js');
+  const cycle = read('src/applications/blog/publishing/selected-topic-batch-publisher.js');
+  const snsApplication = read('src/applications/sns/distribution/automation-application.js');
   const contentActions = read('src/ui-runtime/content-actions-runtime.js');
   const routes = read('src/adapters/ui/content/content-api/routes.js');
   const server = read('src/ui-server.js');
 
-  [runner, cycle, contentActions, routes, server].forEach((source) => {
+  [runner, cycle, snsApplication, contentActions, routes, server].forEach((source) => {
     assert.doesNotMatch(source, /executeShoppingAuto|syncShoppingAuto|shoppingAutoRuntimeState|shopping\/auto\/run-manual/);
   });
   assert.doesNotMatch(runner, /shoppingPublishedToday|scheduleNextShoppingAutoCycle/);

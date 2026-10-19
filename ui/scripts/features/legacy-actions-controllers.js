@@ -1677,18 +1677,9 @@ function bindActions() {
   const blogTabButtons = Array.from(document.querySelectorAll('.blog-tab-btn'));
   const shoppingTabButtons = Array.from(document.querySelectorAll('.shopping-tab-btn'));
   const shoppingManagementTabButtons = Array.from(document.querySelectorAll('[data-shopping-management-tab]'));
-  const blogTrendsDateInput = document.getElementById('blog-trends-date');
   const naverCommentDraftSaveBtn = document.getElementById('naver-comment-draft-save-btn');
   const naverCommentDraftRunBtn = document.getElementById('naver-comment-draft-run-btn');
   const naverCommentDraftListEl = document.getElementById('naver-comment-draft-list');
-  const blogTrendsQFilter = document.getElementById('blog-trends-q-filter');
-  const blogTrendsQClearBtn = document.getElementById('blog-trends-q-clear-btn');
-  const blogTrendsCollectBtn = document.getElementById('blog-trends-collect-btn');
-  const blogTrendsRefreshBtn = document.getElementById('blog-trends-refresh-btn');
-  const blogTrendsSearchBtn = document.getElementById('blog-trends-search-btn');
-  const blogTrendsToTopicsBtn = document.getElementById('blog-trends-to-topics-btn');
-  const blogTrendsPrevBtn = document.getElementById('blog-trends-page-prev');
-  const blogTrendsNextBtn = document.getElementById('blog-trends-page-next');
   const blogRefreshBtn = document.getElementById('blog-refresh-btn');
   const blogBatchBtn = document.getElementById('blog-batch-btn');
   const blogTopicsPrevBtn = document.getElementById('blog-topics-page-prev');
@@ -1697,7 +1688,6 @@ function bindActions() {
   const shoppingRefreshBtn = document.getElementById('shopping-refresh-btn');
   const blogStatusFilter = document.getElementById('blog-status-filter');
   const blogQFilter = document.getElementById('blog-q-filter');
-  const blogTrendsTableBody = document.getElementById('blog-trends-table-body');
   const trendPostingPeriod = document.getElementById('trend-posting-period');
   const trendPostingCategories = document.getElementById('trend-posting-categories');
   const trendPostingQueryBtn = document.getElementById('trend-posting-query-btn');
@@ -1773,55 +1763,6 @@ function bindActions() {
       activate: (tabName) => activateShoppingTab(tabName, { forceReload: true })
     }));
   });
-
-  if (blogTrendsCollectBtn) {
-    blogTrendsCollectBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      runBlogTrendsCollect();
-    });
-  }
-  if (blogTrendsRefreshBtn) blogTrendsRefreshBtn.addEventListener('click', () => loadBlogTrends());
-  if (blogTrendsSearchBtn) {
-    blogTrendsSearchBtn.addEventListener('click', () => {
-      setPageInfo('trends', { offset: 0 });
-      loadBlogTrends();
-    });
-  }
-  if (blogTrendsQClearBtn) {
-    blogTrendsQClearBtn.addEventListener('click', () => {
-      if (blogTrendsQFilter) blogTrendsQFilter.value = '';
-      setPageInfo('trends', { offset: 0 });
-      loadBlogTrends();
-      blogTrendsQFilter?.focus();
-    });
-  }
-  if (blogTrendsToTopicsBtn) blogTrendsToTopicsBtn.addEventListener('click', runTrendsToTopics);
-  if (blogTrendsQFilter) {
-    blogTrendsQFilter.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        setPageInfo('trends', { offset: 0 });
-        loadBlogTrends();
-      }
-    });
-  }
-  // 날짜 입력창 Enter로 수집을 바로 실행하지 않는다.
-  // (중복 호출/오동작 방지)
-  if (blogTrendsPrevBtn) {
-    blogTrendsPrevBtn.addEventListener('click', () => {
-      const pageInfo = getPageInfo('trends');
-      setPageInfo('trends', { offset: Math.max(0, pageInfo.offset - pageInfo.limit) });
-      loadBlogTrends();
-    });
-  }
-  if (blogTrendsNextBtn) {
-    blogTrendsNextBtn.addEventListener('click', () => {
-      const pageInfo = getPageInfo('trends');
-      setPageInfo('trends', { offset: Math.max(0, pageInfo.offset + pageInfo.limit) });
-      loadBlogTrends();
-    });
-  }
 
   if (blogRefreshBtn) blogRefreshBtn.addEventListener('click', loadBlogTopics);
   if (naverCommentDraftSaveBtn) naverCommentDraftSaveBtn.addEventListener('click', saveNaverCommentDraftSettings);
@@ -1993,21 +1934,6 @@ function bindActions() {
   }
 
   // Select All Header Checkbox Listeners
-  const trendsSelectAll = document.getElementById('blog-trends-table-select-all');
-  if (trendsSelectAll) {
-    trendsSelectAll.addEventListener('change', () => {
-      const checked = trendsSelectAll.checked;
-      const selectors = Array.from(document.querySelectorAll('input.trend-row-selector'));
-      selectors.forEach(s => {
-        s.checked = checked;
-        const rowIndex = Number(s.value);
-        if (checked) blogTrendsSelectedRowIndices.add(rowIndex);
-        else blogTrendsSelectedRowIndices.delete(rowIndex);
-      });
-      updateTrendsSelectionUi();
-    });
-  }
-
   const blogSelectAll = document.getElementById('blog-table-select-all');
   if (blogSelectAll) {
     blogSelectAll.addEventListener('change', () => {
@@ -2020,21 +1946,6 @@ function bindActions() {
         else blogSelectedRowIndices.delete(rowIndex);
       });
       updateBlogSelectionUi();
-    });
-  }
-
-  if (blogTrendsTableBody) {
-    blogTrendsTableBody.addEventListener('change', (e) => {
-      const selector = e.target?.closest('input.trend-row-selector');
-      if (!selector) return;
-      const rowIndex = Number(selector.value);
-      if (!Number.isInteger(rowIndex) || !findTrendByRowIndex(rowIndex)) return;
-      if (selector.checked) {
-        blogTrendsSelectedRowIndices.add(rowIndex);
-      } else {
-        blogTrendsSelectedRowIndices.delete(rowIndex);
-      }
-      updateTrendsSelectionUi();
     });
   }
 

@@ -1,62 +1,16 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createAutoRunnerRuntime } = require('./auto-runner-runtime');
+const { createSnsAutomationScheduler } = require('./automation-scheduler');
 
 function createRuntime(CONFIG) {
-    return createAutoRunnerRuntime({
+    return createSnsAutomationScheduler({
         CONFIG,
         Logger: {
             info() { },
             error() { }
-        },
-        parseConfigBool: (value) => value === true,
-        normalizeNonNegativeInt: (value, fallback) => {
-            const parsed = Number.parseInt(value, 10);
-            return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
-        },
-        normalizeTimeHHmm: (value, fallback) => String(value || fallback),
-        computeNextWindowedRunAt: () => ({
-            runAt: new Date(Date.now() + 60000),
-            candidateAt: new Date(Date.now() + 60000),
-            adjustedByWindow: false
-        }),
-        getBlogAutoSettingsSnapshot: () => ({}),
-        publishAutoDefaults: {
-            intervalMin: 60,
-            startTime: '00:00',
-            endTime: '23:59'
         }
     });
 }
-
-test('auto status payload keeps blog and SNS schedules independent', () => {
-    const runtime = createRuntime({});
-    const snsNextRunAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-    const blogNextRunAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-
-    runtime.snsRuntimeState.enabled = true;
-    runtime.snsRuntimeState.status = 'waiting';
-    runtime.snsRuntimeState.nextRunAt = snsNextRunAt;
-    runtime.refreshLegacyAutoRuntimeState();
-
-    let status = runtime.getAutoStatusPayload();
-    assert.equal(status.blog.enabled, false);
-    assert.equal(status.blog.status, 'stopped');
-    assert.equal(status.blog.nextRunAt, null);
-    assert.equal(Object.hasOwn(status, 'shopping'), false);
-    assert.equal(status.sns.enabled, true);
-    assert.equal(status.sns.nextRunAt, snsNextRunAt);
-
-    runtime.publishRuntimeState.enabled = true;
-    runtime.publishRuntimeState.status = 'waiting';
-    runtime.publishRuntimeState.nextRunAt = blogNextRunAt;
-    runtime.refreshLegacyAutoRuntimeState();
-
-    status = runtime.getAutoStatusPayload();
-    assert.equal(status.blog.enabled, true);
-    assert.equal(status.blog.nextRunAt, blogNextRunAt);
-    assert.equal(status.sns.nextRunAt, snsNextRunAt);
-});
 
 test('SNS runner schedules only when app activation is enabled and enforces ten minutes', () => {
     const CONFIG = {
@@ -80,7 +34,7 @@ test('SNS runner schedules only when app activation is enabled and enforces ten 
     assert.equal(runtime.snsRuntimeState.nextRunAt, null);
 });
 
-test('only SNS automation is scheduled by the legacy automation runtime', () => {
+test('SNS configuration sync schedules its own automation independently', () => {
     const runtime = createRuntime({
         RUNTIME_ENVIRONMENT_PROFILE: {
             environment: 'production',
@@ -91,10 +45,8 @@ test('only SNS automation is scheduled by the legacy automation runtime', () => 
         SNS_PUBLISH_INTERVAL_MIN: 10
     });
 
-    runtime.syncAutoRunnerWithConfig();
+    runtime.syncSnsAutomationWithConfig();
 
-    assert.equal(runtime.publishRuntimeState.enabled, false);
-    assert.equal(runtime.publishRuntimeState.nextRunAt, null);
     assert.equal(runtime.snsRuntimeState.enabled, true);
     assert.ok(runtime.snsRuntimeState.nextRunAt);
     runtime.clearSnsTimer();
@@ -225,19 +177,9 @@ test('development environment schedules SNS RSS discovery while keeping publishi
         SNS_PUBLISH_ENABLED: true,
         SNS_PUBLISH_INTERVAL_MIN: 10
     };
-    const runtime = createAutoRunnerRuntime({
+    const runtime = createSnsAutomationScheduler({
         CONFIG,
-        Logger: { info() {}, error() {} },
-        parseConfigBool: (value) => value === true,
-        normalizeNonNegativeInt: (value, fallback) => Number.parseInt(value, 10) || fallback,
-        normalizeTimeHHmm: (value, fallback) => String(value || fallback),
-        computeNextWindowedRunAt: () => ({
-            runAt: new Date(Date.now() + 60000),
-            candidateAt: new Date(Date.now() + 60000),
-            adjustedByWindow: false
-        }),
-        getBlogAutoSettingsSnapshot: () => ({}),
-        publishAutoDefaults: { intervalMin: 60, startTime: '00:00', endTime: '23:59' }
+        Logger: { info() {}, error() {} }
     });
 
     runtime.setHandlers({
@@ -251,11 +193,8 @@ test('development environment schedules SNS RSS discovery while keeping publishi
         }
     });
 
-    runtime.syncPublishRunner();
     runtime.syncSnsRunner();
 
-    assert.equal(runtime.publishRuntimeState.enabled, false);
-    assert.equal(runtime.publishRuntimeState.nextRunAt, null);
     assert.equal(runtime.snsRuntimeState.enabled, true);
     assert.ok(runtime.snsRuntimeState.nextRunAt);
 

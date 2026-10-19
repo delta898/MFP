@@ -79,13 +79,13 @@ function createUiApiRuntime(deps = {}) {
         executeBlogTopicUpdate,
         executeBlogTopicsDelete,
         executeShoppingTopicsDelete,
-        executeTrendsToTopicsAction,
-        executeKeywordsToTopicsAction,
-        getAutoStatusPayload,
+        getSnsAutomationStatus,
+        getBlogBatchPublishStatus,
+        getBlogAutoSettingsSnapshot,
         triggerSnsDiscoveryCycle,
         triggerSnsDistributionCycle,
-        runAutoPublishCycle,
-        triggerAutoPublishCycle,
+        publishReadyTopicsBatch,
+        startReadyTopicsBatch,
         createBlogAutoService,
         createBlogAutoController,
         createBlogAutoRouteHandler,
@@ -218,11 +218,13 @@ function createUiApiRuntime(deps = {}) {
         if (!blogAutoRouteHandler) {
             const service = createBlogAutoService({
                 Logger,
-                getAutoStatusPayload,
+                getSnsAutomationStatus,
+                getBlogBatchPublishStatus,
+                getBlogAutoSettingsSnapshot,
                 triggerSnsDiscoveryCycle,
                 triggerSnsDistributionCycle,
-                runAutoPublishCycle,
-                triggerAutoPublishCycle
+                publishReadyTopicsBatch,
+                startReadyTopicsBatch
             });
             const controller = createBlogAutoController({
                 service,
@@ -496,8 +498,6 @@ function createUiApiRuntime(deps = {}) {
             executeBlogTopicUpdate,
             executeBlogTopicsDelete,
             executeShoppingTopicsDelete,
-            executeTrendsToTopicsAction,
-            executeKeywordsToTopicsAction
         };
 
         return {

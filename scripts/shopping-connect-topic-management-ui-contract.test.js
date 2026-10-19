@@ -67,7 +67,7 @@ test('shopping management uses item actions matching the Blog Beta lifecycle', (
   assert.match(source, /readyItems\.length}\uAC74/);
   assert.match(source, /savedItems\.length}\uAC74/);
   assert.doesNotMatch(source, /startShoppingInlineEdit|shoppingInlineEditState/);
-  assert.doesNotMatch(read('ui/scripts/features/content-workspace/trend-table.js'), /renderShoppingPagination|updateShoppingSelectionUi|shopping-row-selector/);
+  assert.doesNotMatch(read('ui/scripts/features/content-workspace/workspace-tables.js'), /renderShoppingPagination|updateShoppingSelectionUi|shopping-row-selector/);
 });
 
 test('shopping editor saves the posting targets used by the management queue', () => {
