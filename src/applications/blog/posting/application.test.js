@@ -19,6 +19,7 @@ function createApplication({ writing, config = CONFIG, ...dependencies } = {}) {
         },
         CONFIG: config,
         blogPromptPaths: require('../writing/prompts/paths'),
+        fetchReferenceContent: async () => '',
         Logger: { info() {}, warn() {}, error() {}, debug() {} },
         fs,
         path,

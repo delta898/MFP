@@ -5,6 +5,7 @@ const os = require('os');
 const path = require('path');
 
 const { createManuscriptDraftService, detectImageType, validateImageBuffer } = require('./application');
+const { createManuscriptImageFileReader } = require('../../../adapters/storage/manuscript-drafts/image-file-reader');
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB', 'base64');
 
@@ -21,9 +22,18 @@ function folderInput() {
 
 function fixture() {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-draft-'));
-    const service = createManuscriptDraftService({ fs, path, workspaceDir });
+    const service = createService({ fs, path, workspaceDir });
     const input = folderInput();
     return { workspaceDir, service, input };
+}
+
+function createService(options = {}) {
+    const fsImpl = options.fs || fs;
+    const pathImpl = options.path || path;
+    return createManuscriptDraftService({
+        ...options,
+        findImageByPrefix: options.findImageByPrefix || createManuscriptImageFileReader({ fs: fsImpl, path: pathImpl })
+    });
 }
 
 test('detects image content by signature instead of filename', () => {
@@ -444,7 +454,7 @@ test('does not generate prompt-backed folder images during posting and keeps the
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-draft-publish-images-'));
     const generatedPrompts = [];
     const progress = [];
-    const service = createManuscriptDraftService({
+    const service = createService({
         fs,
         path,
         workspaceDir,
@@ -480,7 +490,7 @@ test('does not generate unresolved AI draft images during posting and keeps the 
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-draft-ai-prepublish-images-'));
     let generationCalls = 0;
     const progress = [];
-    const service = createManuscriptDraftService({
+    const service = createService({
         fs,
         path,
         workspaceDir,
@@ -518,7 +528,7 @@ test('does not generate unresolved AI draft images during posting and keeps the 
 test('does not generate unresolved pasted images during posting and preserves them for temporary save', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-draft-partial-images-'));
     const attempts = [];
-    const service = createManuscriptDraftService({
+    const service = createService({
         fs,
         path,
         workspaceDir,
@@ -553,7 +563,7 @@ test('does not generate unresolved pasted images during posting and preserves th
 test('publishes without an image when a missing slot has no prompt intent', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-draft-no-image-intent-'));
     let generationCalls = 0;
-    const service = createManuscriptDraftService({
+    const service = createService({
         fs,
         path,
         workspaceDir,
@@ -579,7 +589,7 @@ test('publishes without an image when a missing slot has no prompt intent', asyn
 test('publishes an image-free AI draft without invoking image generation', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-draft-ai-no-images-'));
     let generationCalls = 0;
-    const service = createManuscriptDraftService({
+    const service = createService({
         fs,
         path,
         workspaceDir,
@@ -607,7 +617,7 @@ test('publishes an image-free AI draft without invoking image generation', async
 test('generates one image from the stored prompt and keeps the prior asset on failure', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-draft-ai-'));
     let fail = false;
-    const service = createManuscriptDraftService({
+    const service = createService({
         fs,
         path,
         workspaceDir,
@@ -638,7 +648,7 @@ test('generates one image from the stored prompt and keeps the prior asset on fa
 test('manuscript image generation stores AI Gateway base64 output as a validated generated asset', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-draft-gateway-image-'));
     const calls = [];
-    const service = createManuscriptDraftService({
+    const service = createService({
         fs,
         path,
         workspaceDir,
@@ -664,7 +674,7 @@ test('stopped image generation does not commit a late provider result to the man
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-draft-image-stop-'));
     let finishGeneration;
     let receivedSignal;
-    const service = createManuscriptDraftService({
+    const service = createService({
         fs,
         path,
         workspaceDir,
@@ -697,7 +707,7 @@ test('stopped image generation does not commit a late provider result to the man
 test('bulk image generation returns the successful partial revision after a later failure', async () => {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-draft-bulk-'));
     let calls = 0;
-    const service = createManuscriptDraftService({
+    const service = createService({
         fs,
         path,
         workspaceDir,
@@ -880,7 +890,7 @@ test('startup cleanup removes expired drafts while preserving recent work', () =
         completedRetentionMs: 60 * 60 * 1000
     };
     try {
-        const first = createManuscriptDraftService(options);
+        const first = createService(options);
         const expiredActive = first.createPasteDraft({ markdownText: '# 오래된 원고', targets: ['naver'] });
         const expiredPublished = first.createPasteDraft({ markdownText: '# 발행한 원고', targets: ['naver'] });
         first.markPublished({ draftId: expiredPublished.draftId, revision: expiredPublished.revision, target: 'naver' });
@@ -890,7 +900,7 @@ test('startup cleanup removes expired drafts while preserving recent work', () =
         fs.writeFileSync(path.join(recentRoot, 'assets', 'abandoned-staging.png'), PNG);
         fs.writeFileSync(path.join(recentRoot, 'source', '00_draft-deadbeef.png'), PNG);
 
-        const restarted = createManuscriptDraftService(options);
+        const restarted = createService(options);
         assert.throws(() => restarted.getDraft(expiredActive.draftId), (error) => error.code === 'MANUSCRIPT_DRAFT_NOT_FOUND');
         assert.throws(() => restarted.getDraft(expiredPublished.draftId), (error) => error.code === 'MANUSCRIPT_DRAFT_NOT_FOUND');
         assert.equal(restarted.getDraft(recent.draftId).title, '최근 원고');

@@ -6,20 +6,29 @@ const path = require('node:path');
 
 const { createBlogManualPublishingApplication } = require('./manual-publishing-application');
 const { getFeatureBool, isCommandEnabled, toFeatureMap } = require('../../../services/licensing/feature-access');
+const { presentBlogImageGenerationProgress } = require('../../../adapters/ui/blog-posting-progress');
+const { presentNaverPublishProgress } = require('../../../adapters/ui/naver-publish-progress');
+const { createManuscriptImageFileReader } = require('../../../adapters/storage/manuscript-drafts/image-file-reader');
 
 const createTestPublishActionsRuntime = (deps = {}) => {
-    if (deps.blogPostingApplication || typeof deps.generationHarness?.generateContent !== 'function') {
-        return createBlogManualPublishingApplication(deps);
+    const dependencies = {
+        presentBlogImageGenerationProgress,
+        presentNaverPublishProgress,
+        findImageByPrefix: deps.Utils?.findImageByPrefix || createManuscriptImageFileReader({ fs, path }),
+        ...deps
+    };
+    if (dependencies.blogPostingApplication || typeof dependencies.generationHarness?.generateContent !== 'function') {
+        return createBlogManualPublishingApplication(dependencies);
     }
     return createBlogManualPublishingApplication({
-        ...deps,
+        ...dependencies,
         blogPostingApplication: {
             async preparePost(topic, settings = {}) {
                 const writing = deps.blogWritingApplication || {
                     async generateText() { return ''; },
                     async generateImage() { return { dataBase64: '', mimeType: 'image/png' }; }
                 };
-                const generated = await deps.generationHarness.generateContent(topic, settings.workspaceDir || null, {
+                const generated = await deps.generationHarness.generateContent(topic, settings.workspaceDir || `/tmp/test-${settings.platform || 'blog'}`, {
                     ...settings,
                     generateText(prompt, modelOptions = {}) {
                         const selection = modelOptions.modelConfig;
@@ -29,7 +38,7 @@ const createTestPublishActionsRuntime = (deps = {}) => {
                         });
                     }
                 });
-                if (typeof deps.generationHarness.prepareImages === 'function') {
+                if (settings.imageGenerationEnabled !== false && typeof deps.generationHarness.prepareImages === 'function') {
                     settings.onStage?.('images');
                     await deps.generationHarness.prepareImages(generated.targetDir, topic, {
                         ...settings,
@@ -92,7 +101,8 @@ test('local WordPress publish preserves image upload warnings while counting the
         License: {
             async checkLicenseStatus() { return { success: true, features: {} }; },
             async reservePublishQuota() { return { success: true }; },
-            async commitPublishQuota() { return { success: true }; }
+            async commitPublishQuota() { return { success: true }; },
+            async releasePublishQuota() { return { success: true }; }
         },
         toFeatureMap,
         getFeatureBool,
@@ -136,7 +146,8 @@ test('WordPress Plugin publisher owns WordPress manuscript creation when the app
         License: {
             async checkLicenseStatus() { return { success: true, features: {} }; },
             async reservePublishQuota() { return { success: true }; },
-            async commitPublishQuota() { return { success: true }; }
+            async commitPublishQuota() { return { success: true }; },
+            async releasePublishQuota() { return { success: true }; }
         },
         toFeatureMap,
         getFeatureBool,
@@ -487,17 +498,19 @@ function createPublishLifecycleRuntime({ naverSuccess, wordpressSuccess, reserve
                 return { targetDir: `/tmp/${options.platform}`, finalSubject: 'quota test' };
             },
             async prepareImages() { },
-            async publishToBlog() {
+        },
+        checkAuthSessionValid: async () => ({ ok: true }),
+        blogPublishingApplication: {
+            async publishNaver() {
                 calls.push('publish:naver');
                 return { success: naverSuccess, message: naverSuccess ? 'ok' : 'failed' };
             },
-        },
-        blogPublishingApplication: {
             async publishWordPressManuscript() {
                 calls.push('publish:wordpress');
                 return { success: wordpressSuccess, message: wordpressSuccess ? 'ok' : 'failed' };
             }
         },
+        TelegramBotService: { async sendNotification() { } },
         License: {
             async reservePublishQuota() {
                 calls.push('quota:reserve');

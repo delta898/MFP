@@ -28,7 +28,7 @@ test('single-target UI and API boundaries reject silent multi-platform publishin
   const draftUi = `${read('ui/scripts/features/blog/publishing-targets.js')}\n${read('ui/scripts/features/blog/draft-inputs.js')}\n${read('ui/scripts/features/blog/draft-execution.js')}`;
   const topicUi = read('ui/scripts/features/content-workspace/blog-topics.js');
   const requestSchema = read('src/host/agent/planning/content-requests/schema.js');
-  const mcpAdapter = read('src/mcp/prototype-adapter.js');
+  const mcpAdapter = read('src/adapters/messaging/mcp/prototype-adapter.js');
 
   assert.match(draftUi, /const targets = \[\]/);
   assert.match(topicUi, /targets\.length !== 1/);

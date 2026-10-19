@@ -2,7 +2,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const bloggeniusContract = require('../src/applications/site-hosting/domain/site-hosting-contract.json');
+const bloggeniusContract = require('../src/services/site-hosting/site-hosting-contract.json');
 
 function verifySiteHostingContract(bloggeniusRoot, amadeRoot) {
     const read = (root, relativePath) => JSON.parse(fs.readFileSync(path.join(root, relativePath), 'utf8'));

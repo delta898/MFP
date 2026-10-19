@@ -2,9 +2,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createCapabilityRegistry } = require('./index');
 const { createKnowledgeRuntime } = require('../composition/knowledge-runtime');
+const { createAiModelConfiguration } = require('../composition/ai-model-configuration');
 
 function createRegistry(deps = {}) {
-    return createCapabilityRegistry({ ...createKnowledgeRuntime(deps), ...deps });
+    return createCapabilityRegistry({ modelConfiguration: createAiModelConfiguration(), ...createKnowledgeRuntime(deps), ...deps });
 }
 
 test('adds the built-in Naver provider to content idea routing', async () => {

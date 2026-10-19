@@ -7,10 +7,17 @@ const path = require('path');
 const { toMobileNaverBlogPostUrl } = require('../../../utilities/text/naver-blog-url');
 const { buildRelatedPostsSectionMarkdown } = require('./related-posts-markdown');
 const { createManuscriptDraftService } = require('../../../applications/blog/manuscript-drafts/application');
+const { createManuscriptImageFileReader } = require('../../../adapters/storage/manuscript-drafts/image-file-reader');
 
 function fixture(gateway) {
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-related-'));
-    const service = createManuscriptDraftService({ fs, path, workspaceDir, relatedPosts: gateway });
+    const service = createManuscriptDraftService({
+        fs,
+        path,
+        workspaceDir,
+        relatedPosts: gateway,
+        findImageByPrefix: createManuscriptImageFileReader({ fs, path })
+    });
     return { workspaceDir, service };
 }
 

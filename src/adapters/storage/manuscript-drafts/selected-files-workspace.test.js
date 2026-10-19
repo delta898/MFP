@@ -4,7 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { materializeSelectedFilesToWorkspace } = require('./local-markdown-workspace');
+const { materializeSelectedFilesToWorkspace } = require('./selected-files-workspace');
 
 test('materializeSelectedFilesToWorkspace writes markdown and image files into temp workspace', () => {
     const imageBuffer = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7ZQfQAAAAASUVORK5CYII=', 'base64');

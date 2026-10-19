@@ -30,7 +30,7 @@ test('WYSIWYG manuscript publishing owns images in slots and drafts only for act
     assert.match(manuscriptScript, /option\.disabled = imagePreparationRequired \|\| \(option\.value === 'schedule' && isBlogNextSiteHostingTarget\(type\)\)/);
     assert.match(manuscriptScript, /buttonLabel: '블로그에 임시 저장'/);
     assert.match(publishingApplication, /missingImage = true/);
-    assert.match(publishingApplication, /missingImage \? 'draft' : requestedStatus/);
+    assert.match(publishingApplication, /missingImage && requestedStatus !== 'draft' \? 'draft' : requestedStatus/);
 });
 
 test('Blog Beta image preview completes only its final grid row with inert decorative cells', () => {

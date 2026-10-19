@@ -25,6 +25,6 @@ test('UI server composition remains within its bounded root', () => {
         );
     }
 
-    assert.match(source, /createAutomationPolicyRuntime/);
+    assert.match(source, /createAutoPublishPolicy/);
     assert.match(source, /createSettingsFields/);
 });

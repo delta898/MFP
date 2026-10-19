@@ -21,7 +21,7 @@ test('shopping quick writing keeps direction visible and moves optional settings
 
 test('shopping writing choices are carried from UI request through storage into generation', () => {
   const controller = read('ui/scripts/features/legacy-actions-controllers.js');
-  const publishRuntime = read('src/applications/blog/publishing/manual-publishing-application.js');
+  const publishRuntime = read('src/adapters/ui/shopping/publishing/quick-publish-handler.js');
   const sheetOptions = read('src/adapters/storage/google-sheets/publish-options.js');
   const contentRuntime = read('src/adapters/ui/content/content-api/action-handlers.js');
   const shoppingManager = read('src/applications/shopping/content-preparation/application.js');

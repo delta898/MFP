@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const source = fs.readFileSync(path.join(__dirname, '..', 'ui', 'scripts', 'features', 'social', 'manual-workspace-cache.js'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, '..', 'ui', 'scripts', 'features', 'sns', 'manual-workspace-cache.js'), 'utf8');
 
 function createRuntime() {
   const values = new Map();

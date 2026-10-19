@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const ROOT = path.resolve(__dirname, '../../..');
+const ROOT = path.resolve(__dirname, '../../../..');
 const AI_FREE_RUNTIME_FILES = [
     'src/composition/recommendations/runtime.js',
     'src/services/recommendations/delivery/refresh-service.js',

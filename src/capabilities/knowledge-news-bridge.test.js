@@ -2,9 +2,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createCapabilityRegistry } = require('./index');
 const { createKnowledgeRuntime } = require('../composition/knowledge-runtime');
+const { createAiModelConfiguration } = require('../composition/ai-model-configuration');
 
 function createRegistry(deps = {}) {
-    return createCapabilityRegistry({ ...createKnowledgeRuntime(deps), ...deps });
+    return createCapabilityRegistry({ modelConfiguration: createAiModelConfiguration(), ...createKnowledgeRuntime(deps), ...deps });
 }
 
 test('registers Naver news as a server gateway provider without enabling Stage 6 routing', async () => {

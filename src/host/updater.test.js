@@ -384,7 +384,7 @@ test('Windows updater keeps the app alive and records diagnostics when helper la
 });
 
 test('system restart controller observes asynchronous updater failures', () => {
-    const controller = fs.readFileSync(path.join(__dirname, '..', 'ui-api', 'controllers', 'system.controller.js'), 'utf8');
+    const controller = fs.readFileSync(path.join(__dirname, '..', 'adapters', 'ui', 'account', 'system', 'controller.js'), 'utf8');
     assert.match(controller, /updater\.isWindowsDeferredApplyPending\?\.\(\)/);
     assert.match(controller, /await updater\.restart\(\{ exitDelayMs: 1000 \}\)/);
     assert.match(controller, /UPDATE_RESTART_ERROR/);
@@ -393,7 +393,7 @@ test('system restart controller observes asynchronous updater failures', () => {
 
 test('update UI reports restart failures without simulating a restart by reloading', () => {
     const updateUi = fs.readFileSync(
-        path.join(__dirname, '..', '..', 'ui', 'scripts', 'features', 'shell', 'update.js'),
+        path.join(__dirname, '..', '..', 'ui', 'scripts', 'shell', 'update.js'),
         'utf8'
     );
     assert.match(updateUi, /await postJson\('\/api\/v1\/system\/update\/restart'\)/);
@@ -403,7 +403,7 @@ test('update UI reports restart failures without simulating a restart by reloadi
 
 test('update startup UI reports a deferred apply failure after relaunch', () => {
     const celebrationUi = fs.readFileSync(
-        path.join(__dirname, '..', '..', 'ui', 'scripts', 'features', 'shell', 'celebration.js'),
+        path.join(__dirname, '..', '..', 'ui', 'scripts', 'shell', 'celebration.js'),
         'utf8'
     );
     assert.match(celebrationUi, /\/api\/v1\/system\/update\/failure/);

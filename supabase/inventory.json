@@ -5,7 +5,6 @@
   "linked_project_metadata_path": "supabase/.temp/linked-project.json",
   "desktop_consumers": [
     "src/composition/licensing.js",
-    "src/runtime-config.js",
     "src/adapters/storage/ai-model-catalog/supabase-port.js",
     "src/adapters/supabase/functions/keyword-research-client.js",
     "src/adapters/knowledge/server-gateway-client.js",

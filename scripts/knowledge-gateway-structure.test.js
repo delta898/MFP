@@ -95,7 +95,7 @@ test('desktop shopping fallback uses the fixed gateway and has no direct provide
     const fallbackStart = shoppingManager.indexOf('async function resolveViaShoppingSearchGateway');
     const fallbackEnd = shoppingManager.indexOf('function extractDeepProductLinksFromHtml', fallbackStart);
     const fallback = shoppingManager.slice(fallbackStart, fallbackEnd);
-    assert.match(fallback, /recoverOptionalProduct/);
+    assert.match(fallback, /recoverProduct/);
     assert.doesNotMatch(fallback, /NAVER_CLIENT_(?:ID|SECRET)|openapi\.naver\.com|axios\.(?:get|post)/);
     assert.doesNotMatch(shoppingManager, /resolveViaShoppingSearchApi/);
 });

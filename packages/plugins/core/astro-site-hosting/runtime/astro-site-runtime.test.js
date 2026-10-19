@@ -8,11 +8,11 @@ const os = require('node:os');
 const path = require('node:path');
 const { PassThrough } = require('node:stream');
 const test = require('node:test');
-const { createSiteHostingProjectRepository } = require('../../../../../src/site-hosting/project-repository');
-const { createSiteHostingSiteRepository } = require('../../../../../src/site-hosting/site-repository');
+const { createSiteHostingProjectRepository } = require('../../../../../src/adapters/storage/site-hosting/project-repository');
+const { createSiteHostingSiteRepository } = require('../../../../../src/adapters/storage/site-hosting/site-repository');
 const { createFixtureSiteTemplateCatalog } = require('../../../../../test/fixtures/site-hosting/template-catalog');
-const { normalizeMenuDestination } = require('../../../../../src/site-hosting/navigation-contract');
-const { createKnowledgeCollectionBuilder } = require('../../../../../src/site-hosting/knowledge-collection-builder');
+const { normalizeMenuDestination } = require('../../../../../src/services/site-hosting/navigation-contract');
+const { createKnowledgeCollectionBuilder } = require('../../../../../src/applications/site-hosting/domain/knowledge-collection-builder');
 const { createAstroSiteRuntime } = require('./astro-site-runtime');
 
 function createFixture() {

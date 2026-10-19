@@ -13,10 +13,6 @@ const { createQuickPublishRecommendationService } = require('./quick-publish-rec
 function createBlogKeywordResearchApplication(options = {}) {
     const logger = options.Logger || require('../../../utilities/logging/logger');
     const keywordGateway = options.keywordGateway;
-    if (!keywordGateway || typeof keywordGateway.fetchSearchAdCandidates !== 'function'
-        || typeof keywordGateway.fetchWeeklyDocuments !== 'function') {
-        throw new TypeError('Blog keyword research requires an injected keyword gateway.');
-    }
     const titleGenerator = options.titleGenerator || createTitleGenerator({ Logger: logger });
     const quickPublishRecommendationService = options.quickPublishRecommendationService || createQuickPublishRecommendationService({
         keywordResearchApplication: {
@@ -29,6 +25,10 @@ function createBlogKeywordResearchApplication(options = {}) {
     }
 
     async function analyze(request = {}) {
+        if (!keywordGateway || typeof keywordGateway.fetchSearchAdCandidates !== 'function'
+            || typeof keywordGateway.fetchWeeklyDocuments !== 'function') {
+            throw new TypeError('Blog keyword research requires an injected keyword gateway.');
+        }
         const keywords = parseKeywords(request.keywords || request.keyword).slice(0, MAX_INPUT_KEYWORDS);
         const subject = String(request.subject || keywords[0] || '').trim();
         if (!subject || keywords.length === 0) {

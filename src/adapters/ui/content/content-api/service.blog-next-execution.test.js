@@ -9,6 +9,7 @@ function createService(coordinator, executeLocalMarkdownPublish, CONFIG = {}, ex
         CONFIG,
         blogNextExecutionCoordinator: coordinator,
         executeLocalMarkdownPublish,
+        fetchReferenceContent: async () => '',
         ...extras
     });
 }

@@ -3,12 +3,19 @@ const assert = require('node:assert/strict');
 const Utils = {};
 
 const {
-    buildLocalMarkdownPreview,
+    buildLocalMarkdownPreview: buildLocalMarkdownPreviewImpl,
     isMarkdownFilePath,
     normalizeSelectedFiles,
     resolveMarkdownEntryFromSelectedFiles,
     resolveMarkdownPathFromDirectory
 } = require('./preview');
+
+function buildLocalMarkdownPreview(input, deps = {}) {
+    return buildLocalMarkdownPreviewImpl(input, {
+        ...deps,
+        findImageByPrefix: deps.findImageByPrefix || deps.Utils?.findImageByPrefix || (() => null)
+    });
+}
 
 function createFsStub(files = {}, directories = []) {
     const directorySet = new Set(directories);
@@ -166,7 +173,7 @@ test('buildLocalMarkdownPreview returns resolved image info and warnings when fa
         imageGeneration: true
     }, {
         fs: createFsStub({
-            '/workspace/posts/golf/contents.md': '# 골프존\n\n본문',
+            '/workspace/posts/golf/contents.md': '# 골프존\n\n본문\n\n[[IMAGE_0\ntitle: 대표 이미지\nprompt: golf swing\n]]',
             '/workspace/posts/golf/00_image.png': 'binary'
         }, [directoryPath]),
         path: require('path'),
@@ -189,7 +196,7 @@ test('buildLocalMarkdownPreview keeps missing images as warnings when generation
         imageGeneration: false
     }, {
         fs: createFsStub({
-            '/workspace/posts/golf/contents.md': '# 골프존\n\n본문'
+            '/workspace/posts/golf/contents.md': '# 골프존\n\n본문\n\n[[IMAGE_0\ntitle: 대표 이미지\nprompt: golf swing\n]]'
         }, [directoryPath]),
         path: require('path'),
         Utils: createUtilsStub()
@@ -208,7 +215,7 @@ test('buildLocalMarkdownPreview still returns an error when the title is missing
         imageGeneration: false
     }, {
         fs: createFsStub({
-            '/workspace/posts/golf/contents.md': '본문만 있음'
+            '/workspace/posts/golf/contents.md': '본문만 있음\n\n[[IMAGE_0\ntitle: 대표 이미지\nprompt: golf swing\n]]'
         }, [directoryPath]),
         path: require('path'),
         Utils: {
@@ -274,7 +281,7 @@ test('buildLocalMarkdownPreview supports selected folder files from browser inpu
             {
                 relativePath: 'golf-post/contents.md',
                 name: 'contents.md',
-                textContent: '# 골프존\n\n본문'
+                textContent: '# 골프존\n\n본문\n\n[[IMAGE_0\ntitle: 대표 이미지\nprompt: golf swing\n]]'
             },
             {
                 relativePath: 'golf-post/00_image.png',
@@ -348,7 +355,7 @@ test('pasted image blocks may omit their number while folder mapping requires an
 
 test('buildLocalMarkdownPreview preserves inline bold ranges for the UI preview', () => {
     const preview = buildLocalMarkdownPreview({
-        markdownText: '# 제목\n\n굵은 문단',
+        markdownText: '# 제목\n\n**굵은** 문단',
         targets: ['naver'],
         imageGeneration: false
     }, {
@@ -371,7 +378,7 @@ test('buildLocalMarkdownPreview preserves inline bold ranges for the UI preview'
         }
     });
 
-    assert.deepEqual(preview.contentItems[0].boldRanges, [{ start: 0, end: 2 }]);
+    assert.deepEqual(preview.contentItems.find((item) => item.type === 'paragraph').boldRanges, [{ start: 0, end: 2 }]);
 });
 
 test('buildLocalMarkdownPreview preserves H3 Markdown in the body preview', () => {

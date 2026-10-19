@@ -7,7 +7,12 @@ const { createBlogTrendPosting } = require('../../../../composition/blog-trend-p
 function createService(remoteClient, Utils = {}) {
     const trendPosting = createBlogTrendPosting({
         License: { async issueTrendsAccessToken() { throw new Error('not used'); }, async checkLicenseStatus() { return { success: true }; } },
-        tokenCache: { clear() {} }, remoteClient, Utils, Logger: { warn() {} }
+        tokenCache: { clear() {} }, remoteClient,
+        GoogleSheets: {
+            readGoogleSheetTopicsAll: Utils.readGoogleSheetTopicsAll,
+            appendGoogleSheetTopics: Utils.appendGoogleSheetTopics
+        },
+        Logger: { warn() {} }
     });
     return createTrendPostingService({ application: trendPosting.application, Logger: { warn() {} } });
 }
@@ -235,7 +240,7 @@ test('trend posting service checks the active license before saving', async () =
         },
         tokenCache: { clear() {} },
         remoteClient: {},
-        Utils: {
+        GoogleSheets: {
             async appendGoogleSheetTopics() { appendCalls += 1; }
         },
         Logger: { warn() {} }

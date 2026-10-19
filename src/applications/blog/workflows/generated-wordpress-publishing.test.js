@@ -134,8 +134,10 @@ test('composition registers both required Plugins and runs generation through Wo
     assert.deepEqual(system.pluginHost.listOperations().map(({ pluginId, operationId }) => ({ pluginId, operationId })), [
         { pluginId: 'ai-gateway', operationId: 'image.generate' },
         { pluginId: 'ai-gateway', operationId: 'models.list' },
+        { pluginId: 'ai-gateway', operationId: 'models.verify' },
         { pluginId: 'ai-gateway', operationId: 'text.generate' },
         { pluginId: 'wordpress-publisher', operationId: 'categories.list' },
+        { pluginId: 'wordpress-publisher', operationId: 'connection.inspect' },
         { pluginId: 'wordpress-publisher', operationId: 'media.upload' },
         { pluginId: 'wordpress-publisher', operationId: 'posts.create' }
     ]);

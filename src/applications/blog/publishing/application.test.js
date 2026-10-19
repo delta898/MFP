@@ -7,6 +7,7 @@ const os = require('os');
 const path = require('path');
 const { createBlogPublishingApplication } = require('./application');
 const { formatRelatedPostsForNaver } = require('../../../adapters/naver/publishing/related-posts');
+const { createManuscriptImageFileReader } = require('../../../adapters/storage/manuscript-drafts/image-file-reader');
 
 function createApplication(options = {}) {
     const calls = [];
@@ -37,7 +38,7 @@ function createApplication(options = {}) {
         fs,
         path,
         formatNaverRelatedPosts: formatRelatedPostsForNaver,
-        findImageByPrefix: options.findImageByPrefix || options.Utils?.findImageByPrefix,
+        findImageByPrefix: options.findImageByPrefix || options.Utils?.findImageByPrefix || createManuscriptImageFileReader({ fs, path }),
         ...options
     });
     return { app, calls };
@@ -80,7 +81,7 @@ test('Blog Publishing Application prepares target media for Naver and WordPress 
     fs.writeFileSync(sourcePath, Buffer.from('pixels'));
     const naverDir = fs.mkdtempSync(path.join(os.tmpdir(), 'blog-publishing-naver-'));
     t.after(() => fs.rmSync(naverDir, { recursive: true, force: true }));
-    fs.writeFileSync(path.join(naverDir, 'contents.md'), '# Naver');
+    fs.writeFileSync(path.join(naverDir, 'contents.md'), '# Naver\n\n[[IMAGE_0\ntitle: Source\n]]');
     fs.writeFileSync(path.join(naverDir, '00_source.png'), Buffer.from('pixels'));
     const { app: naverApp } = createApplication({
         naverPublisher: {
@@ -159,22 +160,11 @@ test('Naver publishing prepares typed Markdown blocks and WebP assets before cal
                 return { status: request.status, warnings: [] };
             }
         },
-        Utils: {
-            parseMarkdown() {
-                return { title: 'Naver title', contents: [
-                    { type: 'newline' },
-                    { type: 'header-h2', text: 'Heading' },
-                    { type: 'paragraph', text: 'Body', boldRanges: [{ start: 0, end: 2 }] },
-                    { type: 'image', index: 0, text: 'Hero' },
-                    { type: 'list-item', text: 'Item', listType: 'unordered' }
-                ] };
-            },
-            findImageByPrefix(_directory, index) { return index === 0 ? path.join(directory, '00_hero.png') : null; }
-        }
+        Utils: { findImageByPrefix(_directory, index) { return index === 0 ? path.join(directory, '00_hero.png') : null; } }
     });
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'naver-plugin-publish-'));
     t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-    fs.writeFileSync(path.join(directory, 'contents.md'), '# Naver title');
+    fs.writeFileSync(path.join(directory, 'contents.md'), '# Naver title\n## Heading\n**Body**\n[[IMAGE_0\ntitle: Hero\n]]\n- Item');
     fs.writeFileSync(path.join(directory, '00_hero.png'), Buffer.from('pixels'));
     const signal = new AbortController().signal;
     const progress = [];
@@ -190,7 +180,7 @@ test('Naver publishing prepares typed Markdown blocks and WebP assets before cal
     assert.deepEqual(published.request.blocks, [
         { type: 'heading', level: 2, text: 'Heading' },
         { type: 'newline' },
-        { type: 'paragraph', text: 'Body', boldRanges: [{ start: 0, end: 2 }] },
+        { type: 'paragraph', text: 'Body', boldRanges: [{ start: 0, end: 4 }] },
         { type: 'image', assetKey: 'image-0', caption: 'Hero' },
         { type: 'list-item', text: 'Item', listType: 'unordered' }
     ]);
@@ -208,23 +198,10 @@ test('Naver publishing uses one title transition and preserves additional author
     const calls = [];
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'naver-plugin-newlines-'));
     t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-    fs.writeFileSync(path.join(directory, 'contents.md'), '# Naver title');
+    fs.writeFileSync(path.join(directory, 'contents.md'), '# Naver title\n\n\nFirst paragraph\n\n\n## A heading\nFollowing paragraph');
     const app = createApplication({
         naverPublisher: { async publish(request) { calls.push(request); return { status: request.status, warnings: [] }; } },
-        Utils: {
-            parseMarkdown() {
-                return { title: 'Naver title', contents: [
-                    { type: 'newline' },
-                    { type: 'newline' },
-                    { type: 'paragraph', text: 'First paragraph' },
-                    { type: 'newline' },
-                    { type: 'newline' },
-                    { type: 'header-h2', text: 'A heading' },
-                    { type: 'paragraph', text: 'Following paragraph' }
-                ] };
-            },
-            findImageByPrefix() { return null; }
-        }
+        Utils: { findImageByPrefix() { return null; } }
     }).app;
 
     await app.publishNaver(directory, { postStatus: 'draft' });
@@ -244,34 +221,28 @@ test('Naver missing image blocks are preserved and force an otherwise live post 
     const calls = [];
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'naver-plugin-missing-image-'));
     t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-    fs.writeFileSync(path.join(directory, 'contents.md'), '# Naver title');
+    fs.writeFileSync(path.join(directory, 'contents.md'), '# Naver title\n\n[[IMAGE_1\nprompt: a scene\n]]');
     const app = createApplication({
         naverPublisher: { async publish(request) { calls.push(request); return { status: request.status, warnings: [] }; } },
-        Utils: {
-            parseMarkdown() { return { title: 'Naver title', contents: [{ type: 'image', index: 1, raw: '[[IMAGE_1\\nprompt: a scene\\n]]', text: 'Hero' }] }; },
-            findImageByPrefix() { return null; }
-        }
+        Utils: { findImageByPrefix() { return null; } }
     }).app;
 
     const result = await app.publishNaver(directory, { postStatus: 'publish' });
 
     assert.equal(calls[0].status, 'draft');
-    assert.deepEqual(calls[0].blocks, [{ type: 'paragraph', text: '[[IMAGE_1\\nprompt: a scene\\n]]' }]);
+    assert.deepEqual(calls[0].blocks, [{ type: 'paragraph', text: '[[IMAGE_1\nprompt: a scene\n]]' }]);
     assert.match(result.warnings[0], /임시저장/);
 });
 
 test('affiliate-required publishing uses the Naver Plugin after validating its link', async (t) => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'naver-affiliate-publish-'));
     t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-    fs.writeFileSync(path.join(directory, 'contents.md'), '# Shopping');
+    fs.writeFileSync(path.join(directory, 'contents.md'), '# Shopping\n\n[[IMAGE_0\ntitle: CTA\n]]');
     fs.writeFileSync(path.join(directory, '00_cta_image.png'), Buffer.from('cta'));
     const published = [];
     const { app, calls } = createApplication({
         naverPublisher: { async publish(request) { published.push(request); return { status: request.status, warnings: [] }; } },
-        Utils: {
-            parseMarkdown() { return { title: 'Shopping', contents: [{ type: 'image', index: 0, text: 'CTA' }] }; },
-            findImageByPrefix(folder, index) { return index === 0 ? path.join(folder, '00_cta_image.png') : null; }
-        }
+        Utils: { findImageByPrefix(folder, index) { return index === 0 ? path.join(folder, '00_cta_image.png') : null; } }
     });
 
     await app.publishNaver(directory, {
@@ -280,7 +251,7 @@ test('affiliate-required publishing uses the Naver Plugin after validating its l
         postStatus: 'publish'
     });
 
-    assert.equal(calls.some((call) => call.operation === 'naver-plugin'), true);
+    assert.equal(published.length, 1);
     assert.equal(published[0].affiliateUrl, 'https://example.test/item');
     assert.equal(published[0].assets[0].filename, '00_cta_image.webp');
     await assert.rejects(app.publishNaver(directory, { requireAffiliateUrl: true }), /URL이 비어있거나/);

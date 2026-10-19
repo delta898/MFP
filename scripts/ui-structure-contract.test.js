@@ -92,7 +92,7 @@ test('retired Blog surface is absent from the shell and browser script bundle', 
 test('retired Settings surface is absent while legacy deep links still route to Settings Beta', () => {
     const html = readComposedUiShell();
     const script = readComposedUiScript();
-    const navigation = readUiFile(path.join(uiRoot, 'scripts', 'foundation', 'navigation.js'));
+    const navigation = readUiFile(path.join(uiRoot, 'scripts', 'shell', 'navigation.js'));
 
     assert.doesNotMatch(html, /data-view="settings"|id="view-settings"|partials\/views\/settings\.html/);
     assert.doesNotMatch(script, /function loadSettingsMajor\(|function activateSettingsTab\(/);
