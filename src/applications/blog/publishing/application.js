@@ -2,9 +2,9 @@
 
 const pathDefault = require('path');
 const { marked } = require('marked');
-const { formatRelatedPostsForNaver } = require('../../../adapters/naver/publishing/related-posts');
 const { parseImageBlocks } = require('../../../utilities/markdown/image-blocks');
 const { parseBlogManuscriptMarkdown } = require('../manuscript-drafts/markdown-parser');
+const { assertDirectPublishAllowed } = require('../../../services/runtime-environment/effects');
 
 const TARGET_FORMATS = Object.freeze({ naver: 'webp', wordpress: 'avif' });
 const MIME_TYPES = Object.freeze({ avif: 'image/avif', webp: 'image/webp' });
@@ -17,6 +17,7 @@ function createBlogPublishingApplication(options = {}) {
     const { imageOptimizationService, naverPublisher, wordpressPublishingApplication, CONFIG, Logger, fs } = options;
     const findImageByPrefix = options.findImageByPrefix;
     const persistWordPressAssetUrl = options.persistWordPressAssetUrl;
+    const formatNaverRelatedPosts = options.formatNaverRelatedPosts;
     const path = options.path || pathDefault;
     if (typeof naverPublisher?.publish !== 'function') {
         throw new TypeError('Blog Publishing Application requires a Naver publisher.');
@@ -26,6 +27,9 @@ function createBlogPublishingApplication(options = {}) {
     }
     if (!fs || typeof fs.readFileSync !== 'function' || typeof fs.writeFileSync !== 'function') {
         throw new TypeError('Blog Publishing Application requires filesystem access for prepared image files.');
+    }
+    if (typeof formatNaverRelatedPosts !== 'function') {
+        throw new TypeError('Blog Publishing Application requires a Naver related-post formatter.');
     }
 
     function isOptimizationEnabled() {
@@ -73,7 +77,7 @@ function createBlogPublishingApplication(options = {}) {
         }
         const contentFile = path.join(directory, 'contents.md');
         if (!fs.existsSync(contentFile)) throw new Error('콘텐츠 파일 없음: contents.md');
-        const markdown = formatRelatedPostsForNaver(fs.readFileSync(contentFile, 'utf8'));
+        const markdown = formatNaverRelatedPosts(fs.readFileSync(contentFile, 'utf8'));
         const parsed = parseBlogManuscriptMarkdown(markdown, Logger);
         const title = String(parsed?.title || '').trim();
         if (!title) throw new Error('네이버 발행 원고에 제목이 없습니다.');

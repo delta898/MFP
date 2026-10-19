@@ -80,7 +80,12 @@ test('shopping fallback delegates exact product recovery to the server gateway',
         }
     };
 
-    const result = await resolveViaShoppingSearchGateway('123456', '정확한 상품', gateway);
+    const result = await resolveViaShoppingSearchGateway(
+        '123456',
+        '정확한 상품',
+        gateway,
+        (client, input) => client.recoverProduct(input)
+    );
 
     assert.deepEqual(input, { productId: '123456', productName: '정확한 상품' });
     assert.equal(result, expected);

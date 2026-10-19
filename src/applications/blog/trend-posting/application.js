@@ -1,4 +1,5 @@
-const { aggregateTrendKeywords, resolveTrendPostingFilters } = require('./query');
+const { aggregateTrendKeywords } = require('../../../services/knowledge/trend-keywords');
+const { resolveTrendPostingFilters } = require('./query');
 
 function createApplicationError(code, message) {
     const error = new Error(message);

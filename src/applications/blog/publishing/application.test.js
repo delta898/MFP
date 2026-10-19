@@ -6,6 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { createBlogPublishingApplication } = require('./application');
+const { formatRelatedPostsForNaver } = require('../../../adapters/naver/publishing/related-posts');
 
 function createApplication(options = {}) {
     const calls = [];
@@ -35,6 +36,8 @@ function createApplication(options = {}) {
         Logger: { info() {} },
         fs,
         path,
+        formatNaverRelatedPosts: formatRelatedPostsForNaver,
+        findImageByPrefix: options.findImageByPrefix || options.Utils?.findImageByPrefix,
         ...options
     });
     return { app, calls };

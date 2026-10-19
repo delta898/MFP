@@ -11,6 +11,7 @@ const {
 } = require('../../../services/content-writing/writing-profile');
 const BlogPromptPaths = require('../../../applications/blog/writing/prompts/paths');
 const { buildBlogGenerationPrompt } = require('../../../applications/blog/writing/blog-generation-prompt');
+const { createSettingsWritingProfileRuntime } = require('../../../composition/settings-writing-profile');
 
 function createHarness(options = {}) {
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'settings-profile-'));
@@ -21,13 +22,19 @@ function createHarness(options = {}) {
             writing_style: { writing_mode: 'conversational', speech_level: 'polite' }
         }
     };
-    const service = createSettingsService({
-        fs, path, CONFIG,
-        Utils: options.Utils,
+    const writingProfileApplication = createSettingsWritingProfileRuntime({
+        fs,
+        path,
+        config: CONFIG,
         blogWritingApplication: options.blogWritingApplication,
         aiGenerationService: options.aiGenerationService,
         styleReferenceAnalyzer: options.styleReferenceAnalyzer,
         writingProfilePreviewService: options.writingProfilePreviewService
+    });
+    const service = createSettingsService({
+        fs, path, CONFIG,
+        writingProfileApplication,
+        Utils: options.Utils,
     });
     return { CONFIG, service };
 }

@@ -1,11 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const {
-    aggregateTrendKeywords,
-    normalizeCategories,
-    resolveTrendPostingFilters
-} = require('./query');
+const { normalizeCategories, resolveTrendPostingFilters } = require('./query');
+const { aggregateTrendKeywords } = require('../../../services/knowledge/trend-keywords');
 
 test('normalizeCategories accepts repeated and comma-separated category values', () => {
     const params = new URLSearchParams([

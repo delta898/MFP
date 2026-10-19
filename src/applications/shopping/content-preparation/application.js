@@ -6,8 +6,6 @@ const moment = require('moment-timezone');
 const { sanitizeFileName } = require('../../../utilities/text/sanitize-file-name');
 const Logger = require('../../../utilities/logging/logger');
 const BrowserLauncher = require('../../../utilities/browser/browser-launcher');
-const { persistAuthSessionState } = require('../../../adapters/naver/auth-session');
-const { recoverOptionalProduct } = require('../../../adapters/commerce/shopping-product-gateway');
 const { normalizeWritingStrategy, buildShoppingWritingStrategyPrompt } = require('../../../services/content-writing/writing-strategy');
 const { projectWritingProfile } = require('../../../services/content-writing/writing-profile-projection');
 const { buildShoppingWritingProfilePromptFromProjection } = require('../generation/writing-profile-prompt');
@@ -3185,7 +3183,7 @@ async function resolveCandidateUrlWithBrowser(url, headless = true, options = {}
         }
 
         if (contextOptions.storageState) {
-            await persistAuthSessionState(context, { authPath: contextOptions.storageState });
+            await options.persistAuthSessionState?.(context, { authPath: contextOptions.storageState });
         }
 
         await context.close();
@@ -3226,7 +3224,7 @@ async function resolveFinalUrlWithBrowser(url, referer = '', headless = true, co
     }
 }
 
-async function resolveReviewRichHtmlWithBrowser(url, headless = true, config = {}) {
+async function resolveReviewRichHtmlWithBrowser(url, headless = true, config = {}, options = {}) {
     let browser;
     try {
         browser = await BrowserLauncher.launchBrowser({ headless, channel: config.BROWSER_CHANNEL });
@@ -3249,7 +3247,7 @@ async function resolveReviewRichHtmlWithBrowser(url, headless = true, config = {
         const html = await page.content();
 
         if (contextOptions.storageState) {
-            await persistAuthSessionState(context, { authPath: contextOptions.storageState });
+            await options.persistAuthSessionState?.(context, { authPath: contextOptions.storageState });
         }
 
         await context.close();
@@ -3265,9 +3263,9 @@ async function resolveReviewRichHtmlWithBrowser(url, headless = true, config = {
     }
 }
 
-async function resolveViaShoppingSearchGateway(channelProductNo, productName = '', gateway) {
-    if (!gateway) return null;
-    return await recoverOptionalProduct(
+async function resolveViaShoppingSearchGateway(channelProductNo, productName = '', gateway, recoverProduct) {
+    if (!gateway || typeof recoverProduct !== 'function') return null;
+    return await recoverProduct(
         gateway,
         { productId: channelProductNo, productName },
         (error) => Logger.warn(`⚠️ 쇼핑 상품 Gateway fallback 실패: ${error.message}`)
@@ -3390,7 +3388,7 @@ async function resolveProductDataFromChannelNo(channelProductNo, baseData, sourc
     if (allowBrowserFallback) {
         const browserCandidates = uniqueCandidates.slice(0, 5);
         for (const url of browserCandidates) {
-            const resolved = await resolveCandidateUrlWithBrowser(url, true, { config: options.config });
+            const resolved = await resolveCandidateUrlWithBrowser(url, true, options);
             if (!resolved) continue;
 
             const candidateData = extractProductData(resolved.finalUrl, resolved.html);
@@ -3409,7 +3407,7 @@ async function resolveProductDataFromChannelNo(channelProductNo, baseData, sourc
     }
 
     const searchFallback = options.shoppingProductGateway
-        ? await resolveViaShoppingSearchGateway(channelProductNo, options.productName, options.shoppingProductGateway)
+        ? await resolveViaShoppingSearchGateway(channelProductNo, options.productName, options.shoppingProductGateway, options.recoverShoppingProduct)
         : null;
     if (searchFallback) {
         const merged = mergeProductData(baseData, {
@@ -3997,7 +3995,8 @@ const ShoppingManager = {
             const browserResolved = await resolveCandidateUrlWithBrowser(shortUrl, true, {
                 includeReview: false,
                 waitMs: 3500,
-                config
+                config,
+                persistAuthSessionState: runtimeOptions.persistAuthSessionState
             });
             if (browserResolved) {
                 const browserData = extractProductData(browserResolved.finalUrl, browserResolved.html);
@@ -4091,7 +4090,7 @@ const ShoppingManager = {
         let browserResolvedReviewHtml = null;
 
         if (isLikelyInvalidLanding(productData, finalUrl)) {
-            const browserResolved = await resolveCandidateUrlWithBrowser(shortUrl, scrapingHeadless, { config });
+            const browserResolved = await resolveCandidateUrlWithBrowser(shortUrl, scrapingHeadless, { config, persistAuthSessionState: runtimeOptions.persistAuthSessionState });
             if (browserResolved) {
                 const browserData = extractProductData(browserResolved.finalUrl, browserResolved.html);
                 sourceHtml = browserResolved.html || sourceHtml;
@@ -4114,6 +4113,7 @@ const ShoppingManager = {
                 const fallback = await resolveProductDataFromChannelNo(channelProductNo, productData, sourceHtml, {
                     productName: productNameHint,
                     shoppingProductGateway: runtimeOptions.shoppingProductGateway,
+                    recoverShoppingProduct: runtimeOptions.recoverShoppingProduct,
                     config
                 });
                 if (fallback) {
@@ -4160,7 +4160,7 @@ const ShoppingManager = {
                 Logger.debug('♻️ [Shopping] 1차 브라우저 패스 리뷰 HTML 재사용 (추가 브라우저 방문 생략)');
                 reviewResolved = { finalUrl: reviewTargetUrl, html: browserResolvedReviewHtml };
             } else {
-                reviewResolved = await resolveReviewRichHtmlWithBrowser(reviewTargetUrl, scrapingHeadless, config);
+                reviewResolved = await resolveReviewRichHtmlWithBrowser(reviewTargetUrl, scrapingHeadless, config, runtimeOptions);
             }
 
             if (reviewResolved?.html) {

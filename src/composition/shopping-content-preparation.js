@@ -1,6 +1,8 @@
 'use strict';
 
 const { createShoppingProductGateway } = require('../adapters/commerce/shopping-product-gateway');
+const { recoverOptionalProduct } = require('../adapters/commerce/shopping-product-gateway');
+const { persistAuthSessionState } = require('../adapters/naver/auth-session');
 const ShoppingContentPreparation = require('../applications/shopping/content-preparation/application');
 
 function createShoppingContentPreparationRuntime(options = {}) {
@@ -17,6 +19,8 @@ function createShoppingContentPreparationRuntime(options = {}) {
         ShoppingContentPreparation.buildPostFromShortUrl.call(application, shortUrl, {
             ...runtimeOptions,
             config: options.config || {},
+            persistAuthSessionState,
+            recoverShoppingProduct: recoverOptionalProduct,
             ...(typeof resolvePlatformWorkspaceDir === 'function' ? { resolvePlatformWorkspaceDir } : {}),
             ...((application.relatedPostsService || options.relatedPostsService)
                 ? { relatedPostsService: application.relatedPostsService || options.relatedPostsService }
@@ -28,14 +32,18 @@ function createShoppingContentPreparationRuntime(options = {}) {
         ShoppingContentPreparation.previewFromShortUrl.call(application, shortUrl, {
             ...runtimeOptions,
             config: options.config || {},
-            shoppingProductGateway
+            shoppingProductGateway,
+            persistAuthSessionState,
+            recoverShoppingProduct: recoverOptionalProduct
         })
     );
     application.scrapeShoppingProduct = (shortUrl, runtimeOptions = {}) => (
         ShoppingContentPreparation.scrapeShoppingProduct.call(application, shortUrl, {
             ...runtimeOptions,
             config: options.config || {},
-            shoppingProductGateway
+            shoppingProductGateway,
+            persistAuthSessionState,
+            recoverShoppingProduct: recoverOptionalProduct
         })
     );
 

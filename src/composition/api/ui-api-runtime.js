@@ -5,6 +5,7 @@ const { createDesignStylesRouteHandler } = require('../../adapters/ui/site-hosti
 const { createManuscriptDraftService } = require('../../applications/blog/manuscript-drafts/application');
 const { createCorePluginsRouteHandler } = require('../../adapters/ui/plugins/core-plugins.routes');
 const { createWidgetPluginsRouteHandler } = require('../../adapters/ui/widget-plugins.routes');
+const { createSettingsWritingProfileRuntime } = require('../settings-writing-profile');
 
 function createUiApiRuntime(deps = {}) {
     const {
@@ -237,6 +238,15 @@ function createUiApiRuntime(deps = {}) {
 
     function getSettingsRouteHandlerInstance() {
         if (!settingsRouteHandler) {
+            const writingProfileApplication = createSettingsWritingProfileRuntime({
+                fs,
+                path,
+                config: CONFIG || {},
+                axios,
+                cheerio,
+                blogWritingApplication,
+                aiGenerationService
+            });
             const service = createSettingsService({
                 fs,
                 path,
@@ -268,6 +278,7 @@ function createUiApiRuntime(deps = {}) {
                 TelegramBotService,
                 SlackService,
                 telegramPairingService,
+                writingProfileApplication,
                 socialPublisher,
                 axios,
                 cheerio,

@@ -10,6 +10,7 @@ const { createBlogWritingSystem } = require('./blog-writing');
 const { createWordPressPublishingSystem } = require('./wordpress-publishing');
 const { createNaverPublishingSystem } = require('./naver-publishing');
 const { createBlogPublishingApplication } = require('../applications/blog/publishing/application');
+const { formatRelatedPostsForNaver } = require('../adapters/naver/publishing/related-posts');
 const { createBlogPostingApplication } = require('../applications/blog/posting/application');
 const { createBlogReferenceContentFetcher } = require('../adapters/web/blog-reference-content-fetcher');
 const { createReferenceSearchGateway } = require('../adapters/knowledge/blog-reference-search');
@@ -179,6 +180,7 @@ function createBlogBetaRuntimeComposition(options = {}) {
         fs,
         path,
         findImageByPrefix,
+        formatNaverRelatedPosts: formatRelatedPostsForNaver,
         persistWordPressAssetUrl: (key, value) => wordpressPublishedAssetSettings.persist(key, value)
     });
 

@@ -327,7 +327,7 @@ This is an in-process boundary, not a security sandbox. Bundled Core code is tru
 
 ## Current implementation and migration boundary
 
-- New foundation code: `src/platform/plugin-contract.js`, `src/platform/plugin-host.js`, manifest-backed Core registry/composition, and the example Application and composition root.
+- New foundation code: `src/platform/plugin-contract.js`, `src/platform/plugin-host.js`, and the manifest-backed Core registry/composition. The former example Application was removed; Plugin Host contract tests remain focused on generic registration and dispatch behavior.
 - Agent capabilities are registered directly by `src/capabilities/index.js`; they are not contributed through Plugins. Native Plugins use the shared `src/platform/plugin-host.js` runtime and are selected and wired in Composition.
 - The WordPress Publisher package uses injected credentials and `fetch`, with no BlogGenius-private imports. Its REST operations cover media upload, category listing, and post creation. Media bytes cross the JSON operation boundary as base64 and are decoded only by the WordPress adapter.
 - `packages/plugins/core/ai-gateway/` declares provider-neutral `models.list`, `models.verify`, `text.generate`, and `image.generate` operations. It reports supported routes and filters the Supabase catalog through those routes. Settings and generation use the same Gateway-owned catalog; there is no separate product catalog intersection. The Host resolves credentials and short-lived verification profiles without passing keys through Plugin operations. See [AI Gateway Core Plugin](ai-gateway-plugin.md).

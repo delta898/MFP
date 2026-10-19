@@ -37,7 +37,6 @@ const {
 } = require('../../storage/connection-verifications/state-store');
 const { createConnectionSignature, isVerificationTrusted } = require('../../../services/connection-verification/policy');
 const { createAiModelVerificationSignature } = require('../../../services/ai/model-verification');
-const { createSettingsWritingProfileRuntime } = require('../../../composition/settings-writing-profile');
 const {
     createSettingsAiModelsApplication,
     normalizeAiRoleSettings: normalizeAiRoleSettingsForApplication,
@@ -232,25 +231,17 @@ function createSettingsService(deps = {}) {
         telegramPairingService: providedTelegramPairingService,
         socialPublisher,
         axios,
-        styleReferenceAnalyzer,
-        writingProfilePreviewService,
-        blogWritingApplication,
-        aiGenerationService,
+        writingProfileApplication,
         aiGateway = null
     } = deps;
     const telegramPairingService = providedTelegramPairingService;
 
-    const writingProfileApplication = createSettingsWritingProfileRuntime({
-        fs,
-        path,
-        config: CONFIG || {},
-        axios,
-        cheerio: deps.cheerio,
-        blogWritingApplication,
-        aiGenerationService,
-        styleReferenceAnalyzer,
-        writingProfilePreviewService
-    });
+    function requireWritingProfileApplication() {
+        if (!writingProfileApplication) {
+            throw createApiError(503, 'WRITING_PROFILE_UNAVAILABLE', '글쓰기 프로필 기능을 사용할 수 없습니다.');
+        }
+        return writingProfileApplication;
+    }
 
     const settingsConfigRepository = {
         resolvePath() {
@@ -359,24 +350,24 @@ function createSettingsService(deps = {}) {
 
     return {
         async getWritingProfile() {
-            return writingProfileApplication.getWritingProfile();
+            return requireWritingProfileApplication().getWritingProfile();
         },
 
         async saveWritingProfile(requestBody = {}) {
             try {
-                return writingProfileApplication.saveWritingProfile(requestBody);
+                return requireWritingProfileApplication().saveWritingProfile(requestBody);
             } catch (error) {
                 throw toWritingProfileApiError(error);
             }
         },
 
         async useDefaultWritingProfile() {
-            return writingProfileApplication.useDefaultWritingProfile();
+            return requireWritingProfileApplication().useDefaultWritingProfile();
         },
 
         async analyzeWritingProfileReferences(requestBody = {}) {
             try {
-                return await writingProfileApplication.analyzeWritingProfileReferences(requestBody);
+                return await requireWritingProfileApplication().analyzeWritingProfileReferences(requestBody);
             } catch (error) {
                 if (String(error?.code || '').startsWith('STYLE_REFERENCE_')) {
                     throw createApiError(400, error.code, error.message);
@@ -386,12 +377,12 @@ function createSettingsService(deps = {}) {
         },
 
         async deleteWritingProfileReferences() {
-            return writingProfileApplication.deleteWritingProfileReferences();
+            return requireWritingProfileApplication().deleteWritingProfileReferences();
         },
 
         async previewWritingProfile(requestBody = {}) {
             try {
-                return await writingProfileApplication.previewWritingProfile(requestBody);
+                return await requireWritingProfileApplication().previewWritingProfile(requestBody);
             } catch (error) {
                 if (String(error?.code || '').startsWith('WRITING_PREVIEW_')) {
                     throw createApiError(error.status || 400, error.code, error.message);

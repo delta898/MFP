@@ -4,7 +4,6 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createPluginHost, PluginHostError } = require('./plugin-host');
 const { PluginContractError } = require('./plugin-contract');
-const { createContentPublishingExampleSystem } = require('../composition/content-publishing-example');
 
 function makeManifest(overrides = {}) {
     return {
@@ -34,93 +33,6 @@ function validPlugin(overrides = {}) {
     };
 }
 
-function createFakeTextGenerator() {
-    return {
-        manifest: {
-            manifestVersion: 1,
-            id: 'sample-text-generator',
-            name: 'Sample text generator',
-            hostApi: '^1.0.0',
-            summary: 'Generate sample text.',
-            operations: {
-                generate: {
-                    description: 'Generate a sample draft from a topic and audience.',
-                    inputSchema: {
-                        type: 'object',
-                        properties: { topic: { type: 'string' }, audience: { type: 'string' } },
-                        required: ['topic', 'audience'],
-                        additionalProperties: false
-                    },
-                    outputSchema: {
-                        type: 'object',
-                        properties: { title: { type: 'string' }, body: { type: 'string' } },
-                        required: ['title', 'body'],
-                        additionalProperties: false
-                    },
-                    capabilities: []
-                }
-            }
-        },
-        version: '0.0.0-test',
-        operations: {
-            generate: {
-                async execute(input) {
-                    return {
-                        title: `${input.topic} for ${input.audience}`,
-                        body: `Sample draft about ${input.topic}.`
-                    };
-                }
-            }
-        }
-    };
-}
-
-function createFakePublisher() {
-    return {
-        manifest: {
-            manifestVersion: 1,
-            id: 'sample-publisher',
-            name: 'Sample publisher',
-            hostApi: '^1.0.0',
-            summary: 'Sample publishing operation.',
-            operations: {
-                publish: {
-                    description: 'Publish a sample draft to a named destination.',
-                    inputSchema: {
-                        type: 'object',
-                        properties: {
-                            draft: {
-                                type: 'object',
-                                properties: { title: { type: 'string' }, body: { type: 'string' } },
-                                required: ['title', 'body'],
-                                additionalProperties: false
-                            },
-                            destination: { type: 'string' }
-                        },
-                        required: ['draft', 'destination'],
-                        additionalProperties: false
-                    },
-                    outputSchema: {
-                        type: 'object',
-                        properties: { url: { type: 'string' } },
-                        required: ['url'],
-                        additionalProperties: false
-                    },
-                    capabilities: []
-                }
-            }
-        },
-        version: '0.0.0-test',
-        operations: {
-            publish: {
-                async execute(input) {
-                    return { url: `https://example.invalid/${input.destination}` };
-                }
-            }
-        }
-    };
-}
-
 test('Host registers manifest operations and reports lifecycle state', () => {
     const host = createPluginHost({ plugins: [validPlugin()] });
 
@@ -137,7 +49,6 @@ test('Host registers manifest operations and reports lifecycle state', () => {
         capabilities: []
     }]);
 });
-
 test('registration rejects invalid manifests, schemas, implementations, and duplicate IDs', () => {
     assert.throws(() => createPluginHost({ plugins: [validPlugin({ manifest: makeManifest({ id: 'Bad Id' }) })] }), PluginContractError);
     assert.throws(() => createPluginHost({ plugins: [validPlugin({ manifest: makeManifest({ operations: {} }) })] }), /manifest is invalid/i);
@@ -292,20 +203,4 @@ test('disable blocks new work and waits for active executions to drain', async (
     assert.deepEqual(await running, { done: true });
     assert.deepEqual(await disabling, { id: 'sample-plugin', state: 'disabled' });
     assert.deepEqual(await host.setEnabled('sample-plugin', true), { id: 'sample-plugin', state: 'enabled' });
-});
-
-test('Application composes generation and publishing through manifest-validated Host operations', async () => {
-    const system = createContentPublishingExampleSystem([
-        createFakeTextGenerator(),
-        createFakePublisher()
-    ]);
-
-    await assert.rejects(system.application.publish({ topic: 'missing fields' }), /requires topic, audience, and destination/);
-
-    assert.deepEqual(await system.application.publish({
-        topic: 'platform design', audience: 'developers', destination: 'preview'
-    }), {
-        draft: { title: 'platform design for developers', body: 'Sample draft about platform design.' },
-        publication: { url: 'https://example.invalid/preview' }
-    });
 });
