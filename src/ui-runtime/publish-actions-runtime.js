@@ -31,7 +31,6 @@ function createPublishActionsRuntime(deps = {}) {
         Logger,
         Utils,
         GoogleSheets,
-        Core,
         blogPostingApplication,
         blogWritingApplication,
         blogPublishingApplication,
@@ -65,9 +64,10 @@ function createPublishActionsRuntime(deps = {}) {
     const topicRecommendationLearning = createTopicRecommendationLearningService({ recordActivityLifecycle });
 
     async function publishNaver(directory, request = {}) {
-        return typeof blogPublishingApplication?.publishNaver === 'function'
-            ? blogPublishingApplication.publishNaver(directory, request)
-            : Core.publishToBlog(directory, request);
+        if (typeof blogPublishingApplication?.publishNaver !== 'function') {
+            throw new TypeError('Blog Publishing Application does not provide Naver publishing.');
+        }
+        return blogPublishingApplication.publishNaver(directory, request);
     }
 
     async function publishWordPressManuscript(directory, request = {}) {
@@ -1415,11 +1415,11 @@ function createPublishActionsRuntime(deps = {}) {
                 }, 3);
                 if (relatedPosts.length > 0) {
                     const heading = Utils.pickRelatedPostsHeading();
-                    const relatedSection = Core.buildRelatedPostsSectionMarkdown(relatedPosts, heading, true);
+                    const relatedSection = blogPostingApplication.buildRelatedPostsSectionMarkdown(relatedPosts, heading, true);
                     effectiveMarkdownText = appendRelatedPostsToPastedMarkdown(
                         effectiveMarkdownText,
                         relatedSection,
-                        Core.stripAiRelatedPostsSection
+                        blogPostingApplication.stripAiRelatedPostsSection
                     );
                     previewData = buildLocalMarkdownPreview({
                         markdownText: effectiveMarkdownText,

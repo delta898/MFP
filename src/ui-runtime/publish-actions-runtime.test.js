@@ -8,7 +8,7 @@ const { createPublishActionsRuntime } = require('./publish-actions-runtime');
 const { getFeatureBool, isCommandEnabled, toFeatureMap } = require('../runtime-feature-flags');
 
 const createTestPublishActionsRuntime = (deps = {}) => {
-    if (deps.blogPostingApplication || typeof deps.Core?.generateContent !== 'function') {
+    if (deps.blogPostingApplication || typeof deps.generationHarness?.generateContent !== 'function') {
         return createPublishActionsRuntime(deps);
     }
     return createPublishActionsRuntime({
@@ -19,7 +19,7 @@ const createTestPublishActionsRuntime = (deps = {}) => {
                     async generateText() { return ''; },
                     async generateImage() { return { dataBase64: '', mimeType: 'image/png' }; }
                 };
-                const generated = await deps.Core.generateContent(topic, settings.workspaceDir || null, {
+                const generated = await deps.generationHarness.generateContent(topic, settings.workspaceDir || null, {
                     ...settings,
                     generateText(prompt, modelOptions = {}) {
                         const selection = modelOptions.modelConfig;
@@ -29,9 +29,9 @@ const createTestPublishActionsRuntime = (deps = {}) => {
                         });
                     }
                 });
-                if (typeof deps.Core.prepareImages === 'function') {
+                if (typeof deps.generationHarness.prepareImages === 'function') {
                     settings.onStage?.('images');
-                    await deps.Core.prepareImages(generated.targetDir, topic, {
+                    await deps.generationHarness.prepareImages(generated.targetDir, topic, {
                         ...settings,
                         imageGenerationEnabled: settings.imageGenerationEnabled !== false,
                         generateImage(prompt, imageOptions = {}) {
@@ -436,7 +436,7 @@ test('quick preview generation failure does not leak credentials', async () => {
             }
         },
         Logger: { info() {}, warn() {}, error() {} },
-        Core: {
+        generationHarness: {
             async generateContent() {
                 throw new Error('글쓰기 텍스트 모델 호출에 실패했습니다: Invalid URL (요청 주소: https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent)');
             }
@@ -561,7 +561,7 @@ function createPublishLifecycleRuntime({ naverSuccess, wordpressSuccess, reserve
     const runtime = createTestPublishActionsRuntime({
         CONFIG: {},
         Logger: { info() { }, warn() { }, error() { } },
-        Core: {
+        generationHarness: {
             async generateContent(_topic, _unused, options) {
                 return { targetDir: `/tmp/${options.platform}`, finalSubject: 'quota test' };
             },
@@ -613,7 +613,7 @@ test('Naver and WordPress generation receive the same per-post profile overrides
     const runtime = createTestPublishActionsRuntime({
         CONFIG: {},
         Logger: { info() { }, warn() { }, error() { } },
-        Core: {
+        generationHarness: {
             async generateContent(topic, _unused, options) {
                 generated.push({ topic, options });
                 return { targetDir: `/tmp/${options.platform}`, finalSubject: 'profile test' };
@@ -648,7 +648,7 @@ test('Naver and WordPress generation receive the same per-post profile overrides
     assert.deepEqual(generated.map((item) => item.topic.category), ['네이버 분류', '워드프레스 분류']);
 });
 
-test('legacy Blog generation routes Core text and image callbacks through Blog Writing Application', async () => {
+test('legacy Blog generation test harness routes text and image callbacks through the Blog Posting Application', async () => {
     const calls = [];
     const blogWritingApplication = {
         async generateText(prompt, context) {
@@ -664,16 +664,16 @@ test('legacy Blog generation routes Core text and image callbacks through Blog W
         CONFIG: {},
         Logger: { info() {}, warn() {}, error() {} },
         blogWritingApplication,
-        Core: {
+        generationHarness: {
             async generateContent(_topic, _unused, options) {
-                await options.generateText('legacy text prompt', {
+                await options.generateText('test text prompt', {
                     signal: options.signal,
                     modelConfig: { provider: 'google', code: 'text-model' }
                 });
                 return { targetDir: '/tmp/blog-plugin-generation', finalSubject: '블로그' };
             },
             async prepareImages(_dir, _topic, options) {
-                await options.generateImage('legacy image prompt', {
+                await options.generateImage('test image prompt', {
                     signal: options.signal,
                     modelConfig: { provider: 'openai', code: 'image-model' }
                 });
@@ -696,14 +696,14 @@ test('legacy Blog generation routes Core text and image callbacks through Blog W
     assert.equal(calls[1].options.aspectRatio, '4:3');
 });
 
-test('generation passes the operation signal and model snapshot to Core and does not convert cancellation to ordinary failure', async () => {
+test('generation passes the operation signal and model snapshot through the test harness to the Blog Posting Application and does not convert cancellation to ordinary failure', async () => {
     const controller = new AbortController();
     const textModelConfig = { provider: 'openai', code: 'gpt-6-sol' };
     const calls = [];
     const runtime = createTestPublishActionsRuntime({
         CONFIG: {},
         Logger: { info() {}, warn() {}, error() {} },
-        Core: {
+        generationHarness: {
             async generateContent(_topic, _unused, options) {
                 calls.push(options);
                 controller.abort();
@@ -726,7 +726,7 @@ test('generation passes image model snapshot and owned workspace to image prepar
     const calls = [];
     const runtime = createTestPublishActionsRuntime({
         CONFIG: {}, Logger: { info() {}, warn() {}, error() {} },
-        Core: {
+        generationHarness: {
             async generateContent(_topic, customDir) {
                 calls.push(['generate', customDir]);
                 return { targetDir: customDir, finalSubject: 'subject' };
@@ -768,7 +768,7 @@ test('Naver publishing progress is forwarded and logged through the shared progr
     const runtime = createTestPublishActionsRuntime({
         CONFIG: {},
         Logger: { info(message) { logs.push(message); }, warn() {}, error() {} },
-        Core: {
+        generationHarness: {
             async generateContent(_topic, _dir, options) { return { targetDir: `/tmp/${options.platform}`, finalSubject: '진행 확인' }; },
             async prepareImages() {}
         },

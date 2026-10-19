@@ -221,6 +221,10 @@ function createBlogPostingApplication(options = {}) {
     }
 
     return Object.freeze({
+        buildRelatedPostsSectionMarkdown(relatedPosts, heading, includeHeading = true) {
+            return buildRelatedPostsSectionMarkdown(relatedPosts, heading, includeHeading, Utils);
+        },
+        stripAiRelatedPostsSection,
         async preparePost(topic, settings = {}) {
             const signal = settings.signal;
             settings.onStage?.('writing');

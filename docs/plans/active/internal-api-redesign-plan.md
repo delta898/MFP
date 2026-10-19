@@ -348,21 +348,21 @@ runtime/capability는 채널 독립 결과를 반환한다.
 
 현재 register/publish 경로는 완전한 agent planner path는 아니지만, Telegram 내부 상태와 실행 계약은 이전보다 훨씬 internal API에 가깝게 정리되었다.
 
-- 입력 진입: legacy `Core.parseTelegramRequest` 유지
+- 입력 진입: Telegram parser가 `src/adapters/messaging/telegram/`에 있으며, legacy `Core.parseTelegramRequest`는 제거됨
 - 내부 pending 상태: canonical content request bundle 사용
 - preview: canonical request payload 기반 renderer 사용
 - toggle: canonical bundle payload 직접 수정
 - confirm execute: canonical bundle에서 capability execute input 재구성
 
-즉, 현재 단계의 의미는 `legacy parser in / canonical execution contract inside` 로 보는 것이 가장 정확하다.
+즉, 현재 단계의 의미는 `channel adapter in / canonical execution contract inside` 로 보는 것이 가장 정확하다.
 
 ## Next Recommended Steps
 - Telegram callback naming을 `content_request.*` 계열로 정리
 - Desktop/BlogAnywhere 등 새 채널이 추가될 때 Host Agent의 canonical request planning contract를 재사용하고 channel-specific mapping만 각 adapter에 둔다.
 - MCP/UI가 같은 canonical content request model을 공유하도록 contract 추출
-- 이후 legacy parser를 planner-compatible parser로 대체할 수 있는지 검토
+- 이후 Telegram parser와 Host planner 사이의 남은 중복 의도 분류 책임을 검토
 
-즉 **legacy behavior를 지우는 것이 아니라, 아래쪽 실행 계층을 먼저 공통화**한다.
+즉 **채널 입력 해석과 아래쪽 실행 계약을 분리하고, canonical request model을 공통화**한다.
 
 ## Confirmation Model Rules
 - confirmation은 plan 기준이다.

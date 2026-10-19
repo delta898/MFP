@@ -19,7 +19,7 @@ test('sheet adapter keeps canonical mode and legacy boolean compatibility', () =
 test('WYSIWYG manuscript publishing owns images in slots and drafts only for actual unresolved targets', () => {
     const manuscriptView = read('ui/partials/views/blog-next.html');
     const manuscriptScript = `${read('ui/scripts/features/blog/publishing-targets.js')}\n${read('ui/scripts/features/blog/draft-inputs.js')}\n${read('ui/scripts/features/blog/draft-execution.js')}`;
-    const core = read('src/core.js');
+    const publishingApplication = read('src/applications/blog/publishing/application.js');
 
     assert.doesNotMatch(manuscriptView, /data-draft-field="image-mode"/);
     assert.match(manuscriptScript, /imageMode: 'prompt_only'/);
@@ -29,9 +29,8 @@ test('WYSIWYG manuscript publishing owns images in slots and drafts only for act
     assert.doesNotMatch(manuscriptScript, /changedToDraft|forcedDraft/);
     assert.match(manuscriptScript, /option\.disabled = imagePreparationRequired \|\| \(option\.value === 'schedule' && isBlogNextSiteHostingTarget\(type\)\)/);
     assert.match(manuscriptScript, /buttonLabel: '블로그에 임시 저장'/);
-    assert.doesNotMatch(core, /if \(options\.imageGeneration === false\) \{\s*hasImageWarnings = true;/);
-    assert.doesNotMatch(core, /이미지 미생성 옵션으로 인해 Draft로 강제 전환/);
-    assert.match(core, /이미지 누락\/미생성 시 Draft 강제 전환/);
+    assert.match(publishingApplication, /missingImage = true/);
+    assert.match(publishingApplication, /missingImage \? 'draft' : requestedStatus/);
 });
 
 test('Blog Beta image preview completes only its final grid row with inert decorative cells', () => {

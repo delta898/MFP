@@ -134,10 +134,6 @@ test('scheduled blog rows revalidate the requested time at the platform-post bou
             },
             async updateGoogleSheetStatus() { }
         },
-        Core: {
-            async generateContent() { return { targetDir: '/tmp/generated', finalSubject: '예약 글' }; },
-            async prepareImages() { }
-        },
         License: {
             async checkLicenseStatus() { return { success: true, features: { cmd_batch: true } }; }
         },
@@ -509,15 +505,6 @@ test('single row generation passes the stored image mode to generation and image
         GoogleSheets: {
             async readGoogleSheetTopicsAll() { return { items: [topicRow] }; },
             async updateGoogleSheetStatus() {}
-        },
-        Core: {
-            async generateContent(topic) {
-                calls.push(['generate', topic.image_options]);
-                return { targetDir: '/tmp/mode-topic' };
-            },
-            async prepareImages(_dir, topic) {
-                calls.push(['prepare', topic.image_options]);
-            }
         },
         blogPostingApplication: {
             async preparePost(topic) {

@@ -5,7 +5,7 @@ const os = require('os');
 const path = require('path');
 
 const Utils = require('../../../utils');
-const Core = require('../../../core');
+const { buildRelatedPostsSectionMarkdown } = require('./related-posts-markdown');
 const { createManuscriptDraftService } = require('../../../applications/blog/manuscript-drafts/application');
 
 function fixture(gateway) {
@@ -27,7 +27,7 @@ function stubGateway(overrides = {}) {
         },
         pickHeading: () => '함께 보면 좋은 글',
         stripSection: (text) => String(text || ''),
-        buildSection: (posts, heading) => Core.buildRelatedPostsSectionMarkdown(posts, heading, true),
+        buildSection: (posts, heading) => buildRelatedPostsSectionMarkdown(posts, heading, true),
         toMobileUrl: (url) => Utils.toMobileNaverBlogPostUrl(url),
         ...overrides
     };

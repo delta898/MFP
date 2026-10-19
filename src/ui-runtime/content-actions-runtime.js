@@ -26,7 +26,6 @@ function createContentActionsRuntime(deps = {}) {
         CONFIG,
         Utils,
         GoogleSheets,
-        Core,
         blogPostingApplication,
         shoppingGenerationApplication,
         blogPublishingApplication,
@@ -49,9 +48,10 @@ function createContentActionsRuntime(deps = {}) {
     } = deps;
 
     async function publishNaver(directory, request = {}) {
-        return typeof blogPublishingApplication?.publishNaver === 'function'
-            ? blogPublishingApplication.publishNaver(directory, request)
-            : Core.publishToBlog(directory, request);
+        if (typeof blogPublishingApplication?.publishNaver !== 'function') {
+            throw new TypeError('Blog Publishing Application does not provide Naver publishing.');
+        }
+        return blogPublishingApplication.publishNaver(directory, request);
     }
 
     async function publishWordPressManuscript(directory, request = {}) {

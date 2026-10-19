@@ -10,11 +10,11 @@ const { createBlogPublishingApplication } = require('./application');
 function createApplication(options = {}) {
     const calls = [];
     const app = createBlogPublishingApplication({
-        Core: {
-            async publishToBlog(directory, request) { calls.push({ operation: 'naver', directory, request }); return { success: true }; }
-        },
-        legacyNaverPublisher: {
-            async publish(directory, request) { calls.push({ operation: 'naver', directory, request }); return { success: true }; }
+        naverPublisher: {
+            async publish(request, context) {
+                calls.push({ operation: 'naver-plugin', request, context });
+                return { status: request.status, warnings: [] };
+            }
         },
         imageOptimizationService: {
             async optimizeBuffer(bytes, settings) {
@@ -68,17 +68,33 @@ test('Blog Publishing Application preserves source assets when optimization is d
     assert.equal(await failed.app.prepareImageAsset('naver', source), source);
 });
 
-test('Blog Publishing Application injects its target policy into legacy publishers and prepares Plugin media', async (t) => {
+test('Blog Publishing Application prepares target media for Naver and WordPress Plugins', async (t) => {
     const { app, calls } = createApplication();
     const signal = new AbortController().signal;
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'blog-publishing-policy-'));
     t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
     const sourcePath = path.join(directory, 'source.png');
     fs.writeFileSync(sourcePath, Buffer.from('pixels'));
-    await app.publishNaver('/tmp/naver', { postStatus: 'draft' });
-    const naver = calls.find((call) => call.operation === 'naver');
-    assert.equal(naver.request.postStatus, 'draft');
-    assert.equal(path.basename(await naver.request.prepareImageForUpload(sourcePath)), 'source.webp');
+    const naverDir = fs.mkdtempSync(path.join(os.tmpdir(), 'blog-publishing-naver-'));
+    t.after(() => fs.rmSync(naverDir, { recursive: true, force: true }));
+    fs.writeFileSync(path.join(naverDir, 'contents.md'), '# Naver');
+    fs.writeFileSync(path.join(naverDir, '00_source.png'), Buffer.from('pixels'));
+    const { app: naverApp } = createApplication({
+        naverPublisher: {
+            async publish(request, context) {
+                calls.push({ operation: 'naver-plugin', request, context });
+                return { status: request.status, warnings: [] };
+            }
+        },
+        Utils: {
+            parseMarkdown() { return { title: 'Naver', contents: [{ type: 'image', index: 0, text: 'Source' }] }; },
+            findImageByPrefix(folder, index) { return index === 0 ? path.join(folder, '00_source.png') : null; }
+        }
+    });
+    await naverApp.publishNaver(naverDir, { postStatus: 'draft' });
+    const naver = calls.find((call) => call.operation === 'naver-plugin');
+    assert.equal(naver.request.status, 'draft');
+    assert.equal(naver.request.assets[0].filename, '00_source.webp');
 
     const request = {
         title: 'Title', content: '{{asset:hero}}',
@@ -241,19 +257,30 @@ test('Naver missing image blocks are preserved and force an otherwise live post 
     assert.match(result.warnings[0], /임시저장/);
 });
 
-test('affiliate-required publishing stays on the legacy Naver port', async () => {
+test('affiliate-required publishing uses the Naver Plugin after validating its link', async (t) => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'naver-affiliate-publish-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    fs.writeFileSync(path.join(directory, 'contents.md'), '# Shopping');
+    fs.writeFileSync(path.join(directory, '00_cta_image.png'), Buffer.from('cta'));
+    const published = [];
     const { app, calls } = createApplication({
-        naverPublisher: { async publish(request) { calls.push({ operation: 'unexpected-plugin', request }); return { status: 'publish', warnings: [] }; } }
+        naverPublisher: { async publish(request) { published.push(request); return { status: request.status, warnings: [] }; } },
+        Utils: {
+            parseMarkdown() { return { title: 'Shopping', contents: [{ type: 'image', index: 0, text: 'CTA' }] }; },
+            findImageByPrefix(folder, index) { return index === 0 ? path.join(folder, '00_cta_image.png') : null; }
+        }
     });
 
-    await app.publishNaver('/tmp/shopping-post', {
+    await app.publishNaver(directory, {
         affiliateUrl: 'https://example.test/item',
         requireAffiliateUrl: true,
         postStatus: 'publish'
     });
 
-    assert.equal(calls.some((call) => call.operation === 'naver'), true);
-    assert.equal(calls.some((call) => call.operation === 'unexpected-plugin'), false);
+    assert.equal(calls.some((call) => call.operation === 'naver-plugin'), true);
+    assert.equal(published[0].affiliateUrl, 'https://example.test/item');
+    assert.equal(published[0].assets[0].filename, '00_cta_image.webp');
+    await assert.rejects(app.publishNaver(directory, { requireAffiliateUrl: true }), /URL이 비어있거나/);
 });
 
 test('Blog Publishing Application writes converted file variants without overwriting source images', async (t) => {

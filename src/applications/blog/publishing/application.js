@@ -4,7 +4,6 @@ const pathDefault = require('path');
 const { marked } = require('marked');
 const { formatRelatedPostsForNaver } = require('../../../adapters/naver/publishing/related-posts');
 const { parseImageBlocks } = require('../../../utilities/markdown/image-blocks');
-const { assertDirectPublishAllowed } = require('../../../services/runtime-environment/effects');
 
 const TARGET_FORMATS = Object.freeze({ naver: 'webp', wordpress: 'avif' });
 const MIME_TYPES = Object.freeze({ avif: 'image/avif', webp: 'image/webp' });
@@ -14,9 +13,9 @@ const FORMAT_EXTENSIONS = Object.freeze({
 });
 
 function createBlogPublishingApplication(options = {}) {
-    const { imageOptimizationService, naverPublisher, legacyNaverPublisher, wordpressPublishingApplication, CONFIG, Logger, fs, Utils } = options;
+    const { imageOptimizationService, naverPublisher, wordpressPublishingApplication, CONFIG, Logger, fs, Utils } = options;
     const path = options.path || pathDefault;
-    if (typeof legacyNaverPublisher?.publish !== 'function' && typeof naverPublisher?.publish !== 'function') {
+    if (typeof naverPublisher?.publish !== 'function') {
         throw new TypeError('Blog Publishing Application requires a Naver publisher.');
     }
     if (!imageOptimizationService || typeof imageOptimizationService.optimizeBuffer !== 'function') {
@@ -66,13 +65,6 @@ function createBlogPublishingApplication(options = {}) {
     }
 
     async function publishNaver(directory, request = {}) {
-        // Shopping's affiliate-required workflow remains on its current publisher path in this feature.
-        if (!naverPublisher || typeof naverPublisher.publish !== 'function' || request.requireAffiliateUrl === true) {
-            return legacyNaverPublisher.publish(directory, {
-                ...request,
-                prepareImageForUpload: (filePath) => prepareImageFile('naver', filePath)
-            });
-        }
         if (!Utils || typeof Utils.parseMarkdown !== 'function' || typeof Utils.findImageByPrefix !== 'function') {
             throw new TypeError('Naver Plugin publishing requires Blog Markdown utilities.');
         }

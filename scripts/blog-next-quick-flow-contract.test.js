@@ -239,7 +239,6 @@ test('AI manuscript cancellation stays in the shared execution status', () => {
   assert.match(read('src/ui-api/routes/continuous-publishing.routes.js'), /runner\/stop/);
   assert.match(read('ui/scripts/features/blog/runner.js'), /6000\)/);
   assert.match(read('ui/styles/features/continuous-publishing.css'), /\.blog-next-publish-status-stop-control\[data-disabled="true"\]:hover/);
-  assert.match(read('src/core.js'), /reportPublishProgress\('submitting'\);[\s\S]*?await btn\.click\(\)/);
 });
 
 test('quick flow keeps results independent from edited inputs and scopes duplicate posts by platform', () => {

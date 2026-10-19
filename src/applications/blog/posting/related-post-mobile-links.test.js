@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const Utils = require('../../../utils');
-const Core = require('../../../core');
+const { buildRelatedPostsSectionMarkdown } = require('./related-posts-markdown');
 
 test('toMobileNaverBlogPostUrl converts supported Naver post URL forms', () => {
     assert.equal(
@@ -36,7 +36,7 @@ test('generateRelatedPostsMarkdown uses mobile Naver links and preserves WordPre
 });
 
 test('buildRelatedPostsSectionMarkdown uses mobile Naver links for Naver publishing', () => {
-    const markdown = Core.buildRelatedPostsSectionMarkdown([
+    const markdown = buildRelatedPostsSectionMarkdown([
         { title: '네이버 글', url: 'https://blog.naver.com/example_blog/1234567890' },
         { title: '워드프레스 글', url: 'https://example.com/wordpress-post' }
     ], '함께 보면 좋은 글');

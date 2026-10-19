@@ -96,7 +96,7 @@ loads, tests, persistence, and external contracts have been traced.
 | `adapters/ui/settings/` | Settings HTTP routes, controller response mapping, and transitional service composition/API compatibility boundary | Delegate user workflows to their vertical Applications; keep screen rendering in `ui/`, provider protocols in their adapters/Plugins, and remove compatibility handlers after their last production callers migrate. |
 | `adapters/ui/plugins/` | Read-only HTTP adapter for the Core Plugin inventory shown by Settings | Query the shared Plugin Runtime; catalog, lifecycle, and operation state remain Platform-owned. |
 | `host/` | Node UI launcher and Electron process startup, recovery, and lifecycle | Active Host ownership for process bootstrap; UI server/runtime composition and channel ingress remain separate future slices. |
-| `core.js` | Legacy Naver publishing implementation plus content and editor helpers; WordPress manuscript publication has moved to Blog Publishing Application | Decompose by publishing platform and Blog use case; migrate remaining callers; delete the legacy facade after verified. Do not move wholesale to `host/`. |
+| `core.js` | Removed after production callers moved to Blog Applications and Naver Publisher Plugin; unused Telegram parsing and stale scripts that called the deleted Core API were retired | No root Core facade remains. Blog manuscript preparation and related-post policy belong to Blog Posting; publication request preparation belongs to Blog Publishing; Naver browser interaction belongs to `packages/plugins/core/naver-publisher/`. |
 | `utils.js` | Shared content parsing, workspace, HTTP, and other non-Google helpers; Google Sheets operations have moved to the storage adapter and are injected as `GoogleSheets` | Continue splitting by owning Application, adapter, service, or utility; do not move wholesale to `utilities/`. |
 | `ui-server.js`, `runtime-hooks.js` | UI server composition/routing and mutable runtime hook registration | Migrate UI/API ingress and composition separately; keep normalized startup and channel routing in `host/`. `main.js` and `gui/` have moved to `host/` in the Host bootstrap slice. |
 | `applications/blog/writing/`, `applications/blog/posting/blog-reference-context.js` | Blog-owned writing policy, prompt assets, image planning, per-topic overrides, and reference-context orchestration | Keep Blog generation and posting policy with the Blog Application; shared profile contracts and provider transports remain in their owning service/adapter boundaries. |
@@ -156,7 +156,7 @@ packaging list.
 | `utilities/browser/browser-launcher.js` | Shared local Playwright startup, channel fallback, and launch-option normalization. Product callers provide headless and channel settings. | Keep as a shared technical utility; provider authentication and product workflows consume it through the utility boundary. It must not load the global configuration facade. |
 | `host/updater.js` | Desktop update checks, downloads, integrity validation, platform-specific apply/rollback, and restart lifecycle. Receives runtime configuration from UI-server composition and is covered by a Windows child-process fixture. | Keep in Host, which owns the desktop process lifecycle; UI/API routes only expose update operations. |
 | `config-loader.js`, `host/application-metadata.js`, `host/configuration/`, `host/update-defaults.js`, `adapters/naver/publishing-defaults.js`, `applications/blog/writing/prompts/paths.js`, `runtime-config.js`, `runtime-feature-flags.js` | Configuration compatibility projection, package version, runtime-path defaults, updater defaults, Naver publishing defaults, Blog prompt asset paths, remote runtime config, and feature-policy normalization | Each default now lives beside its owner. Continue decomposing the remaining compatibility projection between Host configuration, services, and Application policy; preserve startup order, packaged defaults, secret boundaries, and remote-config cache behavior. |
-| `core.js` | Mixed 2,700-line legacy facade: browser-driven Naver publishing, editor interactions, related-post helpers, and legacy Telegram request parsing. Still used by `ui-server.js`, Blog runtime composition and UI-runtime fallbacks. WordPress manuscript preparation/publication now belongs to Blog Publishing Application. | Split by Blog Application workflow, publishing adapters, and channel parsing. Remove each legacy function only after its replacement contract has production callers and tests; do not move the facade wholesale. |
+| `core.js` | Removed. Its active responsibilities now have explicit owners: Blog Posting Application, Blog Publishing Application, and Naver Publisher Plugin. The unused Telegram fallback parser and manual scripts that exercised the removed Core API were retired. | Do not recreate the mixed facade; keep these owners separate and prevent new root-level compatibility facades. |
 | `adapters/google/auth/`, `adapters/google/drive/`, `adapters/google/sheets/`, `adapters/storage/google-sheets/` | OAuth/PKCE and token refresh; Drive spreadsheet discovery/creation; shared Sheets transport, spreadsheet-reference parsing, range helpers, sheet preparation, and Blog/Shopping/keyword/trend stores. UI runtimes, services, Telegram, and capabilities receive the Sheets port through composition; SNS and Card News gateways use it for strict sheet preparation. | Keep provider protocol and persistence grouped under the adapter boundary; consuming workflows receive the injected `GoogleSheets` port. Preserve token storage, OAuth callback, Drive files, sheet initialization, and event-recording behavior. |
 | `utilities/media/image-optimization-service.js` | Provider-neutral AVIF/WebP buffer transformation using the shared Sharp loader. Blog Publishing Application supplies the target format and optimization setting through composition. | Keep target selection and file preparation in the owning Application; do not add platform-specific policy to this utility. |
 | `runtime-hooks.js` | Mutable process-wide hook registry consumed by MCP runtime, Telegram Bot service, and UI server. | Replace global mutation with explicit composition dependencies at the owning Host/runtime boundary; remove the singleton only when all registration and retrieval sites are migrated. |
@@ -188,9 +188,10 @@ packaging list.
 3. Migrate provider-facing services (Google, messaging, WordPress, URL) by
    changing composition and Application call paths, not by changing filenames
    alone. Preserve credentials, callbacks, retries, and external payloads.
-4. Decompose Shopping and Blog facades by workflow. `core.js`, `utils.js`, and
-   `config-loader.js` are late-stage removals because each mixes multiple
-   responsibilities and has broad caller graphs.
+4. Decompose the remaining Shopping and shared utility facades by workflow.
+   `utils.js` and `config-loader.js` remain late-stage removals because they
+   mix multiple responsibilities and have broad caller graphs. `core.js` has
+   been removed after its active responsibilities moved to their owners.
 5. Treat `ui-server.js` as an orchestration reduction project after service
    contracts are injectable; do not shift product policy into Host merely to
    shrink the file.
@@ -211,8 +212,8 @@ or an external contract.
    implementation and tests, and delete its old path after focused verification.
 3. Repeat for each product workflow and shared integration; do not combine
    unrelated product migrations into one move.
-4. Decompose the remaining root facades (`core.js`, `utils.js`, and startup
-   modules) after their callers have target contracts. Keep only genuine Host
+4. Decompose the remaining root facades (`utils.js` and startup modules)
+   after their callers have target contracts. Keep only genuine Host
    bootstrap and routing in `host/`.
 5. Add a structural test for the root invariant once all currently tracked root
    modules can be removed; keep it passing in every later slice.

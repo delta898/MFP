@@ -28,9 +28,6 @@ test('Blog Beta composition wires AI Gateway, WordPress publisher, and Blog Publ
         getGatewaySupport: () => ({ routes: [
             { kind: 'text', provider: 'direct', transport: 'openai_chat_completions', modelIds: null }
         ] }),
-        Core: {
-            async publishToBlog() {}
-        },
         imageOptimizationService: { async optimizeBuffer(bytes) { return { buffer: bytes, optimized: false }; } },
         BrowserLauncher: {},
         AuthSession: {},

@@ -31,7 +31,6 @@ const checkAuthSessionValid = (options = {}) => NaverAuthSession.checkAuthSessio
 const peekAuthSessionState = (options = {}) => NaverAuthSession.peekAuthSessionState({ ...naverAuthConfiguration, ...options });
 const clearAuthSession = (options = {}) => NaverAuthSession.clearAuthSession({ ...naverAuthConfiguration, ...options });
 const Utils = require('./utils');
-const Core = require('./core');
 const TelegramBotService = require('./telegram-bot.service');
 TelegramBotService.GoogleSheets = GoogleSheets;
 TelegramBotService.License = License;
@@ -323,7 +322,6 @@ const {
 const blogBetaComposition = createBlogBetaRuntimeComposition({
     CONFIG,
     Logger,
-    Core,
     Utils,
     License,
     fs,
@@ -768,7 +766,6 @@ const publishActionsRuntime = createPublishActionsRuntime({
     Logger,
     Utils,
     GoogleSheets,
-    Core,
     blogWritingApplication: blogWritingSystem.application,
     blogPostingApplication,
     blogPublishingApplication,
@@ -813,7 +810,6 @@ const contentActionsRuntime = createContentActionsRuntime({
     CONFIG,
     Utils,
     GoogleSheets,
-    Core,
     blogPostingApplication,
     blogWritingApplication: blogWritingSystem.application,
     shoppingGenerationApplication,

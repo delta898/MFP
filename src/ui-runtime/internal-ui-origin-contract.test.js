@@ -24,9 +24,3 @@ test('Telegram query failures keep low-level connection details out of chat repl
     assert.match(source, /데이터를 조회하지 못했습니다\. 앱 상태를 확인한 뒤 다시 시도해 주세요\./);
     assert.match(source, /query_type=\$\{queryType\}/);
 });
-
-test('legacy Telegram parser does not force ambiguous conversation into an action', () => {
-    const source = fs.readFileSync(path.join(projectRoot, 'src/core.js'), 'utf8');
-    assert.match(source, /지원 범위 밖의 요청을 가장 가까운 액션으로 추측하지 마세요/);
-    assert.match(source, /actions는 빈 배열 \[\]로 반환하세요/);
-});

@@ -150,11 +150,6 @@ function createBlogBetaRuntimeComposition(options = {}) {
     const blogPublishingApplication = createBlogPublishingApplication({
         imageOptimizationService,
         naverPublisher: naverPublishingSystem.publisher,
-        legacyNaverPublisher: {
-            publish(directory, request) {
-                return options.Core.publishToBlog(directory, request);
-            }
-        },
         wordpressPublishingApplication: wordpressPublishingSystem.application,
         Utils: options.Utils,
         CONFIG,

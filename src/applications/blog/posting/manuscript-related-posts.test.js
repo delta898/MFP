@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const Core = require('../../../core');
+const { buildRelatedPostsSectionMarkdown, stripAiRelatedPostsSection } = require('./related-posts-markdown');
 const {
     RELATED_POSTS_STATUS,
     extractManuscriptTitle,
@@ -17,8 +17,8 @@ function gateway(overrides = {}) {
             { title: '둘째 글', url: 'https://blog.naver.com/fixture/2' }
         ],
         pickHeading: () => '함께 보면 좋은 글',
-        buildSection: (posts, heading) => Core.buildRelatedPostsSectionMarkdown(posts, heading, true),
-        stripSection: (text) => Core.stripAiRelatedPostsSection(text),
+        buildSection: (posts, heading) => buildRelatedPostsSectionMarkdown(posts, heading, true),
+        stripSection: (text) => stripAiRelatedPostsSection(text),
         ...overrides
     };
 }
@@ -44,13 +44,13 @@ test('insertSectionAboveHashtags places the section before a trailing hashtag bl
     assert.match(result, /#맛집 #서울\n?$/);
 });
 
-test('buildRelatedSection matches the canonical Core section format', () => {
+test('buildRelatedSection matches the canonical Blog Posting section format', () => {
     const posts = [
         { title: '첫 글', url: 'https://blog.naver.com/fixture/1' },
         { title: '둘째 글', url: 'https://blog.naver.com/fixture/2' },
         { title: '셋째 글', url: 'not-a-url' }
     ];
-    const expected = Core.buildRelatedPostsSectionMarkdown(posts.slice(0, 2), '함께 보면 좋은 글', true);
+    const expected = buildRelatedPostsSectionMarkdown(posts.slice(0, 2), '함께 보면 좋은 글', true);
     assert.equal(buildRelatedSection(posts.slice(0, 2), '함께 보면 좋은 글'), expected);
 });
 
