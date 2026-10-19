@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const {
     ensureRuntimeRemoteMcpConfig,
     generateRemoteMcpBearerToken
-} = require('./remote-config');
+} = require('./mcp-remote-config');
 
 test('generateRemoteMcpBearerToken returns a fixed-length 43 char base64url token', () => {
     const token = generateRemoteMcpBearerToken();

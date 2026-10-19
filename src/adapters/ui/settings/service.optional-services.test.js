@@ -14,6 +14,7 @@ const {
     normalizeExternalConnectionSettings,
     normalizeAppGeneralSettings
 } = require('./service');
+const { ensureRuntimeRemoteMcpConfig, generateRemoteMcpBearerToken } = require('../../../host/configuration/mcp-remote-config');
 
 function createHarness(initial = {}, overrides = {}) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'settings-optional-services-'));
@@ -44,6 +45,8 @@ function createHarness(initial = {}, overrides = {}) {
     };
     const service = createSettingsService({
         fs, path, CONFIG,
+        ensureRuntimeRemoteMcpConfig,
+        generateRemoteMcpBearerToken,
         resolveWritableConfigPath: () => configPath,
         ...overrides
     });

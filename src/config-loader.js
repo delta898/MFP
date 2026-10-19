@@ -4,7 +4,7 @@ const { APP_VERSION } = require('./host/application-metadata');
 const { getDefaultRuntimePaths } = require('./host/configuration/default-runtime-paths');
 const { TYPING_PRESETS, WAIT } = require('./adapters/naver/publishing-defaults');
 const UpdateDefaults = require('./host/update-defaults');
-const { ensureRuntimeRemoteMcpConfig } = require('./mcp/remote-config');
+const { ensureRuntimeRemoteMcpConfig } = require('./host/configuration/mcp-remote-config');
 const {
     getAiModelCatalog,
     resolveAiModelConfig,

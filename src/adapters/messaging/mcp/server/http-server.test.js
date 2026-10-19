@@ -1,6 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { PassThrough } = require('node:stream');
+const { License } = require('../../../../composition/licensing');
+const { createMcpPrototypeRuntime } = require('../../../../composition/mcp-runtime');
 
 const {
     SESSION_HEADER,
@@ -14,6 +16,10 @@ const SilentLogger = {
     warn() { },
     error() { }
 };
+
+function createServices() {
+    return createMcpPrototypeRuntime({ config: {}, License });
+}
 
 function requestJson(handler, method, path, body = null, options = {}) {
     const payload = body === null ? null : JSON.stringify(body);
@@ -59,7 +65,8 @@ function requestJson(handler, method, path, body = null, options = {}) {
 test('http mcp server supports initialize, tools/list, prepare, and confirmation within the same session', async () => {
     const handler = createHttpMcpHandler({
         authMode: 'none',
-        logger: SilentLogger
+        logger: SilentLogger,
+        services: createServices()
     });
 
     const initialize = await requestJson(handler, 'POST', '/mcp', {
@@ -152,7 +159,8 @@ test('http mcp server requires bearer auth when configured', async () => {
     const handler = createHttpMcpHandler({
         authMode: 'bearer',
         authToken: 'top-secret',
-        logger: SilentLogger
+        logger: SilentLogger,
+        services: createServices()
     });
 
     const unauthorized = await requestJson(handler, 'POST', '/mcp', {
@@ -185,7 +193,8 @@ test('http mcp server requires bearer auth when configured', async () => {
 test('http mcp server rejects requests without an active session after initialize', async () => {
     const handler = createHttpMcpHandler({
         authMode: 'none',
-        logger: SilentLogger
+        logger: SilentLogger,
+        services: createServices()
     });
 
     const response = await requestJson(handler, 'POST', '/mcp', {

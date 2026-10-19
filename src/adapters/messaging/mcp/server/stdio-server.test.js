@@ -7,9 +7,9 @@ const { spawn } = require('node:child_process');
 const readline = require('node:readline');
 
 function spawnServer(options = {}) {
-    const serverPath = path.join(__dirname, 'stdio-server.js');
+    const serverPath = path.resolve(__dirname, '../../../../../src/host/mcp/stdio-server.js');
     const child = spawn(process.execPath, [serverPath], {
-        cwd: path.join(__dirname, '..', '..'),
+        cwd: path.join(__dirname, '..', '..', '..', '..', '..'),
         env: {
             ...process.env,
             ...(options.env || {})

@@ -4,8 +4,8 @@
 현재 저장소에는 register/publish 중심의 prototype MCP server가 포함되어 있다.
 
 엔트리 포인트:
-- `src/mcp/stdio-server.js`
-- `src/mcp/http-server.js`
+- `src/host/mcp/stdio-server.js` (Host bootstrap; delegates MCP wire handling to the adapter)
+- `src/host/mcp/http-server.js` (standalone Host bootstrap; app-managed HTTP lifecycle uses the same adapter)
 
 실행 명령:
 
@@ -43,7 +43,7 @@ Codex CLI에서는 `codex mcp add`로 로컬 stdio 서버를 등록할 수 있�
 예시:
 
 ```bash
-codex mcp add naver-autoblog -- node /Users/delta898/Project/NaverAutoBlog/src/mcp/stdio-server.js
+codex mcp add naver-autoblog -- node /Users/delta898/Project/NaverAutoBlog/src/host/mcp/stdio-server.js
 ```
 
 확인:
@@ -64,7 +64,7 @@ Codex GUI의 `맞춤형 MCP`에서 `STDIO`를 선택했다면 아래처럼 설�
 
 - 이름: `bloggenius-mcp`
 - 실행 명령: `node`
-- 인자: `/Users/delta898/Project/NaverAutoBlog/src/mcp/stdio-server.js`
+- 인자: `/Users/delta898/Project/NaverAutoBlog/src/host/mcp/stdio-server.js`
 - 환경 변수:
   - `DEBUG_MCP=1` (선택)
 - 작업 중인 디렉터리: `/Users/delta898/Project/NaverAutoBlog`
@@ -83,7 +83,7 @@ stdio 기반 MCP 클라이언트가 `mcpServers` 형식을 사용한다면 아�
     "naver-autoblog": {
       "command": "node",
       "args": [
-        "/Users/delta898/Project/NaverAutoBlog/src/mcp/stdio-server.js"
+        "/Users/delta898/Project/NaverAutoBlog/src/host/mcp/stdio-server.js"
       ],
       "cwd": "/Users/delta898/Project/NaverAutoBlog",
       "env": {}

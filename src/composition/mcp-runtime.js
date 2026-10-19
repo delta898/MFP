@@ -4,10 +4,10 @@ const axios = require('axios');
 
 const { createAgentRuntime } = require('../host/agent/runtime');
 const { ConfirmationStore } = require('../adapters/storage/confirmations/confirmation-store');
-const { createCapabilityRuntime } = require('../composition/capability-runtime');
-const { createKnowledgeRuntime } = require('../composition/knowledge-runtime');
+const { createCapabilityRuntime } = require('./capability-runtime');
+const { createKnowledgeRuntime } = require('./knowledge-runtime');
 const { getRuntimeHooks } = require('../runtime-hooks');
-const { createMcpPrototypeAdapter } = require('./prototype-adapter');
+const { createMcpPrototypeAdapter } = require('../adapters/messaging/mcp/prototype-adapter');
 
 const NullLogger = {
     debug() { },

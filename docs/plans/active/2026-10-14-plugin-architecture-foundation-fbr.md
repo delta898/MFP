@@ -68,7 +68,7 @@ BlogGenius의 기능이 커지면서 네이버 블로그 발행, WordPress 발�
 
 - `src/agent/`에는 요청 parsing, planning, runtime, confirmation 등 channel-neutral agent 흐름이 있다.
 - `src/capabilities/index.js`는 capability factory를 직접 import하고 의존성을 구성한 뒤 `allCapabilities` 배열에 모아 Map으로 등록하는 composition root다. capability 경계는 있지만 동적 plugin discovery나 선언형 등록 계약은 아니다.
-- `src/mcp/runtime-factory.js`도 capability registry를 만든다. 여러 entrypoint가 공통 도메인 구현을 쓰지만, 각 실행 surface의 조립 책임과 제공 가능한 capability 집합이 명시적인 하나의 contribution contract로 통합되었는지는 추가 조사 대상이다.
+- 당시 `src/mcp/runtime-factory.js`도 capability registry를 만들었다. 2026-10-19 source-layer slice에서 runtime 조립은 `src/composition/mcp-runtime.js`로 이동했다. 여러 entrypoint가 공통 도메인 구현을 쓰지만, 각 실행 surface의 조립 책임과 제공 가능한 capability 집합이 명시적인 하나의 contribution contract로 통합되었는지는 추가 조사 대상이다.
 - `src/channels/telegram/`은 채널 어댑터와 렌더링 경계를 제공한다. 안정된 방향은 channel이 요청/응답을 전달하고 capability가 업무 동작을 소유하는 것이다.
 
 ### Provider와 transport

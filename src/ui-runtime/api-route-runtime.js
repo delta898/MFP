@@ -144,6 +144,8 @@ function createUiApiRouteRuntime(deps = {}) {
         scheduleUiReload,
         restartRemoteMcpService,
         getRemoteServiceStatus,
+        ensureRuntimeRemoteMcpConfig,
+        generateRemoteMcpBearerToken,
         createConfigRevision,
         sendSuccess,
         sendError
@@ -257,6 +259,8 @@ function createUiApiRouteRuntime(deps = {}) {
                 scheduleUiReload,
                 restartRemoteMcpService,
                 getRemoteServiceStatus,
+                ensureRuntimeRemoteMcpConfig,
+                generateRemoteMcpBearerToken,
                 createConfigRevision,
                 parseConfigValue,
                 TelegramService,

@@ -21,10 +21,6 @@ function describeAiModelConnectionFailure(error) {
 }
 
 const {
-    ensureRuntimeRemoteMcpConfig,
-    generateRemoteMcpBearerToken
-} = require('../../../mcp/remote-config');
-const {
     getAiModelCatalog,
     buildModelSelectionFromFields,
     toStoredModelSelection,
@@ -227,6 +223,8 @@ function createSettingsService(deps = {}) {
         scheduleUiReload,
         restartRemoteMcpService,
         getRemoteServiceStatus,
+        ensureRuntimeRemoteMcpConfig,
+        generateRemoteMcpBearerToken,
         createConfigRevision,
         parseConfigValue,
         TelegramService,

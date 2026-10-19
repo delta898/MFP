@@ -44,11 +44,21 @@ const RuntimeConfig = createRuntimeConfigApi({ config: CONFIG, logger: Logger })
 const { registerRuntimeHooks } = require('./runtime-hooks');
 const {
     ensureRuntimeRemoteMcpConfig,
+    generateRemoteMcpBearerToken,
     normalizeRemoteMcpHost,
     normalizeRemoteMcpPath,
     normalizeRemoteMcpPort
-} = require('./mcp/remote-config');
-const { restartRemoteMcpService, getRemoteServiceStatus } = require('./mcp/remote-service');
+} = require('./host/configuration/mcp-remote-config');
+const remoteMcpService = require('./host/mcp/remote-service');
+const { createMcpPrototypeRuntime } = require('./composition/mcp-runtime');
+const { startHttpMcpServer } = require('./adapters/messaging/mcp/server/http-server');
+remoteMcpService.configureRemoteMcpService({
+    config: CONFIG,
+    logger: Logger,
+    startServer: startHttpMcpServer,
+    createServices: (config) => createMcpPrototypeRuntime({ config, License })
+});
+const { restartRemoteMcpService, getRemoteServiceStatus } = remoteMcpService;
 const { buildLocalMarkdownPreview } = require('./applications/blog/manuscript-drafts/preview');
 const { materializeSelectedFilesToWorkspace } = require('./adapters/storage/manuscript-drafts/selected-files-workspace');
 const { appendRelatedPostsToPastedMarkdown } = require('./applications/blog/posting/pasted-markdown-related-posts');
@@ -1054,6 +1064,8 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     scheduleUiReload,
     restartRemoteMcpService,
     getRemoteServiceStatus,
+    ensureRuntimeRemoteMcpConfig,
+    generateRemoteMcpBearerToken,
     createConfigRevision,
     sendSuccess,
     sendError
@@ -1162,6 +1174,8 @@ async function startUiServer(options = {}) {
 module.exports = {
     closeAgentMemory,
     startUiServer,
+    startRemoteMcpService: remoteMcpService.startRemoteMcpService,
+    stopRemoteMcpService: remoteMcpService.stopRemoteMcpService,
     reloadUiServer,
     __testing: {
         buildMajorSettings

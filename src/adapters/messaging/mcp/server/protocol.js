@@ -1,4 +1,4 @@
-const pkg = require('../../package.json');
+const pkg = require('../../../../../package.json');
 
 const SUPPORTED_PROTOCOL_VERSION = '2025-11-05';
 

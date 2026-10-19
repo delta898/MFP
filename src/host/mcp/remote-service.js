@@ -1,13 +1,29 @@
-const Logger = require('../utilities/logging/logger');
-const CONFIG = require('../config-loader');
-const { startHttpMcpServer, resolveRemoteMcpConfig } = require('./http-server');
-const { ensureRuntimeRemoteMcpConfig } = require('./remote-config');
+const { ensureRuntimeRemoteMcpConfig } = require('../configuration/mcp-remote-config');
+const { normalizeBoolean, resolveRemoteMcpConfiguration } = require('../../services/mcp/remote-configuration');
 
 let activeRemoteService = null;
+let dependencies = { config: {}, logger: console };
+
+function configureRemoteMcpService(options = {}) {
+    dependencies = {
+        config: options.config || {},
+        logger: options.logger || console,
+        startServer: options.startServer,
+        createServices: options.createServices
+    };
+}
 
 function buildRemoteServiceOptions(overrides = {}) {
-    ensureRuntimeRemoteMcpConfig(CONFIG, overrides);
-    const config = resolveRemoteMcpConfig(overrides);
+    ensureRuntimeRemoteMcpConfig(dependencies.config, overrides);
+    const config = resolveRemoteMcpConfiguration(dependencies.config, {
+        enabled: overrides.enabled,
+        host: overrides.host || process.env.MCP_REMOTE_HOST,
+        port: overrides.port || process.env.MCP_REMOTE_PORT,
+        path: overrides.path || process.env.MCP_REMOTE_PATH,
+        authMode: overrides.authMode,
+        authToken: overrides.authToken || process.env.MCP_REMOTE_AUTH_TOKEN
+    });
+    const allowedOrigins = dependencies.config.mcp?.remote?.allowed_origins;
     return {
         enabled: config.enabled !== false,
         host: config.host,
@@ -15,8 +31,8 @@ function buildRemoteServiceOptions(overrides = {}) {
         path: config.path,
         authMode: config.authMode,
         authToken: config.authToken,
-        allowedOrigins: config.allowedOrigins,
-        debug: config.debug
+        allowedOrigins: Array.isArray(allowedOrigins) ? allowedOrigins.map((value) => String(value || '').trim()).filter(Boolean) : [],
+        debug: normalizeBoolean(overrides.debug ?? process.env.DEBUG_MCP, false)
     };
 }
 
@@ -44,7 +60,7 @@ async function stopRemoteMcpService() {
     const instance = activeRemoteService;
     activeRemoteService = null;
     await instance.close();
-    Logger.info('MCP remote service stopped.');
+    dependencies.logger.info('MCP remote service stopped.');
     return true;
 }
 
@@ -52,7 +68,7 @@ async function startRemoteMcpService(overrides = {}) {
     const options = buildRemoteServiceOptions(overrides);
     if (!options.enabled) {
         await stopRemoteMcpService();
-        Logger.info('MCP remote service is disabled by configuration.');
+        dependencies.logger.info('MCP remote service is disabled by configuration.');
         return {
             enabled: false,
             running: false
@@ -83,10 +99,14 @@ async function startRemoteMcpService(overrides = {}) {
         await stopRemoteMcpService();
     }
 
-    const server = await startHttpMcpServer({
+    if (typeof dependencies.startServer !== 'function') {
+        throw new Error('Remote MCP service requires a composed HTTP transport adapter.');
+    }
+    const server = await dependencies.startServer({
         ...options,
-        config: CONFIG,
-        logger: Logger
+        services: dependencies.createServices?.(dependencies.config),
+        config: dependencies.config,
+        logger: dependencies.logger
     });
 
     activeRemoteService = {
@@ -112,6 +132,7 @@ async function restartRemoteMcpService(overrides = {}) {
 }
 
 module.exports = {
+    configureRemoteMcpService,
     buildRemoteServiceOptions,
     getRemoteServiceStatus,
     startRemoteMcpService,

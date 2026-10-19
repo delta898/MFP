@@ -9,7 +9,7 @@
 3. nginx reverse proxy 또는 외부 IP를 통해 public remote MCP client 연결
 
 ## Background
-- 현재 MCP prototype은 `src/mcp/stdio-server.js` 기반의 local stdio transport까지 완료되었다.
+- 현재 MCP prototype은 `src/host/mcp/stdio-server.js` Host bootstrap을 통해 local stdio transport를 제공한다. Wire protocol은 `src/adapters/messaging/mcp/server/stdio-server.js`가 처리한다.
 - canonical content request bundle, confirmation token, prepare/confirm execute 흐름은 internal capability 경로 위에서 동작한다.
 - Codex GUI 기준으로 `prepare -> confirm -> execute -> Google Sheet append`까지 실동 확인을 마쳤다.
 - 이번 단계의 한계는 transport가 `stdio`라는 점이다. 이는 local child-process 연결에는 적합하지만 remote attach UX에는 맞지 않는다.
@@ -50,8 +50,8 @@
 - confirmation persistence는 multi-tenant 분리보다 `현재 MCP session 우선 -> 앱 전역 fallback` 수준의 단순 모델을 우선 적용한다.
 
 ## First Implementation Target
-- `src/mcp/http-server.js` 또는 동등한 remote transport entry 추가
-- `src/mcp/remote-service.js` 또는 동등한 app-managed service 추가
+- `src/adapters/messaging/mcp/server/http-server.js` 또는 동등한 remote transport adapter 추가
+- `src/host/mcp/remote-service.js` 또는 동등한 app-managed service 추가
 - `/mcp` 단일 endpoint prototype
 - `initialize`, `tools/list`, `tools/call` 최소 경로 지원
 - `content_request_prepare`, `confirmation_decide`만 우선 노출

@@ -1,10 +1,7 @@
 const http = require('http');
 const crypto = require('crypto');
 
-const Logger = require('../utilities/logging/logger');
-const { License } = require('../composition/licensing');
-const { createMcpPrototypeRuntime } = require('./runtime-factory');
-const { ensureRuntimeRemoteMcpConfig } = require('./remote-config');
+const { resolveRemoteMcpConfiguration } = require('../../../../services/mcp/remote-configuration');
 const {
     SUPPORTED_PROTOCOL_VERSION,
     createServerState,
@@ -84,7 +81,7 @@ function parseRequestHostname(request = {}) {
 }
 
 function resolveRemoteMcpConfig(overrides = {}, sourceConfig = {}) {
-    const runtimeConfig = ensureRuntimeRemoteMcpConfig(sourceConfig, {
+    const runtimeConfig = resolveRemoteMcpConfiguration(sourceConfig, {
         enabled: overrides.enabled,
         host: overrides.host || process.env.MCP_REMOTE_HOST,
         port: overrides.port || process.env.MCP_REMOTE_PORT,
@@ -287,11 +284,12 @@ function buildBaseResponseHeaders(request, config, extraHeaders = {}) {
 function createHttpMcpHandler(options = {}) {
     const sourceConfig = options.config || {};
     const config = resolveRemoteMcpConfig(options, sourceConfig);
-    const services = options.services || createMcpPrototypeRuntime({ config: sourceConfig, License });
+    const services = options.services || {};
+    if (!services.adapter) throw new Error('HTTP MCP adapter requires composed runtime services.');
     const sessionStore = createSessionStore();
     const traceMcp = buildTraceWriter({
         debug: config.debug || options.debug === true,
-        logger: options.logger || Logger
+        logger: options.logger || console
     });
 
     async function handleMcpRequest(req, res) {
@@ -423,7 +421,7 @@ function createSessionStoreSession(sessionStore) {
 }
 
 async function startHttpMcpServer(options = {}) {
-    const logger = options.logger || Logger;
+    const logger = options.logger || console;
     const handler = createHttpMcpHandler(options);
     const host = handler.config.host || DEFAULT_HTTP_HOST;
     const port = normalizePort(options.port ?? handler.config.port, handler.config.port);
@@ -462,13 +460,6 @@ async function startHttpMcpServer(options = {}) {
             });
         }
     };
-}
-
-if (require.main === module) {
-    startHttpMcpServer().catch((error) => {
-        Logger.error(`Failed to start MCP HTTP server: ${error.message}`);
-        process.exit(1);
-    });
 }
 
 module.exports = {
