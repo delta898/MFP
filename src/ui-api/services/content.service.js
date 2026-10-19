@@ -1,4 +1,4 @@
-const { createApiError } = require('../errors');
+const { createApiError } = require('../../adapters/ui/errors');
 const { buildLocalMarkdownPreview } = require('../../applications/blog/manuscript-drafts/preview');
 const {
     parseBlogImageMode,

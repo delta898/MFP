@@ -6,7 +6,7 @@ const path = require('node:path');
 const { SQLITE_MEMORY_FILENAME } = require('./sqlite-event-store');
 const { createRecommendation } = require('../../../services/recommendations/core/test-fixtures');
 const { resolveArtifactFeedbackTarget } = require('../../../services/recommendations/feedback-target');
-const { createRecommendationCenterService } = require('../../../ui-api/services/recommendation-center.service');
+const { createRecommendationCenterService } = require('../../../applications/recommendations/center/application');
 const { createAgentMemoryController } = require('../../../host/memory/runtime');
 
 function fixture() {

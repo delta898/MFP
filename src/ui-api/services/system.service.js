@@ -1,4 +1,4 @@
-const { createApiError } = require('../errors');
+const { createApiError } = require('../../adapters/ui/errors');
 const { toSafeRuntimeEnvironmentDiagnostic } = require('../../host/configuration/environment/runtime-profile');
 const { buildSetupReadiness } = require('../../services/configuration-readiness/service');
 const { resolveRuntimeLogDir } = require('../../utilities/logging/runtime-log-path');

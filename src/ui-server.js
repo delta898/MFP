@@ -118,41 +118,41 @@ const {
     isCommandEnabled,
     parseMaxPosts
 } = require('./runtime-feature-flags');
-const { createBlogAutoService } = require('./ui-api/services/blog-auto.service');
-const { createBlogAutoController } = require('./ui-api/controllers/blog-auto.controller');
-const { createBlogAutoRouteHandler } = require('./ui-api/routes/blog-auto.routes');
+const { createBlogAutoService } = require('./adapters/ui/blog/automation/service');
+const { createBlogAutoController } = require('./adapters/ui/blog/automation/controller');
+const { createBlogAutoRouteHandler } = require('./adapters/ui/blog/automation/routes');
 const { createSettingsService } = require('./adapters/ui/settings/service');
 const { createSettingsController } = require('./adapters/ui/settings/controller');
 const { createSettingsRouteHandler } = require('./adapters/ui/settings/routes');
-const { createManualSnsController } = require('./ui-api/controllers/manual-sns.controller');
-const { createManualSnsRouteHandler } = require('./ui-api/routes/manual-sns.routes');
+const { createManualSnsController } = require('./adapters/ui/sns/controller');
+const { createManualSnsRouteHandler } = require('./adapters/ui/sns/routes');
 const { createCardNewsService } = require('./applications/card-news/application');
-const { createCardNewsController } = require('./ui-api/controllers/card-news.controller');
-const { createCardNewsRouteHandler } = require('./ui-api/routes/card-news.routes');
+const { createCardNewsController } = require('./adapters/ui/card-news/controller');
+const { createCardNewsRouteHandler } = require('./adapters/ui/card-news/routes');
 const { createSurfaceContentService } = require('./surface-content/service');
 const { createSupabaseSurfaceContentProvider } = require('./surface-content/supabase-provider');
-const { createSurfaceContentController } = require('./ui-api/controllers/surface-content.controller');
-const { createSurfaceContentRouteHandler } = require('./ui-api/routes/surface-content.routes');
+const { createSurfaceContentController } = require('./adapters/ui/content/surface/controller');
+const { createSurfaceContentRouteHandler } = require('./adapters/ui/content/surface/routes');
 const { createTopicRecommendationsService } = require('./ui-api/services/topic-recommendations.service');
-const { createTopicRecommendationsController } = require('./ui-api/controllers/topic-recommendations.controller');
-const { createTopicRecommendationsRouteHandler } = require('./ui-api/routes/topic-recommendations.routes');
-const { createRecommendationCenterService } = require('./ui-api/services/recommendation-center.service');
-const { createRecommendationCenterController } = require('./ui-api/controllers/recommendation-center.controller');
-const { createRecommendationCenterRouteHandler } = require('./ui-api/routes/recommendation-center.routes');
+const { createTopicRecommendationsController } = require('./adapters/ui/blog/topic-recommendations/controller');
+const { createTopicRecommendationsRouteHandler } = require('./adapters/ui/blog/topic-recommendations/routes');
+const { createRecommendationCenterService } = require('./applications/recommendations/center/application');
+const { createRecommendationCenterController } = require('./adapters/ui/recommendations/center/controller');
+const { createRecommendationCenterRouteHandler } = require('./adapters/ui/recommendations/center/routes');
 const { createKeywordDiscoveryService } = require('./ui-api/services/keyword-discovery.service');
-const { createKeywordDiscoveryController } = require('./ui-api/controllers/keyword-discovery.controller');
-const { createKeywordDiscoveryRouteHandler } = require('./ui-api/routes/keyword-discovery.routes');
+const { createKeywordDiscoveryController } = require('./adapters/ui/keyword-research/discovery/controller');
+const { createKeywordDiscoveryRouteHandler } = require('./adapters/ui/keyword-research/discovery/routes');
 const { createKeywordsService } = require('./ui-api/services/keywords.service');
-const { createKeywordsController } = require('./ui-api/controllers/keywords.controller');
-const { createKeywordsRouteHandler } = require('./ui-api/routes/keywords.routes');
-const { createSmartUsageService } = require('./services/licensing/smart-usage');
-const { createLegacyApiRouteHandler } = require('./ui-api/routes/legacy-api.routes');
+const { createKeywordsController } = require('./adapters/ui/keyword-research/keywords/controller');
+const { createKeywordsRouteHandler } = require('./adapters/ui/keyword-research/keywords/routes');
+const { createSmartUsageService } = require('./services/licensing/smart-usage/index');
+const { createProductApiRouteHandler } = require('./composition/ui-api-routes');
 const { createCloudflareConnectionService, createEncryptedCredentialStore } = require('./host/cloudflare/connection-service');
-const { createCloudflareConnectionRouteHandler } = require('./ui-api/routes/cloudflare-connection.routes');
+const { createCloudflareConnectionRouteHandler } = require('./adapters/ui/site-hosting/cloudflare-connection/routes');
 const { createSiteHostingApplication } = require('./composition/site-hosting-application');
-const { createSiteHostingProjectRouteHandler } = require('./ui-api/routes/site-hosting-project.routes');
-const { createSiteHostingSiteRouteHandler } = require('./ui-api/routes/site-hosting-site.routes');
-const { createApiRouteHub } = require('./ui-api/routes');
+const { createSiteHostingProjectRouteHandler } = require('./adapters/ui/site-hosting/projects/routes');
+const { createSiteHostingSiteRouteHandler } = require('./adapters/ui/site-hosting/sites/routes');
+const { createApiRouteHub } = require('./adapters/ui/route-hub');
 
 const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PORT = 4577;
@@ -1038,7 +1038,7 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     topicRecommendationRetrievalService,
     topicRecommendationEventStore,
     topicRecommendationLearningService,
-    createLegacyApiRouteHandler,
+    createProductApiRouteHandler,
     createCloudflareConnectionService,
     createEncryptedCredentialStore,
     createCloudflareConnectionRouteHandler,

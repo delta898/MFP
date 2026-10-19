@@ -1,7 +1,7 @@
 'use strict';
 
 const { createGitHubDesignStyleCatalog } = require('../adapters/catalogs/amade/design-style-catalog');
-const { createDesignStylesRouteHandler } = require('../ui-api/routes/design-styles.routes');
+const { createDesignStylesRouteHandler } = require('../adapters/ui/site-hosting/design-styles/routes');
 const { createManuscriptDraftService } = require('../applications/blog/manuscript-drafts/application');
 const { createCorePluginsRouteHandler } = require('../adapters/ui/plugins/core-plugins.routes');
 const { createWidgetPluginsRouteHandler } = require('../adapters/ui/widget-plugins.routes');
@@ -123,7 +123,7 @@ function createUiApiRouteRuntime(deps = {}) {
         topicRecommendationRetrievalService,
         topicRecommendationEventStore,
         topicRecommendationLearningService,
-        createLegacyApiRouteHandler,
+        createProductApiRouteHandler,
         createCloudflareConnectionService,
         createEncryptedCredentialStore,
         createCloudflareConnectionRouteHandler,
@@ -160,7 +160,7 @@ function createUiApiRouteRuntime(deps = {}) {
     let recommendationCenterRouteHandler = null;
     let keywordDiscoveryRouteHandler = null;
     let keywordsRouteHandler = null;
-    let legacyApiRouteHandler = null;
+    let productApiRouteHandler = null;
     let cloudflareConnectionRouteHandler = null;
     let cloudflareConnectionService = null;
     let siteHostingApplication = null;
@@ -421,7 +421,7 @@ function createUiApiRouteRuntime(deps = {}) {
         return keywordDiscoveryRouteHandler;
     }
 
-    function createLegacyApiDeps() {
+    function createProductApiDeps() {
         const baseDeps = {
             APP_VERSION,
             Logger,
@@ -512,11 +512,11 @@ function createUiApiRouteRuntime(deps = {}) {
         };
     }
 
-    function getLegacyApiRouteHandlerInstance() {
-        if (!legacyApiRouteHandler) {
-            legacyApiRouteHandler = createLegacyApiRouteHandler(createLegacyApiDeps());
+    function getProductApiRouteHandlerInstance() {
+        if (!productApiRouteHandler) {
+            productApiRouteHandler = createProductApiRouteHandler(createProductApiDeps());
         }
-        return legacyApiRouteHandler;
+        return productApiRouteHandler;
     }
 
     function getCloudflareConnectionServiceInstance() {
@@ -641,7 +641,7 @@ function createUiApiRouteRuntime(deps = {}) {
                 getWidgetPluginsRouteHandlerInstance().tryHandleRoute,
                 getCorePluginsRouteHandlerInstance(),
                 getDesignStylesRouteHandlerInstance(),
-                getLegacyApiRouteHandlerInstance()
+                getProductApiRouteHandlerInstance()
             ]);
         }
         return apiRouteHub;
@@ -668,10 +668,10 @@ function createUiApiRouteRuntime(deps = {}) {
     }
 
     return {
-        createLegacyApiDeps,
+        createProductApiDeps,
         getApiRouteHub: getApiRouteHubInstance,
         getBlogAutoRouteHandler: getBlogAutoRouteHandlerInstance,
-        getLegacyApiRouteHandler: getLegacyApiRouteHandlerInstance,
+        getProductApiRouteHandler: getProductApiRouteHandlerInstance,
         getSettingsRouteHandler: getSettingsRouteHandlerInstance,
         getCorePluginsRouteHandler: getCorePluginsRouteHandlerInstance,
         getWidgetPluginsRouteHandler: getWidgetPluginsRouteHandlerInstance,

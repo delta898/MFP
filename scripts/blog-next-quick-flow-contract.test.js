@@ -176,7 +176,7 @@ test('AI image generation exposes per-action stop controls and sends cancellatio
   const operations = read('src/services/ai/generation-operation-manager.js');
   const drafts = read('src/applications/blog/manuscript-drafts/application.js');
   const execution = read('ui/scripts/features/blog/draft-execution.js');
-  const routes = read('src/ui-api/routes/content.routes.js');
+  const routes = read('src/adapters/ui/content/content-api/routes.js');
   const css = read('ui/styles/features/blog-next-baseline.css');
 
   assert.match(inputs, /data-manuscript-generate-missing[^>]*>[\s\S]*?중지 확인/);
@@ -236,7 +236,7 @@ test('AI manuscript cancellation stays in the shared execution status', () => {
   assert.match(execution, /state === 'cancel_requested'/);
   assert.match(execution, /state === 'canceled'/);
   assert.match(read('ui/scripts/features/blog/runner.js'), /async function stopBlogNextLocalMarkdownPublish/);
-  assert.match(read('src/ui-api/routes/continuous-publishing.routes.js'), /runner\/stop/);
+  assert.match(read('src/adapters/ui/blog/continuous-publishing/routes.js'), /runner\/stop/);
   assert.match(read('ui/scripts/features/blog/runner.js'), /6000\)/);
   assert.match(read('ui/styles/features/continuous-publishing.css'), /\.blog-next-publish-status-stop-control\[data-disabled="true"\]:hover/);
 });

@@ -1,4 +1,4 @@
-const { createApiError } = require('../errors');
+const { createApiError } = require('../../adapters/ui/errors');
 const { TOPIC_STATUS } = require('../../services/topics/contract');
 const { diagnoseQueueReadiness } = require('../../applications/blog/queue-management/queue-readiness');
 const { diagnoseSiteTargetAvailability } = require('../../applications/blog/queue-execution/site-target-readiness');

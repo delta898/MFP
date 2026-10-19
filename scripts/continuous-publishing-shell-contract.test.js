@@ -122,7 +122,7 @@ test('completed manuscripts publish directly without entering the continuous que
 });
 
 test('Blog Beta execution paths share one server-side coordinator without widening to legacy products', () => {
-    const routes = read('src/ui-api/routes/legacy-api.routes.js');
+    const routes = read('src/composition/ui-api-routes.js');
     const contentService = read('src/ui-api/services/content.service.js');
     const continuousService = read('src/ui-api/services/continuous-publishing.service.js');
 
@@ -135,7 +135,7 @@ test('Blog Beta execution paths share one server-side coordinator without wideni
 });
 
 test('legacy API composition injects Google Sheets into continuous publishing reads', () => {
-    const routes = read('src/ui-api/routes/legacy-api.routes.js');
+    const routes = read('src/composition/ui-api-routes.js');
     const serviceWiring = routes.match(/const continuousPublishingService = createContinuousPublishingService\(\{([\s\S]*?)\n    \}\);/)?.[1] || '';
 
     assert.match(serviceWiring, /GoogleSheets:\s*deps\.GoogleSheets/);
@@ -245,7 +245,7 @@ test('Stage 8 aligns posting language and external-reference controls with the e
 
 test('Stage 9 exposes adjacent queue movement without drag, lease, or synthetic order fields', () => {
     const queueScript = readBlogNextQueueScripts();
-    const routeSource = read('src/ui-api/routes/continuous-publishing.routes.js');
+    const routeSource = read('src/adapters/ui/blog/continuous-publishing/routes.js');
     const orderSource = read('src/adapters/storage/google-sheets/topic-queue-order.js');
 
     assert.match(queueScript, /dataset\.blogNextQueueMove/);
@@ -355,8 +355,8 @@ test('Blog Beta celebrates each newly observed successful publish or draft compl
     const draftScript = `${read('ui/scripts/features/blog/draft-inputs.js')}\n${read('ui/scripts/features/blog/draft-execution.js')}`;
     const celebrationScript = read('ui/scripts/shell/celebration.js');
     const lifecycleScript = read('ui/scripts/shell/lifecycle.js');
-    const systemRoute = read('src/ui-api/routes/system.routes.js');
-    const systemController = read('src/ui-api/controllers/system.controller.js');
+    const systemRoute = read('src/adapters/ui/account/system/routes.js');
+    const systemController = read('src/adapters/ui/account/system/controller.js');
     const systemService = read('src/ui-api/services/system.service.js');
 
     assert.match(celebrationScript, /function showPostingCompletionCelebration\(postStatus\)/);
@@ -426,7 +426,7 @@ test('global publishing status exposes one prioritized summary beside the widget
     const dashboard = read('ui/partials/views/dashboard.html');
     const statusScript = read('ui/scripts/shell/global-publishing-status.js');
     const statusCss = read('ui/styles/components/global-publishing-status.css');
-    const routeSource = read('src/ui-api/routes/continuous-publishing.routes.js');
+    const routeSource = read('src/adapters/ui/blog/continuous-publishing/routes.js');
     const serviceSource = read('src/ui-api/services/continuous-publishing.service.js');
 
     assert.match(shell, /id="blog-next-global-nav-status"[^>]*hidden/);

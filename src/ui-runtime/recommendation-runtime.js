@@ -13,7 +13,7 @@ const { createOperationalStateCollector } = require('../services/recommendations
 const { createPendingWorkflowProducer } = require('../services/recommendations/producers/pending-workflow');
 const { createRecommendationProducerRunner } = require('../services/recommendations/producers/runtime');
 const { createSetupGuidanceProducer } = require('../services/recommendations/producers/setup-guidance');
-const { createRecommendationRefreshService } = require('../ui-api/services/recommendation-refresh.service');
+const { createRecommendationRefreshService } = require('../services/recommendations/delivery/refresh-service');
 
 function createUiRecommendationRuntime(options = {}) {
     const { CONFIG, License, Logger, eventStore, capabilityRegistry, fs, path } = options;

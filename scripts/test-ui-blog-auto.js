@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 const assert = require('assert');
-const { createBlogAutoService } = require('../src/ui-api/services/blog-auto.service');
-const { createBlogAutoController } = require('../src/ui-api/controllers/blog-auto.controller');
-const { createBlogAutoRouteHandler } = require('../src/ui-api/routes/blog-auto.routes');
+const { createBlogAutoService } = require('../src/adapters/ui/blog/automation/service');
+const { createBlogAutoController } = require('../src/adapters/ui/blog/automation/controller');
+const { createBlogAutoRouteHandler } = require('../src/adapters/ui/blog/automation/routes');
 function createHarness(overrides = {}) {
     const events = [];
     const Logger = {

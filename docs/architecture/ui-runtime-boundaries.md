@@ -42,11 +42,12 @@ This document captures the current runtime boundaries after the CLI-removal refa
 - `src/ui-runtime/text-composition-runtime.js`
   - Shared safe path, extension, missing-file, and cycle enforcement for UI text assets.
 - `src/ui-runtime/api-route-runtime.js`
-  - API route assembly, handler caching, legacy API bridge wiring.
-- `src/ui-api/services/recommendation-center.service.js`
-  - Owner-scoped Recommendation listing and explicit open/snooze/dismiss/confirmation interactions.
+  - API route assembly, handler caching, and request context wiring.
+- `src/applications/recommendations/center/application.js`
+  - Owns owner-scoped Recommendation listing and explicit open/snooze/dismiss/discovery/confirmation workflows.
   - Accepts Recommendation identities only and delegates side-effect resolution to the trusted handoff service.
-- `src/ui-api/services/recommendation-refresh.service.js`
+  - `src/adapters/ui/recommendations/center/controller.js` maps its transport-neutral errors to HTTP status and API codes.
+- `src/services/recommendations/delivery/refresh-service.js`
   - Composes Memory, operational state, bounded Knowledge, producers and policy evaluation for an on-demand refresh.
   - Coalesces concurrent refreshes and applies a 15-minute process-local TTL; it does not own background scheduling.
 - `src/services/recommendations/delivery/scheduler.js`
@@ -112,7 +113,7 @@ hint distinguishes stored material as `발견 뉴스` and query-based Naver Sear
 When `관심 없음` succeeds, the interaction response may contain one server-selected replacement DTO.
 The browser replaces only that card in place and cannot request a provider or inject a source. If no
 grounded replacement is created, it falls back to the normal owner-scoped list read.
-The UI API derives the installation-local owner, records lifecycle interactions and passes only that
+The Recommendation Center Application derives the installation-local owner, records lifecycle interactions and passes only that
 owner plus Recommendation id to `src/services/recommendations/handoff/service.js`. Presentation targets are
 allowlisted again in the browser before navigation. An empty first read may invoke one bounded,
 server-side evaluation so the center is usable before proactive scheduling exists. App-start and

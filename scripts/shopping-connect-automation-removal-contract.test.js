@@ -21,7 +21,7 @@ test('shopping automation cannot be started through runtime or API composition',
   const runner = read('src/ui-runtime/auto-runner-runtime.js');
   const cycle = read('src/ui-runtime/auto-cycle-runtime.js');
   const contentActions = read('src/ui-runtime/content-actions-runtime.js');
-  const routes = read('src/ui-api/routes/content.routes.js');
+  const routes = read('src/adapters/ui/content/content-api/routes.js');
   const server = read('src/ui-server.js');
 
   [runner, cycle, contentActions, routes, server].forEach((source) => {

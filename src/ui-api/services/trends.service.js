@@ -1,4 +1,4 @@
-const { createApiError } = require('../errors');
+const { createApiError } = require('../../adapters/ui/errors');
 
 function createTrendsService(deps = {}) {
     const {

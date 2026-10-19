@@ -6,7 +6,7 @@ const path = require('node:path');
 const { EventEmitter } = require('node:events');
 
 const { Updater } = require('./updater');
-const { createSystemController } = require('../ui-api/controllers/system.controller');
+const { createSystemController } = require('../adapters/ui/account/system/controller');
 
 test('updater reads the current custom update URL instead of startup values', () => {
     const config = {

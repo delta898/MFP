@@ -6,7 +6,7 @@ const path = require('node:path');
 const ROOT = path.resolve(__dirname, '../../..');
 const AI_FREE_RUNTIME_FILES = [
     'src/ui-runtime/recommendation-runtime.js',
-    'src/ui-api/services/recommendation-refresh.service.js',
+    'src/services/recommendations/delivery/refresh-service.js',
     'src/services/recommendations/delivery/scheduler.js',
     'src/services/recommendations/producers/content-knowledge-collector.js',
     'src/services/recommendations/producers/content-opportunity.js'
