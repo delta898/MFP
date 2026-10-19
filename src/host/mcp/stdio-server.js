@@ -15,8 +15,9 @@ function redirectConsoleToStderr() {
 async function main() {
     redirectConsoleToStderr();
     const pkg = require('../../../package.json');
-    const CONFIG = require('../../config-loader');
-    const { License } = require('../../composition/licensing');
+    const CONFIG = require('../configuration/runtime-config');
+    const { createLicensingRuntime } = require('../../composition/licensing');
+    const { License } = createLicensingRuntime({ config: CONFIG });
     const { createMcpPrototypeRuntime } = require('../../composition/mcp-runtime');
     const { startServer } = require('../../adapters/messaging/mcp/server/stdio-server');
     return startServer({

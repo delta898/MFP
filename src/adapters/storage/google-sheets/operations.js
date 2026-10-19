@@ -1,6 +1,6 @@
 'use strict';
 
-module.exports = Object.assign(
+const operations = Object.assign(
     {},
     require('./base'),
     require('./topic-store'),
@@ -8,3 +8,7 @@ module.exports = Object.assign(
     require('./research-store'),
     require('./trend-store')
 );
+
+operations.configureRuntime = require('./dependencies').configureGoogleSheetsRuntime;
+
+module.exports = operations;

@@ -20,7 +20,9 @@ function inspectConfiguration(envPatch = {}) {
         BLOGGENIUS_LOCAL_SUPABASE_PUBLISHABLE_KEY: 'local-public-key'
     }, envPatch);
     const result = spawnSync(process.execPath, ['-e', [
+        "const config = require('./src/host/configuration/runtime-config');",
         "const oauth = require('./src/adapters/google/auth/google-oauth');",
+        'oauth.configureRuntime({ config });',
         'process.stdout.write(JSON.stringify(oauth.getConfigurationStatus()));'
     ].join(' ')], {
         cwd: REPO_ROOT,
@@ -57,7 +59,9 @@ test('default Google OAuth authorization is limited to drive.file', () => {
         GOOGLE_OAUTH_TOKENS_JSON_PATH: path.join(os.tmpdir(), 'google-default-scope-test-tokens.json')
     });
     const result = spawnSync(process.execPath, ['-e', [
+        "const config = require('./src/host/configuration/runtime-config');",
         "const oauth = require('./src/adapters/google/auth/google-oauth');",
+        'oauth.configureRuntime({ config });',
         "process.stdout.write(oauth.buildAuthUrl({ redirectUri: 'http://127.0.0.1:43127/callback' }).authUrl);"
     ].join(' ')], { cwd: REPO_ROOT, env, encoding: 'utf8' });
     assert.equal(result.status, 0, result.stderr);
@@ -76,7 +80,9 @@ test('Picker OAuth requests only drive.file and enables spreadsheet selection', 
         GOOGLE_OAUTH_TOKENS_JSON_PATH: path.join(os.tmpdir(), 'google-picker-test-tokens.json')
     });
     const result = spawnSync(process.execPath, ['-e', [
+        "const config = require('./src/host/configuration/runtime-config');",
         "const oauth = require('./src/adapters/google/auth/google-oauth');",
+        'oauth.configureRuntime({ config });',
         "const auth = oauth.buildAuthUrl({ redirectUri: 'http://127.0.0.1:43127/callback', scopes: ['https://www.googleapis.com/auth/drive.file'], picker: true, includeGrantedScopes: false });",
         'process.stdout.write(auth.authUrl);'
     ].join(' ')], { cwd: REPO_ROOT, env, encoding: 'utf8' });
@@ -89,7 +95,7 @@ test('Picker OAuth requests only drive.file and enables spreadsheet selection', 
 });
 
 test('Google OAuth consumers never fetch app credentials from Runtime Config', () => {
-    const configLoader = fs.readFileSync(path.join(REPO_ROOT, 'src/config-loader.js'), 'utf8');
+    const hostRuntimeConfig = fs.readFileSync(path.join(REPO_ROOT, 'src/host/configuration/runtime-config.js'), 'utf8');
     const runtimeConfig = fs.readFileSync(path.join(REPO_ROOT, 'src/runtime-config.js'), 'utf8');
     const contentService = fs.readFileSync(
         path.join(REPO_ROOT, 'src/adapters/ui/content/content-api/service.js'),
@@ -99,8 +105,8 @@ test('Google OAuth consumers never fetch app credentials from Runtime Config', (
     assert.doesNotMatch(runtimeConfig, /google_oauth_client_(id|secret)/i);
     assert.doesNotMatch(runtimeConfig, /ensureGoogleOauthClientConfig/);
     assert.doesNotMatch(contentService, /ensureGoogleOauthClientConfig/);
-    assert.match(configLoader, /resolveOAuthApplicationConfig\(/);
-    assert.match(configLoader, /runtimeEnv:\s*process[.]env/);
-    assert.match(configLoader, /buildConfig:\s*internalSecrets/);
-    assert.doesNotMatch(configLoader, /ensureGoogleOauthClientConfig/);
+    assert.match(hostRuntimeConfig, /resolveOAuthApplicationConfig\(/);
+    assert.match(hostRuntimeConfig, /runtimeEnv:\s*process[.]env/);
+    assert.match(hostRuntimeConfig, /buildConfig:\s*internalSecrets/);
+    assert.doesNotMatch(hostRuntimeConfig, /ensureGoogleOauthClientConfig/);
 });

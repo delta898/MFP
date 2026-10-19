@@ -2,7 +2,12 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const axios = require('axios');
-const CONFIG = require('../../../config-loader');
+let runtimeConfig = null;
+
+function configureRuntime({ config } = {}) {
+    if (!config || typeof config !== 'object') throw new TypeError('Google OAuth requires Host configuration.');
+    runtimeConfig = config;
+}
 
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -14,6 +19,7 @@ const STATE_TTL_MS = 10 * 60 * 1000;
 const pendingStates = new Map();
 
 function getOauthClientConfig() {
+    const CONFIG = runtimeConfig || {};
     return {
         clientId: String(CONFIG.GOOGLE_OAUTH_CLIENT_ID || '').trim(),
         clientSecret: String(CONFIG.GOOGLE_OAUTH_CLIENT_SECRET || '').trim(),
@@ -332,6 +338,7 @@ try {
 
 module.exports = {
     DEFAULT_SCOPES,
+    configureRuntime,
     buildAuthUrl,
     deleteTokens,
     exchangeCode,

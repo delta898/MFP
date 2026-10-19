@@ -200,7 +200,7 @@ if (!primaryInstance) {
     // Portable 설정 및 전체 애플리케이션 그래프는 정상 모드에서만 로드합니다.
     const moduleLoadStartedAt = Date.now();
     startup.write('APPLICATION_MODULES_LOADING');
-    CONFIG = loadStartupModule('config-loader', () => require('../../config-loader'));
+    CONFIG = loadStartupModule('runtime-config', () => require('../configuration/runtime-config'));
     startup.write('CONFIG_LOADED', { rootDir: CONFIG.ROOT_DIR || '' });
     ({ startUiServer } = loadStartupModule('ui-server-composition', () => require('../../composition/ui-server')));
     ({ closeAgentMemory } = loadStartupModule('agent-memory-runtime', () => require('../memory/runtime')));

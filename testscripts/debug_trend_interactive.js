@@ -1,7 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const { launchBrowser } = require('../src/utilities/browser/browser-launcher'); // Import launchBrowser
-const CONFIG = require('../src/config-loader');
+const CONFIG = require('../src/host/configuration/runtime-config');
 const Logger = require('../src/utilities/logging/logger');
 
 (async () => {

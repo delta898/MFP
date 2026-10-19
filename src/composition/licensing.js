@@ -1,7 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
-const CONFIG = require('../config-loader');
 const Logger = require('../utilities/logging/logger');
 const { resolveSupabasePublicConnection } = require('../adapters/supabase/public-connection');
 const { writeLicenseKey } = require('../adapters/storage/license-keys/license-key-storage');
@@ -10,7 +9,8 @@ const { getDeviceIdentity } = require('../host/licensing/device-identity');
 const { createLicenseService } = require('../services/licensing/license-service');
 
 function createLicensingRuntime(options = {}) {
-    const config = options.config || CONFIG;
+    const config = options.config;
+    if (!config) throw new TypeError('Licensing composition requires runtime configuration.');
     const logger = options.Logger || Logger;
     const connection = resolveSupabasePublicConnection(config);
     const createSupabaseClient = options.createSupabaseClient || createClient;
@@ -34,9 +34,6 @@ function createLicensingRuntime(options = {}) {
     return { License };
 }
 
-const { License } = createLicensingRuntime();
-
 module.exports = {
-    License,
     createLicensingRuntime
 };

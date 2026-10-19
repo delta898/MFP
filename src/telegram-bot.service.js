@@ -1,5 +1,4 @@
 const { TelegramBot } = require('node-telegram-bot-api');
-const CONFIG = require('./config-loader');
 const Logger = require('./utilities/logging/logger');
 const fs = require('fs');
 const path = require('path');
@@ -30,6 +29,7 @@ const {
 } = require('./adapters/messaging/telegram/network-policy');
 
 class TelegramBotService {
+    static CONFIG = {};
     static GoogleSheets = null;
     static License = null;
     static bot = null;
@@ -104,7 +104,7 @@ class TelegramBotService {
                     continue;
                 }
                 if (!silent) {
-                    const details = describeTelegramError(error, { botToken: CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN });
+                    const details = describeTelegramError(error, { botToken: this.CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN });
                     Logger.warn(`⚠️ [TelegramBot] ${methodName} 실패: ${formatTelegramDiagnostic(details)}`);
                 }
                 break;
@@ -186,9 +186,9 @@ class TelegramBotService {
         }
 
 
-        const enabled = CONFIG.NOTIFY_TELEGRAM_INBOUND_ENABLED;
-        const botToken = CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN;
-        const chatId = String(CONFIG.NOTIFY_TELEGRAM_CHAT_ID || '').trim();
+        const enabled = this.CONFIG.NOTIFY_TELEGRAM_INBOUND_ENABLED;
+        const botToken = this.CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN;
+        const chatId = String(this.CONFIG.NOTIFY_TELEGRAM_CHAT_ID || '').trim();
 
         if (!enabled || !botToken) {
             Logger.info('ℹ️ [TelegramBot] 텔레그램 알림이 비활성화되어 있거나 설정이 누락되어 수신 봇을 시작하지 않습니다.');
@@ -244,13 +244,14 @@ class TelegramBotService {
 
         const hooks = getRuntimeHooks();
         const resolveWritableConfigPath = hooks.resolveWritableConfigPath
-            || (() => CONFIG.CONFIG_SOURCE_PATH || CONFIG.PATHS?.configFile || path.join(process.cwd(), 'config', 'config.json'));
+            || (() => this.CONFIG.CONFIG_SOURCE_PATH || this.CONFIG.PATHS?.configFile || path.join(process.cwd(), 'config', 'config.json'));
         const buildDefaultConfigTemplate = hooks.buildDefaultConfigTemplate || (() => '{}');
         const syncAutoRunnerWithConfig = hooks.syncAutoRunnerWithConfig || (() => { });
         const resolveNaverAutoCategoryCatalog = hooks.resolveNaverAutoCategoryCatalog || null;
 
         const License = TelegramBotService.License;
         if (!License) throw new Error('Telegram runtime requires an injected licensing port.');
+        const CONFIG = this.CONFIG;
         const knowledgeRuntime = createKnowledgeRuntime({ CONFIG, License, Logger, axios });
         const capabilityRegistry = createCapabilityRuntime({
             ...knowledgeRuntime,
@@ -617,7 +618,7 @@ class TelegramBotService {
             const now = Date.now();
             if (!TelegramBotService._pollingErrorWindowStart) TelegramBotService._pollingErrorWindowStart = now;
             TelegramBotService._pollingErrorCount++;
-            const details = describeTelegramError(error, { botToken: CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN });
+            const details = describeTelegramError(error, { botToken: TelegramBotService.CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN });
             const retryDelayMs = TelegramBotService.calculatePollingBackoffMs(TelegramBotService._pollingErrorCount);
             TelegramBotService._lastPollingError = {
                 category: details.category,
@@ -852,7 +853,7 @@ class TelegramBotService {
                     }
 
                     const axios = require('axios');
-                    const CONFIG = require('./config-loader');
+                    const CONFIG = this.CONFIG;
 
                     const registerPayload = requestBundle.register_request?.payload || null;
                     const publishPayload = requestBundle.publish_request?.payload || null;
@@ -1007,7 +1008,7 @@ class TelegramBotService {
                     }
 
                     const axios = require('axios');
-                    const CONFIG = require('./config-loader');
+                    const CONFIG = this.CONFIG;
                     const internalUiOrigin = getInternalUiOrigin(CONFIG);
 
                     try {
@@ -1034,7 +1035,7 @@ class TelegramBotService {
                     }
 
                     const axios = require('axios');
-                    const CONFIG = require('./config-loader');
+                    const CONFIG = this.CONFIG;
                     const internalUiOrigin = getInternalUiOrigin(CONFIG);
                     const jobName = parsedData.data.job_name.toLowerCase();
 
@@ -1103,7 +1104,7 @@ class TelegramBotService {
         const queryType = String(data.query_type || '').trim().toLowerCase();
         const params = data.query_params || {};
         const axios = require('axios');
-        const CONFIG = require('./config-loader');
+        const CONFIG = this.CONFIG;
         const internalUiOrigin = getInternalUiOrigin(CONFIG);
         // 공통 지능형 메모리 및 서비스 상태 조회
 
@@ -1193,9 +1194,9 @@ class TelegramBotService {
      * [Notify] 외부 모듈에서 알림 메시지를 보낼 때 사용 (Config의 ChatId 자동 사용)
      */
     static async sendNotification(text, options = {}) {
-        const enabled = CONFIG.NOTIFY_TELEGRAM_ENABLED;
-        const botToken = CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN;
-        const chatId = CONFIG.NOTIFY_TELEGRAM_CHAT_ID;
+        const enabled = this.CONFIG.NOTIFY_TELEGRAM_ENABLED;
+        const botToken = this.CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN;
+        const chatId = this.CONFIG.NOTIFY_TELEGRAM_CHAT_ID;
 
         if (!enabled || !botToken || !chatId || !this.bot) {
             // Logger.info('ℹ️ [TelegramBot] 알림이 비활성화되어 있거나 봇이 시작되지 않아 메시지를 보내지 않습니다.');
@@ -1213,16 +1214,16 @@ class TelegramBotService {
             });
             return true;
         } catch (err) {
-            const details = describeTelegramError(err, { botToken: CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN });
+            const details = describeTelegramError(err, { botToken: this.CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN });
             Logger.error(`❌ [TelegramBot] 알림 전송 실패: ${formatTelegramDiagnostic(details)}`);
             return false;
         }
     }
 
     static getStatus() {
-        const enabled = CONFIG.NOTIFY_TELEGRAM_INBOUND_ENABLED === true;
-        const botToken = String(CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim();
-        const chatId = String(CONFIG.NOTIFY_TELEGRAM_CHAT_ID || '').trim();
+        const enabled = this.CONFIG.NOTIFY_TELEGRAM_INBOUND_ENABLED === true;
+        const botToken = String(this.CONFIG.NOTIFY_TELEGRAM_BOT_TOKEN || '').trim();
+        const chatId = String(this.CONFIG.NOTIFY_TELEGRAM_CHAT_ID || '').trim();
         return {
             enabled,
             configured: Boolean(botToken && chatId),

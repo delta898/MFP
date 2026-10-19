@@ -29,7 +29,7 @@ const {
     normalizeStoredModelProfiles,
     normalizeChatModelSource
 } = require('../../../services/ai/model-configuration');
-const TelegramPairingService = require('../../../telegram-pairing.service');
+const { createTelegramPairingService } = require('../../../telegram-pairing.service');
 const { isSnsAiMode } = require('../../../services/sns/ai-policy');
 const {
     readConnectionVerification,
@@ -229,7 +229,7 @@ function createSettingsService(deps = {}) {
         parseConfigValue,
         TelegramService,
         TelegramBotService,
-        telegramPairingService = TelegramPairingService,
+        telegramPairingService: providedTelegramPairingService,
         socialPublisher,
         axios,
         styleReferenceAnalyzer,
@@ -238,6 +238,8 @@ function createSettingsService(deps = {}) {
         aiGenerationService,
         aiGateway = null
     } = deps;
+    const telegramPairingService = providedTelegramPairingService
+        || createTelegramPairingService({ CONFIG, TelegramBotService });
 
     const writingProfileApplication = createSettingsWritingProfileRuntime({
         fs,

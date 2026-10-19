@@ -1,7 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const CONFIG = require('../../../config-loader');
 const ShoppingManager = require('./application');
 const { getDefaultContentWritingProfile } = require('../../../services/content-writing/writing-profile');
 
@@ -68,13 +67,7 @@ function createPromptProduct() {
 }
 
 function withWritingProfile(profile, callback) {
-    const previous = CONFIG.CONTENT_WRITING_PROFILE;
-    CONFIG.CONTENT_WRITING_PROFILE = profile;
-    try {
-        return callback();
-    } finally {
-        CONFIG.CONTENT_WRITING_PROFILE = previous;
-    }
+    return callback({ CONTENT_WRITING_PROFILE: profile });
 }
 
 test('shopping fallback delegates exact product recovery to the server gateway', async () => {
@@ -194,14 +187,14 @@ test('shopping prompt applies selected common profile voice and per-post strateg
     const writtenProfile = getDefaultContentWritingProfile();
     writtenProfile.common.voice.writing_mode = 'written';
     writtenProfile.common.voice.speech_level = 'plain';
-    const searchPrompt = withWritingProfile(writtenProfile, () => buildAiPrompt(createPromptProduct(), 'naver', {
+    const searchPrompt = withWritingProfile(writtenProfile, (config) => buildAiPrompt(createPromptProduct(), 'naver', {
         writing_strategy: 'search'
-    }));
+    }, config));
 
     const conversationalProfile = getDefaultContentWritingProfile();
-    const discoveryPrompt = withWritingProfile(conversationalProfile, () => buildAiPrompt(createPromptProduct(), 'wordpress', {
+    const discoveryPrompt = withWritingProfile(conversationalProfile, (config) => buildAiPrompt(createPromptProduct(), 'wordpress', {
         writing_strategy: 'discovery'
-    }));
+    }, config));
 
     assert.match(searchPrompt, /간결하고 객관적인 설명문·칼럼형 문체/);
     assert.match(searchPrompt, /표현 방식은 문어체/);
@@ -221,9 +214,9 @@ test('shopping global instruction precedes product instruction and blog-only pro
     profile.channels.blog.style_references.sample_text.value = '블로그 문체 참고 원문';
     const productInstruction = '이 상품은 디자인 선택 기준부터 설명하세요.';
 
-    const prompt = withWritingProfile(profile, () => buildAiPrompt(createPromptProduct(), 'naver', {
+    const prompt = withWritingProfile(profile, (config) => buildAiPrompt(createPromptProduct(), 'naver', {
         instruction: productInstruction
-    }));
+    }, config));
 
     assert.match(prompt, /선택된 쇼핑 글쓰기 프로필/);
     assert.match(prompt, /전문용어를 쉬운 말로/);

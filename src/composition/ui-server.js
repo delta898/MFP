@@ -5,13 +5,14 @@ const crypto = require('crypto');
 const axios = require('axios');
 const cheerio = require('cheerio');
 
-const { License } = require('./licensing');
+const { createLicensingRuntime } = require('./licensing');
 const { createShoppingContentPreparationRuntime } = require('./shopping-content-preparation');
 const TelegramService = require('../adapters/messaging/telegram/service');
 const SlackService = require('../slack-service');
 const { createUrlShorteningSystem } = require('./url-shortening');
 const { APP_VERSION } = require('../host/application-metadata');
-const CONFIG = require('../config-loader');
+const CONFIG = require('../host/configuration/runtime-config');
+const { License } = createLicensingRuntime({ config: CONFIG });
 const Logger = require('../utilities/logging/logger');
 Logger.configureRuntime({ logLevel: CONFIG.LOG_LEVEL, rootDir: CONFIG.ROOT_DIR });
 const { service: urlShorteningService } = createUrlShorteningSystem({ CONFIG, logger: Logger });
@@ -19,6 +20,7 @@ const GoogleOAuth = require('../adapters/google/auth/google-oauth');
 const { createGoogleSheetsClient } = require('../adapters/google/sheets/client');
 const { extractGoogleSheetId, normalizeGoogleSheetUrl } = require('../adapters/google/sheets/spreadsheet-reference');
 const GoogleSheets = require('../adapters/storage/google-sheets/operations');
+GoogleSheets.configureRuntime({ config: CONFIG });
 Logger.debug(`Application version: ${APP_VERSION}`);
 const NaverAuthSession = require('../adapters/naver/auth-session');
 const naverAuthConfiguration = Object.freeze({
@@ -36,6 +38,7 @@ const { parseStructuredJsonResponse } = require('../utilities/text/structured-js
 const TelegramBotService = require('../telegram-bot.service');
 TelegramBotService.GoogleSheets = GoogleSheets;
 TelegramBotService.License = License;
+TelegramBotService.CONFIG = CONFIG;
 const BrowserLauncher = require('../utilities/browser/browser-launcher');
 const resolvePlatformWorkspaceDir = createPlatformWorkspaceResolver({ config: CONFIG, fs, path, logger: Logger });
 const findImageByPrefix = createManuscriptImageFileReader({ fs, path, logger: Logger });

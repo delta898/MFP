@@ -391,7 +391,7 @@
       ".github/workflows/build.yml",
       "scripts/environment/build-config.js",
       "src/host/configuration/environment/secret.js.sample",
-      "src/config-loader.js"
+      "src/host/configuration/runtime-config.js"
     ],
     "generated_desktop_build_artifact": "src/host/configuration/environment/secret.js"
   },

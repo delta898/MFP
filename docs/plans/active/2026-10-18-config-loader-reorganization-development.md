@@ -5,7 +5,7 @@
 - Branch: `codex/fbr/config-loader-reorganization`
 - Start date: 2026-10-18
 - Base/parent branch: `codex/fbr/source-layer-reorganization`
-- Status: In progress
+- Status: Configuration-loader objective complete; integration branch remains active for other approved source-layer work.
 
 ## User need and goal
 
@@ -28,6 +28,14 @@
 - User-approved scope extension on 2026-10-19: continue the source-layer migration through `src/ui-runtime/`. Classify each module independently; move transport helpers to `adapters/ui/`, server lifecycle to Host, feature workflows to Applications, shared services to `services/` or `utilities/`, and dependency wiring to `composition/`. Remove `src/ui-runtime/` after all live callers and tests have migrated; do not move the directory wholesale.
 - User-approved scope extension on 2026-10-19: continue the source-layer migration through `src/ui-server.js`. Split Host process/startup lifecycle, UI protocol translation, and product/runtime composition by responsibility; migrate Host callers and remove the root composition module only when no production or test caller remains. Do not move the file wholesale or alter route/API behavior.
 - User-approved scope extension on 2026-10-19: continue decomposition of `src/utils.js` by responsibility and layer. Migrate callers in the same slice, remove confirmed dead legacy helpers, update the architecture and source inventory, and delete the root facade only after all remaining Blog, SNS, Shopping, adapter, and composition callers have explicit owners. Do not move the file wholesale.
+
+### Configuration loader completion slice (2026-10-19)
+
+- Moved the remaining Host runtime configuration assembly from `src/config-loader.js` to `src/host/configuration/runtime-config.js`. Host launchers, Electron startup, MCP server startup, development scripts, demos, tests, and Supabase inventory now use the new path; the root module was removed.
+- Removed direct global-config imports from Shopping Content Preparation, Google OAuth/Sheets storage, Telegram bot/pairing, and licensing composition. Composition now supplies runtime configuration to these boundaries; Shopping receives it through its runtime factory and method options.
+- Preserved the existing persisted configuration and flat settings shape. The Host runtime snapshot still includes compatibility fields used by active consumers; further movement of domain-specific policy remains incremental work, not a retained root loader.
+- Updated the canonical architecture guide, source inventory, and Blog writing strategy feature document. Corrected the moved module's packaged secret-config relative path.
+- Verification for this slice: `node --check` passed for changed JavaScript files, the new Host runtime config module passed syntax validation, and `git diff --check` passed. A production source scan found no imports of the removed root loader. Automated test suites and application startup were not run. No manual UI validation is applicable.
 
 ## Explicit non-goals
 

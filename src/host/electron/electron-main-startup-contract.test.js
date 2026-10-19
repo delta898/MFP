@@ -15,7 +15,7 @@ const packageMetadata = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../.
 test('bootstrap and fatal handlers are installed before the application graph loads', () => {
     const bootstrapIndex = source.indexOf("require('./startup-bootstrap')");
     const handlerIndex = source.indexOf("process.on('uncaughtException'");
-    const configIndex = source.indexOf("require('../../config-loader')");
+    const configIndex = source.indexOf("require('../configuration/runtime-config')");
 
     assert.ok(bootstrapIndex >= 0);
     assert.ok(handlerIndex > bootstrapIndex);
@@ -43,7 +43,7 @@ test('package and Node launchers point to the Host-owned entrypoints', () => {
 
 test('runtime network family policy is applied before the application graph loads', () => {
     const policyIndex = source.indexOf('applyRuntimeNetworkPolicy()');
-    const configIndex = source.indexOf("require('../../config-loader')");
+    const configIndex = source.indexOf("require('../configuration/runtime-config')");
     assert.ok(policyIndex >= 0);
     assert.ok(configIndex > policyIndex);
     assert.match(source, /NETWORK_POLICY_READY/);

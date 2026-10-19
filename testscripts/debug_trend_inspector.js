@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const BrowserLauncher = require('../src/utilities/browser/browser-launcher');
-const CONFIG = require('../src/config-loader');
+const CONFIG = require('../src/host/configuration/runtime-config');
 
 (async () => {
     console.log("🔍 크리에이터 어드바이저 트렌드 페이지 조사 시작...");

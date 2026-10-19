@@ -2,9 +2,20 @@
 
 const fs = require('fs');
 const axios = require('axios');
-const CONFIG = require('../../../config-loader');
 const Logger = require('../../../utilities/logging/logger');
 const GoogleOAuth = require('../../google/auth/google-oauth');
+let runtimeConfig = {};
+const CONFIG = new Proxy({}, {
+    get(_target, property) { return runtimeConfig[property]; },
+    set(_target, property, value) { runtimeConfig[property] = value; return true; },
+    has(_target, property) { return property in runtimeConfig; }
+});
+
+function configureGoogleSheetsRuntime({ config } = {}) {
+    if (!config || typeof config !== 'object') throw new TypeError('Google Sheets adapter requires Host configuration.');
+    runtimeConfig = config;
+    GoogleOAuth.configureRuntime({ config });
+}
 const {
     formatSheetImageModeValue,
     mergeShoppingSheetOptions,
@@ -27,4 +38,4 @@ const {
 const { buildTopicRowMoveRequest } = require('./topic-queue-order');
 const { getAgentEventStore } = require('../../../host/memory/runtime');
 
-module.exports = { fs, axios, CONFIG, Logger, GoogleOAuth, formatSheetImageModeValue, mergeShoppingSheetOptions, mergeTopicSheetOptions, parseSheetImageModeValue, resolveShoppingSheetState, resolveTopicSheetState, stringifySheetOptionsValue, SNS_SHEET_NAME, SNS_SHEET_HEADERS, buildSnsStatusValidationRequest, CARD_NEWS_SHEET_NAME, CARD_NEWS_SHEET_HEADERS, buildCardNewsStatusValidationRequests, buildTopicRowMoveRequest, getAgentEventStore };
+module.exports = { fs, axios, CONFIG, Logger, GoogleOAuth, configureGoogleSheetsRuntime, formatSheetImageModeValue, mergeShoppingSheetOptions, mergeTopicSheetOptions, parseSheetImageModeValue, resolveShoppingSheetState, resolveTopicSheetState, stringifySheetOptionsValue, SNS_SHEET_NAME, SNS_SHEET_HEADERS, buildSnsStatusValidationRequest, CARD_NEWS_SHEET_NAME, CARD_NEWS_SHEET_HEADERS, buildCardNewsStatusValidationRequests, buildTopicRowMoveRequest, getAgentEventStore };

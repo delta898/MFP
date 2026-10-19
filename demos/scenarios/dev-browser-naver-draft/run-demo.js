@@ -54,7 +54,7 @@ async function main() {
   const { prepareDevelopmentEnvironment } = require(path.join(ROOT, 'scripts/app-environment-launcher'));
   const developmentEnv = prepareDevelopmentEnvironment({ repoRoot: ROOT });
   Object.assign(process.env, developmentEnv);
-  const CONFIG = require(path.join(ROOT, 'src/config-loader'));
+  const CONFIG = require(path.join(ROOT, 'src/host/configuration/runtime-config'));
   if (CONFIG.RUNTIME_ENVIRONMENT_PROFILE?.environment !== 'development'
       || CONFIG.RUNTIME_ENVIRONMENT_PROFILE?.status !== 'ready') {
     fail('Development 환경이 준비되지 않아 시연을 시작하지 않습니다.');

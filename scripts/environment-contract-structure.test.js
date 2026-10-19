@@ -250,7 +250,7 @@ test('production schema audit keeps only a sanitized report in the repository', 
 });
 
 test('config loading and diagnostics expose only the resolved environment boundary', () => {
-    const configLoader = fs.readFileSync(path.join(REPO_ROOT, 'src/config-loader.js'), 'utf8');
+    const runtimeConfig = fs.readFileSync(path.join(REPO_ROOT, 'src/host/configuration/runtime-config.js'), 'utf8');
     const supabaseAdapter = fs.readFileSync(
         path.join(REPO_ROOT, 'src/adapters/supabase/public-connection.js'),
         'utf8'
@@ -260,10 +260,10 @@ test('config loading and diagnostics expose only the resolved environment bounda
         'utf8'
     );
 
-    assert.match(configLoader, /resolveRuntimeEnvironmentProfile/);
-    assert.match(configLoader, /RUNTIME_ENVIRONMENT_PROFILE: runtimeEnvironmentProfile/);
-    assert.doesNotMatch(configLoader, /LICENSE_CHK_URL: internalSecrets\.LICENSE_CHK_URL/);
-    assert.doesNotMatch(configLoader, /LICENSE_CHK_KEY: internalSecrets\.LICENSE_CHK_KEY/);
+    assert.match(runtimeConfig, /resolveRuntimeEnvironmentProfile/);
+    assert.match(runtimeConfig, /RUNTIME_ENVIRONMENT_PROFILE: runtimeEnvironmentProfile/);
+    assert.doesNotMatch(runtimeConfig, /LICENSE_CHK_URL: internalSecrets\.LICENSE_CHK_URL/);
+    assert.doesNotMatch(runtimeConfig, /LICENSE_CHK_KEY: internalSecrets\.LICENSE_CHK_KEY/);
     assert.match(systemService, /toSafeRuntimeEnvironmentDiagnostic/);
     assert.match(supabaseAdapter, /function resolveSupabasePublicConnection/);
     assert.doesNotMatch(systemService, /publishableKey/);

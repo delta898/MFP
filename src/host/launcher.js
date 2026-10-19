@@ -41,7 +41,7 @@ process.emitWarning = (warning, ...args) => {
 
 const { spawn } = require('child_process');
 const Logger = require('../utilities/logging/logger');
-const CONFIG = require('../config-loader');
+const CONFIG = require('./configuration/runtime-config');
 Logger.configureRuntime({ logLevel: CONFIG.LOG_LEVEL, rootDir: CONFIG.ROOT_DIR });
 const { logRuntimeEnvironmentStatus } = require('./configuration/environment/runtime-profile');
 const { startUiServer } = require('../composition/ui-server');

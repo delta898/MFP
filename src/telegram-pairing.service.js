@@ -2,7 +2,6 @@
 
 const crypto = require('node:crypto');
 const { TelegramBot } = require('node-telegram-bot-api');
-const CONFIG = require('./config-loader');
 const TelegramBotService = require('./telegram-bot.service');
 
 const PAIRING_TTL_MS = 5 * 60 * 1000;
@@ -11,7 +10,7 @@ const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 function createTelegramPairingService(deps = {}) {
     const Bot = deps.TelegramBot || TelegramBot;
     const botService = deps.TelegramBotService || TelegramBotService;
-    const config = deps.CONFIG || CONFIG;
+    const config = deps.CONFIG || {};
     let pending = null;
 
     function hash(value) {
@@ -135,5 +134,4 @@ function createTelegramPairingService(deps = {}) {
     };
 }
 
-const defaultService = createTelegramPairingService();
-module.exports = { ...defaultService, createTelegramPairingService, PAIRING_TTL_MS };
+module.exports = { createTelegramPairingService, PAIRING_TTL_MS };

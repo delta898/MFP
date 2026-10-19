@@ -16,6 +16,7 @@ function createShoppingContentPreparationRuntime(options = {}) {
     application.buildPostFromShortUrl = (shortUrl, runtimeOptions = {}) => (
         ShoppingContentPreparation.buildPostFromShortUrl.call(application, shortUrl, {
             ...runtimeOptions,
+            config: options.config || {},
             ...(typeof resolvePlatformWorkspaceDir === 'function' ? { resolvePlatformWorkspaceDir } : {}),
             ...((application.relatedPostsService || options.relatedPostsService)
                 ? { relatedPostsService: application.relatedPostsService || options.relatedPostsService }
@@ -26,12 +27,14 @@ function createShoppingContentPreparationRuntime(options = {}) {
     application.previewFromShortUrl = (shortUrl, runtimeOptions = {}) => (
         ShoppingContentPreparation.previewFromShortUrl.call(application, shortUrl, {
             ...runtimeOptions,
+            config: options.config || {},
             shoppingProductGateway
         })
     );
     application.scrapeShoppingProduct = (shortUrl, runtimeOptions = {}) => (
         ShoppingContentPreparation.scrapeShoppingProduct.call(application, shortUrl, {
             ...runtimeOptions,
+            config: options.config || {},
             shoppingProductGateway
         })
     );

@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const CONFIG = require('../../../config-loader');
+const CONFIG = require('../../../host/configuration/runtime-config');
 const { getDefaultContentWritingProfile } = require('../../../services/content-writing/writing-profile');
 const { createBlogPostingApplication } = require('./application');
 

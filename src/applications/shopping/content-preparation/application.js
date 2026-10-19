@@ -3,7 +3,6 @@ const path = require('path');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const moment = require('moment-timezone');
-const CONFIG = require('../../../config-loader');
 const { sanitizeFileName } = require('../../../utilities/text/sanitize-file-name');
 const Logger = require('../../../utilities/logging/logger');
 const BrowserLauncher = require('../../../utilities/browser/browser-launcher');
@@ -505,11 +504,11 @@ function getDefaultClosingCtaPhrases(seed = 0) {
     ], seed);
 }
 
-function getConfiguredCtaImageUrls() {
+function getConfiguredCtaImageUrls(config = {}) {
     const candidates = [
-        CONFIG.SHOPPING_CTA_IMAGE_URL1,
-        CONFIG.SHOPPING_CTA_IMAGE_URL2,
-        CONFIG.SHOPPING_CTA_IMAGE_URL3
+        config.SHOPPING_CTA_IMAGE_URL1,
+        config.SHOPPING_CTA_IMAGE_URL2,
+        config.SHOPPING_CTA_IMAGE_URL3
     ];
 
     const normalized = candidates
@@ -1990,11 +1989,11 @@ function deriveSeoKeywordPlan(productTitle = '') {
     return { mainKeyword, relatedKeywords: related };
 }
 
-function resolveOwnBlogId() {
-    const configured = normalizeWhitespace(CONFIG.NAVER_ID || '');
+function resolveOwnBlogId(config = {}) {
+    const configured = normalizeWhitespace(config.NAVER_ID || '');
     if (configured && !configured.includes('본인의_네이버_아이디')) return configured;
 
-    const writeUrl = normalizeWhitespace(CONFIG.WRITE_URL || '');
+    const writeUrl = normalizeWhitespace(config.WRITE_URL || '');
     if (!writeUrl) return '';
     try {
         const parsed = new URL(writeUrl);
@@ -2080,9 +2079,9 @@ function parseRecentPostsFromBlogHtml(html, blogId, maxCount) {
     return posts;
 }
 
-async function fetchRecentOwnBlogPosts(maxCount = 3) {
+async function fetchRecentOwnBlogPosts(maxCount = 3, config = {}) {
     const targetCount = clampInt(maxCount, 1, 10, 3);
-    const blogId = resolveOwnBlogId();
+    const blogId = resolveOwnBlogId(config);
     if (!blogId) return [];
 
     const rssUrl = `https://rss.blog.naver.com/${encodeURIComponent(blogId)}.xml`;
@@ -2564,10 +2563,10 @@ function enrichShoppingAiData(aiData, productTitle, commerceData = {}, reviewDat
     return aiData;
 }
 
-function resolveShoppingWritingPreferences(input = {}) {
+function resolveShoppingWritingPreferences(input = {}, config = {}) {
     return {
         strategy: normalizeWritingStrategy(
-            input.writing_strategy || input.writingStrategy || CONFIG.CONTENT_WRITING_STRATEGY || CONFIG.BLOG_WRITING_STRATEGY
+            input.writing_strategy || input.writingStrategy || config.CONTENT_WRITING_STRATEGY || config.BLOG_WRITING_STRATEGY
         ),
         contentFocus: normalizeShoppingContentFocus(input.content_focus || input.contentFocus)
     };
@@ -2594,7 +2593,7 @@ function buildShoppingInstructionPrompt(input) {
     ].join('\n');
 }
 
-function buildAiPrompt(product, platform = 'naver', writingPreferences = {}) {
+function buildAiPrompt(product, platform = 'naver', writingPreferences = {}, config = {}) {
     const officialProductData = buildOfficialProductData(product.title || '', product.commerceData || {});
     const officialFacts = buildOfficialProductFacts(product.title || '', product.commerceData || {}).map(item => `- ${item}`).join('\n') || '- 추출된 공식 상품 정보 없음';
     const reviewFacts = (product.reviewData?.facts || []).map(item => `- ${item}`).join('\n') || '- 추출된 리뷰 요약 정보 없음';
@@ -2602,8 +2601,8 @@ function buildAiPrompt(product, platform = 'naver', writingPreferences = {}) {
     const seoKeywordHints = buildSeoKeywordHints(product.title || '');
     const officialJson = JSON.stringify(officialProductData || {}, null, 2);
     const reviewJson = JSON.stringify(product.reviewData || {}, null, 2);
-    const resolvedWritingPreferences = resolveShoppingWritingPreferences(writingPreferences);
-    const writingProfileProjection = projectWritingProfile(CONFIG.CONTENT_WRITING_PROFILE, { kind: 'shopping' });
+    const resolvedWritingPreferences = resolveShoppingWritingPreferences(writingPreferences, config);
+    const writingProfileProjection = projectWritingProfile(config.CONTENT_WRITING_PROFILE, { kind: 'shopping' });
     const writingProfileRules = buildShoppingWritingProfilePromptFromProjection(writingProfileProjection);
     const writingStrategyRules = buildShoppingWritingStrategyPrompt(resolvedWritingPreferences.strategy);
     const editorialPlanRules = buildShoppingEditorialPlanPrompt(product, {
@@ -2620,7 +2619,7 @@ function buildAiPrompt(product, platform = 'naver', writingPreferences = {}) {
         ? '짧은 문단과 명확한 소제목으로 정보를 구조화하고 워드프레스에서 읽기 쉬운 흐름을 유지하세요.'
         : '모바일에서 읽기 쉬운 문단과 소제목으로 정보를 구조화하세요.';
 
-    const promptPath = CONFIG.SHOPPING_PROMPT_PATH || path.join(__dirname, '..', 'generation', 'prompts', 'default.md');
+    const promptPath = config.SHOPPING_PROMPT_PATH || path.join(__dirname, '..', 'generation', 'prompts', 'default.md');
     if (!promptPath || !fs.existsSync(promptPath)) {
         throw new Error(`쇼핑 프롬프트 파일이 없습니다: ${promptPath}`);
     }
@@ -3158,13 +3157,14 @@ async function resolveCandidateUrl(url) {
 }
 
 async function resolveCandidateUrlWithBrowser(url, headless = true, options = {}) {
+    const config = options.config || {};
     let browser;
     try {
-        browser = await BrowserLauncher.launchBrowser({ headless, channel: CONFIG.BROWSER_CHANNEL });
+        browser = await BrowserLauncher.launchBrowser({ headless, channel: config.BROWSER_CHANNEL });
 
         const contextOptions = { userAgent: USER_AGENT };
-        if (CONFIG.AUTH_FILE_PATH && fs.existsSync(CONFIG.AUTH_FILE_PATH)) {
-            contextOptions.storageState = CONFIG.AUTH_FILE_PATH;
+        if (config.AUTH_FILE_PATH && fs.existsSync(config.AUTH_FILE_PATH)) {
+            contextOptions.storageState = config.AUTH_FILE_PATH;
         }
 
         const context = await browser.newContext(contextOptions);
@@ -3201,10 +3201,10 @@ async function resolveCandidateUrlWithBrowser(url, headless = true, options = {}
     }
 }
 
-async function resolveFinalUrlWithBrowser(url, referer = '', headless = true) {
+async function resolveFinalUrlWithBrowser(url, referer = '', headless = true, config = {}) {
     let browser;
     try {
-        browser = await BrowserLauncher.launchBrowser({ headless, channel: CONFIG.BROWSER_CHANNEL });
+        browser = await BrowserLauncher.launchBrowser({ headless, channel: config.BROWSER_CHANNEL });
 
         const contextOptions = { userAgent: USER_AGENT };
         if (referer) contextOptions.extraHTTPHeaders = { Referer: referer };
@@ -3226,14 +3226,14 @@ async function resolveFinalUrlWithBrowser(url, referer = '', headless = true) {
     }
 }
 
-async function resolveReviewRichHtmlWithBrowser(url, headless = true) {
+async function resolveReviewRichHtmlWithBrowser(url, headless = true, config = {}) {
     let browser;
     try {
-        browser = await BrowserLauncher.launchBrowser({ headless, channel: CONFIG.BROWSER_CHANNEL });
+        browser = await BrowserLauncher.launchBrowser({ headless, channel: config.BROWSER_CHANNEL });
 
         const contextOptions = { userAgent: USER_AGENT };
-        if (CONFIG.AUTH_FILE_PATH && fs.existsSync(CONFIG.AUTH_FILE_PATH)) {
-            contextOptions.storageState = CONFIG.AUTH_FILE_PATH;
+        if (config.AUTH_FILE_PATH && fs.existsSync(config.AUTH_FILE_PATH)) {
+            contextOptions.storageState = config.AUTH_FILE_PATH;
         }
 
         const context = await browser.newContext(contextOptions);
@@ -3390,7 +3390,7 @@ async function resolveProductDataFromChannelNo(channelProductNo, baseData, sourc
     if (allowBrowserFallback) {
         const browserCandidates = uniqueCandidates.slice(0, 5);
         for (const url of browserCandidates) {
-            const resolved = await resolveCandidateUrlWithBrowser(url);
+            const resolved = await resolveCandidateUrlWithBrowser(url, true, { config: options.config });
             if (!resolved) continue;
 
             const candidateData = extractProductData(resolved.finalUrl, resolved.html);
@@ -3429,13 +3429,13 @@ async function resolveProductDataFromChannelNo(channelProductNo, baseData, sourc
     return null;
 }
 
-function resolveLocalImagePath(source) {
+function resolveLocalImagePath(source, config = {}) {
     const raw = String(source || '').trim();
     if (!raw) return '';
     if (/^https?:\/\//i.test(raw)) return '';
 
-    if (typeof CONFIG.resolveRuntimePath === 'function') {
-        const resolved = CONFIG.resolveRuntimePath(raw, { mustExist: true });
+    if (typeof config.resolveRuntimePath === 'function') {
+        const resolved = config.resolveRuntimePath(raw, { mustExist: true });
         if (resolved) {
             try {
                 if (fs.existsSync(resolved) && fs.statSync(resolved).isFile()) return resolved;
@@ -3444,9 +3444,9 @@ function resolveLocalImagePath(source) {
     }
 
     const execDir = path.dirname(process.execPath || process.cwd());
-    const appRoot = CONFIG.APP_ROOT_DIR || process.cwd();
-    const configDir = CONFIG.CONFIG_DIR
-        || (CONFIG.CONFIG_SOURCE_PATH ? path.dirname(CONFIG.CONFIG_SOURCE_PATH) : path.join(appRoot, 'config'));
+    const appRoot = config.APP_ROOT_DIR || process.cwd();
+    const configDir = config.CONFIG_DIR
+        || (config.CONFIG_SOURCE_PATH ? path.dirname(config.CONFIG_SOURCE_PATH) : path.join(appRoot, 'config'));
     const candidates = [];
 
     if (/^file:\/\//i.test(raw)) {
@@ -3499,7 +3499,7 @@ function resolveLocalImagePath(source) {
 
 async function downloadImage(url, saveDir, index, label, referer = '', options = {}) {
     const rawSource = String(url || '').trim();
-    const localSourcePath = resolveLocalImagePath(url);
+    const localSourcePath = resolveLocalImagePath(url, options.config);
 
     // 원본 파일명 추출 (URL의 마지막 세그먼트에서 쿼리 제외)
     let originalName = 'image';
@@ -3569,7 +3569,7 @@ async function downloadImage(url, saveDir, index, label, referer = '', options =
 
     if (firstFailed) {
         Logger.info(`ℹ️ 단축/중계 이미지 URL 재해석 시도: ${url} (status=${response.status || 'N/A'})`);
-        const browserResolved = await resolveFinalUrlWithBrowser(url, referer);
+        const browserResolved = await resolveFinalUrlWithBrowser(url, referer, true, options.config);
         if (browserResolved && browserResolved !== url) {
             Logger.info(`ℹ️ 브라우저 최종 URL 해석 성공: ${browserResolved}`);
             response = await requestImage(browserResolved);
@@ -3980,6 +3980,7 @@ function composeMarkdown({
 
 const ShoppingManager = {
     previewFromShortUrl: async function (shortUrl, runtimeOptions = {}) {
+        const config = runtimeOptions.config || {};
         if (!shortUrl) throw new Error('쇼핑 URL이 비어 있습니다.');
 
         Logger.info(`🛍️ [Shopping] 미리보기 URL 분석 시작: ${shortUrl}`);
@@ -3995,7 +3996,8 @@ const ShoppingManager = {
         if (isLikelyInvalidLanding(productData, finalUrl)) {
             const browserResolved = await resolveCandidateUrlWithBrowser(shortUrl, true, {
                 includeReview: false,
-                waitMs: 3500
+                waitMs: 3500,
+                config
             });
             if (browserResolved) {
                 const browserData = extractProductData(browserResolved.finalUrl, browserResolved.html);
@@ -4030,7 +4032,8 @@ const ShoppingManager = {
         if (isLikelyInvalidLanding(productData, finalUrl) && channelProductNo) {
             const fallback = await resolveProductDataFromChannelNo(channelProductNo, productData, sourceHtml, {
                 allowBrowserFallback: false,
-                shoppingProductGateway: runtimeOptions.shoppingProductGateway
+                shoppingProductGateway: runtimeOptions.shoppingProductGateway,
+                config
             });
             if (fallback) {
                 finalUrl = fallback.finalUrl;
@@ -4072,6 +4075,7 @@ const ShoppingManager = {
     },
 
     scrapeShoppingProduct: async function (shortUrl, runtimeOptions = {}) {
+        const config = runtimeOptions.config || {};
         if (!shortUrl) throw new Error('쇼핑 URL이 비어 있습니다.');
         const scrapingHeadless = true;
         const productNameHint = normalizeShoppingProductNameHint(runtimeOptions.productName);
@@ -4087,7 +4091,7 @@ const ShoppingManager = {
         let browserResolvedReviewHtml = null;
 
         if (isLikelyInvalidLanding(productData, finalUrl)) {
-            const browserResolved = await resolveCandidateUrlWithBrowser(shortUrl, scrapingHeadless);
+            const browserResolved = await resolveCandidateUrlWithBrowser(shortUrl, scrapingHeadless, { config });
             if (browserResolved) {
                 const browserData = extractProductData(browserResolved.finalUrl, browserResolved.html);
                 sourceHtml = browserResolved.html || sourceHtml;
@@ -4109,7 +4113,8 @@ const ShoppingManager = {
             if (channelProductNo) {
                 const fallback = await resolveProductDataFromChannelNo(channelProductNo, productData, sourceHtml, {
                     productName: productNameHint,
-                    shoppingProductGateway: runtimeOptions.shoppingProductGateway
+                    shoppingProductGateway: runtimeOptions.shoppingProductGateway,
+                    config
                 });
                 if (fallback) {
                     finalUrl = fallback.finalUrl;
@@ -4155,7 +4160,7 @@ const ShoppingManager = {
                 Logger.debug('♻️ [Shopping] 1차 브라우저 패스 리뷰 HTML 재사용 (추가 브라우저 방문 생략)');
                 reviewResolved = { finalUrl: reviewTargetUrl, html: browserResolvedReviewHtml };
             } else {
-                reviewResolved = await resolveReviewRichHtmlWithBrowser(reviewTargetUrl, scrapingHeadless);
+                reviewResolved = await resolveReviewRichHtmlWithBrowser(reviewTargetUrl, scrapingHeadless, config);
             }
 
             if (reviewResolved?.html) {
@@ -4199,14 +4204,15 @@ const ShoppingManager = {
 
     buildPostFromShortUrl: async function (shortUrl, runtimeOptions = {}) {
         if (!shortUrl) throw new Error('쇼핑 URL이 비어 있습니다.');
+        const config = runtimeOptions.config || {};
 
-        const linkInsertCount = clampInt(CONFIG.SHOPPING_LINK_INSERT_COUNT, 1, 10, DEFAULT_LINK_INSERT_COUNT);
+        const linkInsertCount = clampInt(config.SHOPPING_LINK_INSERT_COUNT, 1, 10, DEFAULT_LINK_INSERT_COUNT);
         const imageLimit = typeof runtimeOptions.imageLimit === 'number'
             ? runtimeOptions.imageLimit
-            : clampInt(CONFIG.SHOPPING_IMAGE_MAX_COUNT, 1, 20, DEFAULT_IMAGE_MAX_COUNT);
-        const ctaImageInsertCount = clampInt(CONFIG.SHOPPING_CTA_IMAGE_INSERT_COUNT, 0, 10, DEFAULT_CTA_IMAGE_INSERT_COUNT);
-        const ftcImageUrl = (CONFIG.FTC_DISCLOSURE_IMAGE_URL || '').trim();
-        const ctaImageUrls = getConfiguredCtaImageUrls();
+            : clampInt(config.SHOPPING_IMAGE_MAX_COUNT, 1, 20, DEFAULT_IMAGE_MAX_COUNT);
+        const ctaImageInsertCount = clampInt(config.SHOPPING_CTA_IMAGE_INSERT_COUNT, 0, 10, DEFAULT_CTA_IMAGE_INSERT_COUNT);
+        const ftcImageUrl = (config.FTC_DISCLOSURE_IMAGE_URL || '').trim();
+        const ctaImageUrls = getConfiguredCtaImageUrls(config);
 
         Logger.debug(`🛍️ [Shopping] CTA 이미지 설정: 삽입 ${ctaImageInsertCount}회, 소스 ${ctaImageUrls.length}개`);
 
@@ -4292,7 +4298,7 @@ const ShoppingManager = {
         if (ftcImageUrl) {
             try {
                 const ftcIndex = nextImageIndex++;
-                const ftcPath = await downloadImage(ftcImageUrl, targetDir, ftcIndex, 'ftc_disclosure', finalUrl, { skipQualityCheck: true });
+            const ftcPath = await downloadImage(ftcImageUrl, targetDir, ftcIndex, 'ftc_disclosure', finalUrl, { skipQualityCheck: true, config });
                 const transformedFtcPath = await transformShoppingImage(ftcPath);
                 ftcImage = { index: ftcIndex, path: transformedFtcPath, prompt: ftcImageUrl };
             } catch (e) {
@@ -4310,7 +4316,8 @@ const ShoppingManager = {
                 try {
                     const ctaPath = await downloadImage(ctaImageUrl, targetDir, nextImageIndex, 'cta_image', finalUrl, {
                         skipQualityCheck: true,
-                        skipSizeCheck: true
+                        skipSizeCheck: true,
+                        config
                     });
                     const transformedCtaPath = await transformShoppingImage(ctaPath);
                     ctaImages.push({
@@ -4334,7 +4341,8 @@ const ShoppingManager = {
                 const source = meta ? meta.source : 'DOM';
 
                 const filePath = await downloadImage(url, targetDir, nextImageIndex + 3, 'product', finalUrl, {
-                    source
+                    source,
+                    config
                 });
                 productImages.push({
                     index: nextImageIndex + 3,
@@ -4361,7 +4369,7 @@ const ShoppingManager = {
             writingStrategy: runtimeOptions.writingStrategy,
             contentFocus: runtimeOptions.contentFocus,
             instruction: runtimeOptions.instruction
-        });
+        }, config);
         Logger.info(`📝 [Shopping/${platform}] AI에게 글 작성을 요청합니다...`);
         const generation = runtimeOptions.shoppingGenerationApplication;
         if (typeof generation?.generateText !== 'function') {
@@ -4401,7 +4409,7 @@ const ShoppingManager = {
             if (shoppingPlatform === 'wordpress') {
                 Logger.info('🔎 [Shopping/WordPress] 하이브리드 관련 글 수집 중...');
                 try {
-                    const wpPosts = await relatedPostsService.fetchWordPressRandomPosts(CONFIG.WORDPRESS_URL, 2);
+                    const wpPosts = await relatedPostsService.fetchWordPressRandomPosts(config.WORDPRESS_URL, 2);
                     const naverPosts = await relatedPostsService.fetchOwnBlogRelatedPosts({
                         title: aiData.title || titleBase,
                         content: `${productData.description || ''} ${productData.body || ''}`.trim(),

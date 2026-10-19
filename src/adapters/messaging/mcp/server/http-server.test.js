@@ -1,7 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { PassThrough } = require('node:stream');
-const { License } = require('../../../../composition/licensing');
+const { createLicensingRuntime } = require('../../../../composition/licensing');
+const { License } = createLicensingRuntime({ config: {} });
 const { createMcpPrototypeRuntime } = require('../../../../composition/mcp-runtime');
 
 const {

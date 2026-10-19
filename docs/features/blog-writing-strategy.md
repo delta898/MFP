@@ -79,6 +79,6 @@ BlogGenius의 AI 블로그 글은 플랫폼과 관계없이 두 가지 작성 �
 - `src/applications/blog/writing/blog-prompt.js`: 공통·전략 프롬프트 경로 선택, 검증 및 조합
 - `src/applications/blog/writing/prompts/*.md`: AI가 따르는 공통 계약과 전략별 작성 규칙
 - `src/adapters/storage/google-sheets/publish-options.js`: Google Sheets에 저장되는 글별 명시적 오버라이드의 인코딩·복원
-- `src/config-loader.js`: 선택 프로필 로드와 런타임 호환 별칭 노출 (분해 진행 중)
+- `src/host/configuration/runtime-config.js`: Host가 시작 시점의 설정 스냅샷과 선택 프로필 결과를 조립해 Composition에 제공한다.
 - `src/applications/shopping/content-preparation/application.js`: 공통 프로필 값을 쇼핑 전용 문체·전략 규칙으로 변환. 상품 수집·이미지 처리 구현도 아직 함께 있어 후속 분해 대상이다.
 - Writing-profile service/repository: 프로필 영속화, 기존 전역값 마이그레이션 및 실행 중 설정 반영

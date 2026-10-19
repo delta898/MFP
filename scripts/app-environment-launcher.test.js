@@ -204,7 +204,7 @@ test('development runtime root makes config loading prefer the project over Elec
         fs.writeFileSync(localLicensePath, 'local-license\n', 'utf8');
         fs.writeFileSync(productionLicensePath, 'production-license\n', 'utf8');
 
-        const loaderPath = path.join(REPO_ROOT, 'src', 'config-loader.js');
+        const loaderPath = path.join(REPO_ROOT, 'src', 'host', 'configuration', 'runtime-config.js');
         const result = spawnSync(process.execPath, [
             '-e',
             `const config = require(${JSON.stringify(loaderPath)}); process.stdout.write(JSON.stringify({ root: config.ROOT_DIR, source: config.CONFIG_SOURCE_PATH, port: config.LISTEN_PORT, license: config.LICENSE_KEY, licensePath: config.LICENSE_KEY_FILE_PATH }));`
@@ -281,7 +281,7 @@ test('development config uses its own per-device license file', () => {
         fs.writeFileSync(developmentLicensePath, 'development-license\n', 'utf8');
         fs.writeFileSync(path.join(configDir, 'license.key'), 'production-license\n', 'utf8');
 
-        const loaderPath = path.join(REPO_ROOT, 'src', 'config-loader.js');
+        const loaderPath = path.join(REPO_ROOT, 'src', 'host', 'configuration', 'runtime-config.js');
         const result = spawnSync(process.execPath, [
             '-e',
             `const config = require(${JSON.stringify(loaderPath)}); process.stdout.write(JSON.stringify({ license: config.LICENSE_KEY, licensePath: config.LICENSE_KEY_FILE_PATH }));`

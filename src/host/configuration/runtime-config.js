@@ -1,41 +1,41 @@
 const fs = require('fs');
 const path = require('path');
-const { APP_VERSION } = require('./host/application-metadata');
-const { getDefaultRuntimePaths } = require('./host/configuration/default-runtime-paths');
-const { TYPING_PRESETS, WAIT } = require('./adapters/naver/publishing-defaults');
-const UpdateDefaults = require('./host/update-defaults');
-const { ensureRuntimeRemoteMcpConfig } = require('./host/configuration/mcp-remote-config');
+const { APP_VERSION } = require('../application-metadata');
+const { getDefaultRuntimePaths } = require('./default-runtime-paths');
+const { TYPING_PRESETS, WAIT } = require('../../adapters/naver/publishing-defaults');
+const UpdateDefaults = require('../update-defaults');
+const { ensureRuntimeRemoteMcpConfig } = require('./mcp-remote-config');
 const {
     getAiModelCatalog,
     resolveAiModelConfig,
     resolveChatModelSettings,
     resolveStoredModelProfiles
-} = require('./services/ai/model-configuration');
-const { applyRemoteCatalog } = require('../packages/plugins/core/ai-gateway/catalog-registry');
-const { resolveContentWritingPreferences } = require('./services/content-writing/writing-preferences');
+} = require('../../services/ai/model-configuration');
+const { applyRemoteCatalog } = require('../../../packages/plugins/core/ai-gateway/catalog-registry');
+const { resolveContentWritingPreferences } = require('../../services/content-writing/writing-preferences');
 const {
     createWritingProfileRepository
-} = require('./adapters/storage/writing-profiles/repository');
+} = require('../../adapters/storage/writing-profiles/repository');
 const {
     DEFAULT_CONTENT_WRITING_PROFILE_METADATA
-} = require('./services/content-writing/writing-profile');
-const { normalizeSnsAiMode } = require('./services/sns/ai-policy');
-const { normalizeCardNewsBuiltinSources, normalizeCardNewsRssSources } = require('./applications/card-news/sources/feed-sources');
+} = require('../../services/content-writing/writing-profile');
+const { normalizeSnsAiMode } = require('../../services/sns/ai-policy');
+const { normalizeCardNewsBuiltinSources, normalizeCardNewsRssSources } = require('../../applications/card-news/sources/feed-sources');
 const {
     createRuntimePathConfiguration
-} = require('./host/configuration/runtime-paths');
+} = require('./runtime-paths');
 const {
     loadUserConfig,
     readDefaultStructuredConfig
-} = require('./host/configuration/user-config-store');
+} = require('./user-config-store');
 const {
     resolveRuntimeEnvironmentProfile
-} = require('./host/configuration/environment/runtime-profile');
+} = require('./environment/runtime-profile');
 const {
     resolveOAuthApplicationConfig
-} = require('./host/configuration/environment/oauth-config');
-const { loadLicenseKey } = require('./adapters/storage/license-keys/license-key-storage');
-const { extractGoogleSheetId } = require('./adapters/google/sheets/spreadsheet-reference');
+} = require('./environment/oauth-config');
+const { loadLicenseKey } = require('../../adapters/storage/license-keys/license-key-storage');
+const { extractGoogleSheetId } = require('../../adapters/google/sheets/spreadsheet-reference');
 const DefaultRuntimePaths = getDefaultRuntimePaths();
 
 // =========================================================
@@ -45,7 +45,7 @@ let internalSecrets = {};
 try {
     // Release build 시 환경별 public 연결값과 Desktop OAuth 앱 설정을 담아 생성된다.
     // 설치형 OAuth Client Secret은 앱에서 추출 가능하며 server secret으로 취급하지 않는다.
-    internalSecrets = require('./host/configuration/environment/secret');
+    internalSecrets = require('./environment/secret');
 } catch (_error) {
     internalSecrets = {};
 }

@@ -1,9 +1,10 @@
 'use strict';
 
 async function main() {
-    const CONFIG = require('../../config-loader');
+    const CONFIG = require('../configuration/runtime-config');
     const Logger = require('../../utilities/logging/logger');
-    const { License } = require('../../composition/licensing');
+    const { createLicensingRuntime } = require('../../composition/licensing');
+    const { License } = createLicensingRuntime({ config: CONFIG });
     const { createMcpPrototypeRuntime } = require('../../composition/mcp-runtime');
     const { startHttpMcpServer } = require('../../adapters/messaging/mcp/server/http-server');
     Logger.configureRuntime({ logLevel: CONFIG.LOG_LEVEL, rootDir: CONFIG.ROOT_DIR });
