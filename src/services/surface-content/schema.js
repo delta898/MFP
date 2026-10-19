@@ -2,7 +2,6 @@ const SUPPORTED_SCHEMA_VERSION = 1;
 const ALLOWED_KINDS = new Set(['support', 'resource', 'affiliate']);
 const ALLOWED_ICONS = new Set(['heart', 'coffee', 'book', 'link', 'sparkles']);
 const ALLOWED_MEDIA_TYPES = new Set(['image/webp', 'image/png', 'image/jpeg']);
-const ALLOWED_MEDIA_BUCKET = 'app-public-content';
 
 function normalizeText(value, maxLength) {
     const text = String(value || '').trim();
@@ -30,40 +29,32 @@ function normalizeHttpsUrl(value) {
     }
 }
 
-function normalizeObjectPath(value) {
-    const path = String(value || '').trim().replace(/^\/+/, '');
-    if (!path || path.length > 500 || path.includes('\\')) return '';
-    const segments = path.split('/');
-    if (segments.some((segment) => !segment || segment === '.' || segment === '..')) return '';
-    return segments.map((segment) => encodeURIComponent(segment)).join('/');
-}
-
 function normalizeMedia(rawMedia, options = {}) {
     if (!rawMedia || typeof rawMedia !== 'object' || Array.isArray(rawMedia)) return null;
-    if (rawMedia.kind !== 'image' || rawMedia.transport !== 'supabase_storage') return null;
-    if (rawMedia.bucket !== ALLOWED_MEDIA_BUCKET) return null;
-    if (!ALLOWED_MEDIA_TYPES.has(String(rawMedia.mime_type || '').trim())) return null;
+    if (rawMedia.kind !== 'image' || typeof options.resolveMedia !== 'function') return null;
 
-    const objectPath = normalizeObjectPath(rawMedia.object_path);
-    const width = Number(rawMedia.width);
-    const height = Number(rawMedia.height);
-    const revision = Number(rawMedia.revision);
-    if (!objectPath || !Number.isInteger(width) || width < 1 || width > 4000) return null;
-    if (!Number.isInteger(height) || height < 1 || height > 4000) return null;
-    if (!Number.isInteger(revision) || revision < 1) return null;
-
-    let storageOrigin;
+    let resolved;
     try {
-        storageOrigin = new URL(String(options.storageOrigin || '')).origin;
+        resolved = options.resolveMedia(rawMedia);
     } catch (_) {
         return null;
     }
-    if (!storageOrigin.startsWith('https://')) return null;
+    if (!resolved || typeof resolved !== 'object' || Array.isArray(resolved)) return null;
+
+    const url = normalizeHttpsUrl(resolved.url);
+    const mimeType = String(resolved.mimeType || '').trim();
+    const width = Number(resolved.width);
+    const height = Number(resolved.height);
+    const revision = Number(resolved.revision);
+    if (!url || !ALLOWED_MEDIA_TYPES.has(mimeType)) return null;
+    if (!Number.isInteger(width) || width < 1 || width > 4000) return null;
+    if (!Number.isInteger(height) || height < 1 || height > 4000) return null;
+    if (!Number.isInteger(revision) || revision < 1) return null;
 
     return {
-        url: `${storageOrigin}/storage/v1/object/public/${ALLOWED_MEDIA_BUCKET}/${objectPath}?v=${revision}`,
-        mimeType: String(rawMedia.mime_type).trim(),
-        alt: normalizeOptionalText(rawMedia.alt, 240),
+        url,
+        mimeType,
+        alt: normalizeOptionalText(resolved.alt, 240),
         width,
         height,
         revision

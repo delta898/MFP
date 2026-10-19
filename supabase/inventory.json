@@ -9,7 +9,7 @@
     "src/adapters/storage/ai-model-catalog/supabase-port.js",
     "src/adapters/supabase/functions/keyword-research-client.js",
     "src/adapters/knowledge/server-gateway-client.js",
-    "src/surface-content/supabase-provider.js"
+    "src/adapters/supabase/surface-content-provider.js"
   ],
   "operator_service_consumers": [
     "apps/trends/trends-api/docker/src/server.js"

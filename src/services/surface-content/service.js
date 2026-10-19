@@ -74,7 +74,7 @@ function createSurfaceContentService(options = {}) {
                 if (!provider || typeof provider.fetch !== 'function') return empty();
                 const remote = await provider.fetch(surface, appVersion);
                 const normalized = normalize(remote, {
-                    storageOrigin: provider.getStorageOrigin?.() || ''
+                    resolveMedia: provider.resolveMedia?.bind(provider)
                 });
                 if (!normalized) {
                     logger.warn?.('[SurfaceContent] 잘못된 원격 응답을 무시하고 마지막 정상 콘텐츠를 유지합니다.');

@@ -58,6 +58,41 @@ test('Help surface rejects unsafe guide cards and an unrelated surface', () => {
     assert.deepEqual(normalized.regions.getting_started.blocks, []);
 });
 
+test('Help surface accepts only canonical HTTPS media resolved by its provider', () => {
+    const rawPayload = {
+        schema_version: 1,
+        surface: 'help',
+        regions: {
+            getting_started: {
+                blocks: [compactBlock({
+                    media: {
+                        kind: 'image',
+                        transport: 'provider_asset',
+                        object_path: 'guide.webp'
+                    }
+                })]
+            }
+        }
+    };
+    const resolveMedia = () => ({
+        url: 'https://cdn.example.com/guide.webp',
+        mimeType: 'image/webp',
+        alt: 'Guide cover',
+        width: 1200,
+        height: 800,
+        revision: 1
+    });
+
+    const normalized = normalizeHelpPayload(rawPayload, { resolveMedia });
+    assert.equal(normalized.regions.getting_started.blocks[0].media.url, 'https://cdn.example.com/guide.webp');
+    assert.equal(normalized.regions.getting_started.blocks[0].media.alt, 'Guide cover');
+
+    const rejected = normalizeHelpPayload(rawPayload, {
+        resolveMedia: () => ({ ...resolveMedia(), url: 'http://cdn.example.com/guide.webp' })
+    });
+    assert.equal(rejected.regions.getting_started.blocks[0].media, null);
+});
+
 test('Help service preserves the last valid catalog when refresh fails', async () => {
     let callCount = 0;
     const validPayload = {
@@ -76,7 +111,7 @@ test('Help service preserves the last valid catalog when refresh fails', async (
                 if (callCount === 1) return validPayload;
                 throw new Error('temporary unavailable');
             },
-            getStorageOrigin: () => 'https://example.supabase.co'
+            resolveMedia: () => null
         }
     });
 

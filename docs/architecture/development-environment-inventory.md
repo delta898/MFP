@@ -23,7 +23,7 @@ The project ref is intentionally resolved from target-specific configuration dur
 | AI model catalog | `src/adapters/storage/ai-model-catalog/supabase-port.js` | server-managed model catalog |
 | Keyword research | `src/adapters/supabase/functions/keyword-research-client.js` | Supabase Edge Function gateway, composed into the Blog keyword-research Application |
 | Knowledge gateway | `src/adapters/knowledge/server-gateway-client.js` | news and managed provider snapshots |
-| Surface content | `src/surface-content/supabase-provider.js` | configurable app content and assets |
+| Surface content | `src/adapters/supabase/surface-content-provider.js` | configurable app content and assets |
 
 These consumers obtain an immutable public connection through `resolveSupabasePublicConnection`. The desktop no longer calls the Runtime Config RPC; its SQL function and migrations remain inventoried as a deployed server/database contract until the existing old-client rollout policy allows retirement. The config loader retains `LICENSE_CHK_URL` and `LICENSE_CHK_KEY` only as temporary internal aliases populated by the selected environment profile; client owners no longer read those aliases directly.
 
