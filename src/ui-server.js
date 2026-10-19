@@ -86,8 +86,11 @@ const { createQuickPublishRuntime } = require('./composition/quick-publish-runti
 const { createSnsAutomationScheduler } = require('./applications/sns/distribution/automation-scheduler');
 const { createSelectedTopicBatchPublisher } = require('./applications/blog/publishing/selected-topic-batch-publisher');
 const { createSnsAutomationApplication } = require('./applications/sns/distribution/automation-application');
-const { createContentActionsRuntime } = require('./ui-runtime/content-actions-runtime');
-const { createPublishActionsRuntime } = require('./ui-runtime/publish-actions-runtime');
+const { createContentActionHandlers } = require('./adapters/ui/content/content-api/action-handlers');
+const { createShoppingQuickPublishHandler } = require('./adapters/ui/shopping/publishing/quick-publish-handler');
+const { createBlogManualPublishingApplication } = require('./applications/blog/publishing/manual-publishing-application');
+const { presentBlogImageGenerationProgress } = require('./adapters/ui/blog-posting-progress');
+const { presentNaverPublishProgress } = require('./adapters/ui/naver-publish-progress');
 const { createUiApiRuntime } = require('./composition/api/ui-api-runtime');
 const { createBlogBetaRuntimeComposition } = require('./composition/blog-beta-runtime');
 const { createSocialPublishingSystem } = require('./composition/social-publishing');
@@ -749,7 +752,7 @@ const cardNewsGenerationSystem = createCardNewsGenerationSystem({
     parseStructuredJsonResponse: Utils.parseStructuredJsonResponse.bind(Utils)
 });
 
-const publishActionsRuntime = createPublishActionsRuntime({
+const publishActionsRuntime = createBlogManualPublishingApplication({
     fs,
     path,
     crypto,
@@ -785,18 +788,18 @@ const publishActionsRuntime = createPublishActionsRuntime({
     selectQuickPublishPreviewTarget,
     trackQuickPublishPreviewDirs,
     recordActivityLifecycle,
-    getExecuteShoppingRowAction: () => executeShoppingRowAction
+    presentBlogImageGenerationProgress,
+    presentNaverPublishProgress
 });
 const {
     executeLocalMarkdownPublish,
     executeQuickPreviewPublish,
     executeQuickPublish,
-    executeShoppingQuickPublish,
     getQuickPreviewImagePayload,
     processMultiPlatformPublish
 } = publishActionsRuntime;
 
-const contentActionsRuntime = createContentActionsRuntime({
+const contentActionsRuntime = createContentActionHandlers({
     path,
     CONFIG,
     Utils,
@@ -816,6 +819,7 @@ const contentActionsRuntime = createContentActionsRuntime({
     isCommandEnabled,
     getBlogAutoSettingsSnapshot: () => getBlogAutoSettingsSnapshot(),
     processMultiPlatformPublish,
+    presentBlogImageGenerationProgress,
     clearAllBlogRuntimeLogs,
     setBlogRuntimeLog,
     clearAllShoppingRuntimeLogs,
@@ -832,6 +836,17 @@ const {
     executeShoppingRowUpdate,
     executeShoppingTopicsDelete
 } = contentActionsRuntime;
+const { executeShoppingQuickPublish } = createShoppingQuickPublishHandler({
+    CONFIG,
+    License,
+    GoogleSheets,
+    normalizePublishMode,
+    toFeatureMap,
+    isCommandEnabled,
+    checkAuthSessionValid,
+    getFeatureBool,
+    getExecuteShoppingRowAction: () => executeShoppingRowAction
+});
 const snsAutomationApplication = createSnsAutomationApplication({
     rssDiscovery: snsRssDiscovery,
     distributionRunner: snsDistributionRunner

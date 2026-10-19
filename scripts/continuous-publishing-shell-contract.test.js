@@ -319,7 +319,7 @@ test('Stage 11 exposes one shared publish status with a return action and no dup
 });
 
 test('Naver browser milestones cross the publishing engine as structured progress', () => {
-    const publishRuntime = read('src/ui-runtime/publish-actions-runtime.js');
+    const publishRuntime = read('src/applications/blog/publishing/manual-publishing-application.js');
     const contentService = read('src/adapters/ui/content/content-api/service.js');
     const naverPlugin = read('packages/plugins/core/naver-publisher/index.js');
     assert.match(naverPlugin, /report\(context, 'working', 'body', bodyDone, bodyTotal\)/);

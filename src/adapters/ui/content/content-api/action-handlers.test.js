@@ -1,9 +1,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const path = require('path');
+const path = require('node:path');
 
-const { createContentActionsRuntime } = require('./content-actions-runtime');
-const { isCommandEnabled, toFeatureMap } = require('../runtime-feature-flags');
+const { createContentActionHandlers } = require('./action-handlers');
+const { isCommandEnabled, toFeatureMap } = require('../../../../runtime-feature-flags');
 
 const DEVELOPMENT_CONFIG = Object.freeze({
     RUNTIME_ENVIRONMENT_PROFILE: Object.freeze({
@@ -15,7 +15,7 @@ const DEVELOPMENT_CONFIG = Object.freeze({
 
 test('development blocks shopping batch before sheet or license access', async () => {
     let externalAccess = 0;
-    const runtime = createContentActionsRuntime({
+    const runtime = createContentActionHandlers({
         CONFIG: DEVELOPMENT_CONFIG,
         async ensureSheetsReadyForUi() { externalAccess += 1; },
         License: { async checkLicenseStatus() { externalAccess += 1; return { success: true }; } }
@@ -31,7 +31,7 @@ test('development blocks shopping batch before sheet or license access', async (
 test('development permits a manually started shopping queue item through the manual publishing policy', async () => {
     let sheetReadyCalls = 0;
     let licenseCalls = 0;
-    const runtime = createContentActionsRuntime({
+    const runtime = createContentActionHandlers({
         CONFIG: DEVELOPMENT_CONFIG,
         async ensureSheetsReadyForUi() { sheetReadyCalls += 1; },
         License: {
@@ -65,7 +65,7 @@ test('development permits a manually started shopping queue item through the man
 
 test('development blocks blog batch before sheet access', async () => {
     let sheetRead = 0;
-    const runtime = createContentActionsRuntime({
+    const runtime = createContentActionHandlers({
         CONFIG: DEVELOPMENT_CONFIG,
         parseIntSafe: (value) => Number(value),
         GoogleSheets: { async readGoogleSheetTopicsAll() { sheetRead += 1; return { items: [] }; } }
@@ -80,7 +80,7 @@ test('development blocks blog batch before sheet access', async () => {
 
 test('development continuous automation admits draft rows but still blocks public rows', async () => {
     let licenseCalls = 0;
-    const createRuntime = (postStatus) => createContentActionsRuntime({
+    const createRuntime = (postStatus) => createContentActionHandlers({
         CONFIG: DEVELOPMENT_CONFIG,
         parseIntSafe: (value) => Number(value),
         GoogleSheets: {
@@ -115,7 +115,7 @@ test('development continuous automation admits draft rows but still blocks publi
 
 test('scheduled blog rows revalidate the requested time at the platform-post boundary', async () => {
     let platformPostGate;
-    const runtime = createContentActionsRuntime({
+    const runtime = createContentActionHandlers({
         CONFIG: {},
         path,
         parseIntSafe: (value) => Number(value),
@@ -160,7 +160,7 @@ test('scheduled blog rows revalidate the requested time at the platform-post bou
 test('continuous queue execution blocks missing stored publishing fields without defaulting them', async () => {
     let licenseChecks = 0;
     let statusUpdates = 0;
-    const runtime = createContentActionsRuntime({
+    const runtime = createContentActionHandlers({
         CONFIG: {},
         parseIntSafe: (value) => Number(value),
         GoogleSheets: {
@@ -193,7 +193,7 @@ test('continuous queue execution blocks missing stored publishing fields without
 });
 
 test('shopping batch requires both shopping and batch capabilities', async () => {
-    const runtime = createContentActionsRuntime({
+    const runtime = createContentActionHandlers({
         async ensureSheetsReadyForUi() { },
         License: {
             async checkLicenseStatus() {
@@ -228,7 +228,7 @@ test('shopping batch requires both shopping and batch capabilities', async () =>
 
 test('WordPress-only shopping lifecycle execution does not require a Naver session', async () => {
     let naverSessionChecks = 0;
-    const runtime = createContentActionsRuntime({
+    const runtime = createContentActionHandlers({
         CONFIG: {},
         async ensureSheetsReadyForUi() { },
         License: {
@@ -263,7 +263,7 @@ test('WordPress-only shopping lifecycle execution does not require a Naver sessi
 
 test('shopping row update rejects an overlong instruction before sheet mutation', async () => {
     let updated = false;
-    const runtime = createContentActionsRuntime({
+    const runtime = createContentActionHandlers({
         parseIntSafe: (value, fallback, min) => {
             const parsed = Number.parseInt(value, 10);
             return Number.isInteger(parsed) && parsed >= min ? parsed : fallback;
@@ -285,7 +285,7 @@ test('shopping row update rejects an overlong instruction before sheet mutation'
 
 test('shopping row update forwards normalized posting targets to the sheet option updater', async () => {
     let received = null;
-    const runtime = createContentActionsRuntime({
+    const runtime = createContentActionHandlers({
         parseIntSafe: (value, fallback, min) => {
             const parsed = Number.parseInt(value, 10);
             return Number.isInteger(parsed) && parsed >= min ? parsed : fallback;
@@ -310,7 +310,7 @@ test('shopping row update forwards normalized posting targets to the sheet optio
 
 test('shopping topic deletion invalidates every cached shopping list variant', async () => {
     const cleared = [];
-    const runtime = createContentActionsRuntime({
+    const runtime = createContentActionHandlers({
         CONFIG: { GOOGLE_SHOPPING_SHEET: 'shopping', GOOGLE_SHEET_ID: 'sheet-id' },
         async ensureSheetsReadyForUi() { },
         parseIntSafe: (value, fallback, min) => {
@@ -333,7 +333,7 @@ test('shopping topic deletion invalidates every cached shopping list variant', a
 test('shopping row generation forwards the stored writing strategy to the content builder', async () => {
     const buildOptions = [];
     const shoppingGenerationApplication = { async generateText() { return 'generated'; } };
-    const runtime = createContentActionsRuntime({
+    const runtime = createContentActionHandlers({
         CONFIG: {},
         shoppingGenerationApplication,
         parseIntSafe: (value, fallback, min) => {
@@ -393,7 +393,7 @@ test('blog batch preflight executes only rows covered by remaining quota', async
         image_mode: rowIndex === 0 ? 'none' : 'prompt_only',
         options: { platforms: ['naver'], post_status: 'publish', image_mode: rowIndex === 0 ? 'none' : 'prompt_only' }
     }));
-    const runtime = createContentActionsRuntime({
+    const runtime = createContentActionHandlers({
         path,
         CONFIG: {},
         async ensureSheetsReadyForUi() { },
@@ -459,7 +459,7 @@ test('blog batch preflight executes only rows covered by remaining quota', async
 });
 
 test('blog batch rejects an unsupported posting option before processing rows', async () => {
-    const runtime = createContentActionsRuntime({
+    const runtime = createContentActionHandlers({
         async ensureSheetsReadyForUi() { },
         License: {
             async checkLicenseStatus() {
@@ -498,7 +498,7 @@ test('single row generation passes the stored image mode to generation and image
         image_options: { mode: 'none', generate: false },
         options: { image_mode: 'none', image_gen: false }
     };
-    const runtime = createContentActionsRuntime({
+    const runtime = createContentActionHandlers({
         path,
         CONFIG: {},
         License: { async checkLicenseStatus() { return { success: true, features: {} }; } },
@@ -533,7 +533,7 @@ test('single row generation passes the stored image mode to generation and image
 
 test('continuous runner refuses a topic whose ready state changed before execution', async () => {
     let licenseChecks = 0;
-    const runtime = createContentActionsRuntime({
+    const runtime = createContentActionHandlers({
         CONFIG: {},
         License: {
             async checkLicenseStatus() {
@@ -567,7 +567,7 @@ test('WordPress-only continuous publishing does not require a Naver session', as
     let naverSessionChecks = 0;
     let receivedTargets = [];
     let receivedTitle = '';
-    const runtime = createContentActionsRuntime({
+    const runtime = createContentActionHandlers({
         path,
         CONFIG: DEVELOPMENT_CONFIG,
         License: {

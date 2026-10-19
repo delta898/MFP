@@ -155,7 +155,7 @@ test('reusable generation and publish choices persist without carrying article d
 
 test('WordPress image upload warnings remain visible after a successful draft save', () => {
   const execution = read('ui/scripts/features/blog/draft-execution.js');
-  const publishRuntime = read('src/ui-runtime/publish-actions-runtime.js');
+  const publishRuntime = read('src/applications/blog/publishing/manual-publishing-application.js');
 
   assert.match(publishRuntime, /warnings: Array\.isArray\(wpRes\.warnings\)/);
   assert.match(execution, /results\?\.wordpress\?\.warnings/);

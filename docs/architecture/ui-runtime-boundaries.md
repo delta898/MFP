@@ -14,7 +14,7 @@ This document captures the current runtime boundaries after the CLI-removal refa
   - Wires shared runtimes, API handlers, and HTTP server lifecycle.
   - Should not keep large business workflows inline.
 
-## Shared Runtime Modules
+## Migrated Runtime Responsibilities
 - `src/adapters/ui/controller-common.js`
   - Shared HTTP controller error-response and method-allowlist translation used by UI API adapters.
 - `src/adapters/ui/account/`
@@ -84,10 +84,13 @@ This document captures the current runtime boundaries after the CLI-removal refa
   - Shared UI query parsing and content-list sorting mechanics.
 - `src/applications/blog/publishing/quick-publish-state.js`
   - Blog quick-publish dedupe and preview session state; receives transient workspace lifecycle through an injected adapter.
-- `src/ui-runtime/publish-actions-runtime.js`
-  - Quick publish, local markdown publish, multi-platform publish orchestration.
-- `src/ui-runtime/content-actions-runtime.js`
-  - Blog/shopping row actions, topic/shopping batch operations.
+- `src/applications/blog/publishing/manual-publishing-application.js`
+  - Owns manual, quick-preview, local Markdown, and multi-platform Blog publishing workflows, including quota and outcome handling. UI progress wording is supplied through injected presentation callbacks.
+- `src/adapters/ui/content/content-api/action-handlers.js`
+  - Translates legacy combined Blog/Shopping content API actions into the existing product Application and storage ports. Keep this endpoint adapter transitional; new workflows belong to their product Application.
+- `src/adapters/ui/shopping/publishing/quick-publish-handler.js`
+  - Validates the Shopping quick-publish UI request, persists it through the sheet port, then dispatches the new row through the Shopping action handler. It is UI request translation, not a separate publishing engine.
+- `src/ui-runtime/` has been removed. Do not recreate it; place each responsibility in its owning Application, UI adapter, Host, service, or composition directory.
 - `src/applications/sns/distribution/automation-scheduler.js`
   - SNS RSS discovery and distribution scheduling plus SNS-owned process-local run state.
 - `src/applications/sns/distribution/automation-application.js`
@@ -142,7 +145,7 @@ server-side evaluation so the center is usable before proactive scheduling exist
 background triggers remain outside this surface.
 
 ## Practical Rules
-- Keep UI transport and endpoint translation under `src/adapters/ui/`; keep server lifecycle under `src/host/ui/`; keep screen workflows in their owning `src/applications/<product>/` directory. `src/ui-runtime/` is a migration-only directory and must not receive new modules.
+- Keep UI transport and endpoint translation under `src/adapters/ui/`; keep server lifecycle under `src/host/ui/`; keep screen workflows in their owning `src/applications/<product>/` directory. `src/ui-runtime/` has been removed; do not recreate this catch-all directory.
 - Keep `ui/index.html` as the bounded document shell and place feature markup in
   `ui/partials/views/`. Large views such as blog and settings use nested tab
   partials. Use 500 lines as a review prompt for a partial and 800 as its hard

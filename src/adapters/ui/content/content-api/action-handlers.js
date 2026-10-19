@@ -3,13 +3,12 @@ const {
     createPublishOperationId,
     hasSuccessfulPlatformResult,
     settlePublishQuota
-} = require('../services/licensing/publish-quota');
-const { parseImageCount } = require('../applications/blog/writing/blog-image-plan');
-const { parseBlogImageMode, generatesBlogImages } = require('../applications/blog/writing/blog-image-mode');
-const { normalizePublishTargets } = require('../services/content-delivery/single-publish-target');
-const { getScheduleDateIssue } = require('../applications/blog/queue-management/topic-capture');
-const { diagnoseQueueReadiness } = require('../applications/blog/queue-management/queue-readiness');
-const { presentBlogImageGenerationProgress } = require('../adapters/ui/blog-posting-progress');
+} = require('../../../../services/licensing/publish-quota');
+const { parseImageCount } = require('../../../../applications/blog/writing/blog-image-plan');
+const { parseBlogImageMode, generatesBlogImages } = require('../../../../applications/blog/writing/blog-image-mode');
+const { normalizePublishTargets } = require('../../../../services/content-delivery/single-publish-target');
+const { getScheduleDateIssue } = require('../../../../applications/blog/queue-management/topic-capture');
+const { diagnoseQueueReadiness } = require('../../../../applications/blog/queue-management/queue-readiness');
 const {
     LIVE_PUBLISH_BLOCKED_CODE,
     LIVE_PUBLISH_BLOCKED_MESSAGE,
@@ -18,9 +17,9 @@ const {
     isLivePublishAllowed,
     isManualPublishAllowed,
     isContinuousAutomationAllowed
-} = require('../services/runtime-environment/effects');
+} = require('../../../../services/runtime-environment/effects');
 
-function createContentActionsRuntime(deps = {}) {
+function createContentActionHandlers(deps = {}) {
     const {
         path,
         CONFIG,
@@ -40,6 +39,7 @@ function createContentActionsRuntime(deps = {}) {
         isCommandEnabled,
         getBlogAutoSettingsSnapshot,
         processMultiPlatformPublish,
+        presentBlogImageGenerationProgress,
         clearAllBlogRuntimeLogs,
         setBlogRuntimeLog,
         clearAllShoppingRuntimeLogs,
@@ -1172,5 +1172,5 @@ function createContentActionsRuntime(deps = {}) {
 }
 
 module.exports = {
-    createContentActionsRuntime
+    createContentActionHandlers
 };
