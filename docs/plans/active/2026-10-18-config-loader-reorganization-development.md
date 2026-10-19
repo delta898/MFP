@@ -27,6 +27,7 @@
 - User-approved scope extension on 2026-10-19: reorganize `src/ui-api/` by layer and product vertical, moving HTTP routing/controller translation to `src/adapters/ui/<vertical>/`, moving composition out of route modules, then migrating each API service's workflow responsibility into its owning Application/service and removing `src/ui-api/` when no production caller remains. Do not delete active API behavior merely because its assembler is named `legacy`.
 - User-approved scope extension on 2026-10-19: continue the source-layer migration through `src/ui-runtime/`. Classify each module independently; move transport helpers to `adapters/ui/`, server lifecycle to Host, feature workflows to Applications, shared services to `services/` or `utilities/`, and dependency wiring to `composition/`. Remove `src/ui-runtime/` after all live callers and tests have migrated; do not move the directory wholesale.
 - User-approved scope extension on 2026-10-19: continue the source-layer migration through `src/ui-server.js`. Split Host process/startup lifecycle, UI protocol translation, and product/runtime composition by responsibility; migrate Host callers and remove the root composition module only when no production or test caller remains. Do not move the file wholesale or alter route/API behavior.
+- User-approved scope extension on 2026-10-19: continue decomposition of `src/utils.js` by responsibility and layer. Migrate callers in the same slice, remove confirmed dead legacy helpers, update the architecture and source inventory, and delete the root facade only after all remaining Blog, SNS, Shopping, adapter, and composition callers have explicit owners. Do not move the file wholesale.
 
 ## Explicit non-goals
 
@@ -132,6 +133,15 @@
 - Moved the former root `src/ui-server.js` composition into `src/composition/ui-server.js`, corrected relative module and UI-root paths, and migrated Electron, launcher, E2E, structural-contract, shopping-contract, and settings-test callers. The old root file is removed.
 - Remaining: decompose the still-large composition module by product/runtime group. No API paths or behavior were intentionally changed.
 - Verification: JavaScript syntax checks passed for changed runtime, caller, and contract files; `BLOGGENIUS_ENV=local node -e "require('./src/composition/ui-server')"` loaded the complete composition (with the existing missing license-server-config warning); stale root-module import scan returned no old imports; `git diff --check` passed. No test suites were run and no manual UI validation was performed.
+
+### Utils responsibility migration (2026-10-19)
+
+- Began the user-approved `src/utils.js` decomposition after tracing production callers and checking for overlapping owners. Confirmed that Blog manuscript parsing, Blog/Shopping related-post workflows, Naver and WordPress retrieval, generic RSS/reference fetching, workspace resolution, manuscript image lookup, and config persistence remain active and have distinct target boundaries; they must not be deleted as legacy or moved wholesale.
+- Moved the provider-neutral filename sanitizer to `src/utilities/text/sanitize-file-name.js` and migrated its Blog Posting and Shopping Application callers; removed the old Utils export.
+- Moved structured JSON response parsing to `src/utilities/text/structured-json-response.js`; Blog Posting, the Card News runtime composition, and the UI Content API now import the utility at their respective boundaries instead of reaching through Utils.
+- Removed confirmed dead code: Naver autocomplete keyword scraping (no callers, retired in-product collection feature), leftover AI provider response/error/base-URL helpers, and unused date/Axios formatting methods. Kept Google-free shared behavior and all confirmed active operations.
+- Updated the canonical layer guide and source inventory. `src/utils.js` is still present because active cross-layer callers remain; the next slice must migrate the Blog manuscript parser/image lookup and related-post/feed/reference/config/workspace responsibilities through their owners before its removal.
+- Verification in this slice: `node --check` passed for the changed runtime modules and both new text utilities; `git diff --check` passed; source search found no production `Utils` calls for the migrated helpers. No tests were run. The full Utils removal remains incomplete by design; no user-visible behavior or persistence contract was changed.
 
 
 ### Final UI Runtime migration slice (2026-10-19)

@@ -1,6 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const CONFIG = require('./config-loader');
@@ -119,48 +118,6 @@ const REFERENCE_NOISE_LINE_PATTERNS = [
     /^(본문 바로가기|메뉴 바로가기|콘텐츠 바로가기)$/i
 ];
 
-function normalizeOpenAiCompatibleBaseUrl(rawBaseUrl) {
-    return String(rawBaseUrl || '').trim().replace(/\/+$/, '');
-}
-
-function formatReadableErrorMessage(error) {
-    const raw = String(error?.message || error || '').trim();
-    if (!raw) return '알 수 없는 오류';
-    return raw.replace(/timeout of (\d+)ms exceeded/gi, (_, ms) => {
-        const seconds = Math.max(1, Math.round(Number(ms) / 1000));
-        return `timeout (${seconds}초 초과)`;
-    });
-}
-
-function formatAiRemoteErrorMessage(error) {
-    const responseData = error?.response?.data;
-    const remoteMessage = responseData?.error?.message
-        || responseData?.error
-        || responseData?.message
-        || responseData?.msg
-        || (typeof responseData === 'string' ? responseData : '');
-    const raw = typeof remoteMessage === 'object'
-        ? JSON.stringify(remoteMessage)
-        : String(remoteMessage || '').trim();
-    const readable = formatReadableErrorMessage(raw || error);
-    return readable.length > 500 ? `${readable.slice(0, 500)}…` : readable;
-}
-
-function extractOpenAIChatContent(data) {
-    const content = data?.choices?.[0]?.message?.content;
-    if (typeof content === 'string') return content;
-    if (!Array.isArray(content)) return '';
-
-    return content
-        .map((part) => {
-            if (typeof part === 'string') return part;
-            if (typeof part?.text === 'string') return part.text;
-            return '';
-        })
-        .join('')
-        .trim();
-}
-
 function normalizeTextWhitespace(value) {
     return String(value || '')
         .replace(/\u00a0/g, ' ')
@@ -173,87 +130,6 @@ function truncateText(value, maxLength) {
     const text = String(value || '').trim();
     if (!text || text.length <= maxLength) return text;
     return text.slice(0, Math.max(0, maxLength - 1)).trimEnd() + '…';
-}
-
-function stripCodeFence(rawText) {
-    return String(rawText || '')
-        .replace(/^\s*```(?:json)?\s*/i, '')
-        .replace(/\s*```\s*$/i, '')
-        .trim();
-}
-
-function extractBalancedJsonCandidate(rawText) {
-    const text = stripCodeFence(rawText);
-    if (!text) return '';
-
-    const starts = [];
-    for (let i = 0; i < text.length; i++) {
-        const ch = text[i];
-        if (ch === '{' || ch === '[') starts.push(i);
-    }
-
-    for (const start of starts) {
-        const opening = text[start];
-        const closing = opening === '{' ? '}' : ']';
-        let depth = 0;
-        let inString = false;
-        let escaped = false;
-
-        for (let i = start; i < text.length; i++) {
-            const ch = text[i];
-            if (inString) {
-                if (escaped) {
-                    escaped = false;
-                    continue;
-                }
-                if (ch === '\\') {
-                    escaped = true;
-                    continue;
-                }
-                if (ch === '"') {
-                    inString = false;
-                }
-                continue;
-            }
-
-            if (ch === '"') {
-                inString = true;
-                continue;
-            }
-
-            if (ch === opening) {
-                depth += 1;
-                continue;
-            }
-
-            if (ch === closing) {
-                depth -= 1;
-                if (depth === 0) {
-                    return text.slice(start, i + 1).trim();
-                }
-            }
-        }
-    }
-
-    return text;
-}
-
-function parseStructuredJsonResponse(rawText) {
-    const direct = stripCodeFence(rawText);
-    if (!direct) {
-        throw new Error('AI 응답이 비어 있습니다.');
-    }
-
-    try {
-        return JSON.parse(direct);
-    } catch (_ignore) { }
-
-    const extracted = extractBalancedJsonCandidate(direct);
-    if (!extracted) {
-        throw new Error('AI 응답에서 JSON 블록을 찾지 못했습니다.');
-    }
-
-    return JSON.parse(extracted);
 }
 
 function cleanTitleText(value) {
@@ -394,55 +270,6 @@ function extractReferenceContentFromHtml(html, url) {
 }
 
 const Utils = {
-    formatKstDateTime: function (date = new Date()) {
-        const parts = new Intl.DateTimeFormat('en-US', {
-            timeZone: 'Asia/Seoul',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: false
-        }).formatToParts(date);
-        const get = (type) => parts.find((p) => p.type === type)?.value || '';
-        const year = get('year');
-        const month = get('month');
-        const day = get('day');
-        const hour = get('hour');
-        const minute = get('minute');
-        const second = get('second');
-        if (!year || !month || !day || !hour || !minute || !second) {
-            return new Date().toISOString().replace('T', ' ').slice(0, 19);
-        }
-        return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
-    },
-
-    formatAxiosError: function (e) {
-        const status = e?.response?.status;
-        const data = e?.response?.data;
-        const apiMessage =
-            data?.error?.message ||
-            data?.error_description ||
-            (typeof data === 'string' ? data : '');
-        const baseMessage = String(e?.message || '요청 실패');
-        if (status) {
-            return apiMessage ? `status=${status} ${apiMessage}` : `status=${status} ${baseMessage}`;
-        }
-        return apiMessage || baseMessage;
-    },
-
-    sanitizeFileName: function (str) {
-        if (!str) return "untitled";
-        // 🔧 [Fixed] 파일명 길이 제한 추가 (파일 시스템 에러 방지)
-        let cleaned = str.replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, "_");
-        // 파일명 최대 200자로 제한 (확장자 및 경로 고려)
-        if (cleaned.length > 200) {
-            cleaned = cleaned.substring(0, 200);
-        }
-        return cleaned;
-    },
-
     sleep: (ms) => new Promise(res => setTimeout(res, ms)),
 
     runWithHeartbeat: async function (taskLabel, fn, intervalMs = 7000) {
@@ -481,28 +308,6 @@ const Utils = {
             return converted;
         } catch (e) {
             return url;
-        }
-    },
-
-    /**
-     * 1-4. 네이버 연관검색어 추출
-     */
-    fetchNaverRelatedKeywords: async function (keyword) {
-        try {
-            const url = `https://ac.search.naver.com/nx/ac?q=${encodeURIComponent(keyword)}&st=1000&frm=nv&ans=1`;
-            const res = await axios.get(url);
-
-            // items 배열 추출
-            const items = res.data?.items?.[0];
-            if (!items || !Array.isArray(items)) return [];
-
-            // items는 [[keyword, ...], [keyword, ...]] 형태
-            const keywords = items.map(item => item[0]);
-            return keywords;
-
-        } catch (e) {
-            Logger.warn(`⚠️ 연관검색어 추출 실패 (${keyword}): ${e.message}`);
-            return [];
         }
     },
 
@@ -849,8 +654,6 @@ const Utils = {
             return "";
         }
     },
-
-    parseStructuredJsonResponse,
 
     parseMarkdown: function (raw) {
         const lines = raw.split('\n');

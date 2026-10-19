@@ -5,6 +5,7 @@ const cheerio = require('cheerio');
 const moment = require('moment-timezone');
 const CONFIG = require('../../../config-loader');
 const Utils = require('../../../utils');
+const { sanitizeFileName } = require('../../../utilities/text/sanitize-file-name');
 const Logger = require('../../../utilities/logging/logger');
 const BrowserLauncher = require('../../../utilities/browser/browser-launcher');
 const { persistAuthSessionState } = require('../../../adapters/naver/auth-session');
@@ -3515,8 +3516,8 @@ async function downloadImage(url, saveDir, index, label, referer = '', options =
     }
 
     const prefix = String(index).padStart(2, '0');
-    const safeLabel = Utils.sanitizeFileName(label || 'image').toLowerCase();
-    const safeOriginal = Utils.sanitizeFileName(originalName).slice(0, 30);
+    const safeLabel = sanitizeFileName(label || 'image').toLowerCase();
+    const safeOriginal = sanitizeFileName(originalName).slice(0, 30);
 
     if (/^file:\/\//i.test(rawSource) && !localSourcePath) {
         throw new Error(`로컬 이미지 파일을 찾을 수 없습니다: ${rawSource}`);
@@ -4235,7 +4236,7 @@ const ShoppingManager = {
 
         const wsDir = Utils.resolvePlatformWorkspaceDir(runtimeOptions.platform);
         const timestamp = moment().tz('Asia/Seoul').format('YYYYMMDD_HHmmss');
-        const safeTitle = Utils.sanitizeFileName(titleBase);
+        const safeTitle = sanitizeFileName(titleBase);
         const targetDir = path.join(wsDir, `${timestamp}_${safeTitle}`);
         if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
 

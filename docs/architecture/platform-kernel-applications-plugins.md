@@ -174,7 +174,7 @@ src/
     logging/                    # Shared logging and runtime log-path behavior
     browser/                    # Shared local Playwright launch mechanics
     markdown/                   # Provider-neutral Markdown parsing and selected-file normalization
-    text/                       # Reusable text matching and related-post ranking mechanics
+    text/                       # Reusable text matching, related-post ranking, and filename normalization
   ...                           # Legacy areas migrate only as their boundary is redesigned
 
 packages/
@@ -197,6 +197,8 @@ The canonical content-request bundle shared by Telegram and MCP belongs to `src/
 Naver editor-specific related-post formatting belongs under `src/adapters/naver/publishing/`; provider-neutral image-block parsing belongs under `src/utilities/markdown/`. A reusable parser stays technical, while publishing markup stays with its target adapter.
 
 Blog manuscript draft lifecycles and preview validation live under `src/applications/blog/manuscript-drafts/`. Google Sheets persisted option codecs belong in `src/adapters/storage/google-sheets/`, Knowledge reference transport/response validation in `src/adapters/knowledge/`, and reusable selected-file normalization and related-post ranking mechanics in `src/utilities/`. The legacy `src/content/` and `src/content-ideas/` roots have been removed; do not recreate them as feature roots.
+
+Reusable filename normalization and structured JSON response parsing belong in `src/utilities/text/`; Blog manuscript parsing and related-post workflow policy remain with the Blog Application. Do not grow `src/utils.js` as a shared facade: migrate each responsibility and its callers to the owning Application, adapter, service, or utility, then remove the root module when no live caller remains.
 
 Knowledge and Memory are separate reusable domains and must remain distinct. `src/services/knowledge/` owns provider-neutral `kind + transport + config` contracts, normalized snapshot contracts, and registry/selection behavior. `src/adapters/knowledge/` owns provider-specific implementations, gateway clients, and transport protocols. Knowledge retrieval does not itself become user memory or recommendation policy. `src/services/memory/` owns event-first memory semantics, retrieval/context projections, provenance normalization, owner/activity read models, and derived user-insight generation; generation and persistence ports are injected by the runtime. It does not own SQLite or process lifecycle. `src/adapters/storage/memory/` owns Memory schema, event persistence, payload encoding, and SQLite lifecycle mechanics. `src/host/memory/` owns process startup/recovery, health gating, background maintenance scheduling, and shutdown. Recommendation lifecycle storage is separately owned by `src/adapters/storage/recommendations/`, with its policy and lifecycle contract under `src/services/recommendations/`. When Memory facts inform Recommendations, connect them through injected retrieval/service contracts; do not merge the domains or let Memory depend on Recommendation producers or policy.
 

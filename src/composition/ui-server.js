@@ -31,6 +31,7 @@ const checkAuthSessionValid = (options = {}) => NaverAuthSession.checkAuthSessio
 const peekAuthSessionState = (options = {}) => NaverAuthSession.peekAuthSessionState({ ...naverAuthConfiguration, ...options });
 const clearAuthSession = (options = {}) => NaverAuthSession.clearAuthSession({ ...naverAuthConfiguration, ...options });
 const Utils = require('../utils');
+const { parseStructuredJsonResponse } = require('../utilities/text/structured-json-response');
 const TelegramBotService = require('../telegram-bot.service');
 TelegramBotService.GoogleSheets = GoogleSheets;
 TelegramBotService.License = License;
@@ -751,7 +752,7 @@ const cardNewsGenerationSystem = createCardNewsGenerationSystem({
     path,
     workspaceDir: CONFIG.PATHS?.workspace,
     logger: Logger,
-    parseStructuredJsonResponse: Utils.parseStructuredJsonResponse.bind(Utils)
+    parseStructuredJsonResponse
 });
 
 const publishActionsRuntime = createBlogManualPublishingApplication({

@@ -19,6 +19,7 @@ const { buildBlogGenerationPrompt } = require('../../../../applications/blog/wri
 const { validateBlogImageBlocks } = require('../../../../applications/blog/writing/blog-image-plan');
 const { collectBlogReferenceContext } = require('../../../../applications/blog/posting/blog-reference-context');
 const BLOG_PROMPT_PATHS = require('../../../../applications/blog/writing/prompts/paths');
+const { parseStructuredJsonResponse } = require('../../../../utilities/text/structured-json-response');
 
 function createNaverPublishProgressReporter({ lease, fallbackPostStatus, logger }) {
     let lastMessage = '';
@@ -403,7 +404,7 @@ function createContentApiService(deps = {}) {
             operation?.throwIfCanceled();
             Logger?.info?.(`[Blog Beta][AI] text.generate 완료 (model=${String(selectedTextModel.code || selectedTextModel.name || 'unknown')}, elapsed=${Math.max(0, Date.now() - textStartedAt)}ms, response=${String(raw || '').length}자)`);
             let generated;
-            try { generated = Utils.parseStructuredJsonResponse(raw); }
+            try { generated = parseStructuredJsonResponse(raw); }
             catch (error) { throw createApiError(502, 'BLOG_PLUGIN_GENERATION_INVALID', `AI 원고 응답을 해석하지 못했습니다: ${error.message}`); }
             const generatedTitle = title || String(generated.title || generated.subject || subject || '').trim();
             const generatedContent = String(generated.content || '').trim();

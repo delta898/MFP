@@ -9,6 +9,8 @@ const { collectBlogReferenceContext } = require('./blog-reference-context');
 const { validateBlogImageBlocks } = require('../writing/blog-image-plan');
 const { normalizeBlogImageMode, generatesBlogImages } = require('../writing/blog-image-mode');
 const { rethrowIfCanceled, sleepWithCancellation, throwIfCanceled } = require('../../../utilities/async/cancellation');
+const { sanitizeFileName } = require('../../../utilities/text/sanitize-file-name');
+const { parseStructuredJsonResponse } = require('../../../utilities/text/structured-json-response');
 const { buildRelatedPostsSectionMarkdown, stripAiRelatedPostsSection } = require('./related-posts-markdown');
 
 function normalizeHashtagTokens(rawHashtags, maxCount = 20) {
@@ -42,7 +44,7 @@ function createBlogPostingApplication(options = {}) {
     if (typeof writing?.generateText !== 'function' || typeof writing?.generateImage !== 'function') {
         throw new TypeError('Blog Posting Application requires Blog Writing Application.');
     }
-    if (!Utils || typeof Utils.parseStructuredJsonResponse !== 'function' || typeof Utils.parseMarkdown !== 'function') {
+    if (!Utils || typeof Utils.parseMarkdown !== 'function') {
         throw new TypeError('Blog Posting Application requires content utilities.');
     }
 
@@ -108,7 +110,7 @@ function createBlogPostingApplication(options = {}) {
         if (!rawResult) throw new Error('API 응답이 비어있습니다.');
         let parsedData;
         try {
-            parsedData = Utils.parseStructuredJsonResponse(rawResult);
+            parsedData = parseStructuredJsonResponse(rawResult);
         } catch (error) {
             Logger.error(`❌ JSON 파싱 실패. 원본 응답 (처음 500자):\n${String(rawResult).substring(0, 500)}...`);
             throw new Error(`JSON 파싱 에러: ${error.message}. AI 응답이 올바른 JSON 형식이 아닙니다.`);
@@ -149,7 +151,7 @@ function createBlogPostingApplication(options = {}) {
         } else Logger.info('ℹ️ [Blog Posting] 관련 글 자동 링크 기능 비활성화');
 
         throwIfCanceled(signal);
-        const safeSubject = Utils.sanitizeFileName(String(finalSubject));
+        const safeSubject = sanitizeFileName(String(finalSubject));
         const targetDir = customDir
             ? path.resolve(customDir)
             : path.join(Utils.resolvePlatformWorkspaceDir(runtimeOptions.platform), `${moment().tz('Asia/Seoul').format('YYYYMMDD_HHmmss')}_${safeSubject}`);
