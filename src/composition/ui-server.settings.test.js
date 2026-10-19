@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
-const CONFIG = require('./config-loader');
+const CONFIG = require('../config-loader');
 const { __testing } = require('./ui-server');
 
 test('major settings include the blog auto posting option', () => {

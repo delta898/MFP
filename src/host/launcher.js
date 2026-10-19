@@ -44,7 +44,7 @@ const Logger = require('../utilities/logging/logger');
 const CONFIG = require('../config-loader');
 Logger.configureRuntime({ logLevel: CONFIG.LOG_LEVEL, rootDir: CONFIG.ROOT_DIR });
 const { logRuntimeEnvironmentStatus } = require('./configuration/environment/runtime-profile');
-const { startUiServer } = require('../ui-server');
+const { startUiServer } = require('../composition/ui-server');
 const { startRemoteMcpService, stopRemoteMcpService } = require('./mcp/remote-service');
 
 logRuntimeEnvironmentStatus(Logger, CONFIG.RUNTIME_ENVIRONMENT_PROFILE);

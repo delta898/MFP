@@ -26,6 +26,7 @@
 
 - User-approved scope extension on 2026-10-19: reorganize `src/ui-api/` by layer and product vertical, moving HTTP routing/controller translation to `src/adapters/ui/<vertical>/`, moving composition out of route modules, then migrating each API service's workflow responsibility into its owning Application/service and removing `src/ui-api/` when no production caller remains. Do not delete active API behavior merely because its assembler is named `legacy`.
 - User-approved scope extension on 2026-10-19: continue the source-layer migration through `src/ui-runtime/`. Classify each module independently; move transport helpers to `adapters/ui/`, server lifecycle to Host, feature workflows to Applications, shared services to `services/` or `utilities/`, and dependency wiring to `composition/`. Remove `src/ui-runtime/` after all live callers and tests have migrated; do not move the directory wholesale.
+- User-approved scope extension on 2026-10-19: continue the source-layer migration through `src/ui-server.js`. Split Host process/startup lifecycle, UI protocol translation, and product/runtime composition by responsibility; migrate Host callers and remove the root composition module only when no production or test caller remains. Do not move the file wholesale or alter route/API behavior.
 
 ## Explicit non-goals
 
@@ -121,6 +122,16 @@
 
 - 2026-10-19: Rechecked trend references against the user's current behavior definition. The active Blog tab uses imported Trend API data through `/api/v1/trend-posting/*`; the similarly named `/api/v1/trends/items` and `/api/v1/keywords/items` routes instead read legacy Google Sheets, while the corresponding trend/keyword-to-topic actions and DOM handlers had no active UI or API clients. Removed that retired Sheets feature slice, its action runtime, unused adapter routes, stale table state/listeners, and renamed the remaining mixed content table helper to `workspace-tables.js`. Kept the live Trend Posting UI and API intact. The legacy Blog batch publish API was separately traced to Agent and Telegram callers, so it is not classified as the Blog queue scheduler and has not been removed in this slice.
 - 2026-10-19: Completed the `ui-runtime/` automatic publishing slice. SNS RSS automation scheduling/state is SNS-owned; discovery-then-distribution workflow is a separate SNS Application; explicit ready/selected Blog topic batch publishing is a Blog Publishing Application still reachable by Agent/Telegram and the existing UI API. Blog's recurring queue automation remains in `applications/blog/automation/` and `queue-management/`. The UI adapter preserves the existing status DTO and API paths while reading each workflow's own status. Removed the old combined `auto-cycle-runtime`/`auto-runner-runtime` and retired Sheets trend collection paths. `node --check` passed on changed runtime and contract files; `git diff --check` passed. No test suites were run; manual app/UI validation remains pending.
+
+### UI Server responsibility migration (2026-10-19)
+
+- Extracted Google OAuth callback HTTP response translation into `src/adapters/ui/google/oauth-callback.js`; OAuth token exchange and Google Sheets auth-cache invalidation remain injected provider operations. Existing callback path, status codes, `no-store` headers, and Korean error message are preserved.
+- Extracted startup ordering, safe-mode Memory skip, deferred Memory initialization, and deferred optional-service startup into `src/host/ui/startup.js`.
+- Electron now obtains Memory shutdown directly from `src/host/memory/runtime`; the composition module no longer exports Memory lifecycle or unused remote-MCP start/stop functions. The settings-field test remains adjacent to Composition for now because it still uses the composition's test hook.
+- Removed the self-require from the UI reload callback; the composition root uses the already-created Host HTTP runtime's reload operation.
+- Moved the former root `src/ui-server.js` composition into `src/composition/ui-server.js`, corrected relative module and UI-root paths, and migrated Electron, launcher, E2E, structural-contract, shopping-contract, and settings-test callers. The old root file is removed.
+- Remaining: decompose the still-large composition module by product/runtime group. No API paths or behavior were intentionally changed.
+- Verification: JavaScript syntax checks passed for changed runtime, caller, and contract files; `BLOGGENIUS_ENV=local node -e "require('./src/composition/ui-server')"` loaded the complete composition (with the existing missing license-server-config warning); stale root-module import scan returned no old imports; `git diff --check` passed. No test suites were run and no manual UI validation was performed.
 
 
 ### Final UI Runtime migration slice (2026-10-19)

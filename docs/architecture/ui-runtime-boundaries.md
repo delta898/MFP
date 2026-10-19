@@ -1,7 +1,7 @@
 # UI Runtime Boundaries
 
 ## Purpose
-This document captures the current runtime boundaries after the CLI-removal refactor work. The UI/Electron path is the primary product surface, and shared business/runtime logic should live outside the Host entrypoints and `src/ui-server.js`.
+This document captures the current runtime boundaries after the CLI-removal refactor work. The UI/Electron path is the primary product surface, and shared business/runtime logic should live outside the Host entrypoints and `src/composition/ui-server.js`.
 
 ## Entry Points
 - `src/host/launcher.js`
@@ -9,7 +9,7 @@ This document captures the current runtime boundaries after the CLI-removal refa
   - Starts the web UI server and opens the browser when used outside Electron.
 - `src/host/electron/`
   - Electron process startup, safe-mode recovery, diagnostics, and lifecycle.
-- `src/ui-server.js`
+- `src/composition/ui-server.js`
   - UI runtime composition root.
   - Wires shared runtimes, API handlers, and HTTP server lifecycle.
   - Should not keep large business workflows inline.
@@ -185,7 +185,7 @@ background triggers remain outside this surface.
   focused feature module. Its size warning is a prompt to continue that transition,
   while the hard ceiling prevents unbounded growth.
 - When multiple entry paths need the same behavior, extract a shared module before changing one side further.
-- `src/ui-server.js` should keep wiring, not full workflow implementations. Use
+- `src/composition/ui-server.js` should keep wiring, not full workflow implementations. Use
   1,200 lines as a review prompt and 1,500 as its hard composition-root ceiling;
   move new policy or field-mapping behavior into a focused runtime module.
 - Shared modules should remain usable even if the launcher or packaging changes again later.

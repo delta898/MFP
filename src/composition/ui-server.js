@@ -5,22 +5,22 @@ const crypto = require('crypto');
 const axios = require('axios');
 const cheerio = require('cheerio');
 
-const { License } = require('./composition/licensing');
-const { createShoppingContentPreparationRuntime } = require('./composition/shopping-content-preparation');
-const TelegramService = require('./adapters/messaging/telegram/service');
-const SlackService = require('./slack-service');
-const { createUrlShorteningSystem } = require('./composition/url-shortening');
-const { APP_VERSION } = require('./host/application-metadata');
-const CONFIG = require('./config-loader');
-const Logger = require('./utilities/logging/logger');
+const { License } = require('./licensing');
+const { createShoppingContentPreparationRuntime } = require('./shopping-content-preparation');
+const TelegramService = require('../adapters/messaging/telegram/service');
+const SlackService = require('../slack-service');
+const { createUrlShorteningSystem } = require('./url-shortening');
+const { APP_VERSION } = require('../host/application-metadata');
+const CONFIG = require('../config-loader');
+const Logger = require('../utilities/logging/logger');
 Logger.configureRuntime({ logLevel: CONFIG.LOG_LEVEL, rootDir: CONFIG.ROOT_DIR });
 const { service: urlShorteningService } = createUrlShorteningSystem({ CONFIG, logger: Logger });
-const GoogleOAuth = require('./adapters/google/auth/google-oauth');
-const { createGoogleSheetsClient } = require('./adapters/google/sheets/client');
-const { extractGoogleSheetId, normalizeGoogleSheetUrl } = require('./adapters/google/sheets/spreadsheet-reference');
-const GoogleSheets = require('./adapters/storage/google-sheets/operations');
+const GoogleOAuth = require('../adapters/google/auth/google-oauth');
+const { createGoogleSheetsClient } = require('../adapters/google/sheets/client');
+const { extractGoogleSheetId, normalizeGoogleSheetUrl } = require('../adapters/google/sheets/spreadsheet-reference');
+const GoogleSheets = require('../adapters/storage/google-sheets/operations');
 Logger.debug(`Application version: ${APP_VERSION}`);
-const NaverAuthSession = require('./adapters/naver/auth-session');
+const NaverAuthSession = require('../adapters/naver/auth-session');
 const naverAuthConfiguration = Object.freeze({
     authPath: CONFIG.AUTH_FILE_PATH,
     naverId: CONFIG.NAVER_ID,
@@ -30,27 +30,27 @@ const naverAuthConfiguration = Object.freeze({
 const checkAuthSessionValid = (options = {}) => NaverAuthSession.checkAuthSessionValid({ ...naverAuthConfiguration, ...options });
 const peekAuthSessionState = (options = {}) => NaverAuthSession.peekAuthSessionState({ ...naverAuthConfiguration, ...options });
 const clearAuthSession = (options = {}) => NaverAuthSession.clearAuthSession({ ...naverAuthConfiguration, ...options });
-const Utils = require('./utils');
-const TelegramBotService = require('./telegram-bot.service');
+const Utils = require('../utils');
+const TelegramBotService = require('../telegram-bot.service');
 TelegramBotService.GoogleSheets = GoogleSheets;
 TelegramBotService.License = License;
-const BrowserLauncher = require('./utilities/browser/browser-launcher');
+const BrowserLauncher = require('../utilities/browser/browser-launcher');
 const ShoppingManager = createShoppingContentPreparationRuntime({ config: CONFIG, License });
-const Updater = require('./host/updater');
+const Updater = require('../host/updater');
 Updater.configure(CONFIG);
-const { createRuntimeConfigApi } = require('./runtime-config');
+const { createRuntimeConfigApi } = require('../runtime-config');
 const RuntimeConfig = createRuntimeConfigApi({ config: CONFIG, logger: Logger });
-const { registerRuntimeHooks } = require('./runtime-hooks');
+const { registerRuntimeHooks } = require('../runtime-hooks');
 const {
     ensureRuntimeRemoteMcpConfig,
     generateRemoteMcpBearerToken,
     normalizeRemoteMcpHost,
     normalizeRemoteMcpPath,
     normalizeRemoteMcpPort
-} = require('./host/configuration/mcp-remote-config');
-const remoteMcpService = require('./host/mcp/remote-service');
-const { createMcpPrototypeRuntime } = require('./composition/mcp-runtime');
-const { startHttpMcpServer } = require('./adapters/messaging/mcp/server/http-server');
+} = require('../host/configuration/mcp-remote-config');
+const remoteMcpService = require('../host/mcp/remote-service');
+const { createMcpPrototypeRuntime } = require('./mcp-runtime');
+const { startHttpMcpServer } = require('../adapters/messaging/mcp/server/http-server');
 remoteMcpService.configureRemoteMcpService({
     config: CONFIG,
     logger: Logger,
@@ -58,106 +58,108 @@ remoteMcpService.configureRemoteMcpService({
     createServices: (config) => createMcpPrototypeRuntime({ config, License })
 });
 const { restartRemoteMcpService, getRemoteServiceStatus } = remoteMcpService;
-const { buildLocalMarkdownPreview } = require('./applications/blog/manuscript-drafts/preview');
-const { materializeSelectedFilesToWorkspace } = require('./adapters/storage/manuscript-drafts/selected-files-workspace');
-const { appendRelatedPostsToPastedMarkdown } = require('./applications/blog/posting/pasted-markdown-related-posts');
+const { buildLocalMarkdownPreview } = require('../applications/blog/manuscript-drafts/preview');
+const { materializeSelectedFilesToWorkspace } = require('../adapters/storage/manuscript-drafts/selected-files-workspace');
+const { appendRelatedPostsToPastedMarkdown } = require('../applications/blog/posting/pasted-markdown-related-posts');
 const {
     getAiModelCatalog,
     buildModelSelectionFromFields,
     normalizeStoredModelProfiles,
     mergeActiveSelectionsIntoProfiles,
     normalizeChatModelSource
-} = require('./services/ai/model-configuration');
-const { normalizeWritingStyle } = require('./services/content-writing/writing-style');
-const { normalizeWritingStrategy } = require('./services/content-writing/writing-strategy');
-const { createSnsSheetStore } = require('./applications/sns/distribution/sns-sheet-store');
-const { createGoogleSheetsSnsGateway } = require('./adapters/storage/google-sheets-sns-gateway');
-const { createCardNewsRuntime } = require('./composition/card-news-runtime');
-const { normalizeCardNewsBuiltinSources, normalizeCardNewsRssSources } = require('./applications/card-news/sources/feed-sources');
-const { createSnsRssDiscovery } = require('./applications/sns/distribution/sns-rss-discovery');
-const { createSnsDistributionRunner } = require('./applications/sns/distribution/sns-distribution-runner');
-const { createSnsAiService } = require('./applications/sns/generation/sns-ai-service');
-const { createManualSnsService } = require('./applications/sns/publishing/manual-sns-service');
-const { normalizeSnsAiMode } = require('./services/sns/ai-policy');
-const { runInteractiveNaverLoginFlow } = require('./adapters/naver/auth-flow');
-const { createUiSessionRuntime } = require('./adapters/ui/account/session/session-runtime');
-const { createUiHttpUtils } = require('./adapters/ui/http/http-utils');
-const { createQuickPublishRuntime } = require('./composition/quick-publish-runtime');
-const { createSnsAutomationScheduler } = require('./applications/sns/distribution/automation-scheduler');
-const { createSelectedTopicBatchPublisher } = require('./applications/blog/publishing/selected-topic-batch-publisher');
-const { createSnsAutomationApplication } = require('./applications/sns/distribution/automation-application');
-const { createContentActionHandlers } = require('./adapters/ui/content/content-api/action-handlers');
-const { createShoppingQuickPublishHandler } = require('./adapters/ui/shopping/publishing/quick-publish-handler');
-const { createBlogManualPublishingApplication } = require('./applications/blog/publishing/manual-publishing-application');
-const { presentBlogImageGenerationProgress } = require('./adapters/ui/blog-posting-progress');
-const { presentNaverPublishProgress } = require('./adapters/ui/naver-publish-progress');
-const { createUiApiRuntime } = require('./composition/api/ui-api-runtime');
-const { createBlogBetaRuntimeComposition } = require('./composition/blog-beta-runtime');
-const { createSocialPublishingSystem } = require('./composition/social-publishing');
-const { createCardNewsGenerationSystem } = require('./composition/card-news-generation');
-const { createSnsGenerationSystem } = require('./composition/sns-generation');
-const { createBundledWidgetPluginCatalog } = require('./composition/widget-plugins');
-const { createUiHttpServerRuntime } = require('./host/ui/http-server-runtime');
-const { createHtmlCompositionRuntime } = require('./adapters/ui/assets/composition/html-composition');
-const { createCssCompositionRuntime } = require('./adapters/ui/assets/composition/css-composition');
-const { createJsCompositionRuntime } = require('./adapters/ui/assets/composition/js-composition');
-const { closeAgentMemory, getAgentEventStore, initializeAgentMemory } = require('./host/memory/runtime');
-const { createActivityLifecycleRecorder } = require('./services/memory/activity-lifecycle');
-const { createCapabilityRuntime } = require('./composition/capability-runtime');
-const { createKnowledgeRuntime } = require('./composition/knowledge-runtime');
-const { createAgentRuntime } = require('./host/agent/runtime');
-const { ConfirmationStore } = require('./adapters/storage/confirmations/confirmation-store');
-const { createTopicRecommendationLearningService } = require('./services/recommendations/topic-recommendation-learning');
-const { recordRecommendationFeedback } = require('./services/recommendations/adapters/recommendation-feedback-adapter');
-const { createRecommendationRuntime } = require('./composition/recommendations/runtime');
-const { parseIntSafe, parseBoolQuery, normalizeSortDir } = require('./adapters/ui/http/query-values');
-const { sortShoppingItems, sortTopicItems } = require('./adapters/ui/content/content-api/sorting');
-const { createConfigFileRuntime } = require('./host/configuration/ui-config-file');
-const { createAutoPublishPolicy } = require('./applications/blog/automation/auto-publish-policy');
-const { createSettingsFields } = require('./adapters/ui/settings/settings-fields');
+} = require('../services/ai/model-configuration');
+const { normalizeWritingStyle } = require('../services/content-writing/writing-style');
+const { normalizeWritingStrategy } = require('../services/content-writing/writing-strategy');
+const { createSnsSheetStore } = require('../applications/sns/distribution/sns-sheet-store');
+const { createGoogleSheetsSnsGateway } = require('../adapters/storage/google-sheets-sns-gateway');
+const { createCardNewsRuntime } = require('./card-news-runtime');
+const { normalizeCardNewsBuiltinSources, normalizeCardNewsRssSources } = require('../applications/card-news/sources/feed-sources');
+const { createSnsRssDiscovery } = require('../applications/sns/distribution/sns-rss-discovery');
+const { createSnsDistributionRunner } = require('../applications/sns/distribution/sns-distribution-runner');
+const { createSnsAiService } = require('../applications/sns/generation/sns-ai-service');
+const { createManualSnsService } = require('../applications/sns/publishing/manual-sns-service');
+const { normalizeSnsAiMode } = require('../services/sns/ai-policy');
+const { runInteractiveNaverLoginFlow } = require('../adapters/naver/auth-flow');
+const { createUiSessionRuntime } = require('../adapters/ui/account/session/session-runtime');
+const { createUiHttpUtils } = require('../adapters/ui/http/http-utils');
+const { createQuickPublishRuntime } = require('./quick-publish-runtime');
+const { createSnsAutomationScheduler } = require('../applications/sns/distribution/automation-scheduler');
+const { createSelectedTopicBatchPublisher } = require('../applications/blog/publishing/selected-topic-batch-publisher');
+const { createSnsAutomationApplication } = require('../applications/sns/distribution/automation-application');
+const { createContentActionHandlers } = require('../adapters/ui/content/content-api/action-handlers');
+const { createShoppingQuickPublishHandler } = require('../adapters/ui/shopping/publishing/quick-publish-handler');
+const { createBlogManualPublishingApplication } = require('../applications/blog/publishing/manual-publishing-application');
+const { presentBlogImageGenerationProgress } = require('../adapters/ui/blog-posting-progress');
+const { presentNaverPublishProgress } = require('../adapters/ui/naver-publish-progress');
+const { createUiApiRuntime } = require('./api/ui-api-runtime');
+const { createBlogBetaRuntimeComposition } = require('./blog-beta-runtime');
+const { createSocialPublishingSystem } = require('./social-publishing');
+const { createCardNewsGenerationSystem } = require('./card-news-generation');
+const { createSnsGenerationSystem } = require('./sns-generation');
+const { createBundledWidgetPluginCatalog } = require('./widget-plugins');
+const { createUiHttpServerRuntime } = require('../host/ui/http-server-runtime');
+const { createUiServerStartup } = require('../host/ui/startup');
+const { createGoogleOAuthCallbackHandler } = require('../adapters/ui/google/oauth-callback');
+const { createHtmlCompositionRuntime } = require('../adapters/ui/assets/composition/html-composition');
+const { createCssCompositionRuntime } = require('../adapters/ui/assets/composition/css-composition');
+const { createJsCompositionRuntime } = require('../adapters/ui/assets/composition/js-composition');
+const { getAgentEventStore, initializeAgentMemory } = require('../host/memory/runtime');
+const { createActivityLifecycleRecorder } = require('../services/memory/activity-lifecycle');
+const { createCapabilityRuntime } = require('./capability-runtime');
+const { createKnowledgeRuntime } = require('./knowledge-runtime');
+const { createAgentRuntime } = require('../host/agent/runtime');
+const { ConfirmationStore } = require('../adapters/storage/confirmations/confirmation-store');
+const { createTopicRecommendationLearningService } = require('../services/recommendations/topic-recommendation-learning');
+const { recordRecommendationFeedback } = require('../services/recommendations/adapters/recommendation-feedback-adapter');
+const { createRecommendationRuntime } = require('./recommendations/runtime');
+const { parseIntSafe, parseBoolQuery, normalizeSortDir } = require('../adapters/ui/http/query-values');
+const { sortShoppingItems, sortTopicItems } = require('../adapters/ui/content/content-api/sorting');
+const { createConfigFileRuntime } = require('../host/configuration/ui-config-file');
+const { createAutoPublishPolicy } = require('../applications/blog/automation/auto-publish-policy');
+const { createSettingsFields } = require('../adapters/ui/settings/settings-fields');
 const {
     toFeatureMap,
     getFeatureBool,
     getEnableSnsDistribution,
     isCommandEnabled,
     parseMaxPosts
-} = require('./runtime-feature-flags');
-const { createBlogAutoService } = require('./adapters/ui/blog/automation/service');
-const { createBlogAutoController } = require('./adapters/ui/blog/automation/controller');
-const { createBlogAutoRouteHandler } = require('./adapters/ui/blog/automation/routes');
-const { createSettingsService } = require('./adapters/ui/settings/service');
-const { createSettingsController } = require('./adapters/ui/settings/controller');
-const { createSettingsRouteHandler } = require('./adapters/ui/settings/routes');
-const { createManualSnsController } = require('./adapters/ui/sns/controller');
-const { createManualSnsRouteHandler } = require('./adapters/ui/sns/routes');
-const { createCardNewsService } = require('./applications/card-news/application');
-const { createCardNewsController } = require('./adapters/ui/card-news/controller');
-const { createCardNewsRouteHandler } = require('./adapters/ui/card-news/routes');
-const { createSurfaceContentService } = require('./surface-content/service');
-const { createSupabaseSurfaceContentProvider } = require('./surface-content/supabase-provider');
-const { createSurfaceContentController } = require('./adapters/ui/content/surface/controller');
-const { createSurfaceContentRouteHandler } = require('./adapters/ui/content/surface/routes');
-const { createTopicRecommendationsService } = require('./adapters/ui/blog/topic-recommendations/service');
-const { createTopicRecommendationsController } = require('./adapters/ui/blog/topic-recommendations/controller');
-const { createTopicRecommendationsRouteHandler } = require('./adapters/ui/blog/topic-recommendations/routes');
-const { createRecommendationCenterService } = require('./applications/recommendations/center/application');
-const { createRecommendationCenterController } = require('./adapters/ui/recommendations/center/controller');
-const { createRecommendationCenterRouteHandler } = require('./adapters/ui/recommendations/center/routes');
-const { createKeywordDiscoveryController } = require('./adapters/ui/keyword-research/discovery/controller');
-const { createKeywordDiscoveryRouteHandler } = require('./adapters/ui/keyword-research/discovery/routes');
-const { createBlogKeywordDiscoveryApplication } = require('./applications/blog/keyword-discovery/application');
-const { createKeywordsService } = require('./adapters/ui/keyword-research/keywords/service');
-const { createKeywordsController } = require('./adapters/ui/keyword-research/keywords/controller');
-const { createKeywordsRouteHandler } = require('./adapters/ui/keyword-research/keywords/routes');
-const { createSmartUsageService } = require('./services/licensing/smart-usage/index');
-const { createKeywordResearchService } = require('./keyword-research');
-const { createProductApiRouteHandler } = require('./composition/ui-api-routes');
-const { createCloudflareConnectionService, createEncryptedCredentialStore } = require('./host/cloudflare/connection-service');
-const { createCloudflareConnectionRouteHandler } = require('./adapters/ui/site-hosting/cloudflare-connection/routes');
-const { createSiteHostingApplication } = require('./composition/site-hosting-application');
-const { createSiteHostingProjectRouteHandler } = require('./adapters/ui/site-hosting/projects/routes');
-const { createSiteHostingSiteRouteHandler } = require('./adapters/ui/site-hosting/sites/routes');
-const { createApiRouteHub } = require('./adapters/ui/route-hub');
+} = require('../runtime-feature-flags');
+const { createBlogAutoService } = require('../adapters/ui/blog/automation/service');
+const { createBlogAutoController } = require('../adapters/ui/blog/automation/controller');
+const { createBlogAutoRouteHandler } = require('../adapters/ui/blog/automation/routes');
+const { createSettingsService } = require('../adapters/ui/settings/service');
+const { createSettingsController } = require('../adapters/ui/settings/controller');
+const { createSettingsRouteHandler } = require('../adapters/ui/settings/routes');
+const { createManualSnsController } = require('../adapters/ui/sns/controller');
+const { createManualSnsRouteHandler } = require('../adapters/ui/sns/routes');
+const { createCardNewsService } = require('../applications/card-news/application');
+const { createCardNewsController } = require('../adapters/ui/card-news/controller');
+const { createCardNewsRouteHandler } = require('../adapters/ui/card-news/routes');
+const { createSurfaceContentService } = require('../surface-content/service');
+const { createSupabaseSurfaceContentProvider } = require('../surface-content/supabase-provider');
+const { createSurfaceContentController } = require('../adapters/ui/content/surface/controller');
+const { createSurfaceContentRouteHandler } = require('../adapters/ui/content/surface/routes');
+const { createTopicRecommendationsService } = require('../adapters/ui/blog/topic-recommendations/service');
+const { createTopicRecommendationsController } = require('../adapters/ui/blog/topic-recommendations/controller');
+const { createTopicRecommendationsRouteHandler } = require('../adapters/ui/blog/topic-recommendations/routes');
+const { createRecommendationCenterService } = require('../applications/recommendations/center/application');
+const { createRecommendationCenterController } = require('../adapters/ui/recommendations/center/controller');
+const { createRecommendationCenterRouteHandler } = require('../adapters/ui/recommendations/center/routes');
+const { createKeywordDiscoveryController } = require('../adapters/ui/keyword-research/discovery/controller');
+const { createKeywordDiscoveryRouteHandler } = require('../adapters/ui/keyword-research/discovery/routes');
+const { createBlogKeywordDiscoveryApplication } = require('../applications/blog/keyword-discovery/application');
+const { createKeywordsService } = require('../adapters/ui/keyword-research/keywords/service');
+const { createKeywordsController } = require('../adapters/ui/keyword-research/keywords/controller');
+const { createKeywordsRouteHandler } = require('../adapters/ui/keyword-research/keywords/routes');
+const { createSmartUsageService } = require('../services/licensing/smart-usage/index');
+const { createKeywordResearchService } = require('../keyword-research');
+const { createProductApiRouteHandler } = require('./ui-api-routes');
+const { createCloudflareConnectionService, createEncryptedCredentialStore } = require('../host/cloudflare/connection-service');
+const { createCloudflareConnectionRouteHandler } = require('../adapters/ui/site-hosting/cloudflare-connection/routes');
+const { createSiteHostingApplication } = require('./site-hosting-application');
+const { createSiteHostingProjectRouteHandler } = require('../adapters/ui/site-hosting/projects/routes');
+const { createSiteHostingSiteRouteHandler } = require('../adapters/ui/site-hosting/sites/routes');
+const { createApiRouteHub } = require('../adapters/ui/route-hub');
 
 const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PORT = 4577;
@@ -230,7 +232,7 @@ const uiHttpUtils = createUiHttpUtils({
     fs,
     path,
     Logger,
-    currentDir: __dirname,
+    currentDir: path.join(__dirname, '..'),
     appRoot: CONFIG.PATHS.appRoot
 });
 const {
@@ -922,9 +924,9 @@ registerRuntimeHooks({
     })
 });
 
+let reloadUiServer;
 function scheduleUiReload(host, port) {
     setTimeout(async () => {
-        const { reloadUiServer } = require('./ui-server');
         await reloadUiServer(host, port);
     }, 500);
 }
@@ -1081,26 +1083,10 @@ setSnsAutomationHandlers({
     runSnsAutomationCycle,
 });
 
-async function handleGoogleOAuthCallback({ url, res }) {
-    try {
-        const code = String(url.searchParams.get('code') || '').trim();
-        const state = String(url.searchParams.get('state') || '').trim();
-        if (!code || !state) {
-            res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
-            res.end(GoogleOAuth.renderCallbackHtml({ success: false, message: '인증 코드 또는 상태값이 없습니다.' }));
-            return true;
-        }
-        const tokens = await GoogleOAuth.exchangeCode(code, state);
-        GoogleSheets.clearGoogleAuthCache();
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
-        res.end(GoogleOAuth.renderCallbackHtml({ success: true, email: String(tokens.connected_email || '') }));
-        return true;
-    } catch (error) {
-        res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
-        res.end(GoogleOAuth.renderCallbackHtml({ success: false, message: error.message }));
-        return true;
-    }
-}
+const handleGoogleOAuthCallback = createGoogleOAuthCallbackHandler({
+    googleOAuth: GoogleOAuth,
+    clearGoogleAuthCache: () => GoogleSheets.clearGoogleAuthCache()
+});
 
 const uiHttpServerRuntime = createUiHttpServerRuntime({
     http,
@@ -1132,54 +1118,26 @@ const uiHttpServerRuntime = createUiHttpServerRuntime({
     stopRecommendationDelivery: () => recommendationDeliveryScheduler.stop(),
     handleGoogleOAuthCallback,
     initTelegramBotService: async () => {
-        const TelegramBotService = require('./telegram-bot.service');
+        const TelegramBotService = require('../telegram-bot.service');
         TelegramBotService.init();
     },
     stopTelegramBotService: async () => {
-        const TelegramBotService = require('./telegram-bot.service');
+        const TelegramBotService = require('../telegram-bot.service');
         await TelegramBotService.stop();
     }
 });
-const { startUiServer: startUiServerRuntime, reloadUiServer } = uiHttpServerRuntime;
+const { startUiServer: startUiServerRuntime } = uiHttpServerRuntime;
+reloadUiServer = uiHttpServerRuntime.reloadUiServer;
 
-async function startUiServer(options = {}) {
-    const deferred = options.safeMode !== true && options.deferOptionalStartup === true;
-    if (options.safeMode !== true && !deferred) {
-        await initializeAgentMemory({ baseDir: CONFIG.ROOT_DIR });
-    } else {
-        Logger.warn(options.safeMode === true
-            ? '⚠️ [AgentMemory] 안전 모드에서 지능형 메모리 초기화를 건너뜁니다.'
-            : 'ℹ️ [AgentMemory] 첫 화면 이후 지능형 메모리를 초기화합니다.');
-    }
-    const started = await startUiServerRuntime(options);
-    if (!deferred) return started;
-    return {
-        ...started,
-        startDeferredServices: async () => {
-            const memory = Promise.resolve()
-                .then(() => initializeAgentMemory({ baseDir: CONFIG.ROOT_DIR }))
-                .catch((error) => {
-                    Logger.error(`❌ [AgentMemory] 지연 초기화 실패: ${error.message}`, error);
-                    return false;
-                });
-            const optional = Promise.resolve()
-                .then(() => started.startOptionalServices())
-                .catch((error) => {
-                    Logger.error(`❌ [UI] 지연 백그라운드 기능 시작 실패: ${error.message}`, error);
-                    return [];
-                });
-            const [memoryReady, optionalResults] = await Promise.all([memory, optional]);
-            return { memoryReady, optionalResults };
-        }
-    };
-}
+const { startUiServer } = createUiServerStartup({
+    config: CONFIG,
+    logger: Logger,
+    initializeAgentMemory,
+    startUiServerRuntime
+});
 
 module.exports = {
-    closeAgentMemory,
     startUiServer,
-    startRemoteMcpService: remoteMcpService.startRemoteMcpService,
-    stopRemoteMcpService: remoteMcpService.stopRemoteMcpService,
-    reloadUiServer,
     __testing: {
         buildMajorSettings
     }

@@ -64,11 +64,11 @@ test('UI shell has unique DOM ids and remains within its size policy', (t) => {
 });
 
 test('UI server composition root remains within its size policy', (t) => {
-    const serverPath = path.join(repoRoot, 'src/ui-server.js');
+    const serverPath = path.join(repoRoot, 'src/composition/ui-server.js');
     const lineCount = fs.readFileSync(serverPath, 'utf8').split('\n').length - 1;
     const size = evaluateUiSize('serverCompositionRoot', lineCount);
-    assert.notEqual(size.status, 'error', `src/ui-server.js has ${lineCount} lines (maximum ${size.maximum})`);
-    if (size.status === 'warning') t.diagnostic(`Size recommendation: src/ui-server.js has ${lineCount} lines (recommended ${size.recommended}; maximum ${size.maximum}).`);
+    assert.notEqual(size.status, 'error', `src/composition/ui-server.js has ${lineCount} lines (maximum ${size.maximum})`);
+    if (size.status === 'warning') t.diagnostic(`Size recommendation: src/composition/ui-server.js has ${lineCount} lines (recommended ${size.recommended}; maximum ${size.maximum}).`);
 });
 
 test('primary navigation buttons map one-to-one to UI views', () => {

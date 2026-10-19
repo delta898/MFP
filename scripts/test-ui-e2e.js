@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 const assert = require('assert');
-const { startUiServer } = require('../src/ui-server');
+const { startUiServer } = require('../src/composition/ui-server');
 
 function parseJson(text) {
     try {

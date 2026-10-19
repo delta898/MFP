@@ -23,7 +23,7 @@ test('shopping automation cannot be started through runtime or API composition',
   const snsApplication = read('src/applications/sns/distribution/automation-application.js');
   const contentActions = read('src/adapters/ui/content/content-api/action-handlers.js');
   const routes = read('src/adapters/ui/content/content-api/routes.js');
-  const server = read('src/ui-server.js');
+  const server = read('src/composition/ui-server.js');
 
   [runner, cycle, snsApplication, contentActions, routes, server].forEach((source) => {
     assert.doesNotMatch(source, /executeShoppingAuto|syncShoppingAuto|shoppingAutoRuntimeState|shopping\/auto\/run-manual/);

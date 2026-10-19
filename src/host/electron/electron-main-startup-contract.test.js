@@ -118,7 +118,7 @@ test('a second app launch focuses the primary window instead of creating a port-
 
 test('normal shutdown closes SQLite memory while safe mode keeps a no-op boundary', () => {
     assert.match(source, /closeAgentMemory = \(\) => \{\}/);
-    assert.match(source, /loadStartupModule\('ui-server', \(\) => require\('\.\.\/\.\.\/ui-server'\)\)/);
+    assert.match(source, /loadStartupModule\('ui-server-composition', \(\) => require\('\.\.\/\.\.\/composition\/ui-server'\)\)/);
     assert.match(source, /app[.]on\('will-quit',[\s\S]{0,2000}closeAgentMemory[?][.]\(\)/);
     assert.match(source, /GUI: Shutdown active handles/);
     assert.match(source, /GUI: UI server closed\./);

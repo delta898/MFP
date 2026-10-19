@@ -202,7 +202,8 @@ if (!primaryInstance) {
     startup.write('APPLICATION_MODULES_LOADING');
     CONFIG = loadStartupModule('config-loader', () => require('../../config-loader'));
     startup.write('CONFIG_LOADED', { rootDir: CONFIG.ROOT_DIR || '' });
-    ({ closeAgentMemory, startUiServer } = loadStartupModule('ui-server', () => require('../../ui-server')));
+    ({ startUiServer } = loadStartupModule('ui-server-composition', () => require('../../composition/ui-server')));
+    ({ closeAgentMemory } = loadStartupModule('agent-memory-runtime', () => require('../memory/runtime')));
     ({ startRemoteMcpService, stopRemoteMcpService } = loadStartupModule('remote-mcp-service', () => require('../mcp/remote-service')));
     Logger = loadStartupModule('logger', () => require('../../utilities/logging/logger'));
     const { logRuntimeEnvironmentStatus } = loadStartupModule('runtime-profile', () => require('../configuration/environment/runtime-profile'));

@@ -5,7 +5,7 @@ const path = require('node:path');
 
 const uiServerPath = path.join(__dirname, 'ui-server.js');
 
-test('ui-server remains a bounded composition root', () => {
+test('UI server composition remains within its bounded root', () => {
     const source = fs.readFileSync(uiServerPath, 'utf8');
     const lineCount = source.split('\n').length - 1;
     assert.equal(lineCount <= 1260, true, `ui-server.js grew to ${lineCount} lines`);
