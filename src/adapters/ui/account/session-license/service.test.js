@@ -1,8 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createSessionLicenseService } = require('./session-license.service');
-const { createSessionLicenseController } = require('../../adapters/ui/account/session-license/controller');
-const { createSessionLicenseRouteHandler } = require('../../adapters/ui/account/session-license/routes');
+const { createSessionLicenseService } = require('./service');
+const { createSessionLicenseController } = require('./controller');
+const { createSessionLicenseRouteHandler } = require('./routes');
 
 function createService(overrides = {}) {
     return createSessionLicenseService({

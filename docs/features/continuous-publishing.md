@@ -93,6 +93,7 @@ Queue 등록 자체는 AI 호출을 발생시키지 않는다.
 - Blog queue policy and prepared-topic lifecycle: `src/applications/blog/queue-management/`
 - Blog recurring-publishing settings and scheduler policy: `src/applications/blog/automation/`
 - Blog queue execution and Site Hosting target readiness: `src/applications/blog/queue-execution/`
+- UI/API endpoint coordination: `src/adapters/ui/blog/continuous-publishing/service.js` (active transitional orchestration; it reuses the Blog automation and queue Applications)
 - shared topic status and delivery-plan contracts: `src/services/topics/` and `src/services/content-delivery/`
 - device settings persistence: `src/adapters/storage/blog/automation-settings.js`
 - Google Sheets row movement mapping: `src/adapters/storage/google-sheets/topic-queue-order.js`

@@ -133,19 +133,20 @@ const { createSurfaceContentService } = require('./surface-content/service');
 const { createSupabaseSurfaceContentProvider } = require('./surface-content/supabase-provider');
 const { createSurfaceContentController } = require('./adapters/ui/content/surface/controller');
 const { createSurfaceContentRouteHandler } = require('./adapters/ui/content/surface/routes');
-const { createTopicRecommendationsService } = require('./ui-api/services/topic-recommendations.service');
+const { createTopicRecommendationsService } = require('./adapters/ui/blog/topic-recommendations/service');
 const { createTopicRecommendationsController } = require('./adapters/ui/blog/topic-recommendations/controller');
 const { createTopicRecommendationsRouteHandler } = require('./adapters/ui/blog/topic-recommendations/routes');
 const { createRecommendationCenterService } = require('./applications/recommendations/center/application');
 const { createRecommendationCenterController } = require('./adapters/ui/recommendations/center/controller');
 const { createRecommendationCenterRouteHandler } = require('./adapters/ui/recommendations/center/routes');
-const { createKeywordDiscoveryService } = require('./ui-api/services/keyword-discovery.service');
 const { createKeywordDiscoveryController } = require('./adapters/ui/keyword-research/discovery/controller');
 const { createKeywordDiscoveryRouteHandler } = require('./adapters/ui/keyword-research/discovery/routes');
-const { createKeywordsService } = require('./ui-api/services/keywords.service');
+const { createBlogKeywordDiscoveryApplication } = require('./applications/blog/keyword-discovery/application');
+const { createKeywordsService } = require('./adapters/ui/keyword-research/keywords/service');
 const { createKeywordsController } = require('./adapters/ui/keyword-research/keywords/controller');
 const { createKeywordsRouteHandler } = require('./adapters/ui/keyword-research/keywords/routes');
 const { createSmartUsageService } = require('./services/licensing/smart-usage/index');
+const { createKeywordResearchService } = require('./keyword-research');
 const { createProductApiRouteHandler } = require('./composition/ui-api-routes');
 const { createCloudflareConnectionService, createEncryptedCredentialStore } = require('./host/cloudflare/connection-service');
 const { createCloudflareConnectionRouteHandler } = require('./adapters/ui/site-hosting/cloudflare-connection/routes');
@@ -329,6 +330,12 @@ const blogBetaComposition = createBlogBetaRuntimeComposition({
     getAiModelCatalog
 });
 const { corePluginRuntime, blogWritingSystem, shoppingGenerationApplication, blogPostingApplication, blogPublishingApplication, aiGenerationSystem } = blogBetaComposition;
+const keywordResearchService = createKeywordResearchService({
+    CONFIG,
+    Logger,
+    License,
+    blogWritingApplication: blogWritingSystem.application
+});
 const socialPublishingSystem = createSocialPublishingSystem({ corePluginRuntime, CONFIG, axios });
 const socialPublisher = socialPublishingSystem.publisher;
 const widgetPluginCatalog = createBundledWidgetPluginCatalog({ fs, path, logger: Logger, configDir: CONFIG.PATHS.configDir });
@@ -933,6 +940,7 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     path,
     CONFIG,
     License,
+    keywordResearchService,
     ShoppingManager,
     axios,
     cheerio,
@@ -1026,7 +1034,7 @@ const uiApiRouteRuntime = createUiApiRouteRuntime({
     createRecommendationCenterRouteHandler,
     recommendationCenterHandoffService,
     recommendationCenterRefreshService,
-    createKeywordDiscoveryService,
+    createBlogKeywordDiscoveryApplication,
     createKeywordDiscoveryController,
     createKeywordDiscoveryRouteHandler,
     createKeywordsService,

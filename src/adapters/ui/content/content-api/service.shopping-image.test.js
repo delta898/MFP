@@ -4,8 +4,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { createContentService } = require('./content.service');
-const { createUiSettingsFieldsRuntime } = require('../../ui-runtime/settings-fields-runtime');
+const { createContentApiService } = require('./service');
+const { createUiSettingsFieldsRuntime } = require('../../../../ui-runtime/settings-fields-runtime');
 
 test('shopping image upload persists structured config and updates runtime state', async () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bloggenius-shopping-image-'));
@@ -34,7 +34,7 @@ test('shopping image upload persists structured config and updates runtime state
     let appliedFields = null;
 
     try {
-        const service = createContentService({
+        const service = createContentApiService({
             fs,
             path,
             CONFIG: {

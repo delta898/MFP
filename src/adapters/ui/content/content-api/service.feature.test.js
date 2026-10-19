@@ -1,10 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { createContentService } = require('./content.service');
+const { createContentApiService } = require('./service');
 
 function createService(cmdShopping, state = {}) {
-    return createContentService({
+    return createContentApiService({
         License: {
             async checkLicenseStatus() {
                 return {

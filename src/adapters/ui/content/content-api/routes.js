@@ -72,10 +72,6 @@ function createContentRouteHandler(deps = {}) {
         if (pathname === '/api/v1/google-oauth/spreadsheets/create') return controller.googleSpreadsheetCreate(ctx);
         if (pathname === '/api/v1/google-oauth/disconnect') return controller.googleOauthDisconnect(ctx);
         if (pathname === '/api/v1/google-oauth/test') return controller.googleOauthTest(ctx);
-        if (pathname === '/api/v1/blog/naver-comment-draft/settings') return controller.naverCommentDraftSettings(ctx);
-        if (pathname === '/api/v1/blog/naver-comment-draft/run') return controller.naverCommentDraftRun(ctx);
-        if (pathname === '/api/v1/blog/naver-comment-draft/progress') return controller.naverCommentDraftProgress(ctx);
-        if (pathname === '/api/v1/blog/naver-comment-draft/redraft') return controller.naverCommentDraftRedraft(ctx);
         if (pathname === '/api/v1/blog/quick-publish') return controller.blogQuickPublish(ctx);
         if (pathname === '/api/v1/blog/quick-preview/publish') return controller.blogQuickPreviewPublish(ctx);
         if (pathname === '/api/v1/blog/quick-preview/image') return controller.blogQuickPreviewImage(ctx);

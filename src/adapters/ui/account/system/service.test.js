@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createSystemService } = require('./system.service');
+const { createSystemService } = require('./service');
 
 function createService(logs = [], overrides = {}) {
     return createSystemService({

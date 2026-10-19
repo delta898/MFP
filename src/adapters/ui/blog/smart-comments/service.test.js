@@ -1,7 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { createContentService } = require('./content.service');
+const { createBlogSmartCommentApplication } = require('../../../../composition/blog-smart-comments');
+const { createSmartCommentsUiService } = require('./service');
 
 function createSmartCommentService(options = {}) {
     const calls = {
@@ -27,11 +28,14 @@ function createSmartCommentService(options = {}) {
         },
         async close() {}
     };
-    const service = createContentService({
-        Utils: {
-            _normalizeNaverBlogPostUrl() { return ''; },
-        },
-        aiGenerationService: {
+    const CONFIG = {
+        NAVER_ID: 'owner-id',
+        AUTH_FILE_PATH: '/tmp/naver-smart-comment-auth.json',
+        TEXT_MODEL_CONFIG: { provider: 'openai', code: 'writing-model' },
+        CHAT_MODEL_CONFIG: { provider: 'openai', code: 'chat-model' },
+        RUNTIME_ENVIRONMENT: options.environment || 'production'
+    };
+    const aiGenerationService = {
             async generateText(request) {
                 const modelOptions = { ...request.options, responseFormat: request.responseFormat, modelSelection: request.modelSelection };
                 calls.prompts.push(request.prompt);
@@ -46,37 +50,33 @@ function createSmartCommentService(options = {}) {
                 }
                 throw new Error('예상하지 않은 모델 호출입니다.');
             }
-        },
-        CONFIG: {
-            NAVER_ID: 'owner-id',
-            AUTH_FILE_PATH: '/tmp/naver-smart-comment-auth.json',
-            TEXT_MODEL_CONFIG: { provider: 'openai', code: 'writing-model' },
-            CHAT_MODEL_CONFIG: { provider: 'openai', code: 'chat-model' },
-            RUNTIME_ENVIRONMENT: options.environment || 'production'
-        },
-        BrowserLauncher: {
+    };
+    const BrowserLauncher = {
             async launchBrowser(launchOptions) {
                 calls.launchOptions.push(launchOptions);
                 return browser;
             }
-        },
-        Logger: {
+    };
+    const Logger = {
             info() {},
             debug() {},
             warn() {},
             error() {}
-        },
-        checkNaverSessionForUi: async (sessionOptions) => {
+    };
+    const checkNaverSessionForUi = async (sessionOptions) => {
             calls.sessionOptions.push(sessionOptions);
             if (typeof options.checkSession === 'function') return options.checkSession(sessionOptions);
             return options.sessionResult || { ok: true };
-        },
-        ...(options.candidates ? {
-            smartCommentCollector: {
-                async collect() { return options.candidates; }
-            }
-        } : {})
+    };
+    const application = createBlogSmartCommentApplication({
+        CONFIG,
+        aiGenerationService,
+        BrowserLauncher,
+        Logger,
+        checkNaverSessionForUi,
+        ...(options.candidates ? { smartCommentCollector: { async collect() { return options.candidates; } } } : {})
     });
+    const service = createSmartCommentsUiService({ application, CONFIG });
     return { service, calls };
 }
 
@@ -86,7 +86,7 @@ test('smart comment stops before browser launch when the Naver session is missin
     });
 
     await assert.rejects(
-        () => service.runNaverCommentDraft({ fetchLimit: 1 }),
+        () => service.run({ fetchLimit: 1 }),
         (error) => {
             assert.equal(error.status, 401);
             assert.equal(error.apiCode, 'NAVER_SESSION_INVALID');
@@ -104,15 +104,15 @@ test('smart comment releases the busy state when the Naver session check throws'
         async checkSession() { throw new Error('session gateway unavailable'); }
     });
 
-    await assert.rejects(() => service.runNaverCommentDraft({ fetchLimit: 1 }), /session gateway unavailable/);
-    const { progress } = await service.getNaverCommentDraftProgress();
+    await assert.rejects(() => service.run({ fetchLimit: 1 }), /session gateway unavailable/);
+    const { progress } = await service.getProgress();
     assert.equal(progress.state, 'failed');
 });
 
 test('smart comment settings use a conservative default and expose the runtime environment', async () => {
     const { service } = createSmartCommentService({ environment: 'development' });
 
-    const result = await service.getNaverCommentDraftSettings();
+    const result = await service.getSettings();
 
     assert.equal(result.settings.fetchLimit, 3);
     assert.equal(result.settings.headless, true);
@@ -122,7 +122,7 @@ test('smart comment settings use a conservative default and expose the runtime e
 test('smart comment collects candidates with the saved Naver storage state', async () => {
     const { service, calls } = createSmartCommentService();
 
-    const result = await service.runNaverCommentDraft({
+    const result = await service.run({
         fetchLimit: 1,
         headless: false
     });
@@ -174,7 +174,7 @@ test('smart comment reports partial success separately from generation failure',
         modelResponses: [validResponse, new Error('모델 연결 실패')]
     });
 
-    const result = await service.runNaverCommentDraft({ fetchLimit: 2, maxChars: 80 });
+    const result = await service.run({ fetchLimit: 2, maxChars: 80 });
 
     assert.equal(result.items.length, 2);
     assert.equal(result.items[0].drafts.length, 3);
@@ -213,7 +213,7 @@ test('smart comment batches ten candidates into four model requests', async () =
         modelResponses: responses
     });
 
-    const result = await service.runNaverCommentDraft({ fetchLimit: 10, maxChars: 120 });
+    const result = await service.run({ fetchLimit: 10, maxChars: 120 });
 
     assert.equal(result.summary.status, 'success');
     assert.equal(result.summary.successCount, 10);
@@ -246,12 +246,12 @@ test('smart comment exposes live batch and rate-limit progress', async () => {
         async onModelCall() { await modelGate; }
     });
 
-    const runPromise = service.runNaverCommentDraft({ fetchLimit: 1, maxChars: 120 });
+    const runPromise = service.run({ fetchLimit: 1, maxChars: 120 });
     while (calls.modelOptions.length === 0) {
         await new Promise((resolve) => setImmediate(resolve));
     }
 
-    let { progress } = await service.getNaverCommentDraftProgress();
+    let { progress } = await service.getProgress();
     assert.equal(progress.state, 'running');
     assert.equal(progress.phase, 'generating');
     assert.equal(progress.batchIndex, 1);
@@ -259,7 +259,7 @@ test('smart comment exposes live batch and rate-limit progress', async () => {
     assert.equal(progress.completedCount, 0);
 
     await assert.rejects(
-        () => service.runNaverCommentDraft({ fetchLimit: 1 }),
+        () => service.run({ fetchLimit: 1 }),
         (error) => {
             assert.equal(error.status, 409);
             assert.equal(error.apiCode, 'NAVER_COMMENT_DRAFT_BUSY');
@@ -270,7 +270,7 @@ test('smart comment exposes live batch and rate-limit progress', async () => {
     releaseModelCall();
     const result = await runPromise;
     assert.equal(result.summary.status, 'success');
-    ({ progress } = await service.getNaverCommentDraftProgress());
+    ({ progress } = await service.getProgress());
     assert.equal(progress.state, 'completed');
     assert.equal(progress.phase, 'completed');
     assert.equal(progress.completedCount, 1);
@@ -291,7 +291,7 @@ test('smart comment stops remaining batches after a final rate-limit failure', a
         modelResponses: [rateLimitError]
     });
 
-    const result = await service.runNaverCommentDraft({ fetchLimit: 10, maxChars: 120 });
+    const result = await service.run({ fetchLimit: 10, maxChars: 120 });
 
     assert.equal(calls.prompts.length, 1);
     assert.equal(result.summary.status, 'rate_limited');
@@ -299,7 +299,7 @@ test('smart comment stops remaining batches after a final rate-limit failure', a
     assert.equal(result.summary.failureCount, 10);
     assert.equal(result.items.length, 10);
     assert.match(result.items[3].error, /요청 한도/);
-    const { progress } = await service.getNaverCommentDraftProgress();
+    const { progress } = await service.getProgress();
     assert.equal(progress.state, 'completed');
     assert.match(progress.message, /실행 중단/);
 });

@@ -3,10 +3,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { createContentService } = require('./content.service');
+const { createContentApiService } = require('./service');
 
 test('Google OAuth start fails clearly when generated app configuration is missing', async () => {
-    const service = createContentService({
+    const service = createContentApiService({
         GoogleOAuth: {
             getConfigurationStatus() {
                 return { configured: false, missing: ['client_id', 'client_secret'] };
@@ -26,7 +26,7 @@ test('Google OAuth start fails clearly when generated app configuration is missi
 
 test('Google OAuth status delegates directly to the desktop OAuth client', async () => {
     let calls = 0;
-    const service = createContentService({
+    const service = createContentApiService({
         GoogleOAuth: {
             async getStatus() {
                 calls += 1;
@@ -51,7 +51,7 @@ test('Google OAuth flow opens externally, exposes callback completion, and can b
         setTimeout() {},
         close(callback) { callback?.(); }
     };
-    const service = createContentService({
+    const service = createContentApiService({
         GoogleOAuth: {
             getConfigurationStatus() { return { configured: true, missing: [] }; },
             buildAuthUrl({ redirectUri }) {

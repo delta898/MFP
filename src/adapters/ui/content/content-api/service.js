@@ -1,30 +1,24 @@
-const { createApiError } = require('../../adapters/ui/errors');
-const { buildLocalMarkdownPreview } = require('../../applications/blog/manuscript-drafts/preview');
+const { createApiError } = require('../../../../adapters/ui/errors');
+const { buildLocalMarkdownPreview } = require('../../../../applications/blog/manuscript-drafts/preview');
 const {
     parseBlogImageMode,
     generatesBlogImages,
     stripBlogImagePromptBlocks
-} = require('../../applications/blog/writing/blog-image-mode');
-const { isCommandEnabled, getEnableRelatedPostsAutoLink } = require('../../runtime-feature-flags');
-const { createNaverSmartCommentCollector } = require('../../adapters/naver/smart-comment-candidate-collector');
-const {
-    generateSmartCommentDraftBatch,
-    generateSmartCommentDrafts
-} = require('../../applications/blog/smart-comments/draft-generator');
-const { createSmartCommentApplication } = require('../../applications/blog/smart-comments/application');
-const { createBlogExecutionCoordinator } = require('../../applications/blog/execution/execution-coordinator');
-const { createBlogQueueManagementApplication } = require('../../applications/blog/queue-management/application');
-const { diagnoseQueueReadiness } = require('../../applications/blog/queue-management/queue-readiness');
-const { presentNaverPublishProgress } = require('../../adapters/ui/naver-publish-progress');
-const { createAiGenerationOperationManager } = require('../../services/ai/generation-operation-manager');
-const { buildCompletionLinks } = require('../../adapters/ui/blog-publishing-presentation');
-const { createManuscriptDraftService, validateImageBuffer } = require('../../applications/blog/manuscript-drafts/application');
-const { selectManuscriptImagePromptContext } = require('../../applications/blog/posting/manuscript-image-prompt-context');
-const { buildSetupReadiness } = require('../../services/configuration-readiness/service');
-const { buildBlogGenerationPrompt } = require('../../applications/blog/writing/blog-generation-prompt');
-const { validateBlogImageBlocks } = require('../../applications/blog/writing/blog-image-plan');
-const { collectBlogReferenceContext } = require('../../applications/blog/posting/blog-reference-context');
-const BLOG_PROMPT_PATHS = require('../../applications/blog/writing/prompts/paths');
+} = require('../../../../applications/blog/writing/blog-image-mode');
+const { isCommandEnabled, getEnableRelatedPostsAutoLink } = require('../../../../runtime-feature-flags');
+const { createBlogExecutionCoordinator } = require('../../../../applications/blog/execution/execution-coordinator');
+const { createBlogQueueManagementApplication } = require('../../../../applications/blog/queue-management/application');
+const { diagnoseQueueReadiness } = require('../../../../applications/blog/queue-management/queue-readiness');
+const { presentNaverPublishProgress } = require('../../../../adapters/ui/naver-publish-progress');
+const { createAiGenerationOperationManager } = require('../../../../services/ai/generation-operation-manager');
+const { buildCompletionLinks } = require('../../../../adapters/ui/blog-publishing-presentation');
+const { createManuscriptDraftService, validateImageBuffer } = require('../../../../applications/blog/manuscript-drafts/application');
+const { selectManuscriptImagePromptContext } = require('../../../../applications/blog/posting/manuscript-image-prompt-context');
+const { buildSetupReadiness } = require('../../../../services/configuration-readiness/service');
+const { buildBlogGenerationPrompt } = require('../../../../applications/blog/writing/blog-generation-prompt');
+const { validateBlogImageBlocks } = require('../../../../applications/blog/writing/blog-image-plan');
+const { collectBlogReferenceContext } = require('../../../../applications/blog/posting/blog-reference-context');
+const BLOG_PROMPT_PATHS = require('../../../../applications/blog/writing/prompts/paths');
 
 function createNaverPublishProgressReporter({ lease, fallbackPostStatus, logger }) {
     let lastMessage = '';
@@ -39,7 +33,7 @@ function createNaverPublishProgressReporter({ lease, fallbackPostStatus, logger 
     };
 }
 
-function createContentService(deps = {}) {
+function createContentApiService(deps = {}) {
     const {
         Utils,
         GoogleSheets,
@@ -51,7 +45,6 @@ function createContentService(deps = {}) {
         GoogleOAuth,
         GoogleDriveSpreadsheets,
         createGoogleOauthCallbackServer = (...args) => require('http').createServer(...args),
-        BrowserLauncher,
         openExternal = async (url) => {
             const electron = require('electron');
             if (!electron?.shell?.openExternal) throw new Error('시스템 브라우저를 실행할 수 없습니다.');
@@ -59,7 +52,6 @@ function createContentService(deps = {}) {
         },
         ShoppingManager,
         Logger,
-        checkNaverSessionForUi,
         SHOPPING_IMAGE_SLOT_MAP,
         parseBase64ImagePayload,
         resolveWritableConfigPath,
@@ -78,7 +70,6 @@ function createContentService(deps = {}) {
         ensureSheetsReadyForUi,
         executeQuickPublish,
         blogWritingApplication,
-        aiGenerationService,
         blogPublishingApplication,
         executeQuickPreviewPublish,
         getQuickPreviewImagePayload,
@@ -204,47 +195,6 @@ function createContentService(deps = {}) {
             throw createApiError(403, 'FEATURE_DISABLED', '현재 플랜에서 쇼핑커넥트 실행 기능을 사용할 수 없습니다.');
         }
     }
-
-    let smartCommentApplication;
-    function callCommentDraftModel(mode, prompt, maxTokens = 768) {
-        if (typeof aiGenerationService?.generateText !== 'function') {
-            throw new Error('AI Gateway 기반 AI Generation 서비스를 사용할 수 없습니다.');
-        }
-        const configured = mode === 'custom' ? CONFIG.CHAT_MODEL_CONFIG : CONFIG.TEXT_MODEL_CONFIG;
-        const modelSelection = {
-            provider: String(configured?.provider || '').trim().toLowerCase(),
-            modelId: String(configured?.code || '').trim()
-        };
-        return aiGenerationService.generateText({
-            modelSelection,
-            prompt,
-            options: {
-                maxOutputTokens: maxTokens,
-                temperature: 0.6,
-                reasoningEffort: 'low'
-            },
-            responseFormat: 'json'
-        }).then((result) => result?.content ?? result);
-    }
-
-    let smartCommentCollector = deps.smartCommentCollector || null;
-    function getSmartCommentCollector() {
-        if (!smartCommentCollector) smartCommentCollector = createNaverSmartCommentCollector({ BrowserLauncher, CONFIG, Logger });
-        return smartCommentCollector;
-    }
-    smartCommentApplication = deps.smartCommentApplication || createSmartCommentApplication({
-        config: CONFIG,
-        logger: Logger,
-        getChatModelCode: () => CONFIG.CHAT_MODEL_CONFIG?.code,
-        checkSession: checkNaverSessionForUi,
-        collectCandidates: (options) => getSmartCommentCollector().collect(options),
-        generateBatch: ({ aiMode, candidates, maxChars }) => generateSmartCommentDraftBatch({
-            aiMode, items: candidates, maxChars, logger: Logger, callModel: callCommentDraftModel
-        }),
-        generateDraft: (options) => generateSmartCommentDrafts({
-            ...options, logger: Logger, callModel: callCommentDraftModel
-        })
-    });
 
     function buildLocalMarkdownPreviewPayload(requestBody = {}) {
         const imageMode = parseBlogImageMode(requestBody?.imageMode, {
@@ -842,58 +792,6 @@ function createContentService(deps = {}) {
             };
         },
 
-        async getNaverCommentDraftSettings() {
-            return {
-                settings: smartCommentApplication.normalizeSettings(),
-                runtime: {
-                    environment: String(CONFIG.RUNTIME_ENVIRONMENT || '')
-                }
-            };
-        },
-
-        async getNaverCommentDraftProgress() {
-            return {
-                progress: smartCommentApplication.getProgress()
-            };
-        },
-
-        async saveNaverCommentDraftSettings(requestBody = {}) {
-            const settings = smartCommentApplication.normalizeSettings(requestBody || {});
-            const writablePath = resolveWritableConfigPath();
-            let structuredConfig = {};
-            try {
-                if (fs.existsSync(writablePath)) {
-                    structuredConfig = JSON.parse(fs.readFileSync(writablePath, 'utf8'));
-                }
-            } catch (_e) { }
-
-            if (!structuredConfig.features) structuredConfig.features = {};
-            if (!structuredConfig.features.naver) structuredConfig.features.naver = {};
-            structuredConfig.features.naver.comment_draft = {
-                ai_mode: settings.aiMode,
-                fetch_limit: settings.fetchLimit,
-                max_chars: settings.maxChars,
-                headless: settings.headless
-            };
-
-            fs.mkdirSync(path.dirname(writablePath), { recursive: true });
-            fs.writeFileSync(writablePath, JSON.stringify(structuredConfig, null, 2), 'utf-8');
-            smartCommentApplication.applySettings(settings);
-
-            return {
-                message: '스마트 댓글 설정 저장 완료',
-                settings
-            };
-        },
-
-        async runNaverCommentDraft(requestBody = {}) {
-            return smartCommentApplication.run(requestBody || {});
-        },
-
-        async redraftNaverCommentDraft(requestBody = {}) {
-            return smartCommentApplication.redraft(requestBody || {});
-        },
-
         async blogQuickPublish(requestBody = {}) {
             const result = await executeQuickPublish(requestBody || {});
             if (!result.success) {
@@ -1416,5 +1314,5 @@ function createContentService(deps = {}) {
 }
 
 module.exports = {
-    createContentService
+    createContentApiService
 };

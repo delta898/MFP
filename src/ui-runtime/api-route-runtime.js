@@ -111,9 +111,10 @@ function createUiApiRouteRuntime(deps = {}) {
         createRecommendationCenterRouteHandler,
         recommendationCenterHandoffService,
         recommendationCenterRefreshService,
-        createKeywordDiscoveryService,
+        createBlogKeywordDiscoveryApplication,
         createKeywordDiscoveryController,
         createKeywordDiscoveryRouteHandler,
+        keywordResearchService,
         createKeywordsService,
         createKeywordsController,
         createKeywordsRouteHandler,
@@ -389,7 +390,7 @@ function createUiApiRouteRuntime(deps = {}) {
     function getKeywordsRouteHandlerInstance() {
         if (!keywordsRouteHandler && typeof createKeywordsRouteHandler === 'function') {
             const service = typeof createKeywordsService === 'function'
-                ? createKeywordsService({ CONFIG, Utils, Logger, License, blogWritingApplication, smartUsageService: getSmartUsageServiceInstance() })
+                ? createKeywordsService({ keywordResearchService, smartUsageService: getSmartUsageServiceInstance() })
                 : null;
             const controller = typeof createKeywordsController === 'function'
                 ? createKeywordsController({ service, sendSuccess, sendError })
@@ -401,11 +402,8 @@ function createUiApiRouteRuntime(deps = {}) {
 
     function getKeywordDiscoveryRouteHandlerInstance() {
         if (!keywordDiscoveryRouteHandler) {
-            const service = createKeywordDiscoveryService({
-                CONFIG,
-                Utils,
-                Logger,
-                License,
+            const service = createBlogKeywordDiscoveryApplication({
+                keywordResearchService,
                 knowledgeRegistry: topicRecommendationCapabilityRegistry?.knowledgeRegistry,
                 retrievalService: topicRecommendationRetrievalService,
                 eventStore: topicRecommendationEventStore,

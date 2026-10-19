@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createKeywordsService } = require('./keywords.service');
+const { createKeywordsService } = require('./service');
 
 test('passes up to three selected title keywords to the keyword research service', async () => {
     let received = null;

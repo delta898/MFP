@@ -1,6 +1,5 @@
-const { createKeywordResearchService } = require('../../keyword-research');
-const { parseKeywords } = require('../../keyword-research/input');
-const { collectKeywordDiscoverySeeds } = require('../../keyword-discovery/seed-collector');
+const { parseKeywords } = require('../../../keyword-research/input');
+const { collectKeywordDiscoverySeeds } = require('../../../keyword-discovery/seed-collector');
 
 function getOwnerUserId(eventStore) {
     const owner = eventStore && typeof eventStore.getLocalOwnerIdentity === 'function'
@@ -25,13 +24,13 @@ function decorateInputKeywords(analysis = {}, seeds = []) {
     };
 }
 
-function createKeywordDiscoveryService(options = {}) {
+function createBlogKeywordDiscoveryApplication(options = {}) {
     const {
         knowledgeRegistry,
         retrievalService,
         eventStore,
         smartUsageService = null,
-        keywordResearchService = createKeywordResearchService(options)
+        keywordResearchService
     } = options;
 
     if (!knowledgeRegistry || typeof knowledgeRegistry.fetchForRoute !== 'function') {
@@ -119,6 +118,6 @@ function createKeywordDiscoveryService(options = {}) {
 }
 
 module.exports = {
-    createKeywordDiscoveryService,
+    createBlogKeywordDiscoveryApplication,
     decorateInputKeywords
 };

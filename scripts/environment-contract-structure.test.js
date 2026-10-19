@@ -256,7 +256,7 @@ test('config loading and diagnostics expose only the resolved environment bounda
         'utf8'
     );
     const systemService = fs.readFileSync(
-        path.join(REPO_ROOT, 'src/ui-api/services/system.service.js'),
+        path.join(REPO_ROOT, 'src/adapters/ui/account/system/service.js'),
         'utf8'
     );
 

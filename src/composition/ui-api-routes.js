@@ -4,29 +4,34 @@ const { machineIdSync } = require('node-machine-id');
 const { createSystemRouteHandler } = require('../adapters/ui/account/system/routes');
 const { createSessionLicenseRouteHandler } = require('../adapters/ui/account/session-license/routes');
 const { createContentRouteHandler } = require('../adapters/ui/content/content-api/routes');
+const { createSmartCommentsRouteHandler } = require('../adapters/ui/blog/smart-comments/routes');
 const { createTrendsRouteHandler } = require('../adapters/ui/blog/trends/routes');
 const { createTrendPostingRouteHandler } = require('../adapters/ui/blog/trend-posting/routes');
 const { createAccountRouteHandler } = require('../adapters/ui/account/routes');
 const { createContinuousPublishingRouteHandler } = require('../adapters/ui/blog/continuous-publishing/routes');
-const { createSystemService } = require('../ui-api/services/system.service');
-const { createSessionLicenseService } = require('../ui-api/services/session-license.service');
-const { createContentService } = require('../ui-api/services/content.service');
-const { createTrendsService } = require('../ui-api/services/trends.service');
+const { createSystemService } = require('../adapters/ui/account/system/service');
+const { createSessionLicenseService } = require('../adapters/ui/account/session-license/service');
+const { createContentApiService } = require('../adapters/ui/content/content-api/service');
+const { createSmartCommentsUiService } = require('../adapters/ui/blog/smart-comments/service');
+const { createTrendsService } = require('../adapters/ui/blog/trends/service');
 const { createTrendPostingService } = require('../adapters/ui/blog/trend-posting/service');
 const { createSystemController } = require('../adapters/ui/account/system/controller');
 const { createSessionLicenseController } = require('../adapters/ui/account/session-license/controller');
 const { createContentController } = require('../adapters/ui/content/content-api/controller');
+const { createSmartCommentsController } = require('../adapters/ui/blog/smart-comments/controller');
 const { createTrendsController } = require('../adapters/ui/blog/trends/controller');
 const { createTrendPostingController } = require('../adapters/ui/blog/trend-posting/controller');
 const { createAccountController } = require('../adapters/ui/account/controller');
 const { createContinuousPublishingController } = require('../adapters/ui/blog/continuous-publishing/controller');
-const { createContinuousPublishingService } = require('../ui-api/services/continuous-publishing.service');
+const { createContinuousPublishingService } = require('../adapters/ui/blog/continuous-publishing/service');
 const { createSiteHostingQueueExecutor } = require('../applications/blog/queue-execution/site-hosting-executor');
 const { createContentLifecycleAdapterRegistry } = require('./content-lifecycle-adapters');
 const { createGoogleDriveSpreadsheets } = require('../adapters/google/drive/spreadsheets');
 const { createAccountOverviewService } = require('../applications/account/overview/application');
 const { createBlogExecutionCoordinator } = require('../applications/blog/execution/execution-coordinator');
 const { createBlogTrendPosting } = require('./blog-trend-posting');
+const { createBlogSmartCommentApplication } = require('./blog-smart-comments');
+const { createSmartCommentSettingsStore } = require('../adapters/storage/blog/smart-comment-settings');
 const { createConnectionReadinessService } = require('../applications/account/overview/connection-readiness');
 const {
     readConnectionVerification,
@@ -133,7 +138,7 @@ function createProductApiRouteHandler(deps = {}) {
         sendError: deps.sendError
     });
 
-    const contentService = createContentService({
+    const contentApiService = createContentApiService({
         Utils: deps.Utils,
         fs: deps.fs,
         path: deps.path,
@@ -146,7 +151,6 @@ function createProductApiRouteHandler(deps = {}) {
         License: deps.License,
         GoogleOAuth,
         GoogleDriveSpreadsheets,
-        BrowserLauncher: deps.BrowserLauncher,
         ShoppingManager: deps.ShoppingManager,
         Logger: deps.Logger,
         checkNaverSessionForUi: deps.checkNaverSessionForUi,
@@ -188,17 +192,40 @@ function createProductApiRouteHandler(deps = {}) {
         blogNextExecutionCoordinator
     });
     const contentController = createContentController({
-        service: contentService,
+        service: contentApiService,
         sendSuccess: deps.sendSuccess,
         sendError: deps.sendError,
         logger: deps.Logger
+    });
+
+    const smartCommentApplication = deps.smartCommentApplication || createBlogSmartCommentApplication({
+        CONFIG: deps.CONFIG,
+        Logger: deps.Logger,
+        aiGenerationService: deps.aiGenerationService,
+        checkNaverSessionForUi: deps.checkNaverSessionForUi,
+        BrowserLauncher: deps.BrowserLauncher,
+        smartCommentCollector: deps.smartCommentCollector
+    });
+    const smartCommentsService = createSmartCommentsUiService({
+        application: smartCommentApplication,
+        settingsStore: createSmartCommentSettingsStore({
+            fs: deps.fs,
+            path: deps.path,
+            resolveWritableConfigPath: deps.resolveWritableConfigPath
+        }),
+        CONFIG: deps.CONFIG
+    });
+    const smartCommentsController = createSmartCommentsController({
+        service: smartCommentsService,
+        sendSuccess: deps.sendSuccess,
+        sendError: deps.sendError
     });
 
     const executeSiteHostingQueueRowAction = createSiteHostingQueueExecutor({
         Utils: deps.Utils,
         GoogleSheets: deps.GoogleSheets,
         ensureSheetsReadyForUi: deps.ensureSheetsReadyForUi,
-        generateAiManuscriptDraft: contentService.createAiManuscriptDraftForQueue,
+        generateAiManuscriptDraft: contentApiService.createAiManuscriptDraftForQueue,
         getSiteHostingSiteService: deps.getSiteHostingSiteService
     });
     const lifecycleAdapters = createContentLifecycleAdapterRegistry({
@@ -236,6 +263,7 @@ function createProductApiRouteHandler(deps = {}) {
 
     const trendsService = createTrendsService({
         Utils: deps.Utils,
+        GoogleSheets: deps.GoogleSheets,
         Logger: deps.Logger,
         ensureSheetsReadyForUi: deps.ensureSheetsReadyForUi,
         parseIntSafe: deps.parseIntSafe,
@@ -272,6 +300,7 @@ function createProductApiRouteHandler(deps = {}) {
         createAccountRouteHandler({ controller: accountController }),
         createContinuousPublishingRouteHandler({ controller: continuousPublishingController }),
         createContentRouteHandler({ controller: contentController }),
+        createSmartCommentsRouteHandler({ controller: smartCommentsController }),
         createTrendsRouteHandler({ controller: trendsController }),
         createTrendPostingRouteHandler({ controller: trendPostingController })
     ];

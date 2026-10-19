@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createTopicRecommendationsService } = require('./topic-recommendations.service');
+const { createTopicRecommendationsService } = require('./service');
 
 test('추천 목록은 지능형 런타임을 호출하고 TTL 동안 재사용한다', async () => {
     let runtimeCalls = 0;

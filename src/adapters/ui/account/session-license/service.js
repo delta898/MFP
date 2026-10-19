@@ -1,4 +1,4 @@
-const { createApiError } = require('../../adapters/ui/errors');
+const { createApiError } = require('../../errors');
 
 function createSessionLicenseService(deps = {}) {
     const {

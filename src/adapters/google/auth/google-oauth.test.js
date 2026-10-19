@@ -93,7 +93,7 @@ test('Google OAuth consumers never fetch app credentials from Runtime Config', (
     const runtimeConfig = fs.readFileSync(path.join(REPO_ROOT, 'src/runtime-config.js'), 'utf8');
     const utils = fs.readFileSync(path.join(REPO_ROOT, 'src/utils.js'), 'utf8');
     const contentService = fs.readFileSync(
-        path.join(REPO_ROOT, 'src/ui-api/services/content.service.js'),
+        path.join(REPO_ROOT, 'src/adapters/ui/content/content-api/service.js'),
         'utf8'
     );
 

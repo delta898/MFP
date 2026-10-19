@@ -71,9 +71,10 @@ test('Smart Comment keeps results on failures and presents friendly progress sta
 });
 
 test('Smart Comment backend defaults to three candidates and rejects overlapping runs', () => {
-    const service = read('src/ui-api/services/content.service.js');
+    const service = read('src/adapters/ui/blog/smart-comments/service.js');
+    const application = read('src/applications/blog/smart-comments/application.js');
 
-    assert.match(service, /fetchLimit:\s*3,/);
-    assert.match(service, /NAVER_COMMENT_DRAFT_BUSY/);
+    assert.match(application, /fetchLimit:\s*3,/);
+    assert.match(application, /NAVER_COMMENT_DRAFT_BUSY/);
     assert.match(service, /RUNTIME_ENVIRONMENT/);
 });

@@ -18,7 +18,21 @@ This document captures the current runtime boundaries after the CLI-removal refa
 - `src/adapters/ui/controller-common.js`
   - Shared HTTP controller error-response and method-allowlist translation used by UI API adapters.
 - `src/adapters/ui/account/`
-  - Account overview endpoint translation; account/license overview assembly belongs to `src/applications/account/overview/`.
+  - Account/session/license/system endpoint translation and response projection; account/license overview assembly belongs to `src/applications/account/overview/` and desktop update lifecycle belongs to Host.
+- `src/adapters/ui/blog/trends/service.js`
+  - Parses UI query parameters and delegates imported trend/keyword reads to the injected Sheets adapter; converts trend/keyword-to-topic action failures into HTTP API errors.
+- `src/adapters/ui/keyword-research/keywords/service.js`
+  - Maps keyword UI requests and smart-usage session fields to the injected Keyword Research service and returns its API-facing usage metadata.
+- `src/adapters/ui/blog/continuous-publishing/service.js`
+  - Active UI endpoint coordinator for queue, runner, automation, shopping capture, and Blog dashboard operations. It reuses the existing Blog queue-management and automation Applications; the remaining workflow orchestration is transitional and should move into those owning Applications in bounded slices.
+- `src/adapters/ui/blog/smart-comments/`
+  - Owns Smart Comment HTTP routing, response translation, and settings request mapping. The Smart Comments Application owns the workflow; `src/composition/blog-smart-comments.js` wires its Naver collector and AI Generation port, while `src/adapters/storage/blog/smart-comment-settings.js` persists its settings.
+- `src/adapters/ui/content/content-api/service.js`
+  - Maps the existing content endpoints to injected Application and provider ports. This is a transitional multi-feature facade; split it by UI feature as endpoint workflows are migrated, without duplicating Application behavior.
+- `src/adapters/ui/blog/topic-recommendations/service.js`
+  - Maps Blog topic recommendation requests, usage metadata, cache behavior, and learning outcomes to the existing recommendation runtime ports.
+- `src/composition/ui-api-routes.js`
+  - Transitional product API assembly. The former `src/ui-api/` directory is removed; continue moving concrete wiring into feature composition as APIs are redesigned.
 - `src/adapters/naver/auth-flow.js`
   - Single implementation path for interactive Naver login protocol and credential-state capture.
 - `src/adapters/naver/auth-session.js`

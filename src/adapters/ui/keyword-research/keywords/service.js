@@ -1,5 +1,5 @@
-const { createKeywordResearchService } = require('../../keyword-research');
-const { DEFAULT_RELATED_LIMIT } = require('../../keyword-research/keyword-metrics-engine');
+const { createKeywordResearchService } = require('../../../../keyword-research');
+const { DEFAULT_RELATED_LIMIT } = require('../../../../keyword-research/keyword-metrics-engine');
 
 function createKeywordsService(deps = {}) {
     const keywordResearchService = deps.keywordResearchService || createKeywordResearchService(deps);

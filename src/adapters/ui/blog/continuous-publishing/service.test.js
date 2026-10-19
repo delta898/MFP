@@ -1,9 +1,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { createContinuousPublishingService } = require('./continuous-publishing.service');
-const { createBlogExecutionCoordinator } = require('../../applications/blog/execution/execution-coordinator');
-const { createContentLifecycleAdapterRegistry } = require('../../composition/content-lifecycle-adapters');
+const { createContinuousPublishingService } = require('./service');
+const { createBlogExecutionCoordinator } = require('../../../../applications/blog/execution/execution-coordinator');
+const { createContentLifecycleAdapterRegistry } = require('../../../../composition/content-lifecycle-adapters');
 
 function runnableQueueFixture(item) {
     const options = item.options && typeof item.options === 'object' ? item.options : {};

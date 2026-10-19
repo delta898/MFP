@@ -3,7 +3,7 @@ const { BLOG_IMAGE_MODES, normalizeBlogImageMode } = require('../../../services/
 function parseBlogImageMode(value, options = {}) {
     const normalized = String(value || '').trim().toLowerCase();
     if (normalized) {
-        if (BLOG_IMAGE_MODE_SET.has(normalized)) return normalized;
+        if (BLOG_IMAGE_MODES.includes(normalized)) return normalized;
         const error = new Error('이미지 처리 방식이 올바르지 않습니다.');
         error.code = 'INVALID_BLOG_IMAGE_MODE';
         throw error;

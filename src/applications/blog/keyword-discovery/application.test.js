@@ -1,10 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createKeywordDiscoveryService } = require('./keyword-discovery.service');
+const { createBlogKeywordDiscoveryApplication } = require('./application');
 
 test('collects raw discovery seeds before querying the existing keyword research service', async () => {
     let received = null;
-    const service = createKeywordDiscoveryService({
+    const service = createBlogKeywordDiscoveryApplication({
         eventStore: { getLocalOwnerIdentity: () => ({ owner_user_id: 'owner-1' }) },
         retrievalService: {
             async buildContextPacket(input) {
@@ -46,7 +46,7 @@ test('collects raw discovery seeds before querying the existing keyword research
 
 test('uses direct input as a seed without loading trend or memory candidates', async () => {
     let analysisInput = null;
-    const service = createKeywordDiscoveryService({
+    const service = createBlogKeywordDiscoveryApplication({
         knowledgeRegistry: { async fetchForRoute() { throw new Error('should not load trends'); } },
         retrievalService: { async buildContextPacket() { throw new Error('should not load memory'); } },
         keywordResearchService: {
@@ -65,7 +65,7 @@ test('uses direct input as a seed without loading trend or memory candidates', a
 
 test('records keyword exploration through the keyword discovery smart capability', async () => {
     let usageInput = null;
-    const service = createKeywordDiscoveryService({
+    const service = createBlogKeywordDiscoveryApplication({
         knowledgeRegistry: { async fetchForRoute() { throw new Error('should not load trends'); } },
         retrievalService: { async buildContextPacket() { throw new Error('should not load memory'); } },
         keywordResearchService: {

@@ -26,7 +26,7 @@ test('all Blog Beta manuscript modes gate only AI image generation actions', () 
   const view = read('ui/partials/views/blog-next.html');
   const drafts = `${read('ui/scripts/features/blog/draft-inputs.js')}\n${read('ui/scripts/features/blog/draft-images.js')}`;
   const execution = read('ui/scripts/features/blog/draft-execution.js');
-  const service = read('src/ui-api/services/content.service.js');
+  const service = read('src/adapters/ui/content/content-api/service.js');
 
   assert.match(view, /id="blog-next-ai-image-readiness"/);
   assert.match(drafts, /data-manuscript-image-ai-readiness/);

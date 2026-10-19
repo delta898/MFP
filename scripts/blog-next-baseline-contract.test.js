@@ -325,7 +325,7 @@ test('queue rows share one transient hover and keyboard focus surface', () => {
 test('queue editor keeps save and queue promotion as separate local actions', () => {
   const queueScript = readBlogNextQueueScripts();
   const flowScript = read('ui/scripts/features/blog/quick-flow-ui.js');
-  const service = read('src/ui-api/services/continuous-publishing.service.js');
+  const queueApplication = read('src/applications/blog/queue-management/application.js');
   const editor = read('ui/partials/views/blog-next/editor-modal.html');
 
   assert.match(queueScript, /function setBlogNextEditorPromotionAction\(available\)[\s\S]*if \(!available\) \{[\s\S]*existing\?\.remove\(\)/);
@@ -334,9 +334,7 @@ test('queue editor keeps save and queue promotion as separate local actions', ()
   assert.match(queueScript, /blog-next-editor-enqueue[\s\S]*submitBlogNextTopic\('enqueue'\)/);
   assert.match(flowScript, /const editingChanged = !editing \|\| \([\s\S]*snapshotBlogNextEditingPayload\(\) !== blogNextEditingInitialSnapshot/);
   assert.match(flowScript, /if \(editorSave\) editorSave\.disabled = busy \|\| sheetBlocked \|\| !editingChanged/);
-  assert.match(service, /const ready = sourceStatus === TOPIC_STATUS\.READY \|\| action === 'enqueue'/);
-  assert.match(service, /updateReadyTopic\(requestBody = \{\}\)[\s\S]*action: 'save', sourceStatus: TOPIC_STATUS\.READY/);
-  assert.doesNotMatch(service, /READY_TOPIC_CANNOT_BE_SAVED/);
+  assert.match(queueApplication, /const ready = sourceStatus === TOPIC_STATUS\.READY \|\| action === 'enqueue'/);
   assert.match(editor, /class="blog-next-editor-modal-message"[\s\S]*class="blog-next-editor-modal-action-group"[\s\S]*id="blog-next-editor-cancel"[\s\S]*id="blog-next-editor-save"/);
 });
 

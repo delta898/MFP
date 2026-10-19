@@ -1,12 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { createContentService } = require('./content.service');
+const { createContentApiService } = require('./service');
 
 test('image prompt generation sends nearby manuscript context and current user inputs to the writing model', async () => {
     let modelPrompt = '';
     const logs = [];
-    const service = createContentService({
+    const service = createContentApiService({
         CONFIG: {
             TEXT_MODEL_CONFIG: { provider: 'google', code: 'test-model' },
             TEXT_MODEL_API_KEY: 'test-key'

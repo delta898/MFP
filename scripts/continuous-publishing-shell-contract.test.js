@@ -123,8 +123,8 @@ test('completed manuscripts publish directly without entering the continuous que
 
 test('Blog Beta execution paths share one server-side coordinator without widening to legacy products', () => {
     const routes = read('src/composition/ui-api-routes.js');
-    const contentService = read('src/ui-api/services/content.service.js');
-    const continuousService = read('src/ui-api/services/continuous-publishing.service.js');
+    const contentService = read('src/adapters/ui/content/content-api/service.js');
+    const continuousService = read('src/adapters/ui/blog/continuous-publishing/service.js');
 
     assert.match(routes, /const blogNextExecutionCoordinator =/);
     assert.equal((routes.match(/blogNextExecutionCoordinator/g) || []).length >= 3, true);
@@ -320,7 +320,7 @@ test('Stage 11 exposes one shared publish status with a return action and no dup
 
 test('Naver browser milestones cross the publishing engine as structured progress', () => {
     const publishRuntime = read('src/ui-runtime/publish-actions-runtime.js');
-    const contentService = read('src/ui-api/services/content.service.js');
+    const contentService = read('src/adapters/ui/content/content-api/service.js');
     const naverPlugin = read('packages/plugins/core/naver-publisher/index.js');
     assert.match(naverPlugin, /report\(context, 'working', 'body', bodyDone, bodyTotal\)/);
     assert.match(naverPlugin, /report\(context, 'uploading', 'image', imageDone, imageIndexes\.length\)/);
@@ -357,7 +357,7 @@ test('Blog Beta celebrates each newly observed successful publish or draft compl
     const lifecycleScript = read('ui/scripts/shell/lifecycle.js');
     const systemRoute = read('src/adapters/ui/account/system/routes.js');
     const systemController = read('src/adapters/ui/account/system/controller.js');
-    const systemService = read('src/ui-api/services/system.service.js');
+    const systemService = read('src/adapters/ui/account/system/service.js');
 
     assert.match(celebrationScript, /function showPostingCompletionCelebration\(postStatus\)/);
     assert.match(celebrationScript, /isQuickPostingCelebrationStatus\(postStatus\)/);
@@ -378,7 +378,7 @@ test('Blog Beta celebrates each newly observed successful publish or draft compl
 test('release queue shows processing estimates and refreshes when a runner finishes', () => {
     const queueScript = readBlogNextQueueScripts();
     const runnerScript = read('ui/scripts/features/blog/runner.js');
-    const serviceSource = read('src/ui-api/services/continuous-publishing.service.js');
+    const serviceSource = read('src/adapters/ui/blog/continuous-publishing/service.js');
     const queueManagementSource = read('src/applications/blog/queue-management/application.js');
     const queueCss = read('ui/styles/features/continuous-publishing-interactions.css');
 
@@ -403,7 +403,7 @@ test('release queue shows processing estimates and refreshes when a runner finis
 test('queue readiness is announced accessibly and blocks running invalid queue entries', () => {
     const queueScript = readBlogNextQueueScripts();
     const managementScript = read('ui/scripts/features/blog/queue-management.js');
-    const serviceSource = read('src/ui-api/services/continuous-publishing.service.js');
+    const serviceSource = read('src/adapters/ui/blog/continuous-publishing/service.js');
     const queueManagementSource = read('src/applications/blog/queue-management/application.js');
     const queueCss = read('ui/styles/features/continuous-publishing-queue.css');
 
@@ -427,7 +427,7 @@ test('global publishing status exposes one prioritized summary beside the widget
     const statusScript = read('ui/scripts/shell/global-publishing-status.js');
     const statusCss = read('ui/styles/components/global-publishing-status.css');
     const routeSource = read('src/adapters/ui/blog/continuous-publishing/routes.js');
-    const serviceSource = read('src/ui-api/services/continuous-publishing.service.js');
+    const serviceSource = read('src/adapters/ui/blog/continuous-publishing/service.js');
 
     assert.match(shell, /id="blog-next-global-nav-status"[^>]*hidden/);
     assert.doesNotMatch(shell, /id="recommendation-nav-badge"/);
