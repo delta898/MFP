@@ -7,7 +7,7 @@ const path = require('node:path');
 const test = require('node:test');
 const { createSiteHostingProjectRepository } = require('./project-repository');
 const { createSiteHostingSiteRepository } = require('./site-repository');
-const { SITE_HOSTING_CONTRACT_VERSION } = require('../../../applications/site-hosting/domain/compatibility');
+const { SITE_HOSTING_CONTRACT_VERSION } = require('../../../services/site-hosting/compatibility');
 const { createFixtureSiteTemplateCatalog } = require('../../../../test/fixtures/site-hosting/template-catalog');
 
 test('site repository materializes selected Astro files and keeps BlogGenius metadata separate', () => {

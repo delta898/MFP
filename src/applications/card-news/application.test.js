@@ -7,9 +7,20 @@ const { createCardNewsService, CARD_NEWS_SOURCE_LIMIT, isConfiguredAiModel } = r
 const {
     configureConnectionVerificationState,
     recordConnectionVerification,
+    readConnectionVerification,
+    listConnectionVerifications,
     resetConnectionVerificationState
 } = require('../../adapters/storage/connection-verifications/state-store');
-const { createAiModelVerificationSignature } = require('../../services/ai/model-verification');
+const aiTransport = require('../../../packages/plugins/core/ai-gateway/transport-registry');
+const { createConnectionVerificationService } = require('../../services/connection-verification/service');
+const connectionVerification = createConnectionVerificationService({
+    repository: {
+        read: readConnectionVerification,
+        record: recordConnectionVerification,
+        list: listConnectionVerifications
+    },
+    aiTransport
+});
 const { applyRemoteCatalog, clearRemoteCatalog } = require('../../../packages/plugins/core/ai-gateway/catalog-registry');
 
 const CARD_NEWS_IMAGE_MODELS = [
@@ -115,6 +126,7 @@ function createHarness(overrides = {}) {
             createId: () => 'project-1',
             now: () => '2026-09-04T00:00:00.000Z',
             generationService,
+            isImageModelVerified: () => false,
             ...overrides
         })
     };
@@ -479,11 +491,11 @@ test('lists a Google image provider verified with its fixed endpoint when the sa
         api_key: 'fixture-google-key',
         base_url: ''
     };
-    const signature = createAiModelVerificationSignature('image', {
+    const signature = connectionVerification.createAiModelSignature('image', {
         ...google,
         base_url: 'https://generativelanguage.googleapis.com/v1beta'
     });
-    recordConnectionVerification('ai-role', signature, { success: true, connected: true }, {
+    connectionVerification.record('ai-role', signature, { success: true, connected: true }, {
         scope: 'image',
         provider: 'google',
         code: google.code,
@@ -494,7 +506,8 @@ test('lists a Google image provider verified with its fixed endpoint when the sa
         CONFIG: {
             IMAGE_MODEL_CONFIG: { ...google },
             AI_MODEL_PROFILES: { image: { google } }
-        }
+        },
+        isImageModelVerified: (model) => Boolean(connectionVerification.getTrustedAiModelVerification('image', model))
     });
 
     assert.deepEqual(service.listImageModels().providers.map(({ provider }) => provider), ['google']);

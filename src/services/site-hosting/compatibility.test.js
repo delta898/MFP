@@ -5,10 +5,12 @@ const assert = require('node:assert/strict');
 const {
     BLOGGENIUS_VERSION,
     SITE_HOSTING_CONTRACT_VERSION,
+    SUPPORTED_BLOGGENIUS_CONTRACTS,
     compareVersions,
     isCompatibleWithBlogGenius
 } = require('./compatibility');
-const { DESIGN_STYLE_CONTRACT_VERSION } = require('../../../../ui/scripts/foundation/design-style-token-contract');
+const { DESIGN_STYLE_CONTRACT_VERSION } = require('../../../ui/scripts/foundation/design-style-token-contract');
+const supportedContracts = { ...SUPPORTED_BLOGGENIUS_CONTRACTS, 'bloggenius-ui-style-tokens': DESIGN_STYLE_CONTRACT_VERSION };
 
 test('BlogGenius compatibility compares stable application release versions', () => {
     assert.equal(compareVersions('0.6.0', '0.5.5'), 1);
@@ -22,10 +24,10 @@ test('package compatibility requires minimum app version and an exact supported 
         min_bloggenius_version: '0.6.0',
         contract: { id: 'bloggenius-ui-style-tokens', version: DESIGN_STYLE_CONTRACT_VERSION }
     };
-    assert.equal(isCompatibleWithBlogGenius(compatibility, { appVersion: '0.6.0' }), true);
-    assert.equal(isCompatibleWithBlogGenius(compatibility, { appVersion: '0.5.5' }), false);
-    assert.equal(isCompatibleWithBlogGenius({ ...compatibility, contract: { ...compatibility.contract, version: '2.0' } }, { appVersion: '0.6.0' }), false);
-    assert.equal(isCompatibleWithBlogGenius(compatibility), compareVersions(BLOGGENIUS_VERSION, '0.6.0') >= 0);
+    assert.equal(isCompatibleWithBlogGenius(compatibility, { appVersion: '0.6.0', supportedContracts }), true);
+    assert.equal(isCompatibleWithBlogGenius(compatibility, { appVersion: '0.5.5', supportedContracts }), false);
+    assert.equal(isCompatibleWithBlogGenius({ ...compatibility, contract: { ...compatibility.contract, version: '2.0' } }, { appVersion: '0.6.0', supportedContracts }), false);
+    assert.equal(isCompatibleWithBlogGenius(compatibility, { supportedContracts }), compareVersions(BLOGGENIUS_VERSION, '0.6.0') >= 0);
     assert.equal(isCompatibleWithBlogGenius({
         min_bloggenius_version: '0.6.0',
         contract: { id: 'bloggenius-site-hosting-template', version: SITE_HOSTING_CONTRACT_VERSION }
@@ -53,8 +55,8 @@ test('development and release-candidate builds can consume resources for their e
         min_bloggenius_version: '0.6.0',
         contract: { id: 'bloggenius-ui-style-tokens', version: DESIGN_STYLE_CONTRACT_VERSION }
     };
-    assert.equal(isCompatibleWithBlogGenius(compatibility, { appVersion: '0.6.0-dev1' }), true);
-    assert.equal(isCompatibleWithBlogGenius(compatibility, { appVersion: '0.6.0-rc1' }), true);
-    assert.equal(isCompatibleWithBlogGenius(compatibility, { appVersion: '0.5.5-dev1' }), false);
-    assert.equal(isCompatibleWithBlogGenius(compatibility, { appVersion: '0.5.5-rc1' }), false);
+    assert.equal(isCompatibleWithBlogGenius(compatibility, { appVersion: '0.6.0-dev1', supportedContracts }), true);
+    assert.equal(isCompatibleWithBlogGenius(compatibility, { appVersion: '0.6.0-rc1', supportedContracts }), true);
+    assert.equal(isCompatibleWithBlogGenius(compatibility, { appVersion: '0.5.5-dev1', supportedContracts }), false);
+    assert.equal(isCompatibleWithBlogGenius(compatibility, { appVersion: '0.5.5-rc1', supportedContracts }), false);
 });

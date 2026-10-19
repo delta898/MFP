@@ -2,8 +2,8 @@
 
 const fsApi = require('node:fs');
 const pathApi = require('node:path');
-const { normalizeMenuDestination } = require('./navigation-contract');
-const { MAX_SITE_PROFILE_IMAGE_BYTES } = require('./image-limits');
+const { normalizeMenuDestination } = require('../../../services/site-hosting/navigation-contract');
+const { MAX_SITE_PROFILE_IMAGE_BYTES } = require('../../../services/site-hosting/image-limits');
 
 const SOURCE_EXTENSIONS = new Set(['.astro', '.html', '.md', '.mdx']);
 const IGNORED_DIRECTORIES = new Set(['.git', '.astro', 'dist', 'node_modules']);

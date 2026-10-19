@@ -3,7 +3,7 @@ const {
     CARD_NEWS_WORKFLOW_STATUSES,
     CARD_NEWS_PUBLISHING_STATUSES
 } = require('./ledger-sheet-schema');
-const { normalizeOriginalUrl, buildEntryKey } = require('../../../applications/card-news/domain/ledger-identity');
+const { normalizeOriginalUrl, buildEntryKey } = require('../../../services/card-news/ledger-identity');
 
 const FIELD_TO_HEADER = Object.freeze({
     entryKey: 'entry_key',

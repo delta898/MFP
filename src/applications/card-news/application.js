@@ -8,7 +8,6 @@ const { deriveCardNewsManagementState, toCardNewsManagementFields } = require('.
 const { createAiGenerationOperationManager } = require('../../services/ai/generation-operation-manager');
 const { createCardNewsOutgoingImageService } = require('./publishing/outgoing-image-service');
 const { getAiModelCatalog, resolveAiModelConfig, resolveStoredModelProfiles } = require('../../services/ai/model-configuration');
-const { getTrustedAiModelVerification } = require('../../services/ai/model-verification');
 
 const CARD_NEWS_SOURCE_LIMIT = 30;
 const CARD_NEWS_LEDGER_REGISTRATION_TIMEOUT_MS = 3000;
@@ -146,9 +145,10 @@ function createCardNewsService(deps = {}) {
         now = () => new Date().toISOString(),
         createId = () => crypto.randomUUID()
     } = deps;
-    const isImageModelVerified = typeof deps.isImageModelVerified === 'function'
-        ? deps.isImageModelVerified
-        : (model) => Boolean(getTrustedAiModelVerification('image', model));
+    if (typeof deps.isImageModelVerified !== 'function') {
+        throw new TypeError('Card News Application requires an image-model verification port.');
+    }
+    const isImageModelVerified = deps.isImageModelVerified;
 
     const outgoingImageService = deps.outgoingImageService || createCardNewsOutgoingImageService({
         License,

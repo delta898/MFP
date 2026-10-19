@@ -6,7 +6,7 @@ const {
 const {
     createCardNewsLedgerStore
 } = require('./ledger-sheet-store');
-const { buildEntryKey, normalizeOriginalUrl } = require('../../../applications/card-news/domain/ledger-identity');
+const { buildEntryKey, normalizeOriginalUrl } = require('../../../services/card-news/ledger-identity');
 
 function createMemoryGateway(initialRows = []) {
     const values = [[...CARD_NEWS_SHEET_HEADERS], ...initialRows.map((row) => [...row])];

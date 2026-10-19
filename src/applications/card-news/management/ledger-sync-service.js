@@ -1,4 +1,4 @@
-const { buildEntryKey, normalizeOriginalUrl } = require('../domain/ledger-identity');
+const { buildEntryKey, normalizeOriginalUrl } = require('../../../services/card-news/ledger-identity');
 const { toCardNewsManagementFields } = require('./status');
 
 function compact(value, maxLength = 4000) {

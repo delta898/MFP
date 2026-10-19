@@ -9,6 +9,7 @@ const {
     readConnectionVerification
 } = require('../../../../adapters/storage/connection-verifications/state-store');
 const { createConnectionSignature } = require('../../../../services/connection-verification/policy');
+const { connectionVerification } = require('../../../../composition/connection-verification');
 
 function createRuntime(overrides = {}) {
     return createUiSessionRuntime({
@@ -16,6 +17,7 @@ function createRuntime(overrides = {}) {
             AUTH_FILE_PATH: '/tmp/naver-auth-test.json',
             GOOGLE_SHEET_ID: 'sheet-id'
         },
+        connectionVerification,
         Utils: {},
         Logger: {
             info() {},

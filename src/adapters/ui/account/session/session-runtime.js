@@ -1,12 +1,8 @@
-const {
-    recordConnectionVerification
-} = require('../../../../adapters/storage/connection-verifications/state-store');
-const { createConnectionSignature } = require('../../../../services/connection-verification/policy');
-
 function createUiSessionRuntime(deps = {}) {
     const {
         CONFIG,
         GoogleSheets,
+        connectionVerification,
         Logger,
         checkAuthSessionValid,
         peekAuthSessionState,
@@ -66,9 +62,9 @@ function createUiSessionRuntime(deps = {}) {
     }
 
     function recordSheetsVerification(spreadsheetId, result = {}) {
-        const signature = createConnectionSignature([spreadsheetId]);
+        const signature = connectionVerification?.createSignature([spreadsheetId]);
         if (!signature) return null;
-        return recordConnectionVerification('sheets', signature, result);
+        return connectionVerification?.record('sheets', signature, result) || null;
     }
 
     function shouldUseUiSheetsPreflightCache(force = false) {

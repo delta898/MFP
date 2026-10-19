@@ -11,6 +11,7 @@ const {
     resetConnectionVerificationState
 } = require('../../storage/connection-verifications/state-store');
 const { createConnectionSignature } = require('../../../services/connection-verification/policy');
+const { connectionVerification } = require('../../../composition/connection-verification');
 
 const TEXT_CONFIG = { provider: 'openai', code: 'gpt-5.6-terra', name: 'GPT-5.6 Terra', api_key: 'key-1' };
 
@@ -32,7 +33,8 @@ function createService(gateway, configOverrides = {}) {
         CONFIG,
         buildMajorSettings: () => ({ fields: {} }),
         resolveWritableConfigPath: () => path.join(os.tmpdir(), 'ai-verify-config.json'),
-        aiGateway: gateway
+        aiGateway: gateway,
+        connectionVerification
     });
     return { CONFIG, service };
 }

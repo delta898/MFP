@@ -31,13 +31,6 @@ const {
 } = require('../../../services/ai/model-configuration');
 const { isSnsAiMode } = require('../../../services/sns/ai-policy');
 const {
-    readConnectionVerification,
-    recordConnectionVerification,
-    listConnectionVerifications
-} = require('../../storage/connection-verifications/state-store');
-const { createConnectionSignature, isVerificationTrusted } = require('../../../services/connection-verification/policy');
-const { createAiModelVerificationSignature } = require('../../../services/ai/model-verification');
-const {
     createSettingsAiModelsApplication,
     normalizeAiRoleSettings: normalizeAiRoleSettingsForApplication,
     redactAiRoleSecretFields,
@@ -142,61 +135,6 @@ function normalizeAppInputSettings(requestBody = {}) {
     catch (error) { throw createApiError(400, error.code, error.message); }
 }
 
-function aiVerificationSignature(scope, modelConfig = {}) {
-    return createAiModelVerificationSignature(scope, modelConfig);
-}
-
-function aiRoleVerification(scope, modelConfig = {}) {
-    const record = readConnectionVerification('ai-role', aiVerificationSignature(scope, modelConfig));
-    if (!record) return null;
-    return {
-        status: record.status,
-        checked_at: record.checked_at,
-        trusted: isVerificationTrusted('ai-role', record)
-    };
-}
-
-function aiRoleVerificationHistory(scope) {
-    const normalized = String(scope || '').trim();
-    if (!normalized) return [];
-    return listConnectionVerifications('ai-role')
-        .filter((entry) => entry?.meta?.scope === normalized && isVerificationTrusted('ai-role', entry))
-        .map((entry) => ({
-            provider: entry.meta.provider || '',
-            code: entry.meta.code || '',
-            base_url: entry.meta.base_url || '',
-            checked_at: entry.checked_at,
-            trusted: true
-        }));
-}
-
-function recordAiRoleVerification(scope, modelConfig = {}, result = {}) {
-    const signature = aiVerificationSignature(scope, modelConfig);
-    if (!signature) return null;
-    return recordConnectionVerification('ai-role', signature, result, {
-        scope: String(scope || '').trim(),
-        provider: String(modelConfig?.provider || '').trim(),
-        code: String(modelConfig?.code || '').trim(),
-        base_url: String(modelConfig?.base_url || '').trim()
-    });
-}
-
-function bufferConnectionSignature(apiKey, organizationId) {
-    return createConnectionSignature(['buffer', apiKey, organizationId || '<all-workspaces>']);
-}
-
-function bufferConnectionVerification(apiKey, organizationId) {
-    const signature = bufferConnectionSignature(apiKey, organizationId);
-    const record = readConnectionVerification('buffer', signature);
-    if (!record) return null;
-    return {
-        status: record.status,
-        checked_at: record.checked_at,
-        trusted: isVerificationTrusted('buffer', record),
-        message: record.message || ''
-    };
-}
-
 function createSettingsService(deps = {}) {
     const {
         fs,
@@ -232,9 +170,62 @@ function createSettingsService(deps = {}) {
         socialPublisher,
         axios,
         writingProfileApplication,
-        aiGateway = null
+        aiGateway = null,
+        connectionVerification
     } = deps;
     const telegramPairingService = providedTelegramPairingService;
+
+    function requireConnectionVerification() {
+        if (!connectionVerification) {
+            throw createApiError(503, 'CONNECTION_VERIFICATION_UNAVAILABLE', '연결 확인 기능을 사용할 수 없습니다.');
+        }
+        return connectionVerification;
+    }
+
+    function aiVerificationSignature(scope, modelConfig = {}) {
+        return requireConnectionVerification().createAiModelSignature(scope, modelConfig);
+    }
+
+    function aiRoleVerification(scope, modelConfig = {}) {
+        const verification = requireConnectionVerification();
+        const record = verification.read('ai-role', aiVerificationSignature(scope, modelConfig));
+        if (!record) return null;
+        return { status: record.status, checked_at: record.checked_at, trusted: verification.isTrusted('ai-role', record) };
+    }
+
+    function aiRoleVerificationHistory(scope) {
+        const normalized = String(scope || '').trim();
+        if (!normalized) return [];
+        const verification = requireConnectionVerification();
+        return verification.list('ai-role')
+            .filter((entry) => entry?.meta?.scope === normalized && verification.isTrusted('ai-role', entry))
+            .map((entry) => ({
+                provider: entry.meta.provider || '', code: entry.meta.code || '',
+                base_url: entry.meta.base_url || '', checked_at: entry.checked_at, trusted: true
+            }));
+    }
+
+    function recordAiRoleVerification(scope, modelConfig = {}, result = {}) {
+        const verification = requireConnectionVerification();
+        const signature = aiVerificationSignature(scope, modelConfig);
+        if (!signature) return null;
+        return verification.record('ai-role', signature, result, {
+            scope: String(scope || '').trim(), provider: String(modelConfig?.provider || '').trim(),
+            code: String(modelConfig?.code || '').trim(), base_url: String(modelConfig?.base_url || '').trim()
+        });
+    }
+
+    function bufferConnectionSignature(apiKey, organizationId) {
+        return requireConnectionVerification().createSignature(['buffer', apiKey, organizationId || '<all-workspaces>']);
+    }
+
+    function bufferConnectionVerification(apiKey, organizationId) {
+        const verification = requireConnectionVerification();
+        const signature = bufferConnectionSignature(apiKey, organizationId);
+        const record = verification.read('buffer', signature);
+        if (!record) return null;
+        return { status: record.status, checked_at: record.checked_at, trusted: verification.isTrusted('buffer', record), message: record.message || '' };
+    }
 
     function requireWritingProfileApplication() {
         if (!writingProfileApplication) {
@@ -519,10 +510,10 @@ function createSettingsService(deps = {}) {
                 const signature = bufferConnectionSignature(apiKey, organizationId);
                 try {
                     const result = await this.inspectBufferConnection({ apiKey, organizationId });
-                    const verification = recordConnectionVerification('buffer', signature, { success: true, connected: true });
+                    const verification = requireConnectionVerification().record('buffer', signature, { success: true, connected: true });
                     return { ...result, verification };
                 } catch (error) {
-                    recordConnectionVerification('buffer', signature, { success: false, connected: false, message: error.message });
+                    requireConnectionVerification().record('buffer', signature, { success: false, connected: false, message: error.message });
                     throw error;
                 }
             }

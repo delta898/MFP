@@ -4,11 +4,11 @@ const crypto = require('node:crypto');
 const osApi = require('node:os');
 const { domainToASCII } = require('node:url');
 const net = require('node:net');
-const { normalizeMenuDestination, normalizeMenuLabel: validateMenuLabel, normalizeNavigationItems, internalPathSegment, internalPathname } = require('../domain/navigation-contract');
+const { normalizeMenuDestination, normalizeMenuLabel: validateMenuLabel, normalizeNavigationItems, internalPathSegment, internalPathname } = require('../../../services/site-hosting/navigation-contract');
 const { parseImageBlocks, replaceImageBlocks } = require('../../../utilities/markdown/image-blocks');
-const { isSupportedSiteHostingContractVersion } = require('../domain/compatibility');
+const { isSupportedSiteHostingContractVersion } = require('../../../services/site-hosting/compatibility');
 const { inspectAstroProject } = require('../domain/astro-project-inspector');
-const { MAX_SITE_PROFILE_IMAGE_BYTES } = require('../domain/image-limits');
+const { MAX_SITE_PROFILE_IMAGE_BYTES } = require('../../../services/site-hosting/image-limits');
 
 function createSiteHostingSiteService(deps = {}) {
     const fileSystem = deps.fs || require('node:fs');

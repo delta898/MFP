@@ -103,6 +103,7 @@ const { createBlogManualPublishingApplication } = require('../applications/blog/
 const { presentBlogImageGenerationProgress } = require('../adapters/ui/blog-posting-progress');
 const { presentNaverPublishProgress } = require('../adapters/ui/naver-publish-progress');
 const { createUiApiRuntime } = require('./api/ui-api-runtime');
+const { connectionVerification } = require('./connection-verification');
 const { createBlogBetaRuntimeComposition } = require('./blog-beta-runtime');
 const { createSocialPublishingSystem } = require('./social-publishing');
 const { createCardNewsGenerationSystem } = require('./card-news-generation');
@@ -224,6 +225,7 @@ const uiSessionRuntime = createUiSessionRuntime({
         browserChannel: CONFIG.BROWSER_CHANNEL,
         ...options
     }),
+    connectionVerification,
     sessionCheckTtlMs: UI_SESSION_CHECK_TTL_MS,
     sheetsPreflightTtlMs: UI_SHEETS_PREFLIGHT_TTL_MS
 });
@@ -1074,6 +1076,7 @@ const uiApiRouteRuntime = createUiApiRuntime({
     blogWritingApplication: blogWritingSystem.application,
     aiGenerationService: aiGenerationSystem.service,
     aiGateway: aiGenerationSystem.gateway,
+    connectionVerification,
     blogPublishingApplication,
     normalizeYmdToken,
     normalizeListenHost,

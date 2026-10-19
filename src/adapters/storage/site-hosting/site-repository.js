@@ -3,9 +3,9 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
-const { normalizeMenuDestination, normalizeNavigationItems, internalPathSegment, internalPathname } = require('../../../applications/site-hosting/domain/navigation-contract');
-const { SITE_HOSTING_TEMPLATE_UPDATE_POLICY, isSupportedSiteHostingContractVersion, compareVersions } = require('../../../applications/site-hosting/domain/compatibility');
-const { MAX_SITE_PROFILE_IMAGE_BYTES } = require('../../../applications/site-hosting/domain/image-limits');
+const { normalizeMenuDestination, normalizeNavigationItems, internalPathSegment, internalPathname } = require('../../../services/site-hosting/navigation-contract');
+const { SITE_HOSTING_TEMPLATE_UPDATE_POLICY, isSupportedSiteHostingContractVersion, compareVersions } = require('../../../services/site-hosting/compatibility');
+const { MAX_SITE_PROFILE_IMAGE_BYTES } = require('../../../services/site-hosting/image-limits');
 
 const SITE_SCHEMA_VERSION = 1;
 

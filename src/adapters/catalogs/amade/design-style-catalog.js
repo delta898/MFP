@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { DESIGN_STYLE_REQUIRED_TOKENS, DESIGN_STYLE_CONTRACT_VERSION } = require('../../../../ui/scripts/foundation/design-style-token-contract');
-const { isCompatibleWithBlogGenius } = require('../../../applications/site-hosting/domain/compatibility');
+const { isCompatibleWithBlogGenius, SUPPORTED_BLOGGENIUS_CONTRACTS } = require('../../../services/site-hosting/compatibility');
 
 const PRODUCTION_CATALOG_URL = 'https://raw.githubusercontent.com/delta898/Amade/main/amade/catalog/production-index.json';
 const DEFAULT_CATALOG_URL = PRODUCTION_CATALOG_URL;
@@ -22,9 +22,13 @@ function createGitHubDesignStyleCatalog(options = {}) {
     const developmentEnvironment = ['local', 'development'].includes(environment);
     const cacheChannel = developmentEnvironment ? 'development' : 'production';
     const cacheFile = options.cacheFile || (workspaceDir ? pathApi.join(workspaceDir, 'site-hosting', `design-style-cache-${cacheChannel}.json`) : '');
+    const supportedContracts = {
+        ...SUPPORTED_BLOGGENIUS_CONTRACTS,
+        'bloggenius-ui-style-tokens': DESIGN_STYLE_CONTRACT_VERSION
+    };
     const isSupportedByBlogGenius = (compatibility) => isCompatibleWithBlogGenius(
         compatibility,
-        options.bloggeniusVersion ? { appVersion: options.bloggeniusVersion } : {}
+        { appVersion: options.bloggeniusVersion, supportedContracts }
     );
     const branchUrl = developmentEnvironment ? DEVELOPMENT_CATALOG_URL : DEFAULT_CATALOG_URL;
     const catalogUrl = String(options.catalogUrl || process.env.BLOGGENIUS_UI_STYLE_CATALOG_URL || branchUrl);

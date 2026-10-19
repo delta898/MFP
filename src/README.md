@@ -28,6 +28,8 @@ implementation.
 | `composition/` | Select concrete implementations and wire dependencies into runtime/Application ports. |
 | `applications/<name>/` | Product workflows, orchestration, and product-specific policy and services. |
 | `services/<domain>/` | Contracts or domain capabilities genuinely reused by multiple Applications. |
+| `services/connection-verification/` | Shared credential-signature identity, AI model verification identity, and verification trust policy. Persistence and AI Gateway transport metadata are injected through Composition. |
+| `services/site-hosting/`, `services/card-news/` | Contracts shared by each product Application and its storage/catalog adapters; adapters must not import Application-owned domain modules. |
 | `services/licensing/` | Provider-neutral license feature validation, quota settlement, and smart-usage policy/service contracts. |
 | `services/licensing/license-service.js` | License workflows and entitlement/status caching, using injected identity, key persistence, and provider API ports. |
 | `adapters/licensing/supabase/` | Supabase RPC and Edge Function protocol translation for license operations; credentials and device identity are supplied by Host composition. |

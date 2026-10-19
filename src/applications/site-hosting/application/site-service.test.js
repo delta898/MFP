@@ -9,7 +9,7 @@ const { createSiteHostingProjectRepository } = require('../../../adapters/storag
 const { createSiteHostingSiteRepository } = require('../../../adapters/storage/site-hosting/site-repository');
 const { createFixtureSiteTemplateCatalog } = require('../../../../test/fixtures/site-hosting/template-catalog');
 const { createSiteTemplateCatalog } = require('../../../adapters/catalogs/amade/cached-template-catalog');
-const { SITE_HOSTING_CONTRACT_VERSION } = require('../domain/compatibility');
+const { SITE_HOSTING_CONTRACT_VERSION } = require('../../../services/site-hosting/compatibility');
 const { createSiteHostingApplication } = require('../../../composition/site-hosting-application');
 
 function createSiteHostingSiteService(options = {}) {

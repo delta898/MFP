@@ -1,7 +1,7 @@
 'use strict';
 
 const { createAstroSiteHostingAdapter } = require('../adapters/plugins/astro-site-hosting');
-const { normalizeMenuDestination } = require('../applications/site-hosting/domain/navigation-contract');
+const { normalizeMenuDestination } = require('../services/site-hosting/navigation-contract');
 const { captureSiteScreenshot } = require('../host/electron/site-screenshot');
 const { createKnowledgeCollectionBuilder } = require('../applications/site-hosting/domain/knowledge-collection-builder');
 
