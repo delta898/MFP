@@ -45,6 +45,14 @@
 - No Plugin or Edge Function behavior change was intended. The existing Edge Function name, request operations, response calculations, UI endpoints, and product limits remain unchanged.
 - Verification: syntax checks passed for all 64 JavaScript files under the moved/affected feature and composition paths; relative import-path scan passed across those files; `git diff --check` passed; both old root directories are absent and production source contains no imports from them. Automated test suites and app startup were not run.
 
+### Legacy Capability Plugin host removal (2026-10-19)
+
+- Confirmed that `src/plugins/catalog.js` contained an empty definition list and the only production consumer of `src/plugins/core-host.js` was `src/capabilities/index.js`.
+- Agent capabilities are statically assembled in the Capability Registry; no production workflow registered Plugin-contributed capabilities or called its legacy `listPlugins` / `setPluginEnabled` surface. Native Plugins already use `src/platform/plugin-host.js` through Composition and Plugin adapters.
+- Removed the duplicate capability-contribution host and catalog. The Capability Registry now indexes its own capability definitions and preserves duplicate-ID detection, lookup, listing, validation, preview, and execution behavior.
+- Updated the canonical Plugin architecture and architecture overview to distinguish capability registration from Plugin operation hosting and record removal of `src/plugins/`.
+- Verification: `node --check src/capabilities/index.js`, a source scan for removed host/catalog imports and symbols, and `git diff --check` passed. Automated tests and application startup were not run.
+
 ## Explicit non-goals
 
 - No config schema or default changes without a separate user decision.

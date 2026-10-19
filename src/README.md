@@ -42,7 +42,7 @@ implementation.
 | `adapters/messaging/telegram/` | Telegram request parsing, legacy content-request translation, and Telegram-specific Agent response/message/keyboard rendering. |
 | `adapters/messaging/mcp/` | MCP protocol/transports under `server/`, tool request translation, and confirmation-token serialization. |
 | `adapters/storage/confirmations/` | Confirmation state storage, expiry, correlation, and optional JSON persistence. Inject into Host Agent Runtime. |
-| `capabilities/capability-id.js` | Canonical capability identifier builder shared by capability registration, Plugin host, Agent contracts, and recommendation policy. |
+| `capabilities/capability-id.js` | Canonical Agent capability identifier builder shared by capability registration, Agent contracts, and recommendation policy. |
 | Supporting domains | Keep `services/knowledge/` and `services/memory/` contracts/domain behavior distinct from `adapters/knowledge/` provider transports and `adapters/storage/memory/` persistence. `host/memory/` owns process lifecycle. |
 
 The former `src/agent/` feature-root has been removed after its Host runtime,

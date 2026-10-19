@@ -20,7 +20,7 @@ The Kernel owns the stable host-side contracts and execution boundary:
 
 The Kernel does not own content generation, publishing, or product-specific sequencing. It must remain smaller than the set of Applications it hosts.
 
-Initial implementation: `src/platform/`. `src/plugins/` is the legacy/current Core Plugin capability host and is not yet replaced by this foundation.
+Implementation: `src/platform/` owns Plugin contracts, validation, lifecycle, and operation dispatch. Capability registration is independent of Plugin hosting; the former `src/plugins/` capability-contribution host was removed after its bundled catalog remained empty and no production feature depended on plugin-contributed capabilities.
 
 ### Applications
 
@@ -325,7 +325,7 @@ This is an in-process boundary, not a security sandbox. Bundled Core code is tru
 ## Current implementation and migration boundary
 
 - New foundation code: `src/platform/plugin-contract.js`, `src/platform/plugin-host.js`, manifest-backed Core registry/composition, and the example Application and composition root.
-- Existing `src/plugins/catalog.js` and `src/plugins/core-host.js` remain in use by `src/capabilities/index.js`. They gate current capability contributions. They are not replaced or wrapped by the new Kernel Plugin Host in this stage.
+- Agent capabilities are registered directly by `src/capabilities/index.js`; they are not contributed through Plugins. Native Plugins use the shared `src/platform/plugin-host.js` runtime and are selected and wired in Composition.
 - The WordPress Publisher package uses injected credentials and `fetch`, with no BlogGenius-private imports. Its REST operations cover media upload, category listing, and post creation. Media bytes cross the JSON operation boundary as base64 and are decoded only by the WordPress adapter.
 - `packages/plugins/core/ai-gateway/` declares provider-neutral `models.list`, `models.verify`, `text.generate`, and `image.generate` operations. It reports supported routes and filters the Supabase catalog through those routes. Settings and generation use the same Gateway-owned catalog; there is no separate product catalog intersection. The Host resolves credentials and short-lived verification profiles without passing keys through Plugin operations. See [AI Gateway Core Plugin](ai-gateway-plugin.md).
 - Cross-application AI use follows `Application -> src/services/ai -> src/adapters/plugins -> Platform Plugin Host -> Plugin`. The shared AI service exposes a provider-neutral generation contract and obtains the Gateway-filtered model catalog. Only the Plugin adapter knows Plugin/operation IDs; Applications receive domain-specific AI ports. Provider endpoints, authentication, and network transport are inside the distributable Gateway package.

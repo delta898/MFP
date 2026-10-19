@@ -13,8 +13,15 @@ const { createContentIdeaCapabilities } = require('./content/ideas');
 const { createRegisterTopicCapabilities } = require('./content/register-topic');
 const { createPublishCapabilities } = require('./content/publish');
 const { createKeywordResearchCapabilities } = require('./content/keyword-research');
-const { createCorePluginHost } = require('../plugins/core-host');
-const { CORE_PLUGIN_DEFINITIONS } = require('../plugins/catalog');
+
+function resolveCapabilityId(capability) {
+    const explicitId = String(capability?.id || '').trim();
+    const domain = String(capability?.domain || '').trim();
+    const name = String(capability?.name || '').trim();
+    const id = explicitId || (domain && name ? buildCapabilityId(domain, name) : '');
+    if (!id) throw new Error('Capability must provide an id or domain/name.');
+    return id;
+}
 
 function createCapabilityRegistry(deps = {}) {
     const configState = createConfigStateManager(deps);
@@ -46,10 +53,11 @@ function createCapabilityRegistry(deps = {}) {
         ...createChatModelCapabilities(capabilityDeps)
     ];
 
-    const pluginHost = createCorePluginHost({
-        coreCapabilities: allCapabilities,
-        plugins: CORE_PLUGIN_DEFINITIONS,
-        contexts: deps.corePluginContexts
+    const capabilitiesById = new Map();
+    allCapabilities.forEach((capability) => {
+        const id = resolveCapabilityId(capability);
+        if (capabilitiesById.has(id)) throw new Error(`Duplicate capability ${id}.`);
+        capabilitiesById.set(id, capability);
     });
 
     return {
@@ -57,19 +65,13 @@ function createCapabilityRegistry(deps = {}) {
         knowledgeRegistry,
         knowledgeRouting: routing,
         list() {
-            return pluginHost.listCapabilities();
+            return [...capabilitiesById.values()];
         },
         get(id) {
-            return pluginHost.getCapability(id);
+            return capabilitiesById.get(String(id || '').trim()) || null;
         },
         has(id) {
-            return pluginHost.hasCapability(id);
-        },
-        listPlugins() {
-            return pluginHost.listPlugins();
-        },
-        setPluginEnabled(id, enabled) {
-            return pluginHost.setPluginEnabled(id, enabled);
+            return capabilitiesById.has(String(id || '').trim());
         },
         async validateAction(action, context = {}) {
             const capability = this.get(buildCapabilityId(action.domain, action.name));
