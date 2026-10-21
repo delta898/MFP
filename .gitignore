@@ -25,6 +25,7 @@ config/*.json.*
 !config/*.json.sample
 tools/keywordmaster-cli/config.env
 logs/
+crashes/
 *.log
 video.tar.gz
 *.bak
